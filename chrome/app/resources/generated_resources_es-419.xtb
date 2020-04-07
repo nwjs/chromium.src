@@ -1190,7 +1190,7 @@ Para administrar la configuración de esta cuenta, instala la app de Family Lin
 <translation id="2624142942574147739">Esta página está accediendo a la cámara y al micrófono.</translation>
 <translation id="2626799779920242286">Vuelve a intentarlo más tarde.</translation>
 <translation id="2628770867680720336">Para habilitar la depuración de adb, es necesario restablecer la configuración de fábrica de esta Chromebook. <ph name="BEGIN_LINK_LEARN_MORE" />Más información<ph name="END_LINK_LEARN_MORE" /></translation>
-<translation id="2629227353894235473">Desarrollar apps de Android</translation>
+<translation id="2629227353894235473">Desarrollar apps para Android</translation>
 <translation id="2630681426381349926">Conéctate a una red Wi-Fi para comenzar</translation>
 <translation id="2631120081682787498">¿Realmente quieres cerrar esta pestaña?</translation>
 <translation id="2631498379019108537">Mostrar opciones de entrada en la biblioteca</translation>
@@ -2616,7 +2616,7 @@ Para administrar la configuración de esta cuenta, instala la app de Family Lin
 <translation id="4634771451598206121">Volver a acceder...</translation>
 <translation id="4635398712689569051"><ph name="PAGE_NAME" /> no está disponible para los usuarios invitados.</translation>
 <translation id="4637083375689622795">Más acciones, <ph name="EMAIL" /></translation>
-<translation id="4638930039313743000">Habilitar la depuración de adb</translation>
+<translation id="4638930039313743000">Habilitar depuración mediante ADB</translation>
 <translation id="4641539339823703554">Chrome no pudo establecer la hora del sistema. Comprueba la hora más abajo y corrígela si es necesario.</translation>
 <translation id="4643612240819915418">Abrir vide&amp;o en una nueva pestaña</translation>
 <translation id="4645676300727003670">&amp;Conservar</translation>

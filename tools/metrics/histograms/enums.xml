@@ -38546,6 +38546,7 @@ from previous Chrome versions.
   <int value="32488630" label="EphemeralTab:enabled"/>
   <int value="32557641" label="HTTPAuthCommittedInterstitials:disabled"/>
   <int value="33778663" label="OriginTrials:enabled"/>
+  <int value="34399969" label="SplitPartiallyOccludedQuads:enabled"/>
   <int value="36422284"
       label="AutofillSaveCardDialogUnlabeledExpirationDate:enabled"/>
   <int value="37024318" label="disable-affiliation-based-matching"/>
@@ -38795,6 +38796,7 @@ from previous Chrome versions.
   <int value="358399482" label="enable-high-dpi-fixed-position-compositing"/>
   <int value="358493847" label="BackgroundLoader:disabled"/>
   <int value="359601954" label="CrostiniUsbSupport:enabled"/>
+  <int value="359896413" label="SplitPartiallyOccludedQuads:disabled"/>
   <int value="360391863" label="NTPOfflineBadge:enabled"/>
   <int value="360599302" label="enable-gpu-rasterization"/>
   <int value="362644448" label="memlog-in-process"/>
@@ -39200,6 +39202,7 @@ from previous Chrome versions.
   <int value="867512869" label="mark-non-secure-as"/>
   <int value="868009556" label="AutofillUpstream:enabled"/>
   <int value="869531646" label="enable-session-crashed-bubble"/>
+  <int value="870568550" label="LimitAltTabToActiveDesk:disabled"/>
   <int value="870664435" label="DownloadProgressInfoBar:disabled"/>
   <int value="871435095" label="EnableAggregatedMlAppRanking:disabled"/>
   <int value="871713352" label="ImprovedLanguageSettings:enabled"/>
@@ -39773,6 +39776,7 @@ from previous Chrome versions.
   <int value="1579084737" label="TemporaryUnexpireFlagsM80:disabled"/>
   <int value="1579461102" label="MemoryCoordinator:disabled"/>
   <int value="1581002467" label="enable-explicit-dma-fences"/>
+  <int value="1584536816" label="LimitAltTabToActiveDesk:enabled"/>
   <int value="1585660881"
       label="enable-experimental-accessibility-chromevox-sub-node-language-switching"/>
   <int value="1586022426" label="AutofillCreditCardAssist:enabled"/>
@@ -62024,6 +62028,15 @@ would be helpful to identify which type is being sent.
   <int value="0" label="Empty response received from the server."/>
   <int value="1" label="Invalid response received from the server."/>
   <int value="2" label="Valid response received from the server."/>
+</enum>
+
+<enum name="SupervisedUserExtensionAllowlist">
+  <summary>
+    Tracks the state of a supervised user trying to install an extension during
+    the COVID-19 crisis.
+  </summary>
+  <int value="0" label="Extensions allowlist miss"/>
+  <int value="1" label="Extensions allowlist hit"/>
 </enum>
 
 <enum name="SupervisedUserSafetyFilterResult">

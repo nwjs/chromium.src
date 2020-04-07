@@ -37,8 +37,8 @@ namespace ash {
 
 namespace {
 
-constexpr char kNewDeskHistogramName[] = "Ash.Desks.NewDesk";
-constexpr char kDesksCountHistogramName[] = "Ash.Desks.DesksCount";
+constexpr char kNewDeskHistogramName[] = "Ash.Desks.NewDesk2";
+constexpr char kDesksCountHistogramName[] = "Ash.Desks.DesksCount2";
 constexpr char kRemoveDeskHistogramName[] = "Ash.Desks.RemoveDesk";
 constexpr char kDeskSwitchHistogramName[] = "Ash.Desks.DesksSwitch";
 constexpr char kMoveWindowFromActiveDeskHistogramName[] =
@@ -409,7 +409,9 @@ DesksController::DesksController() {
   for (int id : desks_util::GetDesksContainersIds())
     available_container_ids_.push(id);
 
-  // There's always one default desk.
+  // There's always one default desk. The DesksCreationRemovalSource used here
+  // doesn't matter, since UMA reporting will be skipped for the first ever
+  // default desk.
   NewDesk(DesksCreationRemovalSource::kButton);
   active_desk_ = desks_.back().get();
   active_desk_->Activate(/*update_window_activation=*/true);
@@ -475,13 +477,14 @@ void DesksController::NewDesk(DesksCreationRemovalSource source) {
 
   base::AutoReset<bool> in_progress(&are_desks_being_modified_, true);
 
+  // The first default desk should not trigger any UMA stats reports.
+  const bool is_first_ever_desk = desks_.empty();
+
   desks_.push_back(std::make_unique<Desk>(available_container_ids_.front()));
   available_container_ids_.pop();
   Desk* new_desk = desks_.back().get();
   new_desk->SetName(GetDeskDefaultName(desks_.size() - 1));
 
-  UMA_HISTOGRAM_ENUMERATION(kNewDeskHistogramName, source);
-  ReportDesksCountHistogram();
   Shell::Get()
       ->accessibility_controller()
       ->TriggerAccessibilityAlertWithMessage(l10n_util::GetStringFUTF8(
@@ -490,6 +493,11 @@ void DesksController::NewDesk(DesksCreationRemovalSource source) {
 
   for (auto& observer : observers_)
     observer.OnDeskAdded(new_desk);
+
+  if (!is_first_ever_desk) {
+    UMA_HISTOGRAM_ENUMERATION(kNewDeskHistogramName, source);
+    ReportDesksCountHistogram();
+  }
 }
 
 void DesksController::RemoveDesk(const Desk* desk,
@@ -599,6 +607,21 @@ bool DesksController::MoveWindowFromActiveDeskTo(
   auto* overview_controller = Shell::Get()->overview_controller();
   const bool in_overview = overview_controller->InOverviewSession();
 
+  // The below order matters:
+  // If in overview, remove the item from overview first, before calling
+  // MoveWindowToDesk(), since MoveWindowToDesk() unminimizes the window (if it
+  // was minimized) before updating the mini views. We shouldn't change the
+  // window's minimized state before removing it from overview, since overview
+  // handles minimized windows differently.
+  if (in_overview) {
+    auto* overview_session = overview_controller->overview_session();
+    auto* item = overview_session->GetOverviewItemForWindow(window);
+    DCHECK(item);
+    item->OnMovingWindowToAnotherDesk();
+    // The item no longer needs to be in the overview grid.
+    overview_session->RemoveItem(item);
+  }
+
   active_desk_->MoveWindowToDesk(window, target_desk);
 
   Shell::Get()
@@ -612,24 +635,12 @@ bool DesksController::MoveWindowFromActiveDeskTo(
   UMA_HISTOGRAM_ENUMERATION(kMoveWindowFromActiveDeskHistogramName, source);
   ReportNumberOfWindowsPerDeskHistogram();
 
-  if (in_overview) {
-    DCHECK(overview_controller->InOverviewSession());
-    auto* overview_session = overview_controller->overview_session();
-    auto* item = overview_session->GetOverviewItemForWindow(window);
-    DCHECK(item);
-    // Restore the dragged item window, so that its transform is reset to
-    // identity.
-    item->RestoreWindow(/*reset_transform=*/true);
-    // The item no longer needs to be in the overview grid.
-    overview_session->RemoveItem(item);
-    // When in overview, we should return immediately and not change the window
-    // activation as we do below, since the dummy "OverviewModeFocusedWidget"
-    // should remain active while overview mode is active..
-    return true;
-  }
-
   // A window moving out of the active desk cannot be active.
-  wm::DeactivateWindow(window);
+  // If we are in overview, we should not change the window activation as we do
+  // below, since the dummy "OverviewModeFocusedWidget" should remain active
+  // while overview mode is active.
+  if (!in_overview)
+    wm::DeactivateWindow(window);
   return true;
 }
 
@@ -843,7 +854,7 @@ void DesksController::RemoveDeskInternal(const Desk* desk,
   // if windows from the removed desk moved to it.
   DCHECK(active_desk_->should_notify_content_changed());
   if (!removed_desk_windows.empty())
-    active_desk_->NotifyContentChanged(/*force_update_backdrops=*/true);
+    active_desk_->NotifyContentChanged();
 
   UpdateDesksDefaultNames();
 

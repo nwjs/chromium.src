@@ -4,8 +4,10 @@
 
 #include "chrome/credential_provider/gaiacp/gcp_utils.h"
 
+#include <iphlpapi.h>
 #include <wincred.h>  // For <ntsecapi.h>
 #include <windows.h>
+#include <winsock2.h>
 #include <winternl.h>
 
 #define _NTDEF_  // Prevent redefition errors, must come after <winternl.h>
@@ -63,6 +65,10 @@ const wchar_t kDefaultProfilePictureFileExtension[] = L".jpg";
 // Overridden in tests to fake serial number extraction.
 bool g_use_test_serial_number = false;
 base::string16 g_test_serial_number = L"";
+
+// Overridden in tests to fake mac address extraction.
+bool g_use_test_mac_addresses = false;
+std::vector<std::string> g_test_mac_addresses;
 
 // Overridden in tests to fake installed chrome path.
 bool g_use_test_chrome_path = false;
@@ -172,6 +178,20 @@ GoogleRegistrationDataForTesting::~GoogleRegistrationDataForTesting() {
 }
 
 // GoogleRegistrationDataForTesting //////////////////////////////////////////
+
+// GemDeviceDetailsForTesting //////////////////////////////////////////
+
+GemDeviceDetailsForTesting::GemDeviceDetailsForTesting(
+    std::vector<std::string>& mac_addresses) {
+  g_use_test_mac_addresses = true;
+  g_test_mac_addresses = mac_addresses;
+}
+
+GemDeviceDetailsForTesting::~GemDeviceDetailsForTesting() {
+  g_use_test_mac_addresses = false;
+}
+
+// GemDeviceDetailsForTesting //////////////////////////////////////////
 
 // GoogleChromePathForTesting ////////////////////////////////////////////////
 
@@ -689,11 +709,17 @@ HRESULT LookupLocalizedNameForWellKnownSid(WELL_KNOWN_SID_TYPE sid_type,
   return LookupLocalizedNameBySid(well_known_sid, localized_name);
 }
 
-bool VerifyStartupSentinel() {
+bool WriteToStartupSentinel() {
   // Always try to write to the startup sentinel file. If writing or opening
   // fails for any reason (file locked, no access etc) consider this a failure.
   // If no sentinel file path can be found this probably means that we are
   // running in a unit test so just let the verification pass in this case.
+  // Each process will only write once to startup sentinel file.
+
+  static volatile long sentinel_initialized = 0;
+  if (::InterlockedCompareExchange(&sentinel_initialized, 1, 0))
+    return true;
+
   base::FilePath startup_sentinel_path =
       GetStartupSentinelLocation(TEXT(CHROME_VERSION_STRING));
   if (!startup_sentinel_path.empty()) {
@@ -919,6 +945,46 @@ base::string16 GetSerialNumber() {
   if (g_use_test_serial_number)
     return g_test_serial_number;
   return base::win::WmiComputerSystemInfo::Get().serial_number();
+}
+
+// This approach was inspired by:
+// https://msdn.microsoft.com/en-us/library/windows/desktop/aa365917(v=vs.85).aspx
+std::vector<std::string> GetMacAddresses() {
+  // Used for unit tests.
+  if (g_use_test_mac_addresses)
+    return g_test_mac_addresses;
+
+  PIP_ADAPTER_INFO pAdapter;
+  ULONG ulOutBufLen = sizeof(IP_ADAPTER_INFO);
+  IP_ADAPTER_INFO* pAdapterInfo =
+      new IP_ADAPTER_INFO[ulOutBufLen / sizeof(IP_ADAPTER_INFO)];
+  // Get the right buffer size in case of overflow.
+  if (GetAdaptersInfo(pAdapterInfo, &ulOutBufLen) == ERROR_BUFFER_OVERFLOW) {
+    delete[] pAdapterInfo;
+    pAdapterInfo =
+        new IP_ADAPTER_INFO[ulOutBufLen / sizeof(IP_ADAPTER_INFO) + 1];
+  }
+  std::vector<std::string> mac_addresses;
+  if (GetAdaptersInfo(pAdapterInfo, &ulOutBufLen) == ERROR_SUCCESS) {
+    pAdapter = pAdapterInfo;
+    while (pAdapter) {
+      if (pAdapter->AddressLength == 6) {
+        char mac_address[17 + 1];
+        snprintf(mac_address, sizeof(mac_address),
+                 "%02X-%02X-%02X-%02X-%02X-%02X",
+                 static_cast<unsigned int>(pAdapter->Address[0]),
+                 static_cast<unsigned int>(pAdapter->Address[1]),
+                 static_cast<unsigned int>(pAdapter->Address[2]),
+                 static_cast<unsigned int>(pAdapter->Address[3]),
+                 static_cast<unsigned int>(pAdapter->Address[4]),
+                 static_cast<unsigned int>(pAdapter->Address[5]));
+        mac_addresses.push_back(mac_address);
+      }
+      pAdapter = pAdapter->Next;
+    }
+  }
+  delete[] pAdapterInfo;
+  return mac_addresses;
 }
 
 HRESULT GenerateDeviceId(std::string* device_id) {

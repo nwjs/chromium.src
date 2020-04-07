@@ -1,7 +1,7 @@
 // Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-
+#include "content/public/common/content_client.h"
 #include "chrome/browser/native_file_system/chrome_native_file_system_permission_context.h"
 
 #include <string>
@@ -318,6 +318,13 @@ void ChromeNativeFileSystemPermissionContext::ConfirmDirectoryReadAccess(
     int frame_id,
     base::OnceCallback<void(PermissionStatus)> callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  content::RenderProcessHost* rph = content::RenderProcessHost::FromID(process_id);
+  if (rph) {
+    if (content::GetContentClient()->browser()->IsNWOrigin(origin, rph->GetBrowserContext())) {
+      std::move(callback).Run(PermissionStatus::GRANTED);
+      return;
+    }
+  }
   base::PostTask(
       FROM_HERE, {content::BrowserThread::UI},
       base::BindOnce(

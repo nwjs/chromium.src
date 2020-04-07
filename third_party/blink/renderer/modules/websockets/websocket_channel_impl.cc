@@ -814,7 +814,7 @@ void WebSocketChannelImpl::ConsumePendingDataFrames() {
     uint32_t readable_size;
     const MojoResult begin_result = readable_->BeginReadData(
         &buffer, &readable_size, MOJO_READ_DATA_FLAG_NONE);
-    if (begin_result == MOJO_RESULT_SHOULD_WAIT) {
+    if (begin_result == MOJO_RESULT_SHOULD_WAIT || begin_result == MOJO_RESULT_BUSY) {
       readable_watcher_.ArmOrNotify();
       return;
     }

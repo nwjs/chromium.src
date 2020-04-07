@@ -665,7 +665,7 @@
 <translation id="1895252664692693738">还剩 <ph name="TIME_LEFT" /></translation>
 <translation id="1895658205118569222">关机</translation>
 <translation id="1895934970388272448">您必须在自己的打印机上确认注册才能完成此进程 - 立即查看。</translation>
-<translation id="1899826437968063457">插件虚拟机需要权限才能运行</translation>
+<translation id="1899826437968063457">Plugin VM 需要权限才能运行</translation>
 <translation id="1900305421498694955">Google Play 中的应用可能需要获得完整的文件系统访问权限，才能在外部存储设备上读取和写入文件。任何使用外部驱动器的人员都能看到在此设备上创建的文件和文件夹。<ph name="LINK_BEGIN" />了解详情<ph name="LINK_END" /></translation>
 <translation id="1901303067676059328">全选(&amp;A)</translation>
 <translation id="1902576642799138955">有效期</translation>
@@ -923,7 +923,7 @@
 <translation id="2256115617011615191">立即重新启动</translation>
 <translation id="225614027745146050">欢迎</translation>
 <translation id="225692081236532131">激活状态</translation>
-<translation id="2258855745387252834">要共享文件夹，请在“文件”应用中右键点击相应文件夹，然后选择“与插件虚拟机共享”。</translation>
+<translation id="2258855745387252834">要共享文件夹，请在“文件”应用中右键点击相应文件夹，然后选择“与 Plugin VM 共享”。</translation>
 <translation id="2261323523305321874">您的管理员做出了一项系统级更改，致使一些旧个人资料遭到停用。</translation>
 <translation id="2262332168014443534">现在，精简模式可使所有网页（包括 HTTPS 网页）以更快的速度加载。</translation>
 <translation id="2262477216570151239">重复前的延迟时间</translation>
@@ -1305,7 +1305,7 @@
 <translation id="2773802008104670137">这种类型的文件可能会损害您的计算机。</translation>
 <translation id="2775104091073479743">修改指纹</translation>
 <translation id="2776441542064982094">似乎没有可用于在网络中注册的设备。如果您的设备已开启并连接到互联网，请按照说明手册中的说明尝试对其进行注册。</translation>
-<translation id="2780009105947267877">正在设置插件虚拟机…</translation>
+<translation id="2780009105947267877">正在设置 Plugin VM…</translation>
 <translation id="2781692009645368755">Google Pay</translation>
 <translation id="2782104745158847185">安装 Linux 应用时出错</translation>
 <translation id="2783298271312924866">已下载</translation>
@@ -2329,7 +2329,7 @@
 <translation id="4194570336751258953">启用点按单击</translation>
 <translation id="4194595472342532425">无法设置 Plugin VM，因为出现了配置问题。请与贵单位的设备管理员联系。错误代码：<ph name="ERROR_CODE" />。</translation>
 <translation id="4195643157523330669">在新标签页中打开</translation>
-<translation id="4195814663415092787">从上次停下的地方继续</translation>
+<translation id="4195814663415092787">继续浏览上次打开的网页</translation>
 <translation id="4198146608511578238">只需按住“启动器”图标即可与 Google 助理对话。</translation>
 <translation id="4200689466366162458">自定义字词</translation>
 <translation id="4200983522494130825">打开新的标签页(&amp;T)</translation>
@@ -2590,7 +2590,7 @@
 <translation id="4596295440756783523">您有证书可标识以下服务器</translation>
 <translation id="4598556348158889687">存储空间管理</translation>
 <translation id="4598776695426288251">可通过多部设备使用 Wi-Fi</translation>
-<translation id="4599134080475764833">插件虚拟机可以使用了</translation>
+<translation id="4599134080475764833">Plugin VM 可以使用了</translation>
 <translation id="4602466770786743961">始终允许 <ph name="HOST" /> 使用您的摄像头和麦克风</translation>
 <translation id="4608500690299898628">查找(&amp;F)...</translation>
 <translation id="4608520674724523647">注册成功图示</translation>
@@ -3650,7 +3650,7 @@
 <translation id="6103681770816982672">警告：您打算切换到开发者版本</translation>
 <translation id="6104068876731806426">Google 帐号</translation>
 <translation id="6104311680260824317">无法将此设备加入到该网域中。相应服务器不支持所指定的 Kerberos 加密类型。请前往“更多选项”以检查加密设置。</translation>
-<translation id="6106186653986077033">插件虚拟机必须获得许可</translation>
+<translation id="6106186653986077033">Plugin VM 必须获得许可</translation>
 <translation id="6107012941649240045">颁发对象</translation>
 <translation id="6112294629795967147">触摸即可调整大小</translation>
 <translation id="6112727384379533756">添加票据</translation>

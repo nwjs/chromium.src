@@ -1184,4 +1184,9 @@ public class LocationBarLayout
                 mAssistantVoiceSearchService.getMicButtonColorStateList(primaryColor, getContext());
         ApiCompatibilityUtils.setImageTintList(mMicButton, colorStateList);
     }
+
+    public void setVoiceRecognitionHandlerForTesting(
+            LocationBarVoiceRecognitionHandler voiceRecognitionHandler) {
+        mVoiceRecognitionHandler = voiceRecognitionHandler;
+    }
 }

@@ -57,6 +57,10 @@ const base::Feature kVizFrameSubmissionForWebView{
 const base::Feature kUseRealBuffersForPageFlipTest{
     "UseRealBuffersForPageFlipTest", base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Whether we should split partially occluded quads to reduce overdraw.
+const base::Feature kSplitPartiallyOccludedQuads{
+    "SplitPartiallyOccludedQuads", base::FEATURE_DISABLED_BY_DEFAULT};
+
 const base::Feature kUsePreferredIntervalForVideo{
     "UsePreferredIntervalForVideo", base::FEATURE_DISABLED_BY_DEFAULT};
 
@@ -106,6 +110,10 @@ bool IsUsingPreferredIntervalForVideo() {
 
 bool ShouldUseRealBuffersForPageFlipTest() {
   return base::FeatureList::IsEnabled(kUseRealBuffersForPageFlipTest);
+}
+
+bool ShouldSplitPartiallyOccludedQuads() {
+  return base::FeatureList::IsEnabled(kSplitPartiallyOccludedQuads);
 }
 
 }  // namespace features

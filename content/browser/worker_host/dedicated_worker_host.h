@@ -50,7 +50,7 @@ CONTENT_EXPORT void CreateDedicatedWorkerHostFactory(
     int worker_process_id,
     base::Optional<GlobalFrameRoutingId> creator_render_frame_host_id,
     GlobalFrameRoutingId ancestor_render_frame_host_id,
-    const url::Origin& origin,
+    const url::Origin& creator_origin,
     mojo::PendingReceiver<blink::mojom::DedicatedWorkerHostFactory> receiver);
 
 // A host for a single dedicated worker. It deletes itself upon Mojo
@@ -65,7 +65,7 @@ class DedicatedWorkerHost final : public blink::mojom::DedicatedWorkerHost,
       RenderProcessHost* worker_process_host,
       base::Optional<GlobalFrameRoutingId> creator_render_frame_host_id,
       GlobalFrameRoutingId ancestor_render_frame_host_id,
-      const url::Origin& origin,
+      const url::Origin& creator_origin,
       mojo::PendingReceiver<blink::mojom::DedicatedWorkerHost> host);
   ~DedicatedWorkerHost() final;
 
@@ -73,7 +73,7 @@ class DedicatedWorkerHost final : public blink::mojom::DedicatedWorkerHost,
       mojo::PendingReceiver<blink::mojom::BrowserInterfaceBroker> receiver);
 
   RenderProcessHost* GetProcessHost() { return worker_process_host_; }
-  const url::Origin& GetOrigin() { return origin_; }
+  const url::Origin& GetWorkerOrigin() { return worker_origin_; }
 
   void CreateIdleManager(
       mojo::PendingReceiver<blink::mojom::IdleManager> receiver);
@@ -104,7 +104,6 @@ class DedicatedWorkerHost final : public blink::mojom::DedicatedWorkerHost,
   // PlzDedicatedWorker:
   void StartScriptLoad(
       const GURL& script_url,
-      const url::Origin& request_initiator_origin,
       network::mojom::CredentialsMode credentials_mode,
       blink::mojom::FetchClientSettingsObjectPtr
           outside_fetch_client_settings_object,
@@ -174,7 +173,12 @@ class DedicatedWorkerHost final : public blink::mojom::DedicatedWorkerHost,
   // of nested workers) indirectly via a tree of dedicated workers.
   const GlobalFrameRoutingId ancestor_render_frame_host_id_;
 
-  const url::Origin origin_;
+  // The origin of the frame or dedicated worker that starts this worker.
+  const url::Origin creator_origin_;
+
+  // The origin of this worker.
+  // https://html.spec.whatwg.org/C/#concept-settings-object-origin
+  const url::Origin worker_origin_;
 
   // The network isolation key to be used for both the worker script and the
   // worker's subresources.

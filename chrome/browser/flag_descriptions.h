@@ -1061,6 +1061,9 @@ extern const char kSmsReceiverCrossDeviceDescription[];
 extern const char kSpeculativeServiceWorkerStartOnQueryInputName[];
 extern const char kSpeculativeServiceWorkerStartOnQueryInputDescription[];
 
+extern const char kSplitPartiallyOccludedQuadsName[];
+extern const char kSplitPartiallyOccludedQuadsDescription[];
+
 extern const char kStopInBackgroundName[];
 extern const char kStopInBackgroundDescription[];
 
@@ -2012,6 +2015,9 @@ extern const char kImeInputLogicHmmDescription[];
 
 extern const char kImeNativeDecoderName[];
 extern const char kImeNativeDecoderDescription[];
+
+extern const char kLimitAltTabToActiveDeskName[];
+extern const char kLimitAltTabToActiveDeskDescription[];
 
 extern const char kListAllDisplayModesName[];
 extern const char kListAllDisplayModesDescription[];

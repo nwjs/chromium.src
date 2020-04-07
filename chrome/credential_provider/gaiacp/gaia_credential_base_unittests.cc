@@ -1470,6 +1470,62 @@ TEST_F(GcpGaiaCredentialBaseAdScenariosTest,
                       IDS_INVALID_AD_UPN_BASE));
 }
 
+// Customer configured a valid AD UPN but user is trying to a
+// machine that is joined to different AD domain forest.
+TEST_F(GcpGaiaCredentialBaseAdScenariosTest,
+       GetSerialization_WithAD_InvalidDomainForest) {
+  // Add the user as a domain joined user.
+  const wchar_t user_name[] = L"ad_user";
+  const wchar_t password[] = L"password";
+
+  const wchar_t domain_name[] = L"ad_domain";
+  CComBSTR existing_user_sid;
+  DWORD error;
+  HRESULT add_domain_user_hr = fake_os_user_manager()->AddUser(
+      user_name, password, L"fullname", L"comment", true, domain_name,
+      &existing_user_sid, &error);
+  ASSERT_EQ(S_OK, add_domain_user_hr);
+  ASSERT_EQ(0u, error);
+
+  // Set token result a valid access token.
+  fake_http_url_fetcher_factory()->SetFakeResponse(
+      GURL(gaia_urls_->oauth2_token_url().spec().c_str()),
+      FakeWinHttpUrlFetcher::Headers(), "{\"access_token\": \"dummy_token\"}");
+
+  const wchar_t another_domain_name[] = L"ad_another_domain";
+  // Invalid configuration in admin sdk. Don't set the username.
+  std::string admin_sdk_response = base::StringPrintf(
+      "{\"customSchemas\": {\"Enhanced_desktop_security\": {\"AD_accounts\":"
+      "[{ \"value\": \"%ls\\\\%ls\" }]}}}",
+      another_domain_name, user_name);
+  fake_http_url_fetcher_factory()->SetFakeResponse(
+      GURL(get_cd_user_url_.c_str()), FakeWinHttpUrlFetcher::Headers(),
+      admin_sdk_response);
+
+  Microsoft::WRL::ComPtr<ITestCredential> test;
+  ASSERT_EQ(S_OK, cred_.As(&test));
+
+  ASSERT_EQ(S_OK, StartLogonProcessAndWait());
+
+  ASSERT_TRUE(base::size(test->GetFinalEmail()) == 0);
+
+  // Make sure no user was created and the login attempt failed.
+  PSID sid = nullptr;
+  EXPECT_EQ(
+      HRESULT_FROM_WIN32(NERR_UserNotFound),
+      fake_os_user_manager()->GetUserSID(
+          OSUserManager::GetLocalDomain().c_str(), kDefaultUsername, &sid));
+  ASSERT_EQ(nullptr, sid);
+
+  // No new user is created.
+  EXPECT_EQ(2ul, fake_os_user_manager()->GetUserCount());
+
+  ASSERT_EQ(S_OK, FinishLogonProcess(
+                      /*expected_success=*/false,
+                      /*expected_credentials_change_fired=*/false,
+                      IDS_INVALID_AD_UPN_BASE));
+}
+
 // This is the success scenario where all preconditions are met in the
 // AD login scenario. The user is successfully logged in.
 TEST_F(GcpGaiaCredentialBaseAdScenariosTest,
@@ -2641,6 +2697,7 @@ INSTANTIATE_TEST_SUITE_P(All,
 // 1. Fails the upload device details call due to network timeout.
 // 2. Fails the upload device details call due to invalid response
 //    from the GEM http server.
+// 3  A previously saved device resource ID is present on the device.
 class GcpGaiaCredentialBaseUploadDeviceDetailsTest
     : public GcpGaiaCredentialBaseTest,
       public ::testing::WithParamInterface<int> {};
@@ -2648,6 +2705,7 @@ class GcpGaiaCredentialBaseUploadDeviceDetailsTest
 TEST_P(GcpGaiaCredentialBaseUploadDeviceDetailsTest, UploadDeviceDetails) {
   bool fail_upload_device_details_timeout = (GetParam() == 1);
   bool fail_upload_device_details_invalid_response = (GetParam() == 2);
+  bool registry_has_device_resource_id = (GetParam() == 3);
 
   GoogleMdmEnrolledStatusForTesting force_success(true);
   // Set a fake serial number.
@@ -2656,6 +2714,11 @@ TEST_P(GcpGaiaCredentialBaseUploadDeviceDetailsTest, UploadDeviceDetails) {
   base::string16 domain = L"domain";
   base::string16 machine_guid = L"machine_guid";
   SetMachineGuidForTesting(machine_guid);
+
+  std::vector<std::string> mac_addresses;
+  mac_addresses.push_back("mac_address_1");
+  mac_addresses.push_back("mac_address_2");
+  GemDeviceDetailsForTesting g_mac_addresses(mac_addresses);
 
   // Create a fake user associated to a gaia id.
   CComBSTR sid;
@@ -2676,15 +2739,24 @@ TEST_P(GcpGaiaCredentialBaseUploadDeviceDetailsTest, UploadDeviceDetails) {
     fake_gem_device_details_manager()->SetRequestTimeoutForTesting(
         base::TimeDelta::FromMilliseconds(50));
   }
+  const std::string device_resource_id = "test-device-resource-id";
+  const std::string valid_server_response =
+      "{\"deviceResourceId\": \"" + device_resource_id + "\"}";
 
   fake_http_url_fetcher_factory()->SetFakeResponse(
       fake_gem_device_details_manager()->GetGemServiceUploadDeviceDetailsUrl(),
       FakeWinHttpUrlFetcher::Headers(),
       fail_upload_device_details_invalid_response ? "Invalid json response"
-                                                  : "{}",
+                                                  : valid_server_response,
       upload_device_details_key_event
           ? upload_device_details_key_event->handle()
           : INVALID_HANDLE_VALUE);
+
+  if (registry_has_device_resource_id) {
+    HRESULT hr = SetUserProperty(sid.Copy(), kRegUserDeviceResourceId,
+                                 base::UTF8ToUTF16(device_resource_id));
+    EXPECT_TRUE(SUCCEEDED(hr));
+  }
 
   // Create provider and start logon.
   Microsoft::WRL::ComPtr<ICredentialProviderCredential> cred;
@@ -2725,13 +2797,40 @@ TEST_P(GcpGaiaCredentialBaseUploadDeviceDetailsTest, UploadDeviceDetails) {
             base::UTF16ToUTF8((BSTR)sid));
   ASSERT_TRUE(request_dict.FindBoolKey("is_ad_joined_user").has_value());
   ASSERT_EQ(request_dict.FindBoolKey("is_ad_joined_user").value(), true);
+  ASSERT_TRUE(request_dict.FindKey("wlan_mac_addr")->is_list());
+
+  std::vector<std::string> actual_mac_address_list;
+  for (const base::Value& value :
+       request_dict.FindKey("wlan_mac_addr")->GetList()) {
+    ASSERT_TRUE(value.is_string());
+    actual_mac_address_list.push_back(value.GetString());
+  }
+
+  ASSERT_TRUE(std::equal(actual_mac_address_list.begin(),
+                         actual_mac_address_list.end(), mac_addresses.begin()));
+
+  if (registry_has_device_resource_id) {
+    ASSERT_EQ(*request_dict.FindStringKey("device_resource_id"),
+              device_resource_id);
+  }
+
+  if (!fail_upload_device_details_timeout &&
+      !fail_upload_device_details_invalid_response) {
+    wchar_t resource_id[512];
+    ULONG resource_id_size = base::size(resource_id);
+    hr = GetUserProperty(sid.Copy(), kRegUserDeviceResourceId, resource_id,
+                         &resource_id_size);
+    ASSERT_TRUE(SUCCEEDED(hr));
+    ASSERT_TRUE(resource_id_size > 0);
+    ASSERT_EQ(device_resource_id, base::UTF16ToUTF8(resource_id));
+  }
 
   ASSERT_EQ(S_OK, ReleaseProvider());
 }
 
 INSTANTIATE_TEST_SUITE_P(All,
                          GcpGaiaCredentialBaseUploadDeviceDetailsTest,
-                         ::testing::Values(0, 1, 2));
+                         ::testing::Values(0, 1, 2, 3));
 
 class GcpGaiaCredentialBaseFullNameUpdateTest
     : public GcpGaiaCredentialBaseTest,

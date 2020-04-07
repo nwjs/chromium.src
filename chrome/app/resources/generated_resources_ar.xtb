@@ -196,7 +196,7 @@
 <translation id="1252987234827889034">حدث خطأ في الملف الشخصي</translation>
 <translation id="1254593899333212300">اتصال مباشر بالإنترنت</translation>
 <translation id="1260240842868558614">عرض:</translation>
-<translation id="1260451001046713751">السماح دائمًا بعرض النوافذ المنبثقة من الموقع <ph name="HOST" /> وعمليات إعادة التوجيه منه</translation>
+<translation id="1260451001046713751">السماح دائمًا بعرض النوافذ المنبثقة وعمليات إعادة التوجيه من الموقع <ph name="HOST" /></translation>
 <translation id="126156426083987769">حدثت مشكلة متعلِّقة بتراخيص الجهاز في الوضع التجريبي</translation>
 <translation id="126710816202626562">لغة الترجمة:</translation>
 <translation id="126768002343224824">16 ضعفًا</translation>
@@ -2382,7 +2382,7 @@
 <translation id="4275663329226226506">الوسائط</translation>
 <translation id="4275830172053184480">إعادة تشغيل جهازك</translation>
 <translation id="4278101229438943600">المساعد جاهز</translation>
-<translation id="4278390842282768270">مسموح</translation>
+<translation id="4278390842282768270">منح الإذن</translation>
 <translation id="4281844954008187215">بنود الخدمة</translation>
 <translation id="4282196459431406533">‏Smart Lock قيد التفعيل</translation>
 <translation id="4285418559658561636">تحديث كلمة المرور</translation>
@@ -3343,7 +3343,7 @@
 <translation id="5671658447180261823">إزالة الاقتراح <ph name="SUGGESTION_NAME" /></translation>
 <translation id="567643736130151854">سجّل الدخول وفعِّل المزامنة للحصول على الإشارات المرجعية وكلمات المرور والمزيد على جميع الأجهزة</translation>
 <translation id="5677503058916217575">لغة الصفحة:</translation>
-<translation id="5677928146339483299">محظور </translation>
+<translation id="5677928146339483299">الحظر</translation>
 <translation id="5678293144564424498">تم إيقاف التطبيق مؤقتًا</translation>
 <translation id="5678550637669481956">تم منح إذن دخول للقراءة والكتابة إلى <ph name="VOLUME_NAME" />.</translation>
 <translation id="5678955352098267522">قراءة بياناتك على <ph name="WEBSITE_1" /></translation>
@@ -4881,7 +4881,7 @@
 <translation id="7831491651892296503">حدث خطأ أثناء تهيئة الشبكة</translation>
 <translation id="7831754656372780761"><ph name="TAB_TITLE" /> <ph name="EMOJI_MUTING" /></translation>
 <translation id="7832084384634357321">وقت الانتهاء</translation>
-<translation id="783214144752121388">‏حظر مواقع الويب من تشغيل Flash (مُستحسَن)</translation>
+<translation id="783214144752121388">‏حظر المواقع الإلكترونية من تشغيل Flash (مُستحسَن)</translation>
 <translation id="7833720883933317473">ستظهر هنا الكلمات المُخصصة المحفوظة</translation>
 <translation id="7835178595033117206">تمت إزالة إشارة مرجعية</translation>
 <translation id="7836850009646241041">يُرجى محاولة لمس مفتاح الأمان مرة أخرى.</translation>

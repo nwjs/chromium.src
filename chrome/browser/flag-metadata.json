@@ -213,6 +213,11 @@
     "expiry_milestone": -1
   },
   {
+    "name" : "ash-limit-alt-tab-to-active-desk",
+    "owners": [ "afakhry", "tclaiborne" ],
+    "expiry_milestone": 88
+  },
+  {
     "name": "ash-swap-side-volume-buttons-for-orientation",
     "owners": [ "minch" ],
     "expiry_milestone": 78
@@ -3395,6 +3400,11 @@
     "name": "sms-receiver-cross-device",
     "owners": [ "goto", "fugu-dev" ],
     "expiry_milestone": 85
+  },
+  {
+    "name": "split-partially-occluded-quads",
+    "owners": [ "dcastagna", "sashamcintosh", "gildekel" ],
+    "expiry_milestone": 84
   },
   {
     "name": "split-settings-sync",

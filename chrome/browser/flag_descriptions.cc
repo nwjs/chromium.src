@@ -1826,6 +1826,12 @@ const char kSpeculativeServiceWorkerStartOnQueryInputDescription[] =
     "a query, any service worker associated with the search engine the query "
     "will be sent to is started early.";
 
+const char kSplitPartiallyOccludedQuadsName[] =
+    "Split partially occluded quads";
+const char kSplitPartiallyOccludedQuadsDescription[] =
+    "Split partially occluded quads before drawing, discarding the occluded "
+    "regions, in order to redruce compositing overdraw.";
+
 const char kStrictOriginIsolationName[] = "Strict-Origin-Isolation";
 const char kStrictOriginIsolationDescription[] =
     "Experimental security mode that strengthens the site isolation policy. "
@@ -3065,8 +3071,7 @@ const char kArcNativeBridgeToggleDescription[] =
 const char kArcPrintSpoolerExperimentName[] =
     "Enable print spooler experiment for ARC";
 const char kArcPrintSpoolerExperimentDescription[] =
-    "Enables using Chrome OS print system and print preview in ARC."
-    "This feature only works on the Canary and Dev channels.";
+    "Enables using the Chrome OS print system and print preview in ARC.";
 
 const char kArcUsbHostName[] = "Enable ARC USB host integration";
 const char kArcUsbHostDescription[] =
@@ -3450,6 +3455,12 @@ const char kImeInputLogicHmmDescription[] =
 const char kImeNativeDecoderName[] = "Enable native decoders in IME Service";
 const char kImeNativeDecoderDescription[] =
     "Enable native decoders in IME service to deprecate NaCl decoders";
+
+const char kLimitAltTabToActiveDeskName[] =
+    "Limit Alt-Tab windows to active desk";
+const char kLimitAltTabToActiveDeskDescription[] =
+    "Limits the windows listed in Alt-Tab to the ones in the currently active "
+    "virtual desk";
 
 const char kListAllDisplayModesName[] = "List all display modes";
 const char kListAllDisplayModesDescription[] =

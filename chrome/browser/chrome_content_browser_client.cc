@@ -1672,6 +1672,8 @@ bool ChromeContentBrowserClient::IsNWURL(const GURL& url, content::BrowserContex
     registry->enabled_extensions().GetByID(nw::GetMainExtensionId());
   if (!extension)
     return false;
+  if (url.SchemeIs(extensions::kExtensionScheme) && url.host() == nw::GetMainExtensionId())
+    return true;
   if (extension->web_extent().MatchesURL(url))
     return true;
   return false;

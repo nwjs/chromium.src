@@ -41,7 +41,7 @@
 <translation id="1156303062776767266">Fitxategi lokal edo partekatu bat ari zara ikusten</translation>
 <translation id="1158211211994409885"><ph name="HOST_NAME" /> webguneak konexioa eten du ustekabean.</translation>
 <translation id="115926840831309955">Egiaztatu CVC kodea eta saiatu berriro, edo eguneratu iraungitze-data</translation>
-<translation id="1161325031994447685">Wi-Fi sarera berriro konektatu.</translation>
+<translation id="1161325031994447685">Wifi-sarera berriro konektatu.</translation>
 <translation id="1165039591588034296">Errorea</translation>
 <translation id="1175364870820465910">In&amp;primatu…</translation>
 <translation id="1175875016430184367">Hiru grapa eskuinean</translation>
@@ -618,7 +618,7 @@
 <translation id="3711895659073496551">Ezarri inaktibo gisa</translation>
 <translation id="3712624925041724820">Lizentziak agortu dira</translation>
 <translation id="3714780639079136834">Datu-konexioa edo Wi-Fi konexioa gaitu.</translation>
-<translation id="3715597595485130451">Konektatu Wi-Fi sarera</translation>
+<translation id="3715597595485130451">Konektatu wifi-sarera</translation>
 <translation id="3717027428350673159"><ph name="BEGIN_LINK" />Proxya, suebakia eta DNS konfigurazioa egiaztatu<ph name="END_LINK" />.</translation>
 <translation id="372429172604983730">Hona hemen errore hau sor dezaketen software motak: antibirusak, suebakiak, web-iragazkiak edo proxy-softwarea.</translation>
 <translation id="373042150751172459">B4 (gutun-azala)</translation>
