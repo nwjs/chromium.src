@@ -195,40 +195,18 @@ bool MessagePumpUVNSRunLoop::RunWork() {
   // released promptly even in the absence of UI events.
   MessagePumpScopedAutoreleasePool autorelease_pool(this);
 
-  // Call DoWork and DoDelayedWork once, and if something was done, arrange to
-  // come back here again as long as the loop is still running.
-  bool did_work = delegate_->DoWork();
-  bool resignal_work_source = did_work;
-
-  TimeTicks next_time;
-  delegate_->DoDelayedWork(&next_time);
-  if (!did_work) {
-    // Determine whether there's more delayed work, and if so, if it needs to
-    // be done at some point in the future or if it's already time to do it.
-    // Only do these checks if did_work is false. If did_work is true, this
-    // function, and therefore any additional delayed work, will get another
-    // chance to run before the loop goes to sleep.
-    bool more_delayed_work = !next_time.is_null();
-    if (more_delayed_work) {
-      TimeDelta delay = next_time - TimeTicks::Now();
-      if (delay > TimeDelta()) {
-        // There's more delayed work to be done in the future.
-        ScheduleDelayedWork(next_time);
-      } else {
-        // There's more delayed work to be done, and its time is in the past.
-        // Arrange to come back here directly as long as the loop is still
-        // running.
-        resignal_work_source = true;
-      }
-    }
-  }
-
-  if (resignal_work_source) {
+  Delegate::NextWorkInfo next_work_info = delegate_->DoWork();
+  
+  if (next_work_info.is_immediate()) {
     CFRunLoopSourceSignal(work_source_);
+    return true;
   }
-
-  return resignal_work_source;
+  
+  if (!next_work_info.delayed_run_time.is_max())
+    ScheduleDelayedWorkImpl(next_work_info.remaining_delay());
+  return false;
 }
+
 
 void MessagePumpUVNSRunLoop::RunIdleWork() {
   if (!delegate_) {

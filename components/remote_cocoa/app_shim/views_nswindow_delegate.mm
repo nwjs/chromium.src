@@ -74,7 +74,7 @@
 }
 
 - (void)onWindowWillStartLiveResize:(NSNotification*)notification {
-  parent_->OnWindowWillStartLiveResize();
+  _parent->OnWindowWillStartLiveResize();
 }
 
 - (void)onSystemControlTintChanged:(NSNotification*)notification {

@@ -149,7 +149,7 @@ class BASE_EXPORT MessagePumpCFRunLoopBase : public MessagePump {
   // allowed.
   void SetTimerInvalidationAllowed(bool allowed);
 
- private:
+ protected:
   class ScopedModeEnabler;
 
   // The maximum number of run loop modes that can be monitored.

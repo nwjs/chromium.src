@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/common/chrome_constants.h"
 #include "chrome/app/chrome_main_delegate.h"
 
 #include "chrome/chrome_elf/chrome_elf_main.h"
