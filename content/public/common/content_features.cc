@@ -724,7 +724,7 @@ const base::Feature kWebAssemblyTrapHandler{"WebAssemblyTrapHandler",
 const base::Feature kWebContentsOcclusion {
   "WebContentsOcclusion",
 #if defined(OS_MACOSX) || defined(OS_CHROMEOS) || defined(OS_WIN)
-      base::FEATURE_DISABLED_BY_DEFAULT
+      base::FEATURE_ENABLED_BY_DEFAULT
 #else
       base::FEATURE_DISABLED_BY_DEFAULT
 #endif

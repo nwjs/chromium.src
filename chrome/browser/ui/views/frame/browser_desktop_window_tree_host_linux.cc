@@ -75,7 +75,7 @@ void BrowserDesktopWindowTreeHostLinux::Init(
     const views::Widget::InitParams& params) {
   DesktopWindowTreeHostLinuxImpl::Init(std::move(params));
 
-#if defined(USE_X11)
+#if 0 //defined(USE_X11)
   // We have now created our backing X11 window. We now need to (possibly)
   // alert Unity that there's a menu bar attached to it.
   global_menu_bar_x11_ =
@@ -84,7 +84,7 @@ void BrowserDesktopWindowTreeHostLinux::Init(
 }
 
 void BrowserDesktopWindowTreeHostLinux::CloseNow() {
-#if defined(USE_X11)
+#if 0 //defined(USE_X11)
   global_menu_bar_x11_.reset();
 #endif
   DesktopWindowTreeHostLinuxImpl::CloseNow();

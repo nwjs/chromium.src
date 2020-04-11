@@ -573,7 +573,7 @@ BrowserView::BrowserView(std::unique_ptr<Browser> browser)
 
   auto contents_container = std::make_unique<views::View>();
   if (browser_->is_transparent())
-    contents_container_->SetBackground(views::CreateSolidBackground(SK_ColorTRANSPARENT));
+    contents_container->SetBackground(views::CreateSolidBackground(SK_ColorTRANSPARENT));
   devtools_web_view_ =
       contents_container->AddChildView(std::move(devtools_web_view));
   contents_web_view_ =
@@ -2135,7 +2135,7 @@ bool BrowserView::CanResize() const {
 }
 
 bool BrowserView::CanMaximize() const {
-  return resizable_;
+  return resizable_ && maximum_size_.IsEmpty() && !WidgetHasHitTestMask();
 }
 
 bool BrowserView::CanMinimize() const {

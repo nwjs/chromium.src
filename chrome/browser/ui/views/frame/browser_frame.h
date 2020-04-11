@@ -58,7 +58,7 @@ class BrowserFrame : public views::Widget, public views::ContextMenuController {
   ~BrowserFrame() override;
 
   // Initialize the frame (creates the underlying native window).
-  void InitBrowserFrame();
+  bool InitBrowserFrame();
 
   // Determine the distance of the left edge of the minimize button from the
   // left edge of the window. Used in our Non-Client View's Layout.

@@ -304,7 +304,7 @@ gfx::Size BrowserNonClientFrameViewMac::GetMinimumSize() const {
   // certain height, which empirically seems to be related to their *minimum*
   // width rather than their current width. This 4:3 ratio was chosen
   // empirically because it looks decent for both tabbed and untabbed browsers.
-  client_size.SetToMax(gfx::Size(0, (client_size.width() * 3) / 4));
+  //client_size.SetToMax(gfx::Size(0, (client_size.width() * 3) / 4));
 
   return client_size;
 }

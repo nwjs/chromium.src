@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/browser/lifetime/application_lifetime.h"
+#include "content/public/common/content_features.h"
+
 #import "chrome/browser/ui/cocoa/apps/app_shim_menu_controller_mac.h"
 
 #include "base/mac/scoped_nsautorelease_pool.h"
@@ -420,7 +423,7 @@ extensions::AppWindowRegistry::AppWindowList GetAppWindowsForNSWindow(
     enable_devtools = false;
 
   if (enable_devtools) {
-  [[windowMenuItem_ submenu] setAutoenablesItems:NO];
+  [[_windowMenuItem submenu] setAutoenablesItems:NO];
   NSMenuItem* item = [[NSMenuItem alloc]
 		      initWithTitle:@"Devtools"
 		      action:@selector(showDevtools)
@@ -429,7 +432,7 @@ extensions::AppWindowRegistry::AppWindowList GetAppWindowsForNSWindow(
   [item setTarget:self];
   [item setEnabled:YES];
   [item setKeyEquivalentModifierMask:NSCommandKeyMask | NSAlternateKeyMask];
-  [[windowMenuItem_ submenu] addItem:item];
+  [[_windowMenuItem submenu] addItem:item];
   }
 #endif
 }
@@ -596,6 +599,11 @@ extensions::AppWindowRegistry::AppWindowList GetAppWindowsForNSWindow(
 }
 
 - (void)quitCurrentPlatformApp {
+  if (base::FeatureList::IsEnabled(::features::kNWNewWin)) {
+    chrome::CloseAllBrowsers(false, true);
+    return;
+  }
+
   auto windows = GetAppWindowsForNSWindow([NSApp keyWindow]);
   for (auto it = windows.rbegin(); it != windows.rend(); ++it) {
     if ((*it)->NWCanClose(true))

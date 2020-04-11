@@ -78,7 +78,8 @@ BrowserFrame::BrowserFrame(BrowserView* browser_view, bool frameless)
 
 BrowserFrame::~BrowserFrame() {}
 
-void BrowserFrame::InitBrowserFrame() {
+bool BrowserFrame::InitBrowserFrame() {
+  bool got_saved_bounds = false;
   native_browser_frame_ =
       NativeBrowserFrameFactory::CreateNativeBrowserFrame(this, browser_view_);
   views::Widget::InitParams params = native_browser_frame_->GetWidgetParams();
@@ -101,7 +102,7 @@ void BrowserFrame::InitBrowserFrame() {
     // ensures there is always a size available. Without this, the tools
     // launch on the wrong display and can have sizing issues when
     // repositioned to the saved bounds in Widget::SetInitialBounds.
-    chrome::GetSavedWindowBoundsAndShowState(browser_view_->browser(),
+    got_saved_bounds = chrome::GetSavedWindowBoundsAndShowState(browser_view_->browser(),
                                              &params.bounds,
                                              &params.show_state);
 
@@ -133,6 +134,7 @@ void BrowserFrame::InitBrowserFrame() {
     DCHECK(non_client_view());
     non_client_view()->set_context_menu_controller(this);
   }
+  return got_saved_bounds;
 }
 
 int BrowserFrame::GetMinimizeButtonOffset() const {

@@ -27,6 +27,7 @@ BrowserWindow* BrowserWindow::CreateBrowserWindow(
   // Create the view and the frame. The frame will attach itself via the view
   // so we don't need to do anything with the pointer.
   bool frameless = browser->is_frameless();
+  std::string position = browser->initial_position();
   BrowserView* view = new BrowserView(std::move(browser));
   BrowserFrame* browser_frame = nullptr;
 #if defined(OS_CHROMEOS)
@@ -37,7 +38,11 @@ BrowserWindow* BrowserWindow::CreateBrowserWindow(
     browser_frame = new BrowserFrame(view, frameless);
   if (in_tab_dragging)
     browser_frame->SetTabDragKind(TabDragKind::kAllTabs);
-  browser_frame->InitBrowserFrame();
+  bool got_saved_bounds = browser_frame->InitBrowserFrame();
+  if (position == "center" && !got_saved_bounds) {
+    gfx::Rect bounds = browser_frame->GetWindowBoundsInScreen();
+    browser_frame->CenterWindow(bounds.size());
+  }
 
   view->GetWidget()->non_client_view()->SetAccessibleName(
       l10n_util::GetStringUTF16(IDS_PRODUCT_NAME));

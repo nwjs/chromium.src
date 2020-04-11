@@ -105,6 +105,10 @@ void ExtensionBrowserWindowHelper::OnExtensionUnloaded(
   if (reason != extensions::UnloadedExtensionReason::TERMINATE)
     CleanUpTabsOnUnload(extension);
 
+  if (extension->is_nwjs_app()) {
+    browser_->window()->Close();
+    return;
+  }
   // If an extension page was active, the toolbar may need to be updated to hide
   // the extension name in the location icon.
   browser_->window()->UpdateToolbar(nullptr);

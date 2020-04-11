@@ -1,7 +1,7 @@
 // Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-
+#pragma clang diagnostic ignored "-Wunreachable-code"
 #include "chrome/browser/browser_process_impl.h"
 
 #include <stddef.h>
@@ -1380,7 +1380,7 @@ void BrowserProcessImpl::Pin() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   // CHECK(!IsShuttingDown());
-  if (IsShuttingDown()) {
+  if (false && IsShuttingDown()) {
     // TODO(rsesek): Consider removing this trace, but it has been helpful
     // in debugging several shutdown crashes (https://crbug.com/113031,
     // https://crbug.com/625646, and https://crbug.com/779829).

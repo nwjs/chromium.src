@@ -598,7 +598,8 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
 
     if (create_data->min_width) {
       min_width = *create_data->min_width;
-      window_bounds.set_width(std::max(min_width, window_bounds.width()));
+      if (window_bounds.width())
+        window_bounds.set_width(std::max(min_width, window_bounds.width()));
     }
     if (create_data->max_width) {
       max_width = *create_data->max_width;
@@ -606,7 +607,8 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
     }
     if (create_data->min_height) {
       min_height = *create_data->min_height;
-      window_bounds.set_height(std::max(min_height, window_bounds.height()));
+      if (window_bounds.height())
+        window_bounds.set_height(std::max(min_height, window_bounds.height()));
     }
     if (create_data->max_height) {
       max_height = *create_data->max_height;
@@ -691,15 +693,12 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
         ConvertToWindowShowState(create_data->state);
   }
 
+  create_params.position = position;
   Browser* new_window = Browser::Create(create_params);
   if (!new_window)
     return RespondNow(Error(tabs_constants::kBrowserWindowNotAllowed));
 
   BrowserFrame* frame = BrowserView::GetBrowserViewForBrowser(new_window)->frame();
-  if (position == "center") {
-    gfx::Rect bounds = frame->GetWindowBoundsInScreen();
-    frame->CenterWindow(bounds.size());
-  }
 
   if (kiosk) {
     frame->SetFullscreen(true);

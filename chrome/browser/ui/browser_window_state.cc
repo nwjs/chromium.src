@@ -166,7 +166,7 @@ void SaveWindowWorkspace(const Browser* browser, const std::string& workspace) {
     session_service->SetWindowWorkspace(browser->session_id(), workspace);
 }
 
-void GetSavedWindowBoundsAndShowState(const Browser* browser,
+bool GetSavedWindowBoundsAndShowState(const Browser* browser,
                                       gfx::Rect* bounds,
                                       ui::WindowShowState* show_state) {
   DCHECK(browser);
@@ -174,7 +174,7 @@ void GetSavedWindowBoundsAndShowState(const Browser* browser,
   DCHECK(show_state);
 
   *bounds = browser->override_bounds();
-  WindowSizer::GetBrowserWindowBoundsAndShowState(*bounds, browser, bounds,
+  bool ret = WindowSizer::GetBrowserWindowBoundsAndShowState(*bounds, browser, bounds,
                                                   show_state);
 
   const base::CommandLine& parsed_command_line =
@@ -182,6 +182,7 @@ void GetSavedWindowBoundsAndShowState(const Browser* browser,
 
   internal::UpdateWindowBoundsAndShowStateFromCommandLine(parsed_command_line,
                                                           bounds, show_state);
+  return ret;
 }
 
 namespace internal {

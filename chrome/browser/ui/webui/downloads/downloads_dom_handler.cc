@@ -398,12 +398,14 @@ void DownloadsDOMHandler::FinalizeRemovals() {
 
 void DownloadsDOMHandler::ShowDangerPrompt(
     download::DownloadItem* dangerous_item) {
+#if 0
   DownloadDangerPrompt* danger_prompt = DownloadDangerPrompt::Create(
       dangerous_item, GetWebUIWebContents(), false,
       base::Bind(&DownloadsDOMHandler::DangerPromptDone,
                  weak_ptr_factory_.GetWeakPtr(), dangerous_item->GetId()));
   // danger_prompt will delete itself.
   DCHECK(danger_prompt);
+#endif
 }
 
 void DownloadsDOMHandler::DangerPromptDone(

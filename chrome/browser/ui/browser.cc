@@ -507,6 +507,7 @@ Browser::Browser(const CreateParams& params)
       initial_allvisible_(params.all_visible),
       initial_resizable_(params.resizable),
       initial_showintaskbar_(params.show_in_taskbar),
+      initial_position_(params.position),
       title_override_(params.title),
       icon_override_(params.icon),
       is_session_restore_(params.is_session_restore),

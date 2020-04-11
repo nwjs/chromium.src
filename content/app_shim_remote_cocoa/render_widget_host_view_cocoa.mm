@@ -573,7 +573,7 @@ void ExtractUnderlines(NSAttributedString* string,
     //High Sierra 10.13 fix, previously we use [self layer],
     //since we have set the layer to nil in AcceleratedWidgetMac::GotSoftwareFrame,
     //we access the layer "directly" which is the "background_layer()" (see RenderWidgetHostViewMac constructor)
-    [hostHelper_->GetRenderWidgetHostViewMac()->background_layer() renderInContext:ctx];
+    [_hostHelper->GetRenderWidgetHostViewMac()->background_layer() renderInContext:ctx];
   } else {
     [super drawRect:dirty];
   }
@@ -1490,7 +1490,7 @@ void ExtractUnderlines(NSAttributedString* string,
   //so we can do drawRect "manually"
   //here, we temporarily assign back the layer during resize, so the background_layer() can be resized properly
   if (content::g_force_cpu_draw)
-    [self setLayer:hostHelper_->GetRenderWidgetHostViewMac()->background_layer()];
+    [self setLayer:_hostHelper->GetRenderWidgetHostViewMac()->background_layer()];
 
   [super setFrameSize:newSize];
   [self sendViewBoundsInWindowToHost];
