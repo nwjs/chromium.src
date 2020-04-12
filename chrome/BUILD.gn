@@ -401,6 +401,7 @@ if (is_win || (is_linux && !is_component_build)) {
         "//chrome/app/theme:chrome_unscaled_resources",
         "//chrome/install_static:install_static_util",
         "//chrome/install_static:secondary_module",
+        "//chrome/chrome_elf",
         "//components/browser_watcher:stability_client",
         "//components/crash/core/app",
         "//components/policy:generated",

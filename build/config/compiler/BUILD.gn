@@ -1457,6 +1457,9 @@ config("default_warnings") {
       # Disables.
       "-Wno-missing-field-initializers",  # "struct foo f = {0};"
       "-Wno-unused-parameter",  # Unused function parameters.
+      "-Wno-unused-private-field",
+      "-Wno-unused-const-variable",
+      "-Wno-unreachable-code",
     ]
   }
 
