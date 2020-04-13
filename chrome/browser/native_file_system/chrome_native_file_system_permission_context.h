@@ -40,6 +40,8 @@ class ChromeNativeFileSystemPermissionContext
     : public content::NativeFileSystemPermissionContext,
       public KeyedService {
  public:
+  content::BrowserContext* browser_context_; //optimal place to patch
+                                             //this in NW
   explicit ChromeNativeFileSystemPermissionContext(
       content::BrowserContext* context);
   ~ChromeNativeFileSystemPermissionContext() override;

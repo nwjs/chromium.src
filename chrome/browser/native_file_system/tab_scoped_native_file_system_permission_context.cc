@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "content/public/common/content_client.h"
 #include "chrome/browser/native_file_system/tab_scoped_native_file_system_permission_context.h"
 
 #include <string>
@@ -364,6 +365,9 @@ TabScopedNativeFileSystemPermissionContext::GetWritePermissionGrant(
   // |existing_grant|.
   auto result = base::MakeRefCounted<WritePermissionGrantImpl>(
       weak_factory_.GetWeakPtr(), origin, grant_key, is_directory);
+  if (content::GetContentClient()->browser()->IsNWOrigin(origin, browser_context_)) {
+    result->SetStatus(WritePermissionGrantImpl::PermissionStatus::GRANTED);
+  } else
   if (result->CanRequestPermission()) {
     if (user_action == UserAction::kSave) {
       result->SetStatus(WritePermissionGrantImpl::PermissionStatus::GRANTED);

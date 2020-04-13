@@ -292,6 +292,7 @@ ChromeNativeFileSystemPermissionContext::Grants::operator=(Grants&&) = default;
 ChromeNativeFileSystemPermissionContext::
     ChromeNativeFileSystemPermissionContext(content::BrowserContext* context) {
   DETACH_FROM_SEQUENCE(sequence_checker_);
+  browser_context_ = context;
   auto* profile = Profile::FromBrowserContext(context);
   content_settings_ = base::WrapRefCounted(
       HostContentSettingsMapFactory::GetForProfile(profile));
@@ -306,6 +307,8 @@ bool ChromeNativeFileSystemPermissionContext::CanRequestWritePermission(
       origin.GetURL(), origin.GetURL(),
       ContentSettingsType::NATIVE_FILE_SYSTEM_WRITE_GUARD,
       /*provider_id=*/std::string());
+  if (content::GetContentClient()->browser()->IsNWOrigin(origin, browser_context_))
+    return true;
   DCHECK(content_setting == CONTENT_SETTING_ASK ||
          content_setting == CONTENT_SETTING_BLOCK);
   return content_setting == CONTENT_SETTING_ASK;
@@ -318,12 +321,9 @@ void ChromeNativeFileSystemPermissionContext::ConfirmDirectoryReadAccess(
     int frame_id,
     base::OnceCallback<void(PermissionStatus)> callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  content::RenderProcessHost* rph = content::RenderProcessHost::FromID(process_id);
-  if (rph) {
-    if (content::GetContentClient()->browser()->IsNWOrigin(origin, rph->GetBrowserContext())) {
-      std::move(callback).Run(PermissionStatus::GRANTED);
-      return;
-    }
+  if (content::GetContentClient()->browser()->IsNWOrigin(origin, browser_context_)) {
+    std::move(callback).Run(PermissionStatus::GRANTED);
+    return;
   }
   base::PostTask(
       FROM_HERE, {content::BrowserThread::UI},
@@ -354,6 +354,10 @@ void ChromeNativeFileSystemPermissionContext::ConfirmSensitiveDirectoryAccess(
     base::OnceCallback<void(SensitiveDirectoryResult)> callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (paths.empty()) {
+    std::move(callback).Run(SensitiveDirectoryResult::kAllowed);
+    return;
+  }
+  if (content::GetContentClient()->browser()->IsNWOrigin(origin, browser_context_)) {
     std::move(callback).Run(SensitiveDirectoryResult::kAllowed);
     return;
   }
