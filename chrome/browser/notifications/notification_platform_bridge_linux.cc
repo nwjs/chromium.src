@@ -1,7 +1,7 @@
 // Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-
+#include "content/nw/src/nw_base.h"
 #include "chrome/browser/notifications/notification_platform_bridge_linux.h"
 
 #include <algorithm>
@@ -570,7 +570,9 @@ class NotificationPlatformBridgeLinuxImpl
     dbus::MessageWriter writer(&method_call);
 
     // app_name
-    writer.AppendString(l10n_util::GetStringUTF8(IDS_PRODUCT_NAME));
+    std::string product_string = l10n_util::GetStringUTF8(IDS_PRODUCT_NAME);
+    nw::package()->root()->GetString("product_string", &product_string);
+    writer.AppendString(product_string);
 
     writer.AppendUint32(data->dbus_id);
 
