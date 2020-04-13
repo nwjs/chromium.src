@@ -5,6 +5,8 @@
 #ifndef CONTENT_PUBLIC_COMMON_CONTENT_CLIENT_H_
 #define CONTENT_PUBLIC_COMMON_CONTENT_CLIENT_H_
 
+#include "base/files/file_path.h"
+
 #include <set>
 #include <string>
 #include <vector>
@@ -83,6 +85,9 @@ class CONTENT_EXPORT ContentClient {
   ContentClient();
   virtual ~ContentClient();
 
+  virtual void LoadNWAppAsExtension(base::DictionaryValue* manifest,
+                                    const base::FilePath& path,
+                                    std::string* error) {}
   ContentBrowserClient* browser() { return browser_; }
   ContentGpuClient* gpu() { return gpu_; }
   ContentRendererClient* renderer() { return renderer_; }

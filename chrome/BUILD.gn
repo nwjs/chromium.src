@@ -348,11 +348,6 @@ if (!is_android && !is_mac) {
     deps += [
       "//content/nw:nw_base",
     ]
-    if (is_component_build) {
-    deps += [
-      "//components/startup_metric_utils/browser:lib",
-    ]
-    }
 
     # ChromeOS by design is safe to have rpath=$ORIGIN. This simplifies shared
     # library usage.

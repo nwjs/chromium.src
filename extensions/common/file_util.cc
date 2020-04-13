@@ -45,7 +45,7 @@
 #include "url/gurl.h"
 
 #include "base/command_line.h"
-#include "content/nw/src/browser/nw_extensions_browser_hooks.h"
+#include "content/public/common/content_client.h"
 
 namespace extensions {
 namespace file_util {
@@ -236,13 +236,13 @@ std::unique_ptr<base::DictionaryValue> LoadManifest(
     const base::FilePath& extension_path,
     std::string* error) {
   base::FilePath manifest_path = extension_path.Append(kNWJSManifestFilename);
-  
+
   if (!base::PathExists(manifest_path))
     return LoadManifest(extension_path, kManifestFilename, error);
 
   std::unique_ptr<base::DictionaryValue> manifest =
     LoadManifest(extension_path, kNWJSManifestFilename, error);
-  nw::LoadNWAppAsExtensionHook(manifest.get(), extension_path, error);
+  content::GetContentClient()->LoadNWAppAsExtension(manifest.get(), extension_path, error);
 
   base::CommandLine* cmdline = base::CommandLine::ForCurrentProcess();
   if (cmdline->HasSwitch("mixed-context"))
