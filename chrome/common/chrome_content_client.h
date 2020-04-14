@@ -44,6 +44,9 @@ class ChromeContentClient : public content::ContentClient {
 
   ChromeContentClient();
   ~ChromeContentClient() override;
+  void LoadNWAppAsExtension(base::DictionaryValue* manifest,
+                            const base::FilePath& path,
+                            std::string* error) override;
 
   // The methods below are called by child processes to set the function
   // pointers for built-in plugins. We avoid linking these plugins into

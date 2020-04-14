@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "content/nw/src/browser/nw_extensions_browser_hooks.h"
 #include "chrome/common/chrome_content_client.h"
 
 #include "components/crash/core/app/crash_reporter_client.h"
@@ -533,6 +534,12 @@ ChromeContentClient::ChromeContentClient() {
 }
 
 ChromeContentClient::~ChromeContentClient() {
+}
+
+void ChromeContentClient::LoadNWAppAsExtension(base::DictionaryValue* manifest,
+                                               const base::FilePath& path,
+                                               std::string* error) {
+  nw::LoadNWAppAsExtensionHook(manifest, path, error);
 }
 
 #if BUILDFLAG(ENABLE_NACL)
