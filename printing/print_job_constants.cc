@@ -227,6 +227,8 @@ const char kNormalGray[] = "Normal.Gray";
 const char kRGB[] = "RGB";
 const char kRGBA[] = "RGBA";
 const char kRGB16[] = "RGB16";
+const char kSharpCMColor[] = "CMColor";
+const char kSharpCMBW[] = "CMBW";
 #endif
 
 }  // namespace printing

@@ -144,6 +144,10 @@ ASH_PUBLIC_EXPORT extern const base::Feature kDragFromShelfToHomeOrOverview;
 // preferences, or policy).
 ASH_PUBLIC_EXPORT extern const base::Feature kHideShelfControlsInTabletMode;
 
+// Enables sliders for setting mic gain levels in the more audio settings
+// section in the system tray.
+ASH_PUBLIC_EXPORT extern const base::Feature kSystemTrayMicGainSetting;
+
 ASH_PUBLIC_EXPORT bool IsAllowAmbientEQEnabled();
 
 ASH_PUBLIC_EXPORT bool IsAltTabLimitedToActiveDesk();
@@ -191,6 +195,8 @@ ASH_PUBLIC_EXPORT bool IsReduceDisplayNotificationsEnabled();
 ASH_PUBLIC_EXPORT bool IsHideShelfControlsInTabletModeEnabled();
 
 ASH_PUBLIC_EXPORT bool IsDisplayChangeModalEnabled();
+
+ASH_PUBLIC_EXPORT bool IsSystemTrayMicGainSettingEnabled();
 
 // These two functions are supposed to be temporary functions to set or get
 // whether "WebUITabStrip" feature is enabled from Chrome.

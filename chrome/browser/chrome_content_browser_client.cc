@@ -3276,11 +3276,13 @@ void ChromeContentBrowserClient::OverrideWebkitPrefs(
         //
         // Similarly, if a Hosted Apps is a PWA, it will always have a scope
         // so there is no need to test for has_value().
+        // TODO(crbug.com/1068756): CreatedForInstalledPwa() doesn't guarantee
+        // that GetAppScope() has a value. Fix this.
         web_prefs->web_app_scope =
             web_app::WebAppProvider::Get(profile)
                 ->registrar()
                 .GetAppScope(browser->app_controller()->GetAppId())
-                .value();
+                .value_or(GURL());
       }
     }
 #endif

@@ -4,6 +4,7 @@
 
 #include "ash/system/audio/unified_volume_view.h"
 
+#include "ash/public/cpp/ash_features.h"
 #include "ash/resources/vector_icons/vector_icons.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/style/ash_color_provider.h"
@@ -31,9 +32,6 @@ using chromeos::CrasAudioHandler;
 namespace ash {
 
 namespace {
-
-// Threshold to ignore update on the slider value.
-const float kSliderIgnoreUpdateThreshold = 0.01;
 
 // References to the icons that correspond to different volume levels.
 const gfx::VectorIcon* const kVolumeLevelIcons[] = {
@@ -71,11 +69,14 @@ class MoreButton : public views::Button {
     const SkColor icon_color = AshColorProvider::Get()->GetContentLayerColor(
         AshColorProvider::ContentLayerType::kIconPrimary,
         AshColorProvider::AshColorMode::kDark);
-    auto* headset = new views::ImageView();
-    headset->set_can_process_events_within_subtree(false);
-    headset->SetImage(CreateVectorIcon(vector_icons::kHeadsetIcon, icon_color));
-    AddChildView(headset);
 
+    if (!features::IsSystemTrayMicGainSettingEnabled()) {
+      auto* headset = new views::ImageView();
+      headset->set_can_process_events_within_subtree(false);
+      headset->SetImage(
+          CreateVectorIcon(vector_icons::kHeadsetIcon, icon_color));
+      AddChildView(headset);
+    }
     auto* more = new views::ImageView();
     more->set_can_process_events_within_subtree(false);
     auto icon_rotation = base::i18n::IsRTL()
@@ -171,15 +172,17 @@ void UnifiedVolumeView::Update(bool by_user) {
       IDS_ASH_STATUS_TRAY_VOLUME, state_tooltip_text));
 
   more_button_->SetVisible(CrasAudioHandler::Get()->has_alternative_input() ||
-                           CrasAudioHandler::Get()->has_alternative_output());
+                           CrasAudioHandler::Get()->has_alternative_output() ||
+                           features::IsSystemTrayMicGainSettingEnabled());
 
   // Slider's value is in finer granularity than audio volume level(0.01),
   // there will be a small discrepancy between slider's value and volume level
   // on audio side. To avoid the jittering in slider UI, use the slider's
   // current value.
-  if (std::abs(level - slider()->GetValue()) < kSliderIgnoreUpdateThreshold)
+  if (std::abs(level - slider()->GetValue()) <
+      kAudioSliderIgnoreUpdateThreshold) {
     level = slider()->GetValue();
-
+  }
   // Note: even if the value does not change, we still need to call this
   // function to enable accessibility events (crbug.com/1013251).
   SetSliderValue(level, by_user);

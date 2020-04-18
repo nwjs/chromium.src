@@ -99,6 +99,8 @@ PRINTING_EXPORT extern const char kNormalGray[];
 PRINTING_EXPORT extern const char kRGB[];
 PRINTING_EXPORT extern const char kRGBA[];
 PRINTING_EXPORT extern const char kRGB16[];
+PRINTING_EXPORT extern const char kSharpCMColor[];
+PRINTING_EXPORT extern const char kSharpCMBW[];
 #endif
 
 // Print job duplex mode values.
@@ -144,6 +146,8 @@ enum ColorModel {
   BROTHER_BRSCRIPT3_BLACK,      // Used in Brother BRScript3 color printer PPDs.
   EPSON_INK_COLOR,              // Used in Epson printer PPDs.
   EPSON_INK_MONO,               // Used in Epson printer PPDs.
+  SHARP_ARCMODE_CMCOLOR,        // Used in Sharp printer PPDs.
+  SHARP_ARCMODE_CMBW,           // Used in Sharp printer PPDs.
 };
 
 // What kind of margins to use.

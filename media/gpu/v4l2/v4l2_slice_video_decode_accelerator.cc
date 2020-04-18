@@ -36,6 +36,7 @@
 #include "media/base/scopedfd_helper.h"
 #include "media/base/unaligned_shared_memory.h"
 #include "media/base/video_types.h"
+#include "media/base/video_util.h"
 #include "media/gpu/chromeos/fourcc.h"
 #include "media/gpu/chromeos/platform_video_frame_utils.h"
 #include "media/gpu/macros.h"
@@ -590,7 +591,7 @@ bool V4L2SliceVideoDecodeAccelerator::CreateImageProcessor() {
 
   image_processor_ = v4l2_vda_helpers::CreateImageProcessor(
       *output_format_fourcc_, *gl_image_format_fourcc_, coded_size_,
-      gl_image_size_, decoder_->GetVisibleRect().size(),
+      gl_image_size_, GetRectSizeFromOrigin(decoder_->GetVisibleRect()),
       output_buffer_map_.size(), image_processor_device_,
       image_processor_output_mode,
       // Unretained(this) is safe for ErrorCB because |decoder_thread_| is owned
@@ -681,12 +682,18 @@ bool V4L2SliceVideoDecodeAccelerator::CreateOutputBuffers() {
   DCHECK_EQ(coded_size_.width() % 16, 0);
   DCHECK_EQ(coded_size_.height() % 16, 0);
 
+  if (!gfx::Rect(coded_size_).Contains(decoder_->GetVisibleRect())) {
+    VLOGF(1) << "The visible rectangle is not contained in the coded size";
+    NOTIFY_ERROR(UNREADABLE_INPUT);
+    return false;
+  }
+
   // Now that we know the desired buffers resolution, ask the image processor
   // what it supports so we can request the correct picture buffers.
   if (image_processor_device_) {
     // Try to get an image size as close as possible to the final one (i.e.
     // coded_size_ may include padding required by the decoder).
-    gl_image_size_ = decoder_->GetVisibleRect().size();
+    gl_image_size_ = GetRectSizeFromOrigin(decoder_->GetVisibleRect());
     size_t planes_count;
     if (!V4L2ImageProcessorBackend::TryOutputFormat(
             output_format_fourcc_->ToV4L2PixFmt(),
@@ -1264,19 +1271,37 @@ void V4L2SliceVideoDecodeAccelerator::AssignPictureBuffersTask(
     return;
   }
 
-  // If a client allocate a different frame size, S_FMT should be called with
-  // the size.
-  if (!image_processor_device_ && coded_size_ != buffers[0].size()) {
-    const auto& new_frame_size = buffers[0].size();
+  const gfx::Size pic_size_received_from_client = buffers[0].size();
+  const gfx::Size pic_size_expected_from_client =
+      output_mode_ == Config::OutputMode::ALLOCATE
+          ? GetRectSizeFromOrigin(decoder_->GetVisibleRect())
+          : coded_size_;
+  if (output_mode_ == Config::OutputMode::ALLOCATE &&
+      pic_size_expected_from_client != pic_size_received_from_client) {
+    // In ALLOCATE mode, we don't allow the client to adjust the size. That's
+    // because the client is responsible only for creating the GL texture and
+    // its dimensions should match the dimensions we use to create the GL image
+    // here (eventually).
+    LOG(ERROR)
+        << "The client supplied a picture buffer with an unexpected size (Got "
+        << pic_size_received_from_client.ToString() << ", expected "
+        << pic_size_expected_from_client.ToString() << ")";
+    NOTIFY_ERROR(INVALID_ARGUMENT);
+    return;
+  } else if (output_mode_ == Config::OutputMode::IMPORT &&
+             !image_processor_device_ &&
+             pic_size_expected_from_client != pic_size_received_from_client) {
+    // If a client allocates a different frame size, S_FMT should be called with
+    // the size.
     v4l2_format format = {};
     format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-    format.fmt.pix_mp.width = new_frame_size.width();
-    format.fmt.pix_mp.height = new_frame_size.height();
+    format.fmt.pix_mp.width = pic_size_received_from_client.width();
+    format.fmt.pix_mp.height = pic_size_received_from_client.height();
     format.fmt.pix_mp.pixelformat = output_format_fourcc_->ToV4L2PixFmt();
     format.fmt.pix_mp.num_planes = output_planes_count_;
     if (device_->Ioctl(VIDIOC_S_FMT, &format) != 0) {
       PLOG(ERROR) << "Failed with frame size adjusted by client"
-                  << new_frame_size.ToString();
+                  << pic_size_received_from_client.ToString();
       NOTIFY_ERROR(PLATFORM_FAILURE);
       return;
     }
@@ -1284,10 +1309,10 @@ void V4L2SliceVideoDecodeAccelerator::AssignPictureBuffersTask(
     coded_size_.SetSize(format.fmt.pix_mp.width, format.fmt.pix_mp.height);
     // If size specified by ProvidePictureBuffers() is adjusted by the client,
     // the size must not be adjusted by a v4l2 driver again.
-    if (coded_size_ != new_frame_size) {
+    if (coded_size_ != pic_size_received_from_client) {
       LOG(ERROR) << "The size of PictureBuffer is invalid."
                  << " size adjusted by the client = "
-                 << new_frame_size.ToString()
+                 << pic_size_received_from_client.ToString()
                  << " size adjusted by a driver = " << coded_size_.ToString();
       NOTIFY_ERROR(INVALID_ARGUMENT);
       return;
@@ -1576,6 +1601,7 @@ void V4L2SliceVideoDecodeAccelerator::ImportBufferForPictureTask(
   // (texture_id !=0). Moreover, if an image processor is in use, we will
   // create the GL image when its buffer becomes visible in FrameProcessed().
   if (iter->texture_id != 0 && !image_processor_) {
+    DCHECK_EQ(Config::OutputMode::ALLOCATE, output_mode_);
     DCHECK_GT(handle.planes.size(), 0u);
     size_t index = iter - output_buffer_map_.begin();
 
@@ -1584,7 +1610,8 @@ void V4L2SliceVideoDecodeAccelerator::ImportBufferForPictureTask(
         base::BindOnce(&V4L2SliceVideoDecodeAccelerator::CreateGLImageFor,
                        weak_this_, device_, index, picture_buffer_id,
                        std::move(handle), iter->client_texture_id,
-                       iter->texture_id, decoder_->GetVisibleRect().size(),
+                       iter->texture_id,
+                       GetRectSizeFromOrigin(decoder_->GetVisibleRect()),
                        *gl_image_format_fourcc_));
   }
 
@@ -2248,7 +2275,8 @@ void V4L2SliceVideoDecodeAccelerator::FrameProcessed(
             ip_output_record.picture_id,
             CreateGpuMemoryBufferHandle(frame.get()).native_pixmap_handle,
             ip_output_record.client_texture_id, ip_output_record.texture_id,
-            decoder_->GetVisibleRect().size(), *gl_image_format_fourcc_));
+            GetRectSizeFromOrigin(decoder_->GetVisibleRect()),
+            *gl_image_format_fourcc_));
   }
 
   DCHECK(!surfaces_at_ip_.empty());

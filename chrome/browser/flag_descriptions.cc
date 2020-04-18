@@ -1886,6 +1886,11 @@ const char kSystemKeyboardLockDescription[] =
     "keyboard shortcuts and have the events routed directly to the website "
     "when in fullscreen mode.";
 
+const char kSystemTrayMicGainName[] = "Modify mic gain in the system tray";
+const char kSystemTrayMicGainDescription[] =
+    "Enables mic gain settings in the system tray audio "
+    "settings.";
+
 const char kTabEngagementReportingName[] = "Tab Engagement Metrics";
 const char kTabEngagementReportingDescription[] =
     "Tracks tab engagement and lifetime metrics.";

@@ -372,8 +372,12 @@ void NonClientFrameViewAsh::OnWindowBoundsChanged(
     const gfx::Rect& old_bounds,
     const gfx::Rect& new_bounds,
     ui::PropertyChangeReason reason) {
-  if (window->transparent())
-    window->SetOpaqueRegionsForOcclusion({gfx::Rect(new_bounds.size())});
+  if (window->transparent()) {
+    if (GetVisible() && GetEnabled())
+      window->SetOpaqueRegionsForOcclusion({gfx::Rect(new_bounds.size())});
+    else
+      window->SetOpaqueRegionsForOcclusion({gfx::Rect()});
+  }
 }
 
 void NonClientFrameViewAsh::OnWindowDestroying(aura::Window* window) {
