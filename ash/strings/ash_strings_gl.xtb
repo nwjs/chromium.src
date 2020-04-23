@@ -18,6 +18,7 @@
 <translation id="1190609913194133056">Centro de notificacións</translation>
 <translation id="1195412055398077112">sobrevarrido</translation>
 <translation id="119944043368869598">Borrar todo</translation>
+<translation id="1199716647557067911">Seguro que queres desactivar a función Acceso con interruptores?</translation>
 <translation id="1247372569136754018">Micrófono (interno)</translation>
 <translation id="1252999807265626933">Cargando a través de <ph name="POWER_SOURCE" /></translation>
 <translation id="1255033239764210633">Que tempo fai?</translation>
@@ -55,6 +56,7 @@
 <translation id="1570871743947603115">Activar/desactivar o Bluetooth. <ph name="STATE_TEXT" /></translation>
 <translation id="1589090746204042747">Acceder a toda a túa actividade nesta sesión</translation>
 <translation id="1608626060424371292">Eliminar este usuario</translation>
+<translation id="1632985212731562677">A función Acceso con interruptores pódese desactivar en Configuración &gt; Accesibilidade.</translation>
 <translation id="1654477262762802994">Iniciar unha consulta de voz</translation>
 <translation id="1658406695958299976">Aínda non se puido verificar o teu contrasinal. Nota: Se cambiaches o teu contrasinal recentemente, o contrasinal novo aplicarase en canto peches sesión. Utiliza aquí o contrasinal antigo.</translation>
 <translation id="1677472565718498478">Tempo restante: <ph name="TIME" /></translation>
@@ -104,6 +106,7 @@
 <translation id="2268813581635650749">Pechar a sesión de todos os usuarios</translation>
 <translation id="2277103315734023688">Avanzar</translation>
 <translation id="2292698582925480719">Escala de visualización</translation>
+<translation id="2295777434187870477">O micrófono está activado. Utiliza o botón para silencialo.</translation>
 <translation id="2298170939937364391">Activouse a lupa de pantalla completa. Preme Ctrl+Buscar+M de novo para desactivala.</translation>
 <translation id="2302092602801625023">Esta conta está xestionada por Family Link</translation>
 <translation id="2303600792989757991">Alternar vista xeral da ventá</translation>
@@ -137,6 +140,7 @@
 <translation id="2658778018866295321">Facer clic e arrastrar</translation>
 <translation id="2700493154570097719">Definir teclado</translation>
 <translation id="2704781753052663061">Unirse a outras redes wifi</translation>
+<translation id="2705001408393684014">Activar/desactivar micrófono. <ph name="STATE_TEXT" /></translation>
 <translation id="2718395828230677721">Luz nocturna</translation>
 <translation id="2727977024730340865">Conectado a un cargador de baixa potencia. É posible que a carga da batería non sexa fiable.</translation>
 <translation id="2792498699870441125">Alt+Search</translation>
@@ -179,6 +183,7 @@
 <translation id="3154351730702813399">O administrador do dispositivo pode supervisar a actividade de navegación.</translation>
 <translation id="3181441307743005334">O reinicio pode tardar uns intres</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{Conectado a un dispositivo}other{Conectado a # dispositivos}}</translation>
+<translation id="3203405173652969239">Activouse o Acceso con interruptores</translation>
 <translation id="3207953481422525583">Configuración do usuario</translation>
 <translation id="3217205077783620295">O volume está activado. Utiliza o botón para silencialo.</translation>
 <translation id="3226991577105957773"><ph name="COUNT" /> máis</translation>
@@ -296,6 +301,7 @@ Todos os usuarios deben pechar sesión para poder continuar.</translation>
 <translation id="4665114317261903604">Activar/desactivar o modo Non molestar. <ph name="STATE_TEXT" /></translation>
 <translation id="4696813013609194136">Desbloquea o dispositivo co código parental</translation>
 <translation id="4702647871202761252">A pantalla de privacidade está desactivada</translation>
+<translation id="4705716602320768426">Enviar comentarios</translation>
 <translation id="4710243778082831592">Configuración de IME</translation>
 <translation id="4731797938093519117">Acceso parental</translation>
 <translation id="4734965478015604180">Horizontal</translation>
@@ -376,6 +382,7 @@ Todos os usuarios deben pechar sesión para poder continuar.</translation>
 <translation id="5901316534475909376">Maiúsculas+Esc</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" /> (<ph name="MAIL" />)</translation>
 <translation id="5916664084637901428">Si</translation>
+<translation id="5920710855273935292">O micrófono está silenciado.</translation>
 <translation id="5947494881799873997">Reverter</translation>
 <translation id="595202126637698455">Seguimento do rendemento activado</translation>
 <translation id="5957083217255311415">Os datos móbiles están desactivados.</translation>
@@ -431,6 +438,7 @@ Todos os usuarios deben pechar sesión para poder continuar.</translation>
 <translation id="6537924328260219877">Intensidade do sinal do <ph name="SIGNAL_STRENGTH" />, batería do teléfono ao <ph name="BATTERY_STATUS" /></translation>
 <translation id="6542521951477560771">Emitindo en: <ph name="RECEIVER_NAME" /></translation>
 <translation id="6559976592393364813">Pedirllo ao administrador</translation>
+<translation id="6584550827717945790">Desactivar a función Acceso con interruptores</translation>
 <translation id="6585808820553845416">A sesión finaliza dentro de <ph name="SESSION_TIME_REMAINING" /> .</translation>
 <translation id="661203523074512333"><ph name="SECURITY_STATUS" />, intensidade do sinal do <ph name="SIGNAL_STRENGTH" />, xestionada polo teu administrador</translation>
 <translation id="6614169507485700968">A pantalla de privacidade está activada</translation>

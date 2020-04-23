@@ -69,7 +69,6 @@
 <translation id="146450394670219700">Графічний об’єкт</translation>
 <translation id="1480046233931937785">Учасники</translation>
 <translation id="1487494366197411587">На Chromebook клавіша Search розташована прямо над лівою клавішею Shift.</translation>
-<translation id="1498498210836053409">Вимкнути режим залипання клавіш під час редагування тексту (Розумний режим залипання)</translation>
 <translation id="1499041187027566160">збільшити гучність</translation>
 <translation id="1502086903961450562">Попереднє зображення</translation>
 <translation id="1506187449813838456">Збільшити висоту звуку</translation>
@@ -626,7 +625,7 @@
 <translation id="5992285135956208197">Графічний документ</translation>
 <translation id="5999630716831179808">Голоси</translation>
 <translation id="6006050241733874051">Форма</translation>
-<translation id="6006064078185310784">{COUNT,plural, =1{зворотна коса риска}one{# зворотна коса риска}few{# зворотні косі риски}many{# зворотних косих рисок}other{# backslashes}}</translation>
+<translation id="6006064078185310784">{COUNT,plural, =1{обернена скісна риска}one{# обернена скісна риска}few{# обернені скісні риски}many{# обернених скісних рисок}other{# backslashes}}</translation>
 <translation id="6017514345406065928">Зелений</translation>
 <translation id="602001110135236999">Прокрутити ліворуч</translation>
 <translation id="6034000775414344507">Світло-сірий</translation>

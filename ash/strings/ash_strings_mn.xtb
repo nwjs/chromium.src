@@ -18,6 +18,7 @@
 <translation id="1190609913194133056">Мэдэгдлийн төв</translation>
 <translation id="1195412055398077112">Дэлгэцийн дүрс таарахгүй байх</translation>
 <translation id="119944043368869598">Бүгдийг арилгах</translation>
+<translation id="1199716647557067911">Та Сэлгүүрийг унтраахдаа итгэлтэй байна уу?</translation>
 <translation id="1247372569136754018">Микрофон (дотоод)</translation>
 <translation id="1252999807265626933"><ph name="POWER_SOURCE" />-с цэнэглэж байна</translation>
 <translation id="1255033239764210633">Цаг агаар ямар байна вэ?</translation>
@@ -55,6 +56,7 @@
 <translation id="1570871743947603115">Bluetooth-г унтрааж/асаана уу. <ph name="STATE_TEXT" /></translation>
 <translation id="1589090746204042747">Энэ харилцан үйлдлийн бүх үйл ажиллагаандаа хандах</translation>
 <translation id="1608626060424371292">Энэ хэрэглэгчийг устга</translation>
+<translation id="1632985212731562677">Сэлгүүрийг Тохиргоо &gt; Хандалт хэсэгт идэвхгүй болгох боломжтой.</translation>
 <translation id="1654477262762802994">Дуут асуулга эхлүүлэх</translation>
 <translation id="1658406695958299976">Уучлаарай, таны нууц үгийг баталгаажуулах боломжгүй байна. Санамж: Хэрэв та нууц үгээ саяхан сольсон бол та гарсны дараагаас эхлэн шинэ нууц үгээ ашиглах болно. Хуучин нууц үгээ энд ашиглана уу.</translation>
 <translation id="1677472565718498478"><ph name="TIME" /> үлдсэн</translation>
@@ -104,6 +106,7 @@
 <translation id="2268813581635650749">Бүгдээс гарах</translation>
 <translation id="2277103315734023688">Урагшлуулах</translation>
 <translation id="2292698582925480719">Дэлгэцийн хэмжээс</translation>
+<translation id="2295777434187870477">Микрофон асаалттай байна. Унтраах нь оролтын дууг хаана.</translation>
 <translation id="2298170939937364391">Бүтэн дэлгэц томруулагчийг идэвхжүүлсэн. Үүнийг унтраахын тулд Ctrl+Хайх+M-г дахин дарна уу.</translation>
 <translation id="2302092602801625023">Энэ бүртгэлийг Family Link-р удирддаг</translation>
 <translation id="2303600792989757991">Цонхыг тоймлож харах</translation>
@@ -137,6 +140,7 @@
 <translation id="2658778018866295321">Товшоод чирэх</translation>
 <translation id="2700493154570097719">Гараа тохируулах</translation>
 <translation id="2704781753052663061">Бусад Wi-Fi сүлжээнд нэгдэх</translation>
+<translation id="2705001408393684014">Микрофоныг унтраах/асаах. <ph name="STATE_TEXT" /></translation>
 <translation id="2718395828230677721">Шөнийн гэрэл</translation>
 <translation id="2727977024730340865">Бага энергитэй цэнэглэгч залгасан байна. Тэжээлийг цэнэглэхгүй байж болох юм.</translation>
 <translation id="2792498699870441125">Alt+ Хайлт</translation>
@@ -179,6 +183,7 @@
 <translation id="3154351730702813399">Төхөөрөмжийн админ таны хайлтын үйл ажиллагааг хянаж байж магадгүй.</translation>
 <translation id="3181441307743005334">Дахин эхлүүлэхэд хэдэн хором шаардлагатай байж болзошгүй</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{Төхөөрөмжид холбогдсон}other{# төхөөрөмжид холбогдсон}}</translation>
+<translation id="3203405173652969239">Сэлгүүрийг идэвхжүүлсэн</translation>
 <translation id="3207953481422525583">Хэрэглэгчийн тохиргоо</translation>
 <translation id="3217205077783620295">Дууг нээсэн, унтраах нь аудионы дууг хаана.</translation>
 <translation id="3226991577105957773">Бусад +<ph name="COUNT" /></translation>
@@ -296,6 +301,7 @@
 <translation id="4665114317261903604">Бүү саад бол горимыг унтраах/асаах. <ph name="STATE_TEXT" /></translation>
 <translation id="4696813013609194136">Төхөөрөмжийн түгжээг эцэг эхийн кодоор тайлна уу</translation>
 <translation id="4702647871202761252">Нууцлалын дэлгэц унтраалттай байна</translation>
+<translation id="4705716602320768426">Cанал хүсэлт илгээх</translation>
 <translation id="4710243778082831592">IME тохиргоо</translation>
 <translation id="4731797938093519117">Эцэг эхийн хандалт</translation>
 <translation id="4734965478015604180">Хөндлөн</translation>
@@ -376,6 +382,7 @@
 <translation id="5901316534475909376">Shift+Esc</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" /> (<ph name="MAIL" />)</translation>
 <translation id="5916664084637901428">Асаах</translation>
+<translation id="5920710855273935292">Микрофоны дууг хаасан.</translation>
 <translation id="5947494881799873997">Буцаах</translation>
 <translation id="595202126637698455">Гүйцэтгэлийн ажиглалтыг идэвхжүүлсэн</translation>
 <translation id="5957083217255311415">Мобайл дата унтраалттай байна.</translation>
@@ -431,6 +438,7 @@
 <translation id="6537924328260219877">Дохионы хүч <ph name="SIGNAL_STRENGTH" />, утасны батарей <ph name="BATTERY_STATUS" /></translation>
 <translation id="6542521951477560771"><ph name="RECEIVER_NAME" />-д дамжуулж байна</translation>
 <translation id="6559976592393364813">Админаас асуух</translation>
+<translation id="6584550827717945790">Сэлгүүрийг унтраах</translation>
 <translation id="6585808820553845416"><ph name="SESSION_TIME_REMAINING" /> хугацааны дараа таны цаг дуусна.</translation>
 <translation id="661203523074512333"><ph name="SECURITY_STATUS" />, дохионы хүч <ph name="SIGNAL_STRENGTH" />, таны администратор удирддаг</translation>
 <translation id="6614169507485700968">Нууцлалын дэлгэц асаалттай байна</translation>

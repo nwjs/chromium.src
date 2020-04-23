@@ -18,6 +18,7 @@
 <translation id="1190609913194133056">Meddelandecenter</translation>
 <translation id="1195412055398077112">överskanning</translation>
 <translation id="119944043368869598">Ta bort alla</translation>
+<translation id="1199716647557067911">Vill du inaktivera brytarstyrning?</translation>
 <translation id="1247372569136754018">Mikrofon (inbyggd)</translation>
 <translation id="1252999807265626933">Laddar från <ph name="POWER_SOURCE" /></translation>
 <translation id="1255033239764210633">Vad är det för väder?</translation>
@@ -55,6 +56,7 @@
 <translation id="1570871743947603115">Aktivera och inaktivera Bluetooth. <ph name="STATE_TEXT" /></translation>
 <translation id="1589090746204042747">Få tillgång till all aktivitet i sessionen</translation>
 <translation id="1608626060424371292">Ta bort denna användare</translation>
+<translation id="1632985212731562677">Brytarstyrning kan inaktiveras under Inställningar &gt; Tillgänglighet</translation>
 <translation id="1654477262762802994">Säg en sökfråga</translation>
 <translation id="1658406695958299976">Det gick inte att verifiera lösenordet. Obs! Om du nyligen har bytt lösenord börjar det nya lösenordet att gälla först när du loggar ut. Använd det gamla lösenordet här.</translation>
 <translation id="1677472565718498478"><ph name="TIME" /> kvar</translation>
@@ -104,6 +106,7 @@
 <translation id="2268813581635650749">Logga ut alla</translation>
 <translation id="2277103315734023688">Sök framåt</translation>
 <translation id="2292698582925480719">Skala på skärmen</translation>
+<translation id="2295777434187870477">Mikrofonen är på. Om du ändrar läge stängs indata av.</translation>
 <translation id="2298170939937364391">Helskärmsförstoring har aktiverats. Tryck på Ctrl + Sök + M igen om du vill inaktivera funktionen.</translation>
 <translation id="2302092602801625023">Det här kontot hanteras av Family Link</translation>
 <translation id="2303600792989757991">Växla fönsteröversikt</translation>
@@ -137,6 +140,7 @@
 <translation id="2658778018866295321">Klicka och dra</translation>
 <translation id="2700493154570097719">Ställ in tangentbord</translation>
 <translation id="2704781753052663061">Anslut till andra Wi-Fi-nätverk</translation>
+<translation id="2705001408393684014">Aktivera eller inaktivera mikrofonen. <ph name="STATE_TEXT" /></translation>
 <translation id="2718395828230677721">Nattljus</translation>
 <translation id="2727977024730340865">Ansluten till en laddare med låg effekt. Batteriet kanske inte laddas ordentligt.</translation>
 <translation id="2792498699870441125">Alt + Sök</translation>
@@ -179,6 +183,7 @@
 <translation id="3154351730702813399">Enhetsadministratören kan övervaka din webbaktivitet.</translation>
 <translation id="3181441307743005334">Det kan ta en stund att starta om</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{Ansluten till en enhet}other{Ansluten till # enheter}}</translation>
+<translation id="3203405173652969239">Brytarstyrning har aktiverats</translation>
 <translation id="3207953481422525583">Användarinställningar</translation>
 <translation id="3217205077783620295">Ljudet är på. Om du ändrar läge stängs ljudet av.</translation>
 <translation id="3226991577105957773">och <ph name="COUNT" /> till</translation>
@@ -295,6 +300,7 @@
 <translation id="4665114317261903604">Aktivera och inaktivera Stör ej. <ph name="STATE_TEXT" /></translation>
 <translation id="4696813013609194136">Lås upp enheten med föräldrakod</translation>
 <translation id="4702647871202761252">Sekretesskärmen är inaktiverad</translation>
+<translation id="4705716602320768426">Skicka feedback</translation>
 <translation id="4710243778082831592">IME-inställningar</translation>
 <translation id="4731797938093519117">Föräldraåtkomst</translation>
 <translation id="4734965478015604180">Horisontell</translation>
@@ -375,6 +381,7 @@
 <translation id="5901316534475909376">Skift+Escape</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" /> (<ph name="MAIL" />)</translation>
 <translation id="5916664084637901428">På</translation>
+<translation id="5920710855273935292">Mikrofonen är av.</translation>
 <translation id="5947494881799873997">Återgå</translation>
 <translation id="595202126637698455">Resultatspårning aktiverat</translation>
 <translation id="5957083217255311415">Mobildata har inaktiverats.</translation>
@@ -430,6 +437,7 @@
 <translation id="6537924328260219877">Signalstyrka <ph name="SIGNAL_STRENGTH" />, telefonens batteri<ph name="BATTERY_STATUS" /></translation>
 <translation id="6542521951477560771">Castar till <ph name="RECEIVER_NAME" /></translation>
 <translation id="6559976592393364813">Fråga administratören</translation>
+<translation id="6584550827717945790">Inaktivera brytarstyrning</translation>
 <translation id="6585808820553845416">Sessionen upphör om <ph name="SESSION_TIME_REMAINING" />.</translation>
 <translation id="661203523074512333"><ph name="SECURITY_STATUS" />, signalstyrka <ph name="SIGNAL_STRENGTH" />, hanteras av administratören</translation>
 <translation id="6614169507485700968">Sekretesskärmen är aktiverad</translation>

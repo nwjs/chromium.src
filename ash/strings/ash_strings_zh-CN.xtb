@@ -18,6 +18,7 @@
 <translation id="1190609913194133056">通知中心</translation>
 <translation id="1195412055398077112">过扫描</translation>
 <translation id="119944043368869598">全部清除</translation>
+<translation id="1199716647557067911">确定要关闭“开关控制”吗？</translation>
 <translation id="1247372569136754018">麦克风（内部）</translation>
 <translation id="1252999807265626933">正在通过“<ph name="POWER_SOURCE" />”充电</translation>
 <translation id="1255033239764210633">天气怎么样？</translation>
@@ -55,6 +56,7 @@
 <translation id="1570871743947603115">切换蓝牙设置。<ph name="STATE_TEXT" /></translation>
 <translation id="1589090746204042747">访问您在此次会话中的所有活动</translation>
 <translation id="1608626060424371292">移除此用户</translation>
+<translation id="1632985212731562677">您可在“设置”&gt;“无障碍”中停用“开关控制”功能。</translation>
 <translation id="1654477262762802994">启动语音查询</translation>
 <translation id="1658406695958299976">抱歉，系统仍然无法验证您的密码。注意：如果您最近更改了密码，新密码将在您退出后生效。目前请在此处输入旧密码。</translation>
 <translation id="1677472565718498478">电量尚余 <ph name="TIME" /></translation>
@@ -104,6 +106,7 @@
 <translation id="2268813581635650749">全部退出</translation>
 <translation id="2277103315734023688">快进</translation>
 <translation id="2292698582925480719">显示比例</translation>
+<translation id="2295777434187870477">麦克风已开启，使用切换开关可将麦克风静音。</translation>
 <translation id="2298170939937364391">已启用全屏放大镜。再按一次 Ctrl+搜索键+M 组合键即可将其停用。</translation>
 <translation id="2302092602801625023">该帐号由 Family Link 管理</translation>
 <translation id="2303600792989757991">“切换窗口”概述</translation>
@@ -137,6 +140,7 @@
 <translation id="2658778018866295321">点击并拖动</translation>
 <translation id="2700493154570097719">设置键盘</translation>
 <translation id="2704781753052663061">连接到其他 Wi-Fi 网络</translation>
+<translation id="2705001408393684014">开启/关闭麦克风。<ph name="STATE_TEXT" /></translation>
 <translation id="2718395828230677721">夜间模式</translation>
 <translation id="2727977024730340865">已插入低功率充电器；可能无法保证充电成功。</translation>
 <translation id="2792498699870441125">Alt + 搜索键</translation>
@@ -179,6 +183,7 @@
 <translation id="3154351730702813399">此设备的管理员可能会监控您的浏览活动。</translation>
 <translation id="3181441307743005334">重启可能需要一点时间</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{已连接到 1 台设备}other{已连接到 # 台设备}}</translation>
+<translation id="3203405173652969239">已启用“开关控制”</translation>
 <translation id="3207953481422525583">用户设置</translation>
 <translation id="3217205077783620295">已开启声音，使用切换开关可将音频静音。</translation>
 <translation id="3226991577105957773">+另外 <ph name="COUNT" /> 条</translation>
@@ -295,6 +300,7 @@
 <translation id="4665114317261903604">开启/关闭“勿扰”模式。<ph name="STATE_TEXT" /></translation>
 <translation id="4696813013609194136">使用家长访问代码解锁设备</translation>
 <translation id="4702647871202761252">已关闭隐私保护屏</translation>
+<translation id="4705716602320768426">提交反馈</translation>
 <translation id="4710243778082831592">IME 设置</translation>
 <translation id="4731797938093519117">家长访问</translation>
 <translation id="4734965478015604180">横向</translation>
@@ -375,6 +381,7 @@
 <translation id="5901316534475909376">Shift+Esc</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" /> (<ph name="MAIL" />)</translation>
 <translation id="5916664084637901428">启用</translation>
+<translation id="5920710855273935292">麦克风已静音。</translation>
 <translation id="5947494881799873997">还原</translation>
 <translation id="595202126637698455">已启用性能跟踪</translation>
 <translation id="5957083217255311415">移动数据网络现处于关闭状态。</translation>
@@ -430,6 +437,7 @@
 <translation id="6537924328260219877">信号强度为 <ph name="SIGNAL_STRENGTH" />，剩余电量为 <ph name="BATTERY_STATUS" /></translation>
 <translation id="6542521951477560771">正在投射到<ph name="RECEIVER_NAME" /></translation>
 <translation id="6559976592393364813">询问您的管理员</translation>
+<translation id="6584550827717945790">关闭“开关控制”</translation>
 <translation id="6585808820553845416">会话将在<ph name="SESSION_TIME_REMAINING" />后结束。</translation>
 <translation id="661203523074512333"><ph name="SECURITY_STATUS" />，信号强度为 <ph name="SIGNAL_STRENGTH" />，由您的管理员管理</translation>
 <translation id="6614169507485700968">已开启隐私保护屏</translation>

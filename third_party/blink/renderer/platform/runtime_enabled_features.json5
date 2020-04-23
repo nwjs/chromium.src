@@ -780,6 +780,10 @@
       name:"ForceEagerMeasureMemory",
     },
     {
+      name: "ForceLoadAtTop",
+      origin_trial_feature_name: "ForceLoadAtTop",
+    },
+    {
       name: "ForceOverlayFullscreenVideo",
     },
     {
@@ -1522,6 +1526,7 @@
     },
     {
       name: "ScreenWakeLock",
+      origin_trial_feature_name: "WakeLock",
       status: "experimental",
     },
     // WebSpeech API with both speech recognition and synthesis functionality
@@ -1804,6 +1809,7 @@
     },
     {
       name: "WakeLock",
+      origin_trial_feature_name: "WakeLock",
       implied_by: ['ScreenWakeLock', 'SystemWakeLock'],
     },
     {

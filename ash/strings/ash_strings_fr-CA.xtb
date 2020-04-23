@@ -18,6 +18,7 @@
 <translation id="1190609913194133056">Centre de notification</translation>
 <translation id="1195412055398077112">surbalayage</translation>
 <translation id="119944043368869598">Tout effacer</translation>
+<translation id="1199716647557067911">Voulez-vous vraiment désactiver Switch Access?</translation>
 <translation id="1247372569136754018">Microphone (interne)</translation>
 <translation id="1252999807265626933">Recharge à partir de <ph name="POWER_SOURCE" /> en cours</translation>
 <translation id="1255033239764210633">Quel temps fait-il?</translation>
@@ -55,6 +56,7 @@
 <translation id="1570871743947603115">Activer/désactiver le Bluetooth. <ph name="STATE_TEXT" /></translation>
 <translation id="1589090746204042747">Accédez à toute l'activité de votre session</translation>
 <translation id="1608626060424371292">Supprimer cet utilisateur</translation>
+<translation id="1632985212731562677">Switch Access peut être désactivé sous Paramètres &gt; Accessibilité.</translation>
 <translation id="1654477262762802994">Démarrer une requête vocale</translation>
 <translation id="1658406695958299976">Désolés, nous ne pouvons toujours pas valider votre mot de passe. Remarque : si vous l'avez modifié dernièrement, votre nouveau mot de passe ne sera pas mis à jour qu'une fois que vous vous serez déconnecté. Veuillez donc utiliser votre ancien mot de passe.</translation>
 <translation id="1677472565718498478"><ph name="TIME" /> d'autonomie restante</translation>
@@ -104,6 +106,7 @@
 <translation id="2268813581635650749">Déconnecter tous les utilisateurs</translation>
 <translation id="2277103315734023688">Rechercher vers l'avant</translation>
 <translation id="2292698582925480719">Échelle d'affichage</translation>
+<translation id="2295777434187870477">Le microphone est activé. Si vous le désactivez, l'entrée sonore sera aussi désactivée.</translation>
 <translation id="2298170939937364391">La loupe en mode plein écran a été activée. Appuyez à nouveau sur Ctrl+Recherche+M pour la désactiver.</translation>
 <translation id="2302092602801625023">Ce compte est géré par Family Link</translation>
 <translation id="2303600792989757991">Activer ou désactiver la vue d'ensemble des fenêtres</translation>
@@ -137,6 +140,7 @@
 <translation id="2658778018866295321">Cliquez et faites glisser</translation>
 <translation id="2700493154570097719">Définir votre clavier</translation>
 <translation id="2704781753052663061">Se connecter à d'autres réseaux Wi-Fi</translation>
+<translation id="2705001408393684014">Activer/Désactiver le microphone. <ph name="STATE_TEXT" /></translation>
 <translation id="2718395828230677721">Éclairage nocturne</translation>
 <translation id="2727977024730340865">L'appareil est branché à un chargeur de faible puissance. Il se peut que la recharge de la batterie ne soit pas fiable.</translation>
 <translation id="2792498699870441125">Alt + Recherche</translation>
@@ -179,6 +183,7 @@
 <translation id="3154351730702813399">L'administrateur de l'appareil peut surveiller votre activité de navigation.</translation>
 <translation id="3181441307743005334">Le redémarrage peut prendre un certain temps</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{Connecté à un appareil}one{Connecté à # appareil}other{Connecté à # appareils}}</translation>
+<translation id="3203405173652969239">Switch Access est activé</translation>
 <translation id="3207953481422525583">Paramètres de l'utilisateur</translation>
 <translation id="3217205077783620295">Le son est activé et peut être coupé en cliquant sur le bouton de volume.</translation>
 <translation id="3226991577105957773">et <ph name="COUNT" /> autres</translation>
@@ -295,6 +300,7 @@
 <translation id="4665114317261903604">Basculer le mode Ne pas déranger. <ph name="STATE_TEXT" /></translation>
 <translation id="4696813013609194136">Déverrouiller l'appareil avec le code parental</translation>
 <translation id="4702647871202761252">L'écran de confidentialité est désactivé</translation>
+<translation id="4705716602320768426">Classer le commentaire</translation>
 <translation id="4710243778082831592">Paramètres d'éditeur de mode d'entrée (IME)</translation>
 <translation id="4731797938093519117">Accès parental</translation>
 <translation id="4734965478015604180">Horizontal</translation>
@@ -375,6 +381,7 @@
 <translation id="5901316534475909376">Maj+Échap</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" /> (<ph name="MAIL" />)</translation>
 <translation id="5916664084637901428">Activé</translation>
+<translation id="5920710855273935292">Le microphone est désactivé.</translation>
 <translation id="5947494881799873997">Rétablir</translation>
 <translation id="595202126637698455">Suivi des performances activé</translation>
 <translation id="5957083217255311415">Les données mobiles sont désactivées.</translation>
@@ -430,6 +437,7 @@
 <translation id="6537924328260219877">Force du signal : <ph name="SIGNAL_STRENGTH" />, pile du téléphone : <ph name="BATTERY_STATUS" /></translation>
 <translation id="6542521951477560771">Diffusion sur <ph name="RECEIVER_NAME" /> en cours…</translation>
 <translation id="6559976592393364813">Adressez-vous à l'administrateur</translation>
+<translation id="6584550827717945790">Désactiver Switch Access</translation>
 <translation id="6585808820553845416">Fin de la session dans <ph name="SESSION_TIME_REMAINING" />.</translation>
 <translation id="661203523074512333"><ph name="SECURITY_STATUS" />, force du signal : <ph name="SIGNAL_STRENGTH" /> géré par votre administrateur</translation>
 <translation id="6614169507485700968">L'écran de confidentialité est activé</translation>

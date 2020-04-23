@@ -69,7 +69,6 @@
 <translation id="146450394670219700">Objet graphique</translation>
 <translation id="1480046233931937785">Crédits</translation>
 <translation id="1487494366197411587">Sur le Chromebook, la touche Recherche se situe immédiatement au-dessus de la touche Ctrl de gauche.</translation>
-<translation id="1498498210836053409">Désactiver le mode rémanent lors de la modification du texte (mode rémanent intelligent)</translation>
 <translation id="1499041187027566160">augmenter le volume</translation>
 <translation id="1502086903961450562">Graphique précédent</translation>
 <translation id="1506187449813838456">Augmenter la hauteur de la voix</translation>
@@ -823,7 +822,7 @@
 <translation id="7701196182766842984">liste remplissage automatique</translation>
 <translation id="7714340021005120797">Aucune zone de liste ou de texte suivante</translation>
 <translation id="772146615414628379">Félicitations! Vous avez appris les bases nécessaires pour utiliser ChromeVox. Rappelez-vous : vous pouvez ouvrir le menu de commande de ChromeVox en tout temps en appuyant sur les touches Rechercher+Point. Pour en apprendre encore plus sur ChromeVox et sur Chrome OS, consultez les articles suivants.
-    Si vous avez terminé le tutoriel, servez-vous de ChromeVox pour naviguer jusqu'au bouton Fermer et cliquez dessus.</translation>
+    Si vous avez terminé le didacticiel, servez-vous de ChromeVox pour naviguer jusqu'au bouton Fermer et cliquez dessus.</translation>
 <translation id="7724603315864178912">Couper</translation>
 <translation id="7731785449856576010">Aucun widget multimédia suivant</translation>
 <translation id="773906353055481349">Appuyez simultanément sur Recherche+Ctrl+Alt et sur les flèches pour naviguer entre les cellules</translation>

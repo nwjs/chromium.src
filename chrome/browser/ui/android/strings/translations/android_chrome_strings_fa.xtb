@@ -459,7 +459,7 @@
 <translation id="4404568932422911380">هیچ نشانکی موجود نیست</translation>
 <translation id="4405224443901389797">انتقال به…</translation>
 <translation id="4411535500181276704">حالت ساده</translation>
-<translation id="4415276339145661267">‏مدیریت حساب Google</translation>
+<translation id="4415276339145661267">‏مدیریت «حساب Google»</translation>
 <translation id="4432792777822557199">از این به بعد، صفحه‌های <ph name="SOURCE_LANGUAGE" />، به <ph name="TARGET_LANGUAGE" /> ترجمه خواهند شد</translation>
 <translation id="4433925000917964731">‏صفحه ساده‌شده را Google ارائه کرده است</translation>
 <translation id="4434045419905280838">پنجره‌های بازشو و هدایت‌ها</translation>
@@ -655,6 +655,7 @@
 <translation id="5763514718066511291">برای کپی کردن نشانی وب این برنامه ضربه بزنید</translation>
 <translation id="5765780083710877561">توضیح:</translation>
 <translation id="5793665092639000975">درحال استفاده از <ph name="SPACE_USED" /> از <ph name="SPACE_AVAILABLE" /></translation>
+<translation id="5795872532621730126">جستجو و مرور</translation>
 <translation id="5797070761912323120">‏Google ممکن است از سابقه مرور شما برای شخصی کردن جستجو، آگهی‌ها و سایر سرویس‌های Google استفاده کند</translation>
 <translation id="5804241973901381774">مجوزها</translation>
 <translation id="5809361687334836369">{HOURS,plural, =1{۱ ساعت قبل}one{# ساعت قبل}other{# ساعت قبل}}</translation>

@@ -56,6 +56,7 @@
 <translation id="1570871743947603115">Bluetooth qurilmasini yoqish/o‘chirish <ph name="STATE_TEXT" /></translation>
 <translation id="1589090746204042747">Bu seansdagi barcha harakatlaringizga ruxsat</translation>
 <translation id="1608626060424371292">Profilni o‘chirish</translation>
+<translation id="1632985212731562677">Switch Access funksiyasini Sozlamalar &gt; Maxsus imkoniyatlar orqali faolsizlantirish mumkin.</translation>
 <translation id="1654477262762802994">Ovozli qidiruvni boshlash</translation>
 <translation id="1658406695958299976">Parol noto‘g‘ri kiritildi. Unutmangki: bu parol yaqinda o‘zgartirilgan, lekin tizimdan chiqilmagan, yangi parol qo‘llanishi uchun eski parolingizni kiriting.</translation>
 <translation id="1677472565718498478"><ph name="TIME" /> qoldi</translation>
@@ -105,6 +106,7 @@
 <translation id="2268813581635650749">Hammani tizimdan chiqarish</translation>
 <translation id="2277103315734023688">Oldinga o‘tkazish</translation>
 <translation id="2292698582925480719">Ekran ko‘lami</translation>
+<translation id="2295777434187870477">Mikrofon yoniq, uni oʻchirish uchun ustiga bosing.</translation>
 <translation id="2298170939937364391">Butun ekran rejimidagi lupa yoniq. Uni olib tashlash uchun Ctrl+Qidiruv+M tugmalarini bosing.</translation>
 <translation id="2302092602801625023">Ushbu hisob Family Link orqali boshqariladi</translation>
 <translation id="2303600792989757991">Ko‘rish rejimiga almashtirish</translation>
@@ -138,6 +140,7 @@
 <translation id="2658778018866295321">Bosib torting</translation>
 <translation id="2700493154570097719">Klaviaturani tanlash</translation>
 <translation id="2704781753052663061">Boshqa Wi-Fi tarmoqlarga ulanish</translation>
+<translation id="2705001408393684014">Mikrofon: <ph name="STATE_TEXT" /></translation>
 <translation id="2718395828230677721">Tungi rejim</translation>
 <translation id="2727977024730340865">Kam quvvatli zaryadlash vositasi ulanildi. Quvvatlantirishda muammolar bo‘lishi mumkin.</translation>
 <translation id="2792498699870441125">Alt + Search</translation>
@@ -180,6 +183,7 @@
 <translation id="3154351730702813399">Qurilma administratori brauzeringiz tarixini kuzatishi mumkin.</translation>
 <translation id="3181441307743005334">Oʻchib yonishi biroz vaqt olishi mumkin</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{Qurilmaga ulandi}other{# ta qurilmaga ulandi}}</translation>
+<translation id="3203405173652969239">Switch Access yoqildi</translation>
 <translation id="3207953481422525583">Foydalanuvchi sozlamalari</translation>
 <translation id="3217205077783620295">Ovoz yoniq. Ovozsiz qilish uchun shu belgini bosing.</translation>
 <translation id="3226991577105957773">yana <ph name="COUNT" /> ta</translation>
@@ -296,6 +300,7 @@
 <translation id="4665114317261903604">“Bezovta qilinmasin” tugmasi. <ph name="STATE_TEXT" /></translation>
 <translation id="4696813013609194136">Ota-ona kodi bilan qurilmani qulfdan chiqarish</translation>
 <translation id="4702647871202761252">Maxfiylik ekrani yoniq emas</translation>
+<translation id="4705716602320768426">Fikr-mulohaza yuborish</translation>
 <translation id="4710243778082831592">IME sozlamalari</translation>
 <translation id="4731797938093519117">Ota-ona kirishi</translation>
 <translation id="4734965478015604180">Gorizontal</translation>
@@ -376,6 +381,7 @@
 <translation id="5901316534475909376">Shift + Esc</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" /> (<ph name="MAIL" />)</translation>
 <translation id="5916664084637901428">Yoniq</translation>
+<translation id="5920710855273935292">Ovozsiz.</translation>
 <translation id="5947494881799873997">Bekor qilish</translation>
 <translation id="595202126637698455">Unumdorlik kuzatuvi yoniq</translation>
 <translation id="5957083217255311415">Mobil internet yoqilmagan.</translation>

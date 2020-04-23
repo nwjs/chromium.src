@@ -2536,6 +2536,9 @@ enum WebFeature {
   kCrossOriginOpenerPolicySameOriginAllowPopups = 3198,
   kCrossOriginEmbedderPolicyRequireCorp = 3199,
   kCoopAndCoepIsolated = 3200,
+  kWrongBaselineOfButtonElement = 3201,
+  kV8Document_HasTrustToken_Method = 3202,
+  kForceLoadAtTop = 3203,
 
   // Add new features immediately above this line. Don't change assigned
   // numbers of any item, and don't reuse removed slots.

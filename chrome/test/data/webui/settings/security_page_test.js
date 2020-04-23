@@ -5,6 +5,7 @@
 // clang-format off
 // #import {SafeBrowsingBrowserProxyImpl} from 'chrome://settings/lazy_load.js';
 // #import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+// #import {flushTasks} from 'chrome://test/test_util.m.js';
 // #import {PrivacyPageBrowserProxyImpl, SyncBrowserProxyImpl, MetricsBrowserProxyImpl, PrivacyElementInteractions} from 'chrome://settings/settings.js';
 // #import {TestMetricsBrowserProxy} from 'chrome://test/settings/test_metrics_browser_proxy.m.js';
 // #import {TestSyncBrowserProxy} from 'chrome://test/settings/test_sync_browser_proxy.m.js';
@@ -106,6 +107,81 @@ suite('CrSettingsSecurityPageTest', function() {
     assertTrue(safeBrowsingReportingToggle.checked);
   });
 
+  test('DisableSafebrowsingDialog_Confirm', async function() {
+    page.$$('#safeBrowsingStandard').click();
+    Polymer.dom.flush();
+
+    page.$$('#safeBrowsingDisabled').click();
+    Polymer.dom.flush();
+
+    page.$$('settings-disable-safebrowsing-dialog')
+        .$$('.action-button')
+        .click();
+    Polymer.dom.flush();
+
+    // Wait for onDisableSafebrowsingDialogClose_ to finish.
+    await test_util.flushTasks();
+
+    assertEquals(null, page.$$('settings-disable-safebrowsing-dialog'));
+
+    assertFalse(page.$$('#safeBrowsingEnhanced').checked);
+    assertFalse(page.$$('#safeBrowsingStandard').checked);
+    assertTrue(page.$$('#safeBrowsingDisabled').checked);
+
+    assertFalse(page.prefs.safebrowsing.enabled.value);
+    assertFalse(page.prefs.safebrowsing.enhanced.value);
+  });
+
+  test('DisableSafebrowsingDialog_CancelFromEnhanced', async function() {
+    page.$$('#safeBrowsingEnhanced').click();
+    Polymer.dom.flush();
+
+    page.$$('#safeBrowsingDisabled').click();
+    Polymer.dom.flush();
+
+    page.$$('settings-disable-safebrowsing-dialog')
+        .$$('.cancel-button')
+        .click();
+    Polymer.dom.flush();
+
+    // Wait for onDisableSafebrowsingDialogClose_ to finish.
+    await test_util.flushTasks();
+
+    assertEquals(null, page.$$('settings-disable-safebrowsing-dialog'));
+
+    assertTrue(page.$$('#safeBrowsingEnhanced').checked);
+    assertFalse(page.$$('#safeBrowsingStandard').checked);
+    assertFalse(page.$$('#safeBrowsingDisabled').checked);
+
+    assertTrue(page.prefs.safebrowsing.enabled.value);
+    assertTrue(page.prefs.safebrowsing.enhanced.value);
+  });
+
+  test('DisableSafebrowsingDialog_CancelFromStandard', async function() {
+    page.$$('#safeBrowsingStandard').click();
+    Polymer.dom.flush();
+
+    page.$$('#safeBrowsingDisabled').click();
+    Polymer.dom.flush();
+
+    page.$$('settings-disable-safebrowsing-dialog')
+        .$$('.cancel-button')
+        .click();
+    Polymer.dom.flush();
+
+    // Wait for onDisableSafebrowsingDialogClose_ to finish.
+    await test_util.flushTasks();
+
+    assertEquals(null, page.$$('settings-disable-safebrowsing-dialog'));
+
+    assertFalse(page.$$('#safeBrowsingEnhanced').checked);
+    assertTrue(page.$$('#safeBrowsingStandard').checked);
+    assertFalse(page.$$('#safeBrowsingDisabled').checked);
+
+    assertTrue(page.prefs.safebrowsing.enabled.value);
+    assertFalse(page.prefs.safebrowsing.enhanced.value);
+  });
+
   test('noControlSafeBrowsingReportingInEnhanced', function() {
     page.$$('#safeBrowsingStandard').click();
     Polymer.dom.flush();
@@ -174,6 +250,37 @@ suite('CrSettingsSecurityPageTest', function() {
 
     assertTrue(
         page.prefs.profile.password_manager_leak_detection.value == previous);
+  });
+
+  test('SafeBrowsingRadio_PreferenceUpdate', function() {
+    const enhancedRadio = page.$$('#safeBrowsingEnhanced');
+    const standardRadio = page.$$('#safeBrowsingStandard');
+    const disabledRadio = page.$$('#safeBrowsingDisabled');
+
+    // Set an enhanced protection preference state and ensure the radio buttons
+    // correctly reflect this.
+    page.set('prefs.safebrowsing.enabled.value', true);
+    page.set('prefs.safebrowsing.enhanced.value', true);
+    Polymer.dom.flush();
+    assertTrue(enhancedRadio.checked);
+    assertFalse(standardRadio.checked);
+    assertFalse(disabledRadio.checked);
+
+    // As above but for an enabled protection state.
+    page.set('prefs.safebrowsing.enabled.value', true);
+    page.set('prefs.safebrowsing.enhanced.value', false);
+    Polymer.dom.flush();
+    assertFalse(enhancedRadio.checked);
+    assertTrue(standardRadio.checked);
+    assertFalse(disabledRadio.checked);
+
+    // As above but for a safebrowsing disabled state.
+    page.set('prefs.safebrowsing.enabled.value', false);
+    page.set('prefs.safebrowsing.enhanced.value', false);
+    Polymer.dom.flush();
+    assertFalse(enhancedRadio.checked);
+    assertFalse(standardRadio.checked);
+    assertTrue(disabledRadio.checked);
   });
 
   test('SafeBrowsingRadio_ManagedState', async function() {

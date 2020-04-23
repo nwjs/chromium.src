@@ -18,6 +18,7 @@
 <translation id="1190609913194133056">مرکز اعلان</translation>
 <translation id="1195412055398077112">بزرگ‌تر از صفحه</translation>
 <translation id="119944043368869598">پاک کردن همه</translation>
+<translation id="1199716647557067911">مطمئنید می‌خواهید «دسترسی کلیدی» را خاموش کنید؟</translation>
 <translation id="1247372569136754018">میکروفون (داخلی)</translation>
 <translation id="1252999807265626933">در حال شارژ شدن از <ph name="POWER_SOURCE" /></translation>
 <translation id="1255033239764210633">‏?‎What's the weather (آب‌وهوا چطور است؟)</translation>
@@ -55,6 +56,7 @@
 <translation id="1570871743947603115">روشن/خاموش کردن بلوتوث. <ph name="STATE_TEXT" /></translation>
 <translation id="1589090746204042747">به همه فعالیت‌هایتان در این جلسه دسترسی پیدا کنید</translation>
 <translation id="1608626060424371292">حذف این کاربر</translation>
+<translation id="1632985212731562677">می‌توانید «دسترسی کلیدی» را در «تنظیمات &gt; دسترس‌پذیری» غیرفعال کنید.</translation>
 <translation id="1654477262762802994">شروع پُرسمان صوتی</translation>
 <translation id="1658406695958299976">متأسفیم، گذرواژه‌تان هنوز تأیید نشده است. توجه: اگر به‌تازگی گذرواژه‌تان را تغییر داده‌اید، گذرواژه جدید شما هنگامی‌که از سیستم خارج شوید، اعمال می‌شود؛ لطفاً اینجا از گذرواژه قدیمی خود استفاده کنید.</translation>
 <translation id="1677472565718498478"><ph name="TIME" /> باقی‌مانده</translation>
@@ -104,6 +106,7 @@
 <translation id="2268813581635650749">خروج همه از سیستم</translation>
 <translation id="2277103315734023688">رفتن به جلو</translation>
 <translation id="2292698582925480719">مقیاس نمایش</translation>
+<translation id="2295777434187870477">میکروفون روشن است، با تغییر وضعیت صامت می‌شود.</translation>
 <translation id="2298170939937364391">‏«ذره‌بین تمام‌صفحه» فعال شد. برای خاموش کردن آن، Ctrl+Search+M را دوباره فشار دهید.</translation>
 <translation id="2302092602801625023">‏این حساب با Family Link مدیریت می‌شود</translation>
 <translation id="2303600792989757991">مروری کلی بر پنجره تغییر حالت</translation>
@@ -137,6 +140,7 @@
 <translation id="2658778018866295321">کلیک کنید و بکشید</translation>
 <translation id="2700493154570097719">تنظیم صفحه‌کلید</translation>
 <translation id="2704781753052663061">‏افزودن دیگر شبکه‌های Wi-Fi</translation>
+<translation id="2705001408393684014">روشن/خاموش کردن میکروفون. <ph name="STATE_TEXT" /></translation>
 <translation id="2718395828230677721">نور شب</translation>
 <translation id="2727977024730340865">باتری به شارژر برق ضعیف متصل است. شارژ باتری ممکن است قابل اطمینان نباشد.</translation>
 <translation id="2792498699870441125">‏Alt+جستجو</translation>
@@ -179,6 +183,7 @@
 <translation id="3154351730702813399">سرپرست دستگاه ممکن است فعالیت مرور شما را پایش کند</translation>
 <translation id="3181441307743005334">بازراه‌اندازی ممکن است مدتی طول بکشد</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{متصل به یک دستگاه.}one{متصل به # دستگاه}other{متصل به # دستگاه}}</translation>
+<translation id="3203405173652969239">«دسترسی کلیدی» فعال شده است</translation>
 <translation id="3207953481422525583">«تنظیمات کاربر»</translation>
 <translation id="3217205077783620295">دکمه میزان صدا فعال است، با تغییر وضعیت صامت می‌شود.</translation>
 <translation id="3226991577105957773">+<ph name="COUNT" /> مورد دیگر</translation>
@@ -295,6 +300,7 @@
 <translation id="4665114317261903604">روشن/خاموش کردن «مزاحم نشوید». <ph name="STATE_TEXT" /></translation>
 <translation id="4696813013609194136">باز کردن قفل دستگاه با کد والدین</translation>
 <translation id="4702647871202761252">صفحه حریم‌خصوصی خاموش است</translation>
+<translation id="4705716602320768426">ثبت بازخورد</translation>
 <translation id="4710243778082831592">‏تنظیمات IME</translation>
 <translation id="4731797938093519117">دسترسی والدین</translation>
 <translation id="4734965478015604180">افقی</translation>
@@ -375,6 +381,7 @@
 <translation id="5901316534475909376">Shift+Esc</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" /> (<ph name="MAIL" />)</translation>
 <translation id="5916664084637901428">روشن</translation>
+<translation id="5920710855273935292">میکروفون صامت است.</translation>
 <translation id="5947494881799873997">برگرداندن</translation>
 <translation id="595202126637698455">ردیابی عملکرد فعال شد</translation>
 <translation id="5957083217255311415">داده تلفن همراه خاموش است.</translation>
@@ -430,6 +437,7 @@
 <translation id="6537924328260219877">قدرت سیگنال <ph name="SIGNAL_STRENGTH" />، باتری تلفن <ph name="BATTERY_STATUS" /></translation>
 <translation id="6542521951477560771">ارسال محتوا به <ph name="RECEIVER_NAME" /></translation>
 <translation id="6559976592393364813">سؤال از سرپرست</translation>
+<translation id="6584550827717945790">خاموش کردن «دسترسی کلیدی»</translation>
 <translation id="6585808820553845416">جلسه در <ph name="SESSION_TIME_REMAINING" /> به پایان می‌رسد.</translation>
 <translation id="661203523074512333"><ph name="SECURITY_STATUS" />، قدرت سیگنال <ph name="SIGNAL_STRENGTH" />، تحت‌مدیریت سرپرست</translation>
 <translation id="6614169507485700968">صفحه حریم‌خصوصی روشن است</translation>

@@ -31,6 +31,8 @@
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/supervised_user/supervised_user_service.h"
+#include "chrome/browser/supervised_user/supervised_user_service_factory.h"
 #include "chrome/browser/ui/webui/chromeos/assistant_optin/assistant_optin_utils.h"
 #include "chrome/browser/ui/webui/chromeos/bluetooth_dialog_localized_strings_provider.h"
 #include "chrome/browser/ui/webui/chromeos/network_element_localized_strings_provider.h"
@@ -857,7 +859,8 @@ void AddAppManagementStrings(content::WebUIDataSource* html_source) {
   AddLocalizedStringsBulk(html_source, kLocalizedStrings);
 }
 
-void AddParentalControlStrings(content::WebUIDataSource* html_source) {
+void AddParentalControlStrings(content::WebUIDataSource* html_source,
+                               Profile* profile) {
   static constexpr webui::LocalizedString kLocalizedStrings[] = {
       {"parentalControlsPageTitle", IDS_SETTINGS_PARENTAL_CONTROLS_PAGE_TITLE},
       {"parentalControlsPageSetUpLabel",
@@ -875,6 +878,27 @@ void AddParentalControlStrings(content::WebUIDataSource* html_source) {
 
   html_source->AddBoolean(
       "isChild", user_manager::UserManager::Get()->IsLoggedInAsChildUser());
+
+  if (user_manager::UserManager::Get()->IsLoggedInAsChildUser()) {
+    SupervisedUserService* supervised_user_service =
+        SupervisedUserServiceFactory::GetForProfile(profile);
+    std::string custodian = supervised_user_service->GetCustodianName();
+    std::string second_custodian =
+        supervised_user_service->GetSecondCustodianName();
+
+    base::string16 child_managed_tooltip;
+    if (second_custodian.empty()) {
+      child_managed_tooltip = l10n_util::GetStringFUTF16(
+          IDS_SETTINGS_ACCOUNT_MANAGER_CHILD_MANAGED_BY_ONE_PARENT_TOOLTIP,
+          base::UTF8ToUTF16(custodian));
+    } else {
+      child_managed_tooltip = l10n_util::GetStringFUTF16(
+          IDS_SETTINGS_ACCOUNT_MANAGER_CHILD_MANAGED_BY_TWO_PARENTS_TOOLTIP,
+          base::UTF8ToUTF16(custodian), base::UTF8ToUTF16(second_custodian));
+    }
+    html_source->AddString("accountManagerPrimaryAccountChildManagedTooltip",
+                           child_managed_tooltip);
+  }
 }
 
 void AddBluetoothStrings(content::WebUIDataSource* html_source) {
@@ -1207,6 +1231,14 @@ void AddDevicePowerStrings(content::WebUIDataSource* html_source) {
        IDS_SETTINGS_POWER_SOURCE_LOW_POWER_CHARGER},
       {"calculatingPower", IDS_SETTINGS_POWER_SOURCE_CALCULATING},
       {"powerIdleLabel", IDS_SETTINGS_POWER_IDLE_LABEL},
+      {"powerIdleWhileChargingLabel",
+       IDS_SETTINGS_POWER_IDLE_WHILE_CHARGING_LABEL},
+      {"powerIdleWhileChargingAriaLabel",
+       IDS_SETTINGS_POWER_IDLE_WHILE_CHARGING_ARIA_LABEL},
+      {"powerIdleWhileOnBatteryLabel",
+       IDS_SETTINGS_POWER_IDLE_WHILE_ON_BATTERY_LABEL},
+      {"powerIdleWhileOnBatteryAriaLabel",
+       IDS_SETTINGS_POWER_IDLE_WHILE_ON_BATTERY_ARIA_LABEL},
       {"powerIdleDisplayOffSleep", IDS_SETTINGS_POWER_IDLE_DISPLAY_OFF_SLEEP},
       {"powerIdleDisplayOff", IDS_SETTINGS_POWER_IDLE_DISPLAY_OFF},
       {"powerIdleDisplayOn", IDS_SETTINGS_POWER_IDLE_DISPLAY_ON},
@@ -2047,7 +2079,7 @@ void OsSettingsLocalizedStringsProvider::AddOsLocalizedStrings(
   AddGoogleAssistantStrings(html_source, profile);
   AddLanguagesStrings(html_source);
   AddMultideviceStrings(html_source);
-  AddParentalControlStrings(html_source);
+  AddParentalControlStrings(html_source, profile);
   AddPageVisibilityStrings(html_source);
   AddPeoplePageStrings(html_source, profile);
   AddPersonalizationStrings(html_source);

@@ -52,7 +52,6 @@
 <translation id="2309047409763057870">Ова е второстепена инсталација на Google Chrome и затоа не може да биде стандарден прелистувач.</translation>
 <translation id="2341767445688917208">Chrome OS не можеше да ги синхронизира вашите лозинки. Поправете сега.</translation>
 <translation id="2348335408836342058">На Chrome му треба дозвола за да пристапи до камерата и микрофонот за сајтов</translation>
-<translation id="234869673307233423">Chrome не може да ги провери вашите лозинки. Обидете се пак подоцна.</translation>
 <translation id="2429317896000329049">Google Chrome не може да ги синхронизира вашите податоци затоа што Sync не е достапен за вашиот домен.</translation>
 <translation id="2467438592969358367">Google Chrome сака да ги извезе вашите лозинки. Внесете ја лозинката за Windows за да го дозволите ова.</translation>
 <translation id="2485422356828889247">Деинсталирај</translation>
@@ -67,7 +66,6 @@
 <translation id="2689103672227170538">Екстензијата ја смени страницата што се прикажува кога го стартувате Chrome.</translation>
 <translation id="2765403129283291972">На Chrome му треба дозвола за да пристапи до микрофонот за сајтов</translation>
 <translation id="2770231113462710648">Променете го стандардниот прелистувач во:</translation>
-<translation id="2775140325783767197">Chrome не може да ги провери вашите лозинки. Проверете ја интернет-врската.</translation>
 <translation id="2799223571221894425">Рестартирај</translation>
 <translation id="2847461019998147611">Прикажи го Google Chrome на овој јазик</translation>
 <translation id="2857540653560290388">Се стартува Chrome…</translation>
@@ -76,6 +74,7 @@
 <translation id="2929907241665500097">Chrome не се ажурираше, нешто тргна наопаку. <ph name="BEGIN_LINK" />Поправете ги проблемите со ажурирањето на Chrome и со неуспешните ажурирања.<ph name="END_LINK" /></translation>
 <translation id="2969728957078202736"><ph name="PAGE_TITLE" /> - Мрежно најавување - Chrome</translation>
 <translation id="3037838751736561277">Google Chrome е во заднински режим.</translation>
+<translation id="3059710691562604940">„Безбедното прелистување“ е исклучено. Chrome препорачува да го вклучите.</translation>
 <translation id="3065168410429928842">Картичка на Chrome</translation>
 <translation id="3080151273017101988">Продолжи со извршување апликации во заднина кога е затворен Google Chrome</translation>
 <translation id="3089968997497233615">Достапна е нова, побезбедна верзија на Google Chrome.</translation>
@@ -125,7 +124,6 @@
 <translation id="4600710005438004015">Chrome не може да се ажурира на најновата верзија и поради тоа ги пропуштате новите функции и безбедносни поправки.</translation>
 <translation id="4631713731678262610">Сокриј во мени на Chrome</translation>
 <translation id="4633000520311261472">За Chrome да биде побезбеден, оневозможивме неколку наставки што не се наведени во <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> и можеби се додадени без ваше знаење.</translation>
-<translation id="4653397506175047429">Chrome не може да ги провери сите ваши лозинки. Обидете се пак по 24 часа.</translation>
 <translation id="4728575227883772061">Инсталацијата не успеа поради неодредена грешка. Доколку Google Chrome е активен во моментов, затворете го и обидете се повторно.</translation>
 <translation id="4750550185319565338">Рестартирајте го Chrome за да го овозможите <ph name="PLUGIN_NAME" /></translation>
 <translation id="4754614261631455953">Google Chrome Канари (mDNS-In)</translation>
@@ -250,7 +248,6 @@ Google Chrome не може да ги обнови вашите поставки
 <translation id="8862326446509486874">Немате соодветни права за инсталирање на системско ниво. Обидете се да го извршите инсталаторот повторно како администратор.</translation>
 <translation id="8914504000324227558">Рестартирајте го Chrome</translation>
 <translation id="8999208279178790196">{0,plural, =0{Достапно е ажурирање за Chrome}=1{Достапно е ажурирање за Chrome}one{Достапно е ажурирање за Chrome веќе # ден}other{Достапно е ажурирање за Chrome веќе # дена}}</translation>
-<translation id="9025321516765676895">Chrome не може да ги провери вашите лозинки бидејќи ги има премногу</translation>
 <translation id="9026991721384951619">Chrome OS не може да ги синхронизира вашите податоци бидејќи вашите информации за пријавување на сметката се застарени.</translation>
 <translation id="9067395829937117663">Google Chrome бара Windows 7 или понова верзија.</translation>
 <translation id="911206726377975832">Да се избришат ли и вашите податоци од пребарувањата?</translation>

@@ -18,6 +18,7 @@
 <translation id="1190609913194133056">Trung tâm thông báo</translation>
 <translation id="1195412055398077112">quét quá mức</translation>
 <translation id="119944043368869598">Xóa tất cả</translation>
+<translation id="1199716647557067911">Bạn có chắc chắn muốn tắt tính năng Tiếp cận bằng công tắc không?</translation>
 <translation id="1247372569136754018">Micrô (bên trong)</translation>
 <translation id="1252999807265626933">Đang sạc từ <ph name="POWER_SOURCE" /></translation>
 <translation id="1255033239764210633">Tình hình thời tiết thế nào?</translation>
@@ -55,6 +56,7 @@
 <translation id="1570871743947603115">Bật/tắt Bluetooth. <ph name="STATE_TEXT" /></translation>
 <translation id="1589090746204042747">Truy cập vào tất cả hoạt động của bạn trong phiên này</translation>
 <translation id="1608626060424371292">Xóa người dùng này</translation>
+<translation id="1632985212731562677">Bạn có thể tắt tính năng Tiếp cận bằng công tắc trong phần Cài đặt &gt; Hỗ trợ tiếp cận.</translation>
 <translation id="1654477262762802994">Bắt đầu đặt câu hỏi bằng giọng nói</translation>
 <translation id="1658406695958299976">Rất tiếc, chúng tôi vẫn không thể xác minh được mật khẩu của bạn. Lưu ý: nếu gần đây bạn đã đổi mật khẩu thì mật khẩu mới của bạn sẽ được áp dụng sau khi bạn đăng xuất. Vui lòng sử dụng mật khẩu cũ của bạn tại đây.</translation>
 <translation id="1677472565718498478">Còn <ph name="TIME" /></translation>
@@ -104,6 +106,7 @@
 <translation id="2268813581635650749">Đăng xuất tất cả</translation>
 <translation id="2277103315734023688">Tua tiến</translation>
 <translation id="2292698582925480719">Tỷ lệ hiển thị</translation>
+<translation id="2295777434187870477">Micrô đang bật. Nhấn vào nút bật tắt sẽ tắt micrô và không thu được tiếng.</translation>
 <translation id="2298170939937364391">Đã bật tính năng Phóng to toàn màn hình. Hãy nhấn lại tổ hợp phím Ctrl+Tìm kiếm+M để tắt tính năng này.</translation>
 <translation id="2302092602801625023">Tài khoản này do Family Link quản lý</translation>
 <translation id="2303600792989757991">Tổng quan về chuyển đổi cửa sổ</translation>
@@ -137,6 +140,7 @@
 <translation id="2658778018866295321">Nhấp và kéo</translation>
 <translation id="2700493154570097719">Đặt bàn phím</translation>
 <translation id="2704781753052663061">Dùng các mạng Wi-Fi khác</translation>
+<translation id="2705001408393684014">Bật tắt micrô. <ph name="STATE_TEXT" /></translation>
 <translation id="2718395828230677721">Ánh sáng đêm</translation>
 <translation id="2727977024730340865">Được cắm vào bộ sạc công suất thấp. Việc sạc pin có thể không được đảm bảo.</translation>
 <translation id="2792498699870441125">Alt+Search</translation>
@@ -179,6 +183,7 @@
 <translation id="3154351730702813399">Quản trị viên thiết bị có thể theo dõi hoạt động duyệt web của bạn.</translation>
 <translation id="3181441307743005334">Quá trình khởi động có thể mất một chút thời gian</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{Đã kết nối với một thiết bị}other{Đã kết nối với # thiết bị}}</translation>
+<translation id="3203405173652969239">Đã bật tùy chọn Tiếp cận bằng công tắc</translation>
 <translation id="3207953481422525583">Cài đặt người dùng</translation>
 <translation id="3217205077783620295">Âm lượng đang bật. Nếu bạn chuyển đổi, âm thanh sẽ bị tắt.</translation>
 <translation id="3226991577105957773">+<ph name="COUNT" /> mục khác</translation>
@@ -295,6 +300,7 @@
 <translation id="4665114317261903604">Bật/tắt chế độ Không làm phiền. <ph name="STATE_TEXT" /></translation>
 <translation id="4696813013609194136">Mở khóa thiết bị bằng mã dành cho cha mẹ</translation>
 <translation id="4702647871202761252">Màn hình bảo vệ quyền riêng tư đang tắt</translation>
+<translation id="4705716602320768426">Gửi ý kiến phản hồi</translation>
 <translation id="4710243778082831592">Cài đặt Trình chỉnh sửa phương thức nhập (IME)</translation>
 <translation id="4731797938093519117">Quyền truy cập của cha mẹ</translation>
 <translation id="4734965478015604180">Ngang</translation>
@@ -337,7 +343,7 @@
 <translation id="5379115545237091094">Quá nhiều lần thử</translation>
 <translation id="5397578532367286026">Người quản lý (<ph name="MANAGER_EMAIL" />) trên chrome.com có thể xem lại mức sử dụng và lịch sử của người dùng này.</translation>
 <translation id="5400461572260843123">Cài đặt nhanh, Nhấn vào phím tìm kiếm + mũi tên trái để truy cập vào trung tâm thông báo.</translation>
-<translation id="5430931332414098647">Chia sẻ kết nối tức thì</translation>
+<translation id="5430931332414098647">Chia sẻ Internet tức thì</translation>
 <translation id="5431825016875453137">OpenVPN / L2TP</translation>
 <translation id="544691375626129091">Tất cả người dùng hiện có mặt đã được thêm vào phiên này.</translation>
 <translation id="54609108002486618">Được quản lý</translation>
@@ -375,6 +381,7 @@
 <translation id="5901316534475909376">Shift+Esc</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" /> (<ph name="MAIL" />)</translation>
 <translation id="5916664084637901428">Bật</translation>
+<translation id="5920710855273935292">Micrô đang tắt.</translation>
 <translation id="5947494881799873997">Hoàn nguyên</translation>
 <translation id="595202126637698455">Đã bật theo dõi hoạt động</translation>
 <translation id="5957083217255311415">Dữ liệu di động đã bị tắt.</translation>
@@ -430,6 +437,7 @@
 <translation id="6537924328260219877">Cường độ tín hiệu <ph name="SIGNAL_STRENGTH" />, Pin điện thoại <ph name="BATTERY_STATUS" /></translation>
 <translation id="6542521951477560771">Đang truyền tới <ph name="RECEIVER_NAME" /></translation>
 <translation id="6559976592393364813">Hỏi quản trị viên</translation>
+<translation id="6584550827717945790">Tắt tính năng Tiếp cận bằng công tắc</translation>
 <translation id="6585808820553845416">Phiên sẽ kết thúc sau <ph name="SESSION_TIME_REMAINING" />.</translation>
 <translation id="661203523074512333"><ph name="SECURITY_STATUS" />, Cường độ tín hiệu <ph name="SIGNAL_STRENGTH" />, Do quản trị viên của bạn quản lý</translation>
 <translation id="6614169507485700968">Màn hình bảo vệ quyền riêng tư đang bật</translation>

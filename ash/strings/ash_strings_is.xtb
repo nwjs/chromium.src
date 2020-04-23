@@ -18,6 +18,7 @@
 <translation id="1190609913194133056">Tilkynningamiðstöð</translation>
 <translation id="1195412055398077112">klipptur rammi</translation>
 <translation id="119944043368869598">Hreinsa allt</translation>
+<translation id="1199716647557067911">Ertu viss um að þú viljir slökkva á rofaaðgangi?</translation>
 <translation id="1247372569136754018">Hljóðnemi (innbyggður)</translation>
 <translation id="1252999807265626933">Verið er að hlaða með <ph name="POWER_SOURCE" /></translation>
 <translation id="1255033239764210633">Hvernig er veðrið?</translation>
@@ -55,6 +56,7 @@
 <translation id="1570871743947603115">Kveikja/slökkva á Bluetooth. <ph name="STATE_TEXT" /></translation>
 <translation id="1589090746204042747">Fengið aðgang að öllum aðgerðum þínum í þessari lotu</translation>
 <translation id="1608626060424371292">Fjarlægja þennan notanda</translation>
+<translation id="1632985212731562677">Hægt er að slökkva á rofaaðgangi í Stillingar &gt; Aðgengi.</translation>
 <translation id="1654477262762802994">Hefja raddfyrirspurn</translation>
 <translation id="1658406695958299976">Því miður hefur ekki enn tekist að staðfesta aðgangsorðið þitt. Hafðu í huga að ef þú hefur breytt aðgangsorðinu nýlega tekur nýja aðgangsorðið gildi eftir útskráningu. Notaðu gamla aðgangsorðið hér.</translation>
 <translation id="1677472565718498478"><ph name="TIME" /> eftir</translation>
@@ -104,6 +106,7 @@
 <translation id="2268813581635650749">Skrá alla út</translation>
 <translation id="2277103315734023688">Spóla áfram</translation>
 <translation id="2292698582925480719">Skjástærð</translation>
+<translation id="2295777434187870477">Kveikt er á hljóðnemanum, ef hnappurinn er valinn verður slökkt á hljóðinntaki.</translation>
 <translation id="2298170939937364391">Kveikt er á stækkunargleri á öllum skjánum. Ýttu aftur á Ctrl+leitarhnappinn+M til að loka því.</translation>
 <translation id="2302092602801625023">Þessum reikningi er stjórnað með Family Link</translation>
 <translation id="2303600792989757991">Víxla gluggayfirliti</translation>
@@ -137,6 +140,7 @@
 <translation id="2658778018866295321">Smella og draga</translation>
 <translation id="2700493154570097719">Veldu lyklaborð</translation>
 <translation id="2704781753052663061">Tengjast við önnur Wi-Fi net</translation>
+<translation id="2705001408393684014">Kveikja/slökkva á hljóðnema. <ph name="STATE_TEXT" /></translation>
 <translation id="2718395828230677721">Næturljós</translation>
 <translation id="2727977024730340865">Tengt við afllítið hleðslutæki. Hleðsla rafhlöðunnar kann að vera brigðul.</translation>
 <translation id="2792498699870441125">Alt+leitarhnappur</translation>
@@ -179,6 +183,7 @@
 <translation id="3154351730702813399">Stjórnandi tækisins gæti fylgst með vafravirkni þinni.</translation>
 <translation id="3181441307743005334">Endurræsing gæti tekið nokkurn tíma</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{Tengdist við tæki}one{Tengdist við # tæki}other{Tengdist við # tæki}}</translation>
+<translation id="3203405173652969239">Kveikt á rofaaðgangi</translation>
 <translation id="3207953481422525583">Notandastillingar</translation>
 <translation id="3217205077783620295">Kveikt er á hljóði; slökkt verður á því ef hnappurinn er valinn.</translation>
 <translation id="3226991577105957773">+<ph name="COUNT" /> í viðbót</translation>
@@ -295,6 +300,7 @@
 <translation id="4665114317261903604">Kveikja/slökkva á „Ónáðið ekki“. <ph name="STATE_TEXT" /></translation>
 <translation id="4696813013609194136">Opna tæki með kóða foreldris</translation>
 <translation id="4702647871202761252">Slökkt er á persónuverndarskjá</translation>
+<translation id="4705716602320768426">Skrá ábendingu</translation>
 <translation id="4710243778082831592">Stillingar innsláttaraðferðar</translation>
 <translation id="4731797938093519117">Foreldraaðgangur</translation>
 <translation id="4734965478015604180">Lárétt</translation>
@@ -375,6 +381,7 @@
 <translation id="5901316534475909376">Shift+Esc</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" /> (<ph name="MAIL" />)</translation>
 <translation id="5916664084637901428">Kveikt</translation>
+<translation id="5920710855273935292">Slökkt er á hljóðnemanum.</translation>
 <translation id="5947494881799873997">Afturkalla</translation>
 <translation id="595202126637698455">Kveikt á afkastarakningu</translation>
 <translation id="5957083217255311415">Slökkt er á farsímagögnum.</translation>
@@ -430,6 +437,7 @@
 <translation id="6537924328260219877"><ph name="SIGNAL_STRENGTH" /> sendistyrkur, <ph name="BATTERY_STATUS" /> hleðsla á rafhlöðu símans</translation>
 <translation id="6542521951477560771">Sendir út til <ph name="RECEIVER_NAME" /></translation>
 <translation id="6559976592393364813">Spyrja kerfisstjóra</translation>
+<translation id="6584550827717945790">Slökkva á rofaaðgangi</translation>
 <translation id="6585808820553845416">Lotunni lýkur eftir <ph name="SESSION_TIME_REMAINING" />.</translation>
 <translation id="661203523074512333"><ph name="SECURITY_STATUS" />, sendistyrkur <ph name="SIGNAL_STRENGTH" />, stjórnað af kerfisstjóra</translation>
 <translation id="6614169507485700968">Kveikt er á persónuverndarskjá</translation>

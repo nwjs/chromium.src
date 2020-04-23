@@ -322,7 +322,7 @@ void TabImpl::WebPreferencesChanged() {
 }
 
 bool TabImpl::GetPasswordEchoEnabled() {
-  return browser_->GetPasswordEchoEnabled();
+  return browser_ ? browser_->GetPasswordEchoEnabled() : false;
 }
 
 bool TabImpl::IsActive() {

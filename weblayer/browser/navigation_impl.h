@@ -24,6 +24,17 @@ class NavigationImpl : public Navigation {
   explicit NavigationImpl(content::NavigationHandle* navigation_handle);
   ~NavigationImpl() override;
 
+  void set_should_stop_when_throttle_created() {
+    should_stop_when_throttle_created_ = true;
+  }
+  bool should_stop_when_throttle_created() const {
+    return should_stop_when_throttle_created_;
+  }
+
+  void set_safe_to_set_request_headers(bool value) {
+    safe_to_set_request_headers_ = value;
+  }
+
 #if defined(OS_ANDROID)
   void SetJavaNavigation(
       JNIEnv* env,
@@ -53,6 +64,10 @@ class NavigationImpl : public Navigation {
                    const base::android::JavaParamRef<jobject>& obj) {
     return static_cast<int>(GetLoadError());
   }
+  jboolean SetRequestHeader(JNIEnv* env,
+                            const base::android::JavaParamRef<jobject>& obj,
+                            const base::android::JavaParamRef<jstring>& name,
+                            const base::android::JavaParamRef<jstring>& value);
 
   base::android::ScopedJavaGlobalRef<jobject> java_navigation() {
     return java_navigation_;
@@ -68,8 +83,17 @@ class NavigationImpl : public Navigation {
   bool IsSameDocument() override;
   bool IsErrorPage() override;
   LoadError GetLoadError() override;
+  void SetRequestHeader(const std::string& name,
+                        const std::string& value) override;
 
   content::NavigationHandle* navigation_handle_;
+
+  // Used to delay calling Stop() until safe. See
+  // NavigationControllerImpl::NavigationThrottleImpl for details.
+  bool should_stop_when_throttle_created_ = false;
+
+  // Whether SetRequestHeader() is allowed at this time.
+  bool safe_to_set_request_headers_ = false;
 
 #if defined(OS_ANDROID)
   base::android::ScopedJavaGlobalRef<jobject> java_navigation_;

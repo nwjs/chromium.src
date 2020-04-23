@@ -475,8 +475,8 @@ TEST_F(SafetyCheckHandlerTest, CheckSafeBrowsing_Enabled) {
           static_cast<int>(SafetyCheckHandler::SafeBrowsingStatus::kEnabled));
   ASSERT_TRUE(event);
   VerifyDisplayString(event,
-                      "Safe Browsing is up to date and protecting you from "
-                      "harmful sites and downloads");
+                      "Safe Browsing is on and protecting you from harmful "
+                      "sites and downloads");
   histogram_tester_.ExpectBucketCount(
       "Settings.SafetyCheck.SafeBrowsingResult",
       SafetyCheckHandler::SafeBrowsingStatus::kEnabled, 1);
@@ -615,9 +615,9 @@ TEST_F(SafetyCheckHandlerTest, CheckPasswords_InterruptedAndRefreshed) {
           kPasswords,
           static_cast<int>(SafetyCheckHandler::PasswordsStatus::kSignedOut));
   ASSERT_TRUE(event3);
-  VerifyDisplayString(
-      event3,
-      "Browser can't check your passwords because you're not signed in");
+  VerifyDisplayString(event3,
+                      "Browser can't check your passwords because you're not "
+                      "signed in");
   histogram_tester_.ExpectBucketCount(
       "Settings.SafetyCheck.PasswordsResult",
       SafetyCheckHandler::PasswordsStatus::kSignedOut, 1);
@@ -731,7 +731,8 @@ TEST_F(SafetyCheckHandlerTest, CheckPasswords_Error) {
           static_cast<int>(SafetyCheckHandler::PasswordsStatus::kError));
   ASSERT_TRUE(event);
   VerifyDisplayString(event,
-                      "Browser can't check your passwords. Try again later.");
+                      "Browser can't check your passwords. Try again "
+                      "later.");
   histogram_tester_.ExpectBucketCount(
       "Settings.SafetyCheck.PasswordsResult",
       SafetyCheckHandler::PasswordsStatus::kError, 1);
@@ -767,7 +768,9 @@ TEST_F(SafetyCheckHandlerTest, CheckPasswords_NoPasswords) {
           kPasswords,
           static_cast<int>(SafetyCheckHandler::PasswordsStatus::kNoPasswords));
   EXPECT_TRUE(event);
-  VerifyDisplayString(event, "No saved passwords");
+  VerifyDisplayString(event,
+                      "No saved passwords. Chrome can check your passwords "
+                      "when you save them.");
   histogram_tester_.ExpectBucketCount(
       "Settings.SafetyCheck.PasswordsResult",
       SafetyCheckHandler::PasswordsStatus::kNoPasswords, 1);
@@ -789,7 +792,7 @@ TEST_F(SafetyCheckHandlerTest, CheckPasswords_Progress) {
           kPasswords,
           static_cast<int>(SafetyCheckHandler::PasswordsStatus::kChecking));
   EXPECT_TRUE(event);
-  VerifyDisplayString(event, base::UTF8ToUTF16("1/3 passwords checked…"));
+  VerifyDisplayString(event, base::UTF8ToUTF16("Checking passwords (1 of 3)…"));
 
   test_passwords_delegate_.SetProgress(2, 3);
   static_cast<password_manager::BulkLeakCheckService::Observer*>(
@@ -800,7 +803,8 @@ TEST_F(SafetyCheckHandlerTest, CheckPasswords_Progress) {
           kPasswords,
           static_cast<int>(SafetyCheckHandler::PasswordsStatus::kChecking));
   EXPECT_TRUE(event2);
-  VerifyDisplayString(event2, base::UTF8ToUTF16("2/3 passwords checked…"));
+  VerifyDisplayString(event2,
+                      base::UTF8ToUTF16("Checking passwords (2 of 3)…"));
 
   // Final update comes after status change, so no new progress message should
   // be present.
@@ -816,7 +820,8 @@ TEST_F(SafetyCheckHandlerTest, CheckPasswords_Progress) {
           static_cast<int>(SafetyCheckHandler::PasswordsStatus::kChecking));
   EXPECT_TRUE(event3);
   // Still 2/3 event.
-  VerifyDisplayString(event3, base::UTF8ToUTF16("2/3 passwords checked…"));
+  VerifyDisplayString(event3,
+                      base::UTF8ToUTF16("Checking passwords (2 of 3)…"));
 }
 
 TEST_F(SafetyCheckHandlerTest, CheckExtensions_NoExtensions) {

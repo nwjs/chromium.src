@@ -118,12 +118,13 @@ ChromeVoxBackground = class {
     if (pref == 'earcons') {
       AbstractEarcons.enabled = !!value;
     } else if (pref == 'sticky' && announce) {
-      new Output()
-          .withInitialSpeechProperties(AbstractTts.PERSONALITY_ANNOTATION)
-          .withString(
-              value ? Msgs.getMsg('sticky_mode_enabled') :
-                      Msgs.getMsg('sticky_mode_disabled'))
-          .go();
+      if (value) {
+        ChromeVox.tts.speak(
+            Msgs.getMsg('sticky_mode_enabled'), QueueMode.FLUSH);
+      } else {
+        ChromeVox.tts.speak(
+            Msgs.getMsg('sticky_mode_disabled'), QueueMode.FLUSH);
+      }
     } else if (pref == 'typingEcho' && announce) {
       let announceStr = '';
       switch (value) {
@@ -143,10 +144,7 @@ ChromeVoxBackground = class {
           break;
       }
       if (announceStr) {
-        new Output()
-            .withInitialSpeechProperties(AbstractTts.PERSONALITY_ANNOTATION)
-            .withString(announceStr)
-            .go();
+        ChromeVox.tts.speak(announceStr, QueueMode.QUEUE);
       }
     } else if (pref == 'brailleCaptions') {
       BrailleCaptionsBackground.setActive(!!value);

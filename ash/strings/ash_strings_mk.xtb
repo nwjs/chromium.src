@@ -18,7 +18,7 @@
 <translation id="1190609913194133056">Центар за известување</translation>
 <translation id="1195412055398077112">прескенирање</translation>
 <translation id="119944043368869598">Избриши ги сите</translation>
-<translation id="1199716647557067911">Дали сигурно сакате да го исклучите пристапот со прекинувачи?</translation>
+<translation id="1199716647557067911">Дали сигурно сакате да го исклучите „Пристапот со прекинувачи“?</translation>
 <translation id="1247372569136754018">Микрофон (внатрешен)</translation>
 <translation id="1252999807265626933">Се полни од <ph name="POWER_SOURCE" /></translation>
 <translation id="1255033239764210633">Какво е времето?</translation>
@@ -56,6 +56,7 @@
 <translation id="1570871743947603115">Вклучи/исклучи Bluetooth. <ph name="STATE_TEXT" /></translation>
 <translation id="1589090746204042747">Пристапете до целата ваша активност во сесијава</translation>
 <translation id="1608626060424371292">Отстрани го овој корисник</translation>
+<translation id="1632985212731562677">Пристапот со прекинувачи може да се оневозможи во „Поставки &gt; Пристапност“.</translation>
 <translation id="1654477262762802994">Започнете гласовно барање</translation>
 <translation id="1658406695958299976">За жал, вашата лозинка сепак не можеше да се потврди. Белешка: ако сте ја промениле лозинката неодамна, новата лозинка ќе се примени откако ќе се одјавите. Користете ја старата лозинка тука.</translation>
 <translation id="1677472565718498478">Уште <ph name="TIME" /></translation>
@@ -105,6 +106,7 @@
 <translation id="2268813581635650749">Одјави се од сите</translation>
 <translation id="2277103315734023688">Премотај нанапред</translation>
 <translation id="2292698582925480719">Приказ на скала</translation>
+<translation id="2295777434187870477">Микрофонот е вклучен. Ако смените, ќе се исклучи звукот на влезот.</translation>
 <translation id="2298170939937364391">Овозможена е лупата за цел екран. Притиснете Ctrl+Search+M повторно за да ја исклучите.</translation>
 <translation id="2302092602801625023">Оваа сметка е управувана од Family Link</translation>
 <translation id="2303600792989757991">Префрли преглед во прозорец</translation>
@@ -138,6 +140,7 @@
 <translation id="2658778018866295321">Кликни и повлечи</translation>
 <translation id="2700493154570097719">Поставете ја вашата тастатура</translation>
 <translation id="2704781753052663061">Поврзете се на други Wi-Fi мрежи</translation>
+<translation id="2705001408393684014">Вклучете/исклучете го микрофонот. <ph name="STATE_TEXT" /></translation>
 <translation id="2718395828230677721">Ноќно светло</translation>
 <translation id="2727977024730340865">Приклучен на полнач со мало напојување. Полнењето на батеријата може да не е веродостојно.</translation>
 <translation id="2792498699870441125">Alt+Search</translation>
@@ -180,6 +183,7 @@
 <translation id="3154351730702813399">Администраторот на уредот може да ви го следи прелистувањето.</translation>
 <translation id="3181441307743005334">Рестартирањето може да потрае</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{Поврзан со уред}one{Поврзан со # уред}other{Поврзан со # уреди}}</translation>
+<translation id="3203405173652969239">„Пристапот со прекинувачи“ е овозможен</translation>
 <translation id="3207953481422525583">Поставки на корисникот</translation>
 <translation id="3217205077783620295">Јачината на звук е вклучена. Ако смените, ќе се исклучи звукот на аудиото.</translation>
 <translation id="3226991577105957773">и уште <ph name="COUNT" /></translation>
@@ -297,6 +301,7 @@
 <translation id="4665114317261903604">Вклучи/исклучи „Не вознемирувај“. <ph name="STATE_TEXT" /></translation>
 <translation id="4696813013609194136">Отклучете го уредот со код на родител</translation>
 <translation id="4702647871202761252">Исклучен е екранот за приватност</translation>
+<translation id="4705716602320768426">Испратете повратни информации</translation>
 <translation id="4710243778082831592">Поставки за IME</translation>
 <translation id="4731797938093519117">Пристап за родители</translation>
 <translation id="4734965478015604180">Хоризонтално</translation>
@@ -377,6 +382,7 @@
 <translation id="5901316534475909376">Shift+Esc</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" /> (<ph name="MAIL" />)</translation>
 <translation id="5916664084637901428">Вклучено</translation>
+<translation id="5920710855273935292">Звукот на микрофонот е исклучен.</translation>
 <translation id="5947494881799873997">Врати</translation>
 <translation id="595202126637698455">Овозможено е следење на изведбата</translation>
 <translation id="5957083217255311415">Мобилниот интернет е исклучен.</translation>
@@ -432,7 +438,7 @@
 <translation id="6537924328260219877">Јачина на сигналот: <ph name="SIGNAL_STRENGTH" />, батерија на телефонот: <ph name="BATTERY_STATUS" /></translation>
 <translation id="6542521951477560771">Емитување на <ph name="RECEIVER_NAME" /></translation>
 <translation id="6559976592393364813">Прашајте го администраторот</translation>
-<translation id="6584550827717945790">Исклучете го пристапот со прекинувачи</translation>
+<translation id="6584550827717945790">Исклучете го „Пристапот со прекинувачи“</translation>
 <translation id="6585808820553845416">Сесијата ќе заврши во <ph name="SESSION_TIME_REMAINING" />.</translation>
 <translation id="661203523074512333"><ph name="SECURITY_STATUS" />, јачина на сигналот: <ph name="SIGNAL_STRENGTH" />, управувана од администраторот</translation>
 <translation id="6614169507485700968">Вклучен е екранот за приватност</translation>

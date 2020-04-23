@@ -56,6 +56,7 @@
 <translation id="1570871743947603115">Slå av/på Bluetooth. <ph name="STATE_TEXT" /></translation>
 <translation id="1589090746204042747">se all aktiviteten din i denne økten</translation>
 <translation id="1608626060424371292">Fjern denne brukeren</translation>
+<translation id="1632985212731562677">Brytertilgang kan slås av i Innstillinger &gt; Tilgjengelighet.</translation>
 <translation id="1654477262762802994">Start et talesøk</translation>
 <translation id="1658406695958299976">Beklager, men passordet ditt kunne fremdeles ikke bekreftes. Merk: Hvis du endret passordet ditt nylig, trer det nye passordet ditt i kraft så snart du logger av. Bruk det gamle passordet ditt her.</translation>
 <translation id="1677472565718498478"><ph name="TIME" /> igjen</translation>
@@ -105,6 +106,7 @@
 <translation id="2268813581635650749">Logg alle av</translation>
 <translation id="2277103315734023688">Spol fremover</translation>
 <translation id="2292698582925480719">Visningsskala</translation>
+<translation id="2295777434187870477">Mikrofonen er på. Hvis du slår den av, kuttes lyden for innenheten.</translation>
 <translation id="2298170939937364391">Lupe for hele skjermen er slått på. Trykk på Ctrl + Søk + M igjen for å slå det av.</translation>
 <translation id="2302092602801625023">Denne kontoen er administrert av Family Link</translation>
 <translation id="2303600792989757991">Vis eller skjul vindusoversikten</translation>
@@ -138,6 +140,7 @@
 <translation id="2658778018866295321">Klikk og dra</translation>
 <translation id="2700493154570097719">Velg tastatur</translation>
 <translation id="2704781753052663061">Koble til andre Wi-Fi-nettverk</translation>
+<translation id="2705001408393684014">Slå av/på mikrofonen. <ph name="STATE_TEXT" /></translation>
 <translation id="2718395828230677721">Nattlys</translation>
 <translation id="2727977024730340865">Tilkoblet laveffektslader. Batteriladingen kan være upålitelig.</translation>
 <translation id="2792498699870441125">Alt + Søk</translation>
@@ -180,6 +183,7 @@
 <translation id="3154351730702813399">Enhetsadministratoren kan overvåke surfeaktiviteten din.</translation>
 <translation id="3181441307743005334">Det kan ta en stund å starte på nytt</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{Koblet til en enhet}other{Koblet til # enheter}}</translation>
+<translation id="3203405173652969239">Brytertilgang er slått på</translation>
 <translation id="3207953481422525583">Brukerinnstillinger</translation>
 <translation id="3217205077783620295">Volumet er på. Hvis du slår det av, kuttes lyden.</translation>
 <translation id="3226991577105957773">+<ph name="COUNT" /> til</translation>
@@ -296,6 +300,7 @@
 <translation id="4665114317261903604">Slå av/på Ikke forstyrr. <ph name="STATE_TEXT" /></translation>
 <translation id="4696813013609194136">Lås opp enheten med foreldrekode</translation>
 <translation id="4702647871202761252">Personvernskjermen er av</translation>
+<translation id="4705716602320768426">Send tilbakemelding</translation>
 <translation id="4710243778082831592">IME-innstillinger</translation>
 <translation id="4731797938093519117">Foreldretilgang</translation>
 <translation id="4734965478015604180">Horisontal</translation>
@@ -376,6 +381,7 @@
 <translation id="5901316534475909376">Shift+Esc</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" /> (<ph name="MAIL" />)</translation>
 <translation id="5916664084637901428">På</translation>
+<translation id="5920710855273935292">Lyden for mikrofonen er kuttet.</translation>
 <translation id="5947494881799873997">Tilbakestill</translation>
 <translation id="595202126637698455">Ytelsessporing er aktivert</translation>
 <translation id="5957083217255311415">Mobildata er slått av.</translation>
@@ -431,7 +437,7 @@
 <translation id="6537924328260219877">Signalstyrke <ph name="SIGNAL_STRENGTH" /> – telefonbatterinivå <ph name="BATTERY_STATUS" /></translation>
 <translation id="6542521951477560771">Caster til <ph name="RECEIVER_NAME" /></translation>
 <translation id="6559976592393364813">Spør administratoren</translation>
-<translation id="6584550827717945790">Slå av brytertilgangen</translation>
+<translation id="6584550827717945790">Slå av brytertilgang</translation>
 <translation id="6585808820553845416">Økten slutter om <ph name="SESSION_TIME_REMAINING" />.</translation>
 <translation id="661203523074512333"><ph name="SECURITY_STATUS" /> – signalstyrke <ph name="SIGNAL_STRENGTH" /> – administreres av administratoren din</translation>
 <translation id="6614169507485700968">Personvernskjermen er på</translation>

@@ -6,7 +6,6 @@ package org.chromium.chrome.browser.sync;
 
 import android.app.Dialog;
 import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.MediumTest;
 import android.support.test.filters.SmallTest;
 import android.widget.Button;
 import android.widget.EditText;
@@ -24,6 +23,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import org.chromium.base.test.util.CommandLineFlags;
+import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.FlakyTest;
 import org.chromium.chrome.R;
@@ -203,8 +203,9 @@ public class ManageSyncSettingsTest {
         assertPaymentsIntegrationEnabled(true);
     }
 
+    @DisabledTest(message = "crbug.com/994726")
     @Test
-    @MediumTest
+    @SmallTest
     @Feature({"Sync"})
     public void testPaymentsIntegrationCheckboxClearsServerAutofillCreditCards() {
         mSyncTestRule.setUpTestAccountAndSignIn();

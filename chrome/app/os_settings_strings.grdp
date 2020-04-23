@@ -738,6 +738,12 @@
   <message name="IDS_SETTINGS_ACCOUNT_MANAGER_PRIMARY_ACCOUNT_TOOLTIP" desc="Tooltip for the primary account in accounts list in Settings describing how to sign out.">
     To sign out of the primary account on this device, click the time on your screen. In the menu that appears, click "Sign out".
   </message>
+  <message name="IDS_SETTINGS_ACCOUNT_MANAGER_CHILD_MANAGED_BY_ONE_PARENT_TOOLTIP" desc="Tooltip for the primary account in accounts list in Settings showing that this user is managed by parent's account.">
+    Account managed by <ph name="PARENT_EMAIL">$1<ex>user@example.com</ex></ph>. To sign out of the primary account on this device, click the time on your screen. In the menu that appears, click "Sign out".
+  </message>
+  <message name="IDS_SETTINGS_ACCOUNT_MANAGER_CHILD_MANAGED_BY_TWO_PARENTS_TOOLTIP" desc="Tooltip for the primary account in accounts list in Settings showing that this user is managed by two parents' accounts.">
+    Account managed by <ph name="FIRST_PARENT_EMAIL">$1<ex>first@example.com</ex></ph> and <ph name="SECOND_PARENT_EMAIL">$2<ex>second@example.com</ex></ph>. To sign out of the primary account on this device, click the time on your screen. In the menu that appears, click "Sign out".
+  </message>
   <message name="IDS_SETTINGS_ACCOUNT_MANAGER_REMOVE_ACCOUNT_LABEL" desc="Label of the Remove account button in Account Manager.">
     Remove this account
   </message>
@@ -2053,6 +2059,18 @@
   </message>
   <message name="IDS_SETTINGS_POWER_IDLE_LABEL" desc="In Device Settings > Power, label for behavior when device is idle.">
     When idle
+  </message>
+  <message name="IDS_SETTINGS_POWER_IDLE_WHILE_CHARGING_LABEL" desc="In Device Settings > Power, label for behavior when device is idle.">
+    While charging
+  </message>
+  <message name="IDS_SETTINGS_POWER_IDLE_WHILE_CHARGING_ARIA_LABEL" desc="In Device Settings > Power, aria label for behavior when device is idle.">
+    Idle action while charging
+  </message>
+  <message name="IDS_SETTINGS_POWER_IDLE_WHILE_ON_BATTERY_LABEL" desc="In Device Settings > Power, label for behavior when device is idle.">
+    While on battery
+  </message>
+  <message name="IDS_SETTINGS_POWER_IDLE_WHILE_ON_BATTERY_ARIA_LABEL" desc="In Device Settings > Power, aria label for behavior when device is idle.">
+    Idle action while on battery
   </message>
   <message name="IDS_SETTINGS_POWER_IDLE_DISPLAY_OFF_SLEEP" desc="In Device Settings > Power, menu item for idle behavior that turns the screen off and later puts the device to sleep. String must be short enough to fit in a drop-down menu.">
     Sleep

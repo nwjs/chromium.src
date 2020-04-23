@@ -1196,6 +1196,7 @@ Cette règle n'est disponible que sur les instances Windows qui sont associées 
 <translation id="2592162121850992309">Si cette règle est définie sur "True" ou n'est pas configurée, l'accélération matérielle est activée, sauf si une certaine fonctionnalité GPU figure sur la liste noire.
 
       Si cette règle est définie sur "False", l'accélération matérielle est désactivée.</translation>
+<translation id="2593762551209145088">La navigation sécurisée n'est jamais active.</translation>
 <translation id="2596260130957832043">Contrôle si l'authentification NTLMv2 est activée.
 
           Toutes les versions récentes des serveurs Samba et Windows incluent l'authentification NTLMv2. La désactivation de cette fonctionnalité, qui réduit la sécurité de l'authentification, n'est conseillée qu'à des fins de rétrocompatibilité.
@@ -1273,6 +1274,7 @@ Cette règle n'est respectée que si la règle "DefaultSearchProviderEnabled" es
 
       Pour en savoir plus sur la navigation privée, consultez la page https://developers.google.com/safe-browsing.</translation>
 <translation id="2706708761587205154">Autoriser l'impression avec code uniquement</translation>
+<translation id="2707873794476722903">La navigation sécurisée est active et en mode de protection standard.</translation>
 <translation id="2710534340210290498">Si cette règle est définie sur "False", les utilisateurs ne peuvent pas verrouiller l'écran (seule la déconnexion de la session de l'utilisateur est possible). Si ce paramètre est défini sur "True", ou s'il n'est pas configuré, les utilisateurs ayant procédé à l'authentification avec un mot de passe peuvent verrouiller l'écran.</translation>
 <translation id="2731627323327011390">Désactiver l'utilisation de certificats <ph name="PRODUCT_OS_NAME" /> pour les applications ARC</translation>
 <translation id="2742843273354638707">Masque l'application Chrome Web Store et le lien de bas de page sur la page Nouvel onglet et dans le lanceur d'applications de <ph name="PRODUCT_OS_NAME" />.
@@ -2150,6 +2152,15 @@ Si elle est définie sur "False", <ph name="PRODUCT_NAME" /> n'utilise pas les n
 <translation id="4039085364173654945">Contrôle si un sous-contenu tiers sur une page est autorisé à ouvrir une boîte de dialogue d'authentification de base HTTP ( Basic Auth) dans une fenêtre pop-up. 
 
 Cette option est habituellement désactivée dans le cadre de la protection contre le phishing. Si cette règle n'est pas configurée, cette option est désactivée et le sous-contenu tiers n'est pas autorisé à afficher une boîte de dialogue d'authentification de base HTTP.</translation>
+<translation id="4044054366426171256">Cette règle configure les noms de domaines obligatoires de l'hôte qui sont imposés aux hôtes d'accès à distance et empêche les utilisateurs d'y apporter des modifications.
+
+          Si ce paramètre est activé et défini sur un ou plusieurs domaines, les hôtes ne peuvent être partagés qu'à l'aide des comptes enregistrés sur les noms de domaines spécifiés.
+
+          Si ce paramètre est désactivé, s'il n'est pas configuré ou s'il est défini sur une liste vide, les hôtes peuvent être partagés via n'importe quel compte.
+
+          Ce paramètre ignore la règle RemoteAccessHostDomain, le cas échéant.
+
+          Voir aussi RemoteAccessHostClientDomainList.</translation>
 <translation id="4056910949759281379">Désactiver le protocole SPDY</translation>
 <translation id="4061590579642538878">Transmettre les informations liées aux rapports d'erreur.</translation>
 <translation id="4075675819066819571">Placer l'étagère sur le côté gauche de l'écran</translation>
@@ -2370,6 +2381,19 @@ Cette option est habituellement désactivée dans le cadre de la protection cont
 <translation id="437791893267799639">Règle non définie, interdire la migration de données et ARC</translation>
 <translation id="4389073105055031853">Autoriser les utilisateurs à gérer tous les certificats</translation>
 <translation id="4389091865841123886">Configurer l'attestation à distance avec le mécanisme TPM</translation>
+<translation id="4401496838830169080">Permet de contrôler si la fonctionnalité de navigation sécurisée de <ph name="PRODUCT_NAME" /> est activée ou non, ainsi que le mode dans lequel elle est définie.
+
+      Si cette règle est définie sur "NoProtection" (valeur 0), la navigation sécurisée n'est jamais active.
+
+      Si cette règle est définie sur "StandardProtection" (valeur 1, qui correspond à la valeur par défaut), la navigation sécurisée est toujours active et en mode de protection standard.
+
+      Si cette règle est définie sur "EnhancedProtection" (valeur 2), la navigation sécurisée est toujours active et en mode de protection renforcée. Ce mode offre une meilleure sécurité, mais nécessite de partager plus d'informations de navigation avec Google.
+
+      Si vous définissez cette règle comme obligatoire, les utilisateurs ne peuvent pas modifier ni ignorer le paramètre de navigation sécurisée dans <ph name="PRODUCT_NAME" />.
+
+      Si cette règle n'est pas configurée, la navigation sécurisée est en mode de protection standard. Toutefois, les utilisateurs peuvent modifier ce paramètre.
+
+      Pour en savoir plus sur la navigation sécurisée, consultez la page https://developers.google.com/safe-browsing.</translation>
 <translation id="4408428864159735559">Liste de partages de fichiers sur le réseau préconfigurés.</translation>
 <translation id="4410236409016356088">Activer la limitation de la bande passante réseau</translation>
 <translation id="441217499641439905">Désactiver Google Drive en cas de connexion au réseau mobile dans l'application "Fichiers" de <ph name="PRODUCT_OS_NAME" /></translation>
@@ -2967,7 +2991,7 @@ Si cette règle n'est pas configurée, ce paramètre est activé, mais l'utilisa
 <translation id="5323200200131319468">Activer les commentaires audio sur l'écran de connexion</translation>
 <translation id="532668836479219203">Cette règle vous permet de gérer la connexion au navigateur, et de spécifier si l'utilisateur peut ou non se connecter à <ph name="PRODUCT_NAME" /> avec son compte et utiliser les services associés, comme la synchronisation Chrome.
 
-      Si la règle est définie sur "Désactiver la connexion au navigateur", l'utilisateur ne peut pas se connecter au navigateur et utiliser les services associés à son compte. Dans ce cas, les fonctionnalités qui opèrent au niveau du navigateur, comme la synchronisation Chrome, ne peuvent pas être utilisées et sont donc indisponibles. Si l'utilisateur était connecté au moment où la règle est passée à l'état "Désactivée", il sera déconnecté la prochaine fois qu'il utilisera Chrome, mais ses données de profil locales (favoris, mots de passe, etc.) seront conservées. Il pourra tout de même se connecter aux services Web Google, comme Gmail, et s'en servir.
+      Si la règle est définie sur "Désactiver la connexion au navigateur", l'utilisateur ne peut pas se connecter au navigateur ni utiliser les services associés à son compte. Dans ce cas, les fonctionnalités qui opèrent au niveau du navigateur, comme la synchronisation Chrome, ne peuvent pas être utilisées et sont donc indisponibles. Si l'utilisateur était connecté au moment où la règle est passée à l'état "Désactivée", il sera déconnecté la prochaine fois qu'il utilisera Chrome, mais ses données de profil locales (favoris, mots de passe, etc.) seront conservées. Il pourra tout de même se connecter aux services Web Google, comme Gmail, et s'en servir.
 
       Si la règle est définie sur "Activer la connexion au navigateur", l'utilisateur peut se connecter au navigateur, et la connexion se fait automatiquement lorsqu'il accède à des services Web Google, comme Gmail. Lorsque l'utilisateur est connecté au navigateur, ses informations de compte sont conservées par le navigateur. Cependant, cela ne signifie pas que la synchronisation Chrome est activée par défaut : l'utilisateur doit explicitement accepter d'utiliser cette fonctionnalité. En activant cette règle, vous l'empêchez de désactiver le paramètre qui autorise la connexion au navigateur. Pour contrôler la disponibilité de la synchronisation Chrome, utilisez la règle "SyncDisabled".
 
@@ -3511,6 +3535,7 @@ Lorsque cette règle n'est pas configurée, le paramètre par défaut utilisé c
 <translation id="6111936128861357925">Autoriser le jeu Easter Egg du dinosaure</translation>
 <translation id="6114416803310251055">obsolète</translation>
 <translation id="6133088669883929098">Autoriser tous les sites à utiliser la génération de clé</translation>
+<translation id="6135398260575578389">La navigation sécurisée est active et en mode de protection renforcée. Ce mode offre une meilleure sécurité, mais nécessite de partager plus d'informations de navigation avec Google.</translation>
 <translation id="6136537398661737682">Cette règle permet de contrôler l'état initial des services de localisation Google.
 
       Si cette règle n'est pas configurée ou si elle est définie sur <ph name="GLS_DISABLED" />, ces services sont initialement désactivés.
@@ -3684,7 +3709,7 @@ Si vous désactivez ce paramètre ou si vous ne le configurez pas, le SPN Kerber
       Si cette règle est définie sur "False", aucune liste d'utilisateurs n'est générée.</translation>
 <translation id="638668187106406971">Vérifier que les importations respectent les règles de protection des données sensibles</translation>
 <translation id="6394350458541421998">Cette règle a été supprimée à partir de la version 29 de <ph name="PRODUCT_OS_NAME" />. Veuillez utiliser la règle PresentationScreenDimDelayScale à la place.</translation>
-<translation id="6394657112569857636">Permet de définir une liste de formats d'URL indiquant les sites non autorisés à placer des cookies.
+<translation id="6394657112569857636">Permet de définir une liste de formats d'URL indiquant les sites non autorisés à activer des cookies.
 
           Si cette règle n'est pas configurée, la valeur par défaut globale est utilisée pour tous les sites à partir de la règle "DefaultCookiesSetting" si celle-ci est définie ou, à défaut, à partir de la configuration personnelle de l'utilisateur.
 
@@ -3791,7 +3816,7 @@ Si vous désactivez ce paramètre ou si vous ne le configurez pas, le SPN Kerber
 <translation id="6544897973797372144">Si cette règle est définie sur "True", et si la règle ChromeOsReleaseChannel n'est pas spécifiée, les utilisateurs du domaine correspondant sont autorisés à modifier la version de l'appareil. Si elle est définie sur "False", l'appareil est verrouillé sur la dernière version configurée.
 
       La règle ChromeOsReleaseChannel prévaut sur la version sélectionnée par l'utilisateur. Toutefois, si cette dernière est plus stable que la version installée sur l'appareil, elle n'est remplacée qu'une fois que la version la plus stable atteint un numéro supérieur à celui de la version installée sur l'appareil.</translation>
-<translation id="6548795012081567926">Permet de définir une liste de formats d'URL indiquant les sites autorisés à placer des cookies.
+<translation id="6548795012081567926">Permet de définir une liste de formats d'URL indiquant les sites autorisés à activer des cookies.
 
           Si cette règle n'est pas configurée, la valeur par défaut globale est utilisée pour tous les sites à partir de la règle "DefaultCookiesSetting" si celle-ci est définie ou, à défaut, à partir de la configuration personnelle de l'utilisateur.
 
@@ -3889,6 +3914,7 @@ Si vous désactivez ce paramètre ou si vous ne le configurez pas, le SPN Kerber
 <translation id="6734521799274931721">Vérifie la disponibilité de la fonctionnalité Partages de fichiers en réseau pour Chrome OS</translation>
 <translation id="6735701345096330595">Forcer l'activation des langues de la vérification orthographique</translation>
 <translation id="6757613329154374267">Service de sauvegarde et de restauration activé</translation>
+<translation id="6758659208493449452">Cette règle détermine si les utilisateurs inscrits au Programme Protection Avancée bénéficient de protections supplémentaires. Ces fonctionnalités peuvent impliquer le partage de données avec Google (par exemple, les utilisateurs du programme Protection Avancée peuvent envoyer leurs téléchargements à Google pour les faire analyser afin de détecter d'éventuels logiciels malveillants). Si cette règle est définie sur "True" ou si elle n'est pas configurée, les utilisateurs inscrits bénéficieront de protections supplémentaires. Si elle est définie sur "False", les utilisateurs du programme Protection Avancée ne bénéficieront que des fonctionnalités grand public standards.</translation>
 <translation id="6762235610019366960">Vous permet de contrôler la présentation de contenus promotionnels et/ou éducatifs en mode Plein onglet dans <ph name="PRODUCT_NAME" />.
 
       Si cette règle n'est pas configurée ni activée (définie sur "true"), <ph name="PRODUCT_NAME" /> peut présenter du contenu en mode Plein onglet aux utilisateurs pour leur fournir des informations sur le produit.
@@ -4363,6 +4389,15 @@ Si elle est définie sur "False" ou si elle n'est pas configurée, ces publicit�
           Si cette règle n'est pas définie ou si elle est définie sur "Activé", Google Chrome accepte les contenus Web transmis en tant qu'échanges HTTP signés.
 
           Si cette règle est définie sur "Désactivé", les échanges HTTP signés ne peuvent pas être chargés.</translation>
+<translation id="7506758875409719208">Cette règle configure les noms de domaines obligatoires du client qui sont imposés aux clients d'accès à distance et empêche les utilisateurs d'y apporter des modifications.
+
+          Si ce paramètre est activé et défini sur un ou plusieurs domaines, seuls les clients de l'un des domaines indiqués peuvent se connecter à l'hôte.
+
+          Si ce paramètre est désactivé, s'il n'est pas configuré ou s'il est défini sur une liste vide, la règle par défaut pour le type de connexion concerné est appliquée. Dans le cadre d'une assistance à distance, cela permet aux clients de n'importe quel domaine de se connecter à l'hôte. Concernant l'accès à distance à tout moment, seul le propriétaire de l'hôte peut se connecter.
+
+          Ce paramètre remplace RemoteAccessHostClientDomain, le cas échéant.
+
+          Voir aussi RemoteAccessHostDomainList.</translation>
 <translation id="7509496865303347769">Permet de configurer l'URL de la page d'accueil par défaut dans <ph name="PRODUCT_NAME" /> et d'empêcher les utilisateurs de la modifier.
 
           La page d'accueil est la page qui s'ouvre lorsque l'utilisateur sélectionne le bouton d'accueil. Sur ordinateur, les pages qui s'affichent au démarrage sont gérées par les règles RestoreOnStartup.
@@ -4495,6 +4530,23 @@ Si ce paramètre est désactivé ou s'il n'est pas configuré, <ph name="PRODUCT
 
 
 Dans le cas contraire, le moteur de rendu par défaut sera utilisé pour tous les sites. (La règle <ph name="CHROME_FRAME_RENDERER_SETTINGS_POLICY_NAME" /> peut être utilisée pour configurer le moteur de rendu par défaut.)</translation>
+<translation id="7691028179743802462">Cette règle étant obsolète dans la version M83, veuillez utiliser la règle "SafeBrowsingProtectionLevel" à la place.
+
+      Permet d'activer la fonctionnalité de navigation sécurisée de <ph name="PRODUCT_NAME" /> et d'empêcher les utilisateurs de modifier ce paramètre.
+
+      Si vous activez ce paramètre, la navigation sécurisée est active en permanence.
+
+      Si vous le désactivez, la navigation sécurisée n'est jamais active.
+
+      Si vous activez ou désactivez ce paramètre, les utilisateurs ne peuvent pas modifier ni ignorer le paramètre "Activer la protection contre l'hameçonnage et les logiciels malveillants" dans <ph name="PRODUCT_NAME" />.
+
+      Si cette règle n'est pas configurée, ce paramètre sera activé, mais les utilisateurs pourront le modifier.
+
+      Pour en savoir plus sur la navigation sécurisée, consultez la page https://developers.google.com/safe-browsing.
+
+      Cette règle n'est disponible que sur les instances Windows qui sont associées à un domaine <ph name="MS_AD_NAME" />, ou sur les instances Windows 10 Pro ou Windows Enterprise qui sont enregistrées pour bénéficier de la gestion des appareils.
+
+      Si la règle "SafeBrowsingProtectionLevel" est configurée, la valeur de la règle "SafeBrowsingEnabled" est ignorée.</translation>
 <translation id="7694245791806617022">Permet de contrôler si la fonctionnalité "Mémoriser le mot de passe" est activée ou non dans la boîte de dialogue d'authentification Kerberos. Les mots de passe sont stockés chiffrés sur le disque, et ne sont accessibles qu'au démon du système Kerberos et pendant une session utilisateur.
 
           Si cette règle est activée ou si elle n'est pas définie, les utilisateurs peuvent décider de mémoriser les mots de passe Kerberos afin de ne pas avoir à les saisir de nouveau. Les tickets Kerberos sont récupérés automatiquement, sauf si une authentification supplémentaire est requise (authentification à deux facteurs).
@@ -5084,6 +5136,7 @@ Il est conseillé de configurer les règles sur Windows via GPO, même si la ges
 
           Pour en savoir plus sur les formats d'URL valides, consultez cette page : https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns.</translation>
 <translation id="8661297125441579970">Interdire la migration de données et ARC.</translation>
+<translation id="8665314828727504286">Mode de protection de la navigation sécurisée</translation>
 <translation id="8672321184841719703">Cibler une version pour les mises à jour automatiques</translation>
 <translation id="867410340948518937">U2F (Deuxième facteur universel)</translation>
 <translation id="8685024486845674965">L'avertissement de protection par mot de passe est déclenché en cas de réutilisation du mot de passe</translation>

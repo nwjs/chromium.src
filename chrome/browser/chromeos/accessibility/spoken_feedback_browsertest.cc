@@ -742,62 +742,6 @@ IN_PROC_BROWSER_TEST_P(SpokenFeedbackTest, ResetTtsSettings) {
   sm_.Replay();
 }
 
-IN_PROC_BROWSER_TEST_P(SpokenFeedbackTest, SmartStickyMode) {
-  EnableChromeVox();
-  sm_.Call([this]() {
-    ui_test_utils::NavigateToURL(browser(),
-                                 GURL("data:text/html,<p>start</p><input "
-                                      "autofocus type='text'><p>end</p>"));
-  });
-
-  // The input is autofocused.
-  sm_.ExpectSpeech("Edit text");
-
-  // First, navigate with sticky mode on.
-  sm_.Call([this]() { SendStickyKeyCommand(); });
-  sm_.ExpectSpeech("Sticky mode enabled");
-
-  sm_.Call([this]() { SendKeyPressWithSearch(ui::VKEY_RIGHT); });
-  sm_.ExpectNextSpeechIsNotPattern("Sticky mode *abled");
-  sm_.ExpectSpeech("end");
-
-  // Jump to beginning.
-  sm_.Call([this]() { SendKeyPressWithSearchAndControl(ui::VKEY_LEFT); });
-  sm_.ExpectNextSpeechIsNotPattern("Sticky mode *abled");
-  sm_.ExpectSpeech("start");
-
-  // The nextEditText command is explicitly excluded from toggling.
-  sm_.Call([this]() { SendKeyPressWithSearch(ui::VKEY_E); });
-  sm_.ExpectNextSpeechIsNotPattern("Sticky mode *abled");
-  sm_.ExpectSpeech("Edit text");
-
-  sm_.Call([this]() { SendKeyPressWithSearch(ui::VKEY_RIGHT); });
-  sm_.ExpectNextSpeechIsNotPattern("Sticky mode *abled");
-  sm_.ExpectSpeech("end");
-
-  sm_.Call([this]() { SendKeyPressWithSearch(ui::VKEY_LEFT); });
-  sm_.ExpectSpeech("Sticky mode disabled");
-  sm_.ExpectSpeech("Edit text");
-
-  sm_.Call([this]() { SendKeyPressWithSearch(ui::VKEY_LEFT); });
-  sm_.ExpectSpeech("Sticky mode enabled");
-  sm_.ExpectSpeech("start");
-
-  // Now, navigate with sticky mode off.
-  sm_.Call([this]() { SendStickyKeyCommand(); });
-  sm_.ExpectSpeech("Sticky mode disabled");
-
-  sm_.Call([this]() { SendKeyPressWithSearch(ui::VKEY_RIGHT); });
-  sm_.ExpectNextSpeechIsNotPattern("Sticky mode *abled");
-  sm_.ExpectSpeech("Edit text");
-
-  sm_.Call([this]() { SendKeyPressWithSearch(ui::VKEY_RIGHT); });
-  sm_.ExpectNextSpeechIsNotPattern("Sticky mode *abled");
-  sm_.ExpectSpeech("end");
-
-  sm_.Replay();
-}
-
 //
 // Spoken feedback tests of the out-of-box experience.
 //

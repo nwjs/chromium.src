@@ -301,8 +301,7 @@ void ChromeNewWindowClient::OpenFileManager() {
       apps::AppServiceProxyFactory::GetForProfile(profile);
   DCHECK(proxy);
   proxy->AppRegistryCache().ForOneApp(
-      extension_misc::kWallpaperManagerId,
-      [proxy](const apps::AppUpdate& update) {
+      file_manager::kFileManagerAppId, [proxy](const apps::AppUpdate& update) {
         if (update.Readiness() == apps::mojom::Readiness::kReady) {
           proxy->Launch(update.AppId(),
                         apps::GetEventFlags(

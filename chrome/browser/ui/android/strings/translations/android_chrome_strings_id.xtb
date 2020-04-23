@@ -188,7 +188,7 @@ Ketuk kata apa pun untuk menelusuri. Untuk menyaring penelusuran, sentuh lama un
 <translation id="2328985652426384049">Tidak dapat login</translation>
 <translation id="234265804618409743">Tidak dapat membuka kamera Anda. Terjadi error.</translation>
 <translation id="2349710944427398404">Total data yang digunakan oleh Chrome, termasuk akun, bookmark, dan setelan yang tersimpan</translation>
-<translation id="2353636109065292463">Memeriksa sambungan internet Anda</translation>
+<translation id="2353636109065292463">Memeriksa koneksi internet Anda</translation>
 <translation id="2359808026110333948">Lanjutkan</translation>
 <translation id="2369533728426058518">tab terbuka</translation>
 <translation id="2387895666653383613">Ukuran teks</translation>
@@ -450,7 +450,7 @@ Hanya Anda yang dapat melihat hal-hal yang dilihat kamera Anda. Situs ini tidak 
 <translation id="4298388696830689168">Situs tertaut</translation>
 <translation id="4307992518367153382">Dasar</translation>
 <translation id="4314815835985389558">Kelola sinkronisasi</translation>
-<translation id="4320177379694898372">Tidak ada sambungan internet</translation>
+<translation id="4320177379694898372">Tidak ada koneksi internet</translation>
 <translation id="4321739720395210191">Tidak dapat membuka kamera Anda. Mulai ulang perangkat Anda dan coba lagi.</translation>
 <translation id="4351244548802238354">Tutup dialog</translation>
 <translation id="4353114845960720315">Ketika Anda berada dalam VR, situs ini mungkin dapat mempelajari:</translation>
@@ -655,6 +655,7 @@ Untuk mengubah setelan ini, <ph name="BEGIN_LINK" />setel ulang sinkronisasi<ph 
 <translation id="5763514718066511291">Ketuk untuk menyalin URL aplikasi ini</translation>
 <translation id="5765780083710877561">Deskripsi:</translation>
 <translation id="5793665092639000975"><ph name="SPACE_USED" /> terpakai dari <ph name="SPACE_AVAILABLE" /></translation>
+<translation id="5795872532621730126">Penelusuran dan penjelajahan</translation>
 <translation id="5797070761912323120">Google dapat menggunakan histori Anda untuk mempersonalisasi Penelusuran, iklan, dan layanan Google lainnya</translation>
 <translation id="5804241973901381774">Izin</translation>
 <translation id="5809361687334836369">{HOURS,plural, =1{# jam yang lalu}other{# jam yang lalu}}</translation>

@@ -18,6 +18,7 @@
 <translation id="1190609913194133056">Bildirim Merkezi</translation>
 <translation id="1195412055398077112">fazla tarama</translation>
 <translation id="119944043368869598">Tümünü temizle</translation>
+<translation id="1199716647557067911">Anahtar Erişimi'ni kapatmak istediğinizden emin misiniz?</translation>
 <translation id="1247372569136754018">Mikrofon (dahili)</translation>
 <translation id="1252999807265626933"><ph name="POWER_SOURCE" /> güç kaynağından şarj ediliyor</translation>
 <translation id="1255033239764210633">Hava nasıl?</translation>
@@ -55,6 +56,7 @@
 <translation id="1570871743947603115">Bluetooth'u aç/kapat. <ph name="STATE_TEXT" /></translation>
 <translation id="1589090746204042747">Bu oturumdaki tüm etkinliğinize erişme</translation>
 <translation id="1608626060424371292">Bu kullanıcıyı kaldır</translation>
+<translation id="1632985212731562677">Anahtar Erişimi, Ayarlar &gt; Erişilebilirlik'te devre dışı bırakılabilir.</translation>
 <translation id="1654477262762802994">Sesli sorgu başlat</translation>
 <translation id="1658406695958299976">Maalesef şifreniz hâlâ doğrulanamadı. Not: Şifrenizi yakın zamanda değiştirdiyseniz, yeni şifreniz oturumu kapatmanızdan sonra geçerli olacaktır. Lütfen burada eski şifrenizi kullanın.</translation>
 <translation id="1677472565718498478">Kalan süre: <ph name="TIME" /></translation>
@@ -104,6 +106,7 @@
 <translation id="2268813581635650749">Tüm kullanıcıların oturumunu kapat</translation>
 <translation id="2277103315734023688">İleri Sar</translation>
 <translation id="2292698582925480719">Görüntüyü ölçekle</translation>
+<translation id="2295777434187870477">Mikrofon açık, düğmeye basılırsa girişin sesi kapatılacak.</translation>
 <translation id="2298170939937364391">Tam Ekran Büyüteci etkinleştirildi. Kapatmak için tekrar Ctrl+Arama+M tuşlarına basın.</translation>
 <translation id="2302092602801625023">Bu hesap Family Link tarafından yönetiliyor</translation>
 <translation id="2303600792989757991">Pencere genel bakışını değiştir</translation>
@@ -137,6 +140,7 @@
 <translation id="2658778018866295321">Tıkla ve sürükle</translation>
 <translation id="2700493154570097719">Klavyenizi ayarlayın</translation>
 <translation id="2704781753052663061">Başka kablosuz ağlara katıl</translation>
+<translation id="2705001408393684014">Mikrofonu aç/kapat. <ph name="STATE_TEXT" /></translation>
 <translation id="2718395828230677721">Gece Işığı</translation>
 <translation id="2727977024730340865">Düşük güçlü bir şarj cihazına takıldı. Şarj durumu güvenilir olmayabilir.</translation>
 <translation id="2792498699870441125">Alt+Arama</translation>
@@ -179,6 +183,7 @@
 <translation id="3154351730702813399">Cihaz yöneticisi göz atma etkinliğinizi izleyebilir.</translation>
 <translation id="3181441307743005334">Yeniden başlatmak biraz zaman alabilir</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{Bir cihaza bağlı}other{# cihaza bağlı}}</translation>
+<translation id="3203405173652969239">Anahtar Erişimi etkinleştirildi</translation>
 <translation id="3207953481422525583">Kullanıcı Ayarları</translation>
 <translation id="3217205077783620295">Ses açık, düğmeye basılırsa ses kapatılacak.</translation>
 <translation id="3226991577105957773">+<ph name="COUNT" /> öğe daha</translation>
@@ -295,6 +300,7 @@
 <translation id="4665114317261903604">Rahatsız Etmeyin modunu aç/kapat. <ph name="STATE_TEXT" /></translation>
 <translation id="4696813013609194136">Kilidi ebeveyn koduyla açın</translation>
 <translation id="4702647871202761252">Gizlilik ekranı kapalı</translation>
+<translation id="4705716602320768426">Geri bildirim gönder</translation>
 <translation id="4710243778082831592">IME Ayarları</translation>
 <translation id="4731797938093519117">Ebeveyn erişimi</translation>
 <translation id="4734965478015604180">Yatay</translation>
@@ -375,6 +381,7 @@
 <translation id="5901316534475909376">Üst Karakter+Esc</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" /> (<ph name="MAIL" />)</translation>
 <translation id="5916664084637901428">Açık</translation>
+<translation id="5920710855273935292">Mikrofonun sesi kapalı.</translation>
 <translation id="5947494881799873997">Geri döndür</translation>
 <translation id="595202126637698455">Performans izleme etkin</translation>
 <translation id="5957083217255311415">Mobil veri kapatıldı.</translation>
@@ -431,6 +438,7 @@
 <translation id="6537924328260219877"><ph name="SIGNAL_STRENGTH" /> Sinyal Gücü, <ph name="BATTERY_STATUS" /> Telefon Pili</translation>
 <translation id="6542521951477560771"><ph name="RECEIVER_NAME" /> alıcısına gönderiliyor</translation>
 <translation id="6559976592393364813">Yöneticiye sorun</translation>
+<translation id="6584550827717945790">Anahtar Erişimi'ni kapatma</translation>
 <translation id="6585808820553845416">Oturumun süresi <ph name="SESSION_TIME_REMAINING" /> içinde bitiyor.</translation>
 <translation id="661203523074512333"><ph name="SECURITY_STATUS" />, <ph name="SIGNAL_STRENGTH" /> Sinyal Gücü, Yöneticiniz tarafından yönetiliyor</translation>
 <translation id="6614169507485700968">Gizlilik ekranı açık</translation>

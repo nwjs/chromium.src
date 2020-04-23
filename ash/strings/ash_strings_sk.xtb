@@ -18,6 +18,7 @@
 <translation id="1190609913194133056">Centrum upozornení</translation>
 <translation id="1195412055398077112">presah obsahu</translation>
 <translation id="119944043368869598">Vymazať všetko</translation>
+<translation id="1199716647557067911">Naozaj chcete vypnúť ovládanie prepínačmi?</translation>
 <translation id="1247372569136754018">Mikrofón (vnútorný)</translation>
 <translation id="1252999807265626933">Nabíja sa zo <ph name="POWER_SOURCE" /></translation>
 <translation id="1255033239764210633">Aké je počasie?</translation>
@@ -55,6 +56,7 @@
 <translation id="1570871743947603115">Prepnúť Bluetooth. <ph name="STATE_TEXT" /></translation>
 <translation id="1589090746204042747">Získajte prístup k všetkej svojej aktivite v tejto relácii</translation>
 <translation id="1608626060424371292">Odstrániť tohto používateľa</translation>
+<translation id="1632985212731562677">Ovládanie prepínačmi je možné deaktivovať v sekcii Nastavenia &gt; Dostupnosť.</translation>
 <translation id="1654477262762802994">Spustiť hlasový dopyt</translation>
 <translation id="1658406695958299976">Je nám to ľúto, ale vaše heslo sa stále nedarí overiť. Poznámka: Ak ste ho nedávno zmenili, nové heslo sa použije až po odhlásení. Tu použite staré heslo.</translation>
 <translation id="1677472565718498478">Zostávajúci čas: <ph name="TIME" /></translation>
@@ -104,6 +106,7 @@
 <translation id="2268813581635650749">Odhlásiť všetkých</translation>
 <translation id="2277103315734023688">Pretočiť dopredu</translation>
 <translation id="2292698582925480719">Hustota zobrazenia</translation>
+<translation id="2295777434187870477">Mikrofón je zapnutý. Prepnutím vypnete zvuk vstupu.</translation>
 <translation id="2298170939937364391">Bola zapnutá lupa na celú obrazovku. Vypnete ju opätovným stlačením kombinácie klávesov Ctrl+Hľadať+M.</translation>
 <translation id="2302092602801625023">Tento účet spravuje aplikácia Family Link</translation>
 <translation id="2303600792989757991">Prepnúť prehľad okien</translation>
@@ -137,6 +140,7 @@
 <translation id="2658778018866295321">Kliknúť a presunúť</translation>
 <translation id="2700493154570097719">Nastavenie klávesnice</translation>
 <translation id="2704781753052663061">Pripojiť sa k iným sieťam Wi-Fi</translation>
+<translation id="2705001408393684014">Prepnúť mikrofón. <ph name="STATE_TEXT" /></translation>
 <translation id="2718395828230677721">Nočný režim</translation>
 <translation id="2727977024730340865">Batéria je zapojená do nabíjačky s nízkym výkonom. Nabíjanie batérie nemusí byť spoľahlivé.</translation>
 <translation id="2792498699870441125">Alt + Hľadať</translation>
@@ -179,6 +183,7 @@
 <translation id="3154351730702813399">Správca zariadenia môže sledovať vašu aktivitu prehliadania.</translation>
 <translation id="3181441307743005334">Reštart môže chvíľu trvať</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{Pripojené k zariadeniu}few{Pripojené k # zariadeniam}many{Connected to # devices}other{Pripojené k # zariadeniam}}</translation>
+<translation id="3203405173652969239">Ovládanie prepínačmi je aktivované</translation>
 <translation id="3207953481422525583">Nastavenia používateľa</translation>
 <translation id="3217205077783620295">Zvuk je zapnutý. Ak ho chcete vypnúť, prepnite tlačidlo.</translation>
 <translation id="3226991577105957773">a ďalšie (<ph name="COUNT" />)</translation>
@@ -295,6 +300,7 @@
 <translation id="4665114317261903604">Prepnúť režim bez vyrušení. <ph name="STATE_TEXT" /></translation>
 <translation id="4696813013609194136">Odomknutie zariadenia kódom rodiča</translation>
 <translation id="4702647871202761252">Obrazovka ochrany súkromia je vypnutá</translation>
+<translation id="4705716602320768426">Odoslať spätnú väzbu</translation>
 <translation id="4710243778082831592">Nastavenia editora IME</translation>
 <translation id="4731797938093519117">Rodičovský prístup</translation>
 <translation id="4734965478015604180">Na šírku</translation>
@@ -375,6 +381,7 @@
 <translation id="5901316534475909376">Shift+Esc</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" /> (<ph name="MAIL" />)</translation>
 <translation id="5916664084637901428">Zapnuté</translation>
+<translation id="5920710855273935292">Mikrofón je vypnutý.</translation>
 <translation id="5947494881799873997">Vrátiť</translation>
 <translation id="595202126637698455">Sledovanie výkonnosti je povolené</translation>
 <translation id="5957083217255311415">Mobilné dáta sú vypnuté.</translation>
@@ -430,6 +437,7 @@
 <translation id="6537924328260219877">Sila signálu <ph name="SIGNAL_STRENGTH" />, batéria telefónu <ph name="BATTERY_STATUS" /></translation>
 <translation id="6542521951477560771">Prebieha prenášanie do zariadenia <ph name="RECEIVER_NAME" /></translation>
 <translation id="6559976592393364813">Požiadajte o to správcu</translation>
+<translation id="6584550827717945790">Vypnutie ovládania prepínačmi</translation>
 <translation id="6585808820553845416">Relácia sa skončí o <ph name="SESSION_TIME_REMAINING" /></translation>
 <translation id="661203523074512333"><ph name="SECURITY_STATUS" />, sila signálu <ph name="SIGNAL_STRENGTH" />, ovládané správcom</translation>
 <translation id="6614169507485700968">Obrazovka ochrany súkromia je zapnutá</translation>

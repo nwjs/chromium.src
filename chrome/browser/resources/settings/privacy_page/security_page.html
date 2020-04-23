@@ -7,6 +7,7 @@
 <link rel="import" href="chrome://resources/html/assert.html">
 <link rel="import" href="chrome://resources/html/cr/ui/focus_without_ink.html">
 <link rel="import" href="collapse_radio_button.html">
+<link rel="import" href="disable_safebrowsing_dialog.html">
 <link rel="import" href="passwords_leak_detection_toggle.html">
 <link rel="import" href="privacy_page_browser_proxy.html">
 <link rel="import" href="safe_browsing_browser_proxy.html">
@@ -60,9 +61,18 @@
         padding-bottom: 12px;
       }
 
+      settings-passwords-leak-detection-toggle,
+      settings-toggle-button:not([disabled]) {
+        pointer-events: all;
+      }
+
       #safeBrowsingReportingToggle {
         padding-inline-end: 0;
         padding-inline-start: 0;
+      }
+
+      #safeBrowsingEnhanced .bullet-line:last-of-type {
+        padding-bottom: 12px;
       }
     </style>
     <picture>
@@ -139,6 +149,8 @@
                   $i18n{safeBrowsingStandardBulTwo}
               </div>
             </div>
+          </div>
+          <div slot="noSelectionCollapse">
             <settings-toggle-button id="safeBrowsingReportingToggle"
                 pref="{{prefs.safebrowsing.scout_reporting_enabled}}"
                 class="first"
@@ -187,12 +199,18 @@
         sub-label="$i18n{manageCertificatesDescription}"
         on-click="onManageCertificatesClick_"></cr-link-row>
 </if>
-        <cr-link-row id="advanced-protection-program-link"
-            class="hr"
-            label="$i18n{advancedProtectionProgramTitle}"
-            sub-label="$i18n{advancedProtectionProgramDesc}"
-            on-click="onAdvancedProtectionProgramLinkClick_"
-            external></cr-link-row>
+    <cr-link-row id="advanced-protection-program-link"
+        class="hr"
+        label="$i18n{advancedProtectionProgramTitle}"
+        sub-label="$i18n{advancedProtectionProgramDesc}"
+        on-click="onAdvancedProtectionProgramLinkClick_"
+        external>
+    </cr-link-row>
+    <template is="dom-if" if="[[showDisableSafebrowsingDialog_]]" restamp>
+      <settings-disable-safebrowsing-dialog prefs="{{prefs}}"
+          on-close="onDisableSafebrowsingDialogClose_">
+      </settings-disable-safebrowsing-dialog>
+    </template>
   </template>
   <script src="security_page.js"></script>
 </dom-module>

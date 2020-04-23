@@ -18,6 +18,7 @@
 <translation id="1190609913194133056">Benachrichtigungscenter</translation>
 <translation id="1195412055398077112">Overscan</translation>
 <translation id="119944043368869598">Alle löschen</translation>
+<translation id="1199716647557067911">Möchten Sie den Schalterzugriff wirklich deaktivieren?</translation>
 <translation id="1247372569136754018">Mikrofon (intern)</translation>
 <translation id="1252999807265626933">Wird über ein <ph name="POWER_SOURCE" /> aufgeladen</translation>
 <translation id="1255033239764210633">Wie ist das Wetter?</translation>
@@ -55,6 +56,7 @@
 <translation id="1570871743947603115">Bluetooth aktivieren/deaktivieren. <ph name="STATE_TEXT" /></translation>
 <translation id="1589090746204042747">Auf alle Ihre Aktivitäten in dieser Sitzung zugreifen</translation>
 <translation id="1608626060424371292">Diesen Nutzer entfernen</translation>
+<translation id="1632985212731562677">Der Schalterzugriff kann unter "Einstellungen" &gt; "Bedienungshilfen" deaktiviert werden.</translation>
 <translation id="1654477262762802994">Gesprochene Anfrage starten</translation>
 <translation id="1658406695958299976">Ihr Passwort konnte immer noch nicht bestätigt werden. Hinweis: Falls Sie Ihr Passwort kürzlich geändert haben, wird Ihr neues Passwort übernommen, sobald Sie sich abmelden. Bitte verwenden Sie hier das alte Passwort.</translation>
 <translation id="1677472565718498478">Verbleibende Zeit: <ph name="TIME" /> h</translation>
@@ -104,6 +106,7 @@
 <translation id="2268813581635650749">Alle abmelden</translation>
 <translation id="2277103315734023688">Vorwärts springen</translation>
 <translation id="2292698582925480719">Displaymaßstab</translation>
+<translation id="2295777434187870477">Mikrofon ist an. Sie können es hier stummschalten.</translation>
 <translation id="2298170939937364391">Vollbildlupe aktiviert. Wenn Sie sie deaktivieren möchten, drücken Sie noch einmal Strg + Suchtaste + M.</translation>
 <translation id="2302092602801625023">Dieses Konto wird über Family Link verwaltet</translation>
 <translation id="2303600792989757991">Fensterübersicht umschalten</translation>
@@ -137,6 +140,7 @@
 <translation id="2658778018866295321">Klicken und ziehen</translation>
 <translation id="2700493154570097719">Tastatur einrichten</translation>
 <translation id="2704781753052663061">Mit anderen WLANs verbinden</translation>
+<translation id="2705001408393684014">Mikrofon ein-/ausschalten. <ph name="STATE_TEXT" /></translation>
 <translation id="2718395828230677721">Nachtlicht</translation>
 <translation id="2727977024730340865">Das Gerät ist an ein Schwachstrom-Ladegerät angeschlossen. Möglicherweise kann der Akku nicht zuverlässig aufgeladen werden.</translation>
 <translation id="2792498699870441125">Alt+Suchtaste</translation>
@@ -179,6 +183,7 @@
 <translation id="3154351730702813399">Der Geräteadministrator überwacht unter Umständen Ihre Browseraktivitäten.</translation>
 <translation id="3181441307743005334">Der Neustart kann etwas dauern</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{Mit einem Gerät verbunden}other{Mit # Geräten verbunden}}</translation>
+<translation id="3203405173652969239">Schalterzugriff ist aktiviert</translation>
 <translation id="3207953481422525583">Nutzereinstellungen</translation>
 <translation id="3217205077783620295">Ton ist an. Drücken Sie hier, um ihn stummzuschalten.</translation>
 <translation id="3226991577105957773">+ <ph name="COUNT" /> weitere</translation>
@@ -295,6 +300,7 @@
 <translation id="4665114317261903604">"Bitte nicht stören" aktivieren/deaktivieren. <ph name="STATE_TEXT" /></translation>
 <translation id="4696813013609194136">Gerät mit Elterncode entsperren</translation>
 <translation id="4702647871202761252">Der Datenschutzbildschirm ist momentan deaktiviert</translation>
+<translation id="4705716602320768426">Feedback geben</translation>
 <translation id="4710243778082831592">IME-Einstellungen</translation>
 <translation id="4731797938093519117">Elternfreigabe</translation>
 <translation id="4734965478015604180">Horizontal</translation>
@@ -375,6 +381,7 @@
 <translation id="5901316534475909376">Umschalttaste + Esc</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" /> (<ph name="MAIL" />)</translation>
 <translation id="5916664084637901428">An</translation>
+<translation id="5920710855273935292">Mikrofon ist stummgeschaltet.</translation>
 <translation id="5947494881799873997">Rückgängig machen</translation>
 <translation id="595202126637698455">Leistungsnachverfolgung aktiviert</translation>
 <translation id="5957083217255311415">Mobile Daten sind deaktiviert.</translation>
@@ -430,6 +437,7 @@
 <translation id="6537924328260219877">Signalstärke bei <ph name="SIGNAL_STRENGTH" />, Smartphone-Akku bei <ph name="BATTERY_STATUS" /></translation>
 <translation id="6542521951477560771">Inhalte werden an <ph name="RECEIVER_NAME" /> gestreamt</translation>
 <translation id="6559976592393364813">Administrator fragen</translation>
+<translation id="6584550827717945790">Schalterzugriff deaktivieren</translation>
 <translation id="6585808820553845416">Sitzung endet in <ph name="SESSION_TIME_REMAINING" />.</translation>
 <translation id="661203523074512333"><ph name="SECURITY_STATUS" />, Signalstärke bei <ph name="SIGNAL_STRENGTH" />, von Ihrem Administrator verwaltet</translation>
 <translation id="6614169507485700968">Der Datenschutzbildschirm ist momentan aktiviert</translation>

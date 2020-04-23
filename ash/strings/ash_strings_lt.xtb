@@ -18,6 +18,7 @@
 <translation id="1190609913194133056">Pranešimų centras</translation>
 <translation id="1195412055398077112">sritis aplink vaizdo kraštus</translation>
 <translation id="119944043368869598">Valyti viską</translation>
+<translation id="1199716647557067911">Ar tikrai norite išjungti prieigą jungikliu?</translation>
 <translation id="1247372569136754018">Mikrofonas (vidinis)</translation>
 <translation id="1252999807265626933">Įkraunama naudojant <ph name="POWER_SOURCE" /></translation>
 <translation id="1255033239764210633">„What's the weather?“ (Koks oras?)</translation>
@@ -55,6 +56,7 @@
 <translation id="1570871743947603115">Perjungti „Bluetooth“. <ph name="STATE_TEXT" /></translation>
 <translation id="1589090746204042747">Pasiekti visą šios sesijos veiklą</translation>
 <translation id="1608626060424371292">Pašalinti šį naudotoją</translation>
+<translation id="1632985212731562677">Prieigos jungikliu funkciją galima išjungti skiltyje „Nustatymai“ &gt; „Pritaikomumas“.</translation>
 <translation id="1654477262762802994">Pradėti užklausą balsu</translation>
 <translation id="1658406695958299976">Deja, jūsų slaptažodžio patvirtinti vis tiek nepavyko. Pastaba: jei neseniai pakeitėte slaptažodį, naujas slaptažodis bus taikomas, kai atsijungsite. Čia naudokite senąjį slaptažodį.</translation>
 <translation id="1677472565718498478">Liko <ph name="TIME" /></translation>
@@ -104,6 +106,7 @@
 <translation id="2268813581635650749">Atjungti visus</translation>
 <translation id="2277103315734023688">Prasukti pirmyn</translation>
 <translation id="2292698582925480719">Ekrano mastelis</translation>
+<translation id="2295777434187870477">Mikrofonas įjungtas; perjungiant įvestis bus nutildyta.</translation>
 <translation id="2298170939937364391">Viso ekrano didinimas įgalintas. Dar kartą paspauskite „Ctrl“ + paieškos klavišą + M, kad išjungtumėte režimą.</translation>
 <translation id="2302092602801625023">Ši paskyra tvarkoma naudojant „Family Link“</translation>
 <translation id="2303600792989757991">Perjungti lango apžvalgą</translation>
@@ -137,6 +140,7 @@
 <translation id="2658778018866295321">Spustelėti ir vilkti</translation>
 <translation id="2700493154570097719">Klaviatūros nustatymas</translation>
 <translation id="2704781753052663061">Prisijungti prie kitų „Wi-Fi“ tinklų</translation>
+<translation id="2705001408393684014">Perjungti mikrofoną. <ph name="STATE_TEXT" /></translation>
 <translation id="2718395828230677721">Nakties šviesa</translation>
 <translation id="2727977024730340865">Prijungtas mažos galios įkroviklis. Akumuliatoriaus įkrovimas gali būti nepatikimas.</translation>
 <translation id="2792498699870441125">„Alt“ + paieškos klavišas</translation>
@@ -179,6 +183,7 @@
 <translation id="3154351730702813399">Įrenginio administratorius gali stebėti jūsų naršymo veiklą.</translation>
 <translation id="3181441307743005334">Paleidimas iš naujo gali šiek tiek užtrukti</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{Prisijungta prie įrenginio}one{Prisijungta prie # įrenginio}few{Prisijungta prie # įrenginių}many{Prisijungta prie # įrenginio}other{Prisijungta prie # įrenginių}}</translation>
+<translation id="3203405173652969239">Prieiga jungikliu įgalinta</translation>
 <translation id="3207953481422525583">Naudotojo nustatymai</translation>
 <translation id="3217205077783620295">Garsumas įjungtas; perjungiant garsas bus nutildytas.</translation>
 <translation id="3226991577105957773">Dar <ph name="COUNT" /></translation>
@@ -295,6 +300,7 @@
 <translation id="4665114317261903604">Perjungti netrukdymo režimą. <ph name="STATE_TEXT" /></translation>
 <translation id="4696813013609194136">Atrakinkite įrenginį naudodami tėvų kodą</translation>
 <translation id="4702647871202761252">Privatumo ekranas išjungtas</translation>
+<translation id="4705716602320768426">Pateikti atsiliepimų</translation>
 <translation id="4710243778082831592">IMRP nustatymai</translation>
 <translation id="4731797938093519117">Tėvų prieiga</translation>
 <translation id="4734965478015604180">Horizontaliai</translation>
@@ -375,6 +381,7 @@
 <translation id="5901316534475909376">„Shift“ + „Esc“</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" /> (<ph name="MAIL" />)</translation>
 <translation id="5916664084637901428">Įjungta</translation>
+<translation id="5920710855273935292">Mikrofonas nutildytas.</translation>
 <translation id="5947494881799873997">Grąžinti</translation>
 <translation id="595202126637698455">Įgalintas našumo stebėjimas</translation>
 <translation id="5957083217255311415">Mobiliojo ryšio duomenys išjungti.</translation>
@@ -430,6 +437,7 @@
 <translation id="6537924328260219877">Signalo stiprumas <ph name="SIGNAL_STRENGTH" />, telefono akumuliatorius <ph name="BATTERY_STATUS" /></translation>
 <translation id="6542521951477560771">Perduodama į „<ph name="RECEIVER_NAME" />“</translation>
 <translation id="6559976592393364813">Klausti administratoriaus</translation>
+<translation id="6584550827717945790">Prieigos jungikliu išjungimas</translation>
 <translation id="6585808820553845416">Sesija baigsis po <ph name="SESSION_TIME_REMAINING" />.</translation>
 <translation id="661203523074512333"><ph name="SECURITY_STATUS" />, signalo stiprumas <ph name="SIGNAL_STRENGTH" />, tvarko administratorius</translation>
 <translation id="6614169507485700968">Privatumo ekranas įjungtas</translation>

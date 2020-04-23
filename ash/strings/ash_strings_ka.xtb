@@ -18,6 +18,7 @@
 <translation id="1190609913194133056">შეტყობინებათა ცენტრი</translation>
 <translation id="1195412055398077112">არასამუშაო არე</translation>
 <translation id="119944043368869598">ყველაფრის გასუფთავება</translation>
+<translation id="1199716647557067911">ნამდვილად გსურთ, გამორთოთ გადამრთველით წვდომა?</translation>
 <translation id="1247372569136754018">მიკროფონი (შიდა)</translation>
 <translation id="1252999807265626933">იტენება წყაროდან: <ph name="POWER_SOURCE" /></translation>
 <translation id="1255033239764210633">რა ამინდია?</translation>
@@ -55,6 +56,7 @@
 <translation id="1570871743947603115">Bluetooth-ის გადართვა. <ph name="STATE_TEXT" /></translation>
 <translation id="1589090746204042747">ამ სესიის დროს თქვენს მთელ აქტივობაზე წვდომა</translation>
 <translation id="1608626060424371292">ამ მომხმარებლის წაშლა</translation>
+<translation id="1632985212731562677">გადამრთველით წვდომის გათიშვა შესაძლებელია აქ: პარამეტრები &gt; მარტივი წვდომა.</translation>
 <translation id="1654477262762802994">ხმოვანი მოთხოვნის დაწყება</translation>
 <translation id="1658406695958299976">სამწუხაროდ, თქვენი პაროლის დადასტურება ვერ მოხერხდა. გაითვალისწინეთ: თუ პაროლი ახლახან შეცვალეთ, ახალი პაროლის გააქტიურდება სისტემიდან გამოსვლის შემდეგ. აქ კი, გთხოვთ, გამოიყენოთ ძველი პაროლი.</translation>
 <translation id="1677472565718498478">დარჩენილია <ph name="TIME" /></translation>
@@ -104,6 +106,7 @@
 <translation id="2268813581635650749">ყველას გამოსვლა</translation>
 <translation id="2277103315734023688">წინ გადახვევა</translation>
 <translation id="2292698582925480719">ჩვენების მასშტაბი</translation>
+<translation id="2295777434187870477">მიკროფონი ჩართულია, გადართვისას აუდიოშეყვანა დადუმდება.</translation>
 <translation id="2298170939937364391">სრულეკრანიანი ლუპა ჩართულია. გამოსართავად ხელახლა დააჭირეთ კლავიშთა კომბინაციას: Ctrl+Search+M.</translation>
 <translation id="2302092602801625023">ეს ანგარიში იმართება Family Link-ის მეშვეობით</translation>
 <translation id="2303600792989757991">ფანჯრის მიმოხილვის გადართვა</translation>
@@ -137,6 +140,7 @@
 <translation id="2658778018866295321">დაწკაპუნება და ჩავლებით გადატანა</translation>
 <translation id="2700493154570097719">დააყენეთ კლავიატურა</translation>
 <translation id="2704781753052663061">სხვა Wi-Fi ქსელებში გაწევრიანება</translation>
+<translation id="2705001408393684014">მიკროფონის გადართვა. <ph name="STATE_TEXT" /></translation>
 <translation id="2718395828230677721">ღამის განათება</translation>
 <translation id="2727977024730340865">შეერთებულია დაბალი სიმძლავრის დამტენთან. ბატარეის დატენვა შეიძლება არ იყოს სანდო.</translation>
 <translation id="2792498699870441125">Alt+ძიება</translation>
@@ -179,6 +183,7 @@
 <translation id="3154351730702813399">მოწყობილობის ადმინისტრატორს თქვენ მიერ ვების დათვალიერების მონიტორინგი შეუძლია.</translation>
 <translation id="3181441307743005334">გადატვირთვას შეიძლება გარკვეული დრო დასჭირდეს</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{დაკავშირებულია მოწყობილობასთან}other{დაკავშირებულია # მოწყობილობასთან}}</translation>
+<translation id="3203405173652969239">გადამრთველით წვდომა ჩართულია</translation>
 <translation id="3207953481422525583">მომხმარებლის პარამეტრები</translation>
 <translation id="3217205077783620295">ხმა ჩართულია, გადართვისას აუდიო დადუმდება.</translation>
 <translation id="3226991577105957773">+<ph name="COUNT" /> სხვა</translation>
@@ -295,6 +300,7 @@
 <translation id="4665114317261903604">„არ შემაწუხოთ“ რეჟიმის გადართვა. <ph name="STATE_TEXT" /></translation>
 <translation id="4696813013609194136">განბლოკეთ მოწყობილობა მშობლის კოდით</translation>
 <translation id="4702647871202761252">კონფიდენციალურობის ეკრანი გამორთულია</translation>
+<translation id="4705716602320768426">გამოხმაურება</translation>
 <translation id="4710243778082831592">IME პარამეტრები</translation>
 <translation id="4731797938093519117">მშობლის წვდომა</translation>
 <translation id="4734965478015604180">ჰორიზონტალური</translation>
@@ -375,6 +381,7 @@
 <translation id="5901316534475909376">Shift+Esc</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" /> (<ph name="MAIL" />)</translation>
 <translation id="5916664084637901428">ჩართვა</translation>
+<translation id="5920710855273935292">მიკროფონი დადუმებულია.</translation>
 <translation id="5947494881799873997">დაბრუნება</translation>
 <translation id="595202126637698455">ეფექტურობის ტრასირება ჩართულია</translation>
 <translation id="5957083217255311415">მობილური ინტერნეტი გამორთულია.</translation>
@@ -430,6 +437,7 @@
 <translation id="6537924328260219877">სიგნალის სიძლიერე: <ph name="SIGNAL_STRENGTH" />, ტელეფონის ბატარეა: <ph name="BATTERY_STATUS" /></translation>
 <translation id="6542521951477560771">მიმდინარეობს ტრანსლირება <ph name="RECEIVER_NAME" />-ში</translation>
 <translation id="6559976592393364813">ჰკითხეთ ადმინისტრატორს</translation>
+<translation id="6584550827717945790">გადამრთველით წვდომის გამორთვა</translation>
 <translation id="6585808820553845416">სესიის დასრულებამდე დარჩა <ph name="SESSION_TIME_REMAINING" />.</translation>
 <translation id="661203523074512333"><ph name="SECURITY_STATUS" />, სიგნალის სიძლიერე: <ph name="SIGNAL_STRENGTH" />, მართავს თქვენი ადმინისტრატორი</translation>
 <translation id="6614169507485700968">კონფიდენციალურობის ეკრანი ჩართულია</translation>

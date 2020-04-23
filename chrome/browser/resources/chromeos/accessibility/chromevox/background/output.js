@@ -1806,6 +1806,10 @@ Output = class {
       return ret;
     }
 
+    if (node.state[StateType.EDITABLE] && ChromeVox.isStickyPrefOn) {
+      ret.push({msgId: 'sticky_mode_enabled'});
+    }
+
     if (node.state[StateType.EDITABLE] && node.state[StateType.FOCUSED] &&
         (node.state[StateType.MULTILINE] ||
          node.state[StateType.RICHLY_EDITABLE])) {

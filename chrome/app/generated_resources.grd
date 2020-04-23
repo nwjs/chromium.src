@@ -4466,6 +4466,9 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_PARENT_PERMISSION_PROMPT_SELECT_PARENT_LABEL" desc="Text for the label shown above the parent selector.">
         Choose parent account for approval
       </message>
+      <message name="IDS_PARENT_PERMISSION_PROMPT_PARENT_ACCOUNT_LABEL" desc="Text for the label shown above a single parent account email.">
+        Parent account
+      </message>
       <message name="IDS_PARENT_PERMISSION_PROMPT_ENTER_PASSWORD_LABEL" desc="Text for the label shown above the parent password entry field.">
         Enter password
       </message>

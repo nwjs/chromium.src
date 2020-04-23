@@ -18,6 +18,7 @@
 <translation id="1190609913194133056">Isikhungo Sokwazisa</translation>
 <translation id="1195412055398077112">skena ngaphezulu</translation>
 <translation id="119944043368869598">Sula konke</translation>
+<translation id="1199716647557067911">Uqinisekile ukuthi ufuna ukuvala Ukushintsha ukufinyelela?</translation>
 <translation id="1247372569136754018">Imakrofoni (okwangaphakathi)</translation>
 <translation id="1252999807265626933">Ishaja kusuka ku-<ph name="POWER_SOURCE" /></translation>
 <translation id="1255033239764210633">Sithini isimo sezulu?</translation>
@@ -55,6 +56,7 @@
 <translation id="1570871743947603115">Shintsha i-Bluetooth. <ph name="STATE_TEXT" /></translation>
 <translation id="1589090746204042747">Finyelela kuwo wonke umsebenzi wakho kule seshini</translation>
 <translation id="1608626060424371292">Susa lo msebenzisi</translation>
+<translation id="1632985212731562677">Ukushintsha ukufinyelela kungakhutshazwa kokuthi Izilungiselelo &gt; Ukufinyeleleka.</translation>
 <translation id="1654477262762802994">Qalisa umbuzo wezwi</translation>
 <translation id="1658406695958299976">Uxolo, iphasiwedi yakho namanje ayikwazanga ukuqinisekiswa. Yazi: Uma uguqule iphasiwedi kamuva nje, iphasiwedi yakho entsha izosetshenziswa ngemuva kokuthi uphume ngemvume, sicela usebenzise iphasiwedi endala lapha.</translation>
 <translation id="1677472565718498478"><ph name="TIME" /> esele</translation>
@@ -104,6 +106,7 @@
 <translation id="2268813581635650749">Phuma ngemvume kuwo wonke</translation>
 <translation id="2277103315734023688">Funela phambili</translation>
 <translation id="2292698582925480719">Isikala sokubonisa</translation>
+<translation id="2295777434187870477">I-mic ivuliwe, ukuguqula kuzothulisa okokufaka.</translation>
 <translation id="2298170939937364391">Isikhulisis sesikrini esigcwele sinikwe amandla. Cindzela u-Ctrl+Search+M futhi ukuze uyivale.</translation>
 <translation id="2302092602801625023">Le akhawunti iphethwe i-Family Link</translation>
 <translation id="2303600792989757991">Shintsha ukuhlola kuqala iwindi</translation>
@@ -137,6 +140,7 @@
 <translation id="2658778018866295321">Chofoza uphinde uhudule</translation>
 <translation id="2700493154570097719">Setha ikhibhodi yakho</translation>
 <translation id="2704781753052663061">Joyina amanye amanethiwekhi we-Wi-Fi</translation>
+<translation id="2705001408393684014">Guqula i-Mic. <ph name="STATE_TEXT" /></translation>
 <translation id="2718395828230677721">Ukukhanya kwasebusuku</translation>
 <translation id="2727977024730340865">Ixhunye kushaja yamandla aphansi. Ukushaja ibhethri kungenzeka kungathembeki.</translation>
 <translation id="2792498699870441125">I-Alt+Search</translation>
@@ -179,6 +183,7 @@
 <translation id="3154351730702813399">Umlawuli wedivayisi angangamela umsebenzi wakho wokupheqa.</translation>
 <translation id="3181441307743005334">Ukuqala kabusha kungathatha isikhathi</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{Kuxhunywe kudivayisi}one{Kuxhunywe kumadivayisi angu-#}other{Kuxhunywe kumadivayisi angu-#}}</translation>
+<translation id="3203405173652969239">Ukushintsha ukufinyelela kunikwe amandla</translation>
 <translation id="3207953481422525583">Izilungiselelo Zomsebenzisi</translation>
 <translation id="3217205077783620295">Ivolomu ivuliwe, ukushintsha kuzothulisa umsindo.</translation>
 <translation id="3226991577105957773">+<ph name="COUNT" /> okuningi</translation>
@@ -295,6 +300,7 @@
 <translation id="4665114317261903604">Shintsha okuthi ungaphazamisi. <ph name="STATE_TEXT" /></translation>
 <translation id="4696813013609194136">Vula idivayisi ngekhodi yomzali</translation>
 <translation id="4702647871202761252">Isikrini sobumfihlo sivaliwe</translation>
+<translation id="4705716602320768426">Impendulo yefayela</translation>
 <translation id="4710243778082831592">Izilungiselelo ze-IME</translation>
 <translation id="4731797938093519117">Ukufinyelela komzali</translation>
 <translation id="4734965478015604180">Okuvundlile</translation>
@@ -375,6 +381,7 @@
 <translation id="5901316534475909376">Shift+Esc</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" /> (<ph name="MAIL" />)</translation>
 <translation id="5916664084637901428">Vuliwe</translation>
+<translation id="5920710855273935292">I-mic ithulisiwe.</translation>
 <translation id="5947494881799873997">Buyela</translation>
 <translation id="595202126637698455">Ukulandelela ukusebenza kunikwe amandla</translation>
 <translation id="5957083217255311415">Idatha yeselula ivaliwe.</translation>
@@ -430,6 +437,7 @@
 <translation id="6537924328260219877">Amandla esignali <ph name="SIGNAL_STRENGTH" />, Ibhethri lefoni <ph name="BATTERY_STATUS" /></translation>
 <translation id="6542521951477560771">Ukusakaza ku-<ph name="RECEIVER_NAME" /></translation>
 <translation id="6559976592393364813">Buza umlawuli</translation>
+<translation id="6584550827717945790">Vala Ukushintsha ukufinyelela</translation>
 <translation id="6585808820553845416">Iseshini izophela ngo-<ph name="SESSION_TIME_REMAINING" />.</translation>
 <translation id="661203523074512333">I-<ph name="SECURITY_STATUS" />, Amandla esignali angu-<ph name="SIGNAL_STRENGTH" />, iphethwe umlawuli wakho</translation>
 <translation id="6614169507485700968">Isikrini sobumfihlo sivuliwe</translation>

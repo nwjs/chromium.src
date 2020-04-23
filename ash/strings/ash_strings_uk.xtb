@@ -56,6 +56,7 @@
 <translation id="1570871743947603115">Увімкнути/вимкнути Bluetooth. <ph name="STATE_TEXT" /></translation>
 <translation id="1589090746204042747">мати доступ до всіх ваших дій у цьому сеансі</translation>
 <translation id="1608626060424371292">Вилучити цього користувача</translation>
+<translation id="1632985212731562677">Щоб вимкнути кнопковий доступ, відкрийте "Налаштування" &gt; "Спеціальні можливості".</translation>
 <translation id="1654477262762802994">Ввести голосовий запит</translation>
 <translation id="1658406695958299976">На жаль, поки не вдалося підтвердити ваш пароль. Зверніть увагу: якщо ви нещодавно змінили пароль, новий пароль буде застосовано, щойно ви вийдете з облікового запису. Скористайтеся старим паролем тут.</translation>
 <translation id="1677472565718498478">Залишилося <ph name="TIME" /></translation>
@@ -105,6 +106,7 @@
 <translation id="2268813581635650749">Вийти з усіх облікових записів</translation>
 <translation id="2277103315734023688">Перейти вперед</translation>
 <translation id="2292698582925480719">Масштаб дисплея</translation>
+<translation id="2295777434187870477">Мікрофон увімкнено. Його можна вимкнути за допомогою перемикача.</translation>
 <translation id="2298170939937364391">Увімкнено повноекранну лупу. Щоб вимкнути її, знову натисніть комбінацію Ctrl + клавіша пошуку + M.</translation>
 <translation id="2302092602801625023">Цим обліковим записом керують через Family Link</translation>
 <translation id="2303600792989757991">Увімкнення чи вимкнення вікна перегляду</translation>
@@ -138,6 +140,7 @@
 <translation id="2658778018866295321">Натиснути й перетягнути</translation>
 <translation id="2700493154570097719">Вибрати клавіатуру</translation>
 <translation id="2704781753052663061">Підключитися до інших мереж Wi-Fi</translation>
+<translation id="2705001408393684014">Перемикач мікрофона. <ph name="STATE_TEXT" /></translation>
 <translation id="2718395828230677721">Нічний режим</translation>
 <translation id="2727977024730340865">Підключено до зарядного пристрою низької потужності. Акумулятор може заряджатися неналежним чином.</translation>
 <translation id="2792498699870441125">Alt+клавіша пошуку</translation>
@@ -180,6 +183,7 @@
 <translation id="3154351730702813399">Адміністратор пристрою може відстежувати дані веб-перегляду.</translation>
 <translation id="3181441307743005334">Перезапуск може зайняти якийсь час</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{Під’єднано до пристрою}one{Під’єднано до # пристрою}few{Під’єднано до # пристроїв}many{Під’єднано до # пристроїв}other{Під’єднано до # пристрою}}</translation>
+<translation id="3203405173652969239">Кнопковий доступ увімкнено</translation>
 <translation id="3207953481422525583">Налаштування користувача</translation>
 <translation id="3217205077783620295">Звук увімкнено. Його можна вимкнути за допомогою перемикача.</translation>
 <translation id="3226991577105957773">Ще <ph name="COUNT" /></translation>
@@ -296,6 +300,7 @@
 <translation id="4665114317261903604">Увімкнути/вимкнути режим "Не турбувати". <ph name="STATE_TEXT" /></translation>
 <translation id="4696813013609194136">Введіть код доступу батьків</translation>
 <translation id="4702647871202761252">Екран конфіденційності вимкнено</translation>
+<translation id="4705716602320768426">Надіслати відгук</translation>
 <translation id="4710243778082831592">Налаштування IME</translation>
 <translation id="4731797938093519117">Батьківський доступ</translation>
 <translation id="4734965478015604180">Горизонтально</translation>
@@ -376,6 +381,7 @@
 <translation id="5901316534475909376">Shift+Esc</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" /> (<ph name="MAIL" />)</translation>
 <translation id="5916664084637901428">Увімкнути</translation>
+<translation id="5920710855273935292">Мікрофон вимкнено.</translation>
 <translation id="5947494881799873997">Повернути</translation>
 <translation id="595202126637698455">Відстеження ефективності ввімкнено</translation>
 <translation id="5957083217255311415">Мобільне передавання даних вимкнено.</translation>

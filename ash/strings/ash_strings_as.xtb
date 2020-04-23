@@ -18,6 +18,7 @@
 <translation id="1190609913194133056">জাননী কেন্দ্ৰ</translation>
 <translation id="1195412055398077112">অ'ভাৰস্কেন</translation>
 <translation id="119944043368869598">সকলো মচক</translation>
+<translation id="1199716647557067911">আপুনি ছুইচৰ দ্বাৰা এক্সেছ কৰা সুবিধাটো নিশ্চিতভাৱে অফ কৰিবলৈ বিচাৰেনে?</translation>
 <translation id="1247372569136754018">মাইক্ৰফ’ন (আভ্যন্তৰীণ)</translation>
 <translation id="1252999807265626933"><ph name="POWER_SOURCE" />ৰ পৰা চাৰ্জ কৰি থকা হৈছে</translation>
 <translation id="1255033239764210633">বতৰ কেনে?</translation>
@@ -55,6 +56,7 @@
 <translation id="1570871743947603115">ব্লুটুথ ট’গল কৰক। <ph name="STATE_TEXT" /></translation>
 <translation id="1589090746204042747">এই ছেশ্বনত আপোনাৰ সকলো কার্যকলাপ এক্সেছ কৰে</translation>
 <translation id="1608626060424371292">ব্যৱহাৰকাৰীক আঁতৰাওক</translation>
+<translation id="1632985212731562677">ছুইচৰ দ্বাৰা এক্সেছ ছেটিংসমূহ ইয়াত অক্ষম কৰিব পৰা যায় &gt; সাধ্য সুবিধা।</translation>
 <translation id="1654477262762802994">কণ্ঠধ্বনিৰদ্বাৰা সন্ধান আৰম্ভ কৰক</translation>
 <translation id="1658406695958299976">দুঃখিত, আপোনাৰ পাছৱৰ্ডটো এতিয়াও সত্যাপন কৰিব পৰা নগ‘ল। টোকা: যদি আপুনি অলপতে আপোনাৰ পাছৱৰ্ডটো সলনি কৰিছিল তেন্তে আপুনি ছাইন আউট কৰাৰ পিছত নতুন পাছৱৰ্ডটো প্ৰযোজ্য হ‘ব। ইয়াত অনুগ্ৰহ কৰি পুৰণা পাছৱৰ্ডটো ব্যৱহাৰ কৰক।</translation>
 <translation id="1677472565718498478"><ph name="TIME" /> বাকী</translation>
@@ -104,6 +106,7 @@
 <translation id="2268813581635650749">সকলো ছাইন আউট কৰক</translation>
 <translation id="2277103315734023688">আগলৈ যাওক</translation>
 <translation id="2292698582925480719">ডিছপ্লে’ৰ স্কে’ল</translation>
+<translation id="2295777434187870477">মাইক অন কৰা আছে, ট’গল কৰিলে ইনপুট মিউট হ’ব।</translation>
 <translation id="2298170939937364391">পূর্ণ স্ক্ৰীনৰ বিৱৰ্ধক সক্ষম কৰা হৈছে। ইয়াক ট’গল অফ কৰিবলৈ আকৌ Ctrl+Search+H টিপক।</translation>
 <translation id="2302092602801625023">এই একাউণ্টটো পাৰিবাৰিক লিংকৰ দ্বাৰা পৰিচালনা কৰা হয়</translation>
 <translation id="2303600792989757991">ৱিণ্ড‘ অৱলোকন ট‘গল কৰক</translation>
@@ -137,6 +140,7 @@
 <translation id="2658778018866295321">ক্লিক কৰি টানি আনক</translation>
 <translation id="2700493154570097719">আপোনাৰ কীব’র্ড ছেট কৰক</translation>
 <translation id="2704781753052663061">অন্য ৱাই-ফাই নেটৱৰ্কসমূহত যোগদান কৰক</translation>
+<translation id="2705001408393684014">মাইক ট’গল কৰক। <ph name="STATE_TEXT" /></translation>
 <translation id="2718395828230677721">ৰাতিৰ পোহৰ</translation>
 <translation id="2727977024730340865">কম পাৱাৰৰ এটা চাৰ্জাৰত প্লাগ ইন কৰা হৈছে। বেটাৰীৰ চাৰ্জিং বিশ্বাসযোগ্য নহ'বও পাৰে।</translation>
 <translation id="2792498699870441125">Alt+Search</translation>
@@ -179,6 +183,7 @@
 <translation id="3154351730702813399">ডিভাইচৰ প্ৰশাসকে আপুনি কৰা ব্ৰাউজৰ কাৰ্যকলাপ নিৰীক্ষণ কৰিব পাৰে।</translation>
 <translation id="3181441307743005334">ৰিষ্টাৰ্ট হ’বলৈ কিছু সময় লাগিব পাৰে</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{এটা ডিভাইচৰ সৈতে সংযোগ হৈ আছে}one{#টা ডিভাইচৰ সৈতে সংযোগ হৈ আছে}other{#টা ডিভাইচৰ সৈতে সংযোগ হৈ আছে}}</translation>
+<translation id="3203405173652969239">ছুইচৰ দ্বাৰা এক্সেছ সক্ষম কৰা হৈছে</translation>
 <translation id="3207953481422525583">ব্যৱহাৰকাৰীৰ ছেটিংসমূহ</translation>
 <translation id="3217205077783620295">ভলিউম অন কৰা আছে, ট’গল কৰিলে অডিঅ’ মিউট হ’ব।</translation>
 <translation id="3226991577105957773">আৰু <ph name="COUNT" />টা</translation>
@@ -295,6 +300,7 @@
 <translation id="4665114317261903604">অসুবিধা নিদিব ট’গল কৰক। <ph name="STATE_TEXT" /></translation>
 <translation id="4696813013609194136">অভিভাৱকৰ প্ৰৱেশ ক'ডৰ সহায়ত ডিভাইচ আনলক কৰক</translation>
 <translation id="4702647871202761252">গোপনীয়তাৰ স্ক্ৰীনখন অফ আছে</translation>
+<translation id="4705716602320768426">মতামত ফাইল কৰক</translation>
 <translation id="4710243778082831592">IME ছেটিংসমূহ</translation>
 <translation id="4731797938093519117">অভিভাৱকৰ এক্সেছ</translation>
 <translation id="4734965478015604180">আনুভূমিক</translation>
@@ -375,6 +381,7 @@
 <translation id="5901316534475909376">Shift+Esc</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" /> (<ph name="MAIL" />)</translation>
 <translation id="5916664084637901428">অন আছে</translation>
+<translation id="5920710855273935292">মাইক মিউট কৰা আছে।</translation>
 <translation id="5947494881799873997">পূৰ্বাৱস্থালৈ নিয়ক</translation>
 <translation id="595202126637698455">কার্যদক্ষতা ট্ৰে’চ কৰাটো সক্ষম কৰা হৈছে</translation>
 <translation id="5957083217255311415">ম’বাইল ডেটা অফ কৰা হৈছে।</translation>
@@ -430,6 +437,7 @@
 <translation id="6537924328260219877">ছিগনেলৰ ক্ষমতা <ph name="SIGNAL_STRENGTH" />, ফ’নৰ বেটাৰী <ph name="BATTERY_STATUS" /></translation>
 <translation id="6542521951477560771"><ph name="RECEIVER_NAME" /> লৈ কাষ্ট কৰি থকা হৈছে</translation>
 <translation id="6559976592393364813">প্ৰশাসকক সোধক</translation>
+<translation id="6584550827717945790">ছুইচৰ দ্বাৰা এক্সেছ কৰা সুবিধাটো অফ কৰক</translation>
 <translation id="6585808820553845416"><ph name="SESSION_TIME_REMAINING" />ত ছেশ্বন অন্ত পৰিব।</translation>
 <translation id="661203523074512333"><ph name="SECURITY_STATUS" />, ছিগনেলৰ ক্ষমতা <ph name="SIGNAL_STRENGTH" />, আপোনাৰ প্ৰশাসকে পৰিচালনা কৰে</translation>
 <translation id="6614169507485700968">গোপনীয়তাৰ স্ক্ৰীনখন অন আছে</translation>

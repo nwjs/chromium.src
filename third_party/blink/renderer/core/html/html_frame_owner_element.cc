@@ -545,12 +545,7 @@ bool HTMLFrameOwnerElement::LoadOrRedirectSubframe(
     }
   }
 
-  if (nwfaketop()) {
-    KURL url(url_to_request.BaseAsString());
-    scoped_refptr<SecurityOrigin> origin = SecurityOrigin::Create(url);
-    request.SetRequestorOrigin(origin);
-  }
-  FrameLoadRequest frame_load_request(nwfaketop() ? nullptr : &GetDocument(), request);
+  FrameLoadRequest frame_load_request(&GetDocument(), request);
   child_frame->Loader().StartNavigation(frame_load_request, child_load_type);
 
   return true;

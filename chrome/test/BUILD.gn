@@ -3215,6 +3215,7 @@ test("unit_tests") {
     "../browser/net/probe_message_unittest.cc",
     "../browser/net/referrer_policy_policy_handler_unittest.cc",
     "../browser/net/secure_dns_policy_handler_unittest.cc",
+    "../browser/net/stub_resolver_config_reader_unittest.cc",
     "../browser/nfc/nfc_permission_context_unittest.cc",
     "../browser/notifications/metrics/notification_metrics_logger_unittest.cc",
     "../browser/notifications/notification_channels_provider_android_unittest.cc",

@@ -18,6 +18,7 @@
 <translation id="1190609913194133056">مركز الإشعارات</translation>
 <translation id="1195412055398077112">الخروج عن إطار الشاشة</translation>
 <translation id="119944043368869598">محو الكل</translation>
+<translation id="1199716647557067911">هل تريد فعلًا إيقاف ميزة "الوصول عبر مفتاح التحويل"؟</translation>
 <translation id="1247372569136754018">ميكروفون (داخلي)</translation>
 <translation id="1252999807265626933">جارٍ الشحن من <ph name="POWER_SOURCE" /></translation>
 <translation id="1255033239764210633">ما حالة الطقس؟</translation>
@@ -29,7 +30,7 @@
 <translation id="1289185460362160437">يمكنك العودة يوم <ph name="COME_BACK_DAY_OF_WEEK" /> في <ph name="COME_BACK_TIME" />.</translation>
 <translation id="1290331692326790741">إشارة ضعيفة</translation>
 <translation id="1293264513303784526">‏جهاز USB-C (المنفذ الأيسر)</translation>
-<translation id="1294929383540927798">تغيير إعدادات الإشعارات لشاشة التأمين</translation>
+<translation id="1294929383540927798">تغيير إعدادات الإشعارات لشاشة القفل</translation>
 <translation id="1301069673413256657">‏بروتوكول GSM</translation>
 <translation id="1302880136325416935">عرض إعدادات البلوتوث. <ph name="STATE_TEXT" /></translation>
 <translation id="1312604459020188865">قوة الإشارة <ph name="SIGNAL_STRENGTH" /></translation>
@@ -55,6 +56,7 @@
 <translation id="1570871743947603115">تبديل البلوتوث. <ph name="STATE_TEXT" /></translation>
 <translation id="1589090746204042747">الوصول إلى جميع أنشطتك في جلسة واحدة</translation>
 <translation id="1608626060424371292">إزالة هذا المستخدم</translation>
+<translation id="1632985212731562677">يمكن إيقاف ميزة "الوصول عبر مفتاح التحويل" في "الإعدادات" &gt; "أدوات تمكين الوصول".</translation>
 <translation id="1654477262762802994">بدء طلب بحث صوتي</translation>
 <translation id="1658406695958299976">عذرًا، لا يمكن التحقق من كلمة المرور حتى الآن. ملاحظة: في حال تغيير كلمة المرور مؤخرًا، سيتم تطبيق كلمة المرور الجديدة بعد تسجيل الخروج، يُرجى استخدام كلمة المرور القديمة هنا.</translation>
 <translation id="1677472565718498478">الوقت المتبقي <ph name="TIME" /></translation>
@@ -104,6 +106,7 @@
 <translation id="2268813581635650749">خروج من كل الحسابات</translation>
 <translation id="2277103315734023688">الانتقال إلى الأمام</translation>
 <translation id="2292698582925480719">مقياس العرض</translation>
+<translation id="2295777434187870477">الميكروفون مفعّل، وسيؤدي التبديل إلى كتم صوته.</translation>
 <translation id="2298170939937364391">‏تم تفعيل ميزة "المكبِّر بملء الشاشة". يمكنك إيقافها بالضغط على Ctrl+Search+M مرة أخرى.</translation>
 <translation id="2302092602801625023">‏تتم إدارة هذا الحساب من خلال Family Link</translation>
 <translation id="2303600792989757991">نظرة عامة لنافذة التبديل</translation>
@@ -137,6 +140,7 @@
 <translation id="2658778018866295321">انقر واسحب</translation>
 <translation id="2700493154570097719">تعيين لوحة المفاتيح</translation>
 <translation id="2704781753052663061">‏الانضمام إلى شبكات Wi-Fi أخرى</translation>
+<translation id="2705001408393684014">تبديل الميكروفون: <ph name="STATE_TEXT" /></translation>
 <translation id="2718395828230677721">الإضاءة الليلية</translation>
 <translation id="2727977024730340865">تمّ توصيل شاحن منخفض الطاقة. لذا قد لا تكون عملية شحن البطارية جديرة بالثقة.</translation>
 <translation id="2792498699870441125">‏Alt+مفتاح البحث</translation>
@@ -179,6 +183,7 @@
 <translation id="3154351730702813399">قد يراقب مشرف الجهاز نشاط التصفح.</translation>
 <translation id="3181441307743005334">قد تستغرق إعادة التشغيل بعض الوقت</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{تم الاتصال بجهاز واحد}zero{تم الاتصال بـ # جهاز}two{تم الاتصال بجهازين (#)}few{تم الاتصال بـ # أجهزة}many{تم الاتصال بـ # جهازًا}other{تم الاتصال بـ # جهاز}}</translation>
+<translation id="3203405173652969239">تم تفعيل ميزة "الوصول عبر مفتاح التحويل".</translation>
 <translation id="3207953481422525583">إعدادات المستخدم</translation>
 <translation id="3217205077783620295">تم تفعيل الصوت، وسيؤدي التبديل إلى كتم الصوت</translation>
 <translation id="3226991577105957773">+<ph name="COUNT" /> والمزيد</translation>
@@ -250,7 +255,7 @@
 <translation id="4065525899979931964">{NUM_APPS,plural, =1{الإشعارات متوقفة لتطبيق واحد}zero{الإشعارات متوقفة لـ # تطبيق}two{الإشعارات متوقفة لتطبيقَين (#)}few{الإشعارات متوقفة لـ # تطبيقات}many{الإشعارات متوقفة لـ # تطبيقًا}other{الإشعارات متوقفة لـ # تطبيق}}</translation>
 <translation id="4072264167173457037">إشارة متوسطة</translation>
 <translation id="4112140312785995938">الانتقال إلى الخلف</translation>
-<translation id="4129129681837227511">للاطِّلاع على الإشعارات على شاشة التأمين، يمكنك فتح القفل لتغيير الإعداد</translation>
+<translation id="4129129681837227511">للاطِّلاع على الإشعارات على شاشة القفل، يمكنك فتح القفل لتغيير الإعداد</translation>
 <translation id="4144413954005649103">‏يمكنك النقر بزر الماوس الأيمن أو الضغط مع الاستمرار حتّى يعرض "مساعد Google" معلومات ذات صلة بالعنصر الذي تختاره على الشاشة.</translation>
 <translation id="4146833061457621061">تشغيل الموسيقى</translation>
 <translation id="4149156641122542261">إدارة جهاز <ph name="DEVICE_TYPE" /> عن طريق <ph name="DOMAIN" /></translation>
@@ -295,6 +300,7 @@
 <translation id="4665114317261903604">تبديل حالة "عدم الإزعاج" <ph name="STATE_TEXT" /></translation>
 <translation id="4696813013609194136">فتح قفل الجهاز باستخدام رمز الوالدين</translation>
 <translation id="4702647871202761252">تم إيقاف شاشة الخصوصية.</translation>
+<translation id="4705716602320768426">تقديم تعليقات</translation>
 <translation id="4710243778082831592">‏إعدادات أداة IME</translation>
 <translation id="4731797938093519117">وصول أحد الوالدين</translation>
 <translation id="4734965478015604180">أفقي</translation>
@@ -375,6 +381,7 @@
 <translation id="5901316534475909376">Shift+Esc</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" /> (<ph name="MAIL" />)</translation>
 <translation id="5916664084637901428">مفعّل</translation>
+<translation id="5920710855273935292">تم كتم صوت الميكروفون.</translation>
 <translation id="5947494881799873997">التراجع عن الإجراء</translation>
 <translation id="595202126637698455">تم تفعيل تتبع مستوى الأداء</translation>
 <translation id="5957083217255311415">تم إيقاف ميزة بيانات الجوّال.</translation>
@@ -431,6 +438,7 @@
 <translation id="6537924328260219877">قوة الإشارة <ph name="SIGNAL_STRENGTH" />، بطارية الهاتف <ph name="BATTERY_STATUS" /></translation>
 <translation id="6542521951477560771">البث على <ph name="RECEIVER_NAME" /></translation>
 <translation id="6559976592393364813">الطلب من المشرف</translation>
+<translation id="6584550827717945790">إيقاف ميزة "الوصول عبر مفتاح التحويل"</translation>
 <translation id="6585808820553845416">تنتهي الجلسة في <ph name="SESSION_TIME_REMAINING" />.</translation>
 <translation id="661203523074512333">حالة الأمان <ph name="SECURITY_STATUS" />، قوة الإشارة <ph name="SIGNAL_STRENGTH" />، يديرها المشرف</translation>
 <translation id="6614169507485700968">تم تفعيل شاشة الخصوصية.</translation>

@@ -14,7 +14,6 @@ goog.require('CustomAutomationEvent');
 goog.require('LogStore');
 goog.require('Output');
 goog.require('PhoneticData');
-goog.require('SmartStickyMode');
 goog.require('TreeDumper');
 goog.require('ChromeVoxBackground');
 goog.require('ChromeVoxKbHandler');
@@ -35,13 +34,7 @@ const StateType = chrome.automation.StateType;
 CommandHandler.incognito_ = !!chrome.runtime.getManifest()['incognito'];
 
 /**
- * Handles toggling sticky mode when encountering editables.
- * @private {!SmartStickyMode}
- */
-CommandHandler.smartStickyMode_ = new SmartStickyMode();
-
-/**
- * Handles ChromeVox commands.
+ * Handles ChromeVox Next commands.
  * @param {string} command
  * @return {boolean} True if the command should propagate.
  */
@@ -370,13 +363,11 @@ CommandHandler.onCommand = function(command) {
     case 'nextEditText':
       pred = AutomationPredicate.editText;
       predErrorMsg = 'no_next_edit_text';
-      CommandHandler.smartStickyMode_.startIgnoringRangeChanges();
       break;
     case 'previousEditText':
       dir = Dir.BACKWARD;
       pred = AutomationPredicate.editText;
       predErrorMsg = 'no_previous_edit_text';
-      CommandHandler.smartStickyMode_.startIgnoringRangeChanges();
       break;
     case 'nextFormField':
       pred = AutomationPredicate.formField;
@@ -1100,7 +1091,6 @@ CommandHandler.onCommand = function(command) {
                 .withQueueMode(QueueMode.FLUSH)
                 .go();
           }
-          CommandHandler.onFinishCommand();
           return false;
         }
 
@@ -1135,7 +1125,6 @@ CommandHandler.onCommand = function(command) {
               .withString(Msgs.getMsg(predErrorMsg))
               .withQueueMode(QueueMode.FLUSH)
               .go();
-          CommandHandler.onFinishCommand();
           return false;
         }
       }
@@ -1167,7 +1156,6 @@ CommandHandler.onCommand = function(command) {
               // Jump or if there is a valid current range, then move from it
               // since we have refreshed node data.
               CommandHandler.onCommand(command);
-              CommandHandler.onFinishCommand();
               return;
             }
 
@@ -1197,7 +1185,6 @@ CommandHandler.onCommand = function(command) {
       } else {
         scrollable.scrollBackward(callback);
       }
-      CommandHandler.onFinishCommand();
       return false;
     }
   }
@@ -1207,15 +1194,7 @@ CommandHandler.onCommand = function(command) {
         current, undefined, speechProps, skipSettingSelection);
   }
 
-  CommandHandler.onFinishCommand();
   return false;
-};
-
-/**
- * Finishes processing of a command.
- */
-CommandHandler.onFinishCommand = function() {
-  CommandHandler.smartStickyMode_.stopIgnoringRangeChanges();
 };
 
 /**
@@ -1431,5 +1410,4 @@ CommandHandler.init = function() {
     }
   });
 };
-
 });  // goog.scope

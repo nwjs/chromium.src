@@ -10,6 +10,7 @@ The pipeline module orchestrates the entire signing process, which includes:
 """
 
 import os.path
+import plistlib
 
 from . import commands, model, modification, notarize, parts, signing
 
@@ -143,6 +144,33 @@ def _create_pkgbuild_scripts(paths, dist_config):
     return scripts_path
 
 
+def _component_property_path(paths, dist_config):
+    """Creates a component plist file for use by `pkgbuild`. The reason this
+    file is used is to ensure that the component package is not relocatable. See
+    https://scriptingosx.com/2017/05/relocatable-package-installers-and-quickpkg-update/
+    for information on why that's important.
+
+    Args:
+        paths: A |model.Paths| object.
+        dist_config: The |config.CodeSignConfig| object.
+
+    Returns:
+        The path to the component plist file.
+    """
+    component_property_path = os.path.join(
+        paths.work, '{}.plist'.format(dist_config.app_product))
+
+    plistlib.writePlist([{
+        'BundleHasStrictIdentifier': True,
+        'BundleIsRelocatable': False,
+        'BundleIsVersionChecked': True,
+        'BundleOverwriteAction': 'upgrade',
+        'RootRelativeBundlePath': dist_config.app_dir
+    }], component_property_path)
+
+    return component_property_path
+
+
 def _productbuild_distribution_path(paths, dist_config, component_pkg_path):
     """Creates a distribution XML file for use by `productbuild`. This specifies
     that an x64 machine is required, and copies the OS requirement from the copy
@@ -225,6 +253,15 @@ def _package_and_sign_pkg(paths, dist_config):
 
     ## The component package.
 
+    # Because the component package is built using the --root option, copy the
+    # .app into a directory by itself, as `pkgbuild` archives the entire
+    # directory specified as the root directory.
+    root_directory = os.path.join(paths.work, 'payload')
+    commands.make_dir(root_directory)
+    app_path = os.path.join(paths.work, dist_config.app_dir)
+    new_app_path = os.path.join(root_directory, dist_config.app_dir)
+    commands.copy_files(app_path, root_directory)
+
     # The spaces are removed from |dist_config.app_product| for the component
     # package path due to a bug in Installer.app that causes the "Show Files"
     # window to be blank if there is a space in a component package name.
@@ -232,14 +269,14 @@ def _package_and_sign_pkg(paths, dist_config):
     component_pkg_name = '{}.pkg'.format(dist_config.app_product).replace(
         ' ', '')
     component_pkg_path = os.path.join(paths.work, component_pkg_name)
-    app_path = os.path.join(paths.work, dist_config.app_dir)
-
+    component_property_path = _component_property_path(paths, dist_config)
     scripts_path = _create_pkgbuild_scripts(paths, dist_config)
 
     commands.run_command([
-        'pkgbuild', '--identifier', dist_config.base_bundle_id, '--version',
-        dist_config.version, '--component', app_path, '--install-location',
-        '/Applications', '--scripts', scripts_path, component_pkg_path
+        'pkgbuild', '--root', root_directory, '--component-plist',
+        component_property_path, '--identifier', dist_config.base_bundle_id,
+        '--version', dist_config.version, '--install-location', '/Applications',
+        '--scripts', scripts_path, component_pkg_path
     ])
 
     ## The product archive.

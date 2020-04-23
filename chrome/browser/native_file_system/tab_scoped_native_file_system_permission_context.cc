@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "content/public/common/content_client.h"
+#include "content/public/browser/content_browser_client.h"
 #include "chrome/browser/native_file_system/tab_scoped_native_file_system_permission_context.h"
 
 #include <string>

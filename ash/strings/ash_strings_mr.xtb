@@ -18,6 +18,7 @@
 <translation id="1190609913194133056">सूचना केंद्र</translation>
 <translation id="1195412055398077112">ओव्हरस्कॅन</translation>
 <translation id="119944043368869598">सर्व साफ करा</translation>
+<translation id="1199716647557067911">तुम्हाला स्विच अ‍ॅक्सेस नक्की बंद करायचे आहे?</translation>
 <translation id="1247372569136754018">मायक्रोफोन (अंतर्गत)</translation>
 <translation id="1252999807265626933"><ph name="POWER_SOURCE" /> पासून चार्ज होत आहे</translation>
 <translation id="1255033239764210633">हवामान कसे आहे?</translation>
@@ -55,6 +56,7 @@
 <translation id="1570871743947603115">ब्लूटूथ टॉगल करा. <ph name="STATE_TEXT" /></translation>
 <translation id="1589090746204042747">या सेशनमध्ये तुमची सर्व अ‍ॅक्टिव्हिटी अ‍ॅक्सेस करा</translation>
 <translation id="1608626060424371292">हा वापरकर्ता काढून टाका</translation>
+<translation id="1632985212731562677">सेटिंग्ज &gt; अ‍ॅक्सेसिबिलिटी मध्ये स्विच अ‍ॅक्सेस बंद केले जाऊ शकते.</translation>
 <translation id="1654477262762802994">व्हॉइस क्वेरी सुरू करा</translation>
 <translation id="1658406695958299976">सॉरी, तुमच्या पासवर्डची पडताळणी अजूनही झालेली नाही. टिप: तुम्ही तुमचा पासवर्ड अलीकडेच बदलला असल्यास, तुम्ही साइन आउट केल्यानंतर तुमचा नवीन पासवर्ड लागू केला जाईल, कृपया येथे जुना पासवर्ड वापरा.</translation>
 <translation id="1677472565718498478"><ph name="TIME" /> शिल्लक</translation>
@@ -104,6 +106,7 @@
 <translation id="2268813581635650749">सर्व साइन आउट करा</translation>
 <translation id="2277103315734023688">पुढे जा</translation>
 <translation id="2292698582925480719">स्केल दाखवा</translation>
+<translation id="2295777434187870477">माइक सुरू आहे, टॉगल केल्याने इनपुट म्यूट होईल.</translation>
 <translation id="2298170939937364391">फुल-स्क्रीन मॅग्निफायर सुरू केला आहे. तो टॉगल करून बंद करण्यासाठी पुन्हा Ctrl+Search+M दाबा.</translation>
 <translation id="2302092602801625023">हे खाते Family Link द्वारे व्यवस्थापित केले जाते</translation>
 <translation id="2303600792989757991">विंडो विहंगावलोकन टॉगल करा</translation>
@@ -137,6 +140,7 @@
 <translation id="2658778018866295321">क्लिक आणि ड्रॅग करा</translation>
 <translation id="2700493154570097719">तुमचा कीबोर्ड सेट करा</translation>
 <translation id="2704781753052663061">इतर वाय-फाय नेटवर्कमध्ये सामील व्हा</translation>
+<translation id="2705001408393684014">माइक टॉगल करा. <ph name="STATE_TEXT" /></translation>
 <translation id="2718395828230677721">रात्रीचा प्रकाश</translation>
 <translation id="2727977024730340865">एका निम्न-उर्जेच्या चार्जरवर प्लग इन केले. बॅटरी चार्जिंग विश्वसनीय असू शकत नाही.</translation>
 <translation id="2792498699870441125">Alt+Search</translation>
@@ -179,6 +183,7 @@
 <translation id="3154351730702813399">डिव्हाइस प्रशासक कदाचित आपल्या ब्राउझिंग क्रियाकलापाचे परीक्षण करू शकतो.</translation>
 <translation id="3181441307743005334">रीस्टार्टला थोडा वेळ लागू शकतो</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{डिव्हाइसशी कनेक्ट केले}other{# डिव्हाइसशी कनेक्ट केले}}</translation>
+<translation id="3203405173652969239">स्विच अ‍ॅक्सेस सुरू केले</translation>
 <translation id="3207953481422525583">वापरकर्ता सेटिंग्ज</translation>
 <translation id="3217205077783620295">व्हॉल्यूम सुरू आहे, टॉगल केल्याने ऑडिओ म्यूट होईल.</translation>
 <translation id="3226991577105957773">आणखी +<ph name="COUNT" /></translation>
@@ -295,6 +300,7 @@
 <translation id="4665114317261903604">व्यत्यय आणू नका टॉगल करा. <ph name="STATE_TEXT" /></translation>
 <translation id="4696813013609194136">पालक कोडने डिव्हाइस अनलॉक करा</translation>
 <translation id="4702647871202761252">गोपनीयता स्क्रीन बंद आहे</translation>
+<translation id="4705716602320768426">फाइल फीडबॅक</translation>
 <translation id="4710243778082831592">IME सेटिंग्ज</translation>
 <translation id="4731797938093519117">पालक अ‍ॅक्सेस</translation>
 <translation id="4734965478015604180">आडवा</translation>
@@ -375,6 +381,7 @@
 <translation id="5901316534475909376">Shift+Esc</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" /> (<ph name="MAIL" />)</translation>
 <translation id="5916664084637901428">चालू</translation>
+<translation id="5920710855273935292">माइक म्यूट केलेला आहे.</translation>
 <translation id="5947494881799873997">परत करा</translation>
 <translation id="595202126637698455">कार्यप्रदर्शन ट्रेसिंग सक्षम केले</translation>
 <translation id="5957083217255311415">मोबाइल डेटा बंद केला आहे.</translation>
@@ -430,6 +437,7 @@
 <translation id="6537924328260219877">सिग्नल क्षमता <ph name="SIGNAL_STRENGTH" />, फोन बॅटरी <ph name="BATTERY_STATUS" /></translation>
 <translation id="6542521951477560771"><ph name="RECEIVER_NAME" /> वर कास्ट करत आहे</translation>
 <translation id="6559976592393364813">अ‍ॅडमिनिस्ट्रेटरला विचारा</translation>
+<translation id="6584550827717945790">स्विच अ‍ॅक्सेस बंद करा</translation>
 <translation id="6585808820553845416"><ph name="SESSION_TIME_REMAINING" /> मध्ये सेशन समाप्त होते.</translation>
 <translation id="661203523074512333"><ph name="SECURITY_STATUS" />, सिग्नल क्षमता <ph name="SIGNAL_STRENGTH" />, तुमच्या अ‍ॅडमिनिस्ट्रेटरने व्यवस्थापित केलेले</translation>
 <translation id="6614169507485700968">गोपनीयता स्क्रीन सुरू आहे</translation>

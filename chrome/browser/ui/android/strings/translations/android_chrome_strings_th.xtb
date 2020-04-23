@@ -132,7 +132,7 @@
 <translation id="1984937141057606926">อนุญาต ยกเว้นบุคคลที่สาม</translation>
 <translation id="1986685561493779662">มีชื่อนี้อยู่แล้ว</translation>
 <translation id="1987739130650180037"><ph name="MESSAGE" /> ปุ่ม<ph name="LINK_NAME" /></translation>
-<translation id="1989112275319619282">เล่นเน็ต</translation>
+<translation id="1989112275319619282">เปิดดู</translation>
 <translation id="1993768208584545658"><ph name="SITE" /> ต้องการจับคู่</translation>
 <translation id="1994173015038366702">URL ของเว็บไซต์</translation>
 <translation id="2000419248597011803">ส่งคุกกี้และการค้นหาบางรายการจากแถบที่อยู่และช่องค้นหาไปยังเครื่องมือค้นหาเริ่มต้น</translation>
@@ -655,6 +655,7 @@
 <translation id="5763514718066511291">แตะเพื่อคัดลอก URL สำหรับแอปนี้</translation>
 <translation id="5765780083710877561">คำอธิบาย:</translation>
 <translation id="5793665092639000975">ใช้ไป <ph name="SPACE_USED" /> จาก <ph name="SPACE_AVAILABLE" /></translation>
+<translation id="5795872532621730126">ค้นหาและเรียกดู</translation>
 <translation id="5797070761912323120">Google อาจใช้ประวัติการเข้าชมเพื่อปรับเปลี่ยน Search, โฆษณา และบริการอื่นๆ ของ Google ให้เข้ากับคุณ</translation>
 <translation id="5804241973901381774">การอนุญาต</translation>
 <translation id="5809361687334836369">{HOURS,plural, =1{# ชั่วโมงที่ผ่านมา}other{# ชั่วโมงที่ผ่านมา}}</translation>

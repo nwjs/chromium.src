@@ -104,6 +104,7 @@
 <translation id="1782483593938241562">সমাপ্ত হোৱাৰ দিন <ph name="DATE" /></translation>
 <translation id="1791662854739702043">ইনষ্টল কৰা হ’ল</translation>
 <translation id="1792959175193046959">ডাউনল'ডৰ ডিফ'ল্ট অৱস্থান যিকোনো সময়তে সলনি কৰক</translation>
+<translation id="1795251344124198516">Google Chrome আৰু Chrome OSৰ অতিৰিক্ত চৰ্তাৱলী</translation>
 <translation id="1807246157184219062">পাতল</translation>
 <translation id="1810845389119482123">প্ৰাৰম্ভিক ছিংক ছেট আপ সমাপ্ত হোৱা নাই</translation>
 <translation id="1821253160463689938">আপুনি সেই পৃষ্ঠাসমূহ পুনৰ নাচালেও আপোনাৰ পচন্দসমূহ মনত ৰাখিবলৈ কুকিৰ ব্যৱহাৰ কৰক</translation>
@@ -236,6 +237,7 @@
 <translation id="2650751991977523696">ফাইল পুনৰ ডাইনল'ড কৰিবনে?</translation>
 <translation id="2651091186440431324">{FILE_COUNT,plural, =1{#টা অডিঅ' ফাইল}one{#টা অডিঅ' ফাইল}other{#টা অডিঅ' ফাইল}}</translation>
 <translation id="2687403674020088961">সকলো কুকি অৱৰোধ কৰক (চুপাৰিছ কৰা নহয়)</translation>
+<translation id="2689830683995595741">Chrome ব্যৱহাৰ কৰি আপুনি <ph name="BEGIN_LINK1" />Google সেৱাৰ চৰ্তাৱলী<ph name="END_LINK1" /> আৰু <ph name="BEGIN_LINK2" />Google Chrome আৰু Chrome OSৰ সেৱাৰ অতিৰিক্ত চৰ্তাৱলী<ph name="END_LINK2" />ত সন্মতি দিয়ে। <ph name="BEGIN_LINK3" />Family Linkৰ জৰিয়তে পৰিচালনা কৰা Google একাউণ্টৰ বাবে গোপনীয়তাৰ জাননী<ph name="END_LINK3" />ও প্ৰযোজ্য হয়।</translation>
 <translation id="2707726405694321444">পৃষ্ঠাটো ৰিফ্ৰেশ্ব কৰক</translation>
 <translation id="2709516037105925701">স্বয়ংপূৰ্তি</translation>
 <translation id="2717722538473713889">ইমেইল ঠিকনাবোৰ</translation>
@@ -376,6 +378,7 @@
 <translation id="3749259744154402564">অসমৰ্থিত</translation>
 <translation id="3771001275138982843">আপডে’টটো ডাউনল’ড কৰিব পৰা নগ’ল</translation>
 <translation id="3771033907050503522">ইনক’গনিট’ টেব</translation>
+<translation id="3771694256347217732">Google সেৱাৰ চৰ্তাৱলী</translation>
 <translation id="3773755127849930740">যোৰা লগোৱাৰ অনুমতি দিবলৈ <ph name="BEGIN_LINK" />ব্লুটুথ অন কৰক<ph name="END_LINK" /></translation>
 <translation id="3775705724665058594">আপোনাৰ ডিভাইচসমূহলৈ পঠিয়াওক</translation>
 <translation id="3778956594442850293">গৃহ স্ক্ৰীণত যোগ কৰা হ’ল</translation>
@@ -403,6 +406,7 @@
 <translation id="396192773038029076">{NUM_IN_PROGRESS,plural, =1{আপোনাৰ পৃষ্ঠাটো সাজু হ'লে Chromeএ সেইটো ল'ড কৰিব}one{আপোনাৰ পৃষ্ঠাসমূহ সাজু হ'লে Chromeএ সেইটো ল'ড কৰিব}other{আপোনাৰ পৃষ্ঠাসমূহ সাজু হ'লে Chromeএ সেইটো ল'ড কৰিব}}</translation>
 <translation id="3963007978381181125">পাছফ্ৰেজ এনক্ৰিপশ্বনত Google Payৰ পৰিশোধ পদ্ধতি আৰু ঠিকনা অন্তৰ্ভুক্ত নহয়। আপোনাৰ পাছফ্ৰেজ জনা কোনোবাইহে আপুনি এনক্ৰিপ্ট কৰি থোৱা ডেটা পঢ়িব পাৰে। পাছফ্ৰেজটো ক’লৈকো পঠিওৱা নহয় আৰু সেইটো Googleত ষ্ট'ৰ কৰা নাথাকে। আপুনি যদি নিজৰ পাছফ্ৰেজটো পাহৰে বা এই ছেটিংটো সলাব বিচাৰে, ছিংক ৰিছেট কৰিব লাগিব। <ph name="BEGIN_LINK" />অধিক জানক<ph name="END_LINK" /></translation>
 <translation id="3967822245660637423">ডাউনল’ড সম্পূৰ্ণ হ’ল</translation>
+<translation id="3974987681202239636"><ph name="APP_NAME" /> Chromeত খুলিব। অব্যাহত ৰাখি আপুনি <ph name="BEGIN_LINK1" />Google সেৱাৰ চৰ্তাৱলী<ph name="END_LINK1" /> আৰু <ph name="BEGIN_LINK2" />Google Chrome আৰু Chrome OSৰ সেৱাৰ অতিৰিক্ত চৰ্তাৱলী<ph name="END_LINK2" />ত সন্মতি দিয়ে। <ph name="BEGIN_LINK3" />Family Linkৰ জৰিয়তে পৰিচালনা কৰা Google একাউণ্টৰ বাবে গোপনীয়তাৰ জাননী<ph name="END_LINK3" />টোও প্ৰযোজ্য হয়।</translation>
 <translation id="397583555483684758">ছিংক কৰা সুবিধাটোৱে কাম কৰা বন্ধ কৰিছে</translation>
 <translation id="3976396876660209797">এই শ্বৰ্টকাটটো আঁতৰাই ইয়াক আকৌ বনাওক</translation>
 <translation id="3985215325736559418">আপুনি <ph name="FILE_NAME" /> পুনৰ ডাউনল'ড কৰিব খোজে নেকি?</translation>
@@ -651,6 +655,7 @@
 <translation id="5763514718066511291">এই এপৰ URLটো প্ৰতিলিপি কৰিবলৈ টিপক</translation>
 <translation id="5765780083710877561">বিৱৰণ:</translation>
 <translation id="5793665092639000975"><ph name="SPACE_AVAILABLE" />ৰ <ph name="SPACE_USED" /> ব্যৱহাৰ কৰা হৈছে</translation>
+<translation id="5795872532621730126">সন্ধান আৰু ব্ৰাউজ কৰক</translation>
 <translation id="5797070761912323120">Googleএ Search, বিজ্ঞাপন আৰু অন্য Google সেৱা ব্যক্তিকৃত কৰিবলৈ আপোনাৰ ব্ৰাউজিঙৰ ইতিহাস ব্যৱহাৰ কৰিব পাৰে</translation>
 <translation id="5804241973901381774">অনুমতি</translation>
 <translation id="5809361687334836369">{HOURS,plural, =1{#ঘণ্টা পূৰ্বে}one{#ঘণ্টা পূৰ্বে}other{#ঘণ্টা পূৰ্বে}}</translation>
@@ -713,6 +718,7 @@
 <translation id="6255999984061454636">সমলৰ পৰামৰ্শ</translation>
 <translation id="6270391203985052864">ছাইটসমূহে জাননী পঠিয়াবলৈ ক’ব পাৰে</translation>
 <translation id="6277522088822131679">এই পৃষ্ঠাটো প্ৰিণ্ট কৰোঁতে কিবা সমস্যা হৈছিল। অনুগ্ৰহ কৰি আকৌ চেষ্টা কৰক।</translation>
+<translation id="6292420053234093573">Chrome ব্যৱহাৰ কৰি আপুনি <ph name="BEGIN_LINK1" />Google সেৱাৰ চৰ্তাৱলী<ph name="END_LINK1" /> আৰু <ph name="BEGIN_LINK2" />Google Chrome আৰু Chrome OSৰ সেৱাৰ অতিৰিক্ত চৰ্তাৱলী<ph name="END_LINK2" />ত সন্মতি দিয়ে।</translation>
 <translation id="6295158916970320988">সকলো ছাইট</translation>
 <translation id="629730747756840877">একাউণ্ট</translation>
 <translation id="6297765934698848803">আপোনাৰ ডিভাইচ পৰিচালনা কৰা প্ৰতিষ্ঠানটোৱে আপোনাৰ কেমেৰাটো বন্ধ কৰিছে।</translation>
@@ -727,6 +733,7 @@
 <translation id="6364438453358674297">ইতিহাসৰ পৰা পৰামৰ্শ আঁতৰাবনে?</translation>
 <translation id="6369229450655021117">আপুনি ইয়াৰ পৰাই ৱেবত সন্ধান কৰিব, বন্ধু-বৰ্গৰ সৈতে শ্বেয়াৰ কৰিব আৰু খোল খাই থকা পৃষ্ঠাবোৰ চাব পাৰে</translation>
 <translation id="6378173571450987352">সবিশেষ: ব্যৱহৃত ডেটাৰ পৰিমাণৰ ওপৰত ভিত্তি কৰি সজোৱা হৈছে</translation>
+<translation id="6379829913050047669"><ph name="APP_NAME" /> Chromeত খুলিব। অব্যাহত ৰাখি আপুনি <ph name="BEGIN_LINK1" />Google সেৱাৰ চৰ্তাৱলী<ph name="END_LINK1" /> আৰু <ph name="BEGIN_LINK2" />Google Chrome আৰু Chrome OSৰ সেৱাৰ অতিৰিক্ত চৰ্তাৱলী<ph name="END_LINK2" />ত সন্মতি দিয়ে।</translation>
 <translation id="6381421346744604172">গাঢ় কৰা ৱেবছাইটসমূহ</translation>
 <translation id="6388207532828177975">মচক আৰু ৰিছেট কৰক</translation>
 <translation id="6395288395575013217">লিংক</translation>
@@ -1080,6 +1087,7 @@
 <translation id="9065203028668620118">সম্পাদনা কৰক</translation>
 <translation id="9070377983101773829">কণ্ঠধ্বনিৰ জৰিয়তে সন্ধান আৰম্ভ কৰক</translation>
 <translation id="9074336505530349563">Googleএ পৰামৰ্শ কৰা ব্যক্তিগতকৰণ কৰা সমল পাবলৈ ছাইন ইন কৰি ছিংক অন কৰক</translation>
+<translation id="9086302186042011942">ছিংক কৰি থকা হৈছে</translation>
 <translation id="9086455579313502267">নেটৱর্কলৈ এক্সেছ কৰিব পৰা নগ’ল</translation>
 <translation id="9100505651305367705">সমর্থিত লেখাসমূহ সৰলীকৃত ভিউত দেখুৱাৰ সুবিধাটো দিয়ক</translation>
 <translation id="9100610230175265781">পাছফ্ৰেজ আৱশ্যক</translation>

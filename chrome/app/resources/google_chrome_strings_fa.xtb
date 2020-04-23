@@ -4,7 +4,7 @@
 <translation id="1001534784610492198">‏آرشیو نصب‌کننده خراب یا نامعتبر است. لطفاً دوباره Google Chrome را بارگیری کنید.</translation>
 <translation id="102763973188675173">‏سفارشی کردن و کنترل Google Chrome. به‌روزرسانی‌ در دسترس است.</translation>
 <translation id="1051826050538111504">‏نرم‌افزار مضری در رایانه‌تان وجود دارد. Chrome می‌تواند آن را بردارد، تنظیمات را بازیابی کند و افزونه‌ها را غیرفعال کند تا عملکرد مرورگرتان دوباره عادی شود.</translation>
-<translation id="1065672644894730302">تنظیمات برگزیده شما را نمی‌توان خواند. بعضی ویژگی‌ها ممکن است در دسترس نباشند و تغییرات تنظیمات برگزیده ذخیره نخواهد شد.</translation>
+<translation id="1065672644894730302">اولویت‌های شما را نمی‌توان خواند. بعضی ویژگی‌ها ممکن است در دسترس نباشند و تغییرات تنظیمات برگزیده ذخیره نخواهد شد.</translation>
 <translation id="1088300314857992706">‏<ph name="USER_EMAIL_ADDRESS" /> قبلاً از Chrome استفاده می‌کرد</translation>
 <translation id="1097330777386562916">‏هنگام خروج از Chrome، کوکی‌‌ها و داده‌های سایت پاک شوند</translation>
 <translation id="110877069173485804">‏این Chrome شماست</translation>
@@ -48,7 +48,6 @@
 <translation id="2309047409763057870">‏این نصب ثانویه Google Chrome است و نمی‌تواند مرورگر پیش‌فرضتان شود.</translation>
 <translation id="2341767445688917208">‏سیستم‌عامل Chrome نتوانست گذرواژه‌هایتان را همگام‌سازی کند. اکنون مشکل رفع شود.</translation>
 <translation id="2348335408836342058">‏Chrome برای این سایت به مجوز دسترسی به دوربین و میکروفون نیاز دارد</translation>
-<translation id="234869673307233423">‏Chrome نمی‌تواند گذرواژه‌هایتان را بررسی کند. بعداً دوباره امتحان کنید.</translation>
 <translation id="2429317896000329049">‏Google Chrome قادر به همگام‌سازی داده‌های شما نبود زیرا همگام‌سازی برای دامنه شما قابل دسترسی نیست.</translation>
 <translation id="2467438592969358367">‏Google Chrome می‌خواهد گذرواژه‌های شما را صادر کند. برای اجازه به این کار، گذرواژه Windows خود را تایپ کنید.</translation>
 <translation id="2485422356828889247">حذف نصب</translation>
@@ -63,7 +62,6 @@
 <translation id="2689103672227170538">‏این افزونه، صفحه‌ای را تغییر داده است که هنگام راه‌اندازی Chrome نشان داده می‌شود.</translation>
 <translation id="2765403129283291972">‏Chrome برای این سایت به مجوز دسترسی به میکروفون نیاز دارد</translation>
 <translation id="2770231113462710648">تغییر مرورگر پیش‌فرض به:</translation>
-<translation id="2775140325783767197">‏Chrome نمی‌تواند گذرواژه‌هایتان را بررسی کند. اتصال اینترنت را بررسی کنید.</translation>
 <translation id="2799223571221894425">راه‌اندازی مجدد</translation>
 <translation id="2847461019998147611">‏نمایش Google Chrome به این زبان</translation>
 <translation id="2857540653560290388">‏درحال راه‌اندازی Chrome…</translation>
@@ -72,6 +70,7 @@
 <translation id="2929907241665500097">‏Chrome به‌روزرسانی نشد؛ مشکلی پیش آمد. <ph name="BEGIN_LINK" />مشکلات به‌روزرسانی Chrome و به‌روزرسانی‌های ناموفق را برطرف کنید.<ph name="END_LINK" /></translation>
 <translation id="2969728957078202736">‏<ph name="PAGE_TITLE" /> - ورود به سیستم شبکه - Chrome</translation>
 <translation id="3037838751736561277">‏Google Chrome در حالت پس‌زمینه است.</translation>
+<translation id="3059710691562604940">‏«مرور ایمن» خاموش است. Chrome توصیه می‌کند آن را روشن کنید.</translation>
 <translation id="3065168410429928842">‏برگه Chrome</translation>
 <translation id="3080151273017101988">‏ادامه اجرای برنامه‌ها در پس‌زمینه هنگامیکه Google Chrome بسته می‌شود</translation>
 <translation id="3089968997497233615">‏نسخه جدید و امن تری از Google Chrome موجود است.</translation>
@@ -121,7 +120,6 @@
 <translation id="4600710005438004015">‏Chrome به جدیدترین نسخه به‌روزرسانی نشد، بنابراین قابلیت‌های جدید و رفع اشکال‌های امنیتی را ندارید.</translation>
 <translation id="4631713731678262610">‏پنهان در منوی Chrome</translation>
 <translation id="4633000520311261472">‏برای ایمن‌تر کردن Chrome، برخی از افزونه‌هایی را که در<ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> فهرست نشده‌اند و ممکن است بدون اطلاع شما اضافه شده باشند، غیرفعال کردیم.</translation>
-<translation id="4653397506175047429">‏Chrome نمی‌تواند همه گذرواژه‌هایتان را بررسی کند. بعد از ۲۴ ساعت دوباره امتحان کنید.</translation>
 <translation id="4728575227883772061">‏به دلیل خطای نامشخص نصب ناموفق بود. اگر Google Chrome در حال اجرا است، لطفاً آن را ببندید و دوباره سعی کنید.</translation>
 <translation id="4750550185319565338">‏برای فعال کردن <ph name="PLUGIN_NAME" />، ‏Chrome را راه‌اندازی مجدد کنید</translation>
 <translation id="4754614261631455953">‏Google Chrome Canary (ورودی mDNS)</translation>
@@ -141,7 +139,7 @@
 <translation id="532046782124376502">‏اخطار: Google Chrome نمی تواند مانع از ثبت سابقه مرور شما توسط افزونه‌ها شود. برای غیرفعال کردن این افزونه در حالت ناشناس، این گزینه را لغو انتخاب کنید.</translation>
 <translation id="5386244825306882791">‏این برنامه همچنین صفحه‌ای را که هنگام راه‌اندازی Chrome یا جستجو از Omnibox نشان داده می‌شود، کنترل می‌کند.</translation>
 <translation id="5394833366792865639">‏هم‌رسانی برگه Chrome</translation>
-<translation id="5430073640787465221">‏فایل تنظیمات برگزیده شما خراب یا نامعتبر است. Google Chrome نمی‌تواند تنظیمات شما را بازیابی کند.</translation>
+<translation id="5430073640787465221">‏فایل اولویت‌های شما خراب یا نامعتبر است. Google Chrome نمی‌تواند تنظیمات شما را بازیابی کند.</translation>
 <translation id="556024056938947818">‏Google Chrome می‌خواهد گذرواژه‌ها را نمایش دهد.</translation>
 <translation id="5566025111015594046">‏Google Chrome (ورودی mDNS)</translation>
 <translation id="5657226924540934362">‏اگر تنظیمی در این صفحه نشان داده نمی‌شود، در <ph name="LINK_BEGIN" />
@@ -242,7 +240,6 @@
 <translation id="8862326446509486874">شما حقوق لازم برای نصب در سطح سیستم را ندارید. دوباره به‌عنوان سرپرست نصب‌کننده را اجرا کنید.</translation>
 <translation id="8914504000324227558">‏راه‌اندازی مجدد Chrome</translation>
 <translation id="8999208279178790196">{0,plural, =0{‏به‌روزرسانی Chrome دردسترس است}=1{‏به‌روزرسانی Chrome دردسترس است}one{‏به‌روزرسانی Chrome از # روز پیش دردسترس است}other{‏به‌روزرسانی Chrome از # روز پیش دردسترس است}}</translation>
-<translation id="9025321516765676895">‏چون تعداد گذرواژه‌هایتان خیلی زیاد است، Chrome نمی‌تواند آن‌ها را بررسی کند</translation>
 <translation id="9026991721384951619">‏سیستم‌عامل Chrome قادر به همگام‌سازی داده‌هایتان نبود زیرا جزئیات ورود به سیستم حساب شما به‌روز نیست.</translation>
 <translation id="9067395829937117663">‏Google Chrome به Windows 7 یا بالاتر نیاز دارد.</translation>
 <translation id="911206726377975832">داده‌های مرور شما نیز حذف شود؟</translation>

@@ -18,6 +18,7 @@
 <translation id="1190609913194133056">അറിയിപ്പ് കേന്ദ്രം</translation>
 <translation id="1195412055398077112">ഓവർസ്‌കാൻ</translation>
 <translation id="119944043368869598">എല്ലാം നീക്കുക</translation>
+<translation id="1199716647557067911">'ആക്‌സസ് മാറുക' ഓഫാക്കണമെന്ന് നിങ്ങൾക്ക് തീർച്ചയാണോ?</translation>
 <translation id="1247372569136754018">മൈക്രോഫോൺ (ഇന്റേണൽ)</translation>
 <translation id="1252999807265626933"><ph name="POWER_SOURCE" /> എന്നതിൽ നിന്നും ചാർജ് ചെയ്യുന്നു</translation>
 <translation id="1255033239764210633">കാലാവസ്ഥ എങ്ങനെയുണ്ട്?</translation>
@@ -55,6 +56,7 @@
 <translation id="1570871743947603115">Bluetooth മാറ്റുക. <ph name="STATE_TEXT" /></translation>
 <translation id="1589090746204042747">ഈ സെഷനിൽ നിങ്ങളുടെ എല്ലാ ആക്‌റ്റിവിറ്റികളും ആക്‌സസ് ചെയ്യുക</translation>
 <translation id="1608626060424371292">ഈ ഉപയോക്താവിനെ നീക്കംചെയ്യുക</translation>
+<translation id="1632985212731562677">ക്രമീകരണം &gt; ഉപയോഗസഹായി എന്നതിൽ 'ആക്‌സസ് മാറുക' പ്രവർത്തനരഹിതമാക്കാം.</translation>
 <translation id="1654477262762802994">ഒരു ശബ്‌ദ ചോദ്യം ആരംഭിക്കുക</translation>
 <translation id="1658406695958299976">ക്ഷമിക്കണം, ഇപ്പോഴും നിങ്ങളുടെ പാസ്‌വേഡ് പരിശോധിച്ചുറപ്പിക്കാൻ കഴിഞ്ഞില്ല. ശ്രദ്ധിക്കുക: സമീപകാലത്ത് നിങ്ങൾ പാസ്‌വേഡ് മാറ്റിയിട്ടുണ്ടെങ്കിൽ, സൈൻ ഔട്ട് ചെയ്‌തുകഴിഞ്ഞാൽ പുതിയ പാസ്‌വേഡ് ബാധകമാകും, ഇവിടെ പഴയ പാസ്‌വേഡ് ഉപയോഗിക്കുക.</translation>
 <translation id="1677472565718498478"><ph name="TIME" /> ശേഷിക്കുന്നു</translation>
@@ -104,6 +106,7 @@
 <translation id="2268813581635650749">എല്ലാം സൈൻ ഔട്ട് ചെയ്യുക</translation>
 <translation id="2277103315734023688">മുന്നോട്ട് നീക്കുക</translation>
 <translation id="2292698582925480719">ഡിസ്പ്ലേ സ്കെയിൽ</translation>
+<translation id="2295777434187870477">മൈക്ക് ഓണാണ്, മാറ്റുന്നത് ഇൻപുട്ടിനെ മ്യൂട്ട് ചെയ്യും.</translation>
 <translation id="2298170939937364391">പൂർണ്ണ സ്ക്രീൻ മാഗ്നിഫയർ പ്രവർത്തനക്ഷമമാക്കി. ഇത് ഓഫാക്കാൻ Ctrl+തിരയൽ+M വീണ്ടും അമർത്തുക.</translation>
 <translation id="2302092602801625023">ഈ അക്കൗണ്ട് Family Link ഉപയോഗിച്ച് മാനേജ് ചെയ്യുന്നു</translation>
 <translation id="2303600792989757991">വിൻഡോ ചുരുക്കവിവരണം ടോഗിൾ ചെയ്യുക</translation>
@@ -137,6 +140,7 @@
 <translation id="2658778018866295321">ക്ലിക്ക് ചെയ്‌ത് വലിച്ചിടുക</translation>
 <translation id="2700493154570097719">നിങ്ങളുടെ കീബോഡ് സജ്ജീകരിക്കുക</translation>
 <translation id="2704781753052663061">മറ്റ് വൈഫൈ നെറ്റ്‍വർക്കുകളിൽ ചേരുക</translation>
+<translation id="2705001408393684014">മൈക്ക് മാറ്റുക. <ph name="STATE_TEXT" /></translation>
 <translation id="2718395828230677721">നൈറ്റ് ലൈറ്റ്</translation>
 <translation id="2727977024730340865">കുറഞ്ഞ തോതിൽ വൈദ്യുതി പ്രവഹിക്കുന്ന ചാർജ്ജറിലേക്ക് പ്ലഗ് ചെയ്‌തിരിക്കുന്നു. ബാറ്ററി ചാർജുചെയ്യൽ വിശ്വസനീയമാകണമെന്നില്ല.</translation>
 <translation id="2792498699870441125">Alt+തിരയൽ</translation>
@@ -179,6 +183,7 @@
 <translation id="3154351730702813399">നിങ്ങളുടെ ബ്രൗസിംഗ് ആക്‌റ്റിവിറ്റി ഉപകരണ അഡ്‌മിൻ നിരീക്ഷിച്ചേക്കാം.</translation>
 <translation id="3181441307743005334">റീസ്‌റ്റാർട്ട് ചെയ്യാൻ കുറച്ച് സമയമെടുത്തേക്കാം</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{ഒരു ഉപകരണത്തിലേക്ക് കണക്റ്റ് ചെയ്‌തു}other{# ഉപകരണങ്ങളിലേക്ക് കണക്റ്റ് ചെയ്‌തു}}</translation>
+<translation id="3203405173652969239">'ആക്‌സസ് മാറുക' പ്രവർത്തനക്ഷമമാക്കി</translation>
 <translation id="3207953481422525583">ഉപയോക്തൃ ക്രമീകരണം</translation>
 <translation id="3217205077783620295">വോളിയം ഓണാണ്, മാറ്റുന്നത് ഓഡിയോയെ മ്യൂട്ട് ആക്കും.</translation>
 <translation id="3226991577105957773">+<ph name="COUNT" /> കൂടുതൽ</translation>
@@ -295,6 +300,7 @@
 <translation id="4665114317261903604">ശല്യപ്പെടുത്തരുത് മോഡ് മാറ്റുക. <ph name="STATE_TEXT" /></translation>
 <translation id="4696813013609194136">രക്ഷാകർതൃ കോഡ് ഉപയോഗിച്ച് ഉപകരണം അൺലോക്ക് ചെയ്യുക</translation>
 <translation id="4702647871202761252">സ്വകാര്യതാ സ്‌ക്രീൻ ഓഫാണ്</translation>
+<translation id="4705716602320768426">ഫീഡ്‌ബാക്ക് നൽകുക</translation>
 <translation id="4710243778082831592">IME ക്രമീകരണം</translation>
 <translation id="4731797938093519117">രക്ഷാകർതൃ ആക്‌സസ്</translation>
 <translation id="4734965478015604180">സമാന്തരം</translation>
@@ -375,6 +381,7 @@
 <translation id="5901316534475909376">Shift+Esc</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" /> (<ph name="MAIL" />)</translation>
 <translation id="5916664084637901428">ഓൺ ചെയ്യുക</translation>
+<translation id="5920710855273935292">മൈക്ക് മ്യൂട്ട് ചെയ്തിരിക്കുന്നു.</translation>
 <translation id="5947494881799873997">പഴയപടിയാക്കുക</translation>
 <translation id="595202126637698455">പ്രകടനം പിന്തുടരൽ പ്രവർത്തനക്ഷമമാക്കി</translation>
 <translation id="5957083217255311415">മൊബൈൽ ഡാറ്റ ഓഫാക്കി.</translation>
@@ -430,6 +437,7 @@
 <translation id="6537924328260219877">സിഗ്‌നൽ ശക്തി <ph name="SIGNAL_STRENGTH" />, ഫോൺ ബാറ്ററി <ph name="BATTERY_STATUS" /></translation>
 <translation id="6542521951477560771"><ph name="RECEIVER_NAME" /> ഉപകരണത്തിലേക്ക് കാസ്‌റ്റ് ചെയ്യുന്നു</translation>
 <translation id="6559976592393364813">അഡ്‌മിനിസ്‌ട്രേറ്ററോട് ചോദിക്കുക</translation>
+<translation id="6584550827717945790">ആക്‌സസ് മാറുക ഓഫാക്കുക</translation>
 <translation id="6585808820553845416"><ph name="SESSION_TIME_REMAINING" />-നുള്ളിൽ സെഷൻ അവസാനിക്കുന്നു.</translation>
 <translation id="661203523074512333"><ph name="SECURITY_STATUS" />, സിഗ്‌നൽ ശക്തി <ph name="SIGNAL_STRENGTH" />, നിങ്ങളുടെ അഡ്‌മിൻ മാനേജ് ചെയ്യുന്നത്</translation>
 <translation id="6614169507485700968">സ്വകാര്യതാ സ്‌ക്രീൻ ഓണാണ്</translation>

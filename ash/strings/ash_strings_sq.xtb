@@ -18,6 +18,7 @@
 <translation id="1190609913194133056">Qendra e njoftimeve</translation>
 <translation id="1195412055398077112">mbiskanim</translation>
 <translation id="119944043368869598">Pastroji të gjitha</translation>
+<translation id="1199716647557067911">Je i sigurt që dëshiron të çaktivizosh "Qasjen me çelës"?</translation>
 <translation id="1247372569136754018">Mikrofoni (i brendshëm)</translation>
 <translation id="1252999807265626933">Po karikohet nga <ph name="POWER_SOURCE" /></translation>
 <translation id="1255033239764210633">Si është moti?</translation>
@@ -55,6 +56,7 @@
 <translation id="1570871743947603115">Aktivizo/çaktivizo Bluetooth-in. <ph name="STATE_TEXT" /></translation>
 <translation id="1589090746204042747">Qasu te të gjitha aktivitetet e tua në këtë sesion</translation>
 <translation id="1608626060424371292">Hiqe këtë përdorues</translation>
+<translation id="1632985212731562677">"Qasja me çelës" mund të çaktivizohet te Cilësimet &gt; Qasshmëria.</translation>
 <translation id="1654477262762802994">Nis një pyetje me zë</translation>
 <translation id="1658406695958299976">Na vjen keq, por fjalëkalimi sërish nuk mund të verifikohej. Shënim: Nëse ke ndryshuar fjalëkalimin së fundi, fjalëkalimi i ri do të zbatohet pasi të dalësh nga llogaria, prandaj përdor këtu fjalëkalimin e vjetër.</translation>
 <translation id="1677472565718498478">Koha e mbetur <ph name="TIME" /></translation>
@@ -104,6 +106,7 @@
 <translation id="2268813581635650749">Dil nga të gjitha</translation>
 <translation id="2277103315734023688">Kërko përpara</translation>
 <translation id="2292698582925480719">Shkalla e ekranit</translation>
+<translation id="2295777434187870477">Mikrofoni është aktiv. Ndryshimi i tij do ta çaktivizojë hyrjen.</translation>
 <translation id="2298170939937364391">"Zmadhuesi i ekranit të plotë" u aktivizua. Shtyp përsëri Ctrl+Kërko+M për ta çaktivizuar.</translation>
 <translation id="2302092602801625023">Kjo llogari menaxhohet nga Family Link</translation>
 <translation id="2303600792989757991">Ndrysho përmbledhjen e dritares</translation>
@@ -137,6 +140,7 @@
 <translation id="2658778018866295321">Kliko dhe zvarrit</translation>
 <translation id="2700493154570097719">Vendos tastierën</translation>
 <translation id="2704781753052663061">Bashkohu me rrjete të tjera Wi-Fi</translation>
+<translation id="2705001408393684014">Aktivizo/çaktivizo mikrofonin. <ph name="STATE_TEXT" /></translation>
 <translation id="2718395828230677721">Drita e natës</translation>
 <translation id="2727977024730340865">E lidhur me një karikues me fuqi të ulët. Ngarkimi i baterisë mund të mos jetë i sigurt.</translation>
 <translation id="2792498699870441125">Alt+Kërko</translation>
@@ -179,6 +183,7 @@
 <translation id="3154351730702813399">Administratori i pajisjes mund të monitorojë aktivitetin tënd të shfletimit.</translation>
 <translation id="3181441307743005334">Rindezja mund të zgjasë pak</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{Lidhur me një pajisje}other{Lidhur me # pajisje}}</translation>
+<translation id="3203405173652969239">"Qasja me çelës" është aktivizuar</translation>
 <translation id="3207953481422525583">Cilësimet e përdoruesit</translation>
 <translation id="3217205077783620295">Volumi është aktiv. Ndërrimi do ta heqë audion.</translation>
 <translation id="3226991577105957773">+<ph name="COUNT" /> më shumë</translation>
@@ -295,6 +300,7 @@
 <translation id="4665114317261903604">Aktivizo/çaktivizo modalitetin "Mos shqetëso". <ph name="STATE_TEXT" /></translation>
 <translation id="4696813013609194136">Shkyç pajisjen me kodin e prindit</translation>
 <translation id="4702647871202761252">Ekrani i privatësisë është joaktiv</translation>
+<translation id="4705716602320768426">Dërgo komente</translation>
 <translation id="4710243778082831592">Cilësimet e redaktorit IME</translation>
 <translation id="4731797938093519117">Qasja e prindit</translation>
 <translation id="4734965478015604180">Horizontal</translation>
@@ -375,6 +381,7 @@
 <translation id="5901316534475909376">Shift+Esc</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" /> (<ph name="MAIL" />)</translation>
 <translation id="5916664084637901428">Aktiv</translation>
+<translation id="5920710855273935292">Mikrofoni është i çaktivizuar.</translation>
 <translation id="5947494881799873997">Riktheje</translation>
 <translation id="595202126637698455">Gjurmimi i rendimentit u aktivizua</translation>
 <translation id="5957083217255311415">Të dhënat celulare janë çaktivizuar.</translation>
@@ -430,6 +437,7 @@
 <translation id="6537924328260219877">Fuqia e sinjalit <ph name="SIGNAL_STRENGTH" />, bateria e telefonit <ph name="BATTERY_STATUS" /></translation>
 <translation id="6542521951477560771">Po transmeton <ph name="RECEIVER_NAME" /></translation>
 <translation id="6559976592393364813">Pyet administratorin</translation>
+<translation id="6584550827717945790">Çaktivizo "Qasjen me çelës"</translation>
 <translation id="6585808820553845416">Sesioni përfundon për <ph name="SESSION_TIME_REMAINING" />.</translation>
 <translation id="661203523074512333"><ph name="SECURITY_STATUS" />, fuqia e sinjalit <ph name="SIGNAL_STRENGTH" />, menaxhuar nga administratori yt</translation>
 <translation id="6614169507485700968">Ekrani i privatësisë është aktiv</translation>

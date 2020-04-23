@@ -339,19 +339,19 @@
     <ph name="IDS_SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph> can't check your passwords. Try checking your internet connection.
   </message>
   <message name="IDS_SETTINGS_CHECK_PASSWORDS_ERROR_SIGNED_OUT" desc="Error message when the password check can't be completed because the user is not signed in.">
-    <ph name="IDS_SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph> can check your passwords when you sign in with your Google Account.
+    <ph name="IDS_SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph> can check your passwords when you sign in with your Google Account
   </message>
   <message name="IDS_SETTINGS_CHECK_PASSWORDS_ERROR_NO_PASSWORDS" desc="Error message when the password check can't be completed since no passwords could be checked.">
     No saved passwords. <ph name="IDS_SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph> can check your passwords when you save them.
   </message>
   <message name="IDS_SETTINGS_CHECK_PASSWORDS_ERROR_QUOTA_LIMIT_GOOGLE_ACCOUNT" desc="Error message when the password check can't be completed since the user hit the quota limit, but the user is able to check their passwords in their Google account.">
-    <ph name="IDS_SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph> can't check your passwords. Try again tomorrow or <ph name="BEGIN_LINK">&lt;a href="$2" target="_blank"&gt;</ph>check passwords in your Google Account<ph name="END_LINK">&lt;/a&gt;</ph>.
+    <ph name="IDS_SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph> can't check your passwords. Try again after 24 hours or <ph name="BEGIN_LINK">&lt;a href="$2" target="_blank"&gt;</ph>check passwords in your Google Account<ph name="END_LINK">&lt;/a&gt;</ph>.
   </message>
   <message name="IDS_SETTINGS_CHECK_PASSWORDS_ERROR_QUOTA_LIMIT" desc="Error message when the password check can't be completed since the user hit the quota limit.">
-    <ph name="IDS_SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph> can't check your passwords. Try again tomorrow.
+    <ph name="IDS_SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph> can't check your passwords. Try again after 24 hours.
   </message>
   <message name="IDS_SETTINGS_CHECK_PASSWORDS_ERROR_GENERIC" desc="Error message when the password check can't be completed for an unspecified reason.">
-    <ph name="IDS_SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph> can't check your passwords.
+    <ph name="IDS_SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph> can't check your passwords. Try again later.
   </message>
   <message name="IDS_SETTINGS_COMPROMISED_PASSWORDS_COUNT" desc="Number of compromised passwords present in the database">
     {COUNT, plural,
@@ -1608,6 +1608,8 @@
   <message name="IDS_SETTINGS_PRIVACY_MORE" desc="Label on the expansion button to show more privacy settings.">
     More
   </message>
+
+  <!-- Safety check -->
   <message name="IDS_SETTINGS_SAFETY_CHECK_SECTION_TITLE" desc="'Safety check' is a noun phrase (sentence case). 'Safety check' refers to an area of the Settings page where users can quickly check whether their safety-related settings are fully protecting them.">
     Safety check
   </message>
@@ -1677,27 +1679,13 @@
   <message name="IDS_SETTINGS_SAFETY_CHECK_PASSWORDS_PRIMARY_LABEL" desc="'Passwords' is an element in safety check that allows users to check for their passwords being compromised.">
     Passwords
   </message>
-  <message name="IDS_SETTINGS_SAFETY_CHECK_PASSWORDS_PROGRESS" desc="This text describes the progress of the safety check password check.">
-    <ph name="DONE">$1<ex>3</ex></ph>/<ph name="TOTAL">$2<ex>20</ex></ph> passwords checked...
-  </message>
-  <message name="IDS_SETTINGS_SAFETY_CHECK_PASSWORDS_SAFE" desc="This text points out that the safety check password check has not found any compromised passwords.">
-    No compromised passwords found
-  </message>
-  <message name="IDS_SETTINGS_SAFETY_CHECK_PASSWORDS_COMPROMISED" desc="This text points out that the safety check password check has found compromised passwords. The placeholder will be a numeral.">
-    {NUM_PASSWORDS, plural,
-     =1 {1 compromised password}
-     other {{NUM_PASSWORDS} compromised passwords}}
-  </message>
-  <message name="IDS_SETTINGS_SAFETY_CHECK_PASSWORDS_NO_PASSWORDS" desc="This text points out that password check cannot run due to the user not having saved passwords.">
-    No saved passwords
-  </message>
   <message name="IDS_SETTINGS_SAFETY_CHECK_PASSWORDS_BUTTON" desc="This button allows users to change their compromised passwords.">
     {NUM_PASSWORDS, plural,
      =1 {Change password}
      other {Change passwords}}
   </message>
   <message name="IDS_SETTINGS_SAFETY_CHECK_SAFE_BROWSING_ENABLED" desc="This text points out that Safe Browsing is enabled and that the user is protected.">
-    Safe Browsing is up to date and protecting you from harmful sites and downloads
+    Safe Browsing is on and protecting you from harmful sites and downloads
   </message>
   <message name="IDS_SETTINGS_SAFETY_CHECK_SAFE_BROWSING_DISABLED_BY_ADMIN" desc="This text points out that Safe Browsing is disabled by an administrator.">
     <ph name="BEGIN_LINK">&lt;a target="_blank" href="$1"&gt;</ph>Your administrator<ph name="END_LINK">&lt;/a&gt;</ph> has turned off Safe Browsing
@@ -1743,6 +1731,9 @@
   </message>
   <message name="IDS_SETTINGS_NETWORK_PREDICTION_ENABLED_DESC" desc="In the advanced options tab, the secondary text next to the checkbox that enables prediction of network actions.">
     Uses cookies to remember your preferences, even if you don’t visit those pages
+  </message>
+  <message name="IDS_SETTINGS_NETWORK_PREDICTION_ENABLED_DESC_COOKIES_PAGE" desc="On the cookies page, the secondary text next to the checkbox that enables prediction of network actions.">
+    Pre-fetches information from pages, including pages you have not yet visited. Information fetched may include cookies, if you allow cookies.
   </message>
   <message name="IDS_SETTINGS_SAFEBROWSING_ENABLEPROTECTION" desc="The section title of 'Protects you and your device from dangerous sites'">
     Safe Browsing (protects you and your device from dangerous sites)
@@ -1796,10 +1787,19 @@
     Help improve security on the web for everyone
   </message>
   <message name="IDS_SETTINGS_SAFEBROWSING_NONE" desc="Label for safe browsing no protection mode">
-    No protection
+    No protection (not recommended)
   </message>
   <message name="IDS_SETTINGS_SAFEBROWSING_NONE_DESC" desc="Description for safe browsing no protection mode">
-    Does not protect you against dangerous websites, downloads, and extensions (not recommended). You’ll still get Safe Browsing protection, where available, in other Google services, like Gmail and Search.
+    Does not protect you against dangerous websites, downloads, and extensions. You’ll still get Safe Browsing protection, where available, in other Google services, like Gmail and Search.
+  </message>
+  <message name="IDS_SETTINGS_SAFEBROWSING_DISABLE_DIALOG_TITLE" desc="Title for the confirmation dialog to turn off SafeBrowsing">
+    Turn off Safe Browsing?
+  </message>
+  <message name="IDS_SETTINGS_SAFEBROWSING_DISABLE_DIALOG_DESC" desc="Description for the confirmation dialog to turn off SafeBrowsing">
+    Safe Browsing protects you against attackers who may trick you into doing something dangerous like installing malicious software or revealing personal information like passwords, phone numbers, or credit cards. If you turn it off, be careful when browsing unfamiliar or unreputable sites.
+  </message>
+  <message name="IDS_SETTINGS_SAFEBROWSING_DISABLE_DIALOG_CONFIRM" desc="Title for the confirmation dialog to turn off SafeBrowsing">
+    Turn off
   </message>
   <message name="IDS_SETTINGS_ENABLE_DO_NOT_TRACK" desc="The label of the checkbox to enable/disable sending the 'Do Not track' header">
     Send a "Do Not Track" request with your browsing traffic
@@ -2705,8 +2705,8 @@
   <message name="IDS_SETTINGS_SITE_SETTINGS_ORIGIN_DELETE_CONFIRMATION" desc="Text for the dialog that warns about clearing all storage data for an origin.">
     This will clear all data and cookies stored by <ph name="ORIGIN_NAME">$1<ex>www.example.com</ex></ph>.
   </message>
-  <message name="IDS_SETTINGS_SITE_SETTINGS_ORIGIN_DELETE_CONFIRMATION_INSTALLED" desc="Text for the dialog that warns about clearing all storage data for an origin that has an installed app.">
-    This will clear all data and cookies stored by <ph name="ORIGIN_NAME">$1<ex>www.example.com</ex></ph> and its installed app.
+  <message name="IDS_SETTINGS_SITE_SETTINGS_ORIGIN_DELETE_CONFIRMATION_INSTALLED" desc="Text for the dialog that warns about clearing all storage data for an origin that has one or more installed apps.">
+    This will clear all data and cookies stored by <ph name="ORIGIN_NAME">$1<ex>www.example.com</ex></ph> and its installed apps.
   </message>
   <message name="IDS_SETTINGS_SITE_SETTINGS_COOKIE_REMOVE_MULTIPLE" desc="Text for the dialog that warns about deleting all site data.">
     This will delete any data stored on your device for all the sites shown. Do you want to continue?
@@ -2905,8 +2905,8 @@
     <message name="IDS_SETTINGS_ACCOUNT_MANAGER_ACCOUNT_REMOVED_MESSAGE" desc="Notification message after account removal.">
       <ph name="EMAIL">$1<ex>abcd@google.com</ex></ph> was removed from this device
     </message>
-    <message name="IDS_SETTINGS_ACCOUNT_MANAGER_EDUCATION_ACCOUNT" desc="Status label which indicates that specified account is EDU account.">
-      Education account
+    <message name="IDS_SETTINGS_ACCOUNT_MANAGER_EDUCATION_ACCOUNT" desc="Status label which indicates that specified account is a school/EDU account.">
+      School account
     </message>
     <message name="IDS_SETTINGS_ADD_FINGERPRINT_DIALOG_INSTRUCTION_LOCATE_SCANNER_POWER_BUTTON" desc="Text in the add fingerprint dialog telling users to place finger on the power button which is the sensor.">
       Touch the power button with your finger
