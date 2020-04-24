@@ -7873,7 +7873,7 @@
       'owners': ['file://components/policy/resources/OWNERS'],
       'type': 'main',
       'schema': { 'type': 'boolean' },
-      'supported_on': ['chrome_os:82-'],
+      'supported_on': ['chrome_os:83-'],
       'supported_chrome_os_management': ['google_cloud'],
       'device_only': True,
       'features': {

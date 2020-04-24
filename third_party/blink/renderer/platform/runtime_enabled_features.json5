@@ -294,7 +294,7 @@
     },
     {
       name: "CaptureTimeInCsrc",
-      status: "test",
+      status: "stable",
     },
     {
       name: "ClickPointerEvent",
@@ -1637,7 +1637,7 @@
     },
     {
       name: "SmsReceiver",
-      status: {"default": "experimental", "Android": "stable"},
+      status: {"default": "experimental", "Android": "experimental"},
     },
     {
       name: "SquashAfterPaint",

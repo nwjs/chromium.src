@@ -12,6 +12,8 @@
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
 #include "base/values.h"
+#include "chrome/browser/apps/app_service/app_service_proxy.h"
+#include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/apps/app_service/app_service_test.h"
 #include "chrome/browser/chromeos/child_accounts/time_limits/app_activity_registry.h"
 #include "chrome/browser/chromeos/child_accounts/time_limits/app_time_limits_policy_builder.h"
@@ -21,6 +23,7 @@
 #include "chrome/browser/ui/app_list/arc/arc_app_test.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/services/app_service/public/cpp/icon_loader.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chromeos/dbus/system_clock/system_clock_client.h"
 #include "chromeos/settings/timezone_settings.h"
@@ -30,6 +33,8 @@
 #include "components/prefs/scoped_user_pref_update.h"
 #include "content/public/test/browser_task_environment.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/gfx/image/image_skia.h"
+#include "ui/gfx/image/image_skia_rep_default.h"
 #include "ui/message_center/public/cpp/notification.h"
 
 namespace chromeos {
@@ -47,10 +52,58 @@ constexpr char kApp2Name[] = "App2";
 const AppId kApp1(apps::mojom::AppType::kArc, "1");
 const AppId kApp2(apps::mojom::AppType::kArc, "2");
 
+// Calculate the previous reset time.
+base::Time GetLastResetTime(base::Time timestamp) {
+  base::Time nearest_midnight = timestamp.LocalMidnight();
+  base::Time prev_midnight;
+  if (timestamp > nearest_midnight)
+    prev_midnight = nearest_midnight;
+  else
+    prev_midnight = nearest_midnight - base::TimeDelta::FromHours(24);
+
+  // Reset time is at 6 am for the tests.
+  base::Time reset_time = prev_midnight + base::TimeDelta::FromHours(6);
+  if (reset_time <= timestamp)
+    return reset_time;
+  else
+    return reset_time - base::TimeDelta::FromHours(24);
+}
+
 }  // namespace
 
 class AppTimeControllerTest : public testing::Test {
  protected:
+  class FakeIconLoader : public apps::IconLoader {
+   public:
+    FakeIconLoader() = default;
+    FakeIconLoader(const FakeIconLoader&) = delete;
+    FakeIconLoader& operator=(const FakeIconLoader&) = delete;
+    ~FakeIconLoader() override = default;
+
+    apps::mojom::IconKeyPtr GetIconKey(const std::string& app_id) override {
+      return apps::mojom::IconKey::New(0, 0, 0);
+    }
+
+    std::unique_ptr<apps::IconLoader::Releaser> LoadIconFromIconKey(
+        apps::mojom::AppType app_type,
+        const std::string& app_id,
+        apps::mojom::IconKeyPtr icon_key,
+        apps::mojom::IconCompression icon_compression,
+        int32_t size_hint_in_dip,
+        bool allow_placeholder_icon,
+        apps::mojom::Publisher::LoadIconCallback callback) override {
+      EXPECT_EQ(icon_compression, apps::mojom::IconCompression::kUncompressed);
+      auto iv = apps::mojom::IconValue::New();
+      iv->icon_compression = apps::mojom::IconCompression::kUncompressed;
+      iv->uncompressed =
+          gfx::ImageSkia(gfx::ImageSkiaRep(gfx::Size(1, 1), 1.0f));
+      iv->is_placeholder_icon = false;
+
+      std::move(callback).Run(std::move(iv));
+      return nullptr;
+    }
+  };
+
   AppTimeControllerTest() = default;
   AppTimeControllerTest(const AppTimeControllerTest&) = delete;
   AppTimeControllerTest& operator=(const AppTimeControllerTest&) = delete;
@@ -98,6 +151,7 @@ class AppTimeControllerTest : public testing::Test {
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   TestingProfile profile_;
   NotificationDisplayServiceTester notification_tester_{&profile_};
+  FakeIconLoader icon_loader_;
   apps::AppServiceTest app_service_test_;
   ArcAppTest arc_test_;
 
@@ -118,6 +172,10 @@ void AppTimeControllerTest::SetUp() {
   task_environment_.FastForwardBy(forward_by);
 
   app_service_test_.SetUp(&profile_);
+  apps::AppServiceProxy* proxy =
+      apps::AppServiceProxyFactory::GetForProfile(&profile_);
+  proxy->OverrideInnerIconLoaderForTesting(&icon_loader_);
+
   arc_test_.SetUp(&profile_);
   arc_test_.app_instance()->set_icon_response_type(
       arc::FakeAppInstance::IconResponseType::ICON_RESPONSE_SKIP);
@@ -407,8 +465,9 @@ TEST_F(AppTimeControllerTest, RestoreLastResetTime) {
   }
 
   // If there was no valid last reset time stored in user pref,
-  // AppTimeController sets it to base::Time::Now().
-  base::Time last_reset_time = base::Time::Now();
+  // AppTimeController sets it to the expected last reset time based on
+  // base::Time::Now().
+  base::Time last_reset_time = GetLastResetTime(base::Time::Now());
   EXPECT_EQ(test_api()->GetLastResetTime(), last_reset_time);
 
   controller()->app_registry()->OnAppActive(kApp1, nullptr, last_reset_time);
@@ -454,7 +513,8 @@ TEST_F(AppTimeControllerTest, RestoreLastResetTime) {
 
   // AppTimeController will realize that the reset boundary has been crossed.
   // Therefore, it will trigger reset and update the last reset time to now.
-  EXPECT_EQ(test_api()->GetLastResetTime(), base::Time::Now());
+  EXPECT_EQ(test_api()->GetLastResetTime(),
+            GetLastResetTime(base::Time::Now()));
 
   EXPECT_EQ(controller()->app_registry()->GetAppState(kApp1),
             AppState::kAvailable);
@@ -516,6 +576,33 @@ TEST_F(AppTimeControllerTest, MetricsTest) {
   DeleteController();
   // There was actually no policy update when the controller was reinstantiated.
   histogram_tester.ExpectBucketCount(kPolicyUpdateCountMetric, 0, 1);
+}
+
+TEST_F(AppTimeControllerTest, SetLastResetTimeTest) {
+  base::Time now = base::Time::Now();
+  base::Time nearest_midnight = now.LocalMidnight();
+  base::Time prev_midnight;
+  if (now > nearest_midnight)
+    prev_midnight = nearest_midnight;
+  else
+    prev_midnight = nearest_midnight - kDay;
+
+  base::Time reset_time = prev_midnight + kSixHours;
+
+  test_api()->SetLastResetTime(prev_midnight);
+  EXPECT_EQ(test_api()->GetLastResetTime(), reset_time - kDay);
+
+  test_api()->SetLastResetTime(prev_midnight + 3 * kOneHour);
+  EXPECT_EQ(test_api()->GetLastResetTime(), reset_time - kDay);
+
+  test_api()->SetLastResetTime(prev_midnight + kSixHours);
+  EXPECT_EQ(test_api()->GetLastResetTime(), reset_time);
+
+  test_api()->SetLastResetTime(prev_midnight + 2 * kSixHours);
+  EXPECT_EQ(test_api()->GetLastResetTime(), reset_time);
+
+  test_api()->SetLastResetTime(prev_midnight + kDay);
+  EXPECT_EQ(test_api()->GetLastResetTime(), reset_time);
 }
 
 }  // namespace app_time

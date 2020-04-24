@@ -418,6 +418,11 @@
 <translation id="1555130319947370107">Azul</translation>
 <translation id="1556537182262721003">Não foi possível mover o diretório de extensões para o perfil.</translation>
 <translation id="155865706765934889">Touchpad</translation>
+<translation id="1560763881671211335">Os administradores do G Suite for Education determinam quais serviços do Google os usuários podem acessar enquanto estiverem conectados a uma conta do G Suite for Education. Os administradores da escola precisam fornecer ou receber permissão para o uso dos serviços por usuários menores de idade.
+
+    Os dados de navegação (incluindo histórico, favoritos e senhas) serão armazenados na conta do Family Link, e não na conta escolar.
+
+    As configurações de pai/mãe no Family Link serão mantidas. Se você tiver bloqueado um app ou site, não terá que fazer isso novamente.</translation>
 <translation id="1564414980088536597">Não é possível usar esta imagem. Escolha outra.</translation>
 <translation id="1566049601598938765">Website</translation>
 <translation id="15662109988763471">A impressora selecionada não está disponível ou não foi instalada corretamente. Verifique a impressora ou selecione outra.</translation>
@@ -1211,7 +1216,7 @@ Para gerenciar as configurações dessa conta, instale o app Family Link no seu 
 <translation id="2588636910004461974">Dispositivos deste fornecedor: <ph name="VENDOR_NAME" /></translation>
 <translation id="2594999711683503743">Pesquisar no Google ou digitar o URL</translation>
 <translation id="2602501489742255173">Deslize para cima para começar</translation>
-<translation id="2603115962224169880">Limpe o computador</translation>
+<translation id="2603115962224169880">Limpar o computador</translation>
 <translation id="2603463522847370204">Abrir em &amp;janela anônima</translation>
 <translation id="2604255671529671813">Erro de conexão da rede</translation>
 <translation id="2606246518223360146">Vincular dados</translation>
@@ -1547,6 +1552,7 @@ Para gerenciar as configurações dessa conta, instale o app Family Link no seu 
 <translation id="3019285239893817657">Botão de subpágina</translation>
 <translation id="3020183492814296499">Atalhos</translation>
 <translation id="3020990233660977256">Número de série: <ph name="SERIAL_NUMBER" /></translation>
+<translation id="3021065318976393105">Enquanto estiver na bateria</translation>
 <translation id="3021066826692793094">Borboleta</translation>
 <translation id="3021678814754966447">&amp;Exibir código fonte do frame</translation>
 <translation id="3022978424994383087">Não entendi.</translation>
@@ -1808,6 +1814,7 @@ Para gerenciar as configurações dessa conta, instale o app Family Link no seu 
 <translation id="3396800784455899911">Ao clicar no botão "Aceitar e concluir", você aceita o processo descrito acima para esses serviços do Google.</translation>
 <translation id="3399432415385675819">As notificações serão desativadas</translation>
 <translation id="3400390787768057815"><ph name="WIDTH" /> x <ph name="HEIGHT" /> (<ph name="REFRESH_RATE" /> hertz) - entrelaçado</translation>
+<translation id="3402585168444815892">Inscrevendo-se no modo de demonstração</translation>
 <translation id="340282674066624"><ph name="DOWNLOAD_RECEIVED" />, <ph name="TIME_LEFT" /></translation>
 <translation id="3404065873681873169">Nenhuma senha salva para este site</translation>
 <translation id="3405664148539009465">Personalizar fontes</translation>
@@ -1946,7 +1953,6 @@ Para gerenciar as configurações dessa conta, instale o app Family Link no seu 
 <translation id="3574210789297084292">fazer login</translation>
 <translation id="3574917942258583917">Sair do modo de navegação anônima mesmo assim?</translation>
 <translation id="3575121482199441727">Permitir para este site</translation>
-<translation id="3575919114596668130">Suas configurações de pai/mãe no Family Link serão mantidas. Se você já tiver bloqueado um app ou site, não precisará fazer isso novamente.</translation>
 <translation id="3576324189521867626">Instalação concluída</translation>
 <translation id="3578594933904494462">O conteúdo desta guia está sendo compartilhado.</translation>
 <translation id="357886715122934472">&lt;strong&gt;<ph name="SENDER" />&lt;/strong&gt; deseja compartilhar uma impressora &lt;strong&gt;<ph name="PRINTER_NAME" />&lt;/strong&gt; com um grupo de sua propriedade: &lt;strong&gt;<ph name="GROUP_NAME" />&lt;/strong&gt;. Se você aceitar, todos os membros do grupo poderão imprimir pela impressora.</translation>
@@ -2926,6 +2932,7 @@ Para gerenciar as configurações dessa conta, instale o app Family Link no seu 
 <translation id="4890773143211625964">Mostrar opções avançadas de impressora</translation>
 <translation id="4891089016822695758">Fórum do Beta</translation>
 <translation id="4892229439761351791">O site pode usar o Bluetooth</translation>
+<translation id="489258173289528622">Ação de inatividade enquanto estiver na bateria</translation>
 <translation id="4893336867552636863">Isso excluirá permanentemente os dados de navegação deste dispositivo.</translation>
 <translation id="4893522937062257019">Na tela de bloqueio</translation>
 <translation id="489454699928748701">Permitir que sites usem os sensores de movimento</translation>
@@ -3641,6 +3648,7 @@ Não exponha nenhuma informação confidencial.</translation>
 <translation id="5863445608433396414">Ativar recursos de depuração</translation>
 <translation id="5864195618110239517">Usar conexão limitada</translation>
 <translation id="5864471791310927901">Falha ao procurar DHCP</translation>
+<translation id="5864754048328252126">Ação de inatividade ao carregar</translation>
 <translation id="5865508026715185451">O app <ph name="APP_NAME" /> será pausado em breve</translation>
 <translation id="586567932979200359">Você está executando o <ph name="PRODUCT_NAME" /> a partir de uma imagem de disco. Instalá-lo no computador permite executá-lo sem a imagem de disco e garante que ele se manterá atualizado.</translation>
 <translation id="5865733239029070421">Envia estatísticas de uso e relatórios de erros automaticamente para o Google</translation>
@@ -4051,7 +4059,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="641081527798843608">Correspondência de assunto</translation>
 <translation id="6412673304250309937">Verifica se os URLs estão em uma lista de sites não seguros armazenada no Chrome. Se um site tentar roubar sua senha ou se você fizer o download de um arquivo nocivo, o Chrome também poderá enviar URLs, incluindo partes do conteúdo da página, para o "Navegação segura".</translation>
 <translation id="6412931879992742813">Nova janela anônima</translation>
-<translation id="6413591858632097328">Isso limpará todos os dados e cookies armazenados por <ph name="ORIGIN_NAME" /> e os apps instalados.</translation>
+<translation id="6413591858632097328">Isso limpará todos os dados e cookies armazenados por <ph name="ORIGIN_NAME" /> e os apps ali instalados.</translation>
 <translation id="641469293210305670">Instalar atualizações e apps</translation>
 <translation id="6414888972213066896">Você perguntou ao seu responsável se pode visitar este site</translation>
 <translation id="6415900369006735853">Conecte-se à internet pelo smartphone</translation>
@@ -4587,7 +4595,6 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="713888829801648570">Sua senha não pôde ser confirmada porque você está off-line.</translation>
 <translation id="7140928199327930795">Nenhum outro dispositivo disponível.</translation>
 <translation id="7141105143012495934">O login falhou porque não foi possível recuperar detalhes da sua conta. Entre em contato com o administrador ou tente novamente.</translation>
-<translation id="7143092389027215216">Iniciando modo de demonstração</translation>
 <translation id="7143207342074048698">Conectando</translation>
 <translation id="7144878232160441200">Tentar novamente</translation>
 <translation id="7149893636342594995">Últimas 24 horas</translation>
@@ -4650,6 +4657,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="7235737137505019098">Sua chave de segurança não tem espaço suficiente para mais contas.</translation>
 <translation id="7238643356913091553"><ph name="NETWORK_NAME" />, detalhes</translation>
 <translation id="7240339475467890413">Conectar a um novo ponto de acesso?</translation>
+<translation id="7240847845291869311">A criança quer adicionar uma Conta do Google do G Suite for Education neste dispositivo. O <ph name="LINK_BEGIN" />Aviso de privacidade do G Suite for Education<ph name="LINK_END" /> tem a finalidade de ajudar os usuários e os pais deles a entender quais são os dados coletados pelo produto, o motivo da coleta e o que é feito com eles.</translation>
 <translation id="7241389281993241388">Faça login no <ph name="TOKEN_NAME" /> para importar o certificado do cliente.</translation>
 <translation id="7241443820034350811">Se sua chave de segurança não estiver na lista, pressione o botão dela por pelo menos cinco segundos.</translation>
 <translation id="7243632151880336635">Limpar e sair</translation>
@@ -4770,6 +4778,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="7400418766976504921">URL</translation>
 <translation id="7400839060291901923">Configurar conexão no <ph name="PHONE_NAME" /></translation>
 <translation id="7401778920660465883">Dispensar esta mensagem</translation>
+<translation id="7403642243184989645">Fazendo o download de recursos</translation>
 <translation id="7405938989981604410">{NUM_HOURS,plural, =1{A confirmação de segurança foi executada há 1 hora}one{A confirmação de segurança foi executada há {NUM_HOURS} hora}other{A confirmação de segurança foi executada há {NUM_HOURS} horas}}</translation>
 <translation id="740624631517654988">Pop-up bloqueado</translation>
 <translation id="7407430846095439694">Importar e vincular</translation>
@@ -5911,6 +5920,7 @@ Mantenha a sua chave de arquivo em um local seguro. Você precisará dela para c
 <translation id="8864055848767439877">Compartilhando <ph name="TAB_NAME" /> com <ph name="APP_NAME" /></translation>
 <translation id="8864458770072227512">A conta <ph name="EMAIL" /> foi removida deste dispositivo</translation>
 <translation id="8867228703146808825">Copiar detalhes de versão para a área de transferência</translation>
+<translation id="8868333925931032127">Iniciando modo de demonstração</translation>
 <translation id="8868626022555786497">Em uso</translation>
 <translation id="8870413625673593573">Recentemente fechadas</translation>
 <translation id="8871551568777368300">Fixada pelo administrador</translation>
@@ -5980,8 +5990,9 @@ Mantenha a sua chave de arquivo em um local seguro. Você precisará dela para c
 <translation id="8951256747718668828">Ocorreu um erro e não foi possível concluir a restauração</translation>
 <translation id="8951465597020890363">Sair do modo visitante mesmo assim?</translation>
 <translation id="8952831374766033534">Opção de configuração indisponível: <ph name="ERROR_LINE" /></translation>
+<translation id="8953476467359856141">Ao carregar</translation>
 <translation id="895347679606913382">Iniciando...</translation>
-<translation id="8957762313041272117">Legendas em tempo real</translation>
+<translation id="8957762313041272117">Legenda instantânea</translation>
 <translation id="895944840846194039">Memória JavaScript</translation>
 <translation id="8962083179518285172">Ocultar detalhes</translation>
 <translation id="8962918469425892674">Este site está usando sensores de luz ou movimento.</translation>
@@ -6063,7 +6074,6 @@ Mantenha a sua chave de arquivo em um local seguro. Você precisará dela para c
 <translation id="9055636786322918818">Aplicar a codificação RC4. O uso dessa opção é mais arriscado, porque as criptografias RC4 não são seguras.</translation>
 <translation id="9056810968620647706">Nenhuma correspondência foi encontrada.</translation>
 <translation id="9057354806206861646">Atualizar programação</translation>
-<translation id="9058976525724291037">A criança quer adicionar outra Conta do Google a este dispositivo. Apenas contas do G Suite for Education podem ser adicionadas a dispositivos gerenciados pelo Family Link.</translation>
 <translation id="9062065967472365419">Surpreenda-me</translation>
 <translation id="9062468308252555888">14x</translation>
 <translation id="9063208415146866933">Erro da linha <ph name="ERROR_LINE_START" /> a <ph name="ERROR_LINE_END" /></translation>

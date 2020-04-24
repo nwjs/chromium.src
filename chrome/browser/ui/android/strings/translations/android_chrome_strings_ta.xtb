@@ -104,6 +104,7 @@
 <translation id="1782483593938241562">முடிவுத் தேதி: <ph name="DATE" /></translation>
 <translation id="1791662854739702043">நிறுவப்பட்டது</translation>
 <translation id="1792959175193046959">எப்போது வேண்டுமானாலும் இயல்புப் பதிவிறக்க இடத்தை மாற்றலாம்</translation>
+<translation id="1795251344124198516">Chrome &amp; Chrome OS தொடர்பான கூடுதல் சேவை விதிமுறைகள்</translation>
 <translation id="1807246157184219062">வெளிச்சம்</translation>
 <translation id="1810845389119482123">ஒத்திசைவின் முதற்கட்ட அமைவு நிறைவடையவில்லை</translation>
 <translation id="1821253160463689938">நீங்கள் அந்தப் பக்கங்களைப் பார்வையிடவில்லை என்றாலும், உங்கள் விருப்பத்தேர்வுகளை நினைவில்கொள்ள குக்கீகளைப் பயன்படுத்தும்</translation>
@@ -236,6 +237,7 @@
 <translation id="2650751991977523696">கோப்பை மீண்டும் பதிவிறக்கவா?</translation>
 <translation id="2651091186440431324">{FILE_COUNT,plural, =1{# ஆடியோ கோப்பு}other{# ஆடியோ கோப்புகள்}}</translation>
 <translation id="2687403674020088961">அனைத்துக் குக்கீகளையும் தடுக்கும் (பரிந்துரைக்கப்படவில்லை)</translation>
+<translation id="2689830683995595741">Chromeமைப் பயன்படுத்துவதன் மூலம் <ph name="BEGIN_LINK1" />Google சேவை விதிமுறைகளையும்<ph name="END_LINK1" /> <ph name="BEGIN_LINK2" />Google Chrome மற்றும் Chrome OS தொடர்பான கூடுதல் சேவை விதிமுறைகளையும்<ph name="END_LINK2" /> ஏற்கிறீர்கள். இவற்றோடு <ph name="BEGIN_LINK3" />Family Link நிர்வகிக்கும் Google கணக்குகளுக்கான தனியுரிமை அறிக்கையும்<ph name="END_LINK3" /> பொருந்தும்.</translation>
 <translation id="2707726405694321444">பக்கத்தைப் புதுப்பி</translation>
 <translation id="2709516037105925701">தானாகநிரப்பு</translation>
 <translation id="2717722538473713889">மின்னஞ்சல் முகவரிகள்</translation>
@@ -376,6 +378,7 @@
 <translation id="3749259744154402564">ஆதரிக்கப்படவில்லை</translation>
 <translation id="3771001275138982843">புதுப்பிப்பைப் பதிவிறக்க முடியவில்லை</translation>
 <translation id="3771033907050503522">மறைநிலைத் தாவல்கள்</translation>
+<translation id="3771694256347217732">Google சேவை விதிமுறைகள்</translation>
 <translation id="3773755127849930740">இணைத்தலை அனுமதிக்க, <ph name="BEGIN_LINK" />புளூடூத்தை இயக்கவும்<ph name="END_LINK" /></translation>
 <translation id="3775705724665058594">உங்கள் சாதனங்களுக்கு அனுப்புதல்</translation>
 <translation id="3778956594442850293">முகப்புத் திரையில் சேர்க்கப்பட்டது</translation>
@@ -403,6 +406,7 @@
 <translation id="396192773038029076">{NUM_IN_PROGRESS,plural, =1{பக்கம் தயாரானதும் Chrome அதை ஏற்றும்}other{பக்கங்கள் தயாரானதும் Chrome அவற்றை ஏற்றும்}}</translation>
 <translation id="3963007978381181125">கடவுச்சொற்றொடர் என்க்ரிப்ஷனில் Google Payயிலுள்ள கட்டண முறைகளும் முகவரிகளும் சேர்க்கப்படாது. என்கிரிப்ட் செய்யப்பட்ட தரவை உங்கள் கடவுச்சொற்றொடரை அறிந்தவரால் மட்டுமே படிக்க முடியும். Googleளுக்குக் கடவுச்சொற்றொடர் அனுப்பப்படுவதில்லை. Google அதைச் சேமிப்பதுமில்லை. கடவுச்சொற்றொடரை மறந்துவிட்டாலோ இந்த அமைப்பை மாற்ற விரும்பினாலோ, ஒத்திசைவை மீட்டமைக்க வேண்டும். <ph name="BEGIN_LINK" />மேலும் அறிக<ph name="END_LINK" /></translation>
 <translation id="3967822245660637423">பதிவிறக்கம் முடிந்தது</translation>
+<translation id="3974987681202239636"><ph name="APP_NAME" /> Chromeமில் திறக்கும். தொடர்வதன் மூலம் <ph name="BEGIN_LINK1" />Google சேவை விதிமுறைகளையும்<ph name="END_LINK1" /> <ph name="BEGIN_LINK2" />Google Chrome மற்றும் Chrome OS தொடர்பான கூடுதல் சேவை விதிமுறைகளையும்<ph name="END_LINK2" /> ஏற்கிறீர்கள். இவற்றோடு <ph name="BEGIN_LINK3" />Family Link நிர்வகிக்கும் Google கணக்குகளுக்கான தனியுரிமை அறிக்கையும்<ph name="END_LINK3" /> பொருந்தும்.</translation>
 <translation id="397583555483684758">ஒத்திசைவு நிறுத்தப்பட்டது</translation>
 <translation id="3976396876660209797">இந்த ஷார்ட்கட்டை அகற்றி, மீண்டும் உருவாக்கவும்</translation>
 <translation id="3985215325736559418"><ph name="FILE_NAME" />ஐ மீண்டும் பதிவிறக்கவா?</translation>
@@ -714,6 +718,7 @@
 <translation id="6255999984061454636">உள்ளடக்கப் பரிந்துரைகள்</translation>
 <translation id="6270391203985052864">அறிவிப்புகளை அனுப்புவதற்கான அனுமதியைத் தளங்களால் கோர முடியும்</translation>
 <translation id="6277522088822131679">பக்கத்தை அச்சிடுவதில் சிக்கல் ஏற்பட்டது. மீண்டும் முயற்சிக்கவும்.</translation>
+<translation id="6292420053234093573">Chromeமைப் பயன்படுத்துவதன் மூலம் <ph name="BEGIN_LINK1" />Google சேவை விதிமுறைகளையும்<ph name="END_LINK1" /> <ph name="BEGIN_LINK2" />Google Chrome மற்றும் Chrome OS தொடர்பான கூடுதல் சேவை விதிமுறைகளையும்<ph name="END_LINK2" /> ஏற்கிறீர்கள்.</translation>
 <translation id="6295158916970320988">எல்லா தளங்களும்</translation>
 <translation id="629730747756840877">கணக்கு</translation>
 <translation id="6297765934698848803">உங்கள் சாதனத்தை நிர்வகிக்கும் நிறுவனம் கேமராவை முடக்கியுள்ளது.</translation>
@@ -728,6 +733,7 @@
 <translation id="6364438453358674297">வரலாற்றிலிருந்து பரிந்துரையை அகற்றவா?</translation>
 <translation id="6369229450655021117">இங்கிருந்தபடியே இணையத்தில் தேடலாம், நண்பர்களுடன் உள்ளடக்கங்களைப் பகிரலாம், திறந்துள்ள பக்கங்களைப் பார்க்கலாம்</translation>
 <translation id="6378173571450987352">விவரங்கள்: பயன்படுத்திய டேட்டா அளவின்படி வரிசைப்படுத்தப்பட்டுள்ளன</translation>
+<translation id="6379829913050047669"><ph name="APP_NAME" /> Chromeமில் திறக்கும். தொடர்வதன் மூலம் <ph name="BEGIN_LINK1" />Google சேவை விதிமுறைகளையும்<ph name="END_LINK1" /> <ph name="BEGIN_LINK2" />Google Chrome மற்றும் Chrome OS தொடர்பான கூடுதல் சேவை விதிமுறைகளையும்<ph name="END_LINK2" /> ஏற்கிறீர்கள்.</translation>
 <translation id="6381421346744604172">இணையதளங்களை டார்க்காக மாற்று</translation>
 <translation id="6388207532828177975">அழித்து, மீட்டமைக்கவும்</translation>
 <translation id="6395288395575013217">இணைப்பு</translation>

@@ -1157,6 +1157,7 @@ void ShelfLayoutManager::OnShelfConfigUpdated() {
   SetState(state_.visibility_state);
   LayoutShelf(/*animate=*/true);
   MaybeUpdateShelfBackground(AnimationChangeType::IMMEDIATE);
+  UpdateContextualNudges();
 }
 
 void ShelfLayoutManager::OnTabletModeStarted() {

@@ -181,7 +181,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling V8
   # and whatever else without interference from each other.
-  'v8_revision': '61a92470634b34c87722a6e6c77fd13fc2073518',
+  'v8_revision': '083a26c85b851e871241ffc04221fd3388d3990e',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling swarming_client
   # and whatever else without interference from each other.
@@ -1385,7 +1385,7 @@ deps = {
     Var('chromium_git') + '/external/github.com/google/snappy.git' + '@' + 'f5acee902c4d2110f671455460172cb6d3bf5b73',
 
   'src/third_party/sqlite/src':
-    Var('chromium_git') + '/chromium/deps/sqlite.git' + '@' + '3d3ac5e6f58a5bc28e96e621909b594e7f950e53',
+    Var('chromium_git') + '/chromium/deps/sqlite.git' + '@' + 'c906d361bd62412e009a4ab8a9077ccf974b2fd8',
 
   'src/third_party/sqlite4java': {
       'packages': [
@@ -1463,7 +1463,7 @@ deps = {
   },
 
   'src/third_party/webrtc':
-    Var('webrtc_git') + '/src.git' + '@' + 'b0cc81112edfc04012bba77970231b579cab6fb2',
+    Var('webrtc_git') + '/src.git' + '@' + '4f4be92bb228a2e4ceac701e5bda6e11d24f2771',
 
   'src/third_party/libgifcodec':
      Var('skia_git') + '/libgifcodec' + '@'+  Var('libgifcodec_revision'),
@@ -1538,7 +1538,7 @@ deps = {
   #  Var('chromium_git') + '/v8/v8.git' + '@' +  Var('v8_revision'),
 
   'src-internal': {
-    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@12e22248b4c0c5e34b3a85a972ebe8f8f8b06f5c',
+    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@a09a3abeb9761e1561fed6f6c6c7aa06312a3fab',
     'condition': 'checkout_src_internal',
   },
 

@@ -302,6 +302,9 @@ extern const char kEnableDeferAllScriptWithoutOptimizationHintsDescription[];
 extern const char kEnableEduCoexistenceName[];
 extern const char kEnableEduCoexistenceDescription[];
 
+extern const char kEnableEduCoexistenceConsentLogName[];
+extern const char kEnableEduCoexistenceConsentLogDescription[];
+
 extern const char kEnableSaveDataName[];
 extern const char kEnableSaveDataDescription[];
 
@@ -1930,6 +1933,9 @@ extern const char kEnableHeuristicStylusPalmRejectionDescription[];
 
 extern const char kEnableNeuralStylusPalmRejectionName[];
 extern const char kEnableNeuralStylusPalmRejectionDescription[];
+
+extern const char kEnableNewShortcutMappingName[];
+extern const char kEnableNewShortcutMappingDescription[];
 
 extern const char kEnablePalmOnMaxTouchMajorName[];
 extern const char kEnablePalmOnMaxTouchMajorDescription[];

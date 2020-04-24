@@ -418,6 +418,11 @@
 <translation id="1555130319947370107">青</translation>
 <translation id="1556537182262721003">拡張機能ディレクトリをプロフィールに移動できませんでした。</translation>
 <translation id="155865706765934889">タッチパッド</translation>
+<translation id="1560763881671211335">G Suite for Education の管理者は、ユーザーが G Suite for Education アカウントにログインしているときにアクセスできる Google サービスを管理します。学校の管理者は、未成年のユーザーがサービスを利用することに関して、管理者自身が同意するか、保護者から同意を得る必要があります。
+
+    履歴、ブックマーク、パスワードなどの閲覧データは、ファミリー リンク アカウントに保存され、学校のアカウントには保存されません。
+
+    保護者によるファミリー リンクの設定は引き続き適用されます。以前にアプリやサイトをブロックした場合、再度ブロックする必要はありません。</translation>
 <translation id="1564414980088536597">この画像は使用できません。別の画像を選択してください。</translation>
 <translation id="1566049601598938765">ウェブサイト</translation>
 <translation id="15662109988763471">選択したプリンタは利用できないか、正しくインストールされていません。プリンタを確認するか、別のプリンタを選択してみてください。</translation>
@@ -1547,6 +1552,7 @@
 <translation id="3019285239893817657">サブページのボタン</translation>
 <translation id="3020183492814296499">ショートカット</translation>
 <translation id="3020990233660977256">シリアル番号: <ph name="SERIAL_NUMBER" /></translation>
+<translation id="3021065318976393105">バッテリー駆動時</translation>
 <translation id="3021066826692793094">蝶</translation>
 <translation id="3021678814754966447">フレームのソースを表示(&amp;V)</translation>
 <translation id="3022978424994383087">聞き取れませんでした。</translation>
@@ -1808,6 +1814,7 @@
 <translation id="3396800784455899911">[同意して続行] をクリックすると、これらの Google サービスに関する上記の処理内容に同意したことになります。</translation>
 <translation id="3399432415385675819">通知が無効になります</translation>
 <translation id="3400390787768057815"><ph name="WIDTH" />x<ph name="HEIGHT" />（<ph name="REFRESH_RATE" /> Hz）インターレース</translation>
+<translation id="3402585168444815892">デモモードでの登録</translation>
 <translation id="340282674066624"><ph name="DOWNLOAD_RECEIVED" />、<ph name="TIME_LEFT" /></translation>
 <translation id="3404065873681873169">このサイト用に保存されているパスワードはありません</translation>
 <translation id="3405664148539009465">フォントをカスタマイズ</translation>
@@ -1946,7 +1953,6 @@
 <translation id="3574210789297084292">ログイン</translation>
 <translation id="3574917942258583917">シークレット モードを終了してもよろしいですか？</translation>
 <translation id="3575121482199441727">このサイトの通知を許可</translation>
-<translation id="3575919114596668130">ファミリー リンクの保護者による設定は引き続き適用されます。以前にアプリやサイトをブロックした場合、再度ブロックする必要はありません。</translation>
 <translation id="3576324189521867626">インストールが完了しました</translation>
 <translation id="3578594933904494462">このタブのコンテンツは共有されています。</translation>
 <translation id="357886715122934472">&lt;strong&gt;<ph name="SENDER" />&lt;/strong&gt; さんがあなたのグループ &lt;strong&gt;<ph name="GROUP_NAME" />&lt;/strong&gt; と &lt;strong&gt;<ph name="PRINTER_NAME" />&lt;/strong&gt; プリンタを共有することを希望しています。共有を許可すると、グループのメンバー全員がこのプリンタに印刷できるようになります。</translation>
@@ -2926,6 +2932,7 @@
 <translation id="4890773143211625964">プリンタの詳細オプションを表示</translation>
 <translation id="4891089016822695758">ベータ版フォーラム</translation>
 <translation id="4892229439761351791">サイトに Bluetooth の使用が許可されています</translation>
+<translation id="489258173289528622">バッテリー駆動時のアイドル操作</translation>
 <translation id="4893336867552636863">このデバイスから閲覧データが完全に削除されます。</translation>
 <translation id="4893522937062257019">ロック画面</translation>
 <translation id="489454699928748701">サイトでのモーション センサーの使用を許可する</translation>
@@ -3640,6 +3647,7 @@
 <translation id="5863445608433396414">デバッグ機能を有効にする</translation>
 <translation id="5864195618110239517">従量制接続を使用</translation>
 <translation id="5864471791310927901">DHCP を検索できませんでした</translation>
+<translation id="5864754048328252126">充電時のアイドル操作</translation>
 <translation id="5865508026715185451"><ph name="APP_NAME" /> はまもなく一時的に利用できなくなります</translation>
 <translation id="586567932979200359"><ph name="PRODUCT_NAME" /> はディスク イメージから実行されています。パソコンにインストールすると、ディスク イメージなしで実行できるようになり、常に最新の状態に維持できます。</translation>
 <translation id="5865733239029070421">使用統計情報や障害レポートを Google に自動送信します</translation>
@@ -3839,6 +3847,7 @@
 <translation id="6120205520491252677">このページを起動画面に固定...</translation>
 <translation id="6122081475643980456">インターネット接続が制限されています</translation>
 <translation id="6122095009389448667">このサイトによるクリップボードへのアクセスを引き続きブロックする</translation>
+<translation id="6122831415929794347">セーフ ブラウジングをオフにしますか？</translation>
 <translation id="6122875415561139701">「<ph name="DEVICE_NAME" />」での書き込み操作は許可されていません。</translation>
 <translation id="6124650939968185064">次の拡張機能は、この拡張機能に依存しています:</translation>
 <translation id="6124698108608891449">このサイトが追加の権限をリクエストしています。</translation>
@@ -4043,6 +4052,7 @@
 <translation id="6408118934673775994"><ph name="WEBSITE_1" />、<ph name="WEBSITE_2" />、<ph name="WEBSITE_3" /> 上にある自分のデータの読み取りと変更</translation>
 <translation id="6410257289063177456">画像ファイル</translation>
 <translation id="6410328738210026208">チャンネルを変更して Powerwash</translation>
+<translation id="6410390304316730527">セーフ ブラウジングは、不正なソフトウェアのインストールや個人情報（パスワード、電話番号、クレジット カードなど）の入力といった危険な操作を行うよう誘導する悪意のあるユーザーから保護します。オフにする場合、なじみのないサイトや評判の悪いサイトを閲覧する際は十分に注意してください。</translation>
 <translation id="6410668567036790476">検索エンジンの追加</translation>
 <translation id="641081527798843608">件名の一致</translation>
 <translation id="6412673304250309937">Chrome に保存されている安全でないサイトのリストと URL を照合します。サイトがパスワードを不正に取得しようとしている場合や、ユーザーが安全でないファイルをダウンロードしようとした場合は、URL とページ コンテンツの一部をセーフ ブラウジングに送信することがあります。</translation>
@@ -4583,7 +4593,6 @@
 <translation id="713888829801648570">オフラインになっているためパスワードを確認できませんでした。</translation>
 <translation id="7140928199327930795">利用可能なデバイスは他にありません。</translation>
 <translation id="7141105143012495934">アカウントの詳細を取得できなかったためログインできませんでした。管理者に問い合わせるか、もう一度お試しください。</translation>
-<translation id="7143092389027215216">デモモードを開始します</translation>
 <translation id="7143207342074048698">接続中</translation>
 <translation id="7144878232160441200">再読み込み</translation>
 <translation id="7149893636342594995">過去 24 時間</translation>
@@ -4646,6 +4655,7 @@
 <translation id="7235737137505019098">セキュリティ キーに空き容量がないため、これ以上アカウントを追加できません。</translation>
 <translation id="7238643356913091553"><ph name="NETWORK_NAME" />、詳細</translation>
 <translation id="7240339475467890413">新しいアクセス ポイントに接続しますか？</translation>
+<translation id="7240847845291869311">お子様がこのデバイスに G Suite for Education の Google アカウントを追加しようとしています。<ph name="LINK_BEGIN" />G Suite for Education のプライバシーに関するお知らせ<ph name="LINK_END" />は、G Suite for Education のユーザーとパートナーの皆様に、このサービスで収集されるデータとその理由、Google でのデータの取り扱いについて理解を深めていただくためのものです。</translation>
 <translation id="7241389281993241388">クライアント証明書をインポートするには <ph name="TOKEN_NAME" /> にログインしてください。</translation>
 <translation id="7241443820034350811">セキュリティ キーが表示されていない場合は、キーのボタンを 5 秒以上長押ししてください。</translation>
 <translation id="7243632151880336635">削除してログアウト</translation>
@@ -4766,6 +4776,7 @@
 <translation id="7400418766976504921">URL</translation>
 <translation id="7400839060291901923">「<ph name="PHONE_NAME" />」で接続設定を行ってください</translation>
 <translation id="7401778920660465883">このメッセージを表示しない</translation>
+<translation id="7403642243184989645">リソースのダウンロード</translation>
 <translation id="7405938989981604410">{NUM_HOURS,plural, =1{安全確認を 1 時間前に実行しました}other{安全確認を {NUM_HOURS} 時間前に実行しました}}</translation>
 <translation id="740624631517654988">ポップアップがブロックされました</translation>
 <translation id="7407430846095439694">インポートしてバインド</translation>
@@ -5907,6 +5918,7 @@
 <translation id="8864055848767439877"><ph name="TAB_NAME" /> を <ph name="APP_NAME" /> に共有しています</translation>
 <translation id="8864458770072227512"><ph name="EMAIL" /> はこのデバイスから削除されました</translation>
 <translation id="8867228703146808825">ビルドの詳細をクリップボードにコピーします</translation>
+<translation id="8868333925931032127">デモモードを開始します</translation>
 <translation id="8868626022555786497">使用中</translation>
 <translation id="8870413625673593573">最近閉じたタブ</translation>
 <translation id="8871551568777368300">管理者によって固定</translation>
@@ -5976,6 +5988,7 @@
 <translation id="8951256747718668828">エラーが発生したため、復元を完了できませんでした</translation>
 <translation id="8951465597020890363">ゲストモードを終了してもよろしいですか？</translation>
 <translation id="8952831374766033534">設定オプションがサポートされていません: <ph name="ERROR_LINE" /></translation>
+<translation id="8953476467359856141">充電時</translation>
 <translation id="895347679606913382">開始しています...</translation>
 <translation id="8957762313041272117">自動字幕起こし</translation>
 <translation id="895944840846194039">JavaScript メモリ</translation>
@@ -6059,7 +6072,6 @@
 <translation id="9055636786322918818">RC4 暗号化を適用します。なお RC4 暗号は安全でないため、このオプションを使用するとリスクが高まります。</translation>
 <translation id="9056810968620647706">一致する項目が見つかりません。</translation>
 <translation id="9057354806206861646">更新スケジュール</translation>
-<translation id="9058976525724291037">お子様がこのデバイスに別の Google アカウントを追加しようとしています。ファミリー リンクで管理しているデバイスに追加できるのは、G Suite for Education アカウントのみです。</translation>
 <translation id="9062065967472365419">おまかせ</translation>
 <translation id="9062468308252555888">14 倍</translation>
 <translation id="9063208415146866933"><ph name="ERROR_LINE_START" />～<ph name="ERROR_LINE_END" /> 行目にエラーがあります</translation>

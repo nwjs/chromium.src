@@ -8,6 +8,7 @@
 
 #include "base/logging.h"
 #include "base/no_destructor.h"
+#include "net/dns/public/util.h"
 
 namespace net {
 
@@ -29,6 +30,10 @@ DohProviderEntry::DohProviderEntry(
       privacy_policy(std::move(privacy_policy)),
       display_globally(display_globally),
       display_countries(std::move(display_countries)) {
+  DCHECK(!this->dns_over_https_template.empty());
+  DCHECK(dns_util::IsValidDohTemplate(this->dns_over_https_template,
+                                      nullptr /* server_method */));
+
   DCHECK(!display_globally || this->display_countries.empty());
   if (display_globally || !this->display_countries.empty()) {
     DCHECK(!this->ui_name.empty());
@@ -99,14 +104,23 @@ const std::vector<DohProviderEntry>& GetDohProviderList() {
                        "" /* ui_name */, "" /* privacy_policy */,
                        false /* display_globally */,
                        {} /* display_countries */),
+      // Note: DNS.SB has separate entries for autoupgrade and settings UI to
+      // allow the extra |no_ecs| parameter for autoupgrade. This parameter
+      // disables EDNS Client Subnet (ECS) handling in order to match the
+      // behavior of the upgraded-from classic DNS server.
       DohProviderEntry(
           "Dnssb", base::nullopt /* provider_id_for_histogram */,
           {"185.222.222.222", "185.184.222.222", "2a09::", "2a09::1"},
           {"dns.sb"} /* dns_over_tls_hostnames */,
-          {"https://doh.dns.sb/dns-query?no_ecs=true{&dns}",
-           false /* use_post */},
-          "" /* ui_name */, "" /* privacy_policy */,
-          false /* display_globally */, {} /* display_countries */),
+          "https://doh.dns.sb/dns-query?no_ecs=true{&dns}", "" /* ui_name */,
+          "" /* privacy_policy */, false /* display_globally */,
+          {} /* display_countries */),
+      DohProviderEntry(
+          "DnssbUserSelected", DohProviderIdForHistogram::kDnsSb,
+          {} /* ip_strs */, {} /* dns_over_tls_hostnames */,
+          "https://doh.dns.sb/dns-query{?dns}", "DNS.SB" /* ui_name */,
+          "https://dns.sb/privacy/" /* privacy_policy */,
+          false /* display_globally */, {"EE", "DE"} /* display_countries */),
       DohProviderEntry("Google", DohProviderIdForHistogram::kGoogle,
                        {"8.8.8.8", "8.8.4.4", "2001:4860:4860::8888",
                         "2001:4860:4860::8844"},

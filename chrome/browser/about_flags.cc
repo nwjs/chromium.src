@@ -2105,6 +2105,13 @@ const FeatureEntry kFeatureEntries[] = {
     {"instant-tethering", flag_descriptions::kTetherName,
      flag_descriptions::kTetherDescription, kOsCrOS,
      FEATURE_VALUE_TYPE(chromeos::features::kInstantTethering)},
+    {
+        "new-shortcut-mapping",
+        flag_descriptions::kEnableNewShortcutMappingName,
+        flag_descriptions::kEnableNewShortcutMappingDescription,
+        kOsCrOS,
+        FEATURE_VALUE_TYPE(features::kNewShortcutMapping),
+    },
     {"shelf-hide-buttons-in-tablet",
      flag_descriptions::kHideShelfControlsInTabletModeName,
      flag_descriptions::kHideShelfControlsInTabletModeDescription, kOsCrOS,
@@ -4724,6 +4731,13 @@ const FeatureEntry kFeatureEntries[] = {
     {"enable-edu-coexistence", flag_descriptions::kEnableEduCoexistenceName,
      flag_descriptions::kEnableEduCoexistenceDescription, kOsCrOS,
      FEATURE_VALUE_TYPE(chromeos::features::kEduCoexistence)},
+#endif  // OS_CHROMEOS
+
+#if defined(OS_CHROMEOS)
+    {"enable-edu-coexistence-consent-log",
+     flag_descriptions::kEnableEduCoexistenceConsentLogName,
+     flag_descriptions::kEnableEduCoexistenceConsentLogDescription, kOsCrOS,
+     FEATURE_VALUE_TYPE(chromeos::features::kEduCoexistenceConsentLog)},
 #endif  // OS_CHROMEOS
 
 #if defined(OS_CHROMEOS)

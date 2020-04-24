@@ -418,6 +418,11 @@
 <translation id="1555130319947370107">Blár</translation>
 <translation id="1556537182262721003">Ekki var hægt að færa viðbótamöppuna inn í prófílinn.</translation>
 <translation id="155865706765934889">Snertiflötur</translation>
+<translation id="1560763881671211335">Stjórnendur G Suite fyrir skóla ákveða hvaða þjónustu Google notendur hafa aðgang að þegar þeir eru skráðir inn á reikning G Suite fyrir skóla. Skólastjórnendur þurfa að samþykkja eða afla samþykkis fyrir notkun notenda undir lögaldri á þessari þjónustu.
+
+    Vefskoðunargögn (þar á meðal ferill, bókamerki og aðgangsorð) verða vistuð á Family Link reikningnum en ekki skólareikningnum.
+
+    Foreldrastillingar Family Link gilda áfram. Ef þú hefur áður lokað á forrit eða vefsvæði þarftu ekki að gera það aftur.</translation>
 <translation id="1564414980088536597">Ekki er hægt að nota þessa mynd. Veldu aðra mynd.</translation>
 <translation id="1566049601598938765">Vefsvæði</translation>
 <translation id="15662109988763471">Valinn prentari er ekki í boði eða ekki rétt uppsettur. Athugaðu prentarann eða prófaðu að velja annan prentara.</translation>
@@ -1547,6 +1552,7 @@ Annars skaltu skrá þig út núna svo breytingarnar á þessum reikningi taki g
 <translation id="3019285239893817657">Hnappur fyrir undirsíðu</translation>
 <translation id="3020183492814296499">Flýtileiðir</translation>
 <translation id="3020990233660977256">Raðnúmer: <ph name="SERIAL_NUMBER" /></translation>
+<translation id="3021065318976393105">Þegar rafhlaða er notuð</translation>
 <translation id="3021066826692793094">Fiðrildi</translation>
 <translation id="3021678814754966447">Skoða frumkóða ramma</translation>
 <translation id="3022978424994383087">Náði þessu ekki.</translation>
@@ -1808,6 +1814,7 @@ Annars skaltu skrá þig út núna svo breytingarnar á þessum reikningi taki g
 <translation id="3396800784455899911">Með því að smella á hnappinn „Samþykkja og halda áfram“ samþykkir þú þá úrvinnslu sem lýst er hér að ofan fyrir þessa Google þjónustu.</translation>
 <translation id="3399432415385675819">Tilkynningar verða gerðar óvirkar</translation>
 <translation id="3400390787768057815"><ph name="WIDTH" /> x <ph name="HEIGHT" /> (<ph name="REFRESH_RATE" /> herts) – samfléttað</translation>
+<translation id="3402585168444815892">Skráning í prufustillingu</translation>
 <translation id="340282674066624"><ph name="DOWNLOAD_RECEIVED" />, <ph name="TIME_LEFT" /></translation>
 <translation id="3404065873681873169">Engin aðgangsorð hafa verið vistuð fyrir þetta vefsvæði</translation>
 <translation id="3405664148539009465">Sérsníða letur</translation>
@@ -1946,7 +1953,6 @@ Annars skaltu skrá þig út núna svo breytingarnar á þessum reikningi taki g
 <translation id="3574210789297084292">skrá inn</translation>
 <translation id="3574917942258583917">Viltu samt loka huliðsstillingu?</translation>
 <translation id="3575121482199441727">Leyfa fyrir þetta vefsvæði</translation>
-<translation id="3575919114596668130">Foreldrastillingarnar þínar í Family Link verða áfram í gildi. Ef þú hefur áður lokað fyrir forrit eða vefsvæði þarftu ekki að gera það aftur.</translation>
 <translation id="3576324189521867626">Uppsetning tókst</translation>
 <translation id="3578594933904494462">Verið er að deila efni þessa flipa.</translation>
 <translation id="357886715122934472">&lt;strong&gt;<ph name="SENDER" />&lt;/strong&gt; vill deila prentara &lt;strong&gt;<ph name="PRINTER_NAME" />&lt;/strong&gt; með hópi í þinni eigu: &lt;strong&gt;<ph name="GROUP_NAME" />&lt;/strong&gt;. Ef þú samþykkir geta allir meðlimir hópsins prentað með prentaranum.</translation>
@@ -2926,6 +2932,7 @@ Annars skaltu skrá þig út núna svo breytingarnar á þessum reikningi taki g
 <translation id="4890773143211625964">Sýna ítarlegar stillingar prentara</translation>
 <translation id="4891089016822695758">Beta-umræðusvæði</translation>
 <translation id="4892229439761351791">Vefsvæði getur notað Bluetooth</translation>
+<translation id="489258173289528622">Aðgerðaleysi við notkun rafhlöðu</translation>
 <translation id="4893336867552636863">Þetta mun eyða vefskoðunargögnum varanlega úr þessu tæki.</translation>
 <translation id="4893522937062257019">Á lásskjánum</translation>
 <translation id="489454699928748701">Leyfa vefsvæðum að nota hreyfiskynjara</translation>
@@ -3640,6 +3647,7 @@ Annars skaltu skrá þig út núna svo breytingarnar á þessum reikningi taki g
 <translation id="5863445608433396414">Virkja villuleitareiginleika</translation>
 <translation id="5864195618110239517">Nota mælda tengingu</translation>
 <translation id="5864471791310927901">DHCP-uppfletting mistókst</translation>
+<translation id="5864754048328252126">Aðgerðaleysi meðan á hleðslu stendur</translation>
 <translation id="5865508026715185451">Hlé verður gert á <ph name="APP_NAME" /> fljótlega</translation>
 <translation id="586567932979200359">Þú ert að keyra <ph name="PRODUCT_NAME" /> af diskmynd þess. Ef þú setur það upp í tölvunni geturðu keyrt það án diskmyndarinnar og tryggt að það sé alltaf uppfært.</translation>
 <translation id="5865733239029070421">Sendir sjálfkrafa talnagögn um notkun og tilkynningar um hrun til Google</translation>
@@ -4585,7 +4593,6 @@ Annars skaltu skrá þig út núna svo breytingarnar á þessum reikningi taki g
 <translation id="713888829801648570">Því miður var ekki hægt að staðfesta aðgangsorðið þitt vegna þess að engin nettenging er fyrir hendi.</translation>
 <translation id="7140928199327930795">Engin önnur tiltæk tæki.</translation>
 <translation id="7141105143012495934">Innskráning mistókst vegna þess að ekki tókst að sækja reikningsupplýsingar. Hafðu samband við kerfisstjóra eða reyndu aftur.</translation>
-<translation id="7143092389027215216">Setur upp prufustillingu</translation>
 <translation id="7143207342074048698">Tengist</translation>
 <translation id="7144878232160441200">Reyna aftur</translation>
 <translation id="7149893636342594995">Síðastliðinn sólarhring</translation>
@@ -4648,6 +4655,7 @@ Annars skaltu skrá þig út núna svo breytingarnar á þessum reikningi taki g
 <translation id="7235737137505019098">Ekki er nægilegt pláss á öryggislyklinum fyrir fleiri reikninga.</translation>
 <translation id="7238643356913091553"><ph name="NETWORK_NAME" />, upplýsingar</translation>
 <translation id="7240339475467890413">Tengjast nýjum heitum reit?</translation>
+<translation id="7240847845291869311">Barnið þitt vill bæta Google reikningi G Suite fyrir skóla við þetta tæki. <ph name="LINK_BEGIN" />Upplýsingar um persónuvernd G Suite fyrir skóla<ph name="LINK_END" /> veita notendum G Suite fyrir skóla og foreldrum þeirra upplýsingar um hvaða gögnum varan safnar, hvers vegna þeim er safnað og hvað er gert við þau.</translation>
 <translation id="7241389281993241388">Skráðu þig inn á <ph name="TOKEN_NAME" /> til að flytja inn biðlaravottorðið.</translation>
 <translation id="7241443820034350811">Ef öryggislykillinn þinn er ekki skráður skaltu ýta á takkann á honum í a.m.k. 5 sekúndur.</translation>
 <translation id="7243632151880336635">Hreinsa og skrá út</translation>
@@ -4768,6 +4776,7 @@ Annars skaltu skrá þig út núna svo breytingarnar á þessum reikningi taki g
 <translation id="7400418766976504921">Vefslóð</translation>
 <translation id="7400839060291901923">Settu upp tengingu í <ph name="PHONE_NAME" /></translation>
 <translation id="7401778920660465883">Hunsa þessi skilaboð</translation>
+<translation id="7403642243184989645">Sækir tilföng</translation>
 <translation id="7405938989981604410">{NUM_HOURS,plural, =1{Öryggisathugun var gerð fyrir 1 klukkustund}one{Öryggisathugun var gerð fyrir {NUM_HOURS} klukkustund}other{Öryggisathugun var gerð fyrir {NUM_HOURS} klukkustundum}}</translation>
 <translation id="740624631517654988">Sprettigluggi útilokaður</translation>
 <translation id="7407430846095439694">Flytja inn og binda</translation>
@@ -5908,6 +5917,7 @@ Geymdu lykilskrána á öruggum stað. Þú þarft hana til að búa til nýjar 
 <translation id="8864055848767439877">Deilir <ph name="TAB_NAME" /> í <ph name="APP_NAME" /></translation>
 <translation id="8864458770072227512"><ph name="EMAIL" /> var fjarlægt úr þessu tæki</translation>
 <translation id="8867228703146808825">Afrita upplýsingar um smíði á klippiborð</translation>
+<translation id="8868333925931032127">Undirbýr prufustillingu</translation>
 <translation id="8868626022555786497">Í notkun</translation>
 <translation id="8870413625673593573">Nýlega lokað</translation>
 <translation id="8871551568777368300">Fest af stjórnanda</translation>
@@ -5977,6 +5987,7 @@ Geymdu lykilskrána á öruggum stað. Þú þarft hana til að búa til nýjar 
 <translation id="8951256747718668828">Villa kom í veg fyrir að hægt væri að ljúka endurheimt</translation>
 <translation id="8951465597020890363">Hætta samt í gestastillingu?</translation>
 <translation id="8952831374766033534">Stillingarvalkostur ekki studdur: <ph name="ERROR_LINE" /></translation>
+<translation id="8953476467359856141">Í hleðslu</translation>
 <translation id="895347679606913382">Ræsir...</translation>
 <translation id="8957762313041272117">Skjátextar í rauntíma</translation>
 <translation id="895944840846194039">JavaScript-minni</translation>
@@ -6060,7 +6071,6 @@ Geymdu lykilskrána á öruggum stað. Þú þarft hana til að búa til nýjar 
 <translation id="9055636786322918818">Þvinga RC4-dulkóðun. Þessi valkostur felur í sér meiri áhættu, þar sem RC4-dulmálslyklar eru óöruggir.</translation>
 <translation id="9056810968620647706">Engar samsvaranir fundust.</translation>
 <translation id="9057354806206861646">Uppfæra áætlun</translation>
-<translation id="9058976525724291037">Barnið þitt vill bæta öðrum Google reikningi við þetta tæki. Aðeins er hægt að bæta reikningum í G Suite fyrir skóla við tæki sem eru í umsjón Family Link.</translation>
 <translation id="9062065967472365419">Koma mér á óvart</translation>
 <translation id="9062468308252555888">14x</translation>
 <translation id="9063208415146866933">Villa frá línu <ph name="ERROR_LINE_START" /> til <ph name="ERROR_LINE_END" /></translation>

@@ -1170,6 +1170,34 @@ cr.define('device_page_tests', function() {
                   .acIdleBehavior_);
         });
 
+        test('set battery idle behavior', function() {
+          return new Promise(function(resolve) {
+                   // Indicate battery presence so that idle settings box while
+                   // on battery is visible.
+                   const batteryStatus = {
+                     present: true,
+                     charging: false,
+                     calculating: false,
+                     percent: 50,
+                     statusText: '5 hours left',
+                   };
+                   cr.webUIListenerCallback(
+                       'battery-status-changed',
+                       Object.assign({}, batteryStatus));
+                   powerPage.async(resolve);
+                 })
+              .then(function() {
+                const batteryIdleSelect =
+                    assert(powerPage.$$('#batteryIdleSelect'));
+                selectValue(
+                    batteryIdleSelect, settings.IdleBehavior.DISPLAY_ON);
+                expectEquals(
+                    settings.IdleBehavior.DISPLAY_ON,
+                    settings.DevicePageBrowserProxyImpl.getInstance()
+                        .batteryIdleBehavior_);
+              });
+        });
+
         test('set lid behavior', function() {
           const sendLid = function(lidBehavior) {
             sendPowerManagementSettings(
@@ -1211,18 +1239,7 @@ cr.define('device_page_tests', function() {
 
         test('display idle and lid behavior', function() {
           return new Promise(function(resolve) {
-                   // Indicate battery presence so that idle settings box while
-                   // on battery is visible.
-                   const batteryStatus = {
-                     present: true,
-                     charging: false,
-                     calculating: false,
-                     percent: 50,
-                     statusText: '5 hours left',
-                   };
-                   cr.webUIListenerCallback(
-                       'battery-status-changed',
-                       Object.assign({}, batteryStatus));
+                   // Send power management settings first.
                    sendPowerManagementSettings(
                        [
                          settings.IdleBehavior.DISPLAY_OFF_SLEEP,
@@ -1243,9 +1260,32 @@ cr.define('device_page_tests', function() {
                    powerPage.async(resolve);
                  })
               .then(function() {
+                // Indicate battery presence so that battery idle settings
+                // box becomes visible. Default option should be selected
+                // properly even when battery idle settings box is stamped
+                // later.
+                const batteryStatus = {
+                  present: true,
+                  charging: false,
+                  calculating: false,
+                  percent: 50,
+                  statusText: '5 hours left',
+                };
+                cr.webUIListenerCallback(
+                    'battery-status-changed', Object.assign({}, batteryStatus));
+                return new Promise(function(resolve) {
+                  powerPage.async(resolve);
+                });
+              })
+              .then(function() {
+                const batteryIdleSelect =
+                    assert(powerPage.$$('#batteryIdleSelect'));
                 expectEquals(
                     settings.IdleBehavior.DISPLAY_ON.toString(),
                     acIdleSelect.value);
+                expectEquals(
+                    settings.IdleBehavior.DISPLAY_OFF.toString(),
+                    batteryIdleSelect.value);
                 expectFalse(acIdleSelect.disabled);
                 expectEquals(null, powerPage.$$('#acIdleManagedIndicator'));
                 expectEquals(

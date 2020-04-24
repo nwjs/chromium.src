@@ -418,6 +418,11 @@
 <translation id="1555130319947370107">Blou</translation>
 <translation id="1556537182262721003">Kon nie uitbreidinggids na profiel skuif nie.</translation>
 <translation id="155865706765934889">Raakpaneel</translation>
+<translation id="1560763881671211335">G Suite for Education-administrateurs bepaal tot watter Google-dienste hul gebruikers toegang kan kry terwyl hulle by 'n G Suite for Education-rekening aangemeld is. Skooladministrateurs moet toestemming verskaf of verkry vir hul minderjarige gebruikers om die dienste te kan gebruik.
+
+    Blaaierdata (insluitend geskiedenis, boekmerke en wagwoorde) sal in die Family Link-rekening en nie in die skoolrekening geberg word nie.
+
+    Jou Family Link-ouerinstellings sal steeds van toepassing wees. As jy voorheen 'n program of werf geblokkeer het, sal jy dit nie weer hoef te doen nie.</translation>
 <translation id="1564414980088536597">Hierdie prent kan nie gebruik word nie. Kies 'n ander prent.</translation>
 <translation id="1566049601598938765">Webwerf</translation>
 <translation id="15662109988763471">Die gekose drukker is nie beskikbaar of reg geïnstalleer nie. Gaan jou drukker na of probeer om 'n ander drukker te kies.</translation>
@@ -1547,6 +1552,7 @@ Jy kan hierdie rekening se instellings bestuur deur die Family Link-program op j
 <translation id="3019285239893817657">Subbladsy-knoppie</translation>
 <translation id="3020183492814296499">Kortpaaie</translation>
 <translation id="3020990233660977256">Reeksnommer: <ph name="SERIAL_NUMBER" /></translation>
+<translation id="3021065318976393105">Terwyl dit battery gebruik</translation>
 <translation id="3021066826692793094">Skoenlapper</translation>
 <translation id="3021678814754966447">Bekyk raambron</translation>
 <translation id="3022978424994383087">Kon dit nie hoor nie.</translation>
@@ -1808,6 +1814,7 @@ Jy kan hierdie rekening se instellings bestuur deur die Family Link-program op j
 <translation id="3396800784455899911">Deur die "Aanvaar en gaan voort"-knoppie te klik, stem jy in tot die verwerking wat hierbo vir hierdie Google-dienste beskryf word.</translation>
 <translation id="3399432415385675819">Kennisgewings sal gedeaktiveer word</translation>
 <translation id="3400390787768057815"><ph name="WIDTH" /> x <ph name="HEIGHT" /> (<ph name="REFRESH_RATE" /> hertz) – deurweef</translation>
+<translation id="3402585168444815892">Skryf tans in by demonstrasiemodus</translation>
 <translation id="340282674066624"><ph name="DOWNLOAD_RECEIVED" />, <ph name="TIME_LEFT" /></translation>
 <translation id="3404065873681873169">Geen wagwoorde is vir hierdie werf gestoor nie</translation>
 <translation id="3405664148539009465">Pasmaak lettertipes</translation>
@@ -1946,7 +1953,6 @@ Jy kan hierdie rekening se instellings bestuur deur die Family Link-program op j
 <translation id="3574210789297084292">meld aan</translation>
 <translation id="3574917942258583917">Verlaat incognitomodus in elk geval?</translation>
 <translation id="3575121482199441727">Laat vir hierdie werf toe</translation>
-<translation id="3575919114596668130">Jou Family Link-ouerinstellings sal steeds van toepassing wees. As jy voorheen 'n program of werf geblokkeer het, sal jy dit nie weer hoef te doen nie.</translation>
 <translation id="3576324189521867626">Suksesvol geïnstalleer</translation>
 <translation id="3578594933904494462">Hierdie oortjie se inhoud word tans gedeel.</translation>
 <translation id="357886715122934472">&lt;strong&gt;<ph name="SENDER" />&lt;/strong&gt; wil 'n drukker deel &lt;strong&gt;<ph name="PRINTER_NAME" />&lt;/strong&gt; met 'n groep wat jy besit: &lt;strong&gt;<ph name="GROUP_NAME" />&lt;/strong&gt;. As jy aanvaar, sal alle groeplede na daardie drukker kan uitdruk.</translation>
@@ -2926,6 +2932,7 @@ Jy kan hierdie rekening se instellings bestuur deur die Family Link-program op j
 <translation id="4890773143211625964">Wys gevorderde drukkeropsies</translation>
 <translation id="4891089016822695758">Beta-forum</translation>
 <translation id="4892229439761351791">Werf kan Bluetooth gebruik</translation>
+<translation id="489258173289528622">Rushandeling terwyl dit battery gebruik</translation>
 <translation id="4893336867552636863">Dit sal jou blaaidata permanent van hierdie toestel af uitvee.</translation>
 <translation id="4893522937062257019">Op die sluitskerm</translation>
 <translation id="489454699928748701">Laat werwe toe om bewegingsensors te gebruik</translation>
@@ -3641,6 +3648,7 @@ Maak seker jy wys nie enige sensitiewe inligting nie.</translation>
 <translation id="5863445608433396414">Aktiveer ontfoutingkenmerke</translation>
 <translation id="5864195618110239517">Gebruik betaalde verbinding</translation>
 <translation id="5864471791310927901">DHCP-opsoek het misluk</translation>
+<translation id="5864754048328252126">Rushandeling terwyl dit laai</translation>
 <translation id="5865508026715185451"><ph name="APP_NAME" /> sal binnekort onderbreek word</translation>
 <translation id="586567932979200359">Jy laat loop <ph name="PRODUCT_NAME" /> tans van sy skyfafbeelding af. As jy dit op jou rekenaar installeer, kan jy dit sonder die skyfafbeelding laat loop, en verseker dat dit op datum gehou word.</translation>
 <translation id="5865733239029070421">Stuur gebruikstatistieke en omvalverslae outomaties na Google</translation>
@@ -4586,7 +4594,6 @@ Maak seker jy wys nie enige sensitiewe inligting nie.</translation>
 <translation id="713888829801648570">Jammer, jou wagwoord kon nie geverifieer word nie, want jy is vanlyn.</translation>
 <translation id="7140928199327930795">Geen ander beskikbare toestelle nie.</translation>
 <translation id="7141105143012495934">Kon nie aanmeld nie omdat jou rekeningbesonderhede nie gehaal kon word nie. Kontak jou administrateur of probeer weer.</translation>
-<translation id="7143092389027215216">Begin tans demonstrasiemodus</translation>
 <translation id="7143207342074048698">Koppel tans</translation>
 <translation id="7144878232160441200">Probeer weer</translation>
 <translation id="7149893636342594995">Afgelope 24 uur</translation>
@@ -4649,6 +4656,7 @@ Maak seker jy wys nie enige sensitiewe inligting nie.</translation>
 <translation id="7235737137505019098">Jou sekuriteitsleutel het nie genoeg berging vir nog rekeninge nie.</translation>
 <translation id="7238643356913091553"><ph name="NETWORK_NAME" />, besonderhede</translation>
 <translation id="7240339475467890413">Koppel aan nuwe warmkol?</translation>
+<translation id="7240847845291869311">Jou kind wil 'n Google-rekening vir G Suite for Education by hierdie toestel voeg. <ph name="LINK_BEGIN" />G Suite for Education se privaatheidskennisgewing<ph name="LINK_END" /> is bedoel om G Suite for Education-gebruikers en -ouers te help om te verstaan watter data die produk insamel, hoekom dit ingesamel word en wat daarmee gedoen word.</translation>
 <translation id="7241389281993241388">Meld asseblief by <ph name="TOKEN_NAME" /> aan om die kliëntsertifikaat in te voer.</translation>
 <translation id="7241443820034350811">Druk jou sekuriteitsleutel se knoppie minstens 5 sekondes lank as dit nie gelys is nie.</translation>
 <translation id="7243632151880336635">Vee uit en meld af</translation>
@@ -4769,6 +4777,7 @@ Maak seker jy wys nie enige sensitiewe inligting nie.</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7400839060291901923">Stel verbinding op jou <ph name="PHONE_NAME" /> op</translation>
 <translation id="7401778920660465883">Maak hierdie boodskap toe</translation>
+<translation id="7403642243184989645">Laai tans hulpbronne af</translation>
 <translation id="7405938989981604410">{NUM_HOURS,plural, =1{Veiligheidskontrole het 1 uur gelede plaasgevind}other{Veiligheidskontrole het {NUM_HOURS} uur gelede plaasgevind}}</translation>
 <translation id="740624631517654988">Opspringer geblokkeer</translation>
 <translation id="7407430846095439694">Voer in en bind</translation>
@@ -5909,6 +5918,7 @@ Hou jou sleutellêer op 'n veilige plek. Jy gaan dit nodig hê om nuwe weergawes
 <translation id="8864055848767439877">Deel <ph name="TAB_NAME" /> tans na <ph name="APP_NAME" /></translation>
 <translation id="8864458770072227512"><ph name="EMAIL" /> is van hierdie toestel af verwyder</translation>
 <translation id="8867228703146808825">Kopieer boubesonderhede na knipbord toe</translation>
+<translation id="8868333925931032127">Begin tans demonstrasiemodus</translation>
 <translation id="8868626022555786497">Word gebruik</translation>
 <translation id="8870413625673593573">Onlangs toegemaak</translation>
 <translation id="8871551568777368300">Deur administrateur vasgespeld</translation>
@@ -5978,6 +5988,7 @@ Hou jou sleutellêer op 'n veilige plek. Jy gaan dit nodig hê om nuwe weergawes
 <translation id="8951256747718668828">Terugstelling kon weens 'n probleem nie voltooi word nie</translation>
 <translation id="8951465597020890363">Verlaat besoekermodus in elk geval?</translation>
 <translation id="8952831374766033534">Opstellingopsie word nie gesteun nie: <ph name="ERROR_LINE" /></translation>
+<translation id="8953476467359856141">Terwyl dit laai</translation>
 <translation id="895347679606913382">Begin tans …</translation>
 <translation id="8957762313041272117">Intydse Onderskrif</translation>
 <translation id="895944840846194039">JavaScript-geheue</translation>
@@ -6061,7 +6072,6 @@ Hou jou sleutellêer op 'n veilige plek. Jy gaan dit nodig hê om nuwe weergawes
 <translation id="9055636786322918818">Laat RC4-enkripsie toe. As jy hierdie opsie gebruik, verhoog dit jou risiko aangesien die RC4-syfers onveilig is.</translation>
 <translation id="9056810968620647706">Geen passings is gevind nie.</translation>
 <translation id="9057354806206861646">Opdateringskedule</translation>
-<translation id="9058976525724291037">Jou kind wil 'n ander Google-rekening by hierdie toestel voeg. Slegs G Suite for Education-rekeninge mag by Family Link-bestuurde toestelle gevoeg word.</translation>
 <translation id="9062065967472365419">Verras my</translation>
 <translation id="9062468308252555888">14x</translation>
 <translation id="9063208415146866933">Fout vanaf reël <ph name="ERROR_LINE_START" /> tot <ph name="ERROR_LINE_END" /></translation>

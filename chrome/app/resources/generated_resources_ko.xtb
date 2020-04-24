@@ -418,6 +418,11 @@
 <translation id="1555130319947370107">파란색</translation>
 <translation id="1556537182262721003">확장 프로그램 디렉터리를 프로필로 이동하지 못했습니다.</translation>
 <translation id="155865706765934889">터치패드</translation>
+<translation id="1560763881671211335">G Suite for Education 관리자는 G Suite for Education 계정에 로그인되어 있는 동안 사용자가 액세스할 수 있는 Google 서비스를 결정합니다. 학교 관리자는 미성년 사용자의 서비스 사용에 관한 동의를 제공하거나 얻어야 합니다.
+
+    방문 기록, 북마크, 비밀번호 등의 인터넷 사용 기록은 학교 계정이 아닌 Family Link 계정으로 저장됩니다.
+
+    Family Link 부모 설정은 계속 적용됩니다. 이전에 앱 또는 사이트를 차단했다면 다시 차단하지 않아도 됩니다.</translation>
 <translation id="1564414980088536597">이 이미지는 사용할 수 없습니다. 다른 이미지를 선택하세요.</translation>
 <translation id="1566049601598938765">웹사이트</translation>
 <translation id="15662109988763471">선택한 프린터가 사용 불가능하거나 올바르게 설치되어 있지 않습니다. 프린터를 확인하거나 다른 프린터를 선택해 보세요.</translation>
@@ -1547,6 +1552,7 @@
 <translation id="3019285239893817657">하위 페이지 버튼</translation>
 <translation id="3020183492814296499">바로가기</translation>
 <translation id="3020990233660977256">일련번호: <ph name="SERIAL_NUMBER" /></translation>
+<translation id="3021065318976393105">배터리 사용 시</translation>
 <translation id="3021066826692793094">나비</translation>
 <translation id="3021678814754966447">프레임 소스 보기(&amp;V)</translation>
 <translation id="3022978424994383087">인식하지 못했습니다.</translation>
@@ -1808,6 +1814,7 @@
 <translation id="3396800784455899911">'동의 및 계속' 버튼을 클릭하면 이러한 Google 서비스와 관련하여 위에 설명된 처리 방식에 동의하는 것으로 간주됩니다.</translation>
 <translation id="3399432415385675819">알림이 사용 중지됩니다.</translation>
 <translation id="3400390787768057815"><ph name="WIDTH" />x<ph name="HEIGHT" />(<ph name="REFRESH_RATE" />Hz) - 인터레이스</translation>
+<translation id="3402585168444815892">데모 모드에 등록</translation>
 <translation id="340282674066624"><ph name="DOWNLOAD_RECEIVED" />, <ph name="TIME_LEFT" /></translation>
 <translation id="3404065873681873169">이 사이트의 비밀번호가 저장되지 않음</translation>
 <translation id="3405664148539009465">글꼴 맞춤설정</translation>
@@ -1946,7 +1953,6 @@
 <translation id="3574210789297084292">로그인</translation>
 <translation id="3574917942258583917">시크릿 모드를 종료하시겠습니까?</translation>
 <translation id="3575121482199441727">이 사이트에 허용</translation>
-<translation id="3575919114596668130">Family Link 부모 설정은 계속 적용됩니다. 이전에 앱 또는 사이트를 차단했다면 다시 차단하지 않아도 됩니다.</translation>
 <translation id="3576324189521867626">설치되었습니다.</translation>
 <translation id="3578594933904494462">이 탭의 콘텐츠를 공유 중입니다.</translation>
 <translation id="357886715122934472">&lt;strong&gt;<ph name="SENDER" />&lt;/strong&gt;님이 내가 소유한 그룹(&lt;strong&gt;<ph name="GROUP_NAME" />&lt;/strong&gt;)과의 프린터(&lt;strong&gt;<ph name="PRINTER_NAME" />&lt;/strong&gt;) 공유를 요청했습니다. 동의하면 모든 그룹 회원이 해당 프린터로 인쇄할 수 있게 됩니다.</translation>
@@ -2924,6 +2930,7 @@
 <translation id="4890773143211625964">고급 프린터 옵션 표시</translation>
 <translation id="4891089016822695758">베타 포럼</translation>
 <translation id="4892229439761351791">사이트에서 블루투스를 사용할 수 있습니다.</translation>
+<translation id="489258173289528622">배터리 사용 시 유휴 작업</translation>
 <translation id="4893336867552636863">기기에서 인터넷 사용 기록이 완전히 삭제됩니다.</translation>
 <translation id="4893522937062257019">잠금 화면에서</translation>
 <translation id="489454699928748701">사이트에서 움직임 감지 센서를 사용하도록 허용</translation>
@@ -3638,6 +3645,7 @@
 <translation id="5863445608433396414">디버깅 기능 사용</translation>
 <translation id="5864195618110239517">종량제 연결 사용</translation>
 <translation id="5864471791310927901">DHCP 조회 실패</translation>
+<translation id="5864754048328252126">충전 시 유휴 작업</translation>
 <translation id="5865508026715185451"><ph name="APP_NAME" /> 앱이 곧 일시중지됨</translation>
 <translation id="586567932979200359">디스크 이미지에서 <ph name="PRODUCT_NAME" />을(를) 실행 중입니다. 컴퓨터에 설치하면 디스크 이미지가 없어도 실행이 가능하며 최신 상태로 유지됩니다.</translation>
 <translation id="5865733239029070421">사용 통계 및 비정상 종료 보고서를 Google로 자동 전송</translation>
@@ -3837,6 +3845,7 @@
 <translation id="6120205520491252677">이 페이지를 시작 화면에 고정...</translation>
 <translation id="6122081475643980456">인터넷 연결이 제어되고 있습니다.</translation>
 <translation id="6122095009389448667">이 사이트에서 클립보드를 보지 못하게 계속 차단</translation>
+<translation id="6122831415929794347">세이프 브라우징을 사용 중지하시겠습니까?</translation>
 <translation id="6122875415561139701">기기(<ph name="DEVICE_NAME" />)에서 쓰기 작업이 허용되지 않습니다.</translation>
 <translation id="6124650939968185064">이 확장 프로그램에 종속되는 확장 프로그램:</translation>
 <translation id="6124698108608891449">추가 권한이 필요한 사이트입니다.</translation>
@@ -4041,6 +4050,7 @@
 <translation id="6408118934673775994"><ph name="WEBSITE_1" />, <ph name="WEBSITE_2" />, <ph name="WEBSITE_3" />의 데이터를 읽고 변경</translation>
 <translation id="6410257289063177456">이미지 파일</translation>
 <translation id="6410328738210026208">채널 변경 및 Powerwash</translation>
+<translation id="6410390304316730527">세이프 브라우징을 사용하면 악성 소프트웨어를 설치하거나 개인정보(예: 비밀번호, 전화번호, 신용카드 정보)를 공개하는 등의 위험한 행동을 하도록 사용자를 속이는 공격자를 차단합니다. 이 기능을 사용 중지하는 경우 익숙하지 않거나 평판이 좋지 않은 사이트를 탐색할 때 주의하시기 바랍니다.</translation>
 <translation id="6410668567036790476">검색엔진 추가</translation>
 <translation id="641081527798843608">주제 일치</translation>
 <translation id="6412673304250309937">Chrome에 저장된 안전하지 않은 사이트 목록을 사용하여 URL을 검사합니다. 사이트에서 사용자의 비밀번호를 도용하려고 하거나 사용자가 유해한 파일을 다운로드하는 경우, Chrome에서 페이지 콘텐츠 일부를 비롯한 URL을 세이프 브라우징 서비스에 보낼 수 있습니다.</translation>
@@ -4581,7 +4591,6 @@
 <translation id="713888829801648570">죄송합니다. 인터넷에 연결되어 있지 않아 비밀번호를 확인할 수 없습니다.</translation>
 <translation id="7140928199327930795">다른 사용 가능한 기기가 없습니다.</translation>
 <translation id="7141105143012495934">계정 세부정보를 가져올 수 없어 로그인할 수 없습니다. 관리자에게 문의하거나 다시 시도해 주세요.</translation>
-<translation id="7143092389027215216">데모 모드 시작</translation>
 <translation id="7143207342074048698">연결 중</translation>
 <translation id="7144878232160441200">다시 시도</translation>
 <translation id="7149893636342594995">지난 24시간</translation>
@@ -4644,6 +4653,7 @@
 <translation id="7235737137505019098">보안 키에 계정을 추가할 공간이 충분하지 않습니다.</translation>
 <translation id="7238643356913091553"><ph name="NETWORK_NAME" />, 세부정보</translation>
 <translation id="7240339475467890413">새 핫스팟에 연결하시겠습니까?</translation>
+<translation id="7240847845291869311">자녀가 G Suite for Education Google 계정을 이 기기에 추가하려고 합니다. <ph name="LINK_BEGIN" />G Suite for Education 개인정보처리방침<ph name="LINK_END" />은 G Suite for Education 사용자와 부모님이 제품에서 수집하는 데이터의 유형과 데이터를 수집하는 이유, 데이터의 용도를 이해할 수 있도록 지원하기 위한 것입니다.</translation>
 <translation id="7241389281993241388"><ph name="TOKEN_NAME" />에 로그인하여 클라이언트 인증서를 가져오세요.</translation>
 <translation id="7241443820034350811">보안 키가 목록에 없으면 키에 있는 버튼을 5초 이상 길게 누르세요.</translation>
 <translation id="7243632151880336635">지우기 및 로그아웃</translation>
@@ -4764,6 +4774,7 @@
 <translation id="7400418766976504921">URL</translation>
 <translation id="7400839060291901923"><ph name="PHONE_NAME" />에서 연결 설정</translation>
 <translation id="7401778920660465883">닫기</translation>
+<translation id="7403642243184989645">리소스 다운로드</translation>
 <translation id="7405938989981604410">{NUM_HOURS,plural, =1{안전 확인이 1시간 전에 실행됨}other{안전 확인이 {NUM_HOURS}시간 전에 실행됨}}</translation>
 <translation id="740624631517654988">팝업 차단됨</translation>
 <translation id="7407430846095439694">가져오기 및 연결</translation>
@@ -5905,6 +5916,7 @@
 <translation id="8864055848767439877"><ph name="TAB_NAME" /> 탭을 <ph name="APP_NAME" /> 앱과 공유하는 중</translation>
 <translation id="8864458770072227512">기기에서 <ph name="EMAIL" />이(가) 삭제되었습니다.</translation>
 <translation id="8867228703146808825">빌드 세부정보를 클립보드에 복사</translation>
+<translation id="8868333925931032127">데모 모드 시작</translation>
 <translation id="8868626022555786497">사용 중</translation>
 <translation id="8870413625673593573">최근에 닫은 탭</translation>
 <translation id="8871551568777368300">관리자가 고정함</translation>
@@ -5974,6 +5986,7 @@
 <translation id="8951256747718668828">오류로 인해 복원을 완료할 수 없습니다.</translation>
 <translation id="8951465597020890363">게스트 모드를 종료하시겠습니까?</translation>
 <translation id="8952831374766033534">설정 옵션이 지원되지 않음: <ph name="ERROR_LINE" /></translation>
+<translation id="8953476467359856141">충전 시</translation>
 <translation id="895347679606913382">다운로드 시작...</translation>
 <translation id="8957762313041272117">실시간 자막</translation>
 <translation id="895944840846194039">자바스크립트 메모리</translation>
@@ -6057,7 +6070,6 @@
 <translation id="9055636786322918818">RC4 암호화를 적용합니다. RC4 암호화는 안전하지 않으므로 이 옵션을 사용하면 보안 위험도가 높아집니다.</translation>
 <translation id="9056810968620647706">일치하는 항목이 없습니다.</translation>
 <translation id="9057354806206861646">업데이트 일정</translation>
-<translation id="9058976525724291037">자녀가 기기에 다른 Google 계정을 추가하려고 합니다. Family Link 관리 기기에는 G Suite for Education 계정만 추가할 수 있습니다.</translation>
 <translation id="9062065967472365419">임의 선택</translation>
 <translation id="9062468308252555888">14배</translation>
 <translation id="9063208415146866933"><ph name="ERROR_LINE_START" />행부터 <ph name="ERROR_LINE_END" />행까지에 오류가 있음</translation>

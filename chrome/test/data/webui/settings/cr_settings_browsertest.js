@@ -367,6 +367,7 @@ CrSettingsPasswordsSectionTest.prototype = {
     'passwords_section_test.js',
     'sync_test_util.js',
     'test_password_manager_proxy.js',
+    'test_plural_string_proxy.js',
     '../test_util.js',
   ]),
 };

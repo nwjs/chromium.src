@@ -23,7 +23,11 @@
 #endif  // BUILDFLAG(ENABLE_SUPERVISED_USERS)
 
 #if defined(OS_CHROMEOS)
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/chromeos/extensions/default_web_app_ids.h"
+#include "chrome/browser/chromeos/policy/system_features_disable_list_policy_handler.h"
+#include "components/policy/core/common/policy_pref_names.h"
+#include "components/prefs/pref_service.h"
 #endif  // defined(OS_CHROMEOS)
 
 namespace extensions {
@@ -63,6 +67,21 @@ bool AdminPolicyIsModifiable(const Extension* source_extension,
   return false;
 }
 
+#if defined(OS_CHROMEOS)
+bool IsOsSettingsDisabledBySystemFeaturesPolicy() {
+  PrefService* const local_state = g_browser_process->local_state();
+  if (!local_state)
+    return false;
+
+  const base::ListValue* system_features_pref =
+      local_state->GetList(policy::policy_prefs::kSystemFeaturesDisableList);
+
+  return system_features_pref && system_features_pref->Find(base::Value(
+                                     policy::SystemFeature::SETTINGS)) !=
+                                     system_features_pref->end();
+}
+#endif
+
 }  // namespace
 
 StandardManagementPolicyProvider::StandardManagementPolicyProvider(
@@ -85,6 +104,20 @@ std::string
 bool StandardManagementPolicyProvider::UserMayLoad(
     const Extension* extension,
     base::string16* error) const {
+  ExtensionManagement::InstallationMode installation_mode =
+      settings_->GetInstallationMode(extension);
+
+  // TODO(crbug.com/1065865): The special check for kOsSettingsAppId should be
+  // removed once OSSettings is moved to WebApps.
+#if defined(OS_CHROMEOS)
+  if (extension->id() == chromeos::default_web_apps::kOsSettingsAppId &&
+      (installation_mode == ExtensionManagement::INSTALLATION_BLOCKED ||
+       installation_mode == ExtensionManagement::INSTALLATION_REMOVED) &&
+      IsOsSettingsDisabledBySystemFeaturesPolicy()) {
+    return ReturnLoadError(extension, error);
+  }
+#endif  // defined(OS_CHROMEOS)
+
   // Component extensions are always allowed, besides the camera app that can be
   // disabled by extension policy. This is a temporary solution until there's a
   // dedicated policy to disable the camera, at which point the special check in
@@ -93,11 +126,7 @@ bool StandardManagementPolicyProvider::UserMayLoad(
   // TODO(crbug.com/1065865): The special check for kOsSettingsAppId should be
   // removed once OSSettings is moved to WebApps.
   if (Manifest::IsComponentLocation(extension->location()) &&
-      extension->id() != extension_misc::kCameraAppId
-#if defined(OS_CHROMEOS)
-      && extension->id() != chromeos::default_web_apps::kOsSettingsAppId
-#endif  // defined(OS_CHROMEOS)
-  ) {
+      extension->id() != extension_misc::kCameraAppId) {
     return true;
   }
 
@@ -114,11 +143,7 @@ bool StandardManagementPolicyProvider::UserMayLoad(
   // apps from external sources. See crbug.com/788245.
   // TODO(crbug.com/1065865): The special check for kOsSettingsAppId should be
   // removed once OSSettings is moved to WebApps.
-  if (extension->from_bookmark()
-#if defined(OS_CHROMEOS)
-      && extension->id() != chromeos::default_web_apps::kOsSettingsAppId
-#endif  // defined(OS_CHROMEOS)
-  )
+  if (extension->from_bookmark())
     return true;
 
   // Check whether the extension type is allowed.
@@ -149,8 +174,6 @@ bool StandardManagementPolicyProvider::UserMayLoad(
       NOTREACHED();
   }
 
-  ExtensionManagement::InstallationMode installation_mode =
-      settings_->GetInstallationMode(extension);
   if (installation_mode == ExtensionManagement::INSTALLATION_BLOCKED ||
       installation_mode == ExtensionManagement::INSTALLATION_REMOVED) {
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)

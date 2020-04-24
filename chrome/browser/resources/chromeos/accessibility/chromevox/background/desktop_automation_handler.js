@@ -54,9 +54,6 @@ DesktopAutomationHandler = class extends BaseAutomationHandler {
     /** @private {number?} */
     this.delayedAttributeOutputId_;
 
-    /** @private {!Date} */
-    this.lastHoverExit_ = new Date();
-
     this.addListener_(EventType.ALERT, this.onAlert);
     this.addListener_(EventType.BLUR, this.onBlur);
     this.addListener_(
@@ -156,7 +153,7 @@ DesktopAutomationHandler = class extends BaseAutomationHandler {
     let targetLeaf = null;
     let targetObject = null;
     while (target && target != target.root) {
-      if (!targetObject && AutomationPredicate.touchObject(target)) {
+      if (!targetObject && AutomationPredicate.object(target)) {
         targetObject = target;
       }
       if (AutomationPredicate.touchLeaf(target)) {
@@ -167,19 +164,6 @@ DesktopAutomationHandler = class extends BaseAutomationHandler {
 
     target = targetLeaf || targetObject;
     if (!target) {
-      // This clears the anchor point in the TouchExplorationController (so
-      // things like double tap won't be directed to the previous target). It
-      // also ensures if a user touch explores back to the previous range, it
-      // will be announced again.
-      ChromeVoxState.instance.setCurrentRange(null);
-
-      // Play a earcon to let the user know they're in the middle of nowhere.
-      if ((new Date() - this.lastHoverExit_) >
-          DesktopAutomationHandler.MIN_HOVER_EXIT_SOUND_DELAY_MS) {
-        ChromeVoxState.instance.nextEarcons_.engine_.onTouchExitAnchor();
-        this.lastHoverExit_ = new Date();
-      }
-      chrome.tts.stop();
       return;
     }
 
@@ -192,7 +176,6 @@ DesktopAutomationHandler = class extends BaseAutomationHandler {
       this.textEditHandler_ = null;
     }
 
-    ChromeVoxState.instance.nextEarcons_.engine_.onTouchEnterAnchor();
     Output.forceModeForNextSpeechUtterance(QueueMode.FLUSH);
     this.onEventDefault(
         new CustomAutomationEvent(evt.type, target, evt.eventFrom));
@@ -679,9 +662,6 @@ DesktopAutomationHandler.ATTRIBUTE_DELAY_MS = 1500;
  * @type {boolean}
  */
 DesktopAutomationHandler.announceActions = false;
-
-/** @const {number} */
-DesktopAutomationHandler.MIN_HOVER_EXIT_SOUND_DELAY_MS = 500;
 
 
 /**

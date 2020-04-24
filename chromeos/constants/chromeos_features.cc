@@ -149,6 +149,10 @@ const base::Feature kDriveFsMirroring{"DriveFsMirroring",
 const base::Feature kEduCoexistence{"EduCoexistence",
                                     base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Enables parent consent logging in EDU account addition flow.
+const base::Feature kEduCoexistenceConsentLog{
+    "EduCoexistenceConsentLog", base::FEATURE_DISABLED_BY_DEFAULT};
+
 // If enabled, emoji suggestion will be shown when user type "space".
 const base::Feature kEmojiSuggestAddition{"EmojiSuggestAddition",
                                           base::FEATURE_DISABLED_BY_DEFAULT};
@@ -267,8 +271,8 @@ const base::Feature kReleaseNotes{"ReleaseNotes",
                                   base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enables or disables Release Notes notifications on Chrome OS.
-const base::Feature kReleaseNotesNotification{"ReleaseNotesNotification",
-                                              base::FEATURE_ENABLED_BY_DEFAULT};
+const base::Feature kReleaseNotesNotification{
+    "ReleaseNotesNotification", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enables or disables an experimental scanning UI on Chrome OS.
 const base::Feature kScanningUI{"ScanningUI",
@@ -298,9 +302,9 @@ const base::Feature kShowBluetoothDeviceBattery{
 const base::Feature kShowPlayInDemoMode{"ShowPlayInDemoMode",
                                         base::FEATURE_ENABLED_BY_DEFAULT};
 
-// Shows the progress bar during Demo Mode setup.
-const base::Feature kShowProgressBarInDemoModeSetup{
-    "ShowProgressBarInDemoModeSetup", base::FEATURE_DISABLED_BY_DEFAULT};
+// Shows individual steps during Demo Mode setup.
+const base::Feature kShowStepsInDemoModeSetup{"ShowStepsInDemoModeSetup",
+                                              base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Uses experimental component version for smart dim.
 const base::Feature kSmartDimExperimentalComponent{

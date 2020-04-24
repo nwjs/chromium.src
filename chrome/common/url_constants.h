@@ -294,14 +294,15 @@ extern const char kCupsPrintPPDLearnMoreURL[];
 // The URL for the "Learn more" link the the Easy Unlock settings.
 extern const char kEasyUnlockLearnMoreUrl[];
 
-// The path to the offline Chrome OS EULA.
-extern const char kEULAPathFormat[];
-
 // The URL for EOL notification
 extern const char kEolNotificationURL[];
 
 // The URL for providing more information about Google nameservers.
 extern const char kGoogleNameserversLearnMoreURL[];
+
+// The URL for G Suite for Education Privacy Notice.
+extern const char kGsuiteTermsEducationPrivacyURL[];
+
 // The URL for the "learn more" link for Instant Tethering.
 extern const char kInstantTetheringLearnMoreURL[];
 

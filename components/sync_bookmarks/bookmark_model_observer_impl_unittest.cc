@@ -17,6 +17,7 @@
 #include "components/sync/base/unique_position.h"
 #include "components/sync/driver/sync_driver_switches.h"
 #include "components/sync_bookmarks/synced_bookmark_tracker.h"
+#include "components/undo/bookmark_undo_service.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -25,6 +26,8 @@ namespace sync_bookmarks {
 namespace {
 
 using testing::Eq;
+using testing::IsEmpty;
+using testing::IsNull;
 using testing::Ne;
 using testing::NiceMock;
 using testing::NotNull;
@@ -642,6 +645,51 @@ TEST_F(BookmarkModelObserverImplTest,
 
   EXPECT_CALL(on_bookmark_model_being_deleted_closure_mock, Run());
   observer.BookmarkModelBeingDeleted(/*model=*/nullptr);
+}
+
+TEST_F(BookmarkModelObserverImplTest,
+       ShouldAddRestoredBookmarkWhenTombstoneCommitMayHaveStarted) {
+  const bookmarks::BookmarkNode* bookmark_bar_node =
+      bookmark_model()->bookmark_bar_node();
+  const bookmarks::BookmarkNode* folder = bookmark_model()->AddFolder(
+      bookmark_bar_node, 0, base::UTF8ToUTF16("Title"));
+  // Check that the bookmark was added by observer.
+  const SyncedBookmarkTracker::Entity* folder_entity =
+      bookmark_tracker()->GetEntityForBookmarkNode(folder);
+  ASSERT_THAT(folder_entity, NotNull());
+  ASSERT_TRUE(folder_entity->IsUnsynced());
+  SimulateCommitResponseForAllLocalChanges();
+  ASSERT_FALSE(folder_entity->IsUnsynced());
+
+  // Now delete the entity and restore it with the same bookmark node.
+  BookmarkUndoService undo_service;
+  undo_service.Start(bookmark_model());
+  bookmark_model()->Remove(folder);
+
+  // The removed bookmark must be saved in the undo service.
+  ASSERT_EQ(undo_service.undo_manager()->undo_count(), 1u);
+  ASSERT_THAT(bookmark_tracker()->GetEntityForBookmarkNode(folder), IsNull());
+
+  // Check that the entity is a tombstone now.
+  const std::vector<const SyncedBookmarkTracker::Entity*> local_changes =
+      bookmark_tracker()->GetEntitiesWithLocalChanges(/*max_entries=*/2);
+  ASSERT_EQ(local_changes.size(), 1u);
+  ASSERT_EQ(local_changes.front(), folder_entity);
+  ASSERT_TRUE(local_changes.front()->metadata()->is_deleted());
+  ASSERT_EQ(bookmark_tracker()->GetTombstoneEntityForGuid(folder->guid()),
+            folder_entity);
+
+  // Restore the removed bookmark.
+  undo_service.undo_manager()->Undo();
+  undo_service.Shutdown();
+
+  EXPECT_EQ(folder_entity,
+            bookmark_tracker()->GetEntityForBookmarkNode(folder));
+  EXPECT_TRUE(folder_entity->IsUnsynced());
+  EXPECT_FALSE(folder_entity->metadata()->is_deleted());
+  EXPECT_THAT(bookmark_tracker()->GetTombstoneEntityForGuid(folder->guid()),
+              IsNull());
+  EXPECT_EQ(folder_entity->bookmark_node(), folder);
 }
 
 }  // namespace

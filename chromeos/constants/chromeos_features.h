@@ -78,6 +78,8 @@ extern const base::Feature kEolWarningNotifications;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kEduCoexistence;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
+extern const base::Feature kEduCoexistenceConsentLog;
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kExoPointerLock;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const base::Feature kFilesNG;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const base::Feature kMojoDBusRelay;
@@ -136,7 +138,7 @@ extern const base::Feature kShowBluetoothDeviceBattery;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kShowPlayInDemoMode;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
-extern const base::Feature kShowProgressBarInDemoModeSetup;
+extern const base::Feature kShowStepsInDemoModeSetup;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kSmartDimExperimentalComponent;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)

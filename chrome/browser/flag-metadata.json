@@ -1360,7 +1360,12 @@
   {
     "name": "enable-edu-coexistence",
     "owners": [ "anastasiian@chromium.org", "sinhak@chromium.org" ],
-    "expiry_milestone": 83
+    "expiry_milestone": 85
+  },
+  {
+    "name": "enable-edu-coexistence-consent-log",
+    "owners": [ "anastasiian@chromium.org", "sinhak@chromium.org" ],
+    "expiry_milestone": 85
   },
   {
     "name": "enable-encryption-migration",
@@ -2617,6 +2622,11 @@
     "expiry_milestone": 83
   },
   {
+    "name": "infobar-ui-reboot-only-ios13",
+    "owners": [ "sczs", "thegreenfrog" ],
+    "expiry_milestone": 84
+  },
+  {
     "name": "installable-ink-drop",
     "owners": [ "collinbaker", "pbos" ],
     "expiry_milestone": 82
@@ -2832,6 +2842,11 @@
     "name": "new-os-settings-search",
     "owners": ["cros-customization@google.com", "hsuregan", "khorimoto" ],
     "expiry_milestone": 86
+  },
+  {
+    "name": "new-shortcut-mapping",
+    "owners": [ "oshima", "afakhry" ],
+    "expiry_milestone": 85
   },
   {
     "name": "new-signin-architecture",

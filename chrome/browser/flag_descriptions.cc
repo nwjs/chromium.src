@@ -494,6 +494,12 @@ const char kEnableEduCoexistenceName[] =
 const char kEnableEduCoexistenceDescription[] =
     "Allows Family Link managed users to add secondary EDU accounts.";
 
+const char kEnableEduCoexistenceConsentLogName[] =
+    "Enable parent consent logging in EDU account addition flow";
+const char kEnableEduCoexistenceConsentLogDescription[] =
+    "If enabled, parent consent gets logged to ARI before adding the account "
+    "to the device.";
+
 const char kEnableSaveDataName[] = "Enables save data feature";
 const char kEnableSaveDataDescription[] =
     "Enables save data feature. May cause user's traffic to be proxied via "
@@ -3347,6 +3353,10 @@ const char kEnableNeuralStylusPalmRejectionName[] =
 const char kEnableNeuralStylusPalmRejectionDescription[] =
     "Experimental: Enable Neural Palm detection. Not compatible with all "
     "devices.";
+
+const char kEnableNewShortcutMappingName[] = "Enable New Shortcut Mapping";
+const char kEnableNewShortcutMappingDescription[] =
+    "Enables experimental new shortcut mapping";
 
 const char kEnablePalmOnMaxTouchMajorName[] =
     "Enable Palm when Touch is Maximum";

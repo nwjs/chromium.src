@@ -243,7 +243,7 @@
 <translation id="3900355044994618856">您的会话将在 <ph name="SESSION_TIME_REMAINING" />后结束</translation>
 <translation id="3901991538546252627">正在连接：<ph name="NAME" /></translation>
 <translation id="394485226368336402">音频设置</translation>
-<translation id="3962859241508114581">上一曲</translation>
+<translation id="3962859241508114581">上一首</translation>
 <translation id="3965097803111112935">已关闭</translation>
 <translation id="397105322502079400">正在计算...</translation>
 <translation id="3977512764614765090">当前的电池电量为 <ph name="PERCENTAGE" />%，正在充电。</translation>
@@ -258,7 +258,6 @@
 <translation id="4129129681837227511">要想在锁定屏幕上看到通知，请解锁设备以更改设置</translation>
 <translation id="4144413954005649103">右键点击或长按，Google 助理即会为您显示与屏幕上的所选项相关的信息。</translation>
 <translation id="4146833061457621061">播放音乐</translation>
-<translation id="4149156641122542261">此 <ph name="DEVICE_TYPE" /> 由 <ph name="DOMAIN" /> 管理</translation>
 <translation id="4181841719683918333">语言</translation>
 <translation id="4195877955194704651">“自动点击”按钮</translation>
 <translation id="4215497585250573029">VPN 设置</translation>

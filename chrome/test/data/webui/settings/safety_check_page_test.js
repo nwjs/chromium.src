@@ -220,6 +220,13 @@ suite('SafetyCheckUiTests', function() {
     assertFalse(!!page.$$('#safetyCheckUpdatesManagedIcon'));
   });
 
+  test('updatesUnknownUiTest', function() {
+    fireSafetyCheckUpdatesEvent(settings.SafetyCheckUpdatesStatus.UNKNOWN);
+    Polymer.dom.flush();
+    assertFalse(!!page.$$('#safetyCheckUpdatesButton'));
+    assertFalse(!!page.$$('#safetyCheckUpdatesManagedIcon'));
+  });
+
   test('passwordsButtonVisibilityUiTest', function() {
     // Iterate over all states
     for (const state of Object.values(settings.SafetyCheckPasswordsStatus)) {

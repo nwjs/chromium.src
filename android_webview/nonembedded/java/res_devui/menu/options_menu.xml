@@ -9,8 +9,13 @@
     <group android:id="@+id/nav_menu_group">
         <!--suppress HardcodedText -->
         <item
-             android:id="@+id/nav_menu_switch_provider"
+             android:id="@+id/options_menu_switch_provider"
              android:title="Change WebView Provider"
+             android:showAsAction="never"/>
+        <!--suppress HardcodedText -->
+        <item
+             android:id="@+id/options_menu_report_bug"
+             android:title="Report WebView Bug"
              android:showAsAction="never"/>
     </group>
 </menu>

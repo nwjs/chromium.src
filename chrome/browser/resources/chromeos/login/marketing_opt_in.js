@@ -17,14 +17,24 @@ Polymer({
     },
 
     /**
+     * Whether the accessibility button is shown. This button is only shown
+     * if the gesture EDU screen was shown before the marketing screen.
+     */
+    isA11ySettingsButtonVisible_: {
+      type: Boolean,
+      value: false,
+    },
+
+    /**
      * Whether the marketing opt in toggles should be shown, which will be the
-     * case only if marketing opt in feature is enabled.
+     * case only if marketing opt in feature is enabled AND if the current user
+     * is a non-managed user.
      * When this is false, the screen will only contain UI related to the
      * tablet mode gestural navigation settings.
      */
-    marketingOptInEnabled_: {
+    marketingOptInVisible_: {
       type: Boolean,
-      readOnly: true,
+      value: false,
     },
   },
 
@@ -32,7 +42,10 @@ Polymer({
 
   /** Overridden from LoginScreenBehavior. */
   EXTERNAL_API: [
+    'updateA11ySettingsButtonVisibility',
     'updateA11yNavigationButtonToggle',
+    'setOptInVisibility',
+    'setEmailToggleState'
   ],
 
   /** @override */
@@ -67,11 +80,33 @@ Polymer({
   },
 
   /**
+   * @param {boolean} shown Whether the A11y Settings button should be shown.
+   */
+  updateA11ySettingsButtonVisibility(shown) {
+    this.isA11ySettingsButtonVisible_ = shown;
+  },
+
+  /**
    * @param {boolean} enabled Whether the a11y setting for shownig shelf
    * navigation buttons is enabled.
    */
   updateA11yNavigationButtonToggle(enabled) {
     this.$.a11yNavButtonToggle.checked = enabled;
+  },
+
+  /**
+   * @param {boolean} visible Whether the email opt-in toggle should be visible
+   */
+  setOptInVisibility(visible) {
+    this.marketingOptInVisible_ = visible;
+  },
+
+  /**
+   * @param {boolean} checked Whether the email opt-in toggle should be checked
+   * or unchecked.
+   */
+  setEmailToggleState(checked) {
+    this.$.chromebookUpdatesOption.checked = checked;
   },
 
   /**
