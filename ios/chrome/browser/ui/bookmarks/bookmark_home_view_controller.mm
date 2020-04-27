@@ -493,10 +493,17 @@ std::vector<GURL> GetUrlsToOpen(const std::vector<const BookmarkNode*>& nodes) {
 - (void)cacheIndexPathRow {
   // Cache IndexPathRow for BookmarkTableView.
   int topMostVisibleIndexPathRow = [self topMostVisibleIndexPathRow];
-  [BookmarkPathCache
-      cacheBookmarkTopMostRowWithPrefService:self.browserState->GetPrefs()
-                                    folderId:_rootNode->id()
-                                  topMostRow:topMostVisibleIndexPathRow];
+  if (_rootNode) {
+    [BookmarkPathCache
+        cacheBookmarkTopMostRowWithPrefService:self.browserState->GetPrefs()
+                                      folderId:_rootNode->id()
+                                    topMostRow:topMostVisibleIndexPathRow];
+  } else {
+    // TODO(crbug.com/1061882):Remove DCHECK once we know the root cause of the
+    // bug, for now this will cause a crash on Dev/Canary and we should get
+    // breadcrumbs.
+    DCHECK(NO);
+  }
 }
 
 #pragma mark - BookmarkHomeConsumer
