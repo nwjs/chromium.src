@@ -184,7 +184,7 @@ Frame* FrameTree::FindFrameByName(const AtomicString& name, bool nw) const {
   DCHECK(IsA<LocalFrame>(this_frame_.Get()));
 
   Frame* frame = FindFrameForNavigationInternal(name, KURL());
-  if (frame && !To<LocalFrame>(this_frame_.Get())->CanNavigate(*frame) && !nw)
+  if (!nw && frame && !To<LocalFrame>(this_frame_.Get())->CanNavigate(*frame))
     frame = nullptr;
   return frame;
 }
