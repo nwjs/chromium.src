@@ -12176,7 +12176,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ],
           "hard_timeout": 3600,
@@ -12197,7 +12197,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ],
           "hard_timeout": 3600,
@@ -12230,7 +12230,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ],
           "hard_timeout": 3600,
@@ -25965,7 +25965,7 @@
               "gpu": "1002:6821",
               "hidpi": "1",
               "os": "Mac-10.13.6",
-              "pool": "chromium.tests.gpu"
+              "pool": "chromium.tests.gpu.template"
             }
           ],
           "shards": 20

@@ -35,7 +35,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ]
         },
@@ -53,7 +53,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ]
         },
@@ -71,7 +71,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ]
         },
@@ -93,7 +93,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ]
         },
@@ -111,7 +111,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ]
         },
@@ -129,7 +129,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ],
           "idempotent": false
@@ -148,7 +148,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ]
         },
@@ -166,7 +166,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ]
         },
@@ -184,7 +184,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ],
           "idempotent": false
@@ -203,7 +203,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ]
         },
@@ -221,7 +221,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ]
         },
@@ -244,7 +244,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ]
         },
@@ -262,7 +262,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ]
         },
@@ -280,7 +280,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ]
         },
@@ -298,7 +298,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ]
         },
@@ -317,7 +317,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ]
         },
@@ -338,7 +338,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ]
         },
@@ -356,7 +356,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ]
         },
@@ -374,7 +374,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ]
         },
@@ -402,7 +402,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ],
           "shards": 3
@@ -424,7 +424,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ]
         },
@@ -442,7 +442,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ]
         },
@@ -460,7 +460,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ]
         },
@@ -478,7 +478,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ]
         },
@@ -496,7 +496,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ]
         },
@@ -514,7 +514,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ]
         },
@@ -532,7 +532,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ]
         },
@@ -550,7 +550,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ]
         },
@@ -578,7 +578,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ],
           "idempotent": false,
@@ -605,7 +605,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ],
           "idempotent": false,
@@ -638,7 +638,7 @@
             {
               "kvm": "1",
               "os": "Ubuntu-16.04",
-              "pool": "chromium.tests.cros.vm"
+              "pool": "chromium.tests.cros.vm.template"
             }
           ],
           "idempotent": false,
