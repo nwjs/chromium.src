@@ -4,6 +4,8 @@
 
 #include "chrome/browser/browser_switcher/browser_switcher_navigation_throttle.h"
 
+#pragma clang diagnostic ignored "-Wunused-function"
+
 #include <memory>
 
 #include "base/bind.h"
@@ -82,7 +84,7 @@ std::unique_ptr<content::NavigationThrottle>
 BrowserSwitcherNavigationThrottle::MaybeCreateThrottleFor(
     content::NavigationHandle* navigation) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-
+#if 0
   content::BrowserContext* browser_context =
       navigation->GetWebContents()->GetBrowserContext();
 
@@ -95,6 +97,8 @@ BrowserSwitcherNavigationThrottle::MaybeCreateThrottleFor(
   return std::make_unique<navigation_interception::InterceptNavigationThrottle>(
       navigation, base::BindRepeating(&MaybeLaunchAlternativeBrowser),
       navigation_interception::SynchronyMode::kSync);
+#endif
+  return nullptr;
 }
 
 }  // namespace browser_switcher
