@@ -21,8 +21,9 @@ var PERMISSION_TYPES = ['media',
 // The browser will kill us if we send it a bad instance ID.
 // TODO(780728): Remove once the cause of the bad ID is known.
 function CrashIfInvalidInstanceId(instanceId, culpritFunction) {
+  //NWJS: zero instance id is allowed in NW. 
   logging.CHECK(
-      instanceId > 0,
+      instanceId >= 0,
       'WebView: Invalid instance ID (' + instanceId + ') from ' +
           culpritFunction);
 }
