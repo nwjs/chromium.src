@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/browser.h"
 
+#include "components/app_modal/javascript_dialog_manager.h"
 #include "chrome/browser/web_applications/components/web_app_helpers.h"
 
 #include <stddef.h>
@@ -1927,7 +1928,8 @@ void Browser::DidNavigateMainFramePostCommit(WebContents* web_contents) {
 
 content::JavaScriptDialogManager* Browser::GetJavaScriptDialogManager(
     WebContents* source) {
-  return JavaScriptDialogTabHelper::FromWebContents(source);
+  return app_modal::JavaScriptDialogManager::GetInstance();
+  //return JavaScriptDialogTabHelper::FromWebContents(source);
 }
 
 bool Browser::GuestSaveFrame(content::WebContents* guest_web_contents) {
