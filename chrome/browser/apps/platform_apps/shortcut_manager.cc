@@ -162,7 +162,6 @@ void AppShortcutManager::OnExtensionUninstalled(
     const Extension* extension,
     extensions::UninstallReason reason) {
 #if defined(OS_MACOSX)
-  // TODO(crbug.com/860581): Move this code to BookmarkAppShortcutManager.
   if (UseAppShimRegistry(browser_context, extension)) {
     bool delete_multi_profile_shortcuts =
         AppShimRegistry::Get()->OnAppUninstalledForProfile(extension->id(),
@@ -176,10 +175,7 @@ void AppShortcutManager::OnExtensionUninstalled(
   }
 #endif
 
-  // Bookmark apps are handled in
-  // web_app::AppShortcutManager::OnWebAppWillBeUninstalled()
-  if (!extension->from_bookmark())
-    web_app::DeleteAllShortcuts(profile_, extension);
+  web_app::DeleteAllShortcuts(profile_, extension);
 }
 
 void AppShortcutManager::OnProfileWillBeRemoved(

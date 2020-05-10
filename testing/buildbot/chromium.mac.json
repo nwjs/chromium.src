@@ -4,6 +4,16 @@
   "Mac Builder": {
     "additional_compile_targets": [
       "pdf_fuzzers"
+    ],
+    "scripts": [
+      {
+        "name": "check_static_initializers",
+        "script": "check_static_initializers.py"
+      },
+      {
+        "name": "webkit_lint",
+        "script": "blink_lint_expectations.py"
+      }
     ]
   },
   "Mac Builder (dbg)": {
@@ -6419,18 +6429,6 @@
           "shards": 25
         },
         "test_target": "//:blink_web_tests"
-      }
-    ],
-    "scripts": [
-      {
-        "name": "check_static_initializers",
-        "script": "check_static_initializers.py",
-        "swarming": {}
-      },
-      {
-        "name": "webkit_lint",
-        "script": "blink_lint_expectations.py",
-        "swarming": {}
       }
     ]
   },

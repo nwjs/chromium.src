@@ -93,9 +93,10 @@ void BindDeviceServiceReceiver(
       service_slot;
   auto& service = service_slot->GetOrCreateValue();
 
-  // This function should only be called once during the lifetime of the
-  // service's bound sequence.
-  DCHECK(!service);
+  if (service) {
+    service->AddReceiver(std::move(receiver));
+    return;
+  }
 
 #if defined(OS_ANDROID)
   JNIEnv* env = base::android::AttachCurrentThread();
