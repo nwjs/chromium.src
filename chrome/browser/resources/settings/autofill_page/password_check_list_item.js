@@ -7,10 +7,16 @@
  * list of compromised passwords.
  */
 
+
 Polymer({
   is: 'password-check-list-item',
 
   properties: {
+    // <if expr="chromeos">
+    /** @type {settings.BlockingRequestManager} */
+    tokenRequestManager: Object,
+    // </if>
+
     /**
      * The password that is being displayed.
      * @type {!PasswordManagerProxy.CompromisedCredential}
@@ -124,7 +130,10 @@ Polymer({
               this.set('item', compromisedCredential);
             },
             error => {
-              this.hidePassword();
+              // <if expr="chromeos">
+              // If no password was found, refresh auth token and retry.
+              this.tokenRequestManager.request(this.showPassword.bind(this));
+              // </if>
             });
   },
 

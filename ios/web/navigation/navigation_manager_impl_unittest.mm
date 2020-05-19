@@ -1789,20 +1789,26 @@ TEST_F(NavigationManagerTest, Restore) {
   for (size_t i = 0; i < base::size(restore_information); ++i) {
     NavigationItem* navigation_item = navigation_manager()->GetItemAtIndex(i);
     EXPECT_EQ(restore_information[i].url, navigation_item->GetURL());
-    EXPECT_EQ(restore_information[i].user_agent,
-              navigation_item->GetUserAgentType());
-    if (restore_information[i].user_agent_inherited) {
+    if (@available(iOS 13, *)) {
       EXPECT_EQ(restore_information[i].user_agent,
-                navigation_item->GetUserAgentForInheritance());
-    } else {
-      if (base::FeatureList::IsEnabled(
-              features::kUseDefaultUserAgentInWebClient)) {
-        EXPECT_EQ(UserAgentType::AUTOMATIC,
+                navigation_item->GetUserAgentType());
+      if (restore_information[i].user_agent_inherited) {
+        EXPECT_EQ(restore_information[i].user_agent,
                   navigation_item->GetUserAgentForInheritance());
       } else {
-        EXPECT_EQ(UserAgentType::MOBILE,
-                  navigation_item->GetUserAgentForInheritance());
+        if (base::FeatureList::IsEnabled(
+                features::kUseDefaultUserAgentInWebClient)) {
+          EXPECT_EQ(UserAgentType::AUTOMATIC,
+                    navigation_item->GetUserAgentForInheritance());
+        } else {
+          EXPECT_EQ(UserAgentType::MOBILE,
+                    navigation_item->GetUserAgentForInheritance());
+        }
       }
+    } else {
+      EXPECT_EQ(UserAgentType::MOBILE, navigation_item->GetUserAgentType());
+      EXPECT_EQ(UserAgentType::MOBILE,
+                navigation_item->GetUserAgentForInheritance());
     }
     EXPECT_EQ(restore_information[i].display_state,
               navigation_item->GetPageDisplayState());

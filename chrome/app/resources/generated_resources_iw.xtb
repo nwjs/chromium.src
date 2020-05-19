@@ -419,7 +419,7 @@
 
     נתוני הגלישה (כולל ההיסטוריה, הסימניות והסיסמאות) יישמרו בחשבון Family Link ולא בחשבון הבית ספרי.
 
-    הגדרות ההורה שנקבעו ב-Family Link ימשיכו לחול. אם חסמת בעבר אפליקציה או אתר, לא יהיה צורך לחסום אותם מחדש.</translation>
+    הגדרות ההורים ב-Family Link ימשיכו לחול. אם חסמת בעבר אפליקציה או אתר, לא יהיה צורך לחסום אותם מחדש.</translation>
 <translation id="1564414980088536597">לא ניתן להשתמש בתמונה הזו. צריך לבחור תמונה אחרת.</translation>
 <translation id="1566049601598938765">אתר</translation>
 <translation id="15662109988763471">המדפסת שנבחרה אינה זמינה או שאינה מותקנת כראוי. יש לבדוק את המדפסת או לנסות לבחור מדפסת אחרת.</translation>
@@ -472,6 +472,7 @@
 <translation id="1627408615528139100">כבר הורד</translation>
 <translation id="1629314197035607094">פג תוקף הסיסמה</translation>
 <translation id="1630768113285622200">הפעלה מחדש והמשכת התהליך</translation>
+<translation id="1630873818549593964">‏המידע של הילד/ה שלך ב-Classroom יהיה מוגן. <ph name="LINK_BEGIN" />מידע נוסף<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">הגדרה זו מאפשרת לך להתאים את קצב החזרה של המקלדת, חיזוי מילים ועוד</translation>
 <translation id="1635033183663317347">הותקן על ידי האפוטרופוס שלך.</translation>
 <translation id="1637224376458524414">‏שליחה של סימניה זו למכשיר ה-iPhone</translation>
@@ -3147,7 +3148,6 @@
 <translation id="5204967432542742771">הזן סיסמה</translation>
 <translation id="5206215183583316675">האם למחוק את "<ph name="CERTIFICATE_NAME" />"?</translation>
 <translation id="520621735928254154">שגיאה בייבוא האישור</translation>
-<translation id="5209307736170827035">‏הנתונים של הילד או הילדה שלך ב-Classroom יהיו מוגנים. <ph name="LINK_BEGIN" />מידע נוסף<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">לא נמצאו מכשירים</translation>
 <translation id="5210990770352357081">‏לא ניתן להסיר את Plugin VM</translation>
 <translation id="5213481667492808996">שירות הנתונים של '<ph name="NAME" />' מוכן לשימוש</translation>

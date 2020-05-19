@@ -19,6 +19,7 @@
 #include "base/stl_util.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/threading/thread_restrictions.h"
+#include "base/time/time.h"
 #include "build/build_config.h"
 #include "media/base/media_log.h"
 #include "media/base/media_switches.h"
@@ -205,7 +206,9 @@ bool RTCVideoDecoderAdapter::InitializeSync(
           CrossThreadBindOnce(&RTCVideoDecoderAdapter::InitializeOnMediaThread,
                               CrossThreadUnretained(this), config,
                               std::move(init_cb)))) {
-    waiter.Wait();
+    // TODO(crbug.com/1076817) Remove if a root cause is found.
+    if (!waiter.TimedWait(base::TimeDelta::FromSeconds(10)))
+      return false;
   }
   return result;
 }
@@ -390,11 +393,12 @@ void RTCVideoDecoderAdapter::InitializeOnMediaThread(
       CrossThreadBindRepeating(&RTCVideoDecoderAdapter::OnOutput, weak_this_));
   video_decoder_->Initialize(
       config, low_delay, cdm_context,
-      base::BindOnce(&RTCVideoDecoderAdapter::OnInitializeDone, weak_this_,
+      base::BindOnce(&RTCVideoDecoderAdapter::OnInitializeDone,
                      ConvertToBaseOnceCallback(std::move(init_cb))),
       output_cb, base::DoNothing());
 }
 
+// static
 void RTCVideoDecoderAdapter::OnInitializeDone(base::OnceCallback<void(bool)> cb,
                                               media::Status status) {
   std::move(cb).Run(status.is_ok());

@@ -199,9 +199,6 @@
                                      type:@encode(UIScrollViewIndicatorStyle)];
 
   // UIView properties.
-  [store registerObjectPropertyWithGetter:@selector(backgroundColor)
-                                   setter:@selector(setBackgroundColor:)
-                                attribute:CRWStoredPropertyAttributeCopy];
   [store registerNonObjectPropertyWithGetter:@selector(isHidden)
                                       setter:@selector(setHidden:)
                                         type:@encode(BOOL)];

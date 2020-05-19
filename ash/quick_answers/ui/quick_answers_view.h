@@ -19,13 +19,14 @@ struct QuickAnswer;
 
 namespace views {
 class ImageButton;
+class Label;
 class LabelButton;
 }  // namespace views
 
 namespace ash {
 
 class QuickAnswersUiController;
-class QuickAnswersViewHandler;
+class QuickAnswersPreTargetHandler;
 
 // A bubble style view to show QuickAnswer.
 class ASH_EXPORT QuickAnswersView : public views::Button,
@@ -64,9 +65,14 @@ class ASH_EXPORT QuickAnswersView : public views::Button,
   void InitWidget();
   void AddDogfoodButton();
   void AddAssistantIcon();
+  void ResetContentView();
   void UpdateBounds();
   void UpdateQuickAnswerResult(
       const chromeos::quick_answers::QuickAnswer& quick_answer);
+
+  // Buttons should fire on mouse-press instead of default behavior (waiting for
+  // mouse-release), since events of former type dismiss the accompanying menu.
+  void SetButtonNotifyActionToOnPress(views::Button* button);
 
   gfx::Rect anchor_view_bounds_;
   QuickAnswersUiController* const controller_;
@@ -74,9 +80,10 @@ class ASH_EXPORT QuickAnswersView : public views::Button,
   std::string title_;
   views::View* main_view_ = nullptr;
   views::View* content_view_ = nullptr;
+  views::Label* first_answer_label_ = nullptr;
   views::LabelButton* retry_label_ = nullptr;
   views::ImageButton* dogfood_button_ = nullptr;
-  std::unique_ptr<QuickAnswersViewHandler> quick_answers_view_handler_;
+  std::unique_ptr<QuickAnswersPreTargetHandler> quick_answers_view_handler_;
   base::WeakPtrFactory<QuickAnswersView> weak_factory_{this};
 };
 }  // namespace ash

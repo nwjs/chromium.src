@@ -474,6 +474,7 @@
 <translation id="1627408615528139100">O ficheiro xa se descargou.</translation>
 <translation id="1629314197035607094">Caducou o contrasinal</translation>
 <translation id="1630768113285622200">Reiniciar e continuar</translation>
+<translation id="1630873818549593964">Os datos de Classroom do teu fillo ou filla estarán protexidos. <ph name="LINK_BEGIN" />Máis información<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">Permíteche axustar o índice de repetición, a predición de palabras e outras funcións do teclado</translation>
 <translation id="1635033183663317347">Extensión instalada polo titor</translation>
 <translation id="1637224376458524414">Accede a este marcador no iPhone</translation>
@@ -3148,7 +3149,6 @@ Instala a aplicación Family Link no teu dispositivo e poderás xestionar a conf
 <translation id="5204967432542742771">Introduce o contrasinal</translation>
 <translation id="5206215183583316675">Queres eliminar "<ph name="CERTIFICATE_NAME" />"?</translation>
 <translation id="520621735928254154">Produciuse un erro ao importar o certificado</translation>
-<translation id="5209307736170827035">Os datos de Classroom do teu fillo estarán protexidos. <ph name="LINK_BEGIN" />Máis información<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">Non se atopou ningún dispositivo</translation>
 <translation id="5210990770352357081">Non se puido desinstalar Plugin VM</translation>
 <translation id="5213481667492808996">Xa podes usar o servizo de datos <ph name="NAME" /></translation>
@@ -5455,7 +5455,7 @@ Mantén o ficheiro de clave nun lugar seguro, xa que o precisarás para crear no
 <translation id="8263744495942430914"><ph name="FULLSCREEN_ORIGIN" /> desactivou o cursor do rato.</translation>
 <translation id="8264024885325823677">O teu administrador xestiona esta opción de configuración.</translation>
 <translation id="8264718194193514834">"<ph name="EXTENSION_NAME" />" activou a pantalla completa.</translation>
-<translation id="826511437356419340">Modo de vista xeral da ventá activado. Pasa o dedo para navegar ou preme o tabulador no teclado.</translation>
+<translation id="826511437356419340">Entraches no modo de vista xeral da ventá. Pasa o dedo para navegar ou preme o tabulador no teclado.</translation>
 <translation id="8267961145111171918"><ph name="BEGIN_PARAGRAPH1" />Trátase de información xeral acerca deste dispositivo e do seu uso, como o nivel de batería, a actividade da aplicación e do sistema, e os erros. Os datos utilizaranse coa finalidade de mellorar Android e algunha información adicional tamén axudará ás aplicacións de Google e aos socios, como os programadores de Android, a mellorar as súas aplicacións e os produtos.<ph name="END_PARAGRAPH1" />
     <ph name="BEGIN_PARAGRAPH2" />A desactivación desta función non afecta á capacidade deste dispositivo de enviar a información necesaria para os servizos esenciais, como a seguranza e as actualizacións do sistema.<ph name="END_PARAGRAPH2" />
     <ph name="BEGIN_PARAGRAPH3" />O propietario pode controlar esta función desde Configuración &gt; Configuración avanzada &gt; Enviar de forma automática datos de uso e diagnóstico a Google.<ph name="END_PARAGRAPH3" />

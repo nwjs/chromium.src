@@ -52,4 +52,8 @@ const std::string& RestoreIOSLiveTab::GetUserAgentOverride() {
   return user_agent_override_;
 }
 
+const web::WebState* RestoreIOSLiveTab::GetWebState() const {
+  return nullptr;
+}
+
 }  // namespace sessions

@@ -475,6 +475,7 @@
 <translation id="1627408615528139100">Al gedownload</translation>
 <translation id="1629314197035607094">Wachtwoord verlopen</translation>
 <translation id="1630768113285622200">Opnieuw opstarten en doorgaan</translation>
+<translation id="1630873818549593964">De gegevens van je kind in Classroom worden beschermd. <ph name="LINK_BEGIN" />Meer informatie<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">Hiermee kun je de herhaalsnelheid van het toetsenbord, woordvoorspelling en meer aanpassen</translation>
 <translation id="1635033183663317347">Geïnstalleerd door je ouder/verzorger.</translation>
 <translation id="1637224376458524414">Deze bladwijzer gebruiken op je iPhone</translation>
@@ -3149,7 +3150,6 @@ Je kunt de instellingen van dit account beheren door de Family Link-app op je ap
 <translation id="5204967432542742771">Wachtwoord invoeren</translation>
 <translation id="5206215183583316675"><ph name="CERTIFICATE_NAME" /> verwijderen?</translation>
 <translation id="520621735928254154">Fout bij importeren van certificaat</translation>
-<translation id="5209307736170827035">De gegevens van je kind in Classroom worden beschermd. <ph name="LINK_BEGIN" />Meer informatie<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">Geen apparaten gevonden</translation>
 <translation id="5210990770352357081">Kan Plugin VM niet verwijderen</translation>
 <translation id="5213481667492808996">Je dataservice '<ph name="NAME" />' is klaar voor gebruik</translation>

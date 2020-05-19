@@ -418,7 +418,7 @@
 <translation id="1555130319947370107">ሰማያዊ</translation>
 <translation id="1556537182262721003">የቅጥያ ማውጫን ወደ መገለጫ መውሰድ አልተቻለም።</translation>
 <translation id="155865706765934889">ተችፓድ</translation>
-<translation id="1560763881671211335">የG Suite ለትምህርት አስተዳዳሪዎች ተጠቃሚዎቻቸው ወደ G Suite ለትምህርት መለያ ገብተው ሳለ የትኛዎቹን የGoogle አገልግሎቶች መድረስ እንደሚችሉ ይወስናሉ። የትምህርት ቤት አስተዳዳሪዎች ከአዋቂ ዕድሜ በታች የሆኑ ተጠቃሚዎቻቸው አገልግሎቶቹን እንዲጠቀሙ ፈቃድ መስጠት ወይም ማግኘት አለባቸው።
+<translation id="1560763881671211335">የG Suite ለትምህርት አስተዳዳሪዎች ተጠቃሚዎቻቸው ወደ G Suite ለትምህርት መለያ ገብተው ሳለ የትኞቹን የGoogle አገልግሎቶች መድረስ እንደሚችሉ ይወስናሉ። የትምህርት ቤት አስተዳዳሪዎች ከአዋቂ ዕድሜ በታች የሆኑ ተጠቃሚዎቻቸው አገልግሎቶቹን እንዲጠቀሙ ፈቃድ መስጠት ወይም ማግኘት አለባቸው።
 
     የአሰሳ ውሂብ (ታሪክ፣ ዕልባቶች እና የይለፍ ቃላት ጨምሮ) በFamily Link መለያው ላይ ይከማቻሉ፣ በትምህርት ቤት መለያው ላይ አይደለም።
 
@@ -475,6 +475,7 @@
 <translation id="1627408615528139100">አስቀድሞ ወርዷል</translation>
 <translation id="1629314197035607094">የይለፍ ቃል ጊዜው አልፎበታል</translation>
 <translation id="1630768113285622200">ዳግም አስጀምር እና ቀጥል</translation>
+<translation id="1630873818549593964">የትምህርት ክፍል ውስጥ የልጅዎ መረጃ ይጠበቃል። <ph name="LINK_BEGIN" />የበለጠ ለመረዳት<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">የቁልፍ ሰሌዳዎን ድግምግሞሽ መጠን፣ የቃላት ግምትን እና ተጨማሪ ነገሮችን እንዲያስተካክሉ ያስችልዎታል</translation>
 <translation id="1635033183663317347">በእርስዎ ኃላፊ የተጫነ።</translation>
 <translation id="1637224376458524414">ይህን ዕልባት በእርስዎ iPhone ላይ ያግኙት</translation>
@@ -3146,7 +3147,6 @@
 <translation id="5204967432542742771">የይለፍ ቃል ያስገቡ</translation>
 <translation id="5206215183583316675">«<ph name="CERTIFICATE_NAME" />» ይሰረዝ?</translation>
 <translation id="520621735928254154">የእውቅና ማረጋገጫ ማስመጣት ስህተት</translation>
-<translation id="5209307736170827035">ልጅዎ በትምህርት ክፍል ላይ ያላቸው ውሂብ ይጠበቃል። <ph name="LINK_BEGIN" />የበለጠ ለመረዳት<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">ምንም መሣሪያዎች አልተገኙም</translation>
 <translation id="5210990770352357081">Plugin VMን ማራገፍ አልተቻለም</translation>
 <translation id="5213481667492808996">የእርስዎ የ«<ph name="NAME" />» ውሂብ አገልግሎት ጥቅም ላይ ለመዋል ዝግጁ ነው</translation>

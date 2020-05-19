@@ -97,7 +97,8 @@
   <include name="IDR_SETTINGS_AUTOFILL_PAGE_PASSWORD_CHECK_M_JS"
            file="${root_gen_dir}/chrome/browser/resources/settings/autofill_page/password_check.m.js"
            use_base_dir="false"
-           type="BINDATA" />
+           type="BINDATA"
+           preprocess="true"/>
   <include name="IDR_SETTINGS_AUTOFILL_PAGE_PASSWORD_CHECK_BEHAVIOR_M_JS"
            file="${root_gen_dir}/chrome/browser/resources/settings/autofill_page/password_check_behavior.m.js"
            use_base_dir="false"
@@ -109,7 +110,8 @@
   <include name="IDR_SETTINGS_AUTOFILL_PAGE_PASSWORD_CHECK_LIST_ITEM_M_JS"
            file="${root_gen_dir}/chrome/browser/resources/settings/autofill_page/password_check_list_item.m.js"
            use_base_dir="false"
-           type="BINDATA" />
+           type="BINDATA"
+           preprocess="true" />
   <include name="IDR_SETTINGS_AUTOFILL_PAGE_PASSWORD_LIST_ITEM_M_JS"
            file="${root_gen_dir}/chrome/browser/resources/settings/autofill_page/password_list_item.m.js"
            use_base_dir="false"

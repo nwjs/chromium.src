@@ -69,10 +69,6 @@ public class CrashesListFragment extends Fragment {
     // There is a limit on the length of this query string, see https://crbug.com/1015923
     // TODO(https://crbug.com/1052295): add assert statement to check the length of this String.
     private static final String CRASH_REPORT_TEMPLATE = ""
-            + "IMPORTANT: Your crash has already been automatically reported to our crash system. "
-            + "You only need to fill this out if you can share more information like steps to "
-            + "reproduce the crash.\n"
-            + "\n"
             + "Build fingerprint: %s\n"
             + "Android API level: %s\n"
             + "WebView package: %s (%s/%s)\n"
@@ -95,7 +91,9 @@ public class CrashesListFragment extends Fragment {
             + "\n"
             + "\n"
             + "****DO NOT CHANGE BELOW THIS LINE****\n"
-            + "Crash ID: http://crash/%s\n";
+            + "Crash ID: http://crash/%s\n"
+            + "Instructions for triaging this report (Chromium members only): "
+            + "https://bit.ly/2SM1Y9t\n";
 
     @Override
     public void onAttach(Context context) {
@@ -159,8 +157,9 @@ public class CrashesListFragment extends Fragment {
 
     private boolean isCrashUploadsEnabledFromFlagsUi() {
         if (DeveloperModeUtils.isDeveloperModeEnabled(mContext.getPackageName())) {
-            return DeveloperModeUtils.getFlagOverrides(mContext.getPackageName())
-                    .getOrDefault(AwSwitches.CRASH_UPLOADS_ENABLED_FOR_TESTING_SWITCH, false);
+            Boolean flagValue = DeveloperModeUtils.getFlagOverrides(mContext.getPackageName())
+                                        .get(AwSwitches.CRASH_UPLOADS_ENABLED_FOR_TESTING_SWITCH);
+            return Boolean.TRUE.equals(flagValue);
         }
         return false;
     }
@@ -260,9 +259,7 @@ public class CrashesListFragment extends Fragment {
             // Report button is only clickable if the crash report is uploaded.
             if (crashInfo.uploadState == UploadState.UPLOADED) {
                 bugButton.setEnabled(true);
-                bugButton.setOnClickListener(v -> {
-                    startActivity(new Intent(Intent.ACTION_VIEW, getReportUri(crashInfo)));
-                });
+                bugButton.setOnClickListener(v -> { buildCrashBugDialog(crashInfo).show(); });
             } else {
                 bugButton.setEnabled(false);
             }
@@ -402,7 +399,8 @@ public class CrashesListFragment extends Fragment {
                                 Build.VERSION.SDK_INT, webViewPackage.packageName,
                                 webViewPackage.versionName, webViewPackage.versionCode, appPackage,
                                 appVersion, crashInfo.uploadId))
-                .appendQueryParameter("labels", "User-Submitted,Via-WebView-DevTools")
+                .appendQueryParameter(
+                        "labels", "User-Submitted,Via-WebView-DevTools,Pri-3,Type-Bug,OS-Android")
                 .build();
     }
 
@@ -467,6 +465,18 @@ public class CrashesListFragment extends Fragment {
                 activity, R.id.crash_consent_error, PersistentErrorView.Type.ERROR)
                 .setText("Crash collection is disabled. Tap for more info.")
                 .setDialog(dialogBuilder.create());
+    }
+
+    private AlertDialog buildCrashBugDialog(CrashInfo crashInfo) {
+        AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(mContext);
+        dialogBuilder.setMessage(
+                "This crash has already been reported to our crash system. Do you want to share "
+                + "more information, such as steps to reproduce the crash?");
+        dialogBuilder.setPositiveButton("Provide more info",
+                (dialog, id)
+                        -> startActivity(new Intent(Intent.ACTION_VIEW, getReportUri(crashInfo))));
+        dialogBuilder.setNegativeButton("Dismiss", (dialog, id) -> dialog.dismiss());
+        return dialogBuilder.create();
     }
 
     @Override

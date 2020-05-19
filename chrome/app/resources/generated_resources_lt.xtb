@@ -475,6 +475,7 @@
 <translation id="1627408615528139100">Jau atsisiųsta</translation>
 <translation id="1629314197035607094">Slaptažodis nebegalioja</translation>
 <translation id="1630768113285622200">Paleisti iš naujo ir tęsti</translation>
+<translation id="1630873818549593964">Jūsų vaiko duomenys sistemoje „Classroom“ bus apsaugoti. <ph name="LINK_BEGIN" />Sužinokite daugiau<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">Suteikiama galimybė koreguoti klaviatūros kartojimo dažnį, žodžių numatymą ir daugiau</translation>
 <translation id="1635033183663317347">Įdiegė jūsų prižiūrėtojas.</translation>
 <translation id="1637224376458524414">Gaukite šią žymę „iPhone“ įrenginyje</translation>
@@ -3149,7 +3150,6 @@ Ar norite paleisti „<ph name="CONTROL_PANEL_APPLET_NAME" />“?</translation>
 <translation id="5204967432542742771">Įveskite slaptažodį</translation>
 <translation id="5206215183583316675">Ištrinti „<ph name="CERTIFICATE_NAME" />“?</translation>
 <translation id="520621735928254154">Sertifikato importavimo klaida</translation>
-<translation id="5209307736170827035">Jūsų vaiko duomenys sistemoje „Classroom“ bus apsaugoti. <ph name="LINK_BEGIN" />Sužinokite daugiau<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">Įrenginių nerasta</translation>
 <translation id="5210990770352357081">Nepavyko pašalinti „Plugin VM“</translation>
 <translation id="5213481667492808996">„<ph name="NAME" />“ duomenų paslauga paruošta naudoti</translation>

@@ -4113,6 +4113,9 @@
         'additional_compile_targets': [
           'pdf_fuzzers',
         ],
+        'test_suites': {
+          'scripts': 'chromium_mac_scripts',
+        },
       },
       'Mac Builder (dbg)': {
         'additional_compile_targets': [
@@ -4164,7 +4167,6 @@
         'test_suites': {
           'gtest_tests': 'chromium_mac_gtests',
           'isolated_scripts': 'chromium_mac_rel_isolated_scripts',
-          'scripts': 'chromium_mac_scripts',
         },
       },
       'Mac10.13 Tests (dbg)': {
@@ -4186,7 +4188,6 @@
         'test_suites': {
           'gtest_tests': 'chromium_mac_gtests',
           'isolated_scripts': 'chromium_mac_rel_isolated_scripts',
-          'scripts': 'chromium_mac_scripts',
         },
       },
       'Mac10.14 Tests': {
@@ -4197,7 +4198,6 @@
         'test_suites': {
           'gtest_tests': 'chromium_mac_gtests',
           'isolated_scripts': 'chromium_mac_rel_isolated_scripts',
-          'scripts': 'chromium_mac_scripts',
         },
       },
       'WebKit Mac10.13 (retina)': {

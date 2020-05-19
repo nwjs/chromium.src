@@ -9,8 +9,11 @@ import android.os.Build;
 import android.os.RemoteException;
 import android.text.TextUtils;
 import android.util.AndroidRuntimeException;
+import android.util.SparseArray;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.view.ViewStructure;
+import android.view.autofill.AutofillValue;
 import android.webkit.ValueCallback;
 
 import org.chromium.base.Callback;
@@ -216,6 +219,16 @@ public final class TabImpl extends ITab.Stub {
         }
     }
 
+    public void onProvideAutofillVirtualStructure(ViewStructure structure, int flags) {
+        if (mAutofillProvider == null) return;
+        mAutofillProvider.onProvideAutoFillVirtualStructure(structure, flags);
+    }
+
+    public void autofill(final SparseArray<AutofillValue> values) {
+        if (mAutofillProvider == null) return;
+        mAutofillProvider.autofill(values);
+    }
+
     public BrowserImpl getBrowser() {
         return mBrowser;
     }
@@ -289,10 +302,6 @@ public final class TabImpl extends ITab.Stub {
 
     public WebContents getWebContents() {
         return mWebContents;
-    }
-
-    public AutofillProvider getAutofillProvider() {
-        return mAutofillProvider;
     }
 
     long getNativeTab() {

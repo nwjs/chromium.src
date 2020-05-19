@@ -475,6 +475,7 @@
 <translation id="1627408615528139100">이미 다운로드됨</translation>
 <translation id="1629314197035607094">비밀번호가 만료되었습니다.</translation>
 <translation id="1630768113285622200">다시 시작 및 계속</translation>
+<translation id="1630873818549593964">클래스룸에 저장된 자녀의 데이터는 안전하게 보호됩니다. <ph name="LINK_BEGIN" />자세히 알아보기<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">키보드 반복 속도, 단어 예측 등을 조정할 수 있습니다.</translation>
 <translation id="1635033183663317347">관리자가 설치함</translation>
 <translation id="1637224376458524414">iPhone에서 이 북마크 이용하기</translation>
@@ -3147,7 +3148,6 @@
 <translation id="5204967432542742771">비밀번호 입력</translation>
 <translation id="5206215183583316675">'<ph name="CERTIFICATE_NAME" />'을(를) 삭제하시겠습니까?</translation>
 <translation id="520621735928254154">인증서 가져오기 오류</translation>
-<translation id="5209307736170827035">클래스룸에 저장된 자녀의 데이터는 안전하게 보호됩니다. <ph name="LINK_BEGIN" />자세히 알아보기<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">기기를 찾을 수 없음</translation>
 <translation id="5210990770352357081">Plugin VM을 제거할 수 없음</translation>
 <translation id="5213481667492808996">'<ph name="NAME" />' 데이터 서비스를 사용할 수 있습니다.</translation>

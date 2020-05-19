@@ -10,6 +10,7 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.not;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -1970,6 +1971,30 @@ public class TabListMediatorUnitTest {
             assertThat(mModel.get(i).model.get(TabProperties.SEARCH_CHIP_ICON_DRAWABLE_ID),
                     equalTo(R.drawable.ic_logo_googleg_24dp));
         }
+    }
+
+    @Test
+    public void testResetWithValidTabsAndInvalidCurrentTab() {
+        doReturn(Tab.INVALID_TAB_ID).when(mTabModelSelector).getCurrentTabId();
+        List<Tab> tabs = new ArrayList<>();
+        for (int i = 0; i < mTabModel.getCount(); i++) {
+            tabs.add(mTabModel.getTabAt(i));
+        }
+        TabImpl newTab = prepareTab(TAB3_ID, TAB3_TITLE, TAB3_URL);
+        tabs.add(newTab);
+
+        mMediator.resetWithListOfTabs(tabs, false, false);
+        assertEquals(3, mModel.size());
+        assertFalse(mModel.get(0).model.get(TabProperties.IS_SELECTED));
+        assertFalse(mModel.get(1).model.get(TabProperties.IS_SELECTED));
+        assertFalse(mModel.get(2).model.get(TabProperties.IS_SELECTED));
+
+        mTabModelObserverCaptor.getValue().didSelectTab(
+                mTab2, TabLaunchType.FROM_CHROME_UI, TabModel.INVALID_TAB_INDEX);
+
+        assertFalse(mModel.get(0).model.get(TabProperties.IS_SELECTED));
+        assertTrue(mModel.get(1).model.get(TabProperties.IS_SELECTED));
+        assertFalse(mModel.get(2).model.get(TabProperties.IS_SELECTED));
     }
 
     private void initAndAssertAllProperties() {

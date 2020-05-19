@@ -475,6 +475,7 @@
 <translation id="1627408615528139100">Již staženo</translation>
 <translation id="1629314197035607094">Platnost hesla vypršela</translation>
 <translation id="1630768113285622200">Restartovat a pokračovat</translation>
+<translation id="1630873818549593964">Data vašeho dítěte v Učebně budou chráněna. <ph name="LINK_BEGIN" />Další informace<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">Umožňuje upravit rychlost opakování klávesnice, předvídání slov a další nastavení</translation>
 <translation id="1635033183663317347">Nainstaloval váš opatrovník</translation>
 <translation id="1637224376458524414">Uložte si tuto záložku do iPhonu</translation>
@@ -1523,7 +1524,7 @@ Zpráva serveru: <ph name="SERVER_MSG" /></translation>
 <translation id="2987620471460279764">Text sdílený z jiného zařízení</translation>
 <translation id="2989474696604907455">nepřipojeno</translation>
 <translation id="2989786307324390836">Binární soubor kódovaný DER, jeden certifikát</translation>
-<translation id="2992931425024192067">Zobrazit veškerý obsah oznámení</translation>
+<translation id="2992931425024192067">Zobrazovat veškerý obsah oznámení</translation>
 <translation id="2993517869960930405">O aplikaci</translation>
 <translation id="2996286169319737844">Data jsou šifrována pomocí heslové fráze pro synchronizaci. Toto šifrování se nevztahuje na platební metody a adresy z Google Pay.</translation>
 <translation id="2996722619877761919">Otáčení na dlouhém okraji</translation>
@@ -3147,7 +3148,6 @@ Zpráva serveru: <ph name="SERVER_MSG" /></translation>
 <translation id="5204967432542742771">Zadejte heslo</translation>
 <translation id="5206215183583316675">Smazat certifikát <ph name="CERTIFICATE_NAME" />?</translation>
 <translation id="520621735928254154">Chyba při importu certifikátu</translation>
-<translation id="5209307736170827035">Data dítěte v Učebně budou chráněna. <ph name="LINK_BEGIN" />Další informace<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">Nebyla nalezena žádná zařízení</translation>
 <translation id="5210990770352357081">Plugin VM nebylo možné odinstalovat</translation>
 <translation id="5213481667492808996">Datová služba <ph name="NAME" /> je připravena k použití</translation>

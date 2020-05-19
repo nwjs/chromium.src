@@ -475,6 +475,7 @@
 <translation id="1627408615528139100">Descărcat deja</translation>
 <translation id="1629314197035607094">Parola a expirat</translation>
 <translation id="1630768113285622200">Repornește și continuă</translation>
+<translation id="1630873818549593964">Datele copilului din Classroom sunt protejate. <ph name="LINK_BEGIN" />Află mai multe<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">Cu ajutorul acestor setări, poți să ajustezi frecvența de repetare a tastelor, predicția cuvintelor și altele</translation>
 <translation id="1635033183663317347">Instalată de custode.</translation>
 <translation id="1637224376458524414">Obține marcajul pe iPhone</translation>
@@ -3149,7 +3150,6 @@ Mesaj de la server: <ph name="SERVER_MSG" /></translation>
 <translation id="5204967432542742771">Introdu parola</translation>
 <translation id="5206215183583316675">Ștergi „<ph name="CERTIFICATE_NAME" />”?</translation>
 <translation id="520621735928254154">Eroare la importul certificatului</translation>
-<translation id="5209307736170827035">Datele copilului din Classroom vor fi protejate. <ph name="LINK_BEGIN" />Află mai multe<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">Nu s-a găsit niciun dispozitiv</translation>
 <translation id="5210990770352357081">Nu s-a putut dezinstala Plugin VM</translation>
 <translation id="5213481667492808996">Serviciul de date „<ph name="NAME" />” este gata de utilizare.</translation>
@@ -5415,7 +5415,7 @@ Păstrează fișierul cu cheia într-un loc sigur. Acesta va fi necesar la crear
 <translation id="8217399928341212914">Blocați în continuare descărcarea automată a mai multor fișiere</translation>
 <translation id="8218847192766059983">Adaugă limbi sau reordonează lista. <ph name="BEGIN_LINK" />Află mai multe<ph name="END_LINK" /></translation>
 <translation id="8221491193165283816">De obicei blochezi notificările. Ca să-i permiți acestui site să îți trimită notificări, dă clic aici.</translation>
-<translation id="8225265270453771718">Distribuie fereastra unei aplicații</translation>
+<translation id="8225265270453771718">Arată fereastra unei aplicații</translation>
 <translation id="8225753906568652947">Valorifică-ți ofertele</translation>
 <translation id="8226222018808695353">Interzis</translation>
 <translation id="8226619461731305576">Coadă</translation>
@@ -5701,7 +5701,7 @@ Păstrează fișierul cu cheia într-un loc sigur. Acesta va fi necesar la crear
 <translation id="8620617069779373398">Stare roaming</translation>
 <translation id="8620765578342452535">Configurează conexiunile la rețea</translation>
 <translation id="8621866727807194849">Ai software dăunător pe computer. Chrome îl elimină, restabilind setările și dezactivând extensiile. Astfel, browserul tău va funcționa normal din nou.</translation>
-<translation id="8621979332865976405">Distribuie întregul ecran</translation>
+<translation id="8621979332865976405">Arată întregul ecran</translation>
 <translation id="862542460444371744">&amp;Extensii</translation>
 <translation id="862727964348362408">Suspendat</translation>
 <translation id="862750493060684461">Memorie cache CSS</translation>

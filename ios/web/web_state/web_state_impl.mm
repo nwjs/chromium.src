@@ -377,10 +377,14 @@ void WebStateImpl::RunJavaScriptDialog(
                                  std::move(presenter_callback));
 }
 
-void WebStateImpl::JavaScriptDialogClosed(DialogClosedCallback callback,
-                                          bool success,
-                                          NSString* user_input) {
-  running_javascript_dialog_ = false;
+void WebStateImpl::JavaScriptDialogClosed(
+    base::WeakPtr<WebStateImpl> weak_web_state,
+    DialogClosedCallback callback,
+    bool success,
+    NSString* user_input) {
+  if (weak_web_state) {
+    weak_web_state->running_javascript_dialog_ = false;
+  }
   std::move(callback).Run(success, user_input);
 }
 

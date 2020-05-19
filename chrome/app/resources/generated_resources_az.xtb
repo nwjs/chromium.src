@@ -471,6 +471,7 @@
 <translation id="1627408615528139100">Artıq endirilib</translation>
 <translation id="1629314197035607094">Parolun müddəti bitdi</translation>
 <translation id="1630768113285622200">Yenidən başladın və davam edin</translation>
+<translation id="1630873818549593964">Classroom'da övladınızın datası qorunacaq. <ph name="LINK_BEGIN" />Ətraflı məlumat<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">Klaviatura təkrarlanma sayı, söz proqnozu və digərlərini nizamlamağa icazə verir</translation>
 <translation id="1635033183663317347">Mühafizəçiniz tərəfindən endirilib.</translation>
 <translation id="1637224376458524414">Bu əlfəcini iPhone'da əldə edin</translation>
@@ -3142,7 +3143,6 @@ Cihazda Family Link tətbiqini quraşdırmaqla bu hesabın ayarlarını idarə e
 <translation id="5204967432542742771">Şifrəni daxil edin</translation>
 <translation id="5206215183583316675">"<ph name="CERTIFICATE_NAME" />" silinsin?</translation>
 <translation id="520621735928254154">Sertifikat İmport Xətası</translation>
-<translation id="5209307736170827035">Classroom'da övladınızın datası qorunacaq. <ph name="LINK_BEGIN" />Ətraflı məlumat<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">Heç bir cihaz tapılmadı</translation>
 <translation id="5210990770352357081">Plugin VM'in quraşdırmasını ləğv etmək mümkün olmadı</translation>
 <translation id="5213481667492808996">"<ph name="NAME" />" data xidmətiniz istifadəyə hazırdır</translation>

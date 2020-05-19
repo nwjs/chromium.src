@@ -1701,6 +1701,29 @@ TEST_F(FrameSequenceTrackerTest, IgnoredFrameTokensRemovedAtPresentation2) {
   EXPECT_TRUE(IgnoredFrameTokens().empty());
 }
 
+// Test that a tracker is terminated after 3 submitted frames, remove this
+// once crbug.com/1072482 is fixed.
+TEST_F(FrameSequenceTrackerTest, TerminationAfterThreeSubmissions1) {
+  GenerateSequence("b(1)s(1)e(1,0)");
+  collection_.StopSequence(FrameSequenceTrackerType::kTouchScroll);
+  EXPECT_EQ(NumberOfRemovalTrackers(), 1u);
+  GenerateSequence("b(2)s(2)e(2,0)b(3)s(3)e(3,0)b(4)s(4)e(4,0)b(5)s(5)e(5,0)");
+  EXPECT_EQ(NumberOfRemovalTrackers(), 0u);
+}
+
+TEST_F(FrameSequenceTrackerTest, TerminationAfterThreeSubmissions2) {
+  GenerateSequence("b(1)");
+  auto args = CreateBeginFrameArgs(1u, 1u);
+  // Ack to an impl frame that doesn't exist in this tracker.
+  collection_.NotifySubmitFrame(UINT32_MAX, /*has_missing_content=*/false,
+                                viz::BeginFrameAck(args, true), args);
+  GenerateSequence("e(1,0)");
+  collection_.StopSequence(FrameSequenceTrackerType::kTouchScroll);
+  EXPECT_EQ(NumberOfRemovalTrackers(), 1u);
+  GenerateSequence("b(2)s(1)e(2,0)b(3)s(2)e(3,0)b(4)s(3)e(4,0)");
+  EXPECT_EQ(NumberOfRemovalTrackers(), 0u);
+}
+
 TEST_F(FrameSequenceTrackerTest, OffScreenMainDamage1) {
   const char sequence[] =
       "b(1)B(0,1)n(1)e(1,0)b(2)E(1)B(1,2)n(2)e(2,1)b(3)E(2)B(2,3)n(3)e(3,2)";

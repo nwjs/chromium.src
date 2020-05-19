@@ -472,6 +472,7 @@
 <translation id="1627408615528139100">Жүктеп алынған</translation>
 <translation id="1629314197035607094">Құпия сөз мерзімі аяқталды.</translation>
 <translation id="1630768113285622200">Қайта қосу және жалғастыру</translation>
+<translation id="1630873818549593964">Classroom қызметіндегі балаңыздың деректері қорғалады. <ph name="LINK_BEGIN" />Толығырақ<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">Пернетақтаның қайталау жиілігін, сөз болжамдарын, т.б. реттеуге мүмкіндік береді</translation>
 <translation id="1635033183663317347">Сақтаушы орнатқан.</translation>
 <translation id="1637224376458524414">Осы бетбелгіні iPhone телефонында алыңыз</translation>
@@ -1843,7 +1844,7 @@
 <translation id="3435738964857648380">Қауіпсіздік</translation>
 <translation id="343578350365773421">Қағаз бітті</translation>
 <translation id="3435896845095436175">Қосу</translation>
-<translation id="3436642683618870087">Тікелей субтитр медиамазмұндағы сөздерді анықтап, Chrome браузерінде ойнатылатын барлық медиамазмұнды автоматты түрде жазуларға айналдырады.</translation>
+<translation id="3436642683618870087">Live Caption медиамазмұндағы сөздерді анықтап, Chrome браузерінде ойнатылатын барлық медиамазмұнды автоматты түрде жазуға айналдырады.</translation>
 <translation id="3438633801274389918">Ниндзя</translation>
 <translation id="3439153939049640737">Әрқашан <ph name="HOST" /> хостына камераға кіру рұқсатын беру</translation>
 <translation id="3439970425423980614">PDF файлын алдын ала көру режимінде ашу</translation>
@@ -3146,7 +3147,6 @@
 <translation id="5204967432542742771">Құпия сөз енгізу</translation>
 <translation id="5206215183583316675">"<ph name="CERTIFICATE_NAME" />" сертификатын жою керек пе?</translation>
 <translation id="520621735928254154">Сертификатты импорттау қатесі</translation>
-<translation id="5209307736170827035">Classroom қызметіндегі балаңыздың деректері қорғалады. <ph name="LINK_BEGIN" />Толығырақ<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">Құрылғылар табылмады</translation>
 <translation id="5210990770352357081">Plugin VM плагині жойылмады.</translation>
 <translation id="5213481667492808996">"<ph name="NAME" />" деректер қызметі пайдалануға дайын</translation>
@@ -5240,7 +5240,7 @@
 <translation id="7988355189918024273">Арнайы мүмкіндіктерді қосу</translation>
 <translation id="7991296728590311172">Switch Access параметрлері</translation>
 <translation id="7994350303002908848">Plugin VM орнатылмады. Әрекетті қайталаңыз немесе ұйымыңыздың құрылғы әкімшісіне хабарласыңыз. Қате коды: <ph name="ERROR_CODE" />.</translation>
-<translation id="7994702968232966508">EAP (кеңейтілген растау протоколы) әдісі</translation>
+<translation id="7994702968232966508">EAP әдісі</translation>
 <translation id="7997826902155442747">Өңдеу басымдығы</translation>
 <translation id="7999229196265990314">Келесі файлдар жасалды:
 
@@ -5986,7 +5986,7 @@
 <translation id="8952831374766033534">Конфигурация опциясына қолдау көрсетілмейді: <ph name="ERROR_LINE" /></translation>
 <translation id="8953476467359856141">Зарядтау кезінде</translation>
 <translation id="895347679606913382">Басталуда…</translation>
-<translation id="8957762313041272117">Тікелей субтитр</translation>
+<translation id="8957762313041272117">Live Caption</translation>
 <translation id="895944840846194039">JavaScript жады</translation>
 <translation id="8962083179518285172">Мәліметтерді жасыру</translation>
 <translation id="8962918469425892674">Бұл сайт қозғалыс не жарық датчиктерін пайдалануда.</translation>

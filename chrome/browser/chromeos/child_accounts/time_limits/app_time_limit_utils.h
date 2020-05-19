@@ -13,6 +13,8 @@ enum class AppState;
 
 AppId GetChromeAppId();
 
+bool IsWebAppOrExtension(const AppId& app_id);
+
 // Returns true if the application shares chrome's time limit.
 bool ContributesToWebTimeLimit(const AppId& app_id, AppState app_state);
 

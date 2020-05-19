@@ -3,7 +3,7 @@
 <translationbundle lang="fa">
 <translation id="1003088604756913841">باز کردن پیوند در پنجره جدید <ph name="APP" /></translation>
 <translation id="1004218526896219317">دسترسی به سایت</translation>
-<translation id="1005274289863221750">استفاده از میکروفون و دوربین خود</translation>
+<translation id="1005274289863221750">استفاده از میکروفون و دوربین شما</translation>
 <translation id="1005333234656240382">‏اشکال‌زدایی ADB (پل اشکال‌زدایی Android) فعال شود؟</translation>
 <translation id="1006873397406093306">این افزونه می‌تواند داده‌هایتان را در سایت‌ها بخواند و تغییر دهد. می‌توانید سایت‌هایی را که این افزونه به آن‌ها دسترسی دارد کنترل کنید.</translation>
 <translation id="1007408791287232274">بارگیری دستگاه‌ها انجام نشد.</translation>
@@ -472,6 +472,7 @@
 <translation id="1627408615528139100">قبلاً بارگیری شده است</translation>
 <translation id="1629314197035607094">گذرواژه منقضی شده است</translation>
 <translation id="1630768113285622200">بازراه‌اندازی و ادامه</translation>
+<translation id="1630873818549593964">‏از داده‌های فرزندتان در Classroom محافظت خواهد شد. <ph name="LINK_BEGIN" />بیشتر بدانید<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">به شما امکان می‌دهد سرعت تکرار صفحه‌کلید، پیش‌بینی کلمه و سایر موارد را تنظیم کنید</translation>
 <translation id="1635033183663317347">قیم شما نصب کرده است.</translation>
 <translation id="1637224376458524414">‏این نشانک را در iPhone خود دریافت کنید</translation>
@@ -1294,7 +1295,7 @@
 <translation id="270358213449696159">‏محتوای شرایط سیستم‌عامل Google Chrome</translation>
 <translation id="2704184184447774363">‏امضای مدرک Microsoft</translation>
 <translation id="270516211545221798">سرعت صفحه لمسی</translation>
-<translation id="2705736684557713153">به پایین صفحه نمایش پیمایش کنید و اگر «اتصال فوری به اینترنت با تلفن همراه» نمایان شد، آن را روشن کنید. اگر نمایان نشد، همه چیز آماده است.</translation>
+<translation id="2705736684557713153">به پایین صفحه نمایش پیمایش کنید و اگر «اشتراک‌گذاری اینترنت فوری» نمایان شد، آن را روشن کنید. اگر نمایان نشد، همه چیز آماده است.</translation>
 <translation id="2707024448553392710">در حال بارگیری مؤلفه</translation>
 <translation id="270921614578699633">میانگین بالا</translation>
 <translation id="2709516037105925701">تکمیل خودکار</translation>
@@ -1495,7 +1496,7 @@
 <translation id="2947605845283690091">مرور وب باید سریع باشد اکنون چندلحظه برای<ph name="BEGIN_LINK" />بررسی افزونه‌هایتان<ph name="END_LINK" /> وقت بگذارید.</translation>
 <translation id="2948300991547862301">رفتن به <ph name="PAGE_TITLE" /></translation>
 <translation id="29488703364906173">مرورگر وب سریع، ساده و ایمن که برای وب مدرن طراحی شده است.</translation>
-<translation id="2949289451367477459">‏استفاده از مکان. به برنامه‌ها و سرویس‌های دارای مجوز مکان اجازه دهید از مکان این دستگاه استفاده کنند. Google ممکن است به‌صورت دوره‌ای داده‌های مکان را جمع‌آوری کند و از این داده‌ها به‌شیوه‌ای ناشناس برای بهبود دقت مکان و خدمات مکان‌مبنا استفاده کند. <ph name="BEGIN_LINK1" />بیشتر بدانید<ph name="END_LINK1" /></translation>
+<translation id="2949289451367477459">‏استفاده از مکان. به برنامه‌ها و سرویس‌های دارای اجازه مکان اجازه دهید از مکان این دستگاه استفاده کنند. Google ممکن است به‌صورت دوره‌ای داده‌های مکان را جمع‌آوری کند و از این داده‌ها به‌شیوه‌ای ناشناس برای بهبود دقت مکان و خدمات مکان‌مبنا استفاده کند. <ph name="BEGIN_LINK1" />بیشتر بدانید<ph name="END_LINK1" /></translation>
 <translation id="2950666755714083615">من را ثبت‌نام کن</translation>
 <translation id="2956070239128776395">بخش در گروه قرار گرفت: <ph name="ERROR_LINE" /></translation>
 <translation id="2957117904572187936">به هیچ سایتی اجازه ویرایش فایل‌ها و پوشه‌های دستگاه داده نشود</translation>
@@ -2834,7 +2835,7 @@
 <translation id="4756378406049221019">توقف/تازه‌سازی</translation>
 <translation id="4756388243121344051">&amp;سابقه</translation>
 <translation id="4759238208242260848">بارگیری‌ها</translation>
-<translation id="4761104368405085019">استفاده از میکروفون خود</translation>
+<translation id="4761104368405085019">استفاده از میکروفون شما</translation>
 <translation id="4762718786438001384">فضای دیسک دستگاه بسیار کم است</translation>
 <translation id="4763408175235639573">وقتی این صفحه را مشاهده کردید، کوکی‌های زیر تنظیم شدند</translation>
 <translation id="4765582662863429759">‏به «پیام‌های Android» اجازه دهید پیام‌های متنی را از تلفن در Chromebook بازپخش کند</translation>
@@ -3146,7 +3147,6 @@
 <translation id="5204967432542742771">گذرواژه را وارد کنید</translation>
 <translation id="5206215183583316675">«<ph name="CERTIFICATE_NAME" />» حذف شود؟</translation>
 <translation id="520621735928254154">خطا در وارد کردن گواهی</translation>
-<translation id="5209307736170827035">‏از داده‌های فرزندتان در Classroom محافظت می‌شود. <ph name="LINK_BEGIN" />بیشتر بدانید<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">دستگاهی یافت نشد</translation>
 <translation id="5210990770352357081">‏Plugin VM حذف نصب نشد</translation>
 <translation id="5213481667492808996">سرویس داده «<ph name="NAME" />» شما آماده استفاده است</translation>
@@ -3803,7 +3803,7 @@
 <translation id="6073903501322152803">افزودن ویژگی‌های دسترس‌پذیری</translation>
 <translation id="6075731018162044558">‏متأسفیم! سیستم نتوانست کد دسترسی دراز مدت به API را برای این دستگاه به دست آورد.</translation>
 <translation id="6075907793831890935">تبادل داده با دستگاهی به نام <ph name="HOSTNAME" /></translation>
-<translation id="6076175485108489240">‏استفاده از مکان. به برنامه‌ها و سرویس‌های دارای مجوز مکان اجازه دهید از مکان این دستگاه استفاده کنند. Google ممکن است به‌صورت دوره‌ای داده‌های مکان را جمع‌آوری کند و از این داده‌ها به‌شیوه‌ای ناشناس برای بهبود دقت مکان و خدمات مکان‌مبنا استفاده کند. <ph name="BEGIN_LINK1" />بیشتر بدانید<ph name="END_LINK1" /></translation>
+<translation id="6076175485108489240">‏استفاده از مکان. به برنامه‌ها و سرویس‌های دارای اجازه مکان اجازه دهید از مکان این دستگاه استفاده کنند. Google ممکن است به‌صورت دوره‌ای داده‌های مکان را جمع‌آوری کند و از این داده‌ها به‌شیوه‌ای ناشناس برای بهبود دقت مکان و خدمات مکان‌مبنا استفاده کند. <ph name="BEGIN_LINK1" />بیشتر بدانید<ph name="END_LINK1" /></translation>
 <translation id="6076448957780543068">اضافه کردن این نماگرفت</translation>
 <translation id="6076491747490570887">خاکستری سرد</translation>
 <translation id="6077131872140550515">برداشتن از شبکه‌های برگزیده</translation>
@@ -5055,7 +5055,7 @@
 <translation id="778330624322499012"><ph name="PLUGIN_NAME" /> بارگیری نشد</translation>
 <translation id="7784067724422331729">تنظیمات امنیتی رایانه شما این فایل را مسدود کرد.</translation>
 <translation id="7784796923038949829">خواندن یا تغییر داده‌های سایت امکان‌پذیر نیست</translation>
-<translation id="778480864305029524">‏برای استفاده از «اتصال فوری به اینترنت با تلفن همراه»، اعلان‌ها را برای «خدمات Google Play» روشن کنید.</translation>
+<translation id="778480864305029524">‏برای استفاده از «اشتراک‌گذاری اینترنت فوری»، اعلان‌ها را برای «خدمات Google Play» روشن کنید.</translation>
 <translation id="7786889348652477777">&amp;تازه‌سازی برنامه</translation>
 <translation id="7787308148023287649">نمایش در صفحه دیگر</translation>
 <translation id="7788298548579301890">‏برنامه دیگری در رایانه شما برنامه‌ای اضافه کرده که ممکن است نحوه کارکرد Chrome را تغییر دهد.
@@ -5495,7 +5495,7 @@
 <translation id="8316618172731049784">ارسال به <ph name="DEVICE_NAME" /></translation>
 <translation id="8317671367883557781">افزودن اتصال شبکه</translation>
 <translation id="8319414634934645341">کاربرد کلید توسعه یافته</translation>
-<translation id="8320459152843401447">کل صفحه‌تان</translation>
+<translation id="8320459152843401447">کل صفحه‌نمایش</translation>
 <translation id="8322814362483282060">این صفحه از دسترسی به میکروفون شما بازداشته شده است.</translation>
 <translation id="8323167517179506834">تایپ کردن نشانی وب</translation>
 <translation id="8324784016256120271">سایت‌ها می‌توانند بااستفاده از کوکی‌ها فعالیت مرور شما را (مثلاً برای شخصی‌سازی آگهی‌ها) در سایت‌های مختلف ببینند</translation>
@@ -5636,7 +5636,7 @@
 <translation id="8526666462501866815">‏درحال لغو ارتقای Linux</translation>
 <translation id="8528074251912154910">افزودن زبان</translation>
 <translation id="8528962588711550376">ورود به برنامه.</translation>
-<translation id="8529925957403338845">اتصال فوری به اینترنت با تلفن همراه برقرار نشد</translation>
+<translation id="8529925957403338845">اشتراک‌گذاری اینترنت فوری برقرار نشد</translation>
 <translation id="8534656636775144800">وای!  هنگام اتصال به دامنه مشکلی پیش آمد. لطفاً دوباره امتحان کنید.</translation>
 <translation id="8535005006684281994">‏نشانی وب تجدید گواهی Netscape</translation>
 <translation id="8538358978858059843">‏سرویس‌های ابری برای Cast فعال شود؟</translation>
@@ -6128,7 +6128,7 @@
 <translation id="9148058034647219655">خروج</translation>
 <translation id="9148126808321036104">ورود مجدد به سیستم</translation>
 <translation id="9149866541089851383">ویرایش...</translation>
-<translation id="9150045010208374699">استفاده از دوربین خود</translation>
+<translation id="9150045010208374699">استفاده از دوربین شما</translation>
 <translation id="9150429437595727962">‏تنظیمات Wi-Fi</translation>
 <translation id="9153934054460603056">ذخیره شناسه و رمز عبور</translation>
 <translation id="9154194610265714752">به‌روزرسانی ‌شد</translation>

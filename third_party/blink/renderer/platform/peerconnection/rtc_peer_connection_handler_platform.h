@@ -84,6 +84,14 @@ class PLATFORM_EXPORT RTCPeerConnectionHandlerPlatform {
       const MediaConstraints&,
       WebLocalFrame*) = 0;
 
+  virtual void Stop() = 0;
+  // This function should be called when the object is taken out of service.
+  // There might be functions that need to return through the object, so it
+  // cannot be deleted yet, but no new operations should be allowed.
+  // All references to the object except the owning reference are deleted
+  // by this function.
+  virtual void StopAndUnregister() = 0;
+
   // Unified Plan: The list of transceivers after the createOffer() call.
   // Because of offerToReceive[Audio/Video] it is possible for createOffer() to
   // create new transceivers or update the direction of existing transceivers.
@@ -144,7 +152,6 @@ class PLATFORM_EXPORT RTCPeerConnectionHandlerPlatform {
   // In Unified Plan: Returns OK() with the updated transceiver state.
   virtual webrtc::RTCErrorOr<std::unique_ptr<RTCRtpTransceiverPlatform>>
   RemoveTrack(RTCRtpSenderPlatform*) = 0;
-  virtual void Stop() = 0;
 
   // Returns a pointer to the underlying native PeerConnection object.
   virtual webrtc::PeerConnectionInterface* NativePeerConnection() = 0;

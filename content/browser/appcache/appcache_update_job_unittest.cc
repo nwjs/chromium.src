@@ -59,10 +59,10 @@
 // TODO(enne): consolidate multiple TestOriginTrialPolicy implementations
 namespace {
 const char* kTestAppCacheOriginTrialToken =
-    "AnIRfMbu5xrUEIBGno19QnlNiW7gZgKrkLaCysH+/"
-    "XU2FEpF+"
-    "TLisekclfG9xOkjQgTEllip14FPATbapHAH5ggAAABNeyJvcmlnaW4iOiAiaHR0cDovL21vY2t"
-    "ob3N0OjgwIiwgImZlYXR1cmUiOiAiQXBwQ2FjaGUiLCAiZXhwaXJ5IjogMTU4ODM1OTM5NH0=";
+  "AhiiB7vi3JiEO1/"
+  "RQIytQslLSN3WYVu3Xd32abYhTia+91ladjnXSClfU981x+"
+  "aoPimEqYVy6tWoeMZZYTpqlggAAABNeyJvcmlnaW4iOiAiaHR0cDovL21vY2tob3N0OjgwIiwg"
+  "ImZlYXR1cmUiOiAiQXBwQ2FjaGUiLCAiZXhwaXJ5IjogMTc2MTE2NjQxOH0=";
 
 const uint8_t kTestPublicKey[] = {
     0x75, 0x10, 0xac, 0xf9, 0x3a, 0x1c, 0xb8, 0xa9, 0x28, 0x70, 0xd2,

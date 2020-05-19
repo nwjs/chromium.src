@@ -418,7 +418,7 @@ da li    proksi server funkcionira. Ako smatrate da ne trebate koristiti
 <translation id="1555130319947370107">Plava</translation>
 <translation id="1556537182262721003">Prebacivanje direktorija ekstenzije u profil nije uspjelo.</translation>
 <translation id="155865706765934889">Dodirna podloga</translation>
-<translation id="1560763881671211335">Administratori za G Suite for Education određuju kojim Googleovim uslugama njihovi korisnici mogu pristupiti kada su prijavljeni na račun za G Suite for Education Školski administratori moraju pružiti ili dobiti pristanak od maloljetnih korisnika za korištenje usluga.
+<translation id="1560763881671211335">Administratori za G Suite for Education određuju kojim Googleovim uslugama njihovi korisnici mogu pristupiti kada su prijavljeni na račun za G Suite for Education. Školski administratori moraju pružiti ili dobiti pristanak od maloljetnih korisnika za korištenje usluga.
 
     Podaci pregledanja (uključujući historiju, oznake i lozinke) će se pohraniti na računu Family Linka, a ne na školskom računu.
 
@@ -475,6 +475,7 @@ da li    proksi server funkcionira. Ako smatrate da ne trebate koristiti
 <translation id="1627408615528139100">Već preuzeto</translation>
 <translation id="1629314197035607094">Lozinka je istekla</translation>
 <translation id="1630768113285622200">Ponovo pokreni i nastavi</translation>
+<translation id="1630873818549593964">Podaci djeteta u Učionici će biti zaštićeni. <ph name="LINK_BEGIN" />Saznajte više<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">Omogućava vam da podesite brzinu ponavljanja tastature, predviđanje riječi i još mnogo toga</translation>
 <translation id="1635033183663317347">Instalirao je nadređeni korisnik.</translation>
 <translation id="1637224376458524414">Preuzmite oznaku na iPhone uređaju</translation>
@@ -3149,7 +3150,6 @@ Postavkama ovog računa možete upravljati instaliranjem aplikacije Family Link 
 <translation id="5204967432542742771">Unesite lozinku</translation>
 <translation id="5206215183583316675">Izbrisati potvrdu "<ph name="CERTIFICATE_NAME" />"?</translation>
 <translation id="520621735928254154">Greška prilikom uvoza potvrde</translation>
-<translation id="5209307736170827035">Podaci djeteta u Učionici će biti zaštićeni. <ph name="LINK_BEGIN" />Saznajte više<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">Nije pronađen nijedan uređaj</translation>
 <translation id="5210990770352357081">Deinstaliranje Plugin VM-a nije uspjelo</translation>
 <translation id="5213481667492808996">Vaša usluga za prijenos podataka "<ph name="NAME" />" je spremna za upotrebu</translation>

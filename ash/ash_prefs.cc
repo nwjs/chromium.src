@@ -48,7 +48,8 @@ void RegisterProfilePrefs(PrefRegistrySimple* registry, bool for_test) {
   contextual_tooltip::RegisterProfilePrefs(registry);
   desks_restore_util::RegisterProfilePrefs(registry);
   DockedMagnifierControllerImpl::RegisterProfilePrefs(registry);
-  GestureEducationNotificationController::RegisterProfilePrefs(registry);
+  GestureEducationNotificationController::RegisterProfilePrefs(registry,
+                                                               for_test);
   LoginScreenController::RegisterProfilePrefs(registry, for_test);
   LogoutButtonTray::RegisterProfilePrefs(registry);
   MediaControllerImpl::RegisterProfilePrefs(registry);

@@ -472,6 +472,7 @@
 <translation id="1627408615528139100">Allerede lastet ned</translation>
 <translation id="1629314197035607094">Passordet er utløpt</translation>
 <translation id="1630768113285622200">Start på nytt og fortsett</translation>
+<translation id="1630873818549593964">Classroom-dataene til barnet ditt blir beskyttet. <ph name="LINK_BEGIN" />Finn ut mer<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">Lar deg justere repetisjonshastigheten på tastaturet, ordforslag osv.</translation>
 <translation id="1635033183663317347">Installert av din foresatte.</translation>
 <translation id="1637224376458524414">Få dette bokmerket på iPhone</translation>
@@ -3144,7 +3145,6 @@ Du kan administrere innstillingene for denne kontoen ved å installere Family Li
 <translation id="5204967432542742771">Skriv inn passordet</translation>
 <translation id="5206215183583316675">Vil du slette «<ph name="CERTIFICATE_NAME" />»?</translation>
 <translation id="520621735928254154">Feil ved sertifikatimport</translation>
-<translation id="5209307736170827035">Barnets data i Classroom kommer til å være beskyttet. <ph name="LINK_BEGIN" />Finn ut mer<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">Finner ingen enheter</translation>
 <translation id="5210990770352357081">Kunne ikke avinstallere Plugin VM</translation>
 <translation id="5213481667492808996">Datatjenesten «<ph name="NAME" />» er klar for bruk</translation>

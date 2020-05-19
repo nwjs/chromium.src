@@ -894,7 +894,7 @@ TEST_F(BrowserAccessibilityManagerTest, BoundsForRangeBiDi) {
                 .ToString());
 }
 
-TEST_F(BrowserAccessibilityManagerTest, BoundsForRangeScrolledWindow) {
+TEST_F(BrowserAccessibilityManagerTest, DISABLED_BoundsForRangeScrolledWindow) {
   ui::AXNodeData root;
   root.id = 1;
   root.role = ax::mojom::Role::kRootWebArea;

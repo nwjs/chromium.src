@@ -475,6 +475,7 @@
 <translation id="1627408615528139100">पहले से डाउनलोड की हुई है</translation>
 <translation id="1629314197035607094">पासवर्ड की समय सीमा खत्म हो गई है</translation>
 <translation id="1630768113285622200">रीस्टार्ट करें और जारी रखें</translation>
+<translation id="1630873818549593964">Classroom में आपके बच्चे का डेटा सुरक्षित रहेगा. <ph name="LINK_BEGIN" />ज़्यादा जानें<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">आपको अपने कीबोर्ड को दोहराने की दर, शब्द पूर्वानुमान वगैरह समायोजित करने देती है</translation>
 <translation id="1635033183663317347">आपके संरक्षक द्वारा इंस्‍टॉल किया गया.</translation>
 <translation id="1637224376458524414">यह बुकमार्क अपने iPhone पर पाएं</translation>
@@ -2829,7 +2830,7 @@
 <translation id="4739639199548674512">टिकट</translation>
 <translation id="4743260470722568160"><ph name="BEGIN_LINK" />ऐप्लिकेशन अपडेट करने का तरीका जानें<ph name="END_LINK" /></translation>
 <translation id="4744981231093950366">{NUM_TABS,plural, =1{साइट अनम्यूट करें}one{साइटें अनम्यूट करें}other{साइटें अनम्यूट करें}}</translation>
-<translation id="4746351372139058112">संदेश</translation>
+<translation id="4746351372139058112">मैसेज</translation>
 <translation id="4750394297954878236">सुझाव</translation>
 <translation id="475088594373173692">पहला उपयोगकर्ता</translation>
 <translation id="4751476147751820511">गति या लाइट सेंसर</translation>
@@ -3148,7 +3149,6 @@
 <translation id="5204967432542742771">पासवर्ड डालें</translation>
 <translation id="5206215183583316675">"<ph name="CERTIFICATE_NAME" />" मिटाएं?</translation>
 <translation id="520621735928254154">प्रमाणपत्र आयात करने में गड़बड़ी</translation>
-<translation id="5209307736170827035">Classroom में आपके बच्चे का डेटा सुरक्षित रखा जाएगा. <ph name="LINK_BEGIN" />ज़्यादा जानें<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">कोई डिवाइस नहीं मि‍ला</translation>
 <translation id="5210990770352357081">Plugin VM को अनइंस्टॉल नहीं किया जा सका</translation>
 <translation id="5213481667492808996">आपकी '<ph name="NAME" />' डेटा सेवा इस्तेमाल किए जाने के लिए तैयार है</translation>

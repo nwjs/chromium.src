@@ -141,7 +141,7 @@
 <translation id="2700493154570097719">设置键盘</translation>
 <translation id="2704781753052663061">连接到其他 Wi-Fi 网络</translation>
 <translation id="2705001408393684014">开启/关闭麦克风。<ph name="STATE_TEXT" /></translation>
-<translation id="2718395828230677721">夜间模式</translation>
+<translation id="2718395828230677721">护眼模式</translation>
 <translation id="2727977024730340865">已插入低功率充电器；可能无法保证充电成功。</translation>
 <translation id="2792498699870441125">Alt + 搜索键</translation>
 <translation id="2819276065543622893">您将立即退出。</translation>
@@ -479,7 +479,7 @@
 <translation id="7068360136237591149">打开文件</translation>
 <translation id="7076293881109082629">正在登录</translation>
 <translation id="7088960765736518739">开关控制</translation>
-<translation id="7092922358121866860">显示“夜间模式”设置</translation>
+<translation id="7092922358121866860">显示“护眼模式”设置</translation>
 <translation id="7098389117866926363">USB-C 设备（背面左侧端口）</translation>
 <translation id="7131634465328662194">您将会自动退出会话。</translation>
 <translation id="7143207342074048698">正在连接</translation>

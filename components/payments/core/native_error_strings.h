@@ -80,6 +80,10 @@ extern const char kHttpStatusCodeNotAllowed[];
 // install feature to work.
 extern const char kInstallingMultipleDefaultAppsNotSupported[];
 
+// PaymentRequest::Init() is called when the initiating RenderFrameHost no
+// longer exists.
+extern const char kInvalidInitiatorFrame[];
+
 // Used to let the web developer know about an invalid payment manifest URL A.
 // This format should be used with base::ReplaceStringPlaceholders(fmt, {A},
 // nullptr).
@@ -94,6 +98,10 @@ extern const char kInvalidServiceWorkerUrl[];
 // Chrome refuses to provide any payment information to a website with an
 // invalid SSL certificate.
 extern const char kInvalidSslCertificate[];
+
+// The downloaded web app icon should draw something for JIT install feature to
+// work.
+extern const char kInvalidWebAppIcon[];
 
 // Used when the {"supportedMethods": "", data: {}} is required, but not
 // provided.

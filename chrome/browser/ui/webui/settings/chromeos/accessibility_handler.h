@@ -5,6 +5,7 @@
 #ifndef CHROME_BROWSER_UI_WEBUI_SETTINGS_CHROMEOS_ACCESSIBILITY_HANDLER_H_
 #define CHROME_BROWSER_UI_WEBUI_SETTINGS_CHROMEOS_ACCESSIBILITY_HANDLER_H_
 
+#include "ash/public/cpp/tablet_mode_observer.h"
 #include "base/macros.h"
 #include "base/timer/timer.h"
 #include "chrome/browser/ui/webui/settings/settings_page_ui_handler.h"
@@ -13,18 +14,15 @@ namespace base {
 class ListValue;
 }
 
-namespace content {
-class WebUI;
-}
-
 class Profile;
 
 namespace chromeos {
 namespace settings {
 
-class AccessibilityHandler : public ::settings::SettingsPageUIHandler {
+class AccessibilityHandler : public ::settings::SettingsPageUIHandler,
+                             public ash::TabletModeObserver {
  public:
-  explicit AccessibilityHandler(content::WebUI* webui);
+  explicit AccessibilityHandler(Profile* profile);
   ~AccessibilityHandler() override;
 
   // SettingsPageUIHandler implementation.
@@ -32,12 +30,19 @@ class AccessibilityHandler : public ::settings::SettingsPageUIHandler {
   void OnJavascriptAllowed() override {}
   void OnJavascriptDisallowed() override {}
 
+  // Callback which updates if startup sound is enabled and if tablet
+  // mode is supported. Visible for testing.
+  void HandleManageA11yPageReady(const base::ListValue* args);
+
+  // ash::TabletModeObserver:
+  void OnTabletModeStarted() override;
+  void OnTabletModeEnded() override;
+
  private:
   // Callback for the messages to show settings for ChromeVox or
   // Select To Speak.
   void HandleShowChromeVoxSettings(const base::ListValue* args);
   void HandleShowSelectToSpeakSettings(const base::ListValue* args);
-  void HandleGetStartupSoundEnabled(const base::ListValue* args);
   void HandleSetStartupSoundEnabled(const base::ListValue* args);
   void HandleRecordSelectedShowShelfNavigationButtonsValue(
       const base::ListValue* args);
@@ -51,6 +56,8 @@ class AccessibilityHandler : public ::settings::SettingsPageUIHandler {
   // second delay to avoid overreporting when the user keeps toggling the
   // setting value in the screen UI.
   base::OneShotTimer a11y_nav_buttons_toggle_metrics_reporter_timer_;
+
+  base::WeakPtrFactory<AccessibilityHandler> weak_ptr_factory_{this};
 
   DISALLOW_COPY_AND_ASSIGN(AccessibilityHandler);
 };

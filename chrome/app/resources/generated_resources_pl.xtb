@@ -475,6 +475,7 @@
 <translation id="1627408615528139100">Już pobrany</translation>
 <translation id="1629314197035607094">Hasło wygasło</translation>
 <translation id="1630768113285622200">Uruchom ponownie i kontynuuj</translation>
+<translation id="1630873818549593964">Dane dziecka w usłudze Classroom będą chronione. <ph name="LINK_BEGIN" />Więcej informacji<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">Pozwala zmienić ustawienia m.in. podpowiadania słów czy szybkości powtarzania klawiszy</translation>
 <translation id="1635033183663317347">Zainstalowane przez opiekuna.</translation>
 <translation id="1637224376458524414">Pobierz tę zakładkę na swojego iPhone'a</translation>
@@ -3149,7 +3150,6 @@ Możesz zarządzać ustawieniami konta, korzystając z aplikacji Family Link na
 <translation id="5204967432542742771">Wpisz hasło</translation>
 <translation id="5206215183583316675">Usunąć „<ph name="CERTIFICATE_NAME" />”?</translation>
 <translation id="520621735928254154">Błąd importowania certyfikatu</translation>
-<translation id="5209307736170827035">Dane Twojego dziecka w Classroom będą chronione. <ph name="LINK_BEGIN" />Więcej informacji<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">Nie znaleziono urządzeń</translation>
 <translation id="5210990770352357081">Nie udało się odinstalować wtyczki Plugin VM</translation>
 <translation id="5213481667492808996">Usługa transmisji danych „<ph name="NAME" />” jest gotowa do użycia</translation>

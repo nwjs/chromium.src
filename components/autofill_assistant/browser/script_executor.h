@@ -129,6 +129,7 @@ class ScriptExecutor : public ActionDelegate,
               bool disable_force_expand_sheet,
               bool browse_mode) override;
   void CleanUpAfterPrompt() override;
+  void SetBrowseDomainsWhitelist(std::vector<std::string> domains) override;
   void FillAddressForm(
       const autofill::AutofillProfile* profile,
       const Selector& selector,

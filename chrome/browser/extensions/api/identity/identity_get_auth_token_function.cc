@@ -23,6 +23,7 @@
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
+#include "chrome/common/channel_info.h"
 #include "chrome/common/extensions/api/identity.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/base/signin_pref_names.h"
@@ -69,7 +70,11 @@ bool IsBrowserSigninAllowed(Profile* profile) {
 }
 
 std::string GetOAuth2MintTokenFlowVersion() {
-  return version_info::GetMajorVersionNumber();
+  return version_info::GetVersionNumber();
+}
+
+std::string GetOAuth2MintTokenFlowChannel() {
+  return version_info::GetChannelString(chrome::GetChannel());
 }
 
 }  // namespace
@@ -563,10 +568,14 @@ void IdentityGetAuthTokenFunction::OnIssueAdviceSuccess(
     const IssueAdviceInfo& issue_advice) {
   TRACE_EVENT_NESTABLE_ASYNC_INSTANT0("identity", "OnIssueAdviceSuccess", this);
 
-  IdentityAPI::GetFactoryInstance()
-      ->Get(GetProfile())
-      ->SetCachedToken(
-          token_key_, IdentityTokenCacheValue::CreateIssueAdvice(issue_advice));
+  IdentityAPI* identity_api =
+      IdentityAPI::GetFactoryInstance()->Get(GetProfile());
+  identity_api->SetCachedToken(
+      token_key_, IdentityTokenCacheValue::CreateIssueAdvice(issue_advice));
+  // IssueAdvice doesn't communicate back to Chrome which account has been
+  // chosen by the user. Cached gaia id may contain incorrect information so
+  // it's better to remove it.
+  identity_api->EraseGaiaIdForExtension(token_key_.extension_id);
   CompleteMintTokenFlow();
 
   should_prompt_for_signin_ = false;
@@ -934,7 +943,8 @@ IdentityGetAuthTokenFunction::CreateMintTokenFlow() {
                 std::vector<std::string>(token_key_.scopes.begin(),
                                          token_key_.scopes.end()),
                 signin_scoped_device_id, consent_result_,
-                GetOAuth2MintTokenFlowVersion(), gaia_mint_token_mode_));
+                GetOAuth2MintTokenFlowVersion(),
+                GetOAuth2MintTokenFlowChannel(), gaia_mint_token_mode_));
   return mint_token_flow;
 }
 

@@ -1021,40 +1021,6 @@ public class CustomTabActivityTest {
     }
 
     /**
-     * Test that additional action buttons are ignored for untrusted intents.
-     */
-    @Test
-    @SmallTest
-    @Feature({"UiCatalogue"})
-    @RetryOnFailure
-    public void testMultipleActionButtons_untrusted() {
-        Bitmap expectedIcon1 = createVectorDrawableBitmap(R.drawable.ic_content_copy_black, 48, 48);
-        Bitmap expectedIcon2 = createVectorDrawableBitmap(R.drawable.ic_music_note_36dp, 48, 48);
-        Intent intent = createMinimalCustomTabIntent();
-
-        // By default, the intent should not be trusted.
-        Assert.assertFalse(IntentHandler.wasIntentSenderChrome(intent));
-
-        ArrayList<Bundle> toolbarItems = new ArrayList<>(2);
-        final PendingIntent pi = PendingIntent.getBroadcast(
-                InstrumentationRegistry.getTargetContext(), 0, new Intent(), 0);
-        toolbarItems.add(makeToolbarItemBundle(expectedIcon1, "Shown", pi));
-        toolbarItems.add(makeToolbarItemBundle(expectedIcon2, "Not shown", pi));
-        intent.putParcelableArrayListExtra(CustomTabsIntent.EXTRA_TOOLBAR_ITEMS, toolbarItems);
-        mCustomTabActivityTestRule.startCustomTabActivityWithIntent(intent);
-
-        View toolbarView = mCustomTabActivityTestRule.getActivity().findViewById(R.id.toolbar);
-        Assert.assertTrue(
-                "A custom tab toolbar is never shown", toolbarView instanceof CustomTabToolbar);
-        CustomTabToolbar toolbar = (CustomTabToolbar) toolbarView;
-        final ImageButton actionButton = toolbar.getCustomActionButtonForTest(0);
-        Assert.assertNotNull("Action button not found", actionButton);
-        assertEquals("Shown", actionButton.getContentDescription());
-
-        Assert.assertNull(toolbar.getCustomActionButtonForTest(1));
-    }
-
-    /**
      * Test the case that the action button should not be shown, given a bitmap with unacceptable
      * height/width ratio.
      */

@@ -100,13 +100,17 @@ js_library("credit_card_list_entry") {
 
 js_library("password_check") {
   deps = [
+    ":blocking_request_manager",
     ":password_check_behavior",
     ":password_manager_proxy",
     "..:plural_string_proxy",
     "../prefs:prefs_behavior",
     "//ui/webui/resources/js:assert",
     "//ui/webui/resources/js:i18n_behavior",
+    "//ui/webui/resources/js:util",
+    "//ui/webui/resources/js/cr/ui:focus_without_ink",
   ]
+  externs_list = [ "$externs_path/quick_unlock_private.js" ]
 }
 
 js_library("password_check_behavior") {
@@ -135,6 +139,7 @@ js_library("password_remove_confirmation_dialog") {
 
 js_library("password_check_list_item") {
   deps = [
+    ":blocking_request_manager",
     ":password_manager_proxy",
     "..:open_window_proxy",
     "//ui/webui/resources/js:assert",
@@ -307,6 +312,7 @@ js_library("credit_card_list_entry.m") {
 js_library("password_check.m") {
   sources = [ "$root_gen_dir/chrome/browser/resources/settings/autofill_page/password_check.m.js" ]
   deps = [
+    ":blocking_request_manager.m",
     ":password_check_behavior.m",
     ":password_manager_proxy.m",
     "..:plural_string_proxy.m",
@@ -314,7 +320,10 @@ js_library("password_check.m") {
     "//third_party/polymer/v3_0/components-chromium/polymer:polymer_bundled",
     "//ui/webui/resources/js:assert.m",
     "//ui/webui/resources/js:i18n_behavior.m",
+    "//ui/webui/resources/js:util.m",
+    "//ui/webui/resources/js/cr/ui:focus_without_ink.m",
   ]
+  externs_list = [ "$externs_path/quick_unlock_private.js" ]
   extra_deps = [ ":password_check_module" ]
 }
 
@@ -342,6 +351,7 @@ js_library("password_check_edit_dialog.m") {
 js_library("password_check_list_item.m") {
   sources = [ "$root_gen_dir/chrome/browser/resources/settings/autofill_page/password_check_list_item.m.js" ]
   deps = [
+    ":blocking_request_manager.m",
     ":password_manager_proxy.m",
     "..:open_window_proxy.m",
     "//third_party/polymer/v3_0/components-chromium/polymer:polymer_bundled",
@@ -375,6 +385,7 @@ js_library("password_remove_confirmation_dialog.m") {
 js_library("password_list_item.m") {
   sources = [ "$root_gen_dir/chrome/browser/resources/settings/autofill_page/password_list_item.m.js" ]
   deps = [
+    ":blocking_request_manager.m",
     ":show_password_behavior.m",
     "//third_party/polymer/v3_0/components-chromium/polymer:polymer_bundled",
     "//ui/webui/resources/js:load_time_data.m",
@@ -562,6 +573,7 @@ polymer_modulizer("password_check") {
                    "chrome/browser/resources/settings/plural_string_proxy.html|PluralStringProxyImpl",
                    "chrome/browser/resources/settings/router.html|Router",
                    "ui/webui/resources/html/assert.html|assert",
+                   "ui/webui/resources/html/util.html|getDeepActiveElement",
                  ]
   namespace_rewrites = settings_namespace_rewrites
 }
@@ -580,11 +592,11 @@ polymer_modulizer("password_check_list_item") {
   js_file = "password_check_list_item.js"
   html_file = "password_check_list_item.html"
   html_type = "dom-module"
-  auto_imports = [
-    "chrome/browser/resources/settings/open_window_proxy.html|OpenWindowProxyImpl",
-    "chrome/browser/resources/settings/autofill_page/password_manager_proxy.html|PasswordManagerImpl,PasswordManagerProxy",
-    "ui/webui/resources/html/assert.html|assert",
-  ]
+  auto_imports = settings_auto_imports + [
+                   "chrome/browser/resources/settings/open_window_proxy.html|OpenWindowProxyImpl",
+                   "chrome/browser/resources/settings/autofill_page/password_manager_proxy.html|PasswordManagerImpl,PasswordManagerProxy",
+                   "ui/webui/resources/html/assert.html|assert",
+                 ]
   namespace_rewrites = settings_namespace_rewrites
 }
 

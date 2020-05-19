@@ -4,7 +4,7 @@
 
 // clang-format off
 // #import {ContentSetting,defaultSettingLabel,SiteSettingsPrefsBrowserProxyImpl} from 'chrome://settings/lazy_load.js';
-// #import {eventToPromise} from 'chrome://test/test_util.m.js';
+// #import {eventToPromise, isChildVisible} from 'chrome://test/test_util.m.js';
 // #import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 // #import {TestSiteSettingsPrefsBrowserProxy} from 'chrome://test/settings/test_site_settings_prefs_browser_proxy.m.js';
 // clang-format on
@@ -101,5 +101,25 @@ suite('SiteSettingsPage', function() {
 
     cr.webUIListenerCallback('cookieSettingDescriptionChanged', testLabels[1]);
     assertEquals(testLabels[1], cookiesLinkRow.subLabel);
+  });
+
+  test('ProtectedContentRow', function() {
+    loadTimeData.overrideValues({
+      privacySettingsRedesignEnabled: false,
+    });
+    setupPage();
+    assertTrue(
+        test_util.isChildVisible(page.$$('#allSettingsList'), '#protected-content'));
+  });
+
+  test('ProtectedContentRow_Redesign', function() {
+    loadTimeData.overrideValues({
+      privacySettingsRedesignEnabled: true,
+    });
+    setupPage();
+    page.$$('#expandContent').click();
+    Polymer.dom.flush();
+    assertTrue(
+        test_util.isChildVisible(page.$$('#advancedContentList'), '#protected-content'));
   });
 });

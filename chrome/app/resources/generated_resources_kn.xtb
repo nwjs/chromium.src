@@ -476,6 +476,7 @@
 <translation id="1627408615528139100">ಈಗಾಗಲೇ ಡೌನ್‌ಲೋಡ್ ಮಾಡಲಾಗಿದೆ</translation>
 <translation id="1629314197035607094">ಪಾಸ್‌ವರ್ಡ್ ಅವಧಿ ಮೀರಿದೆ</translation>
 <translation id="1630768113285622200">ಮರುಪ್ರಾರಂಭಿಸಿ ಮತ್ತು ಮುಂದುವರಿಸಿ</translation>
+<translation id="1630873818549593964">ಕ್ಲಾಸ್‌ರೂಂನಲ್ಲಿರುವ ನಿಮ್ಮ ಮಗುವಿನ ಡೇಟಾವನ್ನು ರಕ್ಷಿಸಲಾಗುತ್ತದೆ. <ph name="LINK_BEGIN" />ಇನ್ನಷ್ಟು ತಿಳಿಯಿರಿ<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">ನಿಮ್ಮ ಕೀಬೋರ್ಡ್ ಪುನರಾವರ್ತನೆ ದರ, ಪದ ಮುನ್ಸೂಚನೆ ಹಾಗೂ ಇನ್ನಷ್ಟನ್ನು ಸರಿಹೊಂದಿಸಲು ನಿಮಗೆ ಅವಕಾಶ ನೀಡುತ್ತದೆ</translation>
 <translation id="1635033183663317347">ನಿಮ್ಮ ಮೇಲ್ವಿಚಾರಕರು ಸ್ಥಾಪಿಸಿದ್ದಾರೆ.</translation>
 <translation id="1637224376458524414">ನಿಮ್ಮ iPhone ನಲ್ಲಿ ಈ ಬುಕ್‌ಮಾರ್ಕ್ ಅನ್ನು ಪಡೆದುಕೊಳ್ಳಿ</translation>
@@ -2830,7 +2831,7 @@
 <translation id="4739639199548674512">ಟಿಕೆಟ್‌ಗಳು</translation>
 <translation id="4743260470722568160"><ph name="BEGIN_LINK" />ಅಪ್ಲಿಕೇಶನ್‌ಗಳನ್ನು ಅಪ್‌ಡೇಟ್‌ ಮಾಡುವುದು ಹೇಗೆ ಎಂದು ತಿಳಿಯಿರಿ<ph name="END_LINK" /></translation>
 <translation id="4744981231093950366">{NUM_TABS,plural, =1{ಸೈಟ್‌ ಅನ್ನು ಅನ್‌ಮ್ಯೂಟ್‌ ಮಾಡಿ}one{ಸೈಟ್‌ಗಳನ್ನು ಅನ್‌ಮ್ಯೂಟ್‌ ಮಾಡಿ}other{ಸೈಟ್‌ಗಳನ್ನು ಅನ್‌ಮ್ಯೂಟ್‌ ಮಾಡಿ}}</translation>
-<translation id="4746351372139058112">ಸಂದೇಶಗಳು</translation>
+<translation id="4746351372139058112">Messages</translation>
 <translation id="4750394297954878236">ಸಲಹೆಗಳು</translation>
 <translation id="475088594373173692">ಮೊದಲ ಬಳಕೆದಾರ</translation>
 <translation id="4751476147751820511">ಚಲನೆ ಅಥವಾ ಬೆಳಕಿನ ಸೆನ್ಸರ್‌ಗಳು</translation>
@@ -3150,7 +3151,6 @@
 <translation id="5204967432542742771">ಪಾಸ್‌ವರ್ಡ್ ನಮೂದಿಸಿ</translation>
 <translation id="5206215183583316675">"<ph name="CERTIFICATE_NAME" />" ಅಳಿಸುವುದೇ?</translation>
 <translation id="520621735928254154">ಪ್ರಮಾಣಪತ್ರದ ಆಮದು ದೋಷ</translation>
-<translation id="5209307736170827035">ಕ್ಲಾಸ್‌ರೂಂನಲ್ಲಿರುವ ನಿಮ್ಮ ಮಗುವಿನ ಡೇಟಾವನ್ನು ರಕ್ಷಿಸಲಾಗುತ್ತದೆ. <ph name="LINK_BEGIN" />ಇನ್ನಷ್ಟು ತಿಳಿಯಿರಿ<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">ಯಾವ ಸಾಧನಗಳೂ ಕಂಡುಬಂದಿಲ್ಲ</translation>
 <translation id="5210990770352357081">Plugin VM ಅನ್ನು ಅನ್‌ಇನ್‌ಸ್ಟಾಲ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ</translation>
 <translation id="5213481667492808996">ನಿಮ್ಮ '<ph name="NAME" />' ಡೇಟಾ ಸೇವೆಯು ಬಳಕೆಗೆ ಸಿದ್ಧವಾಗಿದೆ</translation>

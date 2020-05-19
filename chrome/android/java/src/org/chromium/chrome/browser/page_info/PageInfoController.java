@@ -213,7 +213,7 @@ public class PageInfoController implements ModalDialogProperties.Controller,
             // Ignore exception since this is for displaying some specific content on page info.
         }
 
-        String displayUrl = UrlFormatter.formatUrlForSecurityDisplay(mFullUrl);
+        String displayUrl = UrlFormatter.formatUrlForDisplayOmitUsernamePassword(mFullUrl);
         if (isShowingOfflinePage()) {
             displayUrl = UrlUtilities.stripScheme(mFullUrl);
         }

@@ -176,6 +176,8 @@ class ASH_EXPORT TabletModeController
     return is_in_tablet_physical_state_;
   }
 
+  float lid_angle() const { return lid_angle_; }
+
   // Enable/disable the tablet mode for development. Please see cc file
   // for more details.
   void SetEnabledForDev(bool enabled);
@@ -198,6 +200,7 @@ class ASH_EXPORT TabletModeController
  private:
   class DestroyObserver;
   class TabletModeTransitionFpsCounter;
+  class ScopedShelfHider;
   friend class TabletModeControllerTestApi;
 
   // Used for recording metrics for intervals of time spent in
@@ -314,9 +317,6 @@ class ASH_EXPORT TabletModeController
   // based on the current state. Returns true if there's a change in the UI
   // tablet mode state, false otherwise.
   bool UpdateUiTabletState();
-
-  // Update the shelf's visibility before/after taking screenshot.
-  void UpdateShelfVisibilityForScreenshot(aura::Window* window, bool visible);
 
   // The tablet window manager (if enabled).
   std::unique_ptr<TabletModeWindowManager> tablet_mode_window_manager_;
@@ -438,8 +438,10 @@ class ASH_EXPORT TabletModeController
   // transition. It's observed to take an action after its animation ends.
   ui::Layer* animating_layer_ = nullptr;
 
-  // The layer that holds the clone of shelf layer while taking a screenshot.
-  std::unique_ptr<ui::LayerTreeOwner> phantom_shelf_layer_;
+  // When in scope, hides the shelf container. Used to temporarily hide shelf
+  // while taking a screenshot during tablet mode transition (so the screenshot
+  // does not show the old version of shelf in the background).
+  std::unique_ptr<ScopedShelfHider> shelf_hider_;
 
   std::unique_ptr<TabletModeTransitionFpsCounter> fps_counter_;
 
@@ -459,6 +461,11 @@ class ASH_EXPORT TabletModeController
   base::ObserverList<TabletModeObserver>::Unchecked tablet_mode_observers_;
 
   TabletModeBehavior tablet_mode_behavior_;
+
+  // True if the initial input device setup has been finished. Only after it's
+  // finished, we'll start monitoring input device add/remove events and respond
+  // to these events to enter/exit tablet mode accordingly.
+  bool initial_input_device_set_up_finished_ = false;
 
   base::WeakPtrFactory<TabletModeController> weak_factory_{this};
 

@@ -229,7 +229,7 @@ bool DowngradeManager::PrepareUserDataDirectoryForCurrentVersion(
   if (current_milestone > last_milestone) {
     const int max_number_of_snapshots =
         g_browser_process->local_state()->GetInteger(
-            prefs::kUserDataSnapshotRentionLimit);
+            prefs::kUserDataSnapshotRetentionLimit);
     SnapshotManager snapshot_manager(user_data_dir);
     if (max_number_of_snapshots > 0)
       snapshot_manager.TakeSnapshot(*last_version);

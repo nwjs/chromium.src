@@ -18,6 +18,7 @@
       <div slot="footer" class="flex layout vertical">
         <div id="signin-frame-container" transparent$="[[isLoadingUiShown_]]"
             animated-transparency$="[[!usedSaml_]]"
+            hideshadows$="[[isPopUpOverlayVisible_]]"
             class="flex layout vertical">
           <div id="saml-notice-container"
                class="layout horizontal"
@@ -110,7 +111,7 @@
         link-label="[[i18nDynamic(locale, 'learnMoreButton')]]">
     </notification-card>
     <div class="popup-overlay"
-        hidden="[[!showOverlay_(navigationEnabled_, isSamlSsoVisible_)]]">
+        hidden="[[!isPopUpOverlayVisible_]]">
     </div>
   </template>
 </dom-module>

@@ -79,7 +79,7 @@ public class CustomTabDelegateFactory implements TabDelegateFactory {
      */
     static class CustomTabNavigationDelegate extends ExternalNavigationDelegateImpl {
         private static final String TAG = "customtabs";
-        private final TabAssociatedApp mTabAssociatedApp;
+        private final String mClientPackageName;
         private final ExternalAuthUtils mExternalAuthUtils;
         private final ExternalIntentsPolicyProvider mExternalIntentsPolicyProvider;
         private final @ActivityType int mActivityType;
@@ -93,7 +93,7 @@ public class CustomTabDelegateFactory implements TabDelegateFactory {
                 ExternalIntentsPolicyProvider externalIntentsPolicyProvider,
                 @ActivityType int activityType) {
             super(tab);
-            mTabAssociatedApp = TabAssociatedApp.from(tab);
+            mClientPackageName = TabAssociatedApp.from(tab).getAppId();
             mExternalAuthUtils = authUtils;
             mExternalIntentsPolicyProvider = externalIntentsPolicyProvider;
             mActivityType = activityType;
@@ -115,10 +115,9 @@ public class CustomTabDelegateFactory implements TabDelegateFactory {
             try {
                 // For a URL chrome can handle and there is no default set, handle it ourselves.
                 if (!hasDefaultHandler) {
-                    String clientPackageName = mTabAssociatedApp.getAppId();
-                    if (!TextUtils.isEmpty(clientPackageName)
-                            && isPackageSpecializedHandler(clientPackageName, intent)) {
-                        intent.setPackage(clientPackageName);
+                    if (!TextUtils.isEmpty(mClientPackageName)
+                            && isPackageSpecializedHandler(mClientPackageName, intent)) {
+                        intent.setPackage(mClientPackageName);
                     } else if (!isExternalProtocol) {
                         return false;
                     }
@@ -165,11 +164,10 @@ public class CustomTabDelegateFactory implements TabDelegateFactory {
 
         @Override
         public boolean isIntentForTrustedCallingApp(Intent intent) {
-            String clientPackageName = mTabAssociatedApp.getAppId();
-            if (TextUtils.isEmpty(clientPackageName)) return false;
-            if (!mExternalAuthUtils.isGoogleSigned(clientPackageName)) return false;
+            if (TextUtils.isEmpty(mClientPackageName)) return false;
+            if (!mExternalAuthUtils.isGoogleSigned(mClientPackageName)) return false;
 
-            return isPackageSpecializedHandler(clientPackageName, intent);
+            return isPackageSpecializedHandler(mClientPackageName, intent);
         }
 
         /**

@@ -471,6 +471,7 @@
 <translation id="1627408615528139100">Аль хэдийн татсан</translation>
 <translation id="1629314197035607094">Нууц үгний хугацаа хэтэрсэн</translation>
 <translation id="1630768113285622200">Дахин эхлүүлээд, үргэлжлүүлэх</translation>
+<translation id="1630873818549593964">Анги доторх таны хүүхдийн өгөгдлийг хамгаална. <ph name="LINK_BEGIN" />Нэмэлт мэдээлэл авах<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">Гарын давтамжийн үнэлгээ, үг таалт болон бусад зүйлийг тохируулахыг зөвшөөрдөг</translation>
 <translation id="1635033183663317347">Таны хамгаалагч суулгасан.</translation>
 <translation id="1637224376458524414">Энэ хавчуургыг iPhone-доо авах</translation>
@@ -3143,7 +3144,6 @@
 <translation id="5204967432542742771">Нууц үгээ оруулна уу</translation>
 <translation id="5206215183583316675">"<ph name="CERTIFICATE_NAME" />"-г устгах уу?</translation>
 <translation id="520621735928254154">Сертификатыг импортлоход алдаа гарлаа</translation>
-<translation id="5209307736170827035">Анги доторх таны хүүхдийн өгөгдлийг хамгаалах болно. <ph name="LINK_BEGIN" />Нэмэлт мэдээлэл авах<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">Төхөөрөмж олдсонгүй</translation>
 <translation id="5210990770352357081">Plugin VM-г устгаж чадсангүй</translation>
 <translation id="5213481667492808996">Таны '<ph name="NAME" />'-н дата үйлчилгээ ашиглахад бэлэн байна</translation>

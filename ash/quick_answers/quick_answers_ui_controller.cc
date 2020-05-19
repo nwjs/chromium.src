@@ -112,6 +112,7 @@ void QuickAnswersUiController::CloseUserConsentView() {
 }
 
 void QuickAnswersUiController::OnConsentGrantedButtonPressed() {
+  DCHECK(user_consent_view_);
   controller_->OnUserConsentGranted();
 }
 
@@ -120,6 +121,11 @@ void QuickAnswersUiController::OnManageSettingsButtonPressed() {
 }
 
 void QuickAnswersUiController::OnDogfoodButtonPressed() {
+  // Close Quick-Answers related views and open the Dogfood link.
+  if (quick_answers_view_)
+    CloseQuickAnswersView();
+  if (user_consent_view_)
+    CloseUserConsentView();
   controller_->OpenQuickAnswersDogfoodLink();
 }
 

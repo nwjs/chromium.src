@@ -39,7 +39,6 @@ cr.define('settings', function() {
     DISABLED_BY_ADMIN: 4,
     FAILED_OFFLINE: 5,
     FAILED: 6,
-    UNKNOWN: 7,
   };
 
   /**

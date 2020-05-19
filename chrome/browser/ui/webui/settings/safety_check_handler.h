@@ -42,8 +42,11 @@ class SafetyCheckHandler
     kDisabledByAdmin = 4,
     kFailedOffline = 5,
     kFailed = 6,
+    // Non-Google branded browsers cannot check for updates using
+    // VersionUpdater.
+    kUnknown = 7,
     // New enum values must go above here.
-    kMaxValue = kFailed,
+    kMaxValue = kUnknown,
   };
   enum class SafeBrowsingStatus {
     kChecking = 0,

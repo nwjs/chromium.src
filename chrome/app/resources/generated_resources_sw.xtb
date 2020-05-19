@@ -472,6 +472,7 @@
 <translation id="1627408615528139100">Tayari imepakuliwa</translation>
 <translation id="1629314197035607094">Muda wa nenosiri umeisha</translation>
 <translation id="1630768113285622200">Zima kisha uwashe ili uendelee</translation>
+<translation id="1630873818549593964">Data ya mtoto wako kwenye huduma ya Google Darasani italindwa. <ph name="LINK_BEGIN" />Pata maelezo zaidi<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">Hukuruhusu kurekebisha kasi ya kurudia ya kibodi yako, kubashiri neno, na mengine mengi</translation>
 <translation id="1635033183663317347">Kiendelezi kilisakinishwa na mlezi wako.</translation>
 <translation id="1637224376458524414">Pata alamisho hii kwenye iPhone yako</translation>
@@ -3144,7 +3145,6 @@ Ungependa kuanza <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="5204967432542742771">Weka nenosiri</translation>
 <translation id="5206215183583316675">Ungependa kufuta "<ph name="CERTIFICATE_NAME" />"?</translation>
 <translation id="520621735928254154">Hitilafu ya Kuleta Cheti</translation>
-<translation id="5209307736170827035">Data ya mtoto wako kwenye huduma ya Google Darasani italindwa. <ph name="LINK_BEGIN" />Pata maelezo zaidi<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">Hakuna vifaa vilivyopatikana</translation>
 <translation id="5210990770352357081">Imeshindwa kuondoa Plugin VM</translation>
 <translation id="5213481667492808996">Huduma yako ya data ya '<ph name="NAME" />' iko tayari kutumiwa</translation>
@@ -4650,7 +4650,7 @@ Ungependa kuanza <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="7235737137505019098">Ufunguo wako wa usalama hauna nafasi ya kutosha ili kutumia akaunti nyingine zozote.</translation>
 <translation id="7238643356913091553"><ph name="NETWORK_NAME" />, Maelezo</translation>
 <translation id="7240339475467890413">Ungependa kuunganishwa kwenye mtandaopepe mpya?</translation>
-<translation id="7240847845291869311">Mtoto wako angependa kuweka Akaunti ya G Suite for Education kwenye kifaa hiki. <ph name="LINK_BEGIN" />Ilani ya Faragha ya G Suite for Education<ph name="LINK_END" /> imekusudiwa kuwasaidia watumiaji na wazazi wanaotumia G Suite for Education kuelewa data ambayo bidhaa inakusanya, sababu za kuikusanya na tunachofanya nayo.</translation>
+<translation id="7240847845291869311">Mtoto wako angependa kuweka Akaunti ya G Suite for Education kwenye kifaa hiki. <ph name="LINK_BEGIN" />Ilani ya Faragha ya G Suite for Education<ph name="LINK_END" /> imekusudiwa kuwasaidia wateja na wazazi wanaotumia G Suite for Education kuelewa data ambayo bidhaa inakusanya, sababu za kuikusanya na tunachofanya nayo.</translation>
 <translation id="7241389281993241388">Tafadhali ingia kwenye <ph name="TOKEN_NAME" /> ili kuleta cheti cha mteja.</translation>
 <translation id="7241443820034350811">Ikiwa ufunguo wako wa usalama haujaorodheshwa, bonyeza vitufe vyake kwa angalau sekunde 5.</translation>
 <translation id="7243632151880336635">Futa na Uondoke kwenye Akaunti</translation>

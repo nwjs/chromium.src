@@ -26,6 +26,14 @@ cr.define('settings', function() {
      * @return {!Promise<!settings.SafeBrowsingRadioManagedState>}
      */
     getSafeBrowsingRadioManagedState() {}
+
+    /**
+     * Ensures that Safe Browsing Enhanced preference is in a consistent
+     * state for the currently enabled features.
+     * TODO(crbug.com/1074499) Remove this logic when Enhanced protection is
+     * considered stable.
+     */
+     validateSafeBrowsingEnhanced() {}
   }
 
   /** @implements {settings.SafeBrowsingBrowserProxy} */
@@ -33,6 +41,11 @@ cr.define('settings', function() {
     /** @override */
     getSafeBrowsingRadioManagedState() {
       return cr.sendWithPromise('getSafeBrowsingRadioManagedState');
+    }
+
+    /** @override */
+    validateSafeBrowsingEnhanced() {
+      chrome.send('validateSafeBrowsingEnhanced');
     }
   }
 

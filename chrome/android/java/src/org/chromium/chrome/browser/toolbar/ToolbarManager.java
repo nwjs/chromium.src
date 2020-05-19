@@ -424,6 +424,7 @@ public class ToolbarManager implements ToolbarTabController, UrlFocusChangeListe
                 if (tab == null) return;
 
                 refreshSelectedTab(tab);
+                mToolbar.onTabOrModelChanged();
             }
 
             @Override

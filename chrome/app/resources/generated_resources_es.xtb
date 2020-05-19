@@ -475,6 +475,7 @@
 <translation id="1627408615528139100">Ya se ha descargado</translation>
 <translation id="1629314197035607094">Contraseña caducada</translation>
 <translation id="1630768113285622200">Reiniciar y continuar</translation>
+<translation id="1630873818549593964">Los datos de tu hijo en Classroom estarán protegidos. <ph name="LINK_BEGIN" />Más información<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">Te permite configurar la frecuencia de repetición del teclado, la predicción de palabras y otros ajustes</translation>
 <translation id="1635033183663317347">Instalada por tu tutor legal.</translation>
 <translation id="1637224376458524414">Obtener este marcador en tu iPhone</translation>
@@ -3148,7 +3149,6 @@ Puedes gestionar la configuración de esta cuenta instalando la aplicación Fami
 <translation id="5204967432542742771">Escribe tu contraseña</translation>
 <translation id="5206215183583316675">¿Quieres eliminar el certificado <ph name="CERTIFICATE_NAME" />?</translation>
 <translation id="520621735928254154">Error al importar el certificado</translation>
-<translation id="5209307736170827035">Los datos de tu hijo/a en Classroom estarán protegidos. <ph name="LINK_BEGIN" />Más información<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">No se ha encontrado ningún dispositivo.</translation>
 <translation id="5210990770352357081">No se ha podido desinstalar Plugin VM</translation>
 <translation id="5213481667492808996">Ya puedes usar tu servicio de datos de "<ph name="NAME" />"</translation>
@@ -4108,7 +4108,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="6473842110411557830">Ilustración de Powerwash</translation>
 <translation id="6474498546677193336">No se ha podido dejar de compartir esta carpeta porque una aplicación está usándola. Se dejará de compartir la próxima vez que se apague Linux.</translation>
 <translation id="6474884162850599008">Desconectar cuenta de Google Drive</translation>
-<translation id="6475697075626596525"><ph name="APP_NAME" /> quiere compartir contenido de tu pantalla. Elige lo que quieres compartir.</translation>
+<translation id="6475697075626596525"><ph name="APP_NAME" /> quiere compartir el contenido de tu pantalla. Elige lo que quieres compartir.</translation>
 <translation id="6478248366783946499">¿Quieres conservar el archivo peligroso?</translation>
 <translation id="6483485061007832714">Abrir descarga</translation>
 <translation id="6483805311199035658">Abriendo <ph name="FILE" />...</translation>
@@ -4697,7 +4697,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="7290594223351252791">Confirmar registro</translation>
 <translation id="7295614427631867477">Ten en cuenta que Android, Google Play y las aplicaciones asociadas se rigen por sus propias políticas de recogida y uso de datos.</translation>
 <translation id="729583233778673644">Permite los cifrados AES y RC4. Esta opción aumenta el riesgo, ya que los algoritmos de cifrado de RC4 no son seguros.</translation>
-<translation id="7296774163727375165">Condiciones de <ph name="DOMAIN" /></translation>
+<translation id="7296774163727375165">Términos de <ph name="DOMAIN" /></translation>
 <translation id="7297443947353982503">Nombre de usuario o contraseña incorrectos o error de autenticación EAP</translation>
 <translation id="729761647156315797">Selecciona el idioma y el teclado</translation>
 <translation id="7297726121602187087">Verde oscuro</translation>

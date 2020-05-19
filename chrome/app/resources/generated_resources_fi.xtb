@@ -475,6 +475,7 @@
 <translation id="1627408615528139100">Ladattu aiemmin</translation>
 <translation id="1629314197035607094">Salasana on vanhentunut</translation>
 <translation id="1630768113285622200">Käynnistä uudelleen ja jatka</translation>
+<translation id="1630873818549593964">Lapsesi Classroomissa oleva data suojataan. <ph name="LINK_BEGIN" />Lue lisää<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">Voit muuttaa näppäinten toistoprosenttia, sanojen ennakointia ja muuta.</translation>
 <translation id="1635033183663317347">Valvojasi asentama</translation>
 <translation id="1637224376458524414">Käytä tätä kirjanmerkkiä iPhonessa</translation>
@@ -3146,7 +3147,6 @@ Voit ylläpitää tilin asetuksia asentamalla laitteellesi Family Link ‑sovell
 <translation id="5204967432542742771">Lisää salasana</translation>
 <translation id="5206215183583316675">Poistetaanko <ph name="CERTIFICATE_NAME" />?</translation>
 <translation id="520621735928254154">Varmenteen tuontivirhe</translation>
-<translation id="5209307736170827035">Lapsesi Classroomissa oleva data suojataan. <ph name="LINK_BEGIN" />Lue lisää<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">Laitteita ei löytynyt</translation>
 <translation id="5210990770352357081">Plugin VM:n poistaminen ei onnistunut</translation>
 <translation id="5213481667492808996">Datapalvelu (<ph name="NAME" />) on valmiina käyttöön</translation>

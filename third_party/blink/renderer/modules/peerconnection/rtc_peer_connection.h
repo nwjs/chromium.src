@@ -355,7 +355,7 @@ class MODULES_EXPORT RTCPeerConnection final
   void DidAddRemoteDataChannel(
       scoped_refptr<webrtc::DataChannelInterface> channel) override;
   void DidNoteInterestingUsage(int usage_pattern) override;
-  void ReleasePeerConnectionHandler() override;
+  void UnregisterPeerConnectionHandler() override;
   void ClosePeerConnection() override;
 
   // EventTarget

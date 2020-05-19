@@ -475,6 +475,7 @@
 <translation id="1627408615528139100">Har redan laddats ned</translation>
 <translation id="1629314197035607094">Lösenordet gäller inte längre</translation>
 <translation id="1630768113285622200">Starta om och fortsätt</translation>
+<translation id="1630873818549593964">Barnets data i Classroom skyddas. <ph name="LINK_BEGIN" />Läs mer<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">Här kan du ändra tangentbordsinställningar som upprepningsintervall, ordförslag med mera</translation>
 <translation id="1635033183663317347">Har installerats av din vårdnadshavare.</translation>
 <translation id="1637224376458524414">Få det här bokmärket till din iPhone</translation>
@@ -3149,7 +3150,6 @@ Du kan hantera inställningarna för det här kontot genom att installera Family
 <translation id="5204967432542742771">Ange lösenord</translation>
 <translation id="5206215183583316675">Vill du radera <ph name="CERTIFICATE_NAME" />?</translation>
 <translation id="520621735928254154">Fel vid import av certifikat</translation>
-<translation id="5209307736170827035">Barnets data i Classroom skyddas. <ph name="LINK_BEGIN" />Läs mer<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">Det gick inte att hitta några enheter</translation>
 <translation id="5210990770352357081">Det gick inte att avinstallera Plugin VM</translation>
 <translation id="5213481667492808996">Datatjänsten <ph name="NAME" /> är klar att använda</translation>

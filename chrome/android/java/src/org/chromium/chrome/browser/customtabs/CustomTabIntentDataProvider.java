@@ -453,8 +453,6 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
     }
 
     private int getMaxCustomToolbarItems() {
-        if (!isTrustedIntent()) return 1;
-
         return MAX_CUSTOM_TOOLBAR_ITEMS;
     }
 

@@ -475,6 +475,7 @@
 <translation id="1627408615528139100">Deskargatu da jada</translation>
 <translation id="1629314197035607094">Pasahitza iraungi egin da</translation>
 <translation id="1630768113285622200">Berrabiarazi eta egin aurrera</translation>
+<translation id="1630873818549593964">Haurraren datuak babestuta egongo dira Classroom-en. <ph name="LINK_BEGIN" />Lortu informazio gehiago<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">Teklak sakatuta edukitzean, idatzitakoa zenbat aldiz errepikatuko den, hitzen iragarpena erabiliko den eta beste zenbait gauza doitzeko aukera ematen dizu</translation>
 <translation id="1635033183663317347">Zaintzaileak instalatu du.</translation>
 <translation id="1637224376458524414">Izan laster-marka iPhone-an</translation>
@@ -1272,7 +1273,7 @@ Kontu honen ezarpenak kudeatzeko, instalatu Family Link aplikazioa zure gailuan.
 <translation id="2665717534925640469">Orria pantaila osoan dago eta saguaren kurtsorea desgaitu du.</translation>
 <translation id="2665919335226618153">Errore bat gertatu da formateatzean.</translation>
 <translation id="2667463864537187133">Kudeatu ortografia-zuzentzailea</translation>
-<translation id="2670102641511624474"><ph name="APP_NAME" /> Chrome fitxa bat partekatzen ari da.</translation>
+<translation id="2670102641511624474"><ph name="APP_NAME" /> Chrome-ko fitxa bat partekatzen ari da.</translation>
 <translation id="2670429602441959756">Oraingoz errealitate birtualean onartzen ez diren eginbideak ditu orri honek. Irteten…</translation>
 <translation id="2671451824761031126">Prest dituzu laster-markak eta ezarpenak</translation>
 <translation id="2672142220933875349">crx fitxategiak ez du balio. Ezin izan da deskonprimatu.</translation>
@@ -1828,7 +1829,7 @@ Kontu honen ezarpenak kudeatzeko, instalatu Family Link aplikazioa zure gailuan.
 <translation id="3416468988018290825">Erakutsi beti URL osoak</translation>
 <translation id="3420501302812554910">Barneko segurtasun-giltza berrezarri egin behar da</translation>
 <translation id="3421387094817716717">Kurba eliptikoko gako publikoa</translation>
-<translation id="3422291238483866753">Eskatu zure baimena webguneren batek inguruaren 3D mapa bat sortu edo kameraren posizioaren jarraipena egin nahi duenean (gomendatua)</translation>
+<translation id="3422291238483866753">Eskatu zure baimena webguneren batek inguruaren 3D-ko mapa bat sortu edo kameraren posizioaren jarraipena egin nahi duenean (gomendatua)</translation>
 <translation id="3423463006624419153">"<ph name="PHONE_NAME_1" />" eta "<ph name="PHONE_NAME_2" />" telefonoetan:</translation>
 <translation id="3423858849633684918">Abiarazi berriro <ph name="PRODUCT_NAME" /></translation>
 <translation id="3424969259347320884">Azaldu zer ari zinen egiten fitxak huts egin duenean</translation>
@@ -2548,7 +2549,7 @@ Kontu honen ezarpenak kudeatzeko, instalatu Family Link aplikazioa zure gailuan.
 <translation id="4350019051035968019">Ezin da gailua erregistratu zure kontuaren domeinuan, gailua beste domeinu batek kudeatzeko markatuta dagoelako.</translation>
 <translation id="4351060348582610152"><ph name="ORIGIN" /> webguneak inguruko Bluetooth bidezko gailuak bilatu nahi ditu. Gailu hauek aurkitu dira:</translation>
 <translation id="4353114845960720315">Errealitate birtualean zauden bitartean, baliteke webgune honek hauei buruzko informazioa lortzea:</translation>
-<translation id="4354073718307267720">Eskatu zure baimena webguneren batek inguruaren 3D mapa bat sortu edo kameraren posizioaren jarraipena egin nahi duenean</translation>
+<translation id="4354073718307267720">Eskatu zure baimena webguneren batek inguruaren 3D-ko mapa bat sortu edo kameraren posizioaren jarraipena egin nahi duenean</translation>
 <translation id="4354344420232759511">Hemen agertuko dira bisitatzen dituzun webguneak</translation>
 <translation id="435527878592612277">Hautatu argazkia</translation>
 <translation id="4358313196493694334">Egonkortu kliken kokapena</translation>
@@ -2732,7 +2733,7 @@ Kontu honen ezarpenak kudeatzeko, instalatu Family Link aplikazioa zure gailuan.
 <translation id="4598556348158889687">Memoriaren kudeaketa</translation>
 <translation id="4598776695426288251">Gailu bat baino gehiagoren bidez erabil dezakezu wifi-konexioa</translation>
 <translation id="4602466770786743961">Eman beti kamera eta mikrofonoa erabiltzeko baimena <ph name="HOST" /> webguneari</translation>
-<translation id="4606551464649945562">Ez utzi inongo webguneri inguruaren 3D mapa bat sortzen edo kameraren posizioaren jarraipena egiten</translation>
+<translation id="4606551464649945562">Ez utzi inongo webguneri inguruaren 3D-ko mapa bat sortzen edo kameraren posizioaren jarraipena egiten</translation>
 <translation id="4608500690299898628">&amp;Bilatu…</translation>
 <translation id="4608520674724523647">Behar bezala erregistratu dela irudikatzeko ilustrazioa</translation>
 <translation id="4610162781778310380">Errore bat gertatu da <ph name="PLUGIN_NAME" /> pluginarekin</translation>
@@ -3094,7 +3095,7 @@ Kontu honen ezarpenak kudeatzeko, instalatu Family Link aplikazioa zure gailuan.
 <translation id="5117930984404104619">Kontrolatu beste luzapenen funtzionamendua, bisitatutako URLena barne</translation>
 <translation id="5119173345047096771">Mozilla Firefox</translation>
 <translation id="5121130586824819730">Disko gogorra beteta duzu. Gorde beste kokapen batean edo libratu espazioa disko gogorrean.</translation>
-<translation id="5122384452788334261">Biltegiratzeko toki gutxi du gailuak. Gutxienez <ph name="RECOMMENDED_SPACE" /> libre izatea gomendatzen dugu Plugin VM erabiltzeko. Tokia egiteko, ezabatu gailuko memorian dauden fitxategiak.</translation>
+<translation id="5122384452788334261">Biltegiratzeko toki gutxi dago gailuan. Gutxienez <ph name="RECOMMENDED_SPACE" /> libre izatea gomendatzen dugu Plugin VM erabiltzeko. Tokia egiteko, ezabatu gailuko memorian dauden fitxategiak.</translation>
 <translation id="5123433949759960244">Saskibaloiko baloia</translation>
 <translation id="5125751979347152379">URLak ez du balio.</translation>
 <translation id="5126611267288187364">Ikusi aldaketak</translation>
@@ -3149,7 +3150,6 @@ Kontu honen ezarpenak kudeatzeko, instalatu Family Link aplikazioa zure gailuan.
 <translation id="5204967432542742771">Idatzi pasahitza</translation>
 <translation id="5206215183583316675">"<ph name="CERTIFICATE_NAME" />" ezabatu nahi duzu?</translation>
 <translation id="520621735928254154">Ziurtagiria inportatzeko errorea</translation>
-<translation id="5209307736170827035">Haurraren datuak babestuta egongo dira Classroom-en. <ph name="LINK_BEGIN" />Lortu informazio gehiago<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">Ez da aurkitu gailurik</translation>
 <translation id="5210990770352357081">Ezin izan da desinstalatu Plugin VM</translation>
 <translation id="5213481667492808996">"<ph name="NAME" />" datu-zerbitzua erabiltzeko prest dago</translation>
@@ -3780,9 +3780,9 @@ Kontu honen ezarpenak kudeatzeko, instalatu Family Link aplikazioa zure gailuan.
 <translation id="6041155700700864984">Irten pantaila osoko modutik</translation>
 <translation id="604124094241169006">Automatikoa</translation>
 <translation id="6042308850641462728">Gehiago</translation>
-<translation id="6043317578411397101"><ph name="APP_NAME" /> Chrome fitxa bat partekatzen ari da <ph name="TAB_NAME" /> fitxarekin.</translation>
+<translation id="6043317578411397101"><ph name="APP_NAME" /> Chrome-ko fitxa bat partekatzen ari da <ph name="TAB_NAME" /> fitxarekin.</translation>
 <translation id="604388835206766544">Ezin izan da analizatu konfigurazioa</translation>
-<translation id="6044805581023976844"><ph name="APP_NAME" /> Chrome fitxa bat eta audioa partekatzen ari da <ph name="TAB_NAME" /> fitxarekin.</translation>
+<translation id="6044805581023976844"><ph name="APP_NAME" /> Chrome-ko fitxa bat eta audioa partekatzen ari da <ph name="TAB_NAME" /> fitxarekin.</translation>
 <translation id="6049004884579590341">Pantaila osotik irteteko, eduki sakatuta |<ph name="ACCELERATOR" />|</translation>
 <translation id="6049065490165456785">Barneko kamerako argazkia</translation>
 <translation id="6051354611314852653">Sistemak ezin izan dio gailu honi APIa atzitzeko baimenik eman.</translation>
@@ -4655,7 +4655,7 @@ Kontu honen ezarpenak kudeatzeko, instalatu Family Link aplikazioa zure gailuan.
 <translation id="7235737137505019098">Segurtasun-giltzak ez dauka tokirik beste konturik gehitzeko.</translation>
 <translation id="7238643356913091553">Xehetasunak (<ph name="NETWORK_NAME" />)</translation>
 <translation id="7240339475467890413">Wifi-gune berrira konektatu nahi duzu?</translation>
-<translation id="7240847845291869311">Zure haurrak G Suite for Education zerbitzuaren Google-ko kontua gehitu nahi du gailu honetan. <ph name="LINK_BEGIN" />G Suite for Education zerbitzuaren Pribatutasun-oharraren bidez,<ph name="LINK_END" /> G Suite for Education zerbitzuko erabiltzaileei eta gurasoei jakinarazten zaie produktuak zer datu biltzen dituen, zergatik biltzen diren eta zer egiten den haiekin.</translation>
+<translation id="7240847845291869311">Zure haurrak G Suite for Education zerbitzurako Google-ko kontu bat gehitu nahi du gailu honetan. <ph name="LINK_BEGIN" />G Suite for Education zerbitzuaren Pribatutasun-oharraren bidez,<ph name="LINK_END" /> G Suite for Education zerbitzuko erabiltzaileei eta gurasoei jakinarazten zaie produktuak zer datu biltzen dituen, zergatik biltzen diren eta zer egiten den haiekin.</translation>
 <translation id="7241389281993241388">Bezero-ziurtagiria inportatzeko, hasi saioa <ph name="TOKEN_NAME" /> gailuan.</translation>
 <translation id="7241443820034350811">Segurtasun-giltza ez bada agertzen zerrendan, sakatu botoia bost segundoz gutxienez.</translation>
 <translation id="7243632151880336635">Garbitu eta amaitu saioa</translation>
@@ -5345,7 +5345,7 @@ Horrek ez die eragiten beste gailu batzuetako aplikazioei edo edukiei.</translat
 <translation id="8118488170956489476">Zure erakundeak <ph name="BEGIN_LINK" />kudeatzen du arakatzailea<ph name="END_LINK" /></translation>
 <translation id="8118860139461251237">Kudeatu deskargak</translation>
 <translation id="811942868379260654"><ph name="RECENT_PERMISSIONS_CHANGE_SENTENCE_START" />, <ph name="RECENT_PERMISSIONS_CHANGE_1" />, <ph name="RECENT_PERMISSIONS_CHANGE_2" /> eta beste</translation>
-<translation id="8120715633374652536">Biltegiratzeko toki gutxi du gailuak. Gutxienez <ph name="MINIMUM_SPACE" /> behar dituzu Plugin VM erabiltzeko, eta <ph name="RECOMMENDED_SPACE" /> baino gehiago libre izatea gomendatzen dugu. Tokia egiteko, ezabatu gailuko memorian dauden fitxategiak.</translation>
+<translation id="8120715633374652536">Biltegiratzeko toki gutxi dago gailuan. Gutxienez <ph name="MINIMUM_SPACE" /> behar dituzu Plugin VM erabiltzeko, eta <ph name="RECOMMENDED_SPACE" /> baino gehiago libre izatea gomendatzen dugu. Tokia egiteko, ezabatu gailuko memorian dauden fitxategiak.</translation>
 <translation id="8123590694679414600">Sinkronizazio-pasaesaldiarekin enkriptatu dira datuak ordu honetan:
           <ph name="TIME" />. Ez dira hartzen barne Google Pay-ko ordainketa-metodoak eta helbideak.</translation>
 <translation id="81238879832906896">Lore hori eta zuria</translation>
@@ -6191,7 +6191,7 @@ Horrek ez die eragiten beste gailu batzuetako aplikazioei edo edukiei.</translat
 <translation id="939519157834106403">SSID</translation>
 <translation id="939598580284253335">Idatzi pasaesaldia</translation>
 <translation id="939736085109172342">Karpeta berria</translation>
-<translation id="942532530371314860"><ph name="APP_NAME" /> Chrome fitxa bat eta audioa partekatzen ari da.</translation>
+<translation id="942532530371314860"><ph name="APP_NAME" /> Chrome-ko fitxa bat eta audioa partekatzen ari da.</translation>
 <translation id="945522503751344254">Bidali oharrak</translation>
 <translation id="947329552760389097">&amp;Aztertu elementuak</translation>
 <translation id="952992212772159698">Ez da aktibatu</translation>

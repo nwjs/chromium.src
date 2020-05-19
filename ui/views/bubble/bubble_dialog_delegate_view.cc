@@ -178,7 +178,7 @@ Widget* BubbleDialogDelegateView::CreateBubble(
 #endif
 
   bubble_delegate->SizeToContents();
-  bubble_widget->AddObserver(bubble_delegate);
+  bubble_delegate->widget_observer_.Add(bubble_widget);
   return bubble_widget;
 }
 
@@ -202,8 +202,6 @@ BubbleDialogDelegateView::BubbleDialogDelegateView(View* anchor_view,
 }
 
 BubbleDialogDelegateView::~BubbleDialogDelegateView() {
-  if (GetWidget())
-    GetWidget()->RemoveObserver(this);
   SetLayoutManager(nullptr);
   SetAnchorView(nullptr);
 }
@@ -262,6 +260,9 @@ void BubbleDialogDelegateView::OnWidgetClosing(Widget* widget) {
 void BubbleDialogDelegateView::OnWidgetDestroying(Widget* widget) {
   if (anchor_widget() == widget)
     SetAnchorView(nullptr);
+
+  if (widget_observer_.IsObserving(widget))
+    widget_observer_.Remove(widget);
 }
 
 void BubbleDialogDelegateView::OnWidgetVisibilityChanging(Widget* widget,
@@ -309,6 +310,12 @@ void BubbleDialogDelegateView::OnWidgetBoundsChanged(
 void BubbleDialogDelegateView::OnWidgetPaintAsActiveChanged(
     Widget* widget,
     bool paint_as_active) {
+  // We only care about the current widget having its state changed; if the
+  // anchor widget receives active status directly then there's no need to apply
+  // paint as active lock.
+  if (widget != GetWidget())
+    return;
+
   if (!paint_as_active) {
     paint_as_active_lock_.reset();
     return;

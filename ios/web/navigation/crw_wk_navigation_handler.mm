@@ -149,9 +149,16 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
         holderForBackForwardListItem:webView.backForwardList.currentItem]
         navigationItem];
   } else {
-    // There is no guarantee that the pending item belongs to this navigation
-    // but it is very likely that it is the case.
+    // Get the visible item. There is no guarantee that the pending item belongs
+    // to this navigation but it is very likely that it is the case. If there is
+    // no pending item, it is probably a render initiated navigation. Use the
+    // UserAgent of the previous navigation. This will also return the
+    // navigation item of the restoration if a restoration occurs. Request the
+    // pending item explicitly as the visible item might be the committed item
+    // if the pending navigation isn't user triggered.
     item = self.navigationManagerImpl->GetPendingItem();
+    if (!item)
+      item = self.navigationManagerImpl->GetVisibleItem();
   }
 
   // Don't initialize the userAgentType to have compilation error if there is a
@@ -160,12 +167,6 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
   if (item) {
     userAgentType = item->GetUserAgentType();
   } else {
-    // Probably a renderer-initiated navigation. Use the UserAgent of the
-    // previous navigation.
-    item = self.webStateImpl->GetNavigationManager()->GetLastCommittedItem();
-    if (item) {
-      userAgentType = item->GetUserAgentForInheritance();
-    } else {
       // It is possible that there isn't a last committed item, for example if a
       // new tab is being opened via JavaScript.
       if (base::FeatureList::IsEnabled(
@@ -174,7 +175,6 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
       } else {
         userAgentType = web::UserAgentType::MOBILE;
       }
-    }
     if (userAgentType == web::UserAgentType::AUTOMATIC) {
       userAgentType = web::GetWebClient()->GetDefaultUserAgent(
           webView, net::GURLWithNSURL(navigationAction.request.URL));

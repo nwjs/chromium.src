@@ -8,6 +8,7 @@
 #include "build/build_config.h"
 #include "components/autofill/content/renderer/autofill_agent.h"
 #include "components/autofill/content/renderer/password_autofill_agent.h"
+#include "components/error_page/common/error.h"
 #include "content/public/renderer/render_thread.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "weblayer/common/features.h"
@@ -91,14 +92,28 @@ bool ContentRendererClientImpl::HasErrorPage(int http_status_code) {
   return http_status_code >= 400;
 }
 
+bool ContentRendererClientImpl::ShouldSuppressErrorPage(
+    content::RenderFrame* render_frame,
+    const GURL& url) {
+  auto* error_page_helper = ErrorPageHelper::GetForFrame(render_frame);
+  if (error_page_helper)
+    return error_page_helper->ShouldSuppressErrorPage();
+  return false;
+}
+
 void ContentRendererClientImpl::PrepareErrorPage(
     content::RenderFrame* render_frame,
     const blink::WebURLError& error,
     const std::string& http_method,
     std::string* error_html) {
-  auto* ssl_helper = ErrorPageHelper::GetForFrame(render_frame);
-  if (ssl_helper)
-    ssl_helper->PrepareErrorPage();
+  auto* error_page_helper = ErrorPageHelper::GetForFrame(render_frame);
+  if (error_page_helper) {
+    error_page_helper->PrepareErrorPage(
+        error_page::Error::NetError(error.url(), error.reason(),
+                                    error.resolve_error_info(),
+                                    error.has_copy_in_cache()),
+        http_method == "POST");
+  }
 
 #if defined(OS_ANDROID)
   android_system_error_page::PopulateErrorPageHtml(error, error_html);

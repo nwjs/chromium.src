@@ -1204,6 +1204,38 @@ cr.define('settings_passwords_check', function() {
       assertEquals('password', node.$.leakedPassword.type);
       assertNotEquals('test4', node.$.leakedPassword.value);
     });
+
+    if (cr.isChromeOS) {
+      // Verify that getPlaintext succeeded after auth token resolved
+      test('showHidePasswordMenuItemAuth', async function() {
+        passwordManager.data.leakedCredentials =
+            [autofill_test_util.makeCompromisedCredential(
+                'google.com', 'jdoerrie', 'LEAKED')];
+        const checkPasswordSection = createCheckPasswordSection();
+        await passwordManager.whenCalled('getCompromisedCredentials');
+
+        Polymer.dom.flush();
+        const listElements = checkPasswordSection.$.leakedPasswordList;
+        const node = listElements.children[1];
+
+        // Open the more actions menu and click 'Show Password'.
+        node.$.more.click();
+        checkPasswordSection.$.menuShowPassword.click();
+        await passwordManager.whenCalled('getPlaintextCompromisedPassword');
+
+        // Verify that password field didn't change
+        assertEquals('password', node.$.leakedPassword.type);
+        assertNotEquals('test4', node.$.leakedPassword.value);
+
+        passwordManager.plaintextPassword_ = 'test4';
+        passwordManager.resetResolver('getPlaintextCompromisedPassword');
+        node.tokenRequestManager.resolve();
+        await passwordManager.whenCalled('getPlaintextCompromisedPassword');
+
+        assertEquals('text', node.$.leakedPassword.type);
+        assertEquals('test4', node.$.leakedPassword.value);
+      });
+    }
   });
   // #cr_define_end
 });

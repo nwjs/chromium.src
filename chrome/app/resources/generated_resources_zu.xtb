@@ -473,6 +473,7 @@ I-<ph name="EXTENSION_NAME" /></translation>
 <translation id="1627408615528139100">Sekuvele kulandiwe</translation>
 <translation id="1629314197035607094">Iphasiwedi iphelelwe isikhathi</translation>
 <translation id="1630768113285622200">Qala kabusha uphinde uqhubeke</translation>
+<translation id="1630873818549593964">Idatha yengane yakho ekilasini izovikelwa. <ph name="LINK_BEGIN" />Funda kabanzi<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">Ikuvumela ukuthi ulungise ukulinganisela kwempinda yekhibhodi yakho, ukuqagelwa kwegama, nokuningi</translation>
 <translation id="1635033183663317347">Kufakwe umengameli wakho.</translation>
 <translation id="1637224376458524414">Thola le bhukhimakhi ku-iPhone yakho</translation>
@@ -3146,7 +3147,6 @@ Ungaphatha izilungiselelo zale akhawunti ngokufaka uhlelo lokusebenza lwe-Family
 <translation id="5204967432542742771">Faka iphasiwedi</translation>
 <translation id="5206215183583316675">Susa i-"<ph name="CERTIFICATE_NAME" />"?</translation>
 <translation id="520621735928254154">Iphutha Lokungenisa Isitifiketi</translation>
-<translation id="5209307736170827035">Idatha yengane yakho ekilasini izovikelwa. <ph name="LINK_BEGIN" />Funda kabanzi<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">Awekho amadivayisi atholiwe</translation>
 <translation id="5210990770352357081">Ayikwazanga ukukhipha i-Plugin VM</translation>
 <translation id="5213481667492808996">Isevisi yakho yedatha yakho '<ph name="NAME" />' ilungele ukusetshenziswa</translation>
@@ -3441,7 +3441,7 @@ Isibonelo, amanye amawebhusayithi angahle aphendule kulesi sicelo ngokukubonisa 
 <translation id="5584915726528712820"><ph name="BEGIN_PARAGRAPH1" />Lolu ulwazi oluvamile mayelana nedivayisi yakho nokuthi uyisebenzisa kanjani (njengeleveli yebhethri, umsebenzi wesistimu nohlelo lokusebenza, namaphutha). Idatha izosetshenziselwa ukuthuthukisa i-Android, nolunye ulwazi olubaliwe nalo luzosiza izinhlelo zokusebenza ze-Google nozakwethu, njengonjiniyela be-Android, ukwenza izinhlelo zabo zokusebenza nemikhiqizo ukuthi kubengcono.<ph name="END_PARAGRAPH1" />
     <ph name="BEGIN_PARAGRAPH2" />Ukuvala lesi sici akuthinti amandla edivayisi yakho okuthumela ulwazi oludingekayo kumasevisi abalulekile njengezibuyekezo zesistimu nokuphepha.<ph name="END_PARAGRAPH2" />
     <ph name="BEGIN_PARAGRAPH3" />Umnikazi angalawula lesi sici kusuka Kuzilungiselelo &gt; Okuthuthukile &gt; Thumela ngokuzenzakalelayo idatha yokuxilonga nokusebenzisa ku-Google.<ph name="END_PARAGRAPH3" />
-    <ph name="BEGIN_PARAGRAPH4" />Uma isilungiselelo sakho somsebenzi wewebhu nohlelo lokusebena sivuliwe, le datha ingalondolozwa ku-akhawunti yakho ye-Google. Ungabona idatha yakho, uyisuse, futhi ushintshe izilungiselelo zakho ze-akhawunti ku-account.google.com.<ph name="END_PARAGRAPH4" /></translation>
+    <ph name="BEGIN_PARAGRAPH4" />Uma isilungiselelo sakho somsebenzi wewebhu nohlelo lokusebenza sivuliwe, le datha ingalondolozwa ku-akhawunti yakho ye-Google. Ungabona idatha yakho, uyisuse, futhi ushintshe izilungiselelo zakho ze-akhawunti ku-account.google.com.<ph name="END_PARAGRAPH4" /></translation>
 <translation id="5585118885427931890">Ayikwazanga ukudala ifolda yebhukhimakhi.</translation>
 <translation id="558563010977877295">Vula ikhasi elithile noma isethi yamakhasi</translation>
 <translation id="5585912436068747822">Ukufometha kuhlulekile</translation>

@@ -1275,7 +1275,7 @@ RenderFrameHostManager::ShouldSwapBrowsingInstancesForNavigation(
     SiteInstanceImpl* source_instance,
     SiteInstanceImpl* current_instance,
     SiteInstance* destination_instance,
-    const GURL& destination_effective_url,
+    const GURL& destination_url,
     bool destination_is_view_source_mode,
     ui::PageTransition transition,
     bool is_failure,
@@ -1317,7 +1317,8 @@ RenderFrameHostManager::ShouldSwapBrowsingInstancesForNavigation(
   // the new URL will be rendered in a new SiteInstance AND BrowsingInstance.
   BrowserContext* browser_context =
       delegate_->GetControllerForRenderManager().GetBrowserContext();
-
+  const GURL& destination_effective_url =
+      SiteInstanceImpl::GetEffectiveURL(browser_context, destination_url);
   // Don't force a new BrowsingInstance for URLs that are handled in the
   // renderer process, like javascript: or debug URLs like chrome://crash.
   if (IsRendererDebugURL(destination_effective_url))
@@ -1414,13 +1415,12 @@ RenderFrameHostManager::ShouldSwapBrowsingInstancesForNavigation(
       is_failure && SiteIsolationPolicy::IsErrorPageIsolationEnabled(
                         frame_tree_node_->IsMainFrame());
   if (current_instance->HasSite() &&
-      !IsCurrentlySameSite(render_frame_host_.get(),
-                           destination_effective_url) &&
-      !CanUseSourceSiteInstance(destination_effective_url, source_instance,
+      !IsCurrentlySameSite(render_frame_host_.get(), destination_url) &&
+      !CanUseSourceSiteInstance(destination_url, source_instance,
                                 was_server_redirect, is_failure) &&
       !is_for_isolated_error_page &&
-      IsBrowsingInstanceSwapAllowedForPageTransition(
-          transition, destination_effective_url)) {
+      IsBrowsingInstanceSwapAllowedForPageTransition(transition,
+                                                     destination_url)) {
     return ShouldSwapBrowsingInstance::kYes_ForceSwap;
   }
 
@@ -1493,8 +1493,7 @@ RenderFrameHostManager::GetSiteInstanceForNavigation(
       ShouldSwapBrowsingInstancesForNavigation(
           current_effective_url, current_is_view_source_mode, source_instance,
           static_cast<SiteInstanceImpl*>(current_instance), dest_instance,
-          SiteInstanceImpl::GetEffectiveURL(browser_context, dest_url),
-          dest_is_view_source_mode, transition, is_failure, is_reload,
+          dest_url, dest_is_view_source_mode, transition, is_failure, is_reload,
           cross_origin_opener_policy_mismatch, was_server_redirect);
   bool proactive_swap =
       (should_swap_result == ShouldSwapBrowsingInstance::kYes_ProactiveSwap);

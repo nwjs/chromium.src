@@ -942,12 +942,12 @@ class TabListMediator {
         if (tabsList == null) {
             return true;
         }
-        Tab currentTab = mTabModelSelector.getCurrentTab();
-        if (currentTab == null) return false;
+
+        int currentTabId = mTabModelSelector.getCurrentTabId();
 
         for (int i = 0; i < tabsList.size(); i++) {
             addTabInfoToModel(
-                    tabsList.get(i), i, isSelectedTab(tabsList.get(i).getId(), currentTab.getId()));
+                    tabsList.get(i), i, isSelectedTab(tabsList.get(i).getId(), currentTabId));
         }
         return false;
     }

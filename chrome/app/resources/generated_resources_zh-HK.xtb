@@ -475,6 +475,7 @@
 <translation id="1627408615528139100">已下載</translation>
 <translation id="1629314197035607094">密碼已過期</translation>
 <translation id="1630768113285622200">重新啟動及繼續</translation>
+<translation id="1630873818549593964">我們將致力保護您子女的 Classroom 資料。<ph name="LINK_BEGIN" />瞭解詳情<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">讓您調整鍵盤的重複頻率和字詞預測等功能</translation>
 <translation id="1635033183663317347">已由監護人安裝</translation>
 <translation id="1637224376458524414">在 iPhone 上取得此書籤</translation>
@@ -3147,7 +3148,6 @@
 <translation id="5204967432542742771">輸入密碼</translation>
 <translation id="5206215183583316675">要刪除「<ph name="CERTIFICATE_NAME" />」嗎？</translation>
 <translation id="520621735928254154">憑證匯入錯誤</translation>
-<translation id="5209307736170827035">我們將致力保護您子女的 Classroom 資料。<ph name="LINK_BEGIN" />瞭解詳情<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">找不到裝置</translation>
 <translation id="5210990770352357081">無法解除安裝 Plugin VM</translation>
 <translation id="5213481667492808996">「<ph name="NAME" />」的數據服務現可使用</translation>
@@ -4107,7 +4107,7 @@
 <translation id="6473842110411557830">Powerwash 插圖</translation>
 <translation id="6474498546677193336">某個應用程式正在使用此資料夾，因此無法取消分享。系統會在下次關閉 Linux 時取消分享此資料夾。</translation>
 <translation id="6474884162850599008">中斷 Google Drive 帳戶連線</translation>
-<translation id="6475697075626596525"><ph name="APP_NAME" /> 要求分享您的螢幕內容，請選擇您要分享的內容。</translation>
+<translation id="6475697075626596525"><ph name="APP_NAME" /> 要求分享您的螢幕內容。請選擇要分享的內容。</translation>
 <translation id="6478248366783946499">要保留不安全的檔案嗎？</translation>
 <translation id="6483485061007832714">開啟下載檔案</translation>
 <translation id="6483805311199035658">正在開啟「<ph name="FILE" />」…</translation>
@@ -4320,7 +4320,7 @@
 <translation id="6790428901817661496">播放</translation>
 <translation id="6790497603648687708">已從遠端新增 <ph name="EXTENSION_NAME" /></translation>
 <translation id="6790820461102226165">新增使用者…</translation>
-<translation id="6792072150955115067">「<ph name="APP_NAME" />」要求與 <ph name="TARGET_NAME" /> 分享您的螢幕內容，請選擇您要分享的內容。</translation>
+<translation id="6792072150955115067"><ph name="APP_NAME" /> 要求與 <ph name="TARGET_NAME" /> 分享您的螢幕內容。請選擇要分享的內容。</translation>
 <translation id="6793604637258913070">當文字插入符號出現或移動時，突顯文字插入符號</translation>
 <translation id="6795884519221689054">熊貓</translation>
 <translation id="6797493596609571643">糟糕，發生錯誤。</translation>

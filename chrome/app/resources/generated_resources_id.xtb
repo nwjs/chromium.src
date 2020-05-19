@@ -475,6 +475,7 @@
 <translation id="1627408615528139100">Sudah didownload</translation>
 <translation id="1629314197035607094">Sandi kedaluwarsa</translation>
 <translation id="1630768113285622200">Mulai ulang dan lanjutkan</translation>
+<translation id="1630873818549593964">Data anak Anda di Classroom akan dilindungi. <ph name="LINK_BEGIN" />Pelajari lebih lanjut<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">Memungkinkan Anda menyesuaikan tingkat pengulangan keyboard, prediksi kata, dan lainnya</translation>
 <translation id="1635033183663317347">Dipasang oleh wali Anda.</translation>
 <translation id="1637224376458524414">Akses bookmark di iPhone</translation>
@@ -3147,7 +3148,6 @@ Anda dapat mengelola setelan akun ini dengan menginstal aplikasi Family Link di 
 <translation id="5204967432542742771">Masukkan sandi</translation>
 <translation id="5206215183583316675">Hapus "<ph name="CERTIFICATE_NAME" />"?</translation>
 <translation id="520621735928254154">Kesalahan Impor Sertifikat</translation>
-<translation id="5209307736170827035">Data anak Anda di Classroom akan dilindungi. <ph name="LINK_BEGIN" />Pelajari lebih lanjut<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">Perangkat tidak ditemukan</translation>
 <translation id="5210990770352357081">Tidak dapat meng-uninstal Plugin VM</translation>
 <translation id="5213481667492808996">Layanan data '<ph name="NAME" />' Anda sudah siap digunakan</translation>
@@ -4426,7 +4426,7 @@ Anda dapat mengelola setelan akun ini dengan menginstal aplikasi Family Link di 
 <translation id="6935286146439255109">Baki kertas tidak ada</translation>
 <translation id="693807610556624488">Operasi menulis melebihi panjang maksimum atribut ke: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="6938386202199793006">Anda memiliki 1 printer tersimpan.</translation>
-<translation id="6938789263968032501">Orang</translation>
+<translation id="6938789263968032501">Pengguna</translation>
 <translation id="6941937518557314510">Masuklah ke <ph name="TOKEN_NAME" /> untuk mengautentikasi ke <ph name="HOST_NAME" /> dengan sertifikat Anda.</translation>
 <translation id="6943176775188458830">Batalkan pencetakan</translation>
 <translation id="6943836128787782965">HTTP gagal</translation>
@@ -5737,7 +5737,7 @@ Simpan file kunci Anda di tempat yang aman. Anda akan membutuhkannya untuk membu
 <translation id="8658645149275195032"><ph name="APP_NAME" /> membagikan layar dan audio Anda dengan <ph name="TAB_NAME" />.</translation>
 <translation id="8661290697478713397">Buka Tautan di Jendela Penya&amp;maran</translation>
 <translation id="8662671328352114214">Bergabung dengan jaringan <ph name="TYPE" /></translation>
-<translation id="8662795692588422978">Orang</translation>
+<translation id="8662795692588422978">Pengguna</translation>
 <translation id="8662811608048051533">Membuat Anda logout dari sebagian besar situs.</translation>
 <translation id="8662911384982557515">Ubah halaman beranda Anda menjadi: <ph name="HOME_PAGE" /></translation>
 <translation id="8662978096466608964">Chrome tidak dapat menyetel wallpaper.</translation>

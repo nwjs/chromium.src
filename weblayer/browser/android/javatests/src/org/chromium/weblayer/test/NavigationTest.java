@@ -25,6 +25,7 @@ import org.chromium.content_public.browser.test.util.CriteriaHelper;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.net.test.util.TestWebServer;
 import org.chromium.weblayer.LoadError;
+import org.chromium.weblayer.NavigateParams;
 import org.chromium.weblayer.Navigation;
 import org.chromium.weblayer.NavigationCallback;
 import org.chromium.weblayer.NavigationController;
@@ -250,13 +251,30 @@ public class NavigationTest {
         InstrumentationActivity activity = mActivityTestRule.launchShellWithUrl(URL1);
         setNavigationCallback(activity);
 
-        navigateAndWaitForCompletion(
-                URL2, () -> activity.getTab().getNavigationController().replace(Uri.parse(URL2)));
+        final NavigateParams params =
+                new NavigateParams.Builder().setShouldReplaceCurrentEntry(true).build();
+        navigateAndWaitForCompletion(URL2,
+                ()
+                        -> activity.getTab().getNavigationController().navigate(
+                                Uri.parse(URL2), params));
         runOnUiThreadBlocking(() -> {
             NavigationController navigationController = activity.getTab().getNavigationController();
             assertFalse(navigationController.canGoForward());
             assertFalse(navigationController.canGoBack());
             assertEquals(1, navigationController.getNavigationListSize());
+        });
+
+        // Verify that a default NavigateParams does not replace.
+        final NavigateParams params2 = new NavigateParams();
+        navigateAndWaitForCompletion(URL3,
+                ()
+                        -> activity.getTab().getNavigationController().navigate(
+                                Uri.parse(URL3), params2));
+        runOnUiThreadBlocking(() -> {
+            NavigationController navigationController = activity.getTab().getNavigationController();
+            assertFalse(navigationController.canGoForward());
+            assertTrue(navigationController.canGoBack());
+            assertEquals(2, navigationController.getNavigationListSize());
         });
     }
 

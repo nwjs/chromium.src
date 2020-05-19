@@ -418,7 +418,7 @@
 <translation id="1555130319947370107">ਨੀਲਾ</translation>
 <translation id="1556537182262721003">ਐਕਸਟੈਂਸ਼ਨ ਡਾਇਰੈਕਟਰੀ 'ਚ ਪ੍ਰੋਫਾਈਲ ਦੀ ਹਲਚਲ ਨਹੀਂ ਕੀਤੀ ਜਾ ਸਕਦੀ।</translation>
 <translation id="155865706765934889">ਟਚਪੈਡ</translation>
-<translation id="1560763881671211335">'ਸਿੱਖਿਆ ਲਈ G Suite' ਪ੍ਰਸ਼ਾਸਕਾਂ ਵੱਲੋਂ ਇਹ ਨਿਰਧਾਰਿਤ ਕੀਤਾ ਜਾਂਦਾ ਹੈ ਕਿ G Suite ਵਿੱਚ ਸਿੱਖਿਆ ਖਾਤੇ ਲਈ ਸਾਈਨ-ਇਨ ਕਰਦੇ ਸਮੇਂ ਉਹਨਾਂ ਦੇ ਵਰਤੋਂਕਾਰ ਕਿਹੜੀਆਂ Google ਸੇਵਾਵਾਂ ਤੱਕ ਪਹੁੰਚ ਕਰ ਸਕਦੇ ਹਨ। ਸਕੂਲ ਪ੍ਰਸ਼ਾਸਕਾਂ ਨੂੰ ਉਹਨਾਂ ਦੇ ਨਾਬਾਲਗ ਵਰਤੋਂਕਾਰਾਂ ਵੱਲੋਂ ਸੇਵਾਵਾਂ ਦੀ ਵਰਤੋਂ ਲਈ ਸਹਿਮਤੀ ਮੁਹੱਈਆ ਕਰਵਾਉਣ ਜਾਂ ਪ੍ਰਾਪਤ ਕਰਨ ਦੀ ਲੋੜ ਹੁੰਦੀ ਹੈ।
+<translation id="1560763881671211335">'ਸਿੱਖਿਆ ਲਈ G Suite' ਪ੍ਰਸ਼ਾਸਕਾਂ ਵੱਲੋਂ ਇਹ ਨਿਰਧਾਰਿਤ ਕੀਤਾ ਜਾਂਦਾ ਹੈ ਕਿ 'ਸਿੱਖਿਆ ਲਈ G Suite' ਖਾਤੇ ਲਈ ਸਾਈਨ-ਇਨ ਹੋਣ 'ਤੇ ਉਹਨਾਂ ਦੇ ਵਰਤੋਂਕਾਰ ਕਿਹੜੀਆਂ Google ਸੇਵਾਵਾਂ ਤੱਕ ਪਹੁੰਚ ਕਰ ਸਕਦੇ ਹਨ। ਸਕੂਲ ਪ੍ਰਸ਼ਾਸਕਾਂ ਨੂੰ ਉਹਨਾਂ ਦੇ ਨਾਬਾਲਗ ਵਰਤੋਂਕਾਰਾਂ ਵੱਲੋਂ ਸੇਵਾਵਾਂ ਦੀ ਵਰਤੋਂ ਲਈ ਸਹਿਮਤੀ ਮੁਹੱਈਆ ਕਰਵਾਉਣ ਜਾਂ ਪ੍ਰਾਪਤ ਕਰਨ ਦੀ ਲੋੜ ਹੁੰਦੀ ਹੈ।
 
     ਬ੍ਰਾਊਜ਼ਿੰਗ ਡਾਟਾ (ਇਤਿਹਾਸ, ਬੁੱਕਮਾਰਕਾਂ ਅਤੇ ਪਾਸਵਰਡਾਂ ਸਮੇਤ) ਸਕੂਲ ਖਾਤੇ ਦੀ ਬਜਾਏ Family Link ਖਾਤੇ ਨਾਲ ਸਟੋਰ ਕੀਤਾ ਜਾਵੇਗਾ।
 
@@ -475,6 +475,7 @@
 <translation id="1627408615528139100">ਪਹਿਲਾਂ ਤੋਂ ਡਾਊਨਲੋਡ ਕੀਤੀ ਗਈ</translation>
 <translation id="1629314197035607094">ਪਾਸਵਰਡ ਦੀ ਮਿਆਦ ਮੁੱਕ ਗਈ</translation>
 <translation id="1630768113285622200">ਮੁੜ-ਸ਼ੁਰੂ ਕਰੋ ਅਤੇ ਜਾਰੀ ਰੱਖੋ</translation>
+<translation id="1630873818549593964">Classroom ਵਿੱਚ ਤੁਹਾਡੇ ਬੱਚੇ ਦੇ ਡਾਟੇ ਨੂੰ ਸੁਰੱਖਿਅਤ ਰੱਖਿਆ ਜਾਵੇਗਾ। <ph name="LINK_BEGIN" />ਹੋਰ ਜਾਣੋ<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">ਤੁਹਾਨੂੰ ਕੀ-ਬੋਰਡ ਦੀ ਦੁਹਰਾਉਣ ਦੀ ਗਤੀ, ਸ਼ਬਦ ਦਾ ਪੂਰਵ-ਅਨੁਮਾਨ, ਅਤੇ ਹੋਰ ਚੀਜ਼ਾਂ ਵਿਵਸਥਿਤ ਕਰਨ ਦੀ ਆਗਿਆ ਦਿੰਦੀਆਂ ਹਨ</translation>
 <translation id="1635033183663317347">ਤੁਹਾਡੇ ਨਿਗਰਾਨ ਵੱਲੋਂ ਸਥਾਪਿਤ ਕੀਤਾ ਗਿਆ।</translation>
 <translation id="1637224376458524414">ਆਪਣੇ iPhone 'ਤੇ ਇਹ ਬੁੱਕਮਾਰਕ ਪ੍ਰਾਪਤ ਕਰੋ</translation>
@@ -737,7 +738,7 @@
 <translation id="1965624977906726414">ਇਸ ਕੋਲ ਕੋਈ ਖ਼ਾਸ ਅਨੁਮਤੀਆਂ ਨਹੀਂ ਹਨ।</translation>
 <translation id="1969654639948595766">WebRTC ਲਿਖਤ ਲੌਗ (<ph name="WEBRTC_TEXT_LOG_COUNT" />)</translation>
 <translation id="1970368523891847084">ਵੀਡੀਓ ਮੋਡ ਵਿੱਚ ਦਾਖਲ ਹੋਏ</translation>
-<translation id="197288927597451399">ਰੱਖੋ</translation>
+<translation id="197288927597451399">Keep</translation>
 <translation id="1974043046396539880">CRL Distribution Points</translation>
 <translation id="1974060860693918893">ਉੱਨਤ</translation>
 <translation id="1974821797477522211">ਨੈੱਟਵਰਕ ਨਾਲ ਕਨੈਕਟ ਕਰੋ</translation>
@@ -2828,7 +2829,7 @@
 <translation id="4739639199548674512">ਟਿਕਟਾਂ</translation>
 <translation id="4743260470722568160"><ph name="BEGIN_LINK" />ਐਪਲੀਕੇਸ਼ਨਾਂ ਨੂੰ ਅੱਪਡੇਟ ਕਰਨ ਦਾ ਤਰੀਕਾ ਜਾਣੋ<ph name="END_LINK" /></translation>
 <translation id="4744981231093950366">{NUM_TABS,plural, =1{ਸਾਈਟ ਅਣਮਿਊਟ ਕਰੋ}one{ਸਾਈਟ ਅਣਮਿਊਟ ਕਰੋ}other{ਸਾਈਟਾਂ ਅਣਮਿਊਟ ਕਰੋ}}</translation>
-<translation id="4746351372139058112">ਸੁਨੇਹੇ</translation>
+<translation id="4746351372139058112">Messages</translation>
 <translation id="4750394297954878236">ਸੁਝਾਅ</translation>
 <translation id="475088594373173692">ਪਹਿਲਾ ਵਰਤੋਂਕਾਰ</translation>
 <translation id="4751476147751820511">ਗਤੀ ਜਾਂ ਰੋਸ਼ਨੀ ਦੇ ਸੈਂਸਰ</translation>
@@ -3147,7 +3148,6 @@
 <translation id="5204967432542742771">ਪਾਸਵਰਡ ਦਰਜ ਕਰੋ</translation>
 <translation id="5206215183583316675">ਕੀ "<ph name="CERTIFICATE_NAME" />" ਮਿਟਾਉਣਾ ਹੈ?</translation>
 <translation id="520621735928254154">ਪ੍ਰਮਾਣ-ਪੱਤਰ ਆਯਾਤ ਗੜਬੜ</translation>
-<translation id="5209307736170827035">Classroom ਵਿੱਚ ਤੁਹਾਡੇ ਬੱਚੇ ਦੇ ਡਾਟੇ ਨੂੰ ਸੁਰੱਖਿਅਤ ਰੱਖਿਆ ਜਾਵੇਗਾ। <ph name="LINK_BEGIN" />ਹੋਰ ਜਾਣੋ<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">ਕੋਈ ਡਿਵਾਈਸਾਂ ਨਹੀਂ ਮਿਲੀਆਂ</translation>
 <translation id="5210990770352357081">Plugin VM ਨੂੰ ਅਣਸਥਾਪਤ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਿਆ</translation>
 <translation id="5213481667492808996">ਤੁਹਾਡੀ '<ph name="NAME" />' ਡਾਟਾ ਸੇਵਾ ਵਰਤਣ ਲਈ ਤਿਆਰ ਹੈ</translation>
@@ -4653,7 +4653,7 @@
 <translation id="7235737137505019098">ਤੁਹਾਡੀ ਸੁਰੱਖਿਆ ਕੁੰਜੀ ਵਿੱਚ ਕਿਸੇ ਵੀ ਹੋਰ ਖਾਤੇ ਲਈ ਲੋੜੀਂਦੀ ਜਗ੍ਹਾ ਨਹੀਂ ਹੈ।</translation>
 <translation id="7238643356913091553"><ph name="NETWORK_NAME" />, ਵੇਰਵੇ</translation>
 <translation id="7240339475467890413">ਨਵੇਂ ਹੌਟਸਪੌਟ ਨਾਲ ਕਨੈਕਟ ਕਰੀਏ?</translation>
-<translation id="7240847845291869311">ਤੁਹਾਡਾ ਬੱਚਾ ਇਸ ਡੀਵਾਈਸ 'ਤੇ ਇੱਕ 'ਸਿੱਖਿਆ ਲਈ G Suite' Google ਖਾਤਾ ਸ਼ਾਮਲ ਕਰਨਾ ਚਾਹੁੰਦਾ ਹੈ। <ph name="LINK_BEGIN" />ਸਿੱਖਿਆ ਲਈ G Suite ਪਰਦੇਦਾਰੀ ਨੋਟਿਸ<ph name="LINK_END" /> ਦਾ ਮਤਲਬ 'ਸਿੱਖਿਆ ਲਈ G Suite' ਵਰਤੋਂਕਾਰਾਂ ਅਤੇ ਮਾਂ-ਪਿਓ ਨੂੰ ਇਹ ਸਮਝਾਉਣ ਵਿੱਚ ਮਦਦ ਕਰਨਾ ਹੈ ਕਿ ਉਤਪਾਦ ਵੱਲੋਂ ਕਿਹੜਾ ਡਾਟਾ ਇਕੱਤਰ ਕੀਤਾ ਜਾਂਦਾ ਹੈ, ਕਿਉਂ ਇਕੱਤਰ ਕੀਤਾ ਜਾਂਦਾ ਹੈ ਅਤੇ ਇਸ ਨਾਲ ਕੀ ਕੀਤਾ ਜਾਂਦਾ ਹੈ।</translation>
+<translation id="7240847845291869311">ਤੁਹਾਡਾ ਬੱਚਾ ਇਸ ਡੀਵਾਈਸ 'ਤੇ ਇੱਕ 'ਸਿੱਖਿਆ ਲਈ G Suite' Google ਖਾਤਾ ਸ਼ਾਮਲ ਕਰਨਾ ਚਾਹੁੰਦਾ ਹੈ। <ph name="LINK_BEGIN" />ਸਿੱਖਿਆ ਲਈ G Suite ਪਰਦੇਦਾਰੀ ਨੋਟਿਸ<ph name="LINK_END" /> ਦਾ ਉਦੇਸ਼ 'ਸਿੱਖਿਆ ਲਈ G Suite' ਵਰਤੋਂਕਾਰਾਂ ਅਤੇ ਮਾਂ-ਪਿਓ ਨੂੰ ਇਹ ਸਮਝਾਉਣ ਵਿੱਚ ਮਦਦ ਕਰਨਾ ਹੈ ਕਿ ਉਤਪਾਦ ਵੱਲੋਂ ਕਿਹੜਾ ਡਾਟਾ ਇਕੱਤਰ ਕੀਤਾ ਜਾਂਦਾ ਹੈ, ਕਿਉਂ ਇਕੱਤਰ ਕੀਤਾ ਜਾਂਦਾ ਹੈ ਅਤੇ ਇਸ ਨਾਲ ਕੀ ਕੀਤਾ ਜਾਂਦਾ ਹੈ।</translation>
 <translation id="7241389281993241388">ਕਿਰਪਾ ਕਰਕੇ ਕਲਾਈਂਟ ਪ੍ਰਮਾਣ-ਪੱਤਰ ਆਯਾਤ ਕਰਨ ਲਈ <ph name="TOKEN_NAME" /> 'ਤੇ ਸਾਈਨ-ਇਨ ਕਰੋ।</translation>
 <translation id="7241443820034350811">ਜੇ ਤੁਹਾਡੀ ਸੁਰੱਖਿਆ ਕੁੰਜੀ ਸੂਚੀਬੱਧ ਨਹੀਂ ਹੈ, ਤਾਂ ਇਸਦੇ ਬਟਨ ਨੂੰ ਘੱਟੋ-ਘੱਟ 5 ਸਕਿੰਟ ਲਈ ਦਬਾਓ।</translation>
 <translation id="7243632151880336635">ਸਾਫ਼ ਕਰੋ ਅਤੇ ਸਾਈਨ-ਆਊਟ ਕਰੋ</translation>

@@ -103,6 +103,7 @@ void WebFrameWidgetBase::Close() {
   client_ = nullptr;
   request_animation_after_delay_timer_.reset();
   widget_base_.reset();
+  receiver_.reset();
 }
 
 WebLocalFrame* WebFrameWidgetBase::LocalRoot() const {

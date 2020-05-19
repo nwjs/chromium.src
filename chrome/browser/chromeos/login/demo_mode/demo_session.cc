@@ -78,11 +78,6 @@ constexpr char kPhotosPath[] = "media/photos";
 // contains splash screen images.
 constexpr char kSplashScreensPath[] = "media/splash_screens";
 
-bool IsDemoModeOfflineEnrolled() {
-  DCHECK(DemoSession::IsDeviceInDemoMode());
-  return DemoSession::GetDemoConfig() == DemoSession::DemoModeConfig::kOffline;
-}
-
 // Returns the list of apps normally pinned by Demo Mode policy that shouldn't
 // be pinned if the device is offline.
 std::vector<std::string> GetIgnorePinPolicyApps() {
@@ -222,6 +217,12 @@ std::string DemoSession::DemoConfigToString(
 // static
 bool DemoSession::IsDeviceInDemoMode() {
   return GetDemoConfig() != DemoModeConfig::kNone;
+}
+
+// static
+bool DemoSession::IsDemoModeOfflineEnrolled() {
+  return DemoSession::IsDeviceInDemoMode() &&
+         DemoSession::GetDemoConfig() == DemoSession::DemoModeConfig::kOffline;
 }
 
 // static

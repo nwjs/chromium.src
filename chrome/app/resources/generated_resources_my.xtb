@@ -475,6 +475,7 @@
 <translation id="1627408615528139100">ဒေါင်းလုဒ်လုပ်ထားပြီးသား ဖြစ်ပါသည်</translation>
 <translation id="1629314197035607094">စကားဝှက် သက်တမ်းကုန်သွားပြီ</translation>
 <translation id="1630768113285622200">ပြန်လည်စတင်ပြီး ရှေ့ဆက်ရန်</translation>
+<translation id="1630873818549593964">Classroom ရှိ သင့်ကလေး၏ ဒေတာများကို ကာကွယ်ထားပါမည်။ <ph name="LINK_BEGIN" />ပိုမိုလေ့လာရန်<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">သင့်အား သင့်ကီးဘုတ်၏ ထပ်တလဲလဲဖော်ပြနှုန်း၊ စာလုံးခန့်မှန်းဖော်ပြမှုနှင့် အခြားအရာများစွာတို့ကို ပြင်ဆင်ခွင့်ပေးသည်</translation>
 <translation id="1635033183663317347">သင့်အုပ်ထိန်းသူမှ ထည့်သွင်းခဲ့သည်။</translation>
 <translation id="1637224376458524414">ဤဝဘ်လိပ်စာကို သင်၏ iPhone တွင် ရယူရန်</translation>
@@ -3149,7 +3150,6 @@
 <translation id="5204967432542742771">လျှို့ဝှက်စကားလုံး ရိုက်ထည့်</translation>
 <translation id="5206215183583316675">"<ph name="CERTIFICATE_NAME" />" ကို ဖျက်မလား။</translation>
 <translation id="520621735928254154">လက်မှတ် တင်သွင်းမှု အမှား</translation>
-<translation id="5209307736170827035">Classroom ရှိ ကလေး၏ ဒေတာများကို ကာကွယ်ထားပါမည်။ <ph name="LINK_BEGIN" />ပိုမိုလေ့လာရန်<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">ကိရိယာများ မတွေ့ရ</translation>
 <translation id="5210990770352357081">Plugin VM ကို ဖယ်ရှား၍မရပါ</translation>
 <translation id="5213481667492808996">သင်၏ '<ph name="NAME" />' ဒေတာ ဝန်ဆောင်မှုက အသုံးပြုရန် အသင့်ဖြစ်ပါပြီ</translation>

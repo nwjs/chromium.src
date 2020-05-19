@@ -314,6 +314,40 @@ class TabletModeController::DestroyObserver : public aura::WindowObserver {
   base::OnceCallback<void(void)> callback_;
 };
 
+// Used to hide the shelf view while screenshot for tablet mode animation is
+// taken.
+class TabletModeController::ScopedShelfHider {
+ public:
+  explicit ScopedShelfHider(aura::Window* root_window)
+      : root_window_(root_window) {
+    DCHECK(root_window->IsRootWindow());
+    auto* shelf_container =
+        root_window->GetChildById(kShellWindowId_ShelfContainer);
+
+    phantom_shelf_layer_ = wm::RecreateLayers(shelf_container);
+    ui::Layer* root = phantom_shelf_layer_->root();
+    root_window->layer()->Add(root);
+    root_window->layer()->StackAtTop(root);
+
+    shelf_container->layer()->SetOpacity(0.0f);
+  }
+  ~ScopedShelfHider() {
+    // Cancel if the root window is deleted while taking a screenshot.
+    if (!base::Contains(Shell::GetAllRootWindows(), root_window_))
+      return;
+
+    auto* shelf_container =
+        root_window_->GetChildById(kShellWindowId_ShelfContainer);
+    shelf_container->layer()->SetOpacity(1.0f);
+  }
+
+ private:
+  aura::Window* const root_window_;
+
+  // The layer that holds the clone of shelf layer while the shelf is hidden.
+  std::unique_ptr<ui::LayerTreeOwner> phantom_shelf_layer_;
+};
+
 constexpr char TabletModeController::kLidAngleHistogramName[];
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -554,6 +588,12 @@ void TabletModeController::OnAccelerometerUpdated(
   if (update->HasLidAngleDriver(ACCELEROMETER_SOURCE_SCREEN) ||
       update->HasLidAngleDriver(ACCELEROMETER_SOURCE_ATTACHED_KEYBOARD)) {
     ec_lid_angle_driver_present_ = true;
+    // Reset lid angle that might be calculated before lid angle driver is
+    // read.
+    lid_angle_ = 0.f;
+    can_detect_lid_angle_ = false;
+    if (record_lid_angle_timer_.IsRunning())
+      record_lid_angle_timer_.Stop();
     AccelerometerReader::GetInstance()->RemoveObserver(this);
     return;
   }
@@ -591,6 +631,13 @@ void TabletModeController::LidEventReceived(
     const base::TimeTicks& time) {
   VLOG(1) << "Lid event received: " << static_cast<int>(state);
   lid_is_closed_ = state != chromeos::PowerManagerClient::LidState::OPEN;
+  if (lid_is_closed_) {
+    // Reset |lid_angle_| to 0.f when lid is closed. The accelerometer readings
+    // can be wrong when lid is closed, e.g., it can report lid angle to be
+    // around 360 degrees when lid is nearly closed.
+    lid_angle_ = 0.f;
+  }
+
   if (!tablet_mode_behavior_.use_sensor)
     return;
 
@@ -659,6 +706,7 @@ void TabletModeController::OnInputDeviceConfigurationChanged(
 }
 
 void TabletModeController::OnDeviceListsComplete() {
+  initial_input_device_set_up_finished_ = true;
   HandlePointingDeviceAddedOrRemoved();
 }
 
@@ -829,6 +877,14 @@ void TabletModeController::HandleHingeRotation(
   if (tablet_mode_switch_is_on_)
     return;
 
+  // Do not calculate lid angle when lid is closed to prevent the device
+  // accidentally entering tablet mode. The angle calculated when lid is closed
+  // is not accurate (the angle between the base and the lid might be a minus
+  // value when lid is closed, and since we do adjustment for minus values, the
+  // angle might be in the same range as tablet mode angle range).
+  if (lid_is_closed_)
+    return;
+
   // Ignore the component of acceleration parallel to the hinge for the purposes
   // of hinge angle calculation.
   gfx::Vector3dF base_flattened(base_smoothed_);
@@ -928,6 +984,9 @@ TabletModeController::CurrentTabletModeIntervalType() {
 }
 
 void TabletModeController::HandlePointingDeviceAddedOrRemoved() {
+  if (!initial_input_device_set_up_finished_)
+    return;
+
   bool has_external_pointing_device = false;
   bool has_internal_pointing_device = false;
 
@@ -1054,6 +1113,7 @@ void TabletModeController::DeleteScreenshot() {
   screenshot_taken_callback_.Cancel();
   screenshot_set_callback_.Cancel();
   ResetDestroyObserver();
+  shelf_hider_.reset();
 }
 
 void TabletModeController::ResetDestroyObserver() {
@@ -1073,8 +1133,7 @@ void TabletModeController::TakeScreenshot(aura::Window* top_window) {
   base::OnceClosure callback = screenshot_set_callback_.callback();
 
   aura::Window* root_window = top_window->GetRootWindow();
-
-  UpdateShelfVisibilityForScreenshot(root_window, /*show=*/false);
+  shelf_hider_ = std::make_unique<ScopedShelfHider>(root_window);
 
   // Request a screenshot.
   screenshot_taken_callback_.Reset(base::BindOnce(
@@ -1099,11 +1158,11 @@ void TabletModeController::OnScreenshotTaken(
       destroy_observer_ ? destroy_observer_->window() : nullptr;
   ResetDestroyObserver();
 
+  shelf_hider_.reset();
+
   // Cancel if the root window is deleted while taking a screenshot.
   if (!base::Contains(Shell::GetAllRootWindows(), root_window))
     return;
-
-  UpdateShelfVisibilityForScreenshot(root_window, /*show=*/true);
 
   if (!copy_result || copy_result->IsEmpty() || !top_window) {
     std::move(on_screenshot_taken).Run();
@@ -1121,25 +1180,6 @@ void TabletModeController::OnScreenshotTaken(
   std::move(on_screenshot_taken).Run();
 }
 
-void TabletModeController::UpdateShelfVisibilityForScreenshot(
-    aura::Window* root_window,
-    bool show) {
-  DCHECK(root_window->IsRootWindow());
-  auto* shelf_container =
-      root_window->GetChildById(kShellWindowId_ShelfContainer);
-
-  if (show) {
-    phantom_shelf_layer_.reset();
-  } else {
-    phantom_shelf_layer_ = wm::RecreateLayers(shelf_container);
-    ui::Layer* root = phantom_shelf_layer_->root();
-    root_window->layer()->Add(root);
-    root_window->layer()->StackAtTop(root);
-  }
-
-  shelf_container->layer()->SetOpacity(show ? 1 : 0);
-}
-
 bool TabletModeController::CalculateIsInTabletPhysicalState() const {
   if (!HasActiveInternalDisplay())
     return false;
@@ -1154,10 +1194,10 @@ bool TabletModeController::CalculateIsInTabletPhysicalState() const {
   if (tablet_mode_switch_is_on_)
     return true;
 
-  if (!can_detect_lid_angle_)
+  if (lid_is_closed_)
     return false;
 
-  if (lid_is_closed_)
+  if (!can_detect_lid_angle_)
     return false;
 
   // Toggle tablet mode on or off when corresponding thresholds are passed.

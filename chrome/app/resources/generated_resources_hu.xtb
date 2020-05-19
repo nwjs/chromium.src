@@ -475,6 +475,7 @@
 <translation id="1627408615528139100">Már le lett töltve</translation>
 <translation id="1629314197035607094">A jelszó lejárt</translation>
 <translation id="1630768113285622200">Újraindítás és folytatás</translation>
+<translation id="1630873818549593964">Gyermeke Tanterem-adatai biztonságban lesznek. <ph name="LINK_BEGIN" />További információ<ph name="LINK_END" />.</translation>
 <translation id="1632803087685957583">Lehetővé teszi a billentyűzet ismétlési sebességére, a várható kifejezésekre stb. vonatkozó beállítások megadását.</translation>
 <translation id="1635033183663317347">A gondviselő telepítette.</translation>
 <translation id="1637224376458524414">Legyen meg ez a könyvjelző iPhone eszközén</translation>
@@ -656,7 +657,7 @@
 <translation id="1852141627593563189">Keressen kártékony szoftvereket</translation>
 <translation id="1852799913675865625">Hiba lépett fel a fájl olvasása közben: <ph name="ERROR_TEXT" />.</translation>
 <translation id="1853692000353488670">Új inkognitólap</translation>
-<translation id="1854180393107901205">Küldés leállítása</translation>
+<translation id="1854180393107901205">Átküldés leállítása</translation>
 <translation id="1856715684130786728">Hely hozzáadása...</translation>
 <translation id="1858585891038687145">Bízzon meg ebben a tanúsítványban a szoftvergyártók azonosításakor</translation>
 <translation id="1861262398884155592">Ez a mappa üres</translation>
@@ -3148,7 +3149,6 @@ Elindítja a következőt: <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation
 <translation id="5204967432542742771">Írja be a jelszót</translation>
 <translation id="5206215183583316675">Törli a következőt: „<ph name="CERTIFICATE_NAME" />”?</translation>
 <translation id="520621735928254154">Tanúsítványimportálási hiba</translation>
-<translation id="5209307736170827035">Gyermekének Tanterem szolgáltatásban megadott adatait megvédjük. <ph name="LINK_BEGIN" />További információ<ph name="LINK_END" />.</translation>
 <translation id="5209320130288484488">Nem találhatók eszközök</translation>
 <translation id="5210990770352357081">Nem sikerült a Plugin VM eltávolítása</translation>
 <translation id="5213481667492808996">„<ph name="NAME" />” adatszolgáltatása készen áll a használatra</translation>

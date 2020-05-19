@@ -4,6 +4,18 @@
   "Mac Builder": {
     "additional_compile_targets": [
       "pdf_fuzzers"
+    ],
+    "scripts": [
+      {
+        "name": "check_static_initializers",
+        "script": "check_static_initializers.py",
+        "swarming": {}
+      },
+      {
+        "name": "webkit_lint",
+        "script": "blink_lint_expectations.py",
+        "swarming": {}
+      }
     ]
   },
   "Mac Builder (dbg)": {
@@ -6794,18 +6806,6 @@
         },
         "test_target": "//ui/views:views_perftests"
       }
-    ],
-    "scripts": [
-      {
-        "name": "check_static_initializers",
-        "script": "check_static_initializers.py",
-        "swarming": {}
-      },
-      {
-        "name": "webkit_lint",
-        "script": "blink_lint_expectations.py",
-        "swarming": {}
-      }
     ]
   },
   "Mac10.13 Tests (dbg)": {
@@ -10268,20 +10268,6 @@
         },
         "test_target": "//ui/views:views_perftests"
       }
-    ],
-    "scripts": [
-      {
-        "isolate_coverage_data": true,
-        "name": "check_static_initializers",
-        "script": "check_static_initializers.py",
-        "swarming": {}
-      },
-      {
-        "isolate_coverage_data": true,
-        "name": "webkit_lint",
-        "script": "blink_lint_expectations.py",
-        "swarming": {}
-      }
     ]
   },
   "Mac10.14 Tests": {
@@ -12013,18 +11999,6 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test_target": "//ui/views:views_perftests"
-      }
-    ],
-    "scripts": [
-      {
-        "name": "check_static_initializers",
-        "script": "check_static_initializers.py",
-        "swarming": {}
-      },
-      {
-        "name": "webkit_lint",
-        "script": "blink_lint_expectations.py",
-        "swarming": {}
       }
     ]
   },

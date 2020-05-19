@@ -57,6 +57,11 @@ bool RealTimePolicyEngine::IsUrlLookupEnabledForEp() {
 }
 
 // static
+bool RealTimePolicyEngine::IsUrlLookupEnabledForEpWithToken() {
+  return base::FeatureList::IsEnabled(kRealTimeUrlLookupEnabledForEPWithToken);
+}
+
+// static
 bool RealTimePolicyEngine::IsUserMbbOptedIn(PrefService* pref_service) {
   return pref_service->GetBoolean(
       unified_consent::prefs::kUrlKeyedAnonymizedDataCollectionEnabled);
@@ -88,7 +93,8 @@ bool RealTimePolicyEngine::CanPerformFullURLLookupWithToken(
     return false;
   }
 
-  if (IsUrlLookupEnabledForEp() && IsUserEpOptedIn(pref_service))
+  if (IsUrlLookupEnabledForEp() && IsUserEpOptedIn(pref_service) &&
+      IsUrlLookupEnabledForEpWithToken())
     return true;
 
   if (!base::FeatureList::IsEnabled(kRealTimeUrlLookupEnabledWithToken)) {

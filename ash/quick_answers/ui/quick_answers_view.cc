@@ -6,6 +6,7 @@
 
 #include "ash/public/cpp/assistant/assistant_interface_binder.h"
 #include "ash/quick_answers/quick_answers_ui_controller.h"
+#include "ash/quick_answers/ui/quick_answers_pre_target_handler.h"
 #include "ash/resources/vector_icons/vector_icons.h"
 #include "ash/shell.h"
 #include "ash/strings/grit/ash_strings.h"
@@ -14,12 +15,12 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/paint_vector_icon.h"
 #include "ui/views/background.h"
+#include "ui/views/controls/button/button_controller.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/controls/menu/menu_config.h"
-#include "ui/views/event_monitor.h"
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/painter.h"
@@ -41,8 +42,9 @@ using views::View;
 constexpr int kMarginDip = 10;
 
 constexpr gfx::Insets kMainViewInsets(4, 0);
-constexpr gfx::Insets kContentViewInsets(8, 0, 8, 26);
+constexpr gfx::Insets kContentViewInsets(8, 0, 8, 16);
 constexpr float kHoverStateAlpha = 0.06f;
+constexpr int kMaxRows = 3;
 
 // Assistant icon.
 constexpr int kAssistantIconSizeDip = 16;
@@ -64,6 +66,12 @@ constexpr char kNetworkErrorStr[] = "Cannot connect to internet.";
 constexpr int kDogfoodButtonMarginDip = 4;
 constexpr int kDogfoodButtonSizeDip = 20;
 constexpr SkColor kDogfoodButtonColor = gfx::kGoogleGrey500;
+
+// Maximum height QuickAnswersView can expand to.
+int MaximumViewHeight() {
+  return kMainViewInsets.height() + kContentViewInsets.height() +
+         kMaxRows * kLineHeightDip + (kMaxRows - 1) * kLineSpacingDip;
+}
 
 // Adds |text_element| as label to the container.
 Label* AddTextElement(const QuickAnswerText& text_element, View* container) {
@@ -104,74 +112,6 @@ View* AddHorizontalUiElements(
 
 }  // namespace
 
-// QuickAnswersViewHandler ----------------------------------------------------
-
-// This class handles mouse events, and update background color or
-// dismiss quick answers view.
-class QuickAnswersViewHandler : public ui::EventHandler {
- public:
-  explicit QuickAnswersViewHandler(QuickAnswersView* quick_answers_view)
-      : quick_answers_view_(quick_answers_view) {
-    // QuickAnswersView is a companion view of a menu. Menu host widget
-    // sets mouse capture to receive all mouse events. Hence a pre-target
-    // handler is needed to process mouse events for QuickAnswersView.
-    Shell::Get()->AddPreTargetHandler(this);
-  }
-
-  ~QuickAnswersViewHandler() override {
-    Shell::Get()->RemovePreTargetHandler(this);
-  }
-
-  // Disallow copy and assign.
-  QuickAnswersViewHandler(const QuickAnswersViewHandler&) = delete;
-  QuickAnswersViewHandler& operator=(const QuickAnswersViewHandler&) = delete;
-
-  // ui::EventHandler:
-  void OnEvent(ui::Event* event) override {
-    if (!event->IsLocatedEvent())
-      return;
-
-    // Clone event and forward down the event-hierarchy.
-    ui::LocatedEvent* clone =
-        ui::Event::Clone(*event).release()->AsLocatedEvent();
-    ui::Event::DispatcherApi(clone).set_target(event->target());
-    DoDispatchEvent(quick_answers_view_, clone);
-
-    // Show tooltips.
-    auto* tooltip_manager =
-        quick_answers_view_->GetWidget()->GetTooltipManager();
-    if (tooltip_manager)
-      tooltip_manager->UpdateTooltip();
-
-    // Do not dismiss context menu for clicks inside the view.
-    auto location = clone->target()->GetScreenLocation(*clone);
-    if (quick_answers_view_->GetBoundsInScreen().Contains(location))
-      event->StopPropagation();
-  }
-
- private:
-  bool DoDispatchEvent(views::View* view, ui::LocatedEvent* event) {
-    if (event->handled())
-      return true;
-
-    // Convert |event| to local coordinates of |view|.
-    gfx::Point location = event->target()->GetScreenLocation(*event);
-    views::View::ConvertPointFromScreen(view, &location);
-    event->set_location(location);
-    ui::Event::DispatcherApi(event).set_target(view);
-
-    // Process event and dispatch on children recursively.
-    view->OnEvent(event);
-    for (auto* child : view->children()) {
-      if (DoDispatchEvent(child, event))
-        return true;
-    }
-    return false;
-  }
-
-  QuickAnswersView* const quick_answers_view_;
-};
-
 // QuickAnswersView -----------------------------------------------------------
 
 QuickAnswersView::QuickAnswersView(const gfx::Rect& anchor_view_bounds,
@@ -182,9 +122,13 @@ QuickAnswersView::QuickAnswersView(const gfx::Rect& anchor_view_bounds,
       controller_(controller),
       title_(title),
       quick_answers_view_handler_(
-          std::make_unique<QuickAnswersViewHandler>(this)) {
+          std::make_unique<QuickAnswersPreTargetHandler>(this)) {
   InitLayout();
   InitWidget();
+
+  // This is because waiting for mouse-release to fire buttons would be too
+  // late, since mouse-press dismisses the menu.
+  SetButtonNotifyActionToOnPress(this);
 
   // Allow tooltips to be shown despite menu-controller owning capture.
   GetWidget()->SetNativeWindowProperty(
@@ -235,6 +179,12 @@ void QuickAnswersView::ButtonPressed(views::Button* sender,
   }
 }
 
+void QuickAnswersView::SetButtonNotifyActionToOnPress(views::Button* button) {
+  DCHECK(button);
+  button->button_controller()->set_notify_action(
+      views::ButtonController::NotifyAction::kOnPress);
+}
+
 void QuickAnswersView::SendQuickAnswersQuery() {
   controller_->OnQuickAnswersViewPressed();
 }
@@ -259,7 +209,7 @@ void QuickAnswersView::ShowRetryView() {
   if (retry_label_)
     return;
 
-  content_view_->RemoveAllChildViews(true);
+  ResetContentView();
   main_view_->SetBackground(views::CreateSolidBackground(SK_ColorTRANSPARENT));
 
   // Add title.
@@ -277,6 +227,7 @@ void QuickAnswersView::ShowRetryView() {
       description_container->AddChildView(std::make_unique<views::LabelButton>(
           /*listener=*/this, base::UTF8ToUTF16(kDefaultRetryStr)));
   retry_label_->SetEnabledTextColors(gfx::kGoogleBlue600);
+  SetButtonNotifyActionToOnPress(retry_label_);
 }
 
 void QuickAnswersView::AddAssistantIcon() {
@@ -303,6 +254,7 @@ void QuickAnswersView::AddDogfoodButton() {
   dogfood_button->SetTooltipText(l10n_util::GetStringUTF16(
       IDS_ASH_QUICK_ANSWERS_DOGFOOD_BUTTON_TOOLTIP_TEXT));
   dogfood_button_ = dogfood_view->AddChildView(std::move(dogfood_button));
+  SetButtonNotifyActionToOnPress(dogfood_button_);
 }
 
 void QuickAnswersView::InitLayout() {
@@ -348,35 +300,71 @@ void QuickAnswersView::InitWidget() {
 }
 
 void QuickAnswersView::UpdateBounds() {
-  int height = GetHeightForWidth(anchor_view_bounds_.width());
+  int desired_width = anchor_view_bounds_.width();
+
+  // Multi-line labels need to be resized to be compatible with |desired_width|.
+  if (first_answer_label_) {
+    int label_desired_width =
+        desired_width - kMainViewInsets.width() - kContentViewInsets.width() -
+        kAssistantIconInsets.width() - kAssistantIconSizeDip;
+    first_answer_label_->SizeToFit(label_desired_width);
+  }
+
+  int height = GetHeightForWidth(desired_width);
   int y = anchor_view_bounds_.y() - kMarginDip - height;
-  if (y < display::Screen::GetScreen()
-              ->GetDisplayMatching(anchor_view_bounds_)
-              .bounds()
-              .y()) {
+
+  // Reserve space at the top since the view might expand for two-line answers.
+  int y_min = anchor_view_bounds_.y() - kMarginDip - MaximumViewHeight();
+  if (y_min < display::Screen::GetScreen()
+                  ->GetDisplayMatching(anchor_view_bounds_)
+                  .bounds()
+                  .y()) {
     // The Quick Answers view will be off screen if showing above the anchor.
     // Show below the anchor instead.
     y = anchor_view_bounds_.bottom() + kMarginDip;
   }
 
-  GetWidget()->SetBounds(gfx::Rect(anchor_view_bounds_.x(), y,
-                                   anchor_view_bounds_.width(), height));
+  GetWidget()->SetBounds(
+      gfx::Rect(anchor_view_bounds_.x(), y, desired_width, height));
 }
 
 void QuickAnswersView::UpdateQuickAnswerResult(
     const QuickAnswer& quick_answer) {
-  content_view_->RemoveAllChildViews(true);
+  ResetContentView();
 
   // Add title.
   AddHorizontalUiElements(quick_answer.title, content_view_);
 
   // Add first row answer.
-  if (quick_answer.first_answer_row.size() > 0)
-    AddHorizontalUiElements(quick_answer.first_answer_row, content_view_);
+  View* first_answer_view = nullptr;
+  if (!quick_answer.first_answer_row.empty()) {
+    first_answer_view =
+        AddHorizontalUiElements(quick_answer.first_answer_row, content_view_);
+  }
 
   // Add second row answer.
-  if (quick_answer.second_answer_row.size() > 0)
+  if (!quick_answer.second_answer_row.empty()) {
     AddHorizontalUiElements(quick_answer.second_answer_row, content_view_);
+  } else {
+    // If secondary-answer does not exist and primary-answer is a single label,
+    // allow that label to wrap through to the row intended for the former.
+    bool only_one_label_answer =
+        (first_answer_view->children().size() == 1 &&
+         first_answer_view->children().front()->GetClassName() ==
+             views::Label::kViewClassName);
+    if (only_one_label_answer) {
+      // Cache multi-line label for resizing when view bounds change.
+      first_answer_label_ =
+          static_cast<Label*>(first_answer_view->children().front());
+      first_answer_label_->SetMultiLine(true);
+      first_answer_label_->SetMaxLines(kMaxRows - /*exclude title*/ 1);
+    }
+  }
+}
+
+void QuickAnswersView::ResetContentView() {
+  content_view_->RemoveAllChildViews(true);
+  first_answer_label_ = nullptr;
 }
 
 }  // namespace ash

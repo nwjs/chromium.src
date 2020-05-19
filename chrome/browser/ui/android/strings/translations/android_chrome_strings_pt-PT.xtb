@@ -164,7 +164,7 @@ Toque em qualquer palavra para pesquisar. Para refinar a sua pesquisa, tocar sem
 <translation id="2131665479022868825"><ph name="DATA" /> guardado(s)</translation>
 <translation id="213279576345780926"><ph name="TAB_TITLE" /> fechado</translation>
 <translation id="2139186145475833000">Adicionar ao ecrã principal</translation>
-<translation id="2146738493024040262">Abrir aplicação instantânea</translation>
+<translation id="2146738493024040262">Abrir app instantânea</translation>
 <translation id="2154484045852737596">Editar cartão</translation>
 <translation id="2154710561487035718">Copiar URL</translation>
 <translation id="2156074688469523661">Sites restantes (<ph name="NUMBER_OF_SITES" />)</translation>
@@ -177,7 +177,7 @@ Toque em qualquer palavra para pesquisar. Para refinar a sua pesquisa, tocar sem
 <translation id="2234876718134438132">Sincronização e serviços Google</translation>
 <translation id="2259659629660284697">Exportar palavras-passe</translation>
 <translation id="2268044343513325586">Refinar</translation>
-<translation id="2286841657746966508">Endereço de facturação</translation>
+<translation id="2286841657746966508">Endereço de faturação</translation>
 <translation id="2289270750774289114">Perguntar quando um site pretende detetar dispositivos Bluetooth próximos (recomendado)</translation>
 <translation id="230115972905494466">Não foram encontrados dispositivos compatíveis.</translation>
 <translation id="2315043854645842844">O sistema operativo não suporta a seleção do certificado do lado do cliente.</translation>
@@ -307,7 +307,7 @@ Toque sem soltar em qualquer palavra para pesquisar. Para refinar a sua pesquisa
 <translation id="3211426585530211793"><ph name="ITEM_TITLE" /> eliminado</translation>
 <translation id="321773570071367578">Se se esquecer da frase de acesso ou pretender alterar esta definição, <ph name="BEGIN_LINK" />reponha a sincronização<ph name="END_LINK" /></translation>
 <translation id="3227137524299004712">Microfone</translation>
-<translation id="3232754137068452469">Aplicação Web</translation>
+<translation id="3232754137068452469">App Web</translation>
 <translation id="3236059992281584593">Falta 1 minuto</translation>
 <translation id="3244271242291266297">MM</translation>
 <translation id="3254409185687681395">Marcar esta página</translation>
@@ -472,7 +472,7 @@ Aquilo que a câmara vê apenas é visível para si. Este site não pode ver as 
 <translation id="447252321002412580">Ajudar a melhorar as funcionalidades e o desempenho do Chrome</translation>
 <translation id="4479647676395637221">Perguntar antes de permitir que os sites utilizem a câmara (recomendado)</translation>
 <translation id="4479972344484327217">A instalar o módulo <ph name="MODULE" /> para o Chrome…</translation>
-<translation id="4487967297491345095">Todos os dados de aplicações do Chrome são eliminados permanentemente, incluindo todos os ficheiros, definições, contas, bases de dados, etc.</translation>
+<translation id="4487967297491345095">Todos os dados de apps do Chrome são eliminados permanentemente, incluindo todos os ficheiros, definições, contas, bases de dados, etc.</translation>
 <translation id="4493497663118223949">O Modo Lite está ativado.</translation>
 <translation id="4513387527876475750">{DAYS,plural, =1{Há # dia}other{Há # dias}}</translation>
 <translation id="451872707440238414">Pesquisar os marcadores</translation>
@@ -563,7 +563,7 @@ Para alterar esta definição, <ph name="BEGIN_LINK" />reponha a sincronização
 <translation id="510275257476243843">Falta 1 hora</translation>
 <translation id="5123685120097942451">Separador de navegação anónima</translation>
 <translation id="5127805178023152808">A sincronização está desativada</translation>
-<translation id="5129038482087801250">Instalar aplicação Web</translation>
+<translation id="5129038482087801250">Instalar app Web</translation>
 <translation id="5132942445612118989">Sincronize as suas palavras-passe, o histórico e muito mais em todos os dispositivos</translation>
 <translation id="5139940364318403933">Saiba como utilizar o Google Drive</translation>
 <translation id="515227803646670480">Limpar dados armazenados</translation>

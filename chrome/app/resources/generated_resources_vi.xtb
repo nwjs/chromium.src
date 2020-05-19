@@ -475,6 +475,7 @@
 <translation id="1627408615528139100">Đã tải xuống</translation>
 <translation id="1629314197035607094">Mật khẩu đã hết hạn</translation>
 <translation id="1630768113285622200">Khởi động lại và tiếp tục</translation>
+<translation id="1630873818549593964">Dữ liệu của con bạn trong Lớp học sẽ được bảo vệ. <ph name="LINK_BEGIN" />Tìm hiểu thêm<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">Cho phép bạn điều chỉnh tốc độ lặp lại, tính năng dự đoán từ và các chức năng khác của bàn phím</translation>
 <translation id="1635033183663317347">Do người giám hộ của bạn cài đặt.</translation>
 <translation id="1637224376458524414">Truy cập dấu trang này trên iPhone của bạn</translation>
@@ -2596,7 +2597,7 @@ Bạn có thể quản lý các tùy chọn cài đặt của tài khoản này 
 <translation id="4414232939543644979">Cửa sổ ẩn &amp;danh mới</translation>
 <translation id="4415213869328311284">Bạn đã có thể bắt đầu sử dụng <ph name="DEVICE_TYPE" /> của mình.</translation>
 <translation id="4415245286584082850">Không tìm thấy thiết bị nào. Hãy mở một bài viết trong trung tâm trợ giúp trên một tab mới.</translation>
-<translation id="4415276339145661267">Quản lý Tài khoản Google của bạn</translation>
+<translation id="4415276339145661267">Quản lý Tài khoản Google</translation>
 <translation id="4415748029120993980">Đường cong elip SECG secp384r1 (aka NIST P-384)</translation>
 <translation id="4416582610654027550">Nhập một URL hợp lệ</translation>
 <translation id="4419409365248380979">Luôn cho phép <ph name="HOST" /> đặt cookie</translation>
@@ -3149,7 +3150,6 @@ Bạn có thể quản lý các tùy chọn cài đặt của tài khoản này 
 <translation id="5204967432542742771">Nhập mật khẩu</translation>
 <translation id="5206215183583316675">Xóa "<ph name="CERTIFICATE_NAME" />"?</translation>
 <translation id="520621735928254154">Lỗi nhập chứng chỉ</translation>
-<translation id="5209307736170827035">Dữ liệu của con bạn trong Lớp học sẽ được bảo vệ. <ph name="LINK_BEGIN" />Tìm hiểu thêm<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">Không tìm thấy thiết bị nào</translation>
 <translation id="5210990770352357081">Không thể gỡ cài đặt Plugin VM</translation>
 <translation id="5213481667492808996">Dịch vụ dữ liệu '<ph name="NAME" />' đã sẵn sàng cho bạn sử dụng</translation>
@@ -6177,7 +6177,7 @@ Giữ tệp khóa của bạn ở nơi an toàn. Bạn sẽ cần tệp khóa đ
 <translation id="930268624053534560">Dấu thời gian chi tiết</translation>
 <translation id="932327136139879170">Trang chủ</translation>
 <translation id="932508678520956232">Không thể chạy in.</translation>
-<translation id="93343527085570547">Truy cập vào <ph name="BEGIN_LINK1" />trang Trợ giúp pháp lý<ph name="END_LINK1" /> để yêu cầu thay đổi nội dung vì lý do pháp lý.  Một số thông tin về tài khoản và hệ thống có thể được gửi đến Google.  Chúng tôi sẽ dùng thông tin bạn cung cấp để xử lý các sự cố kỹ thuật cũng như cải thiện dịch vụ theo <ph name="BEGIN_LINK2" />Chính sách quyền riêng tư<ph name="END_LINK2" /> và <ph name="BEGIN_LINK3" />Điều khoản dịch vụ<ph name="END_LINK3" /> của chúng tôi.</translation>
+<translation id="93343527085570547">Nếu bạn muốn yêu cầu thay đổi nội dung vì lý do pháp lý, hãy truy cập <ph name="BEGIN_LINK1" />trang Trợ giúp pháp lý<ph name="END_LINK1" />. Một số thông tin về tài khoản và hệ thống có thể được gửi đến Google. Chúng tôi sẽ dùng thông tin bạn cung cấp để xử lý các sự cố kỹ thuật cũng như cải thiện dịch vụ theo <ph name="BEGIN_LINK2" />Chính sách quyền riêng tư<ph name="END_LINK2" /> và <ph name="BEGIN_LINK3" />Điều khoản dịch vụ<ph name="END_LINK3" /> của chúng tôi.</translation>
 <translation id="93393615658292258">Chỉ mật khẩu</translation>
 <translation id="934244546219308557">Đặt tên cho nhóm này</translation>
 <translation id="934503638756687833">Các mục không liệt kê ở đây cũng có thể bị xóa, nếu cần. Hãy tìm hiểu thêm về cách &lt;a href="<ph name="URL" />"&gt;bảo vệ khỏi phần mềm không mong muốn&lt;/a&gt; trong sách trắng về bảo mật của Chrome.</translation>

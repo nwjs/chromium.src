@@ -475,6 +475,7 @@
 <translation id="1627408615528139100">Že preneseno</translation>
 <translation id="1629314197035607094">Geslo je poteklo</translation>
 <translation id="1630768113285622200">Znova zaženi in nadaljuj</translation>
+<translation id="1630873818549593964">Podatki vašega otroka v učilnici bodo zaščiteni. <ph name="LINK_BEGIN" />Več o tem<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">Omogoča prilagajanje hitrosti ponavljanja za tipkovnico, predvidevanja besed in drugega</translation>
 <translation id="1635033183663317347">Namestil skrbnik</translation>
 <translation id="1637224376458524414">Prejemanje tega zaznamka v iPhonu</translation>
@@ -3149,7 +3150,6 @@ Nastavitve tega računa je mogoče upravljati z namestitvijo aplikacije Family L
 <translation id="5204967432542742771">Vnesite geslo</translation>
 <translation id="5206215183583316675">Želite izbrisati »<ph name="CERTIFICATE_NAME" />«?</translation>
 <translation id="520621735928254154">Napaka pri uvozu potrdila</translation>
-<translation id="5209307736170827035">Podatki otroka v Učilnici bodo zaščiteni. <ph name="LINK_BEGIN" />Več o tem<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">Najti ni mogoče nobene naprave</translation>
 <translation id="5210990770352357081">Vtičnika Plugin VM ni bilo mogoče odmestiti</translation>
 <translation id="5213481667492808996">Podatkovno storitev omrežja »<ph name="NAME" />« lahko začnete uporabljati</translation>
@@ -4111,7 +4111,7 @@ Poskrbite, da ne boste razkrili morebitnih občutljivih podatkov.</translation>
 <translation id="6473842110411557830">Slika funkcije Powerwash</translation>
 <translation id="6474498546677193336">Skupne rabe mape ni bilo mogoče preklicati, ker jo uporablja določena aplikacija. Skupna raba mape bo preklicana ob naslednji zaustavitvi Linuxa.</translation>
 <translation id="6474884162850599008">Prekinitev povezave z računom za Google Drive</translation>
-<translation id="6475697075626596525">Aplikacija <ph name="APP_NAME" /> želi deliti vsebine vašega zaslona z drugimi. Izberite, kaj želite deliti.</translation>
+<translation id="6475697075626596525">Aplikacija <ph name="APP_NAME" /> želi deliti vsebino vašega zaslona z drugimi. Izberite, kaj želite deliti.</translation>
 <translation id="6478248366783946499">Želite obdržati nevarno datoteko?</translation>
 <translation id="6483485061007832714">Odpiranje prenosa</translation>
 <translation id="6483805311199035658">Odpiranje datoteke <ph name="FILE" /> ...</translation>
@@ -5960,7 +5960,7 @@ Datoteko s ključem shranite na varnem. Potrebovali jo boste za izdelavo novih r
 <translation id="8909833622202089127">Spletno mesto spremlja vašo lokacijo</translation>
 <translation id="8910146161325739742">Skupna raba zaslona</translation>
 <translation id="8910222113987937043">Spremembe zaznamkov, zgodovine, gesel in drugih nastavitev se ne bodo več sinhronizirale z Google Računom. Vaši obstoječi podatki bodo kljub temu še naprej shranjeni v Google Računu in jih bo mogoče upravljati na <ph name="BEGIN_LINK" />Google Nadzorni plošči<ph name="END_LINK" />.</translation>
-<translation id="8912362522468806198">Google Račun</translation>
+<translation id="8912362522468806198">Račun Google</translation>
 <translation id="8912793549644936705">Raztegni</translation>
 <translation id="8912810933860534797">Omogočanje samodejnega iskanja</translation>
 <translation id="8915370057835397490">Nalaganje predloga</translation>

@@ -475,6 +475,7 @@
 <translation id="1627408615528139100">Zaten indirildi</translation>
 <translation id="1629314197035607094">Şifrenin süresi doldu</translation>
 <translation id="1630768113285622200">Yeniden başlat ve devam et</translation>
+<translation id="1630873818549593964">Çocuğunuzun Classroom'daki verileri korunur. <ph name="LINK_BEGIN" />Daha fazla bilgi<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">Klavyenizin yineleme hızı, kelime tahmini ve daha birçok özelliği ayarlamanıza olanak tanır</translation>
 <translation id="1635033183663317347">Gözetmeniniz tarafından yüklendi.</translation>
 <translation id="1637224376458524414">Bu yer işaretini iPhone'unuzda alın</translation>
@@ -3149,7 +3150,6 @@ Sunucunun mesajı: <ph name="SERVER_MSG" /></translation>
 <translation id="5204967432542742771">Şifre girin</translation>
 <translation id="5206215183583316675">"<ph name="CERTIFICATE_NAME" />" adlı sertifika silinsin mi?</translation>
 <translation id="520621735928254154">Sertifika İçe Aktarma Hatası</translation>
-<translation id="5209307736170827035">Çocuğunuzun Classroom'daki verileri korunacak. <ph name="LINK_BEGIN" />Daha fazla bilgi<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">Cihaz bulunamadı</translation>
 <translation id="5210990770352357081">Plugin VM kaldırılamadı</translation>
 <translation id="5213481667492808996">"<ph name="NAME" />" veri hizmetiniz kullanıma hazır</translation>

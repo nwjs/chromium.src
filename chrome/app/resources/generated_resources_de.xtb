@@ -472,6 +472,7 @@
 <translation id="1627408615528139100">Bereits heruntergeladen</translation>
 <translation id="1629314197035607094">Passwort abgelaufen</translation>
 <translation id="1630768113285622200">Neu starten und fortfahren</translation>
+<translation id="1630873818549593964">Die Daten Ihres Kindes in Classroom sind geschützt. <ph name="LINK_BEGIN" />Weitere Informationen<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">Ermöglicht die Anpassung der Wiederholungsrate, Wortvervollständigung und mehr für die Tastatur</translation>
 <translation id="1635033183663317347">Von deinem Erziehungsberechtigten installiert</translation>
 <translation id="1637224376458524414">Dieses Lesezeichen auf dem iPhone abrufen</translation>
@@ -652,7 +653,7 @@
 <translation id="1850508293116537636">Im &amp;Uhrzeigersinn drehen</translation>
 <translation id="1852141627593563189">Schädliche Software finden</translation>
 <translation id="1852799913675865625">Beim Versuch, die Datei <ph name="ERROR_TEXT" /> zu lesen, ist ein Fehler aufgetreten.</translation>
-<translation id="1853692000353488670">Neuer Inkognito-Tab</translation>
+<translation id="1853692000353488670">Neuer Inkognitotab</translation>
 <translation id="1854180393107901205">Übertragung beenden</translation>
 <translation id="1856715684130786728">Speicherort hinzufügen...</translation>
 <translation id="1858585891038687145">Diesem Zertifikat zur Identifizierung von Softwareherstellern vertrauen</translation>
@@ -888,7 +889,7 @@ Wenn Sie die Family Link App auf Ihrem Gerät installieren, können Sie die Eins
 <translation id="2175042898143291048">Immer so verfahren</translation>
 <translation id="2175607476662778685">Schnellstartleiste</translation>
 <translation id="217576141146192373">Drucker kann nicht hinzugefügt werden. Prüfen Sie bitte die Konfiguration des Druckers und versuchen Sie es noch einmal.</translation>
-<translation id="2177950615300672361">Inkognito-Tab: <ph name="TAB_NAME" /></translation>
+<translation id="2177950615300672361">Inkognitotab: <ph name="TAB_NAME" /></translation>
 <translation id="2178098616815594724">Das Plug-in <ph name="PEPPER_PLUGIN_NAME" /> auf <ph name="PEPPER_PLUGIN_DOMAIN" /> möchte auf Ihren Computer zugreifen</translation>
 <translation id="2178614541317717477">Kompromittierung der Zertifizierungsstelle</translation>
 <translation id="2182058453334755893">In die Zwischenablage kopiert</translation>
@@ -3145,7 +3146,6 @@ Möchten Sie <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
 <translation id="5204967432542742771">Passwort eingeben</translation>
 <translation id="5206215183583316675">"<ph name="CERTIFICATE_NAME" />" löschen?</translation>
 <translation id="520621735928254154">Fehler beim Importieren des Zertifikats</translation>
-<translation id="5209307736170827035">Die Daten Ihres Kindes in Classroom sind geschützt. <ph name="LINK_BEGIN" />Weitere Informationen<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">Keine Geräte gefunden</translation>
 <translation id="5210990770352357081">Plugin VM konnte nicht deinstalliert werden</translation>
 <translation id="5213481667492808996">Der "<ph name="NAME" />"-Datendienst kann nun verwendet werden</translation>
@@ -4005,7 +4005,7 @@ Möchten Sie <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
 <translation id="6340071272923955280">Internet Printing Protocol (IPPS)</translation>
 <translation id="6340526405444716530">Personalisierung</translation>
 <translation id="6341850831632289108">Ihren physischen Standort ermitteln</translation>
-<translation id="6342069812937806050">Abgeschlossen</translation>
+<translation id="6342069812937806050">Gerade eben</translation>
 <translation id="6344170822609224263">Auf Liste der Netzwerkverbindungen zugreifen</translation>
 <translation id="6349101878882523185"><ph name="APP_NAME" /> installieren</translation>
 <translation id="6349170655202535379">Die Synchronisierung funktioniert nicht. Melden Sie sich ab und dann wieder an.</translation>

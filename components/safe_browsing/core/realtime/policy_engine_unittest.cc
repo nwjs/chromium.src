@@ -178,6 +178,32 @@ TEST_F(RealTimePolicyEngineTest,
 }
 
 TEST_F(RealTimePolicyEngineTest,
+       TestCanPerformFullURLLookup_RTLookupForEpEnabled_WithTokenDisabled) {
+  syncer::TestSyncService sync_service;
+  pref_service_.SetBoolean(prefs::kSafeBrowsingEnhanced, true);
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitWithFeatures(
+        /* enabled_features */ {kEnhancedProtection,
+                                kRealTimeUrlLookupEnabledForEP},
+        /* disabled_features */ {});
+    EXPECT_TRUE(CanPerformFullURLLookup(/* is_off_the_record */ false));
+    EXPECT_TRUE(CanPerformFullURLLookupWithToken(
+        /* is_off_the_record */ false, &sync_service));
+  }
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitWithFeatures(
+        /* enabled_features */ {kEnhancedProtection,
+                                kRealTimeUrlLookupEnabledForEP},
+        /* disabled_features */ {kRealTimeUrlLookupEnabledForEPWithToken});
+    EXPECT_TRUE(CanPerformFullURLLookup(/* is_off_the_record */ false));
+    EXPECT_FALSE(CanPerformFullURLLookupWithToken(
+        /* is_off_the_record */ false, &sync_service));
+  }
+}
+
+TEST_F(RealTimePolicyEngineTest,
        TestCanPerformFullURLLookup_NonEpUsersEnabledWhenRTLookupForEpDisabled) {
   base::test::ScopedFeatureList feature_list;
 #if defined(OS_ANDROID)

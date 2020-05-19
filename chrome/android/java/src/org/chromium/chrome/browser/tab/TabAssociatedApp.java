@@ -38,7 +38,7 @@ public final class TabAssociatedApp extends TabWebContentsUserData implements Im
         tab.addObserver(new EmptyTabObserver() {
             @Override
             public void onInitialized(Tab tab, TabState tabState) {
-                if (tabState != null) setAppId(tabState.openerAppId);
+                if (tabState != null && tabState.openerAppId != null) setAppId(tabState.openerAppId);
             }
 
             @Override

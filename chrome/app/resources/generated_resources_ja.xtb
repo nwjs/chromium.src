@@ -475,6 +475,7 @@
 <translation id="1627408615528139100">ダウンロード済み</translation>
 <translation id="1629314197035607094">パスワードの有効期限が切れています</translation>
 <translation id="1630768113285622200">再起動して続行</translation>
+<translation id="1630873818549593964">Classroom 内のお子様のデータは保護されます。<ph name="LINK_BEGIN" />詳細<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">キーボードのリピート間隔、後続語予測などを設定できます</translation>
 <translation id="1635033183663317347">管理責任者によってインストールされています。</translation>
 <translation id="1637224376458524414">このブックマークは iPhone でも使用できます</translation>
@@ -3149,7 +3150,6 @@
 <translation id="5204967432542742771">パスワードを入力</translation>
 <translation id="5206215183583316675">「<ph name="CERTIFICATE_NAME" />」を削除しますか？</translation>
 <translation id="520621735928254154">証明書のインポート エラー</translation>
-<translation id="5209307736170827035">お子様の Classroom のデータは保護されます。<ph name="LINK_BEGIN" />詳細<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">デバイスが見つかりませんでした</translation>
 <translation id="5210990770352357081">Plugin VM をアンインストールできませんでした</translation>
 <translation id="5213481667492808996">「<ph name="NAME" />」データサービスを使用できるようになりました</translation>

@@ -472,6 +472,7 @@
 <translation id="1627408615528139100">Файлът вече е изтеглен</translation>
 <translation id="1629314197035607094">Паролата е изтекла</translation>
 <translation id="1630768113285622200">Рестартиране и продължаване</translation>
+<translation id="1630873818549593964">Данните на детето ви в Classroom ще бъдат защитени. <ph name="LINK_BEGIN" />Научете повече<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">Позволява ви да коригирате честотата на повтаряне за клавиатурата, функцията за предвиждане на думи и др.</translation>
 <translation id="1635033183663317347">Инсталирано от контролиращия потребител.</translation>
 <translation id="1637224376458524414">Получете тази отметка на своя iPhone</translation>
@@ -3148,7 +3149,6 @@
 <translation id="5204967432542742771">Въведете парола</translation>
 <translation id="5206215183583316675">Да се изтрие ли „<ph name="CERTIFICATE_NAME" />“?</translation>
 <translation id="520621735928254154">Грешка при импортирането на сертификата</translation>
-<translation id="5209307736170827035">Данните на детето ви в Classroom ще бъдат защитени. <ph name="LINK_BEGIN" />Научете повече<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">Няма намерени устройства</translation>
 <translation id="5210990770352357081">Приставката Plugin VM не бе деинсталирана</translation>
 <translation id="5213481667492808996">Услугата ви за данни „<ph name="NAME" />“ е готова за използване</translation>

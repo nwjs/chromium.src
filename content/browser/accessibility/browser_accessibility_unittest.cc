@@ -652,6 +652,9 @@ TEST_F(BrowserAccessibilityTest, GetInnerTextRangeBoundsRectScrolledWindow) {
           test_browser_accessibility_delegate_.get(),
           new BrowserAccessibilityFactory()));
 
+  browser_accessibility_manager
+      ->SetUseRootScrollOffsetsWhenComputingBoundsForTesting(true);
+
   BrowserAccessibility* root_accessible =
       browser_accessibility_manager->GetRoot();
   ASSERT_NE(nullptr, root_accessible);

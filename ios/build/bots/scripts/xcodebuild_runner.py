@@ -199,9 +199,14 @@ class LaunchCommand(object):
                                              os.path.dirname(self.out_dir))
       self.test_results['attempts'].append(
           self._log_parser.collect_test_results(outdir_attempt, output))
-      if self.retries == attempt or not self.test_results[
-          'attempts'][-1]['failed']:
+
+      # Do not exit here when no failed test from parsed log and parallel
+      # testing is enabled (shards > 1), because when one of the shards fails
+      # before tests start , the tests not run don't appear in log at all.
+      if (self.retries == attempt or
+          (shards == 1 and not self.test_results['attempts'][-1]['failed'])):
         break
+
       # Exclude passed tests in next test attempt.
       self.egtests_app.excluded_tests += self.test_results['attempts'][-1][
           'passed']
@@ -417,7 +422,7 @@ class SimulatorParallelTestRunner(test_runner.SimulatorTestRunner):
         # 'aborted tests' in logs is an array of strings, each string defined
         # as "{TestCase}/{testMethod}"
         for test in self.logs['aborted tests']:
-          output.mark_aborted(test)
+          output.mark_timeout(test)
 
         for test in attempt_results['passed']:
           output.mark_passed(test)

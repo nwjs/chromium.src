@@ -1445,7 +1445,7 @@ void AwContents::DidFinishNavigation(
   // We do not call OnReceivedError for requests that were blocked due to an
   // interstitial showing. OnReceivedError is handled directly by the blocking
   // page for interstitials.
-  if (base::FeatureList::IsEnabled(safe_browsing::kCommittedSBInterstitials)) {
+  if (web_contents_ && base::FeatureList::IsEnabled(safe_browsing::kCommittedSBInterstitials)) {
     security_interstitials::SecurityInterstitialTabHelper*
         security_interstitial_tab_helper = security_interstitials::
             SecurityInterstitialTabHelper::FromWebContents(web_contents_.get());

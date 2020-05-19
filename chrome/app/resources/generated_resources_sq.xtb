@@ -415,7 +415,7 @@
 <translation id="1555130319947370107">E kaltër</translation>
 <translation id="1556537182262721003">Direktoria e shtesës nuk mund të zhvendoset te profili.</translation>
 <translation id="155865706765934889">Blloku me prekje</translation>
-<translation id="1560763881671211335">Administratorët e "G Suite për arsimin" përcaktojnë se te cilat shërbime të Google mund të qasen përdoruesit e tyre ndërkohë që janë identifikuar në një llogari "G Suite për arsimin". Administratorëve të shkollave u kërkohet të japin ose të marrin miratimin për përdorimin e shërbimeve nga përdoruesit e tyre të mitur.
+<translation id="1560763881671211335">Administratorët e "G Suite për edukimin" përcaktojnë se te cilat shërbime të Google mund të qasen përdoruesit e tyre ndërkohë që janë identifikuar në një llogari të "G Suite për edukimin". Administratorëve të shkollave u kërkohet të japin ose të marrin miratimin për përdorimin e shërbimeve nga përdoruesit e tyre të mitur.
 
     Të dhënat e shfletimit (duke përfshirë historikun, faqeshënuesit dhe fjalëkalimet) do të ruhen me llogarinë e Family Link dhe jo me llogarinë e shkollës.
 
@@ -472,6 +472,7 @@
 <translation id="1627408615528139100">Është shkarkuar tashmë</translation>
 <translation id="1629314197035607094">Fjalëkalimi ka skaduar</translation>
 <translation id="1630768113285622200">Rinis dhe vazhdo</translation>
+<translation id="1630873818549593964">Të dhënat e fëmijës tënd te Classroom do të jenë të mbrojtura. <ph name="LINK_BEGIN" />Mëso më shumë<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">Të lejon të personalizosh shpejtësinë e përsëritjes të tastierës, parashikimin e fjalëve dhe më shumë</translation>
 <translation id="1635033183663317347">Instaluar nga kujdestari yt.</translation>
 <translation id="1637224376458524414">Merre këtë faqeshënues në telefonin tënd iPhone</translation>
@@ -1340,7 +1341,7 @@ Cilësimet e kësaj llogarie mund t'i menaxhosh duke instaluar aplikacionin Fami
 <translation id="2749881179542288782">Kontrollo gramatikën me drejtshkrimin</translation>
 <translation id="2751739896257479635">Vërtetimi EAP i fazës 2</translation>
 <translation id="2753677631968972007">Kontrollo në mënyrë manuale lejet e sajtit.</translation>
-<translation id="2755367719610958252">Menaxho funksionet e qasshmërisë</translation>
+<translation id="2755367719610958252">Menaxho veçoritë e qasshmërisë</translation>
 <translation id="275662540872599901">ekrani joaktiv</translation>
 <translation id="2757338480560142065">Sigurohu që fjalëkalimi që po ruan përputhet me fjalëkalimin tënd për <ph name="WEBSITE" />.</translation>
 <translation id="2762441749940182211">Kamera është bllokuar</translation>
@@ -3146,7 +3147,6 @@ Cilësimet e kësaj llogarie mund t'i menaxhosh duke instaluar aplikacionin Fami
 <translation id="5204967432542742771">Fut fjalëkalimin</translation>
 <translation id="5206215183583316675">Të fshihet "<ph name="CERTIFICATE_NAME" />"?</translation>
 <translation id="520621735928254154">Gabim në importimin e certifikatës</translation>
-<translation id="5209307736170827035">Të dhënat e fëmijës tënd te Classroom do të jenë të mbrojtura. <ph name="LINK_BEGIN" />Mëso më shumë<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">Nuk u gjet asnjë pajisje</translation>
 <translation id="5210990770352357081">Plugin VM nuk mund të çinstalohej</translation>
 <translation id="5213481667492808996">Shërbimi yt i të dhënave të "<ph name="NAME" />" është gati për përdorim</translation>
@@ -3800,7 +3800,7 @@ Cilësimet e kësaj llogarie mund t'i menaxhosh duke instaluar aplikacionin Fami
 <translation id="6071181508177083058">konfirmo fjalëkalimin</translation>
 <translation id="6071576563962215370">Sistemi nuk arriti të vendoste kyçjen e atributeve për kohën e instalimit të pajisjes.</translation>
 <translation id="6073451960410192870">Ndalo regjistrimin</translation>
-<translation id="6073903501322152803">Shto funksione të qasshmërisë</translation>
+<translation id="6073903501322152803">Shto veçori të qasshmërisë</translation>
 <translation id="6075731018162044558">Mos! Sistemi nuk arriti të mbante një kod afatgjatë të qasjes së API-së për këtë pajisje.</translation>
 <translation id="6075907793831890935">Shkëmbe të dhëna me pajisjen me emrin <ph name="HOSTNAME" /></translation>
 <translation id="6076175485108489240">Përdor vendndodhjen. Lejo që aplikacionet dhe shërbimet me autorizim për vendndodhje të përdorin vendndodhjen e pajisjes sate. Google mund të mbledhë në mënyrë periodike të dhëna të vendndodhjes dhe t'i përdorë ato në mënyrë anonime për të përmirësuar saktësinë e vendndodhjes dhe shërbimet e bazuara te vendndodhja. <ph name="BEGIN_LINK1" />Mëso më shumë<ph name="END_LINK1" /></translation>
@@ -4652,7 +4652,7 @@ Cilësimet e kësaj llogarie mund t'i menaxhosh duke instaluar aplikacionin Fami
 <translation id="7235737137505019098">Çelësi yt i sigurisë nuk ka hapësirë të mjaftueshme për llogari të mëtejshme.</translation>
 <translation id="7238643356913091553"><ph name="NETWORK_NAME" />, detaje</translation>
 <translation id="7240339475467890413">Do të lidhesh me një zonë të re të qasjes në internet?</translation>
-<translation id="7240847845291869311">Fëmija yt do që të shtojë një "Llogari të Google G Suite për edukimin" te kjo pajisje. <ph name="LINK_BEGIN" />Njoftimi i privatësisë së "G Suite për edukimin"<ph name="LINK_END" /> ka për qëllim të ndihmojë përdoruesit e "G Suite për edukimin" dhe prindërit të kuptojnë se çfarë të dhënash produkti grumbullohen, pse grumbullohen dhe çfarë bëhet me to.</translation>
+<translation id="7240847845291869311">Fëmija yt do që të shtojë një "Llogari të Google" për "G Suite për edukimin" te kjo pajisje. <ph name="LINK_BEGIN" />Njoftimi i privatësisë së "G Suite për edukimin"<ph name="LINK_END" /> ka për qëllim të ndihmojë përdoruesit e "G Suite për edukimin" dhe prindërit të kuptojnë se çfarë të dhënash grumbullon produkti, pse grumbullohen dhe çfarë bëhet me to.</translation>
 <translation id="7241389281993241388">Identifikohu te <ph name="TOKEN_NAME" /> për të importuar certifikatën e klientit.</translation>
 <translation id="7241443820034350811">Nëse çelësi yt i sigurisë nuk është listuar, shtyp butonin e tij për të paktën 5 sekonda.</translation>
 <translation id="7243632151880336635">Pastro dhe dil</translation>
@@ -5236,7 +5236,7 @@ Cilësimet e kësaj llogarie mund t'i menaxhosh duke instaluar aplikacionin Fami
 <translation id="7985283639530788531">Dëshiron të përdorësh Touch ID me <ph name="APP_NAME" /> në modalitetin "I fshehtë"?</translation>
 <translation id="7986295104073916105">Lexo dhe ndrysho cilësimet e fjalëkalimeve të ruajtura</translation>
 <translation id="7987814697832569482">Lidhu gjithmonë nëpërmjet këtij rrjeti VPN</translation>
-<translation id="7988355189918024273">Aktivizo funksionet e qasshmërisë</translation>
+<translation id="7988355189918024273">Aktivizo veçoritë e qasshmërisë</translation>
 <translation id="7991296728590311172">Cilësimet e "Qasjes me çelës"</translation>
 <translation id="7994350303002908848">Plugin VM nuk mund të instalohej. Provo përsëri ose kontakto me administratorin e pajisjes së organizatës. Kodi i gabimit <ph name="ERROR_CODE" />.</translation>
 <translation id="7994702968232966508">Metoda EAP</translation>
@@ -5997,7 +5997,7 @@ Mbaje skedarin e çelësit tënd në një vend të sigurt. Do të të duhet për
 <translation id="89720367119469899">Largohu</translation>
 <translation id="8972513834460200407">Kontrollo me administratorin e rrjetit tënd për t'u siguruar se muri mbrojtës nuk po bllokon shkarkimet nga serverët e Google.</translation>
 <translation id="8973557916016709913">Hiq nivelin e zmadhimit</translation>
-<translation id="8973596347849323817">Mund ta personalizosh këtë pajisje për t'iu përshtatur nevojave të tua. Këto funksione të qasjes mund të ndryshohen më vonë te "Cilësimet".</translation>
+<translation id="8973596347849323817">Mund ta personalizosh këtë pajisje për t'iu përshtatur nevojave të tua. Këto veçori të qasshmërisë mund të ndryshohen më vonë te "Cilësimet".</translation>
 <translation id="897414447285476047">Skedari i destinacionit ishte i paplotë për shkak të një problemi me lidhjen.</translation>
 <translation id="897525204902889653">Shërbimi i karantinës</translation>
 <translation id="8975562453115131273">{NUM_OTHER_TABS,plural, =0{"<ph name="TAB_TITLE" />"}=1{"<ph name="TAB_TITLE" />" dhe 1 skedë tjetër}other{"<ph name="TAB_TITLE" />" dhe # skeda të tjera}}</translation>

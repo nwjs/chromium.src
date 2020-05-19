@@ -1163,6 +1163,10 @@ message PromptProto {
   // like go_back do not shut down autofill assistant.
   // TODO(marianfe): Consider introducing a BrowseAction instead.
   optional bool browse_mode = 7;
+
+  // A list of domains and subdomains to allow users to navigate to when in
+  // browse mode.
+  repeated string browse_domains_whitelist = 9;
 }
 
 message ContactDetailsProto {
@@ -1344,7 +1348,7 @@ message PopupListSectionProto {
 
 // Asks to provide the data used by UseAddressAction and
 // UseCreditCardAction.
-// Next: 31
+// Next: 32
 message CollectUserDataProto {
   enum TermsAndConditionsState {
     // No choice has been made yet.
@@ -1421,8 +1425,10 @@ message CollectUserDataProto {
   // Backend-configured user interface to show below
   // |additional_appended_sections|.
   optional GenericUserInterfaceProto generic_user_interface_appended = 25;
-  // Text to be shown in a separate info section.
+  // Optional. Text to be shown in a separate info section.
   optional string info_section_text = 24;
+  // Optional. If true the text in the info section will be centered.
+  optional bool info_section_text_center = 31;
   // Optional. If specified, the continue button will only be enabled if the
   // boolean at this location is true (and everything else is valid too).
   optional string additional_model_identifier_to_check = 27;

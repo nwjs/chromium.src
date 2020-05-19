@@ -475,6 +475,7 @@
 <translation id="1627408615528139100">ఇప్పటికే డౌన్‌లోడ్ చేయబడింది</translation>
 <translation id="1629314197035607094">పాస్‌వర్డ్ గడువు ముగిసింది</translation>
 <translation id="1630768113285622200">రీస్టార్ట్ చేసి, కొనసాగించు</translation>
+<translation id="1630873818549593964">తరగతిలోని మీ చిన్నారి డేటా రక్షించబడుతుంది. <ph name="LINK_BEGIN" />మరింత తెలుసుకోండి<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">మీ కీబోర్డ్ పునరావృత రేటు, పద సూచన మొదలైనవి సర్దుబాటు చేయడానికి మిమ్మల్ని అనుమతిస్తుంది</translation>
 <translation id="1635033183663317347">మీ పర్యవేక్షకుడు ఇన్‌స్టాల్ చేసారు.</translation>
 <translation id="1637224376458524414">ఈ బుక్‌మార్క్‌ను మీ iPhoneలో పొందండి</translation>
@@ -722,7 +723,7 @@
 <translation id="1936931585862840749">ఎన్ని కాపీలను ప్రింట్ చేయాలో సూచించడానికి సంఖ్యను (1 నుండి <ph name="MAX_COPIES" />) ఉపయోగించండి.</translation>
 <translation id="1937774647013465102"><ph name="ARCHITECTURE_DEVICE" /> అయిన ఈ పరికరంతో <ph name="ARCHITECTURE_CONTAINER" /> రకమైన కంటెయినర్ ఆర్కిటెక్చర్‌ను దిగుమతి చేయడం సాధ్యపడదు. మీరు ఈ కంటెయినర్‌ను వేరే పరికరంలోకి పునరుద్ధరించడం ప్రయత్నించవచ్చు లేదా ఈ కంటెయినర్ చిత్రంలోని ఫైల్‌లను "ఫైల్స్ యాప్"లో తెరవడం ద్వారా యాక్సెస్ చేయవచ్చు.</translation>
 <translation id="1938351510777341717">బాహ్య ఆదేశం</translation>
-<translation id="1940546824932169984">కనెక్ట్ చేయబడిన పరికరాలు</translation>
+<translation id="1940546824932169984">కనెక్ట్ చేయబడిన డివైజ్‌లు</translation>
 <translation id="1942600407708803723">కవర్ మూసి ఉన్నప్పుడు షట్ డౌన్ స్థితికి వెళ్లు</translation>
 <translation id="1944528062465413897">బ్లూటూత్ పెయిరింగ్ కోడ్:</translation>
 <translation id="1944921356641260203">అప్‌డేట్ కనుగొనబడింది</translation>
@@ -2830,7 +2831,7 @@
 <translation id="4739639199548674512">టిక్కెట్‌లు</translation>
 <translation id="4743260470722568160"><ph name="BEGIN_LINK" />అప్లికేషన్‌లను ఎలా అప్‌డేట్ చేయాలో తెలుసుకోండి<ph name="END_LINK" /></translation>
 <translation id="4744981231093950366">{NUM_TABS,plural, =1{సైట్‌ను అన్‌మ్యూట్ చేయి}other{సైట్‌లను అన్‌మ్యూట్ చేయి}}</translation>
-<translation id="4746351372139058112">సందేశాలు</translation>
+<translation id="4746351372139058112">Messages</translation>
 <translation id="4750394297954878236">సూచనలు</translation>
 <translation id="475088594373173692">మొదటి వినియోగదారు</translation>
 <translation id="4751476147751820511">కదలిక లేదా కాంతి సెన్సార్‌లు</translation>
@@ -3149,7 +3150,6 @@
 <translation id="5204967432542742771">పాస్‌వర్డ్‌ని నమోదు చేయండి</translation>
 <translation id="5206215183583316675">"<ph name="CERTIFICATE_NAME" />"ని తొలగించాలా?</translation>
 <translation id="520621735928254154">ప్రమాణపత్ర దిగుమతి లోపం</translation>
-<translation id="5209307736170827035">తరగతిలోని మీ చిన్నారి డేటా రక్షించబడుతుంది. <ph name="LINK_BEGIN" />మరింత తెలుసుకోండి<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">పరికరాలు కనుగొనబడలేదు</translation>
 <translation id="5210990770352357081">Plugin VMను అన్‌ఇన్‌స్టాల్ చేయడం సాధ్యం కాలేదు</translation>
 <translation id="5213481667492808996">మీ '<ph name="NAME" />' డేటా సేవ ఉపయోగించడానికి సిద్ధంగా ఉంది</translation>
@@ -3856,7 +3856,7 @@
 <translation id="6129938384427316298">Netscape సర్టిఫికెట్ వ్యాఖ్య</translation>
 <translation id="6129953537138746214">ఖాళీ</translation>
 <translation id="6136114942382973861">డౌన్‌లోడ్‌ల బార్‌ను మూసివేయండి</translation>
-<translation id="6137767437444130246">వినియోగదారు సర్టిఫికెట్</translation>
+<translation id="6137767437444130246">యూజర్ సర్టిఫికెట్</translation>
 <translation id="6138680304137685902">SHA-384తో X9.62 ECDSA సంతకం</translation>
 <translation id="6138894911715675297"><ph name="NETWORK_TYPE" />, నెట్‌వర్క్ లేదు</translation>
 <translation id="6141988275892716286">డౌన్‌లోడ్‌ను నిర్ధారించండి</translation>

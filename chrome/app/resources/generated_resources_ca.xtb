@@ -420,7 +420,7 @@
 <translation id="155865706765934889">Ratolí tàctil</translation>
 <translation id="1560763881671211335">Els administradors de G Suite for Education determinen a quins serveis de Google poden accedir els usuaris mentre tenen la sessió iniciada en un compte d'aquest producte. Els administradors dels centres educatius han de proporcionar o obtenir consentiment perquè els usuaris menors d'edat puguin utilitzar els serveis.
 
-    Les dades de navegació (inclosos l'historial, les adreces d'interès i les contrasenyes) no s'emmagatzemaran amb el compte de centre educatiu, sinó amb el de Family Link.
+    Les dades de navegació (inclosos l'historial, les adreces d'interès i les contrasenyes) no s'emmagatzemaran amb el compte del centre educatiu, sinó amb el de Family Link.
 
     La configuració parental de Family Link es continuarà aplicant. Si anteriorment has bloquejat una aplicació o un lloc web, no ho hauràs de tornar a fer.</translation>
 <translation id="1564414980088536597">Aquesta imatge no es pot utilitzar. Tria'n una altra.</translation>
@@ -475,6 +475,7 @@
 <translation id="1627408615528139100">Ja s'ha baixat</translation>
 <translation id="1629314197035607094">La contrasenya ha caducat</translation>
 <translation id="1630768113285622200">Reinicia i continua</translation>
+<translation id="1630873818549593964">Les dades que el teu fill té a Classroom es protegiran. <ph name="LINK_BEGIN" />Més informació<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">Permet ajustar la freqüència de repetició del teclat, la predicció de paraules i molt més</translation>
 <translation id="1635033183663317347">Extensió instal·lada pel tutor.</translation>
 <translation id="1637224376458524414">Accedeix a aquesta adreça d'interès des del teu iPhone</translation>
@@ -2505,7 +2506,7 @@ en almenys <ph name="INSTALL_SIZE" /> d'espai lliure. Per alliberar espai, supri
 <translation id="4275830172053184480">Reinici del dispositiu</translation>
 <translation id="4278101229438943600">L'Assistent està a punt</translation>
 <translation id="4278390842282768270">Permès</translation>
-<translation id="4281844954008187215">Termes i condicions</translation>
+<translation id="4281844954008187215">Condicions del servei</translation>
 <translation id="4282196459431406533">Smart Lock està activat</translation>
 <translation id="4285418559658561636">Actualitza la contrasenya</translation>
 <translation id="4285498937028063278">No fixis</translation>
@@ -3146,7 +3147,6 @@ en almenys <ph name="INSTALL_SIZE" /> d'espai lliure. Per alliberar espai, supri
 <translation id="5204967432542742771">Escriviu la contrasenya</translation>
 <translation id="5206215183583316675">Vols suprimir "<ph name="CERTIFICATE_NAME" />"?</translation>
 <translation id="520621735928254154">S'ha produït un error en importar el certificat</translation>
-<translation id="5209307736170827035">Les dades del teu fill a Classroom estaran protegides. <ph name="LINK_BEGIN" />Més informació<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">No s'ha trobat cap dispositiu</translation>
 <translation id="5210990770352357081">No s'ha pogut desinstal·lar Plugin VM</translation>
 <translation id="5213481667492808996">Ja pots utilitzar el servei de dades <ph name="NAME" /></translation>
@@ -3417,7 +3417,7 @@ en almenys <ph name="INSTALL_SIZE" /> d'espai lliure. Per alliberar espai, supri
 <translation id="5554489410841842733">Aquesta icona serà visible quan les extensions puguin actuar a la pàgina actual.</translation>
 <translation id="5554720593229208774">Correu electrònic de l'entitat emissora de certificats</translation>
 <translation id="5556459405103347317">Torna a carregar</translation>
-<translation id="5557991081552967863">No desactivis la Wi-Fi durant el repòs</translation>
+<translation id="5557991081552967863">No desactivis la Wi-Fi en repòs</translation>
 <translation id="5558125320634132440">Aquest lloc web s'ha bloquejat perquè pot tenir contingut no apte per a menors</translation>
 <translation id="5558129378926964177">&amp;Amplia</translation>
 <translation id="55601339223879446">Ajusta els límits de l'escriptori dins de la pantalla</translation>

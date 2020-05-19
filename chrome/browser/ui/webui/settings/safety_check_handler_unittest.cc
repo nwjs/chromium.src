@@ -21,6 +21,7 @@
 #include "chrome/browser/extensions/api/passwords_private/test_passwords_private_delegate.h"
 #include "chrome/browser/extensions/test_extension_service.h"
 #include "chrome/browser/ui/webui/help/test_version_updater.h"
+#include "chrome/common/channel_info.h"
 #include "chrome/common/extensions/api/passwords_private.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "components/crx_file/id_util.h"
@@ -29,6 +30,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
+#include "components/version_info/version_info.h"
 #include "content/public/test/test_web_ui.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/common/extension.h"
@@ -387,19 +389,22 @@ TEST_F(SafetyCheckHandlerTest, CheckUpdates_Relaunch) {
 TEST_F(SafetyCheckHandlerTest, CheckUpdates_Disabled) {
   version_updater_->SetReturnedStatus(VersionUpdater::Status::DISABLED);
   safety_check_->PerformSafetyCheck();
+  // TODO(crbug/1072432): Since the UNKNOWN state is not present in JS in M83,
+  // use FAILED_OFFLINE, which uses the same icon.
   const base::DictionaryValue* event =
       GetSafetyCheckStatusChangedWithDataIfExists(
           kUpdates,
-          static_cast<int>(SafetyCheckHandler::UpdateStatus::kFailed));
+          static_cast<int>(SafetyCheckHandler::UpdateStatus::kFailedOffline));
   ASSERT_TRUE(event);
   VerifyDisplayString(
-      event,
-      "Browser didn't update, something went wrong. <a target=\"_blank\" "
-      "href=\"https://support.google.com/chrome?p=fix_chrome_updates\">Fix "
-      "Browser update problems and failed updates.</a>");
-  histogram_tester_.ExpectBucketCount("Settings.SafetyCheck.UpdatesResult",
-                                      SafetyCheckHandler::UpdateStatus::kFailed,
-                                      1);
+      event, "Version " + version_info::GetVersionNumber() + " (" +
+                 (version_info::IsOfficialBuild() ? "Official Build"
+                                                  : "Developer Build") +
+                 ") " + chrome::GetChannelName() +
+                 (sizeof(void*) == 8 ? " (64-bit)" : " (32-bit)"));
+  histogram_tester_.ExpectBucketCount(
+      "Settings.SafetyCheck.UpdatesResult",
+      SafetyCheckHandler::UpdateStatus::kUnknown, 1);
 }
 
 TEST_F(SafetyCheckHandlerTest, CheckUpdates_DisabledByAdmin) {

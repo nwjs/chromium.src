@@ -26,6 +26,7 @@
 #include "base/task/post_task.h"
 #include "base/task/task_traits.h"
 #include "base/test/bind_test_util.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "content/browser/cache_storage/cache_storage.h"
@@ -75,6 +76,7 @@
 #include "services/network/public/cpp/constants.h"
 #include "services/network/public/cpp/features.h"
 #include "storage/browser/blob/blob_handle.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/loader/url_loader_throttle.h"
 #include "third_party/blink/public/common/service_worker/service_worker_status_code.h"
 #include "third_party/blink/public/common/service_worker/service_worker_utils.h"
@@ -926,6 +928,71 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerBrowserTest, GetRunningServiceWorkerInfos) {
             running_info.script_url);
   EXPECT_EQ(shell()->web_contents()->GetMainFrame()->GetProcess()->GetID(),
             running_info.render_process_id);
+}
+
+class ServiceWorkerEagerCacheStorageSetupTest
+    : public ServiceWorkerBrowserTest {
+ public:
+  ServiceWorkerEagerCacheStorageSetupTest() {
+    feature_list_.InitAndEnableFeature(
+        blink::features::kEagerCacheStorageSetupForServiceWorkers);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+// Regression test for https://crbug.com/1077916.
+// Update the service worker by registering a worker with different script url.
+// This test makes sure the worker can handle the fetch event using CacheStorage
+// API.
+IN_PROC_BROWSER_TEST_F(ServiceWorkerEagerCacheStorageSetupTest,
+                       UpdateOnScriptUrlChange) {
+  StartServerAndNavigateToSetup();
+  EXPECT_TRUE(NavigateToURL(shell(),
+                            embedded_test_server()->GetURL(
+                                "/service_worker/create_service_worker.html")));
+
+  // Register a service worker.
+  EXPECT_EQ(
+      "DONE",
+      EvalJs(
+          shell(),
+          "registerWithoutAwaitingReady('fetch_event.js', './empty.html');"));
+  {
+    const base::flat_map<int64_t, ServiceWorkerRunningInfo>& infos =
+        public_context()->GetRunningServiceWorkerInfos();
+    ASSERT_FALSE(infos.empty());
+    const ServiceWorkerRunningInfo& running_info = infos.rbegin()->second;
+    EXPECT_EQ(embedded_test_server()->GetURL("/service_worker/fetch_event.js"),
+              running_info.script_url);
+  }
+
+  // Update the service worker by changing the script url.
+  auto observer = base::MakeRefCounted<WorkerActivatedObserver>(wrapper());
+  observer->Init();
+  EXPECT_EQ("DONE", EvalJs(shell(),
+                           "registerWithoutAwaitingReady('fetch_event_response_"
+                           "via_cache.js', './empty.html');"));
+
+  {
+    const base::flat_map<int64_t, ServiceWorkerRunningInfo>& infos =
+        public_context()->GetRunningServiceWorkerInfos();
+    ASSERT_FALSE(infos.empty());
+    const ServiceWorkerRunningInfo& running_info = infos.rbegin()->second;
+    EXPECT_EQ(embedded_test_server()->GetURL(
+                  "/service_worker/fetch_event_response_via_cache.js"),
+              running_info.script_url);
+  }
+  observer->Wait();
+
+  // Navigation should succeed.
+  const base::string16 title =
+      base::ASCIIToUTF16("ServiceWorker test - empty page");
+  TitleWatcher title_watcher(shell()->web_contents(), title);
+  EXPECT_TRUE(NavigateToURL(
+      shell(), embedded_test_server()->GetURL("/service_worker/empty.html")));
+  EXPECT_EQ(title, title_watcher.WaitAndGetTitle());
 }
 
 // TODO(crbug.com/709385): ServiceWorkerNavigationPreloadTest should be

@@ -10,6 +10,7 @@
     super();
     this.mockMethods([
       'getSafeBrowsingRadioManagedState',
+      'validateSafeBrowsingEnhanced',
     ]);
   }
 }

@@ -418,11 +418,11 @@
 <translation id="1555130319947370107">Modrá</translation>
 <translation id="1556537182262721003">Nepodarilo sa do profilu presunúť adresár rozšírenia.</translation>
 <translation id="155865706765934889">Touchpad</translation>
-<translation id="1560763881671211335">Správcovia služby G Suite for Education určujú, ku ktorým službám Googlu majú ich používatelia prístup s prihláseným účtom G Suite for Education. Správcovia škôl musia poskytnúť alebo získať súhlas s používaním služieb neplnoletými používateľmi.
+<translation id="1560763881671211335">Správcovia služby G Suite for Education určujú, ku ktorým službám Googlu majú ich používatelia prístup s prihláseným účtom G Suite for Education. Správcovia škôl musia poskytnúť alebo získať súhlas s používaním služieb neplnoletými používateľmi.
 
     Dáta prehliadania (vrátane histórie, záložiek a hesiel) budú uložené v účte Family Link, nie školskom účte.
 
-    Budú platiť nastavenia aplikácie Family Link nakonfigurované rodičmi. Ak ste v minulosti blokovali nejakú aplikáciu alebo web, nebudete to musieť robiť znova.</translation>
+    Budú platiť nastavenia aplikácie Family Link nakonfigurované rodičmi. Ak ste v minulosti zablokovali nejakú aplikáciu alebo web, nebudete to musieť robiť znova.</translation>
 <translation id="1564414980088536597">Tento obrázok sa nedá použiť. Vyberte iný.</translation>
 <translation id="1566049601598938765">Webové stránky</translation>
 <translation id="15662109988763471">Vybratá tlačiareň nie je k dispozícii alebo nie je správne nainštalovaná. Skontrolujte ju alebo vyberte inú.</translation>
@@ -475,6 +475,7 @@
 <translation id="1627408615528139100">Už je stiahnutý</translation>
 <translation id="1629314197035607094">Platnosť hesla vypršala</translation>
 <translation id="1630768113285622200">Reštartovať a pokračovať</translation>
+<translation id="1630873818549593964">Údaje vášho dieťaťa v Učebni budú chránené. <ph name="LINK_BEGIN" />Ďalšie informácie<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">Umožňuje nastaviť rýchlosť opakovania klávesnice, predpoveď ďalšieho slova a ďalšie</translation>
 <translation id="1635033183663317347">Nainštalované vaším opatrovníkom</translation>
 <translation id="1637224376458524414">Uložte si túto záložku do zariadenia iPhone</translation>
@@ -2836,7 +2837,7 @@ Ak chcete spravovať nastavenia tohto účtu, nainštalujte si do zariadenia apl
 <translation id="4756378406049221019">Zastaviť / znova načítať</translation>
 <translation id="4756388243121344051">&amp;História</translation>
 <translation id="4759238208242260848">Stiahnuté</translation>
-<translation id="4761104368405085019">Používať mikrofón</translation>
+<translation id="4761104368405085019">Používať váš mikrofón</translation>
 <translation id="4762718786438001384">Kritický nedostatok miesta na disku zariadenia</translation>
 <translation id="4763408175235639573">Počas zobrazenia tejto stránky boli nastavené nasledujúce súbory cookie</translation>
 <translation id="4765582662863429759">Umožňuje Správam pre Android prenášať textové správy z vášho telefónu do Chromebooku</translation>
@@ -3148,7 +3149,6 @@ Ak chcete spravovať nastavenia tohto účtu, nainštalujte si do zariadenia apl
 <translation id="5204967432542742771">Zadajte heslo</translation>
 <translation id="5206215183583316675">Odstrániť certifikát <ph name="CERTIFICATE_NAME" />?</translation>
 <translation id="520621735928254154">Chyba importovania certifikátu</translation>
-<translation id="5209307736170827035">Údaje vášho dieťaťa v Učebni budú chránené. <ph name="LINK_BEGIN" />Ďalšie informácie<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">Nenašli sa žiadne zariadenia</translation>
 <translation id="5210990770352357081">Plugin VM sa nepodarilo nainštalovať</translation>
 <translation id="5213481667492808996">Dátová služba <ph name="NAME" /> je pripravená na použitie</translation>
@@ -4654,7 +4654,7 @@ Ak chcete spravovať nastavenia tohto účtu, nainštalujte si do zariadenia apl
 <translation id="7235737137505019098">Bezpečnostný kľúč nemá dostatok miesta na ďalšie účty.</translation>
 <translation id="7238643356913091553"><ph name="NETWORK_NAME" />, podrobnosti</translation>
 <translation id="7240339475467890413">Pripojiť k novému hotspotu?</translation>
-<translation id="7240847845291869311">Vaše dieťa chce do tohto zariadenia pridať účet Google v rámci služby G Suite for Education. <ph name="LINK_BEGIN" />Oznámenie o ochrane údajov služby G Suite for Education<ph name="LINK_END" /> pomáha používateľom služby G Suite for Education a rodičom pochopiť, aké údaje sa v tejto službe zhromažďujú, na aký účel a akým spôsobom budú použité.</translation>
+<translation id="7240847845291869311">Vaše dieťa chce do tohto zariadenia pridať účet Google v rámci služby G Suite for Education. <ph name="LINK_BEGIN" />Oznámenie o ochrane súkromia služby G Suite for Education<ph name="LINK_END" /> pomáha používateľom služby G Suite for Education a rodičom pochopiť, aké údaje sa v tejto službe zhromažďujú, na aký účel a akým spôsobom budú použité.</translation>
 <translation id="7241389281993241388">Ak chcete importovať certifikát klienta, prihláste sa do <ph name="TOKEN_NAME" />.</translation>
 <translation id="7241443820034350811">Ak váš bezpečnostný kľúč nie je uvedený, stlačte tlačidlo na kľúči aspoň na päť sekúnd.</translation>
 <translation id="7243632151880336635">Vymazať a odhlásiť sa</translation>
@@ -6129,7 +6129,7 @@ Súbor kľúča uložte na bezpečné miesto. Budete ho potrebovať na vytvoreni
 <translation id="9148058034647219655">Ukončiť</translation>
 <translation id="9148126808321036104">Znova sa prihlásiť</translation>
 <translation id="9149866541089851383">Upraviť...</translation>
-<translation id="9150045010208374699">Používať fotoaparát</translation>
+<translation id="9150045010208374699">Používať vašu kameru</translation>
 <translation id="9150429437595727962">Nastavenia Wi‑Fi</translation>
 <translation id="9153934054460603056">Uložiť identitu a heslo</translation>
 <translation id="9154194610265714752">Aktualizované</translation>

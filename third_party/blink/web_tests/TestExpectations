@@ -99,6 +99,14 @@ crbug.com/771003 http/tests/security/mixedContent/insecure-iframe-in-main-frame.
 
 crbug.com/1050826 external/wpt/mixed-content/gen/top.http-rp/opt-in/object-tag.https.html [ Timeout ]
 
+# Tests temporarily disabled until the video.requestAnimationFrame =>
+# video.requestVideoFrameCallback rename is completed. See crbug.com/1012063.
+
+external/wpt/video-raf/video-request-animation-frame.html [ Failure ]
+external/wpt/video-raf/video-request-animation-frame-parallel.html [ Failure ]
+external/wpt/video-raf/video-request-animation-frame-repeating.html [ Failure ]
+external/wpt/video-raf/idlharness.window.html [ Failure ]
+
 # Tests temporarily disabled with Site Isolation - uninvestigated bugs:
 # TODO(lukasza, alexmos): Burn down this list.
 crbug.com/608015 http/tests/inspector-protocol/access-inspected-object.js [ Failure Timeout ]
@@ -328,6 +336,7 @@ crbug.com/1066634 external/wpt/css/css-images/image-orientation/image-orientatio
 # Fail due to lack of fuzzy matching on Linux, Win and Mac platforms for WPT. The pixels in the pre-rotated reference
 # images do not exactly match the exif rotated images, probably due to jpeg decoding/encoding issues. Maybe
 # adjusting the image size to a multiple of 8 would fix this (so all jpeg blocks are solid color).
+crbug.com/997202 external/wpt/2dcontext/drawing-images-to-the-canvas/image-orientation/drawImage-with-src-rect.tentative.html [ Failure ]
 crbug.com/997202 external/wpt/css/css-images/image-orientation/image-orientation-default.html [ Failure ]
 crbug.com/997202 external/wpt/css/css-images/image-orientation/image-orientation-from-image-composited-dynamic1.html [ Failure ]
 crbug.com/997202 external/wpt/css/css-images/image-orientation/image-orientation-from-image-composited.html [ Failure ]
@@ -341,6 +350,7 @@ crbug.com/997202 external/wpt/css/css-images/image-orientation/image-orientation
 crbug.com/997202 external/wpt/css/css-images/image-orientation/image-orientation-none-content-images.html [ Failure ]
 crbug.com/997202 external/wpt/css/css-images/image-orientation/image-orientation-none.html [ Failure ]
 crbug.com/997202 external/wpt/css/css-images/image-orientation/svg-image-orientation.html [ Failure ]
+crbug.com/997202 external/wpt/css/css-images/image-orientation/svg-image-orientation-none.html [ Failure ]
 crbug.com/997202 external/wpt/css/css-images/image-orientation/svg-image-orientation-aspect-ratio.html [ Failure ]
 
 crbug.com/1042453 [ Win ] external/wpt/css/filter-effects/idlharness.any.html [ Timeout Pass ]
@@ -874,6 +884,7 @@ crbug.com/591099 fast/selectors/shadow-host-div-with-span.html [ Failure ]
 crbug.com/591099 fast/selectors/shadow-host-div-with-text.html [ Failure ]
 crbug.com/591099 virtual/text-antialias/selection/inline-block-in-selection-root.html [ Failure ]
 crbug.com/591099 paint/invalidation/media-audio-no-spurious-repaints.html [ Failure Timeout ]
+crbug.com/591099 virtual/layout_ng_block_frag/external/wpt/css/css-multicol/multicol-list-item-002.html [ Failure ]
 crbug.com/591099 virtual/layout_ng_block_frag/external/wpt/css/css-multicol/multicol-span-all-list-item-002.html [ Failure ]
 crbug.com/591099 virtual/layout_ng_block_frag/fast/multicol/border-radius-clipped-layer.html [ Failure ]
 crbug.com/591099 editing/selection/paint-hyphen.html [ Failure Pass ]
@@ -6566,6 +6577,9 @@ crbug.com/1058137 virtual/threaded/http/tests/devtools/tracing/timeline-paint/ti
 crbug.com/1058403 external/wpt/webaudio/the-audio-api/the-audioworklet-interface/suspended-context-messageport.https.html [ Failure ]
 
 crbug.com/1057020 [ Fuchsia ] http/tests/streams/chromium/get-reader-byob.html [ Pass Timeout ]
+
+# Ecosystem-Infra Sheriff 2020-04-16
+crbug.com/1071329 fast/peerconnection/statechange-iframe-destroy-parent.html [ Pass Timeout ]
 
 # Sheriff 2020-03-05
 crbug.com/1058073 [ Retina ] virtual/threaded/fast/scroll-snap/snap-to-target-on-layout-change.html [ Pass Failure ]

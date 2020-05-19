@@ -4,6 +4,8 @@
 
 package org.chromium.components.url_formatter;
 
+import android.annotation.SuppressLint;
+
 import org.junit.Assert;
 
 import org.chromium.base.annotations.CalledByNative;
@@ -26,5 +28,17 @@ public class UrlFormatterUnitTest {
         Assert.assertEquals("file:///mail.google.com:/",
                 UrlFormatter.fixupUrl("//mail.google.com:/").getSpec());
         Assert.assertFalse(UrlFormatter.fixupUrl("0x100.0").isValid());
+    }
+
+    @SuppressLint("AuthLeak")
+    @CalledByNativeJavaTest
+    public void testFormatUrlForDisplayOmitUsernamePassword() {
+        Assert.assertEquals("http://google.com/path",
+                UrlFormatter.formatUrlForDisplayOmitUsernamePassword("http://google.com/path"));
+        Assert.assertEquals("http://google.com",
+                UrlFormatter.formatUrlForDisplayOmitUsernamePassword(
+                        "http://user:pass@google.com"));
+        Assert.assertEquals("http://google.com",
+                UrlFormatter.formatUrlForDisplayOmitUsernamePassword("http://user@google.com"));
     }
 }

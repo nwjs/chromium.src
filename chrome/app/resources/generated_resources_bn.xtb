@@ -475,6 +475,7 @@
 <translation id="1627408615528139100">আগে থেকেই ডাউনলোড করা আছে</translation>
 <translation id="1629314197035607094">পাসওয়ার্ডের মেয়াদ শেষ হয়ে গেছে</translation>
 <translation id="1630768113285622200">রিস্টার্ট করুন ও চালিয়ে যান</translation>
+<translation id="1630873818549593964">Classroom-এ আপনার সন্তানের ডেটা সুরক্ষিত থাকবে। <ph name="LINK_BEGIN" />আরও জানুন<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">আপনাকে আপনার কীবোর্ডের পুনরাবৃত্তি হার, শব্দ পূর্বাভাষ, এবং আরও অনেক কিছুর সমন্বয় করতে অনুমতি দেয়</translation>
 <translation id="1635033183663317347">আপনার কাস্টডিয়ান দ্বারা এটি ইনস্টল করা হয়েছে।</translation>
 <translation id="1637224376458524414">এই বুকমার্কটি আপনার iPhone এ পান</translation>
@@ -737,7 +738,7 @@
 <translation id="1965624977906726414">কোনো বিশেষ অনুমতি নেই৷</translation>
 <translation id="1969654639948595766">WebRTC টেক্সট লগ (<ph name="WEBRTC_TEXT_LOG_COUNT" />)</translation>
 <translation id="1970368523891847084">ভিডিও মোডটি চালু হয়েছে</translation>
-<translation id="197288927597451399">রাখুন</translation>
+<translation id="197288927597451399">Keep</translation>
 <translation id="1974043046396539880">CRL বিতরণ পয়েন্টস</translation>
 <translation id="1974060860693918893">উন্নত</translation>
 <translation id="1974821797477522211">নেটওয়ার্কে সংযোগ করুন</translation>
@@ -2828,7 +2829,7 @@
 <translation id="4739639199548674512">টিকিট</translation>
 <translation id="4743260470722568160"><ph name="BEGIN_LINK" />অ্যাপ্লিকেশন কীভাবে আপডেট করতে হয় তা জানুন<ph name="END_LINK" /></translation>
 <translation id="4744981231093950366">{NUM_TABS,plural, =1{সাইট আনমিউট করুন}one{সাইট আনমিউট করুন}other{সাইট আনমিউট করুন}}</translation>
-<translation id="4746351372139058112">বার্তাগুলি</translation>
+<translation id="4746351372139058112">Messages</translation>
 <translation id="4750394297954878236">প্রস্তাবনা</translation>
 <translation id="475088594373173692">প্রথম ব্যবহারকারী</translation>
 <translation id="4751476147751820511">মোশন বা হালকা সেন্সর</translation>
@@ -3147,7 +3148,6 @@
 <translation id="5204967432542742771">পাসওয়ার্ড প্রবেশ করান</translation>
 <translation id="5206215183583316675">"<ph name="CERTIFICATE_NAME" />" মুছবেন?</translation>
 <translation id="520621735928254154">সার্টিফিকেটের আমদানি ত্রুটি</translation>
-<translation id="5209307736170827035">Classroom-এ আপনার সন্তানের ডেটা সুরক্ষিত থাকবে। <ph name="LINK_BEGIN" />আরও জানুন<ph name="LINK_END" /></translation>
 <translation id="5209320130288484488">কোনো ডিভাইস খুঁজে পাওয়া যায়নি</translation>
 <translation id="5210990770352357081">Plugin VM আনইনস্টল করা যাচ্ছে না</translation>
 <translation id="5213481667492808996">আপনার '<ph name="NAME" />' ডেটা পরিষেবা ব্যবহারের জন্য প্রস্তুত</translation>
@@ -4655,7 +4655,7 @@
 <translation id="7235737137505019098">আপনার নিরাপত্তা কীয়ে আরও অ্যাকাউন্টের জন্য যথেষ্ট জায়গা খালি নেই।</translation>
 <translation id="7238643356913091553"><ph name="NETWORK_NAME" />, বিবরণ</translation>
 <translation id="7240339475467890413">নতুন হটস্পটে সংযোগ করতে চান?</translation>
-<translation id="7240847845291869311">আপনার সন্তান এই ডিভাইসে একটি G Suite for Education Google অ্যাকাউন্ট যোগ করতে চাইছে। <ph name="LINK_BEGIN" />G Suite for Education-এর গোপনীয়তা বিজ্ঞপ্তি<ph name="LINK_END" /> G Suite for Education-এর ব্যবহারকারী ও অভিভাবককে এটি বুঝতে সাহায্য করে যে এই প্রোডাক্ট কী কী ডেটা সংগ্রহ করে ও কেন এবং এর সাথে কী করা হয়।</translation>
+<translation id="7240847845291869311">আপনার সন্তান এই ডিভাইসে G Suite for Education ব্যবহার করার জন্য একটি Google অ্যাকাউন্ট যোগ করতে চাইছে। <ph name="LINK_BEGIN" />G Suite for Education-এর গোপনীয়তা বিজ্ঞপ্তি<ph name="LINK_END" /> G Suite for Education-এর ব্যবহারকারী ও অভিভাবককে এটি বুঝতে সাহায্য করে যে এই প্রোডাক্ট কী কী ডেটা সংগ্রহ করে ও কেন এবং তা কীভাবে ম্যানেজ করা হয়।</translation>
 <translation id="7241389281993241388">ক্লায়েন্ট সার্টিফিকেট ইমপোর্ট করতে অনুগ্রহ করে <ph name="TOKEN_NAME" />-এ সাইন-ইন করুন৷</translation>
 <translation id="7241443820034350811">আপনার নিরাপত্তা কী সূচিবদ্ধ করা না থাকলে, এর বোতামটি অন্তত ৫ সেকেন্ড টিপে ধরে থাকুন।</translation>
 <translation id="7243632151880336635">সাফ করে সাইন-আউট করুন</translation>
@@ -5993,7 +5993,7 @@
 <translation id="8962083179518285172">বিবরণ লুকান</translation>
 <translation id="8962918469425892674">এই সাইটটি মোশন এবং লাইট সেন্সর ব্যবহার করছে।</translation>
 <translation id="8965037249707889821">পুরানো পাসওয়ার্ড লিখুন</translation>
-<translation id="8966870118594285808">ভুল করে কোন ট্যাব বন্ধ করে থাকলে সেটি আবার খুলুন</translation>
+<translation id="8966870118594285808">ভুল করে কোনও ট্যাব বন্ধ করে থাকলে সেটি আবার খুলুন</translation>
 <translation id="8967866634928501045">দেখতে Alt Shift A টিপুন</translation>
 <translation id="8968766641738584599">কার্ড সেভ করুন</translation>
 <translation id="8971800409073702505"><ph name="IDS_SHORT_PRODUCT_NAME" /> আপনার পাসওয়ার্ড চেক করতে পারছে না। ২৪ ঘণ্টা পরে আবার চেষ্টা করুন বা <ph name="BEGIN_LINK" />আপনার Google অ্যাকাউন্টে পাসওয়ার্ড চেক করুন<ph name="END_LINK" />।</translation>

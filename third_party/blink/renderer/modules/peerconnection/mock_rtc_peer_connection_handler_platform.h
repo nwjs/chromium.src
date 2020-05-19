@@ -29,6 +29,8 @@ class MockRTCPeerConnectionHandlerPlatform
   bool Initialize(const webrtc::PeerConnectionInterface::RTCConfiguration&,
                   const MediaConstraints&,
                   WebLocalFrame*) override;
+  void Stop() override;
+  void StopAndUnregister() override;
 
   Vector<std::unique_ptr<RTCRtpTransceiverPlatform>> CreateOffer(
       RTCSessionDescriptionRequest*,
@@ -74,7 +76,6 @@ class MockRTCPeerConnectionHandlerPlatform
   scoped_refptr<webrtc::DataChannelInterface> CreateDataChannel(
       const String& label,
       const webrtc::DataChannelInit&) override;
-  void Stop() override;
   webrtc::PeerConnectionInterface* NativePeerConnection() override;
   void RunSynchronousOnceClosureOnSignalingThread(
       CrossThreadOnceClosure closure,

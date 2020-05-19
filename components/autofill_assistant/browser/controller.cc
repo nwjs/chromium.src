@@ -103,6 +103,24 @@ bool IsSubdomainOf(const std::string& subdomain,
                         base::StringPiece("." + parent_domain),
                         base::CompareCase::INSENSITIVE_ASCII);
 }
+
+// Check whether two URLs have the same domain.
+bool HasSameDomainAs(const GURL& a, const GURL& b) {
+  return a.host() == b.host();
+}
+
+// Check whether |subdomain| is a subdomain of a set of domains in |whitelist|.
+bool IsInWhitelist(const std::string& subdomain,
+                   const std::vector<std::string> whitelist) {
+  const GURL subdomain_gurl = GURL(subdomain);
+  for (const std::string& parent_domain : whitelist) {
+    if (HasSameDomainAs(subdomain_gurl, GURL(parent_domain)) ||
+        IsSubdomainOf(subdomain, parent_domain))
+      return true;
+  }
+  return false;
+}
+
 }  // namespace
 
 Controller::Controller(content::WebContents* web_contents,
@@ -329,6 +347,10 @@ void Controller::RemoveListener(ScriptExecutorDelegate::Listener* listener) {
 
 void Controller::SetExpandSheetForPromptAction(bool expand) {
   expand_sheet_for_prompt_action_ = expand;
+}
+
+void Controller::SetBrowseDomainsWhitelist(std::vector<std::string> domains) {
+  browse_domains_whitelist_ = std::move(domains);
 }
 
 bool Controller::PerformUserActionWithContext(
@@ -1639,7 +1661,8 @@ void Controller::DidFinishNavigation(
   if (state_ == AutofillAssistantState::BROWSE) {
     auto current_host = web_contents()->GetLastCommittedURL().host();
     if (current_host != script_domain_ &&
-        !IsSubdomainOf(current_host, script_domain_)) {
+        !IsSubdomainOf(current_host, script_domain_) &&
+        !IsInWhitelist(current_host, browse_domains_whitelist_)) {
       OnScriptError(l10n_util::GetStringUTF8(IDS_AUTOFILL_ASSISTANT_GIVE_UP),
                     Metrics::DropOutReason::DOMAIN_CHANGE_DURING_BROWSE_MODE);
     }

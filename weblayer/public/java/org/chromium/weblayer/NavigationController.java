@@ -8,6 +8,7 @@ import android.net.Uri;
 import android.os.RemoteException;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import org.chromium.weblayer_private.interfaces.APICallException;
 import org.chromium.weblayer_private.interfaces.IClientNavigation;
@@ -41,28 +42,25 @@ public class NavigationController {
     }
 
     public void navigate(@NonNull Uri uri) {
-        ThreadCheck.ensureOnUiThread();
-        try {
-            mNavigationController.navigate(uri.toString());
-        } catch (RemoteException e) {
-            throw new APICallException(e);
-        }
+        navigate(uri, null);
     }
 
     /**
-     * Navigates to the given URI, replacing the current navigation entry rather than appending.
+     * Navigates to the given URI, with optional settings.
      *
      * @param uri the destination URI.
+     * @param params extra parameters for the navigation.
      *
-     * @since 82
+     * @since 83
      */
-    public void replace(@NonNull Uri uri) {
+    public void navigate(@NonNull Uri uri, @Nullable NavigateParams params) {
         ThreadCheck.ensureOnUiThread();
-        if (WebLayer.getSupportedMajorVersionInternal() < 82) {
+        if ((WebLayer.getSupportedMajorVersionInternal() < 83) && (params != null)) {
             throw new UnsupportedOperationException();
         }
         try {
-            mNavigationController.replace(uri.toString());
+            mNavigationController.navigate(
+                    uri.toString(), params == null ? null : params.toInterfaceParams());
         } catch (RemoteException e) {
             throw new APICallException(e);
         }

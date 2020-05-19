@@ -59,6 +59,15 @@ Polymer({
       computed: 'computeSelectSafeBrowsingRadio_(prefs.safebrowsing.*)',
     },
 
+    /** @private */
+    safeBrowsingEnhancedEnabled_: {
+      type: Boolean,
+      readOnly: true,
+      value: function() {
+        return loadTimeData.getBoolean('safeBrowsingEnhancedEnabled');
+      },
+    },
+
     /** @private {!settings.SafeBrowsingRadioManagedState} */
     safeBrowsingRadioManagedState_: Object,
 
@@ -134,6 +143,11 @@ Polymer({
     this.browserProxy_ = settings.PrivacyPageBrowserProxyImpl.getInstance();
 
     this.metricsBrowserProxy_ = settings.MetricsBrowserProxyImpl.getInstance();
+  },
+
+  /** @override */
+  attached() {
+    settings.SafeBrowsingBrowserProxyImpl.getInstance().validateSafeBrowsingEnhanced();
   },
 
   /**

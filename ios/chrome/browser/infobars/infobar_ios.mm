@@ -28,6 +28,7 @@ InfoBarIOS::InfoBarIOS(id<InfobarUIDelegate> controller,
 InfoBarIOS::~InfoBarIOS() {
   DCHECK(controller_);
   [controller_ detachView];
+  controller_.delegate = nullptr;
   controller_ = nil;
   for (auto& observer : observers_) {
     observer.InfobarDestroyed(this);
@@ -55,6 +56,16 @@ void InfoBarIOS::RemoveView() {
 
 base::WeakPtr<InfoBarIOS> InfoBarIOS::GetWeakPtr() {
   return weak_factory_.GetWeakPtr();
+}
+
+void InfoBarIOS::PlatformSpecificSetOwner() {
+  if (!owner()) {
+    controller_.delegate = nullptr;
+  }
+}
+
+void InfoBarIOS::PlatformSpecificOnCloseSoon() {
+  controller_.delegate = nullptr;
 }
 
 #pragma mark - InfoBarControllerDelegate
