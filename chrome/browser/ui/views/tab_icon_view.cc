@@ -3,6 +3,9 @@
 // found in the LICENSE file.
 
 #include "chrome/browser/ui/views/tab_icon_view.h"
+#include "ui/gfx/scoped_canvas.h"
+#include "ui/gfx/image/image_skia_operations.h"
+#include "ui/gfx/favicon_size.h"
 
 #include <memory>
 
@@ -101,6 +104,17 @@ void TabIconView::PaintThrobber(gfx::Canvas* canvas) {
 
 void TabIconView::PaintFavicon(gfx::Canvas* canvas,
                                const gfx::ImageSkia& image) {
+#if 1
+  {
+    gfx::ScopedCanvas scoped_canvas(canvas);
+    const float scale = canvas->UndoDeviceScaleFactor();
+    const gfx::ImageSkia resized(gfx::ImageSkiaOperations::CreateResizedImage(
+      image, skia::ImageOperations::RESIZE_BEST, gfx::Size(gfx::kFaviconSize * scale, gfx::kFaviconSize * scale)));
+    const gfx::ImageSkiaRep& rep = resized.GetRepresentation(1);
+    canvas->DrawImageIntInPixel(rep, 0, 0, gfx::kFaviconSize * scale, gfx::kFaviconSize * scale, true, cc::PaintFlags());
+    return;
+  }
+#endif
   // For source images smaller than the favicon square, scale them as if they
   // were padded to fit the favicon square, so we don't blow up tiny favicons
   // into larger or nonproportional results.
