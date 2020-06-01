@@ -44,7 +44,7 @@ default_args = {
   # Don't include the iLBC audio codec.
   # TODO(bugs.webrtc.org/8396): Once WebRTC gets rid of its internal
   # deps on codecs, we can remove this.
-  rtc_include_ilbc = false
+  rtc_include_ilbc = true
 
   # Changes some setup for the Crashpad build to set them to build against
   # Chromium's zlib, base, etc.

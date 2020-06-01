@@ -21,6 +21,8 @@
 #include "third_party/webrtc/api/audio_codecs/opus/audio_decoder_opus.h"
 #include "third_party/webrtc/api/audio_codecs/opus/audio_encoder_multi_channel_opus.h"
 #include "third_party/webrtc/api/audio_codecs/opus/audio_encoder_opus.h"
+#include "third_party/webrtc/api/audio_codecs/ilbc/audio_decoder_ilbc.h"
+#include "third_party/webrtc/api/audio_codecs/ilbc/audio_encoder_ilbc.h"
 
 namespace blink {
 
@@ -73,7 +75,7 @@ struct NotAdvertisedDecoder {
 rtc::scoped_refptr<webrtc::AudioEncoderFactory>
 CreateWebrtcAudioEncoderFactory() {
   return webrtc::CreateAudioEncoderFactory<
-      webrtc::AudioEncoderOpus, webrtc::AudioEncoderIsac,
+      webrtc::AudioEncoderOpus, webrtc::AudioEncoderIsac,webrtc::AudioEncoderIlbc,
       webrtc::AudioEncoderG722, webrtc::AudioEncoderG711,
       NotAdvertisedEncoder<webrtc::AudioEncoderL16>,
       NotAdvertisedEncoder<webrtc::AudioEncoderMultiChannelOpus>>();
@@ -82,7 +84,7 @@ CreateWebrtcAudioEncoderFactory() {
 rtc::scoped_refptr<webrtc::AudioDecoderFactory>
 CreateWebrtcAudioDecoderFactory() {
   return webrtc::CreateAudioDecoderFactory<
-      webrtc::AudioDecoderOpus, webrtc::AudioDecoderIsac,
+      webrtc::AudioDecoderOpus, webrtc::AudioDecoderIsac,webrtc::AudioDecoderIlbc,
       webrtc::AudioDecoderG722, webrtc::AudioDecoderG711,
       NotAdvertisedDecoder<webrtc::AudioDecoderL16>,
       NotAdvertisedDecoder<webrtc::AudioDecoderMultiChannelOpus>>();
