@@ -4,13 +4,13 @@
 
 #import "chrome/browser/chrome_browser_application_mac.h"
 
+#include "base/check.h"
 #include "chrome/browser/apps/platform_apps/app_window_registry_util.h"
 #include "chrome/browser/lifetime/browser_close_manager.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "content/public/common/content_features.h"
 
 #include "base/command_line.h"
-#include "base/logging.h"
 #include "base/mac/call_with_eh_frame.h"
 #include "base/observer_list.h"
 #include "base/strings/stringprintf.h"
@@ -311,6 +311,10 @@ std::string DescriptionForNSEvent(NSEvent* event) {
 
 - (void)sendEvent:(NSEvent*)event {
   TRACE_EVENT0("toplevel", "BrowserCrApplication::sendEvent");
+
+  // TODO(bokan): Tracing added temporarily to diagnose crbug.com/1039833.
+  TRACE_EVENT_INSTANT1("toplevel", "KeyWindow", TRACE_EVENT_SCOPE_THREAD,
+                       "KeyWin", [[NSApp keyWindow] windowNumber]);
 
   static crash_reporter::CrashKeyString<256> nseventKey("nsevent");
   crash_reporter::ScopedCrashKeyString scopedKey(&nseventKey,

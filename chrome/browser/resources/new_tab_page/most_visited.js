@@ -48,7 +48,7 @@ function resetTilePosition(tile) {
  * @private
  */
 function setTilePosition(tile, {x, y}) {
-  tile.style.position = 'absolute';
+  tile.style.position = 'fixed';
   tile.style.left = `${x}px`;
   tile.style.top = `${y}px`;
 }
@@ -76,11 +76,33 @@ class MostVisitedElement extends PolymerElement {
 
   static get properties() {
     return {
+      /**
+       * When the tile icon background is dark, the add icon color is white for
+       * contrast. This can be used to determine the color of the tile hover as
+       * well.
+       */
+      useWhiteAddIcon: {
+        type: Boolean,
+        reflectToAttribute: true,
+      },
+
+      /* If true wraps the tile titles in white pills. */
+      useTitlePill: {
+        type: Boolean,
+        reflectToAttribute: true,
+      },
+
       /** @private */
       columnCount_: {
-        type: Boolean,
+        type: Number,
         computed: `computeColumnCount_(tiles_, screenWidth_, maxTiles_,
             visible_)`,
+      },
+
+      /** @private */
+      rowCount_: {
+        type: Number,
+        computed: 'computeRowCount_(columnCount_, tiles_)',
       },
 
       /** @private */
@@ -88,9 +110,6 @@ class MostVisitedElement extends PolymerElement {
 
       /** @private */
       dialogTileTitle_: String,
-
-      /** @private */
-      dialogTileTitleDirectionClass_: String,
 
       /** @private */
       dialogTileUrl_: String,
@@ -103,13 +122,6 @@ class MostVisitedElement extends PolymerElement {
 
       /** @private */
       dialogTitle_: String,
-
-      /** @private */
-      isRtl_: {
-        type: Boolean,
-        value: false,
-        reflectToAttribute: true,
-      },
 
       /**
        * Used to hide hover style and cr-icon-button of tiles while the tiles
@@ -148,7 +160,10 @@ class MostVisitedElement extends PolymerElement {
       toastContent_: String,
 
       /** @private */
-      visible_: Boolean,
+      visible_: {
+        type: Boolean,
+        reflectToAttribute: true,
+      },
     };
   }
 
@@ -159,6 +174,7 @@ class MostVisitedElement extends PolymerElement {
   }
 
   constructor() {
+    performance.mark('most-visited-creation-start');
     super();
     /** @private {boolean} */
     this.adding_ = false;
@@ -189,10 +205,12 @@ class MostVisitedElement extends PolymerElement {
     this.isRtl_ = window.getComputedStyle(this)['direction'] === 'rtl';
     this.setMostVisitedInfoListenerId_ =
         this.callbackRouter_.setMostVisitedInfo.addListener(info => {
+          performance.measure('most-visited-mojo', 'most-visited-mojo-start');
           this.visible_ = info.visible;
           this.customLinksEnabled_ = info.customLinksEnabled;
           this.tiles_ = info.tiles.slice(0, 10);
         });
+    performance.mark('most-visited-mojo-start');
     this.pageHandler_.updateMostVisitedInfo();
     FocusOutlineManager.forDocument(document);
   }
@@ -229,6 +247,8 @@ class MostVisitedElement extends PolymerElement {
         this.onDocumentKeyDown_(/** @type {!KeyboardEvent} */ (e));
     this.ownerDocument.addEventListener(
         'keydown', this.boundOnDocumentKeyDown_);
+
+    performance.measure('most-visited-creation', 'most-visited-creation-start');
   }
 
   /** @private */
@@ -263,6 +283,19 @@ class MostVisitedElement extends PolymerElement {
         tileCount :
         Math.min(maxColumns, Math.ceil(tileCount / 2));
     return columnCount || 3;
+  }
+
+  /**
+   * @return {number}
+   * @private
+   */
+  computeRowCount_() {
+    if (this.columnCount_ === 0) {
+      return 0;
+    }
+
+    const shortcutCount = this.tiles_ ? this.tiles_.length : 0;
+    return this.columnCount_ <= shortcutCount ? 2 : 1;
   }
 
   /**
@@ -416,8 +449,8 @@ class MostVisitedElement extends PolymerElement {
    */
   getFaviconUrl_(url) {
     const faviconUrl = new URL('chrome://favicon2/');
-    faviconUrl.searchParams.set('size', '32');
-    faviconUrl.searchParams.set('scale_factor', '2x');
+    faviconUrl.searchParams.set('size', '24');
+    faviconUrl.searchParams.set('scale_factor', '1x');
     faviconUrl.searchParams.set('show_fallback_monogram', '');
     faviconUrl.searchParams.set('page_url', url.url);
     return faviconUrl.href;
@@ -445,14 +478,6 @@ class MostVisitedElement extends PolymerElement {
   }
 
   /**
-   * @return {string}
-   * @private
-   */
-  getTileIconButtonIcon_() {
-    return this.customLinksEnabled_ ? 'icon-more-vert' : 'icon-clear';
-  }
-
-  /**
    * @param {number} index
    * @return {boolean}
    * @private
@@ -465,7 +490,6 @@ class MostVisitedElement extends PolymerElement {
   onAdd_() {
     this.dialogTitle_ = loadTimeData.getString('addLinkTitle');
     this.dialogTileTitle_ = '';
-    this.dialogTileTitleDirectionClass_ = '';
     this.dialogTileUrl_ = '';
     this.dialogTileUrlInvalid_ = false;
     this.adding_ = true;
@@ -479,10 +503,6 @@ class MostVisitedElement extends PolymerElement {
   onAddShortcutKeyDown_(e) {
     if (e.altKey || e.shiftKey || e.metaKey || e.ctrlKey) {
       return;
-    }
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      this.onAdd_();
     }
 
     if (!this.tiles_ || this.tiles_.length === 0) {
@@ -566,8 +586,6 @@ class MostVisitedElement extends PolymerElement {
     this.dialogTitle_ = loadTimeData.getString('editLinkTitle');
     const tile = this.tiles_[this.actionMenuTargetIndex_];
     this.dialogTileTitle_ = tile.title;
-    this.dialogTileTitleDirectionClass_ =
-        this.getTileTitleDirectionClass_(tile);
     this.dialogTileUrl_ = tile.url.url;
     this.dialogTileUrlInvalid_ = false;
     this.$.dialog.showModal();
@@ -628,15 +646,31 @@ class MostVisitedElement extends PolymerElement {
    * @param {!Event} e
    * @private
    */
-  onTileIconButtonClick_(e) {
+  onTileActionButtonClick_(e) {
     e.preventDefault();
     const {index} = this.$.tiles.modelForElement(e.target.parentElement);
-    if (this.customLinksEnabled_) {
-      this.actionMenuTargetIndex_ = index;
-      this.$.actionMenu.showAt(e.target);
-    } else {
-      this.tileRemove_(index);
-    }
+    this.actionMenuTargetIndex_ = index;
+    this.$.actionMenu.showAt(e.target);
+  }
+
+  /**
+   * @param {!Event} e
+   * @private
+   */
+  onTileRemoveButtonClick_(e) {
+    e.preventDefault();
+    const {index} = this.$.tiles.modelForElement(e.target.parentElement);
+    this.tileRemove_(index);
+  }
+
+  /**
+   * @param {!Event} e
+   * @private
+   */
+  onTileClick_(e) {
+    this.pageHandler_.onMostVisitedTileNavigation(
+        this.$.tiles.itemForElement(e.target),
+        this.$.tiles.indexForElement(e.target));
   }
 
   /**
@@ -750,6 +784,13 @@ class MostVisitedElement extends PolymerElement {
     } else {
       this.screenWidth_ = ScreenWidth.NARROW;
     }
+  }
+
+  /** @private */
+  onTilesRendered_() {
+    performance.measure('most-visited-rendered');
+    this.pageHandler_.onMostVisitedTilesRendered(
+        this.tiles_, BrowserProxy.getInstance().now());
   }
 }
 

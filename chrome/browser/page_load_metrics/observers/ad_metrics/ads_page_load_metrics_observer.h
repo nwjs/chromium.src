@@ -14,6 +14,7 @@
 #include "base/scoped_observer.h"
 #include "base/time/tick_clock.h"
 #include "chrome/browser/page_load_metrics/observers/ad_metrics/frame_data.h"
+#include "chrome/browser/page_load_metrics/observers/ad_metrics/page_ad_density_tracker.h"
 #include "components/page_load_metrics/browser/page_load_metrics_observer.h"
 #include "components/page_load_metrics/common/page_load_metrics.mojom-forward.h"
 #include "components/subresource_filter/content/browser/subresource_filter_observer.h"
@@ -120,6 +121,10 @@ class AdsPageLoadMetricsObserver
   void MediaStartedPlaying(
       const content::WebContentsObserver::MediaPlayerInfo& video_type,
       content::RenderFrameHost* render_frame_host) override;
+  void OnFrameIntersectionUpdate(
+      content::RenderFrameHost* render_frame_host,
+      const page_load_metrics::mojom::FrameIntersectionUpdate&
+          intersection_update) override;
   void OnFrameDeleted(content::RenderFrameHost* render_frame_host) override;
 
   void SetHeavyAdThresholdNoiseProviderForTesting(
@@ -270,16 +275,8 @@ class AdsPageLoadMetricsObserver
   std::unique_ptr<HeavyAdThresholdNoiseProvider>
       heavy_ad_threshold_noise_provider_;
 
-  // Whether we should only send reports, and not unload frames tagged as heavy
-  // ads by the intervention. This is null until the proper feature param is
-  // queried once a heavy ad is seen. Sending reports should still log entries
-  // to the blocklist as it is observable by the page. Reporting only should use
-  // a different message that indicates the frame was not unloaded.
-  base::Optional<bool> heavy_ad_send_reports_only_;
-
-  // Whether reports should be sent when the heavy ad intervention occurs. This
-  // is null until the proper feature param is queried once a heavy ad is seen.
-  base::Optional<bool> heavy_ad_reporting_enabled_;
+  // The maximum ad density measurements for the page during it's lifecycle.
+  PageAdDensityTracker page_ad_density_tracker_;
 
   DISALLOW_COPY_AND_ASSIGN(AdsPageLoadMetricsObserver);
 };

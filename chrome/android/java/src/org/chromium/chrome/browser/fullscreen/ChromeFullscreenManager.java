@@ -109,6 +109,7 @@ public class ChromeFullscreenManager extends FullscreenManager
     private ContentView mContentView;
 
     private final ArrayList<FullscreenListener> mListeners = new ArrayList<>();
+    private Runnable mViewportSizeDelegate;
 
     /** The animator for slide-in animation on the Android controls. */
     private ValueAnimator mControlsAnimator;
@@ -168,11 +169,6 @@ public class ChromeFullscreenManager extends FullscreenManager
          * Called when the height of the top controls are changed.
          */
         default void onTopControlsHeightChanged(int topControlsHeight, int topControlsMinHeight) {}
-
-        /**
-         * Called when the viewport size of the active content is updated.
-         */
-        default void onUpdateViewportSize() {}
 
         /**
          * Called when entering fullscreen mode.
@@ -691,6 +687,13 @@ public class ChromeFullscreenManager extends FullscreenManager
     }
 
     /**
+     * @param delegate A Runnable to be executed when the WebContents viewport should be updated.
+     */
+    public void setViewportSizeDelegate(Runnable delegate) {
+        mViewportSizeDelegate = delegate;
+    }
+
+    /**
      * Updates viewport size to have it render the content correctly.
      */
     public void updateViewportSize() {
@@ -702,7 +705,7 @@ public class ChromeFullscreenManager extends FullscreenManager
 
         mControlsResizeView = getContentOffset() > getTopControlsMinHeight()
                 || getBottomContentOffset() > getBottomControlsMinHeight();
-        for (FullscreenListener listener : mListeners) listener.onUpdateViewportSize();
+        if (mViewportSizeDelegate != null) mViewportSizeDelegate.run();
     }
 
     /**
@@ -1016,8 +1019,10 @@ public class ChromeFullscreenManager extends FullscreenManager
 
         // Make sure the dominant control offsets have been set.
         Tab tab = getTab();
-        TabBrowserControlsOffsetHelper offsetHelper = TabBrowserControlsOffsetHelper.get(tab);
-        if (offsetHelper.offsetInitialized()) {
+        TabBrowserControlsOffsetHelper offsetHelper = null;
+        if (tab != null) offsetHelper = TabBrowserControlsOffsetHelper.get(tab);
+
+        if (offsetHelper != null && offsetHelper.offsetInitialized()) {
             updateFullscreenManagerOffsets(false, offsetHelper.topControlsOffset(),
                     offsetHelper.bottomControlsOffset(), offsetHelper.contentOffset(),
                     offsetHelper.topControlsMinHeightOffset(),

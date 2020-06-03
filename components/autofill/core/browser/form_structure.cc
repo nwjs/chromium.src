@@ -16,6 +16,7 @@
 
 #include "base/base64.h"
 #include "base/command_line.h"
+#include "base/feature_list.h"
 #include "base/i18n/case_conversion.h"
 #include "base/logging.h"
 #include "base/metrics/field_trial.h"
@@ -54,7 +55,7 @@
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/autofill/core/common/form_field_data_predictions.h"
 #include "components/autofill/core/common/logging/log_buffer.h"
-#include "components/autofill/core/common/signatures_util.h"
+#include "components/autofill/core/common/signatures.h"
 #include "components/security_state/core/security_state.h"
 #include "url/origin.h"
 
@@ -66,17 +67,20 @@ using mojom::SubmissionIndicatorEvent;
 namespace {
 
 // Version of the client sent to the server.
-const char kClientVersion[] = "6.1.1715.1442/en (GGLL)";
-const char kBillingMode[] = "billing";
-const char kShippingMode[] = "shipping";
+constexpr char kClientVersion[] = "6.1.1715.1442/en (GGLL)";
+constexpr char kBillingMode[] = "billing";
+constexpr char kShippingMode[] = "shipping";
+
+// Default section name for the fields.
+constexpr char kDefaultSection[] = "-default";
 
 // Only removing common name prefixes if we have a minimum number of fields and
 // a minimum prefix length. These values are chosen to avoid cases such as two
 // fields with "address1" and "address2" and be effective against web frameworks
 // which prepend prefixes such as "ctl01$ctl00$MainContentRegion$" on all
 // fields.
-const int kCommonNamePrefixRemovalFieldThreshold = 3;
-const int kMinCommonNamePrefixLength = 16;
+constexpr int kCommonNamePrefixRemovalFieldThreshold = 3;
+constexpr int kMinCommonNamePrefixLength = 16;
 
 // Returns true if the scheme given by |url| is one for which autofill is
 // allowed to activate. By default this only returns true for HTTP and HTTPS.
@@ -451,8 +455,8 @@ void PopulateRandomizedFormMetadata(const RandomizedEncoder& encoder,
                                     const FormStructure& form,
                                     AutofillRandomizedFormMetadata* metadata) {
   const FormSignature form_signature = form.form_signature();
-  constexpr FieldSignature kNullFieldSignature =
-      0;  // Not relevant for form level metadata.
+  constexpr FieldSignature
+      kNullFieldSignature;  // Not relevant for form level metadata.
   if (!form.id_attribute().empty()) {
     EncodeRandomizedValue(encoder, form_signature, kNullFieldSignature,
                           RandomizedEncoder::FORM_ID, form.id_attribute(),
@@ -671,7 +675,7 @@ bool FormStructure::EncodeUploadRequest(
 
   upload->set_submission(observed_submission);
   upload->set_client_version(kClientVersion);
-  upload->set_form_signature(form_signature());
+  upload->set_form_signature(form_signature().value());
   upload->set_autofill_used(form_was_autofilled);
   upload->set_data_present(EncodeFieldTypes(available_field_types));
   upload->set_passwords_revealed(passwords_were_revealed_);
@@ -920,7 +924,7 @@ std::unique_ptr<FormStructure> FormStructure::CreateForPasswordManagerUpload(
 }
 
 std::string FormStructure::FormSignatureAsStr() const {
-  return base::NumberToString(form_signature());
+  return base::NumberToString(form_signature().value());
 }
 
 bool FormStructure::IsAutofillable() const {
@@ -1220,8 +1224,6 @@ void FormStructure::LogQualityMetricsBasedOnAutocomplete(
 }
 
 void FormStructure::ParseFieldTypesFromAutocompleteAttributes() {
-  const std::string kDefaultSection = "-default";
-
   has_author_specified_types_ = false;
   has_author_specified_sections_ = false;
   has_author_specified_upi_vpa_hint_ = false;
@@ -1860,7 +1862,7 @@ void FormStructure::EncodeFormForQuery(
     AutofillQueryContents::Form* query_form) const {
   DCHECK(!IsMalformed());
 
-  query_form->set_signature(form_signature());
+  query_form->set_signature(form_signature().value());
 
   if (is_rich_query_enabled_) {
     EncodeFormMetadataForQuery(*this, query_form->mutable_form_metadata());
@@ -1872,7 +1874,7 @@ void FormStructure::EncodeFormForQuery(
 
     AutofillQueryContents::Form::Field* added_field = query_form->add_field();
 
-    added_field->set_signature(field->GetFieldSignature());
+    added_field->set_signature(field->GetFieldSignature().value());
 
     if (is_rich_query_enabled_) {
       EncodeFieldMetadataForQuery(*field,
@@ -1936,7 +1938,7 @@ void FormStructure::EncodeFormForUpload(AutofillUploadContents* upload) const {
       added_field->set_initial_value_hash(field->initial_value_hash().value());
     }
 
-    added_field->set_signature(field->GetFieldSignature());
+    added_field->set_signature(field->GetFieldSignature().value());
 
     if (field->properties_mask)
       added_field->set_properties_mask(field->properties_mask);
@@ -1983,13 +1985,20 @@ void FormStructure::IdentifySections(bool has_author_specified_sections) {
   if (fields_.empty())
     return;
 
-  if (!has_author_specified_sections) {
+  const bool is_enabled_autofill_new_sectioning =
+      base::FeatureList::IsEnabled(features::kAutofillUseNewSectioningMethod);
+
+  if (!has_author_specified_sections || is_enabled_autofill_new_sectioning) {
     // Name sections after the first field in the section.
     base::string16 current_section = fields_.front()->unique_name();
 
     // Keep track of the types we've seen in this section.
     std::set<ServerFieldType> seen_types;
     ServerFieldType previous_type = UNKNOWN_TYPE;
+
+    // Boolean flag that is set to true when a field in the current section
+    // has the autocomplete-section attribute defined.
+    bool previous_autocomplete_section_present = false;
 
     bool is_hidden_section = false;
     base::string16 last_visible_section;
@@ -2001,7 +2010,9 @@ void FormStructure::IdentifySections(bool has_author_specified_sections) {
         field->section = "credit-card";
         continue;
       }
+
       bool already_saw_current_type = seen_types.count(current_type) > 0;
+
       // Forms often ask for multiple phone numbers -- e.g. both a daytime and
       // evening phone number.  Our phone number detection is also generally a
       // little off.  Hence, ignore this field type as a signal here.
@@ -2039,7 +2050,31 @@ void FormStructure::IdentifySections(bool has_author_specified_sections) {
       if (current_type == previous_type)
         already_saw_current_type = false;
 
-      if (current_type != UNKNOWN_TYPE && already_saw_current_type) {
+      // Boolean flag that is set to true when the |field| has
+      // autocomplete-section attribute defined.
+      bool autocomplete_section_attribute_present = false;
+      if (is_enabled_autofill_new_sectioning)
+        autocomplete_section_attribute_present =
+            (field->section != kDefaultSection);
+
+      // Boolean flag that is set to true when the |field| has
+      // autocomplete-section attribute defined and is different that the
+      // previous field.
+      bool different_autocomplete_section_than_previous = false;
+      if (is_enabled_autofill_new_sectioning) {
+        different_autocomplete_section_than_previous =
+            (autocomplete_section_attribute_present &&
+             (!field_index ||
+              fields_[field_index - 1]->section != field->section));
+      }
+
+      // Start a new section if the |current_type| was already seen or the
+      // autocomplete-section attribute is defined for the |field| which is
+      // different than the previous field.
+      if (current_type != UNKNOWN_TYPE &&
+          (already_saw_current_type ||
+           (is_enabled_autofill_new_sectioning &&
+            different_autocomplete_section_than_previous))) {
         // Keep track of seen_types if the new section is hidden. The next
         // visible section might be the continuation of the previous visible
         // section.
@@ -2047,11 +2082,39 @@ void FormStructure::IdentifySections(bool has_author_specified_sections) {
           is_hidden_section = true;
           last_visible_section = current_section;
         }
-        if (!is_hidden_section)
+
+        if (!is_hidden_section &&
+            (!is_enabled_autofill_new_sectioning ||
+             !autocomplete_section_attribute_present ||
+             different_autocomplete_section_than_previous))
           seen_types.clear();
+
+        if (is_enabled_autofill_new_sectioning &&
+            autocomplete_section_attribute_present &&
+            !previous_autocomplete_section_present) {
+          // If this field is the first field within the section with a defined
+          // autocomplete section, then change the section attribute of all the
+          // parsed fields in the current section to |field->section|.
+          int i = static_cast<int>(field_index - 1);
+          while (i >= 0 &&
+                 base::UTF8ToUTF16(fields_[i]->section) == current_section) {
+            fields_[i]->section = field->section;
+            i--;
+          }
+        }
 
         // The end of a section, so start a new section.
         current_section = field->unique_name();
+
+        if (is_enabled_autofill_new_sectioning) {
+          // The section described in the autocomplete section attribute
+          // overrides the value determined by the heuristic.
+          if (autocomplete_section_attribute_present)
+            current_section = base::UTF8ToUTF16(field->section);
+
+          previous_autocomplete_section_present =
+              autocomplete_section_attribute_present;
+        }
       }
 
       // Only consider a type "seen" if it was not ignored. Some forms have
@@ -2214,11 +2277,12 @@ LogBuffer& operator<<(LogBuffer& buffer, const FormStructure& form) {
   buffer << Tag{"div"} << Attrib{"class", "form"};
   buffer << Tag{"table"};
   buffer << Tr{} << "Form signature:"
-         << base::StrCat({base::NumberToString(form.form_signature()), " - ",
+         << base::StrCat({base::NumberToString(form.form_signature().value()),
+                          " - ",
                           base::NumberToString(
                               HashFormSignature(form.form_signature()))});
   buffer << Tr{} << "Form name:" << form.form_name();
-  buffer << Tr{} << "Unique renderer Id:" << form.unique_renderer_id();
+  buffer << Tr{} << "Unique renderer id:" << form.unique_renderer_id().value();
   buffer << Tr{} << "Target URL:" << form.target_url();
   for (size_t i = 0; i < form.field_count(); ++i) {
     buffer << Tag{"tr"};
@@ -2228,9 +2292,12 @@ LogBuffer& operator<<(LogBuffer& buffer, const FormStructure& form) {
     buffer << Tag{"table"};
     buffer << Tr{} << "Signature:"
            << base::StrCat(
-                  {base::NumberToString(field->GetFieldSignature()), " - ",
+                  {base::NumberToString(field->GetFieldSignature().value()),
+                   " - ",
                    base::NumberToString(
-                       HashFieldSignature(field->GetFieldSignature()))});
+                       HashFieldSignature(field->GetFieldSignature())),
+                   ", unique renderer id: ",
+                   base::NumberToString(field->unique_renderer_id.value())});
     buffer << Tr{} << "Name:" << field->parseable_name();
 
     auto type = field->Type().ToString();

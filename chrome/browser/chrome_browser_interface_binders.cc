@@ -18,12 +18,11 @@
 #include "chrome/browser/media/history/media_history_store.mojom.h"
 #include "chrome/browser/media/media_engagement_score_details.mojom.h"
 #include "chrome/browser/navigation_predictor/navigation_predictor.h"
+#include "chrome/browser/password_manager/chrome_password_manager_client.h"
 #include "chrome/browser/predictors/network_hints_handler_impl.h"
 #include "chrome/browser/prerender/prerender_contents.h"
 #include "chrome/browser/prerender/prerender_processor_impl.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/soda/soda_service.h"
-#include "chrome/browser/soda/soda_service_factory.h"
 #include "chrome/browser/ssl/insecure_sensitive_input_driver_factory.h"
 #include "chrome/browser/ssl/security_state_tab_helper.h"
 #include "chrome/browser/ui/webui/bluetooth_internals/bluetooth_internals.mojom.h"
@@ -46,8 +45,8 @@
 #include "components/dom_distiller/content/common/mojom/distiller_javascript_service.mojom.h"
 #include "components/dom_distiller/core/dom_distiller_service.h"
 #include "components/feed/buildflags.h"
-#include "components/performance_manager/performance_manager_tab_helper.h"
-#include "components/performance_manager/public/mojom/coordination_unit.mojom.h"
+#include "components/performance_manager/embedder/binders.h"
+#include "components/performance_manager/public/performance_manager.h"
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/buildflags.h"
 #include "components/security_state/content/content_utils.h"
@@ -58,9 +57,9 @@
 #include "content/public/common/content_features.h"
 #include "content/public/common/url_constants.h"
 #include "extensions/buildflags/buildflags.h"
-#include "media/mojo/mojom/soda_service.mojom.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "services/image_annotation/public/mojom/image_annotation.mojom.h"
+#include "third_party/blink/public/mojom/credentialmanager/credential_manager.mojom.h"
 #include "third_party/blink/public/mojom/insecure_input/insecure_input_service.mojom.h"
 #include "third_party/blink/public/mojom/loader/navigation_predictor.mojom.h"
 #include "third_party/blink/public/mojom/payments/payment_request.mojom.h"
@@ -101,12 +100,17 @@
 #include "third_party/blink/public/mojom/page/spatial_navigation.mojom.h"
 #endif
 #else
+#include "chrome/browser/accessibility/caption_host_impl.h"
 #include "chrome/browser/badging/badge_manager.h"
 #include "chrome/browser/payments/payment_request_factory.h"
+#include "chrome/browser/speech/speech_recognition_service.h"
+#include "chrome/browser/speech/speech_recognition_service_factory.h"
 #include "chrome/browser/ui/webui/downloads/downloads.mojom.h"
 #include "chrome/browser/ui/webui/downloads/downloads_ui.h"
 #include "chrome/browser/ui/webui/new_tab_page/new_tab_page.mojom.h"
 #include "chrome/browser/ui/webui/new_tab_page/new_tab_page_ui.h"
+#include "chrome/common/caption.mojom.h"
+#include "media/mojo/mojom/speech_recognition_service.mojom.h"
 #endif
 
 #if defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_LINUX) || \
@@ -140,6 +144,8 @@
 #include "chromeos/components/media_app_ui/media_app_ui.h"
 #include "chromeos/components/media_app_ui/media_app_ui.mojom.h"
 #include "chromeos/components/multidevice/debug_webui/proximity_auth_ui.h"
+#include "chromeos/components/print_management/mojom/printing_manager.mojom.h"
+#include "chromeos/components/print_management/print_management_ui.h"
 #include "chromeos/services/cellular_setup/public/mojom/cellular_setup.mojom.h"
 #include "chromeos/services/multidevice_setup/multidevice_setup_service.h"
 #include "chromeos/services/multidevice_setup/public/mojom/multidevice_setup.mojom.h"
@@ -223,13 +229,13 @@ void BindDistillabilityService(
       dom_distiller::DistillabilityDriver::FromWebContents(web_contents);
   if (!driver)
     return;
-  driver->SetIsDangerousCallback(
+  driver->SetIsSecureCallback(
       base::BindRepeating([](content::WebContents* contents) {
         // SecurityStateTabHelper uses chrome-specific
-        // GetVisibleSecurityState to determine if a page is DANGEROUS.
+        // GetVisibleSecurityState to determine if a page is SECURE.
         return SecurityStateTabHelper::FromWebContents(contents)
-                   ->GetSecurityLevel() !=
-               security_state::SecurityLevel::DANGEROUS;
+                   ->GetSecurityLevel() ==
+               security_state::SecurityLevel::SECURE;
       }));
   driver->CreateDistillabilityService(std::move(receiver));
 }
@@ -251,7 +257,9 @@ void BindDistillerJavaScriptService(
       distiller_ui_handle)
       ->set_render_frame_host(frame_host);
 #endif
-  CreateDistillerJavaScriptService(distiller_ui_handle, std::move(receiver));
+  auto* distilled_page_prefs = dom_distiller_service->GetDistilledPagePrefs();
+  CreateDistillerJavaScriptService(distiller_ui_handle, distilled_page_prefs,
+                                   std::move(receiver));
 }
 
 void BindPrerenderCanceler(
@@ -266,25 +274,6 @@ void BindPrerenderCanceler(
   if (!prerender_contents)
     return;
   prerender_contents->AddPrerenderCancelerReceiver(std::move(receiver));
-}
-
-void BindDocumentCoordinationUnit(
-    content::RenderFrameHost* host,
-    mojo::PendingReceiver<performance_manager::mojom::DocumentCoordinationUnit>
-        receiver) {
-  auto* content = content::WebContents::FromRenderFrameHost(host);
-  // |content| can be nullable if RenderFrameHost's delegate is not
-  // WebContents.
-  if (!content)
-    return;
-  auto* helper =
-      performance_manager::PerformanceManagerTabHelper::FromWebContents(
-          content);
-  // This condition is for testing-only. We should handle a bind request after
-  // PerformanceManagerTabHelper is attached to WebContents.
-  if (!helper)
-    return;
-  return helper->BindDocumentCoordinationUnit(host, std::move(receiver));
 }
 
 #if defined(OS_ANDROID)
@@ -343,17 +332,33 @@ void BindNetworkHintsHandler(
   predictors::NetworkHintsHandlerImpl::Create(frame_host, std::move(receiver));
 }
 
-void BindSodaContextHandler(
+#if !defined(OS_ANDROID)
+void BindSpeechRecognitionContextHandler(
     content::RenderFrameHost* frame_host,
-    mojo::PendingReceiver<media::mojom::SodaContext> receiver) {
+    mojo::PendingReceiver<media::mojom::SpeechRecognitionContext> receiver) {
   Profile* profile = Profile::FromBrowserContext(
       frame_host->GetProcess()->GetBrowserContext());
   PrefService* profile_prefs = profile->GetPrefs();
-  if (profile_prefs->GetBoolean(prefs::kLiveCaptionEnabled))
-    SodaServiceFactory::GetForProfile(profile)->Create(std::move(receiver));
+  if (profile_prefs->GetBoolean(prefs::kLiveCaptionEnabled)) {
+    SpeechRecognitionServiceFactory::GetForProfile(profile)->Create(
+        std::move(receiver));
+  }
 }
+
+void BindCaptionContextHandler(
+    content::RenderFrameHost* frame_host,
+    mojo::PendingReceiver<chrome::mojom::CaptionHost> receiver) {
+  Profile* profile = Profile::FromBrowserContext(
+      frame_host->GetProcess()->GetBrowserContext());
+  PrefService* profile_prefs = profile->GetPrefs();
+  if (profile_prefs->GetBoolean(prefs::kLiveCaptionEnabled)) {
+    captions::CaptionHostImpl::Create(frame_host, std::move(receiver));
+  }
+}
+#endif
+
 void PopulateChromeFrameBinders(
-    service_manager::BinderMapWithContext<content::RenderFrameHost*>* map) {
+    mojo::BinderMapWithContext<content::RenderFrameHost*>* map) {
   map->Add<image_annotation::mojom::Annotator>(
       base::BindRepeating(&BindImageAnnotator));
 
@@ -375,11 +380,17 @@ void PopulateChromeFrameBinders(
   map->Add<blink::mojom::PrerenderProcessor>(
       base::BindRepeating(&prerender::PrerenderProcessorImpl::Create));
 
-  map->Add<performance_manager::mojom::DocumentCoordinationUnit>(
-      base::BindRepeating(&BindDocumentCoordinationUnit));
+  if (performance_manager::PerformanceManager::IsAvailable()) {
+    map->Add<performance_manager::mojom::DocumentCoordinationUnit>(
+        base::BindRepeating(
+            &performance_manager::BindDocumentCoordinationUnit));
+  }
 
   map->Add<translate::mojom::ContentTranslateDriver>(
       base::BindRepeating(&language::BindContentTranslateDriver));
+
+  map->Add<blink::mojom::CredentialManager>(
+      base::BindRepeating(&ChromePasswordManagerClient::BindCredentialManager));
 
 #if defined(OS_ANDROID)
   map->Add<blink::mojom::InstalledAppProvider>(base::BindRepeating(
@@ -430,12 +441,16 @@ void PopulateChromeFrameBinders(
   map->Add<network_hints::mojom::NetworkHintsHandler>(
       base::BindRepeating(&BindNetworkHintsHandler));
 
-  map->Add<media::mojom::SodaContext>(
-      base::BindRepeating(&BindSodaContextHandler));
+#if !defined(OS_ANDROID)
+  map->Add<media::mojom::SpeechRecognitionContext>(
+      base::BindRepeating(&BindSpeechRecognitionContextHandler));
+  map->Add<chrome::mojom::CaptionHost>(
+      base::BindRepeating(&BindCaptionContextHandler));
+#endif
 }
 
 void PopulateChromeWebUIFrameBinders(
-    service_manager::BinderMapWithContext<content::RenderFrameHost*>* map) {
+    mojo::BinderMapWithContext<content::RenderFrameHost*>* map) {
   RegisterWebUIControllerInterfaceBinder<::mojom::BluetoothInternalsHandler,
                                          BluetoothInternalsUI>(map);
 
@@ -526,6 +541,10 @@ void PopulateChromeWebUIFrameBinders(
       chromeos::InternetConfigDialogUI, chromeos::InternetDetailDialogUI,
       chromeos::NetworkUI, chromeos::OobeUI, chromeos::settings::OSSettingsUI>(
       map);
+
+  RegisterWebUIControllerInterfaceBinder<
+      chromeos::printing::printing_manager::mojom::PrintingMetadataProvider,
+      chromeos::printing::printing_manager::PrintManagementUI>(map);
 
   RegisterWebUIControllerInterfaceBinder<help_app_ui::mojom::PageHandlerFactory,
                                          chromeos::HelpAppUI>(map);

@@ -9,10 +9,11 @@
 #include <vector>
 
 #include "ash/public/cpp/assistant/assistant_client.h"
-#include "ash/public/mojom/assistant_state_controller.mojom.h"
 #include "base/macros.h"
 #include "chrome/browser/ui/ash/assistant/device_actions.h"
+#include "chromeos/services/assistant/public/cpp/assistant_client.h"
 #include "chromeos/services/assistant/public/mojom/assistant.mojom-forward.h"
+#include "chromeos/services/assistant/service.h"
 #include "components/session_manager/core/session_manager_observer.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "content/public/browser/notification_observer.h"
@@ -21,7 +22,6 @@
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 
-class AssistantImageDownloader;
 class AssistantSetup;
 class AssistantWebViewFactoryImpl;
 class ConversationStartersClientImpl;
@@ -30,7 +30,7 @@ class Profile;
 
 // Class to handle all Assistant in-browser-process functionalities.
 class AssistantClientImpl : public ash::AssistantClient,
-                            public chromeos::assistant::mojom::Client,
+                            public chromeos::assistant::AssistantClient,
                             public content::NotificationObserver,
                             public signin::IdentityManager::Observer,
                             public session_manager::SessionManagerObserver {
@@ -54,11 +54,9 @@ class AssistantClientImpl : public ash::AssistantClient,
                const content::NotificationSource& source,
                const content::NotificationDetails& details) override;
 
-  // assistant::mojom::Client overrides:
-  void OnAssistantStatusChanged(ash::mojom::AssistantState new_state) override;
-  void RequestAssistantController(
-      mojo::PendingReceiver<chromeos::assistant::mojom::AssistantController>
-          receiver) override;
+  // chromeos::assistant::AssisantClient overrides:
+  void OnAssistantStatusChanged(
+      chromeos::assistant::AssistantStatus new_status) override;
   void RequestAssistantAlarmTimerController(
       mojo::PendingReceiver<ash::mojom::AssistantAlarmTimerController> receiver)
       override;
@@ -70,9 +68,6 @@ class AssistantClientImpl : public ash::AssistantClient,
           receiver) override;
   void RequestAssistantVolumeControl(
       mojo::PendingReceiver<ash::mojom::AssistantVolumeControl> receiver)
-      override;
-  void RequestAssistantStateController(
-      mojo::PendingReceiver<ash::mojom::AssistantStateController> receiver)
       override;
   void RequestBatteryMonitor(
       mojo::PendingReceiver<device::mojom::BatteryMonitor> receiver) override;
@@ -107,10 +102,8 @@ class AssistantClientImpl : public ash::AssistantClient,
   void OnUserProfileLoaded(const AccountId& account_id) override;
   void OnUserSessionStarted(bool is_primary_user) override;
 
-  mojo::Receiver<chromeos::assistant::mojom::Client> client_receiver_{this};
-
   std::unique_ptr<DeviceActions> device_actions_;
-  std::unique_ptr<AssistantImageDownloader> assistant_image_downloader_;
+  std::unique_ptr<chromeos::assistant::Service> service_;
   std::unique_ptr<AssistantSetup> assistant_setup_;
   std::unique_ptr<AssistantWebViewFactoryImpl> assistant_web_view_factory_;
 

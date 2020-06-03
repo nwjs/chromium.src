@@ -514,9 +514,7 @@ class Browser : public TabStripModelObserver,
 
   // External state change handling ////////////////////////////////////////////
 
-  // WindowFullscreenStateWillChange is invoked at the beginning of a fullscreen
-  // transition, and WindowFullscreenStateChanged is at the end.
-  void WindowFullscreenStateWillChange();
+  // Invoked at the end of a fullscreen transition.
   void WindowFullscreenStateChanged();
 
   // Only used on Mac. Called when the top ui style has been changed since this
@@ -779,6 +777,7 @@ class Browser : public TabStripModelObserver,
   void VisibleSecurityStateChanged(content::WebContents* source) override;
   void AddNewContents(content::WebContents* source,
                       std::unique_ptr<content::WebContents> new_contents,
+                      const GURL& target_url,
                       WindowOpenDisposition disposition,
                       const gfx::Rect& initial_rect,
                       bool user_gesture,
@@ -842,6 +841,9 @@ class Browser : public TabStripModelObserver,
       SkColor color,
       const std::vector<blink::mojom::ColorSuggestionPtr>& suggestions)
       override;
+  std::unique_ptr<content::EyeDropper> OpenEyeDropper(
+      content::RenderFrameHost* frame,
+      content::EyeDropperListener* listener) override;
   void RunFileChooser(content::RenderFrameHost* render_frame_host,
                       std::unique_ptr<content::FileSelectListener> listener,
                       const blink::mojom::FileChooserParams& params) override;

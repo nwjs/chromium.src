@@ -16,6 +16,7 @@
 #include "third_party/webrtc/api/video_codecs/video_encoder.h"
 #include "third_party/webrtc/common_video/h264/profile_level_id.h"
 #include "third_party/webrtc/media/base/codec.h"
+#include "third_party/webrtc/media/base/vp9_profile.h"
 
 namespace blink {
 
@@ -113,10 +114,28 @@ base::Optional<webrtc::SdpVideoFormat> VEAToWebRTCFormat(
         {cricket::kH264FmtpPacketizationMode, "1"}};
     return format;
   }
+
   if (profile.profile >= media::VP9PROFILE_MIN &&
       profile.profile <= media::VP9PROFILE_MAX) {
-    return webrtc::SdpVideoFormat("VP9");
+    webrtc::VP9Profile vp9_profile;
+    switch (profile.profile) {
+      case media::VP9PROFILE_PROFILE0:
+        vp9_profile = webrtc::VP9Profile::kProfile0;
+        break;
+      case media::VP9PROFILE_PROFILE2:
+        vp9_profile = webrtc::VP9Profile::kProfile2;
+        break;
+      default:
+        // Unsupported VP9 profiles (profile1 & profile3) in WebRTC.
+        return base::nullopt;
+    }
+    webrtc::SdpVideoFormat format("VP9");
+    format.parameters = {
+        {webrtc::kVP9FmtpProfileId,
+         webrtc::VP9ProfileToString(vp9_profile)}};
+    return format;
   }
+
   return base::nullopt;
 }  // namespace
 
@@ -131,6 +150,36 @@ struct SupportedFormats {
   std::vector<media::VideoCodecProfile> profiles;
   std::vector<webrtc::SdpVideoFormat> sdp_formats;
 };
+
+// Due to https://crbug.com/345569, HW encoders do not distinguish between
+// Constrained Baseline(CBP) and Baseline(BP) profiles. Since CBP is a subset of
+// BP, we can report support for both. It is safe to do so when SW fallback is
+// available.
+// TODO(chunbo): Remove this when the bug referred above is fixed.
+void AddConstrainedBaselineProfile(SupportedFormats* supported_formats) {
+  if (supported_formats->unknown)
+    return;
+
+  for (size_t i = 0; i < supported_formats->profiles.size(); ++i) {
+    if (media::H264PROFILE_BASELINE != supported_formats->profiles[i])
+      continue;
+
+    webrtc::SdpVideoFormat cbp_format = supported_formats->sdp_formats[i];
+    const absl::optional<webrtc::H264::ProfileLevelId> profile_level_id =
+        webrtc::H264::ParseSdpProfileLevelId(
+            supported_formats->sdp_formats[i].parameters);
+    if (!profile_level_id)
+      continue;
+
+    webrtc::H264::ProfileLevelId cbp_profile = *profile_level_id;
+    cbp_profile.profile = webrtc::H264::kProfileConstrainedBaseline;
+    cbp_format.parameters[cricket::kH264FmtpProfileLevelId] =
+        *webrtc::H264::ProfileLevelIdToString(cbp_profile);
+    supported_formats->sdp_formats.push_back(cbp_format);
+    supported_formats->profiles.push_back(media::H264PROFILE_BASELINE);
+    return;
+  }
+}
 
 SupportedFormats GetSupportedFormatsInternal(
     media::GpuVideoAcceleratorFactories* gpu_factories) {
@@ -149,6 +198,8 @@ SupportedFormats GetSupportedFormatsInternal(
       supported_formats.sdp_formats.push_back(std::move(*format));
     }
   }
+
+  AddConstrainedBaselineProfile(&supported_formats);
   return supported_formats;
 }
 
@@ -170,6 +221,7 @@ RTCVideoEncoderFactory::CreateVideoEncoder(
       if (IsSameFormat(format, supported_formats.sdp_formats[i])) {
         encoder = std::make_unique<RTCVideoEncoder>(
             supported_formats.profiles[i], gpu_factories_);
+        break;
       }
     }
   } else {

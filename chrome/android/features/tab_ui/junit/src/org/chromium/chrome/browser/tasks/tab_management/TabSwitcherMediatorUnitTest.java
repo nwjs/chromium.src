@@ -26,7 +26,6 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.view.View;
 
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -40,7 +39,6 @@ import org.mockito.MockitoAnnotations;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.UserDataHost;
-import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.test.ShadowRecordHistogram;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
@@ -141,7 +139,6 @@ public class TabSwitcherMediatorUnitTest {
     @Before
     public void setUp() {
         ShadowRecordHistogram.reset();
-        RecordHistogram.setDisabledForTests(true);
 
         MockitoAnnotations.initMocks(this);
 
@@ -193,11 +190,6 @@ public class TabSwitcherMediatorUnitTest {
         mMediator.setOnTabSelectingListener(mLayout::onTabSelecting);
     }
 
-    @After
-    public void tearDown() {
-        RecordHistogram.setDisabledForTests(false);
-    }
-
     @Test
     public void initializesWithCurrentModelOnCreation() {
         initAndAssertAllProperties();
@@ -216,6 +208,7 @@ public class TabSwitcherMediatorUnitTest {
 
     @Test
     public void showsWithoutAnimation() {
+        doReturn(true).when(mTabModelFilter).isTabModelRestored();
         initAndAssertAllProperties();
         mMediator.showOverview(false);
 
@@ -243,6 +236,7 @@ public class TabSwitcherMediatorUnitTest {
     @Test
     public void showsWithoutAnimation_withTabGroups() {
         doReturn(2).when(mTabModelFilter).getCount();
+        doReturn(true).when(mTabModelFilter).isTabModelRestored();
 
         initAndAssertAllProperties();
         mMediator.showOverview(false);
@@ -421,6 +415,7 @@ public class TabSwitcherMediatorUnitTest {
         initAndAssertAllProperties();
         mMediator.showOverview(true);
         assertThat(mModel.get(TabListContainerProperties.IS_VISIBLE), equalTo(true));
+        doReturn(true).when(mTabModelFilter).isTabModelRestored();
 
         mTabModelObserverCaptor.getValue().didSelectTab(mTab1, TabSelectionType.FROM_USER, TAB3_ID);
 
@@ -429,6 +424,7 @@ public class TabSwitcherMediatorUnitTest {
 
     @Test
     public void doesNotHideWhenSelectedTabChangedDueToTabClosure() {
+        doReturn(true).when(mTabModelFilter).isTabModelRestored();
         initAndAssertAllProperties();
         mMediator.showOverview(true);
         assertThat(mModel.get(TabListContainerProperties.IS_VISIBLE), equalTo(true));
@@ -444,6 +440,7 @@ public class TabSwitcherMediatorUnitTest {
 
     @Test
     public void doesNotHideWhenSelectedTabChangedDueToModelChange() {
+        doReturn(true).when(mTabModelFilter).isTabModelRestored();
         initAndAssertAllProperties();
         mMediator.showOverview(true);
         assertThat(mModel.get(TabListContainerProperties.IS_VISIBLE), equalTo(true));

@@ -29,16 +29,28 @@
 #include "chrome/common/chrome_features.h"
 #include "printing/pdf_render_settings.h"
 #include "printing/printed_page_win.h"
+#include "printing/printing_features.h"
 #endif
 
 using base::TimeDelta;
 
 namespace printing {
 
+namespace {
+
 // Helper function to ensure |job| is valid until at least |callback| returns.
 void HoldRefCallback(scoped_refptr<PrintJob> job, base::OnceClosure callback) {
   std::move(callback).Run();
 }
+
+#if defined(OS_WIN)
+bool PrintWithReducedRasterization() {
+  // TODO(crbug.com/674771): Support setting via policy.
+  return base::FeatureList::IsEnabled(features::kPrintWithReducedRasterization);
+}
+#endif
+
+}  // namespace
 
 PrintJob::PrintJob() {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
@@ -319,11 +331,21 @@ void PrintJob::StartPdfToEmfConversion(
   bool print_text_with_gdi =
       settings.print_text_with_gdi() && !settings.printer_is_xps() &&
       base::FeatureList::IsEnabled(::features::kGdiTextPrinting);
+  bool print_with_reduced_rasterization = PrintWithReducedRasterization();
+
+  using RenderMode = PdfRenderSettings::Mode;
+  RenderMode mode;
+  if (print_with_reduced_rasterization) {
+    mode = print_text_with_gdi
+               ? RenderMode::EMF_WITH_REDUCED_RASTERIZATION_AND_GDI_TEXT
+               : RenderMode::EMF_WITH_REDUCED_RASTERIZATION;
+  } else {
+    mode = print_text_with_gdi ? RenderMode::GDI_TEXT : RenderMode::NORMAL;
+  }
+
   PdfRenderSettings render_settings(
       content_area, gfx::Point(0, 0), settings.dpi_size(),
-      /*autorotate=*/true, settings.color() == COLOR,
-      print_text_with_gdi ? PdfRenderSettings::Mode::GDI_TEXT
-                          : PdfRenderSettings::Mode::NORMAL);
+      /*autorotate=*/true, settings.color() == COLOR, mode);
   pdf_conversion_state_->Start(
       bytes, render_settings,
       base::BindOnce(&PrintJob::OnPdfConversionStarted, this));
@@ -581,4 +603,5 @@ PrintedDocument* JobEventDetails::document() const { return document_.get(); }
 #if defined(OS_WIN)
 PrintedPage* JobEventDetails::page() const { return page_.get(); }
 #endif
+
 }  // namespace printing

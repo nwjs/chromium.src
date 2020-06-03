@@ -6,6 +6,7 @@
 
 #include "ash/public/cpp/ash_switches.h"
 #include "base/command_line.h"
+#include "base/feature_list.h"
 #include "build/build_config.h"
 #include "chromeos/constants/chromeos_switches.h"
 
@@ -24,14 +25,23 @@ const base::Feature kCornerShortcuts{"CornerShortcuts",
 const base::Feature kContextualNudges{"ContextualNudges",
                                       base::FEATURE_ENABLED_BY_DEFAULT};
 
+const base::Feature kDisplayAlignAssist{"DisplayAlignAssist",
+                                        base::FEATURE_DISABLED_BY_DEFAULT};
+
 const base::Feature kDisplayChangeModal{"DisplayChangeModal",
                                         base::FEATURE_ENABLED_BY_DEFAULT};
+
+const base::Feature kDisplayIdentification{"DisplayIdentification",
+                                           base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kDockedMagnifier{"DockedMagnifier",
                                      base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kDragToSnapInClamshellMode{
-    "DragToSnapInClamshellMode", base::FEATURE_DISABLED_BY_DEFAULT};
+    "DragToSnapInClamshellMode", base::FEATURE_ENABLED_BY_DEFAULT};
+
+const base::Feature kMovablePartialScreenshot{
+    "MovablePartialScreenshot", base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kEnableOverviewRoundedCorners{
     "EnableOverviewRoundedCorners", base::FEATURE_ENABLED_BY_DEFAULT};
@@ -62,7 +72,7 @@ const base::Feature kMediaSessionNotification{"MediaSessionNotification",
                                               base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kMultiDisplayOverviewAndSplitView{
-    "MultiDisplayOverviewAndSplitView", base::FEATURE_DISABLED_BY_DEFAULT};
+    "MultiDisplayOverviewAndSplitView", base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kNightLight{"NightLight", base::FEATURE_ENABLED_BY_DEFAULT};
 
@@ -90,8 +100,6 @@ const base::Feature kTrilinearFiltering{"TrilinearFiltering",
 const base::Feature kUnlockWithExternalBinary{
     "UnlockWithExternalBinary", base::FEATURE_DISABLED_BY_DEFAULT};
 
-const base::Feature kViewsLogin{"ViewsLogin", base::FEATURE_ENABLED_BY_DEFAULT};
-
 const base::Feature kUseBluetoothSystemInAsh{"UseBluetoothSystemInAsh",
                                              base::FEATURE_DISABLED_BY_DEFAULT};
 
@@ -118,6 +126,12 @@ const base::Feature kHideShelfControlsInTabletMode{
 
 const base::Feature kSystemTrayMicGainSetting{
     "SystemTrayMicGainSetting", base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::Feature kWebUITabStripTabDragIntegration{
+    "WebUITabStripTabDragIntegration", base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::Feature kShelfAppScaling{"ShelfAppScaling",
+                                     base::FEATURE_DISABLED_BY_DEFAULT};
 
 bool IsAllowAmbientEQEnabled() {
   return base::FeatureList::IsEnabled(kAllowAmbientEQ);
@@ -177,15 +191,6 @@ bool IsTrilinearFilteringEnabled() {
   static bool use_trilinear_filtering =
       base::FeatureList::IsEnabled(kTrilinearFiltering);
   return use_trilinear_filtering;
-}
-
-bool IsViewsLoginEnabled() {
-  // Always show webui login if --show-webui-login is present, which is passed
-  // by session manager for automatic recovery. Otherwise, only show views
-  // login if the feature is enabled.
-  return !base::CommandLine::ForCurrentProcess()->HasSwitch(
-             ash::switches::kShowWebUiLogin) &&
-         base::FeatureList::IsEnabled(kViewsLogin);
 }
 
 bool IsSupervisedUserDeprecationNoticeEnabled() {
@@ -250,6 +255,27 @@ bool IsCornerShortcutsEnabled() {
 
 bool IsSystemTrayMicGainSettingEnabled() {
   return base::FeatureList::IsEnabled(kSystemTrayMicGainSetting);
+}
+
+bool IsDisplayIdentificationEnabled() {
+  return base::FeatureList::IsEnabled(kDisplayIdentification);
+}
+
+bool IsWebUITabStripTabDragIntegrationEnabled() {
+  return base::FeatureList::IsEnabled(kWebUITabStripTabDragIntegration);
+}
+
+bool IsDisplayAlignmentAssistanceEnabled() {
+  return base::FeatureList::IsEnabled(kDisplayAlignAssist);
+}
+
+bool IsMovablePartialScreenshotEnabled() {
+  return base::FeatureList::IsEnabled(kMovablePartialScreenshot);
+}
+
+bool IsAppScalingEnabled() {
+  return base::FeatureList::IsEnabled(kShelfAppScaling) &&
+         chromeos::switches::ShouldShowShelfHotseat();
 }
 
 namespace {

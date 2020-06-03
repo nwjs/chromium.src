@@ -13,6 +13,7 @@
 #include "base/feature_list.h"
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
+#include "base/stl_util.h"
 #include "base/strings/string16.h"
 #include "base/task/post_task.h"
 #include "base/threading/sequenced_task_runner_handle.h"
@@ -44,25 +45,20 @@ bool IsMessageTextEqual(PermissionRequest* a, PermissionRequest* b) {
   return false;
 }
 
+bool isMediaRequest(PermissionRequestType type) {
+  return type == PermissionRequestType::PERMISSION_MEDIASTREAM_MIC ||
+         type == PermissionRequestType::PERMISSION_MEDIASTREAM_CAMERA ||
+         type == PermissionRequestType::PERMISSION_CAMERA_PAN_TILT_ZOOM;
+}
+
 // We only group together media requests. We don't display grouped requests for
 // any other permissions at present.
 bool ShouldGroupRequests(PermissionRequest* a, PermissionRequest* b) {
   if (a->GetOrigin() != b->GetOrigin())
     return false;
 
-  if (a->GetPermissionRequestType() ==
-      PermissionRequestType::PERMISSION_MEDIASTREAM_MIC) {
-    return b->GetPermissionRequestType() ==
-           PermissionRequestType::PERMISSION_MEDIASTREAM_CAMERA;
-  }
-
-  if (a->GetPermissionRequestType() ==
-      PermissionRequestType::PERMISSION_MEDIASTREAM_CAMERA) {
-    return b->GetPermissionRequestType() ==
-           PermissionRequestType::PERMISSION_MEDIASTREAM_MIC;
-  }
-
-  return false;
+  return isMediaRequest(a->GetPermissionRequestType()) &&
+         isMediaRequest(b->GetPermissionRequestType());
 }
 
 }  // namespace
@@ -361,8 +357,8 @@ void PermissionRequestManager::DequeueRequestIfNeeded() {
   requests_.push_back(queued_requests_.front());
   queued_requests_.pop_front();
 
-  if (!queued_requests_.empty() &&
-      ShouldGroupRequests(requests_.front(), queued_requests_.front())) {
+  while (!queued_requests_.empty() &&
+         ShouldGroupRequests(requests_.front(), queued_requests_.front())) {
     requests_.push_back(queued_requests_.front());
     queued_requests_.pop_front();
   }
@@ -493,12 +489,20 @@ void PermissionRequestManager::FinalizeBubble(
 }
 
 void PermissionRequestManager::CleanUpRequests() {
-  for (PermissionRequest* request : queued_requests_)
+  for (PermissionRequest* request : queued_requests_) {
+    CancelledIncludingDuplicates(request);
     RequestFinishedIncludingDuplicates(request);
+  }
   queued_requests_.clear();
 
-  if (IsRequestInProgress())
+  if (IsRequestInProgress()) {
+    std::vector<PermissionRequest*>::iterator requests_iter;
+    for (requests_iter = requests_.begin(); requests_iter != requests_.end();
+         requests_iter++) {
+      CancelledIncludingDuplicates(*requests_iter);
+    }
     FinalizeBubble(PermissionAction::IGNORED);
+  }
 }
 
 PermissionRequest* PermissionRequestManager::GetExistingRequest(
@@ -516,7 +520,8 @@ PermissionRequest* PermissionRequestManager::GetExistingRequest(
 
 void PermissionRequestManager::PermissionGrantedIncludingDuplicates(
     PermissionRequest* request) {
-  DCHECK_EQ(request, GetExistingRequest(request))
+  DCHECK_EQ(1, base::STLCount(requests_, request) +
+                   base::STLCount(queued_requests_, request))
       << "Only requests in [queued_[frame_]]requests_ can have duplicates";
   request->PermissionGranted();
   auto range = duplicate_requests_.equal_range(request);
@@ -526,7 +531,8 @@ void PermissionRequestManager::PermissionGrantedIncludingDuplicates(
 
 void PermissionRequestManager::PermissionDeniedIncludingDuplicates(
     PermissionRequest* request) {
-  DCHECK_EQ(request, GetExistingRequest(request))
+  DCHECK_EQ(1, base::STLCount(requests_, request) +
+                   base::STLCount(queued_requests_, request))
       << "Only requests in [queued_]requests_ can have duplicates";
   request->PermissionDenied();
   auto range = duplicate_requests_.equal_range(request);
@@ -536,7 +542,8 @@ void PermissionRequestManager::PermissionDeniedIncludingDuplicates(
 
 void PermissionRequestManager::CancelledIncludingDuplicates(
     PermissionRequest* request) {
-  DCHECK_EQ(request, GetExistingRequest(request))
+  DCHECK_EQ(1, base::STLCount(requests_, request) +
+                   base::STLCount(queued_requests_, request))
       << "Only requests in [queued_]requests_ can have duplicates";
   request->Cancelled();
   auto range = duplicate_requests_.equal_range(request);
@@ -546,11 +553,8 @@ void PermissionRequestManager::CancelledIncludingDuplicates(
 
 void PermissionRequestManager::RequestFinishedIncludingDuplicates(
     PermissionRequest* request) {
-  // We can't call GetExistingRequest here, because other entries in requests_,
-  // queued_requests_ might already have been deleted.
-  DCHECK_EQ(1, std::count(requests_.begin(), requests_.end(), request) +
-                   std::count(queued_requests_.begin(), queued_requests_.end(),
-                              request))
+  DCHECK_EQ(1, base::STLCount(requests_, request) +
+                   base::STLCount(queued_requests_, request))
       << "Only requests in [queued_]requests_ can have duplicates";
   request->RequestFinished();
   // Beyond this point, |request| has probably been deleted.

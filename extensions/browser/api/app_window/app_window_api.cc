@@ -249,7 +249,7 @@ ExtensionFunction::ResponseAction AppWindowCreateFunction::Run() {
 
     std::string error;
     if (!GetBoundsSpec(*options, &create_params, &error))
-      return RespondNow(Error(error));
+      return RespondNow(Error(std::move(error)));
 
     if (options->type == app_window::WINDOW_TYPE_PANEL) {
       WriteToConsole(blink::mojom::ConsoleMessageLevel::kWarning,
@@ -257,7 +257,7 @@ ExtensionFunction::ResponseAction AppWindowCreateFunction::Run() {
     }
 
     if (!GetFrameOptions(*options, &create_params, &error))
-      return RespondNow(Error(error));
+      return RespondNow(Error(std::move(error)));
 
     if (extension()->GetType() == Manifest::TYPE_EXTENSION) {
       // Whitelisted IME extensions are allowed to use this API to create IME

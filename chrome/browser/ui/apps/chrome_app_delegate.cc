@@ -16,7 +16,8 @@
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
 #include "chrome/browser/ui/passwords/manage_passwords_ui_controller.h"
 #include "chrome/browser/external_protocol/external_protocol_observer.h"
-#include "chrome/browser/content_settings/tab_specific_content_settings.h"
+#include "components/content_settings/browser/tab_specific_content_settings.h"
+#include "chrome/browser/content_settings/tab_specific_content_settings_delegate.h"
 
 #include "base/strings/stringprintf.h"
 #include "base/task/post_task.h"
@@ -256,7 +257,8 @@ void ChromeAppDelegate::InitWebContents(content::WebContents* web_contents) {
   ManagePasswordsUIController::CreateForWebContents(web_contents);
   PrefsTabHelper::CreateForWebContents(web_contents);
   ExternalProtocolObserver::CreateForWebContents(web_contents);
-  TabSpecificContentSettings::CreateForWebContents(web_contents);
+  content_settings::TabSpecificContentSettings::CreateForWebContents(web_contents,
+                                                                     std::make_unique<chrome::TabSpecificContentSettingsDelegate>(web_contents));
 }
 
 void ChromeAppDelegate::RenderViewCreated(
@@ -292,6 +294,7 @@ content::WebContents* ChromeAppDelegate::OpenURLFromTab(
 void ChromeAppDelegate::AddNewContents(
     content::BrowserContext* context,
     std::unique_ptr<content::WebContents> new_contents,
+    const GURL& target_url,
     WindowOpenDisposition disposition,
     const gfx::Rect& initial_rect,
     bool user_gesture) {
@@ -314,8 +317,8 @@ void ChromeAppDelegate::AddNewContents(
   disposition = disposition == WindowOpenDisposition::NEW_BACKGROUND_TAB
                     ? disposition
                     : WindowOpenDisposition::NEW_FOREGROUND_TAB;
-  chrome::AddWebContents(displayer.browser(), NULL, std::move(new_contents),
-                         disposition, initial_rect, std::string());
+  chrome::AddWebContents(displayer.browser(), nullptr, std::move(new_contents),
+                         target_url, disposition, initial_rect, std::string());
 }
 
 content::ColorChooser* ChromeAppDelegate::ShowColorChooser(

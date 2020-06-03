@@ -19,7 +19,6 @@
 #import "ios/chrome/app/application_delegate/tab_switching.h"
 #import "ios/chrome/app/application_delegate/user_activity_handler.h"
 #import "ios/chrome/app/main_application_delegate.h"
-#import "ios/chrome/app/startup/content_suggestions_scheduler_notifications.h"
 #include "ios/chrome/browser/browser_state/test_chrome_browser_state.h"
 #include "ios/chrome/browser/chrome_url_constants.h"
 #import "ios/chrome/browser/device_sharing/device_sharing_manager.h"
@@ -27,6 +26,7 @@
 #import "ios/chrome/browser/main/test_browser.h"
 #import "ios/chrome/browser/metrics/ios_profile_session_durations_service.h"
 #import "ios/chrome/browser/metrics/ios_profile_session_durations_service_factory.h"
+#import "ios/chrome/browser/ntp_snippets/content_suggestions_scheduler_notifications.h"
 #include "ios/chrome/browser/ntp_snippets/ios_chrome_content_suggestions_service_factory.h"
 #import "ios/chrome/browser/signin/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/authentication_service_fake.h"
@@ -66,11 +66,10 @@ namespace {
 typedef BOOL (^DecisionBlock)(id self);
 // A block that takes the arguments of UserActivityHandler's
 // +handleStartupParametersWithTabOpener.
-typedef void (^HandleStartupParam)(
-    id self,
-    id<TabOpening> tabOpener,
-    id<StartupInformation> startupInformation,
-    id<BrowserInterfaceProvider> interfaceProvider);
+typedef void (^HandleStartupParam)(id self,
+                                   id<TabOpening> tabOpener,
+                                   id<StartupInformation> startupInformation,
+                                   ChromeBrowserState* browserState);
 
 class FakeAppDistributionProvider : public AppDistributionProvider {
  public:
@@ -226,20 +225,19 @@ class AppStateTest : public BlockCleanupTest {
 
   void swizzleHandleStartupParameters(
       id<TabOpening> expectedTabOpener,
-      id<BrowserInterfaceProvider> expectedInterfaceProvider) {
-    handle_startup_swizzle_block_ =
-        ^(id self, id<TabOpening> tabOpener,
-          id<StartupInformation> startupInformation,
-          id<BrowserInterfaceProvider> interfaceProvider) {
-          ASSERT_EQ(startup_information_mock_, startupInformation);
-          ASSERT_EQ(expectedTabOpener, tabOpener);
-          ASSERT_EQ(expectedInterfaceProvider, interfaceProvider);
-        };
+      ChromeBrowserState* expectedBrowserState) {
+    handle_startup_swizzle_block_ = ^(id self, id<TabOpening> tabOpener,
+                                      id<StartupInformation> startupInformation,
+                                      ChromeBrowserState* browserState) {
+      ASSERT_EQ(startup_information_mock_, startupInformation);
+      ASSERT_EQ(expectedTabOpener, tabOpener);
+      ASSERT_EQ(expectedBrowserState, browserState);
+    };
 
     handle_startup_swizzler_.reset(new ScopedBlockSwizzler(
         [UserActivityHandler class],
         @selector(handleStartupParametersWithTabOpener:
-                                    startupInformation:interfaceProvider:),
+                                    startupInformation:browserState:),
         handle_startup_swizzle_block_));
   }
 
@@ -472,7 +470,6 @@ using AppStateNoFixtureTest = PlatformTest;
 TEST_F(AppStateNoFixtureTest, willResignActive) {
   // Setup.
   id tabModel = [OCMockObject mockForClass:[TabModel class]];
-  [[tabModel expect] recordSessionMetrics];
 
   StubBrowserInterfaceProvider* interfaceProvider =
       [[StubBrowserInterfaceProvider alloc] init];
@@ -584,7 +581,7 @@ TEST_F(AppStateTest, resumeSessionWithStartupParameters) {
   interfaceProvider.mainInterface.browserState = getBrowserState();
 
   // Swizzle Startup Parameters.
-  swizzleHandleStartupParameters(tabOpener, interfaceProvider);
+  swizzleHandleStartupParameters(tabOpener, getBrowserState());
 
   UIWindow* window = [[UIWindow alloc] init];
   AppState* appState = getAppStateWithOpenNTPAndIncognitoBlock(NO, window);
@@ -735,10 +732,6 @@ TEST_F(AppStateTest, applicationWillEnterForeground) {
   [[[tabOpener stub] andReturnValue:@YES]
       shouldOpenNTPTabOnActivationOfTabModel:tabModel];
 
-  id contentSuggestionsNotifier =
-      OCMClassMock([ContentSuggestionsSchedulerNotifications class]);
-  OCMExpect([contentSuggestionsNotifier notifyForeground:getBrowserState()]);
-
   void (^swizzleBlock)() = ^{
   };
 
@@ -760,7 +753,6 @@ TEST_F(AppStateTest, applicationWillEnterForeground) {
       static_cast<FakeUserFeedbackProvider*>(
           ios::GetChromeBrowserProvider()->GetUserFeedbackProvider());
   EXPECT_TRUE(user_feedback_provider->synchronize_called());
-  EXPECT_OCMOCK_VERIFY(contentSuggestionsNotifier);
 }
 
 // Tests that -applicationWillEnterForeground starts the browser if the

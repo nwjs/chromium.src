@@ -150,6 +150,9 @@ base::string16 ErrorToString(int error_code) {
     case 33:
       error_string = "RESULT_CODE_DOWNGRADE_AND_RELAUNCH";
       break;
+    case 34:
+      error_string = "RESULT_CODE_GPU_EXIT_ON_CONTEXT_LOST";
+      break;
     case 131:
       error_string = "SIGQUIT";
       break;
@@ -516,11 +519,13 @@ SadTabView::SadTabView(content::WebContents* web_contents, SadTabKind kind)
           DISTANCE_UNRELATED_CONTROL_HORIZONTAL);
   columns->AddPaddingColumn(1.0, unrelated_horizontal_spacing);
   columns->AddColumn(views::GridLayout::LEADING, views::GridLayout::LEADING,
-                     views::GridLayout::kFixedSize, views::GridLayout::USE_PREF,
-                     0, kMinColumnWidth);
+                     views::GridLayout::kFixedSize,
+                     views::GridLayout::ColumnSize::kUsePreferred, 0,
+                     kMinColumnWidth);
   columns->AddColumn(views::GridLayout::TRAILING, views::GridLayout::LEADING,
-                     views::GridLayout::kFixedSize, views::GridLayout::USE_PREF,
-                     0, kMinColumnWidth);
+                     views::GridLayout::kFixedSize,
+                     views::GridLayout::ColumnSize::kUsePreferred, 0,
+                     kMinColumnWidth);
   columns->AddPaddingColumn(1.0, unrelated_horizontal_spacing);
 
   auto image = std::make_unique<views::ImageView>();
@@ -569,9 +574,6 @@ SadTabView::SadTabView(content::WebContents* web_contents, SadTabKind kind)
       CreateErrorCodeLabel(GetErrorCodeFormatString(), GetCrashedErrorCode()),
       2, 1.0, views::GridLayout::LEADING, views::GridLayout::LEADING);
 
-  std::unique_ptr<views::LabelButton> action_button =
-      views::MdTextButton::CreateSecondaryUiBlueButton(
-          this, l10n_util::GetStringUTF16(IDS_CLOSE));
   auto help_link = std::make_unique<views::Link>(
       l10n_util::GetStringUTF16(GetHelpLinkTitle()));
   help_link->set_callback(base::BindRepeating(
@@ -581,6 +583,9 @@ SadTabView::SadTabView(content::WebContents* web_contents, SadTabKind kind)
                               unrelated_vertical_spacing_large);
   layout->AddView(std::move(help_link), 1.0, 1.0, views::GridLayout::LEADING,
                   views::GridLayout::CENTER);
+  auto action_button = views::MdTextButton::Create(
+      this, l10n_util::GetStringUTF16(IDS_CLOSE));
+  action_button->SetProminent(true);
   action_button_ =
       layout->AddView(std::move(action_button), 1.0, 1.0,
                       views::GridLayout::TRAILING, views::GridLayout::LEADING);

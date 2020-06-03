@@ -9,8 +9,9 @@
 #include <string>
 #include <utility>
 
+#include "base/check_op.h"
 #include "base/feature_list.h"
-#include "base/logging.h"
+#include "base/notreached.h"
 #include "base/rand_util.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_piece.h"
@@ -45,6 +46,8 @@
 #include "services/metrics/public/cpp/ukm_recorder.h"
 #include "third_party/blink/public/mojom/web_feature/web_feature.mojom.h"
 #include "ui/base/page_transition_types.h"
+#include "ui/gfx/geometry/point.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
 #include "url/gurl.h"
 
@@ -100,15 +103,15 @@ void RecordFeatureUsage(content::RenderFrameHost* rfh,
 }
 
 std::string GetHeavyAdReportMessage(const FrameData& frame_data,
-                                    bool reporting_only) {
+                                    bool will_unload_adframe) {
   const char kChromeStatusMessage[] =
       "See https://www.chromestatus.com/feature/4800491902992384";
   const char kReportingOnlyMessage[] =
-      "A future version of Chrome will remove this ad";
+      "A future version of Chrome may remove this ad";
   const char kInterventionMessage[] = "Ad was removed";
 
   base::StringPiece intervention_mode =
-      reporting_only ? kReportingOnlyMessage : kInterventionMessage;
+      will_unload_adframe ? kInterventionMessage : kReportingOnlyMessage;
 
   switch (frame_data.heavy_ad_status()) {
     case FrameData::HeavyAdStatus::kNetwork:
@@ -116,9 +119,12 @@ std::string GetHeavyAdReportMessage(const FrameData& frame_data,
                            " because its network usage exceeded the limit. ",
                            kChromeStatusMessage});
     case FrameData::HeavyAdStatus::kTotalCpu:
+      return base::StrCat({intervention_mode,
+                           " because its total CPU usage exceeded the limit. ",
+                           kChromeStatusMessage});
     case FrameData::HeavyAdStatus::kPeakCpu:
       return base::StrCat({intervention_mode,
-                           " because its CPU usage exceeded the limit. ",
+                           " because its peak CPU usage exceeded the limit. ",
                            kChromeStatusMessage});
     case FrameData::HeavyAdStatus::kNone:
       NOTREACHED();
@@ -306,6 +312,7 @@ void AdsPageLoadMetricsObserver::UpdateAdFrameData(
 
     if (should_ignore_detected_ad &&
         (ad_id == previous_data->root_frame_tree_node_id())) {
+      page_ad_density_tracker_.RemoveRect(id_and_data->first);
       ad_frames_data_storage_.erase(id_and_data->second);
       ad_frames_data_.erase(id_and_data);
 
@@ -526,6 +533,35 @@ void AdsPageLoadMetricsObserver::MediaStartedPlaying(
     ancestor_data->set_media_status(FrameData::MediaStatus::kPlayed);
 }
 
+void AdsPageLoadMetricsObserver::OnFrameIntersectionUpdate(
+    content::RenderFrameHost* render_frame_host,
+    const page_load_metrics::mojom::FrameIntersectionUpdate&
+        intersection_update) {
+  if (!intersection_update.main_frame_document_intersection_rect)
+    return;
+
+  int frame_tree_node_id = render_frame_host->GetFrameTreeNodeId();
+  if (render_frame_host == GetDelegate().GetWebContents()->GetMainFrame()) {
+    page_ad_density_tracker_.UpdateMainFrameRect(
+        *intersection_update.main_frame_document_intersection_rect);
+    return;
+  }
+
+  // If the frame whose size has changed is the root of the ad ancestry chain,
+  // then update it.
+  FrameData* ancestor_data = FindFrameData(frame_tree_node_id);
+  if (ancestor_data &&
+      frame_tree_node_id == ancestor_data->root_frame_tree_node_id()) {
+    page_ad_density_tracker_.RemoveRect(frame_tree_node_id);
+    // Only add frames if they are visible.
+    if (!ancestor_data->is_display_none()) {
+      page_ad_density_tracker_.AddRect(
+          frame_tree_node_id,
+          *intersection_update.main_frame_document_intersection_rect);
+    }
+  }
+}
+
 void AdsPageLoadMetricsObserver::OnFrameDeleted(
     content::RenderFrameHost* render_frame_host) {
   if (!render_frame_host)
@@ -551,6 +587,7 @@ void AdsPageLoadMetricsObserver::OnFrameDeleted(
     ancestor_data->RecordAdFrameLoadUkmEvent(GetDelegate().GetSourceId());
     DCHECK(id_and_data->second != ad_frames_data_storage_.end());
     ad_frames_data_storage_.erase(id_and_data->second);
+    page_ad_density_tracker_.RemoveRect(id_and_data->first);
   }
 
   // Delete this frame's entry from the map now that the store is deleted.
@@ -681,6 +718,24 @@ void AdsPageLoadMetricsObserver::RecordPageResourceTotalHistograms(
     return;
   PAGE_BYTES_HISTOGRAM("PageLoad.Clients.Ads.Resources.Bytes.Ads2",
                        aggregate_frame_data_->ad_network_bytes());
+
+  if (page_ad_density_tracker_.MaxPageAdDensityByArea() != -1) {
+    UMA_HISTOGRAM_PERCENTAGE("PageLoad.Clients.Ads.AdDensity.MaxPercentByArea",
+                             page_ad_density_tracker_.MaxPageAdDensityByArea());
+  }
+
+  if (page_ad_density_tracker_.MaxPageAdDensityByHeight() != -1) {
+    UMA_HISTOGRAM_PERCENTAGE(
+        "PageLoad.Clients.Ads.AdDensity.MaxPercentByHeight",
+        page_ad_density_tracker_.MaxPageAdDensityByHeight());
+  }
+
+  // Records true if both of the density calculations succeeded on the page.
+  UMA_HISTOGRAM_BOOLEAN(
+      "PageLoad.Clients.Ads.AdDensity.Recorded",
+      page_ad_density_tracker_.MaxPageAdDensityByArea() != -1 &&
+          page_ad_density_tracker_.MaxPageAdDensityByHeight() != -1);
+
   auto* ukm_recorder = ukm::UkmRecorder::Get();
   ukm::builders::AdPageLoad builder(source_id);
   builder.SetTotalBytes(aggregate_frame_data_->network_bytes() >> 10)
@@ -692,7 +747,10 @@ void AdsPageLoadMetricsObserver::RecordPageResourceTotalHistograms(
                            FrameData::ResourceMimeType::kVideo) >>
                        10)
       .SetMainframeAdBytes(ukm::GetExponentialBucketMinForBytes(
-          main_frame_data_->ad_network_bytes()));
+          main_frame_data_->ad_network_bytes()))
+      .SetMaxAdDensityByArea(page_ad_density_tracker_.MaxPageAdDensityByArea())
+      .SetMaxAdDensityByHeight(
+          page_ad_density_tracker_.MaxPageAdDensityByHeight());
 
   // Record cpu metrics for the page.
   builder.SetAdCpuTime(
@@ -1068,10 +1126,14 @@ void AdsPageLoadMetricsObserver::MaybeTriggerHeavyAdIntervention(
   if (!frame_data->MaybeTriggerHeavyAdIntervention())
     return;
 
-  // Don't trigger the heavy ad intervention on reloads.
-  UMA_HISTOGRAM_BOOLEAN(kIgnoredByReloadHistogramName, page_load_is_reload_);
-  if (page_load_is_reload_)
-    return;
+  // Don't trigger the heavy ad intervention on reloads. Gate this behind the
+  // privacy mitigations flag to help developers debug (otherwise they need to
+  // trigger new navigations to the site to test it).
+  if (heavy_ad_privacy_mitigations_enabled_) {
+    UMA_HISTOGRAM_BOOLEAN(kIgnoredByReloadHistogramName, page_load_is_reload_);
+    if (page_load_is_reload_)
+      return;
+  }
 
   // Check to see if we are allowed to activate on this host.
   if (IsBlocklisted())
@@ -1099,21 +1161,15 @@ void AdsPageLoadMetricsObserver::MaybeTriggerHeavyAdIntervention(
 
   // We already have a heavy ad at this point so we can query the field trial
   // params safely.
-  if (!heavy_ad_reporting_enabled_) {
-    heavy_ad_reporting_enabled_ = base::GetFieldTrialParamByFeatureAsBool(
-        features::kHeavyAdIntervention, kHeavyAdReportingEnabledParamName,
-        true);
-  }
+  bool will_report_adframe =
+      base::FeatureList::IsEnabled(features::kHeavyAdInterventionWarning);
+  bool will_unload_adframe =
+      base::FeatureList::IsEnabled(features::kHeavyAdIntervention);
 
-  if (!heavy_ad_send_reports_only_) {
-    heavy_ad_send_reports_only_ = base::GetFieldTrialParamByFeatureAsBool(
-        features::kHeavyAdIntervention, kHeavyAdReportingOnlyParamName, false);
-  }
-
-  if (*heavy_ad_reporting_enabled_) {
+  if (will_report_adframe) {
     const char kReportId[] = "HeavyAdIntervention";
     std::string report_message =
-        GetHeavyAdReportMessage(*frame_data, *heavy_ad_send_reports_only_);
+        GetHeavyAdReportMessage(*frame_data, will_unload_adframe);
 
     // Report to all child frames that will be unloaded. Once all reports are
     // queued, the frame will be unloaded. Because the IPC messages are ordered
@@ -1147,7 +1203,7 @@ void AdsPageLoadMetricsObserver::MaybeTriggerHeavyAdIntervention(
                 frame_data->visibility(),
                 frame_data->heavy_ad_status_with_noise());
 
-  if (*heavy_ad_send_reports_only_)
+  if (!will_unload_adframe)
     return;
 
   // Record heavy ad network size only when an ad is unloaded as a result of

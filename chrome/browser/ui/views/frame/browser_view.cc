@@ -50,6 +50,7 @@
 #include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/threading/thread_task_runner_handle.h"
+#include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/app_mode/app_mode_utils.h"
@@ -98,7 +99,6 @@
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/accelerator_table.h"
-#include "chrome/browser/ui/views/accessibility/caption_bubble.h"
 #include "chrome/browser/ui/views/accessibility/invert_bubble_view.h"
 #include "chrome/browser/ui/views/autofill/autofill_bubble_handler_impl.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view.h"
@@ -108,6 +108,7 @@
 #include "chrome/browser/ui/views/exclusive_access_bubble_views.h"
 #include "chrome/browser/ui/views/extensions/extension_keybinding_registry_views.h"
 #include "chrome/browser/ui/views/extensions/extensions_toolbar_container.h"
+#include "chrome/browser/ui/views/eye_dropper/eye_dropper.h"
 #include "chrome/browser/ui/views/find_bar_host.h"
 #include "chrome/browser/ui/views/frame/app_menu_button.h"
 #include "chrome/browser/ui/views/frame/browser_view_layout.h"
@@ -180,7 +181,6 @@
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_switches.h"
-#include "media/base/media_switches.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/base/accelerators/accelerator.h"
@@ -930,13 +930,14 @@ void BrowserView::Show() {
 
   MaybeShowInvertBubbleView(this);
 
-  // If the kLiveCaption feature is enabled, create and show a caption bubble.
-  // This is temporary while the feature is in early development. Soon, a
-  // CaptionController will be introduced which will conditionally create and
-  // show the CaptionBubble from inside the BrowserView when the preference is
-  // enabled.
-  if (base::FeatureList::IsEnabled(media::kLiveCaption))
-    captions::CaptionBubble::CreateAndShow(contents_web_view_);
+  // The fullscreen transition clears out focus, but there are some cases (for
+  // example, new window in Mac fullscreen with toolbar showing) where we need
+  // restore it.
+  if (frame_->IsFullscreen() &&
+      !frame_->GetFrameView()->ShouldHideTopUIForFullscreen() &&
+      GetFocusManager() && !GetFocusManager()->GetFocusedView()) {
+    SetFocusToLocationBar(false);
+  }
 }
 
 void BrowserView::ShowInactive() {
@@ -1511,14 +1512,13 @@ void BrowserView::FocusToolbar() {
 }
 
 ExtensionsContainer* BrowserView::GetExtensionsContainer() {
-  ExtensionsToolbarContainer* const extensions_toolbar_container =
-      toolbar_button_provider_->GetExtensionsToolbarContainer();
-  if (extensions_toolbar_container)
-    return extensions_toolbar_container;
+  if (base::FeatureList::IsEnabled(features::kExtensionsToolbarMenu))
+    return toolbar_button_provider_->GetExtensionsToolbarContainer();
 
-  CHECK(!base::FeatureList::IsEnabled(features::kExtensionsToolbarMenu));
   BrowserActionsContainer* container =
       toolbar_button_provider_->GetBrowserActionsContainer();
+  // Note that in some cases (such as an app window), there is no extensions
+  // container.
   return container ? container->toolbar_actions_bar() : nullptr;
 }
 
@@ -1606,14 +1606,27 @@ bool BrowserView::ActivateFirstInactiveBubbleForAccessibility() {
   if (GetLocationBarView()->ActivateFirstInactiveBubbleForAccessibility())
     return true;
 
-  // TODO: this fixes http://crbug.com/1042010, but a more general solution
-  // should be desirable to find any bubbles anchored in the views hierarchy.
+  // TODO: this fixes crbug.com/1042010 and crbug.com/1052676, but a more
+  // general solution should be desirable to find any bubbles anchored in the
+  // views hierarchy.
   if (toolbar_ && toolbar_->app_menu_button()) {
     views::BubbleDialogDelegateView* bubble =
         toolbar_->app_menu_button()->GetProperty(views::kAnchoredDialogKey);
+    if (!bubble && GetLocationBarView())
+      bubble = GetLocationBarView()->GetProperty(views::kAnchoredDialogKey);
+
     if (bubble) {
-      bubble->GetInitiallyFocusedView()->RequestFocus();
-      return true;
+      View* focusable = bubble->GetInitiallyFocusedView();
+
+      // A PermissionPromptBubbleView will explicitly return nullptr due to
+      // crbug.com/619429. In that case, we explicitly focus the cancel button.
+      if (!focusable)
+        focusable = bubble->GetCancelButton();
+
+      if (focusable) {
+        focusable->RequestFocus();
+        return true;
+      }
     }
   }
 
@@ -1910,8 +1923,8 @@ void BrowserView::ShowAppMenu() {
 
 content::KeyboardEventProcessingResult BrowserView::PreHandleKeyboardEvent(
     const NativeWebKeyboardEvent& event) {
-  if ((event.GetType() != blink::WebInputEvent::kRawKeyDown) &&
-      (event.GetType() != blink::WebInputEvent::kKeyUp)) {
+  if ((event.GetType() != blink::WebInputEvent::Type::kRawKeyDown) &&
+      (event.GetType() != blink::WebInputEvent::Type::kKeyUp)) {
     return content::KeyboardEventProcessingResult::NOT_HANDLED;
   }
 
@@ -1945,7 +1958,7 @@ content::KeyboardEventProcessingResult BrowserView::PreHandleKeyboardEvent(
 
 #if defined(OS_CHROMEOS)
   if (ash::AcceleratorController::Get()->IsDeprecated(accelerator)) {
-    return (event.GetType() == blink::WebInputEvent::kRawKeyDown)
+    return (event.GetType() == blink::WebInputEvent::Type::kRawKeyDown)
                ? content::KeyboardEventProcessingResult::NOT_HANDLED_IS_SHORTCUT
                : content::KeyboardEventProcessingResult::NOT_HANDLED;
   }
@@ -1981,7 +1994,7 @@ content::KeyboardEventProcessingResult BrowserView::PreHandleKeyboardEvent(
   // command id from |accelerator_table_|, it must be a keydown event. This
   // DCHECK ensures we won't accidentally return NOT_HANDLED for a later added
   // RELEASED accelerator in BrowserView.
-  DCHECK_EQ(event.GetType(), blink::WebInputEvent::kRawKeyDown);
+  DCHECK_EQ(event.GetType(), blink::WebInputEvent::Type::kRawKeyDown);
   // |accelerator| is a non-reserved browser shortcut (e.g. Ctrl+f).
   return content::KeyboardEventProcessingResult::NOT_HANDLED_IS_SHORTCUT;
 }
@@ -2139,7 +2152,9 @@ bool BrowserView::CanMaximize() const {
 }
 
 bool BrowserView::CanMinimize() const {
-  return true;
+  // There is no shelf in forced app mode, therefore we should not be able to
+  // minimize windows.
+  return !chrome::IsRunningInForcedAppMode();
 }
 
 bool BrowserView::CanActivate() const {
@@ -2439,9 +2454,6 @@ gfx::ImageSkia BrowserView::GetWindowAppIcon() {
 }
 
 gfx::ImageSkia BrowserView::GetWindowIcon() {
-  gfx::Image icon_override = browser()->icon_override();
-  if (!icon_override.IsEmpty())
-    return *icon_override.ToImageSkia();
   // Use the default icon for devtools.
   if (browser_->is_type_devtools()) {
     WebContents* active_content = browser_->tab_strip_model()->GetActiveWebContents();
@@ -2824,6 +2836,7 @@ const char* BrowserView::GetClassName() const {
 }
 
 void BrowserView::Layout() {
+  TRACE_EVENT0("ui", "BrowserView::Layout");
   if (!initialized_ || in_process_fullscreen_)
     return;
 
@@ -2968,10 +2981,6 @@ void BrowserView::PaintChildren(const views::PaintInfo& paint_info) {
   }
 }
 
-void BrowserView::ChildPreferredSizeChanged(View* child) {
-  Layout();
-}
-
 void BrowserView::GetAccessibleNodeData(ui::AXNodeData* node_data) {
   node_data->role = ax::mojom::Role::kClient;
 }
@@ -3051,6 +3060,7 @@ void BrowserView::InfoBarContainerStateChanged(bool is_animating) {
 
 void BrowserView::MaybeInitializeWebUITabStrip() {
 #if BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
+  TRACE_EVENT0("ui", "BrowserView::MaybeInitializeWebUITabStrip");
   if (browser_->SupportsWindowFeature(Browser::FEATURE_TABSTRIP) &&
       WebUITabStripContainerView::UseTouchableTabStrip()) {
     if (!webui_tab_strip_) {
@@ -3297,7 +3307,6 @@ void BrowserView::ProcessFullscreen(bool fullscreen,
     immersive_mode_controller_->SetEnabled(fullscreen);
   }
 
-  browser_->WindowFullscreenStateWillChange();
   browser_->WindowFullscreenStateChanged();
 
   if (fullscreen && !chrome::IsRunningInAppMode()) {
@@ -3314,7 +3323,7 @@ void BrowserView::ProcessFullscreen(bool fullscreen,
 bool BrowserView::ShouldUseImmersiveFullscreenForUrl(const GURL& url) const {
 #if defined(OS_CHROMEOS)
   // Kiosk mode needs the whole screen.
-  if (base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kKioskMode))
+  if (chrome::IsRunningInAppMode())
     return false;
 
   // In Public Session, always use immersive fullscreen.
@@ -3338,7 +3347,8 @@ void BrowserView::LoadAccelerators() {
   for (const auto& entry : accelerator_list) {
     // In app mode, only allow accelerators of white listed commands to pass
     // through.
-    if (is_app_mode && !chrome::IsCommandAllowedInAppMode(entry.command_id))
+    if (is_app_mode && !chrome::IsCommandAllowedInAppMode(
+                           entry.command_id, browser()->is_type_popup()))
       continue;
 
     ui::Accelerator accelerator(entry.keycode, entry.modifiers);
@@ -3505,6 +3515,12 @@ void BrowserView::ShowEmojiPanel() {
   GetWidget()->ShowEmojiPanel();
 }
 
+std::unique_ptr<content::EyeDropper> BrowserView::OpenEyeDropper(
+    content::RenderFrameHost* frame,
+    content::EyeDropperListener* listener) {
+  return ShowEyeDropper(frame, listener);
+}
+
 void BrowserView::ShowInProductHelpPromo(InProductHelpFeature iph_feature) {
   switch (iph_feature) {
     case InProductHelpFeature::kIncognitoWindow:
@@ -3576,9 +3592,8 @@ Profile* BrowserView::GetProfile() {
   return browser_->profile();
 }
 
-void BrowserView::UpdateUIForTabFullscreen(TabFullscreenState state) {
-  frame()->GetFrameView()->UpdateFullscreenTopUI(
-      state == ExclusiveAccessContext::STATE_ENTER_TAB_FULLSCREEN);
+void BrowserView::UpdateUIForTabFullscreen() {
+  frame()->GetFrameView()->UpdateFullscreenTopUI();
 }
 
 WebContents* BrowserView::GetActiveWebContents() {

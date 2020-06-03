@@ -122,7 +122,7 @@ static bool DragTypeIsValid(DragSourceAction action) {
 
 static WebMouseEvent CreateMouseEvent(DragData* drag_data) {
   WebMouseEvent result(
-      WebInputEvent::kMouseMove, drag_data->ClientPosition(),
+      WebInputEvent::Type::kMouseMove, drag_data->ClientPosition(),
       drag_data->GlobalPosition(), WebPointerProperties::Button::kLeft, 0,
       static_cast<WebInputEvent::Modifiers>(drag_data->GetModifiers()),
       base::TimeTicks::Now());
@@ -1001,7 +1001,7 @@ bool DragController::PopulateDragDataTransfer(LocalFrame* src,
 
   // Observe context related to source to allow dropping drag_state_ when the
   // Document goes away.
-  SetExecutionContext(src->GetDocument()->ToExecutionContext());
+  SetExecutionContext(src->DomWindow());
 
   return true;
 }
@@ -1306,7 +1306,7 @@ void DragController::DoSystemDrag(DragImage* image,
                                   bool for_link) {
   did_initiate_drag_ = true;
   drag_initiator_ = frame->GetDocument();
-  SetExecutionContext(drag_initiator_->ToExecutionContext());
+  SetExecutionContext(frame->DomWindow());
 
   // TODO(pdr): |drag_location| and |event_pos| should be passed in as
   // FloatPoints and we should calculate these adjusted values in floating

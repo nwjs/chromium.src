@@ -21,7 +21,6 @@ import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.ThemeColorProvider;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManager;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior;
-import org.chromium.chrome.browser.compositor.layouts.ToolbarSwipeLayout;
 import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.tasks.tab_management.TabGroupUi;
@@ -30,7 +29,6 @@ import org.chromium.chrome.browser.tasks.tab_management.TabUiFeatureUtilities;
 import org.chromium.chrome.browser.toolbar.IncognitoStateProvider;
 import org.chromium.chrome.browser.toolbar.TabCountProvider;
 import org.chromium.chrome.browser.toolbar.bottom.BottomControlsViewBinder.ViewHolder;
-import org.chromium.chrome.browser.ui.ImmersiveModeManager;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuButtonHelper;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -91,27 +89,23 @@ public class BottomControlsCoordinator {
                 model, new ViewHolder(root), BottomControlsViewBinder::bind);
 
         int bottomToolbarHeightId;
-        int bottomToolbarHeightWithShadowId;
 
         if (BottomToolbarConfiguration.isLabeledBottomToolbarEnabled()) {
             bottomToolbarHeightId = R.dimen.labeled_bottom_toolbar_height;
-            bottomToolbarHeightWithShadowId = R.dimen.labeled_bottom_toolbar_height_with_shadow;
         } else {
             bottomToolbarHeightId = R.dimen.bottom_toolbar_height;
-            bottomToolbarHeightWithShadowId = R.dimen.bottom_toolbar_height_with_shadow;
         }
 
         View toolbar = root.findViewById(R.id.bottom_container_slot);
         ViewGroup.LayoutParams params = toolbar.getLayoutParams();
         params.height = root.getResources().getDimensionPixelOffset(bottomToolbarHeightId);
         mMediator = new BottomControlsMediator(model, fullscreenManager,
-                root.getResources().getDimensionPixelOffset(bottomToolbarHeightId),
-                root.getResources().getDimensionPixelOffset(bottomToolbarHeightWithShadowId));
+                root.getResources().getDimensionPixelOffset(bottomToolbarHeightId));
 
-        if (TabManagementModuleProvider.getDelegate() != null
-                && TabUiFeatureUtilities.isTabGroupsAndroidEnabled()
-                && !(TabUiFeatureUtilities.isDuetTabStripIntegrationAndroidEnabled()
-                        && BottomToolbarConfiguration.isBottomToolbarEnabled())) {
+        if ((TabUiFeatureUtilities.isTabGroupsAndroidEnabled()
+                    && !(TabUiFeatureUtilities.isDuetTabStripIntegrationAndroidEnabled()
+                            && BottomToolbarConfiguration.isBottomToolbarEnabled()))
+                || TabUiFeatureUtilities.isConditionalTabStripEnabled()) {
             mTabGroupUi = TabManagementModuleProvider.getDelegate().createTabGroupUi(
                     root.findViewById(R.id.bottom_container_slot), themeColorProvider);
         } else {
@@ -125,13 +119,6 @@ public class BottomControlsCoordinator {
                 BottomToolbarConfiguration.isLabeledBottomToolbarEnabled()
                         ? R.dimen.labeled_bottom_toolbar_height
                         : R.dimen.bottom_toolbar_height));
-    }
-
-    /**
-     * @param immersiveModeManager The {@link ImmersiveModeManager} for the containing activity.
-     */
-    public void setImmersiveModeManager(ImmersiveModeManager immersiveModeManager) {
-        mMediator.setImmersiveModeManager(immersiveModeManager);
     }
 
     /**
@@ -170,8 +157,6 @@ public class BottomControlsCoordinator {
             mBottomToolbarCoordinator.initializeWithNative(tabSwitcherListener, newTabClickListener,
                     menuButtonHelper, overviewModeBehavior, tabCountProvider,
                     incognitoStateProvider, topToolbarRoot, closeAllTabsAction);
-            mMediator.setToolbarSwipeHandler(
-                    layoutManager.createToolbarSwipeHandler(/* supportSwipeDown = */ false));
         }
 
         if (mTabGroupUi != null) {
@@ -195,15 +180,6 @@ public class BottomControlsCoordinator {
      */
     public boolean onBackPressed() {
         return mTabGroupUi != null && mTabGroupUi.onBackPressed();
-    }
-
-    /**
-     * @param layout The {@link ToolbarSwipeLayout} that the bottom controls will hook into. This
-     *               allows the bottom controls to provide the layout with scene layers with the
-     *               bottom controls' texture.
-     */
-    public void setToolbarSwipeLayout(ToolbarSwipeLayout layout) {
-        mMediator.setToolbarSwipeLayout(layout);
     }
 
     /**

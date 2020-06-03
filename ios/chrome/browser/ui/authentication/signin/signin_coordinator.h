@@ -15,13 +15,6 @@
 class Browser;
 @class ChromeIdentity;
 
-// Called when the sign-in dialog is closed.
-// |result| is the sign-in result state.
-// |identity| is the identity chosen by the user during the sign-in.
-typedef void (^SigninCoordinatorCompletionCallback)(
-    SigninCoordinatorResult signinResult,
-    ChromeIdentity* identity);
-
 // Main class for sign-in coordinator. This class should not be instantiated
 // directly, this should be done using the class methods.
 @interface SigninCoordinator : ChromeCoordinator
@@ -51,7 +44,10 @@ typedef void (^SigninCoordinatorCompletionCallback)(
                                     promoAction:(signin_metrics::PromoAction)
                                                     promoAction;
 
-// Returns a coordinator for first run sign-in workflow.
+// Returns a coordinator for first run sign-in workflow. If the user tap on the
+// settings link to open the advanced settings sign-in, the SigninCoordinator
+// owner is in charge open this view, according to -[SigninCompletionInfo
+// signinCompletionAction] in |signinCompletionInfo| from |signinCompletion|.
 // |navigationController| presents the sign-in. Will be responsible for
 // dismissing itself upon sign-in completion.
 + (instancetype)firstRunCoordinatorWithBaseNavigationController:
@@ -97,6 +93,16 @@ typedef void (^SigninCoordinatorCompletionCallback)(
                                           promoAction:
                                               (signin_metrics::PromoAction)
                                                   promoAction;
+
+// Returns a coordinator for re-authentication workflow for Trusted
+// Vault for the primary identity. This is done with ChromeTrustedVaultService.
+// Related to IOSTrustedVaultClient.
+// |viewController| presents the sign-in.
++ (instancetype)
+    trustedVaultReAuthenticationCoordiantorWithBaseViewController:
+        (UIViewController*)viewcontroller
+                                                          browser:
+                                                              (Browser*)browser;
 
 // Interrupts the sign-in flow.
 // |signinCompletion(SigninCoordinatorResultInterrupted, nil)| is guaranteed to

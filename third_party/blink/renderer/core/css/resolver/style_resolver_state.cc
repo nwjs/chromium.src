@@ -23,6 +23,7 @@
 #include "third_party/blink/renderer/core/css/resolver/style_resolver_state.h"
 
 #include "third_party/blink/renderer/core/animation/css/css_animations.h"
+#include "third_party/blink/renderer/core/css/css_light_dark_value_pair.h"
 #include "third_party/blink/renderer/core/css/css_property_value_set.h"
 #include "third_party/blink/renderer/core/dom/node.h"
 #include "third_party/blink/renderer/core/dom/node_computed_style.h"
@@ -155,6 +156,12 @@ void StyleResolverState::CacheUserAgentBorderAndBackground() {
 }
 
 void StyleResolverState::LoadPendingResources() {
+  if ((ParentStyle() && ParentStyle()->IsEnsuredInDisplayNone()) ||
+      StyleRef().Display() == EDisplay::kNone ||
+      StyleRef().Display() == EDisplay::kContents ||
+      StyleRef().IsEnsuredOutsideFlatTree())
+    return;
+
   element_style_resources_.LoadPendingResources(Style());
 }
 
@@ -215,6 +222,19 @@ const Element* StyleResolverState::GetAnimatingElement() const {
     return &GetElement();
   DCHECK_EQ(AnimatingElementType::kPseudoElement, animating_element_type_);
   return pseudo_element_;
+}
+
+const CSSValue& StyleResolverState::ResolveLightDarkPair(
+    const CSSProperty& property,
+    const CSSValue& value) {
+  if (const auto* pair = DynamicTo<CSSLightDarkValuePair>(value)) {
+    if (!property.IsInherited())
+      Style()->SetHasNonInheritedLightDarkValue();
+    if (Style()->UsedColorScheme() == WebColorScheme::kLight)
+      return pair->First();
+    return pair->Second();
+  }
+  return value;
 }
 
 }  // namespace blink

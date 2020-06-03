@@ -209,7 +209,9 @@ void PrintJobWorker::UpdatePrintSettings(base::Value new_settings,
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   std::unique_ptr<crash_keys::ScopedPrinterInfo> crash_key;
-  if (new_settings.FindIntKey(kSettingPrinterType).value() == kLocalPrinter) {
+  PrinterType type = static_cast<PrinterType>(
+      new_settings.FindIntKey(kSettingPrinterType).value());
+  if (type == PrinterType::kLocal) {
 #if defined(OS_WIN)
     // Blocking is needed here because Windows printer drivers are oftentimes
     // not thread-safe and have to be accessed on the UI thread.
@@ -222,8 +224,15 @@ void PrintJobWorker::UpdatePrintSettings(base::Value new_settings,
         print_backend->GetPrinterDriverInfo(printer_name));
   }
 
-  PrintingContext::Result result =
-      printing_context_->UpdatePrintSettings(std::move(new_settings));
+  PrintingContext::Result result;
+  {
+#if defined(OS_WIN)
+    // Blocking is needed here because Windows printer drivers are oftentimes
+    // not thread-safe and have to be accessed on the UI thread.
+    base::ScopedAllowBlocking allow_blocking;
+#endif
+    result = printing_context_->UpdatePrintSettings(std::move(new_settings));
+  }
   GetSettingsDone(std::move(callback), result);
 }
 
@@ -481,8 +490,8 @@ void PrintJobWorker::SpoolPage(PrintedPage* page) {
   // Signal everyone that the page is printed.
   DCHECK(print_job_);
   print_job_->PostTask(
-      FROM_HERE, base::BindRepeating(
-                     &PageNotificationCallback, base::RetainedRef(print_job_),
+      FROM_HERE,
+      base::BindOnce(&PageNotificationCallback, base::RetainedRef(print_job_),
                      JobEventDetails::PAGE_DONE, printing_context_->job_id(),
                      base::RetainedRef(document_), base::RetainedRef(page)));
 }

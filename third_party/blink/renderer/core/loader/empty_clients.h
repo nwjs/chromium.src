@@ -135,7 +135,7 @@ class CORE_EXPORT EmptyChromeClient : public ChromeClient {
                              const FrameLoadRequest&,
                              const AtomicString&,
                              const WebWindowFeatures&,
-                             mojom::blink::WebSandboxFlags,
+                             network::mojom::blink::WebSandboxFlags,
                              const FeaturePolicy::FeatureState&,
                              const SessionStorageNamespaceId&, WebString*) override {
     return nullptr;
@@ -211,13 +211,7 @@ class CORE_EXPORT EmptyChromeClient : public ChromeClient {
   void RegisterPopupOpeningObserver(PopupOpeningObserver*) override {}
   void UnregisterPopupOpeningObserver(PopupOpeningObserver*) override {}
   void NotifyPopupOpeningObservers() const override {}
-  void FallbackCursorModeLockCursor(LocalFrame* frame,
-                                    bool left,
-                                    bool right,
-                                    bool up,
-                                    bool down) override {}
-  void FallbackCursorModeSetCursorVisibility(LocalFrame* frame,
-                                             bool visible) override {}
+
   void RequestBeginMainFrameNotExpected(LocalFrame& frame,
                                         bool request) override {}
   int GetLayerTreeId(LocalFrame& frame) override { return 0; }
@@ -267,7 +261,6 @@ class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
       DocumentLoader*,
       WebNavigationType,
       NavigationPolicy,
-      bool,
       WebFrameLoadType,
       bool,
       TriggeringEventInfo,
@@ -276,6 +269,7 @@ class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
       mojo::PendingRemote<mojom::blink::BlobURLToken>,
       base::TimeTicks,
       const String&,
+      const base::Optional<WebImpression>&,
       WTF::Vector<network::mojom::blink::ContentSecurityPolicyPtr>
           initiator_csp,
       network::mojom::blink::CSPSourcePtr initiator_self_source,
@@ -333,7 +327,7 @@ class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
       HTMLMediaElement&) override;
 
   void DidCreateInitialEmptyDocument() override {}
-  void DidCommitJavascriptUrlNavigation(DocumentLoader*) override {}
+  void DidCommitDocumentReplacementNavigation(DocumentLoader*) override {}
   void DispatchDidClearWindowObjectInMainWorld() override {}
   void DocumentElementAvailable() override {}
   void RunScriptsAtDocumentElementAvailable() override {}
@@ -412,11 +406,13 @@ class CORE_EXPORT EmptyRemoteFrameClient : public RemoteFrameClient {
 
   // RemoteFrameClient implementation.
   void Navigate(const ResourceRequest&,
+                blink::WebLocalFrame* initiator_frame,
                 bool should_replace_current_entry,
                 bool is_opener_navigation,
                 bool initiator_frame_has_download_sandbox_flag,
                 bool initiator_frame_is_ad,
-                mojo::PendingRemote<mojom::blink::BlobURLToken>) override {}
+                mojo::PendingRemote<mojom::blink::BlobURLToken>,
+                const base::Optional<WebImpression>&) override {}
   unsigned BackForwardLength() override { return 0; }
   void ForwardPostMessage(
       MessageEvent*,

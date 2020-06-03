@@ -56,6 +56,7 @@
 #include "components/download/public/common/download_ukm_helper.h"
 #include "components/download/public/common/download_url_parameters.h"
 #include "components/download/public/common/download_utils.h"
+#include "net/base/network_change_notifier.h"
 #include "net/http/http_response_headers.h"
 #include "net/http/http_status_code.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
@@ -1064,7 +1065,12 @@ bool DownloadItemImpl::CanOpenDownload() {
 }
 
 bool DownloadItemImpl::ShouldOpenFileBasedOnExtension() {
-  return delegate_->ShouldOpenFileBasedOnExtension(GetTargetFilePath());
+  return delegate_->ShouldAutomaticallyOpenFile(GetURL(), GetTargetFilePath());
+}
+
+bool DownloadItemImpl::ShouldOpenFileByPolicyBasedOnExtension() {
+  return delegate_->ShouldAutomaticallyOpenFileByPolicy(GetURL(),
+                                                        GetTargetFilePath());
 }
 
 bool DownloadItemImpl::GetOpenWhenComplete() const {
@@ -1546,7 +1552,8 @@ void DownloadItemImpl::Start(
   }
 
   if (state_ == INITIAL_INTERNAL) {
-    RecordDownloadCountWithSource(NEW_DOWNLOAD_COUNT, download_source_);
+    RecordNewDownloadStarted(net::NetworkChangeNotifier::GetConnectionType(),
+                             download_source_);
     if (job_->IsParallelizable()) {
       RecordParallelizableDownloadCount(NEW_DOWNLOAD_COUNT,
                                         IsParallelDownloadEnabled());
@@ -1943,8 +1950,8 @@ void DownloadItemImpl::Completed() {
 
   bool is_parallelizable = job_ && job_->IsParallelizable();
   RecordDownloadCompleted(GetReceivedBytes(), is_parallelizable,
-                          download_source_, has_resumed_,
-                          HasStrongValidators());
+                          net::NetworkChangeNotifier::GetConnectionType(),
+                          download_source_);
   if (!delegate_->IsOffTheRecord()) {
     RecordDownloadCountWithSource(COMPLETED_COUNT_NORMAL_PROFILE,
                                   download_source_);
@@ -2514,15 +2521,12 @@ void DownloadItemImpl::ResumeInterruptedDownload(
                                 download_source_);
 
   base::TimeDelta time_since_start = base::Time::Now() - GetStartTime();
-
   DownloadUkmHelper::RecordDownloadResumed(ukm_download_id_, GetResumeMode(),
                                            time_since_start);
-  RecordDownloadResumed(HasStrongValidators());
 
   delegate_->ResumeInterruptedDownload(std::move(download_params),
                                        request_info_.site_url);
 
-  has_resumed_ = true;
   if (job_)
     job_->Resume(false);
 }

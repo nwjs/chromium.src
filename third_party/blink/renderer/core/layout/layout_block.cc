@@ -30,6 +30,7 @@
 
 #include "base/memory/ptr_util.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
+#include "third_party/blink/renderer/core/display_lock/display_lock_utilities.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/editing/drag_caret.h"
@@ -42,6 +43,7 @@
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/layout/api/line_layout_box.h"
 #include "third_party/blink/renderer/core/layout/api/line_layout_item.h"
+#include "third_party/blink/renderer/core/layout/box_layout_extra_input.h"
 #include "third_party/blink/renderer/core/layout/hit_test_location.h"
 #include "third_party/blink/renderer/core/layout/hit_test_result.h"
 #include "third_party/blink/renderer/core/layout/layout_analyzer.h"
@@ -111,6 +113,9 @@ LayoutBlock::LayoutBlock(ContainerNode* node)
       has_percent_height_descendants_(false),
       pagination_state_changed_(false),
       is_legacy_initiated_out_of_flow_layout_(false) {
+  if (node)
+    GetDocument().IncLayoutBlockCounter();
+
   // LayoutBlockFlow calls setChildrenInline(true).
   // By default, subclasses do not have inline children.
 }
@@ -431,7 +436,10 @@ void LayoutBlock::UpdateBlockLayout(bool) {
 }
 
 void LayoutBlock::AddVisualOverflowFromChildren() {
-  if (LayoutBlockedByDisplayLock(DisplayLockLifecycleTarget::kChildren))
+  // It is an error to call this function on a LayoutBlock that it itself inside
+  // a display-locked subtree.
+  DCHECK(!DisplayLockUtilities::LockedAncestorPreventingPrePaint(*this));
+  if (PrePaintBlockedByDisplayLock(DisplayLockLifecycleTarget::kChildren))
     return;
 
   if (ChildrenInline())
@@ -1102,6 +1110,16 @@ void LayoutBlock::AddPercentHeightDescendant(LayoutBox* descendant) {
     descendant->RemoveFromPercentHeightContainer();
   }
   descendant->SetPercentHeightContainer(this);
+
+  // Mark our containing block chain as potentially having a percent height
+  // descendant.
+  LayoutBlock* cb = descendant->ContainingBlock();
+  while (cb) {
+    cb->SetMaybeHasPercentHeightDescendant();
+    if (cb == this)
+      break;
+    cb = cb->ContainingBlock();
+  }
 
   if (!g_percent_height_descendants_map)
     g_percent_height_descendants_map = new TrackedDescendantsMap;
@@ -2111,8 +2129,10 @@ bool LayoutBlock::RecalcChildLayoutOverflow() {
 
 void LayoutBlock::RecalcChildVisualOverflow() {
   DCHECK(!IsTable());
-
-  if (PaintBlockedByDisplayLock(DisplayLockLifecycleTarget::kChildren))
+  // It is an error to call this function on a LayoutBlock that it itself inside
+  // a display-locked subtree.
+  DCHECK(!DisplayLockUtilities::LockedAncestorPreventingPrePaint(*this));
+  if (PrePaintBlockedByDisplayLock(DisplayLockLifecycleTarget::kChildren))
     return;
 
   if (ChildrenInline()) {
@@ -2275,6 +2295,8 @@ LayoutUnit LayoutBlock::AvailableLogicalHeightForPercentageComputation() const {
     const LayoutFlexibleBox* flex_box = ToLayoutFlexibleBox(Parent());
     if (flex_box->UseOverrideLogicalHeightForPerentageResolution(*this))
       stretched_flex_height = OverrideContentLogicalHeight();
+  } else if (HasOverrideLogicalHeight() && IsOverrideLogicalHeightDefinite()) {
+    stretched_flex_height = OverrideContentLogicalHeight();
   }
   if (stretched_flex_height != LayoutUnit(-1)) {
     available_height = stretched_flex_height;

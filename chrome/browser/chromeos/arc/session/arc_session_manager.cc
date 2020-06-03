@@ -514,10 +514,12 @@ void ArcSessionManager::Initialize() {
   state_ = State::STOPPED;
 
   auto* prefs = profile_->GetPrefs();
-  const std::string user_id_hash(
-      chromeos::ProfileHelper::GetUserIdHashFromProfile(profile_));
-  arc_session_runner_->SetUserInfo(user_id_hash,
-                                   GetOrCreateSerialNumber(prefs));
+  const cryptohome::Identification cryptohome_id(
+      multi_user_util::GetAccountIdFromProfile(profile_));
+  arc_session_runner_->SetUserInfo(
+      cryptohome_id,
+      chromeos::ProfileHelper::GetUserIdHashFromProfile(profile_),
+      GetOrCreateSerialNumber(prefs));
 
   // Create the support host at initialization. Note that, practically,
   // ARC support Chrome app is rarely used (only opt-in and re-auth flow).
@@ -534,10 +536,7 @@ void ArcSessionManager::Initialize() {
     support_host_ = std::make_unique<ArcSupportHost>(profile_);
     support_host_->SetErrorDelegate(this);
   }
-  data_remover_ = std::make_unique<ArcDataRemover>(
-      prefs, cryptohome::Identification(
-                 multi_user_util::GetAccountIdFromProfile(profile_)));
-  data_remover_->set_user_id_hash_for_profile(user_id_hash);
+  data_remover_ = std::make_unique<ArcDataRemover>(prefs, cryptohome_id);
 
   if (g_enable_check_android_management_in_tests.value_or(g_ui_enabled))
     ArcAndroidManagementChecker::StartClient();
@@ -1011,8 +1010,8 @@ void ArcSessionManager::OnAndroidManagementChecked(
       sign_in_start_time_ = base::TimeTicks::Now();
       arc_sign_in_timer_.Start(
           FROM_HERE, GetArcSignInTimeout(),
-          base::Bind(&ArcSessionManager::OnArcSignInTimeout,
-                     weak_ptr_factory_.GetWeakPtr()));
+          base::BindOnce(&ArcSessionManager::OnArcSignInTimeout,
+                         weak_ptr_factory_.GetWeakPtr()));
       StartArc();
       // Since opt-in is an explicit user (or admin) action, relax the
       // cgroups restriction now.

@@ -54,7 +54,6 @@
 #include "build/build_config.h"
 #include "components/autofill/content/browser/content_autofill_driver_factory.h"
 #include "components/cdm/browser/cdm_message_filter_android.h"
-#include "components/cdm/browser/media_drm_storage_impl.h"
 #include "components/content_capture/browser/content_capture_receiver_manager.h"
 #include "components/crash/content/browser/crash_handler_host_linux.h"
 #include "components/navigation_interception/intercept_navigation_delegate.h"
@@ -89,7 +88,6 @@
 #include "content/public/common/url_constants.h"
 #include "content/public/common/user_agent.h"
 #include "content/public/common/web_preferences.h"
-#include "media/mojo/buildflags.h"
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
@@ -213,65 +211,6 @@ void AwContentsMessageFilter::OnSubFrameCreated(int parent_render_frame_id,
                                             child_render_frame_id);
 }
 
-// A dummy binder for mojo interface autofill::mojom::PasswordManagerDriver.
-void DummyBindPasswordManagerDriver(
-    mojo::PendingReceiver<autofill::mojom::PasswordManagerDriver> receiver,
-    content::RenderFrameHost* render_frame_host) {}
-
-void PassMojoCookieManagerToAwCookieManager(
-    CookieManager* cookie_manager,
-    const mojo::Remote<network::mojom::NetworkContext>& network_context) {
-  // Get the CookieManager from the NetworkContext.
-  mojo::PendingRemote<network::mojom::CookieManager> cookie_manager_remote;
-  network_context->GetCookieManager(
-      cookie_manager_remote.InitWithNewPipeAndPassReceiver());
-
-  // Pass the mojo::PendingRemote<network::mojom::CookieManager> to
-  // android_webview::CookieManager, so it can implement its APIs with this mojo
-  // CookieManager.
-  cookie_manager->SetMojoCookieManager(std::move(cookie_manager_remote));
-}
-
-#if BUILDFLAG(ENABLE_MOJO_CDM)
-void CreateOriginId(cdm::MediaDrmStorageImpl::OriginIdObtainedCB callback) {
-  std::move(callback).Run(true, base::UnguessableToken::Create());
-}
-
-void AllowEmptyOriginIdCB(base::OnceCallback<void(bool)> callback) {
-  // Since CreateOriginId() always returns a non-empty origin ID, we don't need
-  // to allow empty origin ID.
-  std::move(callback).Run(false);
-}
-
-void CreateMediaDrmStorage(
-    content::RenderFrameHost* render_frame_host,
-    mojo::PendingReceiver<::media::mojom::MediaDrmStorage> receiver) {
-  DCHECK(render_frame_host);
-
-  if (render_frame_host->GetLastCommittedOrigin().opaque()) {
-    DVLOG(1) << __func__ << ": Unique origin.";
-    return;
-  }
-
-  content::WebContents* web_contents =
-      content::WebContents::FromRenderFrameHost(render_frame_host);
-  DCHECK(web_contents) << "WebContents not available.";
-
-  auto* aw_browser_context =
-      static_cast<AwBrowserContext*>(web_contents->GetBrowserContext());
-  DCHECK(aw_browser_context) << "AwBrowserContext not available.";
-
-  PrefService* pref_service = aw_browser_context->GetPrefService();
-  DCHECK(pref_service);
-
-  // The object will be deleted on connection error, or when the frame navigates
-  // away.
-  new cdm::MediaDrmStorageImpl(
-      render_frame_host, pref_service, base::BindRepeating(&CreateOriginId),
-      base::BindRepeating(&AllowEmptyOriginIdCB), std::move(receiver));
-}
-#endif  // BUILDFLAG(ENABLE_MOJO_CDM)
-
 // Helper method that checks the RenderProcessHost is still alive before hopping
 // over to the IO thread.
 void MaybeCreateSafeBrowsing(
@@ -308,7 +247,7 @@ std::string GetUserAgent() {
     product += " Mobile";
   }
   return content::BuildUserAgentFromProductAndExtraOSInfo(
-      product, "; wv", true /* include_android_build_number */);
+      product, "; wv", content::IncludeAndroidBuildNumber::Include);
 }
 
 // TODO(yirui): can use similar logic as in PrependToAcceptLanguagesIfNecessary
@@ -345,13 +284,6 @@ AwContentBrowserClient::AwContentBrowserClient(
   // take the PrefService owned by the creator as the Local State instead
   // of loading the JSON file from disk.
   DCHECK(aw_feature_list_creator_);
-
-  // Although WebView does not support password manager feature, renderer code
-  // could still request this interface, so we register a dummy binder which
-  // just drops the incoming request, to avoid the 'Failed to locate a binder
-  // for interface' error log..
-  frame_interfaces_.AddInterface(
-      base::BindRepeating(&DummyBindPasswordManagerDriver));
   sniff_file_urls_ = AwSettings::GetAllowSniffingFileUrls();
 }
 
@@ -365,32 +297,35 @@ void AwContentBrowserClient::OnNetworkServiceCreated(
   content::GetNetworkService()->SetUpHttpAuth(std::move(auth_static_params));
 }
 
-mojo::Remote<network::mojom::NetworkContext>
-AwContentBrowserClient::CreateNetworkContext(
+void AwContentBrowserClient::ConfigureNetworkContextParams(
     content::BrowserContext* context,
     bool in_memory,
-    const base::FilePath& relative_partition_path) {
+    const base::FilePath& relative_partition_path,
+    network::mojom::NetworkContextParams* network_context_params,
+    network::mojom::CertVerifierCreationParams* cert_verifier_creation_params) {
   DCHECK(context);
 
   content::GetNetworkService()->ConfigureHttpAuthPrefs(
       AwBrowserProcess::GetInstance()->CreateHttpAuthDynamicParams());
 
-  auto* aw_context = static_cast<AwBrowserContext*>(context);
-  mojo::Remote<network::mojom::NetworkContext> network_context;
-  network::mojom::NetworkContextParamsPtr context_params =
-      aw_context->GetNetworkContextParams(in_memory, relative_partition_path);
+  AwBrowserContext* aw_context = static_cast<AwBrowserContext*>(context);
+  aw_context->ConfigureNetworkContextParams(in_memory, relative_partition_path,
+                                            network_context_params,
+                                            cert_verifier_creation_params);
+
+  mojo::PendingRemote<network::mojom::CookieManager> cookie_manager_remote;
+  network_context_params->cookie_manager =
+      cookie_manager_remote.InitWithNewPipeAndPassReceiver();
+
 #if DCHECK_IS_ON()
   g_created_network_context_params = true;
 #endif
-  content::GetNetworkService()->CreateNetworkContext(
-      network_context.BindNewPipeAndPassReceiver(), std::move(context_params));
 
-  // Pass a CookieManager to the code supporting AwCookieManager.java (i.e., the
-  // Cookies APIs).
-  PassMojoCookieManagerToAwCookieManager(aw_context->GetCookieManager(),
-                                         network_context);
-
-  return network_context;
+  // Pass the mojo::PendingRemote<network::mojom::CookieManager> to
+  // android_webview::CookieManager, so it can implement its APIs with this mojo
+  // CookieManager.
+  aw_context->GetCookieManager()->SetMojoCookieManager(
+      std::move(cookie_manager_remote));
 }
 
 AwBrowserContext* AwContentBrowserClient::InitBrowserContext() {
@@ -502,9 +437,11 @@ gfx::ImageSkia AwContentBrowserClient::GetDefaultFavicon() {
   return rb.GetImageNamed(IDR_DEFAULT_FAVICON).AsImageSkia();
 }
 
-bool AwContentBrowserClient::AllowAppCache(const GURL& manifest_url,
-                                           const GURL& first_party,
-                                           content::BrowserContext* context) {
+bool AwContentBrowserClient::AllowAppCache(
+    const GURL& manifest_url,
+    const GURL& site_for_cookies,
+    const base::Optional<url::Origin>& top_frame_origin,
+    content::BrowserContext* context) {
   // WebView doesn't have a per-site policy for locally stored data,
   // instead AppCache can be disabled for individual WebViews.
   return true;
@@ -693,11 +630,8 @@ AwContentBrowserClient::CreateThrottlesForNavigation(
     throttles.push_back(std::make_unique<PolicyBlacklistNavigationThrottle>(
         navigation_handle, AwBrowserContext::FromWebContents(
                                navigation_handle->GetWebContents())));
-    if (base::FeatureList::IsEnabled(
-            safe_browsing::kCommittedSBInterstitials)) {
-      throttles.push_back(std::make_unique<AwSafeBrowsingNavigationThrottle>(
-          navigation_handle));
-    }
+    throttles.push_back(
+        std::make_unique<AwSafeBrowsingNavigationThrottle>(navigation_handle));
   }
   return throttles;
 }
@@ -712,14 +646,6 @@ AwContentBrowserClient::GetServiceManifestOverlay(base::StringPiece name) {
   if (name == content::mojom::kBrowserServiceName)
     return GetAWContentBrowserOverlayManifest();
   return base::nullopt;
-}
-
-void AwContentBrowserClient::BindInterfaceRequestFromFrame(
-    content::RenderFrameHost* render_frame_host,
-    const std::string& interface_name,
-    mojo::ScopedMessagePipeHandle interface_pipe) {
-  frame_interfaces_.TryBindInterface(interface_name, &interface_pipe,
-                                     render_frame_host);
 }
 
 bool AwContentBrowserClient::BindAssociatedReceiverFromFrame(
@@ -825,15 +751,6 @@ AwContentBrowserClient::GetSafeBrowsingUrlCheckerDelegate() {
   }
 
   return safe_browsing_url_checker_delegate_;
-}
-
-void AwContentBrowserClient::ExposeInterfacesToMediaService(
-    service_manager::BinderRegistry* registry,
-    content::RenderFrameHost* render_frame_host) {
-#if BUILDFLAG(ENABLE_MOJO_CDM)
-  registry->AddInterface(
-      base::BindRepeating(&CreateMediaDrmStorage, render_frame_host));
-#endif
 }
 
 bool AwContentBrowserClient::ShouldOverrideUrlLoading(
@@ -978,6 +895,15 @@ bool AwContentBrowserClient::ShouldLockToOrigin(
   return false;
 }
 
+bool AwContentBrowserClient::DoesWebUISchemeRequireProcessLock(
+    base::StringPiece scheme) {
+  // TODO(nasko,alexmos): WebView does not currently lock processes for WebUI
+  // navigations, even though it does cross-process navigations. It should be
+  // fixed and this method can be removed.
+  // See https://crbug.com/1071464.
+  return false;
+}
+
 bool AwContentBrowserClient::WillCreateURLLoaderFactory(
     content::BrowserContext* browser_context,
     content::RenderFrameHost* frame,
@@ -1100,6 +1026,13 @@ void AwContentBrowserClient::LogWebFeatureForCurrentPage(
   page_load_metrics::mojom::PageLoadFeatures new_features({feature}, {}, {});
   page_load_metrics::MetricsWebContentsObserver::RecordFeatureUsage(
       render_frame_host, new_features);
+}
+
+bool AwContentBrowserClient::IsOriginTrialRequiredForAppCache(
+    content::BrowserContext* browser_text) {
+  // WebView has no way of specifying an origin trial, and so never
+  // consider it a requirement.
+  return false;
 }
 
 content::SpeechRecognitionManagerDelegate*

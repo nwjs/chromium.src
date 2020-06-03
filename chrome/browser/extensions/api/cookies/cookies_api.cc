@@ -280,7 +280,7 @@ ExtensionFunction::ResponseAction CookiesGetFunction::Run() {
   // Read/validate input parameters.
   std::string error;
   if (!ParseUrl(extension(), parsed_args_->details.url, &url_, true, &error))
-    return RespondNow(Error(error));
+    return RespondNow(Error(std::move(error)));
 
   std::string store_id =
       parsed_args_->details.store_id.get() ? *parsed_args_->details.store_id
@@ -288,7 +288,7 @@ ExtensionFunction::ResponseAction CookiesGetFunction::Run() {
   network::mojom::CookieManager* cookie_manager = ParseStoreCookieManager(
       browser_context(), include_incognito_information(), &store_id, &error);
   if (!cookie_manager)
-    return RespondNow(Error(error));
+    return RespondNow(Error(std::move(error)));
 
   if (!parsed_args_->details.store_id.get())
     parsed_args_->details.store_id.reset(new std::string(store_id));
@@ -336,7 +336,7 @@ ExtensionFunction::ResponseAction CookiesGetAllFunction::Run() {
   if (parsed_args_->details.url.get() &&
       !ParseUrl(extension(), *parsed_args_->details.url, &url_, false,
                 &error)) {
-    return RespondNow(Error(error));
+    return RespondNow(Error(std::move(error)));
   }
 
   std::string store_id =
@@ -345,7 +345,7 @@ ExtensionFunction::ResponseAction CookiesGetAllFunction::Run() {
   network::mojom::CookieManager* cookie_manager = ParseStoreCookieManager(
       browser_context(), include_incognito_information(), &store_id, &error);
   if (!cookie_manager)
-    return RespondNow(Error(error));
+    return RespondNow(Error(std::move(error)));
 
   if (!parsed_args_->details.store_id.get())
     parsed_args_->details.store_id.reset(new std::string(store_id));
@@ -414,7 +414,7 @@ ExtensionFunction::ResponseAction CookiesSetFunction::Run() {
   // Read/validate input parameters.
   std::string error;
   if (!ParseUrl(extension(), parsed_args_->details.url, &url_, true, &error))
-    return RespondNow(Error(error));
+    return RespondNow(Error(std::move(error)));
 
   std::string store_id =
       parsed_args_->details.store_id.get() ? *parsed_args_->details.store_id
@@ -422,7 +422,7 @@ ExtensionFunction::ResponseAction CookiesSetFunction::Run() {
   network::mojom::CookieManager* cookie_manager = ParseStoreCookieManager(
       browser_context(), include_incognito_information(), &store_id, &error);
   if (!cookie_manager)
-    return RespondNow(Error(error));
+    return RespondNow(Error(std::move(error)));
 
   if (!parsed_args_->details.store_id.get())
     parsed_args_->details.store_id.reset(new std::string(store_id));
@@ -497,7 +497,7 @@ ExtensionFunction::ResponseAction CookiesSetFunction::Run() {
       net::CookieOptions::SameSiteCookieContext::MakeInclusive());
   DCHECK(!url_.is_empty() && url_.is_valid());
   cookie_manager->SetCanonicalCookie(
-      *cc, url_.scheme(), options,
+      *cc, url_, options,
       base::BindOnce(&CookiesSetFunction::SetCanonicalCookieCallback, this));
   cookies_helpers::GetCookieListFromManager(
       cookie_manager, url_,
@@ -563,7 +563,7 @@ ExtensionFunction::ResponseAction CookiesRemoveFunction::Run() {
   // Read/validate input parameters.
   std::string error;
   if (!ParseUrl(extension(), parsed_args_->details.url, &url_, true, &error))
-    return RespondNow(Error(error));
+    return RespondNow(Error(std::move(error)));
 
   std::string store_id =
       parsed_args_->details.store_id.get() ? *parsed_args_->details.store_id
@@ -571,7 +571,7 @@ ExtensionFunction::ResponseAction CookiesRemoveFunction::Run() {
   network::mojom::CookieManager* cookie_manager = ParseStoreCookieManager(
       browser_context(), include_incognito_information(), &store_id, &error);
   if (!cookie_manager)
-    return RespondNow(Error(error));
+    return RespondNow(Error(std::move(error)));
 
   if (!parsed_args_->details.store_id.get())
     parsed_args_->details.store_id.reset(new std::string(store_id));

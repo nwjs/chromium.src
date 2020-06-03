@@ -74,7 +74,9 @@ import org.chromium.ui.resources.ResourceManager;
 import org.chromium.ui.resources.dynamics.DynamicResourceLoader;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * This class holds a {@link CompositorView}. This level of indirection is needed to benefit from
@@ -164,6 +166,10 @@ public class CompositorViewHolder extends FrameLayout
     // Indicates if ContentCaptureConsumer should be created, we only try to create it once.
     private boolean mShouldCreateContentCaptureConsumer = true;
     private ContentCaptureConsumer mContentCaptureConsumer;
+
+    private Set<Runnable> mOnCompositorLayoutCallbacks = new HashSet<>();
+    private Set<Runnable> mDidSwapFrameCallbacks = new HashSet<>();
+    private Set<Runnable> mDidSwapBuffersCallbacks = new HashSet<>();
 
     /**
      * Last MotionEvent dispatched to this object for a currently active gesture. If there is no
@@ -751,6 +757,7 @@ public class CompositorViewHolder extends FrameLayout
     public void onStart() {
         if (mFullscreenManager != null) {
             mFullscreenManager.addListener(this);
+            mFullscreenManager.setViewportSizeDelegate(this::onUpdateViewportSize);
         }
         requestRender();
     }
@@ -759,7 +766,10 @@ public class CompositorViewHolder extends FrameLayout
      * Called whenever the host activity is stopped.
      */
     public void onStop() {
-        if (mFullscreenManager != null) mFullscreenManager.removeListener(this);
+        if (mFullscreenManager != null) {
+            mFullscreenManager.removeListener(this);
+            mFullscreenManager.setViewportSizeDelegate(null);
+        }
     }
 
     @Override
@@ -805,8 +815,7 @@ public class CompositorViewHolder extends FrameLayout
         webContents.notifyBrowserControlsHeightChanged();
     }
 
-    @Override
-    public void onUpdateViewportSize() {
+    private void onUpdateViewportSize() {
         // Reflect the changes that may have happened in in view/control size.
         Point viewportSize = getViewportSize();
         setSize(getWebContents(), getContentView(), viewportSize.x, viewportSize.y);
@@ -835,6 +844,9 @@ public class CompositorViewHolder extends FrameLayout
             mLayoutManager.onUpdate();
             mCompositorView.finalizeLayers(mLayoutManager, false);
         }
+
+        mDidSwapFrameCallbacks.addAll(mOnCompositorLayoutCallbacks);
+        mOnCompositorLayoutCallbacks.clear();
 
         TraceEvent.end("CompositorViewHolder:layout");
     }
@@ -876,6 +888,12 @@ public class CompositorViewHolder extends FrameLayout
 
     @Override
     public void requestRender() {
+        requestRender(null);
+    }
+
+    @Override
+    public void requestRender(Runnable onUpdateEffective) {
+        if (onUpdateEffective != null) mOnCompositorLayoutCallbacks.add(onUpdateEffective);
         mCompositorView.requestRender();
     }
 
@@ -910,6 +928,17 @@ public class CompositorViewHolder extends FrameLayout
 
         if (!mSkipInvalidation || pendingFrameCount == 0) flushInvalidation();
         mSkipInvalidation = !mSkipInvalidation;
+
+        mDidSwapBuffersCallbacks.addAll(mDidSwapFrameCallbacks);
+        mDidSwapFrameCallbacks.clear();
+    }
+
+    @Override
+    public void didSwapBuffers(boolean swappedCurrentSize) {
+        for (Runnable runnable : mDidSwapBuffersCallbacks) {
+            runnable.run();
+        }
+        mDidSwapBuffersCallbacks.clear();
     }
 
     @Override
@@ -972,6 +1001,7 @@ public class CompositorViewHolder extends FrameLayout
     public void setFullscreenHandler(ChromeFullscreenManager fullscreen) {
         mFullscreenManager = fullscreen;
         mFullscreenManager.addListener(this);
+        mFullscreenManager.setViewportSizeDelegate(this::onUpdateViewportSize);
         onViewportChanged();
     }
 

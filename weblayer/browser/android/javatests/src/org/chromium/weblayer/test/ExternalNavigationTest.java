@@ -8,24 +8,25 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.test.filters.SmallTest;
-import android.support.v4.app.Fragment;
+
+import androidx.fragment.app.Fragment;
 
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import org.chromium.base.test.BaseJUnit4ClassRunner;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.weblayer.Browser;
 import org.chromium.weblayer.Tab;
+import org.chromium.weblayer.TabListCallback;
 import org.chromium.weblayer.shell.InstrumentationActivity;
 
 /**
  * Tests handling of external intents.
  */
-@RunWith(BaseJUnit4ClassRunner.class)
+@RunWith(WebLayerJUnit4ClassRunner.class)
 public class ExternalNavigationTest {
     @Rule
     public InstrumentationActivityTestRule mActivityTestRule =
@@ -61,6 +62,8 @@ public class ExternalNavigationTest {
             "link_with_intent_to_chrome_in_new_tab.html";
     private static final String PAGE_THAT_INTENTS_TO_CHROME_ON_LOAD_FILE =
             "page_that_intents_to_chrome_on_load.html";
+    private static final String LINK_TO_PAGE_THAT_INTENTS_TO_CHROME_ON_LOAD_FILE =
+            "link_to_page_that_intents_to_chrome_on_load.html";
 
     // The test server handles "echo" with a response containing "Echo" :).
     private final String mTestServerSiteUrl = mActivityTestRule.getTestServer().getURL("/echo");
@@ -199,7 +202,8 @@ public class ExternalNavigationTest {
 
     /**
      * Tests that clicking on a link that goes to an external intent in a new tab results in
-     * a new tab being opened whose URL is that of the intent and the intent being launched.
+     * a new tab being opened whose URL is that of the intent and the intent being launched,
+     * followed by the new tab being closed.
      */
     @Test
     @SmallTest
@@ -212,8 +216,26 @@ public class ExternalNavigationTest {
 
         mActivityTestRule.navigateAndWait(url);
 
-        // Grab the existing tab before causing a new one to be opened.
-        Tab tab = mActivityTestRule.getActivity().getTab();
+        // Set up listening for the tab addition and removal that we expect to happen.
+        CallbackHelper onTabAddedCallbackHelper = new CallbackHelper();
+        CallbackHelper onTabRemovedCallbackHelper = new CallbackHelper();
+        TabListCallback tabListCallback = new TabListCallback() {
+            @Override
+            public void onTabAdded(Tab tab) {
+                onTabAddedCallbackHelper.notifyCalled();
+            }
+
+            @Override
+            public void onTabRemoved(Tab tab) {
+                onTabRemovedCallbackHelper.notifyCalled();
+            }
+        };
+        Browser browser = mActivityTestRule.getActivity().getBrowser();
+        TestThreadUtils.runOnUiThreadBlocking(
+                () -> { browser.registerTabListCallback(tabListCallback); });
+
+        // Grab the original tab before it changes.
+        Tab originalTab = mActivityTestRule.getActivity().getTab();
 
         mActivityTestRule.executeScriptSync(
                 "document.onclick = function() {document.getElementById('link').click()}",
@@ -221,23 +243,30 @@ public class ExternalNavigationTest {
         EventUtils.simulateTouchCenterOfView(
                 mActivityTestRule.getActivity().getWindow().getDecorView());
 
-        intentInterceptor.waitForIntent();
+        // (1) A new tab should be created...
+        onTabAddedCallbackHelper.waitForFirst();
 
-        // The current URL should not have changed in the existing tab, and the intent should have
-        // been launched.
-        Assert.assertEquals(url, mActivityTestRule.getLastCommittedUrlInTab(tab));
+        // (2) The intent should be launched in that tab...
+        intentInterceptor.waitForIntent();
         Intent intent = intentInterceptor.mLastIntent;
         Assert.assertNotNull(intent);
         Assert.assertEquals(INTENT_TO_CHROME_PACKAGE, intent.getPackage());
         Assert.assertEquals(INTENT_TO_CHROME_ACTION, intent.getAction());
         Assert.assertEquals(INTENT_TO_CHROME_DATA_STRING, intent.getDataString());
 
-        // A new tab should have been created whose URL is that of the intent.
-        Browser browser = mActivityTestRule.getActivity().getBrowser();
+        // (3) And finally the new tab should be closed.
+        onTabRemovedCallbackHelper.waitForFirst();
+
+        // Now the original tab should be all that's left in the browser, with the display URL being
+        // the original URL.
         int numTabs =
                 TestThreadUtils.runOnUiThreadBlocking(() -> { return browser.getTabs().size(); });
-        Assert.assertEquals(2, numTabs);
-        Assert.assertEquals(INTENT_TO_CHROME_URL, mActivityTestRule.getCurrentDisplayUrl());
+        Assert.assertEquals(1, numTabs);
+        Assert.assertEquals(mActivityTestRule.getActivity().getTab(), originalTab);
+        Assert.assertEquals(url, mActivityTestRule.getCurrentDisplayUrl());
+
+        TestThreadUtils.runOnUiThreadBlocking(
+                () -> { browser.unregisterTabListCallback(tabListCallback); });
     }
 
     /**
@@ -330,20 +359,14 @@ public class ExternalNavigationTest {
     }
 
     /**
-     * Tests that a navigation that redirects to an external intent that can't be handled but has a
-     * fallback URL that launches an intent that *can* be handled results in the launching of the
-     * second intent.
      * |url| is a URL that redirects to an unhandleable intent but has a fallback URL that redirects
      * to a handleable intent.
-     * Tests that a navigation to |url| launches the handleable intent.
-     * TODO(crbug.com/1031465): Disallow such fallback intent launches by sharing Chrome's
-     * RedirectHandler impl, at which point this should fail and be updated to verify that the
-     * intent is blocked.
+     * Tests that a navigation to |url| blocks the handleable intent by policy on chained redirects.
      */
     @Test
     @SmallTest
     public void
-    testNonHandledExternalIntentWithFallbackUrlThatLaunchesIntentAfterRedirectLaunchesFallbackIntent()
+    testNonHandledExternalIntentWithFallbackUrlThatLaunchesIntentAfterRedirectBlocksFallbackIntent()
             throws Throwable {
         InstrumentationActivity activity = mActivityTestRule.launchShellWithUrl(ABOUT_BLANK_URL);
         IntentInterceptor intentInterceptor = new IntentInterceptor();
@@ -357,37 +380,86 @@ public class ExternalNavigationTest {
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> { tab.getNavigationController().navigate(Uri.parse(url)); });
 
-        intentInterceptor.waitForIntent();
+        NavigationWaiter waiter = new NavigationWaiter(
+                INTENT_TO_CHROME_URL, tab, /*expectFailure=*/true, /*waitForPaint=*/false);
+        waiter.waitForNavigation();
 
-        // The current URL should not have changed, and the intent should have been launched.
+        Assert.assertNull(intentInterceptor.mLastIntent);
+
+        // The current URL should not have changed.
         Assert.assertEquals(ABOUT_BLANK_URL, mActivityTestRule.getCurrentDisplayUrl());
-        Intent intent = intentInterceptor.mLastIntent;
-        Assert.assertNotNull(intent);
-        Assert.assertEquals(INTENT_TO_CHROME_PACKAGE, intent.getPackage());
-        Assert.assertEquals(INTENT_TO_CHROME_ACTION, intent.getAction());
-        Assert.assertEquals(INTENT_TO_CHROME_DATA_STRING, intent.getDataString());
     }
 
     /**
      * Tests that going to a page that loads an intent that can be handled in onload() results in
-     * the external intent being launched.
-     * TODO(crbug.com/1031465): Disallow such intent launches by sharing Chrome's RedirectHandler
-     * impl, at which point this should fail and be updated to verify that the intent is blocked.
+     * the external intent being blocked by policy on intents without user gestures loading in the
+     * midst of a user-typed navigation.
      */
     @Test
     @SmallTest
-    public void testExternalIntentLaunchedViaOnLoad() throws Throwable {
+    public void testExternalIntentViaOnLoadBlocked() throws Throwable {
         InstrumentationActivity activity = mActivityTestRule.launchShellWithUrl(ABOUT_BLANK_URL);
         IntentInterceptor intentInterceptor = new IntentInterceptor();
         activity.setIntentInterceptor(intentInterceptor);
 
         String url = mActivityTestRule.getTestDataURL(PAGE_THAT_INTENTS_TO_CHROME_ON_LOAD_FILE);
 
+        Tab tab = mActivityTestRule.getActivity().getTab();
+
+        TestThreadUtils.runOnUiThreadBlocking(
+                () -> { tab.getNavigationController().navigate(Uri.parse(url)); });
+
+        NavigationWaiter waiter = new NavigationWaiter(
+                INTENT_TO_CHROME_URL, tab, /*expectFailure=*/true, /*waitForPaint=*/false);
+        waiter.waitForNavigation();
+
+        Assert.assertNull(intentInterceptor.mLastIntent);
+
+        // The current URL should not have changed.
+        Assert.assertEquals(url, mActivityTestRule.getCurrentDisplayUrl());
+    }
+
+    /**
+     * Tests the following flow:
+     * - The user clicks on a link
+     * - This link goes to a page that loads a handleable intent in onload()
+     * This flow should result in (a) the external intent being launched rather than blocked,
+     * because the initial navigation to the page did not occur via user typing, and (b) WebLayer
+     * eliminating the navigation entry that launched the intent, so that the user is back on the
+     * original URL (i.e., the URL before they clicked the link).
+     */
+    @Test
+    @SmallTest
+    public void testUserClicksLinkToPageWithExternalIntentLaunchedViaOnLoad() throws Throwable {
+        InstrumentationActivity activity = mActivityTestRule.launchShellWithUrl(ABOUT_BLANK_URL);
+        IntentInterceptor intentInterceptor = new IntentInterceptor();
+        activity.setIntentInterceptor(intentInterceptor);
+
+        String url =
+                mActivityTestRule.getTestDataURL(LINK_TO_PAGE_THAT_INTENTS_TO_CHROME_ON_LOAD_FILE);
+
         mActivityTestRule.navigateAndWait(url);
+
+        // Clicking on the link on this page should result in a navigation to the page that loads an
+        // intent in onLoad(), followed by a launching of that intent.
+        Tab tab = mActivityTestRule.getActivity().getTab();
+        String finalUrl =
+                mActivityTestRule.getTestDataURL(PAGE_THAT_INTENTS_TO_CHROME_ON_LOAD_FILE);
+        NavigationWaiter waiter =
+                new NavigationWaiter(finalUrl, tab, /*expectFailure=*/false, /*waitForPaint=*/true);
+
+        mActivityTestRule.executeScriptSync(
+                "document.onclick = function() {document.getElementById('link').click()}",
+                true /* useSeparateIsolate */);
+        EventUtils.simulateTouchCenterOfView(
+                mActivityTestRule.getActivity().getWindow().getDecorView());
+
+        waiter.waitForNavigation();
 
         intentInterceptor.waitForIntent();
 
-        // The current URL should not have changed, and the intent should have been launched.
+        // The intent should have been launched, and the user should now be back on the original
+        // URL.
         Assert.assertEquals(url, mActivityTestRule.getCurrentDisplayUrl());
         Intent intent = intentInterceptor.mLastIntent;
         Assert.assertNotNull(intent);

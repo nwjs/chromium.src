@@ -45,10 +45,17 @@ typedef NS_ENUM(NSUInteger, SceneActivationLevel) {
 // The current activation level.
 @property(nonatomic, assign) SceneActivationLevel activationLevel;
 
+// Window ID, used for restoration.
+// TODO(crbug.com/1069762): remove this.
+@property(nonatomic, assign, readonly) NSUInteger windowID;
+
 // Window for the associated scene, if any.
 @property(nonatomic, strong) UIWindow* window;
 
 @property(nonatomic, strong) UIWindowScene* scene API_AVAILABLE(ios(13));
+
+@property(nonatomic, strong)
+    UISceneConnectionOptions* connectionOptions API_AVAILABLE(ios(13));
 
 // The interface provider associated with this scene.
 @property(nonatomic, strong, readonly) id<BrowserInterfaceProvider>

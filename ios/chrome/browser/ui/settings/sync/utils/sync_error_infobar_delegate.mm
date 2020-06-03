@@ -8,7 +8,7 @@
 
 #include <utility>
 
-#include "base/logging.h"
+#include "base/check.h"
 #include "base/memory/ptr_util.h"
 #include "base/strings/sys_string_conversions.h"
 #include "components/infobars/core/infobar.h"
@@ -96,6 +96,8 @@ bool SyncErrorInfoBarDelegate::Accept() {
     [presenter_ showGoogleServicesSettings];
   } else if (ShouldShowSyncPassphraseSettings(error_state_)) {
     [presenter_ showSyncPassphraseSettings];
+  } else if (ShouldShowTrustedVaultReauthentication(error_state_)) {
+    [presenter_ showTrustedVaultReauthentication];
   }
   return false;
 }

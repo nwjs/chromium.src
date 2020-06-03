@@ -119,19 +119,6 @@ constexpr int kDisabledAuthMessageRoundedCornerRadiusDp = 8;
 
 constexpr int kNonEmptyWidthDp = 1;
 
-// TODO(tellier): This should be removed in M84. See crbug.com/1062524
-const char kGmailDomain[] = "gmail.com";
-const char kGooglemailDomain[] = "googlemail.com";
-
-bool IsNotEnterpriseManagedEmail(const std::string& email) {
-  size_t separator_pos = email.find('@');
-  if (separator_pos != email.npos && separator_pos < email.length() - 1) {
-    std::string domain = base::ToLowerASCII(email.substr(separator_pos + 1));
-    return domain == kGmailDomain || domain == kGooglemailDomain;
-  }
-  return false;
-}
-
 // Returns an observer that will hide |view| when it fires. The observer will
 // delete itself after firing (by returning true). Make sure to call
 // |observer->SetActive()| after attaching it.
@@ -802,7 +789,7 @@ LoginAuthUserView::LoginAuthUserView(const LoginUserInfo& user,
 
   // Build child views.
   auto user_view = std::make_unique<LoginUserView>(
-      LoginDisplayStyle::kLarge, true /*show_dropdown*/, false /*show_domain*/,
+      LoginDisplayStyle::kLarge, true /*show_dropdown*/,
       base::BindRepeating(&LoginAuthUserView::OnUserViewTap,
                           base::Unretained(this)),
       callbacks.on_remove_warning_shown, callbacks.on_remove);
@@ -813,7 +800,7 @@ LoginAuthUserView::LoginAuthUserView(const LoginUserInfo& user,
   password_view->SetPaintToLayer();  // Needed for opacity animation.
   password_view->layer()->SetFillsBoundsOpaquely(false);
   password_view_->SetDisplayPasswordButtonVisible(
-      IsNotEnterpriseManagedEmail(user.basic_user_info.display_email));
+      user.show_display_password_button);
 
   auto pin_view = std::make_unique<LoginPinView>(
       LoginPinView::Style::kAlphanumeric,
@@ -937,7 +924,8 @@ LoginAuthUserView::LoginAuthUserView(const LoginUserInfo& user,
       SetLayoutManager(std::make_unique<views::GridLayout>());
   views::ColumnSet* column_set = grid_layout->AddColumnSet(0);
   column_set->AddColumn(views::GridLayout::CENTER, views::GridLayout::LEADING,
-                        0 /*resize_percent*/, views::GridLayout::USE_PREF,
+                        0 /*resize_percent*/,
+                        views::GridLayout::ColumnSize::kUsePreferred,
                         0 /*fixed_width*/, 0 /*min_width*/);
   auto add_view = [&](views::View* view) {
     grid_layout->StartRow(0 /*vertical_resize*/, 0 /*column_set_id*/);
@@ -1224,7 +1212,7 @@ void LoginAuthUserView::UpdateForUser(const LoginUserInfo& user) {
   if (user_changed) {
     password_view_->Reset();
     password_view_->SetDisplayPasswordButtonVisible(
-        IsNotEnterpriseManagedEmail(user.basic_user_info.display_email));
+        user.show_display_password_button);
   }
   online_sign_in_message_->SetText(
       l10n_util::GetStringUTF16(IDS_ASH_LOGIN_SIGN_IN_REQUIRED_MESSAGE));

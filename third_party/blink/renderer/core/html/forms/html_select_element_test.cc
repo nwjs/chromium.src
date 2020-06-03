@@ -566,4 +566,27 @@ TEST_F(HTMLSelectElementTest, SelectMultipleOptionsByPopup) {
   }
 }
 
+TEST_F(HTMLSelectElementTest, IntrinsicInlineSizeOverflow) {
+  // crbug.com/1068338
+  // This test passes if UBSAN doesn't complain.
+  SetHtmlInnerHTML(
+      "<select style='word-spacing:1073741824em;'>"
+      "<option>abc def</option></select>");
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+}
+
+TEST_F(HTMLSelectElementTest, AddingNotOwnedOption) {
+  // crbug.com/1077556
+  auto& doc = GetDocument();
+  SetHtmlInnerHTML("<select>");
+  auto* select = To<HTMLSelectElement>(doc.body()->firstChild());
+  // Append <div><optgroup></optgroup></div> to the SELECT.
+  // We can't do it with the HTML parser.
+  auto* optgroup = doc.CreateRawElement(html_names::kOptgroupTag);
+  select->appendChild(doc.CreateRawElement(html_names::kDivTag))
+      ->appendChild(optgroup);
+  optgroup->appendChild(doc.CreateRawElement(html_names::kOptionTag));
+  // This test passes if the above appendChild() doesn't cause a DCHECK failure.
+}
+
 }  // namespace blink

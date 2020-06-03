@@ -28,10 +28,6 @@ bool MockClientHintsControllerDelegate::IsJavaScriptAllowed(const GURL& url) {
   return true;
 }
 
-std::string MockClientHintsControllerDelegate::GetAcceptLanguageString() {
-  return content::GetShellLanguage();
-}
-
 blink::UserAgentMetadata
 MockClientHintsControllerDelegate::GetUserAgentMetadata() {
   return content::GetShellUserAgentMetadata();
@@ -39,7 +35,7 @@ MockClientHintsControllerDelegate::GetUserAgentMetadata() {
 
 void MockClientHintsControllerDelegate::PersistClientHints(
     const url::Origin& primary_origin,
-    const std::vector<::blink::mojom::WebClientHintsType>& client_hints,
+    const std::vector<::network::mojom::WebClientHintsType>& client_hints,
     base::TimeDelta expiration_duration) {
   blink::WebEnabledClientHints web_client_hints;
   for (const auto& type : client_hints) {

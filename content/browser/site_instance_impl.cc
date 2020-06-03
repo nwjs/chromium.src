@@ -405,7 +405,7 @@ void SiteInstanceImpl::SetSiteAndLockInternal(const GURL& site_url,
   url::Origin site_origin(url::Origin::Create(site_url));
   // At this point, this should be a simple lookup on the master list, since
   // this SiteInstance is new to the BrowsingInstance.
-  bool isolated = policy->DoesOriginRequestOptInIsolation(
+  bool isolated = policy->ShouldOriginGetOptInIsolation(
       browsing_instance_->isolation_context(), site_origin);
   if (isolated) {
     policy->AddOptInIsolatedOriginForBrowsingInstance(
@@ -748,6 +748,14 @@ bool SiteInstanceImpl::DoesSiteForURLMatch(const GURL& url) {
                                         true /* allow_default_site_url */);
 }
 
+void SiteInstanceImpl::PreventOptInOriginIsolation(
+    const url::Origin& previously_visited_origin) {
+  auto* policy = ChildProcessSecurityPolicyImpl::GetInstance();
+  policy->AddNonIsolatedOriginIfNeeded(GetIsolationContext(),
+                                       previously_visited_origin,
+                                       true /* is_global_walk */);
+}
+
 // static
 GURL SiteInstance::GetSiteForURL(BrowserContext* browser_context,
                                  const GURL& url) {
@@ -847,8 +855,7 @@ GURL SiteInstanceImpl::GetSiteForURLInternal(
     // site-keyed SiteInstance, regardless of what the base origin does.
     url::Origin base_origin = url::Origin::Create(site_url);
     if (IsolatedOriginUtil::IsStrictSubdomain(origin, base_origin) &&
-        policy->DoesOriginRequestOptInIsolation(isolation_context,
-                                                base_origin)) {
+        policy->ShouldOriginGetOptInIsolation(isolation_context, base_origin)) {
       return origin.GetURL();
     }
 
@@ -961,8 +968,7 @@ bool SiteInstanceImpl::CanBePlacedInDefaultSiteInstance(
 GURL SiteInstanceImpl::GetSiteForOrigin(const url::Origin& origin, const GURL& real_url) {
   // Only keep the scheme and registered domain of |origin|.
   std::string domain = net::registry_controlled_domains::GetDomainAndRegistry(
-      origin.host(),
-      net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES);
+      origin, net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES);
   //NWJS: chrome-extension://test.foo.com was changed to foo.com
   //without this
   if (!real_url.is_empty() && real_url.SchemeIs("chrome-extension"))

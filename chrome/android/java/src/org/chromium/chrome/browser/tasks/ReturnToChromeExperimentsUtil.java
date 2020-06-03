@@ -12,20 +12,27 @@ import androidx.annotation.VisibleForTesting;
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
+import org.chromium.base.StrictModeContext;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.browser.ChromeActivity;
+import org.chromium.chrome.browser.flags.CachedFeatureFlags;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.flags.IntCachedFieldTrialParameter;
 import org.chromium.chrome.browser.homepage.HomepageManager;
 import org.chromium.chrome.browser.locale.LocaleManager;
 import org.chromium.chrome.browser.ntp.NewTabPage;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
+import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.chrome.browser.tasks.pseudotab.PseudoTab;
 import org.chromium.chrome.browser.util.AccessibilityUtil;
 import org.chromium.chrome.features.start_surface.StartSurfaceConfiguration;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.PageTransition;
+
+import java.util.List;
 
 /**
  * This is a utility class for managing experiments related to returning to Chrome.
@@ -34,7 +41,10 @@ public final class ReturnToChromeExperimentsUtil {
     private static final String TAG = "TabSwitcherOnReturn";
 
     @VisibleForTesting
-    static final String TAB_SWITCHER_ON_RETURN_MS = "tab_switcher_on_return_time_ms";
+    public static final String TAB_SWITCHER_ON_RETURN_MS_PARAM = "tab_switcher_on_return_time_ms";
+    public static final IntCachedFieldTrialParameter TAB_SWITCHER_ON_RETURN_MS =
+            new IntCachedFieldTrialParameter(
+                    ChromeFeatureList.TAB_SWITCHER_ON_RETURN, TAB_SWITCHER_ON_RETURN_MS_PARAM, -1);
 
     @VisibleForTesting
     static final String UMA_TIME_TO_GTS_FIRST_MEANINGFUL_PAINT =
@@ -57,8 +67,7 @@ public final class ReturnToChromeExperimentsUtil {
      * @return true if past threshold, false if not past threshold or experiment cannot be loaded.
      */
     public static boolean shouldShowTabSwitcher(final long lastBackgroundedTimeMillis) {
-        int tabSwitcherAfterMillis = ChromeFeatureList.getFieldTrialParamByFeatureAsInt(
-                ChromeFeatureList.TAB_SWITCHER_ON_RETURN, TAB_SWITCHER_ON_RETURN_MS, -1);
+        int tabSwitcherAfterMillis = TAB_SWITCHER_ON_RETURN_MS.getValue();
 
         if (lastBackgroundedTimeMillis == -1) {
             // No last background timestamp set, use control behavior unless "immediate" was set.
@@ -179,17 +188,60 @@ public final class ReturnToChromeExperimentsUtil {
     }
 
     /**
-     * Check whether we should show Start Surface as the home page.
-     * @return Whether Start Surface should be shown as the home page, otherwise false.
+     * TODO(crbug/1041865): avoid using GURL since {@link #shouldShowStartSurfaceAsTheHomePage()}
+     *  is in the critical path in Instant Start.
+     */
+    private static boolean isNTPUrl(String url) {
+        if (CachedFeatureFlags.isEnabled(ChromeFeatureList.INSTANT_START)) {
+            try (StrictModeContext ignored = StrictModeContext.allowDiskReads()) {
+                return NewTabPage.isNTPUrl(url);
+            }
+        }
+        return NewTabPage.isNTPUrl(url);
+    }
+
+    /**
+     * Check whether we should show Start Surface as the home page. This is used for all cases
+     * except initial tab creation, which uses {@link
+     * #shouldShowStartSurfaceAsTheHomePageNoTabs()}.
+     *
+     * @return Whether Start Surface should be shown as the home page.
      */
     public static boolean shouldShowStartSurfaceAsTheHomePage() {
-        // Note that we should only show StartSurface as the HomePage if Single Pane is enabled,
-        // HomePage is not customized, accessibility is not enabled and not on tablet.
+        return shouldShowStartSurfaceAsTheHomePageNoTabs()
+                && !StartSurfaceConfiguration.START_SURFACE_OPEN_NTP_INSTEAD_OF_START.getValue();
+    }
+
+    /**
+     * Check whether we should show Start Surface as the home page for initial tab creation.
+     *
+     * @return Whether Start Surface should be shown as the home page.
+     */
+    public static boolean shouldShowStartSurfaceAsTheHomePageNoTabs() {
+        // When creating initial tab, i.e. cold start without restored tabs, we should only show
+        // StartSurface as the HomePage if Single Pane is enabled, HomePage is not customized,
+        // accessibility is not enabled and not on tablet.
         String homePageUrl = HomepageManager.getHomepageUri();
         return StartSurfaceConfiguration.isStartSurfaceSinglePaneEnabled()
-                && (TextUtils.isEmpty(homePageUrl) || NewTabPage.isNTPUrl(homePageUrl))
+                && (TextUtils.isEmpty(homePageUrl) || isNTPUrl(homePageUrl))
                 && !AccessibilityUtil.isAccessibilityEnabled()
                 && !DeviceFormFactor.isNonMultiDisplayContextOnTablet(
                         ContextUtils.getApplicationContext());
+    }
+
+    /**
+     * @param tabModelSelector The tab model selector.
+     * @return the total tab count, and works before native initialization.
+     */
+    public static int getTotalTabCount(TabModelSelector tabModelSelector) {
+        if (CachedFeatureFlags.isEnabled(ChromeFeatureList.INSTANT_START)
+                && !tabModelSelector.isTabStateInitialized()) {
+            List<PseudoTab> allTabs;
+            try (StrictModeContext ignored = StrictModeContext.allowDiskReads()) {
+                allTabs = PseudoTab.getAllPseudoTabsFromStateFile();
+            }
+            return allTabs != null ? allTabs.size() : 0;
+        }
+        return tabModelSelector.getTotalTabCount();
     }
 }

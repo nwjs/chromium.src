@@ -102,7 +102,7 @@ fi
 
 distro_codename=$(lsb_release --codename --short)
 distro_id=$(lsb_release --id --short)
-supported_codenames="(trusty|xenial|bionic|disco|eoan)"
+supported_codenames="(trusty|xenial|bionic|disco|eoan|focal)"
 supported_ids="(Debian)"
 if [ 0 -eq "${do_unsupported-0}" ] && [ 0 -eq "${do_quick_check-0}" ] ; then
   if [[ ! $distro_codename =~ $supported_codenames &&
@@ -111,6 +111,7 @@ if [ 0 -eq "${do_unsupported-0}" ] && [ 0 -eq "${do_quick_check-0}" ] ; then
       "\tUbuntu 14.04 LTS (trusty with EoL April 2022)\n" \
       "\tUbuntu 16.04 LTS (xenial with EoL April 2024)\n" \
       "\tUbuntu 18.04 LTS (bionic with EoL April 2028)\n" \
+      "\tUbuntu 20.04 LTS (focal with Eol April 2030)\n" \
       "\tUbuntu 19.04 (disco)\n" \
       "\tUbuntu 19.10 (eoan)\n" \
       "\tDebian 8 (jessie) or later" >&2
@@ -129,10 +130,12 @@ if [ "x$(id -u)" != x0 ] && [ 0 -eq "${do_quick_check-0}" ]; then
   echo
 fi
 
-if [ "$do_inst_lib32" = "1" ] || [ "$do_inst_nacl" = "1" ]; then
-  sudo dpkg --add-architecture i386
+if [ 0 -eq "${do_quick_check-0}" ] ; then
+  if [ "$do_inst_lib32" = "1" ] || [ "$do_inst_nacl" = "1" ]; then
+    sudo dpkg --add-architecture i386
+  fi
+  sudo apt-get update
 fi
-sudo apt-get update
 
 # Populate ${apt_package_list} for package_exists() parsing.
 apt_package_list=$(build_apt_package_list)
@@ -200,11 +203,9 @@ dev_list="\
   perl
   pkg-config
   python
-  python-cherrypy3
   python-crypto
   python-dev
   python-numpy
-  python-opencv
   python-openssl
   python-psutil
   python-yaml
@@ -242,7 +243,6 @@ common_lib_list="\
   libdrm2
   libevdev2
   libexpat1
-  libffi6
   libfontconfig1
   libfreetype6
   libgbm1
@@ -275,6 +275,12 @@ common_lib_list="\
   libxtst6
   zlib1g
 "
+
+if package_exists libffi7; then
+  common_lib_list="${common_lib_list} libffi7"
+elif package_exists libffi6; then
+  common_lib_list="${common_lib_list} libffi6"
+fi
 
 # Full list of required run-time libraries
 lib_list="\
@@ -410,6 +416,11 @@ case $distro_codename in
                 gcc-9-multilib-arm-linux-gnueabihf
                 gcc-arm-linux-gnueabihf"
     ;;
+  focal)
+    arm_list+=" g++-10-multilib-arm-linux-gnueabihf
+                gcc-10-multilib-arm-linux-gnueabihf
+                gcc-arm-linux-gnueabihf"
+    ;;
 esac
 
 # Packages to build NaCl, its toolchains, and its ports.
@@ -489,7 +500,9 @@ fi
 if package_exists libav-tools; then
   dev_list="${dev_list} libav-tools"
 fi
-if package_exists php7.3-cgi; then
+if package_exists php7.4-cgi; then
+  dev_list="${dev_list} php7.4-cgi libapache2-mod-php7.4"
+elif package_exists php7.3-cgi; then
   dev_list="${dev_list} php7.3-cgi libapache2-mod-php7.3"
 elif package_exists php7.2-cgi; then
   dev_list="${dev_list} php7.2-cgi libapache2-mod-php7.2"

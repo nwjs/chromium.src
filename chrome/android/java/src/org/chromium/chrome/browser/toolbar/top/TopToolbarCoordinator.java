@@ -72,7 +72,7 @@ public class TopToolbarCoordinator implements Toolbar {
     private @Nullable StartSurfaceToolbarCoordinator mStartSurfaceToolbarCoordinator;
 
     private final IdentityDiscController mIdentityDiscController;
-    private final OptionalBrowsingModeButtonController mOptionalButtonController;
+    private OptionalBrowsingModeButtonController mOptionalButtonController;
 
     private HomepageManager.HomepageStateListener mHomepageStateListener =
             new HomepageManager.HomepageStateListener() {
@@ -155,6 +155,9 @@ public class TopToolbarCoordinator implements Toolbar {
             mStartSurfaceToolbarCoordinator.setOnNewTabClickHandler(newTabClickHandler);
             mStartSurfaceToolbarCoordinator.setTabModelSelector(tabModelSelector);
             mStartSurfaceToolbarCoordinator.setOverviewModeBehavior(overviewModeBehavior);
+            mStartSurfaceToolbarCoordinator.setTabSwitcherListener(tabSwitcherClickHandler);
+            mStartSurfaceToolbarCoordinator.setOnTabSwitcherLongClickHandler(
+                    tabSwitcherLongClickHandler);
             mStartSurfaceToolbarCoordinator.onNativeLibraryReady();
         }
 
@@ -202,6 +205,11 @@ public class TopToolbarCoordinator implements Toolbar {
             mTabSwitcherModeCoordinatorPhone.destroy();
         } else if (mStartSurfaceToolbarCoordinator != null) {
             mStartSurfaceToolbarCoordinator.destroy();
+        }
+
+        if (mOptionalButtonController != null) {
+            mOptionalButtonController.destroy();
+            mOptionalButtonController = null;
         }
     }
 
@@ -479,6 +487,9 @@ public class TopToolbarCoordinator implements Toolbar {
         if (mTabSwitcherModeCoordinatorPhone != null) {
             mTabSwitcherModeCoordinatorPhone.setTabCountProvider(tabCountProvider);
         }
+        if (mStartSurfaceToolbarCoordinator != null) {
+            mStartSurfaceToolbarCoordinator.setTabCountProvider(tabCountProvider);
+        }
     }
 
     /**
@@ -501,6 +512,9 @@ public class TopToolbarCoordinator implements Toolbar {
             menuButtonWrapper.setThemeColorProvider(provider);
         }
         mToolbarLayout.setThemeColorProvider(provider);
+        if (mStartSurfaceToolbarCoordinator != null) {
+            mStartSurfaceToolbarCoordinator.setThemeColorProvider(provider);
+        }
     }
 
     /**
@@ -553,44 +567,6 @@ public class TopToolbarCoordinator implements Toolbar {
      */
     public void setProgressBarEnabled(boolean enabled) {
         getProgressBar().setVisibility(enabled ? View.VISIBLE : View.GONE);
-    }
-
-    /**
-     * @param anchor The view to use as an anchor.
-     */
-    public void setProgressBarAnchorView(@Nullable View anchor) {
-        getProgressBar().setAnchorView(anchor);
-    }
-
-    /**
-     * Starts load progress.
-     */
-    public void startLoadProgress() {
-        mToolbarLayout.startLoadProgress();
-    }
-
-    /**
-     * Sets load progress.
-     * @param progress The load progress between 0 and 1.
-     */
-    public void setLoadProgress(float progress) {
-        mToolbarLayout.setLoadProgress(progress);
-    }
-
-    /**
-     * Finishes load progress.
-     * @param delayed Whether hiding progress bar should be delayed to give enough time for user to
-     *                        recognize the last state.
-     */
-    public void finishLoadProgress(boolean delayed) {
-        mToolbarLayout.finishLoadProgress(delayed);
-    }
-
-    /**
-     * @return True if the progress bar is started.
-     */
-    public boolean isProgressStarted() {
-        return mToolbarLayout.isProgressStarted();
     }
 
     /**
@@ -651,5 +627,10 @@ public class TopToolbarCoordinator implements Toolbar {
     @VisibleForTesting
     public ToolbarLayout getToolbarLayoutForTesting() {
         return mToolbarLayout;
+    }
+
+    @VisibleForTesting
+    public StartSurfaceToolbarCoordinator getStartSurfaceToolbarForTesting() {
+        return mStartSurfaceToolbarCoordinator;
     }
 }

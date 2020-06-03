@@ -78,6 +78,10 @@
 - (void)showAdvancedSigninSettingsFromViewController:
     (UIViewController*)baseViewController;
 
+// Presents the Trusted Vault reauth dialog.
+- (void)showTrustedVaultReauthenticationFromViewController:
+    (UIViewController*)baseViewController;
+
 // Starts a voice search on the current BVC.
 - (void)startVoiceSearch;
 
@@ -122,10 +126,8 @@
 // Sets whether the UI is displaying incognito content.
 - (void)setIncognitoContentVisible:(BOOL)incognitoContentVisible;
 
-#if !defined(NDEBUG)
-// Open a new window.
-- (void)openNewWindow;
-#endif  // !defined(NDEBUG)
+// Open a new window with |userActivity|
+- (void)openNewWindowWithActivity:(NSUserActivity*)userActivity;
 
 @end
 

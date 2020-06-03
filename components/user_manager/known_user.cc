@@ -77,6 +77,9 @@ const char kChallengeResponseKeys[] = "challenge_response_keys";
 const char kLastOnlineSignin[] = "last_online_singin";
 const char kOfflineSigninLimit[] = "offline_signin_limit";
 
+// Key of the boolean flag telling if user is managed.
+const char kIsManaged[] = "is_managed";
+
 // List containing all the known user preferences keys.
 const char* kReservedKeys[] = {kCanonicalEmail,
                                kGAIAIdKey,
@@ -188,6 +191,9 @@ bool FindPrefs(const AccountId& account_id,
     return false;
   }
 
+  if (!account_id.is_valid())
+    return false;
+
   const base::ListValue* known_users = local_state->GetList(kKnownUsers);
   for (size_t i = 0; i < known_users->GetSize(); ++i) {
     const base::DictionaryValue* element = nullptr;
@@ -216,6 +222,9 @@ void UpdatePrefs(const AccountId& account_id,
       UserManager::Get()->IsUserNonCryptohomeDataEphemeral(account_id)) {
     return;
   }
+
+  if (!account_id.is_valid())
+    return;
 
   ListPrefUpdate update(local_state, kKnownUsers);
   for (size_t i = 0; i < update->GetSize(); ++i) {
@@ -639,11 +648,25 @@ base::TimeDelta GetOfflineSigninLimit(const AccountId& account_id) {
   return time_delta;
 }
 
+void SetIsManaged(const AccountId& account_id, bool is_managed) {
+  SetBooleanPref(account_id, kIsManaged, is_managed);
+}
+
+bool GetIsManaged(const AccountId& account_id) {
+  bool is_managed;
+  if (GetBooleanPref(account_id, kIsManaged, &is_managed))
+    return is_managed;
+  return false;
+}
+
 void RemovePrefs(const AccountId& account_id) {
   PrefService* local_state = GetLocalState();
 
   // Local State may not be initialized in tests.
   if (!local_state)
+    return;
+
+  if (!account_id.is_valid())
     return;
 
   ListPrefUpdate update(local_state, kKnownUsers);

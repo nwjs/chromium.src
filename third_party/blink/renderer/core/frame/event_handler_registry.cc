@@ -341,7 +341,9 @@ void EventHandlerRegistry::Trace(Visitor* visitor) {
       EventHandlerRegistry, &EventHandlerRegistry::ProcessCustomWeakness>(this);
 }
 
-void EventHandlerRegistry::ProcessCustomWeakness(const WeakCallbackInfo& info) {
+void EventHandlerRegistry::ProcessCustomWeakness(const LivenessBroker& info) {
+  // We use Vector<UntracedMember<>> here to avoid BlinkGC allocation in a
+  // custom weak callback.
   Vector<UntracedMember<EventTarget>> dead_targets;
   for (int i = 0; i < kEventHandlerClassCount; ++i) {
     EventHandlerClass handler_class = static_cast<EventHandlerClass>(i);
@@ -366,7 +368,7 @@ void EventHandlerRegistry::DocumentDetached(Document& document) {
        handler_class_index < kEventHandlerClassCount; ++handler_class_index) {
     EventHandlerClass handler_class =
         static_cast<EventHandlerClass>(handler_class_index);
-    Vector<UntracedMember<EventTarget>> targets_to_remove;
+    HeapVector<Member<EventTarget>> targets_to_remove;
     const EventTargetSet* targets = &targets_[handler_class];
     for (const auto& event_target : *targets) {
       if (Node* node = event_target.key->ToNode()) {

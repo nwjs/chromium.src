@@ -5,7 +5,9 @@
 #include "chrome/browser/ui/ash/chrome_shell_delegate.h"
 
 #include <memory>
+#include <utility>
 
+#include "ash/public/cpp/ash_features.h"
 #include "ash/screenshot_delegate.h"
 #include "base/bind.h"
 #include "chrome/browser/browser_process.h"
@@ -26,6 +28,7 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/scoped_tabbed_browser_displayer.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/webui/tab_strip/tab_strip_ui_util.h"
 #include "chromeos/services/multidevice_setup/multidevice_setup_service.h"
 #include "content/public/browser/device_service.h"
 #include "content/public/browser/media_session_service.h"
@@ -69,6 +72,41 @@ bool ChromeShellDelegate::CanGoBack(gfx::NativeWindow window) const {
   if (!contents)
     return false;
   return contents->GetController().CanGoBack();
+}
+
+bool ChromeShellDelegate::IsTabDrag(const ui::OSExchangeData& drop_data) {
+  DCHECK(ash::features::IsWebUITabStripTabDragIntegrationEnabled());
+  return tab_strip_ui::IsDraggedTab(drop_data);
+}
+
+aura::Window* ChromeShellDelegate::CreateBrowserForTabDrop(
+    aura::Window* source_window,
+    const ui::OSExchangeData& drop_data) {
+  DCHECK(ash::features::IsWebUITabStripTabDragIntegrationEnabled());
+
+  BrowserView* source_view = BrowserView::GetBrowserViewForNativeWindow(
+      source_window->GetToplevelWindow());
+  if (!source_view)
+    return nullptr;
+
+  Browser::CreateParams params = source_view->browser()->create_params();
+  params.user_gesture = true;
+  params.initial_show_state = ui::SHOW_STATE_DEFAULT;
+  Browser* browser = Browser::Create(params);
+  if (!browser)
+    return nullptr;
+
+  if (!tab_strip_ui::DropTabsInNewBrowser(browser, drop_data)) {
+    browser->window()->Close();
+    return nullptr;
+  }
+
+  // TODO(https://crbug.com/1069869): evaluate whether the above
+  // failures can happen in valid states, and if so whether we need to
+  // reflect failure in UX.
+
+  browser->window()->Show();
+  return browser->window()->GetNativeWindow();
 }
 
 void ChromeShellDelegate::BindBluetoothSystemFactory(

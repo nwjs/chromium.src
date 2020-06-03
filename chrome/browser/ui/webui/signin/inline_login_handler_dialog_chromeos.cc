@@ -9,8 +9,8 @@
 
 #include "ash/public/cpp/window_backdrop.h"
 #include "ash/public/cpp/window_properties.h"
+#include "base/check_op.h"
 #include "base/json/json_writer.h"
-#include "base/logging.h"
 #include "base/macros.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -60,7 +60,8 @@ GURL GetUrlWithEmailParam(base::StringPiece url_string,
   return url;
 }
 
-GURL GetInlineLoginUrl(const std::string& email) {
+GURL GetInlineLoginUrl(const std::string& email,
+                       const InlineLoginHandlerDialogChromeOS::Source& source) {
   if (IsDeviceAccountEmail(email)) {
     // It's a device account re-auth.
     return GetUrlWithEmailParam(chrome::kChromeUIChromeSigninURL, email);
@@ -76,7 +77,8 @@ GURL GetInlineLoginUrl(const std::string& email) {
     return GetUrlWithEmailParam(chrome::kChromeUIChromeSigninURL, email);
   }
   // User type is Child.
-  if (!features::IsEduCoexistenceEnabled()) {
+  if (!features::IsEduCoexistenceEnabled() ||
+      source == InlineLoginHandlerDialogChromeOS::Source::kArc) {
     return GURL(chrome::kChromeUIAccountManagerErrorURL);
   }
   DCHECK_EQ(std::string(chrome::kChromeUIChromeSigninURL).back(), '/');
@@ -104,8 +106,8 @@ void InlineLoginHandlerDialogChromeOS::Show(const std::string& email,
   }
 
   // Will be deleted by |SystemWebDialogDelegate::OnDialogClosed|.
-  dialog =
-      new InlineLoginHandlerDialogChromeOS(GetInlineLoginUrl(email), source);
+  dialog = new InlineLoginHandlerDialogChromeOS(
+      GetInlineLoginUrl(email, source), source);
   dialog->ShowSystemDialog();
 
   // TODO(crbug.com/1016828): Remove/update this after the dialog behavior on

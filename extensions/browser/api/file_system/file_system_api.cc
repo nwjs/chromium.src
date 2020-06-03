@@ -243,7 +243,7 @@ ExtensionFunction::ResponseAction FileSystemGetDisplayPathFunction::Run() {
   if (!app_file_handler_util::ValidateFileEntryAndGetPath(
           filesystem_name, filesystem_path, source_process_id(), &file_path,
           &error)) {
-    return RespondNow(Error(error));
+    return RespondNow(Error(std::move(error)));
   }
 
   file_path = path_util::PrettifyPath(file_path);
@@ -266,9 +266,10 @@ void FileSystemEntryFunction::PrepareFilesForWritableApp(
                     : std::set<base::FilePath>{};
   app_file_handler_util::PrepareFilesForWritableApp(
       paths, browser_context(), path_directory_set_,
-      base::Bind(&FileSystemEntryFunction::RegisterFileSystemsAndSendResponse,
-                 this, paths),
-      base::Bind(&FileSystemEntryFunction::HandleWritableFileError, this));
+      base::BindOnce(
+          &FileSystemEntryFunction::RegisterFileSystemsAndSendResponse, this,
+          paths),
+      base::BindOnce(&FileSystemEntryFunction::HandleWritableFileError, this));
 }
 
 void FileSystemEntryFunction::RegisterFileSystemsAndSendResponse(
@@ -331,7 +332,7 @@ ExtensionFunction::ResponseAction FileSystemGetWritableEntryFunction::Run() {
   if (!app_file_handler_util::ValidateFileEntryAndGetPath(
           filesystem_name, filesystem_path, source_process_id(), &path_,
           &error)) {
-    return RespondNow(Error(error));
+    return RespondNow(Error(std::move(error)));
   }
 
   base::ThreadPool::PostTaskAndReply(
@@ -804,7 +805,7 @@ ExtensionFunction::ResponseAction FileSystemRetainEntryFunction::Run() {
     if (!app_file_handler_util::ValidateFileEntryAndGetPath(
             filesystem_name, filesystem_path, source_process_id(), &path,
             &error)) {
-      return RespondNow(Error(error));
+      return RespondNow(Error(std::move(error)));
     }
 
     std::string filesystem_id;

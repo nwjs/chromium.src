@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "chrome/browser/ui/browser_navigator_browsertest.h"
+#include "content/public/test/browser_test.h"
 
 #include <memory>
 
@@ -419,7 +420,7 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
   // need a different profile, and creating a popup window with an incognito
   // profile is a quick and dirty way of achieving this.
   Browser* popup = CreateEmptyBrowserForType(
-      Browser::TYPE_POPUP, browser()->profile()->GetOffTheRecordProfile());
+      Browser::TYPE_POPUP, browser()->profile()->GetPrimaryOTRProfile());
   NavigateParams params(MakeNavigateParams(popup));
   params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
   Navigate(&params);
@@ -459,7 +460,6 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest, Disposition_NewPopup) {
   EXPECT_TRUE(browser->window()->IsActive());
 #endif
   EXPECT_TRUE(params.browser->is_type_popup());
-  EXPECT_FALSE(params.browser->is_type_app());
 
   // We should have two windows, the browser() provided by the framework and the
   // new popup window.
@@ -469,7 +469,7 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest, Disposition_NewPopup) {
 }
 
 // This test verifies that navigating with WindowOpenDisposition = NEW_POPUP
-// from a normal Browser results in a new Browser with is_type_app() true.
+// from a normal Browser results in a new Browser with TYPE_APP_POPUP.
 IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest, Disposition_NewPopup_ExtensionId) {
   NavigateParams params(MakeNavigateParams());
   params.disposition = WindowOpenDisposition::NEW_POPUP;
@@ -480,8 +480,7 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest, Disposition_NewPopup_ExtensionId) {
 
   // Navigate() should have opened a new, focused popup window.
   EXPECT_NE(browser(), params.browser);
-  EXPECT_FALSE(params.browser->is_type_popup());
-  EXPECT_TRUE(params.browser->is_type_app());
+  EXPECT_TRUE(params.browser->is_type_app_popup());
 
   // We should have two windows, the browser() provided by the framework and the
   // new popup window.
@@ -507,7 +506,6 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest, Disposition_NewPopupFromPopup) {
   // Navigate() should have opened a new normal popup window.
   EXPECT_NE(params1.browser, params2.browser);
   EXPECT_TRUE(params2.browser->is_type_popup());
-  EXPECT_FALSE(params2.browser->is_type_app());
 
   // We should have three windows, the browser() provided by the framework,
   // the first popup window, and the second popup window.
@@ -518,7 +516,7 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest, Disposition_NewPopupFromPopup) {
 }
 
 // This test verifies that navigating with WindowOpenDisposition = NEW_POPUP
-// from an app frame results in a new Browser with TYPE_POPUP.
+// from an app frame results in a new Browser with TYPE_APP_POPUP.
 IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
                        Disposition_NewPopupFromAppWindow) {
   Browser* app_browser = CreateEmptyBrowserForApp(browser()->profile());
@@ -530,8 +528,7 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
   // Navigate() should have opened a new popup app window.
   EXPECT_NE(app_browser, params.browser);
   EXPECT_NE(browser(), params.browser);
-  EXPECT_FALSE(params.browser->is_type_popup());
-  EXPECT_TRUE(params.browser->is_type_app());
+  EXPECT_TRUE(params.browser->is_type_app_popup());
 
   // We should now have three windows, the app window, the app popup it created,
   // and the original browser() provided by the framework.
@@ -542,7 +539,7 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
 }
 
 // This test verifies that navigating with WindowOpenDisposition = NEW_POPUP
-// from an app popup results in a new Browser also of TYPE_POPUP.
+// from an app popup results in a new Browser also of TYPE_APP_POPUP.
 IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest, Disposition_NewPopupFromAppPopup) {
   Browser* app_browser = CreateEmptyBrowserForApp(browser()->profile());
   // Open an app popup.
@@ -559,8 +556,7 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest, Disposition_NewPopupFromAppPopup) {
   // Navigate() should have opened a new popup app window.
   EXPECT_NE(browser(), params1.browser);
   EXPECT_NE(params1.browser, params2.browser);
-  EXPECT_FALSE(params2.browser->is_type_popup());
-  EXPECT_TRUE(params2.browser->is_type_app());
+  EXPECT_TRUE(params2.browser->is_type_app_popup());
 
   // We should now have four windows, the app window, the first app popup,
   // the second app popup, and the original browser() provided by the framework.
@@ -947,7 +943,7 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest, MAYBE_Disposition_Incognito) {
 
   // Navigate() should have opened a new toplevel incognito window.
   EXPECT_NE(browser(), params.browser);
-  EXPECT_EQ(browser()->profile()->GetOffTheRecordProfile(),
+  EXPECT_EQ(browser()->profile()->GetPrimaryOTRProfile(),
             params.browser->profile());
 
   // |source_contents| should be set to NULL because the profile for the new
@@ -965,7 +961,7 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest, MAYBE_Disposition_Incognito) {
 // reuses an existing incognito window when possible.
 IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest, Disposition_IncognitoRefocus) {
   Browser* incognito_browser = CreateEmptyBrowserForType(
-      Browser::TYPE_NORMAL, browser()->profile()->GetOffTheRecordProfile());
+      Browser::TYPE_NORMAL, browser()->profile()->GetPrimaryOTRProfile());
   NavigateParams params(MakeNavigateParams());
   params.disposition = WindowOpenDisposition::OFF_THE_RECORD;
   Navigate(&params);
@@ -1023,7 +1019,6 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest, DISABLED_TargetContents_Popup) {
   // Navigate() should have opened a new popup window.
   EXPECT_NE(browser(), params.browser);
   EXPECT_TRUE(params.browser->is_type_popup());
-  EXPECT_FALSE(params.browser->is_type_app());
 
   // The web platform is weird. The window bounds specified in
   // |params.window_bounds| are used as follows:
@@ -1684,9 +1679,8 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest, NavigateWithoutBrowser) {
 
   // Now navigate using the incognito profile and check that a new window
   // is created.
-  NavigateParams params_incognito(
-      browser()->profile()->GetOffTheRecordProfile(), GetGoogleURL(),
-      ui::PAGE_TRANSITION_LINK);
+  NavigateParams params_incognito(browser()->profile()->GetPrimaryOTRProfile(),
+                                  GetGoogleURL(), ui::PAGE_TRANSITION_LINK);
   ui_test_utils::NavigateToURL(&params_incognito);
   EXPECT_EQ(2u, chrome::GetTotalBrowserCount());
 }

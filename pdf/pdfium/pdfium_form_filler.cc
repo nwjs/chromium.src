@@ -20,6 +20,8 @@ namespace chrome_pdf {
 
 namespace {
 
+int g_last_timer_id = 0;
+
 std::string WideStringToString(FPDF_WIDESTRING wide_string) {
   return base::UTF16ToUTF8(reinterpret_cast<const base::char16*>(wide_string));
 }
@@ -49,6 +51,8 @@ PDFiumFormFiller::PDFiumFormFiller(PDFiumEngine* engine, bool enable_javascript)
   FPDF_FORMFILLINFO::FFI_DoURIAction = Form_DoURIAction;
   FPDF_FORMFILLINFO::FFI_DoGoToAction = Form_DoGoToAction;
   FPDF_FORMFILLINFO::FFI_OnFocusChange = Form_OnFocusChange;
+  FPDF_FORMFILLINFO::FFI_DoURIActionWithKeyboardModifier =
+      Form_DoURIActionWithKeyboardModifier;
 #if defined(PDF_ENABLE_XFA)
   FPDF_FORMFILLINFO::xfa_disabled = false;
   FPDF_FORMFILLINFO::FFI_EmailTo = Form_EmailTo;
@@ -207,7 +211,7 @@ FPDF_PAGE PDFiumFormFiller::Form_GetPage(FPDF_FORMFILLINFO* param,
 FPDF_PAGE PDFiumFormFiller::Form_GetCurrentPage(FPDF_FORMFILLINFO* param,
                                                 FPDF_DOCUMENT document) {
   PDFiumEngine* engine = GetEngine(param);
-  int index = engine->last_page_mouse_down_;
+  int index = engine->last_focused_page_;
   if (index == -1) {
     index = engine->GetMostVisiblePage();
     if (index == -1) {
@@ -235,7 +239,7 @@ void PDFiumFormFiller::Form_ExecuteNamedAction(FPDF_FORMFILLINFO* param,
     return;
   }
 
-  int index = engine->last_page_mouse_down_;
+  int index = engine->last_focused_page_;
   /* Don't try to calculate the most visible page if we don't have a left click
      before this event (this code originally copied Form_GetCurrentPage which of
      course needs to do that and which doesn't have recursion). This can end up
@@ -289,6 +293,8 @@ void PDFiumFormFiller::Form_OnFocusChange(FPDF_FORMFILLINFO* param,
       engine->layout_.options().default_page_orientation());
 
   engine->ScrollIntoView(screen_rect);
+
+  engine->OnFocusedAnnotationUpdated(annot, page_index);
 }
 
 // static
@@ -307,6 +313,24 @@ void PDFiumFormFiller::Form_DoGoToAction(FPDF_FORMFILLINFO* param,
                                          int size_of_array) {
   PDFiumEngine* engine = GetEngine(param);
   engine->ScrollToPage(page_index);
+}
+
+// static
+void PDFiumFormFiller::Form_DoURIActionWithKeyboardModifier(
+    FPDF_FORMFILLINFO* param,
+    FPDF_BYTESTRING uri,
+    int modifiers) {
+  PDFiumEngine* engine = GetEngine(param);
+  bool middle_button = !!(modifiers & PP_INPUTEVENT_MODIFIER_MIDDLEBUTTONDOWN);
+  bool alt_key = !!(modifiers & PP_INPUTEVENT_MODIFIER_ALTKEY);
+  bool ctrl_key = !!(modifiers & PP_INPUTEVENT_MODIFIER_CONTROLKEY);
+  bool meta_key = !!(modifiers & PP_INPUTEVENT_MODIFIER_METAKEY);
+  bool shift_key = !!(modifiers & PP_INPUTEVENT_MODIFIER_SHIFTKEY);
+
+  WindowOpenDisposition disposition = ui::DispositionFromClick(
+      middle_button, alt_key, ctrl_key, meta_key, shift_key);
+
+  engine->client_->NavigateTo(std::string(uri), disposition);
 }
 
 #if defined(PDF_ENABLE_XFA)
@@ -669,7 +693,9 @@ PDFiumEngine* PDFiumFormFiller::GetEngine(IPDF_JSPLATFORM* platform) {
 
 int PDFiumFormFiller::SetTimer(const base::TimeDelta& delay,
                                TimerCallback timer_func) {
-  const int timer_id = ++last_timer_id_;
+  const int timer_id = ++g_last_timer_id;
+  DCHECK(!base::Contains(timers_, timer_id));
+
   auto timer = std::make_unique<base::RepeatingTimer>();
   timer->Start(FROM_HERE, delay, base::BindRepeating(timer_func, timer_id));
   timers_[timer_id] = std::move(timer);
@@ -677,7 +703,8 @@ int PDFiumFormFiller::SetTimer(const base::TimeDelta& delay,
 }
 
 void PDFiumFormFiller::KillTimer(int timer_id) {
-  timers_.erase(timer_id);
+  size_t erased = timers_.erase(timer_id);
+  DCHECK_EQ(1u, erased);
 }
 
 }  // namespace chrome_pdf

@@ -452,9 +452,8 @@ TEST_P(PaintLayerScrollableAreaTest, OnlyNonTransformedOpaqueLayersPromoted) {
   EXPECT_FALSE(UsesCompositedScrolling(scroller->GetLayoutObject()));
 }
 
-// Test that opacity applied to the scroller or an ancestor (pre-CAP only) will
-// cause the scrolling contents layer to not be promoted.
-TEST_P(PaintLayerScrollableAreaTest, OnlyOpaqueLayersPromoted) {
+TEST_P(PaintLayerScrollableAreaTest,
+       PromoteLayerRegardlessOfSelfAndAncestorOpacity) {
   SetBodyInnerHTML(R"HTML(
     <style>
     #scroller { overflow: scroll; height: 200px; width: 200px; background:
@@ -475,12 +474,7 @@ TEST_P(PaintLayerScrollableAreaTest, OnlyOpaqueLayersPromoted) {
   // Change the parent to be partially translucent.
   parent->setAttribute(html_names::kStyleAttr, "opacity: 0.5;");
   UpdateAllLifecyclePhasesForTest();
-  // TODO(crbug.com/1025927): In CompositeAfterPaint mode, ancestor opacity
-  // is not checked.
-  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
-    EXPECT_TRUE(UsesCompositedScrolling(scroller->GetLayoutObject()));
-  else
-    EXPECT_FALSE(UsesCompositedScrolling(scroller->GetLayoutObject()));
+  EXPECT_TRUE(UsesCompositedScrolling(scroller->GetLayoutObject()));
 
   // Change the parent to be opaque again.
   parent->setAttribute(html_names::kStyleAttr, "opacity: 1;");
@@ -492,7 +486,7 @@ TEST_P(PaintLayerScrollableAreaTest, OnlyOpaqueLayersPromoted) {
   // Make the scroller translucent.
   scroller->setAttribute(html_names::kStyleAttr, "opacity: 0.5");
   UpdateAllLifecyclePhasesForTest();
-  EXPECT_FALSE(UsesCompositedScrolling(scroller->GetLayoutObject()));
+  EXPECT_TRUE(UsesCompositedScrolling(scroller->GetLayoutObject()));
 }
 
 // Test that will-change: transform applied to the scroller will cause the
@@ -889,6 +883,87 @@ TEST_P(PaintLayerScrollableAreaTest, ScrollDoesNotInvalidate) {
   UpdateAllLifecyclePhasesForTest();
   EXPECT_EQ(FloatSize(0, 1), scrollable_area->GetScrollOffset());
   EXPECT_NE(nullptr, properties->ScrollTranslation());
+}
+
+TEST_P(PaintLayerScrollableAreaTest,
+       ScrollWithFixedNeedsCompositingInputsUpdate) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatureState(blink::features::kMaxOverlapBoundsForFixed,
+                                    false);
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      * {
+        margin: 0;
+      }
+      body {
+        height: 610px;
+        width: 820px;
+      }
+      #fixed {
+        height: 10px;
+        left: 50px;
+        position: fixed;
+        top: 50px;
+        width: 10px;
+      }
+    </style>
+    <div id=fixed></div>
+  )HTML");
+
+  auto* scrollable_area = GetLayoutView().GetScrollableArea();
+  EXPECT_EQ(FloatSize(0, 0), scrollable_area->GetScrollOffset());
+
+  // Changing the scroll offset requires a compositing inputs update when
+  // kMaxOverlapBoundsForFixed is disabled as changing the scroll offset can
+  // require updates to overlap testing.
+  scrollable_area->SetScrollOffset(ScrollOffset(0, 1),
+                                   mojom::blink::ScrollType::kProgrammatic);
+  if (GetParam() & kCompositeAfterPaint) {
+    // CAP doesn't request compositing inputs update on scroll offset changes.
+    EXPECT_FALSE(scrollable_area->Layer()->NeedsCompositingInputsUpdate());
+  } else {
+    EXPECT_TRUE(scrollable_area->Layer()->NeedsCompositingInputsUpdate());
+  }
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_EQ(FloatSize(0, 1), scrollable_area->GetScrollOffset());
+}
+
+TEST_P(PaintLayerScrollableAreaTest,
+       ScrollWithFixedDoesNotNeedCompositingInputsUpdate) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatureState(blink::features::kMaxOverlapBoundsForFixed,
+                                    true);
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      * {
+        margin: 0;
+      }
+      body {
+        height: 610px;
+        width: 820px;
+      }
+      #fixed {
+        height: 10px;
+        left: 50px;
+        position: fixed;
+        top: 50px;
+        width: 10px;
+      }
+    </style>
+    <div id=fixed></div>
+  )HTML");
+
+  auto* scrollable_area = GetLayoutView().GetScrollableArea();
+  EXPECT_EQ(FloatSize(0, 0), scrollable_area->GetScrollOffset());
+
+  // Changing the scroll offset should not require compositing inputs update
+  // even though fixed-pos content is present as fixed bounds is already
+  // expanded to include all possible scroll offsets.
+  scrollable_area->SetScrollOffset(ScrollOffset(0, 1),
+                                   mojom::blink::ScrollType::kProgrammatic);
+  EXPECT_FALSE(scrollable_area->Layer()->NeedsCompositingInputsUpdate());
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_EQ(FloatSize(0, 1), scrollable_area->GetScrollOffset());
 }
 
 TEST_P(PaintLayerScrollableAreaTest,
@@ -1486,15 +1561,18 @@ TEST_P(PaintLayerScrollableAreaTest, SetSnapContainerDataNeedsUpdate) {
 
 class ScrollTimelineForTest : public ScrollTimeline {
  public:
-  ScrollTimelineForTest(
-      Document* document,
-      Element* scroll_source,
-      CSSPrimitiveValue* start_scroll_offset =
-          CSSNumericLiteralValue::Create(10.0,
-                                         CSSPrimitiveValue::UnitType::kPixels),
-      CSSPrimitiveValue* end_scroll_offset =
-          CSSNumericLiteralValue::Create(90.0,
-                                         CSSPrimitiveValue::UnitType::kPixels))
+  ScrollTimelineForTest(Document* document,
+                        Element* scroll_source,
+                        ScrollTimelineOffset* start_scroll_offset =
+                            MakeGarbageCollected<ScrollTimelineOffset>(
+                                CSSNumericLiteralValue::Create(
+                                    10.0,
+                                    CSSPrimitiveValue::UnitType::kPixels)),
+                        ScrollTimelineOffset* end_scroll_offset =
+                            MakeGarbageCollected<ScrollTimelineOffset>(
+                                CSSNumericLiteralValue::Create(
+                                    90.0,
+                                    CSSPrimitiveValue::UnitType::kPixels)))
       : ScrollTimeline(document,
                        scroll_source,
                        ScrollTimeline::Vertical,

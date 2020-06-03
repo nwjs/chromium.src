@@ -6,8 +6,8 @@
 
 #include "base/logging.h"
 #include "base/command_line.h"
-#include "v8/include/v8.h"
-//#include "third_party/node/src/node.h"
+#include "v8.h"
+
 #undef CHECK
 #undef CHECK_EQ
 #undef CHECK_GE

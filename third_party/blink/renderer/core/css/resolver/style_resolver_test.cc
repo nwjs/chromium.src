@@ -5,12 +5,20 @@
 #include "third_party/blink/renderer/core/css/resolver/style_resolver.h"
 
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/renderer/core/animation/animation_test_helper.h"
+#include "third_party/blink/renderer/core/animation/document_timeline.h"
 #include "third_party/blink/renderer/core/animation/element_animations.h"
+#include "third_party/blink/renderer/core/css/css_image_value.h"
+#include "third_party/blink/renderer/core/css/css_value_list.h"
+#include "third_party/blink/renderer/core/css/properties/computed_style_utils.h"
+#include "third_party/blink/renderer/core/css/properties/css_property_ref.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
+#include "third_party/blink/renderer/core/css/style_sheet_contents.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/node_computed_style.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/dom/text.h"
+#include "third_party/blink/renderer/core/html/html_style_element.h"
 #include "third_party/blink/renderer/core/testing/page_test_base.h"
 #include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 
@@ -25,6 +33,14 @@ class StyleResolverTest : public PageTestBase {
     auto style = resolver->StyleForElement(element);
     DCHECK(style);
     return style;
+  }
+
+  String ComputedValue(String name, const ComputedStyle& style) {
+    CSSPropertyRef ref(name, GetDocument());
+    DCHECK(ref.IsValid());
+    return ref.GetProperty()
+        .CSSValueFromComputedStyle(style, nullptr, false)
+        ->CssText();
   }
 
  protected:
@@ -112,19 +128,20 @@ TEST_F(StyleResolverTest, HasEmUnits) {
 TEST_F(StyleResolverTest, BasePresentIfFontRelativeUnitsAbsent) {
   GetDocument().documentElement()->setInnerHTML("<div id=div>Test</div>");
   UpdateAllLifecyclePhasesForTest();
-
   Element* div = GetDocument().getElementById("div");
-  StyleResolver* resolver = GetStyleEngine().Resolver();
-  ASSERT_TRUE(resolver);
-  ElementAnimations& animations = div->EnsureElementAnimations();
-  animations.SetAnimationStyleChange(true);
-  // We're animating a font affecting property, but we should still be able to
-  // use the base computed style optimization, since no font-relative units
-  // exist in the base.
-  animations.SetHasFontAffectingAnimation();
 
-  EXPECT_TRUE(resolver->StyleForElement(div));
-  EXPECT_TRUE(animations.BaseComputedStyle());
+  auto* effect = CreateSimpleKeyframeEffectForTest(
+      div, CSSPropertyID::kFontSize, "50px", "100px");
+  GetDocument().Timeline().Play(effect);
+  UpdateAllLifecyclePhasesForTest();
+
+  EXPECT_EQ("50px", ComputedValue("font-size", *StyleForId("div")));
+
+  div->SetNeedsAnimationStyleRecalc();
+  StyleForId("div");
+
+  ASSERT_TRUE(div->GetElementAnimations());
+  EXPECT_TRUE(div->GetElementAnimations()->BaseComputedStyle());
 }
 
 TEST_F(StyleResolverTest, NoCrashWhenAnimatingWithoutCascade) {
@@ -145,6 +162,104 @@ TEST_F(StyleResolverTest, NoCrashWhenAnimatingWithoutCascade) {
   UpdateAllLifecyclePhasesForTest();
 }
 
+TEST_F(StyleResolverTest, AnimationNotMaskedByImportant) {
+  GetDocument().documentElement()->setInnerHTML(R"HTML(
+    <style>
+      div {
+        width: 10px;
+        height: 10px !important;
+      }
+    </style>
+    <div id=div></div>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+  Element* div = GetDocument().getElementById("div");
+
+  auto* effect = CreateSimpleKeyframeEffectForTest(div, CSSPropertyID::kWidth,
+                                                   "50px", "100px");
+  GetDocument().Timeline().Play(effect);
+  UpdateAllLifecyclePhasesForTest();
+
+  EXPECT_EQ("50px", ComputedValue("width", *StyleForId("div")));
+  EXPECT_EQ("10px", ComputedValue("height", *StyleForId("div")));
+
+  div->SetNeedsAnimationStyleRecalc();
+  StyleForId("div");
+
+  ASSERT_TRUE(div->GetElementAnimations());
+  const CSSBitset* bitset = div->GetElementAnimations()->BaseImportantSet();
+  EXPECT_FALSE(CSSAnimations::IsAnimatingStandardProperties(
+      div->GetElementAnimations(), bitset, KeyframeEffect::kDefaultPriority));
+  EXPECT_TRUE(div->GetElementAnimations()->BaseComputedStyle());
+  EXPECT_FALSE(bitset && bitset->Has(CSSPropertyID::kWidth));
+  EXPECT_TRUE(bitset && bitset->Has(CSSPropertyID::kHeight));
+}
+
+TEST_F(StyleResolverTest, AnimationNotMaskedWithoutElementAnimations) {
+  EXPECT_FALSE(CSSAnimations::IsAnimatingStandardProperties(
+      /* ElementAnimations */ nullptr, std::make_unique<CSSBitset>().get(),
+      KeyframeEffect::kDefaultPriority));
+}
+
+TEST_F(StyleResolverTest, AnimationNotMaskedWithoutBitset) {
+  GetDocument().documentElement()->setInnerHTML(R"HTML(
+    <style>
+      div {
+        width: 10px;
+        height: 10px !important;
+      }
+    </style>
+    <div id=div></div>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+  Element* div = GetDocument().getElementById("div");
+
+  auto* effect = CreateSimpleKeyframeEffectForTest(div, CSSPropertyID::kWidth,
+                                                   "50px", "100px");
+  GetDocument().Timeline().Play(effect);
+  UpdateAllLifecyclePhasesForTest();
+
+  EXPECT_EQ("50px", ComputedValue("width", *StyleForId("div")));
+  EXPECT_EQ("10px", ComputedValue("height", *StyleForId("div")));
+
+  div->SetNeedsAnimationStyleRecalc();
+  StyleForId("div");
+
+  ASSERT_TRUE(div->GetElementAnimations());
+  EXPECT_FALSE(CSSAnimations::IsAnimatingStandardProperties(
+      div->GetElementAnimations(), /* CSSBitset */ nullptr,
+      KeyframeEffect::kDefaultPriority));
+}
+
+TEST_F(StyleResolverTest, AnimationMaskedByImportant) {
+  GetDocument().documentElement()->setInnerHTML(R"HTML(
+    <style>
+      div {
+        width: 10px;
+        height: 10px !important;
+      }
+    </style>
+    <div id=div></div>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+  Element* div = GetDocument().getElementById("div");
+
+  auto* effect = CreateSimpleKeyframeEffectForTest(div, CSSPropertyID::kHeight,
+                                                   "50px", "100px");
+  GetDocument().Timeline().Play(effect);
+  UpdateAllLifecyclePhasesForTest();
+
+  EXPECT_EQ("10px", ComputedValue("width", *StyleForId("div")));
+  EXPECT_EQ("10px", ComputedValue("height", *StyleForId("div")));
+
+  div->SetNeedsAnimationStyleRecalc();
+  StyleForId("div");
+
+  ASSERT_TRUE(div->GetElementAnimations());
+  EXPECT_FALSE(div->GetElementAnimations()->BaseComputedStyle());
+  EXPECT_FALSE(div->GetElementAnimations()->BaseImportantSet());
+}
+
 class StyleResolverFontRelativeUnitTest
     : public testing::WithParamInterface<const char*>,
       public StyleResolverTest {};
@@ -155,12 +270,18 @@ TEST_P(StyleResolverFontRelativeUnitTest, NoBaseIfFontRelativeUnitPresent) {
   UpdateAllLifecyclePhasesForTest();
 
   Element* div = GetDocument().getElementById("div");
-  ElementAnimations& animations = div->EnsureElementAnimations();
-  animations.SetAnimationStyleChange(true);
-  animations.SetHasFontAffectingAnimation();
+  auto* effect = CreateSimpleKeyframeEffectForTest(
+      div, CSSPropertyID::kFontSize, "50px", "100px");
+  GetDocument().Timeline().Play(effect);
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_EQ("50px", ComputedValue("font-size", *StyleForId("div")));
 
-  EXPECT_TRUE(StyleForId("div")->HasFontRelativeUnits());
-  EXPECT_FALSE(animations.BaseComputedStyle());
+  div->SetNeedsAnimationStyleRecalc();
+  auto computed_style = StyleForId("div");
+
+  EXPECT_TRUE(computed_style->HasFontRelativeUnits());
+  ASSERT_TRUE(div->GetElementAnimations());
+  EXPECT_FALSE(div->GetElementAnimations()->BaseComputedStyle());
 }
 
 TEST_P(StyleResolverFontRelativeUnitTest,
@@ -170,15 +291,102 @@ TEST_P(StyleResolverFontRelativeUnitTest,
   UpdateAllLifecyclePhasesForTest();
 
   Element* div = GetDocument().getElementById("div");
-  ElementAnimations& animations = div->EnsureElementAnimations();
-  animations.SetAnimationStyleChange(true);
+  auto* effect = CreateSimpleKeyframeEffectForTest(div, CSSPropertyID::kHeight,
+                                                   "50px", "100px");
+  GetDocument().Timeline().Play(effect);
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_EQ("50px", ComputedValue("height", *StyleForId("div")));
 
-  EXPECT_TRUE(StyleForId("div")->HasFontRelativeUnits());
-  EXPECT_TRUE(animations.BaseComputedStyle());
+  div->SetNeedsAnimationStyleRecalc();
+  auto computed_style = StyleForId("div");
+
+  EXPECT_TRUE(computed_style->HasFontRelativeUnits());
+  ASSERT_TRUE(div->GetElementAnimations());
+  EXPECT_TRUE(div->GetElementAnimations()->BaseComputedStyle());
 }
 
 INSTANTIATE_TEST_SUITE_P(All,
                          StyleResolverFontRelativeUnitTest,
                          testing::Values("em", "rem", "ex", "ch"));
+
+namespace {
+
+const CSSImageValue& GetBackgroundImageValue(Element* element) {
+  DCHECK(element);
+  const auto* style = element->GetComputedStyle();
+  DCHECK(style);
+  const CSSValue* computed_value = ComputedStyleUtils::ComputedPropertyValue(
+      GetCSSPropertyBackgroundImage(), *style);
+
+  const CSSValueList* bg_img_list = To<CSSValueList>(computed_value);
+  return To<CSSImageValue>(bg_img_list->Item(0));
+}
+
+}  // namespace
+
+TEST_F(StyleResolverTest, BackgroundImageFetch) {
+  GetDocument().documentElement()->setInnerHTML(R"HTML(
+    <style id="sheet">
+      #none {
+        display: none;
+        background-image: url(img-none.png);
+      }
+      #inside-none {
+        background-image: url(img-inside-none.png);
+      }
+      #hidden {
+        visibility: hidden;
+        background-image: url(img-hidden.png);
+      }
+      #inside-hidden {
+        background-image: url(img-inside-hidden.png);
+      }
+      #contents {
+        display: contents;
+        background-image: url(img-contents.png);
+      }
+      #non-slotted {
+        background-image: url(img-non-slotted.png);
+      }
+    </style>
+    <div id="none">
+      <div id="inside-none"></div>
+    </div>
+    <div id="hidden">
+      <div id="inside-hidden"></div>
+    </div>
+    <div id="contents"></div>
+    <div id="host">
+      <div id="non-slotted"></div>
+    </div>
+  )HTML");
+
+  GetDocument().getElementById("host")->AttachShadowRootInternal(
+      ShadowRootType::kOpen);
+  UpdateAllLifecyclePhasesForTest();
+
+  auto* none = GetDocument().getElementById("none");
+  auto* inside_none = GetDocument().getElementById("inside-none");
+  auto* hidden = GetDocument().getElementById("hidden");
+  auto* inside_hidden = GetDocument().getElementById("inside-hidden");
+  auto* contents = GetDocument().getElementById("contents");
+  auto* non_slotted = GetDocument().getElementById("non-slotted");
+
+  inside_none->EnsureComputedStyle();
+  non_slotted->EnsureComputedStyle();
+
+  EXPECT_TRUE(GetBackgroundImageValue(none).IsCachePending())
+      << "No fetch for display:none";
+  EXPECT_TRUE(GetBackgroundImageValue(inside_none).IsCachePending())
+      << "No fetch inside display:none";
+  EXPECT_FALSE(GetBackgroundImageValue(hidden).IsCachePending())
+      << "Fetch for visibility:hidden";
+  EXPECT_FALSE(GetBackgroundImageValue(inside_hidden).IsCachePending())
+      << "Fetch for inherited visibility:hidden";
+  EXPECT_TRUE(GetBackgroundImageValue(contents).IsCachePending())
+      << "No fetch for display:contents";
+  EXPECT_TRUE(GetBackgroundImageValue(non_slotted).IsCachePending())
+      << "No fetch for element outside the flat tree";
+}
 
 }  // namespace blink

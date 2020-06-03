@@ -103,9 +103,11 @@ namespace {
 // while we do have functions to deal with uint64_t's.
 uint64_t g_crash_loop_before_time = 0;
 #else
-#if 0
-const char kUploadURL[] = "https://clients2.google.com/cr/report";
-#endif
+char* g_upload_url = nullptr;
+void SetUploadURL(const std::string& url) {
+  DCHECK(!g_upload_url);
+  g_upload_url = strdup(url.c_str());
+}
 #endif
 
 bool g_is_crash_reporter_enabled = false;
@@ -2053,6 +2055,10 @@ void InitCrashReporter(const std::string& process_type) {
       process_type == kBrowserProcessType ||
 #endif
       process_type.empty();
+
+#if !defined(OS_CHROMEOS)
+  SetUploadURL(GetCrashReporterClient()->GetUploadUrl());
+#endif
 
   if (is_browser_process) {
     bool enable_breakpad = GetCrashReporterClient()->GetCollectStatsConsent() ||

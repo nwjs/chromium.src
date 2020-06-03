@@ -4,9 +4,9 @@
 
 #include "chrome/browser/ui/views/chrome_views_delegate.h"
 
+#include "base/check_op.h"
 #include "content/nw/src/nw_content.h"
 
-#include "base/logging.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"

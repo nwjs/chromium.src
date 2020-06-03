@@ -14,12 +14,14 @@
 #include "build/build_config.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/buildflags.h"
 #include "chrome/browser/captive_portal/captive_portal_service_factory.h"
-#include "chrome/browser/client_hints/client_hints.h"
+#include "chrome/browser/chrome_content_browser_client.h"
 #include "chrome/browser/complex_tasks/task_tab_helper.h"
+#include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/content_settings/mixed_content_settings_tab_helper.h"
 #include "chrome/browser/content_settings/sound_content_setting_observer.h"
-#include "chrome/browser/content_settings/tab_specific_content_settings.h"
+#include "chrome/browser/content_settings/tab_specific_content_settings_delegate.h"
 #include "chrome/browser/data_reduction_proxy/data_reduction_proxy_tab_helper.h"
 #include "chrome/browser/engagement/site_engagement_helper.h"
 #include "chrome/browser/engagement/site_engagement_service.h"
@@ -49,7 +51,6 @@
 #include "chrome/browser/predictors/loading_predictor_tab_helper.h"
 #include "chrome/browser/prerender/isolated/isolated_prerender_tab_helper.h"
 #include "chrome/browser/prerender/prerender_tab_helper.h"
-#include "chrome/browser/previews/previews_lite_page_redirect_predictor.h"
 #include "chrome/browser/previews/previews_ui_tab_helper.h"
 #include "chrome/browser/previews/resource_loading_hints/resource_loading_hints_web_contents_observer.h"
 #include "chrome/browser/profiles/profile.h"
@@ -68,7 +69,6 @@
 #include "chrome/browser/sync/sessions/sync_sessions_web_contents_router_factory.h"
 #include "chrome/browser/sync/sync_encryption_keys_tab_helper.h"
 #include "chrome/browser/tab_contents/navigation_metrics_recorder.h"
-#include "chrome/browser/tracing/navigation_tracing.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/ui/autofill/chrome_autofill_client.h"
 #include "chrome/browser/ui/blocked_content/popup_blocker_tab_helper.h"
@@ -93,6 +93,8 @@
 #include "components/autofill/content/browser/content_autofill_driver_factory.h"
 #include "components/autofill/core/browser/autofill_manager.h"
 #include "components/captive_portal/core/buildflags.h"
+#include "components/client_hints/browser/client_hints.h"
+#include "components/content_settings/browser/tab_specific_content_settings.h"
 #include "components/dom_distiller/core/dom_distiller_features.h"
 #include "components/download/content/factory/navigation_monitor_factory.h"
 #include "components/download/content/public/download_navigation_observer.h"
@@ -160,6 +162,10 @@
 #include "chrome/browser/web_applications/web_app_tab_helper.h"
 #include "extensions/browser/view_type_utils.h"
 #endif
+
+#if BUILDFLAG(ENABLE_KALEIDOSCOPE)
+#include "chrome/browser/media/kaleidoscope/internal/kaleidoscope_tab_helper.h"
+#endif  // BUILDFLAG(ENABLE_KALEIDOSCOPE)
 
 #if BUILDFLAG(ENABLE_OFFLINE_PAGES)
 #include "chrome/browser/offline_pages/android/auto_fetch_page_load_watcher.h"
@@ -233,7 +239,10 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
     ChromeSubresourceFilterClient::CreateForWebContents(web_contents);
   }
   //ChromeTranslateClient::CreateForWebContents(web_contents);
-  client_hints::ClientHints::CreateForWebContents(web_contents);
+  client_hints::ClientHints::CreateForWebContents(
+      web_contents, g_browser_process->network_quality_tracker(),
+      HostContentSettingsMapFactory::GetForProfile(profile),
+      GetUserAgentMetadata());
   ConnectionHelpTabHelper::CreateForWebContents(web_contents);
   CoreTabHelper::CreateForWebContents(web_contents);
   DataReductionProxyTabHelper::CreateForWebContents(web_contents);
@@ -282,7 +291,6 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
     predictors::LoadingPredictorTabHelper::CreateForWebContents(web_contents);
   PrefsTabHelper::CreateForWebContents(web_contents);
   prerender::PrerenderTabHelper::CreateForWebContents(web_contents);
-  PreviewsLitePageRedirectPredictor::CreateForWebContents(web_contents);
   PreviewsUITabHelper::CreateForWebContents(web_contents);
   RecentlyAudibleHelper::CreateForWebContents(web_contents);
   // TODO(siggi): Remove this once the Resource Coordinator refactoring is done.
@@ -310,11 +318,12 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
       sync_sessions::SyncSessionsWebContentsRouterFactory::GetForProfile(
           profile));
 #endif
-  TabSpecificContentSettings::CreateForWebContents(web_contents);
+  content_settings::TabSpecificContentSettings::CreateForWebContents(
+      web_contents,
+      std::make_unique<chrome::TabSpecificContentSettingsDelegate>(
+          web_contents));
   TabUIHelper::CreateForWebContents(web_contents);
   tasks::TaskTabHelper::CreateForWebContents(web_contents);
-  if (tracing::NavigationTracingObserver::IsEnabled())
-    tracing::NavigationTracingObserver::CreateForWebContents(web_contents);
   ukm::InitializeSourceUrlRecorderForWebContents(web_contents);
   vr::VrTabHelper::CreateForWebContents(web_contents);
 
@@ -338,6 +347,8 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
     OomInterventionTabHelper::CreateForWebContents(web_contents);
   }
   if (base::FeatureList::IsEnabled(
+          chrome::android::kPageInfoPerformanceHints) ||
+      base::FeatureList::IsEnabled(
           chrome::android::kContextMenuPerformanceInfo) ||
       base::FeatureList::IsEnabled(kPerformanceHintsObserver)) {
     PerformanceHintsObserver::CreateForWebContents(web_contents);
@@ -418,6 +429,11 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
   if (SiteEngagementService::IsEnabled())
     web_app::WebAppMetrics::Get(profile);
 #endif
+
+#if BUILDFLAG(ENABLE_KALEIDOSCOPE)
+  if (base::FeatureList::IsEnabled(media::kKaleidoscope))
+    KaleidoscopeTabHelper::CreateForWebContents(web_contents);
+#endif  // BUILDFLAG(ENABLE_KALEIDOSCOPE)
 
 #if BUILDFLAG(ENABLE_OFFLINE_PAGES)
   offline_pages::OfflinePageTabHelper::CreateForWebContents(web_contents);

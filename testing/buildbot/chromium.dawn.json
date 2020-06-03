@@ -8,7 +8,8 @@
       {
         "args": [
           "--use-gpu-in-tests",
-          "--test-launcher-retry-limit=0"
+          "--test-launcher-retry-limit=0",
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -18,22 +19,23 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-ubuntu-stable",
-              "os": "linux-intel-stable",
+              "gpu": "8086:5912-19.0.2",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--no-use-spvc",
+          "--no-use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--no-use-spvc",
-          "--no-use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -44,21 +46,22 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-ubuntu-stable",
-              "os": "linux-intel-stable",
+              "gpu": "8086:5912-19.0.2",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--skip-validation",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--skip-validation"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -69,22 +72,23 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-ubuntu-stable",
-              "os": "linux-intel-stable",
+              "gpu": "8086:5912-19.0.2",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-spvc",
+          "--use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-spvc",
-          "--use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -95,22 +99,23 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-ubuntu-stable",
-              "os": "linux-intel-stable",
+              "gpu": "8086:5912-19.0.2",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-spvc",
+          "--no-use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-spvc",
-          "--no-use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -121,21 +126,22 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-ubuntu-stable",
-              "os": "linux-intel-stable",
+              "gpu": "8086:5912-19.0.2",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--enable-backend-validation",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--enable-backend-validation"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -146,21 +152,22 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-ubuntu-stable",
-              "os": "linux-intel-stable",
+              "gpu": "8086:5912-19.0.2",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-wire",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-wire"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -171,15 +178,15 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-ubuntu-stable",
-              "os": "linux-intel-stable",
+              "gpu": "8086:5912-19.0.2",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
@@ -193,15 +200,15 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-ubuntu-stable",
-              "os": "linux-intel-stable",
+              "gpu": "8086:5912-19.0.2",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "gl_tests",
-        "test_target": "//gpu:gl_tests"
+        "test_id_prefix": "ninja://gpu:gl_tests/"
       },
       {
         "args": [
@@ -216,15 +223,15 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-ubuntu-stable",
-              "os": "linux-intel-stable",
+              "gpu": "8086:5912-19.0.2",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "gl_unittests",
-        "test_target": "//ui/gl:gl_unittests"
+        "test_id_prefix": "ninja://ui/gl:gl_unittests/"
       }
     ],
     "isolated_scripts": [
@@ -246,14 +253,14 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-ubuntu-stable",
-              "os": "linux-intel-stable",
+              "gpu": "8086:5912-19.0.2",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
-        "test_target": "//chrome/test:dawn_perf_tests"
+        "test_id_prefix": "ninja://chrome/test:dawn_perf_tests/"
       },
       {
         "args": [
@@ -274,14 +281,43 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-ubuntu-stable",
-              "os": "linux-intel-stable",
+              "gpu": "8086:5912-19.0.2",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
-        "test_target": "//:webgpu_blink_web_tests"
+        "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
+      },
+      {
+        "args": [
+          "--driver-logging",
+          "--jobs=1",
+          "--additional-driver-flag=--enable-dawn-backend-validation",
+          "--no-xvfb",
+          "--additional-driver-flag=--use-vulkan=native"
+        ],
+        "isolate_name": "webgpu_blink_web_tests",
+        "merge": {
+          "args": [
+            "--verbose"
+          ],
+          "script": "//third_party/blink/tools/merge_web_test_results.py"
+        },
+        "name": "webgpu_blink_web_tests_with_backend_validation",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "gpu": "8086:5912-19.0.2",
+              "os": "Ubuntu-19.04",
+              "pool": "chromium.tests.gpu.template"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
       }
     ]
   },
@@ -290,7 +326,8 @@
       {
         "args": [
           "--use-gpu-in-tests",
-          "--test-launcher-retry-limit=0"
+          "--test-launcher-retry-limit=0",
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -300,22 +337,23 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-ubuntu-stable",
-              "os": "linux-nvidia-stable",
+              "gpu": "10de:1cb3-418.56",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--no-use-spvc",
+          "--no-use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--no-use-spvc",
-          "--no-use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -326,21 +364,22 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-ubuntu-stable",
-              "os": "linux-nvidia-stable",
+              "gpu": "10de:1cb3-418.56",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--skip-validation",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--skip-validation"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -351,22 +390,23 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-ubuntu-stable",
-              "os": "linux-nvidia-stable",
+              "gpu": "10de:1cb3-418.56",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-spvc",
+          "--use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-spvc",
-          "--use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -377,22 +417,23 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-ubuntu-stable",
-              "os": "linux-nvidia-stable",
+              "gpu": "10de:1cb3-418.56",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-spvc",
+          "--no-use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-spvc",
-          "--no-use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -403,21 +444,22 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-ubuntu-stable",
-              "os": "linux-nvidia-stable",
+              "gpu": "10de:1cb3-418.56",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--enable-backend-validation",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--enable-backend-validation"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -428,21 +470,22 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-ubuntu-stable",
-              "os": "linux-nvidia-stable",
+              "gpu": "10de:1cb3-418.56",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-wire",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-wire"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -453,15 +496,15 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-ubuntu-stable",
-              "os": "linux-nvidia-stable",
+              "gpu": "10de:1cb3-418.56",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
@@ -475,15 +518,15 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-ubuntu-stable",
-              "os": "linux-nvidia-stable",
+              "gpu": "10de:1cb3-418.56",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "gl_tests",
-        "test_target": "//gpu:gl_tests"
+        "test_id_prefix": "ninja://gpu:gl_tests/"
       },
       {
         "args": [
@@ -498,15 +541,15 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-ubuntu-stable",
-              "os": "linux-nvidia-stable",
+              "gpu": "10de:1cb3-418.56",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "gl_unittests",
-        "test_target": "//ui/gl:gl_unittests"
+        "test_id_prefix": "ninja://ui/gl:gl_unittests/"
       }
     ],
     "isolated_scripts": [
@@ -528,14 +571,14 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-ubuntu-stable",
-              "os": "linux-nvidia-stable",
+              "gpu": "10de:1cb3-418.56",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
-        "test_target": "//chrome/test:dawn_perf_tests"
+        "test_id_prefix": "ninja://chrome/test:dawn_perf_tests/"
       },
       {
         "args": [
@@ -556,14 +599,43 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-ubuntu-stable",
-              "os": "linux-nvidia-stable",
+              "gpu": "10de:1cb3-418.56",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
-        "test_target": "//:webgpu_blink_web_tests"
+        "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
+      },
+      {
+        "args": [
+          "--driver-logging",
+          "--jobs=1",
+          "--additional-driver-flag=--enable-dawn-backend-validation",
+          "--no-xvfb",
+          "--additional-driver-flag=--use-vulkan=native"
+        ],
+        "isolate_name": "webgpu_blink_web_tests",
+        "merge": {
+          "args": [
+            "--verbose"
+          ],
+          "script": "//third_party/blink/tools/merge_web_test_results.py"
+        },
+        "name": "webgpu_blink_web_tests_with_backend_validation",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "gpu": "10de:1cb3-418.56",
+              "os": "Ubuntu-19.04",
+              "pool": "chromium.tests.gpu.template"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
       }
     ]
   },
@@ -572,7 +644,8 @@
       {
         "args": [
           "--use-gpu-in-tests",
-          "--test-launcher-retry-limit=0"
+          "--test-launcher-retry-limit=0",
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -582,22 +655,23 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-ubuntu-stable",
-              "os": "linux-intel-stable",
+              "gpu": "8086:5912-19.0.2",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--no-use-spvc",
+          "--no-use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--no-use-spvc",
-          "--no-use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -608,21 +682,22 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-ubuntu-stable",
-              "os": "linux-intel-stable",
+              "gpu": "8086:5912-19.0.2",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--skip-validation",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--skip-validation"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -633,22 +708,23 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-ubuntu-stable",
-              "os": "linux-intel-stable",
+              "gpu": "8086:5912-19.0.2",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-spvc",
+          "--use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-spvc",
-          "--use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -659,22 +735,23 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-ubuntu-stable",
-              "os": "linux-intel-stable",
+              "gpu": "8086:5912-19.0.2",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-spvc",
+          "--no-use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-spvc",
-          "--no-use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -685,21 +762,22 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-ubuntu-stable",
-              "os": "linux-intel-stable",
+              "gpu": "8086:5912-19.0.2",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--enable-backend-validation",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--enable-backend-validation"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -710,21 +788,22 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-ubuntu-stable",
-              "os": "linux-intel-stable",
+              "gpu": "8086:5912-19.0.2",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-wire",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-wire"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -735,15 +814,15 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-ubuntu-stable",
-              "os": "linux-intel-stable",
+              "gpu": "8086:5912-19.0.2",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       }
     ],
     "isolated_scripts": [
@@ -765,14 +844,71 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-ubuntu-stable",
-              "os": "linux-intel-stable",
+              "gpu": "8086:5912-19.0.2",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
-        "test_target": "//chrome/test:dawn_perf_tests"
+        "test_id_prefix": "ninja://chrome/test:dawn_perf_tests/"
+      },
+      {
+        "args": [
+          "--driver-logging",
+          "--jobs=1",
+          "--no-xvfb",
+          "--additional-driver-flag=--use-vulkan=native"
+        ],
+        "isolate_name": "webgpu_blink_web_tests",
+        "merge": {
+          "args": [
+            "--verbose"
+          ],
+          "script": "//third_party/blink/tools/merge_web_test_results.py"
+        },
+        "name": "webgpu_blink_web_tests",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "gpu": "8086:5912-19.0.2",
+              "os": "Ubuntu-19.04",
+              "pool": "chromium.tests.gpu.template"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
+      },
+      {
+        "args": [
+          "--driver-logging",
+          "--jobs=1",
+          "--additional-driver-flag=--enable-dawn-backend-validation",
+          "--no-xvfb",
+          "--additional-driver-flag=--use-vulkan=native"
+        ],
+        "isolate_name": "webgpu_blink_web_tests",
+        "merge": {
+          "args": [
+            "--verbose"
+          ],
+          "script": "//third_party/blink/tools/merge_web_test_results.py"
+        },
+        "name": "webgpu_blink_web_tests_with_backend_validation",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "gpu": "8086:5912-19.0.2",
+              "os": "Ubuntu-19.04",
+              "pool": "chromium.tests.gpu.template"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
       }
     ]
   },
@@ -781,7 +917,8 @@
       {
         "args": [
           "--use-gpu-in-tests",
-          "--test-launcher-retry-limit=0"
+          "--test-launcher-retry-limit=0",
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -791,22 +928,23 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-ubuntu-stable",
-              "os": "linux-nvidia-stable",
+              "gpu": "10de:1cb3-418.56",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--no-use-spvc",
+          "--no-use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--no-use-spvc",
-          "--no-use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -817,21 +955,22 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-ubuntu-stable",
-              "os": "linux-nvidia-stable",
+              "gpu": "10de:1cb3-418.56",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--skip-validation",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--skip-validation"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -842,22 +981,23 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-ubuntu-stable",
-              "os": "linux-nvidia-stable",
+              "gpu": "10de:1cb3-418.56",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-spvc",
+          "--use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-spvc",
-          "--use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -868,22 +1008,23 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-ubuntu-stable",
-              "os": "linux-nvidia-stable",
+              "gpu": "10de:1cb3-418.56",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-spvc",
+          "--no-use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-spvc",
-          "--no-use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -894,21 +1035,22 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-ubuntu-stable",
-              "os": "linux-nvidia-stable",
+              "gpu": "10de:1cb3-418.56",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--enable-backend-validation",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--enable-backend-validation"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -919,21 +1061,22 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-ubuntu-stable",
-              "os": "linux-nvidia-stable",
+              "gpu": "10de:1cb3-418.56",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-wire",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-wire"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -944,15 +1087,15 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-ubuntu-stable",
-              "os": "linux-nvidia-stable",
+              "gpu": "10de:1cb3-418.56",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       }
     ],
     "isolated_scripts": [
@@ -974,14 +1117,71 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-ubuntu-stable",
-              "os": "linux-nvidia-stable",
+              "gpu": "10de:1cb3-418.56",
+              "os": "Ubuntu-19.04",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
-        "test_target": "//chrome/test:dawn_perf_tests"
+        "test_id_prefix": "ninja://chrome/test:dawn_perf_tests/"
+      },
+      {
+        "args": [
+          "--driver-logging",
+          "--jobs=1",
+          "--no-xvfb",
+          "--additional-driver-flag=--use-vulkan=native"
+        ],
+        "isolate_name": "webgpu_blink_web_tests",
+        "merge": {
+          "args": [
+            "--verbose"
+          ],
+          "script": "//third_party/blink/tools/merge_web_test_results.py"
+        },
+        "name": "webgpu_blink_web_tests",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "gpu": "10de:1cb3-418.56",
+              "os": "Ubuntu-19.04",
+              "pool": "chromium.tests.gpu.template"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
+      },
+      {
+        "args": [
+          "--driver-logging",
+          "--jobs=1",
+          "--additional-driver-flag=--enable-dawn-backend-validation",
+          "--no-xvfb",
+          "--additional-driver-flag=--use-vulkan=native"
+        ],
+        "isolate_name": "webgpu_blink_web_tests",
+        "merge": {
+          "args": [
+            "--verbose"
+          ],
+          "script": "//third_party/blink/tools/merge_web_test_results.py"
+        },
+        "name": "webgpu_blink_web_tests_with_backend_validation",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "gpu": "10de:1cb3-418.56",
+              "os": "Ubuntu-19.04",
+              "pool": "chromium.tests.gpu.template"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
       }
     ]
   },
@@ -992,7 +1192,8 @@
       {
         "args": [
           "--use-gpu-in-tests",
-          "--test-launcher-retry-limit=0"
+          "--test-launcher-retry-limit=0",
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -1004,21 +1205,22 @@
             {
               "gpu": "1002:6821",
               "hidpi": "1",
-              "os": "mac-amd-stable",
+              "os": "Mac-10.14.6",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--no-use-spvc",
+          "--no-use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--no-use-spvc",
-          "--no-use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -1031,20 +1233,21 @@
             {
               "gpu": "1002:6821",
               "hidpi": "1",
-              "os": "mac-amd-stable",
+              "os": "Mac-10.14.6",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--skip-validation",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--skip-validation"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -1057,21 +1260,22 @@
             {
               "gpu": "1002:6821",
               "hidpi": "1",
-              "os": "mac-amd-stable",
+              "os": "Mac-10.14.6",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-spvc",
+          "--use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-spvc",
-          "--use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -1084,21 +1288,22 @@
             {
               "gpu": "1002:6821",
               "hidpi": "1",
-              "os": "mac-amd-stable",
+              "os": "Mac-10.14.6",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-spvc",
+          "--no-use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-spvc",
-          "--no-use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -1111,20 +1316,21 @@
             {
               "gpu": "1002:6821",
               "hidpi": "1",
-              "os": "mac-amd-stable",
+              "os": "Mac-10.14.6",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--enable-backend-validation",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--enable-backend-validation"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -1137,20 +1343,21 @@
             {
               "gpu": "1002:6821",
               "hidpi": "1",
-              "os": "mac-amd-stable",
+              "os": "Mac-10.14.6",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-wire",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-wire"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -1163,14 +1370,14 @@
             {
               "gpu": "1002:6821",
               "hidpi": "1",
-              "os": "mac-amd-stable",
+              "os": "Mac-10.14.6",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
@@ -1186,14 +1393,14 @@
             {
               "gpu": "1002:6821",
               "hidpi": "1",
-              "os": "mac-amd-stable",
+              "os": "Mac-10.14.6",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "gl_tests",
-        "test_target": "//gpu:gl_tests"
+        "test_id_prefix": "ninja://gpu:gl_tests/"
       },
       {
         "args": [
@@ -1209,14 +1416,14 @@
             {
               "gpu": "1002:6821",
               "hidpi": "1",
-              "os": "mac-amd-stable",
+              "os": "Mac-10.14.6",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "gl_unittests",
-        "test_target": "//ui/gl:gl_unittests"
+        "test_id_prefix": "ninja://ui/gl:gl_unittests/"
       }
     ],
     "isolated_scripts": [
@@ -1240,13 +1447,13 @@
             {
               "gpu": "1002:6821",
               "hidpi": "1",
-              "os": "mac-amd-stable",
+              "os": "Mac-10.14.6",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
-        "test_target": "//chrome/test:dawn_perf_tests"
+        "test_id_prefix": "ninja://chrome/test:dawn_perf_tests/"
       },
       {
         "args": [
@@ -1268,13 +1475,42 @@
             {
               "gpu": "1002:6821",
               "hidpi": "1",
-              "os": "mac-amd-stable",
+              "os": "Mac-10.14.6",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
-        "test_target": "//:webgpu_blink_web_tests"
+        "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
+      },
+      {
+        "args": [
+          "--driver-logging",
+          "--jobs=1",
+          "--additional-driver-flag=--enable-dawn-backend-validation",
+          "--platform=mac-mac10.13"
+        ],
+        "isolate_name": "webgpu_blink_web_tests",
+        "merge": {
+          "args": [
+            "--verbose"
+          ],
+          "script": "//third_party/blink/tools/merge_web_test_results.py"
+        },
+        "name": "webgpu_blink_web_tests_with_backend_validation",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "gpu": "1002:6821",
+              "hidpi": "1",
+              "os": "Mac-10.14.6",
+              "pool": "chromium.tests.gpu.template"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
       }
     ]
   },
@@ -1283,7 +1519,8 @@
       {
         "args": [
           "--use-gpu-in-tests",
-          "--test-launcher-retry-limit=0"
+          "--test-launcher-retry-limit=0",
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -1294,20 +1531,21 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "mac-intel-stable"
+              "os": "Mac-10.14.6"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--no-use-spvc",
+          "--no-use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--no-use-spvc",
-          "--no-use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -1319,19 +1557,20 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "mac-intel-stable"
+              "os": "Mac-10.14.6"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--skip-validation",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--skip-validation"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -1343,20 +1582,21 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "mac-intel-stable"
+              "os": "Mac-10.14.6"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-spvc",
+          "--use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-spvc",
-          "--use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -1368,20 +1608,21 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "mac-intel-stable"
+              "os": "Mac-10.14.6"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-spvc",
+          "--no-use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-spvc",
-          "--no-use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -1393,19 +1634,20 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "mac-intel-stable"
+              "os": "Mac-10.14.6"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--enable-backend-validation",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--enable-backend-validation"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -1417,19 +1659,20 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "mac-intel-stable"
+              "os": "Mac-10.14.6"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-wire",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-wire"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -1441,13 +1684,13 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "mac-intel-stable"
+              "os": "Mac-10.14.6"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
@@ -1462,13 +1705,13 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "mac-intel-stable"
+              "os": "Mac-10.14.6"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "gl_tests",
-        "test_target": "//gpu:gl_tests"
+        "test_id_prefix": "ninja://gpu:gl_tests/"
       },
       {
         "args": [
@@ -1483,13 +1726,13 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "mac-intel-stable"
+              "os": "Mac-10.14.6"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "gl_unittests",
-        "test_target": "//ui/gl:gl_unittests"
+        "test_id_prefix": "ninja://ui/gl:gl_unittests/"
       }
     ],
     "isolated_scripts": [
@@ -1512,12 +1755,12 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "mac-intel-stable"
+              "os": "Mac-10.14.6"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
-        "test_target": "//chrome/test:dawn_perf_tests"
+        "test_id_prefix": "ninja://chrome/test:dawn_perf_tests/"
       },
       {
         "args": [
@@ -1538,12 +1781,39 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "mac-intel-stable"
+              "os": "Mac-10.14.6"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
-        "test_target": "//:webgpu_blink_web_tests"
+        "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
+      },
+      {
+        "args": [
+          "--driver-logging",
+          "--jobs=1",
+          "--additional-driver-flag=--enable-dawn-backend-validation",
+          "--platform=mac-mac10.13"
+        ],
+        "isolate_name": "webgpu_blink_web_tests",
+        "merge": {
+          "args": [
+            "--verbose"
+          ],
+          "script": "//third_party/blink/tools/merge_web_test_results.py"
+        },
+        "name": "webgpu_blink_web_tests_with_backend_validation",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "gpu": "8086:0a2e",
+              "os": "Mac-10.14.6"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
       }
     ]
   },
@@ -1552,7 +1822,8 @@
       {
         "args": [
           "--use-gpu-in-tests",
-          "--test-launcher-retry-limit=0"
+          "--test-launcher-retry-limit=0",
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -1564,21 +1835,22 @@
             {
               "gpu": "1002:6821",
               "hidpi": "1",
-              "os": "mac-amd-stable",
+              "os": "Mac-10.14.6",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--no-use-spvc",
+          "--no-use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--no-use-spvc",
-          "--no-use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -1591,20 +1863,21 @@
             {
               "gpu": "1002:6821",
               "hidpi": "1",
-              "os": "mac-amd-stable",
+              "os": "Mac-10.14.6",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--skip-validation",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--skip-validation"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -1617,21 +1890,22 @@
             {
               "gpu": "1002:6821",
               "hidpi": "1",
-              "os": "mac-amd-stable",
+              "os": "Mac-10.14.6",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-spvc",
+          "--use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-spvc",
-          "--use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -1644,21 +1918,22 @@
             {
               "gpu": "1002:6821",
               "hidpi": "1",
-              "os": "mac-amd-stable",
+              "os": "Mac-10.14.6",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-spvc",
+          "--no-use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-spvc",
-          "--no-use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -1671,20 +1946,21 @@
             {
               "gpu": "1002:6821",
               "hidpi": "1",
-              "os": "mac-amd-stable",
+              "os": "Mac-10.14.6",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--enable-backend-validation",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--enable-backend-validation"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -1697,20 +1973,21 @@
             {
               "gpu": "1002:6821",
               "hidpi": "1",
-              "os": "mac-amd-stable",
+              "os": "Mac-10.14.6",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-wire",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-wire"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -1723,14 +2000,14 @@
             {
               "gpu": "1002:6821",
               "hidpi": "1",
-              "os": "mac-amd-stable",
+              "os": "Mac-10.14.6",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       }
     ],
     "isolated_scripts": [
@@ -1754,13 +2031,70 @@
             {
               "gpu": "1002:6821",
               "hidpi": "1",
-              "os": "mac-amd-stable",
+              "os": "Mac-10.14.6",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
-        "test_target": "//chrome/test:dawn_perf_tests"
+        "test_id_prefix": "ninja://chrome/test:dawn_perf_tests/"
+      },
+      {
+        "args": [
+          "--driver-logging",
+          "--jobs=1",
+          "--platform=mac-mac10.13"
+        ],
+        "isolate_name": "webgpu_blink_web_tests",
+        "merge": {
+          "args": [
+            "--verbose"
+          ],
+          "script": "//third_party/blink/tools/merge_web_test_results.py"
+        },
+        "name": "webgpu_blink_web_tests",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "gpu": "1002:6821",
+              "hidpi": "1",
+              "os": "Mac-10.14.6",
+              "pool": "chromium.tests.gpu.template"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
+      },
+      {
+        "args": [
+          "--driver-logging",
+          "--jobs=1",
+          "--additional-driver-flag=--enable-dawn-backend-validation",
+          "--platform=mac-mac10.13"
+        ],
+        "isolate_name": "webgpu_blink_web_tests",
+        "merge": {
+          "args": [
+            "--verbose"
+          ],
+          "script": "//third_party/blink/tools/merge_web_test_results.py"
+        },
+        "name": "webgpu_blink_web_tests_with_backend_validation",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "gpu": "1002:6821",
+              "hidpi": "1",
+              "os": "Mac-10.14.6",
+              "pool": "chromium.tests.gpu.template"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
       }
     ]
   },
@@ -1769,7 +2103,8 @@
       {
         "args": [
           "--use-gpu-in-tests",
-          "--test-launcher-retry-limit=0"
+          "--test-launcher-retry-limit=0",
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -1780,20 +2115,21 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "mac-intel-stable"
+              "os": "Mac-10.14.6"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--no-use-spvc",
+          "--no-use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--no-use-spvc",
-          "--no-use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -1805,19 +2141,20 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "mac-intel-stable"
+              "os": "Mac-10.14.6"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--skip-validation",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--skip-validation"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -1829,20 +2166,21 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "mac-intel-stable"
+              "os": "Mac-10.14.6"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-spvc",
+          "--use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-spvc",
-          "--use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -1854,20 +2192,21 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "mac-intel-stable"
+              "os": "Mac-10.14.6"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-spvc",
+          "--no-use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-spvc",
-          "--no-use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -1879,19 +2218,20 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "mac-intel-stable"
+              "os": "Mac-10.14.6"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--enable-backend-validation",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--enable-backend-validation"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -1903,19 +2243,20 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "mac-intel-stable"
+              "os": "Mac-10.14.6"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-wire",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-wire"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -1927,13 +2268,13 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "mac-intel-stable"
+              "os": "Mac-10.14.6"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       }
     ],
     "isolated_scripts": [
@@ -1956,12 +2297,65 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "mac-intel-stable"
+              "os": "Mac-10.14.6"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
-        "test_target": "//chrome/test:dawn_perf_tests"
+        "test_id_prefix": "ninja://chrome/test:dawn_perf_tests/"
+      },
+      {
+        "args": [
+          "--driver-logging",
+          "--jobs=1",
+          "--platform=mac-mac10.13"
+        ],
+        "isolate_name": "webgpu_blink_web_tests",
+        "merge": {
+          "args": [
+            "--verbose"
+          ],
+          "script": "//third_party/blink/tools/merge_web_test_results.py"
+        },
+        "name": "webgpu_blink_web_tests",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "gpu": "8086:0a2e",
+              "os": "Mac-10.14.6"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
+      },
+      {
+        "args": [
+          "--driver-logging",
+          "--jobs=1",
+          "--additional-driver-flag=--enable-dawn-backend-validation",
+          "--platform=mac-mac10.13"
+        ],
+        "isolate_name": "webgpu_blink_web_tests",
+        "merge": {
+          "args": [
+            "--verbose"
+          ],
+          "script": "//third_party/blink/tools/merge_web_test_results.py"
+        },
+        "name": "webgpu_blink_web_tests_with_backend_validation",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "gpu": "8086:0a2e",
+              "os": "Mac-10.14.6"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
       }
     ]
   },
@@ -1972,7 +2366,8 @@
       {
         "args": [
           "--use-gpu-in-tests",
-          "--test-launcher-retry-limit=0"
+          "--test-launcher-retry-limit=0",
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -1982,7 +2377,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -1990,14 +2385,15 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--no-use-spvc",
+          "--no-use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--no-use-spvc",
-          "--no-use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -2008,7 +2404,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2016,13 +2412,14 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--skip-validation",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--skip-validation"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -2033,7 +2430,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2041,14 +2438,15 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-spvc",
+          "--use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-spvc",
-          "--use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -2059,7 +2457,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2067,14 +2465,15 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-spvc",
+          "--no-use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-spvc",
-          "--no-use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -2085,7 +2484,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2093,13 +2492,14 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--enable-backend-validation",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--enable-backend-validation"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -2110,7 +2510,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2118,13 +2518,14 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-wire",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-wire"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -2135,7 +2536,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2143,7 +2544,7 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
@@ -2157,7 +2558,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2165,7 +2566,7 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "gl_tests",
-        "test_target": "//gpu:gl_tests"
+        "test_id_prefix": "ninja://gpu:gl_tests/"
       },
       {
         "args": [
@@ -2179,7 +2580,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2187,7 +2588,7 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "gl_unittests",
-        "test_target": "//ui/gl:gl_unittests"
+        "test_id_prefix": "ninja://ui/gl:gl_unittests/"
       }
     ],
     "isolated_scripts": [
@@ -2209,14 +2610,14 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
-        "test_target": "//chrome/test:dawn_perf_tests"
+        "test_id_prefix": "ninja://chrome/test:dawn_perf_tests/"
       },
       {
         "args": [
@@ -2237,14 +2638,43 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
-        "test_target": "//:webgpu_blink_web_tests"
+        "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
+      },
+      {
+        "args": [
+          "--driver-logging",
+          "--jobs=1",
+          "--additional-driver-flag=--enable-dawn-backend-validation",
+          "--additional-driver-flag=--disable-gpu-sandbox",
+          "--target=Release_x64"
+        ],
+        "isolate_name": "webgpu_blink_web_tests",
+        "merge": {
+          "args": [
+            "--verbose"
+          ],
+          "script": "//third_party/blink/tools/merge_web_test_results.py"
+        },
+        "name": "webgpu_blink_web_tests_with_backend_validation",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "gpu": "8086:5912-24.20.100.6286",
+              "os": "Windows-10",
+              "pool": "chromium.tests.gpu.template"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
       }
     ]
   },
@@ -2253,7 +2683,8 @@
       {
         "args": [
           "--use-gpu-in-tests",
-          "--test-launcher-retry-limit=0"
+          "--test-launcher-retry-limit=0",
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -2263,7 +2694,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2271,14 +2702,15 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--no-use-spvc",
+          "--no-use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--no-use-spvc",
-          "--no-use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -2289,7 +2721,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2297,13 +2729,14 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--skip-validation",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--skip-validation"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -2314,7 +2747,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2322,14 +2755,15 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-spvc",
+          "--use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-spvc",
-          "--use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -2340,7 +2774,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2348,14 +2782,15 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-spvc",
+          "--no-use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-spvc",
-          "--no-use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -2366,7 +2801,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2374,13 +2809,14 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--enable-backend-validation",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--enable-backend-validation"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -2391,7 +2827,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2399,13 +2835,14 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-wire",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-wire"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -2416,7 +2853,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2424,7 +2861,7 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
@@ -2438,7 +2875,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2446,7 +2883,7 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "gl_tests",
-        "test_target": "//gpu:gl_tests"
+        "test_id_prefix": "ninja://gpu:gl_tests/"
       },
       {
         "args": [
@@ -2460,7 +2897,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2468,7 +2905,7 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "gl_unittests",
-        "test_target": "//ui/gl:gl_unittests"
+        "test_id_prefix": "ninja://ui/gl:gl_unittests/"
       }
     ],
     "isolated_scripts": [
@@ -2490,14 +2927,14 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
-        "test_target": "//chrome/test:dawn_perf_tests"
+        "test_id_prefix": "ninja://chrome/test:dawn_perf_tests/"
       },
       {
         "args": [
@@ -2518,14 +2955,43 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
-        "test_target": "//:webgpu_blink_web_tests"
+        "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
+      },
+      {
+        "args": [
+          "--driver-logging",
+          "--jobs=1",
+          "--additional-driver-flag=--enable-dawn-backend-validation",
+          "--additional-driver-flag=--disable-gpu-sandbox",
+          "--target=Release_x64"
+        ],
+        "isolate_name": "webgpu_blink_web_tests",
+        "merge": {
+          "args": [
+            "--verbose"
+          ],
+          "script": "//third_party/blink/tools/merge_web_test_results.py"
+        },
+        "name": "webgpu_blink_web_tests_with_backend_validation",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "gpu": "10de:1cb3-26.21.14.3102",
+              "os": "Windows-10",
+              "pool": "chromium.tests.gpu.template"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
       }
     ]
   },
@@ -2534,7 +3000,8 @@
       {
         "args": [
           "--use-gpu-in-tests",
-          "--test-launcher-retry-limit=0"
+          "--test-launcher-retry-limit=0",
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -2544,7 +3011,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2552,14 +3019,15 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--no-use-spvc",
+          "--no-use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--no-use-spvc",
-          "--no-use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -2570,7 +3038,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2578,13 +3046,14 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--skip-validation",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--skip-validation"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -2595,7 +3064,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2603,14 +3072,15 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-spvc",
+          "--use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-spvc",
-          "--use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -2621,7 +3091,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2629,14 +3099,15 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-spvc",
+          "--no-use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-spvc",
-          "--no-use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -2647,7 +3118,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2655,13 +3126,14 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--enable-backend-validation",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--enable-backend-validation"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -2672,7 +3144,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2680,13 +3152,14 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-wire",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-wire"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -2697,7 +3170,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2705,7 +3178,7 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       }
     ],
     "isolated_scripts": [
@@ -2727,14 +3200,71 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
-        "test_target": "//chrome/test:dawn_perf_tests"
+        "test_id_prefix": "ninja://chrome/test:dawn_perf_tests/"
+      },
+      {
+        "args": [
+          "--driver-logging",
+          "--jobs=1",
+          "--additional-driver-flag=--disable-gpu-sandbox",
+          "--target=Release_x64"
+        ],
+        "isolate_name": "webgpu_blink_web_tests",
+        "merge": {
+          "args": [
+            "--verbose"
+          ],
+          "script": "//third_party/blink/tools/merge_web_test_results.py"
+        },
+        "name": "webgpu_blink_web_tests",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "gpu": "8086:5912-24.20.100.6286",
+              "os": "Windows-10",
+              "pool": "chromium.tests.gpu.template"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
+      },
+      {
+        "args": [
+          "--driver-logging",
+          "--jobs=1",
+          "--additional-driver-flag=--enable-dawn-backend-validation",
+          "--additional-driver-flag=--disable-gpu-sandbox",
+          "--target=Release_x64"
+        ],
+        "isolate_name": "webgpu_blink_web_tests",
+        "merge": {
+          "args": [
+            "--verbose"
+          ],
+          "script": "//third_party/blink/tools/merge_web_test_results.py"
+        },
+        "name": "webgpu_blink_web_tests_with_backend_validation",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "gpu": "8086:5912-24.20.100.6286",
+              "os": "Windows-10",
+              "pool": "chromium.tests.gpu.template"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
       }
     ]
   },
@@ -2743,7 +3273,8 @@
       {
         "args": [
           "--use-gpu-in-tests",
-          "--test-launcher-retry-limit=0"
+          "--test-launcher-retry-limit=0",
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -2753,7 +3284,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2761,14 +3292,15 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--no-use-spvc",
+          "--no-use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--no-use-spvc",
-          "--no-use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -2779,7 +3311,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2787,13 +3319,14 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--skip-validation",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--skip-validation"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -2804,7 +3337,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2812,14 +3345,15 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-spvc",
+          "--use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-spvc",
-          "--use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -2830,7 +3364,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2838,14 +3372,15 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-spvc",
+          "--no-use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-spvc",
-          "--no-use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -2856,7 +3391,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2864,13 +3399,14 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--enable-backend-validation",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--enable-backend-validation"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -2881,7 +3417,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2889,13 +3425,14 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-wire",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-wire"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -2906,7 +3443,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2914,7 +3451,7 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       }
     ],
     "isolated_scripts": [
@@ -2936,14 +3473,71 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
-        "test_target": "//chrome/test:dawn_perf_tests"
+        "test_id_prefix": "ninja://chrome/test:dawn_perf_tests/"
+      },
+      {
+        "args": [
+          "--driver-logging",
+          "--jobs=1",
+          "--additional-driver-flag=--disable-gpu-sandbox",
+          "--target=Release_x64"
+        ],
+        "isolate_name": "webgpu_blink_web_tests",
+        "merge": {
+          "args": [
+            "--verbose"
+          ],
+          "script": "//third_party/blink/tools/merge_web_test_results.py"
+        },
+        "name": "webgpu_blink_web_tests",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "gpu": "10de:1cb3-26.21.14.3102",
+              "os": "Windows-10",
+              "pool": "chromium.tests.gpu.template"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
+      },
+      {
+        "args": [
+          "--driver-logging",
+          "--jobs=1",
+          "--additional-driver-flag=--enable-dawn-backend-validation",
+          "--additional-driver-flag=--disable-gpu-sandbox",
+          "--target=Release_x64"
+        ],
+        "isolate_name": "webgpu_blink_web_tests",
+        "merge": {
+          "args": [
+            "--verbose"
+          ],
+          "script": "//third_party/blink/tools/merge_web_test_results.py"
+        },
+        "name": "webgpu_blink_web_tests_with_backend_validation",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "gpu": "10de:1cb3-26.21.14.3102",
+              "os": "Windows-10",
+              "pool": "chromium.tests.gpu.template"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
       }
     ]
   },
@@ -2954,7 +3548,8 @@
       {
         "args": [
           "--use-gpu-in-tests",
-          "--test-launcher-retry-limit=0"
+          "--test-launcher-retry-limit=0",
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -2964,7 +3559,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2972,14 +3567,15 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--no-use-spvc",
+          "--no-use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--no-use-spvc",
-          "--no-use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -2990,7 +3586,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -2998,13 +3594,14 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--skip-validation",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--skip-validation"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -3015,7 +3612,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -3023,14 +3620,15 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-spvc",
+          "--use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-spvc",
-          "--use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -3041,7 +3639,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -3049,14 +3647,15 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-spvc",
+          "--no-use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-spvc",
-          "--no-use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -3067,7 +3666,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -3075,13 +3674,14 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--enable-backend-validation",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--enable-backend-validation"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -3092,7 +3692,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -3100,13 +3700,14 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-wire",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-wire"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -3117,7 +3718,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -3125,7 +3726,7 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
@@ -3139,7 +3740,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -3147,7 +3748,7 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "gl_tests",
-        "test_target": "//gpu:gl_tests"
+        "test_id_prefix": "ninja://gpu:gl_tests/"
       },
       {
         "args": [
@@ -3161,7 +3762,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -3169,7 +3770,7 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "gl_unittests",
-        "test_target": "//ui/gl:gl_unittests"
+        "test_id_prefix": "ninja://ui/gl:gl_unittests/"
       }
     ],
     "isolated_scripts": [
@@ -3191,14 +3792,14 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
-        "test_target": "//chrome/test:dawn_perf_tests"
+        "test_id_prefix": "ninja://chrome/test:dawn_perf_tests/"
       },
       {
         "args": [
@@ -3218,14 +3819,42 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
-        "test_target": "//:webgpu_blink_web_tests"
+        "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
+      },
+      {
+        "args": [
+          "--driver-logging",
+          "--jobs=1",
+          "--additional-driver-flag=--enable-dawn-backend-validation",
+          "--additional-driver-flag=--disable-gpu-sandbox"
+        ],
+        "isolate_name": "webgpu_blink_web_tests",
+        "merge": {
+          "args": [
+            "--verbose"
+          ],
+          "script": "//third_party/blink/tools/merge_web_test_results.py"
+        },
+        "name": "webgpu_blink_web_tests_with_backend_validation",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "gpu": "8086:5912-24.20.100.6286",
+              "os": "Windows-10",
+              "pool": "chromium.tests.gpu.template"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
       }
     ]
   },
@@ -3234,7 +3863,8 @@
       {
         "args": [
           "--use-gpu-in-tests",
-          "--test-launcher-retry-limit=0"
+          "--test-launcher-retry-limit=0",
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -3244,7 +3874,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -3252,14 +3882,15 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--no-use-spvc",
+          "--no-use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--no-use-spvc",
-          "--no-use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -3270,7 +3901,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -3278,13 +3909,14 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--skip-validation",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--skip-validation"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -3295,7 +3927,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -3303,14 +3935,15 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-spvc",
+          "--use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-spvc",
-          "--use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -3321,7 +3954,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -3329,14 +3962,15 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-spvc",
+          "--no-use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-spvc",
-          "--no-use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -3347,7 +3981,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -3355,13 +3989,14 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--enable-backend-validation",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--enable-backend-validation"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -3372,7 +4007,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -3380,13 +4015,14 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-wire",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-wire"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -3397,7 +4033,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -3405,7 +4041,7 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
@@ -3419,7 +4055,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -3427,7 +4063,7 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "gl_tests",
-        "test_target": "//gpu:gl_tests"
+        "test_id_prefix": "ninja://gpu:gl_tests/"
       },
       {
         "args": [
@@ -3441,7 +4077,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -3449,7 +4085,7 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "gl_unittests",
-        "test_target": "//ui/gl:gl_unittests"
+        "test_id_prefix": "ninja://ui/gl:gl_unittests/"
       }
     ],
     "isolated_scripts": [
@@ -3471,14 +4107,14 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
-        "test_target": "//chrome/test:dawn_perf_tests"
+        "test_id_prefix": "ninja://chrome/test:dawn_perf_tests/"
       },
       {
         "args": [
@@ -3498,14 +4134,42 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
-        "test_target": "//:webgpu_blink_web_tests"
+        "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
+      },
+      {
+        "args": [
+          "--driver-logging",
+          "--jobs=1",
+          "--additional-driver-flag=--enable-dawn-backend-validation",
+          "--additional-driver-flag=--disable-gpu-sandbox"
+        ],
+        "isolate_name": "webgpu_blink_web_tests",
+        "merge": {
+          "args": [
+            "--verbose"
+          ],
+          "script": "//third_party/blink/tools/merge_web_test_results.py"
+        },
+        "name": "webgpu_blink_web_tests_with_backend_validation",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "gpu": "10de:1cb3-26.21.14.3102",
+              "os": "Windows-10",
+              "pool": "chromium.tests.gpu.template"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
       }
     ]
   },
@@ -3514,7 +4178,8 @@
       {
         "args": [
           "--use-gpu-in-tests",
-          "--test-launcher-retry-limit=0"
+          "--test-launcher-retry-limit=0",
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -3524,7 +4189,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -3532,14 +4197,15 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--no-use-spvc",
+          "--no-use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--no-use-spvc",
-          "--no-use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -3550,7 +4216,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -3558,13 +4224,14 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--skip-validation",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--skip-validation"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -3575,7 +4242,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -3583,14 +4250,15 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-spvc",
+          "--use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-spvc",
-          "--use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -3601,7 +4269,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -3609,14 +4277,15 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-spvc",
+          "--no-use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-spvc",
-          "--no-use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -3627,7 +4296,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -3635,13 +4304,14 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--enable-backend-validation",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--enable-backend-validation"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -3652,7 +4322,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -3660,13 +4330,14 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-wire",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-wire"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -3677,7 +4348,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -3685,7 +4356,7 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       }
     ],
     "isolated_scripts": [
@@ -3707,14 +4378,69 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable",
+              "gpu": "8086:5912-24.20.100.6286",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
-        "test_target": "//chrome/test:dawn_perf_tests"
+        "test_id_prefix": "ninja://chrome/test:dawn_perf_tests/"
+      },
+      {
+        "args": [
+          "--driver-logging",
+          "--jobs=1",
+          "--additional-driver-flag=--disable-gpu-sandbox"
+        ],
+        "isolate_name": "webgpu_blink_web_tests",
+        "merge": {
+          "args": [
+            "--verbose"
+          ],
+          "script": "//third_party/blink/tools/merge_web_test_results.py"
+        },
+        "name": "webgpu_blink_web_tests",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "gpu": "8086:5912-24.20.100.6286",
+              "os": "Windows-10",
+              "pool": "chromium.tests.gpu.template"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
+      },
+      {
+        "args": [
+          "--driver-logging",
+          "--jobs=1",
+          "--additional-driver-flag=--enable-dawn-backend-validation",
+          "--additional-driver-flag=--disable-gpu-sandbox"
+        ],
+        "isolate_name": "webgpu_blink_web_tests",
+        "merge": {
+          "args": [
+            "--verbose"
+          ],
+          "script": "//third_party/blink/tools/merge_web_test_results.py"
+        },
+        "name": "webgpu_blink_web_tests_with_backend_validation",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "gpu": "8086:5912-24.20.100.6286",
+              "os": "Windows-10",
+              "pool": "chromium.tests.gpu.template"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
       }
     ]
   },
@@ -3723,7 +4449,8 @@
       {
         "args": [
           "--use-gpu-in-tests",
-          "--test-launcher-retry-limit=0"
+          "--test-launcher-retry-limit=0",
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -3733,7 +4460,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -3741,14 +4468,15 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--no-use-spvc",
+          "--no-use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--no-use-spvc",
-          "--no-use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -3759,7 +4487,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -3767,13 +4495,14 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--skip-validation",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--skip-validation"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -3784,7 +4513,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -3792,14 +4521,15 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-spvc",
+          "--use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-spvc",
-          "--use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -3810,7 +4540,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -3818,14 +4548,15 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-spvc",
+          "--no-use-spvc-parser",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-spvc",
-          "--no-use-spvc-parser"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -3836,7 +4567,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -3844,13 +4575,14 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--enable-backend-validation",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--enable-backend-validation"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -3861,7 +4593,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -3869,13 +4601,14 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       },
       {
         "args": [
+          "--use-wire",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
-          "--use-wire"
+          "--exclusive-device-type-preference=discrete,integrated"
         ],
         "merge": {
           "args": [],
@@ -3886,7 +4619,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
@@ -3894,7 +4627,7 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "dawn_end2end_tests",
-        "test_target": "//third_party/dawn:dawn_end2end_tests"
+        "test_id_prefix": "ninja://third_party/dawn/src/tests:dawn_end2end_tests/"
       }
     ],
     "isolated_scripts": [
@@ -3916,14 +4649,69 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable",
+              "gpu": "10de:1cb3-26.21.14.3102",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu.template"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
-        "test_target": "//chrome/test:dawn_perf_tests"
+        "test_id_prefix": "ninja://chrome/test:dawn_perf_tests/"
+      },
+      {
+        "args": [
+          "--driver-logging",
+          "--jobs=1",
+          "--additional-driver-flag=--disable-gpu-sandbox"
+        ],
+        "isolate_name": "webgpu_blink_web_tests",
+        "merge": {
+          "args": [
+            "--verbose"
+          ],
+          "script": "//third_party/blink/tools/merge_web_test_results.py"
+        },
+        "name": "webgpu_blink_web_tests",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "gpu": "10de:1cb3-26.21.14.3102",
+              "os": "Windows-10",
+              "pool": "chromium.tests.gpu.template"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
+      },
+      {
+        "args": [
+          "--driver-logging",
+          "--jobs=1",
+          "--additional-driver-flag=--enable-dawn-backend-validation",
+          "--additional-driver-flag=--disable-gpu-sandbox"
+        ],
+        "isolate_name": "webgpu_blink_web_tests",
+        "merge": {
+          "args": [
+            "--verbose"
+          ],
+          "script": "//third_party/blink/tools/merge_web_test_results.py"
+        },
+        "name": "webgpu_blink_web_tests_with_backend_validation",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "gpu": "10de:1cb3-26.21.14.3102",
+              "os": "Windows-10",
+              "pool": "chromium.tests.gpu.template"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test_id_prefix": "ninja://:webgpu_blink_web_tests/"
       }
     ]
   }

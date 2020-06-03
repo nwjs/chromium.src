@@ -206,6 +206,9 @@ extern const char kCameraAppDevId[];
 // The extension id of the Chrome component application.
 extern const char kChromeAppId[];
 
+// Fake extension ID for the Lacros chrome browser application.
+extern const char kLacrosAppId[];
+
 // The extension id of the Files Manager application.
 extern const char kFilesManagerAppId[];
 
@@ -269,7 +272,7 @@ extern const logging::LogSeverity kMinimumSeverityToReportError;
 
 // The minimum channel where Service Worker based extensions can run.
 constexpr version_info::Channel kMinChannelForServiceWorkerBasedExtension =
-    version_info::Channel::CANARY;
+    version_info::Channel::DEV;
 
 }  // namespace extension_misc
 

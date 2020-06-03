@@ -4,7 +4,7 @@
 
 #include "ios/chrome/browser/infobars/infobar_ios.h"
 
-#include "base/logging.h"
+#include "base/check.h"
 #include "ios/chrome/browser/infobars/infobar_controller.h"
 #import "ios/chrome/browser/ui/infobars/infobar_ui_delegate.h"
 
@@ -15,21 +15,28 @@
 using infobars::InfoBar;
 using infobars::InfoBarDelegate;
 
-InfoBarIOS::InfoBarIOS(id<InfobarUIDelegate> controller,
+InfoBarIOS::InfoBarIOS(InfobarType infobar_type,
                        std::unique_ptr<InfoBarDelegate> delegate,
                        bool skip_banner)
     : InfoBar(std::move(delegate)),
-      controller_(controller),
+      infobar_type_(infobar_type),
+      skip_banner_(skip_banner) {}
+
+InfoBarIOS::InfoBarIOS(id<InfobarUIDelegate> ui_delegate,
+                       std::unique_ptr<InfoBarDelegate> delegate,
+                       bool skip_banner)
+    : InfoBar(std::move(delegate)),
+      ui_delegate_(ui_delegate),
+      infobar_type_(ui_delegate_.infobarType),
       skip_banner_(skip_banner) {
-  DCHECK(controller_);
-  [controller_ setDelegate:this];
+  DCHECK(ui_delegate_);
+  [ui_delegate_ setDelegate:this];
 }
 
 InfoBarIOS::~InfoBarIOS() {
-  DCHECK(controller_);
-  [controller_ detachView];
-  controller_.delegate = nullptr;
-  controller_ = nil;
+  [ui_delegate_ detachView];
+  ui_delegate_.delegate = nullptr;
+  ui_delegate_ = nil;
   for (auto& observer : observers_) {
     observer.InfobarDestroyed(this);
   }
@@ -45,13 +52,13 @@ void InfoBarIOS::set_accepted(bool accepted) {
 }
 
 id<InfobarUIDelegate> InfoBarIOS::InfobarUIDelegate() {
-  DCHECK(controller_);
-  return controller_;
+  DCHECK(ui_delegate_);
+  return ui_delegate_;
 }
 
 void InfoBarIOS::RemoveView() {
-  DCHECK(controller_);
-  [controller_ removeView];
+  DCHECK(ui_delegate_);
+  [ui_delegate_ removeView];
 }
 
 base::WeakPtr<InfoBarIOS> InfoBarIOS::GetWeakPtr() {
@@ -60,12 +67,12 @@ base::WeakPtr<InfoBarIOS> InfoBarIOS::GetWeakPtr() {
 
 void InfoBarIOS::PlatformSpecificSetOwner() {
   if (!owner()) {
-    controller_.delegate = nullptr;
+    ui_delegate_.delegate = nullptr;
   }
 }
 
 void InfoBarIOS::PlatformSpecificOnCloseSoon() {
-  controller_.delegate = nullptr;
+  ui_delegate_.delegate = nullptr;
 }
 
 #pragma mark - InfoBarControllerDelegate

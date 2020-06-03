@@ -8,7 +8,6 @@
 
 #include "ash/animation/animation_change_type.h"
 #include "ash/app_list/app_list_controller_impl.h"
-#include "ash/focus_cycler.h"
 #include "ash/public/cpp/ash_features.h"
 #include "ash/public/cpp/ash_switches.h"
 #include "ash/public/cpp/keyboard/keyboard_controller_observer.h"
@@ -29,7 +28,8 @@
 #include "ash/system/status_area_widget.h"
 #include "ash/wm/work_area_insets.h"
 #include "base/bind_helpers.h"
-#include "base/logging.h"
+#include "base/check.h"
+#include "base/notreached.h"
 #include "ui/compositor/animation_metrics_reporter.h"
 #include "ui/display/types/display_constants.h"
 #include "ui/gfx/geometry/rect.h"
@@ -61,7 +61,16 @@ namespace ash {
 class HotseatWidgetAnimationMetricsReporter
     : public ui::AnimationMetricsReporter {
  public:
-  HotseatWidgetAnimationMetricsReporter() = default;
+  // The different kinds of hotseat elements.
+  enum class HotseatElementType {
+    // The Hotseat Widget.
+    kWidget,
+    // The Hotseat Widget's translucent background.
+    kTranslucentBackground
+  };
+  explicit HotseatWidgetAnimationMetricsReporter(
+      HotseatElementType hotseat_element)
+      : hotseat_element_(hotseat_element) {}
   ~HotseatWidgetAnimationMetricsReporter() override = default;
 
   void SetTargetHotseatState(HotseatState target_state) {
@@ -73,22 +82,43 @@ class HotseatWidgetAnimationMetricsReporter
     switch (target_state_) {
       case HotseatState::kShownClamshell:
       case HotseatState::kShownHomeLauncher:
-        UMA_HISTOGRAM_PERCENTAGE(
-            "Ash.HotseatWidgetAnimation.AnimationSmoothness."
-            "TransitionToShownHotseat",
-            value);
+        if (hotseat_element_ == HotseatElementType::kWidget) {
+          UMA_HISTOGRAM_PERCENTAGE(
+              "Ash.HotseatWidgetAnimation.Widget.AnimationSmoothness."
+              "TransitionToShownHotseat",
+              value);
+        } else {
+          UMA_HISTOGRAM_PERCENTAGE(
+              "Ash.HotseatWidgetAnimation.TranslucentBackground."
+              "AnimationSmoothness.TransitionToShownHotseat",
+              value);
+        }
         break;
       case HotseatState::kExtended:
-        UMA_HISTOGRAM_PERCENTAGE(
-            "Ash.HotseatWidgetAnimation.AnimationSmoothness."
-            "TransitionToExtendedHotseat",
-            value);
+        if (hotseat_element_ == HotseatElementType::kWidget) {
+          UMA_HISTOGRAM_PERCENTAGE(
+              "Ash.HotseatWidgetAnimation.Widget.AnimationSmoothness."
+              "TransitionToExtendedHotseat",
+              value);
+        } else {
+          UMA_HISTOGRAM_PERCENTAGE(
+              "Ash.HotseatWidgetAnimation.TranslucentBackground."
+              "AnimationSmoothness.TransitionToExtendedHotseat",
+              value);
+        }
         break;
       case HotseatState::kHidden:
-        UMA_HISTOGRAM_PERCENTAGE(
-            "Ash.HotseatWidgetAnimation.AnimationSmoothness."
-            "TransitionToHiddenHotseat",
-            value);
+        if (hotseat_element_ == HotseatElementType::kWidget) {
+          UMA_HISTOGRAM_PERCENTAGE(
+              "Ash.HotseatWidgetAnimation.Widget.AnimationSmoothness."
+              "TransitionToHiddenHotseat",
+              value);
+        } else {
+          UMA_HISTOGRAM_PERCENTAGE(
+              "Ash.HotseatWidgetAnimation.TranslucentBackground."
+              "AnimationSmoothness.TransitionToHiddenHotseat",
+              value);
+        }
         break;
       default:
         NOTREACHED();
@@ -96,6 +126,8 @@ class HotseatWidgetAnimationMetricsReporter
   }
 
  private:
+  // The element that is reporting an animation.
+  HotseatElementType hotseat_element_;
   // The state to which the animation is transitioning.
   HotseatState target_state_ = HotseatState::kHidden;
 };
@@ -238,21 +270,31 @@ class Shelf::AutoDimEventHandler : public ui::EventHandler {
     }
   }
 
-  void DimShelf() { shelf_->shelf_layout_manager()->SetDimmed(true); }
+  void StartDimShelfTimer() {
+    dim_shelf_timer_.Start(
+        FROM_HERE, kDimDelay,
+        base::BindOnce(&AutoDimEventHandler::DimShelf, base::Unretained(this)));
+  }
+
+  void DimShelf() {
+    // Attempt to dim the shelf. Stop the |dim_shelf_timer_| if successful.
+    if (shelf_->shelf_layout_manager()->SetDimmed(true))
+      dim_shelf_timer_.Stop();
+  }
 
   // Sets shelf as active and sets timer to mark shelf as inactive.
   void UndimShelf() {
     shelf_->shelf_layout_manager()->SetDimmed(false);
-    update_shelf_dim_state_timer_.Start(
-        FROM_HERE, kDimDelay,
-        base::BindOnce(&AutoDimEventHandler::DimShelf, base::Unretained(this)));
+    StartDimShelfTimer();
   }
+
+  bool HasDimShelfTimer() { return dim_shelf_timer_.IsRunning(); }
 
  private:
   // Unowned pointer to the shelf that owns this event handler.
   Shelf* shelf_;
   // OneShotTimer that dims shelf due to inactivity.
-  base::OneShotTimer update_shelf_dim_state_timer_;
+  base::OneShotTimer dim_shelf_timer_;
 
   // Delay before dimming the shelf.
   const base::TimeDelta kDimDelay = base::TimeDelta::FromSeconds(5);
@@ -314,17 +356,21 @@ void Shelf::CreateNavigationWidget(aura::Window* container) {
   navigation_widget_->Initialize(container);
   navigation_widget_metrics_reporter_ =
       std::make_unique<NavigationWidgetAnimationMetricsReporter>(this);
-  Shell::Get()->focus_cycler()->AddWidget(navigation_widget_.get());
 }
 
 void Shelf::CreateHotseatWidget(aura::Window* container) {
   DCHECK(container);
   DCHECK(!hotseat_widget_);
   hotseat_widget_ = std::make_unique<HotseatWidget>();
+  translucent_background_metrics_reporter_ =
+      std::make_unique<HotseatWidgetAnimationMetricsReporter>(
+          HotseatWidgetAnimationMetricsReporter::HotseatElementType::
+              kTranslucentBackground);
   hotseat_widget_->Initialize(container, this);
   shelf_widget_->RegisterHotseatWidget(hotseat_widget());
   hotseat_transition_metrics_reporter_ =
-      std::make_unique<HotseatWidgetAnimationMetricsReporter>();
+      std::make_unique<HotseatWidgetAnimationMetricsReporter>(
+          HotseatWidgetAnimationMetricsReporter::HotseatElementType::kWidget);
 }
 
 void Shelf::CreateStatusAreaWidget(aura::Window* status_container) {
@@ -333,7 +379,6 @@ void Shelf::CreateStatusAreaWidget(aura::Window* status_container) {
   status_area_widget_ =
       std::make_unique<StatusAreaWidget>(status_container, this);
   status_area_widget_->Initialize();
-  Shell::Get()->focus_cycler()->AddWidget(status_area_widget_.get());
 }
 
 void Shelf::CreateShelfWidget(aura::Window* root) {
@@ -594,6 +639,12 @@ ui::AnimationMetricsReporter* Shelf::GetHotseatTransitionMetricsReporter(
   return hotseat_transition_metrics_reporter_.get();
 }
 
+ui::AnimationMetricsReporter* Shelf::GetTranslucentBackgroundMetricsReporter(
+    HotseatState target_state) {
+  translucent_background_metrics_reporter_->SetTargetHotseatState(target_state);
+  return translucent_background_metrics_reporter_.get();
+}
+
 ui::AnimationMetricsReporter*
 Shelf::GetNavigationWidgetAnimationMetricsReporter() {
   return navigation_widget_metrics_reporter_.get();
@@ -659,6 +710,10 @@ void Shelf::DimShelf() {
 
 void Shelf::UndimShelf() {
   auto_dim_event_handler_->UndimShelf();
+}
+
+bool Shelf::HasDimShelfTimer() {
+  return auto_dim_event_handler_->HasDimShelfTimer();
 }
 
 WorkAreaInsets* Shelf::GetWorkAreaInsets() const {

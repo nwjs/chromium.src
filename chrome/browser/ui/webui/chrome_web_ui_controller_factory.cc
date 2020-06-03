@@ -28,6 +28,7 @@
 #include "chrome/browser/ui/webui/autofill_and_password_manager_internals/autofill_internals_ui.h"
 #include "chrome/browser/ui/webui/autofill_and_password_manager_internals/password_manager_internals_ui.h"
 #include "chrome/browser/ui/webui/bluetooth_internals/bluetooth_internals_ui.h"
+#include "chrome/browser/ui/webui/chrome_url_disabled_ui.h"
 #include "chrome/browser/ui/webui/chromeos/account_manager_error_ui.h"
 #include "chrome/browser/ui/webui/chromeos/account_manager_welcome_ui.h"
 #include "chrome/browser/ui/webui/chromeos/account_migration_welcome_ui.h"
@@ -119,16 +120,6 @@
 #include "chrome/browser/ui/webui/tab_strip/tab_strip_ui.h"
 #endif
 
-#if !defined(OS_ANDROID)
-#include "chrome/browser/media/router/media_router_feature.h"
-#include "chrome/browser/ui/webui/management_ui.h"
-#include "chrome/browser/ui/webui/media_router/media_router_internals_ui.h"
-#include "chrome/browser/ui/webui/web_footer_experiment_ui.h"
-#endif
-#if defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_CHROMEOS)
-#include "chrome/browser/ui/webui/cast/cast_ui.h"
-#endif
-
 #if defined(OS_ANDROID)
 #include "chrome/browser/ui/webui/explore_sites_internals/explore_sites_internals_ui.h"
 #include "chrome/browser/ui/webui/offline/offline_internals_ui.h"
@@ -140,18 +131,22 @@
 #include "chrome/browser/ui/webui/feed_internals/feed_internals_ui.h"
 #endif  // BUILDFLAG(ENABLE_FEED_IN_CHROME)
 #else   // defined(OS_ANDROID)
+#include "chrome/browser/media/router/media_router_feature.h"
 #include "chrome/browser/ui/webui/bookmarks/bookmarks_ui.h"
 #include "chrome/browser/ui/webui/devtools_ui.h"
 #include "chrome/browser/ui/webui/downloads/downloads_ui.h"
 #include "chrome/browser/ui/webui/history/history_ui.h"
 #include "chrome/browser/ui/webui/inspect_ui.h"
 #include "chrome/browser/ui/webui/management_ui.h"
+#include "chrome/browser/ui/webui/media_router/media_router_internals_ui.h"
 #include "chrome/browser/ui/webui/new_tab_page/new_tab_page_ui.h"
 #include "chrome/browser/ui/webui/ntp/new_tab_ui.h"
 #include "chrome/browser/ui/webui/page_not_available_for_guest/page_not_available_for_guest_ui.h"
+#include "chrome/browser/ui/webui/signin/inline_login_ui.h"
 #include "chrome/browser/ui/webui/signin/sync_confirmation_ui.h"
 #include "chrome/browser/ui/webui/sync_file_system_internals/sync_file_system_internals_ui.h"
 #include "chrome/browser/ui/webui/system_info_ui.h"
+#include "chrome/browser/ui/webui/web_footer_experiment_ui.h"
 #endif  // defined(OS_ANDROID)
 
 #if defined(OS_CHROMEOS)
@@ -160,6 +155,8 @@
 #include "chrome/browser/chromeos/login/easy_unlock/easy_unlock_service.h"
 #include "chrome/browser/chromeos/login/easy_unlock/easy_unlock_service_factory.h"
 #include "chrome/browser/chromeos/multidevice_setup/multidevice_setup_service_factory.h"
+#include "chrome/browser/chromeos/printing/print_management/printing_manager.h"
+#include "chrome/browser/chromeos/printing/print_management/printing_manager_factory.h"
 #include "chrome/browser/chromeos/secure_channel/secure_channel_client_provider.h"
 #include "chrome/browser/chromeos/web_applications/chrome_help_app_ui_delegate.h"
 #include "chrome/browser/chromeos/web_applications/chrome_media_app_ui_delegate.h"
@@ -189,7 +186,6 @@
 #include "chrome/browser/ui/webui/chromeos/smb_shares/smb_share_dialog.h"
 #include "chrome/browser/ui/webui/chromeos/sys_internals/sys_internals_ui.h"
 #include "chrome/browser/ui/webui/settings/chromeos/os_settings_ui.h"
-#include "chrome/browser/ui/webui/signin/inline_login_ui.h"
 #include "chromeos/components/help_app_ui/help_app_ui.h"
 #include "chromeos/components/help_app_ui/url_constants.h"
 #include "chromeos/components/media_app_ui/media_app_guest_ui.h"
@@ -198,9 +194,7 @@
 #include "chromeos/components/multidevice/debug_webui/proximity_auth_ui.h"
 #include "chromeos/components/multidevice/debug_webui/url_constants.h"
 #include "chromeos/components/print_management/print_management_ui.h"
-#include "chromeos/components/print_management/scanning_ui.h"
 #include "chromeos/components/print_management/url_constants.h"
-#include "chromeos/components/sample_system_web_app_ui/url_constants.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/services/multidevice_setup/multidevice_setup_service.h"
@@ -211,6 +205,7 @@
 #if defined(OS_CHROMEOS) && !defined(OFFICIAL_BUILD)
 #include "chrome/browser/ui/webui/chromeos/emulator/device_emulator_ui.h"
 #include "chromeos/components/sample_system_web_app_ui/sample_system_web_app_ui.h"
+#include "chromeos/components/sample_system_web_app_ui/url_constants.h"
 #endif
 
 #if !defined(OS_CHROMEOS)
@@ -219,8 +214,9 @@
 
 #if !defined(OS_CHROMEOS) && !defined(OS_ANDROID)
 #include "chrome/browser/ui/sync/sync_promo_ui.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/webui/browser_switch/browser_switch_ui.h"
-#include "chrome/browser/ui/webui/signin/inline_login_ui.h"
+#include "chrome/browser/ui/webui/signin/profile_picker_ui.h"
 #include "chrome/browser/ui/webui/signin/signin_email_confirmation_ui.h"
 #include "chrome/browser/ui/webui/signin/signin_error_ui.h"
 #include "chrome/browser/ui/webui/signin/user_manager_ui.h"
@@ -320,6 +316,28 @@ WebUIController* NewWebUI<chromeos::MediaAppUI>(WebUI* web_ui,
   return new chromeos::MediaAppUI(web_ui, std::move(delegate));
 }
 
+void BindPrintManagement(
+    Profile* profile,
+    mojo::PendingReceiver<
+        chromeos::printing::printing_manager::mojom::PrintingMetadataProvider>
+        receiver) {
+  chromeos::printing::print_management::PrintingManager* handler =
+      chromeos::printing::print_management::PrintingManagerFactory::
+          GetForProfile(profile);
+  if (handler)
+    handler->BindInterface(std::move(receiver));
+}
+
+template <>
+WebUIController*
+NewWebUI<chromeos::printing::printing_manager::PrintManagementUI>(
+    WebUI* web_ui,
+    const GURL& url) {
+  return new chromeos::printing::printing_manager::PrintManagementUI(
+      web_ui,
+      base::BindRepeating(&BindPrintManagement, Profile::FromWebUI(web_ui)));
+}
+
 void BindMultiDeviceSetup(
     Profile* profile,
     mojo::PendingReceiver<chromeos::multidevice_setup::mojom::MultiDeviceSetup>
@@ -345,7 +363,7 @@ WebUIController* NewWebUI<chromeos::multidevice::ProximityAuthUI>(
           ->GetClient(),
       base::BindRepeating(&BindMultiDeviceSetup, Profile::FromWebUI(web_ui)));
 }
-#endif
+#endif  // defined(OS_CHROMEOS)
 
 //#if !defined(OS_ANDROID) && !defined(OS_CHROMEOS)
 
@@ -382,10 +400,8 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
                                              const GURL& url) {
   // This will get called a lot to check all URLs, so do a quick check of other
   // schemes to filter out most URLs.
-  if (!url.SchemeIs(content::kChromeDevToolsScheme) &&
-      !url.SchemeIs(content::kChromeUIScheme)) {
+  if (!content::HasWebUIScheme(url))
     return nullptr;
-  }
 
   // Please keep this in alphabetical order. If #ifs or special logics are
   // required, add it below in the appropriate section.
@@ -400,6 +416,12 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
     return &NewWebUI<AccessibilityUI>;
   if (url.host_piece() == chrome::kChromeUIAutofillInternalsHost)
     return &NewWebUI<AutofillInternalsUI>;
+
+#if defined(OS_CHROMEOS)
+  if (url.host_piece() == chrome::kChromeUIAppDisabledHost)
+    return &NewWebUI<ChromeURLDisabledUI>;
+#endif  // defined(OS_CHROMEOS)
+
   if (url.host_piece() == chrome::kChromeUIBluetoothInternalsHost)
     return &NewWebUI<BluetoothInternalsUI>;
   if (url.host_piece() == chrome::kChromeUIComponentsHost)
@@ -606,11 +628,7 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
   if (base::FeatureList::IsEnabled(
           chromeos::features::kPrintJobManagementApp) &&
       url.host_piece() == chromeos::kChromeUIPrintManagementHost)
-    return &NewWebUI<chromeos::PrintManagementUI>;
-  if (base::FeatureList::IsEnabled(chromeos::features::kScanningUI) &&
-      url.host_piece() == chromeos::kChromeUIScanningHost) {
-    return &NewWebUI<chromeos::ScanningUI>;
-  }
+    return &NewWebUI<chromeos::printing::printing_manager::PrintManagementUI>;
   if (base::FeatureList::IsEnabled(chromeos::features::kMediaApp)) {
     if (url.host_piece() == chromeos::kChromeUIMediaAppHost)
       return &NewWebUI<chromeos::MediaAppUI>;
@@ -695,7 +713,14 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
     return &NewWebUI<SyncConfirmationUI>;
   }
 #endif
+#endif  // defined(OS_ANDROID)
+#if !defined(OS_CHROMEOS) && !defined(OS_ANDROID)
+  if (url.host_piece() == chrome::kChromeUIProfilePickerHost &&
+      base::FeatureList::IsEnabled(features::kNewProfilePicker)) {
+    return &NewWebUI<ProfilePickerUI>;
+  }
 #endif
+
 #if 0
   if (url.host_piece() == chrome::kChromeUIMdUserManagerHost)
     return &NewWebUI<UserManagerUI>;
@@ -740,8 +765,14 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
 #endif
 
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW)
-  if (url.host_piece() == chrome::kChromeUIPrintHost &&
-      !profile->GetPrefs()->GetBoolean(prefs::kPrintPreviewDisabled)) {
+  if (url.host_piece() == chrome::kChromeUIPrintHost) {
+    if (profile->GetPrefs()->GetBoolean(prefs::kPrintPreviewDisabled))
+      return nullptr;
+    // Filter out iframes that just display the preview PDF. Ideally, this would
+    // filter out anything other than chrome://print/, but that does not work
+    // for PrintPreviewUI tests that inject test_loader.html.
+    if (url.path() == "/pdf/index.html")
+      return nullptr;
     return &NewWebUI<printing::PrintPreviewUI>;
   }
 #endif
@@ -764,13 +795,6 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
       media_router::MediaRouterEnabled(profile)) {
     return &NewWebUI<media_router::MediaRouterInternalsUI>;
   }
-
-#if 0
-  if (url.host_piece() == chrome::kChromeUICastHost &&
-      media_router::MediaRouterEnabled(profile)) {
-    return &NewWebUI<CastUI>;
-  }
-#endif
 #endif
 
 #if defined(OS_WIN) || defined(OS_LINUX) || defined(OS_ANDROID)
@@ -902,8 +926,8 @@ void ChromeWebUIControllerFactory::GetFaviconForURL(
       ui::GetSupportedScaleFactors();
 
   std::vector<gfx::Size> candidate_sizes;
-  for (size_t i = 0; i < resource_scale_factors.size(); ++i) {
-    float scale = ui::GetScaleForScaleFactor(resource_scale_factors[i]);
+  for (auto scale_factor : resource_scale_factors) {
+    float scale = ui::GetScaleForScaleFactor(scale_factor);
     // Assume that GetFaviconResourceBytes() returns favicons which are
     // |gfx::kFaviconSize| x |gfx::kFaviconSize| DIP.
     int candidate_edge_size =
@@ -914,8 +938,7 @@ void ChromeWebUIControllerFactory::GetFaviconForURL(
   std::vector<size_t> selected_indices;
   SelectFaviconFrameIndices(candidate_sizes, desired_sizes_in_pixel,
                             &selected_indices, nullptr);
-  for (size_t i = 0; i < selected_indices.size(); ++i) {
-    size_t selected_index = selected_indices[i];
+  for (size_t selected_index : selected_indices) {
     ui::ScaleFactor selected_resource_scale =
         resource_scale_factors[selected_index];
 
@@ -963,12 +986,14 @@ bool ChromeWebUIControllerFactory::IsWebUIAllowedToMakeNetworkRequests(
       // https://crbug.com/831813
       origin.host() == chrome::kChromeUIInspectHost ||
       // https://crbug.com/859345
-      origin.host() == chrome::kChromeUIDownloadsHost;
+      origin.host() == chrome::kChromeUIDownloadsHost ||
+      // TODO(crbug.com/1076506): remove when change to iframed OneGoogleBar.
+      origin.host() == chrome::kChromeUINewTabPageHost;
 }
 
-ChromeWebUIControllerFactory::ChromeWebUIControllerFactory() {}
+ChromeWebUIControllerFactory::ChromeWebUIControllerFactory() = default;
 
-ChromeWebUIControllerFactory::~ChromeWebUIControllerFactory() {}
+ChromeWebUIControllerFactory::~ChromeWebUIControllerFactory() = default;
 
 base::RefCountedMemory* ChromeWebUIControllerFactory::GetFaviconResourceBytes(
     const GURL& page_url,

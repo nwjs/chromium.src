@@ -221,6 +221,17 @@ class AwContents : public FindHelper::Listener,
 
   JsJavaConfiguratorHost* GetJsJavaConfiguratorHost();
 
+  jint AddDocumentStartJavascript(
+      JNIEnv* env,
+      const base::android::JavaParamRef<jobject>& obj,
+      const base::android::JavaParamRef<jstring>& script,
+      const base::android::JavaParamRef<jobjectArray>& allowed_origin_rules);
+
+  void RemoveDocumentStartJavascript(
+      JNIEnv* env,
+      const base::android::JavaParamRef<jobject>& obj,
+      jint script_id);
+
   base::android::ScopedJavaLocalRef<jstring> AddWebMessageListener(
       JNIEnv* env,
       const base::android::JavaParamRef<jobject>& obj,
@@ -380,18 +391,10 @@ class AwContents : public FindHelper::Listener,
                              content::RenderViewHost* new_host) override;
   void DidFinishNavigation(
       content::NavigationHandle* navigation_handle) override;
-  void DidAttachInterstitialPage() override;
-  void DidDetachInterstitialPage() override;
 
   // AwSafeBrowsingUIManager::UIManagerClient implementation
   bool CanShowInterstitial() override;
   int GetErrorUiType() override;
-
-  void EvaluateJavaScriptOnInterstitialForTesting(
-      JNIEnv* env,
-      const base::android::JavaParamRef<jobject>& obj,
-      const base::android::JavaParamRef<jstring>& script,
-      const base::android::JavaParamRef<jobject>& callback);
 
   // AwRenderProcessGoneDelegate overrides
   RenderProcessGoneResult OnRenderProcessGone(int child_process_id,

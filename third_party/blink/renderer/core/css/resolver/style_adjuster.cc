@@ -73,10 +73,16 @@ namespace {
 TouchAction AdjustTouchActionForElement(TouchAction touch_action,
                                         const ComputedStyle& style,
                                         Element* element) {
+  // if body is the viewport defining element then ScrollsOverflow should
+  // return false as body should have overflow-x/overflow-y set to visible
+  Element* body = element ? element->GetDocument().body() : nullptr;
+  bool is_body_and_viewport =
+      element && element == body &&
+      body == element->GetDocument().ViewportDefiningElement();
   bool is_child_document =
       element && element == element->GetDocument().documentElement() &&
       element->GetDocument().LocalOwner();
-  if (style.ScrollsOverflow() || is_child_document)
+  if ((!is_body_and_viewport && style.ScrollsOverflow()) || is_child_document)
     return touch_action | TouchAction::kPan;
   return touch_action;
 }
@@ -414,6 +420,8 @@ static void AdjustStyleForDisplay(ComputedStyle& style,
       if (!style.HasOutOfFlowPosition())
         style.SetIsFlexOrGridOrCustomItem();
     }
+    if (layout_parent_style.IsDisplayFlexibleOrGridBox())
+      style.SetIsFlexOrGridItem();
   }
 
   if (style.Display() == EDisplay::kBlock && !style.IsFloating())
@@ -480,8 +488,6 @@ static void AdjustStyleForDisplay(ComputedStyle& style,
     style.SetUserModify(EUserModify::kReadOnly);
 
   if (layout_parent_style.IsDisplayFlexibleOrGridBox()) {
-    style.SetFloating(EFloat::kNone);
-
     // We want to count vertical percentage paddings/margins on flex items
     // because our current behavior is different from the spec and we want to
     // gather compatibility data.
@@ -566,21 +572,21 @@ static void AdjustEffectiveTouchAction(ComputedStyle& style,
   }
 }
 
-static void AdjustStateForSubtreeVisibility(ComputedStyle& style,
+static void AdjustStateForContentVisibility(ComputedStyle& style,
                                             Element* element) {
   if (!element)
     return;
   auto* context = element->GetDisplayLockContext();
   // The common case for most elements is that we don't have a context and have
-  // the default (visible) subtree-visibility value.
+  // the default (visible) content-visibility value.
   if (LIKELY(!context &&
-             style.SubtreeVisibility() == ESubtreeVisibility::kVisible)) {
+             style.ContentVisibility() == EContentVisibility::kVisible)) {
     return;
   }
 
   if (!context)
     context = &element->EnsureDisplayLockContext();
-  context->SetRequestedState(style.SubtreeVisibility());
+  context->SetRequestedState(style.ContentVisibility());
   context->AdjustElementStyle(&style);
 }
 
@@ -642,8 +648,8 @@ void StyleAdjuster::AdjustComputedStyle(StyleResolverState& state,
     AdjustStyleForFirstLetter(style);
   }
 
-  if (RuntimeEnabledFeatures::CSSSubtreeVisibilityEnabled())
-    AdjustStateForSubtreeVisibility(style, element);
+  if (RuntimeEnabledFeatures::CSSContentVisibilityEnabled())
+    AdjustStateForContentVisibility(style, element);
 
   // Make sure our z-index value is only applied if the object is positioned.
   if (style.GetPosition() == EPosition::kStatic &&

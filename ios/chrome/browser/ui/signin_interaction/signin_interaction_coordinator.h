@@ -34,10 +34,6 @@ class Browser;
 // Designated initializer.
 - (instancetype)initWithBrowser:(Browser*)browser NS_DESIGNATED_INITIALIZER;
 
-- (instancetype)initWithBaseViewController:(UIViewController*)viewController
-                              browserState:(ChromeBrowserState*)browserState
-    NS_UNAVAILABLE;
-
 // Creates a coordinator that uses |viewController| and |browser|.
 - (instancetype)initWithBaseViewController:(UIViewController*)viewController
                                    browser:(Browser*)browser NS_UNAVAILABLE;
@@ -86,6 +82,10 @@ class Browser;
 // Presents the advanced sign-in settings screen.
 // * |presentingViewController| is the top presented view controller.
 - (void)showAdvancedSigninSettingsWithPresentingViewController:
+    (UIViewController*)viewController;
+
+// Presents the Trusted Vault re-authentication dialog.
+- (void)showTrustedVaultReauthenticationWithPresentingViewController:
     (UIViewController*)viewController;
 
 // Cancels any current process. Calls the completion callback when done.

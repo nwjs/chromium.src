@@ -45,8 +45,8 @@
 #include "url/gurl.h"
 
 #if defined(OS_MACOSX)
-#include "components/printing/browser/features.h"
 #include "components/printing/browser/printer_capabilities_mac.h"
+#include "printing/printing_features.h"
 #endif
 
 #include "chrome/browser/ui/webui/print_preview/print_preview_handler.h"

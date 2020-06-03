@@ -108,9 +108,11 @@ class ContentURLLoader : public network::mojom::URLLoader {
   }
 
   // network::mojom::URLLoader:
-  void FollowRedirect(const std::vector<std::string>& removed_headers,
-                      const net::HttpRequestHeaders& modified_headers,
-                      const base::Optional<GURL>& new_url) override {}
+  void FollowRedirect(
+      const std::vector<std::string>& removed_headers,
+      const net::HttpRequestHeaders& modified_headers,
+      const net::HttpRequestHeaders& modified_cors_exempt_headers,
+      const base::Optional<GURL>& new_url) override {}
   void SetPriority(net::RequestPriority priority,
                    int32_t intra_priority_value) override {}
   void PauseReadingBodyFromNet() override {}
@@ -194,9 +196,8 @@ class ContentURLLoader : public network::mojom::URLLoader {
 
     if (!head->mime_type.empty()) {
       head->headers = base::MakeRefCounted<net::HttpResponseHeaders>("");
-      head->headers->AddHeader(
-          base::StringPrintf("%s: %s", net::HttpRequestHeaders::kContentType,
-                             head->mime_type.c_str()));
+      head->headers->SetHeader(net::HttpRequestHeaders::kContentType,
+                               head->mime_type);
     }
 
     client->OnReceiveResponse(std::move(head));

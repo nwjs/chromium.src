@@ -58,6 +58,8 @@ class WebAppInstallTask : content::WebContentsObserver {
   // The actual resulting app_id is reported as a part of OnceInstallCallback.
   void ExpectAppId(const AppId& expected_app_id);
 
+  void SetInstallParams(const InstallManager::InstallParams& install_params);
+
   using LoadWebAppAndCheckInstallabilityCallback = base::OnceCallback<void(
       std::unique_ptr<content::WebContents> web_contents,
       const AppId& app_id,
@@ -114,16 +116,6 @@ class WebAppInstallTask : content::WebContentsObserver {
   void InstallWebAppWithParams(
       content::WebContents* web_contents,
       const InstallManager::InstallParams& install_params,
-      WebappInstallSource install_source,
-      InstallManager::OnceInstallCallback callback);
-
-  // Starts background installation of a web app: does not show UI dialog.
-  // |web_application_info| contains all the data needed for installation. Icons
-  // will be downloaded from the icon URLs provided in |web_application_info|.
-  void InstallWebAppFromInfoRetrieveIcons(
-      content::WebContents* web_contents,
-      std::unique_ptr<WebApplicationInfo> web_application_info,
-      bool is_locally_installed,
       WebappInstallSource install_source,
       InstallManager::OnceInstallCallback callback);
 

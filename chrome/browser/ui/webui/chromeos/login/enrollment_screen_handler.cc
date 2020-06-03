@@ -553,8 +553,6 @@ void EnrollmentScreenHandler::DeclareLocalizedValues(
   // Do not use AddF for this string as it will be rendered by the JS code.
   builder->Add("oauthEnrollAbeSuccessDomain",
                IDS_ENTERPRISE_ENROLLMENT_SUCCESS_DOMAIN);
-  builder->Add("oauthEnrollAbeSuccessSupport",
-               IDS_ENTERPRISE_ENROLLMENT_SUCCESS_ABE_SUPPORT);
 
   /* Active Directory strings */
   builder->Add("oauthEnrollAdMachineNameInput", IDS_AD_DEVICE_NAME_INPUT_LABEL);
@@ -703,8 +701,8 @@ void EnrollmentScreenHandler::SetupAndShowOfflineMessage(
   if (GetCurrentScreen() != ErrorScreenView::kScreenId) {
     error_screen_->SetUIState(NetworkError::UI_STATE_SIGNIN);
     error_screen_->SetParentScreen(kScreenId);
-    error_screen_->SetHideCallback(base::Bind(&EnrollmentScreenHandler::DoShow,
-                                              weak_ptr_factory_.GetWeakPtr()));
+    error_screen_->SetHideCallback(base::BindOnce(
+        &EnrollmentScreenHandler::DoShow, weak_ptr_factory_.GetWeakPtr()));
     error_screen_->Show();
     histogram_helper_->OnErrorShow(error_screen_->GetErrorState());
   }

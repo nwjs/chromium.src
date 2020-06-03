@@ -25,11 +25,11 @@
 #include "base/android/apk_assets.h"
 #include "base/android/build_info.h"
 #include "base/bind.h"
+#include "base/check_op.h"
 #include "base/command_line.h"
 #include "base/cpu.h"
 #include "base/i18n/icu_util.h"
 #include "base/i18n/rtl.h"
-#include "base/logging.h"
 #include "base/posix/global_descriptors.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/threading/thread_restrictions.h"
@@ -219,6 +219,8 @@ bool AwMainDelegate::BasicStartupComplete(int* exit_code) {
 
     features.DisableIfNotSet(::features::kWebXrHitTest);
 
+    features.DisableIfNotSet(::features::kDynamicColorGamut);
+
     // De-jelly is never supported on WebView.
     features.EnableIfNotSet(::features::kDisableDeJelly);
 
@@ -226,6 +228,8 @@ bool AwMainDelegate::BasicStartupComplete(int* exit_code) {
     // See
     // https://groups.google.com/a/chromium.org/forum/#!topic/blink-dev/XBKAGb2_7uAi.
     features.DisableIfNotSet(network::features::kCrossOriginEmbedderPolicy);
+
+    features.DisableIfNotSet(::features::kInstalledApp);
   }
 
   android_webview::RegisterPathProvider();

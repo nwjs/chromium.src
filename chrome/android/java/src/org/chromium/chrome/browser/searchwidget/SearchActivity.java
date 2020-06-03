@@ -38,6 +38,7 @@ import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabWebContentsDelegateAndroid;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager.SnackbarManageable;
+import org.chromium.chrome.browser.ui.native_page.NativePage;
 import org.chromium.components.browser_ui.modaldialog.AppModalPresenter;
 import org.chromium.components.browser_ui.util.BrowserControlsVisibilityDelegate;
 import org.chromium.components.external_intents.ExternalNavigationHandler;
@@ -157,7 +158,8 @@ public class SearchActivity extends AsyncInitializationActivity
                 R.id.search_location_bar);
         mSearchBox.setDelegate(this);
         mSearchBox.setToolbarDataProvider(mSearchBoxDataProvider);
-        mSearchBox.initializeControls(new WindowDelegate(getWindow()), getWindowAndroid(), null);
+        mSearchBox.initializeControls(
+                new WindowDelegate(getWindow()), getWindowAndroid(), null, null, null, null);
 
         // Kick off everything needed for the user to type into the box.
         beginQuery();
@@ -217,6 +219,12 @@ public class SearchActivity extends AsyncInitializationActivity
             @Override
             public BrowserControlsVisibilityDelegate createBrowserControlsVisibilityDelegate(
                     Tab tab) {
+                return null;
+            }
+
+            @Override
+            public NativePage createNativePage(String url, NativePage candidatePage, Tab tab) {
+                // SearchActivity does not create native pages.
                 return null;
             }
         };

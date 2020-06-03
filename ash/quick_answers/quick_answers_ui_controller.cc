@@ -4,7 +4,7 @@
 
 #include "ash/quick_answers/quick_answers_ui_controller.h"
 
-#include "ash/public/cpp/assistant/assistant_interface_binder.h"
+#include "ash/public/cpp/assistant/controller/assistant_interaction_controller.h"
 #include "ash/quick_answers/quick_answers_controller_impl.h"
 #include "ash/quick_answers/ui/quick_answers_view.h"
 #include "ash/quick_answers/ui/user_consent_view.h"
@@ -34,21 +34,18 @@ QuickAnswersUiController::~QuickAnswersUiController() {
 
 void QuickAnswersUiController::CreateQuickAnswersView(
     const gfx::Rect& bounds,
-    const std::string& title) {
+    const std::string& title,
+    const std::string& query) {
   DCHECK(!quick_answers_view_);
   DCHECK(!user_consent_view_);
-  SetActiveQuery(title);
+  SetActiveQuery(query);
   quick_answers_view_ = new QuickAnswersView(bounds, title, this);
   quick_answers_view_->GetWidget()->ShowInactive();
 }
 
 void QuickAnswersUiController::OnQuickAnswersViewPressed() {
   CloseQuickAnswersView();
-  mojo::Remote<chromeos::assistant::mojom::AssistantController>
-      assistant_controller;
-  ash::AssistantInterfaceBinder::GetInstance()->BindController(
-      assistant_controller.BindNewPipeAndPassReceiver());
-  assistant_controller->StartTextInteraction(
+  ash::AssistantInteractionController::Get()->StartTextInteraction(
       query_, /*allow_tts=*/false,
       chromeos::assistant::mojom::AssistantQuerySource::kQuickAnswers);
   controller_->OnQuickAnswerClick();

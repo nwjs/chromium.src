@@ -64,10 +64,9 @@ public class BaseSuggestionView<T extends View> extends SimpleHorizontalLayoutVi
         mActionView.setContentDescription(
                 getResources().getString(R.string.accessibility_omnibox_btn_refine));
         mActionView.setImageResource(R.drawable.btn_suggestion_refine);
-        mActionView.setOnClickListener(v -> mDelegate.onRefineSuggestion());
 
         mActionView.setLayoutParams(new LayoutParams(
-                getResources().getDimensionPixelSize(R.dimen.omnibox_suggestion_refine_width),
+                getResources().getDimensionPixelSize(R.dimen.omnibox_suggestion_action_icon_width),
                 LayoutParams.MATCH_PARENT));
         addView(mActionView);
         setContentView(view);
@@ -100,8 +99,7 @@ public class BaseSuggestionView<T extends View> extends SimpleHorizontalLayoutVi
         boolean isRtl = getLayoutDirection() == LAYOUT_DIRECTION_RTL;
         if ((!isRtl && KeyNavigationUtil.isGoRight(event))
                 || (isRtl && KeyNavigationUtil.isGoLeft(event))) {
-            mDelegate.onRefineSuggestion();
-            return true;
+            return mActionView.callOnClick();
         }
         return super.onKeyDown(keyCode, event);
     }

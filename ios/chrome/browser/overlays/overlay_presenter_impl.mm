@@ -4,7 +4,7 @@
 
 #import "ios/chrome/browser/overlays/overlay_presenter_impl.h"
 
-#include "base/logging.h"
+#include "base/check_op.h"
 #include "base/memory/ptr_util.h"
 #import "ios/chrome/browser/main/browser.h"
 #import "ios/chrome/browser/overlays/public/overlay_presentation_context.h"
@@ -331,6 +331,7 @@ void OverlayPresenterImpl::BrowserDestroyed(Browser* browser) {
   }
   web_state_list_->RemoveObserver(this);
   web_state_list_ = nullptr;
+  removed_request_awaiting_dismissal_ = nullptr;
   browser->RemoveObserver(this);
 }
 
@@ -399,7 +400,7 @@ void OverlayPresenterImpl::
   // Hide the presented overlay UI if the presentation context is transitioning
   // to a state where that UI is not supported.
   OverlayRequest* request = GetActiveRequest();
-  if (presenting_ &&
+  if (request && presenting_ &&
       !presentation_context->CanShowUIForRequest(request, capabilities)) {
     presentation_context_->HideOverlayUI(GetActiveRequest());
   }

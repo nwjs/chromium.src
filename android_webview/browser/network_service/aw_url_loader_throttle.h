@@ -10,7 +10,6 @@
 
 #include "base/macros.h"
 #include "third_party/blink/public/common/loader/url_loader_throttle.h"
-#include "url/origin.h"
 
 class GURL;
 
@@ -34,15 +33,14 @@ class AwURLLoaderThrottle : public blink::URLLoaderThrottle {
       const network::mojom::URLResponseHead& response_head,
       bool* defer,
       std::vector<std::string>* to_be_removed_request_headers,
-      net::HttpRequestHeaders* modified_request_headers) override;
+      net::HttpRequestHeaders* modified_request_headers,
+      net::HttpRequestHeaders* modified_cors_exempt_request_headers) override;
 
  private:
   void AddExtraHeadersIfNeeded(const GURL& url,
                                net::HttpRequestHeaders* headers);
 
   AwResourceContext* aw_resource_context_;
-  std::vector<std::string> added_headers_;
-  url::Origin original_origin_;
 
   DISALLOW_COPY_AND_ASSIGN(AwURLLoaderThrottle);
 };

@@ -14,6 +14,7 @@ import org.chromium.base.CollectionUtil;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.JNINamespace;
 import org.chromium.base.annotations.NativeMethods;
+import org.chromium.components.embedder_support.browser_context.BrowserContextHandle;
 import org.chromium.weblayer_private.interfaces.BrowsingDataType;
 import org.chromium.weblayer_private.interfaces.ICookieManager;
 import org.chromium.weblayer_private.interfaces.IDownloadCallbackClient;
@@ -29,7 +30,7 @@ import java.util.List;
  * Implementation of IProfile.
  */
 @JNINamespace("weblayer")
-public final class ProfileImpl extends IProfile.Stub {
+public final class ProfileImpl extends IProfile.Stub implements BrowserContextHandle {
     private final String mName;
     private long mNativeProfile;
     private CookieManagerImpl mCookieManager;
@@ -56,11 +57,7 @@ public final class ProfileImpl extends IProfile.Stub {
         mDownloadCallbackProxy = new DownloadCallbackProxy(mName, mNativeProfile);
     }
 
-    @Override
-    public void destroy() {
-        StrictModeWorkaround.apply();
-        if (mBeingDeleted) return;
-
+    private void destroyDependentJavaObjects() {
         if (mDownloadCallbackProxy != null) {
             mDownloadCallbackProxy.destroy();
             mDownloadCallbackProxy = null;
@@ -70,7 +67,14 @@ public final class ProfileImpl extends IProfile.Stub {
             mCookieManager.destroy();
             mCookieManager = null;
         }
+    }
 
+    @Override
+    public void destroy() {
+        StrictModeWorkaround.apply();
+        if (mBeingDeleted) return;
+
+        destroyDependentJavaObjects();
         deleteNativeProfile();
         maybeRunDestroyCallback();
     }
@@ -90,15 +94,19 @@ public final class ProfileImpl extends IProfile.Stub {
     public void destroyAndDeleteDataFromDisk(IObjectWrapper completionCallback) {
         StrictModeWorkaround.apply();
         checkNotDestroyed();
-        final Runnable callback = ObjectWrapper.unwrap(completionCallback, Runnable.class);
         assert mNativeProfile != 0;
-        mBeingDeleted = ProfileImplJni.get().deleteDataFromDisk(mNativeProfile, () -> {
-            deleteNativeProfile();
-            if (callback != null) callback.run();
-        });
-        if (!mBeingDeleted) {
+        if (ProfileImplJni.get().getNumBrowserImpl(mNativeProfile) > 0) {
             throw new IllegalStateException("Profile still in use: " + mName);
         }
+
+        final Runnable callback = ObjectWrapper.unwrap(completionCallback, Runnable.class);
+
+        mBeingDeleted = true;
+        destroyDependentJavaObjects();
+        ProfileImplJni.get().destroyAndDeleteDataFromDisk(mNativeProfile, () -> {
+            if (callback != null) callback.run();
+        });
+        mNativeProfile = 0;
         maybeRunDestroyCallback();
     }
 
@@ -107,6 +115,14 @@ public final class ProfileImpl extends IProfile.Stub {
         StrictModeWorkaround.apply();
         checkNotDestroyed();
         return mName;
+    }
+
+    @Override
+    public long getNativeBrowserContextPointer() {
+        if (mNativeProfile == 0) {
+            return 0;
+        }
+        return ProfileImplJni.get().getBrowserContext(mNativeProfile);
     }
 
     public boolean isIncognito() {
@@ -195,7 +211,9 @@ public final class ProfileImpl extends IProfile.Stub {
         void enumerateAllProfileNames(Callback<String[]> callback);
         long createProfile(String name, ProfileImpl caller);
         void deleteProfile(long profile);
-        boolean deleteDataFromDisk(long nativeProfileImpl, Runnable completionCallback);
+        long getBrowserContext(long nativeProfileImpl);
+        int getNumBrowserImpl(long nativeProfileImpl);
+        void destroyAndDeleteDataFromDisk(long nativeProfileImpl, Runnable completionCallback);
         void clearBrowsingData(long nativeProfileImpl, @ImplBrowsingDataType int[] dataTypes,
                 long fromMillis, long toMillis, Runnable callback);
         void setDownloadDirectory(long nativeProfileImpl, String directory);

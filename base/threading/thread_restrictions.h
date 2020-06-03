@@ -96,6 +96,7 @@
 // that's okay.
 
 class BrowserProcessImpl;
+class ChromeNSSCryptoModuleDelegate;
 class HistogramSynchronizer;
 class KeyStorageLinux;
 class NativeBackendKWallet;
@@ -155,6 +156,7 @@ class CategorizedWorkerPool;
 class DesktopCaptureDevice;
 class InProcessUtilityThread;
 class NestedMessagePumpAndroid;
+class PepperPrintSettingsManagerImpl;
 class RenderProcessHostImpl;
 class RenderWidgetHostViewMac;
 class RTCVideoDecoder;
@@ -166,6 +168,7 @@ class SynchronousCompositor;
 class SynchronousCompositorHost;
 class SynchronousCompositorSyncCallBridge;
 class TextInputClientMac;
+class WaitForProcessesToDumpProfilingInfo;
 class WebContentsViewMac;
 }  // namespace content
 namespace cronet {
@@ -214,6 +217,7 @@ class ScopedIPCSupport;
 }
 }
 namespace printing {
+class LocalPrinterHandlerDefault;
 class PrintJobWorker;
 class PrinterQuery;
 }
@@ -233,7 +237,7 @@ class GpuState;
 }
 namespace weblayer {
 class BrowserContextImpl;
-class BrowserProcess;
+class ContentBrowserClientImpl;
 class ProfileImpl;
 class WebLayerPathProvider;
 }
@@ -316,6 +320,7 @@ class ScopedAllowThreadRecallForStackSamplingProfiler;
 class SimpleThread;
 class StackSamplingProfiler;
 class Thread;
+class WaitableEvent;
 
 bool PathProviderWin(int, FilePath*);
 
@@ -372,6 +377,7 @@ class BASE_EXPORT ScopedAllowBlocking {
   friend class android_webview::ScopedAllowInitGLBindings;
   friend class chromeos::MojoUtils;  // http://crbug.com/1055467
   friend class content::BrowserProcessSubThread;
+  friend class content::PepperPrintSettingsManagerImpl;
   friend class content::RenderProcessHostImpl;
   friend class content::RenderWidgetHostViewMac;  // http://crbug.com/121917
   friend class content::WebContentsViewMac;
@@ -380,11 +386,12 @@ class BASE_EXPORT ScopedAllowBlocking {
   friend class memory_instrumentation::OSMetrics;
   friend class module_installer::ScopedAllowModulePakLoad;
   friend class mojo::CoreLibraryInitializer;
+  friend class printing::LocalPrinterHandlerDefault;
   friend class printing::PrintJobWorker;
   friend class resource_coordinator::TabManagerDelegate;  // crbug.com/778703
   friend class web::WebSubThread;
   friend class weblayer::BrowserContextImpl;
-  friend class weblayer::BrowserProcess;
+  friend class weblayer::ContentBrowserClientImpl;
   friend class weblayer::ProfileImpl;
   friend class weblayer::WebLayerPathProvider;
 
@@ -430,6 +437,7 @@ class BASE_EXPORT ScopedAllowBaseSyncPrimitives {
 
   // Allowed usage:
   friend class SimpleThread;
+  friend class ::ChromeNSSCryptoModuleDelegate;
   friend class base::GetAppOutputScopedAllowBaseSyncPrimitives;
   friend class blink::SourceStream;
   friend class blink::WorkerThread;
@@ -457,7 +465,6 @@ class BASE_EXPORT ScopedAllowBaseSyncPrimitives {
   friend class ::NativeBackendKWallet;            // http://crbug.com/125331
   friend class ::chromeos::system::
       StatisticsProviderImpl;                      // http://crbug.com/125385
-  friend class content::TextInputClientMac;        // http://crbug.com/121917
   friend class blink::VideoFrameResourceProvider;  // http://crbug.com/878070
 
   ScopedAllowBaseSyncPrimitives() EMPTY_BODY_IF_DCHECK_IS_OFF;
@@ -508,6 +515,7 @@ class BASE_EXPORT ScopedAllowBaseSyncPrimitivesOutsideBlockingScope {
   friend class content::SynchronousCompositor;
   friend class content::SynchronousCompositorHost;
   friend class content::SynchronousCompositorSyncCallBridge;
+  friend class content::WaitForProcessesToDumpProfilingInfo;
   friend class media::AudioInputDevice;
   friend class media::AudioOutputDevice;
   friend class media::PaintCanvasVideoRenderer;
@@ -541,6 +549,7 @@ class BASE_EXPORT ScopedAllowBaseSyncPrimitivesOutsideBlockingScope {
   // Not used in production yet, https://crbug.com/844078.
   friend class service_manager::ServiceProcessLauncher;
   friend class ui::WindowResizeHelperMac;  // http://crbug.com/902829
+  friend class content::TextInputClientMac;  // http://crbug.com/121917
   friend class extensions::NwAppSetProxyConfigFunction;
 
   ScopedAllowBaseSyncPrimitivesOutsideBlockingScope(

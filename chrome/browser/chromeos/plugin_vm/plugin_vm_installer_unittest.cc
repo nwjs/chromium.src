@@ -126,10 +126,10 @@ class SimpleFakeDriveService : public drive::DummyDriveService {
       const std::string& /*resource_id*/,
       const DownloadActionCallback& download_action_callback,
       const GetContentCallback& get_content_callback,
-      const ProgressCallback& progress_callback) override {
+      ProgressCallback progress_callback) override {
     download_action_callback_ = download_action_callback;
     get_content_callback_ = get_content_callback;
-    progress_callback_ = progress_callback;
+    progress_callback_ = std::move(progress_callback);
 
     // It is safe to use base::Unretained as this object will not get deleted
     // before the end of the test.
@@ -209,7 +209,7 @@ class PluginVmInstallerTestBase : public testing::Test {
   base::FilePath CreateZipFile() {
     base::FilePath zip_file_path =
         profile_->GetPath().AppendASCII(kPluginVmImageFile);
-    base::WriteFile(zip_file_path, kContent, strlen(kContent));
+    base::WriteFile(zip_file_path, kContent);
     return zip_file_path;
   }
 

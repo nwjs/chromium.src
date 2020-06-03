@@ -32,6 +32,7 @@
 #include "chrome/common/chrome_features.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "extensions/common/extension.h"
 
@@ -274,7 +275,7 @@ IN_PROC_BROWSER_TEST_F(AppBannerManagerDesktopBrowserTest,
     EXPECT_EQ(State::COMPLETE, manager->state());
   }
 
-  EXPECT_EQ(AppBannerManager::InstallableWebAppCheckResult::kNo,
+  EXPECT_EQ(AppBannerManager::InstallableWebAppCheckResult::kNoAlreadyInstalled,
             manager->GetInstallableWebAppCheckResultForTesting());
   EXPECT_FALSE(manager->IsPromptAvailableForTesting());
 }

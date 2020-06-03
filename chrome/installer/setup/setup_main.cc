@@ -48,6 +48,7 @@
 #include "base/win/scoped_handle.h"
 #include "base/win/win_util.h"
 #include "build/branding_buildflags.h"
+#include "build/build_config.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
@@ -659,8 +660,7 @@ installer::InstallStatus InstallProducts(
   installer::InstallStatus install_status = installer::UNKNOWN_STATUS;
   installer::ArchiveType archive_type = installer::UNKNOWN_ARCHIVE_TYPE;
   installer_state->SetStage(installer::PRECONDITIONS);
-  // Remove any legacy "-multifail" or "-stage:*" values from the product's
-  // "ap" value.
+  // Remove any legacy "-stage:*" values from the product's "ap" value.
   installer::UpdateInstallStatus(archive_type, install_status);
 
   // Drop to background processing mode if the process was started below the
@@ -1332,9 +1332,6 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prev_instance,
   InstallerState installer_state;
   installer_state.Initialize(cmd_line, prefs, original_state);
 
-  VLOG(1) << "is_migrating_to_single is "
-          << installer_state.is_migrating_to_single();
-
   persistent_histogram_storage.set_storage_base_dir(
       installer_state.target_path());
 
@@ -1347,6 +1344,11 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prev_instance,
   base::EnableTerminationOnOutOfMemory();
   base::win::RegisterInvalidParamHandler();
   base::win::SetupCRT(cmd_line);
+
+#if defined(ARCH_CPU_64_BITS) || defined(NDEBUG)
+  // Disable the handle verifier for all but 32-bit debug builds.
+  base::win::DisableHandleVerifier();
+#endif
 
   const bool is_uninstall = cmd_line.HasSwitch(installer::switches::kUninstall);
 

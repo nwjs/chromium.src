@@ -90,7 +90,10 @@
 #include "chrome/browser/search/contextual_search_policy_handler_android.h"
 #else  // defined(OS_ANDROID)
 #include "chrome/browser/download/default_download_dir_policy_handler.h"
+#include "chrome/browser/download/download_auto_open_policy_handler.h"
 #include "chrome/browser/download/download_dir_policy_handler.h"
+#include "chrome/browser/enterprise/connectors/connectors_prefs.h"
+#include "chrome/browser/enterprise/connectors/enterprise_connectors_policy_handler.h"
 #include "chrome/browser/enterprise/reporting/extension_request_policy_handler.h"
 #include "chrome/browser/media/router/media_router_feature.h"
 #include "chrome/browser/policy/local_sync_policy_handler.h"
@@ -186,6 +189,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kDownloadRestrictions,
     prefs::kDownloadRestrictions,
     base::Value::Type::INTEGER },
+  { key::kAutoOpenAllowedForURLs,
+    prefs::kDownloadAllowedURLsForOpenByPolicy,
+    base::Value::Type::LIST },
   { key::kForceGoogleSafeSearch,
     prefs::kForceGoogleSafeSearch,
     base::Value::Type::BOOLEAN },
@@ -599,6 +605,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kAdvancedProtectionAllowed,
     prefs::kAdvancedProtectionAllowed,
     base::Value::Type::BOOLEAN },
+  { key::kAccessibilityImageLabelsEnabled,
+    prefs::kAccessibilityImageLabelsEnabled,
+    base::Value::Type::BOOLEAN },
 
 #if defined(OS_ANDROID)
   { key::kDataCompressionProxyEnabled,
@@ -752,6 +761,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kShowAccessibilityOptionsInSystemTrayMenu,
     ash::prefs::kShouldAlwaysShowAccessibilityMenu,
     base::Value::Type::BOOLEAN },
+  { key::kFloatingAccessibilityMenuEnabled,
+    ash::prefs::kAccessibilityFloatingMenuEnabled,
+    base::Value::Type::BOOLEAN},
   { key::kLargeCursorEnabled,
     ash::prefs::kAccessibilityLargeCursorEnabled,
     base::Value::Type::BOOLEAN },
@@ -950,20 +962,32 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kReportCrostiniUsageEnabled,
     crostini::prefs::kReportCrostiniUsageEnabled,
     base::Value::Type::BOOLEAN },
+  { key::kCrostiniArcAdbSideloadingAllowed,
+    crostini::prefs::kCrostiniArcAdbSideloadingUserPref,
+    base::Value::Type::INTEGER },
   { key::kNTLMShareAuthenticationEnabled,
     prefs::kNTLMShareAuthenticationEnabled,
     base::Value::Type::BOOLEAN },
   { key::kPrintingSendUsernameAndFilenameEnabled,
     prefs::kPrintingSendUsernameAndFilenameEnabled,
     base::Value::Type::BOOLEAN },
+  { key::kUserPluginVmAllowed,
+    plugin_vm::prefs::kPluginVmAllowed,
+    base::Value::Type::BOOLEAN },
   { key::kPluginVmImage,
     plugin_vm::prefs::kPluginVmImage,
     base::Value::Type::DICTIONARY },
+  { key::kPluginVmUserId,
+    plugin_vm::prefs::kPluginVmUserId,
+    base::Value::Type::STRING },
   { key::kVoiceInteractionContextEnabled,
     chromeos::assistant::prefs::kAssistantContextEnabled,
     base::Value::Type::BOOLEAN },
   { key::kVoiceInteractionHotwordEnabled,
     chromeos::assistant::prefs::kAssistantHotwordEnabled,
+    base::Value::Type::BOOLEAN },
+  { key::kVoiceInteractionQuickAnswersEnabled,
+    chromeos::assistant::prefs::kAssistantQuickAnswersEnabled,
     base::Value::Type::BOOLEAN },
   { key::kDevicePowerPeakShiftEnabled,
     ash::prefs::kPowerPeakShiftEnabled,
@@ -1064,6 +1088,10 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kDeviceChromeVariations,
     variations::prefs::kDeviceVariationsRestrictionsByPolicy,
     base::Value::Type::INTEGER },
+  { key::kLoginDisplayPasswordButtonEnabled,
+    chromeos::prefs::kLoginDisplayPasswordButtonEnabled,
+    base::Value::Type::BOOLEAN },
+
 #else  // defined(OS_CHROMEOS)
   { key::kMetricsReportingEnabled,
     metrics::prefs::kMetricsReportingEnabled,
@@ -1092,6 +1120,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kNativeWindowOcclusionEnabled,
     policy::policy_prefs::kNativeWindowOcclusionEnabled,
     base::Value::Type::BOOLEAN },
+  { key::kPrintRasterizationMode,
+    prefs::kPrintRasterizationMode,
+    base::Value::Type::INTEGER },
 #else  // defined(OS_WIN)
   { key::kNtlmV2Enabled,
     prefs::kNtlmV2Enabled,
@@ -1250,8 +1281,12 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     prefs::kRequiredClientCertificateForDevice,
     base::Value::Type::LIST },
 #endif  // defined(OS_CHROMEOS)
+
   { key::kScrollToTextFragmentEnabled,
     prefs::kScrollToTextFragmentEnabled,
+    base::Value::Type::BOOLEAN },
+  { key::kAppCacheForceEnabled,
+    prefs::kAppCacheForceEnabled,
     base::Value::Type::BOOLEAN },
 };
 // clang-format on
@@ -1355,6 +1390,8 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
       std::make_unique<PrintingAllowedBackgroundGraphicsModesPolicyHandler>());
   handlers->AddHandler(
       std::make_unique<PrintingBackgroundGraphicsDefaultPolicyHandler>());
+  handlers->AddHandler(
+      std::make_unique<PrintingPaperSizeDefaultPolicyHandler>());
   handlers->AddHandler(std::make_unique<DeveloperToolsPolicyHandler>());
   handlers->AddHandler(std::make_unique<FileSelectionDialogsPolicyHandler>());
   handlers->AddHandler(std::make_unique<JavascriptPolicyHandler>());
@@ -1376,6 +1413,8 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
   handlers->AddHandler(
       std::make_unique<NtpCustomBackgroundEnabledPolicyHandler>());
   handlers->AddHandler(std::make_unique<DefaultDownloadDirPolicyHandler>());
+  handlers->AddHandler(
+      std::make_unique<DownloadAutoOpenPolicyHandler>(chrome_schema));
   handlers->AddHandler(std::make_unique<DownloadDirPolicyHandler>());
   handlers->AddHandler(std::make_unique<LocalSyncPolicyHandler>());
 
@@ -1421,6 +1460,28 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
           SimpleSchemaValidatingPolicyHandler::MANDATORY_ALLOWED));
   handlers->AddHandler(
       std::make_unique<enterprise_reporting::ExtensionRequestPolicyHandler>());
+
+  // Handlers for Chrome Enterprise Connectors policies.
+  handlers->AddHandler(
+      std::make_unique<
+          enterprise_connectors::EnterpriseConnectorsPolicyHandler>(
+          key::kOnFileAttachedEnterpriseConnector,
+          enterprise_connectors::kOnFileAttachedPref, chrome_schema));
+  handlers->AddHandler(
+      std::make_unique<
+          enterprise_connectors::EnterpriseConnectorsPolicyHandler>(
+          key::kOnFileDownloadedEnterpriseConnector,
+          enterprise_connectors::kOnFileDownloadedPref, chrome_schema));
+  handlers->AddHandler(
+      std::make_unique<
+          enterprise_connectors::EnterpriseConnectorsPolicyHandler>(
+          key::kOnBulkDataEntryEnterpriseConnector,
+          enterprise_connectors::kOnBulkDataEntryPref, chrome_schema));
+  handlers->AddHandler(
+      std::make_unique<
+          enterprise_connectors::EnterpriseConnectorsPolicyHandler>(
+          key::kOnSecurityEventEnterpriseConnector,
+          enterprise_connectors::kOnSecurityEventPref, chrome_schema));
 #endif  // defined(OS_ANDROID)
 
 #if defined(OS_CHROMEOS)
@@ -1573,12 +1634,12 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
       std::make_unique<PrintingAllowedDuplexModesPolicyHandler>());
   handlers->AddHandler(
       std::make_unique<PrintingAllowedPinModesPolicyHandler>());
-  handlers->AddHandler(
-      std::make_unique<PrintingAllowedPageSizesPolicyHandler>());
   handlers->AddHandler(std::make_unique<PrintingColorDefaultPolicyHandler>());
   handlers->AddHandler(std::make_unique<PrintingDuplexDefaultPolicyHandler>());
   handlers->AddHandler(std::make_unique<PrintingPinDefaultPolicyHandler>());
-  handlers->AddHandler(std::make_unique<PrintingSizeDefaultPolicyHandler>());
+  handlers->AddHandler(std::make_unique<IntRangePolicyHandler>(
+      key::kPrintingMaxSheetsAllowed, prefs::kPrintingMaxSheetsAllowed, 1,
+      INT_MAX, true));
   handlers->AddHandler(std::make_unique<IntRangePolicyHandler>(
       key::kPrintJobHistoryExpirationPeriod,
       prefs::kPrintJobHistoryExpirationPeriod, -1, INT_MAX, true));

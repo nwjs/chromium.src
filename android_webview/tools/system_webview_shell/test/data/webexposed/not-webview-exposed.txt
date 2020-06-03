@@ -72,6 +72,7 @@ interface Navigator
     method registerProtocolHandler     # crbug.com/589502
     method unregisterProtocolHandler   # crbug.com/589502
     method share                       # crbug.com/765923
+    method getInstalledRelatedApps     
 
 # Media Session API is not enabled in Android WebView (crbug.com/925997)
 interface MediaMetadata
@@ -135,7 +136,7 @@ interface XRRigidTransform
 interface XRSpace : EventTarget
 interface XRInputSourcesChangeEvent : Event
 interface XRInputSource
-interface XRWebGLLayer
+interface XRWebGLLayer : XRLayer
 interface XRInputSourceEvent : Event
 interface XRViewerPose : XRPose
 interface XRInputSourceArray

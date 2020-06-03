@@ -312,7 +312,27 @@ class DesksTest : public AshTestBase,
   DISALLOW_COPY_AND_ASSIGN(DesksTest);
 };
 
-TEST_F(DesksTest, LongPressOverviewItemInClamshellModeWithOnlyOneVirtualDesk) {
+class DesksWithoutSplitViewTest : public AshTestBase {
+ public:
+  DesksWithoutSplitViewTest() = default;
+  DesksWithoutSplitViewTest(const DesksWithoutSplitViewTest&) = delete;
+  DesksWithoutSplitViewTest& operator=(const DesksWithoutSplitViewTest&) =
+      delete;
+  ~DesksWithoutSplitViewTest() override = default;
+
+  // AshTestBase:
+  void SetUp() override {
+    scoped_feature_list_.InitAndDisableFeature(
+        features::kDragToSnapInClamshellMode);
+    AshTestBase::SetUp();
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+TEST_F(DesksWithoutSplitViewTest,
+       LongPressOverviewItemInClamshellModeWithOnlyOneVirtualDesk) {
   std::unique_ptr<aura::Window> window(CreateTestWindow());
   OverviewController* overview_controller = Shell::Get()->overview_controller();
   ASSERT_TRUE(overview_controller->StartOverview());
@@ -1377,10 +1397,10 @@ TEST_P(DesksTest, DragWindowToNonMiniViewPoints) {
   EXPECT_EQ(target_bounds_before_drag, overview_item->target_bounds());
   EXPECT_TRUE(DoesActiveDeskContainWindow(window.get()));
 
-  // Drag it and drop it on the bottom right corner of the display. Also,
+  // Drag it and drop it on the center of the bottom of the display. Also,
   // nothing should happen.
   DragItemToPoint(overview_item,
-                  window->GetRootWindow()->GetBoundsInScreen().bottom_right(),
+                  window->GetRootWindow()->GetBoundsInScreen().bottom_center(),
                   GetEventGenerator(),
                   /*by_touch_gestures=*/GetParam());
   EXPECT_TRUE(overview_controller->InOverviewSession());

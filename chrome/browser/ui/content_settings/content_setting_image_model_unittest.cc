@@ -14,7 +14,7 @@
 #include "build/build_config.h"
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
-#include "chrome/browser/content_settings/tab_specific_content_settings.h"
+#include "chrome/browser/content_settings/tab_specific_content_settings_delegate.h"
 #include "chrome/browser/permissions/quiet_notification_permission_ui_state.h"
 #include "chrome/browser/prerender/prerender_manager.h"
 #include "chrome/browser/profiles/profile.h"
@@ -26,6 +26,7 @@
 #include "chrome/test/base/browser_with_test_window_test.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "chrome/test/base/testing_profile.h"
+#include "components/content_settings/browser/tab_specific_content_settings.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/permissions/features.h"
 #include "components/permissions/permission_request.h"
@@ -33,6 +34,7 @@
 #include "components/permissions/permission_uma_util.h"
 #include "components/permissions/test/mock_permission_prompt_factory.h"
 #include "components/permissions/test/mock_permission_request.h"
+#include "content/public/browser/cookie_access_details.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/notification_service.h"
@@ -43,6 +45,8 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/color_palette.h"
+
+using content_settings::TabSpecificContentSettings;
 
 namespace {
 
@@ -87,7 +91,10 @@ bool HasIcon(const ContentSettingImageModel& model) {
 }
 
 TEST_F(ContentSettingImageModelTest, Update) {
-  TabSpecificContentSettings::CreateForWebContents(web_contents());
+  TabSpecificContentSettings::CreateForWebContents(
+      web_contents(),
+      std::make_unique<chrome::TabSpecificContentSettingsDelegate>(
+          web_contents()));
   TabSpecificContentSettings* content_settings =
       TabSpecificContentSettings::FromWebContents(web_contents());
   auto content_setting_image_model =
@@ -105,24 +112,28 @@ TEST_F(ContentSettingImageModelTest, Update) {
 }
 
 TEST_F(ContentSettingImageModelTest, RPHUpdate) {
-  TabSpecificContentSettings::CreateForWebContents(web_contents());
+  TabSpecificContentSettings::CreateForWebContents(
+      web_contents(),
+      std::make_unique<chrome::TabSpecificContentSettingsDelegate>(
+          web_contents()));
   auto content_setting_image_model =
       ContentSettingImageModel::CreateForContentType(
           ContentSettingImageModel::ImageType::PROTOCOL_HANDLERS);
   content_setting_image_model->Update(web_contents());
   EXPECT_FALSE(content_setting_image_model->is_visible());
 
-  TabSpecificContentSettings* content_settings =
-      TabSpecificContentSettings::FromWebContents(web_contents());
-  content_settings->set_pending_protocol_handler(
-      ProtocolHandler::CreateProtocolHandler(
+  chrome::TabSpecificContentSettingsDelegate::FromWebContents(web_contents())
+      ->set_pending_protocol_handler(ProtocolHandler::CreateProtocolHandler(
           "mailto", GURL("http://www.google.com/")));
   content_setting_image_model->Update(web_contents());
   EXPECT_TRUE(content_setting_image_model->is_visible());
 }
 
 TEST_F(ContentSettingImageModelTest, CookieAccessed) {
-  TabSpecificContentSettings::CreateForWebContents(web_contents());
+  TabSpecificContentSettings::CreateForWebContents(
+      web_contents(),
+      std::make_unique<chrome::TabSpecificContentSettingsDelegate>(
+          web_contents()));
   HostContentSettingsMapFactory::GetForProfile(profile())
       ->SetDefaultContentSetting(ContentSettingsType::COOKIES,
                                  CONTENT_SETTING_BLOCK);
@@ -136,7 +147,14 @@ TEST_F(ContentSettingImageModelTest, CookieAccessed) {
   std::unique_ptr<net::CanonicalCookie> cookie(net::CanonicalCookie::Create(
       origin, "A=B", base::Time::Now(), base::nullopt /* server_time */));
   ASSERT_TRUE(cookie);
-  web_contents()->OnCookieChange(origin, origin, *cookie, false);
+  static_cast<content::WebContentsObserver*>(
+      TabSpecificContentSettings::FromWebContents(web_contents()))
+      ->OnCookiesAccessed(web_contents()->GetMainFrame(),
+                          {content::CookieAccessDetails::Type::kChange,
+                           origin,
+                           origin,
+                           {*cookie},
+                           false});
   content_setting_image_model->Update(web_contents());
   EXPECT_TRUE(content_setting_image_model->is_visible());
   EXPECT_TRUE(HasIcon(*content_setting_image_model));
@@ -149,7 +167,10 @@ TEST_F(ContentSettingImageModelTest, SensorAccessed) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeature(features::kGenericSensorExtraClasses);
 
-  TabSpecificContentSettings::CreateForWebContents(web_contents());
+  TabSpecificContentSettings::CreateForWebContents(
+      web_contents(),
+      std::make_unique<chrome::TabSpecificContentSettingsDelegate>(
+          web_contents()));
   TabSpecificContentSettings* content_settings =
       TabSpecificContentSettings::FromWebContents(web_contents());
 
@@ -223,7 +244,10 @@ TEST_F(ContentSettingImageModelTest, SensorAccessPermissionsChanged) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeature(features::kGenericSensorExtraClasses);
 
-  TabSpecificContentSettings::CreateForWebContents(web_contents());
+  TabSpecificContentSettings::CreateForWebContents(
+      web_contents(),
+      std::make_unique<chrome::TabSpecificContentSettingsDelegate>(
+          web_contents()));
   NavigateAndCommit(controller_, GURL("https://www.example.com"));
   TabSpecificContentSettings* content_settings =
       TabSpecificContentSettings::FromWebContents(web_contents());
@@ -350,7 +374,10 @@ TEST_F(ContentSettingImageModelTest, NULLTabSpecificContentSettings) {
 }
 
 TEST_F(ContentSettingImageModelTest, SubresourceFilter) {
-  TabSpecificContentSettings::CreateForWebContents(web_contents());
+  TabSpecificContentSettings::CreateForWebContents(
+      web_contents(),
+      std::make_unique<chrome::TabSpecificContentSettingsDelegate>(
+          web_contents()));
   TabSpecificContentSettings* content_settings =
       TabSpecificContentSettings::FromWebContents(web_contents());
   auto content_setting_image_model =
@@ -368,7 +395,10 @@ TEST_F(ContentSettingImageModelTest, SubresourceFilter) {
 }
 
 TEST_F(ContentSettingImageModelTest, NotificationsIconVisibility) {
-  TabSpecificContentSettings::CreateForWebContents(web_contents());
+  TabSpecificContentSettings::CreateForWebContents(
+      web_contents(),
+      std::make_unique<chrome::TabSpecificContentSettingsDelegate>(
+          web_contents()));
   TabSpecificContentSettings* content_settings =
       TabSpecificContentSettings::FromWebContents(web_contents());
   auto content_setting_image_model =

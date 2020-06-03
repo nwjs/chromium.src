@@ -15,6 +15,7 @@
 #include "third_party/blink/renderer/core/clipboard/clipboard_mime_types.h"
 #include "third_party/blink/renderer/core/clipboard/clipboard_utilities.h"
 #include "third_party/blink/renderer/core/clipboard/data_object.h"
+#include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/platform/graphics/image.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
@@ -31,18 +32,26 @@ String NonNullString(const String& string) {
 
 }  // namespace
 
-SystemClipboard::SystemClipboard(LocalFrame* frame) {
+SystemClipboard::SystemClipboard(LocalFrame* frame)
+    : clipboard_(frame->DomWindow()) {
   frame->GetBrowserInterfaceBroker().GetInterface(
-      clipboard_.BindNewPipeAndPassReceiver());
+      clipboard_.BindNewPipeAndPassReceiver(
+          frame->GetTaskRunner(TaskType::kUserInteraction)));
 }
 
 bool SystemClipboard::IsSelectionMode() const {
+#if defined(USE_X11)
   return buffer_ == mojom::ClipboardBuffer::kSelection;
+#else
+  return false;
+#endif
 }
 
 void SystemClipboard::SetSelectionMode(bool selection_mode) {
+#if defined(USE_X11)
   buffer_ = selection_mode ? mojom::ClipboardBuffer::kSelection
                            : mojom::ClipboardBuffer::kStandard;
+#endif
 }
 
 bool SystemClipboard::CanSmartReplace() {
@@ -75,8 +84,7 @@ Vector<String> SystemClipboard::ReadAvailableTypes() {
   if (!IsValidBufferType(buffer_))
     return {};
   Vector<String> types;
-  bool contains_filenames;  // Unused argument.
-  clipboard_->ReadAvailableTypes(buffer_, &types, &contains_filenames);
+  clipboard_->ReadAvailableTypes(buffer_, &types);
   return types;
 }
 
@@ -93,7 +101,7 @@ String SystemClipboard::ReadPlainText(mojom::ClipboardBuffer buffer) {
 }
 
 void SystemClipboard::WritePlainText(const String& plain_text,
-                                             SmartReplaceOption) {
+                                     SmartReplaceOption) {
   // TODO(https://crbug.com/106449): add support for smart replace, which is
   // currently under-specified.
   String text = plain_text;
@@ -159,8 +167,8 @@ String SystemClipboard::ReadImageAsImageMarkup(
 }
 
 void SystemClipboard::WriteImageWithTag(Image* image,
-                                                const KURL& url,
-                                                const String& title) {
+                                        const KURL& url,
+                                        const String& title) {
   DCHECK(image);
 
   PaintImage paint_image = image->PaintImageForCurrentFrame();
@@ -233,21 +241,20 @@ void SystemClipboard::CommitWrite() {
   clipboard_->CommitWrite();
 }
 
+void SystemClipboard::Trace(Visitor* visitor) {
+  visitor->Trace(clipboard_);
+}
+
 bool SystemClipboard::IsValidBufferType(mojom::ClipboardBuffer buffer) {
   switch (buffer) {
     case mojom::ClipboardBuffer::kStandard:
       return true;
-    case mojom::ClipboardBuffer::kSelection:
 #if defined(USE_X11)
+    case mojom::ClipboardBuffer::kSelection:
       return true;
-#else
-      // Chrome OS and non-X11 unix builds do not support
-      // the X selection clipboard.
-      // TODO(http://crbug.com/361753): remove the need for this case.
-      return false;
 #endif
   }
-  return true;
+  return false;
 }
 
 }  // namespace blink

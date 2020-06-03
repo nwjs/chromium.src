@@ -20,8 +20,7 @@ enum ClipboardBuffer {
   kStandard,
   // Used on platforms like the X Window System that treat selection
   // as a type of clipboard.
-  // TODO(crbug.com/676224): When preprocessing of mojom is available only
-  // define this value for USE_X11.
+  [EnableIf=use_x11]
   kSelection,
 };
 
@@ -40,7 +39,7 @@ interface ClipboardHost {
   // Reads sanitized platform-neutral types.
   [Sync]
   ReadAvailableTypes(ClipboardBuffer buffer) =>
-      (array<mojo_base.mojom.String16> types, bool result);
+      (array<mojo_base.mojom.String16> types);
 
   [Sync]
   ReadText(ClipboardBuffer buffer) => (mojo_base.mojom.BigString16 result);

@@ -43,7 +43,6 @@ class Gamepad;
 
 namespace blink {
 
-class Document;
 class GamepadDispatcher;
 class GamepadHapticActuator;
 class GamepadList;
@@ -55,7 +54,7 @@ MODULES_EXPORT void fix_gamepad_nw(WebLocalFrame*);
 class MODULES_EXPORT NavigatorGamepad final
     : public GarbageCollected<NavigatorGamepad>,
       public Supplement<Navigator>,
-      public DOMWindowClient,
+      public ExecutionContextClient,
       public PlatformEventController,
       public LocalDOMWindow::EventListenerObserver,
       public Gamepad::Client {
@@ -64,7 +63,6 @@ class MODULES_EXPORT NavigatorGamepad final
  public:
   static const char kSupplementName[];
 
-  static NavigatorGamepad* From(Document&);
   static NavigatorGamepad& From(Navigator&);
 
   explicit NavigatorGamepad(Navigator&);

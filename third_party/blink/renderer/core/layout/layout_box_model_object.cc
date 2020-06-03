@@ -97,8 +97,7 @@ bool LayoutBoxModelObject::UsesCompositedScrolling() const {
 }
 
 BackgroundPaintLocation
-LayoutBoxModelObject::ComputeBackgroundPaintLocationIfComposited(
-    uint32_t* main_thread_scrolling_reasons) const {
+LayoutBoxModelObject::ComputeBackgroundPaintLocationIfComposited() const {
   bool may_have_scrolling_layers_without_scrolling = IsA<LayoutView>(this);
   const auto* scrollable_area = GetScrollableArea();
   bool scrolls_overflow = scrollable_area && scrollable_area->ScrollsOverflow();
@@ -126,17 +125,6 @@ LayoutBoxModelObject::ComputeBackgroundPaintLocationIfComposited(
   // paint locally equivalent backgrounds into it. https://crbug.com/645957
   if (HasClip())
     return kBackgroundPaintInGraphicsLayer;
-
-  // TODO(flackr): Remove this when box shadows are still painted correctly when
-  // painting into the composited scrolling contents layer.
-  // https://crbug.com/646464
-  if (StyleRef().BoxShadow()) {
-    if (main_thread_scrolling_reasons) {
-      *main_thread_scrolling_reasons |=
-          cc::MainThreadScrollingReason::kHasBoxShadowFromNonRootLayer;
-    }
-    return kBackgroundPaintInGraphicsLayer;
-  }
 
   // Assume optimistically that the background can be painted in the scrolling
   // contents until we find otherwise.
@@ -209,9 +197,13 @@ void LayoutBoxModelObject::WillBeDestroyed() {
     // 0 during destruction.
     if (LocalFrame* frame = GetFrame()) {
       if (LocalFrameView* frame_view = frame->View()) {
-        if (StyleRef().HasViewportConstrainedPosition() ||
-            StyleRef().HasStickyConstrainedPosition())
-          frame_view->RemoveViewportConstrainedObject(*this);
+        if (StyleRef().HasViewportConstrainedPosition()) {
+          frame_view->RemoveViewportConstrainedObject(
+              *this, LocalFrameView::ViewportConstrainedType::kFixed);
+        } else if (StyleRef().HasStickyConstrainedPosition()) {
+          frame_view->RemoveViewportConstrainedObject(
+              *this, LocalFrameView::ViewportConstrainedType::kSticky);
+        }
       }
     }
   }
@@ -261,6 +253,8 @@ DISABLE_CFI_PERF
 void LayoutBoxModelObject::StyleDidChange(StyleDifference diff,
                                           const ComputedStyle* old_style) {
   bool had_transform_related_property = HasTransformRelatedProperty();
+  bool had_filter_inducing_property = HasFilterInducingProperty();
+  bool had_non_initial_backdrop_filter = HasNonInitialBackdropFilter();
   bool had_layer = HasLayer();
   bool layer_was_self_painting = had_layer && Layer()->IsSelfPaintingLayer();
   bool was_horizontal_writing_mode = IsHorizontalWritingMode();
@@ -314,7 +308,8 @@ void LayoutBoxModelObject::StyleDidChange(StyleDifference diff,
     Layer()->RemoveOnlyThisLayerAfterStyleChange(old_style);
     if (EverHadLayout())
       SetChildNeedsLayout();
-    if (had_transform_related_property) {
+    if (had_transform_related_property || had_filter_inducing_property ||
+        had_non_initial_backdrop_filter) {
       SetNeedsLayoutAndIntrinsicWidthsRecalcAndFullPaintInvalidation(
           layout_invalidation_reason::kStyleChange);
     }
@@ -335,9 +330,12 @@ void LayoutBoxModelObject::StyleDidChange(StyleDifference diff,
     AddSubtreePaintPropertyUpdateReason(
         SubtreePaintPropertyUpdateReason::kContainerChainMayChange);
   } else if (had_layer == HasLayer() &&
-             had_transform_related_property != HasTransformRelatedProperty()) {
-    // This affects whether to create transform node. Note that if the
-    // HasLayer() value changed, then all of this was already set in
+             (had_transform_related_property != HasTransformRelatedProperty() ||
+              had_filter_inducing_property != HasFilterInducingProperty() ||
+              had_non_initial_backdrop_filter !=
+                  HasNonInitialBackdropFilter())) {
+    // This affects whether to create transform, filter, or effect nodes. Note
+    // that if the HasLayer() value changed, then all of this was already set in
     // CreateLayerAfterStyleChange() or DestroyLayer().
     SetNeedsPaintPropertyUpdate();
     if (Layer())
@@ -435,7 +433,8 @@ void LayoutBoxModelObject::StyleDidChange(StyleDifference diff,
       } else {
         // This may get re-added to viewport constrained objects if the object
         // went from sticky to fixed.
-        frame_view->RemoveViewportConstrainedObject(*this);
+        frame_view->RemoveViewportConstrainedObject(
+            *this, LocalFrameView::ViewportConstrainedType::kSticky);
 
         // Remove sticky constraints for this layer.
         if (Layer()) {
@@ -454,10 +453,13 @@ void LayoutBoxModelObject::StyleDidChange(StyleDifference diff,
     }
 
     if (new_style_is_viewport_constained != old_style_is_viewport_constrained) {
-      if (new_style_is_viewport_constained && Layer())
-        frame_view->AddViewportConstrainedObject(*this);
-      else
-        frame_view->RemoveViewportConstrainedObject(*this);
+      if (new_style_is_viewport_constained && Layer()) {
+        frame_view->AddViewportConstrainedObject(
+            *this, LocalFrameView::ViewportConstrainedType::kFixed);
+      } else {
+        frame_view->RemoveViewportConstrainedObject(
+            *this, LocalFrameView::ViewportConstrainedType::kFixed);
+      }
     }
   }
 

@@ -15,7 +15,9 @@ import android.view.View;
 
 import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
+import androidx.annotation.VisibleForTesting;
 
+import org.chromium.base.Callback;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
 import org.chromium.components.browser_ui.widget.animation.Interpolators;
@@ -36,8 +38,10 @@ class StatusIndicatorMediator
     private Supplier<Integer> mStatusBarWithoutIndicatorColorSupplier;
     private Runnable mOnCompositorShowAnimationEnd;
     private Supplier<Boolean> mCanAnimateNativeBrowserControls;
+    private Callback<Runnable> mInvalidateCompositorView;
 
     private int mIndicatorHeight;
+    private int mJavaLayoutHeight;
     private boolean mIsHiding;
 
     /**
@@ -52,14 +56,17 @@ class StatusIndicatorMediator
      *                                        browser controls can be animated. This will be false
      *                                        where we can't have a reliable cc::BCOM instance, e.g.
      *                                        tab switcher.
+     * @param invalidateCompositorView Callback to invalidate the compositor texture.
      */
     StatusIndicatorMediator(PropertyModel model, ChromeFullscreenManager fullscreenManager,
             Supplier<Integer> statusBarWithoutIndicatorColorSupplier,
-            Supplier<Boolean> canAnimateNativeBrowserControls) {
+            Supplier<Boolean> canAnimateNativeBrowserControls,
+            Callback<Runnable> invalidateCompositorView) {
         mModel = model;
         mFullscreenManager = fullscreenManager;
         mStatusBarWithoutIndicatorColorSupplier = statusBarWithoutIndicatorColorSupplier;
         mCanAnimateNativeBrowserControls = canAnimateNativeBrowserControls;
+        mInvalidateCompositorView = invalidateCompositorView;
     }
 
     @Override
@@ -75,9 +82,12 @@ class StatusIndicatorMediator
     @Override
     public void onLayoutChange(View v, int left, int top, int right, int bottom, int oldLeft,
             int oldTop, int oldRight, int oldBottom) {
-        if (mIndicatorHeight == v.getHeight()) return;
+        // Wait for first valid height while showing indicator.
+        if (mIsHiding || mJavaLayoutHeight != 0 || v.getHeight() <= 0) return;
 
-        heightChanged(v.getHeight());
+        mInvalidateCompositorView.onResult(null);
+        mJavaLayoutHeight = v.getHeight();
+        updateVisibility(false);
     }
 
     void addObserver(StatusIndicatorCoordinator.StatusIndicatorObserver observer) {
@@ -293,7 +303,11 @@ class StatusIndicatorMediator
         animatorSet.addListener(new AnimatorListenerAdapter() {
             @Override
             public void onAnimationEnd(Animator animation) {
-                heightChanged(0);
+                if (mCanAnimateNativeBrowserControls.get()) {
+                    mInvalidateCompositorView.onResult(() -> updateVisibility(true));
+                } else {
+                    updateVisibility(true);
+                }
             }
         });
         animatorSet.start();
@@ -315,14 +329,16 @@ class StatusIndicatorMediator
 
     // Other internal methods
 
-    private void heightChanged(int newHeight) {
-        mIndicatorHeight = newHeight;
+    /**
+     * Call to kick off height change when status indicator is shown/hidden.
+     * @param hiding Whether the status indicator is hiding.
+     */
+    private void updateVisibility(boolean hiding) {
+        mIsHiding = hiding;
+        mIndicatorHeight = hiding ? 0 : mJavaLayoutHeight;
 
-        if (mIndicatorHeight > 0) {
+        if (!mIsHiding) {
             mFullscreenManager.addListener(this);
-            mIsHiding = false;
-        } else {
-            mIsHiding = true;
         }
 
         // If the browser controls won't be animating, we can pretend that the animation ended.
@@ -330,7 +346,7 @@ class StatusIndicatorMediator
             onOffsetChanged(mIndicatorHeight);
         }
 
-        notifyHeightChange(newHeight);
+        notifyHeightChange(mIndicatorHeight);
     }
 
     private void onOffsetChanged(int topControlsMinHeightOffset) {
@@ -353,6 +369,12 @@ class StatusIndicatorMediator
         if (doneHiding) {
             mFullscreenManager.removeListener(this);
             mIsHiding = false;
+            mJavaLayoutHeight = 0;
         }
+    }
+
+    @VisibleForTesting
+    void updateVisibilityForTesting(boolean hiding) {
+        updateVisibility(hiding);
     }
 }

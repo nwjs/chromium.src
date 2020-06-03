@@ -28,7 +28,7 @@
 #     },
 #   },
 #   'coverage_data': {
-#     'isolate_coverage_data': True,
+#     'isolate_profile_data': True,
 #   },
 # }
 #
@@ -179,6 +179,24 @@
       'service_account': 'chrome-tester@chops-service-accounts.iam.gserviceaccount.com',
     },
   },
+  'chromeos-amd64-generic': {
+    'swarming': {
+      'dimensions': {
+        'kvm': '1',
+        'os': 'Ubuntu-16.04',
+        'pool': 'chromium.tests.cros.vm.template',
+      },
+    },
+  },
+  'chromeos-kevin': {
+    'swarming': {
+      'dimensions': {
+        'os': 'ChromeOS',
+        'device_type': 'kevin',
+        'pool': 'chrome-cros-dut.template',
+      },
+    },
+  },
   # TODO(crbug.com/812428): Remove this mixin after all test pools have migrated
   # to using templates.
   'chromium-template-pool': {
@@ -198,8 +216,15 @@
       'service_account': 'chromium-tester@chops-service-accounts.iam.gserviceaccount.com',
     },
   },
-  'code-coverage': {
-    'isolate_coverage_data': True,
+  'dawn_end2end_gpu_test': {
+    '$mixin_append': {
+      'args': [
+        '--use-gpu-in-tests',
+        # Dawn test retries deliberately disabled to prevent flakiness.
+        '--test-launcher-retry-limit=0',
+        '--exclusive-device-type-preference=discrete,integrated',
+      ],
+    },
   },
   'docker': {
     'swarming': {
@@ -267,17 +292,13 @@
       ],
     },
   },
+  'isolate_profile_data': {
+    'isolate_profile_data': True,
+  },
   'kitkat': {
     'swarming': {
       'dimensions': {
         'device_os': 'KTU84P',
-      },
-    },
-  },
-  'kitkat_generic': {
-    'swarming': {
-      'dimensions': {
-        'device_os': 'K',
       },
     },
   },
@@ -326,16 +347,6 @@
       }
     }
   },
-  'linux_intel_hd_630': {
-    'swarming': {
-      'dimensions': {
-        # Defined in bot_config.py in internal infradata/config workspace
-        'gpu': 'intel-hd-630-ubuntu-stable',
-        'os': 'linux-intel-stable',
-        'pool': 'chromium.tests.gpu.template',
-      }
-    }
-  },
   'linux_intel_hd_630_experimental': {
     # Similar to stable, but with a newer Mesa version.
     'swarming': {
@@ -346,11 +357,19 @@
       },
     },
   },
-  'linux_intel_uhd_630': {
+  'linux_intel_hd_630_stable': {
     'swarming': {
       'dimensions': {
-        # Defined in bot_config.py in internal infradata/config workspace
-        'gpu': 'intel-uhd-630-ubuntu-stable',
+        'gpu': '8086:5912-19.0.2',
+        'os': 'Ubuntu-19.04',
+        'pool': 'chromium.tests.gpu.template',
+      }
+    }
+  },
+  'linux_intel_uhd_630_stable': {
+    'swarming': {
+      'dimensions': {
+        'gpu': '8086:3e92-19.0.8',
         'os': 'Ubuntu-19.04',
         'pool': 'chromium.tests.gpu.template',
       },
@@ -358,16 +377,6 @@
       # TODO(https://crbug.com/986939): Remove this when more devices
       # are added.
       'expiration': 14400,
-    }
-  },
-  'linux_nvidia_quadro_p400': {
-    'swarming': {
-      'dimensions': {
-        # Defined in bot_config.py in internal infradata/config workspace
-        'gpu': 'nvidia-quadro-p400-ubuntu-stable',
-        'os': 'linux-nvidia-stable',
-        'pool': 'chromium.tests.gpu.template',
-      }
     }
   },
   'linux_nvidia_quadro_p400_experimental': {
@@ -379,7 +388,23 @@
       },
     },
   },
+  'linux_nvidia_quadro_p400_stable': {
+    'swarming': {
+      'dimensions': {
+        'gpu': '10de:1cb3-418.56',
+        'os': 'Ubuntu-19.04',
+        'pool': 'chromium.tests.gpu.template',
+      }
+    }
+  },
   'lollipop': {
+    'swarming': {
+      'dimensions': {
+        'device_os': 'LMY48M',
+      },
+    },
+  },
+  'lollipop_generic': {
     'swarming': {
       'dimensions': {
         'device_os': 'L',
@@ -429,7 +454,7 @@
   'mac_10.15_beta': {
     'swarming': {
       'dimensions': {
-        'os': 'Mac-10.15',
+        'os': 'Mac-10.15.5',
       },
     },
   },
@@ -441,19 +466,19 @@
       },
     },
   },
-  'mac_mini_intel_gpu': {
-    'swarming': {
-      'dimensions': {
-        'gpu': '8086:0a2e',
-        'os': 'mac-intel-stable',
-      },
-    },
-  },
   'mac_mini_intel_gpu_experimental': {
     'swarming': {
       'dimensions': {
         'gpu': '8086:0a2e',
-        'os': 'Mac-10.13.6',
+        'os': 'Mac-10.15.4',
+      },
+    },
+  },
+  'mac_mini_intel_gpu_stable': {
+    'swarming': {
+      'dimensions': {
+        'gpu': '8086:0a2e',
+        'os': 'Mac-10.14.6',
       },
     },
   },
@@ -462,16 +487,6 @@
       'dimensions': {
         'gpu': '1002:679e',
         'os': 'Mac-10.12.6',
-        'pool': 'chromium.tests.gpu.template',
-      },
-    },
-  },
-  'mac_retina_amd_gpu': {
-    'swarming': {
-      'dimensions': {
-        'gpu': '1002:6821',
-        'hidpi': '1',
-        'os': 'mac-amd-stable',
         'pool': 'chromium.tests.gpu.template',
       },
     },
@@ -487,18 +502,28 @@
       },
     },
   },
-  'mac_retina_nvidia_gpu': {
+  'mac_retina_amd_gpu_stable': {
     'swarming': {
       'dimensions': {
-        'gpu': '10de:0fe9',
+        'gpu': '1002:6821',
         'hidpi': '1',
-        'os': 'mac-nvidia-stable',
+        'os': 'Mac-10.14.6',
         'pool': 'chromium.tests.gpu.template',
       },
     },
   },
   'mac_retina_nvidia_gpu_experimental': {
     # Currently the same as the stable version.
+    'swarming': {
+      'dimensions': {
+        'gpu': '10de:0fe9',
+        'hidpi': '1',
+        'os': 'Mac-10.14.6',
+        'pool': 'chromium.tests.gpu.template',
+      },
+    },
+  },
+  'mac_retina_nvidia_gpu_stable': {
     'swarming': {
       'dimensions': {
         'gpu': '10de:0fe9',
@@ -633,12 +658,12 @@
   'skia_gold_test': {
     '$mixin_append': {
       'args': [
-        '--git-revision', '${got_revision}',
+        '--git-revision=${got_revision}',
       ],
       'precommit_args': [
-        '--gerrit-issue', '${patch_issue}',
-        '--gerrit-patchset', '${patch_set}',
-        '--buildbucket-id', '${buildbucket_build_id}',
+        '--gerrit-issue=${patch_issue}',
+        '--gerrit-patchset=${patch_set}',
+        '--buildbucket-id=${buildbucket_build_id}',
       ],
     }
   },
@@ -688,17 +713,16 @@
   'win10_intel_hd_630_experimental': {
     'swarming': {
       'dimensions': {
-        'gpu': '8086:5912-26.20.100.7870',
+        'gpu': '8086:5912-26.20.100.7870|8086:5912-26.20.100.8141|8086:3e92-26.20.100.8141',
         'os': 'Windows-10',
-        'pool': 'chromium.tests.gpu.template',
+        'pool': 'chromium.tests.gpu.experimental.template',
       },
     },
   },
   'win10_intel_hd_630_stable': {
     'swarming': {
       'dimensions': {
-        # Defined in bot_config.py in internal infradata/config workspace
-        'gpu': 'intel-hd-630-win10-stable',
+        'gpu': '8086:5912-24.20.100.6286',
         'os': 'Windows-10',
         'pool': 'chromium.tests.gpu.template',
       },
@@ -707,8 +731,7 @@
   'win10_intel_uhd_630_stable': {
     'swarming': {
       'dimensions': {
-        # Defined in bot_config.py in internal infradata/config workspace
-        'gpu': 'intel-uhd-630-win10-stable',
+        'gpu': '8086:3e92-24.20.100.6286',
         'os': 'Windows-10',
         'pool': 'chromium.tests.gpu.template',
       },
@@ -741,8 +764,7 @@
   'win10_nvidia_quadro_p400_stable': {
     'swarming': {
       'dimensions': {
-        # Defined in bot_config.py in internal infradata/config workspace
-        'gpu': 'nvidia-quadro-p400-win10-stable',
+        'gpu': '10de:1cb3-26.21.14.3102',
         'os': 'Windows-10',
         'pool': 'chromium.tests.gpu.template',
       },
@@ -794,11 +816,17 @@
       },
     },
   },
-  'xcode_11c29': {
+  'xcode_11e146': {
+    '$mixin_append': {
+      'args': [
+        '--xcode-build-version',
+        '11e146'
+      ],
+    },
     'swarming': {
       'named_caches': [
         {
-          'name': 'xcode_ios_11c29',
+          'name': 'xcode_ios_11e146',
           'path': 'Xcode.app',
         },
       ],

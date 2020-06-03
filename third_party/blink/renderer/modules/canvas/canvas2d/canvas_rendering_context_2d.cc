@@ -850,7 +850,6 @@ void CanvasRenderingContext2D::DrawTextInternal(
     return;
 
   const Font& font = AccessFont();
-  font.GetFontDescription().SetSubpixelAscentDescent(true);
   const SimpleFontData* font_data = font.PrimaryFont();
   DCHECK(font_data);
   if (!font_data)
@@ -931,7 +930,7 @@ const Font& CanvasRenderingContext2D::AccessFont() {
   if (!GetState().HasRealizedFont())
     setFont(GetState().UnparsedFont());
   canvas()->GetDocument().GetCanvasFontCache()->WillUseCurrentFont();
-  return ModifiableState().GetFont();
+  return GetState().GetFont();
 }
 
 void CanvasRenderingContext2D::SetIsInHiddenPage(bool hidden) {

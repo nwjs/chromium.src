@@ -145,9 +145,8 @@ void WKBasedNavigationManagerImpl::AddTransientItem(const GURL& url) {
   // Item may still be null in captive portal case if chrome://newtab is the
   // only entry in back/forward history.
   if (item) {
-    DCHECK(item->GetUserAgentType() != UserAgentType::NONE);
-    transient_item_->SetUserAgentType(item->GetUserAgentForInheritance(),
-                                      /*update_inherited_user_agent =*/true);
+    DCHECK(item->GetUserAgentForInheritance() != UserAgentType::NONE);
+    transient_item_->SetUserAgentType(item->GetUserAgentForInheritance());
   }
 }
 
@@ -234,11 +233,9 @@ void WKBasedNavigationManagerImpl::AddPendingItem(
       SetNavigationItemInWKItem(current_wk_item, std::move(pending_item_));
     }
     if (user_agent_override_option == UserAgentOverrideOption::DESKTOP) {
-      current_item->SetUserAgentType(UserAgentType::DESKTOP,
-                                     /*update_inherited_user_agent =*/true);
+      current_item->SetUserAgentType(UserAgentType::DESKTOP);
     } else if (user_agent_override_option == UserAgentOverrideOption::MOBILE) {
-      current_item->SetUserAgentType(UserAgentType::MOBILE,
-                                     /*update_inherited_user_agent =*/true);
+      current_item->SetUserAgentType(UserAgentType::MOBILE);
     }
 
     pending_item_.reset();
@@ -872,35 +869,8 @@ WKBasedNavigationManagerImpl::GetLastCommittedItemInCurrentOrRestoredSession()
     DCHECK_EQ(0, GetItemCount());
     return nullptr;
   }
-  bool existing_last_committed_item =
-      web_view_cache_.GetNavigationItemImplAtIndex(
-          index, false /* create_if_missing */) != nullptr;
   NavigationItemImpl* last_committed_item =
       GetNavigationItemImplAtIndex(static_cast<size_t>(index));
-  id<CRWWebViewNavigationProxy> proxy = delegate_->GetWebViewNavigationProxy();
-  if (!existing_last_committed_item &&
-      ![proxy.URL isEqual:proxy.backForwardList.currentItem.URL]) {
-    // In some cases (especially google websites),
-    // webViewBackForwardStateDidChange callback is called first, leading to
-    // creating a NavigationItem to match the WKBackForwardList and considering
-    // that it is committed. In that case, the URL of the WebView isn't matching
-    // the one of the |wk_item|. It is possible to use this fact to detect this
-    // case and have this new item inheriting the UserAgent of the previous
-    // page. See https://crbug.com/1049094 for more details.
-    NavigationItemImpl* current_committed_item = nullptr;
-    if ([proxy.backForwardList.backItem.URL isEqual:proxy.URL]) {
-      current_committed_item =
-          GetNavigationItemFromWKItem(proxy.backForwardList.backItem);
-    } else if ([proxy.backForwardList.forwardItem.URL isEqual:proxy.URL]) {
-      current_committed_item =
-          GetNavigationItemFromWKItem(proxy.backForwardList.forwardItem);
-    }
-    if (current_committed_item) {
-      last_committed_item->SetUserAgentType(
-          current_committed_item->GetUserAgentForInheritance(),
-          /*update_inherited_user_agent =*/true);
-    }
-  }
   if (last_committed_item && GetWebState() &&
       !CanTrustLastCommittedItem(last_committed_item)) {
     // Don't check trust level here, as at this point it's expected

@@ -17,9 +17,9 @@
 #endif
 
 #if defined(USE_X11)
-#include "ui/gfx/x/x11_types.h"          // nogncheck
-#include "ui/gtk/gtk_ui_delegate.h"      // nogncheck
-#include "ui/gtk/gtk_ui_delegate_x11.h"  // nogncheck
+#include "ui/gfx/x/x11_types.h"            // nogncheck
+#include "ui/gtk/gtk_ui_delegate.h"        // nogncheck
+#include "ui/gtk/x/gtk_ui_delegate_x11.h"  // nogncheck
 #endif
 
 namespace {
@@ -41,7 +41,10 @@ ChromeBrowserMainExtraPartsViewsLinux::ChromeBrowserMainExtraPartsViewsLinux() =
 
 ChromeBrowserMainExtraPartsViewsLinux::
     ~ChromeBrowserMainExtraPartsViewsLinux() {
-  display::Screen::GetScreen()->RemoveObserver(this);
+  // It's not expected that the screen is destroyed by this point, but it can happen during fuzz
+  // tests.
+  if (display::Screen::GetScreen())
+    display::Screen::GetScreen()->RemoveObserver(this);
 }
 
 void ChromeBrowserMainExtraPartsViewsLinux::ToolkitInitialized() {

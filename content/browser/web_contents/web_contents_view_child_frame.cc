@@ -65,10 +65,6 @@ void WebContentsViewChildFrame::GetContainerBounds(gfx::Rect* out) const {
     *out = gfx::Rect();
 }
 
-void WebContentsViewChildFrame::SizeContents(const gfx::Size& size) {
-  // The RenderWidgetHostViewChildFrame is responsible for sizing the contents.
-}
-
 void WebContentsViewChildFrame::SetInitialFocus() {
   NOTREACHED();
 }
@@ -150,8 +146,7 @@ void WebContentsViewChildFrame::TakeFocus(bool reverse) {
                                   ->GetProxyToOuterDelegate();
   FrameTreeNode* outer_node = FrameTreeNode::GloballyFindByID(
       web_contents_->GetOuterDelegateFrameTreeNodeId());
-  RenderFrameHostImpl* rfhi =
-      outer_node->parent()->render_manager()->current_frame_host();
+  RenderFrameHostImpl* rfhi = outer_node->parent();
 
   rfhi->AdvanceFocus(reverse ? blink::mojom::FocusType::kBackward
                              : blink::mojom::FocusType::kForward,

@@ -17,12 +17,14 @@ import android.support.test.espresso.matcher.ViewMatchers;
 import android.support.test.filters.MediumTest;
 
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
@@ -32,6 +34,7 @@ import org.chromium.chrome.test.ChromeActivityTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.util.browser.Features;
 import org.chromium.components.content_settings.ContentSettingsFeatureList;
+import org.chromium.components.page_info.PageInfoAction;
 import org.chromium.components.page_info.R;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.content_public.common.ContentSwitches;
@@ -66,6 +69,14 @@ public class CookieControlsViewTest {
         TestThreadUtils.runOnUiThreadBlocking(() -> {
             PrefServiceBridge.getInstance().setBoolean(Pref.BLOCK_THIRD_PARTY_COOKIES, value);
         });
+    }
+
+    private int getTotalPageActionHistogramCount() {
+        return RecordHistogram.getHistogramTotalCountForTesting("WebsiteSettings.Action");
+    }
+
+    private int getPageActionHistogramCount(@PageInfoAction int action) {
+        return RecordHistogram.getHistogramValueCountForTesting("WebsiteSettings.Action", action);
     }
 
     @Before
@@ -121,17 +132,33 @@ public class CookieControlsViewTest {
     @Test
     @MediumTest
     public void testUpdate() {
+        Assert.assertEquals(0, getTotalPageActionHistogramCount());
+
         setThirdPartyCookieBlocking(true);
         loadUrlAndOpenPageInfo(mTestServer.getURLWithHostName("foo.com", mPath));
+        Assert.assertEquals(1, getTotalPageActionHistogramCount());
+        Assert.assertEquals(1, getPageActionHistogramCount(PageInfoAction.PAGE_INFO_OPENED));
         int switch_id = R.id.cookie_controls_block_cookies_switch;
         onView(withId(switch_id)).check(matches(isChecked()));
         onView(withId(switch_id)).perform(click());
         onView(withId(switch_id)).check(matches(isNotChecked()));
+        Assert.assertEquals(2, getTotalPageActionHistogramCount());
+        Assert.assertEquals(
+                1, getPageActionHistogramCount(PageInfoAction.PAGE_INFO_COOKIE_ALLOWED_FOR_SITE));
+
         // Load a different page.
         loadUrlAndOpenPageInfo(mTestServer.getURLWithHostName("bar.com", mPath));
         onView(withId(switch_id)).check(matches(isChecked()));
+
         // Go back to foo.com.
         loadUrlAndOpenPageInfo(mTestServer.getURLWithHostName("foo.com", mPath));
         onView(withId(switch_id)).check(matches(isNotChecked()));
+        onView(withId(switch_id)).perform(click());
+        onView(withId(switch_id)).check(matches(isChecked()));
+        Assert.assertEquals(5, getTotalPageActionHistogramCount());
+
+        Assert.assertEquals(
+                1, getPageActionHistogramCount(PageInfoAction.PAGE_INFO_COOKIE_BLOCKED_FOR_SITE));
+        Assert.assertEquals(3, getPageActionHistogramCount(PageInfoAction.PAGE_INFO_OPENED));
     }
 }

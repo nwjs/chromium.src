@@ -80,9 +80,11 @@ class InterceptedRequest : public network::mojom::URLLoader,
   void OnComplete(const network::URLLoaderCompletionStatus& status) override;
 
   // network::mojom::URLLoader
-  void FollowRedirect(const std::vector<std::string>& removed_headers,
-                      const net::HttpRequestHeaders& modified_headers,
-                      const base::Optional<GURL>& new_url) override;
+  void FollowRedirect(
+      const std::vector<std::string>& removed_headers,
+      const net::HttpRequestHeaders& modified_headers,
+      const net::HttpRequestHeaders& modified_cors_exempt_headers,
+      const base::Optional<GURL>& new_url) override;
   void SetPriority(net::RequestPriority priority,
                    int32_t intra_priority_value) override;
   void PauseReadingBodyFromNet() override;
@@ -586,9 +588,12 @@ void InterceptedRequest::OnComplete(
 void InterceptedRequest::FollowRedirect(
     const std::vector<std::string>& removed_headers,
     const net::HttpRequestHeaders& modified_headers,
+    const net::HttpRequestHeaders& modified_cors_exempt_headers,
     const base::Optional<GURL>& new_url) {
-  if (target_loader_)
-    target_loader_->FollowRedirect(removed_headers, modified_headers, new_url);
+  if (target_loader_) {
+    target_loader_->FollowRedirect(removed_headers, modified_headers,
+                                   modified_cors_exempt_headers, new_url);
+  }
 
   // If |OnURLLoaderClientError| was called then we're just waiting for the
   // connection error handler of |proxied_loader_receiver_|. Don't restart the
@@ -641,7 +646,7 @@ void InterceptedRequest::OnURLLoaderError(uint32_t custom_reason,
                                           const std::string& description) {
   if (custom_reason == network::mojom::URLLoader::kClientDisconnectReason) {
     if (description == safe_browsing::kCustomCancelReasonForURLLoader) {
-      SendErrorCallback(safe_browsing::GetNetErrorCodeForSafeBrowsing(), true);
+      SendErrorCallback(safe_browsing::kNetErrorCodeForSafeBrowsing, true);
     } else {
       int parsed_error_code;
       if (base::StringToInt(base::StringPiece(description),

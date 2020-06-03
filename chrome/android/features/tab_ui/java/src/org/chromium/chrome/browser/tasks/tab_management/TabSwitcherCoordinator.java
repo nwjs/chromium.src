@@ -27,21 +27,21 @@ import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.Destroyable;
 import org.chromium.chrome.browser.share.ShareDelegate;
-import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabList;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.chrome.browser.tasks.pseudotab.PseudoTab;
 import org.chromium.chrome.browser.tasks.pseudotab.TabAttributeCache;
 import org.chromium.chrome.browser.tasks.tab_management.suggestions.TabSuggestionsOrchestrator;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.browser_ui.widget.MenuOrKeyboardActionController;
+import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modelutil.LayoutViewBuilder;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 import org.chromium.ui.resources.dynamics.DynamicResourceLoader;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -52,6 +52,34 @@ public class TabSwitcherCoordinator
         implements Destroyable, TabSwitcher, TabSwitcher.TabListDelegate,
                    TabSwitcher.TabDialogDelegation, TabSwitcherMediator.ResetHandler,
                    TabSwitcherMediator.MessageItemsController {
+    /**
+     * Interface to control the IPH dialog.
+     */
+    interface IphController {
+        /**
+         * Show the dialog with IPH.
+         */
+        void showIph();
+    }
+
+    private class TabGroupManualSelectionMode {
+        public final String actionString;
+        public final int enablingThreshold;
+        public final TabSelectionEditorActionProvider actionProvider;
+        public final TabSelectionEditorCoordinator
+                .TabSelectionEditorNavigationProvider navigationProvider;
+
+        TabGroupManualSelectionMode(String actionString, int enablingThreshold,
+                TabSelectionEditorActionProvider actionProvider,
+                TabSelectionEditorCoordinator
+                        .TabSelectionEditorNavigationProvider navigationProvider) {
+            this.actionString = actionString;
+            this.enablingThreshold = enablingThreshold;
+            this.actionProvider = actionProvider;
+            this.navigationProvider = navigationProvider;
+        }
+    }
+
     // TODO(crbug.com/982018): Rename 'COMPONENT_NAME' so as to add different metrics for carousel
     // tab switcher.
     static final String COMPONENT_NAME = "GridTabSwitcher";
@@ -68,12 +96,14 @@ public class TabSwitcherCoordinator
     private final MessageCardProviderCoordinator mMessageCardProviderCoordinator;
 
     private TabSelectionEditorCoordinator mTabSelectionEditorCoordinator;
+    private TabGroupManualSelectionMode mTabGroupManualSelectionMode;
     private UndoGroupSnackbarController mUndoGroupSnackbarController;
     private TabSuggestionsOrchestrator mTabSuggestionsOrchestrator;
     private NewTabTileCoordinator mNewTabTileCoordinator;
     private TabAttributeCache mTabAttributeCache;
     private ViewGroup mContainer;
     private TabCreatorManager mTabCreatorManager;
+    private boolean mIsInitialized;
 
     private final MenuOrKeyboardActionController
             .MenuOrKeyboardActionHandler mTabSwitcherMenuActionHandler =
@@ -81,6 +111,14 @@ public class TabSwitcherCoordinator
                 @Override
                 public boolean handleMenuOrKeyboardAction(int id, boolean fromMenu) {
                     if (id == R.id.menu_group_tabs) {
+                        assert mTabGroupManualSelectionMode != null;
+
+                        mTabSelectionEditorCoordinator.getController().configureToolbar(
+                                mTabGroupManualSelectionMode.actionString,
+                                mTabGroupManualSelectionMode.actionProvider,
+                                mTabGroupManualSelectionMode.enablingThreshold,
+                                mTabGroupManualSelectionMode.navigationProvider);
+
                         mTabSelectionEditorCoordinator.getController().show(
                                 mTabModelSelector.getTabModelFilterProvider()
                                         .getCurrentTabModelFilter()
@@ -112,11 +150,10 @@ public class TabSwitcherCoordinator
         mMultiThumbnailCardProvider =
                 new MultiThumbnailCardProvider(context, tabContentManager, tabModelSelector);
 
-        TabListMediator.TitleProvider titleProvider = tab -> {
-            int numRelatedTabs = tabModelSelector.getTabModelFilterProvider()
-                                         .getCurrentTabModelFilter()
-                                         .getRelatedTabList(tab.getId())
-                                         .size();
+        PseudoTab.TitleProvider titleProvider = tab -> {
+            int numRelatedTabs =
+                    PseudoTab.getRelatedTabs(tab, tabModelSelector.getTabModelFilterProvider())
+                            .size();
             if (numRelatedTabs == 1) return tab.getTitle();
             return context.getResources().getQuantityString(
                     R.plurals.bottom_tab_grid_title_placeholder, numRelatedTabs, numRelatedTabs);
@@ -158,8 +195,9 @@ public class TabSwitcherCoordinator
             }
         }
 
-        if (TabUiFeatureUtilities.ENABLE_SEARCH_CHIP.getValue()
-                && mode != TabListCoordinator.TabListMode.CAROUSEL) {
+        if (CachedFeatureFlags.isEnabled(ChromeFeatureList.INSTANT_START)
+                || TabUiFeatureUtilities.ENABLE_SEARCH_CHIP.getValue()
+                        && mode != TabListCoordinator.TabListMode.CAROUSEL) {
             mTabAttributeCache = new TabAttributeCache(mTabModelSelector);
         }
 
@@ -179,14 +217,11 @@ public class TabSwitcherCoordinator
     @Override
     public void initWithNative(Context context, TabContentManager tabContentManager,
             DynamicResourceLoader dynamicResourceLoader,
-            SnackbarManager.SnackbarManageable snackbarManageable) {
-        // For tab switcher in carousel mode, the selection editor should still follow grid style.
-        int selectionEditorMode = mMode == TabListCoordinator.TabListMode.CAROUSEL
-                ? TabListCoordinator.TabListMode.GRID
-                : mMode;
-        mTabSelectionEditorCoordinator = new TabSelectionEditorCoordinator(context, mContainer,
-                mTabModelSelector, tabContentManager, null, selectionEditorMode);
-        mMediator.initWithNative(mTabSelectionEditorCoordinator.getController());
+            SnackbarManager.SnackbarManageable snackbarManageable,
+            ModalDialogManager modalDialogManager) {
+        if (mIsInitialized) return;
+
+        setUpTabGroupManualSelectionMode(context, tabContentManager);
 
         mTabListCoordinator.initWithNative(dynamicResourceLoader);
         if (mTabGridDialogCoordinator != null) {
@@ -222,12 +257,32 @@ public class TabSwitcherCoordinator
 
             if (TabUiFeatureUtilities.isTabGroupsAndroidEnabled()
                     && !TabSwitcherMediator.isShowingTabsInMRUOrder()) {
-                mTabGridIphDialogCoordinator = new TabGridIphDialogCoordinator(context, mContainer);
+                mTabGridIphDialogCoordinator =
+                        new TabGridIphDialogCoordinator(context, mContainer, modalDialogManager);
                 IphMessageService iphMessageService =
-                        new IphMessageService(mTabGridIphDialogCoordinator.getIphController());
+                        new IphMessageService(mTabGridIphDialogCoordinator);
                 mMessageCardProviderCoordinator.subscribeMessageService(iphMessageService);
             }
         }
+        mIsInitialized = true;
+    }
+
+    private void setUpTabGroupManualSelectionMode(
+            Context context, TabContentManager tabContentManager) {
+        // For tab switcher in carousel mode, the selection editor should still follow grid style.
+        int selectionEditorMode = mMode == TabListCoordinator.TabListMode.CAROUSEL
+                ? TabListCoordinator.TabListMode.GRID
+                : mMode;
+        mTabSelectionEditorCoordinator = new TabSelectionEditorCoordinator(context, mContainer,
+                mTabModelSelector, tabContentManager, null, selectionEditorMode);
+        mMediator.initWithNative(mTabSelectionEditorCoordinator.getController());
+
+        mTabGroupManualSelectionMode = new TabGroupManualSelectionMode(
+                context.getString(R.string.tab_selection_editor_group), 2,
+                new TabSelectionEditorActionProvider(mTabSelectionEditorCoordinator.getController(),
+                        TabSelectionEditorActionProvider.TabSelectionEditorAction.GROUP),
+                new TabSelectionEditorCoordinator.TabSelectionEditorNavigationProvider(
+                        mTabSelectionEditorCoordinator.getController()));
     }
 
     // TabSwitcher implementation.
@@ -296,8 +351,8 @@ public class TabSwitcherCoordinator
     }
 
     @Override
-    public long getLastDirtyTimeForTesting() {
-        return mTabListCoordinator.getLastDirtyTimeForTesting();
+    public long getLastDirtyTime() {
+        return mTabListCoordinator.getLastDirtyTime();
     }
 
     @Override
@@ -334,14 +389,12 @@ public class TabSwitcherCoordinator
     // ResetHandler implementation.
     @Override
     public boolean resetWithTabList(@Nullable TabList tabList, boolean quickMode, boolean mruMode) {
-        List<Tab> tabs = null;
-        if (tabList != null) {
-            tabs = new ArrayList<>();
-            for (int i = 0; i < tabList.getCount(); i++) {
-                tabs.add(tabList.getTabAt(i));
-            }
-        }
+        return resetWithTabs(PseudoTab.getListOfPseudoTab(tabList), quickMode, mruMode);
+    }
 
+    @Override
+    public boolean resetWithTabs(
+            @Nullable List<PseudoTab> tabs, boolean quickMode, boolean mruMode) {
         mMediator.registerFirstMeaningfulPaintRecorder();
         boolean showQuickly = mTabListCoordinator.resetWithListOfTabs(tabs, quickMode, mruMode);
         if (showQuickly) {

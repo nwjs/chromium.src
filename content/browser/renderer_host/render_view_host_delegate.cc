@@ -73,7 +73,7 @@ RenderFrameHostImpl* RenderViewHostDelegate::GetPendingMainFrame() {
   return nullptr;
 }
 
-bool RenderViewHostDelegate::IsPortal() const {
+bool RenderViewHostDelegate::IsPortal() {
   return false;
 }
 

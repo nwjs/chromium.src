@@ -27,6 +27,7 @@
 #include "chrome/browser/web_applications/test/test_data_retriever.h"
 #include "chrome/browser/web_applications/test/test_web_app_provider.h"
 #include "chrome/browser/web_applications/test/test_web_app_url_loader.h"
+#include "chrome/browser/web_applications/test/web_app_test.h"
 #include "chrome/browser/web_applications/web_app_install_manager.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/extensions/manifest_handlers/app_launch_info.h"
@@ -84,17 +85,6 @@ void SetAppIcon(WebApplicationInfo* web_app, int size, SkColor color) {
   web_app->icon_bitmaps[size] = CreateSquareBitmapWithColor(size, color);
 }
 
-void TestAcceptDialogCallback(
-    content::WebContents* initiator_web_contents,
-    std::unique_ptr<WebApplicationInfo> web_app_info,
-    web_app::ForInstallableSite for_installable_site,
-    web_app::InstallManager::WebAppInstallationAcceptanceCallback
-        acceptance_callback) {
-  base::ThreadTaskRunnerHandle::Get()->PostTask(
-      FROM_HERE, base::BindOnce(std::move(acceptance_callback), true /*accept*/,
-                                std::move(web_app_info)));
-}
-
 // Use only real BookmarkAppInstallFinalizer::FinalizeInstall and mock any other
 // finalization steps as a no-operation.
 class BookmarkAppInstallFinalizerInstallOnly
@@ -108,7 +98,6 @@ class BookmarkAppInstallFinalizerInstallOnly
   void ReparentTab(const web_app::AppId& app_id,
                    bool shortcut_created,
                    content::WebContents* web_contents) override {}
-  void RevealAppShim(const web_app::AppId& app_id) override {}
 };
 
 }  // namespace
@@ -258,7 +247,7 @@ class InstallManagerBookmarkAppTest : public ExtensionServiceTestBase {
     provider->install_manager().InstallWebAppFromManifestWithFallback(
         web_contents(),
         /*force_shortcut_app=*/false, WebappInstallSource::MENU_BROWSER_TAB,
-        base::BindOnce(TestAcceptDialogCallback),
+        base::BindOnce(web_app::TestAcceptDialogCallback),
         base::BindLambdaForTesting([&](const web_app::AppId& installed_app_id,
                                        web_app::InstallResultCode code) {
           EXPECT_EQ(web_app::InstallResultCode::kSuccessNewInstall, code);
@@ -643,6 +632,8 @@ TEST_F(InstallManagerBookmarkAppTest, InstallBookmarkAppFromSync) {
 
   url_loader().SetNextLoadUrlResult(
       GURL("about:blank"), web_app::WebAppUrlLoader::Result::kUrlLoaded);
+  url_loader().SetNextLoadUrlResult(
+      AppUrl(), web_app::WebAppUrlLoader::Result::kRedirectedUrlLoaded);
 
   {
     base::RunLoop run_loop;

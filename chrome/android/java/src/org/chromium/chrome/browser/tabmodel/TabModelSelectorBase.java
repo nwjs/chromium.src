@@ -54,8 +54,9 @@ public abstract class TabModelSelectorBase implements TabModelSelector {
         mActiveModelIndex = getModelIndex(mStartIncognito);
         assert mActiveModelIndex != MODEL_NOT_FOUND;
         mTabModelFilterProvider = new TabModelFilterProvider(mTabModels);
+        addObserver(mTabModelFilterProvider);
 
-        TabModelObserver tabModelObserver = new EmptyTabModelObserver() {
+        TabModelObserver tabModelObserver = new TabModelObserver() {
             @Override
             public void didAddTab(
                     Tab tab, @TabLaunchType int type, @TabCreationState int creationState) {
@@ -260,6 +261,7 @@ public abstract class TabModelSelectorBase implements TabModelSelector {
 
     @Override
     public void destroy() {
+        removeObserver(mTabModelFilterProvider);
         mTabModelFilterProvider.destroy();
         for (int i = 0; i < getModels().size(); i++) mTabModels.get(i).destroy();
         mTabModels.clear();

@@ -29,6 +29,10 @@
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/app_mode/app_mode_utils.h"
+#include "chrome/browser/apps/app_service/app_launch_params.h"
+#include "chrome/browser/apps/app_service/app_service_proxy.h"
+#include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
+#include "chrome/browser/apps/app_service/browser_app_launcher.h"
 #include "chrome/browser/apps/platform_apps/app_load_service.h"
 #include "chrome/browser/autocomplete/autocomplete_classifier_factory.h"
 #include "chrome/browser/browser_process.h"
@@ -153,6 +157,7 @@
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
 #include "ui/base/emoji/emoji_panel_helper.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/models/image_model.h"
 #include "ui/gfx/favicon_size.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/text_elider.h"
@@ -164,7 +169,6 @@
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "chrome/browser/apps/app_service/app_launch_params.h"
-#include "chrome/browser/apps/launch_service/launch_service.h"
 #include "chrome/browser/extensions/devtools_util.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/common/extensions/api/url_handlers/url_handlers_parser.h"
@@ -524,7 +528,8 @@ void AddAvatarToLastMenuItem(const gfx::Image& icon,
   gfx::Image sized_icon = profiles::GetSizedAvatarIcon(
       icon, true /* is_rectangle */, target_dip_width, target_dip_height,
       profiles::SHAPE_CIRCLE);
-  menu->SetIcon(menu->GetItemCount() - 1, sized_icon);
+  menu->SetIcon(menu->GetItemCount() - 1,
+                ui::ImageModel::FromImage(sized_icon));
 }
 #endif  // !defined(OS_CHROMEOS)
 
@@ -534,7 +539,14 @@ void OnProfileCreated(const GURL& link_url,
                       Profile::CreateStatus status) {
   if (status == Profile::CREATE_STATUS_INITIALIZED) {
     Browser* browser = chrome::FindLastActiveWithProfile(profile);
-    NavigateParams nav_params(browser, link_url, ui::PAGE_TRANSITION_LINK);
+    NavigateParams nav_params(
+        browser, link_url,
+        /* |ui::PAGE_TRANSITION_TYPED| is used rather than
+           |ui::PAGE_TRANSITION_LINK| since this ultimately opens the link in
+           another browser. This parameter is used within the tab strip model of
+           the browser it opens in implying a link from the active tab in the
+           destination browser which is not correct. */
+        ui::PAGE_TRANSITION_TYPED);
     nav_params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
     nav_params.referrer = referrer;
     nav_params.window_action = NavigateParams::SHOW_WINDOW;
@@ -995,6 +1007,11 @@ void RenderViewContextMenu::RecordUsedItem(int id) {
     } else if (doc_url.GetOrigin() == chrome::kChromeSearchMostVisitedUrl) {
       base::RecordAction(
           base::UserMetricsAction("MostVisited_ClickedFromContextMenu"));
+    } else if (doc_url.GetOrigin() == GURL(chrome::kChromeUINewTabPageURL) ||
+               doc_url.GetOrigin() ==
+                   GURL(chrome::kChromeUIUntrustedNewTabPageUrl)) {
+      base::RecordAction(base::UserMetricsAction(
+          "NewTabPage.LinkOpenedFromContextMenu.WebUI"));
     }
   }
 
@@ -1279,7 +1296,7 @@ void RenderViewContextMenu::AppendLinkItems() {
                 IDS_LINK_MENU_SEND_TAB_TO_SELF_SINGLE_TARGET,
                 send_tab_to_self::GetSingleTargetDeviceName(
                     GetBrowser()->profile())),
-            kSendTabToSelfIcon);
+            ui::ImageModel::FromVectorIcon(kSendTabToSelfIcon));
 #endif
         send_tab_to_self::RecordSendTabToSelfClickResult(
             send_tab_to_self::kLinkMenu,
@@ -1299,7 +1316,8 @@ void RenderViewContextMenu::AppendLinkItems() {
 #else
         menu_model_.AddSubMenuWithStringIdAndIcon(
             IDC_CONTENT_LINK_SEND_TAB_TO_SELF, IDS_LINK_MENU_SEND_TAB_TO_SELF,
-            send_tab_to_self_sub_menu_model_.get(), kSendTabToSelfIcon);
+            send_tab_to_self_sub_menu_model_.get(),
+            ui::ImageModel::FromVectorIcon(kSendTabToSelfIcon));
 #endif
       }
     }
@@ -1385,7 +1403,8 @@ void RenderViewContextMenu::AppendOpenInBookmarkAppLinkItems() {
   MenuManager* menu_manager = MenuManager::Get(browser_context_);
   // TODO(crbug.com/1052707): Use AppIconManager to read PWA icons.
   gfx::Image icon = menu_manager->GetIconForExtension(*app_id);
-  menu_model_.SetIcon(menu_model_.GetItemCount() - 1, icon);
+  menu_model_.SetIcon(menu_model_.GetItemCount() - 1,
+                      ui::ImageModel::FromImage(icon));
 }
 
 void RenderViewContextMenu::AppendImageItems() {
@@ -1519,7 +1538,7 @@ void RenderViewContextMenu::AppendPageItems() {
               IDS_CONTEXT_MENU_SEND_TAB_TO_SELF_SINGLE_TARGET,
               send_tab_to_self::GetSingleTargetDeviceName(
                   GetBrowser()->profile())),
-          kSendTabToSelfIcon);
+          ui::ImageModel::FromVectorIcon(kSendTabToSelfIcon));
 #endif
       send_tab_to_self::RecordSendTabToSelfClickResult(
           send_tab_to_self::kContentMenu,
@@ -1538,22 +1557,30 @@ void RenderViewContextMenu::AppendPageItems() {
 #else
       menu_model_.AddSubMenuWithStringIdAndIcon(
           IDC_SEND_TAB_TO_SELF, IDS_CONTEXT_MENU_SEND_TAB_TO_SELF,
-          send_tab_to_self_sub_menu_model_.get(), kSendTabToSelfIcon);
+          send_tab_to_self_sub_menu_model_.get(),
+          ui::ImageModel::FromVectorIcon(kSendTabToSelfIcon));
 #endif
     }
   }
 
   // Context menu item for QR Code Generator.
-  // This is presented alongside the send-tab-to-self items, though each may be
-  // present without the other due to feature experimentation. Therefore we
-  // may or may not need to create a new separator.
-  bool should_offer_qr_code_generator =
-      base::FeatureList::IsEnabled(kSharingQRCodeGenerator);
-  if (GetBrowser() && should_offer_qr_code_generator) {
+  if (IsQRCodeGeneratorEnabled()) {
+    // This is presented alongside the send-tab-to-self items, though each may
+    // be present without the other due to feature experimentation. Therefore we
+    // may or may not need to create a new separator.
     if (!send_tab_to_self_menu_present)
       menu_model_.AddSeparator(ui::NORMAL_SEPARATOR);
+
+#if defined(OS_MACOSX)
     menu_model_.AddItemWithStringId(IDC_CONTENT_CONTEXT_GENERATE_QR_CODE,
                                     IDS_CONTEXT_MENU_GENERATE_QR_CODE_PAGE);
+#else
+    menu_model_.AddItemWithStringIdAndIcon(
+        IDC_CONTENT_CONTEXT_GENERATE_QR_CODE,
+        IDS_CONTEXT_MENU_GENERATE_QR_CODE_PAGE,
+        ui::ImageModel::FromVectorIcon(kQrcodeGeneratorIcon));
+#endif
+
     menu_model_.AddSeparator(ui::NORMAL_SEPARATOR);
   } else if (send_tab_to_self_menu_present) {
     // Close out sharing section if send-tab-to-self was present but QR
@@ -1644,13 +1671,9 @@ void RenderViewContextMenu::AppendSearchProvider() {
                      base::ASCIIToUTF16(" "), &params_.selection_text);
 
   AutocompleteMatch match;
-  AutocompleteClassifierFactory::GetForProfile(GetProfile())->Classify(
-      params_.selection_text,
-      false,
-      false,
-      metrics::OmniboxEventProto::INVALID_SPEC,
-      &match,
-      NULL);
+  AutocompleteClassifierFactory::GetForProfile(GetProfile())
+      ->Classify(params_.selection_text, false, false,
+                 metrics::OmniboxEventProto::INVALID_SPEC, &match, nullptr);
   selection_navigation_url_ = match.destination_url;
   if (!selection_navigation_url_.is_valid())
     return;
@@ -2077,8 +2100,10 @@ bool RenderViewContextMenu::IsCommandIdEnabled(int id) const {
     case IDC_CONTENT_CONTEXT_LANGUAGE_SETTINGS:
     case IDC_SEND_TAB_TO_SELF:
     case IDC_SEND_TAB_TO_SELF_SINGLE_TARGET:
-    case IDC_CONTENT_CONTEXT_GENERATE_QR_CODE:
       return true;
+
+    case IDC_CONTENT_CONTEXT_GENERATE_QR_CODE:
+      return IsQRCodeGeneratorEnabled();
 
     case IDC_CONTENT_LINK_SEND_TAB_TO_SELF:
     case IDC_CONTENT_LINK_SEND_TAB_TO_SELF_SINGLE_TARGET:
@@ -2244,10 +2269,9 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
       break;
 
     case IDC_CONTENT_CONTEXT_OPEN_ORIGINAL_IMAGE_NEW_TAB:
-      OpenURLWithExtraHeaders(
-          params_.src_url, GetDocumentURL(params_),
-          WindowOpenDisposition::NEW_BACKGROUND_TAB, ui::PAGE_TRANSITION_LINK,
-          data_reduction_proxy::chrome_proxy_pass_through_header(), false);
+      OpenURLWithExtraHeaders(params_.src_url, GetDocumentURL(params_),
+                              WindowOpenDisposition::NEW_BACKGROUND_TAB,
+                              ui::PAGE_TRANSITION_LINK, std::string(), false);
       break;
 
     case IDC_CONTENT_CONTEXT_LOAD_IMAGE:
@@ -2317,8 +2341,9 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
           GetBrowser()->tab_strip_model()->GetActiveWebContents();
       auto* bubble_controller =
           qrcode_generator::QRCodeGeneratorBubbleController::Get(web_contents);
-      bubble_controller->ShowBubble(params_.link_url);
-      // TODO(skare): Log a useraction here and in the page icon launch.
+      NavigationEntry* entry =
+          embedder_web_contents_->GetController().GetLastCommittedEntry();
+      bubble_controller->ShowBubble(entry->GetURL());
       break;
     }
 
@@ -2572,7 +2597,6 @@ bool RenderViewContextMenu::IsTranslateEnabled() const {
           0) &&
          !original_lang.empty() &&  // Did we receive the page language yet?
          !chrome_translate_client->GetLanguageState().IsPageTranslated() &&
-         !embedder_web_contents_->GetInterstitialPage() &&
          // There are some application locales which can't be used as a
          // target language for translation. In that case GetTargetLanguage()
          // may return empty.
@@ -2650,9 +2674,8 @@ bool RenderViewContextMenu::IsPasteEnabled() const {
     return false;
 
   std::vector<base::string16> types;
-  bool ignore;
   ui::Clipboard::GetForCurrentThread()->ReadAvailableTypes(
-      ui::ClipboardBuffer::kCopyPaste, &types, &ignore);
+      ui::ClipboardBuffer::kCopyPaste, &types);
   return !types.empty();
 }
 
@@ -2673,6 +2696,24 @@ bool RenderViewContextMenu::IsPrintPreviewEnabled() const {
 
   Browser* browser = GetBrowser();
   return browser && chrome::CanPrint(browser);
+}
+
+bool RenderViewContextMenu::IsQRCodeGeneratorEnabled() const {
+  if (!GetBrowser())
+    return false;
+
+  if (!base::FeatureList::IsEnabled(kSharingQRCodeGenerator))
+    return false;
+
+  if (browser_context_->IsOffTheRecord())
+    return false;
+
+  NavigationEntry* entry =
+      embedder_web_contents_->GetController().GetLastCommittedEntry();
+  if (!entry || !content::IsSavableURL(entry->GetURL()))
+    return false;
+
+  return true;
 }
 
 bool RenderViewContextMenu::IsRouteMediaEnabled() const {
@@ -2723,7 +2764,9 @@ void RenderViewContextMenu::ExecOpenBookmarkApp() {
       WindowOpenDisposition::CURRENT_TAB,
       apps::mojom::AppLaunchSource::kSourceContextMenu);
   launch_params.override_url = params_.link_url;
-  apps::LaunchService::Get(GetProfile())->OpenApplication(launch_params);
+  apps::AppServiceProxyFactory::GetForProfile(GetProfile())
+      ->BrowserAppLauncher()
+      .LaunchAppWithParams(launch_params);
 }
 
 void RenderViewContextMenu::ExecProtocolHandler(int event_flags,
@@ -2845,16 +2888,7 @@ void RenderViewContextMenu::ExecSaveAs() {
     RecordDownloadSource(DOWNLOAD_INITIATED_BY_CONTEXT_MENU);
     const GURL& url = params_.src_url;
     content::Referrer referrer = CreateReferrer(url, params_);
-
     std::string headers;
-    DataReductionProxyChromeSettings* settings =
-        DataReductionProxyChromeSettingsFactory::GetForBrowserContext(
-            browser_context_);
-    if (params_.media_type == ContextMenuDataMediaType::kImage && settings &&
-        settings->CanUseDataReductionProxy(params_.src_url)) {
-      headers = data_reduction_proxy::chrome_proxy_pass_through_header();
-    }
-
     source_web_contents_->SaveFrameWithHeaders(url, referrer, headers,
                                                params_.suggested_filename);
   }

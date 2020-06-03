@@ -64,7 +64,7 @@
       <include name="IDR_MOJO_PRIVATE_CUSTOM_BINDINGS_JS" file="mojo_private_custom_bindings.js" type="BINDATA" />
       <include name="IDR_PERMISSIONS_CUSTOM_BINDINGS_JS" file="permissions_custom_bindings.js" type="BINDATA" />
       <include name="IDR_PRINTER_PROVIDER_CUSTOM_BINDINGS_JS" file="printer_provider_custom_bindings.js" type="BINDATA" />
-      <include name="IDR_SERVICE_WORKER_BINDINGS_JS" file="service_worker_bindings.js" type="BINDATA" />
+      <include name="IDR_SERVICE_WORKER_BINDINGS_JS" file="service_worker_bindings.js" compress="false" type="BINDATA" />
       <include name="IDR_WEB_REQUEST_CUSTOM_BINDINGS_JS" file="web_request_custom_bindings.js" type="BINDATA" />
       <include name="IDR_WEB_REQUEST_EVENT_JS" file="web_request_event.js" type="BINDATA" />
       <include name="IDR_WEB_VIEW_REQUEST_CUSTOM_BINDINGS_JS" file="guest_view/web_view/web_view_request_custom_bindings.js" type="BINDATA" />
@@ -75,7 +75,7 @@
       <!-- Extension styles. -->
       <include name="IDR_EXTENSION_FONTS_CSS" file="extension_fonts.css" type="BINDATA"/>
 
-      <include name="IDR_NW_PRE13_SHIM_JS"    file="../../../content/nw/src/resources/nw_pre13_shim.js" type="BINDATA" />
+      <include name="IDR_NW_PRE13_SHIM_JS"    file="../../../content/nw/src/resources/nw_pre13_shim.js" compress="false" type="BINDATA" />
       <include name="IDR_NWAPI_APP_JS"    file="../../../content/nw/src/resources/api_nw_app.js" type="BINDATA" />
       <include name="IDR_NWAPI_WINDOW_JS" file="../../../content/nw/src/resources/api_nw_window.js" type="BINDATA" />
       <include name="IDR_NWAPI_WINDOW_INTERNAL_JS" file="../../../content/nw/src/resources/api_window_internal.js" type="BINDATA" />

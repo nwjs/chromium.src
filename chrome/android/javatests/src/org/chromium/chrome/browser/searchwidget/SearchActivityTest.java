@@ -29,11 +29,16 @@ import org.mockito.MockitoAnnotations;
 
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.Callback;
+import org.chromium.base.test.params.ParameterAnnotations;
+import org.chromium.base.test.params.ParameterSet;
+import org.chromium.base.test.params.ParameterizedRunner;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
+import org.chromium.base.test.util.FlakyTest;
 import org.chromium.base.test.util.RetryOnFailure;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.locale.DefaultSearchEngineDialogHelperUtils;
 import org.chromium.chrome.browser.locale.DefaultSearchEnginePromoDialog;
@@ -41,24 +46,29 @@ import org.chromium.chrome.browser.locale.DefaultSearchEnginePromoDialog.Default
 import org.chromium.chrome.browser.locale.LocaleManager;
 import org.chromium.chrome.browser.omnibox.MatchClassificationStyle;
 import org.chromium.chrome.browser.omnibox.UrlBar;
+import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteResult;
+import org.chromium.chrome.browser.omnibox.suggestions.CachedZeroSuggestionsManager;
 import org.chromium.chrome.browser.omnibox.suggestions.OmniboxSuggestion;
 import org.chromium.chrome.browser.omnibox.suggestions.OmniboxSuggestion.MatchClassification;
 import org.chromium.chrome.browser.omnibox.voice.VoiceRecognitionHandler;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.searchwidget.SearchActivity.SearchActivityDelegate;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
+import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
 import org.chromium.chrome.test.MultiActivityTestRule;
 import org.chromium.chrome.test.util.ActivityUtils;
 import org.chromium.chrome.test.util.OmniboxTestUtils;
+import org.chromium.chrome.test.util.browser.Features;
 import org.chromium.components.search_engines.TemplateUrl;
 import org.chromium.content_public.browser.test.util.Criteria;
 import org.chromium.content_public.browser.test.util.CriteriaHelper;
 import org.chromium.content_public.browser.test.util.KeyUtils;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.content_public.common.ContentUrlConstants;
+import org.chromium.url.GURL;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeoutException;
@@ -74,10 +84,16 @@ import java.util.concurrent.TimeoutException;
  *
  *                    + Add microphone tests somehow (vague query + confident query).
  */
-@RunWith(ChromeJUnit4ClassRunner.class)
+@RunWith(ParameterizedRunner.class)
+@ParameterAnnotations.UseRunnerDelegate(ChromeJUnit4RunnerDelegate.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 public class SearchActivityTest {
     private static final long OMNIBOX_SHOW_TIMEOUT_MS = 5000L;
+
+    @ParameterAnnotations.ClassParameter
+    private static List<ParameterSet> sClassParams =
+            Arrays.asList(new ParameterSet().value(false).name("DisableRecyclerView"),
+                    new ParameterSet().value(true).name("EnableRecyclerView"));
 
     private static class TestDelegate
             extends SearchActivityDelegate implements DefaultSearchEnginePromoDialogObserver {
@@ -148,9 +164,21 @@ public class SearchActivityTest {
     VoiceRecognitionHandler mHandler;
 
     private TestDelegate mTestDelegate;
+    private boolean mEnableRecyclerView;
+
+    public SearchActivityTest(boolean enableRecyclerView) {
+        mEnableRecyclerView = enableRecyclerView;
+    }
 
     @Before
     public void setUp() {
+        if (mEnableRecyclerView) {
+            Features.getInstance().enable(ChromeFeatureList.OMNIBOX_SUGGESTIONS_RECYCLER_VIEW);
+        } else {
+            Features.getInstance().disable(ChromeFeatureList.OMNIBOX_SUGGESTIONS_RECYCLER_VIEW);
+        }
+        Features.ensureCommandLineIsUpToDate();
+
         MockitoAnnotations.initMocks(this);
         doReturn(true).when(mHandler).isVoiceSearchEnabled();
 
@@ -340,14 +368,17 @@ public class SearchActivityTest {
         classifications.add(new MatchClassification(0, MatchClassificationStyle.NONE));
         OmniboxSuggestion mockSuggestion = new OmniboxSuggestion(0, true, 0, 0,
                 "https://google.com", classifications, "https://google.com", classifications, null,
-                "", "https://google.com", null, null, false, false);
+                "", new GURL("https://google.com"), GURL.emptyGURL(), null, false, false, null,
+                null, OmniboxSuggestion.INVALID_GROUP, null);
         OmniboxSuggestion mockSuggestion2 = new OmniboxSuggestion(0, true, 0, 0,
                 "https://android.com", classifications, "https://android.com", classifications,
-                null, "", "https://android.com", null, null, false, false);
+                null, "", new GURL("https://android.com"), GURL.emptyGURL(), null, false, false,
+                null, null, OmniboxSuggestion.INVALID_GROUP, null);
         List<OmniboxSuggestion> list = new ArrayList<>();
         list.add(mockSuggestion);
         list.add(mockSuggestion2);
-        OmniboxSuggestion.cacheOmniboxSuggestionListForZeroSuggest(list);
+        AutocompleteResult data = new AutocompleteResult(list, null);
+        CachedZeroSuggestionsManager.saveToCache(data);
 
         // Wait for the activity to load, but don't let it load the native library.
         mTestDelegate.shouldDelayLoadingNative = true;
@@ -405,6 +436,7 @@ public class SearchActivityTest {
 
     @Test
     @SmallTest
+    @FlakyTest(message = "crbug.com/1075804")
     public void testRealPromoDialogInterruption() throws Exception {
         // Start the Activity.  It should pause when the promo dialog appears.
         mTestDelegate.shouldShowRealSearchDialog = true;

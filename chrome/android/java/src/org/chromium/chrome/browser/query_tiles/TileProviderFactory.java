@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.query_tiles;
 
 import org.chromium.base.annotations.NativeMethods;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.components.query_tiles.TileProvider;
 
 /**
  * Basic factory that creates and returns an {@link TileProvider} that is attached
@@ -28,6 +29,12 @@ public class TileProviderFactory {
 
     /** For testing only. */
     public static void setTileProviderForTesting(TileProvider provider) {
+        sTileProvider = provider;
+    }
+
+    // TODO(shaktisahu): Remove this function once we have the real provider.
+    public static void setFakeTileProvider(FakeTileProvider provider) {
+        if (sTileProvider != null) return;
         sTileProvider = provider;
     }
 

@@ -39,6 +39,7 @@ class WebSharedWorker;
 
 namespace blink {
 class MessagePortChannel;
+class MessagePortDescriptor;
 class PendingURLLoaderFactoryBundle;
 }  // namespace blink
 
@@ -100,7 +101,7 @@ class EmbeddedSharedWorkerStub : public blink::WebSharedWorkerClient,
 
   // mojom::SharedWorker methods:
   void Connect(int connection_request_id,
-               mojo::ScopedMessagePipeHandle port) override;
+               blink::MessagePortDescriptor port) override;
   void Terminate() override;
 
   mojo::Receiver<blink::mojom::SharedWorker> receiver_;

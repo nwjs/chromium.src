@@ -11,13 +11,13 @@ import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.UserData;
 import org.chromium.chrome.browser.previews.Previews;
-import org.chromium.chrome.browser.ssl.ChromeSecurityStateModelDelegate;
 import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.security_state.ConnectionSecurityLevel;
 import org.chromium.components.security_state.SecurityStateModel;
 import org.chromium.content_public.browser.NavigationHandle;
 import org.chromium.content_public.browser.RenderWidgetHostView;
 import org.chromium.content_public.browser.WebContents;
+import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.util.ColorUtils;
 
 /**
@@ -155,8 +155,8 @@ public class TabThemeColorHelper extends EmptyTabObserver implements UserData {
      */
     private boolean checkThemingAllowed() {
         // Do not apply the theme color if there are any security issues on the page.
-        final int securityLevel = SecurityStateModel.getSecurityLevelForWebContents(
-                mTab.getWebContents(), ChromeSecurityStateModelDelegate.getInstance());
+        final int securityLevel =
+                SecurityStateModel.getSecurityLevelForWebContents(mTab.getWebContents());
         return securityLevel != ConnectionSecurityLevel.DANGEROUS
                 && securityLevel != ConnectionSecurityLevel.SECURE_WITH_POLICY_INSTALLED_CERT
                 && (mTab.getActivity() == null || !mTab.getActivity().isTablet())
@@ -213,13 +213,14 @@ public class TabThemeColorHelper extends EmptyTabObserver implements UserData {
     // TabObserver
 
     @Override
-    public void onInitialized(Tab tab, TabState tabState) {
-        if (tabState == null) return;
+    public void onInitialized(
+            Tab tab, String appId, @Nullable Boolean hasThemeColor, int themeColor) {
+        if (hasThemeColor == null) return;
 
         // Update from TabState.
-        mIsUsingColorFromTabContents = tabState.hasThemeColor();
+        mIsUsingColorFromTabContents = hasThemeColor;
         mIsDefaultColorUsed = !mIsUsingColorFromTabContents;
-        mColor = mIsDefaultColorUsed ? getDefaultColor() : tabState.getThemeColor();
+        mColor = mIsDefaultColorUsed ? getDefaultColor() : themeColor;
         updateIfNeeded(false);
     }
 
@@ -254,9 +255,10 @@ public class TabThemeColorHelper extends EmptyTabObserver implements UserData {
     }
 
     @Override
-    public void onActivityAttachmentChanged(Tab tab, boolean isAttached) {
+    public void onActivityAttachmentChanged(Tab tab, @Nullable WindowAndroid window) {
         updateDefaultColor();
         updateDefaultBackgroundColor();
+        updateIfNeeded(/* didWebContentsThemeColorChange= */ true);
     }
 
     @Override

@@ -190,6 +190,12 @@ ColorChooser* WebContentsDelegate::OpenColorChooser(
   return nullptr;
 }
 
+std::unique_ptr<EyeDropper> WebContentsDelegate::OpenEyeDropper(
+    RenderFrameHost* frame,
+    EyeDropperListener* listener) {
+  return nullptr;
+}
+
 void WebContentsDelegate::RunFileChooser(
     RenderFrameHost* render_frame_host,
     std::unique_ptr<FileSelectListener> listener,
