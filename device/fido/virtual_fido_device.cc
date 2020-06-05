@@ -8,6 +8,7 @@
 #include <tuple>
 #include <utility>
 
+#include "base/rand_util.h"
 #include "crypto/ec_signature_creator.h"
 #include "device/fido/fido_parsing_utils.h"
 #include "third_party/boringssl/src/include/openssl/ec_key.h"
@@ -135,9 +136,10 @@ bool VirtualFidoDevice::State::InjectResidentKey(
                                     /*icon_url=*/base::nullopt));
 }
 
+// VirtualFidoDevice ----------------------------------------------------------
+
 VirtualFidoDevice::VirtualFidoDevice() = default;
 
-// VirtualFidoDevice ----------------------------------------------------------
 
 VirtualFidoDevice::VirtualFidoDevice(scoped_refptr<State> state)
     : state_(std::move(state)) {}
@@ -264,12 +266,16 @@ void VirtualFidoDevice::TryWink(base::OnceClosure cb) {
 }
 
 std::string VirtualFidoDevice::GetId() const {
-  // Use our heap address to get a unique-ish number. (0xffe1 is a prime).
-  return "VirtualFidoDevice-" + std::to_string((size_t)this % 0xffe1);
+  return id_;
 }
 
 FidoTransportProtocol VirtualFidoDevice::DeviceTransport() const {
   return state_->transport;
+}
+
+// static
+std::string VirtualFidoDevice::MakeVirtualFidoDeviceId() {
+  return "VirtualFidoDevice-" + base::RandBytesAsString(32);
 }
 
 }  // namespace device

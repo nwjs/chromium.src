@@ -120,17 +120,21 @@ void CanvasRenderingContextHost::CreateCanvasResourceProvider3D(
     presentation_mode |=
         CanvasResourceProvider::kAllowImageChromiumPresentationMode;
   }
-
+  if (RenderingContext() && RenderingContext()->UsingSwapChain()) {
+    DCHECK(LowLatencyEnabled());
+    // Allow swap chain presentation only if 3d context is using a swap
+    // chain since we'll be importing it as a passthrough texture.
+    presentation_mode |=
+        CanvasResourceProvider::kAllowSwapChainPresentationMode;
+  }
   CanvasResourceProvider::ResourceUsage usage;
+
   if (SharedGpuContext::IsGpuCompositingEnabled()) {
-    if (LowLatencyEnabled() && RenderingContext() &&
-        RenderingContext()->UsingSwapChain()) {
+    if (LowLatencyEnabled() && RenderingContext()) {
       // Allow swap chain presentation only if 3d context is using a swap
       // chain since we'll be importing it as a passthrough texture.
       usage = CanvasResourceProvider::ResourceUsage::
           kAcceleratedDirect3DResourceUsage;
-      presentation_mode |=
-          CanvasResourceProvider::kAllowSwapChainPresentationMode;
     } else {
       usage = CanvasResourceProvider::ResourceUsage::
           kAcceleratedCompositedResourceUsage;
@@ -171,17 +175,19 @@ void CanvasRenderingContextHost::CreateCanvasResourceProvider2D(
     presentation_mode |=
         CanvasResourceProvider::kAllowImageChromiumPresentationMode;
   }
+  if (base::FeatureList::IsEnabled(features::kLowLatencyCanvas2dSwapChain) &&
+      LowLatencyEnabled() && want_acceleration) {
+    presentation_mode |=
+        CanvasResourceProvider::kAllowSwapChainPresentationMode;
+  }
 
   CanvasResourceProvider::ResourceUsage usage;
   if (want_acceleration) {
-    if (LowLatencyEnabled() &&
-        base::FeatureList::IsEnabled(features::kLowLatencyCanvas2dSwapChain)) {
+    if (LowLatencyEnabled()) {
       // Allow swap chains only if the runtime feature is enabled and we're
       // in low latency mode too.
       usage = CanvasResourceProvider::ResourceUsage::
           kAcceleratedDirect2DResourceUsage;
-      presentation_mode |=
-          CanvasResourceProvider::kAllowSwapChainPresentationMode;
     } else {
       usage = CanvasResourceProvider::ResourceUsage::
           kAcceleratedCompositedResourceUsage;

@@ -378,6 +378,10 @@ class BuildConfigGenerator extends DefaultTask {
                 // chrome/android/java/proguard.flags instead.
                 sb.append('  ignore_proguard_configs = true\n')
                 break
+            case 'com_google_android_gms_play_services_maps':
+                sb.append('  # Ignore the dependency to org.apache.http.legacy. See crbug.com/1084879.\n')
+                sb.append('  ignore_manifest = true\n')
+                break
         }
     }
 

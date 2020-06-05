@@ -77,6 +77,12 @@ public final class ChromePreferenceKeys {
     public static final String CHROME_DEFAULT_BROWSER = "applink.chrome_default_browser";
 
     /**
+     * The URI of Chrome shared to Android system clibpoard, we only need this preference for the
+     * Android O and O_MR1 version.
+     */
+    public static final String CLIPBOARD_SHARED_URI = "Chrome.Clipboard.SharedUri";
+
+    /**
      * Marks that the content suggestions surface has been shown.
      * Default value is false.
      */
@@ -673,6 +679,7 @@ public final class ChromePreferenceKeys {
     static List<String> getKeysInUse() {
         // clang-format off
         return Arrays.asList(
+                CLIPBOARD_SHARED_URI,
                 CONTEXT_MENU_OPEN_IMAGE_IN_EPHEMERAL_TAB_CLICKED,
                 CONTEXT_MENU_OPEN_IN_EPHEMERAL_TAB_CLICKED,
                 CONTEXT_MENU_SEARCH_WITH_GOOGLE_LENS_CLICKED,

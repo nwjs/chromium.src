@@ -89,10 +89,10 @@ void NotifyUpdateCrossOriginEmbedderPolicyOnUI(
       std::move(cross_origin_embedder_policy), std::move(coep_reporter));
 }
 
-void NotifyWorkerStoppedOnUI(int worker_process_id, int worker_route_id) {
+void NotifyWorkerDestroyedOnUI(int worker_process_id, int worker_route_id) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  ServiceWorkerDevToolsManager::GetInstance()->WorkerStopped(worker_process_id,
-                                                             worker_route_id);
+  ServiceWorkerDevToolsManager::GetInstance()->WorkerDestroyed(
+      worker_process_id, worker_route_id);
 }
 
 void NotifyWorkerVersionInstalledOnUI(int worker_process_id,
@@ -102,14 +102,10 @@ void NotifyWorkerVersionInstalledOnUI(int worker_process_id,
       worker_process_id, worker_route_id);
 }
 
-void NotifyWorkerVersionDoomedOnUI(
-    int worker_process_id,
-    int worker_route_id,
-    scoped_refptr<ServiceWorkerContextWrapper> context_wrapper,
-    int64_t version_id) {
+void NotifyWorkerVersionDoomedOnUI(int worker_process_id, int worker_route_id) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   ServiceWorkerDevToolsManager::GetInstance()->WorkerVersionDoomed(
-      worker_process_id, worker_route_id, context_wrapper, version_id);
+      worker_process_id, worker_route_id);
 }
 
 using CreateFactoryBundlesOnUICallback = base::OnceCallback<void(
@@ -213,7 +209,8 @@ void SetupOnUIThread(
         cross_origin_embedder_policy,
     blink::mojom::EmbeddedWorkerStartParamsPtr params,
     mojo::PendingReceiver<blink::mojom::EmbeddedWorkerInstanceClient> receiver,
-    scoped_refptr<ServiceWorkerContextWrapper> context_wrapper,
+    ServiceWorkerContextCore* context,
+    base::WeakPtr<ServiceWorkerContextCore> weak_context,
     const base::Optional<base::Time>& io_post_time,
     SetupProcessCallback callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
@@ -304,15 +301,15 @@ void SetupOnUIThread(
   }
   // Register to DevTools and update params accordingly.
   const int routing_id = rph->GetNextRoutingID();
-  ServiceWorkerDevToolsManager::GetInstance()->WorkerStarting(
-      process_id, routing_id, std::move(context_wrapper),
+  ServiceWorkerDevToolsManager::GetInstance()->WorkerCreated(
+      process_id, routing_id, context, weak_context,
       params->service_worker_version_id, params->script_url, params->scope,
       params->is_installed, cross_origin_embedder_policy,
       std::move(coep_reporter_for_devtools), &params->devtools_worker_token,
       &params->wait_for_debugger);
   params->service_worker_route_id = routing_id;
   // Create DevToolsProxy here to ensure that the WorkerCreated() call is
-  // balanced by DevToolsProxy's destructor calling WorkerStopped().
+  // balanced by DevToolsProxy's destructor calling WorkerDestroyed().
   devtools_proxy = std::make_unique<EmbeddedWorkerInstance::DevToolsProxy>(
       process_id, routing_id);
 
@@ -420,10 +417,8 @@ void BindCacheStorageOnUIThread(
 
 }  // namespace
 
-// Created on the UI thread when the worker version is allcated a render process
-// and then moved to the core thread. It is destroyed when the worker stops.
-// Proxies notifications to DevToolsManager that lives on UI thread.
-// Owned by EmbeddedWorkerInstance.
+// Created on UI thread and moved to core thread. Proxies notifications to
+// DevToolsManager that lives on UI thread. Owned by EmbeddedWorkerInstance.
 class EmbeddedWorkerInstance::DevToolsProxy {
  public:
   DevToolsProxy(int process_id, int agent_route_id)
@@ -434,10 +429,10 @@ class EmbeddedWorkerInstance::DevToolsProxy {
   ~DevToolsProxy() {
     DCHECK_CURRENTLY_ON(ServiceWorkerContext::GetCoreThreadId());
     if (ServiceWorkerContext::IsServiceWorkerOnUIEnabled()) {
-      NotifyWorkerStoppedOnUI(process_id_, agent_route_id_);
+      NotifyWorkerDestroyedOnUI(process_id_, agent_route_id_);
     } else {
       ui_task_runner_->PostTask(
-          FROM_HERE, base::BindOnce(NotifyWorkerStoppedOnUI, process_id_,
+          FROM_HERE, base::BindOnce(NotifyWorkerDestroyedOnUI, process_id_,
                                     agent_route_id_));
     }
   }
@@ -467,6 +462,17 @@ class EmbeddedWorkerInstance::DevToolsProxy {
       ui_task_runner_->PostTask(FROM_HERE,
                                 base::BindOnce(NotifyWorkerVersionInstalledOnUI,
                                                process_id_, agent_route_id_));
+    }
+  }
+
+  void NotifyWorkerVersionDoomed() {
+    DCHECK_CURRENTLY_ON(ServiceWorkerContext::GetCoreThreadId());
+    if (ServiceWorkerContext::IsServiceWorkerOnUIEnabled()) {
+      NotifyWorkerVersionDoomedOnUI(process_id_, agent_route_id_);
+    } else {
+      ui_task_runner_->PostTask(
+          FROM_HERE, base::BindOnce(NotifyWorkerVersionDoomedOnUI, process_id_,
+                                    agent_route_id_));
     }
   }
 
@@ -668,8 +674,8 @@ class EmbeddedWorkerInstance::StartTask {
       SetupOnUIThread(
           instance_->embedded_worker_id(), process_manager,
           can_use_existing_process, cross_origin_embedder_policy,
-          std::move(params), std::move(receiver_),
-          base::WrapRefCounted(context->wrapper()), base::nullopt,
+          std::move(params), std::move(receiver_), context.get(), context,
+          base::nullopt,
           base::BindOnce(&StartTask::OnSetupCompleted,
                          weak_factory_.GetWeakPtr(), process_manager));
     } else {
@@ -679,7 +685,7 @@ class EmbeddedWorkerInstance::StartTask {
               &SetupOnUIThread, instance_->embedded_worker_id(),
               process_manager, can_use_existing_process,
               cross_origin_embedder_policy, std::move(params),
-              std::move(receiver_), base::WrapRefCounted(context->wrapper()),
+              std::move(receiver_), context.get(), context,
               base::make_optional<base::Time>(base::Time::Now()),
               base::BindOnce(&StartTask::OnSetupCompleted,
                              weak_factory_.GetWeakPtr(), process_manager)));
@@ -821,6 +827,7 @@ class EmbeddedWorkerInstance::StartTask {
 
 EmbeddedWorkerInstance::~EmbeddedWorkerInstance() {
   DCHECK_CURRENTLY_ON(ServiceWorkerContext::GetCoreThreadId());
+  devtools_proxy_.reset();
   ReleaseProcess();
 }
 
@@ -1034,18 +1041,8 @@ void EmbeddedWorkerInstance::OnWorkerVersionInstalled() {
 }
 
 void EmbeddedWorkerInstance::OnWorkerVersionDoomed() {
-  if (ServiceWorkerContext::IsServiceWorkerOnUIEnabled()) {
-    NotifyWorkerVersionDoomedOnUI(process_id(),
-                                  worker_devtools_agent_route_id(),
-                                  base::WrapRefCounted(context_->wrapper()),
-                                  owner_version_->version_id());
-  } else {
-    ui_task_runner_->PostTask(
-        FROM_HERE, base::BindOnce(NotifyWorkerVersionDoomedOnUI, process_id(),
-                                  worker_devtools_agent_route_id(),
-                                  base::WrapRefCounted(context_->wrapper()),
-                                  owner_version_->version_id()));
-  }
+  if (devtools_proxy_)
+    devtools_proxy_->NotifyWorkerVersionDoomed();
 }
 
 void EmbeddedWorkerInstance::OnScriptEvaluationStart() {

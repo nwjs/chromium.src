@@ -239,6 +239,8 @@ class WebRuntimeFeatures {
 
   BLINK_PLATFORM_EXPORT static void EnableTrustTokens(bool);
 
+  BLINK_PLATFORM_EXPORT static void EnableInstalledApp(bool);
+
  private:
   WebRuntimeFeatures();
 };

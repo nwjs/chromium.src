@@ -1019,8 +1019,7 @@ CompositorKeyframeValue* StyleResolver::CreateCompositorKeyframeValueSnapshot(
       cascade.Apply();
     } else {
       StyleBuilder::ApplyProperty(property.GetCSSPropertyName(), state, *value);
-      state.GetFontBuilder().CreateFont(
-          state.StyleRef());
+      state.GetFontBuilder().CreateFont(state.StyleRef(), parent_style);
       CSSVariableResolver(state).ResolveVariableDefinitions();
     }
   }
@@ -1269,7 +1268,7 @@ scoped_refptr<const ComputedStyle> StyleResolver::StyleForText(
 }
 
 void StyleResolver::UpdateFont(StyleResolverState& state) {
-  state.GetFontBuilder().CreateFont(state.StyleRef());
+  state.GetFontBuilder().CreateFont(state.StyleRef(), state.ParentStyle());
   state.SetConversionFontSizes(CSSToLengthConversionData::FontSizes(
       state.Style(), state.RootElementStyle()));
   state.SetConversionZoom(state.Style()->EffectiveZoom());

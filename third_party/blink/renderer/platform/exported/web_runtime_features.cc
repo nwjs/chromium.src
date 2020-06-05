@@ -667,4 +667,8 @@ void WebRuntimeFeatures::EnableTrustTokens(bool enable) {
   RuntimeEnabledFeatures::SetTrustTokensEnabled(enable);
 }
 
+void WebRuntimeFeatures::EnableInstalledApp(bool enable) {
+  RuntimeEnabledFeatures::SetInstalledAppEnabled(enable);
+}
+
 }  // namespace blink

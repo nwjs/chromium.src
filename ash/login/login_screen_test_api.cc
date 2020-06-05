@@ -181,6 +181,20 @@ bool LoginScreenTestApi::IsWarningBubbleShown() {
 }
 
 // static
+bool LoginScreenTestApi::IsSystemInfoShown() {
+  LockScreen::TestApi lock_screen_test(LockScreen::Get());
+  LockContentsView::TestApi lock_contents_test(
+      lock_screen_test.contents_view());
+  // Check if all views in the hierarchy are visible.
+  for (views::View* view = lock_contents_test.system_info(); view != nullptr;
+       view = view->parent()) {
+    if (!view->GetVisible())
+      return false;
+  }
+  return true;
+}
+
+// static
 void LoginScreenTestApi::SubmitPassword(const AccountId& account_id,
                                         const std::string& password,
                                         bool check_if_submittable) {

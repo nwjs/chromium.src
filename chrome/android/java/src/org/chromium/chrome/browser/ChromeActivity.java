@@ -426,7 +426,8 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
 
             initializeTabModels();
             setTabContentManager(new TabContentManager(this, getContentOffsetProvider(),
-                    !SysUtils.isLowEndDevice(), mTabModelSelector::getTabById));
+                    !SysUtils.isLowEndDevice(),
+                    mTabModelSelector != null ? mTabModelSelector::getTabById : null));
 
             if (!isFinishing() && getFullscreenManager() != null) {
                 getFullscreenManager().initialize(

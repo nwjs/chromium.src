@@ -144,4 +144,17 @@ IN_PROC_BROWSER_TEST_F(LoginUIEnrolledTest, UserReverseRemoval) {
   EXPECT_TRUE(ash::LoginScreenTestApi::IsOobeDialogVisible());
 }
 
+// Checks that system info is visible independent of the Oobe dialog state.
+IN_PROC_BROWSER_TEST_F(LoginUITestBase, SystemInfoVisible) {
+  // No dialog due to existing users.
+  EXPECT_FALSE(ash::LoginScreenTestApi::IsOobeDialogVisible());
+  EXPECT_TRUE(ash::LoginScreenTestApi::IsSystemInfoShown());
+
+  // Open Oobe dialog.
+  EXPECT_TRUE(ash::LoginScreenTestApi::ClickAddUserButton());
+
+  EXPECT_TRUE(ash::LoginScreenTestApi::IsOobeDialogVisible());
+  EXPECT_TRUE(ash::LoginScreenTestApi::IsSystemInfoShown());
+}
+
 }  // namespace chromeos

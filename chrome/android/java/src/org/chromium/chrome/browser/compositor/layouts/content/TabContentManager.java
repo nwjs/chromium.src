@@ -371,6 +371,8 @@ public class TabContentManager {
         getTabThumbnailFromDisk(tabId, (diskBitmap) -> {
             if (diskBitmap != null) callback.onResult(diskBitmap);
 
+            if (mTabFinder == null) return;
+
             Tab tab = mTabFinder.getTabById(tabId);
             if (tab == null) return;
 

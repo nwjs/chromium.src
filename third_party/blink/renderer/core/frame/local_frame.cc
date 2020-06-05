@@ -1487,19 +1487,8 @@ bool LocalFrame::ClipsContent() const {
 void LocalFrame::SetViewportIntersectionFromParent(
     const ViewportIntersectionState& intersection_state) {
   DCHECK(IsLocalRoot());
-  // Notify the render frame observers when the main frame intersection changes.
-  if (intersection_state_.main_frame_document_intersection !=
-      intersection_state.main_frame_document_intersection) {
-    // Put the main frame document intersection in the coordinate system of the
-    // viewport.
-    IntRect offset_main_frame_intersection =
-        intersection_state.main_frame_document_intersection;
-    offset_main_frame_intersection.MoveBy(
-        IntPoint(intersection_state.viewport_offset));
-    Client()->OnMainFrameDocumentIntersectionChanged(
-        offset_main_frame_intersection);
-  }
-
+  // TODO(https://crbug/1085175): Re-enable main frame document intersections
+  // here once intersections are in the root document coordinate system.
   bool can_skip_sticky_frame_tracking =
       intersection_state.can_skip_sticky_frame_tracking ||
       !base::FeatureList::IsEnabled(

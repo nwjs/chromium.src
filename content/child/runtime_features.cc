@@ -326,6 +326,7 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
     {wf::EnableWebNfc, features::kWebNfc, kDisableOnly},
 #endif
     {wf::EnableTrustTokens, network::features::kTrustTokens, kEnableOnly},
+    {wf::EnableInstalledApp, features::kInstalledApp, kDisableOnly},
   };
   for (const auto& mapping : blinkFeatureToBaseFeatureMapping) {
     SetRuntimeFeatureFromChromiumFeature(

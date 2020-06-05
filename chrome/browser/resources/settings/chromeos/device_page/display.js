@@ -755,8 +755,8 @@ Polymer({
     const mode = this.selectedDisplay.modes[this.currentSelectedModeIndex_];
     const bounds = this.selectedDisplay.bounds;
 
-    return (bounds.width / bounds.height).toPrecision(4) !=
-        (mode.widthInNativePixels / mode.heightInNativePixels).toPrecision(4);
+    return bounds.width > bounds.height !=
+        mode.widthInNativePixels > mode.heightInNativePixels;
   },
 
 

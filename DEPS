@@ -189,7 +189,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling ANGLE
   # and whatever else without interference from each other.
-  'angle_revision': 'a053f340a44c5d560a5ce3cc76b42da6cef74e4d',
+  'angle_revision': 'a4b21cf26074967ff502a30ae2d52578ce649938',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling SwiftShader
   # and whatever else without interference from each other.
@@ -248,7 +248,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling devtools-frontend
   # and whatever else without interference from each other.
-  'devtools_frontend_revision': 'c5f7d255568d96637bf20553e01d2b6226b249db',
+  'devtools_frontend_revision': '0c3c3883a6e060f6c8c6c8a53dc8b0ef7420bc4d',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling libprotobuf-mutator
   # and whatever else without interference from each other.
@@ -1538,7 +1538,7 @@ deps = {
   #  Var('chromium_git') + '/v8/v8.git' + '@' +  Var('v8_revision'),
 
   'src-internal': {
-    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@851466086cec49125ed26a185da87009f32ee430',
+    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@98973cbaa5083124a72d920fbe7a94533972a4cd',
     'condition': 'checkout_src_internal',
   },
 

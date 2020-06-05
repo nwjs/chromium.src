@@ -2035,7 +2035,7 @@ const gchar* GetName(AtkObject* atk_object) {
 }
 
 const gchar* AtkGetName(AtkObject* atk_object) {
-  AXPlatformNode::NotifyAddAXModeFlags(kAXModeComplete);
+  AXPlatformNodeAuraLinux::EnableAXMode();
   return GetName(atk_object);
 }
 
@@ -2051,7 +2051,7 @@ const gchar* GetDescription(AtkObject* atk_object) {
 }
 
 const gchar* AtkGetDescription(AtkObject* atk_object) {
-  AXPlatformNode::NotifyAddAXModeFlags(kAXModeComplete);
+  AXPlatformNodeAuraLinux::EnableAXMode();
   return GetDescription(atk_object);
 }
 
@@ -2066,7 +2066,7 @@ gint GetNChildren(AtkObject* atk_object) {
 }
 
 gint AtkGetNChildren(AtkObject* atk_object) {
-  AXPlatformNode::NotifyAddAXModeFlags(kAXModeComplete);
+  AXPlatformNodeAuraLinux::EnableAXMode();
   return GetNChildren(atk_object);
 }
 
@@ -2087,7 +2087,7 @@ AtkObject* RefChild(AtkObject* atk_object, gint index) {
 }
 
 AtkObject* AtkRefChild(AtkObject* atk_object, gint index) {
-  AXPlatformNode::NotifyAddAXModeFlags(kAXModeComplete);
+  AXPlatformNodeAuraLinux::EnableAXMode();
   return RefChild(atk_object, index);
 }
 
@@ -2102,7 +2102,7 @@ gint GetIndexInParent(AtkObject* atk_object) {
 }
 
 gint AtkGetIndexInParent(AtkObject* atk_object) {
-  AXPlatformNode::NotifyAddAXModeFlags(kAXModeComplete);
+  AXPlatformNodeAuraLinux::EnableAXMode();
   return GetIndexInParent(atk_object);
 }
 
@@ -2117,7 +2117,7 @@ AtkObject* GetParent(AtkObject* atk_object) {
 }
 
 AtkObject* AtkGetParent(AtkObject* atk_object) {
-  AXPlatformNode::NotifyAddAXModeFlags(kAXModeComplete);
+  AXPlatformNodeAuraLinux::EnableAXMode();
   return GetParent(atk_object);
 }
 
@@ -2131,7 +2131,7 @@ AtkRelationSet* RefRelationSet(AtkObject* atk_object) {
 }
 
 AtkRelationSet* AtkRefRelationSet(AtkObject* atk_object) {
-  AXPlatformNode::NotifyAddAXModeFlags(kAXModeComplete);
+  AXPlatformNodeAuraLinux::EnableAXMode();
   return RefRelationSet(atk_object);
 }
 
@@ -2146,7 +2146,7 @@ AtkAttributeSet* GetAttributes(AtkObject* atk_object) {
 }
 
 AtkAttributeSet* AtkGetAttributes(AtkObject* atk_object) {
-  AXPlatformNode::NotifyAddAXModeFlags(kAXModeComplete);
+  AXPlatformNodeAuraLinux::EnableAXMode();
   return GetAttributes(atk_object);
 }
 
@@ -2160,7 +2160,7 @@ AtkRole GetRole(AtkObject* atk_object) {
 }
 
 AtkRole AtkGetRole(AtkObject* atk_object) {
-  AXPlatformNode::NotifyAddAXModeFlags(kAXModeComplete);
+  AXPlatformNodeAuraLinux::EnableAXMode();
   return GetRole(atk_object);
 }
 
@@ -2181,7 +2181,7 @@ AtkStateSet* RefStateSet(AtkObject* atk_object) {
 }
 
 AtkStateSet* AtkRefStateSet(AtkObject* atk_object) {
-  AXPlatformNode::NotifyAddAXModeFlags(kAXModeComplete);
+  AXPlatformNodeAuraLinux::EnableAXMode();
   return RefStateSet(atk_object);
 }
 
@@ -2530,6 +2530,14 @@ AXPlatformNode* AXPlatformNodeAuraLinux::application() {
 // static
 void AXPlatformNodeAuraLinux::StaticInitialize() {
   AtkUtilAuraLinux::GetInstance()->InitializeAsync();
+}
+
+// static
+void AXPlatformNodeAuraLinux::EnableAXMode() {
+  // TODO(https://crbug.com/1086506): After figuring out what API calls are
+  // giving us false positives, enable it again. For now, don't activate AX
+  // through ATK calls.
+  // AXPlatformNode::NotifyAddAXModeFlags(kAXModeComplete);
 }
 
 AtkRole AXPlatformNodeAuraLinux::GetAtkRole() const {

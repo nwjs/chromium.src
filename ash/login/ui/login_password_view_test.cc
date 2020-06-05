@@ -9,11 +9,7 @@
 #include "ash/shell.h"
 #include "base/bind.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/timer/mock_timer.h"
-#include "ui/base/ime/text_input_type.h"
 #include "ui/events/test/event_generator.h"
-#include "ui/views/controls/button/image_button.h"
-#include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/widget/widget.h"
 
 namespace ash {
@@ -64,31 +60,40 @@ class LoginPasswordViewTest : public LoginTestBase {
 
 }  // namespace
 
-// Verifies that the display password button updates its UI state.
-TEST_F(LoginPasswordViewTest, DisplayPasswordButtonUpdatesUiState) {
+// Verifies that the submit button updates its UI state.
+TEST_F(LoginPasswordViewTest, SubmitButtonUpdatesUiState) {
   LoginPasswordView::TestApi test_api(view_);
   ui::test::EventGenerator* generator = GetEventGenerator();
 
-  // The display password button is not toggled by default and the password is
-  // not visible.
-  EXPECT_FALSE(test_api.display_password_button()->toggled_for_testing());
-  EXPECT_EQ(test_api.textfield()->GetTextInputType(),
-            ui::TEXT_INPUT_TYPE_PASSWORD);
+  // The submit button starts with the disabled state.
+  EXPECT_TRUE(is_password_field_empty_);
+  EXPECT_FALSE(test_api.submit_button()->GetEnabled());
+  // Enter 'a'. The submit button is enabled.
+  generator->PressKey(ui::KeyboardCode::VKEY_A, 0);
+  EXPECT_FALSE(is_password_field_empty_);
+  EXPECT_TRUE(test_api.submit_button()->GetEnabled());
+  // Enter 'b'. The submit button stays enabled.
+  generator->PressKey(ui::KeyboardCode::VKEY_B, 0);
+  EXPECT_FALSE(is_password_field_empty_);
+  EXPECT_TRUE(test_api.submit_button()->GetEnabled());
 
-  // Click the display password button. The password should be visible.
-  generator->MoveMouseTo(
-      test_api.display_password_button()->GetBoundsInScreen().CenterPoint());
-  generator->ClickLeftButton();
-  EXPECT_TRUE(test_api.display_password_button()->toggled_for_testing());
-  EXPECT_EQ(test_api.textfield()->GetTextInputType(), ui::TEXT_INPUT_TYPE_TEXT);
+  // Clear password. The submit button is disabled.
+  view_->Clear();
+  EXPECT_TRUE(is_password_field_empty_);
+  EXPECT_FALSE(test_api.submit_button()->GetEnabled());
 
-  // Click the display password button again. The password should be hidden.
-  generator->MoveMouseTo(
-      test_api.display_password_button()->GetBoundsInScreen().CenterPoint());
-  generator->ClickLeftButton();
-  EXPECT_FALSE(test_api.display_password_button()->toggled_for_testing());
-  EXPECT_EQ(test_api.textfield()->GetTextInputType(),
-            ui::TEXT_INPUT_TYPE_PASSWORD);
+  // Enter 'a'. The submit button is enabled.
+  generator->PressKey(ui::KeyboardCode::VKEY_A, 0);
+  EXPECT_FALSE(is_password_field_empty_);
+  EXPECT_TRUE(test_api.submit_button()->GetEnabled());
+  // Set the text field to be read-only. The submit button is disabled.
+  view_->SetReadOnly(true);
+  EXPECT_FALSE(is_password_field_empty_);
+  EXPECT_FALSE(test_api.submit_button()->GetEnabled());
+  // Set the text field to be not read-only. The submit button is enabled.
+  view_->SetReadOnly(false);
+  EXPECT_FALSE(is_password_field_empty_);
+  EXPECT_TRUE(test_api.submit_button()->GetEnabled());
 }
 
 // Verifies that password submit works with 'Enter'.
@@ -101,6 +106,23 @@ TEST_F(LoginPasswordViewTest, PasswordSubmitIncludesPasswordText) {
   generator->PressKey(ui::KeyboardCode::VKEY_C, 0);
   generator->PressKey(ui::KeyboardCode::VKEY_1, 0);
   generator->PressKey(ui::KeyboardCode::VKEY_RETURN, 0);
+
+  ASSERT_TRUE(password_.has_value());
+  EXPECT_EQ(base::ASCIIToUTF16("abc1"), *password_);
+}
+
+// Verifies that password submit works when clicking the submit button.
+TEST_F(LoginPasswordViewTest, PasswordSubmitViaButton) {
+  LoginPasswordView::TestApi test_api(view_);
+
+  ui::test::EventGenerator* generator = GetEventGenerator();
+  generator->PressKey(ui::KeyboardCode::VKEY_A, 0);
+  generator->PressKey(ui::KeyboardCode::VKEY_B, 0);
+  generator->PressKey(ui::KeyboardCode::VKEY_C, 0);
+  generator->PressKey(ui::KeyboardCode::VKEY_1, 0);
+  generator->MoveMouseTo(
+      test_api.submit_button()->GetBoundsInScreen().CenterPoint());
+  generator->ClickLeftButton();
 
   ASSERT_TRUE(password_.has_value());
   EXPECT_EQ(base::ASCIIToUTF16("abc1"), *password_);
@@ -183,94 +205,6 @@ TEST_F(LoginPasswordViewTest, EasyUnlockMouseHover) {
 
   // Icon was not tapped.
   EXPECT_FALSE(easy_unlock_icon_tapped_called_);
-}
-
-// Checks that the user can't hit Ctrl+Z to revert the password when it has been
-// cleared.
-TEST_F(LoginPasswordViewTest, CtrlZDisabled) {
-  LoginPasswordView::TestApi test_api(view_);
-  ui::test::EventGenerator* generator = GetEventGenerator();
-
-  generator->PressKey(ui::KeyboardCode::VKEY_A, ui::EF_NONE);
-  EXPECT_FALSE(is_password_field_empty_);
-  view_->Clear();
-  EXPECT_TRUE(is_password_field_empty_);
-  generator->PressKey(ui::KeyboardCode::VKEY_Z, ui::EF_CONTROL_DOWN);
-  EXPECT_TRUE(is_password_field_empty_);
-}
-
-// Verifies that the password textfield clears after a delay when the display
-// password button is shown.
-TEST_F(LoginPasswordViewTest, PasswordAutoClearsAndHides) {
-  LoginPasswordView::TestApi test_api(view_);
-  ui::test::EventGenerator* generator = GetEventGenerator();
-
-  // Install mock timers into the password view.
-  auto clear_timer0 = std::make_unique<base::MockRetainingOneShotTimer>();
-  auto hide_timer0 = std::make_unique<base::MockRetainingOneShotTimer>();
-  base::MockRetainingOneShotTimer* clear_timer = clear_timer0.get();
-  base::MockRetainingOneShotTimer* hide_timer = hide_timer0.get();
-  test_api.SetTimers(std::move(clear_timer0), std::move(hide_timer0));
-
-  // Verify clearing timer works.
-  generator->PressKey(ui::KeyboardCode::VKEY_A, ui::EF_NONE);
-  EXPECT_FALSE(is_password_field_empty_);
-
-  clear_timer->Fire();
-  EXPECT_TRUE(is_password_field_empty_);
-
-  // Check a second time.
-  generator->PressKey(ui::KeyboardCode::VKEY_A, ui::EF_NONE);
-  EXPECT_FALSE(is_password_field_empty_);
-  clear_timer->Fire();
-  EXPECT_TRUE(is_password_field_empty_);
-
-  // Verify hiding timer works; set the password visible first then fire the
-  // hiding timer and check it is hidden.
-  generator->PressKey(ui::KeyboardCode::VKEY_A, ui::EF_NONE);
-  EXPECT_EQ(test_api.textfield()->GetTextInputType(),
-            ui::TEXT_INPUT_TYPE_PASSWORD);
-  generator->MoveMouseTo(
-      test_api.display_password_button()->GetBoundsInScreen().CenterPoint());
-  generator->ClickLeftButton();
-  EXPECT_EQ(test_api.textfield()->GetTextInputType(), ui::TEXT_INPUT_TYPE_TEXT);
-  hide_timer->Fire();
-  EXPECT_EQ(test_api.textfield()->GetTextInputType(),
-            ui::TEXT_INPUT_TYPE_PASSWORD);
-  // Hide an empty password already hidden and make sure a second fire works.
-  hide_timer->Fire();
-  EXPECT_EQ(test_api.textfield()->GetTextInputType(),
-            ui::TEXT_INPUT_TYPE_PASSWORD);
-}
-
-// Verifies that the password textfield hides back when the content changes.
-TEST_F(LoginPasswordViewTest, PasswordHidesAfterTyping) {
-  LoginPasswordView::TestApi test_api(view_);
-  ui::test::EventGenerator* generator = GetEventGenerator();
-
-  // Show the password.
-  EXPECT_EQ(test_api.textfield()->GetTextInputType(),
-            ui::TEXT_INPUT_TYPE_PASSWORD);
-  generator->MoveMouseTo(
-      test_api.display_password_button()->GetBoundsInScreen().CenterPoint());
-  generator->ClickLeftButton();
-  EXPECT_EQ(test_api.textfield()->GetTextInputType(), ui::TEXT_INPUT_TYPE_TEXT);
-
-  // Type and check if the password textfield hides back.
-  generator->PressKey(ui::KeyboardCode::VKEY_A, ui::EF_NONE);
-  EXPECT_EQ(test_api.textfield()->GetTextInputType(),
-            ui::TEXT_INPUT_TYPE_PASSWORD);
-
-  // Click again to show the password.
-  generator->MoveMouseTo(
-      test_api.display_password_button()->GetBoundsInScreen().CenterPoint());
-  generator->ClickLeftButton();
-  EXPECT_EQ(test_api.textfield()->GetTextInputType(), ui::TEXT_INPUT_TYPE_TEXT);
-
-  // Modifies the content programmatically and check it is still triggered.
-  test_api.textfield()->InsertText(base::ASCIIToUTF16("test"));
-  EXPECT_EQ(test_api.textfield()->GetTextInputType(),
-            ui::TEXT_INPUT_TYPE_PASSWORD);
 }
 
 }  // namespace ash

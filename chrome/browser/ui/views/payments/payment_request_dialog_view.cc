@@ -57,6 +57,14 @@ std::unique_ptr<views::View> CreateViewAndInstallController(
 
 }  // namespace
 
+// static
+base::WeakPtr<PaymentRequestDialogView> PaymentRequestDialogView::Create(
+    PaymentRequest* request,
+    PaymentRequestDialogView::ObserverForTest* observer) {
+  return (new PaymentRequestDialogView(request, observer))
+      ->weak_ptr_factory_.GetWeakPtr();
+}
+
 PaymentRequestDialogView::PaymentRequestDialogView(
     PaymentRequest* request,
     PaymentRequestDialogView::ObserverForTest* observer)
@@ -98,7 +106,7 @@ PaymentRequestDialogView::PaymentRequestDialogView(
   chrome::RecordDialogCreation(chrome::DialogIdentifier::PAYMENT_REQUEST);
 }
 
-PaymentRequestDialogView::~PaymentRequestDialogView() {}
+PaymentRequestDialogView::~PaymentRequestDialogView() = default;
 
 void PaymentRequestDialogView::RequestFocus() {
   view_stack_->RequestFocus();

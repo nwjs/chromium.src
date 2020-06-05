@@ -182,7 +182,8 @@ public class CustomTabDelegateFactory implements TabDelegateFactory {
         public boolean shouldDisableExternalIntentRequestsForUrl(String url) {
             // http://crbug.com/647569 : Do not forward URL requests to external intents for URLs
             // within the Webapp/TWA's scope.
-            return mExternalIntentsPolicyProvider.shouldIgnoreExternalIntentHandlers(url);
+            return mExternalIntentsPolicyProvider != null 
+                && mExternalIntentsPolicyProvider.shouldIgnoreExternalIntentHandlers(url);
         }
     }
 

@@ -119,19 +119,6 @@ constexpr int kDisabledAuthMessageRoundedCornerRadiusDp = 8;
 
 constexpr int kNonEmptyWidthDp = 1;
 
-// TODO(tellier): This should be removed in M84. See crbug.com/1062524
-const char kGmailDomain[] = "gmail.com";
-const char kGooglemailDomain[] = "googlemail.com";
-
-bool IsNotEnterpriseManagedEmail(const std::string& email) {
-  size_t separator_pos = email.find('@');
-  if (separator_pos != email.npos && separator_pos < email.length() - 1) {
-    std::string domain = base::ToLowerASCII(email.substr(separator_pos + 1));
-    return domain == kGmailDomain || domain == kGooglemailDomain;
-  }
-  return false;
-}
-
 // Returns an observer that will hide |view| when it fires. The observer will
 // delete itself after firing (by returning true). Make sure to call
 // |observer->SetActive()| after attaching it.
@@ -194,7 +181,7 @@ class ClearPasswordAndHideAnimationObserver
 
   // ui::ImplicitAnimationObserver:
   void OnImplicitAnimationsCompleted() override {
-    password_view_->Reset();
+    password_view_->Clear();
     password_view_->SetVisible(false);
     delete this;
   }
@@ -812,8 +799,6 @@ LoginAuthUserView::LoginAuthUserView(const LoginUserInfo& user,
   password_view_ = password_view.get();
   password_view->SetPaintToLayer();  // Needed for opacity animation.
   password_view->layer()->SetFillsBoundsOpaquely(false);
-  password_view_->SetDisplayPasswordButtonVisible(
-      IsNotEnterpriseManagedEmail(user.basic_user_info.display_email));
 
   auto pin_view = std::make_unique<LoginPinView>(
       LoginPinView::Style::kAlphanumeric,
@@ -998,7 +983,7 @@ void LoginAuthUserView::SetAuthMethods(uint32_t auth_methods,
 
   password_view_->SetEnabled(has_password);
   password_view_->SetEnabledOnEmptyPassword(has_tap);
-  password_view_->SetFocusEnabledOnTextfield(has_password);
+  password_view_->SetFocusEnabledForChildViews(has_password);
   password_view_->SetVisible(!hide_auth && has_password);
   password_view_->layer()->SetOpacity(has_password ? 1 : 0);
   password_view_container_->SetVisible(has_password || !has_challenge_response);
@@ -1221,11 +1206,8 @@ void LoginAuthUserView::UpdateForUser(const LoginUserInfo& user) {
   const bool user_changed = current_user().basic_user_info.account_id !=
                             user.basic_user_info.account_id;
   user_view_->UpdateForUser(user, true /*animate*/);
-  if (user_changed) {
-    password_view_->Reset();
-    password_view_->SetDisplayPasswordButtonVisible(
-        IsNotEnterpriseManagedEmail(user.basic_user_info.display_email));
-  }
+  if (user_changed)
+    password_view_->Clear();
   online_sign_in_message_->SetText(
       l10n_util::GetStringUTF16(IDS_ASH_LOGIN_SIGN_IN_REQUIRED_MESSAGE));
 }
@@ -1309,7 +1291,7 @@ void LoginAuthUserView::OnAuthComplete(base::Optional<bool> auth_success) {
   // animating the next lock screen will not work as expected. See
   // https://crbug.com/808486.
   if (!auth_success.has_value() || !auth_success.value()) {
-    password_view_->Reset();
+    password_view_->Clear();
     password_view_->SetReadOnly(false);
     external_binary_auth_button_->SetEnabled(true);
     external_binary_enrollment_button_->SetEnabled(true);
@@ -1321,7 +1303,7 @@ void LoginAuthUserView::OnAuthComplete(base::Optional<bool> auth_success) {
 void LoginAuthUserView::OnChallengeResponseAuthComplete(
     base::Optional<bool> auth_success) {
   if (!auth_success.has_value() || !auth_success.value()) {
-    password_view_->Reset();
+    password_view_->Clear();
     password_view_->SetReadOnly(false);
     // If the user canceled the PIN request during ChallengeResponse,
     // ChallengeResponse will fail with an unknown error. Since this is
