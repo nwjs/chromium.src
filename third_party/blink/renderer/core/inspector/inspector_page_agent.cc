@@ -132,7 +132,7 @@ String NavigationPolicyToProtocol(NavigationPolicy policy) {
     case kNavigationPolicyNewPopup:
       return DispositionEnum::NewWindow;
     case kNavigationPolicyIgnore:
-      return DispositionEnum::Ignore;
+      return DispositionEnum::Nwignore;
   }
   return DispositionEnum::CurrentTab;
 }

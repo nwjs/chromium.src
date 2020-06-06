@@ -539,7 +539,7 @@ bool AppWindow::PreHandleGestureEvent(WebContents* source,
   // screen.
   // TODO(mcnee): Investigate having the PDF viewer handle the gesture
   // once it is a service. crbug.com/757541
-  if (event.GetType() == blink::WebInputEvent::kGestureDoubleTap) {
+  if (event.GetType() == blink::WebInputEvent::Type::kGestureDoubleTap) {
     content::BrowserPluginGuestManager* guest_manager =
         source->GetBrowserContext()->GetGuestManager();
     if (guest_manager) {

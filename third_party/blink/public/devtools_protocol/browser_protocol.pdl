@@ -5619,7 +5619,7 @@ domain Page
       newTab
       newWindow
       download
-      ignore
+      nwignore
 
   experimental type InstallabilityErrorArgument extends object
     properties
