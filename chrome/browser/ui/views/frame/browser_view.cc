@@ -2454,6 +2454,9 @@ gfx::ImageSkia BrowserView::GetWindowAppIcon() {
 }
 
 gfx::ImageSkia BrowserView::GetWindowIcon() {
+  gfx::Image icon_override = browser()->icon_override();
+  if (!icon_override.IsEmpty())
+    return *icon_override.ToImageSkia();
   // Use the default icon for devtools.
   if (browser_->is_type_devtools()) {
     WebContents* active_content = browser_->tab_strip_model()->GetActiveWebContents();
