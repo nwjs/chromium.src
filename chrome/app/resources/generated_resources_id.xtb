@@ -442,11 +442,6 @@
 <translation id="1555130319947370107">Biru</translation>
 <translation id="1556537182262721003">Tidak dapat memindah direktori ekstensi ke dalam profil.</translation>
 <translation id="155865706765934889">Touchpad</translation>
-<translation id="1560763881671211335">Administrator G Suite for Education menentukan layanan Google yang dapat diakses oleh pengguna saat login ke akun G Suite for Education. Administrator sekolah harus memberikan atau memperoleh izin atas penggunaan layanan oleh pengguna di bawah umur.
-
-    Data penjelajahan (termasuk histori, bookmark, dan sandi) akan disimpan dengan akun Family Link, bukan akun sekolah.
-
-    Setelan orang tua Family Link Anda akan tetap berlaku. Jika sebelumnya Anda telah memblokir aplikasi atau situs, Anda tidak perlu melakukannya lagi.</translation>
 <translation id="1566049601598938765">Situs web</translation>
 <translation id="15662109988763471">Printer yang dipilih tidak tersedia atau tidak diinstal dengan benar. Periksa printer Anda atau coba pilih printer lainnya.</translation>
 <translation id="1567387640189251553">Keyboard yang berbeda telah terhubung sejak Anda terakhir memasukkan sandi. Keyboard tersebut mungkin mencoba mencuri ketukan tombol Anda.</translation>
@@ -1771,6 +1766,7 @@ Anda dapat mengelola setelan akun ini dengan menginstal aplikasi Family Link di 
 <translation id="32101887417650595">Tidak dapat tersambung ke printer</translation>
 <translation id="321084946921799184">Kuning dan putih</translation>
 <translation id="321356136776075234">OU Perangkat (mis., OU=Chromebook,DC=example,DC=com)</translation>
+<translation id="3216825226035747725">Administrator G Suite for Education menentukan layanan Google yang dapat diakses oleh pengguna saat login ke akun G Suite for Education. Ini dapat mencakup beberapa fitur atau layanan yang sebelumnya tidak dapat diakses anak Anda menggunakan akun yang diawasi ini. Administrator sekolah harus memberikan atau memperoleh izin atas penggunaan layanan oleh pengguna di bawah umur.</translation>
 <translation id="3217843140356091325">Buat pintasan?</translation>
 <translation id="321799795901478485">Zip Archiver</translation>
 <translation id="321834671654278338">Uninstaller Linux</translation>
@@ -1843,7 +1839,6 @@ Anda dapat mengelola setelan akun ini dengan menginstal aplikasi Family Link di 
 <translation id="3312424061798279731">Bahasa yang diaktifkan</translation>
 <translation id="3313622045786997898">Nilai Tanda Tangan Sertifikat</translation>
 <translation id="3315158641124845231">Sembunyikan <ph name="PRODUCT_NAME" /></translation>
-<translation id="3317284582048881482">Info akun sekolah untuk orang tua</translation>
 <translation id="3317459757438853210">Dua sisi</translation>
 <translation id="3317678681329786349">Kamera dan mikrofon diblokir</translation>
 <translation id="3319048459796106952">Jendela &amp;penyamaran baru</translation>
@@ -4852,7 +4847,6 @@ Anda dapat mengelola setelan akun ini dengan menginstal aplikasi Family Link di 
 <translation id="7235737137505019098">Kunci keamanan Anda tidak memiliki ruang penyimpanan yang cukup untuk akun lainnya.</translation>
 <translation id="7238643356913091553"><ph name="NETWORK_NAME" />, Detail</translation>
 <translation id="7240339475467890413">Sambungkan ke hotspot baru?</translation>
-<translation id="7240847845291869311">Anak Anda ingin menambahkan Akun Google G Suite for Education ke perangkat ini. <ph name="LINK_BEGIN" />Pemberitahuan Privasi G Suite for Education<ph name="LINK_END" /> bertujuan untuk membantu pengguna G Suite for Education dan orang tua memahami data yang dikumpulkan produk, alasan data dikumpulkan, dan apa yang dilakukan dengan data tersebut.</translation>
 <translation id="7241389281993241388">Masuklah ke <ph name="TOKEN_NAME" /> untuk mengimpor sertifikat klien.</translation>
 <translation id="7243632151880336635">Hapus dan Keluar</translation>
 <translation id="7243784282103630670">Terjadi error saat mengupgrade Linux. Kami akan memulihkan penampung menggunakan cadangan Anda.</translation>
@@ -5541,6 +5535,7 @@ Simpan file kunci Anda di tempat yang aman. Anda akan membutuhkannya untuk membu
     <ph name="BEGIN_PARAGRAPH5" />Anda dapat menonaktifkan layanan ini di Setelan.<ph name="END_PARAGRAPH5" /></translation>
 <translation id="80974698889265265">PIN tidak cocok</translation>
 <translation id="809792523045608178"><ph name="IDS_SHORT_PRODUCT_NAME" /> menggunakan setelan proxy dari ekstensi</translation>
+<translation id="8097959162767603171">Administrator Anda harus menyetujui persyaratan layanan terlebih dulu di daftar perangkat Chrome konsol Admin.</translation>
 <translation id="8101987792947961127">Perlu Powerwash saat mulai ulang berikutnya</translation>
 <translation id="8102159139658438129">Buka <ph name="LINK_BEGIN" />Setelan<ph name="LINK_END" /> guna melihat opsi untuk ponsel yang terhubung</translation>
 <translation id="8104696615244072556">Powerwash perangkat <ph name="IDS_SHORT_PRODUCT_NAME" /> dan kembalikan ke versi sebelumnya.</translation>

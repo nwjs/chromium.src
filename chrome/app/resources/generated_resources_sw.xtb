@@ -439,11 +439,6 @@
 <translation id="1555130319947370107">Samawati</translation>
 <translation id="1556537182262721003">Saraka ya kiendelezi haikuweza kuhamishwa hadi kwenye wasifu.</translation>
 <translation id="155865706765934889">Touchpad</translation>
-<translation id="1560763881671211335">Wasimamizi wa G Suite for Education hubaini huduma za Google ambazo watumiaji wanaweza kufikia wakiwa wameingia katika akaunti ya G Suite for Education. Wasimamizi wa shule wanahitajika kutoa au kupata idhini ya utumiaji wa huduma kwa niaba ya watumiaji ambao ni watoto.
-
-    Data ya kuvinjari (ikiwemo historia, alamisho na manenosiri) itahifadhiwa kwa kutumia akaunti ya Family Link wala si akaunti ya shule.
-
-    Mipangilio yako ya mzazi kwenye Family Link bado itatumika. Ikiwa ulizuia programu au tovuti hapo awali, hutalazimika kufanya hivyo tena.</translation>
 <translation id="1566049601598938765">Tovuti</translation>
 <translation id="15662109988763471">Printa iliyochaguliwa haipatikani au haijasakinishwa vizuri. Angalia printa yako au ujaribu kuchagua printa nyingine.</translation>
 <translation id="1567387640189251553">Kibodi tofauti imeunganishwa baada ya tukio lako la hivi karibuni la kuweka nenosiri. Huenda inajaribu kuiba mibofyo yako.</translation>
@@ -1768,6 +1763,7 @@ Unaweza kudhibiti mipangilio ya akaunti hii kwa kusakinisha programu ya Family L
 <translation id="32101887417650595">Imeshindwa kuunganisha kwenye printa</translation>
 <translation id="321084946921799184">Manjano na nyeupe</translation>
 <translation id="321356136776075234">Kitengo cha shirika (OU) cha kifaa (kwa mfano, OU=Chromebooks,DC=example,DC=com)</translation>
+<translation id="3216825226035747725">Wasimamizi wa G Suite for Education hubaini huduma za Google ambazo watumiaji wanaweza kufikia wakiwa wameingia katika akaunti ya G Suite for Education. Hali hii inaweza kujumuisha baadhi ya vipengele au huduma ambazo mtoto wako hangeweza kufikia awali akitumia akaunti hii inayodhibitiwa. Wasimamizi wa shule wanahitajika kutoa au kupata idhini ya utumiaji wa huduma kwa niaba ya watumiaji ambao ni watoto.</translation>
 <translation id="3217843140356091325">Ungependa kuweka njia ya mkato?</translation>
 <translation id="321799795901478485">Zip Archiver</translation>
 <translation id="321834671654278338">Programu ya kuondoa Linux</translation>
@@ -1840,7 +1836,6 @@ Unaweza kudhibiti mipangilio ya akaunti hii kwa kusakinisha programu ya Family L
 <translation id="3312424061798279731">Lugha zinazotumika</translation>
 <translation id="3313622045786997898">Thamani ya Sahihi ya Cheti</translation>
 <translation id="3315158641124845231">Ficha <ph name="PRODUCT_NAME" /></translation>
-<translation id="3317284582048881482">Maelezo ya akaunti ya shuleni kwa wazazi</translation>
 <translation id="3317459757438853210">Pande mbili</translation>
 <translation id="3317678681329786349">Kamera na maikrofoni zimezuiwa</translation>
 <translation id="3319048459796106952">Dirisha &amp;fiche jipya</translation>
@@ -4847,7 +4842,6 @@ Ungependa kuanza <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="7235737137505019098">Ufunguo wako wa usalama hauna nafasi ya kutosha ili kutumia akaunti nyingine zozote.</translation>
 <translation id="7238643356913091553"><ph name="NETWORK_NAME" />, Maelezo</translation>
 <translation id="7240339475467890413">Ungependa kuunganishwa kwenye mtandaopepe mpya?</translation>
-<translation id="7240847845291869311">Mtoto wako angependa kuweka Akaunti ya G Suite for Education kwenye kifaa hiki. <ph name="LINK_BEGIN" />Ilani ya Faragha ya G Suite for Education<ph name="LINK_END" /> imekusudiwa kuwasaidia wateja na wazazi wanaotumia G Suite for Education kuelewa data ambayo bidhaa inakusanya, sababu za kuikusanya na tunachofanya nayo.</translation>
 <translation id="7241389281993241388">Tafadhali ingia kwenye <ph name="TOKEN_NAME" /> ili kuleta cheti cha mteja.</translation>
 <translation id="7243632151880336635">Futa na Uondoke kwenye Akaunti</translation>
 <translation id="7243784282103630670">Hitilafu imetokea wakati wa kupata toleo jipya la Linux. Tutarejesha metadata tukitumia nakala uliyohifadhi.</translation>
@@ -5538,6 +5532,7 @@ Weka faili yako ya funguo mahali salama. Utaihitaji kuunda matoleo mapya ya kien
     <ph name="BEGIN_PARAGRAPH5" />Unaweza kuzima huduma hii katika Mipangilio.<ph name="END_PARAGRAPH5" /></translation>
 <translation id="80974698889265265">PIN hazilingani</translation>
 <translation id="809792523045608178"><ph name="IDS_SHORT_PRODUCT_NAME" /> inatumia mipangilio ya seva mbadala kutoka kwenye kiendelezi</translation>
+<translation id="8097959162767603171">Ni lazima msimamizi wako akubali kwanza sheria na masharti kwenye orodha ya kifaa cha Chrome katika dashibodi ya Wasimamizi.</translation>
 <translation id="8101987792947961127">Powerwash inahitajika kwenye kuwasha kunakofuata</translation>
 <translation id="8102159139658438129">Nenda kwenye <ph name="LINK_BEGIN" />Mipangilio<ph name="LINK_END" /> ili uone chaguo za simu yako iliyounganishwa</translation>
 <translation id="8104696615244072556">Tumia Powerwash kwenye kifaa <ph name="IDS_SHORT_PRODUCT_NAME" /> chako na urejee kwenye toleo la awali.</translation>

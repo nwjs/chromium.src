@@ -442,11 +442,6 @@
 <translation id="1555130319947370107">Bleu</translation>
 <translation id="1556537182262721003">Échec de déplacement du répertoire d'extensions dans le profil.</translation>
 <translation id="155865706765934889">Pavé tactile</translation>
-<translation id="1560763881671211335">Les administrateurs de G Suite for Education déterminent à quels services Google leurs utilisateurs peuvent accéder lorsqu'ils sont connectés à un compte G Suite for Education. Les administrateurs scolaires doivent fournir ou obtenir le consentement pour que les utilisateurs mineurs puissent utiliser les services.
-
-    Les données de navigation (y compris l'historique, les favoris et les mots de passe) seront stockées dans le compte Family Link et non dans le compte scolaire.
-
-    Vos paramètres parentaux s'appliqueront toujours. Si vous avez déjà bloqué une application ou un site, vous n'aurez plus à le faire.</translation>
 <translation id="1566049601598938765">Site Web</translation>
 <translation id="15662109988763471">L'imprimante sélectionnée n'est pas accessible ou n'est pas installée correctement. Vérifiez votre imprimante ou essayez d'en sélectionner une autre.</translation>
 <translation id="1567387640189251553">Un autre clavier a été branché depuis la dernière fois que vous avez entré votre mot de passe. Il essaie peut-être de récupérer les touches que vous avez utilisées.</translation>
@@ -1772,6 +1767,7 @@ https://support.google.com/chrome/?p=applescript</translation>
 <translation id="32101887417650595">Impossible de se connecter à l'imprimante</translation>
 <translation id="321084946921799184">Jaune et blanc</translation>
 <translation id="321356136776075234">Unité organisationnelle d'appareil (p. ex., OU = Chromebook, DC = exemple, DC = com)</translation>
+<translation id="3216825226035747725">Les administrateurs de G Suite for Education déterminent à quels services Google leurs utilisateurs peuvent accéder lorsqu'ils sont connectés à un compte G Suite for Education. Cela peut comprendre des fonctionnalités ou des services auxquels votre enfant ne pouvait pas accéder à l'aide de ce compte supervisé. Les administrateurs scolaires doivent fournir ou obtenir le consentement pour que les utilisateurs mineurs puissent utiliser les services.</translation>
 <translation id="3217843140356091325">Créer un raccourci?</translation>
 <translation id="321799795901478485">Zip Archiver</translation>
 <translation id="321834671654278338">Programme de désinstallation Linux</translation>
@@ -1844,7 +1840,6 @@ https://support.google.com/chrome/?p=applescript</translation>
 <translation id="3312424061798279731">Langues activées</translation>
 <translation id="3313622045786997898">Valeur de la signature du certificat</translation>
 <translation id="3315158641124845231">Masquer <ph name="PRODUCT_NAME" /></translation>
-<translation id="3317284582048881482">Renseignements sur le compte scolaire à l'intention des parents</translation>
 <translation id="3317459757438853210">Recto verso</translation>
 <translation id="3317678681329786349">La caméra et le microphone sont bloqués</translation>
 <translation id="3319048459796106952">Nouvelle fenêtre de navigation pr&amp;ivée</translation>
@@ -4853,7 +4848,6 @@ Souhaitez-vous lancer <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="7235737137505019098">Votre clé de sécurité n'a pas suffisamment d'espace libre pour qu'on y enregistre des comptes supplémentaires.</translation>
 <translation id="7238643356913091553"><ph name="NETWORK_NAME" />, détails</translation>
 <translation id="7240339475467890413">Connexion au nouveau point d'accès sans fil?</translation>
-<translation id="7240847845291869311">Votre enfant souhaite ajouter un compte G Suite for Education sur cet appareil. L'<ph name="LINK_BEGIN" />avis de confidentialité de G Suite for Education<ph name="LINK_END" /> est conçu pour aider les utilisateurs de G Suite for Education et leurs parents à comprendre quelles données le service collecte, pour quelles raisons et l'usage qu'il en fait.</translation>
 <translation id="7241389281993241388">Veuillez vous connecter à <ph name="TOKEN_NAME" /> pour importer le certificat de client.</translation>
 <translation id="7243632151880336635">Effacer et se déconnecter</translation>
 <translation id="7243784282103630670">Une erreur s'est produite lors de la mise à niveau de Linux. Nous allons restaurer le conteneur à l'aide de votre sauvegarde.</translation>
@@ -5541,6 +5535,7 @@ Conservez votre fichier de clé en lieu sûr. Vous en aurez besoin lors de la cr
     <ph name="BEGIN_PARAGRAPH5" />Vous pouvez désactiver ce service dans les paramètres.<ph name="END_PARAGRAPH5" /></translation>
 <translation id="80974698889265265">Les NIP ne correspondent pas</translation>
 <translation id="809792523045608178"><ph name="IDS_SHORT_PRODUCT_NAME" /> utilise les paramètres mandataires d'une extension</translation>
+<translation id="8097959162767603171">Votre administrateur doit tout d'abord accepter les conditions d'utilisation dans la liste d'appareils de la console d'administrateur de Chrome.</translation>
 <translation id="8101987792947961127">Réinitialisation « Powerwash » nécessaire au prochain démarrage</translation>
 <translation id="8102159139658438129">Accédez à <ph name="LINK_BEGIN" />Paramètres<ph name="LINK_END" /> pour afficher les options de votre téléphone connecté</translation>
 <translation id="8104696615244072556">Utilisez la fonction Powerwash sur votre appareil <ph name="IDS_SHORT_PRODUCT_NAME" /> et revenez à la version précédente.</translation>

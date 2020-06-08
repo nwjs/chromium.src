@@ -342,7 +342,7 @@
 <translation id="1431188203598586230">עדכון התוכנה האחרון</translation>
 <translation id="1431432486300429272">‏Google עשויה להשתמש בהיסטוריית הגלישה שלך כדי להתאים אישית את החיפוש ושירותים אחרים של Google. לך ולהורים יש אפשרות לשנות זאת מתי שתרצו בכתובת myaccount.google.com/activitycontrols/search</translation>
 <translation id="1432581352905426595">נהל מנועי חיפוש</translation>
-<translation id="1433811987160647649">שאל לפני גישה</translation>
+<translation id="1433811987160647649">שאלה לפני גישה</translation>
 <translation id="1434696352799406980">‏פעולה זו תאפס את דף הפתיחה, את דף הכרטיסייה החדשה, את מנוע החיפוש ואת הכרטיסיות המוצמדות שלך. היא גם תשבית את כל התוספים ותמחק נתונים זמניים כגון קובצי Cookie. הסימניות, ההיסטוריה והסיסמאות השמורות לא יימחקו.</translation>
 <translation id="1434886155212424586">דף הבית הוא הדף 'כרטיסייה חדשה'</translation>
 <translation id="1436390408194692385">תקף במשך <ph name="TICKET_TIME_LEFT" /></translation>
@@ -439,11 +439,6 @@
 <translation id="1555130319947370107">כחול</translation>
 <translation id="1556537182262721003">לא היתה אפשרות להעביר ספריית תוספים לפרופיל.</translation>
 <translation id="155865706765934889">לוח מגע</translation>
-<translation id="1560763881671211335">‏מנהלי מערכת ב-G Suite for Education קובעים לאילו שירותי Google המשתמשים שלהם יכולים לגשת בזמן שהם מחוברים לחשבון G Suite for Education. מנהלי מערכת של בתי ספר צריכים לתת או לקבל הסכמה לשימוש של המשתמשים הקטינים שלהם בשירותים.
-
-    נתוני הגלישה (כולל ההיסטוריה, הסימניות והסיסמאות) יישמרו בחשבון Family Link ולא בחשבון הבית ספרי.
-
-    הגדרות ההורים ב-Family Link ימשיכו לחול. אם חסמת בעבר אפליקציה או אתר, לא יהיה צורך לחסום אותם מחדש.</translation>
 <translation id="1566049601598938765">אתר</translation>
 <translation id="15662109988763471">המדפסת שנבחרה אינה זמינה או שאינה מותקנת כראוי. יש לבדוק את המדפסת או לנסות לבחור מדפסת אחרת.</translation>
 <translation id="1567387640189251553">חוברה מקלדת אחרת מאז שהזנת את הסיסמה בפעם האחרונה. ייתכן שהיא מנסה לתעד את ההקשות שלך.</translation>
@@ -1769,6 +1764,7 @@
 <translation id="32101887417650595">לא ניתן להתחבר למדפסת</translation>
 <translation id="321084946921799184">צהוב ולבן</translation>
 <translation id="321356136776075234">‏OU של מכשיר (לדוגמה OU=Chromebooks,DC=example,DC=com)</translation>
+<translation id="3216825226035747725">‏מנהלי מערכת ב-G Suite for Education קובעים לאילו שירותי Google המשתמשים שלהם יכולים לגשת בזמן שהם מחוברים לחשבון G Suite for Education. שירותים אלה עשויים לכלול כמה תכונות או שירותים שלילד או לילדה שלך לא הייתה אליהם גישה בעבר באמצעות החשבון הזה, שהוא חשבון בפיקוח. מנהלי מערכת של בתי ספר צריכים לתת או לקבל הסכמה לכך שמשתמשים קטינים ישתמשו בשירותים שלהם.</translation>
 <translation id="3217843140356091325">ליצור קיצור דרך?</translation>
 <translation id="321799795901478485">Zip Archiver</translation>
 <translation id="321834671654278338">‏מנהל הסרת ההתקנה של Linux</translation>
@@ -1841,7 +1837,6 @@
 <translation id="3312424061798279731">שפות זמינות</translation>
 <translation id="3313622045786997898">ערך חתימת אישור </translation>
 <translation id="3315158641124845231">הסתר את <ph name="PRODUCT_NAME" /></translation>
-<translation id="3317284582048881482">פרטי חשבון בית ספרי להורים</translation>
 <translation id="3317459757438853210">דו-צדדי</translation>
 <translation id="3317678681329786349">לא ניתן להשתמש בדף זה במצלמה ובמיקרופון</translation>
 <translation id="3319048459796106952">חלון 'גלישה בסתר' חדש</translation>
@@ -4850,7 +4845,6 @@
 <translation id="7235737137505019098">במפתח האבטחה שלך אין מספיק מקום לחשבונות נוספים.</translation>
 <translation id="7238643356913091553"><ph name="NETWORK_NAME" />, פרטים</translation>
 <translation id="7240339475467890413">להתחבר לנקודה חדשה לשיתוף אינטרנט?</translation>
-<translation id="7240847845291869311">‏הילד או הילדה שלך רוצה להוסיף למכשיר הזה חשבון Google לשימוש ב-G Suite for Education. <ph name="LINK_BEGIN" />הודעת הפרטיות בנושא G Suite for Education<ph name="LINK_END" /> נועדה לעזור למשתמשי G Suite for Education ולהורים שלהם להבין אילו נתונים המוצר הזה אוסף, למה הוא אוסף אותם ואיזה שימוש נעשה בהם.</translation>
 <translation id="7241389281993241388">היכנס אל <ph name="TOKEN_NAME" /> כדי לייבא את אישור הלקוח.</translation>
 <translation id="7243632151880336635">זה מספיק, ברצוני לצאת</translation>
 <translation id="7243784282103630670">‏קרתה שגיאה בעת השדרוג של Linux. נשחזר את המאגר באמצעות הגיבוי שלך.</translation>
@@ -5540,6 +5534,7 @@
     <ph name="BEGIN_PARAGRAPH5" />אפשר לכבות את השירות הזה ב'הגדרות'.<ph name="END_PARAGRAPH5" /></translation>
 <translation id="80974698889265265">‏מספרי ה-PIN אינם תואמים</translation>
 <translation id="809792523045608178">‏<ph name="IDS_SHORT_PRODUCT_NAME" /> משתמש בהגדרות שרת proxy שנקבעו על-ידי תוסף</translation>
+<translation id="8097959162767603171">‏מנהל המערכת צריך קודם לאשר את התנאים וההגבלות ברשימת מכשירי Chrome שבמסוף ה-Admin.</translation>
 <translation id="8101987792947961127">‏יש לבצע Powerwash באתחול הבא</translation>
 <translation id="8102159139658438129">כדי לראות אפשרויות לגבי הטלפון המחובר, אפשר לעבור אל <ph name="LINK_BEGIN" />הגדרות<ph name="LINK_END" /></translation>
 <translation id="8104696615244072556">‏בצע פעולת Powerwash במכשיר <ph name="IDS_SHORT_PRODUCT_NAME" /> שלך וחזור לגרסה הקודמת.</translation>

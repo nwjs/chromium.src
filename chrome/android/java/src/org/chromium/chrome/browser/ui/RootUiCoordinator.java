@@ -218,6 +218,7 @@ public class RootUiCoordinator
             mActivity.getModalDialogManager().removeObserver(mModalDialogManagerObserver);
         }
 
+        if (mBottomSheetManager != null) mBottomSheetManager.destroy();
         if (mBottomSheetController != null) mBottomSheetController.destroy();
 
         if (mButtonDataProviders != null) {
@@ -462,7 +463,7 @@ public class RootUiCoordinator
                     mActivity, mActivity.getLifecycleDispatcher(), bottomToolbarVisibilitySupplier);
             ShareButtonController shareButtonController = new ShareButtonController(mActivity,
                     mActivityTabProvider, mShareDelegateSupplier, new ShareUtils(),
-                    bottomToolbarVisibilitySupplier);
+                    bottomToolbarVisibilitySupplier, mActivity.getLifecycleDispatcher());
             mButtonDataProviders = Arrays.asList(mIdentityDiscController, shareButtonController);
             mActionModeControllerCallback = new ToolbarActionModeCallback();
             mToolbarManager = new ToolbarManager(mActivity, mActivity.getFullscreenManager(),
@@ -610,8 +611,8 @@ public class RootUiCoordinator
                         mOmniboxFocusStateSupplier);
 
         mBottomSheetManager = new BottomSheetManager(mBottomSheetController, mActivityTabProvider,
-                mActivity::getFullscreenManager, mActivity::getModalDialogManager,
-                this::getBottomSheetSnackbarManager, mTabObscuringHandler);
+                mActivity::getModalDialogManager, this::getBottomSheetSnackbarManager,
+                mTabObscuringHandler);
     }
 
     /**

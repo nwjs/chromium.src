@@ -19,7 +19,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/autocomplete/chrome_autocomplete_provider_client.h"
 #include "chrome/browser/autocomplete/chrome_autocomplete_scheme_classifier.h"
-#include "chrome/browser/bitmap_fetcher/bitmap_fetcher_service.h"
 #include "chrome/browser/bitmap_fetcher/bitmap_fetcher_service_factory.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/favicon/favicon_service_factory.h"
@@ -253,18 +252,20 @@ NewTabPageHandler::NewTabPageHandler(
       logo_service_(LogoServiceFactory::GetForProfile(profile)),
       one_google_bar_service_(
           OneGoogleBarServiceFactory::GetForProfile(profile)),
-      page_{std::move(pending_page)},
       profile_(profile),
-      receiver_{this, std::move(pending_page_handler)},
       favicon_cache_(FaviconServiceFactory::GetForProfile(
                          profile,
                          ServiceAccessType::EXPLICIT_ACCESS),
                      HistoryServiceFactory::GetForProfile(
                          profile,
                          ServiceAccessType::EXPLICIT_ACCESS)),
+      bitmap_fetcher_service_(
+          BitmapFetcherServiceFactory::GetForBrowserContext(profile)),
       web_contents_(web_contents),
       ntp_navigation_start_time_(ntp_navigation_start_time),
-      logger_(NTPUserDataLogger::GetOrCreateFromWebContents(web_contents)) {
+      logger_(NTPUserDataLogger::GetOrCreateFromWebContents(web_contents)),
+      page_{std::move(pending_page)},
+      receiver_{this, std::move(pending_page_handler)} {
   CHECK(instant_service_);
   CHECK(ntp_background_service_);
   CHECK(logo_service_);
@@ -287,6 +288,10 @@ NewTabPageHandler::~NewTabPageHandler() {
   ntp_background_service_->RemoveObserver(this);
   if (auto* helper = OmniboxTabHelper::FromWebContents(web_contents_)) {
     helper->RemoveObserver(this);
+  }
+  // Clear pending bitmap requests.
+  for (auto bitmap_request_id : bitmap_request_ids_) {
+    bitmap_fetcher_service_->CancelRequest(bitmap_request_id);
   }
 }
 
@@ -440,6 +445,9 @@ void NewTabPageHandler::SetNoBackgroundImage() {
 }
 
 void NewTabPageHandler::UpdateMostVisitedInfo() {
+  // OnNewTabPageOpened refreshes the most visited entries while
+  // UpdateMostVisitedInfo triggers a call to MostVisitedInfoChanged.
+  instant_service_->OnNewTabPageOpened();
   instant_service_->UpdateMostVisitedInfo();
 }
 
@@ -750,6 +758,9 @@ void NewTabPageHandler::QueryAutocomplete(const base::string16& input,
 }
 
 void NewTabPageHandler::StopAutocomplete(bool clear_result) {
+  if (!autocomplete_controller_)
+    return;
+
   autocomplete_controller_->Stop(clear_result);
 
   if (clear_result)
@@ -1083,8 +1094,11 @@ void NewTabPageHandler::OnResultChanged(AutocompleteController* controller,
       autocomplete_controller_->input().text(),
       autocomplete_controller_->result(), profile_->GetPrefs()));
 
-  BitmapFetcherService* bitmap_fetcher_service =
-      BitmapFetcherServiceFactory::GetForBrowserContext(profile_);
+  // Clear pending bitmap requests before requesting new ones.
+  for (auto bitmap_request_id : bitmap_request_ids_) {
+    bitmap_fetcher_service_->CancelRequest(bitmap_request_id);
+  }
+  bitmap_request_ids_.clear();
 
   int match_index = -1;
   for (const auto& match : autocomplete_controller_->result()) {
@@ -1092,11 +1106,11 @@ void NewTabPageHandler::OnResultChanged(AutocompleteController* controller,
 
     // Request bitmaps for matche images.
     if (!match.image_url.is_empty()) {
-      bitmap_fetcher_service->RequestImage(
+      bitmap_request_ids_.push_back(bitmap_fetcher_service_->RequestImage(
           match.image_url,
           base::BindOnce(&NewTabPageHandler::OnRealboxBitmapFetched,
                          weak_ptr_factory_.GetWeakPtr(), match_index,
-                         match.image_url));
+                         match.image_url)));
     }
 
     // Request favicons for navigational matches.

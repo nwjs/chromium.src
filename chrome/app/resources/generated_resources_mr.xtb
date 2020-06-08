@@ -442,11 +442,6 @@
 <translation id="1555130319947370107">निळा</translation>
 <translation id="1556537182262721003">प्रोफाइलमध्ये एक्स्टेंशन डिरेक्टरी हलविणे शक्य नाही.</translation>
 <translation id="155865706765934889">Touchpad</translation>
-<translation id="1560763881671211335">G Suite for Education खाते मध्ये साइन इन केलेले असताना त्यांचे वापरकर्ते कोणत्या Google सेवा अ‍ॅक्सेस करू शकतात हे G Suite for Education चे अ‍ॅडमिनिस्ट्रेटर निश्चित करतात. शाळेच्या अ‍ॅडमिनिस्ट्रेटरने त्यांच्या लहान वापरकर्त्यांद्वारे सेवांच्या वापरासाठी संमती देणे किंवा घेणे आवश्यक आहे.
-
-    ब्राउझिंग डेटा (इतिहास, बुकमार्क आणि पासवर्ड यांच्या समावेशासह) Family Link खात्यामध्ये स्टोअर केला जाईल, शाळेच्या खात्यामध्ये नाही.
-
-    तुमची Family Link पालक सेटिंग्ज तरीही लागू राहील. यापूर्वी तुम्ही अ‍ॅप किंवा साइट ब्लॉक केली असल्यास, तुम्हाला ते पुन्हा करावे लागणार नाही.</translation>
 <translation id="1566049601598938765">वेबसाइट</translation>
 <translation id="15662109988763471">निवडलेला प्रिंटर उपलब्ध नाही किंवा योग्यरीत्या इंस्टॉल केलेला नाही. तुमचा प्रिंटर तपासा किंवा दुसरा प्रिंटर निवडून पाहा.</translation>
 <translation id="1567387640189251553">तुम्ही शेवटचा पासवर्ड टाकल्या नंतर वेगळा कीबोर्ड कनेक्ट करण्यात आला आहे. तो कदाचित तुमचे कीस्ट्रोक चोरण्याचा प्रयत्न करत असेल.</translation>
@@ -1770,6 +1765,7 @@
 <translation id="32101887417650595">प्रिंटरशी कनेक्ट करू शकत नाही</translation>
 <translation id="321084946921799184">पिवळा आणि पांढरा</translation>
 <translation id="321356136776075234">डिव्हाइस OU (उदा. OU=Chromebooks,DC=example,DC=com)</translation>
+<translation id="3216825226035747725">G Suite for Education खाते मध्ये साइन इन केलेले असताना त्यांचे वापरकर्ते कोणत्या Google सेवा अ‍ॅक्सेस करू शकतात हे G Suite for Education चे अ‍ॅडमिनिस्ट्रेटर ठरवतात. तुमचे लहान मूल हे पर्यवेक्षित खाते वापरून यापूर्वी अ‍ॅक्सेस करू शकत नव्हते अशा काही वैशिष्ट्यांचा किंवा सेवांचा कदाचित यामध्ये समावेश असू शकतो. अल्पवयीन वापरकर्त्यांनी त्यांच्या सेवा वापरण्यासाठी शाळेच्या अ‍ॅडमिनिस्ट्रेटरने संमती देणे किंवा घेणे आवश्यक आहे.</translation>
 <translation id="3217843140356091325">शॉर्टकट तयार करायचा?</translation>
 <translation id="321799795901478485">Zip Archiver</translation>
 <translation id="321834671654278338">Linux अनइंस्टॉलर</translation>
@@ -1842,7 +1838,6 @@
 <translation id="3312424061798279731">सक्षम केलेल्या भाषा</translation>
 <translation id="3313622045786997898">सर्टिफिकेट स्वाक्षरी मूल्य</translation>
 <translation id="3315158641124845231"><ph name="PRODUCT_NAME" /> लपवा</translation>
-<translation id="3317284582048881482">पालकांसाठी शाळा खाते माहिती</translation>
 <translation id="3317459757438853210">दोन्ही बाजूंनी</translation>
 <translation id="3317678681329786349">कॅमेरा आणि मायक्रोफोन ब्लॉक केले आहेत</translation>
 <translation id="3319048459796106952">नवीन &amp;गुप्त विंडो</translation>
@@ -4850,7 +4845,6 @@
 <translation id="7235737137505019098">तुमच्या सिक्युरिटी कीमध्ये कोणत्याही आणखी खात्यांसाठी पुरेशी जागा नाही.</translation>
 <translation id="7238643356913091553"><ph name="NETWORK_NAME" />, तपशील</translation>
 <translation id="7240339475467890413">नवीन हॉटस्पॉटशी कनेक्ट करायचे?</translation>
-<translation id="7240847845291869311">तुमच्या लहान मुलाला या डिव्हाइसवर G Suite for Education Google खाते जोडायचे आहे. उत्पादन कोणता डेटा गोळा करते, तो का गोळा केला जातो आणि त्याच्यासोबत काय केले जाते हे समजण्यात G Suite for Education वापरकर्ते आणि पालकांची मदत व्हावी याकरिता <ph name="LINK_BEGIN" />G Suite for Education गोपनीयतेची सूचना<ph name="LINK_END" /> तयार केली आहे.</translation>
 <translation id="7241389281993241388">कृपया क्लायंट प्रमाणपत्र इंपोर्ट करण्यासाठी <ph name="TOKEN_NAME" /> मध्ये साइन इन करा.</translation>
 <translation id="7243632151880336635">साफ करा आणि साइन आउट करा</translation>
 <translation id="7243784282103630670">Linux अपग्रेड करताना एरर आली. आम्ही तुमचा बॅकअप वापरून कंटनेर रिस्टोअर करू.</translation>
@@ -5537,6 +5531,7 @@ https://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featu
     <ph name="BEGIN_PARAGRAPH5" />तुम्ही सेटिंग्जमध्ये ही सेवा बंद करू शकता.<ph name="END_PARAGRAPH5" /></translation>
 <translation id="80974698889265265">पिन जुळत नाहीत</translation>
 <translation id="809792523045608178"><ph name="IDS_SHORT_PRODUCT_NAME" /> हे एक्स्टेंशनमधून प्रॉक्सी सेटिंग्ज वापरत आहे</translation>
+<translation id="8097959162767603171">तुमच्या अ‍ॅडमिनिस्ट्रेटरने प्रथमतः ॲडमिन कंसोल Chrome डिव्हाइस सूचीमधील सेवा अटी स्वीकारणे आवश्यक आहे.</translation>
 <translation id="8101987792947961127">पुढील रीबूटवर Powerwash आवश्यक</translation>
 <translation id="8102159139658438129">तुमच्या कनेक्ट केलेल्या फोनसाठी पर्याय पाहण्याकरिता <ph name="LINK_BEGIN" />सेटिंग्ज<ph name="LINK_END" /> वर जा</translation>
 <translation id="8104696615244072556">तुमचे <ph name="IDS_SHORT_PRODUCT_NAME" /> डिव्हाइस Powerwash करा आणि मागील आवृत्तीकडे परत या.</translation>

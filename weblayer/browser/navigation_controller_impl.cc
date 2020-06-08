@@ -218,12 +218,21 @@ void NavigationControllerImpl::Reload() {
 }
 
 void NavigationControllerImpl::Stop() {
-  if (navigation_starting_)
+  NavigationImpl* navigation = nullptr;
+  if (navigation_starting_) {
     navigation_starting_->set_should_stop_when_throttle_created();
-  else if (active_throttle_)
+    navigation = navigation_starting_;
+  } else if (active_throttle_) {
     active_throttle_->ScheduleCancel();
-  else
+    DCHECK(navigation_map_.find(active_throttle_->navigation_handle()) !=
+           navigation_map_.end());
+    navigation = navigation_map_[active_throttle_->navigation_handle()].get();
+  } else {
     web_contents()->Stop();
+  }
+
+  if (navigation)
+    navigation->set_was_stopped();
 }
 
 int NavigationControllerImpl::GetNavigationListSize() {
@@ -417,8 +426,12 @@ void NavigationControllerImpl::DoNavigate(
     return;
   }
 
-  params->transition_type = ui::PageTransitionFromInt(
-      ui::PAGE_TRANSITION_TYPED | ui::PAGE_TRANSITION_FROM_ADDRESS_BAR);
+  // For WebLayer's production use cases, navigations from the embedder are most
+  // appropriately viewed as being from links with user gestures. In particular,
+  // this ensures that intents resulting from these navigations get launched as
+  // the embedder expects.
+  params->transition_type = ui::PageTransitionFromInt(ui::PAGE_TRANSITION_LINK);
+  params->has_user_gesture = true;
   web_contents()->GetController().LoadURLWithParams(*params);
   // So that if the user had entered the UI in a bar it stops flashing the
   // caret.

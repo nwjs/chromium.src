@@ -452,6 +452,12 @@ TEST_F(NonCompositedMainThreadScrollingReasonsTest, BoxShadowTest) {
                            cc::MainThreadScrollingReason::kNotScrollingOnMain);
 }
 
+TEST_F(NonCompositedMainThreadScrollingReasonsTest, InsetBoxShadowTest) {
+  TestNonCompositedReasons(
+      "inset-box-shadow",
+      cc::MainThreadScrollingReason::kCantPaintScrollingBackground);
+}
+
 TEST_F(NonCompositedMainThreadScrollingReasonsTest, StackingContextTest) {
   TestNonCompositedReasons(
       "non-stacking-context",

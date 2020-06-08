@@ -442,11 +442,6 @@
 <translation id="1555130319947370107">藍色</translation>
 <translation id="1556537182262721003">無法將擴充功能目錄移至設定檔。</translation>
 <translation id="155865706765934889">觸控板</translation>
-<translation id="1560763881671211335">「G Suite 教育版」管理員可決定使用者在登入「G Suite 教育版」帳戶後可使用的 Google 服務。學校管理員需要提供或取得同意，才能讓未成年使用者使用服務。
-
-    瀏覽資料 (包括記錄、書籤和密碼) 將儲存在 Family Link 帳戶，而不是學校帳戶。
-
-    您的 Family Link 家長設定仍然適用。如果您先前已封鎖某個應用程式或網站，則不必重新封鎖。</translation>
 <translation id="1566049601598938765">網站</translation>
 <translation id="15662109988763471">所選打印機無法使用或尚未正確安裝。請檢查打印機，或嘗試選取其他打印機。</translation>
 <translation id="1567387640189251553">自您上次輸入密碼後，裝置連接了另一個鍵盤。目前的鍵盤可能正嘗試盜取您的按鍵動作。</translation>
@@ -1770,6 +1765,7 @@
 <translation id="32101887417650595">無法連線至打印機</translation>
 <translation id="321084946921799184">黃色和白色</translation>
 <translation id="321356136776075234">裝置 OU (例如 OU=Chromebook、DC=example、DC=com)</translation>
+<translation id="3216825226035747725">「G Suite 教育版」管理員可決定使用者在登入「G Suite 教育版」帳戶後可使用的 Google 服務。這可能包括您的子女之前使用此受監管帳戶時無法存取的某些功能或服務。學校管理員需要提供或取得同意，才能讓未成年使用者使用服務。</translation>
 <translation id="3217843140356091325">要建立捷徑嗎？</translation>
 <translation id="321799795901478485">Zip Archiver</translation>
 <translation id="321834671654278338">Linux 解除安裝程式</translation>
@@ -1842,7 +1838,6 @@
 <translation id="3312424061798279731">已啟用的語言</translation>
 <translation id="3313622045786997898">憑證簽署值</translation>
 <translation id="3315158641124845231">隱藏 <ph name="PRODUCT_NAME" /></translation>
-<translation id="3317284582048881482">家長專用的學校帳戶資料</translation>
 <translation id="3317459757438853210">雙面</translation>
 <translation id="3317678681329786349">已禁止使用相機和麥克風</translation>
 <translation id="3319048459796106952">新增無痕式視窗(&amp;I)</translation>
@@ -4851,7 +4846,6 @@
 <translation id="7235737137505019098">安全密鑰的空間不足，無法建立帳戶。</translation>
 <translation id="7238643356913091553"><ph name="NETWORK_NAME" />，詳情</translation>
 <translation id="7240339475467890413">要連線至新熱點嗎？</translation>
-<translation id="7240847845291869311">您的子女要求在此裝置上新增「G Suite 教育版」Google 帳戶。《<ph name="LINK_BEGIN" />G Suite 教育版私隱聲明<ph name="LINK_END" />》旨在幫助「G Suite 教育版」使用者和家長瞭解產品收集的資料類型、原因和用途。</translation>
 <translation id="7241389281993241388">請登入 <ph name="TOKEN_NAME" /> 以匯入用戶端憑證。</translation>
 <translation id="7243632151880336635">清除並登出</translation>
 <translation id="7243784282103630670">升級 Linux 時發生錯誤。我們會使用您的備份還原容器。</translation>
@@ -5540,6 +5534,7 @@
 <ph name="BEGIN_PARAGRAPH5" />您可在「設定」中關閉此服務。<ph name="END_PARAGRAPH5" /></translation>
 <translation id="80974698889265265">PIN 不相符</translation>
 <translation id="809792523045608178"><ph name="IDS_SHORT_PRODUCT_NAME" /> 正在使用擴充程式的 Proxy 設定</translation>
+<translation id="8097959162767603171">您的管理員必須先接受管理控制台 Chrome 裝置清單中的服務條款。</translation>
 <translation id="8101987792947961127">必須在下次重新啟動時執行 Powerwash</translation>
 <translation id="8102159139658438129">前往「<ph name="LINK_BEGIN" />設定<ph name="LINK_END" />」查看已連接手機的選項</translation>
 <translation id="8104696615244072556">為您的 <ph name="IDS_SHORT_PRODUCT_NAME" /> 裝置執行 Powerwash 並重設為上個版本。</translation>

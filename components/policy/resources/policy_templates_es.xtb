@@ -3501,7 +3501,7 @@ Ten en cuenta que se anunció que esta política se eliminaría en la versión 8
 <translation id="6048199181629830227">Habilitar la gestión de energía Peak Shift</translation>
 <translation id="6070667616071269965">Diseños de teclado para la pantalla de inicio de sesión del dispositivo</translation>
 <translation id="6074963268421707432">No permitir que ningún sitio muestre notificaciones de escritorio</translation>
-<translation id="6074964551275531965">Establece el periodo de tiempo para notificaciones de actualización</translation>
+<translation id="6074964551275531965">Especificar el periodo de notificación de actualizaciones</translation>
 <translation id="6076099373507468537">Define la lista de dispositivos USB que pueden separarse de su controlador de kernel para utilizarse en la API chrome.usb directamente en una aplicación web. Las entradas son pares del identificador de producto y el identificador de proveedor del USB que permiten reconocer hardware específico.
 
       Si no se configura esta política, la lista de dispositivos USB que se pueden separar está vacía.</translation>

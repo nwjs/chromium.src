@@ -442,11 +442,6 @@
 <translation id="1555130319947370107">Blu</translation>
 <translation id="1556537182262721003">Impossibile spostare la directory dell'estensione nel profilo.</translation>
 <translation id="155865706765934889">Touchpad</translation>
-<translation id="1560763881671211335">Gli amministratori di G Suite for Education stabiliscono a quali servizi Google possono accedere i loro utenti quando sono collegati a un account G Suite for Education. Gli amministratori scolastici devono fornire o esprimere il loro consenso per l'utilizzo dei servizi da parte degli utenti minorenni.
-
-    I dati di navigazione (inclusi cronologia, preferiti e password) verranno memorizzati nell'account Family Link e non nell'account della scuola.
-
-    Le impostazioni genitore di Family Link continueranno a essere applicate. Se in precedenza hai bloccato un'app o un sito, non sarà necessario che tu lo faccia di nuovo.</translation>
 <translation id="1566049601598938765">Sito web</translation>
 <translation id="15662109988763471">La stampante selezionata non è disponibile o non è installata correttamente. Controlla la stampante o prova a selezionarne un'altra.</translation>
 <translation id="1567387640189251553">È stata collegata una tastiera diversa dall'ultimo inserimento della password. Potrebbe essere un tentativo di rubare i tasti premuti.</translation>
@@ -1770,6 +1765,7 @@ Puoi gestire le impostazioni dell'account installando l'app Family Link su quest
 <translation id="32101887417650595">Impossibile collegarsi alla stampante</translation>
 <translation id="321084946921799184">Giallo e bianco</translation>
 <translation id="321356136776075234">UO dispositivo (esempio: UO=Chromebooks,DC=example,DC=com)</translation>
+<translation id="3216825226035747725">Gli amministratori di G Suite for Education stabiliscono a quali servizi Google possono accedere i loro utenti quando sono collegati a un account G Suite for Education. Questi possono includere funzionalità o servizi a cui tuo figlio non poteva accedere in precedenza utilizzando questo account supervisionato. Gli amministratori scolastici devono fornire o ottenere il consenso per l'utilizzo dei servizi da parte degli utenti minorenni.</translation>
 <translation id="3217843140356091325">Vuoi creare una scorciatoia?</translation>
 <translation id="321799795901478485">Zip Archiver</translation>
 <translation id="321834671654278338">Programma di disinstallazione di Linux</translation>
@@ -1842,7 +1838,6 @@ Puoi gestire le impostazioni dell'account installando l'app Family Link su quest
 <translation id="3312424061798279731">Lingue attive</translation>
 <translation id="3313622045786997898">Valore firma certificato</translation>
 <translation id="3315158641124845231">Nascondi <ph name="PRODUCT_NAME" /></translation>
-<translation id="3317284582048881482">Informazioni relative all'account della scuola per i genitori</translation>
 <translation id="3317459757438853210">Fronte retro</translation>
 <translation id="3317678681329786349">Videocamera e microfono bloccati</translation>
 <translation id="3319048459796106952">Nuova f&amp;inestra di navigazione in incognito</translation>
@@ -4851,7 +4846,6 @@ Puoi gestire le impostazioni dell'account installando l'app Family Link su quest
 <translation id="7235737137505019098">Sul token di sicurezza non c'è spazio a sufficienza per altri account.</translation>
 <translation id="7238643356913091553"><ph name="NETWORK_NAME" />, dettagli</translation>
 <translation id="7240339475467890413">Eseguire la connessione al nuovo hotspot?</translation>
-<translation id="7240847845291869311">Tuo figlio vuole aggiungere un Account Google G Suite for Education a questo dispositivo. L'<ph name="LINK_BEGIN" />Informativa sulla privacy di G Suite for Education<ph name="LINK_END" /> ha lo scopo di aiutare gli utenti di G Suite for Education e i genitori a comprendere quali dati vengono raccolti dal prodotto, perché vengono raccolti e come vengono utilizzati.</translation>
 <translation id="7241389281993241388">Accedi a <ph name="TOKEN_NAME" /> per importare il certificato client.</translation>
 <translation id="7243632151880336635">Cancella ed esci</translation>
 <translation id="7243784282103630670">Si è verificato un errore durante l'upgrade di Linux. Ripristineremo il contenitore usando la tua copia di backup.</translation>
@@ -5540,6 +5534,7 @@ Conserva il file di chiave in un luogo sicuro. Ti servirà per creare nuove vers
     <ph name="BEGIN_PARAGRAPH5" />Puoi disattivare questo servizio nelle Impostazioni.<ph name="END_PARAGRAPH5" /></translation>
 <translation id="80974698889265265">I PIN non corrispondono</translation>
 <translation id="809792523045608178"><ph name="IDS_SHORT_PRODUCT_NAME" /> usa le impostazioni proxy di un'estensione</translation>
+<translation id="8097959162767603171">È necessario che l'amministratore accetti prima i Termini di servizio della Console di amministrazione dell'elenco di dispositivi di Chrome.</translation>
 <translation id="8101987792947961127">Powerwash necessario a prossimo riavvio</translation>
 <translation id="8102159139658438129">Vai alle <ph name="LINK_BEGIN" />Impostazioni<ph name="LINK_END" /> per visualizzare le opzioni disponibili per il tuo telefono collegato</translation>
 <translation id="8104696615244072556">Esegui il Powerwash del tuo dispositivo <ph name="IDS_SHORT_PRODUCT_NAME" /> e torna alla versione precedente.</translation>

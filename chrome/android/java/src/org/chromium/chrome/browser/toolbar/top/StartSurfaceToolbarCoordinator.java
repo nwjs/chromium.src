@@ -50,7 +50,7 @@ public class StartSurfaceToolbarCoordinator {
 
     StartSurfaceToolbarCoordinator(ViewStub startSurfaceToolbarStub,
             IdentityDiscController identityDiscController,
-            UserEducationHelper userEducationHelper) {
+            UserEducationHelper userEducationHelper, ThemeColorProvider provider) {
         mStub = startSurfaceToolbarStub;
         mPropertyModel =
                 new PropertyModel.Builder(StartSurfaceToolbarProperties.ALL_KEYS)
@@ -79,6 +79,8 @@ public class StartSurfaceToolbarCoordinator {
                 },
                 StartSurfaceConfiguration.START_SURFACE_HIDE_INCOGNITO_SWITCH.getValue(),
                 StartSurfaceConfiguration.START_SURFACE_SHOW_STACK_TAB_SWITCHER.getValue());
+
+        mThemeColorProvider = provider;
     }
 
     /**
@@ -180,17 +182,6 @@ public class StartSurfaceToolbarCoordinator {
     }
 
     /**
-     * @param themeColorProvider The {@link ThemeColorProvider} to update the tab switcher button.
-     */
-    void setThemeColorProvider(ThemeColorProvider themeColorProvider) {
-        if (mTabSwitcherButtonCoordinator != null) {
-            mTabSwitcherButtonCoordinator.setThemeColorProvider(themeColorProvider);
-        } else {
-            mThemeColorProvider = themeColorProvider;
-        }
-    }
-
-    /**
      * @param onClickListener The {@link OnClickListener} for the tab switcher button.
      */
     void setTabSwitcherListener(OnClickListener onClickListener) {
@@ -238,14 +229,11 @@ public class StartSurfaceToolbarCoordinator {
             }
             mTabSwitcherButtonCoordinator =
                     new TabSwitcherButtonCoordinator(mTabSwitcherButtonView);
+            mTabSwitcherButtonCoordinator.setThemeColorProvider(mThemeColorProvider);
             mTabSwitcherButtonView.setVisibility(View.VISIBLE);
             if (mTabCountProvider != null) {
                 mTabSwitcherButtonCoordinator.setTabCountProvider(mTabCountProvider);
                 mTabCountProvider = null;
-            }
-            if (mThemeColorProvider != null) {
-                mTabSwitcherButtonCoordinator.setThemeColorProvider(mThemeColorProvider);
-                mThemeColorProvider = null;
             }
             if (mTabSwitcherClickListener != null) {
                 mTabSwitcherButtonCoordinator.setTabSwitcherListener(mTabSwitcherClickListener);

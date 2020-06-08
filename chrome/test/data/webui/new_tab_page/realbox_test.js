@@ -159,12 +159,13 @@ function verifyMatch(match, matchEl) {
   assertEquals('option', matchEl.getAttribute('role'));
   const matchContents = decodeString16(match.contents);
   const matchDescription = decodeString16(match.description);
+  const separatorText =
+      matchDescription ? loadTimeData.getString('realboxSeparator') : '';
   assertEquals(
-      match.swapContentsAndDescription ? matchDescription : matchContents,
-      matchEl.$.contents.textContent.trim());
-  assertEquals(
-      match.swapContentsAndDescription ? matchContents : matchDescription,
-      matchEl.$.description.textContent.trim());
+      match.swapContentsAndDescription ?
+          matchDescription + separatorText + matchContents :
+          matchContents + separatorText + matchDescription,
+      matchEl.$.container.textContent.trim());
 }
 
 suite('NewTabPageRealboxTest', () => {
@@ -180,6 +181,7 @@ suite('NewTabPageRealboxTest', () => {
   suiteSetup(() => {
     loadTimeData.overrideValues({
       realboxMatchOmniboxTheme: true,
+      realboxSeparator: ' - ',
       suggestionTransparencyEnabled: true,
     });
   });

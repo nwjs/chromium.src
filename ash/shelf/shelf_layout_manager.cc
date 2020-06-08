@@ -1310,10 +1310,6 @@ void ShelfLayoutManager::SetState(ShelfVisibilityState visibility_state) {
       observer.OnHotseatStateChanged(previous_hotseat_state, hotseat_state());
   }
 
-  // Shelf should be undimmed when it transitions into a visible state.
-  if (state_.IsShelfVisible())
-    SetDimmed(false);
-
   UpdateContextualNudges();
 }
 

@@ -6441,6 +6441,9 @@ void WebContentsImpl::RendererUnresponsive(
 
 void WebContentsImpl::RendererResponsive(
     RenderWidgetHostImpl* render_widget_host) {
+  for (auto& observer : observers_)
+    observer.OnRendererResponsive(render_widget_host->GetProcess());
+
   if (delegate_)
     delegate_->RendererResponsive(this, render_widget_host);
 }

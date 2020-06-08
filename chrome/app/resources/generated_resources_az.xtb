@@ -440,11 +440,6 @@
 <translation id="1555130319947370107">Mavi</translation>
 <translation id="1556537182262721003">Artırmanı birbaşa qovluğa daşıya bilmədi.</translation>
 <translation id="155865706765934889">Taçped</translation>
-<translation id="1560763881671211335">İstifadəçilər G Suite for Education hesabına daxil olduqları zaman hansı Google xidmətlərinə giriş imkanlarının olacağını G Suite for Education administratorları müəyyənləşdirir. Məktəb administratorlarından azyaşlı istifadəçiləri tərəfindən xidmətlərin istifadəsi üzrə razılıq vermək və ya razılıq əldə etmək tələb edilir.
-
-    Baxış datası (tarixçə, əlfəcinlər və parollar daxil olmaqla) məktəb hesabı ilə deyil, Family Link hesabı ilə saxlanılacaq.
-
-    Family Link valideyn ayarlarınız yenə də tətbiq ediləcək. Əvvəlcədən tətbiq və ya sayt bloklamısınızsa, bunu yenidən edə bilməyəcəksiniz.</translation>
 <translation id="1566049601598938765">Veb səhifə</translation>
 <translation id="15662109988763471">Seçilmiş printer əlçatan deyil və ya düzgün quraşdırılmayıb. Printerinizi yoxlayın və ya başqa printer seçin.</translation>
 <translation id="1567387640189251553">Son aktiv olduğunuz vaxtdan sonra fərqli klaviatura qoşulub. O düymələrinizi oğurlaya bilər.</translation>
@@ -1766,6 +1761,7 @@ Cihazda Family Link tətbiqini quraşdırmaqla bu hesabın ayarlarını idarə e
 <translation id="32101887417650595">Printerə qoşulmaq mümkün deyil</translation>
 <translation id="321084946921799184">Sarı və ağ</translation>
 <translation id="321356136776075234">Cihaz OU (məs, OU=Chromebooks,DC=example,DC=com)</translation>
+<translation id="3216825226035747725">İstifadəçilər G Suite for Education hesabına daxil olduqları zaman hansı Google xidmətlərinə giriş imkanlarının olacağını G Suite for Education administratorları müəyyənləşdirir. Buraya övladınızın bu nəzarət edilən hesabla daha əvvəl giriş edə bilmədiyi bəzi funksiyalar və ya xidmətlər daxil ola bilər. Məktəb administratorlarından azyaşlı istifadəçiləri tərəfindən xidmətlərin istifadəsi üçün razılıq vermək və ya razılıq əldə etmək tələb edilir.</translation>
 <translation id="3217843140356091325">Qısayol yaradılsın?</translation>
 <translation id="321799795901478485">Zip Archiver</translation>
 <translation id="321834671654278338">Linux üçün quraşdırılmanın ləğvi</translation>
@@ -1838,7 +1834,6 @@ Cihazda Family Link tətbiqini quraşdırmaqla bu hesabın ayarlarını idarə e
 <translation id="3312424061798279731">Aktiv dillər</translation>
 <translation id="3313622045786997898">Sertifikat İmzası Dəyəri</translation>
 <translation id="3315158641124845231"><ph name="PRODUCT_NAME" /> gizlədin</translation>
-<translation id="3317284582048881482">Valideynlər üçün məktəb hesabı məlumatı</translation>
 <translation id="3317459757438853210">İkitərəfli</translation>
 <translation id="3317678681329786349">Kamera və mikrofon blok edildi</translation>
 <translation id="3319048459796106952">Yeni inkoqnito pəncərə</translation>
@@ -4843,7 +4838,6 @@ Cihazda Family Link tətbiqini quraşdırmaqla bu hesabın ayarlarını idarə e
 <translation id="7235737137505019098">Daha çox hesab əlavə etmək üçün güvənlik açarında kifayət qədər boş yer yoxdur.</translation>
 <translation id="7238643356913091553"><ph name="NETWORK_NAME" />, Detallar</translation>
 <translation id="7240339475467890413">Yeni hotspota qoşulsun?</translation>
-<translation id="7240847845291869311">Uşağınız bu cihaza G Suite for Education Google Hesabı əlavə etmək istəyir. <ph name="LINK_BEGIN" />G Suite for Education Məxfilik Bildirişi<ph name="LINK_END" /> G Suite for Education istifadəçilərinə və valideynlərə məhsulun hansı datanı topladığını, həmin datanın nəyə görə toplanıldığını və onunla nə edildiyini başa düşməkdə kömək etmək üçün nəzərdə tutulub.</translation>
 <translation id="7241389281993241388">Klient sertifikatını import etmək üçün <ph name="TOKEN_NAME" /> üzərinə daxil olun.</translation>
 <translation id="7243632151880336635">Silin və çıxış edin</translation>
 <translation id="7243784282103630670">Linux'u güncəlləyərkən xəta baş verdi. Yedəyinizdən istifadə edərək konteyneri bərpa edəcəyik.</translation>
@@ -5531,6 +5525,7 @@ Açar faylınızı güvənli yerdə saxlayın.</translation>
     <ph name="BEGIN_PARAGRAPH5" />Bu xidməti Ayarlardan deaktiv edə bilərsiniz.<ph name="END_PARAGRAPH5" /></translation>
 <translation id="80974698889265265">PİN uyğun gəlmir</translation>
 <translation id="809792523045608178"><ph name="IDS_SHORT_PRODUCT_NAME" /> artırmanın proksi ayarlarından istifadə edir</translation>
+<translation id="8097959162767603171">Administratorunuz əvvəlcə Admin konsolu Chrome cihaz siyahısında xidmət şərtlərini qəbul etməlidir.</translation>
 <translation id="8101987792947961127">Növbəti yenidən yüklənmə zamanı zavod sıfırlaması tələb olunur</translation>
 <translation id="8102159139658438129">Qoşulmuş telefon haqqında seçimlərə baxmaq üçün <ph name="LINK_BEGIN" />Ayarlar<ph name="LINK_END" /> səhifəsinə keçin</translation>
 <translation id="8104696615244072556"><ph name="IDS_SHORT_PRODUCT_NAME" /> cihazını sıfırlayın və öncəki versiyaya qayıdın.</translation>

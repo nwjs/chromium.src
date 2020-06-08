@@ -1059,11 +1059,11 @@ class Browser : public TabStripModelObserver,
   bool PopupBrowserSupportsWindowFeature(WindowFeature feature,
                                          bool check_can_support) const;
 
-  bool LegacyAppBrowserSupportsWindowFeature(WindowFeature feature,
-                                             bool check_can_support) const;
+  bool AppPopupBrowserSupportsWindowFeature(WindowFeature feature,
+                                            bool check_can_support) const;
 
-  bool WebAppBrowserSupportsWindowFeature(WindowFeature feature,
-                                          bool check_can_support) const;
+  bool AppBrowserSupportsWindowFeature(WindowFeature feature,
+                                       bool check_can_support) const;
 
 #if defined(OS_CHROMEOS)
   bool CustomTabBrowserSupportsWindowFeature(WindowFeature feature) const;

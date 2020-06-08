@@ -184,7 +184,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling V8
   # and whatever else without interference from each other.
-  'v8_revision': 'ba3d53d211618f2215b10db315f50e0c30316e0b',
+  'v8_revision': 'fb3f7eaf9cef9d843f1cdeb96cb028fdd45371ee',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling swarming_client
   # and whatever else without interference from each other.
@@ -251,7 +251,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling devtools-frontend
   # and whatever else without interference from each other.
-  'devtools_frontend_revision': 'c047e957d0b2248a4158ddccaaa8f1fa94c4e950',
+  'devtools_frontend_revision': '4bddee138afe1a147bc337b64e57ad422542c181',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling libprotobuf-mutator
   # and whatever else without interference from each other.
@@ -1377,7 +1377,7 @@ deps = {
     Var('chromium_git') + '/external/github.com/google/snappy.git' + '@' + '837f38b3e0cae01ccd5021b176509cb72eb25d81',
 
   'src/third_party/sqlite/src':
-    Var('chromium_git') + '/chromium/deps/sqlite.git' + '@' + '3478eafd05e32831efd63804661dd45c5eaf2465',
+    Var('chromium_git') + '/chromium/deps/sqlite.git' + '@' + 'b5399f70d4778fa2f0f0ada1bb5910e14c096be9',
 
   'src/third_party/sqlite4java': {
       'packages': [
@@ -1458,7 +1458,7 @@ deps = {
   },
 
   'src/third_party/webrtc':
-    Var('webrtc_git') + '/src.git' + '@' + 'b8678c5f5304c5a73bfba5af6867ce0f9c0edf0a',
+    Var('webrtc_git') + '/src.git' + '@' + 'f9e2d036a3a6173af1205e7823966c13e516cdde',
 
   'src/third_party/libgifcodec':
      Var('skia_git') + '/libgifcodec' + '@'+  Var('libgifcodec_revision'),
@@ -1530,7 +1530,7 @@ deps = {
   #  Var('chromium_git') + '/v8/v8.git' + '@' +  Var('v8_revision'),
 
   'src-internal': {
-    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@25890a15237144efc37fa0558f68d3ab7b1063a5',
+    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@579a91abcdbe98beaff7991e83d770997ae66459',
     'condition': 'checkout_src_internal',
   },
 

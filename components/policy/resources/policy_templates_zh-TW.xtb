@@ -779,7 +779,7 @@
 
       如果設定這項政策，使用者將無法變更。如果不設定或將其設為 False，這項政策將不會生效。</translation>
 <translation id="2201555246697292490">設定內建訊息傳遞許可清單</translation>
-<translation id="220280840901385239">允許使用者新增例外網站，允許特定網站顯示可封鎖的混合內容</translation>
+<translation id="220280840901385239">允許使用者新增例外網站，讓特定網站顯示可封鎖的複合型內容</translation>
 <translation id="2204753382813641270">控制檔案櫃自動隱藏功能</translation>
 <translation id="2208976000652006649">使用 POST 的搜尋網址參數</translation>
 <translation id="2214880135980649323">如果將這項政策設為啟用，系統將允許由企業政策安裝的擴充功能使用 Enterprise Hardware Platform API。

@@ -442,11 +442,6 @@
 <translation id="1555130319947370107">Blå</translation>
 <translation id="1556537182262721003">Det gick inte att flytta tilläggskatalogen till profilen.</translation>
 <translation id="155865706765934889">Styrplatta</translation>
-<translation id="1560763881671211335">Administratörer av G Suite for Education avgör vilka av Googles tjänster användare får åtkomst till medan de är inloggade på ett G Suite for Education-konto. Det krävs att skolans administratörer ger eller inhämtar samtycke innan minderåriga användare använder tjänsterna.
-
-    Webbinformation (inklusive historik, bokmärken och lösenord) lagras med Family Link-kontot och inte med skolkontot.
-
-    Föräldrainställningarna i Family Link gäller fortfarande. Om du tidigare har blockerat en app eller webbplats måste du inte göra det igen.</translation>
 <translation id="1566049601598938765">Webbplats</translation>
 <translation id="15662109988763471">Den valda skrivaren är inte tillgänglig eller har inte installerats korrekt. Kontrollera skrivaren eller välj en annan.</translation>
 <translation id="1567387640189251553">Ett annat tangentbord har anslutits sedan du senast angav lösenordet. Det kan försöka stjäla dina tangenttryckningar.</translation>
@@ -1771,6 +1766,7 @@ Du kan hantera inställningarna för det här kontot genom att installera Family
 <translation id="32101887417650595">Det gick inte att ansluta till skrivaren</translation>
 <translation id="321084946921799184">Gul och vit</translation>
 <translation id="321356136776075234">Organisationsenhet (OU) för enhet (t.ex. OU=Chromebook,DC=example,DC=com)</translation>
+<translation id="3216825226035747725">Administratörer av G Suite for Education avgör vilka av Googles tjänster användare får åtkomst till medan de är inloggade på ett G Suite for Education-konto. Detta kan handla om vissa funktioner eller tjänster som barnet tidigare inte hade åtkomst till med det kontrollerade kontot. Det krävs att skolans administratörer ger eller inhämtar samtycke innan minderåriga användare använder tjänsterna.</translation>
 <translation id="3217843140356091325">Vill du skapa en genväg?</translation>
 <translation id="321799795901478485">Zip Archiver</translation>
 <translation id="321834671654278338">Avinstallationsprogram för Linux</translation>
@@ -1843,7 +1839,6 @@ Du kan hantera inställningarna för det här kontot genom att installera Family
 <translation id="3312424061798279731">Aktiverade språk</translation>
 <translation id="3313622045786997898">Certifikatets signaturvärde</translation>
 <translation id="3315158641124845231">Dölj <ph name="PRODUCT_NAME" /></translation>
-<translation id="3317284582048881482">Information om skolkonton för föräldrar</translation>
 <translation id="3317459757438853210">Dubbelsidig</translation>
 <translation id="3317678681329786349">Kamera och mikrofon är blockerade</translation>
 <translation id="3319048459796106952">Nytt &amp;inkognitofönster</translation>
@@ -4852,7 +4847,6 @@ Du kan hantera inställningarna för det här kontot genom att installera Family
 <translation id="7235737137505019098">Det finns inte tillräckligt mycket utrymme på säkerhetsnyckeln för fler konton.</translation>
 <translation id="7238643356913091553"><ph name="NETWORK_NAME" />, information</translation>
 <translation id="7240339475467890413">Vill du ansluta till en ny surfzon?</translation>
-<translation id="7240847845291869311">Ditt barn vill lägga till ett Google-konto för att använda G Suite for Education på den här enheten. I <ph name="LINK_BEGIN" />sekretessmeddelandet för G Suite for Education<ph name="LINK_END" /> förklarar vi för användare av G Suite for Education och föräldrar vilken data produkten samlar in, varför den samlas in och vad som händer med den.</translation>
 <translation id="7241389281993241388">Logga in på <ph name="TOKEN_NAME" /> om du vill importera klientcertifikatet.</translation>
 <translation id="7243632151880336635">Rensa och logga ut</translation>
 <translation id="7243784282103630670">Det gick inte att uppgradera Linux. Vi återställer behållaren med hjälp av säkerhetskopian.</translation>
@@ -5541,6 +5535,7 @@ Spara nyckelfilen på ett säkert ställe. Den behövs om du ska skapa nya versi
     <ph name="BEGIN_PARAGRAPH5" />Du kan inaktivera den här tjänsten i inställningarna.<ph name="END_PARAGRAPH5" /></translation>
 <translation id="80974698889265265">Pinkoderna matchar inte</translation>
 <translation id="809792523045608178"><ph name="IDS_SHORT_PRODUCT_NAME" /> använder proxyinställningar från ett tillägg</translation>
+<translation id="8097959162767603171">Administratören måste först godkänna användarvillkoren i listan över Chrome-enheter i administratörskonsolen.</translation>
 <translation id="8101987792947961127">Powerwash krävs vid nästa omstart</translation>
 <translation id="8102159139658438129">Du hittar alternativ för den anslutna mobilen i <ph name="LINK_BEGIN" />inställningarna<ph name="LINK_END" /></translation>
 <translation id="8104696615244072556">Använd Powerwash på din <ph name="IDS_SHORT_PRODUCT_NAME" />-enhet och återgå till föregående version</translation>

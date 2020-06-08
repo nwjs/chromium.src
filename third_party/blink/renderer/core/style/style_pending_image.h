@@ -40,9 +40,8 @@ class ImageResourceObserver;
 
 // StylePendingImage is a placeholder StyleImage that is entered into the
 // ComputedStyle during style resolution, in order to avoid loading images that
-// are not referenced by the final style.  They should only exist in a
-// ComputedStyle for non-rendered elements created with EnsureComputedStyle or
-// display:contents.
+// are not referenced by the final style.  They should never exist in a
+// ComputedStyle after it has been returned from the style selector.
 class StylePendingImage final : public StyleImage {
  public:
   explicit StylePendingImage(const CSSValue& value)
@@ -54,8 +53,11 @@ class StylePendingImage final : public StyleImage {
 
   CSSValue* CssValue() const override { return value_; }
 
-  CSSValue* ComputedCSSValue(const ComputedStyle& style,
-                             bool allow_visited_style) const override;
+  CSSValue* ComputedCSSValue(const ComputedStyle&,
+                             bool allow_visited_style) const override {
+    NOTREACHED();
+    return nullptr;
+  }
 
   CSSImageValue* CssImageValue() const {
     return DynamicTo<CSSImageValue>(value_.Get());
@@ -98,6 +100,8 @@ class StylePendingImage final : public StyleImage {
  private:
   bool IsEqual(const StyleImage& other) const override;
 
+  // TODO(sashab): Replace this with <const CSSValue> once Member<>
+  // supports const types.
   Member<CSSValue> value_;
 };
 

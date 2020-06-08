@@ -1896,7 +1896,7 @@
   {
     "name": "enable-play-store-search",
     "owners": [ "jennyz", "kaznacheev" ],
-    "expiry_milestone": 83
+    "expiry_milestone": 85
   },
   {
     "name" : "enable-pointer-lock-options",
@@ -2357,7 +2357,7 @@
   {
     "name": "enable-webrtc-pipewire-capturer",
     "owners": [ "tomas.popela@gmail.com" ],
-    "expiry_milestone": 83
+    "expiry_milestone": 86
   },
   {
     "name": "enable-webrtc-remote-event-log",
@@ -3622,7 +3622,7 @@
   {
     "name": "quiet-notification-prompts",
     "owners": [ "engedy", "mkwst", "andypaicu", "hkamila" ],
-    "expiry_milestone": 83
+    "expiry_milestone": 86
   },
   {
     "name": "rar2fs",

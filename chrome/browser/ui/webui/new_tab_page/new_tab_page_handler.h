@@ -11,6 +11,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observer.h"
 #include "base/time/time.h"
+#include "chrome/browser/bitmap_fetcher/bitmap_fetcher_service.h"
 #include "chrome/browser/search/background/ntp_background_service_observer.h"
 #include "chrome/browser/search/instant_service_observer.h"
 #include "chrome/browser/search/one_google_bar/one_google_bar_service.h"
@@ -206,12 +207,12 @@ class NewTabPageHandler : public new_tab_page::mojom::PageHandler,
   ScopedObserver<OneGoogleBarService, OneGoogleBarServiceObserver>
       one_google_bar_service_observer_{this};
   base::Optional<base::TimeTicks> one_google_bar_load_start_time_;
-  mojo::Remote<new_tab_page::mojom::Page> page_;
   Profile* profile_;
-  mojo::Receiver<new_tab_page::mojom::PageHandler> receiver_;
   scoped_refptr<ui::SelectFileDialog> select_file_dialog_;
   std::unique_ptr<AutocompleteController> autocomplete_controller_;
   FaviconCache favicon_cache_;
+  BitmapFetcherService* bitmap_fetcher_service_;
+  std::vector<BitmapFetcherService::RequestId> bitmap_request_ids_;
   base::TimeTicks time_of_first_autocomplete_query_;
   content::WebContents* web_contents_;
   base::Time ntp_navigation_start_time_;
@@ -219,6 +220,11 @@ class NewTabPageHandler : public new_tab_page::mojom::PageHandler,
   std::unordered_map<const network::SimpleURLLoader*,
                      std::unique_ptr<network::SimpleURLLoader>>
       loader_map_;
+
+  // These are located at the end of the list of member variables to ensure the
+  // WebUI page is disconnected before other members are destroyed.
+  mojo::Remote<new_tab_page::mojom::Page> page_;
+  mojo::Receiver<new_tab_page::mojom::PageHandler> receiver_;
 
   base::WeakPtrFactory<NewTabPageHandler> weak_ptr_factory_{this};
 

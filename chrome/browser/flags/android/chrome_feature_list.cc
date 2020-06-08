@@ -94,6 +94,7 @@ const base::Feature* kFeaturesExposedToJava[] = {
     &feature_engagement::kIPHChromeDuetHomeButtonFeature,
     &feature_engagement::kIPHChromeDuetSearchFeature,
     &feature_engagement::kIPHChromeDuetTabSwitcherFeature,
+    &feature_engagement::kIPHHomepagePromoCardFeature,
     &feed::kInterestFeedContentSuggestions,
     &feed::kInterestFeedFeedback,
     &feed::kInterestFeedV2,
@@ -158,6 +159,8 @@ const base::Feature* kFeaturesExposedToJava[] = {
     &kHandleMediaIntents,
     &kHomepageLocation,
     &kHomepagePromoCard,
+    &kHomepagePromoSyntheticPromoSeenEnabled,
+    &kHomepagePromoSyntheticPromoSeenTracking,
     &kHomepageSettingsUIConversion,
     &kHorizontalTabSwitcherAndroid,
     &kImmersiveUiMode,
@@ -466,6 +469,14 @@ const base::Feature kHomepageLocation{"HomepageLocationPolicy",
 
 const base::Feature kHomepagePromoCard{"HomepagePromoCard",
                                        base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Homepage Promo experiment group for synthetic field trial.
+const base::Feature kHomepagePromoSyntheticPromoSeenEnabled{
+    "HomepagePromoSyntheticPromoSeenEnabled",
+    base::FEATURE_DISABLED_BY_DEFAULT};
+const base::Feature kHomepagePromoSyntheticPromoSeenTracking{
+    "HomepagePromoSyntheticPromoSeenTracking",
+    base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kHomepageSettingsUIConversion{
     "HomepageSettingsUIConversion", base::FEATURE_ENABLED_BY_DEFAULT};

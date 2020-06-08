@@ -10,6 +10,7 @@
 <translation id="1030706264415084469">നിങ്ങളുടെ ഉപകരണത്തിൽ ശാശ്വതമായി വലിയ അളവിൽ ഡാറ്റ സംഭരിക്കാന്‍ <ph name="URL" />ആഗ്രഹിക്കുന്നു</translation>
 <translation id="1032854598605920125">ഘടികാരദിശയിൽ‌ തിരിക്കുക</translation>
 <translation id="1036348656032585052">ഓഫാക്കുക</translation>
+<translation id="1038106730571050514">നിർദ്ദേശങ്ങൾ കാണിക്കുക</translation>
 <translation id="1038842779957582377">അജ്ഞാത നാമം</translation>
 <translation id="1041998700806130099">ജോബ് ഷീറ്റ് സന്ദേശം</translation>
 <translation id="1050038467049342496">മറ്റ് ആപ്പുകൾ അടയ്‌ക്കുക</translation>
@@ -398,6 +399,7 @@
 <translation id="2666092431469916601">മുകളിലേക്ക്</translation>
 <translation id="2666117266261740852">മറ്റ് ടാബുകളോ ആപ്‌സുകളോ അടയ്‌ക്കുക</translation>
 <translation id="2674170444375937751">നിങ്ങളുടെ ചരിത്രത്തില്‍ നിന്നും ഈ പേജുകള്‍ മായ്ക്കുന്നതിന് നിങ്ങള്‍ താല്പര്യമുണ്ടോ?</translation>
+<translation id="2674804415323431591">നിർദ്ദേശങ്ങൾ മറയ്‌ക്കുക</translation>
 <translation id="2676271551327853224">Roc-8K</translation>
 <translation id="2677748264148917807">ഉപേക്ഷിക്കുക</translation>
 <translation id="2684561033061424857">11x12</translation>
@@ -1071,6 +1073,7 @@
 <translation id="5523118979700054094">നയത്തിന്റെ പേര്</translation>
 <translation id="55293785478302737">അരിക് കൂട്ടിച്ചേർക്കൽ</translation>
 <translation id="553484882784876924">Prc6 (എൻവലപ്പ്)</translation>
+<translation id="5536214594743852365">"<ph name="SECTION" />" വിഭാഗം കാണിക്കുക</translation>
 <translation id="5539243836947087108">റാഫ്റ്റ്</translation>
 <translation id="5540224163453853">അഭ്യർത്ഥിച്ച ലേഖനം കണ്ടെത്താനായില്ല.</translation>
 <translation id="5541086400771735334">മെയിൽബോക്സ് 7</translation>
@@ -1470,6 +1473,7 @@
 <translation id="7313965965371928911"><ph name="BEGIN_LINK" />സുരക്ഷിത ബ്രൗസിംഗ്<ph name="END_LINK" /> മുന്നറിയിപ്പുകൾ</translation>
 <translation id="7319430975418800333">A3</translation>
 <translation id="7320336641823683070">കണക്ഷൻ സഹായം</translation>
+<translation id="7323804146520582233">"<ph name="SECTION" />" വിഭാഗം മറയ്ക്കുക</translation>
 <translation id="733354035281974745">ഉപകരണ ലോക്കൽ അക്കൗണ്ട് അസാധുവാക്കുക</translation>
 <translation id="7333654844024768166">വഞ്ചനാപരമായ സൈറ്റിൽ നിങ്ങൾ ഇപ്പോൾ പാസ്‍വേഡ് നൽകി. നിങ്ങൾ ഈ പാസ്‌വേഡ് ഉപയോഗിക്കുന്ന <ph name="WEBSITE_1" />, <ph name="WEBSITE_2" />, <ph name="WEBSITE_3" /> എന്നിവയിലേക്കും മറ്റ് സൈറ്റുകളിലേക്കും പോയി, ഇപ്പോൾ തന്നെ അത് മാറ്റാൻ Chromium ശുപാർശ ചെയ്യുന്നു.</translation>
 <translation id="7334320624316649418">&amp;പുനഃക്രമീകരിക്കുന്നത് വീണ്ടും ചെയ്യുക</translation>

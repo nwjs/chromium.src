@@ -160,6 +160,7 @@ public class AutofillAssistantPersonalDataManagerTest {
         waitUntilViewMatchesCondition(
                 withContentDescription("Email*"), allOf(isDisplayed(), isEnabled()));
         onView(withContentDescription("Email*")).perform(typeText("johndoe@google.com"));
+        Espresso.closeSoftKeyboard();
         onView(withId(org.chromium.chrome.R.id.editor_dialog_done_button)).perform(click());
         waitUntilViewMatchesCondition(withText("Continue"), isEnabled());
         onView(withId(R.id.contact_summary))
@@ -209,6 +210,7 @@ public class AutofillAssistantPersonalDataManagerTest {
         waitUntilViewMatchesCondition(
                 withContentDescription("Email*"), allOf(isDisplayed(), isEnabled()));
         onView(withContentDescription("Email*")).perform(typeText("doe@google.com"));
+        Espresso.closeSoftKeyboard();
         onView(withId(org.chromium.chrome.R.id.editor_dialog_done_button)).perform(click());
         waitUntilViewMatchesCondition(withText("Continue"), isEnabled());
 
@@ -217,6 +219,7 @@ public class AutofillAssistantPersonalDataManagerTest {
         onView(withContentDescription("Edit contact info")).perform(click());
         waitUntilViewMatchesCondition(
                 withContentDescription("Name*"), allOf(isDisplayed(), isEnabled()));
+        Espresso.closeSoftKeyboard();
         onView(withId(org.chromium.chrome.R.id.editor_dialog_done_button)).perform(click());
 
         // Second edit: change name from John Doe to Jane Doe.
@@ -224,6 +227,7 @@ public class AutofillAssistantPersonalDataManagerTest {
         waitUntilViewMatchesCondition(
                 withContentDescription("Name*"), allOf(isDisplayed(), isEnabled()));
         onView(withContentDescription("Name*")).perform(clearText(), typeText("Jane Doe"));
+        Espresso.closeSoftKeyboard();
         onView(withId(org.chromium.chrome.R.id.editor_dialog_done_button)).perform(click());
 
         // There used to be a bug where consecutive edits of the same profile would create a
@@ -451,6 +455,7 @@ public class AutofillAssistantPersonalDataManagerTest {
         onView(withContentDescription("Email*"))
                 .perform(clearText())
                 .perform(typeText("janedoe@google.com"));
+        Espresso.closeSoftKeyboard();
         onView(withId(org.chromium.chrome.R.id.editor_dialog_done_button)).perform(click());
         waitUntilViewMatchesCondition(withText("Contact info"), isDisplayed());
         // Continue.
@@ -530,6 +535,7 @@ public class AutofillAssistantPersonalDataManagerTest {
                 .atPosition(1 /* address of Adam, 0 is SELECT (empty) */)
                 .inRoot(withDecorView(withClassName(containsString("Popup"))))
                 .perform(click());
+        Espresso.closeSoftKeyboard();
         onView(withId(org.chromium.chrome.R.id.editor_dialog_done_button))
                 .perform(scrollTo(), click());
         waitUntilViewMatchesCondition(allOf(withId(R.id.credit_card_number),

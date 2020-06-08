@@ -42,7 +42,6 @@ class RealboxDropdownElement extends PolymerElement {
        */
       result: {
         type: Object,
-        observer: 'onResultChange_',
       },
 
       /**
@@ -101,8 +100,27 @@ class RealboxDropdownElement extends PolymerElement {
 
   constructor() {
     super();
+    /** @private {!newTabPage.mojom.PageCallbackRouter} */
+    this.callbackRouter_ = BrowserProxy.getInstance().callbackRouter;
     /** @private {newTabPage.mojom.PageHandlerRemote} */
     this.pageHandler_ = BrowserProxy.getInstance().handler;
+    /** @private {?number} */
+    this.autocompleteMatchImageAvailableListenerId_ = null;
+  }
+
+  /** @override */
+  connectedCallback() {
+    super.connectedCallback();
+    this.autocompleteMatchImageAvailableListenerId_ =
+        this.callbackRouter_.autocompleteMatchImageAvailable.addListener(
+            this.onAutocompleteMatchImageAvailable_.bind(this));
+  }
+
+  /** @override */
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this.callbackRouter_.removeListener(
+        assert(this.autocompleteMatchImageAvailableListenerId_));
   }
 
   //============================================================================
@@ -173,11 +191,34 @@ class RealboxDropdownElement extends PolymerElement {
   //============================================================================
 
   /**
+   * @param {number} matchIndex match index
+   * @param {!url.mojom.Url} url match imageUrl or destinationUrl.
+   * @param {string} dataUrl match image or favicon content in in base64 encoded
+   *     Data URL format.
    * @private
    */
-  onResultChange_() {
-    // TODO(crbug.com/1041129): Find a more accurate estimate of when the
-    // results are actually painted.
+  onAutocompleteMatchImageAvailable_(matchIndex, url, dataUrl) {
+    if (!this.result || !this.result.matches) {
+      return;
+    }
+
+    const match = this.result.matches[matchIndex];
+    if (!match) {
+      return;
+    }
+
+    // Set image or favicon content of the match, if applicable.
+    if (match.destinationUrl.url === url.url) {
+      this.set(`result.matches.${matchIndex}.faviconDataUrl`, dataUrl);
+    } else if (match.imageUrl === url.url) {
+      this.set(`result.matches.${matchIndex}.imageDataUrl`, dataUrl);
+    }
+  }
+
+  /**
+   * @private
+   */
+  onResultRepaint_() {
     this.dispatchEvent(new CustomEvent('result-repaint', {
       bubbles: true,
       composed: true,

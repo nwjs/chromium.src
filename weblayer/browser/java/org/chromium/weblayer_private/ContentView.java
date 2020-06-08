@@ -10,7 +10,6 @@ import android.graphics.Rect;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
-import android.util.SparseArray;
 import android.view.DragEvent;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
@@ -19,7 +18,6 @@ import android.view.View.OnSystemUiVisibilityChangeListener;
 import android.view.ViewGroup.OnHierarchyChangeListener;
 import android.view.ViewStructure;
 import android.view.accessibility.AccessibilityNodeProvider;
-import android.view.autofill.AutofillValue;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.widget.RelativeLayout;
@@ -75,9 +73,6 @@ public class ContentView extends RelativeLayout
      */
     public static ContentView createContentView(
             Context context, EventOffsetHandler eventOffsetHandler) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            return new ContentViewApi26(context, eventOffsetHandler);
-        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             return new ContentViewApi23(context, eventOffsetHandler);
         }
@@ -109,16 +104,6 @@ public class ContentView extends RelativeLayout
 
         setOnHierarchyChangeListener(this);
         setOnSystemUiVisibilityChangeListener(this);
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // The Autofill system-level infrastructure has heuristics for which Views it considers
-            // important for autofill; only these Views will be queried for their autofill
-            // structure on notifications that a new (virtual) View was entered. By default,
-            // RelativeLayout is not considered important for autofill. Thus, for ContentView to be
-            // queried for its autofill structure, we must explicitly inform the autofill system
-            // that this View is important for autofill.
-            setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_YES);
-        }
     }
 
     protected WebContentsAccessibility getWebContentsAccessibility() {
@@ -521,34 +506,6 @@ public class ContentView extends RelativeLayout
         public void onProvideVirtualStructure(final ViewStructure structure) {
             WebContentsAccessibility wcax = getWebContentsAccessibility();
             if (wcax != null) wcax.onProvideVirtualStructure(structure, false);
-        }
-    }
-
-    private static class ContentViewApi26 extends ContentViewApi23 {
-        public ContentViewApi26(Context context, EventOffsetHandler eventOffsetHandler) {
-            super(context, eventOffsetHandler);
-        }
-
-        @Override
-        public void onProvideAutofillVirtualStructure(ViewStructure structure, int flags) {
-            // A new (virtual) View has been entered, and the autofill system-level
-            // infrastructure wants us to populate |structure| with the autofill structure of the
-            // (virtual) View. Forward this on to TabImpl to accomplish.
-            TabImpl tab = getTab();
-            if (tab != null) {
-                tab.onProvideAutofillVirtualStructure(structure, flags);
-            }
-        }
-
-        @Override
-        public void autofill(final SparseArray<AutofillValue> values) {
-            // The autofill system-level infrastructure has information that we can use to
-            // autofill the current (virtual) View. Forward this on to TabImpl to
-            // accomplish.
-            TabImpl tab = getTab();
-            if (tab != null) {
-                tab.autofill(values);
-            }
         }
     }
 }

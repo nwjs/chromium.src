@@ -593,6 +593,11 @@ void TabImpl::CaptureScreenShot(
       base::BindOnce(&OnScreenShotCaptured,
                      ScopedJavaGlobalRef<jobject>(value_callback)));
 }
+jboolean TabImpl::IsRendererControllingBrowserControlsOffsets(JNIEnv* env) {
+  return browser_controls_navigation_state_handler_
+      ->IsRendererControllingOffsets();
+}
+
 #endif  // OS_ANDROID
 
 content::WebContents* TabImpl::OpenURLFromTab(
@@ -887,6 +892,7 @@ void TabImpl::OnUpdateBrowserControlsStateBecauseOfProcessSwitch(
   if (did_commit &&
       current_browser_controls_state_ ==
           content::BROWSER_CONTROLS_STATE_SHOWN &&
+      top_controls_container_view_ &&
       top_controls_container_view_->IsFullyVisible()) {
     // The top-control is fully visible, don't animate this else the controls
     // bounce around.
@@ -899,6 +905,11 @@ void TabImpl::OnUpdateBrowserControlsStateBecauseOfProcessSwitch(
                                        content::BROWSER_CONTROLS_STATE_HIDDEN);
   }
 }
+
+void TabImpl::OnForceBrowserControlsShown() {
+  Java_TabImpl_onForceBrowserControlsShown(AttachCurrentThread(), java_impl_);
+}
+
 #endif
 
 void TabImpl::DidChangeVisibleSecurityState() {

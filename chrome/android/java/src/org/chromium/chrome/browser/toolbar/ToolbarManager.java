@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.toolbar;
 
 import android.content.ComponentCallbacks;
+import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.graphics.drawable.Drawable;
 import android.os.Handler;
@@ -33,6 +34,7 @@ import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.TabLoadStatus;
 import org.chromium.chrome.browser.ThemeColorProvider;
 import org.chromium.chrome.browser.ThemeColorProvider.ThemeColorObserver;
+import org.chromium.chrome.browser.ThemeColorProvider.TintObserver;
 import org.chromium.chrome.browser.WindowDelegate;
 import org.chromium.chrome.browser.bookmarks.BookmarkBridge;
 import org.chromium.chrome.browser.compositor.Invalidator;
@@ -46,6 +48,7 @@ import org.chromium.chrome.browser.compositor.layouts.SceneChangeObserver;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.findinpage.FindToolbarManager;
 import org.chromium.chrome.browser.findinpage.FindToolbarObserver;
+import org.chromium.chrome.browser.fullscreen.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.fullscreen.BrowserStateBrowserControlsVisibilityDelegate;
 import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
 import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager.FullscreenListener;
@@ -123,7 +126,7 @@ import java.util.List;
  * Contains logic for managing the toolbar visual component.  This class manages the interactions
  * with the rest of the application to ensure the toolbar is always visually up to date.
  */
-public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserver,
+public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserver, TintObserver,
                                        MenuButtonDelegate, AccessibilityUtil.Observer {
     /**
      * Handle UI updates of menu icons. Only applicable for phones.
@@ -145,9 +148,10 @@ public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserve
     private final IncognitoStateProvider mIncognitoStateProvider;
     private final TabCountProvider mTabCountProvider;
     private final ThemeColorProvider mTabThemeColorProvider;
-    private final AppThemeColorProvider mAppThemeColorProvider;
+    private AppThemeColorProvider mAppThemeColorProvider;
     private final TopToolbarCoordinator mToolbar;
     private final ToolbarControlContainer mControlContainer;
+    private final BrowserControlsStateProvider.Observer mBrowserControlsObserver;
     private final FullscreenListener mFullscreenListener;
 
     private BottomControlsCoordinator mBottomControlsCoordinator;
@@ -181,6 +185,7 @@ public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserve
     private final Callback<Boolean> mUrlFocusChangedCallback;
     private final Handler mHandler = new Handler();
     private final ChromeActivity mActivity;
+    private final BrowserControlsStateProvider mBrowserControlsStateProvider;
     private final ChromeFullscreenManager mFullscreenManager;
     private LocationBarFocusScrimHandler mLocationBarFocusHandler;
     private ComponentCallbacks mComponentCallbacks;
@@ -254,6 +259,7 @@ public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserve
             ObservableSupplier<BookmarkBridge> bookmarkBridgeSupplier,
             @Nullable Supplier<Boolean> canAnimateNativeBrowserControls) {
         mActivity = activity;
+        mBrowserControlsStateProvider = fullscreenManager;
         mFullscreenManager = fullscreenManager;
         mActionBarDelegate = new ViewShiftingActionBarDelegate(activity, controlContainer);
         mShareDelegateSupplier = shareDelegateSupplier;
@@ -297,6 +303,8 @@ public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserve
         mTabThemeColorProvider.addThemeColorObserver(this);
 
         mAppThemeColorProvider = new AppThemeColorProvider(mActivity);
+        // Observe tint changes to update sub-components that rely on the tint (crbug.com/1077684).
+        mAppThemeColorProvider.addTintObserver(this);
 
         mActivityTabProvider = tabProvider;
         mToolbarTabController = new ToolbarTabControllerImpl(mLocationBarModel::getTab,
@@ -308,7 +316,9 @@ public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserve
 
         mToolbar = new TopToolbarCoordinator(controlContainer, mActivity.findViewById(R.id.toolbar),
                 identityDiscController, mLocationBarModel, mToolbarTabController,
-                new UserEducationHelper(mActivity), buttonDataProviders);
+                new UserEducationHelper(mActivity), buttonDataProviders,
+                mActivity.isTablet() ? mAppThemeColorProvider : mTabThemeColorProvider,
+                mAppThemeColorProvider);
 
         mActionModeController =
                 new ActionModeController(mActivity, mActionBarDelegate, toolbarActionModeCallback);
@@ -515,12 +525,7 @@ public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserve
             }
         };
 
-        mFullscreenListener = new FullscreenListener() {
-            @Override
-            public void onEnterFullscreen(Tab tab, FullscreenOptions options) {
-                if (mFindToolbarManager != null) mFindToolbarManager.hideToolbar();
-            }
-
+        mBrowserControlsObserver = new BrowserControlsStateProvider.Observer() {
             @Override
             public void onControlsOffsetChanged(int topOffset, int topControlsMinHeightOffset,
                     int bottomOffset, int bottomControlsMinHeightOffset, boolean needsAnimate) {
@@ -550,6 +555,14 @@ public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserve
                 // Controls need to be offset to match the composited layer, which is
                 // anchored at the bottom of the controls container.
                 setControlContainerTopMargin(getToolbarExtraYOffset());
+            }
+        };
+        mBrowserControlsStateProvider.addObserver(mBrowserControlsObserver);
+
+        mFullscreenListener = new FullscreenListener() {
+            @Override
+            public void onEnterFullscreen(Tab tab, FullscreenOptions options) {
+                if (mFindToolbarManager != null) mFindToolbarManager.hideToolbar();
             }
         };
         mFullscreenManager.addListener(mFullscreenListener);
@@ -643,8 +656,6 @@ public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserve
 
         mToolbar.setTabCountProvider(mTabCountProvider);
         mToolbar.setIncognitoStateProvider(mIncognitoStateProvider);
-        mToolbar.setThemeColorProvider(
-                mActivity.isTablet() ? mAppThemeColorProvider : mTabThemeColorProvider);
 
         AccessibilityUtil.addObserver(this);
 
@@ -989,6 +1000,7 @@ public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserve
 
         mLocationBarModel.destroy();
         mHandler.removeCallbacksAndMessages(null); // Cancel delayed tasks.
+        mBrowserControlsStateProvider.removeObserver(mBrowserControlsObserver);
         mFullscreenManager.removeListener(mFullscreenListener);
         if (mLocationBar != null) {
             mLocationBar.removeUrlFocusChangeListener(mLocationBarFocusHandler);
@@ -996,7 +1008,11 @@ public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserve
         }
 
         if (mTabThemeColorProvider != null) mTabThemeColorProvider.removeThemeColorObserver(this);
-        if (mAppThemeColorProvider != null) mAppThemeColorProvider.destroy();
+        if (mAppThemeColorProvider != null) {
+            mAppThemeColorProvider.removeTintObserver(this);
+            mAppThemeColorProvider.destroy();
+            mAppThemeColorProvider = null;
+        }
 
         if (mActivityTabTabObserver != null) {
             mActivityTabTabObserver.destroy();
@@ -1231,6 +1247,11 @@ public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserve
         mToolbar.onPrimaryColorChanged(shouldAnimate);
     }
 
+    @Override
+    public void onTintChanged(ColorStateList tint, boolean useLight) {
+        updateBookmarkButtonStatus();
+    }
+
     /**
      * @param shouldUpdate Whether we should be updating the toolbar primary color based on updates
      *                     from the Tab.
@@ -1271,7 +1292,7 @@ public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserve
     private int getToolbarExtraYOffset() {
         final int stripAndToolbarHeight = mActivity.getResources().getDimensionPixelSize(
                 R.dimen.tab_strip_and_toolbar_height);
-        return mFullscreenManager.getTopControlsHeight() - stripAndToolbarHeight;
+        return mBrowserControlsStateProvider.getTopControlsHeight() - stripAndToolbarHeight;
     }
 
     /**

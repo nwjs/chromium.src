@@ -442,11 +442,6 @@
 <translation id="1555130319947370107">Azul</translation>
 <translation id="1556537182262721003">Não foi possível mover o directório da extensão para o perfil.</translation>
 <translation id="155865706765934889">Touchpad</translation>
-<translation id="1560763881671211335">Os administradores do G Suite for Education determinam a que Serviços Google os respetivos utilizadores podem aceder enquanto tiverem sessão iniciada numa conta do G Suite for Education. Os administradores da escola são obrigados a fornecer ou obter o consentimento para a utilização dos serviços por parte dos respetivos utilizadores menores.
-
-    Os dados de navegação (incluindo histórico, marcadores e palavras-passe) são armazenados na conta do Family Link e não na conta escolar.
-
-    As suas definições parentais do Family Link continuarão a ser aplicadas. Se bloqueou uma app ou um site anteriormente, não terá de o voltar a fazer.</translation>
 <translation id="1566049601598938765">Website</translation>
 <translation id="15662109988763471">A impressora selecionada não está disponível ou não está instalada corretamente. Verifique a impressora ou experimente selecionar outra impressora.</translation>
 <translation id="1567387640189251553">Foi ligado um teclado diferente desde a última vez que introduziu a palavra-passe. É possível que esteja a tentar roubar os seus toques de teclas.</translation>
@@ -1771,6 +1766,7 @@ Pretende pará-lo?</translation>
 <translation id="32101887417650595">Não é possível estabelecer ligação à impressora</translation>
 <translation id="321084946921799184">Amarelo e branco</translation>
 <translation id="321356136776075234">UO do dispositivo (por exemplo, UO=Chromebooks, DC=exemplo, DC=com)</translation>
+<translation id="3216825226035747725">Os administradores do G Suite for Education determinam a que Serviços Google os respetivos utilizadores podem aceder enquanto tiverem sessão iniciada numa conta do G Suite for Education. Isto pode incluir algumas funcionalidades ou serviços aos quais a criança não tinha anteriormente acesso com esta conta supervisionada. Os administradores da escola são obrigados a fornecer ou obter o consentimento para a utilização dos serviços por parte dos respetivos utilizadores menores.</translation>
 <translation id="3217843140356091325">Pretende criar um atalho?</translation>
 <translation id="321799795901478485">Zip Archiver</translation>
 <translation id="321834671654278338">Desinstalador para o Linux</translation>
@@ -1843,7 +1839,6 @@ Pretende pará-lo?</translation>
 <translation id="3312424061798279731">Idiomas ativados</translation>
 <translation id="3313622045786997898">Valor de assinatura do certificado</translation>
 <translation id="3315158641124845231">Ocultar o <ph name="PRODUCT_NAME" /></translation>
-<translation id="3317284582048881482">Informações da conta escolar para os pais</translation>
 <translation id="3317459757438853210">Frente e verso</translation>
 <translation id="3317678681329786349">Câmara e microfone bloqueados</translation>
 <translation id="3319048459796106952">&amp;Nova janela sem registo</translation>
@@ -4853,7 +4848,6 @@ Certifique-se de que não revela informações confidenciais.</translation>
 <translation id="7235737137505019098">A sua chave de segurança não tem espaço suficiente para mais contas.</translation>
 <translation id="7238643356913091553"><ph name="NETWORK_NAME" />, detalhes</translation>
 <translation id="7240339475467890413">Pretende ligar à nova zona Wi-Fi?</translation>
-<translation id="7240847845291869311">A criança pretende adicionar uma Conta Google do G Suite for Education a este dispositivo. O <ph name="LINK_BEGIN" />Aviso de Privacidade do G Suite for Education<ph name="LINK_END" /> destina-se a ajudar os utilizadores do G Suite for Education e os pais a compreender que dados são recolhidos pelo produto, o motivo da recolha e o que é feito com esses dados.</translation>
 <translation id="7241389281993241388">Inicie sessão no <ph name="TOKEN_NAME" /> para importar o certificado de cliente.</translation>
 <translation id="7243632151880336635">Limpar e terminar sessão</translation>
 <translation id="7243784282103630670">Ocorreu um erro ao atualizar o Linux. Iremos restaurar o contentor através da sua cópia de segurança.</translation>
@@ -5542,6 +5536,7 @@ Mantenha o seu ficheiro de chave num local seguro, pois irá precisar dele para 
     <ph name="BEGIN_PARAGRAPH5" />Pode desativar este serviço nas Definições.<ph name="END_PARAGRAPH5" /></translation>
 <translation id="80974698889265265">Os PINs não coincidem</translation>
 <translation id="809792523045608178"><ph name="IDS_SHORT_PRODUCT_NAME" /> está a utilizar definições do proxy de uma extensão</translation>
+<translation id="8097959162767603171">Primeiro, o seu administrador tem de aceitar os Termos de Utilização na lista de dispositivos do Chrome na Consola do administrador.</translation>
 <translation id="8101987792947961127">Powerwash necessário no próximo reinício</translation>
 <translation id="8102159139658438129">Aceda a <ph name="LINK_BEGIN" />Definições<ph name="LINK_END" /> para ver as opções para o telemóvel associado.</translation>
 <translation id="8104696615244072556">Efetue um Powerwash ao dispositivo <ph name="IDS_SHORT_PRODUCT_NAME" /> e regresse à versão anterior.</translation>

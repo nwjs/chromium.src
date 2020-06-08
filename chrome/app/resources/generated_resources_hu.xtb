@@ -442,11 +442,6 @@
 <translation id="1555130319947370107">Kék</translation>
 <translation id="1556537182262721003">Nem sikerült áthelyezni a bővítménykönyvtárat a profilba.</translation>
 <translation id="155865706765934889">Érintőpad</translation>
-<translation id="1560763881671211335">A G Suite for Education-adminisztrátorok határozzák meg, hogy a felhasználók mely Google-szolgáltatásokhoz férhetnek hozzá, amikor be vannak jelentkezve a G Suite for Education-fiókjukba. A szolgáltatások kiskorú felhasználók általi használata esetén az iskolai adminisztrátoroknak hozzájárulást kell biztosítaniuk, illetve kérniük.
-
-    A böngészési adatokat (többek között az előzményeket, a könyvjelzőket és a jelszavakat) a rendszer a Family Link-fiókban, nem pedig az iskolai fiókban tárolja.
-
-    A Family Linkben beállított szülői beállítások továbbra is érvényesek maradnak. Ha korábban letiltott valamilyen alkalmazást vagy webhelyet, akkor nem kell újra hozzáadnia őket.</translation>
 <translation id="1566049601598938765">Webhely</translation>
 <translation id="15662109988763471">A kiválasztott nyomtató nem áll rendelkezésre, vagy nincs megfelelően telepítve. Ellenőrizze a nyomtatót, vagy válasszon egy másikat.</translation>
 <translation id="1567387640189251553">A jelszó utolsó megadása óta új billentyűzetet csatlakoztattak. Előfordulhat, hogy így kísérlik meg a billentyűleütések rögzítését.</translation>
@@ -1771,6 +1766,7 @@ Ha kezelni szeretné a fiók beállításait, telepítse eszközére a Family Li
 <translation id="32101887417650595">Nem lehet csatlakozni a nyomtatóhoz</translation>
 <translation id="321084946921799184">Sárga-fehér</translation>
 <translation id="321356136776075234">Eszköz-SZE (pl.: SZE=Chromebooks,DC=example,DC=com)</translation>
+<translation id="3216825226035747725">A G Suite for Education-adminisztrátorok határozzák meg, hogy a felhasználók mely Google-szolgáltatásokhoz férhetnek hozzá, amikor be vannak jelentkezve a G Suite for Education-fiókjukba. Lehetnek köztük olyan funkciók és szolgáltatások is, amelyekhez gyermeke korábban, ennek a felügyelt fióknak a használatával nem tudott hozzáférni. A szolgáltatások kiskorú felhasználók általi használata esetén az iskolai adminisztrátoroknak hozzájárulást kell biztosítaniuk, illetve kérniük.</translation>
 <translation id="3217843140356091325">Létrehozza a parancsikont?</translation>
 <translation id="321799795901478485">Zip Archiver</translation>
 <translation id="321834671654278338">Linuxos eltávolító program</translation>
@@ -1843,7 +1839,6 @@ Ha kezelni szeretné a fiók beállításait, telepítse eszközére a Family Li
 <translation id="3312424061798279731">Engedélyezett nyelvek</translation>
 <translation id="3313622045786997898">Tanúsítvány aláírási értéke</translation>
 <translation id="3315158641124845231"><ph name="PRODUCT_NAME" /> elrejtése</translation>
-<translation id="3317284582048881482">Iskolai fiókkal kapcsolatos információk szülőknek</translation>
 <translation id="3317459757438853210">Kétoldalas</translation>
 <translation id="3317678681329786349">Kamera és mikrofon letiltva</translation>
 <translation id="3319048459796106952">Új &amp;inkognitóablak</translation>
@@ -4467,7 +4462,7 @@ Győződjön meg arról, hogy nem ad ki bizalmas adatokat.</translation>
 <translation id="6742339027238151589">Szkript számára elérhető</translation>
 <translation id="6745592621698551453">Frissítés most</translation>
 <translation id="6746124502594467657">Mozgatás lefelé</translation>
-<translation id="674632704103926902">Érintéssel húzás engedélyezése</translation>
+<translation id="674632704103926902">Koppintással húzás engedélyezése</translation>
 <translation id="6748217015615267851">Megjelenítő: <ph name="RENDERER_URL" /></translation>
 <translation id="6748465660675848252">Továbbléphet, de csak szinkronizált adatait és beállításait állítjuk helyre. Összes helyi adata elvész.</translation>
 <translation id="6749006854028927059">A webhelyek nem használhatnak cookie-kat az Ön böngészési tevékenységeinek megismeréséhez a különböző webhelyeken például arra, hogy a hirdetéseket személyre szabják. Előfordulhat, hogy bizonyos webhelyek funkciói nem működnek majd megfelelően.</translation>
@@ -4853,7 +4848,6 @@ Győződjön meg arról, hogy nem ad ki bizalmas adatokat.</translation>
 <translation id="7235737137505019098">A biztonsági hardverkulcson nincs elég hely további fiókok számára.</translation>
 <translation id="7238643356913091553"><ph name="NETWORK_NAME" />, részletek</translation>
 <translation id="7240339475467890413">Csatlakozik az új hotspothoz?</translation>
-<translation id="7240847845291869311">Gyermeke a G Suite for Education szolgáltatáshoz tartozó Google-fiókot szeretne hozzáadni ehhez az eszközhöz. A <ph name="LINK_BEGIN" />G Suite for Education Adatvédelmi közleményének<ph name="LINK_END" /> az a célja, hogy segítse a G Suite for Education-felhasználókat és a szülőket annak megértésében, hogy a termékben milyen adatokat gyűjtünk, milyen céllal, illetve mire használjuk fel őket.</translation>
 <translation id="7241389281993241388">Kérjük, jelentkezzen be a(z) <ph name="TOKEN_NAME" /> szolgáltatásba az ügyféltanúsítvány importálásához.</translation>
 <translation id="7243632151880336635">Törlés és kijelentkezés</translation>
 <translation id="7243784282103630670">Hiba történt a Linux-verzió frissítésekor. A biztonsági másolat alapján visszaállítjuk a tárolót.</translation>
@@ -5542,6 +5536,7 @@ A kulcsfájlt tartsa biztonságos helyen. Szüksége lesz rá ahhoz, hogy új ve
     <ph name="BEGIN_PARAGRAPH5" />Ezt a szolgáltatást a Beállítások között kapcsolhatja ki.<ph name="END_PARAGRAPH5" /></translation>
 <translation id="80974698889265265">A megadott PIN-kódok nem egyeznek</translation>
 <translation id="809792523045608178">A <ph name="IDS_SHORT_PRODUCT_NAME" /> az egyik bővítményből származó proxybeállításokat használja</translation>
+<translation id="8097959162767603171">Rendszergazdájának előbb el kell fogadnia az általános szerződési feltételeket a Felügyeleti Konzol Chrome-eszközeinek listáján.</translation>
 <translation id="8101987792947961127">Powerwash szükséges a következő újraindításkor</translation>
 <translation id="8102159139658438129">A <ph name="LINK_BEGIN" />Beállítások<ph name="LINK_END" /> között megtalálja a csatlakoztatott telefonra vonatkozó lehetőségeket.</translation>
 <translation id="8104696615244072556">Hajtson végre Powerwash műveletet <ph name="IDS_SHORT_PRODUCT_NAME" /> eszközén, és térjen vissza a korábbi verzióhoz.</translation>

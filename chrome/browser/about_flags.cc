@@ -1597,6 +1597,16 @@ const FeatureEntry::FeatureVariation
          kOmniboxSearchEngineLogoLoupeEverywhereVariationConstant,
          base::size(kOmniboxSearchEngineLogoLoupeEverywhereVariationConstant),
          nullptr}};
+
+const FeatureEntry::FeatureParam
+    kOmniboxImageSearchSuggestionThumbnailVariationConstant[] = {
+        {"ImageSearchSuggestionThumbnail", "true"}};
+const FeatureEntry::FeatureVariation
+    kOmniboxImageSearchSuggestionThumbnailVariation[] = {
+        {"(with thumbnail)",
+         kOmniboxImageSearchSuggestionThumbnailVariationConstant,
+         base::size(kOmniboxImageSearchSuggestionThumbnailVariationConstant),
+         nullptr}};
 #endif  // OS_ANDROID
 
 const FeatureEntry::FeatureVariation
@@ -1665,6 +1675,10 @@ const FeatureEntry::FeatureVariation
 const FeatureEntry::FeatureParam
     kQuietNotificationPromptsWithAdaptiveActivation[] = {
         {QuietNotificationPermissionUiConfig::kEnableAdaptiveActivation,
+         "true"},
+        {QuietNotificationPermissionUiConfig::kEnableAbusiveRequestBlocking,
+         "true"},
+        {QuietNotificationPermissionUiConfig::kEnableAbusiveRequestWarning,
          "true"},
         {QuietNotificationPermissionUiConfig::kEnableCrowdDenyTriggering,
          "true"},
@@ -5175,7 +5189,10 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kEnableClipboardProviderImageSuggestionsName,
      flag_descriptions::kEnableClipboardProviderImageSuggestionsDescription,
      kOsAndroid,
-     FEATURE_VALUE_TYPE(omnibox::kEnableClipboardProviderImageSuggestions)},
+     FEATURE_WITH_PARAMS_VALUE_TYPE(
+         omnibox::kEnableClipboardProviderImageSuggestions,
+         kOmniboxImageSearchSuggestionThumbnailVariation,
+         "OmniboxEnableClipboardProviderImageSuggestions")},
 #endif  // defined(OS_ANDROID)
 
     {"impulse-scroll-animations",

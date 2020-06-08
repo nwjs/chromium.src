@@ -3043,7 +3043,7 @@ bool Browser::PopupBrowserSupportsWindowFeature(WindowFeature feature,
   }
 }
 
-bool Browser::LegacyAppBrowserSupportsWindowFeature(
+bool Browser::AppPopupBrowserSupportsWindowFeature(
     WindowFeature feature,
     bool check_can_support) const {
   bool fullscreen = ShouldHideUIForFullscreen();
@@ -3057,8 +3057,8 @@ bool Browser::LegacyAppBrowserSupportsWindowFeature(
   }
 }
 
-bool Browser::WebAppBrowserSupportsWindowFeature(WindowFeature feature,
-                                                 bool check_can_support) const {
+bool Browser::AppBrowserSupportsWindowFeature(WindowFeature feature,
+                                              bool check_can_support) const {
   DCHECK(app_controller_);
   bool fullscreen = ShouldHideUIForFullscreen();
   switch (feature) {
@@ -3112,16 +3112,15 @@ bool Browser::SupportsWindowFeatureImpl(WindowFeature feature,
     case TYPE_NORMAL:
       return NormalBrowserSupportsWindowFeature(feature, check_can_support);
     case TYPE_POPUP:
-    case TYPE_APP_POPUP:
       return PopupBrowserSupportsWindowFeature(feature, check_can_support);
     case TYPE_APP:
-      // TODO(crbug.com/992834): Change to TYPE_WEB_APP.
       if (app_controller_)
-        return WebAppBrowserSupportsWindowFeature(feature, check_can_support);
-      // TODO(crbug.com/992834): Change to TYPE_LEGACY_APP.
-      return LegacyAppBrowserSupportsWindowFeature(feature, check_can_support);
+        return AppBrowserSupportsWindowFeature(feature, check_can_support);
+      // TODO(crbug.com/992834): Change legacy apps to TYPE_APP_POPUP.
+      return AppPopupBrowserSupportsWindowFeature(feature, check_can_support);
     case TYPE_DEVTOOLS:
-      return LegacyAppBrowserSupportsWindowFeature(feature, check_can_support);
+    case TYPE_APP_POPUP:
+      return AppPopupBrowserSupportsWindowFeature(feature, check_can_support);
 #if defined(OS_CHROMEOS)
     case TYPE_CUSTOM_TAB:
       return CustomTabBrowserSupportsWindowFeature(feature);

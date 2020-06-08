@@ -60,8 +60,10 @@ java_cpp_enum("generated_enums") {
 
 android_library("java") {
   sources = [
+    "org/chromium/weblayer_private/AccessibilityUtil.java",
     "org/chromium/weblayer_private/ActionModeCallback.java",
     "org/chromium/weblayer_private/AutocompleteSchemeClassifierImpl.java",
+    "org/chromium/weblayer_private/AutofillView.java",
     "org/chromium/weblayer_private/BrowserControlsContainerView.java",
     "org/chromium/weblayer_private/BrowserFragmentImpl.java",
     "org/chromium/weblayer_private/BrowserImpl.java",
@@ -93,6 +95,7 @@ android_library("java") {
     "org/chromium/weblayer_private/TabImpl.java",
     "org/chromium/weblayer_private/UrlBarControllerImpl.java",
     "org/chromium/weblayer_private/WebContentsGestureStateTracker.java",
+    "org/chromium/weblayer_private/WebLayerAccessibilityUtil.java",
     "org/chromium/weblayer_private/WebLayerExceptionFilter.java",
     "org/chromium/weblayer_private/WebLayerFactoryImpl.java",
     "org/chromium/weblayer_private/WebLayerImpl.java",

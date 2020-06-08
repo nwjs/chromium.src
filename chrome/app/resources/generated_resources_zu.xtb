@@ -440,11 +440,6 @@ I-<ph name="EXTENSION_NAME" /></translation>
 <translation id="1555130319947370107">Okuluhlaza okwesibhakabhaka</translation>
 <translation id="1556537182262721003">Ayikwazanga ukuhambisa umkhombandlela wesandiso kuphrofayela.</translation>
 <translation id="155865706765934889">Iphedi yokuthinta</translation>
-<translation id="1560763881671211335">Abalawuli be-G Suite for Education banquma ukuthi yimaphi amasevisi we-Google abasebenzisi bawo abangakwazi ukufinyelela kuwo ngenkathi bengene ngemvume ku-akhawunti ye-G Suite for Education. Abalawuli besikole kudingeka bahlinzeke noma bathole imvume yokusetshenziswa kwamasevisi ngabasebenzisi abasebancane.
-
-    Idatha yopheqululo (okubandakanya umlando, amabhukhimakhi, namaphasiwedi) izogcinwa nge-akhawunti ye-Family Link futhi hhayi nge-akhawunti yesikole.
-
-    Izilungiselelo zakho zomzali ze-Family Link zisazosebenza. Uma ngaphambilini uvimbele uhlelo lokusebenza noma isayithi, ngeke kudingeke ukuthi ukwenze futhi.</translation>
 <translation id="1566049601598938765">Iwebhusayithi</translation>
 <translation id="15662109988763471">Iphrinta ekhethiwe ayitholakali noma ayifakiwe kahle. Hlola iphrinta yakho noma zama ukukhetha enye iphrinta.</translation>
 <translation id="1567387640189251553">Ikhibhodi ehlukile ixhunyiwe kusuka lapho ufake khona iphasiwedi yakho. Ingazama ukutshontsha okhiye bako.</translation>
@@ -1769,6 +1764,7 @@ Ungaphatha izilungiselelo zale akhawunti ngokufaka uhlelo lokusebenza lwe-Family
 <translation id="32101887417650595">Ayikwazi ukuxhumeka kuphrinta</translation>
 <translation id="321084946921799184">Okuphuzi nokumhlophe</translation>
 <translation id="321356136776075234">I-OU yedivayisi (isb. OU=Chromebooks,DC=example,DC=com)</translation>
+<translation id="3216825226035747725">Abalawuli be-G Suite for Education banquma ukuthi yimaphi amasevisi we-Google abasebenzisi bawo abangakwazi ukufinyelela kuwo ngenkathi bengene ngemvume ku-akhawunti ye-G Suite for Education. Lokhu kungahlanganisa nezici ezithile noma amasevisi ingane yakho ebeyingakwazi ukuwafinyelela ngaphambilini isebenzsa le akhawunti egadiwe. Abalawuli besikole kudingeka bahlinzeke noma bathole imvume yokusetshenziswa kwamasevisi ngabasebenzisi abasebancane.</translation>
 <translation id="3217843140356091325">Dala isinqamuleli?</translation>
 <translation id="321799795901478485">Isifaki kungobo yomlando se-zip</translation>
 <translation id="321834671654278338">Isikhiphi se-Linux</translation>
@@ -1841,7 +1837,6 @@ Ungaphatha izilungiselelo zale akhawunti ngokufaka uhlelo lokusebenza lwe-Family
 <translation id="3312424061798279731">Izilimi ezinikwe amandla</translation>
 <translation id="3313622045786997898">Inani lesiginesha yesitifiketi</translation>
 <translation id="3315158641124845231">Fihla i-<ph name="PRODUCT_NAME" /></translation>
-<translation id="3317284582048881482">Ulwazi lwe-akhawunti yesikole lwabazali</translation>
 <translation id="3317459757438853210">Inezinhlangothi ezimbili</translation>
 <translation id="3317678681329786349">Ikhamera nemakrofoni ivinjelwe</translation>
 <translation id="3319048459796106952">Iwindi le-incognito elisha</translation>
@@ -4852,7 +4847,6 @@ Qiniseka ukuthi awuvezi noma yiluphi ulwazi olubucayi.</translation>
 <translation id="7235737137505019098">Ukhiye wakho wokuqinisekisa ubunikazi awunaso isikhala esanele sanoma imaphi ama-akhawunti amaningi.</translation>
 <translation id="7238643356913091553"><ph name="NETWORK_NAME" />, Imininingwane</translation>
 <translation id="7240339475467890413">Xhumeka ku-hotspot entsha?</translation>
-<translation id="7240847845291869311">Ingane yakho ifuna ukwengeza i-akhawunti ye-Google ye-G Suite for Education kule divayisi. <ph name="LINK_BEGIN" />Isaziso Sobumfihlo se-G Suite for Education<ph name="LINK_END" /> sihloselwe ukusiza abasebenzisi nabazali be-G Suite for Education ukuqonda lokho okuqoqwa umkhiqizo, kungani kuqoqwa, nokuthi kwenziwani ngakho.</translation>
 <translation id="7241389281993241388">Sicela ungene ngemvume ku-<ph name="TOKEN_NAME" /> ukuze ungenise isitifiketi seklayenti.</translation>
 <translation id="7243632151880336635">Sula uphinde uphume ngemvume</translation>
 <translation id="7243784282103630670">Kubenephutha ngenkathi kuthuthukiswa i-Linux. Sizolondoloza isiqukathi sisebenzisa isipele sakho.</translation>
@@ -5540,6 +5534,7 @@ Gcina ifayela lakho elingukhiye endaweni evikelekile. Uzolidinga ukuze udale izi
     <ph name="BEGIN_PARAGRAPH5" />Ungavala le sevisi kuzilungiselelo.<ph name="END_PARAGRAPH5" /></translation>
 <translation id="80974698889265265">Amaphinikhodi awafani</translation>
 <translation id="809792523045608178"><ph name="IDS_SHORT_PRODUCT_NAME" /> isebenzisa izilungiselelo ze-proxy kusuka kusandiso</translation>
+<translation id="8097959162767603171">Umlawuli wakho kufanele amukele kuqala imigomo yesevisi kuhlu lwedivayisi ye-Chrome kukhonsoli Yomphathi.</translation>
 <translation id="8101987792947961127">Kudingeka i-Powerwash ekuqaliseni kabusha okulandelayo</translation>
 <translation id="8102159139658438129">Hamba <ph name="LINK_BEGIN" />kuzilungiselelo<ph name="LINK_END" /> ukuze ubone izinketho zefoni yakho exhunyiwe</translation>
 <translation id="8104696615244072556">Yenza i-Powerwash kudivayisi yakho ye-<ph name="IDS_SHORT_PRODUCT_NAME" /> futhi ubuyele kunguqulo yangaphambilini.</translation>

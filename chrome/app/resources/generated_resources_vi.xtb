@@ -222,7 +222,7 @@
 <translation id="1272293450992660632">Giá trị mã PIN không khớp.</translation>
 <translation id="1272978324304772054">Tài khoản người dùng này không thuộc về miền mà thiết bị được đăng ký. Nếu bạn muốn đăng ký miền khác, bạn cần tìm thiết bị trước tiên.</translation>
 <translation id="1274977772557788323">Cài đặt bộ nhớ của Adobe Flash Player</translation>
-<translation id="1274997165432133392">Cookie và các dữ liệu trang web khác</translation>
+<translation id="1274997165432133392">Cookie và các dữ liệu khác của trang web</translation>
 <translation id="1275718070701477396">Đã chọn</translation>
 <translation id="1276994519141842946">Không gỡ được cài đặt <ph name="APP_NAME" /></translation>
 <translation id="1280820357415527819">Đang tìm kiếm mạng di động</translation>
@@ -442,11 +442,6 @@
 <translation id="1555130319947370107">Xanh lam</translation>
 <translation id="1556537182262721003">Không thể di chuyển thư mục tiện ích vào hồ sơ.</translation>
 <translation id="155865706765934889">Ô di chuột</translation>
-<translation id="1560763881671211335">Quản trị viên G Suite cho Giáo dục xác định người dùng có thể truy cập vào dịch vụ nào của Google khi họ đăng nhập vào tài khoản G Suite cho Giáo dục. Quản trị viên trường học phải đồng ý hoặc có được sự đồng ý nếu để người dùng là trẻ vị thành niên sử dụng các dịch vụ đó.
-
-    Dữ liệu duyệt web (bao gồm lịch sử hoạt động, dấu trang và mật khẩu) sẽ được lưu trữ với tài khoản Family Link chứ không phải với tài khoản trường học.
-
-    Các tùy chọn cài đặt Family Link của cha mẹ sẽ vẫn được áp dụng. Nếu trước đây đã chặn một ứng dụng hoặc trang web, thì bạn sẽ không phải chặn lại.</translation>
 <translation id="1566049601598938765">Trang web</translation>
 <translation id="15662109988763471">Máy in đã chọn không hoạt động hoặc được cài đặt không chính xác. Hãy kiểm tra máy in của bạn hoặc thử chọn một máy in khác.</translation>
 <translation id="1567387640189251553">Một bàn phím khác đã được kết nối kể từ lần gần đây nhất bạn nhập mật khẩu của mình. Bàn phím này có thể đang cố gắng đánh cắp thao tác nhấn phím của bạn.</translation>
@@ -1352,7 +1347,7 @@ Bạn có thể quản lý các tùy chọn cài đặt của tài khoản này 
 <translation id="2682498795777673382">Thông tin mới từ cha mẹ</translation>
 <translation id="2683638487103917598">Đẵ sắp xếp thư mục</translation>
 <translation id="2684004000387153598">Để tiếp tục, hãy nhấp vào OK, sau đó nhấp vào Thêm người để tạo hồ sơ mới cho địa chỉ email của bạn.</translation>
-<translation id="2687403674020088961">Chặn tất cả các cookie (không khuyến nghị)</translation>
+<translation id="2687403674020088961">Chặn tất cả cookie (không khuyến nghị)</translation>
 <translation id="2687407218262674387">Điều khoản dịch vụ của Google</translation>
 <translation id="2688196195245426394">Lỗi khi đăng ký thiết bị với máy chủ: <ph name="CLIENT_ERROR" />.</translation>
 <translation id="2690024944919328218">Hiển thị tùy chọn ngôn ngữ</translation>
@@ -1771,6 +1766,7 @@ Bạn có thể quản lý các tùy chọn cài đặt của tài khoản này 
 <translation id="32101887417650595">Không thể kết nối với máy in</translation>
 <translation id="321084946921799184">Vàng và trắng</translation>
 <translation id="321356136776075234">Đơn vị tổ chức của thiết bị (ví dụ: OU=Chromebooks,DC=example,DC=com)</translation>
+<translation id="3216825226035747725">Quản trị viên G Suite cho Giáo dục sẽ xác định người dùng có thể sử dụng dịch vụ nào của Google khi họ đăng nhập vào tài khoản G Suite cho Giáo dục. Việc sử dụng có thể bao gồm một số tính năng hoặc dịch vụ mà trước đây con bạn chưa thể sử dụng bằng tài khoản được giám sát này. Quản trị viên trường học phải đồng ý hoặc có được sự đồng ý nếu để người dùng là trẻ vị thành niên sử dụng các dịch vụ đó.</translation>
 <translation id="3217843140356091325">Tạo lối tắt?</translation>
 <translation id="321799795901478485">Zip Archiver</translation>
 <translation id="321834671654278338">Trình gỡ cài đặt Linux</translation>
@@ -1843,7 +1839,6 @@ Bạn có thể quản lý các tùy chọn cài đặt của tài khoản này 
 <translation id="3312424061798279731">Ngôn ngữ đã bật</translation>
 <translation id="3313622045786997898">Giá trị Chữ ký Chứng chỉ</translation>
 <translation id="3315158641124845231">Ẩn <ph name="PRODUCT_NAME" /></translation>
-<translation id="3317284582048881482">Thông tin về tài khoản trường học dành cho cha mẹ</translation>
 <translation id="3317459757438853210">Hai mặt</translation>
 <translation id="3317678681329786349">Máy ảnh và micrô bị chặn</translation>
 <translation id="3319048459796106952">Cửa sổ ẩn &amp;danh mới</translation>
@@ -4456,7 +4451,7 @@ Bạn có thể quản lý các tùy chọn cài đặt của tài khoản này 
 <translation id="6732801395666424405">Không tải được chứng chỉ</translation>
 <translation id="6732900235521116609">Không thể xóa lối tắt</translation>
 <translation id="6734468588183300211">Ở chế độ ẩn danh, các trang web không thể dùng cookie giám sát hoạt động duyệt web của bạn trên nhiều trang web để điều chỉnh quảng cáo cho phù hợp với bạn chẳng hạn. Do đó, các tính năng trên một số trang web có thể hoạt động không đúng cách.</translation>
-<translation id="6735304988756581115">Hiển thị cookie và dữ liệu trang web khác...</translation>
+<translation id="6735304988756581115">Hiển thị cookie và các dữ liệu khác của trang web...</translation>
 <translation id="6736243959894955139">Địa chỉ</translation>
 <translation id="6736329909263487977"><ph name="ISSUED_BY" /> [<ph name="ISSUED_TO" />]</translation>
 <translation id="6737663862851963468">Xóa phiếu Kerberos</translation>
@@ -4852,7 +4847,6 @@ Bạn có thể quản lý các tùy chọn cài đặt của tài khoản này 
 <translation id="7235737137505019098">Khóa bảo mật của bạn không có đủ dung lượng cho bất kỳ tài khoản nào khác nữa.</translation>
 <translation id="7238643356913091553"><ph name="NETWORK_NAME" />, Thông tin chi tiết</translation>
 <translation id="7240339475467890413">Kết nối với điểm phát sóng mới?</translation>
-<translation id="7240847845291869311">Con bạn muốn thêm một Tài khoản Google G Suite cho Giáo dục vào thiết bị này. <ph name="LINK_BEGIN" />Thông báo về quyền riêng tư của G Suite cho Giáo dục<ph name="LINK_END" /> nhằm giúp người dùng và cha mẹ sử dụng G Suite cho Giáo dục hiểu rõ những dữ liệu mà sản phẩm này thu thập, lý do thu thập cũng như những việc chúng tôi làm với dữ liệu đó.</translation>
 <translation id="7241389281993241388">Vui lòng đăng nhập vào <ph name="TOKEN_NAME" /> để nhập chứng chỉ ứng dụng khách.</translation>
 <translation id="7243632151880336635">Xóa và đăng xuất</translation>
 <translation id="7243784282103630670">Đã xảy ra lỗi khi nâng cấp Linux. Chúng tôi sẽ khôi phục vùng chứa bằng bản sao lưu của bạn.</translation>
@@ -5541,6 +5535,7 @@ Giữ tệp khóa của bạn ở nơi an toàn. Bạn sẽ cần tệp khóa đ
     <ph name="BEGIN_PARAGRAPH5" />Bạn có thể tắt dịch vụ này trong mục Cài đặt.<ph name="END_PARAGRAPH5" /></translation>
 <translation id="80974698889265265">Mã PIN không khớp</translation>
 <translation id="809792523045608178"><ph name="IDS_SHORT_PRODUCT_NAME" /> sẽ dùng tùy chọn cài đặt proxy của một tiện ích</translation>
+<translation id="8097959162767603171">Trước tiên, quản trị viên của bạn phải chấp nhận điều khoản dịch vụ trong danh sách thiết bị Chrome trên Bảng điều khiển dành cho quản trị viên.</translation>
 <translation id="8101987792947961127">Yêu cầu Powerwash trong lần khởi động lại tiếp theo</translation>
 <translation id="8102159139658438129">Chuyển tới mục <ph name="LINK_BEGIN" />Cài đặt<ph name="LINK_END" /> để xem các tùy chọn cho điện thoại đã kết nối</translation>
 <translation id="8104696615244072556">Powerwash thiết bị <ph name="IDS_SHORT_PRODUCT_NAME" /> của bạn và quay lại phiên bản trước.</translation>

@@ -33,6 +33,21 @@
 #include "url/origin.h"
 
 namespace permissions {
+
+const char kAbusiveNotificationRequestsEnforcementMessage[] =
+    "Chrome is blocking notification permission requests on this site because "
+    "the site tends to show permission requests that mislead, trick, or force "
+    "users into allowing notifications. You should fix the issues as soon as "
+    "possible and submit your site for another review. Learn more at "
+    "https://support.google.com/webtools/answer/9799048.";
+
+const char kAbusiveNotificationRequestsWarningMessage[] =
+    "Chrome might start blocking notification permission requests on this site "
+    "in the future because the site tends to show permission requests that "
+    "mislead, trick, or force users into allowing notifications. You should "
+    "fix the issues as soon as possible and submit your site for another "
+    "review. Learn more at https://support.google.com/webtools/answer/9799048.";
+
 namespace {
 
 bool IsMessageTextEqual(PermissionRequest* a, PermissionRequest* b) {
@@ -372,7 +387,8 @@ void PermissionRequestManager::DequeueRequestIfNeeded() {
             &PermissionRequestManager::OnSelectedUiToUseForNotifications,
             weak_factory_.GetWeakPtr()));
   } else {
-    current_request_ui_to_use_ = UiToUse::kNormalUi;
+    current_request_ui_to_use_ =
+        UiDecision(UiDecision::UseNormalUi(), UiDecision::ShowNoWarning());
     ScheduleShowBubble();
   }
 }
@@ -405,8 +421,18 @@ void PermissionRequestManager::ShowBubble() {
     PermissionUmaUtil::PermissionPromptShown(requests_);
 
     if (ShouldCurrentRequestUseQuietUI()) {
+      if (ReasonForUsingQuietUi() ==
+          QuietUiReason::kTriggeredDueToAbusiveRequests) {
+        LogWarningToConsole(kAbusiveNotificationRequestsEnforcementMessage);
+      }
       base::RecordAction(base::UserMetricsAction(
           "Notifications.Quiet.PermissionRequestShown"));
+    }
+
+    if (current_request_ui_to_use_->warning_reason &&
+        *(current_request_ui_to_use_->warning_reason) ==
+            WarningReason::kAbusiveRequests) {
+      LogWarningToConsole(kAbusiveNotificationRequestsWarningMessage);
     }
   }
   current_request_view_shown_to_user_ = true;
@@ -480,7 +506,6 @@ void PermissionRequestManager::FinalizeBubble(
 
   current_request_view_shown_to_user_ = false;
   current_request_ui_to_use_.reset();
-  current_request_quiet_ui_reason_.reset();
 
   if (view_)
     DeleteBubble();
@@ -580,12 +605,12 @@ bool PermissionRequestManager::ShouldCurrentRequestUseQuietUI() const {
   // ContentSettingImageModel might call into this method if the user switches
   // between tabs while the |notification_permission_ui_selector_| is pending.
   return current_request_ui_to_use_ &&
-         *current_request_ui_to_use_ == UiToUse::kQuietUi;
+         current_request_ui_to_use_->quiet_ui_reason;
 }
 
 PermissionRequestManager::QuietUiReason
 PermissionRequestManager::ReasonForUsingQuietUi() const {
-  return *current_request_quiet_ui_reason_;
+  return *(current_request_ui_to_use_->quiet_ui_reason);
 }
 
 bool PermissionRequestManager::IsRequestInProgress() const {
@@ -603,10 +628,8 @@ void PermissionRequestManager::NotifyBubbleRemoved() {
 }
 
 void PermissionRequestManager::OnSelectedUiToUseForNotifications(
-    UiToUse ui_to_use,
-    base::Optional<QuietUiReason> quiet_ui_reason) {
-  current_request_ui_to_use_ = ui_to_use;
-  current_request_quiet_ui_reason_ = quiet_ui_reason;
+    const UiDecision& decision) {
+  current_request_ui_to_use_ = decision;
   ScheduleShowBubble();
 }
 
@@ -624,6 +647,11 @@ PermissionRequestManager::DetermineCurrentRequestUIDispositionForUMA() {
                    : PermissionPromptDisposition::
                          LOCATION_BAR_RIGHT_ANIMATED_ICON;
 #endif
+}
+
+void PermissionRequestManager::LogWarningToConsole(const char* message) {
+  web_contents()->GetMainFrame()->AddMessageToConsole(
+      blink::mojom::ConsoleMessageLevel::kWarning, message);
 }
 
 void PermissionRequestManager::DoAutoResponseForTesting() {

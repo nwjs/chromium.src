@@ -51,11 +51,13 @@ public class OfflineIndicatorControllerV2 implements ConnectivityDetector.Observ
 
     private Context mContext;
     private StatusIndicatorCoordinator mStatusIndicator;
+    private Handler mHandler;
     private ConnectivityDetector mConnectivityDetector;
     private ObservableSupplier<Boolean> mIsUrlBarFocusedSupplier;
     private Supplier<Boolean> mCanAnimateBrowserControlsSupplier;
     private Callback<Boolean> mOnUrlBarFocusChanged;
     private Runnable mShowRunnable;
+    private Runnable mUpdateAndHideRunnable;
     private Runnable mHideRunnable;
     private Runnable mOnUrlBarUnfocusedRunnable;
     private Runnable mUpdateStatusIndicatorDelayedRunnable;
@@ -81,6 +83,7 @@ public class OfflineIndicatorControllerV2 implements ConnectivityDetector.Observ
             Supplier<Boolean> canAnimateNativeBrowserControls) {
         mContext = context;
         mStatusIndicator = statusIndicator;
+        mHandler = new Handler();
 
         // If we're offline at start-up, we should have a small enough last action time so that we
         // don't wait for the cool-down.
@@ -106,6 +109,11 @@ public class OfflineIndicatorControllerV2 implements ConnectivityDetector.Observ
         };
 
         mHideRunnable = () -> {
+            mHandler.postDelayed(
+                    () -> mStatusIndicator.hide(), STATUS_INDICATOR_WAIT_BEFORE_HIDE_DURATION_MS);
+        };
+
+        mUpdateAndHideRunnable = () -> {
             RecordUserAction.record("OfflineIndicator.Hidden");
             final long shownDuration =
                     TimeUnit.MICROSECONDS.toMillis(TimeUtilsJni.get().getTimeTicksNowUs())
@@ -123,14 +131,9 @@ public class OfflineIndicatorControllerV2 implements ConnectivityDetector.Observ
                     mContext.getResources(), R.drawable.ic_globe_24dp, mContext.getTheme());
             final int iconTint = ApiCompatibilityUtils.getColor(
                     mContext.getResources(), R.color.default_icon_color_inverse);
-            Runnable hide = () -> {
-                final Handler handler = new Handler();
-                handler.postDelayed(() -> mStatusIndicator.hide(),
-                        STATUS_INDICATOR_WAIT_BEFORE_HIDE_DURATION_MS);
-            };
             mStatusIndicator.updateContent(
                     mContext.getString(R.string.offline_indicator_v2_back_online_text), statusIcon,
-                    backgroundColor, textColor, iconTint, hide);
+                    backgroundColor, textColor, iconTint, mHideRunnable);
         };
 
         mIsUrlBarFocusedSupplier = isUrlBarFocusedSupplier;
@@ -161,14 +164,12 @@ public class OfflineIndicatorControllerV2 implements ConnectivityDetector.Observ
             return;
         }
 
-        final Handler handler = new Handler();
-        handler.removeCallbacks(mUpdateStatusIndicatorDelayedRunnable);
-
+        mHandler.removeCallbacks(mUpdateStatusIndicatorDelayedRunnable);
         // TODO(crbug.com/1081427): This currently only protects the widget from going into a bad
         // state. We need a better way to handle flaky connections.
         final long elapsedTimeSinceLastAction = SystemClock.elapsedRealtime() - mLastActionTime;
         if (elapsedTimeSinceLastAction < STATUS_INDICATOR_COOLDOWN_BEFORE_NEXT_ACTION_MS) {
-            handler.postDelayed(mUpdateStatusIndicatorDelayedRunnable,
+            mHandler.postDelayed(mUpdateStatusIndicatorDelayedRunnable,
                     STATUS_INDICATOR_COOLDOWN_BEFORE_NEXT_ACTION_MS - elapsedTimeSinceLastAction);
             return;
         }
@@ -188,6 +189,9 @@ public class OfflineIndicatorControllerV2 implements ConnectivityDetector.Observ
         }
 
         mOnUrlBarFocusChanged = null;
+
+        mHandler.removeCallbacks(mHideRunnable);
+        mHandler.removeCallbacks(mUpdateStatusIndicatorDelayedRunnable);
     }
 
     private void updateStatusIndicator(boolean offline) {
@@ -198,17 +202,17 @@ public class OfflineIndicatorControllerV2 implements ConnectivityDetector.Observ
             // runnable. E.g, without this condition, we would be trying to hide the indicator when
             // it's not shown if we were set to show the widget but then went back online.
             if ((!offline && mOnUrlBarUnfocusedRunnable == mShowRunnable)
-                    || (offline && mOnUrlBarUnfocusedRunnable == mHideRunnable)) {
+                    || (offline && mOnUrlBarUnfocusedRunnable == mUpdateAndHideRunnable)) {
                 mOnUrlBarUnfocusedRunnable = null;
                 return;
             }
-            mOnUrlBarUnfocusedRunnable = offline ? mShowRunnable : mHideRunnable;
+            mOnUrlBarUnfocusedRunnable = offline ? mShowRunnable : mUpdateAndHideRunnable;
             surfaceState = mCanAnimateBrowserControlsSupplier.get()
                     ? UmaEnum.CAN_ANIMATE_NATIVE_CONTROLS_OMNIBOX_FOCUSED
                     : UmaEnum.CANNOT_ANIMATE_NATIVE_CONTROLS_OMNIBOX_FOCUSED;
         } else {
             assert mOnUrlBarUnfocusedRunnable == null;
-            (offline ? mShowRunnable : mHideRunnable).run();
+            (offline ? mShowRunnable : mUpdateAndHideRunnable).run();
             surfaceState = mCanAnimateBrowserControlsSupplier.get()
                     ? UmaEnum.CAN_ANIMATE_NATIVE_CONTROLS
                     : UmaEnum.CANNOT_ANIMATE_NATIVE_CONTROLS;

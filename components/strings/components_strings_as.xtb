@@ -10,6 +10,7 @@
 <translation id="1030706264415084469"><ph name="URL" />এ আপোনাৰ ডিভাইচত চিৰদিনৰ বাবে ডাঙৰ ডেটা সঞ্চয় কৰিব বিচাৰে</translation>
 <translation id="1032854598605920125">ঘড়ীৰ কাঁটাৰ দিশত ঘূৰাওক</translation>
 <translation id="1036348656032585052">অফ কৰক</translation>
+<translation id="1038106730571050514">পৰামৰ্শসমূহ দেখুৱাওক</translation>
 <translation id="1038842779957582377">অজ্ঞাত নাম</translation>
 <translation id="1041998700806130099">কামৰ শ্বীটৰ বাৰ্তা</translation>
 <translation id="1050038467049342496">অন্য এপ্‌বোৰ বাছনি কৰক</translation>
@@ -402,6 +403,7 @@
 <translation id="2666092431469916601">শীর্ষ</translation>
 <translation id="2666117266261740852">অন্য টেব বা এপ্‌ বন্ধ কৰক</translation>
 <translation id="2674170444375937751">আপুনি ব্ৰাউজিং ইতিহাসৰ পৰা এই পৃষ্ঠাসমূহ মচিবলৈ বিচাৰে বুলি নিশ্চিতনে?</translation>
+<translation id="2674804415323431591">পৰামৰ্শসমূহ লুকুৱাওক</translation>
 <translation id="2676271551327853224">Roc-8K</translation>
 <translation id="2677748264148917807">ত্যাগ কৰক</translation>
 <translation id="2684561033061424857">১১x১২</translation>
@@ -1076,6 +1078,7 @@
 <translation id="5523118979700054094">নীতিৰ নাম</translation>
 <translation id="55293785478302737">কাষত চিলাওক</translation>
 <translation id="553484882784876924">Prc6 (লেফাফা)</translation>
+<translation id="5536214594743852365">"<ph name="SECTION" />" শাখাটো দেখুৱাওক</translation>
 <translation id="5539243836947087108">ৰাফ্‌ট</translation>
 <translation id="5540224163453853">অনুৰোধ কৰা প্ৰবন্ধটো বিচাৰি পোৱা নগ'ল।</translation>
 <translation id="5541086400771735334">মেইলবক্স ৭</translation>
@@ -1471,6 +1474,7 @@
 <translation id="7313965965371928911"><ph name="BEGIN_LINK" />সুৰক্ষিত ব্ৰাউজিঙ<ph name="END_LINK" />ৰ সতৰ্কবাণী</translation>
 <translation id="7319430975418800333">A3</translation>
 <translation id="7320336641823683070">সংযোগ সম্পৰ্কীয় সহায়</translation>
+<translation id="7323804146520582233">"<ph name="SECTION" />" শাখাটো লুকুৱাওক</translation>
 <translation id="733354035281974745">ডিভাইচ ল’কেল একাউণ্ট অ’ভাৰৰাইড</translation>
 <translation id="7333654844024768166">আপুনি এটা প্ৰৱঞ্চনামূলক ছাইটত এইমাত্ৰ নিজৰ পাছৱৰ্ডটো দিছে। Chromiumএ <ph name="WEBSITE_1" />, <ph name="WEBSITE_2" />, <ph name="WEBSITE_3" /> আৰু আপুনি এই পাছৱৰ্ডটো ব্যৱহাৰ কৰা অন্য ছাইটসমূহলৈ গৈ এইটো এতিয়াই সলনি কৰাটো চুপাৰিছ কৰে।</translation>
 <translation id="7334320624316649418">&amp;পুনৰ ক্ৰমবদ্ধ কৰাটো ৰিডু কৰক</translation>

@@ -442,11 +442,6 @@
 <translation id="1555130319947370107">Asul</translation>
 <translation id="1556537182262721003">Hindi maililipat ang direktoryo ng extension papunta sa profile.</translation>
 <translation id="155865706765934889">Touchpad</translation>
-<translation id="1560763881671211335">Natutukoy ng mga administrator ng G Suite for Education kung aling mga serbisyo ng Google ang maa-access ng mga user nito habang naka-sign in sa G Suite for Education account. Kinakailangang magbigay o kumuha ng pahintulot ng mga administrator ng paaralan para sa paggamit sa mga serbisyo ng mga menor de edad na user nito.
-
-    Iso-store ang data mula sa pag-browse (kabilang ang history, mga bookmark, at password) sa Family Link account at hindi sa pampaaralang account.
-
-    Mailalapat pa rin ang mga setting bilang magulang sa Family Link. Kung nag-block ka na dati ng app o site, hindi mo na ito kakailanganing gawin ulit.</translation>
 <translation id="1566049601598938765">Website</translation>
 <translation id="15662109988763471">Ang napiling printer ay hindi available o hindi naka-install nang tama. Tingnan ang iyong printer o subukang pumili ng isa pang printer.</translation>
 <translation id="1567387640189251553">Nagkonekta ng ibang keyboard mula nang huli mong inilagay ang iyong password. Maaaring sinusubukan nitong nakawin ang iyong mga keystroke.</translation>
@@ -1771,6 +1766,7 @@ Puwede mong pamahalaan ang mga setting ng account na ito sa pamamagitan ng pag-i
 <translation id="32101887417650595">Hindi makakonekta sa printer</translation>
 <translation id="321084946921799184">Dilaw at puti</translation>
 <translation id="321356136776075234">Device OU (hal. OU=Mga Chromebook,DC=halimbawa,DC=com)</translation>
+<translation id="3216825226035747725">Tinutukoy ng mga administrator ng G Suite for Education kung aling mga serbisyo ng Google ang maa-access ng mga user nito habang naka-sign in sa G Suite for Education account. Posibleng kasama rito ang ilang feature o serbisyo na hindi ma-access dati ng iyong anak gamit ang sinusubaybayang account na ito. Kinakailangan ng mga administrator ng paaralan na magbigay o kumuha ng pahintulot kaugnay ng paggamit ng mga menor de edad na user nito sa mga serbisyo.</translation>
 <translation id="3217843140356091325">Gumawa ng shortcut?</translation>
 <translation id="321799795901478485">Zip Archiver</translation>
 <translation id="321834671654278338">Uninstaller ng Linux</translation>
@@ -1843,7 +1839,6 @@ Puwede mong pamahalaan ang mga setting ng account na ito sa pamamagitan ng pag-i
 <translation id="3312424061798279731">Mga naka-enable na wika</translation>
 <translation id="3313622045786997898">Certificate Signature Value</translation>
 <translation id="3315158641124845231">Itago ang <ph name="PRODUCT_NAME" /></translation>
-<translation id="3317284582048881482">Impormasyon ng pampaaralang account para sa mga magulang</translation>
 <translation id="3317459757438853210">Magkabilaan</translation>
 <translation id="3317678681329786349">Naka-block ang camera at mikropono</translation>
 <translation id="3319048459796106952">Bagong &amp;incognito window</translation>
@@ -4852,7 +4847,6 @@ Puwede mong pamahalaan ang mga setting ng account na ito sa pamamagitan ng pag-i
 <translation id="7235737137505019098">Walang sapat na espasyo para sa higit pang account ang iyong security key.</translation>
 <translation id="7238643356913091553"><ph name="NETWORK_NAME" />, Mga Detalye</translation>
 <translation id="7240339475467890413">Kumonekta sa bagong hotspot?</translation>
-<translation id="7240847845291869311">Gustong magdagdag ng iyong anak ng G Suite for Education Google Account sa device na ito. Ang <ph name="LINK_BEGIN" />Notification ng Privacy ng G Suite for Education<ph name="LINK_END" /> ay naglalayong makatulong sa mga user ng at magulang sa G Suite for Education na maunawaan kung anong data ang kinokolekta ng produkto, bakit ito kinokolekta, at ano ang ginagawa rito.</translation>
 <translation id="7241389281993241388">Mangyaring mag-sign in sa <ph name="TOKEN_NAME" /> upang i-import ang certificate ng client.</translation>
 <translation id="7243632151880336635">I-clear at Mag-sign Out</translation>
 <translation id="7243784282103630670">Nagka-error habang ina-upgrade ang Linux. Ire-restore namin ang container gamit ang iyong backup.</translation>
@@ -5541,6 +5535,7 @@ Ilagay ang iyong key file sa ligtas na lugar. Kailangan mo ito upang lumikha ng 
     <ph name="BEGIN_PARAGRAPH5" />Maaari mong i-off ang serbisyong ito sa Mga Setting.<ph name="END_PARAGRAPH5" /></translation>
 <translation id="80974698889265265">Hindi nagtutugma ang mga PIN</translation>
 <translation id="809792523045608178">Gumagamit ang <ph name="IDS_SHORT_PRODUCT_NAME" /> ng mga setting ng proxy mula sa isang extension</translation>
+<translation id="8097959162767603171">Dapat munang tanggapin ng administrator ang mga tuntunin ng serbisyo sa listahan ng Chrome device ng Admin console.</translation>
 <translation id="8101987792947961127">Kinakailangan ng Powerwash sa susunod na reboot</translation>
 <translation id="8102159139658438129">Pumunta sa <ph name="LINK_BEGIN" />Mga Setting<ph name="LINK_END" /> para makakita ng mga opsyon para sa iyong nakakonektang telepono</translation>
 <translation id="8104696615244072556">I-powerwash ang iyong <ph name="IDS_SHORT_PRODUCT_NAME" /> device at ibalik sa dating bersyon.</translation>

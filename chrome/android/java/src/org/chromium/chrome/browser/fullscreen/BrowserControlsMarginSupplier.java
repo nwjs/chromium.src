@@ -15,22 +15,20 @@ import org.chromium.base.supplier.ObservableSupplierImpl;
  * browser control(s) height(s).
  */
 public class BrowserControlsMarginSupplier extends ObservableSupplierImpl<Rect>
-        implements ChromeFullscreenManager.FullscreenListener, DestroyableObservableSupplier<Rect> {
-    private final ChromeFullscreenManager mFullscreenManager;
+        implements BrowserControlsStateProvider.Observer, DestroyableObservableSupplier<Rect> {
+    private final BrowserControlsStateProvider mBrowserControlsStateProvider;
 
-    public BrowserControlsMarginSupplier(ChromeFullscreenManager fullscreenManager) {
-        mFullscreenManager = fullscreenManager;
-        mFullscreenManager.addListener(this);
+    public BrowserControlsMarginSupplier(
+            BrowserControlsStateProvider browserControlsStateProvider) {
+        mBrowserControlsStateProvider = browserControlsStateProvider;
+        mBrowserControlsStateProvider.addObserver(this);
         updateMargins();
     }
 
     @Override
     public void destroy() {
-        mFullscreenManager.removeListener(this);
+        mBrowserControlsStateProvider.removeObserver(this);
     }
-
-    @Override
-    public void onContentOffsetChanged(int offset) {}
 
     @Override
     public void onControlsOffsetChanged(int topOffset, int topControlsMinHeightOffset,
@@ -50,10 +48,10 @@ public class BrowserControlsMarginSupplier extends ObservableSupplierImpl<Rect>
     }
 
     private void updateMargins() {
-        int topMargin = mFullscreenManager.getTopControlsHeight()
-                + mFullscreenManager.getTopControlOffset();
-        int bottomMargin = mFullscreenManager.getBottomControlsHeight()
-                - mFullscreenManager.getBottomControlOffset();
+        int topMargin = mBrowserControlsStateProvider.getTopControlsHeight()
+                + mBrowserControlsStateProvider.getTopControlOffset();
+        int bottomMargin = mBrowserControlsStateProvider.getBottomControlsHeight()
+                - mBrowserControlsStateProvider.getBottomControlOffset();
         super.set(new Rect(0, topMargin, 0, bottomMargin));
     }
 }

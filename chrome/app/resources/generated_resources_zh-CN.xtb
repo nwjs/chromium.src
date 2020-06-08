@@ -439,11 +439,6 @@
 <translation id="1555130319947370107">蓝色</translation>
 <translation id="1556537182262721003">无法将扩展程序目录移动到个人资料中。</translation>
 <translation id="155865706765934889">触控板</translation>
-<translation id="1560763881671211335">G Suite 教育版管理员可以决定其用户在登录 G Suite 教育版帐号后可以访问哪些 Google 服务。学校管理员必须提供同意声明或征得同意，才能允许其未成年人用户使用相关服务。
-
-    浏览数据（包括历史记录、书签和密码）将存储在 Family Link 帐号中，而不是学校帐号中。
-
-    您的 Family Link 家长设置仍然适用。如果您先前已屏蔽某个应用或网站，则无需再次执行此操作。</translation>
 <translation id="1566049601598938765">网站</translation>
 <translation id="15662109988763471">所选打印机无法使用或未正确安装。请检查打印机，或尝试选择其他打印机。</translation>
 <translation id="1567387640189251553">自从您上次输入密码后，所连接的键盘已被更换。当前连接的键盘可能会试图窃取您的击键操作。</translation>
@@ -1767,6 +1762,7 @@
 <translation id="32101887417650595">无法连接到打印机</translation>
 <translation id="321084946921799184">黄色和白色</translation>
 <translation id="321356136776075234">设备 OU（例如 OU=Chromebooks,DC=example,DC=com）</translation>
+<translation id="3216825226035747725">G Suite 教育版管理员可决定用户在登录 G Suite 教育版帐号后能访问哪些 Google 服务。其中可能会包括您的孩子以前使用此受监管帐号时无法访问的一些功能或服务。学校管理员必须提供同意声明或征得同意，才能允许未成年人用户使用相关服务。</translation>
 <translation id="3217843140356091325">创建快捷方式？</translation>
 <translation id="321799795901478485">Zip Archiver</translation>
 <translation id="321834671654278338">Linux 卸载程序</translation>
@@ -1839,7 +1835,6 @@
 <translation id="3312424061798279731">已启用的语言</translation>
 <translation id="3313622045786997898">证书签名值</translation>
 <translation id="3315158641124845231">隐藏<ph name="PRODUCT_NAME" /></translation>
-<translation id="3317284582048881482">致家长：学校帐号信息</translation>
 <translation id="3317459757438853210">双面</translation>
 <translation id="3317678681329786349">已禁止使用摄像头和麦克风</translation>
 <translation id="3319048459796106952">打开新的无痕窗口(&amp;I)</translation>
@@ -4847,7 +4842,6 @@
 <translation id="7235737137505019098">您的安全密钥没有足够的空间来存储任何其他帐号。</translation>
 <translation id="7238643356913091553"><ph name="NETWORK_NAME" />，详细信息</translation>
 <translation id="7240339475467890413">要连接到新的热点吗？</translation>
-<translation id="7240847845291869311">您的孩子想在此设备上添加一个 G Suite 教育版 Google 帐号。<ph name="LINK_BEGIN" />G Suite 教育版隐私权声明<ph name="LINK_END" />旨在帮助 G Suite 教育版用户和家长了解此产品会收集哪些数据、为什么收集这些数据以及会利用这些数据做什么。</translation>
 <translation id="7241389281993241388">请登录“<ph name="TOKEN_NAME" />”，导入客户端证书。</translation>
 <translation id="7243632151880336635">清除并退出</translation>
 <translation id="7243784282103630670">升级 Linux 时出错。我们将使用您的备份来恢复容器。</translation>
@@ -5536,6 +5530,7 @@
     <ph name="BEGIN_PARAGRAPH5" />您可在“设置”部分中关闭此服务。<ph name="END_PARAGRAPH5" /></translation>
 <translation id="80974698889265265">两次输入的 PIN 码不一致</translation>
 <translation id="809792523045608178"><ph name="IDS_SHORT_PRODUCT_NAME" /> 使用的是由某款扩展程序指定的代理设置</translation>
+<translation id="8097959162767603171">您的管理员必须先接受管理控制台 Chrome 设备列表中的服务条款。</translation>
 <translation id="8101987792947961127">必须在下次重启时执行 Powerwash</translation>
 <translation id="8102159139658438129">转到<ph name="LINK_BEGIN" />设置<ph name="LINK_END" />即可查看与所连手机相关的选项</translation>
 <translation id="8104696615244072556">对您的 <ph name="IDS_SHORT_PRODUCT_NAME" /> 设备执行 Powerwash 操作，使其还原到之前的版本。</translation>

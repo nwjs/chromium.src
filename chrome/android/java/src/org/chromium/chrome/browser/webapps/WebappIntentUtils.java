@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.webapps;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.provider.Browser;
 
 import org.chromium.base.IntentUtils;
 import org.chromium.chrome.browser.ShortcutHelper;
@@ -39,7 +40,10 @@ public class WebappIntentUtils {
             ShortcutHelper.EXTRA_SOURCE, WebApkConstants.EXTRA_WEBAPK_PACKAGE_NAME,
             WebApkConstants.EXTRA_SPLASH_PROVIDED_BY_WEBAPK,
             WebApkConstants.EXTRA_WEBAPK_LAUNCH_TIME,
-            WebApkConstants.EXTRA_NEW_STYLE_SPLASH_SHOWN_TIME};
+            WebApkConstants.EXTRA_NEW_STYLE_SPLASH_SHOWN_TIME,
+            WebApkConstants.EXTRA_WEBAPK_SELECTED_SHARE_TARGET_ACTIVITY_CLASS_NAME,
+            Intent.EXTRA_SUBJECT, Intent.EXTRA_TEXT, Intent.EXTRA_STREAM,
+            Browser.EXTRA_APPLICATION_ID};
 
     /**
      * Converts color from signed Integer where an unspecified color is represented as null to

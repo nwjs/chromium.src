@@ -442,11 +442,6 @@
 <translation id="1555130319947370107">青</translation>
 <translation id="1556537182262721003">拡張機能ディレクトリをプロフィールに移動できませんでした。</translation>
 <translation id="155865706765934889">タッチパッド</translation>
-<translation id="1560763881671211335">G Suite for Education の管理者は、ユーザーが G Suite for Education アカウントにログインしているときにアクセスできる Google サービスを管理します。学校の管理者は、未成年のユーザーがサービスを利用することに関して、管理者自身が同意するか、保護者から同意を得る必要があります。
-
-    履歴、ブックマーク、パスワードなどの閲覧データは、ファミリー リンク アカウントに保存され、学校のアカウントには保存されません。
-
-    保護者によるファミリー リンクの設定は引き続き適用されます。以前にアプリやサイトをブロックした場合、再度ブロックする必要はありません。</translation>
 <translation id="1566049601598938765">ウェブサイト</translation>
 <translation id="15662109988763471">選択したプリンタは利用できないか、正しくインストールされていません。プリンタを確認するか、別のプリンタを選択してみてください。</translation>
 <translation id="1567387640189251553">前回のパスワード入力時以降に別のキーボードが接続されました。キー入力が読み取られる可能性があります。</translation>
@@ -1771,6 +1766,7 @@
 <translation id="32101887417650595">プリンタに接続できません</translation>
 <translation id="321084946921799184">黄色と白</translation>
 <translation id="321356136776075234">デバイスの組織部門（例: OU=Chromebooks,DC=example,DC=com）</translation>
+<translation id="3216825226035747725">G Suite for Education の管理者は、ユーザーが G Suite for Education アカウントにログインしているときにアクセスできる Google サービスを管理します。これには、お子様がこの管理対象のアカウントを使用してアクセスできなかった機能やサービスも含まれる可能性があります。学校の管理者は、未成年のユーザーがサービスを利用することについて、管理者自身が同意するか、保護者から同意を得る必要があります。</translation>
 <translation id="3217843140356091325">ショートカットを作成しますか？</translation>
 <translation id="321799795901478485">Zip アーカイブ ツール</translation>
 <translation id="321834671654278338">Linux アンインストーラ</translation>
@@ -1843,7 +1839,6 @@
 <translation id="3312424061798279731">有効な言語</translation>
 <translation id="3313622045786997898">証明書の署名値</translation>
 <translation id="3315158641124845231"><ph name="PRODUCT_NAME" /> を隠す</translation>
-<translation id="3317284582048881482">学校用アカウントについての保護者の方向けの情報</translation>
 <translation id="3317459757438853210">両面印刷</translation>
 <translation id="3317678681329786349">カメラとマイクがブロックされています</translation>
 <translation id="3319048459796106952">シークレット ウィンドウを開く(&amp;I)</translation>
@@ -4852,7 +4847,6 @@
 <translation id="7235737137505019098">セキュリティ キーに空き容量がないため、これ以上アカウントを追加できません。</translation>
 <translation id="7238643356913091553"><ph name="NETWORK_NAME" />、詳細</translation>
 <translation id="7240339475467890413">新しいアクセス ポイントに接続しますか？</translation>
-<translation id="7240847845291869311">お子様がこのデバイスに G Suite for Education の Google アカウントを追加しようとしています。<ph name="LINK_BEGIN" />G Suite for Education のプライバシーに関するお知らせ<ph name="LINK_END" />は、G Suite for Education のユーザーとパートナーの皆様に、このサービスで収集されるデータとその理由、Google でのデータの取り扱いについて理解を深めていただくためのものです。</translation>
 <translation id="7241389281993241388">クライアント証明書をインポートするには <ph name="TOKEN_NAME" /> にログインしてください。</translation>
 <translation id="7243632151880336635">削除してログアウト</translation>
 <translation id="7243784282103630670">Linux のアップグレード中にエラーが発生しました。バックアップを使用してコンテナを復元します。</translation>
@@ -5541,6 +5535,7 @@
     <ph name="BEGIN_PARAGRAPH5" />このサービスは [設定] でオフにできます。<ph name="END_PARAGRAPH5" /></translation>
 <translation id="80974698889265265">PIN が一致しません</translation>
 <translation id="809792523045608178"><ph name="IDS_SHORT_PRODUCT_NAME" /> は拡張機能のプロキシ設定を使用しています</translation>
+<translation id="8097959162767603171">まず管理者の方に管理コンソールの Chrome デバイスリストの利用規約に同意していただく必要があります。</translation>
 <translation id="8101987792947961127">次回の再起動時に Powerwash が必要</translation>
 <translation id="8102159139658438129">接続しているスマートフォン用のオプションを表示するには [<ph name="LINK_BEGIN" />設定<ph name="LINK_END" />] に移動してください</translation>
 <translation id="8104696615244072556"><ph name="IDS_SHORT_PRODUCT_NAME" /> デバイスで Powerwash を実行し、以前のバージョンに戻します。</translation>

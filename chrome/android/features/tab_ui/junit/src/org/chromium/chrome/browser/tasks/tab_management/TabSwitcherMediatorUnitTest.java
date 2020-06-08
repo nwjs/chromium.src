@@ -19,6 +19,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -45,9 +46,9 @@ import org.chromium.chrome.browser.compositor.CompositorViewHolder;
 import org.chromium.chrome.browser.compositor.layouts.Layout;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
+import org.chromium.chrome.browser.fullscreen.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.TabImpl;
+import org.chromium.chrome.browser.tab.TabHidingType;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelFilter;
@@ -109,7 +110,7 @@ public class TabSwitcherMediatorUnitTest {
     @Mock
     Resources mResources;
     @Mock
-    ChromeFullscreenManager mFullscreenManager;
+    BrowserControlsStateProvider mBrowserControlsStateProvider;
     @Mock
     PropertyObservable.PropertyObserver<PropertyKey> mPropertyObserver;
     @Mock
@@ -128,11 +129,12 @@ public class TabSwitcherMediatorUnitTest {
     @Captor
     ArgumentCaptor<TabModelSelectorObserver> mTabModelSelectorObserverCaptor;
     @Captor
-    ArgumentCaptor<ChromeFullscreenManager.FullscreenListener> mFullscreenListenerCaptor;
+    private ArgumentCaptor<BrowserControlsStateProvider.Observer>
+            mBrowserControlsStateProviderObserverCaptor;
 
-    private TabImpl mTab1;
-    private TabImpl mTab2;
-    private TabImpl mTab3;
+    private Tab mTab1;
+    private Tab mTab2;
+    private Tab mTab3;
     private TabSwitcherMediator mMediator;
     private PropertyModel mModel;
 
@@ -176,14 +178,18 @@ public class TabSwitcherMediatorUnitTest {
         doReturn(mTab2).when(mTabModel).getTabAt(1);
         doReturn(mTab3).when(mTabModel).getTabAt(2);
 
-        doReturn(CONTROL_HEIGHT_DEFAULT).when(mFullscreenManager).getBottomControlsHeight();
-        doReturn(CONTROL_HEIGHT_DEFAULT).when(mFullscreenManager).getTopControlsHeight();
-        doNothing().when(mFullscreenManager).addListener(mFullscreenListenerCaptor.capture());
+        doReturn(CONTROL_HEIGHT_DEFAULT)
+                .when(mBrowserControlsStateProvider)
+                .getBottomControlsHeight();
+        doReturn(CONTROL_HEIGHT_DEFAULT).when(mBrowserControlsStateProvider).getTopControlsHeight();
+        doNothing()
+                .when(mBrowserControlsStateProvider)
+                .addObserver(mBrowserControlsStateProviderObserverCaptor.capture());
 
         mModel = new PropertyModel(TabListContainerProperties.ALL_KEYS);
         mModel.addObserver(mPropertyObserver);
         mMediator = new TabSwitcherMediator(mResetHandler, mModel, mTabModelSelector,
-                mFullscreenManager, mCompositorViewHolder, null, mMessageItemsController,
+                mBrowserControlsStateProvider, mCompositorViewHolder, null, mMessageItemsController,
                 TabListCoordinator.TabListMode.GRID);
         mMediator.initWithNative(null);
         mMediator.addOverviewModeObserver(mOverviewModeObserver);
@@ -398,13 +404,45 @@ public class TabSwitcherMediatorUnitTest {
     }
 
     @Test
+    public void hidesPreviouslySelectedTabAfterNewTabModelSelected_regularToEmptyIncognito() {
+        initAndAssertAllProperties();
+        mModel.set(TabListContainerProperties.IS_VISIBLE, true);
+
+        TabModel incognitoTabModel = mock(TabModel.class);
+        doReturn(0).when(incognitoTabModel).getCount();
+        doReturn(true).when(incognitoTabModel).isIncognito();
+
+        mTabModelSelectorObserverCaptor.getValue().onTabModelSelected(incognitoTabModel, mTabModel);
+        verify(/* mTab3 is the current tab. */ mTab3).hide(TabHidingType.CHANGED_TABS);
+    }
+
+    @Test
+    public void noHidesPreviouslySelectedTabAfterNewTabModelSelected_incognitoToEmptyRegular() {
+        // The tab shouldn't be hidden when moving from incognito to the regular tab switcher.
+        initAndAssertAllProperties();
+        mModel.set(TabListContainerProperties.IS_VISIBLE, true);
+
+        Tab tab = mock(Tab.class);
+        TabModel incognitoTabModel = mock(TabModel.class);
+        doReturn(0).when(mTabModel).getCount();
+        doReturn(0).when(mTabModel).index();
+        doReturn(1).when(incognitoTabModel).getCount();
+        doReturn(0).when(mTabModel).index();
+        doReturn(true).when(incognitoTabModel).isIncognito();
+        doReturn(tab).when(incognitoTabModel).getTabAt(0);
+
+        mTabModelSelectorObserverCaptor.getValue().onTabModelSelected(incognitoTabModel, mTabModel);
+        verify(/* mTab3 is the current tab. */ mTab3, times(0)).hide(TabHidingType.CHANGED_TABS);
+    }
+
+    @Test
     public void updatesMarginWithBottomBarChanges() {
         initAndAssertAllProperties();
 
         assertThat(mModel.get(TabListContainerProperties.BOTTOM_CONTROLS_HEIGHT),
                 equalTo(CONTROL_HEIGHT_DEFAULT));
 
-        mFullscreenListenerCaptor.getValue().onBottomControlsHeightChanged(
+        mBrowserControlsStateProviderObserverCaptor.getValue().onBottomControlsHeightChanged(
                 CONTROL_HEIGHT_MODIFIED, 0);
         assertThat(mModel.get(TabListContainerProperties.BOTTOM_CONTROLS_HEIGHT),
                 equalTo(CONTROL_HEIGHT_MODIFIED));
@@ -575,7 +613,7 @@ public class TabSwitcherMediatorUnitTest {
     public void openDialogButton_TabGroup_NotEmpty() {
         mMediator.setTabGridDialogController(mTabGridDialogController);
         // Set up a tab group.
-        TabImpl newTab = prepareTab(TAB4_ID, TAB4_TITLE);
+        Tab newTab = prepareTab(TAB4_ID, TAB4_TITLE);
         List<Tab> tabs = new ArrayList<>(Arrays.asList(mTab1, newTab));
         doReturn(tabs).when(mTabModelFilter).getRelatedTabList(TAB1_ID);
 
@@ -607,14 +645,15 @@ public class TabSwitcherMediatorUnitTest {
         assertEquals(
                 CONTROL_HEIGHT_DEFAULT, mModel.get(TabListContainerProperties.SHADOW_TOP_MARGIN));
 
-        mFullscreenListenerCaptor.getValue().onTopControlsHeightChanged(
+        mBrowserControlsStateProviderObserverCaptor.getValue().onTopControlsHeightChanged(
                 CONTROL_HEIGHT_INCREASED, 0);
         assertEquals(CONTROL_HEIGHT_INCREASED,
                 mModel.get(TabListContainerProperties.TOP_CONTROLS_HEIGHT));
         assertEquals(
                 CONTROL_HEIGHT_INCREASED, mModel.get(TabListContainerProperties.SHADOW_TOP_MARGIN));
 
-        mFullscreenListenerCaptor.getValue().onTopControlsHeightChanged(CONTROL_HEIGHT_DEFAULT, 0);
+        mBrowserControlsStateProviderObserverCaptor.getValue().onTopControlsHeightChanged(
+                CONTROL_HEIGHT_DEFAULT, 0);
         assertEquals(
                 CONTROL_HEIGHT_DEFAULT, mModel.get(TabListContainerProperties.TOP_CONTROLS_HEIGHT));
         assertEquals(
@@ -627,12 +666,13 @@ public class TabSwitcherMediatorUnitTest {
         assertEquals(0, mModel.get(TabListContainerProperties.TOP_CONTROLS_HEIGHT));
         assertEquals(0, mModel.get(TabListContainerProperties.SHADOW_TOP_MARGIN));
 
-        mFullscreenListenerCaptor.getValue().onTopControlsHeightChanged(
+        mBrowserControlsStateProviderObserverCaptor.getValue().onTopControlsHeightChanged(
                 CONTROL_HEIGHT_INCREASED, 0);
         assertEquals(0, mModel.get(TabListContainerProperties.TOP_CONTROLS_HEIGHT));
         assertEquals(0, mModel.get(TabListContainerProperties.SHADOW_TOP_MARGIN));
 
-        mFullscreenListenerCaptor.getValue().onTopControlsHeightChanged(CONTROL_HEIGHT_DEFAULT, 0);
+        mBrowserControlsStateProviderObserverCaptor.getValue().onTopControlsHeightChanged(
+                CONTROL_HEIGHT_DEFAULT, 0);
         assertEquals(0, mModel.get(TabListContainerProperties.TOP_CONTROLS_HEIGHT));
         assertEquals(0, mModel.get(TabListContainerProperties.SHADOW_TOP_MARGIN));
     }
@@ -651,8 +691,8 @@ public class TabSwitcherMediatorUnitTest {
                 equalTo(CONTROL_HEIGHT_DEFAULT));
     }
 
-    private TabImpl prepareTab(int id, String title) {
-        TabImpl tab = mock(TabImpl.class);
+    private Tab prepareTab(int id, String title) {
+        Tab tab = mock(Tab.class);
         when(tab.getView()).thenReturn(mock(View.class));
         when(tab.getUserDataHost()).thenReturn(new UserDataHost());
         doReturn(id).when(tab).getId();

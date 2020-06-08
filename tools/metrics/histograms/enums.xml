@@ -910,6 +910,15 @@ Unknown properties are collapsed to zero. -->
   <int value="3" label="Empty and duplicate usernames"/>
 </enum>
 
+<enum name="AccountManagerAccountAdditionSource">
+  <int value="0" label="Add account button in Settings"/>
+  <int value="1" label="Re-auth account button in Settings"/>
+  <int value="2" label="ARC"/>
+  <int value="3" label="Automatically triggered from content area"/>
+  <int value="4" label="Print Preview dialog"/>
+  <int value="5" label="Account Manager migration welcome screen"/>
+</enum>
+
 <enum name="AccountManagerTokenLoadStatus">
   <int value="0" label="Success"/>
   <int value="1" label="File Read Error"/>
@@ -18013,6 +18022,15 @@ Called by update_document_policy_enum.py.-->
   <int value="5" label="Bad gamma value"/>
 </enum>
 
+<enum name="EduCoexistenceFlowResult">
+  <int value="0" label="Parents List Screen"/>
+  <int value="1" label="Parent Password Screen"/>
+  <int value="2" label="Parent Info Screen 1"/>
+  <int value="3" label="Parent Info Screen 2"/>
+  <int value="4" label="EDU Account Login Screen"/>
+  <int value="5" label="Flow Completed"/>
+</enum>
+
 <enum name="EGLDisplayType">
   <int value="0" label="Default"/>
   <int value="1" label="SwiftShader"/>
@@ -23782,6 +23800,13 @@ Called by update_extension_histograms.py.-->
   <int value="3" label="FALLBACK_TLS1_1">Fell back on TLS 1.1.</int>
 </enum>
 
+<enum name="FamilyInfoFetcherErrorCode">
+  <int value="0" label="Success"/>
+  <int value="1" label="OAuth2 token error"/>
+  <int value="2" label="Network error"/>
+  <int value="3" label="Service error"/>
+</enum>
+
 <enum name="FaultTolerantHeap">
   <int value="0" label="FTH_OFF">FTH is completely off.</int>
   <int value="1" label="FTH_HKLM">FTH is enabled in HKLM.</int>
@@ -27397,6 +27422,19 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="3295" label="ForceEncodedVideoInsertableStreams"/>
   <int value="3296" label="TransformStyleContainingBlockComputedUsedMismatch"/>
   <int value="3297" label="AdditionalGroupingPropertiesForCompat"/>
+  <int value="3298" label="PopupDoesNotExceedOwnerWindowBounds"/>
+  <int value="3299" label="PopupExceedsOwnerWindowBounds"/>
+  <int value="3300" label="PopupExceedsOwnerWindowBoundsForIframe"/>
+  <int value="3301" label="PopupGestureTapExceedsOwnerWindowBounds"/>
+  <int value="3302" label="PopupMouseDownExceedsOwnerWindowBounds"/>
+  <int value="3303" label="PopupMouseWheelExceedsOwnerWindowBounds"/>
+  <int value="3304" label="V8VarRedeclaredCatchBinding"/>
+  <int value="3305"
+      label="WebBluetoothRemoteCharacteristicWriteValueWithResponse"/>
+  <int value="3306"
+      label="WebBluetoothRemoteCharacteristicWriteValueWithoutResponse"/>
+  <int value="3307" label="FlexGapSpecified"/>
+  <int value="3308" label="FlexGapPositive"/>
 </enum>
 
 <enum name="FeaturePolicyAllowlistType">
@@ -29329,6 +29367,17 @@ Called by update_feature_policy_enum.py.-->
   <int value="5"
       label="Password hash change event where the account is a non-GAIA
              enterprise account"/>
+</enum>
+
+<enum name="GaiaReAuthProofTokenStatus">
+  <int value="0" label="Success"/>
+  <int value="1" label="Invalid Request"/>
+  <int value="2" label="Invalid Grant"/>
+  <int value="3" label="Unauthorized OAuth Client"/>
+  <int value="4" label="Insufficient OAuth Scope"/>
+  <int value="5" label="Credential Not Set"/>
+  <int value="6" label="Network Error"/>
+  <int value="7" label="Unknown Error"/>
 </enum>
 
 <enum name="GaiaServiceType">
@@ -53513,6 +53562,7 @@ Called by update_net_trust_anchors.py.-->
   <int value="21" label="DLC_NEED_REBOOT"/>
   <int value="22" label="DLC_NEED_SPACE"/>
   <int value="23" label="INSUFFICIENT_DISK_SPACE"/>
+  <int value="24" label="INVALID_LICENSE"/>
 </enum>
 
 <enum name="PluginVmSetupResult">
@@ -53532,6 +53582,8 @@ Called by update_net_trust_anchors.py.-->
   <int value="12" label="User cancelled setup during disk space check"/>
   <int value="13" label="Error, see PluginVm.SetupFailureReason"/>
   <int value="14" label="User cancelled without starting installation"/>
+  <int value="15"
+      label="User cancelled setup while validating Plugin VM license"/>
 </enum>
 
 <enum name="PNaClOptionsOptLevelEnum">

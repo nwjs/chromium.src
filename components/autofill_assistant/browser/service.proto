@@ -889,6 +889,12 @@ message UseAddressProto {
 
   // An optional list of fields that should be filled by this action.
   repeated RequiredField required_fields = 6;
+
+  // If true, this skips the Autofill step jumping straight to the
+  // |required_fields|.
+  optional bool skip_autofill = 10;
+
+  reserved 7, 8, 9;
 }
 
 // Fill a form with a credit card if there is one stored in client memory,
@@ -952,6 +958,12 @@ message UseCreditCardProto {
   optional ElementReferenceProto form_field_element = 3;
 
   repeated RequiredField required_fields = 7;
+
+  // If true, this skips the Autofill step jumping straight to the
+  // |required_fields|.
+  optional bool skip_autofill = 8;
+
+  reserved 4, 5, 6;
 }
 
 // Ask Chrome to wait for an element in the DOM. This can be used to only

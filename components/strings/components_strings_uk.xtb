@@ -10,6 +10,7 @@
 <translation id="1030706264415084469">Сайт <ph name="URL" /> хоче постійно зберігати великий обсяг даних на вашому пристрої</translation>
 <translation id="1032854598605920125">Обернути за годинниковою стрілкою</translation>
 <translation id="1036348656032585052">Вимкнути</translation>
+<translation id="1038106730571050514">Показувати пропозиції</translation>
 <translation id="1038842779957582377">Невідоме ім’я</translation>
 <translation id="1041998700806130099">Повідомлення на аркуші вихідних даних</translation>
 <translation id="1050038467049342496">Закрийте інші додатки</translation>
@@ -87,10 +88,10 @@
 <translation id="1323433172918577554">Показати більше</translation>
 <translation id="132390688737681464">Зберігати й заповнювати адреси</translation>
 <translation id="1330449323196174374">Зігнути за типом "ворота ліворуч"</translation>
-<translation id="1333989956347591814">Дані про вашу активність <ph name="BEGIN_EMPHASIS" />усе ще можуть бачити<ph name="END_EMPHASIS" />:
+<translation id="1333989956347591814">Дані про ваші дії <ph name="BEGIN_EMPHASIS" />можуть бачити<ph name="END_EMPHASIS" />:
         <ph name="BEGIN_LIST" />
           <ph name="LIST_ITEM" />адміністратори веб-сайтів, які ви відвідуєте
-          <ph name="LIST_ITEM" />роботодавець або керівник навчального закладу
+          <ph name="LIST_ITEM" />роботодавець або керівник закладу освіти
           <ph name="LIST_ITEM" />постачальник послуг Інтернету
         <ph name="END_LIST" /></translation>
 <translation id="1339601241726513588">Домен реєстрації:</translation>
@@ -398,6 +399,7 @@
 <translation id="2666092431469916601">Верх</translation>
 <translation id="2666117266261740852">Закрийте інші вкладки та додатки</translation>
 <translation id="2674170444375937751">Ви дійсно бажаєте видалити ці сторінки зі своєї історії?</translation>
+<translation id="2674804415323431591">Сховати пропозиції</translation>
 <translation id="2676271551327853224">Roc-8K</translation>
 <translation id="2677748264148917807">Вийти</translation>
 <translation id="2684561033061424857">11x12</translation>
@@ -1063,7 +1065,7 @@
 <translation id="5481076368049295676">Цей вміст може намагатися встановити на ваш пристрій небезпечну програму, яка викрадає або видаляє інформацію. <ph name="BEGIN_LINK" />Усе одно показати<ph name="END_LINK" /></translation>
 <translation id="54817484435770891">Додати дійсну адресу</translation>
 <translation id="5490432419156082418">Адреси й інше</translation>
-<translation id="5492298309214877701">URL-адреса цього сайту в інтранеті компанії, організації чи навчального закладу збігається з адресою зовнішнього веб-сайту.
+<translation id="5492298309214877701">URL-адреса цього сайту в інтранеті компанії, організації чи закладу освіти збігається з адресою зовнішнього веб-сайту.
     <ph name="LINE_BREAK" />
     Зв’яжіться зі своїм системним адміністратором.</translation>
 <translation id="549333378215107354">Розмір 3</translation>
@@ -1074,6 +1076,7 @@
 <translation id="5523118979700054094">Назва правила</translation>
 <translation id="55293785478302737">Зшити вздовж краю</translation>
 <translation id="553484882784876924">Prc6 (конверт)</translation>
+<translation id="5536214594743852365">Показати розділ "<ph name="SECTION" />"</translation>
 <translation id="5539243836947087108">Весь аркуш</translation>
 <translation id="5540224163453853">Не вдалося знайти потрібну статтю.</translation>
 <translation id="5541086400771735334">Поштова скринька 7</translation>
@@ -1473,6 +1476,7 @@
 <translation id="7313965965371928911">Застереження <ph name="BEGIN_LINK" />Безпечного перегляду<ph name="END_LINK" /></translation>
 <translation id="7319430975418800333">A3</translation>
 <translation id="7320336641823683070">Довідка щодо з’єднання</translation>
+<translation id="7323804146520582233">Сховати розділ "<ph name="SECTION" />"</translation>
 <translation id="733354035281974745">Заміна локального облікового запису на пристрої</translation>
 <translation id="7333654844024768166">Щойно ви ввели пароль на оманливому сайті. Chromium радить негайно перейти на <ph name="WEBSITE_1" />, <ph name="WEBSITE_2" />, <ph name="WEBSITE_3" /> та інші сайти, де використовується цей пароль, і змінити його.</translation>
 <translation id="7334320624316649418">&amp;Повторити перевпорядкування</translation>

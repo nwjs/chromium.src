@@ -441,11 +441,6 @@
 <translation id="1555130319947370107">Azul</translation>
 <translation id="1556537182262721003">Non se puido mover o directorio de extensións ao perfil.</translation>
 <translation id="155865706765934889">Panel táctil</translation>
-<translation id="1560763881671211335">Os administradores de G Suite for Education determinan a que servizos de Google poden acceder os seus usuarios mentres estes últimos teñen a sesión iniciada nunha conta de G Suite for Education. É necesario que os administradores dos centros educativos proporcionen ou obteñan consentimento para que os menores utilicen os servizos.
-
-    Os datos de navegación (entre os que se inclúen o historial, os marcadores e os contrasinais) almacenaranse coa conta de Family Link, non coa do centro educativo.
-
-    Seguirá aplicándose a configuración parental de Family Link. No caso de que bloqueases unha aplicación ou un sitio, non terás que volver repetir o proceso.</translation>
 <translation id="1566049601598938765">Sitio web</translation>
 <translation id="15662109988763471">A impresora seleccionada non está dispoñible ou non está instalada correctamente. Compróbaa ou selecciona outra.</translation>
 <translation id="1567387640189251553">Conectouse un teclado diferente desde a última vez que inseriches o teu contrasinal. É posible que estea tentando detectar as teclas que premes.</translation>
@@ -1770,6 +1765,7 @@ Instala a aplicación Family Link no teu dispositivo e poderás xestionar a conf
 <translation id="32101887417650595">Non se pode establecer conexión coa impresora</translation>
 <translation id="321084946921799184">Amarelo e branco</translation>
 <translation id="321356136776075234">Unidade organizativa do dispositivo (por exemplo, OU=Chromebooks,DC=example,DC=com)</translation>
+<translation id="3216825226035747725">Os administradores de G Suite for Education determinan a que servizos de Google poden acceder os seus usuarios mentres teñen a sesión iniciada nunha conta de G Suite for Education. Aquí pódense incluír algunhas funcións e servizos aos que non podía acceder o teu fillo ou filla mentres utilizaba esta conta supervisada. É necesario que os administradores dos centros educativos proporcionen ou obteñan consentimento para que os menores utilicen os servizos.</translation>
 <translation id="3217843140356091325">Queres crear un atallo?</translation>
 <translation id="321799795901478485">Arquivador ZIP</translation>
 <translation id="321834671654278338">Desinstalador de Linux</translation>
@@ -1842,7 +1838,6 @@ Instala a aplicación Family Link no teu dispositivo e poderás xestionar a conf
 <translation id="3312424061798279731">Idiomas activados</translation>
 <translation id="3313622045786997898">Valor da sinatura do certificado</translation>
 <translation id="3315158641124845231">Ocultar <ph name="PRODUCT_NAME" /></translation>
-<translation id="3317284582048881482">Información para pais sobre as contas educativas</translation>
 <translation id="3317459757438853210">Dobre cara</translation>
 <translation id="3317678681329786349">Bloqueáronse a cámara e o micrófono</translation>
 <translation id="3319048459796106952">Nova ventá do modo de &amp;incógnito</translation>
@@ -4851,7 +4846,6 @@ Instala a aplicación Family Link no teu dispositivo e poderás xestionar a conf
 <translation id="7235737137505019098">A túa chave de seguranza non ten suficiente espazo para máis contas.</translation>
 <translation id="7238643356913091553"><ph name="NETWORK_NAME" />, detalles</translation>
 <translation id="7240339475467890413">Queres conectarte á nova zona wifi?</translation>
-<translation id="7240847845291869311">O teu fillo ou filla quere engadir a este dispositivo unha Conta de Google de G Suite for Education. O <ph name="LINK_BEGIN" />Aviso de privacidade de G Suite for Education<ph name="LINK_END" /> pretende axudarlles aos usuarios de G Suite for Education e aos pais a entender os datos que recompila o produto, así como o que se fai con eles.</translation>
 <translation id="7241389281993241388">Inicia sesión en <ph name="TOKEN_NAME" /> para importar o certificado de cliente.</translation>
 <translation id="7243632151880336635">Borrar e pechar sesión</translation>
 <translation id="7243784282103630670">Produciuse un erro ao actualizar Linux. Restauraremos o contedor utilizando a copia de seguranza.</translation>
@@ -5539,6 +5533,7 @@ Mantén o ficheiro de clave nun lugar seguro, xa que o precisarás para crear no
     <ph name="BEGIN_PARAGRAPH5" />Podes desactivar este servizo en Configuración.<ph name="END_PARAGRAPH5" /></translation>
 <translation id="80974698889265265">Os PIN non coinciden</translation>
 <translation id="809792523045608178"><ph name="IDS_SHORT_PRODUCT_NAME" /> utiliza a configuración de proxy dunha extensión</translation>
+<translation id="8097959162767603171">O teu administrador ten que aceptar as condicións de servizo que se atopan na lista de dispositivos Chrome, na consola de administración.</translation>
 <translation id="8101987792947961127">No seguinte reinicio é necesario un Powerwash</translation>
 <translation id="8102159139658438129">Accede a <ph name="LINK_BEGIN" />Configuración<ph name="LINK_END" /> se queres ver as opción para o teléfono conectado</translation>
 <translation id="8104696615244072556">Fai un powerwash do teu dispositivo <ph name="IDS_SHORT_PRODUCT_NAME" /> e volve á versión anterior.</translation>

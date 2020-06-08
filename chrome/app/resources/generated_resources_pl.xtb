@@ -442,11 +442,6 @@
 <translation id="1555130319947370107">Niebieski</translation>
 <translation id="1556537182262721003">Nie można przenieść katalogu rozszerzenia do profilu.</translation>
 <translation id="155865706765934889">Touchpad</translation>
-<translation id="1560763881671211335">Administratorzy G Suite dla Szkół i Uczelni określają, z których usług Google mogą korzystać użytkownicy zalogowani na konto tej usługi. Administratorzy szkolni mają obowiązek okazania lub uzyskania zgody na używanie usług przez osoby nieletnie.
-
-    Dane przeglądania (w tym historia, zakładki i hasła) będą przechowywane na koncie Family Link, a nie na koncie szkolnym.
-
-    Nadal będą obowiązywać ustawienia rodzica w Family Link. Jeśli wcześniej jakaś aplikacja lub strona została przez Ciebie zablokowana, nie będzie trzeba blokować jej ponownie.</translation>
 <translation id="1566049601598938765">Strona internetowa</translation>
 <translation id="15662109988763471">Wybrana drukarka jest niedostępna lub nieprawidłowo zainstalowana. Sprawdź ją lub wybierz inną.</translation>
 <translation id="1567387640189251553">Do urządzenia jest podłączona inna klawiatura niż przy ostatnim wpisywaniu hasła. Może ona próbować przechwycić naciskane klawisze.</translation>
@@ -566,7 +561,7 @@
 <translation id="1697150536837697295">Sztuka</translation>
 <translation id="1697686431566694143">Edytuj plik</translation>
 <translation id="1698122934742150150">Tylko w bieżącej sesji incognito</translation>
-<translation id="1700079447639026019">Strony, które nigdy nie mogą używać plików cookie</translation>
+<translation id="1700079447639026019">Witryny, które nigdy nie mogą używać plików cookie</translation>
 <translation id="1700845716982723710">Wyłącz tryb nieaktywny</translation>
 <translation id="1701062906490865540">Usuń tę osobę</translation>
 <translation id="1703331064825191675">Nie musisz się już martwić o bezpieczeństwo swoich haseł</translation>
@@ -1765,6 +1760,7 @@ Możesz zarządzać ustawieniami konta, korzystając z aplikacji Family Link na
 <translation id="32101887417650595">Nie można połączyć się z drukarką</translation>
 <translation id="321084946921799184">Żółto-biały</translation>
 <translation id="321356136776075234">Jednostka organizacyjna urządzenia (np. OU=Chromebooki,DC=example,DC=com)</translation>
+<translation id="3216825226035747725">Administratorzy G Suite dla Szkół i Uczelni określają, z których usług Google mogą korzystać użytkownicy zalogowani na konto tej usługi. Mogą to być funkcje lub usługi, do których dziecko nie miało wcześniej dostępu z tego konta nadzorowanego. Administratorzy szkolni mają obowiązek okazania lub uzyskania zgody na używanie usług przez osoby nieletnie.</translation>
 <translation id="3217843140356091325">Utworzyć skrót?</translation>
 <translation id="321799795901478485">Zip Archiver</translation>
 <translation id="321834671654278338">Dezinstalator aplikacji na Linuksa</translation>
@@ -1837,7 +1833,6 @@ Możesz zarządzać ustawieniami konta, korzystając z aplikacji Family Link na
 <translation id="3312424061798279731">Włączone języki</translation>
 <translation id="3313622045786997898">Wartość podpisu certyfikatu</translation>
 <translation id="3315158641124845231">Ukryj <ph name="PRODUCT_NAME" /></translation>
-<translation id="3317284582048881482">Informacje dla rodziców o koncie szkolnym</translation>
 <translation id="3317459757438853210">Druk dwustronny</translation>
 <translation id="3317678681329786349">Zablokowano dostęp do kamery i mikrofonu</translation>
 <translation id="3319048459796106952">Nowe okno &amp;incognito</translation>
@@ -2785,7 +2780,7 @@ Możesz zarządzać ustawieniami konta, korzystając z aplikacji Family Link na
 <translation id="4534661889221639075">Spróbuj ponownie.</translation>
 <translation id="4535127706710932914">Profil domyślny</translation>
 <translation id="4535767533210902251">Czytnik linii papilarnych to klawisz w prawym górnym rogu klawiatury. Dotknij go delikatnie dowolnym palcem.</translation>
-<translation id="4536140153723794651">Strony, które zawsze mogą używać plików cookie</translation>
+<translation id="4536140153723794651">Witryny, które zawsze mogą używać plików cookie</translation>
 <translation id="4538417792467843292">Usuń słowo</translation>
 <translation id="4538684596480161368">Zawsze blokuj wtyczki poza piaskownicą na <ph name="HOST" /></translation>
 <translation id="4538792345715658285">Zainstalowane na podstawie zasad przedsiębiorstwa.</translation>
@@ -4846,7 +4841,6 @@ Jeśli Twoje dziecko nie używa w szkole Chromebooka lub jeśli wolisz zarządz
 <translation id="7235737137505019098">Na Twoim kluczu bezpieczeństwa nie ma wystarczającej ilości miejsca na kolejne konta.</translation>
 <translation id="7238643356913091553"><ph name="NETWORK_NAME" />, szczegóły</translation>
 <translation id="7240339475467890413">Połączyć z nowym hotspotem?</translation>
-<translation id="7240847845291869311">Dziecko chce dodać na tym urządzeniu konto G Suite dla Szkół i Uczelni. <ph name="LINK_BEGIN" />Informacje na temat ochrony prywatności w G Suite dla Szkół i Uczelni<ph name="LINK_END" /> mają pomóc użytkownikom tej usługi oraz rodzicom zrozumieć, jakie dane zbieramy w G Suite dla Szkół i Uczelni, dlaczego to robimy oraz do czego je wykorzystujemy.</translation>
 <translation id="7241389281993241388">Zaloguj się do urządzenia <ph name="TOKEN_NAME" />, aby zaimportować certyfikat klienta.</translation>
 <translation id="7243632151880336635">Wyczyść i wyloguj</translation>
 <translation id="7243784282103630670">Podczas uaktualniania Linuksa wystąpił błąd. Przywrócimy kontener z kopii zapasowej.</translation>
@@ -5535,6 +5529,7 @@ Przechowuj plik klucza w bezpiecznym miejscu. Będzie on potrzebny do utworzenia
     <ph name="BEGIN_PARAGRAPH5" />Możesz wyłączyć tę usługę w Ustawieniach.<ph name="END_PARAGRAPH5" /></translation>
 <translation id="80974698889265265">Kody PIN są różne</translation>
 <translation id="809792523045608178"><ph name="IDS_SHORT_PRODUCT_NAME" /> używa ustawień serwera proxy z rozszerzenia</translation>
+<translation id="8097959162767603171">Najpierw administrator musi zaakceptować warunki usługi na liście urządzenia z Chrome w konsoli administracyjnej.</translation>
 <translation id="8101987792947961127">Przy następnym uruchomieniu trzeba wykonać Powerwash</translation>
 <translation id="8102159139658438129">Otwórz <ph name="LINK_BEGIN" />Ustawienia<ph name="LINK_END" />, by zobaczyć opcje połączenia z telefonem</translation>
 <translation id="8104696615244072556">Wykonaj Powerwash na urządzeniu z <ph name="IDS_SHORT_PRODUCT_NAME" /> i przywróć poprzednią wersję.</translation>

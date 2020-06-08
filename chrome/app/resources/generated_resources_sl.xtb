@@ -442,11 +442,6 @@
 <translation id="1555130319947370107">Modra</translation>
 <translation id="1556537182262721003">Imenika razširitve ni bilo mogoče premakniti v profil.</translation>
 <translation id="155865706765934889">Sledilna ploščica</translation>
-<translation id="1560763881671211335">Skrbniki storitve G Suite for Education določajo, do katerih Googlovih storitev lahko dostopajo njihovi uporabniki, medtem ko so prijavljeni v račun za G Suite for Education. Šolski skrbniki morajo navesti ali pridobiti soglasje za storitve, ki jih uporabljajo njihovi mladoletni uporabniki.
-
-    Podatki brskanja (vključno z zgodovino, zaznamki in gesli) bodo shranjeni v računu Family Linka in ne v šolskem računu.
-
-    Starševske nastavitve v Family Linku bodo še vedno v veljavi. Če ste prej blokirali aplikacijo ali spletno mesto, vam tega ne bo več treba še enkrat storiti.</translation>
 <translation id="1566049601598938765">Spletno mesto</translation>
 <translation id="15662109988763471">Izbrani tiskalnik ni na voljo ali ni pravilno nameščen. Preverite tiskalnik ali izberite drugega.</translation>
 <translation id="1567387640189251553">Od zadnjega vnosa gesla je bila priklopljena druga tipkovnica, ki morda poskuša beležiti vse, kar natipkate.</translation>
@@ -1771,6 +1766,7 @@ Nastavitve tega računa je mogoče upravljati z namestitvijo aplikacije Family L
 <translation id="32101887417650595">S tiskalnikom se ni mogoče povezati</translation>
 <translation id="321084946921799184">Rumena in bela</translation>
 <translation id="321356136776075234">OE naprave (npr. OE=Chromebooki,DC=primer,DC=com)</translation>
+<translation id="3216825226035747725">Skrbniki storitve G Suite for Education določajo, do katerih Googlovih storitev lahko dostopajo njihovi uporabniki, medtem ko so prijavljeni v račun za G Suite for Education. To morda vključuje nekatere funkcije ali storitve, do katerih otrok s tem nadzorovanim računom ni mogel dostopati. Šolski skrbniki morajo navesti ali pridobiti soglasje za storitve, ki jih uporabljajo njihovi mladoletni uporabniki.</translation>
 <translation id="3217843140356091325">Želite ustvariti bližnjico?</translation>
 <translation id="321799795901478485">Zip Archiver</translation>
 <translation id="321834671654278338">Odmestitveni program za Linux</translation>
@@ -1843,7 +1839,6 @@ Nastavitve tega računa je mogoče upravljati z namestitvijo aplikacije Family L
 <translation id="3312424061798279731">Omogočeni jeziki</translation>
 <translation id="3313622045786997898">Vrednost podpisa potrdila</translation>
 <translation id="3315158641124845231">Skrij <ph name="PRODUCT_NAME" /></translation>
-<translation id="3317284582048881482">Podatki šolskega računa za starše</translation>
 <translation id="3317459757438853210">Obojestransko</translation>
 <translation id="3317678681329786349">Kamera in mikrofon sta blokirana</translation>
 <translation id="3319048459796106952">Novo &amp;okno brez beleženja zgodovine</translation>
@@ -4854,7 +4849,6 @@ Poskrbite, da ne boste razkrili morebitnih občutljivih podatkov.</translation>
 <translation id="7235737137505019098">Na varnostnem ključu ni dovolj prostora za dodatne račune.</translation>
 <translation id="7238643356913091553"><ph name="NETWORK_NAME" />, podrobnosti</translation>
 <translation id="7240339475467890413">Se želite povezati z novo dostopno točko?</translation>
-<translation id="7240847845291869311">Vaš otrok želi v to napravo dodati račun Google za G Suite for Education. Namen <ph name="LINK_BEGIN" />obvestila o zasebnosti za G Suite for Education<ph name="LINK_END" /> je, da uporabnikom storitve G Suite for Education in staršem pomagamo razumeti, katere podatke storitev zbira, zakaj jih zbira in kako jih uporablja.</translation>
 <translation id="7241389281993241388">Prijavite se v <ph name="TOKEN_NAME" />, da uvozite potrdilo odjemalca.</translation>
 <translation id="7243632151880336635">Brisanje in odjava</translation>
 <translation id="7243784282103630670">Med nadgradnjo Linuxa je prišlo do napake. Vsebnik bomo obnovili s pomočjo varnostne kopije.</translation>
@@ -5543,6 +5537,7 @@ Datoteko s ključem shranite na varnem. Potrebovali jo boste za izdelavo novih r
     <ph name="BEGIN_PARAGRAPH5" />To storitev lahko izklopite v nastavitvah.<ph name="END_PARAGRAPH5" /></translation>
 <translation id="80974698889265265">Kodi PIN se ne ujemata</translation>
 <translation id="809792523045608178"><ph name="IDS_SHORT_PRODUCT_NAME" /> uporablja nastavitve strežnika proxy razširitve</translation>
+<translation id="8097959162767603171">Skrbnik mora najprej sprejeti pogoje storitve na seznamu naprav Chrome v skrbniški konzoli.</translation>
 <translation id="8101987792947961127">Pri naslednjem zagonu je treba izvesti Powerwash</translation>
 <translation id="8102159139658438129">Odprite <ph name="LINK_BEGIN" />nastavitve<ph name="LINK_END" />, če si želite ogledati možnosti za povezani telefon</translation>
 <translation id="8104696615244072556">V napravi <ph name="IDS_SHORT_PRODUCT_NAME" /> uporabite funkcijo Powerwash in jo povrnite na prejšnjo različico.</translation>

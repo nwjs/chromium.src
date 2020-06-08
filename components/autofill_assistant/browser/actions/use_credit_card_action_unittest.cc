@@ -111,6 +111,14 @@ TEST_F(UseCreditCardActionTest, FillCreditCardNoCardSelected) {
             ProcessAction(action));
 }
 
+TEST_F(UseCreditCardActionTest,
+       InvalidActionnSkipAutofillWithoutRequiredFields) {
+  ActionProto action;
+  auto* use_card = action.mutable_use_card();
+  use_card->set_skip_autofill(true);
+  EXPECT_EQ(ProcessedActionStatusProto::INVALID_ACTION, ProcessAction(action));
+}
+
 TEST_F(UseCreditCardActionTest, FillCreditCard) {
   ActionProto action = CreateUseCreditCardAction();
 
@@ -318,6 +326,41 @@ TEST_F(UseCreditCardActionTest, ForcedFallbackWithKeystrokes) {
               OnFillCardForm(_, base::UTF8ToUTF16("123"),
                              Selector({kFakeSelector}).MustBeVisible(), _))
       .WillOnce(RunOnceCallback<3>(OkClientStatus()));
+
+  EXPECT_EQ(ProcessedActionStatusProto::ACTION_APPLIED, ProcessAction(action));
+}
+
+TEST_F(UseCreditCardActionTest, SkippingAutofill) {
+  ON_CALL(mock_action_delegate_, GetElementTag(_, _))
+      .WillByDefault(RunOnceCallback<1>(OkClientStatus(), "INPUT"));
+
+  ActionProto action = CreateUseCreditCardAction();
+  AddRequiredField(
+      &action,
+      base::NumberToString(static_cast<int>(
+          UseCreditCardProto::RequiredField::CREDIT_CARD_VERIFICATION_CODE)),
+      "#cvc");
+  action.mutable_use_card()->set_skip_autofill(true);
+
+  autofill::CreditCard credit_card;
+  user_data_.selected_card_ =
+      std::make_unique<autofill::CreditCard>(credit_card);
+  EXPECT_CALL(mock_action_delegate_, OnGetFullCard(_))
+      .WillOnce(RunOnceCallback<0>(credit_card, base::UTF8ToUTF16("123")));
+  EXPECT_CALL(mock_action_delegate_, OnFillCardForm(_, _, _, _)).Times(0);
+
+  // First validation fails.
+  EXPECT_CALL(mock_web_controller_, OnGetFieldValue(Selector({"#cvc"}), _))
+      .WillOnce(RunOnceCallback<1>(OkClientStatus(), ""));
+  // Fill cvc.
+  Expectation set_cvc =
+      EXPECT_CALL(mock_action_delegate_,
+                  OnSetFieldValue(Selector({"#cvc"}), "123", _))
+          .WillOnce(RunOnceCallback<2>(OkClientStatus()));
+  // Second validation succeeds.
+  EXPECT_CALL(mock_web_controller_, OnGetFieldValue(Selector({"#cvc"}), _))
+      .After(set_cvc)
+      .WillOnce(RunOnceCallback<1>(OkClientStatus(), "not empty"));
 
   EXPECT_EQ(ProcessedActionStatusProto::ACTION_APPLIED, ProcessAction(action));
 }

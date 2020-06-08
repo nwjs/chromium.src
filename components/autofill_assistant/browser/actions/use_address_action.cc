@@ -44,7 +44,6 @@ UseAddressAction::UseAddressAction(ActionDelegate* delegate,
                                                       delegate);
   selector_ = Selector(proto.use_address().form_field_element());
   selector_.MustBeVisible();
-  DCHECK(!selector_.empty());
 }
 
 UseAddressAction::~UseAddressAction() = default;
@@ -52,6 +51,18 @@ UseAddressAction::~UseAddressAction() = default;
 void UseAddressAction::InternalProcessAction(
     ProcessActionCallback action_callback) {
   process_action_callback_ = std::move(action_callback);
+
+  if (selector_.empty() && !proto_.use_address().skip_autofill()) {
+    VLOG(1) << "UseAddress failed: |selector| empty";
+    EndAction(ClientStatus(INVALID_ACTION));
+    return;
+  }
+  if (proto_.use_address().skip_autofill() &&
+      proto_.use_address().required_fields().empty()) {
+    VLOG(1) << "UseAddress failed: |skip_autofill| without required fields";
+    EndAction(ClientStatus(INVALID_ACTION));
+    return;
+  }
 
   // Ensure data already selected in a previous action.
   auto* user_data = delegate_->GetUserData();
@@ -83,6 +94,21 @@ void UseAddressAction::EndAction(
 }
 
 void UseAddressAction::FillFormWithData() {
+  if (proto_.use_address().skip_autofill()) {
+    VLOG(3) << "Retrieving address from client memory under '" << name_ << "'.";
+    const autofill::AutofillProfile* profile =
+        delegate_->GetUserData()->selected_address(name_);
+    DCHECK(profile);
+    auto fallback_data = CreateFallbackData(*profile);
+
+    required_fields_fallback_handler_->CheckAndFallbackRequiredFields(
+        OkClientStatus(), std::move(fallback_data),
+        base::BindOnce(&UseAddressAction::EndAction,
+                       weak_ptr_factory_.GetWeakPtr()));
+    return;
+  }
+
+  DCHECK(!selector_.empty());
   delegate_->ShortWaitForElement(
       selector_, base::BindOnce(&UseAddressAction::OnWaitForElement,
                                 weak_ptr_factory_.GetWeakPtr()));
@@ -94,12 +120,12 @@ void UseAddressAction::OnWaitForElement(const ClientStatus& element_status) {
     return;
   }
 
-  DCHECK(!selector_.empty());
   VLOG(3) << "Retrieving address from client memory under '" << name_ << "'.";
   const autofill::AutofillProfile* profile =
       delegate_->GetUserData()->selected_address(name_);
   DCHECK(profile);
   auto fallback_data = CreateFallbackData(*profile);
+
   delegate_->FillAddressForm(
       profile, selector_,
       base::BindOnce(&UseAddressAction::OnFormFilled,

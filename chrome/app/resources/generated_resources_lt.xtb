@@ -442,11 +442,6 @@
 <translation id="1555130319947370107">Mėlyna</translation>
 <translation id="1556537182262721003">Nepavyko perkelti plėtinio katalogo į profilį.</translation>
 <translation id="155865706765934889">Jutiklinis kilimėlis</translation>
-<translation id="1560763881671211335">„G Suite for Education“ administratoriai nustato, kurias „Google“ paslaugas jų naudotojai gali pasiekti prisijungę prie „G Suite for Education“ paskyros. Mokyklos administratoriai turi pateikti arba gauti sutikimą, kad paslaugas gali naudoti nepilnamečiai.
-
-    Naršymo duomenys (įskaitant istoriją, žymes ir slaptažodžius) bus saugomi „Family Link“, o ne mokyklos paskyroje.
-
-    Jūsų „Family Link“ tėvų nustatymai vis tiek bus taikomi. Jei anksčiau buvote užblokavę programą arba svetainę, dar kartą to daryti nereikės.</translation>
 <translation id="1566049601598938765">Svetainė</translation>
 <translation id="15662109988763471">Pasirinktas spausdintuvas nepasiekiamas arba netinkamai įdiegtas. Patikrinkite spausdintuvą arba pabandykite pasirinkti kitą spausdintuvą.</translation>
 <translation id="1567387640189251553">Po to, kai paskutinį kartą įvedėte slaptažodį, buvo prijungta kita klaviatūra. Gali būti bandoma pavogti jūsų klavišų paspaudimus.</translation>
@@ -1771,6 +1766,7 @@ Jei nenorite, dabar atsijunkite, kad šios paskyros pakeitimai būtų matomi ši
 <translation id="32101887417650595">Nepavyko prisijungti prie spausdintuvo</translation>
 <translation id="321084946921799184">Geltona ir balta</translation>
 <translation id="321356136776075234">Įrenginio OV (pvz., OU=Chromebooks,DC=example,DC=com)</translation>
+<translation id="3216825226035747725">„G Suite for Education“ administratoriai nustato, kurias „Google“ paslaugas jų naudotojai gali pasiekti prisijungę prie „G Suite for Education“ paskyros. Tai gali apimti kai kurias funkcijas ir paslaugas, kurių jūsų vaikas anksčiau negalėjo pasiekti naudodamas šią prižiūrimą paskyrą. Mokyklos administratoriai turi pateikti arba gauti sutikimą, kad paslaugas gali naudoti nepilnamečiai.</translation>
 <translation id="3217843140356091325">Sukurti spartųjį klavišą?</translation>
 <translation id="321799795901478485">Zip Archiver</translation>
 <translation id="321834671654278338">„Linux“ pašalinimo programa</translation>
@@ -1843,7 +1839,6 @@ Jei nenorite, dabar atsijunkite, kad šios paskyros pakeitimai būtų matomi ši
 <translation id="3312424061798279731">Įgalintos kalbos</translation>
 <translation id="3313622045786997898">Sertifikato parašo vertė</translation>
 <translation id="3315158641124845231">Slėpti „<ph name="PRODUCT_NAME" />“</translation>
-<translation id="3317284582048881482">Tėvams skirta mokyklos paskyros informacija</translation>
 <translation id="3317459757438853210">Dvipusis</translation>
 <translation id="3317678681329786349">Fotoaparatas ir mikrofonas užblokuoti</translation>
 <translation id="3319048459796106952">Naujas &amp;nežinomas langas</translation>
@@ -4853,7 +4848,6 @@ Ar norite paleisti „<ph name="CONTROL_PANEL_APPLET_NAME" />“?</translation>
 <translation id="7235737137505019098">Saugos rakte nepakanka vietos jokioms kitoms paskyroms.</translation>
 <translation id="7238643356913091553">„<ph name="NETWORK_NAME" />“, išsami informacija</translation>
 <translation id="7240339475467890413">Prisijungti prie naujo viešosios interneto prieigos taško?</translation>
-<translation id="7240847845291869311">Jūsų vaikas nori pridėti „G Suite for Education“ rinkinio „Google“ paskyrą šiame įrenginyje. <ph name="LINK_BEGIN" />„G Suite for Education“ privatumo pranešimas<ph name="LINK_END" /> padės „G Suite for Education“ naudotojams ir tėvams suprasti, kokius duomenis produktas renka, kodėl renka ir ką su jais daro.</translation>
 <translation id="7241389281993241388">Jei norite importuoti programos sertifikatą, prisijunkite prie „<ph name="TOKEN_NAME" />“.</translation>
 <translation id="7243632151880336635">Išvalyti ir atsijungti</translation>
 <translation id="7243784282103630670">Naujovinant „Linux“ įvyko klaida. Atkursime sudėtinį rodinį naudodami atsarginę kopiją.</translation>
@@ -5542,6 +5536,7 @@ Rakto failą laikykite saugioje vietoje. Jo reikės, kai norėsite sukurti nauja
     <ph name="BEGIN_PARAGRAPH5" />Šią paslaugą galite išjungti skiltyje „Nustatymai“.<ph name="END_PARAGRAPH5" /></translation>
 <translation id="80974698889265265">PIN kodai nesutampa</translation>
 <translation id="809792523045608178"><ph name="IDS_SHORT_PRODUCT_NAME" /> naudoja plėtinio tarpinio serverio nustatymus</translation>
+<translation id="8097959162767603171">Jūsų administratorius pirmiausia turi sutikti su paslaugų teikimo sąlygomis administratoriaus pulto „Chrome“ įrenginių sąraše.</translation>
 <translation id="8101987792947961127">Kitą kartą įkeliant operacinę sistemą iš naujo būtina paleisti „Powerwash“</translation>
 <translation id="8102159139658438129">Eikite į skiltį <ph name="LINK_BEGIN" />„Nustatymai“<ph name="LINK_END" /> ir peržiūrėkite susieto telefono parinktis</translation>
 <translation id="8104696615244072556">Naudokite funkciją „Powerwash“ „<ph name="IDS_SHORT_PRODUCT_NAME" />“ įrenginyje ir grąžinkite ankstesnę versiją.</translation>
