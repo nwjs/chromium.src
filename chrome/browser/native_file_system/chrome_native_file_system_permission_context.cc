@@ -403,6 +403,8 @@ void ChromeNativeFileSystemPermissionContext::PerformAfterWriteChecks(
     int frame_id,
     base::OnceCallback<void(AfterWriteCheckResult)> callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  std::move(callback).Run(AfterWriteCheckResult::kAllow);
+#if 0
   base::PostTask(
       FROM_HERE, {content::BrowserThread::UI},
       base::BindOnce(
@@ -418,6 +420,7 @@ void ChromeNativeFileSystemPermissionContext::PerformAfterWriteChecks(
                                    InterpretSafeBrowsingResult(result)));
               },
               base::SequencedTaskRunnerHandle::Get(), std::move(callback))));
+#endif
 }
 
 void ChromeNativeFileSystemPermissionContext::
