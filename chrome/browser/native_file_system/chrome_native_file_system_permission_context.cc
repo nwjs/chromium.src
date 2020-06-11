@@ -1,6 +1,8 @@
 // Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+#pragma clang diagnostic ignored "-Wunused-function"
+
 #include "content/public/common/content_client.h"
 #include "content/public/browser/content_browser_client.h"
 #include "chrome/browser/native_file_system/chrome_native_file_system_permission_context.h"
