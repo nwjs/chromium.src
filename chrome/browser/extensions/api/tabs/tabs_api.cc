@@ -662,6 +662,7 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
         extension() && extension()->is_nwjs_app() /* trusted_source */, window_bounds, window_profile,
         user_gesture());
   }
+  create_params.extension_id = extension_id;
   create_params.windows_key = windows_key;
   create_params.frameless = frameless;
   create_params.alpha_enabled = transparent;
