@@ -1662,11 +1662,12 @@
     "script": "//testing/scripts/run_telemetry_as_googletest.py",
     "type": "script",
   },
-  "test_buildbucket_api_gpu_use_cases": {
-    "label": "//content/test:test_buildbucket_api_gpu_use_cases",
-    "script": "//testing/scripts/test_buildbucket_api_gpu_use_cases.py",
-    "type": "script",
-  },
+  # TODO(crbug.com/1080749): Re-add this once the test is fixed and re-enabled.
+  # "test_buildbucket_api_gpu_use_cases": {
+  #   "label": "//content/test:test_buildbucket_api_gpu_use_cases",
+  #   "script": "//testing/scripts/test_buildbucket_api_gpu_use_cases.py",
+  #   "type": "script",
+  # },
   "touch_to_fill_junit_tests": {
     "label": "//chrome/browser/touch_to_fill/android:touch_to_fill_junit_tests",
     "type": "junit_test",

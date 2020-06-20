@@ -2606,6 +2606,7 @@ public class ToolbarPhone extends ToolbarLayout implements Invalidator.Client, O
                 runShowOptionalButtonAnimation();
             } else {
                 mOptionalButton.setVisibility(View.VISIBLE);
+                onOptionalButtonAnimationEnd();
             }
         } else {
             mOptionalButton.setVisibility(View.VISIBLE);

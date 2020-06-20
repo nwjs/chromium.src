@@ -95,7 +95,8 @@ class GoogleRegistrationDataForTesting {
 // Class used in tests to set gem device details for testing.
 class GemDeviceDetailsForTesting {
  public:
-  explicit GemDeviceDetailsForTesting(std::vector<std::string>& mac_addresses);
+  explicit GemDeviceDetailsForTesting(std::vector<std::string>& mac_addresses,
+                                      std::string os_version);
   ~GemDeviceDetailsForTesting();
 };
 
@@ -222,6 +223,10 @@ HRESULT GetCommandLineForEntrypoint(HINSTANCE dll_handle,
 // failure or no name is associated with the |sid|.
 HRESULT LookupLocalizedNameBySid(PSID sid, base::string16* localized_name);
 
+// Gets localalized name for builtin administrator account.
+HRESULT GetLocalizedNameBuiltinAdministratorAccount(
+    base::string16* builtin_localized_admin_name);
+
 // Looks up the name associated to the well known |sid_type| (if any). Returns
 // an error on any failure or no name is associated with the |sid_type|.
 HRESULT LookupLocalizedNameForWellKnownSid(WELL_KNOWN_SID_TYPE sid_type,
@@ -342,6 +347,10 @@ base::string16 GetSerialNumber();
 
 // Gets the mac addresses of the windows device.
 std::vector<std::string> GetMacAddresses();
+
+// Gets the OS version installed on the device. The format is
+// "major.minor.build".
+void GetOsVersion(std::string* version);
 
 // Gets the obfuscated device_id that is a combination of multiple device
 // identifiers.

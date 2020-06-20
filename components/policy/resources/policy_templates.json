@@ -2772,7 +2772,6 @@
         },
       ],
       'supported_on': ['chrome.*:83-', 'chrome_os:83-'],
-      'future': True,
       'features': {
         'can_be_recommended': True,
         'dynamic_refresh': True,

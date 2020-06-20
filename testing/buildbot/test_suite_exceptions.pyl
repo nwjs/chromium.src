@@ -2146,6 +2146,12 @@
       'Win10 Tests x64 Code Coverage',
     ],
   },
+  'test_buildbucket_api_gpu_use_cases': {
+    'remove_from': [
+      # crbug.com/1080749
+      'Optional Linux Release (NVIDIA)',
+    ],
+  },
   'unit_tests': {
     'remove_from': [
       'android-code-coverage-native', # crbug/1018434

@@ -401,7 +401,7 @@ NVIDIA_GPU_TELEMETRY_TEST_WATERFALL = """\
         'swarming': {
           'dimension_sets': [
             {
-              'gpu': 'nvidia-quadro-p400-win10-stable',
+              'gpu': '10de:1cb3-26.21.14.3102',
             },
           ],
         },
@@ -427,7 +427,7 @@ INTEL_GPU_TELEMETRY_TEST_WATERFALL = """\
         'swarming': {
           'dimension_sets': [
             {
-              'gpu': 'intel-hd-630-win10-stable',
+              'gpu': '8086:5912-24.20.100.6286',
             },
           ],
         },
@@ -453,7 +453,7 @@ INTEL_UHD_GPU_TELEMETRY_TEST_WATERFALL = """\
         'swarming': {
           'dimension_sets': [
             {
-              'gpu': 'intel-uhd-630-win10-stable',
+              'gpu': '8086:3e92-24.20.100.6286',
             },
           ],
         },
@@ -1631,7 +1631,7 @@ NVIDIA_GPU_TELEMETRY_TEST_OUTPUT = """\
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "nvidia-quadro-p400-win10-stable"
+              "gpu": "10de:1cb3-26.21.14.3102"
             }
           ],
           "idempotent": false
@@ -1672,7 +1672,7 @@ INTEL_GPU_TELEMETRY_TEST_OUTPUT = """\
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-hd-630-win10-stable"
+              "gpu": "8086:5912-24.20.100.6286"
             }
           ],
           "idempotent": false
@@ -1713,7 +1713,7 @@ INTEL_UHD_GPU_TELEMETRY_TEST_OUTPUT = """\
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "gpu": "intel-uhd-630-win10-stable"
+              "gpu": "8086:3e92-24.20.100.6286"
             }
           ],
           "idempotent": false

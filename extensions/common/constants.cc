@@ -124,6 +124,11 @@ const char kCameraAppId[] = "hfhhnacclhffhdffklopdkcgdhifgngh";
 const char kCameraAppDevId[] = "flgnmkgjffmkephdokeeliiopbjaafpm";
 const char kChromeAppId[] = "mgndgikekgjfcpckkfioiadnlibdjbkf";
 const char kFilesManagerAppId[] = "hhaomjibdihmijegdhdafkllkbggdgoj";
+const char kCalculatorAppId[] = "joodangkbfjnajiiifokapkpmhfnpleo";
+const char kCalendarDemoAppId[] = "fpgfohogebplgnamlafljlcidjedbdeb";
+const char kGoogleDocsDemoAppId[] = "chdaoodbokekbiiphekbfjdmiodccljl";
+const char kGoogleSheetsDemoAppId[] = "nifkmgcdokhkjghdlgflonppnefddien";
+const char kGoogleSlidesDemoAppId[] = "hdmobeajeoanbanmdlabnbnlopepchip";
 const char kGoogleKeepAppId[] = "hmjkmjkepdijhoojdojkdfohbdgmmhki";
 const char kYoutubeAppId[] = "blpcfgokakmgnkcojhhkbfbldkacnbeo";
 const char kGeniusAppId[] = "ljoammodoonkhnehlncldjelhidljdpi";
@@ -133,7 +138,7 @@ const char kGeniusAppId[] = "ljoammodoonkhnehlncldjelhidljdpi";
 const char kHighlightsAppId[] = "lpmakjfjcconjeehbidjclhdlpjmfjjj";
 const char kHighlightsEveAppId[] = "iggildboghmjpbjcpmobahnkmoefkike";
 const char kHighlightsNocturneAppId[] = "elhbopodaklenjkeihkdhhfaghalllba";
-const char kHighlightsAltAppId[] = "gjeelkjnolfmhphfhhjokaijbicopfln";
+const char kHighlightsAtlasAppId[] = "gjeelkjnolfmhphfhhjokaijbicopfln";
 const char kScreensaverAppId[] = "mnoijifedipmbjaoekhadjcijipaijjc";
 const char kScreensaverEveAppId[] = "gdobaoeekhiklaljmhladjfdfkigampc";
 const char kScreensaverNocturneAppId[] = "lminefdanffajachfahfpmphfkhahcnj";
@@ -149,7 +154,7 @@ bool IsSystemUIApp(base::StringPiece extension_id) {
       kFilesManagerAppId,
       kHighlightsEveAppId,
       kHighlightsNocturneAppId,
-      kHighlightsAltAppId,
+      kHighlightsAtlasAppId,
       kHighlightsAppId,
       kScreensaverEveAppId,
       kScreensaverNocturneAppId,

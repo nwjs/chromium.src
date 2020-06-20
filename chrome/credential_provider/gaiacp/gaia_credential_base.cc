@@ -896,7 +896,8 @@ HRESULT CGaiaCredentialBase::OnDllRegisterServer() {
   }
 
   // Add "logon as batch" right.
-  hr = policy->AddAccountRights(sid, SE_BATCH_LOGON_NAME);
+  std::vector<base::string16> rights{SE_BATCH_LOGON_NAME};
+  hr = policy->AddAccountRights(sid, rights);
   ::LocalFree(sid);
   if (FAILED(hr)) {
     LOGFN(ERROR) << "policy.AddAccountRights hr=" << putHR(hr);
@@ -1512,9 +1513,8 @@ bool CGaiaCredentialBase::CanProceedToLogonStub(wchar_t** status_text) {
     can_proceed_to_logon_stub = false;
     error_message = AllocErrorString(IDS_EMAIL_MISMATCH_BASE);
     LOGFN(ERROR) << "Restricted domains registry key must be set";
-  }
-  // If there is no internet connection, just abort right away.
-  else if (!InternetAvailabilityChecker::Get()->HasInternetConnection()) {
+  } else if (!InternetAvailabilityChecker::Get()->HasInternetConnection()) {
+    // If there is no internet connection, just abort right away.
     can_proceed_to_logon_stub = false;
     error_message = AllocErrorString(IDS_NO_NETWORK_BASE);
     LOGFN(VERBOSE) << "No internet connection";
