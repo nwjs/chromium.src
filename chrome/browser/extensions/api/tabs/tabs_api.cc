@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "chrome/browser/extensions/api/tabs/tabs_api.h"
+#include "ui/display/screen.h"
 
 #include <stddef.h>
 #include <algorithm>
@@ -985,6 +986,15 @@ ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
   if (params->update_info.position &&
       *params->update_info.position == "center")
     BrowserView::GetBrowserViewForBrowser(browser)->frame()->CenterWindow(bounds.size());
+  if (params->update_info.position &&
+      *params->update_info.position == "mouse") {
+    BrowserFrame* browser_frame =
+      BrowserView::GetBrowserViewForBrowser(browser)->frame();
+      gfx::Point cursor_pos(display::Screen::GetScreen()->GetCursorScreenPoint());
+      gfx::Rect bounds = browser_frame->GetWindowBoundsInScreen();
+      bounds.set_origin(cursor_pos);
+      browser_frame->SetBounds(bounds);
+  }
 
   if (params->update_info.focused) {
     if (*params->update_info.focused) {
