@@ -41,7 +41,7 @@ gclient_gn_args = [
 
 
 vars = {
-  "buildspec_platforms": "all",
+  "buildspec_platforms": "linux64, mac64, win, win64",
   # Variable that can be used to support multiple build scenarios, like having
   # Chromium specific targets in a client project's GN file or sync dependencies
   # conditionally etc.
@@ -248,7 +248,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling devtools-frontend
   # and whatever else without interference from each other.
-  'devtools_frontend_revision': '0c3c3883a6e060f6c8c6c8a53dc8b0ef7420bc4d',
+  'devtools_frontend_revision': 'cd325ed4f23cb3683298e00ba68dc26dd2251d88',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling libprotobuf-mutator
   # and whatever else without interference from each other.
@@ -1463,7 +1463,7 @@ deps = {
   },
 
   'src/third_party/webrtc':
-    Var('webrtc_git') + '/src.git' + '@' + '3827e93837820a312d15beb035c0be959a354d7c',
+    Var('webrtc_git') + '/src.git' + '@' + 'dba6de5aee873b1fb209bc8a3f224dcb8324f2e5',
 
   'src/third_party/libgifcodec':
      Var('skia_git') + '/libgifcodec' + '@'+  Var('libgifcodec_revision'),
@@ -1538,7 +1538,7 @@ deps = {
   #  Var('chromium_git') + '/v8/v8.git' + '@' +  Var('v8_revision'),
 
   'src-internal': {
-    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@5fa0b3a1d0172779a9920e6470a65ce82cd9d563',
+    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@a90765b1927900bb146615c184cf6c8580fc1382',
     'condition': 'checkout_src_internal',
   },
 
