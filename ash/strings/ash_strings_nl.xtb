@@ -33,7 +33,7 @@
 <translation id="1289185460362160437">Kom op <ph name="COME_BACK_DAY_OF_WEEK" /> terug om <ph name="COME_BACK_TIME" />.</translation>
 <translation id="1290331692326790741">Zwak signaal</translation>
 <translation id="1293264513303784526">USB-C-apparaat (poort aan linkerkant)</translation>
-<translation id="1294929383540927798">Instellingen voor meldingen voor het vergrendelingsscherm wijzigen</translation>
+<translation id="1294929383540927798">Instellingen voor meldingen voor het vergrendelscherm wijzigen</translation>
 <translation id="1301069673413256657">GSM</translation>
 <translation id="1302880136325416935">Bluetooth-instellingen weergeven. <ph name="STATE_TEXT" /></translation>
 <translation id="1312604459020188865">Signaalsterkte <ph name="SIGNAL_STRENGTH" /></translation>
@@ -86,7 +86,7 @@
 <translation id="1951012854035635156">Assistent</translation>
 <translation id="1957803754585243749">0°</translation>
 <translation id="1957958912175573503">Je taal instellen</translation>
-<translation id="1962969542251276847">Scherm vergrendelen</translation>
+<translation id="1962969542251276847">Vergrendelscherm</translation>
 <translation id="1969011864782743497"><ph name="DEVICE_NAME" /> (USB)</translation>
 <translation id="1972950159383891558">Hallo, <ph name="USERNAME" /></translation>
 <translation id="1978498689038657292">Tekstinvoer</translation>
@@ -266,7 +266,7 @@
 <translation id="4065525899979931964">{NUM_APPS,plural, =1{Uitgeschakeld voor een app}other{Uitgeschakeld voor # apps}}</translation>
 <translation id="4072264167173457037">Normaal signaal</translation>
 <translation id="4112140312785995938">Achteruit zoeken</translation>
-<translation id="4129129681837227511">Als je meldingen op je vergrendelingsscherm wilt zien, ontgrendel je het scherm om de instellingen te wijzigen</translation>
+<translation id="4129129681837227511">Als je meldingen op je vergrendelscherm wilt zien, ontgrendel je het scherm om de instellingen te wijzigen</translation>
 <translation id="4144413954005649103">Door met rechts te klikken of de selectie lang ingedrukt houden, kan de Assistent informatie laten zien die is gerelateerd aan wat je op het scherm hebt geselecteerd.</translation>
 <translation id="4146833061457621061">Speel muziek</translation>
 <translation id="4181841719683918333">Talen</translation>

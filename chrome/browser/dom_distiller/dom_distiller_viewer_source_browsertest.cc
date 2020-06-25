@@ -624,7 +624,9 @@ IN_PROC_BROWSER_TEST_F(DomDistillerViewerSourceBrowserTest, PrefPersist) {
   ASSERT_FLOAT_EQ(kScale, fontSize / oldFontSize);
 }
 
-IN_PROC_BROWSER_TEST_F(DomDistillerViewerSourceBrowserTest, UISetsPrefs) {
+// Disabled for flakes, crbug.com/1064776.
+IN_PROC_BROWSER_TEST_F(DomDistillerViewerSourceBrowserTest,
+                       DISABLED_UISetsPrefs) {
   content::WebContents* contents =
       browser()->tab_strip_model()->GetActiveWebContents();
 

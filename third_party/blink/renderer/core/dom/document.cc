@@ -3267,7 +3267,6 @@ void Document::Shutdown() {
 
   CancelPendingJavaScriptUrls();
   http_refresh_scheduler_->Cancel();
-  GetFrame()->CancelFormSubmission();
 
   DetachCompositorTimeline(Timeline().CompositorTimeline());
 

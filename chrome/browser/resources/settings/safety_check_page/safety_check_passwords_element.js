@@ -120,6 +120,7 @@ Polymer({
 
     Router.getInstance().navigateTo(routes.CHECK_PASSWORDS);
     PasswordManagerImpl.getInstance().recordPasswordCheckReferrer(
-        PasswordManagerProxy.PasswordCheckReferrer.SAFETY_CHECK);
+        PasswordManagerProxy.PasswordCheckReferrer.SAFETY_CHECK,
+        /* dynamicParams= */ null, /* removeSearch= */ true);
   },
 });

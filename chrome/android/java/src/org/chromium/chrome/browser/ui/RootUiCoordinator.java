@@ -325,9 +325,12 @@ public class RootUiCoordinator
      */
     @VisibleForTesting
     public void onShareMenuItemSelected(final boolean shareDirectly, final boolean isIncognito) {
-        if (mShareDelegateSupplier.get() == null) return;
+        ShareDelegate shareDelegate = mShareDelegateSupplier.get();
+        Tab tab = mActivityTabProvider.get();
 
-        mShareDelegateSupplier.get().share(mActivityTabProvider.get(), shareDirectly);
+        if (shareDelegate == null || tab == null) return;
+
+        shareDelegate.share(tab, shareDirectly);
     }
 
     // MenuOrKeyboardActionHandler implementation

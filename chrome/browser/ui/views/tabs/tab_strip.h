@@ -290,7 +290,7 @@ class TabStrip : public views::AccessiblePaneView,
   void OnMouseEventInTab(views::View* source,
                          const ui::MouseEvent& event) override;
   void UpdateHoverCard(Tab* tab) override;
-  bool ShowDomainInHoverCard(const Tab* tab) const override;
+  bool ShowDomainInHoverCards() const override;
   bool HoverCardIsShowingForTab(Tab* tab) override;
   int GetBackgroundOffset() const override;
   int GetStrokeThickness() const override;
@@ -487,6 +487,9 @@ class TabStrip : public views::AccessiblePaneView,
   int GetViewInsertionIndex(Tab* tab,
                             base::Optional<int> from_model_index,
                             int to_model_index) const;
+
+  // Closes the tab at |model_index|.
+  void CloseTabInternal(int model_index, CloseTabSource source);
 
   // Removes the tab at |index| from |tabs_|.
   void RemoveTabFromViewModel(int index);

@@ -9,20 +9,25 @@ import static com.google.android.material.appbar.AppBarLayout.LayoutParams.SCROL
 
 import android.content.Context;
 import android.content.res.Resources;
+import android.os.Build;
 import android.util.AttributeSet;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStub;
 import android.widget.CompoundButton.OnCheckedChangeListener;
 import android.widget.FrameLayout;
+import android.widget.TextView;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.content.res.AppCompatResources;
+import androidx.core.view.ViewCompat;
 
 import com.google.android.material.appbar.AppBarLayout;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.chrome.browser.coordinator.CoordinatorLayoutForPointer;
+import org.chromium.chrome.browser.flags.CachedFeatureFlags;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.ntp.IncognitoDescriptionView;
 import org.chromium.chrome.browser.ntp.search.SearchBoxCoordinator;
@@ -75,6 +80,7 @@ class TasksView extends CoordinatorLayoutForPointer {
                 (AppBarLayout.LayoutParams) mSearchBoxCoordinator.getView().getLayoutParams();
         layoutParams.setScrollFlags(SCROLL_FLAG_SCROLL);
         adjustOmniboxScrollMode(layoutParams);
+        setTabCarouselTitleStyle();
     }
 
     private void adjustOmniboxScrollMode(AppBarLayout.LayoutParams layoutParams) {
@@ -98,12 +104,45 @@ class TasksView extends CoordinatorLayoutForPointer {
         layoutParams.bottomMargin = ViewUtils.dpToPx(getContext(), OMNIBOX_BOTTOM_PADDING_DP);
     }
 
+    private void setTabCarouselTitleStyle() {
+        // Match the tab carousel title style with the feed header.
+        // TODO(crbug.com/1016952): Migrate ChromeFeatureList.isEnabled to using cached flags for
+        // instant start. There are many places checking REPORT_FEED_USER_ACTIONS, like in
+        // ExploreSurfaceCoordinator.
+        TextView titleDescription = (TextView) findViewById(R.id.tab_switcher_title_description);
+        TextView moreTabs = (TextView) findViewById(R.id.more_tabs);
+        if (!CachedFeatureFlags.isEnabled(ChromeFeatureList.INSTANT_START)
+                && ChromeFeatureList.isEnabled(ChromeFeatureList.REPORT_FEED_USER_ACTIONS)) {
+            ApiCompatibilityUtils.setTextAppearance(
+                    titleDescription, R.style.TextAppearance_TextSmall_Secondary);
+            ApiCompatibilityUtils.setTextAppearance(
+                    moreTabs, R.style.TextAppearance_TextSmall_Blue);
+            ViewCompat.setPaddingRelative(titleDescription,
+                    mContext.getResources().getDimensionPixelSize(R.dimen.card_padding),
+                    titleDescription.getPaddingTop(), titleDescription.getPaddingEnd(),
+                    titleDescription.getPaddingBottom());
+        } else {
+            ApiCompatibilityUtils.setTextAppearance(
+                    titleDescription, R.style.TextAppearance_TextMediumThick_Primary);
+            ApiCompatibilityUtils.setTextAppearance(
+                    moreTabs, R.style.TextAppearance_TextMedium_Blue);
+        }
+    }
+
     ViewGroup getCarouselTabSwitcherContainer() {
         return mCarouselTabSwitcherContainer;
     }
 
     ViewGroup getBodyViewContainer() {
         return findViewById(R.id.tasks_surface_body);
+    }
+
+    /**
+     * Set the visibility of the tasks surface body.
+     * @param isVisible Whether it's visible.
+     */
+    void setSurfaceBodyVisibility(boolean isVisible) {
+        getBodyViewContainer().setVisibility(isVisible ? View.VISIBLE : View.GONE);
     }
 
     /**
@@ -160,8 +199,15 @@ class TasksView extends CoordinatorLayoutForPointer {
      */
     void initializeIncognitoDescriptionView() {
         assert mIncognitoDescriptionView == null;
-        ViewStub stub = (ViewStub) findViewById(R.id.incognito_description_layout_stub);
-        mIncognitoDescriptionView = (IncognitoDescriptionView) stub.inflate();
+        ViewStub containerStub =
+                (ViewStub) findViewById(R.id.incognito_description_container_layout_stub);
+        View containerView = containerStub.inflate();
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+            containerView.setFocusable(true);
+            containerView.setFocusableInTouchMode(true);
+        }
+        mIncognitoDescriptionView = (IncognitoDescriptionView) containerView.findViewById(
+                R.id.new_tab_incognito_container);
         if (mIncognitoDescriptionLearnMoreListener != null) {
             setIncognitoDescriptionLearnMoreClickListener(mIncognitoDescriptionLearnMoreListener);
         }
@@ -252,5 +298,36 @@ class TasksView extends CoordinatorLayoutForPointer {
             mIncognitoDescriptionView.setCookieControlsIconOnclickListener(listener);
             mIncognitoCookieControlsIconClickListener = null;
         }
+    }
+
+    /**
+     * Set the top margin for the tasks surface body.
+     * @param topMargin The top margin to set.
+     */
+    void setTasksSurfaceBodyTopMargin(int topMargin) {
+        MarginLayoutParams params = (MarginLayoutParams) getBodyViewContainer().getLayoutParams();
+        params.topMargin = topMargin;
+    }
+
+    /**
+     * Set the top margin for the mv tiles container.
+     * @param topMargin The top margin to set.
+     */
+    void setMVTilesContainerTopMargin(int topMargin) {
+        MarginLayoutParams params =
+                (MarginLayoutParams) mHeaderView.findViewById(R.id.mv_tiles_container)
+                        .getLayoutParams();
+        params.topMargin = topMargin;
+    }
+
+    /**
+     * Set the top margin for the tab switcher title.
+     * @param topMargin The top margin to set.
+     */
+    void setTabSwitcherTitleTopMargin(int topMargin) {
+        MarginLayoutParams params =
+                (MarginLayoutParams) mHeaderView.findViewById(R.id.tab_switcher_title)
+                        .getLayoutParams();
+        params.topMargin = topMargin;
     }
 }

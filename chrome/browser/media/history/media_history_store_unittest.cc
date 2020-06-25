@@ -17,6 +17,7 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_timeouts.h"
+#include "build/build_config.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/media/feeds/media_feeds_store.mojom-forward.h"
 #include "chrome/browser/media/feeds/media_feeds_store.mojom.h"
@@ -44,6 +45,11 @@
 #include "sql/statement.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
+#if !defined(OS_ANDROID)
+#include "chrome/browser/media/feeds/media_feeds_service.h"
+#include "chrome/browser/media/feeds/media_feeds_service_factory.h"
+#endif
+
 namespace media_history {
 
 namespace {
@@ -51,6 +57,8 @@ namespace {
 // The error margin for double time comparison. It is 10 seconds because it
 // might be equal but it might be close too.
 const int kTimeErrorMargin = 10000;
+
+#if !defined(OS_ANDROID)
 
 // The expected display name for the fetched media feed.
 const char kExpectedDisplayName[] = "Test Feed";
@@ -67,6 +75,8 @@ const int kExpectedAltFetchItemCount = 1;
 const int kExpectedAltFetchPlayNextCount = 1;
 const int kExpectedAltFetchContentTypes =
     static_cast<int>(media_feeds::mojom::MediaFeedItemType::kVideo);
+
+#endif  // !defined(OS_ANDROID)
 
 base::FilePath g_temp_history_dir;
 
@@ -254,6 +264,8 @@ class MediaHistoryStoreUnitTest
   MediaHistoryKeyedService* otr_service() const { return otr_service_.get(); }
 
   bool IsReadOnly() const { return GetParam() != TestState::kNormal; }
+
+  Profile* GetProfile() { return profile_.get(); }
 
  private:
   base::ScopedTempDir temp_dir_;
@@ -581,20 +593,7 @@ TEST_P(MediaHistoryStoreUnitTest, SavePlayback_IncrementAggregateWatchtime) {
   EXPECT_EQ(origins, GetOriginRowsSync(otr_service()));
 }
 
-TEST_P(MediaHistoryStoreUnitTest, DiscoverMediaFeed_Noop) {
-  service()->DiscoverMediaFeed(GURL("https://www.google.com/feed"));
-  WaitForDB();
-
-  {
-    // Check the feeds were not recorded.
-    mojom::MediaHistoryStatsPtr stats = GetStatsSync(service());
-    EXPECT_FALSE(base::Contains(stats->table_row_counts,
-                                MediaHistoryFeedsTable::kTableName));
-
-    // The OTR service should have the same data.
-    EXPECT_EQ(stats, GetStatsSync(otr_service()));
-  }
-}
+#if !defined(OS_ANDROID)
 
 // Runs the tests with the media feeds feature enabled.
 class MediaHistoryStoreFeedsTest : public MediaHistoryStoreUnitTest {
@@ -602,6 +601,15 @@ class MediaHistoryStoreFeedsTest : public MediaHistoryStoreUnitTest {
   void SetUp() override {
     features_.InitAndEnableFeature(media::kMediaFeeds);
     MediaHistoryStoreUnitTest::SetUp();
+  }
+
+  media_feeds::MediaFeedsService* GetMediaFeedsService() {
+    Profile* profile = GetProfile();
+    if (GetParam() == TestState::kIncognito)
+      profile = profile->GetOffTheRecordProfile();
+
+    return media_feeds::MediaFeedsServiceFactory::GetInstance()->GetForProfile(
+        profile);
   }
 
   std::vector<media_feeds::mojom::MediaFeedItemPtr> GetItemsForMediaFeedSync(
@@ -2698,5 +2706,7 @@ TEST_P(MediaHistoryStoreFeedsTest, GetMediaFeedFetchDetails) {
     }
   }
 }
+
+#endif  // !defined(OS_ANDROID)
 
 }  // namespace media_history

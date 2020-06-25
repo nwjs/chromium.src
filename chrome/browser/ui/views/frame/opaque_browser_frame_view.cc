@@ -203,7 +203,7 @@ gfx::Rect OpaqueBrowserFrameView::GetBoundsForTabStripRegion(
   if (!tabstrip)
     return gfx::Rect();
 
-  return layout_->GetBoundsForTabStripRegion(tabstrip->GetPreferredSize(),
+  return layout_->GetBoundsForTabStripRegion(tabstrip->GetMinimumSize(),
                                              width());
 }
 
@@ -494,8 +494,8 @@ int OpaqueBrowserFrameView::GetTabStripHeight() const {
   return browser_view()->GetTabStripHeight();
 }
 
-gfx::Size OpaqueBrowserFrameView::GetTabstripPreferredSize() const {
-  return browser_view()->tabstrip()->GetPreferredSize();
+gfx::Size OpaqueBrowserFrameView::GetTabstripMinimumSize() const {
+  return browser_view()->tabstrip()->GetMinimumSize();
 }
 
 int OpaqueBrowserFrameView::GetTopAreaHeight() const {

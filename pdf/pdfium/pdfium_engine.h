@@ -710,6 +710,9 @@ class PDFiumEngine : public PDFEngine,
   // Timer for touch long press detection.
   base::OneShotTimer touch_timer_;
 
+  // Set to true when updating plugin focus.
+  bool updating_focus_ = false;
+
   // The focus item type for the currently focused object.
   FocusElementType focus_item_type_ = FocusElementType::kNone;
 

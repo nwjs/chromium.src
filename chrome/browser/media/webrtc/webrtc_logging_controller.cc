@@ -491,9 +491,14 @@ void WebRtcLoggingController::DoUploadLogAndRtpDumps(
       base::UmaHistogramSparse("WebRtcTextLogging.UploadFailureReason",
                                WebRtcLogUploadFailureReason::kInvalidState);
     }
-    base::SequencedTaskRunnerHandle::Get()->PostTask(
-        FROM_HERE, base::BindOnce(callback, false, "",
-                                  "Logging not stopped or no log open."));
+
+    // Do not fire callback if it is null. Nesting null callbacks is not
+    // allowed, as it can lead to crashes. See https://crbug.com/1071475
+    if (!callback.is_null()) {
+      base::SequencedTaskRunnerHandle::Get()->PostTask(
+          FROM_HERE, base::BindOnce(callback, false, "",
+                                    "Logging not stopped or no log open."));
+    }
     return;
   }
 

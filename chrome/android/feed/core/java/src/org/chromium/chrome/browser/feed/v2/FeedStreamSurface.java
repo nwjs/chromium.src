@@ -28,8 +28,10 @@ import org.chromium.chrome.browser.xsurface.SurfaceActionsHandler;
 import org.chromium.chrome.browser.xsurface.SurfaceDependencyProvider;
 import org.chromium.chrome.browser.xsurface.SurfaceScope;
 import org.chromium.components.feed.proto.FeedUiProto.Slice;
+import org.chromium.components.feed.proto.FeedUiProto.Slice.SliceDataCase;
 import org.chromium.components.feed.proto.FeedUiProto.StreamUpdate;
 import org.chromium.components.feed.proto.FeedUiProto.StreamUpdate.SliceUpdate;
+import org.chromium.components.feed.proto.FeedUiProto.StreamUpdate.SliceUpdate.UpdateCase;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.ui.base.PageTransition;
 
@@ -168,7 +170,7 @@ public class FeedStreamSurface implements SurfaceActionsHandler, FeedActionsHand
                 new ArrayList<FeedListContentManager.FeedContent>();
         HashSet<String> existingIdsInNewContentList = new HashSet<String>();
         for (SliceUpdate sliceUpdate : streamUpdate.getUpdatedSlicesList()) {
-            if (sliceUpdate.hasSlice()) {
+            if (sliceUpdate.getUpdateCase() == UpdateCase.SLICE) {
                 newContentList.add(createContentFromSlice(sliceUpdate.getSlice()));
             } else {
                 String existingSliceId = sliceUpdate.getSliceId();
@@ -218,7 +220,7 @@ public class FeedStreamSurface implements SurfaceActionsHandler, FeedActionsHand
 
     private FeedListContentManager.FeedContent createContentFromSlice(Slice slice) {
         String sliceId = slice.getSliceId();
-        if (slice.hasXsurfaceSlice()) {
+        if (slice.getSliceDataCase() == SliceDataCase.XSURFACE_SLICE) {
             return new FeedListContentManager.ExternalViewContent(
                     sliceId, slice.getXsurfaceSlice().getXsurfaceFrame().toByteArray());
         } else {

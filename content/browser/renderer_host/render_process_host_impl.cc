@@ -3255,6 +3255,9 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     service_manager::switches::kDisableInProcessStackTraces,
     service_manager::switches::kDisableSeccompFilterSandbox,
     service_manager::switches::kNoSandbox,
+#if defined(OS_LINUX) && !defined(OS_CHROMEOS)
+    switches::kDisableDevShmUsage,
+#endif
 #if defined(OS_MACOSX)
     // Allow this to be set when invoking the browser and relayed along.
     service_manager::switches::kEnableSandboxLogging,

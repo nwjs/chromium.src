@@ -2954,7 +2954,6 @@
         'chrome_os:83-',
         'ios:84-'
       ],
-      'future': True,
       'features': {
         'can_be_recommended': True,
         'dynamic_refresh': True,
@@ -6883,7 +6882,6 @@
         'chrome.*:12-',
         'chrome_os:12-',
         'android:30-',
-        'ios:84-',
       ],
       'features': {
         'dynamic_refresh': True,
@@ -7190,7 +7188,6 @@
         'chrome_os:15-',
         'android:30-',
         'webview_android:47-',
-        'ios:84-',
       ],
       'features': {
         'dynamic_refresh': True,
@@ -7226,7 +7223,6 @@
         'chrome_os:15-',
         'android:30-',
         'webview_android:47-',
-        'ios:84-',
       ],
       'features': {
         'dynamic_refresh': True,
@@ -12378,7 +12374,6 @@
         'android:30-',
         'chrome.*:37-',
         'chrome_os:37-',
-        'ios:84-',
       ],
       'features': {
         'dynamic_refresh': True,
@@ -16435,7 +16430,8 @@
           'caption': '''Authentication based on client certificates''',
         },
       ],
-      'future_on': ['chrome_os'],
+      'supported_on':[],
+      'future': True,
       'device_only': True,
       'features': {
         'dynamic_refresh': True,
@@ -20687,7 +20683,6 @@
       'name': 'PrintRasterizationMode',
       'owners': ['thestig@chromium.org', 'file://printing/OWNERS'],
       'type': 'int-enum',
-      'future': True,
       'schema': {
         'type': 'integer',
         'enum': [ 0, 1 ],

@@ -641,8 +641,12 @@ void LocalFrameView::PerformPreLayoutTasks() {
 
   Lifecycle().AdvanceTo(DocumentLifecycle::kStyleClean);
 
-  if (was_resized)
+  if (was_resized) {
     document->ClearResizedForViewportUnits();
+
+    // Mark all of writing-mode roots for layout, as the ICB size has changed.
+    MarkOrthogonalWritingModeRootsForLayout();
+  }
 }
 
 bool LocalFrameView::LayoutFromRootObject(LayoutObject& root) {
@@ -1651,6 +1655,17 @@ void LocalFrameView::ScheduleOrthogonalWritingModeRootsForLayout() {
   for (auto& root : orthogonal_writing_mode_root_list_.Ordered()) {
     if (PrepareOrthogonalWritingModeRootForLayout(*root))
       layout_subtree_root_list_.Add(*root);
+  }
+}
+
+void LocalFrameView::MarkOrthogonalWritingModeRootsForLayout() {
+  for (auto& root : orthogonal_writing_mode_root_list_.Ordered()) {
+    // OOF-positioned objects don't depend on the ICB size.
+    if (root->NeedsLayout() || root->IsOutOfFlowPositioned())
+      continue;
+
+    root->SetNeedsLayoutAndIntrinsicWidthsRecalc(
+        layout_invalidation_reason::kSizeChanged);
   }
 }
 

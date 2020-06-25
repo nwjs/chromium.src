@@ -403,8 +403,10 @@ source_set("unit_tests") {
       "cloud/machine_level_user_cloud_policy_manager_unittest.cc",
       "cloud/machine_level_user_cloud_policy_store_unittest.cc",
       "cloud/user_cloud_policy_manager_unittest.cc",
-      "cloud/user_cloud_policy_store_unittest.cc",
     ]
+    if (!is_ios) {
+      sources += [ "cloud/user_cloud_policy_store_unittest.cc" ]
+    }
   }
 
   if (is_fuchsia) {

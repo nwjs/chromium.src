@@ -8,6 +8,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -296,7 +297,9 @@ class SyncedBookmarkTracker {
     UNTRACKED_BOOKMARK = 8,
     BOOKMARK_GUID_MISMATCH = 9,
     DUPLICATED_CLIENT_TAG_HASH = 10,
-    kMaxValue = DUPLICATED_CLIENT_TAG_HASH
+    TRACKED_MANAGED_NODE = 11,
+
+    kMaxValue = TRACKED_MANAGED_NODE
   };
 
   SyncedBookmarkTracker(sync_pb::ModelTypeState model_type_state,
@@ -342,7 +345,7 @@ class SyncedBookmarkTracker {
   // A map of bookmark nodes to sync entities. It's keyed by the bookmark node
   // pointers which get assigned when loading the bookmark model. This map is
   // first initialized in the constructor.
-  std::map<const bookmarks::BookmarkNode*, Entity*>
+  std::unordered_map<const bookmarks::BookmarkNode*, Entity*>
       bookmark_node_to_entities_map_;
 
   // A list of pending local bookmark deletions. They should be sent to the

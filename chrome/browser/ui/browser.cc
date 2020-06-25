@@ -484,6 +484,7 @@ Browser* Browser::Create(const CreateParams& params) {
 
 Browser::Browser(const CreateParams& params)
    :  nw_menu_(nullptr),
+      extension_id_(params.extension_id),
       create_params_(params),
       frameless_(params.frameless),
       alpha_enabled_(params.alpha_enabled),
@@ -720,12 +721,7 @@ Browser::~Browser() {
 }
 
 bool Browser::NWCanClose(bool user_force) {
-  WebContents* web_contents = tab_strip_model_->GetActiveWebContents();
-  if (!web_contents)
-    return true;
-  const extensions::Extension* extension =
-            extensions::ProcessManager::Get(profile_)
-                ->GetExtensionForWebContents(web_contents);
+  const extensions::Extension* extension = GetExtension();
   if (!extension)
     return true;
   //content::RenderFrameHost* rfh = web_contents->GetMainFrame();
@@ -752,6 +748,12 @@ bool Browser::NWCanClose(bool user_force) {
     return false;
   }
   return true;
+}
+
+const extensions::Extension* Browser::GetExtension() const {
+  return extensions::ExtensionRegistry::Get(profile_)
+      ->enabled_extensions()
+      .GetByID(extension_id_);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -229,7 +229,7 @@
 <translation id="1280965841156951489">Змінити файли</translation>
 <translation id="1285320974508926690">Ніколи не перекладати цей сайт</translation>
 <translation id="1285484354230578868">Зберігати дані в обліковому записі Google Диска</translation>
-<translation id="1288037062697528143">Нічний режим увімкнеться автоматично після заходу сонця</translation>
+<translation id="1288037062697528143">Нічний екран увімкнеться автоматично після заходу сонця</translation>
 <translation id="1288300545283011870">Властивості мовлення</translation>
 <translation id="1293264513303784526">Пристрій із портом USB типу C (ліворуч)</translation>
 <translation id="1293556467332435079">Файли</translation>
@@ -437,6 +437,7 @@
 <translation id="1546452108651444655"><ph name="CHILD_NAME" /> хоче встановити розширення "<ph name="EXTENSION_TYPE" />", яке може:</translation>
 <translation id="1549275686094429035">ARC ввімкнено</translation>
 <translation id="1549788673239553762">Додатку <ph name="APP_NAME" /> потрібен доступ до тому <ph name="VOLUME_NAME" />. Він може змінювати або видаляти ваші файли.</translation>
+<translation id="1552301827267621511">Розширення "<ph name="EXTENSION_NAME" />" змінило пошукову систему на <ph name="SEARCH_PROVIDER_DOMAIN" /></translation>
 <translation id="1553538517812678578">без обмежень</translation>
 <translation id="1554390798506296774">Завжди дозволяти плагіни з неізольованим програмним середовищем на хості <ph name="HOST" /></translation>
 <translation id="1555130319947370107">Синій</translation>
@@ -1371,7 +1372,7 @@
 <translation id="2714393097308983682">Магазин Google Play</translation>
 <translation id="2715751256863167692">Це оновлення скидає налаштування Chromebook і вилучає дані поточного користувача.</translation>
 <translation id="2716986496990888774">Цим налаштуванням керують батьки.</translation>
-<translation id="2718395828230677721">Нічний режим</translation>
+<translation id="2718395828230677721">Нічний екран</translation>
 <translation id="2718998670920917754">Антивірусне програмне забезпечення виявило вірус.</translation>
 <translation id="2719020180254996569">Мережа <ph name="NETWORK_INDEX" /> з <ph name="NETWORK_COUNT" />, <ph name="NETWORK_NAME" />, <ph name="CONNECTION_STATUS" />. Докладніше</translation>
 <translation id="2719936478972253983">Заблоковані файли cookie</translation>
@@ -1678,6 +1679,7 @@
 <translation id="3101126716313987672">Зменшити яскравість</translation>
 <translation id="3101709781009526431">Дата та час</translation>
 <translation id="3103941660000130485">Не вдається оновити Linux</translation>
+<translation id="3105796011181310544">Знову ввімкнути Google?</translation>
 <translation id="310671807099593501">Сайт використовує Bluetooth</translation>
 <translation id="3115147772012638511">...</translation>
 <translation id="3115580024857770654">Згорнути всі</translation>
@@ -2518,7 +2520,7 @@
 <translation id="413121957363593859">Компоненти</translation>
 <translation id="4131410914670010031">Чорно-білий</translation>
 <translation id="4133076602192971179">Щоб змінити пароль, відкрийте додаток</translation>
-<translation id="4136203100490971508">Нічний режим вимкнеться автоматично на світанку</translation>
+<translation id="4136203100490971508">Нічний екран вимкнеться автоматично на світанку</translation>
 <translation id="41365691917097717">Якщо продовжити, буде ввімкнено налагодження ADB для створення й тестування додатків для Android. Зауважте, що цією дією ви дозволяєте встановлювати додатки для Android, які не були перевірені Google. Щоб вимкнути цю функцію, доведеться скинути налаштування.</translation>
 <translation id="4138267921960073861">Показувати імена користувачів і фото на екрані входу</translation>
 <translation id="413915106327509564"><ph name="WINDOW_TITLE" />: підключено пристрій HID</translation>
@@ -2664,6 +2666,7 @@
 <translation id="4364327530094270451">Диня</translation>
 <translation id="4364567974334641491"><ph name="APP_NAME" /> транслює вікно.</translation>
 <translation id="4364830672918311045">Показувати сповіщення</translation>
+<translation id="437004882363131692">Отримуйте поради, пропозиції й оновлення для пристрою <ph name="DEVICE_TYPE" />, а також надсилайте відгуки. Ви можете будь-коли скасувати підписку на ці сповіщення.</translation>
 <translation id="4370975561335139969">Введені електронна адреса та пароль не збігаються</translation>
 <translation id="4374831787438678295">Файл встановлення Linux</translation>
 <translation id="4375035964737468845">Відкривати завантажені файли</translation>
@@ -2996,6 +2999,7 @@
 <translation id="4833683849865011483">На сервері для друку знайдено 1 принтер</translation>
 <translation id="4835385943915508971">Chrome не має доступу до потрібного ресурсу.</translation>
 <translation id="4836504898754963407">Керувати відбитками</translation>
+<translation id="4837128290434901661">Знову ввімкнути Пошук Google?</translation>
 <translation id="4837926214103741331">Ви не маєте права використовувати цей пристрій. Зверніться до його власника, щоб отримати дозвіл на вхід.</translation>
 <translation id="4837952862063191349">Щоб розблокувати пристрій <ph name="DEVICE_TYPE" /> і відновити локальні дані, введіть старий пароль.</translation>
 <translation id="4838836835474292213">Дозволено переглядати буфер обміну</translation>
@@ -3532,7 +3536,7 @@
 <translation id="5527474464531963247">Можна також вибрати іншу мережу.</translation>
 <translation id="5530766185686772672">Закрити анонімні вкладки</translation>
 <translation id="5532223876348815659">Загальні</translation>
-<translation id="5533001281916885985">Сайт <ph name="SITE_NAME" /> хоче</translation>
+<translation id="5533001281916885985"><ph name="SITE_NAME" /> хоче</translation>
 <translation id="5534304873398226603">Відхилити фото або відео</translation>
 <translation id="5535941515421698170">Також вилучити всі дані з цього пристрою</translation>
 <translation id="5539221284352502426">Сервер відхилив введений вами пароль. Можливі причини: пароль закороткий; пароль має містити цифри або символи; пароль має відрізнятися від попередніх.</translation>
@@ -3699,7 +3703,6 @@
 <translation id="5739235828260127894">Очікується підтвердження. <ph name="LINK_BEGIN" />Докладніше<ph name="LINK_END" /></translation>
 <translation id="5739458112391494395">Дуже великий</translation>
 <translation id="574209121243317957">Тон</translation>
-<translation id="5745136023067925867">Отримуйте поради, пропозиції й оновлення для пристрою <ph name="DEVICE_TYPE" />, а також надсилайте відгуки</translation>
 <translation id="5746169159649715125">Зберегти у форматі PDF</translation>
 <translation id="5747552184818312860">Діє до</translation>
 <translation id="5747785204778348146">Для розробників (нестабільна)</translation>
@@ -4424,7 +4427,7 @@
 <translation id="6698810901424468597">Читати та змінювати свої дані на веб-сайтах <ph name="WEBSITE_1" /> і <ph name="WEBSITE_2" /></translation>
 <translation id="6699883973579689168">Тепер можна керувати всіма обліковими записами Google в одному додатку. Дозволи, які ви надали додаткам, веб-сайтам і розширенням у Chrome і Google Play, тепер можуть застосовуватися до всіх облікових записів, у які ви ввійшли. <ph name="LINK_BEGIN" />Докладніше<ph name="LINK_END" /></translation>
 <translation id="6700093763382332031">Блокування SIM-карти</translation>
-<translation id="6700480081846086223">Транслювати хост <ph name="HOST_NAME" /></translation>
+<translation id="6700480081846086223">Транслювати <ph name="HOST_NAME" /></translation>
 <translation id="6701535245008341853">Не вдалося завантажити профіль.</translation>
 <translation id="6702639462873609204">&amp;Редагувати...</translation>
 <translation id="6703966911896067184">Ілюстрація помилки реєстрації</translation>
@@ -4966,6 +4969,7 @@
 <translation id="7396845648024431313">Програма <ph name="APP_NAME" /> запускатиметься під час запуску системи та продовжуватиме працювати у фоновому режимі навіть після закриття всіх інших вікон <ph name="PRODUCT_NAME" />.</translation>
 <translation id="7399045143794278225">Налаштувати синхронізацію</translation>
 <translation id="7400418766976504921">URL-адреса</translation>
+<translation id="7400447915166857470">Знову ввімкнути систему <ph name="OLD_SEARCH_PROVIDER" />?</translation>
 <translation id="7400839060291901923">Налаштуйте з’єднання на пристрої <ph name="PHONE_NAME" /></translation>
 <translation id="7401778920660465883">Відхилити це повідомлення</translation>
 <translation id="7403642243184989645">Завантаження ресурсів</translation>
@@ -4992,6 +4996,7 @@
 <translation id="7427798576651127129">Телефонувати з пристрою <ph name="DEVICE_NAME" /></translation>
 <translation id="7431719494109538750">Пристроїв HID не знайдено</translation>
 <translation id="7433692219247014412">{COUNT,plural, =0{Відкрити всі у &amp;новому вікні}=1{Відкрити в &amp;новому вікні}one{Відкрити всі (#) у &amp;новому вікні}few{Відкрити всі (#) у &amp;новому вікні}many{Відкрити всі (#) у &amp;новому вікні}other{Відкрити всі (#) у &amp;новому вікні}}</translation>
+<translation id="7433957986129316853">Залишити</translation>
 <translation id="7434509671034404296">Для розробників</translation>
 <translation id="7434635829372401939">Синхронізація налаштувань</translation>
 <translation id="7434757724413878233">Прискорення миші</translation>
@@ -5222,6 +5227,7 @@
 <translation id="7728570244950051353">Заблокований екран з режиму сну</translation>
 <translation id="7728668285692163452">Канал буде змінено пізніше</translation>
 <translation id="7730449930968088409">Робити знімки вмісту екрана</translation>
+<translation id="7730683939467795481">Цю сторінку змінено розширенням "<ph name="EXTENSION_NAME" />"</translation>
 <translation id="7732111077498238432">Мережа контролюється правилами</translation>
 <translation id="7737115349420013392">Підключення до пристрою "<ph name="DEVICE_NAME" />"…</translation>
 <translation id="7737238973539693982">Видалення Linux (бета-версія)</translation>
@@ -5564,6 +5570,7 @@
 <translation id="8136269678443988272">Введені PIN-коди не збігаються</translation>
 <translation id="8137559199583651773">Керувати розширеннями</translation>
 <translation id="8138082791834443598">Введіть нову або оновіть наявну інформацію, яку потрібно пов’язати з цим пристроєм (необов’язково).</translation>
+<translation id="8138217203226449454">Ви хотіли змінити пошукову систему?</translation>
 <translation id="813913629614996137">Ініціалізація...</translation>
 <translation id="8140778357236808512">Імпортувати існуючого контрольованого користувача</translation>
 <translation id="8141584439523427891">Відкривання в альтернативному веб-переглядачі</translation>
@@ -6249,6 +6256,7 @@
 <translation id="9004952710076978168">Отримано сповіщення для невідомого принтера.</translation>
 <translation id="9008201768610948239">Ігнорувати</translation>
 <translation id="9009369504041480176">Завантаження (<ph name="PROGRESS_PERCENT" />%)...</translation>
+<translation id="9009708085379296446">Ви хотіли змінити цю сторінку?</translation>
 <translation id="9011163749350026987">Завжди показувати значок</translation>
 <translation id="9013037634206938463">Щоб установити Linux, потрібно <ph name="INSTALL_SIZE" /> вільного місця. Щоб звільнити місце, видаліть файли з пристрою.</translation>
 <translation id="9013707997379828817">Адміністратор відновив цей пристрій до попереднього стану. Збережіть важливі файли, а потім перезапустіть пристрій. Усі дані на пристрої буде видалено.</translation>

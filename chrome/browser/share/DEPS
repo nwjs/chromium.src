@@ -12,6 +12,7 @@ include_rules = [
   "+chrome/services/qrcode_generator",
   "+content/public/android/java/src/org/chromium/content_public/browser/RenderWidgetHostView.java",
   "+content/public/android/java/src/org/chromium/content_public/browser/WebContents.java",
+  "+content/public/test/android/javatests",
   "+chrome/android/java/src/org/chromium/chrome/browser/media/MediaViewerUtils.java",
   "+chrome/android/java/src/org/chromium/chrome/browser/notifications/ChromeNotificationBuilder.java",
   "+chrome/android/java/src/org/chromium/chrome/browser/notifications/NotificationBuilderFactory.java",

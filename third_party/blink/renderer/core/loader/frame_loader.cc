@@ -1093,6 +1093,7 @@ void FrameLoader::StopAllLoaders() {
   if (document_loader_)
     document_loader_->StopLoading();
   CancelClientNavigation();
+  frame_->CancelFormSubmission();
   DidFinishNavigation(FrameLoader::NavigationFinishState::kSuccess);
 
   TakeObjectSnapshot();
@@ -1513,6 +1514,9 @@ bool FrameLoader::CancelProvisionalLoaderForNewNavigation() {
   // For client navigations, don't send failure callbacks when simply
   // replacing client navigation with a DocumentLoader.
   ClearClientNavigation();
+
+  // Cancel pending form submissions so they don't take precedence over this.
+  frame_->CancelFormSubmission();
 
   return true;
 }

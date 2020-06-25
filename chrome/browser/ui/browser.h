@@ -224,6 +224,7 @@ class Browser : public TabStripModelObserver,
 
     static CreateParams CreateForDevTools(Profile* profile);
 
+    std::string extension_id;
     bool frameless = false;
     bool alpha_enabled = false;
     bool always_on_top = false;
@@ -311,9 +312,11 @@ class Browser : public TabStripModelObserver,
   // TODO(tbarzic): Make the constructor non-public once browser construction
   // instances are replaced with Create(). https://crbug.com/916859.
   nw::Menu* nw_menu_;
+  std::string extension_id_;
   explicit Browser(const CreateParams& params);
   ~Browser() override;
 
+  const extensions::Extension* GetExtension() const;
   bool NWCanClose(bool user_force = false);
 
   // Set overrides for the initial window bounds and maximized state.

@@ -437,6 +437,7 @@
 <translation id="1546452108651444655"><ph name="CHILD_NAME" /> သည် အောက်ပါတို့ပြုလုပ်နိုင်သည့် <ph name="EXTENSION_TYPE" /> ကို ထည့်သွင်းလိုသည်-</translation>
 <translation id="1549275686094429035">ARC ဖွင့်ထားသည်</translation>
 <translation id="1549788673239553762"><ph name="APP_NAME" /> သည် <ph name="VOLUME_NAME" /> သို့ ဝင်ရောက်သုံးခွင့် ရလိုသည်။ ၎င်းသည် သင့်ဖိုင်များအား ပြင်ဆင်ခြင်း သို့မဟုတ် ဖျက်ပစ်ခြင်းများ ပြုလုပ်နိုင်သည်။</translation>
+<translation id="1552301827267621511"><ph name="SEARCH_PROVIDER_DOMAIN" /> အသုံးပြုရန် <ph name="EXTENSION_NAME" /> နောက်ဆက်တွဲက ရှာဖွေမှုစနစ်ကို ပြောင်းလိုက်သည်</translation>
 <translation id="1553538517812678578">အကန့်အသတ်မရှိ</translation>
 <translation id="1554390798506296774"><ph name="HOST" /> တွင် unsandboxed ပလက်ဂင်များ အမြဲခွင့်ပြုရန်</translation>
 <translation id="1555130319947370107">အပြာရောင်</translation>
@@ -1679,6 +1680,7 @@
 <translation id="3101126716313987672">မီးရောင်အမှိန်</translation>
 <translation id="3101709781009526431">ရက်စွဲ နှင့် အချိန်</translation>
 <translation id="3103941660000130485">Linux ကို အဆင့်မြှင့်ရာတွင် အမှားအယွင်းရှိနေသည်</translation>
+<translation id="3105796011181310544">Google သို့ ပြန်ပြောင်းမလား။</translation>
 <translation id="310671807099593501">ဝဘ်ဆိုက်က ဘလူးတုသ်ကို အသုံးပြုနေသည်</translation>
 <translation id="3115147772012638511">ကက်ရှ အတွက် စောင့်နေ...</translation>
 <translation id="3115580024857770654">အားလုံး ခေါက်ရန်</translation>
@@ -2248,7 +2250,7 @@
 <translation id="3809272675881623365">ယုန်</translation>
 <translation id="3809280248639369696">လပဲ</translation>
 <translation id="3810593934879994994"><ph name="ORIGIN" /> က အောက်ပါဖိုင်တွဲများ အတွင်းရှိ ဖိုင်များကို ကြည့်နိုင်သည်</translation>
-<translation id="3810973564298564668">စီမံကွပ်ကဲရန်</translation>
+<translation id="3810973564298564668">စီမံရန်</translation>
 <translation id="381202950560906753">နောက်တစ်ခု ထည့်ရန်</translation>
 <translation id="3812525830114410218">လက်မှတ် မကောင်း</translation>
 <translation id="3813296892522778813">သင်ရှာနေသည့် အရာများကို မတွေ့ပါက <ph name="BEGIN_LINK_CHROMIUM" />Google Chrome အကူအညီ<ph name="END_LINK_CHROMIUM" /> သို့ သွားပါ</translation>
@@ -2664,6 +2666,7 @@
 <translation id="4364327530094270451">ဖရဲသီး</translation>
 <translation id="4364567974334641491"><ph name="APP_NAME" /> သည်ဝင်းဒိုးတစ်ခုကို မျှဝေနေပါသည်။</translation>
 <translation id="4364830672918311045">ပြသမှု သတိပေးချက်များ</translation>
+<translation id="437004882363131692"><ph name="DEVICE_TYPE" /> အကြံပြုချက်၊ ကမ်းလှမ်းချက်နှင့် အပ်ဒိတ်များ ရယူပြီး အကြံပြုချက်ကို မျှဝေပါ။ မှာယူမှုကို အချိန်မရွေး ရပ်ဆိုင်းနိုင်သည်။</translation>
 <translation id="4370975561335139969">အီးမေးလိပ်စာနှင့် သင်ရိုက်ထည့်သော စကားဝှက် ကိုက်ညီမှု မရှိပါ</translation>
 <translation id="4374831787438678295">Linux ထည့်သွင်းကိရိယာ</translation>
 <translation id="4375035964737468845">ဒေါင်းလုပ်လုပ်ထားသည့် ဖိုင်များ ဖွင့်ရန်</translation>
@@ -2996,6 +2999,7 @@
 <translation id="4833683849865011483">ပုံနှိပ်စက်ဆာဗာမှ ပုံနှိပ်စက် ၁ ခုတွေ့သည်</translation>
 <translation id="4835385943915508971">တောင်းဆိုထားသည့် အရင်းမြစ်ကို Chrome သည် အသုံးပြုခွင့်မရှိပါ။</translation>
 <translation id="4836504898754963407">လက်ဗွေရာများ စီမံရန်</translation>
+<translation id="4837128290434901661">Google Search သို့ ပြန်ပြောင်းမလား။</translation>
 <translation id="4837926214103741331">သင်သည် ဒီကိရိယာကို သုံးပိုင်ခွင့် မရှိပါ။ လက်မှတ်ထိုး ဝင်ရန် ခွင့်ပြုချက် အတွက် ကိရိယာ ပိုင်ရှင်အား ဆက်သွယ်ပါ။</translation>
 <translation id="4837952862063191349">သင့်စက်တွင်းဒေတာများကို သော့ဖွင့်ကာ ပြန်လည်သိုလှောင်ရန်၊ ကျေးဇူးပြု၍ သင့်စကားဝှက် အဟောင်း <ph name="DEVICE_TYPE" /> ကိုရိုက်ထည့်ပါ။</translation>
 <translation id="4838836835474292213">ကလစ်ဘုတ် ကြည့်ရှုခွင့် ပေးထားသည်</translation>
@@ -3700,7 +3704,6 @@
 <translation id="5739235828260127894">စစ်ဆေးအတည်ပြုချက် စောင့်နေသည်။ <ph name="LINK_BEGIN" />ပိုမို လေ့လာရန်<ph name="LINK_END" /></translation>
 <translation id="5739458112391494395">အလွန်ကြီး</translation>
 <translation id="574209121243317957">အသံအနိမ့်အမြင့်</translation>
-<translation id="5745136023067925867"><ph name="DEVICE_TYPE" /> အကြံပြုချက်၊ ကမ်းလှမ်းချက်နှင့် အပ်ဒိတ်များ ရယူပြီး ထင်မြင်ချက်ကို မျှဝေပါ</translation>
 <translation id="5746169159649715125">PDF အဖြစ်သိမ်း</translation>
 <translation id="5747552184818312860">သက်တမ်းကုန်ဆုံးချိန်</translation>
 <translation id="5747785204778348146">ပြုစုသူ - မတည်ငြိမ်</translation>
@@ -4964,6 +4967,7 @@
 <translation id="7396845648024431313"><ph name="APP_NAME" /> ကို စနစ်ကို ဖွင့်ချိန်မှာ လွှတ်တင်ပေးမှာ ဖြစ်ပြီး သင်က အခြား<ph name="PRODUCT_NAME" /> ဝင်ဒိုးများကို ပိတ်လိုက်တောင် နောက်ခံမှာ ဆက်ပြီး အလုပ်လုပ်နေမည်။</translation>
 <translation id="7399045143794278225">စင့်ခ်လုပ်ခြင်းကို စိတ်ကြိုက်ပြင်ရန်</translation>
 <translation id="7400418766976504921">URL</translation>
+<translation id="7400447915166857470"><ph name="OLD_SEARCH_PROVIDER" /> သို့ ပြန်ပြောင်းမလား။</translation>
 <translation id="7400839060291901923">သင့် <ph name="PHONE_NAME" /> တွင် ချိတ်ဆက်မှုကို သတ်မှတ်ပါ</translation>
 <translation id="7401778920660465883">ဤ စာကို ပယ်ဖျက်ရန်</translation>
 <translation id="7403642243184989645">ရင်းမြစ်များ ဒေါင်းလုဒ်လုပ်နေသည်</translation>
@@ -4990,6 +4994,7 @@
 <translation id="7427798576651127129"><ph name="DEVICE_NAME" /> ထံမှ ဖုန်းခေါ်ဆိုမှု</translation>
 <translation id="7431719494109538750">HID စက်များ မရှိပါ</translation>
 <translation id="7433692219247014412">{COUNT,plural, =0{အားလုံးကို ဝင်းဒိုးအသစ်တွင် ဖွင့်ရန်}=1{ဝင်းဒိုးအသစ်တွင် ဖွင့်ရန်}other{(#) ခုလုံးကို ဝင်းဒိုးအသစ်တွင် ဖွင့်ရန်}}</translation>
+<translation id="7433957986129316853">ဆက်ထားရန်</translation>
 <translation id="7434509671034404296">ပြုစုသူ</translation>
 <translation id="7434635829372401939">သင့်ဆက်တင်များ စင့်ခ်လုပ်ခြင်း</translation>
 <translation id="7434757724413878233">မောက်စ် အရှိန်မြှင့်ရန်</translation>
@@ -5220,6 +5225,7 @@
 <translation id="7728570244950051353">အိပ်စက်မုဒ်မှနေ၍ မျက်နှာပြင်လော့ခ်ချသည်</translation>
 <translation id="7728668285692163452">ချန်နယ် ပြောင်းလဲမှုသည် နောက်မှ အသက်ဝင်လာမည်ဖြစ်သည်</translation>
 <translation id="7730449930968088409">သင့်မျက်နှာပြင်၏ အကြောင်းအရာကို ဖမ်းယူရန်</translation>
+<translation id="7730683939467795481">ဤစာမျက်နှာကို "<ph name="EXTENSION_NAME" />" နောက်ဆက်တွဲက ပြောင်းထားသည်</translation>
 <translation id="7732111077498238432">ကွန်ရက်မူဝါဒကို ထိန်းချုပ်ထားပါသည်</translation>
 <translation id="7737115349420013392">"<ph name="DEVICE_NAME" />" နှင့် တွဲချိတ်နေသည် ...</translation>
 <translation id="7737238973539693982">Linux (စမ်းသပ်ဆော့ဖ်ဝဲ) ကို ဖျက်ခြင်း</translation>
@@ -5561,6 +5567,7 @@
 <translation id="8136269678443988272">သင်ထည့်ထားသော ပင်နံပါတ်များ တူညီမှုမရှိပါ</translation>
 <translation id="8137559199583651773">တိုးချဲ့လိုင်းများအား စီမံခန့်ခွဲရန်</translation>
 <translation id="8138082791834443598">လိုအပ်ပါက — ဤစက်ကိရိယာနှင့် ဆက်စပ်နေသည့် လက်ရှိ အဆင့်မြှင့်ထားသော သို့မဟုတ် အသစ်ဖြစ်သော အချက်အလက်အား ရိုက်ထည့်ပါ</translation>
+<translation id="8138217203226449454">သင်၏ ရှာဖွေရေး ဝန်ဆောင်မှုစနစ်ကို ပြောင်းလိုသလား။</translation>
 <translation id="813913629614996137">စတင်နေသည်…</translation>
 <translation id="8140778357236808512">ရှိဆဲ ကြီးကြပ်ခံရ အသုံးပြုသူကို တင်သွင်းရန်</translation>
 <translation id="8141584439523427891">အရန် ဘရောင်ဇာတွင် ယခုဖွင့်နေသည်</translation>
@@ -6246,6 +6253,7 @@
 <translation id="9004952710076978168">အမည်မသိ ပရင်တာအတွက် အကြောင်းကြားချက် လက်ခံရရှိခဲ့သည်။</translation>
 <translation id="9008201768610948239">လျစ်လျူရှုရန်</translation>
 <translation id="9009369504041480176">အာပ်လုဒ် လုပ်နေ(<ph name="PROGRESS_PERCENT" />%)...</translation>
+<translation id="9009708085379296446">ဤစာမျက်နှာကို ပြောင်းလိုသလား။</translation>
 <translation id="9011163749350026987">သင်္ကေတကို အမြဲပြပါ</translation>
 <translation id="9013037634206938463">Linux ထည့်သွင်းရန် နေရာလွတ် <ph name="INSTALL_SIZE" /> လိုအပ်သည်။ နေရာလွတ်ပိုရရန် သင့်စက်မှ ဖိုင်များကို ဖျက်ပါ။</translation>
 <translation id="9013707997379828817">သင်၏စီမံခန့်ခွဲသူသည် ဤစက်ပစ္စည်းကို ယခင်အခြေအနေသို့ရောက်အောင် ပြန်သွင်းယူထားသည်။ အရေးကြီးသည့် ဖိုင်များကို သိမ်းပြီး ပြန်လည်စတင်ပါ။ စက်ပစ္စည်းပေါ်ရှိ ဒေတာများအားလုံးကို ဖျက်လိုက်ပါမည်။</translation>

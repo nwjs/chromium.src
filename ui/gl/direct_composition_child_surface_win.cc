@@ -33,6 +33,8 @@
 #ifndef EGL_ANGLE_d3d_texture_client_buffer
 #define EGL_ANGLE_d3d_texture_client_buffer 1
 #define EGL_D3D_TEXTURE_ANGLE 0x33A3
+#define EGL_TEXTURE_OFFSET_X_ANGLE 0x3490
+#define EGL_TEXTURE_OFFSET_Y_ANGLE 0x3491
 #endif /* EGL_ANGLE_d3d_texture_client_buffer */
 
 namespace gl {
@@ -45,7 +47,9 @@ IDCompositionSurface* g_current_surface = nullptr;
 
 }  // namespace
 
-DirectCompositionChildSurfaceWin::DirectCompositionChildSurfaceWin() = default;
+DirectCompositionChildSurfaceWin::DirectCompositionChildSurfaceWin(
+    bool use_angle_texture_offset)
+    : use_angle_texture_offset_(use_angle_texture_offset) {}
 
 DirectCompositionChildSurfaceWin::~DirectCompositionChildSurfaceWin() {
   Destroy();
@@ -354,21 +358,26 @@ bool DirectCompositionChildSurfaceWin::SetDrawRectangle(
 
   g_current_surface = dcomp_surface_.Get();
 
-  EGLint pbuffer_attribs[] = {
-      EGL_WIDTH,
-      size_.width(),
-      EGL_HEIGHT,
-      size_.height(),
-      EGL_FLEXIBLE_SURFACE_COMPATIBILITY_SUPPORTED_ANGLE,
-      EGL_TRUE,
-      EGL_NONE,
-  };
+  std::vector<EGLint> pbuffer_attribs;
+  pbuffer_attribs.push_back(EGL_WIDTH);
+  pbuffer_attribs.push_back(size_.width());
+  pbuffer_attribs.push_back(EGL_HEIGHT);
+  pbuffer_attribs.push_back(size_.height());
+  pbuffer_attribs.push_back(EGL_FLEXIBLE_SURFACE_COMPATIBILITY_SUPPORTED_ANGLE);
+  pbuffer_attribs.push_back(EGL_TRUE);
+  if (use_angle_texture_offset_) {
+    pbuffer_attribs.push_back(EGL_TEXTURE_OFFSET_X_ANGLE);
+    pbuffer_attribs.push_back(draw_offset_.x());
+    pbuffer_attribs.push_back(EGL_TEXTURE_OFFSET_Y_ANGLE);
+    pbuffer_attribs.push_back(draw_offset_.y());
+  }
+  pbuffer_attribs.push_back(EGL_NONE);
 
   EGLClientBuffer buffer =
       reinterpret_cast<EGLClientBuffer>(draw_texture_.Get());
-  real_surface_ =
-      eglCreatePbufferFromClientBuffer(GetDisplay(), EGL_D3D_TEXTURE_ANGLE,
-                                       buffer, GetConfig(), pbuffer_attribs);
+  real_surface_ = eglCreatePbufferFromClientBuffer(
+      GetDisplay(), EGL_D3D_TEXTURE_ANGLE, buffer, GetConfig(),
+      pbuffer_attribs.data());
   if (!real_surface_) {
     DLOG(ERROR) << "eglCreatePbufferFromClientBuffer failed with error "
                 << ui::GetLastEGLErrorString();
@@ -385,8 +394,13 @@ bool DirectCompositionChildSurfaceWin::SetDrawRectangle(
   return true;
 }
 
+void DirectCompositionChildSurfaceWin::SetDCompSurfaceForTesting(
+    Microsoft::WRL::ComPtr<IDCompositionSurface> surface) {
+  dcomp_surface_ = std::move(surface);
+}
+
 gfx::Vector2d DirectCompositionChildSurfaceWin::GetDrawOffset() const {
-  return draw_offset_;
+  return use_angle_texture_offset_ ? gfx::Vector2d() : draw_offset_;
 }
 
 void DirectCompositionChildSurfaceWin::SetVSyncEnabled(bool enabled) {

@@ -23,8 +23,11 @@ import org.chromium.components.browser_ui.widget.image_tiles.ImageTileCoordinato
 import org.chromium.components.browser_ui.widget.image_tiles.TileConfig;
 import org.chromium.components.query_tiles.QueryTile;
 import org.chromium.components.query_tiles.QueryTileConstants;
+import org.chromium.components.query_tiles.TileUmaLogger;
 import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.ui.UiUtils;
+import org.chromium.ui.modelutil.PropertyKey;
+import org.chromium.ui.modelutil.PropertyModel;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -40,6 +43,7 @@ public class OmniboxQueryTileCoordinator {
 
     private final Context mContext;
     private final Callback<QueryTile> mSelectionCallback;
+    private final TileUmaLogger mTileUmaLogger;
     private ImageTileCoordinator mTileCoordinator;
     private ImageFetcher mImageFetcher;
     private Integer mTileWidth;
@@ -52,11 +56,13 @@ public class OmniboxQueryTileCoordinator {
     public OmniboxQueryTileCoordinator(Context context, Callback<QueryTile> selectionCallback) {
         mContext = context;
         mSelectionCallback = selectionCallback;
+        mTileUmaLogger = new TileUmaLogger(UMA_PREFIX);
     }
 
     /** Called to set the list of query tiles to be displayed in the suggestion. */
     public void setTiles(List<QueryTile> tiles) {
-        getTileCoordinator().setTiles(new ArrayList<>(tiles));
+        mTileUmaLogger.recordTilesLoaded(tiles);
+        getTileCoordinator().setTiles(tiles == null ? new ArrayList<>() : new ArrayList<>(tiles));
     }
 
     /** Called to clean up resources used by this class. */
@@ -73,9 +79,20 @@ public class OmniboxQueryTileCoordinator {
                 org.chromium.chrome.R.layout.omnibox_query_tiles_suggestion, null);
 
         View tilesView = getTileCoordinator().getView();
-        if (tilesView.getParent() != suggestionView) UiUtils.removeViewFromParent(tilesView);
+        if (tilesView.getParent() != null) UiUtils.removeViewFromParent(tilesView);
         suggestionView.addView(tilesView);
         return suggestionView;
+    }
+
+    /**
+     * A mechanism for binding query tile suggestion properties to its view.
+     * @see PropertyModelChangeProcessor.ViewBinder#bind(Object, Object, Object).
+     */
+    public void bind(PropertyModel model, View view, PropertyKey propertyKey) {
+        ViewGroup suggestionView = (ViewGroup) view;
+        View tilesView = getTileCoordinator().getView();
+        if (tilesView.getParent() != null) UiUtils.removeViewFromParent(tilesView);
+        suggestionView.addView(tilesView);
     }
 
     /** @return A {@link ImageTileCoordinator} instance. Creates if it doesn't exist yet. */
@@ -123,6 +140,7 @@ public class OmniboxQueryTileCoordinator {
 
     private void onTileClicked(ImageTile tile) {
         QueryTile queryTile = (QueryTile) tile;
+        mTileUmaLogger.recordTileClicked(queryTile);
         mSelectionCallback.onResult(queryTile);
     }
 }

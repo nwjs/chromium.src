@@ -278,7 +278,8 @@ DirectCompositionSurfaceWin::DirectCompositionSurfaceWin(
     : GLSurfaceEGL(),
       child_window_(parent_window),
       task_runner_(base::ThreadTaskRunnerHandle::Get()),
-      root_surface_(new DirectCompositionChildSurfaceWin()),
+      root_surface_(new DirectCompositionChildSurfaceWin(
+          settings.use_angle_texture_offset)),
       layer_tree_(std::make_unique<DCLayerTree>(
           settings.disable_nv12_dynamic_textures,
           settings.disable_larger_than_screen_overlays,
@@ -866,6 +867,11 @@ DirectCompositionSurfaceWin::GetLayerSwapChainForTesting(size_t index) const {
 Microsoft::WRL::ComPtr<IDXGISwapChain1>
 DirectCompositionSurfaceWin::GetBackbufferSwapChainForTesting() const {
   return root_surface_->swap_chain();
+}
+
+scoped_refptr<DirectCompositionChildSurfaceWin>
+DirectCompositionSurfaceWin::GetRootSurfaceForTesting() const {
+  return root_surface_;
 }
 
 }  // namespace gl

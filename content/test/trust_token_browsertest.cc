@@ -11,15 +11,18 @@
 #include "base/test/scoped_feature_list.h"
 #include "content/public/browser/network_service_instance.h"
 #include "content/public/test/browser_test.h"
+#include "content/public/test/browser_test_utils.h"
 #include "content/public/test/content_browser_test.h"
 #include "content/public/test/content_browser_test_utils.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "content/public/test/url_loader_monitor.h"
 #include "content/shell/browser/shell.h"
 #include "net/base/escape.h"
+#include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/http_request.h"
 #include "net/test/embedded_test_server/http_response.h"
 #include "services/network/public/cpp/features.h"
+#include "services/network/public/cpp/is_potentially_trustworthy.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/mojom/trust_tokens.mojom.h"
 #include "services/network/trust_tokens/test/test_server_handler_registration.h"
@@ -33,6 +36,10 @@ namespace content {
 namespace {
 
 using network::test::TrustTokenRequestHandler;
+using ::testing::Field;
+using ::testing::HasSubstr;
+using ::testing::IsFalse;
+using ::testing::Optional;
 
 // TrustTokenBrowsertest is a fixture containing boilerplate for initializing an
 // HTTPS test server and passing requests through to an embedded instance of
@@ -62,6 +69,10 @@ class TrustTokenBrowsertest : public ContentBrowserTest {
   void SetUpOnMainThread() override {
     server_.AddDefaultHandlers(
         base::FilePath(FILE_PATH_LITERAL("content/test/data")));
+
+    host_resolver()->AddRule("*", "127.0.0.1");
+    SetupCrossSiteRedirector(embedded_test_server());
+    SetupCrossSiteRedirector(&server_);
 
     network::test::RegisterTrustTokenTestHandlers(&server_, &request_handler_);
 
@@ -262,6 +273,90 @@ IN_PROC_BROWSER_TEST_F(TrustTokenBrowsertest,
   // resolve.
   EXPECT_EQ(EvalJs(shell(), cmd).error, "");
   EXPECT_EQ(request_handler_.LastVerificationError(), base::nullopt);
+}
+
+IN_PROC_BROWSER_TEST_F(TrustTokenBrowsertest, RecordsTimers) {
+  base::HistogramTester histograms;
+
+  base::RunLoop run_loop;
+  GetNetworkService()->SetTrustTokenKeyCommitments(
+      network::WrapKeyCommitmentForIssuer(
+          url::Origin::Create(server_.base_url()),
+          request_handler_.GetKeyCommitmentRecord()),
+      run_loop.QuitClosure());
+  run_loop.Run();
+
+  GURL start_url(server_.GetURL("/title1.html"));
+  EXPECT_TRUE(NavigateToURL(shell(), start_url));
+
+  std::string cmd = R"(
+  (async () => {
+    await fetch("/issue", {trustToken: {type: 'token-request'}});
+    await fetch("/redeem", {trustToken: {type: 'srr-token-redemption'}});
+    await fetch("/sign", {trustToken: {type: 'send-srr',
+                                  signRequestData: 'include',
+                                  issuer: $1}}); })(); )";
+
+  // We use EvalJs here, not ExecJs, because EvalJs waits for promises to
+  // resolve.
+  EXPECT_EQ(
+      EvalJs(
+          shell(),
+          JsReplace(cmd, url::Origin::Create(server_.base_url()).Serialize()))
+          .error,
+      "");
+
+  // Just check that the timers were populated: since we can't mock a clock in
+  // this browser test, it's hard to check the recorded values for
+  // reasonableness.
+  content::FetchHistogramsFromChildProcesses();
+  for (const std::string& op : {"Issuance", "Redemption", "Signing"}) {
+    histograms.ExpectTotalCount(
+        "Net.TrustTokens.OperationBeginTime.Success." + op, 1);
+    histograms.ExpectTotalCount(
+        "Net.TrustTokens.OperationTotalTime.Success." + op, 1);
+    histograms.ExpectTotalCount(
+        "Net.TrustTokens.OperationServerTime.Success." + op, 1);
+    histograms.ExpectTotalCount(
+        "Net.TrustTokens.OperationFinalizeTime.Success." + op, 1);
+  }
+}
+
+// Trust Tokens should require that their executing contexts be secure.
+IN_PROC_BROWSER_TEST_F(TrustTokenBrowsertest, OperationsRequireSecureContext) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+
+  GURL start_url(
+      embedded_test_server()->GetURL("a.com", "/page_with_iframe.html"));
+  // Make sure that we are, in fact, using an insecure page.
+  ASSERT_FALSE(network::IsUrlPotentiallyTrustworthy(start_url));
+
+  EXPECT_TRUE(NavigateToURL(shell(), start_url));
+
+  // 1. Confirm that the Fetch interface doesn't work:
+  std::string cmd = R"(fetch($1, {trustToken: {type: 'token-request'}});)";
+  EXPECT_THAT(EvalJs(shell(), JsReplace(cmd, server_.GetURL("/issue"))).error,
+              HasSubstr("secure context"));
+
+  // 2. Confirm that the XHR interface isn't present:
+  EXPECT_EQ(false, EvalJs(shell(), "'setTrustToken' in (new XMLHttpRequest);"));
+
+  // 3. Confirm that the iframe interface doesn't work by verifying that no
+  // Trust Tokens operation gets executed.
+  GURL issuance_url = server_.GetURL("/issue");
+  URLLoaderMonitor monitor({issuance_url});
+  // It's important to set the trust token arguments before updating src, as
+  // the latter triggers a load.
+  EXPECT_TRUE(ExecJs(
+      shell(), JsReplace(
+                   R"( const myFrame = document.getElementById("test_iframe");
+                       myFrame.trustToken = $1;
+                       myFrame.src = $2;)",
+                   R"({"type": "token-request"})", issuance_url)));
+  monitor.WaitForUrls();
+  EXPECT_THAT(monitor.GetRequestInfo(issuance_url),
+              Optional(Field(&network::ResourceRequest::trust_token_params,
+                             IsFalse())));
 }
 
 }  // namespace content

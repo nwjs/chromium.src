@@ -1833,6 +1833,11 @@ class CONTENT_EXPORT ContentBrowserClient {
 
   virtual bool IsOriginTrialRequiredForAppCache(
       content::BrowserContext* browser_text);
+
+  // Returns true when a context (e.g., iframe) whose URL is |url| should
+  // inherit the parent COEP value implicitly, similar to "blob:"
+  virtual bool ShouldInheritCrossOriginEmbedderPolicyImplicitly(
+      const GURL& url);
 };
 
 }  // namespace content

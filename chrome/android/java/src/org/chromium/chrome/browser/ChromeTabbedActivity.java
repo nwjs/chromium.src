@@ -912,6 +912,12 @@ public class ChromeTabbedActivity
     public void onResumeWithNative() {
         super.onResumeWithNative();
 
+        // Switch to non incognito tab model to show the non incognito start surface if needed.
+        if (StartSurfaceConfiguration.isStartSurfaceStackTabSwitcherEnabled() && isWarmOnResume()
+                && shouldShowTabSwitcherOnStart() && mTabModelSelectorImpl.isIncognitoSelected()) {
+            mTabModelSelectorImpl.selectModel(false);
+        }
+
         if (IncognitoUtils.shouldDestroyIncognitoProfileOnStartup(
                     getTabModelSelector().getCurrentModel().isIncognito())) {
             Profile.getLastUsedRegularProfile().getOffTheRecordProfile().destroyWhenAppropriate();
@@ -1574,8 +1580,8 @@ public class ChromeTabbedActivity
         mContentContainer = (ViewGroup) findViewById(android.R.id.content);
         mControlContainer = (ToolbarControlContainer) findViewById(R.id.control_container);
 
-        mUndoBarPopupController =
-                new UndoBarController(this, mTabModelSelectorImpl, this::getSnackbarManager);
+        mUndoBarPopupController = new UndoBarController(
+                this, mTabModelSelectorImpl, this::getSnackbarManager, getOverviewModeBehavior());
 
         mInactivityTracker = new ChromeInactivityTracker(
                 ChromePreferenceKeys.TABBED_ACTIVITY_LAST_BACKGROUNDED_TIME_MS_PREF);

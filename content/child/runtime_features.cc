@@ -320,7 +320,8 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
     {wf::EnableInstalledApp, features::kInstalledApp, kDisableOnly},
     {wf::EnableWebAuthenticationGetAssertionFeaturePolicy,
      device::kWebAuthGetAssertionFeaturePolicy, kUseFeatureState},
-
+    {wf::EnableVideoWakeLockOptimisationHiddenMuted,
+     media::kWakeLockOptimisationHiddenMuted, kUseFeatureState},
   };
   for (const auto& mapping : blinkFeatureToBaseFeatureMapping) {
     SetRuntimeFeatureFromChromiumFeature(

@@ -18,7 +18,6 @@
 #include "chrome/browser/buildflags.h"
 #include "chrome/browser/devtools/devtools_ui_bindings.h"
 #include "chrome/browser/engagement/site_engagement_service.h"
-#include "chrome/browser/media/feeds/media_feeds_service.h"
 #include "chrome/browser/media/history/media_history_keyed_service.h"
 #include "chrome/browser/media/media_engagement_service.h"
 #include "chrome/browser/profiles/profile.h"
@@ -131,6 +130,7 @@
 #include "chrome/browser/ui/webui/feed_internals/feed_internals_ui.h"
 #endif  // BUILDFLAG(ENABLE_FEED_IN_CHROME)
 #else   // defined(OS_ANDROID)
+#include "chrome/browser/media/feeds/media_feeds_service.h"
 #include "chrome/browser/media/router/media_router_feature.h"
 #include "chrome/browser/ui/webui/bookmarks/bookmarks_ui.h"
 #include "chrome/browser/ui/webui/devtools_ui.h"
@@ -837,10 +837,12 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
     return &NewWebUI<MediaEngagementUI>;
   }
 
+#if !defined(OS_ANDROID)
   if (media_feeds::MediaFeedsService::IsEnabled() &&
       url.host_piece() == chrome::kChromeUIMediaFeedsHost) {
     return &NewWebUI<MediaFeedsUI>;
   }
+#endif
 
   if (media_history::MediaHistoryKeyedService::IsEnabled() &&
       url.host_piece() == chrome::kChromeUIMediaHistoryHost) {

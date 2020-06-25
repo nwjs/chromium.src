@@ -28,6 +28,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
 import static org.chromium.chrome.browser.tasks.ReturnToChromeExperimentsUtil.TAB_SWITCHER_ON_RETURN_MS;
 import static org.chromium.chrome.features.start_surface.InstantStartTest.createThumbnailBitmapAndWriteToFile;
@@ -36,6 +37,7 @@ import static org.chromium.chrome.test.util.ViewUtils.onViewWaiting;
 import static org.chromium.chrome.test.util.ViewUtils.waitForView;
 
 import android.content.Intent;
+import android.os.Build;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.espresso.ViewAction;
 import android.support.test.espresso.action.GeneralLocation;
@@ -643,6 +645,10 @@ public class StartSurfaceTest {
             TestThreadUtils.runOnUiThreadBlocking(() -> {
                 mActivityTestRule.getActivity().getTabModelSelector().selectModel(true);
             });
+
+            // TODO(crbug.com/1097001): remove after fixing the default focus issue, which might
+            // relate to crbug.com/1076274 above since it doesn't exist for the other combinations.
+            assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.P);
         } else {
             onView(withId(R.id.incognito_switch)).perform(click());
         }

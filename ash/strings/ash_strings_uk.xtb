@@ -43,7 +43,7 @@
 <translation id="1351937230027495976">Згорнути меню</translation>
 <translation id="1383876407941801731">Пошук</translation>
 <translation id="1419738280318246476">Щоб виконати дію зі сповіщенням, розблокуйте пристрій</translation>
-<translation id="1420408895951708260">Увімкніть або вимкніть нічний режим. <ph name="STATE_TEXT" /></translation>
+<translation id="1420408895951708260">Увімкнути або вимкнути нічний екран. <ph name="STATE_TEXT" /></translation>
 <translation id="1426410128494586442">Так</translation>
 <translation id="1455242230282523554">Показати налаштування мови</translation>
 <translation id="1460620680449458626">Гучність вимкнено.</translation>
@@ -74,7 +74,7 @@
 <translation id="1812997170047690955">Що на моєму екрані?</translation>
 <translation id="1823873187264960516">Ethernet: <ph name="ADDRESS" /></translation>
 <translation id="1836215606488044471">Асистент (завантаження…)</translation>
-<translation id="1838895407229022812">Нічний режим вимкнено.</translation>
+<translation id="1838895407229022812">Нічний екран вимкнено.</translation>
 <translation id="1850504506766569011">Wi-Fi вимкнено.</translation>
 <translation id="1859889070386344428">Вимкнено</translation>
 <translation id="1864454756846565995">Пристрій із портом USB типу C (на задній панелі)</translation>
@@ -146,7 +146,7 @@
 <translation id="2704781753052663061">Підключитися до інших мереж Wi-Fi</translation>
 <translation id="2705001408393684014">Перемикач мікрофона. <ph name="STATE_TEXT" /></translation>
 <translation id="2706462751667573066">Вгору</translation>
-<translation id="2718395828230677721">Нічний режим</translation>
+<translation id="2718395828230677721">Нічний екран</translation>
 <translation id="2727977024730340865">Підключено до зарядного пристрою низької потужності. Акумулятор може заряджатися неналежним чином.</translation>
 <translation id="2792498699870441125">Alt+клавіша пошуку</translation>
 <translation id="2819276065543622893">Зараз ви вийдете.</translation>
@@ -376,15 +376,15 @@
 <translation id="5669267381087807207">Активація</translation>
 <translation id="5673434351075758678">Після синхронізації налаштувань мову змінено. Попередня мова: <ph name="FROM_LOCALE" />, нова: <ph name="TO_LOCALE" />.</translation>
 <translation id="5682642926269496722">Google Асистент недоступний для поточного облікового запису користувача.</translation>
-<translation id="5689633613396158040">У нічному режимі зручніше переглядати або читати контент на екрані в умовах тьмяного освітлення. Торкніться, щоб змінити час увімкнення нічного режиму або вимкнути його повністю.</translation>
+<translation id="5689633613396158040">Нічний екран допомагає знизити напруження очей в умовах тьмяного освітлення. Торкніться, щоб змінити час увімкнення нічного екрана або вимкнути його повністю.</translation>
 <translation id="5691772641933328258">Відбиток не розпізнано</translation>
 <translation id="5710450975648804523">Режим "Не турбувати" ввімкнено</translation>
 <translation id="573413375004481890">Цей пристрій не може підтримувати всі екрани, тому один із них відключено</translation>
 <translation id="574392208103952083">Середній</translation>
 <translation id="5744083938413354016">Перетягування дотиком</translation>
-<translation id="5745612484876805746">Нічний режим увімкнеться автоматично після заходу сонця</translation>
+<translation id="5745612484876805746">Нічний екран увімкнеться автоматично після заходу сонця</translation>
 <translation id="5750765938512549687">Bluetooth вимкнено</translation>
-<translation id="576453121877257266">Нічний режим увімкнено.</translation>
+<translation id="576453121877257266">Нічний екран увімкнено.</translation>
 <translation id="5769373120130404283">Маскування контенту</translation>
 <translation id="5777841717266010279">Скасувати спільний доступ до екрана?</translation>
 <translation id="5820394555380036790">ОС Chromium</translation>
@@ -500,7 +500,7 @@
 <translation id="7068360136237591149">Відкрий файли</translation>
 <translation id="7076293881109082629">Вхід</translation>
 <translation id="7088960765736518739">Кнопковий доступ</translation>
-<translation id="7092922358121866860">Показати налаштування нічного режиму</translation>
+<translation id="7092922358121866860">Показати налаштування нічного екрана</translation>
 <translation id="7098389117866926363">Пристрій, під’єднаний до порту USB-C (ліворуч на задній панелі)</translation>
 <translation id="7131634465328662194">Ви вийдете автоматично.</translation>
 <translation id="7143207342074048698">Під’єднання</translation>

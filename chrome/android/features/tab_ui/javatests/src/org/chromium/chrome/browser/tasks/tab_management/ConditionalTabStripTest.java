@@ -20,6 +20,8 @@ import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.not;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import static org.chromium.chrome.browser.flags.ChromeFeatureList.CONDITIONAL_TAB_STRIP_ANDROID;
@@ -37,6 +39,7 @@ import android.support.test.InstrumentationRegistry;
 import android.support.test.espresso.contrib.RecyclerViewActions;
 import android.support.test.filters.MediumTest;
 import android.view.View;
+import android.widget.ListView;
 
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -54,6 +57,9 @@ import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.TabsTest.SimulateClickOnMainThread;
 import org.chromium.chrome.browser.TabsTest.SimulateTabSwipeOnMainThread;
+import org.chromium.chrome.browser.accessibility_tab_switcher.AccessibilityTabModelListItem;
+import org.chromium.chrome.browser.accessibility_tab_switcher.AccessibilityTabModelWrapper;
+import org.chromium.chrome.browser.accessibility_tab_switcher.OverviewListLayout;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManagerChrome;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManagerChromePhone;
 import org.chromium.chrome.browser.compositor.layouts.components.LayoutTab;
@@ -66,6 +72,9 @@ import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tasks.ConditionalTabStripUtils;
+import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
+import org.chromium.chrome.browser.undo_tab_close_snackbar.UndoBarController;
+import org.chromium.chrome.browser.util.AccessibilityUtil;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
@@ -325,17 +334,18 @@ public class ConditionalTabStripTest {
         verifyShowingStrip(cta, false, 2);
         verifyStripSelectedPosition(cta, 1);
 
-        // Click the selected item to close the second-to-last tab, and the strip should be hidden
+        // Click the selected item to close the last tab, and the strip should be hidden
         // after closure.
         clickNthItemInStrip(1);
         verifyHidingStrip();
         verifyTabModelTabCount(cta, 1, 0);
 
-        // Click undo to bring back the second-to-last tab, and should bring back the tab strip as
-        // well.
+        // Click undo to bring back the last tab, and should bring back the tab strip as
+        // well. Also, the tab whose closure is undone should be selected.
         CriteriaHelper.pollInstrumentationThread(TabUiTestHelper::verifyUndoBarShowingAndClickUndo);
         verifyShowingStrip(cta, false, 2);
         verifyTabModelTabCount(cta, 2, 0);
+        verifyStripSelectedPosition(cta, 1);
 
         // Disable undo snackbar and test continuous closures.
         cta.getSnackbarManager().disableForTesting();
@@ -592,6 +602,59 @@ public class ConditionalTabStripTest {
         assertEquals(-1, ConditionalTabStripUtils.getContinuousDismissCount());
     }
 
+    @Test
+    @MediumTest
+    public void testUndoClosure_AccessibilityMode() throws Exception {
+        TestThreadUtils.runOnUiThreadBlocking(
+                () -> AccessibilityUtil.setAccessibilityEnabledForTesting(true));
+        ChromeTabbedActivity cta = mActivityTestRule.getActivity();
+        SnackbarManager snackbarManager = mActivityTestRule.getActivity().getSnackbarManager();
+        createTabs(cta, false, 3);
+        verifyShowingStrip(cta, false, 3);
+        verifyStripSelectedPosition(cta, 2);
+        assertNull(snackbarManager.getCurrentSnackbarForTesting());
+
+        // Click the selected item in strip to close a tab. The undo snack bar should show, and
+        // clicking on the snack bar button should undo the closure.
+        clickNthItemInStrip(2);
+        verifyShowingStrip(cta, false, 2);
+        assertTrue(snackbarManager.getCurrentSnackbarForTesting().getController()
+                           instanceof UndoBarController);
+        CriteriaHelper.pollInstrumentationThread(TabUiTestHelper::verifyUndoBarShowingAndClickUndo);
+        verifyShowingStrip(cta, false, 3);
+        verifyStripSelectedPosition(cta, 2);
+
+        // The undo snack bar should still work after entering overview mode.
+        clickNthItemInStrip(2);
+        verifyShowingStrip(cta, false, 2);
+        assertTrue(snackbarManager.getCurrentSnackbarForTesting().getController()
+                           instanceof UndoBarController);
+        enterTabSwitcher(cta);
+        verifyHidingStrip();
+        assertNotNull(snackbarManager.getCurrentSnackbarForTesting());
+        assertEquals(3, getAccessibilityOverviewList().getCount());
+        verifyAccessibilityTabClosing(2, true);
+        CriteriaHelper.pollInstrumentationThread(TabUiTestHelper::verifyUndoBarShowingAndClickUndo);
+        verifyAccessibilityTabClosing(2, false);
+
+        // The undo snack bar should not show when closure happens in accessibility tab switcher.
+        AccessibilityTabModelListItem item = getAccessibilityOverviewListItem(0);
+        verifyAccessibilityTabClosing(0, false);
+        TestThreadUtils.runOnUiThreadBlocking(
+                () -> item.findViewById(R.id.end_button).performClick());
+        assertNull(snackbarManager.getCurrentSnackbarForTesting());
+        verifyAccessibilityTabClosing(0, true);
+        assertEquals(3, getAccessibilityOverviewList().getCount());
+    }
+
+    private void verifyAccessibilityTabClosing(int index, boolean isClosing) {
+        CriteriaHelper.pollUiThread(() -> {
+            AccessibilityTabModelListItem item = getAccessibilityOverviewListItem(index);
+            assertEquals(isClosing ? View.VISIBLE : View.INVISIBLE,
+                    item.findViewById(R.id.undo_contents).getVisibility());
+        });
+    }
+
     private ChromeTabbedActivity restartChrome() throws Exception {
         TabUiTestHelper.finishActivity(mActivityTestRule.getActivity());
         mActivityTestRule.startMainActivityFromLauncher();
@@ -770,5 +833,17 @@ public class ConditionalTabStripTest {
         mTabsViewHeightDp = tabsView.getHeight() * mPxToDp;
         mTabsViewWidthDp = tabsView.getWidth() * mPxToDp;
         return mActivityTestRule.getActivity().getLayoutManager();
+    }
+
+    // Utility methods from OverviewListLayoutTest.java.
+    private ListView getAccessibilityOverviewList() {
+        AccessibilityTabModelWrapper container =
+                ((OverviewListLayout) mActivityTestRule.getActivity().getOverviewListLayout())
+                        .getContainer();
+        return (ListView) container.findViewById(R.id.list_view);
+    }
+
+    private AccessibilityTabModelListItem getAccessibilityOverviewListItem(int index) {
+        return (AccessibilityTabModelListItem) getAccessibilityOverviewList().getChildAt(index);
     }
 }

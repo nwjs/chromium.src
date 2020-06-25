@@ -85,7 +85,8 @@ class WebAppInstallManager final : public InstallManager,
   bool has_web_contents_for_testing() const { return web_contents_ != nullptr; }
 
  private:
-  void OnBookmarkAppInstalledAfterSync(
+  // On failure will attempt a fallback install only loading icon URLs.
+  void LoadAndInstallWebAppFromManifestWithFallbackCompleted_ForBookmarkAppSync(
       const AppId& bookmark_app_id,
       std::unique_ptr<WebApplicationInfo> web_application_info,
       OnceInstallCallback callback,

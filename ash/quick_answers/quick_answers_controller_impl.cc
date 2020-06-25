@@ -23,7 +23,8 @@ using chromeos::quick_answers::ResultType;
 
 constexpr char kAssistantRelatedInfoUrl[] =
     "chrome://os-settings/googleAssistant";
-constexpr char kDogfoodUrl[] = "https://go/quick-answers-dogfood-bugs";
+constexpr char kDogfoodUrl[] =
+    "https://goto.google.com/quick-answers-dogfood-bugs";
 
 // TODO:(yanxiao) move the string to grd source file.
 constexpr char kNoResult[] = "See result in Assistant";
@@ -85,10 +86,10 @@ void QuickAnswersControllerImpl::MaybeShowQuickAnswers(
 
 void QuickAnswersControllerImpl::DismissQuickAnswers(bool is_active) {
   MaybeDismissQuickAnswersConsent();
-  quick_answers_ui_controller_->CloseQuickAnswersView();
+  bool closed = quick_answers_ui_controller_->CloseQuickAnswersView();
   quick_answers_client_->OnQuickAnswersDismissed(
       quick_answer_ ? quick_answer_->result_type : ResultType::kNoResult,
-      is_active);
+      is_active && closed);
 }
 
 chromeos::quick_answers::QuickAnswersDelegate*

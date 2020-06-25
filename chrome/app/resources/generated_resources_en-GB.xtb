@@ -437,6 +437,7 @@
 <translation id="1546452108651444655"><ph name="CHILD_NAME" /> wants to install an <ph name="EXTENSION_TYPE" /> that can:</translation>
 <translation id="1549275686094429035">ARC enabled</translation>
 <translation id="1549788673239553762"><ph name="APP_NAME" /> wants to access <ph name="VOLUME_NAME" />. It may modify or delete your files.</translation>
+<translation id="1552301827267621511">The '<ph name="EXTENSION_NAME" />' extension changed search to use <ph name="SEARCH_PROVIDER_DOMAIN" /></translation>
 <translation id="1553538517812678578">unlimited</translation>
 <translation id="1554390798506296774">Always allow unsandboxed plug-ins on <ph name="HOST" /></translation>
 <translation id="1555130319947370107">Blue</translation>
@@ -1678,6 +1679,7 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="3101126716313987672">Dim light</translation>
 <translation id="3101709781009526431">Date and time</translation>
 <translation id="3103941660000130485">Error upgrading Linux</translation>
+<translation id="3105796011181310544">Change back to Google?</translation>
 <translation id="310671807099593501">Site is using Bluetooth</translation>
 <translation id="3115147772012638511">Waiting for cache...</translation>
 <translation id="3115580024857770654">Collapse all</translation>
@@ -2664,6 +2666,7 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="4364327530094270451">Melon</translation>
 <translation id="4364567974334641491"><ph name="APP_NAME" /> is sharing a window.</translation>
 <translation id="4364830672918311045">Display notifications</translation>
+<translation id="437004882363131692">Get <ph name="DEVICE_TYPE" /> tips, offers and updates, and share feedback. Unsubscribe at any time.</translation>
 <translation id="4370975561335139969">The email and password that you entered don't match.</translation>
 <translation id="4374831787438678295">Linux installer</translation>
 <translation id="4375035964737468845">Open downloaded files</translation>
@@ -2996,6 +2999,7 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="4833683849865011483">Found one printer from the print server</translation>
 <translation id="4835385943915508971">Chrome does not have access to the requested resource.</translation>
 <translation id="4836504898754963407">Manage fingerprints</translation>
+<translation id="4837128290434901661">Change back to Google Search?</translation>
 <translation id="4837926214103741331">You are not authorised to use this device. Please contact the device owner for sign-in permission.</translation>
 <translation id="4837952862063191349">To unlock and restore your local data, please enter your old <ph name="DEVICE_TYPE" /> password.</translation>
 <translation id="4838836835474292213">Clipboard read access allowed</translation>
@@ -3699,7 +3703,6 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="5739235828260127894">Waiting for verification. <ph name="LINK_BEGIN" />Find out more<ph name="LINK_END" /></translation>
 <translation id="5739458112391494395">Very large</translation>
 <translation id="574209121243317957">Pitch</translation>
-<translation id="5745136023067925867">Get <ph name="DEVICE_TYPE" /> tips, offers and updates, and share feedback</translation>
 <translation id="5746169159649715125">Save as PDF</translation>
 <translation id="5747552184818312860">Expires</translation>
 <translation id="5747785204778348146">Developer - unstable</translation>
@@ -4966,6 +4969,7 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="7396845648024431313"><ph name="APP_NAME" /> will launch at system startup and continue to run in the background, even once you've closed all other <ph name="PRODUCT_NAME" /> windows.</translation>
 <translation id="7399045143794278225">Customise sync</translation>
 <translation id="7400418766976504921">URL</translation>
+<translation id="7400447915166857470">Change back to <ph name="OLD_SEARCH_PROVIDER" />?</translation>
 <translation id="7400839060291901923">Set up connection on your <ph name="PHONE_NAME" /></translation>
 <translation id="7401778920660465883">Dismiss this message</translation>
 <translation id="7403642243184989645">Downloading resources</translation>
@@ -4992,6 +4996,7 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="7427798576651127129">Call from <ph name="DEVICE_NAME" /></translation>
 <translation id="7431719494109538750">No HID devices found</translation>
 <translation id="7433692219247014412">{COUNT,plural, =0{Open All in &amp;New Window}=1{Open in &amp;New Window}other{Open All (#) in &amp;New Window}}</translation>
+<translation id="7433957986129316853">Keep it</translation>
 <translation id="7434509671034404296">Developer</translation>
 <translation id="7434635829372401939">Sync your settings</translation>
 <translation id="7434757724413878233">Mouse acceleration</translation>
@@ -5222,6 +5227,7 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="7728570244950051353">Lock screen from sleep mode</translation>
 <translation id="7728668285692163452">Channel change will be applied later</translation>
 <translation id="7730449930968088409">Capture content of your screen</translation>
+<translation id="7730683939467795481">This page was changed by the '<ph name="EXTENSION_NAME" />' extension</translation>
 <translation id="7732111077498238432">Network is policy controlled</translation>
 <translation id="7737115349420013392">Pairing with "<ph name="DEVICE_NAME" />" ...</translation>
 <translation id="7737238973539693982">Delete Linux (Beta)</translation>
@@ -5564,6 +5570,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
 <translation id="8136269678443988272">The PINs that you entered don’t match</translation>
 <translation id="8137559199583651773">Manage extensions</translation>
 <translation id="8138082791834443598">Optional – enter new or update existing information to be associated with this device.</translation>
+<translation id="8138217203226449454">Did you mean to change your search provider?</translation>
 <translation id="813913629614996137">Initialising...</translation>
 <translation id="8140778357236808512">Import an existing supervised user</translation>
 <translation id="8141584439523427891">Opening in alternative browser now</translation>
@@ -6249,6 +6256,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
 <translation id="9004952710076978168">Received a notification for an unknown printer.</translation>
 <translation id="9008201768610948239">Ignore</translation>
 <translation id="9009369504041480176">Uploading (<ph name="PROGRESS_PERCENT" />%)...</translation>
+<translation id="9009708085379296446">Did you mean to change this page?</translation>
 <translation id="9011163749350026987">Always show icon</translation>
 <translation id="9013037634206938463"><ph name="INSTALL_SIZE" /> of free space is required to install Linux. To increase free space, delete files from your device.</translation>
 <translation id="9013707997379828817">Your administrator rolled back this device. Please save important files, then restart. All data on the device will be deleted.</translation>

@@ -27,6 +27,10 @@ class LoginHandler;
 class Profile;
 struct WebApplicationInfo;
 
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+class SettingsOverriddenDialogController;
+#endif
+
 namespace base {
 class FilePath;
 }
@@ -337,6 +341,15 @@ void ShowExtensionInstallBlockedByParentDialog(
     content::WebContents* web_contents,
     base::OnceClosure done_callback);
 #endif  // BUILDFLAG(ENABLE_SUPERVISED_USERS) && BUILDFLAG(ENABLE_EXTENSIONS)
+
+// TODO(devlin): Put more extension-y bits in this block - currently they're
+// unguarded.
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+// Shows the dialog indicating that an extension has overridden a setting.
+void ShowExtensionSettingsOverriddenDialog(
+    std::unique_ptr<SettingsOverriddenDialogController> controller,
+    Browser* browser);
+#endif
 
 // Returns a OnceClosure that client code can call to close the device chooser.
 // This OnceClosure references the actual dialog as a WeakPtr, so it's safe to

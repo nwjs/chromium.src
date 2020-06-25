@@ -735,6 +735,16 @@ const base::Feature kQuickUnlockPinSignin{"QuickUnlockPinSignin",
 const base::Feature kOobeMarketingScreen{"OobeMarketingScreen",
                                          base::FEATURE_ENABLED_BY_DEFAULT};
 
+// Enables/disables marketing emails for double opt-in countries.
+const base::Feature kOobeMarketingDoubleOptInCountriesSupported{
+    "kOobeMarketingDoubleOptInCountriesSupported",
+    base::FEATURE_ENABLED_BY_DEFAULT};
+
+// Enables/disables marketing emails for other countries other than US,CA,UK.
+const base::Feature kOobeMarketingAdditionalCountriesSupported{
+    "kOobeMarketingAdditionalCountriesSupported",
+    base::FEATURE_ENABLED_BY_DEFAULT};
+
 // Enables or disables fingerprint quick unlock.
 const base::Feature kQuickUnlockFingerprint{"QuickUnlockFingerprint",
                                             base::FEATURE_DISABLED_BY_DEFAULT};

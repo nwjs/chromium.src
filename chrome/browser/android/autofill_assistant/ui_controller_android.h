@@ -184,6 +184,8 @@ class UiControllerAndroid : public ControllerObserver {
       JNIEnv* env,
       const base::android::JavaParamRef<jobject>& jcaller,
       jboolean visible);
+  bool OnBackButtonClicked(JNIEnv* env,
+                           const base::android::JavaParamRef<jobject>& jcaller);
   void SetVisible(JNIEnv* env,
                   const base::android::JavaParamRef<jobject>& jcaller,
                   jboolean visible);

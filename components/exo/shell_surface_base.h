@@ -218,8 +218,6 @@ class ShellSurfaceBase : public SurfaceTreeHost,
   // |shadow_bounds_|.
   void UpdateShadow();
 
-  virtual void UpdateFrameType();
-
   // Applies |system_modal_| to |widget_|.
   void UpdateSystemModal();
 
@@ -281,7 +279,7 @@ class ShellSurfaceBase : public SurfaceTreeHost,
 
   // Commit is deferred if this returns false.
   virtual bool OnPreWidgetCommit() = 0;
-  virtual void OnPostWidgetCommit();
+  virtual void OnPostWidgetCommit() = 0;
 
   void CommitWidget();
 

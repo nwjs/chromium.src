@@ -253,8 +253,6 @@ static_library("ui") {
     "webui/log_web_ui_url.h",
     "webui/media/media_engagement_ui.cc",
     "webui/media/media_engagement_ui.h",
-    "webui/media/media_feeds_ui.cc",
-    "webui/media/media_feeds_ui.h",
     "webui/media/media_history_ui.cc",
     "webui/media/media_history_ui.h",
     "webui/media/webrtc_logs_ui.cc",
@@ -634,6 +632,12 @@ static_library("ui") {
     }
   } else {
     # !is_android
+
+    sources += [
+      "webui/media/media_feeds_ui.cc",
+      "webui/media/media_feeds_ui.h",
+    ]
+
     deps += [ "//components/autofill/content/browser/webauthn" ]
   }
 
@@ -4145,6 +4149,8 @@ static_library("ui") {
       "extensions/extension_message_bubble_factory.h",
       "extensions/extension_removal_watcher.cc",
       "extensions/extension_removal_watcher.h",
+      "extensions/extension_settings_overridden_dialog.cc",
+      "extensions/extension_settings_overridden_dialog.h",
       "extensions/extensions_container.h",
       "extensions/hosted_app_browser_controller.cc",
       "extensions/hosted_app_browser_controller.h",
@@ -4155,6 +4161,8 @@ static_library("ui") {
       "extensions/settings_api_bubble_helpers.cc",
       "extensions/settings_api_bubble_helpers.h",
       "extensions/settings_overridden_dialog_controller.h",
+      "extensions/settings_overridden_params_providers.cc",
+      "extensions/settings_overridden_params_providers.h",
       "views/extensions/browser_action_drag_data.cc",
       "views/extensions/browser_action_drag_data.h",
       "views/extensions/extension_action_platform_delegate_views.cc",

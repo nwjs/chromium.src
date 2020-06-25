@@ -280,9 +280,16 @@ void LoginDisplayHostMojo::HideOobeDialog() {
 
   // The dialog can not be hidden if there are no users on the login screen.
   // Reload it instead.
-  if (!login_display_->IsSigninInProgress() && users_.empty()) {
+
+  // As ShowDialogCommon will not reload GAIA upon show for performance reasons,
+  // reload it to ensure that no state is persisted between hide and
+  // subsequent show.
+  const bool no_users =
+      !login_display_->IsSigninInProgress() && users_.empty();
+  if (no_users || GetOobeUI()->current_screen() == GaiaView::kScreenId) {
     GetOobeUI()->GetView<GaiaScreenHandler>()->ShowGaiaAsync(EmptyAccountId());
-    return;
+    if (no_users)
+      return;
   }
 
   user_selection_screen_->OnBeforeShow();

@@ -809,8 +809,12 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
 
     private void onActivityHidden() {
         VrModuleProvider.getDelegate().onActivityHidden(this);
+
         Tab tab = getActivityTab();
-        if (tab != null) tab.hide(TabHidingType.ACTIVITY_HIDDEN);
+        if (mTabModelSelector != null && !mTabModelSelector.isReparentingInProgress()
+                && tab != null) {
+            tab.hide(TabHidingType.ACTIVITY_HIDDEN);
+        }
     }
 
     private boolean useWindowFocusForVisibility() {
@@ -1262,6 +1266,12 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         }
 
         UpdateMenuItemHelper.getInstance().unregisterObserver(mUpdateStateChangedListener);
+
+        if (mBookmarkBridgeSupplier != null) {
+            BookmarkBridge bookmarkBridge = mBookmarkBridgeSupplier.get();
+            if (bookmarkBridge != null) bookmarkBridge.destroy();
+            mBookmarkBridgeSupplier = null;
+        }
 
         mActivityTabProvider.destroy();
 

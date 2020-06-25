@@ -238,6 +238,8 @@ class WebRuntimeFeatures {
   BLINK_PLATFORM_EXPORT static void EnableTrustTokensAlwaysAllowIssuance(bool);
 
   BLINK_PLATFORM_EXPORT static void EnableInstalledApp(bool);
+  BLINK_PLATFORM_EXPORT static void EnableVideoWakeLockOptimisationHiddenMuted(
+      bool);
 
  private:
   WebRuntimeFeatures();

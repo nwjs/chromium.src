@@ -265,6 +265,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) URLLoader
   void BeginTrustTokenOperationIfNecessaryAndThenScheduleStart(
       const ResourceRequest& request);
   void OnDoneConstructingTrustTokenHelper(
+      mojom::TrustTokenOperationType type,
       TrustTokenStatusOrRequestHelper status_or_helper);
   void OnDoneBeginningTrustTokenOperation(
       mojom::TrustTokenOperationStatus status);

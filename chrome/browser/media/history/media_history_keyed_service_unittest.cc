@@ -42,6 +42,11 @@
 #include "services/media_session/public/cpp/media_position.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
+#if !defined(OS_ANDROID)
+#include "chrome/browser/media/feeds/media_feeds_service.h"
+#include "chrome/browser/media/feeds/media_feeds_service_factory.h"
+#endif
+
 namespace media_history {
 
 namespace {
@@ -245,6 +250,13 @@ class MediaHistoryKeyedServiceTest
     return result;
   }
 
+#if !defined(OS_ANDROID)
+  media_feeds::MediaFeedsService* GetMediaFeedsService() {
+    return media_feeds::MediaFeedsServiceFactory::GetInstance()->GetForProfile(
+        profile());
+  }
+#endif
+
   scoped_refptr<base::TestMockTimeTaskRunner> mock_time_task_runner_;
 
  private:
@@ -431,9 +443,11 @@ TEST_P(MediaHistoryKeyedServiceTest, CleanUpDatabaseWhenOriginIsDeleted) {
                                    CreateImageVector(shared_image));
   }
 
+#if !defined(OS_ANDROID)
   // Discover the media feeds.
   service()->DiscoverMediaFeed(media_feed_1);
   service()->DiscoverMediaFeed(media_feed_2);
+#endif
 
   // Wait until the playbacks have finished saving.
   WaitForDB();
@@ -452,11 +466,14 @@ TEST_P(MediaHistoryKeyedServiceTest, CleanUpDatabaseWhenOriginIsDeleted) {
     EXPECT_EQ(5,
               stats->table_row_counts[MediaHistoryPlaybackTable::kTableName]);
     EXPECT_EQ(5, stats->table_row_counts[MediaHistorySessionTable::kTableName]);
+
+#if !defined(OS_ANDROID)
     EXPECT_EQ(2, stats->table_row_counts[MediaHistoryFeedsTable::kTableName]);
     EXPECT_EQ(2,
               stats->table_row_counts[MediaHistoryFeedItemsTable::kTableName]);
     EXPECT_EQ(10, stats->table_row_counts
                       [MediaHistoryFeedAssociatedOriginsTable::kTableName]);
+#endif
 
     // There are 10 session images because each session has an image with two
     // sizes.
@@ -470,7 +487,10 @@ TEST_P(MediaHistoryKeyedServiceTest, CleanUpDatabaseWhenOriginIsDeleted) {
   EXPECT_EQ(all_urls, GetURLsInTable(MediaHistoryPlaybackTable::kTableName));
   EXPECT_EQ(all_urls, GetURLsInTable(MediaHistorySessionTable::kTableName));
   EXPECT_EQ(images, GetURLsInTable(MediaHistoryImagesTable::kTableName));
+
+#if !defined(OS_ANDROID)
   EXPECT_EQ(media_feeds, GetURLsInTable(MediaHistoryFeedsTable::kTableName));
+#endif
 
   MaybeSetSavingBrowsingHistoryDisabled();
 
@@ -499,11 +519,14 @@ TEST_P(MediaHistoryKeyedServiceTest, CleanUpDatabaseWhenOriginIsDeleted) {
     EXPECT_EQ(2,
               stats->table_row_counts[MediaHistoryPlaybackTable::kTableName]);
     EXPECT_EQ(2, stats->table_row_counts[MediaHistorySessionTable::kTableName]);
+
+#if !defined(OS_ANDROID)
     EXPECT_EQ(1, stats->table_row_counts[MediaHistoryFeedsTable::kTableName]);
     EXPECT_EQ(1,
               stats->table_row_counts[MediaHistoryFeedItemsTable::kTableName]);
     EXPECT_EQ(5, stats->table_row_counts
                      [MediaHistoryFeedAssociatedOriginsTable::kTableName]);
+#endif
 
     // There are 4 session images because each session has an image with two
     // sizes.
@@ -517,8 +540,11 @@ TEST_P(MediaHistoryKeyedServiceTest, CleanUpDatabaseWhenOriginIsDeleted) {
   EXPECT_EQ(remaining, GetURLsInTable(MediaHistorySessionTable::kTableName));
   EXPECT_EQ(remaining_images,
             GetURLsInTable(MediaHistoryImagesTable::kTableName));
+
+#if !defined(OS_ANDROID)
   EXPECT_EQ(remaining_media_feeds,
             GetURLsInTable(MediaHistoryFeedsTable::kTableName));
+#endif
 }
 
 TEST_P(MediaHistoryKeyedServiceTest,
@@ -652,9 +678,11 @@ TEST_P(MediaHistoryKeyedServiceTest,
   // Record a visit for |url3|.
   history->AddPage(url3, base::Time::Now(), history::SOURCE_BROWSED);
 
+#if !defined(OS_ANDROID)
   // Discover the media feeds.
   service()->DiscoverMediaFeed(media_feed_1);
   service()->DiscoverMediaFeed(media_feed_2);
+#endif
 
   // Wait until the playbacks have finished saving.
   WaitForDB();
@@ -673,11 +701,14 @@ TEST_P(MediaHistoryKeyedServiceTest,
     EXPECT_EQ(5,
               stats->table_row_counts[MediaHistoryPlaybackTable::kTableName]);
     EXPECT_EQ(5, stats->table_row_counts[MediaHistorySessionTable::kTableName]);
+
+#if !defined(OS_ANDROID)
     EXPECT_EQ(2, stats->table_row_counts[MediaHistoryFeedsTable::kTableName]);
     EXPECT_EQ(2,
               stats->table_row_counts[MediaHistoryFeedItemsTable::kTableName]);
     EXPECT_EQ(10, stats->table_row_counts
                       [MediaHistoryFeedAssociatedOriginsTable::kTableName]);
+#endif
 
     // There are 10 session images because each session has an image with two
     // sizes.
@@ -691,7 +722,10 @@ TEST_P(MediaHistoryKeyedServiceTest,
   EXPECT_EQ(all_urls, GetURLsInTable(MediaHistoryPlaybackTable::kTableName));
   EXPECT_EQ(all_urls, GetURLsInTable(MediaHistorySessionTable::kTableName));
   EXPECT_EQ(images, GetURLsInTable(MediaHistoryImagesTable::kTableName));
+
+#if !defined(OS_ANDROID)
   EXPECT_EQ(media_feeds, GetURLsInTable(MediaHistoryFeedsTable::kTableName));
+#endif
 
   MaybeSetSavingBrowsingHistoryDisabled();
 
@@ -720,11 +754,14 @@ TEST_P(MediaHistoryKeyedServiceTest,
     EXPECT_EQ(4,
               stats->table_row_counts[MediaHistoryPlaybackTable::kTableName]);
     EXPECT_EQ(4, stats->table_row_counts[MediaHistorySessionTable::kTableName]);
+
+#if !defined(OS_ANDROID)
     EXPECT_EQ(2, stats->table_row_counts[MediaHistoryFeedsTable::kTableName]);
     EXPECT_EQ(2,
               stats->table_row_counts[MediaHistoryFeedItemsTable::kTableName]);
     EXPECT_EQ(10, stats->table_row_counts
                       [MediaHistoryFeedAssociatedOriginsTable::kTableName]);
+#endif
 
     // There are 8 session images because each session has an image with two
     // sizes.
@@ -738,7 +775,10 @@ TEST_P(MediaHistoryKeyedServiceTest,
   EXPECT_EQ(remaining, GetURLsInTable(MediaHistorySessionTable::kTableName));
   EXPECT_EQ(remaining_images,
             GetURLsInTable(MediaHistoryImagesTable::kTableName));
+
+#if !defined(OS_ANDROID)
   EXPECT_EQ(media_feeds, GetURLsInTable(MediaHistoryFeedsTable::kTableName));
+#endif
 }
 
 TEST_P(MediaHistoryKeyedServiceTest, CleanUpDatabaseWhenURLIsDeleted) {
@@ -866,9 +906,11 @@ TEST_P(MediaHistoryKeyedServiceTest, CleanUpDatabaseWhenURLIsDeleted) {
                                    CreateImageVector(shared_image));
   }
 
+#if !defined(OS_ANDROID)
   // Discover the media feeds.
   service()->DiscoverMediaFeed(media_feed_1);
   service()->DiscoverMediaFeed(media_feed_2);
+#endif
 
   // Wait until the playbacks have finished saving.
   WaitForDB();
@@ -887,11 +929,14 @@ TEST_P(MediaHistoryKeyedServiceTest, CleanUpDatabaseWhenURLIsDeleted) {
     EXPECT_EQ(5,
               stats->table_row_counts[MediaHistoryPlaybackTable::kTableName]);
     EXPECT_EQ(5, stats->table_row_counts[MediaHistorySessionTable::kTableName]);
+
+#if !defined(OS_ANDROID)
     EXPECT_EQ(2, stats->table_row_counts[MediaHistoryFeedsTable::kTableName]);
     EXPECT_EQ(2,
               stats->table_row_counts[MediaHistoryFeedItemsTable::kTableName]);
     EXPECT_EQ(10, stats->table_row_counts
                       [MediaHistoryFeedAssociatedOriginsTable::kTableName]);
+#endif
 
     // There are 10 session images because each session has an image with two
     // sizes.
@@ -905,7 +950,10 @@ TEST_P(MediaHistoryKeyedServiceTest, CleanUpDatabaseWhenURLIsDeleted) {
   EXPECT_EQ(all_urls, GetURLsInTable(MediaHistoryPlaybackTable::kTableName));
   EXPECT_EQ(all_urls, GetURLsInTable(MediaHistorySessionTable::kTableName));
   EXPECT_EQ(images, GetURLsInTable(MediaHistoryImagesTable::kTableName));
+
+#if !defined(OS_ANDROID)
   EXPECT_EQ(media_feeds, GetURLsInTable(MediaHistoryFeedsTable::kTableName));
+#endif
 
   // Check the origins have the correct aggregate watchtime.
   {
@@ -950,11 +998,14 @@ TEST_P(MediaHistoryKeyedServiceTest, CleanUpDatabaseWhenURLIsDeleted) {
     EXPECT_EQ(3,
               stats->table_row_counts[MediaHistoryPlaybackTable::kTableName]);
     EXPECT_EQ(3, stats->table_row_counts[MediaHistorySessionTable::kTableName]);
+
+#if !defined(OS_ANDROID)
     EXPECT_EQ(2, stats->table_row_counts[MediaHistoryFeedsTable::kTableName]);
     EXPECT_EQ(2,
               stats->table_row_counts[MediaHistoryFeedItemsTable::kTableName]);
     EXPECT_EQ(10, stats->table_row_counts
                       [MediaHistoryFeedAssociatedOriginsTable::kTableName]);
+#endif
 
     // There are 6 session images because each session has an image with two
     // sizes.
@@ -968,7 +1019,10 @@ TEST_P(MediaHistoryKeyedServiceTest, CleanUpDatabaseWhenURLIsDeleted) {
   EXPECT_EQ(remaining, GetURLsInTable(MediaHistorySessionTable::kTableName));
   EXPECT_EQ(remaining_images,
             GetURLsInTable(MediaHistoryImagesTable::kTableName));
+
+#if !defined(OS_ANDROID)
   EXPECT_EQ(media_feeds, GetURLsInTable(MediaHistoryFeedsTable::kTableName));
+#endif
 
   // Check the origins have the correct aggregate watchtime.
   {

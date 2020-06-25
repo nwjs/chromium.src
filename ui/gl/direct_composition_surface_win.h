@@ -36,6 +36,7 @@ class GL_EXPORT DirectCompositionSurfaceWin : public GLSurfaceEGL,
     bool disable_larger_than_screen_overlays = false;
     bool disable_vp_scaling = false;
     size_t max_pending_frames = 2;
+    bool use_angle_texture_offset = false;
   };
 
   DirectCompositionSurfaceWin(
@@ -142,6 +143,9 @@ class GL_EXPORT DirectCompositionSurfaceWin : public GLSurfaceEGL,
       size_t index) const;
 
   Microsoft::WRL::ComPtr<IDXGISwapChain1> GetBackbufferSwapChainForTesting()
+      const;
+
+  scoped_refptr<DirectCompositionChildSurfaceWin> GetRootSurfaceForTesting()
       const;
 
  protected:

@@ -11,6 +11,7 @@ import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
+import android.os.Handler;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -105,6 +106,8 @@ public class FeedSurfaceCoordinator implements FeedSurfaceProvider {
 
     // Used for the feed header menu.
     private UserEducationHelper mUserEducationHelper;
+
+    private final Handler mHandler = new Handler();
 
     private static class BasicSnackbarApi implements SnackbarApi {
         private final SnackbarManager mManager;
@@ -329,7 +332,12 @@ public class FeedSurfaceCoordinator implements FeedSurfaceProvider {
         // Mediator should be created before any Stream changes.
         mMediator = new FeedSurfaceMediator(this, snapScrollHelper, mPageNavigationDelegate);
 
-        if (ChromeFeatureList.isEnabled(ChromeFeatureList.HOMEPAGE_PROMO_CARD)) {
+        // Add the homepage promo card when the feed is enabled and the feature is enabled. A null
+        // mStream object means that the feed is disabled. The intialization of the mStream object
+        // is handled during the construction of the FeedSurfaceMediator where there might be cases
+        // where the mStream object remains null because the feed is disabled, in which case the
+        // homepage promo card cannot be added to the feed even if the feature is enabled.
+        if (mStream != null && ChromeFeatureList.isEnabled(ChromeFeatureList.HOMEPAGE_PROMO_CARD)) {
             mHomepagePromoController =
                     new HomepagePromoController(mActivity, mSnackbarManager, mTracker, mMediator);
             mMediator.onHomepagePromoStateChange();
@@ -343,7 +351,7 @@ public class FeedSurfaceCoordinator implements FeedSurfaceProvider {
             mFeedStreamSurface.surfaceOpened();
         }
 
-        mUserEducationHelper = new UserEducationHelper(mActivity);
+        mUserEducationHelper = new UserEducationHelper(mActivity, mHandler);
     }
 
     @Override
@@ -541,6 +549,8 @@ public class FeedSurfaceCoordinator implements FeedSurfaceProvider {
 
     /** Update header views in the Stream. */
     void updateHeaderViews(boolean isSignInPromoVisible) {
+        if (mStream == null) return;
+
         List<Header> headers = new ArrayList<>();
         if (mNtpHeader != null) {
             assert mSectionHeaderView != null;

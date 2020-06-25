@@ -41,7 +41,7 @@ gclient_gn_args = [
 
 
 vars = {
-  "buildspec_platforms": "all",
+  "buildspec_platforms": "linux64, mac64, win, win64",
   # Variable that can be used to support multiple build scenarios, like having
   # Chromium specific targets in a client project's GN file or sync dependencies
   # conditionally etc.
@@ -184,7 +184,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling V8
   # and whatever else without interference from each other.
-  'v8_revision': 'fb3f7eaf9cef9d843f1cdeb96cb028fdd45371ee',
+  'v8_revision': '141284ce828b13c08e0eccbf359fcce42e655a43',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling swarming_client
   # and whatever else without interference from each other.
@@ -192,7 +192,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling ANGLE
   # and whatever else without interference from each other.
-  'angle_revision': '5d07722a4fec04450610d0ddd5af415fe97cc21e',
+  'angle_revision': 'd188231d437ac82396e034f3483319ec1472f169',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling SwiftShader
   # and whatever else without interference from each other.
@@ -200,7 +200,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling PDFium
   # and whatever else without interference from each other.
-  'pdfium_revision': '3e36f68831431bf497babc74075cd69af5fd9823',
+  'pdfium_revision': 'bee2261eab794536f236013fa8c9d01728ed326b',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling BoringSSL
   # and whatever else without interference from each other.
@@ -251,7 +251,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling devtools-frontend
   # and whatever else without interference from each other.
-  'devtools_frontend_revision': '4bddee138afe1a147bc337b64e57ad422542c181',
+  'devtools_frontend_revision': 'b4bb41b298b006fc07d6e7a8722fa720bc5a864c',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling libprotobuf-mutator
   # and whatever else without interference from each other.
@@ -307,7 +307,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling feed
   # and whatever else without interference from each other.
-  'quiche_revision': 'f6ba532e3e4f7967f0e62b7a661608be06da83ea',
+  'quiche_revision': '57fc145a0d3ff91298b8472404f1f1f7e8e61545',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling ios_webkit
   # and whatever else without interference from each other.
@@ -1125,7 +1125,7 @@ deps = {
   },
 
   'src/third_party/libvpx/source/libvpx':
-    Var('chromium_git') + '/webm/libvpx.git' + '@' +  '77960f37b3d328cf7552f6cd69a083f4005aed7b',
+    Var('chromium_git') + '/webm/libvpx.git' + '@' +  'b30184a6821e1d36db8294574022ff9c207acacc',
 
   'src/third_party/libwebm/source':
     Var('chromium_git') + '/webm/libwebm.git' + '@' + '51ca718c3adf0ddedacd7df25fe45f67dc5a9ce1',
@@ -1458,7 +1458,7 @@ deps = {
   },
 
   'src/third_party/webrtc':
-    Var('webrtc_git') + '/src.git' + '@' + 'f9e2d036a3a6173af1205e7823966c13e516cdde',
+    Var('webrtc_git') + '/src.git' + '@' + '758c388d3fedac4a474b48a240af83dd3f6a5fc5',
 
   'src/third_party/libgifcodec':
      Var('skia_git') + '/libgifcodec' + '@'+  Var('libgifcodec_revision'),
@@ -1530,7 +1530,7 @@ deps = {
   #  Var('chromium_git') + '/v8/v8.git' + '@' +  Var('v8_revision'),
 
   'src-internal': {
-    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@579a91abcdbe98beaff7991e83d770997ae66459',
+    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@d5f6bfae4831dfde6dc5b1eb7dde6fe130b99fe4',
     'condition': 'checkout_src_internal',
   },
 
@@ -1538,7 +1538,7 @@ deps = {
     'packages': [
       {
         'package': 'chromeos_internal/apps/help_app/app',
-        'version': 'xyNaKa41WGF4hz24ctXAGoNtv26rpEQFVrpMs5UaD18C',
+        'version': 'FrfVYoYIqSZzf4IlvdvIb7KkJHtn9BOu1_H8DH4PBAEC',
       },
     ],
     'condition': 'checkout_chromeos and checkout_src_internal',
@@ -3268,11 +3268,11 @@ deps = {
       'dep_type': 'cipd',
   },
 
-  'src/third_party/android_deps/libs/com_google_protobuf_protobuf_javalite': {
+  'src/third_party/android_deps/libs/com_google_protobuf_protobuf_lite': {
       'packages': [
           {
-              'package': 'chromium/third_party/android_deps/libs/com_google_protobuf_protobuf_javalite',
-              'version': 'version:3.11.4-cr0',
+              'package': 'chromium/third_party/android_deps/libs/com_google_protobuf_protobuf_lite',
+              'version': 'version:3.0.1-cr0',
           },
       ],
       'condition': 'checkout_android',

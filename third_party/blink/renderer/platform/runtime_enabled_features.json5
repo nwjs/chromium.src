@@ -1850,6 +1850,10 @@
       name: "VideoRotateToFullscreen",
     },
     {
+      name: "VideoWakeLockOptimisationHiddenMuted",
+      status: "stable",
+    },
+    {
       name: "VirtualKeyboard",
       status: "test",
     },

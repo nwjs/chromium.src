@@ -2927,6 +2927,11 @@
     "expiry_milestone": 81
   },
   {
+    "name": "messages-block-popup-infobars",
+    "owners": [ "sczs", "thegreenfrog" ],
+    "expiry_milestone": 85
+  },
+  {
     "name": "messages-confirm-infobars",
     "owners": [ "sczs", "thegreenfrog" ],
     "expiry_milestone": 83

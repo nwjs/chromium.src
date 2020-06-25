@@ -437,6 +437,7 @@
 <translation id="1546452108651444655"><ph name="CHILD_NAME" /> ចង់ដំឡើង <ph name="EXTENSION_TYPE" /> ដែលអាច៖</translation>
 <translation id="1549275686094429035">បានបើក ARC</translation>
 <translation id="1549788673239553762"><ph name="APP_NAME" /> ចង់ចូលប្រើ <ph name="VOLUME_NAME" />។ វាអាចនឹងកែសម្រួល ឬលុបឯកសាររបស់អ្នក។</translation>
+<translation id="1552301827267621511">កម្មវិធីបន្ថែម "<ph name="EXTENSION_NAME" />" បានប្ដូរការស្វែងរកទៅប្រើ <ph name="SEARCH_PROVIDER_DOMAIN" /></translation>
 <translation id="1553538517812678578">គ្មានដែនកំណត់</translation>
 <translation id="1554390798506296774">អនុញ្ញាតឲ្យកម្មវិធីជំនួយមិនបានសេនបក់នៅលើ <ph name="HOST" /> ជានិច្ច</translation>
 <translation id="1555130319947370107">ខៀវ</translation>
@@ -1678,6 +1679,7 @@
 <translation id="3101126716313987672">ពន្លឺតិច</translation>
 <translation id="3101709781009526431">កាលបរិច្ឆេទ និងពេលវេលា</translation>
 <translation id="3103941660000130485">មានបញ្ហា​ក្នុងការ​ដំឡើងកំណែ Linux</translation>
+<translation id="3105796011181310544">ប្ដូរទៅ Google វិញឬ?</translation>
 <translation id="310671807099593501">ទំព័រ​កំពុងប្រើ​ប៊្លូធូស</translation>
 <translation id="3115147772012638511">កំពុងរង់ចាំឃ្លាំងសម្ងាត់...</translation>
 <translation id="3115580024857770654">បង្រួម​ទាំងអស់</translation>
@@ -2664,6 +2666,7 @@
 <translation id="4364327530094270451">ត្រសក់​ផ្អែម</translation>
 <translation id="4364567974334641491"><ph name="APP_NAME" /> កំពុងចែករំលែកផ្ទាំងវិនដូ</translation>
 <translation id="4364830672918311045">បង្ហាញការជូនដំណឹង</translation>
+<translation id="437004882363131692">ទទួល​បានគន្លឹះ​ ការផ្ដល់ជូន និង​ព័ត៌មានថ្មីៗសម្រាប់ <ph name="DEVICE_TYPE" /> និងចែករំលែកមតិកែលម្អ។ ឈប់ជាវ​បាន​គ្រប់ពេល។</translation>
 <translation id="4370975561335139969">អ៊ីមែល និងពាក្យសម្ងាត់ដែលអ្នកបញ្ចូលមិនត្រូវគ្នាទេ</translation>
 <translation id="4374831787438678295">កម្មវិធី​ដំឡើង Linux</translation>
 <translation id="4375035964737468845">បើកឯកសារដែលបានទាញយក</translation>
@@ -2996,6 +2999,7 @@
 <translation id="4833683849865011483">បានរកឃើញម៉ាស៊ីនបោះពុម្ព 1 ពីម៉ាស៊ីនមេបោះពុម្ព</translation>
 <translation id="4835385943915508971">Chrome មិន​អាច​ចូល​ប្រើ​ធនធាន​ដែល​បាន​ស្នើ​នេះ​ទេ​។​</translation>
 <translation id="4836504898754963407">គ្រប់គ្រងស្នាមម្រាមដៃ</translation>
+<translation id="4837128290434901661">ប្ដូរទៅការស្វែងរកនៅលើ Google វិញឬ?</translation>
 <translation id="4837926214103741331">អ្នកមិនត្រូវបានអនុញ្ញាតឲ្យប្រើឧបករណ៍នេះទេ។ សូមទាក់ទងម្ចាស់ឧបករណ៍សម្រាប់ការអនុញ្ញាតចូល។</translation>
 <translation id="4837952862063191349">ដើម្បីដោះសោ ឬស្តារទិន្នន័យមូលដ្ឋានរបស់អ្នកឡើងវិញ សូមបញ្ចូលពាក្យសម្ងាត់ <ph name="DEVICE_TYPE" /> ចាស់របស់អ្នក។</translation>
 <translation id="4838836835474292213">បាន​អនុញ្ញាតការចូល​អាន​អង្គចងចាំ</translation>
@@ -3700,7 +3704,6 @@
 <translation id="5739235828260127894">កំពុង​រង់ចាំធ្វើ​ការផ្ទៀងផ្ទាត់។ <ph name="LINK_BEGIN" />ស្វែងយល់​បន្ថែម<ph name="LINK_END" /></translation>
 <translation id="5739458112391494395">ធំខ្លាំង</translation>
 <translation id="574209121243317957">កម្រិតកម្ពស់​សូរ</translation>
-<translation id="5745136023067925867">ទទួល​បានគន្លឹះ​ ការផ្ដល់ជូន និងព័ត៌មានថ្មីៗសម្រាប់ <ph name="DEVICE_TYPE" /> និងចែករំលែកមតិកែលម្អ</translation>
 <translation id="5746169159649715125">រក្សាទុកជា PDF</translation>
 <translation id="5747552184818312860">ផុតកំណត់</translation>
 <translation id="5747785204778348146">អ្នកអភិវឌ្ឍន៍ - មិនថេរ</translation>
@@ -4967,6 +4970,7 @@
 <translation id="7396845648024431313"><ph name="APP_NAME" /> នឹងបើកដំណើរការនៅពេលចាប់ផ្តើមដំណើរការប្រព័ន្ធ ហើយបន្តដំណើរការនៅផ្ទៃខាងក្រោយ បើទោះបីជាអ្នកបិទ <ph name="PRODUCT_NAME" /> ផ្ទាំងផ្សេងទៀតទាំងអស់ក៏ដោយ។</translation>
 <translation id="7399045143794278225">ប្ដូរសមកាលកម្ម​តាមបំណង</translation>
 <translation id="7400418766976504921">URL</translation>
+<translation id="7400447915166857470">ប្ដូរទៅ <ph name="OLD_SEARCH_PROVIDER" /> វិញឬ?</translation>
 <translation id="7400839060291901923">រៀបចំ​ការតភ្ជាប់​នៅលើ <ph name="PHONE_NAME" /> របស់អ្នក</translation>
 <translation id="7401778920660465883">ច្រានចោល​សារ​នេះ</translation>
 <translation id="7403642243184989645">កំពុងទាញយកធនធាន</translation>
@@ -4993,6 +4997,7 @@
 <translation id="7427798576651127129">ហៅទូរសព្ទពី <ph name="DEVICE_NAME" /></translation>
 <translation id="7431719494109538750">រកមិនឃើញ​ឧបករណ៍ HID ទេ</translation>
 <translation id="7433692219247014412">{COUNT,plural, =0{បើកទាំងអស់នៅក្នុងវិនដូថ្មី&amp;}=1{បើកនៅក្នុងវិនដូថ្មី&amp;}other{បើកទាំងអស់ (#) នៅក្នុងវិនដូថ្មី&amp;}}</translation>
+<translation id="7433957986129316853">រក្សាទុកវា</translation>
 <translation id="7434509671034404296">អ្នកអភិវឌ្ឍន៍</translation>
 <translation id="7434635829372401939">ធ្វើសមកាលកម្ម​ការកំណត់​របស់អ្នក</translation>
 <translation id="7434757724413878233">ការបង្កើន​ល្បឿន​កណ្ដុរ</translation>
@@ -5223,6 +5228,7 @@
 <translation id="7728570244950051353">អេក្រង់ចាក់សោ​ពីមុខងារដេក</translation>
 <translation id="7728668285692163452">ការប្តូរ​បណ្តាញ​នឹង​ត្រូវបាន​អនុវត្ត​នៅ​ពេលក្រោយ</translation>
 <translation id="7730449930968088409">ចាប់យកមាតិកាអេក្រង់របស់អ្នក</translation>
+<translation id="7730683939467795481">ទំព័រនេះត្រូវបានផ្លាស់ប្ដូរដោយកម្មវិធីបន្ថែម "<ph name="EXTENSION_NAME" />"</translation>
 <translation id="7732111077498238432">បណ្តាញត្រូវបានគ្រប់គ្រងដោយគោលការណ៍</translation>
 <translation id="7737115349420013392">កំពុងផ្គូផ្គងជាមួយ "<ph name="DEVICE_NAME" />" ...</translation>
 <translation id="7737238973539693982">លុប​ Linux (បេតា)</translation>
@@ -5564,6 +5570,7 @@
 <translation id="8136269678443988272">កូដ PIN ដែលអ្នកបានបញ្ចូល​មិនត្រូវគ្នាទេ</translation>
 <translation id="8137559199583651773">គ្រប់គ្រងកម្មវិធីបន្ថែម</translation>
 <translation id="8138082791834443598">ស្រេចចិត្ត — បញ្ចូល ឬធ្វើបច្ចុប្បន្នភាពព័ត៌មានដែលនឹងប្រើជាមួយឧបករណ៍នេះ។</translation>
+<translation id="8138217203226449454">តើអ្នក​ពិតជាចង់​ប្ដូរ​ក្រុមហ៊ុនផ្ដល់សេវា​ស្វែងរក​របស់អ្នក​មែនឬ?</translation>
 <translation id="813913629614996137">កំពុង​ចាប់ផ្ដើម…</translation>
 <translation id="8140778357236808512">នាំចូលអ្នកប្រើដែលបានចាត់ដែលមានស្រាប់</translation>
 <translation id="8141584439523427891">កំពុងបើក​នៅក្នុង​កម្មវិធីរុករកតាម​អ៊ីនធឺណិត​ផ្សេង​ឥឡូវនេះ</translation>
@@ -6249,6 +6256,7 @@
 <translation id="9004952710076978168">បានទទួលការជូនដំណឹងពីម៉ាស៊ីនបោះពុម្ពដែលមិនស្គាល់។</translation>
 <translation id="9008201768610948239">មិនអើពើ</translation>
 <translation id="9009369504041480176">កំពុងទាញឡើង (<ph name="PROGRESS_PERCENT" />%)...</translation>
+<translation id="9009708085379296446">តើអ្នក​ពិតជាចង់​ប្ដូរទំព័រនេះ​មែនឬ?</translation>
 <translation id="9011163749350026987">បង្ហាញរូបតំណាងជានិច្ច</translation>
 <translation id="9013037634206938463">តម្រូវឱ្យមាន​ទំហំផ្ទុកទំនេរ <ph name="INSTALL_SIZE" /> ដើម្បី​ដំឡើង Linux។ ដើម្បីបង្កើនទំហំផ្ទុក សូមលុបឯកសារចេញពីឧបករណ៍របស់អ្នក។</translation>
 <translation id="9013707997379828817">អ្នក​​គ្រប់គ្រង​របស់អ្នក​បានស្ដារ​ឧបករណ៍​នេះ។ សូមរក្សាទុក​ឯកសារ​សំខាន់ៗ បន្ទាប់មក​ចាប់ផ្ដើម​ឡើងវិញ។ ទិន្នន័យ​ទាំងអស់​នៅលើ​ឧបករណ៍​នឹងត្រូវ​បានលុប។</translation>

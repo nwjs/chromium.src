@@ -1514,8 +1514,8 @@ bool ScriptModifiedUsernameAcceptable(
   return field_data_manager->FindMachedValue(value);
 }
 
-}  // namespace
-
+// Helper function that strips any authentication data, as well as query and
+// ref portions of URL.
 GURL StripAuthAndParams(const GURL& gurl) {
   GURL::Replacements rep;
   rep.ClearUsername();
@@ -1524,6 +1524,8 @@ GURL StripAuthAndParams(const GURL& gurl) {
   rep.ClearRef();
   return gurl.ReplaceComponents(rep);
 }
+
+}  // namespace
 
 bool ExtractFormData(const WebFormElement& form_element,
                      const FieldDataManager& field_data_manager,
@@ -1579,6 +1581,14 @@ GURL GetCanonicalActionForForm(const WebFormElement& form) {
 GURL GetCanonicalOriginForDocument(const WebDocument& document) {
   GURL full_origin(document.Url());
   return StripAuthAndParams(full_origin);
+}
+
+GURL GetOriginWithoutAuthForDocument(const WebDocument& document) {
+  GURL::Replacements rep;
+  rep.ClearUsername();
+  rep.ClearPassword();
+  GURL full_origin(document.Url());
+  return full_origin.ReplaceComponents(rep);
 }
 
 bool IsMonthInput(const WebInputElement* element) {

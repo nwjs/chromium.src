@@ -3095,8 +3095,9 @@ void RenderFrameHostImpl::OnContextMenu(
   // Validate the URLs in |params|.  If the renderer can't request the URLs
   // directly, don't show them in the context menu.
   ContextMenuParams validated_params(params);
-  validated_params.frame_url = GetLastCommittedURL();
   validated_params.page_url = GetMainFrame()->GetLastCommittedURL();
+  if (GetParent())  // Only populate |frame_url| for subframes.
+    validated_params.frame_url = GetLastCommittedURL();
 
   // We don't validate |unfiltered_link_url| so that this field can be used
   // when users want to copy the original link URL.
@@ -4573,7 +4574,14 @@ void RenderFrameHostImpl::CreateNewWindow(
   // window.open() will return "window" and navigate it to whatever URL was
   // passed.
   if (!render_view_host_->GetWebkitPreferences().supports_multiple_windows) {
-    std::move(callback).Run(mojom::CreateNewWindowStatus::kReuse, nullptr);
+    // See crbug.com/1083819, we should ignore if the URL is javascript: scheme,
+    // previously we already filtered out javascript: scheme and replace the
+    // URL with |kBlockedURL|, so we check against |kBlockedURL| here.
+    if (params->target_url == GURL(kBlockedURL)) {
+      std::move(callback).Run(mojom::CreateNewWindowStatus::kIgnore, nullptr);
+    } else {
+      std::move(callback).Run(mojom::CreateNewWindowStatus::kReuse, nullptr);
+    }
     return;
   }
 

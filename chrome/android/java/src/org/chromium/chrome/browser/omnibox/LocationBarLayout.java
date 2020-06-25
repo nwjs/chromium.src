@@ -230,9 +230,11 @@ public class LocationBarLayout extends FrameLayout
 
     @Override
     public void destroy() {
-        removeUrlFocusChangeListener(mAutocompleteCoordinator);
-        mAutocompleteCoordinator.destroy();
-        mAutocompleteCoordinator = null;
+        if (mAutocompleteCoordinator != null) {
+            removeUrlFocusChangeListener(mAutocompleteCoordinator);
+            mAutocompleteCoordinator.destroy();
+            mAutocompleteCoordinator = null;
+        }
 
         if (mAssistantVoiceSearchService != null) {
             mAssistantVoiceSearchService.destroy();
@@ -910,6 +912,7 @@ public class LocationBarLayout extends FrameLayout
     public void setOmniboxEditingText(String text) {
         mUrlCoordinator.setUrlBarData(UrlBarData.forNonUrlText(text), UrlBar.ScrollType.NO_SCROLL,
                 UrlBarCoordinator.SelectionState.SELECT_END);
+        updateButtonVisibility();
     }
 
     @Override
@@ -1164,8 +1167,11 @@ public class LocationBarLayout extends FrameLayout
         mStatusViewCoordinator.setUseDarkColors(useDarkColors);
         mStatusViewCoordinator.setIncognitoBadgeVisibility(
                 mToolbarDataProvider.isIncognito() && !mIsTablet);
-        mAutocompleteCoordinator.updateVisualsForState(
-                useDarkColors, mToolbarDataProvider.isIncognito());
+
+        if (mAutocompleteCoordinator != null) {
+            mAutocompleteCoordinator.updateVisualsForState(
+                    useDarkColors, mToolbarDataProvider.isIncognito());
+        }
     }
 
     @Override

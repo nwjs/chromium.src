@@ -8,10 +8,14 @@ import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.IS_FAKE_S
 import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.IS_INCOGNITO;
 import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.IS_INCOGNITO_DESCRIPTION_INITIALIZED;
 import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.IS_INCOGNITO_DESCRIPTION_VISIBLE;
+import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.IS_SURFACE_BODY_VISIBLE;
 import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.IS_TAB_CAROUSEL_VISIBLE;
 import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.IS_VOICE_RECOGNITION_BUTTON_VISIBLE;
 import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.MORE_TABS_CLICK_LISTENER;
+import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.MV_TILES_CONTAINER_TOP_MARGIN;
 import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.MV_TILES_VISIBLE;
+import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.TAB_SWITCHER_TITLE_TOP_MARGIN;
+import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.TASKS_SURFACE_BODY_TOP_MARGIN;
 import static org.chromium.chrome.features.start_surface.StartSurfaceProperties.BOTTOM_BAR_CLICKLISTENER;
 import static org.chromium.chrome.features.start_surface.StartSurfaceProperties.BOTTOM_BAR_HEIGHT;
 import static org.chromium.chrome.features.start_surface.StartSurfaceProperties.BOTTOM_BAR_SELECTED_TAB_POSITION;
@@ -23,6 +27,7 @@ import static org.chromium.chrome.features.start_surface.StartSurfaceProperties.
 import static org.chromium.chrome.features.start_surface.StartSurfaceProperties.IS_SHOWING_STACK_TAB_SWITCHER;
 import static org.chromium.chrome.features.start_surface.StartSurfaceProperties.TOP_BAR_HEIGHT;
 
+import android.content.res.Resources;
 import android.view.View;
 
 import androidx.annotation.IntDef;
@@ -255,6 +260,17 @@ class StartSurfaceMediator
                     notifyStateChange();
                 }
             };
+
+            // Only tweak the margins between sections for non-OMNIBOX_ONLY variations.
+            if (surfaceMode != SurfaceMode.OMNIBOX_ONLY) {
+                Resources resources = ContextUtils.getApplicationContext().getResources();
+                mPropertyModel.set(TASKS_SURFACE_BODY_TOP_MARGIN,
+                        resources.getDimensionPixelSize(R.dimen.tasks_surface_body_top_margin));
+                mPropertyModel.set(MV_TILES_CONTAINER_TOP_MARGIN,
+                        resources.getDimensionPixelSize(R.dimen.mv_tiles_container_top_margin));
+                mPropertyModel.set(TAB_SWITCHER_TITLE_TOP_MARGIN,
+                        resources.getDimensionPixelSize(R.dimen.tab_switcher_title_top_margin));
+            }
         }
         mController.addOverviewModeObserver(this);
         mPreviousOverviewModeState = OverviewModeState.NOT_SHOWN;
@@ -726,11 +742,13 @@ class StartSurfaceMediator
             mPropertyModel.set(IS_INCOGNITO_DESCRIPTION_INITIALIZED, true);
         }
         mPropertyModel.set(IS_INCOGNITO_DESCRIPTION_VISIBLE, isVisible);
+        mPropertyModel.set(IS_SURFACE_BODY_VISIBLE, !isVisible);
         if (mSecondaryTasksSurfacePropertyModel != null) {
             if (!mSecondaryTasksSurfacePropertyModel.get(IS_INCOGNITO_DESCRIPTION_INITIALIZED)) {
                 mSecondaryTasksSurfacePropertyModel.set(IS_INCOGNITO_DESCRIPTION_INITIALIZED, true);
             }
             mSecondaryTasksSurfacePropertyModel.set(IS_INCOGNITO_DESCRIPTION_VISIBLE, isVisible);
+            mSecondaryTasksSurfacePropertyModel.set(IS_SURFACE_BODY_VISIBLE, !isVisible);
         }
     }
 

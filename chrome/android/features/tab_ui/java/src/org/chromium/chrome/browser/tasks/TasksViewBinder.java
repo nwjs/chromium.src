@@ -17,10 +17,14 @@ import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.IS_FAKE_S
 import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.IS_INCOGNITO;
 import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.IS_INCOGNITO_DESCRIPTION_INITIALIZED;
 import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.IS_INCOGNITO_DESCRIPTION_VISIBLE;
+import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.IS_SURFACE_BODY_VISIBLE;
 import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.IS_TAB_CAROUSEL_VISIBLE;
 import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.IS_VOICE_RECOGNITION_BUTTON_VISIBLE;
 import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.MORE_TABS_CLICK_LISTENER;
+import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.MV_TILES_CONTAINER_TOP_MARGIN;
 import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.MV_TILES_VISIBLE;
+import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.TAB_SWITCHER_TITLE_TOP_MARGIN;
+import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.TASKS_SURFACE_BODY_TOP_MARGIN;
 import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.VOICE_SEARCH_BUTTON_CLICK_LISTENER;
 
 import android.view.View;
@@ -71,6 +75,8 @@ class TasksViewBinder {
                 model.get(INCOGNITO_COOKIE_CONTROLS_MANAGER).updateIfNecessary();
             }
             view.setIncognitoDescriptionVisibility(isVisible);
+        } else if (propertyKey == IS_SURFACE_BODY_VISIBLE) {
+            view.setSurfaceBodyVisibility(model.get(IS_SURFACE_BODY_VISIBLE));
         } else if (propertyKey == IS_TAB_CAROUSEL_VISIBLE) {
             view.setTabCarouselVisibility(model.get(IS_TAB_CAROUSEL_VISIBLE));
         } else if (propertyKey == IS_VOICE_RECOGNITION_BUTTON_VISIBLE) {
@@ -83,6 +89,12 @@ class TasksViewBinder {
         } else if (propertyKey == VOICE_SEARCH_BUTTON_CLICK_LISTENER) {
             view.getSearchBoxCoordinator().addVoiceSearchButtonClickListener(
                     model.get(VOICE_SEARCH_BUTTON_CLICK_LISTENER));
+        } else if (propertyKey == TASKS_SURFACE_BODY_TOP_MARGIN) {
+            view.setTasksSurfaceBodyTopMargin(model.get(TASKS_SURFACE_BODY_TOP_MARGIN));
+        } else if (propertyKey == MV_TILES_CONTAINER_TOP_MARGIN) {
+            view.setMVTilesContainerTopMargin(model.get(MV_TILES_CONTAINER_TOP_MARGIN));
+        } else if (propertyKey == TAB_SWITCHER_TITLE_TOP_MARGIN) {
+            view.setTabSwitcherTitleTopMargin(model.get(TAB_SWITCHER_TITLE_TOP_MARGIN));
         }
     }
 }

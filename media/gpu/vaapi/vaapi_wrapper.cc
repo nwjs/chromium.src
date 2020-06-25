@@ -21,6 +21,7 @@
 #include "base/bind_helpers.h"
 #include "base/bits.h"
 #include "base/callback_helpers.h"
+#include "base/cpu.h"
 #include "base/environment.h"
 #include "base/files/scoped_file.h"
 #include "base/logging.h"
@@ -140,6 +141,40 @@ media::VAImplementation VendorStringToImplementationType(
 namespace media {
 
 namespace {
+
+// Returns true if the SoC is a Kaby Lake Pentium.
+// CPU model IDs are referenced from the following file in the kernel source
+// arch/x86/include/asm/intel-family.h.
+bool IsKBLPentiumCPU() {
+  constexpr int kPentiumAndLaterFamily = 0x06;
+  constexpr int kKabyLakeModelId = 0x9E;
+  static base::NoDestructor<base::CPU> cpuid;
+  static const bool is_kbl_pentium_cpu =
+      cpuid->family() == kPentiumAndLaterFamily &&
+      cpuid->model() == kKabyLakeModelId &&
+      base::Contains(cpuid->cpu_brand(), "Pentium");
+  return is_kbl_pentium_cpu;
+}
+
+// Returns true if the SoC is a Comet Lake Pentium or Celeron.
+// CPU model IDs are referenced from the following file in the kernel source
+// arch/x86/include/asm/intel-family.h.
+bool IsCMLPentiumOrCeleronCPU() {
+  constexpr int kPentiumAndLaterFamily = 0x06;
+  // Amber Lake, Whiskey Lake and Comet Lake CPU IDs are the same as KBL L.
+  constexpr int kKabyLake_LModelId = 0x8E;
+  constexpr int kCometLakeModelId = 0xA5;
+  constexpr int kCometLake_LModelId = 0xA6;
+  static base::NoDestructor<base::CPU> cpuid;
+  static const bool is_cml_pentium_cpu =
+      cpuid->family() == kPentiumAndLaterFamily &&
+      (cpuid->model() == kKabyLake_LModelId ||
+       cpuid->model() == kCometLakeModelId ||
+       cpuid->model() == kCometLake_LModelId) &&
+      (base::Contains(cpuid->cpu_brand(), "Pentium") ||
+       base::Contains(cpuid->cpu_brand(), "Celeron"));
+  return is_cml_pentium_cpu;
+}
 
 bool IsModeEncoding(VaapiWrapper::CodecMode mode) {
   return mode == VaapiWrapper::CodecMode::kEncode ||
@@ -321,7 +356,7 @@ bool IsBlackListedDriver(const std::string& va_vendor_string,
   // default.
   if (VendorStringToImplementationType(va_vendor_string) ==
           VAImplementation::kMesaGallium &&
-      va_vendor_string.find("AMD STONEY") != std::string::npos &&
+      base::Contains(va_vendor_string, "AMD STONEY") &&
       !base::FeatureList::IsEnabled(kVaapiH264AMDEncoder)) {
     constexpr VAProfile kH264Profiles[] = {VAProfileH264Baseline,
                                            VAProfileH264Main, VAProfileH264High,
@@ -342,6 +377,16 @@ bool IsBlackListedDriver(const std::string& va_vendor_string,
       !base::FeatureList::IsEnabled(kVaapiVP9Encoder)) {
     return true;
   }
+
+  // TODO(b/158655609): Pentium/Celeron CML-U devices hang up when VP8 encoding
+  // in some power saving states. Blacklist them temporarily.
+  if (IsCMLPentiumOrCeleronCPU() && va_profile == VAProfileVP8Version0_3)
+    return true;
+
+  // TODO(b/158655609): Pentium KBL-U devices hang up when VP8 encoding in some
+  // power saving states. Blacklist them temporarily.
+  if (IsKBLPentiumCPU() && va_profile == VAProfileVP8Version0_3)
+    return true;
 
   return false;
 }

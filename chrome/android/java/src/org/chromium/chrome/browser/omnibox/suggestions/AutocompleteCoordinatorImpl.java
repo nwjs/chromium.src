@@ -35,7 +35,6 @@ import org.chromium.chrome.browser.omnibox.suggestions.header.HeaderView;
 import org.chromium.chrome.browser.omnibox.suggestions.header.HeaderViewBinder;
 import org.chromium.chrome.browser.omnibox.suggestions.tail.TailSuggestionView;
 import org.chromium.chrome.browser.omnibox.suggestions.tail.TailSuggestionViewBinder;
-import org.chromium.chrome.browser.omnibox.suggestions.tiles.TileSuggestionViewBinder;
 import org.chromium.chrome.browser.omnibox.voice.VoiceRecognitionHandler;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.share.ShareDelegate;
@@ -46,6 +45,7 @@ import org.chromium.ui.ViewProvider;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modelutil.LazyConstructionPropertyMcp;
 import org.chromium.ui.modelutil.MVCListAdapter;
+import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyModel;
 
 import java.util.ArrayList;
@@ -169,7 +169,7 @@ public class AutocompleteCoordinatorImpl implements AutocompleteCoordinator {
                 adapter.registerType(
                         OmniboxSuggestionUiType.TILE_SUGGESTION,
                         parent -> mQueryTileCoordinator.createView(parent.getContext()),
-                        TileSuggestionViewBinder::bind);
+                        mQueryTileCoordinator::bind);
 
                 adapter.registerType(
                         OmniboxSuggestionUiType.HEADER,
@@ -334,6 +334,11 @@ public class AutocompleteCoordinatorImpl implements AutocompleteCoordinator {
     @VisibleForTesting
     OnSuggestionsReceivedListener getSuggestionsReceivedListenerForTest() {
         return mMediator;
+    }
+
+    @VisibleForTesting
+    ModelList getSuggestionModelList() {
+        return mMediator.getSuggestionModelList();
     }
 
     private void onTileSelected(QueryTile queryTile) {

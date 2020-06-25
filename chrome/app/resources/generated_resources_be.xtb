@@ -229,7 +229,7 @@
 <translation id="1280965841156951489">Змяніць файлы</translation>
 <translation id="1285320974508926690">Ніколі не перакладаць гэты сайт</translation>
 <translation id="1285484354230578868">Захаванне даных на вашым Google Дыску</translation>
-<translation id="1288037062697528143">Начны рэжым уключыцца аўтаматычна пасля захаду сонца</translation>
+<translation id="1288037062697528143">Начная падсветка ўключыцца аўтаматычна пасля захаду сонца</translation>
 <translation id="1288300545283011870">Параметры маўлення</translation>
 <translation id="1293264513303784526">Прылада USB-C (левы порт)</translation>
 <translation id="1293556467332435079">Файлы</translation>
@@ -437,6 +437,7 @@
 <translation id="1546452108651444655"><ph name="CHILD_NAME" /> хоча ўсталяваць пашырэнне <ph name="EXTENSION_TYPE" />, якое зможа:</translation>
 <translation id="1549275686094429035">Тэхналогія ARC уключана</translation>
 <translation id="1549788673239553762">Праграма "<ph name="APP_NAME" />" запытвае доступ да <ph name="VOLUME_NAME" />. Яна можа змяніць або выдаліць вашы файлы.</translation>
+<translation id="1552301827267621511">Пашырэнне "<ph name="EXTENSION_NAME" />" зрабіла стандартнай пошукавай сістэмай наступную: <ph name="SEARCH_PROVIDER_DOMAIN" /></translation>
 <translation id="1553538517812678578">неабмежавана</translation>
 <translation id="1554390798506296774">Заўсёды дазваляць не змешчаныя ў пясочніцу ўбудовы на хосце <ph name="HOST" /></translation>
 <translation id="1555130319947370107">Сіні</translation>
@@ -1371,7 +1372,7 @@
 <translation id="2714393097308983682">Крама Google Play</translation>
 <translation id="2715751256863167692">Гэта абнаўленне скідае налады Chromebook і выдаляе карыстальніцкія даныя.</translation>
 <translation id="2716986496990888774">Гэтай наладай кіруюць бацькі.</translation>
-<translation id="2718395828230677721">Начны рэжым</translation>
+<translation id="2718395828230677721">Начная падсветка</translation>
 <translation id="2718998670920917754">Праграма-антывірус знайшла вірус.</translation>
 <translation id="2719020180254996569">Сетка <ph name="NETWORK_INDEX" /> з <ph name="NETWORK_COUNT" />, <ph name="NETWORK_NAME" />, <ph name="CONNECTION_STATUS" />, падрабязныя звесткі</translation>
 <translation id="2719936478972253983">Наступныя файлы cookie заблакіраваны</translation>
@@ -1678,6 +1679,7 @@
 <translation id="3101126716313987672">Цьмянае асвятленне</translation>
 <translation id="3101709781009526431">Дата і час</translation>
 <translation id="3103941660000130485">Памылка абнаўлення Linux</translation>
+<translation id="3105796011181310544">Зноў зрабіць Google стандартнай пошукавай сістэмай?</translation>
 <translation id="310671807099593501">Сайт выкарыстоўвае Bluetooth</translation>
 <translation id="3115147772012638511">Чакаецца кэш...</translation>
 <translation id="3115580024857770654">Згарнуць усе</translation>
@@ -2518,7 +2520,7 @@
 <translation id="413121957363593859">Кампаненты</translation>
 <translation id="4131410914670010031">Чорна-белы друк</translation>
 <translation id="4133076602192971179">Каб змяніць пароль, адкрыйце праграму</translation>
-<translation id="4136203100490971508">Начны рэжым выключыцца аўтаматычна пасля ўзыходу сонца</translation>
+<translation id="4136203100490971508">Начная падсветка выключыцца аўтаматычна пасля ўзыходу сонца</translation>
 <translation id="41365691917097717">Калі працягнуць, будзе ўключана адладка ADB для стварэння і тэсціравання праграм для Android. Звярніце ўвагу, што, уключыўшы ADB, вы дазваляеце ўсталёўваць праграмы для Android, якія не былі спраўджаны Google, а для выключэння ADB патрабуецца скід налад да заводскіх значэнняў.</translation>
 <translation id="4138267921960073861">Паказваць фота і імёны карыстальнікаў на экране ўваходу</translation>
 <translation id="413915106327509564"><ph name="WINDOW_TITLE" /> – падключана прылада HID</translation>
@@ -2664,6 +2666,7 @@
 <translation id="4364327530094270451">Дыня</translation>
 <translation id="4364567974334641491"><ph name="APP_NAME" /> абагульвае акно.</translation>
 <translation id="4364830672918311045">Паказ апавяшчэнняў</translation>
+<translation id="437004882363131692">Давайце водгукі, атрымлівайце прапановы, навіны і парады па прыладах <ph name="DEVICE_TYPE" />. Адпісацца можна ў любы час.</translation>
 <translation id="4370975561335139969">Вы ўвялі няправільны адрас электроннай пошты або пароль</translation>
 <translation id="4374831787438678295">Усталёўшчык Linux</translation>
 <translation id="4375035964737468845">Адкрыць спампаваныя файлы</translation>
@@ -2996,6 +2999,7 @@
 <translation id="4833683849865011483">На серверы друку знойдзены 1 прынтар</translation>
 <translation id="4835385943915508971">Chrome не мае доступу да запытанай крыніцы.</translation>
 <translation id="4836504898754963407">Кіраваць адбіткамі пальцаў</translation>
+<translation id="4837128290434901661">Зноў зрабіць Google Пошук стандартнай пошукавай сістэмай?</translation>
 <translation id="4837926214103741331">Вы не аўтарызаваны для выкарыстання гэтай прылады. Звярніцеся да ўладальніка прылады з запытам дазволу на ўваход.</translation>
 <translation id="4837952862063191349">Каб разблакіраваць і аднавіць лакальныя даныя, увядзіце стары пароль прылады <ph name="DEVICE_TYPE" />.</translation>
 <translation id="4838836835474292213">Доступ да чытання буфера абмену дадзены</translation>
@@ -3699,7 +3703,6 @@
 <translation id="5739235828260127894">Чаканне спраўджання. <ph name="LINK_BEGIN" />Даведацца больш<ph name="LINK_END" /></translation>
 <translation id="5739458112391494395">Вельмі вялікі</translation>
 <translation id="574209121243317957">Вышыня голасу</translation>
-<translation id="5745136023067925867">Давайце водгукі, атрымлівайце прапановы, навіны і парады па прыладах <ph name="DEVICE_TYPE" /></translation>
 <translation id="5746169159649715125">Захаваць як PDF</translation>
 <translation id="5747552184818312860">Тэрмін дзеяння:</translation>
 <translation id="5747785204778348146">Распрацоўшчык – нестабільны параметр</translation>
@@ -4966,6 +4969,7 @@
 <translation id="7396845648024431313"><ph name="APP_NAME" /> будзе запускацца пры запуску сістэмы і будзе працягваць працаваць у фоне, нават калі вы закрылі ўсе іншыя вокны <ph name="PRODUCT_NAME" />.</translation>
 <translation id="7399045143794278225">Наладзіць сінхранізацыю</translation>
 <translation id="7400418766976504921">URL-адрас</translation>
+<translation id="7400447915166857470">Зноў зрабіць пошукавую сістэму <ph name="OLD_SEARCH_PROVIDER" /> стандартнай?</translation>
 <translation id="7400839060291901923">Наладзьце падключэнне на прыладзе <ph name="PHONE_NAME" /></translation>
 <translation id="7401778920660465883">Адхіліць гэта паведамленне</translation>
 <translation id="7403642243184989645">Спампоўванне рэсурсаў</translation>
@@ -4992,6 +4996,7 @@
 <translation id="7427798576651127129">Выклік з прылады <ph name="DEVICE_NAME" /></translation>
 <translation id="7431719494109538750">Прылады HID не знойдзены</translation>
 <translation id="7433692219247014412">{COUNT,plural, =0{Адкрыць усе ў &amp;новым акне}=1{Адкрыць у &amp;новым акне}one{Адкрыць усе (#) у &amp;новым акне}few{Адкрыць усе (#) у &amp;новым акне}many{Адкрыць усе (#) у &amp;новым акне}other{Адкрыць усе (#) у &amp;новым акне}}</translation>
+<translation id="7433957986129316853">Пакінуць</translation>
 <translation id="7434509671034404296">Для распрацоўшчыкаў</translation>
 <translation id="7434635829372401939">Сінхранізацыя налад</translation>
 <translation id="7434757724413878233">Паскарэнне мышы</translation>
@@ -5222,6 +5227,7 @@
 <translation id="7728570244950051353">Блакіроўка экрана з рэжыму сну</translation>
 <translation id="7728668285692163452">Змена канала будзе выканана пазней</translation>
 <translation id="7730449930968088409">Здымаць змесціва экрана</translation>
+<translation id="7730683939467795481">Гэта старонка была зменена пашырэннем "<ph name="EXTENSION_NAME" />"</translation>
 <translation id="7732111077498238432">Сетка кантралюецца палітыкай</translation>
 <translation id="7737115349420013392">Ідзе спалучэнне з прыладай "<ph name="DEVICE_NAME" />"...</translation>
 <translation id="7737238973539693982">Выдаліць Linux (бэта-версія)</translation>
@@ -5563,6 +5569,7 @@
 <translation id="8136269678443988272">Уведзеныя PIN-коды не супадаюць</translation>
 <translation id="8137559199583651773">Кіраваць пашырэннямі</translation>
 <translation id="8138082791834443598">Каб быць звязанымі з гэтай прыладай, увядзіце новую інфармацыю або абнавіце існуючую (не абавязкова).</translation>
+<translation id="8138217203226449454">Вы хацелі змяніць пошукавую сістэму?</translation>
 <translation id="813913629614996137">Ідзе ініцыялізацыя...</translation>
 <translation id="8140778357236808512">Імпартаваць існуючага падкантрольнага карыстальніка</translation>
 <translation id="8141584439523427891">Ідзе адкрыццё ў альтэрнатыўным браўзеры</translation>
@@ -6248,6 +6255,7 @@
 <translation id="9004952710076978168">Атрымана апавяшчэнне аб невядомым прынтары.</translation>
 <translation id="9008201768610948239">Ігнараваць</translation>
 <translation id="9009369504041480176">Ідзе запампоўванне (<ph name="PROGRESS_PERCENT" /> %)...</translation>
+<translation id="9009708085379296446">Магчыма, вы хацелі змяніць старонку?</translation>
 <translation id="9011163749350026987">Заўсёды паказваць значок</translation>
 <translation id="9013037634206938463">Для ўсталявання Linux неабходна мець як мінімум <ph name="INSTALL_SIZE" />. Каб вызваліць месца, выдаліце файлы з прылады.</translation>
 <translation id="9013707997379828817">Ваш адміністратар адкаціў версію АС на прыладзе. Захавайце важныя файлы і перазапусціце прыладу. Усе даныя на прыладзе будуць выдалены.</translation>

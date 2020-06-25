@@ -75,7 +75,7 @@
 <translation id="1543538514740974167">यो पृष्ठमा अझ छिटो पुग्नुहोस्</translation>
 <translation id="1544826120773021464">आफ्नो Google खाताको व्यवस्थापन गर्न "खाताको व्यवस्थापन गर्नुहोस्" नामक बटनमा क्लिक गर्नुहोस्</translation>
 <translation id="1549000191223877751">अर्को विन्डोमा सार्नुहोस्</translation>
-<translation id="1553358976309200471">Chrome अद्यावधिक गर्नुहोस्</translation>
+<translation id="1553358976309200471">Chrome अपडेट गर्नुहोस्</translation>
 <translation id="1569387923882100876">जडित यन्त्र</translation>
 <translation id="1571304935088121812">प्रयोगकर्ता नामको प्रतिलिपि बनाउनुहोस्</translation>
 <translation id="1612196535745283361">यन्त्रहरू स्क्यान गर्न Chrome लाई स्थान माथिको पहुँच चाहिन्छ। यस यन्त्रमा स्थान माथिको पहुँचलाई <ph name="BEGIN_LINK" />निष्क्रिय पारिएको छ<ph name="END_LINK" />।</translation>
@@ -112,7 +112,7 @@
 <translation id="1943432128510653496">पासवर्डहरू संग्रह गर्नुहोस्</translation>
 <translation id="1952172573699511566">सम्भव भए सम्म वेबसाइटहरूले तपाईंको रुचाइएको भाषामा पाठ देखाउनेछ।</translation>
 <translation id="1960290143419248813">Chrome का अद्यावधिकहरू उपलब्ध गराउने सुविधा Android को यो संस्करणमा अब उप्रान्त समर्थित छैन</translation>
-<translation id="1966710179511230534">कृपया तपाईंको साइन इन विवरण अद्यावधिक गर्नुहोस्।</translation>
+<translation id="1966710179511230534">कृपया तपाईंको साइन इन विवरण अपडेट गर्नुहोस्।</translation>
 <translation id="1974060860693918893">उन्नत</translation>
 <translation id="1984705450038014246">Chrome को आफ्नो डेटा सिंक गर्नुहोस्</translation>
 <translation id="1986685561493779662">नाम पहिलेदेखि नै विद्यमान छ</translation>
@@ -216,7 +216,7 @@
 <translation id="2777555524387840389"><ph name="SECONDS" /> सेकेन्ड बाँकी छ</translation>
 <translation id="2779651927720337254">डाउनलोड गर्न सकिएन</translation>
 <translation id="2781151931089541271">१ सेकेन्ड बाँकी छ</translation>
-<translation id="2801022321632964776">Chrome को नवीनतम संस्करणमा आफ्नो भाषा प्राप्त गर्न अद्यावधिक गर्नुहोस्</translation>
+<translation id="2801022321632964776">Chrome को नवीनतम संस्करणमा आफ्नो भाषा प्राप्त गर्न अपडेट गर्नुहोस्</translation>
 <translation id="2810645512293415242">डेटा बचत गर्न र अझ छिटो लोड गर्नका लागि सरलीकृत पृष्ठ।</translation>
 <translation id="281504910091592009">आफ्नो <ph name="BEGIN_LINK" />Google खाता<ph name="END_LINK" /> मा सुरक्षित गरिएका पासवर्डहरू हेर्नुहोस् र व्यवस्थापन गर्नुहोस्</translation>
 <translation id="2818669890320396765">आफ्ना सबै यन्त्रमा पुस्तक चिन्हहरू प्राप्त गर्न साइन इन गरी सिंक गर्ने सुविधा सक्रिय गर्नुहोस्</translation>
@@ -445,7 +445,7 @@
 <translation id="4720023427747327413"><ph name="PRODUCT_NAME" />मा खोल्नुहोस्</translation>
 <translation id="4720982865791209136">Chrome लाई सुधार्न मद्दत गर्नुहोस्। <ph name="BEGIN_LINK" />सर्वेक्षणमा भाग लिनुहोस्।<ph name="END_LINK" /></translation>
 <translation id="4732120983431207637">स्ट्याक Unwinder</translation>
-<translation id="473775607612524610">अद्यावधिक गर्नुहोस्</translation>
+<translation id="473775607612524610">अपडेट गर्नुहोस्</translation>
 <translation id="4738836084190194332">अन्तिम पटक सिंक गरिएको: <ph name="WHEN" /></translation>
 <translation id="4749960740855309258">एउटा नयाँ ट्याब खोल्नुहोस्</translation>
 <translation id="4759238208242260848">डाउनलोडहरू</translation>
@@ -545,7 +545,7 @@
 <translation id="5515439363601853141">आफ्नो पासवर्ड हेर्न अनलक गर्नुहोस्</translation>
 <translation id="5517095782334947753">तपाईंसँग <ph name="FROM_ACCOUNT" /> का पुस्तक चिन्ह, इतिहास, पासवर्ड र अन्य सेटिङहरू छन्।</translation>
 <translation id="5524843473235508879">रिडिरेक्ट गर्न रोक लगाइयो।</translation>
-<translation id="5527082711130173040">यन्त्रहरू स्क्यान गर्न Chrome लाई स्थान माथिको पहुँच चाहिन्छ। <ph name="BEGIN_LINK1" />अनुमतिहरूलाई अद्यावधिक गर्नुहोस्<ph name="END_LINK1" />। यो यन्त्रमा स्थान माथिको पहुँचलाई पनि <ph name="BEGIN_LINK2" />निष्क्रिय पारिएको छ<ph name="END_LINK2" />।</translation>
+<translation id="5527082711130173040">यन्त्रहरू स्क्यान गर्न Chrome लाई स्थान माथिको पहुँच चाहिन्छ। <ph name="BEGIN_LINK1" />अनुमतिहरूलाई अपडेट गर्नुहोस्<ph name="END_LINK1" />। यो यन्त्रमा स्थान माथिको पहुँचलाई पनि <ph name="BEGIN_LINK2" />निष्क्रिय पारिएको छ<ph name="END_LINK2" />।</translation>
 <translation id="5530766185686772672">इनकगनिटो ट्याबहरू बन्द गर्नुहोस्</translation>
 <translation id="5534640966246046842">साइट प्रतिलिपि गरियो</translation>
 <translation id="5561549206367097665">नेटवर्कको प्रतीक्षा गर्दै…</translation>
@@ -594,7 +594,7 @@
 <translation id="5869522115854928033">बचत गरिएका पासवर्डहरू</translation>
 <translation id="5876056640971328065">भिडियो पज गर्नुहोस्</translation>
 <translation id="5884076754568147479">तपाईंलाई काम सम्पन्न गर्न मद्दत गर्न Google ले तपाईंले सहायक प्रयोग गर्ने साइटका URL र सामग्रीहरूका साथै तपाईंले सहायकमार्फत पेस गर्न जानकारी प्राप्त गर्ने छ</translation>
-<translation id="5919204609460789179">सिंक सुरु गर्न <ph name="PRODUCT_NAME" /> लाई अद्यावधिक गर्नुहोस्</translation>
+<translation id="5919204609460789179">सिंक सुरु गर्न <ph name="PRODUCT_NAME" /> लाई अपडेट गर्नुहोस्</translation>
 <translation id="5937580074298050696"><ph name="AMOUNT" /> बचत गरियो</translation>
 <translation id="5939518447894949180">रिसेट गर्नुहोस्</translation>
 <translation id="5942872142862698679">खोजीका लागि Google प्रयोग गर्दै</translation>
@@ -684,7 +684,7 @@
 <translation id="6643649862576733715">बचत गरिएको डेटाको मात्राद्वारा क्रमबद्ध गर्नुहोस्</translation>
 <translation id="6648977384226967773">{CONTACT,plural, =1{<ph name="CONTACT_PREVIEW" />\u2026 र <ph name="NUMBER_OF_ADDITIONAL_CONTACTS" /> थप}other{<ph name="CONTACT_PREVIEW" />\u2026 र <ph name="NUMBER_OF_ADDITIONAL_CONTACTS" /> थप}}</translation>
 <translation id="6649642165559792194"><ph name="BEGIN_NEW" />नयाँ<ph name="END_NEW" /> छविको पूर्वावलोकन गर्नुहोस्</translation>
-<translation id="6656545060687952787">Chrome यन्त्रहरूको लागि स्क्यान गर्न स्थान पहुँच आवश्यक छ। <ph name="BEGIN_LINK" /> अनुमतिहरू अद्यावधिक गर्नुहोस्<ph name="END_LINK" /></translation>
+<translation id="6656545060687952787">Chrome यन्त्रहरूको लागि स्क्यान गर्न स्थान पहुँच आवश्यक छ। <ph name="BEGIN_LINK" /> अनुमतिहरू अपडेट गर्नुहोस्<ph name="END_LINK" /></translation>
 <translation id="6657585470893396449">पासवर्ड</translation>
 <translation id="6659594942844771486">ट्याब</translation>
 <translation id="666731172850799929"><ph name="APP_NAME" /> मा खोल्नुहोस्</translation>
@@ -777,7 +777,7 @@
 <translation id="7479104141328977413">ट्याबको प्रबन्धक</translation>
 <translation id="7481312909269577407">अगाडि</translation>
 <translation id="7482656565088326534">पूर्वावलोकन ट्याब</translation>
-<translation id="7484997419527351112">Discover - निष्क्रिय छ</translation>
+<translation id="7484997419527351112">Discover - अफ छ</translation>
 <translation id="7493994139787901920"><ph name="VERSION" /> (अद्यावधिक गरियो <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7494974237137038751">बचत गरिएको डेटा</translation>
 <translation id="7498271377022651285">प्रतीक्षा गर्नुहोस्...</translation>
@@ -886,7 +886,7 @@
 <translation id="8284326494547611709">क्याप्सन</translation>
 <translation id="8310344678080805313">मानक ट्याबहरू</translation>
 <translation id="8316092324682955408"><ph name="DOMAIN_NAME" /> र थप साइटहरू</translation>
-<translation id="8327155640814342956">सर्वोत्तम ब्राउजिङ अनुभव प्राप्त गर्न Chrome खोलेर अद्यावधिक गर्नुहोस्</translation>
+<translation id="8327155640814342956">सर्वोत्तम ब्राउजिङ अनुभव प्राप्त गर्न Chrome खोलेर अपडेट गर्नुहोस्</translation>
 <translation id="8339163506404995330"><ph name="LANGUAGE" /> मा रहेका पृष्ठहरूलाई अनुवाद गरिने छैन</translation>
 <translation id="8349013245300336738">प्रयोग गरिएको डेटाको मात्राद्वारा क्रमबद्ध गर्नुहोस्</translation>
 <translation id="8364299278605033898">लोकप्रिय वेबसाइटहरू हेर्नुहोस्</translation>
@@ -914,7 +914,7 @@
 <translation id="8516012719330875537">छवि सम्पादक</translation>
 <translation id="8523928698583292556">भण्डारण गरिएको पासवर्ड मेट्नुहोस्</translation>
 <translation id="854522910157234410">यो पृष्ठ खोल्नुहोस्:</translation>
-<translation id="8558485628462305855">अग्मेन्टेड रियालिटी सामग्री हेर्न ARCore अद्यावधिक गर्नुहोस्</translation>
+<translation id="8558485628462305855">अग्मेन्टेड रियालिटी सामग्री हेर्न ARCore अपडेट गर्नुहोस्</translation>
 <translation id="8559990750235505898">अन्य भाषाहरूमा पृष्ठहरूको अनुवाद गर्न प्रस्ताव गर्नुहोस्</translation>
 <translation id="8562452229998620586">बचत गरिएका पासवर्डहरू यहाँ देखिनेछन्।</translation>
 <translation id="8569404424186215731"><ph name="DATE" /> देखि</translation>

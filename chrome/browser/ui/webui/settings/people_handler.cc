@@ -741,7 +741,8 @@ void PeopleHandler::HandleStartKeyRetrieval(const base::ListValue* args) {
   if (!browser)
     return;
 
-  sync_ui_util::OpenTabForSyncKeyRetrieval(browser);
+  sync_ui_util::OpenTabForSyncKeyRetrieval(
+      browser, syncer::KeyRetrievalTriggerForUMA::kSettings);
 }
 
 void PeopleHandler::HandleGetSyncStatus(const base::ListValue* args) {

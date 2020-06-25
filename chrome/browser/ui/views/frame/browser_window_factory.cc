@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include <memory>
+#include "ui/display/screen.h"
 
 #include "chrome/browser/ui/views/frame/browser_frame.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -42,6 +43,12 @@ BrowserWindow* BrowserWindow::CreateBrowserWindow(
   if (position == "center" && !got_saved_bounds) {
     gfx::Rect bounds = browser_frame->GetWindowBoundsInScreen();
     browser_frame->CenterWindow(bounds.size());
+  }
+  if (position == "mouse" && !got_saved_bounds) {
+      gfx::Point cursor_pos(display::Screen::GetScreen()->GetCursorScreenPoint());
+      gfx::Rect bounds = browser_frame->GetWindowBoundsInScreen();
+      bounds.set_origin(cursor_pos);
+      browser_frame->SetBounds(bounds);
   }
 
   view->GetWidget()->non_client_view()->SetAccessibleName(

@@ -52,6 +52,13 @@ public abstract class BaseSuggestionViewProcessor implements SuggestionProcessor
                 R.dimen.omnibox_suggestion_comfortable_height);
     }
 
+    /**
+     * @return The desired size of Omnibox suggestion favicon.
+     */
+    protected int getDesiredFaviconSize() {
+        return mDesiredFaviconWidthPx;
+    }
+
     @Override
     public void onUrlFocusChange(boolean hasFocus) {}
 

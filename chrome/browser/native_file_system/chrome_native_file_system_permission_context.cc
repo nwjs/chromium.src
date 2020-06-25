@@ -1,6 +1,8 @@
 // Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+#pragma clang diagnostic ignored "-Wunused-function"
+
 #include "content/public/common/content_client.h"
 #include "content/public/browser/content_browser_client.h"
 #include "chrome/browser/native_file_system/chrome_native_file_system_permission_context.h"
@@ -403,6 +405,8 @@ void ChromeNativeFileSystemPermissionContext::PerformAfterWriteChecks(
     int frame_id,
     base::OnceCallback<void(AfterWriteCheckResult)> callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  std::move(callback).Run(AfterWriteCheckResult::kAllow);
+#if 0
   base::PostTask(
       FROM_HERE, {content::BrowserThread::UI},
       base::BindOnce(
@@ -418,6 +422,7 @@ void ChromeNativeFileSystemPermissionContext::PerformAfterWriteChecks(
                                    InterpretSafeBrowsingResult(result)));
               },
               base::SequencedTaskRunnerHandle::Get(), std::move(callback))));
+#endif
 }
 
 void ChromeNativeFileSystemPermissionContext::

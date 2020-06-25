@@ -639,6 +639,10 @@ const flags_ui::FeatureEntry kFeatureEntries[] = {
      flags_ui::kOsIos,
      FEATURE_VALUE_TYPE(
          autofill::features::kAutofillEnableCardNicknameManagement)},
+    {"messages-block-popup-infobars",
+     flag_descriptions::kBlockPopupInfobarMessagesUIName,
+     flag_descriptions::kBlockPopupInfobarMessagesUIDescription,
+     flags_ui::kOsIos, FEATURE_VALUE_TYPE(kBlockPopupInfobarMessagesUI)},
 };
 
 bool SkipConditionalFeatureEntry(const flags_ui::FeatureEntry& entry) {

@@ -236,10 +236,6 @@ mojom("mojom_platform") {
     enabled_features = [ "renderer_pref_system_font_family_name" ]
   }
 
-  if (use_x11) {
-    enabled_features += [ "use_x11" ]
-  }
-
   cpp_typemaps = [
     {
       types = [

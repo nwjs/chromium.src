@@ -46,6 +46,7 @@ import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.content_public.browser.LoadUrlParams;
+import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modelutil.PropertyModel;
 
 import java.util.ArrayList;
@@ -108,13 +109,13 @@ public class TabGroupUiMediator implements SnackbarManager.SnackbarController {
     private final TabGridDialogMediator.DialogController mTabGridDialogController;
     private final ThemeColorProvider.ThemeColorObserver mThemeColorObserver;
     private final ThemeColorProvider.TintObserver mTintObserver;
-    private final TabModelSelectorTabObserver mTabModelSelectorTabObserver;
     private final TabModelSelectorObserver mTabModelSelectorObserver;
     private final ActivityLifecycleDispatcher mActivityLifecycleDispatcher;
     private final SnackbarManager.SnackbarManageable mSnackbarManageable;
     private final Snackbar mUndoClosureSnackBar;
     private TabGroupModelFilter.Observer mTabGroupModelFilterObserver;
     private PauseResumeWithNativeObserver mPauseResumeWithNativeObserver;
+    private TabModelSelectorTabObserver mTabModelSelectorTabObserver;
     private boolean mIsTabGroupUiVisible;
     private boolean mIsShowingOverViewMode;
     private boolean mActivatedButNotShown;
@@ -176,8 +177,7 @@ public class TabGroupUiMediator implements SnackbarManager.SnackbarController {
                     return;
                 }
 
-                if (TabUiFeatureUtilities.isConditionalTabStripEnabled()
-                        && (mIsTabGroupUiVisible || mIsShowingOverViewMode)) {
+                if (TabUiFeatureUtilities.isConditionalTabStripEnabled() && mIsTabGroupUiVisible) {
                     return;
                 }
                 // TODO(995956): Optimization we can do here if we decided always hide the strip if
@@ -230,7 +230,7 @@ public class TabGroupUiMediator implements SnackbarManager.SnackbarController {
 
             @Override
             public void tabClosureUndone(Tab tab) {
-                if (!mIsTabGroupUiVisible && !mIsShowingOverViewMode) {
+                if (!mIsTabGroupUiVisible) {
                     resetTabStripWithRelatedTabsForId(tab.getId());
                 }
             }
@@ -255,11 +255,25 @@ public class TabGroupUiMediator implements SnackbarManager.SnackbarController {
         mTabModelSelectorTabObserver = new TabModelSelectorTabObserver(mTabModelSelector) {
             @Override
             public void onPageLoadStarted(Tab tab, String url) {
+                // TODO(crbug.com/1087826) This is a band-aid fix for M84. The root cause is
+                // probably a leaked observer. Remove this when the TabObservers are removed during
+                // tab reparenting.
+                if (mTabModelSelector.getTabById(tab.getId()) == null) return;
                 List<Tab> listOfTabs = getTabsToShowForId(tab.getId());
                 int numTabs = listOfTabs.size();
                 // This is set to zero because the UI is hidden.
                 if (!mIsTabGroupUiVisible || numTabs == 1) numTabs = 0;
                 RecordHistogram.recordCountHistogram("TabStrip.TabCountOnPageLoad", numTabs);
+            }
+
+            @Override
+            public void onActivityAttachmentChanged(Tab tab, WindowAndroid window) {
+                // Remove this when tab is detached since the TabModelSelectorTabObserver is not
+                // properly destroyed when there is a normal/night mode switch.
+                if (window == null) {
+                    this.destroy();
+                    mTabModelSelectorTabObserver = null;
+                }
             }
         };
 
@@ -267,9 +281,6 @@ public class TabGroupUiMediator implements SnackbarManager.SnackbarController {
             @Override
             public void onTabModelSelected(TabModel newModel, TabModel oldModel) {
                 mSnackbarManageable.getSnackbarManager().dismissSnackbars(TabGroupUiMediator.this);
-                if (mIsShowingOverViewMode) {
-                    return;
-                }
                 resetTabStripWithRelatedTabsForId(mTabModelSelector.getCurrentTabId());
             }
         };
@@ -407,10 +418,16 @@ public class TabGroupUiMediator implements SnackbarManager.SnackbarController {
      *            not, associated tabs from #getTabsToShowForID will be showing in the tab strip.
      */
     private void resetTabStripWithRelatedTabsForId(int id) {
-        // When conditional tab strip feature is turned on but the feature is not activated (i.e.
-        // forbidden or default), keep the tab strip hidden.
-        if (TabUiFeatureUtilities.isConditionalTabStripEnabled()
-                && ConditionalTabStripUtils.getFeatureStatus() != FeatureStatus.ACTIVATED) {
+        // TODO(crbug.com/1090655): We should be able to guard this call behind some checks so that
+        // we can assert here that 1) mIsShowingOverViewMode is false 2) mIsTabGroupUiVisible with
+        // valid id is false.
+        // When overview mode is showing or conditional tab strip feature is
+        // turned on but the feature is not activated (i.e. forbidden or default), keep the tab
+        // strip hidden.
+        if (mIsShowingOverViewMode
+                || (TabUiFeatureUtilities.isConditionalTabStripEnabled()
+                        && ConditionalTabStripUtils.getFeatureStatus()
+                                != FeatureStatus.ACTIVATED)) {
             id = Tab.INVALID_TAB_ID;
         }
         List<Tab> listOfTabs = getTabsToShowForId(id);
@@ -488,10 +505,12 @@ public class TabGroupUiMediator implements SnackbarManager.SnackbarController {
         if (mPauseResumeWithNativeObserver != null) {
             mActivityLifecycleDispatcher.unregister(mPauseResumeWithNativeObserver);
         }
+        if (mTabModelSelectorTabObserver != null) {
+            mTabModelSelectorTabObserver.destroy();
+        }
         mOverviewModeBehavior.removeOverviewModeObserver(mOverviewModeObserver);
         mThemeColorProvider.removeThemeColorObserver(mThemeColorObserver);
         mThemeColorProvider.removeTintObserver(mTintObserver);
-        mTabModelSelectorTabObserver.destroy();
     }
 
     private void maybeActivateConditionalTabStrip(@ReasonToShow int reason) {

@@ -85,7 +85,7 @@
 <translation id="1644574205037202324">Таржымал</translation>
 <translation id="1670399744444387456">Негизги</translation>
 <translation id="1671236975893690980">Жүктөп алуу күтүлүүдө…</translation>
-<translation id="1672586136351118594">Экинчи көрсөтүлбөсүн</translation>
+<translation id="1672586136351118594">Экинчи көрүнбөсүн</translation>
 <translation id="1692118695553449118">Шайкештештирүү күйүк</translation>
 <translation id="1718835860248848330">Акыркы бир саат</translation>
 <translation id="1736419249208073774">Изилдөө</translation>
@@ -469,7 +469,7 @@ Google аккаунтуңуздун башка Google кызматтарынан
 <translation id="488187801263602086">Файлдын аталышын өзгөртүү</translation>
 <translation id="4882831918239250449">Издөөнү, жарнамаларды жана башка кызматтарды жекечелештирүү үчүн серептөө таржымалыңыз кандайча пайдаланыларын көзөмөлдөңүз</translation>
 <translation id="4885273946141277891">Мындай сандагы Chrome нускалары колдоого алынбайт.</translation>
-<translation id="4908869848243824489">Google сунуштайт</translation>
+<translation id="4908869848243824489">Google сунуштары</translation>
 <translation id="4910889077668685004">Төлөм колдонмолору</translation>
 <translation id="4913161338056004800">Статистиканы баштапкы абалга келтирүү</translation>
 <translation id="4913169188695071480">Жаңыртуу токтотулсун</translation>
@@ -709,7 +709,7 @@ Google аккаунтуңуздун башка Google кызматтарынан
 <translation id="6846298663435243399">Жүктөлүүдө…</translation>
 <translation id="6850409657436465440">Файлыңыз дагы эле жүктөлүп алынууда</translation>
 <translation id="6850830437481525139"><ph name="TAB_COUNT" /> өтмөк жабылды</translation>
-<translation id="685850645784703949">Google сунуштайт – өчүк</translation>
+<translation id="685850645784703949">Google cунуштары – өчүк</translation>
 <translation id="6864459304226931083">Сүрөттү жүктөп алуу</translation>
 <translation id="6865313869410766144">Автотолтуруу формасынын дайындары</translation>
 <translation id="6884306546558072722">Оффлайн режиминде изилдей бериңиз</translation>
@@ -804,7 +804,7 @@ Google аккаунтуңуздун башка Google кызматтарынан
 <translation id="7641339528570811325">Серептөө дайындарын тазалап салуу…</translation>
 <translation id="7648422057306047504">Google аккаунтунун дайындары аркылуу сырсөздөрдү шифрлеңиз</translation>
 <translation id="7658239707568436148">Жокко чыгаруу</translation>
-<translation id="7665369617277396874">Аккаунтту кошуу</translation>
+<translation id="7665369617277396874">Аккаунт кошуу</translation>
 <translation id="766587987807204883">Оффлайн режиминде да окула турган макалалар ушул жерде көрүнөт</translation>
 <translation id="7682724950699840886">Төмөнкү кеңештерди аткарып көрүңүз: түзмөгүңүздө бош орун бар экенин текшерип, кайра экспорттоп көрүңүз.</translation>
 <translation id="7698359219371678927"><ph name="APP_NAME" /> колдонмосунан электрондук почта түзүңүз</translation>
