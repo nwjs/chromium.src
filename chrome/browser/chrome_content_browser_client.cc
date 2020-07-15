@@ -231,6 +231,7 @@
 #include "components/permissions/quota_permission_context_impl.h"
 #include "components/policy/content/policy_blacklist_navigation_throttle.h"
 #include "components/policy/content/policy_blacklist_service.h"
+#include "components/policy/core/common/policy_pref_names.h"
 #include "components/policy/core/common/policy_service.h"
 #include "components/policy/policy_constants.h"
 #include "components/pref_registry/pref_registry_syncable.h"
@@ -350,6 +351,7 @@
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_registry.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/loader/url_loader_throttle.h"
+#include "third_party/blink/public/common/switches.h"
 #include "third_party/blink/public/mojom/renderer_preferences.mojom.h"
 #include "third_party/blink/public/mojom/site_engagement/site_engagement.mojom.h"
 #include "third_party/blink/public/mojom/user_agent/user_agent_metadata.mojom.h"
@@ -2308,6 +2310,16 @@ void ChromeContentBrowserClient::AppendExtraCommandLineSwitches(
       if (prefs->HasPrefPath(prefs::kAppCacheForceEnabled) &&
           prefs->GetBoolean(prefs::kAppCacheForceEnabled)) {
         command_line->AppendSwitch(switches::kAppCacheForceEnabled);
+      }
+
+      // The UserAgentClientHint feature is typically managed via a
+      // base::Feature, but it has a managed policy override. The override is
+      // communicated to blink via a custom command-line flag.
+      PrefService* local_state = g_browser_process->local_state();
+      if (!local_state->GetBoolean(
+              policy::policy_prefs::kUserAgentClientHintsEnabled)) {
+        command_line->AppendSwitch(
+            blink::switches::kUserAgentClientHintDisable);
       }
     }
 

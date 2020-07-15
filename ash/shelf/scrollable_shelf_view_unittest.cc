@@ -939,7 +939,7 @@ class ScrollableShelfViewWithAppScalingTest : public ScrollableShelfViewTest {
   // Hotseat widget's width is a constant. Then |kAppCount| is in the range
   // of [1, (hotseat width) / (shelf button + button spacing) + 1]. So we can
   // get |kAppCount| in that range manually
-  static constexpr int kAppCount = 9;
+  static constexpr int kAppCount = 8;
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;

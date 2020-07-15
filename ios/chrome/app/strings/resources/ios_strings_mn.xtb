@@ -51,7 +51,7 @@
 <translation id="1509960214886564027">Олон сайтын онцлогууд ажиллахгүй байж болзошгүй</translation>
 <translation id="152234381334907219">Огт хадгалаагүй</translation>
 <translation id="1540800554400757039">Хаяг 1</translation>
-<translation id="1545749641540134597">Хурдан хариу үйлдлийн кодыг скан хийх</translation>
+<translation id="1545749641540134597">QR кодыг скан хийх</translation>
 <translation id="1552525382687785070">Таны админ синк хийхийг идэвхгүй болгосон байна</translation>
 <translation id="1554477036522844996">Шинэ цонх</translation>
 <translation id="1580783302095112590">Шуудан илгээгдсэн байна.</translation>
@@ -98,7 +98,7 @@
 <translation id="213900355088104901">Хувийн хайлт хийх бол нууцлалтай чихтэй хуудас нээнэ үү</translation>
 <translation id="2139867232736819575">Хуулсан текстээ хайх</translation>
 <translation id="2149973817440762519">Хадгалагдсан хуудсыг засах</translation>
-<translation id="2175927920773552910">Хурдан хариу үйлдлийн код</translation>
+<translation id="2175927920773552910">QR код</translation>
 <translation id="2179182049312275900">Та синкийг хүссэн үедээ тохиргоонд асааж болно.</translation>
 <translation id="2198757192731523470">Google таны түүхийг хайлт, зар болон Google-н бусад үйлчилгээг хувийн болгохын тулд ашиглаж болзошгүй.</translation>
 <translation id="2218443599109088993">Жижигрүүлэх</translation>
@@ -163,7 +163,7 @@
 <translation id="288655811176831528">Чихтэй хуудсыг хаах</translation>
 <translation id="2898963176829412617">Шинэ хавтас...</translation>
 <translation id="2916171785467530738">Хайлт болон URL-г автоматаар гүйцээх</translation>
-<translation id="291754862089661335">Энэ хүрээнд хурдан хариу үйлдлийн код, эсвэл баркод байршуулах</translation>
+<translation id="291754862089661335">Энэ хүрээнд QR код, эсвэл баркод байршуулах</translation>
 <translation id="2921219216347069551">Хуудсыг хуваалцаж чадахгүй байна</translation>
 <translation id="2923448633003185837">Буулгаад үргэлжлүүлэх</translation>
 <translation id="292639812446257861">Уншаагүй гэж тэмдэглэх</translation>
@@ -266,7 +266,7 @@
 <translation id="4334428914252001502">Уншаагүй 1 нийтлэл.</translation>
 <translation id="4338650699862464074">Таны зочилсон хуудасны URL-г Google-д илгээдэг.</translation>
 <translation id="4359125752503270327">Энэ хуудас өөр апп-д нээгдэх болно.</translation>
-<translation id="4375040482473363939">Хурдан хариу үйлдлийн кодоор хайх</translation>
+<translation id="4375040482473363939">QR кодоор хайх</translation>
 <translation id="4378154925671717803">Утас</translation>
 <translation id="4389019817280890563">Хэл солихын тулд товшино уу.</translation>
 <translation id="441868831736628555">Нууцлалын мэдэгдэл</translation>
@@ -439,7 +439,7 @@ Handoff-ыг Тохиргооны ерөнхий хэсэгт идэвхижүү
 <translation id="6638511529934826365">Текстийг томруулах…</translation>
 <translation id="6642362222295953972">Аль хэдийн нээсэн таб руу сэлгэх</translation>
 <translation id="6643016212128521049">Цэвэрлэх</translation>
-<translation id="6645899968535965230">Хурдан хариу үйлдлийн код: <ph name="PAGE_TITLE" /></translation>
+<translation id="6645899968535965230">QR код: <ph name="PAGE_TITLE" /></translation>
 <translation id="6656103420185847513">Хавтсыг засах</translation>
 <translation id="6657585470893396449">Нууц үг</translation>
 <translation id="6668619169535738264">Хавчуургыг засах</translation>
@@ -457,7 +457,7 @@ Handoff-ыг Тохиргооны ерөнхий хэсэгт идэвхижүү
 <translation id="6831043979455480757">Хөрвүүлэх</translation>
 <translation id="6851516051005285358">Дэлгэцийн сайтын хүсэлт тавих</translation>
 <translation id="6858855187367714033">Скан хийсэн</translation>
-<translation id="6859944681507688231">Хурдан хариу үйлдлийн код эсвэл кредит картыг скан хийхийн тулд тохиргоо хэсгээс камерыг идэвхжүүлнэ үү.</translation>
+<translation id="6859944681507688231">QR код эсвэл кредит картыг скан хийхийн тулд тохиргоо хэсгээс камерыг идэвхжүүлнэ үү.</translation>
 <translation id="6873263987691478642">Хувааж харах</translation>
 <translation id="6888009575607455378">Та өөрчлөлт оруулахаа болихдоо итгэлтэй байна уу?</translation>
 <translation id="6896758677409633944">Хуулах</translation>
@@ -618,7 +618,7 @@ Handoff-ыг Тохиргооны ерөнхий хэсэгт идэвхижүү
 <translation id="9094033019050270033">Нууц үг шинэчлэх</translation>
 <translation id="9100610230175265781">Нэвтрэх үг шаардлагатай</translation>
 <translation id="9148126808321036104">Дансандаа дахин нэвтрэх</translation>
-<translation id="9152539721251340337">Хурдан хариу үйлдлийн код үүсгэх</translation>
+<translation id="9152539721251340337">QR код үүсгэх</translation>
 <translation id="9157836665414082580">Харилцах цонхыг зогсоох</translation>
 <translation id="9188680907066685419">Удирдсан бүртгэлээс гарах</translation>
 <translation id="9203116392574189331">Handoff</translation>

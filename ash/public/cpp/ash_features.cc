@@ -4,14 +4,32 @@
 
 #include "ash/public/cpp/ash_features.h"
 
+#include <vector>
+
 #include "ash/public/cpp/ash_switches.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
+#include "base/strings/string_split.h"
+#include "base/system/sys_info.h"
 #include "build/build_config.h"
 #include "chromeos/constants/chromeos_switches.h"
 
 namespace ash {
 namespace features {
+
+namespace {
+
+bool ShouldHideShelfButtonsForBoard() {
+  std::vector<std::string> board =
+      base::SplitString(base::SysInfo::GetLsbReleaseBoard(), "-",
+                        base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
+  if (board.empty())
+    return false;
+  return board[0] == "kukui" || board[0] == "eve" || board[0] == "nocturne" ||
+         board[0] == "hatch";
+}
+
+}  // namespace
 
 const base::Feature kAllowAmbientEQ{"AllowAmbientEQ",
                                     base::FEATURE_DISABLED_BY_DEFAULT};
@@ -122,7 +140,7 @@ const base::Feature kDragFromShelfToHomeOrOverview{
     "DragFromShelfToHomeOrOverview", base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kHideShelfControlsInTabletMode{
-    "HideShelfControlsInTabletMode", base::FEATURE_ENABLED_BY_DEFAULT};
+    "HideShelfControlsInTabletMode", base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kSystemTrayMicGainSetting{
     "SystemTrayMicGainSetting", base::FEATURE_DISABLED_BY_DEFAULT};
@@ -237,8 +255,15 @@ bool IsReduceDisplayNotificationsEnabled() {
 }
 
 bool IsHideShelfControlsInTabletModeEnabled() {
-  return base::FeatureList::IsEnabled(kHideShelfControlsInTabletMode) &&
-         IsDragFromShelfToHomeOrOverviewEnabled();
+  if (!IsDragFromShelfToHomeOrOverviewEnabled())
+    return false;
+
+  // Enable shelf navigation buttons by default on select number of boards.
+  static const bool hide_shelf_buttons = ShouldHideShelfButtonsForBoard();
+  if (hide_shelf_buttons)
+    return true;
+
+  return base::FeatureList::IsEnabled(kHideShelfControlsInTabletMode);
 }
 
 bool IsDisplayChangeModalEnabled() {
@@ -246,6 +271,8 @@ bool IsDisplayChangeModalEnabled() {
 }
 
 bool AreContextualNudgesEnabled() {
+  if (!IsHideShelfControlsInTabletModeEnabled())
+    return false;
   return base::FeatureList::IsEnabled(kContextualNudges);
 }
 

@@ -23,6 +23,7 @@
 #include "components/permissions/permission_manager.h"
 #include "components/permissions/permission_request_manager.h"
 #include "components/permissions/permission_result.h"
+#include "components/prefs/pref_service.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "components/webrtc/media_stream_devices_controller.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -267,12 +268,13 @@ TabImpl::TabImpl(ProfileImpl* profile,
 
   permissions::PermissionRequestManager::CreateForWebContents(
       web_contents_.get());
+  PrefService* local_state = BrowserProcess::GetInstance()->GetLocalState();
   client_hints::ClientHints::CreateForWebContents(
       web_contents_.get(),
       BrowserProcess::GetInstance()->GetNetworkQualityTracker(),
       HostContentSettingsMapFactory::GetForBrowserContext(
           web_contents_->GetBrowserContext()),
-      GetUserAgentMetadata());
+      GetUserAgentMetadata(), local_state);
   content_settings::TabSpecificContentSettings::CreateForWebContents(
       web_contents_.get(), std::make_unique<TabSpecificContentSettingsDelegate>(
                                web_contents_.get()));

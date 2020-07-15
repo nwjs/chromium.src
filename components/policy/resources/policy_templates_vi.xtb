@@ -3469,6 +3469,11 @@ Nếu đặt thành False, thì <ph name="PRODUCT_NAME" /> sẽ không sử dụ
 <translation id="5961137303188584693">Địa chỉ MAC trên NIC tích hợp của thiết bị</translation>
 <translation id="5966615072639944554">Tiện ích được phép sử dụng API chứng thực từ xa</translation>
 <translation id="5983708779415553259">Thao tác mặc định cho trang web không nằm trong bất kỳ gói nội dung nào</translation>
+<translation id="599133751116473806">Khi được bật, tính năng <ph name="PRODUCT_NAME" /> sẽ gửi tiêu đề của yêu cầu chi tiết cung cấp thông tin về trình duyệt và môi trường của người dùng.
+
+      Đây là một tính năng bổ sung nhưng tiêu đề mới có thể làm hỏng một số trang web hạn chế lượng ký tự có trong các yêu cầu.
+
+      Nếu bạn bật hoặc không đặt chính sách này, thì tính năng <ph name="PRODUCT_NAME" /> sẽ được bật. Nếu bạn tắt chính sách này, thì tính năng này sẽ không hoạt động.</translation>
 <translation id="5997543603646547632">Sử dụng đồng hồ 24 giờ theo mặc định</translation>
 <translation id="5997846976342452720">Chỉ định xem có nên tắt trình tìm kiếm plugin hay không (không được dùng nữa)</translation>
 <translation id="5998198091336830580">Chính sách này thuộc nhóm không thể phân chia sau đây (chỉ áp dụng các chính sách thuộc nguồn có mức ưu tiên cao nhất trong nhóm):</translation>
@@ -4634,7 +4639,7 @@ Nếu bạn không đặt chính sách này thì người dùng sẽ có thể t
           Nếu cài đặt này được bật thì người dùng phải cung cấp mã xác thực hai bước hợp lệ khi truy cập vào máy chủ.
 
           Nếu cài đặt này bị tắt hoặc không được đặt thì tính năng xác thực hai bước sẽ không được bật và hành vi mặc định là có mã PIN do người dùng xác định sẽ được sử dụng.</translation>
-<translation id="7750991880413385988">Mở trang Tab mới</translation>
+<translation id="7750991880413385988">Mở trang Thẻ mới</translation>
 <translation id="7754704193130578113">Hỏi vị trí lưu từng tệp trước khi tải xuống</translation>
 <translation id="7755495228644343508">Định cấu hình các chính sách liên quan đến Chrome Reporting Extension (Tiện ích báo cáo của Chrome).
 
@@ -4807,6 +4812,7 @@ Nếu bạn không đặt chính sách này thì người dùng sẽ có thể t
       Nếu tắt hoặc không đặt chính sách này thì bạn chỉ có thể sử dụng các cấu hình cục bộ thông thường.
 
       Chính sách <ph name="SYNC_DISABLED_POLICY_NAME" /> sẽ tắt tất cả tính năng đồng bộ hóa dữ liệu, ghi đè <ph name="ROAMING_PROFILE_SUPPORT_ENABLED_POLICY_NAME" />.</translation>
+<translation id="8011935490612940798">Kiểm soát tính năng <ph name="PRODUCT_NAME" />.</translation>
 <translation id="802147957407376460">Xoay màn hình 0 độ</translation>
 <translation id="8027265928215448940">Danh sách các tùy chọn cài đặt dịch vụ Trình kết nối của Chrome Enterprise sẽ áp dụng cho Trình kết nối <ph name="ON_FILE_DOWNLOADED_ENTERPRISE_CONNECTOR" /> của Enterprise. Trình kết nối này sẽ chạy khi tệp được tải xuống trong Chrome.
 

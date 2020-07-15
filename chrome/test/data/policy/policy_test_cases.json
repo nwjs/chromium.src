@@ -7292,5 +7292,19 @@
         }
       }
     ]
+  },
+  "UserAgentClientHintsEnabled": {
+    "os": ["win", "linux", "mac", "chromeos", "android"],
+    "policy_pref_mapping_test": [
+      {
+        "policies": { "UserAgentClientHintsEnabled": true },
+        "prefs": {
+          "policy.user_agent_client_hints_enabled": {
+            "local_state":  true,
+            "value": true
+          }
+        }
+      }
+    ]
   }
 }

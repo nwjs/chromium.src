@@ -21239,6 +21239,26 @@ If you disable this policy, web page scrolling to specific text fragments via UR
 
           If you set this policy, users cannot change or override it.''',
     },
+    {
+      'name': 'UserAgentClientHintsEnabled',
+      'owners': ['file://components/client_hints/OWNERS', 'yoavweiss@google.com'],
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome_os:84-', 'chrome.*:84-', 'android:84-'],
+      'features': {
+        'per_profile': False,
+        'dynamic_refresh': True,
+      },
+      'example_value': True,
+      'id': 725,
+      'caption': '''Control the <ph name="PRODUCT_NAME">User-Agent Client Hints</ph> feature.''',
+      'tags': [],
+      'desc': '''When enabled the <ph name="PRODUCT_NAME">User-Agent Client Hints</ph> feature sends granular request headers providing information about the user browser and environment.
+
+      This is an additive feature, but the new headers may break some websites that restrict the characters that requests may contain.
+
+      If this policy is enabled or not set the <ph name="PRODUCT_NAME">User-Agent Client Hints</ph> feature is enabled. If the policy is disabled the feature is unavailable.''',
+    },
   ],
 
   'messages': {
@@ -22095,7 +22115,7 @@ The recommended way to configure policy on Windows is via GPO, although provisio
     },
   ],
   'placeholders': [],
-  'deleted_policy_ids': [412, 476, 546, 562, 569, 578],
-  'highest_id_currently_used': 707,
+  'deleted_policy_ids': [412, 476, 546, 562, 569, 578, 708, 709, 710, 711, 712, 713, 714, 715, 716, 717, 718, 719, 720, 721, 722, 723, 724],
+  'highest_id_currently_used': 725,
   'highest_atomic_group_id_currently_used': 38
 }

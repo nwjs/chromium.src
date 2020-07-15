@@ -3467,6 +3467,11 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 기본 알림을 사용�
 <translation id="5961137303188584693">기기의 내장 NIC MAC 주소</translation>
 <translation id="5966615072639944554">원격 인증 API를 사용하도록 허용된 확장 프로그램입니다.</translation>
 <translation id="5983708779415553259">사이트에 대한 기본 동작이 콘텐츠 팩에 없음</translation>
+<translation id="599133751116473806"><ph name="PRODUCT_NAME" /> 기능을 사용하면 사용자 브라우저 및 환경에 관한 정보를 제공하는 상세 요청 헤더를 전송합니다.
+
+      이는 부가적인 기능이지만 요청이 포함할 수 있는 문자 수를 제한하는 일부 웹사이트가 새로운 헤더로 인해 손상될 수 있습니다.
+
+      정책을 사용 설정하거나 설정하지 않으면 <ph name="PRODUCT_NAME" /> 기능이 사용 설정됩니다. 정책을 사용 중지하면 기능을 사용할 수 없습니다.</translation>
 <translation id="5997543603646547632">기본적으로 24시간 표기법 사용</translation>
 <translation id="5997846976342452720">플러그인 Finder 사용 중지 여부 지정(지원 중단됨)</translation>
 <translation id="5998198091336830580">이 정책은 다음 그룹의 일부입니다. 그룹에서 우선순위가 가장 높은 출처의 정책만 적용됩니다.</translation>
@@ -4815,6 +4820,7 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 기본 알림을 사용�
       이 정책을 사용 중지하거나 설정하지 않으면 일반 로컬 프로필만 사용됩니다.
 
       <ph name="SYNC_DISABLED_POLICY_NAME" /> 정책은 모든 데이터 동기화를 사용 중지하며 <ph name="ROAMING_PROFILE_SUPPORT_ENABLED_POLICY_NAME" /> 정책을 무시합니다.</translation>
+<translation id="8011935490612940798"><ph name="PRODUCT_NAME" /> 기능을 제어합니다.</translation>
 <translation id="802147957407376460">화면을 0도 회전</translation>
 <translation id="8027265928215448940"><ph name="ON_FILE_DOWNLOADED_ENTERPRISE_CONNECTOR" /> Enterprise Connector에 적용할 Chrome Enterprise Connector 서비스 설정의 목록으로, 파일이 Chrome에서 다운로드될 때 실행됩니다.
 

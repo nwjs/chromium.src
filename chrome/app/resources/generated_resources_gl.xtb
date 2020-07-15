@@ -846,7 +846,7 @@ Instala a aplicación Family Link no teu dispositivo e poderás xestionar a conf
 <translation id="2071393345806050157">Non hai ningún ficheiro de rexistro local.</translation>
 <translation id="2073148037220830746">{NUM_EXTENSIONS,plural, =1{Fai clic para instalar a extensión}other{Fai clic para instalar estas extensións}}</translation>
 <translation id="2075474481720804517"><ph name="BATTERY_PERCENTAGE" /> % de batería</translation>
-<translation id="2075959085554270910">Permite activar ou desactivar as funcións de tocar e facer clic ou tocar e arrastrar</translation>
+<translation id="2075959085554270910">Permite activar ou desactivar as funcións de tocar para facer clic ou tocar e arrastrar</translation>
 <translation id="2076269580855484719">Ocultar este plugin</translation>
 <translation id="2076672359661571384">Tamaño medio (recomendado)</translation>
 <translation id="2077129598763517140">Utilizar a aceleración de hardware cando estea dispoñible</translation>
@@ -2549,7 +2549,7 @@ Instala a aplicación Family Link no teu dispositivo e poderás xestionar a conf
 <translation id="4184885522552335684">Para mover unha pantalla, arrástraa</translation>
 <translation id="4187424053537113647">Configurando <ph name="APP_NAME" />…</translation>
 <translation id="4190828427319282529">Destacar enfoque do teclado</translation>
-<translation id="4194570336751258953">Activar a función Tocar para facer clic</translation>
+<translation id="4194570336751258953">Activar a función de tocar para facer clic</translation>
 <translation id="4195643157523330669">Abrir en pestana nova</translation>
 <translation id="4195814663415092787">Continuar onde o deixaches</translation>
 <translation id="4198146608511578238">Mantén premida a icona do menú de aplicacións para falar co teu Asistente de Google.</translation>
@@ -4518,7 +4518,7 @@ Instala a aplicación Family Link no teu dispositivo e poderás xestionar a conf
 <translation id="6817174620439930047">Preguntar cando un sitio queira utilizar mensaxes exclusivas do sistema para acceder aos dispositivos MIDI (recomendado)</translation>
 <translation id="6818198425579322765">Idioma da páxina que se quere traducir</translation>
 <translation id="682123305478866682">Emitir contido do escritorio</translation>
-<translation id="6823174134746916417">Tocar e facer clic no panel táctil</translation>
+<translation id="6823174134746916417">Tocar para facer clic do panel táctil</translation>
 <translation id="6823506025919456619">Precisas iniciar sesión en Chrome para ver os teus dispositivos</translation>
 <translation id="6824564591481349393">Copiar &amp;enderezo de correo electrónico</translation>
 <translation id="6824584962142919697">&amp;Inspeccionar elementos</translation>

@@ -111,6 +111,9 @@ bool DragHandle::MaybeShowDragHandleNudge() {
   if (!show_drag_handle_nudge_timer_.IsRunning())
     overview_observer_.RemoveAll();
 
+  if (!features::AreContextualNudgesEnabled())
+    return false;
+
   // Do not show drag handle nudge if it is already shown or drag handle is not
   // visible.
   if (gesture_nudge_target_visibility() ||
@@ -128,6 +131,9 @@ bool DragHandle::MaybeShowDragHandleNudge() {
 }
 
 void DragHandle::ShowDragHandleNudge() {
+  if (!features::AreContextualNudgesEnabled())
+    return;
+
   DCHECK(!gesture_nudge_target_visibility_);
   PrefService* pref =
       Shell::Get()->session_controller()->GetLastActiveUserPrefService();

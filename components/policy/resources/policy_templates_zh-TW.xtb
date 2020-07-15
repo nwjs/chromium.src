@@ -3344,6 +3344,11 @@
 <translation id="5961137303188584693">裝置內建的 NIC MAC 位址</translation>
 <translation id="5966615072639944554">允許擴充功能使用 Remote Attestation API</translation>
 <translation id="5983708779415553259">非任何內容套件中網站的預設行為</translation>
+<translation id="599133751116473806">啟用「<ph name="PRODUCT_NAME" />」功能時，系統會傳送詳細的要求標頭，提供與使用者的瀏覽器和環境有關的資訊。
+
+      這是附加功能，但如果遇到對於要求的字元數設有限制的網站，新的標頭可能會導致這類網站無法正常運作。
+
+      如果啟用或不設定這項政策，系統會啟用<ph name="PRODUCT_NAME" />功能。如果停用這項政策，這項功能將無法使用。</translation>
 <translation id="5997543603646547632">預設使用 24 小時制時鐘</translation>
 <translation id="5997846976342452720">指定是否要停用外掛程式尋找工具 (已淘汰)</translation>
 <translation id="5998198091336830580">這項政策屬於下列不可部分完成的群組 (系統僅會套用群組中最高優先來源所設定的政策)：</translation>
@@ -4636,6 +4641,7 @@
       如果停用或不設定這項政策，系統只會使用一般本機設定檔。
 
       <ph name="SYNC_DISABLED_POLICY_NAME" /> 政策會停用所有資料同步處理功能，並覆寫 <ph name="ROAMING_PROFILE_SUPPORT_ENABLED_POLICY_NAME" />。</translation>
+<translation id="8011935490612940798">控管 <ph name="PRODUCT_NAME" /> 功能。</translation>
 <translation id="802147957407376460">將畫面旋轉 0 度</translation>
 <translation id="8027265928215448940">指定要套用至 <ph name="ON_FILE_DOWNLOADED_ENTERPRISE_CONNECTOR" /> Enterprise Connector 的 Chrome Enterprise Connectors 服務設定清單，在 Chrome 中下載檔案時會觸發這份清單。
 

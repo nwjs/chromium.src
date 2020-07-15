@@ -563,7 +563,7 @@
 <translation id="1697686431566694143">Editar arquivo</translation>
 <translation id="1698122934742150150">Apenas a sessão anônima atual</translation>
 <translation id="1700079447639026019">Sites que nunca podem usar cookies</translation>
-<translation id="1700845716982723710">Desativar o "Modo ambiente"</translation>
+<translation id="1700845716982723710">Desativar o Modo ambiente</translation>
 <translation id="1701062906490865540">Remover esta pessoa</translation>
 <translation id="1703331064825191675">Nunca se preocupe com suas senhas</translation>
 <translation id="1704970325597567340">A "confirmação de segurança" foi executada em <ph name="DATE" /></translation>
@@ -688,7 +688,7 @@
 <translation id="1842766183094193446">Tem certeza de que quer ativar o modo de demonstração?</translation>
 <translation id="1846308012215045257">Aperte Ctrl e clique para executar o plug-in <ph name="PLUGIN_NAME" /></translation>
 <translation id="1846880379134204029">Grupo <ph name="GROUP_NAME" />: <ph name="GROUP_CONTENTS" /></translation>
-<translation id="184715642345428649">Ativar o "Modo ambiente"</translation>
+<translation id="184715642345428649">Ativar o Modo ambiente</translation>
 <translation id="1849186935225320012">Esta página tem controle total de dispositivos MIDI.</translation>
 <translation id="1850508293116537636">Girar no &amp;sentido horário</translation>
 <translation id="1852141627593563189">Encontrar software nocivo</translation>
@@ -1856,7 +1856,8 @@ Para gerenciar as configurações dessa conta, instale o app Family Link no seu 
 <translation id="3335947283844343239">Reabrir guia fechada</translation>
 <translation id="3340620525920140773">Download concluído: <ph name="FILE_NAME" />.</translation>
 <translation id="3341699307020049241">PIN incorreto. Você tem <ph name="RETRIES" /> tentativas restantes.</translation>
-<translation id="3341703758641437857">Permitir acesso aos URLs do arquivo</translation>
+<translation id="3341703758641437857">Permitir acesso a URLs de arquivo
+</translation>
 <translation id="3342361181740736773">"<ph name="TRIGGERING_EXTENSION_NAME" />" quer remover essa extensão.</translation>
 <translation id="3345135638360864351">Não foi possível enviar sua solicitação a <ph name="NAME" /> para acessar este site. Tente novamente.</translation>
 <translation id="3345634917232014253">A confirmação de segurança foi executada há pouco tempo</translation>
@@ -1953,7 +1954,7 @@ Para gerenciar as configurações dessa conta, instale o app Family Link no seu 
 <translation id="3462311546193741693">Desconecta você da maioria dos sites. Você permanecerá conectado à sua Conta do Google para que seus dados sincronizados possam ser excluídos.</translation>
 <translation id="3462413494201477527">Cancelar a configuração da conta?</translation>
 <translation id="346431825526753">Esta é uma conta para as crianças gerenciada por <ph name="CUSTODIAN_EMAIL" />.</translation>
-<translation id="3468298837301810372">Marcador</translation>
+<translation id="3468298837301810372">Etiqueta</translation>
 <translation id="3468999815377931311">Smartphone Android</translation>
 <translation id="3470442499439619530">Remover este usuário</translation>
 <translation id="3471876058939596279">As portas HDMI and USB-C não podem ser usadas para vídeo ao mesmo tempo. Use uma porta de vídeo diferente.</translation>
@@ -3151,7 +3152,7 @@ Para gerenciar as configurações dessa conta, instale o app Family Link no seu 
 <translation id="5027562294707732951">Adicionar extensão</translation>
 <translation id="5029568752722684782">Limpar cópia</translation>
 <translation id="5033266061063942743">Formas geométricas</translation>
-<translation id="5033370009438029887">Desativar o "Modo ambiente"</translation>
+<translation id="5033370009438029887">Desativar o Modo ambiente</translation>
 <translation id="5036662165765606524">Não permitir que nenhum site faça download de vários arquivos automaticamente</translation>
 <translation id="5037676449506322593">Selecionar tudo</translation>
 <translation id="5038022729081036555">Você poderá usá-lo amanhã por <ph name="TIME_LIMIT" />.</translation>
@@ -4222,7 +4223,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="6412931879992742813">Nova janela anônima</translation>
 <translation id="641469293210305670">Instalar atualizações e apps</translation>
 <translation id="6414888972213066896">Você perguntou ao seu responsável se pode visitar este site</translation>
-<translation id="6415659939354280526">Escolher fonte do "Modo ambiente"</translation>
+<translation id="6415659939354280526">Escolher fonte do Modo ambiente</translation>
 <translation id="6415900369006735853">Conecte-se à internet pelo smartphone</translation>
 <translation id="6416743254476733475">Permita ou bloqueie no seu computador.</translation>
 <translation id="6417265370957905582">Google Assistente</translation>
@@ -5134,7 +5135,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="7616214729753637086">Registrando dispositivo…</translation>
 <translation id="7617263010641145920">Ativar a Play Store</translation>
 <translation id="7617366389578322136">Conectando-se a "<ph name="DEVICE_NAME" />"</translation>
-<translation id="761763866592998929">"Modo ambiente"</translation>
+<translation id="761763866592998929">Modo ambiente</translation>
 <translation id="762068974690945752">Adicione uma conta escolar ou gerencie contas de criança aqui. <ph name="LINK_BEGIN" />Saiba mais<ph name="LINK_END" /></translation>
 <translation id="7621382409404463535">Falha do sistema ao salvar a configuração do dispositivo.</translation>
 <translation id="7622114377921274169">Carregando.</translation>
@@ -5368,7 +5369,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="7881483672146086348">Visualizar conta</translation>
 <translation id="7882358943899516840">Tipo de provedor</translation>
 <translation id="7883262476066478211">O dispositivo foi bloqueado</translation>
-<translation id="78851824530736377">Ativar o "Modo ambiente"</translation>
+<translation id="78851824530736377">Ativar o Modo ambiente</translation>
 <translation id="7885253890047913815">Destinos recentes</translation>
 <translation id="7887334752153342268">Duplicar</translation>
 <translation id="7887864092952184874">Mouse Bluetooth pareado</translation>

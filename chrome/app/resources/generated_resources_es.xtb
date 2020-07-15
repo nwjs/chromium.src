@@ -205,7 +205,7 @@
 <translation id="1244265436519979884">Hay una restauración de Linux en curso</translation>
 <translation id="1244303850296295656">Error de extensión</translation>
 <translation id="1246158006305844142">Tus aplicaciones y ajustes se sincronizarán en todos los dispositivos Chrome OS en los que hayas iniciado sesión con tu cuenta de Google. Para ver las opciones de sincronización del navegador, ve a la <ph name="LINK_BEGIN" />configuración de Chrome<ph name="LINK_END" />.</translation>
-<translation id="1246905108078336582">¿Quieres quitar la sugerencia del portapapeles?</translation>
+<translation id="1246905108078336582">¿Quitar la sugerencia del portapapeles?</translation>
 <translation id="1249643471736608405"><ph name="PLUGIN_NAME" /> se ha bloqueado porque está obsoleto</translation>
 <translation id="1251366534849411931">Falta una llave de apertura: <ph name="ERROR_LINE" /></translation>
 <translation id="1251480783646955802">Esta acción borrará <ph name="TOTAL_USAGE" /> de datos almacenados por sitios web y aplicaciones instaladas</translation>
@@ -502,7 +502,7 @@
 <translation id="1628948239858170093">¿Analizar archivo antes de abrirlo?</translation>
 <translation id="1629314197035607094">Contraseña caducada</translation>
 <translation id="1630768113285622200">Reiniciar y continuar</translation>
-<translation id="1630873818549593964">Los datos de tu hijo en Classroom estarán protegidos. <ph name="LINK_BEGIN" />Más información<ph name="LINK_END" /></translation>
+<translation id="1630873818549593964">Los datos de tu hijo/a en Classroom estarán protegidos. <ph name="LINK_BEGIN" />Más información<ph name="LINK_END" /></translation>
 <translation id="1632803087685957583">Te permite configurar la frecuencia de repetición del teclado, la predicción de palabras y otros ajustes</translation>
 <translation id="1633947793238301227">Inhabilitar Asistente de Google</translation>
 <translation id="1634783886312010422">¿Has cambiado esta contraseña en <ph name="WEBSITE" />?</translation>
@@ -715,7 +715,7 @@
 <translation id="1877520246462554164">No se ha podido obtener el token de autenticación. Cierra la sesión y vuelve a iniciarla para intentarlo de nuevo.</translation>
 <translation id="1877860345998737529">Asignación de interruptores a acciones</translation>
 <translation id="1879000426787380528">Iniciar sesión como</translation>
-<translation id="1880905663253319515">¿Quieres eliminar el certificado "<ph name="CERTIFICATE_NAME" />"?</translation>
+<translation id="1880905663253319515">¿Eliminar el certificado "<ph name="CERTIFICATE_NAME" />"?</translation>
 <translation id="1884013283844450420">Red <ph name="NETWORK_INDEX" /> de <ph name="NETWORK_COUNT" />, <ph name="NETWORK_NAME" />, conectar</translation>
 <translation id="1884705339276589024">Cambiar el tamaño de disco de Linux</translation>
 <translation id="1885106732301550621">Espacio en disco</translation>
@@ -869,7 +869,7 @@ Puedes gestionar la configuración de esta cuenta instalando la aplicación Fami
 <translation id="2097372108957554726">Debes iniciar sesión en Chrome para registrar nuevos dispositivos</translation>
 <translation id="2099172618127234427">Vas a habilitar las funciones de depuración de Chrome OS, que configurarán el daemon sshd y habilitará el arranque desde unidades USB.</translation>
 <translation id="2099625543891475722">tus rasgos físicos, como tu altura</translation>
-<translation id="2099686503067610784">¿Quieres eliminar el certificado de servidor "<ph name="CERTIFICATE_NAME" />"?</translation>
+<translation id="2099686503067610784">¿Eliminar el certificado de servidor "<ph name="CERTIFICATE_NAME" />"?</translation>
 <translation id="2100273922101894616">Iniciar sesión automáticamente</translation>
 <translation id="2101225219012730419">Versión:</translation>
 <translation id="211144231511833662">Borrar tipos</translation>
@@ -1299,7 +1299,7 @@ Puedes gestionar la configuración de esta cuenta instalando la aplicación Fami
 <translation id="2629227353894235473">Desarrollar aplicaciones de Android</translation>
 <translation id="2630681426381349926">Conéctate a una red Wi-Fi para empezar</translation>
 <translation id="2631498379019108537">Mostrar opciones de entrada en la estantería</translation>
-<translation id="2633212996805280240">¿Quieres eliminar "<ph name="EXTENSION_NAME" />"?</translation>
+<translation id="2633212996805280240">¿Eliminar "<ph name="EXTENSION_NAME" />"?</translation>
 <translation id="263325223718984101"><ph name="PRODUCT_NAME" /> no ha podido completar la instalación, pero se seguirá ejecutando desde la imagen de disco.</translation>
 <translation id="2633764681656412085">FIDO</translation>
 <translation id="2634199532920451708">Historial de impresión</translation>
@@ -2312,7 +2312,7 @@ Puedes gestionar la configuración de esta cuenta instalando la aplicación Fami
 <translation id="3873315167136380065">Para activar esta opción, <ph name="BEGIN_LINK" />restablece la sincronización<ph name="END_LINK" /> para eliminar tu frase de contraseña de sincronización</translation>
 <translation id="3873423927483480833">Mostrar PINs</translation>
 <translation id="3873915545594852654">Ha habido un problema con ARC++.</translation>
-<translation id="3874164307099183178">Activar Asistente de Google.</translation>
+<translation id="3874164307099183178">Activar Asistente de Google</translation>
 <translation id="387531380970557479">Se ha inhabilitado <ph name="EXTENSION_NAME" /> porque contiene software malicioso.</translation>
 <translation id="3879748587602334249">Administrador de descargas</translation>
 <translation id="3882165008614329320">Vídeo de la cámara o un archivo</translation>
@@ -2543,7 +2543,7 @@ Puedes gestionar la configuración de esta cuenta instalando la aplicación Fami
 <translation id="4175737294868205930">Almacenamiento permanente</translation>
 <translation id="4176463684765177261">Inhabilitado</translation>
 <translation id="418031202593299965">Estos componentes se comparten con otros usuarios de este dispositivo. Eliminar un componente podría afectar a otros usuarios.</translation>
-<translation id="4180788401304023883">¿Quieres eliminar el certificado de CA "<ph name="CERTIFICATE_NAME" />"?</translation>
+<translation id="4180788401304023883">¿Eliminar el certificado de CA "<ph name="CERTIFICATE_NAME" />"?</translation>
 <translation id="4181602000363099176">20x</translation>
 <translation id="4181841719683918333">Idiomas</translation>
 <translation id="4184885522552335684">Arrastra una pantalla para moverla</translation>
@@ -2694,7 +2694,7 @@ Puedes gestionar la configuración de esta cuenta instalando la aplicación Fami
 <translation id="4404136731284211429">Volver a analizar</translation>
 <translation id="4404843640767531781">Tu padre o madre ha bloqueado <ph name="APP_NAME" />. Pídele permiso para usar esta aplicación.</translation>
 <translation id="4405117686468554883">*.jpeg, *.jpg, *.png</translation>
-<translation id="4406883609789734330">Subtítulos instantáneos</translation>
+<translation id="4406883609789734330">Subtítulos automáticos</translation>
 <translation id="4408599188496843485">Ay&amp;uda</translation>
 <translation id="4409697491990005945">Márgenes</translation>
 <translation id="4410545552906060960">Usa un número PIN en lugar de una contraseña para desbloquear el dispositivo. Para crear el PIN más tarde, ve a Configuración.</translation>
@@ -3276,7 +3276,7 @@ Puedes gestionar la configuración de esta cuenta instalando la aplicación Fami
 <translation id="5203920255089865054">{NUM_EXTENSIONS,plural, =1{Haz clic para ver la extensión}other{Haz clic para ver las extensiones}}</translation>
 <translation id="5204673965307125349">Realiza un powerwash e inténtalo de nuevo.</translation>
 <translation id="5204967432542742771">Escribe tu contraseña</translation>
-<translation id="5206215183583316675">¿Quieres eliminar el certificado <ph name="CERTIFICATE_NAME" />?</translation>
+<translation id="5206215183583316675">¿Eliminar el certificado <ph name="CERTIFICATE_NAME" />?</translation>
 <translation id="520621735928254154">Error al importar el certificado</translation>
 <translation id="5207949376430453814">Resaltar el símbolo de intercalación del texto</translation>
 <translation id="5209320130288484488">No se ha encontrado ningún dispositivo.</translation>
@@ -5010,7 +5010,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="7443806024147773267">Accede cuando quieras a tus contraseñas con tu cuenta de Google</translation>
 <translation id="7444983668544353857">Inhabilitar <ph name="NETWORKDEVICE" /></translation>
 <translation id="7448430327655618736">Instalar aplicaciones automáticamente</translation>
-<translation id="7449752890690775568">¿Quieres quitar la contraseña?</translation>
+<translation id="7449752890690775568">¿Quitar la contraseña?</translation>
 <translation id="7450761244949417357">Abriendo en <ph name="ALTERNATIVE_BROWSER_NAME" /> ahora</translation>
 <translation id="7453008956351770337">Al seleccionar esta impresora, concedes permiso a la siguiente extensión para acceder a tu impresora:</translation>
 <translation id="7454548535253569100">Portal: <ph name="SUBFRAME_SITE" /></translation>
@@ -6002,7 +6002,7 @@ Guarda tu archivo de clave en un lugar seguro, ya que lo necesitarás para crear
 <translation id="8713570323158206935">Enviar <ph name="BEGIN_LINK1" />información del sistema<ph name="END_LINK1" /></translation>
 <translation id="8714838604780058252">Gráficos de fondo</translation>
 <translation id="8715480913140015283">La pestaña en segundo plano está usando la cámara</translation>
-<translation id="8716931980467311658">¿Quieres eliminar todos los datos y aplicaciones de Linux de la carpeta Archivos de Linux del <ph name="DEVICE_TYPE" />?</translation>
+<translation id="8716931980467311658">¿Eliminar todos los datos y aplicaciones de Linux de la carpeta Archivos de Linux del <ph name="DEVICE_TYPE" />?</translation>
 <translation id="8717864919010420084">Copiar enlace</translation>
 <translation id="8719472795285728850">Escuchando las actividades de extensión...</translation>
 <translation id="8719653885894320876">No se ha podido descargar <ph name="PLUGIN_NAME" /></translation>
@@ -6212,7 +6212,7 @@ Guarda tu archivo de clave en un lugar seguro, ya que lo necesitarás para crear
 <translation id="8952831374766033534">Opción de configuración no admitida: <ph name="ERROR_LINE" /></translation>
 <translation id="8953476467359856141">Durante la carga</translation>
 <translation id="895347679606913382">Iniciando...</translation>
-<translation id="8957762313041272117">Subtítulos instantáneos</translation>
+<translation id="8957762313041272117">Subtítulos automáticos</translation>
 <translation id="8958804960827200147">Orientación de la pantalla</translation>
 <translation id="895944840846194039">Memoria de JavaScript</translation>
 <translation id="8962083179518285172">Ocultar detalles</translation>
@@ -6357,7 +6357,7 @@ Guarda tu archivo de clave en un lugar seguro, ya que lo necesitarás para crear
 <translation id="9138978632494473300">Añadir accesos directos a las siguientes ubicaciones:</translation>
 <translation id="9139988741193276691">Configurando Linux</translation>
 <translation id="9140067245205650184">Estás usando una marca de función no admitida (<ph name="BAD_FLAG" />), lo que afectará a la estabilidad y la seguridad.</translation>
-<translation id="9143298529634201539">¿Quieres eliminar la sugerencia?</translation>
+<translation id="9143298529634201539">¿Eliminar la sugerencia?</translation>
 <translation id="9147392381910171771">&amp;Opciones</translation>
 <translation id="9148058034647219655">Salir</translation>
 <translation id="9148126808321036104">Volver a iniciar sesión</translation>

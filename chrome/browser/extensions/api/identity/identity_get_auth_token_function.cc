@@ -397,8 +397,7 @@ void IdentityGetAuthTokenFunction::StartMintTokenFlow(
       CompleteFunctionWithError(identity_constants::kNoGrant);
       return;
     }
-    // TODO(https://crbug.com/1026237): figure out whether this can be ignored
-    // when running the remote consent approval.
+
     if (!id_api->mint_queue()->empty(
             IdentityMintRequestQueue::MINT_TYPE_INTERACTIVE, token_key_)) {
       // Another call is going through a consent UI.
@@ -488,7 +487,6 @@ void IdentityGetAuthTokenFunction::StartMintToken(
 
       case IdentityTokenCacheValue::CACHE_STATUS_REMOTE_CONSENT_APPROVED:
         consent_result_ = cache_entry.consent_result();
-        should_prompt_for_scopes_ = false;
         should_prompt_for_signin_ = false;
         gaia_mint_token_mode_ = OAuth2MintTokenFlow::MODE_MINT_TOKEN_NO_FORCE;
         StartTokenKeyAccountAccessTokenRequest();
@@ -511,7 +509,6 @@ void IdentityGetAuthTokenFunction::StartMintToken(
         break;
       case IdentityTokenCacheValue::CACHE_STATUS_REMOTE_CONSENT_APPROVED:
         consent_result_ = cache_entry.consent_result();
-        should_prompt_for_scopes_ = false;
         should_prompt_for_signin_ = false;
         gaia_mint_token_mode_ = OAuth2MintTokenFlow::MODE_MINT_TOKEN_NO_FORCE;
         StartTokenKeyAccountAccessTokenRequest();
@@ -743,11 +740,11 @@ void IdentityGetAuthTokenFunction::OnGaiaRemoteConsentFlowApproved(
       "identity", "OnGaiaRemoteConsentFlowApproved", this, "gaia_id", gaia_id);
   DCHECK(!consent_result.empty());
 
-  CompleteMintTokenFlow();
   base::Optional<AccountInfo> account =
       IdentityManagerFactory::GetForProfile(GetProfile())
           ->FindExtendedAccountInfoForAccountWithRefreshTokenByGaiaId(gaia_id);
   if (!account) {
+    CompleteMintTokenFlow();
     CompleteFunctionWithError(identity_constants::kUserNotSignedIn);
     return;
   }
@@ -757,6 +754,7 @@ void IdentityGetAuthTokenFunction::OnGaiaRemoteConsentFlowApproved(
         IdentityManagerFactory::GetForProfile(GetProfile())
             ->GetPrimaryAccountId();
     if (primary_account_id != account->account_id) {
+      CompleteMintTokenFlow();
       CompleteFunctionWithError(identity_constants::kUserNonPrimary);
       return;
     }
@@ -765,13 +763,17 @@ void IdentityGetAuthTokenFunction::OnGaiaRemoteConsentFlowApproved(
   IdentityAPI* id_api = IdentityAPI::GetFactoryInstance()->Get(GetProfile());
   id_api->SetGaiaIdForExtension(token_key_.extension_id, gaia_id);
 
-  token_key_.account_id = account->account_id;
-  consent_result_ = consent_result;
-  should_prompt_for_scopes_ = false;
-  should_prompt_for_signin_ = false;
+  // It's important to update the cache before calling CompleteMintTokenFlow()
+  // as this call may start a new request synchronously and query the cache.
+  ExtensionTokenKey new_token_key(token_key_);
+  new_token_key.account_id = account->account_id;
   id_api->SetCachedToken(
-      token_key_,
+      new_token_key,
       IdentityTokenCacheValue::CreateRemoteConsentApproved(consent_result));
+  CompleteMintTokenFlow();
+  token_key_ = new_token_key;
+  consent_result_ = consent_result;
+  should_prompt_for_signin_ = false;
   StartMintTokenFlow(IdentityMintRequestQueue::MINT_TYPE_NONINTERACTIVE);
 }
 

@@ -164,10 +164,16 @@
     return;
   [super setIsNTP:isNTP];
   _isNTP = isNTP;
-  if (!isNTP && !IsSplitToolbarMode(self)) {
+  if (IsSplitToolbarMode(self) || !self.shouldHideOmniboxOnNTP)
+    return;
+
+  // This is hiding/showing and positionning the omnibox. This is only needed
+  // if the omnibox should be hidden when there is only one toolbar.
+  if (!isNTP) {
     // Reset any location bar view updates when not an NTP.
     [self setScrollProgressForTabletOmnibox:1];
-  } else if (isNTP && !IsSplitToolbarMode(self)) {
+  } else {
+    // Hides the omnibox.
     [self setScrollProgressForTabletOmnibox:0];
   }
 }

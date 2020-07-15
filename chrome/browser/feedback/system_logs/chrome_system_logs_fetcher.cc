@@ -40,12 +40,12 @@ SystemLogsFetcher* BuildChromeSystemLogsFetcher() {
   fetcher->AddSource(std::make_unique<DeviceEventLogSource>());
   fetcher->AddSource(std::make_unique<IwlwifiDumpChecker>());
   fetcher->AddSource(std::make_unique<TouchLogSource>());
-  fetcher->AddSource(std::make_unique<UiHierarchyLogSource>());
 
   // Debug Daemon data source - currently only this data source supports
   // the scrub_data parameter, but the others still get scrubbed by
   // SystemLogsFetcher.
   fetcher->AddSource(std::make_unique<DebugDaemonLogSource>(scrub_data));
+  fetcher->AddSource(std::make_unique<UiHierarchyLogSource>(scrub_data));
 #endif
 
   return fetcher;

@@ -884,7 +884,7 @@
 <translation id="4731967714531604179">‏Prc2 (مغلف)</translation>
 <translation id="4733082559415072992">يريد <ph name="URL" /> استخدام الموقع الجغرافي لجهازك.</translation>
 <translation id="4736825316280949806">‏إعادة تشغيل Chromium</translation>
-<translation id="4737121147659370456">‏فعَّل المشرف Chrome Enterprise Connectors على متصفّحك. لدى هذه الموصلات إذن بالوصول إلى بعض بياناتك.</translation>
+<translation id="4737121147659370456">‏فعَّل المشرف "وصلات Chrome Enterprise" على متصفّحك. لدى هذه الوصلات إذن بالوصول إلى بعض بياناتك.</translation>
 <translation id="473775607612524610">تحديث</translation>
 <translation id="4738601419177586157"><ph name="TEXT" /> اقتراحات البحث</translation>
 <translation id="4742407542027196863">إدارة كلمات المرور…</translation>
@@ -1751,7 +1751,7 @@
 <translation id="8371889962595521444">شهادات الجذر المُخصَّصة</translation>
 <translation id="8380941800586852976">ضارة</translation>
 <translation id="8381674639488873545">قد يتم تحصيل هذه الرسوم لمرة واحدة أو بشكل متكرِّر، وقد تكون غير واضحة. <ph name="BEGIN_LINK" />عرض على أي حال<ph name="END_LINK" /></translation>
-<translation id="8405166164747488837">‏فعَّل <ph name="ENROLLMENT_DOMAIN" /> Chrome Enterprise Connectors على متصفّحك. لدى هذه الموصلات إذن بالوصول إلى بعض بياناتك.</translation>
+<translation id="8405166164747488837">‏فعَّل <ph name="ENROLLMENT_DOMAIN" /> "وصلات Chrome Enterprise" على متصفّحك. لدى هذه الوصلات إذن بالوصول إلى بعض بياناتك.</translation>
 <translation id="8412145213513410671">الأعطال (<ph name="CRASH_COUNT" />)</translation>
 <translation id="8412392972487953978">يجب إدخال عبارة المرور نفسها مرتين.</translation>
 <translation id="8416694386774425977">تهيئة الشبكة غير صالحة ويتعذّر استيرادها.

@@ -474,7 +474,7 @@
     },
 
     'chromium.mac': {
-      'Mac Builder': 'gpu_tests_release_bot_minimal_symbols',
+      'Mac Builder': 'gpu_tests_release_bot_minimal_symbols_no_nacl',
       'Mac Builder (dbg)': 'gpu_tests_debug_bot',
       'ios-device': 'ios_device_release_rbe_compile_only',
       'ios-simulator': 'ios_simulator_debug_static_rbe_bot',

@@ -55,7 +55,7 @@
 <translation id="1520303207432623762">{NUM_APPS,plural, =1{Mostrar configurações de notificação. As notificações estão desativadas para um app}one{Mostrar configurações de notificação. As notificações estão desativadas para # app}other{Mostrar configurações de notificação. As notificações estão desativadas para # apps}}</translation>
 <translation id="1525508553941733066">DISPENSAR</translation>
 <translation id="15373452373711364">Cursor grande do mouse</translation>
-<translation id="1546492247443594934">Área de trabalho 2</translation>
+<translation id="1546492247443594934">Espaço de trabalho 2</translation>
 <translation id="1550523713251050646">Clique para ver mais opções</translation>
 <translation id="1570871743947603115">Alternar Bluetooth. <ph name="STATE_TEXT" /></translation>
 <translation id="1589090746204042747">acessar todas as suas atividades nesta sessão;</translation>
@@ -97,7 +97,7 @@
 <translation id="2050339315714019657">Retrato</translation>
 <translation id="2067602449040652523">Brilho do teclado</translation>
 <translation id="209965399369889474">Sem conexão com a rede</translation>
-<translation id="2126242104232412123">Nova área</translation>
+<translation id="2126242104232412123">Novo espaço</translation>
 <translation id="2127372758936585790">Carregador de baixa potência</translation>
 <translation id="2135456203358955318">Lupa em área fixa</translation>
 <translation id="2144487987174258011">Reinicie para atualizar o Adobe Flash Player</translation>
@@ -182,7 +182,7 @@
 <translation id="309749186376891736">Mover cursor</translation>
 <translation id="3105990244222795498"><ph name="DEVICE_NAME" /> (Bluetooth)</translation>
 <translation id="3126069444801937830">Reiniciar para atualizar</translation>
-<translation id="3139942575505304791">Área de trabalho 1</translation>
+<translation id="3139942575505304791">Espaço de trabalho 1</translation>
 <translation id="315116470104423982">Dados do celular</translation>
 <translation id="3151786313568798007">Orientação</translation>
 <translation id="3153444934357957346">Só é possível ter até <ph name="MULTI_PROFILE_USER_LIMIT" /> contas em login múltiplo.</translation>
@@ -194,7 +194,7 @@
 <translation id="3217205077783620295">O som está ativado. Alterná-lo desativará o som.</translation>
 <translation id="3226991577105957773">Mais <ph name="COUNT" /></translation>
 <translation id="3236488194889173876">Nenhuma rede móvel disponível</translation>
-<translation id="3249513730522716925">A janela <ph name="WINDOW_TITLE" /> foi movida da área de trabalho <ph name="ACTIVE_DESK" /> para a <ph name="TARGET_DESK" /></translation>
+<translation id="3249513730522716925">A janela <ph name="WINDOW_TITLE" /> foi movida do espaço de trabalho <ph name="ACTIVE_DESK" /> para o <ph name="TARGET_DESK" /></translation>
 <translation id="3255483164551725916">O que você pode fazer?</translation>
 <translation id="3290356915286466215">Não protegida</translation>
 <translation id="3294437725009624529">Visitante</translation>
@@ -223,7 +223,7 @@
 <translation id="3576141592585647168">Alterar fuso horário</translation>
 <translation id="3593646411856133110">Deslize para cima e mantenha a tela pressionada para ver os apps abertos</translation>
 <translation id="3595596368722241419">Bateria carregada</translation>
-<translation id="3604801046548457007">Área de trabalho <ph name="DESK_TITILE" /> criada</translation>
+<translation id="3604801046548457007">Espaço de trabalho <ph name="DESK_TITILE" /> criado</translation>
 <translation id="3606978283550408104">Display em braille conectado.</translation>
 <translation id="3616883743181209306">O menu foi movido para o canto superior direito da tela.</translation>
 <translation id="3621202678540785336">Entrada</translation>
@@ -297,7 +297,7 @@
 <translation id="4477892968187500306">O dispositivo pode conter apps que não foram verificados pelo Google.</translation>
 <translation id="4479639480957787382">Ethernet</translation>
 <translation id="4481530544597605423">Dispositvos não pareados</translation>
-<translation id="4505050298327493054">Área de trabalho ativa.</translation>
+<translation id="4505050298327493054">Espaço de trabalho ativo.</translation>
 <translation id="4513946894732546136">Comentários</translation>
 <translation id="4527045527269911712">O dispositivo Bluetooth "<ph name="DEVICE_NAME" />" deseja permissão para realizar o pareamento.</translation>
 <translation id="453661520163887813"><ph name="TIME" /> até completar</translation>
@@ -345,7 +345,7 @@
 <translation id="5222676887888702881">Sair</translation>
 <translation id="523505283826916779">Configurações de acessibilidade</translation>
 <translation id="5250225880026334010">Desativada</translation>
-<translation id="5260676007519551770">Área de trabalho 4</translation>
+<translation id="5260676007519551770">Espaço de trabalho 4</translation>
 <translation id="5283198616748585639">Adicionar 1 min</translation>
 <translation id="528468243742722775">Fim</translation>
 <translation id="5286194356314741248">Verificando</translation>
@@ -464,7 +464,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="6657585470893396449">Senha</translation>
 <translation id="6665545700722362599">conceder aos sites, apps e extensões permissão para usar serviços de localização, microfone, câmera ou outros recursos do dispositivo;</translation>
 <translation id="6669268301501499730">Ativado</translation>
-<translation id="6670153871843998651">Área de trabalho 3</translation>
+<translation id="6670153871843998651">Espaço de trabalho 3</translation>
 <translation id="6691659475504239918">Pesquisa+Shift+H</translation>
 <translation id="6692996468359469499">Veja informações relacionadas à sua seleção</translation>
 <translation id="6696025732084565524">Seu teclado removível precisa de uma atualização crítica</translation>
@@ -475,7 +475,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="6727969043791803658">Conectado, <ph name="BATTERY_PERCENTAGE" />% de bateria</translation>
 <translation id="6751052314767925245">Aplicado pelo seu administrador</translation>
 <translation id="6751826523481687655">O acompanhamento de desempenho está ativado</translation>
-<translation id="6752912906630585008">Área de trabalho <ph name="REMOVED_DESK" /> removida e mesclada com a <ph name="RECEIVE_DESK" /></translation>
+<translation id="6752912906630585008">Espaço de trabalho <ph name="REMOVED_DESK" /> removido e integrado ao <ph name="RECEIVE_DESK" /></translation>
 <translation id="6777216307882431711">Carregando dispositivos USB-C conectados</translation>
 <translation id="6790428901817661496">Reproduzir</translation>
 <translation id="6803622936009808957">Não foi possível espelhar os displays porque não foram encontradas resoluções suportadas. Em vez disso, foi ativada a área de trabalho estendida.</translation>
@@ -598,7 +598,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="8351131234907093545">Criar nota</translation>
 <translation id="8371779926711439835">Avançar por letra</translation>
 <translation id="8375916635258623388">Este <ph name="DEVICE_NAME" /> e seu smartphone serão conectados automaticamente</translation>
-<translation id="8388750414311082622">Não é possível remover a última área de trabalho.</translation>
+<translation id="8388750414311082622">Não é possível remover o último espaço de trabalho.</translation>
 <translation id="8392451568018454956">Menu de opções para <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="8394567579869570560">Seu pai/mãe bloqueou o dispositivo</translation>
 <translation id="8425213833346101688">Alterar</translation>
@@ -606,7 +606,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="8428213095426709021">Configurações</translation>
 <translation id="8433186206711564395">Configurações de rede</translation>
 <translation id="8433977262951327081">O atalho para mostrar o balão de menu de opções de entrada na estante foi alterado. Use <ph name="NEW_SHORTCUT" /> em vez de <ph name="OLD_SHORTCUT" />.</translation>
-<translation id="8444246603146515890">Área de trabalho <ph name="DESK_TITILE" /> ativada</translation>
+<translation id="8444246603146515890">Espaço de trabalho <ph name="DESK_TITILE" /> ativado</translation>
 <translation id="8452135315243592079">Chip ausente</translation>
 <translation id="8454013096329229812">O Wi-Fi está ligado.</translation>
 <translation id="847056008324733326">Exibir configurações de escala</translation>

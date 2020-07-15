@@ -1068,6 +1068,11 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
             }
 
             recordDisplayDimensions();
+            int playServicesVersion = ChromeVersionInfo.getPlayServicesApkVersionNumber(this);
+            RecordHistogram.recordBooleanHistogram(
+                    "Android.PlayServices.Installed", playServicesVersion > 0);
+            RecordHistogram.recordSparseHistogram(
+                    "Android.PlayServices.Version", playServicesVersion);
         });
 
         DeferredStartupHandler.getInstance().addDeferredTask(() -> {

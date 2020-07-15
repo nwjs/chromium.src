@@ -795,9 +795,19 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
   if (!web::IsWKWebViewSSLCertError(error)) {
     _certVerificationErrors->Clear();
   }
-  // Remove the navigation to immediately get rid of pending item.
+
+  web::NavigationContextImpl* context =
+      [self.navigationStates contextForNavigation:navigation];
+
+  // Remove the navigation to immediately get rid of pending item. Navigation
+  // should not be cleared, however, in the case of a committed interstitial
+  // for an SSL error.
   if (web::WKNavigationState::NONE !=
-      [self.navigationStates stateForNavigation:navigation]) {
+          [self.navigationStates stateForNavigation:navigation] &&
+      !(context && web::IsWKWebViewSSLCertError(context->GetError()) &&
+        base::FeatureList::IsEnabled(
+            web::features::kSSLCommittedInterstitials) &&
+        !base::FeatureList::IsEnabled(web::features::kUseJSForErrorPage))) {
     [self.navigationStates removeNavigation:navigation];
   }
 }

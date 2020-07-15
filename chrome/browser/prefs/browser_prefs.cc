@@ -691,6 +691,16 @@ void RegisterLocalState(PrefRegistrySimple* registry) {
   update_client::RegisterPrefs(registry);
   variations::VariationsService::RegisterPrefs(registry);
 
+  // Individual preferences. If you have multiple preferences that should
+  // clearly be grouped together, please group them together into a helper
+  // function called above. Please keep this list alphabetized.
+  registry->RegisterBooleanPref(
+      policy::policy_prefs::kUserAgentClientHintsEnabled, true);
+
+  // Below this point is for platform-specific and compile-time conditional
+  // calls. Please follow the helper-function-first-then-direct-calls pattern
+  // established above, and keep things alphabetized.
+
 #if BUILDFLAG(ENABLE_BACKGROUND_MODE)
   BackgroundModeManager::RegisterPrefs(registry);
 #endif

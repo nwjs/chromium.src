@@ -809,7 +809,7 @@
 <translation id="2019718679933488176">&amp; Шинэ цонхон дахь нээлттэй аудио</translation>
 <translation id="2020183425253392403">Сүлжээний хаягийн тохиргоог харуулах</translation>
 <translation id="2020225359413970060">Файлыг скан хийх</translation>
-<translation id="2022953316617983419">Хурдан хариу үйлдлийн код</translation>
+<translation id="2022953316617983419">QR код</translation>
 <translation id="2023167225947895179">ПИН-г таахад хялбар байж болзошгүй</translation>
 <translation id="202352106777823113">Татаж авах ажиллагаа хэт удаан байсан бөгөөд үүнийг сүлжээнээс зогсоосон байна.</translation>
 <translation id="2025115093177348061">Өргөтгөсөн бодит орчин</translation>
@@ -2949,7 +2949,7 @@
 <translation id="4763408175235639573">Таныг энэ хуудсыг харахад дараах күүкийг тохируулсан</translation>
 <translation id="4765582662863429759">Андройд Мессежийг таны утаснаас таны Chromebook-д мессеж илгээхийг зөвшөөрдөг</translation>
 <translation id="4768332406694066911">Танд эдгээр байгууллагаас таныг тодорхойлох сертификат байна</translation>
-<translation id="4774824109040330448">Утасныхаа тохирох баталгаажуулалтын аппаар хурдан хариу үйлдлийн кодыг скан хийх.</translation>
+<translation id="4774824109040330448">Утасныхаа тохирох баталгаажуулалтын аппаар QR кодыг скан хийх.</translation>
 <translation id="4776917500594043016"><ph name="USER_EMAIL_ADDRESS" />-ийн нууц үг</translation>
 <translation id="4777825441726637019">Play Store</translation>
 <translation id="4777943778632837590">Сүлжээний нэрийн серверийг тохируулах</translation>
@@ -3852,7 +3852,7 @@
 <translation id="5941343993301164315"><ph name="TOKEN_NAME" />-т нэвтрэнэ үү.</translation>
 <translation id="5941711191222866238">Багасгах</translation>
 <translation id="5942964813783878922">Таны <ph name="DEVICE_TYPE" />-г энэ шинэчлэлтийн дараа дахин эхлүүлэх болно. Программ хангамж болон аюулгүй байдлын цаашдын шинэчлэлтийг автоматаар суулгана.</translation>
-<translation id="5944869793365969636">Хурдан хариу үйлдлийн кодыг скан хийх</translation>
+<translation id="5944869793365969636">QR кодыг скан хийх</translation>
 <translation id="5946591249682680882"><ph name="WEBRTC_LOG_REPORT_ID" /> ID-ыг мэдээлэх</translation>
 <translation id="5949544233750246342">Файл задлах боломжгүй байна</translation>
 <translation id="5951624318208955736">Монитор</translation>
@@ -3957,7 +3957,7 @@
 <translation id="6077131872140550515">Сонгосон жагсаалтаас хасах</translation>
 <translation id="6077189836672154517"><ph name="DEVICE_TYPE" /> дээрх зөвлөгөөнүүд болон шинэчлэлтүүд</translation>
 <translation id="6077476112742402730">Хэлж бичүүлэх</translation>
-<translation id="6078045608615316905">Энэ зурагт хурдан хариу үйлдлийн код үүсгэх</translation>
+<translation id="6078045608615316905">Энэ зурагт QR код үүсгэх</translation>
 <translation id="6078323886959318429">Товчлол нэмэх</translation>
 <translation id="6078752646384677957">Микрофон, аудионы түвшинг шалгана уу.</translation>
 <translation id="6078769373519310690">"<ph name="CHROME_EXTENSION_NAME" />" HID төхөөрөмжид холбогдох хүсэлтэй байна</translation>
@@ -4410,7 +4410,7 @@
 <translation id="668599234725812620">Google Play-г нээх</translation>
 <translation id="6686490380836145850">Цонхнуудыг баруун тийш нь хаах</translation>
 <translation id="6686817083349815241">Нууц үгээ хадгална уу</translation>
-<translation id="6688285987813868112">Энэ зурагт хурдан хариу үйлдлийн код үүсгэх</translation>
+<translation id="6688285987813868112">Энэ зурагт QR код үүсгэх</translation>
 <translation id="6690659332373509948">Файлыг задлах боломжгүй байна: <ph name="FILE_NAME" /></translation>
 <translation id="6690751852586194791">Энэ төхөөрөмжид нэмэх хяналт бүхий хэрэглэгчийг сонгох.</translation>
 <translation id="6691331417640343772">Синк хийсэн өгөгдлийг Google Хяналтын самбарт удирдах</translation>
@@ -4587,7 +4587,7 @@
 <translation id="6914783257214138813">Экспорт хийсэн файлыг харах боломжтой хүн бүрд таны нууц үг харагдана.</translation>
 <translation id="6915804003454593391">Хэрэглэгч:</translation>
 <translation id="6916590542764765824">Удирдлаганд байдаг өргөтгөлүүд</translation>
-<translation id="6920262510368602827">Энэ хуудсанд хурдан хариу үйлдлийн код үүсгэх</translation>
+<translation id="6920262510368602827">Энэ хуудсанд QR код үүсгэх</translation>
 <translation id="6920989436227028121">Тогтмол цонхоор нээ</translation>
 <translation id="6921104647315081813">Үйл ажиллагааг устгах</translation>
 <translation id="692114467174262153"><ph name="ALTERNATIVE_BROWSER_NAME" />-г нээж чадсангүй</translation>
@@ -4940,7 +4940,7 @@
 <translation id="7365076891350562061">Мониторын хэмжээ</translation>
 <translation id="7366415735885268578">Сайт нэмэх</translation>
 <translation id="7366909168761621528">Хайх өгөгдөл</translation>
-<translation id="7367714965999718019">Хурдан хариу үйлдлийн код үүсгэгч</translation>
+<translation id="7367714965999718019">QR код үүсгэгч</translation>
 <translation id="736877393389250337"><ph name="URL" />-г <ph name="ALTERNATIVE_BROWSER_NAME" />-д нээж чадсангүй. Системийнхээ админтай холбогдоно уу.</translation>
 <translation id="7370592524170198497">Этернэт EAP:</translation>
 <translation id="7371006317849674875">Эхлэх цаг</translation>
@@ -5751,7 +5751,7 @@
 <translation id="8382913212082956454">И-мэйл хаягийг хуулбарлах</translation>
 <translation id="8386091599636877289">Удирдамж олдсонгүй.</translation>
 <translation id="8386903983509584791">Шалгаж дууслаа</translation>
-<translation id="8389416080014625855">Энэ хуудсанд хурдан хариу үйлдлийн код үүсгэх</translation>
+<translation id="8389416080014625855">Энэ хуудсанд QR код үүсгэх</translation>
 <translation id="8389492867173948260">Энэ өргөтгөлд таны зочилдог вэб сайтын бүх өгөгдлийг унших болон өөрчлөхийг зөвшөөрнө үү:</translation>
 <translation id="8390449457866780408">Серверүүд ажиллах боломжгүй байна.</translation>
 <translation id="8391218455464584335">Пянз</translation>

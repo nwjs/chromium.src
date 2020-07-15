@@ -148,7 +148,7 @@
 <translation id="2154710561487035718">URL-ийг хуул</translation>
 <translation id="2156074688469523661">Үлдсэн сайт (<ph name="NUMBER_OF_SITES" />)</translation>
 <translation id="2157851137955077194">Утаснаасаа ямар нэгэн зүйл өөр төхөөрөмжтэй хуваалцахын тулд хоёр төхөөрөмжийн аль алины Chrome-н тохиргоонд синк хийхийг асаана уу</translation>
-<translation id="2175927920773552910">Хурдан хариу үйлдлийн код</translation>
+<translation id="2175927920773552910">QR код</translation>
 <translation id="218608176142494674">Хуваалцаж байна</translation>
 <translation id="2227444325776770048"><ph name="USER_FULL_NAME" />-р үргэлжлүүлэх</translation>
 <translation id="2234876718134438132">Синк болон Google-н үйлчилгээ</translation>
@@ -233,7 +233,7 @@
 <translation id="2903493209154104877">Хаягууд</translation>
 <translation id="290376772003165898">Хуудас <ph name="LANGUAGE" /> хэл дээр биш байна уу?</translation>
 <translation id="2904414404539560095">Таб хуваалцах төхөөрөмжийн жагсаалтыг бүрэн өндрөөр нээлээ.</translation>
-<translation id="2905036901251765993">Ойролцоо байгаа хүмүүстэй хуваалцахын тулд тэдэнд энэ хурдан хариу үйлдлийн кодыг скан хийхийг зөвшөөрнө үү</translation>
+<translation id="2905036901251765993">Ойролцоо байгаа хүмүүстэй хуваалцахын тулд тэдэнд энэ QR кодыг скан хийхийг зөвшөөрнө үү</translation>
 <translation id="2909615210195135082">Google мэдэгдлийн платформ</translation>
 <translation id="2923908459366352541">Нэр буруу байна</translation>
 <translation id="2932150158123903946">Google <ph name="APP_NAME" /> сан</translation>
@@ -366,7 +366,7 @@
 <translation id="3997476611815694295">Чухал биш сан</translation>
 <translation id="4000212216660919741">Офлайн нүүр</translation>
 <translation id="4034817413553209278">{HOURS,plural, =1{# цаг}other{# цаг}}</translation>
-<translation id="403687620286099920">Хурдан хариу үйлдлийн кодыг нээхийн тулд товшино уу</translation>
+<translation id="403687620286099920">QR кодыг нээхийн тулд товшино уу</translation>
 <translation id="4046123991198612571">Дараагийн бичлэг</translation>
 <translation id="4056223980640387499">Сепиа</translation>
 <translation id="4060598801229743805">Сонголт дэлгэцийн дээд хэсэгт байна</translation>
@@ -562,7 +562,7 @@ Tаны Google бүртгэл <ph name="BEGIN_LINK" />history.google.com<ph name
 <translation id="5659593005791499971">И-мэйл хаяг</translation>
 <translation id="5665379678064389456"><ph name="APP_NAME" />-д арга хэмжээ үүсгэнэ үү</translation>
 <translation id="5668404140385795438">Томруулах үйлдлээс урьдчилан сэргийлэхийн тулд вэбсайтны хүсэлтийг хүчингүй болгох</translation>
-<translation id="5681394891799747640">Хурдан хариу үйлдлийн кодыг татаж чадсангүй</translation>
+<translation id="5681394891799747640">QR кодыг татаж чадсангүй</translation>
 <translation id="5684874026226664614">Өө. Энэ хуудсыг хөрвүүлж чадсангүй.</translation>
 <translation id="5686790454216892815">Файлын нэр хэт урт байна</translation>
 <translation id="5694049548840660018">Нүүр хуудас руугаа амархан буцаарай</translation>
@@ -795,7 +795,7 @@ Tаны Google бүртгэл <ph name="BEGIN_LINK" />history.google.com<ph name
 <translation id="7605594153474022051">Синк ажиллахгүй байна</translation>
 <translation id="7606077192958116810">Lite горим асаалттай байна. Үүнийг Тохиргоонд удирдана уу.</translation>
 <translation id="7612619742409846846">Google-д дараахаар нэвтэрсэн</translation>
-<translation id="7614971007231847352">Хурдан хариу үйлдлийн кодыг татсан</translation>
+<translation id="7614971007231847352">QR кодыг татсан</translation>
 <translation id="7619072057915878432">Сүлжээний доголдлоос болж <ph name="FILE_NAME" />-г татаж чадсангүй.</translation>
 <translation id="7624880197989616768"><ph name="BEGIN_LINK1" />Тусламж авах<ph name="END_LINK1" /> эсвэл <ph name="BEGIN_LINK2" />дахин скан хийх<ph name="END_LINK2" /></translation>
 <translation id="7626032353295482388">Chrome-д тавтай морил</translation>
@@ -835,7 +835,7 @@ Tаны Google бүртгэл <ph name="BEGIN_LINK" />history.google.com<ph name
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" />-н хугацаа дууссан.</translation>
 <translation id="7947953824732555851">Хүлээн зөвшөөрсний дараагаар нэвтрэх</translation>
 <translation id="7963646190083259054">Бэлтгэн нийлүүлэгч:</translation>
-<translation id="7967911570373677897">Хурдан хариу үйлдлийн кодыг скан хийхийн тулд Chrome таны камерыг ашиглах боломжтой болгож тохиргоогоо өөрчилнө үү</translation>
+<translation id="7967911570373677897">QR кодыг скан хийхийн тулд Chrome таны камерыг ашиглах боломжтой болгож тохиргоогоо өөрчилнө үү</translation>
 <translation id="7971136598759319605">1 өдрийн өмнө идэвхтэй</translation>
 <translation id="7975379999046275268">Хуудсыг урьдчилан үзэх <ph name="BEGIN_NEW" />Шинэ<ph name="END_NEW" /></translation>
 <translation id="7981313251711023384">Хурдан хөтлөх болон хайхын тулд хуудсыг урьдчилан ачаалах</translation>
@@ -863,7 +863,7 @@ Tаны Google бүртгэл <ph name="BEGIN_LINK" />history.google.com<ph name
 <translation id="8105893657415066307"><ph name="DESCRIPTION" /> <ph name="SEPARATOR" /> <ph name="FILE_SIZE" /></translation>
 <translation id="8109613176066109935">Хавчуургаа бүх төхөөрөмждөө авахын тулд синкийг асаана уу</translation>
 <translation id="8110087112193408731">Chrome-н үйл ажиллагаагаа Дижитал хэрэглээнд харуулах уу?</translation>
-<translation id="8115259494083109761">Хурдан хариу үйлдлийн кодыг скан хийхийн тулд Chrome-д таны камерыг ашиглахыг зөвшөөрнө үү</translation>
+<translation id="8115259494083109761">QR кодыг скан хийхийн тулд Chrome-д таны камерыг ашиглахыг зөвшөөрнө үү</translation>
 <translation id="8127542551745560481">Нүүр хуудсыг засах</translation>
 <translation id="813082847718468539">Сайтын мэдээллийг үзэх</translation>
 <translation id="8137558756159375272">Touch to Search нь сонгосон үг болон одоо байгаа хуудсыг Google Хайлт руу контекст хэлбэрээр илгээдэг. Та үүнийг <ph name="BEGIN_LINK" />Тохиргооноо<ph name="END_LINK" /> хэсгээс унтрааж болно.</translation>
@@ -876,7 +876,7 @@ Tаны Google бүртгэл <ph name="BEGIN_LINK" />history.google.com<ph name
 <translation id="8218622182176210845">Бүртгэлээ удирдах</translation>
 <translation id="8224471946457685718">Wi-Fi-р өөрт тохирох нийтлэл татаж авах</translation>
 <translation id="8232956427053453090">Өгөгдөл хадгалах</translation>
-<translation id="8233540874193135768">Хурдан хариу үйлдлийн кодыг скан хийхийн тулд камертай төхөөрөмж ашиглана уу.</translation>
+<translation id="8233540874193135768">QR кодыг скан хийхийн тулд камертай төхөөрөмж ашиглана уу.</translation>
 <translation id="8250920743982581267">Документ</translation>
 <translation id="825412236959742607">Энэ хуудас хэт их санах ой ашиглаж байгаа тул Chrome зарим агуулгыг устгасан болно.</translation>
 <translation id="8260126382462817229">Дахин нэвтрэхээр оролдоно уу.</translation>
