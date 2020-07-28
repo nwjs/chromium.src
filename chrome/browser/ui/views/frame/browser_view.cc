@@ -538,11 +538,13 @@ BrowserView::BrowserView(std::unique_ptr<Browser> browser)
   CHECK(browser_->is_type_popup() || browser_->is_type_devtools()) << "opening browser window.";
   browser_->tab_strip_model()->AddObserver(this);
   resizable_ = browser_->initial_resizable();
+#if defined(OS_LINUX) || defined(OS_WIN)
   if (!resizable_) {
     gfx::Size size = browser_->override_bounds().size();
     size_constraints_.set_minimum_size(size);
     size_constraints_.set_maximum_size(size);
   }
+#endif
   immersive_mode_controller_ = chrome::CreateImmersiveModeController();
 
   // Top container holds tab strip region and toolbar and lives at the front of
@@ -710,8 +712,8 @@ void BrowserView::SetResizable(bool resizable) {
     if (size_constraints_.HasFixedSize())
       size_constraints_ = extensions::SizeConstraints();
 #endif
-#endif
   }
+#endif
   GetWidget()->OnSizeConstraintsChanged();
   frame_->non_client_view()->ResetWindowControls();
   frame_->non_client_view()->Layout();
@@ -2161,7 +2163,11 @@ bool BrowserView::GetAcceleratorForCommandId(
 // BrowserView, views::WidgetDelegate implementation:
 
 bool BrowserView::CanResize() const {
+#if defined(OS_MACOSX)
+  return resizable_;
+#else
   return true;
+#endif
 }
 
 bool BrowserView::CanMaximize() const {
