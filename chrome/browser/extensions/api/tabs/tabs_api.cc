@@ -763,6 +763,8 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
 
   new_window->window()->SetMinimumSize(gfx::Size(min_width, min_height));
   new_window->window()->SetMaximumSize(gfx::Size(max_width, max_height));
+  if (!resizable)
+    new_window->window()->SetResizable(false);
   if (create_params.initial_show_state == ui::SHOW_STATE_FULLSCREEN) {
     BrowserFrame* frame = BrowserView::GetBrowserViewForBrowser(new_window)->frame();
     frame->SetFullscreen(true);

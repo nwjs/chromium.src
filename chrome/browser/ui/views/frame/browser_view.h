@@ -10,6 +10,8 @@
 #include <string>
 #include <vector>
 
+#include "extensions/browser/app_window/size_constraints.h"
+
 #include "base/compiler_specific.h"
 #include "base/gtest_prod_util.h"
 #include "base/macros.h"
@@ -116,6 +118,8 @@ class BrowserView : public BrowserWindow,
 
   void set_frame(BrowserFrame* frame) { frame_ = frame; }
   BrowserFrame* frame() const { return frame_; }
+
+  const extensions::SizeConstraints& size_constraints() const { return size_constraints_; }
 
   // Returns a pointer to the BrowserView* interface implementation (an
   // instance of this object, typically) for a given native window, or null if
@@ -722,6 +726,7 @@ private:
 
   bool resizable_ = true;
   gfx::Size minimum_size_, maximum_size_;
+  extensions::SizeConstraints size_constraints_, saved_size_constraints_;
   // The BrowserFrame that hosts this view.
   BrowserFrame* frame_ = nullptr;
 

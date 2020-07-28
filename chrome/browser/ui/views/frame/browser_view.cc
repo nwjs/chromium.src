@@ -538,6 +538,11 @@ BrowserView::BrowserView(std::unique_ptr<Browser> browser)
   CHECK(browser_->is_type_popup() || browser_->is_type_devtools()) << "opening browser window.";
   browser_->tab_strip_model()->AddObserver(this);
   resizable_ = browser_->initial_resizable();
+  if (!resizable_) {
+    gfx::Size size = browser_->override_bounds().size();
+    size_constraints_.set_minimum_size(size);
+    size_constraints_.set_maximum_size(size);
+  }
   immersive_mode_controller_ = chrome::CreateImmersiveModeController();
 
   // Top container holds tab strip region and toolbar and lives at the front of
@@ -695,6 +700,18 @@ void BrowserView::SetAllVisible(bool visible) {
 
 void BrowserView::SetResizable(bool resizable) {
   resizable_ = resizable;
+#if defined(OS_LINUX) || defined(OS_WIN)
+  if (!resizable) {
+    size_constraints_.set_minimum_size(GetContentsSize());
+    size_constraints_.set_maximum_size(GetContentsSize());
+  } else {
+    size_constraints_ = saved_size_constraints_;
+#if defined(OS_LINUX) //NWJS#6609
+    if (size_constraints_.HasFixedSize())
+      size_constraints_ = extensions::SizeConstraints();
+#endif
+#endif
+  }
   GetWidget()->OnSizeConstraintsChanged();
   frame_->non_client_view()->ResetWindowControls();
   frame_->non_client_view()->Layout();
@@ -2144,7 +2161,7 @@ bool BrowserView::GetAcceleratorForCommandId(
 // BrowserView, views::WidgetDelegate implementation:
 
 bool BrowserView::CanResize() const {
-  return resizable_;
+  return true;
 }
 
 bool BrowserView::CanMaximize() const {
@@ -2813,23 +2830,25 @@ int BrowserView::NonClientHitTest(const gfx::Point& point) {
 }
 
 void BrowserView::SetMinimumSize(gfx::Size size) {
-  minimum_size_ = size;
+  size_constraints_.set_minimum_size(size);
+  saved_size_constraints_ = size_constraints_;
   GetWidget()->OnSizeConstraintsChanged();
 }
 
 void BrowserView::SetMaximumSize(gfx::Size size) {
-  maximum_size_ = size;
+  size_constraints_.set_maximum_size(size);
+  saved_size_constraints_ = size_constraints_;
   GetWidget()->OnSizeConstraintsChanged();
 }
 
 gfx::Size BrowserView::GetMinimumSize() const {
-  if (!minimum_size_.IsEmpty())
-    return minimum_size_;
+  if (size_constraints_.HasMinimumSize())
+    return size_constraints_.GetMinimumSize();
   return GetBrowserViewLayout()->GetMinimumSize(this);
 }
 
 gfx::Size BrowserView::GetMaximumSize() const {
-  return maximum_size_;
+  return size_constraints_.GetMaximumSize();;
 }
 ///////////////////////////////////////////////////////////////////////////////
 // BrowserView, views::View overrides:

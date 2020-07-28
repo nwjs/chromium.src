@@ -305,8 +305,11 @@ int GlassBrowserFrameView::NonClientHitTest(const gfx::Point& point) {
 
   // If the point isn't within our bounds, then it's in the native portion of
   // the frame so again Windows can figure it out.
-  if (!bounds().Contains(point))
+  if (!bounds().Contains(point)) {
+    if (browser_view()->size_constraints().HasFixedSize())
+      return HTCAPTION;
     return HTNOWHERE;
+  }
 
   int frame_component = frame()->client_view()->NonClientHitTest(point);
 
@@ -488,8 +491,10 @@ int GlassBrowserFrameView::FrameTopBorderThicknessPx(bool restored) const {
   // off the top of the screen.
   if (frame()->IsFullscreen() && !restored)
     return 0;
+#if 0
   if (!browser_view()->CanResize() && !restored)
     return 0;
+#endif
   // Note that this method assumes an equal resize handle thickness on all
   // sides of the window.
   // TODO(dfried): Consider having it return a gfx::Insets object instead.
