@@ -42,6 +42,9 @@ void WebAppMenuModel::ExecuteCommand(int command_id, int event_flags) {
 }
 
 void WebAppMenuModel::Build() {
+  // TODO(crbug.com/897302): Expose UI for user opt out and reenable for the Run
+  // on OS Login feature.
+
   if (CreateActionToolbarOverflowMenu())
     AddSeparator(ui::UPPER_SEPARATOR);
   AddItemWithStringId(IDC_WEB_APP_MENU_APP_INFO,
@@ -66,11 +69,10 @@ void WebAppMenuModel::Build() {
   DCHECK(browser()->app_controller());
   if (browser()->app_controller()->IsInstalled()) {
     AddSeparator(ui::NORMAL_SEPARATOR);
-    AddItem(
-        kUninstallAppCommandId,
-        l10n_util::GetStringFUTF16(
-            IDS_UNINSTALL_FROM_OS_LAUNCH_SURFACE,
-            base::UTF8ToUTF16(browser()->app_controller()->GetAppShortName())));
+    AddItem(kUninstallAppCommandId,
+            l10n_util::GetStringFUTF16(
+                IDS_UNINSTALL_FROM_OS_LAUNCH_SURFACE,
+                browser()->app_controller()->GetAppShortName()));
   }
 #endif  // !defined(OS_CHROMEOS)
   AddSeparator(ui::LOWER_SEPARATOR);

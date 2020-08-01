@@ -25,7 +25,7 @@ class ModuleMap::Entry final : public GarbageCollected<Entry>,
   explicit Entry(ModuleMap*);
   ~Entry() override {}
 
-  void Trace(Visitor*) override;
+  void Trace(Visitor*) const override;
   const char* NameInHeapSnapshot() const override { return "ModuleMap::Entry"; }
 
   // Notify fetched |m_moduleScript| to the client asynchronously.
@@ -63,7 +63,7 @@ void ModuleMap::AddToMap(const KURL& url, ModuleScript* script) {
   entry->is_fetching_ = false;
 }
 
-void ModuleMap::Entry::Trace(Visitor* visitor) {
+void ModuleMap::Entry::Trace(Visitor* visitor) const {
   visitor->Trace(module_script_);
   visitor->Trace(map_);
   visitor->Trace(clients_);
@@ -110,7 +110,7 @@ ModuleMap::ModuleMap(Modulator* modulator)
   DCHECK(modulator);
 }
 
-void ModuleMap::Trace(Visitor* visitor) {
+void ModuleMap::Trace(Visitor* visitor) const {
   visitor->Trace(map_);
   visitor->Trace(modulator_);
   visitor->Trace(loader_registry_);

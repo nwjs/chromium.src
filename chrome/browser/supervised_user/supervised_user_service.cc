@@ -280,7 +280,7 @@ bool SupervisedUserService::IsSupervisedUserIframeFilterEnabled() const {
 }
 
 bool SupervisedUserService::IsChild() const {
-  return profile_->IsSupervised();
+  return profile_->IsChild();
 }
 
 bool SupervisedUserService::IsSupervisedUserExtensionInstallEnabled() const {
@@ -376,6 +376,9 @@ void SupervisedUserService::UpdateApprovedExtensionForTesting(
 
 bool SupervisedUserService::
     GetSupervisedUserExtensionsMayRequestPermissionsPref() const {
+  DCHECK(IsChild())
+      << "Calling GetSupervisedUserExtensionsMayRequestPermissionsPref() only "
+         "makes sense for supervised users";
   return profile_->GetPrefs()->GetBoolean(
       prefs::kSupervisedUserExtensionsMayRequestPermissions);
 }
@@ -1015,7 +1018,7 @@ bool SupervisedUserService::IsEncryptEverythingAllowed() const {
 
 #if !defined(OS_ANDROID)
 void SupervisedUserService::OnBrowserSetLastActive(Browser* browser) {
-  bool profile_became_active = profile_->IsSameProfile(browser->profile());
+  bool profile_became_active = profile_->IsSameOrParent(browser->profile());
   if (!is_profile_active_ && profile_became_active)
     base::RecordAction(UserMetricsAction("ManagedUsers_OpenProfile"));
   else if (is_profile_active_ && !profile_became_active)

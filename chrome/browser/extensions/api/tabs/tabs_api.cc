@@ -5,6 +5,8 @@
 #include "chrome/browser/extensions/api/tabs/tabs_api.h"
 #include "ui/display/screen.h"
 
+#include "ui/gfx/image/image_skia_operations.h"
+
 #include <stddef.h>
 #include <algorithm>
 #include <limits>
@@ -679,6 +681,14 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
     if (nw::GetPackageImage(package,
                             base::FilePath::FromUTF8Unsafe(*create_data->icon),
                             &app_icon)) {
+      if (app_icon.Width() > 128 || app_icon.Height() > 128) {
+        const gfx::ImageSkia* originImageSkia = app_icon.ToImageSkia();
+        gfx::ImageSkia resizedImageSkia =
+          gfx::ImageSkiaOperations::CreateResizedImage(*originImageSkia,
+                                                       skia::ImageOperations::RESIZE_GOOD,
+                                                       gfx::Size(128, 128));
+        app_icon = gfx::Image(resizedImageSkia);
+      }
       create_params.icon = app_icon;
     }
   }
@@ -1152,7 +1162,7 @@ ExtensionFunction::ResponseAction TabsQueryFunction::Run() {
   Browser* current_browser =
       ChromeExtensionFunctionDetails(this).GetCurrentBrowser();
   for (auto* browser : *BrowserList::GetInstance()) {
-    if (!profile->IsSameProfile(browser->profile()))
+    if (!profile->IsSameOrParent(browser->profile()))
       continue;
 
     if (!browser->window())
@@ -1445,8 +1455,7 @@ bool TabsHighlightFunction::HighlightTab(TabStripModel* tabstrip,
   return true;
 }
 
-TabsUpdateFunction::TabsUpdateFunction() : web_contents_(NULL) {
-}
+TabsUpdateFunction::TabsUpdateFunction() : web_contents_(nullptr) {}
 
 ExtensionFunction::ResponseAction TabsUpdateFunction::Run() {
   std::unique_ptr<tabs::Update::Params> params(
@@ -1814,20 +1823,10 @@ ExtensionFunction::ResponseAction TabsReloadFunction::Run() {
     }
   }
 
-  if (web_contents->ShowingInterstitialPage()) {
-    // This does as same as Browser::ReloadInternal.
-    NavigationEntry* entry = web_contents->GetController().GetVisibleEntry();
-    GURL reload_url = entry ? entry->GetURL() : GURL(url::kAboutBlankURL);
-    OpenURLParams params(reload_url, Referrer(),
-                         WindowOpenDisposition::CURRENT_TAB,
-                         ui::PAGE_TRANSITION_RELOAD, false);
-    current_browser->OpenURL(params);
-  } else {
-    web_contents->GetController().Reload(
-        bypass_cache ? content::ReloadType::BYPASSING_CACHE
-                     : content::ReloadType::NORMAL,
-        true);
-  }
+  web_contents->GetController().Reload(
+      bypass_cache ? content::ReloadType::BYPASSING_CACHE
+                   : content::ReloadType::NORMAL,
+      true);
 
   return RespondNow(NoArguments());
 }

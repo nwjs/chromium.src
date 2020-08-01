@@ -32,6 +32,7 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHContextualSearchPromoteTapFeature,
     &kIPHContextualSearchPromotePanelOpenFeature,
     &kIPHContextualSearchOptInFeature,
+    &kIPHContextualSearchTappedButShouldLongpressFeature,
     &kIPHDownloadSettingsFeature,
     &kIPHDownloadInfoBarDownloadContinuingFeature,
     &kIPHDownloadInfoBarDownloadsAreFasterFeature,
@@ -62,8 +63,10 @@ const base::Feature* const kAllFeatures[] = {
 #endif  // defined(OS_IOS)
 #if defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_LINUX) || \
     defined(OS_CHROMEOS)
+    &kIPHDesktopTabGroupsNewGroupFeature,
     &kIPHFocusModeFeature,
     &kIPHGlobalMediaControlsFeature,
+    &kIPHPasswordsAccountStorageFeature,
     &kIPHReopenTabFeature,
     &kIPHWebUITabStripFeature,
 #if BUILDFLAG(ENABLE_LEGACY_DESKTOP_IN_PRODUCT_HELP)

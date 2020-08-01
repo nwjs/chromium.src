@@ -29,6 +29,7 @@ class SharedURLLoaderFactory;
 
 namespace safe_browsing {
 class UrlCheckerDelegate;
+class RealTimeUrlLookupServiceBase;
 class RemoteSafeBrowsingDatabaseManager;
 class SafeBrowsingApiHandler;
 class SafeBrowsingNetworkContext;
@@ -49,13 +50,16 @@ class SafeBrowsingService {
   void Initialize();
   std::unique_ptr<blink::URLLoaderThrottle> CreateURLLoaderThrottle(
       const base::RepeatingCallback<content::WebContents*()>& wc_getter,
-      int frame_tree_node_id);
+      int frame_tree_node_id,
+      safe_browsing::RealTimeUrlLookupServiceBase* url_lookup_service);
   std::unique_ptr<content::NavigationThrottle>
   CreateSafeBrowsingNavigationThrottle(content::NavigationHandle* handle);
   void AddInterface(service_manager::BinderRegistry* registry,
                     content::RenderProcessHost* render_process_host);
   void StopDBManager();
   void SetSafeBrowsingDisabled(bool disabled);
+  bool GetSafeBrowsingDisabled();
+  scoped_refptr<network::SharedURLLoaderFactory> GetURLLoaderFactory();
 
  private:
   SafeBrowsingUIManager* GetSafeBrowsingUIManager();

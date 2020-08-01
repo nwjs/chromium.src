@@ -8,7 +8,6 @@
 #include "base/bind.h"
 #include "base/files/file_util.h"
 #include "base/optional.h"
-#include "base/task/post_task.h"
 #include "base/task/thread_pool.h"
 #include "chrome/browser/chromeos/crostini/crostini_manager.h"
 #include "chrome/browser/chromeos/crostini/crostini_util.h"
@@ -223,9 +222,10 @@ void GuestOsSharePath::CallSeneschalSharePath(const std::string& vm_name,
       file_manager::util::GetMyFilesFolderForProfile(profile_);
   base::FilePath android_files(file_manager::util::kAndroidFilesPath);
   base::FilePath removable_media(file_manager::util::kRemovableMediaPath);
-  base::FilePath system_fonts(file_manager::util::kSystemFontsPath);
   base::FilePath linux_files =
       file_manager::util::GetCrostiniMountDirectory(profile_);
+  base::FilePath system_fonts(file_manager::util::kSystemFontsPath);
+  base::FilePath archive_mount(file_manager::util::kArchiveMountPath);
   if (my_files == path || my_files.AppendRelativePath(path, &relative_path)) {
     allowed_path = true;
     request.set_storage_location(
@@ -298,6 +298,11 @@ void GuestOsSharePath::CallSeneschalSharePath(const std::string& vm_name,
              system_fonts.AppendRelativePath(path, &relative_path)) {
     allowed_path = true;
     request.set_storage_location(vm_tools::seneschal::SharePathRequest::FONTS);
+  } else if (archive_mount.AppendRelativePath(path, &relative_path)) {
+    // Allow subdirs of /media/archive.
+    allowed_path = true;
+    request.set_storage_location(
+        vm_tools::seneschal::SharePathRequest::ARCHIVE);
   }
 
   if (!allowed_path) {
@@ -331,7 +336,8 @@ void GuestOsSharePath::CallSeneschalSharePath(const std::string& vm_name,
         crostini_manager->GetVmInfo(vm_name);
     if (!vm_info || vm_info->state != crostini::VmState::STARTED) {
       crostini_manager->RestartCrostini(
-          vm_name, crostini::kCrostiniDefaultContainerName,
+          crostini::ContainerId(vm_name,
+                                crostini::kCrostiniDefaultContainerName),
           base::BindOnce(&OnVmRestartedForSeneschal, profile_, vm_name,
                          std::move(callback), std::move(request)));
       return;
@@ -593,7 +599,7 @@ void GuestOsSharePath::RegisterSharedPath(const std::string& vm_name,
   auto changed = [](base::RepeatingClosure deleted, const base::FilePath& path,
                     bool error) {
     if (!error && !base::PathExists(path)) {
-      base::PostTask(FROM_HERE, {content::BrowserThread::UI}, deleted);
+      content::GetUIThreadTaskRunner({})->PostTask(FROM_HERE, deleted);
     }
   };
   // Start watcher on its sequenced task runner.  It must also be destroyed

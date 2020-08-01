@@ -28,7 +28,9 @@ namespace content {
 // destroyed on the same sequence. The sequence must outlive |this|.
 class CONTENT_EXPORT ConversionStorageSql : public ConversionStorage {
  public:
-  ConversionStorageSql(const base::FilePath& path_to_database_dir,
+  static void RunInMemoryForTesting();
+
+  ConversionStorageSql(const base::FilePath& path_to_database,
                        std::unique_ptr<Delegate> delegate,
                        const base::Clock* clock);
   ConversionStorageSql(const ConversionStorageSql& other) = delete;
@@ -62,8 +64,15 @@ class CONTENT_EXPORT ConversionStorageSql : public ConversionStorage {
 
   void DatabaseErrorCallback(int extended_error, sql::Statement* stmt);
 
+  static bool g_run_in_memory_;
+
   const base::FilePath path_to_database_;
-  sql::Database db_;
+
+  // May be null if the database:
+  //  - could not be opened
+  //  - table/index initialization failed
+  //  - suffered from an unrecoverable error.
+  std::unique_ptr<sql::Database> db_;
 
   // Must outlive |this|.
   const base::Clock* clock_;

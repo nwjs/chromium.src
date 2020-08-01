@@ -437,7 +437,7 @@ void HTMLAnchorElement::SendPings(const KURL& destination_url) const {
        ping_value.Contains('\t')) &&
       ping_value.Contains('<')) {
     Deprecation::CountDeprecation(
-        GetDocument(), WebFeature::kCanRequestURLHTTPContainingNewline);
+        GetExecutionContext(), WebFeature::kCanRequestURLHTTPContainingNewline);
     return;
   }
 
@@ -531,7 +531,7 @@ void HTMLAnchorElement::HandleClick(Event& event) {
 
   // If hrefTranslate is enabled and set restrict processing it
   // to same frame or navigations with noopener set.
-  if (RuntimeEnabledFeatures::HrefTranslateEnabled(&GetDocument()) &&
+  if (RuntimeEnabledFeatures::HrefTranslateEnabled(GetExecutionContext()) &&
       FastHasAttribute(html_names::kHreftranslateAttr) &&
       (target_frame == frame || frame_request.GetWindowFeatures().noopener)) {
     frame_request.SetHrefTranslate(
@@ -541,8 +541,9 @@ void HTMLAnchorElement::HandleClick(Event& event) {
   }
 
   // Only attach impressions for main frame navigations.
-  if (RuntimeEnabledFeatures::ConversionMeasurementEnabled() && target_frame &&
-      target_frame->IsMainFrame() && request.HasUserGesture() &&
+  if (RuntimeEnabledFeatures::ConversionMeasurementEnabled(
+          GetExecutionContext()) &&
+      target_frame && target_frame->IsMainFrame() && request.HasUserGesture() &&
       HasImpression()) {
     base::Optional<WebImpression> impression = GetImpressionForNavigation();
     if (impression)
@@ -593,7 +594,7 @@ Node::InsertionNotificationRequest HTMLAnchorElement::InsertedInto(
   return request;
 }
 
-void HTMLAnchorElement::Trace(Visitor* visitor) {
+void HTMLAnchorElement::Trace(Visitor* visitor) const {
   visitor->Trace(rel_list_);
   HTMLElement::Trace(visitor);
 }

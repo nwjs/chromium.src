@@ -165,9 +165,7 @@ class Browser : public TabStripModelObserver,
     FEATURE_TOOLBAR = 1 << 2,
     FEATURE_LOCATIONBAR = 1 << 3,
     FEATURE_BOOKMARKBAR = 1 << 4,
-    FEATURE_INFOBAR = 1 << 5,
-    FEATURE_DOWNLOADSHELF = 1 << 6,
-    FEATURE_NW_FRAMELESS = 1 << 7
+    FEATURE_NW_FRAMELESS = 1 << 5
     // TODO(crbug.com/992834): Add FEATURE_PAGECONTROLS to describe the presence
     // of per-page controls such as Content Settings Icons, which should be
     // decoupled from FEATURE_LOCATIONBAR as they have independent presence in
@@ -714,8 +712,8 @@ class Browser : public TabStripModelObserver,
   // processes.
   bool did_finish_first_navigation_ = false;
   friend class BrowserTest;
+  friend class ExclusiveAccessTest;
   friend class FullscreenControllerInteractiveTest;
-  friend class FullscreenControllerTest;
   FRIEND_TEST_ALL_PREFIXES(AppModeTest, EnableAppModeTest);
   FRIEND_TEST_ALL_PREFIXES(BrowserCommandControllerTest,
                            IsReservedCommandOrKeyIsApp);
@@ -727,14 +725,12 @@ class Browser : public TabStripModelObserver,
   FRIEND_TEST_ALL_PREFIXES(BrowserTest, AppIdSwitch);
   FRIEND_TEST_ALL_PREFIXES(ExclusiveAccessBubbleWindowControllerTest,
                            DenyExitsFullscreen);
-  FRIEND_TEST_ALL_PREFIXES(FullscreenControllerTest,
+  FRIEND_TEST_ALL_PREFIXES(ExclusiveAccessTest,
                            TabEntersPresentationModeFromWindowed);
   FRIEND_TEST_ALL_PREFIXES(StartupBrowserCreatorTest, OpenAppShortcutNoPref);
   FRIEND_TEST_ALL_PREFIXES(StartupBrowserCreatorTest,
                            OpenAppShortcutWindowPref);
   FRIEND_TEST_ALL_PREFIXES(StartupBrowserCreatorTest, OpenAppShortcutTabPref);
-
-  class InterstitialObserver;
 
   // Used to describe why a tab is being detached. This is used by
   // TabDetachedAtImpl.
@@ -855,8 +851,7 @@ class Browser : public TabStripModelObserver,
                           const base::FilePath& path) override;
   bool EmbedsFullscreenWidget() override;
   void EnterFullscreenModeForTab(
-      content::WebContents* web_contents,
-      const GURL& origin,
+      content::RenderFrameHost* requesting_frame,
       const blink::mojom::FullscreenOptions& options) override;
   void ExitFullscreenModeForTab(content::WebContents* web_contents) override;
   bool IsFullscreenForTabOrPending(
@@ -1122,8 +1117,6 @@ class Browser : public TabStripModelObserver,
   base::string16 GetWindowTitleForMenu() const;
 
   // Data members /////////////////////////////////////////////////////////////
-
-  std::vector<InterstitialObserver*> interstitial_observers_;
 
   content::NotificationRegistrar registrar_;
 

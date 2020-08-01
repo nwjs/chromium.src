@@ -27,19 +27,21 @@ class Profile;
 namespace extensions {
 
 class Extension;
-class ExtensionServiceInterface;
+class ExtensionSystem;
 
 // For registering, loading, and unloading component extensions.
 class ComponentLoader {
  public:
-  ComponentLoader(ExtensionServiceInterface* extension_service,
-                  Profile* browser_context);
+  ComponentLoader(ExtensionSystem* extension_system, Profile* browser_context);
   virtual ~ComponentLoader();
 
   size_t registered_extensions_count() const {
     return component_extensions_.size();
   }
 
+  std::string GetExtensionID(
+                             int manifest_resource_id,
+                             const base::FilePath& root_directory);
   // Creates and loads all registered component extensions.
   void LoadAll();
 
@@ -65,11 +67,6 @@ class ComponentLoader {
   // extension with the same ID.
   std::string AddOrReplace(const base::FilePath& path);
 
-  // Returns the extension ID of a component extension specified by resource
-  // id of its manifest file.
-  std::string GetExtensionID(int manifest_resource_id,
-                             const base::FilePath& root_directory);
-
   // Returns true if an extension with the specified id has been added.
   bool Exists(const std::string& id) const;
 
@@ -90,9 +87,6 @@ class ComponentLoader {
 
   // Similar to above but adds the default component extensions for kiosk mode.
   void AddDefaultComponentExtensionsForKioskMode(bool skip_session_components);
-
-  // Clear the list of registered extensions.
-  void ClearAllRegistered();
 
   // Reloads a registered component extension.
   void Reload(const std::string& extension_id);
@@ -140,28 +134,36 @@ class ComponentLoader {
 
   // Information about a registered component extension.
   struct ComponentExtensionInfo {
-    ComponentExtensionInfo(const base::DictionaryValue* manifest,
-                           const base::FilePath& root_directory);
+    ComponentExtensionInfo(
+        std::unique_ptr<base::DictionaryValue> manifest_param,
+        const base::FilePath& root_directory);
+    ~ComponentExtensionInfo();
+
+    ComponentExtensionInfo(ComponentExtensionInfo&& other);
+    ComponentExtensionInfo& operator=(ComponentExtensionInfo&& other);
 
     // The parsed contents of the extensions's manifest file.
-    const base::DictionaryValue* manifest;
+    std::unique_ptr<base::DictionaryValue> manifest;
 
     // Directory where the extension is stored.
     base::FilePath root_directory;
 
     // The component extension's ID.
     std::string extension_id;
+
+   private:
+    DISALLOW_COPY_AND_ASSIGN(ComponentExtensionInfo);
   };
 
   // Parses the given JSON manifest. Returns nullptr if it cannot be parsed or
   // if the result is not a DictionaryValue.
-  base::DictionaryValue* ParseManifest(
+  std::unique_ptr<base::DictionaryValue> ParseManifest(
       base::StringPiece manifest_contents) const;
 
   std::string Add(const base::StringPiece& manifest_contents,
                   const base::FilePath& root_directory,
                   bool skip_whitelist);
-  std::string Add(const base::DictionaryValue* parsed_manifest,
+  std::string Add(std::unique_ptr<base::DictionaryValue> parsed_manifest,
                   const base::FilePath& root_directory,
                   bool skip_whitelist);
 
@@ -220,7 +222,7 @@ class ComponentLoader {
 
   Profile* profile_;
 
-  ExtensionServiceInterface* extension_service_;
+  ExtensionSystem* extension_system_;
 
   // List of registered component extensions (see Manifest::Location).
   typedef std::vector<ComponentExtensionInfo> RegisteredComponentExtensions;

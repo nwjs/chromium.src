@@ -40,6 +40,7 @@ class VIEWS_EXPORT NativeWidgetDelegate {
  public:
   virtual ~NativeWidgetDelegate() = default;
 
+  virtual bool NWCanClose(bool user_force = false) const = 0;
   // Returns true if the window is modal.
   virtual bool IsModal() const = 0;
 
@@ -54,8 +55,6 @@ class VIEWS_EXPORT NativeWidgetDelegate {
 
   // Returns true if the native widget has been initialized.
   virtual bool IsNativeWidgetInitialized() const = 0;
-
-  virtual bool NWCanClose(bool user_force = false) const = 0;
 
   // Called when the activation state of a window has changed.
   // Returns true if this event should be handled.

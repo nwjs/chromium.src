@@ -10,7 +10,6 @@
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/location.h"
-#include "base/task/post_task.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "chrome/browser/chromeos/file_manager/path_util.h"
@@ -51,8 +50,8 @@ void EnsureDirExists(
     LOG(ERROR) << "Failed to create PluginVm shared dir " << dir.value() << ": "
                << base::File::ErrorToString(error);
   }
-  base::PostTask(
-      FROM_HERE, {content::BrowserThread::UI},
+  content::GetUIThreadTaskRunner({})->PostTask(
+      FROM_HERE,
       base::BindOnce(&DirExistsResult, dir, result, std::move(callback)));
 }
 
@@ -67,7 +66,7 @@ void FocusAllPluginVmWindows() {
   DCHECK(shelf_model);
   AppWindowLauncherItemController* launcher_item_controller =
       shelf_model->GetAppWindowLauncherItemController(
-          ash::ShelfID(kPluginVmAppId));
+          ash::ShelfID(kPluginVmShelfAppId));
   if (!launcher_item_controller) {
     return;
   }
@@ -79,11 +78,12 @@ void FocusAllPluginVmWindows() {
 // LaunchPluginVmApp will run before this and try to start Plugin VM.
 void LaunchPluginVmAppImpl(Profile* profile,
                            std::string app_id,
-                           const std::vector<storage::FileSystemURL>& files,
+                           std::vector<std::string> file_paths,
                            LaunchPluginVmAppCallback callback,
                            bool plugin_vm_is_running) {
   if (!plugin_vm_is_running) {
-    return std::move(callback).Run(false, "Plugin VM could not be started");
+    return std::move(callback).Run(LaunchPluginVmAppResult::FAILED,
+                                   "Plugin VM could not be started");
   }
 
   auto* registry_service =
@@ -91,20 +91,8 @@ void LaunchPluginVmAppImpl(Profile* profile,
   auto registration = registry_service->GetRegistration(app_id);
   if (!registration) {
     return std::move(callback).Run(
-        false, "LaunchPluginVmApp called with an unknown app_id: " + app_id);
-  }
-
-  std::vector<std::string> file_paths;
-  file_paths.reserve(files.size());
-  for (const auto& file : files) {
-    auto file_path =
-        ConvertFileSystemURLToPathInsidePluginVmSharedDir(profile, file);
-    if (!file_path) {
-      return std::move(callback).Run(
-          false, "Only files in the shared dir are supported. Got: " +
-                     file.DebugString());
-    }
-    file_paths.push_back(std::move(*file_path));
+        LaunchPluginVmAppResult::FAILED,
+        "LaunchPluginVmApp called with an unknown app_id: " + app_id);
   }
 
   vm_tools::cicerone::LaunchContainerApplicationRequest request;
@@ -131,14 +119,14 @@ void LaunchPluginVmAppImpl(Profile* profile,
                   LOG(ERROR) << "Failed to launch application. "
                              << (response ? response->failure_reason()
                                           : "Empty response.");
-                  std::move(callback).Run(/*success=*/false,
+                  std::move(callback).Run(LaunchPluginVmAppResult::FAILED,
                                           "Failed to launch " + app_id);
                   return;
                 }
 
                 FocusAllPluginVmWindows();
 
-                std::move(callback).Run(/*success=*/true, "");
+                std::move(callback).Run(LaunchPluginVmAppResult::SUCCESS, "");
               },
               std::move(app_id), std::move(callback)));
 }
@@ -185,22 +173,40 @@ base::Optional<std::string> ConvertFileSystemURLToPathInsidePluginVmSharedDir(
 
 void LaunchPluginVmApp(Profile* profile,
                        std::string app_id,
-                       std::vector<storage::FileSystemURL> files,
+                       const std::vector<storage::FileSystemURL>& files,
                        LaunchPluginVmAppCallback callback) {
   if (!plugin_vm::IsPluginVmEnabled(profile)) {
-    return std::move(callback).Run(false,
+    return std::move(callback).Run(LaunchPluginVmAppResult::FAILED,
                                    "Plugin VM is not enabled for this profile");
   }
 
   auto* manager = PluginVmManagerFactory::GetForProfile(profile);
 
   if (!manager) {
-    return std::move(callback).Run(false, "Could not get PluginVmManager");
+    return std::move(callback).Run(LaunchPluginVmAppResult::FAILED,
+                                   "Could not get PluginVmManager");
   }
 
-  manager->LaunchPluginVm(base::BindOnce(&LaunchPluginVmAppImpl, profile,
-                                         std::move(app_id), std::move(files),
-                                         std::move(callback)));
+  std::vector<std::string> file_paths;
+  file_paths.reserve(files.size());
+  for (const auto& file : files) {
+    auto file_path =
+        ConvertFileSystemURLToPathInsidePluginVmSharedDir(profile, file);
+    if (!file_path) {
+      return std::move(callback).Run(
+          file_manager::util::GetMyFilesFolderForProfile(profile).IsParent(
+              file.path())
+              ? LaunchPluginVmAppResult::FAILED_DIRECTORY_NOT_SHARED
+              : LaunchPluginVmAppResult::FAILED_FILE_ON_EXTERNAL_DRIVE,
+          "Only files in the shared dir are supported. Got: " +
+              file.DebugString());
+    }
+    file_paths.push_back(std::move(*file_path));
+  }
+
+  manager->LaunchPluginVm(
+      base::BindOnce(&LaunchPluginVmAppImpl, profile, std::move(app_id),
+                     std::move(file_paths), std::move(callback)));
 }
 
 }  // namespace plugin_vm

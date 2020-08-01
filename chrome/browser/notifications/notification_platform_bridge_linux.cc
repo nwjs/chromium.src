@@ -487,8 +487,8 @@ class NotificationPlatformBridgeLinuxImpl
           ConnectionInitializationStatusCode::MISSING_REQUIRED_CAPABILITIES);
       return;
     }
-    base::PostTask(
-        FROM_HERE, {content::BrowserThread::UI},
+    content::GetUIThreadTaskRunner({})->PostTask(
+        FROM_HERE,
         base::BindOnce(
             &NotificationPlatformBridgeLinuxImpl::SetBodyImagesSupported, this,
             base::Contains(capabilities_, kCapabilityBodyImages)));
@@ -814,8 +814,8 @@ class NotificationPlatformBridgeLinuxImpl
       if (data->profile_id == profile_id && data->is_incognito == incognito)
         displayed.insert(data->notification_id);
     }
-    base::PostTask(
-        FROM_HERE, {content::BrowserThread::UI},
+    content::GetUIThreadTaskRunner({})->PostTask(
+        FROM_HERE,
         base::BindOnce(std::move(callback), std::move(displayed), true));
   }
 
@@ -949,8 +949,8 @@ class NotificationPlatformBridgeLinuxImpl
       CleanUpOnTaskRunner();
     }
 
-    base::PostTask(
-        FROM_HERE, {content::BrowserThread::UI},
+    content::GetUIThreadTaskRunner({})->PostTask(
+        FROM_HERE,
         base::BindOnce(&NotificationPlatformBridgeLinuxImpl::
                            OnConnectionInitializationFinishedOnUiThread,
                        this, success));

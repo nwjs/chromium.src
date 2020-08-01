@@ -229,9 +229,6 @@ MetricsService::MetricsService(MetricsStateManager* state_manager,
       std::make_unique<StabilityMetricsProvider>(local_state_));
 
   RegisterMetricsProvider(state_manager_->GetProvider());
-
-  RegisterMetricsProvider(std::make_unique<variations::FieldTrialsProvider>(
-      &synthetic_trial_registry_, base::StringPiece()));
 }
 
 MetricsService::~MetricsService() {
@@ -239,6 +236,12 @@ MetricsService::~MetricsService() {
 }
 
 void MetricsService::InitializeMetricsRecordingState() {
+  // The FieldTrialsProvider should be registered last. This ensures that
+  // studies whose features are checked when providers add their information to
+  // the log appear in the active field trials.
+  RegisterMetricsProvider(std::make_unique<variations::FieldTrialsProvider>(
+      &synthetic_trial_registry_, base::StringPiece()));
+
   reporting_service_.Initialize();
   InitializeMetricsState();
 
@@ -449,10 +452,6 @@ void MetricsService::ClearSavedStabilityMetrics() {
   delegating_provider_.ClearSavedStabilityMetrics();
 }
 
-void MetricsService::PushExternalLog(const std::string& log) {
-  log_store()->StoreLog(log, MetricsLog::ONGOING_LOG);
-}
-
 bool MetricsService::StageCurrentLogForTest() {
   CloseCurrentLog();
 
@@ -539,6 +538,7 @@ void MetricsService::InitializeMetricsState() {
   local_state_->SetInteger(prefs::kMetricsSessionID, session_id_);
 
   // Notify stability metrics providers about the launch.
+  UMA_HISTOGRAM_BOOLEAN("UMA.MetricsService.Initialize", true);
   provider.LogLaunch();
   provider.CheckLastSessionEndCompleted();
 

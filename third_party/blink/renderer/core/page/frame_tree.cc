@@ -235,7 +235,8 @@ FrameTree::FindResult FrameTree::FindOrCreateFrameForNavigation(
 
   if (frame && !new_window) {
     if (frame->GetPage() != current_frame->GetPage())
-      frame->GetPage()->GetChromeClient().Focus(current_frame);
+      frame->FocusPage(current_frame);
+
     // Focusing can fire onblur, so check for detach.
     if (!frame->GetPage())
       frame = nullptr;
@@ -375,7 +376,7 @@ Frame* FrameTree::TraverseNext(const Frame* stay_within) const {
   return nullptr;
 }
 
-void FrameTree::Trace(Visitor* visitor) {
+void FrameTree::Trace(Visitor* visitor) const {
   visitor->Trace(this_frame_);
 }
 

@@ -129,8 +129,9 @@ Browser* GetOrCreateBrowser(Profile* profile, const NavigateParams& params) {
 
 Browser* GetOrCreateBrowser(Profile* profile, bool user_gesture) {
   Browser* browser = chrome::FindTabbedBrowser(profile, false);
-  return browser ? browser
-    : new Browser(Browser::CreateParams(profile, user_gesture));
+  return browser
+             ? browser
+             : Browser::Create(Browser::CreateParams(profile, user_gesture));
 }
 
 // Change some of the navigation parameters based on the particular URL.

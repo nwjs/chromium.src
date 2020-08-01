@@ -1,0 +1,483 @@
+// Copyright 2020 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "chrome/browser/browser_process.h"
+#include "chrome/browser/lite_video/lite_video_keyed_service.h"
+
+#include "base/run_loop.h"
+#include "base/task/thread_pool/thread_pool_instance.h"
+#include "base/test/metrics/histogram_tester.h"
+#include "base/test/scoped_feature_list.h"
+#include "build/build_config.h"
+#include "chrome/browser/lite_video/lite_video_features.h"
+#include "chrome/browser/lite_video/lite_video_hint.h"
+#include "chrome/browser/lite_video/lite_video_keyed_service_factory.h"
+#include "chrome/browser/lite_video/lite_video_switches.h"
+#include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/common/chrome_features.h"
+#include "chrome/test/base/in_process_browser_test.h"
+#include "chrome/test/base/ui_test_utils.h"
+#include "components/metrics/content/subprocess_metrics_provider.h"
+#include "content/public/browser/web_contents.h"
+#include "content/public/test/browser_test.h"
+#include "content/public/test/browser_test_utils.h"
+#include "content/public/test/network_connection_change_simulator.h"
+#include "net/nqe/effective_connection_type.h"
+#include "services/network/public/mojom/network_change_manager.mojom-shared.h"
+#include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/page_transition_types.h"
+#include "url/gurl.h"
+
+namespace {
+
+// Fetch and calculate the total number of samples from all the bins for
+// |histogram_name|. Note: from some browertests run, there might be two
+// profiles created, and this will return the total sample count across
+// profiles.
+int GetTotalHistogramSamples(const base::HistogramTester& histogram_tester,
+                             const std::string& histogram_name) {
+  std::vector<base::Bucket> buckets =
+      histogram_tester.GetAllSamples(histogram_name);
+  int total = 0;
+  for (const auto& bucket : buckets)
+    total += bucket.count;
+
+  return total;
+}
+
+// Retries fetching |histogram_name| until it contains at least |count| samples.
+int RetryForHistogramUntilCountReached(
+    const base::HistogramTester& histogram_tester,
+    const std::string& histogram_name,
+    int count) {
+  int total = 0;
+  while (true) {
+    base::ThreadPoolInstance::Get()->FlushForTesting();
+    total = GetTotalHistogramSamples(histogram_tester, histogram_name);
+    if (total >= count)
+      return total;
+    content::FetchHistogramsFromChildProcesses();
+    metrics::SubprocessMetricsProvider::MergeHistogramDeltasForTesting();
+    base::RunLoop().RunUntilIdle();
+  }
+}
+
+}  // namespace
+
+class LiteVideoKeyedServiceDisabledBrowserTest : public InProcessBrowserTest {
+ public:
+  LiteVideoKeyedServiceDisabledBrowserTest() {
+    scoped_feature_list_.InitAndDisableFeature({::features::kLiteVideo});
+  }
+  ~LiteVideoKeyedServiceDisabledBrowserTest() override = default;
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(LiteVideoKeyedServiceDisabledBrowserTest,
+                       KeyedServiceEnabledButLiteVideoDisabled) {
+  EXPECT_EQ(nullptr,
+            LiteVideoKeyedServiceFactory::GetForProfile(browser()->profile()));
+}
+
+class LiteVideoDataSaverDisabledBrowserTest : public InProcessBrowserTest {
+ public:
+  LiteVideoDataSaverDisabledBrowserTest() {
+    scoped_feature_list_.InitAndEnableFeature(::features::kLiteVideo);
+  }
+  ~LiteVideoDataSaverDisabledBrowserTest() override = default;
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(LiteVideoDataSaverDisabledBrowserTest,
+                       LiteVideoEnabled_DataSaverOff) {
+  EXPECT_EQ(nullptr,
+            LiteVideoKeyedServiceFactory::GetForProfile(browser()->profile()));
+}
+
+class LiteVideoKeyedServiceBrowserTest
+    : public LiteVideoKeyedServiceDisabledBrowserTest {
+ public:
+  LiteVideoKeyedServiceBrowserTest() = default;
+  ~LiteVideoKeyedServiceBrowserTest() override = default;
+
+  void SetUp() override {
+    scoped_feature_list_.InitAndEnableFeatureWithParameters(
+        {::features::kLiteVideo},
+        {{"lite_video_origin_hints", "{\"litevideo.com\": 123}"},
+         {"user_blocklist_opt_out_history_threshold", "1"}});
+    InProcessBrowserTest::SetUp();
+  }
+
+  void SetUpOnMainThread() override {
+    content::NetworkConnectionChangeSimulator().SetConnectionType(
+        network::mojom::ConnectionType::CONNECTION_4G);
+    SetEffectiveConnectionType(
+        net::EffectiveConnectionType::EFFECTIVE_CONNECTION_TYPE_4G);
+    InProcessBrowserTest::SetUpOnMainThread();
+  }
+
+  void SetUpCommandLine(base::CommandLine* cmd) override {
+    cmd->AppendSwitch("enable-spdy-proxy-auth");
+    cmd->AppendSwitch(lite_video::switches::kLiteVideoIgnoreNetworkConditions);
+  }
+
+  // Sets the effective connection type that the Network Quality Tracker will
+  // report.
+  void SetEffectiveConnectionType(
+      net::EffectiveConnectionType effective_connection_type) {
+    g_browser_process->network_quality_tracker()
+        ->ReportEffectiveConnectionTypeForTesting(effective_connection_type);
+  }
+
+  lite_video::LiteVideoDecider* lite_video_decider() {
+    return LiteVideoKeyedServiceFactory::GetForProfile(browser()->profile())
+        ->lite_video_decider();
+  }
+
+  void WaitForBlocklistToBeLoaded() {
+    EXPECT_GT(
+        RetryForHistogramUntilCountReached(
+            histogram_tester_, "LiteVideo.UserBlocklist.BlocklistLoaded", 1),
+        0);
+  }
+
+  const base::HistogramTester* histogram_tester() { return &histogram_tester_; }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+  base::HistogramTester histogram_tester_;
+};
+
+IN_PROC_BROWSER_TEST_F(LiteVideoKeyedServiceBrowserTest,
+                       LiteVideoEnabledWithKeyedService) {
+  EXPECT_TRUE(
+      LiteVideoKeyedServiceFactory::GetForProfile(browser()->profile()));
+}
+
+IN_PROC_BROWSER_TEST_F(LiteVideoKeyedServiceBrowserTest,
+                       LiteVideoCanApplyLiteVideo_UnsupportedScheme) {
+  WaitForBlocklistToBeLoaded();
+
+  EXPECT_TRUE(
+      LiteVideoKeyedServiceFactory::GetForProfile(browser()->profile()));
+
+  // Navigate metrics get recorded.
+  ui_test_utils::NavigateToURL(browser(), GURL("chrome://testserver.com"));
+
+  histogram_tester()->ExpectTotalCount("LiteVideo.Navigation.HasHint", 0);
+}
+
+IN_PROC_BROWSER_TEST_F(LiteVideoKeyedServiceBrowserTest,
+                       LiteVideoCanApplyLiteVideo_NoHintForHost) {
+  SetEffectiveConnectionType(
+      net::EffectiveConnectionType::EFFECTIVE_CONNECTION_TYPE_4G);
+  WaitForBlocklistToBeLoaded();
+  EXPECT_TRUE(
+      LiteVideoKeyedServiceFactory::GetForProfile(browser()->profile()));
+
+  // Navigate metrics get recorded.
+  ui_test_utils::NavigateToURL(browser(), GURL("https://testserver.com"));
+
+  EXPECT_GT(RetryForHistogramUntilCountReached(
+                *histogram_tester(), "LiteVideo.Navigation.HasHint", 1),
+            0);
+  histogram_tester()->ExpectUniqueSample("LiteVideo.Navigation.HasHint", false,
+                                         1);
+  histogram_tester()->ExpectUniqueSample(
+      "LiteVideo.CanApplyLiteVideo.UserBlocklist.MainFrame",
+      lite_video::LiteVideoBlocklistReason::kAllowed, 1);
+  histogram_tester()->ExpectTotalCount(
+      "LiteVideo.CanApplyLiteVideo.UserBlocklist.SubFrame", 0);
+}
+
+IN_PROC_BROWSER_TEST_F(LiteVideoKeyedServiceBrowserTest,
+                       LiteVideoCanApplyLiteVideo_HasHint) {
+  SetEffectiveConnectionType(
+      net::EffectiveConnectionType::EFFECTIVE_CONNECTION_TYPE_4G);
+  WaitForBlocklistToBeLoaded();
+  EXPECT_TRUE(
+      LiteVideoKeyedServiceFactory::GetForProfile(browser()->profile()));
+
+  GURL navigation_url("https://litevideo.com");
+
+  // Navigate metrics get recorded.
+  ui_test_utils::NavigateToURL(browser(), navigation_url);
+
+  EXPECT_GT(RetryForHistogramUntilCountReached(
+                *histogram_tester(), "LiteVideo.Navigation.HasHint", 1),
+            0);
+  histogram_tester()->ExpectUniqueSample("LiteVideo.Navigation.HasHint", true,
+                                         1);
+  histogram_tester()->ExpectUniqueSample(
+      "LiteVideo.CanApplyLiteVideo.UserBlocklist.MainFrame",
+      lite_video::LiteVideoBlocklistReason::kAllowed, 1);
+  histogram_tester()->ExpectTotalCount(
+      "LiteVideo.CanApplyLiteVideo.UserBlocklist.SubFrame", 0);
+}
+
+IN_PROC_BROWSER_TEST_F(LiteVideoKeyedServiceBrowserTest,
+                       LiteVideoCanApplyLiteVideo_Reload) {
+  WaitForBlocklistToBeLoaded();
+  EXPECT_TRUE(
+      LiteVideoKeyedServiceFactory::GetForProfile(browser()->profile()));
+
+  // Navigate metrics get recorded.
+  GURL url("https://testserver.com");
+  NavigateParams params(browser(), url, ui::PAGE_TRANSITION_RELOAD);
+  ui_test_utils::NavigateToURL(&params);
+
+  EXPECT_GT(RetryForHistogramUntilCountReached(
+                *histogram_tester(), "LiteVideo.Navigation.HasHint", 1),
+            0);
+  histogram_tester()->ExpectUniqueSample("LiteVideo.Navigation.HasHint", false,
+                                         1);
+  histogram_tester()->ExpectUniqueSample(
+      "LiteVideo.CanApplyLiteVideo.UserBlocklist.MainFrame",
+      lite_video::LiteVideoBlocklistReason::kNavigationReload, 1);
+  histogram_tester()->ExpectTotalCount(
+      "LiteVideo.CanApplyLiteVideo.UserBlocklist.SubFrame", 0);
+
+  // Navigate to confirm that the host is blocklisted due to a reload. This
+  // happens after one such navigation due to overriding the blocklist
+  // parameters for testing.
+  NavigateParams params_blocklisted(browser(), url, ui::PAGE_TRANSITION_TYPED);
+  ui_test_utils::NavigateToURL(&params_blocklisted);
+
+  EXPECT_GT(RetryForHistogramUntilCountReached(
+                *histogram_tester(), "LiteVideo.Navigation.HasHint", 2),
+            0);
+  histogram_tester()->ExpectUniqueSample("LiteVideo.Navigation.HasHint", false,
+                                         2);
+  histogram_tester()->ExpectBucketCount(
+      "LiteVideo.CanApplyLiteVideo.UserBlocklist.MainFrame",
+      lite_video::LiteVideoBlocklistReason::kNavigationBlocklisted, 1);
+  histogram_tester()->ExpectTotalCount(
+      "LiteVideo.CanApplyLiteVideo.UserBlocklist.SubFrame", 0);
+}
+
+IN_PROC_BROWSER_TEST_F(LiteVideoKeyedServiceBrowserTest,
+                       LiteVideoCanApplyLiteVideo_ForwardBack) {
+  WaitForBlocklistToBeLoaded();
+  EXPECT_TRUE(
+      LiteVideoKeyedServiceFactory::GetForProfile(browser()->profile()));
+
+  // Navigate metrics get recorded.
+  GURL url("https://testserver.com");
+  NavigateParams params(browser(), url, ui::PAGE_TRANSITION_FORWARD_BACK);
+  ui_test_utils::NavigateToURL(&params);
+
+  EXPECT_GT(RetryForHistogramUntilCountReached(
+                *histogram_tester(), "LiteVideo.Navigation.HasHint", 1),
+            0);
+  histogram_tester()->ExpectUniqueSample("LiteVideo.Navigation.HasHint", false,
+                                         1);
+  histogram_tester()->ExpectUniqueSample(
+      "LiteVideo.CanApplyLiteVideo.UserBlocklist.MainFrame",
+      lite_video::LiteVideoBlocklistReason::kNavigationForwardBack, 1);
+  histogram_tester()->ExpectTotalCount(
+      "LiteVideo.CanApplyLiteVideo.UserBlocklist.SubFrame", 0);
+
+  // Navigate to confirm that the host is blocklisted due to the Forward-Back
+  // navigation. This happens after one such navigation due to overriding the
+  // blocklist parameters for testing.
+  NavigateParams params_blocklisted(browser(), url, ui::PAGE_TRANSITION_TYPED);
+  ui_test_utils::NavigateToURL(&params_blocklisted);
+
+  EXPECT_GT(RetryForHistogramUntilCountReached(
+                *histogram_tester(), "LiteVideo.Navigation.HasHint", 2),
+            0);
+  histogram_tester()->ExpectUniqueSample("LiteVideo.Navigation.HasHint", false,
+                                         2);
+  histogram_tester()->ExpectBucketCount(
+      "LiteVideo.CanApplyLiteVideo.UserBlocklist.MainFrame",
+      lite_video::LiteVideoBlocklistReason::kNavigationBlocklisted, 1);
+  histogram_tester()->ExpectTotalCount(
+      "LiteVideo.CanApplyLiteVideo.UserBlocklist.SubFrame", 0);
+}
+
+IN_PROC_BROWSER_TEST_F(LiteVideoKeyedServiceBrowserTest,
+                       MultipleNavigationsNotBlocklisted) {
+  WaitForBlocklistToBeLoaded();
+  EXPECT_TRUE(
+      LiteVideoKeyedServiceFactory::GetForProfile(browser()->profile()));
+
+  GURL url("https://litevideo.com");
+
+  // Navigate metrics get recorded.
+  NavigateParams params(browser(), url, ui::PAGE_TRANSITION_TYPED);
+  ui_test_utils::NavigateToURL(&params);
+
+  EXPECT_GT(RetryForHistogramUntilCountReached(
+                *histogram_tester(), "LiteVideo.Navigation.HasHint", 1),
+            0);
+  histogram_tester()->ExpectUniqueSample("LiteVideo.Navigation.HasHint", true,
+                                         1);
+  histogram_tester()->ExpectUniqueSample(
+      "LiteVideo.CanApplyLiteVideo.UserBlocklist.MainFrame",
+      lite_video::LiteVideoBlocklistReason::kAllowed, 1);
+  histogram_tester()->ExpectTotalCount(
+      "LiteVideo.CanApplyLiteVideo.UserBlocklist.SubFrame", 0);
+
+  // Navigate  again to ensure that it was not blocklisted.
+  ui_test_utils::NavigateToURL(&params);
+
+  EXPECT_GT(RetryForHistogramUntilCountReached(
+                *histogram_tester(), "LiteVideo.Navigation.HasHint", 2),
+            0);
+  histogram_tester()->ExpectBucketCount("LiteVideo.Navigation.HasHint", true,
+                                        2);
+  histogram_tester()->ExpectBucketCount(
+      "LiteVideo.CanApplyLiteVideo.UserBlocklist.MainFrame",
+      lite_video::LiteVideoBlocklistReason::kAllowed, 2);
+  histogram_tester()->ExpectTotalCount(
+      "LiteVideo.CanApplyLiteVideo.UserBlocklist.SubFrame", 0);
+}
+
+// This test fails on Windows because of the backing store for the blocklist.
+// LiteVideos is an Android only feature so disabling the test permananently
+// for Windows.
+#if defined(OS_WIN)
+#define DISABLE_ON_WIN(x) DISABLED_##x
+#else
+#define DISABLE_ON_WIN(x) x
+#endif
+
+IN_PROC_BROWSER_TEST_F(
+    LiteVideoKeyedServiceBrowserTest,
+    DISABLE_ON_WIN(UserBlocklistClearedOnBrowserHistoryClear)) {
+  WaitForBlocklistToBeLoaded();
+  content::NetworkConnectionChangeSimulator().SetConnectionType(
+      network::mojom::ConnectionType::CONNECTION_4G);
+  g_browser_process->network_quality_tracker()
+      ->ReportEffectiveConnectionTypeForTesting(
+          net::EffectiveConnectionType::EFFECTIVE_CONNECTION_TYPE_4G);
+  EXPECT_TRUE(
+      LiteVideoKeyedServiceFactory::GetForProfile(browser()->profile()));
+
+  // Navigate metrics get recorded.
+  GURL url("https://litevideo.com");
+  NavigateParams params(browser(), url, ui::PAGE_TRANSITION_FORWARD_BACK);
+  ui_test_utils::NavigateToURL(&params);
+
+  EXPECT_GT(RetryForHistogramUntilCountReached(
+                *histogram_tester(), "LiteVideo.Navigation.HasHint", 1),
+            0);
+  histogram_tester()->ExpectUniqueSample("LiteVideo.Navigation.HasHint", false,
+                                         1);
+  histogram_tester()->ExpectUniqueSample(
+      "LiteVideo.CanApplyLiteVideo.UserBlocklist.MainFrame",
+      lite_video::LiteVideoBlocklistReason::kNavigationForwardBack, 1);
+  histogram_tester()->ExpectTotalCount(
+      "LiteVideo.CanApplyLiteVideo.UserBlocklist.SubFrame", 0);
+
+  // Navigate to confirm that the host is blocklisted.
+  NavigateParams params_blocklisted(browser(), url, ui::PAGE_TRANSITION_TYPED);
+  ui_test_utils::NavigateToURL(&params_blocklisted);
+
+  EXPECT_GT(RetryForHistogramUntilCountReached(
+                *histogram_tester(), "LiteVideo.Navigation.HasHint", 2),
+            0);
+  histogram_tester()->ExpectUniqueSample("LiteVideo.Navigation.HasHint", false,
+                                         2);
+  histogram_tester()->ExpectBucketCount(
+      "LiteVideo.CanApplyLiteVideo.UserBlocklist.MainFrame",
+      lite_video::LiteVideoBlocklistReason::kNavigationBlocklisted, 1);
+  histogram_tester()->ExpectTotalCount(
+      "LiteVideo.CanApplyLiteVideo.UserBlocklist.SubFrame", 0);
+
+  // Wipe the browser history, clearing the user blocklist.
+  // This should allow LiteVideos on the next navigation.
+  browser()->profile()->Wipe();
+
+  EXPECT_GT(
+      RetryForHistogramUntilCountReached(
+          *histogram_tester(), "LiteVideo.UserBlocklist.ClearBlocklist", 1),
+      0);
+  histogram_tester()->ExpectUniqueSample(
+      "LiteVideo.UserBlocklist.ClearBlocklist", true, 1);
+
+  ui_test_utils::NavigateToURL(&params_blocklisted);
+
+  EXPECT_GT(RetryForHistogramUntilCountReached(
+                *histogram_tester(), "LiteVideo.Navigation.HasHint", 3),
+            0);
+  histogram_tester()->ExpectBucketCount("LiteVideo.Navigation.HasHint", true,
+                                        1);
+  histogram_tester()->ExpectBucketCount(
+      "LiteVideo.CanApplyLiteVideo.UserBlocklist.MainFrame",
+      lite_video::LiteVideoBlocklistReason::kAllowed, 1);
+  histogram_tester()->ExpectTotalCount(
+      "LiteVideo.CanApplyLiteVideo.UserBlocklist.SubFrame", 0);
+}
+
+class LiteVideoNetworkConnectionBrowserTest
+    : public LiteVideoKeyedServiceBrowserTest {
+ public:
+  LiteVideoNetworkConnectionBrowserTest() = default;
+  ~LiteVideoNetworkConnectionBrowserTest() override = default;
+
+  void SetUpCommandLine(base::CommandLine* cmd) override {
+    cmd->AppendSwitch("enable-spdy-proxy-auth");
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(LiteVideoNetworkConnectionBrowserTest,
+                       LiteVideoCanApplyLiteVideo_NetworkNotCellular) {
+  WaitForBlocklistToBeLoaded();
+  EXPECT_TRUE(
+      LiteVideoKeyedServiceFactory::GetForProfile(browser()->profile()));
+
+  content::NetworkConnectionChangeSimulator().SetConnectionType(
+      network::mojom::ConnectionType::CONNECTION_WIFI);
+
+  GURL navigation_url("https://litevideo.com");
+
+  // Navigate metrics get recorded.
+  ui_test_utils::NavigateToURL(browser(), navigation_url);
+  EXPECT_GT(RetryForHistogramUntilCountReached(
+                *histogram_tester(), "LiteVideo.Navigation.HasHint", 1),
+            0);
+
+  histogram_tester()->ExpectUniqueSample("LiteVideo.Navigation.HasHint", false,
+                                         1);
+  histogram_tester()->ExpectTotalCount(
+      "LiteVideo.CanApplyLiteVideo.UserBlocklist.MainFrame", 0);
+  histogram_tester()->ExpectTotalCount(
+      "LiteVideo.CanApplyLiteVideo.UserBlocklist.SubFrame", 0);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    LiteVideoNetworkConnectionBrowserTest,
+    LiteVideoCanApplyLiteVideo_NetworkConnectionBelowMinECT) {
+  WaitForBlocklistToBeLoaded();
+  EXPECT_TRUE(
+      LiteVideoKeyedServiceFactory::GetForProfile(browser()->profile()));
+
+  g_browser_process->network_quality_tracker()
+      ->ReportEffectiveConnectionTypeForTesting(
+          net::EffectiveConnectionType::EFFECTIVE_CONNECTION_TYPE_2G);
+
+  GURL navigation_url("https://litevideo.com");
+
+  // Navigate metrics get recorded.
+  ui_test_utils::NavigateToURL(browser(), navigation_url);
+
+  EXPECT_GT(RetryForHistogramUntilCountReached(
+                *histogram_tester(), "LiteVideo.Navigation.HasHint", 1),
+            0);
+  histogram_tester()->ExpectUniqueSample("LiteVideo.Navigation.HasHint", false,
+                                         1);
+  histogram_tester()->ExpectTotalCount(
+      "LiteVideo.CanApplyLiteVideo.UserBlocklist.MainFrame", 0);
+  histogram_tester()->ExpectTotalCount(
+      "LiteVideo.CanApplyLiteVideo.UserBlocklist.SubFrame", 0);
+}

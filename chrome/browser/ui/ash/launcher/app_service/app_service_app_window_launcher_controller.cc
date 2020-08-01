@@ -31,15 +31,19 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/services/app_service/public/cpp/instance.h"
-#include "chrome/services/app_service/public/mojom/types.mojom-shared.h"
-#include "chrome/services/app_service/public/mojom/types.mojom.h"
+#include "chrome/grit/chrome_unscaled_resources.h"
 #include "components/account_id/account_id.h"
 #include "components/arc/arc_util.h"
+#include "components/exo/shell_surface_base.h"
+#include "components/services/app_service/public/cpp/instance.h"
+#include "components/services/app_service/public/mojom/types.mojom-shared.h"
+#include "components/services/app_service/public/mojom/types.mojom.h"
 #include "extensions/common/constants.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/env.h"
 #include "ui/aura/window.h"
+#include "ui/base/resource/resource_bundle.h"
+#include "ui/gfx/image/image_skia.h"
 #include "ui/views/widget/widget.h"
 
 namespace {
@@ -219,6 +223,14 @@ void AppServiceAppWindowLauncherController::OnWindowVisibilityChanged(
 
   if (crostini_tracker_)
     crostini_tracker_->OnWindowVisibilityChanged(window, shelf_id.app_id);
+
+  // This will match both the Plugin VM App window and installer.
+  if (shelf_id.app_id == plugin_vm::kPluginVmShelfAppId) {
+    // Plugin VM can only be used on the primary profile.
+    MultiUserWindowManagerHelper::GetWindowManager()->SetWindowOwner(
+        window,
+        user_manager::UserManager::Get()->GetPrimaryUser()->GetAccountId());
+  }
 }
 
 void AppServiceAppWindowLauncherController::OnWindowDestroying(
@@ -464,13 +476,21 @@ void AppServiceAppWindowLauncherController::RegisterWindow(
     if (shelf_id.app_id == arc::kPlayStoreAppId) {
       AppWindowLauncherItemController* item_controller =
           owner()->shelf_model()->GetAppWindowLauncherItemController(shelf_id);
-      if (item_controller != nullptr &&
-          shelf_id.app_id == arc::kPlayStoreAppId && arc_tracker_) {
+      if (item_controller && shelf_id.app_id == arc::kPlayStoreAppId &&
+          arc_tracker_) {
         OnItemDelegateDiscarded(item_controller);
       }
     }
 
     AddWindowToShelf(window, shelf_id);
+
+    if (plugin_vm::IsPluginVmAppWindow(window)) {
+      // Set an icon for the Plugin VM app window.
+      static_cast<exo::ShellSurfaceBase*>(
+          views::Widget::GetWidgetForNativeWindow(window)->widget_delegate())
+          ->SetIcon(*ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
+              IDR_LOGO_PLUGIN_VM_DEFAULT_32));
+    }
   }
 }
 
@@ -556,8 +576,8 @@ ash::ShelfID AppServiceAppWindowLauncherController::GetShelfId(
       return ash::ShelfID(shelf_app_id);
   }
 
-  if (plugin_vm::IsPluginVmWindow(window))
-    return ash::ShelfID(plugin_vm::kPluginVmAppId);
+  if (plugin_vm::IsPluginVmAppWindow(window))
+    return ash::ShelfID(plugin_vm::kPluginVmShelfAppId);
 
   ash::ShelfID shelf_id;
   if (arc_tracker_)

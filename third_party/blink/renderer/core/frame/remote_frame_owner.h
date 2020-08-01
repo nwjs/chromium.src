@@ -83,12 +83,12 @@ class CORE_EXPORT RemoteFrameOwner final
     required_csp_ = required_csp;
   }
 
+  void Trace(Visitor*) const override;
+
   bool nwfaketop() const override { return nwfaketop_; }
   AtomicString nwuseragent() const override { return nwuseragent_; }
   void set_nwfaketop(bool flag) { nwfaketop_ = flag; }
   void set_nwuseragent(const WebString& agent) { nwuseragent_ = agent; }
-
-  void Trace(Visitor*) override;
 
  private:
   // Intentionally private to prevent redundant checks when the type is

@@ -61,8 +61,6 @@ class MEDIA_EXPORT DefaultRendererFactory : public RendererFactory {
       RequestOverlayInfoCB request_overlay_info_cb,
       const gfx::ColorSpace& target_color_space) final;
 
-  void TranscribeAudio(scoped_refptr<media::AudioBuffer> buffer);
-
  private:
   std::vector<std::unique_ptr<AudioDecoder>> CreateAudioDecoders(
       const scoped_refptr<base::SingleThreadTaskRunner>& media_task_runner);

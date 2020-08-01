@@ -67,12 +67,13 @@ import org.chromium.chrome.browser.toolbar.IncognitoStateProvider;
 import org.chromium.chrome.browser.toolbar.ToolbarDataProvider;
 import org.chromium.chrome.browser.toolbar.top.ToolbarActionModeCallback;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
-import org.chromium.chrome.browser.util.AccessibilityUtil;
+import org.chromium.chrome.browser.util.ChromeAccessibilityUtil;
 import org.chromium.chrome.browser.util.KeyNavigationUtil;
 import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.browser_ui.widget.CompositeTouchDelegate;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.common.ResourceRequestBody;
+import org.chromium.ui.KeyboardVisibilityDelegate;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.PageTransition;
 import org.chromium.ui.base.WindowAndroid;
@@ -118,6 +119,7 @@ public class LocationBarLayout extends FrameLayout
     protected boolean mNativeInitialized;
     private boolean mUrlHasFocus;
     private boolean mUrlFocusedFromFakebox;
+    private boolean mUrlFocusedFromQueryTiles;
     private boolean mUrlFocusedWithoutAnimations;
     protected boolean mVoiceSearchEnabled;
 
@@ -451,7 +453,7 @@ public class LocationBarLayout extends FrameLayout
             // from the NTP fakebox.  Clearing/re-requesting focus triggers the bounding box to
             // be recalculated.
             if (didFocusUrlFromFakebox() && mUrlHasFocus
-                    && AccessibilityUtil.isAccessibilityEnabled()) {
+                    && ChromeAccessibilityUtil.get().isAccessibilityEnabled()) {
                 String existingText = mUrlCoordinator.getTextWithoutAutocomplete();
                 mUrlBar.clearFocus();
                 mUrlBar.requestFocus();
@@ -497,6 +499,7 @@ public class LocationBarLayout extends FrameLayout
             imm.viewClicked(mUrlBar);
         } else {
             mUrlFocusedFromFakebox = false;
+            mUrlFocusedFromQueryTiles = false;
             mUrlFocusedWithoutAnimations = false;
 
             // Focus change caused by a close-tab may result in an invalid current tab.
@@ -563,6 +566,11 @@ public class LocationBarLayout extends FrameLayout
     @Override
     public boolean didFocusUrlFromFakebox() {
         return mUrlFocusedFromFakebox;
+    }
+
+    @Override
+    public boolean didFocusUrlFromQueryTiles() {
+        return mUrlFocusedFromQueryTiles;
     }
 
     @Override
@@ -716,6 +724,13 @@ public class LocationBarLayout extends FrameLayout
     public void setKeyboardVisibility(boolean shouldShow) {
         mKeyboardShouldShow = shouldShow;
         setKeyboardVisibilityInternal(false);
+    }
+
+    @Override
+    public boolean isKeyboardActive() {
+        return KeyboardVisibilityDelegate.getInstance().isKeyboardShowing(getContext(), this)
+                || (getContext().getResources().getConfiguration().keyboard
+                        == Configuration.KEYBOARD_QWERTY);
     }
 
     @Override
@@ -1036,12 +1051,16 @@ public class LocationBarLayout extends FrameLayout
             boolean shouldBeFocused, @Nullable String pastedText, @OmniboxFocusReason int reason) {
         if (shouldBeFocused) {
             if (!mUrlHasFocus) recordOmniboxFocusReason(reason);
-
             if (reason == LocationBar.OmniboxFocusReason.FAKE_BOX_TAP
                     || reason == LocationBar.OmniboxFocusReason.FAKE_BOX_LONG_PRESS
                     || reason == LocationBar.OmniboxFocusReason.TASKS_SURFACE_FAKE_BOX_LONG_PRESS
                     || reason == LocationBar.OmniboxFocusReason.TASKS_SURFACE_FAKE_BOX_TAP) {
                 mUrlFocusedFromFakebox = true;
+            }
+
+            if (reason == LocationBar.OmniboxFocusReason.QUERY_TILES_NTP_TAP) {
+                mUrlFocusedFromFakebox = true;
+                mUrlFocusedFromQueryTiles = true;
             }
 
             if (mUrlHasFocus && mUrlFocusedWithoutAnimations) {

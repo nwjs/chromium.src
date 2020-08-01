@@ -77,7 +77,7 @@ class FrameInfoHelperImpl : public FrameInfoHelper,
       }
     }
 
-    std::move(cb).Run(std::move(buffer_renderer), frame_info_, success);
+    std::move(cb).Run(std::move(buffer_renderer), info, success);
   }
 
   void OnWillDestroyStub(bool have_context) override {

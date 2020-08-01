@@ -11,17 +11,20 @@ import org.chromium.base.Callback;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.Supplier;
 import org.chromium.base.task.PostTask;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.bookmarks.BookmarkBridge;
+import org.chromium.chrome.browser.browser_controls.BrowserControlsSizer;
 import org.chromium.chrome.browser.compositor.bottombar.ephemeraltab.EphemeralTabCoordinator;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManager;
+import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior;
+import org.chromium.chrome.browser.contextualsearch.ContextualSearchManager;
 import org.chromium.chrome.browser.datareduction.DataReductionPromoScreen;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
 import org.chromium.chrome.browser.gesturenav.HistoryNavigationCoordinator;
 import org.chromium.chrome.browser.history.HistoryManagerUtils;
 import org.chromium.chrome.browser.language.LanguageAskPrompt;
@@ -42,6 +45,7 @@ import org.chromium.chrome.browser.toolbar.ToolbarButtonInProductHelpController;
 import org.chromium.chrome.browser.toolbar.bottom.BottomToolbarConfiguration;
 import org.chromium.chrome.browser.ui.RootUiCoordinator;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuHandler;
+import org.chromium.chrome.browser.ui.default_browser_promo.DefaultBrowserPromoUtils;
 import org.chromium.chrome.browser.ui.tablet.emptybackground.EmptyBackgroundViewWrapper;
 import org.chromium.chrome.browser.vr.VrModuleProvider;
 import org.chromium.content_public.browser.UiThreadTaskTraits;
@@ -76,6 +80,8 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
      * @param tabProvider The {@link ActivityTabProvider} to get current tab of the activity.
      * @param profileSupplier Supplier of the currently applicable profile.
      * @param bookmarkBridgeSupplier Supplier of the bookmark bridge for the current profile.
+     * @param overviewModeBehaviorSupplier Supplier of the overview mode manager.
+     * @param contextualSearchManagerSupplier Supplier of the {@link ContextualSearchManager}.
      */
     public TabbedRootUiCoordinator(ChromeActivity activity,
             Callback<Boolean> onOmniboxFocusChangedListener, boolean intentWithEffect,
@@ -83,9 +89,12 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
             ActivityTabProvider tabProvider,
             ObservableSupplierImpl<EphemeralTabCoordinator> ephemeralTabCoordinatorSupplier,
             ObservableSupplier<Profile> profileSupplier,
-            ObservableSupplier<BookmarkBridge> bookmarkBridgeSupplier) {
+            ObservableSupplier<BookmarkBridge> bookmarkBridgeSupplier,
+            ObservableSupplier<OverviewModeBehavior> overviewModeBehaviorSupplier,
+            Supplier<ContextualSearchManager> contextualSearchManagerSupplier) {
         super(activity, onOmniboxFocusChangedListener, shareDelegateSupplier, tabProvider,
-                profileSupplier, bookmarkBridgeSupplier);
+                profileSupplier, bookmarkBridgeSupplier, overviewModeBehaviorSupplier,
+                contextualSearchManagerSupplier);
         mIntentWithEffect = intentWithEffect;
         mEphemeralTabCoordinatorSupplier = ephemeralTabCoordinatorSupplier;
         mCanAnimateBrowserControls = () -> {
@@ -164,7 +173,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
             mEphemeralTabCoordinatorSupplier.set(new EphemeralTabCoordinator(mActivity,
                     mActivity.getWindowAndroid(), mActivity.getWindow().getDecorView(),
                     mActivity.getActivityTabProvider(), mActivity::getCurrentTabCreator,
-                    mActivity::getBottomSheetController, () -> !mActivity.isCustomTab()));
+                    mActivity.getBottomSheetController(), true));
         }
 
         PostTask.postTask(UiThreadTaskTraits.DEFAULT, this::initializeIPH);
@@ -202,6 +211,11 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
         }
     }
 
+    @Override
+    protected boolean shouldShowMenuUpdateBadge() {
+        return true;
+    }
+
     // Private class methods
 
     private void initializeIPH() {
@@ -223,9 +237,9 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
             return;
         }
 
-        final ChromeFullscreenManager fullscreenManager = mActivity.getFullscreenManager();
+        final BrowserControlsSizer browserControlsSizer = mActivity.getFullscreenManager();
         mStatusIndicatorCoordinator = new StatusIndicatorCoordinator(mActivity,
-                mActivity.getCompositorViewHolder().getResourceManager(), fullscreenManager,
+                mActivity.getCompositorViewHolder().getResourceManager(), browserControlsSizer,
                 mActivity.getStatusBarColorController()::getStatusBarColorWithoutStatusIndicator,
                 mCanAnimateBrowserControls, layoutManager::requestUpdate);
         layoutManager.setStatusIndicatorSceneOverlay(mStatusIndicatorCoordinator.getSceneLayer());
@@ -236,9 +250,9 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
                 final int topControlsNewHeight =
                         mActivity.getResources().getDimensionPixelSize(resourceId)
                         + indicatorHeight;
-                fullscreenManager.setAnimateBrowserControlsHeightChanges(true);
-                fullscreenManager.setTopControlsHeight(topControlsNewHeight, indicatorHeight);
-                fullscreenManager.setAnimateBrowserControlsHeightChanges(false);
+                browserControlsSizer.setAnimateBrowserControlsHeightChanges(true);
+                browserControlsSizer.setTopControlsHeight(topControlsNewHeight, indicatorHeight);
+                browserControlsSizer.setAnimateBrowserControlsHeightChanges(false);
             }
         };
         mStatusIndicatorCoordinator.addObserver(mStatusIndicatorObserver);
@@ -333,6 +347,10 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
         if (SigninPromoUtil.launchSigninPromoIfNeeded(mActivity)) return true;
         if (DataReductionPromoScreen.launchDataReductionPromo(
                     mActivity, mActivity.getTabModelSelector().getCurrentModel().isIncognito())) {
+            return true;
+        }
+        if (DefaultBrowserPromoUtils.prepareLaunchPromoIfNeeded(
+                    mActivity, mActivity.getLifecycleDispatcher(), mActivity.getWindowAndroid())) {
             return true;
         }
 

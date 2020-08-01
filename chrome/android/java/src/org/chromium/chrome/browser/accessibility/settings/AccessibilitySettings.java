@@ -18,7 +18,7 @@ import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.preferences.PrefServiceBridge;
 import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
-import org.chromium.chrome.browser.util.AccessibilityUtil;
+import org.chromium.chrome.browser.util.ChromeAccessibilityUtil;
 import org.chromium.components.browser_ui.settings.ChromeBaseCheckBoxPreference;
 import org.chromium.components.browser_ui.settings.SettingsUtils;
 
@@ -73,13 +73,13 @@ public class AccessibilitySettings
         ChromeBaseCheckBoxPreference readerForAccessibilityPref =
                 (ChromeBaseCheckBoxPreference) findPreference(PREF_READER_FOR_ACCESSIBILITY);
         readerForAccessibilityPref.setChecked(
-                PrefServiceBridge.getInstance().getBoolean(Pref.READER_FOR_ACCESSIBILITY_ENABLED));
+                PrefServiceBridge.getInstance().getBoolean(Pref.READER_FOR_ACCESSIBILITY));
         readerForAccessibilityPref.setOnPreferenceChangeListener(this);
 
         ChromeBaseCheckBoxPreference mAccessibilityTabSwitcherPref =
                 (ChromeBaseCheckBoxPreference) findPreference(
                         ChromePreferenceKeys.ACCESSIBILITY_TAB_SWITCHER);
-        if (AccessibilityUtil.isAccessibilityEnabled()) {
+        if (ChromeAccessibilityUtil.get().isAccessibilityEnabled()) {
             mAccessibilityTabSwitcherPref.setChecked(
                     SharedPreferencesManager.getInstance().readBoolean(
                             ChromePreferenceKeys.ACCESSIBILITY_TAB_SWITCHER, true));
@@ -120,7 +120,7 @@ public class AccessibilitySettings
             mFontSizePrefs.setForceEnableZoomFromUser((Boolean) newValue);
         } else if (PREF_READER_FOR_ACCESSIBILITY.equals(preference.getKey())) {
             PrefServiceBridge.getInstance().setBoolean(
-                    Pref.READER_FOR_ACCESSIBILITY_ENABLED, (Boolean) newValue);
+                    Pref.READER_FOR_ACCESSIBILITY, (Boolean) newValue);
         }
         return true;
     }

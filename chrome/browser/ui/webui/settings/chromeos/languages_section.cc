@@ -57,7 +57,7 @@ const std::vector<SearchConcept>& GetLanguagesSearchConcepts() {
 const std::vector<SearchConcept>& GetSmartInputsSearchConcepts() {
   static const base::NoDestructor<std::vector<SearchConcept>> tags({
       {IDS_OS_SETTINGS_TAG_LANGUAGES_SMART_INPUTS,
-       mojom::kSmartInputsSubagePath,
+       mojom::kSmartInputsSubpagePath,
        mojom::SearchResultIcon::kGlobe,
        mojom::SearchResultDefaultRank::kMedium,
        mojom::SearchResultType::kSubpage,
@@ -69,7 +69,7 @@ const std::vector<SearchConcept>& GetSmartInputsSearchConcepts() {
 const std::vector<SearchConcept>& GetAssistivePersonalInfoSearchConcepts() {
   static const base::NoDestructor<std::vector<SearchConcept>> tags({
       {IDS_OS_SETTINGS_TAG_LANGUAGES_PERSONAL_INFORMATION_SUGGESTIONS,
-       mojom::kSmartInputsSubagePath,
+       mojom::kSmartInputsSubpagePath,
        mojom::SearchResultIcon::kGlobe,
        mojom::SearchResultDefaultRank::kMedium,
        mojom::SearchResultType::kSetting,
@@ -78,10 +78,27 @@ const std::vector<SearchConcept>& GetAssistivePersonalInfoSearchConcepts() {
   return *tags;
 }
 
+const std::vector<SearchConcept>& GetEmojiSuggestionSearchConcepts() {
+  static const base::NoDestructor<std::vector<SearchConcept>> tags({
+      {IDS_OS_SETTINGS_TAG_LANGUAGES_EMOJI_SUGGESTIONS,
+       mojom::kSmartInputsSubpagePath,
+       mojom::SearchResultIcon::kGlobe,
+       mojom::SearchResultDefaultRank::kMedium,
+       mojom::SearchResultType::kSetting,
+       {.setting = mojom::Setting::kShowEmojiSuggestions}},
+  });
+  return *tags;
+}
+
 bool IsAssistivePersonalInfoAllowed() {
   return !features::IsGuestModeActive() &&
          base::FeatureList::IsEnabled(
              ::chromeos::features::kAssistPersonalInfo);
+}
+
+bool IsEmojiSuggestionAllowed() {
+  return base::FeatureList::IsEnabled(
+      ::chromeos::features::kEmojiSuggestAddition);
 }
 
 void AddSmartInputsStrings(content::WebUIDataSource* html_source) {
@@ -94,11 +111,71 @@ void AddSmartInputsStrings(content::WebUIDataSource* html_source) {
       {"showPersonalInfoSuggestion",
        IDS_SETTINGS_SMART_INPUTS_SHOW_PERSONAL_INFO},
       {"managePersonalInfo", IDS_SETTINGS_SMART_INPUTS_MANAGE_PERSONAL_INFO},
+      {"emojiSuggestionTitle",
+       IDS_SETTINGS_SMART_INPUTS_EMOJI_SUGGESTION_TITLE},
+      {"emojiSuggestionDescription",
+       IDS_SETTINGS_SMART_INPUTS_EMOJI_SUGGESTION_DESCRIPTION},
+      {"showEmojiSuggestion", IDS_SETTINGS_SMART_INPUTS_SHOW_EMOJI_SUGGESTION},
   };
   AddLocalizedStringsBulk(html_source, kLocalizedStrings);
 
   html_source->AddBoolean("allowAssistivePersonalInfo",
                           IsAssistivePersonalInfoAllowed());
+  html_source->AddBoolean("allowEmojiSuggestion", IsEmojiSuggestionAllowed());
+}
+
+void AddInputMethodOptionsStrings(content::WebUIDataSource* html_source) {
+  static constexpr webui::LocalizedString kLocalizedStrings[] = {
+      {"inputMethodOptionsBasicSectionTitle",
+       IDS_SETTINGS_INPUT_METHOD_OPTIONS_BASIC},
+      {"inputMethodOptionsAdvancedSectionTitle",
+       IDS_SETTINGS_INPUT_METHOD_OPTIONS_ADVANCED},
+      {"inputMethodOptionsPhysicalKeyboardSectionTitle",
+       IDS_SETTINGS_INPUT_METHOD_OPTIONS_PHYSICAL_KEYBOARD},
+      {"inputMethodOptionsVirtualKeyboardSectionTitle",
+       IDS_SETTINGS_INPUT_METHOD_OPTIONS_VIRTUAL_KEYBOARD},
+      {"inputMethodOptionsEnableDoubleSpacePeriod",
+       IDS_SETTINGS_INPUT_METHOD_OPTIONS_ENABLE_DOUBLE_SPACE_PERIOD},
+      {"inputMethodOptionsEnableGestureTyping",
+       IDS_SETTINGS_INPUT_METHOD_OPTIONS_ENABLE_GESTURE_TYPING},
+      {"inputMethodOptionsEnablePrediction",
+       IDS_SETTINGS_INPUT_METHOD_OPTIONS_ENABLE_PREDICTION},
+      {"inputMethodOptionsEnableSoundOnKeypress",
+       IDS_SETTINGS_INPUT_METHOD_OPTIONS_ENABLE_SOUND_ON_KEYPRESS},
+      {"inputMethodOptionsEnableCapitalization",
+       IDS_SETTINGS_INPUT_METHOD_OPTIONS_ENABLE_CAPITALIZATION},
+      {"inputMethodOptionsAutoCorrection",
+       IDS_SETTINGS_INPUT_METHOD_OPTIONS_AUTO_CORRECTION},
+      {"inputMethodOptionsXkbLayout",
+       IDS_SETTINGS_INPUT_METHOD_OPTIONS_XKB_LAYOUT},
+      {"inputMethodOptionsEditUserDict",
+       IDS_SETTINGS_INPUT_METHOD_OPTIONS_EDIT_USER_DICT},
+      {"inputMethodOptionsPinyinChinesePunctuation",
+       IDS_SETTINGS_INPUT_METHOD_OPTIONS_PINYIN_CHINESE_PUNCTUATION},
+      {"inputMethodOptionsPinyinDefaultChinese",
+       IDS_SETTINGS_INPUT_METHOD_OPTIONS_PINYIN_DEFAULT_CHINESE},
+      {"inputMethodOptionsPinyinEnableFuzzy",
+       IDS_SETTINGS_INPUT_METHOD_OPTIONS_PINYIN_ENABLE_FUZZY},
+      {"inputMethodOptionsPinyinEnableLowerPaging",
+       IDS_SETTINGS_INPUT_METHOD_OPTIONS_PINYIN_ENABLE_LOWER_PAGING},
+      {"inputMethodOptionsPinyinEnableUpperPaging",
+       IDS_SETTINGS_INPUT_METHOD_OPTIONS_PINYIN_ENABLE_UPPER_PAGING},
+      {"inputMethodOptionsPinyinFullWidthCharacter",
+       IDS_SETTINGS_INPUT_METHOD_OPTIONS_PINYIN_FULL_WIDTH_CHARACTER},
+      {"inputMethodOptionsAutoCorrectionOff",
+       IDS_SETTINGS_INPUT_METHOD_OPTIONS_AUTO_CORRECTION_OFF},
+      {"inputMethodOptionsAutoCorrectionModest",
+       IDS_SETTINGS_INPUT_METHOD_OPTIONS_AUTO_CORRECTION_MODEST},
+      {"inputMethodOptionsAutoCorrectionAggressive",
+       IDS_SETTINGS_INPUT_METHOD_OPTIONS_AUTO_CORRECTION_AGGRESSIVE},
+      {"inputMethodOptionsUsKeyboard",
+       IDS_SETTINGS_INPUT_METHOD_OPTIONS_KEYBOARD_US},
+      {"inputMethodOptionsDvorakKeyboard",
+       IDS_SETTINGS_INPUT_METHOD_OPTIONS_KEYBOARD_DVORAK},
+      {"inputMethodOptionsColemakKeyboard",
+       IDS_SETTINGS_INPUT_METHOD_OPTIONS_KEYBOARD_COLEMAK},
+  };
+  AddLocalizedStringsBulk(html_source, kLocalizedStrings);
 }
 
 }  // namespace
@@ -106,11 +183,15 @@ void AddSmartInputsStrings(content::WebUIDataSource* html_source) {
 LanguagesSection::LanguagesSection(Profile* profile,
                                    SearchTagRegistry* search_tag_registry)
     : OsSettingsSection(profile, search_tag_registry) {
-  registry()->AddSearchTags(GetLanguagesSearchConcepts());
+  SearchTagRegistry::ScopedTagUpdater updater = registry()->StartUpdate();
+  updater.AddSearchTags(GetLanguagesSearchConcepts());
 
-  if (IsAssistivePersonalInfoAllowed()) {
-    registry()->AddSearchTags(GetSmartInputsSearchConcepts());
-    registry()->AddSearchTags(GetAssistivePersonalInfoSearchConcepts());
+  if (IsAssistivePersonalInfoAllowed() || IsEmojiSuggestionAllowed()) {
+    updater.AddSearchTags(GetSmartInputsSearchConcepts());
+    if (IsAssistivePersonalInfoAllowed())
+      updater.AddSearchTags(GetAssistivePersonalInfoSearchConcepts());
+    if (IsEmojiSuggestionAllowed())
+      updater.AddSearchTags(GetEmojiSuggestionSearchConcepts());
   }
 }
 
@@ -150,15 +231,78 @@ void LanguagesSection::AddLoadTimeData(content::WebUIDataSource* html_source) {
   };
   AddLocalizedStringsBulk(html_source, kLocalizedStrings);
   AddSmartInputsStrings(html_source);
+  AddInputMethodOptionsStrings(html_source);
 
   html_source->AddString(
       "languagesLearnMoreURL",
       base::ASCIIToUTF16(chrome::kLanguageSettingsLearnMoreUrl));
+  html_source->AddBoolean("imeOptionsInSettings",
+                          base::FeatureList::IsEnabled(
+                              ::chromeos::features::kImeOptionsInSettings));
 }
 
 void LanguagesSection::AddHandlers(content::WebUI* web_ui) {
   web_ui->AddMessageHandler(
       std::make_unique<::settings::LanguagesHandler>(profile()));
+}
+
+int LanguagesSection::GetSectionNameMessageId() const {
+  return IDS_OS_SETTINGS_LANGUAGES_AND_INPUT_PAGE_TITLE;
+}
+
+mojom::Section LanguagesSection::GetSection() const {
+  return mojom::Section::kLanguagesAndInput;
+}
+
+mojom::SearchResultIcon LanguagesSection::GetSectionIcon() const {
+  return mojom::SearchResultIcon::kGlobe;
+}
+
+std::string LanguagesSection::GetSectionPath() const {
+  return mojom::kLanguagesAndInputSectionPath;
+}
+
+void LanguagesSection::RegisterHierarchy(HierarchyGenerator* generator) const {
+  // Languages and input details.
+  generator->RegisterTopLevelSubpage(
+      IDS_OS_SETTINGS_LANGUAGES_AND_INPUT_PAGE_TITLE,
+      mojom::Subpage::kLanguagesAndInputDetails,
+      mojom::SearchResultIcon::kGlobe, mojom::SearchResultDefaultRank::kMedium,
+      mojom::kLanguagesAndInputDetailsSubpagePath);
+  static constexpr mojom::Setting kLanguagesAndInputDetailsSettings[] = {
+      mojom::Setting::kAddLanguage,
+      mojom::Setting::kShowInputOptionsInShelf,
+  };
+  RegisterNestedSettingBulk(mojom::Subpage::kLanguagesAndInputDetails,
+                            kLanguagesAndInputDetailsSettings, generator);
+
+  // Manage input methods.
+  generator->RegisterNestedSubpage(
+      IDS_SETTINGS_LANGUAGES_MANAGE_INPUT_METHODS_TITLE,
+      mojom::Subpage::kManageInputMethods,
+      mojom::Subpage::kLanguagesAndInputDetails,
+      mojom::SearchResultIcon::kGlobe, mojom::SearchResultDefaultRank::kMedium,
+      mojom::kManageInputMethodsSubpagePath);
+
+  // Input method options.
+  generator->RegisterNestedSubpage(
+      IDS_SETTINGS_LANGUAGES_INPUT_METHOD_OPTIONS_TITLE,
+      mojom::Subpage::kInputMethodOptions,
+      mojom::Subpage::kLanguagesAndInputDetails,
+      mojom::SearchResultIcon::kGlobe, mojom::SearchResultDefaultRank::kMedium,
+      mojom::kInputMethodOptionsSubpagePath);
+
+  // Smart inputs.
+  generator->RegisterTopLevelSubpage(
+      IDS_SETTINGS_SMART_INPUTS_TITLE, mojom::Subpage::kSmartInputs,
+      mojom::SearchResultIcon::kGlobe, mojom::SearchResultDefaultRank::kMedium,
+      mojom::kSmartInputsSubpagePath);
+  static constexpr mojom::Setting kSmartInputsFeaturesSettings[] = {
+      mojom::Setting::kShowPersonalInformationSuggestions,
+      mojom::Setting::kShowEmojiSuggestions,
+  };
+  RegisterNestedSettingBulk(mojom::Subpage::kSmartInputs,
+                            kSmartInputsFeaturesSettings, generator);
 }
 
 }  // namespace settings

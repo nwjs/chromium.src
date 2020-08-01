@@ -6,8 +6,9 @@ package org.chromium.chrome.browser.tabmodel;
 
 import android.app.Activity;
 import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
 import android.util.Pair;
+
+import androidx.test.filters.SmallTest;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -25,9 +26,9 @@ import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.MinAndroidSdkLevel;
-import org.chromium.base.test.util.RetryOnFailure;
 import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.accessibility_tab_switcher.OverviewListLayout;
+import org.chromium.chrome.browser.app.tabmodel.ChromeTabModelFilterFactory;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelper;
 import org.chromium.chrome.browser.flags.ActivityType;
 import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
@@ -36,6 +37,8 @@ import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab.TabState;
+import org.chromium.chrome.browser.tab.TabStateFileManager;
+import org.chromium.chrome.browser.tabmodel.NextTabPolicy.NextTabPolicySupplier;
 import org.chromium.chrome.browser.tabmodel.TabPersistentStore.TabModelSelectorMetadata;
 import org.chromium.chrome.browser.tabmodel.TabPersistentStore.TabPersistentStoreObserver;
 import org.chromium.chrome.browser.tabmodel.TestTabModelDirectory.TabModelMetaDataInfo;
@@ -87,7 +90,7 @@ public class TabPersistentStoreTest {
         private final TabModelOrderController mTabModelOrderController;
 
         public TestTabModelSelector() throws Exception {
-            super(new MockTabCreatorManager(), false);
+            super(new MockTabCreatorManager(), new ChromeTabModelFilterFactory(), false);
             ((MockTabCreatorManager) getTabCreatorManager()).initialize(this);
             mTabPersistentStoreObserver = new MockTabPersistentStoreObserver();
             mTabPersistentStore =
@@ -110,14 +113,14 @@ public class TabPersistentStoreTest {
                             getTabCreatorManager().getTabCreator(false),
                             getTabCreatorManager().getTabCreator(true), null,
                             mTabModelOrderController, null, mTabPersistentStore,
-                            TestTabModelSelector.this, true);
+                            () -> NextTabPolicy.HIERARCHICAL, TestTabModelSelector.this, true);
                 }
             };
             TabModelImpl regularTabModel = TestThreadUtils.runOnUiThreadBlocking(callable);
-            TabModel incognitoTabModel = new IncognitoTabModel(
-                    new IncognitoTabModelImplCreator(getTabCreatorManager().getTabCreator(false),
-                            getTabCreatorManager().getTabCreator(true), null,
-                            mTabModelOrderController, null, mTabPersistentStore, this));
+            TabModel incognitoTabModel = new IncognitoTabModel(new IncognitoTabModelImplCreator(
+                    getTabCreatorManager().getTabCreator(false),
+                    getTabCreatorManager().getTabCreator(true), null, mTabModelOrderController,
+                    null, mTabPersistentStore, () -> NextTabPolicy.HIERARCHICAL, this));
             initialize(regularTabModel, incognitoTabModel);
         }
 
@@ -132,11 +135,6 @@ public class TabPersistentStoreTest {
                 model.closeTab(tabToClose, false, false, true);
             }
             return true;
-        }
-
-        @Override
-        public boolean isInOverviewMode() {
-            return false;
         }
 
         @Override
@@ -194,7 +192,8 @@ public class TabPersistentStoreTest {
             new TabWindowManager.TabModelSelectorFactory() {
                 @Override
                 public TabModelSelector buildSelector(Activity activity,
-                        TabCreatorManager tabCreatorManager, int selectorIndex) {
+                        TabCreatorManager tabCreatorManager,
+                        NextTabPolicySupplier nextTabPolicySupplier, int selectorIndex) {
                     try {
                         return new TestTabModelSelector();
                     } catch (Exception e) {
@@ -554,7 +553,6 @@ public class TabPersistentStoreTest {
     @Test
     @SmallTest
     @Feature({"TabPersistentStore"})
-    @RetryOnFailure
     @DisableIf.Build(sdk_is_greater_than = 25, message = "https://crbug.com/1017732")
     public void testUndoCloseAllTabsWritesTabListFile() throws Exception {
         final TabModelMetaDataInfo info = TestTabModelDirectory.TAB_MODEL_METADATA_V5_NO_M18;
@@ -580,11 +578,12 @@ public class TabPersistentStoreTest {
 
             // Load up each TabState and confirm that values are still correct.
             for (int j = 0; j < info.numRegularTabs; j++) {
-                TabState currentState = TabState.restoreTabState(
+                TabState currentState = TabStateFileManager.restoreTabState(
                         mMockDirectory.getDataDirectory(), info.contents[j].tabId);
+                Assert.assertEquals(info.contents[j].title,
+                        currentState.contentsState.getDisplayTitleFromState());
                 Assert.assertEquals(
-                        info.contents[j].title, currentState.getDisplayTitleFromState());
-                Assert.assertEquals(info.contents[j].url, currentState.getVirtualUrlFromState());
+                        info.contents[j].url, currentState.contentsState.getVirtualUrlFromState());
             }
         }
     }
@@ -617,7 +616,7 @@ public class TabPersistentStoreTest {
                         tabWindowManager.onActivityStateChange(
                                 mChromeActivity, ActivityState.DESTROYED);
                         return (TestTabModelSelector) tabWindowManager.requestSelector(
-                                mChromeActivity, mChromeActivity, 0);
+                                mChromeActivity, mChromeActivity, null, 0);
                     }
                 });
 

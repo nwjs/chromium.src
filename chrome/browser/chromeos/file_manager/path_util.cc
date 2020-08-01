@@ -24,6 +24,7 @@
 #include "chrome/browser/chromeos/drive/file_system_util.h"
 #include "chrome/browser/chromeos/fileapi/external_file_url_util.h"
 #include "chrome/browser/chromeos/fileapi/file_system_backend.h"
+#include "chrome/browser/chromeos/guest_os/guest_os_share_path.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/chromeos/smb_client/smb_service.h"
 #include "chrome/browser/chromeos/smb_client/smb_service_factory.h"
@@ -32,6 +33,7 @@
 #include "chrome/browser/download/download_prefs.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chromeos/constants/chromeos_features.h"
+#include "components/arc/arc_util.h"
 #include "components/drive/file_system_core_util.h"
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_manager.h"
@@ -70,6 +72,8 @@ constexpr char kArcRemovableMediaContentUrlPrefix[] =
     "content://org.chromium.arc.volumeprovider/removable/";
 constexpr char kArcMyFilesContentUrlPrefix[] =
     "content://org.chromium.arc.volumeprovider/MyFiles/";
+constexpr char kArcDriveContentUrlPrefix[] =
+    "content://org.chromium.arc.volumeprovider/MyDrive/";
 
 Profile* GetPrimaryProfile() {
   if (!user_manager::UserManager::IsInitialized())
@@ -145,6 +149,9 @@ const base::FilePath::CharType kAndroidFilesPath[] =
 
 const base::FilePath::CharType kSystemFontsPath[] =
     FILE_PATH_LITERAL("/usr/share/fonts");
+
+const base::FilePath::CharType kArchiveMountPath[] =
+    FILE_PATH_LITERAL("/media/archive");
 
 base::FilePath GetDownloadsFolderForProfile(Profile* profile) {
   // Check if FilesApp has a registered path already.  This happens for tests.
@@ -328,8 +335,7 @@ bool ConvertFileSystemURLToPathInsideCrostini(
     // Crostini.
     base::Optional<crostini::ContainerInfo> container_info =
         crostini::CrostiniManager::GetForProfile(profile)->GetContainerInfo(
-            crostini::kCrostiniDefaultVmName,
-            crostini::kCrostiniDefaultContainerName);
+            crostini::ContainerId::GetDefault());
     if (!container_info) {
       return false;
     }
@@ -361,6 +367,10 @@ bool ConvertFileSystemURLToPathInsideCrostini(
   } else if (id == GetAndroidFilesMountPointName()) {
     *inside = crostini::ContainerChromeOSBaseDirectory().Append(
         kCrostiniMapPlayFiles);
+  } else if (id == chromeos::kSystemMountNameArchive) {
+    // Archive.
+    *inside = crostini::ContainerChromeOSBaseDirectory().Append(
+        chromeos::kSystemMountNameArchive);
   } else {
     return false;
   }
@@ -414,17 +424,34 @@ bool ConvertPathToArcUrl(const base::FilePath& path, GURL* arc_url_out) {
   }
 
   bool force_external = false;
-  // Force external URL for DriveFS, Crostini and smbfs.
-  drive::DriveIntegrationService* integration_service =
+  // Convert paths under DriveFS.
+  const drive::DriveIntegrationService* integration_service =
       drive::util::GetIntegrationServiceByProfile(primary_profile);
-  if ((integration_service &&
-       integration_service->GetMountPointPath().AppendRelativePath(
-           path, &relative_path)) ||
-      GetCrostiniMountDirectory(primary_profile)
+  if (integration_service &&
+      integration_service->GetMountPointPath().AppendRelativePath(
+          path, &relative_path)) {
+    if (arc::IsArcVmEnabled()) {
+      guest_os::GuestOsSharePath::GetForProfile(primary_profile)
+          ->SharePath(arc::kArcVmName, path, /*persist=*/false,
+                      base::DoNothing());
+      *arc_url_out =
+          GURL(kArcDriveContentUrlPrefix)
+              .Resolve(net::EscapePath(relative_path.AsUTF8Unsafe()));
+      return true;
+    } else {
+      // TODO(b/157297349): For backward compatibility with ARC++ P, force
+      // external URL for DriveFS.
+      force_external = true;
+    }
+  }
+
+  // Force external URL for Crostini.
+  if (GetCrostiniMountDirectory(primary_profile)
           .AppendRelativePath(path, &relative_path)) {
     force_external = true;
   }
 
+  // Force external URL for smbfs.
   chromeos::smb_client::SmbService* smb_service =
       chromeos::smb_client::SmbServiceFactory::Get(primary_profile);
   if (smb_service) {
@@ -582,6 +609,12 @@ std::string GetPathDisplayTextForSettings(Profile* profile,
                                .value(),
                            "")) {
     // Strip prefix of "/media/removable/" including trailing slash.
+  } else if (ReplacePrefix(&result,
+                           base::FilePath(kArchiveMountPath)
+                               .AsEndingWithSeparator()
+                               .value(),
+                           "")) {
+    // Strip prefix of "/media/archive/" including trailing slash.
   }
 
   base::ReplaceChars(result, "/", " \u203a ", &result);

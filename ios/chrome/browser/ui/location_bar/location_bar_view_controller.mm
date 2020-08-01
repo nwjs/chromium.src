@@ -513,8 +513,7 @@ const double kFullscreenProgressBadgeViewThreshold = 0.85;
 }
 
 - (void)visitCopiedLink:(id)sender {
-  RecordAction(
-      UserMetricsAction("Mobile.OmniboxContextMenu.SearchCopiedImage"));
+  RecordAction(UserMetricsAction("Mobile.OmniboxContextMenu.VisitCopiedLink"));
   [self pasteAndGo:sender];
 }
 

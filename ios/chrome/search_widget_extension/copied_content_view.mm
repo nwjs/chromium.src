@@ -56,14 +56,10 @@ const CGFloat kURLButtonMargin = 10;
                   action:actionSelector
         forControlEvents:UIControlEventTouchUpInside];
 
-    UIVibrancyEffect* primaryEffect =
-        [UIVibrancyEffect widgetPrimaryVibrancyEffect];
-    UIVibrancyEffect* secondaryEffect =
-        [UIVibrancyEffect widgetSecondaryVibrancyEffect];
-    UIVibrancyEffect* backgroundEffect =
-        [UIVibrancyEffect widgetSecondaryVibrancyEffect];
-    UIVibrancyEffect* hairlineEffect =
-        [UIVibrancyEffect widgetSecondaryVibrancyEffect];
+    UIVibrancyEffect* primaryEffect = nil;
+    UIVibrancyEffect* secondaryEffect = nil;
+    UIVibrancyEffect* backgroundEffect = nil;
+    UIVibrancyEffect* hairlineEffect = nil;
     if (@available(iOS 13, *)) {
       primaryEffect = [UIVibrancyEffect
           widgetEffectForVibrancyStyle:UIVibrancyEffectStyleLabel];
@@ -74,6 +70,18 @@ const CGFloat kURLButtonMargin = 10;
       hairlineEffect = [UIVibrancyEffect
           widgetEffectForVibrancyStyle:UIVibrancyEffectStyleSeparator];
     }
+#if !defined(__IPHONE_13_0) || __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_13_0
+    else {
+      primaryEffect = [UIVibrancyEffect widgetPrimaryVibrancyEffect];
+      secondaryEffect = [UIVibrancyEffect widgetSecondaryVibrancyEffect];
+      backgroundEffect = [UIVibrancyEffect widgetSecondaryVibrancyEffect];
+      hairlineEffect = [UIVibrancyEffect widgetSecondaryVibrancyEffect];
+    }
+#endif
+    DCHECK(primaryEffect);
+    DCHECK(secondaryEffect);
+    DCHECK(backgroundEffect);
+    DCHECK(hairlineEffect);
 
     _primaryEffectView =
         [[UIVisualEffectView alloc] initWithEffect:primaryEffect];

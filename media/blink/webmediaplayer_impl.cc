@@ -56,6 +56,7 @@
 #include "media/filters/memory_data_source.h"
 #include "media/learning/mojo/public/cpp/mojo_learning_task_controller.h"
 #include "media/media_buildflags.h"
+#include "media/remoting/remoting_constants.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "net/base/data_url.h"
 #include "third_party/blink/public/platform/web_encrypted_media_types.h"
@@ -280,6 +281,30 @@ void CreateAllocation(base::trace_event::ProcessMemoryDump* pmd,
     pmd->AddSuballocation(dump->guid(), std_allocator);
 }
 
+// Determine whether we should update MediaPosition in |delegate_|.
+bool MediaPositionNeedsUpdate(
+    const media_session::MediaPosition& old_position,
+    const media_session::MediaPosition& new_position) {
+  if (old_position.playback_rate() != new_position.playback_rate())
+    return true;
+
+  if (old_position.duration() != new_position.duration())
+    return true;
+
+  // MediaPosition is potentially changed upon each OnTimeUpdate() call. In
+  // practice most of these calls happen periodically during normal playback,
+  // with unchanged rate and duration. If we want to avoid updating
+  // MediaPosition unnecessarily, we need to compare the current time
+  // calculated from the old and new MediaPositions with some tolerance. That's
+  // because we don't know the exact time when GetMediaTime() calculated the
+  // media position. We choose an arbitrary tolerance that is high enough to
+  // eliminate a lot of MediaPosition updates and low enough not to make a
+  // perceptible difference.
+  const auto drift =
+      (old_position.GetPosition() - new_position.GetPosition()).magnitude();
+  return drift > base::TimeDelta::FromMilliseconds(100);
+}
+
 }  // namespace
 
 class BufferedDataSourceHostImpl;
@@ -331,7 +356,6 @@ WebMediaPlayerImpl::WebMediaPlayerImpl(
           params->IsBackgroundVideoPlaybackEnabled()),
       is_background_video_track_optimization_supported_(
           params->IsBackgroundVideoTrackOptimizationSupported()),
-      is_remoting_renderer_enabled_(params->IsRemotingRendererEnabled()),
       simple_watch_timer_(
           base::BindRepeating(&WebMediaPlayerImpl::OnSimpleWatchTimerTick,
                               base::Unretained(this)),
@@ -737,6 +761,12 @@ void WebMediaPlayerImpl::DoLoad(LoadType load_type,
     // used, the pipeline can start immediately.
     StartPipeline();
   } else {
+    // If |loaded_url_| is remoting media, starting the pipeline.
+    if (loaded_url_.SchemeIs(remoting::kRemotingScheme)) {
+      StartPipeline();
+      return;
+    }
+
     // Short circuit the more complex loading path for data:// URLs. Sending
     // them through the network based loading path just wastes memory and causes
     // worse performance since reads become asynchronous.
@@ -819,9 +849,6 @@ void WebMediaPlayerImpl::Play() {
   MaybeUpdateBufferSizesForPlayback();
   UpdatePlayState();
 
-  // Paused changed so we should update media position state.
-  UpdateMediaPositionState();
-
   // Notify the learning task, if needed.
   will_play_helper_.CompleteObservationIfNeeded(learning::TargetValue(true));
 }
@@ -864,9 +891,6 @@ void WebMediaPlayerImpl::Pause() {
 
   simple_watch_timer_.Stop();
   media_log_->AddEvent<MediaLogEvent::kPause>();
-
-  // Paused changed so we should update media position state.
-  UpdateMediaPositionState();
 
   UpdatePlayState();
 }
@@ -932,9 +956,6 @@ void WebMediaPlayerImpl::DoSeek(base::TimeDelta time, bool time_updated) {
   // This needs to be called after Seek() so that if a resume is triggered, it
   // is to the correct time.
   UpdatePlayState();
-
-  // The seek time has changed so we should update the media position state.
-  UpdateMediaPositionState();
 }
 
 void WebMediaPlayerImpl::SetRate(double rate) {
@@ -953,10 +974,6 @@ void WebMediaPlayerImpl::SetRate(double rate) {
     pipeline_controller_->SetPlaybackRate(rate);
 
   MaybeUpdateBufferSizesForPlayback();
-
-  // The playback rate has changed so we should rebuild the media position
-  // state.
-  UpdateMediaPositionState();
 }
 
 void WebMediaPlayerImpl::SetVolume(double volume) {
@@ -982,6 +999,11 @@ void WebMediaPlayerImpl::SetLatencyHint(double seconds) {
     latency_hint = base::TimeDelta::FromSecondsD(seconds);
   }
   pipeline_controller_->SetLatencyHint(latency_hint);
+}
+
+void WebMediaPlayerImpl::SetPreservesPitch(bool preserves_pitch) {
+  DCHECK(main_task_runner_->BelongsToCurrentThread());
+  pipeline_controller_->SetPreservesPitch(preserves_pitch);
 }
 
 void WebMediaPlayerImpl::OnRequestPictureInPicture() {
@@ -1430,10 +1452,9 @@ void WebMediaPlayerImpl::ComputeFrameUploadMetadata(
   out_metadata->frame_id = frame->unique_id();
   out_metadata->visible_rect = frame->visible_rect();
   out_metadata->timestamp = frame->timestamp();
-  base::TimeDelta frame_duration;
-  if (frame->metadata()->GetTimeDelta(media::VideoFrameMetadata::FRAME_DURATION,
-                                      &frame_duration)) {
-    out_metadata->expected_timestamp = frame->timestamp() + frame_duration;
+  if (frame->metadata()->frame_duration.has_value()) {
+    out_metadata->expected_timestamp =
+        frame->timestamp() + *frame->metadata()->frame_duration;
   };
   bool skip_possible = already_uploaded_id != -1;
   bool same_frame_id = frame->unique_id() == already_uploaded_id;
@@ -1648,9 +1669,6 @@ void WebMediaPlayerImpl::OnPipelineSeeked(bool time_updated) {
   }
 
   attempting_suspended_start_ = false;
-
-  // The current time has changed so we should update the media position state.
-  UpdateMediaPositionState();
 }
 
 void WebMediaPlayerImpl::OnPipelineSuspended() {
@@ -2227,9 +2245,6 @@ void WebMediaPlayerImpl::OnDurationChange() {
   client_->DurationChanged();
   if (watch_time_reporter_)
     watch_time_reporter_->OnDurationChanged(GetPipelineMediaDuration());
-
-  // The duration has changed so we should update the media position state.
-  UpdateMediaPositionState();
 }
 
 void WebMediaPlayerImpl::OnAddTextTrack(const TextTrackConfig& config,
@@ -2820,8 +2835,9 @@ void WebMediaPlayerImpl::StartPipeline() {
     if (base::FeatureList::IsEnabled(kMemoryPressureBasedSourceBufferGC)) {
       // base::Unretained is safe because |this| owns memory_pressure_listener_.
       memory_pressure_listener_ =
-          std::make_unique<base::MemoryPressureListener>(base::Bind(
-              &WebMediaPlayerImpl::OnMemoryPressure, base::Unretained(this)));
+          std::make_unique<base::MemoryPressureListener>(
+              FROM_HERE, base::Bind(&WebMediaPlayerImpl::OnMemoryPressure,
+                                    base::Unretained(this)));
     }
   }
 
@@ -2870,10 +2886,6 @@ void WebMediaPlayerImpl::SetReadyState(WebMediaPlayer::ReadyState state) {
 
   // Always notify to ensure client has the latest value.
   client_->ReadyStateChanged();
-
-  // The ready state affects the effective playback rate so we should update
-  // the media position state.
-  UpdateMediaPositionState();
 }
 
 scoped_refptr<blink::WebAudioSourceProviderImpl>
@@ -2933,9 +2945,7 @@ void WebMediaPlayerImpl::UpdatePlayState() {
   UpdateSmoothnessHelper();
 }
 
-void WebMediaPlayerImpl::UpdateMediaPositionState() {
-  DCHECK(delegate_);
-
+void WebMediaPlayerImpl::OnTimeUpdate() {
   // When seeking the current time can go beyond the duration so we should
   // cap the current time at the duration.
   base::TimeDelta duration = GetPipelineMediaDuration();
@@ -2950,7 +2960,7 @@ void WebMediaPlayerImpl::UpdateMediaPositionState() {
   media_session::MediaPosition new_position(effective_playback_rate, duration,
                                             current_time);
 
-  if (media_position_state_ == new_position)
+  if (!MediaPositionNeedsUpdate(media_position_state_, new_position))
     return;
 
   DVLOG(2) << __func__ << "(" << new_position.ToString() << ")";
@@ -3460,6 +3470,11 @@ bool WebMediaPlayerImpl::ShouldPausePlaybackWhenHidden() const {
   // to move the logic of checking video frames out of that function.
   if (!HasVideo())
     return false;
+
+  if (using_media_player_renderer_ &&
+      pipeline_metadata_.natural_size.IsEmpty()) {
+    return false;
+  }
 
   if (!is_background_video_playback_enabled_)
     return true;

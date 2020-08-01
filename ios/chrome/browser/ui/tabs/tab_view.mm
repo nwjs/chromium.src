@@ -5,12 +5,12 @@
 
 #import "ios/chrome/browser/ui/tabs/tab_view.h"
 
-#include "base/i18n/rtl.h"
+#import <MaterialComponents/MaterialActivityIndicator.h>
 
 #include "base/feature_list.h"
+#include "base/i18n/rtl.h"
 #include "base/ios/ios_util.h"
 #include "base/strings/sys_string_conversions.h"
-#include "ios/chrome/browser/drag_and_drop/drag_and_drop_flag.h"
 #include "ios/chrome/browser/drag_and_drop/drop_and_navigate_delegate.h"
 #include "ios/chrome/browser/drag_and_drop/drop_and_navigate_interaction.h"
 #include "ios/chrome/browser/system_flags.h"
@@ -23,7 +23,6 @@
 #import "ios/chrome/common/ui/elements/highlight_button.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #include "ios/chrome/grit/ios_strings.h"
-#import "ios/third_party/material_components_ios/src/components/ActivityIndicator/src/MaterialActivityIndicator.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/l10n/l10n_util_mac.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -138,11 +137,9 @@ UIImage* DefaultFaviconImage() {
                   action:@selector(tabWasTapped)
         forControlEvents:UIControlEventTouchUpInside];
 
-    if (DragAndDropIsEnabled()) {
-      _dropInteraction =
-          [[DropAndNavigateInteraction alloc] initWithDelegate:self];
-      [self addInteraction:_dropInteraction];
-    }
+    _dropInteraction =
+        [[DropAndNavigateInteraction alloc] initWithDelegate:self];
+    [self addInteraction:_dropInteraction];
   }
   return self;
 }
@@ -207,6 +204,7 @@ UIImage* DefaultFaviconImage() {
   [_activityIndicator startAnimating];
   [_activityIndicator setHidden:NO];
   [_faviconView setHidden:YES];
+  [_faviconView setImage:DefaultFaviconImage()];
 }
 
 - (void)stopProgressSpinner {

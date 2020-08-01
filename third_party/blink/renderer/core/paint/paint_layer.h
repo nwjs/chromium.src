@@ -326,8 +326,6 @@ class CORE_EXPORT PaintLayer : public DisplayItemClient {
     return PixelSnappedIntSize(Size(), location);
   }
 
-  void SetSizeHackForLayoutTreeAsText(const LayoutSize& size) { size_ = size; }
-
 #if DCHECK_IS_ON()
   bool NeedsPositionUpdate() const { return needs_position_update_; }
 #endif
@@ -354,7 +352,7 @@ class CORE_EXPORT PaintLayer : public DisplayItemClient {
   void UpdateTransformationMatrix();
 
   bool IsStackingContextWithNegativeZOrderChildren() const {
-    DCHECK(!stacking_node_ || GetLayoutObject().StyleRef().IsStackingContext());
+    DCHECK(!stacking_node_ || GetLayoutObject().IsStackingContext());
     return stacking_node_ && !stacking_node_->NegZOrderList().IsEmpty();
   }
 
@@ -615,9 +613,6 @@ class CORE_EXPORT PaintLayer : public DisplayItemClient {
   static void MapPointInPaintInvalidationContainerToBacking(
       const LayoutBoxModelObject& paint_invalidation_container,
       PhysicalOffset&);
-  static void MapQuadInPaintInvalidationContainerToBacking(
-      const LayoutBoxModelObject& paint_invalidation_container,
-      FloatQuad&);
 
   bool PaintsWithTransparency(GlobalPaintFlags global_paint_flags) const {
     return IsTransparent() && !PaintsIntoOwnBacking(global_paint_flags);
@@ -892,10 +887,6 @@ class CORE_EXPORT PaintLayer : public DisplayItemClient {
   }
   const PaintLayer* MaskAncestor() const {
     return GetAncestorDependentCompositingInputs().mask_ancestor;
-  }
-  bool HasDescendantWithClipPath() const {
-    DCHECK(!needs_descendant_dependent_flags_update_);
-    return has_descendant_with_clip_path_;
   }
   bool HasFixedPositionDescendant() const {
     DCHECK(!needs_descendant_dependent_flags_update_);
@@ -1339,7 +1330,6 @@ class CORE_EXPORT PaintLayer : public DisplayItemClient {
 
   // These bitfields are part of ancestor/descendant dependent compositing
   // inputs.
-  unsigned has_descendant_with_clip_path_ : 1;
   unsigned has_non_isolated_descendant_with_blend_mode_ : 1;
   unsigned has_fixed_position_descendant_ : 1;
   unsigned has_sticky_position_descendant_ : 1;

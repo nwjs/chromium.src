@@ -8,6 +8,7 @@ import static org.chromium.chrome.features.start_surface.StartSurfaceLayout.ZOOM
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
+import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
@@ -31,6 +32,7 @@ import android.widget.RelativeLayout;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.appcompat.content.res.AppCompatResources;
+import androidx.recyclerview.widget.DefaultItemAnimator;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -110,6 +112,28 @@ class TabListRecyclerView
         }
     }
 
+    private class RemoveItemAnimator extends DefaultItemAnimator {
+        @Override
+        public boolean animateRemove(ViewHolder holder) {
+            AnimatorSet scaleAnimator = new AnimatorSet();
+            scaleAnimator.addListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    holder.itemView.setScaleX(1.0f);
+                    holder.itemView.setScaleY(1.0f);
+                }
+            });
+            ObjectAnimator scaleX = ObjectAnimator.ofFloat(holder.itemView, View.SCALE_X, 0.5f);
+            ObjectAnimator scaleY = ObjectAnimator.ofFloat(holder.itemView, View.SCALE_Y, 0.5f);
+            scaleX.setDuration(BASE_ANIMATION_DURATION_MS);
+            scaleY.setDuration(BASE_ANIMATION_DURATION_MS);
+            scaleAnimator.play(scaleX).with(scaleY);
+            scaleAnimator.start();
+
+            return super.animateRemove(holder);
+        }
+    }
+
     private final int mResourceId;
     private ValueAnimator mFadeInAnimator;
     private ValueAnimator mFadeOutAnimator;
@@ -118,10 +142,11 @@ class TabListRecyclerView
     private ViewResourceAdapter mDynamicView;
     private boolean mIsDynamicViewRegistered;
     private long mLastDirtyTime;
-    private RecyclerView.ItemAnimator mOriginalAnimator;
     private ImageView mShadowImageView;
-    private int mShadowTopMargin;
+    private int mShadowTopOffset;
     private TabListOnScrollListener mScrollListener;
+
+    private final RemoveItemAnimator mRemoveItemAnimator = new RemoveItemAnimator();
 
     /**
      * Basic constructor to use during inflation from xml.
@@ -147,7 +172,6 @@ class TabListRecyclerView
         registerDynamicView();
 
         // Stop all the animations to make all the items show up and scroll to position immediately.
-        mOriginalAnimator = getItemAnimator();
         setItemAnimator(null);
     }
 
@@ -175,7 +199,7 @@ class TabListRecyclerView
                 mFadeInAnimator = null;
                 mListener.finishedShowing();
                 // Restore the original value.
-                setItemAnimator(mOriginalAnimator);
+                setItemAnimator(mRemoveItemAnimator);
                 setShadowVisibility(computeVerticalScrollOffset() > 0);
                 if (mDynamicView != null) {
                     mDynamicView.dropCachedBitmap();
@@ -205,8 +229,8 @@ class TabListRecyclerView
                                 res.getDimensionPixelSize(
                                         org.chromium.chrome.R.dimen.toolbar_shadow_height),
                                 Gravity.TOP);
-                params.topMargin = mShadowTopMargin;
                 mShadowImageView.setLayoutParams(params);
+                mShadowImageView.setTranslationY(mShadowTopOffset);
                 FrameLayout parent = (FrameLayout) getParent();
                 parent.addView(mShadowImageView);
             } else if (getParent() instanceof RelativeLayout) {
@@ -231,31 +255,24 @@ class TabListRecyclerView
         }
     }
 
-    void setShadowTopMargin(int shadowTopMargin) {
-        mShadowTopMargin = shadowTopMargin;
+    void setShadowTopOffset(int shadowTopOffset) {
+        mShadowTopOffset = shadowTopOffset;
 
         if (mShadowImageView != null && getParent() instanceof FrameLayout) {
-            final ViewGroup.MarginLayoutParams layoutParams =
-                    ((ViewGroup.MarginLayoutParams) mShadowImageView.getLayoutParams());
-            layoutParams.topMargin = shadowTopMargin;
-            mShadowImageView.setLayoutParams(layoutParams);
+            // Since the shadow has no functionality, other than just existing visually, we can use
+            // translationY to position it using the top offset. This is preferable to setting a
+            // margin because translation doesn't require a relayout.
+            mShadowImageView.setTranslationY(mShadowTopOffset);
 
-            // Wait for a layout and set the shadow visibility using the newly computed scroll
-            // offset in case the new layout requires us to toggle the shadow visibility. E.g. the
-            // height increases and the grid isn't scrolled anymore.
-            mShadowImageView.addOnLayoutChangeListener(new OnLayoutChangeListener() {
-                @Override
-                public void onLayoutChange(View v, int left, int top, int right, int bottom,
-                        int oldLeft, int oldTop, int oldRight, int oldBottom) {
-                    final int scrollOffset = computeVerticalScrollOffset();
-                    if (scrollOffset == 0) {
-                        setShadowVisibility(false);
-                    } else if (scrollOffset > 0) {
-                        setShadowVisibility(true);
-                    }
-                    v.removeOnLayoutChangeListener(this);
-                }
-            });
+            // Set the shadow visibility using the newly computed scroll offset in case the new
+            // layout requires us to toggle the shadow visibility. E.g. the height increases and the
+            // grid isn't scrolled anymore.
+            final int scrollOffset = computeVerticalScrollOffset();
+            if (scrollOffset == 0) {
+                setShadowVisibility(false);
+            } else if (scrollOffset > 0) {
+                setShadowVisibility(true);
+            }
         }
     }
 

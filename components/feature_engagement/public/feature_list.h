@@ -71,6 +71,8 @@ DEFINE_VARIATION_PARAM(kIPHContextualSearchPromotePanelOpenFeature,
                        "IPH_ContextualSearchPromotePanelOpen");
 DEFINE_VARIATION_PARAM(kIPHContextualSearchOptInFeature,
                        "IPH_ContextualSearchOptIn");
+DEFINE_VARIATION_PARAM(kIPHContextualSearchTappedButShouldLongpressFeature,
+                       "IPH_ContextualSearchTappedButShouldLongpress");
 DEFINE_VARIATION_PARAM(kIPHDownloadSettingsFeature, "IPH_DownloadSettings");
 DEFINE_VARIATION_PARAM(kIPHDownloadInfoBarDownloadContinuingFeature,
                        "IPH_DownloadInfoBarDownloadContinuing");
@@ -115,8 +117,12 @@ DEFINE_VARIATION_PARAM(kIPHBadgedTranslateManualTriggerFeature,
 
 #if defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_LINUX) || \
     defined(OS_CHROMEOS)
+DEFINE_VARIATION_PARAM(kIPHDesktopTabGroupsNewGroupFeature,
+                       "IPH_DesktopTabGroupsNewGroup");
 DEFINE_VARIATION_PARAM(kIPHFocusModeFeature, "IPH_FocusMode");
 DEFINE_VARIATION_PARAM(kIPHGlobalMediaControls, "IPH_GlobalMediaControls");
+DEFINE_VARIATION_PARAM(kIPHPasswordsAccountStorageFeature,
+                       "IPH_PasswordsAccountStorage");
 DEFINE_VARIATION_PARAM(kIPHReopenTabFeature, "IPH_ReopenTab");
 DEFINE_VARIATION_PARAM(kIPHWebUITabStripFeature, "IPH_WebUITabStrip");
 #if BUILDFLAG(ENABLE_LEGACY_DESKTOP_IN_PRODUCT_HELP)
@@ -150,6 +156,7 @@ constexpr flags_ui::FeatureEntry::FeatureVariation
         VARIATION_ENTRY(kIPHContextualSearchPromoteTapFeature),
         VARIATION_ENTRY(kIPHContextualSearchPromotePanelOpenFeature),
         VARIATION_ENTRY(kIPHContextualSearchOptInFeature),
+        VARIATION_ENTRY(kIPHContextualSearchTappedButShouldLongpressFeature),
         VARIATION_ENTRY(kIPHDownloadSettingsFeature),
         VARIATION_ENTRY(kIPHDownloadInfoBarDownloadContinuingFeature),
         VARIATION_ENTRY(kIPHDownloadInfoBarDownloadsAreFasterFeature),
@@ -178,6 +185,7 @@ constexpr flags_ui::FeatureEntry::FeatureVariation
         VARIATION_ENTRY(kIPHBadgedTranslateManualTriggerFeature),
 #elif defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_LINUX) || \
     defined(OS_CHROMEOS)
+        VARIATION_ENTRY(kIPHDesktopTabGroupsNewGroupFeature),
         VARIATION_ENTRY(kIPHFocusModeFeature),
         VARIATION_ENTRY(kIPHGlobalMediaControls),
         VARIATION_ENTRY(kIPHReopenTabFeature),

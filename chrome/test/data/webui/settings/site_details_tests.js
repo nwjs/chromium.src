@@ -210,8 +210,6 @@ suite('SiteDetails', function() {
     optionalSiteDetailsContentSettingsTypes[ContentSettingsTypes
                                                 .BLUETOOTH_SCANNING] =
         'enableExperimentalWebPlatformFeatures';
-    optionalSiteDetailsContentSettingsTypes[ContentSettingsTypes.HID_DEVICES] =
-        'enableExperimentalWebPlatformFeatures';
     optionalSiteDetailsContentSettingsTypes[ContentSettingsTypes
                                                 .WINDOW_PLACEMENT] =
         'enableExperimentalWebPlatformFeatures';
@@ -228,20 +226,15 @@ suite('SiteDetails', function() {
     optionalSiteDetailsContentSettingsTypes[ContentSettingsTypes
                                                 .BLUETOOTH_DEVICES] =
         'enableWebBluetoothNewPermissionsBackend';
-    optionalSiteDetailsContentSettingsTypes[ContentSettingsTypes.AR] =
-        'enableWebXrContentSetting';
-    optionalSiteDetailsContentSettingsTypes[ContentSettingsTypes.VR] =
-        'enableWebXrContentSetting';
 
     const controlledSettingsCount = /** @type{string : int } */ ({});
 
-    controlledSettingsCount['enableExperimentalWebPlatformFeatures'] = 3;
+    controlledSettingsCount['enableExperimentalWebPlatformFeatures'] = 2;
     controlledSettingsCount['enableInsecureContentContentSetting'] = 1;
     controlledSettingsCount['enableNativeFileSystemWriteContentSetting'] = 1;
     controlledSettingsCount['enablePaymentHandlerContentSetting'] = 1;
     controlledSettingsCount['enableSafeBrowsingSubresourceFilter'] = 1;
     controlledSettingsCount['enableWebBluetoothNewPermissionsBackend'] = 1;
-    controlledSettingsCount['enableWebXrContentSetting'] = 2;
 
     browserProxy.setPrefs(prefs);
 
@@ -324,7 +317,7 @@ suite('SiteDetails', function() {
           assertTrue(testElement.$$('#noStorage').hidden);
           assertFalse(testElement.$$('#storage').hidden);
 
-          testElement.$$('#confirmClearStorage .action-button').click();
+          testElement.$$('#confirmClearStorageNew .action-button').click();
           return websiteUsageProxy.whenCalled('clearUsage');
         })
         .then(originCleared => {
@@ -355,7 +348,7 @@ suite('SiteDetails', function() {
           assertTrue(testElement.$$('#noStorage').hidden);
           assertFalse(testElement.$$('#storage').hidden);
 
-          testElement.$$('#confirmClearStorage .action-button').click();
+          testElement.$$('#confirmClearStorageNew .action-button').click();
           return websiteUsageProxy.whenCalled('clearUsage');
         })
         .then(originCleared => {
@@ -373,7 +366,6 @@ suite('SiteDetails', function() {
       enablePaymentHandlerContentSetting: true,
       enableSafeBrowsingSubresourceFilter: true,
       enableWebBluetoothNewPermissionsBackend: true,
-      enableWebXrContentSetting: true,
     });
     testElement = createSiteDetails('https://foo.com:443');
 
@@ -462,13 +454,14 @@ suite('SiteDetails', function() {
     // Check both cancelling and accepting the dialog closes it.
     ['cancel-button', 'action-button'].forEach(buttonType => {
       testElement.$$('#usage cr-button').click();
-      assertTrue(testElement.$.confirmClearStorage.open);
+      assertTrue(testElement.$.confirmClearStorageNew.open);
       const actionButtonList =
-          testElement.$.confirmClearStorage.getElementsByClassName(buttonType);
+          testElement.$.confirmClearStorageNew.getElementsByClassName(
+              buttonType);
       assertEquals(1, actionButtonList.length);
       testElement.storedData_ = '';
       actionButtonList[0].click();
-      assertFalse(testElement.$.confirmClearStorage.open);
+      assertFalse(testElement.$.confirmClearStorageNew.open);
     });
   });
 

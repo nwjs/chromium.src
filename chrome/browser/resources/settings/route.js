@@ -42,9 +42,7 @@ function addPrivacyChildRoutes(r) {
   // TODO(tommycli): Find a way to refactor these repetitive category
   // routes.
   r.SITE_SETTINGS_ADS = r.SITE_SETTINGS.createChild('ads');
-  if (loadTimeData.getBoolean('enableWebXrContentSetting')) {
-    r.SITE_SETTINGS_AR = r.SITE_SETTINGS.createChild('ar');
-  }
+  r.SITE_SETTINGS_AR = r.SITE_SETTINGS.createChild('ar');
   r.SITE_SETTINGS_AUTOMATIC_DOWNLOADS =
       r.SITE_SETTINGS.createChild('automaticDownloads');
   r.SITE_SETTINGS_BACKGROUND_SYNC =
@@ -72,6 +70,7 @@ function addPrivacyChildRoutes(r) {
       r.SITE_SETTINGS.createChild('unsandboxedPlugins');
   r.SITE_SETTINGS_MIDI_DEVICES = r.SITE_SETTINGS.createChild('midiDevices');
   r.SITE_SETTINGS_USB_DEVICES = r.SITE_SETTINGS.createChild('usbDevices');
+  r.SITE_SETTINGS_HID_DEVICES = r.SITE_SETTINGS.createChild('hidDevices');
   r.SITE_SETTINGS_SERIAL_PORTS = r.SITE_SETTINGS.createChild('serialPorts');
   if (loadTimeData.getBoolean('enableWebBluetoothNewPermissionsBackend')) {
     r.SITE_SETTINGS_BLUETOOTH_DEVICES =
@@ -85,13 +84,10 @@ function addPrivacyChildRoutes(r) {
     r.SITE_SETTINGS_PAYMENT_HANDLER =
         r.SITE_SETTINGS.createChild('paymentHandler');
   }
-  if (loadTimeData.getBoolean('enableWebXrContentSetting')) {
-    r.SITE_SETTINGS_VR = r.SITE_SETTINGS.createChild('vr');
-  }
+  r.SITE_SETTINGS_VR = r.SITE_SETTINGS.createChild('vr');
   if (loadTimeData.getBoolean('enableExperimentalWebPlatformFeatures')) {
     r.SITE_SETTINGS_BLUETOOTH_SCANNING =
         r.SITE_SETTINGS.createChild('bluetoothScanning');
-    r.SITE_SETTINGS_HID_DEVICES = r.SITE_SETTINGS.createChild('hidDevices');
     r.SITE_SETTINGS_WINDOW_PLACEMENT =
         r.SITE_SETTINGS.createChild('windowPlacement');
   }
@@ -141,6 +137,10 @@ function createBrowserSettingsRoutes() {
   if (visibility.autofill !== false) {
     r.AUTOFILL = r.BASIC.createSection('/autofill', 'autofill');
     r.PASSWORDS = r.AUTOFILL.createChild('/passwords');
+
+    if (loadTimeData.getBoolean('enableAccountStorage')) {
+      r.DEVICE_PASSWORDS = r.PASSWORDS.createChild('device');
+    }
 
     if (loadTimeData.getBoolean('enablePasswordCheck')) {
       r.CHECK_PASSWORDS = r.PASSWORDS.createChild('check');

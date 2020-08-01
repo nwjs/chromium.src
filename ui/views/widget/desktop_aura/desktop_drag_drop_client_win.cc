@@ -6,19 +6,24 @@
 
 #include <memory>
 
-#include "base/metrics/histogram_macros.h"
 #include "ui/base/dragdrop/drag_drop_types.h"
 #include "ui/base/dragdrop/drag_source_win.h"
 #include "ui/base/dragdrop/drop_target_event.h"
 #include "ui/base/dragdrop/os_exchange_data_provider_win.h"
+#include "ui/base/win/event_creation_utils.h"
+#include "ui/display/win/screen_win.h"
 #include "ui/views/widget/desktop_aura/desktop_drop_target_win.h"
 #include "ui/views/widget/desktop_aura/desktop_window_tree_host_win.h"
 
 namespace views {
 
-DesktopDragDropClientWin::DesktopDragDropClientWin(aura::Window* root_window,
-                                                   HWND window)
-    : drag_drop_in_progress_(false), drag_operation_(0) {
+DesktopDragDropClientWin::DesktopDragDropClientWin(
+    aura::Window* root_window,
+    HWND window,
+    DesktopWindowTreeHostWin* desktop_host)
+    : drag_drop_in_progress_(false),
+      drag_operation_(0),
+      desktop_host_(desktop_host) {
   drop_target_ = new DesktopDropTargetWin(root_window);
   drop_target_->Init(window);
 }
@@ -37,24 +42,36 @@ int DesktopDragDropClientWin::StartDragAndDrop(
     ui::DragDropTypes::DragEventSource source) {
   drag_drop_in_progress_ = true;
   drag_operation_ = operation;
-
+  if (source == ui::DragDropTypes::DRAG_EVENT_SOURCE_TOUCH) {
+    gfx::Point screen_point = display::win::ScreenWin::DIPToScreenPoint(
+        {screen_location.x(), screen_location.y()});
+    // Send a mouse down and mouse move before do drag drop runs its own event
+    // loop. This is required for ::DoDragDrop to start the drag.
+    ui::SendMouseEvent(screen_point,
+                       MOUSEEVENTF_RIGHTDOWN | MOUSEEVENTF_ABSOLUTE);
+    ui::SendMouseEvent(screen_point, MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE);
+    desktop_host_->SetInTouchDrag(true);
+  }
   base::WeakPtr<DesktopDragDropClientWin> alive(weak_factory_.GetWeakPtr());
 
   drag_source_ = ui::DragSourceWin::Create();
   Microsoft::WRL::ComPtr<ui::DragSourceWin> drag_source_copy = drag_source_;
   drag_source_copy->set_data(data.get());
-  ui::OSExchangeDataProviderWin::GetDataObjectImpl(*data.get())
-      ->set_in_drag_loop(true);
+  ui::OSExchangeDataProviderWin::GetDataObjectImpl(*data)->set_in_drag_loop(
+      true);
 
   DWORD effect;
 
-  UMA_HISTOGRAM_ENUMERATION("Event.DragDrop.Start", source,
-                            ui::DragDropTypes::DRAG_EVENT_SOURCE_COUNT);
-
-  HRESULT result = DoDragDrop(
+  HRESULT result = ::DoDragDrop(
       ui::OSExchangeDataProviderWin::GetIDataObject(*data.get()),
       drag_source_.Get(),
       ui::DragDropTypes::DragOperationToDropEffect(operation), &effect);
+  if (alive && source == ui::DragDropTypes::DRAG_EVENT_SOURCE_TOUCH) {
+    desktop_host_->SetInTouchDrag(false);
+    // Gesture state gets left in a state where you can't start
+    // another drag, unless it's cleaned up.
+    source_window->CleanupGestureState();
+  }
   drag_source_copy->set_data(nullptr);
 
   if (alive)
@@ -63,17 +80,7 @@ int DesktopDragDropClientWin::StartDragAndDrop(
   if (result != DRAGDROP_S_DROP)
     effect = DROPEFFECT_NONE;
 
-  int drag_operation = ui::DragDropTypes::DropEffectToDragOperation(effect);
-
-  if (drag_operation == ui::DragDropTypes::DRAG_NONE) {
-    UMA_HISTOGRAM_ENUMERATION("Event.DragDrop.Cancel", source,
-                              ui::DragDropTypes::DRAG_EVENT_SOURCE_COUNT);
-  } else {
-    UMA_HISTOGRAM_ENUMERATION("Event.DragDrop.Drop", source,
-                              ui::DragDropTypes::DRAG_EVENT_SOURCE_COUNT);
-  }
-
-  return drag_operation;
+  return ui::DragDropTypes::DropEffectToDragOperation(effect);
 }
 
 void DesktopDragDropClientWin::DragCancel() {

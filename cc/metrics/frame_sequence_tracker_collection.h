@@ -47,8 +47,12 @@ class CC_EXPORT FrameSequenceTrackerCollection {
   FrameSequenceTrackerCollection& operator=(
       const FrameSequenceTrackerCollection&) = delete;
 
-  // Creates a tracker for the specified sequence-type.
-  FrameSequenceMetrics* StartSequence(FrameSequenceTrackerType type);
+  // Creates a new tracker for the specified sequence-type if one doesn't
+  // already exist. Returns the associated FrameSequenceTracker instance.
+  FrameSequenceTracker* StartSequence(FrameSequenceTrackerType type);
+  FrameSequenceTracker* StartScrollSequence(
+      FrameSequenceTrackerType type,
+      FrameSequenceMetrics::ThreadType scrolling_thread);
 
   // Schedules |tracker| for destruction. This is preferred instead of outright
   // desrtruction of the tracker, since this ensures that the actual tracker
@@ -103,18 +107,26 @@ class CC_EXPORT FrameSequenceTrackerCollection {
   // Reports the accumulated kCustom tracker results and clears it.
   CustomTrackerResults TakeCustomTrackerResults();
 
-  FrameSequenceTracker* GetTrackerForTesting(FrameSequenceTrackerType type);
   FrameSequenceTracker* GetRemovalTrackerForTesting(
       FrameSequenceTrackerType type);
 
   void SetUkmManager(UkmManager* manager);
 
-  base::Optional<int> current_universal_throughput() {
-    return current_universal_throughput_;
-  }
+  // These methods directly calls corresponding APIs in ThroughputUkmReporter,
+  // please refer to the ThroughputUkmReporter for details.
+  bool HasThroughputData() const;
+  int TakeLastAggregatedPercent();
+  int TakeLastImplPercent();
+  base::Optional<int> TakeLastMainPercent();
+
+  void ComputeUniversalThroughputForTesting();
 
  private:
   friend class FrameSequenceTrackerTest;
+
+  FrameSequenceTracker* StartSequenceInternal(
+      FrameSequenceTrackerType type,
+      FrameSequenceMetrics::ThreadType scrolling_thread);
 
   void RecreateTrackers(const viz::BeginFrameArgs& args);
   // Destroy the trackers that are ready to be terminated.
@@ -128,8 +140,9 @@ class CC_EXPORT FrameSequenceTrackerCollection {
 
   const bool is_single_threaded_;
   // The callsite can use the type to manipulate the tracker.
-  base::flat_map<FrameSequenceTrackerType,
-                 std::unique_ptr<FrameSequenceTracker>>
+  base::flat_map<
+      std::pair<FrameSequenceTrackerType, FrameSequenceMetrics::ThreadType>,
+      std::unique_ptr<FrameSequenceTracker>>
       frame_trackers_;
 
   // Custom trackers are keyed by a custom sequence id.
@@ -148,7 +161,6 @@ class CC_EXPORT FrameSequenceTrackerCollection {
       std::pair<FrameSequenceTrackerType, FrameSequenceMetrics::ThreadType>,
       std::unique_ptr<FrameSequenceMetrics>>
       accumulated_metrics_;
-  base::Optional<int> current_universal_throughput_;
 };
 
 }  // namespace cc

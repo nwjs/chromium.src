@@ -391,7 +391,7 @@ ExecutionContext* MediaSourceImpl::GetExecutionContext() const {
   return ExecutionContextLifecycleObserver::GetExecutionContext();
 }
 
-void MediaSourceImpl::Trace(Visitor* visitor) {
+void MediaSourceImpl::Trace(Visitor* visitor) const {
   visitor->Trace(async_event_queue_);
   visitor->Trace(attached_element_);
   visitor->Trace(source_buffers_);
@@ -625,7 +625,7 @@ void MediaSourceImpl::DurationChangeAlgorithm(double new_duration,
     }
 
     Deprecation::CountDeprecation(
-        attached_element_->GetDocument(),
+        attached_element_->GetExecutionContext(),
         WebFeature::kMediaSourceDurationTruncatingBuffered);
     // See also deprecated remove(new duration, old duration) behavior below.
   }

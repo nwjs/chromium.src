@@ -141,7 +141,8 @@ struct AX_BASE_EXPORT AXNodeData {
   // Convenience functions.
   //
 
-  // Adds the name attribute or replaces it if already present.
+  // Adds the name attribute or replaces it if already present. Also sets the
+  // NameFrom attribute if not already set.
   void SetName(const std::string& name);
   void SetName(const base::string16& name);
 
@@ -257,9 +258,6 @@ struct AX_BASE_EXPORT AXNodeData {
   // Helper to determine if the data belongs to a node that supports
   // expand/collapse.
   bool SupportsExpandCollapse() const;
-
-  // Helper to determine if the node is in an active live region.
-  bool IsContainedInActiveLiveRegion() const;
 
   // Return a string representation of this data, for debugging.
   virtual std::string ToString() const;

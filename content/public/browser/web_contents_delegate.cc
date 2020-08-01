@@ -357,6 +357,11 @@ WebContents* WebContentsDelegate::GetResponsibleWebContents(
   return web_contents;
 }
 
+device::mojom::GeolocationContext*
+WebContentsDelegate::GetInstalledWebappGeolocationContext() {
+  return nullptr;
+}
+
 base::WeakPtr<WebContentsDelegate> WebContentsDelegate::GetDelegateWeakPtr() {
   return nullptr;
 }

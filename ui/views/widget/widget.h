@@ -916,6 +916,7 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
 
   base::WeakPtr<Widget> GetWeakPtr();
 
+  bool NWCanClose(bool user_force = false) const override;
   // Overridden from NativeWidgetDelegate:
   bool IsModal() const override;
   bool IsDialogBox() const override;
@@ -923,7 +924,6 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   bool ShouldPaintAsActive() const override;
   bool IsNativeWidgetInitialized() const override;
   bool OnNativeWidgetActivationChanged(bool active) override;
-  bool NWCanClose(bool user_force = false) const override;
   void OnNativeFocus() override;
   void OnNativeBlur() override;
   void OnNativeWidgetVisibilityChanging(bool visible) override;

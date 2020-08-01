@@ -6,6 +6,8 @@
 
 #include <sddl.h>  // For ConvertSidToStringSid()
 #include <wrl/client.h>
+#include <algorithm>
+#include <vector>
 
 #include "base/files/scoped_temp_dir.h"
 #include "base/strings/string_number_conversions.h"
@@ -737,6 +739,96 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Combine(::testing::Values(L"ed", L"domains_allowed_to_login"),
                        ::testing::Values(L"acme.com,acme2.com,acme3.com",
                                          L"")));
+
+class GcpGaiaCredentialBasePermittedAccountTest
+    : public GcpGaiaCredentialBaseTest,
+      public ::testing::WithParamInterface<
+          std::tuple<const wchar_t*, const wchar_t*>> {
+ public:
+  // Get a pretty-printed string of the list of email domains that we can
+  // display to the end-user.
+  base::string16 GetEmailDomainsPrintableString() {
+    base::string16 email_domains_reg_old = GetGlobalFlagOrDefault(L"ed", L"");
+    base::string16 email_domains_reg_new =
+        GetGlobalFlagOrDefault(L"domains_allowed_to_login", L"");
+
+    base::string16 email_domains_reg = email_domains_reg_old.empty()
+                                           ? email_domains_reg_new
+                                           : email_domains_reg_old;
+    if (email_domains_reg.empty())
+      return email_domains_reg;
+
+    std::vector<base::string16> domains =
+        base::SplitString(base::ToLowerASCII(email_domains_reg),
+                          base::ASCIIToUTF16(kEmailDomainsSeparator),
+                          base::WhitespaceHandling::TRIM_WHITESPACE,
+                          base::SplitResult::SPLIT_WANT_NONEMPTY);
+    base::string16 email_domains_str;
+    for (size_t i = 0; i < domains.size(); ++i) {
+      email_domains_str += domains[i];
+      if (i < domains.size() - 1)
+        email_domains_str += L", ";
+    }
+    return email_domains_str;
+  }
+};
+
+TEST_P(GcpGaiaCredentialBasePermittedAccountTest, PermittedAccounts) {
+  const base::string16 permitted_acounts = std::get<0>(GetParam());
+  const base::string16 restricted_domains = std::get<1>(GetParam());
+
+  ASSERT_EQ(S_OK,
+            SetGlobalFlagForTesting(L"permitted_accounts", permitted_acounts));
+  ASSERT_EQ(S_OK, SetGlobalFlagForTesting(L"domains_allowed_to_login",
+                                          restricted_domains));
+
+  // Create provider and start logon.
+  Microsoft::WRL::ComPtr<ICredentialProviderCredential> cred;
+
+  ASSERT_EQ(S_OK, InitializeProviderAndGetCredential(0, &cred));
+  Microsoft::WRL::ComPtr<ITestCredential> test;
+  ASSERT_EQ(S_OK, cred.As(&test));
+
+  base::string16 email = L"user@test.com";
+  base::string16 email_domain = email.substr(email.find(L"@") + 1);
+
+  ASSERT_EQ(S_OK, test->SetGlsEmailAddress(base::UTF16ToUTF8(email)));
+
+  bool allowed_email = permitted_acounts.empty() ||
+                       permitted_acounts.find(email) != base::string16::npos;
+  bool found_domain =
+      restricted_domains.find(email_domain) != base::string16::npos;
+
+  if (!found_domain)
+    ASSERT_EQ(S_OK, test->SetDefaultExitCode(kUiecInvalidEmailDomain));
+
+  ASSERT_EQ(S_OK, StartLogonProcessAndWait());
+
+  if (allowed_email && found_domain) {
+    ASSERT_EQ(S_OK, FinishLogonProcess(true, true, 0));
+  } else {
+    base::string16 expected_error_msg;
+    if (!found_domain) {
+      expected_error_msg = base::ReplaceStringPlaceholders(
+          GetStringResource(IDS_INVALID_EMAIL_DOMAIN_BASE),
+          {GetEmailDomainsPrintableString()}, nullptr);
+    } else {
+      expected_error_msg = GetStringResource(IDS_EMAIL_MISMATCH_BASE);
+    }
+    // Logon process should fail with the specified error message.
+    ASSERT_EQ(S_OK, FinishLogonProcess(false, false, expected_error_msg));
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    GcpGaiaCredentialBasePermittedAccountTest,
+    ::testing::Combine(
+        ::testing::Values(L"",
+                          L"user@test.com",
+                          L"other@test.com",
+                          L"other@test.com,user@test.com"),
+        ::testing::Values(L"test.com", L"best.com", L"test.com,best.com")));
 
 TEST_F(GcpGaiaCredentialBaseTest, StripEmailTLD) {
   USES_CONVERSION;
@@ -2733,19 +2825,22 @@ INSTANTIATE_TEST_SUITE_P(All,
 
 // Test Upload device details to GEM service with different failure scenarios.
 // Parameters are:
-// 0. Successfully uploaded device details.
-// 1. Fails the upload device details call due to network timeout.
-// 2. Fails the upload device details call due to invalid response
-//    from the GEM http server.
-// 3  A previously saved device resource ID is present on the device.
+// int - 0. Successfully uploaded device details.
+//       1. Fails the upload device details call due to network timeout.
+//       2. Fails the upload device details call due to invalid response
+//          from the GEM http server.
+//       3. A previously saved device resource ID is present on the device.
+// int - number of previously failed upload device details attempts.
 class GcpGaiaCredentialBaseUploadDeviceDetailsTest
     : public GcpGaiaCredentialBaseTest,
-      public ::testing::WithParamInterface<int> {};
+      public ::testing::WithParamInterface<std::tuple<int, int>> {};
 
 TEST_P(GcpGaiaCredentialBaseUploadDeviceDetailsTest, UploadDeviceDetails) {
-  bool fail_upload_device_details_timeout = (GetParam() == 1);
-  bool fail_upload_device_details_invalid_response = (GetParam() == 2);
-  bool registry_has_device_resource_id = (GetParam() == 3);
+  bool fail_upload_device_details_timeout = (std::get<0>(GetParam()) == 1);
+  bool fail_upload_device_details_invalid_response =
+      (std::get<0>(GetParam()) == 2);
+  bool registry_has_device_resource_id = (std::get<0>(GetParam()) == 3);
+  const DWORD num_previous_failures = std::get<1>(GetParam());
 
   GoogleMdmEnrolledStatusForTesting force_success(true);
   // Set a fake serial number.
@@ -2799,6 +2894,15 @@ TEST_P(GcpGaiaCredentialBaseUploadDeviceDetailsTest, UploadDeviceDetails) {
     EXPECT_TRUE(SUCCEEDED(hr));
   }
 
+  // Set status and num failures from previous attempts.
+  HRESULT hr = SetUserProperty(sid.Copy(), kRegDeviceDetailsUploadStatus,
+                               num_previous_failures ? 0 : 1);
+  EXPECT_TRUE(SUCCEEDED(hr));
+
+  hr = SetUserProperty(sid.Copy(), kRegDeviceDetailsUploadFailures,
+                       num_previous_failures);
+  EXPECT_TRUE(SUCCEEDED(hr));
+
   // Create provider and start logon.
   Microsoft::WRL::ComPtr<ICredentialProviderCredential> cred;
 
@@ -2813,7 +2917,7 @@ TEST_P(GcpGaiaCredentialBaseUploadDeviceDetailsTest, UploadDeviceDetails) {
   // status code. Since the login process doesn't get affected by the status of
   // the upload device details process, the login attempt would always succeed
   // irrespective of the upload status.
-  HRESULT hr = fake_gem_device_details_manager()->GetUploadStatusForTesting();
+  hr = fake_gem_device_details_manager()->GetUploadStatusForTesting();
   bool has_upload_failed = (fail_upload_device_details_timeout ||
                             fail_upload_device_details_invalid_response);
   ASSERT_TRUE(has_upload_failed ? FAILED(hr) : SUCCEEDED(hr));
@@ -2857,8 +2961,18 @@ TEST_P(GcpGaiaCredentialBaseUploadDeviceDetailsTest, UploadDeviceDetails) {
               device_resource_id);
   }
 
+  DWORD device_upload_status = 0;
+  hr = GetUserProperty(sid.Copy(), kRegDeviceDetailsUploadStatus,
+                       &device_upload_status);
+  DWORD device_upload_failures = 0;
+  hr = GetUserProperty(sid.Copy(), kRegDeviceDetailsUploadFailures,
+                       &device_upload_failures);
+
   if (!fail_upload_device_details_timeout &&
       !fail_upload_device_details_invalid_response) {
+    ASSERT_EQ(1UL, device_upload_status);
+    ASSERT_EQ(0UL, device_upload_failures);
+
     wchar_t resource_id[512];
     ULONG resource_id_size = base::size(resource_id);
     hr = GetUserProperty(sid.Copy(), kRegUserDeviceResourceId, resource_id,
@@ -2866,6 +2980,9 @@ TEST_P(GcpGaiaCredentialBaseUploadDeviceDetailsTest, UploadDeviceDetails) {
     ASSERT_TRUE(SUCCEEDED(hr));
     ASSERT_TRUE(resource_id_size > 0);
     ASSERT_EQ(device_resource_id, base::UTF16ToUTF8(resource_id));
+  } else {
+    ASSERT_EQ(0UL, device_upload_status);
+    ASSERT_EQ(num_previous_failures + 1, device_upload_failures);
   }
 
   ASSERT_EQ(S_OK, ReleaseProvider());
@@ -2873,7 +2990,8 @@ TEST_P(GcpGaiaCredentialBaseUploadDeviceDetailsTest, UploadDeviceDetails) {
 
 INSTANTIATE_TEST_SUITE_P(All,
                          GcpGaiaCredentialBaseUploadDeviceDetailsTest,
-                         ::testing::Values(0, 1, 2, 3));
+                         ::testing::Combine(::testing::Values(0, 1, 2, 3),
+                                            ::testing::Values(0, 1, 2)));
 
 class GcpGaiaCredentialBaseFullNameUpdateTest
     : public GcpGaiaCredentialBaseTest,

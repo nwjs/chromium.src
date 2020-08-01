@@ -16,7 +16,6 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/stl_util.h"
 #include "base/strings/string_util.h"
-#include "base/task/post_task.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/timer/elapsed_timer.h"
 #include "content/public/browser/browser_context.h"
@@ -328,8 +327,8 @@ class ContentVerifier::HashHelper {
     if (was_cancelled)
       return;
 
-    base::PostTask(
-        FROM_HERE, {content::BrowserThread::IO},
+    content::GetIOThreadTaskRunner({})->PostTask(
+        FROM_HERE,
         base::BindOnce(std::move(callback), content_hash, was_cancelled));
   }
 
@@ -452,8 +451,8 @@ void ContentVerifier::Start() {
 void ContentVerifier::Shutdown() {
   shutdown_on_ui_ = true;
   delegate_->Shutdown();
-  base::PostTask(FROM_HERE, {content::BrowserThread::IO},
-                 base::BindOnce(&ContentVerifier::ShutdownOnIO, this));
+  content::GetIOThreadTaskRunner({})->PostTask(
+      FROM_HERE, base::BindOnce(&ContentVerifier::ShutdownOnIO, this));
   observer_.RemoveAll();
 }
 
@@ -515,8 +514,8 @@ void ContentVerifier::GetContentHash(
     // TODO(lazyboy): Make CreateJobFor return a scoped_refptr instead of raw
     // pointer to fix this. Also add unit test to exercise this code path
     // explicitly.
-    base::PostTask(FROM_HERE, {content::BrowserThread::IO},
-                   base::BindOnce(base::DoNothing::Once<ContentHashCallback>(),
+    content::GetIOThreadTaskRunner({})->PostTask(
+        FROM_HERE, base::BindOnce(base::DoNothing::Once<ContentHashCallback>(),
                                   std::move(callback)));
     return;
   }
@@ -526,8 +525,8 @@ void ContentVerifier::GetContentHash(
   auto cache_iter = cache_.find(cache_key);
   if (cache_iter != cache_.end()) {
     // Currently, we expect |callback| to be called asynchronously.
-    base::PostTask(FROM_HERE, {content::BrowserThread::IO},
-                   base::BindOnce(std::move(callback), cache_iter->second));
+    content::GetIOThreadTaskRunner({})->PostTask(
+        FROM_HERE, base::BindOnce(std::move(callback), cache_iter->second));
     return;
   }
 
@@ -606,8 +605,8 @@ void ContentVerifier::VerifyFailed(const ExtensionId& extension_id,
                                    ContentVerifyJob::FailureReason reason,
                                    scoped_refptr<ContentVerifyJob> verify_job) {
   if (!content::BrowserThread::CurrentlyOn(content::BrowserThread::UI)) {
-    base::PostTask(FROM_HERE, {content::BrowserThread::UI},
-                   base::BindOnce(&ContentVerifier::VerifyFailed, this,
+    content::GetUIThreadTaskRunner({})->PostTask(
+        FROM_HERE, base::BindOnce(&ContentVerifier::VerifyFailed, this,
                                   extension_id, relative_path, reason, verify_job));
     return;
   }
@@ -629,8 +628,8 @@ void ContentVerifier::OnExtensionLoaded(
   std::unique_ptr<ContentVerifierIOData::ExtensionData> io_data =
       CreateIOData(extension, delegate_.get());
   if (io_data) {
-    base::PostTask(FROM_HERE, {content::BrowserThread::IO},
-                   base::BindOnce(&ContentVerifier::OnExtensionLoadedOnIO, this,
+    content::GetIOThreadTaskRunner({})->PostTask(
+        FROM_HERE, base::BindOnce(&ContentVerifier::OnExtensionLoadedOnIO, this,
                                   extension->id(), extension->path(),
                                   extension->version(), std::move(io_data)));
   }
@@ -657,8 +656,8 @@ void ContentVerifier::OnExtensionUnloaded(
     UnloadedExtensionReason reason) {
   if (shutdown_on_ui_)
     return;
-  base::PostTask(FROM_HERE, {content::BrowserThread::IO},
-                 base::BindOnce(&ContentVerifier::OnExtensionUnloadedOnIO, this,
+  content::GetIOThreadTaskRunner({})->PostTask(
+      FROM_HERE, base::BindOnce(&ContentVerifier::OnExtensionUnloadedOnIO, this,
                                 extension->id(), extension->version()));
 }
 
@@ -736,8 +735,8 @@ ContentHash::FetchKey ContentVerifier::GetFetchKey(
   // even though it needs to finish initialization on the UI thread.
   mojo::PendingRemote<network::mojom::URLLoaderFactory>
       url_loader_factory_remote;
-  base::PostTask(
-      FROM_HERE, {content::BrowserThread::UI},
+  content::GetUIThreadTaskRunner({})->PostTask(
+      FROM_HERE,
       base::BindOnce(
           &ContentVerifier::BindURLLoaderFactoryReceiverOnUIThread, this,
           url_loader_factory_remote.InitWithNewPipeAndPassReceiver()));

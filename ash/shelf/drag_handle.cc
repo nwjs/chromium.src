@@ -131,9 +131,6 @@ bool DragHandle::MaybeShowDragHandleNudge() {
 }
 
 void DragHandle::ShowDragHandleNudge() {
-  if (!features::AreContextualNudgesEnabled())
-    return;
-
   DCHECK(!gesture_nudge_target_visibility_);
   PrefService* pref =
       Shell::Get()->session_controller()->GetLastActiveUserPrefService();
@@ -277,7 +274,7 @@ void DragHandle::ShowDragHandleTooltip() {
       this, nullptr /*parent_window*/, ContextualNudge::Position::kTop,
       gfx::Insets(), l10n_util::GetStringUTF16(IDS_ASH_DRAG_HANDLE_NUDGE),
       AshColorProvider::Get()->GetContentLayerColor(
-          AshColorProvider::ContentLayerType::kTextPrimary,
+          AshColorProvider::ContentLayerType::kTextColorPrimary,
           AshColorProvider::AshColorMode::kDark),
       base::BindRepeating(&DragHandle::HandleTapOnNudge,
                           weak_factory_.GetWeakPtr()));

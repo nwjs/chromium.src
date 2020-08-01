@@ -26,8 +26,9 @@
 #include "ash/resources/vector_icons/vector_icons.h"
 #include "ash/shell.h"
 #include "ash/strings/grit/ash_strings.h"
+#include "ash/system/model/clock_model.h"
+#include "ash/system/model/system_tray_model.h"
 #include "ash/system/night_light/time_of_day.h"
-#include "ash/system/toast/toast_manager_impl.h"
 #include "ash/wallpaper/wallpaper_controller_impl.h"
 #include "base/bind.h"
 #include "base/i18n/time_formatting.h"
@@ -270,27 +271,35 @@ struct LockScreenMessage {
 
 // Returns the message used when the device was locked due to a time window
 // limit.
-LockScreenMessage GetWindowLimitMessage(const base::Time& unlock_time) {
+LockScreenMessage GetWindowLimitMessage(const base::Time& unlock_time,
+                                        bool use_24hour_clock) {
   LockScreenMessage message;
   message.title = l10n_util::GetStringUTF16(IDS_ASH_LOGIN_TIME_FOR_BED_MESSAGE);
 
   base::Time local_midnight = base::Time::Now().LocalMidnight();
-  const std::string time_of_day = TimeOfDay::FromTime(unlock_time).ToString();
+
+  base::string16 time_to_display;
+  if (use_24hour_clock) {
+    time_to_display = base::TimeFormatTimeOfDayWithHourClockType(
+        unlock_time, base::k24HourClock, base::kDropAmPm);
+  } else {
+    time_to_display = base::TimeFormatTimeOfDayWithHourClockType(
+        unlock_time, base::k12HourClock, base::kKeepAmPm);
+  }
 
   if (unlock_time < local_midnight + base::TimeDelta::FromDays(1)) {
     // Unlock time is today.
     message.content = l10n_util::GetStringFUTF16(
-        IDS_ASH_LOGIN_COME_BACK_MESSAGE, base::UTF8ToUTF16(time_of_day));
+        IDS_ASH_LOGIN_COME_BACK_MESSAGE, time_to_display);
   } else if (unlock_time < local_midnight + base::TimeDelta::FromDays(2)) {
     // Unlock time is tomorrow.
-    message.content =
-        l10n_util::GetStringFUTF16(IDS_ASH_LOGIN_COME_BACK_TOMORROW_MESSAGE,
-                                   base::UTF8ToUTF16(time_of_day));
+    message.content = l10n_util::GetStringFUTF16(
+        IDS_ASH_LOGIN_COME_BACK_TOMORROW_MESSAGE, time_to_display);
   } else {
     message.content = l10n_util::GetStringFUTF16(
         IDS_ASH_LOGIN_COME_BACK_DAY_OF_WEEK_MESSAGE,
         base::TimeFormatWithPattern(unlock_time, kDayOfWeekOnlyTimeFormat),
-        base::UTF8ToUTF16(time_of_day));
+        time_to_display);
   }
   message.icon = &kLockScreenTimeLimitMoonIcon;
   return message;
@@ -343,10 +352,11 @@ LockScreenMessage GetOverrideMessage() {
 
 LockScreenMessage GetLockScreenMessage(AuthDisabledReason lock_reason,
                                        const base::Time& unlock_time,
-                                       const base::TimeDelta& used_time) {
+                                       const base::TimeDelta& used_time,
+                                       bool use_24hour_clock) {
   switch (lock_reason) {
     case AuthDisabledReason::kTimeWindowLimit:
-      return GetWindowLimitMessage(unlock_time);
+      return GetWindowLimitMessage(unlock_time, use_24hour_clock);
     case AuthDisabledReason::kTimeUsageLimit:
       return GetUsageLimitMessage(used_time);
     case AuthDisabledReason::kTimeLimitOverride:
@@ -633,6 +643,19 @@ class LoginAuthUserView::ChallengeResponseView : public views::View,
 // The message shown to user when the auth method is |AUTH_DISABLED|.
 class LoginAuthUserView::DisabledAuthMessageView : public views::View {
  public:
+  class ASH_EXPORT TestApi {
+   public:
+    explicit TestApi(DisabledAuthMessageView* view) : view_(view) {}
+    ~TestApi() = default;
+
+    const base::string16& GetDisabledAuthMessageContent() const {
+      return view_->message_contents_->GetText();
+    }
+
+   private:
+    DisabledAuthMessageView* const view_;
+  };
+
   DisabledAuthMessageView() {
     SetLayoutManager(std::make_unique<views::BoxLayout>(
         views::BoxLayout::Orientation::kVertical,
@@ -681,10 +704,11 @@ class LoginAuthUserView::DisabledAuthMessageView : public views::View {
   ~DisabledAuthMessageView() override = default;
 
   // Set the parameters needed to render the message.
-  void SetAuthDisabledMessage(const AuthDisabledData& auth_disabled_data) {
+  void SetAuthDisabledMessage(const AuthDisabledData& auth_disabled_data,
+                              bool use_24hour_clock) {
     LockScreenMessage message = GetLockScreenMessage(
         auth_disabled_data.reason, auth_disabled_data.auth_reenabled_time,
-        auth_disabled_data.device_used_time);
+        auth_disabled_data.device_used_time, use_24hour_clock);
     message_icon_->SetImage(gfx::CreateVectorIcon(
         *message.icon, kDisabledAuthMessageIconSizeDp, SK_ColorWHITE));
     message_title_->SetText(message.title);
@@ -756,17 +780,15 @@ views::View* LoginAuthUserView::TestApi::disabled_auth_message() const {
   return view_->disabled_auth_message_;
 }
 
-views::Button* LoginAuthUserView::TestApi::external_binary_auth_button() const {
-  return view_->external_binary_auth_button_;
-}
-
-views::Button* LoginAuthUserView::TestApi::external_binary_enrollment_button()
-    const {
-  return view_->external_binary_enrollment_button_;
-}
-
 bool LoginAuthUserView::TestApi::HasAuthMethod(AuthMethods auth_method) const {
   return view_->HasAuthMethod(auth_method);
+}
+
+const base::string16&
+LoginAuthUserView::TestApi::GetDisabledAuthMessageContent() const {
+  return LoginAuthUserView::DisabledAuthMessageView::TestApi(
+             view_->disabled_auth_message_)
+      .GetDisabledAuthMessageContent();
 }
 
 LoginAuthUserView::Callbacks::Callbacks() = default;
@@ -857,16 +879,6 @@ LoginAuthUserView::LoginAuthUserView(const LoginUserInfo& user,
           weak_factory_.GetWeakPtr()));
   challenge_response_view_ = challenge_response_view.get();
 
-  // TODO(jdufault): Implement real UI.
-  external_binary_auth_button_ =
-      views::MdTextButton::Create(
-          this, base::ASCIIToUTF16("Authenticate with external binary"))
-          .release();
-  external_binary_enrollment_button_ =
-      views::MdTextButton::Create(
-          this, base::ASCIIToUTF16("Enroll with external binary"))
-          .release();
-
   SetPaintToLayer(ui::LayerType::LAYER_NOT_DRAWN);
 
   // Wrap the password view with a container having the fill layout, so that
@@ -900,12 +912,6 @@ LoginAuthUserView::LoginAuthUserView(const LoginUserInfo& user,
   auto wrapped_challenge_response_view =
       login_views_utils::WrapViewForPreferredSize(
           std::move(challenge_response_view));
-  auto wrapped_external_binary_view =
-      login_views_utils::WrapViewForPreferredSize(
-          base::WrapUnique(external_binary_auth_button_));
-  auto wrapped_external_binary_enrollment_view =
-      login_views_utils::WrapViewForPreferredSize(
-          base::WrapUnique(external_binary_enrollment_button_));
   auto wrapped_padding_below_password_view =
       login_views_utils::WrapViewForPreferredSize(
           std::move(padding_below_password_view));
@@ -922,10 +928,6 @@ LoginAuthUserView::LoginAuthUserView(const LoginUserInfo& user,
       AddChildView(std::move(wrapped_fingerprint_view));
   views::View* wrapped_challenge_response_view_ptr =
       AddChildView(std::move(wrapped_challenge_response_view));
-  views::View* wrapped_external_binary_view_ptr =
-      AddChildView(std::move(wrapped_external_binary_view));
-  views::View* wrapped_external_binary_enrollment_view_ptr =
-      AddChildView(std::move(wrapped_external_binary_enrollment_view));
   views::View* wrapped_user_view_ptr =
       AddChildView(std::move(wrapped_user_view));
   views::View* wrapped_padding_below_password_view_ptr =
@@ -959,8 +961,6 @@ LoginAuthUserView::LoginAuthUserView(const LoginUserInfo& user,
   add_view(wrapped_pin_view_ptr);
   add_view(wrapped_fingerprint_view_ptr);
   add_view(wrapped_challenge_response_view_ptr);
-  add_view(wrapped_external_binary_view_ptr);
-  add_view(wrapped_external_binary_enrollment_view_ptr);
   add_padding(kDistanceFromPinKeyboardToBigUserViewBottomDp);
 
   // Update authentication UI.
@@ -981,7 +981,6 @@ void LoginAuthUserView::SetAuthMethods(uint32_t auth_methods,
   bool has_tap = HasAuthMethod(AUTH_TAP);
   bool force_online_sign_in = HasAuthMethod(AUTH_ONLINE_SIGN_IN);
   bool has_fingerprint = HasAuthMethod(AUTH_FINGERPRINT);
-  bool has_external_binary = HasAuthMethod(AUTH_EXTERNAL_BINARY);
   bool has_challenge_response = HasAuthMethod(AUTH_CHALLENGE_RESPONSE);
   bool auth_disabled = HasAuthMethod(AUTH_DISABLED);
 
@@ -1010,12 +1009,6 @@ void LoginAuthUserView::SetAuthMethods(uint32_t auth_methods,
   fingerprint_view_->SetVisible(has_fingerprint);
   fingerprint_view_->SetCanUsePin(can_use_pin);
   challenge_response_view_->SetVisible(has_challenge_response);
-  external_binary_auth_button_->SetVisible(has_external_binary);
-  external_binary_enrollment_button_->SetVisible(has_external_binary);
-
-  if (has_external_binary) {
-    power_manager_client_observer_.Add(chromeos::PowerManagerClient::Get());
-  }
 
   int padding_view_height = kDistanceBetweenPasswordFieldAndPinKeyboardDp;
   if (has_fingerprint && !has_pin_pad) {
@@ -1241,7 +1234,8 @@ void LoginAuthUserView::NotifyFingerprintAuthResult(bool success) {
 
 void LoginAuthUserView::SetAuthDisabledMessage(
     const AuthDisabledData& auth_disabled_data) {
-  disabled_auth_message_->SetAuthDisabledMessage(auth_disabled_data);
+  disabled_auth_message_->SetAuthDisabledMessage(
+      auth_disabled_data, current_user().use_24hour_clock);
   Layout();
 }
 
@@ -1263,28 +1257,10 @@ void LoginAuthUserView::RequestFocus() {
 
 void LoginAuthUserView::ButtonPressed(views::Button* sender,
                                       const ui::Event& event) {
-  DCHECK(sender == online_sign_in_message_ ||
-         sender == external_binary_auth_button_ ||
-         sender == external_binary_enrollment_button_);
+  DCHECK(sender == online_sign_in_message_);
   if (sender == online_sign_in_message_) {
     OnOnlineSignInMessageTap();
-  } else if (sender == external_binary_auth_button_) {
-    AttemptAuthenticateWithExternalBinary();
-  } else if (sender == external_binary_enrollment_button_) {
-    password_view_->SetReadOnly(true);
-    external_binary_auth_button_->SetEnabled(false);
-    external_binary_enrollment_button_->SetEnabled(false);
-    Shell::Get()->login_screen_controller()->EnrollUserWithExternalBinary(
-        base::BindOnce(&LoginAuthUserView::OnEnrollmentComplete,
-                       weak_factory_.GetWeakPtr()));
   }
-}
-
-void LoginAuthUserView::LidEventReceived(
-    chromeos::PowerManagerClient::LidState state,
-    const base::TimeTicks& timestamp) {
-  if (state == chromeos::PowerManagerClient::LidState::OPEN)
-    AttemptAuthenticateWithExternalBinary();
 }
 
 void LoginAuthUserView::OnAuthSubmit(const base::string16& password) {
@@ -1312,8 +1288,6 @@ void LoginAuthUserView::OnAuthComplete(base::Optional<bool> auth_success) {
   if (!auth_success.has_value() || !auth_success.value()) {
     password_view_->Reset();
     password_view_->SetReadOnly(false);
-    external_binary_auth_button_->SetEnabled(true);
-    external_binary_enrollment_button_->SetEnabled(true);
   }
 
   on_auth_.Run(auth_success.value(), /*display_error_messages=*/true);
@@ -1341,25 +1315,6 @@ void LoginAuthUserView::OnChallengeResponseAuthComplete(
   on_auth_.Run(auth_success.value_or(false), /*display_error_messages=*/false);
 }
 
-void LoginAuthUserView::OnEnrollmentComplete(
-    base::Optional<bool> enrollment_success) {
-  password_view_->SetReadOnly(false);
-  external_binary_auth_button_->SetEnabled(true);
-  external_binary_enrollment_button_->SetEnabled(true);
-
-  std::string result_message;
-  if (!enrollment_success.has_value()) {
-    result_message = "Enrollment attempt failed to received response.";
-  } else {
-    result_message = enrollment_success.value() ? "Enrollment successful."
-                                                : "Enrollment failed.";
-  }
-
-  ToastData toast_data("EnrollmentToast", base::ASCIIToUTF16(result_message),
-                       2000, base::nullopt, true /*visible_on_lock_screen*/);
-  Shell::Get()->toast_manager()->Show(toast_data);
-}
-
 void LoginAuthUserView::OnUserViewTap() {
   if (HasAuthMethod(AUTH_TAP)) {
     Shell::Get()->login_screen_controller()->AuthenticateUserWithEasyUnlock(
@@ -1379,16 +1334,6 @@ void LoginAuthUserView::OnOnlineSignInMessageTap() {
 
 bool LoginAuthUserView::HasAuthMethod(AuthMethods auth_method) const {
   return (auth_methods_ & auth_method) != 0;
-}
-
-void LoginAuthUserView::AttemptAuthenticateWithExternalBinary() {
-  password_view_->SetReadOnly(true);
-  external_binary_auth_button_->SetEnabled(false);
-  external_binary_enrollment_button_->SetEnabled(false);
-  Shell::Get()->login_screen_controller()->AuthenticateUserWithExternalBinary(
-      current_user().basic_user_info.account_id,
-      base::BindOnce(&LoginAuthUserView::OnAuthComplete,
-                     weak_factory_.GetWeakPtr()));
 }
 
 void LoginAuthUserView::AttemptAuthenticateWithChallengeResponse() {

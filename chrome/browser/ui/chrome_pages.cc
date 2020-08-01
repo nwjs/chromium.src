@@ -141,6 +141,7 @@ const std::string BuildQueryString(Profile* profile) {
   const std::string query_string = base::StrCat(
       {kChromeReleaseNotesURL, "?version=", milestone, "&tags=", board_name,
        ",", region, ",", language, ",", channel_name, ",", user_type});
+  VLOG(0) << "Release Notes Query String: " << query_string;
   return query_string;
 }
 
@@ -316,7 +317,7 @@ void ShowHistory(Browser* browser) {
 void ShowDownloads(Browser* browser) {
   base::RecordAction(UserMetricsAction("ShowDownloads"));
   if (browser->window() && browser->window()->IsDownloadShelfVisible())
-    browser->window()->GetDownloadShelf()->Close(DownloadShelf::USER_ACTION);
+    browser->window()->GetDownloadShelf()->Close();
 
   ShowSingletonTabOverwritingNTP(
       browser,
@@ -508,9 +509,15 @@ void ShowAppManagementPage(Profile* profile,
                                                                sub_page);
 }
 
-void ShowPrintManagementApp(Profile* profile) {
+void ShowPrintManagementApp(Profile* profile,
+                            PrintManagementAppEntryPoint entry_point) {
   DCHECK(
       base::FeatureList::IsEnabled(chromeos::features::kPrintJobManagementApp));
+  DCHECK(entry_point == PrintManagementAppEntryPoint::kSettings ||
+         entry_point == PrintManagementAppEntryPoint::kNotification);
+
+  base::UmaHistogramEnumeration("Printing.Cups.PrintManagementAppEntryPoint",
+                                entry_point);
   LaunchSystemWebApp(profile, web_app::SystemAppType::PRINT_MANAGEMENT,
                      GURL(chrome::kChromeUIPrintManagementUrl));
 }

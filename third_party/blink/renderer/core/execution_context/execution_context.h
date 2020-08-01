@@ -117,10 +117,9 @@ class CORE_EXPORT ExecutionContext : public Supplementable<ExecutionContext>,
                                      public ConsoleLogger,
                                      public UseCounter,
                                      public FeaturePolicyParserDelegate {
-  MERGE_GARBAGE_COLLECTED_MIXINS();
 
  public:
-  void Trace(Visitor*) override;
+  void Trace(Visitor*) const override;
 
   static ExecutionContext* From(const ScriptState*);
   static ExecutionContext* From(v8::Local<v8::Context>);
@@ -276,7 +275,7 @@ class CORE_EXPORT ExecutionContext : public Supplementable<ExecutionContext>,
       TaskType) = 0;
 
   v8::Isolate* GetIsolate() const { return isolate_; }
-  Agent* GetAgent() const { return GetSecurityContext().GetAgent(); }
+  Agent* GetAgent() const { return agent_; }
 
   v8::MicrotaskQueue* GetMicrotaskQueue() const;
 
@@ -339,8 +338,11 @@ class CORE_EXPORT ExecutionContext : public Supplementable<ExecutionContext>,
   }
   unsigned ContextLifecycleStateObserverCountForTesting() const;
 
+  // Implementation of WindowOrWorkerGlobalScope.crossOriginIsolated.
+  bool IsCrossOriginIsolated() const;
+
  protected:
-  explicit ExecutionContext(v8::Isolate* isolate);
+  explicit ExecutionContext(v8::Isolate* isolate, Agent*);
   ~ExecutionContext() override;
 
  private:
@@ -358,6 +360,8 @@ class CORE_EXPORT ExecutionContext : public Supplementable<ExecutionContext>,
       mojom::blink::FeaturePolicyFeature feature) const;
 
   v8::Isolate* const isolate_;
+
+  const Member<Agent> agent_;
 
   bool DispatchErrorEventInternal(ErrorEvent*, SanitizeScriptErrors);
 

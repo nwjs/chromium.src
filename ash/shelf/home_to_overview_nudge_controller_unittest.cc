@@ -82,8 +82,7 @@ class HomeToOverviewNudgeControllerTest : public AshTestBase {
  public:
   HomeToOverviewNudgeControllerTest() {
     scoped_feature_list_.InitWithFeatures(
-        {ash::features::kContextualNudges,
-         ash::features::kHideShelfControlsInTabletMode},
+        {features::kContextualNudges, features::kHideShelfControlsInTabletMode},
         {});
   }
   ~HomeToOverviewNudgeControllerTest() override = default;

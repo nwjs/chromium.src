@@ -14,8 +14,8 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_context.h"
+#include "chrome/browser/ui/exclusive_access/exclusive_access_test.h"
 #include "chrome/browser/ui/exclusive_access/fullscreen_controller.h"
-#include "chrome/browser/ui/exclusive_access/fullscreen_controller_test.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/url_constants.h"
@@ -262,8 +262,8 @@ bool FullscreenControllerStateTest::InvokeEvent(Event event) {
       content::WebContents* const active_tab =
           GetBrowser()->tab_strip_model()->GetActiveWebContents();
       if (event == TAB_FULLSCREEN_TRUE) {
-        GetFullscreenController()->EnterFullscreenModeForTab(active_tab,
-                                                             GURL());
+        GetFullscreenController()->EnterFullscreenModeForTab(
+            active_tab->GetMainFrame());
       } else {
         GetFullscreenController()->ExitFullscreenModeForTab(active_tab);
       }

@@ -24,6 +24,7 @@
 #include "base/message_loop/message_loop_current.h"
 #include "base/metrics/field_trial.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/optional.h"
 #include "base/single_thread_task_runner.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
@@ -46,6 +47,7 @@
 #include "content/browser/file_system/browser_file_system_helper.h"
 #include "content/browser/gpu/compositor_util.h"
 #include "content/browser/renderer_host/dip_util.h"
+#include "content/browser/renderer_host/display_feature.h"
 #include "content/browser/renderer_host/display_util.h"
 #include "content/browser/renderer_host/frame_token_message_queue.h"
 #include "content/browser/renderer_host/input/fling_scheduler.h"
@@ -69,7 +71,6 @@
 #include "content/common/drag_messages.h"
 #include "content/common/frame_messages.h"
 #include "content/common/input_messages.h"
-#include "content/common/text_input_state.h"
 #include "content/common/view_messages.h"
 #include "content/common/visual_properties.h"
 #include "content/common/widget_messages.h"
@@ -100,7 +101,7 @@
 #include "skia/ext/image_operations.h"
 #include "skia/ext/platform_canvas.h"
 #include "storage/browser/file_system/isolated_context.h"
-#include "third_party/blink/public/web/web_ime_text_span.h"
+#include "third_party/blink/public/common/input/synthetic_web_input_event_builders.h"
 #include "ui/base/clipboard/clipboard_constants.h"
 #include "ui/base/ui_base_switches.h"
 #include "ui/display/display_switches.h"
@@ -140,6 +141,11 @@ using blink::WebMouseWheelEvent;
 
 namespace content {
 namespace {
+
+// How long to wait for newly loaded content to send a compositor frame
+// before clearing previously displayed graphics.
+constexpr base::TimeDelta kNewContentRenderingDelay =
+    base::TimeDelta::FromSeconds(4);
 
 bool g_check_for_pending_visual_properties_ack = true;
 
@@ -193,7 +199,7 @@ class RenderWidgetHostIteratorImpl : public RenderWidgetHostIterator {
 
 std::vector<DropData::Metadata> DropDataToMetaData(const DropData& drop_data) {
   std::vector<DropData::Metadata> metadata;
-  if (!drop_data.text.is_null()) {
+  if (drop_data.text) {
     metadata.push_back(DropData::Metadata::CreateForMimeType(
         DropData::Kind::STRING, base::ASCIIToUTF16(ui::kMimeTypeText)));
   }
@@ -203,7 +209,7 @@ std::vector<DropData::Metadata> DropDataToMetaData(const DropData& drop_data) {
         DropData::Kind::STRING, base::ASCIIToUTF16(ui::kMimeTypeURIList)));
   }
 
-  if (!drop_data.html.is_null()) {
+  if (drop_data.html) {
     metadata.push_back(DropData::Metadata::CreateForMimeType(
         DropData::Kind::STRING, base::ASCIIToUTF16(ui::kMimeTypeHTML)));
   }
@@ -238,7 +244,7 @@ std::vector<DropData::Metadata> DropDataToMetaData(const DropData& drop_data) {
   return metadata;
 }
 
-class UnboundWidgetInputHandler : public mojom::WidgetInputHandler {
+class UnboundWidgetInputHandler : public blink::mojom::WidgetInputHandler {
  public:
   void SetFocus(bool focused) override {
     DLOG(WARNING) << "Input request on unbound interface";
@@ -277,22 +283,29 @@ class UnboundWidgetInputHandler : public mojom::WidgetInputHandler {
                                  bool monitor_request) override {
     DLOG(WARNING) << "Input request on unbound interface";
   }
-  void DispatchEvent(std::unique_ptr<content::InputEvent> event,
+  void DispatchEvent(std::unique_ptr<blink::WebCoalescedInputEvent> event,
                      DispatchEventCallback callback) override {
     DLOG(WARNING) << "Input request on unbound interface";
   }
   void DispatchNonBlockingEvent(
-      std::unique_ptr<content::InputEvent> event) override {
+      std::unique_ptr<blink::WebCoalescedInputEvent> event) override {
     DLOG(WARNING) << "Input request on unbound interface";
   }
   void WaitForInputProcessed(WaitForInputProcessedCallback callback) override {
     DLOG(WARNING) << "Input request on unbound interface";
   }
   void AttachSynchronousCompositor(
-      mojo::PendingRemote<mojom::SynchronousCompositorControlHost> control_host,
-      mojo::PendingAssociatedRemote<mojom::SynchronousCompositorHost> host,
-      mojo::PendingAssociatedReceiver<mojom::SynchronousCompositor>
+      mojo::PendingRemote<blink::mojom::SynchronousCompositorControlHost>
+          control_host,
+      mojo::PendingAssociatedRemote<blink::mojom::SynchronousCompositorHost>
+          host,
+      mojo::PendingAssociatedReceiver<blink::mojom::SynchronousCompositor>
           compositor_request) override {
+    NOTREACHED() << "Input request on unbound interface";
+  }
+  void GetFrameWidgetInputHandler(
+      mojo::PendingAssociatedReceiver<blink::mojom::FrameWidgetInputHandler>
+          request) override {
     NOTREACHED() << "Input request on unbound interface";
   }
 };
@@ -309,7 +322,6 @@ RenderWidgetHostImpl::RenderWidgetHostImpl(
     RenderWidgetHostDelegate* delegate,
     RenderProcessHost* process,
     int32_t routing_id,
-    mojo::PendingRemote<mojom::Widget> widget,
     bool hidden,
     std::unique_ptr<FrameTokenMessageQueue> frame_token_message_queue)
     : delegate_(delegate),
@@ -318,9 +330,8 @@ RenderWidgetHostImpl::RenderWidgetHostImpl(
       clock_(base::DefaultTickClock::GetInstance()),
       is_hidden_(hidden),
       latency_tracker_(delegate_),
-      hung_renderer_delay_(TimeDelta::FromMilliseconds(kHungRendererDelayMs)),
-      new_content_rendering_delay_(
-          TimeDelta::FromMilliseconds(kNewContentRenderingDelayMs)),
+      hung_renderer_delay_(kHungRendererDelay),
+      new_content_rendering_delay_(kNewContentRenderingDelay),
       frame_token_message_queue_(std::move(frame_token_message_queue)),
       render_frame_metadata_provider_(
 #if defined(OS_MACOSX)
@@ -359,7 +370,6 @@ RenderWidgetHostImpl::RenderWidgetHostImpl(
   process_->AddPriorityClient(this);
 
   SetupInputRouter();
-  SetWidget(std::move(widget));
 
   const auto* command_line = base::CommandLine::ForCurrentProcess();
   if (!command_line->HasSwitch(switches::kDisableNewContentRenderingTimeout)) {
@@ -510,7 +520,16 @@ void RenderWidgetHostImpl::UpdatePriority() {
 void RenderWidgetHostImpl::Init() {
   DCHECK(process_->IsInitializedAndNotDead());
 
-  SetRendererInitialized(true, RendererInitializer::kInit);
+  set_renderer_initialized(true);
+
+  blink_widget_->GetWidgetInputHandler(
+      widget_input_handler_.BindNewPipeAndPassReceiver(),
+      input_router_->BindNewHost());
+  // If this is for a frame be sure to connect that handler too.
+  if (blink_frame_widget_) {
+    widget_input_handler_->GetFrameWidgetInputHandler(
+        frame_widget_input_handler_.BindNewEndpointAndPassReceiver());
+  }
 
   SendScreenRects();
   SynchronizeVisualProperties();
@@ -529,6 +548,7 @@ RenderWidgetHostImpl::BindNewWidgetInterfaces() {
   // reused RenderViewHostImpl so we need to ensure old channels are dropped.
   blink_widget_host_receiver_.reset();
   blink_widget_.reset();
+  widget_input_handler_.reset();
   return std::make_pair(
       blink_widget_host_receiver_.BindNewEndpointAndPassRemote(),
       blink_widget_.BindNewEndpointAndPassReceiver());
@@ -541,6 +561,7 @@ void RenderWidgetHostImpl::BindWidgetInterfaces(
   // reused RenderViewHostImpl so we need to ensure old channels are dropped.
   blink_widget_host_receiver_.reset();
   blink_widget_.reset();
+  widget_input_handler_.reset();
   blink_widget_host_receiver_.Bind(std::move(widget_host));
   blink_widget_.Bind(std::move(widget));
 }
@@ -552,6 +573,7 @@ RenderWidgetHostImpl::BindNewFrameWidgetInterfaces() {
   // reused RenderViewHostImpl so we need to ensure old channels are dropped.
   blink_frame_widget_host_receiver_.reset();
   blink_frame_widget_.reset();
+  frame_widget_input_handler_.reset();
   return std::make_pair(
       blink_frame_widget_host_receiver_.BindNewEndpointAndPassRemote(),
       blink_frame_widget_.BindNewEndpointAndPassReceiver());
@@ -565,13 +587,26 @@ void RenderWidgetHostImpl::BindFrameWidgetInterfaces(
   // reused RenderViewHostImpl so we need to ensure old channels are dropped.
   blink_frame_widget_host_receiver_.reset();
   blink_frame_widget_.reset();
+  frame_widget_input_handler_.reset();
   blink_frame_widget_host_receiver_.Bind(std::move(frame_widget_host));
   blink_frame_widget_.Bind(std::move(frame_widget));
 }
 
 void RenderWidgetHostImpl::InitForFrame() {
   DCHECK(process_->IsInitializedAndNotDead());
-  SetRendererInitialized(true, RendererInitializer::kInitForFrame);
+  set_renderer_initialized(true);
+
+  // In situations where RenderFrameHostImpl::CreateNewFrame calls this
+  // the |blink_widget_| will not be bound before this method is called.
+  // However RenderWidgetHostImpl::Init will be called once the widget
+  // is shown and these handlers will be bound there.
+  if (blink_widget_) {
+    blink_widget_->GetWidgetInputHandler(
+        widget_input_handler_.BindNewPipeAndPassReceiver(),
+        input_router_->BindNewHost());
+    widget_input_handler_->GetFrameWidgetInputHandler(
+        frame_widget_input_handler_.BindNewEndpointAndPassReceiver());
+  }
 
   if (view_)
     view_->OnRenderWidgetInit();
@@ -608,19 +643,10 @@ bool RenderWidgetHostImpl::OnMessageReceived(const IPC::Message &msg) {
     IPC_MESSAGE_HANDLER(WidgetHostMsg_UpdateScreenRects_ACK,
                         OnUpdateScreenRectsAck)
     IPC_MESSAGE_HANDLER(WidgetHostMsg_RequestSetBounds, OnRequestSetBounds)
-    IPC_MESSAGE_HANDLER(WidgetHostMsg_SetTooltipText, OnSetTooltipText)
-    IPC_MESSAGE_HANDLER(WidgetHostMsg_TextInputStateChanged,
-                        OnTextInputStateChanged)
-    IPC_MESSAGE_HANDLER(WidgetHostMsg_SelectionBoundsChanged,
-                        OnSelectionBoundsChanged)
     IPC_MESSAGE_HANDLER(DragHostMsg_StartDragging, OnStartDragging)
     IPC_MESSAGE_HANDLER(DragHostMsg_UpdateDragCursor, OnUpdateDragCursor)
     IPC_MESSAGE_HANDLER(WidgetHostMsg_FrameSwapMessages,
                         OnFrameSwapMessagesReceived)
-    IPC_MESSAGE_HANDLER(WidgetHostMsg_ForceRedrawComplete,
-                        OnForceRedrawComplete)
-    IPC_MESSAGE_HANDLER(WidgetHostMsg_DidFirstVisuallyNonEmptyPaint,
-                        OnFirstVisuallyNonEmptyPaint)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
 
@@ -906,6 +932,17 @@ VisualProperties RenderWidgetHostImpl::GetVisualProperties() {
     viewport = view_->GetVisibleViewportSize();
   visual_properties.visible_viewport_size = viewport;
 
+  // The root widget's window segments are computed here - child frames just
+  // use the value provided from the parent.
+  if (is_top_most_widget) {
+    const DisplayFeature* display_feature = view_->GetDisplayFeature();
+    visual_properties.root_widget_window_segments = ComputeRootWindowSegments(
+        visual_properties.visible_viewport_size, display_feature);
+  } else {
+    visual_properties.root_widget_window_segments =
+        properties_from_parent_local_root_.root_widget_window_segments;
+  }
+
   visual_properties.capture_sequence_number = view_->GetCaptureSequenceNumber();
 
   // TODO(ccameron): GetLocalSurfaceId is not synchronized with the device
@@ -1028,6 +1065,43 @@ bool RenderWidgetHostImpl::SynchronizeVisualProperties(
   return true;
 }
 
+std::vector<gfx::Rect> RenderWidgetHostImpl::ComputeRootWindowSegments(
+    const gfx::Size& visible_viewport_size,
+    const DisplayFeature* display_feature) const {
+  std::vector<gfx::Rect> window_segments;
+
+  if (!display_feature) {
+    window_segments.emplace_back(visible_viewport_size);
+    return window_segments;
+  }
+
+  int display_feature_end =
+      display_feature->offset + display_feature->mask_length;
+  if (display_feature->orientation == DisplayFeature::Orientation::kVertical) {
+    // If the display feature is vertically oriented, it splits or masks
+    // the widget into two side-by-side segments. Note that in the masking
+    // scenario, there is an area of the widget that are not covered by the
+    // union of the window segments - this area's pixels will not be visible
+    // to the user.
+    window_segments.emplace_back(0, 0, display_feature->offset,
+                                 visible_viewport_size.height());
+    window_segments.emplace_back(
+        display_feature_end, 0,
+        visible_viewport_size.width() - display_feature_end,
+        visible_viewport_size.height());
+  } else {
+    // If the display feature is offset in the y direction, it splits or masks
+    // the widget into two stacked segments.
+    window_segments.emplace_back(0, 0, visible_viewport_size.width(),
+                                 display_feature->offset);
+    window_segments.emplace_back(
+        0, display_feature_end, visible_viewport_size.width(),
+        visible_viewport_size.height() - display_feature_end);
+  }
+
+  return window_segments;
+}
+
 void RenderWidgetHostImpl::GotFocus() {
   Focus();
   if (owner_delegate_)
@@ -1063,8 +1137,6 @@ void RenderWidgetHostImpl::Blur() {
 }
 
 void RenderWidgetHostImpl::FlushForTesting() {
-  if (associated_widget_input_handler_)
-    return associated_widget_input_handler_.FlushForTesting();
   if (widget_input_handler_)
     return widget_input_handler_.FlushForTesting();
 }
@@ -1699,18 +1771,34 @@ void RenderWidgetHostImpl::DragTargetDragEnterWithMetaData(
 }
 
 void RenderWidgetHostImpl::DragTargetDragOver(
-    const gfx::PointF& client_pt,
-    const gfx::PointF& screen_pt,
+    const gfx::PointF& client_point,
+    const gfx::PointF& screen_point,
     WebDragOperationsMask operations_allowed,
     int key_modifiers) {
-  Send(new DragMsg_TargetDragOver(GetRoutingID(), client_pt, screen_pt,
-                                  operations_allowed, key_modifiers));
+  // TODO(dtapuska): Remove this null check once all of the Drag IPCs
+  // come over the mojo channels. It will be guaranteed that this
+  // will be non-null.
+  if (blink_frame_widget_) {
+    blink_frame_widget_->DragTargetDragOver(
+        ConvertWindowPointToViewport(client_point), screen_point,
+        operations_allowed, key_modifiers,
+        base::BindOnce(&RenderWidgetHostImpl::OnUpdateDragCursor,
+                       weak_factory_.GetWeakPtr()));
+  }
 }
 
 void RenderWidgetHostImpl::DragTargetDragLeave(
     const gfx::PointF& client_point,
     const gfx::PointF& screen_point) {
-  Send(new DragMsg_TargetDragLeave(GetRoutingID(), client_point, screen_point));
+  // TODO(dtapuska): Remove this null check once all of the Drag IPCs
+  // come over the mojo channels. It will be guaranteed that this
+  // will be non-null.
+  if (blink_frame_widget_) {
+    gfx::PointF viewport_point = client_point;
+    if (IsUseZoomForDSFEnabled())
+      viewport_point.Scale(GetScaleFactorForView(GetView()));
+    blink_frame_widget_->DragTargetDragLeave(viewport_point, screen_point);
+  }
 }
 
 void RenderWidgetHostImpl::DragTargetDrop(const DropData& drop_data,
@@ -1724,13 +1812,16 @@ void RenderWidgetHostImpl::DragTargetDrop(const DropData& drop_data,
 }
 
 void RenderWidgetHostImpl::DragSourceEndedAt(
-    const gfx::PointF& client_pt,
-    const gfx::PointF& screen_pt,
+    const gfx::PointF& client_point,
+    const gfx::PointF& screen_point,
     blink::WebDragOperation operation) {
-  Send(new DragMsg_SourceEnded(GetRoutingID(),
-                               client_pt,
-                               screen_pt,
-                               operation));
+  // TODO(dtapuska): Remove this null check once all of the Drag IPCs
+  // come over the mojo channels. It will be guaranteed that this
+  // will be non-null.
+  if (blink_frame_widget_) {
+    blink_frame_widget_->DragSourceEndedAt(
+        ConvertWindowPointToViewport(client_point), screen_point, operation);
+  }
 }
 
 void RenderWidgetHostImpl::DragSourceSystemDragEnded() {
@@ -1792,9 +1883,8 @@ void RenderWidgetHostImpl::RenderProcessExited(
     Destroy(true);
 }
 
-mojom::WidgetInputHandler* RenderWidgetHostImpl::GetWidgetInputHandler() {
-  if (associated_widget_input_handler_)
-    return associated_widget_input_handler_.get();
+blink::mojom::WidgetInputHandler*
+RenderWidgetHostImpl::GetWidgetInputHandler() {
   if (widget_input_handler_)
     return widget_input_handler_.get();
   // TODO(dtapuska): Remove the need for the unbound interface. It is
@@ -1828,7 +1918,7 @@ void RenderWidgetHostImpl::GetSnapshotFromBrowser(
   if (from_surface) {
     pending_surface_browser_snapshots_.insert(
         std::make_pair(snapshot_id, std::move(callback)));
-    Send(new WidgetMsg_ForceRedraw(GetRoutingID(), snapshot_id));
+    RequestForceRedraw(snapshot_id);
     return;
   }
 
@@ -1842,7 +1932,7 @@ void RenderWidgetHostImpl::GetSnapshotFromBrowser(
   // TODO(nzolghadr): Remove the duplication here and the if block just above.
   pending_browser_snapshots_.insert(
       std::make_pair(snapshot_id, std::move(callback)));
-  Send(new WidgetMsg_ForceRedraw(GetRoutingID(), snapshot_id));
+  RequestForceRedraw(snapshot_id);
 }
 
 void RenderWidgetHostImpl::SelectionChanged(const base::string16& text,
@@ -1852,10 +1942,15 @@ void RenderWidgetHostImpl::SelectionChanged(const base::string16& text,
     view_->SelectionChanged(text, static_cast<size_t>(offset), range);
 }
 
-void RenderWidgetHostImpl::OnSelectionBoundsChanged(
-    const WidgetHostMsg_SelectionBounds_Params& params) {
+void RenderWidgetHostImpl::SelectionBoundsChanged(
+    const gfx::Rect& anchor_rect,
+    base::i18n::TextDirection anchor_dir,
+    const gfx::Rect& focus_rect,
+    base::i18n::TextDirection focus_dir,
+    bool is_anchor_first) {
   if (view_)
-    view_->SelectionBoundsChanged(params);
+    view_->SelectionBoundsChanged(anchor_rect, anchor_dir, focus_rect,
+                                  focus_dir, is_anchor_first);
 }
 
 void RenderWidgetHostImpl::OnStartDragging(
@@ -1926,35 +2021,13 @@ void RenderWidgetHostImpl::OnFrameSwapMessagesReceived(
                                                           std::move(messages));
 }
 
-void RenderWidgetHostImpl::OnForceRedrawComplete(int snapshot_id) {
-#if defined(OS_MACOSX) || defined(OS_WIN)
-  // On Mac, when using CoreAnimation, or Win32 when using GDI, there is a
-  // delay between when content is drawn to the screen, and when the
-  // snapshot will actually pick up that content. Insert a manual delay of
-  // 1/6th of a second (to simulate 10 frames at 60 fps) before actually
-  // taking the snapshot.
-  base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
-      FROM_HERE,
-      base::BindOnce(&RenderWidgetHostImpl::WindowSnapshotReachedScreen,
-                     weak_factory_.GetWeakPtr(), snapshot_id),
-      TimeDelta::FromSecondsD(1. / 6));
-#else
-  WindowSnapshotReachedScreen(snapshot_id);
-#endif
-}
-
-void RenderWidgetHostImpl::OnFirstVisuallyNonEmptyPaint() {
-  if (owner_delegate_)
-    owner_delegate_->RenderWidgetDidFirstVisuallyNonEmptyPaint();
-}
-
 void RenderWidgetHostImpl::RendererExited() {
   if (!renderer_initialized_)
     return;
 
   // Clearing this flag causes us to re-create the renderer when recovering
   // from a crashed renderer.
-  SetRendererInitialized(false, RendererInitializer::kUnknown);
+  set_renderer_initialized(false);
 
   // After the renderer crashes, the view is destroyed and so the
   // RenderWidgetHost cannot track its visibility anymore. We assume such
@@ -2008,7 +2081,7 @@ void RenderWidgetHostImpl::UpdateTextDirection(
 void RenderWidgetHostImpl::NotifyTextDirection() {
   if (!text_direction_updated_)
     return;
-  Send(new WidgetMsg_SetTextDirection(GetRoutingID(), text_direction_));
+  blink_frame_widget_->SetTextDirection(text_direction_);
   text_direction_updated_ = false;
 }
 
@@ -2112,13 +2185,16 @@ void RenderWidgetHostImpl::SetVisualPropertiesFromParentFrame(
     float page_scale_factor,
     bool is_pinch_gesture_active,
     const gfx::Size& visible_viewport_size,
-    const gfx::Rect& compositor_viewport) {
+    const gfx::Rect& compositor_viewport,
+    std::vector<gfx::Rect> root_widget_window_segments) {
   properties_from_parent_local_root_.page_scale_factor = page_scale_factor;
   properties_from_parent_local_root_.is_pinch_gesture_active =
       is_pinch_gesture_active;
   properties_from_parent_local_root_.visible_viewport_size =
       visible_viewport_size;
   properties_from_parent_local_root_.compositor_viewport = compositor_viewport;
+  properties_from_parent_local_root_.root_widget_window_segments =
+      std::move(root_widget_window_segments);
 }
 
 void RenderWidgetHostImpl::SetAutoResize(bool enable,
@@ -2232,7 +2308,7 @@ void RenderWidgetHostImpl::OnClose() {
   }
 }
 
-void RenderWidgetHostImpl::OnSetTooltipText(
+void RenderWidgetHostImpl::SetToolTipText(
     const base::string16& tooltip_text,
     base::i18n::TextDirection text_direction_hint) {
   if (!GetView())
@@ -2409,8 +2485,6 @@ bool RenderWidgetHostImpl::StoredVisualPropertiesNeedsUpdate(
              new_visual_properties.screen_info ||
          old_visual_properties->compositor_viewport_pixel_rect !=
              new_visual_properties.compositor_viewport_pixel_rect ||
-         old_visual_properties->compositor_viewport_pixel_rect !=
-             new_visual_properties.compositor_viewport_pixel_rect ||
          old_visual_properties->is_fullscreen_granted !=
              new_visual_properties.is_fullscreen_granted ||
          old_visual_properties->display_mode !=
@@ -2424,7 +2498,9 @@ bool RenderWidgetHostImpl::StoredVisualPropertiesNeedsUpdate(
          old_visual_properties->page_scale_factor !=
              new_visual_properties.page_scale_factor ||
          old_visual_properties->is_pinch_gesture_active !=
-             new_visual_properties.is_pinch_gesture_active;
+             new_visual_properties.is_pinch_gesture_active ||
+         old_visual_properties->root_widget_window_segments !=
+             new_visual_properties.root_widget_window_segments;
 }
 
 void RenderWidgetHostImpl::AutoscrollStart(const gfx::PointF& position) {
@@ -2440,9 +2516,10 @@ void RenderWidgetHostImpl::AutoscrollFling(const gfx::Vector2dF& velocity) {
   DCHECK(autoscroll_in_progress_);
   if (!sent_autoscroll_scroll_begin_ && velocity != gfx::Vector2dF()) {
     // Send a GSB event with valid delta hints.
-    WebGestureEvent scroll_begin = SyntheticWebGestureEventBuilder::Build(
-        WebInputEvent::Type::kGestureScrollBegin,
-        blink::WebGestureDevice::kSyntheticAutoscroll);
+    WebGestureEvent scroll_begin =
+        blink::SyntheticWebGestureEventBuilder::Build(
+            WebInputEvent::Type::kGestureScrollBegin,
+            blink::WebGestureDevice::kSyntheticAutoscroll);
     scroll_begin.SetPositionInWidget(autoscroll_start_position_);
     scroll_begin.data.scroll_begin.delta_x_hint = velocity.x();
     scroll_begin.data.scroll_begin.delta_y_hint = velocity.y();
@@ -2452,7 +2529,7 @@ void RenderWidgetHostImpl::AutoscrollFling(const gfx::Vector2dF& velocity) {
     sent_autoscroll_scroll_begin_ = true;
   }
 
-  WebGestureEvent event = SyntheticWebGestureEventBuilder::Build(
+  WebGestureEvent event = blink::SyntheticWebGestureEventBuilder::Build(
       WebInputEvent::Type::kGestureFlingStart,
       blink::WebGestureDevice::kSyntheticAutoscroll);
   event.SetPositionInWidget(autoscroll_start_position_);
@@ -2473,7 +2550,7 @@ void RenderWidgetHostImpl::AutoscrollEnd() {
     return;
 
   sent_autoscroll_scroll_begin_ = false;
-  WebGestureEvent cancel_event = SyntheticWebGestureEventBuilder::Build(
+  WebGestureEvent cancel_event = blink::SyntheticWebGestureEventBuilder::Build(
       WebInputEvent::Type::kGestureFlingCancel,
       blink::WebGestureDevice::kSyntheticAutoscroll);
   cancel_event.data.fling_cancel.prevent_boosting = true;
@@ -2481,6 +2558,11 @@ void RenderWidgetHostImpl::AutoscrollEnd() {
 
   ForwardGestureEventWithLatencyInfo(
       cancel_event, ui::LatencyInfo(ui::SourceEventType::OTHER));
+}
+
+void RenderWidgetHostImpl::DidFirstVisuallyNonEmptyPaint() {
+  if (owner_delegate_)
+    owner_delegate_->RenderWidgetDidFirstVisuallyNonEmptyPaint();
 }
 
 bool RenderWidgetHostImpl::IsAutoscrollInProgress() {
@@ -2503,10 +2585,10 @@ TouchEmulator* RenderWidgetHostImpl::GetExistingTouchEmulator() {
   return delegate_->GetInputEventRouter()->GetTouchEmulator();
 }
 
-void RenderWidgetHostImpl::OnTextInputStateChanged(
-    const TextInputState& params) {
+void RenderWidgetHostImpl::TextInputStateChanged(
+    ui::mojom::TextInputStatePtr state) {
   if (view_)
-    view_->TextInputStateChanged(params);
+    view_->TextInputStateChanged(*state);
 }
 
 void RenderWidgetHostImpl::OnImeCompositionRangeChanged(
@@ -2654,6 +2736,15 @@ RenderWidgetHostImpl::GetKeyboardLayoutMap() {
   return view_->GetKeyboardLayoutMap();
 }
 
+void RenderWidgetHostImpl::RequestForceRedraw(int snapshot_id) {
+  if (!blink_widget_)
+    return;
+
+  blink_widget_->ForceRedraw(
+      base::BindOnce(&RenderWidgetHostImpl::GotResponseToForceRedraw,
+                     base::Unretained(this), snapshot_id));
+}
+
 bool RenderWidgetHostImpl::KeyPressListenersHandleEvent(
     const NativeWebKeyboardEvent& event) {
   if (event.skip_in_browser ||
@@ -2780,6 +2871,13 @@ RenderWidgetHostImpl::GetAssociatedFrameWidget() {
   return blink_frame_widget_;
 }
 
+blink::mojom::FrameWidgetInputHandler*
+RenderWidgetHostImpl::GetFrameWidgetInputHandler() {
+  if (!frame_widget_input_handler_)
+    return nullptr;
+  return frame_widget_input_handler_.get();
+}
+
 void RenderWidgetHostImpl::DispatchInputEventWithLatencyInfo(
     const blink::WebInputEvent& event,
     ui::LatencyInfo* latency) {
@@ -2898,6 +2996,23 @@ void RenderWidgetHostImpl::GotResponseToKeyboardLockRequest(bool allowed) {
     LockKeyboard();
   else
     UnlockKeyboard();
+}
+
+void RenderWidgetHostImpl::GotResponseToForceRedraw(int snapshot_id) {
+#if defined(OS_MACOSX) || defined(OS_WIN)
+  // On Mac, when using CoreAnimation, or Win32 when using GDI, there is a
+  // delay between when content is drawn to the screen, and when the
+  // snapshot will actually pick up that content. Insert a manual delay of
+  // 1/6th of a second (to simulate 10 frames at 60 fps) before actually
+  // taking the snapshot.
+  base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(&RenderWidgetHostImpl::WindowSnapshotReachedScreen,
+                     weak_factory_.GetWeakPtr(), snapshot_id),
+      TimeDelta::FromSecondsD(1. / 6));
+#else
+  WindowSnapshotReachedScreen(snapshot_id);
+#endif
 }
 
 void RenderWidgetHostImpl::DetachDelegate() {
@@ -3096,8 +3211,6 @@ void RenderWidgetHostImpl::SetupInputRouter() {
   suppress_events_until_keydown_ = false;
   monitoring_composition_info_ = false;
   StopInputEventAckTimeout();
-  associated_widget_input_handler_.reset();
-  widget_input_handler_.reset();
 
   input_router_ = std::make_unique<InputRouterImpl>(
       this, this, fling_scheduler_.get(), GetInputRouterConfigForPlatform());
@@ -3115,34 +3228,9 @@ void RenderWidgetHostImpl::SetForceEnableZoom(bool enabled) {
   input_router_->SetForceEnableZoom(enabled);
 }
 
-void RenderWidgetHostImpl::SetFrameInputHandler(
-    mojom::FrameInputHandler* frame_input_handler) {
-  if (!frame_input_handler)
-    return;
-  frame_input_handler->GetWidgetInputHandler(
-      associated_widget_input_handler_.BindNewEndpointAndPassReceiver(),
-      input_router_->BindNewFrameHost());
-}
-
 void RenderWidgetHostImpl::SetInputTargetClient(
     mojo::Remote<viz::mojom::InputTargetClient> input_target_client) {
   input_target_client_ = std::move(input_target_client);
-}
-
-void RenderWidgetHostImpl::SetWidget(
-    mojo::PendingRemote<mojom::Widget> widget_remote) {
-  if (!widget_remote)
-    return;
-
-  // If we have a bound handler ensure that we destroy the old input router
-  // while we reset the |widget_input_handler_|.
-  if (widget_input_handler_.is_bound())
-    SetupInputRouter();
-
-  mojo::Remote<mojom::Widget> widget(std::move(widget_remote));
-  widget->SetupWidgetInputHandler(
-      widget_input_handler_.BindNewPipeAndPassReceiver(),
-      input_router_->BindNewHost());
 }
 
 void RenderWidgetHostImpl::ProgressFlingIfNeeded(TimeTicks current_time) {
@@ -3329,16 +3417,22 @@ gfx::Size RenderWidgetHostImpl::GetRootWidgetViewportSize() {
   return root_view->GetVisibleViewportSize();
 }
 
-void RenderWidgetHostImpl::SetRendererInitialized(
-    bool renderer_initialized,
-    RendererInitializer initializer) {
-  renderer_initialized_ = renderer_initialized;
-  // We want to record the first initializer. If this is called again, don't
-  // overwrite the existing value.
-  if (initializer != RendererInitializer::kUnknown &&
-      initializer_ != RendererInitializer::kUnknown)
-    return;
-  initializer_ = initializer;
+// This method was copied from RenderWidget::ConvertWindowToViewport() when
+// porting drag-and-drop calls to Mojo, so that RenderWidgetHostImpl bypasses
+// RenderWidget to talk the the WebFrameWidget and needs to perform the scale
+// operation itself.
+gfx::PointF RenderWidgetHostImpl::ConvertWindowPointToViewport(
+    const gfx::PointF& window_point) {
+  gfx::PointF viewport_point = window_point;
+  if (IsUseZoomForDSFEnabled())
+    viewport_point.Scale(GetScaleFactorForView(GetView()));
+  return viewport_point;
 }
+
+RenderWidgetHostImpl::MainFramePropagationProperties::
+    MainFramePropagationProperties() = default;
+
+RenderWidgetHostImpl::MainFramePropagationProperties::
+    ~MainFramePropagationProperties() = default;
 
 }  // namespace content

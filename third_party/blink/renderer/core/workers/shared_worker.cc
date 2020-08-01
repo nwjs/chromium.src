@@ -100,9 +100,7 @@ SharedWorker* SharedWorker::Create(ExecutionContext* context,
     UseCounter::Count(window, WebFeature::kFileAccessedSharedWorker);
   }
 
-  KURL script_url = ResolveURL(
-      context, url, exception_state, mojom::RequestContextType::SHARED_WORKER,
-      network::mojom::RequestDestination::kSharedWorker);
+  KURL script_url = ResolveURL(context, url, exception_state);
   if (script_url.IsEmpty())
     return nullptr;
 
@@ -164,7 +162,7 @@ bool SharedWorker::HasPendingActivity() const {
 void SharedWorker::ContextLifecycleStateChanged(
     mojom::FrameLifecycleState state) {}
 
-void SharedWorker::Trace(Visitor* visitor) {
+void SharedWorker::Trace(Visitor* visitor) const {
   visitor->Trace(port_);
   AbstractWorker::Trace(visitor);
   Supplementable<SharedWorker>::Trace(visitor);

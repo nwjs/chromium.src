@@ -15,12 +15,15 @@
 #include "base/metrics/field_trial_params.h"
 #include "base/run_loop.h"
 #include "base/task/sequence_manager/test/sequence_manager_for_test.h"
+#include "base/test/bind_test_util.h"
+#include "base/test/scoped_command_line.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/unguessable_token.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/common/switches.h"
 #include "third_party/blink/renderer/platform/scheduler/common/features.h"
 #include "third_party/blink/renderer/platform/scheduler/main_thread/frame_task_queue_controller.h"
 #include "third_party/blink/renderer/platform/scheduler/main_thread/main_thread_scheduler_impl.h"
@@ -44,6 +47,36 @@ using FeatureHandle = FrameOrWorkerScheduler::SchedulingAffectingFeatureHandle;
 using PrioritisationType = MainThreadTaskQueue::QueueTraits::PrioritisationType;
 
 using testing::Return;
+
+namespace {
+
+// This is a wrapper around MainThreadSchedulerImpl::CreatePageScheduler, that
+// returns the PageScheduler as a PageSchedulerImpl.
+std::unique_ptr<PageSchedulerImpl> CreatePageScheduler(
+    PageScheduler::Delegate* page_scheduler_delegate,
+    MainThreadSchedulerImpl* scheduler) {
+  std::unique_ptr<PageScheduler> page_scheduler =
+      scheduler->CreatePageScheduler(page_scheduler_delegate);
+  std::unique_ptr<PageSchedulerImpl> page_scheduler_impl(
+      static_cast<PageSchedulerImpl*>(page_scheduler.release()));
+  return page_scheduler_impl;
+}
+
+// This is a wrapper around PageSchedulerImpl::CreateFrameScheduler, that
+// returns the FrameScheduler as a FrameSchedulerImpl.
+std::unique_ptr<FrameSchedulerImpl> CreateFrameScheduler(
+    PageSchedulerImpl* page_scheduler,
+    FrameScheduler::Delegate* delegate,
+    blink::BlameContext* blame_context,
+    FrameScheduler::FrameType frame_type) {
+  auto frame_scheduler =
+      page_scheduler->CreateFrameScheduler(delegate, blame_context, frame_type);
+  std::unique_ptr<FrameSchedulerImpl> frame_scheduler_impl(
+      static_cast<FrameSchedulerImpl*>(frame_scheduler.release()));
+  return frame_scheduler_impl;
+}
+
+}  // namespace
 
 // All TaskTypes that can be passed to
 // FrameSchedulerImpl::CreateQueueTraitsForTaskType().
@@ -105,9 +138,9 @@ void AppendToVectorTestTask(Vector<String>* vector, String value) {
 
 class FrameSchedulerDelegateForTesting : public FrameScheduler::Delegate {
  public:
-  FrameSchedulerDelegateForTesting() {}
+  FrameSchedulerDelegateForTesting() = default;
 
-  ~FrameSchedulerDelegateForTesting() override {}
+  ~FrameSchedulerDelegateForTesting() override = default;
 
   ukm::UkmRecorder* GetUkmRecorder() override { return nullptr; }
 
@@ -133,10 +166,21 @@ class FrameSchedulerImplTest : public testing::Test {
             base::test::TaskEnvironment::TimeSource::MOCK_TIME,
             base::test::TaskEnvironment::ThreadPoolExecutionMode::QUEUED) {}
 
+  // Constructs a FrameSchedulerImplTest with a list of features to enable and a
+  // list of features to disable.
   FrameSchedulerImplTest(std::vector<base::Feature> features_to_enable,
                          std::vector<base::Feature> features_to_disable)
       : FrameSchedulerImplTest() {
     feature_list_.InitWithFeatures(features_to_enable, features_to_disable);
+  }
+
+  // Constructs a FrameSchedulerImplTest with a list of features to enable and
+  // associated params.
+  explicit FrameSchedulerImplTest(
+      const std::vector<base::test::ScopedFeatureList::FeatureAndParams>&
+          features_to_enable)
+      : FrameSchedulerImplTest() {
+    feature_list_.InitWithFeaturesAndParameters(features_to_enable, {});
   }
 
   ~FrameSchedulerImplTest() override = default;
@@ -147,21 +191,20 @@ class FrameSchedulerImplTest : public testing::Test {
             nullptr, task_environment_.GetMainThreadTaskRunner(),
             task_environment_.GetMockTickClock()),
         base::nullopt);
-    page_scheduler_ =
-        std::make_unique<PageSchedulerImpl>(nullptr, scheduler_.get());
+    page_scheduler_ = CreatePageScheduler(nullptr, scheduler_.get());
     frame_scheduler_delegate_ = std::make_unique<
         testing::StrictMock<FrameSchedulerDelegateForTesting>>();
-    frame_scheduler_ = FrameSchedulerImpl::Create(
+    frame_scheduler_ = CreateFrameScheduler(
         page_scheduler_.get(), frame_scheduler_delegate_.get(), nullptr,
         FrameScheduler::FrameType::kSubframe);
   }
 
   void ResetFrameScheduler(FrameScheduler::FrameType frame_type) {
-    frame_scheduler_delegate_ = std::make_unique<
+    auto new_delegate_ = std::make_unique<
         testing::StrictMock<FrameSchedulerDelegateForTesting>>();
-    frame_scheduler_ = FrameSchedulerImpl::Create(
-        page_scheduler_.get(), frame_scheduler_delegate_.get(), nullptr,
-        frame_type);
+    frame_scheduler_ = CreateFrameScheduler(
+        page_scheduler_.get(), new_delegate_.get(), nullptr, frame_type);
+    frame_scheduler_delegate_ = std::move(new_delegate_);
   }
 
   void TearDown() override {
@@ -230,6 +273,15 @@ class FrameSchedulerImplTest : public testing::Test {
     frame_scheduler_delegate_->update_task_time_calls_ = 0;
   }
 
+  // Fast-forwards to the next time aligned on |interval|.
+  void FastForwardToAlignedTime(base::TimeDelta interval) {
+    const base::TimeTicks now = base::TimeTicks::Now();
+    const base::TimeTicks aligned =
+        now.SnappedToNextTick(base::TimeTicks(), interval);
+    if (aligned != now)
+      task_environment_.FastForwardBy(aligned - now);
+  }
+
   static uint64_t GetActiveFeaturesTrackedForBackForwardCacheMetricsMask(
       FrameSchedulerImpl* frame_scheduler) {
     return frame_scheduler
@@ -256,6 +308,12 @@ class FrameSchedulerImplTest : public testing::Test {
   scoped_refptr<TaskQueue> ThrottleableTaskQueue() {
     return GetTaskQueue(
         FrameSchedulerImpl::ThrottleableTaskQueueTraits());
+  }
+
+  scoped_refptr<TaskQueue> JavaScriptTimerTaskQueue() {
+    return GetTaskQueue(
+        FrameSchedulerImpl::ThrottleableTaskQueueTraits().SetPrioritisationType(
+            PrioritisationType::kJavaScriptTimer));
   }
 
   scoped_refptr<TaskQueue> LoadingTaskQueue() {
@@ -350,6 +408,13 @@ class FrameSchedulerImplStopNonTimersInBackgroundDisabledTest
                                {blink::features::kStopNonTimersInBackground}) {}
 };
 
+class FrameSchedulerImplStopInBackgroundDisabledTest
+    : public FrameSchedulerImplTest {
+ public:
+  FrameSchedulerImplStopInBackgroundDisabledTest()
+      : FrameSchedulerImplTest({}, {blink::features::kStopInBackground}) {}
+};
+
 namespace {
 
 class MockLifecycleObserver final : public FrameScheduler::Observer {
@@ -411,6 +476,51 @@ void RunTaskOfLength(base::test::TaskEnvironment* task_environment,
                      base::TimeDelta length) {
   task_environment->FastForwardBy(length);
 }
+
+class FrameSchedulerImplTestWithIntensiveWakeUpThrottling
+    : public FrameSchedulerImplTest {
+ public:
+  using Super = FrameSchedulerImplTest;
+
+  FrameSchedulerImplTestWithIntensiveWakeUpThrottling()
+      : FrameSchedulerImplTest({features::kIntensiveWakeUpThrottling},
+                               {features::kStopInBackground}) {}
+
+  void SetUp() override {
+    Super::SetUp();
+    ClearIntensiveWakeUpThrottlingPolicyOverrideCacheForTesting();
+  }
+
+  void TearDown() override {
+    ClearIntensiveWakeUpThrottlingPolicyOverrideCacheForTesting();
+    Super::TearDown();
+  }
+
+  const int kNumTasks = 5;
+  const base::TimeDelta kShortDelay = base::TimeDelta::FromSeconds(1);
+  const base::TimeDelta kGracePeriod =
+      GetIntensiveWakeUpThrottlingGracePeriod();
+  const base::TimeDelta kDurationBetweenWakeUps =
+      GetIntensiveWakeUpThrottlingDurationBetweenWakeUps();
+};
+
+class FrameSchedulerImplTestWithIntensiveWakeUpThrottlingPolicyOverride
+    : public FrameSchedulerImplTestWithIntensiveWakeUpThrottling {
+ public:
+  // This should only be called once per test, and prior to the
+  // PageSchedulerImpl logic actually parsing the policy switch.
+  void SetPolicyOverride(bool enabled) {
+    DCHECK(!scoped_command_line_.GetProcessCommandLine()->HasSwitch(
+        switches::kIntensiveWakeUpThrottlingPolicy));
+    scoped_command_line_.GetProcessCommandLine()->AppendSwitchASCII(
+        switches::kIntensiveWakeUpThrottlingPolicy,
+        enabled ? switches::kIntensiveWakeUpThrottlingPolicy_ForceEnable
+                : switches::kIntensiveWakeUpThrottlingPolicy_ForceDisable);
+  }
+
+ private:
+  base::test::ScopedCommandLine scoped_command_line_;
+};
 
 }  // namespace
 
@@ -579,6 +689,62 @@ TEST_F(FrameSchedulerImplTest, PauseAndResumeForCooperativeScheduling) {
   EXPECT_TRUE(DeferrableTaskQueue()->IsQueueEnabled());
   EXPECT_TRUE(PausableTaskQueue()->IsQueueEnabled());
   EXPECT_TRUE(UnpausableTaskQueue()->IsQueueEnabled());
+}
+
+namespace {
+
+// A task that re-posts itself with a delay in order until it has run
+// |num_remaining_tasks| times.
+void RePostTask(scoped_refptr<base::SingleThreadTaskRunner> task_runner,
+                base::TimeDelta delay,
+                int* num_remaining_tasks) {
+  --(*num_remaining_tasks);
+  if (*num_remaining_tasks > 0) {
+    task_runner->PostDelayedTask(
+        FROM_HERE,
+        base::BindOnce(&RePostTask, task_runner, delay,
+                       base::Unretained(num_remaining_tasks)),
+        delay);
+  }
+}
+
+}  // namespace
+
+// Verify that tasks in a throttled task queue run at the expected time, when
+// intensive wake up throttling is disabled. Disable the kStopInBackground
+// feature because it hides the effect of intensive wake up throttling.
+TEST_F(FrameSchedulerImplStopInBackgroundDisabledTest, ThrottledTaskExecution) {
+  // This test posts enough tasks to run past the default intensive wake up
+  // throttling grace period. This allows verifying that intensive wake up
+  // throttling is disabled by default.
+  constexpr int kNumTasks =
+      base::TimeDelta::FromMinutes(10) / base::TimeDelta::FromSeconds(1);
+  // Tasks are posted with a delay shorter than the default throttled wake up
+  // period, to allow verifying that the default throttled wake up period is
+  // correctly enforced.
+  constexpr base::TimeDelta kShortDelay = base::TimeDelta::FromMilliseconds(10);
+  // This TaskRunner is throttled.
+  const scoped_refptr<base::SingleThreadTaskRunner> task_runner =
+      frame_scheduler_->GetTaskRunner(TaskType::kJavascriptTimer);
+
+  // Hide the page. This enables wake up throttling.
+  EXPECT_TRUE(page_scheduler_->IsPageVisible());
+  page_scheduler_->SetPageVisible(false);
+
+  // Post an initial task.
+  int num_remaining_tasks = kNumTasks;
+  task_runner->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(&RePostTask, task_runner, kShortDelay,
+                     base::Unretained(&num_remaining_tasks)),
+      kShortDelay);
+
+  // A task should run every second.
+  while (num_remaining_tasks > 0) {
+    int previous_num_remaining_tasks = num_remaining_tasks;
+    task_environment_.FastForwardBy(base::TimeDelta::FromSeconds(1));
+    EXPECT_EQ(previous_num_remaining_tasks - 1, num_remaining_tasks);
+  }
 }
 
 TEST_F(FrameSchedulerImplTest, FreezeForegroundOnlyTasks) {
@@ -1137,9 +1303,10 @@ class LowPriorityHiddenFrameDuringLoadingExperimentTest
 TEST_F(LowPriorityHiddenFrameDuringLoadingExperimentTest,
        FrameQueuesPriorities) {
   // Main thread scheduler is in the loading use case.
-  auto main_frame_scheduler = FrameSchedulerImpl::Create(
-      page_scheduler_.get(), frame_scheduler_delegate_.get(), nullptr,
-      FrameScheduler::FrameType::kMainFrame);
+  std::unique_ptr<FrameSchedulerImpl> main_frame_scheduler =
+      CreateFrameScheduler(page_scheduler_.get(),
+                           frame_scheduler_delegate_.get(), nullptr,
+                           FrameScheduler::FrameType::kMainFrame);
   main_frame_scheduler->OnFirstContentfulPaint();
   ASSERT_EQ(scheduler_->current_use_case(), UseCase::kLoading);
 
@@ -1200,8 +1367,8 @@ TEST_F(LowPrioritySubFrameExperimentTest, FrameQueuesPriorities) {
             TaskQueue::QueuePriority::kLowPriority);
 
   frame_scheduler_ =
-      FrameSchedulerImpl::Create(page_scheduler_.get(), nullptr, nullptr,
-                                 FrameScheduler::FrameType::kMainFrame);
+      CreateFrameScheduler(page_scheduler_.get(), nullptr, nullptr,
+                           FrameScheduler::FrameType::kMainFrame);
 
   // Main Frame Task Queues.
   EXPECT_EQ(LoadingTaskQueue()->GetQueuePriority(),
@@ -1229,9 +1396,10 @@ class LowPrioritySubFrameDuringLoadingExperimentTest
 
 TEST_F(LowPrioritySubFrameDuringLoadingExperimentTest, FrameQueuesPriorities) {
   // Main thread scheduler is in the loading use case.
-  auto main_frame_scheduler = FrameSchedulerImpl::Create(
-      page_scheduler_.get(), frame_scheduler_delegate_.get(), nullptr,
-      FrameScheduler::FrameType::kMainFrame);
+  std::unique_ptr<FrameSchedulerImpl> main_frame_scheduler =
+      CreateFrameScheduler(page_scheduler_.get(),
+                           frame_scheduler_delegate_.get(), nullptr,
+                           FrameScheduler::FrameType::kMainFrame);
   main_frame_scheduler->OnFirstContentfulPaint();
   ASSERT_EQ(scheduler_->current_use_case(), UseCase::kLoading);
 
@@ -1294,8 +1462,8 @@ TEST_F(LowPrioritySubFrameThrottleableTaskExperimentTest,
             TaskQueue::QueuePriority::kNormalPriority);
 
   frame_scheduler_ =
-      FrameSchedulerImpl::Create(page_scheduler_.get(), nullptr, nullptr,
-                                 FrameScheduler::FrameType::kMainFrame);
+      CreateFrameScheduler(page_scheduler_.get(), nullptr, nullptr,
+                           FrameScheduler::FrameType::kMainFrame);
 
   // Main Frame Task Queues.
   EXPECT_EQ(LoadingTaskQueue()->GetQueuePriority(),
@@ -1324,9 +1492,10 @@ class LowPrioritySubFrameThrottleableTaskDuringLoadingExperimentTest
 TEST_F(LowPrioritySubFrameThrottleableTaskDuringLoadingExperimentTest,
        FrameQueuesPriorities) {
   // Main thread scheduler is in the loading use case.
-  auto main_frame_scheduler = FrameSchedulerImpl::Create(
-      page_scheduler_.get(), frame_scheduler_delegate_.get(), nullptr,
-      FrameScheduler::FrameType::kMainFrame);
+  std::unique_ptr<FrameSchedulerImpl> main_frame_scheduler =
+      CreateFrameScheduler(page_scheduler_.get(),
+                           frame_scheduler_delegate_.get(), nullptr,
+                           FrameScheduler::FrameType::kMainFrame);
   main_frame_scheduler->OnFirstContentfulPaint();
   ASSERT_EQ(scheduler_->current_use_case(), UseCase::kLoading);
 
@@ -1388,8 +1557,8 @@ TEST_F(LowPriorityThrottleableTaskExperimentTest, FrameQueuesPriorities) {
             TaskQueue::QueuePriority::kNormalPriority);
 
   frame_scheduler_ =
-      FrameSchedulerImpl::Create(page_scheduler_.get(), nullptr, nullptr,
-                                 FrameScheduler::FrameType::kMainFrame);
+      CreateFrameScheduler(page_scheduler_.get(), nullptr, nullptr,
+                           FrameScheduler::FrameType::kMainFrame);
 
   // Main Frame Task Queues.
   EXPECT_EQ(LoadingTaskQueue()->GetQueuePriority(),
@@ -1418,9 +1587,10 @@ class LowPriorityThrottleableTaskDuringLoadingExperimentTest
 TEST_F(LowPriorityThrottleableTaskDuringLoadingExperimentTest,
        SubFrameQueuesPriorities) {
   // Main thread is in the loading use case.
-  auto main_frame_scheduler = FrameSchedulerImpl::Create(
-      page_scheduler_.get(), frame_scheduler_delegate_.get(), nullptr,
-      FrameScheduler::FrameType::kMainFrame);
+  std::unique_ptr<FrameSchedulerImpl> main_frame_scheduler =
+      CreateFrameScheduler(page_scheduler_.get(),
+                           frame_scheduler_delegate_.get(), nullptr,
+                           FrameScheduler::FrameType::kMainFrame);
   main_frame_scheduler->OnFirstContentfulPaint();
   ASSERT_EQ(scheduler_->current_use_case(), UseCase::kLoading);
 
@@ -1463,8 +1633,8 @@ TEST_F(LowPriorityThrottleableTaskDuringLoadingExperimentTest,
   frame_scheduler_->OnFirstMeaningfulPaint();
 
   frame_scheduler_ =
-      FrameSchedulerImpl::Create(page_scheduler_.get(), nullptr, nullptr,
-                                 FrameScheduler::FrameType::kMainFrame);
+      CreateFrameScheduler(page_scheduler_.get(), nullptr, nullptr,
+                           FrameScheduler::FrameType::kMainFrame);
 
   // Main thread is in the loading use case.
   frame_scheduler_->OnFirstContentfulPaint();
@@ -1558,9 +1728,10 @@ TEST_F(LowPriorityAdFrameDuringLoadingExperimentTest, FrameQueuesPriorities) {
   EXPECT_TRUE(frame_scheduler_->IsAdFrame());
 
   // Main thread scheduler is in the loading use case.
-  auto main_frame_scheduler = FrameSchedulerImpl::Create(
-      page_scheduler_.get(), frame_scheduler_delegate_.get(), nullptr,
-      FrameScheduler::FrameType::kMainFrame);
+  std::unique_ptr<FrameSchedulerImpl> main_frame_scheduler =
+      CreateFrameScheduler(page_scheduler_.get(),
+                           frame_scheduler_delegate_.get(), nullptr,
+                           FrameScheduler::FrameType::kMainFrame);
   main_frame_scheduler->OnFirstContentfulPaint();
   ASSERT_EQ(scheduler_->current_use_case(), UseCase::kLoading);
 
@@ -1654,9 +1825,10 @@ TEST_F(BestEffortPriorityAdFrameDuringLoadingExperimentTest,
   EXPECT_TRUE(frame_scheduler_->IsAdFrame());
 
   // Main thread scheduler is in the loading use case.
-  auto main_frame_scheduler = FrameSchedulerImpl::Create(
-      page_scheduler_.get(), frame_scheduler_delegate_.get(), nullptr,
-      FrameScheduler::FrameType::kMainFrame);
+  std::unique_ptr<FrameSchedulerImpl> main_frame_scheduler =
+      CreateFrameScheduler(page_scheduler_.get(),
+                           frame_scheduler_delegate_.get(), nullptr,
+                           FrameScheduler::FrameType::kMainFrame);
   main_frame_scheduler->OnFirstContentfulPaint();
   ASSERT_EQ(scheduler_->current_use_case(), UseCase::kLoading);
 
@@ -1744,9 +1916,10 @@ class ResourceFetchPriorityExperimentOnlyWhenLoadingTest
 };
 
 TEST_F(ResourceFetchPriorityExperimentOnlyWhenLoadingTest, DidChangePriority) {
-  auto main_frame_scheduler = FrameSchedulerImpl::Create(
-      page_scheduler_.get(), frame_scheduler_delegate_.get(), nullptr,
-      FrameScheduler::FrameType::kMainFrame);
+  std::unique_ptr<FrameSchedulerImpl> main_frame_scheduler =
+      CreateFrameScheduler(page_scheduler_.get(),
+                           frame_scheduler_delegate_.get(), nullptr,
+                           FrameScheduler::FrameType::kMainFrame);
 
   std::unique_ptr<ResourceLoadingTaskRunnerHandleImpl> handle =
       GetResourceLoadingTaskRunnerHandleImpl();
@@ -1846,9 +2019,10 @@ class LowPriorityCrossOriginTaskDuringLoadingExperimentTest
 TEST_F(LowPriorityCrossOriginTaskDuringLoadingExperimentTest,
        FrameQueuesPriorities) {
   // Main thread is in the loading use case.
-  auto main_frame_scheduler = FrameSchedulerImpl::Create(
-      page_scheduler_.get(), frame_scheduler_delegate_.get(), nullptr,
-      FrameScheduler::FrameType::kMainFrame);
+  std::unique_ptr<FrameSchedulerImpl> main_frame_scheduler =
+      CreateFrameScheduler(page_scheduler_.get(),
+                           frame_scheduler_delegate_.get(), nullptr,
+                           FrameScheduler::FrameType::kMainFrame);
 
   main_frame_scheduler->OnFirstContentfulPaint();
   ASSERT_EQ(scheduler_->current_use_case(), UseCase::kLoading);
@@ -1905,7 +2079,8 @@ TEST_F(FrameSchedulerImplTest, TaskTypeToTaskQueueMapping) {
   // Make sure the queue lookup and task type to queue traits map works as
   // expected. This test will fail if these task types are moved to different
   // default queues.
-  EXPECT_EQ(GetTaskQueue(TaskType::kJavascriptTimer), ThrottleableTaskQueue());
+  EXPECT_EQ(GetTaskQueue(TaskType::kJavascriptTimer),
+            JavaScriptTimerTaskQueue());
   EXPECT_EQ(GetTaskQueue(TaskType::kWebSocket), DeferrableTaskQueue());
   EXPECT_EQ(GetTaskQueue(TaskType::kDatabaseAccess), PausableTaskQueue());
   EXPECT_EQ(GetTaskQueue(TaskType::kPostedMessage), PausableTaskQueue());
@@ -2314,16 +2489,12 @@ void RecordRunTime(std::vector<base::TimeTicks>* run_times) {
 }
 }  // namespace
 
-// Verified that tasks posted with TaskType::kJavascriptTimer run at the
-// expected time when throttled.
+// Verify that tasks posted with TaskType::kJavascriptTimer run at the expected
+// time when throttled.
 TEST_F(FrameSchedulerImplTest, ThrottledJSTimerTasksRunTime) {
   // Snap the time to a multiple of 1 second. Otherwise, the exact run time
-  // of throttled tasks after hidding the page will vary.
-  const base::TimeTicks start_time = base::TimeTicks::Now();
-  const base::TimeTicks aligned_start_time = start_time.SnappedToNextTick(
-      base::TimeTicks(), base::TimeDelta::FromSeconds(1));
-  if (aligned_start_time != start_time)
-    task_environment_.FastForwardBy(aligned_start_time - start_time);
+  // of throttled tasks after hiding the page will vary.
+  FastForwardToAlignedTime(base::TimeDelta::FromSeconds(1));
   const base::TimeTicks start = base::TimeTicks::Now();
 
   // Hide the page to start throttling JS Timers.
@@ -2364,6 +2535,466 @@ TEST_F(FrameSchedulerImplTest, ThrottledJSTimerTasksRunTime) {
                              start + base::TimeDelta::FromMilliseconds(2000),
                              start + base::TimeDelta::FromMilliseconds(3000),
                              start + base::TimeDelta::FromMilliseconds(6000)));
+}
+
+// Verify that tasks run at the expected time in frame that is same-origin with
+// the main frame with intensive wake up throttling.
+TEST_F(FrameSchedulerImplTestWithIntensiveWakeUpThrottling,
+       TaskExecutionSameOriginFrame) {
+  ASSERT_FALSE(frame_scheduler_->IsCrossOriginToMainFrame());
+
+  // Throttled TaskRunner to which tasks are posted in this test.
+  const scoped_refptr<base::SingleThreadTaskRunner> task_runner =
+      frame_scheduler_->GetTaskRunner(TaskType::kJavascriptTimer);
+
+  // Snap the time to a multiple of |kDurationBetweenWakeUps|. Otherwise,
+  // the time at which tasks can run after throttling is enabled will vary.
+  FastForwardToAlignedTime(kDurationBetweenWakeUps);
+  const base::TimeTicks test_start = base::TimeTicks::Now();
+
+  // Hide the page. This starts the delay to throttle background wake ups.
+  EXPECT_TRUE(page_scheduler_->IsPageVisible());
+  page_scheduler_->SetPageVisible(false);
+
+  // Initially, wake ups are not throttled.
+  {
+    const base::TimeTicks scope_start = base::TimeTicks::Now();
+    EXPECT_EQ(scope_start, test_start);
+    std::vector<base::TimeTicks> run_times;
+
+    for (int i = 0; i < kNumTasks; ++i) {
+      task_runner->PostDelayedTask(FROM_HERE,
+                                   base::BindOnce(&RecordRunTime, &run_times),
+                                   i * kShortDelay);
+    }
+
+    task_environment_.FastForwardBy(kGracePeriod);
+    EXPECT_THAT(run_times, testing::ElementsAre(
+                               scope_start + base::TimeDelta::FromSeconds(0),
+                               scope_start + base::TimeDelta::FromSeconds(1),
+                               scope_start + base::TimeDelta::FromSeconds(2),
+                               scope_start + base::TimeDelta::FromSeconds(3),
+                               scope_start + base::TimeDelta::FromSeconds(4)));
+  }
+
+  // After |kGracePeriod|, a wake up can occur |kDurationBetweenWakeUps| after
+  // the last wake up, or at a time aligned on |kDurationBetweenWakeUps|.
+
+  // Test waking up |kDurationBetweenWakeUps| after the last
+  // wake up.
+  {
+    const base::TimeTicks scope_start = base::TimeTicks::Now();
+    EXPECT_EQ(scope_start, test_start + base::TimeDelta::FromMinutes(5));
+    std::vector<base::TimeTicks> run_times;
+
+    task_runner->PostDelayedTask(
+        FROM_HERE, base::BindOnce(&RecordRunTime, &run_times), kShortDelay);
+
+    task_environment_.FastForwardBy(kShortDelay);
+    EXPECT_THAT(run_times, testing::ElementsAre(
+                               scope_start + base::TimeDelta::FromSeconds(1)));
+  }
+
+  // Test waking up at a time aligned on ||kDurationBetweenWakeUps|.
+  {
+    const base::TimeTicks scope_start = base::TimeTicks::Now();
+    EXPECT_EQ(scope_start, test_start + base::TimeDelta::FromMinutes(5) +
+                               base::TimeDelta::FromSeconds(1));
+    std::vector<base::TimeTicks> run_times;
+
+    for (int i = 0; i < kNumTasks; ++i) {
+      task_runner->PostDelayedTask(FROM_HERE,
+                                   base::BindOnce(&RecordRunTime, &run_times),
+                                   (i + 1) * kShortDelay);
+    }
+
+    // // All tasks should run at the next aligned time.
+    FastForwardToAlignedTime(kDurationBetweenWakeUps);
+    EXPECT_THAT(run_times, testing::ElementsAre(
+                               scope_start + base::TimeDelta::FromSeconds(59),
+                               scope_start + base::TimeDelta::FromSeconds(59),
+                               scope_start + base::TimeDelta::FromSeconds(59),
+                               scope_start + base::TimeDelta::FromSeconds(59),
+                               scope_start + base::TimeDelta::FromSeconds(59)));
+  }
+
+  // Post an extra task with a short delay. It should run at the next time
+  // aligned on |kDurationBetweenWakeUps|.
+  {
+    const base::TimeTicks scope_start = base::TimeTicks::Now();
+    EXPECT_EQ(scope_start, test_start + base::TimeDelta::FromMinutes(6));
+    std::vector<base::TimeTicks> run_times;
+
+    task_runner->PostDelayedTask(
+        FROM_HERE, base::BindOnce(&RecordRunTime, &run_times), kShortDelay);
+
+    task_environment_.FastForwardBy(kDurationBetweenWakeUps);
+    EXPECT_THAT(run_times, testing::ElementsAre(
+                               scope_start + base::TimeDelta::FromMinutes(1)));
+  }
+
+  // Post an extra task with a delay that is longer than
+  // |kDurationBetweenWakeUps|. The task should run at its
+  // desired run time, even if it's not aligned on |kDurationBetweenWakeUps|.
+  {
+    const base::TimeTicks scope_start = base::TimeTicks::Now();
+    EXPECT_EQ(scope_start, test_start + base::TimeDelta::FromMinutes(7));
+    std::vector<base::TimeTicks> run_times;
+
+    const base::TimeDelta kLongDelay =
+        kDurationBetweenWakeUps * 5 + kShortDelay;
+    task_runner->PostDelayedTask(
+        FROM_HERE, base::BindOnce(&RecordRunTime, &run_times), kLongDelay);
+
+    task_environment_.FastForwardBy(kLongDelay);
+    EXPECT_THAT(run_times, testing::ElementsAre(scope_start + kLongDelay));
+  }
+
+  // Post tasks with short delays after the page communicated with the user in
+  // background. They should run aligned on 1-second interval for 5 seconds.
+  // After that, intensive throttling is applied again.
+  {
+    const base::TimeTicks scope_start = base::TimeTicks::Now();
+    EXPECT_EQ(scope_start,
+              test_start + base::TimeDelta::FromMinutes(12) + kShortDelay);
+    std::vector<base::TimeTicks> run_times;
+
+    page_scheduler_->OnTitleOrFaviconUpdated();
+    task_runner->PostDelayedTask(
+        FROM_HERE, base::BindLambdaForTesting([&]() {
+          RecordRunTime(&run_times);
+          for (int i = 0; i < kNumTasks; ++i) {
+            task_runner->PostDelayedTask(
+                FROM_HERE, base::BindOnce(&RecordRunTime, &run_times),
+                kShortDelay * (i + 1));
+          }
+          page_scheduler_->OnTitleOrFaviconUpdated();
+        }),
+        kShortDelay);
+
+    task_environment_.FastForwardUntilNoTasksRemain();
+    EXPECT_THAT(
+        run_times,
+        testing::ElementsAre(
+            scope_start + base::TimeDelta::FromSeconds(1),
+            scope_start + base::TimeDelta::FromSeconds(2),
+            scope_start + base::TimeDelta::FromSeconds(3),
+            scope_start - kShortDelay + base::TimeDelta::FromMinutes(1),
+            scope_start - kShortDelay + base::TimeDelta::FromMinutes(1),
+            scope_start - kShortDelay + base::TimeDelta::FromMinutes(1)));
+  }
+}
+
+// Verify that tasks run at the expected time in a frame that is cross-origin
+// with the main frame with intensive wake up throttling.
+TEST_F(FrameSchedulerImplTestWithIntensiveWakeUpThrottling,
+       TaskExecutionCrossOriginFrame) {
+  frame_scheduler_->SetCrossOriginToMainFrame(true);
+
+  // Throttled TaskRunner to which tasks are posted in this test.
+  const scoped_refptr<base::SingleThreadTaskRunner> task_runner =
+      frame_scheduler_->GetTaskRunner(TaskType::kJavascriptTimer);
+
+  // Snap the time to a multiple of |kDurationBetweenWakeUps|. Otherwise,
+  // the time at which tasks can run after throttling is enabled will vary.
+  FastForwardToAlignedTime(kDurationBetweenWakeUps);
+  const base::TimeTicks test_start = base::TimeTicks::Now();
+
+  // Hide the page. This starts the delay to throttle background wake ups.
+  EXPECT_TRUE(page_scheduler_->IsPageVisible());
+  page_scheduler_->SetPageVisible(false);
+
+  // Initially, wake ups are not throttled.
+  {
+    const base::TimeTicks scope_start = base::TimeTicks::Now();
+    EXPECT_EQ(scope_start, test_start);
+    std::vector<base::TimeTicks> run_times;
+
+    for (int i = 0; i < kNumTasks; ++i) {
+      task_runner->PostDelayedTask(FROM_HERE,
+                                   base::BindOnce(&RecordRunTime, &run_times),
+                                   i * kShortDelay);
+    }
+
+    task_environment_.FastForwardBy(kGracePeriod);
+    EXPECT_THAT(run_times, testing::ElementsAre(
+                               scope_start + base::TimeDelta::FromSeconds(0),
+                               scope_start + base::TimeDelta::FromSeconds(1),
+                               scope_start + base::TimeDelta::FromSeconds(2),
+                               scope_start + base::TimeDelta::FromSeconds(3),
+                               scope_start + base::TimeDelta::FromSeconds(4)));
+  }
+
+  // After |kGracePeriod|, a wake up can occur aligned on
+  // |kDurationBetweenWakeUps| only.
+
+  // Test posting a first task. It should run at the next aligned time (in a
+  // main frame, it would have run kDurationBetweenWakeUps
+  // after the last wake up).
+  {
+    const base::TimeTicks scope_start = base::TimeTicks::Now();
+    EXPECT_EQ(scope_start, test_start + base::TimeDelta::FromMinutes(5));
+    std::vector<base::TimeTicks> run_times;
+
+    task_runner->PostDelayedTask(
+        FROM_HERE, base::BindOnce(&RecordRunTime, &run_times), kShortDelay);
+
+    task_environment_.FastForwardBy(kDurationBetweenWakeUps);
+    EXPECT_THAT(run_times, testing::ElementsAre(
+                               scope_start + base::TimeDelta::FromMinutes(1)));
+  }
+
+  // Test posting many tasks with short delays. They should all run on the next
+  // time aligned on |kDurationBetweenWakeUps|.
+  {
+    const base::TimeTicks scope_start = base::TimeTicks::Now();
+    EXPECT_EQ(scope_start, test_start + base::TimeDelta::FromMinutes(6));
+    std::vector<base::TimeTicks> run_times;
+
+    for (int i = 0; i < kNumTasks; ++i) {
+      task_runner->PostDelayedTask(FROM_HERE,
+                                   base::BindOnce(&RecordRunTime, &run_times),
+                                   (i + 1) * kShortDelay);
+    }
+
+    task_environment_.FastForwardBy(kDurationBetweenWakeUps);
+    EXPECT_THAT(run_times, testing::ElementsAre(
+                               scope_start + base::TimeDelta::FromMinutes(1),
+                               scope_start + base::TimeDelta::FromMinutes(1),
+                               scope_start + base::TimeDelta::FromMinutes(1),
+                               scope_start + base::TimeDelta::FromMinutes(1),
+                               scope_start + base::TimeDelta::FromMinutes(1)));
+  }
+
+  // Post an extra task with a short delay. It should run at the next time
+  // aligned on |kDurationBetweenWakeUps|.
+  {
+    const base::TimeTicks scope_start = base::TimeTicks::Now();
+    EXPECT_EQ(scope_start, test_start + base::TimeDelta::FromMinutes(7));
+    std::vector<base::TimeTicks> run_times;
+
+    task_runner->PostDelayedTask(
+        FROM_HERE, base::BindOnce(&RecordRunTime, &run_times), kShortDelay);
+
+    task_environment_.FastForwardBy(kDurationBetweenWakeUps);
+    EXPECT_THAT(run_times, testing::ElementsAre(
+                               scope_start + base::TimeDelta::FromMinutes(1)));
+  }
+
+  // Post an extra task with a delay that is longer than
+  // |kDurationBetweenWakeUps|. The task should run at an aligned time (in a
+  // main frame, it would have run at is desired unaligned run time).
+  {
+    const base::TimeTicks scope_start = base::TimeTicks::Now();
+    EXPECT_EQ(scope_start, test_start + base::TimeDelta::FromMinutes(8));
+    std::vector<base::TimeTicks> run_times;
+
+    const base::TimeDelta kLongDelay =
+        kDurationBetweenWakeUps * 5 + base::TimeDelta::FromSeconds(1);
+    task_runner->PostDelayedTask(
+        FROM_HERE, base::BindOnce(&RecordRunTime, &run_times), kLongDelay);
+
+    task_environment_.FastForwardUntilNoTasksRemain();
+    EXPECT_THAT(run_times, testing::ElementsAre(scope_start +
+                                                kDurationBetweenWakeUps * 6));
+  }
+
+  // Post tasks with short delays after the page communicated with the user in
+  // background. They should run at an aligned time, since cross-origin
+  // frames are not affected by title or favicon update.
+  {
+    const base::TimeTicks scope_start = base::TimeTicks::Now();
+    EXPECT_EQ(scope_start, test_start + base::TimeDelta::FromMinutes(14));
+    std::vector<base::TimeTicks> run_times;
+
+    page_scheduler_->OnTitleOrFaviconUpdated();
+    task_runner->PostDelayedTask(
+        FROM_HERE, base::BindLambdaForTesting([&]() {
+          RecordRunTime(&run_times);
+          for (int i = 0; i < kNumTasks; ++i) {
+            task_runner->PostDelayedTask(
+                FROM_HERE, base::BindOnce(&RecordRunTime, &run_times),
+                kShortDelay * (i + 1));
+          }
+          page_scheduler_->OnTitleOrFaviconUpdated();
+        }),
+        kShortDelay);
+
+    task_environment_.FastForwardUntilNoTasksRemain();
+    EXPECT_THAT(run_times, testing::ElementsAre(
+                               scope_start + base::TimeDelta::FromMinutes(1),
+                               scope_start + base::TimeDelta::FromMinutes(2),
+                               scope_start + base::TimeDelta::FromMinutes(2),
+                               scope_start + base::TimeDelta::FromMinutes(2),
+                               scope_start + base::TimeDelta::FromMinutes(2),
+                               scope_start + base::TimeDelta::FromMinutes(2)));
+  }
+}
+
+// Verify that tasks from different frames that are same-origin with the main
+// frame run at the expected time.
+TEST_F(FrameSchedulerImplTestWithIntensiveWakeUpThrottling,
+       ManySameFrameOriginFrames) {
+  ASSERT_FALSE(frame_scheduler_->IsCrossOriginToMainFrame());
+  const scoped_refptr<base::SingleThreadTaskRunner> task_runner =
+      frame_scheduler_->GetTaskRunner(TaskType::kJavascriptTimer);
+
+  // Create a FrameScheduler that is same-origin with the main frame, and an
+  // associated throttled TaskRunner.
+  std::unique_ptr<FrameSchedulerImpl> other_frame_scheduler =
+      CreateFrameScheduler(page_scheduler_.get(),
+                           frame_scheduler_delegate_.get(), nullptr,
+                           FrameScheduler::FrameType::kSubframe);
+  ASSERT_FALSE(other_frame_scheduler->IsCrossOriginToMainFrame());
+  const scoped_refptr<base::SingleThreadTaskRunner> other_task_runner =
+      other_frame_scheduler->GetTaskRunner(TaskType::kJavascriptTimer);
+
+  // Snap the time to a multiple of |kDurationBetweenWakeUps|. Otherwise,
+  // the time at which tasks can run after throttling is enabled will vary.
+  FastForwardToAlignedTime(kDurationBetweenWakeUps);
+
+  // Hide the page and wait until the intensive throttling grace period has
+  // elapsed.
+  EXPECT_TRUE(page_scheduler_->IsPageVisible());
+  page_scheduler_->SetPageVisible(false);
+  task_environment_.FastForwardBy(kGracePeriod);
+
+  // Post tasks in both frames, with delays shorter than the wake up interval.
+  int counter = 0;
+  task_runner->PostDelayedTask(
+      FROM_HERE, base::BindOnce(&IncrementCounter, base::Unretained(&counter)),
+      kShortDelay);
+  int other_counter = 0;
+  other_task_runner->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(&IncrementCounter, base::Unretained(&other_counter)),
+      2 * kShortDelay);
+
+  // The first task should run at an unaligned time, because no wake up occurred
+  // in the last |kDurationBetweenWakeUps|.
+  EXPECT_EQ(0, counter);
+  task_environment_.FastForwardBy(kShortDelay);
+  EXPECT_EQ(1, counter);
+
+  // The second task must run at an aligned time.
+  constexpr base::TimeDelta kEpsilon = base::TimeDelta::FromMicroseconds(1);
+  EXPECT_EQ(0, other_counter);
+  task_environment_.FastForwardBy(kShortDelay);
+  EXPECT_EQ(0, other_counter);
+  task_environment_.FastForwardBy(kDurationBetweenWakeUps - 2 * kShortDelay -
+                                  kEpsilon);
+  EXPECT_EQ(0, other_counter);
+  task_environment_.FastForwardBy(kEpsilon);
+  EXPECT_EQ(1, other_counter);
+}
+
+// Verify that tasks run at the same time when a frame switches between being
+// same-origin and cross-origin with the main frame.
+TEST_F(FrameSchedulerImplTestWithIntensiveWakeUpThrottling,
+       FrameChangesOriginType) {
+  EXPECT_FALSE(frame_scheduler_->IsCrossOriginToMainFrame());
+  const scoped_refptr<base::SingleThreadTaskRunner> task_runner =
+      frame_scheduler_->GetTaskRunner(TaskType::kJavascriptTimer);
+
+  // Create a new FrameScheduler that remains cross-origin with the main frame
+  // throughout the test.
+  std::unique_ptr<FrameSchedulerImpl> cross_origin_frame_scheduler =
+      CreateFrameScheduler(page_scheduler_.get(),
+                           frame_scheduler_delegate_.get(), nullptr,
+                           FrameScheduler::FrameType::kSubframe);
+  cross_origin_frame_scheduler->SetCrossOriginToMainFrame(true);
+  const scoped_refptr<base::SingleThreadTaskRunner> cross_origin_task_runner =
+      cross_origin_frame_scheduler->GetTaskRunner(TaskType::kJavascriptTimer);
+
+  // Snap the time to a multiple of |kDurationBetweenWakeUps|. Otherwise,
+  // the time at which tasks can run after throttling is enabled will vary.
+  FastForwardToAlignedTime(kDurationBetweenWakeUps);
+
+  // Hide the page and wait until the intensive throttling grace period has
+  // elapsed.
+  EXPECT_TRUE(page_scheduler_->IsPageVisible());
+  page_scheduler_->SetPageVisible(false);
+  task_environment_.FastForwardBy(kGracePeriod);
+
+  {
+    // Post delayed tasks with short delays to both frames. The
+    // main-frame-origin task can run at the desired time, because no wake up
+    // occurred in the last |kDurationBetweenWakeUps|. The
+    // cross-origin task must run at an aligned time.
+    int counter = 0;
+    task_runner->PostDelayedTask(
+        FROM_HERE,
+        base::BindOnce(&IncrementCounter, base::Unretained(&counter)),
+        kShortDelay);
+    int cross_origin_counter = 0;
+    cross_origin_task_runner->PostDelayedTask(
+        FROM_HERE,
+        base::BindOnce(&IncrementCounter,
+                       base::Unretained(&cross_origin_counter)),
+        kShortDelay);
+
+    // Make the |frame_scheduler_| cross-origin. Its task must now run at an
+    // aligned time.
+    frame_scheduler_->SetCrossOriginToMainFrame(true);
+    task_environment_.FastForwardBy(kShortDelay);
+    EXPECT_EQ(0, counter);
+    EXPECT_EQ(0, cross_origin_counter);
+
+    FastForwardToAlignedTime(kDurationBetweenWakeUps);
+    EXPECT_EQ(1, counter);
+    EXPECT_EQ(1, cross_origin_counter);
+  }
+
+  {
+    // Post delayed tasks with long delays that aren't aligned with the wake up
+    // interval. They should run at aligned times, since they are cross-origin.
+    const base::TimeDelta kLongUnalignedDelay =
+        5 * kDurationBetweenWakeUps + kShortDelay;
+    int counter = 0;
+    task_runner->PostDelayedTask(
+        FROM_HERE,
+        base::BindOnce(&IncrementCounter, base::Unretained(&counter)),
+        kLongUnalignedDelay);
+    int cross_origin_counter = 0;
+    cross_origin_task_runner->PostDelayedTask(
+        FROM_HERE,
+        base::BindOnce(&IncrementCounter,
+                       base::Unretained(&cross_origin_counter)),
+        kLongUnalignedDelay);
+
+    // Make the |frame_scheduler_| same-origin. Its task can now run at an
+    // unaligned time.
+    frame_scheduler_->SetCrossOriginToMainFrame(false);
+    task_environment_.FastForwardBy(kLongUnalignedDelay);
+    EXPECT_EQ(1, counter);
+    EXPECT_EQ(0, cross_origin_counter);
+
+    FastForwardToAlignedTime(kDurationBetweenWakeUps);
+    EXPECT_EQ(1, counter);
+    EXPECT_EQ(1, cross_origin_counter);
+  }
+}
+
+TEST_F(FrameSchedulerImplTestWithIntensiveWakeUpThrottlingPolicyOverride,
+       PolicyForceEnable) {
+  SetPolicyOverride(/* enabled = */ true);
+  EXPECT_TRUE(IsIntensiveWakeUpThrottlingEnabled());
+
+  // The parameters should be the defaults, even though they were changed by the
+  // ScopedFeatureList.
+  EXPECT_EQ(base::TimeDelta::FromSeconds(
+                kIntensiveWakeUpThrottling_GracePeriodSeconds_Default),
+            GetIntensiveWakeUpThrottlingGracePeriod());
+  EXPECT_EQ(
+      base::TimeDelta::FromSeconds(
+          kIntensiveWakeUpThrottling_DurationBetweenWakeUpsSeconds_Default),
+      GetIntensiveWakeUpThrottlingDurationBetweenWakeUps());
+}
+
+TEST_F(FrameSchedulerImplTestWithIntensiveWakeUpThrottlingPolicyOverride,
+       PolicyForceDisable) {
+  SetPolicyOverride(/* enabled = */ false);
+  EXPECT_FALSE(IsIntensiveWakeUpThrottlingEnabled());
 }
 
 }  // namespace frame_scheduler_impl_unittest

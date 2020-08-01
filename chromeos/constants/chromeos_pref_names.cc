@@ -7,12 +7,28 @@
 namespace chromeos {
 namespace prefs {
 
+// Map of strings to values used for assistive input settings.
+const char kAssistiveInputFeatureSettings[] =
+    "assistive_input_feature_settings";
+
+// A boolean pref of whether assist personal info is enabled.
+const char kAssistPersonalInfoEnabled[] =
+    "assistive_input.personal_info_enabled";
+
+// A boolean pref of whether emoji suggestion addition is enabled.
+const char kEmojiSuggestionEnabled[] =
+    "assistive_input.emoji_suggestion_enabled";
+
 // A dictionary pref to hold the mute setting for all the currently known
 // audio devices.
 const char kAudioDevicesMute[] = "settings.audio.devices.mute";
 
+// A dictionary pref storing the gain settings for all the currently known
+// audio input devices.
+const char kAudioDevicesGainPercent[] = "settings.audio.devices.gain_percent";
+
 // A dictionary pref storing the volume settings for all the currently known
-// audio devices.
+// audio output devices.
 const char kAudioDevicesVolumePercent[] =
     "settings.audio.devices.volume_percent";
 
@@ -74,10 +90,19 @@ const char kSamlPasswordExpirationTime[] = "saml.password_expiration_time";
 // to the SAML IdP.
 const char kSamlPasswordChangeUrl[] = "saml.password_change_url";
 
+// Boolean pref indicating whether the user has completed (or skipped) the
+// out-of-box experience (OOBE) sync consent screen. Before this pref is set
+// both OS and browser sync will be disabled. After this pref is set it's
+// possible to check sync state to see if the user enabled it.
+const char kSyncOobeCompleted[] = "sync.oobe_completed";
+
 // Boolean pref indicating whether a user has enabled the display password
 // button on the login/lock screen.
 const char kLoginDisplayPasswordButtonEnabled[] =
     "login_display_password_button_enabled";
+
+// Boolean pref indicating whether the user has enabled Suggested Content.
+const char kSuggestedContentEnabled[] = "settings.suggested_content_enabled";
 
 }  // namespace prefs
 }  // namespace chromeos

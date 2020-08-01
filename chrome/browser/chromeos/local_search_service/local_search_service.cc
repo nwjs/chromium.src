@@ -14,11 +14,12 @@ LocalSearchService::LocalSearchService() = default;
 
 LocalSearchService::~LocalSearchService() = default;
 
-Index* LocalSearchService::GetIndex(local_search_service::IndexId index_id) {
+Index* LocalSearchService::GetIndex(IndexId index_id, Backend backend) {
   auto it = indices_.find(index_id);
-  if (it == indices_.end())
-    it = indices_.emplace(index_id, std::make_unique<Index>()).first;
-
+  if (it == indices_.end()) {
+    it = indices_.emplace(index_id, std::make_unique<Index>(index_id, backend))
+             .first;
+  }
   DCHECK(it != indices_.end());
   DCHECK(it->second);
 

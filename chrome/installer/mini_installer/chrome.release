@@ -27,6 +27,7 @@ eventlog_provider.dll: %(ChromeDir)s\
 icudtl.dat: %(ChromeDir)s\
 libEGL.dll: %(ChromeDir)s\
 libGLESv2.dll: %(ChromeDir)s\
+mojo_core.dll: %(ChromeDir)s\
 nacl64.exe: %(ChromeDir)s\
 nacl_irt_x86_32.nexe: %(ChromeDir)s\
 nacl_irt_x86_64.nexe: %(ChromeDir)s\

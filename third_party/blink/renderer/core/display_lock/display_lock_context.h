@@ -9,6 +9,7 @@
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cancellable_task.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
+#include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 
 namespace blink {
 
@@ -195,7 +196,10 @@ class CORE_EXPORT DisplayLockContext final
   }
 
   // GC functions.
-  void Trace(Visitor*) override;
+  void Trace(Visitor*) const override;
+
+  // Debugging functions.
+  String RenderAffectingStateToString() const;
 
  private:
   // Give access to |NotifyForcedUpdateScopeStarted()| and
@@ -276,10 +280,6 @@ class CORE_EXPORT DisplayLockContext final
   // register/unregister is required.
   void UpdateActivationObservationIfNeeded();
 
-  // This function is called from within a task to fire the activation event.
-  // Scheduled by CommitForActivationWithSignal.
-  void FireActivationEvent(Element* activated_element);
-
   // Determines whether or not we need lifecycle notifications.
   bool NeedsLifecycleNotifications() const;
   // Updates the lifecycle notification registration based on whether we need
@@ -298,6 +298,12 @@ class CORE_EXPORT DisplayLockContext final
   // Determines if the subtree has selection. This will walk from each of the
   // selected notes up to its root looking for `element_`.
   void DetermineIfSubtreeHasSelection();
+
+  // Keep this context unlocked until the beginning of lifecycle. Effectively
+  // keeps this context unlocked for the next `count` frames. It also schedules
+  // a frame to ensure the lifecycle happens. Only affects locks with 'auto'
+  // setting.
+  void SetKeepUnlockedUntilLifecycleCount(int count);
 
   WeakMember<Element> element_;
   WeakMember<Document> document_;
@@ -352,18 +358,26 @@ class CORE_EXPORT DisplayLockContext final
   // Lock has been requested.
   bool is_locked_ = false;
 
+  // If true, this lock is kept unlocked at least until the beginning of the
+  // lifecycle. If nothing else is keeping it unlocked, then it will be locked
+  // again at the start of the lifecycle.
+  bool keep_unlocked_until_lifecycle_ = false;
+
   enum class RenderAffectingState : int {
     kLockRequested,
     kIntersectsViewport,
     kSubtreeHasFocus,
     kSubtreeHasSelection,
+    kAutoStateUnlockedUntilLifecycle,
     kNumRenderAffectingStates
   };
   void SetRenderAffectingState(RenderAffectingState state, bool flag);
   void NotifyRenderAffectingStateChanged();
+  const char* RenderAffectingStateName(int state) const;
 
   bool render_affecting_state_[static_cast<int>(
       RenderAffectingState::kNumRenderAffectingStates)] = {false};
+  int keep_unlocked_count_ = 0;
 };
 
 }  // namespace blink

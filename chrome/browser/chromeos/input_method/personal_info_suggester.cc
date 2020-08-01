@@ -3,18 +3,24 @@
 // found in the LICENSE file.
 
 #include "chrome/browser/chromeos/input_method/personal_info_suggester.h"
+#include "chrome/browser/chromeos/extensions/input_method_api.h"
+#include "chrome/browser/extensions/api/input_ime/input_ime_api.h"
 
 #include "ash/public/cpp/ash_pref_names.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
+#include "chrome/browser/browser_process.h"
+#include "chrome/browser/chromeos/input_method/ui/suggestion_details.h"
 #include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/ui/ash/keyboard/chrome_keyboard_controller_client.h"
+#include "chromeos/constants/chromeos_pref_names.h"
 #include "components/autofill/core/browser/data_model/autofill_profile.h"
 #include "components/autofill/core/browser/personal_data_manager.h"
+#include "components/autofill/core/browser/ui/label_formatter_utils.h"
 #include "components/prefs/pref_service.h"
-
-using input_method::InputMethodEngineBase;
+#include "components/prefs/scoped_user_pref_update.h"
 
 namespace chromeos {
 
@@ -25,9 +31,31 @@ const char kAssistEmailPrefix[] = "my email is ";
 const char kAssistNamePrefix[] = "my name is ";
 const char kAssistAddressPrefix[] = "my address is ";
 const char kAssistPhoneNumberPrefix[] = "my phone number is ";
+const char kAssistNumberPrefix[] = "my number is ";
+const char kAssistFirstNamePrefix[] = "my first name is ";
+const char kAssistLastNamePrefix[] = "my last name is ";
+const char kAnnounceAnnotation[] =
+    "Press down to navigate and enter to insert.";
+const int kNoneHighlighted = -1;
 
 constexpr base::TimeDelta kTtsShowDelay =
     base::TimeDelta::FromMilliseconds(1200);
+
+const std::vector<autofill::ServerFieldType>& GetHomeAddressTypes() {
+  static base::NoDestructor<std::vector<autofill::ServerFieldType>>
+      homeAddressTypes{
+          {autofill::ServerFieldType::ADDRESS_HOME_LINE1,
+           autofill::ServerFieldType::ADDRESS_HOME_LINE2,
+           autofill::ServerFieldType::ADDRESS_HOME_LINE3,
+           autofill::ServerFieldType::ADDRESS_HOME_STREET_ADDRESS,
+           autofill::ServerFieldType::ADDRESS_HOME_DEPENDENT_LOCALITY,
+           autofill::ServerFieldType::ADDRESS_HOME_CITY,
+           autofill::ServerFieldType::ADDRESS_HOME_STATE,
+           autofill::ServerFieldType::ADDRESS_HOME_ZIP,
+           autofill::ServerFieldType::ADDRESS_HOME_SORTING_CODE,
+           autofill::ServerFieldType::ADDRESS_HOME_COUNTRY}};
+  return *homeAddressTypes;
+}
 
 }  // namespace
 
@@ -82,6 +110,18 @@ AssistiveType ProposeAssistiveAction(const base::string16& text) {
                      base::CompareCase::INSENSITIVE_ASCII)) {
     action = AssistiveType::kPersonalPhoneNumber;
   }
+  if (base::EndsWith(text, base::UTF8ToUTF16(kAssistNumberPrefix),
+                     base::CompareCase::INSENSITIVE_ASCII)) {
+    action = AssistiveType::kPersonalNumber;
+  }
+  if (base::EndsWith(text, base::UTF8ToUTF16(kAssistFirstNamePrefix),
+                     base::CompareCase::INSENSITIVE_ASCII)) {
+    action = AssistiveType::kPersonalFirstName;
+  }
+  if (base::EndsWith(text, base::UTF8ToUTF16(kAssistLastNamePrefix),
+                     base::CompareCase::INSENSITIVE_ASCII)) {
+    action = AssistiveType::kPersonalLastName;
+  }
   return action;
 }
 
@@ -97,7 +137,16 @@ PersonalInfoSuggester::PersonalInfoSuggester(
               ? personal_data_manager
               : autofill::PersonalDataManagerFactory::GetForProfile(profile)),
       tts_handler_(tts_handler ? std::move(tts_handler)
-                               : std::make_unique<TtsHandler>(profile)) {}
+                               : std::make_unique<TtsHandler>(profile)) {
+  suggestion_button_.id = ui::ime::ButtonId::kSuggestion;
+  suggestion_button_.window_type =
+      ui::ime::AssistiveWindowType::kPersonalInfoSuggestion;
+  suggestion_button_.index = 0;
+  link_button_.id = ui::ime::ButtonId::kSmartInputsSettingLink;
+  link_button_.window_type =
+      ui::ime::AssistiveWindowType::kPersonalInfoSuggestion;
+  highlighted_index_ = kNoneHighlighted;
+}
 
 PersonalInfoSuggester::~PersonalInfoSuggester() {}
 
@@ -111,15 +160,44 @@ void PersonalInfoSuggester::OnBlur() {
 
 SuggestionStatus PersonalInfoSuggester::HandleKeyEvent(
     const InputMethodEngineBase::KeyboardEvent& event) {
-  if (suggestion_shown_) {
-    if (event.key == "Tab" || event.key == "Right") {
-      AcceptSuggestion();
-      return SuggestionStatus::kAccept;
-    } else if (event.key == "Esc") {
-      DismissSuggestion();
-      return SuggestionStatus::kDismiss;
+  if (!suggestion_shown_)
+    return SuggestionStatus::kNotHandled;
+
+  if (event.key == "Esc") {
+    DismissSuggestion();
+    return SuggestionStatus::kDismiss;
+  }
+  if (highlighted_index_ == kNoneHighlighted && buttons_.size() > 0) {
+    if (event.key == "Down") {
+      highlighted_index_ = 0;
+      SetButtonHighlighted(buttons_[highlighted_index_], true);
+      return SuggestionStatus::kBrowsing;
+    }
+  } else {
+    if (event.key == "Enter") {
+      switch (buttons_[highlighted_index_].id) {
+        case ui::ime::ButtonId::kSuggestion:
+          AcceptSuggestion();
+          return SuggestionStatus::kAccept;
+        case ui::ime::ButtonId::kSmartInputsSettingLink:
+          suggestion_handler_->ClickButton(buttons_[highlighted_index_]);
+          return SuggestionStatus::kOpenSettings;
+        default:
+          break;
+      }
+    } else if (event.key == "Up" || event.key == "Down") {
+      SetButtonHighlighted(buttons_[highlighted_index_], false);
+      if (event.key == "Up") {
+        highlighted_index_ =
+            (highlighted_index_ + buttons_.size() - 1) % buttons_.size();
+      } else {
+        highlighted_index_ = (highlighted_index_ + 1) % buttons_.size();
+      }
+      SetButtonHighlighted(buttons_[highlighted_index_], true);
+      return SuggestionStatus::kBrowsing;
     }
   }
+
   return SuggestionStatus::kNotHandled;
 }
 
@@ -173,17 +251,25 @@ base::string16 PersonalInfoSuggester::GetSuggestion(
   // strategy in the future.
   auto* profile = autofill_profiles[0];
   base::string16 suggestion;
+  const std::string app_locale = g_browser_process->GetApplicationLocale();
   switch (proposed_action_type_) {
     case AssistiveType::kPersonalName:
       suggestion = profile->GetRawInfo(autofill::ServerFieldType::NAME_FULL);
       break;
     case AssistiveType::kPersonalAddress:
-      suggestion = profile->GetRawInfo(
-          autofill::ServerFieldType::ADDRESS_HOME_STREET_ADDRESS);
+      suggestion = autofill::GetLabelNationalAddress(GetHomeAddressTypes(),
+                                                     *profile, app_locale);
       break;
     case AssistiveType::kPersonalPhoneNumber:
+    case AssistiveType::kPersonalNumber:
       suggestion = profile->GetRawInfo(
           autofill::ServerFieldType::PHONE_HOME_WHOLE_NUMBER);
+      break;
+    case AssistiveType::kPersonalFirstName:
+      suggestion = profile->GetRawInfo(autofill::ServerFieldType::NAME_FIRST);
+      break;
+    case AssistiveType::kPersonalLastName:
+      suggestion = profile->GetRawInfo(autofill::ServerFieldType::NAME_LAST);
       break;
     default:
       NOTREACHED();
@@ -194,38 +280,99 @@ base::string16 PersonalInfoSuggester::GetSuggestion(
 
 void PersonalInfoSuggester::ShowSuggestion(const base::string16& text,
                                            const size_t confirmed_length) {
+  auto* keyboard_client = ChromeKeyboardControllerClient::Get();
+  if (keyboard_client->is_keyboard_enabled()) {
+    const std::vector<std::string> args{base::UTF16ToUTF8(text)};
+    suggestion_handler_->OnSuggestionsChanged(args);
+    return;
+  }
+
+  if (highlighted_index_ != kNoneHighlighted) {
+    SetButtonHighlighted(buttons_[highlighted_index_], false);
+    highlighted_index_ = kNoneHighlighted;
+  }
+
   std::string error;
-  suggestion_handler_->SetSuggestion(context_id_, text, confirmed_length, true,
-                                     &error);
+  bool show_annotation =
+      GetPrefValue(kPersonalInfoSuggesterAcceptanceCount) < kMaxAcceptanceCount;
+  ui::ime::SuggestionDetails details;
+  details.text = text;
+  details.confirmed_length = confirmed_length;
+  details.show_annotation = show_annotation;
+  details.show_setting_link =
+      GetPrefValue(kPersonalInfoSuggesterAcceptanceCount) == 0 &&
+      GetPrefValue(kPersonalInfoSuggesterShowSettingCount) <
+          kMaxShowSettingCount;
+  suggestion_handler_->SetSuggestion(context_id_, details, &error);
   if (!error.empty()) {
     LOG(ERROR) << "Fail to show suggestion. " << error;
   }
 
-  if (!suggestion_shown_) {
+  suggestion_button_.announce_string = base::UTF16ToUTF8(text);
+  buttons_.clear();
+  buttons_.push_back(suggestion_button_);
+  if (details.show_setting_link)
+    buttons_.push_back(link_button_);
+
+  if (suggestion_shown_) {
+    first_shown_ = false;
+  } else {
+    first_shown_ = true;
+    IncrementPrefValueTilCapped(kPersonalInfoSuggesterShowSettingCount,
+                                kMaxShowSettingCount);
     tts_handler_->Announce(
         // TODO(jiwan): Add translation to other languages when we support more
         // than English.
-        base::StringPrintf("Suggested text %s. Press tab to insert.",
-                           base::UTF16ToUTF8(text).c_str()),
+        base::StringPrintf("Suggestion %s. %s", base::UTF16ToUTF8(text).c_str(),
+                           show_annotation ? kAnnounceAnnotation : ""),
         kTtsShowDelay);
   }
 
   suggestion_shown_ = true;
 }
 
+int PersonalInfoSuggester::GetPrefValue(const std::string& pref_name) {
+  DictionaryPrefUpdate update(profile_->GetPrefs(),
+                              prefs::kAssistiveInputFeatureSettings);
+  auto value = update->FindIntKey(pref_name);
+  if (!value.has_value()) {
+    update->SetIntKey(pref_name, 0);
+    return 0;
+  }
+  return *value;
+}
+
+void PersonalInfoSuggester::IncrementPrefValueTilCapped(
+    const std::string& pref_name,
+    int max_value) {
+  int value = GetPrefValue(pref_name);
+  if (value < max_value) {
+    DictionaryPrefUpdate update(profile_->GetPrefs(),
+                                prefs::kAssistiveInputFeatureSettings);
+    update->SetIntKey(pref_name, value + 1);
+  }
+}
+
 AssistiveType PersonalInfoSuggester::GetProposeActionType() {
   return proposed_action_type_;
 }
 
-void PersonalInfoSuggester::AcceptSuggestion() {
+bool PersonalInfoSuggester::AcceptSuggestion(size_t index) {
   std::string error;
-  suggestion_shown_ = false;
   suggestion_handler_->AcceptSuggestion(context_id_, &error);
+
   if (!error.empty()) {
     LOG(ERROR) << "Failed to accept suggestion. " << error;
+    return false;
   }
+
+  IncrementPrefValueTilCapped(kPersonalInfoSuggesterAcceptanceCount,
+                              kMaxAcceptanceCount);
+  suggestion_shown_ = false;
   tts_handler_->Announce(base::StringPrintf(
       "Inserted suggestion %s.", base::UTF16ToUTF8(suggestion_).c_str()));
+
+  return true;
 }
 
 void PersonalInfoSuggester::DismissSuggestion() {
@@ -234,6 +381,17 @@ void PersonalInfoSuggester::DismissSuggestion() {
   suggestion_handler_->DismissSuggestion(context_id_, &error);
   if (!error.empty()) {
     LOG(ERROR) << "Failed to dismiss suggestion. " << error;
+  }
+}
+
+void PersonalInfoSuggester::SetButtonHighlighted(
+    const ui::ime::AssistiveWindowButton& button,
+    bool highlighted) {
+  std::string error;
+  suggestion_handler_->SetButtonHighlighted(context_id_, button, highlighted,
+                                            &error);
+  if (!error.empty()) {
+    LOG(ERROR) << "Failed to set button highlighted. " << error;
   }
 }
 

@@ -16,6 +16,8 @@ import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.ServiceTabLauncher;
+import org.chromium.chrome.browser.app.tab_activity_glue.ReparentingDelegateFactory;
+import org.chromium.chrome.browser.app.tab_activity_glue.ReparentingTask;
 import org.chromium.chrome.browser.init.StartupTabPreloader;
 import org.chromium.chrome.browser.ntp.NewTabPage;
 import org.chromium.chrome.browser.tab.RedirectHandlerTabHelper;
@@ -27,8 +29,7 @@ import org.chromium.chrome.browser.tab.TabDelegateFactory;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabParentIntent;
 import org.chromium.chrome.browser.tab.TabState;
-import org.chromium.chrome.browser.tab_activity_glue.ReparentingDelegateFactory;
-import org.chromium.chrome.browser.tab_activity_glue.ReparentingTask;
+import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.url_formatter.UrlFormatter;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.WebContents;
@@ -391,6 +392,11 @@ public class ChromeTabCreator extends TabCreatorManager.TabCreator {
                             mActivity.getCompositorViewHolder(), mActivity.getWindowAndroid(),
                             createDefaultTabDelegateFactory()),
                     params.getFinalizeCallback());
+            // TODO(crbug.com/1108562): This is a temporary fix for RBS issue crbug.com/1105810,
+            // investigate and fix the root cause.
+            if (tab.getUrl().getScheme().equals(UrlConstants.FILE_SCHEME)) {
+                tab.reloadIgnoringCache();
+            }
         }
         if (tab == null) {
             tab = TabBuilder.createFromFrozenState()

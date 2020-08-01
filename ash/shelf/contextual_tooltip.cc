@@ -111,7 +111,8 @@ ContextualNudgeStatusTracker* GetStatusTracker(TooltipType type) {
 }  // namespace
 
 void RegisterProfilePrefs(PrefRegistrySimple* registry) {
-  registry->RegisterDictionaryPref(prefs::kContextualTooltips);
+  if (features::AreContextualNudgesEnabled())
+    registry->RegisterDictionaryPref(prefs::kContextualTooltips);
 }
 
 bool ShouldShowNudge(PrefService* prefs,

@@ -179,13 +179,8 @@ static CompositingReasons SubtreeReasonsForCompositing(
                      CompositingReason::kComboCompositedDescendants;
 
   if (layer->ShouldIsolateCompositedDescendants()) {
-    DCHECK(layer->GetLayoutObject().StyleRef().IsStackingContext());
+    DCHECK(layer->GetLayoutObject().IsStackingContext());
     subtree_reasons |= CompositingReason::kIsolateCompositedDescendants;
-  }
-
-  if (layer->GetLayoutObject().StyleRef().GetPosition() == EPosition::kFixed) {
-    subtree_reasons |=
-        CompositingReason::kPositionFixedWithCompositedDescendants;
   }
 
   // A layer with preserve-3d or perspective only needs to be composited if
@@ -376,11 +371,22 @@ void CompositingRequirementsUpdater::UpdateRecursive(
   RecursionData child_recursion_data = current_recursion_data;
   child_recursion_data.subtree_is_compositing_ = false;
 
+  // Embedded objects treat the embedded document as a child for the purposes
+  // of composited layer decisions. Look into the embedded document to determine
+  // if it is composited.
+  bool contains_composited_layer =
+      (layer->GetLayoutObject().IsLayoutEmbeddedContent() &&
+       ToLayoutEmbeddedContent(layer->GetLayoutObject())
+           .ContentDocumentIsCompositing());
+
   bool will_be_composited_or_squashed =
       can_be_composited && RequiresCompositingOrSquashing(reasons_to_composite);
-  if (will_be_composited_or_squashed) {
-    // This layer now acts as the ancestor for child layers.
-    child_recursion_data.compositing_ancestor_ = layer;
+
+  if (will_be_composited_or_squashed || contains_composited_layer) {
+    if (will_be_composited_or_squashed) {
+      // This layer now acts as the ancestor for child layers.
+      child_recursion_data.compositing_ancestor_ = layer;
+    }
 
     // Here we know that all children and the layer's own contents can blindly
     // paint into this layer's backing, until a descendant is composited. So, we
@@ -499,7 +505,7 @@ void CompositingRequirementsUpdater::UpdateRecursive(
   // Now that the subtree has been traversed, we can check for compositing
   // reasons that depended on the state of the subtree.
 
-  if (layer->GetLayoutObject().StyleRef().IsStackingContext()) {
+  if (layer->GetLayoutObject().IsStackingContext()) {
     layer->SetShouldIsolateCompositedDescendants(
         child_recursion_data.has_unisolated_composited_blending_descendant_);
   } else {
@@ -508,30 +514,21 @@ void CompositingRequirementsUpdater::UpdateRecursive(
         child_recursion_data.has_unisolated_composited_blending_descendant_;
   }
 
-  // Embedded objects treat the embedded document as a child for the purposes
-  // of composited layer decisions. Look into the embedded document to determine
-  // if it is composited.
-  bool contains_composited_iframe =
-      layer->GetLayoutObject().IsLayoutEmbeddedContent() &&
-      ToLayoutEmbeddedContent(layer->GetLayoutObject())
-          .RequiresAcceleratedCompositing();
-
   // Subsequent layers in the parent's stacking context may also need to
   // composite.
-  if (child_recursion_data.subtree_is_compositing_)
+  if (child_recursion_data.subtree_is_compositing_ || contains_composited_layer)
     current_recursion_data.subtree_is_compositing_ = true;
 
   // Set the flag to say that this SC has compositing children.
   layer->SetHasCompositingDescendant(
       child_recursion_data.subtree_is_compositing_ ||
-      contains_composited_iframe);
+      contains_composited_layer);
 
   if (layer->IsRootLayer()) {
     // The root layer needs to be composited if anything else in the tree is
     // composited.  Otherwise, we can disable compositing entirely.
     if (child_recursion_data.subtree_is_compositing_ ||
-        RequiresCompositingOrSquashing(reasons_to_composite) ||
-        compositor->RootShouldAlwaysComposite()) {
+        RequiresCompositingOrSquashing(reasons_to_composite)) {
 #if DCHECK_IS_ON()
       // The reason for compositing should not be due to composited scrolling.
       // It should only be compositing in order to represent composited content
@@ -551,9 +548,11 @@ void CompositingRequirementsUpdater::UpdateRecursive(
     // the overlap map. Layers that are not separately composited will paint
     // into their compositing ancestor's backing, and so are still considered
     // for overlap.
-    if (child_recursion_data.compositing_ancestor_ &&
-        !child_recursion_data.compositing_ancestor_->IsRootLayer())
+    if ((child_recursion_data.compositing_ancestor_ &&
+         !child_recursion_data.compositing_ancestor_->IsRootLayer()) ||
+        contains_composited_layer) {
       overlap_map.Add(layer, abs_bounds, use_clipped_bounding_rect);
+    }
 
     // Now check for reasons to become composited that depend on the state of
     // descendant layers.
@@ -586,20 +585,16 @@ void CompositingRequirementsUpdater::UpdateRecursive(
       current_recursion_data.subtree_is_compositing_ = true;
 
     // Turn overlap testing off for later layers if it's already off, or if we
-    // have an animating transform.  Note that if the layer clips its
-    // descendants, there's no reason to propagate the child animation to the
-    // parent layers. That's because we know for sure the animation is contained
-    // inside the clipping rectangle, which is already added to the overlap map.
-    bool is_composited_clipping_layer =
-        can_be_composited && (reasons_to_composite &
-                              CompositingReason::kClipsCompositingDescendants);
-    if ((!child_recursion_data.testing_overlap_ &&
-         !is_composited_clipping_layer) ||
-        layer->GetLayoutObject().StyleRef().HasCurrentTransformAnimation())
+    // have an animating transform.
+    if (!child_recursion_data.testing_overlap_ ||
+        layer->GetLayoutObject().StyleRef().HasCurrentTransformAnimation()) {
       current_recursion_data.testing_overlap_ = false;
+    }
 
-    if (child_recursion_data.compositing_ancestor_ == layer)
+    if (child_recursion_data.compositing_ancestor_ == layer ||
+        contains_composited_layer) {
       overlap_map.FinishCurrentOverlapTestingContext();
+    }
 
     descendant_has3d_transform |=
         any_descendant_has3d_transform || layer->Has3DTransform();
@@ -614,7 +609,6 @@ void CompositingRequirementsUpdater::UpdateRecursive(
   // At this point we have finished collecting all reasons to composite this
   // layer.
   layer->SetCompositingReasons(reasons_to_composite);
-
   // If we've skipped recursing down to children but children needed an
   // update, remember this on the display lock context, so that we can restore
   // the dirty bit when the lock is unlocked.

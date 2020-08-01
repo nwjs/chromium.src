@@ -74,9 +74,9 @@ namespace blink {
 
 namespace {
 
-bool CheckForUnoptimizedImagePolicy(Document& document,
+bool CheckForUnoptimizedImagePolicy(ExecutionContext* context,
                                     ImageResourceContent* new_image) {
-  if (!new_image)
+  if (!context || !new_image)
     return false;
 
   // Render the image as a placeholder image if the image is not sufficiently
@@ -85,9 +85,8 @@ bool CheckForUnoptimizedImagePolicy(Document& document,
   // Note: UnoptimizedImagePolicies is currently part of DocumentPolicy.
   // The original runtime feature UnoptimizedImagePolicies is no longer used,
   // and are planned to be removed.
-  if (RuntimeEnabledFeatures::DocumentPolicyEnabled(&document) &&
-      !new_image->IsAcceptableCompressionRatio(
-          *document.GetExecutionContext())) {
+  if (RuntimeEnabledFeatures::DocumentPolicyEnabled(context) &&
+      !new_image->IsAcceptableCompressionRatio(*context)) {
     return true;
   }
 
@@ -284,7 +283,7 @@ void ImageLoader::RejectPendingDecodes(UpdateType update_type) {
   }
 }
 
-void ImageLoader::Trace(Visitor* visitor) {
+void ImageLoader::Trace(Visitor* visitor) const {
   visitor->Trace(image_content_);
   visitor->Trace(image_content_for_image_document_);
   visitor->Trace(element_);
@@ -392,7 +391,8 @@ static void ConfigureRequest(
         element.GetDocument().GetSecurityOrigin(), cross_origin);
   }
 
-  if (RuntimeEnabledFeatures::PriorityHintsEnabled(&element.GetDocument())) {
+  if (RuntimeEnabledFeatures::PriorityHintsEnabled(
+          element.GetExecutionContext())) {
     mojom::FetchImportanceMode importance_mode =
         GetFetchImportanceAttributeValue(
             element.FastGetAttribute(html_names::kImportanceAttr));
@@ -535,10 +535,8 @@ void ImageLoader::DoUpdateFromElement(
     ConfigureRequest(params, bypass_behavior, *element_,
                      document.GetFrame()->GetClientHintsPreferences());
 
-    if ((update_behavior != kUpdateForcedReload &&
-         lazy_image_load_state_ == LazyImageLoadState::kNone) ||
-        (update_behavior == kUpdateSizeChanged &&
-         lazy_image_load_state_ == LazyImageLoadState::kDeferred)) {
+    if (update_behavior != kUpdateForcedReload &&
+        lazy_image_load_state_ != LazyImageLoadState::kFullImage) {
       const auto* frame = document.GetFrame();
       if (auto* html_image = DynamicTo<HTMLImageElement>(GetElement())) {
         LoadingAttributeValue loading_attr = GetLoadingAttributeValue(
@@ -712,8 +710,7 @@ void ImageLoader::UpdateFromElement(
   // Don't load images for inactive documents or active documents without V8
   // context. We don't want to slow down the raw HTML parsing case by loading
   // images we don't intend to display.
-  Document& document = element_->GetDocument();
-  if (!document.IsContextDestroyed() && document.IsActive())
+  if (element_->GetDocument().IsActive())
     EnqueueImageLoadingMicroTask(update_behavior, referrer_policy);
 }
 
@@ -766,13 +763,13 @@ void ImageLoader::ImageChanged(ImageResourceContent* content,
       std::make_unique<IncrementLoadEventDelayCount>(document);
 }
 
-void ImageLoader::ImageNotifyFinished(ImageResourceContent* resource) {
+void ImageLoader::ImageNotifyFinished(ImageResourceContent* content) {
   RESOURCE_LOADING_DVLOG(1)
       << "ImageLoader::imageNotifyFinished " << this
       << "; has pending load event=" << pending_load_event_.IsActive();
 
   DCHECK(failed_load_url_.IsEmpty());
-  DCHECK_EQ(resource, image_content_.Get());
+  DCHECK_EQ(content, image_content_.Get());
 
   CHECK(!image_complete_);
 
@@ -816,7 +813,8 @@ void ImageLoader::ImageNotifyFinished(ImageResourceContent* resource) {
   // HTMLImageElement.
   // crbug.com/930281
   auto* html_image_element = DynamicTo<HTMLImageElement>(element_.Get());
-  if (CheckForUnoptimizedImagePolicy(element_->GetDocument(), image_content_) &&
+  if (CheckForUnoptimizedImagePolicy(element_->GetExecutionContext(),
+                                     image_content_) &&
       html_image_element)
     html_image_element->SetImagePolicyViolated();
 
@@ -825,10 +823,10 @@ void ImageLoader::ImageNotifyFinished(ImageResourceContent* resource) {
   if (html_image_element)
     LazyImageHelper::RecordMetricsOnLoadFinished(html_image_element);
 
-  if (resource->ErrorOccurred()) {
+  if (content->ErrorOccurred()) {
     pending_load_event_.Cancel();
 
-    base::Optional<ResourceError> error = resource->GetResourceError();
+    base::Optional<ResourceError> error = content->GetResourceError();
     if (error && error->IsAccessCheck())
       CrossSiteOrCSPViolationOccurred(AtomicString(error->FailingURL()));
 
@@ -1015,7 +1013,7 @@ void ImageLoader::DecodeRequest::NotifyDecodeDispatched() {
   state_ = kDispatched;
 }
 
-void ImageLoader::DecodeRequest::Trace(Visitor* visitor) {
+void ImageLoader::DecodeRequest::Trace(Visitor* visitor) const {
   visitor->Trace(resolver_);
   visitor->Trace(loader_);
 }

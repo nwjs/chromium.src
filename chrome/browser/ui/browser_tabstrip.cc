@@ -69,7 +69,7 @@ void AddWebContents(Browser* browser,
   bool has_frame = true;
   bool fullscreen = false;
   if (!manifest.empty()) {
-    std::unique_ptr<base::Value> val = base::JSONReader().ReadToValueDeprecated(manifest);
+    std::unique_ptr<base::Value> val = base::JSONReader::ReadDeprecated(manifest);
     if (val && val->is_dict()) {
       std::unique_ptr<base::DictionaryValue> mnfst;
       mnfst.reset(static_cast<base::DictionaryValue*>(val.release()));

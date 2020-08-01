@@ -292,6 +292,7 @@ class IconLoadingPipeline : public base::RefCounted<IconLoadingPipeline> {
 
   // The image file must be compressed using the default encoding.
   void LoadCompressedIconFromFile(const base::FilePath& path);
+  void LoadIconFromCompressedData(const std::string& compressed_icon_data);
 
   void LoadIconFromResource(int icon_resource);
 
@@ -361,6 +362,8 @@ void IconLoadingPipeline::LoadWebAppIcon(
         }
         FALLTHROUGH;
       case apps::mojom::IconCompression::kUncompressed:
+        FALLTHROUGH;
+      case apps::mojom::IconCompression::kStandard:
         // If |icon_effects| are requested, we must always load the
         // uncompressed image to apply the icon effects, and then re-encode the
         // image if the compressed icon is requested.
@@ -369,6 +372,10 @@ void IconLoadingPipeline::LoadWebAppIcon(
             SkBitmapToImageSkiaCallback(base::BindOnce(
                 &IconLoadingPipeline::MaybeApplyEffectsAndComplete,
                 base::WrapRefCounted(this))));
+
+        // TODO(crbug.com/1083331): For kStandard icons, if the icon is
+        // generated or maskable, modify the icon effect, don't apply
+        // kResizeAndPad to shrink the icon.
         return;
       case apps::mojom::IconCompression::kUnknown:
         break;
@@ -412,6 +419,8 @@ void IconLoadingPipeline::LoadExtensionIcon(
       }
       FALLTHROUGH;
     case apps::mojom::IconCompression::kUncompressed:
+      FALLTHROUGH;
+    case apps::mojom::IconCompression::kStandard:
       // If |icon_effects| are requested, we must always load the
       // uncompressed image to apply the icon effects, and then re-encode
       // the image if the compressed icon is requested.
@@ -439,6 +448,17 @@ void IconLoadingPipeline::LoadCompressedIconFromFile(
                          base::WrapRefCounted(this))));
 }
 
+void IconLoadingPipeline::LoadIconFromCompressedData(
+    const std::string& compressed_icon_data) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  std::vector<uint8_t> data(compressed_icon_data.begin(),
+                            compressed_icon_data.end());
+  CompressedDataToImageSkiaCallback(
+      base::BindOnce(&IconLoadingPipeline::MaybeApplyEffectsAndComplete,
+                     base::WrapRefCounted(this)))
+      .Run(std::move(data));
+}
+
 void IconLoadingPipeline::LoadIconFromResource(int icon_resource) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   if (icon_resource == kInvalidIconResource) {
@@ -458,7 +478,9 @@ void IconLoadingPipeline::LoadIconFromResource(int icon_resource) {
         return;
       }
       FALLTHROUGH;
-    case apps::mojom::IconCompression::kUncompressed: {
+    case apps::mojom::IconCompression::kUncompressed:
+      FALLTHROUGH;
+    case apps::mojom::IconCompression::kStandard: {
       // For compressed icons with |icon_effects|, or for uncompressed
       // icons, we load the uncompressed image, apply the icon effects, and
       // then re-encode the image if necessary.
@@ -501,6 +523,11 @@ void IconLoadingPipeline::MaybeApplyEffectsAndComplete(
     return;
   }
   gfx::ImageSkia processed_image = image;
+
+  // TODO(crbug.com/1083331):
+  // 1. For kStandard icons, shrink and apply the mask.
+  // 2. For the default apps, use the raw image, and don't shrink and apply the
+  // mask.
 
   // Apply the icon effects on the uncompressed data. If the caller requests
   // an uncompressed icon, return the uncompressed result; otherwise, encode
@@ -714,6 +741,22 @@ void LoadIconFromFileWithFallback(
           icon_compression, size_hint_in_dip, is_placeholder_icon, icon_effects,
           kInvalidIconResource, std::move(fallback), std::move(callback));
   icon_loader->LoadCompressedIconFromFile(path);
+}
+
+void LoadIconFromCompressedData(
+    apps::mojom::IconCompression icon_compression,
+    int size_hint_in_dip,
+    IconEffects icon_effects,
+    const std::string& compressed_icon_data,
+    apps::mojom::Publisher::LoadIconCallback callback) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  constexpr bool is_placeholder_icon = false;
+
+  scoped_refptr<IconLoadingPipeline> icon_loader =
+      base::MakeRefCounted<IconLoadingPipeline>(
+          icon_compression, size_hint_in_dip, is_placeholder_icon, icon_effects,
+          kInvalidIconResource, std::move(callback));
+  icon_loader->LoadIconFromCompressedData(compressed_icon_data);
 }
 
 void LoadIconFromResource(apps::mojom::IconCompression icon_compression,

@@ -5,7 +5,7 @@
 #include <lib/sys/cpp/component_context.h>
 
 #include "base/command_line.h"
-#include "base/fuchsia/default_context.h"
+#include "base/fuchsia/process_context.h"
 #include "base/fuchsia/scoped_service_binding.h"
 #include "base/message_loop/message_pump_type.h"
 #include "base/optional.h"
@@ -15,6 +15,7 @@
 #include "fuchsia/base/config_reader.h"
 #include "fuchsia/base/fuchsia_dir_scheme.h"
 #include "fuchsia/base/init_logging.h"
+#include "fuchsia/base/inspect.h"
 #include "fuchsia/runners/cast/cast_runner.h"
 
 namespace {
@@ -46,12 +47,12 @@ int main(int argc, char** argv) {
 
   CastRunner runner(IsHeadless());
   base::fuchsia::ScopedServiceBinding<fuchsia::sys::Runner> binding(
-      base::fuchsia::ComponentContextForCurrentProcess()->outgoing().get(),
-      &runner);
+      base::ComponentContextForProcess()->outgoing().get(), &runner);
 
-  base::fuchsia::ComponentContextForCurrentProcess()
-      ->outgoing()
-      ->ServeFromStartupInfo();
+  base::ComponentContextForProcess()->outgoing()->ServeFromStartupInfo();
+
+  // Publish version information for this component to Inspect.
+  cr_fuchsia::PublishVersionInfoToInspect(base::ComponentInspectorForProcess());
 
   // Run until there are no Components, or the last service client channel is
   // closed.
