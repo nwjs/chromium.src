@@ -525,7 +525,15 @@ bool FocusManager::ProcessAccelerator(const ui::Accelerator& accelerator) {
     return true;
   if (delegate_ && delegate_->ProcessAccelerator(accelerator))
     return true;
+
+#if defined(OS_MACOSX)
+  // On MacOS accelerators are processed when a bubble is opened without
+  // manual redirection to bubble anchor widget. Including redirect on MacOS
+  // breaks processing accelerators by the bubble itself.
+  return false;
+#else
   return RedirectAcceleratorToBubbleAnchorWidget(accelerator);
+#endif
 }
 
 bool FocusManager::IsAcceleratorRegistered(

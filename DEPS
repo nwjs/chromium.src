@@ -180,11 +180,11 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling Skia
   # and whatever else without interference from each other.
-  'skia_revision': '8d2ebfffaf6ece9a7e9839dca2d7907f241c3460',
+  'skia_revision': 'fb540c3cb5f0a9f8dafbc22ebd9d039e1896f65b',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling V8
   # and whatever else without interference from each other.
-  'v8_revision': '819e18461e9daf907437a521d90663e827c40e05',
+  'v8_revision': '483421e9549adbf4a65d54d43fbffb250a577e5c',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling swarming_client
   # and whatever else without interference from each other.
@@ -251,7 +251,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling devtools-frontend
   # and whatever else without interference from each other.
-  'devtools_frontend_revision': '930c3d2ed8d25469f889f8a101f86f8c4c65d458',
+  'devtools_frontend_revision': '95e8d52caabdf839494f0f63c1bebc0ff4ff93d8',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling libprotobuf-mutator
   # and whatever else without interference from each other.
@@ -1458,7 +1458,7 @@ deps = {
   },
 
   'src/third_party/webrtc':
-    Var('webrtc_git') + '/src.git' + '@' + '758c388d3fedac4a474b48a240af83dd3f6a5fc5',
+    Var('webrtc_git') + '/src.git' + '@' + 'd25c2ac74afc25f65d111771dbfabd6db25d2498',
 
   'src/third_party/libgifcodec':
      Var('skia_git') + '/libgifcodec' + '@'+  Var('libgifcodec_revision'),
@@ -1530,7 +1530,7 @@ deps = {
   #  Var('chromium_git') + '/v8/v8.git' + '@' +  Var('v8_revision'),
 
   'src-internal': {
-    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@1a0102f7bf9454cdaed893fb4a213e9490af434a',
+    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@ba498c87fefaff271bedc8f8f07f0d5d8fc0ed0d',
     'condition': 'checkout_src_internal',
   },
 

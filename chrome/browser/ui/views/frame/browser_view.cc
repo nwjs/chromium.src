@@ -2171,7 +2171,7 @@ bool BrowserView::CanResize() const {
 }
 
 bool BrowserView::CanMaximize() const {
-  return resizable_ && maximum_size_.IsEmpty() && !WidgetHasHitTestMask();
+  return resizable_ && size_constraints_.GetMaximumSize().IsEmpty() && !WidgetHasHitTestMask();
 }
 
 bool BrowserView::CanMinimize() const {

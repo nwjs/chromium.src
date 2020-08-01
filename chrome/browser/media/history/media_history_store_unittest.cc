@@ -353,6 +353,22 @@ TEST_P(MediaHistoryStoreUnitTest, SavePlayback) {
       MediaHistoryStore::PlaybackWriteResult::kSuccess, IsReadOnly() ? 0 : 2);
 }
 
+TEST_P(MediaHistoryStoreUnitTest, SavePlayback_BadOrigin) {
+  GURL url("http://google.com/test");
+  GURL url2("http://google.co.uk/test");
+  content::MediaPlayerWatchTime watch_time(url, url2.GetOrigin(),
+                                           base::TimeDelta::FromSeconds(60),
+                                           base::TimeDelta(), true, false);
+  service()->SavePlayback(watch_time);
+
+  // Verify that the origin and playbacks table are empty.
+  auto origins = GetOriginRowsSync(service());
+  auto playbacks = GetPlaybackRowsSync(service());
+
+  EXPECT_TRUE(playbacks.empty());
+  EXPECT_TRUE(origins.empty());
+}
+
 TEST_P(MediaHistoryStoreUnitTest, GetStats) {
   {
     // Check all the tables are empty.

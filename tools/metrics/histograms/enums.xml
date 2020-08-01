@@ -44000,6 +44000,7 @@ Called by update_use_counter_css.py.-->
   <int value="2" label="Failed to write origin"/>
   <int value="3" label="Failed to write playback"/>
   <int value="4" label="Failed to increment aggregated watchtime"/>
+  <int value="5" label="Failed to store playback due to bad origin"/>
 </enum>
 
 <enum name="MediaHistorySessionWriteResult">

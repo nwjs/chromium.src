@@ -2039,6 +2039,15 @@
       },
     },
   },
+  'storage_service_unsandboxed_content_browsertests': {
+    'modifications': {
+      'Linux Tests (dbg)(1)': {
+        'swarming': {
+          'shards': 4,
+        },
+      },
+    },
+  },
   'storage_service_unsandboxed_interactive_ui_tests': {
     'modifications': {
       'linux-chromeos-chrome': {

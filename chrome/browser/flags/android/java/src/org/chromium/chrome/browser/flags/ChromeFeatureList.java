@@ -360,6 +360,7 @@ public abstract class ChromeFeatureList {
             "PredictivePrefetchingAllowedOnAllConnectionTypes";
     public static final String PRIORITIZE_BOOTSTRAP_TASKS = "PrioritizeBootstrapTasks";
     public static final String PROBABILISTIC_CRYPTID_RENDERER = "ProbabilisticCryptidRenderer";
+    public static final String QUERY_TILES_GEO_FILTER = "QueryTilesGeoFilter";
     public static final String QUERY_TILES = "QueryTiles";
     public static final String QUERY_TILES_ENABLE_QUERY_EDITING = "QueryTilesEnableQueryEditing";
     public static final String QUERY_IN_OMNIBOX = "QueryInOmnibox";

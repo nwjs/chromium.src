@@ -153,6 +153,10 @@ crbug.com/1068175 [ Linux ] external/wpt/referrer-policy/gen/worker-classic.http
 # Sheriff 2020-05-06
 crbug.com/1078769 [ Linux ] external/wpt/wasm/jsapi/idlharness.any.html [ Pass Failure ]
 
+# This test triggers existing leaky behavior, but this test also catches
+# a prior crash.
+crbug.com/1103082 [ Linux ] fast/forms/select/select-change-layout-object-crash.html [ Failure ]
+
 ###########################################################################
 # WARNING: Memory leaks must be fixed asap. Sheriff is expected to revert #
 # culprit CLs instead of suppressing the leaks. If you have any question, #

@@ -2510,7 +2510,7 @@
   {
     "name": "force-color-profile",
     "owners": [ "ccameron" ],
-    "expiry_milestone": 81
+    "expiry_milestone": 89
   },
   {
     "name": "force-dice-migration",

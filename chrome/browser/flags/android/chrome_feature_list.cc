@@ -256,6 +256,7 @@ const base::Feature* kFeaturesExposedToJava[] = {
     &password_manager::features::kPasswordManagerOnboardingAndroid,
     &password_manager::features::kRecoverFromNeverSaveAndroid,
     &query_tiles::features::kQueryTiles,
+    &query_tiles::features::kQueryTilesGeoFilter,
     &query_tiles::features::kQueryTilesInOmnibox,
     &query_tiles::features::kQueryTilesEnableQueryEditing,
     &security_state::features::kMarkHttpAsFeature,
