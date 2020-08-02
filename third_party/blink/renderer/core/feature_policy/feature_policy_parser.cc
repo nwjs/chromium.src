@@ -23,7 +23,7 @@
 #include "url/origin.h"
 
 namespace blink {
-namespace {
+//namespace {
 namespace internal {
 // Following is the intermediate represetnation(IR) of feature policy.
 // Parsing of syntax structures is done in this IR, but semantic checks, e.g.
@@ -33,7 +33,7 @@ struct FeaturePolicyDeclarationNode {
   Vector<String> allowlist;
 };
 using FeaturePolicyNode = Vector<FeaturePolicyDeclarationNode>;
-}  // namespace internal
+//}  // namespace internal
 
 class ParsingContext {
  public:
@@ -433,7 +433,7 @@ ParsedFeaturePolicy FeaturePolicyParser::Parse(
     PolicyParserMessageBuffer& logger,
     const FeatureNameMap& feature_names,
     FeaturePolicyParserDelegate* delegate) {
-  return ParsingContext(logger, self_origin, src_origin, feature_names,
+  return internal::ParsingContext(logger, self_origin, src_origin, feature_names,
                         delegate)
       .Parse(policy);
 }

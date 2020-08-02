@@ -1206,11 +1206,11 @@ void DownloadItemView::ShowDeepScanningDialog() {
   DCHECK_EQ(mode_, Mode::kNormal);
   SetMode(Mode::kDeepScanning);
 
-  const int id = (model_->download() &&
+  const int id = /* (model_->download() &&
                   safe_browsing::DeepScanningRequest::ShouldUploadBinary(
                       model_->download()))
                      ? IDS_PROMPT_DEEP_SCANNING_DOWNLOAD
-                     : IDS_PROMPT_DEEP_SCANNING_APP_DOWNLOAD;
+                     :*/ IDS_PROMPT_DEEP_SCANNING_APP_DOWNLOAD;
   const base::string16 filename = ElidedFilename();
   size_t filename_offset;
   auto deep_scanning_label = std::make_unique<views::StyledLabel>(

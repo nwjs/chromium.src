@@ -5237,6 +5237,7 @@ ChromeContentBrowserClient::GetUrlLookupService(
     content::BrowserContext* browser_context,
     bool is_enterprise_lookup_enabled,
     bool is_consumer_lookup_enabled) {
+#if 0
   // |safe_browsing_service_| may be unavailable in tests.
   if (!safe_browsing_service_) {
     return nullptr;
@@ -5255,6 +5256,7 @@ ChromeContentBrowserClient::GetUrlLookupService(
     return safe_browsing::RealTimeUrlLookupServiceFactory::GetForProfile(
         profile);
   }
+#endif
   return nullptr;
 }
 
