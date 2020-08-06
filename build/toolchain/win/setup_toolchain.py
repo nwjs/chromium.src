@@ -157,6 +157,7 @@ def _LoadToolchainEnv(cpu, sdk_dir, target_store):
     # Store target must come before any SDK version declaration
     if (target_store):
       args.append(['store'])
+    args.append('10.0.18362.0')
     variables = _LoadEnvFromBat(args)
   return _ExtractImportantEnvironment(variables)
 
