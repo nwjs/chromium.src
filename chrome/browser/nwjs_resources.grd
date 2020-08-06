@@ -345,12 +345,18 @@
         <include name="IDR_GOOGLE_NOW_MANIFEST" file="resources\empty.json" type="BINDATA" />
       </if>
       <include name="IDR_URL_MOJO_JS" file="resources\empty.js" type="BINDATA" compress="gzip" />
-      <include name="IDR_SIGNIN_EMAIL_CONFIRMATION_HTML" file="resources\signin\signin_email_confirmation\signin_email_confirmation.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
+      <if expr="is_win or is_macosx or desktop_linux">
+        <include name="IDR_SIGNIN_EMAIL_CONFIRMATION_HTML" file="resources\signin\signin_email_confirmation\signin_email_confirmation.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
         <include name="IDR_SIGNIN_EMAIL_CONFIRMATION_APP_JS" file="${root_gen_dir}\chrome\browser\resources\signin\signin_email_confirmation\signin_email_confirmation_app.js" use_base_dir="false" preprocess="true" type="BINDATA" />
-      <include name="IDR_SIGNIN_ERROR_HTML" file="resources\signin\signin_error\signin_error.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
-      <include name="IDR_SIGNIN_ERROR_JS" file="resources\signin\signin_error\signin_error.js" type="BINDATA" />
-        <include name="IDR_SIGNIN_ERROR_APP_HTML" file="resources\signin\signin_error\signin_error_app.html" preprocess="true" type="BINDATA" />
-        <include name="IDR_SIGNIN_ERROR_APP_JS" file="resources\signin\signin_error\signin_error_app.js" type="BINDATA" />
+        <include name="IDR_SIGNIN_ERROR_HTML" file="resources\signin\signin_error\signin_error.html" type="BINDATA" />
+        <include name="IDR_SIGNIN_ERROR_JS" file="resources\signin\signin_error\signin_error.js" type="BINDATA" />
+        <include name="IDR_SIGNIN_ERROR_APP_JS" file="${root_gen_dir}\chrome\browser\resources\signin\signin_error\signin_error_app.js" use_base_dir="false" preprocess="true" type="BINDATA" />
+        <include name="IDR_SIGNIN_REAUTH_HTML" file="resources\signin\signin_reauth\signin_reauth.html" type="BINDATA" />
+        <include name="IDR_SIGNIN_REAUTH_APP_JS" file="${root_gen_dir}\chrome\browser\resources\signin\signin_reauth\signin_reauth_app.js" use_base_dir="false" preprocess="true" type="BINDATA" />
+        <include name="IDR_SIGNIN_REAUTH_BROWSER_PROXY_JS" file="resources/signin/signin_reauth/signin_reauth_browser_proxy.js" type="BINDATA" />
+        <include name="IDR_SIGNIN_REAUTH_IMAGES_ACCOUNT_PASSWORDS_REAUTH_ILLUSTRATION_SVG" file="resources\signin\signin_reauth\images\account_passwords_reauth_illustration.svg" type="BINDATA" />
+        <include name="IDR_SIGNIN_REAUTH_IMAGES_ACCOUNT_PASSWORDS_REAUTH_ILLUSTRATION_DARK_SVG" file="resources\signin\signin_reauth\images\account_passwords_reauth_illustration_dark.svg" type="BINDATA" />
+      </if>
       <include name="IDR_UBER_HTML" file="resources\empty.html" flattenhtml="true" type="BINDATA" />
       <include name="IDR_UBER_JS" file="resources\empty.js" type="BINDATA" />
       <include name="IDR_UBER_FRAME_HTML" file="resources\empty.html" flattenhtml="true" type="BINDATA" />
