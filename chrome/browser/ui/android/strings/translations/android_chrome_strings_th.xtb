@@ -589,7 +589,7 @@
 <translation id="5723735397759933332">ตอนนี้โหมด Lite จะประหยัดอินเทอร์เน็ตมือถือโดยการเพิ่มประสิทธิภาพให้รูปภาพในหน้า HTTPS</translation>
 <translation id="5726692708398506830">ขยายรายละเอียดทั้งหมดบนหน้า</translation>
 <translation id="5732819098735351888">การดาวน์โหลดจะเริ่มผ่าน Wi-Fi</translation>
-<translation id="5733983706093266635">สร้างคิวอาร์โค้ดไม่ได้ URL มากกว่า <ph name="CHARACTER_LIMIT" /> อักขระ</translation>
+<translation id="5733983706093266635">สร้างคิวอาร์โค้ดไม่ได้ URL มีจำนวนอักขระมากกว่า <ph name="CHARACTER_LIMIT" /> ตัว</translation>
 <translation id="5748802427693696783">สลับเป็นแท็บมาตรฐานแล้ว</translation>
 <translation id="5749068826913805084">Chrome ต้องมีสิทธิ์เข้าถึงพื้นที่เก็บข้อมูลเพื่อดาวน์โหลดไฟล์</translation>
 <translation id="5763382633136178763">แท็บที่ไม่ระบุตัวตน</translation>
@@ -631,7 +631,7 @@
 <translation id="6036057147555329831">ICU เพิ่มเติม</translation>
 <translation id="6039379616847168523">ข้ามไปยังแท็บถัดไป</translation>
 <translation id="604124094241169006">อัตโนมัติ</translation>
-<translation id="6042308850641462728">เพิ่มเติม</translation>
+<translation id="6042308850641462728">แสดงเพิ่ม</translation>
 <translation id="604996488070107836">การดาวน์โหลด <ph name="FILE_NAME" /> ล้มเหลวเนื่องจากข้อผิดพลาดที่ไม่รู้จัก</translation>
 <translation id="605721222689873409">ปป</translation>
 <translation id="6059830886158432458">ควบคุมเรื่องราวและกิจกรรมของคุณได้ที่นี่</translation>

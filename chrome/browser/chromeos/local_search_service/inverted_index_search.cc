@@ -12,18 +12,22 @@
 #include "base/strings/string_util.h"
 #include "chrome/browser/chromeos/local_search_service/content_extraction_utils.h"
 #include "chrome/browser/chromeos/local_search_service/inverted_index.h"
-#include "chrome/common/string_matching/tokenized_string.h"
+#include "chromeos/components/string_matching/tokenized_string.h"
 
 namespace local_search_service {
 
 namespace {
 
+using chromeos::string_matching::TokenizedString;
+
 std::vector<Token> ExtractDocumentTokens(const Data& data,
                                          const std::string& locale) {
   std::vector<Token> document_tokens;
   for (const Content& content : data.contents) {
+    DCHECK_GE(content.weight, 0);
+    DCHECK_LE(content.weight, 1);
     const std::vector<Token> content_tokens =
-        ExtractContent(content.id, content.content, locale);
+        ExtractContent(content.id, content.content, content.weight, locale);
     document_tokens.insert(document_tokens.end(), content_tokens.begin(),
                            content_tokens.end());
   }
@@ -46,8 +50,11 @@ void InvertedIndexSearch::AddOrUpdate(
     const std::vector<local_search_service::Data>& data,
     bool build_index) {
   for (const Data& d : data) {
-    // TODO(jiameng): use different locales.
-    const std::vector<Token> document_tokens = ExtractDocumentTokens(d, "en");
+    // Use input locale unless it's empty. In this case we will use system
+    // default locale.
+    const std::string locale =
+        d.locale.empty() ? base::i18n::GetConfiguredLocale() : d.locale;
+    const std::vector<Token> document_tokens = ExtractDocumentTokens(d, locale);
     DCHECK(!document_tokens.empty());
     inverted_index_->AddDocument(d.id, document_tokens);
   }

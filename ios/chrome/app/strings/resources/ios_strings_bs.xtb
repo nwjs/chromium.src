@@ -21,6 +21,7 @@
 <translation id="1176932207622159128">Nije moguće sačuvati sliku</translation>
 <translation id="1180526666083833456">Sinhronizirajte i personalizirajte na svim uređajima.</translation>
 <translation id="1181037720776840403">Ukloni</translation>
+<translation id="1185569544548277362">Novo: Možete postaviti Chrome kao zadani preglednik. <ph name="BEGIN_LINK" />Otvori postavke<ph name="END_LINK" /></translation>
 <translation id="1207113853726624428">Novo pretraživanje</translation>
 <translation id="1209206284964581585">Sakrij za sada</translation>
 <translation id="1219674500290482172">Nije moguće povezati se s internetom.</translation>
@@ -457,7 +458,7 @@ Vaši podaci su šifrirani sinhroniziranim pristupnim izrazom <ph name="TIME" />
 <translation id="6418346271604475326">Pripremanje PDF-a</translation>
 <translation id="6434591244308415567">Došlo je do greške. Pokušajte ponovo kasnije.</translation>
 <translation id="6439338047467462846">Dozvoli sve</translation>
-<translation id="6445051938772793705">Država</translation>
+<translation id="6445051938772793705">Zemlja</translation>
 <translation id="6445981559479772097">Poruka je poslana.</translation>
 <translation id="6447842834002726250">Kolačići</translation>
 <translation id="6464071786529933911">Otvori u novoj anonimnoj kartici</translation>

@@ -1100,6 +1100,7 @@ class CORE_EXPORT PaintLayer : public DisplayItemClient {
 
   void SetNeedsCompositingLayerAssignment();
   void ClearNeedsCompositingLayerAssignment();
+  void PropagateDescendantNeedsCompositingLayerAssignment();
 
   bool NeedsCompositingLayerAssignment() const {
     return needs_compositing_layer_assignment_;

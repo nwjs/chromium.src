@@ -5376,7 +5376,7 @@ int32_t AXPlatformNodeWin::ComputeIA2State() {
   const AXNodeData& data = GetData();
   int32_t ia2_state = IA2_STATE_OPAQUE;
 
-  if (HasIntAttribute(ax::mojom::IntAttribute::kCheckedState))
+  if (IsPlatformCheckable())
     ia2_state |= IA2_STATE_CHECKABLE;
 
   if (HasIntAttribute(ax::mojom::IntAttribute::kInvalidState) &&
@@ -7132,6 +7132,13 @@ base::string16 AXPlatformNodeWin::GetValue() const {
     value = GetString16Attribute(ax::mojom::StringAttribute::kUrl);
 
   return value;
+}
+
+bool AXPlatformNodeWin::IsPlatformCheckable() const {
+  if (GetData().role == ax::mojom::Role::kToggleButton)
+    return false;
+
+  return AXPlatformNodeBase::IsPlatformCheckable();
 }
 
 bool AXPlatformNodeWin::ShouldNodeHaveFocusableState(

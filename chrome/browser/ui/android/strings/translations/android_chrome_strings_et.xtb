@@ -26,7 +26,7 @@
 <translation id="1173894706177603556">Muuda nime</translation>
 <translation id="1177863135347784049">Kohandatud</translation>
 <translation id="1197267115302279827">Teisalda järjehoidjad</translation>
-<translation id="1201402288615127009">Edasi</translation>
+<translation id="1201402288615127009">Järgmine</translation>
 <translation id="1204037785786432551">Allalaadimislink</translation>
 <translation id="1206892813135768548">Kopeeri lingi tekst</translation>
 <translation id="1208340532756947324">Seadmete vahel sünkroonimiseks ja isikupärastamiseks lülitage sünkroonimine sisse</translation>
@@ -576,7 +576,7 @@ Seade muutmiseks <ph name="BEGIN_LINK" />lähtestage sünkroonimine<ph name="END
 <translation id="5639724618331995626">Luba kõik saidid</translation>
 <translation id="5648166631817621825">Viimased seitse päeva</translation>
 <translation id="5655963694829536461">Otsige oma allalaadimiste hulgast</translation>
-<translation id="5659593005791499971">Meil</translation>
+<translation id="5659593005791499971">E-post</translation>
 <translation id="5665379678064389456">Looge sündmus rakenduses <ph name="APP_NAME" /></translation>
 <translation id="5668404140385795438">Sissesuumimise takistamiseks veebisaidi taotluse alistamine</translation>
 <translation id="5684874026226664614">Vabandust. Lehte ei õnnestunud tõlkida.</translation>

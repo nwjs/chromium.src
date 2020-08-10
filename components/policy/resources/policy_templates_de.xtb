@@ -169,6 +169,9 @@ Bei verwalteten Geräten sind standardmäßig keine Modi für das schnelle Entsp
 
       Ist diese Richtlinie nicht festgelegt oder auf "false" gesetzt, wird "Fast Transition" nicht verwendet.
       Ist die Richtlinie auf "true" gesetzt, wird "Fast Transition" verwendet, wenn dies vom WLAN-Zugangspunkt unterstützt wird.</translation>
+<translation id="1240722269871366886">Diese Richtlinie ermöglicht <ph name="PRODUCT_OS_NAME" />, Emojis vorzuschlagen, wenn Nutzer Text mit ihrer Bildschirmtastatur oder physischen Tastatur eingeben.
+      Wenn diese Richtlinie auf "true" gesetzt ist, wird die Funktion aktiviert und kann vom Nutzer geändert werden.
+      Standardmäßig ist diese Richtlinie auf "false" gesetzt. Es werden keine Emojis vorgeschlagen und Nutzer können diese Einstellung nicht ändern.</translation>
 <translation id="1243570869342663665">Filterung von Inhalten nur für Erwachsene durch "SafeSites" konfigurieren.</translation>
 <translation id="1257550411839719984">Standard-Downloadverzeichnis festlegen</translation>
 <translation id="1265053460044691532">Zeit beschränken, für die sich ein über SAML authentifizierter Nutzer offline anmelden kann</translation>
@@ -809,9 +812,6 @@ Wenn die Richtlinie "EnableMediaRouter" auf "false" gesetzt ist, hat der Wert di
       Diese Richtlinie sollte nicht für Geräte verwendet werden, die öffentlich zugänglich sind.
 
       Wenn die Richtlinie auf "True" gesetzt oder nicht konfiguriert ist, bleibt die Datenschutzwarnung in der automatisch gestarteten verwalteten Gastsitzung angepinnt, bis der Nutzer sie schließt.</translation>
-<translation id="2288338171390565087">Wenn Nutzer ein Wort eingeben, das zur integrierten Emoji-Map passt, schlägt diese Funktion automatisch ein Emoji vor
-      Wenn diese Richtlinie auf "True" gesetzt ist, wird diese Funktion erzwungen. Nutzer können dann keine andere Einstellung vornehmen.
-      Standardmäßig ist diese Richtlinie auf "False" gesetzt. Es werden keine Emojis vorgeschlagen und Nutzer können keine andere Einstellung vornehmen.</translation>
 <translation id="2289265947759479962">Mit dieser Richtlinie wird festgelegt, ob Versionsinformationen wie die Betriebssystemversion, das Betriebssystem, die Architektur des Betriebssystems, die <ph name="PRODUCT_NAME" />-Version und der <ph name="PRODUCT_NAME" />-Release-Channel gesendet werden.
 
       Wenn die Richtlinie <ph name="CLOUD_REPORTING_ENABLED_POLICY_NAME" /> deaktiviert oder nicht konfiguriert ist, wird diese Richtlinie ignoriert.

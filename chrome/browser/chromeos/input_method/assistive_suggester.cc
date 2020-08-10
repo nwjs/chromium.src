@@ -111,6 +111,15 @@ void RecordAssistiveDisabled(AssistiveType type) {
   base::UmaHistogramEnumeration("InputMethod.Assistive.Disabled", type);
 }
 
+void RecordAssistiveUserPrefForPersonalInfo(bool value) {
+  base::UmaHistogramBoolean("InputMethod.Assistive.UserPref.PersonalInfo",
+                            value);
+}
+
+void RecordAssistiveUserPrefForEmoji(bool value) {
+  base::UmaHistogramBoolean("InputMethod.Assistive.UserPref.Emoji", value);
+}
+
 void RecordAssistiveCoverage(AssistiveType type) {
   base::UmaHistogramEnumeration("InputMethod.Assistive.Coverage", type);
 }
@@ -186,7 +195,12 @@ AssistiveSuggester::AssistiveSuggester(InputMethodEngine* engine,
                                        Profile* profile)
     : profile_(profile),
       personal_info_suggester_(engine, profile),
-      emoji_suggester_(engine) {}
+      emoji_suggester_(engine) {
+  RecordAssistiveUserPrefForPersonalInfo(
+      profile_->GetPrefs()->GetBoolean(prefs::kAssistPersonalInfoEnabled));
+  RecordAssistiveUserPrefForEmoji(
+      profile_->GetPrefs()->GetBoolean(prefs::kEmojiSuggestionEnabled));
+}
 
 bool AssistiveSuggester::IsAssistiveFeatureEnabled() {
   return IsAssistPersonalInfoEnabled() || IsEmojiSuggestAdditionEnabled();
@@ -201,6 +215,8 @@ bool AssistiveSuggester::IsAssistPersonalInfoEnabled() {
 bool AssistiveSuggester::IsEmojiSuggestAdditionEnabled() {
   return base::FeatureList::IsEnabled(
              chromeos::features::kEmojiSuggestAddition) &&
+         profile_->GetPrefs()->GetBoolean(
+             prefs::kEmojiSuggestionEnterpriseAllowed) &&
          profile_->GetPrefs()->GetBoolean(prefs::kEmojiSuggestionEnabled);
 }
 
@@ -264,6 +280,13 @@ bool AssistiveSuggester::OnKeyEvent(
   return false;
 }
 
+void AssistiveSuggester::RecordAssistiveMatchMetricsForAction(
+    AssistiveType action) {
+  RecordAssistiveMatch(action);
+  if (!IsActionEnabled(action))
+    RecordAssistiveDisabled(action);
+}
+
 void AssistiveSuggester::RecordAssistiveMatchMetrics(const base::string16& text,
                                                      int cursor_pos,
                                                      int anchor_pos) {
@@ -273,11 +296,14 @@ void AssistiveSuggester::RecordAssistiveMatchMetrics(const base::string16& text,
     int start_pos = std::max(0, cursor_pos - kMaxTextBeforeCursorLength);
     base::string16 text_before_cursor =
         text.substr(start_pos, cursor_pos - start_pos);
-    AssistiveType action = ProposeAssistiveAction(text_before_cursor);
+    // Personal info suggestion match
+    AssistiveType action =
+        ProposePersonalInfoAssistiveAction(text_before_cursor);
     if (action != AssistiveType::kGenericAction) {
-      RecordAssistiveMatch(action);
-      if (!IsActionEnabled(action))
-        RecordAssistiveDisabled(action);
+      RecordAssistiveMatchMetricsForAction(action);
+      // Emoji suggestion match
+    } else if (emoji_suggester_.ShouldShowSuggestion(text_before_cursor)) {
+      RecordAssistiveMatchMetricsForAction(AssistiveType::kEmoji);
     }
   }
 }

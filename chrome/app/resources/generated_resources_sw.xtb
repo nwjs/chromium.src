@@ -337,7 +337,7 @@
 <translation id="1420834118113404499">Leseni za maudhui</translation>
 <translation id="1420920093772172268"><ph name="TURN_ON_BLUETOOTH_LINK" /> uruhusu kuoanisha</translation>
 <translation id="1422159345171879700">Pakia Hati Zisizo Salama</translation>
-<translation id="1426410128494586442">Ndio</translation>
+<translation id="1426410128494586442">Ndiyo</translation>
 <translation id="142655739075382478"><ph name="APP_NAME" /> imezuiwa</translation>
 <translation id="1426870617281699524">Bofya Jaribu Tena na ukubali kidokezo kwenye kompyuta yako</translation>
 <translation id="1427179946227469514">Kiwango cha sauti ya kusoma maandishi kwa sauti</translation>
@@ -2410,7 +2410,7 @@ Ungependa kuanza <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="3949790930165450333"><ph name="DEVICE_NAME" /> (<ph name="DEVICE_ID" />)</translation>
 <translation id="394984172568887996">Zilizoingizwa Kutoka IE</translation>
 <translation id="3949981384795585075">{NUM_APPS,plural, =1{Huenda programu hii ni hatari}other{Huenda programu hizi ni hatari}}</translation>
-<translation id="3950820424414687140">Ingia</translation>
+<translation id="3950820424414687140">Ingia katika akaunti</translation>
 <translation id="3953834000574892725">Akaunti zangu</translation>
 <translation id="3954354850384043518">Unaendelea</translation>
 <translation id="3954469006674843813"><ph name="WIDTH" /> x <ph name="HEIGHT" /> (Hezi <ph name="REFRESH_RATE" />)</translation>
@@ -2576,7 +2576,7 @@ Ungependa kuanza <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="4170314459383239649">Futa Unapofunga</translation>
 <translation id="4175137578744761569">Zambarau hafifu na nyeupe</translation>
 <translation id="4175737294868205930">Hifadhi inayoendelea</translation>
-<translation id="4176463684765177261">Kimelemazwa</translation>
+<translation id="4176463684765177261">Imezimwa</translation>
 <translation id="418031202593299965">Vipengele hivi vinashirikiwa na watumiaji wengine kwenye kifaa hiki. Hatua ya kuondoa vipengele inaweza kuathiri watumiaji wengine.</translation>
 <translation id="4180788401304023883">Futa cheti cha CA "<ph name="CERTIFICATE_NAME" />"?</translation>
 <translation id="4181602000363099176">20x</translation>
@@ -6537,7 +6537,7 @@ Sidhani tovuti hii inapaswa kuzuiwa!</translation>
 <translation id="9219103736887031265">Picha</translation>
 <translation id="9220525904950070496">Ondoa akaunti</translation>
 <translation id="9220820413868316583">Inua kisha ujaribu tena.</translation>
-<translation id="923467487918828349">Onyesha Yote</translation>
+<translation id="923467487918828349">Onyesha Zote</translation>
 <translation id="929117907539171075">Itafuta pia data inayopatikana nje ya mtandao katika programu zilizosakinishwa</translation>
 <translation id="930268624053534560">Mihuri ya muda iliyo na maelezo ya kina</translation>
 <translation id="932327136139879170">Mwanzo</translation>

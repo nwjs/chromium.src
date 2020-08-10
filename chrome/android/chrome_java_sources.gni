@@ -717,6 +717,7 @@ chrome_java_sources = [
   "java/src/org/chromium/chrome/browser/firstrun/DefaultSearchEngineFirstRunFragment.java",
   "java/src/org/chromium/chrome/browser/firstrun/FirstRunActivity.java",
   "java/src/org/chromium/chrome/browser/firstrun/FirstRunActivityBase.java",
+  "java/src/org/chromium/chrome/browser/firstrun/FirstRunAppRestrictionInfo.java",
   "java/src/org/chromium/chrome/browser/firstrun/FirstRunChooserView.java",
   "java/src/org/chromium/chrome/browser/firstrun/FirstRunFlowSequencer.java",
   "java/src/org/chromium/chrome/browser/firstrun/FirstRunFragment.java",

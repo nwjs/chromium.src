@@ -82,8 +82,10 @@ syncer::DataTypeController::PreconditionState
 PasswordModelTypeController::GetPreconditionState() const {
   // If Sync-the-feature is enabled, then the user has opted in to that, and no
   // additional opt-in is required here.
-  if (sync_service_->IsSyncFeatureEnabled())
+  if (sync_service_->IsSyncFeatureEnabled() ||
+      sync_service_->IsLocalSyncEnabled()) {
     return PreconditionState::kPreconditionsMet;
+  }
   // If Sync-the-feature is *not* enabled, then password sync should only be
   // turned on if the user has opted in to the account-scoped storage.
   return features_util::IsOptedInForAccountStorage(pref_service_, sync_service_)

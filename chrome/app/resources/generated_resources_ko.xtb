@@ -3357,7 +3357,7 @@
 <translation id="5233231016133573565">프로세스 ID</translation>
 <translation id="5233638681132016545">새 탭</translation>
 <translation id="5233736638227740678">붙여넣기(&amp;P)</translation>
-<translation id="5234764350956374838">숨기기</translation>
+<translation id="5234764350956374838">닫기</translation>
 <translation id="5235050375939235066">앱을 제거하시겠습니까?</translation>
 <translation id="523505283826916779">접근성 설정</translation>
 <translation id="5235750401727657667">새 탭을 열 때 표시되는 페이지 변경</translation>
@@ -4003,7 +4003,7 @@
     <ph name="BEGIN_PARAGRAPH2" />기기에서 기본 위치 설정을 사용 중지하여 위치 정보를 끌 수 있습니다. 또한 위치 설정에서 위치 파악에 Wi‑Fi, 모바일 네트워크, 센서의 사용을 중지할 수도 있습니다.<ph name="END_PARAGRAPH2" /></translation>
 <translation id="6041155700700864984">전체화면 종료</translation>
 <translation id="604124094241169006">자동</translation>
-<translation id="6042308850641462728">더보기</translation>
+<translation id="6042308850641462728">자세히</translation>
 <translation id="6043317578411397101"><ph name="APP_NAME" />에서 <ph name="TAB_NAME" />와(과) Chrome 탭을 공유 중입니다.</translation>
 <translation id="604388835206766544">설정을 파싱할 수 없습니다.</translation>
 <translation id="6044805581023976844"><ph name="APP_NAME" />에서 <ph name="TAB_NAME" />와(과) Chrome 탭과 오디오를 공유 중입니다.</translation>
@@ -4316,7 +4316,7 @@
 <translation id="6429384232893414837">업데이트 오류</translation>
 <translation id="6430814529589430811">Base64-인코딩 ASCII, 단일 인증서</translation>
 <translation id="6431347207794742960"><ph name="PRODUCT_NAME" />에서 이 컴퓨터의 모든 사용자에 대해 자동 업데이트를 설정합니다.</translation>
-<translation id="6434309073475700221">중지</translation>
+<translation id="6434309073475700221">삭제</translation>
 <translation id="6434325376267409267"><ph name="APP_NAME" /> 앱을 사용하려면 기기를 업데이트해야 합니다.</translation>
 <translation id="6436164536244065364">웹 스토어에서 보기</translation>
 <translation id="6438992844451964465"><ph name="WINDOW_TITLE" /> - 오디오 재생</translation>
@@ -6538,7 +6538,7 @@
 <translation id="9219103736887031265">이미지</translation>
 <translation id="9220525904950070496">계정 삭제</translation>
 <translation id="9220820413868316583">손가락을 뗀 뒤 다시 시도하세요.</translation>
-<translation id="923467487918828349">모두 표시</translation>
+<translation id="923467487918828349">모두 보기</translation>
 <translation id="929117907539171075">설치된 앱의 오프라인 데이터도 삭제됩니다.</translation>
 <translation id="930268624053534560">상세 타임스탬프</translation>
 <translation id="932327136139879170">홈</translation>

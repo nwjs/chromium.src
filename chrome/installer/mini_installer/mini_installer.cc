@@ -719,7 +719,8 @@ void RecursivelyDeleteDirectory(PathString* path) {
       if (!path->append(name))
         continue;  // Continue in spite of too long names.
 
-      if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+      if ((find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) &&
+          !(find_data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)) {
         RecursivelyDeleteDirectory(path);
       } else {
         ::DeleteFile(path->get());
@@ -753,7 +754,11 @@ void DeleteDirectoriesWithPrefix(const wchar_t* parent_dir,
 
   PathString path;
   do {
-    if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+    // Skip over directories that have reparse points, since these represent
+    // such things as mounted folders, links, etc, and were therefore not
+    // created by a previous run of this installer.
+    if ((find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) &&
+        !(find_data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)) {
       // Use the short name if available to make the most of our buffer.
       const wchar_t* name = find_data.cAlternateFileName[0]
                                 ? find_data.cAlternateFileName

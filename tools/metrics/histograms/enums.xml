@@ -46376,6 +46376,12 @@ Called by update_use_counter_css.py.-->
   <int value="14" label="Chrome Content Extension"/>
   <int value="15" label="Chrome Share Extension"/>
   <int value="16" label="Chrome"/>
+  <int value="17" label="Third Party">
+    A non-Google application (more precisely an app that doesn't share an app
+    group with Chrome) launched Chrome with an http or https URL. This can
+    happen on iOS 14+ when Chrome is set as the default browser and a system app
+    (f.e. Messages) or an app from a 3rd party developer opens a URL.
+  </int>
 </enum>
 
 <enum name="MobileSessionShutdownType">
@@ -46389,13 +46395,31 @@ Called by update_use_counter_css.py.-->
 </enum>
 
 <enum name="MobileSessionStartAction">
-  <int value="0" label="Open http"/>
-  <int value="1" label="Open https"/>
+  <int value="0" label="Open http">
+    Logged when an application passes an http URL to Chrome using the custom
+    registered scheme (f.e. googlechrome).
+  </int>
+  <int value="1" label="Open https">
+    Logged when an application passes an https URL to Chrome using the custom
+    registered scheme (f.e. googlechromes).
+  </int>
   <int value="2" label="Open file"/>
   <int value="3" label="x-callback-url open"/>
   <int value="4" label="x-callback-url other"/>
   <int value="5" label="Other"/>
   <int value="6" label="x-callback-url app-group-command"/>
+  <int value="7" label="OS opened http">
+    Logged when any application passes an http URL to Chrome using the standard
+    &quot;http&quot; scheme. This can happen when Chrome is set as the default
+    browser on iOS 14+ as http openURL calls will be directed to Chrome by the
+    system from all other apps.
+  </int>
+  <int value="8" label="OS opened https">
+    Logged when any application passes an https URL to Chrome using the standard
+    &quot;https&quot; scheme. This can happen when Chrome is set as the default
+    browser on iOS 14+ as http openURL calls will be directed to Chrome by the
+    system from all other apps.
+  </int>
 </enum>
 
 <enum name="MobileStartingAction">

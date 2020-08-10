@@ -1342,7 +1342,7 @@ Vous pouvez gérer les paramètres de ce compte en installant l'application Fami
 <translation id="2653033005692233957">Échec de la recherche</translation>
 <translation id="2653266418988778031">Si vous supprimez le certificat d'une autorité de certification, votre navigateur ne fera plus confiance aux certificats émis par cette autorité de certification.</translation>
 <translation id="2653275834716714682">Remplacement du texte</translation>
-<translation id="2653659639078652383">Valider</translation>
+<translation id="2653659639078652383">Envoyer</translation>
 <translation id="265390580714150011">Valeur du champ</translation>
 <translation id="2654166010170466751">Autoriser les sites à installer des gestionnaires de paiement</translation>
 <translation id="2654553774144920065">Requête d'impression</translation>
@@ -2413,7 +2413,7 @@ Souhaitez-vous lancer <ph name="CONTROL_PANEL_APPLET_NAME" /> ?</translation>
 <translation id="3949790930165450333"><ph name="DEVICE_NAME" /> (<ph name="DEVICE_ID" />)</translation>
 <translation id="394984172568887996">Importés depuis IE</translation>
 <translation id="3949981384795585075">{NUM_APPS,plural, =1{Cette application peut être dangereuse}one{Cette application peut être dangereuse}other{Ces applications peuvent être dangereuses}}</translation>
-<translation id="3950820424414687140">Ouvrir une session</translation>
+<translation id="3950820424414687140">Connexion</translation>
 <translation id="3953834000574892725">Mes comptes</translation>
 <translation id="3954354850384043518">En cours</translation>
 <translation id="3954469006674843813"><ph name="WIDTH" /> x <ph name="HEIGHT" /> (<ph name="REFRESH_RATE" /> hertz)</translation>
@@ -4319,7 +4319,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="6429384232893414837">Erreur de mise à jour</translation>
 <translation id="6430814529589430811">Certificat unique codé Base 64 ASCII</translation>
 <translation id="6431347207794742960"><ph name="PRODUCT_NAME" /> va configurer les mises à jour automatiques pour tous les utilisateurs de cet ordinateur.</translation>
-<translation id="6434309073475700221">Annuler</translation>
+<translation id="6434309073475700221">Supprimer</translation>
 <translation id="6434325376267409267">Vous devez mettre à jour votre appareil avant de pouvoir utiliser <ph name="APP_NAME" />.</translation>
 <translation id="6436164536244065364">Afficher dans le Web Store</translation>
 <translation id="6438992844451964465"><ph name="WINDOW_TITLE" /> – Lecture audio</translation>
@@ -5302,7 +5302,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="7696063401938172191">Sur votre <ph name="PHONE_NAME" /> :</translation>
 <translation id="7698408911093959127">{COUNT,plural, =1{1 élément dans la liste des favoris}one{# élément dans la liste des favoris}other{# éléments dans la liste des favoris}}</translation>
 <translation id="7699968112832915395">Impossible d'ajouter le compte</translation>
-<translation id="7701040980221191251">Aucun</translation>
+<translation id="7701040980221191251">Rien</translation>
 <translation id="770157826141786566">Le délai de retour de cet appareil a expiré.</translation>
 <translation id="7701869757853594372">Handles utilisateur</translation>
 <translation id="7701928712056789451">Ces éléments peuvent être dangereux</translation>

@@ -21,6 +21,7 @@
 <translation id="1176932207622159128">Không thể lưu ảnh</translation>
 <translation id="1180526666083833456">Đồng bộ hóa và cá nhân hóa trên các thiết bị.</translation>
 <translation id="1181037720776840403">Xóa</translation>
+<translation id="1185569544548277362">Mới: Bạn có thể đặt Chrome làm trình duyệt mặc định. <ph name="BEGIN_LINK" />Mở phần Cài đặt<ph name="END_LINK" /></translation>
 <translation id="1207113853726624428">Lượt tìm kiếm mới</translation>
 <translation id="1209206284964581585">Ẩn ngay bây giờ</translation>
 <translation id="1219674500290482172">Không thể kết nối Internet.</translation>
@@ -348,7 +349,7 @@ Dữ liệu của bạn đã được mã hóa bằng cụm mật khẩu đồng
 <translation id="5190835502935405962">Thanh Dấu trang</translation>
 <translation id="5197255632782567636">Internet</translation>
 <translation id="5228579091201413441">Bật đồng bộ hóa</translation>
-<translation id="5234764350956374838">Loại bỏ</translation>
+<translation id="5234764350956374838">Bỏ qua</translation>
 <translation id="5245322853195994030">Hủy đồng bộ hóa</translation>
 <translation id="5271549068863921519">Lưu mật khẩu</translation>
 <translation id="5295239312320826323">Xóa tài khoản <ph name="USER_EMAIL" />?</translation>

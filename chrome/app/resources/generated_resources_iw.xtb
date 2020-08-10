@@ -1339,7 +1339,7 @@
 <translation id="2653033005692233957">החיפוש נכשל</translation>
 <translation id="2653266418988778031">‏אם תמחק אישור של רשות אישורים (CA), הדפדפן שלך לא יוכל לתת אמון באף אישור שהונפק על ידי רשות אישורים זו.</translation>
 <translation id="2653275834716714682">החלפת טקסט</translation>
-<translation id="2653659639078652383">שלח</translation>
+<translation id="2653659639078652383">שליחה</translation>
 <translation id="265390580714150011">ערך שדה </translation>
 <translation id="2654166010170466751">‏מתן הרשאה לאתרים להתקין מעבדי handler לתשלומים</translation>
 <translation id="2654553774144920065">בקשת הדפסה</translation>
@@ -4316,7 +4316,7 @@
 <translation id="6429384232893414837">שגיאת עדכון</translation>
 <translation id="6430814529589430811">‏ASCII בקידוד Base64, אישור יחיד</translation>
 <translation id="6431347207794742960"><ph name="PRODUCT_NAME" /> יגדיר עדכונים אוטומטיים לכל המשתמשים במחשב זה.</translation>
-<translation id="6434309073475700221">התעלם</translation>
+<translation id="6434309073475700221">מחק</translation>
 <translation id="6434325376267409267">יש לעדכן את המכשיר כדי שאפשר יהיה להשתמש ב-<ph name="APP_NAME" />.</translation>
 <translation id="6436164536244065364">הצג בחנות אינטרנט</translation>
 <translation id="6438992844451964465"><ph name="WINDOW_TITLE" /> - אודיו מופעל</translation>
@@ -5299,7 +5299,7 @@
 <translation id="7696063401938172191">ב-'<ph name="PHONE_NAME" />' שלך:</translation>
 <translation id="7698408911093959127">{COUNT,plural, =1{פריט אחד ברשימת הסימניות}two{# פריטים ברשימת הסימניות}many{# פריטים ברשימת הסימניות}other{# פריטים ברשימת הסימניות}}</translation>
 <translation id="7699968112832915395">לא ניתן להוסיף חשבון</translation>
-<translation id="7701040980221191251">ללא</translation>
+<translation id="7701040980221191251">אין</translation>
 <translation id="770157826141786566">תאריך היעד להחזרת המכשיר הזה חלף.</translation>
 <translation id="7701869757853594372">מזהים ייחודיים של משתמשים</translation>
 <translation id="7701928712056789451">הפריטים האלה עשויים להיות מסוכנים</translation>
@@ -5494,7 +5494,7 @@
 <translation id="7911118814695487383">Linux</translation>
 <translation id="7912080627461681647">הסיסמה שלך שונתה בשרת. צא ולאחר מכן היכנס מחדש.</translation>
 <translation id="7915457674565721553">יש להתחבר לאינטרנט כדי להגדיר בקרת הורים</translation>
-<translation id="7915471803647590281">ספר לנו מה קורה לפני שליחת המשוב.</translation>
+<translation id="7915471803647590281">לפני שליחת המשוב, יש לתאר את הבעיה.</translation>
 <translation id="7918257978052780342">הירשם</translation>
 <translation id="7919210519031517829"><ph name="DURATION" /> שנ'</translation>
 <translation id="7920363873148656176">ל-<ph name="ORIGIN" /> יש אפשרות להציג את <ph name="FILENAME" /></translation>
@@ -6539,7 +6539,7 @@
 <translation id="9219103736887031265">תמונות</translation>
 <translation id="9220525904950070496">הסר חשבון</translation>
 <translation id="9220820413868316583">צריך להרים את האצבע ולנסות שוב.</translation>
-<translation id="923467487918828349">הצג הכל</translation>
+<translation id="923467487918828349">הצג הכול</translation>
 <translation id="929117907539171075">המערכת תמחק גם נתונים שנשמרו במצב אופליין באפליקציה מותקנת</translation>
 <translation id="930268624053534560">חותמות זמן מפורטות</translation>
 <translation id="932327136139879170">בית</translation>

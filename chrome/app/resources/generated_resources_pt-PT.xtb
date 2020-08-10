@@ -1341,7 +1341,7 @@ Pode gerir as definições desta conta ao instalar a aplicação Family Link no 
 <translation id="2653033005692233957">Falha ao pesquisar</translation>
 <translation id="2653266418988778031">Se eliminar um certificado de uma autoridade de certificação (AC), o navegador deixará de confiar nos certificados emitidos por essa autoridade.</translation>
 <translation id="2653275834716714682">Substituição de texto</translation>
-<translation id="2653659639078652383">Submeter</translation>
+<translation id="2653659639078652383">Enviar</translation>
 <translation id="265390580714150011">Campo Valor</translation>
 <translation id="2654166010170466751">Permitir que os sites instalem controladores de pagamentos</translation>
 <translation id="2654553774144920065">Pedido de impressão</translation>
@@ -4877,7 +4877,7 @@ Certifique-se de que não revela informações confidenciais.</translation>
 <translation id="7140928199327930795">Não existem outros dispositivos disponíveis.</translation>
 <translation id="7141105143012495934">O início de sessão falhou porque não foi possível obter os detalhes da sua conta. Contacte o gestor ou tente novamente.</translation>
 <translation id="7143207342074048698">A ligar</translation>
-<translation id="7144878232160441200">Repetir</translation>
+<translation id="7144878232160441200">Tentar novamente</translation>
 <translation id="7149893636342594995">Últimas 24 horas</translation>
 <translation id="715118844758971915">Impressoras clássicas</translation>
 <translation id="7152478047064750137">Esta extensão não requer autorizações especiais.</translation>
@@ -5302,7 +5302,7 @@ Certifique-se de que não revela informações confidenciais.</translation>
 <translation id="7696063401938172191">No seu "<ph name="PHONE_NAME" />":</translation>
 <translation id="7698408911093959127">{COUNT,plural, =1{1 item na lista de marcadores}other{# itens na lista de marcadores}}</translation>
 <translation id="7699968112832915395">Não é possível adicionar a conta</translation>
-<translation id="7701040980221191251">Nenhum</translation>
+<translation id="7701040980221191251">Nenhuma</translation>
 <translation id="770157826141786566">O prazo para devolver este dispositivo foi ultrapassado.</translation>
 <translation id="7701869757853594372">Identificadores de UTILIZADOR</translation>
 <translation id="7701928712056789451">Estes itens podem ser perigosos</translation>
@@ -6540,7 +6540,7 @@ Mantenha o seu ficheiro de chave num local seguro, pois irá precisar dele para 
 <translation id="9219103736887031265">Imagens</translation>
 <translation id="9220525904950070496">Remover conta</translation>
 <translation id="9220820413868316583">Levante e tente novamente.</translation>
-<translation id="923467487918828349">Mostrar todas</translation>
+<translation id="923467487918828349">Mostrar tudo</translation>
 <translation id="929117907539171075">Os dados offline na app instalada também serão limpos.</translation>
 <translation id="930268624053534560">Data/hora em detalhe</translation>
 <translation id="932327136139879170">Página inicial</translation>

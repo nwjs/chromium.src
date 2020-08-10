@@ -10,8 +10,8 @@
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "chrome/browser/chromeos/local_search_service/linear_map_search.h"
-#include "chrome/common/string_matching/fuzzy_tokenized_string_match.h"
-#include "chrome/common/string_matching/tokenized_string.h"
+#include "chromeos/components/string_matching/fuzzy_tokenized_string_match.h"
+#include "chromeos/components/string_matching/tokenized_string.h"
 
 namespace local_search_service {
 
@@ -23,8 +23,10 @@ local_search_service::Content::Content() = default;
 local_search_service::Content::Content(const Content& content) = default;
 local_search_service::Content::~Content() = default;
 
-Data::Data(const std::string& id, const std::vector<Content>& contents)
-    : id(id), contents(contents) {}
+Data::Data(const std::string& id,
+           const std::vector<Content>& contents,
+           const std::string& locale)
+    : id(id), contents(contents), locale(locale) {}
 Data::Data() = default;
 Data::Data(const Data& data) = default;
 Data::~Data() = default;
@@ -37,13 +39,6 @@ Position::Position(const std::string& content_id,
     : content_id(content_id), start(start), length(length) {}
 Position::~Position() = default;
 
-Token::Token() = default;
-Token::Token(const base::string16& text, const std::vector<Position>& pos)
-    : content(text), positions(pos) {}
-Token::Token(const Token& token)
-    : content(token.content), positions(token.positions) {}
-Token::~Token() = default;
-
 Result::Result() = default;
 Result::Result(const Result& result) = default;
 Result::Result(const std::string& id,
@@ -51,5 +46,20 @@ Result::Result(const std::string& id,
                const std::vector<Position>& positions)
     : id(id), score(score), positions(positions) {}
 Result::~Result() = default;
+
+WeightedPosition::WeightedPosition() = default;
+WeightedPosition::WeightedPosition(const WeightedPosition& weighted_position) =
+    default;
+WeightedPosition::WeightedPosition(double weight, const Position& position)
+    : weight(weight), position(position) {}
+WeightedPosition::~WeightedPosition() = default;
+
+Token::Token() = default;
+Token::Token(const base::string16& text,
+             const std::vector<WeightedPosition>& pos)
+    : content(text), positions(pos) {}
+Token::Token(const Token& token)
+    : content(token.content), positions(token.positions) {}
+Token::~Token() = default;
 
 }  // namespace local_search_service

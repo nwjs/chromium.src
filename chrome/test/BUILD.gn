@@ -3555,12 +3555,6 @@ test("unit_tests") {
     "../common/pref_names_util_unittest.cc",
     "../common/profiler/thread_profiler_unittest.cc",
     "../common/qr_code_generator/qr_code_generator_unittest.cc",
-    "../common/string_matching/fuzzy_tokenized_string_match_unittest.cc",
-    "../common/string_matching/sequence_matcher_unittest.cc",
-    "../common/string_matching/term_break_iterator_unittest.cc",
-    "../common/string_matching/tokenized_string_char_iterator_unittest.cc",
-    "../common/string_matching/tokenized_string_match_unittest.cc",
-    "../common/string_matching/tokenized_string_unittest.cc",
     "../renderer/chrome_content_renderer_client_unittest.cc",
     "../renderer/chrome_render_frame_observer_unittest.cc",
     "../renderer/instant_restricted_id_cache_unittest.cc",
@@ -6883,16 +6877,6 @@ if (is_win) {
     # Directory contains useful and non-useful files. Don't worry about
     # non-useful since they are eliminated during pruning.
     seed_corpus = "data/safe_browsing/download_protection/"
-  }
-}
-
-if (is_chromeos) {
-  fuzzer_test("tokenized_string_fuzzer") {
-    sources = [ "../common/string_matching/tokenized_string_fuzzer.cc" ]
-    deps = [
-      "//base",
-      "//chrome/common/string_matching",
-    ]
   }
 }
 

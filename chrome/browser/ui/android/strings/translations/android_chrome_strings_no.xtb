@@ -589,7 +589,7 @@ For å endre denne innstillingen, <ph name="BEGIN_LINK" />tilbakestill synkronis
 <translation id="5723735397759933332">Forenklet modus sparer nå mer data ved å optimalisere bilder på HTTPS-sider.</translation>
 <translation id="5726692708398506830">Gjør alt på siden større</translation>
 <translation id="5732819098735351888">Nedlastingen starter når du er tilkoblet Wi-Fi.</translation>
-<translation id="5733983706093266635">Kan ikke opprette QR-koden. Nettadressen er lengre enn <ph name="CHARACTER_LIMIT" /> tegn.</translation>
+<translation id="5733983706093266635">Kan ikke lage QR-koden. Nettadressen er lengre enn <ph name="CHARACTER_LIMIT" /> tegn.</translation>
 <translation id="5748802427693696783">Byttet til standardfaner</translation>
 <translation id="5749068826913805084">Chrome må ha lagringstilgang for å laste ned filer.</translation>
 <translation id="5763382633136178763">Inkognitofaner</translation>

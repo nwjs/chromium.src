@@ -159,6 +159,9 @@
 
       Bu politika ayarlanmazsa veya false (yanlış) değerine ayarlanırsa, Fast Transition kullanılmaz.
       Doğru (true) değerine ayarlanırsa Fast Transition, kablosuz erişim noktası tarafından desteklendiğinde kullanılır.</translation>
+<translation id="1240722269871366886">Bu politika, kullanıcılar sanal veya fiziksel klavyeleriyle metin yazdıklarında <ph name="PRODUCT_OS_NAME" /> işletim sisteminin emoji önerebilmesini sağlar.
+      Bu politika true (doğru) değerine ayarlanırsa özellik etkinleşir ve kullanıcılar bunu değiştirebilir.
+      Bu politika varsayılan olarak false (yanlış) değerine ayarlıdır; hiçbir emoji önerisinde bulunulmaz ve kullanıcılar da bunu geçersiz kılamaz.</translation>
 <translation id="1243570869342663665">SafeSites yetişkinlere uygun içerik filtrelemeyi kontrol et.</translation>
 <translation id="1257550411839719984">Varsayılan indirme dizinini ayarlama</translation>
 <translation id="1265053460044691532">SAML kullanarak kimlik doğrulaması yapmış kullanıcının çevrimdışı olarak giriş yapabileceği süreyi sınırla</translation>
@@ -808,9 +811,6 @@ Bu politikayı devre dışı bırakırsanız web sayfasını URL yoluyla belirli
       Bu politika, erişimi herkese açık cihazlarda kullanılmamalıdır.
 
       Bu politika True (Doğru) değerine ayarlanır veya ayarlanmadan bırakılırsa otomatik olarak başlatılmış misafir oturumundayken gizlilik uyarısı bildirimi, kullanıcı kapayıncaya kadar görüntülenir.</translation>
-<translation id="2288338171390565087">Bu özellik, kullanıcı yerleşik emoji haritasında karşılığı olan bir kelime yazdığında emoji önerisinde bulunur.
-      Bu politika true (doğru) değerine ayarlanırsa özellik etkin olmaya zorlanır ve kullanıcılar bunu geçersiz kılamaz.
-      Bu politika varsayılan olarak false (yanlış) değerine ayarlıdır; hiçbir emoji önerisinde bulunulmaz ve kullanıcılar da bunu geçersiz kılamaz.</translation>
 <translation id="2289265947759479962">Bu politika OS sürümü, OS platformu, OS mimarisi, <ph name="PRODUCT_NAME" /> sürümü ve <ph name="PRODUCT_NAME" /> kanalı gibi sürüm bilgilerinin bildirilip bildirilmeyeceğini kontrol eder.
 
       <ph name="CLOUD_REPORTING_ENABLED_POLICY_NAME" /> politikası ayarlanmadan bırakıldığında veya devre dışı değerine ayarlandığında bu politika yok sayılır.

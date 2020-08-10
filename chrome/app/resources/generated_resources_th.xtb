@@ -2627,7 +2627,7 @@
 <translation id="4249373718504745892">หน้าเว็บนี้ถูกบล็อกไม่ให้เข้าถึงกล้องถ่ายรูปและไมโครโฟนของคุณ</translation>
 <translation id="424963718355121712">แอปต้องได้รับบริการจากโฮสต์ที่แอปนั้นมีผลกระทบ</translation>
 <translation id="4250229828105606438">ภาพหน้าจอ</translation>
-<translation id="4250680216510889253">ไม่มี</translation>
+<translation id="4250680216510889253">ไม่</translation>
 <translation id="4252035718262427477">หน้าเว็บ ไฟล์เดียว (Web Bundle)</translation>
 <translation id="4252852543720145436">ตัวระบุเนื้อหาที่ได้รับความคุ้มครอง</translation>
 <translation id="4252899949534773101">บลูทูธปิดอยู่</translation>
@@ -3421,7 +3421,7 @@
 <translation id="5300719150368506519">ส่ง URL ของหน้าที่คุณเข้าชมไปยัง Google</translation>
 <translation id="5301751748813680278">เข้าสู่ระบบในฐานะผู้มาเยือน</translation>
 <translation id="5301954838959518834">ตกลง เข้าใจแล้ว</translation>
-<translation id="5302048478445481009">ภาษา </translation>
+<translation id="5302048478445481009">ภาษา</translation>
 <translation id="5302932258331363306">แสดงการใช้แทน</translation>
 <translation id="5305688511332277257">ไม่มีการติดตั้ง</translation>
 <translation id="5307030433605830021">ไม่รองรับแหล่งที่มา</translation>
@@ -4005,7 +4005,7 @@
     <ph name="BEGIN_PARAGRAPH2" />คุณปิดตำแหน่งได้ด้วยการปิดการตั้งค่าตำแหน่งหลักในอุปกรณ์ และปิดการใช้ Wi‑Fi, เครือข่ายมือถือ และเซ็นเซอร์สำหรับการบอกตำแหน่งในการตั้งค่าตำแหน่งได้ด้วย<ph name="END_PARAGRAPH2" /></translation>
 <translation id="6041155700700864984">ออกจากโหมดเต็มหน้าจอ</translation>
 <translation id="604124094241169006">อัตโนมัติ</translation>
-<translation id="6042308850641462728">เพิ่มเติม</translation>
+<translation id="6042308850641462728">แสดงเพิ่ม</translation>
 <translation id="6043317578411397101"><ph name="APP_NAME" /> กำลังแชร์แท็บใน Chrome กับ <ph name="TAB_NAME" /></translation>
 <translation id="604388835206766544">แยกวิเคราะห์ค่ากำหนดไม่สำเร็จ</translation>
 <translation id="6044805581023976844"><ph name="APP_NAME" /> กำลังแชร์แท็บและเสียงใน Chrome กับ <ph name="TAB_NAME" /></translation>
@@ -5258,7 +5258,7 @@
 <translation id="7645681574855902035">กำลังยกเลิกการสำรองข้อมูล Linux</translation>
 <translation id="7646772052135772216">การซิงค์รหัสผ่านไม่ทำงาน</translation>
 <translation id="7647403192093989392">ไม่มีกิจกรรมล่าสุด</translation>
-<translation id="7649070708921625228">ช่วยเหลือ</translation>
+<translation id="7649070708921625228">ความช่วยเหลือ</translation>
 <translation id="7650511557061837441">"<ph name="TRIGGERING_EXTENSION_NAME" />" ต้องการลบ "<ph name="EXTENSION_NAME" />"</translation>
 <translation id="7652808307838961528">แก้ไขบุคคล, <ph name="PROFILE_NAME" /></translation>
 <translation id="765293928828334535">เพิ่มแอป ส่วนขยาย และสคริปต์ของผู้ใช้จากเว็บไซต์นี้ไม่ได้</translation>

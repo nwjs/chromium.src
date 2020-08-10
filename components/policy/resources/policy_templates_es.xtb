@@ -170,6 +170,9 @@ Si no se establece ningún valor para esta política, la frecuencia predetermina
 
       Si no se define la política, la transición rápida no se usará.
       Si se le asigna el valor "True", la transición rápida se usa si el punto de acceso inalámbrico lo admite.</translation>
+<translation id="1240722269871366886">Esta política permite que <ph name="PRODUCT_OS_NAME" /> sugiera emojis cuando los usuarios escriben texto utilizando sus teclados físicos o virtuales.
+      Si se asigna el valor "verdadero" a esta política, se habilitará esta función y los usuarios podrán cambiarla.
+      De forma predeterminada, se le asignará el valor "falso", no se sugerirá ningún emoji y los usuarios no podrán anularla.</translation>
 <translation id="1243570869342663665">Controlar el filtrado de contenido para adultos de SafeSites.</translation>
 <translation id="1257550411839719984">Establecer directorio de descargas predeterminado</translation>
 <translation id="1265053460044691532">Limitar el tiempo durante el que un usuario autenticado a través de SAML puede iniciar sesión sin conexión</translation>
@@ -840,9 +843,6 @@ Si no se establece esta política, el teclado en pantalla estará inhabilitado i
       Esta política no debería aplicarse en dispositivos utilizados por el público general.
 
       Si se le asigna el valor "True" o no se le asigna ningún valor, la notificación de advertencia de privacidad en la sesión de invitado administrada e iniciada automáticamente quedará fijada hasta que el usuario la cierre.</translation>
-<translation id="2288338171390565087">Esta función ofrece sugerencias de emojis cuando el usuario escribe una palabra que coincide con el mapa de emojis integrado.
-      Si se asigna el valor "verdadero" a esta política, se habilitará la función de forma forzosa y los usuarios no podrán anular esa acción.
-      De forma predeterminada, se le asignará el valor "falso", no se sugerirá ningún emoji y los usuarios no podrán anularla.</translation>
 <translation id="2289265947759479962">Esta política determina si se recoge información de versiones, como la versión, la plataforma o la arquitectura del SO, la versión de <ph name="PRODUCT_NAME" /> y el canal de <ph name="PRODUCT_NAME" />.
 
       Si no se establece la política <ph name="CLOUD_REPORTING_ENABLED_POLICY_NAME" /> o se inhabilita, esta se ignorará.

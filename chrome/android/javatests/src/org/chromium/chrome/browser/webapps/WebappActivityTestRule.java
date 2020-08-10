@@ -4,6 +4,9 @@
 
 package org.chromium.chrome.browser.webapps;
 
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import android.content.Intent;
 import android.net.Uri;
 import android.support.test.InstrumentationRegistry;
@@ -12,7 +15,6 @@ import android.view.ViewGroup;
 
 import androidx.browser.customtabs.TrustedWebUtils;
 
-import org.junit.Assert;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
 
@@ -167,14 +169,17 @@ public class WebappActivityTestRule extends ChromeActivityTestRule<WebappActivit
         waitUntilSplashscreenHides();
     }
 
-    public static void assertToolbarShowState(ChromeActivity activity, boolean showState) {
+    public static void assertToolbarShownMaybeHideable(ChromeActivity activity) {
         @BrowserControlsState
-        int expectedState = showState ? BrowserControlsState.SHOWN : BrowserControlsState.HIDDEN;
-        Assert.assertEquals(expectedState,
-                (int) TestThreadUtils.runOnUiThreadBlockingNoException(
-                        ()
-                                -> TabBrowserControlsConstraintsHelper.getConstraints(
-                                        activity.getActivityTab())));
+        int state = getToolbarShowState(activity);
+        assertTrue(state == BrowserControlsState.SHOWN || state == BrowserControlsState.BOTH);
+    }
+
+    public static @BrowserControlsState int getToolbarShowState(ChromeActivity activity) {
+        return TestThreadUtils.runOnUiThreadBlockingNoException(
+                ()
+                        -> TabBrowserControlsConstraintsHelper.getConstraints(
+                                activity.getActivityTab()));
     }
 
     /**
@@ -233,7 +238,7 @@ public class WebappActivityTestRule extends ChromeActivityTestRule<WebappActivit
 
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         View splashScreen = getSplashController(getActivity()).getSplashScreenForTests();
-        Assert.assertNotNull("No splash screen available.", splashScreen);
+        assertNotNull("No splash screen available.", splashScreen);
 
         // TODO(pkotwicz): Change return type in order to accommodate new-style WebAPKs.
         // (crbug.com/958288)

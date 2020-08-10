@@ -2322,7 +2322,7 @@ Je kunt de instellingen van dit account beheren door de Family Link-app op je ap
 <translation id="3843464315703645664">Intern op de toelatingslijst gezet</translation>
 <translation id="3846116211488856547">Ontvang tools voor het ontwikkelen van websites, Android-apps en meer. Als je Linux installeert, wordt <ph name="DOWNLOAD_SIZE" /> aan data gedownload.</translation>
 <translation id="3847319713229060696">Helpen om het internet voor iedereen veiliger te maken</translation>
-<translation id="385051799172605136">Vorige</translation>
+<translation id="385051799172605136">Terug</translation>
 <translation id="3850914401008572843"><ph name="ORIGIN" /> kan deze map niet openen omdat deze systeembestanden bevat</translation>
 <translation id="3851428669031642514">Onveilige scripts laden</translation>
 <translation id="3854599674806204102">Kies een optie</translation>
@@ -3708,7 +3708,7 @@ Je kunt de instellingen van dit account beheren door de Family Link-app op je ap
 <translation id="5657156137487675418">Alle cookies toestaan</translation>
 <translation id="5657667036353380798">Voor de externe extensie moet Chrome-versie <ph name="MINIMUM_CHROME_VERSION" /> of hoger zijn geïnstalleerd.</translation>
 <translation id="5658415415603568799">Voor extra beveiliging vraagt Smart Lock je na 20 uur je wachtwoord op te geven.</translation>
-<translation id="5659593005791499971">E-mailadres</translation>
+<translation id="5659593005791499971">E-mail</translation>
 <translation id="5659833766619490117">Deze pagina kan niet worden vertaald</translation>
 <translation id="5662513737565158057">Wijzigen hoe Linux-apps werken.</translation>
 <translation id="5667546120811588575">Google Play instellen...</translation>
@@ -4318,7 +4318,7 @@ Je kunt de instellingen van dit account beheren door de Family Link-app op je ap
 <translation id="6429384232893414837">Updatefout</translation>
 <translation id="6430814529589430811">Base64 Encoded ASCII, één certificaat</translation>
 <translation id="6431347207794742960"><ph name="PRODUCT_NAME" /> stelt automatische updates in voor alle gebruikers van deze computer.</translation>
-<translation id="6434309073475700221">Annuleren</translation>
+<translation id="6434309073475700221">Verwijderen</translation>
 <translation id="6434325376267409267">Je apparaat moet worden geüpdatet voordat je <ph name="APP_NAME" /> kunt gebruiken.</translation>
 <translation id="6436164536244065364">Bekijken in Web Store</translation>
 <translation id="6438992844451964465"><ph name="WINDOW_TITLE" />: audio wordt afgespeeld</translation>
@@ -6540,7 +6540,7 @@ Bewaar je sleutelbestand op een veilige plaats. Je hebt het bestand nodig om nie
 <translation id="9219103736887031265">Afbeeldingen</translation>
 <translation id="9220525904950070496">Rekening verwijderen</translation>
 <translation id="9220820413868316583">Til je vinger op en probeer het opnieuw.</translation>
-<translation id="923467487918828349">Toon alles</translation>
+<translation id="923467487918828349">Alle weergeven</translation>
 <translation id="929117907539171075">Offline gegevens in de geïnstalleerde app worden ook gewist</translation>
 <translation id="930268624053534560">Gedetailleerde tijdstempels</translation>
 <translation id="932327136139879170">Homepage</translation>

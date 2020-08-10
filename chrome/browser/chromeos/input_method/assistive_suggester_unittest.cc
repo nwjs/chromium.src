@@ -5,6 +5,7 @@
 #include "chrome/browser/chromeos/input_method/assistive_suggester.h"
 #include "chrome/browser/chromeos/input_method/personal_info_suggester.h"
 
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chromeos/constants/chromeos_features.h"
@@ -20,9 +21,14 @@ class AssistiveSuggesterTest : public testing::Test {
   AssistiveSuggesterTest() { profile_ = std::make_unique<TestingProfile>(); }
 
   void SetUp() override {
+    base::HistogramTester histogram_tester;
     engine_ = std::make_unique<InputMethodEngine>();
     assistive_suggester_ =
         std::make_unique<AssistiveSuggester>(engine_.get(), profile_.get());
+    histogram_tester.ExpectUniqueSample(
+        "InputMethod.Assistive.UserPref.PersonalInfo", true, 1);
+    histogram_tester.ExpectUniqueSample("InputMethod.Assistive.UserPref.Emoji",
+                                        true, 1);
   }
 
   content::BrowserTaskEnvironment task_environment_;
@@ -32,25 +38,55 @@ class AssistiveSuggesterTest : public testing::Test {
 };
 
 TEST_F(AssistiveSuggesterTest,
-       EmojiSuggestionPrefFalseFeatureFlagTrue_AssitiveFeatureEnabledFalse) {
+       EmojiSuggestionPrefFalseFeatureFlagTrue_UserPrefEnabledFalse) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
       /*enabled_features=*/{chromeos::features::kEmojiSuggestAddition},
       /*disabled_features=*/{chromeos::features::kAssistPersonalInfo});
+  profile_->GetPrefs()->SetBoolean(prefs::kEmojiSuggestionEnterpriseAllowed,
+                                   true);
   profile_->GetPrefs()->SetBoolean(prefs::kEmojiSuggestionEnabled, false);
 
   EXPECT_FALSE(assistive_suggester_->IsAssistiveFeatureEnabled());
 }
 
 TEST_F(AssistiveSuggesterTest,
-       EmojiSuggestionPrefTrueFeatureFlagTrue_AssitiveFeatureEnabledTrue) {
+       EmojiSuggestionPrefFalseFeatureFlagTrue_EnterprisePrefEnabledFalse) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
       /*enabled_features=*/{chromeos::features::kEmojiSuggestAddition},
       /*disabled_features=*/{chromeos::features::kAssistPersonalInfo});
+  profile_->GetPrefs()->SetBoolean(prefs::kEmojiSuggestionEnterpriseAllowed,
+                                   false);
+  profile_->GetPrefs()->SetBoolean(prefs::kEmojiSuggestionEnabled, true);
+
+  EXPECT_FALSE(assistive_suggester_->IsAssistiveFeatureEnabled());
+}
+
+TEST_F(AssistiveSuggesterTest,
+       EmojiSuggestionPrefTrueFeatureFlagTrue_BothPrefsEnabledTrue) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{chromeos::features::kEmojiSuggestAddition},
+      /*disabled_features=*/{chromeos::features::kAssistPersonalInfo});
+  profile_->GetPrefs()->SetBoolean(prefs::kEmojiSuggestionEnterpriseAllowed,
+                                   true);
   profile_->GetPrefs()->SetBoolean(prefs::kEmojiSuggestionEnabled, true);
 
   EXPECT_TRUE(assistive_suggester_->IsAssistiveFeatureEnabled());
+}
+
+TEST_F(AssistiveSuggesterTest,
+       EmojiSuggestionPrefTrueFeatureFlagTrue_BothPrefsEnabledFalse) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{chromeos::features::kEmojiSuggestAddition},
+      /*disabled_features=*/{chromeos::features::kAssistPersonalInfo});
+  profile_->GetPrefs()->SetBoolean(prefs::kEmojiSuggestionEnterpriseAllowed,
+                                   false);
+  profile_->GetPrefs()->SetBoolean(prefs::kEmojiSuggestionEnabled, false);
+
+  EXPECT_FALSE(assistive_suggester_->IsAssistiveFeatureEnabled());
 }
 
 TEST_F(

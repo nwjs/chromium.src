@@ -12,47 +12,39 @@
 
 #include "base/macros.h"
 #include "base/strings/string16.h"
+#include "chrome/browser/chromeos/local_search_service/index.h"
 #include "chrome/browser/chromeos/local_search_service/shared_structs.h"
 
+namespace chromeos {
+namespace string_matching {
 class TokenizedString;
+}  // namespace string_matching
+}  // namespace chromeos
 
 namespace local_search_service {
 
+// An implementation of Index.
 // A search backend that linearly scans all documents in the storage and finds
 // documents that match the input query. Search is done by matching query with
 // documents' search tags.
-class LinearMapSearch {
+class LinearMapSearch : public Index {
  public:
-  LinearMapSearch();
-  ~LinearMapSearch();
+  explicit LinearMapSearch(IndexId index_id);
+  ~LinearMapSearch() override;
 
   LinearMapSearch(const LinearMapSearch&) = delete;
   LinearMapSearch& operator=(const LinearMapSearch&) = delete;
 
-  // Returns number of data items.
-  uint64_t GetSize();
-
-  // Adds or updates data.
-  // IDs of data should not be empty.
-  void AddOrUpdate(const std::vector<Data>& data);
-
-  // Deletes data with |ids| and returns number of items deleted.
-  // If an id doesn't exist in the LinearMapSearch, no operation will be done.
-  // IDs should not be empty.
-  uint32_t Delete(const std::vector<std::string>& ids);
-
-  // Returns matching results for a given query.
-  // Zero |max_results| means no max.
+  // Index overrides:
+  uint64_t GetSize() override;
+  void AddOrUpdate(const std::vector<Data>& data) override;
+  uint32_t Delete(const std::vector<std::string>& ids) override;
   // For each data in the index, we return the 1st search tag that matches
   // the query (i.e. above the threshold). Client should put the most
   // important search tag first when registering the data in the index.
   ResponseStatus Find(const base::string16& query,
                       uint32_t max_results,
-                      std::vector<Result>* results);
-
-  void SetSearchParams(const SearchParams& search_params);
-
-  SearchParams GetSearchParams();
+                      std::vector<Result>* results) override;
 
  private:
   // Returns all search results for a given query.
@@ -60,13 +52,11 @@ class LinearMapSearch {
                                        uint32_t max_results) const;
 
   // A map from key to a vector of (tag-id, tokenized tag).
-  std::map<
-      std::string,
-      std::vector<std::pair<std::string, std::unique_ptr<TokenizedString>>>>
+  std::map<std::string,
+           std::vector<std::pair<
+               std::string,
+               std::unique_ptr<chromeos::string_matching::TokenizedString>>>>
       data_;
-
-  // Search parameters.
-  SearchParams search_params_;
 };
 
 }  // namespace local_search_service

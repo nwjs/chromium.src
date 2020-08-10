@@ -1844,7 +1844,7 @@ Puoi gestire le impostazioni dell'account installando l'app Family Link su quest
 <translation id="3289668031376215426">Maiuscole automatiche</translation>
 <translation id="3289856944988573801">Per verificare la disponibilità di aggiornamenti, utilizza una rete Ethernet o Wi-Fi.</translation>
 <translation id="3290356915286466215">Non protetta</translation>
-<translation id="3292264722181603749"><ph name="DOMAIN" /> sta disattivando il debug ADB, che ripristinerà il dispositivo. Effettua il backup dei tuoi file prima di riavviare il dispositivo.</translation>
+<translation id="3292264722181603749"><ph name="DOMAIN" /> sta disattivando il debug ADB. Questa operazione ripristinerà il dispositivo. Effettua il backup dei tuoi file prima di riavviare il dispositivo.</translation>
 <translation id="3293644607209440645">Invia questa pagina</translation>
 <translation id="32939749466444286">Il container Linux non è stato avviato. Riprova.</translation>
 <translation id="3294437725009624529">Ospite</translation>
@@ -4317,7 +4317,7 @@ Puoi gestire le impostazioni dell'account installando l'app Family Link su quest
 <translation id="6429384232893414837">Errore di aggiornamento</translation>
 <translation id="6430814529589430811">ASCII con codifica Base64, singolo certificato</translation>
 <translation id="6431347207794742960"><ph name="PRODUCT_NAME" /> imposterà gli aggiornamenti automatici per tutti gli utenti di questo computer.</translation>
-<translation id="6434309073475700221">Annulla</translation>
+<translation id="6434309073475700221">Elimina</translation>
 <translation id="6434325376267409267">Il dispositivo deve essere aggiornato per poter utilizzare <ph name="APP_NAME" />.</translation>
 <translation id="6436164536244065364">Visualizza nel Web Store</translation>
 <translation id="6438992844451964465"><ph name="WINDOW_TITLE" /> - Riproduzione audio in corso</translation>
@@ -5300,7 +5300,7 @@ Puoi gestire le impostazioni dell'account installando l'app Family Link su quest
 <translation id="7696063401938172191">Sul tuo telefono "<ph name="PHONE_NAME" />":</translation>
 <translation id="7698408911093959127">{COUNT,plural, =1{1 elemento nell'elenco dei preferiti}other{# elementi nell'elenco dei preferiti}}</translation>
 <translation id="7699968112832915395">Impossibile aggiungere l'account</translation>
-<translation id="7701040980221191251">Nessuno</translation>
+<translation id="7701040980221191251">Nulla</translation>
 <translation id="770157826141786566">Il termine ultimo per la restituzione di questo dispositivo è scaduto.</translation>
 <translation id="7701869757853594372">Handle UTENTE</translation>
 <translation id="7701928712056789451">Questi elementi potrebbero essere pericolosi</translation>
@@ -6538,7 +6538,7 @@ Conserva il file di chiave in un luogo sicuro. Ti servirà per creare nuove vers
 <translation id="9219103736887031265">Immagini</translation>
 <translation id="9220525904950070496">Rimuovi account</translation>
 <translation id="9220820413868316583">Solleva, quindi riprova.</translation>
-<translation id="923467487918828349">Mostra tutte</translation>
+<translation id="923467487918828349">Mostra tutto</translation>
 <translation id="929117907539171075">Verranno cancellati anche i dati offline nell'app installata</translation>
 <translation id="930268624053534560">Timestamp dettagliati</translation>
 <translation id="932327136139879170">Home page</translation>

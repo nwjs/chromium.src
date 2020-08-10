@@ -243,6 +243,16 @@ LocalDOMWindow::LocalDOMWindow(LocalFrame& frame, WindowAgent* agent)
           MakeGarbageCollected<
               HeapHashMap<int, Member<ContentSecurityPolicy>>>()) {}
 
+void LocalDOMWindow::ResetWindowAgent(WindowAgent* agent) {
+  GetAgent()->DetachContext(this);
+  if (auto* agent_metrics = GetFrame()->GetPage()->GetAgentMetricsCollector())
+    agent_metrics->DidDetachWindow(*this);
+  ResetAgent(agent);
+  GetAgent()->AttachContext(this);
+  if (auto* agent_metrics = GetFrame()->GetPage()->GetAgentMetricsCollector())
+    agent_metrics->DidAttachWindow(*this);
+}
+
 void LocalDOMWindow::AcceptLanguagesChanged() {
   if (navigator_)
     navigator_->SetLanguagesDirty();

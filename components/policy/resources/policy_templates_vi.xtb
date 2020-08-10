@@ -171,6 +171,9 @@
 
       Nếu không đặt hoặc đặt chính sách này thành false, bạn không thể sử dụng tính năng Chuyển đổi nhanh.
       Nếu đặt chính sách này thành true, bạn có thể sử dụng tính năng Chuyển đổi nhanh khi điểm truy cập không dây hỗ trợ tính năng này.</translation>
+<translation id="1240722269871366886">Chính sách này cho phép <ph name="PRODUCT_OS_NAME" /> đề xuất biểu tượng cảm xúc khi người dùng nhập văn bản bằng bàn phím ảo hoặc bàn phím vật lý.
+      Nếu bạn đặt chính sách này thành true, thì tính năng này sẽ được bật và người dùng có thể thay đổi tùy chọn này.
+      Theo mặc định, chính sách này được đặt thành false, khi đó sẽ không có biểu tượng cảm xúc đề xuất và người dùng không thể ghi đè chính sách này.</translation>
 <translation id="1243570869342663665">Kiểm soát tùy chọn lọc nội dung người lớn của SafeSites.</translation>
 <translation id="1257550411839719984">Đặt thư mục tải xuống mặc định</translation>
 <translation id="1265053460044691532">Hạn chế thời gian người dùng được xác thực qua SAML có thể đăng nhập ngoại tuyến</translation>
@@ -836,9 +839,6 @@ Nếu bạn tắt chính sách này, thì việc cuộn trang web đến các ph
       Bạn không nên dùng chính sách này cho các thiết bị dùng chung.
 
       Nếu bạn đặt chính sách này thành True hoặc không đặt chính sách này, thì thông báo cảnh báo quyền riêng tư trong phiên khách được quản lý tự động chạy sẽ được ghim cho đến khi người dùng đóng thông báo này.</translation>
-<translation id="2288338171390565087">Tính năng này đưa ra biểu tượng cảm xúc đề xuất mỗi khi người dùng nhập một từ khớp với loạt biểu tượng cảm xúc có sẵn.
-      Nếu bạn đặt chính sách này thành true, thì tính năng này sẽ buộc phải bật và người dùng sẽ không thể ghi đè chính sách này.
-      Theo mặc định, chính sách này được đặt thành false, khi đó sẽ không có biểu tượng cảm xúc đề xuất và người dùng không thể ghi đè chính sách này.</translation>
 <translation id="2289265947759479962">Chính sách này kiểm soát xem có báo cáo thông tin phiên bản, chẳng hạn như phiên bản hệ điều hành, nền tảng hệ điều hành, cấu trúc hệ điều hành, phiên bản <ph name="PRODUCT_NAME" /> và kênh <ph name="PRODUCT_NAME" /> hay không.
 
       Khi bạn không đặt chính sách <ph name="CLOUD_REPORTING_ENABLED_POLICY_NAME" /> hoặc đặt thành tắt, thì chính sách này sẽ bị bỏ qua.

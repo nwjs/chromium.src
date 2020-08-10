@@ -6503,7 +6503,7 @@
         "policies": {
           "EmojiSuggestionEnabled": false
         },
-        "prefs": { "assistive_input.emoji_suggestion_enabled": { "local_state": false } }
+        "prefs": { "assistive_input.emoji_suggestion.enterprise_allowed": { "local_state": false } }
       }
     ]
   },

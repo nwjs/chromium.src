@@ -2318,7 +2318,7 @@
 <translation id="3843464315703645664">已列入内部许可名单</translation>
 <translation id="3846116211488856547">获取用于开发网站、Android 应用等内容的工具。安装 Linux 会使系统下载 <ph name="DOWNLOAD_SIZE" /> 的数据。</translation>
 <translation id="3847319713229060696">帮助我们为所有人改善网络安全环境</translation>
-<translation id="385051799172605136">后退</translation>
+<translation id="385051799172605136">返回</translation>
 <translation id="3850914401008572843"><ph name="ORIGIN" /> 无法打开此文件夹，因为其中含有系统文件</translation>
 <translation id="3851428669031642514">加载不安全的脚本</translation>
 <translation id="3854599674806204102">选择一个选项</translation>
@@ -4000,7 +4000,7 @@
     <ph name="BEGIN_PARAGRAPH2" />您可以通过关闭相应设备上的主要“位置信息”设置来关闭位置信息服务。此外，您还可以在“位置信息”设置中关闭那些使用 WLAN、移动网络和传感器来获取位置信息的功能。<ph name="END_PARAGRAPH2" /></translation>
 <translation id="6041155700700864984">退出全屏</translation>
 <translation id="604124094241169006">自动</translation>
-<translation id="6042308850641462728">更多</translation>
+<translation id="6042308850641462728">展开</translation>
 <translation id="6043317578411397101"><ph name="APP_NAME" /> 正在与 <ph name="TAB_NAME" /> 共享 Chrome 标签页。</translation>
 <translation id="604388835206766544">无法解析配置</translation>
 <translation id="6044805581023976844"><ph name="APP_NAME" /> 正在与 <ph name="TAB_NAME" /> 共享 Chrome 标签页和音频。</translation>
@@ -4313,7 +4313,7 @@
 <translation id="6429384232893414837">更新错误</translation>
 <translation id="6430814529589430811">Base64 编码 ASCII，单一证书</translation>
 <translation id="6431347207794742960"><ph name="PRODUCT_NAME" />将为此计算机上的所有用户设置自动更新。</translation>
-<translation id="6434309073475700221">放弃</translation>
+<translation id="6434309073475700221">舍弃</translation>
 <translation id="6434325376267409267">您需要更新设备，才能使用 <ph name="APP_NAME" />。</translation>
 <translation id="6436164536244065364">在 Chrome 网上应用店中查看</translation>
 <translation id="6438992844451964465"><ph name="WINDOW_TITLE" /> - 正在播放音频</translation>

@@ -50,11 +50,12 @@ void WebAppMenuModel::Build() {
   AddItemWithStringId(IDC_WEB_APP_MENU_APP_INFO,
                       IDS_APP_CONTEXT_MENU_SHOW_INFO);
   int app_info_index = GetItemCount() - 1;
-  SetMinorText(app_info_index, web_app::AppBrowserController::FormatUrlOrigin(
-                                   browser()
-                                       ->tab_strip_model()
-                                       ->GetActiveWebContents()
-                                       ->GetVisibleURL()));
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  if (web_contents) {
+    SetMinorText(app_info_index, web_app::AppBrowserController::FormatUrlOrigin(
+                                     web_contents->GetVisibleURL()));
+  }
   SetMinorIcon(app_info_index,
                ui::ImageModel::FromVectorIcon(
                    browser()->location_bar_model()->GetVectorIcon()));

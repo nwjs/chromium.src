@@ -157,6 +157,9 @@ Per ulteriori informazioni sui contesti sicuri, visita il sito https://www.w3.or
 
       Se la norma non è impostata o è impostata su false, Fast Transition non viene utilizzato.
       Se è impostata su true, Fast Transition viene utilizzato quando il punto di accesso wireless lo supporta.</translation>
+<translation id="1240722269871366886">Questo criterio consente a <ph name="PRODUCT_OS_NAME" /> di suggerire le emoji quando gli utenti digitano il testo sulle tastiere fisiche o virtuali.
+      Se questo criterio viene impostato su vero, la funzionalità verrà attivata e gli utenti potranno modificarla.
+      Per impostazione predefinita questo criterio è impostato su falso, il che significa che non vengono suggerite emoji e gli utenti non possono ignorarlo.</translation>
 <translation id="1243570869342663665">Controlla il filtro dei contenuti per adulti di SafeSites.</translation>
 <translation id="1257550411839719984">Imposta directory di download predefinita</translation>
 <translation id="1265053460044691532">Limita il tempo per cui un utente autenticato tramite SAML può eseguire l'accesso offline</translation>
@@ -516,7 +519,7 @@ Questa norma viene rispettata soltanto se la norma "DefaultSearchProviderEnabled
 <translation id="1914840757300882918">Se questa norma è impostata, l'host utilizzerà un certificato client con il nome comune dell'emittente indicato per eseguire l'autenticazione su RemoteAccessHostTokenValidationUrl. Impostare la norma su "*" per utilizzare qualsiasi certificato client disponibile.
 
           Questa funzione è attualmente disattivata lato server.</translation>
-<translation id="1919802376548418720">Utilizza la norma KDC per delegare credenziali.</translation>
+<translation id="1919802376548418720">Utilizza il criterio KDC per delegare credenziali.</translation>
 <translation id="1920046221095339924">Consenti la sessione gestita sul dispositivo</translation>
 <translation id="1929709556673267855">Consente di specificare le configurazioni delle stampanti aziendali associate ai dispositivi.
 
@@ -792,9 +795,6 @@ Questa norma viene rispettata soltanto se la norma "DefaultSearchProviderEnabled
       Questo criterio non dovrebbe essere utilizzato per i dispositivi usati dal pubblico generale.
 
       Se il criterio è impostato su true o non configurato, la notifica di avviso sulla privacy nella sessione Ospite gestita con avvio automatico verrà bloccata finché l'utente non la ignorerà.</translation>
-<translation id="2288338171390565087">Questa funzionalità suggerisce emoji quando un utente digita una parola di cui viene trovata una corrispondenza nella mappa di emoji integrata.
-      Se il criterio viene impostato su true, la funzionalità viene attivata forzatamente e gli utenti non potranno ignorarla.
-      Per impostazione predefinita questo criterio è impostato su false, il che significa che non vengono suggerite emoji e gli utenti non possono ignorarlo.</translation>
 <translation id="2289265947759479962">Questo criterio consente di stabilire se segnalare o meno le informazioni sulla versione, ad esempio la versione del sistema operativo, la piattaforma e l'architettura del sistema operativo, la versione di <ph name="PRODUCT_NAME" /> e il canale di <ph name="PRODUCT_NAME" />.
 
       Se il criterio <ph name="CLOUD_REPORTING_ENABLED_POLICY_NAME" /> non viene configurato o viene disattivato, viene ignorato.
@@ -3189,7 +3189,7 @@ Se questa impostazione viene disattivata o non viene impostata, sia gli utenti l
 
           Se il criterio viene attivato o se non viene configurato, la voce del menu contestuale per il tuo provider di ricerca predefinito è disponibile.
 
-          Il valore del criterio viene applicato solo se il criterio <ph name="DEFAULT_SEARCH_PROVIDER_ENABLED_POLICY_NAME" /> viene attivato e non altrimenti.</translation>
+          Il valore del criterio viene applicato solo se il criterio <ph name="DEFAULT_SEARCH_PROVIDER_ENABLED_POLICY_NAME" /> viene attivato e non è applicabile in caso contrario.</translation>
 <translation id="5697306356229823047">Segnala utenti dispositivo</translation>
 <translation id="5699487516670033016">Consente di specificare la durata in ore della cache. La cache viene utilizzata per velocizzare l'accesso. Contiene dati generali (nome del gruppo di lavoro e così via) riguardo alle aree di autenticazione delle affiliate, come le aree di autenticazione ritenute attendibili dall'area di autenticazione della macchina. Nessun dato specifico dell'utente o delle aree di autenticazione delle affiliate viene memorizzato nella cache. Se il dispositivo viene riavviato, la cache viene svuotata.
 
@@ -3400,7 +3400,7 @@ Se questa impostazione viene disattivata o non viene impostata, sia gli utenti l
        Valori validi: • 0 = disattivata• 1 = attivata• 2 = riquadro d'ingrandimento ancorato attivato
 
           Nota: se specificato, <ph name="DEVICE_LOGIN_SCREEN_SCREEN_MAGNIFIER_TYPE_POLICY_NAME" /> sostituisce questo criterio.</translation>
-<translation id="6015281292796053435">Questo criterio consente di stabilire se segnalare o meno le informazioni di Navigazione sicura, incluso il numero dell'avviso di Navigazione sicura e il numero del relativo click-through.
+<translation id="6015281292796053435">Questo criterio consente di stabilire se segnalare o meno le informazioni di Navigazione sicura, inclusi il numero dell'avviso di Navigazione sicura e il numero del relativo click-through.
 
       Se il criterio <ph name="CLOUD_REPORTING_ENABLED_POLICY_NAME" /> non viene configurato o viene disattivato, viene ignorato.
 

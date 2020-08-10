@@ -1342,7 +1342,7 @@ Du kan administrere indstillingerne for denne konto ved at installere Family Lin
 <translation id="2653033005692233957">Søgningen mislykkedes</translation>
 <translation id="2653266418988778031">Hvis du sletter et certifikat med certificeringsautoritet (CA), vil din browser ikke længere have tillid til certifikater, der er udstedt af denne CA.</translation>
 <translation id="2653275834716714682">Teksterstatning</translation>
-<translation id="2653659639078652383">Indsend</translation>
+<translation id="2653659639078652383">Send</translation>
 <translation id="265390580714150011">Feltværdi</translation>
 <translation id="2654166010170466751">Tillad, at websites installerer betalingshandlere</translation>
 <translation id="2654553774144920065">Udskriftsanmodning</translation>
@@ -4319,7 +4319,7 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="6429384232893414837">Opdateringsfejl</translation>
 <translation id="6430814529589430811">Base64-kodet ASCII, enkeltcertifikat</translation>
 <translation id="6431347207794742960"><ph name="PRODUCT_NAME" /> konfigurerer automatiske opdateringer for alle brugere af denne computer.</translation>
-<translation id="6434309073475700221">Kasser</translation>
+<translation id="6434309073475700221">Kassér</translation>
 <translation id="6434325376267409267">Din enhed skal opdateres, før du kan bruge <ph name="APP_NAME" />.</translation>
 <translation id="6436164536244065364">Vis i Webshop</translation>
 <translation id="6438992844451964465"><ph name="WINDOW_TITLE" /> – der afspilles lyd</translation>

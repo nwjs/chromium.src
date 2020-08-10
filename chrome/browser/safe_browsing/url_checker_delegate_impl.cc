@@ -46,9 +46,10 @@ void CreateSafeBrowsingUserInteractionObserver(
     bool is_main_frame,
     scoped_refptr<SafeBrowsingUIManager> ui_manager) {
   content::WebContents* web_contents = web_contents_getter.Run();
-  // Don't delay the interstitial for prerender pages.
+  // Don't delay the interstitial for prerender pages and portals.
   if (!web_contents ||
-      prerender::PrerenderContents::FromWebContents(web_contents)) {
+      prerender::PrerenderContents::FromWebContents(web_contents) ||
+      web_contents->IsPortal()) {
     SafeBrowsingUIManager::StartDisplayingBlockingPage(ui_manager, resource);
     return;
   }

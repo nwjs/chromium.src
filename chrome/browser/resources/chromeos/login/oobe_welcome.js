@@ -95,7 +95,6 @@ Polymer({
       resetAllowed: true,
       enableDebuggingAllowed: true,
       enterDemoModeAllowed: true,
-      noAnimatedTransition: true,
       postponeEnrollmentAllowed: true,
     });
     this.updateLocalizedContent();

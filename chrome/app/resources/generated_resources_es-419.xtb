@@ -213,7 +213,7 @@
 <translation id="1251480783646955802">Esta acción borrará <ph name="TOTAL_USAGE" /> de datos almacenados por sitios y apps instaladas</translation>
 <translation id="1252987234827889034">Se produjo un error en el perfil</translation>
 <translation id="1254593899333212300">Conexión directa a Internet</translation>
-<translation id="1259152067760398571">La verificación de seguridad se ejecutó ayer</translation>
+<translation id="1259152067760398571">Ayer se ejecutó la verificación de seguridad</translation>
 <translation id="1260451001046713751">Siempre permitir ventanas emergentes y redireccionamientos de <ph name="HOST" /></translation>
 <translation id="1261380933454402672">Moderada</translation>
 <translation id="126156426083987769">Hubo un problema con las licencias del dispositivo en el modo de demostración.</translation>
@@ -573,7 +573,7 @@
 <translation id="1700845716982723710">Desactivar el Modo ambiente</translation>
 <translation id="1701062906490865540">Eliminar a esta persona</translation>
 <translation id="1703331064825191675">Ya no tendrás que preocuparte por tus contraseñas</translation>
-<translation id="1704970325597567340">La verificación de seguridad se ejecutó el <ph name="DATE" /></translation>
+<translation id="1704970325597567340">El <ph name="DATE" />, se ejecutó la verificación de seguridad</translation>
 <translation id="1706586824377653884">Agregado por el administrador</translation>
 <translation id="1706625117072057435">Niveles de zoom</translation>
 <translation id="1708338024780164500">(Inactiva)</translation>
@@ -762,7 +762,7 @@
 <translation id="192494336144674234">Abrir con</translation>
 <translation id="1925017091976104802">Presiona <ph name="MODIFIER_KEY_DESCRIPTION" /> para copiar</translation>
 <translation id="1925021887439448749">Ingresa una dirección web personalizada</translation>
-<translation id="1925124445985510535">La verificación de seguridad se ejecutó a las <ph name="TIME" /></translation>
+<translation id="1925124445985510535">A las <ph name="TIME" />, se ejecutó la verificación de seguridad</translation>
 <translation id="1926339101652878330">Esta configuración se controla por medio de una política de la empresa. Ponte en contacto con tu administrador para obtener más información.</translation>
 <translation id="1927632033341042996">Dedo <ph name="NEW_FINGER_NUMBER" /></translation>
 <translation id="192817607445937251">PIN de bloqueo de pantalla</translation>
@@ -1882,7 +1882,7 @@ Para administrar la configuración de esta cuenta, instala la app de Family Lin
 <translation id="3341703758641437857">Permitir el acceso a las URL del archivo</translation>
 <translation id="3342361181740736773">"<ph name="TRIGGERING_EXTENSION_NAME" />" desea quitar esta extensión.</translation>
 <translation id="3345135638360864351">No se pudo enviar la solicitud de acceso al sitio a <ph name="NAME" />. Vuelve a intentarlo.</translation>
-<translation id="3345634917232014253">La verificación de seguridad se ejecutó recientemente</translation>
+<translation id="3345634917232014253">Hace un momento, se ejecutó la verificación de seguridad</translation>
 <translation id="3345886924813989455">No se ha encontrado el navegador compatible</translation>
 <translation id="3347086966102161372">Copiar dirección de la imagen</translation>
 <translation id="3348038390189153836">Se detectó un dispositivo removible.</translation>
@@ -3356,7 +3356,7 @@ Para administrar la configuración de esta cuenta, instala la app de Family Lin
 <translation id="5233231016133573565">ID de proceso</translation>
 <translation id="5233638681132016545">Nueva pestaña</translation>
 <translation id="5233736638227740678">&amp;Pegar</translation>
-<translation id="5234764350956374838">Rechazar</translation>
+<translation id="5234764350956374838">Descartar</translation>
 <translation id="5235050375939235066">¿Desinstalar la app?</translation>
 <translation id="523505283826916779">Configuración de accesibilidad</translation>
 <translation id="5235750401727657667">Reemplazar la página que ves cuando abres una pestaña nueva</translation>
@@ -3569,7 +3569,7 @@ Para administrar la configuración de esta cuenta, instala la app de Family Lin
 <translation id="5496587651328244253">Organizar</translation>
 <translation id="5497251278400702716">Este archivo</translation>
 <translation id="5499313591153584299">Este archivo puede dañar el equipo.</translation>
-<translation id="5500709606820808700">La verificación de seguridad se ejecutó hoy</translation>
+<translation id="5500709606820808700">Hoy se ejecutó la verificación de seguridad</translation>
 <translation id="5502500733115278303">Importado desde Firefox</translation>
 <translation id="5503982651688210506">Seguir permitiendo que <ph name="HOST" /> use y mueva la cámara y use el micrófono</translation>
 <translation id="5505264765875738116">Los sitios no podrán preguntarte si quieres recibir notificaciones</translation>
@@ -3705,7 +3705,7 @@ Para administrar la configuración de esta cuenta, instala la app de Family Lin
 <translation id="5657156137487675418">Mostrar todas las cookies</translation>
 <translation id="5657667036353380798">La extensión externa requiere que esté instalada la versión <ph name="MINIMUM_CHROME_VERSION" /> o una versión posterior de Chrome.</translation>
 <translation id="5658415415603568799">Para mejorar la seguridad, Smart Lock te pedirá que ingreses tu contraseña después de 20 horas.</translation>
-<translation id="5659593005791499971">Correo electrónico</translation>
+<translation id="5659593005791499971">Correo</translation>
 <translation id="5659833766619490117">No se pudo traducir esta página</translation>
 <translation id="5662513737565158057">Cambia la manera en la que funcionan las apps de Linux.</translation>
 <translation id="5667546120811588575">Configurando Google Play…</translation>
@@ -4222,7 +4222,7 @@ Para administrar la configuración de esta cuenta, instala la app de Family Lin
 <translation id="6309510305002439352">Se apagó el micrófono</translation>
 <translation id="6311220991371174222">No se puede iniciar Chrome porque se produjo un error al abrir tu perfil. Intenta reiniciar Chrome.</translation>
 <translation id="6312403991423642364">Error de red desconocido</translation>
-<translation id="6312567056350025599">{NUM_DAYS,plural, =1{La verificación de seguridad se ejecutó hace 1 día}other{La verificación de seguridad se ejecutó hace {NUM_DAYS} días}}</translation>
+<translation id="6312567056350025599">{NUM_DAYS,plural, =1{Se ejecutó hace 1 día la verificación de seguridad}other{Se ejecutó hace {NUM_DAYS} días la verificación de seguridad}}</translation>
 <translation id="6312638141433622592">Ofrece mostrar artículos en el modo de lectura, cuando sea compatible</translation>
 <translation id="6313641880021325787">SALIR DE RV</translation>
 <translation id="6313950457058510656">Desactivar la Conexión instantánea mediante dispositivo móvil</translation>
@@ -4315,7 +4315,7 @@ Para administrar la configuración de esta cuenta, instala la app de Family Lin
 <translation id="6429384232893414837">Error en la actualización</translation>
 <translation id="6430814529589430811">Certificado único ASCII con codificación Base64</translation>
 <translation id="6431347207794742960"><ph name="PRODUCT_NAME" /> configurará actualizaciones automáticas para todos los usuarios de esta computadora.</translation>
-<translation id="6434309073475700221">Rechazar</translation>
+<translation id="6434309073475700221">Descartar</translation>
 <translation id="6434325376267409267">Para usar <ph name="APP_NAME" />, actualiza el dispositivo.</translation>
 <translation id="6436164536244065364">Ver en Web Store</translation>
 <translation id="6438992844451964465"><ph name="WINDOW_TITLE" />: Reproducción de audio</translation>
@@ -4873,7 +4873,7 @@ Para administrar la configuración de esta cuenta, instala la app de Family Lin
 <translation id="7140928199327930795">No hay otros dispositivos disponibles.</translation>
 <translation id="7141105143012495934">Se produjo un error de acceso porque no se pudieron recuperar los datos de tu cuenta. Comunícate con el administrador o vuelve a intentarlo.</translation>
 <translation id="7143207342074048698">Conectando</translation>
-<translation id="7144878232160441200">Volver a intentarlo</translation>
+<translation id="7144878232160441200">Volver a intentar</translation>
 <translation id="7149893636342594995">Últimas 24 horas</translation>
 <translation id="715118844758971915">Impresoras clásicas</translation>
 <translation id="7152478047064750137">Esta extensión no requiere permisos especiales</translation>
@@ -5068,7 +5068,7 @@ Para administrar la configuración de esta cuenta, instala la app de Family Lin
 <translation id="7400839060291901923">Configurar la conexión en tu <ph name="PHONE_NAME" /></translation>
 <translation id="7401778920660465883">Descartar este mensaje</translation>
 <translation id="7403642243184989645">Descarga de recursos</translation>
-<translation id="7405938989981604410">{NUM_HOURS,plural, =1{La verificación de seguridad se ejecutó hace 1 hora}other{La verificación de seguridad se ejecutó hace {NUM_HOURS} horas}}</translation>
+<translation id="7405938989981604410">{NUM_HOURS,plural, =1{Se ejecutó hace 1 hora la verificación de seguridad}other{Se ejecutó hace {NUM_HOURS} horas la verificación de seguridad}}</translation>
 <translation id="740624631517654988">Ventana emergente (pop-up) bloqueada</translation>
 <translation id="7407430846095439694">Importar y vincular</translation>
 <translation id="7407504355934009739">La mayoría de las personas bloquean las notificaciones de este sitio</translation>
@@ -5298,7 +5298,7 @@ Para administrar la configuración de esta cuenta, instala la app de Family Lin
 <translation id="7696063401938172191">En tu "<ph name="PHONE_NAME" />"</translation>
 <translation id="7698408911093959127">{COUNT,plural, =1{1 elemento en la lista de favoritos}other{# elementos en la lista de favoritos}}</translation>
 <translation id="7699968112832915395">No se puede agregar la cuenta</translation>
-<translation id="7701040980221191251">Ninguno</translation>
+<translation id="7701040980221191251">Ninguna</translation>
 <translation id="770157826141786566">Ya pasó la fecha límite para devolver este dispositivo.</translation>
 <translation id="7701869757853594372">A cargo del USUARIO</translation>
 <translation id="7701928712056789451">Es posible que estos elementos sean peligrosos</translation>
@@ -6537,7 +6537,7 @@ Mantén el archivo de clave en un lugar seguro. Debes crear las nuevas versiones
 <translation id="9219103736887031265">Imágenes</translation>
 <translation id="9220525904950070496">Eliminar cuenta</translation>
 <translation id="9220820413868316583">Levanta el dedo y vuelve a intentarlo.</translation>
-<translation id="923467487918828349">Mostrar todo</translation>
+<translation id="923467487918828349">Mostrar todos</translation>
 <translation id="929117907539171075">También se borrarán los datos sin conexión de la app instalada</translation>
 <translation id="930268624053534560">Marcas de tiempo detalladas</translation>
 <translation id="932327136139879170">Página principal</translation>

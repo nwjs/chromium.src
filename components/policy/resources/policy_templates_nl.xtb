@@ -172,6 +172,9 @@
 
       Als er geen beleid is ingesteld of het beleid is ingesteld op 'False', wordt Fast Transition niet gebruikt.
       Als het beleid is ingesteld op 'True', wordt Fast Transition gebruikt wanneer dit wordt ondersteund door het draadloze toegangspunt.</translation>
+<translation id="1240722269871366886">Met dit beleid kan <ph name="PRODUCT_OS_NAME" /> emoji's voorstellen als gebruikers tekst typen met hun virtuele of fysieke toetsenborden.
+      Als dit beleid is ingesteld op 'waar', is de functie ingeschakeld en kunnen gebruikers het wijzigen.
+      Dit beleid is standaard ingesteld op 'onwaar'. Er worden geen suggesties voor emoji's weergegeven en gebruikers kunnen dit niet overschrijven.</translation>
 <translation id="1243570869342663665">SafeSites-filters voor content voor volwassenen beheren.</translation>
 <translation id="1257550411839719984">Standaardmap voor downloads instellen</translation>
 <translation id="1265053460044691532">De offline inlogtijd beperken voor een gebruiker die is geverifieerd via SAML</translation>
@@ -815,9 +818,6 @@ Als je dit beleid uitschakelt, wordt op de webpagina naar specifieke tekstfragme
       Dit beleid mag niet worden gebruikt voor apparaten die openbaar worden gebruikt.
 
       Als dit beleid is ingesteld op True of niet is ingesteld, wordt de privacywaarschuwing in de melding voor automatisch starten van beheerde gastsessies vastgezet totdat de gebruiker deze sluit.</translation>
-<translation id="2288338171390565087">Deze functie geeft een suggestie voor een emoji als een gebruiker een woord typt dat overeenkomt met de ingebouwde emojikaart.
-      Als dit beleid is ingesteld op True, wordt de functie gedwongen ingeschakeld en kunnen gebruikers dit niet overschrijven.
-      Dit beleid is standaard ingesteld op False. Er worden geen suggesties voor emoji's weergegeven en gebruikers kunnen dit niet overschrijven.</translation>
 <translation id="2289265947759479962">Met dit beleid wordt bepaald of er versiegegevens moeten worden gerapporteerd, zoals OS-versie, OS-platform, OS-architectuur, <ph name="PRODUCT_NAME" />-versie en <ph name="PRODUCT_NAME" />-kanaal.
 
       Als het beleid <ph name="CLOUD_REPORTING_ENABLED_POLICY_NAME" /> niet is ingesteld of is uitgeschakeld, wordt dit beleid genegeerd.

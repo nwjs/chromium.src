@@ -109,6 +109,8 @@ class CORE_EXPORT LocalDOMWindow final : public DOMWindow,
 
   LocalFrame* GetFrame() const { return To<LocalFrame>(DOMWindow::GetFrame()); }
 
+  void ResetWindowAgent(WindowAgent*);
+
   void Trace(Visitor*) const override;
 
   // ExecutionContext overrides:

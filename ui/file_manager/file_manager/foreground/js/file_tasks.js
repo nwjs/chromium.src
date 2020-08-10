@@ -96,8 +96,8 @@ class FileTasks {
       progressCenter) {
     let tasks = [];
 
-    // getFileTasks supports only native entries.
-    entries = entries.filter(util.isNativeEntry);
+    // Cannot use fake entries with getFileTasks.
+    entries = entries.filter(e => !util.isFakeEntry(e));
     if (entries.length !== 0) {
       tasks = await new Promise(
           fulfill => chrome.fileManagerPrivate.getFileTasks(entries, fulfill));
@@ -942,12 +942,15 @@ class FileTasks {
   }
 
   /**
-   * Setup a task picker combobutton based on the given tasks.
+   * Setup a task picker combobutton based on the given tasks. The combobutton
+   * is not shown if there are no tasks, or if any entry is a directory.
+   *
    * @param {!cr.ui.ComboButton} combobutton
    * @param {!Array<!chrome.fileManagerPrivate.FileTask>} tasks
    */
   updateOpenComboButton_(combobutton, tasks) {
-    combobutton.hidden = tasks.length == 0;
+    combobutton.hidden =
+        tasks.length == 0 || this.entries_.some(e => e.isDirectory);
     if (tasks.length == 0) {
       return;
     }

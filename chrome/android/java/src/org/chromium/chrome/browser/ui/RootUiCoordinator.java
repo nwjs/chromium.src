@@ -297,12 +297,9 @@ public class RootUiCoordinator
         if (mAppMenuCoordinator != null) {
             mModalDialogManagerObserver = new ModalDialogManagerObserver() {
                 @Override
-                public void onDialogShown(PropertyModel model) {
+                public void onDialogAdded(PropertyModel model) {
                     mAppMenuCoordinator.getAppMenuHandler().hideAppMenu();
                 }
-
-                @Override
-                public void onDialogHidden(PropertyModel model) {}
             };
             mActivity.getModalDialogManager().addObserver(mModalDialogManagerObserver);
         }

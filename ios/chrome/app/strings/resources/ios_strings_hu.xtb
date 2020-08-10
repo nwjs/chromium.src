@@ -21,6 +21,7 @@
 <translation id="1176932207622159128">A kép nem menthető</translation>
 <translation id="1180526666083833456">Szinkronizálás és személyre szabás az eszközök között.</translation>
 <translation id="1181037720776840403">Eltávolítás</translation>
+<translation id="1185569544548277362">Új: Alapértelmezett böngészővé teheti a Chrome-ot. <ph name="BEGIN_LINK" />Beállítások megnyitása<ph name="END_LINK" />.</translation>
 <translation id="1207113853726624428">Új keresés</translation>
 <translation id="1209206284964581585">Elrejtés most</translation>
 <translation id="1219674500290482172">Nem lehet kapcsolódni az internethez.</translation>
@@ -142,7 +143,7 @@ A webhelyek nem használhatnak cookie-kat arra, hogy megfigyeljék más webhelye
 <translation id="2625189173221582860">Jelszó vágólapra másolva</translation>
 <translation id="2647269890314209800">Használatban lévő cookie-k</translation>
 <translation id="2648803196158606475">Olvasottak törlése</translation>
-<translation id="2653659639078652383">Elküldés</translation>
+<translation id="2653659639078652383">Küldés</translation>
 <translation id="2690858294534178585">A kamera épp használatban van</translation>
 <translation id="2691653761409724435">Nem érhető el offline</translation>
 <translation id="2695507686909505111">Oldal lefordítva</translation>

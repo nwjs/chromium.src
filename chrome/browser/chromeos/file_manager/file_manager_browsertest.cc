@@ -688,7 +688,8 @@ WRAPPED_INSTANTIATE_TEST_SUITE_P(
                       TestCase("defaultTaskDialogDownloads").InGuestMode(),
                       TestCase("defaultTaskDialogDrive"),
                       TestCase("genericTaskIsNotExecuted"),
-                      TestCase("genericTaskAndNonGenericTask")));
+                      TestCase("genericTaskAndNonGenericTask"),
+                      TestCase("noActionBarOpenForDirectories")));
 
 WRAPPED_INSTANTIATE_TEST_SUITE_P(
     FolderShortcuts, /* folder_shortcuts.js */

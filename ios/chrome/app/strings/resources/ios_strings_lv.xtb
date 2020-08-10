@@ -21,6 +21,7 @@
 <translation id="1176932207622159128">Attēlu nevar sagl.</translation>
 <translation id="1180526666083833456">Sinhronizējiet datus un personalizējiet iespējas vairākās ierīcēs.</translation>
 <translation id="1181037720776840403">Noņemt</translation>
+<translation id="1185569544548277362">Jaunums: varat iestatīt Chrome kā noklusējuma pārlūku. <ph name="BEGIN_LINK" />Atveriet iestatījumus<ph name="END_LINK" />.</translation>
 <translation id="1207113853726624428">Jauns meklēšanas vaicājums</translation>
 <translation id="1209206284964581585">Pagaidām slēpt</translation>
 <translation id="1219674500290482172">Nevar izveidot savienojumu ar internetu.</translation>
@@ -348,7 +349,7 @@ Lai mainītu šo iestatījumu, <ph name="BEGIN_LINK" />atiestatiet sinhronizāci
 <translation id="5190835502935405962">Grāmatzīmju josla</translation>
 <translation id="5197255632782567636">Internets</translation>
 <translation id="5228579091201413441">Iespējot sinhronizāciju</translation>
-<translation id="5234764350956374838">Noraidīt</translation>
+<translation id="5234764350956374838">Nerādīt</translation>
 <translation id="5245322853195994030">Atcelt sinhronizēšanu</translation>
 <translation id="5271549068863921519">Saglabāt paroli</translation>
 <translation id="5295239312320826323">Vai noņemt kontu <ph name="USER_EMAIL" />?</translation>

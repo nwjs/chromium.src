@@ -167,6 +167,9 @@
 
       Se esta política não for definida ou for definida como falsa, a transição rápida não será usada.
       Se for definida como verdadeira, a transição rápida será usada quando for compatível com o ponto de acesso sem fio.</translation>
+<translation id="1240722269871366886">Esta política permite que o <ph name="PRODUCT_OS_NAME" /> sugira emojis quando os usuários digitam com o teclado virtual ou físico.
+      Se ela for definida como verdadeira, o recurso será ativado e os usuários poderão mudá-lo.
+      Por padrão, esta política é definida como falsa. Nenhum emoji será sugerido, e o usuário não poderá modificar isso.</translation>
 <translation id="1243570869342663665">Controlar a filtragem de conteúdo adulto SafeSites.</translation>
 <translation id="1257550411839719984">Definir diretório de download padrão</translation>
 <translation id="1265053460044691532">Limite o tempo pelo qual um usuário autenticado via SAML pode fazer login off-line</translation>
@@ -811,9 +814,6 @@ Se você desativar esta configuração ou deixá-la sem definição, todas as p�
       Esta política não pode ser aplicada em dispositivos usados pelo público geral.
 
       Se a política for definida como verdadeira ou não for definida, o alerta de privacidade na Sessão de visitante com início automático será fixado até que o usuário o dispense.</translation>
-<translation id="2288338171390565087">Esse recurso oferece sugestões de emojis sempre que o usuário digita uma palavra que corresponda ao mapa de emojis integrado.
-      Se esta política for definida como verdadeira, o recurso terá uma ativação forçada e o usuário não poderá modificar isso.
-      Por padrão, esta política é definida como falsa. Nenhum emoji será sugerido e o usuário não poderá modificar isso.</translation>
 <translation id="2289265947759479962">Esta política controla a permissão de fornecimento das informações sobre versão, como a versão, a plataforma e a arquitetura do SO, a versão do <ph name="PRODUCT_NAME" /> e o canal do <ph name="PRODUCT_NAME" />.
 
       Quando a <ph name="CLOUD_REPORTING_ENABLED_POLICY_NAME" /> não for definida ou for desativada, esta política será ignorada.

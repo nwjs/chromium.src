@@ -589,7 +589,7 @@
 <translation id="5723735397759933332">라이트 모드에서는 HTTPS 페이지의 이미지를 최적화하여 더 많은 데이터를 절약할 수 있습니다.</translation>
 <translation id="5726692708398506830">페이지의 모든 항목 확대</translation>
 <translation id="5732819098735351888">Wi-Fi에 연결되면 다운로드가 시작됩니다.</translation>
-<translation id="5733983706093266635">QR 코드를 만들 수 없습니다. URL이 <ph name="CHARACTER_LIMIT" />자 이상입니다.</translation>
+<translation id="5733983706093266635">QR 코드를 만들 수 없습니다. URL이 <ph name="CHARACTER_LIMIT" />자(영문 기준)를 초과합니다.</translation>
 <translation id="5748802427693696783">일반 탭으로 전환됨</translation>
 <translation id="5749068826913805084">Chrome에서 파일을 다운로드하려면 저장소 액세스 권한이 있어야 합니다.</translation>
 <translation id="5763382633136178763">시크릿 탭</translation>
@@ -631,7 +631,7 @@
 <translation id="6036057147555329831">추가 ICU</translation>
 <translation id="6039379616847168523">다음 탭으로 이동</translation>
 <translation id="604124094241169006">자동</translation>
-<translation id="6042308850641462728">더보기</translation>
+<translation id="6042308850641462728">자세히</translation>
 <translation id="604996488070107836">알 수 없는 오류로 인해 <ph name="FILE_NAME" /> 다운로드에 실패했습니다.</translation>
 <translation id="605721222689873409">YY</translation>
 <translation id="6059830886158432458">여기에서 스토리 및 활동을 관리하세요.</translation>

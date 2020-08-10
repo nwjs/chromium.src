@@ -711,7 +711,7 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     drive::prefs::kDisableDriveOverCellular,
     base::Value::Type::BOOLEAN },
   { key::kEmojiSuggestionEnabled,
-    chromeos::prefs::kEmojiSuggestionEnabled,
+    chromeos::prefs::kEmojiSuggestionEnterpriseAllowed,
     base::Value::Type::BOOLEAN },
   { key::kExternalStorageDisabled,
     prefs::kExternalStorageDisabled,

@@ -171,6 +171,9 @@
 
       Si cette règle n'est pas configurée, la transition rapide n'est pas utilisée.
       Si elle est définie sur "True", la transition rapide est utilisée lorsque le point d'accès sans fil accepte cette fonctionnalité.</translation>
+<translation id="1240722269871366886">Cette règle permet à <ph name="PRODUCT_OS_NAME" /> de suggérer des emoji lorsque l'utilisateur saisit du texte sur un clavier virtuel ou physique.
+      Si cette règle est définie sur "True", la fonctionnalité est activée, et l'utilisateur peut la modifier.
+      Cette règle est définie par défaut sur "False". Aucun emoji n'est alors suggéré, et l'utilisateur ne peut pas ignorer ce paramètre.</translation>
 <translation id="1243570869342663665">Contrôler le filtrage SafeSites des contenus réservés aux adultes.</translation>
 <translation id="1257550411839719984">Définir le répertoire de téléchargement par défaut</translation>
 <translation id="1265053460044691532">Limiter la durée pendant laquelle un utilisateur authentifié via SAML peut se connecter hors connexion</translation>
@@ -846,9 +849,6 @@ Si ce paramètre n'est pas défini, les utilisateurs peuvent ouvrir normalement 
       Notez que cette règle ne doit pas être appliquée aux appareils utilisés par le grand public.
 
       Si cette règle est définie sur "True" ou qu'elle n'est pas configurée, les avertissements liés à la confidentialité dans les sessions Invité gérées lancées automatiquement sont épinglés jusqu'à ce que les utilisateurs les ferment.</translation>
-<translation id="2288338171390565087">Permet de suggérer des emoji chaque fois qu'un utilisateur saisit un mot pour lequel une ou plusieurs correspondances existent dans la carte intégrée des emoji.
-      Si cette règle est définie sur "True", cette fonctionnalité est activée de manière forcée, et les utilisateurs ne peuvent pas ignorer ce paramètre.
-      Cette règle est définie par défaut sur "False". Aucun emoji n'est alors suggéré, et les utilisateurs ne peuvent pas ignorer ce paramètre.</translation>
 <translation id="2289265947759479962">Cette règle détermine si les informations de version doivent être enregistrées. Cela concerne, par exemple, la version, la plate-forme et l'architecture du système d'exploitation, la version de <ph name="PRODUCT_NAME" /> et le canal de <ph name="PRODUCT_NAME" />.
 
       Cette règle est ignorée si la règle <ph name="CLOUD_REPORTING_ENABLED_POLICY_NAME" /> n'est pas définie ou si elle est désactivée.

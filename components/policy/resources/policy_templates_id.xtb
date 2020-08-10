@@ -160,6 +160,9 @@ Secara default, tidak ada mode buka kunci cepat yang tersedia untuk perangkat ya
 
       Jika kebijakan tidak disetel atau disetel ke false, Transisi Cepat tidak dapat digunakan.
       Jika disetel ke true, Transisi Cepat dapat digunakan saat titik akses nirkabel mendukungnya.</translation>
+<translation id="1240722269871366886">Kebijakan ini memungkinkan <ph name="PRODUCT_OS_NAME" /> menyarankan emoji saat pengguna mengetikkan teks dengan keyboard virtual atau fisik.
+      Jika kebijakan ini disetel ke benar, fitur akan diaktifkan, dan pengguna dapat mengubahnya.
+      Kebijakan ini disetel ke salah secara default, emoji tidak akan disarankan dan pengguna tidak dapat menggantinya.</translation>
 <translation id="1243570869342663665">Mengontrol pemfilteran konten khusus dewasa SafeSites.</translation>
 <translation id="1257550411839719984">Setel direktori download default</translation>
 <translation id="1265053460044691532">Batasi waktu bagi pengguna yang diautentikasi melalui SAML untuk dapat masuk saat offline.</translation>
@@ -532,7 +535,7 @@ Jika Anda menonaktifkan kebijakan ini, scroll halaman web ke fragmen teks terten
         Dukungan bagi jenis aplikasi lain akan ditambahkan nantinya. Untuk saat ini jenis tersebut dapat ditentukan dalam kebijakan, tetapi pembatasan tersebut tidak akan berlaku.
         Terdapat dua jenis pembatasan yang tersedia: |BLOCK| dan |TIME_LIMIT|.
         |BLOCK| akan membuat aplikasi menjadi tidak tersedia bagi pengguna. Jika |daily_limit_mins| ditentukan dengan pembatasan |BLOCK|, |daily_limit_mins| akan diabaikan.
-        |TIME_LIMITS| menerapkan batas penggunaan harian dan membuat aplikasi menjadi tidak tersedia setelah batas tersebut tercapai pada hari yang sudah ditentukan. Batas penggunaan ditentukan dalam |daily_limit_mins|. Batas penggunaan disetel ulang setiap hari pada waktu UTC yang dilewati dalam |reset_at|.
+        |TIME_LIMITS| menerapkan batas penggunaan harian dan membuat aplikasi menjadi tidak tersedia setelah batas tersebut tercapai pada hari yang sudah ditentukan. Batas penggunaan ditentukan dalam |daily_limit_mins|. Batas penggunaan direset setiap hari pada waktu UTC yang dilewati dalam |reset_at|.
         Kebijakan ini hanya digunakan untuk anak-anak sebagai pengguna.
         Kebijakan ini bersifat komplementer terhadap 'UsageTimeLimit'. Pembatasan yang ditentukan dalam 'UsageTimeLimit' seperti waktu pemakaian perangkat dan waktu tidur akan diterapkan tanpa memandang 'PerAppTimeLimits'.</translation>
 <translation id="1914840757300882918">Jika kebijakan ini ditetapkan, host akan menggunakan sertifikat klien dengan CN penerbit yang diberikan untuk mengautentikasi ke RemoteAccessHostTokenValidationUrl. Tetapkan ke "*" untuk menggunakan sertifikat klien mana pun yang tersedia.
@@ -821,9 +824,6 @@ Jika Anda menonaktifkan kebijakan ini, scroll halaman web ke fragmen teks terten
       Kebijakan ini tidak boleh digunakan untuk perangkat yang digunakan secara umum.
 
       Jika kebijakan disetel ke Benar (True) atau tidak disetel, notifikasi peringatan privasi di sesi tamu terkelola yang diluncurkan otomatis akan terus ditampilkan hingga pengguna menutupnya.</translation>
-<translation id="2288338171390565087">Fitur ini memberikan saran emoji saat pengguna mengetikkan kata yang cocok dengan peta emoji bawaan.
-      Jika kebijakan ini disetel ke benar (true), fitur akan diaktifkan secara paksa dan pengguna tidak akan dapat menggantinya.
-      Kebijakan ini disetel ke salah (false) secara default, tidak ada emoji yang akan disarankan dan pengguna tidak dapat menggantinya.</translation>
 <translation id="2289265947759479962">Kebijakan ini mengontrol apakah informasi versi akan dilaporkan atau tidak, misalnya versi OS, platform OS, arsitektur OS, versi <ph name="PRODUCT_NAME" />, dan saluran <ph name="PRODUCT_NAME" />.
 
       Jika kebijakan <ph name="CLOUD_REPORTING_ENABLED_POLICY_NAME" /> tidak disetel atau disetel ke nonaktif, kebijakan ini akan diabaikan.
@@ -5453,7 +5453,7 @@ Pengguna tidak dapat mengubah atau mengganti setelan ini.</translation>
 
       Menyetel kebijakan ini akan mencegah penerapan perlindungan rollback untuk setidaknya jumlah milestone ini.
 
-      Menyetel kebijakan ini ke nilai yang lebih rendah akan memiliki dampak permanen: perangkat MUNGKIN tidak dapat dikembalikan ke versi sebelumnya setelah kebijakan disetel ulang ke nilai yang lebih tinggi.
+      Menyetel kebijakan ini ke nilai yang lebih rendah akan memiliki dampak permanen: perangkat MUNGKIN tidak dapat dikembalikan ke versi sebelumnya setelah kebijakan direset ke nilai yang lebih tinggi.
 
       Kemungkinan rollback aktual juga dapat bergantung pada model perangkat dan patch kerentanan kritis.</translation>
 <translation id="9123464369663964441">Izinkan pengguna menambahkan pengecualian untuk mengizinkan konten campuran</translation>
