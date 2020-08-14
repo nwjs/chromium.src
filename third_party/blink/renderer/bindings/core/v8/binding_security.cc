@@ -152,10 +152,13 @@ bool CanAccessWindowInternal(
                       kDomainNotRelevantAgentClusterMismatch) {
       // Assert that because the agent clusters are different than the
       // WindowAgentFactories must also be different.
+      /* it's OK to disable the assertion in NW because the logic is
+         different, plus the access is disallowed.
       SECURITY_CHECK(
           !IsSameWindowAgentFactory(accessing_window, local_target_window) ||
           (WebTestSupport::IsRunningWebTest() &&
            local_target_window->GetFrame()->PagePopupOwner()));
+       */
 
       *cross_document_access =
           DOMWindow::CrossDocumentAccessPolicy::kDisallowed;
