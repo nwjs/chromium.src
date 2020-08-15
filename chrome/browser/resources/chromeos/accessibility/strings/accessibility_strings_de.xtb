@@ -63,7 +63,7 @@
 <translation id="1360699455582016846">Klicken Sie auf das Element unterhalb des Routing-Schlüssels <ph name="ROUTING_KEY_NUMBER" /></translation>
 <translation id="1377925789329510816">Hierbei handelt es sich um die letzte Überschrift. Drücken Sie "Suche + H", um zur ersten Überschrift zu gelangen, oder "Suche + Umschalttaste + H", um zur zweiten Überschrift auf dieser Seite zu springen.</translation>
 <translation id="138218114945450791">Hellblau</translation>
-<translation id="1383876407941801731">Suchen</translation>
+<translation id="1383876407941801731">Suchtaste</translation>
 <translation id="1396114365388024581">tablst</translation>
 <translation id="1405567553485452995">Hellgrün</translation>
 <translation id="1417889266572670458">Marineblau</translation>
@@ -367,7 +367,7 @@
 <translation id="3781428340399460090">Dunkelrosa</translation>
 <translation id="3783725005098956899">Protokoll anzeigen</translation>
 <translation id="3801735343383419236">Liste der Autovervollständigungen</translation>
-<translation id="3810838688059735925">Videos</translation>
+<translation id="3810838688059735925">Video</translation>
 <translation id="3813387282697781382">Helles Korallenrot</translation>
 <translation id="3816633764618089385">Nächstes Medium</translation>
 <translation id="385383972552776628">Seite "Optionen" öffnen</translation>
@@ -480,7 +480,7 @@
 <translation id="4784215347943747396">Das Gerät lässt sich über einen oder zwei Schalter steuern</translation>
 <translation id="4786285211967466855">Keine vorherige Überschrift der Ebene 1</translation>
 <translation id="4787577491510559358">Formatierung für aktuelles Element ansagen</translation>
-<translation id="479989351350248267">Suchen</translation>
+<translation id="479989351350248267">Suchtaste</translation>
 <translation id="4804818685124855865">Verbindung trennen</translation>
 <translation id="481165870889056555">Titel der aktuellen Seite ansagen</translation>
 <translation id="4815668758102003883">Blasses Türkis</translation>
@@ -765,7 +765,7 @@
 <translation id="7137397390322864165">Lachs</translation>
 <translation id="7140168702531682811">Hochgestellt</translation>
 <translation id="7143034430156387447">Zwischen 6- und 8-Punkt-Braille wechseln</translation>
-<translation id="7143207342074048698">Verbindung wird hergestellt.</translation>
+<translation id="7143207342074048698">Verbindung...</translation>
 <translation id="7153618581592392745">Lavendel</translation>
 <translation id="7157306005867877619">Zusammenfassung</translation>
 <translation id="7161771961008409533">Pop-up-Schaltfläche</translation>

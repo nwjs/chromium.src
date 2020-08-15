@@ -229,7 +229,7 @@
 <translation id="3783017676699494206">حفظ الصورة</translation>
 <translation id="3789841737615482174">تثبيت</translation>
 <translation id="3803696231112616155">اقتراح ترجمة هذا الموقع الإلكتروني</translation>
-<translation id="385051799172605136">الرجوع إلى الوراء</translation>
+<translation id="385051799172605136">رجوع</translation>
 <translation id="3897092660631435901">قائمة</translation>
 <translation id="3915450441834151894">معلومات الموقع الإلكتروني</translation>
 <translation id="3922310737605261887">البحث عن النص الذي نسخته</translation>
@@ -237,7 +237,7 @@
 <translation id="3929457972718048006">العناوين</translation>
 <translation id="3943492037546055397">كلمات المرور</translation>
 <translation id="3967822245660637423">اكتمل التنزيل</translation>
-<translation id="3989635538409502728">الخروج</translation>
+<translation id="3989635538409502728">تسجيل الخروج</translation>
 <translation id="399419089947468503">حدث خطأ أثناء مزامنة كلمات المرور</translation>
 <translation id="3995521777587992544">شريط تقدُّم تحميل الصفحة، تم تحميل <ph name="EMAIL" />.</translation>
 <translation id="4002066346123236978">العنوان</translation>
@@ -328,7 +328,7 @@
 <translation id="5190835502935405962">شريط الإشارات</translation>
 <translation id="5197255632782567636">الإنترنت</translation>
 <translation id="5228579091201413441">تفعيل المزامنة</translation>
-<translation id="5234764350956374838">رفض</translation>
+<translation id="5234764350956374838">تجاهل</translation>
 <translation id="5245322853195994030">إلغاء المزامنة</translation>
 <translation id="5271549068863921519">حفظ كلمة المرور</translation>
 <translation id="5300589172476337783">عرض</translation>
@@ -387,7 +387,7 @@
 <translation id="6021332621416007159">فتح في...</translation>
 <translation id="6039429417015973673"><ph name="TITLE" />، <ph name="PUBLISHER_INFORMATION" />، <ph name="PUBLICATION_DATE" /></translation>
 <translation id="6040143037577758943">إغلاق</translation>
-<translation id="6042308850641462728">المزيد</translation>
+<translation id="6042308850641462728">عرض المزيد</translation>
 <translation id="605721222689873409">العام</translation>
 <translation id="6066301408025741299">انقر للإلغاء.</translation>
 <translation id="6108923351542677676">الإعداد قيد التقدّم…</translation>

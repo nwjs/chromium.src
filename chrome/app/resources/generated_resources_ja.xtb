@@ -50,7 +50,7 @@
 <translation id="1054153489933238809">元の画像を新しいタブで開く(&amp;I)</translation>
 <translation id="1055806300943943258">Bluetooth デバイスと USB デバイスを検索しています...</translation>
 <translation id="1056466516655540509"><ph name="MINUTES" /> 分前に更新されました</translation>
-<translation id="1056775291175587022">ネットワークが見つかりません</translation>
+<translation id="1056775291175587022">なし</translation>
 <translation id="1056898198331236512">警告</translation>
 <translation id="1058262162121953039">PUK</translation>
 <translation id="1060292118287751956">画面の更新頻度を指定します</translation>
@@ -3644,7 +3644,7 @@
 <translation id="5659833766619490117">このページを翻訳できませんでした</translation>
 <translation id="5662513737565158057">Linux アプリの動作を変更します。</translation>
 <translation id="5667546120811588575">Google Play を設定しています...</translation>
-<translation id="5669267381087807207">有効にしています</translation>
+<translation id="5669267381087807207">有効化中</translation>
 <translation id="5669691691057771421">新しい PIN を入力</translation>
 <translation id="5671641761787789573">画像がブロックされました</translation>
 <translation id="5671658447180261823">候補<ph name="SUGGESTION_NAME" />を削除します</translation>
@@ -5892,7 +5892,7 @@
 <translation id="8569682776816196752">送信先が見つかりません</translation>
 <translation id="8571213806525832805">過去 4 週間</translation>
 <translation id="8571687764447439720">Kerberos チケットの追加</translation>
-<translation id="8573403125070227391">この広告は、デバイスのリソース消費が多すぎるため、Chorme によって削除されました。</translation>
+<translation id="8573403125070227391">この広告は、デバイスのリソース消費が多すぎるため、Chrome によって削除されました。</translation>
 <translation id="8574990355410201600"><ph name="HOST" /> の音声を常に許可する</translation>
 <translation id="8575286410928791436">終了するには <ph name="KEY_EQUIVALENT" /> キーを押します</translation>
 <translation id="8576984108917644670">アカウントの他のデバイスと同期しています。このデバイスの他のユーザーもこのネットワークを使用できます。他のユーザーが変更した設定は同期されません。<ph name="LINK_BEGIN" />詳細<ph name="LINK_END" /></translation>
@@ -6407,7 +6407,7 @@
 <translation id="9219103736887031265">画像</translation>
 <translation id="9220525904950070496">アカウントを削除</translation>
 <translation id="9220820413868316583">いったん指を放してもう一度お試しください。</translation>
-<translation id="923467487918828349">すべてを表示</translation>
+<translation id="923467487918828349">すべて表示</translation>
 <translation id="929117907539171075">インストール済みアプリのオフライン データも削除されます</translation>
 <translation id="930268624053534560">詳細なタイムスタンプ</translation>
 <translation id="932327136139879170">ホーム</translation>

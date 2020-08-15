@@ -5196,7 +5196,7 @@
 <translation id="7696063401938172191">На телефону „<ph name="PHONE_NAME" />“:</translation>
 <translation id="7698408911093959127">{COUNT,plural, =1{1 ставка на листи обележивача}one{# ставка на листи обележивача}few{# ставке на листи обележивача}other{# ставки на листи обележивача}}</translation>
 <translation id="7699968112832915395">Додавање налога није успело</translation>
-<translation id="7701040980221191251">Ниједна</translation>
+<translation id="7701040980221191251">Ништа</translation>
 <translation id="770157826141786566">Рок за враћање овог уређаја је прошао.</translation>
 <translation id="7701869757853594372">КОРИСНИЧКИ надимци</translation>
 <translation id="7701928712056789451">Ове ставке су можда опасне</translation>
@@ -5847,7 +5847,7 @@
 <translation id="8509646642152301857">Преузимање речника за проверу правописа није успело.</translation>
 <translation id="8512476990829870887">Заврши процес</translation>
 <translation id="851263357009351303">Увек дозволи сајту <ph name="HOST" /> да приказује слике</translation>
-<translation id="8513108775083588393">Аутоматско ротирање</translation>
+<translation id="8513108775083588393">Аутом. ротир.</translation>
 <translation id="8514746246728959655">Пробајте са неким другим безбедносним кључем</translation>
 <translation id="851960115758509829">Апликације, подешавања и друга прилагођавања ће се синхронизовати на свим Chrome OS уређајима на којима сте пријављени помоћу свог Google налога.</translation>
 <translation id="8521475323816527629">Брзо приступајте апликацијама</translation>

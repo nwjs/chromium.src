@@ -622,7 +622,7 @@
 <translation id="5869546221129391014">Kisi</translation>
 <translation id="5876817486144482042">Mengurangi volume ucapan</translation>
 <translation id="5878908838135392163">Powder Blue</translation>
-<translation id="588108970619830498">Setel ulang setelan text to speech ke nilai default</translation>
+<translation id="588108970619830498">Reset setelan text to speech ke nilai default</translation>
 <translation id="5891934789323004067">Tabel</translation>
 <translation id="5899860758576822363">Putar dengan volume rendah saat ChromeVox sedang berbicara</translation>
 <translation id="5901630391730855834">Kuning</translation>
@@ -765,7 +765,7 @@
 <translation id="7137397390322864165">Salmon</translation>
 <translation id="7140168702531682811">Superskrip</translation>
 <translation id="7143034430156387447">Beralih antara braille 6 titik dan 8 titik</translation>
-<translation id="7143207342074048698">Menyambungkan</translation>
+<translation id="7143207342074048698">Menghubungkan</translation>
 <translation id="7153618581592392745">Lembayung Muda</translation>
 <translation id="7157306005867877619">Abstrak</translation>
 <translation id="7161771961008409533">Tombol pop-up</translation>
@@ -831,7 +831,7 @@
 <translation id="7668307052366682650">{COUNT,plural, =1{jam}other{jam}}</translation>
 <translation id="7674576868851035240">Tautan berikutnya</translation>
 <translation id="7674768236845044097">tanda</translation>
-<translation id="7676847077928500578">Setel ulang setelan text to speech</translation>
+<translation id="7676847077928500578">Reset setelan text to speech</translation>
 <translation id="7684431668231950609">Mengedit teks, entri URL</translation>
 <translation id="7685589220304187312">tlbar</translation>
 <translation id="7693840228159394336">Tombol radio sebelumnya</translation>

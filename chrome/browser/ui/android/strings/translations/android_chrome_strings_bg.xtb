@@ -45,6 +45,7 @@
 <translation id="1285320974508926690">Този сайт да не се превежда никога</translation>
 <translation id="1291207594882862231">Изчистване на историята, „бисквитките“, данните за сайтове и кеша…</translation>
 <translation id="129553762522093515">Наскоро затворени</translation>
+<translation id="1298077576058087471">Спестете до 60% данни – прочетете днешните новини</translation>
 <translation id="1303339473099049190">Тази парола не бе намерена. Проверете дали е написана правилно и опитайте отново.</translation>
 <translation id="1303507811548703290"><ph name="DOMAIN" /> – Изпратено от <ph name="DEVICE_NAME" /></translation>
 <translation id="1310482092992808703">Групиране на раздели</translation>
@@ -252,8 +253,10 @@
 <translation id="305593374596241526">Местоположението е изключено. Включете го от <ph name="BEGIN_LINK" />настройките на Android<ph name="END_LINK" />.</translation>
 <translation id="3058498974290601450">Можете по всяко време да включите синхронизирането в настройките</translation>
 <translation id="3060635849835183725">{BOOKMARKS_COUNT,plural, =1{<ph name="BOOKMARKS_COUNT_ONE" /> отметка}other{<ph name="BOOKMARKS_COUNT_MANY" /> отметки}}</translation>
+<translation id="3062802207422175757">Статии, свързани с интересите ви, в Chrome</translation>
 <translation id="3089395242580810162">Отваряне в раздел „инкогнито“</translation>
 <translation id="3114012059975132928">Видеоплейър</translation>
+<translation id="3114507951000454849">Прочетете днешните новини <ph name="NEWS_ICON" /></translation>
 <translation id="3123734510202723619">Съобщения</translation>
 <translation id="3137521801621304719">Напускане на режима „инкогнито“</translation>
 <translation id="3143515551205905069">Анулиране на синхронизирането</translation>
@@ -518,6 +521,7 @@
 <translation id="5292796745632149097">Изпращане до</translation>
 <translation id="5304593522240415983">Това поле трябва да се попълни</translation>
 <translation id="5308380583665731573">Свързване</translation>
+<translation id="5319359161174645648">Google препоръчва Chrome</translation>
 <translation id="5324858694974489420">Родителски настройки</translation>
 <translation id="5327248766486351172">Име</translation>
 <translation id="5342314432463739672">Искания за разрешение</translation>
@@ -677,6 +681,7 @@
 <translation id="6573096386450695060">Разрешаване винаги</translation>
 <translation id="6573431926118603307">Тук ще се показват разделите, които сте отворили в Chrome на другите си устройства.</translation>
 <translation id="6583199322650523874">Запазване на отметка към текущата страница</translation>
+<translation id="6590471736817333463">Спестете до 60% данни</translation>
 <translation id="6593061639179217415">Настолен сайт</translation>
 <translation id="6597891566292541626">Поставете QR кода/баркода в тази рамка.</translation>
 <translation id="6600954340915313787">Копирано в Chrome</translation>
@@ -984,6 +989,7 @@
 <translation id="9209888181064652401">Не могат да се извършват обаждания</translation>
 <translation id="9219103736887031265">Изображения</translation>
 <translation id="926205370408745186">Премахване на активността ви в Chrome от „Дигитално благополучие“</translation>
+<translation id="927968626442779827">Използване на олекотения режим в Google Chrome</translation>
 <translation id="932327136139879170">Начална страница</translation>
 <translation id="93753284658583800">Началната страница е променена</translation>
 <translation id="938850635132480979">Грешка: <ph name="ERROR_CODE" /></translation>

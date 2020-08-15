@@ -45,6 +45,7 @@
 <translation id="1285320974508926690">Non traducir nunca este sitio</translation>
 <translation id="1291207594882862231">Borrar o historial, as cookies, os datos dos sitios, a memoria caché…</translation>
 <translation id="129553762522093515">Pechado recentemente</translation>
+<translation id="1298077576058087471">Aforra ata un 60 % de datos e le as noticias de hoxe</translation>
 <translation id="1303339473099049190">Non se puido atopar o contrasinal. Comproba a ortografía e téntao de novo.</translation>
 <translation id="1303507811548703290"><ph name="DOMAIN" /> - Contido enviado desde <ph name="DEVICE_NAME" /></translation>
 <translation id="1310482092992808703">Agrupar pestanas</translation>
@@ -100,7 +101,7 @@
 <translation id="1810845389119482123">Non se completou a configuración de sincronización inicial</translation>
 <translation id="1821253160463689938">Utiliza cookies para lembrar as túas preferencias, mesmo se non visitas esas páxinas</translation>
 <translation id="1829244130665387512">Buscar na páxina</translation>
-<translation id="1853692000353488670">Pestana nova de incógnito</translation>
+<translation id="1853692000353488670">Nova pestana de incógnito</translation>
 <translation id="1856325424225101786">Queres restablecer o modo básico?</translation>
 <translation id="1868024384445905608">Chrome agora descarga os ficheiros máis rápido</translation>
 <translation id="1883903952484604915">Os meus ficheiros</translation>
@@ -252,8 +253,10 @@ Mantén premida calquera palabra para buscala. Se queres refinar a busca, selecc
 <translation id="305593374596241526">A localización está desactivada. Actívaa na <ph name="BEGIN_LINK" />configuración de Android<ph name="END_LINK" />.</translation>
 <translation id="3058498974290601450">Podes activar a sincronización en calquera momento na configuración</translation>
 <translation id="3060635849835183725">{BOOKMARKS_COUNT,plural, =1{<ph name="BOOKMARKS_COUNT_ONE" /> marcador}other{<ph name="BOOKMARKS_COUNT_MANY" /> marcadores}}</translation>
+<translation id="3062802207422175757">Artigos sobre os teus intereses en Chrome</translation>
 <translation id="3089395242580810162">Abrir en pestana de incógnito</translation>
 <translation id="3114012059975132928">Reprodutor de vídeo</translation>
+<translation id="3114507951000454849">Le as noticias de hoxe <ph name="NEWS_ICON" /></translation>
 <translation id="3123734510202723619">Avisos</translation>
 <translation id="3137521801621304719">Sae do modo de incógnito</translation>
 <translation id="3143515551205905069">Cancelar sincronización</translation>
@@ -298,7 +301,7 @@ Mantén premida calquera palabra para buscala. Se queres refinar a busca, selecc
 <translation id="3443221991560634068">Volver cargar a páxina actual</translation>
 <translation id="3445014427084483498">Agora mesmo</translation>
 <translation id="3478363558367712427">Podes escoller o motor de busca</translation>
-<translation id="3492207499832628349">Pestana nova de incógnito</translation>
+<translation id="3492207499832628349">Nova pestana de incógnito</translation>
 <translation id="3493531032208478708"><ph name="BEGIN_LINK" />Máis información<ph name="END_LINK" /> acerca do contido suxerido</translation>
 <translation id="3499246418971111862">chrome_qrcode_<ph name="CURRENT_TIMESTAMP_MS" /></translation>
 <translation id="3513704683820682405">Realidade aumentada</translation>
@@ -518,6 +521,7 @@ Para cambiar esta opción de configuración, deberás <ph name="BEGIN_LINK" />re
 <translation id="5292796745632149097">Enviar a</translation>
 <translation id="5304593522240415983">Este campo non pode quedar baleiro</translation>
 <translation id="5308380583665731573">Conectar</translation>
+<translation id="5319359161174645648">Google recomenda Chrome</translation>
 <translation id="5324858694974489420">Configuración parental</translation>
 <translation id="5327248766486351172">Nome</translation>
 <translation id="5342314432463739672">Solicitudes de permisos</translation>
@@ -677,6 +681,7 @@ Por exemplo, algúns sitios web poden responder a esta solicitude mostrándoche 
 <translation id="6573096386450695060">Permitir sempre</translation>
 <translation id="6573431926118603307">Aquí aparecerán as pestanas que abrises en Chrome noutros dispositivos.</translation>
 <translation id="6583199322650523874">Engadir aos marcadores a páxina actual</translation>
+<translation id="6590471736817333463">Aforra ata un 60 % de datos</translation>
 <translation id="6593061639179217415">Sitio para ordenadores</translation>
 <translation id="6597891566292541626">Coloca o código QR ou o código de barras neste marco.</translation>
 <translation id="6600954340915313787">Copiouse en Chrome</translation>
@@ -984,6 +989,7 @@ Por exemplo, algúns sitios web poden responder a esta solicitude mostrándoche 
 <translation id="9209888181064652401">Non se pode realizar chamadas</translation>
 <translation id="9219103736887031265">Imaxes</translation>
 <translation id="926205370408745186">Quitar a túa actividade de Chrome de Benestar dixital</translation>
+<translation id="927968626442779827">Usa o modo básico de Google Chrome</translation>
 <translation id="932327136139879170">Inicio</translation>
 <translation id="93753284658583800">A páxina de inicio cambiou</translation>
 <translation id="938850635132480979">Erro: <ph name="ERROR_CODE" /></translation>

@@ -1370,7 +1370,7 @@
 <translation id="2714393097308983682">Google Play</translation>
 <translation id="2715751256863167692">Установив это обновление, вы восстановите исходные настройки устройства Chromebook. При этом с него будут удалены пользовательские данные.</translation>
 <translation id="2716986496990888774">Этим параметром управляет родитель.</translation>
-<translation id="2718395828230677721">Ночная подсветка</translation>
+<translation id="2718395828230677721">Ночной свет</translation>
 <translation id="2718998670920917754">Антивирусное ПО обнаружило вирус.</translation>
 <translation id="2719020180254996569">Сеть <ph name="NETWORK_INDEX" /> из <ph name="NETWORK_COUNT" />, название – "<ph name="NETWORK_NAME" />", статус подключения – "<ph name="CONNECTION_STATUS" />", подробная информация</translation>
 <translation id="2719936478972253983">Заблокированные файлы cookie:</translation>
@@ -3638,7 +3638,7 @@
 <translation id="5657156137487675418">Показать все файлы сookie</translation>
 <translation id="5657667036353380798">Для установки внешнего расширения требуется версия Chrome <ph name="MINIMUM_CHROME_VERSION" /> или выше.</translation>
 <translation id="5658415415603568799">В целях безопасности через 20 часов вам потребуется ввести пароль.</translation>
-<translation id="5659593005791499971">Электронная почта</translation>
+<translation id="5659593005791499971">Эл. почта</translation>
 <translation id="5659833766619490117">Не удалось перевести страницу</translation>
 <translation id="5662513737565158057">Измените параметры работы приложений для Linux.</translation>
 <translation id="5667546120811588575">Настройка Google Play…</translation>
@@ -4033,7 +4033,7 @@
 <translation id="6163376401832887457">Настройки Kerberos</translation>
 <translation id="6163522313638838258">Развернуть все...</translation>
 <translation id="6164005077879661055">После удаления контролируемого профиля все файлы и локальные данные, связанные с ним, будут удалены. Посещенные страницы и настройки этого профиля будут видны его менеджеру на странице: <ph name="MANAGEMENT_URL" />.</translation>
-<translation id="6165508094623778733">Подробнее...</translation>
+<translation id="6165508094623778733">Подробнее</translation>
 <translation id="6166185671393271715">Импорт паролей в Chrome</translation>
 <translation id="6169040057125497443">Проверьте микрофон.</translation>
 <translation id="6169666352732958425">Не удается транслировать рабочий стол</translation>
@@ -4235,7 +4235,7 @@
 <translation id="6429384232893414837">Ошибка обновления</translation>
 <translation id="6430814529589430811">Единый сертификат ASCII с кодировкой Base64</translation>
 <translation id="6431347207794742960"><ph name="PRODUCT_NAME" /> настроит автоматические обновления для всех пользователей на этом компьютере.</translation>
-<translation id="6434309073475700221">Отменить передачу</translation>
+<translation id="6434309073475700221">Закрыть</translation>
 <translation id="6434325376267409267">Чтобы использовать <ph name="APP_NAME" />, установите на устройство обновление системы.</translation>
 <translation id="6436164536244065364">Просмотреть в Интернет-магазине</translation>
 <translation id="6438992844451964465"><ph name="WINDOW_TITLE" />: воспроизводится аудио</translation>
@@ -4642,7 +4642,7 @@
 <translation id="6979044105893951891">Запуск и завершение управляемых гостевых сеансов</translation>
 <translation id="6979440798594660689">Без звука (по умолчанию)</translation>
 <translation id="6979737339423435258">Все время</translation>
-<translation id="6981982820502123353">Специальные возможности</translation>
+<translation id="6981982820502123353">Спец. возможности</translation>
 <translation id="6983507711977005608">Отключиться от мгновенной точки доступа</translation>
 <translation id="6983783921975806247">Зарегистрированный OID</translation>
 <translation id="6984299437918708277">Выберите картинку, которая будет видна на экране входа в аккаунт</translation>
@@ -4780,7 +4780,7 @@
 <translation id="7140928199327930795">Нет других доступных устройств.</translation>
 <translation id="7141105143012495934">Ошибка входа: не удалось получить данные аккаунта. Обратитесь к администратору или повторите попытку.</translation>
 <translation id="7143207342074048698">Подключение</translation>
-<translation id="7144878232160441200">Повторить попытку</translation>
+<translation id="7144878232160441200">Повторить</translation>
 <translation id="7149893636342594995">Последние 24 часа</translation>
 <translation id="715118844758971915">Обычные принтеры</translation>
 <translation id="7152478047064750137">Расширению не требуются особые разрешения</translation>
@@ -6273,7 +6273,7 @@
 <translation id="9026731007018893674">Без названия</translation>
 <translation id="9026852570893462412">Подождите несколько минут. Скачивание виртуальной машины…</translation>
 <translation id="9027459031423301635">Открыть ссылку в новой вкладке</translation>
-<translation id="9030515284705930323">Приложение "Play Маркет" отключено для вашего аккаунта. За дополнительными сведениями обратитесь к администратору.</translation>
+<translation id="9030515284705930323">Приложение Google Play отключено для вашего аккаунта. За дополнительными сведениями обратитесь к администратору.</translation>
 <translation id="9030785788945687215">Gmail</translation>
 <translation id="9031549947500880805">Сохранение резервных копий на Google Диске. Позволяет в любой момент восстанавливать данные (в том числе из приложений) или переносить их с одного устройства на другое.</translation>
 <translation id="9033765790910064284">Продолжить</translation>

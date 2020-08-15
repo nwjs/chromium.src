@@ -263,7 +263,7 @@
 <translation id="4021716437419160885">向下捲動</translation>
 <translation id="4028481283645788203">為安全起見，請輸入密碼</translation>
 <translation id="4042660782729322247">您正在分享螢幕畫面</translation>
-<translation id="4065525899979931964">{NUM_APPS,plural, =1{已在 1 個應用程式上停止通知}other{已在 # 個應用程式上停止通知}}</translation>
+<translation id="4065525899979931964">{NUM_APPS,plural, =1{在 1 個應用程式上停止}other{在 # 個應用程式上停止}}</translation>
 <translation id="4072264167173457037">訊號中等</translation>
 <translation id="4112140312785995938">向後回轉</translation>
 <translation id="4129129681837227511">如要在上鎖畫面上查看通知，請將裝置解鎖並變更相關設定</translation>
@@ -309,7 +309,7 @@
 <translation id="4659419629803378708">已啟用 ChromeVox</translation>
 <translation id="4665114317261903604">切換「請勿騷擾」模式。<ph name="STATE_TEXT" /></translation>
 <translation id="4696813013609194136">使用家長存取碼解鎖裝置</translation>
-<translation id="4702647871202761252">已停用隱私保護畫面</translation>
+<translation id="4702647871202761252">已停用私隱保護畫面</translation>
 <translation id="4705716602320768426">提供意見</translation>
 <translation id="4710243778082831592">輸入法編輯器設定</translation>
 <translation id="4731797938093519117">家長存取</translation>
@@ -503,7 +503,7 @@
 <translation id="7092922358121866860">顯示「夜燈模式」設定</translation>
 <translation id="7098389117866926363">USB-C 裝置 (後方左側連接埠)</translation>
 <translation id="7131634465328662194">您將會自動登出。</translation>
-<translation id="7143207342074048698">連線中</translation>
+<translation id="7143207342074048698">正在連接</translation>
 <translation id="7165278925115064263">Alt + Shift + K 鍵</translation>
 <translation id="7168224885072002358">系統將在 <ph name="TIMEOUT_SECONDS" /> 秒後還原成原來的解像度</translation>
 <translation id="7188494361780961876">已經將選單移去螢幕左上角。</translation>

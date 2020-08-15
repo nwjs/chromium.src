@@ -501,6 +501,12 @@
     <activity
         android:excludeFromRecents="true"
         android:exported="false"
+        android:name="org.chromium.chrome.browser.app.reengagement.ReengagementActivity"
+        android:taskAffinity=""
+        android:theme="@android:style/Theme.Translucent"/>
+    <activity
+        android:excludeFromRecents="true"
+        android:exported="false"
         android:name="org.chromium.chrome.browser.instantapps.AuthenticatedProxyActivity"
         android:noHistory="true"
         android:theme="@android:style/Theme.NoDisplay"/>

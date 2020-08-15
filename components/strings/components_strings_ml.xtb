@@ -359,7 +359,7 @@
 <translation id="2469153820345007638">1-N ക്രമത്തിൽ</translation>
 <translation id="2473195200299095979">ഈ പേജ് വിവർത്തനം ചെയ്യുക</translation>
 <translation id="2479410451996844060">തിരയൽ URL അസാധുവാണ്.</translation>
-<translation id="2482878487686419369">വിജ്ഞാപനങ്ങള്‍‌</translation>
+<translation id="2482878487686419369">അറിയിപ്പുകൾ</translation>
 <translation id="248348093745724435">മെഷീന്‍ നയങ്ങള്‍</translation>
 <translation id="2491120439723279231">സെർവറിന്റെ സർട്ടിഫിക്കറ്റിൽ പിശകുകൾ ഉണ്ട്.</translation>
 <translation id="2493640343870896922">ലെറ്റർ-പ്ലസ്</translation>
@@ -393,7 +393,7 @@
 <translation id="2639739919103226564">നില:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">ഫയലിലേക്കുള്ള ആക്‌സസ് നിരസിച്ചു</translation>
-<translation id="2653659639078652383">സമര്‍പ്പിക്കൂ</translation>
+<translation id="2653659639078652383">സമര്‍പ്പിക്കുക</translation>
 <translation id="2660650542324841986"><ph name="ORIGIN" />,  എന്നതിലേക്ക് പോകാൻ നിങ്ങൾ ഉപയോഗിക്കുന്ന സെർവർ, അതിലേക്കുള്ള എല്ലാ അഭ്യർത്ഥനകൾക്കും ഉറവിട നയം ബാധകമാക്കുമെന്ന് അഭ്യർത്ഥിച്ചിട്ടുണ്ട്. ഒരു നയം നിർവഹിക്കാൻ ഇപ്പോൾ ഇതിന് കഴിയാത്തതിനാൽ <ph name="SITE" /> എന്നതിനുള്ള നിങ്ങളുടെ അഭ്യർത്ഥന പൂർത്തീകരിക്കാൻ ബ്രൗസറിന് കഴിയുന്നില്ല. ഒരു സൈറ്റിന്റെ സുരക്ഷയും മറ്റ് പ്രോപ്പർട്ടികളും കോൺഫിഗർ ചെയ്യാൻ സൈറ്റ് ഓപ്പറേറ്റർമാർക്ക് ഉറവിട നയങ്ങൾ ഉപയോഗിക്കാനാവും.</translation>
 <translation id="2664887757054927933">{COUNT,plural, =0{ഒന്നുമില്ല}=1{<ph name="DOMAIN_LIST" /> എന്നതിനുള്ള ഒരു പാസ്‌വേഡ്}=2{<ph name="DOMAIN_LIST" /> എന്നതിനുള്ള 2 പാസ്‌വേഡുകൾ}other{<ph name="DOMAIN_LIST" /> എന്നതിനുള്ള # പാസ്‌വേഡുകൾ}}</translation>
 <translation id="2666092431469916601">മുകളിലേക്ക്</translation>

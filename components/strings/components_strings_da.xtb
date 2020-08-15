@@ -393,7 +393,7 @@ Ellers vil det blive blokeret af dine privatlivsindstillinger. Det giver det ind
 <translation id="2639739919103226564">Status:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">Der blev nægtet adgang til filen</translation>
-<translation id="2653659639078652383">Indsend</translation>
+<translation id="2653659639078652383">Send</translation>
 <translation id="2660650542324841986">Den server, du er på vej til, <ph name="ORIGIN" />, har anmodet om, at
     en politik for oprindelse anvendes ved alle anmodninger, der sendes til den. Det er dog nu
     mislykkedes at levere en politik, hvilket forhindrer browseren i at opfylde
@@ -1298,7 +1298,7 @@ Ellers vil det blive blokeret af dine privatlivsindstillinger. Det giver det ind
 <translation id="6427730057873428458">Portfals</translation>
 <translation id="6433490469411711332">Rediger kontaktoplysninger</translation>
 <translation id="6433595998831338502"><ph name="HOST_NAME" /> nægtede at oprette forbindelse.</translation>
-<translation id="6434309073475700221">Kasser</translation>
+<translation id="6434309073475700221">Kassér</translation>
 <translation id="6440503408713884761">Ignoreret</translation>
 <translation id="6443406338865242315">Hvilke udvidelser og plugins, du har installeret</translation>
 <translation id="6446163441502663861">Kahu (Envelope)</translation>

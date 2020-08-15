@@ -45,6 +45,7 @@
 <translation id="1285320974508926690">არასდროს გადათარგმნო ეს საიტი</translation>
 <translation id="1291207594882862231">ისტორიის, ქუქი-ჩანაწერების, საიტის მონაცემების, ქეშის გასუფთავება…</translation>
 <translation id="129553762522093515">ბოლოს დახურული</translation>
+<translation id="1298077576058087471">დაზოგეთ მონაცემების 60%-მდე — გაეცანით დღის სიახლეებს</translation>
 <translation id="1303339473099049190">ეს პაროლი ვერ მოიძებნა. შეამოწმეთ მართლწერა და ცადეთ ხელახლა.</translation>
 <translation id="1303507811548703290"><ph name="DOMAIN" /> — გამოგზავნილია <ph name="DEVICE_NAME" />-დან</translation>
 <translation id="1310482092992808703">ჩანართების დაჯგუფება</translation>
@@ -252,8 +253,10 @@
 <translation id="305593374596241526">მდებარეობა გამორთულია, ჩართეთ ის <ph name="BEGIN_LINK" />Android-ის პარამეტრებიდან<ph name="END_LINK" />.</translation>
 <translation id="3058498974290601450">სინქრონიზაციის ჩართვა ნებისმიერ დროს შეგიძლიათ პარამეტრებიდან</translation>
 <translation id="3060635849835183725">{BOOKMARKS_COUNT,plural, =1{<ph name="BOOKMARKS_COUNT_ONE" /> სანიშნე}other{<ph name="BOOKMARKS_COUNT_MANY" /> სანიშნე}}</translation>
+<translation id="3062802207422175757">თქვენს ინტერესებთან დაკავშირებული სტატიები Chrome-ში</translation>
 <translation id="3089395242580810162">ინკოგნიტო ჩანართში გახსნა</translation>
 <translation id="3114012059975132928">ვიდეოდამკვრელი</translation>
+<translation id="3114507951000454849">გაეცანით დღის სიახლეებს <ph name="NEWS_ICON" /></translation>
 <translation id="3123734510202723619">განცხადებები</translation>
 <translation id="3137521801621304719">ინკოგნიტო რეჟიმის დატოვება</translation>
 <translation id="3143515551205905069">სინქრონიზაციის გაუქმება</translation>
@@ -518,6 +521,7 @@
 <translation id="5292796745632149097">გაგზავნა აქ:</translation>
 <translation id="5304593522240415983">ეს ველი არ შეიძლება იყოს ცარიელი</translation>
 <translation id="5308380583665731573">დაკავშირება</translation>
+<translation id="5319359161174645648">Google გირჩევთ Chrome-ს</translation>
 <translation id="5324858694974489420">მშობელის პარამეტრები</translation>
 <translation id="5327248766486351172">სახელი</translation>
 <translation id="5342314432463739672">ნებართვების მოთხოვნები</translation>
@@ -677,6 +681,7 @@
 <translation id="6573096386450695060">ყოველთვის დაშვება</translation>
 <translation id="6573431926118603307">სხვა მოწყობილობებზე თქვენ მიერ Chrome-ით გახსნილი ჩანართები აქ გამოჩნდება.</translation>
 <translation id="6583199322650523874">მიმდინარე გვერდის სანიშნეებში დამატება</translation>
+<translation id="6590471736817333463">დაზოგეთ მონაცემების 60%-მდე</translation>
 <translation id="6593061639179217415">დესკტოპის საიტი</translation>
 <translation id="6597891566292541626">მოათავსეთ QR/შტრიხკოდი ამ ჩარჩოში.</translation>
 <translation id="6600954340915313787">დაკოპირდა Chrome-ში</translation>
@@ -984,6 +989,7 @@
 <translation id="9209888181064652401">დარეკვა ვერ ხერხდება</translation>
 <translation id="9219103736887031265">გამოსახულებები</translation>
 <translation id="926205370408745186">ციფრული კომფორტიდან Chrome-ში თქვენი აქტივობის ამოშლა</translation>
+<translation id="927968626442779827">გამოიყენეთ Lite რეჟიმი Google Chrome-ში</translation>
 <translation id="932327136139879170">საწყისი გვერდი</translation>
 <translation id="93753284658583800">მთავარი გვერდი შეიცვალა</translation>
 <translation id="938850635132480979">შეცდომა: <ph name="ERROR_CODE" /></translation>

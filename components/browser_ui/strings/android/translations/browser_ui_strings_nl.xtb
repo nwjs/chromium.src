@@ -28,7 +28,7 @@
 <translation id="1919345977826869612">Advertenties</translation>
 <translation id="1922076542920281912">Als je Chrome toegang wilt geven tot je locatie, moet je locatie ook inschakelen via de <ph name="BEGIN_LINK" />Android-instellingen<ph name="END_LINK" />.</translation>
 <translation id="1923695749281512248"><ph name="BYTES_DOWNLOADED_WITH_UNITS" /> van <ph name="FILE_SIZE_WITH_UNITS" /></translation>
-<translation id="194341124344773587">Geef Chrome toestemming via de <ph name="BEGIN_LINK" />Android-instellingen<ph name="END_LINK" />.</translation>
+<translation id="194341124344773587">Geef Chrome rechten via de <ph name="BEGIN_LINK" />Android-instellingen<ph name="END_LINK" />.</translation>
 <translation id="1984937141057606926">Toegestaan, behalve van derden</translation>
 <translation id="1994173015038366702">Site-URL</translation>
 <translation id="2025115093177348061">Augmented reality</translation>
@@ -82,7 +82,7 @@
 <translation id="3730075448226062617">Als je Chrome ook toegang wilt geven tot je microfoon, moet je de microfoon ook inschakelen via de <ph name="BEGIN_LINK" />Android-instellingen<ph name="END_LINK" />.</translation>
 <translation id="3744111561329211289">Synchronisatie op de achtergrond</translation>
 <translation id="3822502789641063741">Site-opslag wissen?</translation>
-<translation id="385051799172605136">Vorige</translation>
+<translation id="385051799172605136">Terug</translation>
 <translation id="3955193568934677022">Toestaan dat sites beschermde content afspelen (aanbevolen)</translation>
 <translation id="3987993985790029246">Link kop.</translation>
 <translation id="3991845972263764475"><ph name="BYTES_DOWNLOADED_WITH_UNITS" /> van ?</translation>
@@ -216,7 +216,7 @@
 <translation id="83792324527827022">Een site gebruikt de camera en microfoon</translation>
 <translation id="8380167699614421159">Deze site geeft opdringerige of misleidende advertenties weer</translation>
 <translation id="8394832520002899662">Tik hier om terug te gaan naar de site</translation>
-<translation id="8447861592752582886">Toegang tot apparaat intrekken</translation>
+<translation id="8447861592752582886">Rechten voor apparaat intrekken</translation>
 <translation id="8463851957836045671">Site is snel</translation>
 <translation id="851751545965956758">Voorkomen dat sites verbinding maken met apparaten</translation>
 <translation id="857943718398505171">Toegestaan (aanbevolen)</translation>

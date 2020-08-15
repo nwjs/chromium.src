@@ -692,7 +692,7 @@
 <translation id="1850508293116537636">Xirar á &amp;dereita</translation>
 <translation id="1852141627593563189">Buscar software daniño</translation>
 <translation id="1852799913675865625">Produciuse un erro mentres se tentaba ler o ficheiro: <ph name="ERROR_TEXT" />.</translation>
-<translation id="1853692000353488670">Pestana nova de incógnito</translation>
+<translation id="1853692000353488670">Nova pestana de incógnito</translation>
 <translation id="1854180393107901205">Deter emisión</translation>
 <translation id="1856715684130786728">Engadir localización...</translation>
 <translation id="1858585891038687145">Confía neste certificado para identificar fabricantes de software</translation>
@@ -2599,7 +2599,7 @@ Instala a aplicación Family Link no teu dispositivo e poderás xestionar a conf
 <translation id="4263223596040212967">Comproba a distribución do teclado e téntao de novo.</translation>
 <translation id="4263757076580287579">Cancelouse o rexistro da impresora.</translation>
 <translation id="426564820080660648">Para consultar se hai actualizacións, utiliza Ethernet, unha wifi ou datos móbiles.</translation>
-<translation id="4266679478228765574">Ao quitar os cartafois deixaranse de compartir ficheiros, pero non se eliminarán.</translation>
+<translation id="4266679478228765574">Ao quitar os cartafoles deixaranse de compartir ficheiros, pero non se eliminarán.</translation>
 <translation id="4267455501101322486">Se queres engadir unha conta para acceder a recursos educativos, pídelle a teu pai ou a túa nai que che dea permiso</translation>
 <translation id="4267924571297947682">Pídelle permiso aos teus pais</translation>
 <translation id="4267953847983678297">Conectarse automaticamente á rede de telefonía móbil</translation>
@@ -4830,7 +4830,7 @@ Instala a aplicación Family Link no teu dispositivo e poderás xestionar a conf
 <translation id="7207631048330366454">Buscar aplicacións</translation>
 <translation id="7210499381659830293">Impresoras da extensión</translation>
 <translation id="7212097698621322584">Introduce o teu PIN actual para cambialo. Se non sabes cal é, deberás restablecer a chave de seguranza e, despois, crear un novo.</translation>
-<translation id="7216409898977639127">Provedor móbil</translation>
+<translation id="7216409898977639127">Provedor de rede móbil</translation>
 <translation id="7216595297012131718">Ordena os idiomas en función das túas preferencias</translation>
 <translation id="7220019174139618249">Non se puideron exportar os contrasinais en "<ph name="FOLDER" />"</translation>
 <translation id="722055596168483966">Personalizar os servizos de Google</translation>
@@ -5847,7 +5847,7 @@ Mantén o ficheiro de clave nun lugar seguro, xa que o precisarás para crear no
 <translation id="8509646642152301857">Non se puido descargar o dicionario da verificación ortográfica.</translation>
 <translation id="8512476990829870887">Finalizar proceso</translation>
 <translation id="851263357009351303">Permitir sempre a <ph name="HOST" /> mostrar imaxes</translation>
-<translation id="8513108775083588393">Xirar automaticamente</translation>
+<translation id="8513108775083588393">Xirar autom.</translation>
 <translation id="8514746246728959655">Proba a utilizar unha chave de seguranza distinta</translation>
 <translation id="851960115758509829">As túas aplicacións, opcións de configuración e personalizacións sincronizaranse en todos os dispositivos Chrome OS nos que iniciases sesión coa túa Conta de Google.</translation>
 <translation id="8521475323816527629">Accede ás túas aplicacións máis rápido</translation>
@@ -6202,7 +6202,7 @@ Mantén o ficheiro de clave nun lugar seguro, xa que o precisarás para crear no
 <translation id="894360074127026135">Certificado Step-Up de Netscape International</translation>
 <translation id="8944099748578356325">Consome a batería de forma máis rápida (actualmente <ph name="BATTERY_PERCENTAGE" /> %)</translation>
 <translation id="8944964446326379280"><ph name="APP_NAME" /> está compartindo unha ventá con <ph name="TAB_NAME" />.</translation>
-<translation id="8945274638472141382">Tamaño da icona</translation>
+<translation id="8945274638472141382">Tamaño das iconas</translation>
 <translation id="8946359700442089734">As funcións de depuración non se activaron completamente neste dispositivo <ph name="IDS_SHORT_PRODUCT_NAME" />.</translation>
 <translation id="894871326938397531">Saír do modo de incógnito?</translation>
 <translation id="8948939328578167195"><ph name="WEBSITE" /> quere ver a marca e o modelo da túa chave de seguranza</translation>

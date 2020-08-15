@@ -50,7 +50,7 @@
 <translation id="1054153489933238809">Άνοιγμα αρχικής εικόνας σε νέα καρτέλα</translation>
 <translation id="1055806300943943258">Αναζήτηση για συσκευές Bluetooth και USB…</translation>
 <translation id="1056466516655540509">Ενημερώθηκε πριν από <ph name="MINUTES" /> λεπτά</translation>
-<translation id="1056775291175587022">Δεν βρέθηκαν δίκτυα</translation>
+<translation id="1056775291175587022">Κανένα δίκτυο</translation>
 <translation id="1056898198331236512">Προειδοποίηση</translation>
 <translation id="1058262162121953039">Κωδικός PUK</translation>
 <translation id="1060292118287751956">Καθορίζει τη συχνότητα ενημέρωσης της οθόνης</translation>
@@ -1291,7 +1291,7 @@
 <translation id="2617342710774726426">Η κάρτα SIM είναι κλειδωμένη</translation>
 <translation id="2619761439309613843">Ημερήσια ανανέωση</translation>
 <translation id="2620436844016719705">Σύστημα</translation>
-<translation id="2621713457727696555">Ασφαλές</translation>
+<translation id="2621713457727696555">Unsecured</translation>
 <translation id="26224892172169984">Να μην επιτρέπεται σε κανέναν ιστότοπο ο χειρισμός πρωτοκόλλων</translation>
 <translation id="2624142942574147739">Αυτή η σελίδα έχει πρόσβαση στην κάμερα και στο μικρόφωνό σας.</translation>
 <translation id="2626799779920242286">Δοκιμάστε ξανά αργότερα.</translation>
@@ -1372,7 +1372,7 @@
 <translation id="2714393097308983682">Google Play Store</translation>
 <translation id="2715751256863167692">Με αυτήν την αναβάθμιση, γίνεται επαναφορά του Chromebook και καταργούνται τα τρέχοντα δεδομένα χρήστη.</translation>
 <translation id="2716986496990888774">Αυτή η ρύθμιση είναι διαχειριζόμενη από κάποιον γονέα.</translation>
-<translation id="2718395828230677721">Νυχτερινός φωτισμός</translation>
+<translation id="2718395828230677721">Νυχτ. φωτισμός</translation>
 <translation id="2718998670920917754">Το λογισμικό προστασίας από ιούς εντόπισε έναν ιό.</translation>
 <translation id="2719020180254996569">Δίκτυο <ph name="NETWORK_INDEX" /> από <ph name="NETWORK_COUNT" />, <ph name="NETWORK_NAME" />, <ph name="CONNECTION_STATUS" />, Λεπτομέρειες</translation>
 <translation id="2719936478972253983">Τα ακόλουθα cookie αποκλείστηκαν</translation>
@@ -3641,11 +3641,11 @@
 <translation id="5657156137487675418">Επιτρέπονται όλα τα cookies</translation>
 <translation id="5657667036353380798">Η εξωτερική επέκταση απαιτεί την εγκατάσταση έκδοσης chrome <ph name="MINIMUM_CHROME_VERSION" /> ή μεταγενέστερης.</translation>
 <translation id="5658415415603568799">Για πρόσθετη ασφάλεια, το Smart Lock θα σας ζητήσει να καταχωρίσετε τον κωδικό πρόσβασης μετά από 20 ώρες.</translation>
-<translation id="5659593005791499971">Διεύθυνση ηλεκτρονικού ταχυδρομείου</translation>
+<translation id="5659593005791499971">Ηλεκτρονικό ταχυδρομείο</translation>
 <translation id="5659833766619490117">Δεν ήταν δυνατή η μετάφραση αυτής της σελίδας</translation>
 <translation id="5662513737565158057">Αλλαγή του τρόπου λειτουργίας των εφαρμογών Linux.</translation>
 <translation id="5667546120811588575">Ρύθμιση του Google Play…</translation>
-<translation id="5669267381087807207">Ενεργοποίηση</translation>
+<translation id="5669267381087807207">Ενεργοπ.</translation>
 <translation id="5669691691057771421">Εισαγωγή νέου κωδικού PIN</translation>
 <translation id="5671641761787789573">Οι εικόνες αποκλείστηκαν</translation>
 <translation id="5671658447180261823">Κατάργηση της πρότασης <ph name="SUGGESTION_NAME" /></translation>
@@ -4783,7 +4783,7 @@
 <translation id="7140928199327930795">Δεν υπάρχουν άλλες διαθέσιμες συσκευές.</translation>
 <translation id="7141105143012495934">Η σύνδεση απέτυχε επειδή δεν ήταν δυνατή η ανάκτηση των στοιχείων του λογαριασμού σας. Επικοινωνήστε με τον διαχειριστή σας ή προσπαθήστε ξανά.</translation>
 <translation id="7143207342074048698">Σύνδεση</translation>
-<translation id="7144878232160441200">Δοκιμάστε ξανά</translation>
+<translation id="7144878232160441200">Επανάληψη</translation>
 <translation id="7149893636342594995">Τελευταίες 24 ώρες</translation>
 <translation id="715118844758971915">Συμβατικοί εκτυπωτές</translation>
 <translation id="7152478047064750137">Αυτή η επέκταση δεν απαιτεί ειδικές άδειες</translation>
@@ -5850,7 +5850,7 @@
 <translation id="8509646642152301857">Η λήψη λεξικού ορθογραφικού ελέγχου απέτυχε.</translation>
 <translation id="8512476990829870887">Τερματισμός διαδικασίας</translation>
 <translation id="851263357009351303">Να επιτρέπεται πάντα στο <ph name="HOST" /> η εμφάνιση εικόνων</translation>
-<translation id="8513108775083588393">Αυτόματη περιστροφή</translation>
+<translation id="8513108775083588393">Αυτ. περιστρ.</translation>
 <translation id="8514746246728959655">Δοκιμάστε ένα άλλο κλειδί ασφαλείας</translation>
 <translation id="851960115758509829">Οι εφαρμογές, οι ρυθμίσεις και άλλες προσαρμογές σας θα συγχρονίζονται σε όλες τις συσκευές Chrome OS που έχουν συνδεθεί με τον Λογαριασμό σας Google.</translation>
 <translation id="8521475323816527629">Γρήγορη μετάβαση στις εφαρμογές</translation>
@@ -6148,7 +6148,7 @@
 <translation id="8871974300055371298">Ρυθμίσεις περιεχομένου</translation>
 <translation id="8872155268274985541">Βρέθηκε μη έγκυρο εξωτερικό αρχείο μανιφέστο ενημέρωσης kiosk. Αποτυχία ενημέρωσης εφαρμογής kiosk. Αφαιρέστε τη μονάδα αποθήκευσης USB.</translation>
 <translation id="8872777911145321141">Να γίνεται ερώτηση όταν ένας ιστότοπος θέλει να χρησιμοποιήσει τις συσκευές και τα δεδομένα εικονικής πραγματικότητας (συνιστάται)</translation>
-<translation id="8874184842967597500">Δεν υπάρχει σύνδεση</translation>
+<translation id="8874184842967597500">Καμία σύνδεση</translation>
 <translation id="8875520811099717934">Αναβάθμιση Linux</translation>
 <translation id="8876307312329369159">Δεν είναι δυνατή η αλλαγή αυτής της ρύθμισης σε μια περίοδο σύνδεσης επίδειξης.</translation>
 <translation id="8877448029301136595">[γονικός κατάλογος]</translation>

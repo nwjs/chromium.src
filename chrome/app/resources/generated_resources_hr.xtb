@@ -3640,7 +3640,7 @@ Postavkama računa možete upravljati tako da instalirate aplikaciju Family Link
 <translation id="5657156137487675418">Dopusti sve kolačiće</translation>
 <translation id="5657667036353380798">Vanjsko proširenje zahtijeva instaliranje verzije Chromea <ph name="MINIMUM_CHROME_VERSION" /> ili novije.</translation>
 <translation id="5658415415603568799">Za dodatnu sigurnost Smart Lock će tražiti da unesete zaporku nakon 20 sati.</translation>
-<translation id="5659593005791499971">E-pošta</translation>
+<translation id="5659593005791499971">e-pošta</translation>
 <translation id="5659833766619490117">Stranicu nije moguće prevesti</translation>
 <translation id="5662513737565158057">Promijenite način rada Linux aplikacija.</translation>
 <translation id="5667546120811588575">Postavljanje Google Playa...</translation>
@@ -4782,7 +4782,7 @@ Postavkama računa možete upravljati tako da instalirate aplikaciju Family Link
 <translation id="7140928199327930795">Nema drugih dostupnih uređaja.</translation>
 <translation id="7141105143012495934">Prijava nije uspjela jer nisu dohvaćeni podaci o vašem računu. Obratite se administratoru ili pokušajte ponovo.</translation>
 <translation id="7143207342074048698">Povezivanje</translation>
-<translation id="7144878232160441200">Pokušaj ponovo</translation>
+<translation id="7144878232160441200">Pokušaj ponovno</translation>
 <translation id="7149893636342594995">Posljednja 24 sata</translation>
 <translation id="715118844758971915">Klasični pisači</translation>
 <translation id="7152478047064750137">To proširenje ne zahtijeva nikakva posebna dopuštenja</translation>
@@ -5198,7 +5198,7 @@ Postavkama računa možete upravljati tako da instalirate aplikaciju Family Link
 <translation id="7696063401938172191">Na telefonu <ph name="PHONE_NAME" />:</translation>
 <translation id="7698408911093959127">{COUNT,plural, =1{1 stavka na popisu oznaka}one{# stavka na popisu oznaka}few{# stavke na popisu oznaka}other{# stavki na popisu oznaka}}</translation>
 <translation id="7699968112832915395">Nije moguće dodati račun</translation>
-<translation id="7701040980221191251">Nema</translation>
+<translation id="7701040980221191251">Nema ih</translation>
 <translation id="770157826141786566">Istekao je rok za vraćanje ovog uređaja.</translation>
 <translation id="7701869757853594372">Rukuje KORISNIK</translation>
 <translation id="7701928712056789451">Ove su stavke možda opasne</translation>
@@ -5277,7 +5277,7 @@ Postavkama računa možete upravljati tako da instalirate aplikaciju Family Link
 <translation id="7788444488075094252">Jezici i unos</translation>
 <translation id="7788668840732459509">Pozicija:</translation>
 <translation id="7789963078219276159">Pozadina početne stranice promijenjena je u sliku <ph name="CATEGORY" />.</translation>
-<translation id="7791543448312431591">Dodaj</translation>
+<translation id="7791543448312431591">Dodavanje</translation>
 <translation id="7792012425874949788">Nešto je pošlo po krivu s prijavom</translation>
 <translation id="7792388396321542707">Zaustavi dijeljenje</translation>
 <translation id="779308894558717334">Svijetlozelena</translation>
@@ -5849,7 +5849,7 @@ Mislim da ta web-lokacija ne bi trebala biti blokirana!</translation>
 <translation id="8509646642152301857">Preuzimanje rječnika za provjeru pravopisa nije uspjelo.</translation>
 <translation id="8512476990829870887">Završi proces</translation>
 <translation id="851263357009351303">Uvijek dopusti da web-lokacija <ph name="HOST" /> prikazuje slike</translation>
-<translation id="8513108775083588393">Automatsko zakretanje</translation>
+<translation id="8513108775083588393">Aut. zakret.</translation>
 <translation id="8514746246728959655">Pokušajte s nekim drugim sigurnosnim ključem</translation>
 <translation id="851960115758509829">Vaše aplikacije, postavke i ostale prilagodbe sinkronizirat će se na svim uređajima s OS-om Chrome na kojima ste prijavljeni svojim Google računom.</translation>
 <translation id="8521475323816527629">Brzo pristupite svojim aplikacijama</translation>
@@ -6429,7 +6429,7 @@ Mislim da ta web-lokacija ne bi trebala biti blokirana!</translation>
 <translation id="939598580284253335">Unesite zaporku</translation>
 <translation id="939736085109172342">Nova mapa</translation>
 <translation id="942532530371314860"><ph name="APP_NAME" /> dijeli Chromeovu karticu i zvuk.</translation>
-<translation id="945522503751344254">Slanje povratnih informacija</translation>
+<translation id="945522503751344254">Pošaljite povratne informacije</translation>
 <translation id="947329552760389097">&amp;Provjeri elemente</translation>
 <translation id="952992212772159698">Nije aktivirano</translation>
 <translation id="956500788634395331">Zaštićeni ste od potencijalno štetnih proširenja</translation>

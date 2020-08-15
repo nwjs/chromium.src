@@ -570,7 +570,7 @@ Jika Anda menonaktifkan kebijakan ini, scroll halaman web ke fragmen teks terten
         Dukungan bagi jenis aplikasi lain akan ditambahkan nantinya. Untuk saat ini jenis tersebut dapat ditentukan dalam kebijakan, tetapi pembatasan tersebut tidak akan berlaku.
         Terdapat dua jenis pembatasan yang tersedia: |BLOCK| dan |TIME_LIMIT|.
         |BLOCK| akan membuat aplikasi menjadi tidak tersedia bagi pengguna. Jika |daily_limit_mins| ditentukan dengan pembatasan |BLOCK|, |daily_limit_mins| akan diabaikan.
-        |TIME_LIMITS| menerapkan batas penggunaan harian dan membuat aplikasi menjadi tidak tersedia setelah batas tersebut tercapai pada hari yang sudah ditentukan. Batas penggunaan ditentukan dalam |daily_limit_mins|. Batas penggunaan disetel ulang setiap hari pada waktu UTC yang dilewati dalam |reset_at|.
+        |TIME_LIMITS| menerapkan batas penggunaan harian dan membuat aplikasi menjadi tidak tersedia setelah batas tersebut tercapai pada hari yang sudah ditentukan. Batas penggunaan ditentukan dalam |daily_limit_mins|. Batas penggunaan direset setiap hari pada waktu UTC yang dilewati dalam |reset_at|.
         Kebijakan ini hanya digunakan untuk anak-anak sebagai pengguna.
         Kebijakan ini bersifat komplementer terhadap 'UsageTimeLimit'. Pembatasan yang ditentukan dalam 'UsageTimeLimit' seperti waktu pemakaian perangkat dan waktu tidur akan diterapkan tanpa memandang 'PerAppTimeLimits'.</translation>
 <translation id="1914840757300882918">Jika kebijakan ini ditetapkan, host akan menggunakan sertifikat klien dengan CN penerbit yang diberikan untuk mengautentikasi ke RemoteAccessHostTokenValidationUrl. Tetapkan ke "*" untuk menggunakan sertifikat klien mana pun yang tersedia.
@@ -2436,13 +2436,13 @@ Jika kebijakan ini tidak disetel, setelan default-nya tidak diizinkan bagi pengg
 
           Jika setelan ini dinonaktifkan atau tidak ditetapkan, host akses jarak jauh dapat dikaitkan dengan pengguna lokal mana pun.</translation>
 <translation id="4591366717022345234">Sediakan Quick Fix Build untuk pengguna</translation>
-<translation id="4592246263545654202">Menentukan apakah pengguna dapat membuka halaman dalam Mode samaran di <ph name="PRODUCT_NAME" /> atau tidak.
+<translation id="4592246263545654202">Menentukan apakah pengguna dapat membuka halaman dalam mode Samaran di <ph name="PRODUCT_NAME" /> atau tidak.
 
-      Jika 'Enabled' dipilih atau kebijakan tidak ditetapkan, halaman dapat dibuka dalam Mode samaran.
+      Jika 'Enabled' dipilih atau kebijakan tidak ditetapkan, halaman dapat dibuka dalam mode Samaran.
 
-      Jika 'Disabled' dipilih, halaman tidak dapat dibuka dalam Mode samaran.
+      Jika 'Disabled' dipilih, halaman tidak dapat dibuka dalam mode Samaran.
 
-      Jika 'Forced' dipilih, halaman dapat dibuka HANYA dalam Mode samaran. Perhatikan bahwa 'Paksa' tidak berfungsi pada Android di Chrome</translation>
+      Jika 'Forced' dipilih, halaman dapat dibuka HANYA dalam mode Samaran. Perhatikan bahwa 'Paksa' tidak berfungsi pada Android di Chrome</translation>
 <translation id="4600786265870346112">Aktifkan kursor besar</translation>
 <translation id="4604931264910482931">Konfigurasikan daftar hitam perpesanan asli</translation>
 <translation id="4614701085541180174">Memungkinkan Anda menetapkan daftar pola URL yang menentukan situs tempat sertifikat klien dipilih secara otomatis di layar login dalam frame yang menghosting alur SAML, jika situs tersebut meminta sertifikat. Contoh penggunaan adalah ketika mengonfigurasikan sertifikat di seluruh perangkat untuk ditampilkan ke SAML IdP.
@@ -3974,7 +3974,7 @@ Kebijakan ini hanya berlaku jika dukungan aplikasi Linux diaktifkan.</translatio
       Jika kebijakan ini ditetapkan ke False, informasi yang dapat digunakan untuk mengidentifikasi pengguna tidak akan dikumpulkan.
 
       Kebijakan ini hanya berlaku jika <ph name="CHROME_REPORTING_EXTENSION_NAME" /> diaktifkan, dan perangkat didaftarkan dengan <ph name="CLOUD_MANAGEMENT_ENROLLMENT_TOKEN_POLICY_NAME" />.</translation>
-<translation id="6994082778848658360">Menentukan bagaimana hardware elemen pengaman on-board digunakan untuk memberikan autentikasi faktor kedua jika kompatibel dengan fitur ini. Tombol power mesin digunakan untuk mendeteksi keberadaan pengguna.
+<translation id="6994082778848658360">Menentukan bagaimana hardware elemen pengaman on-board digunakan untuk memberikan autentikasi faktor kedua jika kompatibel dengan fitur ini. Tombol daya mesin digunakan untuk mendeteksi keberadaan pengguna.
 
       Jika 'Dinonaktifkan' dipilih, tidak ada faktor kedua yang diberikan.
 
@@ -4800,17 +4800,17 @@ Jika kebijakan ini tidak ditetapkan, layar privasi mula-mula akan dinonaktifkan,
 <translation id="8172676363520748127">Jika diaktifkan, screenshot tidak dapat diambil menggunakan pintasan keyboard atau API ekstensi.
 
       Jika dinonaktifkan atau tidak ditentukan, pengambilan screenshot diizinkan.</translation>
-<translation id="817455428376641507">Memungkinkan akses ke URL yang tercantum, kecuali untuk URL yang masuk dalam daftar hitam.
+<translation id="817455428376641507">Izinkan akses ke daftar URL, sebagai pengecualian atas daftar URL yang tidak diizinkan.
 
-      Lihat deskripsi kebijakan daftar hitam URL untuk format entri daftar ini.
+      Lihat deskripsi kebijakan URL yang tidak diizinkan untuk format entri daftar ini.
 
-      Kebijakan ini dapat digunakan untuk membuka pengecualian untuk daftar hitam terbatas. Misalnya, '*' dapat dimasukkan dalam daftar hitam untuk memblokir semua permintaan, dan kebijakan ini dapat digunakan untuk mengizinkan akses ke daftar URL yang dibatasi. Kebijakan ini juga dapat digunakan untuk membuka pengecualian untuk skema tertentu, subdomain dari domain lain, port, atau jalur khusus.
+      Kebijakan ini dapat digunakan untuk membuka pengecualian untuk daftar yang tidak diizinkan yang membatasi. Misalnya, '*' dapat dimasukkan dalam daftar yang tidak diizinkan untuk memblokir semua permintaan, dan kebijakan ini dapat digunakan untuk mengizinkan akses ke daftar URL yang dibatasi. Kebijakan ini juga dapat digunakan untuk membuka pengecualian untuk skema tertentu, subdomain dari domain lain, port, atau jalur khusus.
 
-      Filter yang paling spesifik akan menentukan apakah URL diblokir atau diizinkan. Daftar putih akan didahulukan daripada daftar hitam.
+      Filter yang paling spesifik akan menentukan apakah URL diblokir atau diizinkan. Daftar yang diizinkan akan didahulukan daripada daftar yang tidak diizinkan.
 
-      Kebijakan ini terbatas untuk 1000 entri; entri berikutnya akan diabaikan.
+      Kebijakan ini terbatas untuk 1.000 entri; entri berikutnya akan diabaikan.
 
-      Jika kebijakan ini tidak disetel, tidak akan ada pengecualian untuk daftar hitam dari kebijakan 'URLBlacklist'.</translation>
+      Jika kebijakan ini tidak disetel, tidak akan ada pengecualian untuk daftar yang tidak diizinkan dari kebijakan 'URLBlacklist'.</translation>
 <translation id="8176035528522326671">Memungkinkan pengguna perusahaan menjadi pengguna banyak profil primer saja (Perilaku default untuk pengguna yang dikelola perusahaan)</translation>
 <translation id="8183108371184777472">Sembunyikan peluncuran jendela browser</translation>
 <translation id="8186911565834244165">Izinkan masukan pengguna</translation>
@@ -5413,7 +5413,7 @@ Pengguna tidak dapat mengubah atau mengganti setelan ini.</translation>
 
       Menyetel kebijakan ini akan mencegah penerapan perlindungan rollback untuk setidaknya jumlah milestone ini.
 
-      Menyetel kebijakan ini ke nilai yang lebih rendah akan memiliki dampak permanen: perangkat MUNGKIN tidak dapat dikembalikan ke versi sebelumnya setelah kebijakan disetel ulang ke nilai yang lebih tinggi.
+      Menyetel kebijakan ini ke nilai yang lebih rendah akan memiliki dampak permanen: perangkat MUNGKIN tidak dapat dikembalikan ke versi sebelumnya setelah kebijakan direset ke nilai yang lebih tinggi.
 
       Kemungkinan rollback aktual juga dapat bergantung pada model perangkat dan patch kerentanan kritis.</translation>
 <translation id="9126014181388780690">"Izinkan Asisten Google mengakses konteks layar"</translation>

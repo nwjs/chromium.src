@@ -553,7 +553,7 @@ Questa norma viene rispettata soltanto se la norma "DefaultSearchProviderEnabled
 <translation id="1914840757300882918">Se questa norma è impostata, l'host utilizzerà un certificato client con il nome comune dell'emittente indicato per eseguire l'autenticazione su RemoteAccessHostTokenValidationUrl. Impostare la norma su "*" per utilizzare qualsiasi certificato client disponibile.
 
           Questa funzione è attualmente disattivata lato server.</translation>
-<translation id="1919802376548418720">Utilizza la norma KDC per delegare credenziali.</translation>
+<translation id="1919802376548418720">Utilizza il criterio KDC per delegare credenziali.</translation>
 <translation id="1920046221095339924">Consenti la sessione gestita sul dispositivo</translation>
 <translation id="1929709556673267855">Consente di specificare le configurazioni delle stampanti aziendali associate ai dispositivi.
 
@@ -1266,13 +1266,13 @@ Se questa norma non viene impostata, l'utente potrà scegliere se utilizzare o m
       Le verifiche automatiche degli aggiornamenti non verranno bloccate da questa norma, ma potrebbero essere bloccate da altre norme. Questa funzionalità è attiva solo sui dispositivi Chrome configurati come kiosk ad avvio automatico. Gli altri dispositivi non risulteranno limitati da questa norma.</translation>
 <translation id="2823870601012066791">Posizione del Registro di sistema di Windows per client <ph name="PRODUCT_OS_NAME" />:</translation>
 <translation id="2824715612115726353">Attiva modalità di navigazione in incognito</translation>
-<translation id="2836621397261130126">Controlla se l'approvazione della norma KDC viene rispettata per decidere se delegare i ticket <ph name="KERBEROS" />.
+<translation id="2836621397261130126">	Controlla se l'approvazione del criterio KDC viene rispettata per decidere se delegare i ticket <ph name="KERBEROS" />.
 
-          Se questa norma viene impostata su true, l'autenticazione HTTP rispetta l'approvazione da parte della norma KDC, ad esempio Chrome delega solo le credenziali se il KDC imposta <ph name="OK_AS_DELEGATE" /> su un ticket di servizio. Per ulteriori informazioni, visita la pagina https://tools.ietf.org/html/rfc5896.html. Il servizio deve corrispondere anche alla norma "AuthNegotiateDelegateWhitelist".
+Se questo criterio viene impostato su vero, l'autenticazione HTTP rispetta l'approvazione da parte del criterio KDC, ad esempio Chrome delega solo le credenziali se il KDC imposta <ph name="OK_AS_DELEGATE" /> su un ticket di servizio. Per ulteriori informazioni, visita la pagina https://tools.ietf.org/html/rfc5896.html. Il servizio deve corrispondere anche al criterio "AuthNegotiateDelegateWhitelist".
 
-          Se questa norma non viene impostata o viene impostata su false, la norma KDC viene ignorata sulle piattaforme supportate e solo la norma "AuthNegotiateDelegateWhitelist" viene rispettata.
+Se questo criterio non viene impostato o viene impostato su falso, il criterio KDC viene ignorato sulle piattaforme supportate e solo il criterio "AuthNegotiateDelegateWhitelist" viene rispettato.
 
-          Su Windows la norma KDC viene sempre rispettata.</translation>
+Su Windows il criterio KDC viene sempre rispettato.</translation>
 <translation id="283695852388224413">Se la norma è impostata, viene applicata la lunghezza di PIN massima configurata. Un valore uguale a 0 o inferiore indica che non esiste una lunghezza massima; in questo caso l'utente può impostare un PIN della lunghezza che preferisce. Se questa impostazione è minore di <ph name="PIN_UNLOCK_MINIMUM_LENGTH_POLICY_NAME" /> ma maggiore di 0, allora la lunghezza massima corrisponde a quella minima.
 
           Se questa norma non viene impostata, non è applicata alcuna lunghezza massima.</translation>
@@ -2880,11 +2880,11 @@ Se la norma non viene impostata, <ph name="PRODUCT_NAME" /> caricherà tutti gli
 <translation id="537786648513450280">Controlla l'utilizzo delle app Android di fonti non attendibili per il dispositivo</translation>
 <translation id="5378985487213287085">Permette di stabilire se consentire o meno la visualizzazione di notifiche desktop nei siti web. La visualizzazione di notifiche desktop può essere consentita o negata per impostazione predefinita oppure l'utente può ricevere una richiesta ogni volta che un sito web desidera visualizzare le notifiche desktop. Se questa norma non viene impostata, verrà utilizzato il valore "AskNotifications", che potrà essere modificato dagli utenti.</translation>
 <translation id="538108065117008131">Consenti a <ph name="PRODUCT_FRAME_NAME" /> di gestire i seguenti tipi di contenuto.</translation>
-<translation id="538768040137709073">Consente di attivare la funzione Appunti condivisi che permette agli utenti di inviare messaggi tra computer desktop Chrome e un dispositivo Android quando la sincronizzazione è attivata e l'utente ha effettuato l'accesso.
+<translation id="538768040137709073">Consente di attivare la funzione Appunti condivisi che permette agli utenti di inviare testi tra computer desktop Chrome e un dispositivo Android quando la sincronizzazione è attivata e l'utente ha effettuato l'accesso.
 
-          Se il criterio è impostato su true, la funzionalità di invio messaggi, cross-device, è attivata per gli utenti Chrome.
+          Se il criterio è impostato su true, la funzionalità di invio testi tra dispositivi è attivata per gli utenti Chrome.
 
-          Se il criterio è impostato su false, la funzionalità di invio messaggi, cross-device, è disattivata per gli utenti Chrome.
+          Se il criterio è impostato su false, la funzionalità di invio testi tra dispositivi è disattivata per gli utenti Chrome.
 
           Se imposti questo criterio, gli utenti non potranno modificarlo o ignorarlo.
 
@@ -4508,7 +4508,7 @@ Nota. Attualmente i riavvii automatici vengono attivati soltanto durante la visu
 <translation id="7763614521440615342">Mostra suggerimenti di contenuti nella pagina Nuova scheda</translation>
 <translation id="7765879851993224640">Consenti l'uso dell'accesso tramite Smart Lock.</translation>
 <translation id="7774768074957326919">Utilizza le impostazioni proxy di sistema</translation>
-<translation id="7775902646576367944">Questo criterio consente di stabilire se segnalare o meno dati di Navigazione sicura, incluso il numero dell'avviso di Navigazione sicura e il numero del relativo click-through.
+<translation id="7775902646576367944">Questo criterio consente di stabilire se segnalare o meno dati di Navigazione sicura, inclusi il numero dell'avviso di Navigazione sicura e il numero del relativo click-through.
 
       Se questo criterio non viene impostato o viene impostato su True, i dati di Navigazione sicura vengono raccolti.
       Se questo criterio viene impostato su False, i dati di Navigazione sicura non vengono raccolti.

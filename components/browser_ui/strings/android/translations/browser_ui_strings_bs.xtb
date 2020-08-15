@@ -175,7 +175,7 @@
 <translation id="7000754031042624318">Isključeno u postavkama Androida</translation>
 <translation id="7016516562562142042">Dozvoljeno za trenutni pretraživač</translation>
 <translation id="7053983685419859001">Blokiraj</translation>
-<translation id="7066151586745993502">{NUM_SELECTED,plural, =1{1 izabrana stavka}one{# izabrana stavka}few{# izabrane stavke}other{# izabranih stavki}}</translation>
+<translation id="7066151586745993502">{NUM_SELECTED,plural, =1{1 odabrana kartica}one{# odabrana kartica}few{# odabrane kartice}other{# odabranih kartica}}</translation>
 <translation id="7087918508125750058">Odabrali ste <ph name="ITEM_COUNT" />.  Opcije su dostupne pri vrhu ekrana</translation>
 <translation id="7128222689758636196">Dozvolite za trenutni pretraživač</translation>
 <translation id="7141896414559753902">Blokiranje prikazivanja skočnih prozora na web lokacijama i preusmjeravanje (preporučeno)</translation>

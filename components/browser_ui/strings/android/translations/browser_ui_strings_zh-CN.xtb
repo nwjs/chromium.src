@@ -6,7 +6,7 @@
 <translation id="1124090076051167250">此操作会清除网站或其在主屏幕中安装的应用所存储的 <ph name="DATASIZE" /> 数据和 Cookie。</translation>
 <translation id="1124772482545689468">用户</translation>
 <translation id="1178581264944972037">暂停</translation>
-<translation id="1181037720776840403">删除</translation>
+<translation id="1181037720776840403">移除</translation>
 <translation id="1201402288615127009">下一步</translation>
 <translation id="1242008676835033345">嵌入来源：<ph name="WEBSITE_URL" /></translation>
 <translation id="1272079795634619415">停止</translation>
@@ -82,7 +82,7 @@
 <translation id="3730075448226062617">要让 Chrome 使用您的麦克风，您还需要在 <ph name="BEGIN_LINK" />Android 设置<ph name="END_LINK" />中开启麦克风。</translation>
 <translation id="3744111561329211289">后台同步</translation>
 <translation id="3822502789641063741">要清除网站存储数据吗？</translation>
-<translation id="385051799172605136">后退</translation>
+<translation id="385051799172605136">返回</translation>
 <translation id="3955193568934677022">允许网站播放受保护的内容（推荐）</translation>
 <translation id="3987993985790029246">复制链接</translation>
 <translation id="3991845972263764475">已下载 <ph name="BYTES_DOWNLOADED_WITH_UNITS" />，总大小不明</translation>
@@ -139,7 +139,7 @@
 <translation id="5922853908706496913">正在共享您的屏幕</translation>
 <translation id="5939518447894949180">重置</translation>
 <translation id="6040143037577758943">关闭</translation>
-<translation id="6042308850641462728">更多</translation>
+<translation id="6042308850641462728">展开</translation>
 <translation id="6064125863973209585">下载已完成</translation>
 <translation id="6165508094623778733">了解详情</translation>
 <translation id="6177111841848151710">不允许当前搜索引擎使用</translation>

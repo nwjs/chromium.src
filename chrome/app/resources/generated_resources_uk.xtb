@@ -2587,7 +2587,7 @@
 <translation id="4249373718504745892">Доступ цієї сторінки до ваших камери та мікрофона заблоковано.</translation>
 <translation id="424963718355121712">Додатки мають встановлюватися з хосту, на якому вони працюють</translation>
 <translation id="4250229828105606438">Знімок екрана</translation>
-<translation id="4250680216510889253">ні</translation>
+<translation id="4250680216510889253">Ні</translation>
 <translation id="4252035718262427477">Веб-сторінка, один файл (веб-пакет)</translation>
 <translation id="4252852543720145436">Ідентифікатори захищеного вмісту</translation>
 <translation id="4252899949534773101">Bluetooth вимкнено</translation>
@@ -2705,7 +2705,7 @@
 <translation id="4414232939543644979">Нове &amp;анонімне вікно</translation>
 <translation id="4415213869328311284">Тепер ви можете користуватися пристроєм <ph name="DEVICE_TYPE" />.</translation>
 <translation id="4415245286584082850">Пристроїв не знайдено. Відкрийте довідкову статтю в новій вкладці.</translation>
-<translation id="4415276339145661267">Керуйте обліковим записом Google</translation>
+<translation id="4415276339145661267">Керувати обліковим записом Google</translation>
 <translation id="4415748029120993980">Еліптична крива SECG secp384r1 (також відома як NIST P-384)</translation>
 <translation id="4416582610654027550">Введіть дійсну URL-адресу</translation>
 <translation id="4419409365248380979">Завжди дозволяти хосту <ph name="HOST" /> створювати файли cookie</translation>
@@ -3298,7 +3298,7 @@
 <translation id="5233231016133573565">Ідентифікатор процесу</translation>
 <translation id="5233638681132016545">Нова вкладка</translation>
 <translation id="5233736638227740678">&amp;Вставити</translation>
-<translation id="5234764350956374838">Відхилити</translation>
+<translation id="5234764350956374838">Закрити</translation>
 <translation id="5235050375939235066">Видалити додаток?</translation>
 <translation id="523505283826916779">Налаштування доступності</translation>
 <translation id="5235565664420173924">Better Together</translation>
@@ -3640,7 +3640,7 @@
 <translation id="5657156137487675418">Дозволити всі cookie-файли</translation>
 <translation id="5657667036353380798">Для зовнішнього розширення потрібна версія Chrome <ph name="MINIMUM_CHROME_VERSION" /> або новіша.</translation>
 <translation id="5658415415603568799">З міркувань безпеки Smart Lock запропонує ввести пароль через 20 годин.</translation>
-<translation id="5659593005791499971">Електронна пошта</translation>
+<translation id="5659593005791499971">Ел. пошта</translation>
 <translation id="5659833766619490117">Цю сторінку неможливо перекласти</translation>
 <translation id="5662513737565158057">Налаштуйте роботу додатків Linux.</translation>
 <translation id="5667546120811588575">Налаштування Google Play…</translation>
@@ -3833,7 +3833,7 @@
 
   Відкритий порядок (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> біт.):
   <ph name="EXPONENT_HEX_DUMP" /></translation>
-<translation id="5916664084637901428">Увімкнути</translation>
+<translation id="5916664084637901428">Увімкнено</translation>
 <translation id="59174027418879706">Увімкнено</translation>
 <translation id="5920543303088087579">Ваш адміністратор заборонив під’єднуватися до цієї мережі</translation>
 <translation id="5920835625712313205">Інструмент створення образів ОС Chrome</translation>
@@ -4237,7 +4237,7 @@
 <translation id="6429384232893414837">Помилка оновлення</translation>
 <translation id="6430814529589430811">ASCII Base64-кодування, єдиний сертифікат</translation>
 <translation id="6431347207794742960"><ph name="PRODUCT_NAME" /> налаштує автоматичні оновлення для всіх користувачів цього комп'ютера.</translation>
-<translation id="6434309073475700221">Скасувати</translation>
+<translation id="6434309073475700221">Відхилити</translation>
 <translation id="6434325376267409267">Щоб користуватися додатком <ph name="APP_NAME" />, потрібно оновити пристрій.</translation>
 <translation id="6436164536244065364">Переглянути у веб-магазині</translation>
 <translation id="6438992844451964465"><ph name="WINDOW_TITLE" /> – відтворюється аудіо</translation>

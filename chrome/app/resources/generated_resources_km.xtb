@@ -693,7 +693,7 @@
 <translation id="1850508293116537636">បង្វិលបញ្ច្រាសទ្រនិចនាឡិកា</translation>
 <translation id="1852141627593563189">ស្វែងរកកម្មវិធី​បង្កគ្រោះថ្នាក់</translation>
 <translation id="1852799913675865625">មានកំហុសឆ្គងខណៈពេលព្យាយាមអានឯកសារនេះ៖ <ph name="ERROR_TEXT" />។</translation>
-<translation id="1853692000353488670">ផ្ទាំងអនាមិកថ្មី</translation>
+<translation id="1853692000353488670">ផ្ទាំងឯកជនថ្មី</translation>
 <translation id="1854180393107901205">បញ្ឈប់ការខាស</translation>
 <translation id="1856715684130786728">បន្ថែមទីតាំង...</translation>
 <translation id="1858585891038687145">ជឿទុកចិត្តលើវិញ្ញាបនបត្រនេះដើម្បីសម្គាល់អ្នកផលិតកម្មវិធី</translation>
@@ -853,7 +853,7 @@
 <translation id="2077129598763517140">ប្រើការជម្រុញផ្នែករឹងនៅពេលដែលមាន</translation>
 <translation id="2078019350989722914">ព្រមានមុននឹងចេញ (<ph name="KEY_EQUIVALENT" />)</translation>
 <translation id="2079053412993822885">ប្រសិនបើអ្នកលុបវិញ្ញាបនប័ត្រមួយក្នុងចំណោមវិញ្ញាបនប័ត្រទាំងឡាយរបស់អ្នក អ្នកមិនអាចប្រើវាដើម្បីសម្គាល់ខ្លួនអ្នកទៀតទេ។</translation>
-<translation id="2079545284768500474">បកក្រោយ</translation>
+<translation id="2079545284768500474">ត្រឡប់វិញ</translation>
 <translation id="2080070583977670716">ការកំណត់ច្រើនទៀត</translation>
 <translation id="2082187087049518845">ផ្ទាំងក្រុម</translation>
 <translation id="2087822576218954668">បោះពុម្ព៖ <ph name="PRINT_NAME" /></translation>
@@ -3689,7 +3689,7 @@
 <translation id="572155275267014074">ការ​កំណត់ Android</translation>
 <translation id="5722086096420375088">បៃតង និងស</translation>
 <translation id="5722930212736070253">អូទេ! Zip Archiver បានជួបប្រទះ​បញ្ហា។</translation>
-<translation id="572328651809341494">ផ្ទាំងកន្លងទៅថ្មីៗ</translation>
+<translation id="572328651809341494">ផ្ទាំងថ្មីៗ</translation>
 <translation id="5723508132121499792">គ្មានកម្មវិធីផ្ទៃខាងក្រោយកំពុងដំណើរការទេ</translation>
 <translation id="5723967018671998714">បានទប់ស្កាត់ខូគី​ភាគទីបីនៅក្នុងមុខងារឯកជន</translation>
 <translation id="5727728807527375859">កម្មវិធីបន្ថែម កម្មវិធី និងធីមអាចប៉ះពាល់ដល់កុំព្យូទ័ររបស់អ្នក។ តើអ្នកប្រាកដថាអ្នកចង់បន្តទេ?</translation>
@@ -4670,7 +4670,7 @@
 <translation id="7003723821785740825">កំណត់​វិធី​លឿនជាងនេះ​ដើម្បី​ដោះសោ​ឧបករណ៍​របស់អ្នក</translation>
 <translation id="7003844668372540529">មិនស្គាល់ផលិតផល <ph name="PRODUCT_ID" /> ពី <ph name="VENDOR_NAME" /></translation>
 <translation id="7004402701596653846">គេហទំព័រ​អាចប្រើ MIDI</translation>
-<translation id="7004499039102548441">ផ្ទាំងកន្លងទៅថ្មីៗ</translation>
+<translation id="7004499039102548441">ផ្ទាំងថ្មីៗ</translation>
 <translation id="7005496624875927304">ការអនុញ្ញាតបន្ថែម</translation>
 <translation id="7005812687360380971">ការបរាជ័យ</translation>
 <translation id="7005848115657603926">គម្លាតទំព័រគ្មានសុពលភាព ប្រើ <ph name="EXAMPLE_PAGE_RANGE" /></translation>

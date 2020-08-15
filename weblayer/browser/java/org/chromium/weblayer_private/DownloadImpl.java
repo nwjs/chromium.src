@@ -8,6 +8,7 @@ import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources;
+import android.net.Uri;
 import android.os.RemoteException;
 import android.text.TextUtils;
 
@@ -92,10 +93,9 @@ public final class DownloadImpl extends IDownload.Stub {
 
             Intent openIntent = new Intent(Intent.ACTION_VIEW);
             if (TextUtils.isEmpty(mimeType)) {
-                openIntent.setData(ContentUriUtils.getContentUriFromFile(new File(location)));
+                openIntent.setData(getDownloadUri(location));
             } else {
-                openIntent.setDataAndType(
-                        ContentUriUtils.getContentUriFromFile(new File(location)), mimeType);
+                openIntent.setDataAndType(getDownloadUri(location), mimeType);
             }
             openIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             openIntent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
@@ -257,6 +257,13 @@ public final class DownloadImpl extends IDownload.Stub {
     }
 
     @Override
+    public String getFileNameToReportToUser() {
+        StrictModeWorkaround.apply();
+        throwIfNativeDestroyed();
+        return DownloadImplJni.get().getFileNameToReportToUser(mNativeDownloadImpl);
+    }
+
+    @Override
     public String getMimeType() {
         StrictModeWorkaround.apply();
         throwIfNativeDestroyed();
@@ -352,9 +359,9 @@ public final class DownloadImpl extends IDownload.Stub {
                 .setPriorityBeforeO(NotificationCompat.PRIORITY_DEFAULT);
 
         // The filename might not have been available initially.
-        String location = getLocation();
-        if (!TextUtils.isEmpty((location))) {
-            builder.setContentTitle((new File(location)).getName());
+        String name = getFileNameToReportToUser();
+        if (!TextUtils.isEmpty(name)) {
+            builder.setContentTitle(name);
         }
 
         if (state == DownloadState.CANCELLED) {
@@ -458,6 +465,11 @@ public final class DownloadImpl extends IDownload.Stub {
         return new NotificationManagerProxyImpl(ContextUtils.getApplicationContext());
     }
 
+    private static Uri getDownloadUri(String location) {
+        if (ContentUriUtils.isContentUri(location)) return Uri.parse(location);
+        return ContentUriUtils.getContentUriFromFile(new File(location));
+    }
+
     @CalledByNative
     private void onNativeDestroyed() {
         mNativeDownloadImpl = 0;
@@ -475,6 +487,7 @@ public final class DownloadImpl extends IDownload.Stub {
         void resume(long nativeDownloadImpl);
         void cancel(long nativeDownloadImpl);
         String getLocation(long nativeDownloadImpl);
+        String getFileNameToReportToUser(long nativeDownloadImpl);
         String getMimeTypeImpl(long nativeDownloadImpl);
         int getError(long nativeDownloadImpl);
     }

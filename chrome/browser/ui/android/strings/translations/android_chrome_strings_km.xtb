@@ -45,6 +45,7 @@
 <translation id="1285320974508926690">មិនបកប្រែគេហទំព័រនេះទៀតឡើយ</translation>
 <translation id="1291207594882862231">ជម្រះប្រវត្តិ ខុកឃី ទិន្នន័យគេហទំព័រ ឃ្លាំងសម្ងាត់…</translation>
 <translation id="129553762522093515">បានបិទកន្លងទៅថ្មីៗ</translation>
+<translation id="1298077576058087471">សន្សំសំចៃទិន្នន័យបានរហូតដល់ 60% អានព័ត៌មានថ្ងៃនេះ</translation>
 <translation id="1303339473099049190">រកមិនឃើញពាក្យសម្ងាត់ទេ។ សូមពិនិត្យ​មើល​អក្ខរាវិរុទ្ធ​ រួចព្យាយាម​ម្ដង​ទៀត។</translation>
 <translation id="1303507811548703290"><ph name="DOMAIN" />៖ បាន​ផ្ញើពី <ph name="DEVICE_NAME" /></translation>
 <translation id="1310482092992808703">ដាក់ផ្ទាំងជាក្រុម</translation>
@@ -100,7 +101,7 @@
 <translation id="1810845389119482123">ការរៀបចំ​សមកាលកម្ម​ដំបូង​មិនបាន​បញ្ចប់​ទេ</translation>
 <translation id="1821253160463689938">ប្រើ​ខូគី​ដើម្បី​ចងចាំ​ចំណូលចិត្ត​របស់អ្នក បើ​ទោះ​បី​ជា​អ្នក​​មិន​ចូលមើល​ទំព័រ​ទាំងនោះ​ក៏ដោយ</translation>
 <translation id="1829244130665387512">ស្វែងរកក្នុងទំព័រ</translation>
-<translation id="1853692000353488670">ផ្ទាំងអនាមិកថ្មី</translation>
+<translation id="1853692000353488670">ផ្ទាំងឯកជនថ្មី</translation>
 <translation id="1856325424225101786">កំណត់​មុខងារស្រាល​ឡើងវិញឬ?</translation>
 <translation id="1868024384445905608">ឥឡូវនេះ Chrome ទាញយក​ឯកសារ​បានរហ័ស​ជាងមុន</translation>
 <translation id="1883903952484604915">ឯកសារ​របស់ខ្ញុំ</translation>
@@ -252,8 +253,10 @@
 <translation id="305593374596241526">ទីតាំង​ត្រូវ​បាន​បិទ សូម​បើក​វា​នៅ​ក្នុង <ph name="BEGIN_LINK" />ការ​កំណត់ Android<ph name="END_LINK" /> ។</translation>
 <translation id="3058498974290601450">អ្នកអាចបើក​សមកាលកម្ម​បានគ្រប់ពេល​នៅក្នុងការកំណត់</translation>
 <translation id="3060635849835183725">{BOOKMARKS_COUNT,plural, =1{ចំណាំ <ph name="BOOKMARKS_COUNT_ONE" />}other{ចំណាំ <ph name="BOOKMARKS_COUNT_MANY" />}}</translation>
+<translation id="3062802207422175757">អត្ថបទពាក់ព័ន្ធនឹងចំណាប់អារម្មណ៍របស់អ្នកនៅលើ Chrome</translation>
 <translation id="3089395242580810162">បើកនៅក្នុងផ្ទាំងអនាមិក</translation>
 <translation id="3114012059975132928">កម្មវិធី​ចាក់​វីដេអូ</translation>
+<translation id="3114507951000454849">អានព័ត៌មានថ្ងៃនេះ <ph name="NEWS_ICON" /></translation>
 <translation id="3123734510202723619">សេចក្តីប្រកាស</translation>
 <translation id="3137521801621304719">ចាកចេញពីរបៀបអនាមិក</translation>
 <translation id="3143515551205905069">បោះបង់​ការ​ធ្វើ​សម​កាល​កម្ម</translation>
@@ -298,7 +301,7 @@
 <translation id="3443221991560634068">ផ្ទុកទំព័របច្ចុប្បន្នឡើងវិញ</translation>
 <translation id="3445014427084483498">អម្បាញ់មិញ</translation>
 <translation id="3478363558367712427">អ្នកអាច​ជ្រើសរើស​ម៉ាស៊ីន​ស្វែងរក​របស់អ្នក​បាន</translation>
-<translation id="3492207499832628349">ផ្ទាំងអនាមិកថ្មី</translation>
+<translation id="3492207499832628349">ផ្ទាំងឯកជនថ្មី</translation>
 <translation id="3493531032208478708"><ph name="BEGIN_LINK" />ស្វែងយល់បន្ថែម<ph name="END_LINK" />អំពីមាតិកាដែលបានណែនាំ</translation>
 <translation id="3499246418971111862">chrome_qrcode_<ph name="CURRENT_TIMESTAMP_MS" /></translation>
 <translation id="3513704683820682405">AR</translation>
@@ -518,6 +521,7 @@
 <translation id="5292796745632149097">ផ្ញើ​ទៅ</translation>
 <translation id="5304593522240415983">ប្រអប់នេះមិនអាចចន្លោះទេ</translation>
 <translation id="5308380583665731573">ភ្ជាប់</translation>
+<translation id="5319359161174645648">Google ណែនាំ Chrome</translation>
 <translation id="5324858694974489420">ការកំណត់មាតាបិតា</translation>
 <translation id="5327248766486351172">ឈ្មោះ</translation>
 <translation id="5342314432463739672">សំណើសុំ​ការអនុញ្ញាត</translation>
@@ -568,7 +572,7 @@
 <translation id="5686790454216892815">ឈ្មោះ​ឯកសារ​វែងពេក</translation>
 <translation id="5694049548840660018">ត្រឡប់ទៅ​ទំព័រដើមវិញ​បានយ៉ាង​ងាយស្រួល</translation>
 <translation id="569536719314091526">បកប្រែ​ទំព័រនេះ​ទៅជាភាសា​ណាមួយពី​ប៊ូតុងជម្រើស​ច្រើនទៀត</translation>
-<translation id="572328651809341494">ផ្ទាំងកន្លងទៅថ្មីៗ</translation>
+<translation id="572328651809341494">ផ្ទាំងថ្មីៗ</translation>
 <translation id="5726692708398506830">ធ្វើឲ្យអ្វីគ្រប់យ៉ាងនៅលើទំព័រនេះធំជាងមុន</translation>
 <translation id="5748802427693696783">បានប្តូរទៅផ្ទាំងស្តង់ដារ</translation>
 <translation id="5749068826913805084">Chrome ត្រូវការលទ្ធភាពចូលប្រើទំហំផ្ទុកដើម្បីដោនឡូតឯកសារ</translation>
@@ -677,6 +681,7 @@
 <translation id="6573096386450695060">អនុញ្ញាត​ជា​និច្ច</translation>
 <translation id="6573431926118603307">ផ្ទាំងដែលអ្នកបានបើកនៅក្នុង Chrome នៅលើឧបករណ៍ផ្សេងទៀតរបស់អ្នកនឹងបង្ហាញនៅទីនេះ</translation>
 <translation id="6583199322650523874">ចំណាំទំព័របច្ចុប្បន្ននេះ</translation>
+<translation id="6590471736817333463">សន្សំសំចៃទិន្នន័យបានរហូតដល់ 60%</translation>
 <translation id="6593061639179217415">ទំព័រ​អេក្រង់​កុំព្យូទ័រ</translation>
 <translation id="6597891566292541626">ដាក់កូដ QR/បារកូដនៅក្នុងស៊ុមនេះ។</translation>
 <translation id="6600954340915313787">បានចម្លងទៅ Chrome</translation>
@@ -984,6 +989,7 @@
 <translation id="9209888181064652401">មិនអាច​ហៅទូរសព្ទ​បានទេ</translation>
 <translation id="9219103736887031265">រូបភាព</translation>
 <translation id="926205370408745186">លុបស​កម្មភាព Chrome របស់អ្នកពី​សុខុមាលភាព​ឌីជីថល</translation>
+<translation id="927968626442779827">ប្រើមុខងារស្រាលនៅលើ Google Chrome</translation>
 <translation id="932327136139879170">ទំព័រដើម</translation>
 <translation id="93753284658583800">បានប្ដូរ​ទំព័រដើម</translation>
 <translation id="938850635132480979">កំហុស៖ <ph name="ERROR_CODE" /></translation>

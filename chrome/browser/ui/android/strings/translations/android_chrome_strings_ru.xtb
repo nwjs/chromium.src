@@ -45,6 +45,7 @@
 <translation id="1285320974508926690">Никогда не переводить этот сайт</translation>
 <translation id="1291207594882862231">Удалить файлы cookie и данные сайтов, очистить историю и кеш</translation>
 <translation id="129553762522093515">Недавно закрытые</translation>
+<translation id="1298077576058087471">Экономьте до 60 % трафика и читайте ежедневные новости</translation>
 <translation id="1303339473099049190">Пароль не найден. Убедитесь, что он указан правильно, и повторите попытку.</translation>
 <translation id="1303507811548703290">Домен: <ph name="DOMAIN" />. Отправлено с устройства "<ph name="DEVICE_NAME" />".</translation>
 <translation id="1310482092992808703">Сгруппировать вкладки</translation>
@@ -252,8 +253,10 @@
 <translation id="305593374596241526">Определение местоположения отключено. Включите его в <ph name="BEGIN_LINK" />настройках Android<ph name="END_LINK" />.</translation>
 <translation id="3058498974290601450">Ее можно включить в настройках в любой момент.</translation>
 <translation id="3060635849835183725">{BOOKMARKS_COUNT,plural, =1{<ph name="BOOKMARKS_COUNT_ONE" /> закладка}one{<ph name="BOOKMARKS_COUNT_MANY" /> закладка}few{<ph name="BOOKMARKS_COUNT_MANY" /> закладки}many{<ph name="BOOKMARKS_COUNT_MANY" /> закладок}other{<ph name="BOOKMARKS_COUNT_MANY" /> закладки}}</translation>
+<translation id="3062802207422175757">Мы будем предлагать вам в Chrome статьи, подобранные на основе ваших интересов.</translation>
 <translation id="3089395242580810162">Открыть в режиме инкогнито</translation>
 <translation id="3114012059975132928">Видеопроигрыватель</translation>
+<translation id="3114507951000454849">Читайте ежедневные новости <ph name="NEWS_ICON" /></translation>
 <translation id="3123734510202723619">Оповещения</translation>
 <translation id="3137521801621304719">Выключить режим инкогнито</translation>
 <translation id="3143515551205905069">Отмена</translation>
@@ -492,7 +495,7 @@
 <translation id="5013696553129441713">Новых рекомендаций нет</translation>
 <translation id="5016205925109358554">С засечками</translation>
 <translation id="5039804452771397117">Разрешить</translation>
-<translation id="5040262127954254034">Личные данные</translation>
+<translation id="5040262127954254034">Конфиденциальность</translation>
 <translation id="5087580092889165836">Добавить карту</translation>
 <translation id="510275257476243843">Остался 1 час</translation>
 <translation id="5123685120097942451">Вкладка инкогнито</translation>
@@ -518,6 +521,7 @@
 <translation id="5292796745632149097">Куда отправить</translation>
 <translation id="5304593522240415983">Это поле нужно заполнить</translation>
 <translation id="5308380583665731573">Подключение</translation>
+<translation id="5319359161174645648">Google рекомендует браузер Chrome</translation>
 <translation id="5324858694974489420">Родительские настройки</translation>
 <translation id="5327248766486351172">Название</translation>
 <translation id="5342314432463739672">Запросы разрешений</translation>
@@ -560,7 +564,7 @@
 <translation id="5639724618331995626">Разрешить доступ ко всем сайтам</translation>
 <translation id="5648166631817621825">Последние 7 дней</translation>
 <translation id="5655963694829536461">Поиск в загрузках</translation>
-<translation id="5659593005791499971">Электронная почта</translation>
+<translation id="5659593005791499971">Эл. почта</translation>
 <translation id="5665379678064389456">Создать мероприятие в приложении "<ph name="APP_NAME" />"</translation>
 <translation id="5668404140385795438">Игнорировать запросы сайтов на запрет масштабирования</translation>
 <translation id="5681394891799747640">Невозможно скачать QR-код</translation>
@@ -677,6 +681,7 @@
 <translation id="6573096386450695060">Разрешать всегда</translation>
 <translation id="6573431926118603307">Здесь появятся вкладки, открытые в Chrome на других устройствах.</translation>
 <translation id="6583199322650523874">Добавить страницу в закладки</translation>
+<translation id="6590471736817333463">Экономьте до 60 % трафика</translation>
 <translation id="6593061639179217415">Версия для ПК</translation>
 <translation id="6597891566292541626">Поместите QR-код или штрихкод в эту рамку.</translation>
 <translation id="6600954340915313787">Скопировано в Chrome</translation>
@@ -720,7 +725,7 @@
 <translation id="6945221475159498467">Выбрать</translation>
 <translation id="6963766334940102469">Удалить закладки</translation>
 <translation id="6979737339423435258">Все время</translation>
-<translation id="6981982820502123353">Специальные возможности</translation>
+<translation id="6981982820502123353">Спец. возможности</translation>
 <translation id="6989267951144302301">Не удалось скачать</translation>
 <translation id="6990079615885386641">Приложение в Google Play Маркете: <ph name="APP_ACTION" /></translation>
 <translation id="6995899638241819463">Сообщать, если пароли были раскрыты в результате утечки данных</translation>
@@ -984,6 +989,7 @@
 <translation id="9209888181064652401">Звонки недоступны</translation>
 <translation id="9219103736887031265">Картинки</translation>
 <translation id="926205370408745186">Удалить данные о действиях в Chrome из сервиса "Цифровое благополучие"</translation>
+<translation id="927968626442779827">Попробуйте упрощенный режим в Google Chrome.</translation>
 <translation id="932327136139879170">Главная страница</translation>
 <translation id="93753284658583800">Главная страница изменена.</translation>
 <translation id="938850635132480979">Ошибка <ph name="ERROR_CODE" /></translation>

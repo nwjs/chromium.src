@@ -10,7 +10,7 @@
 <translation id="1290373024480130896"><ph name="MODIFIER1" /><ph name="SEPARATOR1" /><ph name="MODIFIER2" /><ph name="SEPARATOR2" /><ph name="MODIFIER3" /><ph name="SEPARATOR3" /><ph name="KEY" /></translation>
 <translation id="1293699935367580298">Esc</translation>
 <translation id="1299858300159559687">Aktuelle Seite drucken</translation>
-<translation id="1383876407941801731">Suchen</translation>
+<translation id="1383876407941801731">Suchtaste</translation>
 <translation id="1454364489140280055">"<ph name="CTRL" />" <ph name="SEPARATOR1" /> "<ph name="SHIFT1" />" <ph name="SEPARATOR2" /> "<ph name="G" />" oder "<ph name="SHIFT2" />" <ph name="SEPARATOR3" /> "<ph name="ENTER" />"</translation>
 <translation id="1477442857810932985">Zum Zeilenende springen</translation>
 <translation id="1499072997694708844">Alle geöffneten Fenster schließen oder das Laden der aktuellen Seite beenden</translation>
@@ -60,7 +60,7 @@
 <translation id="2872353916818027657">Hauptmonitor tauschen</translation>
 <translation id="2914313326123580426">Steuerfeld für Entwicklertools ein- oder ausblenden</translation>
 <translation id="292495055542441795">Vollbildmodus an oder aus</translation>
-<translation id="3020183492814296499">Verknüpfungen</translation>
+<translation id="3020183492814296499">Tastenkombinationen</translation>
 <translation id="3084301071537457911">Nächstes Element in der Ablage markieren</translation>
 <translation id="309173601632226815">Launcher-Symbol in der Ablage markieren</translation>
 <translation id="3105917916468784889">Screenshot aufnehmen</translation>
@@ -133,7 +133,7 @@
 <translation id="6022924867608035986">Text im Suchfeld löschen</translation>
 <translation id="6045998054441862242">Modus mit hohem Kontrast aktivieren</translation>
 <translation id="6052614013050385269">Mit der rechten Maustaste auf einen Link klicken</translation>
-<translation id="6129953537138746214">Leerzeichen</translation>
+<translation id="6129953537138746214">Leertaste</translation>
 <translation id="6143669479988153888">Seite heranzoomen</translation>
 <translation id="6185696379715117369">Bildlauf nach oben</translation>
 <translation id="6228457605945141550">Helligkeit verringern</translation>

@@ -2286,7 +2286,7 @@
 <translation id="3842552989725514455">Serif எழுத்துரு</translation>
 <translation id="3846116211488856547">இணையதளங்கள், Android ஆப்ஸ் மற்றும் பலவற்றை உருவாக்கத் தேவையான கருவிகளைப் பெறுக. Linuxஸை நிறுவ, <ph name="DOWNLOAD_SIZE" /> டேட்டா பயன்படுத்தப்படும்.</translation>
 <translation id="3847319713229060696">வலையைப் பயன்படுத்தும் அனைவருக்கும் பாதுகாப்பை மேம்படுத்த உதவுங்கள்</translation>
-<translation id="385051799172605136">முந்தைய பக்கம்</translation>
+<translation id="385051799172605136">திரும்பு</translation>
 <translation id="3850914401008572843">சிஸ்டம் கோப்புகள் உள்ளதால் இந்தக் கோப்புறையை <ph name="ORIGIN" /> தளத்தால் திறக்க முடியவில்லை</translation>
 <translation id="3851428669031642514">பாதுகாப்பற்ற ஸ்கிரிப்ட்களை ஏற்று</translation>
 <translation id="3854599674806204102">ஒரு விருப்பத்தைத் தேர்வுசெய்யவும்</translation>
@@ -2733,7 +2733,7 @@
 <translation id="4449996769074858870">இந்தத் தாவல் ஆடியோவை இயக்குகிறது.</translation>
 <translation id="4450974146388585462">கண்டறி</translation>
 <translation id="4451757071857432900">குறுக்கிடும் அல்லது தவறாக வழிநடத்தும் விளம்பரங்களைக் காட்டும் தளங்களில் தடுக்கப்படும் (பரிந்துரைக்கப்படுவது)</translation>
-<translation id="4453946976636652378"><ph name="SEARCH_ENGINE_NAME" />ஐத் தேடுக அல்லது URLஐ உள்ளிடுக</translation>
+<translation id="4453946976636652378"><ph name="SEARCH_ENGINE_NAME" /> இல் தேடுக அல்லது URLலை உள்ளிடுக</translation>
 <translation id="4459169140545916303">கடைசியாக <ph name="DEVICE_LAST_ACTIVATED_TIME" /> நாட்களுக்கு முன்பு பயன்படுத்தியுள்ளார்</translation>
 <translation id="4460014764210899310">குழுவைப் பிரி</translation>
 <translation id="4462159676511157176">பிரத்தியேகப் பெயர் சேவையகங்கள்</translation>
@@ -3920,7 +3920,7 @@
 <translation id="6029587122245504742">குறைந்தபட்ச வேகம்</translation>
 <translation id="6029594605736587274"><ph name="PERMISSION" /> தடுக்கப்பட்டது</translation>
 <translation id="6031600495088157824">கருவிப்பட்டியில் உள்ள உள்ளீட்டு விருப்பங்கள்</translation>
-<translation id="6032715498678347852">நீட்டிப்பிற்கான அணுகலை இந்தத் தளத்திற்கு வழங்க அதைக் கிளிக் செய்யவும்.</translation>
+<translation id="6032715498678347852">இந்தத் தளத்திற்கான அணுகலை நீட்டிப்பிற்கு வழங்க அதைக் கிளிக் செய்யவும்.</translation>
 <translation id="6032912588568283682">கோப்பு முறைமை</translation>
 <translation id="6038929619733116134">குறுக்கிடும் அல்லது தவறாக வழிநடத்தும் விளம்பரங்களை தளம் காட்டினால், அவற்றைத் தடுக்கும்</translation>
 <translation id="6039651071822577588">நெட்வொர்க் பண்பு அகராதி தவறான வடிவமைப்பில் உள்ளது</translation>
@@ -4783,7 +4783,7 @@
 <translation id="7140928199327930795">பிற கிடைக்கும் சாதனங்கள் இல்லை.</translation>
 <translation id="7141105143012495934">உங்கள் கணக்கு விவரங்களை மீட்டெடுக்க முடியாததால் உள்நுழைவு தோல்வியானது. உங்கள் நிர்வாகியைத் தொடர்புகொள்ளவும் அல்லது மீண்டும் முயலவும்.</translation>
 <translation id="7143207342074048698">இணைத்தல்</translation>
-<translation id="7144878232160441200">மீண்டும் முயலவும்</translation>
+<translation id="7144878232160441200">மீண்டும் முயற்சி செய்க</translation>
 <translation id="7149893636342594995">கடந்த 24 மணிநேரம்</translation>
 <translation id="715118844758971915">கிளாசிக் பிரிண்டர்கள்</translation>
 <translation id="7152478047064750137">இந்த நீட்டிப்பிற்குச் சிறப்பு அனுமதிகள் தேவையில்லை</translation>
@@ -5028,7 +5028,7 @@
 <translation id="7465778193084373987">Netscape சான்றிதழ் தளர்த்தல் URL</translation>
 <translation id="7469894403370665791">இந்த நெட்வொர்க்குடன் தானாகவே இணைக்கவும்</translation>
 <translation id="747114903913869239">பிழை: நீட்டிப்பை குறி இறக்கம் செய்ய முடியவில்லை</translation>
-<translation id="7473891865547856676">வேண்டாம் நன்றி</translation>
+<translation id="7473891865547856676">வேண்டாம்</translation>
 <translation id="747459581954555080">எல்லாம் மீட்டெடு</translation>
 <translation id="7475671414023905704">Netscape தொலைந்த கடவுச்சொல் URL</translation>
 <translation id="7476454130948140105">பேட்டரி மிகவும் குறைவாக இருப்பதால், புதுப்பிக்க முடியவில்லை (<ph name="BATTERY_PERCENT" />%)</translation>
@@ -5287,7 +5287,7 @@
 <translation id="7798844538707273832"><ph name="PERMISSION" /> தானாகத் தடுக்கப்பட்டது</translation>
 <translation id="7799299114731150374">வால்பேப்பர் அமைக்கப்பட்டது</translation>
 <translation id="7800518121066352902">இ&amp;டஞ்சுழியாகச் சுற்று</translation>
-<translation id="780301667611848630">தேவையில்லை</translation>
+<translation id="780301667611848630">வேண்டாம்</translation>
 <translation id="7805768142964895445">நிலை</translation>
 <translation id="7807067443225230855">தேடல் மற்றும் அசிஸ்டண்ட்</translation>
 <translation id="7807711621188256451">உங்கள் கேமராவை எப்போதும் அணுக <ph name="HOST" /> ஐ அனுமதிக்கவும்</translation>
@@ -6408,7 +6408,7 @@
 <translation id="9219103736887031265">படங்கள்</translation>
 <translation id="9220525904950070496">கணக்கை அகற்றுக</translation>
 <translation id="9220820413868316583">விரலை எடுத்துவிட்டு மீண்டும் தொடவும்.</translation>
-<translation id="923467487918828349">அனைத்தும் காண்பி</translation>
+<translation id="923467487918828349">எல்லாம் காட்டு</translation>
 <translation id="929117907539171075">நிறுவப்பட்ட ஆப்ஸிலுள்ள ஆஃப்லைன் தரவும் அழிக்கப்படும்</translation>
 <translation id="930268624053534560">விவரமான நேரமுத்திரைகள்</translation>
 <translation id="932327136139879170">முகப்பு</translation>
@@ -6430,7 +6430,7 @@
 <translation id="939598580284253335">கடவுச்சொற்றொடரை உள்ளிடுக</translation>
 <translation id="939736085109172342">புதிய கோப்புறை</translation>
 <translation id="942532530371314860">Chrome தாவலையும் ஆடியோவையும் <ph name="APP_NAME" /> பகிர்கிறது.</translation>
-<translation id="945522503751344254">பின்னூட்டம் அனுப்புக</translation>
+<translation id="945522503751344254">கருத்தை அனுப்பு</translation>
 <translation id="947329552760389097">&amp;கூறுகளை ஆய்வு செய்</translation>
 <translation id="952992212772159698">செயலாக்கப்படவில்லை</translation>
 <translation id="956500788634395331">தீங்கிழைக்க சாத்தியமுள்ள நீட்டிப்புகளில் இருந்து பாதுகாக்கப்படுகிறீர்கள்</translation>

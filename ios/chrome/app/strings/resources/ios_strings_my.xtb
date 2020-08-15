@@ -90,7 +90,7 @@
 <translation id="2015722694326466240">စကားဝှက်များကို ကြည့်ရှုရန်အတွက် သင့်စက်တွင် လျှို့ဝှက်ကုဒ်တစ်ခုကို ဦးစွာ သတ်မှတ်ရပါမည်။</translation>
 <translation id="2073572773299281212">ပြီးခဲ့သော <ph name="DAYS" /> ရက်က အသုံးပြုထားသည်</translation>
 <translation id="2074131957428911366">စင့်ခ်လုပ်မည့်အရာကို <ph name="BEGIN_LINK" />ဆက်တင်များ<ph name="END_LINK" />တွင် အချိန်မရွေး ရွေးချယ်နိုင်သည်။</translation>
-<translation id="2079545284768500474">ပြန်ဖျက်ရန်</translation>
+<translation id="2079545284768500474">တစ်ဆင့်နောက်ပြန်ရန်</translation>
 <translation id="209018056901015185">ဒက်စတော့ပ် ဆိုက် တောင်းဆိုမည်</translation>
 <translation id="2103075008456228677">history.google.com ကိုဖွင့်ပါ</translation>
 <translation id="2116625576999540962"><ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> အကြောင်းအရာ ရွှေ့ပြောင်းပြီးပါပြီ</translation>
@@ -150,7 +150,7 @@
 <translation id="2780046210906776326">အီးမေးလ် အကောင့်များ မရှိ</translation>
 <translation id="2781331604911854368">ဖွင့်ထားသည်</translation>
 <translation id="2781692009645368755">Google Pay</translation>
-<translation id="2800683595868705743">တဲဘ် ခလုတ်ကို ထားရစ်ခဲ့ရန်</translation>
+<translation id="2800683595868705743">တဘ် ခလုတ်ကို ထားရစ်ခဲ့ရန်</translation>
 <translation id="2830972654601096923">လိပ်စာများ စီမံရန်...</translation>
 <translation id="2834956026595107950"><ph name="TITLE" />၊ <ph name="STATE" />၊ <ph name="URL" /></translation>
 <translation id="2840687315230832938">စင့်ခ် စတင်လုပ်ရန် စီစဉ်သတ်မှတ်ခြင်းကို အပြီးသတ်၍ မရပါ</translation>
@@ -214,7 +214,7 @@
 <translation id="3529024052484145543">လုံခြုံမှုမရှိပါ</translation>
 <translation id="3533202363250687977">ရုပ်ဖျက်တဘ်များအားလုံး ပိတ်ရန်</translation>
 <translation id="3533436815740441613">တဘ်အသစ်</translation>
-<translation id="3551320343578183772">တဲဘ် ပိတ်ရန်</translation>
+<translation id="3551320343578183772">တဘ် ပိတ်ရန်</translation>
 <translation id="3581564640715911333">စာမျက်နှာများကို အခြားဘာသာစကားများဖြင့် ပြန်ဆိုရန် ကမ်းလှမ်းသည်</translation>
 <translation id="3588820906588687999">ရုပ်ပုံကို တက်ဘ်အသစ်တွင်ဖွင့်ရန်</translation>
 <translation id="3603009562372709545">လင့်ခ် URL ကို ကူးယူမည်</translation>
@@ -237,7 +237,7 @@
 <translation id="3929457972718048006">လိပ်စာများ</translation>
 <translation id="3943492037546055397">စကားဝှက်များ</translation>
 <translation id="3967822245660637423">ဒေါင်းလုဒ်လုပ်ခြင်း ပြည့်စုံပါပြီ</translation>
-<translation id="3989635538409502728">ထွက်ပါ</translation>
+<translation id="3989635538409502728">ထွက်ရန်</translation>
 <translation id="399419089947468503">စကားဝှက်များကို စင့်ခ်လုပ်ရာတွင် အမှားအယွင်းရှိနေသည်</translation>
 <translation id="3995521777587992544">စာမျက်နှာဖွင့်ခြင်း တိုးတက်မှုပြဘား၊ <ph name="EMAIL" /> ဖွင့်ထားသည်။</translation>
 <translation id="4002066346123236978">ခေါင်းစဉ်</translation>
@@ -284,7 +284,7 @@
 <translation id="4630540211544979320">စာမျက်နှာများ ဘာသာပြန်ခြင်း</translation>
 <translation id="4636930964841734540">အချက်အလက်</translation>
 <translation id="4659126640776004816">သင့် Google Account သို့ လက်မှတ်ထိုးဝင်သည့်အခါ ဤဝန်ဆောင်မှုကို ဖွင့်ထားသည်။</translation>
-<translation id="4659667755519643272">တဲဘ် ခလုတ်ကို ထည့်ပေးရန်</translation>
+<translation id="4659667755519643272">တဘ် ခလုတ်ကို ထည့်ပေးရန်</translation>
 <translation id="4666531726415300315"><ph name="EMAIL" /> အဖြစ်လက်မှတ်ထိုးဝင်ထားသည်။
 
 သင့်ဒေတာများကို သင်စင့်ခ်လုပ်ထားသည့် စကားဝှက်ဖြင့် အသွင်ဝှက်ထားပါသည်။ စင့်ခ်ပြုလုပ်ခြင်းစတင်ရန် ၎င်းကိုထည့်ပါ။</translation>
@@ -469,7 +469,7 @@ Handoff ကို ဆက်တင်များ၏ ယေဘူယျအပိ�
 <translation id="6945221475159498467">ရွေးရန်</translation>
 <translation id="6973630695168034713">ဖိုင်တွဲ</translation>
 <translation id="6979158407327259162">Google Drive</translation>
-<translation id="6988572888918530647">သင့် Google အကောင့်ကို စီမံခြင်း</translation>
+<translation id="6988572888918530647">သင့် Google Account ကို စီမံခြင်း</translation>
 <translation id="6995899638241819463">ဒေတာကျိုးပေါက်မှုတွင် စကားဝှက်များ ဖော်ထုတ်ခံရသည့်အခါ သင့်ကို သတိပေးခြင်း</translation>
 <translation id="6998989275928107238">သို့</translation>
 <translation id="7004499039102548441">မကြာမီက တဲဘ်များ</translation>
@@ -505,12 +505,12 @@ Handoff ကို ဆက်တင်များ၏ ယေဘူယျအပိ�
 <translation id="7460314822154045102">'ကင်မရာ' အသုံးပြုရန်</translation>
 <translation id="7464701184726199289">၎င်းသည် စက်ပစ္စည်းများအားလုံးမှ စင့်ခ်လုပ်ထားသည့် ဒေတာများကို ရှင်းလင်းသွားပါမည်။ သိမ်းဆည်းထားသည့် ဆိုက်ဆက်တင်များကိုတော့ ဖျက်လိုက်မည် မဟုတ်ဘဲ သင်အင်တာနက် အသုံးပြုမှု အမူအကျင့်များကို ဖော်ပြပါလိမ့်မည်။ <ph name="BEGIN_LINK" />ပိုမိုလေ့လာရန်<ph name="END_LINK" /></translation>
 <translation id="7472734401283673885">ကုမ္ပဏီ အမည်</translation>
-<translation id="7473891865547856676">မလို ကျေးဇူးပဲ</translation>
+<translation id="7473891865547856676">မလိုပါ</translation>
 <translation id="7481312909269577407">ရှေ့သို့</translation>
 <translation id="750493650310597496">0 ရွေးချယ်ထားပါသည်</translation>
 <translation id="7514365320538308">ဒေါင်းလုဒ်</translation>
 <translation id="7537586195939242955">ဝမ်းနည်းပါသည်၊ သင့်လက်မှတ်ကို ယခုချိန်တွင် Passbook သို့ တပ်ဆင်၍ မရနိုင်ပါ။</translation>
-<translation id="7554791636758816595">တဲဘ် အသစ်</translation>
+<translation id="7554791636758816595">တဘ် အသစ်</translation>
 <translation id="7561196759112975576">အမြဲတမ်း</translation>
 <translation id="7600965453749440009">ဘာသာပြန်အသစ် <ph name="LANGUAGE" /></translation>
 <translation id="7603852183842204213">ပိတ်ဆို့ထားသည့် ပေါ့အာပ်များ( <ph name="NUMBER_OF_BLOCKED_POPUPS" /> )</translation>

@@ -204,7 +204,7 @@
 <translation id="3474624961160222204">Pokračovať ako <ph name="NAME" /></translation>
 <translation id="3478058380795961209">Mesiac vypršania platnosti</translation>
 <translation id="3482959374254649722">Synchronizujú sa záložky...</translation>
-<translation id="3484946776651937681">Otvoriť v priečinku Stiahnuté súbory</translation>
+<translation id="3484946776651937681">Otvoriť v priečinku Stiahnuté</translation>
 <translation id="3493531032208478708"><ph name="BEGIN_LINK" />Ďalšie informácie<ph name="END_LINK" /> o návrhoch obsahu</translation>
 <translation id="3494788280727468875">Potvrdiť vymazanie dát prehliadania</translation>
 <translation id="35083190962747987">Otvoriť ${url}</translation>
@@ -229,7 +229,7 @@
 <translation id="3783017676699494206">Uložiť obrázok</translation>
 <translation id="3789841737615482174">Inštalovať</translation>
 <translation id="3803696231112616155">Ponúkať preklad tohto webu</translation>
-<translation id="385051799172605136">Naspäť</translation>
+<translation id="385051799172605136">Späť</translation>
 <translation id="3897092660631435901">Ponuka</translation>
 <translation id="3915450441834151894">Informácie o webe</translation>
 <translation id="3922310737605261887">Vyhľadať skopírovaný text</translation>
@@ -328,7 +328,7 @@ Ak chcete toto nastavenie zmeniť, <ph name="BEGIN_LINK" />resetujte synchroniz�
 <translation id="5190835502935405962">Panel so záložkami</translation>
 <translation id="5197255632782567636">Internet</translation>
 <translation id="5228579091201413441">Povoliť synchronizáciu</translation>
-<translation id="5234764350956374838">Zatvoriť</translation>
+<translation id="5234764350956374838">Ignorovať</translation>
 <translation id="5245322853195994030">Zrušiť synchronizáciu</translation>
 <translation id="5271549068863921519">Uložiť heslo</translation>
 <translation id="5300589172476337783">Zobraziť</translation>

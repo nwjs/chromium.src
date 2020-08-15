@@ -393,7 +393,7 @@ Se não permitir, isto será bloqueado pelas suas definições de privacidade. I
 <translation id="2639739919103226564">Estado:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">O acesso ao ficheiro foi negado</translation>
-<translation id="2653659639078652383">Submeter</translation>
+<translation id="2653659639078652383">Enviar</translation>
 <translation id="2660650542324841986">O servidor ao qual irá aceder, <ph name="ORIGIN" />, solicitou que seja aplicada uma
     política de origem a todos os pedidos. Contudo, não
     conseguiu devolver uma política, o que impede o navegador de satisfazer
@@ -899,7 +899,7 @@ Se não permitir, isto será bloqueado pelas suas definições de privacidade. I
 <translation id="4780366598804516005">Caixa de correio 1</translation>
 <translation id="4780900888022378816">O seu dispositivo é gerido por <ph name="ENROLLMENT_DOMAIN" /> e a sua conta é gerida por <ph name="ACCOUNT_DOMAIN" />.</translation>
 <translation id="4785689107224900852">Mudar para este separador</translation>
-<translation id="4791134497475588553">Aplicações do Linux instaladas e quando foram utilizadas pela última vez.</translation>
+<translation id="4791134497475588553">Apps do Linux instaladas e quando foram utilizadas pela última vez.</translation>
 <translation id="4796594887379589189">ID da conta da tarefa</translation>
 <translation id="4798078619018708837">Introduza a data de validade e o Código de Segurança/CVC de <ph name="CREDIT_CARD" /> para atualizar os detalhes do cartão. Depois de confirmar, os detalhes do cartão da sua Conta Google são partilhados com este site.</translation>
 <translation id="4800132727771399293">Verifique a data de validade e o Código de Segurança/CVC e tente novamente</translation>
@@ -1589,7 +1589,7 @@ Detalhes adicionais:
 <translation id="7697066736081121494">Prc8 (Envelope)</translation>
 <translation id="769721561045429135">De momento, tem cartões que apenas podem ser utilizados neste dispositivo. Clique em Continuar para rever os cartões.</translation>
 <translation id="7699293099605015246">De momento, não estão disponíveis artigos</translation>
-<translation id="7701040980221191251">Nenhum</translation>
+<translation id="7701040980221191251">Nenhuma</translation>
 <translation id="7704050614460855821"><ph name="BEGIN_LINK" />Prosseguir para <ph name="SITE" /> (não seguro)<ph name="END_LINK" /></translation>
 <translation id="7714464543167945231">Certificado</translation>
 <translation id="7716147886133743102">Bloqueada pelo gestor</translation>

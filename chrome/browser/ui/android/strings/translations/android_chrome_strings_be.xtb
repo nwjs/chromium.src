@@ -45,6 +45,7 @@
 <translation id="1285320974508926690">Ніколі не перакладаць гэты сайт</translation>
 <translation id="1291207594882862231">Ачысціць гісторыю, файлы cookie, даныя сайта, кэш…</translation>
 <translation id="129553762522093515">Нядаўна закрытыя</translation>
+<translation id="1298077576058087471">Чытайце сённяшнія навіны. Эканомце да 60% трафіка</translation>
 <translation id="1303339473099049190">Не ўдалося знайсці гэты пароль. Праверце правільнасць напісання і паўтарыце спробу.</translation>
 <translation id="1303507811548703290"><ph name="DOMAIN" /> – адпраўлена з прылады <ph name="DEVICE_NAME" /></translation>
 <translation id="1310482092992808703">Згрупаваць укладкі</translation>
@@ -252,8 +253,10 @@
 <translation id="305593374596241526">Вызначэнне месцазнаходжання выключана. Уключыце яго ў <ph name="BEGIN_LINK" />наладах Android<ph name="END_LINK" />.</translation>
 <translation id="3058498974290601450">Сінхранізацыю можна ўключыць у любы момант у наладах</translation>
 <translation id="3060635849835183725">{BOOKMARKS_COUNT,plural, =1{<ph name="BOOKMARKS_COUNT_ONE" /> закладка}one{<ph name="BOOKMARKS_COUNT_MANY" /> закладка}few{<ph name="BOOKMARKS_COUNT_MANY" /> закладкі}many{<ph name="BOOKMARKS_COUNT_MANY" /> закладак}other{<ph name="BOOKMARKS_COUNT_MANY" /> закладкі}}</translation>
+<translation id="3062802207422175757">Цікавыя для вас артыкулы ў Chrome</translation>
 <translation id="3089395242580810162">Адкрыць ва ўкладцы інкогніта</translation>
 <translation id="3114012059975132928">Відэапрайгравальнік</translation>
+<translation id="3114507951000454849">Чытайце сённяшнія навіны <ph name="NEWS_ICON" /></translation>
 <translation id="3123734510202723619">Апавяшчэнні</translation>
 <translation id="3137521801621304719">Выйсці з рэжыму інкогніта</translation>
 <translation id="3143515551205905069">Скасаваць сінхранізацыю</translation>
@@ -518,6 +521,7 @@
 <translation id="5292796745632149097">Адпраўка на прыладу</translation>
 <translation id="5304593522240415983">Гэта поле не можа быць пустым</translation>
 <translation id="5308380583665731573">Падключыцца</translation>
+<translation id="5319359161174645648">Google рэкамендуе браўзер Chrome</translation>
 <translation id="5324858694974489420">Налады бацькоўскага кантролю</translation>
 <translation id="5327248766486351172">Імя</translation>
 <translation id="5342314432463739672">Запыты дазволаў</translation>
@@ -677,6 +681,7 @@
 <translation id="6573096386450695060">Заўсёды дазваляць</translation>
 <translation id="6573431926118603307">Тут з'явяцца ўкладкі, адкрытыя вамі ў браўзеры Chrome на іншых прыладах.</translation>
 <translation id="6583199322650523874">Дадаць бягучую старонку ў закладкі</translation>
+<translation id="6590471736817333463">Эканомце да 60% трафіка</translation>
 <translation id="6593061639179217415">Версія для ПК</translation>
 <translation id="6597891566292541626">Змясціце QR-код або штрыхкод у гэтай рамцы.</translation>
 <translation id="6600954340915313787">Скапіравана ў Chrome</translation>
@@ -720,7 +725,7 @@
 <translation id="6945221475159498467">Выбраць</translation>
 <translation id="6963766334940102469">Выдаліць закладкі</translation>
 <translation id="6979737339423435258">За ўвесь час</translation>
-<translation id="6981982820502123353">Спецыяльныя магчымасці</translation>
+<translation id="6981982820502123353">Спец. магчымасці</translation>
 <translation id="6989267951144302301">Не ўдалося спампаваць</translation>
 <translation id="6990079615885386641">Усталяваць праграму з Крамы Google Play: <ph name="APP_ACTION" /></translation>
 <translation id="6995899638241819463">Папярэджваць мяне ў выпадку, калі пры ўцечцы даных былі раскрыты паролі</translation>
@@ -984,6 +989,7 @@
 <translation id="9209888181064652401">Нельга рабіць выклікі</translation>
 <translation id="9219103736887031265">Відарысы</translation>
 <translation id="926205370408745186">Выдаліць дзеянні ў Chrome са службы лічбавага камфорту</translation>
+<translation id="927968626442779827">Выкарыстоўвайце Google Chrome, уключыўшы спрошчаны рэжым</translation>
 <translation id="932327136139879170">Галоўная старонка</translation>
 <translation id="93753284658583800">Галоўная старонка зменена</translation>
 <translation id="938850635132480979">Памылка: <ph name="ERROR_CODE" /></translation>

@@ -50,7 +50,7 @@
 <translation id="1054153489933238809">ନୂଆ ଟାବ୍‍‍ରେ ମୂଳ &amp;ଛବି ଖୋଲନ୍ତୁ</translation>
 <translation id="1055806300943943258">ବ୍ଲୁଟୁଥ୍ ଓ USB ଡିଭାଇସ୍‍ଗୁଡ଼ିକ ପାଇଁ ସନ୍ଧାନ କରାଯାଉଛି...</translation>
 <translation id="1056466516655540509"><ph name="MINUTES" /> ମିନିଟ୍ ପୂର୍ବେ ଅପ୍‌ଡେଟ୍ କରାଯାଇଛି</translation>
-<translation id="1056775291175587022">କୌଣସି ନେଟ୍‌ୱର୍କ ନାହିଁ</translation>
+<translation id="1056775291175587022">ନେଟୱାର୍କ ନାହିଁ</translation>
 <translation id="1056898198331236512">ଚେତାବନୀ</translation>
 <translation id="1058262162121953039">ବ୍ୟକ୍ତିଗତ ଅନ୍‌ଲକ୍ କୀ'</translation>
 <translation id="1060292118287751956">ସ୍କ୍ରିନ୍ ଅପଡେଟ୍ କରୁଥିବା ଫ୍ରିକ୍ୟୁଏନ୍ସି ନିର୍ଦ୍ଧାରଣ କରେ</translation>
@@ -1174,7 +1174,7 @@
 <translation id="2478176599153288112">"<ph name="EXTENSION" />" ପାଇଁ ମିଡିଆ-ଫାଇଲ୍‌ର ଅନୁମତି</translation>
 <translation id="247949520305900375">ଅଡିଓ ସେୟାର୍ କରନ୍ତୁ</translation>
 <translation id="2480868415629598489">ଆପଣ କପି ଏବଂ ପେଷ୍ଟ କରୁଥିବା ଡାଟା ସଂଶୋଧନ କରନ୍ତୁ</translation>
-<translation id="2482878487686419369">ବିଜ୍ଞପ୍ତିଗୁଡ଼ିକ</translation>
+<translation id="2482878487686419369">ବିଜ୍ଞପ୍ତି</translation>
 <translation id="2484959914739448251">ଆପଣଙ୍କର ସିଙ୍କ ହୋଇଥିବା ସମସ୍ତ ଡିଭାଇସ୍ ଏବଂ ଆପଣଙ୍କର Google ଆକାଉଣ୍ଟରୁ ବ୍ରାଉଜିଂ ଡାଟା ଖାଲି କରିବା ପାଇଁ, <ph name="BEGIN_LINK" />ଆପଣଙ୍କର ପାସଫ୍ରେଜ୍ ଲେଖନ୍ତୁ<ph name="END_LINK" />।</translation>
 <translation id="2485005079599453134">ଏହି ଡିଭାଇସ୍‌ରେ ପାସ୍‌ୱାର୍ଡ ସେଭ୍ କରାଯାଇଛି</translation>
 <translation id="2485422356828889247">ଅନ୍‍ଇନ୍‍ଷ୍ଟଲ୍‌ କରନ୍ତୁ</translation>
@@ -3166,7 +3166,7 @@
 <translation id="5061347216700970798">{NUM_BOOKMARKS,plural, =1{ଏହି ଫୋଲ୍ଡର୍‌ରେ ଗୋଟିଏ ବୁକ୍‌ମାର୍କ ଅଛି। ଆପଣ ଏହାକୁ ଡିଲିଟ୍ କରିବାକୁ ନିଶ୍ଚିତ କି?}other{ଏହି ଫୋଲ୍ଡର୍‌ରେ #ଟି ବୁକ୍‌ମାର୍କ ଅଛି। ଆପଣ ଏହାକୁ ଡିଲିଟ୍ କରିବାକୁ ନିଶ୍ଚିତ କି?}}</translation>
 <translation id="5062930723426326933">ସାଇନ୍‌-ଇନ୍‍ କରିବା ବିଫଳ ହେଲା, ଦୟାକରି ଇଣ୍ଟର୍ନେଟ୍‌କୁ ସଂଯୋଗ କରନ୍ତୁ ଏବଂ ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।</translation>
 <translation id="5063480226653192405">ବ୍ୟବହାର</translation>
-<translation id="5065775832226780415">ସ୍ମାର୍ଟ ଲକ୍</translation>
+<translation id="5065775832226780415">Smart Lock</translation>
 <translation id="5067399438976153555">ସର୍ବଦା ଚାଲୁ ଅଛି</translation>
 <translation id="5067867186035333991"><ph name="HOST" /> ଆପଣଙ୍କ ମାଇକ୍ରୋଫୋନ୍‍କୁ ଆକ୍ସେସ୍ କରିବାକୁ ଚାହାନ୍ତି କି ନାହିଁ, ତାହା ପଚାରନ୍ତୁ</translation>
 <translation id="5068918910148307423">ଡାଟା ପଠାଇବା ଓ ଗ୍ରହଣ କରିବା ସମାପ୍ତ କରିବାକୁ ନିକଟରେ ବନ୍ଦ କରାଯାଇଥିବା ସାଇଟ୍‌ଗୁଡ଼ିକୁ ଅନୁମତି ଦିଅନ୍ତୁ ନାହିଁ</translation>
@@ -3636,7 +3636,7 @@
 <translation id="5659833766619490117">ଏହି ପୃଷ୍ଠାଟିକୁ ଅନୁବାଦ କରାଯାଇପାରିବ ନାହିଁ</translation>
 <translation id="5662513737565158057">Linux ଆପ୍ସ କିପରି କାମ କରିବ ତାହା ବଦଳାନ୍ତୁ।</translation>
 <translation id="5667546120811588575">Google Play ସେଟ୍‍ଅପ୍ କରାଯାଉଛି...</translation>
-<translation id="5669267381087807207">ସକ୍ରିୟ କରାଯାଉଛି</translation>
+<translation id="5669267381087807207">ସକ୍ରିୟ ହେଉଛି</translation>
 <translation id="5669691691057771421">ନୂଆ ପିନ୍‍ ଲେଖନ୍ତୁ</translation>
 <translation id="5671641761787789573">ଛବିଗୁଡ଼ିକ ଅବରୋଧ କରାଯାଇଛି</translation>
 <translation id="5671658447180261823"><ph name="SUGGESTION_NAME" />ର ପରାମର୍ଶ କାଢ଼ି ଦିଅନ୍ତୁ</translation>
@@ -4428,7 +4428,7 @@ Google Chrome ଆପଣଙ୍କ ମୋବାଇଲ୍ ଡାଟା ବ୍ୟବ
 <translation id="6706210727756204531">ସ୍କୋପ୍</translation>
 <translation id="6707389671160270963">SSL କ୍ଲାଏଣ୍ଟ ସାର୍ଟିଫିକେଟ୍</translation>
 <translation id="6709002550153567782">{NUM_PAGES,plural, =0{<ph name="PAGE_TITLE" />}=1{<ph name="PAGE_TITLE" /> ଏବଂ ଅନ୍ୟ 1ଟି ଟାବ୍}other{<ph name="PAGE_TITLE" /> ଏବଂ ଅନ୍ୟ #ଟି ଟାବ୍}}</translation>
-<translation id="6709133671862442373">ସମ୍ଵାଦ</translation>
+<translation id="6709133671862442373">News</translation>
 <translation id="6709357832553498500"><ph name="EXTENSIONNAME" /> ବ୍ୟବହାର କରି ସଂଯୋଗ କରନ୍ତୁ</translation>
 <translation id="6710213216561001401">ପୂର୍ବବର୍ତ୍ତୀ</translation>
 <translation id="6715803357256707211">ଆପଣଙ୍କ Linux ଆପ୍ଲିକେସନ୍‍ର ଇନ୍‌ଷ୍ଟଲେସନ୍ ସମୟରେ ଏକ ତ୍ରୁଟି ଦେଖାଦେଲା। ବିବରଣୀ ପାଇଁ ବିଜ୍ଞପ୍ତିରେ କ୍ଲିକ୍ କରନ୍ତୁ।</translation>
@@ -6140,7 +6140,7 @@ Google Chrome ଆପଣଙ୍କ ମୋବାଇଲ୍ ଡାଟା ବ୍ୟବ
 <translation id="8871974300055371298">ବିଷୟବସ୍ତୁ ସେଟିଂସ୍</translation>
 <translation id="8872155268274985541">ଅବୈଧ କିଓସ୍କ ଏକ୍ସଟର୍ନଲ ଅପ୍‍‍ଡେଟ୍ ମାନିଫେଷ୍ଟ ଫାଇଲ୍ ମିଳିଲା। କିଓସ୍କ ଆପ୍ ଅପ୍‍‍ଡେଟ୍ କରିବାରେ ବିଫଳ ହେଲା। ଦୟାକରି USB ଷ୍ଟିକ୍ କାଢ଼ିଦିଅନ୍ତୁ।</translation>
 <translation id="8872777911145321141">କୌଣସି ସାଇଟ୍ ଆପଣଙ୍କ ଭର୍ଚୁଆଲ୍ ରିଆଲିଟୀ ଡିଭାଇସଗୁଡ଼ିକ ଏବଂ ଡାଟା ବ୍ୟବହାର କରିବାକୁ ଚାହିଁଲେ ପଚାରନ୍ତୁ (ସୁପାରିଶ କରାଯାଇଛି)</translation>
-<translation id="8874184842967597500">ସଂଯୋଗ ହୋ‍ଇନାହିଁ</translation>
+<translation id="8874184842967597500">ସଂଯୁକ୍ତ ନାହିଁ</translation>
 <translation id="8875520811099717934">Linux ଅପଗ୍ରେଡ୍</translation>
 <translation id="8876307312329369159">ଏହି ସେଟିଂ, ଡେମୋ ଅବଧି ସମୟରେ ପରିବର୍ତ୍ତନ କରାଯାଇପାରିବ ନାହିଁ।</translation>
 <translation id="8877448029301136595">[ଆଦ୍ୟ ନିର୍ଦ୍ଦେଶିକା]</translation>

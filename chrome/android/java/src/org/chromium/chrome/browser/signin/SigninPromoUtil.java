@@ -37,6 +37,11 @@ public class SigninPromoUtil {
      * @return Whether the signin promo is shown.
      */
     public static boolean launchSigninPromoIfNeeded(final Activity activity) {
+        if (!AccountManagerFacadeProvider.getInstance().isCachePopulated()) {
+            // Suppress the promo if the account list isn't available yet.
+            return false;
+        }
+
         SigninPreferencesManager preferencesManager = SigninPreferencesManager.getInstance();
         int currentMajorVersion = ChromeVersionInfo.getProductMajorVersion();
         boolean wasSignedIn = TextUtils.isEmpty(

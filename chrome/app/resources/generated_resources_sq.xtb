@@ -50,7 +50,7 @@
 <translation id="1054153489933238809">Hap imazhin &amp;origjinal në skedë të re</translation>
 <translation id="1055806300943943258">Po kërkon pajisjet me Bluetooth dhe USB...</translation>
 <translation id="1056466516655540509">Përditësuar <ph name="MINUTES" /> min. më parë</translation>
-<translation id="1056775291175587022">Nuk ka asnjë rrjet</translation>
+<translation id="1056775291175587022">Nuk ka rrjete</translation>
 <translation id="1056898198331236512">Paralajmërim</translation>
 <translation id="1058262162121953039">PUK</translation>
 <translation id="1060292118287751956">Përcakton shpeshtësinë e përditësimit të ekranit</translation>
@@ -1979,7 +1979,7 @@ Cilësimet e kësaj llogarie mund t'i menaxhosh duke instaluar aplikacionin Fami
 <translation id="3497560059572256875">Ndaje vizatimin Doodle</translation>
 <translation id="3498215018399854026">Nuk mund të kontaktonim me prindin tënd për momentin. Provo përsëri.</translation>
 <translation id="3500417806337761827">Gabim në montimin e ndarjes. Janë montuar tashmë shumë ndarje SMB.</translation>
-<translation id="3505030558724226696">Revoko qasjen në pajisje</translation>
+<translation id="3505030558724226696">Revoko qasjen te pajisja</translation>
 <translation id="3507132249039706973">"Mbrojtja standarde" është aktive</translation>
 <translation id="3507421388498836150">Lejet aktuale për "<ph name="EXTENSION_NAME" />"</translation>
 <translation id="3507888235492474624">Skano sërish pajisjet me Bluetooth</translation>
@@ -3484,7 +3484,7 @@ Cilësimet e kësaj llogarie mund t'i menaxhosh duke instaluar aplikacionin Fami
 <translation id="5472627187093107397">Ruaj fjalëkalimet për këtë sajt</translation>
 <translation id="5473333559083690127">Fut përsëri kodin e ri PIN</translation>
 <translation id="5481941284378890518">Shto printerët në afërsi</translation>
-<translation id="5483785310822538350">Revoko qasjen në skedar dhe pajisje</translation>
+<translation id="5483785310822538350">Revoko qasjen te skedari dhe pajisja</translation>
 <translation id="5485080380723335835">Pajisja jote <ph name="DEVICE_TYPE" /> është kyçur për siguri. Fut manualisht fjalëkalimin për të vazhduar.</translation>
 <translation id="5485102783864353244">Shto një aplikacion</translation>
 <translation id="5485754497697573575">Restauro të gjitha skedat</translation>
@@ -5844,7 +5844,7 @@ Mbaje skedarin e çelësit tënd në një vend të sigurt. Do të të duhet për
 <translation id="8509646642152301857">Dështoi shkarkimi i fjalorit të kontrollit të drejtshkrimit.</translation>
 <translation id="8512476990829870887">Përfundo procesin</translation>
 <translation id="851263357009351303">Lejo gjithmonë që <ph name="HOST" /> të shfaqë imazhet</translation>
-<translation id="8513108775083588393">Rrotullim automatik</translation>
+<translation id="8513108775083588393">Autorrotullim</translation>
 <translation id="8514746246728959655">Provo një çelës tjetër sigurie</translation>
 <translation id="851960115758509829">Aplikacionet, cilësimet dhe personalizimet e tua të tjera do të sinkronizohen nëpër të gjitha pajisjet me Chrome OS ku je identifikuar me "Llogarinë tënde të Google".</translation>
 <translation id="8521475323816527629">Merr aplikacionet e tua me shpejtësi</translation>

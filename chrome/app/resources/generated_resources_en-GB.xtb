@@ -128,7 +128,7 @@
 <translation id="1164891049599601209">Entered on deceptive site</translation>
 <translation id="1164899421101904659">Enter PIN Unlock Key</translation>
 <translation id="1165039591588034296">Error</translation>
-<translation id="1166212789817575481">Close Tabs to the Right</translation>
+<translation id="1166212789817575481">Close tabs to the right</translation>
 <translation id="1168020859489941584">Opening in <ph name="TIME_REMAINING" />...</translation>
 <translation id="1168100932582989117">Google name servers</translation>
 <translation id="1171135284592304528">Highlight the object with keyboard focus when it changes</translation>
@@ -874,7 +874,7 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="2101225219012730419">Version:</translation>
 <translation id="211144231511833662">Clear types</translation>
 <translation id="2111670510994270194">New tab to the right</translation>
-<translation id="21133533946938348">Pin Tab</translation>
+<translation id="21133533946938348">Pin tab</translation>
 <translation id="2113479184312716848">Open &amp;File...</translation>
 <translation id="2113921862428609753">Authority Information Access</translation>
 <translation id="2114326799768592691">Reload &amp;Frame</translation>
@@ -1583,7 +1583,7 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="2964193600955408481">Disable Wi-Fi</translation>
 <translation id="2966937470348689686">Manage Android preferences</translation>
 <translation id="2972581237482394796">&amp;Redo</translation>
-<translation id="2973324205039581528">Mute Site</translation>
+<translation id="2973324205039581528">Mute site</translation>
 <translation id="2977480621796371840">Remove from group</translation>
 <translation id="2979520980928493164">A healthier, happier Chrome</translation>
 <translation id="2979639724566107830">Open in new window</translation>
@@ -2140,7 +2140,7 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="3691267899302886494"><ph name="HOST" /> wants to share your screen</translation>
 <translation id="369135240373237088">Sign in again with a school account</translation>
 <translation id="3693415264595406141">Password:</translation>
-<translation id="3694027410380121301">Select Previous Tab</translation>
+<translation id="3694027410380121301">Select previous tab</translation>
 <translation id="369489984217678710">Passwords and other sign-in data</translation>
 <translation id="369522892592566391">{NUM_FILES,plural, =0{Security checks are complete. Your data will be uploaded.}=1{Security checks are complete. Your file will be uploaded.}other{Security checks are complete. Your files will be uploaded.}}</translation>
 <translation id="3699624789011381381">Email address</translation>
@@ -2634,7 +2634,7 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="4316850752623536204">Developer Website</translation>
 <translation id="4320177379694898372">No internet connection</translation>
 <translation id="4321442524549817090">S&amp;how URL</translation>
-<translation id="4322394346347055525">Close Other Tabs</translation>
+<translation id="4322394346347055525">Close other tabs</translation>
 <translation id="4324577459193912240">File incomplete</translation>
 <translation id="4325083532956419387">Chrome OS version</translation>
 <translation id="4325237902968425115">Uninstalling <ph name="LINUX_APP_NAME" />…</translation>
@@ -4781,7 +4781,7 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="713888829801648570">Sorry, your password could not be verified because you are offline.</translation>
 <translation id="7140928199327930795">No other available devices.</translation>
 <translation id="7141105143012495934">Sign-in failed because your account details could not be retrieved. Please contact your administrator or try again.</translation>
-<translation id="7143207342074048698">Connecting ...</translation>
+<translation id="7143207342074048698">Connecting</translation>
 <translation id="7144878232160441200">Retry</translation>
 <translation id="7149893636342594995">Last 24 Hours</translation>
 <translation id="715118844758971915">Classic printers</translation>
@@ -6168,7 +6168,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
 <translation id="8893928184421379330">Sorry, the device <ph name="DEVICE_LABEL" /> could not be recognised.</translation>
 <translation id="8895454554629927345">Bookmark list</translation>
 <translation id="8896022254727357590">PIN must be at least four characters</translation>
-<translation id="8898786835233784856">Select Next Tab</translation>
+<translation id="8898786835233784856">Select next tab</translation>
 <translation id="8898822736010347272">Sends URLs of some pages that you visit, limited system information and some page content to Google, to help discover new threats and protect everyone on the web.</translation>
 <translation id="8898840733695078011">Signal strength</translation>
 <translation id="8899851313684471736">Open link in new &amp;window</translation>
@@ -6407,7 +6407,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
 <translation id="9219103736887031265">Images</translation>
 <translation id="9220525904950070496">Remove account</translation>
 <translation id="9220820413868316583">Lift then try again.</translation>
-<translation id="923467487918828349">Show All</translation>
+<translation id="923467487918828349">Show all</translation>
 <translation id="929117907539171075">Offline data in installed app will also be cleared</translation>
 <translation id="930268624053534560">Detailed Timestamps</translation>
 <translation id="932327136139879170">Home</translation>
