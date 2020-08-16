@@ -19,15 +19,19 @@
 #include "base/json/json_writer.h"
 #include "base/scoped_native_library.h"
 #include "base/stl_util.h"
+#include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/win/win_util.h"
 #include "base/win/wmi.h"
 #include "build/branding_buildflags.h"
 #include "chrome/credential_provider/common/gcp_strings.h"
+#include "chrome/credential_provider/gaiacp/device_policies_manager.h"
 #include "chrome/credential_provider/gaiacp/gcp_utils.h"
 #include "chrome/credential_provider/gaiacp/gcpw_strings.h"
 #include "chrome/credential_provider/gaiacp/logging.h"
 #include "chrome/credential_provider/gaiacp/reg_utils.h"
+#include "chrome/credential_provider/gaiacp/user_policies_manager.h"
+#include "third_party/re2/src/re2/re2.h"
 
 namespace credential_provider {
 
@@ -35,6 +39,7 @@ constexpr wchar_t kRegEnableVerboseLogging[] = L"enable_verbose_logging";
 constexpr wchar_t kRegInitializeCrashReporting[] = L"enable_crash_reporting";
 constexpr wchar_t kRegMdmUrl[] = L"mdm";
 constexpr wchar_t kRegEnableDmEnrollment[] = L"enable_dm_enrollment";
+constexpr wchar_t kRegDeveloperMode[] = L"developer_mode";
 constexpr wchar_t kRegMdmEnforceOnlineLogin[] = L"enforce_online_login";
 constexpr wchar_t kRegMdmEnableForcePasswordReset[] =
     L"enable_force_reset_password_option";
@@ -55,6 +60,8 @@ constexpr wchar_t kUserPasswordLsaStoreKeyPrefix[] =
 #endif
 const char kErrorKeyInRequestResult[] = "error";
 constexpr int kMaxNumConsecutiveUploadDeviceFailures = 3;
+const base::TimeDelta kMaxTimeDeltaSinceLastUserPolicyRefresh =
+    base::TimeDelta::FromDays(1);
 
 // Overridden in tests to force the MDM enrollment to either succeed or fail.
 enum class EnrollmentStatus {
@@ -109,19 +116,6 @@ T GetMdmFunctionPointer(const base::ScopedNativeLibrary& library,
 
 #define GET_MDM_FUNCTION_POINTER(library, name) \
   GetMdmFunctionPointer<decltype(&::name)>(library, #name)
-
-base::string16 GetMdmUrl() {
-  DWORD enable_dm_enrollment;
-  HRESULT hr = GetGlobalFlag(kRegEnableDmEnrollment, &enable_dm_enrollment);
-  if (SUCCEEDED(hr)) {
-    if (enable_dm_enrollment)
-      return kDefaultMdmUrl;
-    return L"";
-  }
-
-  // Fallback to using the older flag to control mdm url.
-  return GetGlobalFlagOrDefault(kRegMdmUrl, kDefaultMdmUrl);
-}
 
 bool IsEnrolledWithGoogleMdm(const base::string16& mdm_url) {
   switch (g_enrolled_status) {
@@ -345,9 +339,20 @@ HRESULT RegisterWithGoogleDeviceManagement(const base::string16& mdm_url,
       email.c_str(), mdm_url.c_str(), base::UTF8ToWide(data_encoded).c_str());
 }
 
+bool IsUserAllowedToEnrollWithMdm(const base::string16& sid) {
+  UserPolicies policies;
+  UserPoliciesManager::Get()->GetUserPolicies(sid, &policies);
+  return policies.enable_dm_enrollment;
+}
+
 }  // namespace
 
-bool NeedsToEnrollWithMdm() {
+bool NeedsToEnrollWithMdm(const base::string16& sid) {
+  if (UserPoliciesManager::Get()->CloudPoliciesEnabled()) {
+    if (!IsUserAllowedToEnrollWithMdm(sid))
+      return false;
+  }
+
   base::string16 mdm_url = GetMdmUrl();
   return !mdm_url.empty() && !IsEnrolledWithGoogleMdm(mdm_url);
 }
@@ -380,8 +385,38 @@ bool UploadDeviceDetailsNeeded(const base::string16& sid) {
 }
 
 bool MdmEnrollmentEnabled() {
+  if (DevicePoliciesManager::Get()->CloudPoliciesEnabled()) {
+    DevicePolicies policies;
+    DevicePoliciesManager::Get()->GetDevicePolicies(&policies);
+    return policies.enable_dm_enrollment;
+  }
+
   base::string16 mdm_url = GetMdmUrl();
   return !mdm_url.empty();
+}
+
+base::string16 GetMdmUrl() {
+  base::string16 enrollment_url = L"";
+
+  if (UserPoliciesManager::Get()->CloudPoliciesEnabled()) {
+    enrollment_url = GetGlobalFlagOrDefault(kRegMdmUrl, kDefaultMdmUrl);
+  } else {
+    DWORD enable_dm_enrollment;
+    HRESULT hr = GetGlobalFlag(kRegEnableDmEnrollment, &enable_dm_enrollment);
+    if (SUCCEEDED(hr)) {
+      if (enable_dm_enrollment)
+        enrollment_url = kDefaultMdmUrl;
+    } else {
+      // Fallback to using the older flag to control mdm url.
+      enrollment_url = GetGlobalFlagOrDefault(kRegMdmUrl, kDefaultMdmUrl);
+    }
+  }
+
+  base::string16 dev = GetGlobalFlagOrDefault(kRegDeveloperMode, L"");
+  if (!dev.empty())
+    enrollment_url = GetDevelopmentUrl(enrollment_url, dev);
+
+  return enrollment_url;
 }
 
 GURL EscrowServiceUrl() {
@@ -390,8 +425,21 @@ GURL EscrowServiceUrl() {
   if (disable_password_sync)
     return GURL();
 
+  base::string16 dev = GetGlobalFlagOrDefault(kRegDeveloperMode, L"");
+
+  if (!dev.empty())
+    return GURL(GetDevelopmentUrl(kDefaultEscrowServiceServerUrl, dev));
+
   // By default, the password recovery feature should be enabled.
   return GURL(base::UTF16ToUTF8(kDefaultEscrowServiceServerUrl));
+}
+
+GURL GetGcpwServiceUrl() {
+  base::string16 dev = GetGlobalFlagOrDefault(kRegDeveloperMode, L"");
+  if (!dev.empty())
+    return GURL(GetDevelopmentUrl(kDefaultGcpwServiceUrl, dev));
+
+  return GURL(kDefaultGcpwServiceUrl);
 }
 
 bool PasswordRecoveryEnabled() {
@@ -430,6 +478,12 @@ bool IsOnlineLoginEnforced(const base::string16& sid) {
 HRESULT EnrollToGoogleMdmIfNeeded(const base::Value& properties) {
   LOGFN(VERBOSE);
 
+  if (UserPoliciesManager::Get()->CloudPoliciesEnabled()) {
+    base::string16 sid = GetDictString(properties, kKeySID);
+    if (!IsUserAllowedToEnrollWithMdm(sid))
+      return S_OK;
+  }
+
   // Only enroll with MDM if configured.
   base::string16 mdm_url = GetMdmUrl();
   if (mdm_url.empty())
@@ -464,6 +518,20 @@ base::string16 GetUserDeviceResourceId(const base::string16& sid) {
     return base::string16(known_resource_id, known_resource_id_size - 1);
 
   return base::string16();
+}
+
+base::string16 GetDevelopmentUrl(const base::string16& url,
+                                 const base::string16& dev) {
+  std::string project;
+  std::string final_part;
+  if (re2::RE2::FullMatch(base::UTF16ToUTF8(url),
+                          "https://(.*).(googleapis.com.*)", &project,
+                          &final_part)) {
+    std::string url_prefix = "https://" + base::UTF16ToUTF8(dev) + "-";
+    return base::UTF8ToUTF16(
+        base::JoinString({url_prefix + project, "sandbox", final_part}, "."));
+  }
+  return url;
 }
 
 // GoogleMdmEnrollmentStatusForTesting ////////////////////////////////////////

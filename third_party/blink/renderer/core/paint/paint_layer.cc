@@ -1019,6 +1019,11 @@ void PaintLayer::SetNeedsCompositingInputsUpdate(bool mark_ancestor_flags) {
     MarkAncestorChainForFlagsUpdate(NeedsDescendantDependentUpdate);
 }
 
+void PaintLayer::SetNeedsGraphicsLayerRebuild() {
+  if (Compositor())
+    Compositor()->SetNeedsCompositingUpdate(kCompositingUpdateRebuildTree);
+}
+
 void PaintLayer::SetNeedsVisualOverflowRecalc() {
   DCHECK(IsSelfPaintingLayer());
   needs_visual_overflow_recalc_ = true;

@@ -55,6 +55,7 @@
 #include "chrome/credential_provider/gaiacp/reg_utils.h"
 #include "chrome/credential_provider/gaiacp/scoped_lsa_policy.h"
 #include "chrome/credential_provider/gaiacp/scoped_user_profile.h"
+#include "chrome/credential_provider/gaiacp/user_policies_manager.h"
 #include "chrome/credential_provider/gaiacp/win_http_url_fetcher.h"
 #include "chrome/installer/launcher_support/chrome_launcher_support.h"
 #include "content/public/common/content_switches.h"
@@ -307,6 +308,7 @@ HRESULT GetUserAndDomainInfo(
     std::vector<base::string16> filtered_local_account_names_no_sn;
 
     for (auto local_account_name : local_account_names) {
+      LOGFN(VERBOSE) << "CD local account name : " << local_account_name;
       // The format for local_account_name custom attribute is
       // "un:abcd,sn:1234" where "un:abcd" would always exist and "sn:1234" is
       // optional.
@@ -314,12 +316,16 @@ HRESULT GetUserAndDomainInfo(
       std::string serial_number;
       // Note: "?:" is used to signify non-capturing groups. For more details,
       // look at https://github.com/google/re2/wiki/Syntax link.
-      re2::RE2::FullMatch(local_account_name, "un:([^,]+)(?:,sn:(\\w+))?",
+      re2::RE2::FullMatch(local_account_name, "un:([^,]+)(?:,sn:([^,]+))?",
                           &username, &serial_number);
+
+      LOGFN(VERBOSE) << "RE2 username : " << username;
+      LOGFN(VERBOSE) << "RE2 serial_number : " << serial_number;
 
       if (!username.empty() && !serial_number.empty()) {
         std::string device_serial_number =
             base::UTF16ToUTF8(GetSerialNumber().c_str());
+        LOGFN(VERBOSE) << "Device serial_number : " << device_serial_number;
         if (base::EqualsCaseInsensitiveASCII(serial_number,
                                              device_serial_number))
           filtered_local_account_names.push_back(base::UTF8ToUTF16(username));
@@ -563,6 +569,12 @@ HRESULT MakeUsernameForAccount(const base::Value& result,
   // If the username is longer than 20 characters, truncate.
   if (os_username.size() > kWindowsUsernameBufferLength - 1)
     os_username.resize(kWindowsUsernameBufferLength - 1);
+
+  // After resizing the os user name above, the last char may be a '.' which is
+  // illegal as the last character per Microsoft documentation.
+  // https://docs.microsoft.com/en-us/windows/win32/api/lmaccess/ns-lmaccess-user_info_1#remarks
+  if (os_username.size() > 0 && os_username.back() == '.')
+    os_username.resize(os_username.size() - 1);
 
   // Replace invalid characters.  While @ is not strictly invalid according to
   // MSDN docs, it causes trouble.
@@ -2318,6 +2330,14 @@ HRESULT CGaiaCredentialBase::ValidateOrCreateUser(const base::Value& result,
         if (FAILED(hr))
           LOGFN(ERROR) << "SetUserFullname hr=" << putHR(hr);
       }
+
+      // Set disable password change policy here as well. This flow would
+      // make sure password change is disabled even if any end user tries
+      // to enable it via registry after user create or association flow.
+      // Note: We donot fail the login flow if password policies were not
+      // applied for unknown reasons.
+      OSUserManager::Get()->SetDefaultPasswordChangePolicies(found_domain,
+                                                             found_username);
     } else {
       LOGFN(ERROR) << "GetUserFullname hr=" << putHR(hr);
     }
@@ -2451,13 +2471,21 @@ HRESULT CGaiaCredentialBase::OnUserAuthenticated(BSTR authentication_info,
         kKeyIsAdJoinedUser,
         base::Value(OSUserManager::Get()->IsUserDomainJoined(sid) ? "true"
                                                                   : "false"));
-    // Update the time at which the login attempt happened. This would help
-    // track the last time an online login happened via GCPW.
-    int64_t current_time = static_cast<int64_t>(
-        base::Time::Now().ToDeltaSinceWindowsEpoch().InMilliseconds());
-    authentication_results_->SetKey(
-        kKeyLastSuccessfulOnlineLoginMillis,
-        base::Value(base::NumberToString(current_time)));
+  }
+
+  base::string16 sid = OLE2CW(user_sid_);
+  if (UserPoliciesManager::Get()->CloudPoliciesEnabled() &&
+      UserPoliciesManager::Get()->GetTimeDeltaSinceLastPolicyFetch(sid) >
+          kMaxTimeDeltaSinceLastUserPolicyRefresh) {
+    // TODO(crbug.com/976744) Use downscoped token here.
+    base::string16 access_token = GetDictString(*properties, kKeyAccessToken);
+    HRESULT hr = UserPoliciesManager::Get()->FetchAndStoreCloudUserPolicies(
+        sid, base::UTF16ToUTF8(access_token));
+    SecurelyClearString(access_token);
+    if (FAILED(hr)) {
+      LOGFN(ERROR) << "Failed fetching user policies for user " << sid
+                   << " Error: " << putHR(hr);
+    }
   }
 
   base::string16 local_password =

@@ -50,7 +50,6 @@ import org.chromium.chrome.browser.ui.tablet.emptybackground.EmptyBackgroundView
 import org.chromium.chrome.browser.vr.VrModuleProvider;
 import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.ui.base.DeviceFormFactor;
-import org.chromium.ui.base.WindowAndroid;
 
 /**
  * A {@link RootUiCoordinator} variant that controls tabbed-mode specific UI.
@@ -219,7 +218,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
     // Private class methods
 
     private void initializeIPH() {
-        WindowAndroid window = mActivity.getWindowAndroid();
+        if (mActivity == null) return;
         mToolbarButtonInProductHelpController =
                 new ToolbarButtonInProductHelpController(mActivity, mAppMenuCoordinator,
                         mActivity.getLifecycleDispatcher(), mActivity.getActivityTabProvider());

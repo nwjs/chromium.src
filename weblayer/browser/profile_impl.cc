@@ -507,11 +507,9 @@ void ProfileImpl::SetBooleanSetting(SettingType type, bool value) {
   auto* pref_service = GetBrowserContext()->pref_service();
   switch (type) {
     case SettingType::BASIC_SAFE_BROWSING_ENABLED:
-      basic_safe_browsing_enabled_ = value;
 #if defined(OS_ANDROID)
-      BrowserProcess::GetInstance()
-          ->GetSafeBrowsingService(weblayer::GetUserAgent())
-          ->SetSafeBrowsingDisabled(!basic_safe_browsing_enabled_);
+      pref_service->SetBoolean(::prefs::kSafeBrowsingEnabled, value);
+      pref_service->SetBoolean(::prefs::kSafeBrowsingEnhanced, false);
 #endif
       break;
     case SettingType::UKM_ENABLED: {
@@ -546,7 +544,10 @@ bool ProfileImpl::GetBooleanSetting(SettingType type) {
   auto* pref_service = GetBrowserContext()->pref_service();
   switch (type) {
     case SettingType::BASIC_SAFE_BROWSING_ENABLED:
-      return basic_safe_browsing_enabled_;
+#if defined(OS_ANDROID)
+      return safe_browsing::IsSafeBrowsingEnabled(*pref_service);
+#endif
+      return false;
     case SettingType::UKM_ENABLED:
       return pref_service->GetBoolean(prefs::kUkmEnabled);
     case SettingType::EXTENDED_REPORTING_SAFE_BROWSING_ENABLED:

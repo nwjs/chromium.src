@@ -58,6 +58,7 @@
 #include "services/network/net_log_proxy_sink.h"
 #include "services/network/network_context.h"
 #include "services/network/network_usage_accumulator.h"
+#include "services/network/public/cpp/crash_keys.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/initiator_lock_compatibility.h"
 #include "services/network/public/cpp/load_info_util.h"
@@ -186,6 +187,7 @@ void HandleBadMessage(const std::string& error) {
   LOG(WARNING) << "Mojo error in NetworkService:" << error;
   mojo::debug::ScopedMessageErrorCrashKey crash_key_value(error);
   base::debug::DumpWithoutCrashing();
+  network::debug::ClearDeserializationCrashKeyString();
 }
 
 }  // namespace

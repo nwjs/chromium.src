@@ -814,6 +814,10 @@ class CORE_EXPORT PaintLayer : public DisplayItemClient {
   void SetNeedsVisualOverflowRecalc();
   void SetNeedsCompositingInputsUpdate(bool mark_ancestor_flags = true);
 
+  // Notifies the Compositor if one exists that it should rebuild the graphics
+  // layer tree.
+  void SetNeedsGraphicsLayerRebuild();
+
   // This methods marks everything from this layer up to the |ancestor| argument
   // (both included).
   void SetChildNeedsCompositingInputsUpdateUpToAncestor(PaintLayer* ancestor);

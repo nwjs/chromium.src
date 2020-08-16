@@ -135,7 +135,8 @@ public class PaymentRequestImpl
      */
     public interface Delegate {
         /**
-         * Returns whether the ChromeActivity is currently showing an OffTheRecord tab.
+         * Returns whether the activity is currently showing an off-the-record tab. Return true
+         * if the tab profile is not accessible from the activity.
          */
         boolean isOffTheRecord(ChromeActivity activity);
         /**

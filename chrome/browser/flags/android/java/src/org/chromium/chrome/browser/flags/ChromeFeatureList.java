@@ -252,6 +252,8 @@ public abstract class ChromeFeatureList {
             "ContentSuggestionsScrollToLoad";
     public static final String CONTENT_INDEXING_NTP = "ContentIndexingNTP";
     public static final String CONTENT_INDEXING_DOWNLOAD_HOME = "ContentIndexingDownloadHome";
+    public static final String CONTEXT_MENU_ENABLE_LENS_SHOPPING_ALLOWLIST =
+            "ContextMenuEnableLensShoppingAllowlist";
     public static final String CONTEXT_MENU_COPY_IMAGE = "ContextMenuCopyImage";
     public static final String CONTEXT_MENU_SEARCH_WITH_GOOGLE_LENS =
             "ContextMenuSearchWithGoogleLens";
@@ -377,6 +379,7 @@ public abstract class ChromeFeatureList {
     public static final String REACHED_CODE_PROFILER = "ReachedCodeProfiler";
     public static final String READER_MODE_IN_CCT = "ReaderModeInCCT";
     public static final String RECOVER_FROM_NEVER_SAVE_ANDROID = "RecoverFromNeverSaveAndroid";
+    public static final String REENGAGEMENT_NOTIFICATION = "ReengagementNotification";
     public static final String REMOVE_NAVIGATION_HISTORY = "RemoveNavigationHistory";
     public static final String RELATED_SEARCHES = "RelatedSearches";
     public static final String REPORT_FEED_USER_ACTIONS = "ReportFeedUserActions";

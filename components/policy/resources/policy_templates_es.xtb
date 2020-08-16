@@ -4995,7 +4995,7 @@ Te recomendamos que utilices GPO para configurar la política en Windows, aunque
       Si se especifica DeviceIdleLogoutTimeout, esta política definirá la duración del cuadro de advertencia con un cuenta atrás que se mostrará al usuario antes de que se cierre la sesión.
 
       El valor correspondiente a esta política se debe especificar en milisegundos.</translation>
-<translation id="8331479227794770304">Habilitar teclas de acción prolongada</translation>
+<translation id="8331479227794770304">Habilitar teclas persistentes</translation>
 <translation id="8338124703579032277">Te permite establecer una lista de protocolos, y una lista de patrones de origen permitidos para cada uno de ellos, que pueden iniciar una aplicación externa sin pedir permiso al usuario. No se debe incluir el separador del final al añadir el protocolo a la lista, así que añade "skype" en lugar de "skype:" o "skype://".
 
       Si se asigna un valor a esta política, solo se permitirá que un protocolo abra una aplicación externa sin pedir permiso si está en la lista y si el origen del sitio web que intenta iniciar el protocolo coincide con uno de los patrones de origen de la lista allowed_origins del protocolo. Si no se cumple alguna de estas condiciones, esta política no omitirá la solicitud para iniciar el protocolo externo.

@@ -4458,6 +4458,10 @@ NSString* const kBrowserViewControllerSnackbarCategory =
   return self.currentWebState;
 }
 
+- (UIView*)webViewContainer {
+  return self.contentArea;
+}
+
 #pragma mark - NetExportTabHelperDelegate
 
 - (void)netExportTabHelper:(NetExportTabHelper*)tabHelper

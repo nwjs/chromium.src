@@ -334,7 +334,26 @@ void CastActivityManager::JoinSession(
   mojom::RoutePresentationConnectionPtr presentation_connection =
       activity->AddClient(cast_source, origin, tab_id);
 
-  DCHECK(activity->session_id());
+  if (!activity->session_id()) {
+    // This should never happen, but it looks like maybe it does.  See
+    // crbug.com/1114067.
+    NOTREACHED();
+    static const char kErrorMessage[] = "Internal error: missing session ID";
+    // Checking for |logger_| here is pure paranoia, but this code only exists
+    // to fix a crash we can't reproduce, so creating even a tiny possibility of
+    // a different crash seems like a bad idea.
+    if (logger_) {
+      // The empty string parameters could have real values, but they're omitted
+      // out of an abundance of caution, and they're not especially relevant to
+      // this error anyway.
+      logger_->LogError(mojom::LogCategory::kRoute, kLoggerComponent,
+                        kErrorMessage, "", "", "");
+    }
+    std::move(callback).Run(base::nullopt, nullptr, kErrorMessage,
+                            RouteRequestResult::ResultCode::UNKNOWN_ERROR);
+    return;
+  }
+
   const CastSession* session =
       session_tracker_->GetSessionById(*activity->session_id());
   const std::string& client_id = cast_source.client_id();

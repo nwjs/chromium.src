@@ -745,8 +745,7 @@ void PasswordManager::OnPasswordFormRemoved(PasswordManagerDriver* driver,
     if (manager->DoesManageAccordingToRendererId(form_id, driver)) {
       if (manager->is_submitted())
         OnLoginSuccessful();
-      else
-        return;
+      return;
     }
   }
 }

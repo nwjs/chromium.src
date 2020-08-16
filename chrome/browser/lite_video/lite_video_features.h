@@ -20,17 +20,25 @@ namespace features {
 // adaptive bitrates of media streams is enabled. Currently disabled by default.
 bool IsLiteVideoEnabled();
 
+// Whether the LiteVideo coinflip experiment is enabled. The coinflip
+// experiment is a counterfactual experiment that decides whether LiteVideos
+// should be heldback on a per navigation basis.
+bool IsCoinflipExperimentEnabled();
+
 // Return the origins that are whitelisted for using the LiteVideo optimization
 // and the parameters needed to throttle media requests for that origin.
 base::Optional<base::Value> GetLiteVideoOriginHintsFromFieldTrial();
 
 // The target for of the round-trip time for media requests used when
 // throttling media requests.
-int LiteVideoTargetDownlinkRTTLatencyMs();
+base::TimeDelta LiteVideoTargetDownlinkRTTLatency();
 
 // The number of kilobytes to be buffered before starting to throttle media
 // requests.
 int LiteVideoKilobytesToBufferBeforeThrottle();
+
+// The maximum delay a throttle can introduce for a media request.
+base::TimeDelta LiteVideoMaxThrottlingDelay();
 
 // The maximum number of hosts maintained for each blocklist for the LiteVideo
 // optimization.

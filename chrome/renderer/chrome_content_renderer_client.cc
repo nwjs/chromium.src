@@ -622,19 +622,19 @@ void ChromeContentRendererClient::RenderFrameCreated(
         render_frame, subresource_filter_ruleset_dealer_.get(),
         std::move(ad_resource_tracker));
   }
-  if (render_frame->IsMainFrame()) {
-    new previews::ResourceLoadingHintsAgent(
-        render_frame_observer->associated_interfaces(), render_frame);
-  }
+
+  if (lite_video::IsLiteVideoEnabled())
+    new lite_video::LiteVideoHintAgent(render_frame);
+
+  new previews::ResourceLoadingHintsAgent(
+      render_frame_observer->associated_interfaces(), render_frame);
+
 #if 0
   if (translate::IsSubFrameTranslationEnabled()) {
     new translate::PerFrameTranslateAgent(
         render_frame, ISOLATED_WORLD_ID_TRANSLATE, associated_interfaces);
   }
 #endif
-  if (lite_video::IsLiteVideoEnabled()) {
-    new lite_video::LiteVideoHintAgent(render_frame);
-  }
 
 #if !defined(OS_ANDROID)
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();

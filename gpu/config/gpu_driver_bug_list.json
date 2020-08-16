@@ -2273,12 +2273,13 @@
         }
       },
       "features": [
-        "disable_accelerated_vpx_decode"
+        "disable_accelerated_vp8_decode",
+        "disable_accelerated_vp9_decode"
       ]
     },
     {
       "id": 225,
-      "description": "VPx decoding is too slow on Intel Broadwell, Skylake, and CherryTrail",
+      "description": "VP9 decoding is too slow on Intel Broadwell, Skylake, and CherryTrail",
       "cr_bugs": [616318],
       "os": {
         "type": "win"
@@ -2289,12 +2290,12 @@
         "cherrytrail"
       ],
       "features": [
-        "disable_accelerated_vpx_decode"
+        "disable_accelerated_vp9_decode"
       ]
     },
     {
       "id": 226,
-      "description": "Accelerated VPx decoding is hanging on some videos.",
+      "description": "Accelerated VP9 decoding is hanging on some videos.",
       "cr_bugs": [654111],
       "os": {
         "type": "win"
@@ -2305,7 +2306,7 @@
         "value": "21.20.16.4542"
       },
       "features": [
-        "disable_accelerated_vpx_decode"
+        "disable_accelerated_vp9_decode"
       ]
     },
     {
@@ -3628,7 +3629,7 @@
         "value2": "20.19.15.4380"
       },
       "features": [
-        "use_single_video_decoder_texture"
+        "disable_dxgi_zero_copy_video"
       ]
     },
     {
@@ -3652,7 +3653,7 @@
         "value2": "10.18.15.4293"
       },
       "features": [
-        "use_single_video_decoder_texture"
+        "disable_dxgi_zero_copy_video"
       ]
     },
     {
@@ -3681,6 +3682,21 @@
       "device_id": ["0x0fe9", "0x0fd5", "0x0fd8", "0x119e", "0x0fea", "0x11a2"],
       "features": [
         "unbind_attachments_on_bound_render_fbo_delete"
+      ]
+    },
+    {
+      "id": 344,
+      "description": "VP8 decoding crashes before Windows 10 Fall Creators Update.",
+      "cr_bugs": [1094840],
+      "os": {
+        "type": "win",
+        "version": {
+          "op": "<",
+          "value": "10.0.16299"
+        }
+      },
+      "features": [
+        "disable_accelerated_vp8_decode"
       ]
     }
   ]

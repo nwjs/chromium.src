@@ -232,10 +232,10 @@ TEST_P(GcpReauthCredentialEnforceAuthReasonGetStringValueTest,
   }
 
   if (is_stale_login) {
-    ASSERT_EQ(S_OK, SetUserProperty((BSTR)sid,
-                                    base::UTF8ToUTF16(std::string(
-                                        kKeyLastSuccessfulOnlineLoginMillis)),
-                                    L"0"));
+    ASSERT_EQ(S_OK,
+              SetUserProperty(
+                  (BSTR)sid, base::UTF8ToUTF16(std::string(kKeyLastTokenValid)),
+                  L"0"));
     ASSERT_EQ(S_OK,
               SetGlobalFlagForTesting(
                   base::UTF8ToUTF16(std::string(kKeyValidityPeriodInDays)),
@@ -389,7 +389,7 @@ TEST_P(GcpReauthCredentialGlsTest, GetUserGlsCommandLine) {
     if (set_email_for_reauth) {
       ASSERT_EQ(
           gcpw_path,
-          base::StringPrintf("embedded/reauth/windows?device_id=%s&show_tos=%d",
+          base::StringPrintf("embedded/setup/windows?device_id=%s&show_tos=%d",
                              device_id.c_str(), is_tos_accepted ? 0 : 1));
     } else {
       ASSERT_EQ(

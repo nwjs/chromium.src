@@ -124,7 +124,6 @@
 <translation id="1993768208584545658"><ph name="SITE" />এ যোৰা লগাব বিচাৰে</translation>
 <translation id="2000419248597011803">আপোনাৰ ডিফ’ল্ট সন্ধান ইঞ্জিনলৈ ঠিকনা বাৰ আৰু সন্ধান বাকছৰ পৰা কিছুমান কুকি আৰু সন্ধান পঠিয়ায়</translation>
 <translation id="2002537628803770967">Google Pay ব্যৱহাৰ কৰা ক্ৰেডিট কাৰ্ড আৰু ঠিকনা</translation>
-<translation id="2012973609889389923">দ্ৰুত ছাইট</translation>
 <translation id="2013642289801508067">{FILE_COUNT,plural, =1{#টা ফাইল}one{#টা ফাইল}other{#টা ফাইল}}</translation>
 <translation id="2017836877785168846">ঠিকনাৰ বাৰত ইতিহাস আৰু স্বয়ংক্ৰিয়ভাৱে পুৰ হোৱা তথ্য মচে।</translation>
 <translation id="2021896219286479412">সম্পূর্ণ স্ক্ৰীণ ছাইটৰ নিয়ন্ত্ৰণ</translation>
@@ -907,6 +906,7 @@
 <translation id="8190358571722158785">১ দিন বাকী আছে</translation>
 <translation id="8200772114523450471">পুনৰ আৰম্ভ কৰক</translation>
 <translation id="8209050860603202033">ছবি খোলক</translation>
+<translation id="8218052821161047641">দ্ৰুত পৃষ্ঠা</translation>
 <translation id="8218622182176210845">আপোনাৰ একাউণ্টটো পৰিচালনা কৰক</translation>
 <translation id="8223642481677794647">ফীড কাৰ্ড মেনু</translation>
 <translation id="8224471946457685718">আপোনাৰ ৱাই-ফাইৰ বাবে প্ৰবন্ধসমূহ ডাউনল'ড কৰক</translation>

@@ -55,7 +55,7 @@ public class LensUtils {
     private static final String SEND_ALT_PARAM_NAME = "sendAlt";
     private static final String USE_DIRECT_INTENT_FEATURE_PARAM_NAME = "useDirectIntent";
     private static final String MIN_AGSA_VERSION_NAME_FOR_LENS_POSTCAPTURE = "8.19";
-    private static final String MIN_AGSA_VERSION_NAME_FOR_LENS_CHROME_SHOPPING_INTENT = "11.20";
+    private static final String MIN_AGSA_VERSION_NAME_FOR_LENS_CHROME_SHOPPING_INTENT = "11.16";
     private static final String LENS_INTENT_TYPE_LENS_CHROME_SHOPPING = "18";
     private static final String LENS_SHOPPING_FEATURE_FLAG_VARIANT_NAME = "lensShopVariation";
     private static final String LENS_DEFAULT_SHOPPING_URL_PATTERNS =
@@ -311,11 +311,11 @@ public class LensUtils {
         return intent;
     }
 
-    public static boolean enableGoogleLensFeature() {
+    public static boolean isGoogleLensFeatureEnabled() {
         return ChromeFeatureList.isEnabled(ChromeFeatureList.CONTEXT_MENU_SEARCH_WITH_GOOGLE_LENS);
     }
 
-    public static boolean enableGoogleLensShoppingFeature() {
+    public static boolean isGoogleLensShoppingFeatureEnabled() {
         return useLensWithShopSimilarProducts() || useLensWithShopImageWithGoogleLens()
                 || useLensWithSearchSimilarProducts();
     }
@@ -382,7 +382,7 @@ public class LensUtils {
      */
     public static String getAllowlistEntries() {
         return ChromeFeatureList.getFieldTrialParamByFeature(
-                ChromeFeatureList.CONTEXT_MENU_SHOP_WITH_GOOGLE_LENS,
+                ChromeFeatureList.CONTEXT_MENU_ENABLE_LENS_SHOPPING_ALLOWLIST,
                 LENS_SHOPPING_ALLOWLIST_ENTRIES_FEATURE_PARAM_NAME);
     }
 
@@ -392,8 +392,18 @@ public class LensUtils {
      */
     public static String getShoppingUrlPatterns() {
         return ChromeFeatureList.getFieldTrialParamByFeature(
-                ChromeFeatureList.CONTEXT_MENU_SHOP_WITH_GOOGLE_LENS,
+                ChromeFeatureList.CONTEXT_MENU_ENABLE_LENS_SHOPPING_ALLOWLIST,
                 LENS_SHOPPING_URL_PATTERNS_FEATURE_PARAM_NAME);
+    }
+
+    /**
+     * Check if the Lens shopping allowlist feature is enabled.
+     * The shopping allowlist is used to determine whether the image is shoppable.
+     * @return true if the shopping allowlist feature is enabled.
+     */
+    public static boolean isShoppingAllowlistEnabled() {
+        return ChromeFeatureList.isEnabled(
+                ChromeFeatureList.CONTEXT_MENU_ENABLE_LENS_SHOPPING_ALLOWLIST);
     }
 
     /**
@@ -403,6 +413,10 @@ public class LensUtils {
     public static boolean isInShoppingAllowlist(final String url) {
         if (sFakeImageUrlInShoppingAllowlistForTesting) {
             return true;
+        }
+
+        if (!isShoppingAllowlistEnabled()) {
+            return false;
         }
 
         if (url == null || url.isEmpty()) {
@@ -419,11 +433,11 @@ public class LensUtils {
      */
     public static boolean shouldLogUkm() {
         // Lens shopping feature takes the priority over the "Search image with Google Lens".
-        if (enableGoogleLensShoppingFeature()) {
+        if (isGoogleLensShoppingFeatureEnabled()) {
             return ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
                     ChromeFeatureList.CONTEXT_MENU_SHOP_WITH_GOOGLE_LENS, LOG_UKM_PARAM_NAME, true);
         }
-        if (enableGoogleLensFeature()) {
+        if (isGoogleLensFeatureEnabled()) {
             return ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
                     ChromeFeatureList.CONTEXT_MENU_SEARCH_WITH_GOOGLE_LENS, LOG_UKM_PARAM_NAME,
                     true);

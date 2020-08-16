@@ -1429,7 +1429,7 @@
 <translation id="2749756011735116528"><ph name="PRODUCT_NAME" /> руу нэвтрэх</translation>
 <translation id="2749881179542288782">Зөв бичих дүрмийн алдааг шалгах</translation>
 <translation id="2751131328353405138">Linux контейнерын sshfs-г залгаж байна</translation>
-<translation id="2751739896257479635">EAP 2-р шатны нотолгоо</translation>
+<translation id="2751739896257479635">EAP 2-р шатны баталгаажуулалт</translation>
 <translation id="2753677631968972007">Сайтын зөвшөөрлийг гар аргаар хянана уу.</translation>
 <translation id="2755367719610958252">Хандалтын онцлогийг удирдах</translation>
 <translation id="275662540872599901">дэлгэц унтраалттай</translation>
@@ -3287,7 +3287,7 @@
 <translation id="5139955368427980650">&amp; Нээлттэй</translation>
 <translation id="5141421572306659464">Үндсэн бүртгэл</translation>
 <translation id="5142793792982256885">Мэдрэгч самбарын гүйлгэлтийн хурд</translation>
-<translation id="5142961317498132443">Нотолгоо</translation>
+<translation id="5142961317498132443">Баталгаажуулалт</translation>
 <translation id="5143374789336132547">Таныг Нүүрний товчлуур дээр дарахад "<ph name="EXTENSION_NAME" />" нь хуудсанд харагдах зүйлийг өөрчилсөн.</translation>
 <translation id="5143612243342258355">Энэ файл аюултай байна</translation>
 <translation id="5143712164865402236">Дэлгэц дүүрэн харах горимд оруулах</translation>

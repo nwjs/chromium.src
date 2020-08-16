@@ -66,3 +66,7 @@ crbug.com/1047358 paint/pagination/composited-paginated-outlined-box.html [ Fail
 
 compositing/gestures/gesture-tapHighlight-composited-img.html [ Pass Failure ]
 http/tests/images/image-decode-in-frame.html [ Pass Failure ]
+
+# Need to force the video to be composited in this case, or change pre-CAP
+# to match CAP behavior.
+crbug.com/1108972 fullscreen/compositor-touch-hit-rects-fullscreen-video-controls.html [ Failure ]

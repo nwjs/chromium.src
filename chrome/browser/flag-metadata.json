@@ -3862,6 +3862,11 @@
     "expiry_milestone": 87
   },
   {
+    "name": "reengagement-notification",
+    "owners": [ "dtrainor", "xingliu" ],
+    "expiry_milestone": 90
+  },
+  {
     "name": "related-searches",
     "owners": [ "ayman", "donnd" ],
     "expiry_milestone": 85
@@ -4596,8 +4601,13 @@
     "expiry_milestone": 86
   },
   {
+    "name": "webpage-default-zoom-from-dynamic-type",
+    "owners": [ "rkgibson", "bling-flags" ],
+    "expiry_milestone": 87
+  },
+  {
     "name": "webpage-text-accessibility",
-    "owners": [ "rkgibson" ],
+    "owners": [ "rkgibson", "bling-flags" ],
     "expiry_milestone": 86
   },
   {

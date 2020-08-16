@@ -124,7 +124,6 @@
 <translation id="1993768208584545658"><ph name="SITE" /> သည် တွဲချိတ်လိုပါသည်</translation>
 <translation id="2000419248597011803">လိပ်စာဘားနှင့် ရှာဖွေမှုအကွက်ထဲရှိ အချို့သော ကွတ်ကီးများနှင့် ရှာဖွေမှုများကို သင်၏မူရင်းရှာဖွေမှုအင်ဂျင်သို့ ပို့သည်</translation>
 <translation id="2002537628803770967">Google Pay ကို အသုံးပြုသည့် ခရက်ဒစ်ကတ်နှင့် လိပ်စာများ</translation>
-<translation id="2012973609889389923">မြန်ဆန်သော ဝဘ်ဆိုက်</translation>
 <translation id="2013642289801508067">{FILE_COUNT,plural, =1{# ဖိုင်}other{# ဖိုင်}}</translation>
 <translation id="2017836877785168846">လိပ်စာဘားရှိ မှတ်တမ်းနှင့် အလိုအလျောက်ဖြည့်ခြင်းများကို ရှင်းလင်းရန်</translation>
 <translation id="2021896219286479412">မျက်နှာပြင်အပြည့် ထိန်းချုပ်မှု</translation>
@@ -908,6 +907,7 @@
 <translation id="8190358571722158785">၁ ရက် ကျန်သည်</translation>
 <translation id="8200772114523450471">ပြန်ဆက်ရန်</translation>
 <translation id="8209050860603202033">ပုံဖွင့်</translation>
+<translation id="8218052821161047641">အမြန်စာမျက်နှာ</translation>
 <translation id="8218622182176210845">သင့်အကောင့်ကို စီမံခန့်ခွဲခြင်း</translation>
 <translation id="8223642481677794647">ဖိဒ်ကတ်မီနူး</translation>
 <translation id="8224471946457685718">Wi-Fi သုံး၍ သင့်အတွက် ဆောင်းပါးများ ဒေါင်းလုဒ်လုပ်သည်</translation>

@@ -67,8 +67,6 @@ chrome_modern_public_android_manifest =
     "$target_gen_dir/chrome_modern_public_apk/AndroidManifest.xml"
 trichrome_library_android_manifest =
     "$target_gen_dir/trichrome_library_apk/AndroidManifest.xml"
-trichrome_library_32_64_android_manifest =
-    "$target_gen_dir/trichrome_library_32_64_apk/AndroidManifest.xml"
 trichrome_library_64_32_android_manifest =
     "$target_gen_dir/trichrome_library_64_32_apk/AndroidManifest.xml"
 trichrome_library_64_android_manifest =
@@ -126,26 +124,13 @@ jinja_template("chrome_modern_public_android_manifest") {
 jinja_template("trichrome_library_android_manifest") {
   input = "java/AndroidManifest_trichrome_library.xml"
   output = trichrome_library_android_manifest
-  if (android_64bit_target_cpu) {
-    _trichrome_version = trichrome_64_32_version_code
-  } else {
-    _trichrome_version = trichrome_version_code
-  }
   variables = trichrome_jinja_variables + [
-                "trichrome_version=$_trichrome_version",
+                "trichrome_version=$trichrome_version_code",
                 "manifest_package=$trichrome_library_package",
               ]
 }
 
 if (android_64bit_target_cpu) {
-  jinja_template("trichrome_library_32_64_android_manifest") {
-    input = "java/AndroidManifest_trichrome_library.xml"
-    output = trichrome_library_32_64_android_manifest
-    variables = trichrome_jinja_variables + [
-                  "trichrome_version=$trichrome_32_64_version_code",
-                  "manifest_package=$trichrome_library_package",
-                ]
-  }
   jinja_template("trichrome_library_64_32_android_manifest") {
     input = "java/AndroidManifest_trichrome_library.xml"
     output = trichrome_library_64_32_android_manifest
@@ -2109,8 +2094,8 @@ trichrome_library_apk_tmpl("trichrome_library_apk") {
   android_manifest_dep = ":trichrome_library_android_manifest"
 
   if (android_64bit_target_cpu) {
-    is_64_bit_browser = true
-    include_32_bit_webview = true
+    is_64_bit_browser = false
+    include_64_bit_webview = true
   }
 
   if (trichrome_synchronized_proguard) {
@@ -2134,14 +2119,6 @@ if (android_64bit_target_cpu) {
     android_manifest_dep = ":trichrome_library_32_android_manifest"
     is_64_bit_browser = false
     include_64_bit_webview = false
-  }
-
-  trichrome_library_apk_tmpl("trichrome_library_32_64_apk") {
-    apk_name = "TrichromeLibrary3264"
-    android_manifest = trichrome_library_32_64_android_manifest
-    android_manifest_dep = ":trichrome_library_32_64_android_manifest"
-    is_64_bit_browser = false
-    include_64_bit_webview = true
   }
 
   trichrome_library_apk_tmpl("trichrome_library_64_32_apk") {
@@ -2780,8 +2757,8 @@ if (public_android_sdk) {
       }
     }
     if (android_64bit_target_cpu) {
-      is_64_bit_browser = true
-      include_32_bit_webview = true
+      is_64_bit_browser = false
+      include_64_bit_webview = true
     }
 
     if (_enable_manifest_verification) {
@@ -2869,15 +2846,6 @@ if (public_android_sdk) {
       include_64_bit_webview = false
       use_trichrome_library = true
       static_library_provider = ":trichrome_library_32_apk"
-    }
-
-    monochrome_or_trichrome_public_bundle_tmpl(
-        "trichrome_chrome_32_64_bundle") {
-      bundle_suffix = "3264"
-      is_64_bit_browser = false
-      include_64_bit_webview = true
-      use_trichrome_library = true
-      static_library_provider = ":trichrome_library_32_64_apk"
     }
   }
 }
