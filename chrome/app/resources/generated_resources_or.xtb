@@ -305,7 +305,7 @@
 <translation id="1380028686461971526">ନେଟୱାର୍କ ସହ ସ୍ୱତଃ ସଂଯୋଗ କରନ୍ତୁ</translation>
 <translation id="1380436189840894976">ଯେକୌଣସି ମତେ ଇନ୍‌କଗ୍ନିଟୋ ମୋଡ୍‌ ଛାଡିବେ?</translation>
 <translation id="1383861834909034572">ସମାପନ ହେବାବେଳେ ଖୋଲୁଛି</translation>
-<translation id="1383876407941801731">ସନ୍ଧାନ</translation>
+<translation id="1383876407941801731">Search</translation>
 <translation id="1386387014181100145">ହାୱଡି</translation>
 <translation id="138784436342154190">ଡିଫଲ୍ଟ ଷ୍ଟାର୍ଟଅପ୍ ପୃଷ୍ଠାକୁ ରିଷ୍ଟୋର୍ କରିବେ?</translation>
 <translation id="1390548061267426325">ନିୟମିତ ଟାବ୍ ଭାବରେ ଖୋଲନ୍ତୁ</translation>
@@ -1311,7 +1311,6 @@
 <translation id="26224892172169984">ପ୍ରୋଟୋକଲ୍ ପରିଚାଳନା କରିବାକୁ କୌଣସି ସାଇଟ୍‌କୁ ଅନୁମତି ଦିଅନ୍ତୁ ନାହିଁ</translation>
 <translation id="262373406453641243">Colemak</translation>
 <translation id="2624142942574147739">ଏହି ପୃଷ୍ଠା ଆପଣଙ୍କର କ୍ୟାମେରା ଏବଂ ମାଇକ୍ରୋଫୋନ୍ ଆକ୍ସେସ୍ କରୁଛି।</translation>
-<translation id="2626799779920242286">ଦୟାକରି ପରେ ପୁନଃ ଚେଷ୍ଟା କରନ୍ତୁ ।</translation>
 <translation id="2628770867680720336">ADB ଡିବଗିଂ ସକ୍ଷମ କରିବାକୁ ଏହି Chromebookର ଫ୍ୟାକ୍ଟୋରୀ ରିସେଟ୍ ଆବଶ୍ୟକ। <ph name="BEGIN_LINK_LEARN_MORE" />ଅଧିକ ଜାଣନ୍ତୁ<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="2629227353894235473">Android ଆପ୍ସର ବିକାଶ କରନ୍ତୁ</translation>
 <translation id="2630681426381349926">ଆରମ୍ଭ କରିବା ପାଇଁ ୱାଇ-ଫାଇ ସହିତ ସଂଯୋଗ କରନ୍ତୁ</translation>
@@ -6076,7 +6075,6 @@ Google Chrome ଆପଣଙ୍କ ମୋବାଇଲ୍ ଡାଟା ବ୍ୟବ
 <translation id="8652400352452647993">ପ୍ୟାକ୍ ଏକ୍ସଟେନ୍‌ସନ୍ ତ୍ରୁଟି</translation>
 <translation id="8654151524613148204">ଆପଣଙ୍କ କମ୍ପ୍ୟୁଟର୍‌ ପାଇଁ ଫାଇଲ୍‌ଟି ବହୁତ ବଡ ଅଟେ। କ୍ଷମା କରିବେ…</translation>
 <translation id="8655295600908251630">ଚ୍ୟାନେଲ୍</translation>
-<translation id="8655319619291175901">ଓହୋଃ, କିଛି ଭୁଲ୍ ହୋଇଗଲା।</translation>
 <translation id="8655972064210167941">ଆପଣଙ୍କର ପାସ୍‌ୱର୍ଡ ଯାଞ୍ଚ ହୋଇନଥିବାରୁ ସାଇନ୍‌ ଇନ୍ ବିଫଳ ହୋଇଛି। ଦୟାକରି ଆପଣଙ୍କ ବ୍ୟବସ୍ଥାପକଙ୍କ ସହ ଯୋଗାଯୋଗ କରନ୍ତୁ ବା ପୁଣିଥରେ ଚେଷ୍ଟା କରନ୍ତୁ।</translation>
 <translation id="8656768832129462377">ଯାଞ୍ଚ କରନ୍ତୁ ନାହିଁ</translation>
 <translation id="8658645149275195032"><ph name="APP_NAME" />,<ph name="TAB_NAME" />ସହ ଆପଣଙ୍କର ସ୍କ୍ରିନ୍ ଓ ଅଡିଓ ସେୟାର୍ କରୁଛନ୍ତି।</translation>
@@ -6259,6 +6257,7 @@ Google Chrome ଆପଣଙ୍କ ମୋବାଇଲ୍ ଡାଟା ବ୍ୟବ
 <translation id="885701979325669005">ଷ୍ଟୋରେଜ୍</translation>
 <translation id="8859057652521303089">ଆପଣଙ୍କର ଭାଷା ଚୟନ କରନ୍ତୁ:</translation>
 <translation id="8859174528519900719">ସବ୍‌ଫ୍ରେମ୍: <ph name="SUBFRAME_SITE" /></translation>
+<translation id="8859402192569844210">ସେବାର ସର୍ତ୍ତାବଳୀ ଲୋଡ୍ କରାଯାଇପାରିଲା ନାହିଁ</translation>
 <translation id="8859662783913000679">ବାପାମାଙ୍କ ଆକାଉଣ୍ଟ</translation>
 <translation id="8862003515646449717">ଏକ ଦ୍ରୁତ ବ୍ରାଉଜର୍‍କୁ ସ୍ୱିଚ୍ କରନ୍ତୁ</translation>
 <translation id="8863753581171631212">ନୂଆ <ph name="APP" />ରେ ଲିଙ୍କ୍‍ ଖୋଲନ୍ତୁ</translation>

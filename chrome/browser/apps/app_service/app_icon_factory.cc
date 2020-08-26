@@ -95,31 +95,33 @@ SkBitmap DecompressToSkBitmap(const unsigned char* data, size_t size) {
   return decoded;
 }
 
-gfx::ImageSkia SkBitmapToImageSkia(SkBitmap bitmap) {
-  return gfx::ImageSkia(gfx::ImageSkiaRep(bitmap, 0.0f));
+gfx::ImageSkia SkBitmapToImageSkia(SkBitmap bitmap, float icon_scale) {
+  return gfx::ImageSkia(gfx::ImageSkiaRep(bitmap, icon_scale));
 }
 
 // Returns a callback that converts an SkBitmap to an ImageSkia.
 base::OnceCallback<void(const SkBitmap&)> SkBitmapToImageSkiaCallback(
-    base::OnceCallback<void(gfx::ImageSkia)> callback) {
+    base::OnceCallback<void(gfx::ImageSkia)> callback,
+    float icon_scale) {
   return base::BindOnce(
-      [](base::OnceCallback<void(gfx::ImageSkia)> callback,
+      [](base::OnceCallback<void(gfx::ImageSkia)> callback, float icon_scale,
          const SkBitmap& bitmap) {
         if (bitmap.isNull()) {
           std::move(callback).Run(gfx::ImageSkia());
           return;
         }
-        std::move(callback).Run(SkBitmapToImageSkia(bitmap));
+        std::move(callback).Run(SkBitmapToImageSkia(bitmap, icon_scale));
       },
-      std::move(callback));
+      std::move(callback), icon_scale);
 }
 
 // Returns a callback that converts compressed data to an ImageSkia.
 base::OnceCallback<void(std::vector<uint8_t> compressed_data)>
 CompressedDataToImageSkiaCallback(
-    base::OnceCallback<void(gfx::ImageSkia)> callback) {
+    base::OnceCallback<void(gfx::ImageSkia)> callback,
+    float icon_scale) {
   return base::BindOnce(
-      [](base::OnceCallback<void(gfx::ImageSkia)> callback,
+      [](base::OnceCallback<void(gfx::ImageSkia)> callback, float icon_scale,
          std::vector<uint8_t> compressed_data) {
         if (compressed_data.empty()) {
           std::move(callback).Run(gfx::ImageSkia());
@@ -130,14 +132,16 @@ CompressedDataToImageSkiaCallback(
         base::ThreadPool::PostTaskAndReplyWithResult(
             FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_VISIBLE},
             base::BindOnce(
-                [](std::vector<uint8_t> compressed_data) {
-                  return SkBitmapToImageSkia(DecompressToSkBitmap(
-                      compressed_data.data(), compressed_data.size()));
+                [](std::vector<uint8_t> compressed_data, float icon_scale) {
+                  return SkBitmapToImageSkia(
+                      DecompressToSkBitmap(compressed_data.data(),
+                                           compressed_data.size()),
+                      icon_scale);
                 },
-                std::move(compressed_data)),
+                std::move(compressed_data), icon_scale),
             std::move(callback));
       },
-      std::move(callback));
+      std::move(callback), icon_scale);
 }
 
 // Returns a callback that converts a gfx::Image to an ImageSkia.
@@ -152,9 +156,10 @@ base::OnceCallback<void(const gfx::Image&)> ImageToImageSkia(
 }
 
 base::OnceCallback<void(const favicon_base::FaviconRawBitmapResult&)>
-FaviconResultToImageSkia(base::OnceCallback<void(gfx::ImageSkia)> callback) {
+FaviconResultToImageSkia(base::OnceCallback<void(gfx::ImageSkia)> callback,
+                         float icon_scale) {
   return base::BindOnce(
-      [](base::OnceCallback<void(gfx::ImageSkia)> callback,
+      [](base::OnceCallback<void(gfx::ImageSkia)> callback, float icon_scale,
          const favicon_base::FaviconRawBitmapResult& result) {
         if (!result.is_valid()) {
           std::move(callback).Run(gfx::ImageSkia());
@@ -163,12 +168,13 @@ FaviconResultToImageSkia(base::OnceCallback<void(gfx::ImageSkia)> callback) {
         // It would be nice to not do a memory copy here, but
         // DecodeImageIsolated requires a std::vector, and RefCountedMemory
         // doesn't supply that.
-        std::move(CompressedDataToImageSkiaCallback(std::move(callback)))
+        std::move(
+            CompressedDataToImageSkiaCallback(std::move(callback), icon_scale))
             .Run(std::vector<uint8_t>(
                 result.bitmap_data->front(),
                 result.bitmap_data->front() + result.bitmap_data->size()));
       },
-      std::move(callback));
+      std::move(callback), icon_scale);
 }
 
 // Loads the compressed data of an icon at the requested size (or larger) for
@@ -212,14 +218,16 @@ void LoadCompressedDataFromExtension(
 // factor representation. Return the encoded PNG data.
 //
 // This function should not be called on the UI thread.
-std::vector<uint8_t> EncodeImage(const gfx::ImageSkia image) {
+std::vector<uint8_t> EncodeImage(const gfx::ImageSkia image,
+                                 float rep_icon_scale) {
   base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
                                                 base::BlockingType::MAY_BLOCK);
 
   std::vector<uint8_t> image_data;
 
-  const gfx::ImageSkiaRep& image_skia_rep = image.GetRepresentation(1.0f);
-  if (image_skia_rep.scale() != 1.0f) {
+  const gfx::ImageSkiaRep& image_skia_rep =
+      image.GetRepresentation(rep_icon_scale);
+  if (image_skia_rep.scale() != rep_icon_scale) {
     return image_data;
   }
 
@@ -280,7 +288,11 @@ class IconLoadingPipeline : public base::RefCounted<IconLoadingPipeline> {
         icon_effects_(icon_effects),
         fallback_icon_resource_(fallback_icon_resource),
         callback_(std::move(callback)),
-        fallback_callback_(std::move(fallback)) {}
+        fallback_callback_(std::move(fallback)) {
+    icon_size_in_px_ = apps_util::ConvertDipToPx(
+        size_hint_in_dip, /*quantize_to_supported_scale_factor=*/true);
+    icon_scale_ = icon_size_in_px_ / size_hint_in_dip;
+  }
 
   void LoadWebAppIcon(const std::string& web_app_id,
                       const GURL& launch_url,
@@ -314,7 +326,16 @@ class IconLoadingPipeline : public base::RefCounted<IconLoadingPipeline> {
   void MaybeLoadFallbackOrCompleteEmpty();
 
   apps::mojom::IconCompression icon_compression_;
-  int size_hint_in_dip_;
+
+  int size_hint_in_dip_ = 0;
+  int icon_size_in_px_ = 0;
+  // The scale factor the icon is intended for. See gfx::ImageSkiaRep::scale
+  // comments.
+  float icon_scale_ = 0.0f;
+  // A scale factor to take as input for the IconType::kCompressed response. See
+  // gfx::ImageSkia::GetRepresentation() comments.
+  float icon_scale_for_compressed_response_ = 1.0f;
+
   bool is_placeholder_icon_;
   apps::IconEffects icon_effects_;
 
@@ -345,17 +366,24 @@ void IconLoadingPipeline::LoadWebAppIcon(
     Profile* profile) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
-  const int icon_size_in_px = apps_util::ConvertDipToPx(
-      size_hint_in_dip_, /*quantize_to_supported_scale_factor=*/true);
-
   fallback_favicon_url_ = launch_url;
   profile_ = profile;
-  if (icon_manager.HasSmallestIcon(web_app_id, icon_size_in_px)) {
+
+  // In all other callpaths MaybeApplyEffectsAndComplete() uses
+  // |icon_scale_for_compressed_response_| to apps::EncodeImageToPngBytes(). In
+  // most cases IconLoadingPipeline always uses the 1.0 intended icon scale
+  // factor as an intermediate representation to be compressed and returned.
+  // TODO(crbug.com/1112737): Investigate how to unify it and set
+  // |icon_scale_for_compressed_response_| value in IconLoadingPipeline()
+  // constructor.
+  icon_scale_for_compressed_response_ = icon_scale_;
+
+  if (icon_manager.HasSmallestIcon(web_app_id, icon_size_in_px_)) {
     switch (icon_compression_) {
       case apps::mojom::IconCompression::kCompressed:
         if (icon_effects_ == apps::IconEffects::kNone) {
           icon_manager.ReadSmallestCompressedIcon(
-              web_app_id, icon_size_in_px,
+              web_app_id, icon_size_in_px_,
               base::BindOnce(&IconLoadingPipeline::CompleteWithCompressed,
                              base::WrapRefCounted(this)));
           return;
@@ -368,10 +396,12 @@ void IconLoadingPipeline::LoadWebAppIcon(
         // uncompressed image to apply the icon effects, and then re-encode the
         // image if the compressed icon is requested.
         icon_manager.ReadSmallestIcon(
-            web_app_id, icon_size_in_px,
-            SkBitmapToImageSkiaCallback(base::BindOnce(
-                &IconLoadingPipeline::MaybeApplyEffectsAndComplete,
-                base::WrapRefCounted(this))));
+            web_app_id, icon_size_in_px_,
+            SkBitmapToImageSkiaCallback(
+                base::BindOnce(
+                    &IconLoadingPipeline::MaybeApplyEffectsAndComplete,
+                    base::WrapRefCounted(this)),
+                icon_scale_));
 
         // TODO(crbug.com/1083331): For kStandard icons, if the icon is
         // generated or maskable, modify the icon effect, don't apply
@@ -408,11 +438,8 @@ void IconLoadingPipeline::LoadExtensionIcon(
         // LoadImageAtEveryScaleFactorAsync here, because the caller has asked
         // for compressed icons (i.e. PNG-formatted data), not uncompressed
         // (i.e. a gfx::ImageSkia).
-        constexpr bool quantize_to_supported_scale_factor = true;
-        int size_hint_in_px = apps_util::ConvertDipToPx(
-            size_hint_in_dip_, quantize_to_supported_scale_factor);
         LoadCompressedDataFromExtension(
-            extension, size_hint_in_px,
+            extension, icon_size_in_px_,
             base::BindOnce(&IconLoadingPipeline::CompleteWithCompressed,
                            base::WrapRefCounted(this)));
         return;
@@ -445,7 +472,8 @@ void IconLoadingPipeline::LoadCompressedIconFromFile(
       base::BindOnce(&ReadFileAsCompressedData, path),
       CompressedDataToImageSkiaCallback(
           base::BindOnce(&IconLoadingPipeline::MaybeApplyEffectsAndComplete,
-                         base::WrapRefCounted(this))));
+                         base::WrapRefCounted(this)),
+          icon_scale_));
 }
 
 void IconLoadingPipeline::LoadIconFromCompressedData(
@@ -455,7 +483,8 @@ void IconLoadingPipeline::LoadIconFromCompressedData(
                             compressed_icon_data.end());
   CompressedDataToImageSkiaCallback(
       base::BindOnce(&IconLoadingPipeline::MaybeApplyEffectsAndComplete,
-                     base::WrapRefCounted(this)))
+                     base::WrapRefCounted(this)),
+      icon_scale_)
       .Run(std::move(data));
 }
 
@@ -544,7 +573,8 @@ void IconLoadingPipeline::MaybeApplyEffectsAndComplete(
   processed_image.MakeThreadSafe();
   base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_VISIBLE},
-      base::BindOnce(&EncodeImage, processed_image),
+      base::BindOnce(&EncodeImage, processed_image,
+                     icon_scale_for_compressed_response_),
       base::BindOnce(&IconLoadingPipeline::CompleteWithCompressed,
                      base::WrapRefCounted(this)));
 }
@@ -576,10 +606,8 @@ void IconLoadingPipeline::CompleteWithUncompressed(gfx::ImageSkia image) {
 }
 
 void IconLoadingPipeline::MaybeLoadFallbackOrCompleteEmpty() {
-  const int icon_size_in_px = apps_util::ConvertDipToPx(
-      size_hint_in_dip_, /*quantize_to_supported_scale_factor=*/true);
   if (fallback_favicon_url_.is_valid() &&
-      icon_size_in_px == kFaviconFallbackImagePx) {
+      icon_size_in_px_ == kFaviconFallbackImagePx) {
     GURL favicon_url = fallback_favicon_url_;
     // Reset to avoid infinite loops.
     fallback_favicon_url_ = GURL();
@@ -592,7 +620,8 @@ void IconLoadingPipeline::MaybeLoadFallbackOrCompleteEmpty() {
           /*fallback_to_host=*/false,
           FaviconResultToImageSkia(
               base::BindOnce(&IconLoadingPipeline::MaybeApplyEffectsAndComplete,
-                             base::WrapRefCounted(this))),
+                             base::WrapRefCounted(this)),
+              icon_scale_),
           &cancelable_task_tracker_);
       return;
     }

@@ -6374,7 +6374,8 @@ crbug.com/1046784 http/tests/devtools/search/search-in-sourcemap.js [ Pass Timeo
 crbug.com/1046784 http/tests/devtools/elements/styles-1/edit-inspector-stylesheet.js [ Pass Timeout ]
 crbug.com/1046784 http/tests/devtools/animation/animation-after-navigation.js [ Pass Timeout ]
 crbug.com/1046784 http/tests/devtools/search/search-in-script.js [ Pass Timeout ]
-crbug.com/1046784 http/tests/devtools/service-workers/service-worker-network-fetch-blocked.js [ Pass Timeout ]
+# temporarily comment out this for crbug.com/1103380
+# crbug.com/1046784 http/tests/devtools/service-workers/service-worker-network-fetch-blocked.js [ Pass Timeout ]
 crbug.com/1046784 http/tests/devtools/fragment.js [ Pass Timeout ]
 crbug.com/1046784 http/tests/devtools/coverage/coverage-view.js [ Pass Timeout ]
 crbug.com/1046784 http/tests/devtools/editor/text-editor-toggle-tab-moves-focus.js [ Pass Timeout ]
@@ -6395,7 +6396,8 @@ crbug.com/1046784 http/tests/devtools/elements/styles-4/styles-update-links-3.js
 crbug.com/1046784 http/tests/devtools/elements/styles-4/styles-update-links-2.js [ Pass Timeout ]
 crbug.com/1046784 http/tests/devtools/editor/text-editor-code-folding.js [ Pass Timeout ]
 crbug.com/1046784 http/tests/devtools/coverage/coverage-suspended.js [ Pass Timeout ]
-crbug.com/1046784 http/tests/devtools/network/network-search.js [ Pass Timeout ]
+# temporarily comment out this for crbug.com/1103380
+# crbug.com/1046784 http/tests/devtools/network/network-search.js [ Pass Timeout ]
 crbug.com/1046784 http/tests/devtools/components/linkifier.js [ Pass Timeout ]
 crbug.com/1046784 http/tests/devtools/elements/styles-4/styles-update-links-1.js [ Pass Timeout ]
 crbug.com/1046784 http/tests/devtools/editor/text-editor-block-indent.js [ Pass Timeout ]
@@ -6468,6 +6470,35 @@ crbug.com/1048149 [ Mac ] virtual/form-controls-refresh-disabled/fast/forms/cale
 # Upcoming DevTools change
 crbug.com/1006759 http/tests/devtools/profiler/cpu-profiler-save-load.js [ Pass Failure Timeout ]
 crbug.com/1006759 http/tests/devtools/profiler/heap-snapshot-loader.js [ Pass Failure ]
+
+# Upcoming DevTools bug fix
+crbug.com/1103380 http/tests/devtools/resource-har-conversion.js [ Pass Failure ]
+crbug.com/1103380 http/tests/devtools/extensions/extensions-network-redirect.js [ Pass Failure ]
+crbug.com/1103380 http/tests/devtools/extensions/extensions-network.js [ Pass Failure ]
+crbug.com/1103380 http/tests/devtools/network/extra-info-redirects.js [ Pass Failure ]
+crbug.com/1103380 http/tests/devtools/network/har-post.js [ Pass Failure ]
+crbug.com/1103380 http/tests/devtools/network/network-cachedresources-with-same-urls.js [ Pass Failure ]
+crbug.com/1103380 http/tests/devtools/network/network-content-replacement-xhr.js [ Pass Failure ]
+crbug.com/1103380 http/tests/devtools/network/network-cyrillic-xhr.js [ Pass Failure ]
+crbug.com/1103380 http/tests/devtools/network/network-disable-cache-xhrs.js [ Pass Failure ]
+crbug.com/1103380 http/tests/devtools/network/network-empty-xhr.js [ Pass Failure ]
+crbug.com/1103380 http/tests/devtools/network/network-log-service-worker-navigate.js [ Pass Failure ]
+crbug.com/1103380 http/tests/devtools/network/network-search.js [ Pass Failure Timeout ]
+crbug.com/1103380 http/tests/devtools/network/network-status-non-http.js [ Pass Failure ]
+crbug.com/1103380 http/tests/devtools/network/network-timing.js [ Pass Failure ]
+crbug.com/1103380 http/tests/devtools/network/network-worker-fetch-blocked.js [ Pass Failure ]
+crbug.com/1103380 http/tests/devtools/network/network-worker-fetch-parallel.js [ Pass Failure ]
+crbug.com/1103380 http/tests/devtools/network/network-worker-fetch.js [ Pass Failure ]
+crbug.com/1103380 http/tests/devtools/network/network-xhr-async-double.js [ Pass Failure ]
+crbug.com/1103380 http/tests/devtools/network/network-xhr-redirect-body.js [ Pass Failure ]
+crbug.com/1103380 http/tests/devtools/network/network-xhr-redirect-method.js [ Pass Failure ]
+crbug.com/1103380 http/tests/devtools/network/network-xsl-content.js [ Pass Failure ]
+crbug.com/1103380 http/tests/devtools/service-workers/service-worker-network-fetch-blocked.js [ Pass Failure Timeout ]
+crbug.com/1103380 http/tests/devtools/service-workers/service-worker-network-fetch.js [ Pass Failure ]
+crbug.com/1103380 http/tests/devtools/sxg/sxg-cert-not-found.js [ Pass Failure ]
+crbug.com/1103380 http/tests/devtools/sxg/sxg-navigation-redirect.js [ Pass Failure ]
+crbug.com/1103380 http/tests/devtools/sxg/sxg-navigation.js [ Pass Failure ]
+crbug.com/1103380 http/tests/devtools/sxg/sxg-transfer-size.js [ Pass Failure ]
 
 # Temporarily disabled to land changes in DevTools, multiple dependent CLs
 # [1] https://chromium-review.googlesource.com/c/devtools/devtools-frontend/+/2049183

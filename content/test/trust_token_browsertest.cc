@@ -9,6 +9,8 @@
 #include "base/strings/string_piece.h"
 #include "base/test/bind_test_util.h"
 #include "base/test/scoped_feature_list.h"
+#include "content/browser/frame_host/frame_tree_node.h"
+#include "content/browser/web_contents/web_contents_impl.h"
 #include "content/public/browser/network_service_instance.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -520,6 +522,41 @@ IN_PROC_BROWSER_TEST_F(TrustTokenBrowsertest,
              JsReplace(command,
                        url::Origin::Create(server_.base_url()).Serialize())));
   EXPECT_EQ(request_handler_.LastVerificationError(), base::nullopt);
+}
+
+// This regression test for crbug.com/1111735 ensures it's possible to execute
+// redemption from a nested same-origin frame that hasn't committed a
+// navigation.
+//
+// How it works: The main frame embeds a same-origin iframe that does not
+// commit a navigation (here, specifically because of an HTTP 204 return). From
+// this iframe, we execute a Trust Tokens redemption operation via the iframe
+// interface (in other words, the Trust Tokens operation executes during the
+// process of navigating to a grandchild frame).  The grandchild frame's load
+// will result in a renderer kill without the fix for the bug applied.
+IN_PROC_BROWSER_TEST_F(TrustTokenBrowsertest,
+                       SignFromFrameLackingACommittedNavigation) {
+  GURL start_url = server_.GetURL(
+      "/page-executing-trust-token-signing-from-204-subframe.html");
+
+  // Execute a signing operation from a child iframe that has not committed a
+  // navigation (see the html source).
+  ASSERT_TRUE(NavigateToURL(shell(), start_url));
+
+  // For good measure, make sure the analogous signing operation works from
+  // fetch, too, even though it wasn't broken by the same bug.
+  FrameTreeNode* root = static_cast<WebContentsImpl*>(shell()->web_contents())
+                            ->GetFrameTree()
+                            ->root();
+
+  EXPECT_EQ("Success", EvalJs(root->child_at(0)->current_frame_host(),
+                              JsReplace(R"(
+                              fetch($1, {mode: 'no-cors',
+                                         trustToken: {
+                                           type: 'send-srr',
+                                           issuer: 'https://issuer.example'
+                                         }}).then(()=>'Success');)",
+                                        server_.GetURL("/issue"))));
 }
 
 }  // namespace content

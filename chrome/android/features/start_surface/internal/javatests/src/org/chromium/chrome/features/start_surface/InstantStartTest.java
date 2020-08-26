@@ -215,7 +215,7 @@ public class InstantStartTest {
         }
         TabModelMetadata incognitoInfo = new TabModelMetadata(0);
 
-        byte[] listData = TabPersistentStore.serializeMetadata(normalInfo, incognitoInfo, null);
+        byte[] listData = TabPersistentStore.serializeMetadata(normalInfo, incognitoInfo);
 
         File stateFile =
                 new File(TabbedModeTabPersistencePolicy.getOrCreateTabbedModeStateDirectory(),

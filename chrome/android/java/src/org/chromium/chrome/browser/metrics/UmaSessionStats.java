@@ -208,9 +208,17 @@ public class UmaSessionStats {
         prefManager.syncUsageAndCrashReportingPrefs();
     }
 
-    public static void registerExternalExperiment(String studyName, int[] experimentIds) {
+    public static void registerExternalExperiment(String fallbackStudyName, int[] experimentIds) {
+        // TODO(https://crbug.com/1111941): Remove this method once all callers have moved onto
+        // the overload below.
+        registerExternalExperiment(fallbackStudyName, experimentIds, true);
+    }
+
+    public static void registerExternalExperiment(
+            String fallbackStudyName, int[] experimentIds, boolean overrideExistingIds) {
         assert isMetricsServiceAvailable();
-        UmaSessionStatsJni.get().registerExternalExperiment(studyName, experimentIds);
+        UmaSessionStatsJni.get().registerExternalExperiment(
+                fallbackStudyName, experimentIds, overrideExistingIds);
     }
 
     public static void registerSyntheticFieldTrial(String trialName, String groupName) {
@@ -246,7 +254,8 @@ public class UmaSessionStats {
         void updateMetricsServiceState(boolean mayUpload);
         void umaResumeSession(long nativeUmaSessionStats, UmaSessionStats caller);
         void umaEndSession(long nativeUmaSessionStats, UmaSessionStats caller);
-        void registerExternalExperiment(String studyName, int[] experimentIds);
+        void registerExternalExperiment(
+                String studyName, int[] experimentIds, boolean overrideExistingIds);
         void registerSyntheticFieldTrial(String trialName, String groupName);
         void recordTabCountPerLoad(int numTabsOpen);
         void recordPageLoaded(boolean isDesktopUserAgent);

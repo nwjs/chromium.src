@@ -4385,6 +4385,12 @@ const blink::mojom::Referrer& NavigationRequest::GetReferrer() {
   return *sanitized_referrer_;
 }
 
+void NavigationRequest::SetReferrer(blink::mojom::ReferrerPtr referrer) {
+  DCHECK(state_ == WILL_START_REQUEST || state_ == WILL_REDIRECT_REQUEST);
+  sanitized_referrer_ = std::move(referrer);
+  common_params_->referrer = sanitized_referrer_.Clone();
+}
+
 bool NavigationRequest::HasUserGesture() {
   return common_params().has_user_gesture;
 }

@@ -119,6 +119,27 @@ class ObserverToCloseWidget : public ui::ImplicitAnimationObserver {
   views::Widget* const widget_;
 };
 
+void RecordNudgeMetrics(
+    HomeToOverviewNudgeController::HideTransition transition) {
+  switch (transition) {
+    case (HomeToOverviewNudgeController::HideTransition::kUserTap):
+      MaybeLogNudgeDismissedMetrics(
+          contextual_tooltip::TooltipType::kHomeToOverview,
+          contextual_tooltip::DismissNudgeReason::kTap);
+      break;
+    case (HomeToOverviewNudgeController::HideTransition::kNudgeTimeout):
+      MaybeLogNudgeDismissedMetrics(
+          contextual_tooltip::TooltipType::kHomeToOverview,
+          contextual_tooltip::DismissNudgeReason::kTimeout);
+      break;
+    case (HomeToOverviewNudgeController::HideTransition::kShelfStateChange):
+      MaybeLogNudgeDismissedMetrics(
+          contextual_tooltip::TooltipType::kHomeToOverview,
+          contextual_tooltip::DismissNudgeReason::kOther);
+      break;
+  }
+}
+
 }  // namespace
 
 HomeToOverviewNudgeController::HomeToOverviewNudgeController(
@@ -305,6 +326,8 @@ void HomeToOverviewNudgeController::ShowNudge() {
 void HomeToOverviewNudgeController::HideNudge(HideTransition transition) {
   if (!nudge_)
     return;
+
+  RecordNudgeMetrics(transition);
 
   auto animate_hide_transform = [](HideTransition transition,
                                    ui::Layer* layer) {

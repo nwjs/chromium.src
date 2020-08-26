@@ -90,6 +90,7 @@ class ProfileImpl : public Profile {
       base::flat_set<std::string> ids) override;
   void SetBooleanSetting(SettingType type, bool value) override;
   bool GetBooleanSetting(SettingType type) override;
+  void PrepareForPossibleCrossOriginNavigation() override;
 
 #if defined(OS_ANDROID)
   ProfileImpl(JNIEnv* env,
@@ -121,6 +122,7 @@ class ProfileImpl : public Profile {
       JNIEnv* env,
       const base::android::JavaRef<jobjectArray>& j_ids,
       const base::android::JavaRef<jobject>& j_callback);
+  void PrepareForPossibleCrossOriginNavigation(JNIEnv* env);
 #endif
 
   const base::FilePath& download_directory() { return download_directory_; }

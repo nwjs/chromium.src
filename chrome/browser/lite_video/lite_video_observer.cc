@@ -12,6 +12,7 @@
 #include "chrome/browser/lite_video/lite_video_hint.h"
 #include "chrome/browser/lite_video/lite_video_keyed_service.h"
 #include "chrome/browser/lite_video/lite_video_keyed_service_factory.h"
+#include "chrome/browser/lite_video/lite_video_navigation_metrics.h"
 #include "chrome/browser/lite_video/lite_video_switches.h"
 #include "chrome/browser/lite_video/lite_video_user_blocklist.h"
 #include "chrome/browser/lite_video/lite_video_util.h"
@@ -91,7 +92,8 @@ void LiteVideoObserver::DidFinishNavigation(
   if (navigation_handle->IsInMainFrame()) {
     FlushUKMMetrics();
     nav_metrics_ = lite_video::LiteVideoNavigationMetrics(
-        navigation_handle->GetNavigationId(), decision, blocklist_reason);
+        navigation_handle->GetNavigationId(), decision, blocklist_reason,
+        lite_video::LiteVideoThrottleResult::kThrottledWithoutStop);
   }
 
   LOCAL_HISTOGRAM_BOOLEAN("LiteVideo.Navigation.HasHint", hint ? true : false);
@@ -140,6 +142,7 @@ void LiteVideoObserver::FlushUKMMetrics() {
   ukm::builders::LiteVideo builder(ukm_source_id);
   builder.SetThrottlingStartDecision(static_cast<int>(nav_metrics_->decision()))
       .SetBlocklistReason(static_cast<int>(nav_metrics_->blocklist_reason()))
+      .SetThrottlingResult(static_cast<int>(nav_metrics_->throttle_result()))
       .Record(ukm::UkmRecorder::Get());
   nav_metrics_.reset();
 }
@@ -155,6 +158,42 @@ void LiteVideoObserver::MaybeUpdateCoinflipExperimentState(
   is_coinflip_holdback_ = lite_video::switches::ShouldForceCoinflipHoldback()
                               ? true
                               : base::RandInt(0, 1);
+}
+
+void LiteVideoObserver::MediaBufferUnderflow(const content::MediaPlayerId& id) {
+  content::RenderFrameHost* render_frame_host = id.render_frame_host;
+
+  if (!render_frame_host || !render_frame_host->GetProcess())
+    return;
+
+  mojo::AssociatedRemote<blink::mojom::PreviewsResourceLoadingHintsReceiver>
+      loading_hints_agent;
+
+  if (render_frame_host->GetRemoteAssociatedInterfaces()) {
+    render_frame_host->GetRemoteAssociatedInterfaces()->GetInterface(
+        &loading_hints_agent);
+    loading_hints_agent->StopThrottlingMediaRequests();
+  }
+  // Only consider a rebuffer event related to LiteVideos if they
+  // were allowed on current navigation.
+  if (!nav_metrics_ ||
+      nav_metrics_->decision() != lite_video::LiteVideoDecision::kAllowed) {
+    return;
+  }
+
+  nav_metrics_->SetThrottleResult(
+      lite_video::LiteVideoThrottleResult::kThrottleStoppedOnRebuffer);
+
+  if (!lite_video_decider_)
+    return;
+
+  // Determine if the rebuffer happened in the mainframe.
+  render_frame_host->GetMainFrame() == render_frame_host
+      ? lite_video_decider_->DidMediaRebuffer(
+            render_frame_host->GetLastCommittedURL(), base::nullopt, true)
+      : lite_video_decider_->DidMediaRebuffer(
+            render_frame_host->GetMainFrame()->GetLastCommittedURL(),
+            render_frame_host->GetLastCommittedURL(), true);
 }
 
 WEB_CONTENTS_USER_DATA_KEY_IMPL(LiteVideoObserver)

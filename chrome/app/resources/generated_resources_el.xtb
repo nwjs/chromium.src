@@ -1318,7 +1318,6 @@
 <translation id="26224892172169984">Να μην επιτρέπεται σε κανέναν ιστότοπο ο χειρισμός πρωτοκόλλων</translation>
 <translation id="262373406453641243">Colemak</translation>
 <translation id="2624142942574147739">Αυτή η σελίδα έχει πρόσβαση στην κάμερα και στο μικρόφωνό σας.</translation>
-<translation id="2626799779920242286">Δοκιμάστε ξανά αργότερα.</translation>
 <translation id="2628770867680720336">Απαιτείται εργοστασιακή επαναφορά για αυτό το Chromebook, για την ενεργοποίηση του εντοπισμού και της διόρθωσης σφαλμάτων ADB. <ph name="BEGIN_LINK_LEARN_MORE" />Μάθετε περισσότερα<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="2629227353894235473">Ανάπτυξη εφαρμογών Android</translation>
 <translation id="2630681426381349926">Συνδεθείτε στο δίκτυο Wi-Fi για να ξεκινήσετε</translation>
@@ -6086,7 +6085,6 @@
 <translation id="8652400352452647993">Σφάλμα στοίβαξης επέκτασης</translation>
 <translation id="8654151524613148204">Λυπούμαστε. Το μέγεθος του αρχείου είναι πάρα πολύ μεγάλο για τον υπολογιστή σας.</translation>
 <translation id="8655295600908251630">Κανάλι</translation>
-<translation id="8655319619291175901">Ωχ, κάτι δεν πήγε καλά.</translation>
 <translation id="8655972064210167941">Η σύνδεση απέτυχε επειδή δεν ήταν δυνατή η επαλήθευση του κωδικού πρόσβασής σας. Επικοινωνήστε με τον διαχειριστή σας ή προσπαθήστε ξανά.</translation>
 <translation id="8656768832129462377">Να μην ελέγχεται</translation>
 <translation id="8658645149275195032">Η εφαρμογή <ph name="APP_NAME" /> μοιράζεται την οθόνη και τον ήχο σας με την καρτέλα <ph name="TAB_NAME" />.</translation>
@@ -6267,6 +6265,7 @@
 <translation id="885701979325669005">Αποθήκευση</translation>
 <translation id="8859057652521303089">Επιλέξτε τη γλώσσα σας:</translation>
 <translation id="8859174528519900719">Υποπλαίσιο: <ph name="SUBFRAME_SITE" /></translation>
+<translation id="8859402192569844210">Δεν ήταν δυνατή η φόρτωση των Όρων Παροχής Υπηρεσιών.</translation>
 <translation id="8859662783913000679">Λογαριασμός γονέα</translation>
 <translation id="8862003515646449717">Εναλλαγή σε ένα γρήγορο πρόγραμμα περιήγησης</translation>
 <translation id="8863753581171631212">Άνοιγμα συνδέσμου σε νέο παράθυρο <ph name="APP" /></translation>

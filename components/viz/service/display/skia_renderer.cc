@@ -2463,6 +2463,10 @@ void SkiaRenderer::DrawRenderPassQuad(const RenderPassDrawQuad* quad,
     }
   }
 
+  if (!content_image) {
+    return;
+  }
+
   // If the RP generated mipmaps when it was created, set quality to medium,
   // which turns on mipmap filtering in Skia.
   if (backing.generate_mipmap)

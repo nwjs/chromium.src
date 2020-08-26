@@ -1651,6 +1651,10 @@ bool WebContentsImpl::IsBeingCaptured() {
   return visible_capturer_count_ + hidden_capturer_count_ > 0;
 }
 
+bool WebContentsImpl::IsBeingVisiblyCaptured() {
+  return visible_capturer_count_ > 0;
+}
+
 bool WebContentsImpl::IsAudioMuted() {
   return audio_stream_factory_ && audio_stream_factory_->IsMuted();
 }
@@ -7245,6 +7249,11 @@ void WebContentsImpl::MediaResized(const gfx::Size& size,
 
   for (auto& observer : observers_)
     observer.MediaResized(size, id);
+}
+
+void WebContentsImpl::MediaBufferUnderflow(const MediaPlayerId& id) {
+  for (auto& observer : observers_)
+    observer.MediaBufferUnderflow(id);
 }
 
 void WebContentsImpl::MediaEffectivelyFullscreenChanged(bool is_fullscreen) {

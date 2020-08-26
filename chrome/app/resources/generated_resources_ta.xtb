@@ -306,7 +306,7 @@
 <translation id="1380028686461971526">நெட்வொர்க்குடன் தானாக இணை</translation>
 <translation id="1380436189840894976">எனினும் மறைநிலைப் பயன்முறையை மூடவா?</translation>
 <translation id="1383861834909034572">முடித்ததும் திறக்கிறது</translation>
-<translation id="1383876407941801731">தேடல்</translation>
+<translation id="1383876407941801731">Search</translation>
 <translation id="1386387014181100145">நலமா.</translation>
 <translation id="138784436342154190">இயல்புத் துவக்கப் பக்கத்தை மீட்டமைக்கவா?</translation>
 <translation id="1390548061267426325">வழக்கமான தாவலாகத் திற</translation>
@@ -1318,7 +1318,6 @@
 <translation id="26224892172169984">நெறிமுறைகளைக் கையாள எந்த தளத்தையும் அனுமதிக்காதே</translation>
 <translation id="262373406453641243">Colemak</translation>
 <translation id="2624142942574147739">இந்தப் பக்கமானது உங்கள் கேமராவையும் மைக்ரோஃபோனையும் அணுகுகிறது.</translation>
-<translation id="2626799779920242286">பிறகு முயற்சிக்கவும்.</translation>
 <translation id="2628770867680720336">ADB பிழைதிருத்தத்தை இயக்க இந்த Chromebookகை ஆரம்ப நிலைக்கு மீட்டமைக்க வேண்டும். <ph name="BEGIN_LINK_LEARN_MORE" />மேலும் அறிக<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="2629227353894235473">Android ஆப்ஸை உருவாக்குதல்</translation>
 <translation id="2630681426381349926">தொடங்குவதற்கு வைஃபை உடன் இணைக்கவும்</translation>
@@ -6086,7 +6085,6 @@
 <translation id="8652400352452647993">தொகுப்பு நீட்டிப்புப் பிழை</translation>
 <translation id="8654151524613148204">இந்தக் கோப்பு உங்கள் கம்ப்யூட்டர் கையாளுவதற்கு மிகப்பெரியதாக உள்ளது.</translation>
 <translation id="8655295600908251630">சேனல்</translation>
-<translation id="8655319619291175901">அச்சச்சோ, ஏதோ தவறு ஏற்பட்டது.</translation>
 <translation id="8655972064210167941">உங்கள் கடவுச்சொல்லைச் சரிபார்க்க முடியாததால் உள்நுழைவு தோல்வியானது. உங்கள் நிர்வாகியைத் தொடர்புகொள்ளவும் அல்லது மீண்டும் முயலவும்.</translation>
 <translation id="8656768832129462377">சோதிக்காதே</translation>
 <translation id="8658645149275195032"><ph name="APP_NAME" /> <ph name="TAB_NAME" /> உடன் உங்கள் திரையையும் ஆடியோவையும் பகிர்கிறது.</translation>
@@ -6269,6 +6267,7 @@
 <translation id="885701979325669005">சேமிப்பிடம்</translation>
 <translation id="8859057652521303089">உங்கள் மொழியைத் தேர்ந்தெடுங்கள்:</translation>
 <translation id="8859174528519900719">துணைச்சட்டகம்: <ph name="SUBFRAME_SITE" /></translation>
+<translation id="8859402192569844210">சேவை விதிமுறைகளை ஏற்ற முடியவில்லை</translation>
 <translation id="8859662783913000679">பெற்றோர் கணக்கு</translation>
 <translation id="8862003515646449717">விரைவான உலாவிக்கு மாறவும்</translation>
 <translation id="8863753581171631212">புதிய <ph name="APP" /> இல் இணைப்பைத் திற</translation>

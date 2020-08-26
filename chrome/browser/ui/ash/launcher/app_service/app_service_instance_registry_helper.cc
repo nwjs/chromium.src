@@ -147,6 +147,11 @@ void AppServiceInstanceRegistryHelper::OnTabInserted(
   UpdateTabWindow(app_id, window);
   apps::InstanceState state = static_cast<apps::InstanceState>(
       apps::InstanceState::kStarted | apps::InstanceState::kRunning);
+
+  // Observe the tab, because when the system is shutdown or some other cases,
+  // the window could be destroyed without calling OnTabClosing. So observe the
+  // tab to get the notify when the window is destroyed.
+  controller_->ObserveWindow(window);
   OnInstances(app_id, window, std::string(), state);
 }
 
@@ -195,11 +200,16 @@ void AppServiceInstanceRegistryHelper::OnInstances(const std::string& app_id,
                                                    aura::Window* window,
                                                    const std::string& launch_id,
                                                    apps::InstanceState state) {
-  if (app_id.empty())
+  if (app_id.empty() || !window)
     return;
 
-  if (state != apps::InstanceState::kDestroyed)
-    controller_->ObserveWindow(window);
+  // If the window is not observed, this means the window is being destroyed. In
+  // this case, don't add the instance because we might keep the record for the
+  // destroyed window, which could cause crash.
+  if (state != apps::InstanceState::kDestroyed &&
+      !controller_->IsObservingWindow(window)) {
+    state = apps::InstanceState::kDestroyed;
+  }
 
   std::unique_ptr<apps::Instance> instance =
       std::make_unique<apps::Instance>(app_id, window);

@@ -44,6 +44,7 @@
 <translation id="1285320974508926690">Никогда не переводить этот сайт</translation>
 <translation id="1291207594882862231">Удалить файлы cookie и данные сайтов, очистить историю и кеш</translation>
 <translation id="129553762522093515">Недавно закрытые</translation>
+<translation id="1298077576058087471">Экономьте до 60 % трафика и читайте ежедневные новости.</translation>
 <translation id="1303339473099049190">Пароль не найден. Убедитесь, что он указан правильно, и повторите попытку.</translation>
 <translation id="1303507811548703290">Домен: <ph name="DOMAIN" />. Отправлено с устройства "<ph name="DEVICE_NAME" />".</translation>
 <translation id="1310482092992808703">Сгруппировать вкладки</translation>
@@ -261,8 +262,10 @@
 <translation id="3058498974290601450">Ее можно включить в настройках в любой момент.</translation>
 <translation id="3059710691562604940">Безопасный просмотр отключен. Chrome рекомендует включить его.</translation>
 <translation id="3060635849835183725">{BOOKMARKS_COUNT,plural, =1{<ph name="BOOKMARKS_COUNT_ONE" /> закладка}one{<ph name="BOOKMARKS_COUNT_MANY" /> закладка}few{<ph name="BOOKMARKS_COUNT_MANY" /> закладки}many{<ph name="BOOKMARKS_COUNT_MANY" /> закладок}other{<ph name="BOOKMARKS_COUNT_MANY" /> закладки}}</translation>
+<translation id="3062802207422175757">Прочитайте в Chrome статьи, подобранные с учетом ваших интересов.</translation>
 <translation id="3089395242580810162">Открыть в режиме инкогнито</translation>
 <translation id="3114012059975132928">Видеопроигрыватель</translation>
+<translation id="3114507951000454849">Будьте в курсе новостей <ph name="NEWS_ICON" /></translation>
 <translation id="3123734510202723619">Оповещения</translation>
 <translation id="3137521801621304719">Выключить режим инкогнито</translation>
 <translation id="3143515551205905069">Отмена</translation>
@@ -530,6 +533,7 @@
 <translation id="5304593522240415983">Это поле нужно заполнить</translation>
 <translation id="5308380583665731573">Подключение</translation>
 <translation id="5317780077021120954">Сохранить</translation>
+<translation id="5319359161174645648">Google рекомендует браузер Chrome</translation>
 <translation id="5324858694974489420">Родительские настройки</translation>
 <translation id="5327248766486351172">Название</translation>
 <translation id="5342314432463739672">Запросы разрешений</translation>
@@ -705,6 +709,7 @@
 <translation id="6573431926118603307">Здесь появятся вкладки, открытые в Chrome на других устройствах.</translation>
 <translation id="6583199322650523874">Добавить страницу в закладки</translation>
 <translation id="6588043302623806746">Использовать безопасный DNS-сервер</translation>
+<translation id="6590471736817333463">Экономьте до 60 % трафика</translation>
 <translation id="6593061639179217415">Версия для ПК</translation>
 <translation id="6597891566292541626">Поместите QR-код или штрихкод в эту рамку.</translation>
 <translation id="6600954340915313787">Скопировано в Chrome</translation>
@@ -1028,6 +1033,7 @@
 <translation id="9209888181064652401">Звонки недоступны</translation>
 <translation id="9219103736887031265">Картинки</translation>
 <translation id="926205370408745186">Удалить данные о действиях в Chrome из сервиса "Цифровое благополучие"</translation>
+<translation id="927968626442779827">Попробуйте упрощенный режим в Google Chrome.</translation>
 <translation id="932327136139879170">Главная страница</translation>
 <translation id="93753284658583800">Главная страница изменена.</translation>
 <translation id="938850635132480979">Ошибка <ph name="ERROR_CODE" /></translation>

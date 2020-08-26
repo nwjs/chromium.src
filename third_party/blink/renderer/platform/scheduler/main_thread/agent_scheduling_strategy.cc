@@ -225,7 +225,11 @@ class TrackMainFrameSignal final : public AgentSchedulingStrategy {
     }
 
     main_frames_.insert(&frame_scheduler);
-    main_frames_waiting_for_signal_.insert(&frame_scheduler);
+
+    // Only add ordinary page frames to the set of waiting frames, as
+    // non-ordinary ones don't report any signals.
+    if (frame_scheduler.IsOrdinary())
+      main_frames_waiting_for_signal_.insert(&frame_scheduler);
 
     if (signal_ == PerAgentSignal::kFirstMeaningfulPaint)
       SetWaitingForInput(true);
@@ -234,6 +238,11 @@ class TrackMainFrameSignal final : public AgentSchedulingStrategy {
   }
 
   bool ShouldAffectQueue(const MainThreadTaskQueue& task_queue) const {
+    // Queues that don't have a frame scheduler are, by definition, not
+    // associated with a frame (or agent).
+    if (!task_queue.GetFrameScheduler())
+      return false;
+
     if (affected_queue_types_ == PerAgentAffectedQueues::kTimerQueues &&
         task_queue.GetPrioritisationType() !=
             PrioritisationType::kJavaScriptTimer) {

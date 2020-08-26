@@ -23,6 +23,7 @@
 #include "net/dns/public/resolve_error_info.h"
 #include "net/http/http_response_info.h"
 #include "services/network/public/cpp/resource_request_body.h"
+#include "third_party/blink/public/mojom/referrer.mojom.h"
 #include "ui/base/page_transition_types.h"
 
 class GURL;
@@ -159,6 +160,12 @@ class CONTENT_EXPORT NavigationHandle {
 
   // Returns a sanitized version of the referrer for this request.
   virtual const blink::mojom::Referrer& GetReferrer() = 0;
+
+  // Sets the referrer. The referrer may only be set during start and redirect
+  // phases. If the referer is set in navigation start, it is reset during the
+  // redirect. In other words, if you need to set a referer that applies to
+  // redirects, then this must be called during DidRedirectNavigation().
+  virtual void SetReferrer(blink::mojom::ReferrerPtr referrer) = 0;
 
   // Whether the navigation was initiated by a user gesture. Note that this
   // will return false for browser-initiated navigations.

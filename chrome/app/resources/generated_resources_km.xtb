@@ -1318,7 +1318,6 @@
 <translation id="26224892172169984">កុំអនុញ្ញាតឲ្យគេហទំព័រណាមួយឲ្យដោះស្រាយប្រូតូកូល</translation>
 <translation id="262373406453641243">Colemak</translation>
 <translation id="2624142942574147739">ទំព័រនេះកំពុងចូលប្រើកាមេរ៉ា និងម៉ៃក្រូហ្វូនរបស់អ្នក។</translation>
-<translation id="2626799779920242286">សូមព្យាយាមម្តងដងទៀតពេលក្រោយ។</translation>
 <translation id="2628770867680720336">តម្រូវឱ្យកំណត់ Chromebook នេះដូច​ដើមឡើងវិញ ដើម្បីបើក​ការជួសជុល ADB។ <ph name="BEGIN_LINK_LEARN_MORE" />ស្វែងយល់​បន្ថែម<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="2629227353894235473">អភិវឌ្ឍកម្មវិធី Android</translation>
 <translation id="2630681426381349926">ភ្ជាប់ទៅ Wi-Fi ដើម្បីចាប់ផ្តើម</translation>
@@ -6085,7 +6084,6 @@
 <translation id="8652400352452647993">បញ្ហា​ក្នុងការខ្ចប់​កម្មវិធី​បន្ថែម</translation>
 <translation id="8654151524613148204">ឯកសារនេះធំពេកសម្រាប់កុំព្យូទ័ររបស់ដើម្បីដំណើរការ។ សូមទោស។</translation>
 <translation id="8655295600908251630">បណ្តាញ</translation>
-<translation id="8655319619291175901">អូ មានបញ្ហាអ្វីមួយកើតឡើង។</translation>
 <translation id="8655972064210167941">បានបរាជ័យក្នុងការចូលពីព្រោះពាក្យសម្ងាត់របស់អ្នកមិនអាចផ្ទៀងផ្ទាត់បានទេ។ សូមទាក់ទងអ្នកគ្រប់គ្រងរបស់អ្នក ឬព្យាយាមម្តងទៀត។</translation>
 <translation id="8656768832129462377">កុំពិនិត្យ</translation>
 <translation id="8658645149275195032"><ph name="APP_NAME" /> កំពុងចែករំលែកអេក្រង់ និងសម្លេងរបស់អ្នកជាមូួយ <ph name="TAB_NAME" />។</translation>
@@ -6268,6 +6266,7 @@
 <translation id="885701979325669005">ឧបករណ៍ផ្ទុកទិន្នន័យ</translation>
 <translation id="8859057652521303089">ជ្រើសរើសភាសារបស់អ្នក៖</translation>
 <translation id="8859174528519900719">ហ្វ្រេមរង៖ <ph name="SUBFRAME_SITE" /></translation>
+<translation id="8859402192569844210">មិនអាចផ្ទុក​លក្ខខណ្ឌប្រើប្រាស់​បានទេ</translation>
 <translation id="8859662783913000679">គណនី​មាតាបិតា</translation>
 <translation id="8862003515646449717">ប្តូរទៅ​កម្មវិធីរុករកតាមអ៊ីនធឺណិតដែលរហ័ស</translation>
 <translation id="8863753581171631212">បើក​តំណ​នៅក្នុង <ph name="APP" /> ថ្មី</translation>

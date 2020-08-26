@@ -210,6 +210,8 @@ suite('SiteDetails', function() {
     optionalSiteDetailsContentSettingsTypes[ContentSettingsTypes
                                                 .BLUETOOTH_SCANNING] =
         'enableExperimentalWebPlatformFeatures';
+    optionalSiteDetailsContentSettingsTypes[ContentSettingsTypes.HID_DEVICES] =
+        'enableExperimentalWebPlatformFeatures';
     optionalSiteDetailsContentSettingsTypes[ContentSettingsTypes
                                                 .WINDOW_PLACEMENT] =
         'enableExperimentalWebPlatformFeatures';
@@ -229,7 +231,7 @@ suite('SiteDetails', function() {
 
     const controlledSettingsCount = /** @type{string : int } */ ({});
 
-    controlledSettingsCount['enableExperimentalWebPlatformFeatures'] = 2;
+    controlledSettingsCount['enableExperimentalWebPlatformFeatures'] = 3;
     controlledSettingsCount['enableInsecureContentContentSetting'] = 1;
     controlledSettingsCount['enableNativeFileSystemWriteContentSetting'] = 1;
     controlledSettingsCount['enablePaymentHandlerContentSetting'] = 1;

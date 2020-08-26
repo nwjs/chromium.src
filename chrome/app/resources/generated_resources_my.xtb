@@ -1319,7 +1319,6 @@
 <translation id="26224892172169984">ဘယ်ဆိုက်ကိုမှ ပရိုတိုကောများကို ကိုင်တွယ်ခွင့် မပြုပါနှင့်</translation>
 <translation id="262373406453641243">Colemak</translation>
 <translation id="2624142942574147739">ဒီစာမျက်နှာသည် သင်၏ ကင်မရာ နှင့် မိုက်ခရိုဖုန်းကို ရယူသုံးနေသည်။</translation>
-<translation id="2626799779920242286">ကျေးဇူးပြုပြီး နောက်မှာ ထပ်စမ်းပါ။</translation>
 <translation id="2628770867680720336">ADB အမှားရှာပြင်ခြင်းကို ဖွင့်ရန်အတွက် ဤ Chromebook ကို စက်ရုံထုတ်အတိုင်း ပြင်ဆင်သတ်မှတ်ရပါမည်။ <ph name="BEGIN_LINK_LEARN_MORE" />ပိုမိုလေ့လာရန်<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="2629227353894235473">Android အက်ပ်များ ရေးဆွဲခြင်း</translation>
 <translation id="2630681426381349926">စတင်ရန် ကြိုးမဲ့သို့ ချိတ်ဆက်ပါ</translation>
@@ -6082,7 +6081,6 @@
 <translation id="8652400352452647993">နောက်ဆက်တွဲသိမ်းဆည်းမှု အမှားအယွင်း</translation>
 <translation id="8654151524613148204">သင့်ကွန်ပျူတာကိုင်တွယ်ရန် ဤဖိုင်သည် အလွန်ကြီးနေသည်။ ဝမ်းနည်းပါသည်။</translation>
 <translation id="8655295600908251630">လိုင်း</translation>
-<translation id="8655319619291175901">အူးပ်စ်၊ တစ်ခုခု မှားသွားပြီ။</translation>
 <translation id="8655972064210167941">သင့်စကားဝှက်အား အတည်ပြုနိုင်သောကြောင့် လက်မှတ်ထိုးဝင်ရောက်မှု မအောင်မြင်ပါ။ ကျေးဇူးပြု၍ သင့်ကြီးကြပ်သူကို ဆက်သွယ်ပါ သို့မဟုတ် နောက်တစ်ကြိမ်ကြိုးစားပါ။</translation>
 <translation id="8656768832129462377">မစစ်ဆေးပါနှင့်</translation>
 <translation id="8658645149275195032"><ph name="APP_NAME" /> သည် သင့်ဖန်သားပြင်နှင့် အသံကို <ph name="TAB_NAME" /> နှင့်မျှဝေနေပါသည်။</translation>
@@ -6265,6 +6263,7 @@
 <translation id="885701979325669005">သိုလှောင်ခန်း</translation>
 <translation id="8859057652521303089">သင်၏ ဘာသာစကားကို ရွေးရန်:</translation>
 <translation id="8859174528519900719">ဘောင်ငယ်: <ph name="SUBFRAME_SITE" /></translation>
+<translation id="8859402192569844210">ဝန်ဆောင်မှု စည်းမျဉ်းများကို ဖွင့်၍မရနိုင်ပါ</translation>
 <translation id="8859662783913000679">မိဘ အကောင့်</translation>
 <translation id="8862003515646449717">ပိုမြန်သော ဘရောင်ဇာသို့ ပြောင်းပါ</translation>
 <translation id="8863753581171631212"><ph name="APP" /> အသစ်တွင် လင့်ခ်ကို ဖွင့်ရန်</translation>

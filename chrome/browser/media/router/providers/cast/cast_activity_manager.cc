@@ -192,7 +192,7 @@ void CastActivityManager::DoLaunchSession(DoLaunchSessionParams params) {
           ? AddMirroringActivityRecord(route, app_id, tab_id, sink.cast_data())
           : AddCastActivityRecord(route, app_id);
   const std::string& client_id = cast_source.client_id();
-  if (!client_id.empty()) {
+  if (MediaSource(cast_source.source_id()).IsCastPresentationUrl()) {
     presentation_connection =
         activity_ptr->AddClient(cast_source, params.origin, tab_id);
     activity_ptr->SendMessageToClient(

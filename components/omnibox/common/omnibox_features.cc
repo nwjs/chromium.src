@@ -345,7 +345,7 @@ const base::Feature kRichAutocompletion{"OmniboxRichAutocompletion",
 const base::Feature kOmniboxLooseMaxLimitOnDedicatedRows{
     "OmniboxLooseMaxLimitOnDedicatedRows", base::FEATURE_DISABLED_BY_DEFAULT};
 
-// Feature that enables Search Ready Omnibox in invognito.
+// Feature that enables Search Ready Omnibox in incognito.
 const base::Feature kOmniboxSearchReadyIncognito{
     "OmniboxSearchReadyIncognito", base::FEATURE_DISABLED_BY_DEFAULT};
 

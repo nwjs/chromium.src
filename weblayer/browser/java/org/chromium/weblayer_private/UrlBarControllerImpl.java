@@ -160,9 +160,10 @@ public class UrlBarControllerImpl extends IUrlBarController.Stub {
                                 ContextCompat.getColor(embedderContext, mUrlIconColor)));
             }
 
-            mSecurityButton.setOnClickListener(v -> { showPageInfoUi(v); });
             if (mShowPageInfoWhenUrlTextClicked) {
-                mUrlTextView.setOnClickListener(v -> { showPageInfoUi(v); });
+                setOnClickListener(v -> { showPageInfoUi(v); });
+            } else {
+                mSecurityButton.setOnClickListener(v -> { showPageInfoUi(v); });
             }
         }
 

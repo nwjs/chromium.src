@@ -124,7 +124,7 @@ MenuRunnerImplInterface* MenuRunnerImplInterface::Create(
     int32_t run_types,
     base::RepeatingClosure on_menu_closed_callback) {
   if ((run_types & MenuRunner::CONTEXT_MENU) &&
-      !(run_types & (MenuRunner::IS_NESTED | MenuRunner::FORCE_VIEWS))) {
+      !(run_types & MenuRunner::IS_NESTED)) {
     return new MenuRunnerImplCocoa(menu_model,
                                    std::move(on_menu_closed_callback));
   }

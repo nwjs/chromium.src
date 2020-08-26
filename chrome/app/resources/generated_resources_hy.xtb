@@ -376,7 +376,7 @@
 <translation id="1465827627707997754">Պիցցայի կտոր</translation>
 <translation id="1468571364034902819">Հնարավոր չէ օգտագործել այս պրոֆիլը</translation>
 <translation id="1470084204649225129">{NUM_TABS,plural, =1{Ավելացնել ներդիր նոր խմբում}one{Ավելացնել ներդիրներ նոր խմբում}other{Ավելացնել ներդիրներ նոր խմբում}}</translation>
-<translation id="1472675084647422956">Ցուցադրել ավելի շատ</translation>
+<translation id="1472675084647422956">Ցույց տալ ավելի շատ</translation>
 <translation id="1474785664565228650">Վերագործարկեք Parallels Desktop-ը, որպեսզի խոսափողի կարգավորումը փոխվի, և դուք կարողանաք շարունակել աշխատանքը։</translation>
 <translation id="1475502736924165259">Ֆայլը պարունակում է հավաստագրեր, որոնք չեն համապատասխանում մյուս կատեգորիաներից ոչ մեկին</translation>
 <translation id="1476088332184200792">Պատճենել սարքում</translation>
@@ -1318,7 +1318,6 @@
 <translation id="26224892172169984">Թույլ չտալ որևէ կայքի մշակել հաղորդակարգերը</translation>
 <translation id="262373406453641243">Colemak</translation>
 <translation id="2624142942574147739">Այս էջն օգտագործում է ձեր տեսախցիկն ու խոսափողը:</translation>
-<translation id="2626799779920242286">Կրկին փորձեք ավելի ուշ:</translation>
 <translation id="2628770867680720336">ADB վրիպազերծումը միացնելու համար վերականգնեք Chromebook-ի գործարանային կարգավորումները։ <ph name="BEGIN_LINK_LEARN_MORE" />Իմանալ ավելին<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="2629227353894235473">Android հավելվածների մշակում</translation>
 <translation id="2630681426381349926">Սկսելու համար կապակցվեք Wi-Fi-ին</translation>
@@ -1898,7 +1897,7 @@
 <translation id="3365598184818502391">Օգտագործեք Ctrl կամ Alt</translation>
 <translation id="3367047597842238025">Կարգավորեք <ph name="DEVICE_TYPE" /> սարքը՝ ըստ ձեր ցանկության և իմացեք ձեզ հասանելի բոլոր օգտակար գործառույթների մասին։</translation>
 <translation id="3368922792935385530">Միացված է</translation>
-<translation id="3369067987974711168">Ցուցադրել ավելի շատ գործողություններ այս միացքի համար</translation>
+<translation id="3369067987974711168">Ցույց տալ ավելի շատ գործողություններ այս միացքի համար</translation>
 <translation id="3369624026883419694">Խնամորդի վերլուծում…</translation>
 <translation id="3370260763947406229">Ավտոմատ շտկում</translation>
 <translation id="3371140690572404006">USB-C սարք (առջևի ձախակողմյան միացք)</translation>
@@ -6086,7 +6085,6 @@
 <translation id="8652400352452647993">Ընդլայնման փաթեթավորման սխալ կա</translation>
 <translation id="8654151524613148204">Ֆայլը չափազանց մեծ է ձեր համակարգչի համար:</translation>
 <translation id="8655295600908251630">Վարկած</translation>
-<translation id="8655319619291175901">Ինչ-որ սխալ տեղի ունեցավ:</translation>
 <translation id="8655972064210167941">Մուտքը չհաջողվեց, քանի որ ձեր գաղտնաբառը չհաջողվեց հաստատել: Կապվեք ադմինիստրատորի հետ կամ նորից փորձեք:</translation>
 <translation id="8656768832129462377">Չստուգել</translation>
 <translation id="8658645149275195032"><ph name="APP_NAME" /> հավելվածը կիսվում է ձեր էկրանով և ձայնով <ph name="TAB_NAME" />-ի հետ:</translation>
@@ -6269,6 +6267,7 @@
 <translation id="885701979325669005">Պահեստ</translation>
 <translation id="8859057652521303089">Ընտրեք լեզուն`</translation>
 <translation id="8859174528519900719">Ենթաշրջանակ՝ <ph name="SUBFRAME_SITE" /></translation>
+<translation id="8859402192569844210">Չհաջողվեց բեռնել օգտագործման պայմանները</translation>
 <translation id="8859662783913000679">Ծնողի հաշիվը</translation>
 <translation id="8862003515646449717">Ընտրեք արագ դիտարկիչ</translation>
 <translation id="8863753581171631212">Բացել հղումը <ph name="APP" />-ի նոր պատուհանում</translation>
@@ -6464,7 +6463,7 @@
 <translation id="9101691533782776290">Գործարկել հավելվածը</translation>
 <translation id="9102610709270966160">Միացնել ընդլայնումը</translation>
 <translation id="9103868373786083162">Սեղմեք՝ հետ գնալու համար, բացեք տեղային ընտրացանկը՝ պատմությունը տեսնելու համար</translation>
-<translation id="9108692355621501797"><ph name="LINK_BEGIN" />G Suite for Education-ի գաղտնիության ծանուցման<ph name="LINK_END" /> մեջ օգտատերերին և ծնողներին տրամադրվում է տեղեկություն այն մասին, թե ծառայությունն ինչպիսի տվյալներ է հավաքում և ինչպես է դրանք օգտագործում։</translation>
+<translation id="9108692355621501797"><ph name="LINK_BEGIN" />G Suite for Education-ի գաղտնիության ծանուցագրի<ph name="LINK_END" /> մեջ օգտատերերին և ծնողներին տրամադրվում է տեղեկություն այն մասին, թե ծառայությունն ինչպիսի տվյալներ է հավաքում և ինչպես է դրանք օգտագործում։</translation>
 <translation id="9108808586816295166">Ապահով DNS-ը կարող է ամբողջ ընթացքում հասանելի չլինել</translation>
 <translation id="9109122242323516435">Տարածք ազատելու համար սարքի հիշողությունից ֆայլեր ջնջեք:</translation>
 <translation id="9109283579179481106">Միացեք բջջային ցանցին</translation>

@@ -282,6 +282,8 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
 
     // Whether or not chrome was launched with an intent to open a tab.
     private boolean mIntentWithEffect;
+    private ObservableSupplierImpl<Boolean> mIntentWithEffectSupplier =
+            new ObservableSupplierImpl<>();
 
     // Time at which an intent was received and handled.
     private long mIntentHandlingTimeMs;
@@ -1206,6 +1208,8 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
                 }
             }
 
+            mIntentWithEffectSupplier.set(mIntentWithEffect);
+
             // If we have tabs to reparent and getSavedInstanceState() is non-null, then the tabs
             // are coming from night mode tab reparenting. In this case, reparenting happens
             // synchronously along with tab restoration so there are no tabs waiting for
@@ -1577,8 +1581,8 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
 
     @Override
     protected RootUiCoordinator createRootUiCoordinator() {
-        return new TabbedRootUiCoordinator(this, this::onOmniboxFocusChanged, mIntentWithEffect,
-                getShareDelegateSupplier(), getActivityTabProvider(),
+        return new TabbedRootUiCoordinator(this, this::onOmniboxFocusChanged,
+                mIntentWithEffectSupplier, getShareDelegateSupplier(), getActivityTabProvider(),
                 mEphemeralTabCoordinatorSupplier, mTabModelProfileSupplier, mBookmarkBridgeSupplier,
                 getOverviewModeBehaviorSupplier(), this::getContextualSearchManager);
     }

@@ -1979,7 +1979,6 @@
     },
     {
       name: "WebHID",
-      origin_trial_feature_name: "WebHID",
       status: "experimental",
     },
     {

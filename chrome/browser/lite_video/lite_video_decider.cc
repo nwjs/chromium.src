@@ -71,9 +71,6 @@ bool CanApplyOnCurrentNetworkConditions(
   return effective_connection_type >= lite_video::features::MinLiteVideoECT();
 }
 
-// The default downlink bandwidth estimate used for throttling media requests.
-// Only used when forcing LiteVideos to be allowed.
-constexpr double kLiteVideoDefaultDownlinkBandwidthKbps = 400.0;
 
 }  // namespace
 
@@ -128,7 +125,7 @@ base::Optional<LiteVideoHint> LiteVideoDecider::CanApplyLiteVideo(
 
   if (switches::ShouldOverrideLiteVideoDecision()) {
     // Return a default configured hint.
-    return LiteVideoHint(kLiteVideoDefaultDownlinkBandwidthKbps,
+    return LiteVideoHint(switches::GetDefaultDownlinkBandwidthKbps(),
                          features::LiteVideoTargetDownlinkRTTLatency(),
                          features::LiteVideoKilobytesToBufferBeforeThrottle(),
                          features::LiteVideoMaxThrottlingDelay());
@@ -174,8 +171,14 @@ base::Optional<LiteVideoHint> LiteVideoDecider::CanApplyLiteVideo(
     return base::nullopt;
 
   // The navigation will have the LiteVideo optimization triggered so
-  // update the navigation blocklist.
+  // update the blocklist.
   user_blocklist_->AddNavigationToBlocklist(navigation_handle, false);
+
+  navigation_handle->IsInMainFrame()
+      ? DidMediaRebuffer(navigation_handle->GetURL(), base::nullopt, false)
+      : DidMediaRebuffer(
+            navigation_handle->GetWebContents()->GetLastCommittedURL(),
+            navigation_handle->GetURL(), false);
   return hint;
 }
 
@@ -206,11 +209,22 @@ void LiteVideoDecider::OnConnectionChanged(
 void LiteVideoDecider::ClearBlocklist(const base::Time& delete_begin,
                                       const base::Time& delete_end) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  user_blocklist_->ClearBlockList(delete_begin, delete_end);
+  if (user_blocklist_) {
+    user_blocklist_->ClearBlockList(delete_begin, delete_end);
+  }
 }
 
 void LiteVideoDecider::OnBlocklistCleared(base::Time time) {
   LOCAL_HISTOGRAM_BOOLEAN("LiteVideo.UserBlocklist.ClearBlocklist", true);
+}
+
+void LiteVideoDecider::DidMediaRebuffer(const GURL& mainframe_url,
+                                        base::Optional<GURL> subframe_url,
+                                        bool opt_out) {
+  if (user_blocklist_) {
+    user_blocklist_->AddRebufferToBlocklist(mainframe_url, subframe_url,
+                                            opt_out);
+  }
 }
 
 }  // namespace lite_video

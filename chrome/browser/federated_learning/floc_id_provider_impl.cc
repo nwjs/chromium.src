@@ -58,6 +58,8 @@ void FlocIdProviderImpl::NotifyFlocIdUpdated(
   }
 
   auto specifics = std::make_unique<sync_pb::UserEventSpecifics>();
+  specifics->set_event_time_usec(
+      base::Time::Now().ToDeltaSinceWindowsEpoch().InMicroseconds());
 
   sync_pb::UserEventSpecifics_FlocIdComputed* const floc_id_computed_event =
       specifics->mutable_floc_id_computed_event();

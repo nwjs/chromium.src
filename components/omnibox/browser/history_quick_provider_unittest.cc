@@ -406,11 +406,11 @@ TEST_F(HistoryQuickProviderTest, SingleMatchWithCursor) {
 TEST_F(HistoryQuickProviderTest, MatchWithAndWithoutCursorWordBreak) {
   std::vector<std::string> expected_urls;
   expected_urls.push_back("https://twitter.com/fungoodtimes");
-  // With cursor after "good", we should retrieve the desired result but it
+  // With cursor after ".com", we should retrieve the desired result but it
   // should not be allowed to be the default match.
-  RunTestWithCursor(ASCIIToUTF16("fungoodtimes"), 7, false, expected_urls,
-                    false, ASCIIToUTF16("https://twitter.com/fungoodtimes"),
-                    base::string16());
+  RunTestWithCursor(
+      ASCIIToUTF16("twitter.comfungoodtimes"), 11, false, expected_urls, false,
+      ASCIIToUTF16("https://twitter.com/fungoodtimes"), base::string16());
 }
 
 TEST_F(HistoryQuickProviderTest, WordBoundariesWithPunctuationMatch) {

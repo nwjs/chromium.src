@@ -215,6 +215,14 @@ const base::Feature kWebRtcHideLocalIpsWithMdns{
 const base::Feature kIntensiveWakeUpThrottling{
     "IntensiveWakeUpThrottling", base::FEATURE_DISABLED_BY_DEFAULT};
 
+// When enabled, no throttling is applied to a page when it uses WebRTC.
+//
+// This allows a page to use a timer to do video processing on frames. An
+// event-driven mechanism should be provided to do video processing. When it is
+// available, this feature should be removed. https://crbug.com/1101806
+const base::Feature kOptOutWebRTCFromAllThrottling{
+    "OptOutWebRTCFromAllThrottling", base::FEATURE_DISABLED_BY_DEFAULT};
+
 #if BUILDFLAG(RTC_USE_H264) && BUILDFLAG(ENABLE_FFMPEG_VIDEO_DECODERS)
 // Run-time feature for the |rtc_use_h264| encoder/decoder.
 const base::Feature kWebRtcH264WithOpenH264FFmpeg{

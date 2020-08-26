@@ -2538,7 +2538,7 @@ net::IsolationInfo RenderFrameHostImpl::ComputeIsolationInfoInternal(
                                     frame_origin, candidate_site_for_cookies);
 }
 
-void RenderFrameHostImpl::SetOriginAndIsolationInfoOfNewFrame(
+void RenderFrameHostImpl::SetOriginDependentStateOfNewFrame(
     const url::Origin& new_frame_creator) {
   // This method should only be called for *new* frames, that haven't committed
   // a navigation yet.
@@ -2557,6 +2557,13 @@ void RenderFrameHostImpl::SetOriginAndIsolationInfoOfNewFrame(
   isolation_info_ = ComputeIsolationInfoInternal(
       new_frame_origin, net::IsolationInfo::RedirectMode::kUpdateNothing);
   SetLastCommittedOrigin(new_frame_origin);
+
+  // Construct the frame's feature policy only once we know its initial
+  // committed origin. It's necessary to wait for the origin because the feature
+  // policy's state depends on the origin, so the FeaturePolicy object could be
+  // configured incorrectly if it were initialized before knowing the value of
+  // |last_committed_origin_|. More at crbug.com/1112959.
+  ResetFeaturePolicy();
 }
 
 FrameTreeNode* RenderFrameHostImpl::AddChild(
@@ -2582,7 +2589,7 @@ FrameTreeNode* RenderFrameHostImpl::AddChild(
   // When the child is added, it hasn't committed any navigation yet - its
   // initial empty document should inherit the origin of its parent (the origin
   // may change after the first commit). See also https://crbug.com/932067.
-  child->current_frame_host()->SetOriginAndIsolationInfoOfNewFrame(
+  child->current_frame_host()->SetOriginDependentStateOfNewFrame(
       GetLastCommittedOrigin());
 
   children_.push_back(std::move(child));
@@ -4955,7 +4962,7 @@ void RenderFrameHostImpl::CreateNewWindow(
   // Checking sandbox flags of the new frame should be safe at this point,
   // because the flags should be already inherited by the CreateNewWindow call
   // above.
-  main_frame->SetOriginAndIsolationInfoOfNewFrame(GetLastCommittedOrigin());
+  main_frame->SetOriginDependentStateOfNewFrame(GetLastCommittedOrigin());
   main_frame->cross_origin_opener_policy_ = popup_coop;
   main_frame->cross_origin_embedder_policy_ = popup_coep;
 
@@ -5006,6 +5013,14 @@ void RenderFrameHostImpl::CreateNewWindow(
       blink_widget_host_receiver =
           blink_widget_host.InitWithNewEndpointAndPassReceiver();
 
+  // With this path, RenderViewHostImpl::CreateRenderView is never called
+  // because RenderView is already created on the renderer side. Thus we need to
+  // establish the connection here.
+  mojo::PendingAssociatedRemote<blink::mojom::PageBroadcast> page_broadcast;
+  mojo::PendingAssociatedReceiver<blink::mojom::PageBroadcast>
+      page_broadcast_receiver =
+          page_broadcast.InitWithNewEndpointAndPassReceiver();
+
   // TODO(danakj): The main frame's RenderWidgetHost has no RenderWidgetHostView
   // yet here. It seems like it should though? In the meantime we send some
   // nonsense with a semi-valid but incorrect ScreenInfo (it needs a
@@ -5019,6 +5034,7 @@ void RenderFrameHostImpl::CreateNewWindow(
       std::move(blink_frame_widget));
   main_frame->GetLocalRenderWidgetHost()->BindWidgetInterfaces(
       std::move(blink_widget_host_receiver), std::move(blink_widget));
+  main_frame->render_view_host()->BindPageBroadcast(std::move(page_broadcast));
 
   bool wait_for_debugger =
       devtools_instrumentation::ShouldWaitForDebuggerInWindowOpen();
@@ -5028,7 +5044,7 @@ void RenderFrameHostImpl::CreateNewWindow(
       main_frame->GetLocalRenderWidgetHost()->GetRoutingID(), visual_properties,
       std::move(blink_frame_widget_host),
       std::move(blink_frame_widget_receiver), std::move(blink_widget_host),
-      std::move(blink_widget_receiver),
+      std::move(blink_widget_receiver), std::move(page_broadcast_receiver),
       mojom::DocumentScopedInterfaceBundle::New(
           std::move(main_frame_interface_provider_info),
           std::move(browser_interface_broker)),

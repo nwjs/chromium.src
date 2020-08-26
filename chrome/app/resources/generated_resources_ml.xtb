@@ -306,7 +306,7 @@
 <translation id="1380028686461971526">നെറ്റ്‌വർക്കിലേക്ക് സ്വയമേവ കണക്‌റ്റ് ചെയ്യുക</translation>
 <translation id="1380436189840894976">അദൃശ്യ മോഡിൽ നിന്ന് എന്തായാലും പുറത്തുകടക്കണോ?</translation>
 <translation id="1383861834909034572">പൂര്‍ത്തിയാകുമ്പോള്‍ തുറക്കുന്നു</translation>
-<translation id="1383876407941801731">തിരയുക</translation>
+<translation id="1383876407941801731">Search</translation>
 <translation id="1386387014181100145">ഹലോ.</translation>
 <translation id="138784436342154190">ഡിഫോൾട്ട് ആരംഭ പേജ് പുനഃസ്ഥാപിക്കണോ?</translation>
 <translation id="1390548061267426325">സാധാരണ ടാബായി തുറക്കുക</translation>
@@ -1315,7 +1315,6 @@
 <translation id="26224892172169984">പ്രോട്ടോകോളുകള്‍ കൈകാര്യം ചെയ്യാന്‍ ഒരു സൈറ്റിനേയും അനുവദിക്കരുത്</translation>
 <translation id="262373406453641243">Colemak</translation>
 <translation id="2624142942574147739">ഈ പേജ് നിങ്ങളുടെ ക്യാമറയും മൈക്രോഫോണും ആക്‌സസ്സുചെയ്യുന്നു.</translation>
-<translation id="2626799779920242286">പിന്നീട് വീണ്ടും ശ്രമിക്കുക.</translation>
 <translation id="2628770867680720336">ADB ഡീബഗ് ചെയ്യൽ പ്രവർത്തനക്ഷമമാക്കാൻ ഈ Chromebook ഫാക്റ്ററി റീസെറ്റ് ചെയ്യണം. <ph name="BEGIN_LINK_LEARN_MORE" />കൂടുതലറിയുക<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="2629227353894235473">Android ആപ്പുകൾ വികസിപ്പിക്കുക</translation>
 <translation id="2630681426381349926">ആരംഭിക്കുന്നതിന് Wi-Fi-യിലേക്ക് ബന്ധിപ്പിക്കുക</translation>
@@ -6085,7 +6084,6 @@
 <translation id="8652400352452647993">പായ്‌ക്ക് വിപുലീകരണ പിശക്</translation>
 <translation id="8654151524613148204">ഫയലിന്റെ വലുപ്പം കമ്പ്യൂട്ടറിന് കൈകാര്യം ചെയ്യാനാവുന്നതിലും കൂടുതലാണ്. ക്ഷമിക്കണം.</translation>
 <translation id="8655295600908251630">ചാനല്‍</translation>
-<translation id="8655319619291175901">ക്ഷമിക്കണം, എന്തോ കുഴപ്പം സംഭവിച്ചു.</translation>
 <translation id="8655972064210167941">നിങ്ങളുടെ പാസ്‌വേഡ് പരിശോധിച്ചുറപ്പിക്കാനാകാത്തതിനാൽ സൈൻ ഇൻ ചെയ്യുന്നതിന് പരാജയപ്പെട്ടു. അഡ്‌മിനിസ്‌ട്രേറ്ററെ ബന്ധപ്പെടുകയോ വീണ്ടും ശ്രമിക്കുകയോ ചെയ്യുക.</translation>
 <translation id="8656768832129462377">പരിശോധിക്കരുത്</translation>
 <translation id="8658645149275195032"><ph name="APP_NAME" />, <ph name="TAB_NAME" /> എന്നതുമായി നിങ്ങളുടെ സ്‌ക്രീനും ഓഡിയോയും പങ്കിടുന്നു.</translation>
@@ -6267,6 +6265,7 @@
 <translation id="885701979325669005">സംഭരണം</translation>
 <translation id="8859057652521303089">നിങ്ങളുടെ ഭാഷ തിരഞ്ഞെടുക്കുക :</translation>
 <translation id="8859174528519900719">സബ്ഫ്രെയിം: <ph name="SUBFRAME_SITE" /></translation>
+<translation id="8859402192569844210">സേവന നിബന്ധനകൾ ലോഡ് ചെയ്യാനായില്ല</translation>
 <translation id="8859662783913000679">രക്ഷാകർതൃ അക്കൗണ്ട്</translation>
 <translation id="8862003515646449717">ഒരു വേഗതയേറിയ ബ്രൗസറിലേക്ക് മാറുക</translation>
 <translation id="8863753581171631212">പുതിയ <ph name="APP" /> ആപ്പിൽ ലിങ്ക് തുറക്കുക</translation>

@@ -1318,7 +1318,6 @@
 <translation id="26224892172169984">Не дозволувај која било страница да управува со протоколи</translation>
 <translation id="262373406453641243">Colemak</translation>
 <translation id="2624142942574147739">Страницава пристапува до фотоапаратот и микрофонот.</translation>
-<translation id="2626799779920242286">Обидете се повторно подоцна.</translation>
 <translation id="2628770867680720336">Потребно е фабричко ресетирање на овој Chromebook за да се овозможи отстранување грешки на ADB. <ph name="BEGIN_LINK_LEARN_MORE" />Дознајте повеќе<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="2629227353894235473">Програмирање апликации за Android</translation>
 <translation id="2630681426381349926">Поврзете се на Wi-Fi за да започнете</translation>
@@ -6087,7 +6086,6 @@
 <translation id="8652400352452647993">Грешка на екстензијата на пакетот</translation>
 <translation id="8654151524613148204">Датотеката е премногу голема за вашиот компјутер да се справи со неа. Се извинуваме.</translation>
 <translation id="8655295600908251630">Канал</translation>
-<translation id="8655319619291175901">Упс, нешто не е во ред.</translation>
 <translation id="8655972064210167941">Најавувањето не успеа бидејќи не можеше да се потврди вашата лозинка. Контактирајте со администраторот или обидете се повторно.</translation>
 <translation id="8656768832129462377">Не проверувај</translation>
 <translation id="8658645149275195032"><ph name="APP_NAME" /> ги споделува вашиот екран и аудио со <ph name="TAB_NAME" />.</translation>
@@ -6270,6 +6268,7 @@
 <translation id="885701979325669005">Склад</translation>
 <translation id="8859057652521303089">Изберете го вашиот јазик:</translation>
 <translation id="8859174528519900719">Подрамка: <ph name="SUBFRAME_SITE" /></translation>
+<translation id="8859402192569844210">„Условите за користење“ не можеше да се вчитаат</translation>
 <translation id="8859662783913000679">Сметка на родител</translation>
 <translation id="8862003515646449717">Префрлете се на брз прелистувач</translation>
 <translation id="8863753581171631212">Отвори го линкот во нов прозорец на <ph name="APP" /></translation>

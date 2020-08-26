@@ -272,6 +272,7 @@ class CONTENT_EXPORT NavigationRequest
   const NavigationHandleTiming& GetNavigationHandleTiming() override;
   bool IsPost() override;
   const blink::mojom::Referrer& GetReferrer() override;
+  void SetReferrer(blink::mojom::ReferrerPtr referrer) override;
   bool HasUserGesture() override;
   ui::PageTransition GetPageTransition() override;
   NavigationUIData* GetNavigationUIData() override;

@@ -1314,7 +1314,6 @@
 <translation id="26224892172169984">कुनै पनि साइटलाई प्रोटोकलहरू ह्यान्डल गर्न अनुमति नदिनुहोस्</translation>
 <translation id="262373406453641243">Colemak</translation>
 <translation id="2624142942574147739">यो पृष्ठले तपाईंको क्यामेरा र माइक्रोफोनको पहुँच गरिरहेको छ।</translation>
-<translation id="2626799779920242286">कृपया पछि पुन: प्रयास गर्नुहोस्।</translation>
 <translation id="2628770867680720336">ADB डिबग प्रक्रिया सक्षम पार्न यो Chromebook को सेटिङ रिसेट गरी फ्याक्ट्री संस्करणमा लैजानु पर्ने हुन्छ। <ph name="BEGIN_LINK_LEARN_MORE" />थप जान्नुहोस्<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="2629227353894235473">Android एपहरू बनाउनुहोस्</translation>
 <translation id="2630681426381349926">सुरु गर्नको लागि Wi-Fi मा जडान गर्नुहोस्</translation>
@@ -6079,7 +6078,6 @@
 <translation id="8652400352452647993">प्याक विस्तारसम्बन्धी त्रुटि</translation>
 <translation id="8654151524613148204">यो फाइल तपाइँको कम्प्युटरलाई सञ्चालन गर्नको लागि अत्यन्त ठुलो छ। माफ गर्नुहोस्।</translation>
 <translation id="8655295600908251630">च्यानल</translation>
-<translation id="8655319619291175901">ओहो, केही गलत भयो।</translation>
 <translation id="8655972064210167941">साइन इन असफल भयो किनभने तपाईँको पासवर्ड प्रमाणित गर्न सकिएन। कृपया तपाईँको प्रशासकलाई सम्पर्क गर्नुहोस् वा फेरि प्रयास गर्नुहोस्।</translation>
 <translation id="8656768832129462377">जाँच नगर्नुहोस्</translation>
 <translation id="8658645149275195032"><ph name="APP_NAME" /> <ph name="TAB_NAME" /> सँग तपाईँको स्क्रिन र अडियोलाई साझेदारी गर्दैछ।</translation>
@@ -6262,6 +6260,7 @@
 <translation id="885701979325669005">भण्डारण</translation>
 <translation id="8859057652521303089">तपाइँको भाषा चयन गर्नुहोस्:</translation>
 <translation id="8859174528519900719">सबफ्रेम: <ph name="SUBFRAME_SITE" /></translation>
+<translation id="8859402192569844210">सेवाका सर्तहरू लोड गर्न सकिएन</translation>
 <translation id="8859662783913000679">अभिभावकको खाता</translation>
 <translation id="8862003515646449717">कुनै द्रुत ब्राउजरमा स्विच गर्नुहोस्</translation>
 <translation id="8863753581171631212">लिंकलाई नयाँ <ph name="APP" /> मा खोल्नुहोस्</translation>
