@@ -64,12 +64,17 @@ function registerElement(elementName, containerElementType) {
     GuestViewContainerElement.prototype.attributeChangedCallback =
         customElementCallbacks.attributeChangedCallback;
 
+    try {
     $CustomElementRegistry.define(
         window.customElements, $String.toLowerCase(elementName),
         containerElementType);
     $Object.defineProperty(window, elementName, {
       value: containerElementType,
     });
+    } catch (e) {
+       // GuestView is being registered in isolated world in
+       // content script sometimes //NWJS#7087
+    }
 
     delete GuestViewContainerElement.prototype.connectedCallback;
     delete GuestViewContainerElement.prototype.disconnectedCallback;
