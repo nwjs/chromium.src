@@ -49,7 +49,7 @@ namespace extensions {
 
 namespace {
 
-const char kUnpackedExtensionsBlacklistedError[] =
+const char kUnpackedExtensionsBlocklistedError[] =
     "Loading of unpacked extensions is disabled by the administrator.";
 
 const char kImportMinVersionNewer[] =
@@ -63,11 +63,11 @@ void MaybeCleanupMetadataFolder(const base::FilePath& extension_path) {
   const std::vector<base::FilePath> reserved_filepaths =
       file_util::GetReservedMetadataFilePaths(extension_path);
   for (const auto& file : reserved_filepaths)
-    base::DeleteFile(file, true /*recursive*/);
+    base::DeletePathRecursively(file);
 
   const base::FilePath& metadata_dir = extension_path.Append(kMetadataFolder);
   if (base::IsDirectoryEmpty(metadata_dir))
-    base::DeleteFileRecursively(metadata_dir);
+    base::DeletePathRecursively(metadata_dir);
 }
 
 }  // namespace
@@ -114,7 +114,7 @@ bool UnpackedInstaller::LoadFromCommandLine(const base::FilePath& path_in,
       base::MakeAbsoluteFilePath(path_util::ResolveHomeDirectory(path_in));
 #if 0
   if (!IsLoadingUnpackedAllowed()) {
-    ReportExtensionLoadError(kUnpackedExtensionsBlacklistedError);
+    ReportExtensionLoadError(kUnpackedExtensionsBlocklistedError);
     return false;
   }
 #endif
@@ -287,10 +287,11 @@ bool UnpackedInstaller::IndexAndPersistRulesIfNeeded(std::string* error) {
 bool UnpackedInstaller::IsLoadingUnpackedAllowed() const {
   if (!service_weak_.get())
     return true;
-  // If there is a "*" in the extension blacklist, then no extensions should be
+  // If there is a "*" in the extension blocklist, then no extensions should be
   // allowed at all (except explicitly whitelisted extensions).
   return !ExtensionManagementFactory::GetForBrowserContext(
-              service_weak_->profile())->BlacklistedByDefault();
+              service_weak_->profile())
+              ->BlocklistedByDefault();
 }
 
 void UnpackedInstaller::GetAbsolutePath() {
@@ -309,7 +310,7 @@ void UnpackedInstaller::CheckExtensionFileAccess() {
     return;
 
   if (!IsLoadingUnpackedAllowed()) {
-    ReportExtensionLoadError(kUnpackedExtensionsBlacklistedError);
+    ReportExtensionLoadError(kUnpackedExtensionsBlocklistedError);
     return;
   }
 

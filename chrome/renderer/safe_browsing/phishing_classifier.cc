@@ -11,6 +11,7 @@
 #include "base/callback.h"
 #include "base/compiler_specific.h"
 #include "base/location.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/single_thread_task_runner.h"
 #include "base/strings/string_util.h"
@@ -164,6 +165,8 @@ void PhishingClassifier::TermExtractionFinished(bool success) {
 }
 
 void PhishingClassifier::ExtractVisualFeatures() {
+  base::TimeTicks start_time = base::TimeTicks::Now();
+
   blink::WebLocalFrame* frame = render_frame_->GetWebFrame();
   gfx::SizeF viewport_size = frame->View()->VisualViewportSize();
   gfx::Rect bounds = ToEnclosingRect(gfx::RectF(viewport_size));
@@ -185,6 +188,8 @@ void PhishingClassifier::ExtractVisualFeatures() {
   cc_canvas.SetPaintPreviewTracker(tracker.get());
   VisualExtractionFinished(frame->CapturePaintPreview(
       bounds, &cc_canvas, /*include_linked_destinations=*/false));
+  base::UmaHistogramTimes("SBClientPhishing.VisualFeatureTime",
+                          base::TimeTicks::Now() - start_time);
 }
 
 void PhishingClassifier::VisualExtractionFinished(bool success) {
@@ -216,9 +221,12 @@ void PhishingClassifier::VisualExtractionFinished(bool success) {
   verdict.set_client_score(score);
   verdict.set_is_phishing(score >= scorer_->threshold_probability());
 
+  base::TimeTicks visual_matching_start = base::TimeTicks::Now();
   if (scorer_->GetMatchingVisualTargets(*bitmap_, &verdict)) {
     verdict.set_is_phishing(true);
   }
+  base::UmaHistogramTimes("SBClientPhishing.VisualComparisonTime",
+                          base::TimeTicks::Now() - visual_matching_start);
 
   RunCallback(verdict);
 }

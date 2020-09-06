@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/numerics/safe_conversions.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "build/build_config.h"
@@ -20,6 +21,7 @@
 #include "services/device/public/cpp/geolocation/geoposition.h"
 #include "services/device/public/mojom/geolocation_context.mojom.h"
 #include "services/device/public/mojom/geoposition.mojom.h"
+#include "third_party/blink/public/mojom/widget/screen_orientation.mojom.h"
 #include "ui/events/gesture_detection/gesture_provider_config_helper.h"
 
 namespace content {
@@ -27,17 +29,26 @@ namespace protocol {
 
 namespace {
 
-blink::WebScreenOrientationType WebScreenOrientationTypeFromString(
+blink::mojom::ScreenOrientation WebScreenOrientationTypeFromString(
     const std::string& type) {
   if (type == Emulation::ScreenOrientation::TypeEnum::PortraitPrimary)
-    return blink::kWebScreenOrientationPortraitPrimary;
+    return blink::mojom::ScreenOrientation::kPortraitPrimary;
   if (type == Emulation::ScreenOrientation::TypeEnum::PortraitSecondary)
-    return blink::kWebScreenOrientationPortraitSecondary;
+    return blink::mojom::ScreenOrientation::kPortraitSecondary;
   if (type == Emulation::ScreenOrientation::TypeEnum::LandscapePrimary)
-    return blink::kWebScreenOrientationLandscapePrimary;
+    return blink::mojom::ScreenOrientation::kLandscapePrimary;
   if (type == Emulation::ScreenOrientation::TypeEnum::LandscapeSecondary)
-    return blink::kWebScreenOrientationLandscapeSecondary;
-  return blink::kWebScreenOrientationUndefined;
+    return blink::mojom::ScreenOrientation::kLandscapeSecondary;
+  return blink::mojom::ScreenOrientation::kUndefined;
+}
+
+base::Optional<content::DisplayFeature::Orientation>
+DisplayFeatureOrientationTypeFromString(const std::string& type) {
+  if (type == Emulation::DisplayFeature::OrientationEnum::Vertical)
+    return content::DisplayFeature::Orientation::kVertical;
+  if (type == Emulation::DisplayFeature::OrientationEnum::Horizontal)
+    return content::DisplayFeature::Orientation::kHorizontal;
+  return base::nullopt;
 }
 
 ui::GestureProviderConfigType TouchEmulationConfigurationToType(
@@ -113,6 +124,27 @@ Response EmulationHandler::Disable() {
   return Response::Success();
 }
 
+Response EmulationHandler::SetIdleOverride(bool is_user_active,
+                                           bool is_screen_unlocked) {
+  if (!host_)
+    return Response::InternalError();
+  blink::mojom::UserIdleState user_state =
+      is_user_active ? blink::mojom::UserIdleState::kActive
+                     : blink::mojom::UserIdleState::kIdle;
+  blink::mojom::ScreenIdleState screen_idle_state =
+      is_screen_unlocked ? blink::mojom::ScreenIdleState::kUnlocked
+                         : blink::mojom::ScreenIdleState::kLocked;
+  host_->GetIdleManager()->SetIdleOverride(user_state, screen_idle_state);
+  return Response::Success();
+}
+
+Response EmulationHandler::ClearIdleOverride() {
+  if (!host_)
+    return Response::InternalError();
+  host_->GetIdleManager()->ClearIdleOverride();
+  return Response::Success();
+}
+
 Response EmulationHandler::SetGeolocationOverride(
     Maybe<double> latitude, Maybe<double> longitude, Maybe<double> accuracy) {
   if (!host_)
@@ -181,7 +213,8 @@ Response EmulationHandler::SetDeviceMetricsOverride(
     Maybe<int> position_y,
     Maybe<bool> dont_set_visible_size,
     Maybe<Emulation::ScreenOrientation> screen_orientation,
-    Maybe<protocol::Page::Viewport> viewport) {
+    Maybe<protocol::Page::Viewport> viewport,
+    Maybe<protocol::Emulation::DisplayFeature> displayFeature) {
   const static int max_size = 10000000;
   const static double max_scale = 10;
   const static int max_orientation_angle = 360;
@@ -217,14 +250,14 @@ Response EmulationHandler::SetDeviceMetricsOverride(
                                    base::NumberToString(max_scale));
   }
 
-  blink::WebScreenOrientationType orientationType =
-      blink::kWebScreenOrientationUndefined;
+  blink::mojom::ScreenOrientation orientationType =
+      blink::mojom::ScreenOrientation::kUndefined;
   int orientationAngle = 0;
   if (screen_orientation.isJust()) {
     Emulation::ScreenOrientation* orientation = screen_orientation.fromJust();
     orientationType = WebScreenOrientationTypeFromString(
         orientation->GetType());
-    if (orientationType == blink::kWebScreenOrientationUndefined)
+    if (orientationType == blink::mojom::ScreenOrientation::kUndefined)
       return Response::InvalidParams("Invalid screen orientation type value");
     orientationAngle = orientation->GetAngle();
     if (orientationAngle < 0 || orientationAngle >= max_orientation_angle) {
@@ -234,9 +267,44 @@ Response EmulationHandler::SetDeviceMetricsOverride(
     }
   }
 
-  blink::WebDeviceEmulationParams params;
-  params.screen_position = mobile ? blink::WebDeviceEmulationParams::kMobile
-                                  : blink::WebDeviceEmulationParams::kDesktop;
+  base::Optional<content::DisplayFeature> display_feature = base::nullopt;
+  if (displayFeature.isJust()) {
+    protocol::Emulation::DisplayFeature* emu_display_feature =
+        displayFeature.fromJust();
+    base::Optional<content::DisplayFeature::Orientation> disp_orientation =
+        DisplayFeatureOrientationTypeFromString(
+            emu_display_feature->GetOrientation());
+    if (!disp_orientation) {
+      return Response::InvalidParams(
+          "Invalid display feature orientation type");
+    }
+    content::DisplayFeature::ParamErrorEnum error;
+    display_feature = content::DisplayFeature::Create(
+        *disp_orientation, emu_display_feature->GetOffset(),
+        emu_display_feature->GetMaskLength(), width, height, &error);
+
+    if (!display_feature) {
+      switch (error) {
+        case content::DisplayFeature::ParamErrorEnum::
+            kDisplayFeatureWithZeroScreenSize:
+          return Response::InvalidParams(
+              "Cannot specify a display feature with zero width and height");
+        case content::DisplayFeature::ParamErrorEnum::
+            kNegativeDisplayFeatureParams:
+          return Response::InvalidParams("Negative display feature parameters");
+        case content::DisplayFeature::ParamErrorEnum::kOutsideScreenWidth:
+          return Response::InvalidParams(
+              "Display feature window segments outside screen width");
+        case content::DisplayFeature::ParamErrorEnum::kOutsideScreenHeight:
+          return Response::InvalidParams(
+              "Display feature window segments outside screen height");
+      }
+    }
+  }
+
+  blink::DeviceEmulationParams params;
+  params.screen_type = mobile ? blink::mojom::EmulatedScreenType::kMobile
+                              : blink::mojom::EmulatedScreenType::kDesktop;
   params.screen_size =
       blink::WebSize(screen_width.fromMaybe(0), screen_height.fromMaybe(0));
   if (position_x.isJust() && position_y.isJust()) {
@@ -249,22 +317,27 @@ Response EmulationHandler::SetDeviceMetricsOverride(
   params.screen_orientation_type = orientationType;
   params.screen_orientation_angle = orientationAngle;
 
+  if (display_feature) {
+    params.window_segments =
+        display_feature->ComputeWindowSegments(params.view_size);
+  }
+
   if (viewport.isJust()) {
     params.viewport_offset.SetPoint(viewport.fromJust()->GetX(),
                                     viewport.fromJust()->GetY());
 
-    ScreenInfo screen_info;
-    host_->GetRenderWidgetHost()->GetScreenInfo(&screen_info);
-    double dpfactor = device_scale_factor ? device_scale_factor /
-                                                screen_info.device_scale_factor
-                                          : 1;
+    double dpfactor =
+        device_scale_factor
+            ? device_scale_factor /
+                  host_->GetRenderWidgetHost()->GetDeviceScaleFactor()
+            : 1;
     params.viewport_scale = viewport.fromJust()->GetScale() * dpfactor;
 
     // Resize the RenderWidgetHostView to the size of the overridden viewport.
-    width = gfx::ToRoundedInt(viewport.fromJust()->GetWidth() *
+    width = base::ClampRound(viewport.fromJust()->GetWidth() *
+                             params.viewport_scale);
+    height = base::ClampRound(viewport.fromJust()->GetHeight() *
                               params.viewport_scale);
-    height = gfx::ToRoundedInt(viewport.fromJust()->GetHeight() *
-                               params.viewport_scale);
   }
 
   bool size_changed = false;
@@ -304,7 +377,7 @@ Response EmulationHandler::ClearDeviceMetricsOverride() {
     return Response::ServerError("Can't find the associated web contents");
   GetWebContents()->ClearDeviceEmulationSize();
   device_emulation_enabled_ = false;
-  device_emulation_params_ = blink::WebDeviceEmulationParams();
+  device_emulation_params_ = blink::DeviceEmulationParams();
   UpdateDeviceEmulationState();
   // Renderer should answer after emulation was disabled, so that the response
   // is only sent to the client once updates were applied.
@@ -407,13 +480,13 @@ Response EmulationHandler::SetFocusEmulationEnabled(bool enabled) {
   return Response::FallThrough();
 }
 
-blink::WebDeviceEmulationParams EmulationHandler::GetDeviceEmulationParams() {
+blink::DeviceEmulationParams EmulationHandler::GetDeviceEmulationParams() {
   return device_emulation_params_;
 }
 
 void EmulationHandler::SetDeviceEmulationParams(
-    const blink::WebDeviceEmulationParams& params) {
-  bool enabled = params != blink::WebDeviceEmulationParams();
+    const blink::DeviceEmulationParams& params) {
+  bool enabled = params != blink::DeviceEmulationParams();
   bool enable_changed = enabled != device_emulation_enabled_;
   bool params_changed = params != device_emulation_params_;
   if (!device_emulation_enabled_ && !enable_changed)
@@ -484,12 +557,13 @@ void EmulationHandler::UpdateDeviceEmulationState() {
 
 void EmulationHandler::UpdateDeviceEmulationStateForHost(
     RenderWidgetHostImpl* render_widget_host) {
+  auto& frame_widget = render_widget_host->GetAssociatedFrameWidget();
+  if (!frame_widget)
+    return;
   if (device_emulation_enabled_) {
-    render_widget_host->Send(new WidgetMsg_EnableDeviceEmulation(
-        render_widget_host->GetRoutingID(), device_emulation_params_));
+    frame_widget->EnableDeviceEmulation(device_emulation_params_);
   } else {
-    render_widget_host->Send(new WidgetMsg_DisableDeviceEmulation(
-        render_widget_host->GetRoutingID()));
+    frame_widget->DisableDeviceEmulation();
   }
 }
 

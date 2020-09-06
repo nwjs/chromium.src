@@ -4,6 +4,7 @@
 
 package org.chromium.weblayer_private;
 
+import android.app.Activity;
 import android.graphics.Bitmap;
 import android.graphics.RectF;
 import android.os.Build;
@@ -26,10 +27,12 @@ import org.chromium.base.annotations.JNINamespace;
 import org.chromium.base.annotations.NativeMethods;
 import org.chromium.components.autofill.AutofillActionModeCallback;
 import org.chromium.components.autofill.AutofillProvider;
+import org.chromium.components.browser_ui.display_cutout.DisplayCutoutController;
 import org.chromium.components.browser_ui.http_auth.LoginPrompt;
 import org.chromium.components.browser_ui.media.MediaSessionHelper;
 import org.chromium.components.browser_ui.util.BrowserControlsVisibilityDelegate;
 import org.chromium.components.browser_ui.util.ComposedBrowserControlsVisibilityDelegate;
+import org.chromium.components.browser_ui.widget.InsetObserverView;
 import org.chromium.components.embedder_support.contextmenu.ContextMenuParams;
 import org.chromium.components.external_intents.InterceptNavigationDelegateImpl;
 import org.chromium.components.find_in_page.FindInPageBridge;
@@ -51,8 +54,11 @@ import org.chromium.url.GURL;
 import org.chromium.weblayer_private.interfaces.APICallException;
 import org.chromium.weblayer_private.interfaces.IDownloadCallbackClient;
 import org.chromium.weblayer_private.interfaces.IErrorPageCallbackClient;
+import org.chromium.weblayer_private.interfaces.IFaviconFetcher;
+import org.chromium.weblayer_private.interfaces.IFaviconFetcherClient;
 import org.chromium.weblayer_private.interfaces.IFindInPageCallbackClient;
 import org.chromium.weblayer_private.interfaces.IFullscreenCallbackClient;
+import org.chromium.weblayer_private.interfaces.IGoogleAccountsCallbackClient;
 import org.chromium.weblayer_private.interfaces.IMediaCaptureCallbackClient;
 import org.chromium.weblayer_private.interfaces.INavigationControllerClient;
 import org.chromium.weblayer_private.interfaces.IObjectWrapper;
@@ -65,8 +71,10 @@ import org.chromium.weblayer_private.interfaces.StrictModeWorkaround;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Implementation of ITab.
@@ -86,6 +94,7 @@ public final class TabImpl extends ITab.Stub implements LoginPrompt.Observer {
     private ErrorPageCallbackProxy mErrorPageCallbackProxy;
     private FullscreenCallbackProxy mFullscreenCallbackProxy;
     private TabViewAndroidDelegate mViewAndroidDelegate;
+    private GoogleAccountsCallbackProxy mGoogleAccountsCallbackProxy;
     // BrowserImpl this TabImpl is in. This is only null during creation.
     private BrowserImpl mBrowser;
     private LoginPrompt mLoginPrompt;
@@ -115,10 +124,13 @@ public final class TabImpl extends ITab.Stub implements LoginPrompt.Observer {
     private InterceptNavigationDelegateImpl mInterceptNavigationDelegate;
     private InfoBarContainer mInfoBarContainer;
     private MediaSessionHelper mMediaSessionHelper;
+    private DisplayCutoutController mDisplayCutoutController;
 
     private boolean mPostContainerViewInitDone;
 
     private WebLayerAccessibilityUtil.Observer mAccessibilityObserver;
+
+    private Set<FaviconCallbackProxy> mFaviconCallbackProxies = new HashSet<>();
 
     private static class InternalAccessDelegateImpl
             implements ViewEventSink.InternalAccessDelegate {
@@ -240,6 +252,11 @@ public final class TabImpl extends ITab.Stub implements LoginPrompt.Observer {
                     hideFindInPageUiAndNotifyClient();
                 }
             }
+            @Override
+            public void viewportFitChanged(@WebContentsObserver.ViewportFitType int value) {
+                ensureDisplayCutoutController();
+                mDisplayCutoutController.setViewportFit(value);
+            }
         };
         mWebContents.addObserver(mWebContentsObserver);
 
@@ -253,7 +270,8 @@ public final class TabImpl extends ITab.Stub implements LoginPrompt.Observer {
             mBrowserControlsDelegates.add(delegate);
             mBrowserControlsVisibility.addDelegate(delegate);
         }
-        mConstraintsUpdatedCallback = (constraints) -> onBrowserControlsStateUpdated(constraints);
+        mConstraintsUpdatedCallback =
+                (constraint) -> onBrowserControlsConstraintUpdated(constraint);
         mBrowserControlsVisibility.addObserver(mConstraintsUpdatedCallback);
 
         mInterceptNavigationDelegateClient = new InterceptNavigationDelegateClientImpl(this);
@@ -309,7 +327,7 @@ public final class TabImpl extends ITab.Stub implements LoginPrompt.Observer {
         mWebContents.setTopLevelNativeWindow(mBrowser.getWindowAndroid());
         mViewAndroidDelegate.setContainerView(mBrowser.getViewAndroidDelegateContainerView());
         doInitAfterSettingContainerView();
-        updateWebContentsVisibility();
+        updateViewAttachedStateFromBrowser();
 
         boolean attached = (mBrowser.getContext() != null);
         mInterceptNavigationDelegateClient.onActivityAttachmentChanged(attached);
@@ -339,6 +357,11 @@ public final class TabImpl extends ITab.Stub implements LoginPrompt.Observer {
                         new AutofillActionModeCallback(mBrowser.getContext(), mAutofillProvider));
             }
         }
+    }
+
+    public void updateViewAttachedStateFromBrowser() {
+        updateWebContentsVisibility();
+        updateDisplayCutoutController();
     }
 
     public void onProvideAutofillVirtualStructure(ViewStructure structure, int flags) {
@@ -383,6 +406,7 @@ public final class TabImpl extends ITab.Stub implements LoginPrompt.Observer {
                 mNativeTab, topControlsContainerViewHandle, bottomControlsContainerViewHandle);
         mInfoBarContainer.onTabDidGainActive();
         updateWebContentsVisibility();
+        updateDisplayCutoutController();
     }
 
     /**
@@ -395,6 +419,7 @@ public final class TabImpl extends ITab.Stub implements LoginPrompt.Observer {
 
         hideFindInPageUiAndNotifyClient();
         updateWebContentsVisibility();
+        updateDisplayCutoutController();
 
         // This method is called as part of the final phase of TabImpl destruction, at which
         // point mInfoBarContainer has already been destroyed.
@@ -409,8 +434,9 @@ public final class TabImpl extends ITab.Stub implements LoginPrompt.Observer {
      * Returns whether this Tab is visible.
      */
     public boolean isVisible() {
-        return (mBrowser.getActiveTab() == this
-                && (mBrowser.isStarted() || mBrowser.isFragmentStoppedForConfigurationChange()));
+        return mBrowser.getActiveTab() == this
+                && (mBrowser.isStarted() || mBrowser.isFragmentStoppedForConfigurationChange())
+                && mBrowser.isViewAttachedToWindow();
     }
 
     private void updateWebContentsVisibility() {
@@ -421,6 +447,13 @@ public final class TabImpl extends ITab.Stub implements LoginPrompt.Observer {
         } else {
             if (webContentsVisible) mWebContents.onHide();
         }
+    }
+
+    private void updateDisplayCutoutController() {
+        if (mDisplayCutoutController == null) return;
+
+        mDisplayCutoutController.onActivityAttachmentChanged(mBrowser.getWindowAndroid());
+        mDisplayCutoutController.maybeUpdateLayout();
     }
 
     public void loadUrl(LoadUrlParams loadUrlParams) {
@@ -499,6 +532,33 @@ public final class TabImpl extends ITab.Stub implements LoginPrompt.Observer {
             mFullscreenCallbackProxy.destroy();
             mFullscreenCallbackProxy = null;
         }
+    }
+
+    @Override
+    public void setGoogleAccountsCallbackClient(IGoogleAccountsCallbackClient client) {
+        StrictModeWorkaround.apply();
+        if (client != null) {
+            if (mGoogleAccountsCallbackProxy == null) {
+                mGoogleAccountsCallbackProxy = new GoogleAccountsCallbackProxy(mNativeTab, client);
+            } else {
+                mGoogleAccountsCallbackProxy.setClient(client);
+            }
+        } else if (mGoogleAccountsCallbackProxy != null) {
+            mGoogleAccountsCallbackProxy.destroy();
+            mGoogleAccountsCallbackProxy = null;
+        }
+    }
+
+    @Override
+    public IFaviconFetcher createFaviconFetcher(IFaviconFetcherClient client) {
+        StrictModeWorkaround.apply();
+        FaviconCallbackProxy proxy = new FaviconCallbackProxy(this, mNativeTab, client);
+        mFaviconCallbackProxies.add(proxy);
+        return proxy;
+    }
+
+    public void removeFaviconCallbackProxy(FaviconCallbackProxy proxy) {
+        mFaviconCallbackProxies.remove(proxy);
     }
 
     @Override
@@ -814,6 +874,10 @@ public final class TabImpl extends ITab.Stub implements LoginPrompt.Observer {
             mNewTabCallbackProxy.destroy();
             mNewTabCallbackProxy = null;
         }
+        if (mGoogleAccountsCallbackProxy != null) {
+            mGoogleAccountsCallbackProxy.destroy();
+            mGoogleAccountsCallbackProxy = null;
+        }
 
         mInterceptNavigationDelegateClient.destroy();
         mInterceptNavigationDelegate = null;
@@ -823,6 +887,15 @@ public final class TabImpl extends ITab.Stub implements LoginPrompt.Observer {
 
         mMediaStreamManager.destroy();
         mMediaStreamManager = null;
+
+        // Destroying FaviconCallbackProxy removes from mFaviconCallbackProxies. Copy to avoid
+        // problems.
+        Set<FaviconCallbackProxy> faviconCallbackProxies = mFaviconCallbackProxies;
+        mFaviconCallbackProxies = new HashSet<>();
+        for (FaviconCallbackProxy proxy : faviconCallbackProxies) {
+            proxy.destroy();
+        }
+        assert mFaviconCallbackProxies.isEmpty();
 
         sTabMap.remove(mId);
 
@@ -850,6 +923,12 @@ public final class TabImpl extends ITab.Stub implements LoginPrompt.Observer {
     public void setBrowserControlsVisibilityConstraint(
             @ImplControlsVisibilityReason int reason, @BrowserControlsState int constraint) {
         mBrowserControlsDelegates.get(reason).set(constraint);
+    }
+
+    @BrowserControlsState
+    /* package */ int getBrowserControlsVisibilityConstraint(
+            @ImplControlsVisibilityReason int reason) {
+        return mBrowserControlsDelegates.get(reason).get();
     }
 
     @CalledByNative
@@ -884,7 +963,7 @@ public final class TabImpl extends ITab.Stub implements LoginPrompt.Observer {
 
         if (mBrowser.getActiveTab() != this) return;
 
-        onBrowserControlsStateUpdated(mBrowserControlsVisibility.get());
+        onBrowserControlsConstraintUpdated(mBrowserControlsVisibility.get());
     }
 
     @VisibleForTesting
@@ -892,22 +971,24 @@ public final class TabImpl extends ITab.Stub implements LoginPrompt.Observer {
         return mBrowserControlsVisibility.get() == BrowserControlsState.BOTH;
     }
 
-    private void onBrowserControlsStateUpdated(int state) {
+    private void onBrowserControlsConstraintUpdated(int constraint) {
         // If something has overridden the FIP's SHOWN constraint, cancel FIP. This causes FIP to
         // dismiss when entering fullscreen.
-        if (state != BrowserControlsState.SHOWN) {
+        if (constraint != BrowserControlsState.SHOWN) {
             hideFindInPageUiAndNotifyClient();
         }
 
-        // Don't animate when hiding the controls.
-        boolean animate = state != BrowserControlsState.HIDDEN;
+        // Don't animate when hiding the controls unless an animation was requested by
+        // BrowserControlsContainerView.
+        boolean animate = constraint != BrowserControlsState.HIDDEN
+                || mBrowser.getViewController().shouldAnimateBrowserControlsHeightChanges();
 
-        // If the renderer is not controlling the offsets (possiblye hung or crashed). Then this
+        // If the renderer is not controlling the offsets (possibly hung or crashed). Then this
         // needs to force the controls to show (because notification from the renderer will not
         // happen). For js dialogs, the renderer's update will come when the dialog is hidden, and
         // since that animates from 0 height, it causes a flicker since the override is already set
         // to fully show. Thus, disable animation.
-        if (state == BrowserControlsState.SHOWN && mBrowser != null
+        if (constraint == BrowserControlsState.SHOWN && mBrowser != null
                 && mBrowser.getActiveTab() == this
                 && !TabImplJni.get().isRendererControllingBrowserControlsOffsets(mNativeTab)) {
             mViewAndroidDelegate.setIgnoreRendererUpdates(true);
@@ -917,7 +998,35 @@ public final class TabImpl extends ITab.Stub implements LoginPrompt.Observer {
             mViewAndroidDelegate.setIgnoreRendererUpdates(false);
         }
 
-        TabImplJni.get().updateBrowserControlsState(mNativeTab, state, animate);
+        TabImplJni.get().updateBrowserControlsConstraint(mNativeTab, constraint, animate);
+    }
+
+    private void ensureDisplayCutoutController() {
+        if (mDisplayCutoutController != null) return;
+
+        mDisplayCutoutController =
+                new DisplayCutoutController(new DisplayCutoutController.Delegate() {
+                    @Override
+                    public Activity getAttachedActivity() {
+                        WindowAndroid window = mBrowser.getWindowAndroid();
+                        return window == null ? null : window.getActivity().get();
+                    }
+
+                    @Override
+                    public WebContents getWebContents() {
+                        return mWebContents;
+                    }
+
+                    @Override
+                    public InsetObserverView getInsetObserverView() {
+                        return mBrowser.getViewController().getInsetObserverView();
+                    }
+
+                    @Override
+                    public boolean isInteractable() {
+                        return isVisible();
+                    }
+                });
     }
 
     /**
@@ -946,7 +1055,8 @@ public final class TabImpl extends ITab.Stub implements LoginPrompt.Observer {
         WebContents getWebContents(long nativeTabImpl);
         void executeScript(long nativeTabImpl, String script, boolean useSeparateIsolate,
                 Callback<String> callback);
-        void updateBrowserControlsState(long nativeTabImpl, int newConstraint, boolean animate);
+        void updateBrowserControlsConstraint(
+                long nativeTabImpl, int newConstraint, boolean animate);
         String getGuid(long nativeTabImpl);
         void captureScreenShot(long nativeTabImpl, float scale,
                 ValueCallback<Pair<Bitmap, Integer>> valueCallback);

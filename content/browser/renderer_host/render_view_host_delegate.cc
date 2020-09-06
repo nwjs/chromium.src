@@ -41,6 +41,10 @@ FrameTree* RenderViewHostDelegate::GetFrameTree() {
   return nullptr;
 }
 
+bool RenderViewHostDelegate::IsWebPreferencesSet() const {
+  return false;
+}
+
 bool RenderViewHostDelegate::IsNeverComposited() {
   return false;
 }

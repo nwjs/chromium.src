@@ -191,6 +191,12 @@ enum SearchExtensionAction {
     // Chrome. This will leave a trace of this activity for re-prompting.
     LogLikelyInterestedDefaultBrowserUserActivity();
 
+    if (action == START_ACTION_OPEN_HTTP_FROM_OS ||
+        action == START_ACTION_OPEN_HTTPS_FROM_OS) {
+      [[NSUserDefaults standardUserDefaults] setObject:[NSDate date]
+                                                forKey:kLastHTTPURLOpenTime];
+    }
+
     if (!externalURL.is_valid())
       return nil;
     return [[ChromeAppStartupParameters alloc] initWithExternalURL:externalURL

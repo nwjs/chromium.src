@@ -22,7 +22,7 @@ import org.chromium.base.TimeUtils;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.NativeMethods;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.ChromeActivity;
+import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.compositor.bottombar.OverlayContentDelegate;
 import org.chromium.chrome.browser.compositor.bottombar.OverlayPanel.PanelState;
 import org.chromium.chrome.browser.compositor.bottombar.OverlayPanel.StateChangeReason;
@@ -49,6 +49,7 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabObserver;
 import org.chromium.chrome.browser.util.ChromeAccessibilityUtil;
+import org.chromium.components.browser_ui.widget.scrim.ScrimCoordinator;
 import org.chromium.components.external_intents.ExternalNavigationHandler;
 import org.chromium.components.external_intents.ExternalNavigationHandler.OverrideUrlLoadingResult;
 import org.chromium.components.external_intents.ExternalNavigationParams;
@@ -98,11 +99,6 @@ public class ContextualSearchManager
 
     private static final String INTENT_URL_PREFIX = "intent:";
 
-    // The animation duration of a URL being promoted to a tab when triggered by an
-    // intercept navigation. This is faster than the standard tab promotion animation
-    // so that it completes before the navigation.
-    private static final long INTERCEPT_NAVIGATION_PROMOTION_ANIMATION_DURATION_MS = 40;
-
     // We blacklist this URL because malformed URLs may bring up this page.
     private static final String BLACKLISTED_URL = ContentUrlConstants.ABOUT_BLANK_DISPLAY_URL;
 
@@ -138,6 +134,8 @@ public class ContextualSearchManager
     private final ContextualSearchInteractionRecorder mInteractionRecorder;
 
     private final ContextualSearchSelectionClient mContextualSearchSelectionClient;
+
+    private final ScrimCoordinator mScrimCoordinator;
 
     private ContextualSearchSelectionController mSelectionController;
     private ContextualSearchNetworkCommunicator mNetworkCommunicator;
@@ -226,11 +224,14 @@ public class ContextualSearchManager
      * @param activity The {@code ChromeActivity} in use.
      * @param tabPromotionDelegate The {@link ContextualSearchTabPromotionDelegate} that is
      *        responsible for building tabs from contextual search {@link WebContents}.
+     * @param scrimCoordinator A mechanism for showing and hiding the shared scrim.
      */
-    public ContextualSearchManager(
-            ChromeActivity activity, ContextualSearchTabPromotionDelegate tabPromotionDelegate) {
+    public ContextualSearchManager(ChromeActivity activity,
+            ContextualSearchTabPromotionDelegate tabPromotionDelegate,
+            ScrimCoordinator scrimCoordinator) {
         mActivity = activity;
         mTabPromotionDelegate = tabPromotionDelegate;
+        mScrimCoordinator = scrimCoordinator;
 
         final View controlContainer = mActivity.findViewById(R.id.control_container);
         mOnFocusChangeListener = new OnGlobalFocusChangeListener() {
@@ -1095,8 +1096,6 @@ public class ContextualSearchManager
                             .build();
             if (externalNavHandler.shouldOverrideUrlLoading(params)
                     != OverrideUrlLoadingResult.NO_OVERRIDE) {
-                mSearchPanel.maximizePanelThenPromoteToTab(StateChangeReason.TAB_PROMOTION,
-                        INTERCEPT_NAVIGATION_PROMOTION_ANIMATION_DURATION_MS);
                 return false;
             }
             return !navigationParams.isExternalProtocol;
@@ -1278,6 +1277,11 @@ public class ContextualSearchManager
         mInProductHelp.updateBubblePosition();
     }
 
+    @Override
+    public ScrimCoordinator getScrimCoordinator() {
+        return mScrimCoordinator;
+    }
+
     /** @return The {@link SelectionClient} used by Contextual Search. */
     SelectionClient getContextualSearchSelectionClient() {
         return mContextualSearchSelectionClient;
@@ -1442,7 +1446,7 @@ public class ContextualSearchManager
         if (!mPolicy.isTapSupported() && mPolicy.canResolveLongpress()) {
             // User tapped when Longpress is needed.  Convert location to screen coordinates, and
             // put up some in-product help.
-            int yOffset = (int) mActivity.getFullscreenManager().getTopVisibleContentOffset();
+            int yOffset = (int) mActivity.getBrowserControlsManager().getTopVisibleContentOffset();
             int parentScreenXy[] = new int[2];
             mParentView.getLocationInWindow(parentScreenXy);
             mInProductHelp.onNonTriggeringTap(Profile.getLastUsedRegularProfile(),
@@ -1605,7 +1609,7 @@ public class ContextualSearchManager
                     mContext.setResolveProperties(mPolicy.getHomeCountry(mActivity),
                             mPolicy.maySendBasePageUrl(), interaction.getEventId(),
                             interaction.getEncodedUserInteractions(), targetLanguage,
-                            fluentLanguages);
+                            fluentLanguages, mPolicy.doRelatedSearches());
                 }
                 WebContents webContents = getBaseWebContents();
                 if (webContents != null) {

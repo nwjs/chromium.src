@@ -23,6 +23,7 @@
 #include "components/zoom/page_zoom.h"
 #include "components/zoom/zoom_controller.h"
 #include "extensions/browser/app_window/app_delegate.h"
+#include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/image/image_skia_operations.h"
 #include "ui/gfx/skia_util.h"
 #include "ui/views/controls/webview/webview.h"
@@ -232,7 +233,7 @@ void ChromeNativeAppWindowViews::InitializeDefaultWindow(
   }
 }
 
-views::NonClientFrameView*
+std::unique_ptr<views::NonClientFrameView>
 ChromeNativeAppWindowViews::CreateStandardDesktopAppFrame() {
   return views::WidgetDelegateView::CreateNonClientFrameView(widget());
 }
@@ -270,7 +271,7 @@ gfx::ImageSkia ChromeNativeAppWindowViews::GetWindowAppIcon() {
   if (!icon_override.IsEmpty())
     return *icon_override.ToImageSkia();
   // Resulting icon is cached in aura::client::kAppIconKey window property.
-  const gfx::Image& custom_image = app_window()->custom_app_icon();
+  const gfx::Image& custom_image = GetCustomImage();
   if (app_window()->app_icon_url().is_valid() &&
       app_window()->show_in_shelf()) {
     EnsureAppIconCreated();
@@ -287,16 +288,16 @@ gfx::ImageSkia ChromeNativeAppWindowViews::GetWindowAppIcon() {
               base_image.AsImageSkia(), skia::ImageOperations::RESIZE_BEST,
               gfx::Size(large_icon_size, large_icon_size));
       return gfx::ImageSkiaOperations::CreateIconWithBadge(
-          resized_image, app_icon_->image_skia());
+          resized_image, GetAppIconImage().AsImageSkia());
     }
     return gfx::ImageSkiaOperations::CreateIconWithBadge(
-        base_image.AsImageSkia(), app_icon_->image_skia());
+        base_image.AsImageSkia(), GetAppIconImage().AsImageSkia());
   }
 
   if (!custom_image.IsEmpty())
     return *custom_image.ToImageSkia();
   EnsureAppIconCreated();
-  return app_icon_->image_skia();
+  return GetAppIconImage().AsImageSkia();
 }
 
 gfx::ImageSkia ChromeNativeAppWindowViews::GetWindowIcon() {
@@ -315,8 +316,8 @@ gfx::ImageSkia ChromeNativeAppWindowViews::GetWindowIcon() {
   return gfx::ImageSkia();
 }
 
-views::NonClientFrameView* ChromeNativeAppWindowViews::CreateNonClientFrameView(
-    views::Widget* widget) {
+std::unique_ptr<views::NonClientFrameView>
+ChromeNativeAppWindowViews::CreateNonClientFrameView(views::Widget* widget) {
   return (IsFrameless() || has_frame_color_) ?
       CreateNonStandardAppFrame() : CreateStandardDesktopAppFrame();
 }
@@ -439,6 +440,15 @@ void ChromeNativeAppWindowViews::InitializeWindow(
           Profile::FromBrowserContext(app_window->browser_context()),
           widget()->GetFocusManager(),
           extensions::ExtensionKeybindingRegistry::PLATFORM_APPS_ONLY, nullptr);
+}
+
+gfx::Image ChromeNativeAppWindowViews::GetCustomImage() {
+  return app_window()->custom_app_icon();
+}
+
+gfx::Image ChromeNativeAppWindowViews::GetAppIconImage() {
+  DCHECK(app_icon_);
+  return gfx::Image(app_icon_->image_skia());
 }
 
 void ChromeNativeAppWindowViews::EnsureAppIconCreated() {

@@ -274,23 +274,6 @@ void OnDownloadDialogClosed(
 }
 #endif  // defined(OS_ANDROID)
 
-void ConnectToQuarantineService(
-    mojo::PendingReceiver<quarantine::mojom::Quarantine> receiver) {
-#if defined(OS_WIN)
-  if (base::FeatureList::IsEnabled(quarantine::kOutOfProcessQuarantine)) {
-    content::ServiceProcessHost::Launch(
-        std::move(receiver),
-        content::ServiceProcessHost::Options()
-            .WithDisplayName("Quarantine Service")
-            .Pass());
-    return;
-  }
-#endif
-
-  mojo::MakeSelfOwnedReceiver(std::make_unique<quarantine::QuarantineImpl>(),
-                              std::move(receiver));
-}
-
 void OnCheckExistingDownloadPathDone(
     std::unique_ptr<DownloadTargetInfo> target_info,
     content::DownloadTargetCallback callback,
@@ -1342,7 +1325,7 @@ void ChromeDownloadManagerDelegate::OnDownloadTargetDetermined(
         target_info->is_filetype_handled_safely)
       DownloadItemModel(item).SetShouldPreferOpeningInBrowser(true);
 
-#if defined(OS_LINUX)
+#if defined(OS_LINUX) || defined(OS_CHROMEOS)
     if (item->GetOriginalMimeType() == "application/x-x509-user-cert")
       DownloadItemModel(item).SetShouldPreferOpeningInBrowser(true);
 #endif
@@ -1391,7 +1374,8 @@ void ChromeDownloadManagerDelegate::OnDownloadTargetDetermined(
 
 bool ChromeDownloadManagerDelegate::IsOpenInBrowserPreferreredForFile(
     const base::FilePath& path) {
-#if defined(OS_WIN) || defined(OS_LINUX) || defined(OS_MACOSX)
+#if defined(OS_WIN) || defined(OS_LINUX) || defined(OS_CHROMEOS) || \
+    defined(OS_MAC)
   if (path.MatchesExtension(FILE_PATH_LITERAL(".pdf"))) {
     return !download_prefs_->ShouldOpenPdfInSystemReader();
   }
@@ -1504,7 +1488,8 @@ void ChromeDownloadManagerDelegate::CheckDownloadAllowed(
 
 download::QuarantineConnectionCallback
 ChromeDownloadManagerDelegate::GetQuarantineConnectionCallback() {
-  return base::BindRepeating(&ConnectToQuarantineService);
+  return base::BindRepeating(
+      &ChromeDownloadManagerDelegate::ConnectToQuarantineService);
 }
 
 void ChromeDownloadManagerDelegate::OnCheckDownloadAllowedComplete(
@@ -1534,4 +1519,21 @@ const char ChromeDownloadManagerDelegate::SafeBrowsingState::
 base::WeakPtr<ChromeDownloadManagerDelegate>
 ChromeDownloadManagerDelegate::GetWeakPtr() {
   return weak_ptr_factory_.GetWeakPtr();
+}
+
+// static
+void ChromeDownloadManagerDelegate::ConnectToQuarantineService(
+    mojo::PendingReceiver<quarantine::mojom::Quarantine> receiver) {
+#if defined(OS_WIN)
+  if (base::FeatureList::IsEnabled(quarantine::kOutOfProcessQuarantine)) {
+    content::ServiceProcessHost::Launch(
+        std::move(receiver), content::ServiceProcessHost::Options()
+                                 .WithDisplayName("Quarantine Service")
+                                 .Pass());
+    return;
+  }
+#endif
+
+  mojo::MakeSelfOwnedReceiver(std::make_unique<quarantine::QuarantineImpl>(),
+                              std::move(receiver));
 }

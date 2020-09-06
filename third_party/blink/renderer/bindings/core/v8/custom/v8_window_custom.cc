@@ -66,12 +66,11 @@
 
 namespace blink {
 
-void V8Window::LocationAttributeGetterCustom(
-    const v8::PropertyCallbackInfo<v8::Value>& info) {
-  v8::Isolate* isolate = info.GetIsolate();
+template <typename CallbackInfo>
+static void LocationAttributeGet(const CallbackInfo& info) {
   v8::Local<v8::Object> holder = info.Holder();
-
   DOMWindow* window = V8Window::ToImpl(holder);
+  window->ReportCoopAccess("location");
   Location* location = window->location();
   DCHECK(location);
 
@@ -79,6 +78,7 @@ void V8Window::LocationAttributeGetterCustom(
   if (DOMDataStore::SetReturnValue(info.GetReturnValue(), location))
     return;
 
+  v8::Isolate* isolate = info.GetIsolate();
   v8::Local<v8::Value> wrapper;
 
   // Note that this check is gated on whether or not |window| is remote, not
@@ -103,7 +103,21 @@ void V8Window::LocationAttributeGetterCustom(
   V8SetReturnValue(info, wrapper);
 }
 
-void V8Window::ParentAttributeGetterCustom(const v8::PropertyCallbackInfo<v8::Value>& info)
+#if defined(USE_BLINK_V8_BINDING_NEW_IDL_INTERFACE)
+void V8Window::LocationAttributeGetterCustom(
+    const v8::FunctionCallbackInfo<v8::Value>& info) {
+  LocationAttributeGet(info);
+}
+#endif  // USE_BLINK_V8_BINDING_NEW_IDL_INTERFACE
+
+void V8Window::LocationAttributeGetterCustom(
+    const v8::PropertyCallbackInfo<v8::Value>& info) {
+  LocationAttributeGet(info);
+}
+
+
+template <typename CallbackInfo>
+static void ParentAttributeGet(const CallbackInfo& info)
 {
   LocalDOMWindow* imp = To<LocalDOMWindow>(V8Window::ToImpl(info.Holder()));
   LocalFrame* frame = imp->GetFrame();
@@ -114,7 +128,8 @@ void V8Window::ParentAttributeGetterCustom(const v8::PropertyCallbackInfo<v8::Va
   V8SetReturnValue(info, ToV8(imp->parent(), info.Holder(), info.GetIsolate()));
 }
 
-void V8Window::TopAttributeGetterCustom(const v8::PropertyCallbackInfo<v8::Value>& info)
+template <typename CallbackInfo>
+static void TopAttributeGet(const CallbackInfo& info)
 {
   LocalDOMWindow* imp = To<LocalDOMWindow>(V8Window::ToImpl(info.Holder()));
   LocalFrame* frame = imp->GetFrame();
@@ -132,6 +147,31 @@ void V8Window::TopAttributeGetterCustom(const v8::PropertyCallbackInfo<v8::Value
   }
   V8SetReturnValue(info, ToV8(imp->top(), info.Holder(), info.GetIsolate()));
 }
+
+#if defined(USE_BLINK_V8_BINDING_NEW_IDL_INTERFACE)
+void V8Window::ParentAttributeGetterCustom(
+    const v8::FunctionCallbackInfo<v8::Value>& info) {
+  ParentAttributeGet(info);
+}
+#endif  // USE_BLINK_V8_BINDING_NEW_IDL_INTERFACE
+
+void V8Window::ParentAttributeGetterCustom(
+    const v8::PropertyCallbackInfo<v8::Value>& info) {
+  ParentAttributeGet(info);
+}
+
+#if defined(USE_BLINK_V8_BINDING_NEW_IDL_INTERFACE)
+void V8Window::TopAttributeGetterCustom(
+    const v8::FunctionCallbackInfo<v8::Value>& info) {
+  ParentAttributeGet(info);
+}
+#endif  // USE_BLINK_V8_BINDING_NEW_IDL_INTERFACE
+
+void V8Window::TopAttributeGetterCustom(
+    const v8::PropertyCallbackInfo<v8::Value>& info) {
+  ParentAttributeGet(info);
+}
+
 
 void V8Window::FrameElementAttributeGetterCustom(
     const v8::FunctionCallbackInfo<v8::Value>& info) {
@@ -163,11 +203,11 @@ void V8Window::FrameElementAttributeGetterCustom(
   V8SetReturnValue(info, wrapper);
 }
 
-void V8Window::OpenerAttributeSetterCustom(
-    v8::Local<v8::Value> value,
-    const v8::PropertyCallbackInfo<void>& info) {
-  v8::Isolate* isolate = info.GetIsolate();
+template <typename CallbackInfo>
+static void OpenerAttributeSet(v8::Local<v8::Value> value,
+                               const CallbackInfo& info) {
   DOMWindow* impl = V8Window::ToImpl(info.Holder());
+  impl->ReportCoopAccess("opener");
   if (!impl->GetFrame())
     return;
 
@@ -181,6 +221,7 @@ void V8Window::OpenerAttributeSetterCustom(
     To<LocalFrame>(impl->GetFrame())->Loader().SetOpener(nullptr);
   }
 
+  v8::Isolate* isolate = info.GetIsolate();
   // Delete the accessor from the inner object.
   if (info.Holder()
           ->Delete(isolate->GetCurrentContext(),
@@ -197,6 +238,20 @@ void V8Window::OpenerAttributeSetterCustom(
                   V8AtomicString(isolate, "opener"), value);
     ALLOW_UNUSED_LOCAL(unused);
   }
+}
+
+#if defined(USE_BLINK_V8_BINDING_NEW_IDL_INTERFACE)
+void V8Window::OpenerAttributeSetterCustom(
+    v8::Local<v8::Value> value,
+    const v8::FunctionCallbackInfo<v8::Value>& info) {
+  OpenerAttributeSet(value, info);
+}
+#endif  // USE_BLINK_V8_BINDING_NEW_IDL_INTERFACE
+
+void V8Window::OpenerAttributeSetterCustom(
+    v8::Local<v8::Value> value,
+    const v8::PropertyCallbackInfo<void>& info) {
+  OpenerAttributeSet(value, info);
 }
 
 void V8Window::NamedPropertyGetterCustom(
@@ -220,6 +275,7 @@ void V8Window::NamedPropertyGetterCustom(
   // https://html.spec.whatwg.org/C/#document-tree-child-browsing-context-name-property-set
   Frame* child = frame->Tree().ScopedChild(name);
   if (child) {
+    window->ReportCoopAccess("named");
     UseCounter::Count(CurrentExecutionContext(info.GetIsolate()),
                       WebFeature::kNamedAccessOnWindow_ChildBrowsingContext);
 
@@ -280,6 +336,7 @@ void V8Window::NamedPropertyGetterCustom(
 
   if (!has_named_item && !has_id_item)
     return;
+  window->ReportCoopAccess("named");
 
   if (!has_named_item && has_id_item &&
       !doc->ContainsMultipleElementsWithId(name)) {

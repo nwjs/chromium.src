@@ -81,16 +81,13 @@ class AudioBufferSourceHandler final : public AudioScheduledSourceHandler {
   // specification, the proper attribute name is |.loop|. The old attribute is
   // kept for backwards compatibility.
   bool Loop() const { return is_looping_; }
-  void SetLoop(bool looping) {
-    is_looping_ = looping;
-    SetDidSetLooping(looping);
-  }
+  void SetLoop(bool looping);
 
   // Loop times in seconds.
   double LoopStart() const { return loop_start_; }
   double LoopEnd() const { return loop_end_; }
-  void SetLoopStart(double loop_start) { loop_start_ = loop_start; }
-  void SetLoopEnd(double loop_end) { loop_end_ = loop_end; }
+  void SetLoopStart(double loop_start);
+  void SetLoopEnd(double loop_end);
 
   // If we are no longer playing, propogate silence ahead to downstream nodes.
   bool PropagatesSilence() const override;
@@ -128,6 +125,62 @@ class AudioBufferSourceHandler final : public AudioScheduledSourceHandler {
                         uint32_t number_of_frames,
                         double start_time_offset);
 
+  // Structure for passing in information needed to compute indices for
+  // interpolation.
+  struct InterpolationInfo {
+    unsigned* read0;
+    unsigned* read1;
+    float* interp_factor;
+  };
+
+  // Structure for passing information about the virtual read index needed for
+  // computing indices.
+  struct IndicesInfo {
+    double virtual_read_index;
+    double computed_playback_rate;
+    double virtual_delta_frames;
+    double virtual_end_frame;
+  };
+
+  // Handles the general case of rendering from a buffer where the playback rate
+  // is not 1 or other situations where interpolation is required.
+  double RenderFromBufferKernel(unsigned write_index,
+                                int frames_to_process,
+                                double virtual_read_index,
+                                double virtual_end_frame,
+                                double virtual_delta_frames,
+                                double computed_playback_rate,
+                                uint32_t buffer_length,
+                                AudioBus* bus);
+
+  // Helper routines for RenderFromBufferKernel that don't need access to any
+  // internals.
+
+  // ComputeIndices computes the indices needed for
+  // interpolation/extrapolation.  Returns three values:
+  //
+  //   1: the updated virtual_read_index
+  //
+  //   2: how many frames were processed (possibly less trhan frames_to_process
+  //      because the buffer end was reached)
+  //   3: a boolean indicating if we did reach the end of the buffer.
+  inline std::tuple<double, int, bool> ComputeIndices(
+      const struct InterpolationInfo& interp_info,
+      const struct IndicesInfo& indices_info,
+      int frames_to_process,
+      uint32_t buffer_length,
+      bool is_looping) const;
+
+  // ComputeOutput takes the indices from ComputeIndices and performs
+  // interpolates/extrapolates the data to produce the desired output.  Returns
+  // the update write index where the next output should be written to.
+  inline unsigned ComputeOutput(float** destination_channels,
+                                const float** source_channels,
+                                const struct InterpolationInfo& interp_info,
+                                int frames_processed,
+                                unsigned write_index,
+                                unsigned number_of_channels) const;
+
   // Render silence starting from "index" frame in AudioBus.
   inline bool RenderSilenceAndFinishIfNotLooping(AudioBus*,
                                                  unsigned index,
@@ -147,23 +200,26 @@ class AudioBufferSourceHandler final : public AudioScheduledSourceHandler {
   scoped_refptr<AudioParamHandler> playback_rate_;
   scoped_refptr<AudioParamHandler> detune_;
 
-  bool DidSetLooping() const {
-    return did_set_looping_.load(std::memory_order_acquire);
-  }
+  bool DidSetLooping() const { return did_set_looping_; }
   void SetDidSetLooping(bool loop) {
     if (loop)
-      did_set_looping_.store(true, std::memory_order_release);
+      did_set_looping_ = true;
   }
 
   // If m_isLooping is false, then this node will be done playing and become
   // inactive after it reaches the end of the sample data in the buffer.  If
   // true, it will wrap around to the start of the buffer each time it reaches
   // the end.
+  //
+  // A process lock must be used to protect access.
   bool is_looping_;
 
   // True if the source .loop attribute was ever set.
-  std::atomic_bool did_set_looping_;
+  // A process lock must be used to protect access.
+  bool did_set_looping_;
 
+  // A process lock must be used to protect access to both |loop_start_| and
+  // |loop_end_|.
   double loop_start_;
   double loop_end_;
 

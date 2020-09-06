@@ -7,7 +7,6 @@ package org.chromium.chrome.browser.compositor.layouts;
 import android.content.Context;
 import android.graphics.PointF;
 import android.graphics.RectF;
-import android.os.Handler;
 import android.os.SystemClock;
 import android.util.SparseArray;
 import android.view.MotionEvent;
@@ -18,6 +17,9 @@ import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ObserverList;
 import org.chromium.base.TraceEvent;
+import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.Supplier;
+import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsUtils;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsVisibilityManager;
 import org.chromium.chrome.browser.compositor.LayerTitleCache;
@@ -32,10 +34,11 @@ import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.compositor.layouts.eventfilter.EdgeSwipeHandler;
 import org.chromium.chrome.browser.compositor.layouts.eventfilter.EventFilter;
 import org.chromium.chrome.browser.compositor.overlays.SceneOverlay;
+import org.chromium.chrome.browser.compositor.overlays.toolbar.TopToolbarOverlayCoordinator;
 import org.chromium.chrome.browser.compositor.scene_layer.SceneLayer;
-import org.chromium.chrome.browser.compositor.scene_layer.ToolbarSceneLayer;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchManagementDelegate;
-import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
+import org.chromium.chrome.browser.device.DeviceClassManager;
+import org.chromium.chrome.browser.fullscreen.BrowserControlsManager;
 import org.chromium.chrome.browser.native_page.NativePageFactory;
 import org.chromium.chrome.browser.tab.SadTab;
 import org.chromium.chrome.browser.tab.Tab;
@@ -80,6 +83,12 @@ public class LayoutManager implements LayoutUpdateHost, LayoutProvider,
     /** The {@link LayoutManagerHost}, who is responsible for showing the active {@link Layout}. */
     protected final LayoutManagerHost mHost;
 
+    /**
+     * A means of notifying features that the browser controls' android view is being forced to
+     * hide.
+     */
+    private final ObservableSupplierImpl<Boolean> mAndroidViewShownSupplier;
+
     /** The last X coordinate of the last {@link MotionEvent#ACTION_DOWN} event. */
     protected int mLastTapX;
 
@@ -90,6 +99,8 @@ public class LayoutManager implements LayoutUpdateHost, LayoutProvider,
     /** A {@link Layout} used for showing a normal web page. */
     protected final StaticLayout mStaticLayout;
 
+    private final ViewGroup mContentContainer;
+
     // External Dependencies
     private TabModelSelector mTabModelSelector;
 
@@ -98,8 +109,6 @@ public class LayoutManager implements LayoutUpdateHost, LayoutProvider,
 
     // An observer for watching TabModelFilters changes events.
     private TabModelObserver mTabModelFilterObserver;
-
-    private ViewGroup mContentContainer;
 
     // External Observers
     private final ObserverList<SceneChangeObserver> mSceneChangeObservers = new ObserverList<>();
@@ -118,8 +127,9 @@ public class LayoutManager implements LayoutUpdateHost, LayoutProvider,
     private boolean mUpdateRequested;
     private ContextualSearchPanel mContextualSearchPanel;
     private final OverlayPanelManager mOverlayPanelManager;
-    private ToolbarSceneLayer mToolbarOverlay;
+    private TopToolbarOverlayCoordinator mToolbarOverlay;
     private SceneOverlay mStatusIndicatorSceneOverlay;
+    private SceneOverlay mGestureNavigationOverscrollGlow;
 
     /** A delegate for interacting with the Contextual Search manager. */
     protected ContextualSearchManagementDelegate mContextualSearchDelegate;
@@ -148,7 +158,15 @@ public class LayoutManager implements LayoutUpdateHost, LayoutProvider,
      * TabModelObserver#didCloseTab is triggered for Toolbar overlay to have a chance
      * to retrieve the right textbox color from it.
      */
-    private Tab mCurrentTab;
+    private ObservableSupplierImpl<Tab> mCurrentTabSupplier;
+
+    private final ObservableSupplierImpl<TabModelSelector> mTabModelSelectorSupplier =
+            new ObservableSupplierImpl<>();
+    private final ObservableSupplierImpl<TabContentManager> mTabContentManagerSupplier =
+            new ObservableSupplierImpl<>();
+    private final ObservableSupplierImpl<BrowserControlsStateProvider>
+            mBrowserControlsStateProviderSupplier = new ObservableSupplierImpl<>();
+    private final CompositorModelChangeProcessor.FrameRequestSupplier mFrameRequestSupplier;
 
     /**
      * Protected class to handle {@link TabModelObserver} related tasks. Extending classes will
@@ -161,7 +179,7 @@ public class LayoutManager implements LayoutUpdateHost, LayoutProvider,
             } else if (tab.getId() != lastId) {
                 tabSelected(tab.getId(), lastId, tab.isIncognito());
             }
-            mCurrentTab = tab;
+            mCurrentTabSupplier.set(tab);
         }
 
         @Override
@@ -204,8 +222,8 @@ public class LayoutManager implements LayoutUpdateHost, LayoutProvider,
         @Override
         public void didCloseTab(int tabId, boolean incognito) {
             tabClosed(tabId, incognito, false);
-            mCurrentTab =
-                    getTabModelSelector() != null ? getTabModelSelector().getCurrentTab() : null;
+            mCurrentTabSupplier.set(
+                    getTabModelSelector() != null ? getTabModelSelector().getCurrentTab() : null);
         }
 
         @Override
@@ -227,20 +245,32 @@ public class LayoutManager implements LayoutUpdateHost, LayoutProvider,
     /**
      * Creates a {@link LayoutManager} instance.
      * @param host A {@link LayoutManagerHost} instance.
+     * @param contentContainer A {@link ViewGroup} for Android views to be bound to.
      */
-    public LayoutManager(LayoutManagerHost host) {
+    public LayoutManager(LayoutManagerHost host, ViewGroup contentContainer) {
         mHost = host;
         mPxToDp = 1.f / mHost.getContext().getResources().getDisplayMetrics().density;
+        mAndroidViewShownSupplier = new ObservableSupplierImpl<>();
+        mAndroidViewShownSupplier.set(true);
+        mCurrentTabSupplier = new ObservableSupplierImpl<>();
 
         mContext = host.getContext();
         LayoutRenderHost renderHost = host.getLayoutRenderHost();
+
+        assert contentContainer != null;
+        mContentContainer = contentContainer;
 
         mAnimationHandler = new CompositorAnimationHandler(this);
 
         mOverlayPanelManager = new OverlayPanelManager();
 
+        mFrameRequestSupplier = new CompositorModelChangeProcessor.FrameRequestSupplier(this);
+
+        // TODO(crbug.com/1070281): Move this to #init.
         // Build Layouts
-        mStaticLayout = new StaticLayout(mContext, this, renderHost, null, mOverlayPanelManager);
+        mStaticLayout = new StaticLayout(mContext, this, renderHost, mHost, mFrameRequestSupplier,
+                mTabModelSelectorSupplier, mTabContentManagerSupplier,
+                mBrowserControlsStateProviderSupplier);
 
         // Set up layout parameters
         mStaticLayout.setLayoutHandlesTabLifecycles(true);
@@ -359,18 +389,25 @@ public class LayoutManager implements LayoutUpdateHost, LayoutProvider,
      */
     @VisibleForTesting
     boolean onUpdate(long timeMs, long dtMs) {
-        if (!mUpdateRequested) return false;
+        if (!mUpdateRequested) {
+            mFrameRequestSupplier.set(timeMs);
+            return false;
+        }
         mUpdateRequested = false;
 
         // TODO(mdjones): Remove the time related params from this method. The new animation system
         // has its own timer.
         boolean areAnimatorsComplete = mAnimationHandler.pushUpdate();
 
+        // TODO(crbug.com/1070281): Remove after the FrameRequestSupplier migrates to the animation
+        //  system.
         final Layout layout = getActiveLayout();
         if (layout != null && layout.onUpdate(timeMs, dtMs) && layout.isHiding()
                 && areAnimatorsComplete) {
             layout.doneHiding();
         }
+
+        mFrameRequestSupplier.set(timeMs);
         return mUpdateRequested;
     }
 
@@ -379,19 +416,28 @@ public class LayoutManager implements LayoutUpdateHost, LayoutProvider,
      * @param selector                 A {@link TabModelSelector} instance.
      * @param creator                  A {@link TabCreatorManager} instance.
      * @param content                  A {@link TabContentManager} instance.
-     * @param androidContentContainer  A {@link ViewGroup} for Android views to be bound to.
      * @param controlContainer         A {@link ControlContainer} for browser controls' layout.
      * @param contextualSearchDelegate A {@link ContextualSearchManagementDelegate} instance.
      * @param dynamicResourceLoader    A {@link DynamicResourceLoader} instance.
      */
     public void init(TabModelSelector selector, TabCreatorManager creator,
-            TabContentManager content, ViewGroup androidContentContainer,
-            ControlContainer controlContainer,
+            TabContentManager content, ControlContainer controlContainer,
             ContextualSearchManagementDelegate contextualSearchDelegate,
             DynamicResourceLoader dynamicResourceLoader) {
         LayoutRenderHost renderHost = mHost.getLayoutRenderHost();
-        mToolbarOverlay = new ToolbarSceneLayer(
-                mContext, this, renderHost, controlContainer, () -> mCurrentTab);
+        mCurrentTabSupplier.set(selector.getCurrentTab());
+
+        // If fullscreen is disabled, don't bother creating this overlay; only the android view will
+        // ever be shown.
+        if (DeviceClassManager.enableFullscreen()) {
+            Supplier<Integer> viewportModeSupplier = ()
+                    -> getActiveLayout() != null ? getActiveLayout().getViewportMode()
+                                                 : Layout.ViewportMode.ALWAYS_FULLSCREEN;
+            mToolbarOverlay = new TopToolbarOverlayCoordinator(mContext, mFrameRequestSupplier,
+                    this, controlContainer, mCurrentTabSupplier, getBrowserControlsManager(),
+                    viewportModeSupplier, mAndroidViewShownSupplier,
+                    () -> renderHost.getResourceManager());
+        }
 
         // Initialize Layouts
         mStaticLayout.onFinishNativeInitialization();
@@ -407,6 +453,8 @@ public class LayoutManager implements LayoutUpdateHost, LayoutProvider,
 
         // Initialize Layouts
         mStaticLayout.setTabModelSelector(selector, content);
+        mTabContentManagerSupplier.set(content);
+        mBrowserControlsStateProviderSupplier.set(mHost.getBrowserControlsManager());
 
         // Initialize Contextual Search Panel
         mContextualSearchPanel.setManagementDelegate(contextualSearchDelegate);
@@ -418,18 +466,17 @@ public class LayoutManager implements LayoutUpdateHost, LayoutProvider,
 
         // Set the dynamic resource loader for all overlay panels.
         mOverlayPanelManager.setDynamicResourceLoader(dynamicResourceLoader);
-        mOverlayPanelManager.setContainerView(androidContentContainer);
+        mOverlayPanelManager.setContainerView(mContentContainer);
 
         if (mTabModelSelector != selector) {
             setTabModelSelector(selector);
         }
-
-        mContentContainer = androidContentContainer;
     }
 
     public void setTabModelSelector(TabModelSelector selector) {
         mTabModelSelector = selector;
-        mStaticLayout.setTabModelSelector(selector, null);
+        mTabModelSelectorSupplier.set(selector);
+        mCurrentTabSupplier.set(selector.getCurrentTab());
         mTabModelSelectorTabObserver = new TabModelSelectorTabObserver(mTabModelSelector) {
             @Override
             public void onShown(Tab tab, @TabSelectionType int type) {
@@ -459,8 +506,6 @@ public class LayoutManager implements LayoutUpdateHost, LayoutProvider,
 
         if (mNextActiveLayout != null) startShowing(mNextActiveLayout, true);
 
-        updateLayoutForTabModelSelector();
-
         mTabModelSelectorObserver = new EmptyTabModelSelectorObserver() {
             @Override
             public void onTabModelSelected(TabModel newModel, TabModel oldModel) {
@@ -479,6 +524,7 @@ public class LayoutManager implements LayoutUpdateHost, LayoutProvider,
      * Cleans up and destroys this object.  It should not be used after this.
      */
     public void destroy() {
+        if (mToolbarOverlay != null) mToolbarOverlay.destroy();
         mAnimationHandler.destroy();
         mSceneChangeObservers.clear();
         if (mStaticLayout != null) mStaticLayout.destroy();
@@ -491,7 +537,7 @@ public class LayoutManager implements LayoutUpdateHost, LayoutProvider,
             getTabModelSelector().getTabModelFilterProvider().removeTabModelFilterObserver(
                     mTabModelFilterObserver);
         }
-        mCurrentTab = null;
+        mCurrentTabSupplier.set(null);
     }
 
     /**
@@ -511,23 +557,26 @@ public class LayoutManager implements LayoutUpdateHost, LayoutProvider,
     @Override
     public SceneLayer getUpdatedActiveSceneLayer(LayerTitleCache layerTitleCache,
             TabContentManager tabContentManager, ResourceManager resourceManager,
-            ChromeFullscreenManager fullscreenManager) {
-        updateControlsHidingState(fullscreenManager);
+            BrowserControlsManager browserControlsManager) {
+        updateControlsHidingState(browserControlsManager);
         getViewportPixel(mCachedVisibleViewport);
         mHost.getWindowViewport(mCachedWindowViewport);
         return mActiveLayout.getUpdatedSceneLayer(mCachedWindowViewport, mCachedVisibleViewport,
-                layerTitleCache, tabContentManager, resourceManager, fullscreenManager);
+                layerTitleCache, tabContentManager, resourceManager, browserControlsManager);
     }
 
-    private void updateControlsHidingState(ChromeFullscreenManager fullscreenManager) {
-        if (fullscreenManager == null) {
+    private void updateControlsHidingState(
+            BrowserControlsVisibilityManager controlsVisibilityManager) {
+        if (controlsVisibilityManager == null) {
             return;
         }
         if (mActiveLayout.forceHideBrowserControlsAndroidView()) {
-            mControlsHidingToken =
-                    fullscreenManager.hideAndroidControlsAndClearOldToken(mControlsHidingToken);
+            mControlsHidingToken = controlsVisibilityManager.hideAndroidControlsAndClearOldToken(
+                    mControlsHidingToken);
+            mAndroidViewShownSupplier.set(false);
         } else {
-            fullscreenManager.releaseAndroidControlsHidingToken(mControlsHidingToken);
+            controlsVisibilityManager.releaseAndroidControlsHidingToken(mControlsHidingToken);
+            mAndroidViewShownSupplier.set(true);
         }
     }
 
@@ -761,8 +810,8 @@ public class LayoutManager implements LayoutUpdateHost, LayoutProvider,
     }
 
     @Override
-    public ChromeFullscreenManager getFullscreenManager() {
-        return mHost != null ? mHost.getFullscreenManager() : null;
+    public BrowserControlsManager getBrowserControlsManager() {
+        return mHost != null ? mHost.getBrowserControlsManager() : null;
     }
 
     @Override
@@ -819,17 +868,13 @@ public class LayoutManager implements LayoutUpdateHost, LayoutProvider,
                 oldLayout.forceAnimationToFinish();
                 oldLayout.detachViews();
             }
-            // TODO(fhorschig): This might be removed as soon as keyboard replacements get triggered
-            // by the normal keyboard hiding signals.
-            for (SceneChangeObserver observer : mSceneChangeObservers) {
-                observer.onSceneStartShowing(layout);
-            }
             layout.contextChanged(mHost.getContext());
             layout.attachViews(mContentContainer);
             mActiveLayout = layout;
         }
 
-        BrowserControlsVisibilityManager controlsVisibilityManager = mHost.getFullscreenManager();
+        BrowserControlsVisibilityManager controlsVisibilityManager =
+                mHost.getBrowserControlsManager();
         if (controlsVisibilityManager != null) {
             mPreviousLayoutShowingToolbar =
                     !BrowserControlsUtils.areBrowserControlsOffScreen(controlsVisibilityManager);
@@ -937,6 +982,15 @@ public class LayoutManager implements LayoutUpdateHost, LayoutProvider,
     }
 
     /**
+     * Add a {@link SceneOverlay} to the front of the list. This means the overlay will be drawn
+     * last and therefore above all other overlays currently in the list.
+     * @param overlay The overlay to be added to the back of the list.
+     */
+    public void addSceneOverlayToFront(SceneOverlay overlay) {
+        mStaticLayout.addSceneOverlay(overlay);
+    }
+
+    /**
      * Add a {@link SceneOverlay} to the back of the list. This means the overlay will be drawn
      * first and therefore behind all other overlays currently in the list.
      * @param overlay The overlay to be added to the back of the list.
@@ -957,33 +1011,6 @@ public class LayoutManager implements LayoutUpdateHost, LayoutProvider,
 
     private @Orientation int getOrientation() {
         return mHost.getWidth() > mHost.getHeight() ? Orientation.LANDSCAPE : Orientation.PORTRAIT;
-    }
-
-    /**
-     * Updates the Layout for the state of the {@link TabModelSelector} after initialization.
-     * If the TabModelSelector is not yet initialized when this function is called, a
-     * {@link org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver} is created to
-     * listen for when it is ready.
-     */
-    private void updateLayoutForTabModelSelector() {
-        if (mTabModelSelector.isTabStateInitialized() && getActiveLayout() != null) {
-            getActiveLayout().onTabStateInitialized();
-        } else {
-            mTabModelSelector.addObserver(new EmptyTabModelSelectorObserver() {
-                @Override
-                public void onTabStateInitialized() {
-                    if (getActiveLayout() != null) getActiveLayout().onTabStateInitialized();
-
-                    final EmptyTabModelSelectorObserver observer = this;
-                    new Handler().post(new Runnable() {
-                        @Override
-                        public void run() {
-                            mTabModelSelector.removeObserver(observer);
-                        }
-                    });
-                }
-            });
-        }
     }
 
     @VisibleForTesting

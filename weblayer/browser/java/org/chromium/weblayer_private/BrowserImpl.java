@@ -36,7 +36,7 @@ import java.util.List;
  * Implementation of {@link IBrowser}.
  */
 @JNINamespace("weblayer")
-public class BrowserImpl extends IBrowser.Stub {
+public class BrowserImpl extends IBrowser.Stub implements View.OnAttachStateChangeListener {
     private final ObserverList<VisibleSecurityStateObserver> mVisibleSecurityStateObservers =
             new ObserverList<VisibleSecurityStateObserver>();
 
@@ -56,6 +56,10 @@ public class BrowserImpl extends IBrowser.Stub {
     private final ProfileImpl mProfile;
     private Context mEmbedderActivityContext;
     private BrowserViewController mViewController;
+    // Used to save UI state between destroyAttachmentState() and createAttachmentState() calls so
+    // it can be preserved during device rotations or other events that cause the Fragment to be
+    // recreated.
+    private BrowserViewController.State mViewControllerState;
     private FragmentWindowAndroid mWindowAndroid;
     private IBrowserClient mClient;
     private LocaleChangedBroadcastReceiver mLocaleReceiver;
@@ -68,6 +72,7 @@ public class BrowserImpl extends IBrowser.Stub {
     private Boolean mPasswordEchoEnabled;
     private Boolean mDarkThemeEnabled;
     private Float mFontScale;
+    private boolean mViewAttachedToWindow;
 
     // Created in the constructor from saved state and used in setClient().
     private PersistenceInfo mPersistenceInfo;
@@ -135,7 +140,7 @@ public class BrowserImpl extends IBrowser.Stub {
         assert mEmbedderActivityContext == null;
         mWindowAndroid = windowAndroid;
         mEmbedderActivityContext = embedderAppContext;
-        mViewController = new BrowserViewController(windowAndroid);
+        mViewController = new BrowserViewController(windowAndroid, this, mViewControllerState);
         mLocaleReceiver = new LocaleChangedBroadcastReceiver(windowAndroid.getContext().get());
         mPasswordEchoEnabled = null;
     }
@@ -186,6 +191,20 @@ public class BrowserImpl extends IBrowser.Stub {
     public void setTopView(IObjectWrapper viewWrapper) {
         StrictModeWorkaround.apply();
         getViewController().setTopView(ObjectWrapper.unwrap(viewWrapper, View.class));
+    }
+
+    @Override
+    public void setTopViewAndScrollingBehavior(IObjectWrapper viewWrapper, int minHeight,
+            boolean onlyExpandControlsAtPageTop, boolean animate) {
+        StrictModeWorkaround.apply();
+        if (minHeight < 0) {
+            throw new IllegalArgumentException("Top view min height must be non-negative.");
+        }
+
+        getViewController().setTopControlsAnimationsEnabled(animate);
+        getViewController().setTopView(ObjectWrapper.unwrap(viewWrapper, View.class));
+        getViewController().setTopControlsMinHeight(minHeight);
+        getViewController().setOnlyExpandTopControlsAtPageTop(onlyExpandControlsAtPageTop);
     }
 
     @Override
@@ -488,14 +507,41 @@ public class BrowserImpl extends IBrowser.Stub {
         return mFragmentStoppedForConfigurationChange;
     }
 
+    public boolean isViewAttachedToWindow() {
+        return mViewAttachedToWindow;
+    }
+
+    @Override
+    public void onViewAttachedToWindow(View v) {
+        mViewAttachedToWindow = true;
+        updateAllTabsViewAttachedState();
+    }
+
+    @Override
+    public void onViewDetachedFromWindow(View v) {
+        // Note this separate state is needed because v.isAttachedToWindow()
+        // still returns true inside this call.
+        mViewAttachedToWindow = false;
+        updateAllTabsViewAttachedState();
+    }
+
+    private void updateAllTabsViewAttachedState() {
+        for (Object tab : getTabs()) {
+            ((TabImpl) tab).updateViewAttachedStateFromBrowser();
+        }
+    }
+
     private void destroyAttachmentState() {
         if (mLocaleReceiver != null) {
             mLocaleReceiver.destroy();
             mLocaleReceiver = null;
         }
         if (mViewController != null) {
+            mViewControllerState = mViewController.getState();
             mViewController.destroy();
             mViewController = null;
+            mViewAttachedToWindow = false;
+            updateAllTabsViewAttachedState();
         }
         if (mWindowAndroid != null) {
             mWindowAndroid.destroy();

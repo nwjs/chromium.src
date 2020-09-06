@@ -40,15 +40,16 @@ BrowserWindow* BrowserWindow::CreateBrowserWindow(
   if (in_tab_dragging)
     browser_frame->SetTabDragKind(TabDragKind::kAllTabs);
   bool got_saved_bounds = browser_frame->InitBrowserFrame();
-  if (position == "center" && !got_saved_bounds) {
-    gfx::Rect bounds = browser_frame->GetWindowBoundsInScreen();
-    browser_frame->CenterWindow(bounds.size());
-  }
+
   if (position == "mouse" && !got_saved_bounds) {
       gfx::Point cursor_pos(display::Screen::GetScreen()->GetCursorScreenPoint());
       gfx::Rect bounds = browser_frame->GetWindowBoundsInScreen();
       bounds.set_origin(cursor_pos);
       browser_frame->SetBounds(bounds);
+  }
+  if (position == "center" && !got_saved_bounds) {
+    gfx::Rect bounds = browser_frame->GetWindowBoundsInScreen();
+    browser_frame->CenterWindow(bounds.size());
   }
 
   view->GetWidget()->non_client_view()->SetAccessibleName(

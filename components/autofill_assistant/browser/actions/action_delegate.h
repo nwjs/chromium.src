@@ -14,9 +14,11 @@
 #include "components/autofill_assistant/browser/details.h"
 #include "components/autofill_assistant/browser/info_box.h"
 #include "components/autofill_assistant/browser/selector.h"
+#include "components/autofill_assistant/browser/state.h"
 #include "components/autofill_assistant/browser/top_padding.h"
 #include "components/autofill_assistant/browser/user_data.h"
 #include "components/autofill_assistant/browser/viewport_mode.h"
+#include "components/autofill_assistant/browser/web/element_finder.h"
 #include "third_party/blink/public/mojom/payments/payment_request.mojom.h"
 #include "third_party/icu/source/common/unicode/umachine.h"
 
@@ -94,10 +96,24 @@ class ActionDelegate {
                base::OnceCallback<void(const ClientStatus&)>)> check_elements,
       base::OnceCallback<void(const ClientStatus&)> callback) = 0;
 
-  // Click or tap the element given by |selector| on the web page.
+  // Find an element specified by |selector| on the web page.
+  virtual void FindElement(const Selector&,
+                           ElementFinder::Callback callback) = 0;
+
+  // Click or tap the |element|.
   virtual void ClickOrTapElement(
-      const Selector& selector,
+      const ElementFinder::Result& element,
       ClickType click_type,
+      base::OnceCallback<void(const ClientStatus&)> callback) = 0;
+
+  // Wait for the |element|'s document to become interactive.
+  virtual void WaitForDocumentToBecomeInteractive(
+      const ElementFinder::Result& element,
+      base::OnceCallback<void(const ClientStatus&)> callback) = 0;
+
+  // Scroll the |element| into view.
+  virtual void ScrollIntoView(
+      const ElementFinder::Result& element,
       base::OnceCallback<void(const ClientStatus&)> callback) = 0;
 
   // Have the UI enter the prompt mode and make the given actions available.
@@ -201,12 +217,12 @@ class ActionDelegate {
       base::OnceCallback<void(const ClientStatus&, const std::string&)>
           callback) = 0;
 
-  // Set the |value| of field |selector| and return the result through
+  // Set the |value| of field |element| and return the result through
   // |callback|. If |simulate_key_presses| is true, the value will be set by
   // clicking the field and then simulating key presses, otherwise the `value`
   // attribute will be set directly.
   virtual void SetFieldValue(
-      const Selector& selector,
+      const ElementFinder::Result& element,
       const std::string& value,
       KeyboardValueFillStrategy fill_strategy,
       int key_press_delay_in_millisecond,
@@ -219,10 +235,10 @@ class ActionDelegate {
       const std::string& value,
       base::OnceCallback<void(const ClientStatus&)> callback) = 0;
 
-  // Sets the keyboard focus to |selector| and inputs the specified codepoints.
+  // Sets the keyboard focus to |element| and inputs the specified codepoints.
   // Returns the result through |callback|.
   virtual void SendKeyboardInput(
-      const Selector& selector,
+      const ElementFinder::Result& element,
       const std::vector<UChar32>& codepoints,
       int key_press_delay_in_millisecond,
       base::OnceCallback<void(const ClientStatus&)> callback) = 0;
@@ -386,6 +402,10 @@ class ActionDelegate {
   // view hierarchy and remove all corresponding interactions. Note that
   // |user_model| will persist and will not be affected by this call.
   virtual void ClearGenericUi() = 0;
+
+  // Sets the OverlayBehavior.
+  virtual void SetOverlayBehavior(
+      ConfigureUiStateProto::OverlayBehavior overlay_behavior) = 0;
 
  protected:
   ActionDelegate() = default;

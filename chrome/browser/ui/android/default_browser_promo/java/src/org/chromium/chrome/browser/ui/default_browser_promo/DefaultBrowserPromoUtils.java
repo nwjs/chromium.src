@@ -15,11 +15,14 @@ import android.provider.Settings;
 import android.text.TextUtils;
 
 import androidx.annotation.IntDef;
+import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
 
+import org.chromium.base.CommandLine;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.PackageManagerUtils;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
@@ -58,8 +61,8 @@ public class DefaultBrowserPromoUtils {
     static final String CHROME_STABLE_PACKAGE_NAME = "com.android.chrome";
 
     // TODO(crbug.com/1090103): move to some util class for reuse.
-    private static final String[] CHROME_PACKAGE_NAMES = {CHROME_STABLE_PACKAGE_NAME,
-            "org.chromium.chrome", "com.chrome.canary", "com.chrome.beta", "com.chrome.dev"};
+    static final String[] CHROME_PACKAGE_NAMES = {CHROME_STABLE_PACKAGE_NAME, "org.chromium.chrome",
+            "com.chrome.canary", "com.chrome.beta", "com.chrome.dev"};
 
     /**
      * Determine whether a promo dialog should be displayed or not. And prepare related logic to
@@ -82,6 +85,10 @@ public class DefaultBrowserPromoUtils {
     public static boolean prepareLaunchPromoIfNeeded(Activity activity,
             ActivityLifecycleDispatcher dispatcher, WindowAndroid windowAndroid) {
         if (!ChromeFeatureList.isEnabled(ChromeFeatureList.ANDROID_DEFAULT_BROWSER_PROMO)) {
+            return false;
+        }
+
+        if (CommandLine.getInstance().hasSwitch(ChromeSwitches.DISABLE_DEFAULT_BROWSER_PROMO)) {
             return false;
         }
 
@@ -147,6 +154,9 @@ public class DefaultBrowserPromoUtils {
                     ChromeFeatureList.ANDROID_DEFAULT_BROWSER_PROMO, P_NO_DEFAULT_PROMO_STRATEGY);
             if (TextUtils.equals(promoOnP, "disabled")) {
                 return false;
+            } else if (TextUtils.equals(promoOnP, "system_settings")
+                    && !doesManageDefaultAppsSettingsActivityExist()) {
+                return false;
             }
         }
 
@@ -178,9 +188,8 @@ public class DefaultBrowserPromoUtils {
     }
 
     /**
-     * Check the result of default browser promo on start up if needed.
-     * @return True if the default browser promo dialog is displayed in this session or last session
-     *         and the result has not been recorded yet.
+     * Check the result of default browser promo on start up if the default browser promo dialog is
+     * displayed in this session or last session and the result has not been recorded yet.
      */
     public static void maybeRecordOutcomeOnStart() {
         if (!ChromeFeatureList.isEnabled(ChromeFeatureList.ANDROID_DEFAULT_BROWSER_PROMO)) return;
@@ -234,7 +243,8 @@ public class DefaultBrowserPromoUtils {
         return false;
     }
 
-    private static boolean isCurrentDefaultBrowserChrome(ResolveInfo info) {
+    @VisibleForTesting
+    static boolean isCurrentDefaultBrowserChrome(ResolveInfo info) {
         String packageName = info.activityInfo.packageName;
         for (String name : CHROME_PACKAGE_NAMES) {
             if (name.equals(packageName)) return true;
@@ -242,8 +252,9 @@ public class DefaultBrowserPromoUtils {
         return false;
     }
 
+    @VisibleForTesting
     @DefaultBrowserState
-    private static int getCurrentDefaultBrowserState(ResolveInfo info) {
+    static int getCurrentDefaultBrowserState(@NonNull ResolveInfo info) {
         if (info.match == 0) return DefaultBrowserState.NO_DEFAULT; // no default
         if (TextUtils.equals(ContextUtils.getApplicationContext().getPackageName(),
                     info.activityInfo.packageName)) {

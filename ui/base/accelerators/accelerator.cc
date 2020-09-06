@@ -24,7 +24,7 @@
 #include <windows.h>
 #endif
 
-#if !defined(OS_WIN) && (defined(USE_AURA) || defined(OS_MACOSX))
+#if !defined(OS_WIN) && (defined(USE_AURA) || defined(OS_APPLE))
 #include "ui/events/keycodes/keyboard_code_conversion.h"
 #endif
 
@@ -199,7 +199,7 @@ bool Accelerator::IsRepeat() const {
 base::string16 Accelerator::GetShortcutText() const {
   base::string16 shortcut;
 
-#if defined(OS_MACOSX)
+#if defined(OS_APPLE)
   shortcut = KeyCodeToMacSymbol();
 #else
   shortcut = KeyCodeToName();
@@ -224,7 +224,7 @@ base::string16 Accelerator::GetShortcutText() const {
     // VKEY_UNKNOWN), |::MapVirtualKeyW| returns 0.
     if (key != 0)
       shortcut += key;
-#elif defined(USE_AURA) || defined(OS_MACOSX) || defined(OS_ANDROID)
+#elif defined(USE_AURA) || defined(OS_APPLE) || defined(OS_ANDROID)
     const uint16_t c = DomCodeToUsLayoutCharacter(
         UsLayoutKeyboardCodeToDomCode(key_code_), false);
     if (c != 0)
@@ -233,7 +233,7 @@ base::string16 Accelerator::GetShortcutText() const {
 #endif
   }
 
-#if defined(OS_MACOSX)
+#if defined(OS_APPLE)
   shortcut = ApplyShortFormModifiers(shortcut);
 #else
   // Checking whether the character used for the accelerator is alphanumeric.
@@ -279,12 +279,12 @@ base::string16 Accelerator::GetShortcutText() const {
     shortcut_rtl.append(shortcut, 0, shortcut.length() - key_length - 1);
     shortcut.swap(shortcut_rtl);
   }
-#endif  // OS_MACOSX
+#endif  // OS_APPLE
 
   return shortcut;
 }
 
-#if defined(OS_MACOSX)
+#if defined(OS_APPLE)
 base::string16 Accelerator::KeyCodeToMacSymbol() const {
   switch (key_code_) {
     case VKEY_CAPITAL:
@@ -320,7 +320,7 @@ base::string16 Accelerator::KeyCodeToMacSymbol() const {
       return KeyCodeToName();
   }
 }
-#endif  // OS_MACOSX
+#endif  // OS_APPLE
 
 base::string16 Accelerator::KeyCodeToName() const {
   int string_id = 0;
@@ -376,7 +376,7 @@ base::string16 Accelerator::KeyCodeToName() const {
     case VKEY_F11:
       string_id = IDS_APP_F11_KEY;
       break;
-#if !defined(OS_MACOSX)
+#if !defined(OS_APPLE)
     // On Mac, commas and periods are used literally in accelerator text.
     case VKEY_OEM_COMMA:
       string_id = IDS_APP_COMMA_KEY;
@@ -417,7 +417,7 @@ base::string16 Accelerator::ApplyLongFormModifiers(
     shortcut = ApplyModifierToAcceleratorString(shortcut, IDS_APP_ALT_KEY);
 
   if (IsCmdDown()) {
-#if defined(OS_MACOSX)
+#if defined(OS_APPLE)
     shortcut = ApplyModifierToAcceleratorString(shortcut, IDS_APP_COMMAND_KEY);
 #elif defined(OS_CHROMEOS)
     shortcut = ApplyModifierToAcceleratorString(shortcut, IDS_APP_SEARCH_KEY);

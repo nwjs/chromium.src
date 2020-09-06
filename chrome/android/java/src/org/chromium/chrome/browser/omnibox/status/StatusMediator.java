@@ -17,6 +17,7 @@ import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
 import org.chromium.base.MathUtils;
+import org.chromium.base.annotations.MockedInTests;
 import org.chromium.base.library_loader.LibraryLoader;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.omnibox.SearchEngineLogoUtils;
@@ -36,6 +37,7 @@ import org.chromium.ui.modelutil.PropertyModel;
  */
 class StatusMediator implements IncognitoStateProvider.IncognitoStateObserver {
     @VisibleForTesting
+    @MockedInTests
     class StatusMediatorDelegate {
         /** @see {@link AutocompleteCoordinatorFactory#qualifyPartialURLQuery} */
         boolean isUrlValid(String partialUrl) {
@@ -73,6 +75,7 @@ class StatusMediator implements IncognitoStateProvider.IncognitoStateObserver {
     private boolean mFirstSuggestionIsSearchQuery;
     private boolean mVerboseStatusSpaceAvailable;
     private boolean mPageIsPreview;
+    private boolean mPageIsPaintPreview;
     private boolean mPageIsOffline;
     private boolean mShowStatusIconWhenUrlFocused;
     private boolean mIsSecurityButtonShown;
@@ -81,6 +84,7 @@ class StatusMediator implements IncognitoStateProvider.IncognitoStateObserver {
     private boolean mShouldCancelCustomFavicon;
     private boolean mIsTablet;
 
+    private final int mEndPaddingPixelSizeOnFocusDelta;
     private int mUrlMinWidth;
     private int mSeparatorMinWidth;
     private int mVerboseStatusTextMinWidth;
@@ -127,13 +131,12 @@ class StatusMediator implements IncognitoStateProvider.IncognitoStateObserver {
         mContext = context;
         mUrlBarEditingTextStateProvider = urlBarEditingTextStateProvider;
 
+        mEndPaddingPixelSizeOnFocusDelta =
+                mResources.getDimensionPixelSize(R.dimen.sei_location_bar_icon_end_padding_focused)
+                - mResources.getDimensionPixelSize(R.dimen.sei_location_bar_icon_end_padding);
         int iconWidth = resources.getDimensionPixelSize(R.dimen.location_bar_status_icon_width);
-        mTextOffsetThreshold = (float) iconWidth
-                / (iconWidth
-                        + resources.getDimensionPixelSize(
-                                R.dimen.sei_location_bar_icon_end_padding_focused)
-                        - resources.getDimensionPixelSize(
-                                R.dimen.sei_location_bar_icon_end_padding));
+        mTextOffsetThreshold =
+                (float) iconWidth / (iconWidth + getEndPaddingPixelSizeOnFocusDelta());
         mTextOffsetAdjustedScale = mTextOffsetThreshold == 1 ? 1 : (1 - mTextOffsetThreshold);
 
         mIsTablet = isTablet;
@@ -178,6 +181,17 @@ class StatusMediator implements IncognitoStateProvider.IncognitoStateObserver {
     }
 
     /**
+     * Specify whether displayed page is a preview page.
+     */
+    void setPageIsPaintPreview(boolean pageIsPaintPreview) {
+        if (mPageIsPaintPreview != pageIsPaintPreview) {
+            mPageIsPaintPreview = pageIsPaintPreview;
+            updateStatusVisibility();
+            updateColorTheme();
+        }
+    }
+
+    /**
      * Specify displayed page's security level.
      */
     void setPageSecurityLevel(@ConnectionSecurityLevel int level) {
@@ -216,6 +230,13 @@ class StatusMediator implements IncognitoStateProvider.IncognitoStateObserver {
      */
     void setSeparatorFieldMinWidth(int width) {
         mSeparatorMinWidth = width;
+    }
+
+    /**
+     * Returns the increase in StatusView end padding, when the Url bar is focused.
+     */
+    int getEndPaddingPixelSizeOnFocusDelta() {
+        return mEndPaddingPixelSizeOnFocusDelta;
     }
 
     /**
@@ -374,7 +395,9 @@ class StatusMediator implements IncognitoStateProvider.IncognitoStateObserver {
     private void updateStatusVisibility() {
         int statusText = 0;
 
-        if (mPageIsPreview) {
+        if (mPageIsPaintPreview) {
+            statusText = R.string.location_bar_paint_preview_page_status;
+        } else if (mPageIsPreview) {
             statusText = R.string.location_bar_preview_lite_page_status;
         } else if (mPageIsOffline) {
             statusText = R.string.location_bar_verbose_status_offline;
@@ -404,7 +427,7 @@ class StatusMediator implements IncognitoStateProvider.IncognitoStateObserver {
 
         @ColorRes
         int textColor = 0;
-        if (mPageIsPreview) {
+        if (mPageIsPreview || mPageIsPaintPreview) {
             textColor = mDarkTheme ? R.color.locationbar_status_preview_color
                                    : R.color.locationbar_status_preview_color_light;
         } else if (mPageIsOffline) {
@@ -435,7 +458,7 @@ class StatusMediator implements IncognitoStateProvider.IncognitoStateObserver {
      */
     private boolean shouldShowVerboseStatusText() {
         return (mPageIsPreview && mPageSecurityLevel != ConnectionSecurityLevel.DANGEROUS)
-                || mPageIsOffline;
+                || mPageIsOffline || mPageIsPaintPreview;
     }
 
     /**

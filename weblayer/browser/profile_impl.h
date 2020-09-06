@@ -10,6 +10,7 @@
 #include "base/files/file_path.h"
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
+#include "base/task/cancelable_task_tracker.h"
 #include "build/build_config.h"
 #include "weblayer/browser/i18n_util.h"
 #include "weblayer/browser/profile_disk_operations.h"
@@ -90,6 +91,9 @@ class ProfileImpl : public Profile {
       base::flat_set<std::string> ids) override;
   void SetBooleanSetting(SettingType type, bool value) override;
   bool GetBooleanSetting(SettingType type) override;
+  void GetCachedFaviconForPageUrl(
+      const GURL& page_url,
+      base::OnceCallback<void(gfx::Image)> callback) override;
   void PrepareForPossibleCrossOriginNavigation() override;
 
 #if defined(OS_ANDROID)
@@ -123,6 +127,10 @@ class ProfileImpl : public Profile {
       const base::android::JavaRef<jobjectArray>& j_ids,
       const base::android::JavaRef<jobject>& j_callback);
   void PrepareForPossibleCrossOriginNavigation(JNIEnv* env);
+  void GetCachedFaviconForPageUrl(
+      JNIEnv* env,
+      const base::android::JavaRef<jstring>& j_page_url,
+      const base::android::JavaRef<jobject>& j_callback);
 #endif
 
   const base::FilePath& download_directory() { return download_directory_; }
@@ -163,6 +171,12 @@ class ProfileImpl : public Profile {
 #if defined(OS_ANDROID)
   base::android::ScopedJavaGlobalRef<jobject> java_profile_;
 #endif
+
+  // The typical pattern for CancelableTaskTrackers is to have the caller
+  // supply one. This code is predominantly called from the Java side, where
+  // CancelableTaskTracker isn't applicable. Because of this, the
+  // CancelableTaskTracker is owned by Profile.
+  base::CancelableTaskTracker cancelable_task_tracker_;
 
   DISALLOW_COPY_AND_ASSIGN(ProfileImpl);
 };

@@ -28,15 +28,24 @@ class FeedStreamSurface : public FeedStreamApi::SurfaceInterface {
 
   // SurfaceInterface implementation.
   void StreamUpdate(const feedui::StreamUpdate& update) override;
+  void ReplaceDataStoreEntry(base::StringPiece key,
+                             base::StringPiece data) override;
+  void RemoveDataStoreEntry(base::StringPiece key) override;
 
   void OnStreamUpdated(const feedui::StreamUpdate& stream_update);
 
-  void LoadMore(JNIEnv* env, const base::android::JavaParamRef<jobject>& obj);
+  void LoadMore(JNIEnv* env,
+                const base::android::JavaParamRef<jobject>& obj,
+                const base::android::JavaParamRef<jobject>& callback_obj);
 
   void ProcessThereAndBackAgain(
       JNIEnv* env,
       const base::android::JavaParamRef<jobject>& obj,
       const base::android::JavaParamRef<jbyteArray>& data);
+
+  void ProcessViewAction(JNIEnv* env,
+                         const base::android::JavaParamRef<jobject>& obj,
+                         const base::android::JavaParamRef<jbyteArray>& data);
 
   int ExecuteEphemeralChange(
       JNIEnv* env,
@@ -62,6 +71,8 @@ class FeedStreamSurface : public FeedStreamApi::SurfaceInterface {
   void ReportSliceViewed(JNIEnv* env,
                          const base::android::JavaParamRef<jobject>& obj,
                          const base::android::JavaParamRef<jstring>& slice_id);
+  void ReportFeedViewed(JNIEnv* env,
+                        const base::android::JavaParamRef<jobject>& obj);
   void ReportOpenAction(JNIEnv* env,
                         const base::android::JavaParamRef<jobject>& obj,
                         const base::android::JavaParamRef<jstring>& slice_id);

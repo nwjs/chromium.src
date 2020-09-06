@@ -7,6 +7,7 @@
 #include "ash/public/cpp/login_constants.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "base/strings/strcat.h"
+#include "base/strings/string16.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -69,6 +70,10 @@ FlexCodeInput::FlexCodeInput(OnInputChange on_input_change,
 
 FlexCodeInput::~FlexCodeInput() = default;
 
+void FlexCodeInput::SetAccessibleName(const base::string16& name) {
+  code_field_->SetAccessibleName(name);
+}
+
 void FlexCodeInput::InsertDigit(int value) {
   DCHECK_LE(0, value);
   DCHECK_GE(9, value);
@@ -106,6 +111,10 @@ void FlexCodeInput::SetInputColor(SkColor color) {
 
 void FlexCodeInput::SetInputEnabled(bool input_enabled) {
   code_field_->SetEnabled(input_enabled);
+}
+
+void FlexCodeInput::SetReadOnly(bool read_only) {
+  NOTIMPLEMENTED();
 }
 
 void FlexCodeInput::ClearInput() {
@@ -188,7 +197,7 @@ FixedLengthCodeInput::FixedLengthCodeInput(int length,
   DCHECK_LT(0, length);
   DCHECK(on_input_change_);
 
-  SetLayoutManager(std::make_unique<views::BoxLayout>(
+  auto* layout = SetLayoutManager(std::make_unique<views::BoxLayout>(
       views::BoxLayout::Orientation::kHorizontal, gfx::Insets(),
       kAccessCodeBetweenInputFieldsGapDp));
   SetGroup(kFixedLengthInputGroup);
@@ -220,6 +229,7 @@ FixedLengthCodeInput::FixedLengthCodeInput(int length,
     field->GetViewAccessibility().OverrideIsIgnored(true);
     input_fields_.push_back(field);
     AddChildView(field);
+    layout->SetFlexForView(field, 1);
   }
 
   text_value_for_a11y_ = std::string(length, ' ');
@@ -244,6 +254,10 @@ void FixedLengthCodeInput::InsertDigit(int value) {
 // Clears input from the |active_field_|. If |active_field| is empty moves
 // focus to the previous field (if exists) and clears input there.
 void FixedLengthCodeInput::Backspace() {
+  // Ignore backspace on the first field, if empty.
+  if (IsFirstFieldActive() && ActiveInput().empty())
+    return;
+
   if (ActiveInput().empty()) {
     FocusPreviousField();
   }
@@ -331,6 +345,9 @@ bool FixedLengthCodeInput::HandleKeyEvent(views::Textfield* sender,
   if (key_event.IsAltDown())
     return false;
 
+  if (sender->GetReadOnly())
+    return false;
+
   // FixedLengthCodeInput class responds to limited subset of key press
   // events. All key pressed events not handled below are ignored.
   const ui::KeyboardCode key_code = key_event.key_code();
@@ -341,10 +358,10 @@ bool FixedLengthCodeInput::HandleKeyEvent(views::Textfield* sender,
     InsertDigit(key_code - ui::VKEY_0);
   } else if (key_code >= ui::VKEY_NUMPAD0 && key_code <= ui::VKEY_NUMPAD9) {
     InsertDigit(key_code - ui::VKEY_NUMPAD0);
-  } else if (key_code == ui::VKEY_LEFT) {
+  } else if (key_code == ui::VKEY_LEFT && arrow_navigation_allowed_) {
     FocusPreviousField();
     NotifyAccessibilityEvent(ax::mojom::Event::kTextSelectionChanged, true);
-  } else if (key_code == ui::VKEY_RIGHT) {
+  } else if (key_code == ui::VKEY_RIGHT && arrow_navigation_allowed_) {
     // Do not allow to leave empty field when moving focus with arrow key.
     if (!ActiveInput().empty()) {
       FocusNextField();
@@ -402,11 +419,37 @@ bool FixedLengthCodeInput::HandleGestureEvent(
 }
 
 void FixedLengthCodeInput::SetInputEnabled(bool input_enabled) {
-  NOTIMPLEMENTED();
+  for (auto* field : input_fields_) {
+    field->SetEnabled(input_enabled);
+  }
+}
+
+void FixedLengthCodeInput::SetReadOnly(bool read_only) {
+  for (auto* field : input_fields_) {
+    field->SetReadOnly(read_only);
+    field->SetCursorEnabled(!read_only);
+  }
 }
 
 void FixedLengthCodeInput::ClearInput() {
-  NOTIMPLEMENTED();
+  for (auto* field : input_fields_) {
+    field->SetText(base::string16());
+  }
+  active_input_index_ = 0;
+  text_value_for_a11y_.clear();
+  ActiveField()->RequestFocus();
+}
+
+bool FixedLengthCodeInput::IsEmpty() const {
+  for (auto* field : input_fields_) {
+    if (field->GetText().length())
+      return false;
+  }
+  return true;
+}
+
+void FixedLengthCodeInput::SetAllowArrowNavigation(bool allowed) {
+  arrow_navigation_allowed_ = allowed;
 }
 
 void FixedLengthCodeInput::FocusPreviousField() {
@@ -427,6 +470,10 @@ void FixedLengthCodeInput::FocusNextField() {
 
 bool FixedLengthCodeInput::IsLastFieldActive() const {
   return active_input_index_ == (static_cast<int>(input_fields_.size()) - 1);
+}
+
+bool FixedLengthCodeInput::IsFirstFieldActive() const {
+  return active_input_index_ == 0;
 }
 
 AccessibleInputField* FixedLengthCodeInput::ActiveField() const {

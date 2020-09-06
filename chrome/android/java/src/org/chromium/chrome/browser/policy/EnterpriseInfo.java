@@ -13,6 +13,7 @@ import android.os.SystemClock;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
+import org.chromium.base.CommandLine;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
 import org.chromium.base.ThreadUtils;
@@ -21,6 +22,7 @@ import org.chromium.base.annotations.NativeMethods;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.task.AsyncTask;
 import org.chromium.base.task.TaskTraits;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 
 import java.util.LinkedList;
 import java.util.Queue;
@@ -29,20 +31,21 @@ import java.util.concurrent.RejectedExecutionException;
 /**
  * Provide the enterprise information for the current device and profile.
  */
-public final class EnterpriseInfo {
+public class EnterpriseInfo {
     private static final String TAG = "EnterpriseInfo";
 
     private static EnterpriseInfo sInstance;
 
     // Only ever read/written on the UI thread.
-    private OwnedState mOwnedState = null;
+    private OwnedState mOwnedState;
     private Queue<Callback<OwnedState>> mCallbackList;
 
-    private boolean mSkipAsyncCheckForTesting = false;
+    private boolean mSkipAsyncCheckForTesting;
 
-    static class OwnedState {
-        boolean mDeviceOwned;
-        boolean mProfileOwned;
+    /** A simple tuple to hold onto named fields about the state of ownership. */
+    public static class OwnedState {
+        public final boolean mDeviceOwned;
+        public final boolean mProfileOwned;
 
         public OwnedState(boolean isDeviceOwned, boolean isProfileOwned) {
             mDeviceOwned = isDeviceOwned;
@@ -68,6 +71,11 @@ public final class EnterpriseInfo {
         if (sInstance == null) sInstance = new EnterpriseInfo();
 
         return sInstance;
+    }
+
+    @VisibleForTesting
+    public static void setInstanceForTest(EnterpriseInfo instance) {
+        sInstance = instance;
     }
 
     /**
@@ -104,6 +112,11 @@ public final class EnterpriseInfo {
                     DevicePolicyManager devicePolicyManager =
                             (DevicePolicyManager) context.getSystemService(
                                     Context.DEVICE_POLICY_SERVICE);
+
+                    if (CommandLine.getInstance().hasSwitch(
+                                ChromeSwitches.FORCE_DEVICE_OWNERSHIP)) {
+                        hasDeviceOwnerApp = true;
+                    }
 
                     for (PackageInfo pkg : packageManager.getInstalledPackages(/* flags= */ 0)) {
                         assert devicePolicyManager != null;

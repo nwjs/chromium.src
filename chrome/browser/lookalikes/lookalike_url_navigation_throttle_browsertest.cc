@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "base/bind.h"
+#include "base/strings/pattern.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -15,6 +16,7 @@
 #include "chrome/browser/lookalikes/lookalike_url_blocking_page.h"
 #include "chrome/browser/lookalikes/lookalike_url_navigation_throttle.h"
 #include "chrome/browser/lookalikes/lookalike_url_service.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/reputation/safety_tip_test_utils.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
@@ -55,6 +57,9 @@ const char kInterstitialDecisionMetric[] = "interstitial.lookalike.decision";
 const char kInterstitialInteractionMetric[] =
     "interstitial.lookalike.interaction";
 
+const char kConsoleMessage[] =
+    "Chrome has determined that * could be fake or fraudulent*";
+
 static std::unique_ptr<net::test_server::HttpResponse>
 NetworkErrorResponseHandler(const net::test_server::HttpRequest& request) {
   return std::unique_ptr<net::test_server::HttpResponse>(
@@ -92,23 +97,21 @@ bool IsUrlShowing(Browser* browser) {
   return !browser->location_bar_model()->GetFormattedFullURL().empty();
 }
 
+// Navigate to |url| and wait for the load to complete before returning.
 // Simulates a link click navigation. We don't use
 // ui_test_utils::NavigateToURL(const GURL&) because it simulates the user
 // typing the URL, causing the site to have a site engagement score of at
 // least LOW.
-void NavigateToURL(Browser* browser, const GURL& url) {
+void NavigateToURLSync(Browser* browser, const GURL& url) {
+  content::TestNavigationObserver navigation_observer(
+      browser->tab_strip_model()->GetActiveWebContents(), 1);
+
   NavigateParams params(browser, url, ui::PAGE_TRANSITION_LINK);
   params.initiator_origin = url::Origin::Create(GURL("about:blank"));
   params.disposition = WindowOpenDisposition::CURRENT_TAB;
   params.is_renderer_initiated = true;
   ui_test_utils::NavigateToURL(&params);
-}
 
-// Same as NavigateToUrl, but wait for the load to complete before returning.
-void NavigateToURLSync(Browser* browser, const GURL& url) {
-  content::TestNavigationObserver navigation_observer(
-      browser->tab_strip_model()->GetActiveWebContents(), 1);
-  NavigateToURL(browser, url);
   navigation_observer.Wait();
 }
 
@@ -116,6 +119,8 @@ void NavigateToURLSync(Browser* browser, const GURL& url) {
 void LoadAndCheckInterstitialAt(Browser* browser, const GURL& url) {
   content::WebContents* web_contents =
       browser->tab_strip_model()->GetActiveWebContents();
+  content::WebContentsConsoleObserver console_observer(web_contents);
+  console_observer.SetPattern(kConsoleMessage);
 
   EXPECT_EQ(nullptr, GetCurrentInterstitial(web_contents));
 
@@ -123,6 +128,10 @@ void LoadAndCheckInterstitialAt(Browser* browser, const GURL& url) {
   EXPECT_EQ(LookalikeUrlBlockingPage::kTypeForTesting,
             GetInterstitialType(web_contents));
   EXPECT_FALSE(IsUrlShowing(browser));
+
+  console_observer.Wait();
+  EXPECT_TRUE(
+      base::MatchPattern(console_observer.GetMessageAt(0u), kConsoleMessage));
 }
 
 void SendInterstitialCommand(content::WebContents* web_contents,
@@ -763,9 +772,8 @@ IN_PROC_BROWSER_TEST_P(LookalikeUrlNavigationThrottleBrowserTest,
 // site engagement score above a certain threshold. This should record metrics.
 // It should also show lookalike warning interstitial if configured via
 // a feature param.
-// Disabled for flakes, crbug.com/1106402.
 IN_PROC_BROWSER_TEST_P(LookalikeUrlNavigationThrottleBrowserTest,
-                       DISABLED_Idn_SiteEngagement_Match) {
+                       Idn_SiteEngagement_Match) {
   const char* const kEngagedSites[] = {
       "http://site1.com", "http://www.site2.com", "http://sité3.com",
       "http://www.sité4.com"};
@@ -862,6 +870,18 @@ IN_PROC_BROWSER_TEST_P(LookalikeUrlNavigationThrottleBrowserTest,
 
   // Try a non-HTTP URL. Shouldn't crash.
   TestInterstitialNotShown(browser(), GURL("data:text/html, test"));
+  CheckNoUkm();
+}
+
+// The site is allowed by enterprise policy.
+IN_PROC_BROWSER_TEST_P(LookalikeUrlNavigationThrottleBrowserTest,
+                       AllowedByPolicy) {
+  const GURL kNavigatedUrl = GetURL("xn--googl-fsa.com");
+  SetEnterpriseAllowlistForTesting(browser()->profile()->GetPrefs(),
+                                   {"xn--googl-fsa.com"});
+
+  SetEngagementScore(browser(), kNavigatedUrl, kLowEngagement);
+  TestInterstitialNotShown(browser(), kNavigatedUrl);
   CheckNoUkm();
 }
 

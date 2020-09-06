@@ -459,11 +459,6 @@ RenderWidgetHostViewBase::CreateBrowserAccessibilityManager(
   return nullptr;
 }
 
-void RenderWidgetHostViewBase::AccessibilityShowMenu(const gfx::Point& point) {
-  if (host())
-    host()->ShowContextMenuAtPoint(point, ui::MENU_SOURCE_NONE);
-}
-
 gfx::AcceleratedWidget
     RenderWidgetHostViewBase::AccessibilityGetAcceleratedWidget() {
   return gfx::kNullAcceleratedWidget;
@@ -555,12 +550,12 @@ base::WeakPtr<RenderWidgetHostViewBase> RenderWidgetHostViewBase::GetWeakPtr() {
   return weak_factory_.GetWeakPtr();
 }
 
-void RenderWidgetHostViewBase::GetScreenInfo(ScreenInfo* screen_info) {
+void RenderWidgetHostViewBase::GetScreenInfo(blink::ScreenInfo* screen_info) {
   DisplayUtil::GetNativeViewScreenInfo(screen_info, GetNativeView());
 }
 
 float RenderWidgetHostViewBase::GetDeviceScaleFactor() {
-  ScreenInfo screen_info;
+  blink::ScreenInfo screen_info;
   GetScreenInfo(&screen_info);
   return screen_info.device_scale_factor;
 }

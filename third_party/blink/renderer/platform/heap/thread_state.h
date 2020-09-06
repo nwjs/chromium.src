@@ -63,7 +63,6 @@ namespace incremental_marking_test {
 class IncrementalMarkingScope;
 }  // namespace incremental_marking_test
 
-class CancelableTaskScheduler;
 class MarkingVisitor;
 class MarkingSchedulingOracle;
 class PersistentNode;
@@ -177,6 +176,13 @@ class PLATFORM_EXPORT ThreadState final {
     kMarking,
     // GC is in sweeping phase.
     kSweeping,
+  };
+
+  enum class EphemeronProcessing {
+    kPartialProcessing,  // Perofrm one ephemeron processing iteration every
+                         // few step
+    kFullProcessing  // Perofrm full fixed-point ephemeron processing on each
+                     // step
   };
 
   class AtomicPauseScope;
@@ -507,8 +513,9 @@ class PLATFORM_EXPORT ThreadState final {
   void MarkPhaseEpilogue(BlinkGC::MarkingType);
   void MarkPhaseVisitRoots();
   void MarkPhaseVisitNotFullyConstructedObjects();
-  bool MarkPhaseAdvanceMarkingBasedOnSchedule(base::TimeDelta max_deadline);
-  bool MarkPhaseAdvanceMarking(base::TimeTicks deadline);
+  bool MarkPhaseAdvanceMarkingBasedOnSchedule(base::TimeDelta,
+                                              EphemeronProcessing);
+  bool MarkPhaseAdvanceMarking(base::TimeDelta, EphemeronProcessing);
   void VerifyMarking(BlinkGC::MarkingType);
 
   // Visit the stack after pushing registers onto the stack.
@@ -550,7 +557,7 @@ class PLATFORM_EXPORT ThreadState final {
   // terminated and the worklist is empty)
   bool ConcurrentMarkingStep();
   void ScheduleConcurrentMarking();
-  void PerformConcurrentMark();
+  void PerformConcurrentMark(base::JobDelegate* job);
 
   // Schedule helpers.
   void ScheduleIdleLazySweep();
@@ -658,10 +665,7 @@ class PLATFORM_EXPORT ThreadState final {
   std::unique_ptr<IncrementalMarkingScheduler> incremental_marking_scheduler_;
   std::unique_ptr<MarkingSchedulingOracle> marking_scheduling_;
 
-  std::unique_ptr<CancelableTaskScheduler> marker_scheduler_;
-  Vector<uint8_t> available_concurrent_marking_task_ids_;
-  uint8_t active_markers_ = 0;
-  base::Lock concurrent_marker_bootstrapping_lock_;
+  base::JobHandle marker_handle_;
 
   base::JobHandle sweeper_handle_;
   std::atomic_bool has_unswept_pages_{false};

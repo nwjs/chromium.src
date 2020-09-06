@@ -6,9 +6,11 @@
 
 #include "base/callback.h"
 #include "components/prefs/pref_service.h"
+#include "components/prerender/browser/prerender_manager.h"
 #include "components/site_isolation//pref_names.h"
 #include "components/user_prefs/user_prefs.h"
 #include "content/public/browser/browser_context.h"
+#include "weblayer/browser/no_state_prefetch/prerender_manager_factory.h"
 
 namespace weblayer {
 
@@ -37,7 +39,7 @@ void BrowsingDataRemoverDelegate::RemoveEmbedderData(
     uint64_t remove_mask,
     content::BrowsingDataFilterBuilder* filter_builder,
     uint64_t origin_type_mask,
-    base::OnceClosure callback) {
+    base::OnceCallback<void(uint64_t)> callback) {
   // Note: if history is ever added to WebLayer, also remove isolated origins
   // when history is cleared.
   if (remove_mask & DATA_TYPE_ISOLATED_ORIGINS) {
@@ -48,7 +50,20 @@ void BrowsingDataRemoverDelegate::RemoveEmbedderData(
     // list of isolated sites is not directly exposed to users, though, and
     // will be cleared on next restart.
   }
-  std::move(callback).Run();
+
+  // The PrerenderManager keeps history of prerendered pages, so clear that.
+  // It also may have a prerendered page. If so, the page could be
+  // considered to have a small amount of historical information, so delete
+  // it, too.
+  prerender::PrerenderManager* prerender_manager =
+      PrerenderManagerFactory::GetForBrowserContext(browser_context_);
+  if (prerender_manager) {
+    prerender_manager->ClearData(
+        prerender::PrerenderManager::CLEAR_PRERENDER_CONTENTS |
+        prerender::PrerenderManager::CLEAR_PRERENDER_HISTORY);
+  }
+
+  std::move(callback).Run(/*failed_data_types=*/0);
 }
 
 }  // namespace weblayer

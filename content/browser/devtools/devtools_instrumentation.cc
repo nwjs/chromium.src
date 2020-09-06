@@ -191,10 +191,19 @@ void OnNavigationRequestFailed(
                 *status.blocked_by_response_reason))
             .Build();
 
-    blockedByResponseDetails->SetFrame(
+    blockedByResponseDetails->SetBlockedFrame(
         protocol::Audits::AffectedFrame::Create()
             .SetFrameId(ftn->devtools_frame_token().ToString())
             .Build());
+    if (ftn->parent()) {
+      blockedByResponseDetails->SetParentFrame(
+          protocol::Audits::AffectedFrame::Create()
+              .SetFrameId(ftn->parent()
+                              ->frame_tree_node()
+                              ->devtools_frame_token()
+                              .ToString())
+              .Build());
+    }
     issueDetails.SetBlockedByResponseIssueDetails(
         std::move(blockedByResponseDetails));
 
@@ -205,8 +214,8 @@ void OnNavigationRequestFailed(
             .SetDetails(issueDetails.Build())
             .Build();
 
-    DispatchToAgents(ftn, &protocol::AuditsHandler::OnIssueAdded,
-                     inspector_issue.get());
+    ReportBrowserInitiatedIssue(ftn->current_frame_host(),
+                                inspector_issue.get());
   }
 
   DispatchToAgents(ftn, &protocol::NetworkHandler::LoadingComplete, id,
@@ -654,7 +663,7 @@ void OnResponseReceivedExtraInfo(
     int process_id,
     int routing_id,
     const std::string& devtools_request_id,
-    const net::CookieAndLineStatusList& response_cookie_list,
+    const net::CookieAndLineAccessResultList& response_cookie_list,
     const std::vector<network::mojom::HttpRawHeaderPairPtr>& response_headers,
     const base::Optional<std::string>& response_headers_text) {
   FrameTreeNode* ftn = GetFtnForNetworkRequest(process_id, routing_id);
@@ -740,6 +749,19 @@ std::unique_ptr<protocol::Array<protocol::String>> BuildExclusionReasons(
         protocol::Audits::SameSiteCookieExclusionReasonEnum::
             ExcludeSameSiteNoneInsecure);
   }
+  if (status.HasExclusionReason(
+          net::CookieInclusionStatus::EXCLUDE_SAMESITE_LAX)) {
+    exclusion_reasons->push_back(
+        protocol::Audits::SameSiteCookieExclusionReasonEnum::
+            ExcludeSameSiteLax);
+  }
+  if (status.HasExclusionReason(
+          net::CookieInclusionStatus::EXCLUDE_SAMESITE_STRICT)) {
+    exclusion_reasons->push_back(
+        protocol::Audits::SameSiteCookieExclusionReasonEnum::
+            ExcludeSameSiteStrict);
+  }
+
   return exclusion_reasons;
 }
 
@@ -819,7 +841,7 @@ protocol::String BuildCookieOperation(
 
 void ReportSameSiteCookieIssue(
     RenderFrameHostImpl* render_frame_host_impl,
-    const net::CookieWithStatus& excluded_cookie,
+    const net::CookieWithAccessResult& excluded_cookie,
     const GURL& url,
     const net::SiteForCookies& site_for_cookies,
     blink::mojom::SameSiteCookieOperation operation,
@@ -844,8 +866,9 @@ void ReportSameSiteCookieIssue(
       protocol::Audits::SameSiteCookieIssueDetails::Create()
           .SetCookie(std::move(affected_cookie))
           .SetCookieExclusionReasons(
-              BuildExclusionReasons(excluded_cookie.status))
-          .SetCookieWarningReasons(BuildWarningReasons(excluded_cookie.status))
+              BuildExclusionReasons(excluded_cookie.access_result.status))
+          .SetCookieWarningReasons(
+              BuildWarningReasons(excluded_cookie.access_result.status))
           .SetOperation(BuildCookieOperation(operation))
           .SetCookieUrl(url.spec())
           .SetRequest(std::move(affected_request))
@@ -876,9 +899,11 @@ namespace {
 void AddIssueToIssueStorage(
     RenderFrameHost* frame,
     std::unique_ptr<protocol::Audits::InspectorIssue> issue) {
-  WebContents* web_contents = WebContents::FromRenderFrameHost(frame);
+  // We only utilize a central storage on the main frame. Each issue is
+  // still associated with the originating |RenderFrameHost| though.
   DevToolsIssueStorage* issue_storage =
-      DevToolsIssueStorage::GetOrCreateForWebContents(web_contents);
+      DevToolsIssueStorage::GetOrCreateForCurrentDocument(
+          frame->GetMainFrame());
 
   issue_storage->AddInspectorIssue(frame->GetFrameTreeNodeId(),
                                    std::move(issue));

@@ -148,13 +148,19 @@ class Controller : public ScriptExecutorDelegate,
   // states where showing the UI is optional, such as RUNNING, in tracking mode.
   void RequireUI() override;
 
-  void AddListener(NavigationListener* listener) override;
-  void RemoveListener(NavigationListener* listener) override;
+  void AddNavigationListener(
+      ScriptExecutorDelegate::NavigationListener* listener) override;
+  void RemoveNavigationListener(
+      ScriptExecutorDelegate::NavigationListener* listener) override;
+  void AddListener(ScriptExecutorDelegate::Listener* listener) override;
+  void RemoveListener(ScriptExecutorDelegate::Listener* listener) override;
 
   void SetExpandSheetForPromptAction(bool expand) override;
   void SetBrowseDomainsWhitelist(std::vector<std::string> domains) override;
 
   bool EnterState(AutofillAssistantState state) override;
+  void SetOverlayBehavior(
+      ConfigureUiStateProto::OverlayBehavior overlay_behavior) override;
   void SetCollectUserDataOptions(CollectUserDataOptions* options) override;
   void WriteUserData(
       base::OnceCallback<void(UserData*, UserData::FieldChange*)>) override;
@@ -162,8 +168,7 @@ class Controller : public ScriptExecutorDelegate,
                      Metrics::DropOutReason reason);
 
   // Overrides autofill_assistant::UiDelegate:
-  AutofillAssistantState GetState() override;
-  int64_t GetErrorCausingNavigationId() const override;
+  AutofillAssistantState GetState() const override;
   void OnUserInteractionInsideTouchableArea() override;
   const Details* GetDetails() const override;
   const InfoBox* GetInfoBox() const override;
@@ -206,7 +211,8 @@ class Controller : public ScriptExecutorDelegate,
   void GetVisualViewport(RectF* visual_viewport) const override;
   void OnFatalError(const std::string& error_message,
                     Metrics::DropOutReason reason) override;
-  void PerformDelayedShutdownIfNecessary();
+  void OnStop(const std::string& message,
+              const std::string& button_label) override;
   void MaybeReportFirstCheckDone();
   ViewportMode GetViewportMode() override;
   ConfigureBottomSheetProto::PeekMode GetPeekMode() override;
@@ -226,6 +232,8 @@ class Controller : public ScriptExecutorDelegate,
   bool ShouldPromptActionExpandSheet() const override;
   BasicInteractions* GetBasicInteractions() override;
   const GenericUserInterfaceProto* GetGenericUiProto() const override;
+  bool ShouldShowOverlay() const override;
+  void ShutdownIfNecessary() override;
 
  private:
   friend ControllerTest;
@@ -324,6 +332,11 @@ class Controller : public ScriptExecutorDelegate,
   ScriptTracker* script_tracker();
   bool allow_autostart() { return state_ == AutofillAssistantState::STARTING; }
 
+  void RecordDropOutOrShutdown(Metrics::DropOutReason reason);
+  void PerformDelayedShutdownIfNecessary();
+
+  bool StateNeedsUI(AutofillAssistantState state);
+
   ClientSettings settings_;
   Client* const client_;
   const base::TickClock* const tick_clock_;
@@ -336,7 +349,7 @@ class Controller : public ScriptExecutorDelegate,
   std::unique_ptr<TriggerContext> trigger_context_;
 
   AutofillAssistantState state_ = AutofillAssistantState::INACTIVE;
-  int64_t error_causing_navigation_id_ = -1;
+  bool can_recover_from_stopped_ = false;
 
   // The URL passed to Start(). Used only as long as there's no committed URL.
   // Note that this is the deeplink passed by a caller.
@@ -423,7 +436,10 @@ class Controller : public ScriptExecutorDelegate,
 
   // Value for ScriptExecutorDelegate::HasNavigationError()
   bool navigation_error_ = false;
-  base::ObserverList<NavigationListener> navigation_listeners_;
+  base::ObserverList<ScriptExecutorDelegate::NavigationListener>
+      navigation_listeners_;
+
+  base::ObserverList<ScriptExecutorDelegate::Listener> listeners_;
 
   // The next DidStartNavigation will not cause an error.
   bool expect_navigation_ = false;
@@ -455,6 +471,10 @@ class Controller : public ScriptExecutorDelegate,
   // declared it invalid - and entered stopped state - or have processed its
   // result - and updated the state and set of available actions.
   bool has_run_first_check_ = false;
+
+  // Whether the overlay should be set according to state or always hidden.
+  ConfigureUiStateProto::OverlayBehavior overlay_behavior_ =
+      ConfigureUiStateProto::DEFAULT;
 
   // Callbacks to call when |has_run_first_check_| becomes true.
   std::vector<base::OnceCallback<void()>> on_has_run_first_check_;

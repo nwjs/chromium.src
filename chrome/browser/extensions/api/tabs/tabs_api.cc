@@ -515,7 +515,7 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
 
   Profile* calling_profile = Profile::FromBrowserContext(browser_context());
   Profile* window_profile = open_incognito_window
-                                ? calling_profile->GetOffTheRecordProfile()
+                                ? calling_profile->GetPrimaryOTRProfile()
                                 : calling_profile;
 
   // Look for optional tab id.
@@ -777,10 +777,12 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
   if (!resizable)
     new_window->window()->SetResizable(false);
 #endif
+
   if (create_params.initial_show_state == ui::SHOW_STATE_FULLSCREEN) {
     BrowserFrame* frame = BrowserView::GetBrowserViewForBrowser(new_window)->frame();
     frame->SetFullscreen(true);
   }
+
   if (!hidden) {
   if (focused)
     new_window->window()->Show();
@@ -856,58 +858,14 @@ ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
     return RespondNow(
         Error(tabs_constants::kMissingLockWindowFullscreenPrivatePermission));
   }
-  // state will be WINDOW_STATE_NONE if the state parameter wasn't passed from
-  // the JS side, and in that case we don't want to change the locked state.
-  if (is_locked_fullscreen &&
-      params->update_info.state != windows::WINDOW_STATE_LOCKED_FULLSCREEN &&
-      params->update_info.state != windows::WINDOW_STATE_NONE) {
-    tabs_util::SetLockedFullscreenState(browser, false);
-  } else if (!is_locked_fullscreen &&
-             params->update_info.state ==
-                 windows::WINDOW_STATE_LOCKED_FULLSCREEN) {
-    tabs_util::SetLockedFullscreenState(browser, true);
-  }
 
+  // Before changing any of a window's state, validate the update parameters.
+  // This prevents Chrome from performing "half" an update.
   ui::WindowShowState show_state =
       ConvertToWindowShowState(params->update_info.state);
-
-  if (show_state != ui::SHOW_STATE_FULLSCREEN &&
-      show_state != ui::SHOW_STATE_DEFAULT) {
-    browser->extension_window_controller()->SetFullscreenMode(
-        false, extension()->url());
-  }
-
-  switch (show_state) {
-    case ui::SHOW_STATE_MINIMIZED:
-      browser->window()->Minimize();
-      break;
-    case ui::SHOW_STATE_MAXIMIZED:
-      browser->window()->Maximize();
-      break;
-    case ui::SHOW_STATE_FULLSCREEN:
-      if (browser->window()->IsMinimized() ||
-          browser->window()->IsMaximized()) {
-        browser->window()->Restore();
-      }
-      browser->extension_window_controller()->SetFullscreenMode(
-          true, extension()->url());
-      break;
-    case ui::SHOW_STATE_NORMAL:
-      browser->window()->Show();
-      browser->window()->Restore();
-      break;
-    case ui::SHOW_STATE_HIDDEN:
-      browser->window()->Hide();
-      break;
-    default:
-      break;
-  }
-
-  gfx::Rect bounds;
-  if (browser->window()->IsMinimized())
-    bounds = browser->window()->GetRestoredBounds();
-  else
-    bounds = browser->window()->GetBounds();
+  gfx::Rect bounds = browser->window()->IsMinimized()
+                         ? browser->window()->GetRestoredBounds()
+                         : browser->window()->GetBounds();
   bool set_bounds = false;
   bool set_pos_only = false;
 
@@ -980,12 +938,71 @@ ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
     browser->window()->SetBounds(win_bounds);
   }
 
-  if (set_bounds) {
-    if (show_state == ui::SHOW_STATE_MINIMIZED ||
-        show_state == ui::SHOW_STATE_MAXIMIZED ||
-        show_state == ui::SHOW_STATE_FULLSCREEN) {
+  if (set_bounds && (show_state == ui::SHOW_STATE_MINIMIZED ||
+                     show_state == ui::SHOW_STATE_MAXIMIZED ||
+                     show_state == ui::SHOW_STATE_FULLSCREEN)) {
+    return RespondNow(Error(tabs_constants::kInvalidWindowStateError));
+  }
+
+  if (params->update_info.focused) {
+    bool focused = *params->update_info.focused;
+    // A window cannot be focused and minimized, or not focused and maximized
+    // or fullscreened.
+    if (focused && show_state == ui::SHOW_STATE_MINIMIZED)
+      return RespondNow(Error(tabs_constants::kInvalidWindowStateError));
+    if (!focused && (show_state == ui::SHOW_STATE_MAXIMIZED ||
+                     show_state == ui::SHOW_STATE_FULLSCREEN)) {
       return RespondNow(Error(tabs_constants::kInvalidWindowStateError));
     }
+  }
+
+  // Parameters are valid. Now to perform the actual updates.
+
+  // state will be WINDOW_STATE_NONE if the state parameter wasn't passed from
+  // the JS side, and in that case we don't want to change the locked state.
+  if (is_locked_fullscreen &&
+      params->update_info.state != windows::WINDOW_STATE_LOCKED_FULLSCREEN &&
+      params->update_info.state != windows::WINDOW_STATE_NONE) {
+    tabs_util::SetLockedFullscreenState(browser, false);
+  } else if (!is_locked_fullscreen &&
+             params->update_info.state ==
+                 windows::WINDOW_STATE_LOCKED_FULLSCREEN) {
+    tabs_util::SetLockedFullscreenState(browser, true);
+  }
+
+  if (show_state != ui::SHOW_STATE_FULLSCREEN &&
+      show_state != ui::SHOW_STATE_DEFAULT) {
+    browser->extension_window_controller()->SetFullscreenMode(
+        false, extension()->url());
+  }
+
+  switch (show_state) {
+    case ui::SHOW_STATE_MINIMIZED:
+      browser->window()->Minimize();
+      break;
+    case ui::SHOW_STATE_MAXIMIZED:
+      browser->window()->Maximize();
+      break;
+    case ui::SHOW_STATE_FULLSCREEN:
+      if (browser->window()->IsMinimized() ||
+          browser->window()->IsMaximized()) {
+        browser->window()->Restore();
+      }
+      browser->extension_window_controller()->SetFullscreenMode(
+          true, extension()->url());
+      break;
+    case ui::SHOW_STATE_NORMAL:
+      browser->window()->Show();
+      browser->window()->Restore();
+      break;
+    case ui::SHOW_STATE_HIDDEN:
+      browser->window()->Hide();
+      break;
+    default:
+      break;
+  }
+
+  if (set_bounds) {
     // TODO(varkha): Updating bounds during a drag can cause problems and a more
     // general solution is needed. See http://crbug.com/251813 .
 #if defined(OS_WIN)
@@ -1011,14 +1028,8 @@ ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
 
   if (params->update_info.focused) {
     if (*params->update_info.focused) {
-      if (show_state == ui::SHOW_STATE_MINIMIZED)
-        return RespondNow(Error(tabs_constants::kInvalidWindowStateError));
       browser->window()->Activate();
     } else {
-      if (show_state == ui::SHOW_STATE_MAXIMIZED ||
-          show_state == ui::SHOW_STATE_FULLSCREEN) {
-        return RespondNow(Error(tabs_constants::kInvalidWindowStateError));
-      }
       browser->window()->Deactivate();
     }
   }
@@ -1831,6 +1842,9 @@ ExtensionFunction::ResponseAction TabsReloadFunction::Run() {
   return RespondNow(NoArguments());
 }
 
+TabsRemoveFunction::TabsRemoveFunction() = default;
+TabsRemoveFunction::~TabsRemoveFunction() = default;
+
 ExtensionFunction::ResponseAction TabsRemoveFunction::Run() {
   std::unique_ptr<tabs::Remove::Params> params(
       tabs::Remove::Params::Create(*args_));
@@ -1848,7 +1862,16 @@ ExtensionFunction::ResponseAction TabsRemoveFunction::Run() {
     if (!RemoveTab(*params->tab_ids.as_integer, &error))
       return RespondNow(Error(std::move(error)));
   }
-  return RespondNow(NoArguments());
+  triggered_all_tab_removals_ = true;
+  DCHECK(!did_respond());
+  // WebContentsDestroyed will return the response in most cases, except when
+  // the last tab closed immediately (it won't return a response because
+  // |triggered_all_tab_removals_| will still be false). In this case we should
+  // return the response from here.
+  if (remaining_tabs_count_ == 0) {
+    return RespondNow(NoArguments());
+  }
+  return RespondLater();
 }
 
 bool TabsRemoveFunction::RemoveTab(int tab_id, std::string* error) {
@@ -1864,6 +1887,17 @@ bool TabsRemoveFunction::RemoveTab(int tab_id, std::string* error) {
     *error = tabs_constants::kTabStripNotEditableError;
     return false;
   }
+  // The tab might not immediately close after calling Close() below, so we
+  // should wait until WebContentsDestroyed is called before responding.
+  web_contents_destroyed_observers_.push_back(
+      std::make_unique<WebContentsDestroyedObserver>(this, contents));
+  // Ensure that we're going to keep this class alive until
+  // |remaining_tabs_count| reaches zero. This relies on WebContents::Close()
+  // always (eventually) resulting in a WebContentsDestroyed() call; otherwise,
+  // this function will never respond and may leak.
+  AddRef();
+  remaining_tabs_count_++;
+
   // There's a chance that the tab is being dragged, or we're in some other
   // nested event loop. This code path ensures that the tab is safely closed
   // under such circumstances, whereas |TabStripModel::CloseWebContentsAt()|
@@ -1872,16 +1906,51 @@ bool TabsRemoveFunction::RemoveTab(int tab_id, std::string* error) {
   return true;
 }
 
+void TabsRemoveFunction::TabDestroyed() {
+  DCHECK_GT(remaining_tabs_count_, 0);
+  // One of the tabs we wanted to remove had been destroyed.
+  remaining_tabs_count_--;
+  // If we've triggered all the tab removals we need, and this is the last tab
+  // we're waiting for and we haven't sent a response (it's possible that we've
+  // responded earlier in case of errors, etc.), send a response.
+  if (triggered_all_tab_removals_ && remaining_tabs_count_ == 0 &&
+      !did_respond()) {
+    Respond(NoArguments());
+  }
+  Release();
+}
+
+class TabsRemoveFunction::WebContentsDestroyedObserver
+    : public content::WebContentsObserver {
+ public:
+  WebContentsDestroyedObserver(extensions::TabsRemoveFunction* owner,
+                               content::WebContents* watched_contents)
+      : content::WebContentsObserver(watched_contents), owner_(owner) {}
+
+  ~WebContentsDestroyedObserver() override = default;
+  WebContentsDestroyedObserver(const WebContentsDestroyedObserver&) = delete;
+  WebContentsDestroyedObserver& operator=(const WebContentsDestroyedObserver&) =
+      delete;
+
+  // WebContentsObserver
+  void WebContentsDestroyed() override { owner_->TabDestroyed(); }
+
+ private:
+  // Guaranteed to outlive this object.
+  extensions::TabsRemoveFunction* owner_;
+};
+
 TabsCaptureVisibleTabFunction::TabsCaptureVisibleTabFunction()
     : chrome_details_(this) {
 }
 
-bool TabsCaptureVisibleTabFunction::IsScreenshotEnabled() const {
+bool TabsCaptureVisibleTabFunction::IsScreenshotEnabled(
+    content::WebContents* web_contents) const {
   PrefService* service = chrome_details_.GetProfile()->GetPrefs();
   if (service->GetBoolean(prefs::kDisableScreenshots)) {
     return false;
   }
-  return true;
+  return !tabs_util::IsScreenshotRestricted(web_contents);
 }
 
 bool TabsCaptureVisibleTabFunction::ClientAllowsTransparency() {

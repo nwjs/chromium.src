@@ -21,7 +21,6 @@
 #include "base/callback_helpers.h"
 #include "base/macros.h"
 #include "base/memory/ptr_util.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/stl_util.h"
 #include "base/task/post_task.h"
@@ -40,6 +39,7 @@
 #include "media/gpu/macros.h"
 #include "media/gpu/vaapi/h264_encoder.h"
 #include "media/gpu/vaapi/vaapi_common.h"
+#include "media/gpu/vaapi/vaapi_utils.h"
 #include "media/gpu/vaapi/vp8_encoder.h"
 #include "media/gpu/vaapi/vp9_encoder.h"
 #include "media/gpu/vp8_reference_frame_vector.h"
@@ -62,17 +62,6 @@ constexpr size_t kMinNumFramesInFlight = 4;
 
 // Percentage of bitrate set to be targeted by the HW encoder.
 constexpr unsigned int kTargetBitratePercentage = 90;
-
-// UMA errors that the VaapiVideoEncodeAccelerator class reports.
-enum VAVEAEncoderFailure {
-  VAAPI_ERROR = 0,
-  VAVEA_ENCODER_FAILURES_MAX,
-};
-
-static void ReportToUMA(VAVEAEncoderFailure failure) {
-  UMA_HISTOGRAM_ENUMERATION("Media.VAVEA.EncoderFailure", failure,
-                            VAVEA_ENCODER_FAILURES_MAX + 1);
-}
 
 // Calculate the size of the allocated buffer aligned to hardware/driver
 // requirements.
@@ -277,8 +266,8 @@ bool VaapiVideoEncodeAccelerator::Initialize(const Config& config,
 
   VLOGF(2) << "Initializing VAVEA, " << config.AsHumanReadableString();
 
-  // VaapiVEA doesn't support temporal layers but we let it pass here to support
-  // simulcast.
+  // VaapiVEA supports temporal layers for VP9 only, but we also allow VP8 to
+  // support VP8 simulcast.
   if (config.HasSpatialLayer()) {
     VLOGF(1) << "Spatial layer encoding is supported";
     return false;
@@ -344,7 +333,9 @@ bool VaapiVideoEncodeAccelerator::Initialize(const Config& config,
         codec == kCodecVP9 ? VaapiWrapper::kEncodeConstantQuantizationParameter
                            : VaapiWrapper::kEncode;
     vaapi_wrapper_ = VaapiWrapper::CreateForVideoCodec(
-        mode, config.output_profile, base::Bind(&ReportToUMA, VAAPI_ERROR));
+        mode, config.output_profile,
+        base::Bind(&ReportVaapiErrorToUMA,
+                   "Media.VaapiVideoEncodeAccelerator.VAAPIError"));
     if (!vaapi_wrapper_) {
       VLOGF(1) << "Failed initializing VAAPI for profile "
                << GetProfileName(config.output_profile);
@@ -618,8 +609,9 @@ void VaapiVideoEncodeAccelerator::ReturnBitstreamBuffer(
   scoped_buffer.RunAndReset();
 
   child_task_runner_->PostTask(
-      FROM_HERE, base::BindOnce(&Client::BitstreamBufferReady, client_,
-                                buffer->id, encode_job->Metadata(data_size)));
+      FROM_HERE,
+      base::BindOnce(&Client::BitstreamBufferReady, client_, buffer->id,
+                     encoder_->GetMetadata(encode_job.get(), data_size)));
 }
 
 void VaapiVideoEncodeAccelerator::Encode(scoped_refptr<VideoFrame> frame,
@@ -725,9 +717,10 @@ std::unique_ptr<VaapiEncodeJob> VaapiVideoEncodeAccelerator::CreateEncodeJob(
     // Do cropping/scaling.  Here the buffer size contained in |input_surface|
     // is |frame->coded_size()|.
     if (!vpp_vaapi_wrapper_) {
-      vpp_vaapi_wrapper_ =
-          VaapiWrapper::Create(VaapiWrapper::kVideoProcess, VAProfileNone,
-                               base::Bind(&ReportToUMA, VAAPI_ERROR));
+      vpp_vaapi_wrapper_ = VaapiWrapper::Create(
+          VaapiWrapper::kVideoProcess, VAProfileNone,
+          base::Bind(&ReportVaapiErrorToUMA,
+                     "Media.VaapiVideoEncodeAccelerator.Vpp.VAAPIError"));
       if (!vpp_vaapi_wrapper_) {
         NOTIFY_ERROR(kPlatformFailureError,
                      "Failed to initialize VppVaapiWrapper");

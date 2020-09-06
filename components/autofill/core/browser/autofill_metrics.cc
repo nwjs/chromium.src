@@ -1702,7 +1702,7 @@ void AutofillMetrics::LogStoredCreditCardMetrics(
             days_since_last_use);
         num_local_cards += 1;
         num_disused_local_cards += disused_delta;
-        if (card->HasValidNickname())
+        if (card->HasNonEmptyValidNickname())
           num_local_cards_with_nickname += 1;
         break;
       case CreditCard::MASKED_SERVER_CARD:
@@ -1714,7 +1714,7 @@ void AutofillMetrics::LogStoredCreditCardMetrics(
             days_since_last_use);
         num_masked_cards += 1;
         num_disused_masked_cards += disused_delta;
-        if (card->HasValidNickname())
+        if (card->HasNonEmptyValidNickname())
           num_masked_cards_with_nickname += 1;
         break;
       case CreditCard::FULL_SERVER_CARD:
@@ -2426,6 +2426,20 @@ void AutofillMetrics::
 void AutofillMetrics::LogAddressFormImportStatustMetric(
     AutofillMetrics::AddressProfileImportStatusMetric metric) {
   base::UmaHistogramEnumeration("Autofill.AddressProfileImportStatus", metric);
+}
+
+// static
+void AutofillMetrics::LogWebOTPPhoneCollectionMetricStateUkm(
+    ukm::UkmRecorder* recorder,
+    ukm::SourceId source_id,
+    uint32_t phone_collection_metric_state) {
+  // UKM recording is not supported for WebViews.
+  if (!recorder || source_id == ukm::kInvalidSourceId)
+    return;
+
+  ukm::builders::WebOTPImpact builder(source_id);
+  builder.SetPhoneCollection(phone_collection_metric_state);
+  builder.Record(recorder);
 }
 
 }  // namespace autofill

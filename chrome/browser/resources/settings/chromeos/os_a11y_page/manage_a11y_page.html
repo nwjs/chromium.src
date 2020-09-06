@@ -51,13 +51,11 @@
         pref="{{prefs.settings.accessibility}}"
         label="$i18n{chromeVoxLabel}">
     </settings-toggle-button>
-    <template is="dom-if" if="[[!isKioskModeActive_]]">
-      <iron-collapse opened="[[prefs.settings.accessibility.value]]">
-        <cr-link-row id="chromeVoxSubpageButton"
-            class="settings-box" on-click="onChromeVoxSettingsTap_"
-            label="$i18n{chromeVoxOptionsLabel}" external></cr-link-row>
-      </iron-collapse>
-    </template>
+    <iron-collapse opened="[[prefs.settings.accessibility.value]]">
+      <cr-link-row id="chromeVoxSubpageButton"
+          class="settings-box" on-click="onChromeVoxSettingsTap_"
+          label="$i18n{chromeVoxOptionsLabel}" external></cr-link-row>
+    </iron-collapse>
     <settings-toggle-button
         pref="{{prefs.settings.a11y.select_to_speak}}"
         class="hr"
@@ -243,23 +241,16 @@
       </settings-slider>
     </div>
     <template is="dom-if" if="[[shouldShowExperimentalCursorColor_]]">
-      <settings-toggle-button class="hr"
-          pref="{{prefs.settings.a11y.cursor_color_enabled}}"
-          label="$i18n{cursorColorEnabledLabel}">
-      </settings-toggle-button>
-      <template is="dom-if"
-          if="[[prefs.settings.a11y.cursor_color_enabled.value]]">
-        <div class="settings-box continuation">
-          <div class="start sub-item settings-box-text"
-              id="cursorColorOptionsLabel">
-            $i18n{cursorColorOptionsLabel}
-          </div>
-          <settings-dropdown-menu aria-labeledby="cursorColorOptionsLabel"
-              pref="{{prefs.settings.a11y.cursor_color}}"
-              menu-options="[[cursorColorOptions_]]">
-          </settings-dropdown-menu>
+      <div class="settings-box">
+        <div class="start settings-box-text" id="cursorColorOptionsLabel">
+          $i18n{cursorColorOptionsLabel}
         </div>
-      </template>
+        <settings-dropdown-menu aria-labeledby="cursorColorOptionsLabel"
+            pref="{{prefs.settings.a11y.cursor_color}}"
+            menu-options="[[cursorColorOptions_]]"
+            on-settings-control-change="onA11yCursorColorChange_">
+        </settings-dropdown-menu>
+      </div>
     </template>
     <settings-toggle-button
         class="hr"

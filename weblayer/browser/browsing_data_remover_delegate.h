@@ -28,6 +28,7 @@ class BrowsingDataRemoverDelegate : public content::BrowsingDataRemoverDelegate,
 
     // WebLayer-specific datatypes.
     DATA_TYPE_ISOLATED_ORIGINS = DATA_TYPE_EMBEDDER_BEGIN,
+    DATA_TYPE_FAVICONS = DATA_TYPE_EMBEDDER_BEGIN << 1,
   };
 
   explicit BrowsingDataRemoverDelegate(
@@ -47,7 +48,7 @@ class BrowsingDataRemoverDelegate : public content::BrowsingDataRemoverDelegate,
                           uint64_t remove_mask,
                           content::BrowsingDataFilterBuilder* filter_builder,
                           uint64_t origin_type_mask,
-                          base::OnceClosure callback) override;
+                          base::OnceCallback<void(uint64_t)> callback) override;
 
  private:
   content::BrowserContext* browser_context_ = nullptr;

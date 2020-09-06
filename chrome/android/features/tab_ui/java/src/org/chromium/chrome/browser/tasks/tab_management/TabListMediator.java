@@ -16,7 +16,6 @@ import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.text.TextUtils;
@@ -40,7 +39,7 @@ import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.task.PostTask;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
-import org.chromium.chrome.browser.native_page.NativePageFactory;
+import org.chromium.chrome.browser.ntp.NewTabPage;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
@@ -359,7 +358,7 @@ class TabListMediator {
     private final TabObserver mTabObserver = new EmptyTabObserver() {
         @Override
         public void onDidStartNavigation(Tab tab, NavigationHandle navigationHandle) {
-            if (NativePageFactory.isNativePageUrl(tab.getUrlString(), tab.isIncognito())) return;
+            if (NewTabPage.isNTPUrl(tab.getUrlString())) return;
             if (navigationHandle.isSameDocument() || !navigationHandle.isInMainFrame()) return;
             if (mModel.indexFromId(tab.getId()) == TabModel.INVALID_TAB_INDEX) return;
             mModel.get(mModel.indexFromId(tab.getId()))
@@ -523,10 +522,7 @@ class TabListMediator {
             @Override
             public void didAddTab(
                     Tab tab, @TabLaunchType int type, @TabCreationState int creationState) {
-                boolean isTabModelRestoreCompleted = mTabModelSelector.getTabModelFilterProvider()
-                                                             .getCurrentTabModelFilter()
-                                                             .isTabModelRestored();
-                if (!isTabModelRestoreCompleted) return;
+                if (!mTabModelSelector.isTabStateInitialized()) return;
                 onTabAdded(tab, !mActionsOnAllRelatedTabs);
                 if (type == TabLaunchType.FROM_RESTORE && mActionsOnAllRelatedTabs) {
                     // When tab is restored after restoring stage (e.g. exiting multi-window mode,
@@ -571,10 +567,7 @@ class TabListMediator {
             }
         };
 
-        mTabModelSelector.getTabModelFilterProvider().addTabModelFilterObserver(mTabModelObserver);
-
-        if (mTabModelSelector.getTabModelFilterProvider().getCurrentTabModelFilter()
-                        instanceof TabGroupModelFilter) {
+        if (TabUiFeatureUtilities.isTabGroupsAndroidEnabled()) {
             mTabGroupObserver = new EmptyTabGroupModelFilterObserver() {
                 @Override
                 public void didMoveWithinGroup(
@@ -702,13 +695,6 @@ class TabListMediator {
                 public void didCreateGroup(
                         List<Tab> tabs, List<Integer> tabOriginalIndex, boolean isSameGroup) {}
             };
-
-            ((TabGroupModelFilter) mTabModelSelector.getTabModelFilterProvider().getTabModelFilter(
-                     false))
-                    .addTabGroupObserver(mTabGroupObserver);
-            ((TabGroupModelFilter) mTabModelSelector.getTabModelFilterProvider().getTabModelFilter(
-                     true))
-                    .addTabGroupObserver(mTabGroupObserver);
         }
 
         // TODO(meiliang): follow up with unit tests to test the close signal is sent correctly with
@@ -770,6 +756,19 @@ class TabListMediator {
 
     public void initWithNative(Profile profile) {
         mTabListFaviconProvider.initWithNative(profile);
+        mTabModelSelector.getTabModelFilterProvider().addTabModelFilterObserver(mTabModelObserver);
+
+        if (mTabGroupObserver != null) {
+            assert mTabModelSelector.getTabModelFilterProvider().getCurrentTabModelFilter()
+                            instanceof TabGroupModelFilter;
+            ((TabGroupModelFilter) mTabModelSelector.getTabModelFilterProvider().getTabModelFilter(
+                     false))
+                    .addTabGroupObserver(mTabGroupObserver);
+            ((TabGroupModelFilter) mTabModelSelector.getTabModelFilterProvider().getTabModelFilter(
+                     true))
+                    .addTabGroupObserver(mTabGroupObserver);
+        }
+
         if (TabUiFeatureUtilities.isTabGroupsAndroidContinuationEnabled()) {
             mTabGroupTitleEditor = new TabGroupTitleEditor(mTabModelSelector) {
                 @Override
@@ -781,6 +780,7 @@ class TabListMediator {
                     int index = mModel.indexFromId(currentGroupSelectedTab.getId());
                     if (index == TabModel.INVALID_TAB_INDEX) return;
                     mModel.get(index).model.set(TabProperties.TITLE, title);
+                    updateDescriptionString(PseudoTab.fromTab(tab), mModel.get(index).model);
                 }
 
                 @Override
@@ -1019,6 +1019,7 @@ class TabListMediator {
         mModel.get(index).model.set(TabProperties.TAB_SELECTED_LISTENER, tabSelectedListener);
         mModel.get(index).model.set(TabProperties.IS_SELECTED, isSelected);
         mModel.get(index).model.set(TabProperties.TITLE, getLatestTitleForTab(pseudoTab));
+        updateDescriptionString(pseudoTab, mModel.get(index).model);
         if (isRealTab) {
             mModel.get(index).model.set(
                     TabProperties.URL_DOMAIN, getDomainForTab(pseudoTab.getTab()));
@@ -1106,9 +1107,6 @@ class TabListMediator {
             @Override
             public void onInitializeAccessibilityNodeInfo(View host, AccessibilityNodeInfo info) {
                 super.onInitializeAccessibilityNodeInfo(host, info);
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-                    return;
-                }
                 for (AccessibilityAction action : helper.getPotentialActionsForView(host)) {
                     info.addAction(action);
                 }
@@ -1279,6 +1277,7 @@ class TabListMediator {
         } else {
             tabInfo.set(TabProperties.TAB_SELECTED_LISTENER, tabSelectedListener);
             tabInfo.set(TabProperties.TAB_CLOSED_LISTENER, isRealTab ? mTabClosedListener : null);
+            updateDescriptionString(pseudoTab, tabInfo);
         }
 
         if (index >= mModel.size()) {
@@ -1336,7 +1335,31 @@ class TabListMediator {
         return TextUtils.join(", ", domainNames);
     }
 
-    private String getDomain(Tab tab) {
+    private void updateDescriptionString(PseudoTab pseudoTab, PropertyModel model) {
+        if (!mActionsOnAllRelatedTabs) return;
+        int numOfRelatedTabs = getRelatedTabsForId(pseudoTab.getId()).size();
+        if (numOfRelatedTabs > 1) {
+            String title = getLatestTitleForTab(pseudoTab);
+            title = title.equals(pseudoTab.getTitle(mTitleProvider)) ? "" : title;
+            model.set(TabProperties.CONTENT_DESCRIPTION_STRING,
+                    title.isEmpty() ? mContext.getString(R.string.accessibility_expand_tab_group,
+                            String.valueOf(numOfRelatedTabs))
+                                    : mContext.getString(
+                                            R.string.accessibility_expand_tab_group_with_group_name,
+                                            title, String.valueOf(numOfRelatedTabs)));
+        } else {
+            model.set(TabProperties.CONTENT_DESCRIPTION_STRING, null);
+        }
+    }
+
+    @VisibleForTesting
+    protected static String getDomain(Tab tab) {
+        // TODO(crbug.com/1116613) Investigate how uninitialized Tabs are appearing
+        // here.
+        assert tab.isInitialized();
+        if (!tab.isInitialized()) {
+            return "";
+        }
         String domain = UrlUtilities.getDomainAndRegistry(tab.getUrlString(), false);
 
         if (domain.isEmpty()) return tab.getUrlString();

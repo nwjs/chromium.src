@@ -7,6 +7,19 @@
 
 namespace autofill_assistant {
 
+// Parameter that allows setting the color of the overlay.
+const char kOverlayColorParameterName[] = "OVERLAY_COLORS";
+
+// Parameter that contains the current session username. Should be synced with
+// |SESSION_USERNAME_PARAMETER| from
+// .../password_manager/PasswordChangeLauncher.java
+// TODO(b/151401974): Eliminate duplicate parameter definitions.
+const char kPasswordChangeUsernameParameterName[] = "PASSWORD_CHANGE_USERNAME";
+
+// Parameter that contains the path of the lite script currently being run, if
+// any.
+const char kLiteScriptPathParamaterName[] = "TRIGGER_SCRIPT_USED";
+
 // static
 std::unique_ptr<TriggerContext> TriggerContext::CreateEmpty() {
   return std::make_unique<TriggerContextImpl>();
@@ -25,8 +38,20 @@ std::unique_ptr<TriggerContext> TriggerContext::Merge(
   return std::make_unique<MergedTriggerContext>(contexts);
 }
 
+bool TriggerContext::is_lite_script() const {
+  return GetParameter(kLiteScriptPathParamaterName).has_value();
+}
+
 TriggerContext::TriggerContext() {}
 TriggerContext::~TriggerContext() {}
+
+base::Optional<std::string> TriggerContext::GetOverlayColors() const {
+  return GetParameter(kOverlayColorParameterName);
+}
+
+base::Optional<std::string> TriggerContext::GetPasswordChangeUsername() const {
+  return GetParameter(kPasswordChangeUsernameParameterName);
+}
 
 TriggerContextImpl::TriggerContextImpl() {}
 
@@ -38,13 +63,8 @@ TriggerContextImpl::TriggerContextImpl(
 
 TriggerContextImpl::~TriggerContextImpl() = default;
 
-void TriggerContextImpl::AddParameters(
-    google::protobuf::RepeatedPtrField<ScriptParameterProto>* dest) const {
-  for (const auto& param_entry : parameters_) {
-    ScriptParameterProto* parameter = dest->Add();
-    parameter->set_name(param_entry.first);
-    parameter->set_value(param_entry.second);
-  }
+std::map<std::string, std::string> TriggerContextImpl::GetParameters() const {
+  return parameters_;
 }
 
 base::Optional<std::string> TriggerContextImpl::GetParameter(
@@ -91,11 +111,14 @@ MergedTriggerContext::MergedTriggerContext(
 
 MergedTriggerContext::~MergedTriggerContext() {}
 
-void MergedTriggerContext::AddParameters(
-    google::protobuf::RepeatedPtrField<ScriptParameterProto>* dest) const {
+std::map<std::string, std::string> MergedTriggerContext::GetParameters() const {
+  std::map<std::string, std::string> merged_parameters;
   for (const TriggerContext* context : contexts_) {
-    context->AddParameters(dest);
+    for (const auto& parameter : context->GetParameters()) {
+      merged_parameters.insert(parameter);
+    }
   }
+  return merged_parameters;
 }
 
 base::Optional<std::string> MergedTriggerContext::GetParameter(

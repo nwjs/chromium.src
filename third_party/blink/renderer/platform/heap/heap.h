@@ -82,6 +82,11 @@ struct CustomCallbackItem {
   const void* parameter;
 };
 
+struct NotSafeToConcurrentlyTraceItem {
+  TraceDescriptor desc;
+  size_t bailout_size;
+};
+
 using V8Reference = const TraceWrapperV8Reference<v8::Value>*;
 
 // Segment size of 512 entries necessary to avoid throughput regressions. Since
@@ -102,7 +107,7 @@ using BackingStoreCallbackWorklist =
     Worklist<BackingStoreCallbackItem, 16 /* local entries */>;
 using V8ReferencesWorklist = Worklist<V8Reference, 16 /* local entries */>;
 using NotSafeToConcurrentlyTraceWorklist =
-    Worklist<MarkingItem, 64 /* local entries */>;
+    Worklist<NotSafeToConcurrentlyTraceItem, 64 /* local entries */>;
 
 class PLATFORM_EXPORT HeapAllocHooks {
   STATIC_ONLY(HeapAllocHooks);
@@ -197,6 +202,8 @@ struct IsGarbageCollectedContainer<
 class PLATFORM_EXPORT ThreadHeap {
   USING_FAST_MALLOC(ThreadHeap);
 
+  using EphemeronProcessing = ThreadState::EphemeronProcessing;
+
  public:
   explicit ThreadHeap(ThreadState*);
   ~ThreadHeap();
@@ -284,18 +291,23 @@ class PLATFORM_EXPORT ThreadHeap {
 
   // Moves ephemeron pairs from |discovered_ephemeron_pairs_worklist_| to
   // |ephemeron_pairs_to_process_worklist_|
-  void FlushEphemeronPairs();
+  void FlushEphemeronPairs(EphemeronProcessing);
 
   // Marks not fully constructed objects.
   void MarkNotFullyConstructedObjects(MarkingVisitor*);
   // Marks the transitive closure including ephemerons.
-  bool AdvanceMarking(MarkingVisitor*, base::TimeTicks deadline);
+  bool AdvanceMarking(MarkingVisitor*, base::TimeTicks, EphemeronProcessing);
   void VerifyMarking();
 
   // Returns true if concurrent markers will have work to steal
   bool HasWorkForConcurrentMarking() const;
+  // Returns the amount of work currently available for stealing (there could be
+  // work remaining even if this is 0).
+  size_t ConcurrentMarkingGlobalWorkSize() const;
   // Returns true if marker is done
-  bool AdvanceConcurrentMarking(ConcurrentMarkingVisitor*, base::TimeTicks);
+  bool AdvanceConcurrentMarking(ConcurrentMarkingVisitor*,
+                                base::JobDelegate*,
+                                base::TimeTicks);
 
   // Conservatively checks whether an address is a pointer in any of the
   // thread heaps.  If so marks the object pointed to as live.
@@ -388,7 +400,9 @@ class PLATFORM_EXPORT ThreadHeap {
   void DestroyMarkingWorklists(BlinkGC::StackState);
   void DestroyCompactionWorklists();
 
-  bool InvokeEphemeronCallbacks(MarkingVisitor*, base::TimeTicks);
+  bool InvokeEphemeronCallbacks(EphemeronProcessing,
+                                MarkingVisitor*,
+                                base::TimeTicks);
 
   bool FlushV8References(base::TimeTicks);
 
@@ -454,6 +468,11 @@ class PLATFORM_EXPORT ThreadHeap {
   BaseArena* arenas_[BlinkGC::kNumberOfArenas];
 
   static ThreadHeap* main_thread_heap_;
+
+  static constexpr size_t kStepsBeforeEphemeronPairsFlush = 4u;
+  size_t steps_since_last_ephemeron_pairs_flush_ = 0;
+  static constexpr size_t kStepsBeforeEphemeronProcessing = 16u;
+  size_t steps_since_last_ephemeron_processing_ = 0;
 
   friend class incremental_marking_test::IncrementalMarkingScopeBase;
   template <typename T>

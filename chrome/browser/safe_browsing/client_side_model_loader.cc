@@ -78,7 +78,7 @@ int ModelLoader::GetModelNumber() {
       kClientModelFinchExperiment, kClientModelFinchParam);
   int model_number = 0;
   if (!base::StringToInt(num_str, &model_number)) {
-    model_number = 0;  // Default model
+    model_number = 4;  // Default model
   }
   return model_number;
 }
@@ -311,12 +311,18 @@ void ModelLoader::OverrideModelWithLocalFile() {
 }
 
 void ModelLoader::OnGetOverridenModelData(std::string model_data) {
-  if (model_data.empty())
+  if (model_data.empty()) {
+    VLOG(2) << "Overriden model data is empty";
     return;
+  }
 
   std::unique_ptr<ClientSideModel> model(new ClientSideModel());
-  if (!model->ParseFromArray(model_data.data(), model_data.size()))
+  if (!model->ParseFromArray(model_data.data(), model_data.size())) {
+    VLOG(2) << "Overriden model data is not a valid ClientSideModel proto";
     return;
+  }
+
+  VLOG(2) << "Model overriden successfully";
 
   model_.swap(model);
   model_str_.assign(model_data);

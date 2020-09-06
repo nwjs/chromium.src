@@ -7,9 +7,12 @@
 #include "base/bind.h"
 #include "base/feature_list.h"
 #include "base/no_destructor.h"
+#include "base/task/post_task.h"
 #include "chrome/browser/availability/availability_prober.h"
 #include "chrome/browser/prerender/isolated/isolated_prerender_params.h"
 #include "chrome/browser/profiles/profile.h"
+#include "content/public/browser/browser_task_traits.h"
+#include "content/public/browser/browser_thread.h"
 #include "content/public/browser/storage_partition.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "net/base/host_port_pair.h"
@@ -23,8 +26,10 @@ namespace {
 
 class DNSProber : public network::mojom::ResolveHostClient {
  public:
-  explicit DNSProber(
-      IsolatedPrerenderOriginProber::OnProbeResultCallback callback)
+  using OnDNSResultsCallback = base::OnceCallback<
+      void(int, const base::Optional<net::AddressList>& resolved_addresses)>;
+
+  explicit DNSProber(OnDNSResultsCallback callback)
       : callback_(std::move(callback)) {
     DCHECK(callback_);
   }
@@ -32,7 +37,7 @@ class DNSProber : public network::mojom::ResolveHostClient {
   ~DNSProber() override {
     if (callback_) {
       // Indicates some kind of mojo error. Play it safe and return no success.
-      std::move(callback_).Run(false);
+      std::move(callback_).Run(net::ERR_FAILED, base::nullopt);
     }
   }
 
@@ -44,12 +49,12 @@ class DNSProber : public network::mojom::ResolveHostClient {
       const net::ResolveErrorInfo& resolve_error_info,
       const base::Optional<net::AddressList>& resolved_addresses) override {
     if (callback_) {
-      std::move(callback_).Run(error == net::OK);
+      std::move(callback_).Run(error, resolved_addresses);
     }
   }
 
  private:
-  IsolatedPrerenderOriginProber::OnProbeResultCallback callback_;
+  OnDNSResultsCallback callback_;
 };
 
 void HTTPProbeHelper(
@@ -96,6 +101,16 @@ CanaryCheckDelegate* GetCanaryCheckDelegate() {
 OriginProbeDelegate* GetOriginProbeDelegate() {
   static base::NoDestructor<OriginProbeDelegate> delegate;
   return delegate.get();
+}
+
+// Allows probing to start after a delay so that browser start isn't slowed.
+void StartCanaryCheck(base::WeakPtr<AvailabilityProber> canary_checker) {
+  // If there is no previously cached result for this network then one should be
+  // started. If the previous result is stale, the prober will start a probe
+  // during |LastProbeWasSuccessful|.
+  if (!canary_checker->LastProbeWasSuccessful().has_value()) {
+    canary_checker->SendNowIfInactive(false);
+  }
 }
 
 }  // namespace
@@ -148,12 +163,14 @@ IsolatedPrerenderOriginProber::IsolatedPrerenderOriginProber(Profile* profile)
       traffic_annotation, 10 /* max_cache_entries */,
       IsolatedPrerenderCanaryCheckCacheLifetime());
 
-  // If there is no previously cached result for this network then one should be
-  // started. If the previous result is stale, the prober will start a probe
-  // during |LastProbeWasSuccessful|.
-  if (!canary_check_->LastProbeWasSuccessful().has_value()) {
-    canary_check_->SendNowIfInactive(false);
-  }
+  // This code is running at browser startup. Start the canary check when we get
+  // the chance, but there's no point in it being ready for the first navigation
+  // since the check won't be done by then anyways.
+  content::GetUIThreadTaskRunner({base::TaskPriority::BEST_EFFORT})
+      ->PostDelayedTask(
+          FROM_HERE,
+          base::BindOnce(&StartCanaryCheck, canary_check_->AsWeakPtr()),
+          base::TimeDelta::FromSeconds(1));
 }
 
 IsolatedPrerenderOriginProber::~IsolatedPrerenderOriginProber() = default;
@@ -208,6 +225,13 @@ void IsolatedPrerenderOriginProber::Probe(const GURL& url,
 
 void IsolatedPrerenderOriginProber::DNSProbe(const GURL& url,
                                              OnProbeResultCallback callback) {
+  StartDNSResolution(url, std::move(callback), /*also_do_tls_connect=*/false);
+}
+
+void IsolatedPrerenderOriginProber::StartDNSResolution(
+    const GURL& url,
+    OnProbeResultCallback callback,
+    bool also_do_tls_connect) {
   net::NetworkIsolationKey nik =
       net::IsolationInfo::CreateForInternalRequest(url::Origin::Create(url))
           .network_isolation_key();
@@ -218,7 +242,10 @@ void IsolatedPrerenderOriginProber::DNSProbe(const GURL& url,
   resolve_host_parameters->initial_priority = net::RequestPriority::HIGHEST;
 
   mojo::PendingRemote<network::mojom::ResolveHostClient> client_remote;
-  mojo::MakeSelfOwnedReceiver(std::make_unique<DNSProber>(std::move(callback)),
+  mojo::MakeSelfOwnedReceiver(std::make_unique<DNSProber>(base::BindOnce(
+                                  &IsolatedPrerenderOriginProber::OnDNSResolved,
+                                  weak_factory_.GetWeakPtr(), url,
+                                  std::move(callback), also_do_tls_connect)),
                               client_remote.InitWithNewPipeAndPassReceiver());
 
   content::BrowserContext::GetDefaultStoragePartition(profile_)
@@ -283,4 +310,28 @@ void IsolatedPrerenderOriginProber::HTTPProbe(const GURL& url,
   prober_ptr->SetOnCompleteCallback(base::BindOnce(std::move(owning_callback)));
 
   prober_ptr->SendNowIfInactive(false /* send_only_in_foreground */);
+}
+
+void IsolatedPrerenderOriginProber::OnDNSResolved(
+    const GURL& url,
+    OnProbeResultCallback callback,
+    bool also_do_tls_connect,
+    int net_error,
+    const base::Optional<net::AddressList>& resolved_addresses) {
+  bool successful = net_error == net::OK && resolved_addresses &&
+                    !resolved_addresses->empty();
+
+  // A TLS connection needs the resolved addresses, so it also fails here.
+  if (!successful) {
+    std::move(callback).Run(false);
+    return;
+  }
+
+  if (!also_do_tls_connect) {
+    std::move(callback).Run(true);
+    return;
+  }
+
+  // TODO(robertogden): Handle also_do_tls_connect.
+  NOTREACHED();
 }

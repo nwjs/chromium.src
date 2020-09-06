@@ -13,11 +13,13 @@ import static org.junit.Assert.assertTrue;
 import static org.chromium.content_public.browser.test.util.TestThreadUtils.runOnUiThreadBlocking;
 
 import android.net.Uri;
+import android.support.test.InstrumentationRegistry;
 
 import androidx.test.filters.SmallTest;
 
 import org.hamcrest.Matchers;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -35,6 +37,7 @@ import org.chromium.weblayer.NavigationController;
 import org.chromium.weblayer.NavigationState;
 import org.chromium.weblayer.Tab;
 import org.chromium.weblayer.TabCallback;
+import org.chromium.weblayer.WebLayer;
 import org.chromium.weblayer.shell.InstrumentationActivity;
 
 import java.util.ArrayList;
@@ -59,6 +62,8 @@ public class NavigationTest {
     private static final String URL3 = "data:text,baz";
     private static final String URL4 = "data:text,bat";
 
+    private static boolean sShouldTrackPageInitiated;
+
     private static class Callback extends NavigationCallback {
         public static class NavigationCallbackHelper extends CallbackHelper {
             private Uri mUri;
@@ -67,6 +72,7 @@ public class NavigationTest {
             private List<Uri> mRedirectChain;
             private @LoadError int mLoadError;
             private @NavigationState int mNavigationState;
+            private boolean mIsPageInitiatedNavigation;
 
             public void notifyCalled(Navigation navigation) {
                 mUri = navigation.getUri();
@@ -75,6 +81,9 @@ public class NavigationTest {
                 mRedirectChain = navigation.getRedirectChain();
                 mLoadError = navigation.getLoadError();
                 mNavigationState = navigation.getState();
+                if (sShouldTrackPageInitiated) {
+                    mIsPageInitiatedNavigation = navigation.isPageInitiated();
+                }
                 notifyCalled();
             }
 
@@ -110,6 +119,11 @@ public class NavigationTest {
             @NavigationState
             public int getNavigationState() {
                 return mNavigationState;
+            }
+
+            public boolean isPageInitiated() {
+                assert sShouldTrackPageInitiated;
+                return mIsPageInitiatedNavigation;
             }
         }
 
@@ -205,6 +219,16 @@ public class NavigationTest {
     }
 
     private final Callback mCallback = new Callback();
+
+    @Before
+    public void setUp() throws Throwable {
+        TestThreadUtils.runOnUiThreadBlocking(() -> {
+            sShouldTrackPageInitiated =
+                    WebLayer.getSupportedMajorVersion(
+                            InstrumentationRegistry.getTargetContext().getApplicationContext())
+                    >= 86;
+        });
+    }
 
     @Test
     @SmallTest
@@ -711,6 +735,7 @@ public class NavigationTest {
 
     @Test
     @SmallTest
+    @MinWebLayerVersion(84)
     public void testSetUserAgentString() throws Exception {
         TestWebServer testServer = TestWebServer.start();
         InstrumentationActivity activity = mActivityTestRule.launchShellWithUrl(null);
@@ -774,5 +799,29 @@ public class NavigationTest {
             return;
         }
         Assert.fail("Expected IndexOutOfBoundsException.");
+    }
+
+    @Test
+    @SmallTest
+    @MinWebLayerVersion(86)
+    public void testPageInitiated() throws Exception {
+        InstrumentationActivity activity = mActivityTestRule.launchShellWithUrl(null);
+        setNavigationCallback(activity);
+        String initialUrl = mActivityTestRule.getTestDataURL("simple_page4.html");
+        mActivityTestRule.navigateAndWait(initialUrl);
+        String refreshUrl = mActivityTestRule.getTestDataURL("simple_page.html");
+        mCallback.onCompletedCallback.assertCalledWith(
+                mCallback.onCompletedCallback.getCallCount(), refreshUrl);
+        assertTrue(mCallback.onCompletedCallback.isPageInitiated());
+    }
+
+    @Test
+    @SmallTest
+    @MinWebLayerVersion(86)
+    public void testPageInitiatedFromClient() throws Exception {
+        InstrumentationActivity activity = mActivityTestRule.launchShellWithUrl(URL1);
+        setNavigationCallback(activity);
+        mActivityTestRule.navigateAndWait(URL2);
+        assertFalse(mCallback.onStartedCallback.isPageInitiated());
     }
 }

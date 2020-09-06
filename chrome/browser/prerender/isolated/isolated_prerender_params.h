@@ -25,11 +25,18 @@ bool IsolatedPrerenderNoStatePrefetchSubresources();
 // field trial return nullopt.
 base::Optional<size_t> IsolatedPrerenderMaximumNumberOfPrefetches();
 
+// The maximum number of mainframes allowed to be prefetched at the same time.
+size_t IsolatedPrerenderMaximumNumberOfConcurrentPrefetches();
+
 // The maximum number of no state prefetches to attempt, in order to prefetch
 // the pages' subresources, while the user is on the SRP. nullopt is returned
 // for unlimited. Negative values given by the field trial return nullopt.
 base::Optional<size_t>
 IsolatedPrerenderMaximumNumberOfNoStatePrefetchAttempts();
+
+// The maximum body length allowed to be prefetched for mainframe responses in
+// bytes.
+size_t IsolatedPrerenderMainframeBodyLengthLimit();
 
 // Whether idle sockets should be closed after every prefetch.
 bool IsolatedPrerenderCloseIdleSockets();

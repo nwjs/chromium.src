@@ -216,9 +216,14 @@ class IdentifiableToken {
     return value_ != that.value_;
   }
 
+  // Returns a value that can be passed into the UKM metrics recording
+  // interfaces.
+  int64_t ToUkmMetricValue() const { return value_; }
+
  private:
   friend class IdentifiabilityMetricBuilder;
   friend class IdentifiableSurface;
+  friend class IdentifiableTokenBuilder;
 
   // TODO(asanka): This should be const. Switch over once the incremental digest
   // functions land.

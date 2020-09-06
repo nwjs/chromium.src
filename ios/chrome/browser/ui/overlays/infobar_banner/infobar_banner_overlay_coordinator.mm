@@ -30,14 +30,6 @@
 #error "This file requires ARC support."
 #endif
 
-namespace {
-// The banner dismissal timeout for all Infobar Messages Overlays in M85. This
-// is temporary since M85 does not have support for high-priority banner
-// dismissal timeouts.
-const NSTimeInterval kInfobarBannerTemporaryPresentationDurationInSeconds =
-    11.0;
-}  // namespace
-
 @interface InfobarBannerOverlayCoordinator () <InfobarBannerPositioner>
 // The list of supported mediator classes.
 @property(class, nonatomic, readonly) NSArray<Class>* supportedMediatorClasses;
@@ -118,9 +110,13 @@ const NSTimeInterval kInfobarBannerTemporaryPresentationDurationInSeconds =
   if (!UIAccessibilityIsVoiceOverRunning()) {
     // Auto-dismiss the banner after timeout if VoiceOver is off (banner should
     // persist until user explicitly swipes it away).
+    NSTimeInterval timeout =
+        config->is_high_priority()
+            ? kInfobarBannerLongPresentationDurationInSeconds
+            : kInfobarBannerDefaultPresentationDurationInSeconds;
     [self performSelector:@selector(dismissBannerIfReady)
                withObject:nil
-               afterDelay:kInfobarBannerTemporaryPresentationDurationInSeconds];
+               afterDelay:timeout];
   }
 }
 
@@ -154,6 +150,9 @@ const NSTimeInterval kInfobarBannerTemporaryPresentationDurationInSeconds =
 
 // Called when the dismissal of the banner UI is finished.
 - (void)finishDismissal {
+  InfobarBannerOverlayMediator* mediator =
+      base::mac::ObjCCast<InfobarBannerOverlayMediator>(self.mediator);
+  [mediator finishDismissal];
   self.bannerViewController = nil;
   self.mediator = nil;
   // Notify the presentation context that the dismissal has finished.  This

@@ -50,6 +50,10 @@ const char kBookmarkBarTag[] = "bookmark_bar";
 const char kMobileBookmarksTag[] = "synced_bookmarks";
 const char kOtherBookmarksTag[] = "other_bookmarks";
 
+// Maximum depth to sync bookmarks tree to protect against stack overflow.
+// Keep in sync with |base::internal::kAbsoluteMaxDepth| in json_common.h.
+const size_t kMaxBookmarkTreeDepth = 200;
+
 // The value must be a list since there is a container using pointers to its
 // elements.
 using UpdatesPerParentId =
@@ -370,11 +374,18 @@ bool BookmarkModelMerger::RemoteTreeNode::UniquePositionLessThan(
 BookmarkModelMerger::RemoteTreeNode
 BookmarkModelMerger::RemoteTreeNode::BuildTree(
     UpdateResponseData update,
+    size_t max_depth,
     UpdatesPerParentId* updates_per_parent_id) {
   DCHECK(updates_per_parent_id);
 
   RemoteTreeNode node;
   node.update_ = std::move(update);
+
+  // Ensure we have not reached the maximum tree depth to guard against stack
+  // overflows.
+  if (max_depth == 0) {
+    return node;
+  }
 
   // Only folders may have descendants (ignore them otherwise). Treat
   // permanent nodes as folders explicitly.
@@ -398,8 +409,8 @@ BookmarkModelMerger::RemoteTreeNode::BuildTree(
     DCHECK(IsValidBookmarkSpecifics(child_update.entity.specifics.bookmark(),
                                     child_update.entity.is_folder));
 
-    node.children_.push_back(
-        BuildTree(std::move(child_update), updates_per_parent_id));
+    node.children_.push_back(BuildTree(std::move(child_update), max_depth - 1,
+                                       updates_per_parent_id));
   }
 
   // Sort the children according to their unique position.
@@ -487,7 +498,8 @@ BookmarkModelMerger::RemoteForest BookmarkModelMerger::BuildRemoteForest(
 
     update_forest.emplace(
         server_defined_unique_tag,
-        RemoteTreeNode::BuildTree(std::move(update), &updates_per_parent_id));
+        RemoteTreeNode::BuildTree(std::move(update), kMaxBookmarkTreeDepth,
+                                  &updates_per_parent_id));
   }
 
   // All remaining entries in |updates_per_parent_id| must be unreachable from
@@ -780,8 +792,6 @@ void BookmarkModelMerger::ProcessLocalCreation(
   // Since we are merging top down, parent entity must be tracked.
   DCHECK(parent_entity);
 
-  // Similar to the directory implementation here:
-  // https://cs.chromium.org/chromium/src/components/sync/syncable/mutable_entry.cc?l=237&gsn=CreateEntryKernel
   // Assign a temp server id for the entity. Will be overridden by the actual
   // server id upon receiving commit response.
   const bookmarks::BookmarkNode* node = parent->children()[index].get();

@@ -6,6 +6,7 @@
 
 #import <WebKit/WebKit.h>
 
+#include "base/bind.h"
 #import "base/ios/block_types.h"
 #include "base/ios/ios_util.h"
 #include "base/json/string_escape.h"
@@ -849,14 +850,28 @@ typedef void (^ViewportStateCompletion)(const web::PageViewportState*);
                     // |-removeWebView| are ignored to prevent crashing.
                     if (error || !weakSelf.webView) {
                       if (error) {
-                        DLOG(ERROR) << "WKWebView snapshot error: "
-                                    << error.description;
+                        DLOG(ERROR)
+                            << "WKWebView snapshot error: "
+                            << base::SysNSStringToUTF8(error.description);
                       }
                       completion(nil);
                     } else {
                       completion(snapshot);
                     }
                   }];
+}
+
+- (void)createFullPagePDFWithCompletion:(void (^)(NSData*))completionBlock {
+  // Invoke the |completionBlock| with nil rather than a blank PDF for certain
+  // URLs.
+  const GURL& URL = self.webState->GetLastCommittedURL();
+  if (!URL.is_valid() || web::GetWebClient()->IsAppSpecificURL(URL)) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+      completionBlock(nil);
+    });
+    return;
+  }
+  web::CreateFullPagePdf(self.webView, base::BindOnce(completionBlock));
 }
 
 #pragma mark - CRWTouchTrackingDelegate (Public)

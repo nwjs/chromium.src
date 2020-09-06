@@ -34,11 +34,12 @@
 #include "cc/trees/paint_holding_commit_trigger.h"
 #include "components/viz/common/surfaces/frame_sink_id.h"
 #include "third_party/blink/public/common/dom_storage/session_storage_namespace_id.h"
-#include "third_party/blink/public/common/feature_policy/feature_policy.h"
+#include "third_party/blink/public/common/feature_policy/feature_policy_features.h"
 #include "third_party/blink/public/common/page/web_drag_operation.h"
 #include "third_party/blink/public/mojom/devtools/console_message.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/input/focus_type.mojom-blink-forward.h"
 #include "third_party/blink/public/platform/blame_context.h"
+#include "third_party/blink/public/platform/web_battery_savings.h"
 #include "third_party/blink/public/platform/web_float_rect.h"
 #include "third_party/blink/public/web/web_swap_result.h"
 #include "third_party/blink/public/web/web_widget_client.h"
@@ -99,13 +100,20 @@ class PopupOpeningObserver;
 class WebDragData;
 class WebViewImpl;
 
+enum class FullscreenRequestType;
+
 struct DateTimeChooserParameters;
 struct FrameLoadRequest;
-struct WebTextAutosizerPageInfo;
 struct ViewportDescription;
-struct WebScreenInfo;
+struct ScreenInfo;
 struct WebWindowFeatures;
 struct WebRect;
+
+namespace mojom {
+namespace blink {
+class TextAutosizerPageInfo;
+}
+}  // namespace mojom
 
 using CompositorElementId = cc::ElementId;
 
@@ -202,7 +210,7 @@ class CORE_EXPORT ChromeClient : public GarbageCollected<ChromeClient> {
                      const AtomicString& frame_name,
                      const WebWindowFeatures&,
                      network::mojom::blink::WebSandboxFlags,
-                     const FeaturePolicy::FeatureState&,
+                     const FeaturePolicyFeatureState&,
                      const SessionStorageNamespaceId&, WebString* manifest = nullptr);
   virtual void Show(NavigationPolicy, WebString* manifest = nullptr) = 0;
 
@@ -265,7 +273,7 @@ class CORE_EXPORT ChromeClient : public GarbageCollected<ChromeClient> {
                             String& result);
   virtual bool TabsToLinks() = 0;
 
-  virtual WebScreenInfo GetScreenInfo(LocalFrame& frame) const = 0;
+  virtual ScreenInfo GetScreenInfo(LocalFrame& frame) const = 0;
   virtual void SetCursor(const ui::Cursor&, LocalFrame* local_root) = 0;
 
   virtual void SetCursorOverridden(bool) = 0;
@@ -362,7 +370,7 @@ class CORE_EXPORT ChromeClient : public GarbageCollected<ChromeClient> {
 
   virtual void EnterFullscreen(LocalFrame&,
                                const FullscreenOptions*,
-                               bool for_cross_process_descendant) {}
+                               FullscreenRequestType) {}
   virtual void ExitFullscreen(LocalFrame&) {}
   virtual void FullscreenElementChanged(Element* old_element,
                                         Element* new_element) {}
@@ -499,8 +507,8 @@ class CORE_EXPORT ChromeClient : public GarbageCollected<ChromeClient> {
 
   virtual void Trace(Visitor*) const;
 
-  virtual void DidUpdateTextAutosizerPageInfo(const WebTextAutosizerPageInfo&) {
-  }
+  virtual void DidUpdateTextAutosizerPageInfo(
+      const mojom::blink::TextAutosizerPageInfo&) {}
 
   virtual void DocumentDetached(Document&) {}
 
@@ -513,6 +521,9 @@ class CORE_EXPORT ChromeClient : public GarbageCollected<ChromeClient> {
   virtual void SetDelegatedInkMetadata(
       LocalFrame* frame,
       std::unique_ptr<viz::DelegatedInkMetadata> metadata) {}
+
+  virtual void BatterySavingsChanged(LocalFrame& main_frame,
+                                     WebBatterySavingsFlags savings) = 0;
 
  protected:
   ChromeClient() = default;
@@ -533,7 +544,7 @@ class CORE_EXPORT ChromeClient : public GarbageCollected<ChromeClient> {
                                      const AtomicString& frame_name,
                                      const WebWindowFeatures&,
                                      network::mojom::blink::WebSandboxFlags,
-                                     const FeaturePolicy::FeatureState&,
+                                     const FeaturePolicyFeatureState&,
                                      const SessionStorageNamespaceId&, WebString*) = 0;
 
  private:

@@ -212,6 +212,10 @@ class FetchEventServiceWorker : public FakeServiceWorker {
 
   void SetResponseTime(base::Time time) { response_time_ = time; }
 
+  void WaitForTransferInstalledScript() {
+    embedded_worker_instance_client_->WaitForTransferInstalledScript();
+  }
+
  protected:
   void DispatchFetchEventForMainResource(
       blink::mojom::DispatchFetchEventParamsPtr params,
@@ -394,7 +398,6 @@ class ServiceWorkerMainResourceLoaderTest : public testing::Test {
     helper_ = std::make_unique<EmbeddedWorkerTestHelper>(base::FilePath());
 
     // Create an active service worker.
-    storage()->LazyInitializeForTest();
     blink::mojom::ServiceWorkerRegistrationOptions options;
     options.scope = GURL("https://example.com/");
     registration_ = CreateNewServiceWorkerRegistration(
@@ -404,9 +407,9 @@ class ServiceWorkerMainResourceLoaderTest : public testing::Test {
         GURL("https://example.com/service_worker.js"),
         blink::mojom::ScriptType::kClassic);
     std::vector<storage::mojom::ServiceWorkerResourceRecordPtr> records;
-    records.push_back(WriteToDiskCacheSync(storage(), version_->script_url(),
-                                           {} /* headers */, "I'm the body",
-                                           "I'm the meta data"));
+    records.push_back(WriteToDiskCacheSync(
+        GetStorageControl(), version_->script_url(), {} /* headers */,
+        "I'm the body", "I'm the meta data"));
     version_->script_cache_map()->SetResources(records);
     version_->set_fetch_handler_existence(
         ServiceWorkerVersion::FetchHandlerExistence::EXISTS);
@@ -431,10 +434,28 @@ class ServiceWorkerMainResourceLoaderTest : public testing::Test {
     service_worker_ =
         helper_->AddNewPendingServiceWorker<FetchEventServiceWorker>(
             helper_.get(), client);
+
+    // Wait for main script response is set to |version| because
+    // ServiceWorkerMainResourceLoader needs the main script response to
+    // create a response. The main script response is set when the first
+    // TransferInstalledScript().
+    {
+      base::Optional<blink::ServiceWorkerStatusCode> status;
+      base::RunLoop loop;
+      version_->StartWorker(
+          ServiceWorkerMetrics::EventType::UNKNOWN,
+          ReceiveServiceWorkerStatus(&status, loop.QuitClosure()));
+      loop.Run();
+      ASSERT_EQ(blink::ServiceWorkerStatusCode::kOk, status.value());
+      service_worker_->WaitForTransferInstalledScript();
+    }
   }
 
   ServiceWorkerRegistry* registry() { return helper_->context()->registry(); }
-  ServiceWorkerStorage* storage() { return helper_->context()->storage(); }
+  mojo::Remote<storage::mojom::ServiceWorkerStorageControl>&
+  GetStorageControl() {
+    return helper_->context()->GetStorageControl();
+  }
 
   // Starts a request. After calling this, the request is ongoing and the
   // caller can use functions like client_.RunUntilComplete() to wait for
@@ -504,7 +525,7 @@ class ServiceWorkerMainResourceLoaderTest : public testing::Test {
     EXPECT_FALSE(info.load_timing.service_worker_fetch_start.is_null());
     EXPECT_FALSE(
         info.load_timing.service_worker_respond_with_settled.is_null());
-    EXPECT_LT(info.load_timing.service_worker_start_time,
+    EXPECT_LE(info.load_timing.service_worker_start_time,
               info.load_timing.service_worker_ready_time);
     EXPECT_LE(info.load_timing.service_worker_ready_time,
               info.load_timing.service_worker_fetch_start);

@@ -11,7 +11,6 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "base/win/windows_types.h"
-#include "chrome/credential_provider/gaiacp/os_user_manager.h"
 #include "url/gurl.h"
 
 namespace credential_provider {

@@ -36,7 +36,7 @@
 #include "media/media_buildflags.h"
 #include "mojo/public/cpp/bindings/mojo_buildflags.h"
 #include "ppapi/buildflags/buildflags.h"
-#include "services/service_manager/sandbox/switches.h"
+#include "sandbox/policy/switches.h"
 #include "services/tracing/public/cpp/trace_startup.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/scheduler/web_thread_scheduler.h"
@@ -48,7 +48,7 @@
 #include "base/android/library_loader/library_loader_hooks.h"
 #endif  // OS_ANDROID
 
-#if defined(OS_MACOSX)
+#if defined(OS_MAC)
 #include <Carbon/Carbon.h>
 #include <signal.h>
 #include <unistd.h>
@@ -58,7 +58,7 @@
 #include "third_party/blink/public/web/web_view.h"
 
 #include "base/message_loop/message_pumpuv_mac.h"
-#endif  // OS_MACOSX
+#endif  // OS_MAC
 
 #if defined(OS_CHROMEOS)
 #include "chromeos/system/core_scheduling.h"
@@ -98,7 +98,7 @@ static void HandleRendererErrorTestParameters(
 }
 
 std::unique_ptr<base::MessagePump> CreateMainThreadMessagePump(bool nwjs) {
-#if defined(OS_MACOSX)
+#if defined(OS_MAC)
   // As long as scrollbars on Mac are painted with Cocoa, the message pump
   // needs to be backed by a Foundation-level loop to process NSTimers. See
   // http://crbug.com/306348#c24 for details.
@@ -143,9 +143,9 @@ int RendererMain(const MainFunctionParams& parameters) {
   if (nwjs)
     nw::LoadNodeSymbols();
 
-#if defined(OS_MACOSX)
+#if defined(OS_MAC)
   base::mac::ScopedNSAutoreleasePool* pool = parameters.autorelease_pool;
-#endif  // OS_MACOSX
+#endif  // OS_MAC
 
 #if defined(OS_CHROMEOS)
   // As Zygote process starts up earlier than browser process gets its own
@@ -214,9 +214,9 @@ int RendererMain(const MainFunctionParams& parameters) {
   {
     bool should_run_loop = true;
     bool need_sandbox =
-        !command_line.HasSwitch(service_manager::switches::kNoSandbox);
+        !command_line.HasSwitch(sandbox::policy::switches::kNoSandbox);
 
-#if !defined(OS_WIN) && !defined(OS_MACOSX)
+#if !defined(OS_WIN) && !defined(OS_MAC)
     // Sandbox is enabled before RenderProcess initialization on all platforms,
     // except Windows and Mac.
     // TODO(markus): Check if it is OK to remove ifdefs for Windows and Mac.
@@ -233,7 +233,7 @@ int RendererMain(const MainFunctionParams& parameters) {
     new RenderThreadImpl(run_loop.QuitClosure(),
                          std::move(main_thread_scheduler));
 
-#if defined(OS_POSIX) && !defined(OS_ANDROID) && !defined(OS_MACOSX)
+#if defined(OS_POSIX) && !defined(OS_ANDROID) && !defined(OS_MAC)
     // Startup tracing is usually enabled earlier, but if we forked from a
     // zygote, we can only enable it after mojo IPC support is brought up
     // initialized by RenderThreadImpl, because the mojo broker has to create
@@ -243,7 +243,7 @@ int RendererMain(const MainFunctionParams& parameters) {
       TRACE_EVENT_ASYNC_BEGIN1("startup", "RendererMain", 0, "zygote_child",
                                true);
     }
-#endif  // OS_POSIX && !OS_ANDROID && !!OS_MACOSX
+#endif  // OS_POSIX && !OS_ANDROID && !OS_MAC
 
     if (need_sandbox)
       should_run_loop = platform.EnableSandbox();
@@ -255,7 +255,7 @@ int RendererMain(const MainFunctionParams& parameters) {
     base::HighResolutionTimerManager hi_res_timer_manager;
 
     if (should_run_loop) {
-#if defined(OS_MACOSX)
+#if defined(OS_MAC)
       if (pool)
         pool->Recycle();
 #endif
@@ -268,7 +268,7 @@ int RendererMain(const MainFunctionParams& parameters) {
       base::SetCurrentDirectory(g_nw_temp_dir.DirName());
       if (base::StartsWith(g_nw_temp_dir.BaseName().value(), FILE_PATH_LITERAL("nw"),
                            base::CompareCase::SENSITIVE))
-        base::DeleteFile(g_nw_temp_dir, true);
+        base::DeleteFile(g_nw_temp_dir);
     }
 #if defined(LEAK_SANITIZER)
     // Run leak detection before RenderProcessImpl goes out of scope. This helps

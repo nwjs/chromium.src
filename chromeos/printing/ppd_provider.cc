@@ -42,9 +42,6 @@
 #include "net/base/filename_util.h"
 #include "net/base/load_flags.h"
 #include "net/http/http_status_code.h"
-#include "net/url_request/url_fetcher.h"
-#include "net/url_request/url_fetcher_delegate.h"
-#include "net/url_request/url_request_context_getter.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/simple_url_loader.h"
 #include "url/gurl.h"
@@ -1230,7 +1227,7 @@ class PpdProviderImpl : public PpdProvider {
     size_t best_idx = -1;
     for (size_t i = 0; i < available_locales.size(); ++i) {
       const std::string& available = available_locales[i];
-      if (base::StringPiece(browser_locale_).starts_with(available + "-") &&
+      if (base::StartsWith(browser_locale_, available + "-") &&
           available.size() > best_len) {
         best_len = available.size();
         best_idx = i;

@@ -21,6 +21,8 @@
 #include "base/feature_list.h"
 #include "base/location.h"
 #include "base/memory/ptr_util.h"
+#include "base/memory/weak_ptr.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/optional.h"
 #include "base/run_loop.h"
 #include "base/sequenced_task_runner.h"
@@ -52,7 +54,6 @@
 #include "content/browser/devtools/devtools_url_loader_interceptor.h"
 #include "content/browser/file_system/browser_file_system_helper.h"
 #include "content/browser/gpu/shader_cache_factory.h"
-#include "content/browser/idle/idle_manager_impl.h"
 #include "content/browser/loader/prefetch_url_loader_service.h"
 #include "content/browser/native_file_system/native_file_system_manager_impl.h"
 #include "content/browser/native_io/native_io_context.h"
@@ -94,7 +95,6 @@
 #include "net/cookies/cookie_util.h"
 #include "net/http/http_auth_preferences.h"
 #include "net/ssl/client_cert_store.h"
-#include "net/url_request/url_request_context.h"
 #include "ppapi/buildflags/buildflags.h"
 #include "services/cert_verifier/public/mojom/cert_verifier_service_factory.mojom.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
@@ -133,6 +133,11 @@ namespace {
 
 const storage::QuotaSettings* g_test_quota_settings;
 
+// Timeout after which the
+// History.ClearBrowsingData.Duration.SlowTasks180sStoragePartition histogram is
+// recorded.
+const base::TimeDelta kSlowTaskTimeout = base::TimeDelta::FromSeconds(180);
+
 mojo::Remote<storage::mojom::StorageService>& GetStorageServiceRemoteStorage() {
   // NOTE: This use of sequence-local storage is only to ensure that the Remote
   // only lives as long as the UI-thread sequence, since the UI-thread sequence
@@ -169,44 +174,36 @@ mojo::Remote<storage::mojom::StorageService>& GetStorageServiceRemote() {
       GetStorageServiceRemoteStorage();
   if (!remote) {
 #if !defined(OS_ANDROID)
-    if (base::FeatureList::IsEnabled(features::kStorageServiceOutOfProcess)) {
-      const bool should_sandbox =
-          base::FeatureList::IsEnabled(features::kStorageServiceSandbox);
+    const bool oop_storage_enabled =
+        base::FeatureList::IsEnabled(features::kStorageServiceOutOfProcess);
+    const bool single_process_mode =
+        base::CommandLine::ForCurrentProcess()->HasSwitch(
+            switches::kSingleProcess);
+    if (oop_storage_enabled && !single_process_mode) {
       const base::FilePath sandboxed_data_dir =
           GetContentClient()
               ->browser()
               ->GetSandboxedStorageServiceDataDirectory();
-      const bool is_sandboxed = should_sandbox && !sandboxed_data_dir.empty();
-      if (should_sandbox && !is_sandboxed) {
-        DLOG(ERROR) << "Running unsandboxed Storage Service instance,because "
-                    << "the current ContentBrowserClient does not specify a "
-                    << "sandboxed data directory.";
-      }
+      DCHECK(!sandboxed_data_dir.empty())
+          << "Cannot run Storage Service out-of-process without a non-default "
+          << "implementation of "
+          << "ContentBrowserClient::GetSandboxedStorageServiceDataDirectory().";
       remote = ServiceProcessHost::Launch<storage::mojom::StorageService>(
           ServiceProcessHost::Options()
               .WithDisplayName("Storage Service")
               .Pass());
       remote.reset_on_disconnect();
 
-      if (is_sandboxed) {
-        // In sandboxed mode, provide the service with an API it can use to
-        // access filesystem contents *only* within the embedder's specified
-        // data directory.
-        const base::FilePath data_dir =
-            GetContentClient()
-                ->browser()
-                ->GetSandboxedStorageServiceDataDirectory();
-        DCHECK(!data_dir.empty())
-            << "Storage Service sandboxing requires a root data directory.";
-        mojo::PendingRemote<storage::mojom::Directory> directory;
-        base::ThreadPool::CreateSequencedTaskRunner(
-            {base::MayBlock(), base::TaskPriority::USER_VISIBLE})
-            ->PostTask(
-                FROM_HERE,
-                base::BindOnce(&BindStorageServiceFilesystemImpl, data_dir,
-                               directory.InitWithNewPipeAndPassReceiver()));
-        remote->SetDataDirectory(data_dir, std::move(directory));
-      }
+      // Provide the service with an API it can use to access filesystem
+      // contents *only* within the embedder's specified data directory.
+      mojo::PendingRemote<storage::mojom::Directory> directory;
+      base::ThreadPool::CreateSequencedTaskRunner(
+          {base::MayBlock(), base::TaskPriority::USER_VISIBLE})
+          ->PostTask(FROM_HERE,
+                     base::BindOnce(
+                         &BindStorageServiceFilesystemImpl, sandboxed_data_dir,
+                         directory.InitWithNewPipeAndPassReceiver()));
+      remote->SetDataDirectory(sandboxed_data_dir, std::move(directory));
     } else
 #endif  // !defined(OS_ANDROID)
     {
@@ -957,8 +954,7 @@ class StoragePartitionImpl::DataDeletionHelper {
                      base::OnceClosure callback)
       : remove_mask_(remove_mask),
         quota_storage_remove_mask_(quota_storage_remove_mask),
-        callback_(std::move(callback)),
-        task_count_(0) {}
+        callback_(std::move(callback)) {}
 
   ~DataDeletionHelper() = default;
 
@@ -988,6 +984,9 @@ class StoragePartitionImpl::DataDeletionHelper {
       base::OnceClosure callback);
 
  private:
+  // For debugging purposes. Please add new deletion tasks at the end.
+  // This enum is recorded in a histogram, so don't change or reuse ids.
+  // Entries must also be added to StoragePartitionRemoverTasks in enums.xml.
   enum class TracingDataType {
     kSynchronous = 1,
     kCookies = 2,
@@ -997,10 +996,13 @@ class StoragePartitionImpl::DataDeletionHelper {
     kShaderCache = 6,
     kPluginPrivate = 7,
     kConversions = 8,
+    kMaxValue = kConversions,
   };
 
   base::OnceClosure CreateTaskCompletionClosure(TracingDataType data_type);
-  void OnTaskComplete(int tracing_id);  // Callable on any thread.
+  void OnTaskComplete(TracingDataType data_type,
+                      int tracing_id);  // Callable on any thread.
+  void RecordUnfinishedSubTasks();
 
   uint32_t remove_mask_;
   uint32_t quota_storage_remove_mask_;
@@ -1008,7 +1010,10 @@ class StoragePartitionImpl::DataDeletionHelper {
   // Accessed on UI thread.
   base::OnceClosure callback_;
   // Accessed on UI thread.
-  int task_count_;
+  std::set<TracingDataType> pending_tasks_;
+
+  base::WeakPtrFactory<StoragePartitionImpl::DataDeletionHelper> weak_factory_{
+      this};
 
   DISALLOW_COPY_AND_ASSIGN(DataDeletionHelper);
 };
@@ -1233,7 +1238,6 @@ void StoragePartitionImpl::Initialize() {
   dom_storage_context_ = DOMStorageContextWrapper::Create(
       this, browser_context_->GetSpecialStoragePolicy());
 
-  idle_manager_ = std::make_unique<IdleManagerImpl>(browser_context_);
   lock_manager_ = std::make_unique<LockManager>();
 
   scoped_refptr<ChromeBlobStorageContext> blob_context =
@@ -1264,8 +1268,10 @@ void StoragePartitionImpl::Initialize() {
   service_worker_context_ = new ServiceWorkerContextWrapper(browser_context_);
   service_worker_context_->set_storage_partition(this);
 
-  appcache_service_ = base::MakeRefCounted<ChromeAppCacheService>(
-      quota_manager_proxy.get(), weak_factory_.GetWeakPtr());
+  if (StoragePartition::IsAppCacheEnabled()) {
+    appcache_service_ = base::MakeRefCounted<ChromeAppCacheService>(
+        quota_manager_proxy.get(), weak_factory_.GetWeakPtr());
+  }
 
   dedicated_worker_service_ = std::make_unique<DedicatedWorkerServiceImpl>();
   native_io_context_ = std::make_unique<NativeIOContext>(path);
@@ -1335,7 +1341,7 @@ void StoragePartitionImpl::Initialize() {
     conversion_manager_ = std::make_unique<ConversionManagerImpl>(
         this, path,
         base::ThreadPool::CreateSequencedTaskRunner(
-            {base::MayBlock(), base::TaskPriority::USER_VISIBLE}));
+            {base::MayBlock(), base::TaskPriority::BEST_EFFORT}));
   }
 
   GeneratedCodeCacheSettings settings =
@@ -1362,6 +1368,8 @@ void StoragePartitionImpl::Initialize() {
     GetGeneratedCodeCacheContext()->Initialize(code_cache_path,
                                                settings.size_in_bytes());
   }
+
+  font_access_manager_ = std::make_unique<FontAccessManagerImpl>();
 }
 
 void StoragePartitionImpl::OnStorageServiceDisconnected() {
@@ -1375,6 +1383,10 @@ void StoragePartitionImpl::OnStorageServiceDisconnected() {
 
 base::FilePath StoragePartitionImpl::GetPath() {
   return partition_path_;
+}
+
+std::string StoragePartitionImpl::GetPartitionDomain() {
+  return partition_domain_;
 }
 
 network::mojom::NetworkContext* StoragePartitionImpl::GetNetworkContext() {
@@ -1480,11 +1492,6 @@ storage::DatabaseTracker* StoragePartitionImpl::GetDatabaseTracker() {
 DOMStorageContextWrapper* StoragePartitionImpl::GetDOMStorageContext() {
   DCHECK(initialized_);
   return dom_storage_context_.get();
-}
-
-IdleManager* StoragePartitionImpl::GetIdleManager() {
-  DCHECK(initialized_);
-  return idle_manager_.get();
 }
 
 LockManager* StoragePartitionImpl::GetLockManager() {
@@ -1617,6 +1624,11 @@ ConversionManagerImpl* StoragePartitionImpl::GetConversionManager() {
   return conversion_manager_.get();
 }
 
+FontAccessManagerImpl* StoragePartitionImpl::GetFontAccessManager() {
+  DCHECK(initialized_);
+  return font_access_manager_.get();
+}
+
 ContentIndexContextImpl* StoragePartitionImpl::GetContentIndexContext() {
   DCHECK(initialized_);
   return content_index_context_.get();
@@ -1631,7 +1643,8 @@ leveldb_proto::ProtoDatabaseProvider*
 StoragePartitionImpl::GetProtoDatabaseProvider() {
   if (!proto_database_provider_) {
     proto_database_provider_ =
-        std::make_unique<leveldb_proto::ProtoDatabaseProvider>(partition_path_);
+        std::make_unique<leveldb_proto::ProtoDatabaseProvider>(partition_path_,
+                                                               is_in_memory_);
   }
   return proto_database_provider_.get();
 }
@@ -1848,6 +1861,10 @@ void StoragePartitionImpl::OnTrustAnchorUsed() {
 }
 #endif
 
+void StoragePartitionImpl::OnSCTReportReady(const std::string& cache_key) {
+  GetContentClient()->browser()->OnSCTReportReady(browser_context_, cache_key);
+}
+
 void StoragePartitionImpl::ClearDataImpl(
     uint32_t remove_mask,
     uint32_t quota_storage_remove_mask,
@@ -1859,6 +1876,13 @@ void StoragePartitionImpl::ClearDataImpl(
     const base::Time end,
     base::OnceClosure callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
+
+  for (auto& observer : data_removal_observers_) {
+    auto filter = CreateGenericOriginMatcher(storage_origin, origin_matcher,
+                                             special_storage_policy_);
+    observer.OnOriginDataCleared(remove_mask, std::move(filter), begin, end);
+  }
+
   DataDeletionHelper* helper = new DataDeletionHelper(
       remove_mask, quota_storage_remove_mask,
       base::BindOnce(&StoragePartitionImpl::DeletionHelperDone,
@@ -2009,30 +2033,45 @@ base::OnceClosure
 StoragePartitionImpl::DataDeletionHelper::CreateTaskCompletionClosure(
     TracingDataType data_type) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  ++task_count_;
+  auto result = pending_tasks_.insert(data_type);
+  DCHECK(result.second) << "Task already started: "
+                        << static_cast<int>(data_type);
+
   static int tracing_id = 0;
   TRACE_EVENT_ASYNC_BEGIN1("browsing_data", "StoragePartitionImpl",
                            ++tracing_id, "data_type",
                            static_cast<int>(data_type));
   return base::BindOnce(
       &StoragePartitionImpl::DataDeletionHelper::OnTaskComplete,
-      base::Unretained(this), tracing_id);
+      base::Unretained(this), data_type, tracing_id);
 }
 
-void StoragePartitionImpl::DataDeletionHelper::OnTaskComplete(int tracing_id) {
+void StoragePartitionImpl::DataDeletionHelper::OnTaskComplete(
+    TracingDataType data_type,
+    int tracing_id) {
   if (!BrowserThread::CurrentlyOn(BrowserThread::UI)) {
     GetUIThreadTaskRunner({})->PostTask(
-        FROM_HERE, base::BindOnce(&DataDeletionHelper::OnTaskComplete,
-                                  base::Unretained(this), tracing_id));
+        FROM_HERE,
+        base::BindOnce(&DataDeletionHelper::OnTaskComplete,
+                       base::Unretained(this), data_type, tracing_id));
     return;
   }
-  DCHECK_GT(task_count_, 0);
-  --task_count_;
+  size_t num_erased = pending_tasks_.erase(data_type);
+  DCHECK_EQ(num_erased, 1U) << static_cast<int>(data_type);
   TRACE_EVENT_ASYNC_END0("browsing_data", "StoragePartitionImpl", tracing_id);
 
-  if (!task_count_) {
+  if (pending_tasks_.empty()) {
     std::move(callback_).Run();
     delete this;
+  }
+}
+
+void StoragePartitionImpl::DataDeletionHelper::RecordUnfinishedSubTasks() {
+  DCHECK(!pending_tasks_.empty());
+  for (TracingDataType task : pending_tasks_) {
+    base::UmaHistogramEnumeration(
+        "History.ClearBrowsingData.Duration.SlowTasks180sStoragePartition",
+        task);
   }
 }
 
@@ -2055,6 +2094,13 @@ void StoragePartitionImpl::DataDeletionHelper::ClearDataOnUIThread(
 
   // Only one of |storage_origin| and |origin_matcher| can be set.
   DCHECK(storage_origin.is_empty() || origin_matcher.is_null());
+
+  GetUIThreadTaskRunner({})->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(
+          &StoragePartitionImpl::DataDeletionHelper::RecordUnfinishedSubTasks,
+          weak_factory_.GetWeakPtr()),
+      kSlowTaskTimeout);
 
   base::ScopedClosureRunner synchronous_clear_operations(
       CreateTaskCompletionClosure(TracingDataType::kSynchronous));
@@ -2224,6 +2270,14 @@ void StoragePartitionImpl::ResetURLLoaderFactories() {
 void StoragePartitionImpl::ClearBluetoothAllowedDevicesMapForTesting() {
   DCHECK(initialized_);
   bluetooth_allowed_devices_map_->Clear();
+}
+
+void StoragePartitionImpl::AddObserver(DataRemovalObserver* observer) {
+  data_removal_observers_.AddObserver(observer);
+}
+
+void StoragePartitionImpl::RemoveObserver(DataRemovalObserver* observer) {
+  data_removal_observers_.RemoveObserver(observer);
 }
 
 void StoragePartitionImpl::FlushNetworkInterfaceForTesting() {

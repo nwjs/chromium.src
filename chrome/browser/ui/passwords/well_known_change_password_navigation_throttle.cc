@@ -5,21 +5,57 @@
 #include "chrome/browser/ui/passwords/well_known_change_password_navigation_throttle.h"
 
 #include "base/logging.h"
+#include "chrome/browser/password_manager/change_password_url_service_factory.h"
+#include "components/password_manager/core/browser/change_password_url_service.h"
+#include "components/password_manager/core/browser/well_known_change_password_state.h"
 #include "components/password_manager/core/common/password_manager_features.h"
+#include "components/ukm/content/source_url_recorder.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/navigation_handle.h"
+#include "content/public/browser/page_navigator.h"
+#include "content/public/browser/storage_partition.h"
+#include "content/public/browser/web_contents.h"
+#include "content/public/browser/web_contents_user_data.h"
+#include "services/metrics/public/cpp/ukm_builders.h"
+#include "services/metrics/public/cpp/ukm_recorder.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "url/gurl.h"
+#include "url/origin.h"
 
 namespace {
 
 using content::NavigationHandle;
 using content::NavigationThrottle;
+using content::WebContents;
+using password_manager::IsWellKnownChangePasswordUrl;
+using password_manager::WellKnownChangePasswordResult;
+using password_manager::WellKnownChangePasswordState;
 
-bool IsWellKnownChangePasswordUrl(const GURL& url) {
-  return url.is_valid() && url.has_path() &&
-         (url.PathForRequest() == "/.well-known/change-password" ||
-          url.PathForRequest() == "/.well-known/change-password/");
-}
+// Used to scope the posted navigation task to the lifetime of |web_contents|.
+class WebContentsLifetimeHelper
+    : public content::WebContentsUserData<WebContentsLifetimeHelper> {
+ public:
+  explicit WebContentsLifetimeHelper(WebContents* web_contents)
+      : web_contents_(web_contents) {}
+
+  base::WeakPtr<WebContentsLifetimeHelper> GetWeakPtr() {
+    return weak_factory_.GetWeakPtr();
+  }
+
+  void NavigateTo(const content::OpenURLParams& url_params) {
+    web_contents_->OpenURL(url_params);
+  }
+
+ private:
+  friend class content::WebContentsUserData<WebContentsLifetimeHelper>;
+
+  WebContents* const web_contents_;
+  base::WeakPtrFactory<WebContentsLifetimeHelper> weak_factory_{this};
+
+  WEB_CONTENTS_USER_DATA_KEY_DECL();
+};
+
+WEB_CONTENTS_USER_DATA_KEY_IMPL(WebContentsLifetimeHelper)
 
 }  // namespace
 
@@ -43,13 +79,26 @@ WellKnownChangePasswordNavigationThrottle::MaybeCreateThrottleFor(
 
 WellKnownChangePasswordNavigationThrottle::
     WellKnownChangePasswordNavigationThrottle(NavigationHandle* handle)
-    : NavigationThrottle(handle) {}
+    : NavigationThrottle(handle),
+      change_password_url_service_(
+          ChangePasswordUrlServiceFactory::GetForBrowserContext(
+              handle->GetWebContents()->GetBrowserContext())),
+      source_id_(
+          ukm::GetSourceIdForWebContentsDocument(handle->GetWebContents())) {
+  change_password_url_service_->PrefetchURLs();
+}
 
 WellKnownChangePasswordNavigationThrottle::
     ~WellKnownChangePasswordNavigationThrottle() = default;
 
 NavigationThrottle::ThrottleCheckResult
 WellKnownChangePasswordNavigationThrottle::WillStartRequest() {
+  auto url_loader_factory =
+      content::BrowserContext::GetDefaultStoragePartition(
+          navigation_handle()->GetWebContents()->GetBrowserContext())
+          ->GetURLLoaderFactoryForBrowserProcess();
+  well_known_change_password_state_.FetchNonExistingResource(
+      url_loader_factory.get(), navigation_handle()->GetURL());
   return NavigationThrottle::PROCEED;
 }
 
@@ -60,9 +109,64 @@ WellKnownChangePasswordNavigationThrottle::WillFailRequest() {
 
 NavigationThrottle::ThrottleCheckResult
 WellKnownChangePasswordNavigationThrottle::WillProcessResponse() {
-  return NavigationThrottle::PROCEED;
+  // PostTask because the Throttle needs to be deferred before the status code
+  // is set. After setting the status code Resume() can be called synchronous
+  // and thereby before the throttle is deferred. This would result in a crash.
+  // Unretained is safe because the NavigationThrottle is deferred and can only
+  // be continued after the callback finished.
+  base::SequencedTaskRunnerHandle::Get()->PostTask(
+      FROM_HERE,
+      base::BindOnce(
+          &WellKnownChangePasswordState::SetChangePasswordResponseCode,
+          base::Unretained(&well_known_change_password_state_),
+          navigation_handle()->GetResponseHeaders()->response_code()));
+  return NavigationThrottle::DEFER;
 }
 
 const char* WellKnownChangePasswordNavigationThrottle::GetNameForLogging() {
   return "WellKnownChangePasswordNavigationThrottle";
+}
+
+void WellKnownChangePasswordNavigationThrottle::OnProcessingFinished(
+    bool is_supported) {
+  if (is_supported) {
+    RecordMetric(WellKnownChangePasswordResult::kUsedWellKnownChangePassword);
+    Resume();
+    return;
+  }
+  GURL url = navigation_handle()->GetURL();
+  GURL redirect_url = change_password_url_service_->GetChangePasswordUrl(url);
+  if (redirect_url.is_valid()) {
+    RecordMetric(WellKnownChangePasswordResult::kFallbackToOverrideUrl);
+    Redirect(redirect_url);
+  } else {
+    RecordMetric(WellKnownChangePasswordResult::kFallbackToOriginUrl);
+    Redirect(url.GetOrigin());
+  }
+  CancelDeferredNavigation(NavigationThrottle::CANCEL);
+}
+
+void WellKnownChangePasswordNavigationThrottle::Redirect(const GURL& url) {
+  content::OpenURLParams params =
+      content::OpenURLParams::FromNavigationHandle(navigation_handle());
+  params.url = url;
+  params.transition = ui::PAGE_TRANSITION_CLIENT_REDIRECT;
+
+  WebContents* web_contents = navigation_handle()->GetWebContents();
+  if (!web_contents)
+    return;
+
+  WebContentsLifetimeHelper::CreateForWebContents(web_contents);
+  WebContentsLifetimeHelper* helper =
+      WebContentsLifetimeHelper::FromWebContents(web_contents);
+  base::SequencedTaskRunnerHandle::Get()->PostTask(
+      FROM_HERE, base::BindOnce(&WebContentsLifetimeHelper::NavigateTo,
+                                helper->GetWeakPtr(), std::move(params)));
+}
+
+void WellKnownChangePasswordNavigationThrottle::RecordMetric(
+    WellKnownChangePasswordResult result) {
+  ukm::builders::PasswordManager_WellKnownChangePasswordResult(source_id_)
+      .SetWellKnownChangePasswordResult(static_cast<int64_t>(result))
+      .Record(ukm::UkmRecorder::Get());
 }

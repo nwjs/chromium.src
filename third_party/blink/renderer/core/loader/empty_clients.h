@@ -39,9 +39,9 @@
 #include "third_party/blink/public/common/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/common/input/web_menu_source_type.h"
 #include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
+#include "third_party/blink/public/common/widget/screen_info.h"
 #include "third_party/blink/public/mojom/input/focus_type.mojom-blink-forward.h"
 #include "third_party/blink/public/platform/platform.h"
-#include "third_party/blink/public/platform/web_screen_info.h"
 #include "third_party/blink/public/platform/web_spell_check_panel_host_client.h"
 #include "third_party/blink/public/platform/web_url_loader.h"
 #include "third_party/blink/renderer/core/core_export.h"
@@ -82,8 +82,6 @@ class Cursor;
 }
 
 namespace blink {
-
-enum class GlobalObjectReusePolicy;
 
 class CORE_EXPORT EmptyChromeClient : public ChromeClient {
  public:
@@ -138,7 +136,7 @@ class CORE_EXPORT EmptyChromeClient : public ChromeClient {
                              const AtomicString&,
                              const WebWindowFeatures&,
                              network::mojom::blink::WebSandboxFlags,
-                             const FeaturePolicy::FeatureState&,
+                             const FeaturePolicyFeatureState&,
                              const SessionStorageNamespaceId&, WebString*) override {
     return nullptr;
   }
@@ -172,9 +170,7 @@ class CORE_EXPORT EmptyChromeClient : public ChromeClient {
   float WindowToViewportScalar(LocalFrame*, const float s) const override {
     return s;
   }
-  WebScreenInfo GetScreenInfo(LocalFrame&) const override {
-    return WebScreenInfo();
-  }
+  ScreenInfo GetScreenInfo(LocalFrame&) const override { return ScreenInfo(); }
   void ContentsSizeChanged(LocalFrame*, const IntSize&) const override {}
   void ShowMouseOverURL(const HitTestResult&) override {}
   void SetToolTip(LocalFrame&, const String&, TextDirection) override {}
@@ -220,6 +216,8 @@ class CORE_EXPORT EmptyChromeClient : public ChromeClient {
   void SetCursorForPlugin(const ui::Cursor&, LocalFrame*) override {}
   void InstallSupplements(LocalFrame&) override {}
   void MainFrameScrollOffsetChanged(LocalFrame& main_frame) const override {}
+  void BatterySavingsChanged(LocalFrame& main_frame,
+                             WebBatterySavingsFlags savings) override {}
 };
 
 class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
@@ -249,7 +247,7 @@ class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
   void DispatchDidReceiveTitle(const String&) override {}
   void DispatchDidCommitLoad(HistoryItem*,
                              WebHistoryCommitType,
-                             GlobalObjectReusePolicy) override {}
+                             bool) override {}
   void DispatchDidFailLoad(const ResourceError&,
                            WebHistoryCommitType) override {}
   void DispatchDidFinishDocumentLoad() override {}
@@ -258,7 +256,7 @@ class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
   void BeginNavigation(
       const ResourceRequest&,
       mojom::RequestContextFrameType,
-      Document* origin_document,
+      LocalDOMWindow*,
       DocumentLoader*,
       WebNavigationType,
       NavigationPolicy,
@@ -302,14 +300,11 @@ class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
   void TransitionToCommittedForNewPage() override {}
 
   bool NavigateBackForward(int offset) const override { return false; }
-  void DidRunInsecureContent(const SecurityOrigin*, const KURL&) override {}
   void DidDispatchPingLoader(const KURL&) override {}
-  void DidDisplayContentWithCertificateErrors() override {}
-  void DidRunContentWithCertificateErrors() override {}
   void SelectorMatchChanged(const Vector<String>&,
                             const Vector<String>&) override {}
   LocalFrame* CreateFrame(const AtomicString&, HTMLFrameOwnerElement*) override;
-  std::pair<RemoteFrame*, base::UnguessableToken> CreatePortal(
+  std::pair<RemoteFrame*, PortalToken> CreatePortal(
       HTMLPortalElement*,
       mojo::PendingAssociatedReceiver<mojom::blink::Portal>,
       mojo::PendingAssociatedRemote<mojom::blink::PortalClient>) override;
@@ -419,9 +414,6 @@ class CORE_EXPORT EmptyRemoteFrameClient : public RemoteFrameClient {
                          const IntRect& transformed_frame_rect) override {}
   void UpdateRemoteViewportIntersection(
       const ViewportIntersectionState& intersection_state) override {}
-  uint32_t Print(const IntRect& rect, cc::PaintCanvas* canvas) const override {
-    return 0;
-  }
   AssociatedInterfaceProvider* GetRemoteAssociatedInterfaces() override {
     return AssociatedInterfaceProvider::GetEmptyAssociatedInterfaceProvider();
   }

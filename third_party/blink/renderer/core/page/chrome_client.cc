@@ -23,13 +23,14 @@
 
 #include <algorithm>
 
+#include "third_party/blink/public/common/widget/screen_info.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/web_prescient_networking.h"
-#include "third_party/blink/public/platform/web_screen_info.h"
 #include "third_party/blink/renderer/core/core_initializer.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/frame/frame_console.h"
+#include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/core/layout/hit_test_result.h"
@@ -53,7 +54,7 @@ void ChromeClient::InstallSupplements(LocalFrame& frame) {
 
 void ChromeClient::SetWindowRectWithAdjustment(const IntRect& pending_rect,
                                                LocalFrame& frame) {
-  IntRect screen = GetScreenInfo(frame).available_rect;
+  IntRect screen(GetScreenInfo(frame).available_rect);
   IntRect window = pending_rect;
 
   IntSize minimum_size = MinimumWindowSize();
@@ -66,7 +67,7 @@ void ChromeClient::SetWindowRectWithAdjustment(const IntRect& pending_rect,
     // on another screen, and so it should not be limited by the current screen.
     // This relies on the embedder clamping bounds to the target screen for now.
     // TODO(http://crbug.com/897300): Implement multi-screen clamping in Blink.
-    if (!RuntimeEnabledFeatures::WindowPlacementEnabled())
+    if (!RuntimeEnabledFeatures::WindowPlacementEnabled(frame.DomWindow()))
       width = std::min(width, screen.Width());
     window.SetWidth(width);
     size_for_constraining_move.SetWidth(window.Width());
@@ -77,7 +78,7 @@ void ChromeClient::SetWindowRectWithAdjustment(const IntRect& pending_rect,
     // on another screen, and so it should not be limited by the current screen.
     // This relies on the embedder clamping bounds to the target screen for now.
     // TODO(http://crbug.com/897300): Implement multi-screen clamping in Blink.
-    if (!RuntimeEnabledFeatures::WindowPlacementEnabled())
+    if (!RuntimeEnabledFeatures::WindowPlacementEnabled(frame.DomWindow()))
       height = std::min(height, screen.Height());
     window.SetHeight(height);
     size_for_constraining_move.SetHeight(window.Height());
@@ -87,7 +88,7 @@ void ChromeClient::SetWindowRectWithAdjustment(const IntRect& pending_rect,
   // on another screen, and so it should not be limited by the current screen.
   // This relies on the embedder clamping bounds to the target screen for now.
   // TODO(http://crbug.com/897300): Implement multi-screen clamping in Blink.
-  if (!RuntimeEnabledFeatures::WindowPlacementEnabled()) {
+  if (!RuntimeEnabledFeatures::WindowPlacementEnabled(frame.DomWindow())) {
     // Constrain the window position within the valid screen area.
     window.SetX(
         std::max(screen.X(),
@@ -97,6 +98,12 @@ void ChromeClient::SetWindowRectWithAdjustment(const IntRect& pending_rect,
         screen.Y(),
         std::min(window.Y(),
                  screen.MaxY() - size_for_constraining_move.Height())));
+  }
+
+  // Coarsely measure whether coordinates may be requesting another screen.
+  if (!screen.Contains(window)) {
+    UseCounter::Count(frame.DomWindow(),
+                      WebFeature::kDOMWindowSetWindowRectCrossScreen);
   }
 
   SetWindowRect(window, frame);
@@ -127,7 +134,7 @@ Page* ChromeClient::CreateWindow(
     const AtomicString& frame_name,
     const WebWindowFeatures& features,
     network::mojom::blink::WebSandboxFlags sandbox_flags,
-    const FeaturePolicy::FeatureState& opener_feature_state,
+    const FeaturePolicyFeatureState& opener_feature_state,
     const SessionStorageNamespaceId& session_storage_namespace_id, WebString* manifest) {
 #if 0
   if (!CanOpenUIElementIfDuringPageDismissal(
@@ -280,9 +287,9 @@ bool ChromeClient::Print(LocalFrame* frame) {
     return false;
   }
 
-  if (frame->GetDocument()->IsSandboxed(
+  if (frame->DomWindow()->IsSandboxed(
           network::mojom::blink::WebSandboxFlags::kModals)) {
-    UseCounter::Count(frame->GetDocument(),
+    UseCounter::Count(frame->DomWindow(),
                       WebFeature::kDialogInSandboxedContext);
     frame->Console().AddMessage(MakeGarbageCollected<ConsoleMessage>(
         mojom::ConsoleMessageSource::kSecurity,
@@ -291,11 +298,6 @@ bool ChromeClient::Print(LocalFrame* frame) {
         "'allow-modals' keyword is not set."));
     return false;
   }
-
-  // Suspend pages in case the client method runs a new event loop that would
-  // otherwise cause the load to continue while we're in the middle of
-  // executing JavaScript.
-  ScopedPagePauser pauser;
 
   PrintDelegate(frame);
   return true;

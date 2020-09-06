@@ -406,6 +406,10 @@ DevToolsWindow::~DevToolsWindow() {
   if (throttle_)
     throttle_->ResumeThrottle();
 
+  if (reattach_complete_callback_) {
+    std::move(reattach_complete_callback_).Run();
+  }
+
   life_stage_ = kClosing;
 
   UpdateBrowserWindow();
@@ -769,12 +773,19 @@ DevToolsWindow::MaybeCreateNavigationThrottle(
 }
 
 void DevToolsWindow::UpdateInspectedWebContents(
-    content::WebContents* new_web_contents) {
+    content::WebContents* new_web_contents,
+    base::OnceCallback<void()> callback) {
+  DCHECK(!reattach_complete_callback_);
+  reattach_complete_callback_ = std::move(callback);
+
   inspected_contents_observer_ =
       std::make_unique<ObserverWithAccessor>(new_web_contents);
   bindings_->AttachTo(
       content::DevToolsAgentHost::GetOrCreateFor(new_web_contents));
-  bindings_->CallClientMethod("DevToolsAPI", "reattachMainTarget");
+  bindings_->CallClientMethod(
+      "DevToolsAPI", "reattachMainTarget", {}, {}, {},
+      base::BindOnce(&DevToolsWindow::OnReattachMainTargetComplete,
+                     base::Unretained(this)));
 }
 
 void DevToolsWindow::ScheduleShow(const DevToolsToggleAction& action) {
@@ -1310,7 +1321,7 @@ content::ColorChooser* DevToolsWindow::OpenColorChooser(
 
 void DevToolsWindow::RunFileChooser(
     content::RenderFrameHost* render_frame_host,
-    std::unique_ptr<content::FileSelectListener> listener,
+    scoped_refptr<content::FileSelectListener> listener,
     const blink::mojom::FileChooserParams& params) {
   FileSelectHelper::RunFileChooser(render_frame_host, std::move(listener),
                                    params);
@@ -1670,4 +1681,8 @@ void DevToolsWindow::RegisterModalDialogManager(Browser* browser) {
       main_web_contents_);
   web_modal::WebContentsModalDialogManager::FromWebContents(main_web_contents_)
       ->SetDelegate(browser);
+}
+
+void DevToolsWindow::OnReattachMainTargetComplete(base::Value) {
+  std::move(reattach_complete_callback_).Run();
 }

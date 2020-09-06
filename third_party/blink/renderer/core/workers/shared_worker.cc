@@ -144,7 +144,7 @@ SharedWorker* SharedWorker::Create(ExecutionContext* context,
 
   SharedWorkerClientHolder::From(*window)->Connect(
       worker, std::move(remote_port), script_url, std::move(blob_url_token),
-      std::move(options), isNodeJS);
+      std::move(options), context->UkmSourceID(), isNodeJS);
 
   return worker;
 }

@@ -26,6 +26,7 @@
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 
 #include "base/metrics/histogram_macros.h"
+#include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/web_sandbox_flags.h"
 #include "services/network/public/mojom/trust_tokens.mojom-blink.h"
 #include "services/network/public/mojom/web_sandbox_flags.mojom-blink.h"
@@ -95,9 +96,9 @@ DOMTokenList* HTMLIFrameElement::sandbox() const {
 }
 
 DOMFeaturePolicy* HTMLIFrameElement::featurePolicy() {
-  if (!policy_) {
+  if (!policy_ && GetExecutionContext()) {
     policy_ = MakeGarbageCollected<IFramePolicy>(
-        &GetDocument(), GetFramePolicy().container_policy,
+        GetExecutionContext(), GetFramePolicy().container_policy,
         GetOriginForFeaturePolicy());
   }
   return policy_.Get();
@@ -243,19 +244,35 @@ void HTMLIFrameElement::ParseAttribute(
       UpdateContainerPolicy();
     }
   } else if (name == html_names::kCspAttr) {
-    if (!ContentSecurityPolicy::IsValidCSPAttr(
-            value.GetString(), GetDocument().RequiredCSP().GetString())) {
-      required_csp_ = g_null_atom;
-      GetDocument().AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-          mojom::ConsoleMessageSource::kOther,
-          mojom::ConsoleMessageLevel::kError,
-          "'csp' attribute is not a valid policy: " + value));
-      return;
-    }
-    if (required_csp_ != value) {
-      required_csp_ = value;
-      FrameOwnerPropertiesChanged();
-      UseCounter::Count(GetDocument(), WebFeature::kIFrameCSPAttribute);
+    if (base::FeatureList::IsEnabled(network::features::kOutOfBlinkCSPEE)) {
+      if (value.Contains('\n') || value.Contains('\r') || value.Contains(',')) {
+        required_csp_ = g_null_atom;
+        GetDocument().AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
+            mojom::blink::ConsoleMessageSource::kOther,
+            mojom::blink::ConsoleMessageLevel::kError,
+            "'csp' attribute is invalid: " + value));
+        return;
+      }
+      if (required_csp_ != value) {
+        required_csp_ = value;
+        CSPAttributeChanged();
+        UseCounter::Count(GetDocument(), WebFeature::kIFrameCSPAttribute);
+      }
+    } else {
+      if (!ContentSecurityPolicy::IsValidCSPAttr(
+              value.GetString(), GetDocument().RequiredCSP().GetString())) {
+        required_csp_ = g_null_atom;
+        GetDocument().AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
+            mojom::blink::ConsoleMessageSource::kOther,
+            mojom::blink::ConsoleMessageLevel::kError,
+            "'csp' attribute is not a valid policy: " + value));
+        return;
+      }
+      if (required_csp_ != value) {
+        required_csp_ = value;
+        FrameOwnerPropertiesChanged();
+        UseCounter::Count(GetDocument(), WebFeature::kIFrameCSPAttribute);
+      }
     }
   } else if (name == html_names::kAllowAttr) {
     if (allow_ != value) {
@@ -309,9 +326,9 @@ void HTMLIFrameElement::ParseAttribute(
   }
 }
 
-DocumentPolicy::FeatureState HTMLIFrameElement::ConstructRequiredPolicy()
-    const {
-  if (!RuntimeEnabledFeatures::DocumentPolicyEnabled(GetExecutionContext()))
+DocumentPolicyFeatureState HTMLIFrameElement::ConstructRequiredPolicy() const {
+  if (!RuntimeEnabledFeatures::DocumentPolicyNegotiationEnabled(
+          GetExecutionContext()))
     return {};
 
   if (!required_policy_.IsEmpty()) {
@@ -349,9 +366,12 @@ DocumentPolicy::FeatureState HTMLIFrameElement::ConstructRequiredPolicy()
 }
 
 ParsedFeaturePolicy HTMLIFrameElement::ConstructContainerPolicy() const {
+  if (!GetExecutionContext())
+    return ParsedFeaturePolicy();
+
   scoped_refptr<const SecurityOrigin> src_origin = GetOriginForFeaturePolicy();
   scoped_refptr<const SecurityOrigin> self_origin =
-      GetDocument().GetSecurityOrigin();
+      GetExecutionContext()->GetSecurityOrigin();
 
   PolicyParserMessageBuffer logger;
 
@@ -441,7 +461,8 @@ Node::InsertionNotificationRequest HTMLIFrameElement::InsertedInto(
   auto* html_doc = DynamicTo<HTMLDocument>(GetDocument());
   if (html_doc && insertion_point.IsInDocumentTree()) {
     html_doc->AddNamedItem(name_);
-    if (!ContentSecurityPolicy::IsValidCSPAttr(
+    if (!base::FeatureList::IsEnabled(network::features::kOutOfBlinkCSPEE) &&
+        !ContentSecurityPolicy::IsValidCSPAttr(
             required_csp_, GetDocument().RequiredCSP().GetString())) {
       if (!required_csp_.IsEmpty()) {
         GetDocument().AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(

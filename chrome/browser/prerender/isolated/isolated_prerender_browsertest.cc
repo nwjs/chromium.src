@@ -36,8 +36,6 @@
 #include "chrome/browser/prerender/isolated/isolated_prerender_tab_helper.h"
 #include "chrome/browser/prerender/isolated/isolated_prerender_test_utils.h"
 #include "chrome/browser/prerender/isolated/isolated_prerender_url_loader_interceptor.h"
-#include "chrome/browser/prerender/prerender_handle.h"
-#include "chrome/browser/prerender/prerender_manager.h"
 #include "chrome/browser/prerender/prerender_manager_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ssl/certificate_reporting_test_utils.h"
@@ -57,6 +55,8 @@
 #include "components/data_reduction_proxy/proto/client_config.pb.h"
 #include "components/language/core/browser/pref_names.h"
 #include "components/prefs/pref_service.h"
+#include "components/prerender/browser/prerender_handle.h"
+#include "components/prerender/browser/prerender_manager.h"
 #include "components/prerender/common/prerender_final_status.h"
 #include "components/security_interstitials/content/security_interstitial_tab_helper.h"
 #include "components/security_interstitials/content/ssl_blocking_page.h"
@@ -310,7 +310,7 @@ std::unique_ptr<net::ClientCertStore> CreateCertStore() {
 }  // namespace
 
 // Occasional flakes on Windows (https://crbug.com/1045971).
-#if defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_CHROMEOS)
+#if defined(OS_WIN) || defined(OS_MAC) || defined(OS_CHROMEOS)
 #define DISABLE_ON_WIN_MAC_CHROMEOS(x) DISABLED_##x
 #else
 #define DISABLE_ON_WIN_MAC_CHROMEOS(x) x
@@ -519,10 +519,9 @@ class IsolatedPrerenderBrowserTest
         IsolatedPrerenderTabHelper::FromWebContents(GetWebContents());
     DCHECK(tab_helper);
     DCHECK(tab_helper->GetIsolatedContextForTesting());
-    return net::OK == content::LoadBasicRequest(
-                          tab_helper->GetIsolatedContextForTesting(), url,
-                          /*process_id=*/0,
-                          /*render_frame_id=*/0, net::LOAD_ONLY_FROM_CACHE);
+    return net::OK ==
+           content::LoadBasicRequest(tab_helper->GetIsolatedContextForTesting(),
+                                     url, net::LOAD_ONLY_FROM_CACHE);
   }
 
   base::Optional<int64_t> GetUKMMetric(const GURL& url,
@@ -1209,6 +1208,71 @@ IN_PROC_BROWSER_TEST_F(IsolatedPrerenderBrowserTest,
       base::nullopt,
       GetUKMMetric(
           eligible_link_2,
+          ukm::builders::PrefetchProxy_AfterSRPClick::kEntryName,
+          ukm::builders::PrefetchProxy_AfterSRPClick::kProbeLatencyMsName));
+}
+
+// 204's don't commit so this is used to test that the AfterSRPMetrics UKM event
+// is recorded if the page does not commit. In the wild, we expect this to
+// normally occur due to aborted navigations but the end result is the same.
+IN_PROC_BROWSER_TEST_F(IsolatedPrerenderBrowserTest,
+                       DISABLE_ON_WIN_MAC_CHROMEOS(PrefetchingUKM_NoCommit)) {
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+      "isolated-prerender-unlimited-prefetches");
+
+  GURL starting_page = GetOriginServerURL("/simple.html");
+  SetDataSaverEnabled(true);
+  ui_test_utils::NavigateToURL(browser(), starting_page);
+  WaitForUpdatedCustomProxyConfig();
+
+  IsolatedPrerenderTabHelper* tab_helper =
+      IsolatedPrerenderTabHelper::FromWebContents(GetWebContents());
+
+  GURL eligible_link_204 =
+      GetOriginServerURL("/prerender/isolated/page204.html");
+
+  TestTabHelperObserver tab_helper_observer(tab_helper);
+  tab_helper_observer.SetExpectedSuccessfulURLs({eligible_link_204});
+
+  base::RunLoop run_loop;
+  tab_helper_observer.SetOnPrefetchSuccessfulClosure(run_loop.QuitClosure());
+
+  base::HistogramTester histogram_tester;
+
+  GURL doc_url("https://www.google.com/search?q=test");
+  MakeNavigationPrediction(doc_url, {eligible_link_204});
+
+  // This run loop will quit when all the prefetch responses have been
+  // successfully done and processed.
+  run_loop.Run();
+
+  histogram_tester.ExpectUniqueSample(
+      "IsolatedPrerender.Prefetch.Mainframe.RespCode", 204, 1);
+
+  // Navigate to a prefetched page to trigger UKM recording. Note that because
+  // the navigation is never committed, the UKM recording happens immediately.
+  ui_test_utils::NavigateToURL(browser(), eligible_link_204);
+  base::RunLoop().RunUntilIdle();
+
+  VerifyUKMAfterSRP(
+      eligible_link_204,
+      ukm::builders::PrefetchProxy_AfterSRPClick::kClickedLinkSRPPositionName,
+      0);
+  VerifyUKMAfterSRP(
+      eligible_link_204,
+      ukm::builders::PrefetchProxy_AfterSRPClick::kSRPPrefetchEligibleCountName,
+      1);
+  // 0 is the value of |PrefetchStatus::kPrefetchUsedNoProbe|. The enum is not
+  // used here intentionally because its value should never change.
+  VerifyUKMAfterSRP(
+      eligible_link_204,
+      ukm::builders::PrefetchProxy_AfterSRPClick::kSRPClickPrefetchStatusName,
+      0);
+
+  EXPECT_EQ(
+      base::nullopt,
+      GetUKMMetric(
+          eligible_link_204,
           ukm::builders::PrefetchProxy_AfterSRPClick::kEntryName,
           ukm::builders::PrefetchProxy_AfterSRPClick::kProbeLatencyMsName));
 }

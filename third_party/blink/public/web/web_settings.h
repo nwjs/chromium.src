@@ -53,7 +53,7 @@ class WebSettings {
  public:
   enum class ImageAnimationPolicy { kAllowed, kAnimateOnce, kNoAnimation };
 
-  enum class EditingBehavior { kMac, kWin, kUnix, kAndroid };
+  enum class EditingBehavior { kMac, kWin, kUnix, kAndroid, kChromeOS };
 
   enum class V8CacheOptions {
     kDefault,
@@ -156,7 +156,6 @@ class WebSettings {
   virtual void SetEditingBehavior(EditingBehavior) = 0;
   virtual void SetEnableScrollAnimator(bool) = 0;
   virtual void SetPrefersReducedMotion(bool) = 0;
-  virtual void SetEnableTouchAdjustment(bool) = 0;
   virtual void SetSmoothScrollForFindEnabled(bool) = 0;
   virtual void SetWebGL1Enabled(bool) = 0;
   virtual void SetWebGL2Enabled(bool) = 0;
@@ -297,6 +296,8 @@ class WebSettings {
   virtual void SetPreferredColorScheme(PreferredColorScheme) = 0;
   virtual void SetNavigationControls(NavigationControls) = 0;
   virtual void SetAriaModalPrunesAXTree(bool) = 0;
+  virtual void SetUseAXMenuList(bool) = 0;
+  virtual void SetSelectionClipboardBufferAvailable(bool) = 0;
 
  protected:
   ~WebSettings() = default;

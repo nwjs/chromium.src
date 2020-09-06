@@ -140,12 +140,18 @@ void WebDialogView::ViewHierarchyChanged(
     InitDialog();
 }
 
-bool WebDialogView::CanClose() {
+views::CloseRequestResult WebDialogView::OnWindowCloseRequested() {
   // Don't close UI if |delegate_| does not allow users to close it by
   // clicking on "x" button or pressing Escape shortcut key on hosting
   // dialog.
-  if (!delegate_->CanCloseDialog() && !close_contents_called_)
-    return false;
+  if (!is_attempting_close_dialog_ && !delegate_->OnDialogCloseRequested()) {
+    if (!close_contents_called_)
+      return views::CloseRequestResult::kCannotClose;
+    // This is a web dialog, if the WebContents has been closed, there is no
+    // reason to keep the dialog alive.
+    LOG(ERROR) << "delegate tries to stop closing when CloseContents() has "
+                  "been called";
+  }
 
   // If CloseContents() is called before CanClose(), which is called by
   // RenderViewHostImpl::ClosePageIgnoringUnloadEvents, it indicates
@@ -154,7 +160,7 @@ bool WebDialogView::CanClose() {
       close_contents_called_) {
     is_attempting_close_dialog_ = false;
     before_unload_fired_ = false;
-    return true;
+    return views::CloseRequestResult::kCanClose;
   }
 
   if (!is_attempting_close_dialog_) {
@@ -162,14 +168,14 @@ bool WebDialogView::CanClose() {
     is_attempting_close_dialog_ = true;
     web_view_->web_contents()->DispatchBeforeUnload(false /* auto_cancel */);
   }
-  return false;
+  return views::CloseRequestResult::kCannotClose;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // WebDialogView, views::WidgetDelegate implementation:
 
 bool WebDialogView::OnCloseRequested(Widget::ClosedReason close_reason) {
-  return !delegate_ || delegate_->OnDialogCloseRequested();
+  return !delegate_ || delegate_->DeprecatedOnDialogCloseRequested();
 }
 
 bool WebDialogView::CanResize() const {
@@ -216,10 +222,10 @@ views::ClientView* WebDialogView::CreateClientView(views::Widget* widget) {
   return this;
 }
 
-NonClientFrameView* WebDialogView::CreateNonClientFrameView(Widget* widget) {
-  if (use_dialog_frame_)
-    return DialogDelegate::CreateDialogFrameView(widget);
-  return WidgetDelegate::CreateNonClientFrameView(widget);
+std::unique_ptr<NonClientFrameView> WebDialogView::CreateNonClientFrameView(
+    Widget* widget) {
+  return use_dialog_frame_ ? DialogDelegate::CreateDialogFrameView(widget)
+                           : WidgetDelegate::CreateNonClientFrameView(widget);
 }
 
 views::View* WebDialogView::GetInitiallyFocusedView() {

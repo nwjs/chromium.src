@@ -13,7 +13,10 @@
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "base/values.h"
+#include "chrome/browser/safe_browsing/cloud_content_scanning/deep_scanning_utils.h"
 #include "components/keyed_service/core/keyed_service.h"
+#include "components/policy/core/common/cloud/cloud_policy_client.h"
+#include "components/policy/core/common/cloud/cloud_policy_core.h"
 
 namespace content {
 class BrowserContext;
@@ -30,7 +33,6 @@ class IdentityManager;
 class GURL;
 
 namespace policy {
-class CloudPolicyClient;
 class DeviceManagementService;
 }
 
@@ -53,7 +55,9 @@ namespace extensions {
 // An event router that observes Safe Browsing events and notifies listeners.
 // The router also uploads events to the chrome reporting server side API if
 // the kRealtimeReportingFeature feature is enabled.
-class SafeBrowsingPrivateEventRouter : public KeyedService {
+class SafeBrowsingPrivateEventRouter
+    : public KeyedService,
+      public policy::CloudPolicyClient::Observer {
  public:
   // Feature that controls whether real-time reports are sent.
   static const base::Feature kRealtimeReportingFeature;
@@ -69,14 +73,13 @@ class SafeBrowsingPrivateEventRouter : public KeyedService {
   static const char kKeyReason[];
   static const char kKeyNetErrorCode[];
   static const char kKeyClickedThrough[];
-  static const char kKeyTriggeredRuleId[];
   static const char kKeyTriggeredRuleName[];
-  static const char kKeyTriggeredRuleAction[];
   static const char kKeyTriggeredRuleInfo[];
   static const char kKeyThreatType[];
   static const char kKeyContentType[];
   static const char kKeyContentSize[];
   static const char kKeyTrigger[];
+  static const char kKeyEventResult[];
 
   static const char kKeyPasswordReuseEvent[];
   static const char kKeyPasswordChangedEvent[];
@@ -131,7 +134,8 @@ class SafeBrowsingPrivateEventRouter : public KeyedService {
       const std::string& trigger,
       safe_browsing::DeepScanAccessPoint access_point,
       const safe_browsing::ContentAnalysisScanResult& result,
-      const int64_t content_size);
+      const int64_t content_size,
+      safe_browsing::EventResult event_result);
 
   // Notifies listeners that an analysis connector violation was bypassed.
   void OnAnalysisConnectorWarningBypassed(
@@ -152,7 +156,8 @@ class SafeBrowsingPrivateEventRouter : public KeyedService {
                             const std::string& trigger,
                             safe_browsing::DeepScanAccessPoint access_point,
                             const std::string& reason,
-                            const int64_t content_size);
+                            const int64_t content_size,
+                            safe_browsing::EventResult event_result);
 
   // Notifies listeners that the user saw a download warning.
   // - |url| is the download URL
@@ -190,6 +195,11 @@ class SafeBrowsingPrivateEventRouter : public KeyedService {
       safe_browsing::BinaryUploadService* binary_upload_service);
 
   void SetIdentityManagerForTesting(signin::IdentityManager* identity_manager);
+
+  // policy::CloudPolicyClient::Observer:
+  void OnClientError(policy::CloudPolicyClient* client) override;
+  void OnPolicyFetched(policy::CloudPolicyClient* client) override {}
+  void OnRegistrationStateChanged(policy::CloudPolicyClient* client) override {}
 
  protected:
   // Callback to report safe browsing event through real-time reporting channel,
@@ -254,7 +264,8 @@ class SafeBrowsingPrivateEventRouter : public KeyedService {
                                      const std::string& threat_type,
                                      const std::string& mime_type,
                                      const std::string& trigger,
-                                     const int64_t content_size);
+                                     const int64_t content_size,
+                                     safe_browsing::EventResult event_result);
 
   // Notifies listeners that the analysis connector detected a violation.
   void OnSensitiveDataEvent(
@@ -264,7 +275,8 @@ class SafeBrowsingPrivateEventRouter : public KeyedService {
       const std::string& mime_type,
       const std::string& trigger,
       const safe_browsing::ContentAnalysisScanResult& result,
-      const int64_t content_size);
+      const int64_t content_size,
+      safe_browsing::EventResult event_result);
 
   content::BrowserContext* context_;
   signin::IdentityManager* identity_manager_ = nullptr;

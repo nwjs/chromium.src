@@ -62,7 +62,7 @@
 #include "ui/display/screen.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 
-#if !defined(OS_MACOSX)
+#if !defined(OS_MAC)
 #include "components/prefs/pref_service.h"
 #include "extensions/browser/pref_names.h"
 #endif
@@ -664,7 +664,7 @@ void AppWindow::OnNativeWindowChanged() {
   if (!native_app_window_)
     return;
 
-#if defined(OS_MACOSX)
+#if defined(OS_MAC)
   // On Mac the user can change the window's fullscreen state. If that has
   // happened, update AppWindow's internal state.
   if (native_app_window_->IsFullscreen()) {
@@ -784,7 +784,7 @@ void AppWindow::SetFullscreen(FullscreenType type, bool enable) {
   DCHECK_NE(FULLSCREEN_TYPE_NONE, type);
 
   if (enable) {
-#if !defined(OS_MACOSX)
+#if !defined(OS_MAC)
     // Do not enter fullscreen mode if disallowed by pref.
     // TODO(bartfab): Add a test once it becomes possible to simulate a user
     // gesture. http://crbug.com/174178
@@ -1073,7 +1073,7 @@ content::ColorChooser* AppWindow::OpenColorChooser(
 
 void AppWindow::RunFileChooser(
     content::RenderFrameHost* render_frame_host,
-    std::unique_ptr<content::FileSelectListener> listener,
+    scoped_refptr<content::FileSelectListener> listener,
     const blink::mojom::FileChooserParams& params) {
   app_delegate_->RunFileChooser(render_frame_host, std::move(listener), params);
 }

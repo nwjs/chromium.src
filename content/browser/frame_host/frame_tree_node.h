@@ -248,6 +248,15 @@ class CONTENT_EXPORT FrameTreeNode {
     frame_owner_properties_ = frame_owner_properties;
   }
 
+  const network::mojom::ContentSecurityPolicy* csp_attribute() {
+    return csp_attribute_.get();
+  }
+
+  void set_csp_attribute(
+      network::mojom::ContentSecurityPolicyPtr parsed_csp_attribute) {
+    csp_attribute_ = std::move(parsed_csp_attribute);
+  }
+
   bool HasSameOrigin(const FrameTreeNode& node) const {
     return replication_state_.origin.IsSameOriginWith(
         node.replication_state_.origin);
@@ -334,8 +343,12 @@ class CONTENT_EXPORT FrameTreeNode {
   // (which initiated the update).  Returns |false| if the update tries to
   // consume an already consumed/expired transient state, |true| otherwise.  See
   // the comment on user_activation_state_ below.
+  //
+  // The |notification_type| parameter is used for histograms, only for the case
+  // |update_state == kNotifyActivation|.
   bool UpdateUserActivationState(
-      blink::mojom::UserActivationUpdateType update_type);
+      blink::mojom::UserActivationUpdateType update_type,
+      blink::mojom::UserActivationNotificationType notification_type);
 
   void OnSetHadStickyUserActivationBeforeNavigation(bool value);
 
@@ -388,11 +401,6 @@ class CONTENT_EXPORT FrameTreeNode {
     return user_activation_state_.IsActive();
   }
 
-  // Transfers user activation state from |source| frame to |this| and notifies
-  // proxies in non-source and non-target renderer processes to transfer the
-  // activation state from the source proxy to the target.
-  void TransferUserActivationFrom(RenderFrameHostImpl* source_rfh);
-
   // Remove history entries for all frames created by script in this frame's
   // subtree. If a frame created by a script is removed, then its history entry
   // will never be reused - this saves memory.
@@ -405,7 +413,7 @@ class CONTENT_EXPORT FrameTreeNode {
   // be nontrivial if there is an opener which is restricted in some of the
   // feature policies.
   void SetOpenerFeaturePolicyState(
-      const blink::FeaturePolicy::FeatureState& feature_state);
+      const blink::FeaturePolicyFeatureState& feature_state);
 
   void SetAdFrameType(blink::mojom::AdFrameType ad_frame_type);
 
@@ -419,7 +427,9 @@ class CONTENT_EXPORT FrameTreeNode {
 
   FrameTreeNode* GetSibling(int relative_offset) const;
 
-  bool NotifyUserActivation();
+  // The |notification_type| parameter is used for histograms only.
+  bool NotifyUserActivation(
+      blink::mojom::UserActivationNotificationType notification_type);
 
   bool ConsumeTransientUserActivation();
 
@@ -512,6 +522,9 @@ class CONTENT_EXPORT FrameTreeNode {
   //
   // Note that dynamic updates only take effect on the next frame navigation.
   blink::mojom::FrameOwnerProperties frame_owner_properties_;
+
+  // Contains the current parsed value of the 'csp' attribute of this frame.
+  network::mojom::ContentSecurityPolicyPtr csp_attribute_;
 
   // Owns an ongoing NavigationRequest until it is ready to commit. It will then
   // be reset and a RenderFrameHost will be responsible for the navigation.

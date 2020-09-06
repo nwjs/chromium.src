@@ -17,7 +17,6 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/browser/ui/web_contents_sizer.h"
 #include "components/sessions/content/content_serialized_navigation_builder.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "content/public/browser/navigation_entry.h"
@@ -117,8 +116,7 @@ void LoadRestoredTabIfVisible(Browser* browser,
   DCHECK(!browser->window()->GetContentsSize().IsEmpty() ||
          (browser->window()->GetBounds().IsEmpty() &&
           browser->window()->GetRestoredBounds().IsEmpty()));
-  DCHECK_EQ(GetWebContentsSize(web_contents),
-            browser->window()->GetContentsSize());
+  DCHECK_EQ(web_contents->GetSize(), browser->window()->GetContentsSize());
 
   web_contents->GetController().LoadIfNecessary();
 }
@@ -176,15 +174,16 @@ WebContents* AddRestoredTab(
     // yet and the bounds may not be available on all platforms.
     if (size.IsEmpty())
       size = browser->window()->GetRestoredBounds().size();
-    ResizeWebContents(raw_web_contents, gfx::Rect(size));
+    raw_web_contents->Resize(gfx::Rect(size));
     raw_web_contents->WasHidden();
   } else {
     const bool should_activate =
-#if defined(OS_MACOSX)
+#if defined(OS_WIN) || defined(OS_MAC)
         // Activating a window on another space causes the system to switch to
         // that space. Since the session restore process shows and activates
         // windows itself, activating windows here should be safe to skip.
-        // Cautiously apply only to macOS, for now (https://crbug.com/1019048).
+        // Cautiously apply only to Windows and MacOS, for now
+        // (https://crbug.com/1019048).
         !from_session_restore;
 #else
         true;

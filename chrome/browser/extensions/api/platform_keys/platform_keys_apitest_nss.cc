@@ -14,6 +14,7 @@
 #include "base/strings/stringprintf.h"
 #include "chrome/browser/chromeos/platform_keys/extension_platform_keys_service.h"
 #include "chrome/browser/chromeos/platform_keys/extension_platform_keys_service_factory.h"
+#include "chrome/browser/chromeos/platform_keys/platform_keys.h"
 #include "chrome/browser/extensions/api/platform_keys/platform_keys_test_base.h"
 #include "chrome/browser/net/nss_context.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
@@ -89,14 +90,12 @@ class PlatformKeysTest : public PlatformKeysTestBase {
 
     // Set up the test policy that gives |extension_| the permission to access
     // corporate keys.
-    std::unique_ptr<base::DictionaryValue> key_permissions_policy =
-        std::make_unique<base::DictionaryValue>();
+    base::Value key_permissions_policy(base::Value::Type::DICTIONARY);
     {
-      std::unique_ptr<base::DictionaryValue> cert1_key_permission(
-          new base::DictionaryValue);
-      cert1_key_permission->SetKey("allowCorporateKeyUsage", base::Value(true));
-      key_permissions_policy->SetWithoutPathExpansion(
-          extension_->id(), std::move(cert1_key_permission));
+      base::Value cert1_key_permission(base::Value::Type::DICTIONARY);
+      cert1_key_permission.SetKey("allowCorporateKeyUsage", base::Value(true));
+      key_permissions_policy.SetKey(extension_->id(),
+                                    std::move(cert1_key_permission));
     }
 
     policy.Set(policy::key::kKeyPermissions, policy::POLICY_LEVEL_MANDATORY,
@@ -139,7 +138,7 @@ class PlatformKeysTest : public PlatformKeysTestBase {
     extensions::StateStore* const state_store =
         extensions::ExtensionSystem::Get(profile())->state_store();
 
-    chromeos::KeyPermissions permissions(
+    chromeos::platform_keys::KeyPermissions permissions(
         policy_connector->IsManaged(), profile()->GetPrefs(),
         policy_connector->policy_service(), state_store);
 
@@ -170,12 +169,13 @@ class PlatformKeysTest : public PlatformKeysTestBase {
 
   void GotPermissionsForExtension(
       const base::Closure& done_callback,
-      std::unique_ptr<chromeos::KeyPermissions::PermissionsForExtension>
+      std::unique_ptr<
+          chromeos::platform_keys::KeyPermissions::PermissionsForExtension>
           permissions_for_ext) {
     std::string client_cert1_spki =
         chromeos::platform_keys::GetSubjectPublicKeyInfo(client_cert1_);
     permissions_for_ext->RegisterKeyForCorporateUsage(
-        client_cert1_spki, {chromeos::KeyPermissions::KeyLocation::kUserSlot});
+        client_cert1_spki, {chromeos::platform_keys::TokenId::kUser});
     done_callback.Run();
   }
 

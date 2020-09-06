@@ -111,6 +111,7 @@ class MEDIA_GPU_EXPORT VaapiVideoDecodeAccelerator
 
   // Notify the client that an error has occurred and decoding cannot continue.
   void NotifyError(Error error);
+  void NotifyStatus(Status status);
 
   // Queue a input buffer for decode.
   void QueueInputBuffer(scoped_refptr<DecoderBuffer> buffer,
@@ -198,9 +199,11 @@ class MEDIA_GPU_EXPORT VaapiVideoDecodeAccelerator
   enum class BufferAllocationMode {
     // Only using |client_|s provided PictureBuffers, none internal.
     kNone,
+
     // Using a reduced amount of |client_|s provided PictureBuffers and
     // |decoder_|s GetNumReferenceFrames() internallly.
     kSuperReduced,
+
     // Similar to kSuperReduced, but we have to increase slightly the amount of
     // PictureBuffers allocated for the |client_|.
     kReduced,

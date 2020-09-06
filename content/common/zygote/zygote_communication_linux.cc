@@ -20,9 +20,9 @@
 #include "base/stl_util.h"
 #include "content/common/zygote/zygote_commands_linux.h"
 #include "content/public/common/content_switches.h"
+#include "sandbox/policy/switches.h"
 #include "services/service_manager/embedder/result_codes.h"
 #include "services/service_manager/embedder/switches.h"
-#include "services/service_manager/sandbox/switches.h"
 #include "third_party/icu/source/i18n/unicode/timezone.h"
 
 namespace content {
@@ -231,7 +231,7 @@ void ZygoteCommunication::Init(
                              service_manager::switches::kZygoteProcess);
 
   if (type_ == ZygoteType::kUnsandboxed)
-    cmd_line.AppendSwitch(service_manager::switches::kNoZygoteSandbox);
+    cmd_line.AppendSwitch(sandbox::policy::switches::kNoZygoteSandbox);
 
   const base::CommandLine& browser_command_line =
       *base::CommandLine::ForCurrentProcess();
@@ -242,11 +242,11 @@ void ZygoteCommunication::Init(
   // Append any switches from the service manager that need to be forwarded on
   // to the zygote/renderers.
   static const char* const kForwardSwitches[] = {
-      service_manager::switches::kAllowSandboxDebugging,
+      sandbox::policy::switches::kAllowSandboxDebugging,
       service_manager::switches::kDisableInProcessStackTraces,
       "enable-spell-checking",
-      service_manager::switches::kDisableSeccompFilterSandbox,
-      service_manager::switches::kNoSandbox,
+      sandbox::policy::switches::kDisableSeccompFilterSandbox,
+      sandbox::policy::switches::kNoSandbox,
   };
   cmd_line.CopySwitchesFrom(browser_command_line, kForwardSwitches,
                             base::size(kForwardSwitches));

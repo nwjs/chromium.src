@@ -92,6 +92,9 @@ class AssistantBottomBarCoordinator implements AssistantPeekHeightCoordinator.De
     /** A token held while the assistant is obscuring all tabs. */
     private int mObscuringToken;
 
+    /** Height of the sheet's shadow used to compute the resize offset. */
+    private int mShadowHeight;
+
     AssistantBottomBarCoordinator(Activity activity, AssistantModel model,
             BottomSheetController controller,
             ApplicationViewportInsetSupplier applicationViewportInsetSupplier,
@@ -100,6 +103,9 @@ class AssistantBottomBarCoordinator implements AssistantPeekHeightCoordinator.De
         mModel = model;
         mBottomSheetController = controller;
         mTabObscuringHandler = tabObscuringHandler;
+
+        mShadowHeight = activity.getResources().getDimensionPixelSize(
+                R.dimen.bottom_sheet_toolbar_shadow_height);
 
         mWindowApplicationInsetSupplier = applicationViewportInsetSupplier;
         mWindowApplicationInsetSupplier.addSupplier(mInsetSupplier);
@@ -145,6 +151,8 @@ class AssistantBottomBarCoordinator implements AssistantPeekHeightCoordinator.De
         // We don't want to animate the carousels children views as they are already animated by the
         // recyclers ItemAnimator, so we exclude them to avoid a clash between the animations.
         mLayoutTransition.excludeChildren(mActionsCoordinator.getView(), /* exclude= */ true);
+        mLayoutTransition.excludeChildren(
+                mHeaderCoordinator.getCarouselView(), /* exclude= */ true);
 
         // do not animate the contents of the payment method section inside the section choice list,
         // since the animation is not required and causes a rendering crash.
@@ -184,7 +192,11 @@ class AssistantBottomBarCoordinator implements AssistantPeekHeightCoordinator.De
         controller.addObserver(new EmptyBottomSheetObserver() {
             @Override
             public void onSheetStateChanged(int newState) {
-                maybeShowHeaderChip();
+                // Note: recycler view updates while the bottom sheet is SCROLLING result in a
+                // BottomSheet assertion.
+                if (newState != BottomSheetController.SheetState.SCROLLING) {
+                    maybeShowHeaderChips();
+                }
             }
 
             @Override
@@ -250,11 +262,15 @@ class AssistantBottomBarCoordinator implements AssistantPeekHeightCoordinator.De
     }
 
     private void setupAnimations(AssistantModel model, ViewGroup rootView) {
-        // Animate when the chip in the header changes.
         model.getHeaderModel().addObserver((source, propertyKey) -> {
-            if (propertyKey == AssistantHeaderModel.CHIP
-                    || propertyKey == AssistantHeaderModel.CHIP_VISIBLE) {
-                animateChildren(rootView);
+            if (propertyKey == AssistantHeaderModel.CHIPS_VISIBLE
+                    || propertyKey == AssistantHeaderModel.CHIPS) {
+                // The PostTask is necessary as a workaround for the sticky button occasionally not
+                // showing, since the chip changes are now issued in the following UI iteration, the
+                // same needs to be done for the corresponding animations.
+                // TODO(b/164389932): Figure out a better fix that doesn't require issuing the
+                // change in the following UI iteration.
+                PostTask.postTask(UiThreadTaskTraits.DEFAULT, () -> animateChildren(rootView));
             }
         });
 
@@ -289,12 +305,12 @@ class AssistantBottomBarCoordinator implements AssistantPeekHeightCoordinator.De
         TransitionManager.beginDelayedTransition(rootView, mLayoutTransition);
     }
 
-    private void maybeShowHeaderChip() {
-        boolean showChip =
+    private void maybeShowHeaderChips() {
+        boolean showChips =
                 mBottomSheetController.getSheetState() == BottomSheetController.SheetState.PEEK
                 && mPeekHeightCoordinator.getPeekMode()
                         == AssistantPeekHeightCoordinator.PeekMode.HANDLE_HEADER;
-        mModel.getHeaderModel().set(AssistantHeaderModel.CHIP_VISIBLE, showChip);
+        mModel.getHeaderModel().set(AssistantHeaderModel.CHIPS_VISIBLE, showChips);
     }
 
     /**
@@ -344,7 +360,7 @@ class AssistantBottomBarCoordinator implements AssistantPeekHeightCoordinator.De
     /** Set the peek mode. */
     void setPeekMode(@AssistantPeekHeightCoordinator.PeekMode int peekMode) {
         mPeekHeightCoordinator.setPeekMode(peekMode);
-        maybeShowHeaderChip();
+        maybeShowHeaderChips();
     }
 
     /** Expand the bottom sheet. */
@@ -410,8 +426,11 @@ class AssistantBottomBarCoordinator implements AssistantPeekHeightCoordinator.De
             return;
         }
 
-        setVisualViewportResizing((int) Math.floor(mBottomSheetController.getCurrentOffset()
-                - mBottomSheetController.getTopShadowHeight()));
+        // In order to align the bottom of a website with the top of the bottom sheet, we need to
+        // remove the shadow height from the sheet's current offset. Note that mShadowHeight is
+        // different from the sheet controller's getTopShadowHeight().
+        int offset = mBottomSheetController.getCurrentOffset() - mShadowHeight;
+        setVisualViewportResizing(offset);
     }
 
     private void resetVisualViewportHeight() {

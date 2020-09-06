@@ -322,6 +322,16 @@ Polymer({
    * @return {boolean}
    * @private
    */
+  isProgressMessageHidden_(state) {
+    return this.isState_(this.state_, State.PROMPT) ||
+        this.isState_(this.state_, State.ERROR);
+  },
+
+  /**
+   * @param {State} state
+   * @return {boolean}
+   * @private
+   */
   canDoAction_(state) {
     switch (state) {
       case State.PROMPT:
@@ -341,7 +351,6 @@ Polymer({
    */
   canCancel_(state) {
     switch (state) {
-      case State.UPGRADING:  // TODO(nverne): remove once we have OK from UX.
       case State.BACKUP:
       case State.RESTORE:
       case State.BACKUP_SUCCEEDED:
@@ -428,6 +437,8 @@ Polymer({
       case State.SUCCEEDED:
       case State.RESTORE_SUCCEEDED:
         return loadTimeData.getString('close');
+      case State.PROMPT:
+        return loadTimeData.getString('notNow');
       default:
         return loadTimeData.getString('cancel');
     }
@@ -489,10 +500,7 @@ Polymer({
    * @private
    */
   getErrorMessage_(state) {
-    // TODO(nverne): Surface error messages once we have better details.
-    let messageId = null;
-    return messageId ? loadTimeData.getString(messageId) :
-                       this.lastProgressLine_;
+    return this.progressMessages_.join('\n');
   },
 
   /**
@@ -505,8 +513,9 @@ Polymer({
       case State.BACKUP_SUCCEEDED:
       case State.RESTORE_SUCCEEDED:
       case State.PRECHECKS_FAILED:
-      case State.ERROR:
         return 'img-square-illustration';
+      case State.ERROR:
+        return 'img-square-error-illustration';
     }
     return 'img-rect-illustration';
   },
@@ -526,6 +535,20 @@ Polymer({
         return 'images/error_illustration.png';
     }
     return 'images/linux_illustration.png';
+  },
+
+  /**
+   * @param {State} state
+   * @return {boolean}
+   * @private
+   */
+  hideIllustration_(state) {
+    switch (state) {
+      case State.BACKUP:
+      case State.UPGRADING:
+        return true;
+    }
+    return false;
   },
 
   /** @private */

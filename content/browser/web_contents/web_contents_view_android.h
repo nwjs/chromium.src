@@ -109,6 +109,7 @@ class WebContentsViewAndroid : public WebContentsView,
   int GetBottomControlsMinHeight() const override;
   bool ShouldAnimateBrowserControlsHeightChanges() const override;
   bool DoBrowserControlsShrinkRendererSize() const override;
+  bool OnlyExpandTopControlsAtPageTop() const override;
 
   // ui::EventHandlerAndroid implementation.
   bool OnTouchEvent(const ui::MotionEventAndroid& event) override;
@@ -122,6 +123,7 @@ class WebContentsViewAndroid : public WebContentsView,
   void OnSizeChanged() override;
   void OnPhysicalBackingSizeChanged() override;
   void OnBrowserControlsHeightChanged() override;
+  void OnControlsResizeViewChanged() override;
 
   void SetFocus(bool focused);
   void set_device_orientation(int orientation) {

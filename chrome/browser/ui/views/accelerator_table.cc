@@ -24,19 +24,22 @@ namespace {
 // Do not use Ctrl-Alt as a shortcut modifier, as it is used by i18n keyboards:
 // http://blogs.msdn.com/b/oldnewthing/archive/2004/03/29/101121.aspx
 const AcceleratorMapping kAcceleratorMap[] = {
-    // To add an accelerator to macOS that uses modifier keys, either:
-    //   1) Update MainMenu.xib to include a new menu item with the appropriate
-    //      modifier.
-    //   2) Update GetShortcutsNotPresentInMainMenu() in
-    //      global_keyboard_shortcuts_mac.mm.
+// To add an accelerator to macOS that uses modifier keys, either:
+//   1) Update MainMenu.xib to include a new menu item with the appropriate
+//      modifier.
+//   2) Update GetShortcutsNotPresentInMainMenu() in
+//      global_keyboard_shortcuts_mac.mm.
     { ui::VKEY_F4, ui::EF_ALT_DOWN, IDC_CLOSE_WINDOW },
+#if 0
+    {ui::VKEY_F7, ui::EF_NONE, IDC_CARET_BROWSING_TOGGLE},
+#endif
 #if defined(NWJS_SDK)
     {ui::VKEY_F12, ui::EF_NONE, IDC_DEV_TOOLS_TOGGLE},
 #endif
 #if 0
     {ui::VKEY_ESCAPE, ui::EF_NONE, IDC_CLOSE_FIND_OR_STOP},
 
-#if !defined(OS_MACOSX)
+#if !defined(OS_MAC)
     {ui::VKEY_D, ui::EF_PLATFORM_ACCELERATOR, IDC_BOOKMARK_THIS_TAB},
     {ui::VKEY_D, ui::EF_SHIFT_DOWN | ui::EF_PLATFORM_ACCELERATOR,
      IDC_BOOKMARK_ALL_TABS},
@@ -44,6 +47,8 @@ const AcceleratorMapping kAcceleratorMap[] = {
     {ui::VKEY_W, ui::EF_SHIFT_DOWN | ui::EF_PLATFORM_ACCELERATOR,
      IDC_CLOSE_WINDOW},
     {ui::VKEY_F, ui::EF_PLATFORM_ACCELERATOR, IDC_FIND},
+    {ui::VKEY_E, ui::EF_SHIFT_DOWN | ui::EF_PLATFORM_ACCELERATOR,
+     IDC_TAB_SEARCH},
     {ui::VKEY_G, ui::EF_PLATFORM_ACCELERATOR, IDC_FIND_NEXT},
     {ui::VKEY_G, ui::EF_SHIFT_DOWN | ui::EF_PLATFORM_ACCELERATOR,
      IDC_FIND_PREVIOUS},
@@ -130,14 +135,14 @@ const AcceleratorMapping kAcceleratorMap[] = {
      IDC_SHOW_AVATAR_MENU},
 
   // Platform-specific key maps.
-#if defined(OS_LINUX)
+#if defined(OS_LINUX) || defined(OS_CHROMEOS)
     {ui::VKEY_BROWSER_BACK, ui::EF_NONE, IDC_BACK},
     {ui::VKEY_BROWSER_FORWARD, ui::EF_NONE, IDC_FORWARD},
     {ui::VKEY_BROWSER_HOME, ui::EF_NONE, IDC_HOME},
     {ui::VKEY_BROWSER_REFRESH, ui::EF_NONE, IDC_RELOAD},
     {ui::VKEY_BROWSER_REFRESH, ui::EF_CONTROL_DOWN, IDC_RELOAD_BYPASSING_CACHE},
     {ui::VKEY_BROWSER_REFRESH, ui::EF_SHIFT_DOWN, IDC_RELOAD_BYPASSING_CACHE},
-#endif  // defined(OS_LINUX)
+#endif  // defined(OS_LINUX) || defined(OS_CHROMEOS)
 
 #if defined(OS_CHROMEOS)
     // On Chrome OS, VKEY_BROWSER_SEARCH is handled in Ash.
@@ -150,6 +155,8 @@ const AcceleratorMapping kAcceleratorMap[] = {
     {ui::VKEY_BROWSER_STOP, ui::EF_NONE, IDC_STOP},
     // On Chrome OS, Search + Esc is used to call out task manager.
     {ui::VKEY_ESCAPE, ui::EF_COMMAND_DOWN, IDC_TASK_MANAGER},
+    {ui::VKEY_7, ui::EF_CONTROL_DOWN | ui::EF_COMMAND_DOWN,
+     IDC_CARET_BROWSING_TOGGLE},
 #else  // !OS_CHROMEOS
     {ui::VKEY_ESCAPE, ui::EF_SHIFT_DOWN, IDC_TASK_MANAGER},
     {ui::VKEY_LMENU, ui::EF_NONE, IDC_FOCUS_MENU_BAR},
@@ -160,9 +167,9 @@ const AcceleratorMapping kAcceleratorMap[] = {
     {ui::VKEY_BROWSER_SEARCH, ui::EF_NONE, IDC_FOCUS_SEARCH},
 #endif  // !OS_CHROMEOS
 
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING) && !defined(OS_MACOSX)
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING) && !defined(OS_MAC)
     {ui::VKEY_I, ui::EF_SHIFT_DOWN | ui::EF_ALT_DOWN, IDC_FEEDBACK},
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING) && !OS_MACOSX
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING) && !OS_MAC
     {ui::VKEY_N, ui::EF_SHIFT_DOWN | ui::EF_PLATFORM_ACCELERATOR,
      IDC_NEW_INCOGNITO_WINDOW},
     {ui::VKEY_T, ui::EF_PLATFORM_ACCELERATOR, IDC_NEW_TAB},
@@ -211,7 +218,7 @@ const AcceleratorMapping kAcceleratorMap[] = {
      IDC_ZOOM_MINUS},
     {ui::VKEY_OEM_PLUS, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN, IDC_ZOOM_PLUS},
 #endif  // !OS_CHROMEOS
-#endif  // !OS_MACOSX
+#endif  // !OS_MAC
 #endif
 };
 
@@ -237,7 +244,7 @@ std::vector<AcceleratorMapping> GetAcceleratorList() {
 
 bool GetStandardAcceleratorForCommandId(int command_id,
                                         ui::Accelerator* accelerator) {
-#if defined(OS_MACOSX)
+#if defined(OS_MAC)
   // On macOS, the cut/copy/paste accelerators are defined in MainMenu.xib and
   // the accelerator is user configurable. All of this is handled by
   // CommandDispatcher.

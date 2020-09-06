@@ -110,9 +110,8 @@ class CONTENT_EXPORT RenderViewHostImpl
   SiteInstanceImpl* GetSiteInstance() override;
   bool IsRenderViewLive() override;
   void NotifyMoveOrResizeStarted() override;
-  WebPreferences GetWebkitPreferences() override;
-  void UpdateWebkitPreferences(const WebPreferences& prefs) override;
-  void OnWebkitPreferencesChanged() override;
+
+  void SendWebPreferencesToRenderer();
 
   // RenderProcessHostObserver implementation
   void RenderProcessExited(RenderProcessHost* host,
@@ -192,8 +191,8 @@ class CONTENT_EXPORT RenderViewHostImpl
 
   // Passes current web preferences to the renderer after recomputing all of
   // them, including the slow-to-compute hardware preferences.
-  // (RenderViewHost::OnWebkitPreferencesChanged is a faster alternate that
-  // avoids slow recomputations.)
+  // (WebContents::OnWebPreferencesChanged is a faster alternate that avoids
+  // slow recomputations.)
   void OnHardwareConfigurationChanged();
 
   // Sets the routing id for the main frame. When set to MSG_ROUTING_NONE, the
@@ -216,6 +215,10 @@ class CONTENT_EXPORT RenderViewHostImpl
 
   void SetIsFrozen(bool frozen);
   void OnBackForwardCacheTimeout();
+
+  PageLifecycleStateManager* GetPageLifecycleStateManager() {
+    return page_lifecycle_state_manager_.get();
+  }
 
   // Called during frame eviction to return all SurfaceIds in the frame tree.
   // Marks all views in the frame tree as evicted.
@@ -287,7 +290,6 @@ class CONTENT_EXPORT RenderViewHostImpl
   bool IsMainFrameActive() override;
   bool IsNeverComposited() override;
   WebPreferences GetWebkitPreferencesForWidget() override;
-  FrameTreeNode* GetFocusedFrame() override;
 
   void ShowContextMenu(RenderFrameHost* render_frame_host,
                        const ContextMenuParams& params) override;
@@ -299,7 +301,6 @@ class CONTENT_EXPORT RenderViewHostImpl
                   bool user_gesture);
   void OnShowWidget(int widget_route_id, const gfx::Rect& initial_rect);
   void OnShowFullscreenWidget(int widget_route_id);
-  void OnRouteCloseEvent();
   void OnUpdateTargetURL(const GURL& url);
   void OnDidContentsPreferredSizeChange(const gfx::Size& new_size);
   void OnPasteFromSelectionClipboard();
@@ -333,21 +334,6 @@ class CONTENT_EXPORT RenderViewHostImpl
   // to fire.
   static const int64_t kUnloadTimeoutMS;
 
-  // Returns the content specific preferences for this RenderViewHost.
-  // Recomputes only the "fast" preferences (those not requiring slow
-  // platform/device polling); the remaining "slow" ones are recomputed only if
-  // the preference cache is empty.
-  //
-  // TODO(creis): Move most of this method to RenderProcessHost, since it's
-  // mostly the same across all RVHs in a process.  Move the rest to RFH.
-  // See https://crbug.com/304341.
-  const WebPreferences ComputeWebPreferences();
-
-  // Sets the hardware-related fields in |prefs| that are slow to compute.  The
-  // fields are set from cache if available, otherwise recomputed.
-  void SetSlowWebPreferences(const base::CommandLine& command_line,
-                             WebPreferences* prefs);
-
   // The RenderWidgetHost.
   const std::unique_ptr<RenderWidgetHostImpl> render_widget_host_;
 
@@ -374,11 +360,6 @@ class CONTENT_EXPORT RenderViewHostImpl
 
   // True if the render view can be shut down suddenly.
   bool sudden_termination_allowed_ = false;
-
-  // This is updated every time UpdateWebkitPreferences is called. That method
-  // is in turn called when any of the settings change that the WebPreferences
-  // values depend on.
-  std::unique_ptr<WebPreferences> web_preferences_;
 
   // The timeout monitor that runs from when the page close is started in
   // ClosePage() until either the render process ACKs the close with an IPC to

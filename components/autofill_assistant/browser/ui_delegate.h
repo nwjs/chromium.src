@@ -40,10 +40,7 @@ class UiDelegate {
   virtual ~UiDelegate() = default;
 
   // Returns the current state of the controller.
-  virtual AutofillAssistantState GetState() = 0;
-
-  // Returns the last navigation id that caused an error.
-  virtual int64_t GetErrorCausingNavigationId() const = 0;
+  virtual AutofillAssistantState GetState() const = 0;
 
   // Called when user interaction within the allowed touchable area was
   // detected. This should cause rerun of preconditions check.
@@ -183,6 +180,10 @@ class UiDelegate {
   virtual void OnFatalError(const std::string& error_message,
                             Metrics::DropOutReason reason) = 0;
 
+  // Reports that Autofill Assistant should be Stopped.
+  virtual void OnStop(const std::string& message,
+                      const std::string& button_label) = 0;
+
   // Returns whether the viewport should be resized.
   virtual ViewportMode GetViewportMode() = 0;
 
@@ -235,6 +236,13 @@ class UiDelegate {
 
   // The generic user interface to show, if any.
   virtual const GenericUserInterfaceProto* GetGenericUiProto() const = 0;
+
+  // Whether the overlay should be determined based on AA state or always
+  // hidden.
+  virtual bool ShouldShowOverlay() const = 0;
+
+  // Notifies the UI deleagate that it should shut down.
+  virtual void ShutdownIfNecessary() = 0;
 
  protected:
   UiDelegate() = default;

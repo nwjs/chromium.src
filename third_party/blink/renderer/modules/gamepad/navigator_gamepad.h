@@ -58,8 +58,6 @@ class MODULES_EXPORT NavigatorGamepad final
       public PlatformEventController,
       public LocalDOMWindow::EventListenerObserver,
       public Gamepad::Client {
-  USING_GARBAGE_COLLECTED_MIXIN(NavigatorGamepad);
-
  public:
   static const char kSupplementName[];
 
@@ -68,7 +66,7 @@ class MODULES_EXPORT NavigatorGamepad final
   explicit NavigatorGamepad(Navigator&);
   ~NavigatorGamepad() override;
 
-  static GamepadList* getGamepads(Navigator&);
+  static GamepadList* getGamepads(Navigator&, ExceptionState&);
   GamepadList* Gamepads();
 
   void Trace(Visitor*) const override;

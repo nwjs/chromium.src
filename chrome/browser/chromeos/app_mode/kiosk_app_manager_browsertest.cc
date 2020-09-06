@@ -649,17 +649,16 @@ IN_PROC_BROWSER_TEST_F(KioskAppManagerTest, UpdateAppDataFromCrx) {
   CheckAppData(kAppId, kAppName, "1234");
 }
 
-IN_PROC_BROWSER_TEST_F(KioskAppManagerTest, DISABLED_BadApp) {
+IN_PROC_BROWSER_TEST_F(KioskAppManagerTest, BadApp) {
   AppDataLoadWaiter waiter(manager(), 2);
   manager()->AddApp("unknown_app", owner_settings_service_.get());
   waiter.Wait();
-  EXPECT_EQ(waiter.data_change_count(), 2);
-  EXPECT_EQ(waiter.data_load_failure_count(), 0);
+  EXPECT_EQ(waiter.data_change_count(), 1);
+  EXPECT_EQ(waiter.data_load_failure_count(), 1);
   EXPECT_FALSE(waiter.loaded());
   EXPECT_EQ("", GetAppIds());
 }
 
-// Disabled: https://crbug.com/1044417
 IN_PROC_BROWSER_TEST_F(KioskAppManagerTest, GoodApp) {
   // Webstore data json is in
   //   chrome/test/data/chromeos/app_mode/webstore/inlineinstall/detail/app_1
@@ -675,7 +674,6 @@ IN_PROC_BROWSER_TEST_F(KioskAppManagerTest, GoodApp) {
   CheckAppDataAndCache(kAppId, "Name of App 1", "");
 }
 
-// Disabled: https://crbug.com/1044417
 IN_PROC_BROWSER_TEST_F(KioskAppManagerTest, AppWithRequiredPlatformVersion) {
   // Webstore data json is in
   //   chrome/test/data/chromeos/app_mode/webstore/inlineinstall/detail/
@@ -708,13 +706,12 @@ IN_PROC_BROWSER_TEST_F(KioskAppManagerTest, AppWithBadRequiredPlatformVersion) {
   EXPECT_EQ("", GetAppIds());
 }
 
-// Disabled: https://crbug.com/1044417
 IN_PROC_BROWSER_TEST_F(KioskAppManagerTest, DownloadNewApp) {
   RunAddNewAppTest(kTestLocalFsKioskApp, "1.0.0", kTestLocalFsKioskAppName, "");
 }
 
-// Flaky https://crbug.com/1090937 (previous bug: https://crbug.com/1044417)
-IN_PROC_BROWSER_TEST_F(KioskAppManagerTest, DISABLED_RemoveApp) {
+// Flaky https://crbug.com/1090937
+IN_PROC_BROWSER_TEST_F(KioskAppManagerTest, RemoveApp) {
   // Add a new app.
   RunAddNewAppTest(kTestLocalFsKioskApp, "1.0.0", kTestLocalFsKioskAppName, "");
   KioskAppManager::AppList apps;
@@ -791,7 +788,6 @@ IN_PROC_BROWSER_TEST_F(KioskAppManagerTest, UpdateApp) {
   EXPECT_TRUE(base::ContentsEqual(v2_file_path, new_crx_path));
 }
 
-// Test is flaky: https://crbug.com/1044417
 IN_PROC_BROWSER_TEST_F(KioskAppManagerTest, UpdateAndRemoveApp) {
   // Add a version 1 app first.
   RunAddNewAppTest(kTestLocalFsKioskApp, "1.0.0", kTestLocalFsKioskAppName, "");

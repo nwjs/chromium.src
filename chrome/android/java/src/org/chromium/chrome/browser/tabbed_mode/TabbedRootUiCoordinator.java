@@ -14,7 +14,7 @@ import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
-import org.chromium.chrome.browser.ChromeActivity;
+import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.bookmarks.BookmarkBridge;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsSizer;
 import org.chromium.chrome.browser.compositor.bottombar.ephemeraltab.EphemeralTabCoordinator;
@@ -24,7 +24,10 @@ import org.chromium.chrome.browser.contextualsearch.ContextualSearchManager;
 import org.chromium.chrome.browser.datareduction.DataReductionPromoScreen;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.fullscreen.BrowserControlsManager;
 import org.chromium.chrome.browser.gesturenav.HistoryNavigationCoordinator;
+import org.chromium.chrome.browser.gesturenav.NavigationSheet;
+import org.chromium.chrome.browser.gesturenav.TabbedSheetDelegate;
 import org.chromium.chrome.browser.history.HistoryManagerUtils;
 import org.chromium.chrome.browser.language.LanguageAskPrompt;
 import org.chromium.chrome.browser.lifecycle.NativeInitObserver;
@@ -47,6 +50,8 @@ import org.chromium.chrome.browser.ui.appmenu.AppMenuHandler;
 import org.chromium.chrome.browser.ui.default_browser_promo.DefaultBrowserPromoUtils;
 import org.chromium.chrome.browser.ui.tablet.emptybackground.EmptyBackgroundViewWrapper;
 import org.chromium.chrome.browser.vr.VrModuleProvider;
+import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
+import org.chromium.components.browser_ui.util.ComposedBrowserControlsVisibilityDelegate;
 import org.chromium.ui.base.DeviceFormFactor;
 
 /**
@@ -66,6 +71,9 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
     private @Nullable ToolbarButtonInProductHelpController mToolbarButtonInProductHelpController;
     private ObservableSupplier<Boolean> mIntentWithEffect;
     private Callback<Boolean> mIntentWithEffectObserver;
+    private HistoryNavigationCoordinator mHistoryNavigationCoordinator;
+    private NavigationSheet mNavigationSheet;
+    private ComposedBrowserControlsVisibilityDelegate mAppBrowserControlsVisibilityDelegate;
 
     /**
      * Construct a new TabbedRootUiCoordinator.
@@ -129,6 +137,10 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
             mToolbarButtonInProductHelpController.destroy();
         }
 
+        if (mHistoryNavigationCoordinator != null) {
+            mHistoryNavigationCoordinator.destroy();
+            mHistoryNavigationCoordinator = null;
+        }
         super.destroy();
     }
 
@@ -155,6 +167,31 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
         return mToolbarButtonInProductHelpController;
     }
 
+    /**
+     * Show navigation history sheet.
+     */
+    public void showFullHistorySheet() {
+        Tab tab = mActivity.getActivityTabProvider().get();
+        if (tab == null || tab.getWebContents() == null || !tab.isUserInteractable()) return;
+        mNavigationSheet = NavigationSheet.create(
+                mActivity.getWindow().getDecorView().findViewById(android.R.id.content), mActivity,
+                this::getBottomSheetController);
+        mNavigationSheet.setDelegate(new TabbedSheetDelegate(tab, aTab -> {
+            HistoryManagerUtils.showHistoryManager(mActivity, aTab);
+        }, mActivity.getResources().getString(R.string.show_full_history)));
+        if (!mNavigationSheet.startAndExpand(/* forward=*/false, /* animate=*/true)) {
+            mNavigationSheet = null;
+        } else {
+            getBottomSheetController().addObserver(new EmptyBottomSheetObserver() {
+                @Override
+                public void onSheetClosed(int reason) {
+                    getBottomSheetController().removeObserver(this);
+                    mNavigationSheet = null;
+                }
+            });
+        }
+    }
+
     @Override
     public void onFinishNativeInitialization() {
         // TODO(twellington): Supply TabModelSelector as well and move initialization earlier.
@@ -172,7 +209,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
             mEphemeralTabCoordinatorSupplier.set(new EphemeralTabCoordinator(mActivity,
                     mActivity.getWindowAndroid(), mActivity.getWindow().getDecorView(),
                     mActivity.getActivityTabProvider(), mActivity::getCurrentTabCreator,
-                    mActivity.getBottomSheetController(), true));
+                    getBottomSheetController(), true));
         }
 
         mIntentWithEffectObserver = this::initializeIPH;
@@ -188,11 +225,11 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
         initStatusIndicatorCoordinator(layoutManager);
 
         // clang-format off
-        HistoryNavigationCoordinator.create(mActivity.getLifecycleDispatcher(),
+        mHistoryNavigationCoordinator = HistoryNavigationCoordinator.create(
+                mActivity.getWindowAndroid(), mActivity.getLifecycleDispatcher(),
                 mActivity.getCompositorViewHolder(), mActivity.getActivityTabProvider(),
-                mActivity.getInsetObserverView(),
-                mActivity::backShouldCloseTab,
-                mActivity::onBackPressed,
+                mActivity.getInsetObserverView(), mActivity::backShouldCloseTab,
+                mActivity::onBackPressed, layoutManager,
                 tab -> HistoryManagerUtils.showHistoryManager(mActivity, tab),
                 mActivity.getResources().getString(R.string.show_full_history),
                 () -> mActivity.isActivityFinishingOrDestroyed() ? null
@@ -219,6 +256,10 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
     // Private class methods
 
     private void initializeIPH(boolean intentWithEffect) {
+        assert mIntentWithEffectObserver != null;
+        mIntentWithEffect.removeObserver(mIntentWithEffectObserver);
+        mIntentWithEffectObserver = null;
+
         if (mActivity == null) return;
         mToolbarButtonInProductHelpController =
                 new ToolbarButtonInProductHelpController(mActivity, mAppMenuCoordinator,
@@ -237,7 +278,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
             return;
         }
 
-        final BrowserControlsSizer browserControlsSizer = mActivity.getFullscreenManager();
+        final BrowserControlsSizer browserControlsSizer = mActivity.getBrowserControlsManager();
         mStatusIndicatorCoordinator = new StatusIndicatorCoordinator(mActivity,
                 mActivity.getCompositorViewHolder().getResourceManager(), browserControlsSizer,
                 mActivity.getStatusBarColorController()::getStatusBarColorWithoutStatusIndicator,
@@ -287,6 +328,24 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
         mToolbarManager.getFakeboxDelegate().addUrlFocusChangeListener(mUrlFocusChangeListener);
     }
 
+    @Override
+    protected BrowserControlsManager createBrowserControlsManager() {
+        BrowserControlsManager manager = super.createBrowserControlsManager();
+        getAppBrowserControlsVisibilityDelegate().addDelegate(
+                manager.getBrowserVisibilityDelegate());
+        return manager;
+    }
+
+    /**
+     * @return {@link ComposedBrowserControlsVisibilityDelegate} object for tabbed activity.
+     */
+    public ComposedBrowserControlsVisibilityDelegate getAppBrowserControlsVisibilityDelegate() {
+        if (mAppBrowserControlsVisibilityDelegate == null) {
+            mAppBrowserControlsVisibilityDelegate = new ComposedBrowserControlsVisibilityDelegate();
+        }
+        return mAppBrowserControlsVisibilityDelegate;
+    }
+
     @VisibleForTesting
     public StatusIndicatorCoordinator getStatusIndicatorCoordinatorForTesting() {
         return mStatusIndicatorCoordinator;
@@ -300,6 +359,16 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
     @VisibleForTesting
     public EphemeralTabCoordinator getEphemeralTabCoordinatorForTesting() {
         return mEphemeralTabCoordinatorSupplier.get();
+    }
+
+    @VisibleForTesting
+    public HistoryNavigationCoordinator getHistoryNavigationCoordinatorForTesting() {
+        return mHistoryNavigationCoordinator;
+    }
+
+    @VisibleForTesting
+    public NavigationSheet getNavigationSheetForTesting() {
+        return mNavigationSheet;
     }
 
     /**

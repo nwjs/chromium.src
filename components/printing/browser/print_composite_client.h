@@ -31,6 +31,8 @@ class PrintCompositeClient
       public content::WebContentsObserver {
  public:
   explicit PrintCompositeClient(content::WebContents* web_contents);
+  PrintCompositeClient(const PrintCompositeClient&) = delete;
+  PrintCompositeClient& operator=(const PrintCompositeClient&) = delete;
   ~PrintCompositeClient() override;
 
   // content::WebContentsObserver
@@ -64,6 +66,7 @@ class PrintCompositeClient
   // when processing the individual pages for preview.
   void DoPrepareForDocumentToPdf(
       int document_cookie,
+      content::RenderFrameHost* render_frame_host,
       mojom::PrintCompositor::PrepareForDocumentToPdfCallback callback);
 
   // Notifies compositor of the total number of pages being concurrently
@@ -123,7 +126,9 @@ class PrintCompositeClient
   // composite request. Launches the compositor in a separate process.
   // If a composite request already exists, it is removed.
   // Returns the created composite request.
-  mojom::PrintCompositor* CreateCompositeRequest(int cookie);
+  mojom::PrintCompositor* CreateCompositeRequest(
+      int cookie,
+      content::RenderFrameHost* initiator_frame);
 
   // Remove the existing composite request.
   void RemoveCompositeRequest(int cookie);
@@ -149,6 +154,10 @@ class PrintCompositeClient
   // required.
   bool is_doc_concurrently_composited_ = false;
 
+  // Stores the the frame that initiated the composite request;
+  // Holds nullptr if no document is being composited.
+  content::RenderFrameHost* initiator_frame_ = nullptr;
+
   // Stores the pending subframes for the composited document.
   base::flat_set<content::RenderFrameHost*> pending_subframes_;
 
@@ -167,8 +176,6 @@ class PrintCompositeClient
   base::WeakPtrFactory<PrintCompositeClient> weak_ptr_factory_{this};
 
   WEB_CONTENTS_USER_DATA_KEY_DECL();
-
-  DISALLOW_COPY_AND_ASSIGN(PrintCompositeClient);
 };
 
 }  // namespace printing

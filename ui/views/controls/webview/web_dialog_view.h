@@ -90,7 +90,7 @@ class WEBVIEW_EXPORT WebDialogView : public ClientView,
   bool AcceleratorPressed(const ui::Accelerator& accelerator) override;
   void ViewHierarchyChanged(
       const ViewHierarchyChangedDetails& details) override;
-  bool CanClose() override;
+  views::CloseRequestResult OnWindowCloseRequested() override;
 
   // WidgetDelegate:
   bool OnCloseRequested(Widget::ClosedReason close_reason) override;
@@ -102,7 +102,8 @@ class WEBVIEW_EXPORT WebDialogView : public ClientView,
   void WindowClosing() override;
   View* GetContentsView() override;
   ClientView* CreateClientView(Widget* widget) override;
-  NonClientFrameView* CreateNonClientFrameView(Widget* widget) override;
+  std::unique_ptr<NonClientFrameView> CreateNonClientFrameView(
+      Widget* widget) override;
   View* GetInitiallyFocusedView() override;
   bool ShouldShowWindowTitle() const override;
   bool ShouldShowCloseButton() const override;

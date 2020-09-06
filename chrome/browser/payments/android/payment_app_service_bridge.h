@@ -44,6 +44,7 @@ class PaymentAppServiceBridge : public PaymentAppFactory::Delegate {
       content::RenderFrameHost* render_frame_host,
       const GURL& top_origin,
       PaymentRequestSpec* spec,
+      const std::string& twa_package_name,
       scoped_refptr<PaymentManifestWebDataService> web_data_service,
       bool may_crawl_for_installable_payment_apps,
       CanMakePaymentCalculatedCallback can_make_payment_calculated_callback,
@@ -67,6 +68,8 @@ class PaymentAppServiceBridge : public PaymentAppFactory::Delegate {
   content::RenderFrameHost* GetInitiatorRenderFrameHost() const override;
   const std::vector<mojom::PaymentMethodDataPtr>& GetMethodData()
       const override;
+  std::unique_ptr<autofill::InternalAuthenticator> CreateInternalAuthenticator()
+      const override;
   scoped_refptr<PaymentManifestWebDataService>
   GetPaymentManifestWebDataService() const override;
   bool MayCrawlForInstallablePaymentApps() override;
@@ -76,10 +79,12 @@ class PaymentAppServiceBridge : public PaymentAppFactory::Delegate {
   ContentPaymentRequestDelegate* GetPaymentRequestDelegate() const override;
   void ShowProcessingSpinner() override;
   PaymentRequestSpec* GetSpec() const override;
+  std::string GetTwaPackageName() const override;
   void OnPaymentAppCreated(std::unique_ptr<PaymentApp> app) override;
   void OnPaymentAppCreationError(const std::string& error_message) override;
   bool SkipCreatingNativePaymentApps() const override;
   void OnDoneCreatingPaymentApps() override;
+  void SetCanMakePaymentEvenWithoutApps() override;
 
  private:
   // Prevents direct instantiation. Callers should use Create() instead.
@@ -88,6 +93,7 @@ class PaymentAppServiceBridge : public PaymentAppFactory::Delegate {
       content::RenderFrameHost* render_frame_host,
       const GURL& top_origin,
       PaymentRequestSpec* spec,
+      const std::string& twa_package_name,
       scoped_refptr<PaymentManifestWebDataService> web_data_service,
       bool may_crawl_for_installable_payment_apps,
       CanMakePaymentCalculatedCallback can_make_payment_calculated_callback,
@@ -102,6 +108,7 @@ class PaymentAppServiceBridge : public PaymentAppFactory::Delegate {
   const GURL frame_origin_;
   const url::Origin frame_security_origin_;
   PaymentRequestSpec* spec_;
+  const std::string twa_package_name_;
   scoped_refptr<PaymentManifestWebDataService>
       payment_manifest_web_data_service_;
   bool may_crawl_for_installable_payment_apps_;

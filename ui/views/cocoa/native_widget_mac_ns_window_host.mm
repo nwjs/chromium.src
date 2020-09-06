@@ -155,7 +155,8 @@ class BridgedNativeWidgetHostDummy
     bool always_render_as_key = false;
     std::move(callback).Run(always_render_as_key);
   }
-  void GetCanWindowClose(GetCanWindowCloseCallback callback) override {
+  void OnWindowCloseRequested(
+      OnWindowCloseRequestedCallback callback) override {
     bool can_window_close = false;
     std::move(callback).Run(can_window_close);
   }
@@ -1105,7 +1106,8 @@ bool NativeWidgetMacNSWindowHost::GetAlwaysRenderWindowAsKey(
   return true;
 }
 
-bool NativeWidgetMacNSWindowHost::GetCanWindowClose(bool* can_window_close) {
+bool NativeWidgetMacNSWindowHost::OnWindowCloseRequested(
+    bool* can_window_close) {
   *can_window_close = true;
   if (root_view_ && !root_view_->GetWidget()->NWCanClose()) {
     *can_window_close = false;
@@ -1114,7 +1116,8 @@ bool NativeWidgetMacNSWindowHost::GetCanWindowClose(bool* can_window_close) {
   views::NonClientView* non_client_view =
       root_view_ ? root_view_->GetWidget()->non_client_view() : nullptr;
   if (non_client_view)
-    *can_window_close = non_client_view->CanClose();
+    *can_window_close = non_client_view->OnWindowCloseRequested() ==
+                        CloseRequestResult::kCanClose;
   return true;
 }
 
@@ -1287,10 +1290,10 @@ void NativeWidgetMacNSWindowHost::GetAlwaysRenderWindowAsKey(
   std::move(callback).Run(always_render_as_key);
 }
 
-void NativeWidgetMacNSWindowHost::GetCanWindowClose(
-    GetCanWindowCloseCallback callback) {
+void NativeWidgetMacNSWindowHost::OnWindowCloseRequested(
+    OnWindowCloseRequestedCallback callback) {
   bool can_window_close = false;
-  GetCanWindowClose(&can_window_close);
+  OnWindowCloseRequested(&can_window_close);
   std::move(callback).Run(can_window_close);
 }
 

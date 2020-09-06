@@ -25,7 +25,6 @@ windows_manifest("chrome_exe_manifest") {
     as_invoker_manifest,
     common_controls_manifest,
     default_compatibility_manifest,
-    segment_heap_manifest,
   ]
 
   if (enable_segment_heap) {

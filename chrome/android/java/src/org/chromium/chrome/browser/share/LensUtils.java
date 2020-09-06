@@ -20,6 +20,7 @@ import org.chromium.base.ContextUtils;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.externalauth.ExternalAuthUtils;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.signin.IdentityServicesProvider;
 import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.identitymanager.ConsentLevel;
@@ -246,8 +247,9 @@ public class LensUtils {
             final long currentTimeNanos, final String srcUrl, final String titleOrAltText,
             @IntentType final int intentType, final boolean requiresConfirmation) {
         final CoreAccountInfo coreAccountInfo =
-                IdentityServicesProvider.get().getIdentityManager().getPrimaryAccountInfo(
-                        ConsentLevel.SYNC);
+                IdentityServicesProvider.get()
+                        .getIdentityManager(Profile.getLastUsedRegularProfile())
+                        .getPrimaryAccountInfo(ConsentLevel.SYNC);
         // If incognito do not send the account name to avoid leaking session
         // information to Lens.
         final String signedInAccountName =
@@ -317,7 +319,7 @@ public class LensUtils {
 
     public static boolean isGoogleLensShoppingFeatureEnabled() {
         return useLensWithShopSimilarProducts() || useLensWithShopImageWithGoogleLens()
-                || useLensWithSearchSimilarProducts();
+                || useLensWithSearchSimilarProducts() || enableShoppyImageMenuItem();
     }
 
     /**
@@ -359,6 +361,16 @@ public class LensUtils {
                 ChromeFeatureList.CONTEXT_MENU_SHOP_WITH_GOOGLE_LENS,
                 LENS_SHOPPING_FEATURE_FLAG_VARIANT_NAME);
         return variation.equals("ShopImageWithGoogleLens");
+    }
+
+    /**
+     * Whether to display the lens menu item shop image with google lens.
+     */
+    public static boolean enableShoppyImageMenuItem() {
+        String variation = ChromeFeatureList.getFieldTrialParamByFeature(
+                ChromeFeatureList.CONTEXT_MENU_SHOP_WITH_GOOGLE_LENS,
+                LENS_SHOPPING_FEATURE_FLAG_VARIANT_NAME);
+        return variation.equals("ShopImageWithGoogleLensShoppyImage");
     }
 
     /**

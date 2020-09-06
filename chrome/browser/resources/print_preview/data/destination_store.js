@@ -279,6 +279,11 @@ export class DestinationStore extends EventTarget {
     this.useSystemDefaultAsDefault_ =
         loadTimeData.getBoolean('useSystemDefaultPrinter');
 
+    // <if expr="chromeos">
+    /** @private */
+    this.saveToDriveFlagEnabled_ = loadTimeData.getBoolean('printSaveToDrive');
+    // </if>
+
     addListenerCallback('printers-added', this.onPrintersAdded_.bind(this));
   }
 
@@ -349,6 +354,11 @@ export class DestinationStore extends EventTarget {
     this.isInNWPrintMode_ = isInNWPrintMode;
     this.systemDefaultDestinationId_ = systemDefaultDestinationId;
     this.createLocalPdfPrintDestination_();
+    // <if expr="chromeos">
+    if (this.saveToDriveFlagEnabled_) {
+      this.createLocalDrivePrintDestination_();
+    }
+    // </if>
 
     let destinationSelected = false;
     // System default printer policy takes priority.
@@ -1130,6 +1140,19 @@ export class DestinationStore extends EventTarget {
     }
   }
 
+  // <if expr="chromeos">
+  /**
+   * Creates a local Drive print destination.
+   * @private
+   */
+  createLocalDrivePrintDestination_() {
+    this.insertDestination_(new Destination(
+        Destination.GooglePromotedId.SAVE_TO_DRIVE_CROS, DestinationType.LOCAL,
+        DestinationOrigin.LOCAL, loadTimeData.getString('printToGoogleDrive'),
+        DestinationConnectionStatus.ONLINE));
+  }
+  // </if>
+
   /**
    * Starts a timeout to select the default destination.
    * @private
@@ -1138,7 +1161,7 @@ export class DestinationStore extends EventTarget {
     clearTimeout(this.autoSelectTimeout_);
     this.autoSelectTimeout_ = setTimeout(
         this.selectDefaultDestination.bind(this),
-        DestinationStore.AUTO_SELECT_TIMEOUT_);
+        DestinationStore.AUTO_SELECT_TIMEOUT);
   }
 
   /**
@@ -1373,10 +1396,10 @@ DestinationStore.EventType = {
  * Delay in milliseconds before the destination store ignores the initial
  * destination ID and just selects any printer (since the initial destination
  * was not found).
- * @private {number}
- * @const
+ * Public and non-const so that it can be overridden in tests.
+ * @type {number}
  */
-DestinationStore.AUTO_SELECT_TIMEOUT_ = 15000;
+DestinationStore.AUTO_SELECT_TIMEOUT = 15000;
 
 /**
  * Maximum amount of time spent searching for extension destinations, in

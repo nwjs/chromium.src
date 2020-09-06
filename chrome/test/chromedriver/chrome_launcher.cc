@@ -35,6 +35,7 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "build/build_config.h"
+#include "build/lacros_buildflags.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_result_codes.h"
 #include "chrome/common/chrome_version.h"
@@ -65,6 +66,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <unistd.h>
 #elif defined(OS_WIN)
 #include "chrome/test/chromedriver/keycode_text_conversion.h"
 #endif
@@ -87,7 +89,6 @@ const char* const kDesktopSwitches[] = {
     "disable-background-networking",
     "disable-client-side-phishing-detection",
     "disable-default-apps",
-    "enable-logging",
     "log-level=0",
     "password-store=basic",
     "use-mock-keychain",
@@ -108,7 +109,17 @@ const char kEnableCrashReport[] = "enable-crash-reporter-for-testing";
 const base::FilePath::CharType kDevToolsActivePort[] =
     FILE_PATH_LITERAL("DevToolsActivePort");
 
+enum ChromeType { Remote, Desktop, Android, Replay };
+
+#if defined(OS_POSIX)
+// The values for kReadFD and kWriteFD come from
+// content/browser/devtools/devtools_pipe_handler.cc
+const int kReadFD = 3;
+const int kWriteFD = 4;
+#endif
+
 Status PrepareDesktopCommandLine(const Capabilities& capabilities,
+                                 bool enable_chrome_logs,
                                  base::CommandLine* prepared_command,
                                  base::ScopedTempDir* user_data_dir_temp_dir,
                                  base::ScopedTempDir* extension_dir,
@@ -135,6 +146,24 @@ Status PrepareDesktopCommandLine(const Capabilities& capabilities,
   for (auto* desktop_switch : kDesktopSwitches)
     switches.SetUnparsedSwitch(desktop_switch);
 #endif
+
+  // Chrome logs are normally sent to a file (whose location can be controlled
+  // via the logPath capability). We expose a flag, --enable-chrome-logs, that
+  // sends the logs to stderr instead. This is useful when ChromeDriver was
+  // launched by another program that wishes to consume the browser output.
+  if (enable_chrome_logs) {
+    if (!capabilities.log_path.empty()) {
+      LOG(WARNING) << "The 'logPath' capability has no effect when using"
+                   << "--enable-chrome-logs; Chrome logs will go to stderr";
+    }
+    switches.SetSwitch("enable-logging", "stderr");
+  } else {
+    // An empty argument to Chrome's enable-logging flag causes logs to go to a
+    // file on Release builds (where the default is LOG_TO_FILE), and to both a
+    // file and stderr on Debug builds (where the default is LOG_TO_ALL).
+    switches.SetSwitch("enable-logging");
+  }
+
   if (capabilities.accept_insecure_certs) {
     switches.SetSwitch("ignore-certificate-errors");
   }
@@ -142,7 +171,8 @@ Status PrepareDesktopCommandLine(const Capabilities& capabilities,
     switches.RemoveSwitch(excluded_switch);
   }
   switches.SetFromSwitches(capabilities.switches);
-  if (!switches.HasSwitch("remote-debugging-port")) {
+  if (!switches.HasSwitch("remote-debugging-port") &&
+      !switches.HasSwitch("remote-debugging-pipe")) {
     switches.SetSwitch("remote-debugging-port", "0");
   }
   if (capabilities.exclude_switches.count("user-data-dir") > 0) {
@@ -203,7 +233,9 @@ Status WaitForDevToolsAndCheckVersion(
     const Capabilities* capabilities,
     int wait_time,
     std::unique_ptr<DevToolsHttpClient>* user_client,
-    bool* retry) {
+    bool* retry,
+    ChromeType ct,
+    std::string fp = "") {
   std::unique_ptr<DeviceMetrics> device_metrics;
   if (capabilities && capabilities->device_metrics)
     device_metrics.reset(new DeviceMetrics(*capabilities->device_metrics));
@@ -274,11 +306,17 @@ Status WaitForDevToolsAndCheckVersion(
                    << " version " << browser_info->major_version << ".";
     } else {
       *retry = false;
-      return Status(
-          kSessionNotCreated,
-          base::StringPrintf("This version of %s only supports %s version %d",
-                             kChromeDriverProductFullName, kBrowserShortName,
-                             CHROME_VERSION_MAJOR));
+      std::string version_info = base::StringPrintf(
+          "This version of %s only supports %s version %d\nCurrent browser "
+          "version is %s",
+          kChromeDriverProductFullName, kBrowserShortName, CHROME_VERSION_MAJOR,
+          browser_info->browser_version.c_str());
+      if (ct == ChromeType::Desktop && !fp.empty())
+        version_info.append(" with binary path " + fp);
+      else if (ct == ChromeType::Android)
+        version_info.append(" with package name " +
+                            capabilities->android_package);
+      return Status(kSessionNotCreated, version_info);
     }
   }
 
@@ -351,7 +389,7 @@ Status LaunchRemoteChromeSession(
   bool retry = true;
   status = WaitForDevToolsAndCheckVersion(
       DevToolsEndpoint(capabilities.debugger_address), factory, socket_factory,
-      &capabilities, 60, &devtools_http_client, &retry);
+      &capabilities, 60, &devtools_http_client, &retry, ChromeType::Remote);
   if (status.IsError()) {
     return Status(
         kUnknownError,
@@ -377,6 +415,28 @@ Status LaunchRemoteChromeSession(
       std::move(devtools_event_listeners), capabilities.page_load_strategy));
   return Status(kOk);
 }
+
+#if defined(OS_POSIX)
+Status PipeSetUp(base::LaunchOptions* options, int* write_fd, int* read_fd) {
+  int chrome_to_driver_pipe_fds[2];
+  int driver_to_chrome_pipe_fds[2];
+
+  if (pipe(chrome_to_driver_pipe_fds) == -1 ||
+      pipe(driver_to_chrome_pipe_fds) == -1)
+    return Status(kUnknownError, "cannot set up pipe");
+
+  options->fds_to_remap.emplace_back(driver_to_chrome_pipe_fds[0], kReadFD);
+  options->fds_to_remap.emplace_back(chrome_to_driver_pipe_fds[1], kWriteFD);
+
+  close(driver_to_chrome_pipe_fds[0]);
+  close(chrome_to_driver_pipe_fds[1]);
+
+  *write_fd = driver_to_chrome_pipe_fds[1];
+  *read_fd = chrome_to_driver_pipe_fds[0];
+
+  return Status(kOk);
+}
+#endif
 
 Status LaunchDesktopChrome(network::mojom::URLLoaderFactory* factory,
                            const SyncWebSocketFactory& socket_factory,
@@ -412,7 +472,9 @@ Status LaunchDesktopChrome(network::mojom::URLLoaderFactory* factory,
       return status;
     }
   }
-  status = PrepareDesktopCommandLine(capabilities, &command,
+  const base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
+  bool enable_chrome_logs = cmd_line->HasSwitch("enable-chrome-logs");
+  status = PrepareDesktopCommandLine(capabilities, enable_chrome_logs, &command,
                                      &user_data_dir_temp_dir, &extension_dir,
                                      &extension_bg_pages, &user_data_dir);
   if (status.IsError())
@@ -440,7 +502,7 @@ Status LaunchDesktopChrome(network::mojom::URLLoaderFactory* factory,
       command.AppendSwitch(kEnableCrashReport);
   }
 
-#if defined(OS_LINUX)
+#if defined(OS_LINUX) || defined(OS_CHROMEOS)
   // We need to allow new privileges so that chrome's setuid sandbox can run.
   options.allow_new_privs = true;
 #endif
@@ -454,12 +516,22 @@ Status LaunchDesktopChrome(network::mojom::URLLoaderFactory* factory,
 #endif
 
 #if defined(OS_POSIX)
+
+  bool uses_pipe = false;
+  int write_fd;
+  int read_fd;
+
+  if (capabilities.switches.HasSwitch("remote-debugging-pipe")) {
+    uses_pipe = true;
+    Status status = PipeSetUp(&options, &write_fd, &read_fd);
+  }
+
   base::ScopedFD devnull;
-  const base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
-  if (!cmd_line->HasSwitch("verbose") &&
+  if (!cmd_line->HasSwitch("verbose") && !enable_chrome_logs &&
       cmd_line->GetSwitchValueASCII("log-level") != "ALL") {
-    // Redirect stderr to /dev/null, so that Chrome log spew doesn't confuse
-    // users.
+    // On Debug builds of Chrome, the default logging outputs to both a file and
+    // stderr. Redirect stderr to /dev/null, so that Chrome log spew doesn't
+    // confuse users.
     devnull.reset(HANDLE_EINTR(open("/dev/null", O_WRONLY)));
     if (!devnull.is_valid())
       return Status(kUnknownError, "couldn't open /dev/null");
@@ -467,6 +539,17 @@ Status LaunchDesktopChrome(network::mojom::URLLoaderFactory* factory,
         std::make_pair(devnull.get(), STDERR_FILENO));
   }
 #elif defined(OS_WIN)
+  if (enable_chrome_logs) {
+    // On Windows, we must inherit the stdout/stderr handles, or the output from
+    // the browser will not be part of our output and thus not capturable by
+    // processes that call us.
+    options.stdin_handle = INVALID_HANDLE_VALUE;
+    options.stdout_handle = GetStdHandle(STD_OUTPUT_HANDLE);
+    options.stderr_handle = GetStdHandle(STD_ERROR_HANDLE);
+    options.handles_to_inherit.push_back(options.stdout_handle);
+    options.handles_to_inherit.push_back(options.stderr_handle);
+  }
+
   if (!SwitchToUSKeyboardLayout())
     VLOG(0) << "Cannot switch to US keyboard layout - some keys may be "
         "interpreted incorrectly";
@@ -501,9 +584,14 @@ Status LaunchDesktopChrome(network::mojom::URLLoaderFactory* factory,
       status = Status(kOk);
     }
     if (status.IsOk()) {
+      // std::ostringstream is used in case to convert Windows wide string to
+      // string
+      std::ostringstream oss;
+      oss << command.GetProgram();
       status = WaitForDevToolsAndCheckVersion(
           DevToolsEndpoint(devtools_port), factory, socket_factory,
-          &capabilities, 1, &devtools_http_client, &retry);
+          &capabilities, 1, &devtools_http_client, &retry, ChromeType::Desktop,
+          oss.str());
       if (!retry) {
         break;
       }
@@ -647,7 +735,7 @@ Status LaunchAndroidChrome(network::mojom::URLLoaderFactory* factory,
   bool retry = true;
   status = WaitForDevToolsAndCheckVersion(
       DevToolsEndpoint(devtools_port), factory, socket_factory, &capabilities,
-      60, &devtools_http_client, &retry);
+      60, &devtools_http_client, &retry, ChromeType::Android);
   if (status.IsError()) {
     device->TearDown();
     return status;
@@ -700,9 +788,9 @@ Status LaunchReplayChrome(network::mojom::URLLoaderFactory* factory,
 
   std::unique_ptr<DevToolsHttpClient> devtools_http_client;
   bool retry = true;
-  status = WaitForDevToolsAndCheckVersion(DevToolsEndpoint(0), factory,
-                                          socket_factory, &capabilities, 1,
-                                          &devtools_http_client, &retry);
+  status = WaitForDevToolsAndCheckVersion(
+      DevToolsEndpoint(0), factory, socket_factory, &capabilities, 1,
+      &devtools_http_client, &retry, ChromeType::Replay);
   if (status.IsError())
     return status;
   std::unique_ptr<DevToolsClient> devtools_websocket_client;
@@ -1085,7 +1173,7 @@ Status ParseDevToolsActivePortFile(const base::FilePath& user_data_dir,
 Status RemoveOldDevToolsActivePortFile(const base::FilePath& user_data_dir) {
   base::FilePath port_filepath = user_data_dir.Append(kDevToolsActivePort);
   // Note that calling DeleteFile on a path that doesn't exist returns True.
-  if (base::DeleteFile(port_filepath, false)) {
+  if (base::DeleteFile(port_filepath)) {
     return Status(kOk);
   }
   return Status(
@@ -1106,7 +1194,7 @@ std::string GetTerminationReason(base::TerminationStatus status) {
     case base::TERMINATION_STATUS_ABNORMAL_TERMINATION:
       return "exited abnormally";
     case base::TERMINATION_STATUS_PROCESS_WAS_KILLED:
-#if defined(OS_CHROMEOS)
+#if defined(OS_CHROMEOS) || BUILDFLAG(IS_LACROS)
     case base::TERMINATION_STATUS_PROCESS_WAS_KILLED_BY_OOM:
 #endif
     case base::TERMINATION_STATUS_OOM:

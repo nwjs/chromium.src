@@ -82,11 +82,19 @@ struct GL_EXPORT GLContextAttribs {
   bool bind_generates_resource = true;
   bool webgl_compatibility_context = false;
   bool global_texture_share_group = false;
+  bool global_semaphore_share_group = false;
   bool robust_resource_initialization = false;
   bool robust_buffer_access = false;
   int client_major_es_version = 3;
   int client_minor_es_version = 0;
   bool can_skip_validation = false;
+
+  // If true, and if supported (for EGL, this requires the robustness
+  // extension), set the reset notification strategy to lose context on reset.
+  // This setting can be changed independently of robust_buffer_access.
+  // (True by default to match previous behavior.)
+  bool lose_context_on_reset = true;
+
   ContextPriority context_priority = ContextPriorityMedium;
 };
 
@@ -222,7 +230,7 @@ class GL_EXPORT GLContext : public base::RefCounted<GLContext>,
   // context is made current.
   void DirtyVirtualContextState();
 
-#if defined(OS_MACOSX)
+#if defined(OS_APPLE)
   // Create a fence for all work submitted to this context so far, and return a
   // monotonically increasing handle to it. This returned handle never needs to
   // be freed. This method is used to create backpressure to throttle GL work
@@ -270,7 +278,7 @@ class GL_EXPORT GLContext : public base::RefCounted<GLContext>,
 
   GLApi* gl_api() { return gl_api_wrapper_->api(); }
 
-#if defined(OS_MACOSX)
+#if defined(OS_APPLE)
   // Child classes are responsible for calling DestroyBackpressureFences during
   // their destruction while a context is current.
   bool HasBackpressureFences() const;
@@ -315,7 +323,7 @@ class GL_EXPORT GLContext : public base::RefCounted<GLContext>,
   // where this underlying context becomes lost.  https://crbug.com/1061442
   bool virtual_context_lost_ = false;
 
-#if defined(OS_MACOSX)
+#if defined(OS_APPLE)
   std::map<uint64_t, std::unique_ptr<GLFence>> backpressure_fences_;
   uint64_t next_backpressure_fence_ = 0;
 #endif

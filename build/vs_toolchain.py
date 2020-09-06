@@ -307,17 +307,16 @@ def _CopyUCRTRuntime(target_dir, source_dir, target_cpu, suffix):
     if not suffix.startswith('.'):
       # ucrtbased.dll is located at {win_sdk_dir}/bin/{a.b.c.d}/{target_cpu}/
       # ucrt/.
-      sdk_redist_root = os.path.join(win_sdk_dir, 'bin')
-      sdk_bin_sub_dirs = os.listdir(sdk_redist_root)
+      sdk_bin_root = os.path.join(win_sdk_dir, 'bin')
+      sdk_bin_sub_dirs = glob.glob(os.path.join(sdk_bin_root, '10.*'))
       # Select the most recent SDK if there are multiple versions installed.
       _SortByHighestVersionNumberFirst(sdk_bin_sub_dirs)
       for directory in sdk_bin_sub_dirs:
-        sdk_redist_root_version = os.path.join(sdk_redist_root, directory)
+        sdk_redist_root_version = os.path.join(sdk_bin_root, directory)
         if not os.path.isdir(sdk_redist_root_version):
           continue
-        if re.match(r'10\.\d+\.\d+\.\d+', directory):
-          source_dir = os.path.join(sdk_redist_root_version, target_cpu, 'ucrt')
-          break
+        source_dir = os.path.join(sdk_redist_root_version, target_cpu, 'ucrt')
+        break
     _CopyRuntimeImpl(os.path.join(target_dir, 'ucrtbase' + suffix),
                      os.path.join(source_dir, 'ucrtbase' + suffix))
 
@@ -419,10 +418,10 @@ def _CopyDebugger(target_dir, target_cpu):
       if is_optional:
         continue
       else:
-        raise Exception('%s not found in "%s"\r\nYou must install the '
-                        '"Debugging Tools for Windows" feature from the Windows'
-                        ' 10 SDK, the 10.0.19041.0 version.'
-                        % (debug_file, full_path))
+        raise Exception('%s not found in "%s"\r\nYou must install'
+                        'Windows 10 SDK version 10.0.19041.0 including the '
+                        '"Debugging Tools for Windows" feature.' %
+                        (debug_file, full_path))
     target_path = os.path.join(target_dir, debug_file)
     _CopyRuntimeImpl(target_path, full_path)
 

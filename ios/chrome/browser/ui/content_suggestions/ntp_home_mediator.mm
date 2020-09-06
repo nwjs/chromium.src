@@ -65,6 +65,15 @@
 #endif
 
 namespace {
+// URL for 'Manage Activity' item in the Discover feed menu.
+const char kFeedManageActivityURL[] =
+    "https://myactivity.google.com/myactivity?product=50";
+// URL for 'Manage Interests' item in the Discover feed menu.
+const char kFeedManageInterestsURL[] =
+    "https://google.com/preferences/interests";
+// URL for 'Learn More' item in the Discover feed menu;
+const char kFeedLearnMoreURL[] = "https://support.google.com/chrome/"
+                                 "?p=new_tab&co=GENIE.Platform%3DiOS&oco=1";
 // URL for the page displaying help for the NTP.
 const char kNTPHelpURL[] =
     "https://support.google.com/chrome/?p=ios_new_tab&ios=1";
@@ -370,6 +379,8 @@ const char kNTPHelpURL[] =
     // "What's New" promo that runs a command can be added here by calling
     // self.dispatcher.
     if (notificationPromo->command() == kSetDefaultBrowserCommand) {
+      base::RecordAction(
+          base::UserMetricsAction("IOS.DefaultBrowserNTPPromoTapped"));
       [[UIApplication sharedApplication]
                     openURL:
                         [NSURL URLWithString:UIApplicationOpenSettingsURLString]
@@ -385,12 +396,30 @@ const char kNTPHelpURL[] =
   NOTREACHED() << "Promo type is neither URL or command.";
 }
 
-- (void)handleLearnMoreTapped {
+// Opens web page for a menu item in the NTP.
+- (void)openMenuItemWebPage:(GURL)URL {
   NewTabPageTabHelper* NTPHelper =
       NewTabPageTabHelper::FromWebState(self.webState);
   if (NTPHelper && NTPHelper->IgnoreLoadRequests())
     return;
-  _URLLoader->Load(UrlLoadParams::InCurrentTab(GURL(kNTPHelpURL)));
+  _URLLoader->Load(UrlLoadParams::InCurrentTab(URL));
+  // TODO(crbug.com/1085419): Add metrics.
+}
+
+- (void)handleFeedManageActivityTapped {
+  [self openMenuItemWebPage:GURL(kFeedManageActivityURL)];
+}
+
+- (void)handleFeedManageInterestsTapped {
+  [self openMenuItemWebPage:GURL(kFeedManageInterestsURL)];
+}
+
+- (void)handleFeedLearnMoreTapped {
+  [self openMenuItemWebPage:GURL(kFeedLearnMoreURL)];
+}
+
+- (void)handleLearnMoreTapped {
+  [self openMenuItemWebPage:GURL(kNTPHelpURL)];
   [self.NTPMetrics recordAction:new_tab_page_uma::ACTION_OPENED_LEARN_MORE];
 }
 

@@ -312,7 +312,8 @@ OutputPresenterFuchsia::AllocateImages(gfx::ColorSpace color_space,
   collection->Close();
 
   // Create PresenterImageFuchsia for each buffer in the collection.
-  uint32_t image_usage = gpu::SHARED_IMAGE_USAGE_RASTER;
+  uint32_t image_usage =
+      gpu::SHARED_IMAGE_USAGE_RASTER | gpu::SHARED_IMAGE_USAGE_SCANOUT;
   if (vulkan->enforce_protected_memory())
     image_usage |= gpu::SHARED_IMAGE_USAGE_PROTECTED;
 
@@ -336,9 +337,9 @@ OutputPresenterFuchsia::AllocateImages(gfx::ColorSpace color_space,
 
     auto mailbox = gpu::Mailbox::GenerateForSharedImage();
     if (!shared_image_factory_.CreateSharedImage(
-            mailbox, gpu::kInProcessCommandBufferClientId,
-            std::move(gmb_handle), buffer_format_, gpu::kNullSurfaceHandle,
-            frame_size_, color_space, image_usage)) {
+            mailbox, gpu::kDisplayCompositorClientId, std::move(gmb_handle),
+            buffer_format_, gpu::kNullSurfaceHandle, frame_size_, color_space,
+            kTopLeft_GrSurfaceOrigin, kPremul_SkAlphaType, image_usage)) {
       return {};
     }
 
@@ -411,6 +412,8 @@ void OutputPresenterFuchsia::SchedulePrimaryPlane(
   std::vector<GrBackendSemaphore> read_begin_semaphores;
   std::vector<GrBackendSemaphore> read_end_semaphores;
   image_fuchsia->TakeSemaphores(&read_begin_semaphores, &read_end_semaphores);
+  DCHECK(!read_begin_semaphores.empty());
+  DCHECK(!read_end_semaphores.empty());
 
   auto* vulkan_context_provider = dependency_->GetVulkanContextProvider();
   auto* vulkan_implementation =
@@ -422,13 +425,6 @@ void OutputPresenterFuchsia::SchedulePrimaryPlane(
                          read_begin_semaphores, &(next_frame_->acquire_fences));
   GrSemaphoresToZxEvents(vulkan_implementation, vk_device, read_end_semaphores,
                          &(next_frame_->release_fences));
-
-  // Destroy |read_begin_semaphores|, but not |read_end_semaphores|, since
-  // SharedImageRepresentationSkia::BeginScopedReadAccess() keeps ownership of
-  // the end_semaphores.
-  for (auto& semaphore : read_begin_semaphores) {
-    vkDestroySemaphore(vk_device, semaphore.vkSemaphore(), nullptr);
-  }
 }
 
 std::vector<OutputPresenter::OverlayData>

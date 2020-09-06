@@ -6,7 +6,7 @@ package org.chromium.chrome.browser.autofill_assistant;
 
 import androidx.annotation.Nullable;
 
-import org.chromium.chrome.browser.ChromeActivity;
+import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.autofill_assistant.overlay.AssistantOverlayCoordinator;
 import org.chromium.chrome.browser.help.HelpAndFeedback;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -41,8 +41,8 @@ class AssistantCoordinator {
         } else {
             mModel = new AssistantModel();
             mOverlayCoordinator = new AssistantOverlayCoordinator(activity,
-                    activity.getFullscreenManager(), activity.getCompositorViewHolder(),
-                    activity.getScrim(), mModel.getOverlayModel());
+                    activity.getBrowserControlsManager(), activity.getCompositorViewHolder(),
+                    controller.getScrimCoordinator(), mModel.getOverlayModel());
         }
 
         mBottomBarCoordinator = new AssistantBottomBarCoordinator(activity, mModel, controller,

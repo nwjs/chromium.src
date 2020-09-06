@@ -39,10 +39,9 @@ ArrayBufferContents::ArrayBufferContents(void* data,
                                          size_t length,
                                          bool nodejs,
                                          DataDeleter deleter) {
+  DCHECK(data || length == 0);
+
   nodejs_ = nodejs;
-  if (!data) {
-    return;
-  }
   backing_store_ =
       v8::ArrayBuffer::NewBackingStore(data, length, deleter, nullptr);
 }

@@ -10,7 +10,7 @@ namespace blink {
 void V8FileList::ConstructorCustom(const v8::FunctionCallbackInfo<v8::Value>& args)
 {
   ExecutionContext* context = CurrentExecutionContext(args.GetIsolate());
-  if (context && context->IsDocument()) {
+  if (context && context->IsWindow()) {
     Document* document = To<LocalDOMWindow>(context)->document();
     if (document->GetFrame()->isNwDisabledChildFrame()) {
       V8ThrowException::ThrowTypeError(args.GetIsolate(), "FileList constructor cannot be called in nwdisabled frame.");

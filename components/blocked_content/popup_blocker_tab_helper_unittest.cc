@@ -9,8 +9,8 @@
 #include "components/blocked_content/safe_browsing_triggered_popup_blocker.h"
 #include "components/blocked_content/test/test_popup_navigation_delegate.h"
 #include "components/blocked_content/url_list_manager.h"
-#include "components/content_settings/browser/tab_specific_content_settings.h"
-#include "components/content_settings/browser/test_tab_specific_content_settings_delegate.h"
+#include "components/content_settings/browser/page_specific_content_settings.h"
+#include "components/content_settings/browser/test_page_specific_content_settings_delegate.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "content/public/test/test_renderer_host.h"
@@ -58,10 +58,10 @@ class PopupBlockerTabHelperTest : public content::RenderViewHostTestHarness {
     HostContentSettingsMap::RegisterProfilePrefs(pref_service_.registry());
     settings_map_ = base::MakeRefCounted<HostContentSettingsMap>(
         &pref_service_, false, false, false, false);
-    content_settings::TabSpecificContentSettings::CreateForWebContents(
+    content_settings::PageSpecificContentSettings::CreateForWebContents(
         web_contents(),
         std::make_unique<
-            content_settings::TestTabSpecificContentSettingsDelegate>(
+            content_settings::TestPageSpecificContentSettingsDelegate>(
             /*prefs=*/nullptr, settings_map_.get()));
 
     PopupBlockerTabHelper::CreateForWebContents(web_contents());
@@ -83,6 +83,7 @@ TEST_F(PopupBlockerTabHelperTest, BlocksAndShowsPopup) {
   blink::mojom::WindowFeatures window_features;
   window_features.has_x = true;
   helper()->AddBlockedPopup(
+      web_contents()->GetMainFrame(),
       std::make_unique<TestPopupNavigationDelegate>(GURL(kUrl1), &result),
       window_features, PopupBlockType::kNoGesture);
   EXPECT_EQ(result.total_popups_blocked_on_page, 1);
@@ -101,6 +102,7 @@ TEST_F(PopupBlockerTabHelperTest, MultiplePopups) {
   BlockedUrlListObserver observer(helper());
   TestPopupNavigationDelegate::ResultHolder result1;
   helper()->AddBlockedPopup(
+      web_contents()->GetMainFrame(),
       std::make_unique<TestPopupNavigationDelegate>(GURL(kUrl1), &result1),
       blink::mojom::WindowFeatures(), PopupBlockType::kNoGesture);
   EXPECT_EQ(result1.total_popups_blocked_on_page, 1);
@@ -110,6 +112,7 @@ TEST_F(PopupBlockerTabHelperTest, MultiplePopups) {
 
   TestPopupNavigationDelegate::ResultHolder result2;
   helper()->AddBlockedPopup(
+      web_contents()->GetMainFrame(),
       std::make_unique<TestPopupNavigationDelegate>(GURL(kUrl2), &result2),
       blink::mojom::WindowFeatures(), PopupBlockType::kNoGesture);
   EXPECT_EQ(result2.total_popups_blocked_on_page, 2);
@@ -133,6 +136,7 @@ TEST_F(PopupBlockerTabHelperTest, MultiplePopups) {
 TEST_F(PopupBlockerTabHelperTest, DoesNotShowPopupWithInvalidID) {
   TestPopupNavigationDelegate::ResultHolder result;
   helper()->AddBlockedPopup(
+      web_contents()->GetMainFrame(),
       std::make_unique<TestPopupNavigationDelegate>(GURL(kUrl1), &result),
       blink::mojom::WindowFeatures(), PopupBlockType::kNoGesture);
   EXPECT_EQ(helper()->GetBlockedPopupsCount(), 1u);
@@ -149,17 +153,19 @@ TEST_F(PopupBlockerTabHelperTest, DoesNotShowPopupWithInvalidID) {
 
 TEST_F(PopupBlockerTabHelperTest, SetsContentSettingsPopupState) {
   auto* content_settings =
-      content_settings::TabSpecificContentSettings::FromWebContents(
-          web_contents());
+      content_settings::PageSpecificContentSettings::GetForFrame(
+          web_contents()->GetMainFrame());
   EXPECT_FALSE(content_settings->IsContentBlocked(ContentSettingsType::POPUPS));
 
   TestPopupNavigationDelegate::ResultHolder result;
   helper()->AddBlockedPopup(
+      web_contents()->GetMainFrame(),
       std::make_unique<TestPopupNavigationDelegate>(GURL(kUrl1), &result),
       blink::mojom::WindowFeatures(), PopupBlockType::kNoGesture);
   EXPECT_TRUE(content_settings->IsContentBlocked(ContentSettingsType::POPUPS));
 
   helper()->AddBlockedPopup(
+      web_contents()->GetMainFrame(),
       std::make_unique<TestPopupNavigationDelegate>(GURL(kUrl2), &result),
       blink::mojom::WindowFeatures(), PopupBlockType::kNoGesture);
   EXPECT_TRUE(content_settings->IsContentBlocked(ContentSettingsType::POPUPS));
@@ -174,15 +180,16 @@ TEST_F(PopupBlockerTabHelperTest, SetsContentSettingsPopupState) {
 TEST_F(PopupBlockerTabHelperTest, ClearsContentSettingsPopupStateOnNavigation) {
   TestPopupNavigationDelegate::ResultHolder result;
   helper()->AddBlockedPopup(
+      web_contents()->GetMainFrame(),
       std::make_unique<TestPopupNavigationDelegate>(GURL(kUrl1), &result),
       blink::mojom::WindowFeatures(), PopupBlockType::kNoGesture);
-  EXPECT_TRUE(content_settings::TabSpecificContentSettings::FromWebContents(
-                  web_contents())
+  EXPECT_TRUE(content_settings::PageSpecificContentSettings::GetForFrame(
+                  web_contents()->GetMainFrame())
                   ->IsContentBlocked(ContentSettingsType::POPUPS));
 
   NavigateAndCommit(GURL(kUrl2));
-  EXPECT_FALSE(content_settings::TabSpecificContentSettings::FromWebContents(
-                   web_contents())
+  EXPECT_FALSE(content_settings::PageSpecificContentSettings::GetForFrame(
+                   web_contents()->GetMainFrame())
                    ->IsContentBlocked(ContentSettingsType::POPUPS));
 }
 

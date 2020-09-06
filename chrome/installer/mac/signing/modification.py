@@ -14,6 +14,7 @@ from . import commands, parts
 
 _CF_BUNDLE_EXE = 'CFBundleExecutable'
 _CF_BUNDLE_ID = 'CFBundleIdentifier'
+_CF_BUNDLE_NAME = 'CFBundleName'
 _ENT_APP_ID = 'com.apple.application-identifier'
 _KS_BRAND_ID = 'KSBrandID'
 _KS_CHANNEL_ID = 'KSChannelID'
@@ -48,6 +49,8 @@ def _modify_plists(paths, dist, config):
 
             app_plist[_CF_BUNDLE_ID] = config.base_bundle_id
             app_plist[_CF_BUNDLE_EXE] = config.app_product
+            app_plist[_CF_BUNDLE_NAME] = '{} {}'.format(
+                app_plist[_CF_BUNDLE_NAME], dist.app_name_fragment)
             app_plist[_KS_PRODUCT_ID] += '.' + dist.channel
 
         # Apply the channel and brand code changes.
@@ -67,7 +70,7 @@ def _modify_plists(paths, dist, config):
         if dist.creator_code:
             app_plist['CFBundleSignature'] = dist.creator_code
 
-        # See build/mac/tweak_info_plist.py and
+        # See build/apple/tweak_info_plist.py and
         # chrome/browser/mac/keystone_glue.mm.
         for key in app_plist.keys():
             if not key.startswith(_KS_CHANNEL_ID + '-'):
@@ -148,7 +151,7 @@ def _process_entitlements(paths, dist, config):
         for part in parts.get_parts(config).values()
         if part.entitlements
     ]
-    for entitlements_name in entitlements_names:
+    for entitlements_name in sorted(entitlements_names):
         entitlements_file = os.path.join(paths.work, entitlements_name)
         commands.copy_files(
             os.path.join(packaging_dir, entitlements_name), entitlements_file)

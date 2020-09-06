@@ -20,6 +20,7 @@
 #include "base/logging.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/notreached.h"
+#include "base/numerics/safe_conversions.h"
 #include "base/path_service.h"
 #include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
@@ -44,7 +45,6 @@
 #include "ui/display/screen.h"
 #include "ui/gfx/codec/jpeg_codec.h"
 #include "ui/gfx/codec/png_codec.h"
-#include "ui/gfx/geometry/safe_integer_conversions.h"
 #include "ui/gfx/geometry/size_conversions.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/image/image_skia_source.h"
@@ -74,7 +74,7 @@ const size_t kPngChunkMetadataSize = 12;  // length, type, crc32
 const unsigned char kPngScaleChunkType[4] = { 'c', 's', 'C', 'l' };
 const unsigned char kPngDataChunkType[4] = { 'I', 'D', 'A', 'T' };
 
-#if !defined(OS_MACOSX)
+#if !defined(OS_APPLE)
 const char kPakFileExtension[] = ".pak";
 #endif
 
@@ -211,10 +211,9 @@ class ResourceBundle::ResourceBundleImageSource : public gfx::ImageSkiaSource {
     if (fell_back_to_1x) {
       // GRIT fell back to the 100% image, so rescale it to the correct size.
       image = skia::ImageOperations::Resize(
-          image,
-          skia::ImageOperations::RESIZE_LANCZOS3,
-          gfx::ToCeiledInt(image.width() * scale),
-          gfx::ToCeiledInt(image.height() * scale));
+          image, skia::ImageOperations::RESIZE_LANCZOS3,
+          base::ClampCeil(image.width() * scale),
+          base::ClampCeil(image.height() * scale));
     } else {
       scale = GetScaleForScaleFactor(scale_factor);
     }
@@ -380,7 +379,7 @@ void ResourceBundle::AddDataPackFromFileRegion(
   }
 }
 
-#if !defined(OS_MACOSX)
+#if !defined(OS_APPLE)
 // static
 base::FilePath ResourceBundle::GetLocaleFilePath(
     const std::string& app_locale) {
@@ -461,18 +460,22 @@ void ResourceBundle::LoadTestResources(const base::FilePath& path,
                                        const base::FilePath& locale_path) {
   is_test_resources_ = true;
   DCHECK(!ui::GetSupportedScaleFactors().empty());
-  const ScaleFactor scale_factor(ui::GetSupportedScaleFactors()[0]);
   // Use the given resource pak for both common and localized resources.
-  std::unique_ptr<DataPack> data_pack(new DataPack(scale_factor));
-  if (!path.empty() && data_pack->LoadFromPath(path))
-    AddDataPack(std::move(data_pack));
 
-  data_pack = std::make_unique<DataPack>(ui::SCALE_FACTOR_NONE);
+  if (!path.empty()) {
+    const ScaleFactor scale_factor(ui::GetSupportedScaleFactors()[0]);
+    auto data_pack = std::make_unique<DataPack>(scale_factor);
+    CHECK(data_pack->LoadFromPath(path));
+    AddDataPack(std::move(data_pack));
+  }
+
+  auto data_pack = std::make_unique<DataPack>(ui::SCALE_FACTOR_NONE);
   if (!locale_path.empty() && data_pack->LoadFromPath(locale_path)) {
     locale_resources_data_ = std::move(data_pack);
   } else {
     locale_resources_data_ = std::make_unique<DataPack>(ui::SCALE_FACTOR_NONE);
   }
+
   // This is necessary to initialize ICU since we won't be calling
   // LoadLocaleResources in this case.
   l10n_util::GetApplicationLocale(std::string());
@@ -845,7 +848,7 @@ void ResourceBundle::ReloadFonts() {
 }
 
 ScaleFactor ResourceBundle::GetMaxScaleFactor() const {
-#if defined(OS_WIN) || defined(OS_LINUX)
+#if defined(OS_WIN) || defined(OS_LINUX) || defined(OS_CHROMEOS)
   return max_scale_factor_;
 #else
   return GetSupportedScaleFactors().back();
@@ -900,7 +903,8 @@ void ResourceBundle::InitSharedInstance(Delegate* delegate) {
   // On platforms other than iOS, 100P is always a supported scale factor.
   // For Windows we have a separate case in this function.
   supported_scale_factors.push_back(SCALE_FACTOR_100P);
-#if defined(OS_MACOSX) || defined(OS_LINUX) || defined(OS_WIN)
+#if defined(OS_APPLE) || defined(OS_LINUX) || defined(OS_CHROMEOS) || \
+    defined(OS_WIN)
   supported_scale_factors.push_back(SCALE_FACTOR_200P);
 #endif
 #endif

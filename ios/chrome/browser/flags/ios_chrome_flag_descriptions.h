@@ -106,6 +106,11 @@ extern const char kBlockPopupInfobarMessagesUIDescription[];
 extern const char kLogBreadcrumbsName[];
 extern const char kLogBreadcrumbsDescription[];
 
+// Title and description for the flag that controls synthetic crash reports
+// generation for Unexplained Termination Events.
+extern const char kSyntheticCrashReportsForUteName[];
+extern const char kSyntheticCrashReportsForUteDescription[];
+
 // Title and description for the flag to control if initial uploading of crash
 // reports is delayed.
 extern const char kBreakpadNoDelayInitialUploadName[];
@@ -124,11 +129,6 @@ extern const char kCollectionsCardPresentationStyleDescription[];
 // ConfirmInfobars.
 extern const char kConfirmInfobarMessagesUIName[];
 extern const char kConfirmInfobarMessagesUIDescription[];
-
-// Title and description for the flag that makes the Browser being contained by
-// the TabGrid instead of being presented.
-extern const char kContainedBVCName[];
-extern const char kContainedBVCDescription[];
 
 // Title and description for the flag that enables Messages UI on
 // Crash Restore Infobars.
@@ -187,10 +187,18 @@ extern const char kEmbedderBlockRestoreUrlDescription[];
 extern const char kEnableAutofillCacheServerCardInfoName[];
 extern const char kEnableAutofillCacheServerCardInfoDescription[];
 
+// Title and description for the flag to enable reauth for filling passwords.
+extern const char kEnableAutofillPasswordReauthIOSName[];
+extern const char kEnableAutofillPasswordReauthIOSDescription[];
+
 // Title and description for the flag to enable the clipboard provider to
 // suggest searchihng for copied images.
 extern const char kEnableClipboardProviderImageSuggestionsName[];
 extern const char kEnableClipboardProviderImageSuggestionsDescription[];
+
+// Title and description for the flag to enable fullpage screenshots.
+extern const char kEnableFullPageScreenshotName[];
+extern const char kEnableFullPageScreenshotDescription[];
 
 // Title and description for the flag to enable to show a different UI when the
 // setting is managed by an enterprise policy.
@@ -209,9 +217,6 @@ extern const char kEnableNativeContextMenusDescription[];
 // Title and description for the flag to enable persistent downloads.
 extern const char kEnablePersistentDownloadsName[];
 extern const char kEnablePersistentDownloadsDescription[];
-
-extern const char kEnableSyncTrustedVaultName[];
-extern const char kEnableSyncTrustedVaultDescription[];
 
 // Title and description for the flag to enable an expanded tab strip.
 extern const char kExpandedTabStripName[];
@@ -258,6 +263,11 @@ extern const char kInfobarUIRebootOnlyiOS13Description[];
 // demo mode.
 extern const char kInProductHelpDemoModeName[];
 extern const char kInProductHelpDemoModeDescription[];
+
+// Title and description for the flag to enable interstitials on legacy TLS
+// connections.
+extern const char kIOSLegacyTLSInterstitialsName[];
+extern const char kIOSLegacyTLSInterstitialsDescription[];
 
 // Title and description for the flag to enable interstitials on lookalike
 // URL navigations.
@@ -311,11 +321,6 @@ extern const char kOmniboxOnFocusSuggestionsDescription[];
 extern const char kOpenDownloadsInFilesAppName[];
 extern const char kOpenDownloadsInFilesAppDescription[];
 
-// Title and description for the flag to provide user with improved settings
-// relating to cookies.
-extern const char kImprovedCookieControlsName[];
-extern const char kImprovedCookieControlsDescription[];
-
 // Title and description for the flag to provide user with Password Check
 // feature in Settings.
 extern const char kPasswordCheckName[];
@@ -331,10 +336,6 @@ extern const char kPointerSupportName[];
 extern const char kPointerSupportDescription[];
 #endif  // defined(__IPHONE_13_4)
 
-// Title and description for the flag to enable QR code generation for a page.
-extern const char kQRCodeGenerationName[];
-extern const char kQRCodeGenerationDescription[];
-
 // Title and description for the flag that reload the page when the renderer
 // crashes.
 extern const char kReloadSadTabName[];
@@ -344,6 +345,10 @@ extern const char kReloadSadTabDescription[];
 extern const char kSafeBrowsingAvailableName[];
 extern const char kSafeBrowsingAvailableDescription[];
 
+// Title and description for the flag to enable real-time Safe Browsing lookups.
+extern const char kSafeBrowsingRealTimeLookupName[];
+extern const char kSafeBrowsingRealTimeLookupDescription[];
+
 // Title and description for the flag to enable safety check on iOS.
 extern const char kSafetyCheckIOSName[];
 extern const char kSafetyCheckIOSDescription[];
@@ -352,6 +357,10 @@ extern const char kSafetyCheckIOSDescription[];
 // SaveCard Infobars.
 extern const char kSaveCardInfobarMessagesUIName[];
 extern const char kSaveCardInfobarMessagesUIDescription[];
+
+// Title and description for the flag to enable the Scroll to Text feature.
+extern const char kScrollToTextIOSName[];
+extern const char kScrollToTextIOSDescription[];
 
 // Title and description for the flag to enable the send tab to self receiving
 // feature.
@@ -368,7 +377,7 @@ extern const char kSettingsRefreshName[];
 extern const char kSettingsRefreshDescription[];
 
 // Title and description for the flag to enable Shared Highlighting (Link to
-// Text Edit Menu option and Text Fragments web behavior).
+// Text Edit Menu option).
 extern const char kSharedHighlightingIOSName[];
 extern const char kSharedHighlightingIOSDescription[];
 
@@ -428,6 +437,9 @@ extern const char kWebPageDefaultZoomFromDynamicTypeDescription[];
 // Title and description for the flag to enable text accessibility in webpages.
 extern const char kWebPageTextAccessibilityName[];
 extern const char kWebPageTextAccessibilityDescription[];
+
+extern const char kWellKnownChangePasswordName[];
+extern const char kWellKnownChangePasswordDescription[];
 
 // Please add names and descriptions above in alphabetical order.
 

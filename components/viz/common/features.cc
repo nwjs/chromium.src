@@ -16,8 +16,8 @@
 
 namespace features {
 
-const base::Feature kUseSkiaForGLReadback{"UseSkiaForGLReadback",
-                                          base::FEATURE_ENABLED_BY_DEFAULT};
+const base::Feature kForcePreferredIntervalForVideo{
+    "ForcePreferredIntervalForVideo", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Use the SkiaRenderer.
 #if defined(OS_LINUX) && !(defined(OS_CHROMEOS) || BUILDFLAG(IS_CHROMECAST))
@@ -53,8 +53,13 @@ const base::Feature kVizForWebView{"VizForWebView",
 const base::Feature kVizFrameSubmissionForWebView{
     "VizFrameSubmissionForWebView", base::FEATURE_DISABLED_BY_DEFAULT};
 
+#if defined(OS_ANDROID)
 const base::Feature kUsePreferredIntervalForVideo{
     "UsePreferredIntervalForVideo", base::FEATURE_DISABLED_BY_DEFAULT};
+#else
+const base::Feature kUsePreferredIntervalForVideo{
+    "UsePreferredIntervalForVideo", base::FEATURE_ENABLED_BY_DEFAULT};
+#endif
 
 // Whether we should use the real buffers corresponding to overlay candidates in
 // order to do a pageflip test rather than allocating test buffers.
@@ -77,19 +82,22 @@ const base::Feature kWebRtcLogCapturePipeline{
 
 // The number of frames to wait before toggling to a lower frame rate.
 const base::FeatureParam<int> kNumOfFramesToToggleInterval{
-    &kUsePreferredIntervalForVideo, "NumOfFramesToToggleInterval", 60};
+    &kUsePreferredIntervalForVideo, "NumOfFramesToToggleInterval", 6};
+
+#if defined(OS_WIN)
+// Enables swap chains to call SetPresentDuration to request DWM/OS to reduce
+// vsync.
+const base::Feature kUseSetPresentDuration{"UseSetPresentDuration",
+                                           base::FEATURE_DISABLED_BY_DEFAULT};
+#endif  // OS_WIN
+
+bool IsForcePreferredIntervalForVideoEnabled() {
+  return base::FeatureList::IsEnabled(kForcePreferredIntervalForVideo);
+}
 
 bool IsVizHitTestingDebugEnabled() {
   return base::CommandLine::ForCurrentProcess()->HasSwitch(
       switches::kEnableVizHitTestDebug);
-}
-
-bool IsUsingSkiaForGLReadback() {
-  // Viz for webview requires Skia Readback.
-  if (IsUsingVizForWebView())
-    return true;
-
-  return base::FeatureList::IsEnabled(kUseSkiaForGLReadback);
 }
 
 bool IsUsingSkiaRenderer() {
@@ -140,7 +148,8 @@ bool IsUsingVizFrameSubmissionForWebView() {
 }
 
 bool IsUsingPreferredIntervalForVideo() {
-  return base::FeatureList::IsEnabled(kUsePreferredIntervalForVideo);
+  return IsForcePreferredIntervalForVideoEnabled() ||
+         base::FeatureList::IsEnabled(kUsePreferredIntervalForVideo);
 }
 
 int NumOfFramesToToggleInterval() {
@@ -159,4 +168,9 @@ bool ShouldWebRtcLogCapturePipeline() {
   return base::FeatureList::IsEnabled(kWebRtcLogCapturePipeline);
 }
 
+#if defined(OS_WIN)
+bool ShouldUseSetPresentDuration() {
+  return base::FeatureList::IsEnabled(kUseSetPresentDuration);
+}
+#endif  // OS_WIN
 }  // namespace features

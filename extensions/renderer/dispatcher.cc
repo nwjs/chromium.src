@@ -101,6 +101,7 @@
 #include "gin/converter.h"
 #include "mojo/public/js/grit/mojo_bindings_resources.h"
 #include "services/network/public/mojom/cors.mojom.h"
+#include "third_party/blink/public/mojom/frame/user_activation_notification_type.mojom.h"
 #include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/platform/web_url_request.h"
 #include "third_party/blink/public/web/modules/service_worker/web_service_worker_context_proxy.h"
@@ -668,7 +669,7 @@ void Dispatcher::WillDestroyServiceWorkerContextOnWorkerThread(
 }
 
 void Dispatcher::DidFinishDocumentLoad(blink::WebLocalFrame* frame) {
-  GURL effective_document_url = ScriptContext::GetEffectiveDocumentURL(
+  GURL effective_document_url = ScriptContext::GetEffectiveDocumentURLForContext(
       frame, frame->GetDocument().Url(), true /* match_about_blank */);
 
   const Extension* extension =
@@ -678,11 +679,16 @@ void Dispatcher::DidFinishDocumentLoad(blink::WebLocalFrame* frame) {
 }
 
 void Dispatcher::DidCreateDocumentElement(blink::WebLocalFrame* frame) {
-  // Note: use GetEffectiveDocumentURL not just frame->document()->url()
-  // so that this also injects the stylesheet on about:blank frames that
-  // are hosted in the extension process.
-  GURL effective_document_url = ScriptContext::GetEffectiveDocumentURL(
-      frame, frame->GetDocument().Url(), true /* match_about_blank */);
+  // Note: use GetEffectiveDocumentURLForContext() and not just
+  // frame->document()->url() so that this also injects the stylesheet on
+  // about:blank frames that are hosted in the extension process. (Even though
+  // this is used to determine whether to inject a stylesheet, we don't use
+  // GetEffectiveDocumentURLForInjection() because we inject based on whether
+  // it is an extension context, rather than based on the extension's injection
+  // permissions.)
+  GURL effective_document_url =
+      ScriptContext::GetEffectiveDocumentURLForContext(
+          frame, frame->GetDocument().Url(), true /* match_about_blank */);
 
   const Extension* extension =
       RendererExtensionRegistry::Get()->GetExtensionOrAppByURL(
@@ -831,6 +837,7 @@ std::vector<Dispatcher::JsResourceInfo> Dispatcher::GetJsResources() {
 
       {"keep_alive", IDR_KEEP_ALIVE_JS},
       {"mojo_bindings", IDR_MOJO_MOJO_BINDINGS_JS},
+      {"mojo_bindings_lite", IDR_MOJO_MOJO_BINDINGS_LITE_JS},
       {"extensions/common/mojom/keep_alive.mojom", IDR_KEEP_ALIVE_MOJOM_JS},
 
       // Custom bindings.
@@ -968,8 +975,8 @@ bool Dispatcher::OnControlMessageReceived(const IPC::Message& message) {
   IPC_MESSAGE_HANDLER(ExtensionMsg_MessageInvoke, OnMessageInvoke)
   IPC_MESSAGE_HANDLER(ExtensionMsg_DispatchEvent, OnDispatchEvent)
   IPC_MESSAGE_HANDLER(ExtensionMsg_SetSessionInfo, OnSetSessionInfo)
-  IPC_MESSAGE_HANDLER(ExtensionMsg_SetScriptingWhitelist,
-                      OnSetScriptingWhitelist)
+  IPC_MESSAGE_HANDLER(ExtensionMsg_SetScriptingAllowlist,
+                      OnSetScriptingAllowlist)
   IPC_MESSAGE_HANDLER(ExtensionMsg_SetSystemFont, OnSetSystemFont)
   IPC_MESSAGE_HANDLER(ExtensionMsg_SetWebViewPartitionID,
                       OnSetWebViewPartitionID)
@@ -1187,7 +1194,8 @@ void Dispatcher::OnDispatchEvent(
         ScriptContextSet::GetMainWorldContextForFrame(background_frame);
     if (background_context && bindings_system_->HasEventListenerInContext(
                                   params.event_name, background_context)) {
-      background_frame->GetWebFrame()->NotifyUserActivation();
+      background_frame->GetWebFrame()->NotifyUserActivation(
+          blink::mojom::UserActivationNotificationType::kExtensionEvent);
     }
   }
 
@@ -1221,9 +1229,9 @@ void Dispatcher::OnSetSessionInfo(version_info::Channel channel,
       blink::WebString::FromUTF8(extensions::kExtensionScheme));
 }
 
-void Dispatcher::OnSetScriptingWhitelist(
-    const ExtensionsClient::ScriptingWhitelist& extension_ids) {
-  ExtensionsClient::Get()->SetScriptingWhitelist(extension_ids);
+void Dispatcher::OnSetScriptingAllowlist(
+    const ExtensionsClient::ScriptingAllowlist& extension_ids) {
+  ExtensionsClient::Get()->SetScriptingAllowlist(extension_ids);
 }
 
 void Dispatcher::OnSetSystemFont(const std::string& font_family,

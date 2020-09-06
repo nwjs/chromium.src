@@ -12,6 +12,7 @@
 #include "base/path_service.h"
 #include "base/stl_util.h"
 #include "components/base32/base32.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/common/web_preferences.h"
 #include "weblayer/browser/browser_context_impl.h"
 #include "weblayer/browser/browser_list.h"
@@ -114,6 +115,11 @@ BrowserImpl::~BrowserImpl() {
 TabImpl* BrowserImpl::CreateTabForSessionRestore(
     std::unique_ptr<content::WebContents> web_contents,
     const std::string& guid) {
+  if (!web_contents) {
+    content::WebContents::CreateParams create_params(
+        profile_->GetBrowserContext());
+    web_contents = content::WebContents::Create(create_params);
+  }
   std::unique_ptr<TabImpl> tab =
       std::make_unique<TabImpl>(profile_, std::move(web_contents), guid);
 #if defined(OS_ANDROID)

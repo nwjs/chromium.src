@@ -218,11 +218,22 @@ std::unique_ptr<ScriptInjection> UserScriptSet::GetInjectionForScript(
   // nwjs#6324: move the upstream logic of GetEffectiveDocumentURL() here
   // in upstream is not matched first with empty invalid url for iframe
   GURL effective_document_url;
-  if (!script->match_about_blank() || !document_url.SchemeIs(url::kAboutScheme))
+  bool match_about_blank = false; //copied from 6d96d3d1cb83d
+  switch (script->match_origin_as_fallback()) {
+  case MatchOriginAsFallbackBehavior::kAlways:
+  case MatchOriginAsFallbackBehavior::kMatchForAboutSchemeAndClimbTree:
+    match_about_blank = true;
+    break;
+  case MatchOriginAsFallbackBehavior::kNever:
+    break;  // `false` is correct for |match_about_blank|.
+  }
+
+  if (!match_about_blank || !document_url.SchemeIs(url::kAboutScheme))
     effective_document_url = document_url;
   else
-    effective_document_url = ScriptContext::GetEffectiveDocumentURL(
-      web_frame, document_url, script->match_about_blank());
+    effective_document_url =
+      ScriptContext::GetEffectiveDocumentURLForInjection(
+          web_frame, document_url, script->match_origin_as_fallback());
 
   bool is_subframe = web_frame->Parent();
   if (!script->MatchesDocument(effective_document_url, is_subframe) || !effective_document_url.is_valid())

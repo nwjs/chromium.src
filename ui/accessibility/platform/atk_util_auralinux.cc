@@ -57,10 +57,6 @@ static KeySnoopFuncMap& GetActiveKeySnoopFunctions() {
 static guint AtkUtilAuraLinuxAddKeyEventListener(
     AtkKeySnoopFunc key_snoop_function,
     gpointer data) {
-  if (!ui::AXPlatformNode::GetAccessibilityMode().has_mode(
-          ui::AXMode::kNativeAPIs))
-    return 0;
-
   static guint current_key_event_listener_id = 0;
 
   current_key_event_listener_id++;
@@ -134,7 +130,8 @@ DiscardAtkKeyEvent AtkUtilAuraLinux::HandleAtkKeyEvent(
     AtkKeyEventStruct* key_event) {
   DCHECK(key_event);
 
-  if (!GetInstance()->ShouldEnableAccessibility())
+  if (!ui::AXPlatformNode::GetAccessibilityMode().has_mode(
+          ui::AXMode::kNativeAPIs))
     return DiscardAtkKeyEvent::Retain;
 
   GetInstance()->InitializeAsync();

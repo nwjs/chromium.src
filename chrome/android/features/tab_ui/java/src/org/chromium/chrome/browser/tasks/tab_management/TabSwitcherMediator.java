@@ -11,7 +11,6 @@ import static org.chromium.chrome.browser.tasks.tab_management.TabListContainerP
 import static org.chromium.chrome.browser.tasks.tab_management.TabListContainerProperties.IS_VISIBLE;
 import static org.chromium.chrome.browser.tasks.tab_management.TabListContainerProperties.SHADOW_TOP_OFFSET;
 import static org.chromium.chrome.browser.tasks.tab_management.TabListContainerProperties.TOP_MARGIN;
-import static org.chromium.chrome.browser.tasks.tab_management.TabListContainerProperties.TRANSLATION_Y;
 import static org.chromium.chrome.browser.tasks.tab_management.TabListContainerProperties.VISIBILITY_LISTENER;
 
 import android.graphics.Bitmap;
@@ -240,9 +239,7 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
             public void didAddTab(Tab tab, int type, @TabCreationState int creationState) {
                 // TODO(wychen): move didAddTab and didSelectTab to another observer and inject
                 //  after restoreCompleted.
-                if (!mTabModelSelector.getTabModelFilterProvider()
-                                .getCurrentTabModelFilter()
-                                .isTabModelRestored()) {
+                if (!mTabModelSelector.isTabStateInitialized()) {
                     return;
                 }
                 mShouldIgnoreNextSelect = false;
@@ -250,9 +247,7 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
 
             @Override
             public void didSelectTab(Tab tab, int type, int lastId) {
-                if (!mTabModelSelector.getTabModelFilterProvider()
-                                .getCurrentTabModelFilter()
-                                .isTabModelRestored()) {
+                if (!mTabModelSelector.isTabStateInitialized()) {
                     return;
                 }
                 if (type == TabSelectionType.FROM_CLOSE || mShouldIgnoreNextSelect) {
@@ -454,22 +449,9 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
             return;
         }
 
-        final int controlsHeight = mBrowserControlsStateProvider.getTopControlsHeight();
         final int contentOffset = mBrowserControlsStateProvider.getContentOffset();
 
-        // If the top controls are at the resting position or their height is decreasing, we want to
-        // update the margin. We don't do this if the controls height is increasing because changing
-        // the margin shrinks the view height to its final value, leaving a gap at the bottom until
-        // the animation finishes.
-        if (contentOffset >= controlsHeight) {
-            mContainerViewModel.set(TOP_MARGIN, controlsHeight);
-        }
-
-        // If the content offset is different from the margin, we use translationY to position the
-        // view in line with the content offset.
-        mContainerViewModel.set(TRANSLATION_Y, contentOffset - mContainerViewModel.get(TOP_MARGIN));
-        // Offsetting the shadow using the content offset will position it right below the top
-        // controls.
+        mContainerViewModel.set(TOP_MARGIN, contentOffset);
         mContainerViewModel.set(SHADOW_TOP_OFFSET, contentOffset);
     }
 
@@ -575,10 +557,7 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
         mRegisteredFirstMeaningfulPaintRecorder = true;
 
         boolean hasTabs = false;
-        if (mTabModelSelector.getTabModelFilterProvider().getCurrentTabModelFilter() != null
-                && mTabModelSelector.getTabModelFilterProvider()
-                           .getCurrentTabModelFilter()
-                           .isTabModelRestored()) {
+        if (mTabModelSelector.isTabStateInitialized()) {
             hasTabs = mTabModelSelector.getTabModelFilterProvider()
                               .getCurrentTabModelFilter()
                               .getCount()
@@ -614,15 +593,14 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
         mHandler.removeCallbacks(mSoftClearTabListRunnable);
         mHandler.removeCallbacks(mClearTabListRunnable);
         boolean quick = false;
-        TabModelFilter currentTabModelFilter =
-                mTabModelSelector.getTabModelFilterProvider().getCurrentTabModelFilter();
-        if (currentTabModelFilter != null && currentTabModelFilter.isTabModelRestored()) {
-            if (TabUiFeatureUtilities.isTabToGtsAnimationEnabled()) {
-                quick = mResetHandler.resetWithTabList(
-                        currentTabModelFilter, false, mShowTabsInMruOrder);
-            }
-            setInitialScrollIndexOffset();
+        if (!mTabModelSelector.isTabStateInitialized()) return quick;
+        if (TabUiFeatureUtilities.isTabToGtsAnimationEnabled()) {
+            quick = mResetHandler.resetWithTabList(
+                    mTabModelSelector.getTabModelFilterProvider().getCurrentTabModelFilter(), false,
+                    mShowTabsInMruOrder);
         }
+        setInitialScrollIndexOffset();
+
         return quick;
     }
 
@@ -640,10 +618,7 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
     public void showOverview(boolean animate) {
         mHandler.removeCallbacks(mSoftClearTabListRunnable);
         mHandler.removeCallbacks(mClearTabListRunnable);
-        if (mTabModelSelector.getTabModelFilterProvider().getCurrentTabModelFilter() != null
-                && mTabModelSelector.getTabModelFilterProvider()
-                           .getCurrentTabModelFilter()
-                           .isTabModelRestored()) {
+        if (mTabModelSelector.isTabStateInitialized()) {
             mResetHandler.resetWithTabList(
                     mTabModelSelector.getTabModelFilterProvider().getCurrentTabModelFilter(),
                     TabUiFeatureUtilities.isTabToGtsAnimationEnabled(), mShowTabsInMruOrder);

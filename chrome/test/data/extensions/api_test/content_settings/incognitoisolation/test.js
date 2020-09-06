@@ -19,6 +19,7 @@ var settings = [
   'cookies',
   'images',
   'javascript',
+  'plugins',
   'popups',
   'location',
   'notifications',

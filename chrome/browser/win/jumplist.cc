@@ -153,7 +153,7 @@ bool CreateIconFile(const gfx::ImageSkia& image_skia,
   if (!IconUtil::CreateIconFileFromImageFamily(image_family, path,
                                                IconUtil::NORMAL_WRITE)) {
     // Delete the file created by CreateTemporaryFileInDir as it won't be used.
-    base::DeleteFile(path, false);
+    base::DeleteFile(path);
     return false;
   }
 
@@ -254,7 +254,7 @@ JumpList::JumpList(Profile* profile)
     return;
 
   app_id_ =
-      shell_integration::win::GetChromiumModelIdForProfile(profile_->GetPath());
+      shell_integration::win::GetAppUserModelIdForBrowser(profile_->GetPath());
 
   // Register as TopSitesObserver so that we can update ourselves when the
   // TopSites changes. TopSites updates itself after a delay. This is especially

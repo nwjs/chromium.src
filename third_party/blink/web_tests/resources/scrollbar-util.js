@@ -25,6 +25,14 @@ function calculateScrollbarThickness() {
     return widthBefore - widthAfter;
 }
 
+// Returns the width of a acrollbar button. On platforms where there are no
+// scrollbar buttons (i.e. there are overlay scrollbars) returns 0.
+function calculateScrollbarButtonWidth() {
+    if (internals.overlayScrollbarsEnabled)
+        return 0;
+    return calculateScrollbarThickness();
+}
+
 // Resets scroll offsets (only supports LTR for now).
 function resetScrollOffset(scrollElement) {
   if(scrollElement !== undefined) {
@@ -57,7 +65,7 @@ function getScrollbarButtonScrollDelta(scroller) {
 
   // All percent-based scroll clamping is made in physical pixels.
   pixel_delta = percentBasedDelta(scaleCssToPhysicalPixels(scroller_size));
-  min_delta = MIN_SCROLL_DELTA_PCT_BASED;
+
   // Note that, window.inner* matches the size of the innerViewport, and won't
   // match the VisualViewport's dimensions at the C++ code in the presence of
   // UI elements that resize it (e.g. chromeOS OSKs).
@@ -66,14 +74,11 @@ function getScrollbarButtonScrollDelta(scroller) {
   max_delta = percentBasedDelta(scaleCssToBlinkPixels({
     x: window.innerWidth, y: window.innerHeight}));
 
-  pixel_delta.x = clamp(pixel_delta.x, min_delta, max_delta.x);
-  pixel_delta.y = clamp(pixel_delta.y, min_delta, max_delta.y);
+  pixel_delta.x = Math.min(pixel_delta.x, max_delta.x);
+  pixel_delta.y = Math.min(pixel_delta.y, max_delta.y);
 
   return scalePhysicalToCssPixels(pixel_delta);
 }
-
-// The minimum amount of pixels scrolled if percent-based scrolling is enabled
-const MIN_SCROLL_DELTA_PCT_BASED = 16;
 
 // The percentage scrollbar arrows will scroll, if percent-based scrolling
 // is enabled.
@@ -90,6 +95,7 @@ const SCROLLBAR_SCROLL_PIXELS = 40;
   coordinates).
 */
 function downArrow(scroller) {
+  assert_true(!internals.overlayScrollbarsEnabled);
   const scrollerRect = scroller.getBoundingClientRect();
   const TRACK_WIDTH = calculateScrollbarThickness();
   const BUTTON_WIDTH = TRACK_WIDTH;
@@ -102,6 +108,7 @@ function downArrow(scroller) {
 }
 
 function upArrow(scroller) {
+  assert_true(!internals.overlayScrollbarsEnabled);
   const scrollerRect = scroller.getBoundingClientRect();
   const TRACK_WIDTH = calculateScrollbarThickness();
   const BUTTON_WIDTH = TRACK_WIDTH;
@@ -113,6 +120,7 @@ function upArrow(scroller) {
 }
 
 function leftArrow(scroller) {
+  assert_true(!internals.overlayScrollbarsEnabled);
   const scrollerRect = scroller.getBoundingClientRect();
   const TRACK_WIDTH = calculateScrollbarThickness();
   const BUTTON_WIDTH = TRACK_WIDTH;
@@ -124,6 +132,7 @@ function leftArrow(scroller) {
 }
 
 function rightArrow(scroller) {
+  assert_true(!internals.overlayScrollbarsEnabled);
   const scrollerRect = scroller.getBoundingClientRect();
   const TRACK_WIDTH = calculateScrollbarThickness();
   const BUTTON_WIDTH = TRACK_WIDTH;
@@ -133,4 +142,23 @@ function rightArrow(scroller) {
     y: scrollerRect.bottom  - BUTTON_WIDTH / 2
   };
   return cssClientToCssVisual(right_arrow);
+}
+
+// Returns a point that falls within the given scroller's vertical thumb part.
+function verticalThumb(scroller) {
+  assert_equals(scroller.scrollTop, 0, "verticalThumb() requires scroller to have scrollTop of 0");
+  const TRACK_WIDTH = calculateScrollbarThickness();
+  const BUTTON_WIDTH = calculateScrollbarButtonWidth();
+
+  if (scroller === document.documentElement) {
+    // HTML element is special, since scrollbars are not part of its client rect
+    // and page scale doesn't affect the scrollbars. Use window properties instead.
+    let x = window.innerWidth - TRACK_WIDTH / 2;
+    let y = BUTTON_WIDTH + 6;
+    return {x: x, y: y};
+  }
+  const scrollerRect = scroller.getBoundingClientRect();
+  const thumbPoint = { x : scrollerRect.right - TRACK_WIDTH / 2,
+                       y : scrollerRect.top + BUTTON_WIDTH + 2 };
+  return cssClientToCssVisual(thumbPoint);
 }

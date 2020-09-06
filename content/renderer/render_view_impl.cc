@@ -106,7 +106,6 @@
 #include "third_party/blink/public/platform/web_runtime_features.h"
 #include "third_party/blink/public/platform/web_size.h"
 #include "third_party/blink/public/platform/web_string.h"
-#include "third_party/blink/public/platform/web_text_autosizer_page_info.h"
 #include "third_party/blink/public/platform/web_url.h"
 #include "third_party/blink/public/platform/web_url_error.h"
 #include "third_party/blink/public/platform/web_url_request.h"
@@ -163,7 +162,7 @@
 #include "content/child/child_thread_impl.h"
 #include "ui/gfx/geometry/rect_f.h"
 
-#elif defined(OS_MACOSX)
+#elif defined(OS_MAC)
 #include "skia/ext/skia_utils_mac.h"
 #endif
 
@@ -351,9 +350,6 @@ void ApplyCommandLineToSettings(WebSettings* settings) {
   settings->SetThreadedScrollingEnabled(
       !command_line.HasSwitch(switches::kDisableThreadedScrolling));
 
-  if (switches::IsTouchDragDropEnabled())
-    settings->SetTouchDragDropEnabled(true);
-
   WebSettings::SelectionStrategyType selection_strategy;
   if (command_line.GetSwitchValueASCII(switches::kTouchTextSelectionStrategy) ==
       "direction")
@@ -443,10 +439,12 @@ void RenderViewImpl::Initialize(
   auto* opener_frame = WebFrame::FromFrameToken(opener_frame_token);
 
   // The newly created webview_ is owned by this instance.
-  webview_ = WebView::Create(this, params->hidden,
-                             /*compositing_enabled=*/true,
-                             opener_frame ? opener_frame->View() : nullptr,
-                             std::move(params->blink_page_broadcast));
+  webview_ = WebView::Create(
+      this, params->hidden,
+      params->type == mojom::ViewWidgetType::kPortal ? true : false,
+      /*compositing_enabled=*/true,
+      opener_frame ? opener_frame->View() : nullptr,
+      std::move(params->blink_page_broadcast));
 
   g_view_map.Get().insert(std::make_pair(GetWebView(), this));
   g_routing_id_view_map.Get().insert(std::make_pair(GetRoutingID(), this));
@@ -478,11 +476,6 @@ void RenderViewImpl::Initialize(
   GetContentClient()->renderer()->RenderViewCreated(this);
 
   nav_state_sync_timer_.SetTaskRunner(task_runner);
-
-  // We pass this state to Page, but it's only used by the main frame in the
-  // page.
-  if (params->inside_portal)
-    GetWebView()->SetInsidePortal(true);
 
 #if defined(OS_ANDROID)
   // TODO(sgurun): crbug.com/325351 Needed only for android webview's deprecated
@@ -520,16 +513,11 @@ RenderViewImpl::~RenderViewImpl() {
 }
 
 /*static*/
-RenderViewImpl* RenderViewImpl::FromWebView(WebView* webview) {
+RenderView* RenderView::FromWebView(blink::WebView* webview) {
   DCHECK(RenderThread::IsMainThread());
   ViewMap* views = g_view_map.Pointer();
   auto it = views->find(webview);
   return it == views->end() ? NULL : it->second;
-}
-
-/*static*/
-RenderView* RenderView::FromWebView(blink::WebView* webview) {
-  return RenderViewImpl::FromWebView(webview);
 }
 
 /*static*/
@@ -677,7 +665,6 @@ void RenderView::ApplyWebPreferences(const WebPreferences& prefs,
   settings->SetAvailableHoverTypes(prefs.available_hover_types);
   settings->SetPrimaryHoverType(
       static_cast<blink::HoverType>(prefs.primary_hover_type));
-  settings->SetEnableTouchAdjustment(prefs.touch_adjustment_enabled);
   settings->SetBarrelButtonForDragEnabled(prefs.barrel_button_for_drag_enabled);
 
   settings->SetEditingBehavior(
@@ -695,8 +682,6 @@ void RenderView::ApplyWebPreferences(const WebPreferences& prefs,
   // crbug.com/907284. Meanwhile, we pre-ship KFS to spatnav users.
   if (prefs.spatial_navigation_enabled)
     WebRuntimeFeatures::EnableKeyboardFocusableScrollers(true);
-
-  settings->SetCaretBrowsingEnabled(prefs.caret_browsing_enabled);
 
   settings->SetSelectionIncludesAltImageText(true);
 
@@ -957,7 +942,9 @@ void RenderView::ApplyWebPreferences(const WebPreferences& prefs,
     NOTREACHED();
   }
 
-#if defined(OS_MACOSX)
+  settings->SetTouchDragDropEnabled(prefs.touch_drag_drop_enabled);
+
+#if defined(OS_MAC)
   web_view->SetMaximumLegibleScale(prefs.default_maximum_page_scale_factor);
 #endif
 
@@ -1043,13 +1030,8 @@ bool RenderViewImpl::ShouldAckSyntheticInputImmediately() {
   return false;
 }
 
-void RenderViewImpl::ApplyAutoResizeLimitsForWidget(const gfx::Size& min_size,
-                                                    const gfx::Size& max_size) {
-  GetWebView()->EnableAutoResizeMode(min_size, max_size);
-}
-
-void RenderViewImpl::DisableAutoResizeForWidget() {
-  GetWebView()->DisableAutoResizeMode();
+bool RenderViewImpl::AutoResizeMode() {
+  return GetWebView()->AutoResizeMode();
 }
 
 void RenderViewImpl::ScrollFocusedNodeIntoViewForWidget() {
@@ -1093,7 +1075,7 @@ void RenderViewImpl::ResizeWebWidgetForWidget(
 
 void RenderViewImpl::SetScreenMetricsEmulationParametersForWidget(
     bool enabled,
-    const blink::WebDeviceEmulationParams& params) {
+    const blink::DeviceEmulationParams& params) {
   if (enabled)
     GetWebView()->EnableDeviceEmulation(params);
   else
@@ -1119,10 +1101,6 @@ void RenderViewImpl::OnSetHistoryOffsetAndLength(int history_offset,
 
   history_list_offset_ = history_offset;
   history_list_length_ = history_length;
-}
-
-void RenderViewImpl::OnAudioStateChanged(bool is_audio_playing) {
-  GetWebView()->AudioStateChanged(is_audio_playing);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1179,11 +1157,7 @@ bool RenderViewImpl::OnMessageReceived(const IPC::Message& message) {
     // Page messages.
     IPC_MESSAGE_HANDLER(PageMsg_SetHistoryOffsetAndLength,
                         OnSetHistoryOffsetAndLength)
-    IPC_MESSAGE_HANDLER(PageMsg_AudioStateChanged, OnAudioStateChanged)
-    IPC_MESSAGE_HANDLER(PageMsg_UpdateTextAutosizerPageInfoForRemoteMainFrames,
-                        OnTextAutosizerPageInfoChanged)
     IPC_MESSAGE_HANDLER(PageMsg_SetRendererPrefs, OnSetRendererPrefs)
-    IPC_MESSAGE_HANDLER(PageMsg_SetInsidePortal, OnSetInsidePortal)
 
     // Adding a new message? Add platform independent ones first, then put the
     // platform specific ones at the end.
@@ -1204,7 +1178,7 @@ WebView* RenderViewImpl::CreateView(
     const WebString& frame_name,
     WebNavigationPolicy policy,
     network::mojom::WebSandboxFlags sandbox_flags,
-    const blink::FeaturePolicy::FeatureState& opener_feature_state,
+    const blink::FeaturePolicyFeatureState& opener_feature_state,
     const blink::SessionStorageNamespaceId& session_storage_namespace_id,
     WebString* manifest) {
   RenderFrameImpl* creator_frame = RenderFrameImpl::FromWebFrame(creator);
@@ -1389,34 +1363,6 @@ blink::WebPagePopup* RenderViewImpl::CreatePopup(
   return popup_web_widget;
 }
 
-void RenderViewImpl::DoDeferredClose() {
-  // The main widget is currently not active. The active main frame widget is
-  // in a different process.  Have the browser route the close request to the
-  // active widget instead, so that the correct unload handlers are run.
-  Send(new ViewHostMsg_RouteCloseEvent(GetRoutingID()));
-}
-
-void RenderViewImpl::CloseWindowSoon() {
-  DCHECK(RenderThread::IsMainThread());
-  if (!main_render_frame_) {
-    // Ask the RenderViewHost with a local main frame to initiate close.  We
-    // could be called from deep in Javascript.  If we ask the RenderViewHost to
-    // close now, the window could be closed before the JS finishes executing,
-    // thanks to nested message loops running and handling the resulting Close
-    // IPC. So instead, post a message back to the message loop, which won't run
-    // until the JS is complete, and then the Close request can be sent.
-    GetCleanupTaskRunner()->PostTask(
-        FROM_HERE, base::BindOnce(&RenderViewImpl::DoDeferredClose,
-                                  weak_ptr_factory_.GetWeakPtr()));
-    return;
-  }
-
-  // If the main frame is in this RenderView's frame tree, then the Close
-  // request gets routed through the RenderWidget since non-frame RenderWidgets
-  // share the code path.
-  main_render_frame_->GetLocalRootRenderWidget()->CloseWidgetSoon();
-}
-
 base::StringPiece RenderViewImpl::GetSessionStorageNamespaceId() {
   CHECK(!session_storage_namespace_id_.empty());
   return session_storage_namespace_id_;
@@ -1430,17 +1376,9 @@ void RenderViewImpl::PrintPage(WebLocalFrame* frame) {
       render_widget->GetWebWidget()->HandlingInputEvent());
 }
 
-bool RenderViewImpl::SetZoomLevel(double zoom_level) {
-  if (zoom_level == page_zoom_level_)
-    return false;
-
-  // If we change the zoom level for the view, make sure any subsequent subframe
-  // loads reflect the current zoom level.
-  page_zoom_level_ = zoom_level;
-  GetWebView()->SetZoomLevel(zoom_level);
+void RenderViewImpl::ZoomLevelChanged() {
   for (auto& observer : observers_)
     observer.OnZoomLevelChanged();
-  return true;
 }
 
 void RenderViewImpl::SetPreferCompositingToLCDTextEnabled(bool prefer) {
@@ -1478,7 +1416,7 @@ void RenderViewImpl::PropagatePageZoomToNewlyAttachedFrame(
   if (use_zoom_for_dsf)
     GetWebView()->SetZoomFactorForDeviceScaleFactor(device_scale_factor);
   else
-    GetWebView()->SetZoomLevel(page_zoom_level_);
+    GetWebView()->SetZoomLevel(GetWebView()->ZoomLevel());
 }
 
 void RenderViewImpl::SetValidationMessageDirection(
@@ -1619,6 +1557,16 @@ void RenderViewImpl::OnPageVisibilityChanged(PageVisibilityState visibility) {
     observer.OnPageVisibilityChanged(visibility);
 }
 
+void RenderViewImpl::OnPageFrozenChanged(bool frozen) {
+  if (frozen) {
+    // Make sure browser has the latest info before the page is frozen. If the
+    // page goes into the back-forward cache it could be evicted and some of the
+    // updates lost.
+    nav_state_sync_timer_.Stop();
+    SendFrameStateUpdates();
+  }
+}
+
 bool RenderViewImpl::CanUpdateLayout() {
   return true;
 }
@@ -1649,7 +1597,7 @@ int RenderViewImpl::GetRoutingID() {
 }
 
 float RenderViewImpl::GetZoomLevel() {
-  return page_zoom_level_;
+  return webview_->ZoomLevel();
 }
 
 const WebPreferences& RenderViewImpl::GetWebkitPreferences() {
@@ -1708,10 +1656,18 @@ void RenderViewImpl::OnSetRendererPrefs(
     blink::SetFocusRingColor(renderer_prefs.focus_ring_color);
   }
 
-  if (GetWebView() &&
-      old_accept_languages != renderer_preferences_.accept_languages) {
-    GetWebView()->AcceptLanguagesChanged();
+  if (GetWebView()) {
+    if (old_accept_languages != renderer_preferences_.accept_languages)
+      GetWebView()->AcceptLanguagesChanged();
+
+    GetWebView()->GetSettings()->SetCaretBrowsingEnabled(
+        renderer_preferences_.caret_browsing_enabled);
   }
+
+#if defined(USE_X11) || defined(USE_OZONE)
+  GetWebView()->GetSettings()->SetSelectionClipboardBufferAvailable(
+      renderer_preferences_.selection_clipboard_buffer_available);
+#endif  // defined(USE_X11) || defined(USE_OZONE)
 }
 
 void RenderViewImpl::OnMoveOrResizeStarted() {
@@ -1722,24 +1678,6 @@ void RenderViewImpl::OnMoveOrResizeStarted() {
 void RenderViewImpl::SetPageFrozen(bool frozen) {
   if (GetWebView())
     GetWebView()->SetPageFrozen(frozen);
-}
-
-// This function receives TextAutosizerPageInfo from the main frame's renderer
-// and makes it available to other renderers with frames on the same page.
-void RenderViewImpl::OnTextAutosizerPageInfoChanged(
-    const blink::WebTextAutosizerPageInfo& page_info) {
-  // Only propagate the remote page info if our main frame is remote. It's
-  // possible a main frame renderer may receive this message, as SendPageMessage
-  // in RenderFrameHostManager may send to a speculative RenderFrameHost that
-  // corresponds to a local main frame. Since a local main frame will generate
-  // these values for itself, we shouldn't override them with values from
-  // another renderer.
-  if (!GetWebView()->MainFrame()->IsWebLocalFrame())
-    GetWebView()->SetTextAutosizerPageInfo(page_info);
-}
-
-void RenderViewImpl::OnSetInsidePortal(bool inside_portal) {
-  GetWebView()->SetInsidePortal(inside_portal);
 }
 
 void RenderViewImpl::DidAutoResize(const blink::WebSize& newSize) {
@@ -1767,14 +1705,6 @@ void RenderViewImpl::SuspendVideoCaptureDevices(bool suspend) {
 
 unsigned RenderViewImpl::GetLocalSessionHistoryLengthForTesting() const {
   return history_list_length_;
-}
-
-// static
-scoped_refptr<base::SingleThreadTaskRunner>
-RenderViewImpl::GetCleanupTaskRunner() {
-  return RenderThreadImpl::current_blink_platform_impl()
-      ->main_thread_scheduler()
-      ->CleanupTaskRunner();
 }
 
 }  // namespace content

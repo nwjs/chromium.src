@@ -75,10 +75,6 @@ class ContextualSearchPolicy {
         mSearchPanel = panel;
     }
 
-    // TODO(donnd): Consider adding a test-only constructor that uses dependency injection of a
-    // preference manager and PrefServiceBridge.  Currently this is not possible because the
-    // PrefServiceBridge is final.
-
     /**
      * @return The number of additional times to show the promo on tap, 0 if it should not be shown,
      *         or a negative value if the counter has been disabled or the user has accepted
@@ -331,9 +327,6 @@ class ContextualSearchPolicy {
      *         to see if all privacy-related conditions are met to send the base page URL.
      */
     boolean maySendBasePageUrl() {
-        // TODO(donnd): revisit for related searches privacy review. https://crbug.com/1064141.
-        if (isRelatedSearchesEnabled()) return true;
-
         return !isUserUndecided();
     }
 
@@ -489,7 +482,6 @@ class ContextualSearchPolicy {
      *         on enabling or disabling the feature.
      */
     boolean isUserUndecided() {
-        // TODO(donnd) use dependency injection for the PrefServiceBridge instead!
         if (mDidOverrideDecidedStateForTesting) return !mDecidedStateForTesting;
 
         return ContextualSearchManager.isContextualSearchUninitialized();
@@ -547,6 +539,12 @@ class ContextualSearchPolicy {
     String overrideSelectionIfProcessingRelatedSearches(
             String selection, String relatedSearchesWord) {
         return isProcessingRelatedSearch() ? relatedSearchesWord : selection;
+    }
+
+    /** @return whether doing Related Searches should be part of processing the current request. */
+    boolean doRelatedSearches() {
+        // TODO(donnd): Update this along with crbug.com/1119585.
+        return isProcessingRelatedSearch();
     }
 
     // --------------------------------------------------------------------------------------------

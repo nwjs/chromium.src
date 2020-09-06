@@ -14,9 +14,9 @@ import android.text.style.StyleSpan;
 import android.util.AttributeSet;
 import android.view.View;
 import android.widget.CheckBox;
-import android.widget.LinearLayout;
 import android.widget.RadioGroup;
 import android.widget.RadioGroup.OnCheckedChangeListener;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 import androidx.annotation.Nullable;
@@ -33,7 +33,7 @@ import org.chromium.ui.text.SpanApplier.SpanInfo;
 /**
  * The custom view in the download later dialog.
  */
-public class DownloadLaterDialogView extends LinearLayout implements OnCheckedChangeListener {
+public class DownloadLaterDialogView extends ScrollView implements OnCheckedChangeListener {
     private Controller mController;
 
     private RadioButtonWithDescription mDownloadNow;
@@ -51,13 +51,14 @@ public class DownloadLaterDialogView extends LinearLayout implements OnCheckedCh
                 PropertyModel model, DownloadLaterDialogView view, PropertyKey propertyKey) {
             if (propertyKey == DownloadLaterDialogProperties.CONTROLLER) {
                 view.setController(model.get(DownloadLaterDialogProperties.CONTROLLER));
-            } else if (propertyKey
-                    == DownloadLaterDialogProperties.DOWNLOAD_TIME_INITIAL_SELECTION) {
-                view.setChoice(
-                        model.get(DownloadLaterDialogProperties.DOWNLOAD_TIME_INITIAL_SELECTION));
+            } else if (propertyKey == DownloadLaterDialogProperties.INITIAL_CHOICE) {
+                view.setChoice(model.get(DownloadLaterDialogProperties.INITIAL_CHOICE));
             } else if (propertyKey == DownloadLaterDialogProperties.DONT_SHOW_AGAIN_SELECTION) {
                 view.setCheckbox(
                         model.get(DownloadLaterDialogProperties.DONT_SHOW_AGAIN_SELECTION));
+            } else if (propertyKey == DownloadLaterDialogProperties.DONT_SHOW_AGAIN_DISABLED) {
+                view.setCheckboxEnabled(
+                        !model.get(DownloadLaterDialogProperties.DONT_SHOW_AGAIN_DISABLED));
             } else if (propertyKey == DownloadLaterDialogProperties.LOCATION_TEXT) {
                 view.setShowEditLocation(model.get(DownloadLaterDialogProperties.LOCATION_TEXT));
             }
@@ -124,8 +125,12 @@ public class DownloadLaterDialogView extends LinearLayout implements OnCheckedCh
         mCheckBox.setChecked(checked);
     }
 
+    void setCheckboxEnabled(boolean enabled) {
+        mCheckBox.setEnabled(enabled);
+    }
+
     Integer getPromptStatus() {
-        if (mCheckBox.getVisibility() == View.GONE) return null;
+        if (mCheckBox.getVisibility() == View.GONE || !mCheckBox.isEnabled()) return null;
 
         return mCheckBox.isChecked() ? DownloadLaterPromptStatus.DONT_SHOW
                                      : DownloadLaterPromptStatus.SHOW_PREFERENCE;

@@ -22,8 +22,8 @@
 #include "sandbox/linux/services/namespace_sandbox.h"
 #include "sandbox/linux/suid/client/setuid_sandbox_host.h"
 #include "sandbox/linux/suid/common/sandbox.h"
-#include "services/service_manager/sandbox/linux/sandbox_linux.h"
-#include "services/service_manager/sandbox/switches.h"
+#include "sandbox/policy/linux/sandbox_linux.h"
+#include "sandbox/policy/switches.h"
 
 #include "content/nw/src/common/shell_switches.h"
 namespace content {
@@ -75,7 +75,7 @@ ZygoteHostImpl* ZygoteHostImpl::GetInstance() {
 }
 
 void ZygoteHostImpl::Init(const base::CommandLine& command_line) {
-  if (true || command_line.HasSwitch(service_manager::switches::kNoSandbox)) {
+  if (true || command_line.HasSwitch(sandbox::policy::switches::kNoSandbox)) {
     return;
   }
 
@@ -90,7 +90,7 @@ void ZygoteHostImpl::Init(const base::CommandLine& command_line) {
   gid_t gid = 0;
   if (!sandbox::Credentials::GetRESIds(&uid, &gid) || uid == 0) {
     LOG(ERROR) << "Running as root without --"
-               << service_manager::switches::kNoSandbox
+               << sandbox::policy::switches::kNoSandbox
                << " is not supported. See https://crbug.com/638180.";
     exit(EXIT_FAILURE);
   }
@@ -102,11 +102,11 @@ void ZygoteHostImpl::Init(const base::CommandLine& command_line) {
   }
 
   if (!command_line.HasSwitch(
-          service_manager::switches::kDisableNamespaceSandbox) &&
+          sandbox::policy::switches::kDisableNamespaceSandbox) &&
       sandbox::Credentials::CanCreateProcessInNewUserNS()) {
     use_namespace_sandbox_ = true;
   } else if (!command_line.HasSwitch(
-                 service_manager::switches::kDisableSetuidSandbox) &&
+                 sandbox::policy::switches::kDisableSetuidSandbox) &&
              !sandbox_binary_.empty()) {
     use_suid_sandbox_ = false;
 
@@ -123,7 +123,7 @@ void ZygoteHostImpl::Init(const base::CommandLine& command_line) {
            "developing with the SUID sandbox. "
            "If you want to live dangerously and need an immediate workaround, "
            "you can try using --"
-        << service_manager::switches::kNoSandbox << ".";
+        << sandbox::policy::switches::kNoSandbox << ".";
   }
 }
 
@@ -158,7 +158,7 @@ pid_t ZygoteHostImpl::LaunchZygote(
   options.fds_to_remap.emplace_back(fds[1], kZygoteSocketPairFd);
 
   const bool is_sandboxed_zygote =
-      !cmd_line->HasSwitch(service_manager::switches::kNoZygoteSandbox);
+      !cmd_line->HasSwitch(sandbox::policy::switches::kNoZygoteSandbox);
 
   base::ScopedFD dummy_fd;
   if (is_sandboxed_zygote && use_suid_sandbox_) {
@@ -198,7 +198,7 @@ pid_t ZygoteHostImpl::LaunchZygote(
     CHECK_GT(boot_pid, 1)
         << "Received invalid process ID for zygote; kernel might be too old? "
            "See crbug.com/357670 or try using --"
-        << service_manager::switches::kNoSandbox << " to workaround.";
+        << sandbox::policy::switches::kNoSandbox << " to workaround.";
 
     // Now receive the message that the zygote's ready to go, along with the
     // main zygote process's ID.

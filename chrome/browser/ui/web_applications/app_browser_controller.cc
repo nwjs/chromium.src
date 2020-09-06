@@ -53,6 +53,7 @@
 
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/crostini/crostini_terminal.h"
+#include "chrome/browser/ui/app_list/icon_standardizer.h"
 #endif
 
 namespace {
@@ -381,13 +382,7 @@ void AppBrowserController::DidChangeThemeColor() {
     return;
   last_theme_color_ = theme_color;
   UpdateThemePack();
-  browser_->window()->UpdateFrameColor();
-  if (has_tab_strip_) {
-    // TODO(crbug.com/1020050): Add separate change type for this situation, on
-    // Windows this causes the frame to be recreated which is visually
-    // disruptive.
-    browser_->window()->UserChangedTheme(BrowserThemeChangeType::kBrowserTheme);
-  }
+  browser_->window()->UserChangedTheme(BrowserThemeChangeType::kWebAppTheme);
 }
 
 base::Optional<SkColor> AppBrowserController::GetThemeColor() const {
@@ -477,8 +472,13 @@ void AppBrowserController::OnTabRemoved(content::WebContents* contents) {}
 
 gfx::ImageSkia AppBrowserController::GetFallbackAppIcon() const {
   gfx::ImageSkia page_icon = browser()->GetCurrentPageIcon().AsImageSkia();
-  if (!page_icon.isNull())
+  if (!page_icon.isNull()) {
+#if defined(OS_CHROMEOS)
+    if (base::FeatureList::IsEnabled(features::kAppServiceAdaptiveIcon))
+      return app_list::CreateStandardIconImage(page_icon);
+#endif
     return page_icon;
+  }
 
   // The icon may be loading still. Return a transparent icon rather
   // than using a placeholder to avoid flickering.

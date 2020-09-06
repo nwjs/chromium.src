@@ -53,8 +53,6 @@ const char kConvertedFromUserScript[] = "converted_from_user_script";
 const char kCss[] = "css";
 const char kCtrlKey[] = "ctrlKey";
 const char kCurrentLocale[] = "current_locale";
-const char kDeclarativeNetRequestKey[] = "declarative_net_request";
-const char kDeclarativeRuleResourcesKey[] = "rule_resources";
 const char kDefaultLocale[] = "default_locale";
 const char kDescription[] = "description";
 const char kDevToolsPage[] = "devtools_page";
@@ -113,6 +111,7 @@ const char kLinkedAppIconURL[] = "url";
 const char kLinkedAppIconSize[] = "size";
 const char kManifestVersion[] = "manifest_version";
 const char kMatchAboutBlank[] = "match_about_blank";
+const char kMatchOriginAsFallback[] = "match_origin_as_fallback";
 const char kInMainWorld[] = "in_main_world";
 const char kMatches[] = "matches";
 const char kMinimumChromeVersion[] = "minimum_chrome_version";
@@ -320,6 +319,8 @@ const char kCannotScriptGallery[] =
 const char kCannotScriptNtp[] = "The New Tab Page cannot be scripted.";
 const char kCannotScriptSigninPage[] =
     "The sign-in page cannot be scripted.";
+const char kChromeStyleInvalidForManifestV3[] =
+    "The chrome_style option cannot be used with manifest version 3.";
 const char kChromeVersionTooLow[] =
     "This extension requires * version * or greater.";
 const char kDeclarativeNetRequestPermissionNeeded[] =
@@ -398,10 +399,6 @@ const char kInvalidCss[] =
     "Invalid value for 'content_scripts[*].css[*]'.";
 const char kInvalidCssList[] =
     "Required value 'content_scripts[*].css' is invalid.";
-const char kInvalidDeclarativeNetRequestKey[] = "Invalid value for '*' key";
-const char kInvalidDeclarativeRulesFileKey[] =
-    "Invalid value for '*.*' key. It must be a list containing Ruleset "
-    "dictionaries.";
 const char kInvalidDefaultLocale[] =
     "Invalid value for default locale - locale name must be a string.";
 const char kInvalidDescription[] =
@@ -574,6 +571,8 @@ const char kInvalidMatch[] =
     "Invalid value for 'content_scripts[*].matches[*]': *";
 const char kInvalidMatchAboutBlank[] =
     "Invalid value for 'content_scripts[*].match_about_blank'.";
+const char kInvalidMatchOriginAsFallback[] =
+    "Invalid value for 'content_scripts[*].match_origin_as_fallback'.";
 const char kInvalidInMainWorld[] =
     "Invalid value for 'content_scripts[*].in_main_world'.";
 const char kInvalidMatchCount[] =
@@ -647,8 +646,8 @@ const char kInvalidSandboxedPagesList[] =
 const char kInvalidSandboxedPage[] =
     "Invalid value for 'sandbox.pages[*]'.";
 const char kInvalidSearchEngineMissingKeys[] =
-    "Missing mandatory parameters for "
-    "'chrome_settings_overrides.search_provider'.";
+    "Missing or invalid value for "
+    "'chrome_settings_overrides.search_provider.*.";
 const char kInvalidSearchEngineURL[] =
     "Invalid URL [*] for 'chrome_settings_overrides.search_provider'.";
 const char kInvalidShortName[] =

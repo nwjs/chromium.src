@@ -128,7 +128,8 @@ class DevToolsWindow : public DevToolsUIBindings::Delegate,
   // Updates the WebContents inspected by the DevToolsWindow by reattaching
   // the binding to |new_web_contents|. Called when swapping an outer
   // WebContents with its inner WebContents.
-  void UpdateInspectedWebContents(content::WebContents* new_web_contents);
+  void UpdateInspectedWebContents(content::WebContents* new_web_contents,
+                                  base::OnceCallback<void()> callback);
 
   // Sets closure to be called after load is done. If already loaded, calls
   // closure immediately.
@@ -345,7 +346,7 @@ class DevToolsWindow : public DevToolsUIBindings::Delegate,
       const std::vector<blink::mojom::ColorSuggestionPtr>& suggestions)
       override;
   void RunFileChooser(content::RenderFrameHost* render_frame_host,
-                      std::unique_ptr<content::FileSelectListener> listener,
+                      scoped_refptr<content::FileSelectListener> listener,
                       const blink::mojom::FileChooserParams& params) override;
   bool PreHandleGestureEvent(content::WebContents* source,
                              const blink::WebGestureEvent& event) override;
@@ -387,6 +388,8 @@ class DevToolsWindow : public DevToolsUIBindings::Delegate,
   // Registers a WebContentsModalDialogManager for our WebContents in order to
   // display web modal dialogs triggered by it.
   void RegisterModalDialogManager(Browser* browser);
+
+  void OnReattachMainTargetComplete(base::Value);
 
   std::unique_ptr<ObserverWithAccessor> inspected_contents_observer_;
 
@@ -433,6 +436,8 @@ class DevToolsWindow : public DevToolsUIBindings::Delegate,
   class Throttle;
   Throttle* throttle_ = nullptr;
   bool open_new_window_for_popups_ = false;
+
+  base::OnceCallback<void()> reattach_complete_callback_;
 
   friend class DevToolsEventForwarder;
   DISALLOW_COPY_AND_ASSIGN(DevToolsWindow);

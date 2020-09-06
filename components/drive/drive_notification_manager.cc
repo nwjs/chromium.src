@@ -17,7 +17,6 @@
 #include "components/drive/drive_notification_observer.h"
 #include "components/invalidation/public/invalidation_service.h"
 #include "components/invalidation/public/topic_invalidation_map.h"
-#include "google/cacheinvalidation/types.pb.h"
 
 namespace drive {
 
@@ -123,7 +122,7 @@ void DriveNotificationManager::OnIncomingInvalidation(
 
 std::string DriveNotificationManager::GetOwnerName() const { return "Drive"; }
 bool DriveNotificationManager::IsPublicTopic(const syncer::Topic& topic) const {
-  return base::StringPiece(topic).starts_with(kTeamDriveChangePrefix);
+  return base::StartsWith(topic, kTeamDriveChangePrefix);
 }
 
 void DriveNotificationManager::AddObserver(
@@ -292,7 +291,7 @@ syncer::Topic DriveNotificationManager::GetTeamDriveInvalidationTopic(
 std::string DriveNotificationManager::ExtractTeamDriveId(
     base::StringPiece topic_name) const {
   base::StringPiece prefix = kTeamDriveChangePrefix;
-  if (!topic_name.starts_with(prefix)) {
+  if (!base::StartsWith(topic_name, prefix)) {
     return {};
   }
   return topic_name.substr(prefix.size()).as_string();
