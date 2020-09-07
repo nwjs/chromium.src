@@ -11,7 +11,7 @@
 #include "components/favicon/content/content_favicon_driver.h"
 #include "content/public/browser/render_widget_host.h"
 
-#if defined(OS_MACOSX)
+#if defined(OS_MAC)
 #include "content/nw/src/nw_content_mac.h"
 #endif
 
@@ -738,7 +738,7 @@ void BrowserView::SetShowInTaskbar(bool show) {
     LOG(ERROR) << "Failed to change the show in taskbar attribute";
     return;
   }
-#elif defined(OS_MACOSX)
+#elif defined(OS_MAC)
   NWSetNSWindowShowInTaskbar(browser()->window()->GetNativeWindow(), show);
 #endif
 }
@@ -2262,7 +2262,7 @@ bool BrowserView::GetAcceleratorForCommandId(
 // BrowserView, views::WidgetDelegate implementation:
 
 bool BrowserView::CanResize() const {
-#if defined(OS_MACOSX)
+#if defined(OS_MAC)
   return resizable_;
 #else
   return true;

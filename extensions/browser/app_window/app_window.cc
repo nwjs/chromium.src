@@ -70,7 +70,7 @@
 
 using blink::mojom::ConsoleMessageLevel;
 
-#if defined(OS_MACOSX)
+#if defined(OS_MAC)
 #include "content/public/browser/browser_plugin_guest_manager.h"
 #include "extensions/browser/process_manager.h"
 #endif
@@ -530,7 +530,7 @@ void AppWindow::RequestToLockMouse(WebContents* web_contents,
 
 bool AppWindow::PreHandleGestureEvent(WebContents* source,
                                       const blink::WebGestureEvent& event) {
-#if defined(OS_MACOSX)
+#if defined(OS_MAC)
   // Disable "smart zoom" (double-tap with two fingers on Mac trackpad)
   // for the PDF viewer, otherwise the viewer's controls will be scaled off
   // screen.
@@ -550,7 +550,7 @@ bool AppWindow::PreHandleGestureEvent(WebContents* source,
       }
     }
   }
-#endif  // defined(OS_MACOSX)
+#endif  // defined(OS_MAC)
   return false;
 }
 

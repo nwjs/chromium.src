@@ -16,7 +16,7 @@
 
 #include "content/nw/src/nw_base.h"
 #include "content/nw/src/nw_content.h"
-#if defined(OS_MACOSX)
+#if defined(OS_MAC)
 #include "content/nw/src/nw_content_mac.h"
 #endif
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -713,7 +713,7 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
 
   if (kiosk) {
     frame->SetFullscreen(true);
-#if defined(OS_MACOSX)
+#if defined(OS_MAC)
     NWSetNSAppKioskOptions();
 #endif
   }

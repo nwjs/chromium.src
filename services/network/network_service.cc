@@ -403,7 +403,7 @@ NetworkService::~NetworkService() {
 void NetworkService::SetAdditionalTrustAnchors(const net::CertificateList& anchors) {
   for (NetworkContext* nc : network_contexts_)
     nc->SetTrustAnchors(anchors);
-#if defined(OS_MACOSX)
+#if defined(OS_MAC)
   net::TestRootCerts* certs = net::TestRootCerts::GetInstance();
   for (size_t i = 0; i < anchors.size(); i++)
     certs->Add(anchors[i].get());

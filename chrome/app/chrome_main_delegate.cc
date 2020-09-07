@@ -183,7 +183,7 @@
 #include "third_party/zlib/google/zip_reader.h"
 #include "base/native_library.h"
 #include "base/strings/utf_string_conversions.h"
-#if defined(OS_MACOSX)
+#if defined(OS_MAC)
 #include "base/mac/bundle_locations.h"
 #include "base/strings/sys_string_conversions.h"
 #endif
@@ -715,7 +715,7 @@ bool ChromeMainDelegate::BasicStartupComplete(int* exit_code) {
     if (!command_line.HasSwitch(switches::kProcessType) && fp.FinalExtension() == FILE_PATH_LITERAL(".js") &&
         base::PathExists(fp) && !base::DirectoryExists(fp) && !reader.Open(fp)) {
       base::NativeLibraryLoadError error;
-#if defined(OS_MACOSX)
+#if defined(OS_MAC)
       base::FilePath node_dll_path = base::mac::FrameworkBundlePath().Append(base::FilePath::FromUTF8Unsafe(base::GetNativeLibraryName("node")));
       base::ScopedCFTypeRef<CFStringRef> natives_file_name(base::SysUTF8ToCFStringRef("v8_context_snapshot.bin"));
       std::string blob_path = base::mac::PathForFrameworkBundleResource(natives_file_name).AsUTF8Unsafe();
@@ -726,7 +726,7 @@ bool ChromeMainDelegate::BasicStartupComplete(int* exit_code) {
       if(!node_dll)
         LOG(FATAL) << "Failed to load node library (error: " << error.ToString() << ")";
       else {
-#if defined(OS_MACOSX)
+#if defined(OS_MAC)
         g_set_blob_path_fn = (SetBlobPathFn)base::GetFunctionPointerFromNativeLibrary(node_dll, "g_set_blob_path");
         g_set_blob_path_fn(blob_path.c_str());
 #endif
