@@ -24,7 +24,7 @@
 #include "content/public/common/content_switches.h"
 #include "services/service_manager/embedder/switches.h"
 
-#if defined(OS_POSIX) && !defined(OS_MAC)
+#if defined(OS_POSIX)
 #include "components/upload_list/crash_upload_list.h"
 #include "components/version_info/version_info_values.h"
 #endif
@@ -132,11 +132,9 @@ void ChromeCrashReporterClient::GetProductNameAndVersion(
   *channel = chrome::GetChannelName();
 }
 
-#if !defined(OS_MACOSX)
 base::FilePath ChromeCrashReporterClient::GetReporterLogFilename() {
   return base::FilePath(CrashUploadList::kReporterLogFilename);
 }
-#endif
 #endif
 
 bool ChromeCrashReporterClient::GetCrashDumpLocation(

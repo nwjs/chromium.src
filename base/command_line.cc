@@ -368,7 +368,7 @@ void CommandLine::InitFromArgv(int argc,
 }
 
 void CommandLine::InitFromArgv(const StringVector& argv) {
-#if !defined(OS_MACOSX)
+#if !defined(OS_MAC)
   original_argv_ = argv;
 #else
   for (size_t index = 0; index < argv.size(); ++index) {
@@ -567,7 +567,7 @@ void CommandLine::AppendArgNative(const CommandLine::StringType& value) {
   argv_.push_back(value);
 }
 
-#if defined(OS_MACOSX)
+#if defined(OS_MAC)
 void CommandLine::FixOrigArgv4Finder(const CommandLine::StringType& value) {
   original_argv_.push_back(value);
 }

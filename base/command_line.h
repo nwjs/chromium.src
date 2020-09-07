@@ -195,7 +195,7 @@ class BASE_EXPORT CommandLine {
   void AppendArgPath(const FilePath& value);
   void AppendArgNative(const StringType& value);
 
-#if defined(OS_MACOSX)
+#if defined(OS_MAC)
   void FixOrigArgv4Finder(const StringType& value);
 #endif
 

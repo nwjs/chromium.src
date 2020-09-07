@@ -88,7 +88,7 @@ class CrashReporterClient {
   virtual int GetResultCodeRespawnFailed();
 #endif
 
-#if defined(OS_POSIX) && !defined(OS_MAC)
+#if defined(OS_POSIX)
   // Returns a textual description of the product type and version to include
   // in the crash report. Neither out parameter should be set to NULL.
   // TODO(jperaza): Remove the 2-parameter overload of this method once all

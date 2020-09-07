@@ -92,7 +92,7 @@ int CrashReporterClient::GetResultCodeRespawnFailed() {
 }
 #endif
 
-#if defined(OS_POSIX) && !defined(OS_MAC)
+#if defined(OS_POSIX)
 void CrashReporterClient::GetProductNameAndVersion(const char** product_name,
                                                    const char** version) {
 }

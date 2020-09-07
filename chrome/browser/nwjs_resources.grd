@@ -8,13 +8,17 @@
   </outputs>
   <release seq="1">
     <structures>
+      <if expr="is_win or is_macosx or desktop_linux or chromeos">
+        <structure name="IDR_SIGNIN_ICONS_JS" file="resources\signin\signin_icons.js" type="chrome_html" />
+        <structure name="IDR_SIGNIN_SHARED_CSS_JS" file="${root_gen_dir}\chrome\browser\resources\signin\signin_shared_css.js" use_base_dir="false" preprocess="true" type="chrome_html" />
+        <structure name="IDR_SIGNIN_VARS_CSS_JS" file="${root_gen_dir}\chrome\browser\resources\signin\signin_vars_css.js" use_base_dir="false" type="chrome_html" />
+      </if>
       <if expr="enable_app_list">
         <structure name="IDR_APP_LIST_START_PAGE_CSS" file="resources\empty.css" flattenhtml="true" type="chrome_html" />
         <structure name="IDR_APP_LIST_START_PAGE_HTML" file="resources\empty.html" flattenhtml="true" type="chrome_html" />
         <structure name="IDR_APP_LIST_START_PAGE_JS" file="resources\empty.js" flattenhtml="true" type="chrome_html" />
       </if>
       <if expr="not is_android">
-        <structure name="IDR_SIGNIN_SHARED_CSS_JS" file="${root_gen_dir}\chrome\browser\resources\signin\signin_shared_css.js" use_base_dir="false" preprocess="true" type="chrome_html" />
         <structure name="IDR_DOWNLOADS_CSS" file="resources\empty.css" flattenhtml="true" type="chrome_html" />
         <structure name="IDR_DOWNLOADS_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="chrome_html" />
       </if>
@@ -94,6 +98,7 @@
         <part file="resources/local_ntp/icons.grdp" />
       </if>
 
+      <include name="IDR_DEVTOOLS_DISCOVERY_PAGE_HTML" file="devtools\frontend\devtools_discovery_page.html" type="BINDATA"/>
       <include name="IDR_ACCESSIBILITY_HTML" file="resources\accessibility\accessibility.html" flattenhtml="true" allowexternalscript="true" compress="gzip" type="BINDATA" />
       <include name="IDR_ACCESSIBILITY_CSS" file="resources\accessibility\accessibility.css" compress="gzip" type="BINDATA" />
       <include name="IDR_ACCESSIBILITY_JS" file="resources\accessibility\accessibility.js" flattenhtml="true" compress="gzip" type="BINDATA" />
@@ -138,6 +143,13 @@
         <include name="IDR_COPRESENCE_HTML" file="resources\empty.html" type="BINDATA" />
         <include name="IDR_COPRESENCE_JS" file="resources\empty.js" type="BINDATA" />
       </if>
+      <if expr="not is_android">
+        <!-- Page not available for guest. -->
+        <include name="IDR_PAGE_NOT_AVAILABLE_FOR_GUEST_APP_HTML" file="resources\page_not_available_for_guest\app.html" type="BINDATA" />
+        <include name="IDR_INLINE_LOGIN_HTML" file="resources\inline_login\inline_login.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
+        <include name="IDR_INLINE_LOGIN_APP_JS" file="${root_gen_dir}\chrome\browser\resources\inline_login\inline_login_app.js" use_base_dir="false" type ="BINDATA" preprocess="true" />
+        <include name="IDR_INLINE_LOGIN_BROWSER_PROXY_JS" file="resources\inline_login\inline_login_browser_proxy.js" type ="BINDATA"/>
+      </if>
       <if expr="enable_printing">
         <include name="IDR_CLOUDPRINT_MANIFEST" file="resources\empty.json" type="BINDATA" />
       </if>
@@ -145,8 +157,11 @@
       <include name="IDR_CRASHES_JS" file="resources\empty.js" type="BINDATA" />
       <include name="IDR_CREDITS_HTML" file="resources\empty.html" type="BINDATA" />
       <include name="IDR_CREDITS_JS" file="resources\empty.js" type="BINDATA" />
-      <if expr="not is_ios">
-        <include name="IDR_DEVTOOLS_DISCOVERY_PAGE_HTML" file="devtools\frontend\devtools_discovery_page.html" type="BINDATA"/>
+      <if expr="enable_service_discovery">
+        <include name="IDR_LOCAL_DISCOVERY_HTML" file="resources\local_discovery\local_discovery.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
+        <include name="IDR_LOCAL_DISCOVERY_WARNING_HTML" file="resources\local_discovery\local_discovery_warning.html" type="BINDATA" />
+        <include name="IDR_LOCAL_DISCOVERY_CSS" file="resources\local_discovery\local_discovery.css" flattenhtml="true" type="BINDATA" />
+        <include name="IDR_LOCAL_DISCOVERY_JS" file="resources\local_discovery\local_discovery.js" flattenhtml="true" type="BINDATA" />
       </if>
       <include name="IDR_DOMAIN_RELIABILITY_INTERNALS_HTML" file="resources\empty.html" type="BINDATA" />
       <include name="IDR_DOMAIN_RELIABILITY_INTERNALS_CSS" file="resources\empty.css" type="BINDATA" />
@@ -156,10 +171,6 @@
       <include name="IDR_DOWNLOAD_INTERNALS_JS" file="resources\download_internals\download_internals.js" type="BINDATA" compress="gzip" />
       <include name="IDR_DOWNLOAD_INTERNALS_BROWSER_PROXY_JS" file="resources\download_internals\download_internals_browser_proxy.js" type="BINDATA" compress="gzip" />
       <include name="IDR_DOWNLOAD_INTERNALS_VISUALS_JS" file="resources\download_internals\download_internals_visuals.js" type="BINDATA" compress="gzip" />
-      <include name="IDR_NOTIFICATIONS_INTERNALS_HTML" file="resources\notifications_internals\notifications_internals.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" compress="gzip" />
-      <include name="IDR_NOTIFICATIONS_INTERNALS_CSS" file="resources\notifications_internals\notifications_internals.css" type="BINDATA" compress="gzip" />
-      <include name="IDR_NOTIFICATIONS_INTERNALS_JS" file="resources\notifications_internals\notifications_internals.js" type="BINDATA" compress="gzip" />
-      <include name="IDR_NOTIFICATIONS_INTERNALS_BROWSER_PROXY_JS" file="resources\notifications_internals\notifications_internals_browser_proxy.js" type="BINDATA" compress="gzip" />
       <if expr="enable_extensions">
         <include name="IDR_EXTENSION_COMMAND_LIST_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" />
         <include name="IDR_EXTENSION_LIST_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" />
@@ -194,6 +205,21 @@
           </else>
         </if>
       </if>
+      <if expr="is_win or is_macosx or desktop_linux">
+        <include name="IDR_SIGNIN_DICE_WEB_INTERCEPT_HTML" file="resources\signin\dice_web_signin_intercept\dice_web_signin_intercept.html" type="BINDATA" />
+        <include name="IDR_SIGNIN_DICE_WEB_INTERCEPT_APP_JS" file="${root_gen_dir}\chrome\browser\resources\signin\dice_web_signin_intercept\dice_web_signin_intercept_app.js" use_base_dir="false" type="BINDATA" />
+        <include name="IDR_SIGNIN_DICE_WEB_INTERCEPT_BROWSER_PROXY_JS" file="resources/signin/dice_web_signin_intercept/dice_web_signin_intercept_browser_proxy.js" type="BINDATA" />
+        <include name="IDR_SIGNIN_EMAIL_CONFIRMATION_HTML" file="resources\signin\signin_email_confirmation\signin_email_confirmation.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
+        <include name="IDR_SIGNIN_EMAIL_CONFIRMATION_APP_JS" file="${root_gen_dir}\chrome\browser\resources\signin\signin_email_confirmation\signin_email_confirmation_app.js" use_base_dir="false" preprocess="true" type="BINDATA" />
+        <include name="IDR_SIGNIN_ERROR_HTML" file="resources\signin\signin_error\signin_error.html" type="BINDATA" />
+        <include name="IDR_SIGNIN_ERROR_JS" file="resources\signin\signin_error\signin_error.js" type="BINDATA" />
+        <include name="IDR_SIGNIN_ERROR_APP_JS" file="${root_gen_dir}\chrome\browser\resources\signin\signin_error\signin_error_app.js" use_base_dir="false" preprocess="true" type="BINDATA" />
+        <include name="IDR_SIGNIN_REAUTH_HTML" file="resources\signin\signin_reauth\signin_reauth.html" type="BINDATA" />
+        <include name="IDR_SIGNIN_REAUTH_APP_JS" file="${root_gen_dir}\chrome\browser\resources\signin\signin_reauth\signin_reauth_app.js" use_base_dir="false" preprocess="true" type="BINDATA" />
+        <include name="IDR_SIGNIN_REAUTH_BROWSER_PROXY_JS" file="resources/signin/signin_reauth/signin_reauth_browser_proxy.js" type="BINDATA" />
+        <include name="IDR_SIGNIN_REAUTH_IMAGES_ACCOUNT_PASSWORDS_REAUTH_ILLUSTRATION_SVG" file="resources\signin\signin_reauth\images\account_passwords_reauth_illustration.svg" type="BINDATA" />
+        <include name="IDR_SIGNIN_REAUTH_IMAGES_ACCOUNT_PASSWORDS_REAUTH_ILLUSTRATION_DARK_SVG" file="resources\signin\signin_reauth\images\account_passwords_reauth_illustration_dark.svg" type="BINDATA" />
+      </if>
       <include name="IDR_FEEDBACK_MANIFEST" file="resources\empty.json" type="BINDATA" />
       <include name="IDR_SUPERVISED_USER_INTERNALS_HTML" file="resources\empty.html" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_SUPERVISED_USER_INTERNALS_CSS" file="resources\empty.css" type="BINDATA" />
@@ -215,11 +241,7 @@
       <include name="IDR_HISTORY_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_HISTORY_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" />
       <include name="IDR_OTHER_DEVICES_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" />
-      <include name="IDR_CHROME_URLS_DISABLED_PAGE_HTML" file="resources\chrome_urls_disabled_page\app.html" type="BINDATA" />
       <include name="IDR_IDENTITY_API_SCOPE_APPROVAL_MANIFEST" file="resources\identity_scope_approval_dialog\manifest.json" type="BINDATA" />
-      <include name="IDR_INLINE_LOGIN_HTML" file="resources\inline_login\inline_login.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
-      <include name="IDR_INLINE_LOGIN_CSS" file="resources\inline_login\inline_login.css" flattenhtml="true" type="BINDATA" />
-      <include name="IDR_INLINE_LOGIN_JS" file="resources\inline_login\inline_login.js" flattenhtml="true" type="BINDATA" />
       <include name="IDR_GAIA_AUTH_AUTHENTICATOR_JS" file="resources\gaia_auth_host\authenticator.js" flattenhtml="true" type="BINDATA" />
       <include name="IDR_INSPECT_CSS" file="resources\empty.css" flattenhtml="true" type="BINDATA" />
       <include name="IDR_INSPECT_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
@@ -242,14 +264,6 @@
         <include name="IDR_NOTIFICATION_1LINE_HTML" file="resources\empty.html" flattenhtml="true" type="BINDATA" />
         <include name="IDR_NOTIFICATION_2LINE_HTML" file="resources\empty.html" flattenhtml="true" type="BINDATA" />
         <include name="IDR_NOTIFICATION_ICON_HTML" file="resources\empty.html" type="BINDATA" />
-      </if>
-
-      <if expr="enable_service_discovery">
-        <include name="IDR_LOCAL_DISCOVERY_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
-        <include name="IDR_LOCAL_DISCOVERY_CSS" file="resources\empty.css" type="BINDATA" />
-        <include name="IDR_LOCAL_DISCOVERY_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" />
-        <include name="IDR_LOCAL_DISCOVERY_DEVICE_PNG" file="resources\empty.png" type="BINDATA" />
-        <include name="IDR_LOCAL_DISCOVERY_PRINTER_PNG" file="resources\empty.png" type="BINDATA" />
       </if>
 
       <include name="IDR_LOCAL_NTP_FAST_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
@@ -340,18 +354,6 @@
         <include name="IDR_GOOGLE_NOW_MANIFEST" file="resources\empty.json" type="BINDATA" />
       </if>
       <include name="IDR_URL_MOJO_JS" file="resources\empty.js" type="BINDATA" compress="gzip" />
-      <if expr="is_win or is_macosx or desktop_linux">
-        <include name="IDR_SIGNIN_EMAIL_CONFIRMATION_HTML" file="resources\signin\signin_email_confirmation\signin_email_confirmation.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
-        <include name="IDR_SIGNIN_EMAIL_CONFIRMATION_APP_JS" file="${root_gen_dir}\chrome\browser\resources\signin\signin_email_confirmation\signin_email_confirmation_app.js" use_base_dir="false" preprocess="true" type="BINDATA" />
-        <include name="IDR_SIGNIN_ERROR_HTML" file="resources\signin\signin_error\signin_error.html" type="BINDATA" />
-        <include name="IDR_SIGNIN_ERROR_JS" file="resources\signin\signin_error\signin_error.js" type="BINDATA" />
-        <include name="IDR_SIGNIN_ERROR_APP_JS" file="${root_gen_dir}\chrome\browser\resources\signin\signin_error\signin_error_app.js" use_base_dir="false" preprocess="true" type="BINDATA" />
-        <include name="IDR_SIGNIN_REAUTH_HTML" file="resources\signin\signin_reauth\signin_reauth.html" type="BINDATA" />
-        <include name="IDR_SIGNIN_REAUTH_APP_JS" file="${root_gen_dir}\chrome\browser\resources\signin\signin_reauth\signin_reauth_app.js" use_base_dir="false" preprocess="true" type="BINDATA" />
-        <include name="IDR_SIGNIN_REAUTH_BROWSER_PROXY_JS" file="resources/signin/signin_reauth/signin_reauth_browser_proxy.js" type="BINDATA" />
-        <include name="IDR_SIGNIN_REAUTH_IMAGES_ACCOUNT_PASSWORDS_REAUTH_ILLUSTRATION_SVG" file="resources\signin\signin_reauth\images\account_passwords_reauth_illustration.svg" type="BINDATA" />
-        <include name="IDR_SIGNIN_REAUTH_IMAGES_ACCOUNT_PASSWORDS_REAUTH_ILLUSTRATION_DARK_SVG" file="resources\signin\signin_reauth\images\account_passwords_reauth_illustration_dark.svg" type="BINDATA" />
-      </if>
       <include name="IDR_UBER_HTML" file="resources\empty.html" flattenhtml="true" type="BINDATA" />
       <include name="IDR_UBER_JS" file="resources\empty.js" type="BINDATA" />
       <include name="IDR_UBER_FRAME_HTML" file="resources\empty.html" flattenhtml="true" type="BINDATA" />
@@ -415,9 +417,6 @@
         <include name="IDR_GESTURE_CONFIG_CSS" file="resources\empty.css" type="BINDATA" />
         <include name="IDR_GESTURE_CONFIG_HTML" file="resources\empty.html" type="BINDATA" />
         <include name="IDR_GESTURE_CONFIG_JS" file="resources\empty.js" type="BINDATA" />
-      </if>
-      <if expr="not is_android and not is_ios and not chromeos">
-        <include name="IDR_PAGE_NOT_AVAILABLE_FOR_GUEST_APP_HTML" file="resources\page_not_available_for_guest\app.html" type="BINDATA" />
       </if>
       <include name="IDR_RECENTLY_CLOSED_WINDOW" file="resources\empty.png" type="BINDATA" />
       <if expr="not is_android">
