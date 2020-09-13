@@ -4349,10 +4349,10 @@ void RenderFrameHostImpl::EnterFullscreen(
   // TODO(lanwei): Investigate whether we can terminate the renderer when the
   // user activation has already been consumed.
   if (!delegate_->HasSeenRecentScreenOrientationChange() &&
-      !HasSeenRecentXrOverlaySetup() &&
+      !HasSeenRecentXrOverlaySetup() && (!nodejs_ &&
       !GetContentClient()
            ->browser()
-           ->CanEnterFullscreenWithoutUserActivation()) {
+           ->CanEnterFullscreenWithoutUserActivation())) {
     bool is_consumed = frame_tree_node_->UpdateUserActivationState(
         blink::mojom::UserActivationUpdateType::kConsumeTransientActivation);
     if (!is_consumed) {
