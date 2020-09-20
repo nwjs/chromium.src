@@ -72,7 +72,7 @@ class JamfWriterUnitTests(writer_unittest_common.WriterUnittestCommon):
                 'type': policy_type
             }
         },
-        'title': 'com.google.chrome'
+        'title': 'com.google.chrome.ios'
     }
     if initial_type == 'int-enum' or initial_type == 'string-enum':
       output['properties'][policy_name]['enum'] = [1]
@@ -228,7 +228,7 @@ class JamfWriterUnitTests(writer_unittest_common.WriterUnittestCommon):
                 }
             }
         },
-        'title': 'com.google.chrome'
+        'title': 'com.google.chrome.ios'
     }
 
     for i in range(0, 5):

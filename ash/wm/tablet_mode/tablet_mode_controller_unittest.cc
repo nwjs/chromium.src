@@ -1826,7 +1826,12 @@ TEST_P(TabletModeControllerScreenshotTest, ScreenshotVisibility) {
   ui::LayerAnimator* old_animator = window2->layer()->GetAnimator();
   ASSERT_FALSE(old_animator->is_animating());
   { LayerStartAnimationWaiter waiter(old_animator); }
-  EXPECT_TRUE(IsScreenshotShown());
+  // On 85, shelf config will not update until tablet mode transition finishes
+  // if shelf control buttons are shown in tablet mode and the display size is
+  // small enough not to cause shelf dense state change for tablet mode - in
+  // that case, the screenshot will be destroyed due to the work area updated
+  // caused by the shelf configuration change.
+  EXPECT_EQ(!ShelfConfig::Get()->shelf_controls_shown(), IsScreenshotShown());
   EXPECT_TRUE(IsShelfOpaque());
 
   // Tests that the screenshot is destroyed after the window is done animating.
