@@ -173,6 +173,7 @@ void ChromeNativeAppWindowViews::InitializeDefaultWindow(
       widget()->CenterWindow(window_bounds.size());
     else
       widget()->SetBounds(window_bounds);
+    }
   } else {
     if (create_params.position == AppWindow::POS_CENTER)
       widget()->CenterWindow(gfx::Size(640, 480));
