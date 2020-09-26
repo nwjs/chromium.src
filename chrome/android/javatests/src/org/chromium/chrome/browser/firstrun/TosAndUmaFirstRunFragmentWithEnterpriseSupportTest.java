@@ -14,6 +14,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.support.test.InstrumentationRegistry;
 import android.view.View;
+import android.widget.CheckBox;
 
 import androidx.annotation.IntDef;
 import androidx.test.filters.SmallTest;
@@ -31,6 +32,7 @@ import org.mockito.MockitoAnnotations;
 
 import org.chromium.base.Callback;
 import org.chromium.base.CommandLine;
+import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.customtabs.CustomTabsTestUtils;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
@@ -85,6 +87,7 @@ public class TosAndUmaFirstRunFragmentWithEnterpriseSupportTest {
     private View mTosText;
     private View mAcceptButton;
     private View mLargeSpinner;
+    private CheckBox mUmaCheckBox;
 
     @Before
     public void setUp() {
@@ -94,6 +97,7 @@ public class TosAndUmaFirstRunFragmentWithEnterpriseSupportTest {
                 CommandLine.getInstance().hasSwitch(ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE));
 
         FirstRunAppRestrictionInfo.setInitializedInstanceForTest(mMockAppRestrictionInfo);
+        ToSAndUMAFirstRunFragment.setShowUmaCheckBoxForTesting(true);
         PolicyServiceFactory.setPolicyServiceForTest(mPolicyService);
         FirstRunUtilsJni.TEST_HOOKS.setInstanceForTesting(mFirstRunUtils);
         EnterpriseInfo.setInstanceForTest(mMockEnterpriseInfo);
@@ -131,6 +135,7 @@ public class TosAndUmaFirstRunFragmentWithEnterpriseSupportTest {
     @After
     public void tearDown() {
         FirstRunAppRestrictionInfo.setInitializedInstanceForTest(null);
+        ToSAndUMAFirstRunFragment.setShowUmaCheckBoxForTesting(false);
         PolicyServiceFactory.setPolicyServiceForTest(null);
         FirstRunUtilsJni.TEST_HOOKS.setInstanceForTesting(mFirstRunUtils);
         EnterpriseInfo.setInstanceForTest(null);
@@ -143,36 +148,71 @@ public class TosAndUmaFirstRunFragmentWithEnterpriseSupportTest {
         launchFirstRunThroughCustomTab();
         assertUIState(FragmentState.LOADING);
 
-        setAppRestrictiosnMockInitialized(false);
+        setAppRestrictionsMockInitialized(false);
         assertUIState(FragmentState.NO_POLICY);
+
+        Assert.assertEquals(1,
+                RecordHistogram.getHistogramTotalCountForTesting(
+                        "MobileFre.CctTos.LoadingDuration"));
     }
 
     @Test
     @SmallTest
+    // TODO(crbug.com/1120859): Test the policy check when native initializes before inflation.
+    // This will be possible when FragmentScenario is available.
     public void testDialogEnabled() {
-        setAppRestrictiosnMockInitialized(true);
+        setAppRestrictionsMockInitialized(true);
         launchFirstRunThroughCustomTab();
         assertUIState(FragmentState.LOADING);
 
         setPolicyServiceMockInitializedWithDialogEnabled(true);
         assertUIState(FragmentState.NO_POLICY);
+        Assert.assertEquals(1,
+                RecordHistogram.getHistogramTotalCountForTesting(
+                        "MobileFre.CctTos.LoadingDuration"));
+        Assert.assertEquals(1,
+                RecordHistogram.getHistogramTotalCountForTesting(
+                        "MobileFre.CctTos.EnterprisePolicyCheckSpeed.SlowerThanInflation"));
     }
 
     @Test
     @SmallTest
     public void testNotOwnedDevice() {
-        setAppRestrictiosnMockInitialized(true);
+        setAppRestrictionsMockInitialized(true);
         launchFirstRunThroughCustomTab();
         assertUIState(FragmentState.LOADING);
 
         setEnterpriseInfoInitializedWithDeviceOwner(false);
         assertUIState(FragmentState.NO_POLICY);
+        Assert.assertEquals(1,
+                RecordHistogram.getHistogramTotalCountForTesting(
+                        "MobileFre.CctTos.LoadingDuration"));
+        Assert.assertEquals(1,
+                RecordHistogram.getHistogramTotalCountForTesting(
+                        "MobileFre.CctTos.IsDeviceOwnedCheckSpeed.SlowerThanInflation"));
+    }
+
+    @Test
+    @SmallTest
+    public void testNotOwnedDevice_beforeInflation() {
+        setAppRestrictionsMockInitialized(true);
+        setEnterpriseInfoInitializedWithDeviceOwner(false);
+
+        launchFirstRunThroughCustomTab();
+        assertUIState(FragmentState.NO_POLICY);
+
+        Assert.assertEquals(0,
+                RecordHistogram.getHistogramTotalCountForTesting(
+                        "MobileFre.CctTos.LoadingDuration"));
+        Assert.assertEquals(1,
+                RecordHistogram.getHistogramTotalCountForTesting(
+                        "MobileFre.CctTos.IsDeviceOwnedCheckSpeed.FasterThanInflation"));
     }
 
     @Test
     @SmallTest
     public void testSkip_DeviceOwnedThenDialogPolicy() {
-        setAppRestrictiosnMockInitialized(true);
+        setAppRestrictionsMockInitialized(true);
         launchFirstRunThroughCustomTab();
         assertUIState(FragmentState.LOADING);
 
@@ -181,12 +221,22 @@ public class TosAndUmaFirstRunFragmentWithEnterpriseSupportTest {
 
         setPolicyServiceMockInitializedWithDialogEnabled(false);
         assertUIState(FragmentState.HAS_POLICY);
+
+        Assert.assertEquals(1,
+                RecordHistogram.getHistogramTotalCountForTesting(
+                        "MobileFre.CctTos.LoadingDuration"));
+        Assert.assertEquals(1,
+                RecordHistogram.getHistogramTotalCountForTesting(
+                        "MobileFre.CctTos.IsDeviceOwnedCheckSpeed.SlowerThanInflation"));
+        Assert.assertEquals(1,
+                RecordHistogram.getHistogramTotalCountForTesting(
+                        "MobileFre.CctTos.IsDeviceOwnedCheckSpeed.SlowerThanInflation"));
     }
 
     @Test
     @SmallTest
     public void testSkip_DialogPolicyThenDeviceOwned() {
-        setAppRestrictiosnMockInitialized(true);
+        setAppRestrictionsMockInitialized(true);
         launchFirstRunThroughCustomTab();
         assertUIState(FragmentState.LOADING);
 
@@ -195,6 +245,16 @@ public class TosAndUmaFirstRunFragmentWithEnterpriseSupportTest {
 
         setEnterpriseInfoInitializedWithDeviceOwner(true);
         assertUIState(FragmentState.HAS_POLICY);
+
+        Assert.assertEquals(1,
+                RecordHistogram.getHistogramTotalCountForTesting(
+                        "MobileFre.CctTos.LoadingDuration"));
+        Assert.assertEquals(1,
+                RecordHistogram.getHistogramTotalCountForTesting(
+                        "MobileFre.CctTos.IsDeviceOwnedCheckSpeed.SlowerThanInflation"));
+        Assert.assertEquals(1,
+                RecordHistogram.getHistogramTotalCountForTesting(
+                        "MobileFre.CctTos.IsDeviceOwnedCheckSpeed.SlowerThanInflation"));
     }
 
     @Test
@@ -211,8 +271,32 @@ public class TosAndUmaFirstRunFragmentWithEnterpriseSupportTest {
         assertUIState(FragmentState.HAS_POLICY);
 
         // assertUIState will verify that exit was not called a second time.
-        setAppRestrictiosnMockInitialized(true);
+        setAppRestrictionsMockInitialized(true);
         assertUIState(FragmentState.HAS_POLICY);
+
+        Assert.assertEquals(1,
+                RecordHistogram.getHistogramTotalCountForTesting(
+                        "MobileFre.CctTos.LoadingDuration"));
+        Assert.assertEquals(1,
+                RecordHistogram.getHistogramTotalCountForTesting(
+                        "MobileFre.CctTos.IsDeviceOwnedCheckSpeed.SlowerThanInflation"));
+        Assert.assertEquals(1,
+                RecordHistogram.getHistogramTotalCountForTesting(
+                        "MobileFre.CctTos.IsDeviceOwnedCheckSpeed.SlowerThanInflation"));
+    }
+
+    @Test
+    @SmallTest
+    public void testNullOwnedState() {
+        setAppRestrictionsMockInitialized(true);
+        setPolicyServiceMockInitializedWithDialogEnabled(false);
+        launchFirstRunThroughCustomTab();
+        assertUIState(FragmentState.LOADING);
+
+        // Null means loading checking if the device is owned failed. This should be treated the
+        // same as not being owned, and no skipping should occur.
+        setEnterpriseInfoInitializedWithOwnedState(null);
+        assertUIState(FragmentState.NO_POLICY);
     }
 
     /**
@@ -249,6 +333,7 @@ public class TosAndUmaFirstRunFragmentWithEnterpriseSupportTest {
         waitUntilNativeLoaded();
 
         mTosText = mActivity.findViewById(R.id.tos_and_privacy);
+        mUmaCheckBox = mActivity.findViewById(R.id.send_report_checkbox);
         mAcceptButton = mActivity.findViewById(R.id.tos_and_privacy);
         mLargeSpinner = mActivity.findViewById(R.id.progress_spinner_large);
     }
@@ -265,8 +350,12 @@ public class TosAndUmaFirstRunFragmentWithEnterpriseSupportTest {
 
         Assert.assertEquals("Visibility of ToS text is different than the test setting.",
                 tosVisibility, mTosText.getVisibility());
+        Assert.assertEquals("Visibility of Uma Check Box is different than the test setting.",
+                tosVisibility, mUmaCheckBox.getVisibility());
         Assert.assertEquals("Visibility of accept button is different than the test setting.",
                 tosVisibility, mAcceptButton.getVisibility());
+
+        Assert.assertTrue("Uma Check Box should be checked.", mUmaCheckBox.isChecked());
 
         int expectedExitCount = fragmentState == FragmentState.HAS_POLICY ? 1 : 0;
         Assert.assertEquals(expectedExitCount, mExitCount);
@@ -287,7 +376,7 @@ public class TosAndUmaFirstRunFragmentWithEnterpriseSupportTest {
                 .getHasAppRestriction(any());
     }
 
-    private void setAppRestrictiosnMockInitialized(boolean hasAppRestrictons) {
+    private void setAppRestrictionsMockInitialized(boolean hasAppRestrictons) {
         Mockito.doAnswer(invocation -> {
                    Callback<Boolean> callback = invocation.getArgument(0);
                    callback.onResult(hasAppRestrictons);
@@ -341,7 +430,11 @@ public class TosAndUmaFirstRunFragmentWithEnterpriseSupportTest {
     }
 
     private void setEnterpriseInfoInitializedWithDeviceOwner(boolean hasDeviceOwner) {
-        EnterpriseInfo.OwnedState ownedState = new EnterpriseInfo.OwnedState(hasDeviceOwner, false);
+        setEnterpriseInfoInitializedWithOwnedState(
+                new EnterpriseInfo.OwnedState(hasDeviceOwner, false));
+    }
+
+    private void setEnterpriseInfoInitializedWithOwnedState(EnterpriseInfo.OwnedState ownedState) {
         Mockito.doAnswer(invocation -> {
                    Callback<EnterpriseInfo.OwnedState> callback = invocation.getArgument(0);
                    callback.onResult(ownedState);

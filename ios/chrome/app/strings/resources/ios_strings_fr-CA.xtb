@@ -22,7 +22,6 @@
 <translation id="1176932207622159128">Enreg. image imposs.</translation>
 <translation id="1180526666083833456">Profitez de la synchronisation et d'une expérience personnalisée sur tous vos appareils.</translation>
 <translation id="1181037720776840403">Supprimer</translation>
-<translation id="1185569544548277362">Nouveau : Vous pouvez faire de Chrome votre navigateur par défaut. <ph name="BEGIN_LINK" />Ouvrir les paramètres<ph name="END_LINK" /></translation>
 <translation id="1207113853726624428">Nouvelle recherche</translation>
 <translation id="1209206284964581585">Masquer pour l'instant</translation>
 <translation id="1219674500290482172">Échec de connexion à Internet.</translation>
@@ -96,6 +95,7 @@
 <translation id="1952728750904661634">Se connecter avec un compte géré</translation>
 <translation id="1974060860693918893">Options avancées</translation>
 <translation id="1989112275319619282">Parcourir</translation>
+<translation id="1992734845128748707">Changer le navigateur par défaut…</translation>
 <translation id="2015722694326466240">Pour afficher vos mots de passe, vous devez d'abord définir un mot de passe sur votre appareil.</translation>
 <translation id="2073572773299281212">Actif il y a <ph name="DAYS" /> jours</translation>
 <translation id="2074131957428911366">Vous pouvez toujours choisir les éléments à synchroniser dans les <ph name="BEGIN_LINK" />paramètres<ph name="END_LINK" />.</translation>
@@ -245,6 +245,7 @@ Lorsque vous êtes en mode de navigation privée, les sites ne peuvent pas utili
 <translation id="3638472932233958418">Précharger pages Web</translation>
 <translation id="3670030362669914947">Numéro</translation>
 <translation id="3691593122358196899">Marqué comme favori dans <ph name="FOLDER_TITLE" /></translation>
+<translation id="3709582977625132201">Marquer comme non lu</translation>
 <translation id="3740397331642243698">Ouvre les URL entrées dans Google Chrome en mode de navigation privée.</translation>
 <translation id="3771033907050503522">Onglets nav. priv.</translation>
 <translation id="3775743491439407556">La synchronisation ne fonctionne pas</translation>
@@ -333,6 +334,7 @@ Pour modifier ce paramètre, <ph name="BEGIN_LINK" />réinitialisez la synchroni
 <translation id="4818522717893377262">Ajouter une langue…</translation>
 <translation id="481968316161811770">Témoins, données de sites</translation>
 <translation id="4826218269716039351">Bloquer les témoins tiers</translation>
+<translation id="48274138579728272">Marquer comme lu</translation>
 <translation id="4833786495304741580">Envoie automatiquement des statistiques d'utilisation et des rapports d'erreur à Google.</translation>
 <translation id="4840495572919996524">Vos favoris, votre historique, vos mots de passe et d'autres paramètres ne seront plus synchronisés avec votre compte Google.</translation>
 <translation id="4854345657858711387">Définir un mot de passe</translation>
@@ -383,6 +385,7 @@ Pour modifier ce paramètre, <ph name="BEGIN_LINK" />réinitialisez la synchroni
 <translation id="5433691172869980887">Nom d'utilisateur copié</translation>
 <translation id="54401264925851789">Information sur la sécurité de la page</translation>
 <translation id="5443952882982198570">Cartes de crédit</translation>
+<translation id="5457226814769348910">Ouvrir la version hors ligne</translation>
 <translation id="5457907402803865181">Une erreur s'est produite lors de la synchronisation des mots de passe.</translation>
 <translation id="5489208564673669003">Pour gérer les témoins pour tous les sites, reportez-vous à <ph name="BEGIN_LINK" />Paramètres des témoins<ph name="END_LINK" />.</translation>
 <translation id="5490005495580364134">Bloquer tous les témoins (non recommandé)</translation>
@@ -555,6 +558,7 @@ Les sites ne peuvent pas utiliser de témoins pour voir votre activité de navig
 <translation id="7189598951263744875">Partager…</translation>
 <translation id="7192050974311852563">Commencer la journalisation</translation>
 <translation id="7203585745079012652">Réponses vocales</translation>
+<translation id="7207383424303353046">Nouveau : Ouvrez automatiquement les sites dans Chrome en le définissant comme application de navigation par défaut.<ph name="BEGIN_LINK" />Accéder aux paramètres<ph name="END_LINK" /></translation>
 <translation id="721597782417389033">Pseudo de carte incorrect</translation>
 <translation id="7265758999917665941">Jamais pour ce site</translation>
 <translation id="7272437679830969316">Impossible de vérifier votre identité. Le mot de passe n'a pas été copié.</translation>

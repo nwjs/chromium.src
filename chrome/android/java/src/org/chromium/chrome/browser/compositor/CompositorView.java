@@ -343,7 +343,18 @@ public class CompositorView
      * @param enabled Whether to enter or leave overlay immersive ar mode.
      */
     public void setOverlayImmersiveArMode(boolean enabled) {
-        setOverlayVideoMode(enabled);
+        // In SurfaceControl mode, we don't need to switch surfaces for the compositor, we can
+        // continue using its already-translucent surface. (The ArImmersiveOverlay has its own
+        // separate opaque surface which is used for displaying the camera image and WebGL drawn
+        // content. The compositor surface appears on top of that as an overlay.)
+        // TODO(https://crbug.com/1122103): revisit once the stale-ChromeChildSurface issue is
+        // fixed.
+        if (!canUseSurfaceControl()
+                || mCompositorSurfaceManager.getFormatOfOwnedSurface() != PixelFormat.TRANSLUCENT) {
+            // If SurfaceControl is off, or if we haven't started using it yet, switch the
+            // compositor to a translucent surface, same as overlay video mode.
+            setOverlayVideoMode(enabled);
+        }
         CompositorViewJni.get().setOverlayImmersiveArMode(
                 mNativeCompositorView, CompositorView.this, enabled);
     }

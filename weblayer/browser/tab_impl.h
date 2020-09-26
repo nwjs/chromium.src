@@ -193,6 +193,9 @@ class TabImpl : public Tab,
       const base::android::JavaParamRef<jstring>& js_object_name);
   jboolean CanTranslate(JNIEnv* env);
   void ShowTranslateUi(JNIEnv* env);
+  void SetTranslateTargetLanguage(
+      JNIEnv* env,
+      const base::android::JavaParamRef<jstring>& translate_target_lang);
 #endif
 
   ErrorPageDelegate* error_page_delegate() { return error_page_delegate_; }
@@ -345,7 +348,7 @@ class TabImpl : public Tab,
   // Returns the FindTabHelper for the page, or null if none exists.
   find_in_page::FindTabHelper* GetFindTabHelper();
 
-  sessions::SessionTabHelperDelegate* GetSessionServiceTabHelperDelegate(
+  static sessions::SessionTabHelperDelegate* GetSessionServiceTabHelperDelegate(
       content::WebContents* web_contents);
 
 #if defined(OS_ANDROID)

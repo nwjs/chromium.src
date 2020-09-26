@@ -18,6 +18,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.core.content.res.ResourcesCompat;
 import androidx.core.graphics.drawable.DrawableCompat;
 import androidx.core.view.ViewCompat;
@@ -40,6 +41,7 @@ import org.chromium.ui.widget.ViewLookupCachingFrameLayout;
  * This class supports both full and partial updates to the {@link TabGridViewHolder}.
  */
 class TabGridViewBinder {
+    private static TabListMediator.ThumbnailFetcher sThumbnailFetcherForTesting;
     /**
      * Bind a closable tab to a view.
      * @param model The model to bind.
@@ -108,7 +110,6 @@ class TabGridViewBinder {
         } else if (TabProperties.IS_SELECTED == propertyKey) {
             int selectedTabBackground =
                     model.get(TabProperties.SELECTED_TAB_BACKGROUND_DRAWABLE_ID);
-            view.setSelected(model.get(TabProperties.IS_SELECTED));
             if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.LOLLIPOP_MR1) {
                 if (model.get(TabProperties.IS_SELECTED)) {
                     view.fastFindViewById(R.id.selected_view_below_lollipop)
@@ -188,6 +189,7 @@ class TabGridViewBinder {
         } else if (CARD_ALPHA == propertyKey) {
             view.setAlpha(model.get(CARD_ALPHA));
         } else if (TabProperties.TITLE == propertyKey) {
+            if (TabUiFeatureUtilities.isLaunchPolishEnabled()) return;
             String title = model.get(TabProperties.TITLE);
             view.fastFindViewById(R.id.action_button)
                     .setContentDescription(view.getResources().getString(
@@ -229,6 +231,13 @@ class TabGridViewBinder {
             int iconDrawableId = model.get(TabProperties.SEARCH_CHIP_ICON_DRAWABLE_ID);
             boolean shouldTint = iconDrawableId != R.drawable.ic_logo_googleg_24dp;
             searchButton.setIcon(iconDrawableId, shouldTint);
+        } else if (TabProperties.IS_SELECTED == propertyKey) {
+            view.setSelected(model.get(TabProperties.IS_SELECTED));
+        } else if (TabUiFeatureUtilities.isLaunchPolishEnabled()
+                && TabProperties.CLOSE_BUTTON_DESCRIPTION_STRING == propertyKey) {
+            view.fastFindViewById(R.id.action_button)
+                    .setContentDescription(
+                            model.get(TabProperties.CLOSE_BUTTON_DESCRIPTION_STRING));
         }
     }
 
@@ -264,11 +273,6 @@ class TabGridViewBinder {
                 model.get(TabProperties.SELECTABLE_TAB_CLICKED_LISTENER).run(tabId);
                 return ((SelectableTabGridView) view).onLongClick(view);
             });
-        } else if (TabProperties.TITLE == propertyKey) {
-            String title = model.get(TabProperties.TITLE);
-            view.fastFindViewById(R.id.action_button)
-                    .setContentDescription(view.getResources().getString(
-                            R.string.accessibility_tabstrip_btn_close_tab, title));
         } else if (TabProperties.TAB_SELECTION_DELEGATE == propertyKey) {
             assert model.get(TabProperties.TAB_SELECTION_DELEGATE) != null;
 
@@ -295,10 +299,19 @@ class TabGridViewBinder {
                 thumbnail.setImageBitmap(result);
             }
         };
-        fetcher.fetch(callback);
+        if (TabUiFeatureUtilities.isLaunchPolishEnabled() && sThumbnailFetcherForTesting != null) {
+            sThumbnailFetcherForTesting.fetch(callback);
+        } else {
+            fetcher.fetch(callback);
+        }
     }
 
     private static void releaseThumbnail(ImageView thumbnail) {
+        if (TabUiFeatureUtilities.isLaunchPolishEnabled()) {
+            thumbnail.setImageDrawable(null);
+            return;
+        }
+
         if (TabUiFeatureUtilities.isTabThumbnailAspectRatioNotOne()) {
             float expectedThumbnailAspectRatio =
                     (float) ChromeFeatureList.getFieldTrialParamByFeatureAsDouble(
@@ -350,5 +363,10 @@ class TabGridViewBinder {
                     TabUiColorProvider.getActionButtonTintList(
                             actionButton.getContext(), isIncognito));
         }
+    }
+
+    @VisibleForTesting
+    static void setThumbnailFeatureForTesting(TabListMediator.ThumbnailFetcher fetcher) {
+        sThumbnailFetcherForTesting = fetcher;
     }
 }

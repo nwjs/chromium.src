@@ -363,12 +363,6 @@ extern const char kEnableDeferAllScriptDescription[];
 extern const char kEnableDeferAllScriptWithoutOptimizationHintsName[];
 extern const char kEnableDeferAllScriptWithoutOptimizationHintsDescription[];
 
-extern const char kEnableEduCoexistenceName[];
-extern const char kEnableEduCoexistenceDescription[];
-
-extern const char kEnableEduCoexistenceConsentLogName[];
-extern const char kEnableEduCoexistenceConsentLogDescription[];
-
 extern const char kEnableSaveDataName[];
 extern const char kEnableSaveDataDescription[];
 
@@ -405,6 +399,9 @@ extern const char kDesktopPWAsLocalUpdatingDescription[];
 
 extern const char kDesktopPWAsLocalUpdatingThrottlePersistenceName[];
 extern const char kDesktopPWAsLocalUpdatingThrottlePersistenceDescription[];
+
+extern const char kDesktopPWAsMigrationUserDisplayModeCleanUpName[];
+extern const char kDesktopPWAsMigrationUserDisplayModeCleanUpDescription[];
 
 extern const char kDesktopPWAsAppIconShortcutsMenuName[];
 extern const char kDesktopPWAsAppIconShortcutsMenuDescription[];

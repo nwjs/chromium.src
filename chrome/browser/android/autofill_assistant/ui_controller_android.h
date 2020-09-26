@@ -12,6 +12,7 @@
 #include "base/android/scoped_java_ref.h"
 #include "base/macros.h"
 #include "base/timer/timer.h"
+#include "chrome/browser/android/autofill_assistant/assistant_bottom_bar_delegate.h"
 #include "chrome/browser/android/autofill_assistant/assistant_collect_user_data_delegate.h"
 #include "chrome/browser/android/autofill_assistant/assistant_form_delegate.h"
 #include "chrome/browser/android/autofill_assistant/assistant_generic_ui_delegate.h"
@@ -65,6 +66,10 @@ class UiControllerAndroid : public ControllerObserver {
   void Attach(content::WebContents* web_contents,
               Client* client,
               UiDelegate* ui_delegate);
+
+  // Detaches the UI from |ui_delegate_|. It will stop receiving notifications
+  // from the delegate until it is attached again.
+  void Detach();
 
   // Returns true if the UI is attached to a delegate.
   bool IsAttached() { return ui_delegate_ != nullptr; }
@@ -161,6 +166,9 @@ class UiControllerAndroid : public ControllerObserver {
                                 int choice_index,
                                 bool selected);
 
+  // Called by AssistantBottomBarNativeDelegate:
+  bool OnBackButtonClicked();
+
   // Called by Java.
   void SnackbarResult(JNIEnv* env,
                       const base::android::JavaParamRef<jobject>& obj,
@@ -189,11 +197,14 @@ class UiControllerAndroid : public ControllerObserver {
       JNIEnv* env,
       const base::android::JavaParamRef<jobject>& jcaller,
       jboolean visible);
-  bool OnBackButtonClicked(JNIEnv* env,
-                           const base::android::JavaParamRef<jobject>& jcaller);
   void SetVisible(JNIEnv* env,
                   const base::android::JavaParamRef<jobject>& jcaller,
                   jboolean visible);
+  void OnTabSwitched(JNIEnv* env,
+                     const base::android::JavaParamRef<jobject>& jcaller,
+                     jint state);
+  void OnTabSelected(JNIEnv* env,
+                     const base::android::JavaParamRef<jobject>& jcaller);
 
  private:
   // A pointer to the client. nullptr until Attach() is called.
@@ -206,6 +217,7 @@ class UiControllerAndroid : public ControllerObserver {
   AssistantCollectUserDataDelegate collect_user_data_delegate_;
   AssistantFormDelegate form_delegate_;
   AssistantGenericUiDelegate generic_ui_delegate_;
+  AssistantBottomBarDelegate bottom_bar_delegate_;
 
   // What to do if undo is not pressed on the current snackbar.
   base::OnceCallback<void()> snackbar_action_;
@@ -254,6 +266,9 @@ class UiControllerAndroid : public ControllerObserver {
 
   // Makes the whole of AA invisible or visible again.
   void SetVisible(bool visible);
+
+  // Restore the UI for the current UIDelegate.
+  void RestoreUi();
 
   // Timer started when reaching the STOPPED state. It allows keeping the UI up
   // for a few seconds before it destroys itself.

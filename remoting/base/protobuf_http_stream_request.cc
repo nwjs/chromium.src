@@ -15,6 +15,10 @@
 
 namespace remoting {
 
+// static
+constexpr base::TimeDelta
+    ProtobufHttpStreamRequest::kStreamReadyTimeoutDuration;
+
 ProtobufHttpStreamRequest::ProtobufHttpStreamRequest(
     std::unique_ptr<ProtobufHttpRequestConfig> config)
     : ProtobufHttpRequestBase(std::move(config)) {}
@@ -54,7 +58,8 @@ void ProtobufHttpStreamRequest::OnStreamClosed(
 }
 
 void ProtobufHttpStreamRequest::OnAuthFailed(const ProtobufHttpStatus& status) {
-  OnStreamClosed(status);
+  // Can't call OnStreamClosed here since it invokes the |invalidator_|.
+  std::move(stream_closed_callback_).Run(status);
 }
 
 void ProtobufHttpStreamRequest::StartRequestInternal(
@@ -63,6 +68,11 @@ void ProtobufHttpStreamRequest::StartRequestInternal(
   DCHECK(stream_ready_callback_);
   DCHECK(stream_closed_callback_);
   DCHECK(message_callback_);
+  DCHECK(!stream_ready_timeout_timer_.IsRunning());
+
+  stream_ready_timeout_timer_.Start(
+      FROM_HERE, kStreamReadyTimeoutDuration, this,
+      &ProtobufHttpStreamRequest::OnStreamReadyTimeout);
 
   // Safe to use unretained, as callbacks won't be called after |stream_parser_|
   // is deleted.
@@ -80,6 +90,10 @@ base::TimeDelta ProtobufHttpStreamRequest::GetRequestTimeoutDuration() const {
 
 void ProtobufHttpStreamRequest::OnDataReceived(base::StringPiece string_piece,
                                                base::OnceClosure resume) {
+  if (stream_ready_timeout_timer_.IsRunning()) {
+    stream_ready_timeout_timer_.Stop();
+  }
+
   if (stream_ready_callback_) {
     std::move(stream_ready_callback_).Run();
   }
@@ -96,6 +110,11 @@ void ProtobufHttpStreamRequest::OnComplete(bool success) {
 
 void ProtobufHttpStreamRequest::OnRetry(base::OnceClosure start_retry) {
   NOTIMPLEMENTED();
+}
+
+void ProtobufHttpStreamRequest::OnStreamReadyTimeout() {
+  OnStreamClosed(ProtobufHttpStatus(ProtobufHttpStatus::Code::DEADLINE_EXCEEDED,
+                                    "Stream connection failed: timeout"));
 }
 
 }  // namespace remoting

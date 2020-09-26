@@ -472,12 +472,11 @@ void RenderViewHostImpl::EnterBackForwardCache() {
   frame_tree->UnregisterRenderViewHost(this);
   is_in_back_forward_cache_ = true;
   page_lifecycle_state_manager_->SetIsInBackForwardCache(
-      is_in_back_forward_cache_,
-      /*navigation_start=*/base::nullopt);
+      is_in_back_forward_cache_, /*page_restore_params=*/nullptr);
 }
 
 void RenderViewHostImpl::LeaveBackForwardCache(
-    base::TimeTicks navigation_start) {
+    blink::mojom::PageRestoreParamsPtr page_restore_params) {
   TRACE_EVENT0("navigation", "RenderViewHostImpl::LeaveBackForwardCache");
   FrameTree* frame_tree = GetDelegate()->GetFrameTree();
   // At this point, the frames |this| RenderViewHostImpl belongs to are
@@ -485,7 +484,7 @@ void RenderViewHostImpl::LeaveBackForwardCache(
   frame_tree->RegisterRenderViewHost(this);
   is_in_back_forward_cache_ = false;
   page_lifecycle_state_manager_->SetIsInBackForwardCache(
-      is_in_back_forward_cache_, navigation_start);
+      is_in_back_forward_cache_, std::move(page_restore_params));
 }
 
 void RenderViewHostImpl::SetVisibility(
@@ -898,6 +897,16 @@ void RenderViewHostImpl::OnThemeColorChanged(
     return;
   main_frame_theme_color_ = theme_color;
   delegate_->OnThemeColorChanged(this);
+}
+
+void RenderViewHostImpl::DidChangeBackgroundColor(
+    RenderFrameHostImpl* rfh,
+    const SkColor& background_color) {
+  if (GetMainFrame() != rfh)
+    return;
+
+  main_frame_background_color_ = background_color;
+  delegate_->OnBackgroundColorChanged(this);
 }
 
 void RenderViewHostImpl::SetContentsMimeType(const std::string mime_type) {

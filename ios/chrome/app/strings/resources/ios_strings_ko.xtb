@@ -22,7 +22,6 @@
 <translation id="1176932207622159128">이미지를 저장할 수 없음</translation>
 <translation id="1180526666083833456">모든 기기를 동기화 및 맞춤설정하세요.</translation>
 <translation id="1181037720776840403">삭제</translation>
-<translation id="1185569544548277362">새 기능: Chrome을 기본 브라우저로 설정할 수 있습니다. <ph name="BEGIN_LINK" />설정 열기<ph name="END_LINK" /></translation>
 <translation id="1207113853726624428">새 검색</translation>
 <translation id="1209206284964581585">지금 숨기기</translation>
 <translation id="1219674500290482172">인터넷에 연결할 수 없습니다.</translation>
@@ -96,6 +95,7 @@
 <translation id="1952728750904661634">관리 계정으로 로그인</translation>
 <translation id="1974060860693918893">고급</translation>
 <translation id="1989112275319619282">찾아보기</translation>
+<translation id="1992734845128748707">기본 브라우저 변경…</translation>
 <translation id="2015722694326466240">비밀번호를 보려면 먼저 기기에 비밀번호를 설정해야 합니다.</translation>
 <translation id="2073572773299281212"><ph name="DAYS" />일 전 사용됨</translation>
 <translation id="2074131957428911366">언제든지 <ph name="BEGIN_LINK" />설정<ph name="END_LINK" />에서 동기화할 항목을 선택할 수 있습니다.</translation>
@@ -245,6 +245,7 @@
 <translation id="3638472932233958418">웹페이지 미리 로드하기</translation>
 <translation id="3670030362669914947">번호</translation>
 <translation id="3691593122358196899">북마크를 <ph name="FOLDER_TITLE" />에 추가함</translation>
+<translation id="3709582977625132201">읽지않음으로 표시</translation>
 <translation id="3740397331642243698">Chrome에서 시크릿 모드로 입력된 URL 열기</translation>
 <translation id="3771033907050503522">시크릿 탭</translation>
 <translation id="3775743491439407556">동기화가 작동하지 않음</translation>
@@ -333,6 +334,7 @@
 <translation id="4818522717893377262">언어 추가...</translation>
 <translation id="481968316161811770">쿠키, 사이트 데이터</translation>
 <translation id="4826218269716039351">제3자 차단</translation>
+<translation id="48274138579728272">읽음으로 표시</translation>
 <translation id="4833786495304741580">사용 통계 및 비정상 종료 보고서를 Google에 자동으로 전송합니다.</translation>
 <translation id="4840495572919996524">북마크, 방문 기록, 비밀번호 등이 더 이상 Google 계정과 동기화되지 않습니다.</translation>
 <translation id="4854345657858711387">비밀번호 설정</translation>
@@ -383,6 +385,7 @@
 <translation id="5433691172869980887">사용자 이름 복사됨</translation>
 <translation id="54401264925851789">페이지 보안 정보</translation>
 <translation id="5443952882982198570">신용카드</translation>
+<translation id="5457226814769348910">오프라인 버전 열기</translation>
 <translation id="5457907402803865181">비밀번호 동기화 중에 오류가 발생했습니다.</translation>
 <translation id="5489208564673669003">모든 사이트의 쿠키를 관리하려면 <ph name="BEGIN_LINK" />쿠키 설정<ph name="END_LINK" />을 참조하세요.</translation>
 <translation id="5490005495580364134">모든 쿠키 차단(권장되지 않음)</translation>
@@ -555,6 +558,7 @@
 <translation id="7189598951263744875">공유...</translation>
 <translation id="7192050974311852563">로깅 시작</translation>
 <translation id="7203585745079012652">음성 응답</translation>
+<translation id="7207383424303353046">새로운 기능: 사이트가 자동으로 Chrome에서 열리도록 Chrome을 기본 브라우저 앱으로 설정하세요. <ph name="BEGIN_LINK" />설정 열기<ph name="END_LINK" /></translation>
 <translation id="721597782417389033">잘못된 카드 닉네임</translation>
 <translation id="7265758999917665941">이 사이트 제외</translation>
 <translation id="7272437679830969316">신원을 인증할 수 없습니다. 비밀번호가 복사되지 않았습니다.</translation>

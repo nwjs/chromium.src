@@ -339,6 +339,7 @@ extern const char kDeviceLoginScreenWebUsbAllowDevicesForUrls[];
 extern const char kUpdateRequiredTimerStartTime[];
 extern const char kUpdateRequiredWarningPeriod[];
 extern const char kSystemProxyUserTrafficHostAndPort[];
+extern const char kEduCoexistenceArcMigrationCompleted[];
 #endif  // defined(OS_CHROMEOS)
 extern const char kShowHomeButton[];
 extern const char kSpeechRecognitionFilterProfanities[];
@@ -646,6 +647,7 @@ extern const char kWebAppsDailyMetrics[];
 extern const char kWebAppsDailyMetricsDate[];
 extern const char kWebAppsExtensionIDs[];
 extern const char kWebAppsPreferences[];
+extern const char kWebAppsUserDisplayModeCleanedUp[];
 extern const char kSystemWebAppLastUpdateVersion[];
 extern const char kSystemWebAppLastInstalledLocale[];
 extern const char kSystemWebAppInstallFailureCount[];

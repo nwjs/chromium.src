@@ -22,7 +22,6 @@
 <translation id="1176932207622159128">تصویر کو محفوظ نہیں کر سکتے ہیں</translation>
 <translation id="1180526666083833456">سبھی آلات پر مطابقت پذیری اور ذاتی نوعیت سازی کریں۔</translation>
 <translation id="1181037720776840403">ہٹائیں</translation>
-<translation id="1185569544548277362">‏نیا: آپ Chrome کو اپنا ڈیفالٹ بنا سکتے ہیں۔ <ph name="BEGIN_LINK" />ترتیبات کھولیں<ph name="END_LINK" /></translation>
 <translation id="1207113853726624428">نئی تلاش</translation>
 <translation id="1209206284964581585">ابھی کیلئے چھپائیں</translation>
 <translation id="1219674500290482172">انٹرنیٹ سے منسلک ہونے سے قاصر ہے۔</translation>
@@ -96,6 +95,7 @@
 <translation id="1952728750904661634">نظم کردہ اکاؤنٹ کے ساتھ سائن ان کریں</translation>
 <translation id="1974060860693918893">جدید ترین</translation>
 <translation id="1989112275319619282">براؤز کریں</translation>
+<translation id="1992734845128748707">ڈیفالٹ براؤزر کو تبدیل کریں…</translation>
 <translation id="2015722694326466240">پاسورڈز دیکھنے کے لیے، آپ کو اپنے آلے پر پہلے پاس کوڈ سیٹ کرنا چاہئے۔</translation>
 <translation id="2073572773299281212"><ph name="DAYS" /> دن پہلے فعال تھا</translation>
 <translation id="2074131957428911366">آپ <ph name="BEGIN_LINK" />ترتیبات<ph name="END_LINK" /> میں کسی بھی وقت اس بات کا انتخاب کر سکتے ہیں کہ کس چیز کی مطابقت پذیری کرنی ہے۔</translation>
@@ -245,6 +245,7 @@
 <translation id="3638472932233958418">ویب صفحات کو پیشگی لوڈ کریں</translation>
 <translation id="3670030362669914947">نمبر</translation>
 <translation id="3691593122358196899"><ph name="FOLDER_TITLE" /> میں بُک مارک کردہ</translation>
+<translation id="3709582977625132201">بغیر پڑھا ہوا کے بطور نشان زد کریں</translation>
 <translation id="3740397331642243698">‏درج کردہ URLs کو Google Chrome میں پوشیدگی میں کھولتا ہے۔</translation>
 <translation id="3771033907050503522">پوشیدگی ٹیبز</translation>
 <translation id="3775743491439407556">مطابقت پذیری کام نہیں کر رہی ہے</translation>
@@ -333,6 +334,7 @@
 <translation id="4818522717893377262">زبان شامل کریں...</translation>
 <translation id="481968316161811770">کوکیز، سائٹ کا ڈیٹا</translation>
 <translation id="4826218269716039351">فریق ثالث مسدود کریں</translation>
+<translation id="48274138579728272">پڑھا ہوا کے بطور نشان زد کریں</translation>
 <translation id="4833786495304741580">‏Google کو خودکار طور پر استعمال کے اعداد و شمار اور کریش رپورٹس بھیجتی ہے۔</translation>
 <translation id="4840495572919996524">‏آپ کے بُک مارکس، سرگزشت، پاس ورڈز وغیرہ کی اب آپ کے Google اکاؤنٹ کے ساتھ مطابقت پذیری نہیں کی جائے گی۔</translation>
 <translation id="4854345657858711387">ایک پاس کوڈ سیٹ کریں</translation>
@@ -383,6 +385,7 @@
 <translation id="5433691172869980887">صارف نام کاپی ہو گیا</translation>
 <translation id="54401264925851789">صفحہ کی سیکیورٹی کی معلومات</translation>
 <translation id="5443952882982198570">کریڈٹ کارڈز</translation>
+<translation id="5457226814769348910">آف لائن ورژن کھولیں</translation>
 <translation id="5457907402803865181">پاس ورڈز کی مطابقت پذیری کرنے میں خرابی۔</translation>
 <translation id="5489208564673669003">سبھی سائٹس کی خاطر کوکیز کا نظم کرنے کے لیے، <ph name="BEGIN_LINK" />کوکی کی ترتیبات<ph name="END_LINK" /> دیکھیں۔</translation>
 <translation id="5490005495580364134">سبھی کوکیز مسدود کریں (تجویز نہیں کی جاتی)</translation>
@@ -555,6 +558,7 @@ Handoff ترتیبات کے عام سیکشن میں بھی فعال ہونی ض
 <translation id="7189598951263744875">اشتراک کریں…</translation>
 <translation id="7192050974311852563">لاگ کرنا شروع کریں</translation>
 <translation id="7203585745079012652">جوابات دوبارہ بولیں</translation>
+<translation id="7207383424303353046">‏نیا: Chrome کو اپنی ڈیفالٹ براؤزر ایپ بنا کر سائٹس کو اس میں خودکار طور پر کھولیں۔ <ph name="BEGIN_LINK" />ترتیبات کھولیں<ph name="END_LINK" /></translation>
 <translation id="721597782417389033">کارڈ کا غلط عرفی نام</translation>
 <translation id="7265758999917665941">اس سائٹ کیلئے کبھی نہیں</translation>
 <translation id="7272437679830969316">آپ کی شناخت کی توثیق نہیں کی جا سکتی۔ پاسورڈ کاپی نہیں ہوا۔</translation>

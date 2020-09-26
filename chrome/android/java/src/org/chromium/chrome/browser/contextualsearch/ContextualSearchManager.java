@@ -12,6 +12,7 @@ import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.view.ViewTreeObserver.OnGlobalFocusChangeListener;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
@@ -33,7 +34,6 @@ import org.chromium.chrome.browser.contextualsearch.ContextualSearchFieldTrial.C
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchInternalStateController.InternalState;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchSelectionController.SelectionType;
 import org.chromium.chrome.browser.contextualsearch.ResolvedSearchTerm.CardTag;
-import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.fullscreen.FullscreenOptions;
 import org.chromium.chrome.browser.gsa.GSAContextDisplaySelection;
@@ -54,10 +54,6 @@ import org.chromium.components.external_intents.ExternalNavigationHandler;
 import org.chromium.components.external_intents.ExternalNavigationHandler.OverrideUrlLoadingResult;
 import org.chromium.components.external_intents.ExternalNavigationParams;
 import org.chromium.components.external_intents.RedirectHandler;
-import org.chromium.components.feature_engagement.EventConstants;
-import org.chromium.components.feature_engagement.FeatureConstants;
-import org.chromium.components.feature_engagement.Tracker;
-import org.chromium.components.feature_engagement.TriggerState;
 import org.chromium.components.navigation_interception.NavigationParams;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.user_prefs.UserPrefs;
@@ -133,17 +129,18 @@ public class ContextualSearchManager
      */
     private final ContextualSearchInteractionRecorder mInteractionRecorder;
 
+    @VisibleForTesting
+    protected final ContextualSearchTranslation mTranslateController;
     private final ContextualSearchSelectionClient mContextualSearchSelectionClient;
+    private final ContextualSearchIPH mInProductHelp;
 
     private final ScrimCoordinator mScrimCoordinator;
 
     private ContextualSearchSelectionController mSelectionController;
     private ContextualSearchNetworkCommunicator mNetworkCommunicator;
+    @NonNull
     private ContextualSearchPolicy mPolicy;
     private ContextualSearchInternalStateController mInternalStateController;
-
-    @VisibleForTesting
-    protected ContextualSearchTranslation mTranslateController;
 
     // The Overlay panel.
     private ContextualSearchPanel mSearchPanel;
@@ -156,7 +153,6 @@ public class ContextualSearchManager
     private OverlayPanelContentViewDelegate mSearchContentViewDelegate;
     private TabModelSelectorTabModelObserver mTabModelObserver;
     private TabModelSelectorTabObserver mTabModelSelectorTabObserver;
-    private ContextualSearchIPH mInProductHelp;
 
     private boolean mDidStartLoadingResolvedSearchRequest;
     private long mLoadedSearchUrlTimeMs;
@@ -412,7 +408,7 @@ public class ContextualSearchManager
 
         mSearchRequest = null;
 
-        mInProductHelp.dismiss();
+        mInProductHelp.onCloseContextualSearch();
 
         if (mIsShowingPromo && !mDidLogPromoOutcome && mSearchPanel.wasPromoInteractive()) {
             ContextualSearchUma.logPromoOutcome(mWasActivatedByTap, mIsMandatoryPromo);
@@ -465,6 +461,7 @@ public class ContextualSearchManager
         if (canResolve && mPolicy.shouldPreviousGestureResolve()) {
             // For a resolving gestures we'll figure out translation need after the Resolve.
         } else if (!TextUtils.isEmpty(selection)) {
+            // Build the literal search request for the selection.
             boolean shouldPrefetch = mPolicy.shouldPrefetchSearchResult();
             mSearchRequest = new ContextualSearchRequest(selection, shouldPrefetch);
             mTranslateController.forceAutoDetectTranslateUnlessDisabled(mSearchRequest);
@@ -492,19 +489,8 @@ public class ContextualSearchManager
         assert mSelectionController.getSelectionType() != SelectionType.UNDETERMINED;
         mWasActivatedByTap = mSelectionController.getSelectionType() == SelectionType.TAP;
 
-        Tab tab = mActivity.getActivityTab();
-        Tracker tracker =
-                TrackerFactory.getTrackerForProfile(Profile.fromWebContents(tab.getWebContents()));
-        tracker.notifyEvent(mWasActivatedByTap
-                        ? EventConstants.CONTEXTUAL_SEARCH_TRIGGERED_BY_TAP
-                        : EventConstants.CONTEXTUAL_SEARCH_TRIGGERED_BY_LONGPRESS);
-
-        // Log whether IPH for tapping has been shown before.
-        if (mWasActivatedByTap) {
-            ContextualSearchUma.logTapIPH(
-                    tracker.getTriggerState(FeatureConstants.CONTEXTUAL_SEARCH_PROMOTE_TAP_FEATURE)
-                    == TriggerState.HAS_BEEN_DISPLAYED);
-        }
+        mInProductHelp.onSearchPanelShown(mWasActivatedByTap,
+                Profile.fromWebContents(mActivity.getActivityTab().getWebContents()));
     }
 
     @Override
@@ -729,9 +715,6 @@ public class ContextualSearchManager
         mReceivedContextualCardsEntityData = !quickActionShown && receivedCaptionOrThumbnail;
 
         if (mReceivedContextualCardsEntityData) {
-            Tracker tracker =
-                    TrackerFactory.getTrackerForProfile(Profile.getLastUsedRegularProfile());
-            tracker.notifyEvent(EventConstants.CONTEXTUAL_SEARCH_ENTITY_RESULT);
             mInProductHelp.onEntityDataReceived(
                     mWasActivatedByTap, Profile.getLastUsedRegularProfile());
         }
@@ -1165,6 +1148,10 @@ public class ContextualSearchManager
         }
     }
 
+    // ============================================================================================
+    // ContextualSearchManagementDelegate Overrides
+    // ============================================================================================
+
     @Override
     public void logCurrentState() {
         if (ContextualSearchFieldTrial.isEnabled()) mPolicy.logCurrentState();
@@ -1268,8 +1255,14 @@ public class ContextualSearchManager
 
     @Override
     public void onPanelFinishedShowing() {
-        mInProductHelp.onPanelFinishedShowing(
-                mWasActivatedByTap, Profile.getLastUsedRegularProfile());
+        Profile profile = Profile.getLastUsedRegularProfile();
+        mInProductHelp.onPanelFinishedShowing(mWasActivatedByTap, profile);
+        // Try to figure out the language of the selection and show an IPH if a translation
+        // is needed.
+        if (mContext != null && mPolicy.isUserUndecided()
+                && mTranslateController.needsTranslation(mContext.getDetectedLanguage())) {
+            mInProductHelp.onTranslationNeeded(profile);
+        }
     }
 
     @Override
@@ -1280,6 +1273,11 @@ public class ContextualSearchManager
     @Override
     public ScrimCoordinator getScrimCoordinator() {
         return mScrimCoordinator;
+    }
+
+    @Override
+    public void onPromoOptIn() {
+        mInProductHelp.doUserOptedInNotifications(Profile.getLastUsedRegularProfile());
     }
 
     /** @return The {@link SelectionClient} used by Contextual Search. */

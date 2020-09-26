@@ -22,7 +22,6 @@
 <translation id="1176932207622159128">Imazhi nuk mund të ruhet</translation>
 <translation id="1180526666083833456">Sinkronizo e personalizo përmes pajisjeve.</translation>
 <translation id="1181037720776840403">Hiq</translation>
-<translation id="1185569544548277362">E re: Mund ta bësh Chrome shfletuesin tënd të parazgjedhur. <ph name="BEGIN_LINK" />Hap "Cilësimet"<ph name="END_LINK" /></translation>
 <translation id="1207113853726624428">Kërkim i ri</translation>
 <translation id="1209206284964581585">Fshih për momentin</translation>
 <translation id="1219674500290482172">Është e pamundur lidhja me internetin.</translation>
@@ -96,6 +95,7 @@
 <translation id="1952728750904661634">Identifikohu me llogari të menaxhuar</translation>
 <translation id="1974060860693918893">I përparuar</translation>
 <translation id="1989112275319619282">Shfleto</translation>
+<translation id="1992734845128748707">Ndrysho shfletuesin e parazgjedhur…</translation>
 <translation id="2015722694326466240">Për të parë fjalëkalimet, duhet të vendosësh në fillim një kod në pajisjen tënde.</translation>
 <translation id="2073572773299281212">Aktiv <ph name="DAYS" /> ditë më parë</translation>
 <translation id="2074131957428911366">Mund të zgjedhësh gjithmonë se çfarë do të sinkronizosh te <ph name="BEGIN_LINK" />cilësimet<ph name="END_LINK" />.</translation>
@@ -245,6 +245,7 @@ Në modalitetin "i fshehtë", sajtet nuk mund t'i përdorin kukit për të parë
 <translation id="3638472932233958418">Ngarko paraprakisht faqet e uebit</translation>
 <translation id="3670030362669914947">Numri</translation>
 <translation id="3691593122358196899">Faqeshënuesi u shtua te <ph name="FOLDER_TITLE" /></translation>
+<translation id="3709582977625132201">Shëno si të palexuar</translation>
 <translation id="3740397331642243698">Hap URL-të e futura në Google Chrome në modalitetin "i fshehtë".</translation>
 <translation id="3771033907050503522">Skedat "e fshehura"</translation>
 <translation id="3775743491439407556">Sinkronizimi nuk po punon</translation>
@@ -333,6 +334,7 @@ Për të ndryshuar këtë cilësim, <ph name="BEGIN_LINK" />rivendos sinkronizim
 <translation id="4818522717893377262">Shto gjuhë...</translation>
 <translation id="481968316161811770">Kukit, të dhënat e sajtit</translation>
 <translation id="4826218269716039351">Blloko kukit e palëve të treta</translation>
+<translation id="48274138579728272">Shëno si të lexuar</translation>
 <translation id="4833786495304741580">Dërgon automatikisht te Google statistika të përdorimit dhe raportet e ndërprerjeve aksidentale.</translation>
 <translation id="4840495572919996524">Faqeshënuesit, historiku, fjalëkalimet etj. nuk do të sinkronizohen më në "Llogarinë tënde të Google".</translation>
 <translation id="4854345657858711387">Vendos një kod</translation>
@@ -383,6 +385,7 @@ Për të ndryshuar këtë cilësim, <ph name="BEGIN_LINK" />rivendos sinkronizim
 <translation id="5433691172869980887">Emri i përdoruesit u kopjua</translation>
 <translation id="54401264925851789">Informacioni i sigurisë së faqes</translation>
 <translation id="5443952882982198570">Kartat e kreditit</translation>
+<translation id="5457226814769348910">Hap versionin jashtë linje</translation>
 <translation id="5457907402803865181">Gabim gjatë sinkronizimit të fjalëkalimeve.</translation>
 <translation id="5489208564673669003">Për të menaxhuar kukit për të gjitha sajtet, shiko <ph name="BEGIN_LINK" />Cilësimet e kukive<ph name="END_LINK" />.</translation>
 <translation id="5490005495580364134">Blloko të gjitha kukit (nuk rekomandohet)</translation>
@@ -555,6 +558,7 @@ Sajtet nuk mund t'i përdorin kukit për të parë aktivitetin tënd të shfleti
 <translation id="7189598951263744875">Ndaj...</translation>
 <translation id="7192050974311852563">Fillo regjistrimin</translation>
 <translation id="7203585745079012652">Thuaji përgjigjet mbrapsht</translation>
+<translation id="7207383424303353046">E re: Hap automatikisht sajtet në Chrome duke e bërë atë aplikacionin e parazgjedhur të shfletuesit. <ph name="BEGIN_LINK" />Hap "Cilësimet"<ph name="END_LINK" /></translation>
 <translation id="721597782417389033">Pseudonim i pavlefshëm karte</translation>
 <translation id="7265758999917665941">Asnjëherë për këtë faqe</translation>
 <translation id="7272437679830969316">Nuk mund të verifikohet identiteti yt. Fjalëkalimi nuk u kopjua.</translation>

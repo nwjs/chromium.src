@@ -367,7 +367,7 @@ Mantén premida calquera palabra para buscala. Se queres refinar a busca, selecc
 <translation id="3894427358181296146">Engadir cartafol</translation>
 <translation id="3895926599014793903">Forzar a activación do zoom</translation>
 <translation id="3908308510347173149">Actualizar <ph name="PRODUCT_NAME" /></translation>
-<translation id="3909763690984331376">Comprobación de seguranza <ph name="BEGIN_NEW" />Novo<ph name="END_NEW" /></translation>
+<translation id="3909763690984331376">Revisión de seguranza <ph name="BEGIN_NEW" />Novo<ph name="END_NEW" /></translation>
 <translation id="3912508018559818924">Buscando o mellor contido da Web…</translation>
 <translation id="3924911262913579434">A función <ph name="SAFE_BROWSING_MODE" /> está activada</translation>
 <translation id="3927692899758076493">Sans Serif</translation>
@@ -547,7 +547,6 @@ Para cambiar esta opción de configuración, deberás <ph name="BEGIN_LINK" />re
 <translation id="5233638681132016545">Nova pestana</translation>
 <translation id="526421993248218238">Non se puido cargar esta páxina</translation>
 <translation id="5271967389191913893">O dispositivo non pode abrir o contido que se debe descargar.</translation>
-<translation id="528192093759286357">Arrastra desde a parte superior e toca o botón Volver para saír da pantalla completa.</translation>
 <translation id="5292796745632149097">Enviar a</translation>
 <translation id="5304593522240415983">Este campo non pode quedar baleiro</translation>
 <translation id="5308380583665731573">Conectar</translation>
@@ -951,7 +950,7 @@ Por exemplo, algúns sitios web poden responder a esta solicitude mostrándoche 
 <translation id="8115259494083109761">Para escanear un código QR, permite que Chrome utilice a cámara</translation>
 <translation id="8127542551745560481">Editar páxina de inicio</translation>
 <translation id="813082847718468539">Consulta a información do sitio</translation>
-<translation id="8137558756159375272">Ao tocar Buscar envíase a palabra seleccionada e a páxina actual como contexto para a busca de Google. Podes desactivar esta opción na <ph name="BEGIN_LINK" />Configuración<ph name="END_LINK" />.</translation>
+<translation id="8137558756159375272">A función Tocar para buscar envía a palabra seleccionada e a páxina actual como contexto para a busca de Google. Podes desactivar esta opción na <ph name="BEGIN_LINK" />Configuración<ph name="END_LINK" />.</translation>
 <translation id="8156139159503939589">Que idiomas sabes ler?</translation>
 <translation id="8168435359814927499">Contido</translation>
 <translation id="8186512483418048923">Quedan <ph name="FILES" /> ficheiros</translation>

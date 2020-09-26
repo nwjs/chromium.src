@@ -55,6 +55,9 @@ void FakeLocalFrameHost::VisibilityChanged(
 void FakeLocalFrameHost::DidChangeThemeColor(
     const base::Optional<::SkColor>& theme_color) {}
 
+void FakeLocalFrameHost::DidChangeBackgroundColor(
+    const SkColor& background_color) {}
+
 void FakeLocalFrameHost::DidFailLoadWithError(const ::blink::KURL& url,
                                               int32_t error_code) {}
 
@@ -146,10 +149,6 @@ void FakeLocalFrameHost::RunModalPromptDialog(
 void FakeLocalFrameHost::RunBeforeUnloadConfirm(
     bool is_reload,
     RunBeforeUnloadConfirmCallback callback) {
-  std::move(callback).Run(true);
-}
-
-void FakeLocalFrameHost::Are3DAPIsBlocked(Are3DAPIsBlockedCallback callback) {
   std::move(callback).Run(true);
 }
 

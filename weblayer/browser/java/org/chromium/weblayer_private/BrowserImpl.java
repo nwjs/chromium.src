@@ -14,10 +14,14 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.ValueCallback;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
 import org.chromium.base.ObserverList;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.JNINamespace;
 import org.chromium.base.annotations.NativeMethods;
+import org.chromium.components.embedder_support.view.ContentView;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.weblayer_private.interfaces.APICallException;
@@ -123,7 +127,7 @@ public class BrowserImpl extends IBrowser.Stub implements View.OnAttachStateChan
         return mWindowAndroid;
     }
 
-    public ViewGroup getViewAndroidDelegateContainerView() {
+    public ContentView getViewAndroidDelegateContainerView() {
         if (mViewController == null) return null;
         return mViewController.getContentView();
     }
@@ -140,7 +144,8 @@ public class BrowserImpl extends IBrowser.Stub implements View.OnAttachStateChan
         assert mEmbedderActivityContext == null;
         mWindowAndroid = windowAndroid;
         mEmbedderActivityContext = embedderAppContext;
-        mViewController = new BrowserViewController(windowAndroid, this, mViewControllerState);
+        mViewController = new BrowserViewController(
+                windowAndroid, this, mViewControllerState, mFragmentStoppedForConfigurationChange);
         mLocaleReceiver = new LocaleChangedBroadcastReceiver(windowAndroid.getContext().get());
         mPasswordEchoEnabled = null;
     }
@@ -227,11 +232,19 @@ public class BrowserImpl extends IBrowser.Stub implements View.OnAttachStateChan
                 (ValueCallback<Boolean>) ObjectWrapper.unwrap(valueCallback, ValueCallback.class));
     }
 
+    // Only call this if it's guaranteed that Browser is attached to an activity.
+    @NonNull
     public BrowserViewController getViewController() {
         if (mViewController == null) {
             throw new RuntimeException("Currently Tab requires Activity context, so "
                     + "it exists only while BrowserFragment is attached to an Activity");
         }
+        return mViewController;
+    }
+
+    // Can be null in the middle of destroy, or if fragment is detached from activity.
+    @Nullable
+    public BrowserViewController getPossiblyNullViewController() {
         return mViewController;
     }
 
@@ -387,7 +400,7 @@ public class BrowserImpl extends IBrowser.Stub implements View.OnAttachStateChan
         return true;
     }
 
-    public TabImpl getActiveTab() {
+    public @Nullable TabImpl getActiveTab() {
         return BrowserImplJni.get().getActiveTab(mNativeBrowser);
     }
 
@@ -434,6 +447,7 @@ public class BrowserImpl extends IBrowser.Stub implements View.OnAttachStateChan
         destroyTabImpl((TabImpl) iTab);
     }
 
+    @CalledByNative
     private void destroyTabImpl(TabImpl tab) {
         tab.destroy();
     }
@@ -478,9 +492,6 @@ public class BrowserImpl extends IBrowser.Stub implements View.OnAttachStateChan
     public void onFragmentStop(boolean forConfigurationChange) {
         mFragmentStoppedForConfigurationChange = forConfigurationChange;
         mFragmentStarted = false;
-        if (mFragmentStoppedForConfigurationChange) {
-            destroyAttachmentState();
-        }
         updateAllTabs();
     }
 

@@ -769,6 +769,16 @@
     "expiry_milestone": 88
   },
   {
+    "name": "default-browser-fullscreen-promo",
+    "owners": [ "thegreenfrog", "bling-team@google.com" ],
+    "expiry_milestone": 89
+  },
+  {
+    "name": "default-browser-setting",
+    "owners": [ "gambard", "bling-flags" ],
+    "expiry_milestone": 87
+  },
+  {
     "name": "delay-async-script-execution",
     "owners": [ "dom", "chrome-loading@google.com" ],
     "expiry_milestone": 88
@@ -1413,6 +1423,11 @@
     "expiry_milestone": 88
   },
   {
+    "name": "enable-desktop-pwas-migration-user-display-mode-clean-up",
+    "owners": [ "alancutter@chromium.org", "desktop-pwas-team@google.com" ],
+    "expiry_milestone": 89
+  },
+  {
     "name": "enable-desktop-pwas-run-on-os-login",
     "owners": [ "cafrias@microsoft.com", "desktop-pwas-team@google.com" ],
     "expiry_milestone": 88
@@ -1436,16 +1451,6 @@
     "name": "enable-duet-tabstrip-integration",
     "owners": [ "memex-team@google.com" ],
     "expiry_milestone": 84
-  },
-  {
-    "name": "enable-edu-coexistence",
-    "owners": [ "anastasiian@chromium.org", "sinhak@chromium.org" ],
-    "expiry_milestone": 85
-  },
-  {
-    "name": "enable-edu-coexistence-consent-log",
-    "owners": [ "anastasiian@chromium.org", "sinhak@chromium.org" ],
-    "expiry_milestone": 85
   },
   {
     "name": "enable-encryption-migration",
@@ -2320,7 +2325,7 @@
   {
     "name": "enable-webrtc-capture-multi-channel-audio-processing",
     "owners": [ "saza" ],
-    "expiry_milestone": 85
+    "expiry_milestone": 123
   },
   {
     "name": "enable-webrtc-hide-local-ips-with-mdns",

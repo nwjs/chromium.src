@@ -64,7 +64,7 @@
 <translation id="1409426117486808224">Vereinfachte Ansicht für geöffnete Tabs</translation>
 <translation id="1409879593029778104"><ph name="FILE_NAME" /> konnte nicht heruntergeladen werden, da die Datei bereits vorhanden ist.</translation>
 <translation id="1414981605391750300">Google wird kontaktiert. Das kann einen Moment dauern.</translation>
-<translation id="1416550906796893042">Anwendungsversion</translation>
+<translation id="1416550906796893042">App-Version</translation>
 <translation id="1430915738399379752">Drucken</translation>
 <translation id="1450753235335490080"><ph name="CONTENT_TYPE" /> kann nicht geteilt werden</translation>
 <translation id="1477626028522505441"><ph name="FILE_NAME" /> konnte aufgrund von Serverproblemen nicht heruntergeladen werden.</translation>
@@ -222,7 +222,7 @@ Berühren und halten Sie ein Wort, um eine Suche damit zu starten. Sie können I
 <translation id="2717722538473713889">E-Mail-Adressen</translation>
 <translation id="2728754400939377704">Nach Website sortieren</translation>
 <translation id="2744248271121720757">Tippen Sie auf ein Wort, um eine Sofortsuche zu starten oder weitere Aktionen anzuzeigen</translation>
-<translation id="2760989362628427051">Dunkles Design verwenden, wenn beim Gerät der Energiesparmodus oder das dunkle Design aktiviert ist</translation>
+<translation id="2760989362628427051">Dunkles Design verwenden, wenn beim Gerät das dunkle Design oder der Energiesparmodus aktiviert ist</translation>
 <translation id="2762000892062317888">gerade eben</translation>
 <translation id="2771869497727323769">Link zu Text kann nicht erstellt werden. Teilen Sie den Link zur Seite in einer App.</translation>
 <translation id="2777555524387840389"><ph name="SECONDS" /> Sekunden übrig</translation>
@@ -454,7 +454,7 @@ Eventuell finden Sie unter <ph name="BEGIN_LINK" />history.google.com<ph name="E
 <translation id="4616150815774728855"><ph name="WEBAPK_NAME" /> öffnen</translation>
 <translation id="4634124774493850572">Passwort verwenden</translation>
 <translation id="4640331037679501949">{NUM_PASSWORDS,plural, =1{1 gehacktes Passwort}other{# gehackte Passwörter}}</translation>
-<translation id="4650364565596261010">Systemstandardeinstellung</translation>
+<translation id="4650364565596261010">Systemstandard</translation>
 <translation id="465657074423018424">Safe Browsing schützt Sie vor betrügerischen Websites. Wenn Sie Safe Browsing deaktivieren, sollten Sie besonders vorsichtig sein, wenn Sie im Internet surfen, besonders wenn Sie Passwörter eingeben.</translation>
 <translation id="4662373422909645029">Der Alias darf keine Zahlen enthalten</translation>
 <translation id="4663499661119906179">Personalisierte Top-Websites und Meldungen ansehen</translation>
@@ -547,7 +547,6 @@ Wenn Sie diese Einstellung ändern möchten, <ph name="BEGIN_LINK" />setzen Sie 
 <translation id="5233638681132016545">Neuer Tab</translation>
 <translation id="526421993248218238">Fehler beim Laden der Seite</translation>
 <translation id="5271967389191913893">Das Gerät kann den Inhalt, der heruntergeladen werden soll, nicht öffnen.</translation>
-<translation id="528192093759286357">Ziehen Sie zum Beenden des Vollbildmodus von oben und tippen Sie auf die Zurück-Taste.</translation>
 <translation id="5292796745632149097">Senden an</translation>
 <translation id="5304593522240415983">Dieses Feld darf nicht leer sein.</translation>
 <translation id="5308380583665731573">Verbinden</translation>
@@ -1006,7 +1005,7 @@ Einige Websites schalten möglicherweise Werbeanzeigen, deren Auswahl nicht dara
 <translation id="854522910157234410">Diese Seite öffnen</translation>
 <translation id="8555836665334561807">Über WLAN</translation>
 <translation id="8558485628462305855">ARCore aktualisieren, um Augmented-Reality-Inhalte zu sehen</translation>
-<translation id="8559990750235505898">Übersetzung für Seiten in andere Sprachen anbieten</translation>
+<translation id="8559990750235505898">Übersetzung von fremdsprachigen Seiten anbieten</translation>
 <translation id="8561196567344536112">1. Gehen Sie zu den Einstellungen\n2. Tippen Sie auf "Browser-App"\n3. Wählen Sie <ph name="APP_NAME" /> aus</translation>
 <translation id="8562452229998620586">Gespeicherte Passwörter erscheinen hier.</translation>
 <translation id="8569404424186215731">seit <ph name="DATE" /></translation>

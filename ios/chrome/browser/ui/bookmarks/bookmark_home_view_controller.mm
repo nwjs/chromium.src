@@ -1514,11 +1514,11 @@ std::vector<GURL> GetUrlsToOpen(const std::vector<const BookmarkNode*>& nodes) {
     if (self.sharedState.tableView.backgroundView == self.emptyViewBackground) {
       self.sharedState.tableView.backgroundView = nil;
     }
+    self.navigationItem.searchController = self.searchController;
     if ([self isDisplayingBookmarkRoot]) {
       self.navigationItem.largeTitleDisplayMode =
           UINavigationItemLargeTitleDisplayModeAutomatic;
     }
-    self.navigationItem.searchController = self.searchController;
   } else {
     self.sharedState.tableView.backgroundView = nil;
   }
@@ -2210,6 +2210,11 @@ std::vector<GURL> GetUrlsToOpen(const std::vector<const BookmarkNode*>& nodes) {
   }
 
   const BookmarkNode* node = [self nodeAtIndexPath:indexPath];
+
+  // Disable the edit and move menu options if the node is not editable by user,
+  // or if editing bookmarks is not allowed.
+  BOOL canEditNode =
+      [self isEditBookmarksEnabled] && [self isNodeEditableByUser:node];
   UIContextMenuActionProvider actionProvider;
 
   // TODO (crbug.com/1093302): Add more actions for Bookmark URL and Folder.
@@ -2247,9 +2252,10 @@ std::vector<GURL> GetUrlsToOpen(const std::vector<const BookmarkNode*>& nodes) {
 
       [menuElements addObject:[actionFactory actionToCopyURL:node->url()]];
 
-      [menuElements addObject:[actionFactory actionToEditWithBlock:^{
-                      [self editNode:node];
-                    }]];
+      UIAction* editAction = [actionFactory actionToEditWithBlock:^{
+        [self editNode:node];
+      }];
+      [menuElements addObject:editAction];
 
       [menuElements
           addObject:[actionFactory actionToShareWithBlock:^{
@@ -2258,13 +2264,20 @@ std::vector<GURL> GetUrlsToOpen(const std::vector<const BookmarkNode*>& nodes) {
                  indexPath:indexPath];
           }]];
 
-      [menuElements addObject:[actionFactory actionToDeleteWithBlock:^{
-                      std::set<const BookmarkNode*> nodes;
-                      nodes.insert(node);
-                      [self handleSelectNodesForDeletion:nodes];
-                      base::RecordAction(base::UserMetricsAction(
-                          "MobileBookmarkManagerEntryDeleted"));
-                    }]];
+      UIAction* deleteAction = [actionFactory actionToDeleteWithBlock:^{
+        std::set<const BookmarkNode*> nodes;
+        nodes.insert(node);
+        [self handleSelectNodesForDeletion:nodes];
+        base::RecordAction(
+            base::UserMetricsAction("MobileBookmarkManagerEntryDeleted"));
+      }];
+      [menuElements addObject:deleteAction];
+
+      // Disable Edit and Delete if the node cannot be edited.
+      if (!canEditNode) {
+        editAction.attributes = UIMenuElementAttributesDisabled;
+        deleteAction.attributes = UIMenuElementAttributesDisabled;
+      }
 
       return [UIMenu menuWithTitle:@"" children:menuElements];
     };
@@ -2279,15 +2292,22 @@ std::vector<GURL> GetUrlsToOpen(const std::vector<const BookmarkNode*>& nodes) {
       NSMutableArray<UIMenuElement*>* menuElements =
           [[NSMutableArray alloc] init];
 
-      [menuElements addObject:[actionFactory actionToEditWithBlock:^{
-                      [self editNode:node];
-                    }]];
+      UIAction* editAction = [actionFactory actionToEditWithBlock:^{
+        [self editNode:node];
+      }];
+      UIAction* moveAction = [actionFactory actionToMoveFolderWithBlock:^{
+        std::set<const BookmarkNode*> nodes;
+        nodes.insert(node);
+        [self moveNodes:nodes];
+      }];
 
-      [menuElements addObject:[actionFactory actionToMoveFolderWithBlock:^{
-                      std::set<const BookmarkNode*> nodes;
-                      nodes.insert(node);
-                      [self moveNodes:nodes];
-                    }]];
+      if (!canEditNode) {
+        editAction.attributes = UIMenuElementAttributesDisabled;
+        moveAction.attributes = UIMenuElementAttributesDisabled;
+      }
+
+      [menuElements addObject:editAction];
+      [menuElements addObject:moveAction];
 
       return [UIMenu menuWithTitle:@"" children:menuElements];
     };

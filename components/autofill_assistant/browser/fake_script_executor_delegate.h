@@ -48,12 +48,17 @@ class FakeScriptExecutorDelegate : public ScriptExecutorDelegate {
   void SetProgress(int progress) override;
   void SetProgressActiveStep(int active_step) override;
   void SetProgressVisible(bool visible) override;
+  void SetProgressBarErrorState(bool error) override;
   void SetStepProgressBarConfiguration(
       const ShowProgressBarProto::StepProgressBarConfiguration& configuration)
       override;
   void SetUserActions(
       std::unique_ptr<std::vector<UserAction>> user_actions) override;
   void SetCollectUserDataOptions(CollectUserDataOptions* options) override;
+  void SetLastSuccessfulUserDataOptions(std::unique_ptr<CollectUserDataOptions>
+                                            collect_user_data_options) override;
+  const CollectUserDataOptions* GetLastSuccessfulUserDataOptions()
+      const override;
   void WriteUserData(
       base::OnceCallback<void(UserData*, UserData::FieldChange*)>) override;
   void SetViewportMode(ViewportMode mode) override;
@@ -88,6 +93,7 @@ class FakeScriptExecutorDelegate : public ScriptExecutorDelegate {
   void ClearGenericUi() override;
   void SetOverlayBehavior(
       ConfigureUiStateProto::OverlayBehavior overlay_behavior) override;
+  void SetBrowseModeInvisible(bool invisible) override;
 
   ClientSettings* GetMutableSettings() { return &client_settings_; }
 
@@ -147,6 +153,7 @@ class FakeScriptExecutorDelegate : public ScriptExecutorDelegate {
   std::unique_ptr<Details> details_;
   std::unique_ptr<InfoBox> info_box_;
   std::unique_ptr<std::vector<UserAction>> user_actions_;
+  std::unique_ptr<CollectUserDataOptions> last_payment_request_options_;
   CollectUserDataOptions* payment_request_options_;
   std::unique_ptr<UserData> payment_request_info_;
   bool navigating_to_new_document_ = false;

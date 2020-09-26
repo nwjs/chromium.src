@@ -19,6 +19,7 @@ import android.view.ViewStructure;
 import android.view.autofill.AutofillValue;
 import android.webkit.ValueCallback;
 
+import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
@@ -38,6 +39,7 @@ import org.chromium.components.external_intents.InterceptNavigationDelegateImpl;
 import org.chromium.components.find_in_page.FindInPageBridge;
 import org.chromium.components.find_in_page.FindMatchRectsDetails;
 import org.chromium.components.find_in_page.FindResultBar;
+import org.chromium.components.infobars.InfoBar;
 import org.chromium.components.url_formatter.UrlFormatter;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.NavigationHandle;
@@ -417,6 +419,8 @@ public final class TabImpl extends ITab.Stub implements LoginPrompt.Observer {
             mAutofillProvider.hidePopup();
         }
 
+        if (mFullscreenCallbackProxy != null) mFullscreenCallbackProxy.destroyToast();
+
         hideFindInPageUiAndNotifyClient();
         updateWebContentsVisibility();
         updateDisplayCutoutController();
@@ -435,8 +439,8 @@ public final class TabImpl extends ITab.Stub implements LoginPrompt.Observer {
      */
     public boolean isVisible() {
         return mBrowser.getActiveTab() == this
-                && (mBrowser.isStarted() || mBrowser.isFragmentStoppedForConfigurationChange())
-                && mBrowser.isViewAttachedToWindow();
+                && ((mBrowser.isStarted() && mBrowser.isViewAttachedToWindow())
+                        || mBrowser.isFragmentStoppedForConfigurationChange());
     }
 
     private void updateWebContentsVisibility() {
@@ -524,7 +528,7 @@ public final class TabImpl extends ITab.Stub implements LoginPrompt.Observer {
         StrictModeWorkaround.apply();
         if (client != null) {
             if (mFullscreenCallbackProxy == null) {
-                mFullscreenCallbackProxy = new FullscreenCallbackProxy(mNativeTab, client);
+                mFullscreenCallbackProxy = new FullscreenCallbackProxy(this, mNativeTab, client);
             } else {
                 mFullscreenCallbackProxy.setClient(client);
             }
@@ -555,6 +559,11 @@ public final class TabImpl extends ITab.Stub implements LoginPrompt.Observer {
         FaviconCallbackProxy proxy = new FaviconCallbackProxy(this, mNativeTab, client);
         mFaviconCallbackProxies.add(proxy);
         return proxy;
+    }
+
+    @Override
+    public void setTranslateTargetLanguage(String targetLanguage) {
+        TabImplJni.get().setTranslateTargetLanguage(mNativeTab, targetLanguage);
     }
 
     public void removeFaviconCallbackProxy(FaviconCallbackProxy proxy) {
@@ -971,6 +980,12 @@ public final class TabImpl extends ITab.Stub implements LoginPrompt.Observer {
         return mBrowserControlsVisibility.get() == BrowserControlsState.BOTH;
     }
 
+    @VisibleForTesting
+    public boolean didShowFullscreenToast() {
+        return mFullscreenCallbackProxy != null
+                && mFullscreenCallbackProxy.didShowFullscreenToast();
+    }
+
     private void onBrowserControlsConstraintUpdated(int constraint) {
         // If something has overridden the FIP's SHOWN constraint, cancel FIP. This causes FIP to
         // dismiss when entering fullscreen.
@@ -978,21 +993,22 @@ public final class TabImpl extends ITab.Stub implements LoginPrompt.Observer {
             hideFindInPageUiAndNotifyClient();
         }
 
+        BrowserViewController viewController = getViewController();
         // Don't animate when hiding the controls unless an animation was requested by
         // BrowserControlsContainerView.
         boolean animate = constraint != BrowserControlsState.HIDDEN
-                || mBrowser.getViewController().shouldAnimateBrowserControlsHeightChanges();
+                || (viewController != null
+                        && viewController.shouldAnimateBrowserControlsHeightChanges());
 
         // If the renderer is not controlling the offsets (possibly hung or crashed). Then this
         // needs to force the controls to show (because notification from the renderer will not
         // happen). For js dialogs, the renderer's update will come when the dialog is hidden, and
         // since that animates from 0 height, it causes a flicker since the override is already set
         // to fully show. Thus, disable animation.
-        if (constraint == BrowserControlsState.SHOWN && mBrowser != null
-                && mBrowser.getActiveTab() == this
+        if (constraint == BrowserControlsState.SHOWN && mBrowser.getActiveTab() == this
                 && !TabImplJni.get().isRendererControllingBrowserControlsOffsets(mNativeTab)) {
             mViewAndroidDelegate.setIgnoreRendererUpdates(true);
-            getViewController().showControls();
+            if (viewController != null) viewController.showControls();
             animate = false;
         } else {
             mViewAndroidDelegate.setIgnoreRendererUpdates(false);
@@ -1031,15 +1047,27 @@ public final class TabImpl extends ITab.Stub implements LoginPrompt.Observer {
 
     /**
      * Returns the BrowserViewController for this TabImpl, but only if this
-     * is the active TabImpl.
+     * is the active TabImpl. Can also return null if in the middle of shutdown
+     * or Browser is not attached to any activity.
      */
+    @Nullable
     private BrowserViewController getViewController() {
-        return (mBrowser.getActiveTab() == this) ? mBrowser.getViewController() : null;
+        return (mBrowser.getActiveTab() == this) ? mBrowser.getPossiblyNullViewController() : null;
     }
 
     @VisibleForTesting
     public boolean canInfoBarContainerScrollForTesting() {
         return mInfoBarContainer.getContainerViewForTesting().isAllowedToAutoHide();
+    }
+
+    @VisibleForTesting
+    public String getTranslateInfoBarTargetLanguageForTesting() {
+        if (!mInfoBarContainer.hasInfoBars()) return null;
+
+        ArrayList<InfoBar> infobars = mInfoBarContainer.getInfoBarsForTesting();
+        TranslateCompactInfoBar translateInfoBar = (TranslateCompactInfoBar) infobars.get(0);
+
+        return translateInfoBar.getTargetLanguageForTesting();
     }
 
     @NativeMethods
@@ -1070,5 +1098,6 @@ public final class TabImpl extends ITab.Stub implements LoginPrompt.Observer {
         void unregisterWebMessageCallback(long nativeTabImpl, String jsObjectName);
         boolean canTranslate(long nativeTabImpl);
         void showTranslateUi(long nativeTabImpl);
+        void setTranslateTargetLanguage(long nativeTabImpl, String targetLanguage);
     }
 }

@@ -19,7 +19,6 @@ class TestAmbientModeBrowserProxy extends TestBrowserProxy {
     super([
       'requestTopicSource',
       'requestAlbums',
-      'setSelectedTopicSource',
       'setSelectedAlbums',
     ]);
   }
@@ -34,12 +33,6 @@ class TestAmbientModeBrowserProxy extends TestBrowserProxy {
     this.methodCalled('requestAlbums', [topicSource]);
   }
 
-  /** @override */
-  setSelectedTopicSource(topicSource) {
-    this.methodCalled('setSelectedTopicSource', [topicSource]);
-  }
-
-  /** @override */
   setSelectedAlbums(settings) {
     this.methodCalled('setSelectedAlbums', [settings]);
   }
@@ -69,8 +62,75 @@ suite('AmbientModeHandler', function() {
     ambientModePhotosPage.remove();
   });
 
-  test('hasAlbums', function() {
-    ambientModePhotosPage.albums_ = [
+  /**
+   * @param {!AmbientModeTopicSource} topicSource
+   * @private
+   */
+  function assertCheckPosition(topicSource) {
+    ambientModePhotosPage.albums = [
+      {albumId: 'id0', checked: true, title: 'album0', url: 'url'},
+      {albumId: 'id1', checked: true, title: 'album1', url: 'url'}
+    ];
+    ambientModePhotosPage.topicSource = topicSource;
+    Polymer.dom.flush();
+
+    const albumList = ambientModePhotosPage.$$('album-list');
+    const ironList = albumList.$$('iron-list');
+    const albumItems = ironList.querySelectorAll('album-item:not([hidden])');
+
+    albumItems.forEach((album) => {
+      const check = album.$$('.check');
+      const image = album.$$('#image');
+      const boundingWidth = image.getBoundingClientRect().width;
+      const scale = boundingWidth / image.offsetWidth;
+
+      const checkTop = Math.round(
+          (image.offsetHeight * (1.0 - scale) - check.offsetHeight) / 2.0);
+      assertEquals(checkTop, check.offsetTop);
+
+      const checkLeft = Math.round(
+          (image.offsetWidth * (1.0 - scale) - check.offsetWidth) / 2.0 +
+          boundingWidth);
+      assertEquals(checkLeft, check.offsetLeft);
+    });
+  }
+
+  test('hasAlbumsWithoutPhotoPreview', function() {
+    // Disable photo preview feature and reload the |ambientModePhotosPage|.
+    loadTimeData.overrideValues({isAmbientModePhotoPreviewEnabled: false});
+    assertFalse(loadTimeData.getBoolean('isAmbientModePhotoPreviewEnabled'));
+
+    ambientModePhotosPage.remove();
+    ambientModePhotosPage =
+        document.createElement('settings-ambient-mode-photos-page');
+    document.body.appendChild(ambientModePhotosPage);
+
+    ambientModePhotosPage.albums = [
+      {albumId: 'id0', checked: true, title: 'album0'},
+      {albumId: 'id1', checked: false, title: 'album1'}
+    ];
+    Polymer.dom.flush();
+
+    const ironList = ambientModePhotosPage.$$('iron-list');
+    const checkboxes = ironList.querySelectorAll('cr-checkbox');
+    assertEquals(2, checkboxes.length);
+
+    const checkbox0 = checkboxes[0];
+    const checkbox1 = checkboxes[1];
+    assertEquals('id0', checkbox0.dataset.id);
+    assertTrue(checkbox0.checked);
+    assertEquals('album0', checkbox0.label);
+    assertEquals('id1', checkbox1.dataset.id);
+    assertFalse(checkbox1.checked);
+    assertEquals('album1', checkbox1.label);
+
+    // Reset/enable photo preview feature.
+    loadTimeData.overrideValues({isAmbientModePhotoPreviewEnabled: true});
+    assertTrue(loadTimeData.getBoolean('isAmbientModePhotoPreviewEnabled'));
+  });
+
+  test('hasAlbumsWithPhotoPreview', function() {
+    ambientModePhotosPage.albums = [
       {albumId: 'id0', checked: true, title: 'album0'},
       {albumId: 'id1', checked: false, title: 'album1'}
     ];
@@ -78,7 +138,7 @@ suite('AmbientModeHandler', function() {
 
     const albumList = ambientModePhotosPage.$$('album-list');
     const ironList = albumList.$$('iron-list');
-    const albumItems = ironList.querySelectorAll('album-item');
+    const albumItems = ironList.querySelectorAll('album-item:not([hidden])');
     assertEquals(2, albumItems.length);
 
     const album0 = albumItems[0];
@@ -91,16 +151,60 @@ suite('AmbientModeHandler', function() {
     assertEquals('album1', album1.album.title);
   });
 
-  test('toggleAlbumSelectionByClick', function() {
-    ambientModePhotosPage.albums_ = [
+  test('personalPhotosImageContainerHasCorrectSize', function() {
+    ambientModePhotosPage.albums = [
       {albumId: 'id0', checked: true, title: 'album0'},
-      {albumId: 'id1', checked: false, title: 'album1'}
+      {albumId: 'id1', checked: false, title: 'album1'},
+      {albumId: 'id2', checked: false, title: 'album2'}
+    ];
+    ambientModePhotosPage.topicSource = AmbientModeTopicSource.GOOGLE_PHOTOS;
+    Polymer.dom.flush();
+
+    const albumList = ambientModePhotosPage.$$('album-list');
+    const ironList = albumList.$$('iron-list');
+    assertTrue(ironList.grid);
+
+    const albumItems = ironList.querySelectorAll('album-item:not([hidden])');
+    assertEquals(3, albumItems.length);
+    albumItems.forEach((album) => {
+      const imageContainer = album.$$('#imageContainer');
+      assertEquals(160, imageContainer.clientHeight);
+      assertEquals(160, imageContainer.clientWidth);
+    });
+  });
+
+  test('artImageContainerHasCorrectSize', function() {
+    ambientModePhotosPage.albums = [
+      {albumId: 'id0', checked: true, title: 'album0'},
+      {albumId: 'id1', checked: false, title: 'album1'},
+      {albumId: 'id2', checked: false, title: 'album2'}
+    ];
+    ambientModePhotosPage.topicSource = AmbientModeTopicSource.ART_GALLERY;
+    Polymer.dom.flush();
+
+    const albumList = ambientModePhotosPage.$$('album-list');
+    const ironList = albumList.$$('iron-list');
+    assertTrue(ironList.grid);
+
+    const albumItems = ironList.querySelectorAll('album-item:not([hidden])');
+    assertEquals(3, albumItems.length);
+    albumItems.forEach((album) => {
+      const imageContainer = album.$$('#imageContainer');
+      assertEquals(160, imageContainer.clientHeight);
+      assertEquals(256, imageContainer.clientWidth);
+    });
+  });
+
+  test('toggleAlbumSelectionByClick', function() {
+    ambientModePhotosPage.albums = [
+      {albumId: 'id0', checked: true, title: 'album0', url: 'url'},
+      {albumId: 'id1', checked: false, title: 'album1', url: 'url'}
     ];
     Polymer.dom.flush();
 
     const albumList = ambientModePhotosPage.$$('album-list');
     const ironList = albumList.$$('iron-list');
-    const albumItems = ironList.querySelectorAll('album-item');
+    const albumItems = ironList.querySelectorAll('album-item:not([hidden])');
     assertEquals(2, albumItems.length);
 
     const album0 = albumItems[0];
@@ -116,36 +220,81 @@ suite('AmbientModeHandler', function() {
     });
 
     // Click album item image will toggle the check.
-    album0.$.image.click();
+    const image0 = album0.$$('#image');
+    image0.click();
     assertFalse(album0.checked);
     assertEquals(1, selectedAlbumsChangedEventCalls);
 
     // Click album item image will toggle the check.
-    album0.$.image.click();
+    image0.click();
     assertTrue(album0.checked);
     assertEquals(2, selectedAlbumsChangedEventCalls);
 
     // Click album item image will toggle the check.
-    album1.$.image.click();
+    const image1 = album1.$$('#image');
+    image1.click();
     assertTrue(album1.checked);
     assertEquals(3, selectedAlbumsChangedEventCalls);
 
     // Click album item image will toggle the check.
-    album1.$.image.click();
+    image1.click();
     assertFalse(album1.checked);
     assertEquals(4, selectedAlbumsChangedEventCalls);
   });
 
-  test('setSelectedAlbums', async () => {
-    ambientModePhotosPage.albums_ = [
-      {albumId: 'id0', checked: true, title: 'album0'},
-      {albumId: 'id1', checked: false, title: 'album1'}
+  test('showCheckIconOnSelectedAlbum', function() {
+    ambientModePhotosPage.albums = [
+      {albumId: 'id0', checked: true, title: 'album0', url: 'url'},
+      {albumId: 'id1', checked: false, title: 'album1', url: 'url'}
     ];
     Polymer.dom.flush();
 
     const albumList = ambientModePhotosPage.$$('album-list');
     const ironList = albumList.$$('iron-list');
-    const albumItems = ironList.querySelectorAll('album-item');
+    const albumItems = ironList.querySelectorAll('album-item:not([hidden])');
+
+    const album0 = albumItems[0];
+    const check0 = album0.$$('.check');
+    assertTrue(album0.checked);
+    assertFalse(check0.hidden);
+
+    // Click album item image will toggle the check.
+    album0.$$('#image').click();
+    assertFalse(album0.checked);
+    assertTrue(check0.hidden);
+
+    const album1 = albumItems[1];
+    const check1 = album1.$$('.check');
+    assertFalse(album1.checked);
+    assertTrue(check1.hidden);
+
+    // Click album item image will toggle the check.
+    album1.$$('#image').click();
+    assertTrue(album1.checked);
+    assertFalse(check1.hidden);
+    // Click album1 will not affect album0.
+    assertFalse(album0.checked);
+    assertTrue(check0.hidden);
+  });
+
+  test('personalPhotosCheckIconHasCorrectPosition', function() {
+    assertCheckPosition(AmbientModeTopicSource.GOOGLE_PHOTOS);
+  });
+
+  test('artPhotosCheckIconHasCorrectPosition', function() {
+    assertCheckPosition(AmbientModeTopicSource.GOOGLE_PHOTOS);
+  });
+
+  test('setSelectedAlbums', async () => {
+    ambientModePhotosPage.albums = [
+      {albumId: 'id0', checked: true, title: 'album0', url: 'url'},
+      {albumId: 'id1', checked: false, title: 'album1', url: 'url'}
+    ];
+    Polymer.dom.flush();
+
+    const albumList = ambientModePhotosPage.$$('album-list');
+    const ironList = albumList.$$('iron-list');
+    const albumItems = ironList.querySelectorAll('album-item:not([hidden])');
     assertEquals(2, albumItems.length);
 
     const album0 = albumItems[0];
@@ -156,7 +305,7 @@ suite('AmbientModeHandler', function() {
     browserProxy.resetResolver('setSelectedAlbums');
 
     // Click album item image will toggle the check.
-    album1.$.image.click();
+    album1.$$('#image').click();
     assertTrue(album1.checked);
 
     assertEquals(1, browserProxy.getCallCount('setSelectedAlbums'));
@@ -167,7 +316,7 @@ suite('AmbientModeHandler', function() {
     browserProxy.resetResolver('setSelectedAlbums');
 
     // Click album item image will toggle the check.
-    album0.$.image.click();
+    album0.$$('#image').click();
     assertFalse(album0.checked);
 
     assertEquals(1, browserProxy.getCallCount('setSelectedAlbums'));
@@ -176,14 +325,14 @@ suite('AmbientModeHandler', function() {
   });
 
   test('notToggleAlbumSelection', function() {
-    ambientModePhotosPage.albums_ = [
+    ambientModePhotosPage.albums = [
       {albumId: 'id0', checked: true, title: 'album0'},
     ];
     Polymer.dom.flush();
 
     const albumList = ambientModePhotosPage.$$('album-list');
     const ironList = albumList.$$('iron-list');
-    const albumItems = ironList.querySelectorAll('album-item');
+    const albumItems = ironList.querySelectorAll('album-item:not([hidden])');
     assertEquals(1, albumItems.length);
 
     const album0 = albumItems[0];
@@ -203,14 +352,14 @@ suite('AmbientModeHandler', function() {
   });
 
   test('toggleAlbumSelectionByKeypress', function() {
-    ambientModePhotosPage.albums_ = [
+    ambientModePhotosPage.albums = [
       {albumId: 'id0', checked: true, title: 'album0'},
     ];
     Polymer.dom.flush();
 
     const albumList = ambientModePhotosPage.$$('album-list');
     const ironList = albumList.$$('iron-list');
-    const albumItems = ironList.querySelectorAll('album-item');
+    const albumItems = ironList.querySelectorAll('album-item:not([hidden])');
     assertEquals(1, albumItems.length);
 
     const album0 = albumItems[0];
@@ -237,15 +386,15 @@ suite('AmbientModeHandler', function() {
   });
 
   test('updateAlbumURL', function() {
-    ambientModePhotosPage.albums_ = [
+    ambientModePhotosPage.albums = [
       {albumId: 'id0', checked: true, title: 'album0', url: ''},
     ];
-    ambientModePhotosPage.topicSource_ = AmbientModeTopicSource.ART_GALLERY;
+    ambientModePhotosPage.topicSource = AmbientModeTopicSource.ART_GALLERY;
     Polymer.dom.flush();
 
     const albumList = ambientModePhotosPage.$$('album-list');
     const ironList = albumList.$$('iron-list');
-    const albumItems = ironList.querySelectorAll('album-item');
+    const albumItems = ironList.querySelectorAll('album-item:not([hidden])');
     assertEquals(1, albumItems.length);
 
     const album0 = albumItems[0];
@@ -262,15 +411,15 @@ suite('AmbientModeHandler', function() {
   });
 
   test('notUpdateAlbumURL', function() {
-    ambientModePhotosPage.albums_ = [
+    ambientModePhotosPage.albums = [
       {albumId: 'id0', checked: true, title: 'album0', url: ''},
     ];
-    ambientModePhotosPage.topicSource_ = AmbientModeTopicSource.ART_GALLERY;
+    ambientModePhotosPage.topicSource = AmbientModeTopicSource.ART_GALLERY;
     Polymer.dom.flush();
 
     const albumList = ambientModePhotosPage.$$('album-list');
     const ironList = albumList.$$('iron-list');
-    const albumItems = ironList.querySelectorAll('album-item');
+    const albumItems = ironList.querySelectorAll('album-item:not([hidden])');
     assertEquals(1, albumItems.length);
 
     const album0 = albumItems[0];
@@ -284,5 +433,37 @@ suite('AmbientModeHandler', function() {
       url: url
     });
     assertEquals('', album0.album.url);
+  });
+
+  test('updateImgVisibility', function() {
+    ambientModePhotosPage.albums = [
+      {albumId: 'id0', checked: true, title: 'album0', url: ''},
+    ];
+    ambientModePhotosPage.topicSource = AmbientModeTopicSource.ART_GALLERY;
+    Polymer.dom.flush();
+
+    const albumList = ambientModePhotosPage.$$('album-list');
+    const ironList = albumList.$$('iron-list');
+    const albumItems = ironList.querySelectorAll('album-item:not([hidden])');
+    assertEquals(1, albumItems.length);
+
+    const album0 = albumItems[0];
+    assertEquals('', album0.album.url);
+
+    let img = album0.$$('#image');
+    assertFalse(!!img);
+
+    // Update album URL.
+    const url = 'https://ambient-art-gallery-preview-url';
+    cr.webUIListenerCallback('album-preview-changed', {
+      topicSource: AmbientModeTopicSource.ART_GALLERY,
+      albumId: 'id0',
+      url: url
+    });
+    assertEquals(url, album0.album.url);
+
+    img = album0.$$('#image');
+    assertTrue(!!img);
+    assertFalse(img.hidden);
   });
 });

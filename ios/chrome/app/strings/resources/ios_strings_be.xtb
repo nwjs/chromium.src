@@ -22,7 +22,6 @@
 <translation id="1176932207622159128">Не ўдалося захаваць відарыс</translation>
 <translation id="1180526666083833456">Сінхранізацыя і персаналізацыя на ўсіх прыладах.</translation>
 <translation id="1181037720776840403">Выдаліць</translation>
-<translation id="1185569544548277362">Новае: вы можаце зрабіць Chrome стандартным браўзерам. <ph name="BEGIN_LINK" />Адкрыць Налады<ph name="END_LINK" /></translation>
 <translation id="1207113853726624428">Новы пошук</translation>
 <translation id="1209206284964581585">Схаваць гэты раз</translation>
 <translation id="1219674500290482172">Не ўдалося падключыцца да інтэрнэту.</translation>
@@ -96,6 +95,7 @@
 <translation id="1952728750904661634">Увайсці праз уліковы запіс пад кіраваннем</translation>
 <translation id="1974060860693918893">Пашыраныя налады</translation>
 <translation id="1989112275319619282">Агляд</translation>
+<translation id="1992734845128748707">Змяніць стандартны браўзер…</translation>
 <translation id="2015722694326466240">Каб убачыць паролі, на прыладзе трэба спачатку задаць пароль.</translation>
 <translation id="2073572773299281212">Апошнія дзеянні: <ph name="DAYS" /> сут таму</translation>
 <translation id="2074131957428911366">У <ph name="BEGIN_LINK" />наладах<ph name="END_LINK" /> заўсёды можна выбраць, што трэба сінхранізаваць.</translation>
@@ -245,6 +245,7 @@
 <translation id="3638472932233958418">Перадзагрузка старонак</translation>
 <translation id="3670030362669914947">Нумар</translation>
 <translation id="3691593122358196899">Закладка дададзена ў папку "<ph name="FOLDER_TITLE" />"</translation>
+<translation id="3709582977625132201">Пазначыць як непрачытанае</translation>
 <translation id="3740397331642243698">Адкрывае ўведзеныя URL-адрасы ў Google Chrome у рэжыме інкогніта.</translation>
 <translation id="3771033907050503522">Укладкі інкогніта</translation>
 <translation id="3775743491439407556">Сінхранізацыя не працуе</translation>
@@ -333,6 +334,7 @@
 <translation id="4818522717893377262">Дадаць мову...</translation>
 <translation id="481968316161811770">Файлы cookie, даныя сайта</translation>
 <translation id="4826218269716039351">Староннія файлы cookie блакіруюцца</translation>
+<translation id="48274138579728272">Пазначыць як прачытанае</translation>
 <translation id="4833786495304741580">Аўтаматычна адпраўляе ў Google статыстыку выкарыстання і справаздачы аб збоях.</translation>
 <translation id="4840495572919996524">Закладкі, гісторыя, паролі і іншае больш не будуць сінхранізавацца з Уліковым запісам Google.</translation>
 <translation id="4854345657858711387">Задайце пароль</translation>
@@ -383,6 +385,7 @@
 <translation id="5433691172869980887">Імя карыстальніка скапіравана</translation>
 <translation id="54401264925851789">Інфармацыя пра бяспеку старонкі</translation>
 <translation id="5443952882982198570">Крэдытныя карты</translation>
+<translation id="5457226814769348910">Адкрыць пазасеткавую версію</translation>
 <translation id="5457907402803865181">Памылка пры сінхранізацыі пароляў.</translation>
 <translation id="5489208564673669003">Каб кіраваць файламі cookie для ўсіх сайтаў, перайдзіце ў <ph name="BEGIN_LINK" />Налады файлаў cookie<ph name="END_LINK" />.</translation>
 <translation id="5490005495580364134">Блакіраваць усе файлы cookie (не рэкамендуецца)</translation>
@@ -555,6 +558,7 @@
 <translation id="7189598951263744875">Абагуліць...</translation>
 <translation id="7192050974311852563">Пачаць вядзенне журнала</translation>
 <translation id="7203585745079012652">Агучваць атрыманыя адказы</translation>
+<translation id="7207383424303353046">Навінка. Зрабіце Chrome стандартным браўзерам, каб сайты адкрываліся ў ім аўтаматычна. <ph name="BEGIN_LINK" />Адкрыць Налады<ph name="END_LINK" /></translation>
 <translation id="721597782417389033">Несапраўдны псеўданім карткі</translation>
 <translation id="7265758999917665941">Ніколі для гэтага сайта</translation>
 <translation id="7272437679830969316">Не ўдалося спраўдзіць вашу асобу. Пароль не скапіраваны.</translation>

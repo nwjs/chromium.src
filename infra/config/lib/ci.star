@@ -28,6 +28,7 @@ defaults = args.defaults(
     main_console_view = None,
     cq_mirrors_console_view = None,
     repo = None,
+    refs = None,
 )
 
 def declare_bucket(milestone_vars, *, branch_selector = branches.MAIN_ONLY):
@@ -107,6 +108,7 @@ def set_defaults(milestone_vars, **kwargs):
         pool = "luci.chromium.ci",
         project_trigger_overrides = {"chromium": settings.project} if not settings.is_master else None,
         repo = "https://chromium.googlesource.com/chromium/src",
+        refs = [milestone_vars.ref],
         service_account = "chromium-ci-builder@chops-service-accounts.iam.gserviceaccount.com",
         swarming_tags = ["vpython:native-python-wrapper"],
         triggered_by = [milestone_vars.ci_poller],
@@ -351,6 +353,7 @@ def console_view(*, name, branch_selector = branches.MAIN_ONLY, ordering = None,
 
     kwargs["header"] = defaults.get_value_from_kwargs("header", kwargs)
     kwargs["repo"] = defaults.get_value_from_kwargs("repo", kwargs)
+    kwargs["refs"] = defaults.get_value_from_kwargs("refs", kwargs)
     luci.console_view(
         name = name,
         **kwargs
@@ -605,6 +608,14 @@ def dawn_builder(*, name, builderless = True, **kwargs):
         **kwargs
     )
 
+def dawn_windows_builder(*, name, **kwargs):
+    return dawn_builder(
+        name = name,
+        os = builders.os.WINDOWS_ANY,
+        pool = "luci.chromium.gpu.ci",
+        **kwargs
+    )
+
 def fuzz_builder(*, name, **kwargs):
     return ci.builder(
         name = name,
@@ -675,7 +686,7 @@ def fyi_ios_builder(
         os = builders.os.MAC_10_15,
         **kwargs):
     if not caches:
-        caches = [builders.xcode_cache.x12a8189n]
+        caches = [builders.xcode_cache.x12a7209]
 
     return fyi_builder(
         name = name,
@@ -725,11 +736,13 @@ def gpu_fyi_linux_builder(
         name,
         execution_timeout = 6 * time.hour,
         goma_backend = builders.goma.backend.RBE_PROD,
+        pool = "luci.chromium.gpu.ci",
         **kwargs):
     return gpu_fyi_builder(
         name = name,
         execution_timeout = execution_timeout,
         goma_backend = goma_backend,
+        pool = pool,
         **kwargs
     )
 
@@ -757,6 +770,7 @@ def gpu_fyi_thin_tester(
         # Setting goma_backend for testers is a no-op, but better to be explicit
         # here and also leave the generated configs unchanged for these testers.
         goma_backend = None,
+        pool = "luci.chromium.ci",
         **kwargs
     )
 
@@ -766,10 +780,11 @@ def gpu_fyi_windows_builder(*, name, **kwargs):
         builderless = True,
         goma_backend = builders.goma.backend.RBE_PROD,
         os = builders.os.WINDOWS_ANY,
+        pool = "luci.chromium.gpu.ci",
         **kwargs
     )
 
-def gpu_builder(*, name, tree_closing = True, notifies = None, **kwargs):
+def gpu_builder(*, name, tree_closing = True, notifies = None, pool = "luci.chromium.gpu.ci", **kwargs):
     if tree_closing:
         notifies = (notifies or []) + ["gpu-tree-closer-email"]
     return ci.builder(
@@ -778,6 +793,7 @@ def gpu_builder(*, name, tree_closing = True, notifies = None, **kwargs):
         goma_backend = builders.goma.backend.RBE_PROD,
         tree_closing = tree_closing,
         notifies = notifies,
+        pool = pool,
         **kwargs
     )
 
@@ -789,6 +805,7 @@ def gpu_thin_tester(*, name, tree_closing = True, **kwargs):
         cores = 2,
         os = builders.os.LINUX_DEFAULT,
         tree_closing = tree_closing,
+        pool = "luci.chromium.ci",
         **kwargs
     )
 
@@ -838,10 +855,10 @@ def mac_ios_builder(
         properties = None,
         **kwargs):
     if not caches:
-        caches = [builders.xcode_cache.x12a8189n]
+        caches = [builders.xcode_cache.x12a7209]
     if not properties:
         properties = {
-            "xcode_build_version": "12a8189n",
+            "xcode_build_version": "12a7209",
         }
 
     return mac_builder(
@@ -895,6 +912,7 @@ def swangle_linux_builder(
         name = name,
         goma_backend = builders.goma.backend.RBE_PROD,
         os = builders.os.LINUX_DEFAULT,
+        pool = "luci.chromium.gpu.ci",
         **kwargs
     )
 
@@ -916,6 +934,7 @@ def swangle_windows_builder(*, name, **kwargs):
         name = name,
         goma_backend = builders.goma.backend.RBE_PROD,
         os = builders.os.WINDOWS_DEFAULT,
+        pool = "luci.chromium.gpu.ci",
         **kwargs
     )
 
@@ -966,6 +985,7 @@ ci = struct(
     clang_builder = clang_builder,
     clang_mac_builder = clang_mac_builder,
     dawn_builder = dawn_builder,
+    dawn_windows_builder = dawn_windows_builder,
     fuzz_builder = fuzz_builder,
     fuzz_libfuzzer_builder = fuzz_libfuzzer_builder,
     fyi_builder = fyi_builder,

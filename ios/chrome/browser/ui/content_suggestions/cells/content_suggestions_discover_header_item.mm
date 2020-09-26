@@ -18,23 +18,22 @@
 #endif
 
 namespace {
-// Leading and trailing margin for label and button to the container border.
-// Different margins based on feed being visible or hidden.
-const CGFloat kHeaderMarginFeedVisible = 20;
-const CGFloat kHeaderMarginFeedHidden = 9;
-// Leading and trailing margin for the header container (space between border
-// and frame).
-const CGFloat kHeaderBorderMargin = 16;
+// Leading margin for title label. Its used to align with the Card leading
+// margin.
+const CGFloat kTitleHorizontalMargin = 19;
+// Trailing margin for menu button. Its used to align with the Card trailing
+// margin.
+const CGFloat kMenuButtonHorizontalMargin = 14;
 // Font size for label text in header.
 const CGFloat kDiscoverFeedTitleFontSize = 16;
 // Insets for header menu button.
 const CGFloat kHeaderMenuButtonInsetTopAndBottom = 2;
 const CGFloat kHeaderMenuButtonInsetSides = 2;
 // Duration for the header animation when Discover feed visibility changes.
-const CGFloat kHeaderChangeAnimationDuration = 0.5;
-// Border properties for the header's 'Off' state.
-const CGFloat kHeaderBorderWidth = 1;
-const CGFloat kHeaderBorderRadius = 8;
+const CGFloat kHeaderChangeAnimationDuration = 0.3;
+// Max width for cards in non Max/Plus iPhones, this is used to align the header
+// to the card margins. This is currently hard coded by Discover.
+const CGFloat kFeedCardIPhoneWidth = 375;
 }
 
 #pragma mark - ContentSuggestionsDiscoverHeaderItem
@@ -52,13 +51,7 @@ const CGFloat kHeaderBorderRadius = 8;
 
 - (void)configureCell:(ContentSuggestionsDiscoverHeaderCell*)cell {
   [super configureCell:cell];
-  cell.titleLabel.text =
-      self.discoverFeedVisible
-          ? self.title
-          : [NSString
-                stringWithFormat:@"%@ – %@", self.title,
-                                 l10n_util::GetNSString(
-                                     IDS_IOS_DISCOVER_FEED_TITLE_OFF_LABEL)];
+  cell.title = self.title;
   [cell changeHeaderForFeedVisible:self.discoverFeedVisible];
 }
 
@@ -72,9 +65,6 @@ const CGFloat kHeaderBorderRadius = 8;
 // for nil value before being set.
 @property(nonatomic) NSNumber* discoverFeedVisible;
 
-// Container for the header which allows for adding a border and animation.
-@property(nonatomic, strong) UIView* container;
-
 // Header constraints for when the feed is visible.
 @property(nonatomic, strong)
     NSArray<NSLayoutConstraint*>* feedVisibleConstraints;
@@ -83,6 +73,9 @@ const CGFloat kHeaderBorderRadius = 8;
 @property(nonatomic, strong)
     NSArray<NSLayoutConstraint*>* feedHiddenConstraints;
 
+// Title label for the feed.
+@property(nonatomic, strong) UILabel* titleLabel;
+
 @end
 
 @implementation ContentSuggestionsDiscoverHeaderCell
@@ -90,10 +83,6 @@ const CGFloat kHeaderBorderRadius = 8;
 - (instancetype)initWithFrame:(CGRect)frame {
   self = [super initWithFrame:frame];
   if (self) {
-    _container = [[UIView alloc] init];
-    _container.translatesAutoresizingMaskIntoConstraints = NO;
-    _container.layer.borderColor = [UIColor colorNamed:kGrey300Color].CGColor;
-    _container.layer.cornerRadius = kHeaderBorderRadius;
 
     _titleLabel = [[UILabel alloc] init];
     _titleLabel.translatesAutoresizingMaskIntoConstraints = NO;
@@ -117,56 +106,53 @@ const CGFloat kHeaderBorderRadius = 8;
         kHeaderMenuButtonInsetTopAndBottom, kHeaderMenuButtonInsetSides,
         kHeaderMenuButtonInsetTopAndBottom, kHeaderMenuButtonInsetSides);
 
-    [_container addSubview:_menuButton];
-    [_container addSubview:_titleLabel];
-    [self.contentView addSubview:_container];
+    UIView* container = [[UIView alloc] init];
+    container.translatesAutoresizingMaskIntoConstraints = NO;
+    [container addSubview:_menuButton];
+    [container addSubview:_titleLabel];
+    [self.contentView addSubview:container];
 
-    _container.layer.cornerRadius = kHeaderBorderRadius;
-    _container.layer.borderColor = [UIColor colorNamed:kGrey300Color].CGColor;
-
-    [NSLayoutConstraint activateConstraints:@[
-      [_container.topAnchor constraintEqualToAnchor:self.contentView.topAnchor],
-      [_container.bottomAnchor
+    NSMutableArray* constraintsArray = [[NSMutableArray alloc] init];
+    [constraintsArray addObjectsFromArray:@[
+      [container.topAnchor constraintEqualToAnchor:self.contentView.topAnchor],
+      [container.bottomAnchor
           constraintEqualToAnchor:self.contentView.bottomAnchor],
-
-      [_titleLabel.topAnchor constraintEqualToAnchor:_container.topAnchor],
-      [_titleLabel.bottomAnchor
-          constraintEqualToAnchor:_container.bottomAnchor],
+      [_titleLabel.leadingAnchor
+          constraintEqualToAnchor:container.leadingAnchor
+                         constant:kTitleHorizontalMargin],
       [_titleLabel.trailingAnchor
           constraintLessThanOrEqualToAnchor:_menuButton.leadingAnchor],
-
-      [_menuButton.topAnchor constraintEqualToAnchor:_container.topAnchor],
-      [_menuButton.bottomAnchor
-          constraintEqualToAnchor:_container.bottomAnchor],
+      [_menuButton.trailingAnchor
+          constraintEqualToAnchor:container.trailingAnchor
+                         constant:-kMenuButtonHorizontalMargin],
+      [_titleLabel.centerYAnchor
+          constraintEqualToAnchor:container.centerYAnchor],
+      [_menuButton.centerYAnchor
+          constraintEqualToAnchor:container.centerYAnchor],
     ]];
 
-    _feedVisibleConstraints = @[
-      [_container.trailingAnchor
-          constraintEqualToAnchor:self.contentView.trailingAnchor],
-      [_container.leadingAnchor
-          constraintEqualToAnchor:self.contentView.leadingAnchor],
-      [_titleLabel.leadingAnchor
-          constraintEqualToAnchor:_container.leadingAnchor
-                         constant:kHeaderMarginFeedVisible],
-      [_menuButton.trailingAnchor
-          constraintEqualToAnchor:_container.trailingAnchor
-                         constant:-kHeaderMarginFeedVisible],
-    ];
+    // TODO(b/167703449): Once the card width and padding is exposed we should
+    // stop hardcoding this for some iPhones (the ones with a portrait width of
+    // kFeedCardIPhoneWidth) and use those values instead.
+    BOOL shouldFixWidth = IsPortrait()
+                              ? (CurrentScreenWidth() == kFeedCardIPhoneWidth)
+                              : (CurrentScreenHeight() == kFeedCardIPhoneWidth);
+    if (shouldFixWidth) {
+      [constraintsArray addObjectsFromArray:@[
+        [container.centerXAnchor
+            constraintEqualToAnchor:self.contentView.centerXAnchor],
+        [container.widthAnchor constraintEqualToConstant:kFeedCardIPhoneWidth],
+      ]];
+    } else {
+      [constraintsArray addObjectsFromArray:@[
+        [container.leadingAnchor
+            constraintEqualToAnchor:self.contentView.leadingAnchor],
+        [container.trailingAnchor
+            constraintEqualToAnchor:self.contentView.trailingAnchor],
+      ]];
+    }
 
-    _feedHiddenConstraints = @[
-      [_container.trailingAnchor
-          constraintEqualToAnchor:self.contentView.trailingAnchor
-                         constant:-kHeaderBorderMargin],
-      [_container.leadingAnchor
-          constraintEqualToAnchor:self.contentView.leadingAnchor
-                         constant:kHeaderBorderMargin],
-      [_titleLabel.leadingAnchor
-          constraintEqualToAnchor:_container.leadingAnchor
-                         constant:kHeaderMarginFeedHidden],
-      [_menuButton.trailingAnchor
-          constraintEqualToAnchor:_container.trailingAnchor
-                         constant:-kHeaderMarginFeedHidden],
-    ];
+    [NSLayoutConstraint activateConstraints:constraintsArray];
   }
   return self;
 }
@@ -190,6 +176,11 @@ const CGFloat kHeaderBorderRadius = 8;
     [self setHeaderForFeedVisible:visible animate:NO];
   }
   [self.contentView layoutIfNeeded];
+  NamedGuide* menuButtonGuide =
+      [NamedGuide guideWithName:kDiscoverFeedHeaderMenuGuide
+                           view:self.menuButton];
+
+  menuButtonGuide.constrainedView = self.menuButton;
   self.discoverFeedVisible = [NSNumber numberWithBool:visible];
 }
 
@@ -197,49 +188,26 @@ const CGFloat kHeaderBorderRadius = 8;
 
 - (void)setHeaderForFeedVisible:(BOOL)visible animate:(BOOL)animate {
   if (animate) {
-    // If the header already exists, force the animation by setting other header
-    // view first. This is because the header constraints are lost when the NTP
-    // is reloaded, which happens when toggling the visibility.
-    [self setConstraintsForFeedVisible:!visible];
-    [self.contentView layoutIfNeeded];
-    [UIView animateWithDuration:kHeaderChangeAnimationDuration
-                     animations:^{
-                       [self setConstraintsForFeedVisible:visible];
-                       [self.contentView layoutIfNeeded];
-                     }];
-    [self animateBorderForFeedVisible:visible];
+    [UIView transitionWithView:self.titleLabel
+                      duration:kHeaderChangeAnimationDuration
+                       options:UIViewAnimationOptionTransitionCrossDissolve
+                    animations:^{
+                      [self setHeaderTitleForFeedVisible:visible];
+                    }
+                    completion:nil];
   } else {
-    [self setConstraintsForFeedVisible:visible];
-  }
-  self.container.layer.borderWidth = visible ? 0 : kHeaderBorderWidth;
-  [self.contentView layoutIfNeeded];
-  NamedGuide* menuButtonGuide =
-      [NamedGuide guideWithName:kDiscoverFeedHeaderMenuGuide
-                           view:self.menuButton];
-
-  menuButtonGuide.constrainedFrame =
-      [self.contentView convertRect:self.menuButton.frame toView:nil];
-  self.discoverFeedVisible = [NSNumber numberWithBool:visible];
-}
-
-// Sets header properties for when the Discover feed is visible.
-- (void)setConstraintsForFeedVisible:(BOOL)visible {
-  if (visible) {
-    [NSLayoutConstraint deactivateConstraints:self.feedHiddenConstraints];
-    [NSLayoutConstraint activateConstraints:self.feedVisibleConstraints];
-  } else {
-    [NSLayoutConstraint deactivateConstraints:self.feedVisibleConstraints];
-    [NSLayoutConstraint activateConstraints:self.feedHiddenConstraints];
+    [self setHeaderTitleForFeedVisible:visible];
   }
 }
 
-// Animates border visibility when header changes state.
-- (void)animateBorderForFeedVisible:(BOOL)visible {
-  CABasicAnimation* width =
-      [CABasicAnimation animationWithKeyPath:@"borderWidth"];
-  width.fromValue = visible ? @(kHeaderBorderWidth) : @0;
-  width.toValue = visible ? @0 : @(kHeaderBorderWidth);
-  [self.container.layer addAnimation:width forKey:@"borderWidth"];
+- (void)setHeaderTitleForFeedVisible:(BOOL)visible {
+  self.titleLabel.text =
+      visible
+          ? self.title
+          : [NSString
+                stringWithFormat:@"%@ – %@", self.title,
+                                 l10n_util::GetNSString(
+                                     IDS_IOS_DISCOVER_FEED_TITLE_OFF_LABEL)];
 }
 
 @end

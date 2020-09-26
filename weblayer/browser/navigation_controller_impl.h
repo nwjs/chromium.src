@@ -50,10 +50,10 @@ class NavigationControllerImpl : public NavigationController,
       JNIEnv* env,
       const base::android::JavaParamRef<jobject>& java_controller);
   void Navigate(JNIEnv* env,
-                const base::android::JavaParamRef<jstring>& url);
-  void NavigateWithParams(JNIEnv* env,
-                          const base::android::JavaParamRef<jstring>& url,
-                          jboolean should_replace_current_entry);
+                const base::android::JavaParamRef<jstring>& url,
+                jboolean should_replace_current_entry,
+                jboolean disable_intent_processing,
+                jboolean disable_network_error_auto_reload);
   void GoBack(JNIEnv* env) { GoBack(); }
   void GoForward(JNIEnv* env) { GoForward(); }
   bool CanGoBack(JNIEnv* env) { return CanGoBack(); }
@@ -74,7 +74,13 @@ class NavigationControllerImpl : public NavigationController,
   bool IsNavigationEntrySkippable(JNIEnv* env, int index);
 #endif
 
+  bool should_delay_web_contents_deletion() {
+    return should_delay_web_contents_deletion_;
+  }
+
  private:
+  class DelayDeletionHelper;
+
   class NavigationThrottleImpl;
 
   // Called from NavigationControllerImpl::WillRedirectRequest(). See
@@ -134,6 +140,11 @@ class NavigationControllerImpl : public NavigationController,
 #if defined(OS_ANDROID)
   base::android::ScopedJavaGlobalRef<jobject> java_controller_;
 #endif
+
+  // Set to true while processing an observer/callback and it's unsafe to
+  // delete the WebContents. This is not used for all callbacks, just the
+  // ones that we need to allow deletion from (such as completed/failed).
+  bool should_delay_web_contents_deletion_ = false;
 
   base::WeakPtrFactory<NavigationControllerImpl> weak_ptr_factory_{this};
 

@@ -22,7 +22,6 @@
 <translation id="1176932207622159128">Obrázok sa nedá uložiť</translation>
 <translation id="1180526666083833456">Synchronizujte a prispôsobujte obsah v rôznych zariadeniach.</translation>
 <translation id="1181037720776840403">Odstrániť</translation>
-<translation id="1185569544548277362">Novinka: Chrome si môžete nastaviť ako predvolený prehliadač. <ph name="BEGIN_LINK" />Otvoriť Nastavenia<ph name="END_LINK" /></translation>
 <translation id="1207113853726624428">Nové vyhľadávanie</translation>
 <translation id="1209206284964581585">Skryť</translation>
 <translation id="1219674500290482172">Nepodarilo sa pripojiť k internetu.</translation>
@@ -96,6 +95,7 @@
 <translation id="1952728750904661634">Prihlásenie pomocou spravovaného účtu</translation>
 <translation id="1974060860693918893">Rozšírené</translation>
 <translation id="1989112275319619282">Prehliadať</translation>
+<translation id="1992734845128748707">Zmeniť predvolený prehliadač…</translation>
 <translation id="2015722694326466240">Ak si chcete zobraziť heslá, najprv musíte v zariadení nastaviť vstupný kód.</translation>
 <translation id="2073572773299281212">Aktívne pred <ph name="DAYS" /> dňami</translation>
 <translation id="2074131957428911366">Položky, ktoré chcete synchronizovať, môžete vybrať v <ph name="BEGIN_LINK" />nastaveniach<ph name="END_LINK" />.</translation>
@@ -245,6 +245,7 @@ Weby v anonymnom režime nemôžu pomocou súborov cookie zobraziť vašu aktiv
 <translation id="3638472932233958418">Predbežne načítavať webové stránky</translation>
 <translation id="3670030362669914947">Číslo</translation>
 <translation id="3691593122358196899">Uložené ako záložka v priečinku <ph name="FOLDER_TITLE" /></translation>
+<translation id="3709582977625132201">Označiť ako neprečítané</translation>
 <translation id="3740397331642243698">Otvorí zadané webové adresy v prehliadači Google Chrome v režime inkognito.</translation>
 <translation id="3771033907050503522">Karty inkognito</translation>
 <translation id="3775743491439407556">Synchronizácia nefunguje</translation>
@@ -333,6 +334,7 @@ Ak chcete toto nastavenie zmeniť, <ph name="BEGIN_LINK" />resetujte synchroniz�
 <translation id="4818522717893377262">Pridať jazyk…</translation>
 <translation id="481968316161811770">Súbory cookie, údaje webu</translation>
 <translation id="4826218269716039351">Blokovať tretie strany</translation>
+<translation id="48274138579728272">Označiť ako prečítané</translation>
 <translation id="4833786495304741580">Automaticky odosiela Googlu štatistiky o používaní a správy o zlyhaní.</translation>
 <translation id="4840495572919996524">Záložky, história, heslá a ďalší obsah sa už nebudú synchronizovať do vášho účtu Google.</translation>
 <translation id="4854345657858711387">Nastavenie vstupného kódu</translation>
@@ -383,6 +385,7 @@ Ak chcete toto nastavenie zmeniť, <ph name="BEGIN_LINK" />resetujte synchroniz�
 <translation id="5433691172869980887">Používateľské meno bolo skopírované</translation>
 <translation id="54401264925851789">Informácie o zabezpečení stránky</translation>
 <translation id="5443952882982198570">Kreditné karty</translation>
+<translation id="5457226814769348910">Otvoriť offline verziu</translation>
 <translation id="5457907402803865181">Chyba pri synchronizovaní hesiel.</translation>
 <translation id="5489208564673669003">Ak chcete spravovať súbory cookie pre všetky weby, prejdite do <ph name="BEGIN_LINK" />Nastavení súborov cookie<ph name="END_LINK" />.</translation>
 <translation id="5490005495580364134">Blokovať všetky súbory cookie (neodporúča sa)</translation>
@@ -555,6 +558,7 @@ Weby si nemôžu na základe súborov cookie zobraziť vašu históriu prehliada
 <translation id="7189598951263744875">Zdieľať...</translation>
 <translation id="7192050974311852563">Spustiť zapisovanie do denníka</translation>
 <translation id="7203585745079012652">Vysloviť odpovede</translation>
+<translation id="7207383424303353046">Novinka: Nastavte si Chrome ako predvolenú aplikáciu prehliadača a otvárajte v ňom weby automaticky. <ph name="BEGIN_LINK" />Otvoriť nastavenia<ph name="END_LINK" /></translation>
 <translation id="721597782417389033">Neplatná prezývka karty</translation>
 <translation id="7265758999917665941">Nikdy pre tento web</translation>
 <translation id="7272437679830969316">Vašu totožnosť nie je možné overiť. Heslo sa neskopírovalo.</translation>

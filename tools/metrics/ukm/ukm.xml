@@ -1631,6 +1631,30 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="BackForwardCacheDisabledForRenderFrameHostReason">
+  <owner>altimin@chromium.org</owner>
+  <owner>hajimehoshi@chromium.org</owner>
+  <summary>
+    Recorded at a history commit for each reason passed to
+    BackForwardCache::DisableForRenderFrameHost. The source IDs match with the
+    source IDs of HistoryNavigation events.
+  </summary>
+  <metric name="Reason"
+      enum="BackForwardCacheDisabledForRenderFrameHostReasonShort">
+    <summary>
+      For history navigations, records the reason passed to
+      BackForwardCache::DisableForRenderFrameHost calls. The reason is specified
+      as a string, and this metric contains one of their hashes computed as
+      base::HashMetricName's lower 16bits.
+
+      The metric is recorded when a history navigation commits and emits a
+      sample for each reason. One history navigation can emit multiple reasons,
+      and these reasons are recorded as multiple events with the same source ID
+      based on the navigation ID.
+    </summary>
+  </metric>
+</event>
+
 <event name="BackgroundFetch">
   <owner>nator@chromium.org</owner>
   <owner>rayankans@chromium.org</owner>
@@ -5055,6 +5079,29 @@ be describing additional metrics about the same event.
     metrics are recorded for history navigations, but not for same-document
     navigations.
   </summary>
+  <metric name="BackForwardCache.BlocklistedFeatures"
+      enum="WebSchedulerTrackedFeature">
+    <summary>
+      When navigating back to a page in the session history, this records what
+      blocklisted features were used when the page was loaded and prevented this
+      page from being stored in the back-forward cache. Multiple blocklisted
+      features can be recorded for the same page as a binary mask.
+    </summary>
+  </metric>
+  <metric name="BackForwardCache.BrowsingInstanceNotSwappedReason"
+      enum="BackForwardCacheBrowsingInstanceNotSwappedReason">
+    <summary>
+      When navigating back to a page in the session history and the
+      BackForwardCache wasn't used because of the related browsing instances,
+      this records the reason why the browsing instance wasn't swapped.
+    </summary>
+  </metric>
+  <metric name="BackForwardCache.DisabledForRenderFrameHostReasonCount">
+    <summary>
+      The number of the reasons passed to
+      BackForwardCache::DisableForRenderFrameHost calls.
+    </summary>
+  </metric>
   <metric name="BackForwardCache.IsServedFromBackForwardCache">
     <summary>
       Boolean whether the page was restored from the back-forward cache or not.
@@ -8806,7 +8853,7 @@ be describing additional metrics about the same event.
       this page load. Replaced Navigation.PageEndReason at the end of May 2020
       to reduce occurrences of page_load_metrics::PageEndReason::END_NONE by
       setting the value to page_load_metrics::PageEndReason::END_HIDDEN when the
-      metric is recorded due to the page becoming hidden.
+      metric is recorded after the page became hidden.
     </summary>
   </metric>
   <metric name="Navigation.PageTransition">

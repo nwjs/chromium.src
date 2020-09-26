@@ -22,7 +22,6 @@
 <translation id="1176932207622159128">Не удалось сохранить</translation>
 <translation id="1180526666083833456">Синхронизация данных и персонализация на всех устройствах.</translation>
 <translation id="1181037720776840403">Удалить</translation>
-<translation id="1185569544548277362">Новая функция: вы можете сделать Chrome браузером по умолчанию. <ph name="BEGIN_LINK" />Открыть настройки<ph name="END_LINK" /></translation>
 <translation id="1207113853726624428">Новый поиск</translation>
 <translation id="1209206284964581585">Скрыть</translation>
 <translation id="1219674500290482172">Не удалось подключиться к Интернету.</translation>
@@ -96,6 +95,7 @@
 <translation id="1952728750904661634">Вход в управляемый аккаунт</translation>
 <translation id="1974060860693918893">Дополнительные</translation>
 <translation id="1989112275319619282">Выбрать</translation>
+<translation id="1992734845128748707">Изменить браузер по умолчанию</translation>
 <translation id="2015722694326466240">Чтобы просматривать пароли, настройте на устройстве код доступа.</translation>
 <translation id="2073572773299281212">Последние действия: <ph name="DAYS" /> дн. назад</translation>
 <translation id="2074131957428911366">Вы всегда можете выбрать, что синхронизировать, в <ph name="BEGIN_LINK" />настройках<ph name="END_LINK" />.</translation>
@@ -245,6 +245,7 @@
 <translation id="3638472932233958418">Предварительная загрузка</translation>
 <translation id="3670030362669914947">Номер</translation>
 <translation id="3691593122358196899">Закладка добавлена в папку "<ph name="FOLDER_TITLE" />"</translation>
+<translation id="3709582977625132201">Отметить как непрочитанное</translation>
 <translation id="3740397331642243698">Введенные URL будут открываться в Google Chrome в режиме инкогнито.</translation>
 <translation id="3771033907050503522">Вкладки инкогнито</translation>
 <translation id="3775743491439407556">Ошибка синхронизации</translation>
@@ -333,6 +334,7 @@
 <translation id="4818522717893377262">Добавить язык</translation>
 <translation id="481968316161811770">Cookie, данные сайтов</translation>
 <translation id="4826218269716039351">Блокировать сторонние файлы cookie</translation>
+<translation id="48274138579728272">Отметить как прочитанное</translation>
 <translation id="4833786495304741580">Автоматически отправлять в Google статистику использования и отчеты о сбоях.</translation>
 <translation id="4840495572919996524">Ваши закладки, пароли, история и другие данные больше не будут синхронизироваться с аккаунтом Google.</translation>
 <translation id="4854345657858711387">Установите код доступа</translation>
@@ -383,6 +385,7 @@
 <translation id="5433691172869980887">Имя пользователя скопировано</translation>
 <translation id="54401264925851789">Сведения о надежности страницы</translation>
 <translation id="5443952882982198570">Кредитные карты</translation>
+<translation id="5457226814769348910">Открыть офлайн-версию</translation>
 <translation id="5457907402803865181">Ошибка при синхронизации паролей.</translation>
 <translation id="5489208564673669003">Вы можете <ph name="BEGIN_LINK" />настроить файлы cookie<ph name="END_LINK" /> для разных сайтов.</translation>
 <translation id="5490005495580364134">Блокировать все файлы cookie (не рекомендуется)</translation>
@@ -555,6 +558,7 @@
 <translation id="7189598951263744875">Поделиться…</translation>
 <translation id="7192050974311852563">Начать запись журнала</translation>
 <translation id="7203585745079012652">Озвучивать результаты поиска</translation>
+<translation id="7207383424303353046">Новинка! Чтобы автоматически открывать сайты в Chrome, сделайте его браузером по умолчанию. <ph name="BEGIN_LINK" />Перейти в настройки<ph name="END_LINK" /></translation>
 <translation id="721597782417389033">Недопустимое название карты</translation>
 <translation id="7265758999917665941">Никогда для этого сайта</translation>
 <translation id="7272437679830969316">Не удалось пройти проверку. Пароль не скопирован.</translation>

@@ -28,6 +28,7 @@
 #include "content/public/browser/download_manager.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/storage_partition.h"
+#include "content/public/browser/web_contents.h"
 #include "services/network/public/mojom/network_context.mojom.h"
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/image/image_skia.h"
@@ -143,8 +144,6 @@ class ProfileImpl::DataClearer : public content::BrowsingDataRemover::Observer {
                  uint64_t mask,
                  base::Time from_time,
                  base::Time to_time) {
-    if (mask & BrowsingDataRemoverDelegate::DATA_TYPE_FAVICONS)
-      ClearFavicons(profile);
     uint64_t origin_types =
         content::BrowsingDataRemover::ORIGIN_TYPE_UNPROTECTED_WEB |
         content::BrowsingDataRemover::ORIGIN_TYPE_PROTECTED_WEB;
@@ -153,47 +152,17 @@ class ProfileImpl::DataClearer : public content::BrowsingDataRemover::Observer {
 
   // content::BrowsingDataRemover::Observer:
   void OnBrowsingDataRemoverDone(uint64_t failed_data_types) override {
-    waiting_for_remover_ = false;
     // Remove the observer now as after this returns the BrowserContext may
     // be destroyed, which owns |remover_|.
     remover_->RemoveObserver(this);
-    remover_ = nullptr;
-    RunCallbackAndDeleteThisIfDone();
+    std::move(callback_).Run();
+    delete this;
   }
 
  private:
   // DataClearer deletes itself when removal is done.
   ~DataClearer() override = default;
 
-  void ClearFavicons(ProfileImpl* profile) {
-    auto* service = FaviconServiceImplFactory::GetForProfile(profile);
-    if (!service)
-      return;
-    waiting_for_favicon_removal_ = true;
-    // The favicon database doesn't track enough information to remove favicons
-    // in a time range. Delete everything.
-    service->DeleteAndRecreateDatabase(base::BindOnce(
-        &DataClearer::OnFaviconsCleared, base::Unretained(this)));
-  }
-
-  // Called when a phase of cleanup completes. If done, deletes this and
-  // notifies |callback_|.
-  void RunCallbackAndDeleteThisIfDone() {
-    if (waiting_for_favicon_removal_ || waiting_for_remover_)
-      return;
-
-    std::move(callback_).Run();
-    delete this;
-  }
-
-  // Callback when favicons have been cleared.
-  void OnFaviconsCleared() {
-    waiting_for_favicon_removal_ = false;
-    RunCallbackAndDeleteThisIfDone();
-  }
-
-  bool waiting_for_remover_ = true;
-  bool waiting_for_favicon_removal_ = false;
   content::BrowsingDataRemover* remover_;
   base::OnceCallback<void()> callback_;
 };
@@ -232,6 +201,10 @@ ProfileImpl::ProfileImpl(const std::string& name)
 }
 
 ProfileImpl::~ProfileImpl() {
+  // Destroy any scheduled WebContents. These implicitly refer to the
+  // BrowserContext and must be destroyed before the BrowserContext.
+  web_contents_to_delete_.clear();
+
   if (browser_context_) {
     BrowserContextDependencyManager::GetInstance()
         ->DestroyBrowserContextServices(browser_context_.get());
@@ -258,6 +231,16 @@ void ProfileImpl::AddProfileObserver(ProfileObserver* observer) {
 
 void ProfileImpl::RemoveProfileObserver(ProfileObserver* observer) {
   GetObservers().RemoveObserver(observer);
+}
+
+void ProfileImpl::DeleteWebContentsSoon(
+    std::unique_ptr<content::WebContents> web_contents) {
+  if (web_contents_to_delete_.empty()) {
+    base::SequencedTaskRunnerHandle::Get()->PostTask(
+        FROM_HERE, base::BindOnce(&ProfileImpl::DeleteScheduleWebContents,
+                                  weak_ptr_factory_.GetWeakPtr()));
+  }
+  web_contents_to_delete_.push_back(std::move(web_contents));
 }
 
 BrowserContextImpl* ProfileImpl::GetBrowserContext() {
@@ -300,10 +283,15 @@ void ProfileImpl::ClearBrowsingData(
         remove_mask |= content::BrowsingDataRemover::DATA_TYPE_MEDIA_LICENSES;
         remove_mask |= BrowsingDataRemoverDelegate::DATA_TYPE_ISOLATED_ORIGINS;
         remove_mask |= BrowsingDataRemoverDelegate::DATA_TYPE_FAVICONS;
+        remove_mask |= content::BrowsingDataRemover::DATA_TYPE_TRUST_TOKENS;
+        remove_mask |= content::BrowsingDataRemover::DATA_TYPE_CONVERSIONS;
         break;
       case BrowsingDataType::CACHE:
         remove_mask |= content::BrowsingDataRemover::DATA_TYPE_CACHE;
         ClearRendererCache();
+        break;
+      case BrowsingDataType::SITE_SETTINGS:
+        remove_mask |= BrowsingDataRemoverDelegate::DATA_TYPE_SITE_SETTINGS;
         break;
       default:
         NOTREACHED();
@@ -647,7 +635,8 @@ bool ProfileImpl::GetBooleanSetting(SettingType type) {
 void ProfileImpl::GetCachedFaviconForPageUrl(
     const GURL& page_url,
     base::OnceCallback<void(gfx::Image)> callback) {
-  auto* service = FaviconServiceImplFactory::GetForProfile(this);
+  auto* service =
+      FaviconServiceImplFactory::GetForBrowserContext(GetBrowserContext());
   if (!service) {
     std::move(callback).Run({});
     return;
@@ -665,6 +654,10 @@ int ProfileImpl::GetNumberOfBrowsers() {
   const auto& browsers = BrowserList::GetInstance()->browsers();
   return std::count_if(browsers.begin(), browsers.end(),
                        [this](BrowserImpl* b) { return b->profile() == this; });
+}
+
+void ProfileImpl::DeleteScheduleWebContents() {
+  web_contents_to_delete_.clear();
 }
 
 }  // namespace weblayer

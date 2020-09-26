@@ -35,6 +35,21 @@ Polymer({
       value: 10,
       observer: 'restartAutoTransition_',
     },
+
+    /**
+     * Slide aria-label.
+     */
+    slideLabel: String,
+
+    /**
+     * Selected button aria-label.
+     */
+    selectedButtonLabel: String,
+
+    /**
+     * Unselected button aria-label.
+     */
+    unselectedButtonLabel: String,
   },
 
   /**
@@ -70,23 +85,35 @@ Polymer({
   attached() {
     this.removeAnimateToHandler = this.removeAnimateTo_.bind(this);
     this.removeAnimateFromHandler = this.removeAnimateFrom_.bind(this);
-    this.countSlides_();
+    this.prepareCarousel_();
     this.restartAutoTransition_();
     this.hideNonActiveSlides_();
   },
 
   /**
    * @private
-   * Count slides and create dots.
+   * Count slides and create dots. Set a11y label on slides.
    */
-  countSlides_() {
+  prepareCarousel_() {
     this.slides = this.$.slot.assignedElements();
     this.totalSlides = this.slides.length;
     let array = [];
     for (let i = 0; i < this.totalSlides; ++i) {
+      this.slides[i].setAttribute('aria-label', this.getSlideLabel_(i));
+      this.slides[i].setAttribute('role', 'group');
       array.push(i);
     }
     this.dots = array;
+  },
+
+  /**
+   * @private
+   * @param {number} index Index of slide.
+   * Returns string label for slide.
+   */
+  getSlideLabel_(index) {
+    return loadTimeData.getStringF(
+        this.slideLabel, index + 1, this.totalSlides);
   },
 
   /**
@@ -171,7 +198,6 @@ Polymer({
     }
   },
 
-
   /**
    * @private
    * @param {EventTarget|null} slide
@@ -195,9 +221,7 @@ Polymer({
    * @param {EventTarget|null} slide
    */
   cleanStyles(slide) {
-    slide.classList.remove('animated');
-    slide.classList.remove('forward');
-    slide.classList.remove('backward');
+    slide.classList.remove('animated', 'forward', 'backward', 'hide-slide');
   },
 
   /**
@@ -271,10 +295,31 @@ Polymer({
     fromElement.classList.add('animated');
     toElement.classList.remove(toStyle);
     fromElement.classList.add(fromStyle);
+    fromElement.classList.add('hide-slide');
 
     toElement.addEventListener('transitionend', this.removeAnimateToHandler);
     fromElement.addEventListener(
         'transitionend', this.removeAnimateFromHandler);
+  },
+
+  /**
+   * @private
+   * @param {Event} e keypress event.
+   * On key press function.
+   */
+  onKeypress_(e) {
+    // Space (32) and enter (13) key codes.
+    if (e.keyCode == 32 || e.keyCode == 13)
+      this.slideIndex = e.model.item;
+  },
+
+  /**
+   * @private
+   * @param {Event} e click event.
+   * On dot click function.
+   */
+  onClick_(e) {
+    this.slideIndex = e.model.item;
   },
 
   /**
@@ -284,6 +329,20 @@ Polymer({
    */
   isActive_(index) {
     return index == this.slideIndex;
+  },
+
+  /**
+   * @private
+   * @param {number} index Index of slide.
+   * Returns string label for dot.
+   */
+  getDotLabel_(index) {
+    if (index == this.slideIndex) {
+      return loadTimeData.getStringF(
+          this.selectedButtonLabel, index + 1, this.totalSlides);
+    }
+    return loadTimeData.getStringF(
+        this.unselectedButtonLabel, index + 1, this.totalSlides);
   },
 
   /**

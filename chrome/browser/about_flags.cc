@@ -1545,7 +1545,8 @@ const FeatureEntry::FeatureParam kTabGridLayoutAndroid_NewTabTile[] = {
 const FeatureEntry::FeatureParam kTabGridLayoutAndroid_TallNTV[] = {
     {"thumbnail_aspect_ratio", "0.85"},
     {"allow_to_refetch", "true"},
-    {"tab_grid_layout_android_new_tab", "NewTabVariation"}};
+    {"tab_grid_layout_android_new_tab", "NewTabVariation"},
+    {"enable_launch_polish", "true"}};
 
 const FeatureEntry::FeatureParam kTabGridLayoutAndroid_SearchChip[] = {
     {"enable_search_term_chip", "true"}};
@@ -3026,6 +3027,11 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kDesktopPWAsWithoutExtensionsName,
      flag_descriptions::kDesktopPWAsWithoutExtensionsDescription, kOsDesktop,
      FEATURE_VALUE_TYPE(features::kDesktopPWAsWithoutExtensions)},
+    {"enable-desktop-pwas-migration-user-display-mode-clean-up",
+     flag_descriptions::kDesktopPWAsMigrationUserDisplayModeCleanUpName,
+     flag_descriptions::kDesktopPWAsMigrationUserDisplayModeCleanUpDescription,
+     kOsDesktop,
+     FEATURE_VALUE_TYPE(features::kDesktopPWAsMigrationUserDisplayModeCleanUp)},
     {"enable-desktop-pwas-run-on-os-login",
      flag_descriptions::kDesktopPWAsRunOnOsLoginName,
      flag_descriptions::kDesktopPWAsRunOnOsLoginDescription, kOsDesktop,
@@ -5536,19 +5542,6 @@ const FeatureEntry kFeatureEntries[] = {
      kOsAll,
      SINGLE_VALUE_TYPE(
          previews::switches::kEnableDeferAllScriptWithoutOptimizationHints)},
-
-#if defined(OS_CHROMEOS)
-    {"enable-edu-coexistence", flag_descriptions::kEnableEduCoexistenceName,
-     flag_descriptions::kEnableEduCoexistenceDescription, kOsCrOS,
-     FEATURE_VALUE_TYPE(chromeos::features::kEduCoexistence)},
-#endif  // OS_CHROMEOS
-
-#if defined(OS_CHROMEOS)
-    {"enable-edu-coexistence-consent-log",
-     flag_descriptions::kEnableEduCoexistenceConsentLogName,
-     flag_descriptions::kEnableEduCoexistenceConsentLogDescription, kOsCrOS,
-     FEATURE_VALUE_TYPE(chromeos::features::kEduCoexistenceConsentLog)},
-#endif  // OS_CHROMEOS
 
 #if defined(OS_CHROMEOS)
     {"enable-assistant-routines",

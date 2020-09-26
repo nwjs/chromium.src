@@ -22,7 +22,6 @@
 <translation id="1176932207622159128">Сүрөт сакталбайт</translation>
 <translation id="1180526666083833456">Бардык түзмөктөрдө шайкештирүү жана жекечелештирүү.</translation>
 <translation id="1181037720776840403">Алып салуу</translation>
-<translation id="1185569544548277362">Жаңы: Chrome демейки серепчиңиз боло алат. <ph name="BEGIN_LINK" />Жөндөөлөрдү ачуу<ph name="END_LINK" /></translation>
 <translation id="1207113853726624428">Жаңы издөө</translation>
 <translation id="1209206284964581585">Азырынча жашыруу</translation>
 <translation id="1219674500290482172">Интернетке туташуу мүмкүн болбой жатат.</translation>
@@ -96,6 +95,7 @@
 <translation id="1952728750904661634">Башкарылган аккаунт менен кириңиз</translation>
 <translation id="1974060860693918893">Өркүндөтүлгөн</translation>
 <translation id="1989112275319619282">Серептөө</translation>
+<translation id="1992734845128748707">Демейки серепчини өзгөртүү…</translation>
 <translation id="2015722694326466240">Сырсөздөрдү көрүү үчүн, адегенде, түзмөгүңүздөгү өткөрүүчү кодду жөндөп алышыңыз керек.</translation>
 <translation id="2073572773299281212"><ph name="DAYS" /> күн мурун жигердүү болгон</translation>
 <translation id="2074131957428911366">Эмнени шайкештирүү керек экенин <ph name="BEGIN_LINK" />жөндөөлөрдөн<ph name="END_LINK" /> ар дайым тандай аласыз.</translation>
@@ -245,6 +245,7 @@
 <translation id="3638472932233958418">Желебет алдн-ал жүкт</translation>
 <translation id="3670030362669914947">Сан</translation>
 <translation id="3691593122358196899">Кыстарма <ph name="FOLDER_TITLE" /> куржунуна кошулду</translation>
+<translation id="3709582977625132201">Окула элек деп белгилөө</translation>
 <translation id="3740397331642243698">Киргизилген URL даректерин Google Chrome'до Жашыруун режимде ачат.</translation>
 <translation id="3771033907050503522">Жашыруун өтмөктөр</translation>
 <translation id="3775743491439407556">Шайкештирүү иштебей жатат</translation>
@@ -333,6 +334,7 @@
 <translation id="4818522717893377262">Тил кошуу…</translation>
 <translation id="481968316161811770">Кукилер, сайт дайындары</translation>
 <translation id="4826218269716039351">Үчүнчү тараптыкы бөгөттөлгөн</translation>
+<translation id="48274138579728272">Окулду деп белгилөө</translation>
 <translation id="4833786495304741580">Колдонуу статистикасын жана каталар жөнүндө кабарларды Google'га автоматтык түрдө жөнөтүп турат.</translation>
 <translation id="4840495572919996524">Кыстармаларыңыз, таржымалыңыз, сырсөздөрүңүз жана башкалар мындан ары Google аккаунтуңузга шайкештирилбейт.</translation>
 <translation id="4854345657858711387">Өткөрүүчү кодду коюу</translation>
@@ -383,6 +385,7 @@
 <translation id="5433691172869980887">Колдонуучунун аты көчүрүлдү</translation>
 <translation id="54401264925851789">Баракчанын коопсуздук маалыматы</translation>
 <translation id="5443952882982198570">Насыя карталары</translation>
+<translation id="5457226814769348910">Оффлайн версиясын ачуу</translation>
 <translation id="5457907402803865181">Сырсөздөрдү шайкештирүүдө ката кетти.</translation>
 <translation id="5489208564673669003">Бардык сайттардын cookie файлдарын башкаруу үчүн <ph name="BEGIN_LINK" />Cookie файлдардын жөндөөлөрүнө<ph name="END_LINK" /> өтүңүз.</translation>
 <translation id="5490005495580364134">Бардык cookie файлдарды бөгөттөө (Сунушталбайт)</translation>
@@ -555,6 +558,7 @@ Handoff Жөндөөлөрдүн жалпы бөлүмүндө да иштети
 <translation id="7189598951263744875">Бөлүшүү…</translation>
 <translation id="7192050974311852563">Таржымалын жыйнап баштоо</translation>
 <translation id="7203585745079012652">Жоопторду айтуу</translation>
+<translation id="7207383424303353046">Жаңы: Chrome'ду демейки серепчиңиз кылып алып, андагы сайттарды автоматтык түрдө ачыңыз. <ph name="BEGIN_LINK" />Жөндөөлөрдү ачуу<ph name="END_LINK" /></translation>
 <translation id="721597782417389033">Картанын ылакап аты туура эмес</translation>
 <translation id="7265758999917665941">Бул сайт үчүн эч качан</translation>
 <translation id="7272437679830969316">Аныктыгыңыз тастыкталган жок. Сырсөз көчүрүлгөн жок.</translation>

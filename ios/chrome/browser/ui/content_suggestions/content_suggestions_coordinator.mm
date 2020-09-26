@@ -8,6 +8,8 @@
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
 #include "base/scoped_observer.h"
+#import "components/feature_engagement/public/event_constants.h"
+#import "components/feature_engagement/public/tracker.h"
 #include "components/feed/core/shared_prefs/pref_names.h"
 #include "components/ntp_snippets/content_suggestions_service.h"
 #include "components/ntp_snippets/pref_names.h"
@@ -17,12 +19,14 @@
 #import "components/search_engines/template_url.h"
 #import "components/search_engines/template_url_service.h"
 #include "ios/chrome/browser/browser_state/chrome_browser_state.h"
+#include "ios/chrome/browser/discover_feed/discover_feed_service.h"
 #include "ios/chrome/browser/discover_feed/discover_feed_service_factory.h"
 #include "ios/chrome/browser/drag_and_drop/drag_and_drop_flag.h"
 #import "ios/chrome/browser/drag_and_drop/url_drag_drop_handler.h"
 #include "ios/chrome/browser/favicon/ios_chrome_large_icon_cache_factory.h"
 #include "ios/chrome/browser/favicon/ios_chrome_large_icon_service_factory.h"
 #include "ios/chrome/browser/favicon/large_icon_cache.h"
+#import "ios/chrome/browser/feature_engagement/tracker_factory.h"
 #import "ios/chrome/browser/main/browser.h"
 #include "ios/chrome/browser/ntp_snippets/ios_chrome_content_suggestions_service_factory.h"
 #include "ios/chrome/browser/ntp_tiles/ios_most_visited_sites_factory.h"
@@ -52,6 +56,7 @@
 #import "ios/chrome/browser/ui/content_suggestions/discover_feed_delegate.h"
 #import "ios/chrome/browser/ui/content_suggestions/discover_feed_header_changing.h"
 #import "ios/chrome/browser/ui/content_suggestions/discover_feed_menu_commands.h"
+#import "ios/chrome/browser/ui/content_suggestions/discover_feed_metrics_recorder.h"
 #import "ios/chrome/browser/ui/content_suggestions/ntp_home_constant.h"
 #import "ios/chrome/browser/ui/content_suggestions/ntp_home_mediator.h"
 #import "ios/chrome/browser/ui/content_suggestions/ntp_home_metrics.h"
@@ -100,6 +105,8 @@
 @property(nonatomic, strong)
     ContentSuggestionsHeaderSynchronizer* headerCollectionInteractionHandler;
 @property(nonatomic, strong) ContentSuggestionsMetricsRecorder* metricsRecorder;
+@property(nonatomic, strong)
+    DiscoverFeedMetricsRecorder* discoverFeedMetricsRecorder;
 @property(nonatomic, strong) NTPHomeMediator* NTPMediator;
 @property(nonatomic, strong) UIViewController* discoverFeedViewController;
 @property(nonatomic, strong) URLDragDropHandler* dragDropHandler;
@@ -111,7 +118,6 @@
 // Delegate for handling Discover feed header UI changes.
 @property(nonatomic, weak) id<DiscoverFeedHeaderChanging>
     discoverFeedHeaderDelegate;
-@property(nonatomic) CGFloat discoverFeedHeight;
 // Authentication Service for the user's signed-in state.
 @property(nonatomic, assign) AuthenticationService* authService;
 // Coordinator in charge of handling sharing use cases.
@@ -204,8 +210,11 @@
 
   if (IsDiscoverFeedEnabled()) {
     // Creating the DiscoverFeedService will start the DiscoverFeed.
-    DiscoverFeedServiceFactory::GetForBrowserState(
-        self.browser->GetBrowserState());
+    DiscoverFeedService* discoverFeedService =
+        DiscoverFeedServiceFactory::GetForBrowserState(
+            self.browser->GetBrowserState());
+    self.discoverFeedMetricsRecorder =
+        discoverFeedService->GetDiscoverFeedMetricsRecorder();
   }
   self.discoverFeedViewController = [self discoverFeed];
 
@@ -234,6 +243,7 @@
   self.metricsRecorder = [[ContentSuggestionsMetricsRecorder alloc] init];
   self.metricsRecorder.delegate = self.contentSuggestionsMediator;
 
+
   // Offset to maintain Discover feed scroll position.
   CGFloat offset = 0;
   if (IsDiscoverFeedEnabled() && contentSuggestionsEnabled) {
@@ -259,6 +269,8 @@
       self.browser->GetCommandDispatcher(), SnackbarCommands);
   self.suggestionsViewController.dispatcher = dispatcher;
   self.suggestionsViewController.discoverFeedMenuHandler = self;
+  self.suggestionsViewController.discoverFeedMetricsRecorder =
+      self.discoverFeedMetricsRecorder;
 
   self.discoverFeedHeaderDelegate =
       self.suggestionsViewController.discoverFeedHeaderDelegate;
@@ -288,6 +300,7 @@
   self.NTPMediator.suggestionsMediator = self.contentSuggestionsMediator;
   self.NTPMediator.suggestionsService = contentSuggestionsService;
   [self.NTPMediator setUp];
+  self.NTPMediator.discoverFeedMetrics = self.discoverFeedMetricsRecorder;
 
   [self.suggestionsViewController addChildViewController:self.headerController];
   [self.headerController
@@ -433,10 +446,7 @@
         addItemWithTitle:l10n_util::GetNSString(
                              IDS_IOS_DISCOVER_FEED_MENU_TURN_OFF_ITEM)
                   action:^{
-                    [weakSelf.contentSuggestionsVisible setValue:NO];
-                    [weakSelf.discoverFeedHeaderDelegate
-                        changeDiscoverFeedHeaderVisibility:NO];
-                    [weakSelf.contentSuggestionsMediator reloadAllData];
+                    [weakSelf setDiscoverFeedVisible:NO];
                   }
                    style:UIAlertActionStyleDestructive];
   } else {
@@ -444,10 +454,7 @@
         addItemWithTitle:l10n_util::GetNSString(
                              IDS_IOS_DISCOVER_FEED_MENU_TURN_ON_ITEM)
                   action:^{
-                    [weakSelf.contentSuggestionsVisible setValue:YES];
-                    [weakSelf.discoverFeedHeaderDelegate
-                        changeDiscoverFeedHeaderVisibility:YES];
-                    [weakSelf.contentSuggestionsMediator reloadAllData];
+                    [weakSelf setDiscoverFeedVisible:YES];
                   }
                    style:UIAlertActionStyleDefault];
   }
@@ -480,6 +487,12 @@
   [self.alertCoordinator start];
 }
 
+- (void)notifyFeedLoadedForHeaderMenu {
+  feature_engagement::TrackerFactory::GetForBrowserState(
+      self.browser->GetBrowserState())
+      ->NotifyEvent(feature_engagement::events::kDiscoverFeedLoaded);
+}
+
 #pragma mark - DiscoverFeedDelegate
 
 - (void)recreateDiscoverFeedViewController {
@@ -495,21 +508,10 @@
 #pragma mark - ContentSuggestionsActionHandler
 
 - (void)loadMoreFeedArticles {
-  CGFloat currentHeight = 0;
-  for (UIView* view in self.discoverFeedViewController.view.subviews) {
-    if ([view isKindOfClass:[UICollectionView class]]) {
-      UICollectionView* feedView = static_cast<UICollectionView*>(view);
-      currentHeight = feedView.contentSize.height;
-    }
-  }
-  // TODO(crbug.com/1085419): Track number of cards from protocol instead of
-  // height to determine whether or not we should fetch more cards.
-  if (currentHeight != self.discoverFeedHeight) {
-    ios::GetChromeBrowserProvider()
-        ->GetDiscoverFeedProvider()
-        ->LoadMoreFeedArticles();
-    self.discoverFeedHeight = currentHeight;
-  }
+  ios::GetChromeBrowserProvider()
+      ->GetDiscoverFeedProvider()
+      ->LoadMoreFeedArticles();
+  [self.discoverFeedMetricsRecorder recordInfiniteFeedTriggered];
 }
 
 #pragma mark - Public methods
@@ -665,6 +667,15 @@
                                                       params:params
                                                   originView:view];
   [self.sharingCoordinator start];
+}
+
+// Toggles Discover feed visibility between hidden or expanded.
+- (void)setDiscoverFeedVisible:(BOOL)visible {
+  [self.contentSuggestionsVisible setValue:visible];
+  [self.discoverFeedHeaderDelegate changeDiscoverFeedHeaderVisibility:visible];
+  [self.contentSuggestionsMediator reloadAllData];
+  [self.discoverFeedMetricsRecorder
+      recordDiscoverFeedVisibilityChanged:visible];
 }
 
 @end

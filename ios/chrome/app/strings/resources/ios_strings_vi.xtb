@@ -22,7 +22,6 @@
 <translation id="1176932207622159128">Không thể lưu ảnh</translation>
 <translation id="1180526666083833456">Đồng bộ hóa và cá nhân hóa trên các thiết bị.</translation>
 <translation id="1181037720776840403">Xóa</translation>
-<translation id="1185569544548277362">Mới: Bạn có thể đặt Chrome làm trình duyệt mặc định. <ph name="BEGIN_LINK" />Mở phần Cài đặt<ph name="END_LINK" /></translation>
 <translation id="1207113853726624428">Lượt tìm kiếm mới</translation>
 <translation id="1209206284964581585">Ẩn ngay bây giờ</translation>
 <translation id="1219674500290482172">Không thể kết nối Internet.</translation>
@@ -96,6 +95,7 @@
 <translation id="1952728750904661634">Đăng nhập bằng tài khoản được quản lý</translation>
 <translation id="1974060860693918893">Nâng cao</translation>
 <translation id="1989112275319619282">Duyệt qua</translation>
+<translation id="1992734845128748707">Thay đổi trình duyệt mặc định…</translation>
 <translation id="2015722694326466240">Để xem mật khẩu, trước tiên bạn phải đặt mật mã trên thiết bị của mình.</translation>
 <translation id="2073572773299281212">Hoạt động <ph name="DAYS" /> ngày trước</translation>
 <translation id="2074131957428911366">Bạn luôn có thể chọn nội dung muốn đồng bộ hóa trong phần <ph name="BEGIN_LINK" />cài đặt<ph name="END_LINK" />.</translation>
@@ -245,6 +245,7 @@ Các trang web không thể dùng cookie để giám sát hoạt động duyệt
 <translation id="3638472932233958418">Tải trước trang web</translation>
 <translation id="3670030362669914947">Số</translation>
 <translation id="3691593122358196899">Đã đánh dấu trang vào <ph name="FOLDER_TITLE" /></translation>
+<translation id="3709582977625132201">Đánh dấu là chưa đọc</translation>
 <translation id="3740397331642243698">Mở các URL đã nhập trong Google Chrome ở chế độ Ẩn danh.</translation>
 <translation id="3771033907050503522">Thẻ ẩn danh</translation>
 <translation id="3775743491439407556">Tính năng đồng bộ hóa hiện không hoạt động</translation>
@@ -333,6 +334,7 @@ Dữ liệu của bạn đã được mã hóa bằng cụm mật khẩu đồng
 <translation id="4818522717893377262">Thêm ngôn ngữ...</translation>
 <translation id="481968316161811770">Cookie, Dữ liệu trang web</translation>
 <translation id="4826218269716039351">Chặn cookie của bên thứ ba</translation>
+<translation id="48274138579728272">Đánh dấu là đã đọc</translation>
 <translation id="4833786495304741580">Tự động gửi số liệu thống kê sử dụng và báo cáo sự cố cho Google.</translation>
 <translation id="4840495572919996524">Dấu trang, lịch sử, mật khẩu và các dữ liệu khác sẽ không còn đồng bộ hóa với Tài khoản Google của bạn nữa.</translation>
 <translation id="4854345657858711387">Đặt mật mã</translation>
@@ -383,6 +385,7 @@ Dữ liệu của bạn đã được mã hóa bằng cụm mật khẩu đồng
 <translation id="5433691172869980887">Đã sao chép tên người dùng</translation>
 <translation id="54401264925851789">Thông tin bảo mật trang</translation>
 <translation id="5443952882982198570">Thẻ tín dụng</translation>
+<translation id="5457226814769348910">Mở phiên bản ngoại tuyến</translation>
 <translation id="5457907402803865181">Lỗi khi đồng bộ hóa các mật khẩu.</translation>
 <translation id="5489208564673669003">Để quản lý cookie cho tất cả trang web, hãy xem phần <ph name="BEGIN_LINK" />Cài đặt cookie<ph name="END_LINK" />.</translation>
 <translation id="5490005495580364134">Chặn tất cả cookie (Không khuyến nghị)</translation>
@@ -555,6 +558,7 @@ Các trang web không thể dùng cookie để giám sát hoạt động duyệt
 <translation id="7189598951263744875">Chia sẻ...</translation>
 <translation id="7192050974311852563">Bắt đầu ghi nhật ký</translation>
 <translation id="7203585745079012652">Trả lời bằng giọng nói</translation>
+<translation id="7207383424303353046">Mới: Tự động mở các trang web trên Chrome bằng cách đặt Chrome làm Ứng dụng trình duyệt mặc định. <ph name="BEGIN_LINK" />Mở phần Cài đặt<ph name="END_LINK" /></translation>
 <translation id="721597782417389033">Biệt hiệu của thẻ không hợp lệ</translation>
 <translation id="7265758999917665941">Không bao giờ đối với trang web này</translation>
 <translation id="7272437679830969316">Không thể xác minh danh tính của bạn. Chưa sao chép mật khẩu.</translation>

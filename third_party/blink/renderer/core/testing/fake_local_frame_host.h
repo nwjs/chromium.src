@@ -44,6 +44,7 @@ class FakeLocalFrameHost : public mojom::blink::LocalFrameHost {
   void VisibilityChanged(mojom::blink::FrameVisibility visibility) override;
   void DidChangeThemeColor(
       const base::Optional<::SkColor>& theme_color) override;
+  void DidChangeBackgroundColor(const SkColor& background_color) override;
   void DidFailLoadWithError(const ::blink::KURL& url,
                             int32_t error_code) override;
   void DidFocusFrame() override;
@@ -92,7 +93,6 @@ class FakeLocalFrameHost : public mojom::blink::LocalFrameHost {
                             RunModalPromptDialogCallback callback) override;
   void RunBeforeUnloadConfirm(bool is_reload,
                               RunBeforeUnloadConfirmCallback callback) override;
-  void Are3DAPIsBlocked(Are3DAPIsBlockedCallback callback) override;
   void UpdateFaviconURL(
       WTF::Vector<blink::mojom::blink::FaviconURLPtr> favicon_urls) override;
   void DownloadURL(mojom::blink::DownloadURLParamsPtr params) override;

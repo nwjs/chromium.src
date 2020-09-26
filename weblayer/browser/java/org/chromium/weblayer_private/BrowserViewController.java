@@ -87,11 +87,12 @@ public final class BrowserViewController
     private boolean mCachedDoBrowserControlsShrinkRendererSize;
 
     public BrowserViewController(FragmentWindowAndroid windowAndroid,
-            View.OnAttachStateChangeListener listener, @Nullable State savedState) {
+            View.OnAttachStateChangeListener listener, @Nullable State savedState,
+            boolean recreateForConfigurationChange) {
         mWindowAndroid = windowAndroid;
         mOnAttachedStateChangeListener = listener;
         Context context = mWindowAndroid.getContext().get();
-        mContentViewRenderView = new ContentViewRenderView(context);
+        mContentViewRenderView = new ContentViewRenderView(context, recreateForConfigurationChange);
         mContentViewRenderView.addOnAttachStateChangeListener(listener);
 
         mContentViewRenderView.onNativeLibraryLoaded(
@@ -161,7 +162,7 @@ public final class BrowserViewController
         return mContentViewRenderView;
     }
 
-    public ViewGroup getContentView() {
+    public ContentView getContentView() {
         return mContentView;
     }
 
@@ -299,7 +300,12 @@ public final class BrowserViewController
     private void onDialogVisibilityChanged(boolean showing) {
         if (WebLayerFactoryImpl.getClientMajorVersion() < 82) return;
 
-        if (mModalDialogManager.getCurrentType() == ModalDialogType.TAB) {
+        // ModalDialogManager.onLastDialogDismissed() may be called if |mTab| is currently null.
+        // This is because in some situations ModalDialogManager calls onLastDialogDismissed() even
+        // if there were no dialogs present and dismissDialog() is called. This matters as
+        // dismissDialog() may be called when |mTab| is null.
+        // TODO(sky): fix ModalDialogManager and remove mTab conditional.
+        if (mModalDialogManager.getCurrentType() == ModalDialogType.TAB && mTab != null) {
             try {
                 mTab.getClient().onTabModalStateChanged(showing);
             } catch (RemoteException e) {

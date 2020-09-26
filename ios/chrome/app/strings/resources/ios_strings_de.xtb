@@ -22,7 +22,6 @@
 <translation id="1176932207622159128">Speichern v. Bild n. möglich</translation>
 <translation id="1180526666083833456">Geräteübergreifend synchronisieren und personalisieren.</translation>
 <translation id="1181037720776840403">Entfernen</translation>
-<translation id="1185569544548277362">Neu: Sie können Chrome als Standardbrowser festlegen. <ph name="BEGIN_LINK" />Einstellungen öffnen<ph name="END_LINK" /></translation>
 <translation id="1207113853726624428">Neue Suche</translation>
 <translation id="1209206284964581585">Vorerst ausblenden</translation>
 <translation id="1219674500290482172">Internetverbindung kann nicht hergestellt werden.</translation>
@@ -96,6 +95,7 @@
 <translation id="1952728750904661634">Mit verwaltetem Konto anmelden</translation>
 <translation id="1974060860693918893">Erweitert</translation>
 <translation id="1989112275319619282">Durchsuchen</translation>
+<translation id="1992734845128748707">Standardbrowser ändern…</translation>
 <translation id="2015722694326466240">Um die Passwörter zu sehen, müssen Sie zuerst einen Passcode auf Ihrem Gerät einrichten.</translation>
 <translation id="2073572773299281212">Vor <ph name="DAYS" /> Tagen aktiv</translation>
 <translation id="2074131957428911366">Sie können in den <ph name="BEGIN_LINK" />Einstellungen<ph name="END_LINK" /> auswählen, was Sie synchronisieren möchten.</translation>
@@ -245,6 +245,7 @@ Wenn der Inkognitomodus aktiviert ist, können Websites Cookies nicht verwenden,
 <translation id="3638472932233958418">Webseiten vorabladen</translation>
 <translation id="3670030362669914947">Nummer</translation>
 <translation id="3691593122358196899">Als Lesezeichen in "<ph name="FOLDER_TITLE" />" gespeichert</translation>
+<translation id="3709582977625132201">Als ungelesen markieren</translation>
 <translation id="3740397331642243698">Öffnet die eingegebenen URLs in Google Chrome im Inkognitomodus.</translation>
 <translation id="3771033907050503522">Inkognito-Tabs</translation>
 <translation id="3775743491439407556">Synchronisierung funktioniert nicht</translation>
@@ -333,6 +334,7 @@ Wenn Sie diese Einstellung ändern möchten, <ph name="BEGIN_LINK" />setzen Sie 
 <translation id="4818522717893377262">Sprache hinzufügen…</translation>
 <translation id="481968316161811770">Cookies, Websitedaten</translation>
 <translation id="4826218269716039351">Drittanbieter-Cookies blockieren</translation>
+<translation id="48274138579728272">Als gelesen markieren</translation>
 <translation id="4833786495304741580">Nutzungsstatistiken und Absturzberichte werden automatisch an Google gesendet.</translation>
 <translation id="4840495572919996524">Ihre Lesezeichen, Ihr Verlauf, Ihre Passwörter und andere Einstellungen werden nicht mehr mit Ihrem Google-Konto synchronisiert.</translation>
 <translation id="4854345657858711387">Passcode einrichten</translation>
@@ -383,6 +385,7 @@ Wenn Sie diese Einstellung ändern möchten, <ph name="BEGIN_LINK" />setzen Sie 
 <translation id="5433691172869980887">Nutzername kopiert</translation>
 <translation id="54401264925851789">Sicherheitsinformationen zur Seite</translation>
 <translation id="5443952882982198570">Kreditkarten</translation>
+<translation id="5457226814769348910">Offlineversion öffnen</translation>
 <translation id="5457907402803865181">Fehler beim Synchronisieren von Passwörtern.</translation>
 <translation id="5489208564673669003">Cookies für alle Websites können Sie in den <ph name="BEGIN_LINK" />Cookie-Einstellungen<ph name="END_LINK" /> verwalten.</translation>
 <translation id="5490005495580364134">Alle Cookies blockieren (nicht empfohlen)</translation>
@@ -555,6 +558,7 @@ Websites können Cookies nicht verwenden, um Ihre Browseraktivitäten auf andere
 <translation id="7189598951263744875">Teilen...</translation>
 <translation id="7192050974311852563">Protokollierung starten</translation>
 <translation id="7203585745079012652">Gesprochene Antworten</translation>
+<translation id="7207383424303353046">Neu: Websites werden automatisch in Chrome geöffnet, wenn Sie es als Standard-Browser-App festlegen. <ph name="BEGIN_LINK" />Zu den Einstellungen<ph name="END_LINK" /></translation>
 <translation id="721597782417389033">Ungültiger Kartenalias</translation>
 <translation id="7265758999917665941">Für diese Website niemals</translation>
 <translation id="7272437679830969316">Ihre Identität konnte nicht bestätigt werden. Das Passwort wurde nicht kopiert.</translation>

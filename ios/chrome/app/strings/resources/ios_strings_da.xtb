@@ -22,7 +22,6 @@
 <translation id="1176932207622159128">Billedet kan ikke gemmes</translation>
 <translation id="1180526666083833456">Synkroniser og tilpas på flere enheder.</translation>
 <translation id="1181037720776840403">Fjern</translation>
-<translation id="1185569544548277362">Nyhed: Du kan gøre Chrome til din standardbrowser. <ph name="BEGIN_LINK" />Åbn Indstillinger<ph name="END_LINK" /></translation>
 <translation id="1207113853726624428">Ny søgning</translation>
 <translation id="1209206284964581585">Skjul indtil videre</translation>
 <translation id="1219674500290482172">Der kunne ikke oprettes forbindelse til internettet.</translation>
@@ -96,6 +95,7 @@
 <translation id="1952728750904661634">Log ind med en managerstyret konto</translation>
 <translation id="1974060860693918893">Avanceret</translation>
 <translation id="1989112275319619282">Gennemse</translation>
+<translation id="1992734845128748707">Skift standardbrowser…</translation>
 <translation id="2015722694326466240">Angiv en adgangskode på din enhed, før du kan se adgangskoder.</translation>
 <translation id="2073572773299281212">Aktiv for <ph name="DAYS" /> dage siden</translation>
 <translation id="2074131957428911366">Du kan altid vælge, hvad der skal synkroniseres, i <ph name="BEGIN_LINK" />indstillingerne<ph name="END_LINK" />.</translation>
@@ -245,6 +245,7 @@ Når du er i Inkognito, kan websites ikke bruge cookies til at se din browserhis
 <translation id="3638472932233958418">Forudindlæs websider</translation>
 <translation id="3670030362669914947">Nummer</translation>
 <translation id="3691593122358196899">Bogmærket er gemt i <ph name="FOLDER_TITLE" /></translation>
+<translation id="3709582977625132201">Markér som ulæst</translation>
 <translation id="3740397331642243698">Åbner de angivne webadresser i Google Chrome i Inkognito.</translation>
 <translation id="3771033907050503522">Inkognitofaner</translation>
 <translation id="3775743491439407556">Synkronisering fungerer ikke</translation>
@@ -333,6 +334,7 @@ Hvis du vil ændre denne indstilling, skal du <ph name="BEGIN_LINK" />nulstille 
 <translation id="4818522717893377262">Tilføj sprog...</translation>
 <translation id="481968316161811770">Cookies, websitedata</translation>
 <translation id="4826218269716039351">Bloker cookies fra tredjeparter</translation>
+<translation id="48274138579728272">Markér som læst</translation>
 <translation id="4833786495304741580">Sender automatisk brugsstatistik og nedbrudsrapporter til Google.</translation>
 <translation id="4840495572919996524">Dine bogmærker, din historik, dine adgangskoder og meget andet synkroniseres ikke længere med din Google-konto.</translation>
 <translation id="4854345657858711387">Angiv en adgangskode</translation>
@@ -383,6 +385,7 @@ Hvis du vil ændre denne indstilling, skal du <ph name="BEGIN_LINK" />nulstille 
 <translation id="5433691172869980887">Brugernavnet er kopieret</translation>
 <translation id="54401264925851789">Oplysninger om sidesikkerhed</translation>
 <translation id="5443952882982198570">Kreditkort</translation>
+<translation id="5457226814769348910">Åbn offlineversion</translation>
 <translation id="5457907402803865181">Adgangskoderne kunne ikke synkroniseres.</translation>
 <translation id="5489208564673669003">Gå til <ph name="BEGIN_LINK" />indstillingerne for cookies<ph name="END_LINK" /> for at administrere cookies for alle websites.</translation>
 <translation id="5490005495580364134">Bloker alle cookies (anbefales ikke)</translation>
@@ -555,6 +558,7 @@ Websites kan ikke bruge cookies til at se din browseraktivitet på forskellige w
 <translation id="7189598951263744875">Del...</translation>
 <translation id="7192050974311852563">Start logføring</translation>
 <translation id="7203585745079012652">Giv talte svar</translation>
+<translation id="7207383424303353046">Nyt! Åbn automatisk websites i Chrome ved at gøre den til din standardbrowser. <ph name="BEGIN_LINK" />Åbn indstillinger<ph name="END_LINK" /></translation>
 <translation id="721597782417389033">Kortets kaldenavn er ugyldigt</translation>
 <translation id="7265758999917665941">Aldrig for dette website</translation>
 <translation id="7272437679830969316">Din identitet kunne ikke bekræftes. Adgangskoden blev ikke kopieret.</translation>

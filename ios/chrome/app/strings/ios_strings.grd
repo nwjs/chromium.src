@@ -1562,6 +1562,12 @@ While in incognito, sites can't use cookies to see your browsing activity across
       <message name="IDS_IOS_READING_LIST_MARK_ALL_UNREAD_ACTION" desc="Label of the action button to mark all reading list entries as unread. [Length: 25em]" meaning="Mark all entries as unread. [Length: 25em]">
         Mark All Unread
       </message>
+      <message name="IDS_IOS_READING_LIST_MARK_AS_READ_ACTION" desc="Label of the action button to mark a reading list entry as read. [Length: 25em]" meaning="Mark an entry as read. [Length: 25em]">
+        Mark As Read
+      </message>
+      <message name="IDS_IOS_READING_LIST_MARK_AS_UNREAD_ACTION" desc="Label of the action button to mark a reading list entry as unread. [Length: 25em]" meaning="Mark an entry as unread. [Length: 25em]">
+        Mark As Unread
+      </message>
       <message name="IDS_IOS_READING_LIST_MARK_BUTTON" desc="Label of the button to mark the selected reading list as either read or unread [Length: 25em]" meaning="Display options letting the user mark all the selected entries as read or as unread. [Length: 25em]">
         Mark…
       </message>
@@ -1576,6 +1582,9 @@ While in incognito, sites can't use cookies to see your browsing activity across
       </message>
       <message name="IDS_IOS_READING_LIST_NO_ENTRIES_TITLE" desc="Title shown on the Reading List screen when there are no entries.">
           You'll find your reading list here
+      </message>
+      <message name="IDS_IOS_READING_LIST_OPEN_OFFLINE_BUTTON" desc="Label of the button to display the Offline version instead of the Online one. [Length: 25em]">
+        Open Offline Version
       </message>
       <message name="IDS_IOS_READING_LIST_READ_HEADER" desc="Heading. Appears above a list of articles the user has already read, in their Reading List. Appears on the same page as an 'Unread' heading, which contains articles the user hasn't read yet. In English, 'Read' can be both verb and adjective so we needed to be more explicit. Does not need to be translated literally. [Length: 40em]" meaning="The entries below this header are read. [Length: 40em]">
         Pages You've Read
@@ -1682,6 +1691,9 @@ While in incognito, sites can't use cookies to see your browsing activity across
       <message name="IDS_IOS_EXPORT_PASSWORDS_CANCEL_BUTTON" desc="Label of a confirmation dialog button which allows the user to cancel passwords export. [Length: 22em] [iOS only]">
         Cancel
       </message>
+      <message name="IDS_IOS_SETTINGS_SET_DEFAULT_BROWSER" desc="Title of the button allowing the user to change its default browser">
+Change Default Browser…
+</message>
       <message name="IDS_IOS_SETTINGS_EXPORT_PASSWORDS_SET_UP_SCREENLOCK_CONTENT" desc="Message informing the user that in order to export the passwords, a screen lock needs to be set up on the device. This is shown as an alert message after the user tries to view or copy the password from a settings page. [Length: about two lines]">
         To export passwords, you must first set a passcode on your device.
       </message>
@@ -2268,7 +2280,7 @@ Your data was encrypted with your sync passphrase on <ph name="TIME">$2<ex>Sept 
         Chrome’s Terms of Service are changing March 31. <ph name="BEGIN_LINK"><ex>BEGIN_LINK</ex>BEGIN_LINK</ph>Please review<ph name="END_LINK"><ex>END_LINK</ex>END_LINK</ph>
       </message>
       <message name="IDS_IOS_SET_DEFAULT_BROWSER" desc="Text displayed on the New Tab Page to notify users of the ability to set Chrome as the default browser">
-          New: You can make Chrome your default. <ph name="BEGIN_LINK"><ex>BEGIN_LINK</ex>BEGIN_LINK</ph>Open Settings<ph name="END_LINK"><ex>END_LINK</ex>END_LINK</ph>
+          New: Open sites in Chrome automatically by making it your Default Browser App. <ph name="BEGIN_LINK"><ex>BEGIN_LINK</ex>BEGIN_LINK</ph>Open Settings<ph name="END_LINK"><ex>END_LINK</ex>END_LINK</ph>
       </message>
       <message name="IDS_IOS_TEXT_ZOOM_ZOOM_IN" desc="Accessibility label for a button allowing the user to zoom in." meaning="User is asking page to zoom in">
         Zoom In

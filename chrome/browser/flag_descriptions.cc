@@ -607,17 +607,6 @@ const char kEnableDeferAllScriptWithoutOptimizationHintsDescription[] =
     "that the ECT trigger threshold is set to 4G (which is otherwise provided "
     "by the optimization hints). Rest of the checks are still executed.";
 
-const char kEnableEduCoexistenceName[] =
-    "Enable Family Link managed accounts and EDU accounts coexistence";
-const char kEnableEduCoexistenceDescription[] =
-    "Allows Family Link managed users to add secondary EDU accounts.";
-
-const char kEnableEduCoexistenceConsentLogName[] =
-    "Enable parent consent logging in EDU account addition flow";
-const char kEnableEduCoexistenceConsentLogDescription[] =
-    "If enabled, parent consent gets logged to ARI before adding the account "
-    "to the device.";
-
 const char kEnableSaveDataName[] = "Enables save data feature";
 const char kEnableSaveDataDescription[] =
     "Enables save data feature. May cause user's traffic to be proxied via "
@@ -675,6 +664,13 @@ const char kDesktopPWAsLocalUpdatingThrottlePersistenceName[] =
 const char kDesktopPWAsLocalUpdatingThrottlePersistenceDescription[] =
     "Persist the throttling of local PWA manifest update checks across browser "
     "restarts.";
+
+const char kDesktopPWAsMigrationUserDisplayModeCleanUpName[] =
+    "Desktop PWAs migration user_display_mode clean up";
+const char kDesktopPWAsMigrationUserDisplayModeCleanUpDescription[] =
+    "Runs clean up code to fix web apps that had their window/browser tab "
+    "launch preference incorrectly migrated. See issue "
+    "https://crbug.com/1125020.";
 
 const char kDesktopPWAsAppIconShortcutsMenuName[] =
     "Desktop PWAs app icon shortcuts menu";

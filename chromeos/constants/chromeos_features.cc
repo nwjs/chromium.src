@@ -27,7 +27,7 @@ const base::Feature kAmbientModeFeature{"ChromeOSAmbientMode",
 
 // Controls whether to enable Ambient mode album selection with photo previews.
 const base::Feature kAmbientModePhotoPreviewFeature{
-    "ChromeOSAmbientModePhotoPreview", base::FEATURE_DISABLED_BY_DEFAULT};
+    "ChromeOSAmbientModePhotoPreview", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Controls whether to allow Dev channel to use Prod server feature.
 const base::Feature kAmbientModeDevUseProdFeature{
@@ -70,7 +70,7 @@ extern const base::Feature kAvatarToolbarButton{
 // estimates of the update stages.
 // https://crbug.com/1101317
 const base::Feature kBetterUpdateScreen{"BetterUpdateScreen",
-                                        base::FEATURE_DISABLED_BY_DEFAULT};
+                                        base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enables or disables more aggressive filtering out of Bluetooth devices with
 // "appearances" that are less likely to be pairable or useful.
@@ -175,14 +175,6 @@ const base::Feature kDriveFsBidirectionalNativeMessaging{
 // Enables DriveFS' experimental local files mirroring functionality.
 const base::Feature kDriveFsMirroring{"DriveFsMirroring",
                                       base::FEATURE_DISABLED_BY_DEFAULT};
-
-// If enabled, allows Unicorn users to add secondary EDU accounts.
-const base::Feature kEduCoexistence{"EduCoexistence",
-                                    base::FEATURE_ENABLED_BY_DEFAULT};
-
-// Enables parent consent logging in EDU account addition flow.
-const base::Feature kEduCoexistenceConsentLog{"EduCoexistenceConsentLog",
-                                              base::FEATURE_ENABLED_BY_DEFAULT};
 
 // If enabled, emoji suggestion will be shown when user type "space".
 const base::Feature kEmojiSuggestAddition{"EmojiSuggestAddition",
@@ -560,10 +552,6 @@ bool IsChildSpecificSigninEnabled() {
 
 bool IsDeepLinkingEnabled() {
   return base::FeatureList::IsEnabled(kOsSettingsDeepLinking);
-}
-
-bool IsEduCoexistenceEnabled() {
-  return base::FeatureList::IsEnabled(kEduCoexistence);
 }
 
 bool IsImeSandboxEnabled() {

@@ -22,7 +22,6 @@
 <translation id="1176932207622159128">Impos. gardar imaxe</translation>
 <translation id="1180526666083833456">Sincroniza e personaliza o contido nos dispositivos.</translation>
 <translation id="1181037720776840403">Eliminar</translation>
-<translation id="1185569544548277362">Novidade: xa podes facer que Chrome sexa o teu navegador predeterminado. <ph name="BEGIN_LINK" />Abrir Configuración<ph name="END_LINK" /></translation>
 <translation id="1207113853726624428">Nova busca</translation>
 <translation id="1209206284964581585">Ocultar por agora</translation>
 <translation id="1219674500290482172">Non se puido conectar a Internet.</translation>
@@ -96,6 +95,7 @@
 <translation id="1952728750904661634">Iniciar sesión cunha conta xestionada</translation>
 <translation id="1974060860693918893">Configuración avanzada</translation>
 <translation id="1989112275319619282">Examinar</translation>
+<translation id="1992734845128748707">Cambiar navegador predeterminado…</translation>
 <translation id="2015722694326466240">Para ver os contrasinais, en primeiro lugar debes definir un código de desbloqueo no teu dispositivo.</translation>
 <translation id="2073572773299281212">Dispositivo activo hai <ph name="DAYS" /> días</translation>
 <translation id="2074131957428911366">Sempre podes escoller na <ph name="BEGIN_LINK" />configuración<ph name="END_LINK" /> o contido que queres sincronizar.</translation>
@@ -162,7 +162,7 @@ Tampouco poden utilizalas para ver a túa actividade de navegación en distintos
 <translation id="2780046210906776326">Non hai ningunha conta de correo electrónico</translation>
 <translation id="2781331604911854368">Si</translation>
 <translation id="2781692009645368755">Google Pay</translation>
-<translation id="2800683595868705743">Saír da función de cambio de pestana</translation>
+<translation id="2800683595868705743">Saír do selector de pestanas</translation>
 <translation id="2830972654601096923">Xestionar enderezos…</translation>
 <translation id="2834956026595107950"><ph name="TITLE" />, <ph name="STATE" />, <ph name="URL" /></translation>
 <translation id="2840687315230832938">Non se completou a configuración de sincronización inicial</translation>
@@ -245,6 +245,7 @@ Co modo de incógnito activado, non poden utilizalas para ver a túa actividade 
 <translation id="3638472932233958418">Precargar páxinas web</translation>
 <translation id="3670030362669914947">Número</translation>
 <translation id="3691593122358196899">Marcador engadido a <ph name="FOLDER_TITLE" /></translation>
+<translation id="3709582977625132201">Marcar como non lido</translation>
 <translation id="3740397331642243698">Abre os URL escritos en Google Chrome no modo de incógnito.</translation>
 <translation id="3771033907050503522">Pestanas de incógnito</translation>
 <translation id="3775743491439407556">A sincronización non funciona</translation>
@@ -315,7 +316,7 @@ Co modo de incógnito activado, non poden utilizalas para ver a túa actividade 
 <translation id="4634124774493850572">Usar contrasinal</translation>
 <translation id="4636930964841734540">Información</translation>
 <translation id="4659126640776004816">Cando inicies sesión na túa Conta de Google, activarase esta función.</translation>
-<translation id="4659667755519643272">Introducir a función de cambio de pestana</translation>
+<translation id="4659667755519643272">Entrar no selector de pestanas</translation>
 <translation id="46614316059270592">Gardar contrasinal</translation>
 <translation id="4666531726415300315">Iniciaches sesión como <ph name="EMAIL" />.
 
@@ -333,6 +334,7 @@ Para cambiar esta opción de configuración, deberás <ph name="BEGIN_LINK" />re
 <translation id="4818522717893377262">Engadir idioma…</translation>
 <translation id="481968316161811770">Cookies, datos do sitio</translation>
 <translation id="4826218269716039351">Bloquear cookies de terceiros</translation>
+<translation id="48274138579728272">Marcar como lido</translation>
 <translation id="4833786495304741580">Envía estatísticas de uso e informes de fallos automaticamente a Google.</translation>
 <translation id="4840495572919996524">Os marcadores, o historial, os contrasinais e outros datos deixarán de sincronizarse coa túa Conta de Google.</translation>
 <translation id="4854345657858711387">Definir un código</translation>
@@ -383,6 +385,7 @@ Para cambiar esta opción de configuración, deberás <ph name="BEGIN_LINK" />re
 <translation id="5433691172869980887">Copiouse o nome de usuario</translation>
 <translation id="54401264925851789">Información de seguranza da páxina</translation>
 <translation id="5443952882982198570">Tarxetas de crédito</translation>
+<translation id="5457226814769348910">Abrir versión sen conexión</translation>
 <translation id="5457907402803865181">Produciuse un erro ao sincronizar os contrasinais.</translation>
 <translation id="5489208564673669003">Se queres xestionar as cookies para todos os sitios, vai a <ph name="BEGIN_LINK" />Configuración das cookies<ph name="END_LINK" />.</translation>
 <translation id="5490005495580364134">Bloquear todas as cookies (non recomendado)</translation>
@@ -555,6 +558,7 @@ Non poden utilizalas para ver a túa actividade de navegación en distintos siti
 <translation id="7189598951263744875">Compartir...</translation>
 <translation id="7192050974311852563">Iniciar rexistro</translation>
 <translation id="7203585745079012652">Dicir as respostas</translation>
+<translation id="7207383424303353046">Novidade: Abre sitios en Chrome automaticamente configurándoo como o teu navegador predeterminado. <ph name="BEGIN_LINK" />Abrir Configuración<ph name="END_LINK" /></translation>
 <translation id="721597782417389033">O alcume da tarxeta non é válido</translation>
 <translation id="7265758999917665941">Nunca neste sitio</translation>
 <translation id="7272437679830969316">Non se pode verificar a túa identidade, polo que non se copiou o contrasinal.</translation>

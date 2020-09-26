@@ -75,3 +75,19 @@ imageset("move_folder") {
     "move_folder.imageset/move_folder@3x.png",
   ]
 }
+
+imageset("mark_read") {
+  sources = [
+    "mark_read.imageset/Contents.json",
+    "mark_read.imageset/mark_read@2x.png",
+    "mark_read.imageset/mark_read@3x.png",
+  ]
+}
+
+imageset("offline") {
+  sources = [
+    "offline.imageset/Contents.json",
+    "offline.imageset/offline@2x.png",
+    "offline.imageset/offline@3x.png",
+  ]
+}

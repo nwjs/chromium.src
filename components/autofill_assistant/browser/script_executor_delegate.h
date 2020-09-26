@@ -85,12 +85,17 @@ class ScriptExecutorDelegate {
   virtual void ClearInfoBox() = 0;
   virtual void SetCollectUserDataOptions(
       CollectUserDataOptions* collect_user_data_options) = 0;
+  virtual void SetLastSuccessfulUserDataOptions(
+      std::unique_ptr<CollectUserDataOptions> collect_user_data_options) = 0;
+  virtual const CollectUserDataOptions* GetLastSuccessfulUserDataOptions()
+      const = 0;
   virtual void WriteUserData(
       base::OnceCallback<void(UserData*, UserData::FieldChange*)>
           write_callback) = 0;
   virtual void SetProgress(int progress) = 0;
   virtual void SetProgressActiveStep(int active_step) = 0;
   virtual void SetProgressVisible(bool visible) = 0;
+  virtual void SetProgressBarErrorState(bool error) = 0;
   virtual void SetStepProgressBarConfiguration(
       const ShowProgressBarProto::StepProgressBarConfiguration&
           configuration) = 0;
@@ -175,6 +180,10 @@ class ScriptExecutorDelegate {
 
   // Clears the generic UI.
   virtual void ClearGenericUi() = 0;
+
+  // Sets whether browse mode should be invisible or not. Must be set before
+  // calling |EnterState(BROWSE)| to take effect.
+  virtual void SetBrowseModeInvisible(bool invisible) = 0;
 
  protected:
   virtual ~ScriptExecutorDelegate() {}

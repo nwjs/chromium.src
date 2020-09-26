@@ -78,6 +78,9 @@ class AccountConsistencyHandler : public web::WebStatePolicyDecider {
 };
 }  // namespace
 
+const base::Feature kRestoreGAIACookiesIfDeleted{
+    "RestoreGAIACookiesIfDeleted", base::FEATURE_DISABLED_BY_DEFAULT};
+
 AccountConsistencyHandler::AccountConsistencyHandler(
     web::WebState* web_state,
     AccountConsistencyService* service,
@@ -268,10 +271,15 @@ void AccountConsistencyService::TriggerGaiaCookieChangeIfDeleted(
       return;
     }
   }
+
   // The SAPISID cookie may have been deleted previous to this update due to
   // ITP restrictions marking Google domains as potential trackers.
-  // Re-generate cookie to ensure that the user is properly signed in.
   LogIOSGaiaCookiesPresentOnNavigation(false);
+
+  if (!base::FeatureList::IsEnabled(kRestoreGAIACookiesIfDeleted)) {
+    return;
+  }
+  // Re-generate cookie to ensure that the user is properly signed in.
   identity_manager_->GetAccountsCookieMutator()->ForceTriggerOnCookieChange();
 }
 
@@ -419,7 +427,13 @@ void AccountConsistencyService::FinishedSetChromeConnectedCookie(
 
 void AccountConsistencyService::FinishedApplyingChromeConnectedCookieRequest(
     bool success) {
-  DCHECK(!cookie_requests_.empty());
+  // Do not process if the cookie requests are no longer available. This may
+  // occur in a race condition on signout with data removed when cookie
+  // requests are asynchronously processed but browsing data has been removed.
+  // This fix is targeted for M86, crbug.com/1120450.
+  if (cookie_requests_.empty()) {
+    return;
+  }
   CookieRequest& request = cookie_requests_.front();
   if (success) {
     DictionaryPrefUpdate update(

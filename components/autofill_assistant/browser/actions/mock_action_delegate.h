@@ -77,11 +77,12 @@ class MockActionDelegate : public ActionDelegate {
                void(const ElementFinder::Result& element,
                     base::OnceCallback<void(const ClientStatus&)> callback));
 
-  MOCK_METHOD4(Prompt,
+  MOCK_METHOD5(Prompt,
                void(std::unique_ptr<std::vector<UserAction>> user_actions,
                     bool disable_force_expand_sheet,
                     base::OnceCallback<void()> end_on_navigation_callback,
-                    bool browse_mode));
+                    bool browse_mode,
+                    bool browse_mode_invisible));
   MOCK_METHOD0(CleanUpAfterPrompt, void());
   MOCK_METHOD1(SetBrowseDomainsWhitelist,
                void(std::vector<std::string> domains));
@@ -146,6 +147,14 @@ class MockActionDelegate : public ActionDelegate {
 
   MOCK_METHOD1(CollectUserData,
                void(CollectUserDataOptions* collect_user_data_options));
+
+  MOCK_METHOD1(
+      SetLastSuccessfulUserDataOptions,
+      void(std::unique_ptr<CollectUserDataOptions> collect_user_data_options));
+
+  MOCK_CONST_METHOD0(GetLastSuccessfulUserDataOptions,
+                     CollectUserDataOptions*());
+
   MOCK_METHOD1(
       WriteUserData,
       void(base::OnceCallback<void(UserData*, UserData::FieldChange*)>));
@@ -244,6 +253,7 @@ class MockActionDelegate : public ActionDelegate {
   MOCK_METHOD1(SetProgress, void(int progress));
   MOCK_METHOD1(SetProgressActiveStep, void(int active_step));
   MOCK_METHOD1(SetProgressVisible, void(bool visible));
+  MOCK_METHOD1(SetProgressBarErrorState, void(bool error));
   MOCK_METHOD1(SetStepProgressBarConfiguration,
                void(const ShowProgressBarProto::StepProgressBarConfiguration&
                         configuration));

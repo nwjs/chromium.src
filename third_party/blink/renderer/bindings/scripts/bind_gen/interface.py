@@ -2689,6 +2689,17 @@ def make_named_property_setter_callback(cg_context, function_name):
     body = func_def.body
 
     if not cg_context.named_property_setter:
+        if ("OverrideBuiltins" in cg_context.interface.extended_attributes
+                or "LegacyOverrideBuiltins" in
+                cg_context.interface.extended_attributes):
+            body.append(
+                TextNode("""\
+// [LegacyOverrideBuiltIns]
+if (${info}.Holder()->GetRealNamedPropertyAttributesInPrototypeChain(
+        ${current_context}, ${v8_property_name}).IsJust()) {
+  return;  // Fallback to the existing property.
+}
+"""))
         body.append(
             TextNode("""\
 // 3.8.2. [[Set]]
@@ -4515,7 +4526,7 @@ def _make_exposed_construct_registration_table(table_name,
                    "V8DOMConfiguration::kOnInstance, "
                    "V8DOMConfiguration::kDoNotCheckHolder, "
                    "V8DOMConfiguration::kHasNoSideEffect, "
-                   "V8DOMConfiguration::kAlwaysCallGetter, "
+                   "V8DOMConfiguration::kReplaceWithDataProperty, "
                    "{world}"
                    "}}, ")
         text = _format(

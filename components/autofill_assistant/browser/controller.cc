@@ -49,13 +49,13 @@ const char kProgressBarExperiment[] = "4400697";
 //
 // Note that the UI might be shown in RUNNING state, even if it doesn't require
 // it.
-bool StateNeedsUiInRegularScript(AutofillAssistantState state) {
+bool StateNeedsUiInRegularScript(AutofillAssistantState state,
+                                 bool browse_mode_invisible) {
   switch (state) {
     case AutofillAssistantState::PROMPT:
     case AutofillAssistantState::AUTOSTART_FALLBACK_PROMPT:
     case AutofillAssistantState::MODAL_DIALOG:
     case AutofillAssistantState::STARTING:
-    case AutofillAssistantState::BROWSE:
       return true;
 
     case AutofillAssistantState::INACTIVE:
@@ -63,11 +63,14 @@ bool StateNeedsUiInRegularScript(AutofillAssistantState state) {
     case AutofillAssistantState::STOPPED:
     case AutofillAssistantState::RUNNING:
       return false;
+
+    case AutofillAssistantState::BROWSE:
+      return browse_mode_invisible;
   }
 }
 
-// Same as |StateNeedsUiInRegularScript|, but does not show UI in STARTING or
-// BROWSE state.
+// Same as |StateNeedsUiInRegularScript|, but does not show UI in STARTING
+// state.
 bool StateNeedsUiInLiteScript(AutofillAssistantState state) {
   switch (state) {
     case AutofillAssistantState::PROMPT:
@@ -382,6 +385,10 @@ void Controller::ClearGenericUi() {
   }
 }
 
+void Controller::SetBrowseModeInvisible(bool invisible) {
+  browse_mode_invisible_ = invisible;
+}
+
 void Controller::AddNavigationListener(
     ScriptExecutorDelegate::NavigationListener* listener) {
   navigation_listeners_.AddObserver(listener);
@@ -627,6 +634,22 @@ ConfigureBottomSheetProto::PeekMode Controller::GetPeekMode() {
   return peek_mode_;
 }
 
+BottomSheetState Controller::GetBottomSheetState() {
+  return bottom_sheet_state_;
+}
+
+void Controller::SetBottomSheetState(BottomSheetState state) {
+  bottom_sheet_state_ = state;
+}
+
+bool Controller::IsTabSelected() {
+  return tab_selected_;
+}
+
+void Controller::SetTabSelected(bool selected) {
+  tab_selected_ = selected;
+}
+
 void Controller::SetOverlayColors(std::unique_ptr<OverlayColors> colors) {
   overlay_colors_ = std::move(colors);
   if (overlay_colors_) {
@@ -702,6 +725,10 @@ bool Controller::EnterState(AutofillAssistantState state) {
   if (!needs_ui_ && StateNeedsUI(state)) {
     RequireUI();
   } else if (needs_ui_ && state == AutofillAssistantState::TRACKING) {
+    needs_ui_ = false;
+  } else if (browse_mode_invisible_ && needs_ui_ &&
+             state == AutofillAssistantState::BROWSE) {
+    client_->DestroyUI();
     needs_ui_ = false;
   }
 
@@ -1117,9 +1144,12 @@ bool Controller::Start(const GURL& deeplink_url,
 }
 
 void Controller::ShowFirstMessageAndStart() {
-  SetStatusMessage(
-      l10n_util::GetStringFUTF8(IDS_AUTOFILL_ASSISTANT_LOADING,
-                                base::UTF8ToUTF16(GetCurrentURL().host())));
+  // Only show default status message if necessary.
+  if (status_message_.empty()) {
+    SetStatusMessage(
+        l10n_util::GetStringFUTF8(IDS_AUTOFILL_ASSISTANT_LOADING,
+                                  base::UTF8ToUTF16(GetCurrentURL().host())));
+  }
   if (step_progress_bar_configuration_.has_value() &&
       step_progress_bar_configuration_->use_step_progress_bar()) {
     SetProgressActiveStep(0);
@@ -1516,9 +1546,14 @@ void Controller::OnScriptError(const std::string& error_message,
   if (state_ == AutofillAssistantState::STOPPED)
     return;
 
-  RequireUI();
-  SetStatusMessage(error_message);
-  SetProgressBarErrorState(true);
+  // For lite scripts, don't attach the UI on error, and don't show an error
+  // while shutting down.
+  if (!IsRunningLiteScript()) {
+    RequireUI();
+    SetStatusMessage(error_message);
+    SetProgressBarErrorState(true);
+  }
+
   EnterStoppedState();
 
   if (tracking_) {
@@ -1559,7 +1594,8 @@ void Controller::OnFatalError(const std::string& error_message,
 void Controller::RecordDropOutOrShutdown(Metrics::DropOutReason reason) {
   // If there is an UI, we wait for it to be closed before shutting down (the UI
   // will call |ShutdownIfNecessary|).
-  if (client_->HasHadUI()) {
+  // Lite scripts go away immediately, even if UI is currently being shown.
+  if (client_->HasHadUI() && !IsRunningLiteScript()) {
     // We report right away to make sure we don't lose this reason if the client
     // is unexpectedly destroyed while the error message is showing (for example
     // if the tab is closed).
@@ -1892,6 +1928,16 @@ void Controller::SetCollectUserDataOptions(CollectUserDataOptions* options) {
   }
 }
 
+void Controller::SetLastSuccessfulUserDataOptions(
+    std::unique_ptr<CollectUserDataOptions> collect_user_data_options) {
+  last_collect_user_data_options_ = std::move(collect_user_data_options);
+}
+
+const CollectUserDataOptions* Controller::GetLastSuccessfulUserDataOptions()
+    const {
+  return last_collect_user_data_options_.get();
+}
+
 void Controller::WriteUserData(
     base::OnceCallback<void(UserData*, UserData::FieldChange*)>
         write_callback) {
@@ -1906,10 +1952,14 @@ void Controller::WriteUserData(
 }
 
 bool Controller::StateNeedsUI(AutofillAssistantState state) {
-  if (!trigger_context_ || !trigger_context_->is_lite_script()) {
-    return StateNeedsUiInRegularScript(state);
+  if (IsRunningLiteScript()) {
+    return StateNeedsUiInLiteScript(state);
   }
-  return StateNeedsUiInLiteScript(state);
+  return StateNeedsUiInRegularScript(state, browse_mode_invisible_);
+}
+
+bool Controller::IsRunningLiteScript() const {
+  return service_ ? service_->IsLiteService() : false;
 }
 
 ElementArea* Controller::touchable_element_area() {

@@ -95,6 +95,9 @@ void JNI_PaymentAppServiceBridge_Create(
 
   auto* render_frame_host =
       content::RenderFrameHost::FromJavaRenderFrameHost(jrender_frame_host);
+  if (!render_frame_host)  // The frame is being unloaded.
+    return;
+
   std::string top_origin = ConvertJavaStringToUTF8(jtop_origin);
 
   scoped_refptr<payments::PaymentManifestWebDataService> web_data_service =
@@ -249,7 +252,13 @@ PaymentAppServiceBridge::GetMethodData() const {
 
 std::unique_ptr<autofill::InternalAuthenticator>
 PaymentAppServiceBridge::CreateInternalAuthenticator() const {
-  return std::make_unique<InternalAuthenticatorAndroid>(render_frame_host_);
+  // This authenticator can be used in a cross-origin iframe only if the
+  // top-level frame allowed it with Feature Policy, e.g., with allow="payment"
+  // iframe attribute. The secure payment confirmation dialog displays the
+  // top-level origin in its UI before the user can click on the [Verify] button
+  // to invoke this authenticator.
+  return std::make_unique<InternalAuthenticatorAndroid>(
+      web_contents_->GetMainFrame());
 }
 
 scoped_refptr<PaymentManifestWebDataService>

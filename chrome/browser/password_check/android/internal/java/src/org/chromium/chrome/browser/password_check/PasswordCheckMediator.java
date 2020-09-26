@@ -16,6 +16,7 @@ import static org.chromium.chrome.browser.password_check.PasswordCheckProperties
 import static org.chromium.chrome.browser.password_check.PasswordCheckProperties.HeaderProperties.COMPROMISED_CREDENTIALS_COUNT;
 import static org.chromium.chrome.browser.password_check.PasswordCheckProperties.HeaderProperties.LAUNCH_ACCOUNT_CHECKUP_ACTION;
 import static org.chromium.chrome.browser.password_check.PasswordCheckProperties.HeaderProperties.RESTART_BUTTON_ACTION;
+import static org.chromium.chrome.browser.password_check.PasswordCheckProperties.HeaderProperties.SHOW_CHECK_SUBTITLE;
 import static org.chromium.chrome.browser.password_check.PasswordCheckProperties.HeaderProperties.UNKNOWN_PROGRESS;
 import static org.chromium.chrome.browser.password_check.PasswordCheckProperties.ITEMS;
 import static org.chromium.chrome.browser.password_check.PasswordCheckProperties.VIEW_CREDENTIAL;
@@ -24,12 +25,15 @@ import static org.chromium.chrome.browser.password_check.PasswordCheckProperties
 import android.content.DialogInterface;
 import android.util.Pair;
 
+import androidx.annotation.VisibleForTesting;
 import androidx.appcompat.app.AlertDialog;
 
+import org.chromium.base.task.PostTask;
 import org.chromium.chrome.browser.password_check.helper.PasswordCheckChangePasswordHelper;
 import org.chromium.chrome.browser.password_check.helper.PasswordCheckIconHelper;
 import org.chromium.chrome.browser.password_check.helper.PasswordCheckReauthenticationHelper;
 import org.chromium.chrome.browser.password_check.helper.PasswordCheckReauthenticationHelper.ReauthReason;
+import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.ui.modelutil.ListModel;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -45,6 +49,8 @@ import java.util.List;
  */
 class PasswordCheckMediator
         implements PasswordCheckCoordinator.CredentialEventHandler, PasswordCheck.Observer {
+    private static long sStatusUpdateDelayMillis = 1000;
+
     private final PasswordCheckReauthenticationHelper mReauthenticationHelper;
     private final PasswordCheckChangePasswordHelper mChangePasswordDelegate;
     private PropertyModel mModel;
@@ -52,6 +58,7 @@ class PasswordCheckMediator
     private Runnable mLaunchCheckupInAccount;
     private HashSet<CompromisedCredential> mPreCheckSet;
     private final PasswordCheckIconHelper mIconHelper;
+    private long mLastStatusUpdate;
 
     PasswordCheckMediator(PasswordCheckChangePasswordHelper changePasswordDelegate,
             PasswordCheckReauthenticationHelper reauthenticationHelper,
@@ -67,13 +74,19 @@ class PasswordCheckMediator
         mDelegate = delegate;
         mLaunchCheckupInAccount = launchCheckupInAccount;
 
+        PasswordCheckMetricsRecorder.recordPasswordCheckReferrer(passwordCheckReferrer);
+
         // If a run is scheduled to happen soon, initialize the UI as running to prevent flickering.
         // Otherwise, initialize the UI with last known state (defaults to IDLE before first run).
         boolean shouldRunCheck = passwordCheckReferrer != PasswordCheckReferrer.SAFETY_CHECK;
         onPasswordCheckStatusChanged(shouldRunCheck ? PasswordCheckUIStatus.RUNNING
                                                     : getPasswordCheck().getCheckStatus());
         getPasswordCheck().addObserver(this, true);
-        if (shouldRunCheck) getPasswordCheck().startCheck();
+        if (shouldRunCheck) {
+            PasswordCheckMetricsRecorder.recordUiUserAction(
+                    PasswordCheckUserAction.START_CHECK_AUTOMATICALLY);
+            getPasswordCheck().startCheck();
+        }
     }
 
     void destroy() {
@@ -97,8 +110,9 @@ class PasswordCheckMediator
                     new PropertyModel.Builder(PasswordCheckProperties.HeaderProperties.ALL_KEYS)
                             .with(CHECK_STATUS, PasswordCheckUIStatus.RUNNING)
                             .with(LAUNCH_ACCOUNT_CHECKUP_ACTION, mLaunchCheckupInAccount)
-                            .with(RESTART_BUTTON_ACTION, this::runCheck)
+                            .with(RESTART_BUTTON_ACTION, this::startCheckManually)
                             .build()));
+            mLastStatusUpdate = System.currentTimeMillis();
         }
         if (items.size() > 1) items.removeRange(1, items.size() - 1);
 
@@ -113,6 +127,19 @@ class PasswordCheckMediator
 
     @Override
     public void onPasswordCheckStatusChanged(@PasswordCheckUIStatus int status) {
+        long currentTime = System.currentTimeMillis();
+
+        if (shouldDelayStatusChange(status, currentTime)) {
+            mLastStatusUpdate += sStatusUpdateDelayMillis;
+            PostTask.postDelayedTask(UiThreadTaskTraits.DEFAULT,
+                    () -> changePasswordCheckStatus(status), mLastStatusUpdate - currentTime);
+        } else {
+            mLastStatusUpdate = currentTime;
+            changePasswordCheckStatus(status);
+        }
+    }
+
+    private void changePasswordCheckStatus(@PasswordCheckUIStatus int status) {
         // There is no UI representation of a canceled check. This status can be sent when
         // the bridge and the password check UI are being torn down while a check is running.
         if (status == PasswordCheckUIStatus.CANCELED) return;
@@ -125,19 +152,22 @@ class PasswordCheckMediator
                              .with(CHECK_TIMESTAMP, null)
                              .with(COMPROMISED_CREDENTIALS_COUNT, null)
                              .with(LAUNCH_ACCOUNT_CHECKUP_ACTION, mLaunchCheckupInAccount)
-                             .with(RESTART_BUTTON_ACTION, this::runCheck)
+                             .with(RESTART_BUTTON_ACTION, this::startCheckManually)
+                             .with(SHOW_CHECK_SUBTITLE, false)
                              .build();
         } else {
             header = items.get(0).model;
         }
         header.set(CHECK_STATUS, status);
-        header.set(
-                CHECK_PROGRESS, status == PasswordCheckUIStatus.RUNNING ? UNKNOWN_PROGRESS : null);
+        Pair<Integer, Integer> progress = header.get(CHECK_PROGRESS);
+        if (progress == null) progress = UNKNOWN_PROGRESS;
+        header.set(CHECK_PROGRESS, status == PasswordCheckUIStatus.RUNNING ? progress : null);
         Long checkTimestamp = null;
         Integer compromisedCredentialCount = null;
         if (status == PasswordCheckUIStatus.IDLE) {
             compromisedCredentialCount = getPasswordCheck().getCompromisedCredentialsCount();
             checkTimestamp = getPasswordCheck().getLastCheckTimestamp();
+            header.set(SHOW_CHECK_SUBTITLE, true);
         }
         header.set(CHECK_TIMESTAMP, checkTimestamp);
         header.set(COMPROMISED_CREDENTIALS_COUNT, compromisedCredentialCount);
@@ -155,7 +185,10 @@ class PasswordCheckMediator
         assert remainingInQueue >= 0;
 
         PropertyModel header = items.get(0).model;
-        header.set(CHECK_STATUS, PasswordCheckUIStatus.RUNNING);
+        if (header.get(CHECK_STATUS) != PasswordCheckUIStatus.RUNNING) {
+            mLastStatusUpdate = System.currentTimeMillis();
+            header.set(CHECK_STATUS, PasswordCheckUIStatus.RUNNING);
+        }
         header.set(
                 CHECK_PROGRESS, new Pair<>(alreadyProcessed, alreadyProcessed + remainingInQueue));
         header.set(CHECK_TIMESTAMP, null);
@@ -173,6 +206,8 @@ class PasswordCheckMediator
 
     @Override
     public void onEdit(CompromisedCredential credential) {
+        PasswordCheckMetricsRecorder.recordUiUserAction(
+                PasswordCheckUserAction.EDIT_PASSWORD_CLICK);
         if (!mReauthenticationHelper.canReauthenticate()) {
             mReauthenticationHelper.showScreenLockToast();
             return;
@@ -185,11 +220,15 @@ class PasswordCheckMediator
 
     @Override
     public void onRemove(CompromisedCredential credential) {
+        PasswordCheckMetricsRecorder.recordUiUserAction(
+                PasswordCheckUserAction.DELETE_PASSWORD_CLICK);
         mModel.set(DELETION_ORIGIN, credential.getDisplayOrigin());
         mModel.set(
                 DELETION_CONFIRMATION_HANDLER, new PasswordCheckDeletionDialogFragment.Handler() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
+                        PasswordCheckMetricsRecorder.recordUiUserAction(
+                                PasswordCheckUserAction.DELETED_PASSWORD);
                         if (which != AlertDialog.BUTTON_POSITIVE) return;
                         mDelegate.removeCredential(credential);
                         mModel.set(DELETION_CONFIRMATION_HANDLER, null);
@@ -205,6 +244,8 @@ class PasswordCheckMediator
 
     @Override
     public void onView(CompromisedCredential credential) {
+        PasswordCheckMetricsRecorder.recordUiUserAction(
+                PasswordCheckUserAction.VIEW_PASSWORD_CLICK);
         if (!mReauthenticationHelper.canReauthenticate()) {
             mReauthenticationHelper.showScreenLockToast();
             return;
@@ -212,6 +253,8 @@ class PasswordCheckMediator
 
         mReauthenticationHelper.reauthenticate(ReauthReason.VIEW_PASSWORD, reauthSucceeded -> {
             if (reauthSucceeded) {
+                PasswordCheckMetricsRecorder.recordUiUserAction(
+                        PasswordCheckUserAction.VIEWED_PASSWORD);
                 mModel.set(VIEW_CREDENTIAL, credential);
                 mModel.set(VIEW_DIALOG_HANDLER, new PasswordCheckViewDialogFragment.Handler() {
                     @Override
@@ -231,12 +274,17 @@ class PasswordCheckMediator
 
     @Override
     public void onChangePasswordButtonClick(CompromisedCredential credential) {
+        PasswordCheckMetricsRecorder.recordUiUserAction(credential.hasScript()
+                        ? PasswordCheckUserAction.CHANGE_PASSWORD_MANUALLY
+                        : PasswordCheckUserAction.CHANGE_PASSWORD);
         mChangePasswordDelegate.launchAppOrCctWithChangePasswordUrl(credential);
     }
 
     @Override
     public void onChangePasswordWithScriptButtonClick(CompromisedCredential credential) {
         assert credential.hasScript();
+        PasswordCheckMetricsRecorder.recordUiUserAction(
+                PasswordCheckUserAction.CHANGE_PASSWORD_AUTOMATICALLY);
         mChangePasswordDelegate.launchCctWithScript(credential);
     }
 
@@ -245,13 +293,27 @@ class PasswordCheckMediator
         assert items.size() >= 1;
 
         PropertyModel header = items.get(0).model;
+        Integer compromisedCredentialsCount = getPasswordCheck().getCompromisedCredentialsCount();
         if (header.get(CHECK_STATUS) == PasswordCheckUIStatus.IDLE) {
-            header.set(COMPROMISED_CREDENTIALS_COUNT,
-                    Integer.valueOf(getPasswordCheck().getCompromisedCredentialsCount()));
+            header.set(COMPROMISED_CREDENTIALS_COUNT, compromisedCredentialsCount);
         }
+        header.set(SHOW_CHECK_SUBTITLE,
+                compromisedCredentialsCount > 0
+                        || header.get(CHECK_STATUS) == PasswordCheckUIStatus.IDLE);
     }
 
-    private void runCheck() {
+    public void stopCheck() {
+        PasswordCheck check = PasswordCheckFactory.getPasswordCheckInstance();
+        if (check == null) return;
+        if (isCheckRunning()) {
+            PasswordCheckMetricsRecorder.recordUiUserAction(PasswordCheckUserAction.CANCEL_CHECK);
+        }
+        check.stopCheck();
+    }
+
+    private void startCheckManually() {
+        PasswordCheckMetricsRecorder.recordUiUserAction(
+                PasswordCheckUserAction.START_CHECK_MANUALLY);
         getPasswordCheck().startCheck();
     }
 
@@ -259,6 +321,21 @@ class PasswordCheckMediator
         PasswordCheck passwordCheck = PasswordCheckFactory.getOrCreate();
         assert passwordCheck != null : "Password Check UI component needs native counterpart!";
         return passwordCheck;
+    }
+
+    private boolean isCheckRunning() {
+        return mModel.get(ITEMS).get(0) != null
+                && mModel.get(ITEMS).get(0).model.get(CHECK_STATUS)
+                == PasswordCheckUIStatus.RUNNING;
+    }
+
+    private boolean shouldDelayStatusChange(
+            @PasswordCheckUIStatus int newStatus, long currentTime) {
+        ListModel<ListItem> items = mModel.get(ITEMS);
+        return items.size() > 0
+                && items.get(0).model.get(CHECK_STATUS) == PasswordCheckUIStatus.RUNNING
+                && newStatus != PasswordCheckUIStatus.RUNNING
+                && mLastStatusUpdate + sStatusUpdateDelayMillis > currentTime;
     }
 
     private ListItem createEntryForCredential(CompromisedCredential credential) {
@@ -316,5 +393,10 @@ class PasswordCheckMediator
                     lhs.getDisplayUsername().compareTo(rhs.getDisplayUsername());
             return originComparisonResult == 0 ? usernameComparisonResult : originComparisonResult;
         });
+    }
+
+    @VisibleForTesting
+    protected static void setStatusUpdateDelayMillis(long statusUpdateDelayMillis) {
+        sStatusUpdateDelayMillis = statusUpdateDelayMillis;
     }
 }

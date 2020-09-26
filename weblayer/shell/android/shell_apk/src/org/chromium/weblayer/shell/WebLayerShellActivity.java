@@ -33,6 +33,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ViewSwitcher;
 
+import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
 import androidx.fragment.app.FragmentManager;
@@ -246,7 +247,9 @@ public class WebLayerShellActivity extends FragmentActivity {
 
             if (item.getItemId() == R.id.clear_browsing_data_menu_id) {
                 mProfile.clearBrowsingData(
-                        new int[] {BrowsingDataType.COOKIES_AND_SITE_DATA, BrowsingDataType.CACHE},
+                        new int[] {BrowsingDataType.COOKIES_AND_SITE_DATA, BrowsingDataType.CACHE,
+                                BrowsingDataType.SITE_SETTINGS},
+
                         () -> {
                             Toast.makeText(getApplicationContext(), "Data cleared!",
                                          Toast.LENGTH_SHORT)
@@ -260,6 +263,14 @@ public class WebLayerShellActivity extends FragmentActivity {
 
             if (item.getItemId() == R.id.no_webview_compat_menu_id) {
                 restartShell(false);
+            }
+
+            if (item.getItemId() == R.id.set_translate_target_lang_menu_id) {
+                mBrowser.getActiveTab().setTranslateTargetLanguage("de");
+            }
+
+            if (item.getItemId() == R.id.clear_translate_target_lang_menu_id) {
+                mBrowser.getActiveTab().setTranslateTargetLanguage("");
             }
 
             return false;
@@ -369,6 +380,10 @@ public class WebLayerShellActivity extends FragmentActivity {
             @Override
             public void onActiveTabChanged(Tab activeTab) {
                 mUrlViewContainer.setDisplayedChild(NONEDITABLE_URL_TEXT_VIEW);
+
+                // This callback is fired with null as the param on removal of the active tab.
+                if (activeTab == null) return;
+
                 updateFavicon(activeTab);
             }
             @Override
@@ -636,7 +651,7 @@ public class WebLayerShellActivity extends FragmentActivity {
         System.exit(0);
     }
 
-    private void updateFavicon(Tab tab) {
+    private void updateFavicon(@NonNull Tab tab) {
         if (tab == mBrowser.getActiveTab()) {
             assert mTabToFaviconFetcher.containsKey(tab);
             ((ImageView) findViewById(R.id.favicon_image_view))

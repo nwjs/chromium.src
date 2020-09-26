@@ -363,12 +363,6 @@
       * '특별한 제한 없음'을 선택하면 세이프 브라우징 분석 결과에 따른 일반적인 보안 제한이 다운로드에 적용됩니다.
 
       참고: 이러한 제한은 웹페이지 콘텐츠에서 트리거되었거나 '링크 다운로드...' 메뉴 옵션을 통해 다운로드한 항목에 적용됩니다. 이러한 제한은 현재 표시된 페이지의 다운로드 또는 인쇄 옵션 중 'PDF로 저장'에는 적용되지 않습니다. 세이프 브라우징에 관해 자세히 알아보세요 ( https://developers.google.com/safe-browsing ).</translation>
-<translation id="1550222358325456797"><ph name="DEVICE_PRINTERS_POLICY" />에 명시된 프린터 중 어떤 프린터가 사용자에게 제공될지 관리합니다.
-
-      일괄 프린터 설정에 사용할 액세스 정책을 지정합니다. <ph name="PRINTERS_ALLOW_ALL" />을 선택하면 모든 프린터가 표시됩니다. <ph name="PRINTERS_BLOCKLIST" />을 선택하면 <ph name="DEVICE_PRINTERS_BLOCKLIST" />가 사용되어 특정 프린터에 관한 액세스 권한이 제한됩니다. <ph name="PRINTERS_ALLOWLIST" />를 선택하면 <ph name="DEVICE_PRINTERS_ALLOWLIST" />가 사용되어 선택 가능한 프린터만 지정됩니다.
-
-      정책을 설정하지 않으면 <ph name="PRINTERS_ALLOW_ALL" />이 기본적으로 사용됩니다.
-      </translation>
 <translation id="1553532014072799546">앱별 시간 제한 허용 목록</translation>
 <translation id="1553956579506604198">외부 확장 프로그램이 설치되지 못하도록 차단합니다.</translation>
 <translation id="1555248923316727072">SAML 사용자 ID 관리 설정</translation>
@@ -381,6 +375,12 @@
 <translation id="1561967320164410511">개별 인증을 위한 U2F 및 확장 프로그램</translation>
 <translation id="1575015449587326319">OnFileDownloaded Chrome Enterprise Connector 설정 정책</translation>
 <translation id="1583248206450240930">기본으로 <ph name="PRODUCT_FRAME_NAME" /> 사용</translation>
+<translation id="1587671452159346389"><ph name="DEVICE_PRINTERS_POLICY_NAME" /> 정책의 프린터 중 어떤 프린터가 사용자에게 제공될지 관리합니다.
+
+      일괄 프린터 설정에 사용할 액세스 정책을 지정합니다. <ph name="PRINTERS_ALLOW_ALL" />을 선택하면 모든 프린터가 표시됩니다. <ph name="PRINTERS_BLOCKLIST" />을 선택하면 <ph name="DEVICE_PRINTERS_BLOCKLIST_POLICY_NAME" />를 사용해 지정된 프린터 액세스를 제한합니다.  <ph name="PRINTERS_ALLOWLIST" />를 선택하면 <ph name="DEVICE_PRINTERS_ALLOWLIST_POLICY_NAME" />가 선택 가능한 프린터만 지정합니다.
+
+      정책을 설정하지 않으면 <ph name="PRINTERS_ALLOW_ALL" />이 기본적으로 사용됩니다.
+      </translation>
 <translation id="1588240398285670601">브라우저 설정</translation>
 <translation id="1588456836529393506">정책을 설정하면 주어진 공급업체 및 제품 ID로 USB 기기에 대한 액세스 권한을 자동으로 받는 사이트를 지정하는 URL 패턴 목록을 작성할 수 있습니다. 정책이 유효하려면 각 목록 항목에 기기와 URL이 있어야 합니다. 기기의 각 항목에는 공급업체 ID 및 제품 ID 입력란이 포함될 수 있습니다. 공급업체 ID를 지정하지 않으면 제품 ID도 지정할 수 없다는 하나의 예외 사항을 제외하면 생략한 모든 ID는 와일드 카드로 취급됩니다. 이를 따르지 않으면 정책이 유효하지 않습니다.
 
@@ -484,12 +484,6 @@
 
       정책은 <ph name="PRODUCT_OS_NAME" />에서 서비스 약관을 다운로드할 수 있는 URL로 설정되어야 합니다. 서비스 약관은 일반 텍스트여야 하며 MIME 유형 text/plain으로 제공됩니다. 마크업은 허용되지 않습니다.</translation>
 <translation id="1750315445671978749">모든 다운로드 차단</translation>
-<translation id="1752589537990399158">사용자가 사용할 수 없는 프린터를 지정합니다.
-
-      이 정책은 <ph name="PRINTERS_BLOCKLIST" />이 <ph name="DEVICE_PRINTERS_ACCESS_MODE" />로 선택된 경우에만 사용됩니다.
-
-      정책을 사용하면 ID가 이 정책에 명시된 프린터를 제외한 모든 프린터가 사용자에게 제공됩니다. ID는 <ph name="DEVICE_PRINTERS_POLICY" />에 지정된 파일 내 'id' 또는 'guid' 필드와 일치해야 합니다.
-      </translation>
 <translation id="1760951637494635692">이 사이트에서 Serial API 허용</translation>
 <translation id="1767673020408652620">검색창이 0 상태일 때 앱 추천을 사용 설정합니다.</translation>
 <translation id="1780323582106687813">이 정책은 지원 중단되었으므로 '<ph name="EXTENSION_INSTALL_ALLOWLIST_POLICY_NAME" />' 정책을 대신 사용하세요.
@@ -1132,6 +1126,22 @@ False로 설정하면 개인정보 보호 화면은 항상 사용 중지됩니�
       사용 안함으로 설정하면 잠재적으로 위험한 명령줄 플래그와 함께 Chrome이 실행되었을 때 보안 경고가 표시되지 않습니다.
 
       <ph name="MS_WIN_NAME" />의 경우 이 기능은 <ph name="MS_AD_NAME" /> 도메인에 연결된 인스턴스, Windows 10 Pro에서 실행되는 인스턴스, Chrome 브라우저 클라우드 관리에 등록된 인스턴스에서만 사용할 수 있습니다. <ph name="MAC_OS_NAME" />의 경우 이 기능은 MDM을 통해 관리되는 인스턴스 또는 MCX를 통해 도메인에 연결된 인스턴스에서만 사용할 수 있습니다.</translation>
+<translation id="2621383458880689826">기기에 연결된 회사 프린터의 설정을 제공합니다.
+
+      이 정책을 사용하면 <ph name="PRODUCT_OS_NAME" /> 기기에 프린터 설정을 제공할 수 있습니다.  형식은 NativePrinters 사전과 동일하며, 허용 목록 또는 차단 목록을 사용하려면 프린터마다 'id' 또는 'guid' 필드가 추가로 필요합니다.
+
+      파일 크기는 5MB를 초과할 수 없으며 JSON으로 인코딩되어야 합니다.  5MB는 약 21,000대의 프린터가 포함된 파일을 인코딩했을 때 예상할 수 있는 크기입니다.  암호화 해시는 다운로드 파일의 무결성을 확인하는 데 사용됩니다.
+
+      파일이 다운로드 및 캐시되며 URL이나 해시가 변경될 때마다 다시 다운로드됩니다.
+
+      정책을 설정하면 <ph name="PRODUCT_OS_NAME" />에서 프린터 설정 파일을 다운로드하고 <ph name="DEVICE_NATIVE_PRINTERS_ACCESS_MODE" />, <ph name="DEVICE_NATIVE_PRINTERS_WHITELIST_POLICY_NAME" />, <ph name="DEVICE_NATIVE_PRINTERS_BLACKLIST_POLICY_NAME" />에 따라 프린터를 사용할 수 있게 됩니다.
+
+      이 정책은 사용자가 개별 기기에서 프린터를 설정할 수 있는지에 영향을 미치지 않으며,  개별 사용자의 프린터 설정을 보완하기 위한 것입니다.
+
+      이 정책은 <ph name="BULK_PRINTERS_POLICY_NAME" />에 추가되는 정책입니다.
+
+      정책을 설정하지 않으면 기기 프린터가 사용되지 않으며 다른 <ph name="DEVICE_NATIVE_PRINTERS_POLICY_PATTERN" /> 정책이 무시됩니다.
+      </translation>
 <translation id="2623014935069176671">첫 번째 사용자 활동 기다리기</translation>
 <translation id="262740370354162807"><ph name="CLOUD_PRINT_NAME" />(으)로 문서 제출 사용</translation>
 <translation id="2632538643061793322">정책을 설정하면 사용자에게 USB 기기 액세스를 요청할 수 있는 사이트를 지정하는 URL 패턴 목록을 만들 수 있습니다.
@@ -1298,6 +1308,12 @@ False로 설정하면 개인정보 보호 화면은 항상 사용 중지됩니�
       이 설정을 사용하면 인쇄 미리보기에서 OS 시스템 기본 프린터를 기본 선택으로 사용합니다.</translation>
 <translation id="285627849510728211">고급 배터리 충전 모드 주간 구성 설정</translation>
 <translation id="2856674246949497058">OS 버전이 대상 버전보다 높은 경우 대상 버전으로 롤백하고 버전을 유지합니다. 이 과정 중에 파워워시를 실행합니다.</translation>
+<translation id="2869140260739354012"><ph name="DEVICE_PRINTERS_POLICY" /> 정책의 프린터 중 어떤 프린터가 사용자에게 제공될지 관리합니다.
+
+      일괄 프린터 설정에 사용할 액세스 정책을 지정합니다. <ph name="PRINTERS_ALLOW_ALL" />을 선택하면 모든 프린터가 표시됩니다. <ph name="PRINTERS_BLACKLIST" />을 선택하면 <ph name="DEVICE_NATIVE_PRINTERS_BLACKLIST" />를 사용해 지정된 프린터 액세스를 제한합니다.  <ph name="PRINTERS_WHITELIST" />를 선택하면 <ph name="DEVICE_NATIVE_PRINTERS_WHITELIST" />가 선택 가능한 프린터만 지정합니다.
+
+      정책을 설정하지 않으면 <ph name="PRINTERS_ALLOW_ALL" />이 기본적으로 사용됩니다.
+      </translation>
 <translation id="2869762730352628426">로그인 화면에서 자동 클릭 사용</translation>
 <translation id="2872961005593481000">종료</translation>
 <translation id="2874209944580848064">Android 앱을 지원하는 <ph name="PRODUCT_OS_NAME" /> 기기 관련 주의사항:</translation>
@@ -1884,14 +1900,6 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 기본 알림을 사용�
       이 설정이 사용 중지되면 사용자는 Smart Lock 로그인을 사용할 수 없습니다.
 
       이 정책이 설정되지 않으면 기본적으로 엔터프라이즈 관리 사용자의 경우 사용 중지되고 관리되지 않는 사용자의 경우 사용 설정됩니다.</translation>
-<translation id="380006997233063633">사용자가 사용할 수 없는 프린터를 지정합니다.
-
-      이 정책은 <ph name="PRINTERS_BLACKLIST" />이 <ph name="DEVICE_NATIVE_PRINTERS_ACCESS_MODE" />로 선택된 경우에만 사용됩니다.
-
-      정책을 사용하면 모든 프린터가 이 정책에 명시된 ID를 제외한 사용자에게 제공됩니다. ID는 <ph name="DEVICE_PRINTERS_POLICY" />에 지정된 파일의 'id' 또는 'guid' 필드와 일치해야 합니다.
-
-      이 정책은 지원 중단되었으므로 <ph name="DEVICE_PRINTERS_BLOCKLIST" /> 정책을 대신 사용하세요.
-      </translation>
 <translation id="3803171355925844705">모든 사이트에서 혼합 콘텐츠 로드 허용 안함</translation>
 <translation id="3805659594028420438">TLS 도메인 바인딩 인증서 확장 프로그램 사용(지원 중단됨)</translation>
 <translation id="3808945828600697669">사용 중지된 플러그인 목록 지정</translation>
@@ -1934,6 +1942,12 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 기본 알림을 사용�
 <translation id="3838094946886335701">정책을 설정하면(권장되는 방식으로만) 프로토콜 핸들러 목록을 등록할 수 있으며, 여기에는 사용자가 등록한 핸들러가 병합되므로 두 핸들러가 모두 사용됩니다. '프로토콜' 속성을 'mailto'와 같은 스키마로, 'URL' 속성을 '프로토콜' 필드에 지정된 스키마를 처리하는 애플리케이션의 URL 패턴으로 설정합니다. 패턴에는 '%s' 자리표시자가 포함될 수 있으며, 이 부분은 처리된 URL로 교체됩니다.
 
       사용자는 정책에 의해 등록된 프로토콜 핸들러를 삭제할 수 없습니다. 그러나 새 기본 핸들러를 설치하여 정책에 따라 설치된 프로토콜 핸들러를 변경할 수는 있습니다.</translation>
+<translation id="3848118497246496090">사용자가 사용할 수 없는 프린터를 지정합니다.
+
+      이 정책은 <ph name="PRINTERS_BLACKLIST" />이 <ph name="DEVICE_NATIVE_PRINTERS_ACCESS_MODE" />로 선택된 경우에만 사용됩니다.
+
+      정책을 사용하면 ID가 이 정책에 명시된 프린터를 제외한 모든 프린터가 사용자에게 제공됩니다. ID는 <ph name="DEVICE_PRINTERS_POLICY" />에 지정된 파일 내 'id' 또는 'guid' 필드와 일치해야 합니다.
+      </translation>
 <translation id="3851039766298741586">활성 키오스크 세션에 대한 정보
       (예: 애플리케이션 ID 및 버전)를 보고합니다.
 
@@ -2074,6 +2088,12 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 기본 알림을 사용�
 <translation id="3965339130942650562">유휴 상태인 사용자의 로그아웃이 실행되기까지 시간 제한</translation>
 <translation id="3973371701361892765">실행기를 자동으로 숨기지 않음</translation>
 <translation id="3979738908158213640">SAML 인증을 하는 동안 기기 증명을 실행할 권한이 부여되는 URL입니다.</translation>
+<translation id="3980024487013511975">사용자가 사용할 수 없는 프린터를 지정합니다.
+
+      이 정책은 <ph name="PRINTERS_BLOCKLIST" />이 <ph name="DEVICE_PRINTERS_ACCESS_MODE_POLICY_NAME" />로 선택된 경우에만 사용됩니다.
+
+      정책을 사용하면 ID가 이 정책에 명시된 프린터를 제외한 모든 프린터가 사용자에게 제공됩니다. ID는 <ph name="DEVICE_PRINTERS_POLICY_NAME" />에 지정된 파일 내 'id' 또는 'guid' 필드와 일치해야 합니다.
+      </translation>
 <translation id="3984028218719007910"><ph name="PRODUCT_OS_NAME" />이(가) 로그아웃 뒤에 로컬 계정 데이터를 유지할 지를 결정합니다. true로 설정하면, <ph name="PRODUCT_OS_NAME" />이(가) 유지하는 영구 계정이 없으며 사용자 세션의 모든 데이터가 로그아웃 뒤에 삭제됩니다. 이 정책이 false로 설정되거나 구성되지 않으면 기기는 암호화된 로컬 사용자 데이터를 유지합니다.</translation>
 <translation id="398884292557092447">정책을 True로 설정하거나 설정하지 않으면 사용자가 UI에서 신용카드의 자동 완성 추천을 제어할 수 있습니다.
 
@@ -2284,6 +2304,12 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 기본 알림을 사용�
 
       정책을 설정하지 않으면 웹사이트에서 액세스 권한을 요청할 수 있지만, 사용자가 이 설정을 변경할 수 있습니다.</translation>
 <translation id="4285674129118156176">제휴되지 않은 사용자가 ARC를 사용할 수 있게 허용</translation>
+<translation id="4309562700894844665">사용자가 사용할 수 있는 프린터를 지정합니다.
+
+      이 정책은 <ph name="PRINTERS_WHITELIST" />가 <ph name="DEVICE_NATIVE_PRINTERS_ACCESS_MODE" />로 선택된 경우에만 사용됩니다.
+
+      정책을 사용하면 ID가 이 정책에 있는 값과 일치하는 프린터만 사용자에게 제공됩니다. ID는 <ph name="DEVICE_PRINTERS_POLICY" />에 지정된 파일 내 'id' 또는 'guid' 필드와 일치해야 합니다.
+      </translation>
 <translation id="4311195029067684288">Full</translation>
 <translation id="4313767483634435271">기기에서 지정된 도크 MAC 주소</translation>
 <translation id="4322842393287974810">지연 없이 자동 실행된 키오스크 앱에서 <ph name="PRODUCT_OS_NAME" /> 버전을 제어하도록 허용합니다.</translation>
@@ -2422,14 +2448,6 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 기본 알림을 사용�
       이 정책이 설정되지 않으면 기본적으로 기업에서 관리하는 사용자에게는 사용 중지되고 관리되지 않는 사용자에게는 사용 설정됩니다.</translation>
 <translation id="4555850956567117258">사용자에 대한 원격 인증을 사용합니다.</translation>
 <translation id="4557134566541205630">기본 검색 공급자 새 탭 페이지 URL</translation>
-<translation id="4558314937689062156"><ph name="DEVICE_PRINTERS_POLICY" /> 정책의 프린터 중 어떤 프린터가 사용자에게 제공될지 관리합니다.
-
-      일괄 프린터 설정에 사용할 액세스 정책을 지정합니다. <ph name="PRINTERS_ALLOW_ALL" />을 선택하면 모든 프린터가 표시됩니다. <ph name="PRINTERS_BLACKLIST" />을 선택하면 <ph name="DEVICE_NATIVE_PRINTERS_BLACKLIST" />를 사용해 지정된 프린터 액세스를 제한합니다.  <ph name="PRINTERS_WHITELIST" />를 선택하면 <ph name="DEVICE_NATIVE_PRINTERS_WHITELIST" />가 선택 가능한 프린터만 지정합니다.
-
-      정책을 설정하지 않으면 <ph name="PRINTERS_ALLOW_ALL" />이 기본적으로 사용됩니다.
-
-      이 정책은 지원 중단되었으므로 <ph name="DEVICE_PRINTERS_ACCESS_MODE" /> 정책을 대신 사용하세요.
-      </translation>
 <translation id="4562165737444703281">사용자가 Crostini 포트 전달을 [사용 설정/구성]할 수 있도록 허용</translation>
 <translation id="456686782928669977">이 정책은 <ph name="IE_PRODUCT_NAME" />의 SiteList 정책으로부터 규칙을 로드할지 제어합니다.
 
@@ -2956,6 +2974,7 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 기본 알림을 사용�
 <translation id="5293044154216294358">정책을 True로 설정하면 사용자가 공룡 게임을 플레이할 수 있습니다. 정책을 False로 설정하면 기기가 오프라인 상태일 때는 사용자가 공룡 이스터 에그 게임을 플레이할 수 없습니다.
 
       정책을 설정하지 않으면 사용자가 등록한 <ph name="PRODUCT_OS_NAME" />에서 게임을 플레이할 수 없지만 다른 상황에서는 플레이할 수 있습니다.</translation>
+<translation id="529457411593078576">첫 실행 중 CCT에 서비스 약관 사용 설정</translation>
 <translation id="5306186200045823863">Symantec Corporation의 Legacy PKI 인프라에서 트러스트를 사용 설정합니다.</translation>
 <translation id="5307432759655324440">시크릿 모드 사용 가능 여부</translation>
 <translation id="5311275381462687162">기본 레거시 <ph name="ATTRIBUTE_SAMESITE_NAME" /> 쿠키 동작 설정</translation>
@@ -2973,6 +2992,22 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 기본 알림을 사용�
       정책을 '브라우저 로그인 강제 사용'으로 설정하면 사용자에게 계정 선택 대화상자가 표시되며, 계정을 선택하여 로그인해야 브라우저를 사용할 수 있습니다. 관리 계정의 경우 이 설정을 통해 계정과 관련된 정책을 적용 및 시행할 수 있습니다. 도메인 관리자가 동기화를 사용 중지하거나 'SyncDisabled' 정책으로 동기화가 사용 중지되지 않은 이상 계정에서 Chrome 동기화가 기본적으로 사용 설정됩니다. 또한 BrowserGuestModeEnabled의 기본값은 False로 설정됩니다. 이 정책을 사용 설정하면 로그인되지 않은 기존 프로필은 잠겨서 액세스할 수 없게 됩니다. 자세한 내용은 다음 고객센터 도움말을 참조하세요. https://support.google.com/chrome/a/answer/7572556. 이 옵션은 Linux 및 Android를 지원하지 않으며, Linux 및 Android를 사용할 경우 '브라우저 로그인 사용'으로 대체됩니다.
 
       정책을 설정하지 않으면 사용자가 브라우저 로그인 옵션을 사용할지 결정하고 필요에 따라 사용할 수 있습니다.</translation>
+<translation id="5327325901414715560">기기에 연결된 회사 프린터의 설정을 제공합니다.
+
+      이 정책을 사용하면 <ph name="PRODUCT_OS_NAME" /> 기기에 프린터 설정을 제공할 수 있습니다.  형식은 NativePrinters 사전과 동일하며, 허용 목록 또는 차단 목록을 사용하려면 프린터마다 'id' 또는 'guid' 필드가 추가로 필요합니다.
+
+      파일 크기는 5MB를 초과할 수 없으며 JSON으로 인코딩되어야 합니다.  5MB는 약 21,000대의 프린터가 포함된 파일을 인코딩했을 때 예상할 수 있는 크기입니다.  암호화 해시는 다운로드 파일의 무결성을 확인하는 데 사용됩니다.
+
+      파일이 다운로드 및 캐시되며 URL이나 해시가 변경될 때마다 다시 다운로드됩니다.
+
+      정책을 설정하면 <ph name="PRODUCT_OS_NAME" />에서 프린터 설정 파일을 다운로드하고 <ph name="DEVICE_PRINTERS_ACCESS_MODE_POLICY_NAME" />, <ph name="DEVICE_PRINTERS_ALLOWLIST_POLICY_NAME" />, <ph name="DEVICE_PRINTERS_BLOCKLIST_POLICY_NAME" />에 따라 프린터를 사용할 수 있게 됩니다.
+
+      이 정책은 사용자가 개별 기기에서 프린터를 설정할 수 있는지에 영향을 미치지 않으며,  개별 사용자의 프린터 설정을 보완하기 위한 것입니다.
+
+      이 정책은 <ph name="PRINTERS_BULK_CONFIGURATION_POLICY_NAME" />에 추가되는 정책입니다.
+
+      정책을 설정하지 않으면 기기 프린터가 사용되지 않으며 다른 <ph name="DEVICE_PRINTERS_POLICY_PATTERN" /> 정책이 무시됩니다.
+      </translation>
 <translation id="532848608876725157">안전하지 않은 대체를 포함하여 DNS-over-HTTPS 사용</translation>
 <translation id="5329007337159326804">경고: 최대 TLS 버전 정책이 <ph name="PRODUCT_NAME" /> 버전 75쯤에서 완전히 삭제됩니다(2019년 6월경).
 
@@ -3201,11 +3236,6 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 기본 알림을 사용�
 
       지정하지 않으면 버전 시드 URL을 수정할 수 없습니다.</translation>
 <translation id="5561811616825571914">로그인 화면에서 이 사이트의 클라이언트 인증서를 자동으로 선택합니다.</translation>
-<translation id="5564345250641049313">기기에 로그인할 수 있는 사용자 목록을 정의합니다. <ph name="USER_ALLOWLIST_ENTRY_FORMAT" /> 형식(예: <ph name="USER_ALLOWLIST_ENTRY_EXAMPLE" />)의 항목이 사용됩니다. 도메인에 임의의 사용자를 허용하려면 <ph name="USER_ALLOWLIST_ENTRY_WILDCARD" /> 형식의 항목을 사용합니다.
-
-      이 정책이 구성되지 않으면 어떤 사용자가 로그인할 수 있는지에 관한 제한이 없습니다. 새 사용자를 만들기 위해서는 <ph name="DEVICE_ALLOW_NEW_USERS_POLICY_NAME" /> 정책이 적절히 구성되어야 합니다.
-
-      이 정책은 지원 중단되었으므로 <ph name="DEVICE_USER_ALLOWLIST_POLICY_NAME" /> 정책을 대신 사용하세요.</translation>
 <translation id="5564865786900450806">더 이상 지원되지 않는 컴퓨터 또는 운영체제에서 <ph name="PRODUCT_NAME" />이(가) 실행될 때 표시되는 경고를 무시합니다.
 
       정책이 false로 설정되어 있거나 설정되어 있지 않은 경우 지원되지 않는 컴퓨터 또는 운영체제에서 경고가 표시됩니다.</translation>
@@ -3547,6 +3577,12 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 기본 알림을 사용�
 
       <ph name="PRODUCT_NAME" />은 볼륨의 루트 디렉터리의 콘텐츠를 관리합니다. 따라서 데이터 손실 및 기타 오류를 방지하려면 이 정책을 루트 디렉터리나 기타 목적으로 사용되는 디렉터리로 설정해서는 안 됩니다. https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables에서 사용 가능한 변수를 확인할 수 있습니다.</translation>
 <translation id="6083631234867522991">Windows(Windows 클라이언트):</translation>
+<translation id="6086225644749063677">사용자가 사용할 수 있는 프린터를 지정합니다.
+
+      이 정책은 <ph name="PRINTERS_ALLOWLIST" />가 <ph name="DEVICE_PRINTERS_ACCESS_MODE_POLICY_NAME" />로 선택된 경우에만 사용됩니다.
+
+      정책을 사용하면 ID가 이 정책에 있는 값과 일치하는 프린터만 사용자에게 제공됩니다. ID는 <ph name="DEVICE_PRINTERS_POLICY_NAME" />에 지정된 파일 내 'id' 또는 'guid' 필드와 일치해야 합니다.
+      </translation>
 <translation id="608788685013546076">전력 피크 시프트 배터리 임계값을 퍼센트로 설정</translation>
 <translation id="6089679180657323464">Wilco 진단 및 텔레메트리 컨트롤러 설정을 제어합니다.</translation>
 <translation id="6091233616732024397">사용자가 브라우저를 사용하려면 로그인하도록 강제</translation>
@@ -3563,11 +3599,6 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 기본 알림을 사용�
           유휴 시 화면을 잠글 때는 일시중지 시 화면 잠금을 사용하도록 설정하고 유휴 지연 시간 이후 <ph name="PRODUCT_OS_NAME" />을(를) 일시중지시키는 것이 좋습니다. 이 정책은 일시중지보다 훨씬 일찍 화면을 잠가야 할 때 또는 유휴 시 일시중지가 적합하지 않을 때에만 사용해야 합니다.
 
           정책 값은 밀리초 단위로 지정해야 하며, 유휴 지연 시간보다 적도록 값이 잘립니다.</translation>
-<translation id="6096729330325888677">정책을 설정하면 사용자가 웹 앱 내에서 직접 chrome.usb API를 통해 사용하기 위해 커널 드라이버에서 분리할 수 있는 USB 기기 목록을 정의합니다. 항목은 특정 하드웨어를 식별하는 USB 공급업체 식별자 및 제품 식별자의 쌍입니다.
-
-      설정하지 않으면 분리할 수 있는 USB 기기 목록이 빈 상태로 설정됩니다.
-
-      이 정책은 지원 중단되었으므로 <ph name="USB_DETACHABLE_ALLOWLIST" /> 정책을 대신 사용하세요.</translation>
 <translation id="6097601282776163274">URL로 입력되며 익명으로 처리되는 데이터 수집 사용 설정</translation>
 <translation id="6099853574908182288">기본 컬러 인쇄 모드</translation>
 <translation id="6102342563050263313">URL 프래그먼트에서 지정한 텍스트로 스크롤 사용 설정</translation>
@@ -3924,14 +3955,6 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 기본 알림을 사용�
       true로 설정하면 기기에서 파워워시를 실행할 수 있습니다.
       설정하지 않으면 기본값인 true로 설정되므로 기기에서 파워워시를 실행할 수 있게 됩니다.
       </translation>
-<translation id="6613434166485278315">사용자가 사용할 수 있는 프린터를 지정합니다.
-
-      <ph name="PRINTERS_WHITELIST" />가 <ph name="DEVICE_NATIVE_PRINTERS_ACCESS_MODE" />로 선택된 경우에만 이 정책이 사용됩니다.
-
-      이 정책을 사용하면 ID가 이 정책의 값과 일치하는 프린터만 사용자에게 제공됩니다. ID는 <ph name="DEVICE_PRINTERS_POLICY" />에 지정된 파일의 'id' 또는 'guid' 필드와 일치해야 합니다.
-
-      이 정책은 지원 중단되었으므로 <ph name="DEVICE_PRINTERS_ALLOWLIST" /> 정책을 대신 사용하세요.
-      </translation>
 <translation id="66265932317331474">CPU 정보 보고</translation>
 <translation id="6628043374475466084">업로드한 콘텐츠가 민감한 정보 보호 규칙을 준수하는지 확인하지 않을 URL 패턴</translation>
 <translation id="6628120204569232711">저장용량 상태 보고</translation>
@@ -4257,22 +4280,6 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 기본 알림을 사용�
 <translation id="7063895219334505671">이러한 사이트에서 팝업 허용</translation>
 <translation id="706669471845501145">사이트에서 데스크톱 알림을 표시하도록 허용</translation>
 <translation id="7068108874199666656">네트워크 설정을 푸시하여 모든 <ph name="PRODUCT_OS_NAME" /> 기기 사용자의 기기에 적용할 수 있도록 합니다. 네트워크 설정은 오픈 네트워크 구성 형식에 정의된 JSON 형식 문자열입니다.</translation>
-<translation id="7069358643254839205">기기에 연결된 회사 프린터의 설정을 제공합니다.
-
-      이 정책을 사용하면 <ph name="PRODUCT_OS_NAME" /> 기기에 프린터 설정을 제공할 수 있습니다.  형식은 NativePrinters 사전과 동일하며, 허용 목록 또는 차단 목록을 사용하려면 프린터마다 'id' 또는 'guid' 필드가 추가로 필요합니다.
-
-      파일 크기는 5MB를 초과할 수 없으며 JSON으로 인코딩되어야 합니다.  5MB는 약 21,000대의 프린터가 포함된 파일을 인코딩했을 때 예상할 수 있는 크기입니다.  암호화 해시는 다운로드 파일의 무결성을 확인하는 데 사용됩니다.
-
-      파일이 다운로드 및 캐시되며 URL이나 해시가 변경될 때마다 다시 다운로드됩니다.
-
-      정책을 설정하면 <ph name="PRODUCT_OS_NAME" />에서 프린터 설정 파일을 다운로드하고 <ph name="DEVICE_PRINTERS_ACCESS_MODE" />, <ph name="DEVICE_PRINTERS_ALLOWLIST" />, <ph name="DEVICE_PRINTERS_BLOCKLIST" />에 따라 프린터를 사용할 수 있도록 설정합니다.
-
-      이 정책은 사용자가 개별 기기에서 프린터를 설정할 수 있는지에 영향을 미치지 않으며,  개별 사용자의 프린터 설정을 보완하기 위한 것입니다.
-
-      이 정책은 <ph name="PRINTERS_BULK_CONFIGURATION_POLICY_NAME" />에 추가되는 정책입니다.
-
-      정책을 설정하지 않으면 기기 프린터가 사용되지 않으며 다른 <ph name="DEVICE_PRINTERS_POLICY_PATTERN" /> 정책이 무시됩니다.
-      </translation>
 <translation id="7070525176564511548">매주(168시간) 비밀번호를 입력해야 합니다.</translation>
 <translation id="7072208053150563108">기기 비밀번호 변경 속도</translation>
 <translation id="7079519252486108041">이 사이트에서 팝업 차단</translation>
@@ -4591,6 +4598,17 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 기본 알림을 사용�
 <translation id="747014869399137701">정책을 1로 설정하면 웹사이트에서 데스크톱 알림을 표시하도록 허용합니다. 정책을 2로 설정하면 데스크톱 알림을 거부합니다.
 
       설정하지 않으면 <ph name="ASK_NOTIFICATIONS_POLICY_NAME" /> 정책이 적용되지만 사용자가 이 설정을 변경할 수 있습니다.</translation>
+<translation id="7471828226549672843">CCT를 처음 실행할 때 서비스 약관이 기본으로 표시됩니다. 정책을 사용 안함으로 설정하면 첫 실행 환경 또는 이후 실행 중 서비스 약관 대화상자가 나타나지 않습니다. 정책을 사용으로 설정하거나 설정하지 않으면 첫 실행 환경에서 서비스 약관 대화상자가 나타납니다. 다른 주의사항은 다음과 같습니다.
+
+      - 이 정책은 Unified Endpoint Management 공급업체에서 구성할 수 있는 완전 관리형 Android 기기에서만 작동합니다.
+
+      - 정책을 사용 안함으로 설정하면 BrowserSignin 정책이 적용되지 않습니다.
+
+      - 정책을 사용 안함으로 설정하면 측정항목이​ 서버로 전송되지 않습니다.
+
+      - 정책을 사용 안함으로 설정하면 브라우저의 기능이 제한됩니다.
+
+      - 정책을 사용 안함으로 설정하면 관리자가 기기의 최종 사용자에게 이를 알려야 합니다.</translation>
 <translation id="747275827471712187">이 사이트에서 쿠키의 레거시 <ph name="ATTRIBUTE_SAMESITE_NAME" /> 동작으로 되돌리기</translation>
 <translation id="7477231245051133709">모노 오디오 접근성 기능 사용</translation>
 <translation id="7477239290070847560">Zeroconf 기반(mDNS + DNS-SD) 프로토콜 목적지</translation>
@@ -4680,12 +4698,6 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 기본 알림을 사용�
       사용자의 기기가 관리된다면 이 기능의 사용 가능 여부는 상응하는 기기 정책에 따라 추가로 달라집니다.
 
       사용자의 기기가 관리되지 않는다면 이 기능의 사용 가능 여부는 사용자가 기기 소유자인지에 따라 추가로 달라집니다.</translation>
-<translation id="7567748950909116096">사용자가 사용할 수 있는 프린터를 지정합니다.
-
-      이 정책은 <ph name="PRINTERS_ALLOWLIST" />가 <ph name="DEVICE_PRINTERS_ACCESS_MODE" />로 선택된 경우에만 사용됩니다.
-
-      정책을 사용하면 ID가 이 정책에 있는 값과 일치하는 프린터만 사용자에게 제공됩니다. ID는 <ph name="DEVICE_PRINTERS_POLICY" />에 지정된 파일 내 'id' 또는 'guid' 필드와 일치해야 합니다.
-      </translation>
 <translation id="7570291542739287032">클라우드 전용</translation>
 <translation id="757395965347379751">이 설정이 사용 설정되었다면 <ph name="PRODUCT_NAME" />은(는) 로컬에 설치된 CA 인증서를 성공적으로 확인하고 체인을 구축하는 한 SHA-1 서명 인증서를 허용합니다.
 
@@ -4735,17 +4747,6 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 기본 알림을 사용�
 
           참고: <ph name="DEVICE_LOGIN_SCREEN_LARGE_CURSOR_ENABLED" />이(가) 지정된 경우 이 정책을 재정의합니다.</translation>
 <translation id="7632724434767231364">GSSAPI 라이브러리 이름</translation>
-<translation id="7642890175637942277">CCT/PWA를 처음 실행할 때 서비스 약관이 기본으로 표시됩니다. 정책을 사용 안함으로 설정하면 첫 실행 환경 또는 이후 실행 중 서비스 약관 대화상자가 나타나지 않습니다. 정책을 사용으로 설정하거나 설정하지 않으면 첫 실행 환경에서 서비스 약관 대화상자가 나타납니다. 다른 주의사항은 다음과 같습니다.
-
-      - 이 정책은 Unified Endpoint Management 공급업체에서 구성할 수 있는 완전 관리형 Android 기기에서만 작동합니다.
-
-      - 정책을 사용 안함으로 설정하면 BrowserSignin 정책이 적용되지 않습니다.
-
-      - 정책을 사용 안함으로 설정하면 측정항목이​ 서버로 전송되지 않습니다.
-
-      - 정책을 사용 안함으로 설정하면 브라우저의 기능이 제한됩니다.
-
-      - 정책을 사용 안함으로 설정하면 관리자가 기기의 최종 사용자에게 이를 알려야 합니다.</translation>
 <translation id="7643883929273267746"><ph name="PRODUCT_NAME" />에 표시되는 계정 제한</translation>
 <translation id="7648907905084499629">모든 사이트에서 쿠키에 <ph name="FEATURE_NAME_SAMESITE_BY_DEFAULT_COOKIES" /> 동작 사용</translation>
 <translation id="7651739109954974365">데이터 로밍을 기기에 사용할 지 여부를 결정합니다. true로 설정하면 데이터 로밍이 허용됩니다. 구성하지 않거나 false로 설정하면 데이터 로밍은 사용할 수 없습니다.</translation>
@@ -4755,24 +4756,6 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 기본 알림을 사용�
       정책을 설정하면 <ph name="PRODUCT_NAME" />에서 사용자가 변경할 수 없습니다. 정책을 설정하지 않으면 기본 검색 공급자가 사용 설정되고 사용자는 검색 공급자 목록을 설정할 수 있습니다.
 
       <ph name="MS_WIN_NAME" />에서 이 기능은 <ph name="MS_AD_NAME" /> 도메인에 연결된 인스턴스, Windows 10 Pro에서 실행되는 인스턴스, Chrome 브라우저 클라우드 관리에 등록된 인스턴스에서만 사용할 수 있습니다. <ph name="MAC_OS_NAME" />에서 이 기능은 MDM을 통해 관리되는 인스턴스 또는 MCX를 통해 도메인에 연결된 인스턴스에서만 사용할 수 있습니다.</translation>
-<translation id="7673108452297907398">기기에 연결된 회사 프린터의 설정을 제공합니다.
-
-      이 정책을 사용하면 <ph name="PRODUCT_OS_NAME" /> 기기에 프린터 설정을 제공할 수 있습니다.  형식은 NativePrinters 사전과 동일하며, 허용 목록 또는 차단 목록을 사용하려면 프린터마다 'id' 또는 'guid' 필드가 추가로 필요합니다.
-
-      파일 크기는 5MB를 초과할 수 없으며 JSON으로 인코딩되어야 합니다.  5MB는 약 21,000대의 프린터가 포함된 파일을 인코딩했을 때 예상할 수 있는 크기입니다.  암호화 해시는 다운로드 파일의 무결성을 확인하는 데 사용됩니다.
-
-      파일이 다운로드 및 캐시되며 URL이나 해시가 변경될 때마다 다시 다운로드됩니다.
-
-      정책을 설정하면 <ph name="PRODUCT_OS_NAME" />에서 프린터 설정 파일을 다운로드하고 <ph name="DEVICE_NATIVE_PRINTERS_ACCESS_MODE" />, <ph name="DEVICE_PRINTERS_ALLOWLIST" />, <ph name="DEVICE_PRINTERS_BLOCKLIST" />에 따라 프린터를 사용할 수 있도록 설정합니다.
-
-      이 정책은 사용자가 개별 기기에서 프린터를 설정할 수 있는지에 영향을 미치지 않으며,  개별 사용자의 프린터 설정을 보완하기 위한 것입니다.
-
-      이 정책은 <ph name="BULK_PRINTERS_POLICY_NAME" />에 추가되는 정책입니다.
-
-      정책을 설정하지 않으면 기기 프린터가 사용되지 않으며 다른 <ph name="DEVICE_NATIVE_PRINTERS_POLICY_PATTERN" /> 정책이 무시됩니다.
-
-      이 정책은 지원 중단되었으므로 <ph name="DEVICE_PRINTERS" /> 정책을 대신 사용하세요.
-      </translation>
 <translation id="7673194325208122247">기간(밀리초)</translation>
 <translation id="7677220829878081413">
       이 정책을 ArcSession으로 설정하면 Android가 시작되었을 때 사용자가 로그아웃하면 기기가 강제로 재부팅됩니다.
@@ -4959,6 +4942,9 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 기본 알림을 사용�
 <translation id="7953256619080733119">관리 사용자 직접 예외 호스트</translation>
 <translation id="7956210013490975468"><ph name="PRODUCT_OS_NAME" />의 시스템 프록시 서비스를 구성합니다.</translation>
 <translation id="7958537754689366707">12시간마다 비밀번호를 입력해야 합니다.</translation>
+<translation id="7960293328203000385">기기에 로그인할 수 있는 사용자 목록을 정의합니다. <ph name="USER_ALLOWLIST_ENTRY_FORMAT" /> 형식(예: <ph name="USER_ALLOWLIST_ENTRY_EXAMPLE" />)을 사용합니다. 도메인에 임의의 사용자를 허용하려면 <ph name="USER_ALLOWLIST_ENTRY_WILDCARD" /> 형식을 사용합니다.
+
+      이 정책이 설정되지 않으면 어떤 사용자가 로그인할 수 있는지에 관한 제한이 없습니다. 새 사용자를 만들기 위해서는 <ph name="DEVICE_ALLOW_NEW_USERS_POLICY_NAME" /> 정책이 적절히 설정되어야 합니다.</translation>
 <translation id="7961779417826583251">기존 인증서 권한 목록에 인증서 투명성 시행 사용 중지</translation>
 <translation id="7973609468423251675">이 정책은 지원이 중단되었으며 <ph name="PRODUCT_OS_NAME" /> 버전 85에서 삭제될 예정입니다. 대신 <ph name="POWER_MANAGEMENT_IDLE_SETTINGS_POLICY_NAME" /> 정책을 사용하세요.
 
@@ -5836,7 +5822,6 @@ Windows에서는 GPO를 통해 정책을 설정하는 것이 좋습니다. 하�
 
       정책을 설정하지 않으면 <ph name="PRINTERS_ALLOW_ALL" />이 기본적으로 사용됩니다.
       </translation>
-<translation id="9109086856618439290">첫 실행 중 CCT/PWA에 서비스 약관 사용 설정</translation>
 <translation id="9112727953998243860">엔터프라이즈 프린터 설정 파일</translation>
 <translation id="9116740039944096995">URL 패턴 목록입니다. 일치하는 원본에서 제공하는 안전하지 않은 웹사이트로부터의 비공개 네트워크 요청은 허용됩니다.
 

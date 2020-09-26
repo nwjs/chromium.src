@@ -182,10 +182,22 @@ const char kDcheckIsFatalDescription[] =
     "rather than crashing. If enabled, DCHECKs will crash the calling process.";
 #endif  // defined(DCHECK_IS_CONFIGURABLE)
 
+const char kDefaultBrowserSettingsName[] = "Setting to change Default Browser";
+const char kDefaultBrowserSettingsDescription[] =
+    "When enabled, adds a button in the settings to allow changing the default "
+    "browser in the Settings.app.";
+
 const char kDefaultToDesktopOnIPadName[] = "Request desktop version by default";
 const char kDefaultToDesktopOnIPadDescription[] =
     "By default, on iPad, the desktop version of the web sites will be "
     "requested";
+
+const char kDefaultBrowserFullscreenPromoName[] =
+    "Fullscreen modal promo about the default browser feature";
+const char kDefaultBrowserFullscreenPromoDescription[] =
+    "When enabled, will allow for a fullscreen modal promo to be shown to "
+    "users informing them about the default browser feature and providing a "
+    "button that takes users to Settings.app to update their default browser.";
 
 const char kDetectMainThreadFreezeName[] = "Detect freeze in the main thread.";
 const char kDetectMainThreadFreezeDescription[] =

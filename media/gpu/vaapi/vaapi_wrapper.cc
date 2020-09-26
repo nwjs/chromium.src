@@ -46,6 +46,7 @@
 // Auto-generated for dlopen libva libraries
 #include "media/gpu/vaapi/va_stubs.h"
 
+#include "gpu/config/gpu_driver_bug_workarounds.h"
 #include "third_party/libyuv/include/libyuv.h"
 #include "ui/gfx/buffer_format_util.h"
 #include "ui/gfx/buffer_types.h"
@@ -379,11 +380,6 @@ bool IsBlockedDriver(VaapiWrapper::CodecMode mode, VAProfile va_profile) {
       !base::FeatureList::IsEnabled(kVaapiVP9Encoder)) {
     return true;
   }
-
-  // TODO(b/158655609): Several Gen 9.5 GPU devices suffer from a GPU hang when
-  // VP8 encoding in some power saving states. Block them temporarily.
-  if (IsGen95Gpu() && va_profile == VAProfileVP8Version0_3)
-    return true;
 
   return false;
 }
@@ -1263,14 +1259,22 @@ VaapiWrapper::GetSupportedEncodeProfiles() {
 
 // static
 VideoDecodeAccelerator::SupportedProfiles
-VaapiWrapper::GetSupportedDecodeProfiles() {
+VaapiWrapper::GetSupportedDecodeProfiles(
+    const gpu::GpuDriverBugWorkarounds& workarounds) {
   VideoDecodeAccelerator::SupportedProfiles profiles;
 
   for (const auto& media_to_va_profile_map_entry : kMediaToVAProfileMap) {
     const VideoCodecProfile media_profile = media_to_va_profile_map_entry.first;
+
+    if (media_profile == VP8PROFILE_ANY &&
+        workarounds.disable_accelerated_vp8_decode) {
+      continue;
+    }
+
     const VAProfile va_profile = ProfileToVAProfile(media_profile, kDecode);
     if (va_profile == VAProfileNone)
       continue;
+
     const VASupportedProfiles::ProfileInfo* profile_info =
         VASupportedProfiles::Get().IsProfileSupported(kDecode, va_profile);
     if (!profile_info)

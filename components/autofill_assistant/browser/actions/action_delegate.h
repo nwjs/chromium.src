@@ -130,7 +130,8 @@ class ActionDelegate {
       std::unique_ptr<std::vector<UserAction>> user_actions,
       bool disable_force_expand_sheet,
       base::OnceCallback<void()> end_on_navigation_callback = base::DoNothing(),
-      bool browse_mode = false) = 0;
+      bool browse_mode = false,
+      bool browse_mode_invisible = false) = 0;
 
   // Have the UI leave the prompt state and go back to its previous state.
   virtual void CleanUpAfterPrompt() = 0;
@@ -143,6 +144,15 @@ class ActionDelegate {
   // Asks the user to provide the requested user data.
   virtual void CollectUserData(
       CollectUserDataOptions* collect_user_data_options) = 0;
+
+  // Updates the most recent successful user data options.
+  virtual void SetLastSuccessfulUserDataOptions(
+      std::unique_ptr<CollectUserDataOptions> collect_user_data_options) = 0;
+
+  // Provides read access to the most recent successful user data options.
+  // Returns nullptr if there is no such object.
+  virtual const CollectUserDataOptions* GetLastSuccessfulUserDataOptions()
+      const = 0;
 
   // Executes |write_callback| on the currently stored user_data and
   // user_data_options.
@@ -334,6 +344,9 @@ class ActionDelegate {
 
   // Shows the progress bar when |visible| is true. Hides it when false.
   virtual void SetProgressVisible(bool visible) = 0;
+
+  // Sets the error state of the progress bar to |error|.
+  virtual void SetProgressBarErrorState(bool error) = 0;
 
   // Sets a new step progress bar configuration.
   virtual void SetStepProgressBarConfiguration(

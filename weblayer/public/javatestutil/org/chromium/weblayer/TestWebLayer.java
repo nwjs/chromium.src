@@ -118,7 +118,15 @@ public final class TestWebLayer {
         return mITestWebLayer.getDisplayedUrl(ObjectWrapper.wrap(urlBarView));
     }
 
+    public String getTranslateInfoBarTargetLanguage(Tab tab) throws RemoteException {
+        return mITestWebLayer.getTranslateInfoBarTargetLanguage(tab.getITab());
+    }
+
     public static void disableWebViewCompatibilityMode() {
         WebLayer.disableWebViewCompatibilityMode();
+    }
+
+    public boolean didShowFullscreenToast(Tab tab) throws RemoteException {
+        return mITestWebLayer.didShowFullscreenToast(tab.getITab());
     }
 }

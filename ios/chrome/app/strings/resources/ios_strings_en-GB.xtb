@@ -22,7 +22,6 @@
 <translation id="1176932207622159128">Cannot Save Image</translation>
 <translation id="1180526666083833456">Sync and personalise across devices.</translation>
 <translation id="1181037720776840403">Remove</translation>
-<translation id="1185569544548277362">New: You can make Chrome your default. <ph name="BEGIN_LINK" />Open Settings<ph name="END_LINK" /></translation>
 <translation id="1207113853726624428">New Search</translation>
 <translation id="1209206284964581585">Hide for now</translation>
 <translation id="1219674500290482172">Unable to connect to the Internet.</translation>
@@ -96,6 +95,7 @@
 <translation id="1952728750904661634">Sign in with managed account</translation>
 <translation id="1974060860693918893">Advanced</translation>
 <translation id="1989112275319619282">Browse</translation>
+<translation id="1992734845128748707">Change default browser…</translation>
 <translation id="2015722694326466240">To see passwords, you must first set a passcode on your device.</translation>
 <translation id="2073572773299281212">Active <ph name="DAYS" /> days ago</translation>
 <translation id="2074131957428911366">You can always choose what to sync in <ph name="BEGIN_LINK" />settings<ph name="END_LINK" />.</translation>
@@ -245,6 +245,7 @@ While in Incognito, sites can't use cookies to see your browsing activity across
 <translation id="3638472932233958418">Pre-load Web Pages</translation>
 <translation id="3670030362669914947">Number</translation>
 <translation id="3691593122358196899">Bookmarked to <ph name="FOLDER_TITLE" /></translation>
+<translation id="3709582977625132201">Mark as unread</translation>
 <translation id="3740397331642243698">Opens the inputted URLs in Google Chrome in Incognito.</translation>
 <translation id="3771033907050503522">Incognito Tabs</translation>
 <translation id="3775743491439407556">Sync isn't working</translation>
@@ -333,6 +334,7 @@ To change this setting, <ph name="BEGIN_LINK" />reset sync<ph name="END_LINK" />
 <translation id="4818522717893377262">Add language…</translation>
 <translation id="481968316161811770">Cookies, Site Data</translation>
 <translation id="4826218269716039351">Block third party</translation>
+<translation id="48274138579728272">Mark as read</translation>
 <translation id="4833786495304741580">Automatically sends usage statistics and crash reports to Google.</translation>
 <translation id="4840495572919996524">Your bookmarks, history, passwords and more will no longer be synced to your Google Account.</translation>
 <translation id="4854345657858711387">Set A Passcode</translation>
@@ -383,6 +385,7 @@ To change this setting, <ph name="BEGIN_LINK" />reset sync<ph name="END_LINK" />
 <translation id="5433691172869980887">Username copied</translation>
 <translation id="54401264925851789">Page Security Info</translation>
 <translation id="5443952882982198570">Credit cards</translation>
+<translation id="5457226814769348910">Open offline version</translation>
 <translation id="5457907402803865181">Error syncing passwords.</translation>
 <translation id="5489208564673669003">To manage cookies for all sites, see <ph name="BEGIN_LINK" />Cookie settings<ph name="END_LINK" />.</translation>
 <translation id="5490005495580364134">Block all cookies (not recommended)</translation>
@@ -555,6 +558,7 @@ Sites can't use cookies to see your browsing activity across different sites, fo
 <translation id="7189598951263744875">Share...</translation>
 <translation id="7192050974311852563">Start logging</translation>
 <translation id="7203585745079012652">Speak Answers Back</translation>
+<translation id="7207383424303353046">New: Open sites in Chrome automatically by making it your default browser app. <ph name="BEGIN_LINK" />Open settings<ph name="END_LINK" /></translation>
 <translation id="721597782417389033">Invalid card nickname</translation>
 <translation id="7265758999917665941">Never for this site</translation>
 <translation id="7272437679830969316">Can't verify your identity. Password not copied.</translation>

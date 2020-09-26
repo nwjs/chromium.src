@@ -14,6 +14,7 @@
 #include "net/test/embedded_test_server/controllable_http_response.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "net/test/embedded_test_server/http_response.h"
+#include "weblayer/public/browser.h"
 #include "weblayer/public/navigation.h"
 #include "weblayer/public/navigation_controller.h"
 #include "weblayer/public/navigation_observer.h"
@@ -68,8 +69,11 @@ class NavigationObserverImpl : public NavigationObserver {
       completed_callback_.Run(navigation);
   }
   void NavigationFailed(Navigation* navigation) override {
-    if (failed_callback_)
-      failed_callback_.Run(navigation);
+    // As |this| may be deleted when running the callback, the callback must be
+    // copied before running. To do otherwise results in use-after-free.
+    auto callback = failed_callback_;
+    if (callback)
+      callback.Run(navigation);
   }
 
  private:
@@ -78,59 +82,6 @@ class NavigationObserverImpl : public NavigationObserver {
   Callback redirected_callback_;
   Callback completed_callback_;
   Callback failed_callback_;
-};
-
-class OneShotNavigationObserver : public NavigationObserver {
- public:
-  explicit OneShotNavigationObserver(Shell* shell) : tab_(shell->tab()) {
-    tab_->GetNavigationController()->AddObserver(this);
-  }
-
-  ~OneShotNavigationObserver() override {
-    tab_->GetNavigationController()->RemoveObserver(this);
-  }
-
-  void WaitForNavigation() { run_loop_.Run(); }
-
-  bool completed() { return completed_; }
-  bool is_error_page() { return is_error_page_; }
-  bool is_download() { return is_download_; }
-  bool is_reload() { return is_reload_; }
-  bool was_stop_called() { return was_stop_called_; }
-  Navigation::LoadError load_error() { return load_error_; }
-  int http_status_code() { return http_status_code_; }
-  NavigationState navigation_state() { return navigation_state_; }
-
- private:
-  // NavigationObserver implementation:
-  void NavigationCompleted(Navigation* navigation) override {
-    completed_ = true;
-    Finish(navigation);
-  }
-
-  void NavigationFailed(Navigation* navigation) override { Finish(navigation); }
-
-  void Finish(Navigation* navigation) {
-    is_error_page_ = navigation->IsErrorPage();
-    is_download_ = navigation->IsDownload();
-    is_reload_ = navigation->IsReload();
-    was_stop_called_ = navigation->WasStopCalled();
-    load_error_ = navigation->GetLoadError();
-    http_status_code_ = navigation->GetHttpStatusCode();
-    navigation_state_ = navigation->GetState();
-    run_loop_.Quit();
-  }
-
-  base::RunLoop run_loop_;
-  Tab* tab_;
-  bool completed_ = false;
-  bool is_error_page_ = false;
-  bool is_download_ = false;
-  bool is_reload_ = false;
-  bool was_stop_called_ = false;
-  Navigation::LoadError load_error_ = Navigation::kNoError;
-  int http_status_code_ = 0;
-  NavigationState navigation_state_ = NavigationState::kWaitingResponse;
 };
 
 }  // namespace
@@ -255,6 +206,25 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest, StopInOnStart) {
       }));
   GetNavigationController()->Navigate(
       embedded_test_server()->GetURL("/simple_page.html"));
+
+  run_loop.Run();
+}
+
+IN_PROC_BROWSER_TEST_F(NavigationBrowserTest, DestroyTabInNavigation) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  Tab* new_tab = shell()->browser()->CreateTab();
+  base::RunLoop run_loop;
+  std::unique_ptr<NavigationObserverImpl> observer =
+      std::make_unique<NavigationObserverImpl>(
+          new_tab->GetNavigationController());
+  observer->SetFailedCallback(
+      base::BindLambdaForTesting([&](Navigation* navigation) {
+        observer.reset();
+        shell()->browser()->DestroyTab(new_tab);
+        run_loop.Quit();
+      }));
+  new_tab->GetNavigationController()->Navigate(
+      embedded_test_server()->GetURL("/simple_pageX.html"));
 
   run_loop.Run();
 }

@@ -107,6 +107,8 @@ void FakeScriptExecutorDelegate::SetProgressActiveStep(int active_step) {}
 
 void FakeScriptExecutorDelegate::SetProgressVisible(bool visible) {}
 
+void FakeScriptExecutorDelegate::SetProgressBarErrorState(bool error) {}
+
 void FakeScriptExecutorDelegate::SetStepProgressBarConfiguration(
     const ShowProgressBarProto::StepProgressBarConfiguration& configuration) {}
 
@@ -118,6 +120,16 @@ void FakeScriptExecutorDelegate::SetUserActions(
 void FakeScriptExecutorDelegate::SetCollectUserDataOptions(
     CollectUserDataOptions* options) {
   payment_request_options_ = options;
+}
+
+void FakeScriptExecutorDelegate::SetLastSuccessfulUserDataOptions(
+    std::unique_ptr<CollectUserDataOptions> collect_user_data_options) {
+  last_payment_request_options_ = std::move(collect_user_data_options);
+}
+
+const CollectUserDataOptions*
+FakeScriptExecutorDelegate::GetLastSuccessfulUserDataOptions() const {
+  return last_payment_request_options_.get();
 }
 
 void FakeScriptExecutorDelegate::WriteUserData(
@@ -226,5 +238,7 @@ void FakeScriptExecutorDelegate::ClearGenericUi() {}
 
 void FakeScriptExecutorDelegate::SetOverlayBehavior(
     ConfigureUiStateProto::OverlayBehavior overaly_behavior) {}
+
+void FakeScriptExecutorDelegate::SetBrowseModeInvisible(bool invisible) {}
 
 }  // namespace autofill_assistant

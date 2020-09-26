@@ -672,6 +672,13 @@ const flags_ui::FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kWellKnownChangePasswordName,
      flag_descriptions::kWellKnownChangePasswordDescription, flags_ui::kOsIos,
      FEATURE_VALUE_TYPE(password_manager::features::kWellKnownChangePassword)},
+    {"default-browser-fullscreen-promo",
+     flag_descriptions::kDefaultBrowserFullscreenPromoName,
+     flag_descriptions::kDefaultBrowserFullscreenPromoDescription,
+     flags_ui::kOsIos, FEATURE_VALUE_TYPE(kDefaultBrowserFullscreenPromo)},
+    {"default-browser-setting", flag_descriptions::kDefaultBrowserSettingsName,
+     flag_descriptions::kDefaultBrowserSettingsDescription, flags_ui::kOsIos,
+     FEATURE_VALUE_TYPE(kDefaultBrowserSettings)},
 };
 
 bool SkipConditionalFeatureEntry(const flags_ui::FeatureEntry& entry) {
@@ -744,7 +751,7 @@ void AppendSwitchesFromExperimentalSettings(base::CommandLine* command_line) {
       base::SysUTF8ToNSString(policy::key::kDefaultSearchProviderSearchURL) :
           @"http://www.google.com/search?q={searchTerms}",
       base::SysUTF8ToNSString(policy::key::kDefaultSearchProviderName) :
-          @"Google",
+          @"TestEngine",
 
       base::SysUTF8ToNSString(policy::key::kPasswordManagerEnabled) : @NO,
 

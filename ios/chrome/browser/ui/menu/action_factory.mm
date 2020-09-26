@@ -191,4 +191,29 @@
                 block:block];
 }
 
+- (UIAction*)actionToMarkAsReadWithBlock:(ProceduralBlock)block {
+  return [self actionWithTitle:l10n_util::GetNSString(
+                                   IDS_IOS_READING_LIST_MARK_AS_READ_ACTION)
+                         image:[UIImage imageNamed:@"mark_read"]
+                          type:MenuActionType::Read
+                         block:block];
+}
+
+- (UIAction*)actionToMarkAsUnreadWithBlock:(ProceduralBlock)block {
+  return [self actionWithTitle:l10n_util::GetNSString(
+                                   IDS_IOS_READING_LIST_MARK_AS_UNREAD_ACTION)
+                         image:[UIImage imageNamed:@"remove"]
+                          type:MenuActionType::Unread
+                         block:block];
+}
+
+- (UIAction*)actionToOpenOfflineVersionInNewTabWithBlock:
+    (ProceduralBlock)block {
+  return [self actionWithTitle:l10n_util::GetNSString(
+                                   IDS_IOS_READING_LIST_OPEN_OFFLINE_BUTTON)
+                         image:[UIImage imageNamed:@"offline"]
+                          type:MenuActionType::ViewOffline
+                         block:block];
+}
+
 @end

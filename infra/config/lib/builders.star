@@ -64,7 +64,8 @@ os = struct(
     MAC_10_13 = os_enum("Mac-10.13", os_category.MAC),
     MAC_10_14 = os_enum("Mac-10.14", os_category.MAC),
     MAC_10_15 = os_enum("Mac-10.15", os_category.MAC),
-    MAC_DEFAULT = os_enum("Mac-10.13", os_category.MAC),
+    # TODO(crbug/1121185): Remove 10.13 once builders have been migrated to 10.15.
+    MAC_DEFAULT = os_enum("Mac-10.13|Mac-10.15", os_category.MAC),
     MAC_ANY = os_enum("Mac", os_category.MAC),
     WINDOWS_7 = os_enum("Windows-7", os_category.WINDOWS),
     WINDOWS_8_1 = os_enum("Windows-8.1", os_category.WINDOWS),
@@ -133,8 +134,8 @@ xcode_cache = struct(
     x11e608c = xcode_enum("xcode_ios_11e608c", "xcode_ios_11e608c.app"),
     x11e608cwk = xcode_enum("xcode_ios_11e608cwk", "xcode_ios_11e608cwk.app"),
     x11e503a_xct12b1 = xcode_enum("xcode_ios_11e503a_xct12b1", "xcode_ios_11e503a_xct12b1.app"),
-    # xc12 beta 6
-    x12a8189n = xcode_enum("xcode_ios_12a8189n", "xcode_ios_12a8189n.app"),
+    # xc12 GM seed.
+    x12a7209 = xcode_enum("xcode_ios_12a7209", "xcode_ios_12a7209.app"),
 )
 
 ################################################################################
@@ -227,6 +228,15 @@ def _code_coverage_property(
 
     return code_coverage or None
 
+def _isolated_property(*, isolated_server):
+    isolated = {}
+
+    isolated_server = defaults.get_value("isolated_server", isolated_server)
+    if isolated_server:
+        isolated["server"] = isolated_server
+
+    return isolated or None
+
 ################################################################################
 # Builder defaults and function                                                #
 ################################################################################
@@ -258,6 +268,7 @@ defaults = args.defaults(
     coverage_exclude_sources = None,
     coverage_test_types = None,
     resultdb_bigquery_exports = [],
+    isolated_server = "https://isolateserver.appspot.com",
 
     # Provide vars for bucket and executable so users don't have to
     # unnecessarily make wrapper functions
@@ -298,6 +309,7 @@ def builder(
         coverage_exclude_sources = args.DEFAULT,
         coverage_test_types = args.DEFAULT,
         resultdb_bigquery_exports = args.DEFAULT,
+        isolated_server = args.DEFAULT,
         **kwargs):
     """Define a builder.
 
@@ -396,6 +408,9 @@ def builder(
       * resultdb_bigquery_exports - a list of resultdb.export_test_results(...)
         specifying parameters for exporting test results to BigQuery. By default,
         do not export.
+      * isolated_server - a string indicating the host of the isolated server.
+        Will be incorporated into the '$recipe_engine/isolated' property. By
+        default, this is "https://isolateserver.appspot.com".
       * kwargs - Additional keyword arguments to forward on to `luci.builder`.
     """
 
@@ -418,6 +433,9 @@ def builder(
         fail('Setting "$build/code_coverage" property is not supported: ' +
              "use use_clang_coverage, use_java_coverage, coverage_exclude_sources" +
              " and/or coverage_test_types instead")
+    if "$recipe_engine/isolated" in properties:
+        fail('Setting "$recipe_engine/isolated" property is not supported: ' +
+             "use isolated_server instead")
     properties = dict(properties)
 
     os = defaults.get_value("os", os)
@@ -504,6 +522,12 @@ def builder(
     )
     if code_coverage != None:
         properties["$build/code_coverage"] = code_coverage
+
+    isolated = _isolated_property(
+        isolated_server = isolated_server,
+    )
+    if isolated != None:
+        properties["$recipe_engine/isolated"] = isolated
 
     kwargs = dict(kwargs)
     if bucket != args.COMPUTE:

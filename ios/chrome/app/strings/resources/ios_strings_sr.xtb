@@ -22,7 +22,6 @@
 <translation id="1176932207622159128">Није могуће сачувати слику</translation>
 <translation id="1180526666083833456">Синхронизујте и персонализујте садржај на свим уређајима.</translation>
 <translation id="1181037720776840403">Уклони</translation>
-<translation id="1185569544548277362">Ново: Можете да поставите Chrome за подразумевани прегледач. <ph name="BEGIN_LINK" />Отвори Подешавања<ph name="END_LINK" /></translation>
 <translation id="1207113853726624428">Нова претрага</translation>
 <translation id="1209206284964581585">Сакриј за сада</translation>
 <translation id="1219674500290482172">Повезивање са интернетом није могуће.</translation>
@@ -96,6 +95,7 @@
 <translation id="1952728750904661634">Пријавите се помоћу налога којим се управља</translation>
 <translation id="1974060860693918893">Напредне опције</translation>
 <translation id="1989112275319619282">Прегледај</translation>
+<translation id="1992734845128748707">Промените подразумевани прегледач…</translation>
 <translation id="2015722694326466240">Да бисте видели лозинке, прво морате да подесите шифру на уређају.</translation>
 <translation id="2073572773299281212">Последња активност: пре <ph name="DAYS" /> дан/а</translation>
 <translation id="2074131957428911366">Увек можете да одаберете шта ћете синхронизовати у <ph name="BEGIN_LINK" />подешавањима<ph name="END_LINK" />.</translation>
@@ -245,6 +245,7 @@
 <translation id="3638472932233958418">Унап. учитај веб-странице</translation>
 <translation id="3670030362669914947">Број</translation>
 <translation id="3691593122358196899">Обележивач је додат у <ph name="FOLDER_TITLE" /></translation>
+<translation id="3709582977625132201">Означи као непрочитано</translation>
 <translation id="3740397331642243698">Отвара унете URL-ове у Google Chrome-у у режиму без архивирања.</translation>
 <translation id="3771033907050503522">Картице Без архивирања</translation>
 <translation id="3775743491439407556">Синхронизација не ради</translation>
@@ -333,6 +334,7 @@
 <translation id="4818522717893377262">Додајте језик…</translation>
 <translation id="481968316161811770">Колачићи, подаци о сајтовима</translation>
 <translation id="4826218269716039351">Колачићи треће стране се блокирају</translation>
+<translation id="48274138579728272">Означи као прочитано</translation>
 <translation id="4833786495304741580">Аутоматски шаље Google-у статистику коришћења и извештаје о отказивању.</translation>
 <translation id="4840495572919996524">Обележивачи, историја, лозинке и други подаци више се неће синхронизовати са Google налогом.</translation>
 <translation id="4854345657858711387">Подесите шифру</translation>
@@ -383,6 +385,7 @@
 <translation id="5433691172869980887">Корисничко име је копирано</translation>
 <translation id="54401264925851789">Информације о безбедности странице</translation>
 <translation id="5443952882982198570">Кредитне картице</translation>
+<translation id="5457226814769348910">Отвори офлајн верзију</translation>
 <translation id="5457907402803865181">Грешка при синхронизовању лозинки.</translation>
 <translation id="5489208564673669003">Да бисте управљали колачићима за све сајтове, погледајте <ph name="BEGIN_LINK" />Подешавања колачића<ph name="END_LINK" />.</translation>
 <translation id="5490005495580364134">Блокирај све колачиће (не препоручује се)</translation>
@@ -555,6 +558,7 @@ Handoff треба да се омогући у одељку General (Опште)
 <translation id="7189598951263744875">Дели...</translation>
 <translation id="7192050974311852563">Покрени евидентирање</translation>
 <translation id="7203585745079012652">Изговарај одговоре</translation>
+<translation id="7207383424303353046">Ново: Отварајте сајтове у Chrome-у аутоматски тако што ћете га подесити као подразумевану апликацију за прегледач. <ph name="BEGIN_LINK" />Отворите Подешавања<ph name="END_LINK" /></translation>
 <translation id="721597782417389033">Неважећи надимак картице</translation>
 <translation id="7265758999917665941">Никада за овај сајт</translation>
 <translation id="7272437679830969316">Верификација идентитета није успела. Лозинка није копирана.</translation>

@@ -22,7 +22,6 @@
 <translation id="1176932207622159128">ছবি সেভ করা যায়নি</translation>
 <translation id="1180526666083833456">বিভিন্ন ডিভাইস জুড়ে সিঙ্ক করুন এবং নিজের পছন্দ অনুযায়ী করে নিন।</translation>
 <translation id="1181037720776840403">সরান</translation>
-<translation id="1185569544548277362">নতুন: আপনি এখন Chrome-কে আপনার ডিফল্ট ব্রাউজার হিসেবে সেট করতে পারেন। <ph name="BEGIN_LINK" />'সেটিংস' বিকল্পে যান<ph name="END_LINK" /></translation>
 <translation id="1207113853726624428">নতুন সার্চ</translation>
 <translation id="1209206284964581585">এখনকার মতো লুকান</translation>
 <translation id="1219674500290482172">ইন্টারনেটের সাথে সংযোগ করতে অক্ষম৷</translation>
@@ -96,6 +95,7 @@
 <translation id="1952728750904661634">পরিচালিত অ্যাকাউন্ট দিয়ে সাইন-ইন করুন</translation>
 <translation id="1974060860693918893">উন্নত</translation>
 <translation id="1989112275319619282">ব্রাউজ করুন</translation>
+<translation id="1992734845128748707">ডিফল্ট ব্রাউজার পরিবর্তন করুন…</translation>
 <translation id="2015722694326466240">পাসওয়ার্ড দেখার জন্য আপনার ডিভাইসে আপনাকে অবশ্যই একটি পাসকোড সেট করতে হবে।</translation>
 <translation id="2073572773299281212"><ph name="DAYS" /> দিন আগে ব্যবহার করা হয়েছে</translation>
 <translation id="2074131957428911366"><ph name="BEGIN_LINK" />সেটিংসে<ph name="END_LINK" /> কী সিঙ্ক করা হবে তা আপনি সবসময় বেছে নিতে পারেন।</translation>
@@ -245,6 +245,7 @@
 <translation id="3638472932233958418">পূর্বলোড ওয়েবপৃষ্ঠা</translation>
 <translation id="3670030362669914947">নম্বর</translation>
 <translation id="3691593122358196899"><ph name="FOLDER_TITLE" /> এ বুকমার্ক করা হয়েছে</translation>
+<translation id="3709582977625132201">'পড়া হয়নি' হিসেবে চিহ্নিত করুন</translation>
 <translation id="3740397331642243698">এটি ইনপুট করা ইউআরএলগুলিকে Google Chrome-এ, 'ছদ্মবেশী' মোডে খোলে।</translation>
 <translation id="3771033907050503522">ছদ্মবেশী ট্যাবগুলি</translation>
 <translation id="3775743491439407556">সিঙ্ক কাজ করছে না</translation>
@@ -333,6 +334,7 @@
 <translation id="4818522717893377262">ভাষা যোগ করুন…</translation>
 <translation id="481968316161811770">কুকিজ, সাইট ডেটা</translation>
 <translation id="4826218269716039351">থার্ড-পার্টি ব্লক করুন</translation>
+<translation id="48274138579728272">'পড়া হয়েছে' হিসেবে চিহ্নিত করুন</translation>
 <translation id="4833786495304741580">Google-কে অটোমেটিক ব্যবহারের পরিসংখ্যান ও ক্র্যাশ রিপোর্ট পাঠায়।</translation>
 <translation id="4840495572919996524">আপনার বুকমার্ক, ইতিহাস, পাসওয়ার্ড এবং আরও অনেক কিছু আপনার Google অ্যাকাউন্টের সাথে আর সিঙ্ক করা হবে না।</translation>
 <translation id="4854345657858711387">একটি পাসকোড সেট করুন</translation>
@@ -383,6 +385,7 @@
 <translation id="5433691172869980887">ইউজারনেম কপি করা হয়েছে</translation>
 <translation id="54401264925851789">পৃষ্ঠা নিরাপত্তা তথ্য</translation>
 <translation id="5443952882982198570">ক্রেডিট কার্ড</translation>
+<translation id="5457226814769348910">ডাউনলোড করা অফলাইন পেজ খুলন</translation>
 <translation id="5457907402803865181">পাসওয়ার্ড সিঙ্কে সমস্যা হচ্ছে।</translation>
 <translation id="5489208564673669003">সব সাইটের জন্য কুকি ম্যানেজ করতে, <ph name="BEGIN_LINK" />কুকি সেটিংস<ph name="END_LINK" /> দেখুন।</translation>
 <translation id="5490005495580364134">সমস্ত সাইটের কুকি ব্লক করুন (যদিও আমরা এটি করতে সাজেস্ট করছি না)</translation>
@@ -556,6 +559,7 @@
 <translation id="7189598951263744875">শেয়ার করুন...</translation>
 <translation id="7192050974311852563">লগ করা শুরু করুন</translation>
 <translation id="7203585745079012652">আবার উত্তরগুলি বলে</translation>
+<translation id="7207383424303353046">নতুন: Chrome-কে আপনার ডিফল্ট ব্রাউজার অ্যাপ হিসেবে সেট করে এতে অটোমেটিক সাইট খুলুন। <ph name="BEGIN_LINK" />সেটিংস খুলুন<ph name="END_LINK" /></translation>
 <translation id="721597782417389033">কার্ডের বিশেষ নামটি সঠিক নয়</translation>
 <translation id="7265758999917665941">এই সাইটের জন্য কখনই নয়</translation>
 <translation id="7272437679830969316">আপনার পরিচয় যাচাই করা যাবে না। পাসওয়ার্ড কপি করা হয়নি।</translation>
@@ -687,7 +691,7 @@
 <translation id="8756969031206844760">পাসওয়ার্ড আপডেট করবেন?</translation>
 <translation id="8775144690796719618">ভুল ইউআরএল</translation>
 <translation id="8803639129939845298">সুরক্ষিত</translation>
-<translation id="8820817407110198400">বুকমার্ক</translation>
+<translation id="8820817407110198400">Bookmarks</translation>
 <translation id="8840513115188359703">আপনাকে Google অ্যাকাউন্ট থেকে সাইন-আউট করা হবে না।</translation>
 <translation id="8870413625673593573">সম্প্রতি বন্ধ হয়েছে</translation>
 <translation id="8881801611828450202">এই ইমেজটির জন্য <ph name="SEARCH_ENGINE" />-এ খুঁজুন</translation>

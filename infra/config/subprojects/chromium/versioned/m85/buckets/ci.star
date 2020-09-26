@@ -147,7 +147,7 @@ ci.android_builder(
 )
 
 ci.android_builder(
-    name = "android-cronet-kitkat-arm-rel",
+    name = "android-cronet-arm-rel-kitkat-tests",
     console_view_entry = ci.console_view_entry(
         category = "cronet|test",
         short_name = "k",
@@ -157,7 +157,7 @@ ci.android_builder(
 )
 
 ci.android_builder(
-    name = "android-cronet-lollipop-arm-rel",
+    name = "android-cronet-arm-rel-lollipop-tests",
     console_view_entry = ci.console_view_entry(
         category = "cronet|test",
         short_name = "l",
@@ -306,6 +306,7 @@ ci.dawn_builder(
         category = "DEPS|Linux|Builder",
         short_name = "x64",
     ),
+    pool = "luci.chromium.gpu.ci",
 )
 
 ci.dawn_builder(
@@ -468,6 +469,7 @@ ci.gpu_builder(
     ),
     cores = None,
     os = os.MAC_ANY,
+    pool = "luci.chromium.ci",
 )
 
 ci.gpu_builder(

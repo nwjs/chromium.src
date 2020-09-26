@@ -206,10 +206,13 @@ class CONTENT_EXPORT RenderViewHostImpl
   // Called when the RenderFrameHostImpls/RenderFrameProxyHosts that own this
   // RenderViewHost leave the BackForwardCache. This occurs immediately before a
   // restored document is committed.
-  // |navigation_start| is the timestamp corresponding to the start of the
-  // back-forward cached navigation, which would be communicated to the page
-  // to allow it to record the latency of this navigation.
-  void LeaveBackForwardCache(base::TimeTicks navigation_start);
+  // |page_restore_params| includes information that is needed by the page after
+  // getting restored, which includes the latest history information (offset,
+  // length) and the timestamp corresponding to the start of the back-forward
+  // cached navigation, which would be communicated to the page to allow it to
+  // record the latency of this navigation.
+  void LeaveBackForwardCache(
+      blink::mojom::PageRestoreParamsPtr page_restore_params);
 
   void SetVisibility(blink::mojom::PageVisibilityState visibility);
 
@@ -237,8 +240,15 @@ class CONTENT_EXPORT RenderViewHostImpl
   void OnThemeColorChanged(RenderFrameHostImpl* rfh,
                            const base::Optional<SkColor>& theme_color);
 
+  void DidChangeBackgroundColor(RenderFrameHostImpl* rfh,
+                                const SkColor& background_color);
+
   base::Optional<SkColor> theme_color() const {
     return main_frame_theme_color_;
+  }
+
+  base::Optional<SkColor> background_color() const {
+    return main_frame_background_color_;
   }
 
   void SetContentsMimeType(std::string mime_type);
@@ -392,6 +402,9 @@ class CONTENT_EXPORT RenderViewHostImpl
   // The theme color for the underlying document as specified
   // by theme-color meta tag.
   base::Optional<SkColor> main_frame_theme_color_;
+
+  // The background color for the underlying document as computed by CSS.
+  base::Optional<SkColor> main_frame_background_color_;
 
   // Contents MIME type for the main document. It can be used to check whether
   // we can do something for special contents.

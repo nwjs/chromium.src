@@ -68,7 +68,7 @@ gpu::VideoDecodeAcceleratorCapabilities GetDecoderCapabilitiesInternal(
       vda_profiles, &capabilities.supported_profiles);
 #endif
 #if BUILDFLAG(USE_VAAPI)
-  vda_profiles = VaapiVideoDecodeAccelerator::GetSupportedProfiles();
+  vda_profiles = VaapiVideoDecodeAccelerator::GetSupportedProfiles(workarounds);
   GpuVideoAcceleratorUtil::InsertUniqueDecodeProfiles(
       vda_profiles, &capabilities.supported_profiles);
 #endif

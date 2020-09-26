@@ -189,8 +189,9 @@ GpuMojoMediaClient::GetSupportedVideoDecoderConfigs() {
   if (ShouldUseChromeOSDirectVideoDecoder(gpu_preferences_)) {
     if (!cros_supported_configs_) {
       cros_supported_configs_ =
-          ChromeosVideoDecoderFactory::GetSupportedConfigs();
+          ChromeosVideoDecoderFactory::GetSupportedConfigs(gpu_workarounds_);
     }
+
     supported_config_map[VideoDecoderImplementation::kDefault] =
         *cros_supported_configs_;
     return supported_config_map;

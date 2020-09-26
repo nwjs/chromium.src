@@ -357,7 +357,8 @@ Frame* CreateNewWindow(LocalFrame& opener_frame,
   if (features.height_set)
     window_rect.SetHeight(features.height);
 
-  page->GetChromeClient().SetWindowRectWithAdjustment(window_rect, frame);
+  page->GetChromeClient().SetWindowRectWithAdjustment(window_rect, frame,
+                                                      opener_frame);
   page->GetChromeClient().Show(request.GetNavigationPolicy(), &manifest_str);
 
   MaybeLogWindowOpen(opener_frame);

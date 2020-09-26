@@ -227,8 +227,10 @@ public class TabGridDialogMediator implements SnackbarManager.SnackbarController
 
         // Setup ScrimView click Runnable.
         mScrimClickRunnable = () -> {
-            mModel.set(TabGridPanelProperties.IS_KEYBOARD_VISIBLE, false);
-            mModel.set(TabGridPanelProperties.IS_TITLE_TEXT_FOCUSED, false);
+            if (!TabUiFeatureUtilities.isLaunchPolishEnabled()) {
+                mModel.set(TabGridPanelProperties.IS_KEYBOARD_VISIBLE, false);
+                mModel.set(TabGridPanelProperties.IS_TITLE_TEXT_FOCUSED, false);
+            }
             hideDialog(true);
             RecordUserAction.record("TabGridDialog.Exit");
         };
@@ -247,7 +249,9 @@ public class TabGridDialogMediator implements SnackbarManager.SnackbarController
 
         mToolbarMenuCallback = result -> {
             if (result == R.id.ungroup_tab) {
-                mModel.set(TabGridPanelProperties.IS_KEYBOARD_VISIBLE, false);
+                if (!TabUiFeatureUtilities.isLaunchPolishEnabled()) {
+                    mModel.set(TabGridPanelProperties.IS_KEYBOARD_VISIBLE, false);
+                }
                 mModel.set(TabGridPanelProperties.IS_TITLE_TEXT_FOCUSED, false);
                 List<Tab> tabs = getRelatedTabs(mCurrentTabId);
                 if (mTabSelectionEditorController != null) {
@@ -279,6 +283,12 @@ public class TabGridDialogMediator implements SnackbarManager.SnackbarController
                                                               .build();
                 mShareDelegateSupplier.get().share(shareParams, chromeShareExtras);
             }
+
+            if (TabUiFeatureUtilities.isLaunchPolishEnabled()) {
+                if (result == R.id.edit_group_name) {
+                    mModel.set(TabGridPanelProperties.IS_TITLE_TEXT_FOCUSED, true);
+                }
+            }
         };
 
         // Setup toolbar button click listeners.
@@ -308,6 +318,9 @@ public class TabGridDialogMediator implements SnackbarManager.SnackbarController
             mTabSelectionEditorController.hide();
         }
         saveCurrentGroupModifiedTitle();
+        if (TabUiFeatureUtilities.isLaunchPolishEnabled()) {
+            mModel.set(TabGridPanelProperties.IS_TITLE_TEXT_FOCUSED, false);
+        }
         mDialogController.resetWithListOfTabs(null);
     }
 
@@ -371,9 +384,21 @@ public class TabGridDialogMediator implements SnackbarManager.SnackbarController
             Tab currentTab = mTabModelSelector.getTabById(mCurrentTabId);
             String storedTitle = mTabGroupTitleEditor.getTabGroupTitle(getRootId(currentTab));
             if (storedTitle != null && relatedTabs.size() > 1) {
+                if (TabUiFeatureUtilities.isLaunchPolishEnabled()) {
+                    mModel.set(TabGridPanelProperties.COLLAPSE_BUTTON_CONTENT_DESCRIPTION,
+                            mContext.getResources().getQuantityString(
+                                    R.plurals.accessibility_dialog_back_button_with_group_name,
+                                    relatedTabs.size(), storedTitle, relatedTabs.size()));
+                }
                 mModel.set(TabGridPanelProperties.HEADER_TITLE, storedTitle);
                 return;
             }
+        }
+        if (TabUiFeatureUtilities.isLaunchPolishEnabled()) {
+            mModel.set(TabGridPanelProperties.COLLAPSE_BUTTON_CONTENT_DESCRIPTION,
+                    mContext.getResources().getQuantityString(
+                            R.plurals.accessibility_dialog_back_button, relatedTabs.size(),
+                            relatedTabs.size()));
         }
         mModel.set(TabGridPanelProperties.HEADER_TITLE,
                 mContext.getResources().getQuantityString(
@@ -411,14 +436,20 @@ public class TabGridDialogMediator implements SnackbarManager.SnackbarController
 
         String actionButtonText =
                 mContext.getString(R.string.tab_grid_dialog_selection_mode_remove);
-        mTabSelectionEditorController.configureToolbar(actionButtonText, actionProvider, 1, null);
+        mTabSelectionEditorController.configureToolbar(actionButtonText,
+                R.plurals.accessibility_tab_selection_dialog_remove_button, actionProvider, 1,
+                null);
     }
 
     private void setupToolbarEditText() {
         mKeyboardVisibilityListener = isShowing -> {
             mModel.set(TabGridPanelProperties.TITLE_CURSOR_VISIBILITY, isShowing);
-            mModel.set(TabGridPanelProperties.IS_TITLE_TEXT_FOCUSED, isShowing);
-            mModel.set(TabGridPanelProperties.IS_KEYBOARD_VISIBLE, isShowing);
+            if (!TabUiFeatureUtilities.isLaunchPolishEnabled()) {
+                mModel.set(TabGridPanelProperties.IS_TITLE_TEXT_FOCUSED, isShowing);
+                mModel.set(TabGridPanelProperties.IS_KEYBOARD_VISIBLE, isShowing);
+            } else if (TabUiFeatureUtilities.isLaunchPolishEnabled() && !isShowing) {
+                mModel.set(TabGridPanelProperties.IS_TITLE_TEXT_FOCUSED, false);
+            }
             if (!isShowing) {
                 saveCurrentGroupModifiedTitle();
             }
@@ -441,14 +472,20 @@ public class TabGridDialogMediator implements SnackbarManager.SnackbarController
         };
         mModel.set(TabGridPanelProperties.TITLE_TEXT_WATCHER, textWatcher);
 
-        View.OnFocusChangeListener onFocusChangeListener =
-                (v, hasFocus) -> mIsUpdatingTitle = hasFocus;
+        View.OnFocusChangeListener onFocusChangeListener = (v, hasFocus) -> {
+            mIsUpdatingTitle = hasFocus;
+            if (!TabUiFeatureUtilities.isLaunchPolishEnabled()) return;
+            mModel.set(TabGridPanelProperties.IS_KEYBOARD_VISIBLE, hasFocus);
+            mModel.set(TabGridPanelProperties.IS_TITLE_TEXT_FOCUSED, hasFocus);
+        };
         mModel.set(TabGridPanelProperties.TITLE_TEXT_ON_FOCUS_LISTENER, onFocusChangeListener);
     }
 
     private View.OnClickListener getCollapseButtonClickListener() {
         return view -> {
-            mModel.set(TabGridPanelProperties.IS_KEYBOARD_VISIBLE, false);
+            if (!TabUiFeatureUtilities.isLaunchPolishEnabled()) {
+                mModel.set(TabGridPanelProperties.IS_KEYBOARD_VISIBLE, false);
+            }
             hideDialog(true);
             RecordUserAction.record("TabGridDialog.Exit");
         };
@@ -509,12 +546,24 @@ public class TabGridDialogMediator implements SnackbarManager.SnackbarController
 
             String originalTitle = mContext.getResources().getQuantityString(
                     R.plurals.bottom_tab_grid_title_placeholder, tabsCount, tabsCount);
+            if (TabUiFeatureUtilities.isLaunchPolishEnabled()) {
+                mModel.set(TabGridPanelProperties.COLLAPSE_BUTTON_CONTENT_DESCRIPTION,
+                        mContext.getResources().getQuantityString(
+                                R.plurals.accessibility_dialog_back_button, tabsCount, tabsCount));
+            }
             mModel.set(TabGridPanelProperties.HEADER_TITLE, originalTitle);
             mTabGroupTitleEditor.updateTabGroupTitle(currentTab, originalTitle);
             return;
         }
         mTabGroupTitleEditor.storeTabGroupTitle(getRootId(currentTab), mCurrentGroupModifiedTitle);
         mTabGroupTitleEditor.updateTabGroupTitle(currentTab, mCurrentGroupModifiedTitle);
+        if (TabUiFeatureUtilities.isLaunchPolishEnabled()) {
+            int relatedTabsCount = getRelatedTabs(mCurrentTabId).size();
+            mModel.set(TabGridPanelProperties.COLLAPSE_BUTTON_CONTENT_DESCRIPTION,
+                    mContext.getResources().getQuantityString(
+                            R.plurals.accessibility_dialog_back_button_with_group_name,
+                            relatedTabsCount, mCurrentGroupModifiedTitle, relatedTabsCount));
+        }
         mModel.set(TabGridPanelProperties.HEADER_TITLE, mCurrentGroupModifiedTitle);
         RecordUserAction.record("TabGridDialog.TabGroupNamedInDialog");
         mCurrentGroupModifiedTitle = null;

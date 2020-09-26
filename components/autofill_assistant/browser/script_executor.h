@@ -136,6 +136,10 @@ class ScriptExecutor : public ActionDelegate,
       base::OnceCallback<void(const ClientStatus&)> callback) override;
   void CollectUserData(
       CollectUserDataOptions* collect_user_data_options) override;
+  void SetLastSuccessfulUserDataOptions(std::unique_ptr<CollectUserDataOptions>
+                                            collect_user_data_options) override;
+  const CollectUserDataOptions* GetLastSuccessfulUserDataOptions()
+      const override;
   void WriteUserData(
       base::OnceCallback<void(UserData*, UserData::FieldChange*)>) override;
   void GetFullCard(const autofill::CreditCard* credit_card,
@@ -143,7 +147,8 @@ class ScriptExecutor : public ActionDelegate,
   void Prompt(std::unique_ptr<std::vector<UserAction>> user_actions,
               bool disable_force_expand_sheet,
               base::OnceCallback<void()> end_on_navigation_callback,
-              bool browse_mode) override;
+              bool browse_mode,
+              bool browse_mode_invisible) override;
   void CleanUpAfterPrompt() override;
   void SetBrowseDomainsWhitelist(std::vector<std::string> domains) override;
   void FillAddressForm(
@@ -230,6 +235,7 @@ class ScriptExecutor : public ActionDelegate,
   void SetProgress(int progress) override;
   void SetProgressActiveStep(int active_step) override;
   void SetProgressVisible(bool visible) override;
+  void SetProgressBarErrorState(bool error) override;
   void SetStepProgressBarConfiguration(
       const ShowProgressBarProto::StepProgressBarConfiguration& configuration)
       override;

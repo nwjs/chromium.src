@@ -61,7 +61,7 @@ const base::Feature kAppActivityReporting{"AppActivityReporting",
 #if !defined(OS_ANDROID)
 // App Service related flags. See components/services/app_service/README.md.
 const base::Feature kAppServiceAdaptiveIcon{"AppServiceAdaptiveIcon",
-                                            base::FEATURE_ENABLED_BY_DEFAULT};
+                                            base::FEATURE_DISABLED_BY_DEFAULT};
 const base::Feature kAppServiceIntentHandling{"AppServiceIntentHandling",
                                               base::FEATURE_ENABLED_BY_DEFAULT};
 #endif  // !defined(OS_ANDROID)
@@ -225,6 +225,12 @@ const base::Feature kDesktopPWAsCacheDuringDefaultInstall{
 // changes its manifest.
 const base::Feature kDesktopPWAsLocalUpdating{"DesktopPWAsLocalUpdating",
                                               base::FEATURE_ENABLED_BY_DEFAULT};
+
+// Enables or disables the WebAppMigrationUserDisplayModeCleanUp code for
+// cleaning up the fallout of https://crbug.com/1125020.
+const base::Feature kDesktopPWAsMigrationUserDisplayModeCleanUp{
+    "DesktopPWAsMigrationUserDisplayModeCleanUp",
+    base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enables or disables Desktop PWAs to be auto-started on OS login.
 const base::Feature kDesktopPWAsRunOnOsLogin{"DesktopPWAsRunOnOsLogin",
@@ -645,7 +651,7 @@ const base::Feature kSafetyCheckAndroid{"SafetyCheckAndroid",
 
 #if defined(OS_WIN)
 const base::Feature kSafetyCheckChromeCleanerChild{
-    "SafetyCheckChromeCleanerChild", base::FEATURE_ENABLED_BY_DEFAULT};
+    "SafetyCheckChromeCleanerChild", base::FEATURE_DISABLED_BY_DEFAULT};
 #endif
 
 #if defined(OS_CHROMEOS)

@@ -942,7 +942,11 @@ void LocalDOMWindow::DispatchPostMessage(
     scoped_refptr<const SecurityOrigin> intended_target_origin,
     std::unique_ptr<SourceLocation> location,
     const base::UnguessableToken& source_agent_cluster_id) {
-  probe::AsyncTask async_task(this, event->async_task_id());
+  // Do not report postMessage tasks to the ad tracker. This allows non-ad
+  // script to perform operations in response to events created by ad frames.
+  probe::AsyncTask async_task(this, event->async_task_id(), nullptr /* step */,
+                              true /* enabled */,
+                              probe::AsyncTask::AdTrackingType::kIgnore);
   if (!IsCurrentlyDisplayedInFrame())
     return;
 
@@ -958,6 +962,7 @@ void LocalDOMWindow::DispatchMessageEventWithOriginCheck(
     MessageEvent* event,
     std::unique_ptr<SourceLocation> location,
     const base::UnguessableToken& source_agent_cluster_id) {
+  TRACE_EVENT0("blink", "LocalDOMWindow::DispatchMessageEventWithOriginCheck");
   if (intended_target_origin) {
     bool valid_target =
         intended_target_origin->IsSameOriginWith(GetSecurityOrigin());
@@ -1012,14 +1017,17 @@ void LocalDOMWindow::DispatchMessageEventWithOriginCheck(
   }
 
   if (GetFrame() && GetFrame()->GetPage() &&
-      GetFrame()->GetPage()->DispatchedPagehideAndStillHidden()) {
+      GetFrame()->GetPage()->DispatchedPagehideAndStillHidden() &&
+      !document()->UnloadEventInProgress()) {
     // The message arrived after the pagehide event got dispatched and the page
     // is still hidden, which is not normally possible (this  might happen if
     // we're doing a same-site cross-RenderFrame navigation where we dispatch
     // pagehide during the new RenderFrame's commit but won't unload/freeze the
     // page after the new RenderFrame finished committing). We should track
-    // this case to measure how often this is happening.
-    UMA_HISTOGRAM_ENUMERATION("BackForwardCache.SameSite.ActionAfterPagehide",
+    // this case to measure how often this is happening, except for when the
+    // unload event is currently in progress, which means the page is not
+    // actually stored in the back-forward cache and this behavior is ok.
+    UMA_HISTOGRAM_ENUMERATION("BackForwardCache.SameSite.ActionAfterPagehide2",
                               ActionAfterPagehide::kReceivedPostMessage);
   }
   DispatchEvent(*event);
@@ -1589,7 +1597,8 @@ void LocalDOMWindow::moveBy(int x, int y) const {
   window_rect.SaturatedMove(x, y);
   // Security check (the spec talks about UniversalBrowserWrite to disable this
   // check...)
-  page->GetChromeClient().SetWindowRectWithAdjustment(window_rect, *frame);
+  page->GetChromeClient().SetWindowRectWithAdjustment(window_rect, *frame,
+                                                      *frame);
 }
 
 void LocalDOMWindow::moveTo(int x, int y) const {
@@ -1605,7 +1614,8 @@ void LocalDOMWindow::moveTo(int x, int y) const {
   window_rect.SetLocation(IntPoint(x, y));
   // Security check (the spec talks about UniversalBrowserWrite to disable this
   // check...)
-  page->GetChromeClient().SetWindowRectWithAdjustment(window_rect, *frame);
+  page->GetChromeClient().SetWindowRectWithAdjustment(window_rect, *frame,
+                                                      *frame);
 }
 
 void LocalDOMWindow::resizeBy(int x, int y) const {
@@ -1620,7 +1630,7 @@ void LocalDOMWindow::resizeBy(int x, int y) const {
   IntRect fr = page->GetChromeClient().RootWindowRect(*frame);
   IntSize dest = fr.Size() + IntSize(x, y);
   IntRect update(fr.Location(), dest);
-  page->GetChromeClient().SetWindowRectWithAdjustment(update, *frame);
+  page->GetChromeClient().SetWindowRectWithAdjustment(update, *frame, *frame);
 }
 
 void LocalDOMWindow::resizeTo(int width, int height) const {
@@ -1635,7 +1645,7 @@ void LocalDOMWindow::resizeTo(int width, int height) const {
   IntRect fr = page->GetChromeClient().RootWindowRect(*frame);
   IntSize dest = IntSize(width, height);
   IntRect update(fr.Location(), dest);
-  page->GetChromeClient().SetWindowRectWithAdjustment(update, *frame);
+  page->GetChromeClient().SetWindowRectWithAdjustment(update, *frame, *frame);
 }
 
 int LocalDOMWindow::requestAnimationFrame(V8FrameRequestCallback* callback) {

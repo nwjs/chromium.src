@@ -3420,13 +3420,6 @@ void RenderFrameHostImpl::RunBeforeUnloadConfirm(
                                     std::move(dialog_closed_callback));
 }
 
-void RenderFrameHostImpl::Are3DAPIsBlocked(Are3DAPIsBlockedCallback callback) {
-  bool blocked = GpuDataManagerImpl::GetInstance()->Are3DAPIsBlocked(
-      GetMainFrame()->GetLastCommittedURL(), GetProcess()->GetID(),
-      GetRoutingID(), THREE_D_API_TYPE_WEBGL);
-  std::move(callback).Run(blocked);
-}
-
 void RenderFrameHostImpl::ScaleFactorChanged(float scale) {
   delegate_->OnPageScaleFactorChanged(this, scale);
 }
@@ -4091,6 +4084,11 @@ void RenderFrameHostImpl::DidChangeThemeColor(
   render_view_host_->OnThemeColorChanged(this, theme_color);
 }
 
+void RenderFrameHostImpl::DidChangeBackgroundColor(
+    const SkColor& background_color) {
+  render_view_host_->DidChangeBackgroundColor(this, background_color);
+}
+
 void RenderFrameHostImpl::SetCommitCallbackInterceptorForTesting(
     CommitCallbackInterceptor* interceptor) {
   // This DCHECK's aims to avoid unexpected replacement of an interceptor.
@@ -4379,10 +4377,10 @@ void RenderFrameHostImpl::EnterFullscreen(
   // TODO(lanwei): Investigate whether we can terminate the renderer when the
   // user activation has already been consumed.
   if (!delegate_->HasSeenRecentScreenOrientationChange() &&
-      !HasSeenRecentXrOverlaySetup() &&
+      !HasSeenRecentXrOverlaySetup() && (!nodejs_ &&
       !GetContentClient()
            ->browser()
-           ->CanEnterFullscreenWithoutUserActivation()) {
+           ->CanEnterFullscreenWithoutUserActivation())) {
     bool is_consumed = frame_tree_node_->UpdateUserActivationState(
         blink::mojom::UserActivationUpdateType::kConsumeTransientActivation,
         blink::mojom::UserActivationNotificationType::kNone);

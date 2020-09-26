@@ -22,7 +22,6 @@
 <translation id="1176932207622159128">Impossibile salvare l'immagine</translation>
 <translation id="1180526666083833456">Sincronizza e personalizza su tutti i dispositivi.</translation>
 <translation id="1181037720776840403">Rimuovi</translation>
-<translation id="1185569544548277362">Novità: puoi impostare Chrome come browser predefinito. <ph name="BEGIN_LINK" />Apri le Impostazioni<ph name="END_LINK" /></translation>
 <translation id="1207113853726624428">Nuova ricerca</translation>
 <translation id="1209206284964581585">Nascondi per ora</translation>
 <translation id="1219674500290482172">Impossibile connettersi a Internet.</translation>
@@ -96,6 +95,7 @@
 <translation id="1952728750904661634">Accedi con l'account gestito</translation>
 <translation id="1974060860693918893">Avanzate</translation>
 <translation id="1989112275319619282">Esplora</translation>
+<translation id="1992734845128748707">Cambia browser predefinito…</translation>
 <translation id="2015722694326466240">Per visualizzare le password, per prima cosa imposta un passcode sul tuo dispositivo.</translation>
 <translation id="2073572773299281212">Attivo <ph name="DAYS" /> giorni fa</translation>
 <translation id="2074131957428911366">Puoi scegliere in qualsiasi momento i dati da sincronizzare nelle <ph name="BEGIN_LINK" />impostazioni<ph name="END_LINK" />.</translation>
@@ -245,6 +245,7 @@ In modalità di navigazione in incognito, i siti non possono utilizzare i cookie
 <translation id="3638472932233958418">Precarica pagine web</translation>
 <translation id="3670030362669914947">Numero</translation>
 <translation id="3691593122358196899">Preferito aggiunto in: <ph name="FOLDER_TITLE" /></translation>
+<translation id="3709582977625132201">Contrassegna come da leggere</translation>
 <translation id="3740397331642243698">Consente di aprire gli URL inseriti in Google Chrome nella modalità in incognito.</translation>
 <translation id="3771033907050503522">Schede di navigazione in incognito</translation>
 <translation id="3775743491439407556">La sincronizzazione non funziona</translation>
@@ -333,6 +334,7 @@ Per cambiare questa impostazione, <ph name="BEGIN_LINK" />reimposta la sincroniz
 <translation id="4818522717893377262">Aggiungi lingua…</translation>
 <translation id="481968316161811770">Cookie, dati dei siti</translation>
 <translation id="4826218269716039351">Blocca i cookie di terze parti</translation>
+<translation id="48274138579728272">Contrassegna come letto</translation>
 <translation id="4833786495304741580">Invia automaticamente a Google statistiche sull'utilizzo e rapporti sugli arresti anomali.</translation>
 <translation id="4840495572919996524">I preferiti, la cronologia, le password e altre impostazioni non verranno più sincronizzati con il tuo Account Google.</translation>
 <translation id="4854345657858711387">Imposta un passcode</translation>
@@ -383,6 +385,7 @@ Per cambiare questa impostazione, <ph name="BEGIN_LINK" />reimposta la sincroniz
 <translation id="5433691172869980887">Nome utente copiato</translation>
 <translation id="54401264925851789">Info sicurezza pagina</translation>
 <translation id="5443952882982198570">Carte di credito</translation>
+<translation id="5457226814769348910">Apri versione offline</translation>
 <translation id="5457907402803865181">Errore durante la sincronizzazione delle password.</translation>
 <translation id="5489208564673669003">Per gestire i cookie per tutti i siti, vedi le <ph name="BEGIN_LINK" />Impostazioni dei cookie<ph name="END_LINK" />.</translation>
 <translation id="5490005495580364134">Blocca tutti i cookie (opzione non consigliata)</translation>
@@ -555,6 +558,7 @@ I siti non possono utilizzare i cookie per conoscere la tua attività di navigaz
 <translation id="7189598951263744875">Condividi...</translation>
 <translation id="7192050974311852563">Avvia logging</translation>
 <translation id="7203585745079012652">Pronuncia le risposte</translation>
+<translation id="7207383424303353046">Novità: apri automaticamente siti in Chrome impostandolo come App browser predefinita. <ph name="BEGIN_LINK" />Apri le Impostazioni<ph name="END_LINK" /></translation>
 <translation id="721597782417389033">Nickname carta non valido</translation>
 <translation id="7265758999917665941">Mai per questo sito</translation>
 <translation id="7272437679830969316">Impossibile verificare la tua identità. Password non copiata.</translation>

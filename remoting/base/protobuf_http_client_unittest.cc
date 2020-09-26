@@ -433,6 +433,31 @@ TEST_F(ProtobufHttpClientTest, DeletesRequestHolderAfterResponseIsReceived) {
 
 // Stream request tests.
 
+TEST_F(ProtobufHttpClientTest,
+       StreamRequestFailedToFetchAuthToken_RejectsWithUnauthorizedError) {
+  base::MockOnceClosure stream_ready_callback;
+  MockEchoMessageCallback message_callback;
+  MockStreamClosedCallback stream_closed_callback;
+
+  base::RunLoop run_loop;
+
+  ExpectCallWithToken(/* success= */ false);
+
+  MockEchoResponseCallback response_callback;
+  EXPECT_CALL(stream_closed_callback,
+              Run(HasErrorCode(ProtobufHttpStatus::Code::UNAUTHENTICATED)))
+      .WillOnce([&]() { run_loop.Quit(); });
+
+  auto request = CreateDefaultTestStreamRequest();
+  request->SetStreamReadyCallback(stream_ready_callback.Get());
+  request->SetMessageCallback(message_callback.Get());
+  request->SetStreamClosedCallback(stream_closed_callback.Get());
+  client_.ExecuteRequest(std::move(request));
+
+  run_loop.Run();
+  ASSERT_FALSE(client_.HasPendingRequests());
+}
+
 TEST_F(ProtobufHttpClientTest, StartStreamRequestAndDecodeMessages) {
   base::MockOnceClosure stream_ready_callback;
   MockEchoMessageCallback message_callback;
@@ -557,6 +582,35 @@ TEST_F(ProtobufHttpClientTest, SendStreamStatusAndHttpStatus_StreamStatusWins) {
                                            ProtobufHttpStatus::Code::CANCELLED),
                                        net::HttpStatusCode::HTTP_OK);
   run_loop.Run();
+  ASSERT_FALSE(client_.HasPendingRequests());
+}
+
+TEST_F(ProtobufHttpClientTest, StreamReadyTimeout) {
+  base::MockOnceClosure not_called_stream_ready_callback;
+  MockEchoMessageCallback not_called_message_callback;
+  MockStreamClosedCallback stream_closed_callback;
+
+  {
+    InSequence s;
+
+    ExpectCallWithToken(/* success= */ true);
+    EXPECT_CALL(stream_closed_callback,
+                Run(HasErrorCode(ProtobufHttpStatus::Code::DEADLINE_EXCEEDED)));
+  }
+
+  auto request = CreateDefaultTestStreamRequest();
+  request->SetStreamReadyCallback(not_called_stream_ready_callback.Get());
+  request->SetMessageCallback(not_called_message_callback.Get());
+  request->SetStreamClosedCallback(stream_closed_callback.Get());
+  client_.ExecuteRequest(std::move(request));
+
+  ASSERT_TRUE(client_.HasPendingRequests());
+  ASSERT_TRUE(test_url_loader_factory_.IsPending(kTestFullUrl));
+  ASSERT_EQ(1, test_url_loader_factory_.NumPending());
+
+  task_environment_.FastForwardBy(
+      ProtobufHttpStreamRequest::kStreamReadyTimeoutDuration +
+      base::TimeDelta::FromSeconds(1));
   ASSERT_FALSE(client_.HasPendingRequests());
 }
 

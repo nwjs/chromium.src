@@ -28,6 +28,7 @@
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_metrics_recording.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_view_controller_audience.h"
 #import "ios/chrome/browser/ui/content_suggestions/discover_feed_menu_commands.h"
+#import "ios/chrome/browser/ui/content_suggestions/discover_feed_metrics_recorder.h"
 #import "ios/chrome/browser/ui/content_suggestions/ntp_home_constant.h"
 #import "ios/chrome/browser/ui/content_suggestions/theme_change_delegate.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_header_constants.h"
@@ -55,6 +56,9 @@ const CGFloat kDiscoverFeedContentWith = 430;
 const CGFloat kPaginationOffset = 400;
 // Height for the Discover Feed section header.
 const CGFloat kDiscoverFeedFeaderHeight = 30;
+// Minimum height of the Discover feed content to indicate that the articles
+// have loaded.
+const CGFloat kDiscoverFeedLoadedHeight = 1000;
 }
 
 NSString* const kContentSuggestionsMostVisitedAccessibilityIdentifierPrefix =
@@ -79,6 +83,16 @@ NSString* const kContentSuggestionsMostVisitedAccessibilityIdentifierPrefix =
 // Navigation offset applied to the layout height to maintain the scroll
 // position, since the feed height is dynamic.
 @property(nonatomic) CGFloat offset;
+
+// Represents the last recorded height of the Discover feed for tracking when to
+// trigger the infinite feed.
+@property(nonatomic, assign) CGFloat discoverFeedHeight;
+
+// Whether this VC is observing the discoverFeedHeight using KVO or not.
+@property(nonatomic, assign) BOOL observingDiscoverFeedHeight;
+
+// The CollectionViewController scroll position when an scrolling event starts.
+@property(nonatomic, assign) int scrollStartPosition;
 
 @end
 
@@ -111,10 +125,15 @@ NSString* const kContentSuggestionsMostVisitedAccessibilityIdentifierPrefix =
 }
 
 - (void)dealloc {
-  [self.feedView removeObserver:self forKeyPath:@"contentSize"];
-  [self.discoverFeedVC willMoveToParentViewController:nil];
-  [self.discoverFeedVC.view removeFromSuperview];
-  [self.discoverFeedVC removeFromParentViewController];
+  if (self.observingDiscoverFeedHeight) {
+    [self.feedView removeObserver:self forKeyPath:@"contentSize"];
+    self.observingDiscoverFeedHeight = NO;
+  }
+  if (self.discoverFeedVC.parentViewController) {
+    [self.discoverFeedVC willMoveToParentViewController:nil];
+    [self.discoverFeedVC.view removeFromSuperview];
+    [self.discoverFeedVC removeFromParentViewController];
+  }
   [self.overscrollActionsController invalidate];
 }
 
@@ -424,6 +443,7 @@ NSString* const kContentSuggestionsMostVisitedAccessibilityIdentifierPrefix =
       // osberving its feedView.
       if (self.discoverFeedVC) {
         [self.feedView removeObserver:self forKeyPath:@"contentSize"];
+        self.observingDiscoverFeedHeight = NO;
         [self.discoverFeedVC willMoveToParentViewController:nil];
         [self.discoverFeedVC.view removeFromSuperview];
         [self.discoverFeedVC removeFromParentViewController];
@@ -446,6 +466,7 @@ NSString* const kContentSuggestionsMostVisitedAccessibilityIdentifierPrefix =
                         forKeyPath:@"contentSize"
                            options:0
                            context:nil];
+        self.observingDiscoverFeedHeight = YES;
         self.discoverFeedVC = newFeedViewController;
         return cell;
       }
@@ -703,18 +724,12 @@ NSString* const kContentSuggestionsMostVisitedAccessibilityIdentifierPrefix =
       scrollView.contentOffset.y >= [self.headerSynchronizer pinnedOffsetY];
 
   if (IsDiscoverFeedEnabled() && self.contentSuggestionsEnabled) {
-    float scrollPosition =
-        scrollView.contentOffset.y + scrollView.frame.size.height;
-    // Check if view is bouncing to ignore overscoll positions for infinite feed
-    // triggering.
-    BOOL isBouncing =
-        (scrollView.contentOffset.y >=
-         (scrollView.contentSize.height - scrollView.bounds.size.height));
-    ContentSuggestionsLayout* layout = static_cast<ContentSuggestionsLayout*>(
-        self.collectionView.collectionViewLayout);
-    if (scrollPosition > scrollView.contentSize.height - kPaginationOffset &&
-        scrollPosition > layout.ntpHeight && !isBouncing) {
-      [self.handler loadMoreFeedArticles];
+    if ([self shouldTriggerInfiniteFeed:scrollView]) {
+      CGFloat currentHeight = self.feedView.contentSize.height;
+      if (currentHeight != self.discoverFeedHeight) {
+        self.discoverFeedHeight = currentHeight;
+        [self.handler loadMoreFeedArticles];
+      }
     }
   }
 }
@@ -731,6 +746,7 @@ NSString* const kContentSuggestionsMostVisitedAccessibilityIdentifierPrefix =
 
 - (void)scrollViewWillBeginDragging:(UIScrollView*)scrollView {
   [self.overscrollActionsController scrollViewWillBeginDragging:scrollView];
+  self.scrollStartPosition = scrollView.contentOffset.y;
 }
 
 - (void)scrollViewDidEndDragging:(UIScrollView*)scrollView
@@ -738,6 +754,8 @@ NSString* const kContentSuggestionsMostVisitedAccessibilityIdentifierPrefix =
   [super scrollViewDidEndDragging:scrollView willDecelerate:decelerate];
   [self.overscrollActionsController scrollViewDidEndDragging:scrollView
                                               willDecelerate:decelerate];
+  [self.discoverFeedMetricsRecorder
+      recordFeedScrolled:scrollView.contentOffset.y - self.scrollStartPosition];
 }
 
 - (void)scrollViewWillEndDragging:(UIScrollView*)scrollView
@@ -797,6 +815,10 @@ NSString* const kContentSuggestionsMostVisitedAccessibilityIdentifierPrefix =
   _contentSuggestionsEnabled = enabled;
 }
 
+- (void)setContentSuggestionsVisible:(BOOL)visible {
+  [self.collectionUpdater changeDiscoverFeedHeaderVisibility:visible];
+}
+
 #pragma mark - NSKeyValueObserving
 
 // TODO(crbug.com/1114792): Remove once we stop containing the DiscoverFeed
@@ -808,6 +830,12 @@ NSString* const kContentSuggestionsMostVisitedAccessibilityIdentifierPrefix =
   if (object == self.feedView && [keyPath isEqualToString:@"contentSize"]) {
     // Reload the CollectionView data to adjust to the new Feed height.
     [self.collectionView reloadData];
+    // Indicates that the feed articles have been loaded by checking its height.
+    // TODO(crbug.com/1126940): Use a callback from Mulder to determine this
+    // more reliably.
+    if (self.feedView.contentSize.height > kDiscoverFeedLoadedHeight) {
+      [self.discoverFeedMenuHandler notifyFeedLoadedForHeaderMenu];
+    }
   }
 }
 
@@ -901,6 +929,22 @@ NSString* const kContentSuggestionsMostVisitedAccessibilityIdentifierPrefix =
 // Opens top-level feed menu when pressing |menuButton|.
 - (void)openDiscoverFeedMenu:(id)menuButton {
   [self.discoverFeedMenuHandler openDiscoverFeedMenu:menuButton];
+}
+
+// Evaluates whether or not another set of Discover feed articles should be
+// fetched when scrolling.
+- (BOOL)shouldTriggerInfiniteFeed:(UIScrollView*)scrollView {
+  float scrollPosition =
+      scrollView.contentOffset.y + scrollView.frame.size.height;
+  // Check if view is bouncing to ignore overscoll positions for infinite feed
+  // triggering.
+  BOOL isBouncing =
+      (scrollView.contentOffset.y >=
+       (scrollView.contentSize.height - scrollView.bounds.size.height));
+  ContentSuggestionsLayout* layout = static_cast<ContentSuggestionsLayout*>(
+      self.collectionView.collectionViewLayout);
+  return (scrollPosition > scrollView.contentSize.height - kPaginationOffset &&
+          scrollPosition > layout.ntpHeight && !isBouncing);
 }
 
 @end

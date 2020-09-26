@@ -19,6 +19,7 @@
   <dimen name="check_status_message_running_margin_vertical">36dp</dimen>
 
   <dimen name="compromised_credential_row_button_icon_padding">8dp</dimen>
+  <dimen name="compromised_credential_row_button_text_margin_top">8dp</dimen>
   <dimen name="compromised_credential_row_button_icon_start_padding">12dp</dimen>
   <dimen name="compromised_credential_row_button_icon_end_padding">16dp</dimen>
   <dimen name="compromised_credential_row_button_margin_top">16dp</dimen>
@@ -32,5 +33,7 @@
   <dimen name="compromised_credential_row_padding_top">12dp</dimen>
   <dimen name="compromised_credential_row_reason_margin_top">2dp</dimen>
 
+  <dimen name="view_dialog_copy_button_clickable_surface_size">48dp</dimen>
+  <dimen name="view_dialog_copy_button_margin_end">4dp</dimen>
   <dimen name="view_dialog_compromised_password_margin">24dp</dimen>
 </resources>

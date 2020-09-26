@@ -22,7 +22,6 @@
 <translation id="1176932207622159128">Kan afbeelding niet opslaan</translation>
 <translation id="1180526666083833456">Synchronisatie en personalisatie op meerdere apparaten.</translation>
 <translation id="1181037720776840403">Verwijderen</translation>
-<translation id="1185569544548277362">Nieuw: Je kunt Chrome als je standaardbrowser instellen. <ph name="BEGIN_LINK" />Instellingen openen<ph name="END_LINK" /></translation>
 <translation id="1207113853726624428">Nieuwe zoekopdracht</translation>
 <translation id="1209206284964581585">Voorlopig verbergen</translation>
 <translation id="1219674500290482172">Kan geen verbinding maken met internet.</translation>
@@ -96,6 +95,7 @@
 <translation id="1952728750904661634">Inloggen met een beheerd account</translation>
 <translation id="1974060860693918893">Geavanceerd</translation>
 <translation id="1989112275319619282">Browsen</translation>
+<translation id="1992734845128748707">Standaardbrowser wijzigen…</translation>
 <translation id="2015722694326466240">Als je wachtwoorden wilt weergeven, moet je eerst een toegangscode instellen op je apparaat.</translation>
 <translation id="2073572773299281212"><ph name="DAYS" /> dagen geleden actief</translation>
 <translation id="2074131957428911366">Je kunt altijd in de <ph name="BEGIN_LINK" />instellingen<ph name="END_LINK" /> bepalen wat je wilt synchroniseren.</translation>
@@ -152,7 +152,7 @@ Sites mogen geen cookies gebruiken om je browse-activiteit op verschillende site
 <translation id="2702801445560668637">Leeslijst</translation>
 <translation id="2704491540504985681">Downloads</translation>
 <translation id="2704606927547763573">Gekopieerd</translation>
-<translation id="2709516037105925701">Automatisch aanvullen</translation>
+<translation id="2709516037105925701">Automatisch invullen</translation>
 <translation id="2712127207578915686">Kan bestand niet openen</translation>
 <translation id="2718352093833049315">Alleen via wifi</translation>
 <translation id="2747003861858887689">Vorig veld</translation>
@@ -240,11 +240,12 @@ Als je de incognitomodus gebruikt, mogen sites geen cookies gebruiken om je brow
 <translation id="3581564640715911333">Aanbieden pagina's in andere talen te vertalen</translation>
 <translation id="3588820906588687999">Afbeelding openen op nieuw tabblad</translation>
 <translation id="3603009562372709545">Link-URL kopiëren</translation>
-<translation id="3607167657931203000">Gegevens van Automatisch aanvullen</translation>
+<translation id="3607167657931203000">Gegevens van Automatisch invullen</translation>
 <translation id="3609785682760573515">Synchroniseren...</translation>
 <translation id="3638472932233958418">Webpagina's vooraf laden</translation>
 <translation id="3670030362669914947">Nummer</translation>
 <translation id="3691593122358196899">Bookmark gemaakt in <ph name="FOLDER_TITLE" /></translation>
+<translation id="3709582977625132201">Markeren als ongelezen</translation>
 <translation id="3740397331642243698">Hiermee worden de ingevoerde URL's in Google Chrome geopend in de incognitomodus.</translation>
 <translation id="3771033907050503522">Incognitotabbladen</translation>
 <translation id="3775743491439407556">Synchronisatie werkt niet</translation>
@@ -333,6 +334,7 @@ Je gegevens zijn versleuteld met je wachtwoordzin voor synchronisatie. Geef deze
 <translation id="4818522717893377262">Taal toevoegen...</translation>
 <translation id="481968316161811770">Cookies en sitegegevens</translation>
 <translation id="4826218269716039351">Cookies van derden blokkeren</translation>
+<translation id="48274138579728272">Markeren als gelezen</translation>
 <translation id="4833786495304741580">Hiermee worden automatisch gebruiksstatistieken en crashrapporten naar Google verzonden.</translation>
 <translation id="4840495572919996524">Je bookmarks, geschiedenis, wachtwoorden en meer worden niet meer gesynchroniseerd met je Google-account.</translation>
 <translation id="4854345657858711387">Een toegangscode instellen</translation>
@@ -383,6 +385,7 @@ Je gegevens zijn versleuteld met je wachtwoordzin voor synchronisatie. Geef deze
 <translation id="5433691172869980887">Gebruikersnaam gekopieerd</translation>
 <translation id="54401264925851789">Paginabeveiligingsinfo</translation>
 <translation id="5443952882982198570">Creditcards</translation>
+<translation id="5457226814769348910">Offline versie openen</translation>
 <translation id="5457907402803865181">Fout bij synchroniseren van wachtwoorden.</translation>
 <translation id="5489208564673669003">Ga naar <ph name="BEGIN_LINK" />Cookie-instellingen<ph name="END_LINK" /> om de cookies voor alle sites te beheren.</translation>
 <translation id="5490005495580364134">Alle cookies blokkeren (niet aanbevolen)</translation>
@@ -555,6 +558,7 @@ Sites mogen geen cookies gebruiken om je browse-activiteit op verschillende site
 <translation id="7189598951263744875">Delen</translation>
 <translation id="7192050974311852563">Logboekregistratie starten</translation>
 <translation id="7203585745079012652">Antwoorden uitspreken</translation>
+<translation id="7207383424303353046">Nieuw: Open sites automatisch in Chrome door het als je standaard browser-app in te stellen. <ph name="BEGIN_LINK" />Instellingen openen<ph name="END_LINK" /></translation>
 <translation id="721597782417389033">Ongeldige bijnaam kaart</translation>
 <translation id="7265758999917665941">Nooit voor deze site</translation>
 <translation id="7272437679830969316">Kan je identiteit niet verifiëren. Wachtwoord niet gekopieerd.</translation>
@@ -680,7 +684,7 @@ Sites mogen cookies gebruiken om je browse-activiteit op verschillende sites te 
 <translation id="8717864919010420084">Link kopiëren</translation>
 <translation id="8721297211384281569">Menu Extra</translation>
 <translation id="8725066075913043281">Opnieuw proberen</translation>
-<translation id="8730621377337864115">Gereed</translation>
+<translation id="8730621377337864115">Klaar</translation>
 <translation id="8741995161408053644">Voor je Google-account kunnen andere vormen van browsegeschiedenis beschikbaar zijn via <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" />.</translation>
 <translation id="8750037785291841318">Hier vind je je tabbladen</translation>
 <translation id="8756969031206844760">Wachtwoord updaten?</translation>

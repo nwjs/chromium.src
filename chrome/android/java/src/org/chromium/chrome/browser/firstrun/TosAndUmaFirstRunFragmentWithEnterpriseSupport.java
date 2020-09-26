@@ -6,13 +6,16 @@ package org.chromium.chrome.browser.firstrun;
 
 import android.content.Context;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.view.View;
+import android.view.accessibility.AccessibilityEvent;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import org.chromium.base.CallbackController;
 import org.chromium.base.Log;
+import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.policy.EnterpriseInfo;
 import org.chromium.chrome.browser.policy.PolicyServiceFactory;
@@ -44,9 +47,16 @@ public class TosAndUmaFirstRunFragmentWithEnterpriseSupport
     }
 
     private boolean mViewCreated;
+    private View mLoadingSpinnerContainer;
     private LoadingView mLoadingSpinner;
     private CallbackController mCallbackController;
     private PolicyService.Observer mPolicyServiceObserver;
+
+    /** The {@link SystemClock} timestamp when this object was created. */
+    private long mObjectCreatedTimeMs;
+
+    /** The {@link SystemClock} timestamp when onViewCreated is called. */
+    private long mViewCreatedTimeMs;
 
     /**
      * Whether app restriction is found on the device. This can be null when this information is not
@@ -65,6 +75,7 @@ public class TosAndUmaFirstRunFragmentWithEnterpriseSupport
     private @Nullable Boolean mIsDeviceOwned;
 
     private TosAndUmaFirstRunFragmentWithEnterpriseSupport() {
+        mObjectCreatedTimeMs = SystemClock.elapsedRealtime();
         mCallbackController = new CallbackController();
     }
 
@@ -100,8 +111,10 @@ public class TosAndUmaFirstRunFragmentWithEnterpriseSupport
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
+        mLoadingSpinnerContainer = view.findViewById(R.id.loading_view_container);
         mLoadingSpinner = view.findViewById(R.id.progress_spinner_large);
         mViewCreated = true;
+        mViewCreatedTimeMs = SystemClock.elapsedRealtime();
 
         if (shouldWaitForPolicyLoading()) {
             mLoadingSpinner.addObserver(this);
@@ -128,14 +141,28 @@ public class TosAndUmaFirstRunFragmentWithEnterpriseSupport
     }
 
     @Override
+    public void onShowLoadingUIComplete() {
+        mLoadingSpinnerContainer.setVisibility(View.VISIBLE);
+    }
+
+    @Override
     public void onHideLoadingUIComplete() {
+        RecordHistogram.recordTimesHistogram("MobileFre.CctTos.LoadingDuration",
+                SystemClock.elapsedRealtime() - mViewCreatedTimeMs);
         if (confirmedCctTosDialogDisabled() && confirmedOwnedDevice()) {
             // TODO(crbug.com/1108564): Show the different UI that has the enterprise disclosure.
             exitCctFirstRun();
         } else {
             // Else, show the UMA as the loading spinner is GONE.
             assert confirmedToShowUmaAndTos();
+
+            boolean hasAccessibilityFocus = mLoadingSpinnerContainer.isAccessibilityFocused();
+            mLoadingSpinnerContainer.setVisibility(View.GONE);
             setTosAndUmaVisible(true);
+
+            if (hasAccessibilityFocus) {
+                getToSAndPrivacyText().sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_FOCUSED);
+            }
         }
     }
 
@@ -201,11 +228,7 @@ public class TosAndUmaFirstRunFragmentWithEnterpriseSupport
         }
 
         mHasRestriction = hasAppRestriction;
-
-        if (!shouldWaitForPolicyLoading() && mViewCreated) {
-            // TODO(https://crbug.com/1119449): Cleanup various policy callbacks.
-            mLoadingSpinner.hideLoadingUI();
-        }
+        maybeHideSpinner();
     }
 
     private void checkEnterprisePolicies() {
@@ -224,10 +247,12 @@ public class TosAndUmaFirstRunFragmentWithEnterpriseSupport
 
     private void updateCctTosPolicy() {
         mPolicyCctTosDialogEnabled = FirstRunUtils.isCctTosDialogEnabled();
-        if (!shouldWaitForPolicyLoading() && mViewCreated) {
-            // TODO(https://crbug.com/1119449): Cleanup various policy callbacks.
-            mLoadingSpinner.hideLoadingUI();
-        }
+        maybeHideSpinner();
+
+        RecordHistogram.recordTimesHistogram(mViewCreated
+                        ? "MobileFre.CctTos.EnterprisePolicyCheckSpeed.SlowerThanInflation"
+                        : "MobileFre.CctTos.EnterprisePolicyCheckSpeed.FasterThanInflation",
+                SystemClock.elapsedRealtime() - mObjectCreatedTimeMs);
     }
 
     private void checkIsDeviceOwned() {
@@ -236,7 +261,17 @@ public class TosAndUmaFirstRunFragmentWithEnterpriseSupport
     }
 
     private void onIsDeviceOwnedDetected(EnterpriseInfo.OwnedState ownedState) {
-        mIsDeviceOwned = ownedState.mDeviceOwned;
+        // If unable to determine the owned state then fail closed, no skipping.
+        mIsDeviceOwned = ownedState != null && ownedState.mDeviceOwned;
+        maybeHideSpinner();
+
+        RecordHistogram.recordTimesHistogram(mViewCreated
+                        ? "MobileFre.CctTos.IsDeviceOwnedCheckSpeed.SlowerThanInflation"
+                        : "MobileFre.CctTos.IsDeviceOwnedCheckSpeed.FasterThanInflation",
+                SystemClock.elapsedRealtime() - mObjectCreatedTimeMs);
+    }
+
+    private void maybeHideSpinner() {
         if (!shouldWaitForPolicyLoading() && mViewCreated) {
             // TODO(https://crbug.com/1119449): Cleanup various policy callbacks.
             mLoadingSpinner.hideLoadingUI();

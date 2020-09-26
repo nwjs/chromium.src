@@ -71,18 +71,12 @@ void UpdateScreenHandler::SetUIState(UpdateView::UIState value) {
   CallJS("login.UpdateScreen.setUIState", static_cast<int>(value));
 }
 
-void UpdateScreenHandler::SetUpdateStatusMessagePercent(
-    const base::string16& value) {
-  CallJS("login.UpdateScreen.setUpdateStatusMessagePercent", value);
-}
-
-void UpdateScreenHandler::SetUpdateStatusMessageTimeLeft(
-    const base::string16& value) {
-  CallJS("login.UpdateScreen.setUpdateStatusMessageTimeLeft", value);
-}
-
-void UpdateScreenHandler::SetBetterUpdateProgress(int value) {
-  CallJS("login.UpdateScreen.setBetterUpdateProgress", value);
+void UpdateScreenHandler::SetUpdateStatus(
+    int percent,
+    const base::string16& percent_message,
+    const base::string16& timeleft_message) {
+  CallJS("login.UpdateScreen.setUpdateStatus", percent, percent_message,
+         timeleft_message);
 }
 
 void UpdateScreenHandler::SetEstimatedTimeLeft(int value) {
@@ -150,6 +144,11 @@ void UpdateScreenHandler::DeclareLocalizedValues(
   builder->Add("slideAccountText", IDS_UPDATE_SLIDE_ACCOUNT_TEXT);
   builder->Add("batteryWarningTitle", IDS_UPDATE_BATTERY_WARNING_TITLE);
   builder->Add("batteryWarningText", IDS_UPDATE_BATTERY_WARNING_TEXT);
+
+  builder->Add("slideLabel", IDS_UPDATE_SLIDE_LABEL);
+  builder->Add("slideSelectedButtonLabel", IDS_UPDATE_SELECTED_BUTTON_LABEL);
+  builder->Add("slideUnselectedButtonLabel",
+               IDS_UPDATE_UNSELECTED_BUTTON_LABEL);
 
 #if !BUILDFLAG(GOOGLE_CHROME_BRANDING)
   builder->Add("cancelUpdateHint", IDS_UPDATE_CANCEL);

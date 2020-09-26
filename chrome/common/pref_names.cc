@@ -1049,6 +1049,12 @@ const char kUpdateRequiredWarningPeriod[] = "update_required_warning_period";
 // when System-proxy and ARC++ are enabled by policy.
 const char kSystemProxyUserTrafficHostAndPort[] =
     "system_proxy.user_traffic_host_and_port";
+
+// Boolean pref indicating whether the supervised user has migrated EDU
+// secondary account to ARC++.
+const char kEduCoexistenceArcMigrationCompleted[] =
+    "account_manager.edu_coexistence_arc_migration_completed";
+
 #endif  // defined(OS_CHROMEOS)
 
 // A boolean pref set to true if a Home button to open the Home pages should be
@@ -1912,6 +1918,9 @@ const char kWebAppsExtensionIDs[] = "web_apps.extension_ids";
 // Used only in the new web applications system to store app preferences which
 // outlive the app installation and uninstallation.
 const char kWebAppsPreferences[] = "web_apps.web_app_ids";
+
+const char kWebAppsUserDisplayModeCleanedUp[] =
+    "web_apps.user_display_mode_cleaned_up";
 
 // A string representing the last version of Chrome that System Web Apps were
 // updated for.

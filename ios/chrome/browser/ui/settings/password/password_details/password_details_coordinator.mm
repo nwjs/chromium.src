@@ -5,13 +5,16 @@
 #import "ios/chrome/browser/ui/settings/password/password_details/password_details_coordinator.h"
 
 #include "base/mac/foundation_util.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/strings/sys_string_conversions.h"
 #include "components/autofill/core/common/password_form.h"
+#include "components/password_manager/core/browser/password_manager_metrics_util.h"
 #include "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/main/browser.h"
 #import "ios/chrome/browser/ui/alert_coordinator/action_sheet_coordinator.h"
 #import "ios/chrome/browser/ui/alert_coordinator/alert_coordinator.h"
 #import "ios/chrome/browser/ui/commands/application_commands.h"
+#import "ios/chrome/browser/ui/commands/command_dispatcher.h"
 #import "ios/chrome/browser/ui/commands/open_new_tab_command.h"
 #import "ios/chrome/browser/ui/settings/password/password_details/password_details_consumer.h"
 #import "ios/chrome/browser/ui/settings/password/password_details/password_details_coordinator_delegate.h"
@@ -50,6 +53,9 @@
 // The action sheet coordinator, if one is currently being shown.
 @property(nonatomic, strong) ActionSheetCoordinator* actionSheetCoordinator;
 
+// Dispatcher.
+@property(nonatomic, weak) id<ApplicationCommands, BrowserCommands> dispatcher;
+
 @end
 
 @implementation PasswordDetailsCoordinator
@@ -73,6 +79,8 @@
     _password = password;
     _manager = manager;
     _reauthenticationModule = reauthModule;
+    _dispatcher = static_cast<id<BrowserCommands, ApplicationCommands>>(
+        browser->GetCommandDispatcher());
   }
   return self;
 }
@@ -90,7 +98,7 @@
   self.mediator.consumer = self.viewController;
   self.viewController.handler = self;
   self.viewController.delegate = self.mediator;
-  self.viewController.commandsDispatcher = self.dispatcher;
+  self.viewController.commandsHandler = self.dispatcher;
   self.viewController.reauthModule = self.reauthenticationModule;
 
   [self.baseNavigationController pushViewController:self.viewController
@@ -142,7 +150,7 @@
 - (void)showPasswordDeleteDialogWithOrigin:(NSString*)origin {
   NSString* message;
 
-  if (origin)
+  if (origin.length > 0)
     message =
         l10n_util::GetNSStringF(IDS_IOS_DELETE_COMPROMISED_PASSWORD_DESCRIPTION,
                                 base::SysNSStringToUTF16(origin));
@@ -159,9 +167,9 @@
   [self.actionSheetCoordinator
       addItemWithTitle:l10n_util::GetNSString(IDS_IOS_CONFIRM_PASSWORD_DELETION)
                 action:^{
-                  [weakSelf.delegate
-                      passwordDetailsCoordinator:weakSelf
-                                  deletePassword:weakSelf.mediator.password];
+                  [weakSelf
+                      passwordDeletionConfirmedForCompromised:origin.length >
+                                                              0];
                 }
                  style:UIAlertActionStyleDestructive];
 
@@ -199,6 +207,20 @@
                  style:UIAlertActionStyleCancel];
 
   [self.actionSheetCoordinator start];
+}
+
+#pragma mark - Private
+
+// Notifies delegate about password deletion and records metric if needed.
+- (void)passwordDeletionConfirmedForCompromised:(BOOL)compromised {
+  [self.delegate passwordDetailsCoordinator:self
+                             deletePassword:self.mediator.password];
+  if (compromised) {
+    base::UmaHistogramEnumeration(
+        "PasswordManager.BulkCheck.UserAction",
+        password_manager::metrics_util::PasswordCheckInteraction::
+            kRemovePassword);
+  }
 }
 
 @end

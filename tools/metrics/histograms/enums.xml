@@ -5807,6 +5807,31 @@ Unknown properties are collapsed to zero. -->
       label="password_manager::ContentPasswordManagerDriver"/>
 </enum>
 
+<enum name="BackForwardCacheDisabledForRenderFrameHostReasonShort">
+  <int value="4520" label="PopupBlockerTabHelper"/>
+  <int value="8169" label="SafeBrowsingTriggeredPopupBlocker"/>
+  <int value="12795" label="banners::AppBannerManager"/>
+  <int value="14149" label="OfflinePage"/>
+  <int value="15533" label="WebAuthenticationAPI"/>
+  <int value="17667" label="PermissionServiceContext"/>
+  <int value="25206" label="Serial"/>
+  <int value="26854" label="OomInterventionTabHelper"/>
+  <int value="29532" label="MediaSessionImpl::OnServiceCreated"/>
+  <int value="30041" label="NativeFileSystem"/>
+  <int value="31177" label="safe_browsing::ThreatDetails"/>
+  <int value="31230" label="autofill::ContentAutofillDriver"/>
+  <int value="36734" label="RenderFrameDevToolsAgentHost"/>
+  <int value="36798" label="WebBluetooth"/>
+  <int value="37928" label="content::protocol::SecurityHandler"/>
+  <int value="41719"
+      label="ChromePasswordManagerClient::BindCredentialManager"/>
+  <int value="44443" label="PermissionRequestManager"/>
+  <int value="49166" label="password_manager::ContentPasswordManagerDriver"/>
+  <int value="51814" label="MixedContentSettingsTabHelper"/>
+  <int value="55334" label="WebUSB"/>
+  <int value="58230" label="MediaWebContentsObserver::OnMediaPlaying"/>
+</enum>
+
 <enum name="BackForwardCacheEvictedAfterDocumentRestoredReason">
   <int value="0" label="Restored"/>
   <int value="1" label="By JavaScript"/>
@@ -8021,6 +8046,11 @@ Called by update_bad_message_reasons.py.-->
   <int value="1" label="Present"/>
 </enum>
 
+<enum name="BooleanPreviouslyShown">
+  <int value="0" label="Never shown"/>
+  <int value="1" label="Previously shown"/>
+</enum>
+
 <enum name="BooleanPreviouslyVisited">
   <int value="0" label="Was not visited before"/>
   <int value="1" label="Was visited before"/>
@@ -9552,6 +9582,12 @@ histogram as enum -->
   <int value="9" label="cloudgate"/>
   <int value="10" label="windows"/>
   <int value="11" label="salesforce"/>
+</enum>
+
+<enum name="ChromeOSSharesheetAction">
+  <summary>Defines Chrome OS sharesheet actions.</summary>
+  <int value="0" label="Cancelled by user"/>
+  <int value="1" label="Launch ARC app"/>
 </enum>
 
 <enum name="ChromeOSUICommands">
@@ -14361,6 +14397,19 @@ metrics consent we also won't be able to send UMA metrics. -->
   <int value="13" label="Manual"/>
   <int value="14" label="Custom key invalidation"/>
   <int value="15" label="Proximity periodic"/>
+</enum>
+
+<enum name="CryptidRenderResult">
+  <int value="0" label="Success">
+    The asset was successfully fetched and rendered.
+  </int>
+  <int value="1" label="Failure">
+    Rendering was attempted but the asset could not be fetched.
+  </int>
+  <int value="2" label="Disabled">
+    Rendering was not attempted because the flag was disabled or the
+    probabilistic check failed.
+  </int>
 </enum>
 
 <enum name="CryptohomeChecksumStatus">
@@ -29189,6 +29238,10 @@ Called by update_feature_policy_enum.py.-->
   <int value="13"
       label="Ephemeral change undone, likely due to pressing 'undo' on the
              snackbar"/>
+  <int value="14" label="Turn on"/>
+  <int value="15" label="Turn off"/>
+  <int value="16" label="Tapped Manage Activity"/>
+  <int value="17" label="Added to Read Later"/>
 </enum>
 
 <enum name="FeedZeroStateShowReason">
@@ -39848,6 +39901,7 @@ Called by update_gpu_driver_bug_workaround_entries.py.-->
   <int value="4" label="Blocklisted due to frequent reloads/back-forwards"/>
   <int value="5" label="Blocklisted because page transition was a reload"/>
   <int value="6" label="Blocklisted because page transition was back-forwards"/>
+  <int value="7" label="Blocklisted because the host was permanently blocked"/>
 </enum>
 
 <enum name="LiteVideoDecision">
@@ -40904,6 +40958,8 @@ from previous Chrome versions.
   <int value="-1410001116"
       label="EnableAmbientAuthenticationInGuestSession:disabled"/>
   <int value="-1409643943" label="enable-child-account-detection"/>
+  <int value="-1408981164"
+      label="DesktopPWAsMigrationUserDisplayModeCleanUp:enabled"/>
   <int value="-1408869905"
       label="AutofillEnforceMinRequiredFieldsForQuery:disabled"/>
   <int value="-1408370474" label="AssistantRoutines:enabled"/>
@@ -43533,6 +43589,8 @@ from previous Chrome versions.
       label="AutofillDoNotUploadSaveUnsupportedCards:enabled"/>
   <int value="1353113954" label="EnableMDRoundedCornersOnDialogs:enabled"/>
   <int value="1353629763" label="MediaSessionAccelerators:enabled"/>
+  <int value="1355656242"
+      label="DesktopPWAsMigrationUserDisplayModeCleanUp:disabled"/>
   <int value="1355923367" label="CrOSContainer:disabled"/>
   <int value="1356161410" label="VizHitTestSurfaceLayer:enabled"/>
   <int value="1359972809" label="enable-gesture-deletion"/>
@@ -54063,6 +54121,28 @@ Called by update_net_trust_anchors.py.-->
   <int value="5" label="Unsafe state bubble"/>
 </enum>
 
+<enum name="PasswordCheckReferrerAndroid">
+  <int value="0" label="Password Settings"/>
+  <int value="1" label="Safety Check"/>
+  <int value="2" label="Password Breach Dialog"/>
+</enum>
+
+<enum name="PasswordCheckUIUserActionAndroid">
+  <int value="0" label="Start check automatically"/>
+  <int value="1" label="Start check manually"/>
+  <int value="2" label="Cancel check"/>
+  <int value="3" label="Change password"/>
+  <int value="4" label="Change password automatically"/>
+  <int value="5" label="Change password manually"/>
+  <int value="6" label="View password click"/>
+  <int value="7" label="Viewed password"/>
+  <int value="8" label="Copied password"/>
+  <int value="9" label="Edit password click"/>
+  <int value="10" label="Edited password"/>
+  <int value="11" label="Delete password click"/>
+  <int value="12" label="Deleted password"/>
+</enum>
+
 <enum name="PasswordDecryptionResult">
   <int value="0" label="Failed"/>
   <int value="1" label="Succeeded"/>
@@ -58442,6 +58522,13 @@ https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_2.7.1.pdf
   <int value="1" label="Manage profile button in the profile menu"/>
   <int value="2" label="Add new profile button in the profile menu"/>
   <int value="3" label="Open new window after profile deletion"/>
+</enum>
+
+<enum name="ProfilePickerPages">
+  <int value="0" label="mainView"/>
+  <int value="1" label="profileTypeChoice"/>
+  <int value="2" label="localProfileCustomization"/>
+  <int value="3" label="loadSignIn"/>
 </enum>
 
 <enum name="ProfileResetRequestOriginEnum">

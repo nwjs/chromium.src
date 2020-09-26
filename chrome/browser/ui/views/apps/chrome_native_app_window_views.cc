@@ -161,29 +161,19 @@ void ChromeNativeAppWindowViews::InitializeDefaultWindow(
   SetContentSizeConstraints(create_params.GetContentMinimumSize(frame_insets),
                             create_params.GetContentMaximumSize(frame_insets));
   if (!window_bounds.IsEmpty()) {
-    auto position_specified = [](const gfx::Rect& window_bounds) -> bool {
-      using BoundsSpecification = AppWindow::BoundsSpecification;
-      return window_bounds.x() != BoundsSpecification::kUnspecifiedPosition &&
-             window_bounds.y() != BoundsSpecification::kUnspecifiedPosition;
-    };
-
-    // Windows without saved bounds should be centered.
-    const bool center_window = !position_specified(window_bounds);
-
-    // Adjust bounds to be on the display for new windows.
-    AdjustBoundsToBeVisibleOnDisplayForNewWindows(&window_bounds);
-
+    using BoundsSpecification = AppWindow::BoundsSpecification;
+    bool position_specified =
+        window_bounds.x() != BoundsSpecification::kUnspecifiedPosition &&
+        window_bounds.y() != BoundsSpecification::kUnspecifiedPosition;
     if (create_params.position == AppWindow::POS_MOUSE) {
       gfx::Point cursor_pos(display::Screen::GetScreen()->GetCursorScreenPoint());
       window_bounds.set_origin(cursor_pos);
       widget()->SetBounds(window_bounds);
     } else {
-    // Widget::SetBounds should not take unspecified coordinates.
-    if (position_specified(window_bounds))
-      widget()->SetBounds(window_bounds);
-
-    if (center_window)
+    if (!position_specified)
       widget()->CenterWindow(window_bounds.size());
+    else
+      widget()->SetBounds(window_bounds);
     }
   } else {
     if (create_params.position == AppWindow::POS_CENTER)
@@ -241,9 +231,6 @@ ChromeNativeAppWindowViews::CreateStandardDesktopAppFrame() {
 bool ChromeNativeAppWindowViews::ShouldRemoveStandardFrame() {
   return IsFrameless() || has_frame_color_;
 }
-
-void ChromeNativeAppWindowViews::AdjustBoundsToBeVisibleOnDisplayForNewWindows(
-    gfx::Rect* out_bounds) {}
 
 // ui::BaseWindow implementation.
 

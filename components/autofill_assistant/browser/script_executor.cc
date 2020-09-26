@@ -354,6 +354,17 @@ void ScriptExecutor::CollectUserData(
   delegate_->EnterState(AutofillAssistantState::PROMPT);
 }
 
+void ScriptExecutor::SetLastSuccessfulUserDataOptions(
+    std::unique_ptr<CollectUserDataOptions> collect_user_data_options) {
+  delegate_->SetLastSuccessfulUserDataOptions(
+      std::move(collect_user_data_options));
+}
+
+const CollectUserDataOptions* ScriptExecutor::GetLastSuccessfulUserDataOptions()
+    const {
+  return delegate_->GetLastSuccessfulUserDataOptions();
+}
+
 void ScriptExecutor::WriteUserData(
     base::OnceCallback<void(UserData*, UserData::FieldChange*)>
         write_callback) {
@@ -416,10 +427,12 @@ void ScriptExecutor::Prompt(
     std::unique_ptr<std::vector<UserAction>> user_actions,
     bool disable_force_expand_sheet,
     base::OnceCallback<void()> end_on_navigation_callback,
-    bool browse_mode) {
+    bool browse_mode,
+    bool browse_mode_invisible) {
   // First communicate to the delegate that prompt actions should or should not
   // expand the sheet intitially.
   delegate_->SetExpandSheetForPromptAction(!disable_force_expand_sheet);
+  delegate_->SetBrowseModeInvisible(browse_mode_invisible);
   if (browse_mode) {
     delegate_->EnterState(AutofillAssistantState::BROWSE);
   } else if (delegate_->EnterState(AutofillAssistantState::PROMPT)) {
@@ -460,6 +473,7 @@ void ScriptExecutor::CleanUpAfterPrompt() {
 
   delegate_->ClearTouchableElementArea();
   delegate_->SetExpandSheetForPromptAction(true);
+  delegate_->SetBrowseModeInvisible(false);
   delegate_->EnterState(AutofillAssistantState::RUNNING);
 }
 
@@ -544,6 +558,10 @@ void ScriptExecutor::SetProgressActiveStep(int active_step) {
 
 void ScriptExecutor::SetProgressVisible(bool visible) {
   delegate_->SetProgressVisible(visible);
+}
+
+void ScriptExecutor::SetProgressBarErrorState(bool error) {
+  delegate_->SetProgressBarErrorState(error);
 }
 
 void ScriptExecutor::SetStepProgressBarConfiguration(

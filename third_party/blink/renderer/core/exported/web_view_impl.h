@@ -229,9 +229,10 @@ class CORE_EXPORT WebViewImpl final : public WebView,
   void AnimateDoubleTapZoom(const gfx::Point&, const WebRect& block_bounds);
 
   // mojom::blink::PageBroadcast method:
-  void SetPageLifecycleState(mojom::blink::PageLifecycleStatePtr state,
-                             base::Optional<base::TimeTicks> navigation_start,
-                             SetPageLifecycleStateCallback callback) override;
+  void SetPageLifecycleState(
+      mojom::blink::PageLifecycleStatePtr state,
+      mojom::blink::PageRestoreParamsPtr page_restore_params,
+      SetPageLifecycleStateCallback callback) override;
   void AudioStateChanged(bool is_audio_playing) override;
   void SetInsidePortal(bool is_inside_portal) override;
 
@@ -459,6 +460,7 @@ class CORE_EXPORT WebViewImpl final : public WebView,
   FRIEND_TEST_ALL_PREFIXES(WebViewTest, SetBaseBackgroundColorBeforeMainFrame);
   FRIEND_TEST_ALL_PREFIXES(WebViewTest, LongPressImage);
   FRIEND_TEST_ALL_PREFIXES(WebViewTest, LongPressImageAndThenLongTapImage);
+  FRIEND_TEST_ALL_PREFIXES(WebViewTest, TouchDragContextMenu);
   friend class frame_test_helpers::WebViewHelper;
   friend class SimCompositor;
   friend class WebView;  // So WebView::Create can call our constructor
@@ -503,7 +505,7 @@ class CORE_EXPORT WebViewImpl final : public WebView,
 
   void SetPageLifecycleStateInternal(
       mojom::blink::PageLifecycleStatePtr new_state,
-      base::Optional<base::TimeTicks> navigation_start);
+      mojom::blink::PageRestoreParamsPtr page_restore_params);
 
   float MaximumLegiblePageScale() const;
   void RefreshPageScaleFactor();
@@ -706,6 +708,7 @@ class CORE_EXPORT WebViewImpl final : public WebView,
   SkColor base_background_color_override_ = Color::kTransparent;
   bool background_color_override_enabled_ = false;
   SkColor background_color_override_ = Color::kTransparent;
+  base::Optional<SkColor> last_background_color_;
   float zoom_factor_override_ = 0.f;
 
   bool should_dispatch_first_visually_non_empty_layout_ = false;

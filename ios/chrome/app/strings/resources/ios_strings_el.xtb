@@ -22,7 +22,6 @@
 <translation id="1176932207622159128">Αδύνατη αποθ.εικόνας</translation>
 <translation id="1180526666083833456">Συγχρονισμός και εξατομίκευση σε όλες τις συσκευές.</translation>
 <translation id="1181037720776840403">Κατάργηση</translation>
-<translation id="1185569544548277362">Νέο: Μπορείτε να κάνετε το Chrome το προεπιλεγμένο πρόγραμμα περιήγησής σας. <ph name="BEGIN_LINK" />Άνοιγμα ρυθμίσεων<ph name="END_LINK" /></translation>
 <translation id="1207113853726624428">Νέα αναζήτηση</translation>
 <translation id="1209206284964581585">Προσωρινή απόκρυψη</translation>
 <translation id="1219674500290482172">Δεν είναι δυνατή η σύνδεση στο διαδίκτυο.</translation>
@@ -96,6 +95,7 @@
 <translation id="1952728750904661634">Σύνδεση με διαχειριζόμενο λογαριασμό</translation>
 <translation id="1974060860693918893">Σύνθετες</translation>
 <translation id="1989112275319619282">Περιήγηση</translation>
+<translation id="1992734845128748707">Αλλαγή προεπιλεγμένου προγράμματος περιήγησης…</translation>
 <translation id="2015722694326466240">Για να δείτε τους κωδικούς πρόσβασης, θα πρέπει πρώτα να ορίσετε έναν κωδικό πρόσβασης για τη συσκευή σας.</translation>
 <translation id="2073572773299281212">Ενεργή <ph name="DAYS" /> ημέρες πριν</translation>
 <translation id="2074131957428911366">Μπορείτε πάντα να επιλέξετε τα στοιχεία που θέλετε να συγχρονίσετε στις <ph name="BEGIN_LINK" />ρυθμίσεις<ph name="END_LINK" />.</translation>
@@ -245,6 +245,7 @@
 <translation id="3638472932233958418">Προφόρτ. ιστοσελίδων</translation>
 <translation id="3670030362669914947">Αριθμός</translation>
 <translation id="3691593122358196899">Ο σελιδοδείκτης είναι στο "<ph name="FOLDER_TITLE" />"</translation>
+<translation id="3709582977625132201">Επισήμανση ως μη αναγνωσμένη</translation>
 <translation id="3740397331642243698">Ανοίγει τα URL που εισάγονται στο Google Chrome σε ανώνυμη περιήγηση.</translation>
 <translation id="3771033907050503522">Καρτ.αν.περιήγ.</translation>
 <translation id="3775743491439407556">Ο συγχρονισμός δεν λειτουργεί</translation>
@@ -333,6 +334,7 @@
 <translation id="4818522717893377262">Προσθήκη γλώσσας…</translation>
 <translation id="481968316161811770">Cookie, δεδομένα ιστότοπου</translation>
 <translation id="4826218269716039351">Αποκλεισμός cookie τρίτους μέρους</translation>
+<translation id="48274138579728272">Επισήμανση ως αναγνωσμένη</translation>
 <translation id="4833786495304741580">Αποστέλλει αυτόματα στατιστικά στοιχεία χρήσης και αναφορές σφαλμάτων στην Google.</translation>
 <translation id="4840495572919996524">Οι σελιδοδείκτες, το ιστορικό, οι κωδικοί πρόσβασης και άλλα στοιχεία δεν θα συγχρονίζονται πλέον με τον Λογαριασμό σας Google.</translation>
 <translation id="4854345657858711387">Ορισμός κωδικού πρόσβασης</translation>
@@ -383,6 +385,7 @@
 <translation id="5433691172869980887">Το όνομα χρήστη αντιγράφηκε</translation>
 <translation id="54401264925851789">Πληροφορίες ασφάλειας σελίδας</translation>
 <translation id="5443952882982198570">Πιστωτικές κάρτες</translation>
+<translation id="5457226814769348910">Άνοιγμα εκτός σύνδεσης</translation>
 <translation id="5457907402803865181">Σφάλμα κατά τον συγχρονισμό των κωδικών πρόσβασης.</translation>
 <translation id="5489208564673669003">Για να διαχειριστείτε τα cookie για όλους τους ιστοτόπους, ανατρέξτε στις <ph name="BEGIN_LINK" />Ρυθμίσεις cookie<ph name="END_LINK" />.</translation>
 <translation id="5490005495580364134">Αποκλεισμός όλων των cookie (δεν συνιστάται)</translation>
@@ -556,6 +559,7 @@
 <translation id="7189598951263744875">Κοινοποίηση…</translation>
 <translation id="7192050974311852563">Έναρξη καταγραφής</translation>
 <translation id="7203585745079012652">Εκφώνηση απαντήσεων</translation>
+<translation id="7207383424303353046">Νέο: Ανοίξτε ιστοτόπους αυτόματα στο Chrome, ορίζοντάς το ως προεπιλεγμένη εφαρμογή προγράμματος περιήγησης. <ph name="BEGIN_LINK" />Άνοιγμα Ρυθμίσεων<ph name="END_LINK" /></translation>
 <translation id="721597782417389033">Μη έγκυρο ψευδώνυμο κάρτας</translation>
 <translation id="7265758999917665941">Ποτέ για αυτόν τον ιστότοπο</translation>
 <translation id="7272437679830969316">Δεν είναι δυνατή η επαλήθευση της ταυτότητας σας. Ο κωδικός πρόσβασης δεν αντιγράφηκε.</translation>

@@ -432,7 +432,8 @@ ExtensionService::ExtensionService(Profile* profile,
 #if 0
   if (extensions_enabled_) {
     ExternalProviderImpl::CreateExternalProviders(
-        this, profile_, &external_extension_providers_);
+        this, profile_, pending_extension_manager(),
+        &external_extension_providers_);
   }
 #endif
 

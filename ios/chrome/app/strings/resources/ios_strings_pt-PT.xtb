@@ -22,7 +22,6 @@
 <translation id="1176932207622159128">Não é Possível Guardar a Imagem</translation>
 <translation id="1180526666083833456">Sincronize e personalize entre dispositivos.</translation>
 <translation id="1181037720776840403">Remover</translation>
-<translation id="1185569544548277362">Novo: pode definir o Chrome como o navegador predefinido. <ph name="BEGIN_LINK" />Abra as Definições<ph name="END_LINK" /></translation>
 <translation id="1207113853726624428">Nova pesquisa</translation>
 <translation id="1209206284964581585">Ocultar para já</translation>
 <translation id="1219674500290482172">Não é possível estabelecer ligação à Internet.</translation>
@@ -96,6 +95,7 @@
 <translation id="1952728750904661634">Iniciar sessão com uma conta gerida</translation>
 <translation id="1974060860693918893">Avançadas</translation>
 <translation id="1989112275319619282">Procurar</translation>
+<translation id="1992734845128748707">Alterar navegador predefinido…</translation>
 <translation id="2015722694326466240">Para ver as palavras-passe, tem de definir primeiro um código secreto no dispositivo.</translation>
 <translation id="2073572773299281212">Ativo há <ph name="DAYS" /> dias</translation>
 <translation id="2074131957428911366">Pode escolher o que pretende sincronizar nas <ph name="BEGIN_LINK" />definições<ph name="END_LINK" />.</translation>
@@ -245,6 +245,7 @@ Quando estiver na Navegação anónima, os sites não podem utilizar cookies par
 <translation id="3638472932233958418">Pré-carregar Páginas Web</translation>
 <translation id="3670030362669914947">Número</translation>
 <translation id="3691593122358196899">Adicionado aos marcadores em <ph name="FOLDER_TITLE" /></translation>
+<translation id="3709582977625132201">Marcar como não lido</translation>
 <translation id="3740397331642243698">Abre os URLs introduzidos no Google Chrome na Navegação anónima.</translation>
 <translation id="3771033907050503522">Sep. nav. anónima</translation>
 <translation id="3775743491439407556">A sincronização não está a funcionar</translation>
@@ -333,6 +334,7 @@ Para alterar esta definição, <ph name="BEGIN_LINK" />reponha a sincronização
 <translation id="4818522717893377262">Adicionar idioma…</translation>
 <translation id="481968316161811770">Cookies, dados de sites</translation>
 <translation id="4826218269716039351">Bloquear terceiros</translation>
+<translation id="48274138579728272">Marcar como lido</translation>
 <translation id="4833786495304741580">Envia automaticamente estatísticas de utilização e relatórios de falhas para a Google.</translation>
 <translation id="4840495572919996524">Os seus marcadores, o histórico, as palavras-passe, entre outros, deixam de ser sincronizados com a sua Conta Google.</translation>
 <translation id="4854345657858711387">Definir um código secreto</translation>
@@ -383,6 +385,7 @@ Para alterar esta definição, <ph name="BEGIN_LINK" />reponha a sincronização
 <translation id="5433691172869980887">Nome de utilizador copiado</translation>
 <translation id="54401264925851789">Informações de Segurança da Página</translation>
 <translation id="5443952882982198570">Cartões de crédito</translation>
+<translation id="5457226814769348910">Abrir versão offline</translation>
 <translation id="5457907402803865181">Erro ao sincronizar as palavras-passe.</translation>
 <translation id="5489208564673669003">Para gerir cookies de todos os sites, veja <ph name="BEGIN_LINK" />Definições de cookies<ph name="END_LINK" />.</translation>
 <translation id="5490005495580364134">Bloquear todos os cookies (não recomendado).</translation>
@@ -555,6 +558,7 @@ Os sites não podem utilizar cookies para ver a sua atividade de navegação em 
 <translation id="7189598951263744875">Partilhar...</translation>
 <translation id="7192050974311852563">Iniciar registo</translation>
 <translation id="7203585745079012652">Ouvir Respostas</translation>
+<translation id="7207383424303353046">Novidade: abra automaticamente os sites no Chrome ao torná-lo a sua app de navegador predefinida. <ph name="BEGIN_LINK" />Abra as Definições<ph name="END_LINK" /></translation>
 <translation id="721597782417389033">Pseudónimo do cartão inválido</translation>
 <translation id="7265758999917665941">Nunca para este site</translation>
 <translation id="7272437679830969316">Não é possível validar a sua identidade. Palavra-passe não copiada.</translation>

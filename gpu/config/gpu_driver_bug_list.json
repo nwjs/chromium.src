@@ -3277,12 +3277,11 @@
     },
     {
       "id": 334,
-      "description": "NVidia drivers seem corrupt memory when all siblings of eglImage are destroyed",
-      "cr_bugs": [1052114],
+      "description": "Some drivers seem to require as to use original texture whenever possible",
+      "cr_bugs": [1052114, 1117370],
       "os": {
         "type": "android"
       },
-      "gl_vendor": "NVIDIA.*",
       "features": [
         "dont_delete_source_texture_for_egl_image"
       ]
@@ -3499,6 +3498,88 @@
       "features": [
         "enable_bgra8_overlays_with_yuv_overlay_support"
       ]
+    },
+    {
+      "id": 348,
+      "cr_bugs": [1120411],
+      "description": "VP8 video encoding hangs on Intel Gen 9.5 GPUs",
+      "os": {
+        "type": "chromeos"
+      },
+      "vendor_id": "0x8086",
+      "intel_gpu_series": [
+        "geminilake",
+        "kabylake",
+        "whiskeylake",
+        "cometlake"
+      ],
+      "features": [
+        "disable_accelerated_vp8_encode"
+      ]
+    },
+    {
+      "id": 349,
+      "cr_bugs": [1126058],
+      "description": "VP8 decoding hangs on Intel Broadwell",
+      "os": {
+        "type": "chromeos"
+      },
+      "vendor_id": "0x8086",
+      "intel_gpu_series": [
+        "broadwell"
+      ],
+      "features": [
+        "disable_accelerated_vp8_decode"
+      ]
+    },
+    {
+      "id": 350,
+      "cr_bugs": [1038006],
+      "description": "Intel device 0x1066 can't use d3d11 video decoder",
+      "os": {
+        "type": "win"
+      },
+      "vendor_id": "0x8086",
+      "device_id": ["0x0166"],
+      "features": [
+        "disable_d3d11_video_decoder"
+      ]
+    },
+    {
+      "id": 351,
+      "cr_bugs": [1038006],
+      "description": "Intel device 0x8a56 with specific drivers can't use d3d11 video decoder",
+      "os": {
+        "type": "win"
+      },
+      "vendor_id": "0x8086",
+      "device_id": ["0x8a56"],
+      "features": [
+        "disable_d3d11_video_decoder"
+      ],
+      "driver_version": {
+        "op": "between",
+        "value": "26",
+        "value2": "27"
+      }
+    },
+    {
+      "id": 352,
+      "cr_bugs": [1126834],
+      "description": "AMD devices 98e4 and 15d8 with specific drivers can't use d3d11 video decoder",
+      "os": {
+        "type": "win"
+      },
+      "vendor_id": "0x1002",
+      "device_id": ["0x98e4", "0x15d8", "0x15dd"],
+      "features": [
+        "disable_d3d11_video_decoder"
+      ],
+      "driver_version": {
+        "op": "between",
+        "value": "24",
+        "value2": "27"
+      }
     }
   ]
 }

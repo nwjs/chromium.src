@@ -22,7 +22,6 @@
 <translation id="1176932207622159128">Təsvir Saxlanıla Bilmir</translation>
 <translation id="1180526666083833456">Cihazlarda sinxronizasiya edin və fərdiləşdirin.</translation>
 <translation id="1181037720776840403">Silin</translation>
-<translation id="1185569544548277362">Yeni: Chrome'u defolt edə bilərsiniz. <ph name="BEGIN_LINK" />Ayarları açın<ph name="END_LINK" /></translation>
 <translation id="1207113853726624428">Yeni Axtarış</translation>
 <translation id="1209206284964581585">Hələlik gizlədin</translation>
 <translation id="1219674500290482172">İnternetə qoşulmaq mümkün deyil.</translation>
@@ -96,6 +95,7 @@
 <translation id="1952728750904661634">İdarə olunan hesab ilə daxil olun</translation>
 <translation id="1974060860693918893">Qabaqcıl</translation>
 <translation id="1989112275319619282">Baxın</translation>
+<translation id="1992734845128748707">Defolt brauzeri dəyişin…</translation>
 <translation id="2015722694326466240">Parollara baxmaq üçün əvvəlcə cihazınızda parol kod ayarlamalısınız.</translation>
 <translation id="2073572773299281212"><ph name="DAYS" /> Gün Əvvəl Aktiv Olub</translation>
 <translation id="2074131957428911366">Sinxronizasiya seçimlərini <ph name="BEGIN_LINK" />ayarlarda<ph name="END_LINK" /> edə bilərsiniz.</translation>
@@ -245,6 +245,7 @@ Anonim rejimdə olduqda saytlar müxtəlif saytlarda baxış tarixçənizi görm
 <translation id="3638472932233958418">Əvvəldən yüklənilən Veb səhifələr</translation>
 <translation id="3670030362669914947">Nömrə</translation>
 <translation id="3691593122358196899"><ph name="FOLDER_TITLE" /> qovluğuna əlfəcinləndi</translation>
+<translation id="3709582977625132201">Oxunmamış kimi qeyd edin</translation>
 <translation id="3740397331642243698">Daxil edilən keçidləri Google Chrome'da Anonim rejimdə açır.</translation>
 <translation id="3771033907050503522">Gizli Panellər</translation>
 <translation id="3775743491439407556">Sinxronizasiya İşləmir</translation>
@@ -333,6 +334,7 @@ Ayarı dəyişmək üçün <ph name="BEGIN_LINK" />sinxronizasiyanı sıfırlay�
 <translation id="4818522717893377262">Dil Əlavə Edin...</translation>
 <translation id="481968316161811770">Kukilər, Sayt Datası</translation>
 <translation id="4826218269716039351">Üçüncü Tərəfi bloklayın</translation>
+<translation id="48274138579728272">Oxunmuş kimi qeyd edin</translation>
 <translation id="4833786495304741580">İstifadə statistikası və xəta raportlarını avtomatik Google'a göndərir.</translation>
 <translation id="4840495572919996524">Əlfəcin, tarixçə, parol və sair artıq Google Hesabınıza sinxronizasiya olunmayacaq</translation>
 <translation id="4854345657858711387">Parol kodu ayarlayın</translation>
@@ -383,6 +385,7 @@ Ayarı dəyişmək üçün <ph name="BEGIN_LINK" />sinxronizasiyanı sıfırlay�
 <translation id="5433691172869980887">İstifadəçi adı kopyalandı</translation>
 <translation id="54401264925851789">Səhifə güvənliyi məlumatı</translation>
 <translation id="5443952882982198570">Kredit Kartları</translation>
+<translation id="5457226814769348910">Oflayn versiyanı açın</translation>
 <translation id="5457907402803865181">Parolları sinxronlaşdırarkən xəta baş verdi.</translation>
 <translation id="5489208564673669003">Bütün saytlar üçün kukiləri idarə etmək üçün <ph name="BEGIN_LINK" />Kuki Ayarlarına<ph name="END_LINK" /> baxın.</translation>
 <translation id="5490005495580364134">Bütün kukiləri bloklayın (Tövsiyə edilmir)</translation>
@@ -555,6 +558,7 @@ Saytlar müxtəlif saytlarda baxış fəaliyyətinizi görmək üçün kukiləri
 <translation id="7189598951263744875">Paylaşın...</translation>
 <translation id="7192050974311852563">Qeydiyyata Başlayın</translation>
 <translation id="7203585745079012652">Geri Cavab</translation>
+<translation id="7207383424303353046">Yeni: Defolt Brauzer tətbiqiniz etməklə, saytları Chrome'da avtomatik açın. <ph name="BEGIN_LINK" />Ayarları açın<ph name="END_LINK" /></translation>
 <translation id="721597782417389033">Yanlış Kart Ləqəbi</translation>
 <translation id="7265758999917665941">Bu sayt üçün heç vaxt yadda saxlamayın</translation>
 <translation id="7272437679830969316">Kimliyinizi doğrulamaq mümkün deyil. Parol kopyalanmayıb.</translation>

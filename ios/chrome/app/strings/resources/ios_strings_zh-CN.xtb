@@ -22,7 +22,6 @@
 <translation id="1176932207622159128">无法保存图片</translation>
 <translation id="1180526666083833456">在所有设备上保持同步并进行个性化设置。</translation>
 <translation id="1181037720776840403">移除</translation>
-<translation id="1185569544548277362">新功能：您可将 Chrome 设为默认浏览器。<ph name="BEGIN_LINK" />打开“设置”<ph name="END_LINK" /></translation>
 <translation id="1207113853726624428">新搜索</translation>
 <translation id="1209206284964581585">暂时隐藏</translation>
 <translation id="1219674500290482172">无法连接到互联网。</translation>
@@ -96,6 +95,7 @@
 <translation id="1952728750904661634">登录受管理的帐号</translation>
 <translation id="1974060860693918893">高级</translation>
 <translation id="1989112275319619282">浏览</translation>
+<translation id="1992734845128748707">更改默认浏览器…</translation>
 <translation id="2015722694326466240">要想查看密码，您必须先在设备上设置密码。</translation>
 <translation id="2073572773299281212"><ph name="DAYS" /> 天前曾有活动</translation>
 <translation id="2074131957428911366">您始终可在<ph name="BEGIN_LINK" />设置<ph name="END_LINK" />中选择要同步的内容。</translation>
@@ -245,8 +245,9 @@
 <translation id="3638472932233958418">预先加载网页</translation>
 <translation id="3670030362669914947">卡号</translation>
 <translation id="3691593122358196899">已将书签添加到“<ph name="FOLDER_TITLE" />”</translation>
+<translation id="3709582977625132201">标记为未读</translation>
 <translation id="3740397331642243698">在 Google Chrome 中以无痕模式打开输入的网址。</translation>
-<translation id="3771033907050503522">隐身标签页</translation>
+<translation id="3771033907050503522">无痕模式标签页</translation>
 <translation id="3775743491439407556">同步功能无法正常运行</translation>
 <translation id="3779810277399252432">无互联网连接。</translation>
 <translation id="3783017676699494206">保存图片</translation>
@@ -333,6 +334,7 @@
 <translation id="4818522717893377262">添加语言…</translation>
 <translation id="481968316161811770">Cookie 和网站数据</translation>
 <translation id="4826218269716039351">阻止第三方 Cookie</translation>
+<translation id="48274138579728272">标记为已读</translation>
 <translation id="4833786495304741580">自动将使用情况统计信息和崩溃报告发送至 Google。</translation>
 <translation id="4840495572919996524">您的书签、历史记录、密码和其他信息将不再同步到您的 Google 帐号中。</translation>
 <translation id="4854345657858711387">设置密码</translation>
@@ -349,7 +351,7 @@
 <translation id="4945756290001680296">访问密码设置</translation>
 <translation id="4979397965658815378">登录 Google 帐号，即可获取您在任何登录过的设备上的书签、密码、历史记录及其他设置</translation>
 <translation id="5005498671520578047">复制密码</translation>
-<translation id="5010803260590204777">打开一个隐身标签页即可私密地浏览网络。</translation>
+<translation id="5010803260590204777">打开一个无痕模式标签页即可私密地浏览网络。</translation>
 <translation id="5039804452771397117">允许</translation>
 <translation id="5059136629401106827">知道了</translation>
 <translation id="5062321486222145940">安装Google云端硬盘</translation>
@@ -383,6 +385,7 @@
 <translation id="5433691172869980887">已复制用户名</translation>
 <translation id="54401264925851789">网页安全信息</translation>
 <translation id="5443952882982198570">信用卡</translation>
+<translation id="5457226814769348910">打开离线版</translation>
 <translation id="5457907402803865181">同步密码时出错。</translation>
 <translation id="5489208564673669003">若要管理所有网站的 Cookie，请参阅 <ph name="BEGIN_LINK" />Cookie 设置<ph name="END_LINK" />。</translation>
 <translation id="5490005495580364134">阻止所有 Cookie（不建议）</translation>
@@ -466,7 +469,7 @@
 <translation id="6342069812937806050">刚刚</translation>
 <translation id="6344783595350022745">明文</translation>
 <translation id="6346549652287021269">开始执行新的下载任务？</translation>
-<translation id="6362362396625799311">没有隐身标签页</translation>
+<translation id="6362362396625799311">没有无痕模式标签页</translation>
 <translation id="6363526231572697780">无用户名</translation>
 <translation id="6374469231428023295">重试</translation>
 <translation id="6377118281273296434">网站安全性</translation>
@@ -555,6 +558,7 @@
 <translation id="7189598951263744875">分享...</translation>
 <translation id="7192050974311852563">开始生成日志</translation>
 <translation id="7203585745079012652">说出答案</translation>
+<translation id="7207383424303353046">新功能：将 Chrome 设为默认浏览器应用，即可自动在 Chrome 中打开网站。<ph name="BEGIN_LINK" />打开“设置”<ph name="END_LINK" /></translation>
 <translation id="721597782417389033">卡的昵称无效</translation>
 <translation id="7265758999917665941">此网站一律不保存密码</translation>
 <translation id="7272437679830969316">无法验证您的身份。未复制密码。</translation>

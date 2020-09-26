@@ -33,8 +33,10 @@ source_set("content_suggestions") {
   ]
   deps = [
     ":feature_flags",
+    ":metrics",
     "//base",
     "//components/favicon/core",
+    "//components/feature_engagement/public",
     "//components/feed/core/shared_prefs:feed_shared_prefs",
     "//components/ntp_snippets",
     "//components/ntp_tiles",
@@ -52,6 +54,7 @@ source_set("content_suggestions") {
     "//ios/chrome/browser/discover_feed",
     "//ios/chrome/browser/drag_and_drop",
     "//ios/chrome/browser/favicon",
+    "//ios/chrome/browser/feature_engagement",
     "//ios/chrome/browser/main:public",
     "//ios/chrome/browser/metrics:metrics_internal",
     "//ios/chrome/browser/ntp",
@@ -99,6 +102,7 @@ source_set("content_suggestions") {
     "//ui/base",
     "//ui/strings",
   ]
+  public_deps = [ ":metrics" ]
   configs += [ "//build/config/compiler:enable_arc" ]
 }
 
@@ -147,6 +151,7 @@ source_set("content_suggestions_ui") {
     ":content_suggestions_constant",
     ":content_suggestions_ui_util",
     ":feature_flags",
+    ":metrics",
     "resources:content_suggestions_no_image",
     "resources:content_suggestions_offline",
     "resources:ntp_search_icon",
@@ -178,6 +183,15 @@ source_set("content_suggestions_ui") {
     "//ui/base",
   ]
   public_deps = [ "//ios/third_party/material_components_ios" ]
+  configs += [ "//build/config/compiler:enable_arc" ]
+}
+
+source_set("metrics") {
+  sources = [
+    "discover_feed_metrics_recorder.h",
+    "discover_feed_metrics_recorder.mm",
+  ]
+  deps = [ "//base" ]
   configs += [ "//build/config/compiler:enable_arc" ]
 }
 

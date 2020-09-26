@@ -14,6 +14,7 @@
 #include "base/macros.h"
 #include "base/optional.h"
 #include "components/autofill_assistant/browser/basic_interactions.h"
+#include "components/autofill_assistant/browser/bottom_sheet_state.h"
 #include "components/autofill_assistant/browser/client.h"
 #include "components/autofill_assistant/browser/client_settings.h"
 #include "components/autofill_assistant/browser/element_area.h"
@@ -121,6 +122,7 @@ class Controller : public ScriptExecutorDelegate,
   void SetProgress(int progress) override;
   void SetProgressActiveStep(int active_step) override;
   void SetProgressVisible(bool visible) override;
+  void SetProgressBarErrorState(bool error) override;
   void SetStepProgressBarConfiguration(
       const ShowProgressBarProto::StepProgressBarConfiguration& configuration)
       override;
@@ -143,6 +145,7 @@ class Controller : public ScriptExecutorDelegate,
       base::OnceCallback<void(const ClientStatus&)>
           view_inflation_finished_callback) override;
   void ClearGenericUi() override;
+  void SetBrowseModeInvisible(bool invisible) override;
 
   // Show the UI if it's not already shown. This is only meaningful while in
   // states where showing the UI is optional, such as RUNNING, in tracking mode.
@@ -162,6 +165,10 @@ class Controller : public ScriptExecutorDelegate,
   void SetOverlayBehavior(
       ConfigureUiStateProto::OverlayBehavior overlay_behavior) override;
   void SetCollectUserDataOptions(CollectUserDataOptions* options) override;
+  void SetLastSuccessfulUserDataOptions(std::unique_ptr<CollectUserDataOptions>
+                                            collect_user_data_options) override;
+  const CollectUserDataOptions* GetLastSuccessfulUserDataOptions()
+      const override;
   void WriteUserData(
       base::OnceCallback<void(UserData*, UserData::FieldChange*)>) override;
   void OnScriptError(const std::string& error_message,
@@ -216,6 +223,10 @@ class Controller : public ScriptExecutorDelegate,
   void MaybeReportFirstCheckDone();
   ViewportMode GetViewportMode() override;
   ConfigureBottomSheetProto::PeekMode GetPeekMode() override;
+  BottomSheetState GetBottomSheetState() override;
+  void SetBottomSheetState(BottomSheetState state) override;
+  bool IsTabSelected() override;
+  void SetTabSelected(bool selected) override;
   void GetOverlayColors(OverlayColors* colors) const override;
   const ClientSettings& GetClientSettings() const override;
   const FormProto* GetForm() const override;
@@ -234,6 +245,7 @@ class Controller : public ScriptExecutorDelegate,
   const GenericUserInterfaceProto* GetGenericUiProto() const override;
   bool ShouldShowOverlay() const override;
   void ShutdownIfNecessary() override;
+  bool IsRunningLiteScript() const override;
 
  private:
   friend ControllerTest;
@@ -326,8 +338,6 @@ class Controller : public ScriptExecutorDelegate,
   // Clear out visible state and enter the stopped state.
   void EnterStoppedState();
 
-  void SetProgressBarErrorState(bool error);
-
   ElementArea* touchable_element_area();
   ScriptTracker* script_tracker();
   bool allow_autostart() { return state_ == AutofillAssistantState::STARTING; }
@@ -415,8 +425,17 @@ class Controller : public ScriptExecutorDelegate,
       ConfigureBottomSheetProto::HANDLE;
   bool auto_change_peek_mode_ = false;
 
+  // The latest bottom sheet state stored.
+  BottomSheetState bottom_sheet_state_ = BottomSheetState::UNDEFINED;
+
+  // Whether the tab associated with this controller is currently selected.
+  bool tab_selected_ = true;
+
   std::unique_ptr<OverlayColors> overlay_colors_;
 
+  // A copy of the most recently set user data options. Can be used to determine
+  // which information was requested.
+  std::unique_ptr<CollectUserDataOptions> last_collect_user_data_options_;
   CollectUserDataOptions* collect_user_data_options_ = nullptr;
   std::unique_ptr<UserData> user_data_;
 
@@ -490,6 +509,7 @@ class Controller : public ScriptExecutorDelegate,
 
   bool expand_sheet_for_prompt_action_ = true;
   std::vector<std::string> browse_domains_whitelist_;
+  bool browse_mode_invisible_ = false;
 
   // Only set during a ShowGenericUiAction.
   std::unique_ptr<GenericUserInterfaceProto> generic_user_interface_;

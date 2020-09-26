@@ -34,6 +34,7 @@ import org.chromium.chrome.browser.compositor.layouts.EmptyOverviewModeObserver;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManager;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchManager;
+import org.chromium.chrome.browser.crash.PureJavaExceptionReporter;
 import org.chromium.chrome.browser.directactions.DirectActionInitializer;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.findinpage.FindToolbar;
@@ -64,7 +65,6 @@ import org.chromium.chrome.browser.ui.appmenu.AppMenuBlocker;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuCoordinator;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuCoordinatorFactory;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
-import org.chromium.chrome.browser.ui.system.StatusBarColorController;
 import org.chromium.chrome.browser.vr.VrModuleProvider;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.SheetState;
@@ -285,14 +285,7 @@ public class RootUiCoordinator
 
     @Override
     public void onInflationComplete() {
-        ViewGroup coordinator = mActivity.findViewById(R.id.coordinator);
-        StatusBarColorController statusBarColorController = mActivity.getStatusBarColorController();
-        mScrimCoordinator = new ScrimCoordinator(mActivity,
-                (fraction) -> statusBarColorController
-                        .setStatusBarScrimFraction(fraction),
-                coordinator,
-                ApiCompatibilityUtils.getColor(coordinator.getResources(),
-                        R.color.omnibox_focused_fading_background_color));
+        mScrimCoordinator = buildScrimWidget();
 
         mTabThemeColorProvider = new TabThemeColorProvider(mActivity);
         mTabThemeColorProvider.setActivityTabProvider(mActivity.getActivityTabProvider());
@@ -526,6 +519,28 @@ public class RootUiCoordinator
         }
     }
 
+    /**
+     * Gives concrete implementation of {@link ScrimCoordinator.SystemUiScrimDelegate} and
+     * constructs {@link ScrimCoordinator}.
+     */
+    protected ScrimCoordinator buildScrimWidget() {
+        ViewGroup coordinator = mActivity.findViewById(R.id.coordinator);
+        ScrimCoordinator.SystemUiScrimDelegate delegate =
+                new ScrimCoordinator.SystemUiScrimDelegate() {
+                    @Override
+                    public void setStatusBarScrimFraction(float scrimFraction) {
+                        mActivity.getStatusBarColorController().setStatusBarScrimFraction(
+                                scrimFraction);
+                    }
+
+                    @Override
+                    public void setNavigationBarScrimFraction(float scrimFraction) {}
+                };
+        return new ScrimCoordinator(mActivity, delegate, coordinator,
+                ApiCompatibilityUtils.getColor(coordinator.getResources(),
+                        R.color.omnibox_focused_fading_background_color));
+    }
+
     private void setOverviewModeBehavior(OverviewModeBehavior overviewModeBehavior) {
         assert overviewModeBehavior != null;
         assert mOverviewModeBehavior
@@ -650,6 +665,9 @@ public class RootUiCoordinator
                 () -> mScrimCoordinator, sheetInitializedCallback, mActivity.getWindow(),
                 mActivity.getWindowAndroid().getKeyboardDelegate(),
                 () -> mActivity.findViewById(R.id.coordinator));
+        BottomSheetControllerFactory.setExceptionReporter(
+                (throwable)
+                        -> PureJavaExceptionReporter.reportJavaException((Throwable) throwable));
         BottomSheetControllerFactory.attach(mActivity.getWindowAndroid(), mBottomSheetController);
 
         mBottomSheetManager = new BottomSheetManager(mBottomSheetController, mActivityTabProvider,

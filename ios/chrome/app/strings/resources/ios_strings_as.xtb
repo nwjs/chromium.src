@@ -22,7 +22,6 @@
 <translation id="1176932207622159128">প্ৰতিচ্ছবি ছেভ কৰিব নোৱাৰি</translation>
 <translation id="1180526666083833456">সকলো ডিভাইচতে ছিংক আৰু ব্যক্তিগতকৰণ কৰক।</translation>
 <translation id="1181037720776840403">আঁতৰাওক</translation>
-<translation id="1185569544548277362">নতুন: আপুনি Chromeক নিজৰ ডিফ’ল্ট ব্ৰাউজাৰ কৰিব পাৰে। <ph name="BEGIN_LINK" />ছেটিংসমূহ খোলক<ph name="END_LINK" /></translation>
 <translation id="1207113853726624428">নতুন সন্ধান</translation>
 <translation id="1209206284964581585">এতিয়াৰ বাবে লুকুৱাওক</translation>
 <translation id="1219674500290482172">ইণ্টাৰনেটৰ লগত সংযোগ কৰিব পৰা নাই।</translation>
@@ -96,6 +95,7 @@
 <translation id="1952728750904661634">পৰিচালিত একাউণ্টৰ জৰিয়তে ছাইন ইন কৰক</translation>
 <translation id="1974060860693918893">উন্নত</translation>
 <translation id="1989112275319619282">ব্ৰাউজ কৰক</translation>
+<translation id="1992734845128748707">ডিফ’ল্ট ব্ৰাউজাৰ সলনি কৰক…</translation>
 <translation id="2015722694326466240">পাছৱৰ্ড চাবলৈ আপুনি প্ৰথমে এই ডিভাইচটোত এটা পাছক‘ড ছেট কৰিব লাগিব।</translation>
 <translation id="2073572773299281212"><ph name="DAYS" />দিনৰ পূৰ্বে সক্ৰিয় আছিল</translation>
 <translation id="2074131957428911366">আপুনি কি ছিংক কৰিব লাগে সেয়া <ph name="BEGIN_LINK" />ছেটিংসমূহ<ph name="END_LINK" />-লৈ গৈ যেতিয়াই মন যায় তেতিয়াই সলনি কৰিব পাৰে।</translation>
@@ -245,6 +245,7 @@
 <translation id="3638472932233958418">ৱেবপৃষ্ঠা আগতীয়াকৈ ল’ড কৰক</translation>
 <translation id="3670030362669914947">নম্বৰ</translation>
 <translation id="3691593122358196899"><ph name="FOLDER_TITLE" />ত বুকমার্ক কৰা হৈছে</translation>
+<translation id="3709582977625132201">নপঢ়া হিচাপে চিহ্নিত কৰক</translation>
 <translation id="3740397331642243698">অন্তৰ্ভুক্ত কৰা URLসমূহ Google Chromeৰ ইনক’গনিট’ত খোলে।</translation>
 <translation id="3771033907050503522">ইনক’গনিট’ টেব</translation>
 <translation id="3775743491439407556">ছিংক কৰা সুবিধাটোৱে কাম কৰা নাই</translation>
@@ -333,6 +334,7 @@
 <translation id="4818522717893377262">ভাষা যোগ কৰক...</translation>
 <translation id="481968316161811770">কুকি, ছাইটৰ ডেটা</translation>
 <translation id="4826218269716039351">তৃতীয় পক্ষক অৱৰোধ কৰক</translation>
+<translation id="48274138579728272">পঢ়া হৈছে বুলি চিহ্নিত কৰক</translation>
 <translation id="4833786495304741580">Googleলৈ স্বয়ংক্ৰিয়ভাৱে ব্যৱহাৰৰ পৰিসংখ্যা আৰু ক্ৰেশ্ব ৰিপ’ৰ্ট পঠিয়ায়</translation>
 <translation id="4840495572919996524">আপোনাৰ বুকমাৰ্ক, ইতিহাস, পাছৱৰ্ড আৰু অধিক আপোনাৰ Google একাউণ্টৰ সৈতে আৰু ছিংক হৈ নাথাকিব।</translation>
 <translation id="4854345657858711387">পাছক'ড ছেট কৰক</translation>
@@ -383,6 +385,7 @@
 <translation id="5433691172869980887">ব্যৱহাৰকাৰীৰ নাম প্ৰতিলিপি কৰা হ’ল</translation>
 <translation id="54401264925851789">পৃষ্ঠাৰ সুৰক্ষাৰ তথ্য</translation>
 <translation id="5443952882982198570">ক্ৰেডিট কাৰ্ড</translation>
+<translation id="5457226814769348910">অফলাইন সংস্কৰণটো খোলক</translation>
 <translation id="5457907402803865181">পাছৱৰ্ডসমূহ ছিংক কৰাত আসোঁৱাহ হৈছে।</translation>
 <translation id="5489208564673669003">সকলো ছাইটৰ কুকিসমূহ পৰিচালনা কৰিবলৈ <ph name="BEGIN_LINK" />কুকিৰ ছেটিংসমূহ<ph name="END_LINK" /> চাওক।</translation>
 <translation id="5490005495580364134">সকলো কুকি অৱৰোধ কৰক (চুপাৰিছ কৰা নহয়)</translation>
@@ -554,6 +557,7 @@
 <translation id="7189598951263744875">শ্বেয়াৰ কৰক...</translation>
 <translation id="7192050974311852563">ল’গ কৰা প্ৰক্ৰিয়া আৰম্ভ কৰক</translation>
 <translation id="7203585745079012652">সঁহাৰিটো কৈ দিয়ক</translation>
+<translation id="7207383424303353046">নতুন: Chromeক আপোনাৰ ডিফ’ল্ট ব্ৰাউজাৰ এপ্‌ বনাই ছাইটসমূহ স্বয়ংক্ৰিয়ভাৱে তাত খোলক। <ph name="BEGIN_LINK" />ছেটিংসমূহ খোলক<ph name="END_LINK" /></translation>
 <translation id="721597782417389033">কার্ডৰ উপনাম অমান্য</translation>
 <translation id="7265758999917665941">এই ছাইটটোৰ বাবে কেতিয়াও নহয়</translation>
 <translation id="7272437679830969316">আপোনাৰ পৰিচয় সত্যাপন কৰিব পৰা নগ’ল। পাছৱৰ্ড প্ৰতিলিপি কৰা নহ’ল।</translation>
@@ -683,7 +687,7 @@
 <translation id="8756969031206844760">পাছৱৰ্ড আপডে’ট কৰিবনে?</translation>
 <translation id="8775144690796719618">অমান্য URL</translation>
 <translation id="8803639129939845298">সুৰক্ষিত</translation>
-<translation id="8820817407110198400">বুকমার্কসমূহ</translation>
+<translation id="8820817407110198400">Bookmarks</translation>
 <translation id="8840513115188359703">আপোনাক নিজৰ Google Accountৰ পৰা ছাইন আউট কৰোৱা নহয়।</translation>
 <translation id="8870413625673593573">শেহতীয়াকৈ বন্ধ কৰা</translation>
 <translation id="8881801611828450202">এই প্ৰতিচ্ছবিটোৰ কাৰণে <ph name="SEARCH_ENGINE" />ত সন্ধান কৰক</translation>
