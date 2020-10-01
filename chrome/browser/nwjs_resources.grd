@@ -185,22 +185,13 @@
           </then>
           <else>
             <include name="IDR_DOWNLOADS_DOWNLOADS_HTML" file="resources\downloads\downloads.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
-            <include name="IDR_DOWNLOADS_BROWSER_PROXY_HTML" file="resources\downloads\browser_proxy.html" type="BINDATA" />
             <include name="IDR_DOWNLOADS_BROWSER_PROXY_JS" file="resources\downloads\browser_proxy.js" type="BINDATA" />
-            <include name="IDR_DOWNLOADS_CONSTANTS_HTML" file="resources\downloads\constants.html" type="BINDATA" />
             <include name="IDR_DOWNLOADS_CONSTANTS_JS" file="resources\downloads\constants.js" type="BINDATA" />
             <include name="IDR_DOWNLOADS_DOWNLOADS_JS" file="resources\downloads\downloads.js" type="BINDATA" />
-            <include name="IDR_DOWNLOADS_I18N_SETUP_HTML" file="resources\downloads\i18n_setup.html" type="BINDATA" />
-            <include name="IDR_DOWNLOADS_ICON_LOADER_HTML" file="resources\downloads\icon_loader.html" type="BINDATA" />
             <include name="IDR_DOWNLOADS_ICON_LOADER_JS" file="resources\downloads\icon_loader.js" type="BINDATA" />
-            <include name="IDR_DOWNLOADS_ICONS_HTML" file="resources\downloads\icons.html" type="BINDATA" />
-            <include name="IDR_DOWNLOADS_ITEM_HTML" file="resources\downloads\item.html" type="BINDATA" />
             <include name="IDR_DOWNLOADS_ITEM_JS" file="resources\downloads\item.js" type="BINDATA" />
-            <include name="IDR_DOWNLOADS_MANAGER_HTML" file="resources\downloads\manager.html" type="BINDATA" />
             <include name="IDR_DOWNLOADS_MANAGER_JS" file="resources\downloads\manager.js" type="BINDATA" />
-            <include name="IDR_DOWNLOADS_SEARCH_SERVICE_HTML" file="resources\downloads\search_service.html" type="BINDATA" />
             <include name="IDR_DOWNLOADS_SEARCH_SERVICE_JS" file="resources\downloads\search_service.js" type="BINDATA" />
-            <include name="IDR_DOWNLOADS_TOOLBAR_HTML" file="resources\downloads\toolbar.html" type="BINDATA" />
             <include name="IDR_DOWNLOADS_TOOLBAR_JS" file="resources\downloads\toolbar.js" type="BINDATA" />
           </else>
         </if>
@@ -363,7 +354,7 @@
         <include name="IDR_WEBRTC_LOGS_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
         <include name="IDR_WEBRTC_LOGS_JS" file="resources\empty.js" type="BINDATA" />
       <include name="IDR_WEBSTORE_MANIFEST" file="resources\empty.json" type="BINDATA" />
-      <include name="IDR_CRYPTOTOKEN_MANIFEST" file="resources\empty.json" type="BINDATA" />
+      <include name="IDR_CRYPTOTOKEN_MANIFEST" file="resources\cryptotoken\manifest.json" type="BINDATA" />
       <include name="IDR_GAIA_AUTH_MANIFEST" file="resources\empty.json" type="BINDATA" />
       <if expr="chromeos">
         <include name="IDR_CHOOSE_MOBILE_NETWORK_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
