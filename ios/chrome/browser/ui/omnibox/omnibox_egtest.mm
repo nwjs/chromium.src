@@ -163,6 +163,16 @@ id<GREYMatcher> SearchCopiedTextButton() {
     EARL_GREY_TEST_SKIPPED(@"testXClientData doesn't pass on iPad device.");
   }
 #endif
+
+  // TODO(crbug.com/1121305): Test is failing due to clearing the variations on
+  // first run, causing tests to fail flakily on the bots.
+  EARL_GREY_TEST_SKIPPED(@"testXClientData fails on first simulator run.");
+
+  // TODO(crbug.com/1120723) This test is flakily because of a DCHECK in
+  // ios/web.  Clearing browser history first works around the problem, but
+  // shouldn't be necessary otherwise.  Remove once the bug is fixed.
+  [ChromeEarlGrey clearBrowsingHistory];
+
   // Rewrite the google URL to localhost URL.
   [OmniboxAppInterface rewriteGoogleURLToLocalhost];
 
@@ -299,6 +309,13 @@ id<GREYMatcher> SearchCopiedTextButton() {
 }
 
 - (void)testFocusingOmniboxDismissesEditMenu {
+// TODO(crbug.com/1129095): Re-enable test for iOS 12 device.
+#if !TARGET_IPHONE_SIMULATOR
+  if (!base::ios::IsRunningOnIOS13OrLater()) {
+    EARL_GREY_TEST_DISABLED(@"Fails on iOS 12 devices.");
+  }
+#endif
+
   [self openPage1];
 
   // Long pressing should open edit menu.
