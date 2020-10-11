@@ -14,6 +14,7 @@
 <translation id="1084365883616172403">S'ha completat la publicació a Facebook.</translation>
 <translation id="1103523840287552314">Tradueix sempre el text en <ph name="LANGUAGE" /></translation>
 <translation id="1104948393051856124">Accepta i continua</translation>
+<translation id="110724200315609752">Canvia a la finestra oberta</translation>
 <translation id="1112015203684611006">Error en imprimir</translation>
 <translation id="1125564390852150847">Crea una pestanya nova.</translation>
 <translation id="1145536944570833626">Suprimeix les dades existents.</translation>
@@ -93,6 +94,7 @@
 <translation id="1941314575388338491">Feu doble toc per copiar-ho.</translation>
 <translation id="1952172573699511566">Quan sigui possible, els llocs web mostraran el text en el teu idioma preferit.</translation>
 <translation id="1952728750904661634">Inicieu la sessió amb un compte gestionat</translation>
+<translation id="1965935827552890526">Acaba el que estaves fent a l'altra finestra de Chrome oberta.</translation>
 <translation id="1974060860693918893">Configuració avançada</translation>
 <translation id="1989112275319619282">Examina</translation>
 <translation id="1992734845128748707">Canvia el navegador predeterminat…</translation>
@@ -277,6 +279,7 @@ En mode d'incògnit, els llocs web no poden fer servir galetes per veure la teva
 <translation id="408404951701638773">Ara és més fàcil accedir a la barra de cerca</translation>
 <translation id="411254640334432676">S'ha produït un error durant la baixada.</translation>
 <translation id="4112644173421521737">Cerca</translation>
+<translation id="4113030288477039509">Gestionat per l'administrador</translation>
 <translation id="4121993058175073134">Definiu el vostre compte de correu electrònic a l'aplicació Configuració per enviar dades d'exportació de xarxa.</translation>
 <translation id="4124987746317609294">Interval de temps</translation>
 <translation id="4152011295694446843">Trobaràs les adreces d'interès aquí</translation>
@@ -285,11 +288,13 @@ En mode d'incògnit, els llocs web no poden fer servir galetes per veure la teva
 <translation id="4181841719683918333">Idiomes</translation>
 <translation id="424315890655130736">Introduïu la frase de contrasenya</translation>
 <translation id="4263576668337963058">Mostra les accions de pàgina disponibles</translation>
+<translation id="4267380167363222949">Pestanya següent</translation>
 <translation id="4272631900155121838">Per poder escanejar un codi QR, activa la càmera a la configuració</translation>
 <translation id="4276041135170112053">Corregeix ara.</translation>
 <translation id="4277990410970811858">Navegació segura</translation>
 <translation id="4281844954008187215">Condicions del servei</translation>
 <translation id="430793432425771671">Sincronitza-ho tot</translation>
+<translation id="4309403553630140242">Fes doble toc per obtenir més informació</translation>
 <translation id="430967081421617822">Tot el període</translation>
 <translation id="4334428914252001502">Un article no llegit.</translation>
 <translation id="4338650699862464074">Envia a Google els URL de les pàgines que visites.</translation>
@@ -353,6 +358,7 @@ Per canviar aquesta opció, <ph name="BEGIN_LINK" />restableix la sincronitzaci�
 <translation id="5005498671520578047">Copia la contrasenya</translation>
 <translation id="5010803260590204777">Obriu una pestanya d'incògnit per navegar pel web de manera privada.</translation>
 <translation id="5039804452771397117">Permet</translation>
+<translation id="5056446788882570708">S'han trobat errors <ph name="TIME" />.</translation>
 <translation id="5059136629401106827">D'acord</translation>
 <translation id="5062321486222145940">Instal. de Google Drive</translation>
 <translation id="5083464117946352670">No es determina mida fitxer.</translation>
@@ -376,7 +382,6 @@ Per canviar aquesta opció, <ph name="BEGIN_LINK" />restableix la sincronitzaci�
 <translation id="5317780077021120954">Desa</translation>
 <translation id="5327248766486351172">Nom</translation>
 <translation id="5339316356165661760">Activa la sincronització</translation>
-<translation id="5352285283572729470">Aquesta opció està gestionada</translation>
 <translation id="5388358297987318779">Obre una imatge</translation>
 <translation id="5407969256130905701">Descarta els canvis</translation>
 <translation id="5409365236829784218">Cap aplicació instal·lada no pot obrir el fitxer.</translation>
@@ -456,6 +461,7 @@ Handoff també ha d'estar activat a la secció General de Configuració, i els v
 <translation id="6187302354554850004">Última sincronització: <ph name="LAST_USED_TIME" /></translation>
 <translation id="6189413832092199491">No llegits</translation>
 <translation id="6196207969502475924">Cerca per veu</translation>
+<translation id="6202364442240589072">{COUNT,plural, =1{Tanca {COUNT} pestanya}other{Tanca {COUNT} pestanyes}}</translation>
 <translation id="6219688215832490856">No tradueixis mai</translation>
 <translation id="6254066287920239840">Obre els enllaços a l'aplicació en comptes del navegador.</translation>
 <translation id="6255097610484507482">Edita la targeta de crèdit</translation>
@@ -571,6 +577,7 @@ Els llocs web no poden fer servir galetes per veure la teva activitat de navegac
 <translation id="734758817008927353">Opcions per desar la targeta</translation>
 <translation id="7348502496356775519">Adreça d'interès</translation>
 <translation id="7383797227493018512">Llista de lectura</translation>
+<translation id="739941347996872055">Pestanya anterior</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> articles sense llegir.</translation>
 <translation id="7425346204213733349">Els canvis que es facin a les adreces d'interès, l'historial, les contrasenyes i altres opcions de configuració es deixaran de sincronitzar amb el Compte de Google. No obstant això, les dades actuals hi continuaran emmagatzemades.</translation>
@@ -636,6 +643,7 @@ Els llocs web poden fer servir galetes per veure la teva activitat de navegació
 <translation id="8073670137947914548">La baixada ha finalitzat</translation>
 <translation id="8073872304774253879">Millora les cerques i la navegació</translation>
 <translation id="8076014560081431679">La configuració desada del lloc no se suprimirà i és possible que reflecteixi els vostres hàbits de navegació. <ph name="BEGIN_LINK" />Més informació<ph name="END_LINK" /></translation>
+<translation id="8079602123447022758">Aquesta opció de configuració està gestionada. Fes doble toc per obtenir més informació.</translation>
 <translation id="8105368624971345109">Desactiva</translation>
 <translation id="8114753159095730575">La baixada de fitxers està disponible. Opcions disponibles a la part inferior de la pantalla.</translation>
 <translation id="8131740175452115882">Confirma</translation>

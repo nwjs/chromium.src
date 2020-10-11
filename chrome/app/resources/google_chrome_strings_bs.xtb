@@ -102,6 +102,7 @@ Neke funkcije možda neće biti dostupne i promjene postavki se neće sačuvati.
 <translation id="3622797965165704966">Sada je lakše koristiti Chrome s vašim Google računom i na dijeljenim računarima.</translation>
 <translation id="3718181793972440140">Ovim će se izbrisati 1 stavka s ovog uređaja. Da preuzmete svoje podatke kasnije, prijavite se na Chrome kao <ph name="USER_EMAIL" />.</translation>
 <translation id="3735758079232443276">Ekstenzija "<ph name="EXTENSION_NAME" />" je promijenila stranicu koja se prikazuje kada pokrenete Chrome.</translation>
+<translation id="3779473566290487688">Da primate buduća ažuriranja za Google Chrome, trebat će vam OS X 10.11 ili novija verzija. Ovaj računar koristi OS X 10.10.</translation>
 <translation id="3780814664026482060">Chrome – <ph name="PAGE_TITLE" /></translation>
 <translation id="386202838227397562">Zatvorite sve prozore Google Chromea i pokušajte ponovo.</translation>
 <translation id="3865754807470779944">Verzija Chromea <ph name="PRODUCT_VERSION" /> je instalirana</translation>
@@ -200,6 +201,7 @@ Moguće je da neke funkcije neće biti dostupne. Odredite drugi direktorij profi
 <translation id="6967962315388095737">Ulazno pravilo da Google Chrome beta verzija dozvoli mDNS saobraćaj.</translation>
 <translation id="6982337800632491844"><ph name="DOMAIN" /> zahtijeva da pročitate i prihvatite sljedeće Uvjete pružanja usluge prije upotrebe ovog uređaja. Ti uvjeti ne predstavljaju proširenje, izmjenu ili ograničenje Uvjeta OS-a Google Chrome.</translation>
 <translation id="6989339256997917931">Google Chrome je ažuriran, ali ga niste koristili najmanje 30 dana.</translation>
+<translation id="7054640471403081847">Ovo će računalo uskoro prestati primati ažuriranja Google Chromea jer njegov hardver više nije podržan.</translation>
 <translation id="7062128746136194023">Tvoj roditelj je isključio "Odobrenja za web lokacije, aplikacije i ekstenzije" za Chrome. Dodavanje ove stavke (<ph name="EXTENSION_TYPE_PARAMETER" />) nije dozvoljeno.</translation>
 <translation id="7098166902387133879">Google Chrome koristi vaš mikrofon.</translation>
 <translation id="7106741999175697885">Upravitelj zadataka – Google Chrome</translation>
@@ -219,7 +221,6 @@ Moguće je da neke funkcije neće biti dostupne. Odredite drugi direktorij profi
 <translation id="7486227612705979895">Chrome će pristupiti Disku kako bi pružio prijedloge u traci za adresu.</translation>
 <translation id="7535429826459677826">Google Chrome Dev</translation>
 <translation id="7573289029918943991">Da vidite je li vaš uređaj ažuriran, idite u <ph name="LINK_BEGIN" />Postavke Chrome OS-a<ph name="LINK_END" /></translation>
-<translation id="7589360514048265910">Ovaj računar više neće primati ažuriranja za Google Chrome jer Mac OS X 10.9 više nije podržan.</translation>
 <translation id="7592736734348559088">Google Chrome nije mogao sinhronizirati vaše podatke jer su detalji za prijavu na vaš račun zastarjeli.</translation>
 <translation id="7626032353295482388">Dobro došli u Chrome</translation>
 <translation id="7629695634924605473">Chrome vas obavještava ako sigurnost vaših lozinki bude ugrožena</translation>

@@ -2,9 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/command_line.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "content/public/common/content_features.h"
-#include "base/command_line.h"
 
 #import "chrome/browser/ui/cocoa/apps/app_shim_menu_controller_mac.h"
 

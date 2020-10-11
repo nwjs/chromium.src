@@ -14,6 +14,7 @@
 <translation id="1084365883616172403">Facebook post completed.</translation>
 <translation id="1103523840287552314">Always translate <ph name="LANGUAGE" /></translation>
 <translation id="1104948393051856124">Accept &amp; Continue</translation>
+<translation id="110724200315609752">Switch to open window</translation>
 <translation id="1112015203684611006">Printing failed.</translation>
 <translation id="1125564390852150847">Create new tab.</translation>
 <translation id="1145536944570833626">Delete existing data.</translation>
@@ -93,6 +94,7 @@
 <translation id="1941314575388338491">Double tap to copy.</translation>
 <translation id="1952172573699511566">Websites will show text in your preferred language, when possible.</translation>
 <translation id="1952728750904661634">Sign in with managed account</translation>
+<translation id="1965935827552890526">Finish what you were doing in your other open Chrome window.</translation>
 <translation id="1974060860693918893">Advanced</translation>
 <translation id="1989112275319619282">Browse</translation>
 <translation id="1992734845128748707">Change default browser…</translation>
@@ -277,6 +279,7 @@ While in Incognito, sites can't use cookies to see your browsing activity across
 <translation id="408404951701638773">Search bar is now easier to reach</translation>
 <translation id="411254640334432676">Download failed.</translation>
 <translation id="4112644173421521737">Search</translation>
+<translation id="4113030288477039509">Managed by your administrator</translation>
 <translation id="4121993058175073134">To send net-export data, please configure your email account in the Settings app.</translation>
 <translation id="4124987746317609294">Time Range</translation>
 <translation id="4152011295694446843">You'll find your bookmarks here</translation>
@@ -285,11 +288,13 @@ While in Incognito, sites can't use cookies to see your browsing activity across
 <translation id="4181841719683918333">Languages</translation>
 <translation id="424315890655130736">Enter Passphrase</translation>
 <translation id="4263576668337963058">Show available page actions</translation>
+<translation id="4267380167363222949">Next tab</translation>
 <translation id="4272631900155121838">To scan a QR code, enable the camera from settings</translation>
 <translation id="4276041135170112053">Fix now.</translation>
 <translation id="4277990410970811858">Safe Browsing</translation>
 <translation id="4281844954008187215">Terms of Service</translation>
 <translation id="430793432425771671">Sync Everything</translation>
+<translation id="4309403553630140242">Double-tap for more information</translation>
 <translation id="430967081421617822">All time</translation>
 <translation id="4334428914252001502">One unread article.</translation>
 <translation id="4338650699862464074">Sends URLs of pages that you visit to Google.</translation>
@@ -353,6 +358,7 @@ To change this setting, <ph name="BEGIN_LINK" />reset sync<ph name="END_LINK" />
 <translation id="5005498671520578047">Copy password</translation>
 <translation id="5010803260590204777">Open an incognito tab to browse the web privately.</translation>
 <translation id="5039804452771397117">Allow</translation>
+<translation id="5056446788882570708">Issues found <ph name="TIME" />.</translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5062321486222145940">Install Google Drive</translation>
 <translation id="5083464117946352670">Cannot determine file size.</translation>
@@ -376,7 +382,6 @@ To change this setting, <ph name="BEGIN_LINK" />reset sync<ph name="END_LINK" />
 <translation id="5317780077021120954">Save</translation>
 <translation id="5327248766486351172">Name</translation>
 <translation id="5339316356165661760">Turn on sync</translation>
-<translation id="5352285283572729470">This setting is managed</translation>
 <translation id="5388358297987318779">Open Image</translation>
 <translation id="5407969256130905701">Discard changes</translation>
 <translation id="5409365236829784218">There are no applications installed that can open this file.</translation>
@@ -456,6 +461,7 @@ Handoff must also be enabled in the General section of Settings, and your device
 <translation id="6187302354554850004">Last synced: <ph name="LAST_USED_TIME" /></translation>
 <translation id="6189413832092199491">Unread</translation>
 <translation id="6196207969502475924">Voice Search</translation>
+<translation id="6202364442240589072">{COUNT,plural, =1{Close {COUNT} tab}other{Close {COUNT} tabs}}</translation>
 <translation id="6219688215832490856">Never translate</translation>
 <translation id="6254066287920239840">Open links in the app instead of the browser.</translation>
 <translation id="6255097610484507482">Edit Credit Card</translation>
@@ -571,6 +577,7 @@ Sites can't use cookies to see your browsing activity across different sites, fo
 <translation id="734758817008927353">Options to save card</translation>
 <translation id="7348502496356775519">Bookmark</translation>
 <translation id="7383797227493018512">Reading List</translation>
+<translation id="739941347996872055">Previous tab</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> unread articles.</translation>
 <translation id="7425346204213733349">Changes to your bookmarks, history, passwords and other settings will no longer be synced to your Google Account. However, your existing data will remain stored in your Google Account.</translation>
@@ -636,6 +643,7 @@ Sites can use cookies to see your browsing activity across different sites, for 
 <translation id="8073670137947914548">Download finished</translation>
 <translation id="8073872304774253879">Make searches and browsing better</translation>
 <translation id="8076014560081431679">Saved site settings will not be deleted and may reflect your browsing habits. <ph name="BEGIN_LINK" />Find out more<ph name="END_LINK" /></translation>
+<translation id="8079602123447022758">This setting is managed; double-tap for more information</translation>
 <translation id="8105368624971345109">Turn Off</translation>
 <translation id="8114753159095730575">File download is available. Options available near bottom of screen.</translation>
 <translation id="8131740175452115882">Confirm</translation>

@@ -28,7 +28,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "build/chromecast_buildflags.h"
-#include "build/lacros_buildflags.h"
+#include "build/chromeos_buildflags.h"
 #include "testing/gmock/include/gmock/gmock-matchers.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -46,12 +46,13 @@
 #include "ui/base/clipboard/test/test_clipboard.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/half_float.h"
+#include "url/origin.h"
 
 #if defined(OS_WIN)
 #include "ui/base/clipboard/clipboard_util_win.h"
 #endif
 
-#if defined(USE_X11)
+#if defined(USE_X11) || defined(USE_OZONE)
 #include "ui/base/ui_base_features.h"
 #include "ui/events/platform/platform_event_source.h"
 #endif
@@ -171,8 +172,12 @@ TYPED_TEST(ClipboardTest, TextTest) {
               Contains(ASCIIToUTF16(kMimeTypeText)));
 #if defined(USE_OZONE) && !defined(OS_CHROMEOS) && !defined(OS_FUCHSIA) && \
     !BUILDFLAG(IS_CHROMECAST) && !BUILDFLAG(IS_LACROS)
-  EXPECT_THAT(this->GetAvailableTypes(ClipboardBuffer::kCopyPaste),
-              Contains(ASCIIToUTF16(kMimeTypeTextUtf8)));
+  // TODO(https://crbug.com/1096425): remove this if condition. It seems like
+  // we have this condition working for Ozone/Linux, but not for X11/Linux.
+  if (features::IsUsingOzonePlatform()) {
+    EXPECT_THAT(this->GetAvailableTypes(ClipboardBuffer::kCopyPaste),
+                Contains(ASCIIToUTF16(kMimeTypeTextUtf8)));
+  }
 #endif
   EXPECT_TRUE(this->clipboard().IsFormatAvailable(
       ClipboardFormatType::GetPlainTextType(), ClipboardBuffer::kCopyPaste,
@@ -221,6 +226,25 @@ TYPED_TEST(ClipboardTest, HTMLTest) {
   // this.
   EXPECT_EQ(url, url_result);
 #endif  // defined(OS_WIN)
+}
+
+TYPED_TEST(ClipboardTest, SvgTest) {
+  base::string16 markup(ASCIIToUTF16("<svg> <circle r=\"40\" /> </svg>"));
+
+  {
+    ScopedClipboardWriter clipboard_writer(ClipboardBuffer::kCopyPaste);
+    clipboard_writer.WriteSvg(markup);
+  }
+
+  EXPECT_TRUE(this->clipboard().IsFormatAvailable(
+      ClipboardFormatType::GetSvgType(), ClipboardBuffer::kCopyPaste,
+      /* data_dst = */ nullptr));
+
+  base::string16 markup_result;
+  this->clipboard().ReadSvg(ClipboardBuffer::kCopyPaste,
+                            /* data_dst = */ nullptr, &markup_result);
+
+  EXPECT_EQ(markup, markup_result);
 }
 
 #if !defined(OS_ANDROID)
@@ -1031,6 +1055,11 @@ TYPED_TEST(ClipboardTest, WriteHTMLEmptyParams) {
   scw.WriteHTML(base::string16(), std::string());
 }
 
+TYPED_TEST(ClipboardTest, EmptySvgTest) {
+  ScopedClipboardWriter clipboard_writer(ClipboardBuffer::kCopyPaste);
+  clipboard_writer.WriteSvg(base::string16());
+}
+
 TYPED_TEST(ClipboardTest, WriteRTFEmptyParams) {
   ScopedClipboardWriter scw(ClipboardBuffer::kCopyPaste);
   scw.WriteRTF(std::string());
@@ -1067,7 +1096,7 @@ TYPED_TEST(ClipboardTest, DlpAllowDataRead) {
   {
     ScopedClipboardWriter writer(
         ClipboardBuffer::kCopyPaste,
-        std::make_unique<ClipboardDataEndpoint>(GURL()));
+        std::make_unique<ClipboardDataEndpoint>(url::Origin()));
     writer.WriteText(kTestText);
   }
   auto* dlp_controller = this->dlp_controller();
@@ -1088,7 +1117,7 @@ TYPED_TEST(ClipboardTest, DlpDisallowDataRead) {
   {
     ScopedClipboardWriter writer(
         ClipboardBuffer::kCopyPaste,
-        std::make_unique<ClipboardDataEndpoint>(GURL()));
+        std::make_unique<ClipboardDataEndpoint>(url::Origin()));
     writer.WriteText(kTestText);
   }
   auto* dlp_controller = this->dlp_controller();

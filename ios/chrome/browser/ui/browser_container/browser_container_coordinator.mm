@@ -4,13 +4,20 @@
 
 #import "ios/chrome/browser/ui/browser_container/browser_container_coordinator.h"
 
+#import <Availability.h>
+
 #include "base/check.h"
 #import "ios/chrome/browser/main/browser.h"
 #import "ios/chrome/browser/overlays/public/overlay_presenter.h"
+#import "ios/chrome/browser/screen_time/features.h"
 #import "ios/chrome/browser/ui/browser_container/browser_container_mediator.h"
 #import "ios/chrome/browser/ui/browser_container/browser_container_view_controller.h"
 #import "ios/chrome/browser/ui/overlays/overlay_container_coordinator.h"
 #include "url/gurl.h"
+
+#if defined(__IPHONE_14_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_14_0
+#import "ios/chrome/browser/ui/screen_time/screen_time_coordinator.h"
+#endif  // __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_14_0
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
 #error "This file requires ARC support."
@@ -27,6 +34,8 @@
 // The overlay container coordinator for OverlayModality::kWebContentArea.
 @property(nonatomic, strong)
     OverlayContainerCoordinator* webContentAreaOverlayContainerCoordinator;
+// The coodinator that manages ScreenTime.
+@property(nonatomic, strong) ChromeCoordinator* screenTimeCoordinator;
 @end
 
 @implementation BrowserContainerCoordinator
@@ -55,6 +64,8 @@
       webContentAreaOverlayPresenter:overlayPresenter];
   self.mediator.consumer = self.viewController;
 
+  [self setUpScreenTimeIfEnabled];
+
   [super start];
 }
 
@@ -63,9 +74,32 @@
     return;
   self.started = NO;
   [self.webContentAreaOverlayContainerCoordinator stop];
+  [self.screenTimeCoordinator stop];
   self.viewController = nil;
   self.mediator = nil;
   [super stop];
+}
+
+#pragma mark - Private methods
+
+// Sets up the ScreenTime coordinator, which installs and manages the ScreenTime
+// blocking view.
+- (void)setUpScreenTimeIfEnabled {
+  if (!IsScreenTimeIntegrationEnabled())
+    return;
+
+#if defined(__IPHONE_14_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_14_0
+  if (@available(iOS 14, *)) {
+    ScreenTimeCoordinator* screenTimeCoordinator =
+        [[ScreenTimeCoordinator alloc]
+            initWithBaseViewController:self.viewController
+                               browser:self.browser];
+    [screenTimeCoordinator start];
+    self.viewController.screenTimeViewController =
+        screenTimeCoordinator.viewController;
+    self.screenTimeCoordinator = screenTimeCoordinator;
+  }
+#endif  // __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_14_0
 }
 
 @end

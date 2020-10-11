@@ -19,6 +19,7 @@
 <translation id="2161394479394250669">प्रिन्ट गर्ने कार्य रद्द गर्नुहोस्</translation>
 <translation id="2338501278241028356">नजिकैका यन्त्रहरू पत्ता लगाउन ब्लुटुथ सक्रिय गर्नुहोस्</translation>
 <translation id="2375079107209812402">अब <ph name="ATTEMPTS_LEFT" /> पटक प्रयास गर्न मिल्छ</translation>
+<translation id="2517472476991765520">स्क्यान गर्नुहोस्</translation>
 <translation id="2805756323405976993">एप्स</translation>
 <translation id="2872961005593481000">बन्द गर्नुहोस्</translation>
 <translation id="3008341117444806826">पुनः ताजा गर्नुहोस्</translation>
@@ -39,7 +40,6 @@
 <translation id="4034824040120875894">प्रिन्टर</translation>
 <translation id="4227825898293920515">पासवर्डको म्याद <ph name="TIME" /> मा सकिन्छ</translation>
 <translation id="4238516577297848345">प्रिन्टसम्बन्धी कुनै पनि काम भइरहेको छैन</translation>
-<translation id="428217921675623177">९० दिनभन्दा पहिले प्रिन्ट गरिएका कुरासम्बन्धी जानकारी हटाइने छ</translation>
 <translation id="4297501883039923494">रोकियो - अज्ञात त्रुटि भयो</translation>
 <translation id="4429881212383817840">Kerberos टिकटको म्याद चाँडै सकिँदै छ</translation>
 <translation id="445059817448385655">पुरानो पासवर्ड</translation>
@@ -80,7 +80,9 @@
 <translation id="7805768142964895445">स्थिति</translation>
 <translation id="808894953321890993">पासवर्ड परिवर्तन गर्नुहोस्‌</translation>
 <translation id="8208861521865154048">लाभहरू</translation>
+<translation id="8294431847097064396">स्रोत</translation>
 <translation id="8347227221149377169">प्रिन्टसम्बन्धी कार्यहरू</translation>
+<translation id="8352772353338965963">बहुविध साइन-इन को लागि एउटा खाता थप्नुहोस्। सबै साइन-इन भएका खाताहरू पासवर्ड विना नै पहुँच गर्न सकिन्छ, त्यसैले यो सुविधा विश्वसनीय खाताहरूसँग मात्रै प्रयोग गर्नुपर्छ।</translation>
 <translation id="8701136875688985581"><ph name="ENROLLMENT_DOMAIN" /> ले यो प्रयोगकर्ताको व्यवस्थापन गर्छ। यसले दूरवर्ती रूपमा सेटिङ व्यवस्थापन गर्न र प्रयोगकर्ताले गर्ने क्रियाकलाप निगरानी गर्न सक्छ।</translation>
 <translation id="871560550817059752">प्रिन्ट गर्न सकिएन - मसी सकियो</translation>
 <translation id="8726019395068607495">रोकियो - प्रिन्टरको कभर खुला छ</translation>

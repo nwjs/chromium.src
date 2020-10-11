@@ -308,6 +308,15 @@ class MEDIA_GPU_EXPORT V4L2Queue
                                                size_t buffer_size)
       WARN_UNUSED_RESULT;
 
+  // Identical to |SetFormat|, but does not actually apply the format, and can
+  // be called anytime.
+  // Returns an adjusted V4L2 format if |fourcc| is supported by the queue, or
+  // |nullopt| if |fourcc| is not supported or an ioctl error happened.
+  base::Optional<struct v4l2_format> TryFormat(uint32_t fourcc,
+                                               const gfx::Size& size,
+                                               size_t buffer_size)
+      WARN_UNUSED_RESULT;
+
   // Returns the currently set format on the queue. The result is returned as
   // a std::pair where the first member is the format, or base::nullopt if the
   // format could not be obtained due to an ioctl error. The second member is
@@ -358,6 +367,13 @@ class MEDIA_GPU_EXPORT V4L2Queue
   // If the caller discards the returned reference, the underlying buffer is
   // made available to clients again.
   base::Optional<V4L2WritableBufferRef> GetFreeBuffer();
+  // Return the buffer at index |requested_buffer_id|, if it is available at
+  // this time.
+  //
+  // If the buffer is currently in use or the provided index is invalid,
+  // return |base::nullopt|.
+  base::Optional<V4L2WritableBufferRef> GetFreeBuffer(
+      size_t requested_buffer_id);
 
   // Attempt to dequeue a buffer, and return a reference to it if one was
   // available.
@@ -396,6 +412,11 @@ class MEDIA_GPU_EXPORT V4L2Queue
 
   // Returns true if requests are supported by this queue.
   bool SupportsRequests();
+
+  // TODO (b/166275274) : Remove this once V4L2 properly supports modifiers.
+  // Out of band method to configure V4L2 for modifier use.
+  base::Optional<struct v4l2_format> SetModifierFormat(uint64_t modifier,
+                                                       const gfx::Size& size);
 
  private:
   ~V4L2Queue();
@@ -741,8 +762,11 @@ class MEDIA_GPU_EXPORT V4L2Device
   // Check whether the V4L2 control with specified |ctrl_id| is supported.
   bool IsCtrlExposed(uint32_t ctrl_id);
   // Set the specified list of |ctrls| for the specified |ctrl_class|, returns
-  // whether the operation succeeded.
-  bool SetExtCtrls(uint32_t ctrl_class, std::vector<V4L2ExtCtrl> ctrls);
+  // whether the operation succeeded. If |request_ref| is not nullptr, the
+  // controls are applied to the request instead of globally for the device.
+  bool SetExtCtrls(uint32_t ctrl_class,
+                   std::vector<V4L2ExtCtrl> ctrls,
+                   V4L2RequestRef* request_ref = nullptr);
 
   // Get the value of a single control, or base::nullopt of the control is not
   // exposed by the device.

@@ -52,7 +52,7 @@
 #include "base/values.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
-#include "build/lacros_buildflags.h"
+#include "build/chromeos_buildflags.h"
 #include "cc/base/switches.h"
 #include "chrome/browser/about_flags.h"
 #include "chrome/browser/active_use_util.h"
@@ -67,6 +67,7 @@
 #include "chrome/browser/first_run/first_run.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
+#include "chrome/browser/media/router/chrome_media_router_factory.h"
 #include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
 #include "chrome/browser/media/webrtc/webrtc_log_util.h"
 #include "chrome/browser/metrics/chrome_feature_list_creator.h"
@@ -98,7 +99,6 @@
 #include "chrome/browser/ui/profile_error_dialog.h"
 #include "chrome/browser/ui/startup/bad_flags_prompt.h"
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
-#include "chrome/browser/ui/uma_browsing_activity_observer.h"
 #include "chrome/browser/ui/webui/chrome_web_ui_controller_factory.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/channel_info.h"
@@ -113,8 +113,8 @@
 #include "chrome/common/media/media_resource_provider.h"
 #include "chrome/common/net/net_resource_provider.h"
 #include "chrome/common/pref_names.h"
-#include "chrome/common/profiler/stack_sampling_configuration.h"
 #include "chrome/common/profiler/thread_profiler.h"
+#include "chrome/common/profiler/thread_profiler_configuration.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/installer/util/google_update_settings.h"
 #include "components/device_event_log/device_event_log.h"
@@ -193,6 +193,7 @@
 #include "chrome/browser/resource_coordinator/tab_manager.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/uma_browsing_activity_observer.h"
 #include "chrome/browser/upgrade_detector/upgrade_detector.h"
 #include "chrome/browser/usb/web_usb_detector.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -296,7 +297,7 @@
 
 #if BUILDFLAG(ENABLE_RLZ)
 #include "chrome/browser/rlz/chrome_rlz_tracker_delegate.h"
-#include "components/rlz/rlz_tracker.h"
+#include "components/rlz/rlz_tracker.h"  // nogncheck crbug.com/1125897
 #endif  // BUILDFLAG(ENABLE_RLZ)
 
 #if BUILDFLAG(IS_LACROS)
@@ -498,7 +499,7 @@ ChromeBrowserMainParts::ChromeBrowserMainParts(
     StartupData* startup_data)
     : parameters_(parameters),
       parsed_command_line_(parameters.command_line),
-      result_code_(service_manager::RESULT_CODE_NORMAL_EXIT),
+      result_code_(content::RESULT_CODE_NORMAL_EXIT),
       should_call_pre_main_loop_start_startup_on_variations_service_(
           !parameters.ui_task),
       profile_(nullptr),
@@ -559,8 +560,8 @@ void ChromeBrowserMainParts::StartMetricsRecording() {
   // Register a synthetic field trial for the sampling profiler configuration
   // that was already chosen.
   std::string trial_name, group_name;
-  if (StackSamplingConfiguration::Get()->GetSyntheticFieldTrial(&trial_name,
-                                                                &group_name)) {
+  if (ThreadProfilerConfiguration::Get()->GetSyntheticFieldTrial(&trial_name,
+                                                                 &group_name)) {
     ChromeMetricsServiceAccessor::RegisterSyntheticFieldTrial(trial_name,
                                                               group_name);
   }
@@ -694,7 +695,7 @@ int ChromeBrowserMainParts::PreEarlyInitialization() {
     }
     // Continue on and show error later (once UI has been initialized and main
     // message loop is running).
-    return service_manager::RESULT_CODE_NORMAL_EXIT;
+    return content::RESULT_CODE_NORMAL_EXIT;
   }
   return load_local_state_result;
 }
@@ -756,9 +757,9 @@ int ChromeBrowserMainParts::PreCreateThreads() {
 
   result_code_ = PreCreateThreadsImpl();
 
-  if (result_code_ == service_manager::RESULT_CODE_NORMAL_EXIT) {
+  if (result_code_ == content::RESULT_CODE_NORMAL_EXIT) {
     result_code_ = nw::MainPartsPreCreateThreadsHook();
-    if (result_code_ != service_manager::RESULT_CODE_NORMAL_EXIT)
+    if (result_code_ != content::RESULT_CODE_NORMAL_EXIT)
       return result_code_;
     // These members must be initialized before exiting this function normally.
 #if !defined(OS_ANDROID)
@@ -808,7 +809,7 @@ int ChromeBrowserMainParts::OnLocalStateLoaded(
   browser_process_->SetApplicationLocale(locale);
 
   const int apply_first_run_result = ApplyFirstRunPrefs();
-  if (apply_first_run_result != service_manager::RESULT_CODE_NORMAL_EXIT)
+  if (apply_first_run_result != content::RESULT_CODE_NORMAL_EXIT)
     return apply_first_run_result;
 
   SetupOriginTrialsCommandLine(browser_process_->local_state());
@@ -816,7 +817,7 @@ int ChromeBrowserMainParts::OnLocalStateLoaded(
   metrics::EnableExpiryChecker(chrome_metrics::kExpiredHistogramsHashes,
                                chrome_metrics::kNumExpiredHistograms);
 
-  return service_manager::RESULT_CODE_NORMAL_EXIT;
+  return content::RESULT_CODE_NORMAL_EXIT;
 }
 
 int ChromeBrowserMainParts::ApplyFirstRunPrefs() {
@@ -828,7 +829,7 @@ int ChromeBrowserMainParts::ApplyFirstRunPrefs() {
   std::unique_ptr<installer::InitialPreferences> installer_initial_prefs =
       startup_data_->chrome_feature_list_creator()->TakeInitialPrefs();
   if (!installer_initial_prefs)
-    return service_manager::RESULT_CODE_NORMAL_EXIT;
+    return content::RESULT_CODE_NORMAL_EXIT;
 
   // On first run, we need to process the predictor preferences before the
   // browser's profile_manager object is created, but after ResourceBundle
@@ -854,7 +855,7 @@ int ChromeBrowserMainParts::ApplyFirstRunPrefs() {
   }
 
 #endif  // !defined(OS_ANDROID) && !defined(OS_CHROMEOS)
-  return service_manager::RESULT_CODE_NORMAL_EXIT;
+  return content::RESULT_CODE_NORMAL_EXIT;
 }
 
 int ChromeBrowserMainParts::PreCreateThreadsImpl() {
@@ -936,7 +937,7 @@ int ChromeBrowserMainParts::PreCreateThreadsImpl() {
       AddFirstRunNewTabs(browser_creator_.get(), master_prefs_->new_tabs);
     }
 
-#if defined(OS_MAC) || defined(OS_LINUX)
+#if defined(OS_MAC) || defined(OS_LINUX) || defined(OS_CHROMEOS)
     // Create directory for user-level Native Messaging manifest files. This
     // makes it less likely that the directory will be created by third-party
     // software with incorrect owner or permission. See crbug.com/725513 .
@@ -945,7 +946,7 @@ int ChromeBrowserMainParts::PreCreateThreadsImpl() {
                                  &user_native_messaging_dir));
     if (!base::PathExists(user_native_messaging_dir))
       base::CreateDirectory(user_native_messaging_dir);
-#endif  // defined(OS_MAC) || defined(OS_LINUX)
+#endif  // defined(OS_MAC) || defined(OS_LINUX) || defined(OS_CHROMEOS)
   }
 #endif  // !defined(OS_ANDROID) && !defined(OS_CHROMEOS)
 
@@ -1010,7 +1011,7 @@ int ChromeBrowserMainParts::PreCreateThreadsImpl() {
   // which is used in SetupMetrics().
   SetupMetrics();
 
-  return service_manager::RESULT_CODE_NORMAL_EXIT;
+  return content::RESULT_CODE_NORMAL_EXIT;
 }
 
 void ChromeBrowserMainParts::PostCreateThreads() {
@@ -1078,6 +1079,7 @@ void ChromeBrowserMainParts::PreProfileInit() {
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
   InstallChromeJavaScriptAppModalDialogViewFactory();
+  media_router::ChromeMediaRouterFactory::DoPlatformInit();
 }
 
 void ChromeBrowserMainParts::PostProfileInit() {
@@ -1209,7 +1211,7 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
     }
 
     return shell_integration::SetAsDefaultBrowser()
-               ? static_cast<int>(service_manager::RESULT_CODE_NORMAL_EXIT)
+               ? static_cast<int>(content::RESULT_CODE_NORMAL_EXIT)
                : static_cast<int>(chrome::RESULT_CODE_SHELL_INTEGRATION_FAILED);
   }
 
@@ -1225,7 +1227,7 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
   if (parsed_command_line().HasSwitch(switches::kPackExtension)) {
     extensions::StartupHelper extension_startup_helper;
     if (extension_startup_helper.PackExtension(parsed_command_line()))
-      return service_manager::RESULT_CODE_NORMAL_EXIT;
+      return content::RESULT_CODE_NORMAL_EXIT;
     return chrome::RESULT_CODE_PACK_EXTENSION_ERROR;
   }
 
@@ -1256,7 +1258,7 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
       // expected.
       if (parsed_command_line().HasSwitch(switches::kTestType))
         return chrome::RESULT_CODE_NORMAL_EXIT_PROCESS_NOTIFIED;
-      return service_manager::RESULT_CODE_NORMAL_EXIT;
+      return content::RESULT_CODE_NORMAL_EXIT;
 
     case ProcessSingleton::PROFILE_IN_USE:
       return chrome::RESULT_CODE_PROFILE_IN_USE;
@@ -1348,7 +1350,7 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
     }
 #else
     // We don't support retention experiments on Mac or Linux.
-    return service_manager::RESULT_CODE_NORMAL_EXIT;
+    return content::RESULT_CODE_NORMAL_EXIT;
 #endif  // defined(OS_WIN)
   }
 #endif  // !defined(OS_ANDROID)
@@ -1356,7 +1358,7 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
 #if defined(OS_WIN)
   // Do the tasks if chrome has been upgraded while it was last running.
   if (!already_running && upgrade_util::DoUpgradeTasks(parsed_command_line()))
-    return service_manager::RESULT_CODE_NORMAL_EXIT;
+    return content::RESULT_CODE_NORMAL_EXIT;
 
   // Check if there is any machine level Chrome installed on the current
   // machine. If yes and the current Chrome process is user level, we do not
@@ -1377,7 +1379,7 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
                                   user_data_dir_,
                                   parsed_command_line());
   if (!profile_)
-    return service_manager::RESULT_CODE_NORMAL_EXIT;
+    return content::RESULT_CODE_NORMAL_EXIT;
 
 #if defined(OS_WIN) && BUILDFLAG(USE_BROWSER_SPELLCHECKER)
   if (first_run::IsChromeFirstRun()) {
@@ -1458,7 +1460,7 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
     // The first run dialog is modal, and spins a RunLoop, which could receive
     // a SIGTERM, and call chrome::AttemptExit(). Exit cleanly in that case.
     if (browser_shutdown::IsTryingToQuit())
-      return service_manager::RESULT_CODE_NORMAL_EXIT;
+      return content::RESULT_CODE_NORMAL_EXIT;
   }
 #endif  // !defined(OS_ANDROID) && !defined(OS_CHROMEOS)
 
@@ -1474,7 +1476,10 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
   // This could be run as late as WM_QUERYENDSESSION for system update reboots,
   // but should run on startup if extended to handle crashes/hangs/patches.
   // Also, better to run once here than once for each HWND's WM_QUERYENDSESSION.
-  ChromeBrowserMainPartsWin::RegisterApplicationRestart(parsed_command_line());
+  if (!parsed_command_line().HasSwitch(switches::kBrowserTest)) {
+    ChromeBrowserMainPartsWin::RegisterApplicationRestart(
+        parsed_command_line());
+  }
 
   // Verify that the profile is not on a network share and if so prepare to show
   // notification to the user.

@@ -102,6 +102,7 @@
 <translation id="3622797965165704966">ადვილი გახდა თქვენი Google-ის ანგარიშის მეშვეობით Chrome-ის გამოყენება და საერთო მოხმარების კომპიუტერებზეც.</translation>
 <translation id="3718181793972440140">ეს მოქმედება წაშლის 1 ერთეულს ამ მოწყობილობიდან. თქვენი მონაცემების მოგვიანებით მისაღებად, შედით Chrome-ში, როგორც <ph name="USER_EMAIL" />.</translation>
 <translation id="3735758079232443276">გაფართოებამ „<ph name="EXTENSION_NAME" />“ თქვენ მიერ Chrome-ის გაშვებისას ნაჩვენები გვერდი შეცვალა.</translation>
+<translation id="3779473566290487688">Google Chrome-ის მომავალი განახლებების მისაღებად დაგჭირდებათ OS X 10.11 ან უფრო ახალი ვერსია. ეს კომპიუტერი იყენებს OS X 10.10-ს.</translation>
 <translation id="3780814664026482060">Chrome — <ph name="PAGE_TITLE" /></translation>
 <translation id="386202838227397562">დახურეთ Google Chrome-ის ყველა ფანჯარა და ხელახლა სცადეთ.</translation>
 <translation id="3865754807470779944">დაინსტალირებულია Chrome-ის ვერსია <ph name="PRODUCT_VERSION" /></translation>
@@ -201,6 +202,7 @@ Google Chrome ვერ შეძლებს თქვენი პარამ
 <translation id="6967962315388095737">შემომავალი წესი Google Chrome Beta-სთვის mDNS ტრაფიკის დასაშვებად.</translation>
 <translation id="6982337800632491844"><ph name="DOMAIN" /> მოითხოვს, რომ წაიკითხოთ დაეთანხმოთ შემდეგ წესებს და პირობებს ამ მოწყობილობის გამოყენებამდე. ეს წესები არ წარმოადგენს Google Chrome OS-ის წესების დამატებას, არ ცვლის და არ ზღუდავს მათ.</translation>
 <translation id="6989339256997917931">Google Chrome განახლდა, მაგრამ თქვენ არ იყენებდით მას მინიმუმ 30 დღის განმავლობაში.</translation>
+<translation id="7054640471403081847">ეს კომპიუტერი მალე შეწყვეტს Google Chrome-ის განახლებების მიღებას, რადგან მისი აპარატურა აღარ არის მხარდაჭერილი.</translation>
 <translation id="7062128746136194023">თქვენმა მშობელმა გამორთო „ნებართვები საიტებისთვის, აპებისა და გაფართოებებისთვის“ Chrome-ისთვის. ეს <ph name="EXTENSION_TYPE_PARAMETER" /> ვერ დაემატება.</translation>
 <translation id="7098166902387133879">Google Chrome იყენებს თქვენს მიკროფონს.</translation>
 <translation id="7106741999175697885">ამოცანათა მმართველი - Google Chrome</translation>
@@ -220,7 +222,6 @@ Google Chrome ვერ შეძლებს თქვენი პარამ
 <translation id="7486227612705979895">Chrome-ს ექნება წვდომა თქვენს Drive-ზე მისამართთა ზოლში შემოთავაზებების უზრუნველსაყოფად</translation>
 <translation id="7535429826459677826">Google Chrome Dev</translation>
 <translation id="7573289029918943991">თქვენი მოწყობილობის განახლების სტატუსის სანახავად გადადით <ph name="LINK_BEGIN" />Chrome OS-ის პარამეტრებზე<ph name="LINK_END" /></translation>
-<translation id="7589360514048265910">ეს კომპიუტერი აღარ მიიღებს Google Chrome-ის განახლებებს, რადგან Mac OS X 10.9 აღარ არის მხარდაჭერილი.</translation>
 <translation id="7592736734348559088">Google Chrome-მა ვერ დაასინქრონა თქვენი მონაცემები, რადგან თქვენი ანგარიშზე შესვლის დეტალები მოძველდა.</translation>
 <translation id="7626032353295482388">მოგესალმებათ Chrome!</translation>
 <translation id="7629695634924605473">Chrome გაცნობებთ, თუ თქვენს პაროლებს ვინმე გატეხავს</translation>

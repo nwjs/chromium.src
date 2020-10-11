@@ -14,6 +14,7 @@
 <translation id="1084365883616172403">Facebook પોસ્ટ પૂર્ણ કરી છે.</translation>
 <translation id="1103523840287552314"><ph name="LANGUAGE" /> નો હંમેશાં અનુવાદ કરો</translation>
 <translation id="1104948393051856124">સ્વીકારો અને ચાલુ રાખો</translation>
+<translation id="110724200315609752">ખુલ્લી વિંડો પર સ્વિચ કરો</translation>
 <translation id="1112015203684611006">છાપવાનું નિષ્ફળ થયું.</translation>
 <translation id="1125564390852150847">નવું ટૅબ બનાવો.</translation>
 <translation id="1145536944570833626">અસ્તિત્વમાંના ડેટાને ડિલીટ કરો.</translation>
@@ -93,6 +94,7 @@
 <translation id="1941314575388338491">કૉપિ કરવા માટે બે વાર ટૅપ કરો.</translation>
 <translation id="1952172573699511566">જ્યારે શક્ય હશે, ત્યારે વેબસાઇટ તમારી પસંદગીની ભાષામાં ટેક્સ્ટ બતાવશે.</translation>
 <translation id="1952728750904661634">મેનેજ એકાઉન્ટ સાથે સાઇન ઇન કરો</translation>
+<translation id="1965935827552890526">તમે અન્ય ખુલ્લી Chrome વિંડોમાં જે કાર્ય કરતા તા તે પૂર્ણ કરો.</translation>
 <translation id="1974060860693918893">વિગતવાર</translation>
 <translation id="1989112275319619282">બ્રાઉઝ કરો</translation>
 <translation id="1992734845128748707">ડિફૉલ્ટ બ્રાઉઝર બદલો…</translation>
@@ -277,6 +279,7 @@
 <translation id="408404951701638773">શોધ બાર સુધી પહોંચવું હવે વધુ સરળ છે</translation>
 <translation id="411254640334432676">ડાઉનલોડ નિષ્ફળ થયું.</translation>
 <translation id="4112644173421521737">શોધો</translation>
+<translation id="4113030288477039509">તમારા વ્યવસ્થાપક દ્વારા સંચાલિત</translation>
 <translation id="4121993058175073134">ચોખ્ખો-નિકાસ ડેટા મોકલવા માટે, કૃપા કરીને સેટિંગ એપ્લિકેશનમાં તમારા ઇમેઇલ એકાઉન્ટને ગોઠવો.</translation>
 <translation id="4124987746317609294">સમય શ્રેણી</translation>
 <translation id="4152011295694446843">તમને તમારા બુકમાર્ક અહીં મળશે</translation>
@@ -285,11 +288,13 @@
 <translation id="4181841719683918333">ભાષાઓ</translation>
 <translation id="424315890655130736">પાસફ્રેઝ દાખલ કરો</translation>
 <translation id="4263576668337963058">પેજ માટે ઉપલબ્ધ ક્રિયાઓ બતાવો</translation>
+<translation id="4267380167363222949">આગલી ટૅબ</translation>
 <translation id="4272631900155121838">QR કોડને સ્કેન કરવા માટે, સેટિંગમાંથી કૅમેરો ચાલુ કરો</translation>
 <translation id="4276041135170112053">હમણાં જ સુધારો.</translation>
 <translation id="4277990410970811858">Safe Browsing</translation>
 <translation id="4281844954008187215">સેવાની શરતો</translation>
 <translation id="430793432425771671">બધાને સમન્વયિત કરો</translation>
+<translation id="4309403553630140242">વધુ માહિતી માટે બે વાર ટૅપ કરો</translation>
 <translation id="430967081421617822">હંમેશાં</translation>
 <translation id="4334428914252001502">1 વાંચ્યા વગરનો લેખ.</translation>
 <translation id="4338650699862464074">તમે મુલાકાત લો તે પેજના URLs Googleને મોકલે છે.</translation>
@@ -353,6 +358,7 @@
 <translation id="5005498671520578047">પાસવર્ડની કૉપિ કરો</translation>
 <translation id="5010803260590204777">ખાનગીપણે વેબ બ્રાઉઝ કરવા છૂપું ટેબ ખોલો.</translation>
 <translation id="5039804452771397117">મંજૂરી આપો</translation>
+<translation id="5056446788882570708"><ph name="TIME" /> સમસ્યાઓ મળી.</translation>
 <translation id="5059136629401106827">ઓકે</translation>
 <translation id="5062321486222145940">Google ડ્રાઇવ ઇન્સ્ટોલ કરો</translation>
 <translation id="5083464117946352670">ફાઇલ કદ નિર્ધારિત કરી શકાતું નથી.</translation>
@@ -376,7 +382,6 @@
 <translation id="5317780077021120954">સાચવો</translation>
 <translation id="5327248766486351172">નામ</translation>
 <translation id="5339316356165661760">સિંક કરવાનું ચાલુ કરો</translation>
-<translation id="5352285283572729470">આ સેટિંગ મેનેજ કરવામાં આવી છે</translation>
 <translation id="5388358297987318779">છબી ખોલો</translation>
 <translation id="5407969256130905701">ફેરફારો કાઢી નાખો</translation>
 <translation id="5409365236829784218">ત્યાં એવી કોઈ ઍપ્લિકેશન ઇન્સ્ટોલ કરેલ નથી જે આ ફાઇલ ખોલી શકે.</translation>
@@ -456,6 +461,7 @@
 <translation id="6187302354554850004">છેલ્લે સમન્વયિત કરેલું: <ph name="LAST_USED_TIME" /></translation>
 <translation id="6189413832092199491">વાંચ્યા વગરની</translation>
 <translation id="6196207969502475924">વૉઇસ શોધ</translation>
+<translation id="6202364442240589072">{COUNT,plural, =1{{COUNT} ટૅબ બંધ કરો}one{{COUNT} ટૅબ બંધ કરો}other{{COUNT} ટૅબ બંધ કરો}}</translation>
 <translation id="6219688215832490856">ક્યારેય અનુવાદ કરશો નહીં</translation>
 <translation id="6254066287920239840">બ્રાઉઝરને બદલે ઍપ્લિકેશનમાં લિંક્સ ખોલો.</translation>
 <translation id="6255097610484507482">ક્રેડિટ કાર્ડમાં ફેરફાર કરો</translation>
@@ -571,6 +577,7 @@
 <translation id="734758817008927353">કાર્ડ સાચવવા માટેના વિકલ્પો</translation>
 <translation id="7348502496356775519">બુકમાર્ક કરો</translation>
 <translation id="7383797227493018512">વાંચન સૂચિ</translation>
+<translation id="739941347996872055">પાછલી ટૅબ</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> વાંચ્યા વગરના લેખ.</translation>
 <translation id="7425346204213733349">તમારા બુકમાર્ક, ઇતિહાસ, પાસવર્ડ અને બીજા સેટિંગમાં ફેરફારને હવે તમારા Google એકાઉન્ટ પર સિંક કરવામાં આવશે નહિ. જોકે, તમારો અસ્તિત્વમાંનો ડેટા તમારા Google એકાઉન્ટમાં સ્ટોર રહેશે.</translation>
@@ -636,6 +643,7 @@
 <translation id="8073670137947914548">ડાઉનલોડ સમાપ્ત</translation>
 <translation id="8073872304774253879">શોધ અને બ્રાઉઝિંગ વધુ સારું બનાવો</translation>
 <translation id="8076014560081431679">સાચવેલ સાઇટ સેટિંગ્સ કાઢી નાખવામાં આવશે નહીં અને તે તમારી બ્રાઉઝિંગ ટેવોને પ્રતિબિંબિત કરી શકે છે. <ph name="BEGIN_LINK" />વધુ જાણો<ph name="END_LINK" /></translation>
+<translation id="8079602123447022758">આ સેટિંગ મેનેજ કરવામાં આવે છે, વધુ માહિતી માટે બે વાર ટૅપ કરો</translation>
 <translation id="8105368624971345109">બંધ કરો</translation>
 <translation id="8114753159095730575">ફાઇલ ડાઉનલોડ માટે ઉપલબ્ધ છે. સ્ક્રીનના તળિયે વિકલ્પો ઉપલબ્ધ છે.</translation>
 <translation id="8131740175452115882">પુષ્ટિ કરો</translation>

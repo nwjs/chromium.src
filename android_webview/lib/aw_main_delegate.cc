@@ -28,6 +28,7 @@
 #include "base/check_op.h"
 #include "base/command_line.h"
 #include "base/cpu.h"
+#include "base/cpu_affinity_posix.h"
 #include "base/i18n/icu_util.h"
 #include "base/i18n/rtl.h"
 #include "base/posix/global_descriptors.h"
@@ -248,6 +249,8 @@ bool AwMainDelegate::BasicStartupComplete(int* exit_code) {
 
     features.EnableIfNotSet(
         metrics::UnsentLogStoreMetrics::kRecordLastUnsentLogMetadataMetrics);
+
+    features.DisableIfNotSet(::features::kPeriodicBackgroundSync);
   }
 
   android_webview::RegisterPathProvider();
@@ -296,6 +299,10 @@ void AwMainDelegate::PreSandboxStartup() {
 
   if (process_type == switches::kRendererProcess) {
     InitResourceBundleRendererSide();
+    if (command_line.HasSwitch(switches::kWebViewForceLittleCores)) {
+      base::SetProcessCpuAffinityMode(base::GetCurrentProcessHandle(),
+                                      base::CpuAffinityMode::kLittleCoresOnly);
+    }
   }
 
   EnableCrashReporter(process_type);

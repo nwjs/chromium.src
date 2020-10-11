@@ -32,12 +32,12 @@
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
-#include "content/public/common/origin_util.h"
 #include "extensions/common/features/feature.h"
 #include "extensions/common/features/feature_provider.h"
 #include "extensions/common/features/simple_feature.h"
 #include "extensions/common/permissions/permissions_data.h"
 #include "extensions/common/switches.h"
+#include "third_party/blink/public/common/loader/network_utils.h"
 
 using content::DesktopMediaID;
 using content::WebContentsMediaCaptureId;
@@ -57,8 +57,8 @@ const char kGrantError[] =
     "permission). Chrome pages cannot be captured.";
 
 #if 0
-const char kNotWhitelistedForOffscreenTabApi[] =
-    "Extension is not whitelisted for use of the unstable, in-development "
+const char kNotAllowlistedForOffscreenTabApi[] =
+    "Extension is not allowlisted for use of the unstable, in-development "
     "chrome.tabCapture.captureOffscreenTab API.";
 const char kInvalidStartUrl[] =
     "Invalid/Missing/Malformatted starting URL for off-screen tab.";
@@ -220,10 +220,10 @@ Browser* GetLastActiveBrowser(const Profile* profile,
 
 }  // namespace
 
-// Whitelisted extensions that do not check for a browser action grant because
+// Allowlisted extensions that do not check for a browser action grant because
 // they provide API's. If there are additional extension ids that need
-// whitelisting and are *not* the Media Router extension, add them to a new
-// kWhitelist array.
+// allowlisting and are *not* the Media Router extension, add them to a new
+// kAllowlist array.
 const char* const kMediaRouterExtensionIds[] = {
     "enhhojjnijigcajfphajepfemndkmdlo",  // Dev
     "pkedcjkdefgpdelpbcmbmeomcjbeemfm",  // Stable
@@ -310,7 +310,7 @@ ExtensionFunction::ResponseAction TabCaptureCaptureOffscreenTabFunction::Run() {
       TabCapture::CaptureOffscreenTab::Params::Create(*args_);
   EXTENSION_FUNCTION_VALIDATE(params);
 
-  // Make sure the extension is whitelisted for using this API, regardless of
+  // Make sure the extension is allowlisted for using this API, regardless of
   // Chrome channel.
   //
   // TODO(miu): Use _api_features.json and extensions::Feature library instead.
@@ -321,8 +321,8 @@ ExtensionFunction::ResponseAction TabCaptureCaptureOffscreenTabFunction::Run() {
           switches::kAllowlistedExtensionID) == extension()->id() ||
       SimpleFeature::IsIdInArray(extension()->id(), kMediaRouterExtensionIds,
                                  base::size(kMediaRouterExtensionIds));
-  if (!is_allowlisted_extension && !extension()->is_nwjs_app())
-    return RespondNow(Error(kNotWhitelistedForOffscreenTabApi));
+  if (!is_allowlisted_extension)
+    return RespondNow(Error(kNotAllowlistedForOffscreenTabApi));
 #endif
 
   const GURL start_url(params->start_url);
@@ -471,7 +471,7 @@ ExtensionFunction::ResponseAction TabCaptureGetMediaStreamIdFunction::Run() {
       return RespondNow(Error(kInvalidOriginError));
     }
 
-    if (!content::IsOriginSecure(origin)) {
+    if (!blink::network_utils::IsOriginSecure(origin)) {
       return RespondNow(Error(kTabUrlNotSecure));
     }
 

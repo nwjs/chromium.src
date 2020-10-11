@@ -35,14 +35,14 @@
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/skia_util.h"
-#include "ui/views/accessibility/ax_event_manager.h"
-#include "ui/views/accessibility/ax_event_observer.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/layout/flex_layout.h"
+#include "ui/views/test/ax_event_counter.h"
 #include "ui/views/view.h"
 #include "ui/views/view_class_properties.h"
 #include "ui/views/view_targeter.h"
+#include "ui/views/view_utils.h"
 #include "ui/views/widget/widget.h"
 
 namespace {
@@ -51,43 +51,11 @@ namespace {
 // found tab view, on NULL if none is found.
 views::View* FindTabView(views::View* view) {
   views::View* current = view;
-  while (current && strcmp(current->GetClassName(), Tab::kViewClassName)) {
+  while (current && !views::IsViewClass<Tab>(current)) {
     current = current->parent();
   }
   return current;
 }
-
-class TestAXEventObserver : public views::AXEventObserver {
- public:
-  TestAXEventObserver() { views::AXEventManager::Get()->AddObserver(this); }
-  TestAXEventObserver(const TestAXEventObserver&) = delete;
-  TestAXEventObserver& operator=(const TestAXEventObserver&) = delete;
-  ~TestAXEventObserver() override {
-    views::AXEventManager::Get()->RemoveObserver(this);
-  }
-
-  // views::AXEventObserver:
-  void OnViewEvent(views::View* view, ax::mojom::Event event_type) override {
-    if (event_type == ax::mojom::Event::kSelectionRemove) {
-      remove_count_++;
-    }
-    if (event_type == ax::mojom::Event::kSelection) {
-      change_count_++;
-    }
-    if (event_type == ax::mojom::Event::kSelectionAdd) {
-      add_count_++;
-    }
-  }
-
-  int add_count() { return add_count_; }
-  int change_count() { return change_count_; }
-  int remove_count() { return remove_count_; }
-
- private:
-  int add_count_ = 0;
-  int change_count_ = 0;
-  int remove_count_ = 0;
-};
 
 }  // namespace
 
@@ -291,7 +259,7 @@ TEST_P(TabStripTest, GetModelCount) {
 }
 
 TEST_P(TabStripTest, AccessibilityEvents) {
-  TestAXEventObserver observer;
+  views::test::AXEventCounter ax_counter(views::AXEventManager::Get());
 
   // When adding tabs, SetSelection() is called after AddTabAt(), as
   // otherwise the index would not be meaningful.
@@ -300,24 +268,24 @@ TEST_P(TabStripTest, AccessibilityEvents) {
   ui::ListSelectionModel selection;
   selection.SetSelectedIndex(1);
   tab_strip_->SetSelection(selection);
-  EXPECT_EQ(0, observer.add_count());
-  EXPECT_EQ(1, observer.change_count());
-  EXPECT_EQ(0, observer.remove_count());
+  EXPECT_EQ(0, ax_counter.GetCount(ax::mojom::Event::kSelectionAdd));
+  EXPECT_EQ(1, ax_counter.GetCount(ax::mojom::Event::kSelection));
+  EXPECT_EQ(0, ax_counter.GetCount(ax::mojom::Event::kSelectionRemove));
 
   // When removing tabs, SetSelection() is called before RemoveTabAt(), as
   // otherwise the index would not be meaningful.
   selection.SetSelectedIndex(0);
   tab_strip_->SetSelection(selection);
   tab_strip_->RemoveTabAt(nullptr, 1, true);
-  EXPECT_EQ(0, observer.add_count());
-  EXPECT_EQ(2, observer.change_count());
-  EXPECT_EQ(0, observer.remove_count());
+  EXPECT_EQ(0, ax_counter.GetCount(ax::mojom::Event::kSelectionAdd));
+  EXPECT_EQ(2, ax_counter.GetCount(ax::mojom::Event::kSelection));
+  EXPECT_EQ(0, ax_counter.GetCount(ax::mojom::Event::kSelectionRemove));
 
   // When activating widget, refire selection event on tab.
   widget_->OnNativeWidgetActivationChanged(true);
-  EXPECT_EQ(0, observer.add_count());
-  EXPECT_EQ(3, observer.change_count());
-  EXPECT_EQ(0, observer.remove_count());
+  EXPECT_EQ(0, ax_counter.GetCount(ax::mojom::Event::kSelectionAdd));
+  EXPECT_EQ(3, ax_counter.GetCount(ax::mojom::Event::kSelection));
+  EXPECT_EQ(0, ax_counter.GetCount(ax::mojom::Event::kSelectionRemove));
 }
 
 TEST_P(TabStripTest, AccessibilityData) {
@@ -537,7 +505,8 @@ TEST_P(TabStripTest, GroupedTabSlotVisibility) {
   CompleteAnimationAndLayout();
   ASSERT_FALSE(controller_->IsGroupCollapsed(group2.value()));
   EXPECT_TRUE(tab_strip_->group_header(group2.value())->GetVisible());
-  controller_->ToggleTabGroupCollapsedState(group2.value(), false);
+  controller_->ToggleTabGroupCollapsedState(
+      group2.value(), ToggleTabGroupCollapsedStateOrigin::kImplicitAction);
   ASSERT_TRUE(controller_->IsGroupCollapsed(group2.value()));
   EXPECT_TRUE(tab_strip_->group_header(group2.value())->GetVisible());
 }
@@ -572,6 +541,30 @@ TEST_P(TabStripTest, TabForEventWhenStacked) {
       previous_tab = tab;
     }
   }
+}
+
+// Creates a tab strip in stacked layout mode and creates a group.
+TEST_P(TabStripTest, TabGroupCreatedWhenStacked) {
+  tab_strip_parent_->SetBounds(0, 0, 250, GetLayoutConstant(TAB_HEIGHT));
+
+  controller_->AddTab(0, false);
+  controller_->AddTab(1, true);
+  controller_->AddTab(2, false);
+  controller_->AddTab(3, false);
+  ASSERT_EQ(4, tab_strip_->tab_count());
+
+  // Switch to stacked layout mode and force a layout to ensure tabs stack.
+  tab_strip_->SetStackedLayout(true);
+  CompleteAnimationAndLayout();
+
+  // Create a tab group.
+  base::Optional<tab_groups::TabGroupId> group =
+      tab_groups::TabGroupId::GenerateNew();
+  controller_->MoveTabIntoGroup(0, group);
+  CompleteAnimationAndLayout();
+
+  // Expect the tabstrip to be taken out of stacked mode.
+  EXPECT_EQ(tab_strip_->stacked_layout(), false);
 }
 
 // Tests that the tab close buttons of non-active tabs are hidden when

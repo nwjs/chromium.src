@@ -332,8 +332,14 @@ IN_PROC_BROWSER_TEST_F(FullscreenControllerInteractiveTest, EscapingMouseLock) {
 // Disabled due to flakiness.
 // TODO(crbug.com/976883): Fix and re-enable this.
 // Tests mouse lock and fullscreen modes can be escaped with ESC key.
+#if defined(OS_WIN)
+#define MAYBE_EscapingMouseLockAndFullscreen EscapingMouseLockAndFullscreen
+#else
+#define MAYBE_EscapingMouseLockAndFullscreen \
+  DISABLED_EscapingMouseLockAndFullscreen
+#endif
 IN_PROC_BROWSER_TEST_F(FullscreenControllerInteractiveTest,
-                       DISABLED_EscapingMouseLockAndFullscreen) {
+                       MAYBE_EscapingMouseLockAndFullscreen) {
   ASSERT_TRUE(embedded_test_server()->Start());
   ui_test_utils::NavigateToURL(
       browser(), embedded_test_server()->GetURL(kFullscreenMouseLockHTML));
@@ -385,7 +391,6 @@ IN_PROC_BROWSER_TEST_F(FullscreenControllerInteractiveTest,
 
 // Times out sometimes on Linux. http://crbug.com/135115
 // Mac: http://crbug.com/103912
-// Windows: Failing flakily on try jobs also.
 // Tests mouse lock then fullscreen in same request.
 #if defined(OS_WIN)
 #define MAYBE_MouseLockAndFullscreen MouseLockAndFullscreen
@@ -415,7 +420,7 @@ IN_PROC_BROWSER_TEST_F(FullscreenControllerInteractiveTest,
 // embedded flash fullscreen, since the Flash plugin handles user permissions
 // requests itself).
 // Flaky on Linux: crbug.com/1066607
-#if defined(OS_LINUX) || defined(OS_CHROMEOS)
+#if defined(OS_LINUX) || defined(OS_CHROMEOS) || defined(OS_MAC)
 #define MAYBE_PrivilegedMouseLockAndFullscreen \
   DISABLED_PrivilegedMouseLockAndFullscreen
 #else
@@ -545,8 +550,10 @@ IN_PROC_BROWSER_TEST_F(FullscreenControllerInteractiveTest,
   ASSERT_FALSE(IsMouseLocked());
 }
 
-#if defined(OS_LINUX) && !defined(OS_CHROMEOS) && defined(USE_AURA)
+#if defined(OS_LINUX) && !defined(OS_CHROMEOS) && defined(USE_AURA) || \
+    defined(OS_WIN) && defined(NDEBUG)
 // TODO(erg): linux_aura bringup: http://crbug.com/163931
+// Test is flaky on Windows: https://crbug.com/1124492
 #define MAYBE_TestTabDoesntExitMouseLockOnSubFrameNavigation \
   DISABLED_TestTabDoesntExitMouseLockOnSubFrameNavigation
 #else

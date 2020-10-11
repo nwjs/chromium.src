@@ -285,8 +285,7 @@ void TestRenderFrame::Navigate(network::mojom::URLResponseHeadPtr head,
                                mojom::CommitNavigationParamsPtr commit_params) {
   mock_navigation_client_.reset();
   BindNavigationClient(
-      mock_navigation_client_
-          .BindNewEndpointAndPassDedicatedReceiverForTesting());
+      mock_navigation_client_.BindNewEndpointAndPassDedicatedReceiver());
   std::unique_ptr<blink::PendingURLLoaderFactoryBundle> pending_factory_bundle =
       ChildPendingURLLoaderFactoryBundle::CreateFromDefaultFactoryImpl(
           std::make_unique<network::NotImplementedURLLoaderFactory>());
@@ -316,8 +315,7 @@ void TestRenderFrame::NavigateWithError(
     const base::Optional<std::string>& error_page_content) {
   mock_navigation_client_.reset();
   BindNavigationClient(
-      mock_navigation_client_
-          .BindNewEndpointAndPassDedicatedReceiverForTesting());
+      mock_navigation_client_.BindNewEndpointAndPassDedicatedReceiver());
   std::unique_ptr<blink::PendingURLLoaderFactoryBundle> pending_factory_bundle =
       ChildPendingURLLoaderFactoryBundle::CreateFromDefaultFactoryImpl(
           std::make_unique<network::NotImplementedURLLoaderFactory>());

@@ -14,6 +14,7 @@
 <translation id="1084365883616172403">Facebook paylaşımı tamamlandı.</translation>
 <translation id="1103523840287552314">Həmişə <ph name="LANGUAGE" /> dilinə tərcümə edin</translation>
 <translation id="1104948393051856124">Qəbul edin və Davam edin</translation>
+<translation id="110724200315609752">Açıq Pəncərəyə keçirin</translation>
 <translation id="1112015203684611006">Çap alınmadı.</translation>
 <translation id="1125564390852150847">Yeni panel yaradın.</translation>
 <translation id="1145536944570833626">Mövcud datanı silin.</translation>
@@ -93,6 +94,7 @@
 <translation id="1941314575388338491">Kopyalamaq üçün iki dəfə tıklayın.</translation>
 <translation id="1952172573699511566">Mümkün olduqda veb səhifələr tərcih etdiyiniz dildə mətn göstərəcək.</translation>
 <translation id="1952728750904661634">İdarə olunan hesab ilə daxil olun</translation>
+<translation id="1965935827552890526">Digər açıq Chrome pəncərəsində gördüyünüz işi bitirin.</translation>
 <translation id="1974060860693918893">Qabaqcıl</translation>
 <translation id="1989112275319619282">Baxın</translation>
 <translation id="1992734845128748707">Defolt brauzeri dəyişin…</translation>
@@ -277,6 +279,7 @@ Anonim rejimdə olduqda saytlar müxtəlif saytlarda baxış tarixçənizi görm
 <translation id="408404951701638773">İndi axtarış panelinə daxil olmaq daha asandır</translation>
 <translation id="411254640334432676">Endirmə uğursuz oldu.</translation>
 <translation id="4112644173421521737">Axtarın</translation>
+<translation id="4113030288477039509">Administrator tərəfindən idarə olunur</translation>
 <translation id="4121993058175073134">Növbəti raport datasını göndərmək üçün Ayarlar tətbiqində e-poçt hesabınızı sazlayın.</translation>
 <translation id="4124987746317609294">Vaxt Aralığı</translation>
 <translation id="4152011295694446843">Əlfəcinləri burada tapa bilərsiniz</translation>
@@ -285,11 +288,13 @@ Anonim rejimdə olduqda saytlar müxtəlif saytlarda baxış tarixçənizi görm
 <translation id="4181841719683918333">Dillər</translation>
 <translation id="424315890655130736">Parol sözü daxil edin</translation>
 <translation id="4263576668337963058">Əlçatan səhifə fəaliyyətlərini göstərin</translation>
+<translation id="4267380167363222949">Növbəti Tab</translation>
 <translation id="4272631900155121838">QR kodu skan etmək üçün, ayarlar bölməsindən kameranı aktiv edin</translation>
 <translation id="4276041135170112053">İndi düzəliş edin.</translation>
 <translation id="4277990410970811858">Təhlükəsiz Baxış</translation>
 <translation id="4281844954008187215">Xidmət Şərtləri</translation>
 <translation id="430793432425771671">Hər şeyi Sinxronlaşdırın</translation>
+<translation id="4309403553630140242">Ətraflı məlumat üçün iki dəfə toxunun</translation>
 <translation id="430967081421617822">Bütün Vaxt</translation>
 <translation id="4334428914252001502">1 oxunmamış məqalə.</translation>
 <translation id="4338650699862464074">Daxil olduğunuz səhifələrin linklərini Google'a göndərir.</translation>
@@ -353,6 +358,7 @@ Ayarı dəyişmək üçün <ph name="BEGIN_LINK" />sinxronizasiyanı sıfırlay�
 <translation id="5005498671520578047">Parolu kopyalayın</translation>
 <translation id="5010803260590204777">Vebə özəl olaraq baxmaq üçün gizli panel açın.</translation>
 <translation id="5039804452771397117">İcazə verin</translation>
+<translation id="5056446788882570708">Problemlər tapıldı: <ph name="TIME" />.</translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5062321486222145940">Google Diski quraşdırın</translation>
 <translation id="5083464117946352670">Fayl ölçüsünü müəyyənləşdirmək olmur.</translation>
@@ -376,7 +382,6 @@ Ayarı dəyişmək üçün <ph name="BEGIN_LINK" />sinxronizasiyanı sıfırlay�
 <translation id="5317780077021120954">Yadda saxlayın</translation>
 <translation id="5327248766486351172">Ad</translation>
 <translation id="5339316356165661760">Sinxronizasiyanı aktiv edin</translation>
-<translation id="5352285283572729470">Bu ayar idarə edilir</translation>
 <translation id="5388358297987318779">Şəkli Açın</translation>
 <translation id="5407969256130905701">Dəyişiklikləri ləğv edin</translation>
 <translation id="5409365236829784218">Bu faylı aça bilən başqa quraşdırılmış tətbiq yoxdur.</translation>
@@ -456,6 +461,7 @@ Handoff Ayarların Ümumi bölməsindən də aktiv edilə bilər və cihazların
 <translation id="6187302354554850004">Son sinxronizasiya: <ph name="LAST_USED_TIME" /></translation>
 <translation id="6189413832092199491">Oxunmamış</translation>
 <translation id="6196207969502475924">Səsli Axtarış</translation>
+<translation id="6202364442240589072">{COUNT,plural, =1{{COUNT} Tabı bağlayın}other{{COUNT} Tabı bağlayın}}</translation>
 <translation id="6219688215832490856">Heç Vaxt Tərcümə Etməyin</translation>
 <translation id="6254066287920239840">Linkləri brauzer əvəzinə tətbiqdə açın</translation>
 <translation id="6255097610484507482">Kredit Kartına Düzəliş edin</translation>
@@ -571,6 +577,7 @@ Saytlar müxtəlif saytlarda baxış fəaliyyətinizi görmək üçün kukiləri
 <translation id="734758817008927353">Kartı Yadda Saxlamaq seçimləri</translation>
 <translation id="7348502496356775519">Əlfəcin</translation>
 <translation id="7383797227493018512">Oxu Siyahısı</translation>
+<translation id="739941347996872055">Əvvəlki Tab</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> oxunmamış məqalə.</translation>
 <translation id="7425346204213733349">Əlfəcin, tarixçə, parol və digər ayarlarınızdakı dəyişikliklər artıq Google Hesabınıza sinxronizasiya olunmayacaq. Buna baxmayaraq, mövcud datanız Google hesabınızın yaddaşında qalacaq.</translation>
@@ -636,6 +643,7 @@ Saytlar müxtəlif saytlarda baxış fəaliyyətinizi görmək üçün kukilərd
 <translation id="8073670137947914548">Endirmə tamamlandı</translation>
 <translation id="8073872304774253879">Axtarışları və Brauzer Fəaliyyətini Təkmilləşdirin</translation>
 <translation id="8076014560081431679">Yadda saxlanmış sayt ayarları silinməyəcək və axtarış təcrübənizə təsir edə bilər. <ph name="BEGIN_LINK" />Ətraflı məlumat<ph name="END_LINK" /></translation>
+<translation id="8079602123447022758">Bu ayar idarə edilir, ətraflı məlumat üçün iki dəfə toxununThis setting is managed, double tap for more information</translation>
 <translation id="8105368624971345109">Deaktiv Edin</translation>
 <translation id="8114753159095730575">Fayl endirilməsi əlçatandır. Seçimlər ekranın aşağısında əlçatandır.</translation>
 <translation id="8131740175452115882">Təsdiq edin</translation>

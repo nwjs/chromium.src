@@ -19,23 +19,18 @@ import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import androidx.appcompat.content.res.AppCompatResources;
 
-import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.device.DeviceClassManager;
+import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiFeatureUtilities;
-import org.chromium.chrome.browser.toolbar.IncognitoStateProvider;
 import org.chromium.chrome.browser.toolbar.NewTabButton;
-import org.chromium.chrome.browser.toolbar.menu_button.MenuButton;
-import org.chromium.chrome.browser.ui.appmenu.AppMenuButtonHelper;
 import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.browser_ui.widget.animation.Interpolators;
-import org.chromium.ui.util.ColorUtils;
 
 /** View of the StartSurfaceToolbar */
 class StartSurfaceToolbarView extends RelativeLayout {
     private NewTabButton mNewTabButton;
     private View mIncognitoSwitch;
-    private MenuButton mMenuButton;
     private View mLogo;
     @Nullable
     private ImageButton mIdentityDiscButton;
@@ -60,7 +55,6 @@ class StartSurfaceToolbarView extends RelativeLayout {
         super.onFinishInflate();
         mNewTabButton = findViewById(R.id.new_tab_button);
         mIncognitoSwitch = findViewById(R.id.incognito_switch);
-        mMenuButton = findViewById(R.id.menu_button_wrapper);
         mLogo = findViewById(R.id.logo);
         mIdentityDiscButton = findViewById(R.id.identity_disc_button);
         updatePrimaryColorAndTint(false);
@@ -89,16 +83,6 @@ class StartSurfaceToolbarView extends RelativeLayout {
     }
 
     /**
-     * @param appMenuButtonHelper The {@link AppMenuButtonHelper} for managing menu button
-     *         interactions.
-     */
-    void setAppMenuButtonHelper(AppMenuButtonHelper appMenuButtonHelper) {
-        mMenuButton.getImageButton().setOnTouchListener(appMenuButtonHelper);
-        mMenuButton.getImageButton().setAccessibilityDelegate(
-                appMenuButtonHelper.getAccessibilityDelegate());
-    }
-
-    /**
      * Sets the {@link OnClickListener} that will be notified when the New Tab button is pressed.
      * @param listener The callback that will be notified when the New Tab button is pressed.
      */
@@ -118,7 +102,6 @@ class StartSurfaceToolbarView extends RelativeLayout {
      * @param isVisible Whether the menu button is visible.
      */
     void setMenuButtonVisibility(boolean isVisible) {
-        mMenuButton.setVisibility(isVisible ? View.VISIBLE : View.GONE);
         final int buttonPaddingLeft = getContext().getResources().getDimensionPixelOffset(
                 R.dimen.start_surface_toolbar_button_padding_to_button);
         final int buttonPaddingRight =
@@ -148,7 +131,6 @@ class StartSurfaceToolbarView extends RelativeLayout {
     void setButtonClickableState(boolean isClickable) {
         mNewTabButton.setClickable(isClickable);
         mIncognitoSwitch.setClickable(isClickable);
-        mMenuButton.setClickable(isClickable);
     }
 
     /**
@@ -307,9 +289,5 @@ class StartSurfaceToolbarView extends RelativeLayout {
             mDarkIconTint = AppCompatResources.getColorStateList(
                     getContext(), R.color.default_icon_color_tint_list);
         }
-
-        boolean useLightIcons = ColorUtils.shouldUseLightForegroundOnBackground(primaryColor);
-        ColorStateList tintList = useLightIcons ? mLightIconTint : mDarkIconTint;
-        ApiCompatibilityUtils.setImageTintList(mMenuButton.getImageButton(), tintList);
     }
 }

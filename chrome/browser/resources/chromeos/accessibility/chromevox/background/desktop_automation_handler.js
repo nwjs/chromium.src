@@ -76,6 +76,14 @@ DesktopAutomationHandler = class extends BaseAutomationHandler {
     this.addListener_(EventType.MENU_START, this.onMenuStart);
     this.addListener_(
         EventType.SCROLL_POSITION_CHANGED, this.onScrollPositionChanged);
+    this.addListener_(
+        EventType.SCROLL_HORIZONTAL_POSITION_CHANGED,
+        this.onScrollPositionChanged);
+    this.addListener_(
+        EventType.SCROLL_VERTICAL_POSITION_CHANGED,
+        this.onScrollPositionChanged);
+    // Called when a same-page link is followed or the url fragment changes.
+    this.addListener_(EventType.SCROLLED_TO_ANCHOR, this.onEventDefault);
     this.addListener_(EventType.SELECTION, this.onSelection);
     this.addListener_(EventType.TEXT_CHANGED, this.onEditableChanged_);
     this.addListener_(
@@ -152,10 +160,14 @@ DesktopAutomationHandler = class extends BaseAutomationHandler {
     const node = evt.target;
     const range = cursors.Range.fromNode(node);
 
-    new Output()
-        .withSpeechCategory(TtsCategory.LIVE)
-        .withSpeechAndBraille(range, null, evt.type)
-        .go();
+    const output = new Output()
+                       .withSpeechCategory(TtsCategory.LIVE)
+                       .withSpeechAndBraille(range, null, evt.type);
+
+    // A workaround for alert nodes that contain no actual content.
+    if (output.toString() != (Msgs.getMsg('role_alert'))) {
+      output.go();
+    }
   }
 
   onBlur(evt) {
@@ -352,7 +364,8 @@ DesktopAutomationHandler = class extends BaseAutomationHandler {
     // Document selections only apply to rich editables, text selections to
     // non-rich editables.
     if (evt.type != EventType.DOCUMENT_SELECTION_CHANGED &&
-        evt.target.state[StateType.RICHLY_EDITABLE]) {
+        (evt.target.state[StateType.RICHLY_EDITABLE] ||
+         evt.target.htmlTag === 'textarea')) {
       return;
     }
 
@@ -423,6 +436,7 @@ DesktopAutomationHandler = class extends BaseAutomationHandler {
       this.lastValueChanged_ = new Date();
 
       const output = new Output();
+      output.withoutFocusRing();
 
       if (fromDesktop &&
           (!this.lastValueTarget_ || this.lastValueTarget_ !== t)) {

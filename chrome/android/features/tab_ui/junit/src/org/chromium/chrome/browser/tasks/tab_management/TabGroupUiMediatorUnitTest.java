@@ -40,9 +40,8 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.robolectric.annotation.Config;
 
-import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.chrome.browser.ThemeColorProvider;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
@@ -64,6 +63,7 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
 import org.chromium.chrome.browser.tasks.ConditionalTabStripUtils;
 import org.chromium.chrome.browser.tasks.ConditionalTabStripUtils.FeatureStatus;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
+import org.chromium.chrome.browser.toolbar.ThemeColorProvider;
 import org.chromium.chrome.browser.toolbar.bottom.BottomControlsCoordinator;
 import org.chromium.chrome.browser.ui.messages.snackbar.Snackbar;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
@@ -158,8 +158,8 @@ public class TabGroupUiMediatorUnitTest {
     private TabGroupUiMediator mTabGroupUiMediator;
     private InOrder mResetHandlerInOrder;
     private InOrder mVisibilityControllerInOrder;
-    private ObservableSupplierImpl<OverviewModeBehavior> mOverviewModeBehaviorSupplier =
-            new ObservableSupplierImpl<>();
+    private OneshotSupplierImpl<OverviewModeBehavior> mOverviewModeBehaviorSupplier =
+            new OneshotSupplierImpl<>();
 
     private TabImpl prepareTab(int tabId, int rootId) {
         TabImpl tab = TabUiUnitTestUtils.prepareTab(tabId, rootId);

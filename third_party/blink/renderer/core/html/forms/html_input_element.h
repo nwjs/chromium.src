@@ -155,8 +155,6 @@ class CORE_EXPORT HTMLInputElement
   bool IsValidValue(const String&) const;
   bool HasDirtyValue() const;
 
-  String rawValue() const;
-
   String SanitizeValue(const String&) const;
 
   String LocalizeValue(const String&) const;
@@ -175,6 +173,11 @@ class CORE_EXPORT HTMLInputElement
       double,
       ExceptionState&,
       TextFieldEventBehavior = TextFieldEventBehavior::kDispatchNoEvent);
+
+  // For type=range, returns a ratio of the current value in the range between
+  // min and max.  i.e. (value - min) / (max - min)
+  // For other types, this function fails with DCHECK().
+  Decimal RatioValue() const;
 
   String ValueOrDefaultLabel() const;
 
@@ -318,6 +321,8 @@ class CORE_EXPORT HTMLInputElement
 
   bool SupportsInputModeAttribute() const;
 
+  void CapsLockStateMayHaveChanged();
+  bool ShouldDrawCapsLockIndicator() const;
   void SetShouldRevealPassword(bool value);
   bool ShouldRevealPassword() const { return should_reveal_password_; }
   AXObject* PopupRootAXObject();
@@ -337,7 +342,7 @@ class CORE_EXPORT HTMLInputElement
 
   void ChildrenChanged(const ChildrenChange&) override;
 
-  PaintLayerScrollableArea* GetScrollableArea() const final;
+  LayoutBox* GetLayoutBoxForScrolling() const final;
 
   void SetHasBeenPasswordField() { has_been_password_field_ = true; }
 
@@ -351,8 +356,6 @@ class CORE_EXPORT HTMLInputElement
       FormElementPiiType form_element_pii_type) override {
     form_element_pii_type_ = form_element_pii_type;
   }
-
-  ScriptRegexp& EnsureEmailRegexp() const;
 
  protected:
   void DefaultEventHandler(Event&) override;
@@ -483,7 +486,6 @@ class CORE_EXPORT HTMLInputElement
   Member<ListAttributeTargetObserver> list_attribute_target_observer_;
 
   FormElementPiiType form_element_pii_type_ = FormElementPiiType::kUnknown;
-  mutable std::unique_ptr<ScriptRegexp> email_regexp_;
 
   FRIEND_TEST_ALL_PREFIXES(HTMLInputElementTest, RadioKeyDownDCHECKFailure);
 };

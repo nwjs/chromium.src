@@ -25,6 +25,7 @@
 #include "ui/views/animation/ink_drop_highlight.h"
 #include "ui/views/background.h"
 #include "ui/views/controls/button/label_button_border.h"
+#include "ui/views/controls/button/md_text_button.h"
 #include "ui/views/controls/focus_ring.h"
 #include "ui/views/controls/highlight_path_generator.h"
 #include "ui/views/layout/flex_layout.h"
@@ -32,12 +33,12 @@
 
 class OmniboxSuggestionRowButton : public views::MdTextButton {
  public:
-  OmniboxSuggestionRowButton(views::ButtonListener* listener,
+  OmniboxSuggestionRowButton(PressedCallback callback,
                              const base::string16& text,
                              const gfx::VectorIcon& icon,
                              OmniboxPopupContentsView* popup_contents_view,
                              OmniboxPopupModel::Selection selection)
-      : MdTextButton(listener, text, CONTEXT_OMNIBOX_PRIMARY),
+      : MdTextButton(std::move(callback), text, CONTEXT_OMNIBOX_PRIMARY),
         icon_(icon),
         popup_contents_view_(popup_contents_view),
         selection_(selection) {
@@ -49,7 +50,7 @@ class OmniboxSuggestionRowButton : public views::MdTextButton {
     SetCornerRadius(GetInsets().height() +
                     GetLayoutConstant(LOCATION_BAR_ICON_SIZE));
 
-    set_ink_drop_highlight_opacity(CalculateInkDropHighlightOpacity());
+    SetInkDropHighlightOpacity(CalculateInkDropHighlightOpacity());
     focus_ring()->SetHasFocusPredicate([=](View* view) {
       return view->GetVisible() &&
              popup_contents_view_->model()->selection() == selection_;
@@ -135,19 +136,28 @@ OmniboxSuggestionButtonRowView::OmniboxSuggestionButtonRowView(
   // it's called directly from OmniboxResultView::SetMatch(). If this flickers,
   // then so does everything else in the result view.
   keyword_button_ = AddChildView(std::make_unique<OmniboxSuggestionRowButton>(
-      this, base::string16(), vector_icons::kSearchIcon, popup_contents_view_,
+      base::BindRepeating(&OmniboxSuggestionButtonRowView::ButtonPressed,
+                          base::Unretained(this),
+                          OmniboxPopupModel::KEYWORD_MODE),
+      base::string16(), vector_icons::kSearchIcon, popup_contents_view_,
       OmniboxPopupModel::Selection(model_index_,
-                                   OmniboxPopupModel::FOCUSED_BUTTON_KEYWORD)));
+                                   OmniboxPopupModel::KEYWORD_MODE)));
   tab_switch_button_ =
       AddChildView(std::make_unique<OmniboxSuggestionRowButton>(
-          this, l10n_util::GetStringUTF16(IDS_OMNIBOX_TAB_SUGGEST_HINT),
+          base::BindRepeating(&OmniboxSuggestionButtonRowView::ButtonPressed,
+                              base::Unretained(this),
+                              OmniboxPopupModel::FOCUSED_BUTTON_TAB_SWITCH),
+          l10n_util::GetStringUTF16(IDS_OMNIBOX_TAB_SUGGEST_HINT),
           omnibox::kSwitchIcon, popup_contents_view_,
           OmniboxPopupModel::Selection(
               model_index_, OmniboxPopupModel::FOCUSED_BUTTON_TAB_SWITCH)));
   tab_switch_button_->SetAccessibleName(
       l10n_util::GetStringUTF16(IDS_ACC_TAB_SWITCH_BUTTON));
   pedal_button_ = AddChildView(std::make_unique<OmniboxSuggestionRowButton>(
-      this, base::string16(), omnibox::kProductIcon, popup_contents_view_,
+      base::BindRepeating(&OmniboxSuggestionButtonRowView::ButtonPressed,
+                          base::Unretained(this),
+                          OmniboxPopupModel::FOCUSED_BUTTON_PEDAL),
+      base::string16(), omnibox::kProductIcon, popup_contents_view_,
       OmniboxPopupModel::Selection(model_index_,
                                    OmniboxPopupModel::FOCUSED_BUTTON_PEDAL)));
 }
@@ -155,8 +165,7 @@ OmniboxSuggestionButtonRowView::OmniboxSuggestionButtonRowView(
 OmniboxSuggestionButtonRowView::~OmniboxSuggestionButtonRowView() = default;
 
 void OmniboxSuggestionButtonRowView::UpdateFromModel() {
-  SetPillButtonVisibility(keyword_button_,
-                          OmniboxPopupModel::FOCUSED_BUTTON_KEYWORD);
+  SetPillButtonVisibility(keyword_button_, OmniboxPopupModel::KEYWORD_MODE);
   if (keyword_button_->GetVisible()) {
     const OmniboxEditModel* edit_model = model()->edit_model();
     base::string16 keyword;
@@ -168,8 +177,11 @@ void OmniboxSuggestionButtonRowView::UpdateFromModel() {
         keyword, edit_model->client()->GetTemplateURLService());
     keyword_button_->SetText(names.full_name);
     keyword_button_->SetAccessibleName(
-        l10n_util::GetStringFUTF16(IDS_ACC_KEYWORD_BUTTON, names.short_name));
+        l10n_util::GetStringFUTF16(IDS_ACC_KEYWORD_MODE, names.short_name));
   }
+
+  SetPillButtonVisibility(tab_switch_button_,
+                          OmniboxPopupModel::FOCUSED_BUTTON_TAB_SWITCH);
 
   SetPillButtonVisibility(pedal_button_,
                           OmniboxPopupModel::FOCUSED_BUTTON_PEDAL);
@@ -179,9 +191,6 @@ void OmniboxSuggestionButtonRowView::UpdateFromModel() {
     pedal_button_->SetTooltipText(pedal_strings.suggestion_contents);
     pedal_button_->SetAccessibleName(pedal_strings.accessibility_hint);
   }
-
-  SetPillButtonVisibility(tab_switch_button_,
-                          OmniboxPopupModel::FOCUSED_BUTTON_TAB_SWITCH);
 
   bool is_any_button_visible = keyword_button_->GetVisible() ||
                                pedal_button_->GetVisible() ||
@@ -193,41 +202,6 @@ void OmniboxSuggestionButtonRowView::OnStyleRefresh() {
   keyword_button_->OnStyleRefresh();
   pedal_button_->OnStyleRefresh();
   tab_switch_button_->OnStyleRefresh();
-}
-
-void OmniboxSuggestionButtonRowView::ButtonPressed(views::Button* button,
-                                                   const ui::Event& event) {
-  OmniboxPopupModel* popup_model = popup_contents_view_->model();
-  if (!popup_model)
-    return;
-
-  if (button == tab_switch_button_) {
-    popup_model->TriggerSelectionAction(
-        OmniboxPopupModel::Selection(
-            model_index_, OmniboxPopupModel::FOCUSED_BUTTON_TAB_SWITCH),
-        event.time_stamp());
-  } else if (button == keyword_button_) {
-    // TODO(yoangela): Port to PopupModel and merge with keyEvent
-    // TODO(orinj): Clear out existing suggestions, particularly this one, as
-    // once we AcceptKeyword, we are really in a new scope state and holding
-    // onto old suggestions is confusing and error prone. Without this check,
-    // a second click of the button violates assumptions in |AcceptKeyword|.
-    if (model()->edit_model()->is_keyword_hint()) {
-      auto method = metrics::OmniboxEventProto::INVALID;
-      if (event.IsMouseEvent()) {
-        method = metrics::OmniboxEventProto::CLICK_HINT_VIEW;
-      } else if (event.IsGestureEvent()) {
-        method = metrics::OmniboxEventProto::TAP_HINT_VIEW;
-      }
-      DCHECK_NE(method, metrics::OmniboxEventProto::INVALID);
-      model()->edit_model()->AcceptKeyword(method);
-    }
-  } else if (button == pedal_button_) {
-    popup_model->TriggerSelectionAction(
-        OmniboxPopupModel::Selection(model_index_,
-                                     OmniboxPopupModel::FOCUSED_BUTTON_PEDAL),
-        event.time_stamp());
-  }
 }
 
 views::Button* OmniboxSuggestionButtonRowView::GetActiveButton() const {
@@ -263,6 +237,38 @@ const AutocompleteMatch& OmniboxSuggestionButtonRowView::match() const {
 void OmniboxSuggestionButtonRowView::SetPillButtonVisibility(
     OmniboxSuggestionRowButton* button,
     OmniboxPopupModel::LineState state) {
-  button->SetVisible(model()->IsControlPresentOnMatch(
-      OmniboxPopupModel::Selection(model_index_, state)));
+  // If the keyword button flag is not enabled, the classic keyword UI is
+  // used instead, so do not show the keyword button
+  if (button == keyword_button_ &&
+      !OmniboxFieldTrial::IsKeywordSearchButtonEnabled()) {
+    button->SetVisible(false);
+  } else {
+    button->SetVisible(model()->IsControlPresentOnMatch(
+        OmniboxPopupModel::Selection(model_index_, state)));
+  }
+}
+
+void OmniboxSuggestionButtonRowView::ButtonPressed(
+    OmniboxPopupModel::LineState state,
+    const ui::Event& event) {
+  const OmniboxPopupModel::Selection selection(model_index_, state);
+  if (state == OmniboxPopupModel::KEYWORD_MODE) {
+    // TODO(yoangela): Port to PopupModel and merge with keyEvent
+    // TODO(orinj): Clear out existing suggestions, particularly this one, as
+    // once we AcceptKeyword, we are really in a new scope state and holding
+    // onto old suggestions is confusing and error prone. Without this check,
+    // a second click of the button violates assumptions in |AcceptKeyword|.
+    // Note: Since keyword mode logic depends on state of the edit model, the
+    // selection must first be set to prepare for keyword mode before accepting.
+    popup_contents_view_->model()->SetSelection(selection);
+    if (model()->edit_model()->is_keyword_hint()) {
+      const auto entry_method =
+          event.IsMouseEvent() ? metrics::OmniboxEventProto::CLICK_HINT_VIEW
+                               : metrics::OmniboxEventProto::TAP_HINT_VIEW;
+      model()->edit_model()->AcceptKeyword(entry_method);
+    }
+  } else {
+    popup_contents_view_->model()->TriggerSelectionAction(selection,
+                                                          event.time_stamp());
+  }
 }

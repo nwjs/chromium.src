@@ -14,6 +14,7 @@
 <translation id="1084365883616172403">Post na Facebooku dodany.</translation>
 <translation id="1103523840287552314">Zawsze tłumacz z języka: <ph name="LANGUAGE" /></translation>
 <translation id="1104948393051856124">Zaakceptuj i kontynuuj</translation>
+<translation id="110724200315609752">Przełącz na otwarte okno</translation>
 <translation id="1112015203684611006">Drukowanie nie udało się.</translation>
 <translation id="1125564390852150847">Utwórz nową kartę.</translation>
 <translation id="1145536944570833626">Usuń istniejące dane.</translation>
@@ -93,6 +94,7 @@
 <translation id="1941314575388338491">Kliknij dwukrotnie, by skopiować.</translation>
 <translation id="1952172573699511566">Gdy będzie to możliwe, tekst na stronach internetowych będzie się wyświetlać w Twoim preferowanym języku.</translation>
 <translation id="1952728750904661634">Zaloguj się na konto zarządzane</translation>
+<translation id="1965935827552890526">Dokończ czynności rozpoczęte w innym otwartym oknie Chrome.</translation>
 <translation id="1974060860693918893">Zaawansowane</translation>
 <translation id="1989112275319619282">Przeglądaj</translation>
 <translation id="1992734845128748707">Zmień domyślną przeglądarkę…</translation>
@@ -277,6 +279,7 @@ W trybie incognito witryny nie mogą używać plików cookie do śledzenia Twoj
 <translation id="408404951701638773">Pasek wyszukiwania jest teraz łatwiej dostępny</translation>
 <translation id="411254640334432676">Błąd pobierania.</translation>
 <translation id="4112644173421521737">Szukaj</translation>
+<translation id="4113030288477039509">Zarządzany przez administratora</translation>
 <translation id="4121993058175073134">Aby wysłać dane net-export, skonfiguruj konto e-mail w aplikacji Ustawienia.</translation>
 <translation id="4124987746317609294">Zakres czasowy</translation>
 <translation id="4152011295694446843">Tu znajdziesz swoje zakładki</translation>
@@ -285,11 +288,13 @@ W trybie incognito witryny nie mogą używać plików cookie do śledzenia Twoj
 <translation id="4181841719683918333">Języki</translation>
 <translation id="424315890655130736">Wpisz hasło</translation>
 <translation id="4263576668337963058">Pokaż dostępne działania dotyczące strony</translation>
+<translation id="4267380167363222949">Następna karta</translation>
 <translation id="4272631900155121838">Aby zeskanować kod QR, włącz aparat w ustawieniach</translation>
 <translation id="4276041135170112053">Napraw teraz.</translation>
 <translation id="4277990410970811858">Bezpieczne przeglądanie</translation>
 <translation id="4281844954008187215">Warunki korzystania z usługi</translation>
 <translation id="430793432425771671">Synchronizuj wszystko</translation>
+<translation id="4309403553630140242">Kliknij dwukrotnie, by dowiedzieć się więcej</translation>
 <translation id="430967081421617822">Od początku</translation>
 <translation id="4334428914252001502">Jeden nieprzeczytany artykuł.</translation>
 <translation id="4338650699862464074">Adresy URL odwiedzanych stron będą wysyłane do Google.</translation>
@@ -353,6 +358,7 @@ Aby zmienić to ustawienie, <ph name="BEGIN_LINK" />zresetuj synchronizację<ph 
 <translation id="5005498671520578047">Skopiuj hasło</translation>
 <translation id="5010803260590204777">Otwórz kartę incognito, by przeglądać strony prywatnie.</translation>
 <translation id="5039804452771397117">Zezwalaj</translation>
+<translation id="5056446788882570708">Znaleziono problemy <ph name="TIME" />.</translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5062321486222145940">Zainstaluj Dysk Google</translation>
 <translation id="5083464117946352670">Nie można ustalić rozmiaru pliku.</translation>
@@ -376,7 +382,6 @@ Aby zmienić to ustawienie, <ph name="BEGIN_LINK" />zresetuj synchronizację<ph 
 <translation id="5317780077021120954">Zapisz</translation>
 <translation id="5327248766486351172">Nazwa</translation>
 <translation id="5339316356165661760">Włącz synchronizację</translation>
-<translation id="5352285283572729470">To ustawienie jest zarządzane</translation>
 <translation id="5388358297987318779">Otwórz obraz</translation>
 <translation id="5407969256130905701">Odrzuć zmiany</translation>
 <translation id="5409365236829784218">Nie masz aplikacji, w których można otworzyć ten plik.</translation>
@@ -456,6 +461,7 @@ Funkcja Handoff musi być też włączona w sekcji Ogólne w Ustawieniach, a urz
 <translation id="6187302354554850004">Ostatnia synchronizacja: <ph name="LAST_USED_TIME" /></translation>
 <translation id="6189413832092199491">Nieprzeczytane</translation>
 <translation id="6196207969502475924">Wyszukiwanie głosowe</translation>
+<translation id="6202364442240589072">{COUNT,plural, =1{Zamknij {COUNT} kartę}few{Zamknij {COUNT} karty}many{Zamknij {COUNT} kart}other{Zamknij {COUNT} karty}}</translation>
 <translation id="6219688215832490856">Nigdy nie tłumacz</translation>
 <translation id="6254066287920239840">Otwieraj linki w aplikacji, a nie w przeglądarce.</translation>
 <translation id="6255097610484507482">Edytuj kartę kredytową</translation>
@@ -571,6 +577,7 @@ Witryny nie mogą używać plików cookie do śledzenia Twojej aktywności zwią
 <translation id="734758817008927353">Opcje zapisania karty</translation>
 <translation id="7348502496356775519">Dodaj do zakładek</translation>
 <translation id="7383797227493018512">Do przeczytania</translation>
+<translation id="739941347996872055">Poprzednia karta</translation>
 <translation id="7400418766976504921">Adres URL</translation>
 <translation id="7409985198648820906">Nieprzeczytane artykuły: <ph name="UNREAD_COUNT" />.</translation>
 <translation id="7425346204213733349">Zmiany w zakładkach, historii, hasłach i innych ustawieniach nie będą już synchronizowane z kontem Google. Twoje obecne dane będą jednak nadal na nim przechowywane.</translation>
@@ -636,6 +643,7 @@ Witryny mogą używać plików cookie do śledzenia Twojej aktywności związane
 <translation id="8073670137947914548">Pobieranie zakończone</translation>
 <translation id="8073872304774253879">Ulepsz wyszukiwanie i przeglądanie</translation>
 <translation id="8076014560081431679">Zapisane ustawienia witryn nie zostaną usunięte i mogą zawierać informacje o Twoim korzystaniu z przeglądarki. <ph name="BEGIN_LINK" />Więcej informacji<ph name="END_LINK" /></translation>
+<translation id="8079602123447022758">To ustawienie jest zarządzenie. Kliknij dwukrotnie, by dowiedzieć się więcej.</translation>
 <translation id="8105368624971345109">Wyłącz</translation>
 <translation id="8114753159095730575">Pobrany plik jest dostępny. Opcje są dostępne u dołu ekranu.</translation>
 <translation id="8131740175452115882">Potwierdź</translation>

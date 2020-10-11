@@ -45,7 +45,7 @@
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/renderer_preferences_util.h"
 #include "content/public/browser/web_contents.h"
-#include "content/public/common/web_preferences.h"
+#include "third_party/blink/public/common/web_preferences/web_preferences.h"
 #include "third_party/blink/public/mojom/renderer_preferences.mojom.h"
 #include "third_party/blink/public/mojom/window_features/window_features.mojom.h"
 #include "ui/base/window_open_disposition.h"
@@ -513,7 +513,7 @@ void TabImpl::WebPreferencesChanged() {
   web_contents_->OnWebPreferencesChanged();
 }
 
-void TabImpl::SetWebPreferences(content::WebPreferences* prefs) {
+void TabImpl::SetWebPreferences(blink::web_pref::WebPreferences* prefs) {
   prefs->fullscreen_supported = !!fullscreen_delegate_;
 
   if (!browser_)
@@ -580,9 +580,10 @@ static jlong JNI_TabImpl_CreateTab(JNIEnv* env,
 static void JNI_TabImpl_DeleteTab(JNIEnv* env, jlong tab) {
   TabImpl* tab_impl = reinterpret_cast<TabImpl*>(tab);
   DCHECK(tab_impl);
-  DCHECK(tab_impl->browser());
-  // Don't call Browser::DestroyTab() as it calls back to the java side.
-  tab_impl->browser()->DestroyTabFromJava(tab_impl);
+  // RemoveTabBeforeDestroyingFromJava() should have been called before this,
+  // which sets browser to null.
+  DCHECK(!tab_impl->browser());
+  delete tab_impl;
 }
 
 ScopedJavaLocalRef<jobject> TabImpl::GetWebContents(JNIEnv* env) {
@@ -806,6 +807,11 @@ jboolean TabImpl::CanTranslate(JNIEnv* env) {
 void TabImpl::ShowTranslateUi(JNIEnv* env) {
   TranslateClientImpl::FromWebContents(web_contents())
       ->ManualTranslateWhenReady();
+}
+
+void TabImpl::RemoveTabFromBrowserBeforeDestroying(JNIEnv* env) {
+  DCHECK(browser_);
+  browser_->RemoveTabBeforeDestroyingFromJava(this);
 }
 
 void TabImpl::SetTranslateTargetLanguage(
@@ -1098,19 +1104,10 @@ void TabImpl::CloseContents(content::WebContents* source) {
   DCHECK(browser_);
 
 #if defined(OS_ANDROID)
-  // Prior to 84 closing tabs was delegated to the embedder. In 84 closing tabs
-  // was changed to be done internally in the implementation, but as this
-  // required changes on the client side as well as in the implementation the
-  // prior flow needs to be preserved when the client is expecting it.
-  if (WebLayerFactoryImplAndroid::GetClientMajorVersion() < 84) {
-    if (new_tab_delegate_)
-      new_tab_delegate_->CloseTab();
-  } else {
-    JNIEnv* env = AttachCurrentThread();
-    Java_TabImpl_handleCloseFromWebContents(env, java_impl_);
-    // The above call resulted in the destruction of this; nothing to do but
-    // return.
-  }
+  JNIEnv* env = AttachCurrentThread();
+  Java_TabImpl_handleCloseFromWebContents(env, java_impl_);
+  // The above call resulted in the destruction of this; nothing to do but
+  // return.
 #else
   browser_->DestroyTab(this);
 #endif
@@ -1175,9 +1172,9 @@ void TabImpl::OnFindResultAvailable(content::WebContents* web_contents) {
 
 #if defined(OS_ANDROID)
 void TabImpl::OnBrowserControlsStateStateChanged(
+    ControlsVisibilityReason reason,
     content::BrowserControlsState state) {
-  SetBrowserControlsConstraint(ControlsVisibilityReason::kPostNavigation,
-                               state);
+  SetBrowserControlsConstraint(reason, state);
 }
 
 void TabImpl::OnUpdateBrowserControlsStateBecauseOfProcessSwitch(
@@ -1198,10 +1195,6 @@ void TabImpl::OnUpdateBrowserControlsStateBecauseOfProcessSwitch(
         current_browser_controls_visibility_constraint_ !=
             content::BROWSER_CONTROLS_STATE_HIDDEN);
   }
-}
-
-void TabImpl::OnForceBrowserControlsShown() {
-  Java_TabImpl_onForceBrowserControlsShown(AttachCurrentThread(), java_impl_);
 }
 
 #endif

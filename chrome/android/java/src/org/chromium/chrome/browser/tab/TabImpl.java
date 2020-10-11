@@ -30,14 +30,13 @@ import org.chromium.chrome.browser.WarmupManager;
 import org.chromium.chrome.browser.WebContentsFactory;
 import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.content.ContentUtils;
-import org.chromium.chrome.browser.contextmenu.ContextMenuPopulator;
+import org.chromium.chrome.browser.contextmenu.ContextMenuPopulatorFactory;
 import org.chromium.chrome.browser.flags.CachedFeatureFlags;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.native_page.NativePageAssassin;
 import org.chromium.chrome.browser.night_mode.NightModeUtils;
 import org.chromium.chrome.browser.offlinepages.OfflinePageUtils;
 import org.chromium.chrome.browser.paint_preview.PaintPreviewHelper;
-import org.chromium.chrome.browser.prerender.ExternalPrerenderHandler;
 import org.chromium.chrome.browser.rlz.RevenueStats;
 import org.chromium.chrome.browser.tab.state.CriticalPersistedTabData;
 import org.chromium.chrome.browser.ui.TabObscuringHandler;
@@ -339,6 +338,9 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
     @CalledByNative
     @Override
     public GURL getUrl() {
+        if (!isInitialized()) {
+            return GURL.emptyGURL();
+        }
         GURL url = getWebContents() != null ? getWebContents().getVisibleUrl() : GURL.emptyGURL();
 
         // If we have a ContentView, or a NativePage, or the url is not empty, we have a WebContents
@@ -800,7 +802,7 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
             initWebContents(webContents);
 
             if (!creatingWebContents && webContents.isLoadingToDifferentDocument()) {
-                didStartPageLoad(webContents.getVisibleUrlString());
+                didStartPageLoad(webContents.getVisibleUrl());
             }
 
         } finally {
@@ -932,10 +934,12 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
      * Called when a page has started loading.
      * @param validatedUrl URL being loaded.
      */
-    void didStartPageLoad(String validatedUrl) {
+    void didStartPageLoad(GURL validatedUrl) {
         updateTitle();
         if (mIsRendererUnresponsive) handleRendererResponsiveStateChanged(true);
-        for (TabObserver observer : mObservers) observer.onPageLoadStarted(this, validatedUrl);
+        for (TabObserver observer : mObservers) {
+            observer.onPageLoadStarted(this, validatedUrl.getSpec());
+        }
     }
 
     /**
@@ -966,11 +970,11 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
      * @param url The URL that was loaded.
      * @param transitionType The transition type to the current URL.
      */
-    void handleDidFinishNavigation(String url, Integer transitionType) {
+    void handleDidFinishNavigation(GURL url, Integer transitionType) {
         mIsNativePageCommitPending = false;
         boolean isReload = (transitionType != null
                 && (transitionType & PageTransition.CORE_MASK) == PageTransition.RELOAD);
-        if (!maybeShowNativePage(url, isReload)) {
+        if (!maybeShowNativePage(url.getSpec(), isReload)) {
             showRenderedPage();
         }
     }
@@ -1142,9 +1146,7 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
         for (TabObserver observer : mObservers) observer.webContentsWillSwap(this);
         if (hasWebContents) mWebContents.onHide();
         Context appContext = ContextUtils.getApplicationContext();
-        Rect bounds = original.isEmpty()
-                ? ExternalPrerenderHandler.estimateContentSize(appContext, false)
-                : null;
+        Rect bounds = original.isEmpty() ? TabUtils.estimateContentSize(appContext) : null;
         if (bounds != null) original.set(bounds);
 
         mWebContents.setFocus(false);
@@ -1165,14 +1167,12 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
             initWebContents(webContents);
         });
 
-        String url = getUrlString();
-
         if (didStartLoad) {
             // Simulate the PAGE_LOAD_STARTED notification that we did not get.
-            didStartPageLoad(url);
+            didStartPageLoad(getUrl());
 
             // Simulate the PAGE_LOAD_FINISHED notification that we did not get.
-            if (didFinishLoad) didFinishPageLoad(url);
+            if (didFinishLoad) didFinishPageLoad(getUrlString());
         }
 
         for (TabObserver observer : mObservers) {
@@ -1252,8 +1252,8 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
             assert mNativeTabAndroid != 0;
             TabImplJni.get().initWebContents(mNativeTabAndroid, TabImpl.this, mIncognito,
                     isDetached(this), webContents, mSourceTabId, mWebContentsDelegate,
-                    new TabContextMenuPopulator(
-                            mDelegateFactory.createContextMenuPopulator(this), this));
+                    new TabContextMenuPopulatorFactory(
+                            mDelegateFactory.createContextMenuPopulatorFactory(this), this));
 
             mWebContents.notifyRendererPreferenceUpdate();
             TabHelpers.initWebContentsHelpers(this);
@@ -1316,8 +1316,8 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
         WebContents webContents = getWebContents();
         if (webContents != null) {
             TabImplJni.get().updateDelegates(mNativeTabAndroid, TabImpl.this, mWebContentsDelegate,
-                    new TabContextMenuPopulator(
-                            mDelegateFactory.createContextMenuPopulator(this), this));
+                    new TabContextMenuPopulatorFactory(
+                            mDelegateFactory.createContextMenuPopulatorFactory(this), this));
             webContents.notifyRendererPreferenceUpdate();
         }
     }
@@ -1359,13 +1359,9 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
      * history load are used.
      */
     private final void restoreIfNeeded() {
-        // Attempts to display the Paint Preview representation of this Tab instead of fully
-        // restoring. Please note that this is behind an experimental flag.
-        if (isFrozen()
-                && PaintPreviewHelper.showPaintPreviewOnRestore(
-                        this, () -> restoreIfNeeded(), () -> restoreIfNeeded())) {
-            return;
-        }
+        // Attempts to display the Paint Preview representation of this Tab. Please note that this
+        // is behind an experimental flag (crbug.com/1008520).
+        if (isFrozen()) PaintPreviewHelper.showPaintPreviewOnRestore(this);
 
         try {
             TraceEvent.begin("Tab.restoreIfNeeded");
@@ -1499,15 +1495,16 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
 
     @NativeMethods
     interface Natives {
+        TabImpl fromWebContents(WebContents webContents);
         void init(TabImpl caller);
         void destroy(long nativeTabAndroid, TabImpl caller);
         void initWebContents(long nativeTabAndroid, TabImpl caller, boolean incognito,
                 boolean isBackgroundTab, WebContents webContents, int parentTabId,
                 TabWebContentsDelegateAndroidImpl delegate,
-                ContextMenuPopulator contextMenuPopulator);
+                ContextMenuPopulatorFactory contextMenuPopulatorFactory);
         void updateDelegates(long nativeTabAndroid, TabImpl caller,
                 TabWebContentsDelegateAndroidImpl delegate,
-                ContextMenuPopulator contextMenuPopulator);
+                ContextMenuPopulatorFactory contextMenuPopulatorFactory);
         void destroyWebContents(long nativeTabAndroid, TabImpl caller);
         void releaseWebContents(long nativeTabAndroid, TabImpl caller);
         void onPhysicalBackingSizeChanged(long nativeTabAndroid, TabImpl caller,

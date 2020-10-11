@@ -129,8 +129,10 @@ class FeedStream : public FeedStreamApi,
   bool IsArticlesListVisible() override;
   std::string GetClientInstanceId() override;
   void ExecuteRefreshTask() override;
-  void FetchImage(const GURL& url,
-                  base::OnceCallback<void(NetworkResponse)> callback) override;
+  ImageFetchId FetchImage(
+      const GURL& url,
+      base::OnceCallback<void(NetworkResponse)> callback) override;
+  void CancelImageFetch(ImageFetchId id) override;
   void LoadMore(SurfaceId surface_id,
                 base::OnceCallback<void(bool)> callback) override;
   void ExecuteOperations(
@@ -165,6 +167,8 @@ class FeedStream : public FeedStreamApi,
   void ReportContextMenuOpened() override;
   void ReportStreamScrolled(int distance_dp) override;
   void ReportStreamScrollStart() override;
+  void ReportTurnOnAction() override;
+  void ReportTurnOffAction() override;
 
   // offline_pages::TaskQueue::Delegate.
   void OnTaskQueueIsIdle() override;

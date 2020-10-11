@@ -103,7 +103,7 @@ size_t ReadProcStatusAndGetFieldAsSizeT(pid_t pid, StringPiece field) {
   return 0;
 }
 
-#if defined(OS_LINUX) || defined(OS_AIX)
+#if defined(OS_LINUX) || defined(OS_CHROMEOS) || defined(OS_AIX)
 // Read /proc/<pid>/status and look for |field|. On success, return true and
 // write the value for |field| into |result|.
 // Only works for fields in the form of "field    :     uint_value"
@@ -128,7 +128,7 @@ bool ReadProcStatusAndGetFieldAsUint64(pid_t pid,
   }
   return false;
 }
-#endif  // defined(OS_LINUX) || defined(OS_AIX)
+#endif  // defined(OS_LINUX) || defined(OS_CHROMEOS) || defined(OS_AIX)
 
 // Get the total CPU from a proc stat buffer.  Return value is number of jiffies
 // on success or 0 if parsing failed.
@@ -297,13 +297,11 @@ bool ProcessMetrics::GetIOCounters(IoCounters* io_counters) const {
   return true;
 }
 
-#if defined(OS_LINUX) || defined(OS_ANDROID)
+#if defined(OS_LINUX) || defined(OS_CHROMEOS) || defined(OS_ANDROID)
 uint64_t ProcessMetrics::GetVmSwapBytes() const {
   return ReadProcStatusAndGetFieldAsSizeT(process_, "VmSwap") * 1024;
 }
-#endif  // defined(OS_LINUX) || defined(OS_ANDROID)
 
-#if defined(OS_LINUX) || defined(OS_ANDROID)
 bool ProcessMetrics::GetPageFaultCounts(PageFaultCounts* counts) const {
   // We are not using internal::ReadStatsFileAndGetFieldAsInt64(), since it
   // would read the file twice, and return inconsistent numbers.
@@ -320,7 +318,7 @@ bool ProcessMetrics::GetPageFaultCounts(PageFaultCounts* counts) const {
       internal::GetProcStatsFieldAsInt64(proc_stats, internal::VM_MAJFLT);
   return true;
 }
-#endif  // defined(OS_LINUX) || defined(OS_ANDROID)
+#endif  // defined(OS_LINUX) || defined(OS_CHROMEOS) || defined(OS_ANDROID)
 
 int ProcessMetrics::GetOpenFdCount() const {
   // Use /proc/<pid>/fd to count the number of entries there.
@@ -365,7 +363,7 @@ int ProcessMetrics::GetOpenFdSoftLimit() const {
   return -1;
 }
 
-#if defined(OS_LINUX) || defined(OS_AIX)
+#if defined(OS_LINUX) || defined(OS_CHROMEOS) || defined(OS_AIX)
 ProcessMetrics::ProcessMetrics(ProcessHandle process)
     : process_(process), last_absolute_idle_wakeups_(0) {}
 #else
@@ -656,9 +654,17 @@ bool ParseProcVmstat(StringPiece vmstat_data, VmStatInfo* vmstat) {
   //
   // Iterate through the whole file because the position of the
   // fields are dependent on the kernel version and configuration.
+
+  // Returns true if all of these 3 fields are present.
   bool has_pswpin = false;
   bool has_pswpout = false;
   bool has_pgmajfault = false;
+
+  // The oom_kill field is optional. The vmstat oom_kill field is available on
+  // upstream kernel 4.13. It's backported to Chrome OS kernel 3.10.
+  bool has_oom_kill = false;
+  vmstat->oom_kill = 0;
+
   for (const StringPiece& line : SplitStringPiece(
            vmstat_data, "\n", KEEP_WHITESPACE, SPLIT_WANT_NONEMPTY)) {
     std::vector<StringPiece> tokens = SplitStringPiece(
@@ -682,12 +688,14 @@ bool ParseProcVmstat(StringPiece vmstat_data, VmStatInfo* vmstat) {
       vmstat->pgmajfault = val;
       DCHECK(!has_pgmajfault);
       has_pgmajfault = true;
+    } else if (tokens[0] == "oom_kill") {
+      vmstat->oom_kill = val;
+      DCHECK(!has_oom_kill);
+      has_oom_kill = true;
     }
-    if (has_pswpin && has_pswpout && has_pgmajfault)
-      return true;
   }
 
-  return false;
+  return has_pswpin && has_pswpout && has_pgmajfault;
 }
 
 bool GetSystemMemoryInfo(SystemMemoryInfoKB* meminfo) {
@@ -1043,7 +1051,7 @@ bool GetSwapInfo(SwapInfo* swap_info) {
 }
 #endif  // defined(OS_CHROMEOS) || BUILDFLAG(IS_LACROS)
 
-#if defined(OS_LINUX) || defined(OS_AIX)
+#if defined(OS_LINUX) || defined(OS_CHROMEOS) || defined(OS_AIX)
 int ProcessMetrics::GetIdleWakeupsPerSecond() {
   uint64_t num_switches;
   static const char kSwitchStat[] = "voluntary_ctxt_switches";
@@ -1051,6 +1059,6 @@ int ProcessMetrics::GetIdleWakeupsPerSecond() {
              ? CalculateIdleWakeupsPerSecond(num_switches)
              : 0;
 }
-#endif  // defined(OS_LINUX) || defined(OS_AIX)
+#endif  // defined(OS_LINUX) || defined(OS_CHROMEOS) || defined(OS_AIX)
 
 }  // namespace base

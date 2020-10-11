@@ -14,6 +14,7 @@
 <translation id="1084365883616172403">‏הפרסום ב-‏Facebook בוצע.</translation>
 <translation id="1103523840287552314">ברצוני לקבל תרגום מ<ph name="LANGUAGE" /> תמיד</translation>
 <translation id="1104948393051856124">בסדר, מקובל עליי</translation>
+<translation id="110724200315609752">מעבר לחלון פתוח</translation>
 <translation id="1112015203684611006">ההדפסה נכשלה.</translation>
 <translation id="1125564390852150847">יצירת כרטיסייה חדשה.</translation>
 <translation id="1145536944570833626">מחק נתונים קיימים.</translation>
@@ -93,6 +94,7 @@
 <translation id="1941314575388338491">הקש פעמיים כדי להעתיק.</translation>
 <translation id="1952172573699511566">אתרים יציגו טקסט בשפה המועדפת שלך, כשזה אפשרי.</translation>
 <translation id="1952728750904661634">כניסה עם חשבון מנוהל</translation>
+<translation id="1965935827552890526">‏יש לסיים את הפעילות בחלון Chrome הפתוח הנוסף.</translation>
 <translation id="1974060860693918893">מתקדם</translation>
 <translation id="1989112275319619282">דפדף</translation>
 <translation id="1992734845128748707">שינוי דפדפן ברירת מחדל…</translation>
@@ -277,6 +279,7 @@
 <translation id="408404951701638773">עכשיו קל יותר להגיע אל סרגל החיפוש</translation>
 <translation id="411254640334432676">ההורדה נכשלה.</translation>
 <translation id="4112644173421521737">חיפוש</translation>
+<translation id="4113030288477039509">מנוהל על ידי מנהל המערכת שלך</translation>
 <translation id="4121993058175073134">כדי לשלוח נתוני ייצוא ברשת, יש להגדיר את חשבון האימייל שלך ביישום 'הגדרות'.</translation>
 <translation id="4124987746317609294">טווח זמן</translation>
 <translation id="4152011295694446843">הסימניות זמינות כאן</translation>
@@ -285,11 +288,13 @@
 <translation id="4181841719683918333">שפות</translation>
 <translation id="424315890655130736">הזנת ביטוי סיסמה</translation>
 <translation id="4263576668337963058">הצגה של פעולות זמינות בדף</translation>
+<translation id="4267380167363222949">הכרטיסייה הבאה</translation>
 <translation id="4272631900155121838">‏כדי לסרוק את קוד ה-QR, הפעל את המצלמה דרך ההגדרות</translation>
 <translation id="4276041135170112053">לפתרון הבעיה עכשיו.</translation>
 <translation id="4277990410970811858">גלישה בטוחה</translation>
 <translation id="4281844954008187215">תנאי שירות</translation>
 <translation id="430793432425771671">סנכרון הכל</translation>
+<translation id="4309403553630140242">לחיצה פעמיים תציג מידע נוסף</translation>
 <translation id="430967081421617822">משחר ההיסטוריה</translation>
 <translation id="4334428914252001502">מאמר אחד שלא נקרא.</translation>
 <translation id="4338650699862464074">‏שליחת כתובות URL של דפים שנכנסת אליהם אל Google.</translation>
@@ -353,6 +358,7 @@
 <translation id="5005498671520578047">העתק סיסמה</translation>
 <translation id="5010803260590204777">פתח כרטיסייה של גלישה בסתר כדי לגלוש בפרטיות באינטרנט.</translation>
 <translation id="5039804452771397117">זה בסדר</translation>
+<translation id="5056446788882570708">נמצאו בעיות <ph name="TIME" />.</translation>
 <translation id="5059136629401106827">אישור</translation>
 <translation id="5062321486222145940">‏התקן את Google Drive</translation>
 <translation id="5083464117946352670">גודל הקובץ אינו ידוע.</translation>
@@ -376,7 +382,6 @@
 <translation id="5317780077021120954">שמור</translation>
 <translation id="5327248766486351172">שם</translation>
 <translation id="5339316356165661760">הפעלת הסנכרון</translation>
-<translation id="5352285283572729470">ההגדרה הזו מנוהלת</translation>
 <translation id="5388358297987318779">פתח תמונה</translation>
 <translation id="5407969256130905701">ביטול השינויים</translation>
 <translation id="5409365236829784218">אין יישומים מותקנים שיכולים לפתוח את הקובץ הזה.</translation>
@@ -456,6 +461,7 @@
 <translation id="6187302354554850004">סונכרן לאחרונה: <ph name="LAST_USED_TIME" /></translation>
 <translation id="6189413832092199491">פריטים שלא נקראו</translation>
 <translation id="6196207969502475924">חיפוש קולי</translation>
+<translation id="6202364442240589072">{COUNT,plural, =1{סגירת כרטיסייה אחת ({COUNT})}two{סגירת {COUNT} כרטיסיות}many{סגירת {COUNT} כרטיסיות}other{סגירת {COUNT} כרטיסיות}}</translation>
 <translation id="6219688215832490856">לא לתרגם אף פעם</translation>
 <translation id="6254066287920239840">פתח קישורים באפליקציה ולא בדפדפן.</translation>
 <translation id="6255097610484507482">עריכת כרטיס אשראי</translation>
@@ -571,6 +577,7 @@
 <translation id="734758817008927353">אפשרויות לשמירת כרטיס</translation>
 <translation id="7348502496356775519">הוספה לסימניות</translation>
 <translation id="7383797227493018512">רשימת קריאה</translation>
+<translation id="739941347996872055">הכרטיסייה הקודמת</translation>
 <translation id="7400418766976504921">כתובת אתר</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> מאמרים שלא נקראו.</translation>
 <translation id="7425346204213733349">‏שינויים בסימניות, בהיסטוריה, בסיסמאות ובהגדרות נוספות לא יסונכרנו עוד עם חשבון Google שלך. עם זאת, הנתונים הקיימים עדיין יאוחסנו בחשבון Google שלך.</translation>
@@ -636,6 +643,7 @@
 <translation id="8073670137947914548">ההורדה הסתיימה</translation>
 <translation id="8073872304774253879">שיפור החיפושים והגלישה</translation>
 <translation id="8076014560081431679">הגדרות אתרים שנשמרו לא יימחקו ועשויות לשקף את הרגלי הגלישה שלך. <ph name="BEGIN_LINK" />למידע נוסף<ph name="END_LINK" /></translation>
+<translation id="8079602123447022758">ההגדרה הזו מנוהלת. יש ללחוץ פעמיים לקבלת מידע נוסף</translation>
 <translation id="8105368624971345109">כבה</translation>
 <translation id="8114753159095730575">יש קובץ זמין להורדה. האפשרויות זמינות בחלק התחתון של המסך.</translation>
 <translation id="8131740175452115882">אישור</translation>

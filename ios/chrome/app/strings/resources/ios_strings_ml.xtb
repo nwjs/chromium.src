@@ -14,6 +14,7 @@
 <translation id="1084365883616172403">Facebook പങ്കിടൽ പൂർത്തിയായി.</translation>
 <translation id="1103523840287552314"><ph name="LANGUAGE" /> എല്ലായ്പ്പോഴും വിവര്‍ത്തനം ചെയ്യുക </translation>
 <translation id="1104948393051856124">അംഗീകരിച്ച് തുടരുക</translation>
+<translation id="110724200315609752">തുറന്ന വിൻഡോയിലേക്ക് മാറുക</translation>
 <translation id="1112015203684611006">പ്രിന്റിംഗ് പരാജയപ്പെട്ടു.</translation>
 <translation id="1125564390852150847">പുതിയ ടാബ് സൃഷ്‌ടിക്കുക.</translation>
 <translation id="1145536944570833626">നിലവിലുള്ള വിവരങ്ങൾ ഇല്ലാതാക്കുക.</translation>
@@ -93,6 +94,7 @@
 <translation id="1941314575388338491">പകർത്താൻ ഡബിൾ ടാപ്പ് ചെയ്യുക.</translation>
 <translation id="1952172573699511566">വെബ്സൈറ്റുകൾ, സാധ്യമാകുന്നിടത്തെല്ലാം, നിങ്ങൾ തിരഞ്ഞെടുത്ത ഭാഷയിൽ ടെക്‌സ്‌റ്റ് കാണിക്കും.</translation>
 <translation id="1952728750904661634">മാനേജ് ചെയ്‌ത അക്കൗണ്ട് ഉപയോഗിച്ച് സൈൻ ഇൻ ചെയ്യുക</translation>
+<translation id="1965935827552890526">തുറന്ന മറ്റ് Chrome വിൻഡോയിൽ നിങ്ങൾ ചെയ്ത് കൊണ്ടിരുന്നത് പൂർത്തിയാക്കുക.</translation>
 <translation id="1974060860693918893">നൂതനം</translation>
 <translation id="1989112275319619282">ബ്രൗസ് ചെയ്യുക</translation>
 <translation id="1992734845128748707">ഡിഫോൾട്ട് ബ്രൗസർ മാറ്റുക…</translation>
@@ -277,6 +279,7 @@
 <translation id="408404951701638773">തിരയൽ ബാറിൽ എത്താൻ ഇപ്പോൾ എളുപ്പമാണ്</translation>
 <translation id="411254640334432676">ഡൗൺലോഡ് പരാജയപ്പെട്ടു.</translation>
 <translation id="4112644173421521737">Search</translation>
+<translation id="4113030288477039509">നിങ്ങളുടെ അഡ്‌മിനിസ്ട്രേറ്റർ നിയന്ത്രിക്കുന്നത്</translation>
 <translation id="4121993058175073134">നെറ്റ്-എക്‌സ്‌പോർട്ട് ഡാറ്റ അയയ്‌ക്കുന്നതിന്, ക്രമീകരണ ആപ്പിൽ നിങ്ങളുടെ ഇമെയിൽ അക്കൗണ്ട് കോൺഫിഗർ ചെയ്യുക.</translation>
 <translation id="4124987746317609294">സമയ ശ്രേണി</translation>
 <translation id="4152011295694446843">നിങ്ങളുടെ ബുക്ക്‌മാർക്കുകൾ ഇവിടെ കാണാം</translation>
@@ -285,11 +288,13 @@
 <translation id="4181841719683918333">ഭാഷകൾ‌</translation>
 <translation id="424315890655130736">പാസ്‌ഫ്രെയ്‌സ് നൽകുക</translation>
 <translation id="4263576668337963058">ലഭ്യമായ പേജ് പ്രവർത്തനങ്ങൾ കാണിക്കുക</translation>
+<translation id="4267380167363222949">അടുത്ത ടാബ്</translation>
 <translation id="4272631900155121838">QR കോഡ് സ്‌കാൻ ചെയ്യാൻ, ക്രമീകരണത്തിൽ നിന്ന് ക്യാമറ പ്രവർത്തനക്ഷമമാക്കുക</translation>
 <translation id="4276041135170112053">ഇപ്പോൾ പരിഹരിക്കുക.</translation>
 <translation id="4277990410970811858">സുരക്ഷിതമായ ബ്രൗസ് ചെയ്യൽ</translation>
 <translation id="4281844954008187215">സേവന നിബന്ധനകൾ</translation>
 <translation id="430793432425771671">എല്ലാം സമന്വയിപ്പിക്കുക</translation>
+<translation id="4309403553630140242">കൂടുതൽ വിവരങ്ങൾക്ക് ഡബിൾ ടാപ്പ് ചെയ്യുക</translation>
 <translation id="430967081421617822">എല്ലാ സമയവും</translation>
 <translation id="4334428914252001502">വായിക്കാത്ത ഒരു ലേഖനം.</translation>
 <translation id="4338650699862464074">നിങ്ങൾ സന്ദർശിക്കുന്ന പേജുകളുടെ URL-കൾ Google-ലേക്ക് അയയ്‌ക്കുന്നു.</translation>
@@ -353,6 +358,7 @@
 <translation id="5005498671520578047">പാസ്‌വേഡ് പകർത്തുക</translation>
 <translation id="5010803260590204777">വെബ് സ്വകാര്യമായി ബ്രൗസ് ചെയ്യാൻ ഒരു അദൃശ്യ ടാബ് തുറക്കുക.</translation>
 <translation id="5039804452771397117">അനുവദിക്കൂ</translation>
+<translation id="5056446788882570708"><ph name="TIME" /> പ്രശ്‌നങ്ങൾ കണ്ടെത്തി.</translation>
 <translation id="5059136629401106827">ശരി</translation>
 <translation id="5062321486222145940">Google ഡ്രൈവ് ഇൻസ്‌റ്റാൾ ചെയ്യുക</translation>
 <translation id="5083464117946352670">ഫയൽ വലുപ്പം നിർണ്ണയിക്കാനാവില്ല.</translation>
@@ -376,7 +382,6 @@
 <translation id="5317780077021120954">സംരക്ഷിക്കുക</translation>
 <translation id="5327248766486351172">പേര്</translation>
 <translation id="5339316356165661760">സമന്വയിപ്പിക്കൽ ഓണാക്കുക</translation>
-<translation id="5352285283572729470">ഈ ക്രമീകരണം മാനേജ് ചെയ്യപ്പെട്ടിരിക്കുന്നു</translation>
 <translation id="5388358297987318779">ചിത്രം തുറക്കുക</translation>
 <translation id="5407969256130905701">മാറ്റങ്ങൾ നിരസിക്കുക</translation>
 <translation id="5409365236829784218">ഈ ഫയലിൽ തുറക്കാൻ കഴിയുന്ന അപ്ലിക്കേഷനുകളൊന്നും ഇൻസ്റ്റാൾ ചെയ്‌തില്ല.</translation>
@@ -456,6 +461,7 @@
 <translation id="6187302354554850004">അവസാനം സമന്വയിപ്പിച്ചത്: <ph name="LAST_USED_TIME" /></translation>
 <translation id="6189413832092199491">വായിക്കാത്തവ</translation>
 <translation id="6196207969502475924">ശബ്ദ തിരയൽ</translation>
+<translation id="6202364442240589072">{COUNT,plural, =1{{COUNT} ടാബ് അടയ്‌ക്കുക}other{{COUNT} ടാബുകൾ അടയ്‌ക്കുക}}</translation>
 <translation id="6219688215832490856">ഒരിക്കലും വിവർത്തനം ചെയ്യരുത്</translation>
 <translation id="6254066287920239840">ബ്രൗസറിന് പകരം ആപ്പിൽ ലിങ്കുകൾ തുറക്കുക.</translation>
 <translation id="6255097610484507482">ക്രെഡിറ്റ് കാര്‍ഡ് എഡിറ്റ് ചെയ്യുക</translation>
@@ -571,6 +577,7 @@
 <translation id="734758817008927353">കാർഡ് സംരക്ഷിക്കാനുള്ള ഓപ്ഷനുകൾ</translation>
 <translation id="7348502496356775519">ബുക്ക്‌മാർക്ക് ചെയ്യുക</translation>
 <translation id="7383797227493018512">വായനാ ലിസ്‌റ്റ്</translation>
+<translation id="739941347996872055">മുമ്പത്തെ ടാബ്</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906">വായിക്കാത്ത <ph name="UNREAD_COUNT" /> ലേഖനങ്ങൾ.</translation>
 <translation id="7425346204213733349">ബുക്ക്‌മാർക്കുകൾ, ചരിത്രം, പാസ്‌വേഡുകൾ, മറ്റ് ക്രമീകരണം എന്നിവയിലുള്ള മാറ്റങ്ങളെ ഇനി നിങ്ങളുടെ Google അക്കൗണ്ടിലേക്ക് സമന്വയിപ്പിക്കില്ല. എന്നിരുന്നാലും, നിങ്ങളുടെ നിലവിലെ വിവരം Google അക്കൗണ്ടിൽ തുടർന്നും സൂക്ഷിക്കും.</translation>
@@ -636,6 +643,7 @@
 <translation id="8073670137947914548">ഡൗൺലോഡ് പൂർത്തിയായി</translation>
 <translation id="8073872304774253879">തിരയലുകളും ബ്രൗസിംഗും മികച്ചതാക്കൂ</translation>
 <translation id="8076014560081431679">സംരക്ഷിച്ച സൈറ്റ് ക്രമീകരണം ഇല്ലാതാക്കപ്പെടില്ല, ഇത് നിങ്ങളുടെ ബ്രൗസിംഗ് രീതികളെ പ്രതിഫലിപ്പിക്കാനുമിടയുണ്ട്. <ph name="BEGIN_LINK" />കൂടുതലറിയുക<ph name="END_LINK" /></translation>
+<translation id="8079602123447022758">ഈ ക്രമീകരണം അഡ്‌മിൻ മാനേജ് ചെയ്യുന്നതാണ്, കൂടുതൽ വിവരങ്ങൾക്ക് ഡബിൾ ടാപ്പ് ചെയ്യുക</translation>
 <translation id="8105368624971345109">ഓഫാക്കുക</translation>
 <translation id="8114753159095730575">ഫയൽ ഡൗൺലോഡ് ചെയ്യൽ ലഭ്യമാണ്. സ്ക്രീനിന്റെ ചുവടെ ഓപ്ഷനുകളുണ്ട്.</translation>
 <translation id="8131740175452115882">സ്ഥിരീകരിക്കുക</translation>

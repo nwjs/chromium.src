@@ -39,6 +39,7 @@ Sommige functies zijn wellicht niet beschikbaar en wijzigingen in voorkeuren wor
 <translation id="2560420686485554789">Chromium heeft toegang tot de opslag nodig om bestanden te downloaden</translation>
 <translation id="2572494885440352020">Chromium Helper</translation>
 <translation id="2587578672395088481">Chromium OS moet opnieuw worden gestart om de update uit te voeren.</translation>
+<translation id="2615699638672665509">Deze computer ontvangt binnenkort geen Chromium-updates meer omdat de hardware van de computer niet meer wordt ondersteund.</translation>
 <translation id="2648074677641340862">Er is tijdens de installatie een fout opgetreden in het besturingssysteem. Download Chromium opnieuw.</translation>
 <translation id="2711502716910134313">Chromium-tabblad</translation>
 <translation id="2718390899429598676">Je gegevens worden voor extra beveiliging door Chromium gecodeerd.</translation>
@@ -155,7 +156,6 @@ Sommige functies zijn wellicht niet beschikbaar en wijzigingen in voorkeuren wor
 <translation id="6333502561965082103">Er wordt een andere bewerking in Chromium uitgevoerd. Probeer het later opnieuw.</translation>
 <translation id="6334986366598267305">Het is nu gemakkelijker om Chromium met je Google-account en op gedeelde computers te gebruiken.</translation>
 <translation id="6373523479360886564">Weet je zeker dat je Chromium wilt verwijderen?</translation>
-<translation id="6400072781405947421">Chromium werkt wellicht niet naar behoren omdat dit niet meer op Mac OS X 10.9 wordt ondersteund.</translation>
 <translation id="6403826409255603130">Chromium is een webbrowser die webpagina's en applicaties bliksemsnel uitvoert. Chromium is snel, stabiel en eenvoudig in gebruik. Surf veiliger op internet met de in Chromium ingebouwde beveiliging tegen malware en phishing.</translation>
 <translation id="6434250628340475518">Chromium OS-systeem</translation>
 <translation id="6457450909262716557">{SECONDS,plural, =1{Chromium wordt over één seconde opnieuw gestart}other{Chromium wordt over # seconden opnieuw gestart}}</translation>
@@ -214,6 +214,7 @@ Chromium kan je instellingen niet herstellen.</translation>
 <translation id="7773960292263897147">Waarschuwing: Chromium kan niet voorkomen dat extensies je browsergeschiedenis vastleggen. Als je deze extensie in de incognitomodus wilt uitschakelen, verwijder je het vinkje bij deze optie.</translation>
 <translation id="7790626492778995050"><ph name="PAGE_TITLE" /> - Chromium Canary</translation>
 <translation id="7827169012280634081">Cookies en sitegegevens wissen wanneer je Chromium sluit</translation>
+<translation id="7857220146454061152">Als je toekomstige Chromium-updates wilt ontvangen, heb je OS X 10.11 of hoger nodig. Deze computer gebruikt OS X 10.10.</translation>
 <translation id="7867198900892795913">Chromium kan niet worden geüpdatet naar de nieuwste versie, dus je loopt nieuwe functies en beveiligingsoplossingen mis.</translation>
 <translation id="7898472181347242998">Ga naar de <ph name="LINK_BEGIN" />instellingen van Chromium OS<ph name="LINK_END" /> om te kijken of je apparaat up-to-date is</translation>
 <translation id="7937630085815544518">Je bent ingelogd bij Chromium als <ph name="USER_EMAIL_ADDRESS" />. Gebruik hetzelfde account om opnieuw in te loggen.</translation>

@@ -248,6 +248,8 @@ class CORE_EXPORT HTMLCanvasElement final
   static void RegisterRenderingContextFactory(
       std::unique_ptr<CanvasRenderingContextFactory>);
 
+  bool StyleChangeNeedsDidDraw(const ComputedStyle* old_style,
+                               const ComputedStyle& new_style);
   void StyleDidChange(const ComputedStyle* old_style,
                       const ComputedStyle& new_style);
   void LayoutObjectDestroyed();
@@ -318,8 +320,8 @@ class CORE_EXPORT HTMLCanvasElement final
  private:
   void Dispose();
 
-  void RecordIdentifiabilityMetric(const blink::IdentifiableSurface& surface,
-                                   int64_t value) const;
+  void RecordIdentifiabilityMetric(IdentifiableSurface surface,
+                                   IdentifiableToken value) const;
 
   // If the user is enrolled in the identifiability study, report the canvas
   // type, and if applicable, canvas digest, taint bits, and

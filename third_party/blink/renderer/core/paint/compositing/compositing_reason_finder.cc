@@ -186,10 +186,13 @@ CompositingReasons
 CompositingReasonFinder::DirectReasonsForSVGChildPaintProperties(
     const LayoutObject& object) {
   DCHECK(object.IsSVGChild());
-  if (RuntimeEnabledFeatures::CompositeSVGEnabled()) {
+  if (RuntimeEnabledFeatures::CompositeSVGEnabled() && !object.IsText()) {
     const ComputedStyle& style = object.StyleRef();
-    return CompositingReasonsForAnimation(object) |
-           CompositingReasonsForWillChange(style);
+    auto reasons = CompositingReasonsForAnimation(object) |
+                   CompositingReasonsForWillChange(style);
+    if (style.HasBackdropFilter())
+      reasons |= CompositingReason::kBackdropFilter;
+    return reasons;
   }
   return CompositingReason::kNone;
 }
@@ -236,7 +239,10 @@ CompositingReasons CompositingReasonFinder::NonStyleDeterminedDirectReasons(
   // |layer|. See the definition of the scrollParent property in Layer for
   // more detail.
   if (const PaintLayer* scrolling_ancestor = layer.AncestorScrollingLayer()) {
-    if (scrolling_ancestor->NeedsCompositedScrolling() &&
+    if ((scrolling_ancestor->NeedsCompositedScrolling() ||
+         // If this is true, we'll force scrolling_ancestor to use composited
+         // scrolling because this layer is composited.
+         scrolling_ancestor->NeedsReorderOverlayOverflowControls()) &&
         layer.ScrollParent()) {
       DCHECK(!scrolling_ancestor->GetLayoutObject()
                   .IsStackingContext());
@@ -356,7 +362,7 @@ bool CompositingReasonFinder::RequiresCompositingForScrollDependentPosition(
   // Don't promote sticky position elements that cannot move with scrolls.
   if (!layer.SticksToScroller())
     return false;
-  return layer.AncestorOverflowLayer()->ScrollsOverflow();
+  return layer.AncestorScrollContainerLayer()->ScrollsOverflow();
 }
 
 }  // namespace blink

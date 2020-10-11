@@ -18,7 +18,6 @@
 #include "base/callback.h"
 #include "base/cancelable_callback.h"
 #include "base/containers/id_map.h"
-#include "base/debug/stack_trace.h"
 #include "base/gtest_prod_util.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
@@ -30,7 +29,7 @@
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "components/services/storage/public/mojom/service_worker_storage_control.mojom.h"
-#include "content/browser/frame_host/back_forward_cache_metrics.h"
+#include "content/browser/renderer_host/back_forward_cache_metrics.h"
 #include "content/browser/service_worker/embedded_worker_instance.h"
 #include "content/browser/service_worker/embedded_worker_status.h"
 #include "content/browser/service_worker/service_worker_client_utils.h"
@@ -206,7 +205,7 @@ class CONTENT_EXPORT ServiceWorkerVersion
   int64_t version_id() const { return version_id_; }
   int64_t registration_id() const { return registration_id_; }
   const GURL& script_url() const { return script_url_; }
-  const url::Origin& script_origin() const { return script_origin_; }
+  const url::Origin& origin() const { return origin_; }
   const GURL& scope() const { return scope_; }
   blink::mojom::ScriptType script_type() const { return script_type_; }
   EmbeddedWorkerStatus running_status() const {
@@ -495,9 +494,6 @@ class CONTENT_EXPORT ServiceWorkerVersion
 
   // Used to allow tests to change time for testing.
   void SetTickClockForTesting(const base::TickClock* tick_clock);
-
-  // Used to allow tests to change wall clock for testing.
-  void SetClockForTesting(base::Clock* clock);
 
   // Returns true when the service worker isn't handling any events or stream
   // responses, initiated from either the browser or the renderer.
@@ -890,7 +886,10 @@ class CONTENT_EXPORT ServiceWorkerVersion
   const int64_t version_id_;
   const int64_t registration_id_;
   const GURL script_url_;
-  const url::Origin script_origin_;
+  // |origin_| is computed from |scope_|. Warning: The |script_url_|'s origin
+  // and |origin_| may be different in some scenarios e.g.
+  // --disable-web-security.
+  const url::Origin origin_;
   const GURL scope_;
   // A service worker has an associated type which is either
   // "classic" or "module". Unless stated otherwise, it is "classic".
@@ -1052,7 +1051,7 @@ class CONTENT_EXPORT ServiceWorkerVersion
   const base::TickClock* tick_clock_;
 
   // The clock used for actual (wall clock) time
-  base::Clock* clock_;
+  base::Clock* const clock_;
 
   ServiceWorkerPingController ping_controller_;
 
@@ -1062,7 +1061,7 @@ class CONTENT_EXPORT ServiceWorkerVersion
   // version completed, or used during the lifetime of |this|.
   std::set<blink::mojom::WebFeature> used_features_;
 
-  std::unique_ptr<blink::TrialTokenValidator> validator_;
+  std::unique_ptr<blink::TrialTokenValidator> const validator_;
 
   // Stores the result of byte-to-byte update check for each script. Used only
   // when ServiceWorkerImportedScriptUpdateCheck is enabled.

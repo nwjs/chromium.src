@@ -19,11 +19,16 @@
 #include "services/media_session/public/mojom/media_session.mojom.h"
 #include "ui/views/widget/widget.h"
 
+namespace views {
+class Label;
+}  // namespace views
+
 namespace ash {
 
 class AmbientAccessTokenController;
 class AmbientContainerView;
 class AmbientPhotoController;
+class FakeAmbientBackendControllerImpl;
 class MediaStringView;
 
 // The base class to test the Ambient Mode in Ash.
@@ -62,6 +67,10 @@ class AmbientAshTestBase : public AshTestBase {
   void SimulateSystemSuspendAndWait(
       power_manager::SuspendImminent::Reason reason);
 
+  views::View* GetMediaStringViewTextContainer();
+
+  views::Label* GetMediaStringViewTextLabel();
+
   // Simulates the system starting to resume.
   // Wait until the event has been processed.
   void SimulateSystemResumeAndWait();
@@ -87,6 +96,9 @@ class AmbientAshTestBase : public AshTestBase {
   // Advance the task environment timer to load the next photo.
   void FastForwardToNextImage();
 
+  // Advance the task environment timer to load the weather info.
+  void FastForwardToRefreshWeather();
+
   // Returns the number of active wake locks of type |type|.
   int GetNumOfActiveWakeLocks(device::mojom::WakeLockType type);
 
@@ -95,6 +107,8 @@ class AmbientAshTestBase : public AshTestBase {
   void IssueAccessToken(const std::string& access_token, bool with_error);
 
   bool IsAccessTokenRequestPending() const;
+
+  base::TimeDelta GetRefreshTokenDelay();
 
   AmbientBackgroundImageView* GetAmbientBackgroundImageView();
 
@@ -109,6 +123,8 @@ class AmbientAshTestBase : public AshTestBase {
   AmbientContainerView* container_view();
 
   AmbientAccessTokenController* token_controller();
+
+  FakeAmbientBackendControllerImpl* backend_controller();
 
   void FetchTopics();
 

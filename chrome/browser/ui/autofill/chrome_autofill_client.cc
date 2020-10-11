@@ -173,9 +173,7 @@ ukm::SourceId ChromeAutofillClient::GetUkmSourceId() {
 }
 
 AddressNormalizer* ChromeAutofillClient::GetAddressNormalizer() {
-  if (base::FeatureList::IsEnabled(features::kAutofillAddressNormalizer))
-    return AddressNormalizerFactory::GetInstance();
-  return nullptr;
+  return AddressNormalizerFactory::GetInstance();
 }
 
 const GURL& ChromeAutofillClient::GetLastCommittedURL() {
@@ -196,16 +194,16 @@ ChromeAutofillClient::GetSecurityLevelForUmaHistograms() {
   return helper->GetSecurityLevel();
 }
 
-std::string ChromeAutofillClient::GetPageLanguage() const {
+const translate::LanguageState* ChromeAutofillClient::GetLanguageState() {
 #if 0
   // TODO(crbug.com/912597): iOS vs other platforms extracts language from
   // the top level frame vs whatever frame directly holds the form.
   auto* translate_manager =
       ChromeTranslateClient::GetManagerFromWebContents(web_contents());
   if (translate_manager)
-    return translate_manager->GetLanguageState().original_language();
+    return translate_manager->GetLanguageState();
 #endif
-  return std::string();
+  return nullptr;
 }
 
 std::string ChromeAutofillClient::GetVariationConfigCountryCode() const {

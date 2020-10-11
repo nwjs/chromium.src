@@ -14,6 +14,7 @@
 <translation id="1084365883616172403">Pubblicazione su Facebook completata.</translation>
 <translation id="1103523840287552314">Traduci sempre <ph name="LANGUAGE" /></translation>
 <translation id="1104948393051856124">Accetta e continua</translation>
+<translation id="110724200315609752">Passa alla finestra aperta</translation>
 <translation id="1112015203684611006">Stampa non riuscita.</translation>
 <translation id="1125564390852150847">Crea una nuova scheda.</translation>
 <translation id="1145536944570833626">Elimina dati esistenti.</translation>
@@ -93,6 +94,7 @@
 <translation id="1941314575388338491">Tocca due volte per copiare.</translation>
 <translation id="1952172573699511566">Se possibile, il testo dei siti web verrà mostrato nella tua lingua preferita.</translation>
 <translation id="1952728750904661634">Accedi con l'account gestito</translation>
+<translation id="1965935827552890526">Finisci ciò che stavi facendo in un'altra finestra di Chrome aperta.</translation>
 <translation id="1974060860693918893">Avanzate</translation>
 <translation id="1989112275319619282">Esplora</translation>
 <translation id="1992734845128748707">Cambia browser predefinito…</translation>
@@ -277,6 +279,7 @@ In modalità di navigazione in incognito, i siti non possono utilizzare i cookie
 <translation id="408404951701638773">Ora è più facile raggiungere la barra di ricerca</translation>
 <translation id="411254640334432676">Download non riuscito.</translation>
 <translation id="4112644173421521737">Cerca</translation>
+<translation id="4113030288477039509">Gestito dall'amministratore</translation>
 <translation id="4121993058175073134">Per inviare dati net-export, configura il tuo account email nell'app Impostazioni.</translation>
 <translation id="4124987746317609294">Intervallo di tempo</translation>
 <translation id="4152011295694446843">Qui troverai i tuoi preferiti</translation>
@@ -285,11 +288,13 @@ In modalità di navigazione in incognito, i siti non possono utilizzare i cookie
 <translation id="4181841719683918333">Lingue</translation>
 <translation id="424315890655130736">Inserisci passphrase</translation>
 <translation id="4263576668337963058">Mostra le azioni disponibili per la pagina</translation>
+<translation id="4267380167363222949">Scheda successiva</translation>
 <translation id="4272631900155121838">Per eseguire la scansione di un codice QR, attiva la videocamera dalle impostazioni</translation>
 <translation id="4276041135170112053">Sistema subito</translation>
 <translation id="4277990410970811858">Navigazione sicura</translation>
 <translation id="4281844954008187215">Termini di servizio</translation>
 <translation id="430793432425771671">Sincronizza tutto</translation>
+<translation id="4309403553630140242">Tocca due volte per ulteriori informazioni</translation>
 <translation id="430967081421617822">Dall'inizio</translation>
 <translation id="4334428914252001502">1 articolo da leggere.</translation>
 <translation id="4338650699862464074">Invia a Google gli URL delle pagine che visiti.</translation>
@@ -353,6 +358,7 @@ Per cambiare questa impostazione, <ph name="BEGIN_LINK" />reimposta la sincroniz
 <translation id="5005498671520578047">Copia password</translation>
 <translation id="5010803260590204777">Apri una scheda di navigazione in incognito per navigare sul Web in privato.</translation>
 <translation id="5039804452771397117">Consenti</translation>
+<translation id="5056446788882570708">Sono stati riscontrati problemi <ph name="TIME" />.</translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5062321486222145940">Installa Google Drive</translation>
 <translation id="5083464117946352670">Impossibile stabilire le dimensioni del file.</translation>
@@ -376,7 +382,6 @@ Per cambiare questa impostazione, <ph name="BEGIN_LINK" />reimposta la sincroniz
 <translation id="5317780077021120954">Salva</translation>
 <translation id="5327248766486351172">Nome</translation>
 <translation id="5339316356165661760">Attiva la sincronizzazione</translation>
-<translation id="5352285283572729470">Questa impostazione è gestita</translation>
 <translation id="5388358297987318779">Apri immagine</translation>
 <translation id="5407969256130905701">Annulla modifiche</translation>
 <translation id="5409365236829784218">Non ci sono applicazioni installate in grado di aprire questo file.</translation>
@@ -456,6 +461,7 @@ La funzione Handoff deve anche essere attivata nella sezione Generali di Imposta
 <translation id="6187302354554850004">Ultima sincronizzazione: <ph name="LAST_USED_TIME" /></translation>
 <translation id="6189413832092199491">Da leggere</translation>
 <translation id="6196207969502475924">Ricerca vocale</translation>
+<translation id="6202364442240589072">{COUNT,plural, =1{Chiudi {COUNT} scheda}other{Chiudi {COUNT} schede}}</translation>
 <translation id="6219688215832490856">Non tradurre mai</translation>
 <translation id="6254066287920239840">Apri i link all'interno dell'app invece che nel browser.</translation>
 <translation id="6255097610484507482">Modifica carta di credito</translation>
@@ -571,6 +577,7 @@ I siti non possono utilizzare i cookie per conoscere la tua attività di navigaz
 <translation id="734758817008927353">Opzioni per salvare la carta</translation>
 <translation id="7348502496356775519">Aggiungi ai preferiti</translation>
 <translation id="7383797227493018512">Elenco di lettura</translation>
+<translation id="739941347996872055">Scheda precedente</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> articoli da leggere.</translation>
 <translation id="7425346204213733349">Le modifiche ai preferiti, alla cronologia, alle password e ad altre impostazioni non verranno più sincronizzate con il tuo Account Google. Tuttavia, i dati esistenti rimarranno memorizzati.</translation>
@@ -636,6 +643,7 @@ I siti possono utilizzare i cookie per conoscere la tua attività di navigazione
 <translation id="8073670137947914548">Download terminato</translation>
 <translation id="8073872304774253879">Migliora le ricerche e le attività di navigazione</translation>
 <translation id="8076014560081431679">Le impostazioni del sito salvate non verranno eliminate e potrebbero rispecchiare le tue abitudini di navigazione. <ph name="BEGIN_LINK" />Ulteriori informazioni<ph name="END_LINK" /></translation>
+<translation id="8079602123447022758">Questa impostazione è gestita, tocca due volte per ulteriori informazioni</translation>
 <translation id="8105368624971345109">Disattiva</translation>
 <translation id="8114753159095730575">È possibile il download dei file. Le opzioni sono disponibili nella parte inferiore della schermata.</translation>
 <translation id="8131740175452115882">Conferma</translation>

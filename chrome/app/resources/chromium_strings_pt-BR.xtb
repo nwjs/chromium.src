@@ -37,6 +37,7 @@
 <translation id="2560420686485554789">O Chromium precisa de acesso de armazenamento para fazer o download de arquivos</translation>
 <translation id="2572494885440352020">Assistente do Chromium</translation>
 <translation id="2587578672395088481">É necessário reiniciar o Chromium OS para que a atualização seja aplicada.</translation>
+<translation id="2615699638672665509">Este computador em breve parará de receber atualizações do Chromium, porque seu hardware não é mais suportado.</translation>
 <translation id="2648074677641340862">Ocorreu um erro no sistema operacional durante a instalação. Faça o download do Chromium novamente.</translation>
 <translation id="2711502716910134313">Guia do Chromium</translation>
 <translation id="2718390899429598676">Para maior segurança, o Chromium criptografará seus dados.</translation>
@@ -151,7 +152,6 @@
 <translation id="6333502561965082103">Outra operação está em progresso no Chromium. Tente novamente mais tarde.</translation>
 <translation id="6334986366598267305">Agora ficou mais fácil usar o Chromium com sua Conta do Google e em computadores compartilhados.</translation>
 <translation id="6373523479360886564">Você quer mesmo desinstalar o Chromium?</translation>
-<translation id="6400072781405947421">É possível que o Chromium não funcione corretamente, porque ele não é mais compatível com Mac OS X 10.9.</translation>
 <translation id="6403826409255603130">O Chromium é um navegador que executa páginas e aplicativos da web com alta velocidade. É rápido, estável e fácil de usar. Navegue na web com mais segurança com a proteção contra malware e phishing incorporada ao Chromium.</translation>
 <translation id="6434250628340475518">Sistema Chromium OS</translation>
 <translation id="6457450909262716557">{SECONDS,plural, =1{O Chromium será reiniciado em 1 segundo}one{O Chromium será reiniciado em # segundo}other{O Chromium será reiniciado em # segundos}}</translation>
@@ -206,6 +206,7 @@
 <translation id="7773960292263897147">Aviso: o Chromium não pode impedir que as extensões gravem seu histórico de navegação. Para desativar essa extensão no modo de navegação sem rastros, desmarque esta opção.</translation>
 <translation id="7790626492778995050"><ph name="PAGE_TITLE" />: Chromium Canary</translation>
 <translation id="7827169012280634081">Limpar cookies e dados de sites ao sair do Chromium</translation>
+<translation id="7857220146454061152">Para receber as futuras atualizações do Chromium, você precisará do OS X 10.11 ou versão mais recente. Este computador está usando o OS X 10.10.</translation>
 <translation id="7867198900892795913">Não foi possível atualizar o Chromium para a versão mais recente. Com isso, você está perdendo novos recursos e correções de segurança.</translation>
 <translation id="7898472181347242998">Para verificar se o dispositivo está atualizado, acesse as <ph name="LINK_BEGIN" />Configurações do Chromium OS<ph name="LINK_END" /></translation>
 <translation id="7937630085815544518">Você estava conectado ao Chromium como <ph name="USER_EMAIL_ADDRESS" />. Use a mesma conta para fazer login novamente.</translation>

@@ -14,6 +14,7 @@
 <translation id="1084365883616172403">‏Facebook کی اشاعت مکمل ہوگئی۔</translation>
 <translation id="1103523840287552314"><ph name="LANGUAGE" /> کو ہمیشہ ترجمہ کریں</translation>
 <translation id="1104948393051856124">قبول کریں اور جاری رکھیں</translation>
+<translation id="110724200315609752">کھلی ہوئی ونڈو پر سوئچ کریں</translation>
 <translation id="1112015203684611006">پرنٹنگ ناکام۔</translation>
 <translation id="1125564390852150847">نیا ٹیب بنائیں۔</translation>
 <translation id="1145536944570833626">موجودہ ڈیٹا کو حذف کریں۔</translation>
@@ -93,6 +94,7 @@
 <translation id="1941314575388338491">کاپی کرنے کیلئے دو بار تھپتھپائیں۔</translation>
 <translation id="1952172573699511566">جب ممکن ہوگا، تو ویب سائٹس آپ کی پسندیدہ زبان میں متن دکھائیں گی۔</translation>
 <translation id="1952728750904661634">نظم کردہ اکاؤنٹ کے ساتھ سائن ان کریں</translation>
+<translation id="1965935827552890526">‏اپنی دوسری کھلی ہوئی Chrome ونڈو میں آپ کیا کر رہے تھے مکمل کریں۔</translation>
 <translation id="1974060860693918893">جدید ترین</translation>
 <translation id="1989112275319619282">براؤز کریں</translation>
 <translation id="1992734845128748707">ڈیفالٹ براؤزر کو تبدیل کریں…</translation>
@@ -277,6 +279,7 @@
 <translation id="408404951701638773">تلاش بار تک رسائی حاصل کرنا اب زیادہ آسان ہے</translation>
 <translation id="411254640334432676">ڈاؤن لوڈ ناکام ہوگیا۔</translation>
 <translation id="4112644173421521737">تلاش کریں</translation>
+<translation id="4113030288477039509">آپ کے منتظم کے زیر انتظام</translation>
 <translation id="4121993058175073134">نیٹ برآمد کرنے کا ڈیٹا بھیجنے کیلئے، براہ کرم ترتیبات ایپ میں اپنے ای میل اکاؤنٹ کو کنفیگر کریں۔</translation>
 <translation id="4124987746317609294">وقت کی حد</translation>
 <translation id="4152011295694446843">آپ اپنے بُک مارکس یہاں پائیں گے</translation>
@@ -290,6 +293,7 @@
 <translation id="4277990410970811858">محفوظ براؤزنگ</translation>
 <translation id="4281844954008187215">سروس کی شرائط</translation>
 <translation id="430793432425771671">ہر چیز کی مطابقت پذیری کریں</translation>
+<translation id="4309403553630140242">مزيد معلومات کے لیے دوبار تھپتھپائيں</translation>
 <translation id="430967081421617822">ابھی تک</translation>
 <translation id="4334428914252001502">1 نہ پڑھا ہوا مضمون۔</translation>
 <translation id="4338650699862464074">‏Google کو آپ کے ملاحظہ کردہ صفحات کے URLs بھیجتا ہے۔</translation>
@@ -353,6 +357,7 @@
 <translation id="5005498671520578047">پاس ورڈ کاپی کریں</translation>
 <translation id="5010803260590204777">ویب کو نجی طور پر براؤز کرنے کیلئے ایک پوشیدگی ٹیب کھولیں۔</translation>
 <translation id="5039804452771397117">اجازت دیں</translation>
+<translation id="5056446788882570708"><ph name="TIME" /> مسائل کا پتا چلا۔</translation>
 <translation id="5059136629401106827">ٹھیک ہے</translation>
 <translation id="5062321486222145940">‏Google Drive انسٹال کریں</translation>
 <translation id="5083464117946352670">فائل سائز کا تعین نہیں کیا جا سکتا ہے۔</translation>
@@ -376,7 +381,6 @@
 <translation id="5317780077021120954">محفوظ کریں</translation>
 <translation id="5327248766486351172">نام</translation>
 <translation id="5339316356165661760">مطابقت پذیری آن کریں</translation>
-<translation id="5352285283572729470">یہ ترتیب نظم کردہ ہے</translation>
 <translation id="5388358297987318779">تصویر کھولیں</translation>
 <translation id="5407969256130905701">تبدیلیاں مسترد کریں</translation>
 <translation id="5409365236829784218">کوئی ایسی ایپلیکیشنز انسٹال نہیں کی گئی ہیں جو اس فائل کو کھول سکتی ہوں۔</translation>
@@ -456,6 +460,7 @@ Handoff ترتیبات کے عام سیکشن میں بھی فعال ہونی ض
 <translation id="6187302354554850004">آخری مطابقت پذیری: <ph name="LAST_USED_TIME" /></translation>
 <translation id="6189413832092199491">بغیر پڑھے ہوئے</translation>
 <translation id="6196207969502475924">صوتی تلاش</translation>
+<translation id="6202364442240589072">{COUNT,plural, =1{{COUNT} ٹیب بند کریں}other{{COUNT} ٹیبز بند کریں}}</translation>
 <translation id="6219688215832490856">کبھی بھی ترجمہ نہ کریں</translation>
 <translation id="6254066287920239840">براؤزر کی بجائے لنکس کو ایپ میں کھولیں۔</translation>
 <translation id="6255097610484507482">کریڈٹ کارڈ میں ترمیم کریں</translation>
@@ -636,6 +641,7 @@ Handoff ترتیبات کے عام سیکشن میں بھی فعال ہونی ض
 <translation id="8073670137947914548">ڈاؤن لوڈ کا عمل مکمل ہو گیا</translation>
 <translation id="8073872304774253879">تلاشوں اور براؤزنگ کو بہتر بنائیں</translation>
 <translation id="8076014560081431679">محفوظ کردہ سائٹ کی ترتیبات حذف نہیں کی جائیں گی اور یہ آپ کے براؤزنگ کی عادات کی عکاسی کر سکتی ہے۔ <ph name="BEGIN_LINK" />مزید جانیں<ph name="END_LINK" /></translation>
+<translation id="8079602123447022758">یہ ترتیب نظم کردہ ہے، مزید معلومات کیلئے دوبار تھپتھپائیں</translation>
 <translation id="8105368624971345109">آف کریں</translation>
 <translation id="8114753159095730575">فائل ڈاؤن لوڈ دستیاب ہے۔ اختیارات اسکرین کے نچلے حصے کے قریب دستیاب ہیں۔</translation>
 <translation id="8131740175452115882">تصدیق کریں</translation>

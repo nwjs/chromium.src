@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/page_info/safety_tip_page_info_bubble_view.h"
 
+#include "base/bind.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/reputation/reputation_service.h"
 #include "chrome/browser/reputation/safety_tip_ui_helper.h"
@@ -59,7 +60,6 @@ SafetyTipPageInfoBubbleView::SafetyTipPageInfoBubbleView(
     gfx::NativeView parent_window,
     content::WebContents* web_contents,
     security_state::SafetyTipStatus safety_tip_status,
-    const GURL& url,
     const GURL& suggested_url,
     base::OnceCallback<void(SafetyTipInteraction)> close_callback)
     : PageInfoBubbleViewBase(anchor_view,
@@ -68,7 +68,6 @@ SafetyTipPageInfoBubbleView::SafetyTipPageInfoBubbleView(
                              PageInfoBubbleViewBase::BUBBLE_SAFETY_TIP,
                              web_contents),
       safety_tip_status_(safety_tip_status),
-      url_(url),
       suggested_url_(suggested_url),
       close_callback_(std::move(close_callback)) {
   // Keep the bubble open until explicitly closed (or we navigate away, a tab is
@@ -94,7 +93,8 @@ SafetyTipPageInfoBubbleView::SafetyTipPageInfoBubbleView(
       kSizeDeltaInPixels, gfx::Font::FontStyle::NORMAL,
       gfx::Font::Weight::NORMAL);
 
-  auto new_title = std::make_unique<views::StyledLabel>(title_text, nullptr);
+  auto new_title = std::make_unique<views::StyledLabel>();
+  new_title->SetText(title_text);
   new_title->AddStyleRange(gfx::Range(0, title_text.length()), name_style);
   GetBubbleFrameView()->SetTitleView(std::move(new_title));
 
@@ -171,9 +171,12 @@ SafetyTipPageInfoBubbleView::SafetyTipPageInfoBubbleView(
   // More info button.
   auto info_text =
       l10n_util::GetStringUTF16(IDS_PAGE_INFO_SAFETY_TIP_MORE_INFO_LINK);
-  auto info_link = std::make_unique<views::StyledLabel>(info_text, this);
+  auto info_link = std::make_unique<views::StyledLabel>();
+  info_link->SetText(info_text);
   views::StyledLabel::RangeStyleInfo link_style =
-      views::StyledLabel::RangeStyleInfo::CreateForLink();
+      views::StyledLabel::RangeStyleInfo::CreateForLink(
+          base::BindRepeating(&SafetyTipPageInfoBubbleView::OpenHelpCenter,
+                              base::Unretained(this)));
   gfx::Range details_range(0, info_text.length());
   info_link->AddStyleRange(details_range, link_style);
   info_link->SizeToFit(0);
@@ -207,8 +210,6 @@ SafetyTipPageInfoBubbleView::~SafetyTipPageInfoBubbleView() {}
 void SafetyTipPageInfoBubbleView::OnWidgetDestroying(views::Widget* widget) {
   PageInfoBubbleViewBase::OnWidgetDestroying(widget);
 
-  bool should_set_ignore = false;
-
   switch (widget->closed_reason()) {
     case views::Widget::ClosedReason::kUnspecified:
     case views::Widget::ClosedReason::kLostFocus:
@@ -221,24 +222,15 @@ void SafetyTipPageInfoBubbleView::OnWidgetDestroying(views::Widget* widget) {
       break;
     case views::Widget::ClosedReason::kEscKeyPressed:
       action_taken_ = SafetyTipInteraction::kDismissWithEsc;
-      should_set_ignore = true;
       break;
     case views::Widget::ClosedReason::kCloseButtonClicked:
       action_taken_ = SafetyTipInteraction::kDismissWithClose;
-      should_set_ignore = true;
       break;
     case views::Widget::ClosedReason::kCancelButtonClicked:
       NOTREACHED();
       break;
   }
   std::move(close_callback_).Run(action_taken_);
-  if (should_set_ignore) {
-    Browser* browser = chrome::FindBrowserWithWebContents(web_contents());
-    if (browser) {
-      ReputationService::Get(browser->profile())
-          ->SetUserIgnore(web_contents(), url_, action_taken_);
-    }
-  }
 }
 
 void SafetyTipPageInfoBubbleView::ButtonPressed(views::Button* button,
@@ -254,10 +246,7 @@ void SafetyTipPageInfoBubbleView::ButtonPressed(views::Button* button,
           : GURL());
 }
 
-void SafetyTipPageInfoBubbleView::StyledLabelLinkClicked(
-    views::StyledLabel* label,
-    const gfx::Range& range,
-    int event_flags) {
+void SafetyTipPageInfoBubbleView::OpenHelpCenter() {
   action_taken_ = SafetyTipInteraction::kLearnMore;
   OpenHelpCenterFromSafetyTip(web_contents());
 }
@@ -265,7 +254,6 @@ void SafetyTipPageInfoBubbleView::StyledLabelLinkClicked(
 void ShowSafetyTipDialog(
     content::WebContents* web_contents,
     security_state::SafetyTipStatus safety_tip_status,
-    const GURL& virtual_url,
     const GURL& suggested_url,
     base::OnceCallback<void(SafetyTipInteraction)> close_callback) {
   Browser* browser = chrome::FindBrowserWithWebContents(web_contents);
@@ -284,7 +272,7 @@ void ShowSafetyTipDialog(
 
   views::BubbleDialogDelegateView* bubble = new SafetyTipPageInfoBubbleView(
       configuration.anchor_view, anchor_rect, parent_view, web_contents,
-      safety_tip_status, virtual_url, suggested_url, std::move(close_callback));
+      safety_tip_status, suggested_url, std::move(close_callback));
 
   bubble->SetHighlightedButton(configuration.highlighted_button);
   bubble->SetArrow(configuration.bubble_arrow);
@@ -295,10 +283,9 @@ PageInfoBubbleViewBase* CreateSafetyTipBubbleForTesting(
     gfx::NativeView parent_view,
     content::WebContents* web_contents,
     security_state::SafetyTipStatus safety_tip_status,
-    const GURL& virtual_url,
     const GURL& suggested_url,
     base::OnceCallback<void(SafetyTipInteraction)> close_callback) {
   return new SafetyTipPageInfoBubbleView(
       nullptr, gfx::Rect(), parent_view, web_contents, safety_tip_status,
-      virtual_url, suggested_url, std::move(close_callback));
+      suggested_url, std::move(close_callback));
 }

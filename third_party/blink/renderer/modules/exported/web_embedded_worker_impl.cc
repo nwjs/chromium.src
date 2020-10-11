@@ -244,7 +244,7 @@ void WebEmbeddedWorkerImpl::StartWorkerThread(
       nullptr /* OriginTrialTokens */, worker_start_data->devtools_worker_token,
       std::move(worker_settings),
       // Generate the full code cache in the first execution of the script.
-      kV8CacheOptionsFullCodeWithoutHeatCheck,
+      mojom::blink::V8CacheOptions::kFullCodeWithoutHeatCheck,
       nullptr /* worklet_module_respones_map */,
       std::move(browser_interface_broker), BeginFrameProviderParams(),
       nullptr /* parent_feature_policy */,
@@ -287,7 +287,7 @@ void WebEmbeddedWorkerImpl::StartWorkerThread(
     // > "classic": Fetch a classic worker script given job's serialized script
     // > url, job's client, "serviceworker", and the to-be-created environment
     // > settings object for this service worker.
-    case mojom::ScriptType::kClassic:
+    case mojom::blink::ScriptType::kClassic:
       worker_thread_->FetchAndRunClassicScript(
           worker_start_data->script_url,
           nullptr /* worker_main_script_load_params */,
@@ -299,7 +299,7 @@ void WebEmbeddedWorkerImpl::StartWorkerThread(
     // > "module": Fetch a module worker script graph given job’s serialized
     // > script url, job’s client, "serviceworker", "omit", and the
     // > to-be-created environment settings object for this service worker.
-    case mojom::ScriptType::kModule:
+    case mojom::blink::ScriptType::kModule:
       worker_thread_->FetchAndRunModuleScript(
           worker_start_data->script_url,
           nullptr /* worker_main_script_load_params */,

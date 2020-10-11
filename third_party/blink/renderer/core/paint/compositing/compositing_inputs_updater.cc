@@ -95,8 +95,8 @@ void CompositingInputsUpdater::ApplyAncestorInfoToSelfAndAncestorsRecursively(
     geometry_map_->PushMappingsToAncestor(layer, layer->Parent());
   UpdateAncestorInfo(layer, update_type, info);
   if (layer != compositing_inputs_root_ &&
-      (layer->IsRootLayer() || layer->GetLayoutObject().HasOverflowClip()))
-    info.last_overflow_clip_layer = layer;
+      layer->GetLayoutObject().IsScrollContainer())
+    info.last_scroll_container_layer = layer;
 }
 
 void CompositingInputsUpdater::UpdateSelfAndDescendantsRecursively(
@@ -106,27 +106,30 @@ void CompositingInputsUpdater::UpdateSelfAndDescendantsRecursively(
   LayoutBoxModelObject& layout_object = layer->GetLayoutObject();
   const ComputedStyle& style = layout_object.StyleRef();
 
-  const PaintLayer* previous_overflow_layer = layer->AncestorOverflowLayer();
-  layer->UpdateAncestorOverflowLayer(info.last_overflow_clip_layer);
-  if (info.last_overflow_clip_layer && layer->NeedsCompositingInputsUpdate() &&
+  const PaintLayer* previous_scroll_container_layer =
+      layer->AncestorScrollContainerLayer();
+  layer->UpdateAncestorScrollContainerLayer(info.last_scroll_container_layer);
+  if (info.last_scroll_container_layer &&
+      layer->NeedsCompositingInputsUpdate() &&
       style.HasStickyConstrainedPosition()) {
-    if (info.last_overflow_clip_layer != previous_overflow_layer) {
+    if (info.last_scroll_container_layer != previous_scroll_container_layer) {
       // Old ancestor scroller should no longer have these constraints.
-      DCHECK(!previous_overflow_layer ||
-             !previous_overflow_layer->GetScrollableArea() ||
-             !previous_overflow_layer->GetScrollableArea()
+      DCHECK(!previous_scroll_container_layer ||
+             !previous_scroll_container_layer->GetScrollableArea() ||
+             !previous_scroll_container_layer->GetScrollableArea()
                   ->GetStickyConstraintsMap()
                   .Contains(layer));
 
       // If our ancestor scroller has changed and the previous one was the
       // root layer, we are no longer viewport constrained.
-      if (previous_overflow_layer && previous_overflow_layer->IsRootLayer()) {
+      if (previous_scroll_container_layer &&
+          previous_scroll_container_layer->IsRootLayer()) {
         layout_object.View()->GetFrameView()->RemoveViewportConstrainedObject(
             layout_object, LocalFrameView::ViewportConstrainedType::kSticky);
       }
     }
 
-    if (info.last_overflow_clip_layer->IsRootLayer()) {
+    if (info.last_scroll_container_layer->IsRootLayer()) {
       layout_object.View()->GetFrameView()->AddViewportConstrainedObject(
           layout_object, LocalFrameView::ViewportConstrainedType::kSticky);
     }
@@ -148,8 +151,8 @@ void CompositingInputsUpdater::UpdateSelfAndDescendantsRecursively(
       geometry_map_->PushMappingsToAncestor(layer, layer->Parent());
     UpdateAncestorInfo(layer, update_type, info);
   }
-  if (layer->IsRootLayer() || layout_object.HasOverflowClip())
-    info.last_overflow_clip_layer = layer;
+  if (layout_object.IsScrollContainer())
+    info.last_scroll_container_layer = layer;
 
   PaintLayerCompositor* compositor =
       layer->GetLayoutObject().View()->Compositor();
@@ -178,8 +181,7 @@ void CompositingInputsUpdater::UpdateSelfAndDescendantsRecursively(
   // Note that prepaint may use the compositing information, so only skip
   // recursing it if we're skipping prepaint.
   bool recursion_blocked_by_display_lock =
-      layer->GetLayoutObject().PrePaintBlockedByDisplayLock(
-          DisplayLockLifecycleTarget::kChildren);
+      layer->GetLayoutObject().ChildPrePaintBlockedByDisplayLock();
 
   bool should_recurse = (layer->ChildNeedsCompositingInputsUpdate() ||
                          update_type == kForceUpdate);
@@ -209,7 +211,8 @@ void CompositingInputsUpdater::UpdateSelfAndDescendantsRecursively(
   layer->SetDescendantHasDirectOrScrollingCompositingReason(
       descendant_has_direct_compositing_reason);
 
-  if (layer->IsRootLayer() && layer->ScrollsOverflow() &&
+  if ((layer->IsRootLayer() || layer->NeedsReorderOverlayOverflowControls()) &&
+      layer->ScrollsOverflow() &&
       layer->DescendantHasDirectOrScrollingCompositingReason() &&
       !layer->NeedsCompositedScrolling())
     layer->GetScrollableArea()->UpdateNeedsCompositedScrolling(true);
@@ -450,20 +453,16 @@ void CompositingInputsUpdater::UpdateAncestorDependentCompositingInputs(
   if (!RuntimeEnabledFeatures::CompositingOptimizationsEnabled()) {
     // The final value for |unclipped_absolute_bounding_box| needs to be
     // in absolute, unscrolled space, without any scroll applied.
-
     properties.unclipped_absolute_bounding_box =
         EnclosingIntRect(geometry_map_->AbsoluteRect(
             layer->BoundingBoxForCompositingOverlapTest()));
 
-    bool affected_by_scroll = root_layer_->GetScrollableArea() &&
-                              layer->IsAffectedByScrollOf(root_layer_);
-
-    // At ths point, |unclipped_absolute_bounding_box| is in viewport space.
-    // To convert to absolute space, add scroll offset for non-fixed layers.
-    if (affected_by_scroll) {
-      properties.unclipped_absolute_bounding_box.Move(
-          RoundedIntSize(root_layer_->GetScrollableArea()->GetScrollOffset()));
-    }
+    // At this point, |unclipped_absolute_bounding_box| is in viewport space.
+    // To convert to absolute space, add scroll offset. Note that even fixed
+    // layers are in viewport space due to expanding their bounding box to
+    // include the extent they could cover from scrolling to min/max offsets.
+    properties.unclipped_absolute_bounding_box.Move(
+        RoundedIntSize(root_layer_->GetScrollableArea()->GetScrollOffset()));
 
     // For sticky-positioned elements, the scroll offset is sometimes included
     // and sometimes not, depending on whether the sticky element is affixed or
@@ -479,18 +478,11 @@ void CompositingInputsUpdater::UpdateAncestorDependentCompositingInputs(
         .CalculateBackgroundClipRect(
             ClipRectsContext(root_layer_,
                              &root_layer_->GetLayoutObject().FirstFragment(),
-                             cache_slot, kIgnorePlatformOverlayScrollbarSize,
+                             cache_slot, kIgnoreOverlayScrollbarSize,
                              kIgnoreOverflowClipAndScroll),
             clip_rect);
+    // |snapped_clip_rect| is in absolute space
     IntRect snapped_clip_rect = PixelSnappedIntRect(clip_rect.Rect());
-    // |snapped_clip_rect| is in absolute space space, but with scroll applied.
-    // To convert to absolute, unscrolled space, subtract scroll offsets for
-    // fixed layers.
-    if (root_layer_->GetScrollableArea() && !affected_by_scroll) {
-      snapped_clip_rect.Move(
-          RoundedIntSize(-root_layer_->GetScrollableArea()->GetScrollOffset()));
-    }
-
     properties.clipped_absolute_bounding_box =
         properties.unclipped_absolute_bounding_box;
     properties.clipped_absolute_bounding_box.Intersect(snapped_clip_rect);
@@ -538,8 +530,7 @@ void CompositingInputsUpdater::UpdateAncestorDependentCompositingInputs(
 void CompositingInputsUpdater::AssertNeedsCompositingInputsUpdateBitsCleared(
     PaintLayer* layer) {
   bool recursion_blocked_by_display_lock =
-      layer->GetLayoutObject().PrePaintBlockedByDisplayLock(
-          DisplayLockLifecycleTarget::kChildren);
+      layer->GetLayoutObject().ChildPrePaintBlockedByDisplayLock();
 
   DCHECK(recursion_blocked_by_display_lock ||
          !layer->ChildNeedsCompositingInputsUpdate());

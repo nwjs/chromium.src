@@ -168,7 +168,10 @@ bool LayoutShiftTracker::NeedsToTrack(const LayoutObject& object) const {
   // Don't report shift of anonymous objects. Will report the children because
   // we want report real DOM nodes.
   if (object.IsAnonymous())
-    return true;
+    return false;
+
+  if (object.StyleRef().Visibility() != EVisibility::kVisible)
+    return false;
 
   // Ignore layout objects that move (in the coordinate space of the paint
   // invalidation container) on scroll.
@@ -689,9 +692,9 @@ void ReattachHookScope::NotifyDetach(const Node& node) {
   PhysicalRect layout_overflow_rect = box.PreviousPhysicalLayoutOverflowRect();
   if (layout_overflow_rect.IsEmpty() && box.PreviousSize().IsEmpty())
     return;
-  map.Set(&node,
-          Geometry{fragment.PaintOffset(), box.PreviousSize(),
-                   box.PreviouslyHadOverflowClip(), layout_overflow_rect});
+  map.Set(&node, Geometry{fragment.PaintOffset(), box.PreviousSize(),
+                          box.PreviouslyHadNonVisibleOverflow(),
+                          layout_overflow_rect});
 }
 
 void ReattachHookScope::NotifyAttach(const Node& node) {

@@ -14,6 +14,7 @@
 <translation id="1084365883616172403">Facebook пост је довршен.</translation>
 <translation id="1103523840287552314">Увек преводи <ph name="LANGUAGE" /></translation>
 <translation id="1104948393051856124">Прихвати и настави</translation>
+<translation id="110724200315609752">Пређи на отворен прозор</translation>
 <translation id="1112015203684611006">Штампање није успело.</translation>
 <translation id="1125564390852150847">Направи нову картицу.</translation>
 <translation id="1145536944570833626">Избришите постојеће податке</translation>
@@ -93,6 +94,7 @@
 <translation id="1941314575388338491">Додирните двапут да бисте копирали.</translation>
 <translation id="1952172573699511566">Веб-сајтови ће приказивати текст на жељеном језику када је то могуће.</translation>
 <translation id="1952728750904661634">Пријавите се помоћу налога којим се управља</translation>
+<translation id="1965935827552890526">Завршите оно што сте радили у другом отвореном Chrome прозору.</translation>
 <translation id="1974060860693918893">Напредне опције</translation>
 <translation id="1989112275319619282">Прегледај</translation>
 <translation id="1992734845128748707">Промените подразумевани прегледач…</translation>
@@ -277,6 +279,7 @@
 <translation id="408404951701638773">Трака за претрагу је сада доступнија</translation>
 <translation id="411254640334432676">Преузимање није успело.</translation>
 <translation id="4112644173421521737">Претражи</translation>
+<translation id="4113030288477039509">Овим управља администратор</translation>
 <translation id="4121993058175073134">За слање података нето извоза подесите налог е-поште у апликацији Подешавања.</translation>
 <translation id="4124987746317609294">Временски опсег</translation>
 <translation id="4152011295694446843">Овде ћете пронаћи обележиваче</translation>
@@ -285,11 +288,13 @@
 <translation id="4181841719683918333">Језици</translation>
 <translation id="424315890655130736">Унесите приступну фразу</translation>
 <translation id="4263576668337963058">Прикажи доступне радње за страницу</translation>
+<translation id="4267380167363222949">Следећа картица</translation>
 <translation id="4272631900155121838">Да бисте скенирали QR кôд, омогућите камеру у подешавањима</translation>
 <translation id="4276041135170112053">Решите проблем.</translation>
 <translation id="4277990410970811858">Безбедно прегледање</translation>
 <translation id="4281844954008187215">Услови коришћења услуге</translation>
 <translation id="430793432425771671">Синхронизуј све</translation>
+<translation id="4309403553630140242">Двапут додирните за више информација</translation>
 <translation id="430967081421617822">Одувек</translation>
 <translation id="4334428914252001502">1 непрочитан чланак.</translation>
 <translation id="4338650699862464074">Шаље URL-ове страница које посећујете Google-у.</translation>
@@ -353,6 +358,7 @@
 <translation id="5005498671520578047">Копирање лозинке</translation>
 <translation id="5010803260590204777">Отворите картицу Без архивирања да бисте приватно прегледали веб.</translation>
 <translation id="5039804452771397117">Дозволи</translation>
+<translation id="5056446788882570708">Проблеми су пронађени <ph name="TIME" />.</translation>
 <translation id="5059136629401106827">Потврди</translation>
 <translation id="5062321486222145940">Инсталирај Google диск</translation>
 <translation id="5083464117946352670">Није могуће утврдити величину датотеке.</translation>
@@ -376,7 +382,6 @@
 <translation id="5317780077021120954">Сачувај</translation>
 <translation id="5327248766486351172">Назив</translation>
 <translation id="5339316356165661760">Укључи синхронизацију</translation>
-<translation id="5352285283572729470">Овим подешавањем се управља</translation>
 <translation id="5388358297987318779">Отвори слику</translation>
 <translation id="5407969256130905701">Одбаци промене</translation>
 <translation id="5409365236829784218">Није инсталирана ниједна апликација за отварање ове датотеке.</translation>
@@ -456,6 +461,7 @@ Handoff треба да се омогући у одељку General (Опште)
 <translation id="6187302354554850004">Последња синхрон.: <ph name="LAST_USED_TIME" /></translation>
 <translation id="6189413832092199491">Непрочитано</translation>
 <translation id="6196207969502475924">Гласовна претрага</translation>
+<translation id="6202364442240589072">{COUNT,plural, =1{Затвори {COUNT} картицу}one{Затвори {COUNT} картицу}few{Затвори {COUNT} картице}other{Затвори {COUNT} картица}}</translation>
 <translation id="6219688215832490856">Никад не преводи</translation>
 <translation id="6254066287920239840">Отварајте ликнове у апликацији уместо у прегледачу.</translation>
 <translation id="6255097610484507482">Измена кредитне картице</translation>
@@ -571,6 +577,7 @@ Handoff треба да се омогући у одељку General (Опште)
 <translation id="734758817008927353">Опције за чување картице</translation>
 <translation id="7348502496356775519">Означи</translation>
 <translation id="7383797227493018512">Листа за читање</translation>
+<translation id="739941347996872055">Претходна картица</translation>
 <translation id="7400418766976504921">URL адреса</translation>
 <translation id="7409985198648820906">Непрочитаних чланака: <ph name="UNREAD_COUNT" />.</translation>
 <translation id="7425346204213733349">Промене обележивача, историје, лозинки и других подешавања се више неће синхронизовати са Google налогом. Међутим, постојећи подаци ће остати сачувани на Google налогу.</translation>
@@ -636,6 +643,7 @@ Handoff треба да се омогући у одељку General (Опште)
 <translation id="8073670137947914548">Преузимање је завршено</translation>
 <translation id="8073872304774253879">Побољшај претраге и прегледање</translation>
 <translation id="8076014560081431679">Нећемо избрисати сачувана подешавања сајтова и она могу да одражавају ваше навике при прегледању. <ph name="BEGIN_LINK" />Сазнајте више<ph name="END_LINK" /></translation>
+<translation id="8079602123447022758">Овим подешавањем се управља. Двапут додирните за више информација</translation>
 <translation id="8105368624971345109">Искључи</translation>
 <translation id="8114753159095730575">Преузимање датотеке није доступно. Опције су наведене у дну екрана.</translation>
 <translation id="8131740175452115882">Потврди</translation>

@@ -21,6 +21,7 @@
 #include "base/macros.h"
 #include "base/stl_util.h"
 #include "base/trace_event/trace_event.h"
+#include "build/build_config.h"
 #include "gpu/command_buffer/client/shared_image_interface.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
 #include "gpu/ipc/common/gpu_memory_buffer_support.h"
@@ -36,6 +37,8 @@
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 
 namespace blink {
+
+constexpr int kMaxFirstFrameLogs = 5;
 
 using VideoFrameBufferHandleType = media::mojom::blink::VideoBufferHandle::Tag;
 
@@ -81,8 +84,13 @@ struct VideoCaptureImpl::BufferContext
         InitializeFromMailbox(std::move(buffer_handle->get_mailbox_handles()));
         break;
       case VideoFrameBufferHandleType::GPU_MEMORY_BUFFER_HANDLE:
+#if !defined(OS_MAC)
+        // On macOS, an IOSurfaces passed as a GpuMemoryBufferHandle can be
+        // used by both hardware and software paths.
+        // https://crbug.com/1125879
         CHECK(gpu_factories_);
         CHECK(media_task_runner_);
+#endif
         InitializeFromGpuMemoryBufferHandle(
             std::move(buffer_handle->get_gpu_memory_buffer_handle()));
         break;
@@ -122,10 +130,6 @@ struct VideoCaptureImpl::BufferContext
     DCHECK(buffer_context->media_task_runner_->BelongsToCurrentThread());
     DCHECK(buffer_context->gpu_factories_);
     DCHECK_EQ(info->pixel_format, media::PIXEL_FORMAT_NV12);
-    DCHECK_EQ(
-        buffer_context->gpu_factories_->VideoFrameOutputFormat(
-            info->pixel_format),
-        media::GpuVideoAcceleratorFactories::OutputFormat::NV12_SINGLE_GMB);
 
     // Create GPU texture and bind GpuMemoryBuffer to the texture.
     auto* sii = buffer_context->gpu_factories_->SharedImageInterface();
@@ -134,13 +138,20 @@ struct VideoCaptureImpl::BufferContext
           .Run(std::move(info), std::move(frame), std::move(buffer_context));
       return;
     }
+    // Don't check VideoFrameOutputFormat until we ensure the context has not
+    // been lost (if it is lost, then the format will be UNKNOWN).
+    DCHECK_EQ(
+        buffer_context->gpu_factories_->VideoFrameOutputFormat(
+            info->pixel_format),
+        media::GpuVideoAcceleratorFactories::OutputFormat::NV12_SINGLE_GMB);
     unsigned texture_target =
         buffer_context->gpu_factories_->ImageTextureTarget(
             gpu_memory_buffer->GetFormat());
     if (buffer_context->gmb_resources_->mailbox.IsZero()) {
       uint32_t usage =
           gpu::SHARED_IMAGE_USAGE_GLES2 | gpu::SHARED_IMAGE_USAGE_RASTER |
-          gpu::SHARED_IMAGE_USAGE_DISPLAY | gpu::SHARED_IMAGE_USAGE_SCANOUT;
+          gpu::SHARED_IMAGE_USAGE_DISPLAY | gpu::SHARED_IMAGE_USAGE_SCANOUT |
+          gpu::SHARED_IMAGE_USAGE_MACOS_VIDEO_TOOLBOX;
       buffer_context->gmb_resources_->mailbox = sii->CreateSharedImage(
           gpu_memory_buffer.get(),
           buffer_context->gpu_factories_->GpuMemoryBufferManager(),
@@ -152,6 +163,7 @@ struct VideoCaptureImpl::BufferContext
     }
     gpu::SyncToken sync_token = sii->GenUnverifiedSyncToken();
     CHECK(!buffer_context->gmb_resources_->mailbox.IsZero());
+    CHECK(buffer_context->gmb_resources_->mailbox.IsSharedImage());
     gpu::MailboxHolder mailbox_holder_array[media::VideoFrame::kMaxPlanes];
     mailbox_holder_array[0] = gpu::MailboxHolder(
         buffer_context->gmb_resources_->mailbox, sync_token, texture_target);
@@ -173,9 +185,8 @@ struct VideoCaptureImpl::BufferContext
                                     const gpu::SyncToken& release_sync_token) {
     if (!buffer_context->media_task_runner_->BelongsToCurrentThread()) {
       buffer_context->media_task_runner_->PostTask(
-          FROM_HERE,
-          base::BindOnce(&BufferContext::MailboxHolderReleased,
-                         std::move(buffer_context), release_sync_token));
+          FROM_HERE, base::BindOnce(&BufferContext::MailboxHolderReleased,
+                                    buffer_context, release_sync_token));
       return;
     }
     buffer_context->gmb_resources_->release_sync_token = release_sync_token;
@@ -235,7 +246,7 @@ struct VideoCaptureImpl::BufferContext
 
   friend class base::RefCountedThreadSafe<BufferContext>;
   virtual ~BufferContext() {
-    if (buffer_type_ == VideoFrameBufferHandleType::GPU_MEMORY_BUFFER_HANDLE) {
+    if (gmb_resources_ && gmb_resources_->mailbox.IsSharedImage()) {
       media_task_runner_->PostTask(
           FROM_HERE, base::BindOnce(&BufferContext::DestroyTextureOnMediaThread,
                                     gpu_factories_, gmb_resources_->mailbox,
@@ -505,7 +516,8 @@ void VideoCaptureImpl::OnBufferReady(
   if (!consume_buffer) {
     OnFrameDropped(
         media::VideoCaptureFrameDropReason::kVideoCaptureImplNotInStartedState);
-    GetVideoCaptureHost()->ReleaseBuffer(device_id_, buffer_id, -1.0);
+    GetVideoCaptureHost()->ReleaseBuffer(device_id_, buffer_id,
+                                         media::VideoFrameFeedback());
     return;
   }
 
@@ -513,7 +525,15 @@ void VideoCaptureImpl::OnBufferReady(
 
   if (first_frame_ref_time_.is_null()) {
     first_frame_ref_time_ = reference_time;
-    OnLog("First frame received at VideoCaptureImpl");
+    if (num_first_frame_logs_ < kMaxFirstFrameLogs) {
+      OnLog("First frame received for this VideoCaptureImpl instance");
+      num_first_frame_logs_++;
+    } else if (num_first_frame_logs_ == kMaxFirstFrameLogs) {
+      OnLog(
+          "First frame received for this VideoCaptureImpl instance. This will "
+          "not be logged anymore for this VideoCaptureImpl instance.");
+      num_first_frame_logs_++;
+    }
   }
 
   // If the timestamp is not prepared, we use reference time to make a rough
@@ -525,7 +545,7 @@ void VideoCaptureImpl::OnBufferReady(
 
   // TODO(qiangchen): Change the metric name to "reference_time" and
   // "timestamp", so that we have consistent naming everywhere.
-  // Used by chrome/browser/extension/api/cast_streaming/performance_test.cc
+  // Used by chrome/browser/media/cast_mirroring_performance_browsertest.cc
   TRACE_EVENT_INSTANT2("cast_perf_test", "OnBufferReceived",
                        TRACE_EVENT_SCOPE_THREAD, "timestamp",
                        (reference_time - base::TimeTicks()).InMicroseconds(),
@@ -597,6 +617,19 @@ void VideoCaptureImpl::OnBufferReady(
       break;
     }
     case VideoFrameBufferHandleType::GPU_MEMORY_BUFFER_HANDLE: {
+#if defined(OS_MAC)
+      // On macOS, an IOSurfaces passed as a GpuMemoryBufferHandle can be
+      // used by both hardware and software paths.
+      // https://crbug.com/1125879
+      if (!gpu_factories_ || !media_task_runner_) {
+        frame = media::VideoFrame::WrapIOSurface(
+            buffer_context->TakeGpuMemoryBufferHandle(),
+            gfx::Rect(info->visible_rect), info->timestamp);
+        break;
+      }
+#endif
+      CHECK(gpu_factories_);
+      CHECK(media_task_runner_);
       // Create GpuMemoryBuffer from handle.
       if (!buffer_context->GetGpuMemoryBuffer()) {
         gfx::BufferFormat gfx_format;
@@ -656,12 +689,13 @@ void VideoCaptureImpl::OnVideoFrameReady(
   if (!frame) {
     OnFrameDropped(media::VideoCaptureFrameDropReason::
                        kVideoCaptureImplFailedToWrapDataAsMediaVideoFrame);
-    GetVideoCaptureHost()->ReleaseBuffer(device_id_, buffer_id, -1.0);
+    GetVideoCaptureHost()->ReleaseBuffer(device_id_, buffer_id,
+                                         media::VideoFrameFeedback());
     return;
   }
 
   frame->AddDestructionObserver(base::BindOnce(
-      &VideoCaptureImpl::DidFinishConsumingFrame, frame->metadata(),
+      &VideoCaptureImpl::DidFinishConsumingFrame, frame->feedback(),
       media::BindToCurrentLoop(base::BindOnce(
           &VideoCaptureImpl::OnAllClientsFinishedConsumingFrame,
           weak_factory_.GetWeakPtr(), buffer_id, std::move(buffer_context)))));
@@ -692,7 +726,7 @@ void VideoCaptureImpl::OnBufferDestroyed(int32_t buffer_id) {
 void VideoCaptureImpl::OnAllClientsFinishedConsumingFrame(
     int buffer_id,
     scoped_refptr<BufferContext> buffer_context,
-    double consumer_resource_utilization) {
+    const media::VideoFrameFeedback feedback) {
   DCHECK_CALLED_ON_VALID_THREAD(io_thread_checker_);
 
 // Subtle race note: It's important that the |buffer_context| argument be
@@ -709,13 +743,18 @@ void VideoCaptureImpl::OnAllClientsFinishedConsumingFrame(
   BufferContext* const buffer_raw_ptr = buffer_context.get();
   buffer_context = nullptr;
   // Now there should be only one reference, from |client_buffers_|.
-  DCHECK(buffer_raw_ptr->HasOneRef());
+  // TODO(https://crbug.com/1128853): This DCHECK is invalid for GpuMemoryBuffer
+  // backed frames, because MailboxHolderReleased may hold on to a reference to
+  // |buffer_context|.
+  if (buffer_raw_ptr->buffer_type() !=
+      VideoFrameBufferHandleType::GPU_MEMORY_BUFFER_HANDLE) {
+    DCHECK(buffer_raw_ptr->HasOneRef());
+  }
 #else
   buffer_context = nullptr;
 #endif
 
-  GetVideoCaptureHost()->ReleaseBuffer(device_id_, buffer_id,
-                                       consumer_resource_utilization);
+  GetVideoCaptureHost()->ReleaseBuffer(device_id_, buffer_id, feedback);
 }
 
 void VideoCaptureImpl::StopDevice() {
@@ -796,12 +835,11 @@ media::mojom::blink::VideoCaptureHost* VideoCaptureImpl::GetVideoCaptureHost() {
 
 // static
 void VideoCaptureImpl::DidFinishConsumingFrame(
-    const media::VideoFrameMetadata* metadata,
+    const media::VideoFrameFeedback* feedback,
     BufferFinishedCallback callback_to_io_thread) {
   // Note: This function may be called on any thread by the VideoFrame
   // destructor.  |metadata| is still valid for read-access at this point.
-  std::move(callback_to_io_thread)
-      .Run(metadata->resource_utilization.value_or(-1.0));
+  std::move(callback_to_io_thread).Run(*feedback);
 }
 
 }  // namespace blink

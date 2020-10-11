@@ -58,6 +58,7 @@
 #include "chrome/browser/chromeos/policy/external_data_handlers/printers_external_data_handler.h"
 #include "chrome/browser/chromeos/policy/external_data_handlers/user_avatar_image_external_data_handler.h"
 #include "chrome/browser/chromeos/policy/external_data_handlers/wallpaper_image_external_data_handler.h"
+#include "chrome/browser/chromeos/policy/policy_cert_service_factory.h"
 #include "chrome/browser/chromeos/policy/user_network_configuration_updater.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/chromeos/session_length_limiter.h"
@@ -1019,6 +1020,9 @@ void ChromeUserManagerImpl::RemoveNonCryptohomeData(
 
   multi_profile_user_controller_->RemoveCachedValues(account_id.GetUserEmail());
 
+  policy::PolicyCertServiceFactory::ClearUsedPolicyCertificates(
+      account_id.GetUserEmail());
+
   EasyUnlockService::ResetLocalStateForUser(account_id);
 
   ChromeUserManager::RemoveNonCryptohomeData(account_id);
@@ -1377,8 +1381,20 @@ bool ChromeUserManagerImpl::IsManagedSessionEnabledForUser(
   if (!service)
     return kManagedSessionEnabledByDefault;
 
-  return IsManagedSessionEnabled(
-      service->GetBrokerForUser(active_user.GetAccountId().GetUserEmail()));
+  policy::DeviceLocalAccountPolicyBroker* broker =
+      service->GetBrokerForUser(active_user.GetAccountId().GetUserEmail());
+
+  if (!broker) {
+    // The broker could be unavailable at the early initialization stage when
+    // - |DeviceSettingsProvider| does not have a list of device local accounts
+    //   in |kAccountsPrefDeviceLocalAccounts|
+    // - and there is an attempt to autologin with public account before the
+    // device settings become available. The broker will become available later
+    // and the real policy value will be returned with future calls.
+    return kManagedSessionEnabledByDefault;
+  }
+
+  return IsManagedSessionEnabled(broker);
 }
 
 bool ChromeUserManagerImpl::IsFullManagementDisclosureNeeded(

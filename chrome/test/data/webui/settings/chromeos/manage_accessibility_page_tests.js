@@ -13,7 +13,7 @@ function isVisible(element) {
 
 suite('ManageAccessibilityPageTests', function() {
   let page = null;
-  let browserProxy = null;
+  let deviceBrowserProxy = null;
 
   /** @implements {settings.DevicePageBrowserProxy} */
   class TestDevicePageBrowserProxy {
@@ -41,6 +41,11 @@ suite('ManageAccessibilityPageTests', function() {
       cr.webUIListenerCallback('has-mouse-changed', this.hasMouse_);
       cr.webUIListenerCallback('has-touchpad-changed', this.hasTouchpad_);
     }
+
+    /** @override */
+    initializeKeyboardWatcher() {
+      cr.webUIListenerCallback('has-hardware-keyboard', this.hasKeyboard_);
+    }
   }
 
   function initPage() {
@@ -49,17 +54,17 @@ suite('ManageAccessibilityPageTests', function() {
   }
 
   setup(function() {
-    browserProxy = new TestDevicePageBrowserProxy();
-    settings.DevicePageBrowserProxyImpl.instance_ = browserProxy;
+    deviceBrowserProxy = new TestDevicePageBrowserProxy();
+    settings.DevicePageBrowserProxyImpl.instance_ = deviceBrowserProxy;
 
     PolymerTest.clearBody();
-
   });
 
   teardown(function() {
     if (page) {
       page.remove();
     }
+    settings.Router.getInstance().resetRouteForTesting();
   });
 
   test('Pointers row only visible if mouse/touchpad present', function() {
@@ -68,19 +73,19 @@ suite('ManageAccessibilityPageTests', function() {
     assertFalse(row.hidden);
 
     // Has touchpad, doesn't have mouse ==> not hidden.
-    browserProxy.hasMouse = false;
+    deviceBrowserProxy.hasMouse = false;
     assertFalse(row.hidden);
 
     // Doesn't have either ==> hidden.
-    browserProxy.hasTouchpad = false;
+    deviceBrowserProxy.hasTouchpad = false;
     assertTrue(row.hidden);
 
     // Has mouse, doesn't have touchpad ==> not hidden.
-    browserProxy.hasMouse = true;
+    deviceBrowserProxy.hasMouse = true;
     assertFalse(row.hidden);
 
     // Has both ==> not hidden.
-    browserProxy.hasTouchpad = true;
+    deviceBrowserProxy.hasTouchpad = true;
     assertFalse(row.hidden);
   });
 
@@ -102,8 +107,8 @@ suite('ManageAccessibilityPageTests', function() {
     });
     initPage();
     // Add mouse and touchpad to show some hidden settings.
-    browserProxy.hasMouse = true;
-    browserProxy.hasTouchpad = true;
+    deviceBrowserProxy.hasMouse = true;
+    deviceBrowserProxy.hasTouchpad = true;
     Polymer.dom.flush();
 
     // Accessibility learn more link should be hidden.
@@ -126,5 +131,26 @@ suite('ManageAccessibilityPageTests', function() {
 
     // Additional features link is not visible.
     assertFalse(isVisible(page.$.additionalFeaturesLink));
+  });
+
+  test('Deep link to switch access', async () => {
+    loadTimeData.overrideValues({
+      isKioskModeActive: false,
+      isDeepLinkingEnabled: true,
+    });
+    initPage();
+
+    const params = new URLSearchParams;
+    params.append('settingId', '1522');
+    settings.Router.getInstance().navigateTo(
+        settings.routes.MANAGE_ACCESSIBILITY, params);
+
+    Polymer.dom.flush();
+
+    const deepLinkElement = page.$$('#enableSwitchAccess').$$('cr-toggle');
+    await test_util.waitAfterNextRender(deepLinkElement);
+    assertEquals(
+        deepLinkElement, getDeepActiveElement(),
+        'Switch access toggle should be focused for settingId=1522.');
   });
 });

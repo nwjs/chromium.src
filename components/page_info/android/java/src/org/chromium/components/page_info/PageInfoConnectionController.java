@@ -8,6 +8,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
+import org.chromium.components.omnibox.SecurityStatusIcon;
+import org.chromium.components.security_state.SecurityStateModel;
 import org.chromium.content_public.browser.WebContents;
 
 /**
@@ -15,7 +17,7 @@ import org.chromium.content_public.browser.WebContents;
  */
 public class PageInfoConnectionController
         implements PageInfoSubpageController, ConnectionInfoView.ConnectionInfoDelegate {
-    private PageInfoMainPageController mMainController;
+    private PageInfoMainController mMainController;
     private final WebContents mWebContents;
     private final VrHandler mVrHandler;
     private PageInfoRowView mRowView;
@@ -23,8 +25,8 @@ public class PageInfoConnectionController
     private ConnectionInfoView mInfoView;
     private ViewGroup mContainer;
 
-    public PageInfoConnectionController(PageInfoMainPageController mainController,
-            PageInfoRowView view, WebContents webContents, VrHandler vrHandler) {
+    public PageInfoConnectionController(PageInfoMainController mainController, PageInfoRowView view,
+            WebContents webContents, VrHandler vrHandler) {
         mMainController = mainController;
         mWebContents = webContents;
         mVrHandler = vrHandler;
@@ -32,6 +34,7 @@ public class PageInfoConnectionController
     }
 
     private void launchSubpage() {
+        mMainController.recordAction(PageInfoAction.PAGE_INFO_SECURITY_DETAILS_OPENED);
         mMainController.launchSubpage(this);
     }
 
@@ -49,21 +52,23 @@ public class PageInfoConnectionController
     }
 
     @Override
-    public void onSubPageAttached() {}
-
-    @Override
     public void onSubpageRemoved() {
         mContainer = null;
         mInfoView.onDismiss();
     }
 
     public void setConnectionInfo(PageInfoView.ConnectionInfoParams params) {
-        mTitle = params.summary != null ? params.summary.toString() : null;
         PageInfoRowView.ViewParams rowParams = new PageInfoRowView.ViewParams();
+        mTitle = params.summary != null ? params.summary.toString() : null;
         rowParams.title = mTitle;
         rowParams.subtitle = params.message != null ? params.message.toString() : null;
         rowParams.visible = rowParams.title != null || rowParams.subtitle != null;
-        rowParams.clickCallback = this::launchSubpage;
+        int securityLevel = SecurityStateModel.getSecurityLevelForWebContents(mWebContents);
+        rowParams.iconResId = SecurityStatusIcon.getSecurityIconResource(securityLevel,
+                SecurityStateModel.shouldShowDangerTriangleForWarningLevel(),
+                /*isSmallDevice=*/false,
+                /*skipIconForNeutralState=*/false);
+        if (params.clickCallback != null) rowParams.clickCallback = this::launchSubpage;
         mRowView.setParams(rowParams);
     }
 

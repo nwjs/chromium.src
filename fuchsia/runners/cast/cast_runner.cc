@@ -126,9 +126,8 @@ void CastRunner::StartComponent(
       std::move(controller_request), cast_url.GetContent()));
 }
 
-void CastRunner::SetOnMainContextLostCallbackForTest(
-    base::OnceClosure on_context_lost) {
-  main_context_->SetOnContextLostCallbackForTest(std::move(on_context_lost));
+fuchsia::web::FrameHost* CastRunner::main_context_frame_host() const {
+  return main_context_.get();
 }
 
 void CastRunner::LaunchPendingComponent(PendingCastComponent* pending_component,
@@ -193,6 +192,9 @@ void CastRunner::CancelPendingComponent(
 void CastRunner::OnComponentDestroyed(CastComponent* component) {
   if (component == audio_capturer_component_)
     audio_capturer_component_ = nullptr;
+
+  if (component == video_capturer_component_)
+    video_capturer_component_ = nullptr;
 }
 
 fuchsia::web::CreateContextParams CastRunner::GetCommonContextParams() {
@@ -230,7 +232,9 @@ fuchsia::web::CreateContextParams CastRunner::GetCommonContextParams() {
   if (disable_vulkan_for_test_) {
     *params.mutable_features() &=
         ~(fuchsia::web::ContextFeatureFlags::WIDEVINE_CDM |
-          fuchsia::web::ContextFeatureFlags::VULKAN);
+          fuchsia::web::ContextFeatureFlags::VULKAN |
+          fuchsia::web::ContextFeatureFlags::HARDWARE_VIDEO_DECODER |
+          fuchsia::web::ContextFeatureFlags::HARDWARE_VIDEO_DECODER_ONLY);
     params.clear_playready_key_system();
   }
 

@@ -19,7 +19,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/simple_test_tick_clock.h"
 #include "base/time/time.h"
-#include "content/browser/frame_host/frame_tree_node.h"
+#include "content/browser/renderer_host/frame_tree_node.h"
 #include "content/browser/service_worker/embedded_worker_status.h"
 #include "content/browser/service_worker/embedded_worker_test_helper.h"
 #include "content/browser/service_worker/fake_embedded_worker_instance_client.h"
@@ -98,7 +98,7 @@ class ServiceWorkerVersionTest : public testing::Test {
         helper_->context()->registry(), registration_.get(),
         GURL("https://www.example.com/test/service_worker.js"),
         blink::mojom::ScriptType::kClassic);
-    EXPECT_EQ(url::Origin::Create(scope_), version_->script_origin());
+    EXPECT_EQ(url::Origin::Create(scope_), version_->origin());
     std::vector<storage::mojom::ServiceWorkerResourceRecordPtr> records;
     records.push_back(WriteToDiskCacheWithIdSync(
         helper_->context()->GetStorageControl(), version_->script_url(), 10,

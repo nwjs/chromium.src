@@ -113,7 +113,8 @@ static inline void AddTraceEvent(char phase,
   if (track)
     track_event->set_track_uuid(track.uuid);
 
-  argument_func(perfetto::EventContext(track_event.get()));
+  argument_func(perfetto::EventContext(track_event.get(),
+                                       track_event.incremental_state()));
 }
 
 template <
@@ -144,6 +145,14 @@ static inline void AddTraceEvent(char phase,
                                  TrackEventArgumentFunction argument_func) {
   AddTraceEvent(phase, category_group_enabled, name, flags, perfetto::Track(),
                 base::TimeTicks(), argument_func);
+}
+
+inline void AddTraceEvent(char phase,
+                          const unsigned char* category_group_enabled,
+                          const char* name,
+                          unsigned int flags) {
+  AddTraceEvent(phase, category_group_enabled, name, flags, perfetto::Track(),
+                base::TimeTicks(), [](perfetto::EventContext ctx) {});
 }
 
 template <typename TrackType,

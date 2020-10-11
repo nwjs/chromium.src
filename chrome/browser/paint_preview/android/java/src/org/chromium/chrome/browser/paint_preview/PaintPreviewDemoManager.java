@@ -53,9 +53,9 @@ public class PaintPreviewDemoManager implements TabViewProvider {
                     mPaintPreviewDemoService, String.valueOf(mTab.getId()),
                     PaintPreviewDemoManager.this::onLinkClicked,
                     PaintPreviewDemoManager.this::removePaintPreviewDemo,
-                    PaintPreviewDemoManager.this::addPlayerView, null,
+                    PaintPreviewDemoManager.this::addPlayerView, null, null,
                     ChromeColors.getPrimaryBackgroundColor(mTab.getContext().getResources(), false),
-                    () -> {
+                    (status) -> {
                         Toast.makeText(mTab.getContext(),
                                      R.string.paint_preview_demo_playback_failure,
                                      Toast.LENGTH_LONG)
@@ -74,6 +74,7 @@ public class PaintPreviewDemoManager implements TabViewProvider {
     }
 
     void removePaintPreviewDemo() {
+        PaintPreviewCompositorUtils.stopWarmCompositor();
         if (mTab == null || mPlayerManager == null) {
             return;
         }

@@ -39,6 +39,7 @@ Es posible que algunas funciones no estén disponibles y que no se guarden los c
 <translation id="2560420686485554789">Chromium necesita acceso de almacenamiento para descargar archivos</translation>
 <translation id="2572494885440352020">Chromium Helper</translation>
 <translation id="2587578672395088481">Chromium OS se debe reiniciar para que se aplique la actualización.</translation>
+<translation id="2615699638672665509">Este ordenador dejará de recibir actualizaciones de Chromium dentro de poco porque su hardware ya no es compatible.</translation>
 <translation id="2648074677641340862">Se ha producido un error de sistema operativo durante el proceso de instalación. Vuelve a descargar Chromium.</translation>
 <translation id="2711502716910134313">Pestaña de Chromium</translation>
 <translation id="2718390899429598676">Para mayor seguridad, Chromium cifrará tus datos.</translation>
@@ -155,7 +156,6 @@ Es posible que algunas funciones no estén disponibles y que no se guarden los c
 <translation id="6333502561965082103">Hay otra operación en curso en Chromium. Vuelve a intentarlo más tarde.</translation>
 <translation id="6334986366598267305">Ahora es más fácil utilizar Chromium con tu cuenta de Google y en ordenadores compartidos.</translation>
 <translation id="6373523479360886564">¿Seguro que quieres desinstalar Chromium?</translation>
-<translation id="6400072781405947421">Es posible que Chromium no funcione correctamente porque ya no es compatible con Mac OS X 10.9.</translation>
 <translation id="6403826409255603130">Chromium es un navegador web que ejecuta páginas web y aplicaciones a gran velocidad. Es rápido, estable y fácil de utilizar. Chromium te permite navegar en la Web de forma más segura, ya que incluye protección contra software malicioso y phishing.</translation>
 <translation id="6434250628340475518">Sistema Chromium OS</translation>
 <translation id="6457450909262716557">{SECONDS,plural, =1{Chromium se reiniciará en 1 segundo}other{Chromium se reiniciará en # segundos}}</translation>
@@ -215,6 +215,7 @@ Chromium no puede recuperar tu configuración.</translation>
 <translation id="7773960292263897147">Advertencia: Chromium no puede evitar que las extensiones registren el historial de navegación. Para inhabilitar esta extensión en modo de incógnito, desactiva esta opción.</translation>
 <translation id="7790626492778995050"><ph name="PAGE_TITLE" /> ‑ Chromium Canary</translation>
 <translation id="7827169012280634081">Borrar las cookies y los datos de sitios web al salir de Chromium</translation>
+<translation id="7857220146454061152">Para recibir actualizaciones de Chromium, debes tener OS X 10.11 o una versión posterior. Este ordenador utiliza OS X 10.10.</translation>
 <translation id="7867198900892795913">No se ha podido actualizar Chromium a la versión más reciente, por lo que no disfrutas de las últimas funciones y correcciones de seguridad.</translation>
 <translation id="7898472181347242998">Para comprobar si tu dispositivo está actualizado, ve a la <ph name="LINK_BEGIN" />configuración de Chromium OS<ph name="LINK_END" /></translation>
 <translation id="7937630085815544518">Habías iniciado sesión en Chromium como <ph name="USER_EMAIL_ADDRESS" />. Utiliza la misma cuenta para volver a iniciar sesión.</translation>

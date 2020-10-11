@@ -14,6 +14,7 @@
 <translation id="1084365883616172403">Публікацыя ў Facebook выканана.</translation>
 <translation id="1103523840287552314">Заўсёды перакладаць з мовы: <ph name="LANGUAGE" /></translation>
 <translation id="1104948393051856124">Прыняць і працягнуць</translation>
+<translation id="110724200315609752">Пераключыцца на адкрытае акно</translation>
 <translation id="1112015203684611006">Памылка друкавання.</translation>
 <translation id="1125564390852150847">Стварыць новую ўкладку.</translation>
 <translation id="1145536944570833626">Выдаліць існуючыя даныя.</translation>
@@ -93,6 +94,7 @@
 <translation id="1941314575388338491">Каб скапіраваць, націсніце двойчы.</translation>
 <translation id="1952172573699511566">Тэкст на вэб-сайтах будзе паказвацца на мове, выбранай вамі ў якасці прыярытэтнай, калі гэта магчыма.</translation>
 <translation id="1952728750904661634">Увайсці праз уліковы запіс пад кіраваннем</translation>
+<translation id="1965935827552890526">Скончыце тое, што вы пачалі рабіць у іншым адкрытым акне Chrome.</translation>
 <translation id="1974060860693918893">Пашыраныя налады</translation>
 <translation id="1989112275319619282">Агляд</translation>
 <translation id="1992734845128748707">Змяніць стандартны браўзер…</translation>
@@ -277,6 +279,7 @@
 <translation id="408404951701638773">Панэллю пошуку цяпер карыстацца лягчэй</translation>
 <translation id="411254640334432676">Збой спампоўкі.</translation>
 <translation id="4112644173421521737">Пошук</translation>
+<translation id="4113030288477039509">Кіруецца адміністратарам</translation>
 <translation id="4121993058175073134">Для экспарту даных па сетцы наладзьце электронную пошту праз праграму "Налады".</translation>
 <translation id="4124987746317609294">Прамежак часу</translation>
 <translation id="4152011295694446843">Вашы закладкі знаходзяцца тут</translation>
@@ -285,11 +288,13 @@
 <translation id="4181841719683918333">Мовы</translation>
 <translation id="424315890655130736">Увядз. фразу-пароль</translation>
 <translation id="4263576668337963058">Паказаць даступныя дзеянні са старонкай</translation>
+<translation id="4267380167363222949">Наступная ўкладка</translation>
 <translation id="4272631900155121838">Каб сканіраваць QR-код, уключыце камеру ў наладах</translation>
 <translation id="4276041135170112053">Вырашыце праблему</translation>
 <translation id="4277990410970811858">Бяспечны прагляд</translation>
 <translation id="4281844954008187215">Умовы выкарыстання</translation>
 <translation id="430793432425771671">Сінхранізаваць усе</translation>
+<translation id="4309403553630140242">Двойчы націсніце, каб даведацца больш</translation>
 <translation id="430967081421617822">За ўвесь час</translation>
 <translation id="4334428914252001502">1 непрачытаны артыкул.</translation>
 <translation id="4338650699862464074">Адпраўляць URL-адрасы наведаных вамі старонак у Google.</translation>
@@ -353,6 +358,7 @@
 <translation id="5005498671520578047">Капіраваць пароль</translation>
 <translation id="5010803260590204777">Для прыватнага прагляду вэб-сайтаў адкрыйце ўкладку інкогніта.</translation>
 <translation id="5039804452771397117">Дазволіць</translation>
+<translation id="5056446788882570708">Праблемы знойдзены <ph name="TIME" />.</translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5062321486222145940">Усталяваць Google Дыск</translation>
 <translation id="5083464117946352670">Не ўдалося вызначыць памер файла.</translation>
@@ -376,7 +382,6 @@
 <translation id="5317780077021120954">Захаваць</translation>
 <translation id="5327248766486351172">Імя</translation>
 <translation id="5339316356165661760">Уключыць сінхранізацыю</translation>
-<translation id="5352285283572729470">Гэта налада знаходзіцца пад кіраваннем</translation>
 <translation id="5388358297987318779">Адкрыць відарыс</translation>
 <translation id="5407969256130905701">Адхіліць змяненні</translation>
 <translation id="5409365236829784218">Няма ўсталяваных праграм, у якіх можна адкрыць гэты файл.</translation>
@@ -456,6 +461,7 @@
 <translation id="6187302354554850004">Апошняя сінхранізацыя: <ph name="LAST_USED_TIME" /></translation>
 <translation id="6189413832092199491">Непрачытанае</translation>
 <translation id="6196207969502475924">Галасавы пошук</translation>
+<translation id="6202364442240589072">{COUNT,plural, =1{Закрыць {COUNT} укладку}one{Закрыць {COUNT} укладку}few{Закрыць {COUNT} укладкі}many{Закрыць {COUNT} укладак}other{Закрыць {COUNT} укладкі}}</translation>
 <translation id="6219688215832490856">Ніколі не перакладаць з мовы</translation>
 <translation id="6254066287920239840">Адкрываць спасылкі ў праграме замест браўзера.</translation>
 <translation id="6255097610484507482">Рэдагаванне крэдытнай карткі</translation>
@@ -571,6 +577,7 @@
 <translation id="734758817008927353">Параметры захавання карткі</translation>
 <translation id="7348502496356775519">Дадаць у закладкі</translation>
 <translation id="7383797227493018512">Спіс для чытання</translation>
+<translation id="739941347996872055">Папярэдняя ўкладка</translation>
 <translation id="7400418766976504921">URL-адрас</translation>
 <translation id="7409985198648820906">Непрачытаных артыкулаў: <ph name="UNREAD_COUNT" />.</translation>
 <translation id="7425346204213733349">Змены ў закладках, гісторыі, паролях і іншых наладах больш не будуць сінхранізавацца з Уліковым запісам Google. Але існуючыя даныя застануцца ва Уліковым запісе Google.</translation>
@@ -636,6 +643,7 @@
 <translation id="8073670137947914548">Спампоўванне завершана</translation>
 <translation id="8073872304774253879">Паскорыць пошук і прагляд</translation>
 <translation id="8076014560081431679">Захаваныя налады сайтаў не будуць выдалены і могуць змяшчаць звесткі аб вашых тыповых дзеяннях у браўзеры. <ph name="BEGIN_LINK" />Даведацца больш<ph name="END_LINK" /></translation>
+<translation id="8079602123447022758">Гэтай наладай можна кіраваць. Каб даведацца больш, націсніце двойчы.</translation>
 <translation id="8105368624971345109">Выключыць</translation>
 <translation id="8114753159095730575">Файл даступны для спампоўвання. Параметры знаходзяцца ў ніжняй частцы экрана.</translation>
 <translation id="8131740175452115882">Пацвердзіць</translation>

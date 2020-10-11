@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "base/bind.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/stl_util.h"
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
@@ -36,6 +37,7 @@ apps::PickerEntryType GetPickerEntryType(apps::mojom::AppType app_type) {
     case apps::mojom::AppType::kExtension:
     case apps::mojom::AppType::kLacros:
     case apps::mojom::AppType::kRemote:
+    case apps::mojom::AppType::kBorealis:
       break;
     case apps::mojom::AppType::kArc:
       picker_entry_type = apps::PickerEntryType::kArc;
@@ -124,8 +126,15 @@ void CommonAppsNavigationThrottle::OnIntentPickerClosed(
       ui_auto_display_service->IncrementCounter(url);
   }
 
-  if (should_persist)
-    proxy->AddPreferredApp(launch_name, url);
+  if (should_persist) {
+    // TODO(https://crbug.com/853604): Remove this and convert to a DCHECK
+    // after finding out the root cause.
+    if (launch_name.empty()) {
+      base::debug::DumpWithoutCrashing();
+    } else {
+      proxy->AddPreferredApp(launch_name, url);
+    }
+  }
 
   if (should_launch_app) {
     if (entry_type == PickerEntryType::kWeb) {
@@ -270,44 +279,30 @@ bool CommonAppsNavigationThrottle::ShouldCancelNavigation(
   return false;
 }
 
-bool CommonAppsNavigationThrottle::ShouldDeferNavigation(
-    content::NavigationHandle* handle) {
-  content::WebContents* web_contents = handle->GetWebContents();
-
-  const GURL& url = handle->GetURL();
-
-  std::vector<apps::IntentPickerAppInfo> apps_for_picker =
-      FindAllAppsForUrl(web_contents, url, {});
-
-  if (apps_for_picker.empty())
-    return false;
-
-  if (GetPickerShowState(apps_for_picker, web_contents, url) ==
-      PickerShowState::kOmnibox) {
-    return false;
+void CommonAppsNavigationThrottle::ShowIntentPickerForApps(
+    content::WebContents* web_contents,
+    IntentPickerAutoDisplayService* ui_auto_display_service,
+    const GURL& url,
+    std::vector<IntentPickerAppInfo> apps,
+    IntentPickerResponse callback) {
+  if (apps.empty()) {
+    IntentPickerTabHelper::SetShouldShowIcon(web_contents, false);
+    ui_displayed_ = false;
+    return;
   }
 
+  if (GetPickerShowState(apps, web_contents, url) ==
+      PickerShowState::kOmnibox) {
+    ui_displayed_ = false;
+    IntentPickerTabHelper::SetShouldShowIcon(web_contents, true);
+    return;
+  }
+
+  ui_displayed_ = true;
   IntentPickerTabHelper::LoadAppIcons(
-      web_contents, std::move(apps_for_picker),
-      base::BindOnce(
-          &CommonAppsNavigationThrottle::OnDeferredNavigationProcessed,
-          weak_factory_.GetWeakPtr()));
-  return true;
-}
-
-void CommonAppsNavigationThrottle::OnDeferredNavigationProcessed(
-    std::vector<apps::IntentPickerAppInfo> apps) {
-  content::NavigationHandle* handle = navigation_handle();
-  content::WebContents* web_contents = handle->GetWebContents();
-  const GURL& url = handle->GetURL();
-
-  ShowIntentPickerForApps(web_contents, ui_auto_display_service_, url,
-                          std::move(apps),
-                          base::BindOnce(&OnIntentPickerClosed, web_contents,
-                                         ui_auto_display_service_, url));
-
-  // We are about to resume the navigation, which may destroy this object.
-  Resume();
+      web_contents, std::move(apps),
+      base::BindOnce(&OnAppIconsLoaded, web_contents, ui_auto_display_service,
+                     url));
 }
 
 bool CommonAppsNavigationThrottle::ShouldAutoDisplayUi(

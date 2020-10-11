@@ -5,6 +5,7 @@
 #include "ui/ozone/platform/drm/gpu/drm_overlay_validator.h"
 
 #include <drm_fourcc.h>
+#include <xf86drm.h>
 
 #include <memory>
 #include <utility>
@@ -29,9 +30,9 @@
 
 namespace {
 
-// Mode of size 6x4.
-const drmModeModeInfo kDefaultMode = {0, 6, 0, 0, 0, 0, 4,     0,
-                                      0, 0, 0, 0, 0, 0, {'\0'}};
+// Mode of size 12x8.
+const drmModeModeInfo kDefaultMode = {0, 12, 0, 0, 0, 0, 8,     0,
+                                      0, 0,  0, 0, 0, 0, {'\0'}};
 
 const gfx::AcceleratedWidget kDefaultWidgetHandle = 1;
 constexpr uint32_t kCrtcIdBase = 1;
@@ -213,8 +214,11 @@ void DrmOverlayValidatorTest::InitDrmStatesAndControllers(
 void DrmOverlayValidatorTest::SetupControllers() {
   screen_manager_ = std::make_unique<ui::ScreenManager>();
   screen_manager_->AddDisplayController(drm_, kCrtcIdBase, kConnectorIdBase);
-  screen_manager_->ConfigureDisplayController(
-      drm_, kCrtcIdBase, kConnectorIdBase, gfx::Point(), kDefaultMode);
+  std::vector<ui::ScreenManager::ControllerConfigParams> controllers_to_enable;
+  controllers_to_enable.push_back(
+      {1 /*display_id*/, drm_, kCrtcIdBase, kConnectorIdBase, gfx::Point(),
+       std::make_unique<drmModeModeInfo>(kDefaultMode)});
+  screen_manager_->ConfigureDisplayControllers(controllers_to_enable);
 
   drm_device_manager_ = std::make_unique<ui::DrmDeviceManager>(nullptr);
 

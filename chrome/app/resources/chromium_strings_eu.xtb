@@ -39,6 +39,7 @@ Eginbide batzuk agian dira erabilgarri egongo eta hobespenei egindako aldaketak 
 <translation id="2560420686485554789">Chromium-ek fitxategiak deskargatzearren memorian sartzeko baimena behar du</translation>
 <translation id="2572494885440352020">Chromium laguntzailea</translation>
 <translation id="2587578672395088481">Eguneratzea aplikatzeko, berrabiarazi egin behar da Chromium sistema eragilea.</translation>
+<translation id="2615699638672665509">Ordenagailuak laster Chromium eguneratzeak jasotzeari utziko dio bere hardwarea ez delako jada bateragarria.</translation>
 <translation id="2648074677641340862">Sistema-eragilean errore bat gertatu da instalatu bitartean. Deskargatu Chromium berriro.</translation>
 <translation id="2711502716910134313">Chromium fitxa</translation>
 <translation id="2718390899429598676">Segurtasun gehiago izateko, Chromium-ek datuak enkriptatuko ditu.</translation>
@@ -155,7 +156,6 @@ Eginbide batzuk agian dira erabilgarri egongo eta hobespenei egindako aldaketak 
 <translation id="6333502561965082103">Beste eragiketa bat egiten ari da Chromium. Saiatu berriro geroago.</translation>
 <translation id="6334986366598267305">Errazagoa da Chromium erabiltzea Google-ko kontuarekin eta partekatutako ordenagailuetan.</translation>
 <translation id="6373523479360886564">Ziur Chromium desinstalatu nahi duzula?</translation>
-<translation id="6400072781405947421">Chromium-ek agian ez du behar bezala funtzionatuko ez delako jada onartzen Mac OS X 10.9 bertsioan.</translation>
 <translation id="6403826409255603130">Web-orriak eta aplikazioak tximista bezain azkar abiarazten dituen web-arakatzailea da Chromium. Bizkorra, egonkorra eta erabiltzeko erraza da. Chromium-ek malwarearen eta phishingaren aurka dituen babes inkorporatuei esker, seguruago ibiliko zara Interneten.</translation>
 <translation id="6434250628340475518">Chromium OS sistema</translation>
 <translation id="6457450909262716557">{SECONDS,plural, =1{1 segundo barru berrabiaraziko da Chromium}other{# segundo barru berrabiaraziko da Chromium}}</translation>
@@ -215,6 +215,7 @@ Chromium-ek ezin ditu ezarpenak berreskuratu.</translation>
 <translation id="7773960292263897147">Abisua: Chromium-ek ezin die eragotzi luzapenei arakatze-historia erregistratzea. Ezkutuko moduan luzapen hau desgaitzeko, desautatu aukera.</translation>
 <translation id="7790626492778995050"><ph name="PAGE_TITLE" /> - Chromium Canary</translation>
 <translation id="7827169012280634081">Garbitu cookieak eta webguneen datuak Chromium-etik irteten zarenean</translation>
+<translation id="7857220146454061152">Etorkizunean Chromium-en eguneratzeak eskuratzeko, OS X 10.11 edo bertsio berriago bat beharko duzu. Ordenagailu hau OS X 10.10 erabiltzen ari da.</translation>
 <translation id="7867198900892795913">Ezin izan da eguneratu Chromium azken bertsiora; beraz, ez dituzu erabilgarri eginbide berriak eta segurtasun-konponketak.</translation>
 <translation id="7898472181347242998">Gailua eguneratuta dagoen ikusteko, joan <ph name="LINK_BEGIN" />Chromium OS sistemaren ezarpenetara<ph name="LINK_END" /></translation>
 <translation id="7937630085815544518">Chromium-en <ph name="USER_EMAIL_ADDRESS" /> gisa hasi duzu saioa. Saioa berriro hasteko, erabili hasiera batean erabilitako kontu bera.</translation>

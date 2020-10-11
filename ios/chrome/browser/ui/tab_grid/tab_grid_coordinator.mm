@@ -9,16 +9,20 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
+#include "base/strings/sys_string_conversions.h"
+#include "components/strings/grit/components_strings.h"
 #include "ios/chrome/browser/browser_state/chrome_browser_state.h"
 #include "ios/chrome/browser/chrome_url_constants.h"
 #include "ios/chrome/browser/main/browser.h"
 #include "ios/chrome/browser/sessions/ios_chrome_tab_restore_service_factory.h"
 #import "ios/chrome/browser/ui/activity_services/activity_params.h"
+#import "ios/chrome/browser/ui/alert_coordinator/action_sheet_coordinator.h"
 #import "ios/chrome/browser/ui/commands/application_commands.h"
 #import "ios/chrome/browser/ui/commands/browser_commands.h"
 #import "ios/chrome/browser/ui/commands/browsing_data_commands.h"
 #import "ios/chrome/browser/ui/commands/command_dispatcher.h"
 #import "ios/chrome/browser/ui/commands/open_new_tab_command.h"
+#import "ios/chrome/browser/ui/gestures/view_revealing_vertical_pan_handler.h"
 #import "ios/chrome/browser/ui/history/history_coordinator.h"
 #import "ios/chrome/browser/ui/history/public/history_presentation_delegate.h"
 #import "ios/chrome/browser/ui/main/bvc_container_view_controller.h"
@@ -28,25 +32,32 @@
 #import "ios/chrome/browser/ui/recent_tabs/recent_tabs_table_view_controller.h"
 #include "ios/chrome/browser/ui/recent_tabs/synced_sessions.h"
 #import "ios/chrome/browser/ui/sharing/sharing_coordinator.h"
+#import "ios/chrome/browser/ui/tab_grid/grid/grid_commands.h"
 #import "ios/chrome/browser/ui/tab_grid/tab_grid_coordinator_delegate.h"
 #import "ios/chrome/browser/ui/tab_grid/tab_grid_mediator.h"
 #import "ios/chrome/browser/ui/tab_grid/tab_grid_paging.h"
 #import "ios/chrome/browser/ui/tab_grid/tab_grid_view_controller.h"
 #import "ios/chrome/browser/ui/tab_grid/transitions/tab_grid_transition_handler.h"
+#import "ios/chrome/browser/ui/thumb_strip/thumb_strip_attacher.h"
+#import "ios/chrome/browser/ui/thumb_strip/thumb_strip_coordinator.h"
+#import "ios/chrome/browser/ui/thumb_strip/thumb_strip_feature.h"
 #include "ios/chrome/browser/ui/ui_feature_flags.h"
 #import "ios/chrome/browser/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/url_loading/url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/url_loading_params.h"
 #import "ios/chrome/browser/web_state_list/web_state_list.h"
+#include "ios/chrome/grit/ios_strings.h"
+#include "ui/base/l10n/l10n_util.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
 #error "This file requires ARC support."
 #endif
 
-@interface TabGridCoordinator () <TabPresentationDelegate,
-                                  HistoryPresentationDelegate,
+@interface TabGridCoordinator () <HistoryPresentationDelegate,
                                   RecentTabsContextMenuDelegate,
-                                  RecentTabsPresentationDelegate> {
+                                  RecentTabsPresentationDelegate,
+                                  TabGridMediatorDelegate,
+                                  TabPresentationDelegate> {
   // Use an explicit ivar instead of synthesizing as the setter isn't using the
   // ivar.
   Browser* _incognitoBrowser;
@@ -70,11 +81,15 @@
 @property(nonatomic, strong) RecentTabsMediator* remoteTabsMediator;
 // Coordinator for history, which can be started from recent tabs.
 @property(nonatomic, strong) HistoryCoordinator* historyCoordinator;
+// Coordinator for the thumb strip.
+@property(nonatomic, strong) ThumbStripCoordinator* thumbStripCoordinator;
 // YES if the TabViewController has never been shown yet.
 @property(nonatomic, assign) BOOL firstPresentation;
 @property(nonatomic, strong) SharingCoordinator* sharingCoordinator;
 @property(nonatomic, strong)
     RecentTabsContextMenuHelper* recentTabsContextMenuHelper;
+// The action sheet coordinator, if one is currently being shown.
+@property(nonatomic, strong) ActionSheetCoordinator* actionSheetCoordinator;
 
 @end
 
@@ -202,6 +217,9 @@
   // container.
   if (self.bvcContainer) {
     self.bvcContainer.currentBVC = viewController;
+    self.baseViewController.childViewControllerForStatusBarStyle =
+        viewController;
+    [self.baseViewController setNeedsStatusBarAppearanceUpdate];
     if (completion) {
       completion();
     }
@@ -265,6 +283,7 @@
       _regularBrowser ? _regularBrowser->GetWebStateList() : nullptr;
 
   self.regularTabsMediator.browser = _regularBrowser;
+  self.regularTabsMediator.delegate = self;
   if (regularBrowserState) {
     self.regularTabsMediator.tabRestoreService =
         IOSChromeTabRestoreServiceFactory::GetForBrowserState(
@@ -273,6 +292,7 @@
   self.incognitoTabsMediator = [[TabGridMediator alloc]
       initWithConsumer:baseViewController.incognitoTabsConsumer];
   self.incognitoTabsMediator.browser = _incognitoBrowser;
+  self.incognitoTabsMediator.delegate = self;
   baseViewController.regularTabsDelegate = self.regularTabsMediator;
   baseViewController.incognitoTabsDelegate = self.incognitoTabsMediator;
   baseViewController.regularTabsDragDropHandler = self.regularTabsMediator;
@@ -324,6 +344,17 @@
     [self.remoteTabsMediator refreshSessionsView];
   }
 
+  if (IsThumbStripEnabled()) {
+    self.thumbStripCoordinator = [[ThumbStripCoordinator alloc]
+        initWithBaseViewController:baseViewController
+                           browser:self.browser];
+    [self.thumbStripCoordinator start];
+    self.thumbStripCoordinator.panHandler.layoutSwitcherProvider =
+        baseViewController;
+
+    [self setUpThumbStripAttachers];
+  }
+
   // Once the mediators are set up, stop keeping pointers to the browsers used
   // to initialize them.
   _regularBrowser = nil;
@@ -352,6 +383,11 @@
   [self.baseViewController.remoteTabsViewController dismissModals];
   [self.remoteTabsMediator disconnect];
   self.remoteTabsMediator = nil;
+  [self.actionSheetCoordinator stop];
+  self.actionSheetCoordinator = nil;
+
+  [self.thumbStripCoordinator stop];
+  self.thumbStripCoordinator = nil;
 }
 
 #pragma mark - TabPresentationDelegate
@@ -379,6 +415,51 @@
   [self.delegate tabGrid:self
       shouldFinishWithBrowser:activeBrowser
                  focusOmnibox:focusOmnibox];
+}
+
+- (void)showCloseAllConfirmationActionSheetWitTabGridMediator:
+            (TabGridMediator*)tabGridMediator
+                                                 numberOfTabs:
+                                                     (NSInteger)numberOfTabs {
+  if (tabGridMediator == self.regularTabsMediator) {
+    base::RecordAction(base::UserMetricsAction(
+        "MobileTabGridCloseAllRegularTabsConfirmationPresented"));
+  } else {
+    base::RecordAction(base::UserMetricsAction(
+        "MobileTabGridCloseAllIncognitoTabsConfirmationPresented"));
+  }
+
+  self.actionSheetCoordinator = [[ActionSheetCoordinator alloc]
+      initWithBaseViewController:self.baseViewController
+                         browser:self.browser
+                           title:nil
+                         message:nil
+                            rect:self.baseViewController.view.frame
+                            view:self.baseViewController.view];
+  self.actionSheetCoordinator.popoverArrowDirection = 0;
+  self.actionSheetCoordinator.alertStyle =
+      IsIPadIdiom() ? UIAlertControllerStyleAlert
+                    : UIAlertControllerStyleActionSheet;
+
+  [self.actionSheetCoordinator
+      addItemWithTitle:base::SysUTF16ToNSString(
+                           l10n_util::GetPluralStringFUTF16(
+                               IDS_IOS_TAB_GRID_CLOSE_ALL_TABS_CONFIRMATION,
+                               numberOfTabs))
+                action:^{
+                  base::RecordAction(base::UserMetricsAction(
+                      "MobileTabGridCloseAllTabsConfirmationConfirmed"));
+                  [tabGridMediator closeAllItems];
+                }
+                 style:UIAlertActionStyleDestructive];
+  [self.actionSheetCoordinator
+      addItemWithTitle:l10n_util::GetNSString(IDS_CANCEL)
+                action:^{
+                  base::RecordAction(base::UserMetricsAction(
+                      "MobileTabGridCloseAllTabsConfirmationCanceled"));
+                }
+                 style:UIAlertActionStyleCancel];
+  [self.actionSheetCoordinator start];
 }
 
 #pragma mark - RecentTabsPresentationDelegate
@@ -470,6 +551,15 @@
     (NSInteger)sectionIdentifier {
   return [self.baseViewController.remoteTabsViewController
       sessionForSectionIdentifier:sectionIdentifier];
+}
+
+#pragma mark - Private methods
+
+- (void)setUpThumbStripAttachers {
+  self.incognitoThumbStripAttacher.thumbStripPanHandler =
+      self.thumbStripCoordinator.panHandler;
+  self.regularThumbStripAttacher.thumbStripPanHandler =
+      self.thumbStripCoordinator.panHandler;
 }
 
 @end

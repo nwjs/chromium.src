@@ -14,6 +14,7 @@
 <translation id="1084365883616172403">Facebook-innlegget er fullført.</translation>
 <translation id="1103523840287552314">Oversett alltid <ph name="LANGUAGE" /></translation>
 <translation id="1104948393051856124">Godta og fortsett</translation>
+<translation id="110724200315609752">Bytt til åpent vindu</translation>
 <translation id="1112015203684611006">Utskriften mislyktes.</translation>
 <translation id="1125564390852150847">Åpne en ny fane.</translation>
 <translation id="1145536944570833626">Slett eksisterende data.</translation>
@@ -93,6 +94,7 @@
 <translation id="1941314575388338491">Dobbelttrykk for å kopiere.</translation>
 <translation id="1952172573699511566">Nettsteder viser tekst på språket du foretrekker, der dette er mulig.</translation>
 <translation id="1952728750904661634">Logg på med administrert konto</translation>
+<translation id="1965935827552890526">Gjør deg ferdig med det du holdt på med i det andre åpne Chrome-vinduet.</translation>
 <translation id="1974060860693918893">Avanserte</translation>
 <translation id="1989112275319619282">Bla gjennom</translation>
 <translation id="1992734845128748707">Bytt standardnettleser…</translation>
@@ -277,6 +279,7 @@ Når du er i inkognitomodus, kan ikke nettsteder bruke informasjonskapsler til �
 <translation id="408404951701638773">Søkefeltet er nå enklere å finne</translation>
 <translation id="411254640334432676">Nedlastingen mislyktes.</translation>
 <translation id="4112644173421521737">Søk</translation>
+<translation id="4113030288477039509">Styres av administratoren din</translation>
 <translation id="4121993058175073134">For å sende data for netteksport må du konfigurere e-postkontoen din i Innstillinger-appen.</translation>
 <translation id="4124987746317609294">Tidsperiode</translation>
 <translation id="4152011295694446843">Her finner du bokmerkene dine</translation>
@@ -285,11 +288,13 @@ Når du er i inkognitomodus, kan ikke nettsteder bruke informasjonskapsler til �
 <translation id="4181841719683918333">Språk</translation>
 <translation id="424315890655130736">Skriv inn passordfrasen</translation>
 <translation id="4263576668337963058">Vis tilgjengelige sidehandlinger</translation>
+<translation id="4267380167363222949">Neste fane</translation>
 <translation id="4272631900155121838">For å skanne QR-koder, slå på kameraet i innstillingene</translation>
 <translation id="4276041135170112053">Løs dette nå.</translation>
 <translation id="4277990410970811858">Safe Browsing</translation>
 <translation id="4281844954008187215">Vilkår for bruk</translation>
 <translation id="430793432425771671">Synkroniser alt</translation>
+<translation id="4309403553630140242">Dobbelttrykk for å se mer informasjon</translation>
 <translation id="430967081421617822">Alle datoer</translation>
 <translation id="4334428914252001502">1 ulest artikkel.</translation>
 <translation id="4338650699862464074">Sender Google nettadressene til sider du besøker.</translation>
@@ -353,6 +358,7 @@ For å endre denne innstillingen, <ph name="BEGIN_LINK" />tilbakestill synkronis
 <translation id="5005498671520578047">Kopiér passordet</translation>
 <translation id="5010803260590204777">Åpne en inkognitofane for å surfe privat på nettet.</translation>
 <translation id="5039804452771397117">Tillat</translation>
+<translation id="5056446788882570708">Fant problemer <ph name="TIME" />.</translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5062321486222145940">Installer Google Disk</translation>
 <translation id="5083464117946352670">Kan ikke fastslå filstørrelsen.</translation>
@@ -376,7 +382,6 @@ For å endre denne innstillingen, <ph name="BEGIN_LINK" />tilbakestill synkronis
 <translation id="5317780077021120954">Lagre</translation>
 <translation id="5327248766486351172">Navn</translation>
 <translation id="5339316356165661760">Slå på synkronisering</translation>
-<translation id="5352285283572729470">Denne innstillingen er administrert</translation>
 <translation id="5388358297987318779">Åpne bildet</translation>
 <translation id="5407969256130905701">Forkast endringer</translation>
 <translation id="5409365236829784218">Ingen av de installerte appene kan åpne denne filen.</translation>
@@ -456,6 +461,7 @@ Handoff må også være aktivert i Generelt-delen av Innstillinger, og enhetene 
 <translation id="6187302354554850004">Sist synkronisert: <ph name="LAST_USED_TIME" /></translation>
 <translation id="6189413832092199491">Ulest</translation>
 <translation id="6196207969502475924">Google Talesøk</translation>
+<translation id="6202364442240589072">{COUNT,plural, =1{Lukk {COUNT} fane}other{Lukk {COUNT} faner}}</translation>
 <translation id="6219688215832490856">Oversett aldri</translation>
 <translation id="6254066287920239840">Åpne linker i appen i stedet for i nettleseren.</translation>
 <translation id="6255097610484507482">Rediger kredittkort</translation>
@@ -571,6 +577,7 @@ Nettsteder kan ikke bruke informasjonskapsler til å se nettleseraktiviteten din
 <translation id="734758817008927353">Alternativer for lagring av kort</translation>
 <translation id="7348502496356775519">Sett som bokmerke</translation>
 <translation id="7383797227493018512">Leseliste</translation>
+<translation id="739941347996872055">Forrige fane</translation>
 <translation id="7400418766976504921">Nettadresse</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> uleste artikler.</translation>
 <translation id="7425346204213733349">Endringer i bokmerkene, loggoppføringene, passordene og de andre innstillingene dine blir ikke synkronisert med Google-kontoen din lenger. Data som allerede er lagret i Google-kontoen din, blir imidlertid ikke fjernet.</translation>
@@ -636,6 +643,7 @@ Nettsteder kan bruke informasjonskapsler til å se nettleseraktiviteten din på 
 <translation id="8073670137947914548">Nedlastingen er fullført</translation>
 <translation id="8073872304774253879">Gjør søking og surfing bedre</translation>
 <translation id="8076014560081431679">Lagrede nettstedsinnstillinger slettes ikke og kan gjenspeile nettleserbruken din. <ph name="BEGIN_LINK" />Finn ut mer<ph name="END_LINK" /></translation>
+<translation id="8079602123447022758">Denne innstillingen er administrert – dobbelttrykk for mer informasjon</translation>
 <translation id="8105368624971345109">Slå av</translation>
 <translation id="8114753159095730575">Filnedlasting er tilgjengelig. Du finner alternativer på nedre del av skjermen.</translation>
 <translation id="8131740175452115882">Bekreft</translation>

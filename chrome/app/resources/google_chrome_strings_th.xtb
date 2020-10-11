@@ -98,6 +98,7 @@
 <translation id="3622797965165704966">ตอนนี้การใช้ Chrome กับบัญชี Google ของคุณและบนคอมพิวเตอร์ที่ใช้ร่วมกันทำได้ง่ายกว่าเดิม</translation>
 <translation id="3718181793972440140">การดำเนินการนี้จะลบ 1 รายการออกจากอุปกรณ์นี้ หากต้องการดึงข้อมูลภายหลัง ให้ลงชื่อเข้าใช้ Chrome ด้วย <ph name="USER_EMAIL" /></translation>
 <translation id="3735758079232443276">ส่วนขยาย "<ph name="EXTENSION_NAME" />" ได้เปลี่ยนหน้าที่จะแสดงเมื่อคุณเริ่มต้น Chrome</translation>
+<translation id="3779473566290487688">คุณจะต้องใช้ OS X 10.11 ขึ้นไปเพื่อรับการอัปเดตของ Google Chrome ในอนาคต คอมพิวเตอร์เครื่องนี้ใช้ OS X 10.10</translation>
 <translation id="3780814664026482060">Chrome - <ph name="PAGE_TITLE" /></translation>
 <translation id="386202838227397562">โปรดปิดหน้าต่าง Google Chrome ทั้งหมดและลองใหม่อีกครั้ง</translation>
 <translation id="3865754807470779944">ติดตั้ง Chrome เวอร์ชัน <ph name="PRODUCT_VERSION" /> ไว้แล้ว</translation>
@@ -193,6 +194,7 @@
 <translation id="6967962315388095737">กฎขาเข้าสำหรับ Google Chrome เบต้าเพื่ออนุญาตการเข้าชมแบบ mDNS</translation>
 <translation id="6982337800632491844"><ph name="DOMAIN" /> กำหนดว่าคุณต้องอ่านและยอมรับข้อกำหนดในการให้บริการต่อไปนี้ก่อนใช้อุปกรณ์นี้ ข้อกำหนดเหล่านี้ไม่ขยาย แก้ไข หรือจำกัดข้อกำหนดของ Google Chrome OS</translation>
 <translation id="6989339256997917931">อัปเดต Google Chrome แล้ว แต่คุณไม่ได้ใช้งานมาไม่ต่ำกว่า 30 วันแล้ว</translation>
+<translation id="7054640471403081847">อีกไม่นานคอมพิวเตอร์เครื่องนี้จะไม่ได้รับการอัปเดตจาก Google Chrome เนื่องจากฮาร์ดแวร์ไม่ได้รับการสนับสนุนอีกต่อไป</translation>
 <translation id="7062128746136194023">ผู้ปกครองได้ปิด "สิทธิ์สำหรับเว็บไซต์ แอป และส่วนขยาย" ใน Chrome ไม่อนุญาตให้เพิ่ม<ph name="EXTENSION_TYPE_PARAMETER" />นี้</translation>
 <translation id="7098166902387133879">Google Chrome ใช้ไมโครโฟนอยู่</translation>
 <translation id="7106741999175697885">ตัวจัดการงาน - Google Chrome</translation>
@@ -212,7 +214,6 @@
 <translation id="7486227612705979895">Chrome จะเข้าถึงไดรฟ์ของคุณเพื่อแสดงคำแนะนำในแถบที่อยู่</translation>
 <translation id="7535429826459677826">Google Chrome Dev</translation>
 <translation id="7573289029918943991">หากต้องการดูว่าอุปกรณ์เป็นเวอร์ชันล่าสุดแล้วหรือไม่ ให้ไปที่<ph name="LINK_BEGIN" />การตั้งค่า Chrome OS<ph name="LINK_END" /></translation>
-<translation id="7589360514048265910">คอมพิวเตอร์เครื่องนี้จะไม่ได้รับการอัปเดตจาก Google Chrome อีก เนื่องจากระบบไม่รองรับ Mac OS X 10.9 แล้ว</translation>
 <translation id="7592736734348559088">Google Chrome ไม่สามารถซิงค์ข้อมูลของคุณเนื่องจากรายละเอียดการลงชื่อเข้าใช้บัญชีของคุณล้าสมัย</translation>
 <translation id="7626032353295482388">ยินดีต้อนรับสู่ Chrome</translation>
 <translation id="7629695634924605473">Chrome จะแจ้งให้ทราบหากมีคนล่วงรู้รหัสผ่านของคุณ</translation>

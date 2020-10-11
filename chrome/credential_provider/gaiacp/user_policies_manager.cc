@@ -6,11 +6,17 @@
 
 #include <limits>
 
+#include "base/bind.h"
 #include "base/files/file.h"
+#include "base/files/file_enumerator.h"
+#include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
+#include "base/path_service.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
 #include "base/win/registry.h"
 #include "chrome/credential_provider/common/gcp_strings.h"
@@ -25,8 +31,10 @@ namespace credential_provider {
 namespace {
 
 // HTTP endpoint on the GCPW service to fetch user policies.
-const char kUserEmailUrlPlaceholder[] = "{email}";
-const char kGcpwServiceFetchUserPoliciesPath[] = "/v1/users/{email}/policies";
+const char kUserIdUrlPlaceholder[] = "{user_id}";
+const char kGcpwServiceFetchUserPoliciesPath[] = "/v1/users/{user_id}/policies";
+const char kGcpwServiceFetchUserPoliciesQueryTemplate[] =
+    "?device_resource_id=%s&dm_token=%s";
 
 // Default timeout when trying to make requests to the GCPW service.
 const base::TimeDelta kDefaultFetchPoliciesRequestTimeout =
@@ -47,14 +55,26 @@ constexpr unsigned int kMaxNumHttpRetries = 1;
 // Registry key to control whether cloud policies feature is enabled.
 const wchar_t kCloudPoliciesEnabledRegKey[] = L"cloud_policies_enabled";
 
+// Name of the key in the server response whose value contains the user
+// policies.
+const char kPolicyFetchResponseKeyName[] = "policies";
+
 // True when cloud policies feature is enabled.
 bool g_cloud_policies_enabled = false;
 
 // Get the path to the directory where the policies will be stored for the user
 // with |sid|.
 base::FilePath GetUserPolicyDirectoryFilePath(const base::string16& sid) {
-  base::FilePath path = GetInstallDirectory();
-  path = path.Append(kGcpwPoliciesDirectory).Append(sid);
+  base::FilePath path;
+  if (!base::PathService::Get(base::DIR_COMMON_APP_DATA, &path)) {
+    HRESULT hr = HRESULT_FROM_WIN32(::GetLastError());
+    LOGFN(ERROR) << "PathService::Get(DIR_COMMON_APP_DATA) hr=" << putHR(hr);
+    return base::FilePath();
+  }
+  path = path.Append(GetInstallParentDirectoryName())
+             .Append(kCredentialProviderFolder)
+             .Append(kGcpwPoliciesDirectory)
+             .Append(sid);
   return path;
 }
 
@@ -82,7 +102,8 @@ std::unique_ptr<base::File> GetOpenedPolicyFileForUser(
     return nullptr;
   }
 
-  base::File::Error lock_error = policy_file->Lock();
+  base::File::Error lock_error =
+      policy_file->Lock(base::File::LockMode::kExclusive);
   if (lock_error != base::File::FILE_OK) {
     LOGFN(ERROR) << "Failed to obtain exclusive lock on policy file! Error: "
                  << lock_error;
@@ -91,6 +112,85 @@ std::unique_ptr<base::File> GetOpenedPolicyFileForUser(
 
   return policy_file;
 }
+
+// Creates the URL used to fetch the policies from the backend based on the
+// credential present (OAuth vs DM token) for authentication.
+GURL GetFetchUserPoliciesUrl(const base::string16& sid,
+                             bool has_access_token,
+                             const base::string16& device_resource_id,
+                             const base::string16& dm_token) {
+  GURL gcpw_service_url = GetGcpwServiceUrl();
+  base::string16 user_id;
+
+  HRESULT status = GetIdFromSid(sid.c_str(), &user_id);
+  if (FAILED(status)) {
+    LOGFN(ERROR) << "Could not get user id from sid " << sid;
+    return GURL();
+  }
+
+  std::string user_policies_path(kGcpwServiceFetchUserPoliciesPath);
+  std::string placeholder(kUserIdUrlPlaceholder);
+  user_policies_path.replace(user_policies_path.find(placeholder),
+                             placeholder.size(), base::UTF16ToUTF8(user_id));
+
+  if (!has_access_token) {
+    if (device_resource_id.empty() || dm_token.empty()) {
+      LOGFN(ERROR) << "Either device id or dm token empty when no access token "
+                      "present for "
+                   << sid;
+      return GURL();
+    }
+
+    std::string device_resource_id_value =
+        base::UTF16ToUTF8(device_resource_id);
+    std::string dm_token_value = base::UTF16ToUTF8(dm_token);
+    std::string query_suffix = base::StringPrintf(
+        kGcpwServiceFetchUserPoliciesQueryTemplate,
+        device_resource_id_value.c_str(), dm_token_value.c_str());
+    user_policies_path += query_suffix;
+  }
+
+  return gcpw_service_url.Resolve(user_policies_path);
+}
+
+// Defines a task that is called by the ESA to perform the policy fetch
+// operation.
+class UserPoliciesFetchTask : public extension::Task {
+ public:
+  static std::unique_ptr<extension::Task> Create() {
+    std::unique_ptr<extension::Task> esa_task(new UserPoliciesFetchTask());
+    return esa_task;
+  }
+
+  // ESA calls this to retrieve a configuration for the task execution. Return
+  // a default config for now.
+  extension::Config GetConfig() final { return extension::Config(); }
+
+  // ESA calls this to set all the user-device contexts for the execution of the
+  // task.
+  HRESULT SetContext(const std::vector<extension::UserDeviceContext>& c) final {
+    context_ = c;
+    return S_OK;
+  }
+
+  // ESA calls execute function to perform the actual task.
+  HRESULT Execute() final {
+    HRESULT task_status = S_OK;
+    for (const auto& c : context_) {
+      HRESULT hr =
+          UserPoliciesManager::Get()->FetchAndStoreCloudUserPolicies(c);
+      if (FAILED(hr)) {
+        LOGFN(ERROR) << "Failed fetching policies for " << c.user_sid
+                     << ". hr=" << putHR(hr);
+        task_status = hr;
+      }
+    }
+    return task_status;
+  }
+
+ private:
+  std::vector<extension::UserDeviceContext> context_;
+};
 
 }  // namespace
 
@@ -106,6 +206,11 @@ UserPoliciesManager** UserPoliciesManager::GetInstanceStorage() {
   return &instance_storage;
 }
 
+// static
+extension::TaskCreator UserPoliciesManager::GetFetchPoliciesTaskCreator() {
+  return base::BindRepeating(&UserPoliciesFetchTask::Create);
+}
+
 UserPoliciesManager::UserPoliciesManager() : fetch_status_(S_OK) {
   g_cloud_policies_enabled =
       GetGlobalFlagOrDefault(kCloudPoliciesEnabledRegKey, 0) == 1;
@@ -119,26 +224,53 @@ bool UserPoliciesManager::CloudPoliciesEnabled() const {
 
 GURL UserPoliciesManager::GetGcpwServiceUserPoliciesUrl(
     const base::string16& sid) {
-  GURL gcpw_service_url = GetGcpwServiceUrl();
+  return GetFetchUserPoliciesUrl(sid, true, L"", L"");
+}
 
-  std::string fetchUserPoliciesPath(kGcpwServiceFetchUserPoliciesPath);
-  std::string placeholder(kUserEmailUrlPlaceholder);
-  fetchUserPoliciesPath.replace(fetchUserPoliciesPath.find(placeholder),
-                                placeholder.size(), GetUserEmailFromSid(sid));
-  return gcpw_service_url.Resolve(fetchUserPoliciesPath);
+GURL UserPoliciesManager::GetGcpwServiceUserPoliciesUrl(
+    const base::string16& sid,
+    const base::string16& device_resource_id,
+    const base::string16& dm_token) {
+  return GetFetchUserPoliciesUrl(sid, false, device_resource_id, dm_token);
+}
+
+HRESULT UserPoliciesManager::FetchAndStoreCloudUserPolicies(
+    const extension::UserDeviceContext& context) {
+  return FetchAndStorePolicies(
+      context.user_sid,
+      GetGcpwServiceUserPoliciesUrl(
+          context.user_sid, context.device_resource_id, context.dm_token),
+      std::string());
 }
 
 HRESULT UserPoliciesManager::FetchAndStoreCloudUserPolicies(
     const base::string16& sid,
     const std::string& access_token) {
+  if (access_token.empty()) {
+    LOGFN(ERROR) << "Access token not specified";
+    return (fetch_status_ = E_FAIL);
+  }
+
+  return FetchAndStorePolicies(sid, GetGcpwServiceUserPoliciesUrl(sid),
+                               access_token);
+}
+
+HRESULT UserPoliciesManager::FetchAndStorePolicies(
+    const base::string16& sid,
+    GURL user_policies_url,
+    const std::string& access_token) {
   fetch_status_ = E_FAIL;
-  base::Optional<base::Value> request_result;
+
+  if (!user_policies_url.is_valid()) {
+    LOGFN(ERROR) << "Invalid user policies fetch URL specified.";
+    return (fetch_status_ = E_FAIL);
+  }
 
   // Make the fetch policies HTTP request.
+  base::Optional<base::Value> request_result;
   HRESULT hr = WinHttpUrlFetcher::BuildRequestAndFetchResultFromHttpService(
-      UserPoliciesManager::Get()->GetGcpwServiceUserPoliciesUrl(sid),
-      access_token, {}, {}, kDefaultFetchPoliciesRequestTimeout,
-      kMaxNumHttpRetries, &request_result);
+      user_policies_url, access_token, {}, {},
+      kDefaultFetchPoliciesRequestTimeout, kMaxNumHttpRetries, &request_result);
 
   if (FAILED(hr)) {
     LOGFN(ERROR) << "BuildRequestAndFetchResultFromHttpService hr="
@@ -233,8 +365,15 @@ bool UserPoliciesManager::GetUserPolicies(const base::string16& sid,
     return false;
   }
 
+  const base::Value* policies =
+      policy_data->FindDictKey(kPolicyFetchResponseKeyName);
+  if (!policies) {
+    LOGFN(ERROR) << "User policies not found!";
+    return false;
+  }
+
   // Override policies with those we just read.
-  *user_policies = UserPolicies::FromValue(*policy_data);
+  *user_policies = UserPolicies::FromValue(*policies);
 
   return true;
 }

@@ -14,6 +14,7 @@
 <translation id="1084365883616172403">Catatan Facebook selesai.</translation>
 <translation id="1103523840287552314">Sentiasa terjemahkan <ph name="LANGUAGE" /></translation>
 <translation id="1104948393051856124">Terima &amp; Teruskan</translation>
+<translation id="110724200315609752">Tukar kepada Tetingkap Terbuka</translation>
 <translation id="1112015203684611006">Pencetakan gagal.</translation>
 <translation id="1125564390852150847">Buat tab baharu.</translation>
 <translation id="1145536944570833626">Padam data sedia ada.</translation>
@@ -93,6 +94,7 @@
 <translation id="1941314575388338491">Ketik dua kali untuk menyalin.</translation>
 <translation id="1952172573699511566">Tapak web akan menunjukkan teks dalam bahasa pilihan anda, jika boleh.</translation>
 <translation id="1952728750904661634">Log masuk dengan akaun terurus</translation>
+<translation id="1965935827552890526">Selesaikan perkara yang anda lakukan di tetingkap Chrome lain yang terbuka.</translation>
 <translation id="1974060860693918893">Lanjutan</translation>
 <translation id="1989112275319619282">Semak Imbas</translation>
 <translation id="1992734845128748707">Tukar Penyemak Imbas Lalai…</translation>
@@ -277,6 +279,7 @@ Semasa dalam mod inkognito, tapak tidak boleh menggunakan kuki untuk melihat akt
 <translation id="408404951701638773">Kini bar Carian lebih mudah dicapai</translation>
 <translation id="411254640334432676">Muat turun gagal.</translation>
 <translation id="4112644173421521737">Cari</translation>
+<translation id="4113030288477039509">Diurus oleh pentadbir anda</translation>
 <translation id="4121993058175073134">Tetapkn akaun e-mel anda dahulu dlm apl Tetapan utk mhantar data net-eksport.</translation>
 <translation id="4124987746317609294">Julat Masa</translation>
 <translation id="4152011295694446843">Anda dapat menemukan penanda halaman anda di sini</translation>
@@ -285,11 +288,13 @@ Semasa dalam mod inkognito, tapak tidak boleh menggunakan kuki untuk melihat akt
 <translation id="4181841719683918333">Bahasa</translation>
 <translation id="424315890655130736">Masukkan Ungkapan Laluan</translation>
 <translation id="4263576668337963058">Tunjukkan tindakan halaman yang tersedia</translation>
+<translation id="4267380167363222949">Tab Seterusnya</translation>
 <translation id="4272631900155121838">Untuk mengimbas kod QR, dayakan kamera daripada tetapan</translation>
 <translation id="4276041135170112053">Betulkan sekarang.</translation>
 <translation id="4277990410970811858">Penyemakan Imbas Selamat</translation>
 <translation id="4281844954008187215">Syarat Perkhidmatan</translation>
 <translation id="430793432425771671">Segerakkan Semua</translation>
+<translation id="4309403553630140242">Ketik dua kali untuk mendapatkan maklumat lanjut</translation>
 <translation id="430967081421617822">Sepanjang Masa</translation>
 <translation id="4334428914252001502">1 artikel belum dibaca.</translation>
 <translation id="4338650699862464074">Menghantar URL halaman yang anda lawati kepada Google.</translation>
@@ -353,6 +358,7 @@ Untuk menukar tetapan ini, <ph name="BEGIN_LINK" />tetapkan semula penyegerakan<
 <translation id="5005498671520578047">Salin kata laluan</translation>
 <translation id="5010803260590204777">Buka tab inkognito untuk menyemak imbas web secara sulit.</translation>
 <translation id="5039804452771397117">Benarkan</translation>
+<translation id="5056446788882570708">Isu ditemukan pada <ph name="TIME" /></translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5062321486222145940">Pasang Google Drive</translation>
 <translation id="5083464117946352670">Tidak dapat menentukan saiz fail.</translation>
@@ -376,7 +382,6 @@ Untuk menukar tetapan ini, <ph name="BEGIN_LINK" />tetapkan semula penyegerakan<
 <translation id="5317780077021120954">Simpan</translation>
 <translation id="5327248766486351172">Nama</translation>
 <translation id="5339316356165661760">Hidupkan Penyegerakan</translation>
-<translation id="5352285283572729470">Tetapan ini terurus</translation>
 <translation id="5388358297987318779">Buka Imej</translation>
 <translation id="5407969256130905701">Buang Perubahan</translation>
 <translation id="5409365236829784218">Tiada aplikasi dipasang yang boleh membuka fail ini.</translation>
@@ -456,6 +461,7 @@ Serah mestilah turut didayakan dalam bahagian Umum pada Tetapan dan peranti anda
 <translation id="6187302354554850004">Terakhir disgrkkan: <ph name="LAST_USED_TIME" /></translation>
 <translation id="6189413832092199491">Belum dibaca</translation>
 <translation id="6196207969502475924">Carian Suara</translation>
+<translation id="6202364442240589072">{COUNT,plural, =1{Tutup {COUNT} Tab}other{Tutup {COUNT} Tab}}</translation>
 <translation id="6219688215832490856">Jangan Sekali-kali Terjemah</translation>
 <translation id="6254066287920239840">Buka pautan dalam Apl dan bukannya penyemak imbas.</translation>
 <translation id="6255097610484507482">Edit Kad Kredit</translation>
@@ -571,6 +577,7 @@ Tapak tidak boleh menggunakan kuki untuk melihat aktiviti penyemakan imbas anda 
 <translation id="734758817008927353">Pilihan untuk Simpan Kad</translation>
 <translation id="7348502496356775519">Bookmark</translation>
 <translation id="7383797227493018512">Senarai Bacaan</translation>
+<translation id="739941347996872055">Tab Sebelumnya</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> artikel belum dibaca.</translation>
 <translation id="7425346204213733349">Perubahan kepada penanda halaman, sejarah, kata laluan dan tetapan anda yang lain tidak akan disegerakkan ke Akaun Google anda lagi. Walau bagaimanapun, data sedia ada akan kekal disimpan dalam Akaun Google anda.</translation>
@@ -636,6 +643,7 @@ Tapak boleh menggunakan kuki untuk melihat aktiviti penyemakan imbas anda merent
 <translation id="8073670137947914548">Muat turun selesai</translation>
 <translation id="8073872304774253879">Perbaik Carian dan Penyemakan Imbas</translation>
 <translation id="8076014560081431679">Tetapan tapak yang disimpan tidak akan dipadamkan dan mungkin mencerminkan tabiat semak imbas anda. <ph name="BEGIN_LINK" />Ketahui lebih lanjut<ph name="END_LINK" /></translation>
+<translation id="8079602123447022758">Tetapan ini diurus, ketik dua kali untuk mendapatkan maklumat lanjut</translation>
 <translation id="8105368624971345109">Matikan</translation>
 <translation id="8114753159095730575">Muat turun fail tersedia. Pilihan tersedia di bahagian bawah skrin.</translation>
 <translation id="8131740175452115882">Sahkan</translation>

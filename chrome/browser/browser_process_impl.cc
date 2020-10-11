@@ -41,7 +41,6 @@
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/component_updater/chrome_component_updater_configurator.h"
 #include "chrome/browser/defaults.h"
-#include "chrome/browser/devtools/devtools_auto_opener.h"
 #include "chrome/browser/devtools/remote_debugging_server.h"
 #include "chrome/browser/download/download_request_limiter.h"
 #include "chrome/browser/download/download_status_updater.h"
@@ -76,7 +75,6 @@
 #include "chrome/browser/startup_data.h"
 #include "chrome/browser/status_icons/status_tray.h"
 #include "chrome/browser/ui/browser_dialogs.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/update_client/chrome_update_query_params_delegate.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/channel_info.h"
@@ -94,6 +92,7 @@
 #include "components/crash/core/common/crash_key.h"
 #include "components/federated_learning/floc_blocklist_service.h"
 #include "components/federated_learning/floc_constants.h"
+#include "components/federated_learning/floc_sorting_lsh_clusters_service.h"
 #include "components/gcm_driver/gcm_driver.h"
 #include "components/language/core/browser/pref_names.h"
 #include "components/metrics/metrics_pref_names.h"
@@ -113,8 +112,6 @@
 #include "components/safe_browsing/core/safe_browsing_service_interface.h"
 #include "components/sessions/core/session_id_generator.h"
 #include "components/subresource_filter/content/browser/ruleset_service.h"
-#include "components/subresource_filter/core/browser/subresource_filter_constants.h"
-#include "components/subresource_filter/core/browser/subresource_filter_features.h"
 #include "components/translate/core/browser/translate_download_manager.h"
 #include "components/ukm/ukm_service.h"
 #include "components/update_client/update_query_params.h"
@@ -161,9 +158,11 @@
 #include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/browser/ssl/chrome_security_state_client.h"
 #else
+#include "chrome/browser/devtools/devtools_auto_opener.h"
 #include "chrome/browser/gcm/gcm_product_util.h"
 #include "chrome/browser/resource_coordinator/tab_manager.h"
 #include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_list.h"
 #include "components/gcm_driver/gcm_client_factory.h"
 #include "components/gcm_driver/gcm_desktop_utils.h"
 #include "components/keep_alive_registry/keep_alive_registry.h"
@@ -883,12 +882,14 @@ network_time::NetworkTimeTracker* BrowserProcessImpl::network_time_tracker() {
   return network_time_tracker_.get();
 }
 
+#if !defined(OS_ANDROID)
 gcm::GCMDriver* BrowserProcessImpl::gcm_driver() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (!gcm_driver_)
     CreateGCMDriver();
   return gcm_driver_.get();
 }
+#endif
 
 resource_coordinator::TabManager* BrowserProcessImpl::GetTabManager() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -942,11 +943,6 @@ void BrowserProcessImpl::RegisterPrefs(PrefRegistrySimple* registry) {
 
   registry->RegisterBooleanPref(metrics::prefs::kMetricsReportingEnabled,
                                 GoogleUpdateSettings::GetCollectStatsConsent());
-
-#if defined(OS_ANDROID)
-  registry->RegisterBooleanPref(
-      prefs::kCrashReportingEnabled, false);
-#endif  // defined(OS_ANDROID)
 }
 
 DownloadRequestLimiter* BrowserProcessImpl::download_request_limiter() {
@@ -1005,6 +1001,14 @@ BrowserProcessImpl::floc_blocklist_service() {
   if (!floc_blocklist_service_)
     CreateFlocBlocklistService();
   return floc_blocklist_service_.get();
+}
+
+federated_learning::FlocSortingLshClustersService*
+BrowserProcessImpl::floc_sorting_lsh_clusters_service() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (!floc_sorting_lsh_clusters_service_)
+    CreateFlocSortingLshClustersService();
+  return floc_sorting_lsh_clusters_service_.get();
 }
 
 optimization_guide::OptimizationGuideService*
@@ -1281,38 +1285,22 @@ void BrowserProcessImpl::CreateSubresourceFilterRulesetService() {
   DCHECK(!subresource_filter_ruleset_service_);
   created_subresource_filter_ruleset_service_ = true;
 
-  if (!base::FeatureList::IsEnabled(
-          subresource_filter::kSafeBrowsingSubresourceFilter)) {
-    return;
-  }
-
-  // Runner for tasks critical for user experience.
-  scoped_refptr<base::SequencedTaskRunner> blocking_task_runner(
-      base::ThreadPool::CreateSequencedTaskRunner(
-          {base::MayBlock(), base::TaskPriority::USER_BLOCKING,
-           base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN}));
-
-  // Runner for tasks that do not influence user experience.
-  scoped_refptr<base::SequencedTaskRunner> background_task_runner(
-      base::ThreadPool::CreateSequencedTaskRunner(
-          {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
-           base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN}));
-
   base::FilePath user_data_dir;
   base::PathService::Get(chrome::DIR_USER_DATA, &user_data_dir);
-  base::FilePath indexed_ruleset_base_dir =
-      user_data_dir.Append(subresource_filter::kTopLevelDirectoryName)
-          .Append(subresource_filter::kIndexedRulesetBaseDirectoryName);
   subresource_filter_ruleset_service_ =
-      std::make_unique<subresource_filter::RulesetService>(
-          local_state(), background_task_runner, indexed_ruleset_base_dir,
-          blocking_task_runner);
+      subresource_filter::RulesetService::Create(local_state(), user_data_dir);
 }
 
 void BrowserProcessImpl::CreateFlocBlocklistService() {
   DCHECK(!floc_blocklist_service_);
   floc_blocklist_service_ =
       std::make_unique<federated_learning::FlocBlocklistService>();
+}
+
+void BrowserProcessImpl::CreateFlocSortingLshClustersService() {
+  DCHECK(!floc_sorting_lsh_clusters_service_);
+  floc_sorting_lsh_clusters_service_ =
+      std::make_unique<federated_learning::FlocSortingLshClustersService>();
 }
 
 void BrowserProcessImpl::CreateOptimizationGuideService() {
@@ -1328,16 +1316,14 @@ void BrowserProcessImpl::CreateOptimizationGuideService() {
           content::GetUIThreadTaskRunner({}));
 }
 
+#if !defined(OS_ANDROID)
+// Android's GCMDriver currently makes the assumption that it's a singleton.
+// Until this gets fixed, instantiating multiple Java GCMDrivers will throw an
+// exception, but because they're only initialized on demand these crashes
+// would be very difficult to triage. See http://crbug.com/437827.
 void BrowserProcessImpl::CreateGCMDriver() {
   DCHECK(!gcm_driver_);
 
-#if defined(OS_ANDROID)
-  // Android's GCMDriver currently makes the assumption that it's a singleton.
-  // Until this gets fixed, instantiating multiple Java GCMDrivers will throw
-  // an exception, but because they're only initialized on demand these crashes
-  // would be very difficult to triage. See http://crbug.com/437827.
-  NOTREACHED();
-#else
   base::FilePath store_path;
   CHECK(base::PathService::Get(chrome::DIR_GLOBAL_GCM_STORE, &store_path));
   scoped_refptr<base::SequencedTaskRunner> blocking_task_runner(
@@ -1354,8 +1340,8 @@ void BrowserProcessImpl::CreateGCMDriver() {
       gcm::GetProductCategoryForSubtypes(local_state()),
       content::GetUIThreadTaskRunner({}), content::GetIOThreadTaskRunner({}),
       blocking_task_runner);
-#endif  // defined(OS_ANDROID)
 }
+#endif  // defined(OS_ANDROID)
 
 void BrowserProcessImpl::ApplyDefaultBrowserPolicy() {
   if (local_state()->GetBoolean(prefs::kDefaultBrowserSettingEnabled)) {

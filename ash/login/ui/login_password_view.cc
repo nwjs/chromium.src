@@ -556,8 +556,7 @@ LoginPasswordView::LoginPasswordView(const LoginPalette& palette)
       /*listener=*/this, kSubmitButtonSizeDp));
   const AshColorProvider* color_provider = AshColorProvider::Get();
   SkColor color = color_provider->GetControlsLayerColor(
-      AshColorProvider::ControlsLayerType::kControlBackgroundColorInactive,
-      AshColorProvider::AshColorMode::kDark);
+      AshColorProvider::ControlsLayerType::kControlBackgroundColorInactive);
   submit_button_->SetBackgroundColor(color);
   submit_button_->SetTooltipText(
       l10n_util::GetStringUTF16(IDS_ASH_LOGIN_SUBMIT_BUTTON_ACCESSIBLE_NAME));
@@ -732,7 +731,7 @@ void LoginPasswordView::ButtonPressed(views::Button* sender,
 
 void LoginPasswordView::HidePassword(bool chromevox_exception) {
   if (chromevox_exception &&
-      Shell::Get()->accessibility_controller()->spoken_feedback_enabled()) {
+      Shell::Get()->accessibility_controller()->spoken_feedback().enabled()) {
     return;
   }
   if (textfield_->GetTextInputType() == ui::TEXT_INPUT_TYPE_NULL)

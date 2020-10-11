@@ -14,6 +14,7 @@
 <translation id="1084365883616172403">Facebook-færsla birt.</translation>
 <translation id="1103523840287552314">Þýða alltaf <ph name="LANGUAGE" /></translation>
 <translation id="1104948393051856124">Samþykkja og halda áfram</translation>
+<translation id="110724200315609752">Skipta yfir í opinn glugga</translation>
 <translation id="1112015203684611006">Prentun tókst ekki.</translation>
 <translation id="1125564390852150847">Búa til nýjan flipa.</translation>
 <translation id="1145536944570833626">Eyða fyrirliggjandi gögnum.</translation>
@@ -93,6 +94,7 @@
 <translation id="1941314575388338491">Ýttu tvisvar til að afrita.</translation>
 <translation id="1952172573699511566">Vefsvæði birta texta á því tungumáli sem þú hefur valið þegar hægt er.</translation>
 <translation id="1952728750904661634">Skráðu þig inn með stýrðum reikningi</translation>
+<translation id="1965935827552890526">Ljúktu því sem þú ert að gera í öðrum opnum Chrome glugga.</translation>
 <translation id="1974060860693918893">Ítarlegt</translation>
 <translation id="1989112275319619282">Skoða</translation>
 <translation id="1992734845128748707">Breyta um sjálfgefinn vafra…</translation>
@@ -277,6 +279,7 @@ Vefsvæði geta ekki notað fótsporin þín til að sjá vafranotkun þína á 
 <translation id="408404951701638773">Nú er auðveldara að nálgast leitarstikuna</translation>
 <translation id="411254640334432676">Niðurhal mistókst.</translation>
 <translation id="4112644173421521737">Leita</translation>
+<translation id="4113030288477039509">Stjórnað af kerfisstjóra</translation>
 <translation id="4121993058175073134">Stilltu tölvupóstreikning í forritinu Stillingar til að senda netútflutningsgögn.</translation>
 <translation id="4124987746317609294">Tímabil</translation>
 <translation id="4152011295694446843">Þú finnur bókamerkin þín hér</translation>
@@ -285,11 +288,13 @@ Vefsvæði geta ekki notað fótsporin þín til að sjá vafranotkun þína á 
 <translation id="4181841719683918333">Tungumál</translation>
 <translation id="424315890655130736">Sláðu inn aðgangsorð</translation>
 <translation id="4263576668337963058">Sýna tiltækar aðgerðir fyrir síðu</translation>
+<translation id="4267380167363222949">Næsti flipi</translation>
 <translation id="4272631900155121838">Til að skanna QR-kóða skaltu virkja myndavélina í stillingunum</translation>
 <translation id="4276041135170112053">Laga núna.</translation>
 <translation id="4277990410970811858">Örugg vefnotkun</translation>
 <translation id="4281844954008187215">Þjónustuskilmálar</translation>
 <translation id="430793432425771671">Samstilla allt</translation>
+<translation id="4309403553630140242">Ýttu tvisvar til að fá frekari upplýsingar.</translation>
 <translation id="430967081421617822">Frá upphafi</translation>
 <translation id="4334428914252001502">1 ólesin grein.</translation>
 <translation id="4338650699862464074">Senda vefslóðir síðna sem þú ferð á til Google.</translation>
@@ -353,6 +358,7 @@ Til að breyta þessari stillingu skaltu <ph name="BEGIN_LINK" />endurstilla sam
 <translation id="5005498671520578047">Afrita aðgangsorð</translation>
 <translation id="5010803260590204777">Opnaðu huliðsflipa til að vafra í einrúmi.</translation>
 <translation id="5039804452771397117">Leyfa</translation>
+<translation id="5056446788882570708">Vandamál fundust <ph name="TIME" />.</translation>
 <translation id="5059136629401106827">Í lagi</translation>
 <translation id="5062321486222145940">Setja upp Google Drive</translation>
 <translation id="5083464117946352670">Ekki var hægt að ákvarða skráarstærð.</translation>
@@ -376,7 +382,6 @@ Til að breyta þessari stillingu skaltu <ph name="BEGIN_LINK" />endurstilla sam
 <translation id="5317780077021120954">Vista</translation>
 <translation id="5327248766486351172">Heiti</translation>
 <translation id="5339316356165661760">Kveikja á samstillingu</translation>
-<translation id="5352285283572729470">Þessari stillingu er stjórnað</translation>
 <translation id="5388358297987318779">Opna mynd</translation>
 <translation id="5407969256130905701">Fleygja breytingum</translation>
 <translation id="5409365236829784218">Engin uppsett forrit geta opnað þessa skrá.</translation>
@@ -456,6 +461,7 @@ Einnig þarf að vera kveikt á Handoff í hlutanum General í Settings og tæki
 <translation id="6187302354554850004">Síðast samstillt: <ph name="LAST_USED_TIME" /></translation>
 <translation id="6189413832092199491">Ólesið</translation>
 <translation id="6196207969502475924">Raddleit</translation>
+<translation id="6202364442240589072">{COUNT,plural, =1{Loka {COUNT} flipa}one{Loka {COUNT} flipa}other{Loka {COUNT} flipum}}</translation>
 <translation id="6219688215832490856">Þýða aldrei</translation>
 <translation id="6254066287920239840">Opna tengla í forritinu í stað vafrans.</translation>
 <translation id="6255097610484507482">Breyta kreditkorti</translation>
@@ -571,6 +577,7 @@ Vefsvæði geta ekki notað fótsporin þín til að sjá vafranotkun þína á 
 <translation id="734758817008927353">Valkostir fyrir vistun korts</translation>
 <translation id="7348502496356775519">Bókamerki</translation>
 <translation id="7383797227493018512">Leslisti</translation>
+<translation id="739941347996872055">Fyrri flipi</translation>
 <translation id="7400418766976504921">Vefslóð</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> ólesnar greinar.</translation>
 <translation id="7425346204213733349">Breytingar á bókamerkjunum þínum, ferlinum, aðgangsorðunum og öðrum stillingum verða ekki lengur samstilltar við Google reikninginn þinn. Þau gögn sem fyrir eru verða þó áfram vistuð á Google reikningnum þínum.</translation>
@@ -636,6 +643,7 @@ Vefsvæði geta notað fótspor til að sjá vafranotkun þína á mismunandi ve
 <translation id="8073670137947914548">Niðurhali lokið</translation>
 <translation id="8073872304774253879">Bæta leit og vefskoðun</translation>
 <translation id="8076014560081431679">Vistuðum stillingum vefsvæða verður ekki eytt og þær kunna að endurspegla vefnotkun þína. <ph name="BEGIN_LINK" />Frekari upplýsingar<ph name="END_LINK" /></translation>
+<translation id="8079602123447022758">Þessari stillingu er stjórnað, ýttu tvisvar til að fá frekari upplýsingar</translation>
 <translation id="8105368624971345109">Slökkva</translation>
 <translation id="8114753159095730575">Hægt er að sækja skrá. Valkostir eru í boði neðarlega á skjánum.</translation>
 <translation id="8131740175452115882">Staðfesta</translation>

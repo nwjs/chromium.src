@@ -97,7 +97,7 @@ class HardwareDisplayPlaneManager {
                                    uint32_t crtc_id);
 
   // Commit the plane states in |plane_list|.
-  //
+  // if |should_modeset| is set, it only modesets without page flipping.
   // If |page_flip_request| is null, this tests the plane configuration without
   // submitting it.
   // The fence returned in |out_fence| will signal when the currently scanned
@@ -105,6 +105,7 @@ class HardwareDisplayPlaneManager {
   // |page_flip_request|. Note that the returned fence may be a nullptr
   // if the system doesn't support out fences.
   virtual bool Commit(HardwareDisplayPlaneList* plane_list,
+                      bool should_modeset,
                       scoped_refptr<PageFlipRequest> page_flip_request,
                       std::unique_ptr<gfx::GpuFence>* out_fence) = 0;
 
@@ -183,6 +184,16 @@ class HardwareDisplayPlaneManager {
   };
 
   bool InitializeCrtcState();
+
+  // As the CRTC is being initialized, all connectors connected to it should
+  // be disabled. This is a workaround for a bug on Hatch where Puff enables
+  // a connector in dev mode before Chrome even starts. The kernel maps the HW
+  // state at initial modeset (with a dangling connector attached to a CRTC).
+  // When an Atomic Modeset is performed, it fails to modeset as the CRTC is
+  // already attached to another dead connector. (Analysis: crbug/1067121#c5)
+  // TODO(b/168154314): Remove this call when the bug is fixed.
+  void DisableConnectedConnectorsToCrtcs(
+      const ScopedDrmResourcesPtr& resources);
 
   virtual bool InitializePlanes() = 0;
 

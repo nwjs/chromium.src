@@ -15,6 +15,7 @@ import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.hamcrest.CoreMatchers.allOf;
+import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.notNullValue;
@@ -42,10 +43,13 @@ import org.hamcrest.core.AllOf;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ErrorCollector;
 import org.junit.runner.RunWith;
 
+import org.chromium.base.BuildConfig;
 import org.chromium.base.Callback;
 import org.chromium.base.CommandLine;
+import org.chromium.base.NativeLibraryLoadedStatus;
 import org.chromium.base.StreamUtil;
 import org.chromium.base.library_loader.LibraryLoader;
 import org.chromium.base.test.util.CommandLineFlags;
@@ -123,6 +127,9 @@ public class InstantStartTest {
     @Rule
     public ChromeRenderTestRule mRenderTestRule =
             ChromeRenderTestRule.Builder.withPublicCorpus().build();
+
+    @Rule
+    public ErrorCollector collector = new ErrorCollector();
 
     /**
      * Only launch Chrome without waiting for a current tab.
@@ -308,10 +315,13 @@ public class InstantStartTest {
     @Restriction({UiRestriction.RESTRICTION_TYPE_PHONE})
     // clang-format off
     @EnableFeatures({ChromeFeatureList.TAB_SWITCHER_ON_RETURN + "<Study,",
-            ChromeFeatureList.START_SURFACE_ANDROID + "<Study"})
+            ChromeFeatureList.START_SURFACE_ANDROID + "<Study",
+            ChromeFeatureList.TAB_GRID_LAYOUT_ANDROID + "<Study",
+            ChromeFeatureList.TAB_GROUPS_ANDROID,
+            ChromeFeatureList.TAB_GROUPS_CONTINUATION_ANDROID})
     @CommandLineFlags.Add({ChromeSwitches.DISABLE_NATIVE_INITIALIZATION,
             "force-fieldtrials=Study/Group",
-            IMMEDIATE_RETURN_PARAMS + "/start_surface_variation/single"})
+            IMMEDIATE_RETURN_PARAMS + "/start_surface_variation/single/enable_launch_polish/true"})
     public void startSurfaceSinglePanePreNativeAndWithNativeTest() {
         // clang-format on
         startMainActivityFromLauncher();
@@ -809,6 +819,30 @@ public class InstantStartTest {
         Layout activeLayout = mActivityTestRule.getActivity().getLayoutManager().getActiveLayout();
         Assert.assertTrue(activeLayout instanceof StaticLayout);
         Assert.assertEquals(123, ((StaticLayout) activeLayout).getCurrentTabIdForTesting());
+    }
+
+    @Test
+    @SmallTest
+    @Restriction({UiRestriction.RESTRICTION_TYPE_PHONE})
+    @EnableFeatures({ChromeFeatureList.START_SURFACE_ANDROID + "<Study"})
+    // clang-format off
+    @CommandLineFlags.Add({ChromeSwitches.DISABLE_NATIVE_INITIALIZATION,
+        "force-fieldtrials=Study/Group",
+        "force-fieldtrial-params=Study.Group:start_surface_variation/single"})
+    public void testNoGURLPreNative() {
+        // clang-format on
+        if (!BuildConfig.DCHECK_IS_ON) return;
+
+        collector.checkThat(StartSurfaceConfiguration.isStartSurfaceSinglePaneEnabled(), is(true));
+        collector.checkThat(TextUtils.isEmpty(HomepageManager.getHomepageUri()), is(false));
+        Assert.assertFalse(
+                NativeLibraryLoadedStatus.getProviderForTesting().areMainDexNativeMethodsReady());
+        ReturnToChromeExperimentsUtil.shouldShowStartSurfaceAsTheHomePage();
+        ReturnToChromeExperimentsUtil.shouldShowStartSurfaceAsTheHomePageNoTabs();
+        PseudoTab.getAllPseudoTabsFromStateFile();
+
+        Assert.assertFalse("There should be no GURL usages triggering native library loading",
+                NativeLibraryLoadedStatus.getProviderForTesting().areMainDexNativeMethodsReady());
     }
 
     /**

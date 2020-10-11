@@ -121,7 +121,9 @@ bool SiteIsolationPolicy::ShouldPdfCompositorBeEnabledForOopifs() {
   // where OOPIF is used such as isolate-extensions, but should be good for
   // feature testing purpose. Eventually, we will remove this check and use pdf
   // compositor service by default for printing.
-  return AreIsolatedOriginsEnabled() || UseDedicatedProcessesForAllSites();
+  return true; //AreIsolatedOriginsEnabled() ||
+  //UseDedicatedProcessesForAllSites();
+  //nwjs browsetest change footer cases
 }
 
 // static

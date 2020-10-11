@@ -39,6 +39,7 @@
 <translation id="2560420686485554789">ફાઇલો ડાઉનલોડ કરવા માટે Chromiumને સ્ટોરેજના ઍક્સેસની જરૂર પડે છે</translation>
 <translation id="2572494885440352020">Chromium હેલ્પર</translation>
 <translation id="2587578672395088481">અપડેટ લાગુ કરવા માટે Chromium OSને ફરી શરૂ કરવાની જરૂર છે.</translation>
+<translation id="2615699638672665509">આ કમ્પ્યુટર ટૂંક સમયમાં Chromium અપડેટ્સ પ્રાપ્ત કરવાનું બંધ કરશે કારણ કે તેના હાર્ડવેરને હવે સમર્થન નથી.</translation>
 <translation id="2648074677641340862">ઇન્સ્ટૉલેશન દરમિયાન ઓપરેટિંગ સિસ્ટમ ભૂલ આવી. કૃપા કરીને ફરીથી Chromium ડાઉનલોડ કરો.</translation>
 <translation id="2711502716910134313">Chromium ટૅબ</translation>
 <translation id="2718390899429598676">ઉમેરેલી સુરક્ષા માટે, Chromium તમારા ડેટાને એન્ક્રિપ્ટ કરશે.</translation>
@@ -155,7 +156,6 @@
 <translation id="6333502561965082103">Chromium પર બીજી ક્રિયા ચાલુ છે. કૃપા કરીને પછીથી ફરી પ્રયાસ કરો.</translation>
 <translation id="6334986366598267305">હવે તમારા Google એકાઉન્ટ સાથે અને શેર કરેલ કમ્પ્યુટર પર Chromium નો ઉપયોગ કરવો વધુ સરળ છે.</translation>
 <translation id="6373523479360886564">શું તમે ખરેખર તમે Chromium ને અનઇન્સ્ટૉલ કરવા માંગો છો?</translation>
-<translation id="6400072781405947421">Chromium યોગ્ય રીતે કાર્ય ન કરે તેવું બની શકે, કારણ કે તે હવેથી Mac OS X 10.9 પર સપોર્ટ કરતું નથી.</translation>
 <translation id="6403826409255603130">Chromium એ એક એવું વેબ બ્રાઉઝર છે જે પ્રકાશની ગતિએ વેબપૃષ્ઠો અને એપ્લિકેશંસને ચલાવે છે. તે ઝડપી, સ્થિર અને ઉપયોગમાં સરળ છે. Google Chromium માં નિર્મિત મૉલવેર અને ફિશીંગ સુરક્ષા સાથે વેબને વધુ સુરક્ષિત રૂપે બ્રાઉઝ કરો.</translation>
 <translation id="6434250628340475518">Chromium OS સિસ્ટમ</translation>
 <translation id="6457450909262716557">{SECONDS,plural, =1{Chromium 1 સેકન્ડમાં ફરી શરૂ થશે}one{Chromium # સેકન્ડમાં ફરી શરૂ થશે}other{Chromium # સેકન્ડમાં ફરી શરૂ થશે}}</translation>
@@ -215,6 +215,7 @@ Chromium તમારી સેટિંગ્સને પુનઃપ્રા
 <translation id="7773960292263897147">ચેતવણી: એક્સ્ટેંશનને તમારો બ્રાઉઝિંગ ઇતિહાસ રેકોર્ડ કરવાથી Chromium અટકાવી શકતું નથી. છૂપા મોડમાં આ એક્સ્ટેંશનને બંધ કરવા માટે, આ વિકલ્પની પસંદગી નાપસંદ કરો.</translation>
 <translation id="7790626492778995050"><ph name="PAGE_TITLE" /> - Chromium Canary</translation>
 <translation id="7827169012280634081">જ્યારે તમે Chromiumમાંથી બહાર નીકળો ત્યારે કુકી અને સાઇટનો ડેટા સાફ કરો</translation>
+<translation id="7857220146454061152">Chromiumની ભાવિ અપડેટ મેળવા માટે, તમારે OS X 10.11 કે તે પછીના વર્ઝન પર અપડેટ કરવું જરૂરી રહેશે. આ કમ્પ્યુટર OS X 10.10નો ઉપયોગ કરે છે.</translation>
 <translation id="7867198900892795913">Chromium નવીનતમ વર્ઝન પર અપડેટ ન થઈ શક્યું, તેથી તમે નવી સુવિધાઓ અને સુરક્ષાના સુધારા ચૂકી રહ્યા છો.</translation>
 <translation id="7898472181347242998">તમારું ડિવાઇસ અપ ટૂ ડેટ છે કે નહીં, તે જાણવા માટે <ph name="LINK_BEGIN" />Chromium OS સેટિંગ<ph name="LINK_END" /> પર જાઓ</translation>
 <translation id="7937630085815544518">તમે Chromium માં <ph name="USER_EMAIL_ADDRESS" /> તરીકે સાઇન ઇન કર્યું હતું. ફરીથી સાઇન ઇન કરવા માટે કૃપા કરીને એ જ એકાઉન્ટનો ઉપયોગ કરો.</translation>

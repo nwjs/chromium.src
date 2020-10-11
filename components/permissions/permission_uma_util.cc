@@ -18,9 +18,9 @@
 #include "components/ukm/content/source_url_recorder.h"
 #include "content/public/browser/permission_type.h"
 #include "content/public/browser/web_contents.h"
-#include "content/public/common/origin_util.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
+#include "third_party/blink/public/common/loader/network_utils.h"
 #include "url/gurl.h"
 
 #if defined(OS_ANDROID)
@@ -94,6 +94,8 @@ std::string GetPermissionRequestString(PermissionRequestType type) {
       return "WindowPlacement";
     case PermissionRequestType::PERMISSION_FONT_ACCESS:
       return "FontAccess";
+    case PermissionRequestType::PERMISSION_IDLE_DETECTION:
+      return "IdleDetection";
     default:
       NOTREACHED();
       return "";
@@ -206,7 +208,7 @@ void PermissionUmaUtil::PermissionRequested(ContentSettingsType content_type,
   bool success = PermissionUtil::GetPermissionType(content_type, &permission);
   DCHECK(success);
 
-  bool secure_origin = content::IsOriginSecure(requesting_origin);
+  bool secure_origin = blink::network_utils::IsOriginSecure(requesting_origin);
   base::UmaHistogramEnumeration("ContentSettings.PermissionRequested",
                                 permission, PermissionType::NUM);
   if (secure_origin) {
@@ -230,7 +232,8 @@ void PermissionUmaUtil::PermissionRevoked(
   if (permission == ContentSettingsType::NOTIFICATIONS ||
       permission == ContentSettingsType::GEOLOCATION ||
       permission == ContentSettingsType::MEDIASTREAM_MIC ||
-      permission == ContentSettingsType::MEDIASTREAM_CAMERA) {
+      permission == ContentSettingsType::MEDIASTREAM_CAMERA ||
+      permission == ContentSettingsType::IDLE_DETECTION) {
     // An unknown gesture type is passed in since gesture type is only
     // applicable in prompt UIs where revocations are not possible.
     RecordPermissionAction(permission, PermissionAction::REVOKED, source_ui,
@@ -441,6 +444,12 @@ PermissionUmaUtil::ScopedRevocationReporter::ScopedRevocationReporter(
   ContentSetting initial_content_setting = settings_map->GetContentSetting(
       primary_url_, secondary_url_, content_type_, std::string());
   is_initially_allowed_ = initial_content_setting == CONTENT_SETTING_ALLOW;
+  content_settings::SettingInfo setting_info;
+  settings_map->GetWebsiteSetting(primary_url, secondary_url, content_type_,
+                                  std::string(), &setting_info);
+  last_modified_date_ = settings_map->GetSettingLastModifiedDate(
+      setting_info.primary_pattern, setting_info.secondary_pattern,
+      content_type);
 }
 
 PermissionUmaUtil::ScopedRevocationReporter::ScopedRevocationReporter(
@@ -470,6 +479,13 @@ PermissionUmaUtil::ScopedRevocationReporter::~ScopedRevocationReporter() {
     GURL requesting_origin = primary_url_.GetOrigin();
     PermissionRevoked(content_type_, source_ui_, requesting_origin,
                       browser_context_);
+    if ((content_type_ == ContentSettingsType::GEOLOCATION ||
+         content_type_ == ContentSettingsType::MEDIASTREAM_CAMERA ||
+         content_type_ == ContentSettingsType::MEDIASTREAM_MIC) &&
+        !last_modified_date_.is_null()) {
+      RecordTimeElapsedBetweenGrantAndRevoke(
+          content_type_, base::Time::Now() - last_modified_date_);
+    }
   }
 }
 
@@ -565,6 +581,10 @@ void PermissionUmaUtil::RecordPermissionAction(
       base::UmaHistogramEnumeration("Permissions.Action.FontAccess", action,
                                     PermissionAction::NUM);
       break;
+    case ContentSettingsType::IDLE_DETECTION:
+      base::UmaHistogramEnumeration("Permissions.Action.IdleDetection", action,
+                                    PermissionAction::NUM);
+      break;
     // The user is not prompted for these permissions, thus there is no
     // permission action recorded for them.
     default:
@@ -599,6 +619,24 @@ void PermissionUmaUtil::RecordPromptDecided(
                                        kPermissionsPromptDeniedNoGesture,
                                        gesture_type, request_type);
   }
+}
+
+void PermissionUmaUtil::RecordTimeElapsedBetweenGrantAndUse(
+    ContentSettingsType type,
+    base::TimeDelta delta) {
+  base::UmaHistogramCustomCounts(
+      "Permissions.Usage.ElapsedTimeSinceGrant." +
+          PermissionUtil::GetPermissionString(type),
+      delta.InSeconds(), 1, base::TimeDelta::FromDays(365).InSeconds(), 100);
+}
+
+void PermissionUmaUtil::RecordTimeElapsedBetweenGrantAndRevoke(
+    ContentSettingsType type,
+    base::TimeDelta delta) {
+  base::UmaHistogramCustomCounts(
+      "Permissions.Revocation.ElapsedTimeSinceGrant." +
+          PermissionUtil::GetPermissionString(type),
+      delta.InSeconds(), 1, base::TimeDelta::FromDays(365).InSeconds(), 100);
 }
 
 }  // namespace permissions

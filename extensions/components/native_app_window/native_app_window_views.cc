@@ -63,6 +63,7 @@ NativeAppWindowViews::NativeAppWindowViews() {
       return;
   }
 #endif
+  SetShowIcon(true);
   SetLayoutManager(std::make_unique<views::FillLayout>());
 }
 
@@ -253,10 +254,6 @@ base::string16 NativeAppWindowViews::GetWindowTitle() const {
 }
 
 bool NativeAppWindowViews::ShouldShowWindowTitle() const {
-  return true;
-}
-
-bool NativeAppWindowViews::ShouldShowWindowIcon() const {
   return true;
 }
 

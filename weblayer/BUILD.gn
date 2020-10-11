@@ -28,6 +28,13 @@ if (is_android) {
   import("//v8/gni/v8.gni")
 }
 
+# This file depends on the legacy global sources assignment filter. It should
+# be converted to check target platform before assigning source files to the
+# sources variable. Remove this import and set_sources_assignment_filter call
+# when the file has been converted. See https://crbug.com/1018739 for details.
+import("//build/config/deprecated_default_sources_assignment_filter.gni")
+set_sources_assignment_filter(deprecated_default_sources_assignment_filter)
+
 source_set("android_descriptors") {
   sources = [ "browser/android_descriptors.h" ]
   public_deps = [ "//content/public/common:content_descriptors" ]
@@ -114,6 +121,7 @@ if (is_android) {
   }
 
   java_strings_grd_prebuilt("components_java_strings") {
+    resource_overlay = true
     grit_output_dir = "$root_gen_dir/weblayer/java/res"
     generated_files =
         rebase_path(weblayer_components_strings_java_resources, "java/res", ".")
@@ -418,6 +426,8 @@ source_set("weblayer_lib_base") {
     "//components/ssl_errors",
     "//components/startup_metric_utils/browser",
     "//components/strings",
+    "//components/subresource_filter/content/browser",
+    "//components/subresource_filter/core/browser",
     "//components/translate/content/browser",
     "//components/translate/content/renderer",
     "//components/translate/core/browser",
@@ -427,7 +437,9 @@ source_set("weblayer_lib_base") {
     "//components/unified_consent:unified_consent",
     "//components/user_prefs",
     "//components/variations",
+    "//components/variations:variations_mojom",
     "//components/variations/net",
+    "//components/variations/proto",
     "//components/variations/service",
     "//components/version_info",
     "//components/viz/common",
@@ -451,7 +463,6 @@ source_set("weblayer_lib_base") {
     "//services/network/public/cpp",
     "//services/network/public/mojom",
     "//services/preferences/tracked",
-    "//services/service_manager/embedder:embedder_result_codes",
     "//skia",
     "//third_party/blink/public:blink_headers",
     "//third_party/blink/public/common",
@@ -533,6 +544,10 @@ source_set("weblayer_lib_base") {
       "browser/js_communication/web_message_host_factory_proxy.h",
       "browser/js_communication/web_message_reply_proxy_impl.cc",
       "browser/js_communication/web_message_reply_proxy_impl.h",
+      "browser/media/local_presentation_manager_factory.cc",
+      "browser/media/local_presentation_manager_factory.h",
+      "browser/media/media_router_factory.cc",
+      "browser/media/media_router_factory.h",
       "browser/new_tab_callback_proxy.cc",
       "browser/new_tab_callback_proxy.h",
       "browser/safe_browsing/real_time_url_lookup_service_factory.cc",
@@ -576,6 +591,8 @@ source_set("weblayer_lib_base") {
       "//components/android_system_error_page",
       "//components/autofill/android/provider",
       "//components/browser_ui/client_certificate/android",
+      "//components/browser_ui/contacts_picker/android",
+      "//components/browser_ui/photo_picker/android",
       "//components/browser_ui/site_settings/android",
       "//components/browser_ui/sms/android",
       "//components/cdm/browser",
@@ -592,6 +609,7 @@ source_set("weblayer_lib_base") {
       "//components/infobars/content",
       "//components/javascript_dialogs",
       "//components/location/android:settings",
+      "//components/media_router/browser",
       "//components/metrics",
       "//components/minidump_uploader",
       "//components/navigation_interception",
@@ -700,6 +718,7 @@ if (is_android) {
     # find the native side functions.
     if (is_component_build) {
       deps += [
+        "//components/browser_ui/photo_picker/android",
         "//device/gamepad",
         "//media/midi",
         "//ui/events/devices",

@@ -25,6 +25,8 @@
 #include "components/translate/core/browser/translate_pref_names.h"
 #include "components/translate/core/browser/translate_prefs.h"
 #include "components/user_prefs/user_prefs.h"
+#include "components/variations/proto/study.pb.h"
+#include "components/variations/variations.mojom.h"
 #include "components/variations/variations_client.h"
 #include "components/variations/variations_ids_provider.h"
 #include "content/public/browser/device_service.h"
@@ -295,9 +297,10 @@ class BrowserContextImpl::WebLayerVariationsClient
     return browser_context_->IsOffTheRecord();
   }
 
-  std::string GetVariationsHeader() const override {
+  variations::mojom::VariationsHeadersPtr GetVariationsHeaders()
+      const override {
     return variations::VariationsIdsProvider::GetInstance()
-        ->GetClientDataHeader(IsSignedIn());
+        ->GetClientDataHeaders(IsSignedIn());
   }
 
  private:

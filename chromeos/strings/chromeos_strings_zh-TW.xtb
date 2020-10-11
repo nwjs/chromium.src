@@ -19,6 +19,7 @@
 <translation id="2161394479394250669">取消列印工作</translation>
 <translation id="2338501278241028356">開啟藍牙即可偵測附近的裝置</translation>
 <translation id="2375079107209812402">剩餘嘗試次數：<ph name="ATTEMPTS_LEFT" /> 次</translation>
+<translation id="2517472476991765520">掃描</translation>
 <translation id="2805756323405976993">應用程式</translation>
 <translation id="2872961005593481000">關閉</translation>
 <translation id="3008341117444806826">更新</translation>
@@ -39,7 +40,6 @@
 <translation id="4034824040120875894">印表機</translation>
 <translation id="4227825898293920515">密碼將在 <ph name="TIME" />後到期</translation>
 <translation id="4238516577297848345">沒有任何進行中的列印工作</translation>
-<translation id="428217921675623177">系統會移除 90 天前的列印工作</translation>
 <translation id="4297501883039923494">已停止 - 不明的錯誤</translation>
 <translation id="4429881212383817840">Kerberos 票證即將到期</translation>
 <translation id="445059817448385655">舊密碼</translation>
@@ -81,7 +81,9 @@
 <translation id="7805768142964895445">狀態</translation>
 <translation id="808894953321890993">變更密碼</translation>
 <translation id="8208861521865154048">獎勵</translation>
+<translation id="8294431847097064396">來源</translation>
 <translation id="8347227221149377169">列印工作</translation>
+<translation id="8352772353338965963">新增可多重登入的帳戶。這些帳戶的使用者不需提供密碼即可存取所有已登入的帳戶。因此，建議你只讓信任的帳戶使用這項功能。</translation>
 <translation id="8701136875688985581">由 <ph name="ENROLLMENT_DOMAIN" /> 管理這位使用者，因此可能會從遠端管理設定並監控使用者活動。</translation>
 <translation id="871560550817059752">失敗 - 墨水用盡</translation>
 <translation id="8726019395068607495">已停止 - 蓋子處於開啟狀態</translation>

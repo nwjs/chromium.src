@@ -11,7 +11,8 @@
 
 namespace cookie_config {
 
-#if defined(OS_WIN) || defined(OS_APPLE) || defined(OS_LINUX)
+#if defined(OS_WIN) || defined(OS_APPLE) || defined(OS_LINUX) || \
+    defined(OS_CHROMEOS)
 namespace {
 
 bool g_should_encrypt = true;
@@ -65,7 +66,8 @@ base::LazyInstance<CookieOSCryptoDelegate>::DestructorAtExit
 net::CookieCryptoDelegate* GetCookieCryptoDelegate() {
   return g_cookie_crypto_delegate.Pointer();
 }
-#else   // defined(OS_WIN) || defined(OS_APPLE) || defined(OS_LINUX)
+#else   // defined(OS_WIN) || defined(OS_APPLE) || defined(OS_LINUX) ||
+        // defined(OS_CHROMEOS)
 
 void SetEnableCookieCrypto(bool enable) {
   g_should_encrypt = enable;
@@ -74,6 +76,7 @@ void SetEnableCookieCrypto(bool enable) {
 net::CookieCryptoDelegate* GetCookieCryptoDelegate() {
   return NULL;
 }
-#endif  // defined(OS_WIN) || defined(OS_APPLE) || defined(OS_LINUX)
+#endif  // defined(OS_WIN) || defined(OS_APPLE) || defined(OS_LINUX) ||
+        // defined(OS_CHROMEOS)
 
 }  // namespace cookie_config

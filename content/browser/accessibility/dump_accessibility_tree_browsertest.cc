@@ -151,11 +151,9 @@ class DumpAccessibilityTreeTest : public DumpAccessibilityTestBase {
     std::unique_ptr<AccessibilityTreeFormatter> formatter(formatter_factory_());
     formatter->SetPropertyFilters(property_filters_);
     formatter->SetNodeFilters(node_filters_);
-    base::string16 actual_contents_utf16;
+    std::string actual_contents;
     formatter->FormatAccessibilityTreeForTesting(
-        GetRootAccessibilityNode(shell()->web_contents()),
-        &actual_contents_utf16);
-    std::string actual_contents = base::UTF16ToUTF8(actual_contents_utf16);
+        GetRootAccessibilityNode(shell()->web_contents()), &actual_contents);
     return base::SplitString(actual_contents, "\n", base::KEEP_WHITESPACE,
                              base::SPLIT_WANT_NONEMPTY);
   }
@@ -258,6 +256,10 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityCSSFontFamily) {
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityCSSFontSize) {
   RunCSSTest(FILE_PATH_LITERAL("font-size.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityCSSDisplayNone) {
+  RunCSSTest(FILE_PATH_LITERAL("display-none.html"));
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
@@ -1308,6 +1310,11 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessiblitiyBoundsFixed) {
   RunHtmlTest(FILE_PATH_LITERAL("bounds-fixed.html"));
 }
 
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessiblitiyBoundsFixedScrolling) {
+  RunHtmlTest(FILE_PATH_LITERAL("bounds-fixed-scrolling.html"));
+}
+
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityBR) {
   RunHtmlTest(FILE_PATH_LITERAL("br.html"));
 }
@@ -1536,6 +1543,16 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
                        AccessibilityFramesetPostEnable) {
   enable_accessibility_after_navigating_ = true;
   RunHtmlTest(FILE_PATH_LITERAL("frameset.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityGeneratedContentAfterHiddenInput) {
+  RunHtmlTest(FILE_PATH_LITERAL("generated-content-after-hidden-input.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityGeneratedContentInEmptyPage) {
+  RunHtmlTest(FILE_PATH_LITERAL("generated-content-in-empty-page.html"));
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityHead) {
@@ -2157,6 +2174,10 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityReplaceData) {
   RunHtmlTest(FILE_PATH_LITERAL("replace-data.html"));
 }
 
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityRoleChange) {
+  RunAriaTest(FILE_PATH_LITERAL("role-change.html"));
+}
+
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityRuby) {
   RunHtmlTest(FILE_PATH_LITERAL("ruby.html"));
 }
@@ -2257,8 +2278,14 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilitySvg) {
   RunHtmlTest(FILE_PATH_LITERAL("svg.html"));
 }
 
+// On ChromeOS, SVG <g> elements are included.
+#if defined(OS_CHROMEOS)
+#define AccessibilitySvgG_TestFile FILE_PATH_LITERAL("svg-g-for-cros.html")
+#else
+#define AccessibilitySvgG_TestFile FILE_PATH_LITERAL("svg-g.html")
+#endif
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilitySvgG) {
-  RunHtmlTest(FILE_PATH_LITERAL("svg-g.html"));
+  RunHtmlTest(AccessibilitySvgG_TestFile);
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityTableSimple) {
@@ -2322,6 +2349,10 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
   RunHtmlTest(FILE_PATH_LITERAL("text-decoration-styles.html"));
 }
 
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityTextIndent) {
+  RunHtmlTest(FILE_PATH_LITERAL("text-indent.html"));
+}
+
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityTextarea) {
   RunHtmlTest(FILE_PATH_LITERAL("textarea.html"));
 }
@@ -2342,6 +2373,10 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityTime) {
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityTitle) {
   RunHtmlTest(FILE_PATH_LITERAL("title.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityTitleEmpty) {
+  RunHtmlTest(FILE_PATH_LITERAL("title-empty.html"));
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityTitleChanged) {

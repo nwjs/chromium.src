@@ -14,6 +14,7 @@
 <translation id="1084365883616172403">Facebook-bericht voltooid.</translation>
 <translation id="1103523840287552314"><ph name="LANGUAGE" /> altijd vertalen</translation>
 <translation id="1104948393051856124">Accepteren en doorgaan</translation>
+<translation id="110724200315609752">Overschakelen naar geopend venster</translation>
 <translation id="1112015203684611006">Afdrukken mislukt.</translation>
 <translation id="1125564390852150847">Nieuw tabblad maken.</translation>
 <translation id="1145536944570833626">Bestaande gegevens verwijderen.</translation>
@@ -93,6 +94,7 @@
 <translation id="1941314575388338491">Dubbeltik om te kopiëren.</translation>
 <translation id="1952172573699511566">Websites worden indien mogelijk weergegeven in je voorkeurstaal.</translation>
 <translation id="1952728750904661634">Inloggen met een beheerd account</translation>
+<translation id="1965935827552890526">Maak af wat je aan het doen was in het andere geopende Chrome-venster.</translation>
 <translation id="1974060860693918893">Geavanceerd</translation>
 <translation id="1989112275319619282">Browsen</translation>
 <translation id="1992734845128748707">Standaardbrowser wijzigen…</translation>
@@ -277,6 +279,7 @@ Als je de incognitomodus gebruikt, mogen sites geen cookies gebruiken om je brow
 <translation id="408404951701638773">De zoekbalk is nu makkelijker bereikbaar</translation>
 <translation id="411254640334432676">Downloaden mislukt.</translation>
 <translation id="4112644173421521737">Zoeken</translation>
+<translation id="4113030288477039509">Beheerd door je beheerder</translation>
 <translation id="4121993058175073134">Als je netto-exportgegevens wilt verzenden, configureer je je e-mailaccount in de app Instellingen.</translation>
 <translation id="4124987746317609294">Tijdsbereik</translation>
 <translation id="4152011295694446843">Hier vind je je bookmarks</translation>
@@ -285,11 +288,13 @@ Als je de incognitomodus gebruikt, mogen sites geen cookies gebruiken om je brow
 <translation id="4181841719683918333">Talen</translation>
 <translation id="424315890655130736">Wachtwoordzin opgeven</translation>
 <translation id="4263576668337963058">Beschikbare pagina-acties weergeven</translation>
+<translation id="4267380167363222949">Volgend tabblad</translation>
 <translation id="4272631900155121838">Als je een QR-code wilt scannen, schakel je de camera in via Instellingen</translation>
 <translation id="4276041135170112053">Los het nu op.</translation>
 <translation id="4277990410970811858">Safe Browsing</translation>
 <translation id="4281844954008187215">Servicevoorwaarden</translation>
 <translation id="430793432425771671">Alles synchroniseren</translation>
+<translation id="4309403553630140242">Dubbeltik voor meer informatie</translation>
 <translation id="430967081421617822">Altijd</translation>
 <translation id="4334428914252001502">1 ongelezen artikel.</translation>
 <translation id="4338650699862464074">Verzendt de URL's van pagina's die je bezoekt naar Google.</translation>
@@ -353,6 +358,7 @@ Je gegevens zijn versleuteld met je wachtwoordzin voor synchronisatie. Geef deze
 <translation id="5005498671520578047">Wachtwoord kopiëren</translation>
 <translation id="5010803260590204777">Open een incognitotabblad om privé op internet te surfen.</translation>
 <translation id="5039804452771397117">Toestaan</translation>
+<translation id="5056446788882570708">Problemen gevonden (<ph name="TIME" />).</translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5062321486222145940">Google Drive installeren</translation>
 <translation id="5083464117946352670">Kan bestandsgrootte niet bepalen.</translation>
@@ -376,7 +382,6 @@ Je gegevens zijn versleuteld met je wachtwoordzin voor synchronisatie. Geef deze
 <translation id="5317780077021120954">Opslaan</translation>
 <translation id="5327248766486351172">Naam</translation>
 <translation id="5339316356165661760">Synchroniseren inschakelen</translation>
-<translation id="5352285283572729470">Deze instelling wordt beheerd</translation>
 <translation id="5388358297987318779">Afbeelding openen</translation>
 <translation id="5407969256130905701">Wijzigingen niet opslaan</translation>
 <translation id="5409365236829784218">Er zijn geen applicaties geïnstalleerd waarmee dit bestand kan worden geopend.</translation>
@@ -456,6 +461,7 @@ Handoff moet ook zijn ingeschakeld in het gedeelte 'Algemeen' van 'Instellingen'
 <translation id="6187302354554850004">Laatst gesynchroniseerd: <ph name="LAST_USED_TIME" /></translation>
 <translation id="6189413832092199491">Ongelezen</translation>
 <translation id="6196207969502475924">Gesproken zoekopdrachten</translation>
+<translation id="6202364442240589072">{COUNT,plural, =1{{COUNT} tabblad sluiten}other{{COUNT} tabbladen sluiten}}</translation>
 <translation id="6219688215832490856">Nooit vertalen</translation>
 <translation id="6254066287920239840">Open links in de app in plaats van in de browser.</translation>
 <translation id="6255097610484507482">Creditcard bewerken</translation>
@@ -571,6 +577,7 @@ Sites mogen geen cookies gebruiken om je browse-activiteit op verschillende site
 <translation id="734758817008927353">Opties om een kaart op te slaan</translation>
 <translation id="7348502496356775519">Bookmark maken</translation>
 <translation id="7383797227493018512">Leeslijst</translation>
+<translation id="739941347996872055">Vorig tabblad</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> ongelezen artikelen.</translation>
 <translation id="7425346204213733349">Wijzigingen in je bookmarks, geschiedenis, wachtwoorden en andere instellingen worden niet meer gesynchroniseerd met je Google-account. Je bestaande gegevens blijven echter opgeslagen in je Google-account.</translation>
@@ -636,6 +643,7 @@ Sites mogen cookies gebruiken om je browse-activiteit op verschillende sites te 
 <translation id="8073670137947914548">Downloaden is voltooid</translation>
 <translation id="8073872304774253879">Zoekopdrachten en browsefunctionaliteit verbeteren</translation>
 <translation id="8076014560081431679">Opgeslagen site-instellingen worden niet verwijderd en kunnen je browsegedrag weerspiegelen. <ph name="BEGIN_LINK" />Meer informatie<ph name="END_LINK" /></translation>
+<translation id="8079602123447022758">Deze instelling wordt beheerd, dubbeltik voor meer informatie</translation>
 <translation id="8105368624971345109">Uitschakelen</translation>
 <translation id="8114753159095730575">Bestand downloaden is beschikbaar. Opties beschikbaar onderaan het scherm.</translation>
 <translation id="8131740175452115882">Bevestigen</translation>

@@ -988,6 +988,8 @@ void ProcessManager::RegisterServiceWorker(const WorkerId& worker_id) {
       // These will be cleaned up in RenderProcessExited().
       process_observer_.Add(render_process_host);
     }
+    for (auto& observer : observer_list_)
+      observer.OnServiceWorkerRegistered(worker_id);
   }
 }
 
@@ -1041,6 +1043,11 @@ std::vector<WorkerId> ProcessManager::GetServiceWorkers(
     int render_process_id) const {
   return all_extension_workers_.GetAllForExtension(extension_id,
                                                    render_process_id);
+}
+
+std::vector<WorkerId> ProcessManager::GetServiceWorkersForExtension(
+    const ExtensionId& extension_id) const {
+  return all_extension_workers_.GetAllForExtension(extension_id);
 }
 
 std::vector<WorkerId> ProcessManager::GetAllWorkersIdsForTesting() {

@@ -102,6 +102,7 @@
 <translation id="3622797965165704966">Agora é máis fácil utilizar Chrome coa túa conta de Google e en ordenadores compartidos.</translation>
 <translation id="3718181793972440140">Esta acción eliminará 1 elemento deste dispositivo. Para recuperar os teus datos máis tarde, inicia sesión en Chrome como <ph name="USER_EMAIL" />.</translation>
 <translation id="3735758079232443276">A extensión "<ph name="EXTENSION_NAME" />" cambiou a páxina que se mostra ao iniciar Chrome.</translation>
+<translation id="3779473566290487688">Se queres recibir actualizacións de Google Chrome no futuro, debes instalar o sistema operativo OS X 10.11 ou unha versión posterior. Este ordenador ten instalada a versión OS X 10.10.</translation>
 <translation id="3780814664026482060">Chrome: <ph name="PAGE_TITLE" /></translation>
 <translation id="386202838227397562">Pecha todas as ventás de Google Chrome e téntao de novo.</translation>
 <translation id="3865754807470779944">Tes instalada a versión <ph name="PRODUCT_VERSION" /> de Chrome</translation>
@@ -202,6 +203,7 @@ Google Chrome non pode recuperar a túa configuración.</translation>
 <translation id="6967962315388095737">Regra de entrada para que Google Chrome Beta permita tráfico mDNS.</translation>
 <translation id="6982337800632491844"><ph name="DOMAIN" /> require que leas e aceptes as seguintes Condicións de servizo antes de utilizar este dispositivo. Estas condicións non ampliarán, modificarán nin limitarán as condicións de Google Chrome OS.</translation>
 <translation id="6989339256997917931">Actualizouse Google Chrome, pero non o utilizas desde hai polo menos 30 días.</translation>
+<translation id="7054640471403081847">Este ordenador deixará de recibir actualizacións de Google Chrome en breve porque xa non se admite o seu hardware.</translation>
 <translation id="7062128746136194023">O teu pai ou nai desactivou esta opción en Chrome: Permisos para sitios, aplicacións e extensións. Non está permitido engadir esta <ph name="EXTENSION_TYPE_PARAMETER" />.</translation>
 <translation id="7098166902387133879">Google Chrome está usando o teu micrófono.</translation>
 <translation id="7106741999175697885">Xestor de tarefas: Google Chrome</translation>
@@ -221,7 +223,6 @@ Google Chrome non pode recuperar a túa configuración.</translation>
 <translation id="7486227612705979895">Chrome accederá a Drive para facer suxestións na barra de enderezos</translation>
 <translation id="7535429826459677826">Google Chrome Dev</translation>
 <translation id="7573289029918943991">Para ver ser o teu dispositivo está actualizado, accede á <ph name="LINK_BEGIN" />configuración de Chrome OS<ph name="LINK_END" /></translation>
-<translation id="7589360514048265910">Este ordenador deixará de recibir actualizacións de Google Chrome porque Mac OS X 10.9 deixou de ser compatible.</translation>
 <translation id="7592736734348559088">Google Chrome non puido sincronizar os teus datos debido a que os detalles de inicio de sesión da túa conta están caducados.</translation>
 <translation id="7626032353295482388">Dámosche a benvida a Chrome</translation>
 <translation id="7629695634924605473">Chrome permíteche saber se os teus contrasinais están en risco nalgún momento</translation>

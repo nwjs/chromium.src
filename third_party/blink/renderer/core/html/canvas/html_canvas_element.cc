@@ -260,8 +260,8 @@ void HTMLCanvasElement::RegisterRenderingContextFactory(
 }
 
 void HTMLCanvasElement::RecordIdentifiabilityMetric(
-    const blink::IdentifiableSurface& surface,
-    int64_t value) const {
+    IdentifiableSurface surface,
+    IdentifiableToken value) const {
   blink::IdentifiabilityMetricBuilder(GetDocument().UkmSourceID())
       .Set(surface, value)
       .Record(GetDocument().UkmRecorder());
@@ -304,7 +304,7 @@ void HTMLCanvasElement::IdentifiabilityReportWithDigest(
     if (encountered_partially_digested_image)
       final_digest |= IdentifiableSurface::CanvasTaintBit::kPartiallyDigested;
     RecordIdentifiabilityMetric(
-        blink::IdentifiableSurface::FromTypeAndInput(
+        blink::IdentifiableSurface::FromTypeAndToken(
             blink::IdentifiableSurface::Type::kCanvasReadback, final_digest),
         canvas_contents_token.ToUkmMetricValue());
   }
@@ -335,11 +335,10 @@ CanvasRenderingContext* HTMLCanvasElement::GetCanvasRenderingContextInternal(
   if (!context_) {
     if (IsUserInIdentifiabilityStudy()) {
       RecordIdentifiabilityMetric(
-          blink::IdentifiableSurface::FromTypeAndInput(
+          IdentifiableSurface::FromTypeAndToken(
               blink::IdentifiableSurface::Type::kWebFeature,
-              static_cast<uint64_t>(
-                  blink::WebFeature::kCanvasRenderingContext)),
-          blink::IdentifiabilityDigestHelper(context_type));
+              blink::WebFeature::kCanvasRenderingContext),
+          context_type);
     }
     UMA_HISTOGRAM_ENUMERATION("Blink.Canvas.ContextType", context_type);
   }
@@ -471,6 +470,9 @@ bool HTMLCanvasElement::IsWebGLBlocked() const {
 void HTMLCanvasElement::DidDraw(const FloatRect& rect) {
   if (rect.IsEmpty())
     return;
+  if (GetLayoutObject() && GetLayoutObject()->PreviousVisibilityVisible() &&
+      GetDocument().GetPage())
+    GetDocument().GetPage()->Animator().SetHasCanvasInvalidation();
   canvas_is_clear_ = false;
   if (GetLayoutObject() && !LowLatencyEnabled())
     GetLayoutObject()->SetShouldCheckForPaintInvalidation();
@@ -1272,11 +1274,25 @@ void HTMLCanvasElement::ContextDestroyed() {
     context_->Stop();
 }
 
+bool HTMLCanvasElement::StyleChangeNeedsDidDraw(
+    const ComputedStyle* old_style,
+    const ComputedStyle& new_style) {
+  // It will only need to redraw for a style change, if the new imageRendering
+  // is different than the previous one, and only if one of the two ir
+  // pixelated.
+  return old_style &&
+         old_style->ImageRendering() != new_style.ImageRendering() &&
+         (old_style->ImageRendering() == EImageRendering::kPixelated ||
+          new_style.ImageRendering() == EImageRendering::kPixelated);
+}
+
 void HTMLCanvasElement::StyleDidChange(const ComputedStyle* old_style,
                                        const ComputedStyle& new_style) {
   UpdateFilterQuality(FilterQualityFromStyle(&new_style));
   if (context_)
     context_->StyleDidChange(old_style, new_style);
+  if (StyleChangeNeedsDidDraw(old_style, new_style))
+    DidDraw();
 }
 
 void HTMLCanvasElement::LayoutObjectDestroyed() {

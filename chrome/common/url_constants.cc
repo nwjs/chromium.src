@@ -117,6 +117,9 @@ const char kContentSettingsExceptionsLearnMoreURL[] =
 const char kCookiesSettingsHelpCenterURL[] =
     "https://support.google.com/chrome?p=cpn_cookies";
 
+const char kCpuX86Sse2ObsoleteURL[] =
+    "https://support.google.com/chrome/?p=unsupported_cpu";
+
 const char kCrashReasonURL[] =
 #if defined(OS_CHROMEOS)
     "https://support.google.com/chromebook/?p=e_awsnap";
@@ -245,6 +248,9 @@ const char kSafeBrowsingHelpCenterURL[] =
 
 const char kSafetyTipHelpCenterURL[] =
     "https://support.google.com/chrome/?p=safety_tip";
+
+const char kSeeMoreSecurityTipsURL[] =
+    "https://support.google.com/accounts/answer/32040";
 
 const char kSettingsSearchHelpURL[] =
     "https://support.google.com/chrome/?p=settings_search_help";
@@ -416,7 +422,7 @@ const char kWifiSyncLearnMoreURL[] =
 const char kChromeEnterpriseSignInLearnMoreURL[] =
     "https://support.google.com/chromebook/answer/1331549";
 
-const char kMac10_9_ObsoleteURL[] =
+const char kMac10_10_ObsoleteURL[] =
     "https://support.google.com/chrome/?p=unsupported_mac";
 #endif
 

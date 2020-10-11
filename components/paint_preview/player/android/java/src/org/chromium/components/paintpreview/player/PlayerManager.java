@@ -5,6 +5,7 @@
 package org.chromium.components.paintpreview.player;
 
 import android.content.Context;
+import android.graphics.Point;
 import android.graphics.Rect;
 import android.view.View;
 import android.view.ViewGroup;
@@ -15,6 +16,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
+import org.chromium.base.Callback;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.UnguessableToken;
 import org.chromium.components.paintpreview.browser.NativePaintPreviewServiceProvider;
@@ -34,6 +36,7 @@ public class PlayerManager {
     private PlayerFrameCoordinator mRootFrameCoordinator;
     private FrameLayout mHostView;
     private Runnable mViewReadyCallback;
+    private Runnable mFirstPaintListener;
     private static final String sInitEvent = "paint_preview PlayerManager init";
     private PlayerSwipeRefreshHandler mPlayerSwipeRefreshHandler;
     private PlayerGestureListener mPlayerGestureListener;
@@ -42,12 +45,14 @@ public class PlayerManager {
     /**
      * Creates a new {@link PlayerManager}.
      * @param url The url for the stored content that should be shown.
+     * @param context An instance of current Android {@link Context}.
      * @param nativePaintPreviewServiceProvider The native paint preview service.
      * @param directoryKey The key for the directory storing the data.
      * @param linkClickHandler Called with a url to trigger a navigation.
      * @param refreshCallback Called when the paint preview should be refreshed.
      * @param viewReadyCallback Called when the view is ready. Will not be called if compositorError
      *     is called prior to the view being ready.
+     * @param firstPaintListener Called when the first paint event happens.
      * @param userInteractionCallback Called when the use interacts with the paint preview.
      * @param backgroundColor The color used for the background.
      * @param compositorErrorCallback Called when the compositor has had an error (either during
@@ -59,7 +64,8 @@ public class PlayerManager {
             NativePaintPreviewServiceProvider nativePaintPreviewServiceProvider,
             String directoryKey, @NonNull LinkClickHandler linkClickHandler,
             @Nullable Runnable refreshCallback, Runnable viewReadyCallback,
-            Runnable userInteractionCallback, int backgroundColor, Runnable compositorErrorCallback,
+            @Nullable Runnable firstPaintListener, Runnable userInteractionCallback,
+            int backgroundColor, Callback<Integer> compositorErrorCallback,
             boolean ignoreInitialScrollOffset) {
         TraceEvent.startAsync(sInitEvent, hashCode());
         mContext = context;
@@ -75,6 +81,7 @@ public class PlayerManager {
                 new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
         mHostView.setBackgroundColor(backgroundColor);
         mViewReadyCallback = viewReadyCallback;
+        mFirstPaintListener = firstPaintListener;
         mIgnoreInitialScrollOffset = ignoreInitialScrollOffset;
     }
 
@@ -82,6 +89,16 @@ public class PlayerManager {
         PlayerUserFrustrationDetector userFrustrationDetector =
                 new PlayerUserFrustrationDetector(userFrustrationCallback);
         mPlayerGestureListener.setUserFrustrationDetector(userFrustrationDetector);
+    }
+
+    /**
+     * @return Current scroll position of the main frame. null if the player is not
+     * initialized.
+     */
+    public Point getScrollPosition() {
+        if (mRootFrameCoordinator == null) return null;
+
+        return mRootFrameCoordinator.getScrollPosition();
     }
 
     /**
@@ -99,7 +116,7 @@ public class PlayerManager {
         mRootFrameCoordinator = new PlayerFrameCoordinator(mContext, mDelegate, rootFrame.getGuid(),
                 rootFrame.getContentWidth(), rootFrame.getContentHeight(),
                 rootFrame.getInitialScrollX(), rootFrame.getInitialScrollY(), true,
-                mPlayerSwipeRefreshHandler, mPlayerGestureListener);
+                mPlayerSwipeRefreshHandler, mPlayerGestureListener, mFirstPaintListener);
         buildSubFrameCoordinators(mRootFrameCoordinator, rootFrame);
         mHostView.addView(mRootFrameCoordinator.getView(),
                 new FrameLayout.LayoutParams(
@@ -168,7 +185,7 @@ public class PlayerManager {
             PlayerFrameCoordinator childCoordinator = new PlayerFrameCoordinator(mContext,
                     mDelegate, childFrame.getGuid(), childFrame.getContentWidth(),
                     childFrame.getContentHeight(), childFrame.getInitialScrollX(),
-                    childFrame.getInitialScrollY(), false, null, mPlayerGestureListener);
+                    childFrame.getInitialScrollY(), false, null, mPlayerGestureListener, null);
             buildSubFrameCoordinators(childCoordinator, childFrame);
             frameCoordinator.addSubFrame(childCoordinator, frame.getSubFrameClips()[i]);
         }

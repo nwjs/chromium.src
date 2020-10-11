@@ -30,7 +30,6 @@
 #include "third_party/blink/public/mojom/frame/lifecycle.mojom-shared.h"
 #include "third_party/blink/public/mojom/frame/media_player_action.mojom-shared.h"
 #include "third_party/blink/public/mojom/frame/user_activation_notification_type.mojom-shared.h"
-#include "third_party/blink/public/mojom/optimization_guide/optimization_guide.mojom-shared.h"
 #include "third_party/blink/public/mojom/portal/portal.mojom-shared.h"
 #include "third_party/blink/public/mojom/selection_menu/selection_menu_behavior.mojom-shared.h"
 #include "third_party/blink/public/mojom/web_feature/web_feature.mojom-shared.h"
@@ -43,8 +42,10 @@
 #include "third_party/blink/public/web/web_frame.h"
 #include "third_party/blink/public/web/web_frame_load_type.h"
 #include "third_party/blink/public/web/web_navigation_params.h"
+#include "third_party/blink/public/web/web_optimization_guide_hints.h"
 #include "ui/accessibility/ax_tree_id.h"
 #include "ui/base/ime/ime_text_span.h"
+#include "ui/gfx/range/range.h"
 #include "v8/include/v8.h"
 
 namespace gfx {
@@ -298,13 +299,14 @@ class WebLocalFrame : public WebFrame {
   // CSS3 Paged Media ----------------------------------------------------
 
   // Returns the type of @page size styling for the given page.
-  virtual PageSizeType GetPageSizeType(int page_index) = 0;
+  virtual PageSizeType GetPageSizeType(uint32_t page_index) = 0;
 
   // Gets the description for the specified page. This includes preferred page
   // size and margins in pixels, assuming 96 pixels per inch. The size and
   // margins must be initialized to the default values that are used if auto is
   // specified.
-  virtual void GetPageDescription(int page_index, WebPrintPageDescription*) = 0;
+  virtual void GetPageDescription(uint32_t page_index,
+                                  WebPrintPageDescription*) = 0;
 
   // Scripting --------------------------------------------------------------
 
@@ -337,6 +339,13 @@ class WebLocalFrame : public WebFrame {
   // DEPRECATED: Use WebLocalFrame::requestExecuteScriptAndReturnValue.
   virtual v8::Local<v8::Value> ExecuteScriptAndReturnValue(
       const WebScriptSource&) = 0;
+
+  // Call the function with the given receiver and arguments
+  virtual v8::MaybeLocal<v8::Value> ExecuteMethodAndReturnValue(
+      v8::Local<v8::Function>,
+      v8::Local<v8::Value>,
+      int argc,
+      v8::Local<v8::Value> argv[]) = 0;
 
   // Call the function with the given receiver and arguments, bypassing
   // canExecute().
@@ -457,6 +466,10 @@ class WebLocalFrame : public WebFrame {
 
   virtual WebString SelectionAsText() const = 0;
   virtual WebString SelectionAsMarkup() const = 0;
+
+  virtual void TextSelectionChanged(const WebString& selection_text,
+                                    uint32_t offset,
+                                    const gfx::Range& range) = 0;
 
   // Expands the selection to a word around the caret and returns
   // true. Does nothing and returns false if there is no caret or
@@ -590,8 +603,8 @@ class WebLocalFrame : public WebFrame {
 
   // Events --------------------------------------------------------------
 
-  // TEMP: Usage count for chrome.loadtimes deprecation.
-  // This will be removed following the deprecation.
+  // Usage count for chrome.loadtimes deprecation.
+  // This will be removed following the deprecation. See: crbug.com/621512
   virtual void UsageCountChromeLoadTimes(const WebString& metric) = 0;
 
   // Whether we've dispatched "pagehide" on the current document in this frame
@@ -624,9 +637,10 @@ class WebLocalFrame : public WebFrame {
   virtual WebAssociatedURLLoader* CreateAssociatedURLLoader(
       const WebAssociatedURLLoaderOptions&) = 0;
 
-  // This API is deprecated and only required by PepperURLLoaderHost::Close(),
-  // and so it should not be used on a regular basis.
-  virtual void StopLoading() = 0;
+  // This API is deprecated and only required by PepperURLLoaderHost::Close()
+  // and PepperPluginInstanceImpl::HandleDocumentLoad() and so it should not be
+  // used on a regular basis.
+  virtual void DeprecatedStopLoading() = 0;
 
   // Geometry -----------------------------------------------------------------
 
@@ -666,18 +680,18 @@ class WebLocalFrame : public WebFrame {
   // node is printed (for now only plugins are supported), instead of the entire
   // frame.
   // Returns the number of pages that can be printed at the given page size.
-  virtual int PrintBegin(const WebPrintParams&,
-                         const WebNode& constrain_to_node = WebNode()) = 0;
+  virtual uint32_t PrintBegin(const WebPrintParams& print_params,
+                              const WebNode& constrain_to_node) = 0;
 
   // Returns the page shrinking factor calculated by webkit (usually
   // between 1/1.33 and 1/2). Returns 0 if the page number is invalid or
   // not in printing mode.
-  virtual float GetPrintPageShrink(int page) = 0;
+  virtual float GetPrintPageShrink(uint32_t page) = 0;
 
   // Prints one page, and returns the calculated page shrinking factor
   // (usually between 1/1.33 and 1/2).  Returns 0 if the page number is
   // invalid or not in printing mode.
-  virtual float PrintPage(int page_to_print, cc::PaintCanvas*) = 0;
+  virtual float PrintPage(uint32_t page_to_print, cc::PaintCanvas*) = 0;
 
   // Reformats the WebFrame for screen display.
   virtual void PrintEnd() = 0;
@@ -742,11 +756,7 @@ class WebLocalFrame : public WebFrame {
 
   // Sets the optimization hints provided by the optimization guide service. See
   // //components/optimization_guide/README.md.
-  //
-  // For now, DelayAsyncScriptExecutionDelayType is the only hint. If more hints
-  // are added, this can be struct, etc.
-  virtual void SetOptimizationGuideHints(
-      mojom::DelayAsyncScriptExecutionDelayType delay_type) = 0;
+  virtual void SetOptimizationGuideHints(const WebOptimizationGuideHints&) = 0;
 
   // Testing ------------------------------------------------------------------
 
@@ -756,7 +766,7 @@ class WebLocalFrame : public WebFrame {
   // page-orientation.
   virtual WebSize SpoolSizeInPixelsForTesting(
       const WebSize& page_size_in_pixels,
-      int page_count) = 0;
+      uint32_t page_count) = 0;
 
   // Prints the frame into the canvas, with page boundaries drawn as one pixel
   // wide blue lines. This method exists to support web tests.

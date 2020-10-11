@@ -3,20 +3,27 @@
 // found in the LICENSE file.
 
 #include "chrome/browser/policy/messaging_layer/upload/upload_client.h"
+
+#include "base/bind.h"
+#include "base/files/file_path.h"
 #include "base/json/json_writer.h"
 #include "base/test/task_environment.h"
+#include "base/test/test_mock_time_task_runner.h"
 #include "base/values.h"
 #include "chrome/browser/policy/messaging_layer/upload/app_install_report_handler.h"
+#include "components/account_id/account_id.h"
 #include "components/policy/core/common/cloud/dm_token.h"
 #include "components/policy/core/common/cloud/mock_cloud_policy_client.h"
 #include "components/policy/proto/record.pb.h"
 #include "components/policy/proto/record_constants.pb.h"
-
-#include "base/bind.h"
-#include "base/files/file_path.h"
-#include "base/test/test_mock_time_task_runner.h"
-#include "components/account_id/account_id.h"
+#include "content/public/test/browser_task_environment.h"
 #include "services/network/test/test_network_connection_tracker.h"
+
+#ifdef OS_CHROMEOS
+#include "chrome/browser/chromeos/login/users/fake_chrome_user_manager.h"
+#include "chrome/test/base/testing_profile.h"
+#include "components/user_manager/scoped_user_manager.h"
+#endif  // OS_CHROMEOS
 
 namespace reporting {
 namespace {
@@ -29,19 +36,14 @@ using testing::WithArgs;
 
 class TestCallbackWaiter {
  public:
-  TestCallbackWaiter()
-      : completed_(base::WaitableEvent::ResetPolicy::MANUAL,
-                   base::WaitableEvent::InitialState::NOT_SIGNALED) {}
+  TestCallbackWaiter() : run_loop_(std::make_unique<base::RunLoop>()) {}
 
-  virtual void Signal() {
-    DCHECK(!completed_.IsSignaled());
-    completed_.Signal();
-  }
+  virtual void Signal() { run_loop_->Quit(); }
 
-  void Wait() { completed_.Wait(); }
+  void Wait() { run_loop_->Run(); }
 
  protected:
-  base::WaitableEvent completed_;
+  std::unique_ptr<base::RunLoop> run_loop_;
 };
 
 class TestCallbackWaiterWithCounter : public TestCallbackWaiter {
@@ -50,10 +52,9 @@ class TestCallbackWaiterWithCounter : public TestCallbackWaiter {
       : counter_limit_(counter_limit) {}
 
   void Signal() override {
-    DCHECK(!completed_.IsSignaled());
     DCHECK_GT(counter_limit_, 0);
     if (--counter_limit_ == 0) {
-      completed_.Signal();
+      run_loop_->Quit();
     }
   }
 
@@ -62,8 +63,24 @@ class TestCallbackWaiterWithCounter : public TestCallbackWaiter {
 };
 
 TEST(UploadClientTest, CreateUploadClient) {
-  base::test::TaskEnvironment task_envrionment{
-      base::test::TaskEnvironment::TimeSource::MOCK_TIME};
+  content::BrowserTaskEnvironment task_envrionment_;
+
+#ifdef OS_CHROMEOS
+  // Set up fake primary profile.
+  auto mock_user_manager =
+      std::make_unique<testing::NiceMock<chromeos::FakeChromeUserManager>>();
+  auto profile = std::make_unique<TestingProfile>(
+      base::FilePath(FILE_PATH_LITERAL("/home/chronos/u-0123456789abcdef")));
+  const AccountId account_id(
+      AccountId::FromUserEmailGaiaId(profile->GetProfileUserName(), "12345"));
+  const user_manager::User* user =
+      mock_user_manager->AddPublicAccountUser(account_id);
+  mock_user_manager->UserLoggedIn(account_id, user->username_hash(),
+                                  /*browser_restart=*/false,
+                                  /*is_child=*/false);
+  auto user_manager = std::make_unique<user_manager::ScopedUserManager>(
+      std::move(mock_user_manager));
+#endif  // OS_CHROMEOS
 
   const int kExpectedCallTimes = 10;
   const uint64_t kGenerationId = 1234;
@@ -74,7 +91,7 @@ TEST(UploadClientTest, CreateUploadClient) {
   client->SetDMToken(
       policy::DMToken::CreateValidTokenForTesting("FAKE_DM_TOKEN").value());
 
-  EXPECT_CALL(*client, UploadAppInstallReport_(_, _))
+  EXPECT_CALL(*client, UploadExtensionInstallReport_(_, _))
       .WillRepeatedly(WithArgs<1>(
           Invoke([&waiter](AppInstallReportHandler::ClientCallback& callback) {
             std::move(callback).Run(true);
@@ -84,7 +101,7 @@ TEST(UploadClientTest, CreateUploadClient) {
   auto upload_client_result =
       UploadClient::Create(std::move(client), base::DoNothing());
 
-  ASSERT_TRUE(upload_client_result.ok());
+  ASSERT_OK(upload_client_result) << upload_client_result.status();
 
   base::Value data{base::Value::Type::DICTIONARY};
   data.SetKey("TEST_KEY", base::Value("TEST_VALUE"));

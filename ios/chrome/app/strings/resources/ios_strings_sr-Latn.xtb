@@ -14,6 +14,7 @@
 <translation id="1084365883616172403">Facebook post je dovršen.</translation>
 <translation id="1103523840287552314">Uvek prevodi <ph name="LANGUAGE" /></translation>
 <translation id="1104948393051856124">Prihvati i nastavi</translation>
+<translation id="110724200315609752">Pređi na otvoren prozor</translation>
 <translation id="1112015203684611006">Štampanje nije uspelo.</translation>
 <translation id="1125564390852150847">Napravi novu karticu.</translation>
 <translation id="1145536944570833626">Izbrišite postojeće podatke</translation>
@@ -93,6 +94,7 @@
 <translation id="1941314575388338491">Dodirnite dvaput da biste kopirali.</translation>
 <translation id="1952172573699511566">Veb-sajtovi će prikazivati tekst na željenom jeziku kada je to moguće.</translation>
 <translation id="1952728750904661634">Prijavite se pomoću naloga kojim se upravlja</translation>
+<translation id="1965935827552890526">Završite ono što ste radili u drugom otvorenom Chrome prozoru.</translation>
 <translation id="1974060860693918893">Napredne opcije</translation>
 <translation id="1989112275319619282">Pregledaj</translation>
 <translation id="1992734845128748707">Promenite podrazumevani pregledač…</translation>
@@ -277,6 +279,7 @@ Kada ste u režimu bez arhiviranja, sajtovi ne mogu da koriste kolačiće da bi
 <translation id="408404951701638773">Traka za pretragu je sada dostupnija</translation>
 <translation id="411254640334432676">Preuzimanje nije uspelo.</translation>
 <translation id="4112644173421521737">Pretraži</translation>
+<translation id="4113030288477039509">Ovim upravlja administrator</translation>
 <translation id="4121993058175073134">Za slanje podataka neto izvoza podesite nalog e-pošte u aplikaciji Podešavanja.</translation>
 <translation id="4124987746317609294">Vremenski opseg</translation>
 <translation id="4152011295694446843">Ovde ćete pronaći obeleživače</translation>
@@ -285,11 +288,13 @@ Kada ste u režimu bez arhiviranja, sajtovi ne mogu da koriste kolačiće da bi
 <translation id="4181841719683918333">Jezici</translation>
 <translation id="424315890655130736">Unesite pristupnu frazu</translation>
 <translation id="4263576668337963058">Prikaži dostupne radnje za stranicu</translation>
+<translation id="4267380167363222949">Sledeća kartica</translation>
 <translation id="4272631900155121838">Da biste skenirali QR kôd, omogućite kameru u podešavanjima</translation>
 <translation id="4276041135170112053">Rešite problem.</translation>
 <translation id="4277990410970811858">Bezbedno pregledanje</translation>
 <translation id="4281844954008187215">Uslovi korišćenja usluge</translation>
 <translation id="430793432425771671">Sinhronizuj sve</translation>
+<translation id="4309403553630140242">Dvaput dodirnite za više informacija</translation>
 <translation id="430967081421617822">Oduvek</translation>
 <translation id="4334428914252001502">1 nepročitan članak.</translation>
 <translation id="4338650699862464074">Šalje URL-ove stranica koje posećujete Google-u.</translation>
@@ -353,6 +358,7 @@ Da biste promenili ovo podešavanje, <ph name="BEGIN_LINK" />resetujte sinhroniz
 <translation id="5005498671520578047">Kopiranje lozinke</translation>
 <translation id="5010803260590204777">Otvorite karticu Bez arhiviranja da biste privatno pregledali veb.</translation>
 <translation id="5039804452771397117">Dozvoli</translation>
+<translation id="5056446788882570708">Problemi su pronađeni <ph name="TIME" />.</translation>
 <translation id="5059136629401106827">Potvrdi</translation>
 <translation id="5062321486222145940">Instaliraj Google disk</translation>
 <translation id="5083464117946352670">Nije moguće utvrditi veličinu datoteke.</translation>
@@ -376,7 +382,6 @@ Da biste promenili ovo podešavanje, <ph name="BEGIN_LINK" />resetujte sinhroniz
 <translation id="5317780077021120954">Sačuvaj</translation>
 <translation id="5327248766486351172">Naziv</translation>
 <translation id="5339316356165661760">Uključi sinhronizaciju</translation>
-<translation id="5352285283572729470">Ovim podešavanjem se upravlja</translation>
 <translation id="5388358297987318779">Otvori sliku</translation>
 <translation id="5407969256130905701">Odbaci promene</translation>
 <translation id="5409365236829784218">Nije instalirana nijedna aplikacija za otvaranje ove datoteke.</translation>
@@ -456,6 +461,7 @@ Handoff treba da se omogući u odeljku General (Opšte) u meniju Settings (Pode
 <translation id="6187302354554850004">Poslednja sinhron.: <ph name="LAST_USED_TIME" /></translation>
 <translation id="6189413832092199491">Nepročitano</translation>
 <translation id="6196207969502475924">Glasovna pretraga</translation>
+<translation id="6202364442240589072">{COUNT,plural, =1{Zatvori {COUNT} karticu}one{Zatvori {COUNT} karticu}few{Zatvori {COUNT} kartice}other{Zatvori {COUNT} kartica}}</translation>
 <translation id="6219688215832490856">Nikad ne prevodi</translation>
 <translation id="6254066287920239840">Otvarajte liknove u aplikaciji umesto u pregledaču.</translation>
 <translation id="6255097610484507482">Izmena kreditne kartice</translation>
@@ -571,6 +577,7 @@ Sajtovi ne mogu da koriste kolačiće da bi videli vaše aktivnosti pregledanja
 <translation id="734758817008927353">Opcije za čuvanje kartice</translation>
 <translation id="7348502496356775519">Označi</translation>
 <translation id="7383797227493018512">Lista za čitanje</translation>
+<translation id="739941347996872055">Prethodna kartica</translation>
 <translation id="7400418766976504921">URL adresa</translation>
 <translation id="7409985198648820906">Nepročitanih članaka: <ph name="UNREAD_COUNT" />.</translation>
 <translation id="7425346204213733349">Promene obeleživača, istorije, lozinki i drugih podešavanja se više neće sinhronizovati sa Google nalogom. Međutim, postojeći podaci će ostati sačuvani na Google nalogu.</translation>
@@ -636,6 +643,7 @@ Sajtovi mogu da koriste kolačiće da bi videli vaše aktivnosti pregledanja na
 <translation id="8073670137947914548">Preuzimanje je završeno</translation>
 <translation id="8073872304774253879">Poboljšaj pretrage i pregledanje</translation>
 <translation id="8076014560081431679">Nećemo izbrisati sačuvana podešavanja sajtova i ona mogu da odražavaju vaše navike pri pregledanju. <ph name="BEGIN_LINK" />Saznajte više<ph name="END_LINK" /></translation>
+<translation id="8079602123447022758">Ovim podešavanjem se upravlja. Dvaput dodirnite za više informacija</translation>
 <translation id="8105368624971345109">Isključi</translation>
 <translation id="8114753159095730575">Preuzimanje datoteke nije dostupno. Opcije su navedene u dnu ekrana.</translation>
 <translation id="8131740175452115882">Potvrdi</translation>

@@ -104,12 +104,14 @@ class ProxyDeviceEventDispatcher : public DeviceEventDispatcherEvdev {
         base::BindOnce(&EventFactoryEvdev::DispatchTouchscreenDevicesUpdated,
                        event_factory_evdev_, devices));
   }
-  void DispatchMouseDevicesUpdated(
-      const std::vector<InputDevice>& devices) override {
+  void DispatchMouseDevicesUpdated(const std::vector<InputDevice>& devices,
+                                   bool has_mouse,
+                                   bool has_pointing_stick) override {
     ui_thread_runner_->PostTask(
         FROM_HERE,
         base::BindOnce(&EventFactoryEvdev::DispatchMouseDevicesUpdated,
-                       event_factory_evdev_, devices));
+                       event_factory_evdev_, devices, has_mouse,
+                       has_pointing_stick));
   }
   void DispatchTouchpadDevicesUpdated(
       const std::vector<InputDevice>& devices) override {
@@ -242,6 +244,10 @@ void EventFactoryEvdev::DispatchMouseMoveEvent(
   event.set_location_f(location);
   event.set_root_location_f(location);
   event.set_source_device_id(params.device_id);
+  if (params.ordinal_delta.has_value()) {
+    ui::MouseEvent::DispatcherApi(&event).set_movement(
+        params.ordinal_delta.value());
+  }
   DispatchUiEvent(&event);
 }
 
@@ -303,9 +309,9 @@ void EventFactoryEvdev::DispatchMouseWheelEvent(
     const MouseWheelEventParams& params) {
   TRACE_EVENT1("evdev", "EventFactoryEvdev::DispatchMouseWheelEvent", "device",
                params.device_id);
-  MouseWheelEvent event(params.delta, gfx::Point(), gfx::Point(),
+  MouseWheelEvent event(params.delta, gfx::PointF(), gfx::PointF(),
                         params.timestamp, modifiers_.GetModifierFlags(),
-                        0 /* changed_button_flags */);
+                        0 /* changed_button_flags */, params.tick_120ths);
   event.set_location_f(params.location);
   event.set_root_location_f(params.location);
   event.set_source_device_id(params.device_id);
@@ -386,11 +392,14 @@ void EventFactoryEvdev::DispatchTouchscreenDevicesUpdated(
 }
 
 void EventFactoryEvdev::DispatchMouseDevicesUpdated(
-    const std::vector<InputDevice>& devices) {
+    const std::vector<InputDevice>& devices,
+    bool has_mouse,
+    bool has_pointing_stick) {
   TRACE_EVENT0("evdev", "EventFactoryEvdev::DispatchMouseDevicesUpdated");
 
   // There's no list of mice in DeviceDataManager.
-  input_controller_.set_has_mouse(devices.size() != 0);
+  input_controller_.set_has_mouse(has_mouse);
+  input_controller_.set_has_pointing_stick(has_pointing_stick);
   DeviceHotplugEventObserver* observer = DeviceDataManager::GetInstance();
   observer->OnMouseDevicesUpdated(devices);
 }
@@ -471,6 +480,7 @@ void EventFactoryEvdev::WarpCursorTo(gfx::AcceleratedWidget widget,
           weak_ptr_factory_.GetWeakPtr(),
           MouseMoveEventParams(
               -1 /* device_id */, EF_NONE, cursor_->GetLocation(),
+              nullptr /* ordinal_delta */,
               PointerDetails(EventPointerType::kMouse), EventTimeForNow())));
 }
 

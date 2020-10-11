@@ -14,6 +14,7 @@
 <translation id="1084365883616172403">Indlæg delt på Facebook.</translation>
 <translation id="1103523840287552314">Oversæt altid <ph name="LANGUAGE" /></translation>
 <translation id="1104948393051856124">Acceptér og fortsæt</translation>
+<translation id="110724200315609752">Skift til åbent vindue</translation>
 <translation id="1112015203684611006">Udskrift mislykkedes.</translation>
 <translation id="1125564390852150847">Opret ny fane.</translation>
 <translation id="1145536944570833626">Slet eksisterende data.</translation>
@@ -93,6 +94,7 @@
 <translation id="1941314575388338491">Tryk to gange for at kopiere.</translation>
 <translation id="1952172573699511566">Websites viser tekst på dit foretrukne sprog, når det er muligt.</translation>
 <translation id="1952728750904661634">Log ind med en managerstyret konto</translation>
+<translation id="1965935827552890526">Gør det færdigt, du var i gang med i dit andet åbne Chrome-vindue.</translation>
 <translation id="1974060860693918893">Avanceret</translation>
 <translation id="1989112275319619282">Gennemse</translation>
 <translation id="1992734845128748707">Skift standardbrowser…</translation>
@@ -277,6 +279,7 @@ Når du er i Inkognito, kan websites ikke bruge cookies til at se din browserhis
 <translation id="408404951701638773">Nu er det nemmere at bruge søgefeltet</translation>
 <translation id="411254640334432676">Download mislykkedes.</translation>
 <translation id="4112644173421521737">Søg</translation>
+<translation id="4113030288477039509">Administreres af din administrator</translation>
 <translation id="4121993058175073134">For at sende oplysninger om nettoeksporten skal du konfigurere din mailkonto i appen Indstillinger.</translation>
 <translation id="4124987746317609294">Tidsinterval</translation>
 <translation id="4152011295694446843">Her finder du dine bogmærker</translation>
@@ -285,11 +288,13 @@ Når du er i Inkognito, kan websites ikke bruge cookies til at se din browserhis
 <translation id="4181841719683918333">Sprog</translation>
 <translation id="424315890655130736">Angiv adgangssætning</translation>
 <translation id="4263576668337963058">Vis tilgængelige sidehandlinger</translation>
+<translation id="4267380167363222949">Næste fane</translation>
 <translation id="4272631900155121838">Aktivér kameraet i Indstillinger for at scanne en QR-kode</translation>
 <translation id="4276041135170112053">Løs problemet nu.</translation>
 <translation id="4277990410970811858">Beskyttet browsing</translation>
 <translation id="4281844954008187215">Servicevilkår</translation>
 <translation id="430793432425771671">Synkroniser alt</translation>
+<translation id="4309403553630140242">Tryk to gange for at få flere oplysninger</translation>
 <translation id="430967081421617822">Altid</translation>
 <translation id="4334428914252001502">1 ulæst artikel.</translation>
 <translation id="4338650699862464074">Sender webadresser på de sider, du besøger, til Google.</translation>
@@ -353,6 +358,7 @@ Hvis du vil ændre denne indstilling, skal du <ph name="BEGIN_LINK" />nulstille 
 <translation id="5005498671520578047">Kopiér adgangskode</translation>
 <translation id="5010803260590204777">Åbn en inkognitofane for at søge på nettet uden at blive registreret.</translation>
 <translation id="5039804452771397117">Tillad</translation>
+<translation id="5056446788882570708">Der blev registreret problemer <ph name="TIME" />.</translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5062321486222145940">Installer Google Drev</translation>
 <translation id="5083464117946352670">Kan ikke fastslå filstørrelse.</translation>
@@ -376,7 +382,6 @@ Hvis du vil ændre denne indstilling, skal du <ph name="BEGIN_LINK" />nulstille 
 <translation id="5317780077021120954">Gem</translation>
 <translation id="5327248766486351172">Navn</translation>
 <translation id="5339316356165661760">Aktivér synkronisering</translation>
-<translation id="5352285283572729470">Denne indstilling er administreret</translation>
 <translation id="5388358297987318779">Åbn billede</translation>
 <translation id="5407969256130905701">Kassér ændringer</translation>
 <translation id="5409365236829784218">Der er ingen installerede apps, der kan åbne denne fil.</translation>
@@ -456,6 +461,7 @@ Handoff skal være aktiveret i afsnittet Generelt i Indstillinger, og dine enhed
 <translation id="6187302354554850004">Sidst synkroniseret: <ph name="LAST_USED_TIME" /></translation>
 <translation id="6189413832092199491">Ulæst</translation>
 <translation id="6196207969502475924">Talesøgning</translation>
+<translation id="6202364442240589072">{COUNT,plural, =1{Luk {COUNT} fane}one{Luk {COUNT} fane}other{Luk {COUNT} faner}}</translation>
 <translation id="6219688215832490856">Oversæt aldrig</translation>
 <translation id="6254066287920239840">Åbn links i appen i stedet for i browseren.</translation>
 <translation id="6255097610484507482">Rediger kreditkort</translation>
@@ -571,6 +577,7 @@ Websites kan ikke bruge cookies til at se din browseraktivitet på forskellige w
 <translation id="734758817008927353">Valgmuligheder for at gemme kort</translation>
 <translation id="7348502496356775519">Tilføj bogmærke</translation>
 <translation id="7383797227493018512">Læseliste</translation>
+<translation id="739941347996872055">Forrige fane</translation>
 <translation id="7400418766976504921">Webadresse</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> ulæste artikler.</translation>
 <translation id="7425346204213733349">Ændringer af dine bogmærker, din historik, dine adgangskoder og andre indstillinger synkroniseres ikke længere til din Google-konto. Dine eksisterende data er dog stadig gemt på din Google-konto.</translation>
@@ -636,6 +643,7 @@ Websites kan bruge cookies til at se din browseraktivitet på forskellige websit
 <translation id="8073670137947914548">Downloaden er fuldført</translation>
 <translation id="8073872304774253879">Gør søgninger og browsing endnu bedre</translation>
 <translation id="8076014560081431679">Gemte websiteindstillinger slettes ikke og kan afspejle dine søgevaner. <ph name="BEGIN_LINK" />Få flere oplysninger<ph name="END_LINK" /></translation>
+<translation id="8079602123447022758">Denne indstilling er administreret. Tryk to gange for at få flere oplysninger.</translation>
 <translation id="8105368624971345109">Deaktiver</translation>
 <translation id="8114753159095730575">Filer kan downloades. Se valgmulighederne nederst på skærmen.</translation>
 <translation id="8131740175452115882">Bekræft</translation>

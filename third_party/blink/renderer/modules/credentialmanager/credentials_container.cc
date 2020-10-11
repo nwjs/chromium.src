@@ -17,8 +17,10 @@
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_authentication_extensions_client_inputs.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_authentication_extensions_client_outputs.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_authenticator_selection_criteria.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_credential_creation_options.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_credential_properties_output.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_credential_request_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_federated_credential_request_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_otp_credential_request_options.h"
@@ -53,6 +55,7 @@
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/weborigin/origin_access_entry.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
@@ -164,6 +167,10 @@ bool CheckSecurityRequirementsBeforeRequest(
             "document. Feature Policy may be used to delegate Web "
             "Authentication capabilities to cross-origin child frames."));
         return false;
+      } else {
+        UseCounter::Count(
+            resolver->GetExecutionContext(),
+            WebFeature::kCredentialManagerCrossOriginPublicKeyGetRequest);
       }
       break;
   }
@@ -433,6 +440,16 @@ void OnMakePublicKeyCredentialComplete(
     if (credential->echo_hmac_create_secret) {
       extension_outputs->setHmacCreateSecret(credential->hmac_create_secret);
     }
+    if (credential->echo_cred_props) {
+      DCHECK(RuntimeEnabledFeatures::
+                 WebAuthenticationResidentKeyRequirementEnabled());
+      CredentialPropertiesOutput* cred_props_output =
+          CredentialPropertiesOutput::Create();
+      if (credential->has_cred_props_rk) {
+        cred_props_output->setRk(credential->cred_props_rk);
+      }
+      extension_outputs->setCredProps(cred_props_output);
+    }
     resolver->Resolve(MakeGarbageCollected<PublicKeyCredential>(
         credential->info->id, raw_id, authenticator_response,
         extension_outputs));
@@ -595,9 +612,9 @@ void OnMakePublicKeyCredentialForPaymentComplete(
     auto* payment_credential_remote =
         CredentialManagerProxy::From(resolver->GetScriptState())
             ->PaymentCredential();
+    auto credential_id = credential->info->raw_id;
     payment_credential_remote->StorePaymentCredential(
-        std::move(payment_instrument), credential->info->raw_id,
-        options->rp()->id(),
+        std::move(payment_instrument), credential_id, options->rp()->id(),
         WTF::Bind(
             &OnPaymentCredentialCreationComplete,
             WTF::Passed(std::make_unique<ScopedPromiseResolver>(resolver)),
@@ -638,7 +655,8 @@ void CreatePublicKeyCredentialForPaymentCredential(
         mojom::blink::AuthenticatorSelectionCriteria::New();
     selection_criteria->authenticator_attachment =
         mojom::blink::AuthenticatorAttachment::PLATFORM;
-    selection_criteria->require_resident_key = false;
+    selection_criteria->resident_key =
+        mojom::blink::ResidentKeyRequirement::DISCOURAGED;
     selection_criteria->user_verification =
         mojom::blink::UserVerificationRequirement::REQUIRED;
     mojo_options->authenticator_selection = std::move(selection_criteria);
@@ -795,13 +813,20 @@ ScriptPromise CredentialsContainer::get(
             "a credential"));
         return promise;
       }
+      if (options->publicKey()->extensions()->credProps()) {
+        resolver->Reject(MakeGarbageCollected<DOMException>(
+            DOMExceptionCode::kNotSupportedError,
+            "The 'credProps' extension is only valid when creating "
+            "a credential"));
+        return promise;
+      }
     }
 
     if (!options->publicKey()->hasUserVerification()) {
       resolver->GetFrame()->Console().AddMessage(MakeGarbageCollected<
                                                  ConsoleMessage>(
-          mojom::ConsoleMessageSource::kJavaScript,
-          mojom::ConsoleMessageLevel::kWarning,
+          mojom::blink::ConsoleMessageSource::kJavaScript,
+          mojom::blink::ConsoleMessageLevel::kWarning,
           "publicKey.userVerification was not set to any value in Web "
           "Authentication navigator.credentials.get() call. This defaults to "
           "'preferred', which is probably not what you want. If in doubt, set "
@@ -1057,8 +1082,8 @@ ScriptPromise CredentialsContainer::create(
              ->hasUserVerification()) {
       resolver->GetFrame()->Console().AddMessage(MakeGarbageCollected<
                                                  ConsoleMessage>(
-          mojom::ConsoleMessageSource::kJavaScript,
-          mojom::ConsoleMessageLevel::kWarning,
+          mojom::blink::ConsoleMessageSource::kJavaScript,
+          mojom::blink::ConsoleMessageLevel::kWarning,
           "publicKey.authenticatorSelection.userVerification was not set to "
           "any value in Web Authentication navigator.credentials.create() "
           "call. This defaults to 'preferred', which is probably not what you "
@@ -1066,7 +1091,17 @@ ScriptPromise CredentialsContainer::create(
           "https://chromium.googlesource.com/chromium/src/+/master/content/"
           "browser/webauth/uv_preferred.md for details"));
     }
-
+    if (options->publicKey()->hasAuthenticatorSelection() &&
+        options->publicKey()->authenticatorSelection()->hasResidentKey() &&
+        !mojo::ConvertTo<base::Optional<mojom::blink::ResidentKeyRequirement>>(
+            options->publicKey()->authenticatorSelection()->residentKey())) {
+      resolver->GetFrame()->Console().AddMessage(
+          MakeGarbageCollected<ConsoleMessage>(
+              mojom::blink::ConsoleMessageSource::kJavaScript,
+              mojom::blink::ConsoleMessageLevel::kWarning,
+              "Ignoring unknown publicKey.authenticatorSelection.resident_key "
+              "value"));
+    }
     auto mojo_options =
         MojoPublicKeyCredentialCreationOptions::From(*options->publicKey());
     if (!mojo_options) {

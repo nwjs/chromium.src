@@ -13,9 +13,10 @@
 #include "media/base/video_frame.h"
 #include "media/base/video_frame_metadata.h"
 #include "media/renderers/paint_canvas_video_renderer.h"
-#include "media/renderers/yuv_util.h"
+#include "media/renderers/video_frame_yuv_converter.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_video_frame_init.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_video_pixel_format.h"
 #include "third_party/blink/renderer/core/html/canvas/image_data.h"
 #include "third_party/blink/renderer/core/imagebitmap/image_bitmap.h"
 #include "third_party/blink/renderer/core/imagebitmap/image_bitmap_factories.h"
@@ -94,9 +95,9 @@ VideoFrame* VideoFrame::Create(ImageBitmap* source,
   base::TimeDelta timestamp =
       base::TimeDelta::FromMicroseconds(init->timestamp());
 
-  auto sk_image =
-      source->BitmapImage()->PaintImageForCurrentFrame().GetSkImage();
-  auto sk_color_space = sk_image->refColorSpace();
+  auto sk_image_info =
+      source->BitmapImage()->PaintImageForCurrentFrame().GetSkImageInfo();
+  auto sk_color_space = sk_image_info.refColorSpace();
   if (!sk_color_space) {
     sk_color_space = SkColorSpace::MakeSRGB();
   }
@@ -105,7 +106,7 @@ VideoFrame* VideoFrame::Create(ImageBitmap* source,
                                       "Invalid color space");
     return nullptr;
   }
-  auto sk_color_type = sk_image->colorType();
+  auto sk_color_type = sk_image_info.colorType();
   if (!IsValidSkColorType(sk_color_type)) {
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
                                       "Invalid pixel format");
@@ -184,7 +185,7 @@ String VideoFrame::format() const {
 
   switch (local_frame->format()) {
     case media::PIXEL_FORMAT_I420:
-      return "I420";
+      return V8VideoPixelFormat(V8VideoPixelFormat::Enum::kI420);
 
     default:
       NOTREACHED();
@@ -393,23 +394,17 @@ ScriptPromise VideoFrame::CreateImageBitmap(ScriptState* script_state,
       dest_holder.sync_token = shared_image_interface->GenUnverifiedSyncToken();
       dest_holder.texture_target = GL_TEXTURE_2D;
 
-      media::ConvertFromVideoFrameYUV(local_frame.get(),
-                                      raster_context_provider, dest_holder);
+      media::VideoFrameYUVConverter::ConvertYUVVideoFrameNoCaching(
+          local_frame.get(), raster_context_provider, dest_holder);
       gpu::SyncToken sync_token;
       raster_context_provider->RasterInterface()
           ->GenUnverifiedSyncTokenCHROMIUM(sync_token.GetData());
 
       auto release_callback = viz::SingleReleaseCallback::Create(base::BindOnce(
-          [](viz::RasterContextProvider* context, gpu::Mailbox mailbox,
-             const gpu::SyncToken& sync_token, bool is_lost) {
-            auto* ri = context->RasterInterface();
-            auto* sii = context->SharedImageInterface();
-            ri->WaitSyncTokenCHROMIUM(sync_token.GetConstData());
-            gpu::SyncToken ri_sync_token;
-            ri->GenUnverifiedSyncTokenCHROMIUM(ri_sync_token.GetData());
-            sii->DestroySharedImage(ri_sync_token, mailbox);
-          },
-          base::Unretained(raster_context_provider), dest_holder.mailbox));
+          [](gpu::SharedImageInterface* sii, gpu::Mailbox mailbox,
+             const gpu::SyncToken& sync_token,
+             bool is_lost) { sii->DestroySharedImage(sync_token, mailbox); },
+          base::Unretained(shared_image_interface), dest_holder.mailbox));
 
       const SkImageInfo sk_image_info =
           SkImageInfo::Make(codedWidth(), codedHeight(), kN32_SkColorType,

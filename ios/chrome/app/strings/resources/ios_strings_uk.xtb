@@ -14,6 +14,7 @@
 <translation id="1084365883616172403">Опубліковано у Facebook</translation>
 <translation id="1103523840287552314">Завжди перекладати з такої мови: <ph name="LANGUAGE" /></translation>
 <translation id="1104948393051856124">Прийняти та продовжити</translation>
+<translation id="110724200315609752">Перейти у відкрите вікно</translation>
 <translation id="1112015203684611006">Не надруковано.</translation>
 <translation id="1125564390852150847">Створити вкладку.</translation>
 <translation id="1145536944570833626">Видалити наявні дані.</translation>
@@ -93,6 +94,7 @@
 <translation id="1941314575388338491">Двічі торкніться, щоб скопіювати.</translation>
 <translation id="1952172573699511566">Якщо можливо, текст на веб-сайтах відображатиметься вибраною мовою.</translation>
 <translation id="1952728750904661634">Увійти в керований обліковий запис</translation>
+<translation id="1965935827552890526">Завершіть те, що ви робили в іншому відкритому вікні Chrome.</translation>
 <translation id="1974060860693918893">Розширені</translation>
 <translation id="1989112275319619282">Переглянути</translation>
 <translation id="1992734845128748707">Змінити веб-переглядач за умовчанням…</translation>
@@ -277,6 +279,7 @@
 <translation id="408404951701638773">Тепер до рядка пошуку ще легше отримувати доступ</translation>
 <translation id="411254640334432676">Не завантажено.</translation>
 <translation id="4112644173421521737">Пошук</translation>
+<translation id="4113030288477039509">Керується адміністратором</translation>
 <translation id="4121993058175073134">Щоб надсил. дані про чистий експорт, налашт. обл. запис у програмі Налаштування.</translation>
 <translation id="4124987746317609294">Період часу</translation>
 <translation id="4152011295694446843">Тут відображатимуться ваші закладки</translation>
@@ -285,11 +288,13 @@
 <translation id="4181841719683918333">Мови</translation>
 <translation id="424315890655130736">Ввести парольну фразу</translation>
 <translation id="4263576668337963058">Показати доступні дії зі сторінкою</translation>
+<translation id="4267380167363222949">Наступна вкладка</translation>
 <translation id="4272631900155121838">Щоб відсканувати QR-код, увімкніть камеру в налаштуваннях</translation>
 <translation id="4276041135170112053">Виправити.</translation>
 <translation id="4277990410970811858">Безпечний перегляд</translation>
 <translation id="4281844954008187215">Умови використання</translation>
 <translation id="430793432425771671">Синхронізувати все</translation>
+<translation id="4309403553630140242">Двічі торкніться, щоб дізнатися більше</translation>
 <translation id="430967081421617822">Увесь час</translation>
 <translation id="4334428914252001502">1 непрочитана стаття.</translation>
 <translation id="4338650699862464074">Надсилає в Google URL-адреси відвіданих сторінок.</translation>
@@ -353,6 +358,7 @@
 <translation id="5005498671520578047">Копіювати пароль</translation>
 <translation id="5010803260590204777">Щоб переглядати веб-сторінки конфіденційно відкрийте анонімну вкладку.</translation>
 <translation id="5039804452771397117">Дозволити</translation>
+<translation id="5056446788882570708">Проблеми виявлено <ph name="TIME" />.</translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5062321486222145940">Установити Google Диск</translation>
 <translation id="5083464117946352670">Невідомий розмір файлу.</translation>
@@ -376,7 +382,6 @@
 <translation id="5317780077021120954">Зберегти</translation>
 <translation id="5327248766486351172">Назва</translation>
 <translation id="5339316356165661760">Увімкнути синхронізацію</translation>
-<translation id="5352285283572729470">Цим налаштуванням керує адміністратор</translation>
 <translation id="5388358297987318779">Відкрити зображення</translation>
 <translation id="5407969256130905701">Відхилити зміни</translation>
 <translation id="5409365236829784218">Немає встановлених програм, які можуть відкрити цей файл.</translation>
@@ -456,6 +461,7 @@
 <translation id="6187302354554850004">Востаннє синхрон.: <ph name="LAST_USED_TIME" /></translation>
 <translation id="6189413832092199491">Непрочитані</translation>
 <translation id="6196207969502475924">Голосовий пошук</translation>
+<translation id="6202364442240589072">{COUNT,plural, =1{Закрити {COUNT} вкладку}one{Закрити {COUNT} вкладку}few{Закрити {COUNT} вкладки}many{Закрити {COUNT} вкладок}other{Закрити {COUNT} вкладки}}</translation>
 <translation id="6219688215832490856">Ніколи не перекладати</translation>
 <translation id="6254066287920239840">Відкривайте посилання в додатку, а не у веб-переглядачі.</translation>
 <translation id="6255097610484507482">Редагувати дані кредитної картки</translation>
@@ -571,6 +577,7 @@
 <translation id="734758817008927353">Опції збереження картки</translation>
 <translation id="7348502496356775519">Закладка</translation>
 <translation id="7383797227493018512">Список читання</translation>
+<translation id="739941347996872055">Попередня вкладка</translation>
 <translation id="7400418766976504921">URL-адреса</translation>
 <translation id="7409985198648820906">Непрочитаних статей: <ph name="UNREAD_COUNT" />.</translation>
 <translation id="7425346204213733349">Зміни в закладках, історії, паролях та інших налаштуваннях більше не синхронізуватимуться з вашим обліковим записом Google. Однак наявні дані залишаться у вашому обліковому записі.</translation>
@@ -636,6 +643,7 @@
 <translation id="8073670137947914548">Завантаження завершено</translation>
 <translation id="8073872304774253879">Покращувати пошук і веб-перегляд</translation>
 <translation id="8076014560081431679">Збережені налаштування, які можуть стосуватися ваших зацікавлень в Інтернеті, не буде видалено. <ph name="BEGIN_LINK" />Докладніше<ph name="END_LINK" /></translation>
+<translation id="8079602123447022758">Цим налаштуванням керує адміністратор. Двічі торкніться, щоб дізнатися більше.</translation>
 <translation id="8105368624971345109">Вимкнути</translation>
 <translation id="8114753159095730575">Доступне завантаження файлу. Параметри можна знайти внизу екрана.</translation>
 <translation id="8131740175452115882">Підтвердити</translation>

@@ -220,12 +220,10 @@ void BookmarkBubbleView::ShowBubble(
 
   // views:: land below, there's no agnostic reference to arrow / anchors /
   // bubbles.
-  auto bubble =
-      std::make_unique<views::BubbleDialogModelHost>(std::move(dialog_model));
+  auto bubble = std::make_unique<views::BubbleDialogModelHost>(
+      std::move(dialog_model), anchor_view, views::BubbleBorder::TOP_RIGHT);
   bubble->SelectAllText(kBookmarkName);
   bookmark_bubble_ = bubble.get();
-  bubble->SetAnchorView(anchor_view);
-  bubble->SetArrow(views::BubbleBorder::TOP_RIGHT);
   if (highlighted_button)
     bubble->SetHighlightedButton(highlighted_button);
 
@@ -244,7 +242,7 @@ void BookmarkBubbleView::ShowBubble(
 #endif
 
   views::Widget* const widget =
-      views::BubbleDialogDelegateView::CreateBubble(bubble.release());
+      views::BubbleDialogDelegateView::CreateBubble(std::move(bubble));
   widget->Show();
 
   chrome::RecordDialogCreation(chrome::DialogIdentifier::BOOKMARK);

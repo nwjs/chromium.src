@@ -27,6 +27,11 @@ namespace {
 
 const int kMessageWidth = 400;
 
+void OnArcHandled(WebContents* web_contents, const GURL& url, bool handled) {
+  if (!handled)
+    new ExternalProtocolDialog(web_contents, url);
+}
+
 }  // namespace
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -47,12 +52,10 @@ void ExternalProtocolHandler::RunExternalProtocolDialog(
   int render_process_host_id =
       web_contents->GetRenderViewHost()->GetProcess()->GetID();
   int routing_id = web_contents->GetRenderViewHost()->GetRoutingID();
-  if (arc::RunArcExternalProtocolDialog(url, initiating_origin,
-                                        render_process_host_id, routing_id,
-                                        page_transition, has_user_gesture)) {
-    return;
-  }
-  new ExternalProtocolDialog(web_contents, url);
+  arc::RunArcExternalProtocolDialog(
+      url, initiating_origin, render_process_host_id, routing_id,
+      page_transition, has_user_gesture,
+      base::BindOnce(&OnArcHandled, web_contents, url));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -61,14 +64,15 @@ void ExternalProtocolHandler::RunExternalProtocolDialog(
 ExternalProtocolDialog::ExternalProtocolDialog(WebContents* web_contents,
                                                const GURL& url)
     : creation_time_(base::TimeTicks::Now()), scheme_(url.scheme()) {
+  SetOwnedByWidget(true);
+
   views::DialogDelegate::SetButtons(ui::DIALOG_BUTTON_OK);
   views::DialogDelegate::SetButtonLabel(
       ui::DIALOG_BUTTON_OK,
       l10n_util::GetStringUTF16(IDS_EXTERNAL_PROTOCOL_OK_BUTTON_TEXT));
 
-  views::MessageBoxView::InitParams params((base::string16()));
-  params.message_width = kMessageWidth;
-  message_box_view_ = new views::MessageBoxView(params);
+  message_box_view_ = new views::MessageBoxView();
+  message_box_view_->SetMessageWidth(kMessageWidth);
 
   gfx::NativeWindow parent_window;
   if (web_contents) {
@@ -92,16 +96,10 @@ base::string16 ExternalProtocolDialog::GetWindowTitle() const {
   // own dialog with more information in the future.
   if (scheme_ == url::kTelScheme &&
       base::FeatureList::IsEnabled(kClickToCallUI)) {
-    return l10n_util::GetStringFUTF16(
-        IDS_BROWSER_SHARING_CLICK_TO_CALL_DIALOG_HELP_TEXT_NO_DEVICES,
-        l10n_util::GetStringUTF16(
-            IDS_BROWSER_SHARING_CLICK_TO_CALL_DIALOG_TROUBLESHOOT_LINK));
+    return l10n_util::GetStringUTF16(
+        IDS_BROWSER_SHARING_CLICK_TO_CALL_DIALOG_HELP_TEXT_NO_DEVICES);
   }
   return l10n_util::GetStringUTF16(IDS_EXTERNAL_PROTOCOL_TITLE);
-}
-
-void ExternalProtocolDialog::DeleteDelegate() {
-  delete this;
 }
 
 views::View* ExternalProtocolDialog::GetContentsView() {

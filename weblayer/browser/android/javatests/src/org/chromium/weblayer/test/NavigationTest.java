@@ -318,6 +318,9 @@ public class NavigationTest {
             assertEquals(1, navigationController.getNavigationListSize());
         });
 
+        // Verify getter works as expected.
+        assertTrue(params.getShouldReplaceCurrentEntry());
+
         // Verify that a default NavigateParams does not replace.
         final NavigateParams params2 = new NavigateParams();
         navigateAndWaitForCompletion(URL3,
@@ -835,7 +838,7 @@ public class NavigationTest {
     // This is a regression test for https://crbug.com/1121388.
     @Test
     @SmallTest
-    @MinWebLayerVersion(86)
+    @MinWebLayerVersion(85)
     public void testDestroyTabWithModalDialog() throws Exception {
         // Load a page with a form.
         InstrumentationActivity activity =

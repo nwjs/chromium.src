@@ -198,12 +198,6 @@ BrowserXRRuntimeImpl* XRRuntimeManagerImpl::GetImmersiveVrRuntime() {
     return openxr;
 #endif
 
-#if BUILDFLAG(ENABLE_OPENVR)
-  auto* openvr = GetRuntime(device::mojom::XRDeviceId::OPENVR_DEVICE_ID);
-  if (openvr)
-    return openvr;
-#endif
-
 #if BUILDFLAG(ENABLE_OCULUS_VR)
   auto* oculus = GetRuntime(device::mojom::XRDeviceId::OCULUS_DEVICE_ID);
   if (oculus)
@@ -317,11 +311,13 @@ void XRRuntimeManagerImpl::SupportsSession(
 
 void XRRuntimeManagerImpl::MakeXrCompatible() {
   auto* runtime = GetImmersiveVrRuntime();
+  if (!runtime)
+    runtime = GetImmersiveArRuntime();
+
   if (!runtime) {
-    // WebXR spec: if there's no device, xr compatible is false.
     for (VRServiceImpl* service : services_)
       service->OnMakeXrCompatibleComplete(
-          device::mojom::XrCompatibleResult::kNotCompatible);
+          device::mojom::XrCompatibleResult::kNoDeviceAvailable);
     return;
   }
 

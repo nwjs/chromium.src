@@ -171,11 +171,6 @@ public class AwContentsClientBridge {
         // thrown by the application callback won't have to be propagated through a native call
         // stack.
         AwThreadUtils.postToCurrentLooper(() -> mClient.onReceivedSslError(callback, sslError));
-
-        // Record UMA on ssl error
-        // Use sparse histogram in case new values are added in future releases
-        RecordHistogram.recordSparseHistogram(
-                "Android.WebView.onReceivedSslError.ErrorCode", sslError.getPrimaryError());
         return true;
     }
 
@@ -309,14 +304,14 @@ public class AwContentsClientBridge {
         AwContentsClient.AwWebResourceRequest request = new AwContentsClient.AwWebResourceRequest(
                 url, isMainFrame, hasUserGesture, method, requestHeaderNames, requestHeaderValues);
         AwContentsClient.AwWebResourceError error = new AwContentsClient.AwWebResourceError();
-        error.errorCode = errorCode;
+        error.errorCode = ErrorCodeConversionHelper.convertErrorCode(errorCode);
         error.description = description;
 
         String unreachableWebDataUrl = AwContentsStatics.getUnreachableWebDataUrl();
         boolean isErrorUrl =
                 unreachableWebDataUrl != null && unreachableWebDataUrl.equals(request.url);
 
-        if ((!isErrorUrl && error.errorCode != NetError.ERR_ABORTED) || safebrowsingHit) {
+        if ((!isErrorUrl && errorCode != NetError.ERR_ABORTED) || safebrowsingHit) {
             // NetError.ERR_ABORTED error code is generated for the following reasons:
             // - WebView.stopLoading is called;
             // - the navigation is intercepted by the embedder via shouldOverrideUrlLoading;
@@ -331,10 +326,8 @@ public class AwContentsClientBridge {
                     // dismissed.
                     return;
                 } else {
-                    error.errorCode = ErrorCodeConversionHelper.ERROR_UNSAFE_RESOURCE;
+                    error.errorCode = WebviewErrorCode.ERROR_UNSAFE_RESOURCE;
                 }
-            } else {
-                error.errorCode = ErrorCodeConversionHelper.convertErrorCode(error.errorCode);
             }
             if (request.isMainFrame
                     && AwFeatureList.pageStartedOnCommitEnabled(isRendererInitiated)) {

@@ -41,8 +41,8 @@
 #include "content/browser/devtools/protocol/storage_handler.h"
 #include "content/browser/devtools/protocol/target_handler.h"
 #include "content/browser/devtools/protocol/tracing_handler.h"
-#include "content/browser/frame_host/navigation_request.h"
-#include "content/browser/frame_host/render_frame_host_impl.h"
+#include "content/browser/renderer_host/navigation_request.h"
+#include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/browser/renderer_host/render_process_host_impl.h"
 #include "content/browser/renderer_host/render_view_host_impl.h"
 #include "content/browser/site_instance_impl.h"
@@ -675,6 +675,15 @@ std::string RenderFrameDevToolsAgentHost::GetOpenerId() {
     return std::string();
   FrameTreeNode* opener = frame_tree_node_->original_opener();
   return opener ? opener->devtools_frame_token().ToString() : std::string();
+}
+
+std::string RenderFrameDevToolsAgentHost::GetOpenerFrameId() {
+  if (!frame_tree_node_)
+    return std::string();
+  const base::Optional<base::UnguessableToken>& opener_devtools_frame_token =
+      frame_tree_node_->opener_devtools_frame_token();
+  return opener_devtools_frame_token ? opener_devtools_frame_token->ToString()
+                                     : std::string();
 }
 
 bool RenderFrameDevToolsAgentHost::CanAccessOpener() {

@@ -109,6 +109,7 @@ class GpuClient;
 
 namespace content {
 class AgentMetricsCollectorHost;
+class AgentSchedulingGroupHost;
 class CodeCacheHostImpl;
 class FileSystemManagerImpl;
 class InProcessChildThreadParams;
@@ -252,7 +253,6 @@ class CONTENT_EXPORT RenderProcessHostImpl
   void DecrementKeepAliveRefCount() override;
   void DisableKeepAliveRefCount() override;
   bool IsKeepAliveRefCountDisabled() override;
-  void Resume() override;
   mojom::Renderer* GetRendererInterface() override;
   void CreateURLLoaderFactory(
       mojo::PendingReceiver<network::mojom::URLLoaderFactory> receiver,
@@ -265,7 +265,7 @@ class CONTENT_EXPORT RenderProcessHostImpl
   bool HostHasNotBeenUsed() override;
   void SetProcessLock(const IsolationContext& isolation_context,
                       const ProcessLock& process_lock) override;
-  bool IsProcessLockedForTesting() override;
+  bool IsProcessLockedToSiteForTesting() override;
   void BindCacheStorage(
       const network::CrossOriginEmbedderPolicy& cross_origin_embedder_policy,
       mojo::PendingRemote<network::mojom::CrossOriginEmbedderPolicyReporter>
@@ -282,7 +282,8 @@ class CONTENT_EXPORT RenderProcessHostImpl
   void DumpProfilingData(base::OnceClosure callback) override;
 #endif
 
-  mojom::RouteProvider* GetRemoteRouteProvider();
+  mojom::RouteProvider* GetRemoteRouteProvider(
+      util::PassKey<AgentSchedulingGroupHost>);
 
   // IPC::Sender via RenderProcessHost.
   bool Send(IPC::Message* msg) override;
@@ -349,18 +350,12 @@ class CONTENT_EXPORT RenderProcessHostImpl
                              const SiteInfo& site_info,
                              bool is_guest);
 
-  // Returns an existing RenderProcessHost for |url| in |isolation_context|, if
-  // one exists.  Otherwise a new RenderProcessHost should be created and
-  // registered using RegisterProcessHostForSite().
-  // This should only be used for process-per-site mode, which can be enabled
+  // Returns an existing RenderProcessHost for |site_info| in
+  // |isolation_context|, if one exists.  Otherwise a new RenderProcessHost
+  // should be created and registered using RegisterProcessHostForSite(). This
+  // should only be used for process-per-site mode, which can be enabled
   // globally with a command line flag or per-site, as determined by
-  // SiteInstanceImpl::ShouldUseProcessPerSite.
-  // Important: |url| should be a full URL and *not* a SiteInfo.
-  static RenderProcessHost* GetSoleProcessHostForURL(
-      const IsolationContext& isolation_context,
-      const GURL& url);
-
-  // Variant of the above that takes in a SiteInfo. |is_guest| should be set to
+  // SiteInstanceImpl::ShouldUseProcessPerSite. |is_guest| should be set to
   // true if the call is being made for a <webview> guest SiteInstance.
   // TODO(wjmaclean): Move is_guest into SiteInfo at some point.
   static RenderProcessHost* GetSoleProcessHostForSite(
@@ -592,6 +587,20 @@ class CONTENT_EXPORT RenderProcessHostImpl
       mojo::PendingReceiver<media::mojom::VideoDecodePerfHistory> receiver)
       override;
 
+  // Binds |receiver| to a OneShotBackgroundSyncService instance owned by the
+  // StoragePartition associated with the render process host, and is used by
+  // frames and service workers via BrowserInterfaceBroker.
+  void CreateOneShotSyncService(
+      mojo::PendingReceiver<blink::mojom::OneShotBackgroundSyncService>
+          receiver) override;
+
+  // Binds |receiver| to a PeriodicBackgroundSyncService instance owned by the
+  // StoragePartition associated with the render process host, and is used by
+  // frames and service workers via BrowserInterfaceBroker.
+  void CreatePeriodicSyncService(
+      mojo::PendingReceiver<blink::mojom::PeriodicBackgroundSyncService>
+          receiver) override;
+
   // Binds |receiver| to a QuotaManagerHost instance indirectly owned by the
   // StoragePartition associated with the render process host. Used by frames
   // and workers via BrowserInterfaceBroker.
@@ -716,6 +725,12 @@ class CONTENT_EXPORT RenderProcessHostImpl
   friend class VisitRelayingRenderProcessHost;
   friend class StoragePartitonInterceptor;
   friend class RenderProcessHostTest;
+  // TODO(crbug.com/1111231): This class is a friend so that it can call our
+  // private mojo implementation methods, acting as a pass-through. This is only
+  // necessary during the associated interface migration, after which,
+  // AgentSchedulingGroupHost will not act as a pass-through to the private
+  // methods here. At that point we'll remove this friend class.
+  friend class AgentSchedulingGroupHost;
 
   // Use CreateRenderProcessHost() instead of calling this constructor
   // directly.
@@ -788,12 +803,6 @@ class CONTENT_EXPORT RenderProcessHostImpl
       mojo::PendingReceiver<blink::mojom::WebDatabaseHost> receiver);
   void BindAecDumpManager(
       mojo::PendingReceiver<blink::mojom::AecDumpManager> receiver);
-  void CreateOneShotSyncService(
-      mojo::PendingReceiver<blink::mojom::OneShotBackgroundSyncService>
-          receiver);
-  void CreatePeriodicSyncService(
-      mojo::PendingReceiver<blink::mojom::PeriodicBackgroundSyncService>
-          receiver);
   void BindPushMessagingManager(
       mojo::PendingReceiver<blink::mojom::PushMessaging> receiver);
   void BindP2PSocketManager(
@@ -901,7 +910,7 @@ class CONTENT_EXPORT RenderProcessHostImpl
       mojo::PendingReceiver<network::mojom::MdnsResponder> receiver);
 #endif  // BUILDFLAG(ENABLE_MDNS)
 
-  void NotifyRendererIfLockedToSite();
+  void NotifyRendererOfLockedStateUpdate();
   void PopulateTerminationInfoRendererFields(ChildProcessTerminationInfo* info);
 
   static void OnMojoError(int render_process_id, const std::string& error);
@@ -1173,6 +1182,8 @@ class CONTENT_EXPORT RenderProcessHostImpl
   std::unique_ptr<PluginRegistryImpl> plugin_registry_;
 
   mojo::Remote<mojom::ChildProcess> child_process_;
+  // This will be bound to |io_thread_host_impl_|.
+  mojo::PendingReceiver<mojom::ChildProcessHost> child_host_pending_receiver_;
   mojo::AssociatedRemote<mojom::RouteProvider> remote_route_provider_;
   mojo::AssociatedRemote<mojom::Renderer> renderer_interface_;
   mojo::AssociatedReceiver<mojom::RendererHost> renderer_host_receiver_{this};
@@ -1224,13 +1235,6 @@ class CONTENT_EXPORT RenderProcessHostImpl
   class IOThreadHostImpl;
   friend class IOThreadHostImpl;
   base::Optional<base::SequenceBound<IOThreadHostImpl>> io_thread_host_impl_;
-
-  // Representing agent cluster's "cross-origin isolated" concept.
-  // TODO(yhirano): Have the spec URL.
-  // This property is renderer process global because we ensure that a
-  // renderer process host only cross-origin isolated agents or only
-  // non-cross-origin isolated agents, not both.
-  const bool cross_origin_isolated_ = false;
 
   base::WeakPtrFactory<RenderProcessHostImpl> weak_factory_{this};
 

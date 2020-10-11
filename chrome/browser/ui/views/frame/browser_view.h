@@ -12,6 +12,7 @@
 
 #include "extensions/browser/app_window/size_constraints.h"
 
+#include "base/callback_list.h"
 #include "base/compiler_specific.h"
 #include "base/gtest_prod_util.h"
 #include "base/macros.h"
@@ -67,7 +68,7 @@ class FullscreenControlHost;
 class InfoBarContainerView;
 class LocationBarView;
 class StatusBubbleViews;
-class TabGroupsIPHController;
+class TabSearchButton;
 class TabStrip;
 class TabStripRegionView;
 class ToolbarButtonProvider;
@@ -223,6 +224,9 @@ class BrowserView : public BrowserWindow,
   // Accessor for the contents WebView.
   views::WebView* contents_web_view() { return contents_web_view_; }
 
+  // Accessor for the BrowserView's TabSearchButton instance.
+  TabSearchButton* GetTabSearchButton();
+
   // Returns true if various window components are visible.
   bool IsTabStripVisible() const;
 
@@ -259,7 +263,7 @@ class BrowserView : public BrowserWindow,
 
   // Returns true if the Browser object associated with this BrowserView
   // supports tabs, such as all normal browsers, and tabbed apps like terminal.
-  bool IsTabStripSupported() const;
+  bool CanSupportTabStrip() const;
 
   // Returns true if the Browser object associated with this BrowserView is a
   // normal window (i.e. a browser window, not an app or popup).
@@ -310,13 +314,25 @@ class BrowserView : public BrowserWindow,
     return toolbar_button_provider_;
   }
 
-  TabGroupsIPHController* tab_groups_iph_controller() {
-    return tab_groups_iph_controller_.get();
-  }
-
   FeaturePromoControllerViews* feature_promo_controller() {
     return feature_promo_controller_.get();
   }
+
+  // Callback for listening for link-opening-from-gesture events (i.e. only
+  // those resulting from direct user action).
+  using OnLinkOpeningFromGestureCallback =
+      base::RepeatingCallback<void(WindowOpenDisposition)>;
+  using OnLinkOpeningFromGestureCallbackList =
+      base::RepeatingCallbackList<OnLinkOpeningFromGestureCallback::RunType>;
+  using OnLinkOpeningFromGestureSubscription =
+      std::unique_ptr<OnLinkOpeningFromGestureCallbackList::Subscription>;
+
+  // Listens to the "link opened from gesture" event. Callback will be called
+  // when a link is opened from user interaction in the same browser window, but
+  // before the tabstrip is actually modified. Useful for doing certain types
+  // of animations (e.g. "flying link" animation in tablet mode).
+  OnLinkOpeningFromGestureSubscription AddOnLinkOpeningFromGestureCallback(
+      OnLinkOpeningFromGestureCallback callback);
 
   // BrowserWindow:
   void ForceClose() override;
@@ -404,6 +420,7 @@ class BrowserView : public BrowserWindow,
   ExtensionsContainer* GetExtensionsContainer() override;
   void ToolbarSizeChanged(bool is_animating) override;
   void TabDraggingStatusChanged(bool is_dragging) override;
+  void LinkOpeningFromGesture(WindowOpenDisposition disposition) override;
   void FocusAppMenu() override;
   void FocusBookmarksToolbar() override;
   void FocusInactivePopupForAccessibility() override;
@@ -452,7 +469,6 @@ class BrowserView : public BrowserWindow,
   void ConfirmBrowserCloseWithPendingDownloads(
       int download_count,
       Browser::DownloadCloseType dialog_type,
-      bool app_modal,
       const base::Callback<void(bool)>& callback) override;
   void UserChangedTheme(BrowserThemeChangeType theme_change_type) override;
   void ShowAppMenu() override;
@@ -488,6 +504,7 @@ class BrowserView : public BrowserWindow,
   LocationBarView* GetLocationBarView() const;
 
   void ShowInProductHelpPromo(InProductHelpFeature iph_feature) override;
+  FeaturePromoController* GetFeaturePromoController() override;
 
   // TabStripModelObserver:
   void OnTabStripModelChanged(
@@ -517,7 +534,6 @@ class BrowserView : public BrowserWindow,
   bool ShouldShowWindowTitle() const override;
   gfx::ImageSkia GetWindowAppIcon() override;
   gfx::ImageSkia GetWindowIcon() override;
-  bool ShouldShowWindowIcon() const override;
   bool ExecuteWindowsCommand(int command_id) override;
   std::string GetWindowName() const override;
   void SaveWindowPlacement(const gfx::Rect& bounds,
@@ -621,6 +637,10 @@ class BrowserView : public BrowserWindow,
 
   // Create and open the tab search bubble.
   void CreateTabSearchBubble() override;
+
+  AccessibilityFocusHighlight* GetAccessibilityFocusHighlightForTesting() {
+    return accessibility_focus_highlight_.get();
+  }
 
  private:
   // Do not friend BrowserViewLayout. Use the BrowserViewLayoutDelegate
@@ -760,6 +780,17 @@ private:
 
   // Notifies that window bounds changed to extensions if needed.
   void TryNotifyWindowBoundsChanged(const gfx::Rect& widget_bounds);
+
+  // Called when ui::TouchUiController changes the current touch mode.
+  void TouchModeChanged();
+
+  // Called when the in-product help backend is initialized.
+  void OnFeatureEngagementTrackerInitialized(bool initialized);
+
+  // Attempts to show in-product help for the WebUI tab strip. Should be
+  // called when the IPH backend is initialized or whenever the touch
+  // mode changes.
+  void MaybeShowWebUITabStripIPH();
 
   bool resizable_ = true;
 
@@ -915,7 +946,7 @@ private:
 
   std::unique_ptr<ui::TouchUiController::Subscription> subscription_ =
       ui::TouchUiController::Get()->RegisterCallback(
-          base::BindRepeating(&BrowserView::MaybeInitializeWebUITabStrip,
+          base::BindRepeating(&BrowserView::TouchModeChanged,
                               base::Unretained(this)));
 
   std::unique_ptr<WebContentsCloseHandler> web_contents_close_handler_;
@@ -947,8 +978,9 @@ private:
 
   std::unique_ptr<AccessibilityFocusHighlight> accessibility_focus_highlight_;
 
-  std::unique_ptr<TabGroupsIPHController> tab_groups_iph_controller_;
   std::unique_ptr<FeaturePromoControllerViews> feature_promo_controller_;
+
+  OnLinkOpeningFromGestureCallbackList link_opened_from_gesture_callbacks_;
 
 #if defined(OS_CHROMEOS)
   // |loading_animation_tracker_| is used to measure animation smoothness for

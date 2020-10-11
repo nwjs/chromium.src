@@ -39,6 +39,7 @@ Bəzi funksiyalar əlçatmaz ola bilər ki, nəticədə tərcihlərə edilən d�
 <translation id="2560420686485554789">Faylları endirmək üçün Chromium yaddaşa giriş tələb edir</translation>
 <translation id="2572494885440352020">Chromium Yardım</translation>
 <translation id="2587578672395088481">Güncəlləşmənin tətbiq olunması üçün Chromium OS yenidən başladılmalıdır.</translation>
+<translation id="2615699638672665509">Bu kompüterin avadanlığı dəstəklənmədiyindən, tezliklə Chromium güncəlləşmələri almağı dayandıracaq.</translation>
 <translation id="2648074677641340862">Quraşdırma zamanı əməliyyat sistemi xətası baş verdi. Chromium'u yenidən endirin.</translation>
 <translation id="2711502716910134313">Chromium Paneli</translation>
 <translation id="2718390899429598676">Əlavə təhlükəsizlik üçün, Chromium datanızı şifrələyəcək.</translation>
@@ -153,7 +154,6 @@ Bəzi funksiyalar əlçatmaz ola bilər ki, nəticədə tərcihlərə edilən d�
 <translation id="6333502561965082103">Chromium'da digər əməliyyat davam edir. Sonra yenidən cəhd edin.</translation>
 <translation id="6334986366598267305">Chromium'u Google Hesabınız ilə ə paylaşılmış kompüterlərdə istifadə etmək indi daha asandır.</translation>
 <translation id="6373523479360886564">Chromium'u silmək istəyirsiniz?</translation>
-<translation id="6400072781405947421">Chromium düzgün işləməyə bilər, çünki daha Mac OS X 10.9 versiyasında dəstəklənmir.</translation>
 <translation id="6403826409255603130">Chromium veb səhifələri və tətbiqləri ildırım sürəti ilə işlədən veb brauzerdir. Chromium sürətlidir, stabildir və istifadəyə rahatdır. Chromium ilə internetdən fırıldaqlardan və viruslardan uzaq şəkildə istifadə edin.</translation>
 <translation id="6434250628340475518">Chromium OS Sistemi</translation>
 <translation id="6457450909262716557">{SECONDS,plural, =1{Chromium 1 saniyəyə yenidən başlayacaq}other{Chromium # saniyəyə yenidən başlayacaq}}</translation>
@@ -211,6 +211,7 @@ Bəzi funksiyalar əlçatmaz ola bilər. Xüsusi profil direktoriyası göstəri
 <translation id="7773960292263897147">Xəbərdarlıq: Chromium artırmanın axtarış tarixçəsini qeyd etməsinin qarşısını ala bilməz. Bu artırmanı gizli rejimdə deaktiv etmək üçün bu seçimi silin.</translation>
 <translation id="7790626492778995050"><ph name="PAGE_TITLE" /> - Chromium Canary</translation>
 <translation id="7827169012280634081">Chromium'dan çıxdıqda kuki və sayt datasını silin</translation>
+<translation id="7857220146454061152">Chromium güncəlləmələrini əldə etmək üçün OS X 10.11 və ya daha yeni versiya tələb olunur. Bu kompüter OS X 10.10 istifadə edir.</translation>
 <translation id="7867198900892795913">Chromium ən son versiyaya güncəllənə bilmədi. Yeni funksiyaları və təhlükəsizlik həllərini əldən verirsiniz.</translation>
 <translation id="7898472181347242998">Cihazınızın güncəl olub-olmadığına baxmaq üçün <ph name="LINK_BEGIN" />Chromium OS Ayarlarına<ph name="LINK_END" /> keçin</translation>
 <translation id="7937630085815544518">Chromium'a <ph name="USER_EMAIL_ADDRESS" /> kimi daxil olmuşdunuz. Lütfən, yenidən daxil olmaq üçün eyni hesabdan istifadə edin.</translation>

@@ -27,9 +27,7 @@
 #include "chrome/browser/dom_distiller/tab_utils.h"
 #include "chrome/browser/favicon/favicon_utils.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
-#include "chrome/browser/media/router/media_router_dialog_controller.h"  // nogncheck
 #include "chrome/browser/media/router/media_router_feature.h"
-#include "chrome/browser/media/router/media_router_metrics.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sessions/session_service_factory.h"
@@ -57,6 +55,7 @@
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/passwords/manage_passwords_ui_controller.h"
 #include "chrome/browser/ui/qrcode_generator/qrcode_generator_bubble_controller.h"
+#include "chrome/browser/ui/read_later/reading_list_model_factory.h"
 #include "chrome/browser/ui/scoped_tabbed_browser_displayer.h"
 #include "chrome/browser/ui/send_tab_to_self/send_tab_to_self_bubble_controller.h"
 #include "chrome/browser/ui/status_bubble.h"
@@ -85,8 +84,12 @@
 #include "components/find_in_page/find_tab_helper.h"
 #include "components/find_in_page/find_types.h"
 #include "components/google/core/common/google_util.h"
+#include "components/media_router/browser/media_router_dialog_controller.h"  // nogncheck
+#include "components/media_router/browser/media_router_metrics.h"
 #include "components/omnibox/browser/omnibox_prefs.h"
 #include "components/prefs/pref_service.h"
+#include "components/reading_list/core/reading_list_entry.h"
+#include "components/reading_list/core/reading_list_model.h"
 #include "components/services/app_service/public/mojom/types.mojom.h"
 #include "components/sessions/core/live_tab_context.h"
 #include "components/sessions/core/tab_restore_service.h"
@@ -208,6 +211,27 @@ void CreateAndShowNewWindowWithContents(
   new_browser->tab_strip_model()->AddWebContents(std::move(contents), -1,
                                                  ui::PAGE_TRANSITION_LINK,
                                                  TabStripModel::ADD_ACTIVE);
+}
+
+bool GetActiveTabURLAndTitleToSave(Browser* browser,
+                                   GURL* url,
+                                   base::string16* title) {
+  content::WebContents* web_contents =
+      browser->tab_strip_model()->GetActiveWebContents();
+  // |web_contents| can be nullptr if the last tab in the browser was closed
+  // but the browser wasn't closed yet. https://crbug.com/799668
+  if (!web_contents)
+    return false;
+  chrome::GetURLAndTitleToBookmark(web_contents, url, title);
+  return true;
+}
+
+ReadingListModel* GetReadingListModel(Browser* browser) {
+  ReadingListModel* model =
+      ReadingListModelFactory::GetForBrowserContext(browser->profile());
+  if (!model || !model->loaded())
+    return nullptr;  // Ignore requests until model has loaded.
+  return model;
 }
 
 }  // namespace
@@ -1010,6 +1034,54 @@ bool CanBookmarkAllTabs(const Browser* browser) {
          CanBookmarkCurrentTab(browser);
 }
 
+bool CanMoveActiveTabToReadLater(Browser* browser) {
+  GURL url =
+      GetURLToBookmark(browser->tab_strip_model()->GetActiveWebContents());
+  ReadingListModel* model = GetReadingListModel(browser);
+  if (!model)
+    return false;
+  return model->IsUrlSupported(url);
+}
+
+bool MoveCurrentTabToReadLater(Browser* browser) {
+  GURL url;
+  base::string16 title;
+  ReadingListModel* model = GetReadingListModel(browser);
+  if (!model || !GetActiveTabURLAndTitleToSave(browser, &url, &title))
+    return false;
+  model->AddEntry(url, base::UTF16ToUTF8(title),
+                  reading_list::EntrySource::ADDED_VIA_CURRENT_APP);
+  // Close current tab.
+  int index = browser->tab_strip_model()->active_index();
+  browser->tab_strip_model()->CloseWebContentsAt(
+      index, TabStripModel::CLOSE_CREATE_HISTORICAL_TAB |
+                 TabStripModel::CLOSE_USER_GESTURE);
+  return true;
+}
+
+bool MarkCurrentTabAsReadInReadLater(Browser* browser) {
+  GURL url;
+  base::string16 title;
+  ReadingListModel* model = GetReadingListModel(browser);
+  if (!model || !GetActiveTabURLAndTitleToSave(browser, &url, &title))
+    return false;
+  const ReadingListEntry* entry = model->GetEntryByURL(url);
+  // Mark current tab as read.
+  if (entry && !entry->IsRead())
+    model->SetReadStatus(url, true);
+  return entry != nullptr;
+}
+
+bool IsCurrentTabUnreadInReadLater(Browser* browser) {
+  GURL url;
+  base::string16 title;
+  ReadingListModel* model = GetReadingListModel(browser);
+  if (!model || !GetActiveTabURLAndTitleToSave(browser, &url, &title))
+    return false;
+  const ReadingListEntry* entry = model->GetEntryByURL(url);
+  return entry && !entry->IsRead();
+}
+
 void SaveCreditCard(Browser* browser) {
   WebContents* web_contents =
       browser->tab_strip_model()->GetActiveWebContents();
@@ -1494,6 +1566,10 @@ void ToggleCaretBrowsing(Browser* browser) {
         "Accessibility.CaretBrowsing.EnableWithKeyboard"));
     prefService->SetBoolean(prefs::kCaretBrowsingEnabled, true);
   }
+}
+
+void PromptToNameWindow(Browser* browser) {
+  chrome::ShowWindowNamePrompt(browser);
 }
 
 #if !defined(TOOLKIT_VIEWS)

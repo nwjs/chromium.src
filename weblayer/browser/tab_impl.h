@@ -34,11 +34,16 @@ namespace autofill {
 class AutofillProvider;
 }  // namespace autofill
 
+namespace blink {
+namespace web_pref {
+struct WebPreferences;
+}
+}  // namespace blink
+
 namespace content {
 class RenderWidgetHostView;
 class WebContents;
 struct ContextMenuParams;
-struct WebPreferences;
 }
 
 namespace gfx {
@@ -193,6 +198,7 @@ class TabImpl : public Tab,
       const base::android::JavaParamRef<jstring>& js_object_name);
   jboolean CanTranslate(JNIEnv* env);
   void ShowTranslateUi(JNIEnv* env);
+  void RemoveTabFromBrowserBeforeDestroying(JNIEnv* env);
   void SetTranslateTargetLanguage(
       JNIEnv* env,
       const base::android::JavaParamRef<jstring>& translate_target_lang);
@@ -234,7 +240,7 @@ class TabImpl : public Tab,
 #endif
 
   void WebPreferencesChanged();
-  void SetWebPreferences(content::WebPreferences* prefs);
+  void SetWebPreferences(blink::web_pref::WebPreferences* prefs);
 
   // Executes |script| with a user gesture.
   void ExecuteScriptWithUserGestureForTests(const base::string16& script);
@@ -332,10 +338,10 @@ class TabImpl : public Tab,
 #if defined(OS_ANDROID)
   // BrowserControlsNavigationStateHandlerDelegate:
   void OnBrowserControlsStateStateChanged(
+      ControlsVisibilityReason reason,
       content::BrowserControlsState state) override;
   void OnUpdateBrowserControlsStateBecauseOfProcessSwitch(
       bool did_commit) override;
-  void OnForceBrowserControlsShown() override;
 #endif
 
   // Called from closure supplied to delegate to exit fullscreen.

@@ -13,6 +13,7 @@
 <translation id="1211441953136645838">sluttnote</translation>
 <translation id="1281252709823657822">dialog</translation>
 <translation id="1306460908038601864">Av</translation>
+<translation id="1311894908970423688">Verdien må være <ph name="VALUE_DATE_OR_TIME" />.</translation>
 <translation id="1335095011850992622">anerkjennelser</translation>
 <translation id="1342835525016946179">article</translation>
 <translation id="1359897965706325498">banner</translation>
@@ -155,9 +156,11 @@
 <translation id="5677946354068040947">flere alternativer</translation>
 <translation id="576709008726043716">innledning</translation>
 <translation id="57838592816432529">Kutt lyden</translation>
+<translation id="5860033963881614850">Av</translation>
 <translation id="588258955323874662">Fullskjerm</translation>
 <translation id="5888666972993069672">Caster nå til <ph name="DEVICE_FRIENDLY_NAME" /></translation>
 <translation id="591047860372322273">søkefelt</translation>
+<translation id="5916664084637901428">På</translation>
 <translation id="5939518447894949180">Tilbakestill</translation>
 <translation id="5966707198760109579">Uke</translation>
 <translation id="5987525920412732405">verdisettingsknapp</translation>
@@ -185,6 +188,7 @@
 <translation id="6643016212128521049">Tøm</translation>
 <translation id="668171684555832681">Annen</translation>
 <translation id="6692633176391053278">stepper</translation>
+<translation id="6709093583001123835">Verdien må være <ph name="VALUE" />.</translation>
 <translation id="6709570249143506788">Dårlig avspillingskvalitet</translation>
 <translation id="6755330956360078551">verktøytips</translation>
 <translation id="6790428901817661496">Spill av</translation>

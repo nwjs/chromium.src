@@ -127,6 +127,9 @@ extern const char kContentSettingsExceptionsLearnMoreURL[];
 // "Learn more" URL for cookies.
 extern const char kCookiesSettingsHelpCenterURL[];
 
+// The URL for the "learn more" link on the SSE2 obsolescence infobar.
+extern const char kCpuX86Sse2ObsoleteURL[];
+
 // "Learn more" URL for "Aw snap" page when showing "Reload" button.
 extern const char kCrashReasonURL[];
 
@@ -214,6 +217,10 @@ extern const char kSafeBrowsingHelpCenterURL[];
 
 // "Learn more" URL for safety tip bubble.
 extern const char kSafetyTipHelpCenterURL[];
+
+// The URL for the "See more security tips" with advices how to create a strong
+// password.
+extern const char kSeeMoreSecurityTipsURL[];
 
 // Help URL for the settings page's search feature.
 extern const char kSettingsSearchHelpURL[];
@@ -379,8 +386,8 @@ extern const char kWifiSyncLearnMoreURL[];
 // "Learn more" URL for the enterprise sign-in confirmation dialog.
 extern const char kChromeEnterpriseSignInLearnMoreURL[];
 
-// The URL for the "learn more" link on the 10.9 obsolescence infobar.
-extern const char kMac10_9_ObsoleteURL[];
+// The URL for the "learn more" link on the 10.10 obsolescence infobar.
+extern const char kMac10_10_ObsoleteURL[];
 #endif
 
 #if defined(OS_WIN)

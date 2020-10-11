@@ -26,6 +26,8 @@
 #include "content/public/renderer/websocket_handshake_throttle_provider.h"
 #include "media/base/audio_parameters.h"
 #include "media/base/supported_types.h"
+#include "mojo/public/cpp/bindings/pending_receiver.h"
+#include "services/network/public/mojom/url_loader_factory.mojom.h"
 #include "third_party/blink/public/platform/web_content_settings_client.h"
 #include "third_party/blink/public/web/web_navigation_policy.h"
 #include "third_party/blink/public/web/web_navigation_type.h"
@@ -69,10 +71,8 @@ class BinderMap;
 }
 
 namespace content {
-class BrowserPluginDelegate;
 class RenderFrame;
 class RenderView;
-struct WebPluginInfo;
 
 // Embedder API for participating in renderer logic.
 class CONTENT_EXPORT ContentRendererClient {
@@ -137,22 +137,9 @@ class CONTENT_EXPORT ContentRendererClient {
       RenderFrame* render_frame,
       const base::FilePath& plugin_path);
 
-  // Creates a delegate for browser plugin.
-  virtual BrowserPluginDelegate* CreateBrowserPluginDelegate(
-      RenderFrame* render_frame,
-      const WebPluginInfo& info,
-      const std::string& mime_type,
-      const GURL& original_url);
-
   // Returns true if the embedder has an error page to show for the given http
   // status code.
   virtual bool HasErrorPage(int http_status_code);
-
-  // Returns true if the embedder prefers not to show an error page for a failed
-  // navigation to |url| with |error_code| in |render_frame|.
-  virtual bool ShouldSuppressErrorPage(RenderFrame* render_frame,
-                                       const GURL& url,
-                                       int error_code);
 
   // Returns false for new tab page activities, which should be filtered out in
   // UseCounter; returns true otherwise.
@@ -446,6 +433,12 @@ class CONTENT_EXPORT ContentRendererClient {
   virtual base::Optional<::media::AudioRendererAlgorithmParameters>
   GetAudioRendererAlgorithmParameters(
       ::media::AudioParameters audio_parameters);
+
+  // Proxies the URLLoaderFactory if the platform supports Chrome extensions.
+  virtual void MaybeProxyURLLoaderFactory(
+      RenderFrame* render_frame,
+      mojo::PendingReceiver<network::mojom::URLLoaderFactory>*
+          factory_receiver);
 };
 
 }  // namespace content

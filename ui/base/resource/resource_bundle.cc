@@ -496,12 +496,12 @@ void ResourceBundle::OverrideLocaleStringResource(
   overridden_locale_strings_[resource_id] = string;
 }
 
-const base::FilePath& ResourceBundle::GetOverriddenPakPath() {
+const base::FilePath& ResourceBundle::GetOverriddenPakPath() const {
   return overridden_pak_path_;
 }
 
 base::string16 ResourceBundle::MaybeMangleLocalizedString(
-    const base::string16& str) {
+    const base::string16& str) const {
   if (!mangle_localized_strings_)
     return str;
 
@@ -724,7 +724,7 @@ base::string16 ResourceBundle::GetLocalizedString(int resource_id) {
 }
 
 base::RefCountedMemory* ResourceBundle::LoadLocalizedResourceBytes(
-    int resource_id) {
+    int resource_id) const {
   {
     base::AutoLock lock_scope(*locale_resources_data_lock_);
     base::StringPiece data;
@@ -1061,7 +1061,7 @@ gfx::Image& ResourceBundle::GetEmptyImage() {
   return empty_image_;
 }
 
-base::string16 ResourceBundle::GetLocalizedStringImpl(int resource_id) {
+base::string16 ResourceBundle::GetLocalizedStringImpl(int resource_id) const {
   base::string16 string;
   if (delegate_ && delegate_->GetLocalizedString(resource_id, &string)) {
     base::ReplaceSubstringsAfterOffset(&string, 0, *chromium_name, *nwjs_name);

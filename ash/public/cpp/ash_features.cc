@@ -25,6 +25,9 @@ const base::Feature kCaptureMode{"CaptureMode",
 const base::Feature kContextualNudges{"ContextualNudges",
                                       base::FEATURE_ENABLED_BY_DEFAULT};
 
+const base::Feature kDarkLightMode{"DarkLightMode",
+                                   base::FEATURE_DISABLED_BY_DEFAULT};
+
 const base::Feature kDisplayAlignAssist{"DisplayAlignAssist",
                                         base::FEATURE_DISABLED_BY_DEFAULT};
 
@@ -36,6 +39,9 @@ const base::Feature kDockedMagnifier{"DockedMagnifier",
 
 const base::Feature kDragToSnapInClamshellMode{
     "DragToSnapInClamshellMode", base::FEATURE_ENABLED_BY_DEFAULT};
+
+const base::Feature kEnhancedDeskAnimations{"EnhancedDeskAnimations",
+                                            base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kLimitAltTabToActiveDesk{"LimitAltTabToActiveDesk",
                                              base::FEATURE_DISABLED_BY_DEFAULT};
@@ -55,6 +61,9 @@ const base::Feature kLockScreenMediaControls{"LockScreenMediaControls",
 
 const base::Feature kHideArcMediaNotifications{
     "HideArcMediaNotifications", base::FEATURE_ENABLED_BY_DEFAULT};
+
+const base::Feature kInteractiveWindowCycleList{
+    "InteractiveWindowCycleList", base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kManagedDeviceUIRedesign{"ManagedDeviceUIRedesign",
                                              base::FEATURE_DISABLED_BY_DEFAULT};
@@ -122,8 +131,7 @@ const base::Feature kNotificationsInContextMenu{
     "NotificationsInContextMenu", base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kMaintainShelfStateWhenEnteringOverview{
-    "MaintainShelfStateWhenEnteringOverview",
-    base::FEATURE_DISABLED_BY_DEFAULT};
+    "MaintainShelfStateWhenEnteringOverview", base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kTemporaryHoldingSpace{"TemporaryHoldingSpace",
                                            base::FEATURE_DISABLED_BY_DEFAULT};
@@ -151,6 +159,14 @@ bool IsCaptureModeEnabled() {
   return base::FeatureList::IsEnabled(kCaptureMode);
 }
 
+bool IsDarkLightModeEnabled() {
+  return base::FeatureList::IsEnabled(kDarkLightMode);
+}
+
+bool IsEnhancedDeskAnimations() {
+  return base::FeatureList::IsEnabled(kEnhancedDeskAnimations);
+}
+
 bool IsHideArcMediaNotificationsEnabled() {
   return base::FeatureList::IsEnabled(kMediaSessionNotification) &&
          base::FeatureList::IsEnabled(kHideArcMediaNotifications);
@@ -167,6 +183,10 @@ bool IsLockScreenInlineReplyEnabled() {
 bool IsLockScreenHideSensitiveNotificationsSupported() {
   return base::FeatureList::IsEnabled(
       kLockScreenHideSensitiveNotificationsSupport);
+}
+
+bool IsInteractiveWindowCycleListEnabled() {
+  return base::FeatureList::IsEnabled(kInteractiveWindowCycleList);
 }
 
 bool IsManagedDeviceUIRedesignEnabled() {

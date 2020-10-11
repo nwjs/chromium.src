@@ -22,7 +22,6 @@
 #include "components/offline_pages/buildflags/buildflags.h"
 #include "components/omnibox/browser/autocomplete_input.h"
 #include "components/omnibox/browser/omnibox_prefs.h"
-#include "components/omnibox/common/omnibox_features.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_service.h"
 #include "components/security_interstitials/content/security_interstitial_tab_helper.h"
@@ -41,13 +40,6 @@
 #if BUILDFLAG(ENABLE_OFFLINE_PAGES)
 #include "chrome/browser/offline_pages/offline_page_utils.h"
 #endif  // BUILDFLAG(ENABLE_OFFLINE_PAGES)
-
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-#include "extensions/browser/extension_registry.h"
-
-// Id for extension that enables users to report sites to Safe Browsing.
-const char kPreventElisionExtensionId[] = "jknemblkbdhdcpllfgbfekkdciegfboi";
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
 ChromeLocationBarModelDelegate::ChromeLocationBarModelDelegate() {}
 
@@ -79,14 +71,6 @@ bool ChromeLocationBarModelDelegate::GetURL(GURL* url) const {
 }
 
 bool ChromeLocationBarModelDelegate::ShouldPreventElision() {
-  // Don't record a histogram or prevent elision if the user is in a state
-  // where the show full URLs pref is enabled but the context menu option is
-  // disabled.
-  if (!base::FeatureList::IsEnabled(omnibox::kOmniboxContextMenuShowFullUrls) &&
-      GetElisionConfig() == ELISION_CONFIG_TURNED_OFF_BY_PREF) {
-    return false;
-  }
-
   RecordElisionConfig();
   if (GetElisionConfig() != ELISION_CONFIG_DEFAULT) {
     return true;
@@ -250,13 +234,6 @@ ChromeLocationBarModelDelegate::GetElisionConfig() const {
       profile->GetPrefs()->GetBoolean(omnibox::kPreventUrlElisionsInOmnibox)) {
     return ELISION_CONFIG_TURNED_OFF_BY_PREF;
   }
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-  if (profile && extensions::ExtensionRegistry::Get(profile)
-                     ->enabled_extensions()
-                     .Contains(kPreventElisionExtensionId)) {
-    return ELISION_CONFIG_TURNED_OFF_BY_EXTENSION;
-  }
-#endif
   return ELISION_CONFIG_DEFAULT;
 }
 

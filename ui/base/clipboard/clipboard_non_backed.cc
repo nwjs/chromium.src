@@ -154,6 +154,19 @@ class ClipboardInternal {
     *fragment_end = static_cast<uint32_t>(markup->length());
   }
 
+  // Reads SVG from the ClipboardData.
+  void ReadSvg(base::string16* markup) const {
+    markup->clear();
+
+    if (!HasFormat(ClipboardInternalFormat::kSvg))
+      return;
+
+    const ClipboardData* data = GetData();
+    *markup = base::UTF8ToUTF16(data->svg_data());
+
+    DCHECK_LE(markup->length(), std::numeric_limits<uint32_t>::max());
+  }
+
   // Reads RTF from the ClipboardData.
   void ReadRTF(std::string* result) const {
     result->clear();
@@ -213,7 +226,6 @@ class ClipboardInternal {
     if (!HasFormat(ClipboardInternalFormat::kCustom) ||
         type != data->custom_data_format())
       return;
-
     *result = data->custom_data_data();
   }
 
@@ -237,6 +249,10 @@ class ClipboardInternal {
     if (!dlp_controller_)
       return true;
     return dlp_controller_->IsDataReadAllowed(GetData()->source(), data_dst);
+  }
+
+  const ClipboardDlpController* dlp_controller() const {
+    return dlp_controller_.get();
   }
 
  private:
@@ -283,6 +299,11 @@ class ClipboardDataBuilder {
     ClipboardData* data = GetCurrentData();
     data->set_markup_data(std::string(markup_data, markup_len));
     data->set_url(std::string(url_data, url_len));
+  }
+
+  static void WriteSvg(const char* markup_data, size_t markup_len) {
+    ClipboardData* data = GetCurrentData();
+    data->set_svg_data(std::string(markup_data, markup_len));
   }
 
   static void WriteRTF(const char* rtf_data, size_t rtf_len) {
@@ -363,8 +384,13 @@ ClipboardNonBacked::~ClipboardNonBacked() {
   UnregisterInstance(this);
 }
 
-const ClipboardData* ClipboardNonBacked::GetClipboardData() const {
+const ClipboardData* ClipboardNonBacked::GetClipboardData(
+    ClipboardDataEndpoint* data_dst) const {
   DCHECK(CalledOnValidThread());
+
+  if (!clipboard_internal_->IsReadAllowed(data_dst))
+    return nullptr;
+
   return clipboard_internal_->GetData();
 }
 
@@ -379,6 +405,12 @@ void ClipboardNonBacked::OnPreShutdown() {}
 void ClipboardNonBacked::SetClipboardDlpController(
     std::unique_ptr<ClipboardDlpController> dlp_controller) {
   clipboard_internal_->SetDlpController(std::move(dlp_controller));
+}
+
+const ClipboardDlpController* ClipboardNonBacked::GetClipboardDlpController()
+    const {
+  DCHECK(CalledOnValidThread());
+  return clipboard_internal_->dlp_controller();
 }
 
 uint64_t ClipboardNonBacked::GetSequenceNumber(ClipboardBuffer buffer) const {
@@ -403,6 +435,9 @@ bool ClipboardNonBacked::IsFormatAvailable(
   if (format == ClipboardFormatType::GetHtmlType())
     return clipboard_internal_->IsFormatAvailable(
         ClipboardInternalFormat::kHtml);
+  if (format == ClipboardFormatType::GetSvgType())
+    return clipboard_internal_->IsFormatAvailable(
+        ClipboardInternalFormat::kSvg);
   if (format == ClipboardFormatType::GetRtfType())
     return clipboard_internal_->IsFormatAvailable(
         ClipboardInternalFormat::kRtf);
@@ -498,6 +533,10 @@ void ClipboardNonBacked::ReadText(ClipboardBuffer buffer,
 
   RecordRead(ClipboardFormatMetric::kText);
   clipboard_internal_->ReadText(result);
+
+#if defined(OS_CHROMEOS)
+  ClipboardMonitor::GetInstance()->NotifyClipboardDataRead();
+#endif
 }
 
 void ClipboardNonBacked::ReadAsciiText(ClipboardBuffer buffer,
@@ -510,6 +549,10 @@ void ClipboardNonBacked::ReadAsciiText(ClipboardBuffer buffer,
 
   RecordRead(ClipboardFormatMetric::kText);
   clipboard_internal_->ReadAsciiText(result);
+
+#if defined(OS_CHROMEOS)
+  ClipboardMonitor::GetInstance()->NotifyClipboardDataRead();
+#endif
 }
 
 void ClipboardNonBacked::ReadHTML(ClipboardBuffer buffer,
@@ -525,6 +568,22 @@ void ClipboardNonBacked::ReadHTML(ClipboardBuffer buffer,
 
   RecordRead(ClipboardFormatMetric::kHtml);
   clipboard_internal_->ReadHTML(markup, src_url, fragment_start, fragment_end);
+
+#if defined(OS_CHROMEOS)
+  ClipboardMonitor::GetInstance()->NotifyClipboardDataRead();
+#endif
+}
+
+void ClipboardNonBacked::ReadSvg(ClipboardBuffer buffer,
+                                 const ClipboardDataEndpoint* data_dst,
+                                 base::string16* result) const {
+  DCHECK(CalledOnValidThread());
+
+  if (!clipboard_internal_->IsReadAllowed(data_dst))
+    return;
+
+  RecordRead(ClipboardFormatMetric::kSvg);
+  clipboard_internal_->ReadSvg(result);
 }
 
 void ClipboardNonBacked::ReadRTF(ClipboardBuffer buffer,
@@ -537,6 +596,10 @@ void ClipboardNonBacked::ReadRTF(ClipboardBuffer buffer,
 
   RecordRead(ClipboardFormatMetric::kRtf);
   clipboard_internal_->ReadRTF(result);
+
+#if defined(OS_CHROMEOS)
+  ClipboardMonitor::GetInstance()->NotifyClipboardDataRead();
+#endif
 }
 
 void ClipboardNonBacked::ReadImage(ClipboardBuffer buffer,
@@ -549,6 +612,10 @@ void ClipboardNonBacked::ReadImage(ClipboardBuffer buffer,
 
   RecordRead(ClipboardFormatMetric::kImage);
   std::move(callback).Run(clipboard_internal_->ReadImage());
+
+#if defined(OS_CHROMEOS)
+  ClipboardMonitor::GetInstance()->NotifyClipboardDataRead();
+#endif
 }
 
 void ClipboardNonBacked::ReadCustomData(ClipboardBuffer buffer,
@@ -562,6 +629,10 @@ void ClipboardNonBacked::ReadCustomData(ClipboardBuffer buffer,
 
   RecordRead(ClipboardFormatMetric::kCustomData);
   clipboard_internal_->ReadCustomData(type, result);
+
+#if defined(OS_CHROMEOS)
+  ClipboardMonitor::GetInstance()->NotifyClipboardDataRead();
+#endif
 }
 
 void ClipboardNonBacked::ReadBookmark(const ClipboardDataEndpoint* data_dst,
@@ -574,6 +645,10 @@ void ClipboardNonBacked::ReadBookmark(const ClipboardDataEndpoint* data_dst,
 
   RecordRead(ClipboardFormatMetric::kBookmark);
   clipboard_internal_->ReadBookmark(title, url);
+
+#if defined(OS_CHROMEOS)
+  ClipboardMonitor::GetInstance()->NotifyClipboardDataRead();
+#endif
 }
 
 void ClipboardNonBacked::ReadData(const ClipboardFormatType& format,
@@ -586,6 +661,10 @@ void ClipboardNonBacked::ReadData(const ClipboardFormatType& format,
 
   RecordRead(ClipboardFormatMetric::kData);
   clipboard_internal_->ReadData(format.GetName(), result);
+
+#if defined(OS_CHROMEOS)
+  ClipboardMonitor::GetInstance()->NotifyClipboardDataRead();
+#endif
 }
 
 bool ClipboardNonBacked::IsSelectionBufferAvailable() const {
@@ -626,6 +705,10 @@ void ClipboardNonBacked::WriteHTML(const char* markup_data,
                                    const char* url_data,
                                    size_t url_len) {
   ClipboardDataBuilder::WriteHTML(markup_data, markup_len, url_data, url_len);
+}
+
+void ClipboardNonBacked::WriteSvg(const char* markup_data, size_t markup_len) {
+  ClipboardDataBuilder::WriteSvg(markup_data, markup_len);
 }
 
 void ClipboardNonBacked::WriteRTF(const char* rtf_data, size_t data_len) {

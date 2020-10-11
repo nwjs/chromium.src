@@ -20,6 +20,7 @@ import org.chromium.base.ContextUtils;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.externalauth.ExternalAuthUtils;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.lens.LensController;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.signin.IdentityServicesProvider;
 import org.chromium.components.signin.base.CoreAccountInfo;
@@ -56,7 +57,9 @@ public class LensUtils {
     private static final String SEND_ALT_PARAM_NAME = "sendAlt";
     private static final String USE_DIRECT_INTENT_FEATURE_PARAM_NAME = "useDirectIntent";
     private static final String DISABLE_ON_INCOGNITO_PARAM_NAME = "disableOnIncognito";
-    private static final String MIN_AGSA_VERSION_NAME_FOR_LENS_POSTCAPTURE = "8.19";
+    private static final String ORDER_SHARE_IMAGE_BEFORE_LENS_PARAM_NAME =
+            "orderShareImageBeforeLens";
+    private static final String MIN_AGSA_VERSION_NAME_FOR_LENS_POSTCAPTURE = "10.65";
     private static final String MIN_AGSA_VERSION_NAME_FOR_LENS_CHROME_SHOPPING_INTENT = "11.16";
     private static final String LENS_INTENT_TYPE_LENS_CHROME_SHOPPING = "18";
     private static final String LENS_SHOPPING_FEATURE_FLAG_VARIANT_NAME = "lensShopVariation";
@@ -319,7 +322,7 @@ public class LensUtils {
                 && !(isIncognito
                         && ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
                                 ChromeFeatureList.CONTEXT_MENU_SEARCH_WITH_GOOGLE_LENS,
-                                DISABLE_ON_INCOGNITO_PARAM_NAME, false));
+                                DISABLE_ON_INCOGNITO_PARAM_NAME, true));
     }
 
     public static boolean isGoogleLensShoppingFeatureEnabled(boolean isIncognito) {
@@ -328,7 +331,7 @@ public class LensUtils {
                 && !(isIncognito
                         && ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
                                 ChromeFeatureList.CONTEXT_MENU_SHOP_WITH_GOOGLE_LENS,
-                                DISABLE_ON_INCOGNITO_PARAM_NAME, false));
+                                DISABLE_ON_INCOGNITO_PARAM_NAME, true));
     }
 
     /**
@@ -379,7 +382,32 @@ public class LensUtils {
         String variation = ChromeFeatureList.getFieldTrialParamByFeature(
                 ChromeFeatureList.CONTEXT_MENU_SHOP_WITH_GOOGLE_LENS,
                 LENS_SHOPPING_FEATURE_FLAG_VARIANT_NAME);
-        return variation.equals("ShopImageWithGoogleLensShoppyImage");
+        return LensController.getInstance().isSdkAvailable()
+                && variation.equals("ShopImageWithGoogleLensShoppyImage");
+    }
+
+    /**
+     * Whether to display the lens shop image with google lens chip.
+     */
+    public static boolean enableImageChip(boolean isIncognito) {
+        // TODO(benwgold): Consider adding isSdkAvailable() check if it gains any utility.
+        //                 Currently it is not necessary and should always evaluate to true.
+        return ChromeFeatureList.isEnabled(ChromeFeatureList.CONTEXT_MENU_GOOGLE_LENS_CHIP)
+                && !(isIncognito
+                        && ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
+                                ChromeFeatureList.CONTEXT_MENU_GOOGLE_LENS_CHIP,
+                                DISABLE_ON_INCOGNITO_PARAM_NAME, true));
+    }
+
+    /**
+     * Adjust chip ordering slightly. The image chip feature changes the context menu height
+     * which can result  in the final image menu items being hidden in certain contexts.
+     * @return Whether to list 'Share Image' above 'Search with Google Lens'.
+     */
+    public static boolean orderShareImageBeforeLens() {
+        return ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
+                ChromeFeatureList.CONTEXT_MENU_GOOGLE_LENS_CHIP,
+                ORDER_SHARE_IMAGE_BEFORE_LENS_PARAM_NAME, false);
     }
 
     /**

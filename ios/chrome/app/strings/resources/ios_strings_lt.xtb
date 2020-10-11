@@ -14,6 +14,7 @@
 <translation id="1084365883616172403">„Facebook“ įrašas paskelbtas.</translation>
 <translation id="1103523840287552314">Visada versti <ph name="LANGUAGE" /></translation>
 <translation id="1104948393051856124">Sutikti ir tęsti</translation>
+<translation id="110724200315609752">Perjungti į atidarytą langą</translation>
 <translation id="1112015203684611006">Nepav. atsp.</translation>
 <translation id="1125564390852150847">Kurti naują skirtuką.</translation>
 <translation id="1145536944570833626">Ištrinti esamus duomenis.</translation>
@@ -93,6 +94,7 @@
 <translation id="1941314575388338491">Dukart palieskite, kad nukopijuotumėte.</translation>
 <translation id="1952172573699511566">Kai bus įmanoma, svetainėje tekstas bus rodomas pasirinkta kalba.</translation>
 <translation id="1952728750904661634">Prisijunkite naudodami valdomą paskyrą</translation>
+<translation id="1965935827552890526">Pabaikite tai, ką darėte, kitame atidarytame „Chrome“ lange.</translation>
 <translation id="1974060860693918893">Išplėstiniai</translation>
 <translation id="1989112275319619282">Naršyti</translation>
 <translation id="1992734845128748707">Pakeisti numatytąją naršyklę…</translation>
@@ -277,6 +279,7 @@ Kai įjungtas inkognito režimas, svetainės negali naudoti slapukų, kad sužin
 <translation id="408404951701638773">Dabar paieškos juostą pasiekti lengviau</translation>
 <translation id="411254640334432676">Nepavyko atsisiųsti.</translation>
 <translation id="4112644173421521737">Ieškoti</translation>
+<translation id="4113030288477039509">Tvarko jūsų administratorius</translation>
 <translation id="4121993058175073134">Jei n. siųsti tinklo eksp. duom., sukonf. el. pšt. pask. nust. progr.</translation>
 <translation id="4124987746317609294">Laikotarpis</translation>
 <translation id="4152011295694446843">Čia rasite žymes</translation>
@@ -285,11 +288,13 @@ Kai įjungtas inkognito režimas, svetainės negali naudoti slapukų, kad sužin
 <translation id="4181841719683918333">Kalbos</translation>
 <translation id="424315890655130736">Slaptafrazės įvedimas</translation>
 <translation id="4263576668337963058">Rodyti pasiekiamus puslapio veiksmus</translation>
+<translation id="4267380167363222949">Kitas skirtukas</translation>
 <translation id="4272631900155121838">Jei norite nuskaityti QR kodą, nustatymuose įgalinkite fotoaparatą</translation>
 <translation id="4276041135170112053">Ištaisykite dabar.</translation>
 <translation id="4277990410970811858">Saugus naršymas</translation>
 <translation id="4281844954008187215">Paslaugų teikimo sąlygos</translation>
 <translation id="430793432425771671">Sinchronizuoti viską</translation>
+<translation id="4309403553630140242">Norėdami gauti daugiau informacijos, dukart palieskite.</translation>
 <translation id="430967081421617822">Visas laikotarpis</translation>
 <translation id="4334428914252001502">1 neskaitytas straipsnis.</translation>
 <translation id="4338650699862464074">Siunčiami „Google“ puslapių, kuriuose lankotės, URL.</translation>
@@ -353,6 +358,7 @@ Jei norite pakeisti šį nustatymą, <ph name="BEGIN_LINK" />iš naujo nustatyki
 <translation id="5005498671520578047">Kopijuoti slaptažodį</translation>
 <translation id="5010803260590204777">Norėdami naršyti žiniatinklį privačiai, atidarykite inkognito skirtuką.</translation>
 <translation id="5039804452771397117">Leisti</translation>
+<translation id="5056446788882570708">Problemos rastos <ph name="TIME" />.</translation>
 <translation id="5059136629401106827">Gerai</translation>
 <translation id="5062321486222145940">Įdiegti „Google“ diską</translation>
 <translation id="5083464117946352670">Nepav. nustatyti failo dydžio.</translation>
@@ -376,7 +382,6 @@ Jei norite pakeisti šį nustatymą, <ph name="BEGIN_LINK" />iš naujo nustatyki
 <translation id="5317780077021120954">Išsaugoti</translation>
 <translation id="5327248766486351172">Pavadinimas</translation>
 <translation id="5339316356165661760">Įjungti sinchronizavimą</translation>
-<translation id="5352285283572729470">Šis nustatymas valdomas</translation>
 <translation id="5388358297987318779">Atidaryti vaizdą</translation>
 <translation id="5407969256130905701">Atmesti pakeitimus</translation>
 <translation id="5409365236829784218">Nėra įdiegtų pr., kurias naudojant galima atidaryti failą.</translation>
@@ -456,6 +461,7 @@ Be to, reikia įgalinti „Handoff“ nustatymų skiltyje „Bendrieji“, o įr
 <translation id="6187302354554850004">Pask. k. sinchr.: <ph name="LAST_USED_TIME" /></translation>
 <translation id="6189413832092199491">Neskaityti</translation>
 <translation id="6196207969502475924">Paieška balsu</translation>
+<translation id="6202364442240589072">{COUNT,plural, =1{Uždaryti {COUNT} skirtuką}one{Uždaryti {COUNT} skirtuką}few{Uždaryti {COUNT} skirtukus}many{Uždaryti {COUNT} skirtuko}other{Uždaryti {COUNT} skirtukų}}</translation>
 <translation id="6219688215832490856">Niekada neversti</translation>
 <translation id="6254066287920239840">Atidarykite nuorodas programoje, o ne naršyklėje.</translation>
 <translation id="6255097610484507482">Kredito kortelės informacijos redagavimas</translation>
@@ -571,6 +577,7 @@ Svetainės negali naudoti slapukų, kad sužinotų apie naršymo veiklą skirtin
 <translation id="734758817008927353">Kortelės išsaugojimo parinktys</translation>
 <translation id="7348502496356775519">Žymėti</translation>
 <translation id="7383797227493018512">Skaitymo sąrašas</translation>
+<translation id="739941347996872055">Ankstesnis skirtukas</translation>
 <translation id="7400418766976504921">URL adresas</translation>
 <translation id="7409985198648820906">Neskaitytų straipsnių: <ph name="UNREAD_COUNT" />.</translation>
 <translation id="7425346204213733349">Žymių, istorijos, slaptažodžių ir kitų nustatymų pakeitimai nebebus sinchronizuojami su „Google“ paskyra. Tačiau esami duomenys ir toliau bus saugomi „Google“ paskyroje.</translation>
@@ -636,6 +643,7 @@ Svetainės gali naudoti slapukus, kad sužinotų apie naršymo veiklą skirtingo
 <translation id="8073670137947914548">Atsisiuntimas užbaigtas</translation>
 <translation id="8073872304774253879">Tobulinti paieškas ir naršymą</translation>
 <translation id="8076014560081431679">Išsaugoti svetainių nustatymai nebus ištrinti ir gali nurodyti naršymo įpročius. <ph name="BEGIN_LINK" />Sužinokite daugiau<ph name="END_LINK" /></translation>
+<translation id="8079602123447022758">Šis nustatymas tvarkomas, norėdami gauti daugiau informacijos dukart palieskite</translation>
 <translation id="8105368624971345109">Išjungti</translation>
 <translation id="8114753159095730575">Galima atsisiųsti failą. Parinktys pasiekiamos netoli ekrano apačios.</translation>
 <translation id="8131740175452115882">Patvirtinti</translation>

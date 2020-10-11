@@ -14,6 +14,7 @@
 <translation id="1084365883616172403">已順利發布到 Facebook。</translation>
 <translation id="1103523840287552314">一律翻譯<ph name="LANGUAGE" /></translation>
 <translation id="1104948393051856124">接受並繼續</translation>
+<translation id="110724200315609752">切換至已開啟的視窗</translation>
 <translation id="1112015203684611006">列印失敗。</translation>
 <translation id="1125564390852150847">新增分頁。</translation>
 <translation id="1145536944570833626">刪除現有資料。</translation>
@@ -93,6 +94,7 @@
 <translation id="1941314575388338491">輕觸兩下即可複製。</translation>
 <translation id="1952172573699511566">Chrome 會儘可能以你慣用的語言顯示網站文字。</translation>
 <translation id="1952728750904661634">使用受管理的帳戶登入</translation>
+<translation id="1965935827552890526">請完成你在其他已開啟的 Chrome 視窗中正在執行的動作。</translation>
 <translation id="1974060860693918893">進階</translation>
 <translation id="1989112275319619282">瀏覽</translation>
 <translation id="1992734845128748707">變更預設瀏覽器…</translation>
@@ -277,6 +279,7 @@
 <translation id="408404951701638773">現在使用搜尋列更加方便了</translation>
 <translation id="411254640334432676">下載失敗。</translation>
 <translation id="4112644173421521737">搜尋</translation>
+<translation id="4113030288477039509">您的管理員已停用這項功能</translation>
 <translation id="4121993058175073134">如要傳送淨匯出資料，請在「設定」應用程式中設定你的電子郵件帳戶。</translation>
 <translation id="4124987746317609294">時間範圍</translation>
 <translation id="4152011295694446843">這裡會顯示你的書籤</translation>
@@ -290,6 +293,7 @@
 <translation id="4277990410970811858">安全瀏覽</translation>
 <translation id="4281844954008187215">服務條款</translation>
 <translation id="430793432425771671">同步處理所有資料</translation>
+<translation id="4309403553630140242">輕觸兩下即可查看更多資訊</translation>
 <translation id="430967081421617822">不限時間</translation>
 <translation id="4334428914252001502">1 篇未讀文章。</translation>
 <translation id="4338650699862464074">將你造訪的網頁網址傳送給 Google。</translation>
@@ -353,6 +357,7 @@
 <translation id="5005498671520578047">複製密碼</translation>
 <translation id="5010803260590204777">透過新開啟的無痕式分頁以私密模式瀏覽網頁。</translation>
 <translation id="5039804452771397117">允許</translation>
+<translation id="5056446788882570708"><ph name="TIME" />發現問題。</translation>
 <translation id="5059136629401106827">確定</translation>
 <translation id="5062321486222145940">安裝 Google 雲端硬碟</translation>
 <translation id="5083464117946352670">無法確定檔案大小。</translation>
@@ -376,7 +381,6 @@
 <translation id="5317780077021120954">儲存</translation>
 <translation id="5327248766486351172">名稱</translation>
 <translation id="5339316356165661760">開啟同步功能</translation>
-<translation id="5352285283572729470">這是受管理的設定</translation>
 <translation id="5388358297987318779">開啟圖片</translation>
 <translation id="5407969256130905701">捨棄變更</translation>
 <translation id="5409365236829784218">未安裝可開啟這個檔案的應用程式。</translation>
@@ -456,6 +460,7 @@
 <translation id="6187302354554850004">上次同步處理時間：<ph name="LAST_USED_TIME" /></translation>
 <translation id="6189413832092199491">未讀取</translation>
 <translation id="6196207969502475924">語音搜尋</translation>
+<translation id="6202364442240589072">{COUNT,plural, =1{關閉 {COUNT} 個分頁}other{關閉 {COUNT} 個分頁}}</translation>
 <translation id="6219688215832490856">一律不翻譯</translation>
 <translation id="6254066287920239840">使用應用程式開啟連結，而不要在瀏覽器中開啟。</translation>
 <translation id="6255097610484507482">編輯信用卡</translation>
@@ -636,6 +641,7 @@
 <translation id="8073670137947914548">下載完成</translation>
 <translation id="8073872304774253879">改善搜尋和瀏覽體驗</translation>
 <translation id="8076014560081431679">已儲存的網站設定不會遭到刪除，而且可能會反映您的瀏覽習慣。<ph name="BEGIN_LINK" />瞭解詳情<ph name="END_LINK" /></translation>
+<translation id="8079602123447022758">這項設定是由管理員控管，輕觸兩下即可查看更多資訊</translation>
 <translation id="8105368624971345109">關閉</translation>
 <translation id="8114753159095730575">可下載檔案，相關選項位於畫面底部。</translation>
 <translation id="8131740175452115882">確認</translation>

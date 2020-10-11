@@ -7,7 +7,6 @@ package org.chromium.chrome.browser.toolbar.bottom;
 import android.annotation.SuppressLint;
 import android.view.View;
 import android.view.View.OnClickListener;
-import android.view.View.OnLongClickListener;
 import android.view.ViewGroup;
 import android.view.ViewStub;
 
@@ -15,21 +14,22 @@ import androidx.annotation.Nullable;
 
 import org.chromium.base.Callback;
 import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
-import org.chromium.chrome.browser.ThemeColorProvider;
 import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsSizer;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManager;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.share.ShareDelegate;
+import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider;
 import org.chromium.chrome.browser.tasks.tab_management.TabGroupUi;
 import org.chromium.chrome.browser.tasks.tab_management.TabManagementModuleProvider;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiFeatureUtilities;
-import org.chromium.chrome.browser.toolbar.IncognitoStateProvider;
 import org.chromium.chrome.browser.toolbar.TabCountProvider;
+import org.chromium.chrome.browser.toolbar.ThemeColorProvider;
 import org.chromium.chrome.browser.toolbar.bottom.BottomControlsViewBinder.ViewHolder;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuButtonHelper;
 import org.chromium.components.browser_ui.widget.scrim.ScrimCoordinator;
@@ -58,7 +58,6 @@ public class BottomControlsCoordinator {
     private final BottomControlsMediator mMediator;
 
     /** The coordinator for the split toolbar's bottom toolbar component. */
-    private @Nullable BottomToolbarCoordinator mBottomToolbarCoordinator;
     private @Nullable TabGroupUi mTabGroupUi;
 
     /**
@@ -68,7 +67,6 @@ public class BottomControlsCoordinator {
      * @param fullscreenManager A {@link FullscreenManager} to listen for fullscreen changes.
      * @param stub The bottom controls {@link ViewStub} to inflate.
      * @param tabProvider
-     * @param tabSwitcherLongclickListener
      * @param themeColorProvider The {@link ThemeColorProvider} for the bottom toolbar.
      * @param shareDelegateSupplier The supplier for the {@link ShareDelegate} the bottom controls
      *         should use to share content.
@@ -83,12 +81,12 @@ public class BottomControlsCoordinator {
     @SuppressLint("CutPasteId") // Not actually cut and paste since it's View vs ViewGroup.
     public BottomControlsCoordinator(BrowserControlsSizer controlsSizer,
             FullscreenManager fullscreenManager, ViewStub stub, ActivityTabProvider tabProvider,
-            OnLongClickListener tabSwitcherLongclickListener, ThemeColorProvider themeColorProvider,
+            ThemeColorProvider themeColorProvider,
             ObservableSupplier<ShareDelegate> shareDelegateSupplier,
             ObservableSupplier<AppMenuButtonHelper> menuButtonHelperSupplier,
             Supplier<Boolean> showStartSurfaceCallable, Runnable openHomepageAction,
             Callback<Integer> setUrlBarFocusAction,
-            ObservableSupplier<OverviewModeBehavior> overviewModeBehaviorSupplier,
+            OneshotSupplier<OverviewModeBehavior> overviewModeBehaviorSupplier,
             ScrimCoordinator scrimCoordinator) {
         final ScrollingBottomViewResourceFrameLayout root =
                 (ScrollingBottomViewResourceFrameLayout) stub.inflate();
@@ -98,39 +96,26 @@ public class BottomControlsCoordinator {
         PropertyModelChangeProcessor.create(
                 model, new ViewHolder(root), BottomControlsViewBinder::bind);
 
-        int bottomToolbarHeightId;
+        int bottomControlsHeightId = R.dimen.bottom_controls_height;
 
-        if (BottomToolbarConfiguration.isLabeledBottomToolbarEnabled()) {
-            bottomToolbarHeightId = R.dimen.labeled_bottom_toolbar_height;
-        } else {
-            bottomToolbarHeightId = R.dimen.bottom_toolbar_height;
-        }
-
-        View toolbar = root.findViewById(R.id.bottom_container_slot);
-        ViewGroup.LayoutParams params = toolbar.getLayoutParams();
-        params.height = root.getResources().getDimensionPixelOffset(bottomToolbarHeightId);
+        View container = root.findViewById(R.id.bottom_container_slot);
+        ViewGroup.LayoutParams params = container.getLayoutParams();
+        params.height = root.getResources().getDimensionPixelOffset(bottomControlsHeightId);
         mMediator = new BottomControlsMediator(model, controlsSizer, fullscreenManager,
-                root.getResources().getDimensionPixelOffset(bottomToolbarHeightId));
+                root.getResources().getDimensionPixelOffset(bottomControlsHeightId));
 
-        if ((TabUiFeatureUtilities.isTabGroupsAndroidEnabled()
-                    && !(TabUiFeatureUtilities.isDuetTabStripIntegrationAndroidEnabled()
-                            && BottomToolbarConfiguration.isBottomToolbarEnabled()))
+        if (TabUiFeatureUtilities.isTabGroupsAndroidEnabled()
                 || TabUiFeatureUtilities.isConditionalTabStripEnabled()) {
             mTabGroupUi = TabManagementModuleProvider.getDelegate().createTabGroupUi(
                     root.findViewById(R.id.bottom_container_slot), themeColorProvider,
                     scrimCoordinator);
-        } else {
-            mBottomToolbarCoordinator = new BottomToolbarCoordinator(
-                    root.findViewById(R.id.bottom_toolbar_stub), tabProvider,
-                    tabSwitcherLongclickListener, themeColorProvider, shareDelegateSupplier,
-                    showStartSurfaceCallable, openHomepageAction, setUrlBarFocusAction,
-                    overviewModeBehaviorSupplier, menuButtonHelperSupplier);
         }
+        Toast.setGlobalExtraYOffset(
+                root.getResources().getDimensionPixelSize(bottomControlsHeightId));
 
-        Toast.setGlobalExtraYOffset(root.getResources().getDimensionPixelSize(
-                BottomToolbarConfiguration.isLabeledBottomToolbarEnabled()
-                        ? R.dimen.labeled_bottom_toolbar_height
-                        : R.dimen.bottom_toolbar_height));
+        // Set the visibility of BottomControls to false by default. Components within
+        // BottomControls should update the visibility explicitly if needed.
+        mMediator.setBottomControlsVisible(false);
     }
 
     /**
@@ -161,11 +146,6 @@ public class BottomControlsCoordinator {
         mMediator.setResourceManager(resourceManager);
         mMediator.setWindowAndroid(windowAndroid);
 
-        if (mBottomToolbarCoordinator != null) {
-            mBottomToolbarCoordinator.initializeWithNative(tabSwitcherListener, newTabClickListener,
-                    tabCountProvider, incognitoStateProvider, topToolbarRoot, closeAllTabsAction);
-        }
-
         if (mTabGroupUi != null) {
             mTabGroupUi.initializeWithNative(chromeActivity, mMediator::setBottomControlsVisible);
         }
@@ -176,9 +156,6 @@ public class BottomControlsCoordinator {
      */
     public void setBottomControlsVisible(boolean isVisible) {
         mMediator.setBottomControlsVisible(isVisible);
-        if (mBottomToolbarCoordinator != null) {
-            mBottomToolbarCoordinator.setBottomToolbarVisible(isVisible);
-        }
     }
 
     /**
@@ -193,7 +170,6 @@ public class BottomControlsCoordinator {
      * Clean up any state when the bottom controls component is destroyed.
      */
     public void destroy() {
-        if (mBottomToolbarCoordinator != null) mBottomToolbarCoordinator.destroy();
         if (mTabGroupUi != null) mTabGroupUi.destroy();
         mMediator.destroy();
     }

@@ -6,6 +6,8 @@
 
 #include "base/mac/foundation_util.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/strings/sys_string_conversions.h"
+#include "ios/chrome/browser/application_context.h"
 #include "ios/chrome/browser/browser_state/chrome_browser_state.h"
 #include "ios/chrome/browser/main/browser.h"
 #include "ios/chrome/browser/passwords/ios_chrome_password_check_manager.h"
@@ -86,7 +88,7 @@
 - (void)start {
   SafetyCheckTableViewController* viewController =
       [[SafetyCheckTableViewController alloc]
-          initWithStyle:UITableViewStylePlain];
+          initWithStyle:UITableViewStyleGrouped];
   self.viewController = viewController;
 
   scoped_refptr<IOSChromePasswordCheckManager> passwordCheckManager =
@@ -99,6 +101,7 @@
                                   self.browser->GetBrowserState())
                   syncService:SyncSetupServiceFactory::GetForBrowserState(
                                   self.browser->GetBrowserState())];
+
   self.mediator.consumer = self.viewController;
   self.mediator.handler = self;
   self.viewController.serviceDelegate = self.mediator;
@@ -174,8 +177,14 @@
                                   completion:nil];
 }
 
-- (void)showUpdateOnAppStorePage {
-  // TODO(crbug.com/1078782): Add navigation to App Store Chrome page.
+- (void)showUpdateAtLocation:(NSString*)location {
+  if (!location) {
+    NOTREACHED();
+    return;
+  }
+  const GURL url(base::SysNSStringToUTF8(location));
+  OpenNewTabCommand* command = [OpenNewTabCommand commandWithURLFromChrome:url];
+  [self.handler closeSettingsUIAndOpenURL:command];
 }
 
 - (void)showSafeBrowsingPreferencePage {

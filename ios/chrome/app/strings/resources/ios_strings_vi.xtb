@@ -14,6 +14,7 @@
 <translation id="1084365883616172403">Đã đăng lên Facebook.</translation>
 <translation id="1103523840287552314">Luôn dịch <ph name="LANGUAGE" /></translation>
 <translation id="1104948393051856124">Chấp nhận và tiếp tục</translation>
+<translation id="110724200315609752">Chuyển sang Cửa sổ đang mở</translation>
 <translation id="1112015203684611006">In không thành công.</translation>
 <translation id="1125564390852150847">Tạo thẻ mới.</translation>
 <translation id="1145536944570833626">Xóa dữ liệu hiện có.</translation>
@@ -93,6 +94,7 @@
 <translation id="1941314575388338491">Nhấn đúp để sao chép.</translation>
 <translation id="1952172573699511566">Các trang web sẽ hiển thị văn bản bằng ngôn ngữ ưu tiên của bạn khi có thể.</translation>
 <translation id="1952728750904661634">Đăng nhập bằng tài khoản được quản lý</translation>
+<translation id="1965935827552890526">Hoàn thành những việc bạn đang làm trong cửa sổ Chrome đang mở khác.</translation>
 <translation id="1974060860693918893">Nâng cao</translation>
 <translation id="1989112275319619282">Duyệt qua</translation>
 <translation id="1992734845128748707">Thay đổi trình duyệt mặc định…</translation>
@@ -277,6 +279,7 @@ Các trang web không thể dùng cookie để giám sát hoạt động duyệt
 <translation id="408404951701638773">Thanh tìm kiếm giờ đây dễ truy cập hơn</translation>
 <translation id="411254640334432676">Tải xuống không thành công.</translation>
 <translation id="4112644173421521737">Tìm kiếm</translation>
+<translation id="4113030288477039509">Do quản trị viên của bạn quản lý</translation>
 <translation id="4121993058175073134">Để gửi dữ liệu đã xuất, hãy định cấu hình tài khoản email trong ứng dụng Cài đặt.</translation>
 <translation id="4124987746317609294">Phạm vi thời gian</translation>
 <translation id="4152011295694446843">Bạn sẽ thấy các dấu trang ở đây</translation>
@@ -285,11 +288,13 @@ Các trang web không thể dùng cookie để giám sát hoạt động duyệt
 <translation id="4181841719683918333">Ngôn ngữ</translation>
 <translation id="424315890655130736">Nhập cụm mật khẩu</translation>
 <translation id="4263576668337963058">Hiển thị các hành động có thể thực hiện trên trang</translation>
+<translation id="4267380167363222949">Thẻ tiếp theo</translation>
 <translation id="4272631900155121838">Để quét mã QR, hãy bật máy ảnh từ cài đặt</translation>
 <translation id="4276041135170112053">Khắc phục ngay.</translation>
 <translation id="4277990410970811858">Duyệt web an toàn</translation>
 <translation id="4281844954008187215">Điều khoản dịch vụ</translation>
 <translation id="430793432425771671">Đồng bộ hóa mọi thứ</translation>
+<translation id="4309403553630140242">Nhấn đúp để xem thêm thông tin</translation>
 <translation id="430967081421617822">Từ trước đến nay</translation>
 <translation id="4334428914252001502">1 bài viết chưa đọc.</translation>
 <translation id="4338650699862464074">Gửi URL của các trang bạn truy cập cho Google.</translation>
@@ -353,6 +358,7 @@ Dữ liệu của bạn đã được mã hóa bằng cụm mật khẩu đồng
 <translation id="5005498671520578047">Sao chép mật khẩu</translation>
 <translation id="5010803260590204777">Mở thẻ ẩn danh để duyệt web một cách riêng tư.</translation>
 <translation id="5039804452771397117">Cho phép</translation>
+<translation id="5056446788882570708">Đã phát hiện thấy sự cố <ph name="TIME" />.</translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5062321486222145940">Cài đặt Google Drive</translation>
 <translation id="5083464117946352670">Không thể xác định kích thước tệp.</translation>
@@ -376,7 +382,6 @@ Dữ liệu của bạn đã được mã hóa bằng cụm mật khẩu đồng
 <translation id="5317780077021120954">Lưu</translation>
 <translation id="5327248766486351172">Tên</translation>
 <translation id="5339316356165661760">Bật tính năng đồng bộ hóa</translation>
-<translation id="5352285283572729470">Mục cài đặt này được quản lý</translation>
 <translation id="5388358297987318779">Mở hình ảnh</translation>
 <translation id="5407969256130905701">Hủy các thay đổi</translation>
 <translation id="5409365236829784218">Không có ứng dụng nào được cài đặt có thể mở tệp này.</translation>
@@ -456,6 +461,7 @@ Dữ liệu của bạn đã được mã hóa bằng cụm mật khẩu đồng
 <translation id="6187302354554850004">Đồng bộ hóa lần gần đây nhất: <ph name="LAST_USED_TIME" /></translation>
 <translation id="6189413832092199491">Chưa đọc</translation>
 <translation id="6196207969502475924">Tìm kiếm bằng giọng nói</translation>
+<translation id="6202364442240589072">{COUNT,plural, =1{Đóng {COUNT} thẻ}other{Đóng {COUNT} thẻ}}</translation>
 <translation id="6219688215832490856">Không bao giờ dịch</translation>
 <translation id="6254066287920239840">Mở liên kết trong ứng dụng thay vì trình duyệt.</translation>
 <translation id="6255097610484507482">Chỉnh sửa thẻ tín dụng</translation>
@@ -571,6 +577,7 @@ Các trang web không thể dùng cookie để giám sát hoạt động duyệt
 <translation id="734758817008927353">Các tùy chọn lưu thẻ</translation>
 <translation id="7348502496356775519">Đánh dấu trang</translation>
 <translation id="7383797227493018512">Danh sách đọc</translation>
+<translation id="739941347996872055">Thẻ trước</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> bài viết chưa đọc.</translation>
 <translation id="7425346204213733349">Các thay đổi đối với dấu trang, lịch sử, mật khẩu và các tùy chọn cài đặt khác sẽ không đồng bộ hóa với Tài khoản Google của bạn nữa. Tuy nhiên, dữ liệu hiện có của bạn sẽ vẫn được lưu trữ trong tài khoản Google của bạn.</translation>
@@ -636,6 +643,7 @@ Các trang web có thể dùng cookie để giám sát hoạt động duyệt we
 <translation id="8073670137947914548">Đã hoàn tất tải xuống</translation>
 <translation id="8073872304774253879">Cải thiện tính năng tìm kiếm và duyệt web</translation>
 <translation id="8076014560081431679">Cài đặt trang web đã lưu sẽ không bị xóa và có thể phản ánh thói quen duyệt web của bạn. <ph name="BEGIN_LINK" />Tìm hiểu thêm<ph name="END_LINK" /></translation>
+<translation id="8079602123447022758">Tùy chọn cài đặt này là do quản trị viên của bạn quản lý, hãy nhấn đúp để biết thêm thông tin</translation>
 <translation id="8105368624971345109">Tắt</translation>
 <translation id="8114753159095730575">Hiện đã có tệp tải xuống. Bạn có thể sử dụng các tùy chọn ở gần cuối màn hình.</translation>
 <translation id="8131740175452115882">Xác nhận</translation>

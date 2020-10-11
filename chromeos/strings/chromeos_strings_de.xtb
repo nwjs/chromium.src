@@ -19,6 +19,7 @@
 <translation id="2161394479394250669">Druckauftrag abbrechen</translation>
 <translation id="2338501278241028356">Aktivieren Sie Bluetooth, damit Geräte in der Nähe gefunden werden</translation>
 <translation id="2375079107209812402">Noch <ph name="ATTEMPTS_LEFT" /> Versuche</translation>
+<translation id="2517472476991765520">Suchen</translation>
 <translation id="2805756323405976993">Apps</translation>
 <translation id="2872961005593481000">Herunterfahren</translation>
 <translation id="3008341117444806826">AKTUALISIEREN</translation>
@@ -39,7 +40,6 @@
 <translation id="4034824040120875894">Drucker</translation>
 <translation id="4227825898293920515">Passwort läuft in <ph name="TIME" /> ab</translation>
 <translation id="4238516577297848345">Keine laufenden Druckaufträge</translation>
-<translation id="428217921675623177">Druckaufträge, die älter als 90 Tage sind, werden entfernt</translation>
 <translation id="4297501883039923494">Angehalten – Unbekannter Fehler</translation>
 <translation id="4429881212383817840">Kerberos-Ticket läuft bald ab</translation>
 <translation id="445059817448385655">Altes Passwort</translation>
@@ -81,7 +81,9 @@ Tippe auf das Mikrofon und sag mir, was du wissen möchtest.</translation>
 <translation id="7805768142964895445">Status</translation>
 <translation id="808894953321890993">Passwort ändern</translation>
 <translation id="8208861521865154048">Vorteile</translation>
+<translation id="8294431847097064396">Quelle</translation>
 <translation id="8347227221149377169">Druckaufträge</translation>
+<translation id="8352772353338965963">Fügen Sie ein Konto für die Mehrfachanmeldung hinzu. Sie können auf alle angemeldeten Konten zugreifen, ohne ein Passwort eingeben zu müssen. Verwenden Sie diese Funktion daher nur mit vertrauenswürdigen Konten.</translation>
 <translation id="8701136875688985581"><ph name="ENROLLMENT_DOMAIN" /> verwaltet diesen Nutzer. Es werden möglicherweise per Remotezugriff Einstellungen verwaltet und Nutzeraktivitäten überwacht.</translation>
 <translation id="871560550817059752">Fehlgeschlagen – Keine Tinte</translation>
 <translation id="8726019395068607495">Angehalten – Druckerklappe offen</translation>

@@ -18,14 +18,15 @@
 #include "components/printing/common/print.mojom.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/render_frame_host.h"
+#include "printing/print_job_constants.h"
 
 namespace android_webview {
 
 namespace {
 
-int SaveDataToFd(int fd,
-                 int page_count,
-                 scoped_refptr<base::RefCountedSharedMemoryMapping> data) {
+uint32_t SaveDataToFd(int fd,
+                      uint32_t page_count,
+                      scoped_refptr<base::RefCountedSharedMemoryMapping> data) {
   bool result = fd > base::kInvalidFd &&
                 base::IsValueInRangeForNumericType<int>(data->size());
   if (result) {
@@ -78,26 +79,25 @@ bool AwPrintManager::PrintNow() {
   return true;
 }
 
-void AwPrintManager::OnGetDefaultPrintSettings(
-    content::RenderFrameHost* render_frame_host,
-    IPC::Message* reply_msg) {
-  // Unlike the printing_message_filter, we do process this in UI thread.
+void AwPrintManager::GetDefaultPrintSettings(
+    GetDefaultPrintSettingsCallback callback) {
+  // Unlike PrintViewManagerBase, we do process this in UI thread.
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  printing::mojom::PrintParams params;
-  printing::RenderParamsFromPrintSettings(*settings_, &params);
-  params.document_cookie = cookie_;
-  PrintHostMsg_GetDefaultPrintSettings::WriteReplyParams(reply_msg, params);
-  render_frame_host->Send(reply_msg);
+  auto params = printing::mojom::PrintParams::New();
+  printing::RenderParamsFromPrintSettings(*settings_, params.get());
+  params->document_cookie = cookie_;
+  std::move(callback).Run(std::move(params));
 }
 
 void AwPrintManager::OnScriptedPrint(
     content::RenderFrameHost* render_frame_host,
-    const PrintHostMsg_ScriptedPrint_Params& scripted_params,
+    const printing::mojom::ScriptedPrintParams& scripted_params,
     IPC::Message* reply_msg) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  PrintMsg_PrintPages_Params params;
-  printing::RenderParamsFromPrintSettings(*settings_, &params.params);
-  params.params.document_cookie = scripted_params.cookie;
+  printing::mojom::PrintPagesParams params;
+  params.params = printing::mojom::PrintParams::New();
+  printing::RenderParamsFromPrintSettings(*settings_, params.params.get());
+  params.params->document_cookie = scripted_params.cookie;
   params.pages = printing::PageRange::GetPages(settings_->ranges());
   PrintHostMsg_ScriptedPrint::WriteReplyParams(reply_msg, params);
   render_frame_host->Send(reply_msg);
@@ -127,6 +127,12 @@ void AwPrintManager::OnDidPrintDocument(
     return;
   }
 
+  if (number_pages_ > printing::kMaxPageCount) {
+    web_contents()->Stop();
+    PdfWritingDone(0);
+    return;
+  }
+
   DCHECK(pdf_writing_done_callback_);
   base::PostTaskAndReplyWithResult(
       base::ThreadPool::CreateTaskRunner(
@@ -142,9 +148,10 @@ void AwPrintManager::OnDidPrintDocument(
 void AwPrintManager::OnDidPrintDocumentWritingDone(
     const PdfWritingDoneCallback& callback,
     std::unique_ptr<DelayedFrameDispatchHelper> helper,
-    int page_count) {
+    uint32_t page_count) {
+  DCHECK_LE(page_count, printing::kMaxPageCount);
   if (callback)
-    callback.Run(page_count);
+    callback.Run(base::checked_cast<int>(page_count));
   helper->SendCompleted();
 }
 

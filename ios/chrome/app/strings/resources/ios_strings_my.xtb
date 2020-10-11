@@ -14,6 +14,7 @@
 <translation id="1084365883616172403">ဖေ့စ်ဘွတ်တွင် တင်ပြခြင်း ပြီးစီပါပြီ။</translation>
 <translation id="1103523840287552314"><ph name="LANGUAGE" />ကို အမြဲတမ်း ဘာသာပြန်ရန်</translation>
 <translation id="1104948393051856124">လက်ခံရန် &amp; ဆက်လုပ်ရန်</translation>
+<translation id="110724200315609752">'ဖွင့်ထားသော ဝင်းဒိုး' သို့ပြောင်းရန်</translation>
 <translation id="1112015203684611006">ပုံနှိပ်ခြင်း မအောင်မြင်ပါ။</translation>
 <translation id="1125564390852150847">တဘ်အသစ်ဖန်တီးပါ</translation>
 <translation id="1145536944570833626">လက်ရှိဒေတာများကို ဖျက်ပါ</translation>
@@ -93,6 +94,7 @@
 <translation id="1941314575388338491">ကူးယူရန် နှစ်ချက်တို့ပါ။</translation>
 <translation id="1952172573699511566">ပြနိုင်သည့်အခါတွင် ဝဘ်ဆိုက်များက သင်ပိုမိုနှစ်သက်သည့် ဘာသာစကားဖြင့် စာသားများကို ပြသပါမည်။</translation>
 <translation id="1952728750904661634">စီမံခန့်ခွဲထားသည့် အကောင့်ဖြင့် လက်မှတ်ထိုးဝင်ရောက်ပါ</translation>
+<translation id="1965935827552890526">ဖွင့်ထားသည့် အခြား Chrome ဝင်းဒိုးများတွင် သင်လုပ်နေသောအရာများကို အပြီးသတ်ပါ။</translation>
 <translation id="1974060860693918893">အဆင့်မြင့်</translation>
 <translation id="1989112275319619282">ကြည့်ရန်</translation>
 <translation id="1992734845128748707">မူရင်းဘရောင်ဇာ ပြောင်းရန်…</translation>
@@ -277,6 +279,7 @@
 <translation id="408404951701638773">ရှာဖွေမှုဘားတန်းကို ယခုအခါ ပိုမိုလွယ်ကူစွာ အသုံးပြုနိုင်ပါပြီ</translation>
 <translation id="411254640334432676">ဒေါင်းလုဒ် မအောင်မြင်ခဲ့</translation>
 <translation id="4112644173421521737">ရှာဖွေရန်</translation>
+<translation id="4113030288477039509">သင်၏ စီမံအုပ်ချုပ်သူမှ စီမံကွပ်ကဲသည်</translation>
 <translation id="4121993058175073134">နောက်ထပ် ထုတ်ရန်ဒေတာ ပို့ရန်၊ ဆက်တင် အက်ပ် တွင်သင့်အီးမေးလ် အကောင့်ကို ကျေးဇူးပြု၍ ပြုပြင်ပါ။</translation>
 <translation id="4124987746317609294">အချိန်အတိုင်းတာ</translation>
 <translation id="4152011295694446843">သင်၏လိပ်စာများကို ဤနေရာတွင် ပြပါမည်</translation>
@@ -285,11 +288,13 @@
 <translation id="4181841719683918333">ဘာသာစကားများ</translation>
 <translation id="424315890655130736">စကားဝှက်ကိုထည့်ပါ</translation>
 <translation id="4263576668337963058">ရနိုင်သော စာမျက်နှာဆိုင်ရာ လုပ်ဆောင်ချက်များ ပြရန်</translation>
+<translation id="4267380167363222949">နောက်တဘ်</translation>
 <translation id="4272631900155121838">QR ကုဒ်ကို ဖတ်ရန် ဆက်တင်ထဲတွင် ကင်မရာကို ဖွင့်ပါ</translation>
 <translation id="4276041135170112053">ယခု ပြင်ဆင်ပါ။</translation>
 <translation id="4277990410970811858">လုံခြုံစွာ ဖွင့်ကြည့်ခြင်း</translation>
 <translation id="4281844954008187215">ဝန်ဆောင်မှု စည်းမျဉ်းများ</translation>
 <translation id="430793432425771671">အားလုံး စင့်ခ်မည်</translation>
+<translation id="4309403553630140242">နောက်ထပ်အချက်အလက်အတွက် နှစ်ချက်တို့ပါ</translation>
 <translation id="430967081421617822">အစအဆုံး</translation>
 <translation id="4334428914252001502">မဖတ်ရသေးသော ဆောင်းပါး ၁ ပုဒ်။</translation>
 <translation id="4338650699862464074">သင်ဝင်ကြည့်သည့် စာမျက်နှာများ၏ URL များကို Google သို့ ပို့သည်။</translation>
@@ -353,6 +358,7 @@
 <translation id="5005498671520578047">စကားဝှက်ကို ကူးယူပါ</translation>
 <translation id="5010803260590204777">ဝဘ်ကို သီးသန့် ရှာကြည့်ရန် ကိုယ်ပျောက်မုဒ်ဖြင့် တဘ်တစ်ခု ဖွင့်ပါ။</translation>
 <translation id="5039804452771397117">ခွင့်ပြုရန်</translation>
+<translation id="5056446788882570708"><ph name="TIME" /> တွင် ပြဿနာတွေ့သည်။</translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5062321486222145940">Google Drive တပ်ဆင်မည်</translation>
 <translation id="5083464117946352670">ဖိုင်အရွယ်အစားမဆုံးဖြတ်နိုင်ပါ။</translation>
@@ -376,7 +382,6 @@
 <translation id="5317780077021120954">သိမ်းရန်</translation>
 <translation id="5327248766486351172">အမည်</translation>
 <translation id="5339316356165661760">စင့်ခ်လုပ်ခြင်းကို ဖွင့်ရန်</translation>
-<translation id="5352285283572729470">ဤစက်တင်ကို ကြီးကြပ်ထားသည်</translation>
 <translation id="5388358297987318779">ရုပ်ပုံဖွင့်မည်</translation>
 <translation id="5407969256130905701">အပြောင်းအလဲများကို ဖယ်ပစ်ရန်</translation>
 <translation id="5409365236829784218">ဤဖိုင်ကိုဖွင့်နိုင်သည့် အပလီကေးရှင်းများ တပ်ဆင်ထားခြင်းမရှိပါ။</translation>
@@ -455,6 +460,7 @@ Handoff ကို ဆက်တင်များ၏ ယေဘူယျအပိ�
 <translation id="6187302354554850004">နောက်ဆုံး ထပ်တူပြုခြင်း: <ph name="LAST_USED_TIME" /></translation>
 <translation id="6189413832092199491">မဖတ်ရသေးသောစာ</translation>
 <translation id="6196207969502475924">အသံဖြင့် ရှာဖွေမှု</translation>
+<translation id="6202364442240589072">{COUNT,plural, =1{တဘ် {COUNT} ခု ပိတ်ရန်}other{တဘ် {COUNT} ခု ပိတ်ရန်}}</translation>
 <translation id="6219688215832490856">ဘယ်တော့မှ ဘာသာမပြန်ပါနှင့်</translation>
 <translation id="6254066287920239840">ဘရောင်ဇာတွင် ဖွင့်မည့်အစား လင့်ခ်ကို အက်ပ်အတွင်းတွင် ဖွင့်ပါ။</translation>
 <translation id="6255097610484507482">အကြွေးဝယ်ကဒ် တည်းဖြတ်မည်</translation>
@@ -570,6 +576,7 @@ Handoff ကို ဆက်တင်များ၏ ယေဘူယျအပိ�
 <translation id="734758817008927353">'ကတ်သိမ်းရန်' ရွေးချယ်မှုများ</translation>
 <translation id="7348502496356775519">လိပ်စာ</translation>
 <translation id="7383797227493018512">ဖတ်ရန် စာရင်း</translation>
+<translation id="739941347996872055">ယခင်တဘ်</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906">မဖတ်ရသေးသော ဆောင်းပါး <ph name="UNREAD_COUNT" /> ခု။</translation>
 <translation id="7425346204213733349">သင့်စာညှပ်များ၊ မှတ်တမ်း၊ စကားဝှက်များနှင့် အခြားဆက်တင်များအပေါ် ပြောင်းလဲခြင်းများကို သင့် Google Account သို့စင့်ခ်လုပ်တော့မည် မဟုတ်ပါ။ သို့သော်၊ သင့်လက်ရှိဒေတာများကိုတော့ သင့် Google Account တွင်ဆက်လက်သိမ်းဆည်းထားပါမည်။</translation>
@@ -635,6 +642,7 @@ Handoff ကို ဆက်တင်များ၏ ယေဘူယျအပိ�
 <translation id="8073670137947914548">ဒေါင်းလုဒ်လုပ်ပြီးပါပြီ</translation>
 <translation id="8073872304774253879">ရှာဖွေမှုနှင့် ဖွင့်ကြည့်မှု ပိုမိုကောင်းမွန်အောင် ပြုလုပ်ခြင်း</translation>
 <translation id="8076014560081431679">သိမ်းဆည်းထားသည့် ဆိုက်ဆက်တင်များကိုတော့ ဖျက်လိုက်မည် မဟုတ်ဘဲ သင်အင်တာနက် အသုံးပြုမှု အမူအကျင့်များကို ဖော်ပြပါလိမ့်မည်။ <ph name="BEGIN_LINK" />ပိုမိုလေ့လာရန်<ph name="END_LINK" /></translation>
+<translation id="8079602123447022758">ဤဆက်တင်ကို စီမံခန့်ခွဲထားသည်၊ နောက်ထပ်အချက်အလက်အတွက် နှစ်ချက်တို့ပါ</translation>
 <translation id="8105368624971345109">ပိတ်ပါ</translation>
 <translation id="8114753159095730575">ဖိုင်ကို ဒေါင်းလုဒ်လုပ်နိုင်ပါပြီ။ မျက်နှာပြင်အောက်ခြေနားတွင် ရွေးချယ်စရာများ ရှိပါသည်။</translation>
 <translation id="8131740175452115882">အတည်ပြုရန်</translation>

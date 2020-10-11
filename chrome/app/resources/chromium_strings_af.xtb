@@ -39,6 +39,7 @@ Sommige kenmerke kan dalk nie beskikbaar wees nie en veranderings aan voorkeure 
 <translation id="2560420686485554789">Chromium het bergingtoegang nodig om lêers af te laai</translation>
 <translation id="2572494885440352020">Chromium-helper</translation>
 <translation id="2587578672395088481">Chromium-bedryfstelsel moet herbegin word om die opdatering toe te pas.</translation>
+<translation id="2615699638672665509">Hierdie rekenaar sal binnekort nie meer Chromium-opdaterings ontvang nie want sy hardeware word nie meer gesteun nie.</translation>
 <translation id="2648074677641340862">'n Bedryfstelselfout het voorgekom met installering. Laai Chromium asseblief weer af.</translation>
 <translation id="2711502716910134313">Chromium-oortjie</translation>
 <translation id="2718390899429598676">Chromium sal jou data enkripteer vir bykomende sekuriteit.</translation>
@@ -155,7 +156,6 @@ Sommige kenmerke kan dalk nie beskikbaar wees nie en veranderings aan voorkeure 
 <translation id="6333502561965082103">'n Ander handeling in Chromium vind tans plaas. Probeer asseblief later weer.</translation>
 <translation id="6334986366598267305">Nou is dit makliker om Chromium met jou Google-rekening en op gedeelde rekenaars te gebruik.</translation>
 <translation id="6373523479360886564">Is jy seker jy wil Chromium deïnstalleer?</translation>
-<translation id="6400072781405947421">Chromium sal dalk nie reg werk nie omdat dit nie meer in Mac OS X 10.9 gesteun word nie.</translation>
 <translation id="6403826409255603130">Chromium is 'n webblaaier wat webbladsye en programme blitsvinning laat loop. Dis vinnig, stabiel en maklik om te gebruik. Blaai veiliger deur die web met beskerming teen wanware en uitvissing wat by Chromium ingebou is.</translation>
 <translation id="6434250628340475518">Chromium-bedryfstelsel</translation>
 <translation id="6457450909262716557">{SECONDS,plural, =1{Chromium sal oor 1 sekonde herbegin}other{Chromium sal oor # sekondes herbegin}}</translation>
@@ -215,6 +215,7 @@ Chromium kan nie jou instellings herwin nie.</translation>
 <translation id="7773960292263897147">Waarskuwing: Chromium kan nie verhoed dat uitbreidings rekord hou van jou blaaigeskiedenis nie. Om hierdie uitbreiding in incognitomodus te deaktiveer, moet jy hierdie opsie ontmerk.</translation>
 <translation id="7790626492778995050"><ph name="PAGE_TITLE" /> – Chromium Canary</translation>
 <translation id="7827169012280634081">Vee webkoekies en werfdata uit wanneer jy Chromium verlaat</translation>
+<translation id="7857220146454061152">Jy het OS X 10.11 of nuwer nodig om in die toekoms Chromium-opdaterings te kry. Hierdie rekenaar gebruik OS X 10.10.</translation>
 <translation id="7867198900892795913">Chromium kon nie na die nuutste weergawe opdateer nie en daarom het jy nie nuwe kenmerke en sekuriteitregstellings nie.</translation>
 <translation id="7898472181347242998">Gaan na <ph name="LINK_BEGIN" />Chromium OS-instellings<ph name="LINK_END" /> om te sien of jou toestel op datum is</translation>
 <translation id="7937630085815544518">Jy was as <ph name="USER_EMAIL_ADDRESS" /> by Chromium aangemeld. Gebruik asseblief dieselfde rekening om weer aan te meld.</translation>

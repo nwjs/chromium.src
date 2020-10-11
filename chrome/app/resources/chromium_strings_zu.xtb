@@ -39,6 +39,7 @@ Ezinye izici kungenzeka zingabi khona futhi izinguquko kokuncamelayo ngeke zize 
 <translation id="2560420686485554789">I-Chromium idinga ukufinyelela kusitoreji ukuze ilande amafayela</translation>
 <translation id="2572494885440352020">Isisizi se-Chromium</translation>
 <translation id="2587578672395088481">I-Chromium OS idinga ukuphinda iqaliswe ukuze kusetshenziswe isibuyekezo.</translation>
+<translation id="2615699638672665509">Le khompyutha maduze nje izomisa ukwamukela izibuyekezo ze-Chromium ngoba izingxenyekazi zekhompyutha zayo azisasekelwa.</translation>
 <translation id="2648074677641340862">Iphutha le sistimu yokusebenza livele ngesikhathi sokufaka. Sicela uphinde ulande i-Chromium.</translation>
 <translation id="2711502716910134313">Ithebhu le-Chromium</translation>
 <translation id="2718390899429598676">Ngokuvikela okungeziwe, i-Chromium izobethela idatha yakho.</translation>
@@ -155,7 +156,6 @@ Ezinye izici kungenzeka zingabi khona futhi izinguquko kokuncamelayo ngeke zize 
 <translation id="6333502561965082103">Okunye ukusebenza ku-Chromium kuyaqhubeka. Sicela uzame futhi emuva kwesikhathi.</translation>
 <translation id="6334986366598267305">Manje kulula ukusebenzisa i-Chromium nge-Akhawunti yakho ye-Google nakumakhompyutha abiwe.</translation>
 <translation id="6373523479360886564">Ingabe uqinisekile ukuthi ufuna ukukhipha i-Chromium?</translation>
-<translation id="6400072781405947421">I-Chromium kungenzeka ingasebenzi kahle ngoba ayisasekelwa ku-Mac OS X 10.9.</translation>
 <translation id="6403826409255603130">I-Chromium yisiphequluli sewebhu esiqalisa amakhasi wewebhu nezinhlelo zokusebenza ngesivinini sombani. Iyashesha, izinzile, futhi isebenziseka kalula. Dlulisa amehlo kuwebhu ngokuvikeleke kakhulu ngokuvikelwa kuhlelo olungayilungele ikhompyutha nobugebengu bokweba imininingwane ebucayi eyakhelwe ku-Chromium.</translation>
 <translation id="6434250628340475518">Isistimu ye-Chromium OS</translation>
 <translation id="6457450909262716557">{SECONDS,plural, =1{I-Chromium izoqala kabusha kusekhondi elingu-1}one{I-Chromium izoqala kabusha kumasekhondi angu-#}other{I-Chromium izoqala kabusha kumasekhondi angu-#}}</translation>
@@ -215,6 +215,7 @@ I-Chromium ayikwazi ukubuyisela izilungiselelo zakho.</translation>
 <translation id="7773960292263897147">Isexwayiso: I-Chromium ayikwazi ukuvimbela izandiso kusuka ekurekhodeni umlando wakho wokudlulisa amehlo. Ukuze ukhubaze lesi sandiso kumodi ye-incognito, yekisa ukukhetha le nketho.</translation>
 <translation id="7790626492778995050"><ph name="PAGE_TITLE" /> - Chromium Canary</translation>
 <translation id="7827169012280634081">Isula amakhukhi kanye nedatha yesayithi uma uyeka i-Chromium</translation>
+<translation id="7857220146454061152">Ukuze uthole izibuyekezo zesikhathi esizayo ze-Chromium, uzodinga i-OS X 10.11 noma yakamuva. Le khompuyutha isebenzisa i-OS X 10.10.</translation>
 <translation id="7867198900892795913">I-Chromium ayikwazanga ukubuyekezela kwinguqulo yakamuva, ngakho-ke uyalahlekelwa kuzici ezintsha nokulungiswa kokuphepha.</translation>
 <translation id="7898472181347242998">Ukuze ubone uma ngabe idivayisi yakho isesikhathini, hamba <ph name="LINK_BEGIN" />kuzilungiselelo ze-Chromium OS<ph name="LINK_END" /></translation>
 <translation id="7937630085815544518">Ubukade ungene ngemvume ku-Chromium njengo-<ph name="USER_EMAIL_ADDRESS" />. Sicela usebenzise i-akhawunti efanayo ukuze uphinde ungene ngemvume futhi.</translation>

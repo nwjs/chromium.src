@@ -89,12 +89,11 @@ class AuraLinuxApplication : public ui::AXPlatformNodeDelegateBase,
       return;
 
     widgets_.push_back(widget);
-    observer_.Add(widget);
+    widget_observer_.Add(widget);
 
     aura::Window* window = widget->GetNativeWindow();
-    if (!window)
-      return;
-    window->AddObserver(this);
+    if (window)
+      window_observer_.Add(window);
   }
 
   gfx::NativeViewAccessible GetNativeViewAccessible() override {
@@ -106,7 +105,12 @@ class AuraLinuxApplication : public ui::AXPlatformNodeDelegateBase,
   // WidgetObserver:
 
   void OnWidgetDestroying(Widget* widget) override {
-    observer_.Remove(widget);
+    widget_observer_.Remove(widget);
+
+    aura::Window* window = widget->GetNativeWindow();
+    if (window && window_observer_.IsObserving(window))
+      window_observer_.Remove(window);
+
     auto iter = std::find(widgets_.begin(), widgets_.end(), widget);
     if (iter != widgets_.end())
       widgets_.erase(iter);
@@ -165,7 +169,8 @@ class AuraLinuxApplication : public ui::AXPlatformNodeDelegateBase,
   ui::AXNodeData data_;
   ui::AXUniqueId unique_id_;
   std::vector<Widget*> widgets_;
-  ScopedObserver<views::Widget, views::WidgetObserver> observer_{this};
+  ScopedObserver<views::Widget, views::WidgetObserver> widget_observer_{this};
+  ScopedObserver<aura::Window, aura::WindowObserver> window_observer_{this};
 };
 
 }  // namespace

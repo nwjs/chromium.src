@@ -14,6 +14,7 @@
 <translation id="1084365883616172403">Facebook-Beitrag gepostet</translation>
 <translation id="1103523840287552314"><ph name="LANGUAGE" /> immer übersetzen</translation>
 <translation id="1104948393051856124">Akzeptieren &amp; weiter</translation>
+<translation id="110724200315609752">Zu offenem Fenster wechseln</translation>
 <translation id="1112015203684611006">Fehler beim Drucken.</translation>
 <translation id="1125564390852150847">Neuen Tab erstellen.</translation>
 <translation id="1145536944570833626">Vorhandene Daten löschen</translation>
@@ -93,6 +94,7 @@
 <translation id="1941314575388338491">Tippen Sie zum Kopieren hier doppelt.</translation>
 <translation id="1952172573699511566">Sofern dies möglich ist, wird Text auf Websites in Ihrer bevorzugten Sprache angezeigt.</translation>
 <translation id="1952728750904661634">Mit verwaltetem Konto anmelden</translation>
+<translation id="1965935827552890526">Sie können zu Ihrem offenem Chrome-Fenster zurückkehren, um Ihre vorherige Aktion abzuschließen.</translation>
 <translation id="1974060860693918893">Erweitert</translation>
 <translation id="1989112275319619282">Durchsuchen</translation>
 <translation id="1992734845128748707">Standardbrowser ändern…</translation>
@@ -277,6 +279,7 @@ Wenn der Inkognitomodus aktiviert ist, können Websites Cookies nicht verwenden,
 <translation id="408404951701638773">Auf die Suchleiste kann jetzt noch einfacher zugegriffen werden</translation>
 <translation id="411254640334432676">Fehler beim Download</translation>
 <translation id="4112644173421521737">Suche</translation>
+<translation id="4113030288477039509">Von Ihrem Administrator verwaltet</translation>
 <translation id="4121993058175073134">Zum Senden von Exportdaten E-Mail-Konto in App "Einstellungen" konfigurieren</translation>
 <translation id="4124987746317609294">Zeitraum</translation>
 <translation id="4152011295694446843">Hier werden Ihre Lesezeichen angezeigt</translation>
@@ -290,6 +293,7 @@ Wenn der Inkognitomodus aktiviert ist, können Websites Cookies nicht verwenden,
 <translation id="4277990410970811858">Safe Browsing</translation>
 <translation id="4281844954008187215">Nutzungsbedingungen</translation>
 <translation id="430793432425771671">Alles synchronisieren</translation>
+<translation id="4309403553630140242">Für weitere Informationen doppeltippen</translation>
 <translation id="430967081421617822">Gesamter Zeitraum</translation>
 <translation id="4334428914252001502">1 ungelesener Artikel.</translation>
 <translation id="4338650699862464074">URLs der von Ihnen besuchten Seiten werden an Google gesendet.</translation>
@@ -353,6 +357,7 @@ Wenn Sie diese Einstellung ändern möchten, <ph name="BEGIN_LINK" />setzen Sie 
 <translation id="5005498671520578047">Passwort kopieren</translation>
 <translation id="5010803260590204777">Öffnet einen Inkognitotab zum anonymen Surfen im Web</translation>
 <translation id="5039804452771397117">Zulassen</translation>
+<translation id="5056446788882570708">Probleme <ph name="TIME" /> gefunden.</translation>
 <translation id="5059136629401106827">Ok</translation>
 <translation id="5062321486222145940">Google Drive installieren</translation>
 <translation id="5083464117946352670">Fehler bei Bestimmung der Dateigröße</translation>
@@ -376,7 +381,6 @@ Wenn Sie diese Einstellung ändern möchten, <ph name="BEGIN_LINK" />setzen Sie 
 <translation id="5317780077021120954">Speichern</translation>
 <translation id="5327248766486351172">Name</translation>
 <translation id="5339316356165661760">Synchronisierung aktivieren</translation>
-<translation id="5352285283572729470">Diese Einstellung wird verwaltet</translation>
 <translation id="5388358297987318779">Bild öffnen</translation>
 <translation id="5407969256130905701">Änderungen verwerfen</translation>
 <translation id="5409365236829784218">Es sind keine Apps inst., die diese Datei öffnen können.</translation>
@@ -456,6 +460,7 @@ Handoff muss auch im Abschnitt "Allgemein" Ihrer Einstellungen aktiviert sein un
 <translation id="6187302354554850004">Letzte Synchr.: <ph name="LAST_USED_TIME" /></translation>
 <translation id="6189413832092199491">Ungelesen</translation>
 <translation id="6196207969502475924">Sprachsuche</translation>
+<translation id="6202364442240589072">{COUNT,plural, =1{{COUNT} Tab schließen}other{{COUNT} Tabs schließen}}</translation>
 <translation id="6219688215832490856">Nie übersetzen</translation>
 <translation id="6254066287920239840">Links in der App statt im Browser öffnen.</translation>
 <translation id="6255097610484507482">Kreditkarte bearbeiten</translation>
@@ -636,6 +641,7 @@ Websites können Cookies verwenden, um Ihre Browseraktivitäten auf anderen Webs
 <translation id="8073670137947914548">Download abgeschlossen</translation>
 <translation id="8073872304774253879">Suchanfragen und das Surfen verbessern</translation>
 <translation id="8076014560081431679">Gespeicherte Website-Einstellungen werden nicht gelöscht und können möglicherweise Ihre Surfgewohnheiten wiedergeben. <ph name="BEGIN_LINK" />Weitere Informationen<ph name="END_LINK" /></translation>
+<translation id="8079602123447022758">Diese Einstellung wird verwaltet – für weitere Informationen doppeltippen</translation>
 <translation id="8105368624971345109">Deaktivieren</translation>
 <translation id="8114753159095730575">Dateidownload verfügbar. Optionen stehen unten auf dem Bildschirm zur Verfügung.</translation>
 <translation id="8131740175452115882">Bestätigen</translation>

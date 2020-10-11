@@ -139,9 +139,9 @@ VISIT_PROTO_FIELDS(const sync_pb::AutofillCullingFlags& proto) {
 
 VISIT_PROTO_FIELDS(const sync_pb::AutofillOfferSpecifics& proto) {
   VISIT(id);
-  VISIT(offer_details_deep_link_clank);
-  VISIT(merchant_domain);
-  VISIT(merchant_app_package);
+  VISIT(offer_details_url);
+  VISIT_REP(merchant_domain);
+  VISIT_REP(merchant_app_package);
   VISIT(offer_expiry_date);
   VISIT(card_linked_offer_data);
   VISIT(percentage_reward);
@@ -151,7 +151,6 @@ VISIT_PROTO_FIELDS(const sync_pb::AutofillOfferSpecifics& proto) {
 VISIT_PROTO_FIELDS(
     const sync_pb::AutofillOfferSpecifics::CardLinkedOfferData& proto) {
   VISIT_REP(instrument_id);
-  VISIT_REP(legacy_instrument_id);
 }
 
 VISIT_PROTO_FIELDS(
@@ -593,6 +592,7 @@ VISIT_PROTO_FIELDS(const sync_pb::HistoryDeleteDirectives& proto) {
 
 VISIT_PROTO_FIELDS(const sync_pb::InvalidationSpecificFields& proto) {
   VISIT(instance_id_token);
+  VISIT_REP(interested_data_type_ids);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::KeystoreEncryptionFlags& proto) {
@@ -1116,6 +1116,7 @@ VISIT_PROTO_FIELDS(const sync_pb::WalletMaskedCreditCard& proto) {
   VISIT(bank_name);
   VISIT(nickname);
   VISIT(card_issuer);
+  VISIT(instrument_id);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::WalletMetadataSpecifics& proto) {
@@ -1161,7 +1162,7 @@ VISIT_PROTO_FIELDS(const sync_pb::WalletSyncFlags& proto) {
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::WebAppSpecifics& proto) {
-  VISIT(launch_url);
+  VISIT(start_url);
   VISIT(name);
   VISIT_ENUM(user_display_mode);
   VISIT(theme_color);
@@ -1175,7 +1176,7 @@ VISIT_PROTO_FIELDS(const sync_pb::WifiConfigurationSpecifics::
   VISIT(secure_http_proxy_port);
   VISIT(socks_host_url);
   VISIT(socks_host_port);
-  VISIT_REP(whitelisted_domains);
+  VISIT_REP(excluded_domains);
 }
 
 VISIT_PROTO_FIELDS(

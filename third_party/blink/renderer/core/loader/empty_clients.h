@@ -111,7 +111,7 @@ class CORE_EXPORT EmptyChromeClient : public ChromeClient {
                             cc::PaintHoldingCommitTrigger) override {}
   void StartDragging(LocalFrame*,
                      const WebDragData&,
-                     WebDragOperationsMask,
+                     DragOperationsMask,
                      const SkBitmap& drag_image,
                      const gfx::Point& drag_image_offset) override {}
   bool AcceptsLoadDrops() const override { return true; }
@@ -229,12 +229,6 @@ class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
 
   bool InShadowTree() const override { return false; }
 
-  Frame* Opener() const override { return nullptr; }
-
-  Frame* Parent() const override { return nullptr; }
-  Frame* Top() const override { return nullptr; }
-  Frame* NextSibling() const override { return nullptr; }
-  Frame* FirstChild() const override { return nullptr; }
   void WillBeDetached() override {}
   void Detached(FrameDetachType) override {}
 
@@ -421,11 +415,6 @@ class CORE_EXPORT EmptyRemoteFrameClient : public RemoteFrameClient {
   // FrameClient implementation.
   bool InShadowTree() const override { return false; }
   void Detached(FrameDetachType) override {}
-  Frame* Opener() const override { return nullptr; }
-  Frame* Parent() const override { return nullptr; }
-  Frame* Top() const override { return nullptr; }
-  Frame* NextSibling() const override { return nullptr; }
-  Frame* FirstChild() const override { return nullptr; }
   base::UnguessableToken GetDevToolsFrameToken() const override {
     return base::UnguessableToken::Create();
   }

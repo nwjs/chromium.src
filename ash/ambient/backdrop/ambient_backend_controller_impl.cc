@@ -9,11 +9,13 @@
 #include <vector>
 
 #include "ash/ambient/ambient_controller.h"
+#include "ash/ambient/util/ambient_util.h"
 #include "ash/public/cpp/ambient/ambient_backend_controller.h"
 #include "ash/public/cpp/ambient/ambient_client.h"
 #include "ash/public/cpp/ambient/ambient_metrics.h"
 #include "ash/public/cpp/ambient/ambient_prefs.h"
 #include "ash/public/cpp/ambient/common/ambient_settings.h"
+#include "ash/public/cpp/shell_window_ids.h"
 #include "ash/session/session_controller_impl.h"
 #include "ash/shell.h"
 #include "base/barrier_closure.h"
@@ -22,13 +24,19 @@
 #include "base/optional.h"
 #include "base/time/time.h"
 #include "chromeos/assistant/internal/proto/google3/backdrop/backdrop.pb.h"
+#include "chromeos/constants/chromeos_features.h"
 #include "components/prefs/pref_service.h"
+#include "components/user_manager/user_manager.h"
 #include "net/base/load_flags.h"
 #include "net/base/net_errors.h"
+#include "net/base/url_util.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
+#include "services/data_decoder/public/cpp/data_decoder.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/cpp/simple_url_loader.h"
+#include "ui/display/display.h"
+#include "ui/display/screen.h"
 #include "url/gurl.h"
 
 namespace ash {
@@ -103,16 +111,62 @@ void BuildBackdropTopicDetails(
     const backdrop::ScreenUpdate::Topic& backdrop_topic,
     AmbientModeTopic& ambient_topic) {
   switch (backdrop_topic.topic_type()) {
-    case backdrop::TopicSource::CURATED:
-      ambient_topic.details = BuildCuratedTopicDetails(backdrop_topic);
-      break;
     case backdrop::TopicSource::PERSONAL_PHOTO:
       ambient_topic.details = BuildPersonalTopicDetails(backdrop_topic);
       break;
     default:
-      ambient_topic.details = std::string();
+      ambient_topic.details = BuildCuratedTopicDetails(backdrop_topic);
       break;
   }
+}
+
+AmbientModeTopicType ToAmbientModeTopicType(
+    const backdrop::ScreenUpdate_Topic& topic) {
+  if (!topic.has_topic_type())
+    return AmbientModeTopicType::kOther;
+
+  switch (topic.topic_type()) {
+    case backdrop::CURATED:
+      return AmbientModeTopicType::kCurated;
+    case backdrop::PERSONAL_PHOTO:
+      return AmbientModeTopicType::kPersonal;
+    case backdrop::FEATURED_PHOTO:
+      return AmbientModeTopicType::kFeatured;
+    case backdrop::GEO_PHOTO:
+      return AmbientModeTopicType::kGeo;
+    case backdrop::CULTURAL_INSTITUTE:
+      return AmbientModeTopicType::kCulturalInstitute;
+    case backdrop::RSS_TOPIC:
+      return AmbientModeTopicType::kRss;
+    case backdrop::CAPTURED_ON_PIXEL:
+      return AmbientModeTopicType::kCapturedOnPixel;
+    default:
+      return AmbientModeTopicType::kOther;
+  }
+}
+
+WeatherInfo ToWeatherInfo(const base::Value& result) {
+  DCHECK(result.is_list());
+
+  WeatherInfo weather_info;
+  const auto& list_result = result.GetList();
+
+  const base::Value& condition_icon_url_value =
+      list_result[backdrop::WeatherInfo::kConditionIconUrlFieldNumber - 1];
+  if (!condition_icon_url_value.is_none())
+    weather_info.condition_icon_url = condition_icon_url_value.GetString();
+
+  const base::Value& temp_f_value =
+      list_result[backdrop::WeatherInfo::kTempFFieldNumber - 1];
+  if (!temp_f_value.is_none())
+    weather_info.temp_f = temp_f_value.GetDouble();
+
+  const base::Value& show_celsius_value =
+      list_result[backdrop::WeatherInfo::kShowCelsiusFieldNumber - 1];
+  if (!show_celsius_value.is_none())
+    weather_info.show_celsius = show_celsius_value.GetBool();
+
+  return weather_info;
 }
 
 // Helper function to save the information we got from the backdrop server to a
@@ -124,11 +178,29 @@ ScreenUpdate ToScreenUpdate(
   int topics_size = backdrop_screen_update.next_topics_size();
   if (topics_size > 0) {
     for (auto& backdrop_topic : backdrop_screen_update.next_topics()) {
-      AmbientModeTopic ambient_topic;
       DCHECK(backdrop_topic.has_url());
-      ambient_topic.url = backdrop_topic.url();
+
+      auto topic_type = ToAmbientModeTopicType(backdrop_topic);
+      if (!ambient::util::IsAmbientModeTopicTypeAllowed(topic_type))
+        continue;
+
+      AmbientModeTopic ambient_topic;
+      ambient_topic.topic_type = topic_type;
       if (backdrop_topic.has_portrait_image_url())
-        ambient_topic.portrait_image_url = backdrop_topic.portrait_image_url();
+        ambient_topic.url = backdrop_topic.portrait_image_url();
+      else
+        ambient_topic.url = backdrop_topic.url();
+
+      if (backdrop_topic.has_related_topic()) {
+        if (backdrop_topic.related_topic().has_portrait_image_url()) {
+          ambient_topic.related_image_url =
+              backdrop_topic.related_topic().portrait_image_url();
+        } else {
+          ambient_topic.related_image_url =
+              backdrop_topic.related_topic().url();
+        }
+      }
+
       BuildBackdropTopicDetails(backdrop_topic, ambient_topic);
       screen_update.next_topics.emplace_back(ambient_topic);
     }
@@ -153,6 +225,35 @@ ScreenUpdate ToScreenUpdate(
     screen_update.weather_info = weather_info;
   }
   return screen_update;
+}
+
+bool IsArtSettingVisible(const ArtSetting& art_setting) {
+  const auto& album_id = art_setting.album_id;
+
+  if (album_id == kAmbientModeStreetArtAlbumId)
+    return chromeos::features::kAmbientModeStreetArtAlbumEnabled.Get();
+
+  if (album_id == kAmbientModeCapturedOnPixelAlbumId)
+    return chromeos::features::kAmbientModeCapturedOnPixelAlbumEnabled.Get();
+
+  if (album_id == kAmbientModeEarthAndSpaceAlbumId)
+    return chromeos::features::kAmbientModeEarthAndSpaceAlbumEnabled.Get();
+
+  if (album_id == kAmbientModeFeaturedPhotoAlbumId)
+    return chromeos::features::kAmbientModeFeaturedPhotoAlbumEnabled.Get();
+
+  if (album_id == kAmbientModeFineArtAlbumId)
+    return chromeos::features::kAmbientModeFineArtAlbumEnabled.Get();
+
+  return false;
+}
+
+gfx::Size GetDisplaySizeInPixel() {
+  auto* ambient_container = Shell::GetContainer(
+      Shell::GetPrimaryRootWindow(), kShellWindowId_AmbientModeContainer);
+  return display::Screen::GetScreen()
+      ->GetDisplayNearestView(ambient_container)
+      .GetSizeInPixel();
 }
 
 }  // namespace
@@ -278,6 +379,47 @@ void AmbientBackendControllerImpl::SetPhotoRefreshInterval(
       ->SetPhotoRefreshInterval(interval);
 }
 
+void AmbientBackendControllerImpl::FetchWeather(FetchWeatherCallback callback) {
+  auto response_handler =
+      [](FetchWeatherCallback callback,
+         std::unique_ptr<BackdropURLLoader> backdrop_url_loader,
+         std::unique_ptr<std::string> response) {
+        if (response && !response->empty()) {
+          auto json_handler =
+              [](FetchWeatherCallback callback,
+                 data_decoder::DataDecoder::ValueOrError result) {
+                if (result.value) {
+                  std::move(callback).Run(ToWeatherInfo(result.value.value()));
+                } else {
+                  DVLOG(1) << "Failed to parse weather json.";
+                  std::move(callback).Run(base::nullopt);
+                }
+              };
+
+          constexpr char kJsonPrefix[] = ")]}'\n";
+          data_decoder::DataDecoder::ParseJsonIsolated(
+              response->substr(strlen(kJsonPrefix)),
+              base::BindOnce(json_handler, std::move(callback)));
+        } else {
+          std::move(callback).Run(base::nullopt);
+        }
+      };
+
+  const auto* user = user_manager::UserManager::Get()->GetActiveUser();
+  DCHECK(user->HasGaiaAccount());
+  BackdropClientConfig::Request request =
+      backdrop_client_config_.CreateFetchWeatherInfoRequest(
+          user->GetAccountId().GetGaiaId(), GetClientId());
+  std::unique_ptr<network::ResourceRequest> resource_request =
+      CreateResourceRequest(request);
+  auto backdrop_url_loader = std::make_unique<BackdropURLLoader>();
+  auto* loader_ptr = backdrop_url_loader.get();
+  loader_ptr->Start(std::move(resource_request), /*request_body=*/base::nullopt,
+                    NO_TRAFFIC_ANNOTATION_YET,
+                    base::BindOnce(response_handler, std::move(callback),
+                                   std::move(backdrop_url_loader)));
+}
+
 void AmbientBackendControllerImpl::FetchScreenUpdateInfoInternal(
     int num_topics,
     OnScreenUpdateInfoFetchedCallback callback,
@@ -295,6 +437,15 @@ void AmbientBackendControllerImpl::FetchScreenUpdateInfoInternal(
       backdrop_client_config_.CreateFetchScreenUpdateRequest(
           num_topics, gaia_id, access_token, client_id);
   auto resource_request = CreateResourceRequest(request);
+
+  // Request photo with display size in pixel.
+  gfx::Size display_size_px = GetDisplaySizeInPixel();
+  resource_request->url =
+      net::AppendQueryParameter(resource_request->url, "device-screen-width",
+                                base::NumberToString(display_size_px.width()));
+  resource_request->url =
+      net::AppendQueryParameter(resource_request->url, "device-screen-height",
+                                base::NumberToString(display_size_px.height()));
 
   auto backdrop_url_loader = std::make_unique<BackdropURLLoader>();
   auto* loader_ptr = backdrop_url_loader.get();
@@ -354,10 +505,15 @@ void AmbientBackendControllerImpl::OnGetSettings(
 
   auto settings = BackdropClientConfig::ParseGetSettingsResponse(*response);
   // |art_settings| should not be empty if parsed successfully.
-  if (settings.art_settings.empty())
+  if (settings.art_settings.empty()) {
     std::move(callback).Run(base::nullopt);
-  else
+  } else {
+    for (auto& art_setting : settings.art_settings) {
+      art_setting.visible = IsArtSettingVisible(art_setting);
+      art_setting.enabled = art_setting.enabled && art_setting.visible;
+    }
     std::move(callback).Run(settings);
+  }
 }
 
 void AmbientBackendControllerImpl::StartToUpdateSettings(

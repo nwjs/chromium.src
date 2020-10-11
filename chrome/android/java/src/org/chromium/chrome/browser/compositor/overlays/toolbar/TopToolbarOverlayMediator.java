@@ -7,16 +7,19 @@ package org.chromium.chrome.browser.compositor.overlays.toolbar;
 import android.content.Context;
 
 import androidx.annotation.ColorInt;
+import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
 import org.chromium.base.supplier.ObservableSupplier;
-import org.chromium.base.supplier.Supplier;
+import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsUtils;
 import org.chromium.chrome.browser.compositor.layouts.Layout;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManager;
 import org.chromium.chrome.browser.compositor.layouts.SceneChangeObserver;
+import org.chromium.chrome.browser.compositor.layouts.ToolbarSwipeLayout;
+import org.chromium.chrome.browser.compositor.layouts.phone.StackLayout;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabObserver;
@@ -43,22 +46,19 @@ public class TopToolbarOverlayMediator {
     private final SceneChangeObserver mSceneChangeObserver;
 
     /** A Layout for browser controls. */
-    private final ControlContainer mToolbarContainer;
+    private final @Nullable ControlContainer mToolbarContainer;
 
     /** Provides current tab. */
-    private final ObservableSupplier<Tab> mTabSupplier;
+    private final ActivityTabProvider mTabSupplier;
 
     /** An observer that watches for changes in the active tab. */
-    private final Callback<Tab> mTabSupplierObserver;
+    private final ActivityTabProvider.ActivityTabObserver mTabSupplierObserver;
 
     /** Access to the current state of the browser controls. */
     private final BrowserControlsStateProvider mBrowserControlsStateProvider;
 
     /** An observer of the browser controls offsets. */
     private final BrowserControlsStateProvider.Observer mBrowserControlsObserver;
-
-    /** A means of accessing the current viewport mode. */
-    private final Supplier<Integer> mViewportModeSupplier;
 
     /** A means of checking whether the toolbar android view is being force-hidden or shown. */
     private final ObservableSupplier<Boolean> mAndroidViewShownSupplier;
@@ -72,17 +72,18 @@ public class TopToolbarOverlayMediator {
     /** The last non-null tab. */
     private Tab mLastActiveTab;
 
+    /** Whether the active layout has its own toolbar to display instead of this one. */
+    private boolean mLayoutHasOwnToolbar;
+
     TopToolbarOverlayMediator(PropertyModel model, Context context, LayoutManager layoutManager,
-            ControlContainer controlContainer, ObservableSupplier<Tab> tabSupplier,
+            @Nullable ControlContainer controlContainer, ActivityTabProvider tabSupplier,
             BrowserControlsStateProvider browserControlsStateProvider,
-            Supplier<Integer> viewportModeSupplier,
             ObservableSupplier<Boolean> androidViewShownSupplier) {
         mContext = context;
         mLayoutManager = layoutManager;
         mToolbarContainer = controlContainer;
         mTabSupplier = tabSupplier;
         mBrowserControlsStateProvider = browserControlsStateProvider;
-        mViewportModeSupplier = viewportModeSupplier;
         mAndroidViewShownSupplier = androidViewShownSupplier;
         mModel = model;
 
@@ -92,6 +93,11 @@ public class TopToolbarOverlayMediator {
 
             @Override
             public void onSceneChange(Layout layout) {
+                // TODO(1100332): Use layout IDs instead of type checking when they are available.
+                // TODO(1100332): Once ToolbarSwipeLayout uses a SceneLayer that does not include
+                //                its own toolbar, only check for the vertical tab switcher.
+                mLayoutHasOwnToolbar =
+                        layout instanceof StackLayout || layout instanceof ToolbarSwipeLayout;
                 updateVisibility();
             }
         };
@@ -117,7 +123,7 @@ public class TopToolbarOverlayMediator {
 
         // Keep an observer attached to the visible tab (and only the visible tab) to update
         // properties including theme color.
-        mTabSupplierObserver = (tab) -> {
+        mTabSupplierObserver = (tab, hint) -> {
             if (mLastActiveTab != null) mLastActiveTab.removeObserver(currentTabObserver);
             if (tab == null) return;
 
@@ -127,7 +133,7 @@ public class TopToolbarOverlayMediator {
             updateThemeColor(mLastActiveTab);
             updateProgress();
         };
-        mTabSupplier.addObserver(mTabSupplierObserver);
+        mTabSupplier.addObserverAndTrigger(mTabSupplierObserver);
 
         mAndroidViewShownObserver = (shown) -> updateShadowState();
         mAndroidViewShownSupplier.addObserver(mAndroidViewShownObserver);
@@ -225,7 +231,7 @@ public class TopToolbarOverlayMediator {
     /** Clean up any state and observers. */
     void destroy() {
         mTabSupplier.removeObserver(mTabSupplierObserver);
-        mTabSupplierObserver.onResult(null);
+        mTabSupplierObserver.onActivityTabChanged(null, false);
         mLastActiveTab = null;
 
         mLayoutManager.removeSceneChangeObserver(mSceneChangeObserver);
@@ -237,7 +243,7 @@ public class TopToolbarOverlayMediator {
     private void updateVisibility() {
         mModel.set(TopToolbarOverlayProperties.VISIBLE,
                 !BrowserControlsUtils.areBrowserControlsOffScreen(mBrowserControlsStateProvider)
-                        && mViewportModeSupplier.get() != Layout.ViewportMode.ALWAYS_FULLSCREEN);
+                        && !mLayoutHasOwnToolbar);
     }
 
     /** @return Whether this overlay should be attached to the tree. */

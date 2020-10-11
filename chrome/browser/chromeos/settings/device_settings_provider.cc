@@ -56,6 +56,7 @@ namespace {
 const char* const kKnownSettings[] = {
     kAccountsPrefAllowGuest,
     kAccountsPrefAllowNewUser,
+    kAccountsPrefFamilyLinkAccountsAllowed,
     kAccountsPrefDeviceLocalAccountAutoLoginBailoutEnabled,
     kAccountsPrefDeviceLocalAccountAutoLoginDelay,
     kAccountsPrefDeviceLocalAccountAutoLoginId,
@@ -194,22 +195,36 @@ void DecodeLoginPolicies(const em::ChromeDeviceSettingsProto& policy,
   //   kAccountsPrefSupervisedUsersEnabled has a default value of false
   //     for enterprise devices and true for consumer devices.
   //   kAccountsPrefTransferSAMLCookies has a default value of false.
+  //   kAccountsPrefFamilyLinkAccountsAllowed has a default value of false.
   if (policy.has_allow_new_users() &&
       policy.allow_new_users().has_allow_new_users()) {
     if (policy.allow_new_users().allow_new_users()) {
       // New users allowed, user whitelist ignored.
       new_values_cache->SetBoolean(kAccountsPrefAllowNewUser, true);
     } else {
-      // New users not allowed, enforce user whitelist if present.
-      new_values_cache->SetBoolean(kAccountsPrefAllowNewUser,
-                                   !policy.has_user_whitelist());
+      // New users not allowed, enforce user allowlist if present.
+      new_values_cache->SetBoolean(
+          kAccountsPrefAllowNewUser,
+          !policy.has_user_whitelist() && !policy.has_user_allowlist());
     }
   } else {
     // No configured allow-new-users value, enforce whitelist if non-empty.
     new_values_cache->SetBoolean(
         kAccountsPrefAllowNewUser,
-        policy.user_whitelist().user_whitelist_size() == 0);
+        policy.user_whitelist().user_whitelist_size() == 0 &&
+            policy.user_allowlist().user_allowlist_size() == 0);
   }
+
+  // Value of DeviceFamilyLinkAccountsAllowed policy does not affect
+  // |kAccountsPrefAllowNewUser| setting. Family Link accounts will be only
+  // allowed if both |kAccountsPrefAllowNewUser| and
+  // |kAccountsPrefFamilyLinkAccountsAllowed| are true.
+  new_values_cache->SetBoolean(
+      kAccountsPrefFamilyLinkAccountsAllowed,
+      policy.has_family_link_accounts_allowed() &&
+          policy.family_link_accounts_allowed()
+              .has_family_link_accounts_allowed() &&
+          policy.family_link_accounts_allowed().family_link_accounts_allowed());
 
   new_values_cache->SetBoolean(
       kRebootOnShutdown,
@@ -243,12 +258,22 @@ void DecodeLoginPolicies(const em::ChromeDeviceSettingsProto& policy,
           policy.ephemeral_users_enabled().ephemeral_users_enabled());
 
   std::vector<base::Value> list;
-  const em::UserWhitelistProto& whitelist_proto = policy.user_whitelist();
-  const RepeatedPtrField<std::string>& whitelist =
-      whitelist_proto.user_whitelist();
-  for (const std::string& value : whitelist) {
-    list.push_back(base::Value(value));
+  const em::UserAllowlistProto& allowlist_proto = policy.user_allowlist();
+  if (policy.user_allowlist().user_allowlist_size() > 0) {
+    const RepeatedPtrField<std::string>& allowlist =
+        allowlist_proto.user_allowlist();
+    for (const std::string& value : allowlist) {
+      list.push_back(base::Value(value));
+    }
+  } else {
+    const em::UserWhitelistProto& whitelist_proto = policy.user_whitelist();
+    const RepeatedPtrField<std::string>& whitelist =
+        whitelist_proto.user_whitelist();
+    for (const std::string& value : whitelist) {
+      list.push_back(base::Value(value));
+    }
   }
+
   new_values_cache->SetValue(kAccountsPrefUsers, base::Value(std::move(list)));
 
   std::vector<base::Value> account_list;

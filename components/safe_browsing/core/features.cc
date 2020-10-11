@@ -37,9 +37,6 @@ const base::Feature kClientSideDetectionForAndroid{
     "SafeBrowsingClientSideDetectionForAndroid",
     base::FEATURE_DISABLED_BY_DEFAULT};
 
-const base::Feature kContentComplianceEnabled{
-    "SafeBrowsingContentComplianceEnabled", base::FEATURE_DISABLED_BY_DEFAULT};
-
 const base::Feature kDelayedWarnings{"SafeBrowsingDelayedWarnings",
                                      base::FEATURE_DISABLED_BY_DEFAULT};
 
@@ -49,6 +46,9 @@ const base::Feature kDelayedWarnings{"SafeBrowsingDelayedWarnings",
 const base::FeatureParam<bool> kDelayedWarningsEnableMouseClicks{
     &kDelayedWarnings, "mouse",
     /*default_value=*/false};
+
+const base::Feature kSimplifiedUrlDisplay{"SimplifiedUrlDisplay",
+                                          base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kDownloadRequestWithToken{
     "SafeBrowsingDownloadRequestWithToken", base::FEATURE_ENABLED_BY_DEFAULT};
@@ -62,8 +62,8 @@ const base::Feature kEnhancedProtection {
 #endif
 };
 
-const base::Feature kMalwareScanEnabled{"SafeBrowsingMalwareScanEnabled",
-                                        base::FEATURE_DISABLED_BY_DEFAULT};
+const base::Feature kLimitedListSizeForIOS{"SafeBrowsingLimitedListSizeForIOS",
+                                           base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kPasswordProtectionForSavedPasswords{
     "SafeBrowsingPasswordProtectionForSavedPasswords",
@@ -124,7 +124,7 @@ const base::Feature kRealTimeUrlLookupNonMainframeEnabledForEP{
     base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kSafeBrowsingAvailableOnIOS{
-    "SafeBrowsingAvailableOnIOS", base::FEATURE_DISABLED_BY_DEFAULT};
+    "SafeBrowsingAvailableOnIOS", base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kSafeBrowsingSeparateNetworkContexts{
     "SafeBrowsingSeparateNetworkContexts", base::FEATURE_DISABLED_BY_DEFAULT};
@@ -164,11 +164,10 @@ constexpr struct {
     {&kAdSamplerTriggerFeature, false},
     {&kCaptureInlineJavascriptForGoogleAds, true},
     {&kClientSideDetectionForAndroid, true},
-    {&kContentComplianceEnabled, true},
     {&kDelayedWarnings, true},
     {&kDownloadRequestWithToken, true},
     {&kEnhancedProtection, true},
-    {&kMalwareScanEnabled, true},
+    {&kLimitedListSizeForIOS, true},
     {&kPasswordProtectionForSavedPasswords, true},
     {&kPasswordProtectionShowDomainsForSavedPasswords, true},
     {&kPasswordProtectionForSignedInUsers, true},

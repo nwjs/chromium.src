@@ -13,17 +13,20 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.RemoteException;
+import android.os.StrictMode;
 import android.util.AndroidRuntimeException;
 import android.util.Log;
 import android.webkit.ValueCallback;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.fragment.app.Fragment;
 
 import org.chromium.weblayer_private.interfaces.APICallException;
 import org.chromium.weblayer_private.interfaces.BrowserFragmentArgs;
 import org.chromium.weblayer_private.interfaces.IBrowserFragment;
+import org.chromium.weblayer_private.interfaces.IMediaRouteDialogFragment;
 import org.chromium.weblayer_private.interfaces.IProfile;
 import org.chromium.weblayer_private.interfaces.IRemoteFragmentClient;
 import org.chromium.weblayer_private.interfaces.ISiteSettingsFragment;
@@ -157,6 +160,11 @@ public class WebLayer {
         return sLoader;
     }
 
+    /** Returns whether WebLayer loading has at least started. */
+    static boolean hasWebLayerInitializationStarted() {
+        return sLoader != null;
+    }
+
     IWebLayer getImpl() {
         return mImpl;
     }
@@ -183,6 +191,14 @@ public class WebLayer {
     public static int getSupportedMajorVersion(@NonNull Context context) {
         ThreadCheck.ensureOnUiThread();
         return getWebLayerLoader(context).getMajorVersion();
+    }
+
+    // Returns true if version checks should be done. This is provided solely for testing, and
+    // specifically testing that does not run on device and load the implementation. It is only
+    // necessary to check this in code paths that don't require WebLayer to load the implementation
+    // and need to be callable in tests.
+    static boolean shouldPerformVersionChecks() {
+        return !"robolectric".equals(Build.FINGERPRINT);
     }
 
     // Internal version of getSupportedMajorVersion(). This should only be used when you know
@@ -375,12 +391,10 @@ public class WebLayer {
     private WebLayer(IWebLayer iWebLayer) {
         mImpl = iWebLayer;
 
-        if (getSupportedMajorVersionInternal() >= 83) {
-            try {
-                mImpl.setClient(new WebLayerClientImpl());
-            } catch (RemoteException e) {
-                throw new APICallException(e);
-            }
+        try {
+            mImpl.setClient(new WebLayerClientImpl());
+        } catch (RemoteException e) {
+            throw new APICallException(e);
         }
     }
 
@@ -410,9 +424,6 @@ public class WebLayer {
      */
     public void enumerateAllProfileNames(@NonNull Callback<String[]> callback) {
         ThreadCheck.ensureOnUiThread();
-        if (getSupportedMajorVersionInternal() < 82) {
-            throw new UnsupportedOperationException();
-        }
         try {
             ValueCallback<String[]> valueCallback = (String[] value) -> callback.onResult(value);
             mImpl.enumerateAllProfileNames(ObjectWrapper.wrap(valueCallback));
@@ -430,9 +441,6 @@ public class WebLayer {
      */
     public String getUserAgentString() {
         ThreadCheck.ensureOnUiThread();
-        if (getSupportedMajorVersionInternal() < 84) {
-            throw new UnsupportedOperationException();
-        }
         try {
             return mImpl.getUserAgentString();
         } catch (RemoteException e) {
@@ -493,9 +501,6 @@ public class WebLayer {
     public static Fragment createBrowserFragment(
             @Nullable String profileName, @Nullable String persistenceId) {
         ThreadCheck.ensureOnUiThread();
-        if (persistenceId != null && getSupportedMajorVersionInternal() < 81) {
-            throw new UnsupportedOperationException();
-        }
         // TODO: use a profile id instead of the path to the actual file.
         Bundle args = new Bundle();
         args.putString(BrowserFragmentArgs.PROFILE_NAME, sanitizeProfileName(profileName));
@@ -522,9 +527,6 @@ public class WebLayer {
     public void registerExternalExperimentIDs(
             @NonNull String trialName, @NonNull int[] experimentIds) {
         ThreadCheck.ensureOnUiThread();
-        if (getSupportedMajorVersionInternal() < 84) {
-            throw new UnsupportedOperationException();
-        }
         try {
             mImpl.registerExternalExperimentIDs(trialName, experimentIds);
         } catch (RemoteException e) {
@@ -550,9 +552,6 @@ public class WebLayer {
      */
     /* package */ ISiteSettingsFragment connectSiteSettingsFragment(
             IRemoteFragmentClient remoteFragmentClient, Bundle fragmentArgs) {
-        if (getSupportedMajorVersionInternal() < 84) {
-            throw new UnsupportedOperationException();
-        }
         try {
             return mImpl.createSiteSettingsFragmentImpl(
                     remoteFragmentClient, ObjectWrapper.wrap(fragmentArgs));
@@ -561,8 +560,33 @@ public class WebLayer {
         }
     }
 
+    /**
+     * Returns the remote counterpart of MediaRouteDialogFragment.
+     */
+    /* package */ IMediaRouteDialogFragment connectMediaRouteDialogFragment(
+            IRemoteFragmentClient remoteFragmentClient) {
+        if (getSupportedMajorVersionInternal() < 87) {
+            throw new UnsupportedOperationException();
+        }
+        try {
+            return mImpl.createMediaRouteDialogFragmentImpl(remoteFragmentClient);
+        } catch (RemoteException e) {
+            throw new APICallException(e);
+        }
+    }
+
     /* package */ static IWebLayer getIWebLayer(Context context) {
         return getWebLayerLoader(context).getIWebLayer();
+    }
+
+    @VisibleForTesting
+    /* package */ static Context getApplicationContextForTesting(Context appContext) {
+        try {
+            return (Context) ObjectWrapper.unwrap(
+                    getIWebLayer(appContext).getApplicationContext(), Context.class);
+        } catch (RemoteException e) {
+            throw new APICallException(e);
+        }
     }
 
     /**
@@ -686,6 +710,12 @@ public class WebLayer {
         }
 
         @Override
+        public Intent createImageDecoderServiceIntent() {
+            StrictModeWorkaround.apply();
+            return new Intent(WebLayer.getAppContext(), ImageDecoderService.class);
+        }
+
+        @Override
         public int getMediaSessionNotificationId() {
             StrictModeWorkaround.apply();
             // The id is part of the public library to avoid conflicts.
@@ -699,7 +729,12 @@ public class WebLayer {
         /** See {@link Context.createContextForSplit(String) }. */
         public static Context createContextForSplit(Context context, String name)
                 throws PackageManager.NameNotFoundException {
-            return context.createContextForSplit(name);
+            StrictMode.ThreadPolicy oldPolicy = StrictMode.allowThreadDiskReads();
+            try {
+                return context.createContextForSplit(name);
+            } finally {
+                StrictMode.setThreadPolicy(oldPolicy);
+            }
         }
     }
 }

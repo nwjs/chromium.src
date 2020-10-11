@@ -299,6 +299,7 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
   void RequestVideoFrameCallback() override;
   std::unique_ptr<blink::WebMediaPlayer::VideoFramePresentationMetadata>
   GetVideoFramePresentationMetadata() override;
+  void UpdateFrameIfStale() override;
 
   base::WeakPtr<blink::WebMediaPlayer> AsWeakPtr() override;
 
@@ -382,6 +383,9 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
 
   // Called after asynchronous initialization of a data source completed.
   void DataSourceInitialized(bool success);
+
+  // Called if the |MultiBufferDataSource| is redirected.
+  void OnDataSourceRedirected();
 
   // Called when the data source is downloading or paused.
   void NotifyDownloading(bool is_downloading);

@@ -98,6 +98,7 @@
 <translation id="3622797965165704966">Nå er det enklere å bruke Chrome med Google-kontoen din og på datamaskiner du deler med andre.</translation>
 <translation id="3718181793972440140">Dette sletter 1 element fra denne enheten. For å hente dataene dine igjen senere må du logge på Chrome som <ph name="USER_EMAIL" />.</translation>
 <translation id="3735758079232443276">Utvidelsen «<ph name="EXTENSION_NAME" />» har endret hvilken side som vises når du starter Chrome.</translation>
+<translation id="3779473566290487688">For å få fremtidige Google Chrome-oppdateringer trenger du OS X 10.11 eller nyere. Denne datamaskinen bruker OS X 10.10.</translation>
 <translation id="3780814664026482060">Chrome – <ph name="PAGE_TITLE" /></translation>
 <translation id="386202838227397562">Lukk alle Google Chrome-vinduer og prøv på nytt.</translation>
 <translation id="3865754807470779944">Versjon <ph name="PRODUCT_VERSION" /> av Chrome er installert</translation>
@@ -194,6 +195,7 @@
 <translation id="6967962315388095737">Regel for å tillate innkommende mDNS-trafikk i Google Chrome Beta.</translation>
 <translation id="6982337800632491844"><ph name="DOMAIN" /> krever at du leser og godtar følgende vilkår før du bruker denne enheten. Disse vilkårene utvider, endrer eller begrenser ikke Google Chrome OS-vilkårene.</translation>
 <translation id="6989339256997917931">Google Chrome har blitt oppdatert, men du har ikke brukt programmet på minst 30 dager.</translation>
+<translation id="7054640471403081847">Denne datamaskinen slutter snart å motta Google Chrome-oppdateringer. Dette skjer fordi maskinvaren ikke lenger støttes.</translation>
 <translation id="7062128746136194023">Forelderen din har slått av «Tillatelser for nettsteder, apper og utvidelser» for Chrome. Du har ikke tillatelse til å legge til denne <ph name="EXTENSION_TYPE_PARAMETER" />.</translation>
 <translation id="7098166902387133879">Google Chrome bruker mikrofonen din.</translation>
 <translation id="7106741999175697885">Oppgavebehandling – Google Chrome</translation>
@@ -213,7 +215,6 @@
 <translation id="7486227612705979895">Chrome får tilgang til Disk-lagringen din for å kunne gi deg forslag i adressefeltet</translation>
 <translation id="7535429826459677826">Google Chrome Dev</translation>
 <translation id="7573289029918943991">For å se om enheten er oppdatert, gå til <ph name="LINK_BEGIN" />Innstillinger for Chrome OS<ph name="LINK_END" /></translation>
-<translation id="7589360514048265910">Denne datamaskinen kommer ikke til å motta oppdateringer av Google Chrome lenger fordi Mac OS X 10.9 ikke støttes lenger.</translation>
 <translation id="7592736734348559088">Google Chrome kunne ikke synkronisere dataene dine. Dette skyldes at påloggingsopplysningene for kontoen din er foreldede.</translation>
 <translation id="7626032353295482388">Velkommen til Chrome</translation>
 <translation id="7629695634924605473">Med Chrome får du beskjed hvis passordene dine noensinne utsettes for sikkerhetsbrudd</translation>

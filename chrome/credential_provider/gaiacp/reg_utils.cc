@@ -8,6 +8,7 @@
 
 #include <atlbase.h>
 
+#include "base/base64.h"
 #include "base/stl_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
@@ -44,6 +45,9 @@ const wchar_t kMicrosoftCryptographyRegKey[] =
     L"SOFTWARE\\Microsoft\\Cryptography";
 const wchar_t kMicrosoftCryptographyMachineGuidRegKey[] = L"MachineGuid";
 
+constexpr wchar_t kRegUserDeviceResourceId[] = L"device_resource_id";
+constexpr wchar_t kRegGlsPath[] = L"gls_path";
+
 namespace {
 
 constexpr wchar_t kAccountPicturesRootRegKey[] =
@@ -58,6 +62,9 @@ constexpr wchar_t kMakeGcpwDefaultCredProvider[] = L"set_gcpw_as_default_cp";
 constexpr wchar_t kDefaultCredProviderPath[] =
     L"Software\\Policies\\Microsoft\\Windows\\System";
 constexpr wchar_t kDefaultCredProviderKey[] = L"DefaultCredentialProvider";
+
+constexpr wchar_t kEnrollmentRegKey[] = L"SOFTWARE\\Google\\Enrollment";
+constexpr wchar_t kDmTokenRegKey[] = L"dmtoken";
 
 HRESULT SetMachineRegDWORD(const base::string16& key_name,
                            const base::string16& name,
@@ -88,6 +95,30 @@ HRESULT SetMachineRegString(const base::string16& key_name,
       sts = ERROR_SUCCESS;
   } else {
     sts = key.WriteValue(name.c_str(), value.c_str());
+  }
+
+  if (sts != ERROR_SUCCESS)
+    return HRESULT_FROM_WIN32(sts);
+
+  return S_OK;
+}
+
+HRESULT SetMachineRegBinaryInternal(const base::string16& key_name,
+                                    const base::string16& name,
+                                    const std::string& value,
+                                    REGSAM sam_desired) {
+  base::win::RegKey key;
+  LONG sts = key.Create(HKEY_LOCAL_MACHINE, key_name.c_str(), sam_desired);
+  if (sts != ERROR_SUCCESS)
+    return HRESULT_FROM_WIN32(sts);
+
+  if (value.empty()) {
+    sts = key.DeleteValue(name.c_str());
+    if (sts == ERROR_FILE_NOT_FOUND)
+      sts = ERROR_SUCCESS;
+  } else {
+    sts =
+        key.WriteValue(name.c_str(), value.c_str(), value.length(), REG_BINARY);
   }
 
   if (sts != ERROR_SUCCESS)
@@ -168,6 +199,41 @@ HRESULT GetMachineRegString(const base::string16& key_name,
   return S_OK;
 }
 
+HRESULT GetMachineRegBinaryInternal(const base::string16& key_name,
+                                    const base::string16& name,
+                                    std::string* val,
+                                    REGSAM sam_desired) {
+  DCHECK(val);
+
+  base::win::RegKey key;
+  LONG sts = key.Open(HKEY_LOCAL_MACHINE, key_name.c_str(), sam_desired);
+  if (sts != ERROR_SUCCESS)
+    return HRESULT_FROM_WIN32(sts);
+
+  DWORD type;
+  DWORD size = 0;
+
+  sts = key.ReadValue(name.c_str(), nullptr, &size, &type);
+  if (sts != ERROR_SUCCESS)
+    return HRESULT_FROM_WIN32(sts);
+
+  if (type != REG_BINARY)
+    return HRESULT_FROM_WIN32(ERROR_CANTREAD);
+
+  std::vector<char> buffer(size);
+
+  sts = key.ReadValue(name.c_str(), const_cast<char*>(buffer.data()), &size,
+                      &type);
+  if (sts != ERROR_SUCCESS) {
+    if (sts == ERROR_MORE_DATA)
+      return HRESULT_FROM_WIN32(sts);
+  }
+
+  val->assign(buffer.data(), buffer.size());
+
+  return S_OK;
+}
+
 HRESULT GetAccountPictureRegString(const base::string16& user_sid,
                                    int image_size,
                                    wchar_t* value,
@@ -215,6 +281,10 @@ DWORD GetGlobalFlagOrDefault(const base::string16& reg_key,
 
 HRESULT SetGlobalFlag(const base::string16& name, DWORD value) {
   return SetMachineRegDWORD(kGcpRootKeyName, name, value);
+}
+
+HRESULT SetGlobalFlag(const base::string16& name, const base::string16& value) {
+  return SetMachineRegString(kGcpRootKeyName, name, value);
 }
 
 HRESULT SetGlobalFlagForTesting(const base::string16& name,
@@ -423,6 +493,38 @@ HRESULT SetMachineGuidForTesting(const base::string16& machine_guid) {
   return SetMachineRegString(kMicrosoftCryptographyRegKey,
                              kMicrosoftCryptographyMachineGuidRegKey,
                              machine_guid);
+}
+
+base::string16 GetUserDeviceResourceId(const base::string16& sid) {
+  wchar_t known_resource_id[512];
+  ULONG known_resource_id_size = base::size(known_resource_id);
+  HRESULT hr = GetUserProperty(sid, kRegUserDeviceResourceId, known_resource_id,
+                               &known_resource_id_size);
+
+  if (SUCCEEDED(hr) && known_resource_id_size > 0)
+    return base::string16(known_resource_id, known_resource_id_size - 1);
+
+  return base::string16();
+}
+
+HRESULT GetDmToken(std::string* dm_token) {
+  DCHECK(dm_token);
+
+  std::string binary_dm_token;
+  HRESULT hr =
+      GetMachineRegBinaryInternal(kEnrollmentRegKey, kDmTokenRegKey,
+                                  &binary_dm_token, KEY_READ | KEY_WOW64_32KEY);
+  if (SUCCEEDED(hr)) {
+    base::Base64Encode(binary_dm_token, dm_token);
+  }
+  return hr;
+}
+
+HRESULT SetDmTokenForTesting(const std::string& dm_token) {
+  // Set a debug dm token for the machine so that unit tests that override the
+  // registry can run properly.
+  return SetMachineRegBinaryInternal(kEnrollmentRegKey, kDmTokenRegKey,
+                                     dm_token, KEY_WRITE | KEY_WOW64_32KEY);
 }
 
 }  // namespace credential_provider

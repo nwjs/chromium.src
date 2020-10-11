@@ -317,6 +317,7 @@ class MODULES_EXPORT ServiceWorkerGlobalScope final
   // Returns the token that uniquely identifies this worker.
   const ServiceWorkerToken& GetServiceWorkerToken() const { return token_; }
   WorkerToken GetWorkerToken() const final { return token_; }
+  bool CrossOriginIsolatedCapability() const final;
   ExecutionContextToken GetExecutionContextToken() const final {
     return token_;
   }
@@ -339,7 +340,7 @@ class MODULES_EXPORT ServiceWorkerGlobalScope final
       const override;
 
  private:
-  void importScripts(const Vector<String>& urls, ExceptionState&) override;
+  void importScripts(const Vector<String>& urls) override;
   SingleCachedMetadataHandler* CreateWorkerScriptCachedMetadataHandler(
       const KURL& script_url,
       std::unique_ptr<Vector<uint8_t>> meta_data) override;

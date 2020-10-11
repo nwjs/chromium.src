@@ -95,7 +95,8 @@ def backward_compatible_api_func(cg_context):
 
 def callback_function_name(cg_context,
                            overload_index=None,
-                           for_cross_origin=False):
+                           for_cross_origin=False,
+                           no_alloc_direct_call=False):
     assert isinstance(cg_context, CodeGenContext)
 
     def _cxx_name(name):
@@ -150,6 +151,8 @@ def callback_function_name(cg_context,
         suffix = "CrossOrigin"
     elif overload_index is not None:
         suffix = "Overload{}".format(overload_index + 1)
+    elif no_alloc_direct_call:
+        suffix = "NoAllocDirectCallback"
     else:
         suffix = "Callback"
 
@@ -322,7 +325,7 @@ def bind_callback_local_vars(code_node, cg_context):
     local_vars.append(S("execution_context", _format(pattern, _1=_1)))
     node = S("current_execution_context",
              ("ExecutionContext* ${current_execution_context} = "
-              "ExecutionContext::From(${current_script_state});"))
+              "ExecutionContext::From(${current_context});"))
     node.accumulate(
         CodeGenAccumulator.require_include_headers([
             "third_party/blink/renderer/core/execution_context/execution_context.h"
@@ -330,7 +333,7 @@ def bind_callback_local_vars(code_node, cg_context):
     local_vars.append(node)
     node = S("receiver_execution_context",
              ("ExecutionContext* ${receiver_execution_context} = "
-              "ExecutionContext::From(${receiver_script_state});"))
+              "ExecutionContext::From(${receiver_context});"))
     node.accumulate(
         CodeGenAccumulator.require_include_headers([
             "third_party/blink/renderer/core/execution_context/execution_context.h"
@@ -775,8 +778,8 @@ def make_check_argument_length(cg_context):
     elif cg_context.attribute_set:
         idl_type = cg_context.attribute.idl_type
         if not (idl_type.does_include_nullable_or_dict
-                or idl_type.unwrap().is_any or
-                "TreatNonObjectAsNull" in idl_type.unwrap().extended_attributes
+                or idl_type.unwrap().is_any or "LegacyTreatNonObjectAsNull" in
+                idl_type.unwrap().extended_attributes
                 or "PutForwards" in cg_context.attribute.extended_attributes
                 or "Replaceable" in cg_context.attribute.extended_attributes):
             # ES undefined in ${v8_property_value} will cause a TypeError
@@ -839,10 +842,10 @@ def make_check_receiver(cg_context):
     if cg_context.member_like.is_static:
         return None
 
-    if (cg_context.attribute
-            and "LenientThis" in cg_context.attribute.extended_attributes):
+    if (cg_context.attribute and
+            "LegacyLenientThis" in cg_context.attribute.extended_attributes):
         return SequenceNode([
-            T("// [LenientThis]"),
+            T("// [LegacyLenientThis]"),
             CxxUnlikelyIfNode(
                 cond="!${class_name}::HasInstance(${isolate}, ${v8_receiver})",
                 body=T("return;")),
@@ -1734,14 +1737,15 @@ def make_attribute_set_callback_def(cg_context, function_name):
     ext_attrs = cg_context.attribute.extended_attributes
     if cg_context.attribute.is_readonly and not any(
             ext_attr in ext_attrs
-            for ext_attr in ("LenientSetter", "PutForwards", "Replaceable")):
+            for ext_attr in ("LegacyLenientSetter", "PutForwards",
+                             "Replaceable")):
         return None
 
     func_def = _make_empty_callback_def(cg_context, function_name)
     body = func_def.body
 
-    if "LenientSetter" in ext_attrs:
-        body.append(TextNode("// [LenientSetter]"))
+    if "LegacyLenientSetter" in ext_attrs:
+        body.append(TextNode("// [LegacyLenientSetter]"))
         return func_def
 
     body.extend([
@@ -2119,6 +2123,54 @@ v8_private_named_constructor.Set(${v8_receiver}, v8_value);
     return SequenceNode([named_ctor_def, EmptyNode(), func_def])
 
 
+def make_no_alloc_direct_call_callback_def(cg_context, function_name):
+    assert isinstance(cg_context, CodeGenContext)
+    assert isinstance(function_name, str)
+
+    assert cg_context.operation_group and len(cg_context.operation_group) == 1
+
+    func_like = cg_context.operation_group[0]
+
+    return_type = ("void" if func_like.return_type.is_void else
+                   blink_type_info(func_like.return_type).value_t)
+    arg_type_and_names = [(blink_type_info(arg.idl_type).value_t,
+                           name_style.arg_f("arg{}_{}", index + 1,
+                                            arg.identifier))
+                          for index, arg in enumerate(func_like.arguments)]
+    arg_decls = ["v8::ApiObject arg0_receiver"] + [
+        "{} {}".format(arg_type, arg_name)
+        for arg_type, arg_name in arg_type_and_names
+    ]
+    func_def = CxxFuncDefNode(name=function_name,
+                              arg_decls=arg_decls,
+                              return_type=return_type)
+    body = func_def.body
+
+    pattern = """\
+ThreadState::NoAllocationScope no_alloc_scope(ThreadState::Current());
+v8::Object* v8_receiver = reinterpret_cast<v8::Object*>(&arg0_receiver);
+v8::Isolate* isolate = v8_receiver->GetIsolate();
+v8::Isolate::DisallowJavascriptExecutionScope no_js_exec_scope(
+    isolate,
+    v8::Isolate::DisallowJavascriptExecutionScope::CRASH_ON_FAILURE);
+{blink_class}* blink_receiver =
+    ToScriptWrappable(v8_receiver)->ToImpl<{blink_class}>();
+return blink_receiver->{member_func}({blink_arguments});\
+"""
+    blink_class = blink_class_name(cg_context.interface)
+    member_func = backward_compatible_api_func(cg_context)
+    blink_arguments = ", ".join(
+        [arg_name for arg_type, arg_name in arg_type_and_names])
+    body.append(
+        TextNode(
+            _format(pattern,
+                    blink_class=blink_class,
+                    member_func=member_func,
+                    blink_arguments=blink_arguments)))
+
+    return func_def
+
+
 def make_operation_entry(cg_context):
     assert isinstance(cg_context, CodeGenContext)
 
@@ -2168,7 +2220,9 @@ def make_operation_function_def(cg_context, function_name):
     return func_def
 
 
-def make_operation_callback_def(cg_context, function_name):
+def make_operation_callback_def(cg_context,
+                                function_name,
+                                no_alloc_direct_callback_name=None):
     assert isinstance(cg_context, CodeGenContext)
     assert isinstance(function_name, str)
 
@@ -2176,6 +2230,19 @@ def make_operation_callback_def(cg_context, function_name):
 
     assert (not ("Custom" in operation_group.extended_attributes)
             or len(operation_group) == 1)
+    assert (not ("NoAllocDirectCall" in operation_group.extended_attributes)
+            or len(operation_group) == 1)
+
+    if "NoAllocDirectCall" in operation_group.extended_attributes:
+        return ListNode([
+            make_operation_function_def(
+                cg_context.make_copy(operation=operation_group[0]),
+                function_name),
+            EmptyNode(),
+            make_no_alloc_direct_call_callback_def(
+                cg_context.make_copy(operation=operation_group[0]),
+                no_alloc_direct_callback_name),
+        ])
 
     if len(operation_group) == 1:
         return make_operation_function_def(
@@ -2340,29 +2407,19 @@ ${class_name}::NamedPropertySetterCallback(
     if not cg_context.indexed_property_setter:
         body.append(
             TextNode("""\
-// 3.8.2. [[Set]]
+// 3.9.2. [[Set]]
 // https://heycam.github.io/webidl/#legacy-platform-object-set
-// step 1. If O and Receiver are the same object, then:
-if (${info}.Holder() == ${info}.This()) {
-  // OrdinarySetWithOwnDescriptor will end up calling DefineOwnProperty,
-  // which will fail when the receiver object is this legacy platform
-  // object.
-  bindings::V8SetReturnValue(${info}, nullptr);
-  if (${info}.ShouldThrowOnError()) {
-    ExceptionState exception_state(${info}.GetIsolate(),
-                                   ExceptionState::kIndexedSetterContext,
-                                   "${interface.identifier}");
-    exception_state.ThrowTypeError(
-        "Indexed property setter is not supported.");
-  }
-  return;
+// OrdinarySetWithOwnDescriptor will end up calling DefineOwnProperty,
+// which will fail when the receiver object is this legacy platform
+// object.
+bindings::V8SetReturnValue(${info}, nullptr);
+if (${info}.ShouldThrowOnError()) {
+  ExceptionState exception_state(${info}.GetIsolate(),
+                                 ExceptionState::kIndexedSetterContext,
+                                 "${interface.identifier}");
+  exception_state.ThrowTypeError(
+      "Indexed property setter is not supported.");
 }
-
-// step 2. Let ownDesc be LegacyPlatformObjectGetOwnProperty(O, P, true).
-// step 3. Perform ? OrdinarySetWithOwnDescriptor(O, P, V, Receiver,
-//   ownDesc).
-//
-// Do not intercept.  Fallback to OrdinarySetWithOwnDescriptor.
 """))
         return func_decl, func_def
 
@@ -2379,23 +2436,22 @@ if (${info}.Holder() == ${info}.This()) {
 
     body.extend([
         TextNode("""\
-// 3.8.2. [[Set]]
+// 3.9.2. [[Set]]
 // https://heycam.github.io/webidl/#legacy-platform-object-set
 // step 1. If O and Receiver are the same object, then:\
 """),
-        CxxLikelyIfNode(
-            cond="${info}.Holder() == ${info}.This()",
-            body=[
-                TextNode("""\
+        CxxLikelyIfNode(cond="${info}.Holder() == ${info}.This()",
+                        body=[
+                            TextNode("""\
 // step 1.1.1. Invoke the indexed property setter with P and V.\
 """),
-                make_steps_of_ce_reactions(cg_context),
-                EmptyNode(),
-                make_v8_set_return_value(cg_context),
-                TextNode("""\
+                            make_steps_of_ce_reactions(cg_context),
+                            EmptyNode(),
+                            make_v8_set_return_value(cg_context),
+                            TextNode("""\
 bindings::V8SetReturnValue(${info}, nullptr);
 return;"""),
-            ]),
+                        ]),
         EmptyNode(),
         TextNode("""\
 // Do not intercept.  Fallback to OrdinarySetWithOwnDescriptor.
@@ -2431,7 +2487,7 @@ ${class_name}::NamedPropertyDeleterCallback(property_name, ${info});
 
     body.append(
         TextNode("""\
-// 3.8.4. [[Delete]]
+// 3.9.4. [[Delete]]
 // https://heycam.github.io/webidl/#legacy-platform-object-delete
 // step 1.2. If index is not a supported property index, then return true.
 // step 1.3. Return false.
@@ -2476,7 +2532,7 @@ ${class_name}::NamedPropertyDefinerCallback(
 
     body.append(
         TextNode("""\
-// 3.8.3. [[DefineOwnProperty]]
+// 3.9.3. [[DefineOwnProperty]]
 // https://heycam.github.io/webidl/#legacy-platform-object-defineownproperty
 // step 1.1. If the result of calling IsDataDescriptor(Desc) is false, then
 //   return false.
@@ -2591,7 +2647,7 @@ def make_indexed_property_enumerator_callback(cg_context, function_name):
 
     body.append(
         TextNode("""\
-// 3.8.6. [[OwnPropertyKeys]]
+// 3.9.6. [[OwnPropertyKeys]]
 // https://heycam.github.io/webidl/#legacy-platform-object-ownpropertykeys
 // step 2. If O supports indexed properties, then for each index of O's
 //   supported property indices, in ascending numerical order, append
@@ -2689,8 +2745,13 @@ def make_named_property_setter_callback(cg_context, function_name):
     body = func_def.body
 
     if not cg_context.named_property_setter:
-        if ("OverrideBuiltins" in cg_context.interface.extended_attributes
-                or "LegacyOverrideBuiltins" in
+        body.append(
+            TextNode("""\
+// 3.9.2. [[Set]]
+// https://heycam.github.io/webidl/#legacy-platform-object-set
+// step 3. Perform ? OrdinarySetWithOwnDescriptor(O, P, V, Receiver, ownDesc).\
+"""))
+        if ("LegacyOverrideBuiltIns" in
                 cg_context.interface.extended_attributes):
             body.append(
                 TextNode("""\
@@ -2702,37 +2763,21 @@ if (${info}.Holder()->GetRealNamedPropertyAttributesInPrototypeChain(
 """))
         body.append(
             TextNode("""\
-// 3.8.2. [[Set]]
-// https://heycam.github.io/webidl/#legacy-platform-object-set
-// step 1. If O and Receiver are the same object, then:
-if (${info}.Holder() == ${info}.This()) {
-  // OrdinarySetWithOwnDescriptor will end up calling DefineOwnProperty.
-  // 3.8.3. [[DefineOwnProperty]]
-  // https://heycam.github.io/webidl/#legacy-platform-object-defineownproperty
-  // step 2.1. Let creating be true if P is not a supported property name,
-  //   and false otherwise.
-  // step 2.2.1. If creating is false and O does not implement an interface
-  //   with a named property setter, then return false.
-  ${class_name}::NamedPropertyGetterCallback(${v8_property_name}, ${info});
-  const bool is_creating = ${info}.GetReturnValue().Get()->IsUndefined();
-  if (!is_creating) {
-    bindings::V8SetReturnValue(${info}, nullptr);
-    if (${info}.ShouldThrowOnError()) {
-      ExceptionState exception_state(${info}.GetIsolate(),
-                                     ExceptionState::kNamedSetterContext,
-                                     "${interface.identifier}");
-      exception_state.ThrowTypeError(
-          "Named property setter is not supported.");
-    }
-    return;
+${class_name}::NamedPropertyGetterCallback(${v8_property_name}, ${info});
+const bool is_creating = ${info}.GetReturnValue().Get()->IsUndefined();
+if (!is_creating) {
+  bindings::V8SetReturnValue(${info}, nullptr);
+  if (${info}.ShouldThrowOnError()) {
+    ExceptionState exception_state(${info}.GetIsolate(),
+                                   ExceptionState::kNamedSetterContext,
+                                   "${interface.identifier}");
+    exception_state.ThrowTypeError(
+        "Named property setter is not supported.");
   }
+  return;
 }
 
-// step 2. Let ownDesc be LegacyPlatformObjectGetOwnProperty(O, P, true).
-// step 3. Perform ? OrdinarySetWithOwnDescriptor(O, P, V, Receiver,
-//   ownDesc).
-//
-// Do not intercept.  Fallback to OrdinarySetWithOwnDescriptor.
+// Do not intercept.  Fallback and let it define a new own property.
 """))
         return func_decl, func_def
 
@@ -2757,20 +2802,19 @@ if (${info}.Holder() == ${info}.This()) {
 
     body.extend([
         TextNode("""\
-// 3.8.2. [[Set]]
+// 3.9.2. [[Set]]
 // https://heycam.github.io/webidl/#legacy-platform-object-set
 // step 1. If O and Receiver are the same object, then:\
 """),
-        CxxLikelyIfNode(
-            cond="${info}.Holder() == ${info}.This()",
-            body=[
-                TextNode("""\
+        CxxLikelyIfNode(cond="${info}.Holder() == ${info}.This()",
+                        body=[
+                            TextNode("""\
 // step 1.2.1. Invoke the named property setter with P and V.\
 """),
-                make_steps_of_ce_reactions(cg_context),
-                EmptyNode(),
-                make_v8_set_return_value(cg_context),
-                TextNode("""\
+                            make_steps_of_ce_reactions(cg_context),
+                            EmptyNode(),
+                            make_v8_set_return_value(cg_context),
+                            TextNode("""\
 % if interface.identifier == "CSSStyleDeclaration":
 // CSSStyleDeclaration is abusing named properties.
 // Do not intercept if the property is not found.
@@ -2778,7 +2822,7 @@ if (${info}.Holder() == ${info}.This()) {
 bindings::V8SetReturnValue(${info}, nullptr);
 % endif
 return;"""),
-            ]),
+                        ]),
         EmptyNode(),
         TextNode("""\
 // Do not intercept.  Fallback to OrdinarySetWithOwnDescriptor.
@@ -2808,7 +2852,7 @@ def make_named_property_deleter_callback(cg_context, function_name):
             and "NotEnumerable" in props.named_getter.extended_attributes):
         body.append(
             TextNode("""\
-// 3.8.4. [[Delete]]
+// 3.9.4. [[Delete]]
 // https://heycam.github.io/webidl/#legacy-platform-object-delete
 // step 2. If O supports named properties, O does not implement an interface
 //   with the [Global] extended attribute and the result of calling the
@@ -2823,7 +2867,7 @@ def make_named_property_deleter_callback(cg_context, function_name):
     if not cg_context.named_property_deleter:
         body.append(
             TextNode("""\
-// 3.8.4. [[Delete]]
+// 3.9.4. [[Delete]]
 // https://heycam.github.io/webidl/#legacy-platform-object-delete
 // step 2. If O supports named properties, O does not implement an interface
 //   with the [Global] extended attribute and the result of calling the
@@ -2861,7 +2905,7 @@ if (does_exist) {
 
     body.extend([
         TextNode("""\
-// 3.8.4. [[Delete]]
+// 3.9.4. [[Delete]]
 // https://heycam.github.io/webidl/#legacy-platform-object-delete\
 """),
         make_steps_of_ce_reactions(cg_context),
@@ -2907,7 +2951,7 @@ def make_named_property_definer_callback(cg_context, function_name):
     elif not cg_context.interface.indexed_and_named_properties.named_setter:
         body.append(
             TextNode("""\
-// 3.8.3. [[DefineOwnProperty]]
+// 3.9.3. [[DefineOwnProperty]]
 // https://heycam.github.io/webidl/#legacy-platform-object-defineownproperty
 // step 2.1. Let creating be true if P is not a supported property name, and
 //   false otherwise.
@@ -2931,7 +2975,7 @@ if (!is_creating) {
     else:
         body.append(
             TextNode("""\
-// 3.8.3. [[DefineOwnProperty]]
+// 3.9.3. [[DefineOwnProperty]]
 // https://heycam.github.io/webidl/#legacy-platform-object-defineownproperty
 // step 2.2.2. If O implements an interface with a named property setter,
 //   then:
@@ -2977,7 +3021,8 @@ def make_named_property_descriptor_callback(cg_context, function_name):
 // https://heycam.github.io/webidl/#LegacyPlatformObjectGetOwnProperty\
 """))
 
-    if "OverrideBuiltins" not in cg_context.interface.extended_attributes:
+    if ("LegacyOverrideBuiltIns" not in
+            cg_context.interface.extended_attributes):
         body.append(
             TextNode("""\
 // step 2.1. If the result of running the named property visibility algorithm
@@ -3101,7 +3146,7 @@ def make_named_property_enumerator_callback(cg_context, function_name):
 
     body.append(
         TextNode("""\
-// 3.8.6. [[OwnPropertyKeys]]
+// 3.9.6. [[OwnPropertyKeys]]
 // https://heycam.github.io/webidl/#legacy-platform-object-ownpropertykeys
 // step 3. If O supports named properties, then for each P of O's supported
 //   property names that is visible according to the named property
@@ -3147,32 +3192,6 @@ def make_named_props_obj_indexed_getter_callback(cg_context, function_name):
 v8::Local<v8::String> property_name =
     V8AtomicString(${isolate}, AtomicString::Number(${index}));
 NamedPropsObjNamedGetterCallback(property_name, ${info});
-"""))
-
-    return func_def
-
-
-def make_named_props_obj_indexed_setter_callback(cg_context, function_name):
-    assert isinstance(cg_context, CodeGenContext)
-    assert isinstance(function_name, str)
-
-    arg_decls = [
-        "uint32_t index",
-        "v8::Local<v8::Value> v8_property_value",
-        "const v8::PropertyCallbackInfo<v8::Value>& info",
-    ]
-    arg_names = ["index", "v8_property_value", "info"]
-
-    func_def = _make_interceptor_callback_def(
-        cg_context, function_name, arg_decls, arg_names, None,
-        "NamedPropertiesObject_IndexedPropertySetter")
-    body = func_def.body
-
-    body.append(
-        TextNode("""\
-v8::Local<v8::String> property_name =
-    V8AtomicString(${isolate}, AtomicString::Number(${index}));
-NamedPropsObjNamedSetterCallback(property_name, ${v8_property_value}, ${info});
 """))
 
     return func_def
@@ -3288,42 +3307,6 @@ def make_named_props_obj_named_getter_callback(cg_context, function_name):
 // TODO(yukishiino): Update the following hard-coded call to an appropriate
 // one.
 V8Window::NamedPropertyGetterCustom(${blink_property_name}, ${info});
-"""))
-
-    return func_def
-
-
-def make_named_props_obj_named_setter_callback(cg_context, function_name):
-    assert isinstance(cg_context, CodeGenContext)
-    assert isinstance(function_name, str)
-
-    arg_decls = [
-        "v8::Local<v8::Name> v8_property_name",
-        "v8::Local<v8::Value> v8_property_value",
-        "const v8::PropertyCallbackInfo<v8::Value>& info",
-    ]
-    arg_names = ["v8_property_name", "v8_property_value", "info"]
-
-    func_def = _make_interceptor_callback_def(
-        cg_context, function_name, arg_decls, arg_names, None,
-        "NamedPropertiesObject_NamedPropertySetter")
-    body = func_def.body
-
-    body.append(
-        TextNode("""\
-if (${info}.Holder() == ${info}.This()) {
-  // 3.6.4.2. [[DefineOwnProperty]]
-  // https://heycam.github.io/webidl/#named-properties-object-defineownproperty
-  bindings::V8SetReturnValue(${info}, nullptr);
-  if (${info}.ShouldThrowOnError()) {
-    ExceptionState exception_state(${info}.GetIsolate(),
-                                   ExceptionState::kNamedSetterContext,
-                                   "${interface.identifier}");
-    exception_state.ThrowTypeError(
-        "Named property setter is not supported.");
-  }
-  return;
-}
 """))
 
     return func_def
@@ -4293,49 +4276,6 @@ def _make_property_entry_cached_accessor(property_):
     return "V8PrivateProperty::CachedAccessor::{}".format(value or "kNone")
 
 
-def _make_property_entry_v8_property_attribute(property_):
-    values = []
-    if "NotEnumerable" in property_.extended_attributes:
-        values.append("v8::DontEnum")
-    if "LegacyUnforgeable" in property_.extended_attributes:
-        if not isinstance(property_, web_idl.Attribute):
-            values.append("v8::ReadOnly")
-        values.append("v8::DontDelete")
-    if not values:
-        values.append("v8::None")
-    if len(values) == 1:
-        return values[0]
-    else:
-        return "static_cast<v8::PropertyAttribute>({})".format(
-            " | ".join(values))
-
-
-def _make_property_entry_on_which_object(property_):
-    ON_INSTANCE = "V8DOMConfiguration::kOnInstance"
-    ON_PROTOTYPE = "V8DOMConfiguration::kOnPrototype"
-    ON_INTERFACE = "V8DOMConfiguration::kOnInterface"
-    if isinstance(property_, web_idl.Constant):
-        return ON_INTERFACE
-    if hasattr(property_, "is_static") and property_.is_static:
-        return ON_INTERFACE
-    if "Global" in property_.owner.extended_attributes:
-        return ON_INSTANCE
-    if "LegacyUnforgeable" in property_.extended_attributes:
-        return ON_INSTANCE
-    return ON_PROTOTYPE
-
-
-def _make_property_entry_check_receiver(property_):
-    if ("LenientThis" in property_.extended_attributes
-            or (isinstance(property_, web_idl.Attribute)
-                and property_.idl_type.unwrap().is_promise)
-            or (isinstance(property_, web_idl.OverloadGroup)
-                and property_[0].return_type.unwrap().is_promise)):
-        return "V8DOMConfiguration::kDoNotCheckHolder"
-    else:
-        return "V8DOMConfiguration::kCheckHolder"
-
-
 def _make_property_entry_check_cross_origin_access(property_,
                                                    is_get=False,
                                                    is_set=False):
@@ -4354,21 +4294,15 @@ def _make_property_entry_check_cross_origin_access(property_,
         return constants[True]
 
 
-def _make_property_entry_has_side_effect(property_):
-    if property_.extended_attributes.value_of("Affects") == "Nothing":
-        return "V8DOMConfiguration::kHasNoSideEffect"
+def _make_property_entry_check_receiver(property_):
+    if ("LegacyLenientThis" in property_.extended_attributes
+            or (isinstance(property_, web_idl.Attribute)
+                and property_.idl_type.unwrap().is_promise)
+            or (isinstance(property_, web_idl.OverloadGroup)
+                and property_[0].return_type.unwrap().is_promise)):
+        return "V8DOMConfiguration::kDoNotCheckHolder"
     else:
-        return "V8DOMConfiguration::kHasSideEffect"
-
-
-def _make_property_entry_world(world):
-    if world == CodeGenContext.MAIN_WORLD:
-        return "V8DOMConfiguration::kMainWorld"
-    if world == CodeGenContext.NON_MAIN_WORLDS:
-        return "V8DOMConfiguration::kNonMainWorlds"
-    if world == CodeGenContext.ALL_WORLDS:
-        return "V8DOMConfiguration::kAllWorlds"
-    assert False
+        return "V8DOMConfiguration::kCheckHolder"
 
 
 def _make_property_entry_constant_type_and_value_format(property_):
@@ -4386,6 +4320,62 @@ def _make_property_entry_constant_type_and_value_format(property_):
         return ("V8DOMConfiguration::kConstantTypeDouble",
                 "static_cast<double>({value})")
     assert False, "Unsupported type: {}".format(idl_type.syntactic_form)
+
+
+def _make_property_entry_has_side_effect(property_):
+    if property_.extended_attributes.value_of("Affects") == "Nothing":
+        return "V8DOMConfiguration::kHasNoSideEffect"
+    else:
+        return "V8DOMConfiguration::kHasSideEffect"
+
+
+def _make_property_entry_on_which_object(property_):
+    ON_INSTANCE = "V8DOMConfiguration::kOnInstance"
+    ON_PROTOTYPE = "V8DOMConfiguration::kOnPrototype"
+    ON_INTERFACE = "V8DOMConfiguration::kOnInterface"
+    if isinstance(property_, web_idl.Constant):
+        return ON_INTERFACE
+    if hasattr(property_, "is_static") and property_.is_static:
+        return ON_INTERFACE
+    if "Global" in property_.owner.extended_attributes:
+        return ON_INSTANCE
+    if "LegacyUnforgeable" in property_.extended_attributes:
+        return ON_INSTANCE
+    return ON_PROTOTYPE
+
+
+def _make_property_entry_v8_c_function(entry):
+    if entry.no_alloc_direct_callback_name is None:
+        return None
+    return "v8::CFunction::Make({})".format(
+        entry.no_alloc_direct_callback_name)
+
+
+def _make_property_entry_v8_property_attribute(property_):
+    values = []
+    if "NotEnumerable" in property_.extended_attributes:
+        values.append("v8::DontEnum")
+    if "LegacyUnforgeable" in property_.extended_attributes:
+        if not isinstance(property_, web_idl.Attribute):
+            values.append("v8::ReadOnly")
+        values.append("v8::DontDelete")
+    if not values:
+        values.append("v8::None")
+    if len(values) == 1:
+        return values[0]
+    else:
+        return "static_cast<v8::PropertyAttribute>({})".format(
+            " | ".join(values))
+
+
+def _make_property_entry_world(world):
+    if world == CodeGenContext.MAIN_WORLD:
+        return "V8DOMConfiguration::kMainWorld"
+    if world == CodeGenContext.NON_MAIN_WORLDS:
+        return "V8DOMConfiguration::kNonMainWorlds"
+    if world == CodeGenContext.ALL_WORLDS:
+        return "V8DOMConfiguration::kAllWorlds"
+    assert False
 
 
 def _make_attribute_registration_table(table_name, attribute_entries):
@@ -4436,7 +4426,7 @@ def _make_attribute_registration_table(table_name, attribute_entries):
         entry_nodes.append(T(text))
 
     return ListNode([
-        T("static constexpr V8DOMConfiguration::AccessorConfiguration " +
+        T("static constexpr const V8DOMConfiguration::AccessorConfiguration " +
           table_name + "[] = {"),
         ListNode(entry_nodes),
         T("};"),
@@ -4463,8 +4453,9 @@ def _make_constant_callback_registration_table(table_name, constant_entries):
         entry_nodes.append(T(text))
 
     return ListNode([
-        T("static constexpr V8DOMConfiguration::ConstantCallbackConfiguration "
-          + table_name + "[] = {"),
+        T("static constexpr const "
+          "V8DOMConfiguration::ConstantCallbackConfiguration " + table_name +
+          "[] = {"),
         ListNode(entry_nodes),
         T("};"),
     ])
@@ -4499,7 +4490,7 @@ def _make_constant_value_registration_table(table_name, constant_entries):
         entry_nodes.append(T(text))
 
     return ListNode([
-        T("static constexpr V8DOMConfiguration::ConstantConfiguration " +
+        T("static constexpr const V8DOMConfiguration::ConstantConfiguration " +
           table_name + "[] = {"),
         ListNode(entry_nodes),
         T("};"),
@@ -4537,8 +4528,8 @@ def _make_exposed_construct_registration_table(table_name,
         entry_nodes.append(T(text))
 
     return ListNode([
-        T("static constexpr V8DOMConfiguration::AttributeConfiguration " +
-          table_name + "[] = {"),
+        T("static constexpr const V8DOMConfiguration::AttributeConfiguration "
+          + table_name + "[] = {"),
         ListNode(entry_nodes),
         T("};"),
     ])
@@ -4553,6 +4544,14 @@ def _make_operation_registration_table(table_name, operation_entries):
 
     T = TextNode
 
+    no_alloc_direct_call_count = 0
+    for entry in operation_entries:
+        if entry.no_alloc_direct_callback_name:
+            no_alloc_direct_call_count += 1
+    assert (no_alloc_direct_call_count == 0
+            or no_alloc_direct_call_count == len(operation_entries))
+    no_alloc_direct_call_enabled = no_alloc_direct_call_count > 0
+
     entry_nodes = []
     for entry in operation_entries:
         pattern = ("{{"
@@ -4566,6 +4565,8 @@ def _make_operation_registration_table(table_name, operation_entries):
                    "{has_side_effect}, "
                    "{world}"
                    "}}, ")
+        if no_alloc_direct_call_enabled:
+            pattern = "{{" + pattern + "{v8_c_function}}}, "
         text = _format(
             pattern,
             property_name=entry.property_.identifier,
@@ -4582,12 +4583,17 @@ def _make_operation_registration_table(table_name, operation_entries):
                     entry.property_)),
             has_side_effect=_make_property_entry_has_side_effect(
                 entry.property_),
-            world=_make_property_entry_world(entry.world))
+            world=_make_property_entry_world(entry.world),
+            v8_c_function=_make_property_entry_v8_c_function(entry))
         entry_nodes.append(T(text))
 
+    table_decl_before_name = (
+        "static constexpr const V8DOMConfiguration::MethodConfiguration")
+    if no_alloc_direct_call_enabled:
+        table_decl_before_name = ("static const V8DOMConfiguration::"
+                                  "NoAllocDirectCallMethodConfiguration")
     return ListNode([
-        T("static constexpr V8DOMConfiguration::MethodConfiguration " +
-          table_name + "[] = {"),
+        T(table_decl_before_name + " " + table_name + "[] = {"),
         ListNode(entry_nodes),
         T("};"),
     ])
@@ -4652,8 +4658,14 @@ class _PropEntryExposedConstruct(_PropEntryBase):
 
 
 class _PropEntryOperationGroup(_PropEntryBase):
-    def __init__(self, is_context_dependent, exposure_conditional, world,
-                 operation_group, op_callback_name, op_func_length):
+    def __init__(self,
+                 is_context_dependent,
+                 exposure_conditional,
+                 world,
+                 operation_group,
+                 op_callback_name,
+                 op_func_length,
+                 no_alloc_direct_callback_name=None):
         assert isinstance(op_callback_name, str)
         assert isinstance(op_func_length, (int, long))
 
@@ -4661,11 +4673,14 @@ class _PropEntryOperationGroup(_PropEntryBase):
                                 exposure_conditional, world, operation_group)
         self.op_callback_name = op_callback_name
         self.op_func_length = op_func_length
+        self.no_alloc_direct_callback_name = no_alloc_direct_callback_name
 
 
-def _make_property_entries_and_callback_defs(
-        cg_context, attribute_entries, constant_entries, constructor_entries,
-        exposed_construct_entries, operation_entries):
+def make_property_entries_and_callback_defs(cg_context, attribute_entries,
+                                            constant_entries,
+                                            constructor_entries,
+                                            exposed_construct_entries,
+                                            operation_entries):
     """
     Creates intermediate objects to help property installation and also makes
     code nodes of callback functions.
@@ -4684,8 +4699,9 @@ def _make_property_entries_and_callback_defs(
     assert isinstance(exposed_construct_entries, list)
     assert isinstance(operation_entries, list)
 
+    class_like = cg_context.class_like
     interface = cg_context.interface
-    global_names = interface.extended_attributes.values_of("Global")
+    global_names = class_like.extended_attributes.values_of("Global")
 
     callback_def_nodes = ListNode()
 
@@ -4710,6 +4726,9 @@ def _make_property_entries_and_callback_defs(
 
     def process_attribute(attribute, is_context_dependent,
                           exposure_conditional, world):
+        if "CSSProperty" in attribute.extended_attributes:
+            return  # [CSSProperty] will be installed in a special manner.
+
         cgc_attr = cg_context.make_copy(attribute=attribute, for_world=world)
         cgc = cgc_attr.make_copy(attribute_get=True)
         attr_get_callback_name = callback_function_name(cgc)
@@ -4799,8 +4818,9 @@ def _make_property_entries_and_callback_defs(
                 for_world=world,
                 v8_callback_type=CodeGenContext.
                 V8_ACCESSOR_NAME_GETTER_CALLBACK)
-        elif "NoInterfaceObject" in exposed_construct.extended_attributes:
-            return  # Skip due to [NoInterfaceObject].
+        elif ("LegacyNoInterfaceObject" in
+              exposed_construct.extended_attributes):
+            return  # Skip due to [LegacyNoInterfaceObject].
         else:
             cgc = cg_context.make_copy(
                 exposed_construct=exposed_construct,
@@ -4854,7 +4874,14 @@ def _make_property_entries_and_callback_defs(
         cgc = cg_context.make_copy(
             operation_group=operation_group, for_world=world)
         op_callback_name = callback_function_name(cgc)
-        op_callback_node = make_operation_callback_def(cgc, op_callback_name)
+        no_alloc_direct_callback_name = (
+            callback_function_name(cgc, no_alloc_direct_call=True)
+            if "NoAllocDirectCall" in operation_group.extended_attributes else
+            None)
+        op_callback_node = make_operation_callback_def(
+            cgc,
+            op_callback_name,
+            no_alloc_direct_callback_name=no_alloc_direct_callback_name)
 
         callback_def_nodes.extend([
             op_callback_node,
@@ -4868,7 +4895,8 @@ def _make_property_entries_and_callback_defs(
                 world=world,
                 operation_group=operation_group,
                 op_callback_name=op_callback_name,
-                op_func_length=operation_group.min_num_of_required_arguments))
+                op_func_length=operation_group.min_num_of_required_arguments,
+                no_alloc_direct_callback_name=no_alloc_direct_callback_name))
 
     def process_stringifier(_, is_context_dependent, exposure_conditional,
                             world):
@@ -4891,22 +4919,24 @@ def _make_property_entries_and_callback_defs(
                 op_callback_name=op_callback_name,
                 op_func_length=0))
 
-    iterate(interface.attributes, process_attribute)
-    iterate(interface.constants, process_constant)
-    iterate(interface.constructor_groups, process_constructor_group)
-    iterate(interface.exposed_constructs, process_exposed_construct)
-    iterate(interface.legacy_window_aliases, process_exposed_construct)
-    named_constructor_groups = [
-        group for construct in interface.exposed_constructs
-        for group in construct.named_constructor_groups
-        if construct.named_constructor_groups
-    ]
-    iterate(named_constructor_groups, process_named_constructor_group)
-    iterate(interface.operation_groups, process_operation_group)
-    if interface.stringifier:
+    iterate(class_like.attributes, process_attribute)
+    iterate(class_like.constants, process_constant)
+    if interface:
+        iterate(interface.constructor_groups, process_constructor_group)
+        iterate(interface.exposed_constructs, process_exposed_construct)
+        iterate(interface.legacy_window_aliases, process_exposed_construct)
+        named_constructor_groups = [
+            group for construct in interface.exposed_constructs
+            for group in construct.named_constructor_groups
+            if construct.named_constructor_groups
+        ]
+        iterate(named_constructor_groups, process_named_constructor_group)
+    if not class_like.is_callback_interface:
+        iterate(class_like.operation_groups, process_operation_group)
+    if interface and interface.stringifier:
         iterate([interface.stringifier.operation], process_stringifier)
-    collectionlike = (interface.iterable or interface.maplike
-                      or interface.setlike)
+    collectionlike = interface and (interface.iterable or interface.maplike
+                                    or interface.setlike)
     if collectionlike:
 
         def should_define(target):
@@ -4941,9 +4971,9 @@ def _make_install_prototype_object(cg_context):
         nodes.extend([
             TextNode("""\
 // [Unscopable]
-// 3.6.3. Interface prototype object
+// 3.7.3. Interface prototype object
 // https://heycam.github.io/webidl/#interface-prototype-object
-// step 8. If interface has any member declared with the [Unscopable]
+// step 10. If interface has any member declared with the [Unscopable]
 //   extended attribute, then:\
 """),
             ListNode([
@@ -4961,14 +4991,14 @@ bindings::InstallUnscopablePropertyNames(
 """),
         ])
 
-    if "NoInterfaceObject" in class_like.extended_attributes:
+    if "LegacyNoInterfaceObject" in class_like.extended_attributes:
         nodes.append(
             TextNode("""\
-// [NoInterfaceObject]
-// 3.6.3. Interface prototype object
+// [LegacyNoInterfaceObject]
+// 3.7.3. Interface prototype object
 // https://heycam.github.io/webidl/#interface-prototype-object
-// step 12. If the [NoInterfaceObject] extended attribute was not specified
-//   on interface, then:
+// step 13. If the [LegacyNoInterfaceObject] extended attribute was not
+//   specified on interface, then:
 //
 // V8 defines "constructor" property on the prototype object by default.
 ${prototype_object}->Delete(
@@ -5130,10 +5160,39 @@ def make_install_interface_template(cg_context, function_name, class_name,
             assert False
         body.append(EmptyNode())
 
+    if cg_context.callback_interface:
+        body.extend([
+            T("${interface_template}->RemovePrototype();"),
+            EmptyNode(),
+        ])
+
     body.extend([
         supplemental_install_node,
         EmptyNode(),
     ])
+
+    if class_like.identifier == "CSSStyleDeclaration":
+        css_properties = filter(
+            lambda attr: "CSSProperty" in attr.extended_attributes,
+            class_like.attributes)
+        if css_properties:
+            prop_name_list = "".join(
+                map(lambda attr: "\"{}\", ".format(attr.identifier),
+                    css_properties))
+            body.append(
+                T("""\
+// CSSStyleDeclaration-specific settings
+// [CSSProperty]
+{
+  static constexpr const char* kCssProperties[] = {
+""" + prop_name_list + """
+  };
+  bindings::InstallCSSPropertyAttributes(
+      ${isolate}, ${world},
+      ${instance_template}, ${prototype_template}, ${interface_template},
+      ${signature}, kCssProperties);
+}
+"""))
 
     if class_like.identifier == "DOMException":
         body.append(
@@ -5258,8 +5317,8 @@ ${prototype_template}->SetIntrinsicDataProperty(
 ${instance_template}->SetImmutableProto();
 ${prototype_template}->SetImmutableProto();
 """))
-    elif any("Global" in derived.extended_attributes
-             for derived in class_like.deriveds):
+    elif interface and any("Global" in derived.extended_attributes
+                           for derived in interface.deriveds):
         body.append(
             TextNode("""\
 // [Global] - prototype object in the prototype chain of global objects
@@ -5553,8 +5612,14 @@ ${instance_object} = ${v8_context}->Global()->GetPrototype().As<v8::Object>();\
             "${instance_template}, ${prototype_template}, "
             "${interface_template}, ${signature}, "
             "kOperationTable, base::size(kOperationTable));")
-    install_properties(table_name, operation_entries,
-                       _make_operation_registration_table, installer_call_text)
+    entries = filter(lambda entry: not entry.no_alloc_direct_callback_name,
+                     operation_entries)
+    install_properties(table_name, entries, _make_operation_registration_table,
+                       installer_call_text)
+    entries = filter(lambda entry: entry.no_alloc_direct_callback_name,
+                     operation_entries)
+    install_properties(table_name, entries, _make_operation_registration_table,
+                       installer_call_text)
 
     return func_decl, func_def, trampoline_def
 
@@ -5622,7 +5687,7 @@ def make_indexed_and_named_property_callbacks_and_install_node(cg_context):
                 and props.named_setter.owner, props.named_deleter
                 and props.named_deleter.owner))
         flags = ["v8::PropertyHandlerFlags::kOnlyInterceptStrings"]
-        if "OverrideBuiltins" not in interface.extended_attributes:
+        if "LegacyOverrideBuiltIns" not in interface.extended_attributes:
             flags.append("v8::PropertyHandlerFlags::kNonMasking")
         if (props.named_getter.extended_attributes.value_of("Affects") ==
                 "Nothing"):
@@ -5742,8 +5807,6 @@ def make_named_properties_object_callbacks_and_install_node(cg_context):
     func_defs = [
         make_named_props_obj_named_getter_callback(
             cg_context, "NamedPropsObjNamedGetterCallback"),
-        make_named_props_obj_named_setter_callback(
-            cg_context, "NamedPropsObjNamedSetterCallback"),
         make_named_props_obj_named_deleter_callback(
             cg_context, "NamedPropsObjNamedDeleterCallback"),
         make_named_props_obj_named_definer_callback(
@@ -5752,8 +5815,6 @@ def make_named_properties_object_callbacks_and_install_node(cg_context):
             cg_context, "NamedPropsObjNamedDescriptorCallback"),
         make_named_props_obj_indexed_getter_callback(
             cg_context, "NamedPropsObjIndexedGetterCallback"),
-        make_named_props_obj_indexed_setter_callback(
-            cg_context, "NamedPropsObjIndexedSetterCallback"),
         make_named_props_obj_indexed_deleter_callback(
             cg_context, "NamedPropsObjIndexedDeleterCallback"),
         make_named_props_obj_indexed_definer_callback(
@@ -5770,7 +5831,7 @@ def make_named_properties_object_callbacks_and_install_node(cg_context):
 ${npo_prototype_template}->SetHandler(
     v8::NamedPropertyHandlerConfiguration(
         NamedPropsObjNamedGetterCallback,
-        NamedPropsObjNamedSetterCallback,
+        nullptr,  // setter
         nullptr,  // query
         NamedPropsObjNamedDeleterCallback,
         nullptr,  // enumerator
@@ -5784,7 +5845,7 @@ ${npo_prototype_template}->SetHandler(
 ${npo_prototype_template}->SetHandler(
     v8::IndexedPropertyHandlerConfiguration(
         NamedPropsObjIndexedGetterCallback,
-        NamedPropsObjIndexedSetterCallback,
+        nullptr,  // setter
         nullptr,  // query
         NamedPropsObjIndexedDeleterCallback,
         nullptr,  // enumerator
@@ -6174,16 +6235,17 @@ const WrapperTypeInfo ${class_name}::wrapper_type_info_{{
             "InstallContextDependentPropertiesAdapter")
     else:
         install_context_dependent_func = "nullptr"
-    if class_like.inherited:
+    if class_like.is_interface and class_like.inherited:
         wrapper_type_info_of_inherited = "{}::GetWrapperTypeInfo()".format(
             v8_bridge_class_name(class_like.inherited))
     else:
         wrapper_type_info_of_inherited = "nullptr"
     wrapper_type_prototype = ("WrapperTypeInfo::kWrapperTypeObjectPrototype"
-                              if isinstance(class_like, web_idl.Interface) else
+                              if class_like.is_interface else
                               "WrapperTypeInfo::kWrapperTypeNoPrototype")
     wrapper_class_id = ("WrapperTypeInfo::kNodeClassId"
-                        if class_like.does_implement("Node") else
+                        if class_like.is_interface
+                        and class_like.does_implement("Node") else
                         "WrapperTypeInfo::kObjectClassId")
     active_script_wrappable_inheritance = (
         "WrapperTypeInfo::kInheritFromActiveScriptWrappable"
@@ -6198,12 +6260,13 @@ const WrapperTypeInfo ${class_name}::wrapper_type_info_{{
           active_script_wrappable_inheritance=(
               active_script_wrappable_inheritance)))
 
-    blink_class = blink_class_name(class_like)
-    pattern = """\
+    if class_like.is_interface:
+        blink_class = blink_class_name(class_like)
+        pattern = """\
 const WrapperTypeInfo& {blink_class}::wrapper_type_info_ =
     ${class_name}::wrapper_type_info_;
 """
-    wrapper_type_info_def.append(F(pattern, blink_class=blink_class))
+        wrapper_type_info_def.append(F(pattern, blink_class=blink_class))
 
     if class_like.code_generator_info.is_active_script_wrappable:
         pattern = """\
@@ -6229,7 +6292,8 @@ static_assert(
                  decltype(&ScriptWrappable::HasPendingActivity)>::value,
     "{blink_class} is overriding hasPendingActivity() without "
     "[ActiveScriptWrappable] extended attribute.");"""
-    wrapper_type_info_def.append(F(pattern, blink_class=blink_class))
+    if class_like.is_interface:
+        wrapper_type_info_def.append(F(pattern, blink_class=blink_class))
 
     return func_def, member_var_def, wrapper_type_info_def
 
@@ -6682,7 +6746,7 @@ def generate_interface(interface_identifier):
     constructor_entries = []
     exposed_construct_entries = []
     operation_entries = []
-    callback_defs = _make_property_entries_and_callback_defs(
+    callback_defs = make_property_entries_and_callback_defs(
         cg_context,
         attribute_entries=attribute_entries,
         constant_entries=constant_entries,

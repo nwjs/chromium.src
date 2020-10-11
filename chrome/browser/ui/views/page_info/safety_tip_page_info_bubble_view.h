@@ -10,7 +10,6 @@
 #include "components/security_state/core/security_state.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/styled_label.h"
-#include "ui/views/controls/styled_label_listener.h"
 
 namespace content {
 class WebContents;
@@ -29,8 +28,7 @@ class Widget;
 // without all of the details. Safety tip info is still displayed in the usual
 // PageInfoBubbleView, just less prominently.
 class SafetyTipPageInfoBubbleView : public PageInfoBubbleViewBase,
-                                    public views::ButtonListener,
-                                    public views::StyledLabelListener {
+                                    public views::ButtonListener {
  public:
   // If |anchor_view| is nullptr, or has no Widget, |parent_window| may be
   // provided to ensure this bubble is closed when the parent closes.
@@ -43,7 +41,6 @@ class SafetyTipPageInfoBubbleView : public PageInfoBubbleViewBase,
       gfx::NativeView parent_window,
       content::WebContents* web_contents,
       security_state::SafetyTipStatus safety_tip_status,
-      const GURL& url,
       const GURL& suggested_url,
       base::OnceCallback<void(SafetyTipInteraction)> close_callback);
   ~SafetyTipPageInfoBubbleView() override;
@@ -54,21 +51,14 @@ class SafetyTipPageInfoBubbleView : public PageInfoBubbleViewBase,
   // views::ButtonListener:
   void ButtonPressed(views::Button* button, const ui::Event& event) override;
 
-  // views::StyledLabelListener:
-  void StyledLabelLinkClicked(views::StyledLabel* label,
-                              const gfx::Range& range,
-                              int event_flags) override;
-
  private:
   friend class SafetyTipPageInfoBubbleViewBrowserTest;
 
-  views::StyledLabel* GetLearnMoreLinkForTesting() { return info_button_; }
+  void OpenHelpCenter();
+
   views::Button* GetLeaveButtonForTesting() { return leave_button_; }
 
   const security_state::SafetyTipStatus safety_tip_status_;
-
-  // The URL of the page on which the Safety Tip was triggered.
-  const GURL url_;
 
   // The URL of the page the Safety Tip suggests you intended to go to, when
   // applicable (for SafetyTipStatus::kLookalike).
@@ -88,7 +78,6 @@ PageInfoBubbleViewBase* CreateSafetyTipBubbleForTesting(
     gfx::NativeView parent_view,
     content::WebContents* web_contents,
     security_state::SafetyTipStatus safety_tip_status,
-    const GURL& virtual_url,
     const GURL& suggested_url,
     base::OnceCallback<void(SafetyTipInteraction)> close_callback);
 

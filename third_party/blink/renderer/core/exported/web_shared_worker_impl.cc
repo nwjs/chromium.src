@@ -53,6 +53,7 @@
 #include "third_party/blink/public/mojom/loader/fetch_client_settings_object.mojom-blink.h"
 #include "third_party/blink/public/mojom/script/script_type.mojom-blink.h"
 #include "third_party/blink/public/mojom/security_context/insecure_request_policy.mojom-blink.h"
+#include "third_party/blink/public/mojom/v8_cache_options.mojom-blink.h"
 #include "third_party/blink/public/platform/modules/service_worker/web_service_worker_network_provider.h"
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/public/platform/web_content_settings_client.h"
@@ -61,7 +62,6 @@
 #include "third_party/blink/public/platform/web_url_request.h"
 #include "third_party/blink/public/platform/web_worker_fetch_context.h"
 #include "third_party/blink/public/web/web_settings.h"
-#include "third_party/blink/renderer/bindings/core/v8/v8_cache_options.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/events/message_event.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
@@ -203,7 +203,7 @@ void WebSharedWorkerImpl::ConnectTaskOnWorkerThread(
 
 void WebSharedWorkerImpl::StartWorkerContext(bool nodejs, const base::FilePath& root_path,
     const WebURL& script_request_url,
-    mojom::ScriptType script_type,
+    mojom::blink::ScriptType script_type,
     network::mojom::CredentialsMode credentials_mode,
     const WebString& name,
     WebSecurityOrigin constructor_origin,
@@ -286,7 +286,7 @@ void WebSharedWorkerImpl::StartWorkerContext(bool nodejs, const base::FilePath& 
           std::move(content_settings)),
       base::nullopt /* response_address_space */,
       nullptr /* origin_trial_tokens */, devtools_worker_token,
-      std::move(worker_settings), kV8CacheOptionsDefault,
+      std::move(worker_settings), mojom::blink::V8CacheOptions::kDefault,
       nullptr /* worklet_module_response_map */,
       std::move(browser_interface_broker), BeginFrameProviderParams(),
       nullptr /* parent_feature_policy */, base::UnguessableToken());
@@ -320,14 +320,14 @@ void WebSharedWorkerImpl::StartWorkerContext(bool nodejs, const base::FilePath& 
       GetWorkerThread()->GetTaskRunner(TaskType::kDOMManipulation);
 
   switch (script_type) {
-    case mojom::ScriptType::kClassic:
+    case mojom::blink::ScriptType::kClassic:
       GetWorkerThread()->FetchAndRunClassicScript(
           script_request_url, std::move(worker_main_script_load_params),
           outside_settings_object->CopyData(),
           nullptr /* outside_resource_timing_notifier */,
           v8_inspector::V8StackTraceId());
       break;
-    case mojom::ScriptType::kModule:
+    case mojom::blink::ScriptType::kModule:
       GetWorkerThread()->FetchAndRunModuleScript(
           script_request_url, std::move(worker_main_script_load_params),
           outside_settings_object->CopyData(),
@@ -350,7 +350,7 @@ std::unique_ptr<WebSharedWorker> WebSharedWorker::CreateAndStart(
                                                                  const base::FilePath& main_script,
     const blink::SharedWorkerToken& token,
     const WebURL& script_request_url,
-    mojom::ScriptType script_type,
+    mojom::blink::ScriptType script_type,
     network::mojom::CredentialsMode credentials_mode,
     const WebString& name,
     WebSecurityOrigin constructor_origin,

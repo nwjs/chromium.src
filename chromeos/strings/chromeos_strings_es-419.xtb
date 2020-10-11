@@ -19,6 +19,7 @@
 <translation id="2161394479394250669">Cancelar el trabajo de impresión</translation>
 <translation id="2338501278241028356">Activar Bluetooth para buscar los dispositivos cercanos</translation>
 <translation id="2375079107209812402">Intentos restantes: <ph name="ATTEMPTS_LEFT" /></translation>
+<translation id="2517472476991765520">Buscar</translation>
 <translation id="2805756323405976993">Aplicaciones</translation>
 <translation id="2872961005593481000">Apagar</translation>
 <translation id="3008341117444806826">ACTUALIZAR</translation>
@@ -39,7 +40,6 @@
 <translation id="4034824040120875894">Impresora</translation>
 <translation id="4227825898293920515">La contraseña caduca en <ph name="TIME" /></translation>
 <translation id="4238516577297848345">No hay trabajos de impresión en curso</translation>
-<translation id="428217921675623177">Se quitarán los trabajos de impresión que tengan más de 90 días</translation>
 <translation id="4297501883039923494">Se detuvo: error desconocido</translation>
 <translation id="4429881212383817840">El ticket de Kerberos caducará pronto</translation>
 <translation id="445059817448385655">Contraseña anterior</translation>
@@ -81,7 +81,9 @@ Intenta presionar el micrófono para hacerme una pregunta.</translation>
 <translation id="7805768142964895445">Estado</translation>
 <translation id="808894953321890993">Cambiar contraseña</translation>
 <translation id="8208861521865154048">Beneficios</translation>
+<translation id="8294431847097064396">Fuente</translation>
 <translation id="8347227221149377169">Trabajos de impresión</translation>
+<translation id="8352772353338965963">Agrega una cuenta para el acceso múltiple. Puedes acceder a todas las cuentas abiertas sin una contraseña, por lo que esta función solo debe utilizarse con cuentas de confianza.</translation>
 <translation id="8701136875688985581"><ph name="ENROLLMENT_DOMAIN" /> administra a este usuario. Puede supervisar la actividad del usuario y cambiar la configuración de forma remota.</translation>
 <translation id="871560550817059752">Error: Sin tinta</translation>
 <translation id="8726019395068607495">Se detuvo: la tapa está abierta</translation>

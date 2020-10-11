@@ -132,15 +132,6 @@ public class TabUiFeatureUtilities {
     }
 
     /**
-     * @return Whether the tab strip and duet integration feature is enabled and available for use.
-     */
-    public static boolean isDuetTabStripIntegrationAndroidEnabled() {
-        return CachedFeatureFlags.isEnabled(ChromeFeatureList.TAB_GROUPS_ANDROID)
-                && CachedFeatureFlags.isEnabled(ChromeFeatureList.DUET_TABSTRIP_INTEGRATION_ANDROID)
-                && isTabManagementModuleSupported();
-    }
-
-    /**
      * @return Whether the tab group continuation feature is enabled and available for use.
      */
     public static boolean isTabGroupsAndroidContinuationEnabled() {
@@ -184,11 +175,8 @@ public class TabUiFeatureUtilities {
      * @return Whether the instant start is supported.
      */
     public static boolean supportInstantStart(boolean isTablet) {
-        // TODO(crbug.com/1076449): Support instant start when the stack tab switcher is
-        // enabled.
         return !DeviceClassManager.enableAccessibilityLayout()
-                && CachedFeatureFlags.isEnabled(ChromeFeatureList.INSTANT_START) && !isTablet
-                && !StartSurfaceConfiguration.isStartSurfaceStackTabSwitcherEnabled();
+                && CachedFeatureFlags.isEnabled(ChromeFeatureList.INSTANT_START) && !isTablet;
     }
 
     /**

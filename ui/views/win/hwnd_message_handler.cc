@@ -2837,7 +2837,10 @@ void HWNDMessageHandler::OnWindowPosChanging(WINDOWPOS* window_pos) {
         // window is maximized. We should take this into account.
         gfx::Insets client_area_insets;
         if (GetClientAreaInsets(&client_area_insets, monitor))
-          expected_maximized_bounds.Inset(client_area_insets.Scale(-1));
+          // Ceil the insets after scaling to make them exclude fractional parts
+          // after scaling, since the result is negative.
+          expected_maximized_bounds.Inset(
+              gfx::ScaleToCeiledInsets(client_area_insets, -1));
       }
       const bool maximize_hack = content::g_force_cpu_draw && is_translucent_;
       // Sometimes Windows incorrectly changes bounds of maximized windows after

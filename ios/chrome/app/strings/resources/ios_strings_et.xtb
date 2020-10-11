@@ -14,6 +14,7 @@
 <translation id="1084365883616172403">Facebooki postitus on valmis.</translation>
 <translation id="1103523840287552314">Tõlgi alati: <ph name="LANGUAGE" /></translation>
 <translation id="1104948393051856124">Nõustu ja jätka</translation>
+<translation id="110724200315609752">Lülitu avatud aknale</translation>
 <translation id="1112015203684611006">Print. ebaõnn.</translation>
 <translation id="1125564390852150847">Loo uus vaheleht.</translation>
 <translation id="1145536944570833626">Kustutage olemasolevad andmed.</translation>
@@ -93,6 +94,7 @@
 <translation id="1941314575388338491">Kopeerimiseks topeltpuudutage.</translation>
 <translation id="1952172573699511566">Veebisaidid kuvavad teksti võimaluse korral teie eelistatud keeles.</translation>
 <translation id="1952728750904661634">Sisselogimine hallatud kontoga</translation>
+<translation id="1965935827552890526">Lõpetage teises avatud Chrome'i aknas pooleliolev toiming.</translation>
 <translation id="1974060860693918893">Täpsemad</translation>
 <translation id="1989112275319619282">Sirvi</translation>
 <translation id="1992734845128748707">Muuda vaikebrauserit …</translation>
@@ -277,6 +279,7 @@ Inkognito režiimis ei saa saidid küpsisefailide abil eri saitidel teie sirvimi
 <translation id="408404951701638773">Otsinguriba aktiveerimine on nüüd lihtsam</translation>
 <translation id="411254640334432676">Allalaadimine ebaõnnestus.</translation>
 <translation id="4112644173421521737">Otsi</translation>
+<translation id="4113030288477039509">Seda haldab teie administraator</translation>
 <translation id="4121993058175073134">Netiekspordi andmete saatmiseks seadistage meilikonto rakenduses Seaded.</translation>
 <translation id="4124987746317609294">Ajavahemik</translation>
 <translation id="4152011295694446843">Oma järjehoidjad leiate siit</translation>
@@ -285,11 +288,13 @@ Inkognito režiimis ei saa saidid küpsisefailide abil eri saitidel teie sirvimi
 <translation id="4181841719683918333">Keeled</translation>
 <translation id="424315890655130736">Sisestage parool</translation>
 <translation id="4263576668337963058">Kuva lehe saadaolevad toimingud</translation>
+<translation id="4267380167363222949">Järgmine vaheleht</translation>
 <translation id="4272631900155121838">QR-koodi skannimiseks lubage seadetes kaamera</translation>
 <translation id="4276041135170112053">Parandage kohe.</translation>
 <translation id="4277990410970811858">Google'i ohutu sirvimine</translation>
 <translation id="4281844954008187215">Teenusetingimused</translation>
 <translation id="430793432425771671">Sünkrooni kõik</translation>
+<translation id="4309403553630140242">Topeltpuudutage lisateabe saamiseks</translation>
 <translation id="430967081421617822">Algusest</translation>
 <translation id="4334428914252001502">1 lugemata artikkel.</translation>
 <translation id="4338650699862464074">Saadab Google'ile teie külastatud lehtede URL-id.</translation>
@@ -353,6 +358,7 @@ Seade muutmiseks <ph name="BEGIN_LINK" />lähtestage sünkroonimine<ph name="END
 <translation id="5005498671520578047">Parooli kopeerimine</translation>
 <translation id="5010803260590204777">Avage inkognito vaheleht ja sirvige veebi privaatselt.</translation>
 <translation id="5039804452771397117">Luba</translation>
+<translation id="5056446788882570708">Probleemid leiti <ph name="TIME" />.</translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5062321486222145940">Installi Google Drive</translation>
 <translation id="5083464117946352670">Failisuurust ei saa tuvastada.</translation>
@@ -376,7 +382,6 @@ Seade muutmiseks <ph name="BEGIN_LINK" />lähtestage sünkroonimine<ph name="END
 <translation id="5317780077021120954">Salvesta</translation>
 <translation id="5327248766486351172">Nimi</translation>
 <translation id="5339316356165661760">Lülita sünkroonimine sisse</translation>
-<translation id="5352285283572729470">See seade on hallatud</translation>
 <translation id="5388358297987318779">Ava kujutis</translation>
 <translation id="5407969256130905701">Loobu muudatustest</translation>
 <translation id="5409365236829784218">Pole installitud rakendust, mis suudaks selle faili avada.</translation>
@@ -456,6 +461,7 @@ Handoff peab olema lubatud seadete jaotises General ja seadmed peavad kasutama s
 <translation id="6187302354554850004">Viimati sünkr.: <ph name="LAST_USED_TIME" /></translation>
 <translation id="6189413832092199491">Lugemata</translation>
 <translation id="6196207969502475924">Häälotsing</translation>
+<translation id="6202364442240589072">{COUNT,plural, =1{Sule {COUNT} vaheleht}other{Sule {COUNT} vahelehte}}</translation>
 <translation id="6219688215832490856">Ära kunagi tõlgi:</translation>
 <translation id="6254066287920239840">Avage lingid brauseri asemel rakenduses.</translation>
 <translation id="6255097610484507482">Muuda krediitkaarti</translation>
@@ -571,6 +577,7 @@ Saidid ei saa küpsisefailide abil eri saitidel teie sirvimistegevust jälgida (
 <translation id="734758817008927353">Kaardi salvestamise võimalused</translation>
 <translation id="7348502496356775519">Lisa järjehoidjatesse</translation>
 <translation id="7383797227493018512">Lugemisloend</translation>
+<translation id="739941347996872055">Eelmine vaheleht</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> lugemata artiklit.</translation>
 <translation id="7425346204213733349">Järjehoidjates, ajaloos, paroolides ja muudes seadetes tehtud muudatusi ei sünkroonita enam teie Google'i kontoga. Teie olemasolevad andmed jäävad siiski teie Google'i kontole.</translation>
@@ -636,6 +643,7 @@ Saidid saavad küpsisefailide abil eri saitidel teie sirvimistegevust jälgida, 
 <translation id="8073670137947914548">Allalaadimine jõudis lõpule</translation>
 <translation id="8073872304774253879">Otsingute ja sirvimise paremaks muutmine</translation>
 <translation id="8076014560081431679">Saitide salvestatud seadeid ei kustutata ja need võivad kajastada teie sirvimisharjumusi. <ph name="BEGIN_LINK" />Lisateave<ph name="END_LINK" /></translation>
+<translation id="8079602123447022758">See seade on hallatud, lisateabe jaoks topeltpuudutage</translation>
 <translation id="8105368624971345109">Lülita välja</translation>
 <translation id="8114753159095730575">Allalaaditav fail on saadaval. Valikud kuvatakse ekraani alaosas.</translation>
 <translation id="8131740175452115882">Kinnita</translation>

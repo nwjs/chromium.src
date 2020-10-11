@@ -15,6 +15,7 @@
 #include "base/run_loop.h"
 #include "base/strings/string_piece_forward.h"
 #include "base/system/sys_info.h"
+#include "base/task/common/task_annotator.h"
 #include "base/task/post_task.h"
 #include "base/test/bind_test_util.h"
 #include "base/test/scoped_feature_list.h"
@@ -27,12 +28,12 @@
 #include "components/network_session_configurator/common/network_switches.h"
 #include "components/ukm/test_ukm_recorder.h"
 #include "content/browser/bad_message.h"
-#include "content/browser/frame_host/back_forward_cache_impl.h"
-#include "content/browser/frame_host/frame_tree_node.h"
-#include "content/browser/frame_host/render_frame_host_impl.h"
 #include "content/browser/generic_sensor/sensor_provider_proxy_impl.h"
 #include "content/browser/presentation/presentation_test_utils.h"
+#include "content/browser/renderer_host/back_forward_cache_impl.h"
+#include "content/browser/renderer_host/frame_tree_node.h"
 #include "content/browser/renderer_host/page_lifecycle_state_manager.h"
+#include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/browser/web_contents/file_chooser_impl.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/common/content_navigation_policy.h"
@@ -40,6 +41,7 @@
 #include "content/public/browser/back_forward_cache.h"
 #include "content/public/browser/frame_service_base.h"
 #include "content/public/browser/global_routing_id.h"
+#include "content/public/browser/idle_manager.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/site_isolation_policy.h"
@@ -52,6 +54,7 @@
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/content_browser_test.h"
 #include "content/public/test/content_browser_test_utils.h"
+#include "content/public/test/idle_test_utils.h"
 #include "content/public/test/navigation_handle_observer.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "content/public/test/test_navigation_throttle.h"
@@ -78,6 +81,7 @@
 #include "services/device/public/mojom/vibration_manager.mojom.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
 #include "testing/gmock/include/gmock/gmock.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/scheduler/web_scheduler_tracked_feature.h"
 #include "third_party/blink/public/mojom/app_banner/app_banner.mojom.h"
 
@@ -117,7 +121,13 @@ struct FeatureEqualOperator {
 class BackForwardCacheBrowserTest : public ContentBrowserTest,
                                     public WebContentsObserver {
  public:
-  ~BackForwardCacheBrowserTest() override = default;
+  ~BackForwardCacheBrowserTest() override {
+    if (fail_for_unexpected_messages_while_cached_) {
+      ExpectTotalCount(
+          "BackForwardCache.UnexpectedRendererToBrowserMessage.InterfaceName",
+          0);
+    }
+  }
 
  protected:
   using UkmMetrics = ukm::TestUkmRecorder::HumanReadableUkmMetrics;
@@ -139,13 +149,16 @@ class BackForwardCacheBrowserTest : public ContentBrowserTest,
     EnableFeatureAndSetParams(features::kBackForwardCache,
                               "TimeToLiveInBackForwardCacheInSeconds", "3600");
     EnableFeatureAndSetParams(features::kBackForwardCache,
-                              "message_handling_when_cached", "kill");
+                              "message_handling_when_cached", "log");
     EnableFeatureAndSetParams(
         features::kBackForwardCache, "enable_same_site",
         same_site_back_forward_cache_enabled_ ? "true" : "false");
     EnableFeatureAndSetParams(
         features::kBackForwardCache, "skip_same_site_if_unload_exists",
         skip_same_site_if_unload_exists_ ? "true" : "false");
+    EnableFeatureAndSetParams(
+        blink::features::kLogUnexpectedIPCPostedToBackForwardCachedDocuments,
+        "delay_before_tracking_ms", "0");
 #if defined(OS_ANDROID)
     EnableFeatureAndSetParams(features::kBackForwardCache,
                               "process_binding_strength", "NORMAL");
@@ -449,6 +462,12 @@ class BackForwardCacheBrowserTest : public ContentBrowserTest,
     histogram_tester_.ExpectUniqueSample(name, sample, expected_count);
   }
 
+  // Do not fail this test if a message from a renderer arrives at the browser
+  // for a cached page.
+  void DoNotFailForUnexpectedMessagesWhileCached() {
+    fail_for_unexpected_messages_while_cached_ = false;
+  }
+
   base::HistogramTester histogram_tester_;
 
  protected:
@@ -491,6 +510,9 @@ class BackForwardCacheBrowserTest : public ContentBrowserTest,
   // Indicates whether metrics for all sites regardless of the domains are
   // checked or not.
   bool check_all_sites_ = true;
+  // Whether we should fail the test if a message arrived at the browser from a
+  // renderer for a bfcached page.
+  bool fail_for_unexpected_messages_while_cached_ = true;
 };
 
 // Match RenderFrameHostImpl* that are in the BackForwardCache.
@@ -658,6 +680,20 @@ class PageLifecycleStateManagerTestDelegate
   base::OnceClosure restore_from_back_forward_cache_sent_;
 };
 
+class FakeIdleTimeProvider : public IdleManager::IdleTimeProvider {
+ public:
+  FakeIdleTimeProvider() = default;
+  ~FakeIdleTimeProvider() override = default;
+  FakeIdleTimeProvider(const FakeIdleTimeProvider&) = delete;
+  FakeIdleTimeProvider& operator=(const FakeIdleTimeProvider&) = delete;
+
+  base::TimeDelta CalculateIdleTime() override {
+    return base::TimeDelta::FromSeconds(0);
+  }
+
+  bool CheckIdleStateIsLocked() override { return false; }
+};
+
 }  // namespace
 
 // Navigate from A to B and go back.
@@ -742,6 +778,9 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest, BasicDocumentInitiated) {
 // Navigate from back and forward repeatedly.
 IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
                        NavigateBackForwardRepeatedly) {
+  // Do not check for unexpected messages because the input task queue is not
+  // currently frozen, causing flakes in this test: crbug.com/1099395.
+  DoNotFailForUnexpectedMessagesWhileCached();
   ASSERT_TRUE(embedded_test_server()->Start());
   GURL url_a(embedded_test_server()->GetURL("a.com", "/title1.html"));
   GURL url_b(embedded_test_server()->GetURL("b.com", "/title1.html"));
@@ -809,8 +848,7 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
 // The current page can't enter the BackForwardCache if another page can script
 // it. This can happen when one document opens a popup using window.open() for
 // instance. It prevents the BackForwardCache from being used.
-// Flaky on all platforms. http://crbug.com/1116023
-IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest, DISABLED_WindowOpen) {
+IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest, WindowOpen) {
   // This test assumes cross-site navigation staying in the same
   // BrowsingInstance to use a different SiteInstance. Otherwise, it will
   // timeout at step 2).
@@ -2153,6 +2191,9 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest, DoesNotCacheIdleManager) {
   RenderFrameHostImpl* rfh_a = current_frame_host();
   RenderFrameDeletedObserver deleted(rfh_a);
 
+  content::IdleManagerHelper::SetIdleTimeProviderForTest(
+      rfh_a, std::make_unique<FakeIdleTimeProvider>());
+
   EXPECT_TRUE(ExecJs(rfh_a, R"(
     new Promise(async resolve => {
       let idleDetector = new IdleDetector();
@@ -2313,6 +2354,46 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
       FROM_HERE);
   ExpectBlocklistedFeature(
       blink::scheduler::WebSchedulerTrackedFeature::kKeyboardLock, FROM_HERE);
+}
+
+IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest, LogIpcPostedToCachedFrame) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+
+  // 1) Navigate to a page.
+  GURL url(embedded_test_server()->GetURL("/title1.html"));
+  EXPECT_TRUE(NavigateToURL(shell(), url));
+  RenderFrameHostImpl* rfh_a = current_frame_host();
+
+  // 2) Navigate away. The first page should be in the cache.
+  EXPECT_TRUE(NavigateToURL(
+      shell(), embedded_test_server()->GetURL("b.com", "/title1.html")));
+
+  // 3) Post IPC tasks to the page, testing both mojo remote and associated
+  // remote objects.
+
+  // TODO(hbolaria) - implement non-frame-associated tracking, which will be
+  // used by the code below.
+
+  // Post a non-associated interface. Will be routed to a frame-specific task
+  // queue with IPC set in SimpleWatcher.
+  base::RunLoop run_loop;
+  rfh_a->GetHighPriorityLocalFrame()->DispatchBeforeUnload(
+      false,
+      base::BindOnce([](base::RepeatingClosure quit_closure, bool proceed,
+                        base::TimeTicks start_time,
+                        base::TimeTicks end_time) { quit_closure.Run(); },
+                     run_loop.QuitClosure()));
+  run_loop.Run();
+
+  // 4) Check the histogram.
+  FetchHistogramsFromChildProcesses();
+  base::HistogramBase::Sample sample = base::HistogramBase::Sample(
+      base::TaskAnnotator::ScopedSetIpcHash::MD5HashMetricName(
+          "blink.mojom.HighPriorityLocalFrame"));
+  histogram_tester_.ExpectUniqueSample(
+      "BackForwardCache.Experimental."
+      "UnexpectedIPCMessagePostedToCachedFrame.MethodHash",
+      sample, 1);
 }
 
 class MockAppBannerService : public blink::mojom::AppBannerService {
@@ -2744,10 +2825,10 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest, Events) {
   // both window and document.
   MatchEventList(
       rfh_a,
-      ListValueOf("document.visibilitychange", "window.visibilitychange",
-                  "window.pagehide.persisted", "document.freeze",
-                  "document.resume", "window.pageshow.persisted",
-                  "document.visibilitychange", "window.visibilitychange"));
+      ListValueOf("window.pagehide.persisted", "document.visibilitychange",
+                  "window.visibilitychange", "document.freeze",
+                  "document.resume", "document.visibilitychange",
+                  "window.visibilitychange", "window.pageshow.persisted"));
 }
 
 // Tests the events are fired for subframes when going back from the cache.
@@ -2793,16 +2874,16 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest, EventsForSubframes) {
   // both window and document.
   MatchEventList(
       rfh_a,
-      ListValueOf("document.visibilitychange", "window.visibilitychange",
-                  "window.pagehide.persisted", "document.freeze",
-                  "document.resume", "window.pageshow.persisted",
-                  "document.visibilitychange", "window.visibilitychange"));
+      ListValueOf("window.pagehide.persisted", "document.visibilitychange",
+                  "window.visibilitychange", "document.freeze",
+                  "document.resume", "document.visibilitychange",
+                  "window.visibilitychange", "window.pageshow.persisted"));
   MatchEventList(
       rfh_b,
-      ListValueOf("document.visibilitychange", "window.visibilitychange",
-                  "window.pagehide.persisted", "document.freeze",
-                  "document.resume", "window.pageshow.persisted",
-                  "document.visibilitychange", "window.visibilitychange"));
+      ListValueOf("window.pagehide.persisted", "document.visibilitychange",
+                  "window.visibilitychange", "document.freeze",
+                  "document.resume", "document.visibilitychange",
+                  "window.visibilitychange", "window.pageshow.persisted"));
 }
 
 // Tests the events are fired when going back from the cache.
@@ -2843,10 +2924,10 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
   // both window and document.
   MatchEventList(
       rfh_a,
-      ListValueOf("document.visibilitychange", "window.visibilitychange",
-                  "window.pagehide.persisted", "document.freeze",
-                  "document.resume", "window.pageshow.persisted",
-                  "document.visibilitychange", "window.visibilitychange"));
+      ListValueOf("window.pagehide.persisted", "document.visibilitychange",
+                  "window.visibilitychange", "document.freeze",
+                  "document.resume", "document.visibilitychange",
+                  "window.visibilitychange", "window.pageshow.persisted"));
 }
 
 IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest, EvictPageWithInfiniteLoop) {
@@ -4706,7 +4787,8 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest, WebPreferences) {
   EXPECT_TRUE(rfh_a->IsInBackForwardCache());
   EXPECT_NE(rfh_a, rfh_b);
 
-  WebPreferences prefs = web_contents()->GetOrCreateWebPreferences();
+  blink::web_pref::WebPreferences prefs =
+      web_contents()->GetOrCreateWebPreferences();
   prefs.preferred_color_scheme = blink::PreferredColorScheme::kDark;
   web_contents()->SetWebPreferences(prefs);
 
@@ -5418,7 +5500,7 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest, VideoSuspendAndResume) {
   double duration1 = EvalJs(rfh_a, "timeOnFrozen;").ExtractDouble();
   double duration2 = EvalJs(rfh_a, "video.currentTime;").ExtractDouble();
   EXPECT_LE(0.0, duration2 - duration1);
-  EXPECT_GT(0.01, duration2 - duration1);
+  EXPECT_GT(0.02, duration2 - duration1);
 
   // Resume the media.
   EXPECT_TRUE(ExecJs(rfh_a, "video.play();"));
@@ -6826,14 +6908,12 @@ class EchoFakeWithFilter final : public mojom::Echo {
 
 }  // namespace
 
-IN_PROC_BROWSER_TEST_F(
-    BackForwardCacheBrowserTest,
-    ProcessKilledIfMessageReceivedOnAssociatedInterfaceWhileCached) {
+IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
+                       MessageReceivedOnAssociatedInterfaceWhileCached) {
+  DoNotFailForUnexpectedMessagesWhileCached();
   ASSERT_TRUE(embedded_test_server()->Start());
   GURL url_a(embedded_test_server()->GetURL("a.com", "/title1.html"));
   GURL url_b(embedded_test_server()->GetURL("b.com", "/title1.html"));
-  url::Origin origin_a = url::Origin::Create(url_a);
-  url::Origin origin_b = url::Origin::Create(url_b);
 
   // 1) Navigate to A.
   EXPECT_TRUE(NavigateToURL(shell(), url_a));
@@ -6853,15 +6933,11 @@ IN_PROC_BROWSER_TEST_F(
       remote.BindNewPipeAndPassReceiver(),
       rfh_a->CreateMessageFilterForAssociatedReceiver(mojom::Echo::Name_));
 
-  ScopedAllowRendererCrashes allow_crash(rfh_a->GetProcess());
-  RenderProcessHostBadIpcMessageWaiter bad_message_waiter(rfh_a->GetProcess());
+  base::RunLoop loop;
+  remote->EchoString(
+      "", base::BindLambdaForTesting([&](const std::string&) { loop.Quit(); }));
+  loop.Run();
 
-  remote->EchoString("", base::NullCallback());
-
-  EXPECT_THAT(bad_message_waiter.Wait(),
-              testing::Optional(
-                  bad_message::RFH_RECEIVED_ASSOCIATED_MESSAGE_WHILE_BFCACHED));
-  EXPECT_TRUE(delete_observer_rfh_a.deleted());
   ExpectBucketCount(
       "BackForwardCache.UnexpectedRendererToBrowserMessage.InterfaceName",
       base::HistogramBase::Sample(
@@ -6871,7 +6947,99 @@ IN_PROC_BROWSER_TEST_F(
 
 IN_PROC_BROWSER_TEST_F(
     BackForwardCacheBrowserTest,
-    ProcessNotKilledIfMessageReceivedOnAssociatedInterfaceWhileFreezing) {
+    MessageReceivedOnAssociatedInterfaceWhileCachedForProcessWithNonCachedPages) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  GURL url_a(embedded_test_server()->GetURL("/title1.html"));
+  GURL url_b(embedded_test_server()->GetURL("/title2.html"));
+
+  // 1) Navigate to A.
+  EXPECT_TRUE(NavigateToURL(shell(), url_a));
+  RenderFrameHostImpl* rfh_a = current_frame_host();
+  RenderFrameDeletedObserver delete_observer_rfh_a(rfh_a);
+  PageLifecycleStateManagerTestDelegate delegate(
+      rfh_a->render_view_host()->GetPageLifecycleStateManager());
+
+  // 2) Navigate to B.
+  EXPECT_TRUE(NavigateToURL(shell(), url_b));
+  delegate.WaitForInBackForwardCacheAck();
+  RenderFrameHostImpl* rfh_b = current_frame_host();
+  ASSERT_FALSE(delete_observer_rfh_a.deleted());
+  EXPECT_TRUE(rfh_a->IsInBackForwardCache());
+  // Make sure both pages are on the same process (they are same site so they
+  // should).
+  ASSERT_EQ(rfh_a->GetProcess(), rfh_b->GetProcess());
+
+  mojo::Remote<mojom::Echo> remote;
+  EchoFakeWithFilter echo(
+      remote.BindNewPipeAndPassReceiver(),
+      rfh_a->CreateMessageFilterForAssociatedReceiver(mojom::Echo::Name_));
+
+  remote->EchoString("", base::NullCallback());
+  // Give the killing a chance to run. (We do not expect a kill but need to
+  // "wait" for it to not happen)
+  base::RunLoop().RunUntilIdle();
+
+  // 3) Go back to A.
+  web_contents()->GetController().GoBack();
+  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+
+  ExpectOutcome(BackForwardCacheMetrics::HistoryNavigationOutcome::kRestored,
+                FROM_HERE);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    BackForwardCacheBrowserTest,
+    MessageReceivedOnAssociatedInterfaceForProcessWithMultipleCachedPages) {
+  DoNotFailForUnexpectedMessagesWhileCached();
+  web_contents()
+      ->GetController()
+      .GetBackForwardCache()
+      .set_cache_size_limit_for_testing(10);
+  ASSERT_TRUE(embedded_test_server()->Start());
+  GURL url_a_1(embedded_test_server()->GetURL("a.com", "/title1.html"));
+  GURL url_a_2(embedded_test_server()->GetURL("a.com", "/title2.html"));
+  GURL url_b(embedded_test_server()->GetURL("b.com", "/title1.html"));
+
+  // Get url_a_1 and url_a_2 into the cache.
+  EXPECT_TRUE(NavigateToURL(shell(), url_a_1));
+  RenderFrameHostImpl* rfh_a_1 = current_frame_host();
+  RenderFrameDeletedObserver delete_observer_rfh_a_1(rfh_a_1);
+
+  EXPECT_TRUE(NavigateToURL(shell(), url_a_2));
+  RenderFrameHostImpl* rfh_a_2 = current_frame_host();
+  RenderFrameDeletedObserver delete_observer_rfh_a_2(rfh_a_2);
+
+  EXPECT_TRUE(NavigateToURL(shell(), url_b));
+  RenderFrameHostImpl* rfh_b = current_frame_host();
+  RenderFrameDeletedObserver delete_observer_rfh_b(rfh_b);
+
+  ASSERT_FALSE(delete_observer_rfh_a_1.deleted());
+  ASSERT_FALSE(delete_observer_rfh_a_2.deleted());
+  EXPECT_TRUE(rfh_a_1->IsInBackForwardCache());
+  EXPECT_TRUE(rfh_a_2->IsInBackForwardCache());
+  ASSERT_EQ(rfh_a_1->GetProcess(), rfh_a_2->GetProcess());
+
+  mojo::Remote<mojom::Echo> remote;
+  EchoFakeWithFilter echo(
+      remote.BindNewPipeAndPassReceiver(),
+      rfh_a_1->CreateMessageFilterForAssociatedReceiver(mojom::Echo::Name_));
+
+  base::RunLoop loop;
+  remote->EchoString(
+      "", base::BindLambdaForTesting([&](const std::string&) { loop.Quit(); }));
+  loop.Run();
+
+  ExpectBucketCount(
+      "BackForwardCache.UnexpectedRendererToBrowserMessage.InterfaceName",
+      base::HistogramBase::Sample(
+          static_cast<int32_t>(base::HashMetricName(mojom::Echo::Name_))),
+      1);
+
+  EXPECT_FALSE(delete_observer_rfh_b.deleted());
+}
+
+IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
+                       MessageReceivedOnAssociatedInterfaceWhileFreezing) {
   ASSERT_TRUE(embedded_test_server()->Start());
   GURL url_a(embedded_test_server()->GetURL("a.com", "/title1.html"));
   GURL url_b(embedded_test_server()->GetURL("b.com", "/title1.html"));

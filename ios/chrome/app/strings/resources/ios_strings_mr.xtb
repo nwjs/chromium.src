@@ -14,6 +14,7 @@
 <translation id="1084365883616172403">Facebook पोस्ट पूर्ण केले.</translation>
 <translation id="1103523840287552314">नेहमी भाषांतर करा <ph name="LANGUAGE" /></translation>
 <translation id="1104948393051856124">स्वीकारा आणि सुरू ठेवा</translation>
+<translation id="110724200315609752">उघड्या विंडोवर स्विच करा</translation>
 <translation id="1112015203684611006">प्रिंट अयशस्वी झाले.</translation>
 <translation id="1125564390852150847">नवीन टॅब तयार करा.</translation>
 <translation id="1145536944570833626">विद्यमान डेटा हटवा.</translation>
@@ -93,6 +94,7 @@
 <translation id="1941314575388338491">कॉपी करण्‍यासाठी दोनदा टॅप करा.</translation>
 <translation id="1952172573699511566">वेबसाइट शक्य असताना तुमच्या प्राधान्य असलेल्‍या भाषेमध्ये मजकूर दाखवेल.</translation>
 <translation id="1952728750904661634">व्यवस्थापित केलेल्या खात्यासह साइन इन करा</translation>
+<translation id="1965935827552890526">तुम्ही इतर उघड्या Chrome विंडोमध्ये काय करत होतात ते पूर्ण करा.</translation>
 <translation id="1974060860693918893">प्रगत</translation>
 <translation id="1989112275319619282">ब्राउझ करा</translation>
 <translation id="1992734845128748707">डीफॉल्ट ब्राउझर बदला…</translation>
@@ -277,6 +279,7 @@
 <translation id="408404951701638773">शोध बारवर पोहोचणे आता आणखी सोपे आहे</translation>
 <translation id="411254640334432676">डाउनलोड अयशस्वी.</translation>
 <translation id="4112644173421521737">Search</translation>
+<translation id="4113030288477039509">तुमच्या ॲडमिनिस्ट्रेटरद्वारे व्यवस्थापित</translation>
 <translation id="4121993058175073134">निव्वळ-एक्सपोर्ट डेटा पाठविण्यासाठी, कृपया सेटिंग्ज ॲप मध्ये तुमचे ईमेल खाते कॉन्फिगर करा.</translation>
 <translation id="4124987746317609294">वेळ वर्गवारी</translation>
 <translation id="4152011295694446843">तुमचे बुकमार्क तुम्हाला येथे सापडतील</translation>
@@ -285,11 +288,13 @@
 <translation id="4181841719683918333">भाषा</translation>
 <translation id="424315890655130736">सांकेतिक पासफ्रेझ एंटर करा</translation>
 <translation id="4263576668337963058">उपलब्ध असलेल्या पेज क्रिया दाखवा</translation>
+<translation id="4267380167363222949">पुढील टॅब</translation>
 <translation id="4272631900155121838">QR कोड स्कॅन करण्‍यासाठी, सेटिंग्ज मधून कॅमेरा सुरू करा</translation>
 <translation id="4276041135170112053">आता निराकरण करा.</translation>
 <translation id="4277990410970811858">सुरक्षित ब्राउझिंग</translation>
 <translation id="4281844954008187215">सेवा अटी</translation>
 <translation id="430793432425771671">प्रत्येकगोष्ट संंकालित करा</translation>
+<translation id="4309403553630140242">अधिक माहितीसाठी दोनदा टॅप करा</translation>
 <translation id="430967081421617822">सर्व वेळ</translation>
 <translation id="4334428914252001502">न वाचलेला एक लेख.</translation>
 <translation id="4338650699862464074">तुम्ही भेट दिलेल्या पेजच्या URL Google ला पाठवते.</translation>
@@ -354,6 +359,7 @@
 <translation id="5005498671520578047">पासवर्ड कॉपी करा</translation>
 <translation id="5010803260590204777">वेब खाजगीपणे ब्राउझ करण्‍यासाठी गुप्त टॅब उघडा.</translation>
 <translation id="5039804452771397117">परवानगी द्या</translation>
+<translation id="5056446788882570708"><ph name="TIME" /> समस्या आढळल्या.</translation>
 <translation id="5059136629401106827">ओके</translation>
 <translation id="5062321486222145940">Google ड्राइव्ह इंस्टॉल करा</translation>
 <translation id="5083464117946352670">फाईल आकार निर्धारित करू शकत नाही.</translation>
@@ -377,7 +383,6 @@
 <translation id="5317780077021120954">सेव्ह करा</translation>
 <translation id="5327248766486351172">नाव</translation>
 <translation id="5339316356165661760">सिंक सुरू करा</translation>
-<translation id="5352285283572729470">हे सेटिंग व्यवस्थापित केलेले आहे</translation>
 <translation id="5388358297987318779">इमेज उघडा</translation>
 <translation id="5407969256130905701">बदल काढून टाका</translation>
 <translation id="5409365236829784218">ही फाईल उघडू शकणारे कोणतेही ॲप्लिकेशन इंस्टॉल केलेले नाहीत.</translation>
@@ -457,6 +462,7 @@
 <translation id="6187302354554850004">अखेरचे संंकालित: <ph name="LAST_USED_TIME" /></translation>
 <translation id="6189413832092199491">न वाचलेले</translation>
 <translation id="6196207969502475924">व्हॉइस शोध</translation>
+<translation id="6202364442240589072">{COUNT,plural, =1{{COUNT} टॅब बंद करा}other{{COUNT} टॅब बंद करा}}</translation>
 <translation id="6219688215832490856">कधीही भाषांतर करू नका</translation>
 <translation id="6254066287920239840">ब्राउझर ऐवजी ॲपमध्ये लिंक उघडा.</translation>
 <translation id="6255097610484507482">क्रेडिट कार्ड संपादित करा</translation>
@@ -572,6 +578,7 @@
 <translation id="734758817008927353">कार्ड सेव्ह करण्यासाठी पर्याय</translation>
 <translation id="7348502496356775519">बुकमार्क करा</translation>
 <translation id="7383797227493018512">वाचन सूची</translation>
+<translation id="739941347996872055">मागील टॅब</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906">न वाचलेले <ph name="UNREAD_COUNT" /> लेख.</translation>
 <translation id="7425346204213733349">तुमचे बुकमार्क, इतिहास, पासवर्ड आणि अन्य सेटिंग्ज मधील बदल यापुढे आपल्या Google खात्यावर संकालित केले जाणार नाहीत. तथापि, तुमचा विद्यमान डेटा आपल्या Google खात्यामध्ये संचयित केलेला असेल.</translation>
@@ -637,6 +644,7 @@
 <translation id="8073670137947914548">डाउनलोड पूर्ण झाले</translation>
 <translation id="8073872304774253879">शोध आणि ब्राउझ करणे उत्तम बनवा</translation>
 <translation id="8076014560081431679">सेव्ह केलेल्या साइट सेटिंग्ज हटविल्या जाणार नाहीत आणि कदाचित आपल्या ब्राउझिंग सवयी दर्शवेल. <ph name="BEGIN_LINK" />अधिक जाणून घ्या<ph name="END_LINK" /></translation>
+<translation id="8079602123447022758">हे सेटिंग व्यवस्थापित केले, अधिक माहितीसाठी दोनदा टॅप करा</translation>
 <translation id="8105368624971345109">बंद करा</translation>
 <translation id="8114753159095730575">फाइल डाउनलोड उपलब्ध आहे. स्क्रीनच्या तळाशी पर्याय उपलब्ध आहेत.</translation>
 <translation id="8131740175452115882">पुष्टी करा</translation>

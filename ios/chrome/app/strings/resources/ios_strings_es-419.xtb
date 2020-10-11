@@ -14,6 +14,7 @@
 <translation id="1084365883616172403">Entrada de Facebook publicada</translation>
 <translation id="1103523840287552314">Siempre traducir <ph name="LANGUAGE" /></translation>
 <translation id="1104948393051856124">Aceptar y continuar</translation>
+<translation id="110724200315609752">Cambiar a otra ventana abierta</translation>
 <translation id="1112015203684611006">Se produjo un error en la impresión.</translation>
 <translation id="1125564390852150847">Crea una pestaña nueva.</translation>
 <translation id="1145536944570833626">Borra los datos existentes.</translation>
@@ -93,6 +94,7 @@
 <translation id="1941314575388338491">Presiona dos veces para copiar.</translation>
 <translation id="1952172573699511566">Los sitios web mostrarán texto en tu idioma preferido, cuando sea posible.</translation>
 <translation id="1952728750904661634">Acceder con una cuenta administrada</translation>
+<translation id="1965935827552890526">Completa las tareas que tenías en curso en otra ventana abierta de Chrome.</translation>
 <translation id="1974060860693918893">Configuración avanzada</translation>
 <translation id="1989112275319619282">Navegar</translation>
 <translation id="1992734845128748707">Cambiar el navegador predeterminado…</translation>
@@ -277,6 +279,7 @@ Cuando está activado el modo Incógnito, los sitios no pueden usar cookies para
 <translation id="408404951701638773">La barra de búsqueda ahora está al alcance de la mano</translation>
 <translation id="411254640334432676">Se produjo un error durante la descarga.</translation>
 <translation id="4112644173421521737">Buscar</translation>
+<translation id="4113030288477039509">Administrado por tu administrador</translation>
 <translation id="4121993058175073134">Configura cuenta en Configuración p/ enviar datos exportaciones netas.</translation>
 <translation id="4124987746317609294">Intervalo de tiempo</translation>
 <translation id="4152011295694446843">Aquí encontrarás tus favoritos</translation>
@@ -290,6 +293,7 @@ Cuando está activado el modo Incógnito, los sitios no pueden usar cookies para
 <translation id="4277990410970811858">Navegación segura</translation>
 <translation id="4281844954008187215">Condiciones del Servicio</translation>
 <translation id="430793432425771671">Sincronizar todo</translation>
+<translation id="4309403553630140242">Presiona dos veces para obtener más información</translation>
 <translation id="430967081421617822">Todo el tiempo</translation>
 <translation id="4334428914252001502">1 artículo sin leer.</translation>
 <translation id="4338650699862464074">Envía a Google las URL de las páginas que visitas.</translation>
@@ -353,6 +357,7 @@ Para cambiar esta configuración, <ph name="BEGIN_LINK" />restablece la sincroni
 <translation id="5005498671520578047">Copiar contraseña</translation>
 <translation id="5010803260590204777">Abre una pestaña de incógnito para navegar por la Web de forma privada.</translation>
 <translation id="5039804452771397117">Permitir</translation>
+<translation id="5056446788882570708">Se encontraron problemas <ph name="TIME" />.</translation>
 <translation id="5059136629401106827">Aceptar</translation>
 <translation id="5062321486222145940">Instalar Google Drive</translation>
 <translation id="5083464117946352670">Tamaño de archivo desconocido</translation>
@@ -376,7 +381,6 @@ Para cambiar esta configuración, <ph name="BEGIN_LINK" />restablece la sincroni
 <translation id="5317780077021120954">Guardar</translation>
 <translation id="5327248766486351172">Nombre</translation>
 <translation id="5339316356165661760">Activar la sincronización</translation>
-<translation id="5352285283572729470">Esta configuración está administrada</translation>
 <translation id="5388358297987318779">Abrir imagen</translation>
 <translation id="5407969256130905701">Descartar cambios</translation>
 <translation id="5409365236829784218">No se instalaron aplicaciones que puedan abrir este archivo.</translation>
@@ -456,6 +460,7 @@ Handoff también debe estar habilitado en la sección General de la configuraci�
 <translation id="6187302354554850004">Última sincronización: <ph name="LAST_USED_TIME" /></translation>
 <translation id="6189413832092199491">No leídas</translation>
 <translation id="6196207969502475924">Búsqueda por voz</translation>
+<translation id="6202364442240589072">{COUNT,plural, =1{Cerrar {COUNT} pestaña}other{Cerrar {COUNT} pestañas}}</translation>
 <translation id="6219688215832490856">Nunca traducir</translation>
 <translation id="6254066287920239840">Abre vínculos en la app en lugar de hacerlo en el navegador.</translation>
 <translation id="6255097610484507482">Modificar información de la tarjeta de crédito</translation>
@@ -636,6 +641,7 @@ También pueden usar cookies para ver la actividad de navegación en diferentes 
 <translation id="8073670137947914548">Descarga completa</translation>
 <translation id="8073872304774253879">Mejorar las búsquedas y la navegación</translation>
 <translation id="8076014560081431679">Las opciones de configuración de sitios guardadas no se borrarán y es posible que reflejen tus hábitos de navegación. <ph name="BEGIN_LINK" />Más información<ph name="END_LINK" /></translation>
+<translation id="8079602123447022758">Esta configuración está administrada; presiona dos veces para obtener más información</translation>
 <translation id="8105368624971345109">Desactivar</translation>
 <translation id="8114753159095730575">El archivo ya se puede descargar. Las opciones disponibles se muestran junto a la parte inferior de la pantalla.</translation>
 <translation id="8131740175452115882">Confirmar</translation>

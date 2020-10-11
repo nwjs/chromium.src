@@ -4,19 +4,25 @@
 
 package org.chromium.chrome.browser.paint_preview;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
 import android.content.res.Resources;
+import android.graphics.Point;
 import android.os.Handler;
+import android.os.SystemClock;
 import android.view.View;
 
 import androidx.annotation.Nullable;
 
 import org.chromium.base.UserData;
+import org.chromium.chrome.browser.browser_controls.BrowserStateBrowserControlsVisibilityDelegate;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.paint_preview.TabbedPaintPreviewMetricsHelper.ExitCause;
 import org.chromium.chrome.browser.paint_preview.services.PaintPreviewTabService;
 import org.chromium.chrome.browser.paint_preview.services.PaintPreviewTabServiceFactory;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabHidingType;
 import org.chromium.chrome.browser.tab.TabViewProvider;
 import org.chromium.chrome.browser.ui.messages.snackbar.Snackbar;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
@@ -26,7 +32,11 @@ import org.chromium.components.paintpreview.player.PlayerManager;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.NavigationHandle;
 import org.chromium.content_public.browser.WebContents;
+import org.chromium.ui.util.TokenHolder;
+import org.chromium.ui.widget.Toast;
 import org.chromium.url.GURL;
+
+import java.util.concurrent.Callable;
 
 /**
  * Responsible for checking for and displaying Paint Previews that are associated with a
@@ -37,6 +47,7 @@ public class TabbedPaintPreviewPlayer implements TabViewProvider, UserData {
             TabbedPaintPreviewPlayer.class;
 
     private static final int SNACKBAR_DURATION_MS = 8 * 1000;
+    private static final int CROSS_FADE_DURATION_MS = 500;
     private static final int DEFAULT_INITIAL_REMOVE_DELAY_MS = 0;
     private static final String INITIAL_REMOVE_DELAY_PARAM = "initial_remove_delay_ms";
 
@@ -45,12 +56,16 @@ public class TabbedPaintPreviewPlayer implements TabViewProvider, UserData {
     private PlayerManager mPlayerManager;
     private Runnable mOnDismissed;
     private Boolean mInitializing;
-    private boolean mHasUserInteraction;
+    private boolean mFirstMeaningfulPaintHappened;
     private TabbedPaintPreviewObserver mObserver;
     private long mLastShownSnackBarTime;
     private boolean mDidStartRestore;
+    private boolean mFadingOut;
     private int mSnackbarShownCount;
     private TabbedPaintPreviewMetricsHelper mMetricsHelper;
+    private BrowserStateBrowserControlsVisibilityDelegate mBrowserVisibilityDelegate;
+    private int mPersistentToolbarToken = TokenHolder.INVALID_TOKEN;
+    private SnackbarManager.SnackbarController mSnackbarController;
 
     public static TabbedPaintPreviewPlayer get(Tab tab) {
         if (tab.getUserDataHost().getUserData(USER_DATA_KEY) == null) {
@@ -61,6 +76,8 @@ public class TabbedPaintPreviewPlayer implements TabViewProvider, UserData {
 
     class TabbedPaintPreviewObserver extends EmptyTabObserver {
         public void onFirstMeaningfulPaint() {
+            mMetricsHelper.onTabLoadFinished();
+
             if (!isShowingAndNeedsBadge()) return;
 
             long delayMs = ChromeFeatureList.getFieldTrialParamByFeatureAsInt(
@@ -73,12 +90,7 @@ public class TabbedPaintPreviewPlayer implements TabViewProvider, UserData {
             new Handler().postDelayed(() -> {
                 if (!isShowingAndNeedsBadge()) return;
 
-                if (!mHasUserInteraction) {
-                    removePaintPreview(ExitCause.TAB_FINISHED_LOADING);
-                    return;
-                }
-
-                showSnackbar();
+                removePaintPreview(ExitCause.TAB_FINISHED_LOADING);
             }, delayMs);
         }
 
@@ -101,6 +113,24 @@ public class TabbedPaintPreviewPlayer implements TabViewProvider, UserData {
 
             removePaintPreview(ExitCause.NAVIGATION_STARTED);
         }
+
+        @Override
+        public void onHidden(Tab tab, @TabHidingType int hidingType) {
+            releasePersistentToolbar();
+            dismissSnackbar();
+
+            if (mPlayerManager == null || !isShowingAndNeedsBadge()) return;
+
+            // If the tab is hidden as a result of pausing the activity we shouldn't remove it.
+            if (hidingType == TabHidingType.ACTIVITY_HIDDEN) return;
+
+            removePaintPreview(ExitCause.TAB_HIDDEN);
+        }
+
+        @Override
+        public void onShown(Tab tab, int type) {
+            if (isShowingAndNeedsBadge()) showToolbarPersistent();
+        }
     }
 
     private TabbedPaintPreviewPlayer(Tab tab) {
@@ -109,6 +139,11 @@ public class TabbedPaintPreviewPlayer implements TabViewProvider, UserData {
         mMetricsHelper = new TabbedPaintPreviewMetricsHelper();
         mObserver = new TabbedPaintPreviewObserver();
         mTab.addObserver(mObserver);
+    }
+
+    public void setBrowserVisibilityDelegate(
+            BrowserStateBrowserControlsVisibilityDelegate browserVisibilityDelegate) {
+        mBrowserVisibilityDelegate = browserVisibilityDelegate;
     }
 
     /**
@@ -123,36 +158,55 @@ public class TabbedPaintPreviewPlayer implements TabViewProvider, UserData {
 
         if (mTab.getWebContents() != webContents) return;
 
+        mFirstMeaningfulPaintHappened = true;
         mObserver.onFirstMeaningfulPaint();
     }
 
     /**
      * Shows a Paint Preview for the provided tab if it exists and has not been displayed for this
      * Tab before.
-     * @param onShown The callback for when the Paint Preview is shown.
      * @param onDismissed The callback for when the Paint Preview is dismissed.
+     * @param activityCreationTimestampMs The hosting activity's creation time in ms from
+     * @param recordFirstPaint Callable to determine if first paint should be recorded.
+     * {@link SystemClock#elapsedRealtime}.
      * @return Whether the Paint Preview started to initialize or is already initializating.
      * Note that if the Paint Preview is already showing, this will return false.
      */
-    public boolean maybeShow(@Nullable Runnable onShown, @Nullable Runnable onDismissed) {
+    public boolean maybeShow(@Nullable Runnable onDismissed, long activityCreationTimestampMs,
+            Callable<Boolean> recordFirstPaint) {
         if (mInitializing != null) return mInitializing;
 
         // Check if a capture exists. This is a quick check using a cache.
         boolean hasCapture = mPaintPreviewTabService.hasCaptureForTab(mTab.getId());
         mInitializing = hasCapture;
+        mMetricsHelper.recordHadCapture(hasCapture);
         if (!hasCapture) return false;
+
+        PaintPreviewCompositorUtils.warmupCompositor();
+        mFirstMeaningfulPaintHappened = false;
 
         mPlayerManager = new PlayerManager(mTab.getUrl(), mTab.getContext(),
                 mPaintPreviewTabService, String.valueOf(mTab.getId()), this::onLinkClicked,
                 () -> removePaintPreview(ExitCause.PULL_TO_REFRESH),
                 () -> {
                     mInitializing = false;
-                    onShown.run();
+                    if (mFirstMeaningfulPaintHappened) {
+                        removePaintPreview(ExitCause.TAB_FINISHED_LOADING);
+                        return;
+                    }
                     mMetricsHelper.onShown();
                 },
-                () -> mHasUserInteraction = true,
+                () -> {
+                    if (!isShowingAndNeedsBadge()) return;
+
+                    mMetricsHelper.onFirstPaint(activityCreationTimestampMs, recordFirstPaint);
+                },
+                null,
                 ChromeColors.getPrimaryBackgroundColor(mTab.getContext().getResources(), false),
-                () -> removePaintPreview(ExitCause.COMPOSITOR_FAILURE),
+                (status) -> {
+                    mMetricsHelper.onCompositorFailure(status);
+                    removePaintPreview(ExitCause.COMPOSITOR_FAILURE);
+                },
                 /*ignoreInitialScrollOffset=*/false);
         mPlayerManager.setUserFrustrationCallback(this::showSnackbar);
         mOnDismissed = onDismissed;
@@ -165,14 +219,47 @@ public class TabbedPaintPreviewPlayer implements TabViewProvider, UserData {
      * nothing if there is no view showing.
      */
     private void removePaintPreview(@ExitCause int exitCause) {
-        mOnDismissed = null;
+        PaintPreviewCompositorUtils.stopWarmCompositor();
         mInitializing = false;
-        if (mTab == null || mPlayerManager == null) return;
+        if (mTab == null || mPlayerManager == null || mFadingOut) return;
 
-        mTab.getTabViewManager().removeTabViewProvider(this);
-        mPlayerManager.destroy();
-        mPlayerManager = null;
+        mFadingOut = true;
+        if (mOnDismissed != null) mOnDismissed.run();
+        mOnDismissed = null;
+        Point scrollPosition = mPlayerManager.getScrollPosition();
+        if (mTab.getWebContents() != null && scrollPosition != null) {
+            mTab.getWebContents().getEventForwarder().scrollTo(scrollPosition.x, scrollPosition.y);
+        }
+        boolean needsAnimation = exitCause == ExitCause.TAB_FINISHED_LOADING
+                || exitCause == ExitCause.SNACK_BAR_ACTION
+                || exitCause == ExitCause.PULL_TO_REFRESH;
+        getView()
+                .animate()
+                .alpha(0f)
+                .setDuration(needsAnimation ? CROSS_FADE_DURATION_MS : 0)
+                .setListener(new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        if (mTab != null) {
+                            mTab.getTabViewManager().removeTabViewProvider(
+                                    TabbedPaintPreviewPlayer.this);
+                        }
+                        if (mPlayerManager != null) {
+                            mPlayerManager.destroy();
+                            mPlayerManager = null;
+                        }
+                        mFadingOut = false;
+                    }
+                });
+        if (exitCause == ExitCause.TAB_FINISHED_LOADING) showUpgradeToast();
         mMetricsHelper.recordExitMetrics(exitCause, mSnackbarShownCount);
+    }
+
+    private void showUpgradeToast() {
+        if (mTab == null) return;
+
+        Toast.makeText(mTab.getContext(), R.string.paint_preview_startup_auto_upgrade_toast,
+                Toast.LENGTH_SHORT).show();
     }
 
     private void showSnackbar() {
@@ -181,19 +268,22 @@ public class TabbedPaintPreviewPlayer implements TabViewProvider, UserData {
         // If the Snackbar is already being displayed, return.
         if (System.currentTimeMillis() - mLastShownSnackBarTime < SNACKBAR_DURATION_MS) return;
 
+        if (mSnackbarController == null) {
+            mSnackbarController = new SnackbarManager.SnackbarController() {
+                @Override
+                public void onAction(Object actionData) {
+                    removePaintPreview(ExitCause.SNACK_BAR_ACTION);
+                }
+
+                @Override
+                public void onDismissNoAction(Object actionData) {}
+            };
+        }
         Resources resources = mTab.getContext().getResources();
         Snackbar snackbar = Snackbar.make(
                 resources.getString(R.string.paint_preview_startup_upgrade_snackbar_message),
-                new SnackbarManager.SnackbarController() {
-                    @Override
-                    public void onAction(Object actionData) {
-                        removePaintPreview(ExitCause.SNACK_BAR_ACTION);
-                    }
-
-                    @Override
-                    public void onDismissNoAction(Object actionData) {}
-                },
-                Snackbar.TYPE_NOTIFICATION, Snackbar.UMA_PAINT_PREVIEW_UPGRADE_NOTIFICATION);
+                mSnackbarController, Snackbar.TYPE_NOTIFICATION,
+                Snackbar.UMA_PAINT_PREVIEW_UPGRADE_NOTIFICATION);
         snackbar.setAction(
                 resources.getString(R.string.paint_preview_startup_upgrade_snackbar_action), null);
         snackbar.setDuration(SNACKBAR_DURATION_MS);
@@ -202,7 +292,15 @@ public class TabbedPaintPreviewPlayer implements TabViewProvider, UserData {
         mSnackbarShownCount++;
     }
 
+    private void dismissSnackbar() {
+        if (mSnackbarController == null || mTab == null || mTab.getWindowAndroid() == null) return;
+
+        SnackbarManagerProvider.from(mTab.getWindowAndroid()).dismissSnackbars(mSnackbarController);
+    }
+
     public boolean isShowingAndNeedsBadge() {
+        if (mTab == null) return false;
+
         return mTab.getTabViewManager().isShowing(this);
     }
 
@@ -211,6 +309,25 @@ public class TabbedPaintPreviewPlayer implements TabViewProvider, UserData {
 
         removePaintPreview(ExitCause.LINK_CLICKED);
         mTab.loadUrl(new LoadUrlParams(url.getSpec()));
+    }
+
+    /**
+     * Persistently shows the toolbar and avoids hiding it on scrolling down.
+     */
+    private void showToolbarPersistent() {
+        if (mBrowserVisibilityDelegate == null
+                || mPersistentToolbarToken != TokenHolder.INVALID_TOKEN) {
+            return;
+        }
+
+        mPersistentToolbarToken = mBrowserVisibilityDelegate.showControlsPersistent();
+    }
+
+    private void releasePersistentToolbar() {
+        if (mBrowserVisibilityDelegate == null) return;
+
+        mBrowserVisibilityDelegate.releasePersistentShowingToken(mPersistentToolbarToken);
+        mPersistentToolbarToken = TokenHolder.INVALID_TOKEN;
     }
 
     @Override
@@ -224,8 +341,14 @@ public class TabbedPaintPreviewPlayer implements TabViewProvider, UserData {
     }
 
     @Override
+    public void onShown() {
+        showToolbarPersistent();
+    }
+
+    @Override
     public void onHidden() {
-        if (mOnDismissed != null) mOnDismissed.run();
+        releasePersistentToolbar();
+        dismissSnackbar();
     }
 
     @Override

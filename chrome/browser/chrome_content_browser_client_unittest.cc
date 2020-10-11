@@ -48,6 +48,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/common/switches.h"
 #include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
 #include "url/gurl.h"
 
@@ -71,10 +72,17 @@
 #endif
 
 #if defined(OS_CHROMEOS)
+#include "base/test/scoped_feature_list.h"
+#include "chrome/browser/chromeos/login/users/fake_chrome_user_manager.h"
+#include "chrome/browser/chromeos/policy/policy_cert_service.h"
+#include "chrome/browser/chromeos/policy/policy_cert_service_factory.h"
 #include "chrome/browser/chromeos/policy/system_features_disable_list_policy_handler.h"
 #include "chrome/test/base/scoped_testing_local_state.h"
 #include "chrome/test/base/testing_browser_process.h"
+#include "chromeos/components/scanning/url_constants.h"
+#include "chromeos/constants/chromeos_features.h"
 #include "components/policy/core/common/policy_pref_names.h"
+#include "components/user_manager/scoped_user_manager.h"
 #endif  // defined(OS_CHROMEOS)
 
 using content::BrowsingDataFilterBuilder;
@@ -476,7 +484,7 @@ class BlinkSettingsFieldTrialTest : public testing::Test {
   }
 
   void AppendBlinkSettingsSwitch(const char* value) {
-    command_line_.AppendSwitchASCII(switches::kBlinkSettings, value);
+    command_line_.AppendSwitchASCII(blink::switches::kBlinkSettings, value);
   }
 
  private:
@@ -494,13 +502,13 @@ const char BlinkSettingsFieldTrialTest::kFakeGroupName[] = "FakeGroup";
 
 TEST_F(BlinkSettingsFieldTrialTest, NoFieldTrial) {
   AppendContentBrowserClientSwitches();
-  EXPECT_FALSE(command_line().HasSwitch(switches::kBlinkSettings));
+  EXPECT_FALSE(command_line().HasSwitch(blink::switches::kBlinkSettings));
 }
 
 TEST_F(BlinkSettingsFieldTrialTest, FieldTrialWithoutParams) {
   CreateFieldTrial(kDisallowFetchFieldTrialName, kFakeGroupName);
   AppendContentBrowserClientSwitches();
-  EXPECT_FALSE(command_line().HasSwitch(switches::kBlinkSettings));
+  EXPECT_FALSE(command_line().HasSwitch(blink::switches::kBlinkSettings));
 }
 
 TEST_F(BlinkSettingsFieldTrialTest, BlinkSettingsSwitchAlreadySpecified) {
@@ -508,18 +516,18 @@ TEST_F(BlinkSettingsFieldTrialTest, BlinkSettingsSwitchAlreadySpecified) {
   CreateFieldTrialWithParams(kDisallowFetchFieldTrialName, kFakeGroupName,
                              "key1", "value1", "key2", "value2");
   AppendContentBrowserClientSwitches();
-  EXPECT_TRUE(command_line().HasSwitch(switches::kBlinkSettings));
-  EXPECT_EQ("foo",
-            command_line().GetSwitchValueASCII(switches::kBlinkSettings));
+  EXPECT_TRUE(command_line().HasSwitch(blink::switches::kBlinkSettings));
+  EXPECT_EQ("foo", command_line().GetSwitchValueASCII(
+                       blink::switches::kBlinkSettings));
 }
 
 TEST_F(BlinkSettingsFieldTrialTest, FieldTrialEnabled) {
   CreateFieldTrialWithParams(kDisallowFetchFieldTrialName, kFakeGroupName,
                              "key1", "value1", "key2", "value2");
   AppendContentBrowserClientSwitches();
-  EXPECT_TRUE(command_line().HasSwitch(switches::kBlinkSettings));
-  EXPECT_EQ("key1=value1,key2=value2",
-            command_line().GetSwitchValueASCII(switches::kBlinkSettings));
+  EXPECT_TRUE(command_line().HasSwitch(blink::switches::kBlinkSettings));
+  EXPECT_EQ("key1=value1,key2=value2", command_line().GetSwitchValueASCII(
+                                           blink::switches::kBlinkSettings));
 }
 
 #if !defined(OS_ANDROID)
@@ -753,11 +761,11 @@ TEST(ChromeContentBrowserClientTest, GenerateBrandVersionList) {
 TEST(ChromeContentBrowserClientTest, LowEntropyCpuArchitecture) {
   std::string arch = content::GetLowEntropyCpuArchitecture();
 
-#if (!defined(OS_POSIX) && !defined(OS_WIN)) || defined(OS_MAC) || \
-    defined(OS_ANDROID)
-  EXPECT_EQ("", arch);
-#elif (defined(OS_POSIX) && !defined(OS_MAC)) || defined(OS_WIN)
+#if defined(OS_WIN) || defined(OS_MAC) || \
+    (defined(OS_POSIX) && !defined(OS_ANDROID))
   EXPECT_TRUE("arm" == arch || "x86" == arch);
+#else
+  EXPECT_EQ("", arch);
 #endif
 }
 
@@ -766,9 +774,13 @@ class ChromeContentSettingsRedirectTest
     : public ChromeContentBrowserClientTest {
  public:
   ChromeContentSettingsRedirectTest()
-      : testing_local_state_(TestingBrowserProcess::GetGlobal()) {}
+      : testing_local_state_(TestingBrowserProcess::GetGlobal()) {
+    scoped_feature_list_.InitWithFeatures({chromeos::features::kScanningUI},
+                                          {});
+  }
 
  protected:
+  base::test::ScopedFeatureList scoped_feature_list_;
   content::BrowserTaskEnvironment task_environment_;
   ScopedTestingLocalState testing_local_state_;
   TestingProfile profile_;
@@ -813,6 +825,78 @@ TEST_F(ChromeContentSettingsRedirectTest, RedirectSettingsURL) {
   test_content_browser_client.HandleWebUI(&dest_url, &profile_);
   EXPECT_EQ(GURL(chrome::kChromeUIAppDisabledURL), dest_url);
 }
+
+TEST_F(ChromeContentSettingsRedirectTest, RedirectScanningAppURL) {
+  TestChromeContentBrowserClient test_content_browser_client;
+  const GURL scanning_app_url(chromeos::kChromeUIScanningAppUrl);
+  GURL dest_url = scanning_app_url;
+  test_content_browser_client.HandleWebUI(&dest_url, &profile_);
+  EXPECT_EQ(scanning_app_url, dest_url);
+
+  base::Value list(base::Value::Type::LIST);
+  list.Append(policy::SystemFeature::SCANNING);
+  testing_local_state_.Get()->Set(
+      policy::policy_prefs::kSystemFeaturesDisableList, std::move(list));
+
+  dest_url = scanning_app_url;
+  test_content_browser_client.HandleWebUI(&dest_url, &profile_);
+  EXPECT_EQ(GURL(chrome::kChromeUIAppDisabledURL), dest_url);
+}
+namespace {
+constexpr char kEmail[] = "test@test.com";
+std::unique_ptr<KeyedService> CreateTestPolicyCertService(
+    content::BrowserContext* context) {
+  return policy::PolicyCertService::CreateForTesting(
+      kEmail, user_manager::UserManager::Get());
+}
+}  // namespace
+
+// Test to verify that the PolicyCertService is correctly updated when a policy
+// provided trust anchor is used.
+class ChromeContentSettingsPolicyTrustAnchor
+    : public ChromeContentBrowserClientTest {
+ public:
+  ChromeContentSettingsPolicyTrustAnchor()
+      : testing_local_state_(TestingBrowserProcess::GetGlobal()) {}
+
+  void SetUp() override {
+    // Add a profile
+    auto fake_user_manager =
+        std::make_unique<chromeos::FakeChromeUserManager>();
+    AccountId account_id = AccountId::FromUserEmailGaiaId(kEmail, "gaia_id");
+    user_manager::User* user =
+        fake_user_manager->AddUserWithAffiliationAndTypeAndProfile(
+            account_id, false /*is_affiliated*/,
+            user_manager::USER_TYPE_REGULAR, &profile_);
+    fake_user_manager->UserLoggedIn(account_id, user->username_hash(),
+                                    false /* browser_restart */,
+                                    false /* is_child */);
+    scoped_user_manager_ = std::make_unique<user_manager::ScopedUserManager>(
+        std::move(fake_user_manager));
+    // Create a PolicyCertServiceFactory
+    ASSERT_TRUE(
+        policy::PolicyCertServiceFactory::GetInstance()
+            ->SetTestingFactoryAndUse(
+                &profile_, base::BindRepeating(&CreateTestPolicyCertService)));
+  }
+
+  void TearDown() override { scoped_user_manager_.reset(); }
+
+ protected:
+  content::BrowserTaskEnvironment task_environment_;
+  ScopedTestingLocalState testing_local_state_;
+  std::unique_ptr<user_manager::ScopedUserManager> scoped_user_manager_;
+  TestingProfile profile_;
+};
+
+TEST_F(ChromeContentSettingsPolicyTrustAnchor, PolicyTrustAnchor) {
+  ChromeContentBrowserClient client;
+  EXPECT_FALSE(
+      policy::PolicyCertServiceFactory::UsedPolicyCertificates(kEmail));
+  client.OnTrustAnchorUsed(&profile_);
+  EXPECT_TRUE(policy::PolicyCertServiceFactory::UsedPolicyCertificates(kEmail));
+}
+
 #endif  // defined(OS_CHROMEOS)
 
 class CaptivePortalCheckProcessHost : public content::MockRenderProcessHost {

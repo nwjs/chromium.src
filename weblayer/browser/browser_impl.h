@@ -21,9 +21,14 @@ namespace base {
 class FilePath;
 }
 
+namespace blink {
+namespace web_pref {
+struct WebPreferences;
+}
+}  // namespace blink
+
 namespace content {
 class WebContents;
-struct WebPreferences;
 }
 
 namespace weblayer {
@@ -57,8 +62,6 @@ class BrowserImpl : public Browser {
 
   void AddTab(JNIEnv* env,
               long native_tab);
-  void RemoveTab(JNIEnv* env,
-                 long native_tab);
   base::android::ScopedJavaLocalRef<jobjectArray> GetTabs(JNIEnv* env);
   void SetActiveTab(JNIEnv* env,
                     long native_tab);
@@ -95,14 +98,14 @@ class BrowserImpl : public Browser {
   }
 
   bool GetPasswordEchoEnabled();
-  void SetWebPreferences(content::WebPreferences* prefs);
+  void SetWebPreferences(blink::web_pref::WebPreferences* prefs);
 
 #if defined(OS_ANDROID)
   // On Android the Java Tab class owns the C++ Tab. DestroyTab() calls to the
   // Java Tab class to initiate deletion. This function is called from the Java
-  // side, and must not call DestroyTab(), otherwise we get stuck in infinite
-  // recursion.
-  void DestroyTabFromJava(Tab* tab);
+  // side to remove the tab from the browser and shortly followed by deleting
+  // the tab.
+  void RemoveTabBeforeDestroyingFromJava(Tab* tab);
 #endif
 
   // Browser:

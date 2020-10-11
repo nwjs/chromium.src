@@ -24,12 +24,12 @@ constexpr base::TimeDelta kTopicFetchInterval =
 constexpr base::TimeDelta kPhotoRefreshInterval =
     base::TimeDelta::FromSeconds(60);
 
-// The number of requests to fetch topics.
-constexpr int kNumberOfRequests = 50;
+// The default interval to refresh weather.
+constexpr base::TimeDelta kWeatherRefreshInterval =
+    base::TimeDelta::FromMinutes(5);
 
 // The batch size of topics to fetch in one request.
-// Magic number 2 is based on experiments that no curation on Google Photos.
-constexpr int kTopicsBatchSize = 2;
+constexpr int kTopicsBatchSize = 100;
 
 // Max cached images.
 constexpr int kMaxNumberOfCachedImages = 100;
@@ -47,6 +47,15 @@ constexpr char kAmbientModeDirectoryName[] = "ambient-mode";
 // The buffer time to use the access token.
 constexpr base::TimeDelta kTokenUsageTimeBuffer =
     base::TimeDelta::FromMinutes(10);
+
+// PhotoView related constants.
+// Spacing between two portrait images.
+constexpr int kMarginLeftOfRelatedImageDip = 8;
+
+// Media string related.
+constexpr int kMediaStringMaxWidthDip = 280;
+
+constexpr int kMediaStringGradientWidthDip = 20;
 
 }  // namespace ash
 

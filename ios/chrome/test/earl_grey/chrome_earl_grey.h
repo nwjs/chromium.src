@@ -503,12 +503,6 @@ id ExecuteJavaScript(NSString* javascript, NSError* __autoreleasing* out_error);
 // Returns YES if CreditCardScanner feature is enabled.
 - (BOOL)isCreditCardScannerEnabled WARN_UNUSED_RESULT;
 
-// Returns YES if AutofillEnableCompanyName feature is enabled.
-- (BOOL)isAutofillCompanyNameEnabled WARN_UNUSED_RESULT;
-
-// Returns YES if kChangeTabSwitcherPosition feature is enabled.
-- (BOOL)isChangeTabSwitcherPositionEnabled WARN_UNUSED_RESULT;
-
 // Returns YES if DemographicMetricsReporting feature is enabled.
 - (BOOL)isDemographicMetricsReportingEnabled WARN_UNUSED_RESULT;
 
@@ -522,6 +516,12 @@ id ExecuteJavaScript(NSString* javascript, NSError* __autoreleasing* out_error);
 
 // Returns whether the mobile version of the websites are requested by default.
 - (BOOL)isMobileModeByDefault WARN_UNUSED_RESULT;
+
+// Returns whether the illustrated empty stated feature is enabled.
+- (BOOL)isIllustratedEmptyStatesEnabled;
+
+// Returns whether the native context menus feature is enabled or not.
+- (BOOL)isNativeContextMenusEnabled;
 
 #pragma mark - Popup Blocking
 
@@ -564,6 +564,38 @@ id ExecuteJavaScript(NSString* javascript, NSError* __autoreleasing* out_error);
 // Resets the BrowsingDataPrefs, which defines if its selected or not when
 // clearing Browsing data.
 - (void)resetBrowsingDataPrefs;
+
+#pragma mark - Pasteboard Utilities (EG2)
+
+// Verifies that |text| was copied to the pasteboard.
+- (void)verifyStringCopied:(NSString*)text;
+
+#pragma mark - Context Menus Utilities (EG2)
+
+// Taps on the Copy Link context menu action and verifies that the |text| has
+// been copied to the pasteboard. |useNewString| determines which action string
+// to use.
+- (void)verifyCopyLinkActionWithText:(NSString*)text
+                        useNewString:(BOOL)useNewString;
+
+// Taps on the Open in New Tab context menu action and waits for the |URL| to be
+// present in the omnibox.
+- (void)verifyOpenInNewTabActionWithURL:(const std::string&)URL;
+
+// Taps on the Open in Incognito context menu action and waits for the |URL| to
+// be present in the omnibox. |useNewString| determines which action string
+// to use.
+- (void)verifyOpenInIncognitoActionWithURL:(const std::string&)URL
+                              useNewString:(BOOL)useNewString;
+
+// Taps on the Share context menu action and validates that the ActivityView
+// was brought up with |pageTitle| in its header.
+- (void)verifyShareActionWithPageTitle:(NSString*)pageTitle;
+
+#pragma mark - Unified Consent utilities
+
+// Enables or disables URL-keyed anonymized data collection.
+- (void)setURLKeyedAnonymizedDataCollectionEnabled:(BOOL)enabled;
 
 @end
 

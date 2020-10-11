@@ -14,6 +14,7 @@ import org.chromium.base.Callback;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
@@ -37,6 +38,7 @@ import org.chromium.chrome.browser.lifecycle.NativeInitObserver;
 import org.chromium.chrome.browser.locale.LocaleManager;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.offlinepages.indicator.OfflineIndicatorControllerV2;
+import org.chromium.chrome.browser.offlinepages.indicator.OfflineIndicatorInProductHelpController;
 import org.chromium.chrome.browser.omnibox.UrlFocusChangeListener;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
@@ -45,9 +47,9 @@ import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.signin.SigninPromoUtil;
 import org.chromium.chrome.browser.status_indicator.StatusIndicatorCoordinator;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiFeatureUtilities;
 import org.chromium.chrome.browser.toolbar.ToolbarButtonInProductHelpController;
-import org.chromium.chrome.browser.toolbar.bottom.BottomToolbarConfiguration;
 import org.chromium.chrome.browser.ui.RootUiCoordinator;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuHandler;
 import org.chromium.chrome.browser.ui.default_browser_promo.DefaultBrowserPromoUtils;
@@ -71,6 +73,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
     private StatusIndicatorCoordinator mStatusIndicatorCoordinator;
     private StatusIndicatorCoordinator.StatusIndicatorObserver mStatusIndicatorObserver;
     private OfflineIndicatorControllerV2 mOfflineIndicatorController;
+    private OfflineIndicatorInProductHelpController mOfflineIndicatorInProductHelpController;
     private UrlFocusChangeListener mUrlFocusChangeListener;
     private @Nullable ToolbarButtonInProductHelpController mToolbarButtonInProductHelpController;
     private ObservableSupplier<Boolean> mIntentWithEffect;
@@ -78,6 +81,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
     private HistoryNavigationCoordinator mHistoryNavigationCoordinator;
     private NavigationSheet mNavigationSheet;
     private ComposedBrowserControlsVisibilityDelegate mAppBrowserControlsVisibilityDelegate;
+    private LayoutManager mLayoutManager;
 
     /**
      * Construct a new TabbedRootUiCoordinator.
@@ -101,11 +105,12 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
             ObservableSupplierImpl<EphemeralTabCoordinator> ephemeralTabCoordinatorSupplier,
             ObservableSupplier<Profile> profileSupplier,
             ObservableSupplier<BookmarkBridge> bookmarkBridgeSupplier,
-            ObservableSupplier<OverviewModeBehavior> overviewModeBehaviorSupplier,
-            Supplier<ContextualSearchManager> contextualSearchManagerSupplier) {
+            OneshotSupplier<OverviewModeBehavior> overviewModeBehaviorSupplier,
+            Supplier<ContextualSearchManager> contextualSearchManagerSupplier,
+            ObservableSupplier<TabModelSelector> tabModelSelectorSupplier) {
         super(activity, onOmniboxFocusChangedListener, shareDelegateSupplier, tabProvider,
                 profileSupplier, bookmarkBridgeSupplier, overviewModeBehaviorSupplier,
-                contextualSearchManagerSupplier);
+                contextualSearchManagerSupplier, tabModelSelectorSupplier);
         mIntentWithEffect = intentWithEffect;
         mEphemeralTabCoordinatorSupplier = ephemeralTabCoordinatorSupplier;
         mCanAnimateBrowserControls = () -> {
@@ -131,6 +136,9 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
                     mUrlFocusChangeListener);
         }
 
+        if (mOfflineIndicatorInProductHelpController != null) {
+            mOfflineIndicatorInProductHelpController.destroy();
+        }
         if (mStatusIndicatorCoordinator != null) {
             mStatusIndicatorCoordinator.removeObserver(mStatusIndicatorObserver);
             mStatusIndicatorCoordinator.removeObserver(mActivity.getStatusBarColorController());
@@ -198,6 +206,19 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
 
     @Override
     public void onFinishNativeInitialization() {
+        assert mLayoutManager != null;
+        // clang-format off
+        mHistoryNavigationCoordinator = HistoryNavigationCoordinator.create(
+                mActivity.getWindowAndroid(), mActivity.getLifecycleDispatcher(),
+                mActivity.getCompositorViewHolder(), mActivity.getActivityTabProvider(),
+                mActivity.getInsetObserverView(), mActivity::backShouldCloseTab,
+                mActivity::onBackPressed, mLayoutManager,
+                tab -> HistoryManagerUtils.showHistoryManager(mActivity, tab),
+                mActivity.getResources().getString(R.string.show_full_history),
+                () -> mActivity.isActivityFinishingOrDestroyed() ? null
+                        : getBottomSheetController());
+        // clang-format on
+
         // TODO(twellington): Supply TabModelSelector as well and move initialization earlier.
         if (DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivity)) {
             AppMenuHandler appMenuHandler =
@@ -227,28 +248,16 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
         super.onLayoutManagerAvailable(layoutManager);
 
         initStatusIndicatorCoordinator(layoutManager);
-
-        // clang-format off
-        mHistoryNavigationCoordinator = HistoryNavigationCoordinator.create(
-                mActivity.getWindowAndroid(), mActivity.getLifecycleDispatcher(),
-                mActivity.getCompositorViewHolder(), mActivity.getActivityTabProvider(),
-                mActivity.getInsetObserverView(), mActivity::backShouldCloseTab,
-                mActivity::onBackPressed, layoutManager,
-                tab -> HistoryManagerUtils.showHistoryManager(mActivity, tab),
-                mActivity.getResources().getString(R.string.show_full_history),
-                () -> mActivity.isActivityFinishingOrDestroyed() ? null
-                                                                 : getBottomSheetController());
-        // clang-format on
+        mLayoutManager = layoutManager;
     }
 
     @Override
     protected void initializeToolbar() {
         super.initializeToolbar();
         if (!mActivity.isTablet()
-                && (BottomToolbarConfiguration.isBottomToolbarEnabled()
-                        || TabUiFeatureUtilities.isTabGroupsAndroidEnabled()
+                && (TabUiFeatureUtilities.isTabGroupsAndroidEnabled()
                         || TabUiFeatureUtilities.isConditionalTabStripEnabled())) {
-            getToolbarManager().enableBottomToolbar();
+            getToolbarManager().enableBottomControls();
         }
     }
 
@@ -297,6 +306,16 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
         if (!triggerPromo(intentWithEffect)) {
             mToolbarButtonInProductHelpController.showColdStartIPH();
         }
+
+        if (mOfflineIndicatorController != null) {
+            // Initialize the OfflineIndicatorInProductHelpController if the
+            // mOfflineIndicatorController is enabled and initialized. For example, it wouldn't be
+            // initialized if the OfflineIndicatorV2 feature is disabled.
+            assert mOfflineIndicatorInProductHelpController == null;
+            mOfflineIndicatorInProductHelpController =
+                    new OfflineIndicatorInProductHelpController(mActivity, mToolbarManager,
+                            mAppMenuCoordinator.getAppMenuHandler(), mStatusIndicatorCoordinator);
+        }
     }
 
     private void initStatusIndicatorCoordinator(LayoutManager layoutManager) {
@@ -313,7 +332,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
                 mActivity.getCompositorViewHolder().getResourceManager(), browserControlsSizer,
                 mActivity.getStatusBarColorController()::getStatusBarColorWithoutStatusIndicator,
                 mCanAnimateBrowserControls, layoutManager::requestUpdate);
-        layoutManager.setStatusIndicatorSceneOverlay(mStatusIndicatorCoordinator.getSceneLayer());
+        layoutManager.addSceneOverlay(mStatusIndicatorCoordinator.getSceneLayer());
         mStatusIndicatorObserver = new StatusIndicatorCoordinator.StatusIndicatorObserver() {
             @Override
             public void onStatusIndicatorHeightChanged(int indicatorHeight) {

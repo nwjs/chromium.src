@@ -304,40 +304,41 @@ class MEDIA_GPU_EXPORT VaapiWrapper
   // between contexts.
   bool SyncSurface(VASurfaceID va_surface_id);
 
-  // Submit parameters or slice data of |va_buffer_type|, copying them from
-  // |buffer| of size |size|, into HW codec. The data in |buffer| is no
-  // longer needed and can be freed after this method returns.
-  // Data submitted via this method awaits in the HW codec until
-  // ExecuteAndDestroyPendingBuffers() is called to execute or
-  // DestroyPendingBuffers() is used to cancel a pending job.
-  bool SubmitBuffer(VABufferType va_buffer_type,
-                    size_t size,
-                    const void* buffer);
-
+  // Calls SubmitBuffer_Locked() to request libva to allocate a new VABufferID
+  // of |va_buffer_type| and |size|, and to map-and-copy the |data| into it. The
+  // allocated VABufferIDs stay alive until DestroyPendingBuffers_Locked(). Note
+  // that this method does not submit the buffers for execution, they are simply
+  // stored until ExecuteAndDestroyPendingBuffers()/Execute_Locked(). The
+  // ownership of |data| stays with the caller.
+  bool SubmitBuffer(VABufferType va_buffer_type, size_t size, const void* data);
   // Convenient templatized version of SubmitBuffer() where |size| is deduced to
-  // be the size of the type of |*buffer|.
+  // be the size of the type of |*data|.
   template <typename T>
-  bool SubmitBuffer(VABufferType va_buffer_type, const T* buffer) {
-    return SubmitBuffer(va_buffer_type, sizeof(T), buffer);
+  bool SubmitBuffer(VABufferType va_buffer_type, const T* data) {
+    return SubmitBuffer(va_buffer_type, sizeof(T), data);
   }
+  // Batch-version of SubmitBuffer(), where the lock for accessing libva is
+  // acquired only once.
+  struct VABufferDescriptor {
+    VABufferType type;
+    size_t size;
+    const void* data;
+  };
+  bool SubmitBuffers(const std::vector<VABufferDescriptor>& va_buffers);
 
-  // Submit a VAEncMiscParameterBuffer of given |misc_param_type|, copying its
-  // data from |buffer| of size |size|, into HW codec. The data in |buffer| is
-  // no longer needed and can be freed after this method returns.
-  // Data submitted via this method awaits in the HW codec until
-  // ExecuteAndDestroyPendingBuffers() is called to execute or
-  // DestroyPendingBuffers() is used to cancel a pending job.
-  bool SubmitVAEncMiscParamBuffer(VAEncMiscParameterType misc_param_type,
-                                  size_t size,
-                                  const void* buffer);
-
-  // Cancel and destroy all buffers queued to the HW codec via SubmitBuffer().
-  // Useful when a pending job is to be cancelled (on reset or error).
+  // Destroys all |pending_va_buffers_| sent via SubmitBuffer*(). Useful when a
+  // pending job is to be cancelled (on reset or error).
   void DestroyPendingBuffers();
 
   // Executes job in hardware on target |va_surface_id| and destroys pending
   // buffers. Returns false if Execute() fails.
   virtual bool ExecuteAndDestroyPendingBuffers(VASurfaceID va_surface_id);
+
+  // Maps each |va_buffers| ID and copies the data described by the associated
+  // VABufferDescriptor into it; then calls Execute_Locked() on |va_surface_id|.
+  bool MapAndCopyAndExecute(
+      VASurfaceID va_surface_id,
+      const std::vector<std::pair<VABufferID, VABufferDescriptor>>& va_buffers);
 
 #if defined(USE_X11)
   // Put data from |va_surface_id| into |x_pixmap| of size
@@ -362,7 +363,8 @@ class MEDIA_GPU_EXPORT VaapiWrapper
                                          const gfx::Size& va_surface_size);
 
   // Creates a buffer of |size| bytes to be used as encode output.
-  virtual bool CreateVABuffer(size_t size, VABufferID* buffer_id);
+  virtual std::unique_ptr<ScopedVABuffer> CreateVABuffer(VABufferType type,
+                                                         size_t size);
 
   // Gets the encoded frame linear size of the buffer with given |buffer_id|.
   // |sync_surface_id| will be used as a sync point, i.e. it will have to become
@@ -384,12 +386,6 @@ class MEDIA_GPU_EXPORT VaapiWrapper
                                     uint8_t* target_ptr,
                                     size_t target_size,
                                     size_t* coded_data_size);
-
-  // Deletes the VA buffer identified by |buffer_id|.
-  virtual void DestroyVABuffer(VABufferID buffer_id);
-
-  // Destroy all previously-allocated (and not yet destroyed) buffers.
-  void DestroyVABuffers();
 
   // Get the max number of reference frames for encoding supported by the
   // driver.
@@ -442,14 +438,24 @@ class MEDIA_GPU_EXPORT VaapiWrapper
                       size_t num_surfaces,
                       std::vector<VASurfaceID>* va_surfaces);
 
-  // Execute pending job in hardware and destroy pending buffers. Return false
-  // if vaapi driver refuses to accept parameter or slice buffers submitted
-  // by client, or if execution fails in hardware.
-  bool Execute(VASurfaceID va_surface_id);
-  bool Execute_Locked(VASurfaceID va_surface_id)
+  // Carries out the vaBeginPicture()-vaRenderPicture()-vaEndPicture() on target
+  // |va_surface_id|. Returns false if any of these calls fails.
+  bool Execute_Locked(VASurfaceID va_surface_id,
+                      const std::vector<VABufferID>& va_buffers)
       EXCLUSIVE_LOCKS_REQUIRED(va_lock_);
 
   void DestroyPendingBuffers_Locked() EXCLUSIVE_LOCKS_REQUIRED(va_lock_);
+
+  // Requests libva to allocate a new VABufferID of type |va_buffer.type|, then
+  // maps-and-copies |va_buffer.size| contents of |va_buffer.data| to it.
+  bool SubmitBuffer_Locked(const VABufferDescriptor& va_buffer)
+      EXCLUSIVE_LOCKS_REQUIRED(va_lock_);
+
+  // Maps |va_buffer_id| and, if successful, copies the contents of |va_buffer|
+  // into it.
+  bool MapAndCopy_Locked(VABufferID va_buffer_id,
+                         const VABufferDescriptor& va_buffer)
+      EXCLUSIVE_LOCKS_REQUIRED(va_lock_);
 
   const CodecMode mode_;
 
@@ -469,14 +475,12 @@ class MEDIA_GPU_EXPORT VaapiWrapper
   VAEntrypoint va_entrypoint_;
 
   // Data queued up for HW codec, to be committed on next execution.
+  // TODO(b/166646505): let callers manage the lifetime of these buffers.
   std::vector<VABufferID> pending_va_buffers_;
 
-  // VABufferIDs for kEncode*.
-  std::set<VABufferID> va_buffers_;
-
-  // VABufferID to be used for kVideoProcess. Allocated the first time around,
+  // VA buffer to be used for kVideoProcess. Allocated the first time around,
   // and reused afterwards.
-  std::unique_ptr<ScopedID<VABufferID>> va_buffer_for_vpp_;
+  std::unique_ptr<ScopedVABuffer> va_buffer_for_vpp_;
 
   // Called to report codec errors to UMA. Errors to clients are reported via
   // return values from public methods.

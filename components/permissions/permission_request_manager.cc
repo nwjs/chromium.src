@@ -17,6 +17,7 @@
 #include "base/strings/string16.h"
 #include "base/threading/sequenced_task_runner_handle.h"
 #include "build/build_config.h"
+#include "components/autofill_assistant/browser/public/runtime_manager.h"
 #include "components/permissions/features.h"
 #include "components/permissions/permission_decision_auto_blocker.h"
 #include "components/permissions/permission_prompt.h"
@@ -174,6 +175,16 @@ void PermissionRequestManager::AddRequest(
         auto_approval_origin.value()) {
       request->PermissionGranted();
     }
+    request->RequestFinished();
+    return;
+  }
+
+  // Cancel permission requests wile Autofill Assistant's UI is shown.
+  auto* assistant_runtime_manager =
+      autofill_assistant::RuntimeManager::GetForWebContents(web_contents());
+  if (assistant_runtime_manager && assistant_runtime_manager->GetState() ==
+                                       autofill_assistant::UIState::kShown) {
+    request->Cancelled();
     request->RequestFinished();
     return;
   }
@@ -336,6 +347,10 @@ void PermissionRequestManager::OnVisibilityChanged(
 
 const std::vector<PermissionRequest*>& PermissionRequestManager::Requests() {
   return requests_;
+}
+
+GURL PermissionRequestManager::GetEmbeddingOrigin() const {
+  return web_contents()->GetLastCommittedURL().GetOrigin();
 }
 
 void PermissionRequestManager::Accept() {
@@ -544,6 +559,10 @@ void PermissionRequestManager::FinalizeBubble(
       PermissionsClient::Get()->GetPermissionDecisionAutoBlocker(
           browser_context);
 
+  base::Optional<QuietUiReason> quiet_ui_reason;
+  if (ShouldCurrentRequestUseQuietUI())
+    quiet_ui_reason = ReasonForUsingQuietUi();
+
   for (PermissionRequest* request : requests_) {
     // TODO(timloh): We only support dismiss and ignore embargo for permissions
     // which use PermissionRequestImpl as the other subclasses don't support
@@ -552,8 +571,8 @@ void PermissionRequestManager::FinalizeBubble(
       continue;
 
     PermissionsClient::Get()->OnPromptResolved(
-        browser_context, request->GetPermissionRequestType(),
-        permission_action);
+        browser_context, request->GetPermissionRequestType(), permission_action,
+        request->GetOrigin(), quiet_ui_reason);
 
     PermissionEmbargoStatus embargo_status =
         PermissionEmbargoStatus::NOT_EMBARGOED;

@@ -7,6 +7,7 @@
 #include <string>
 #include <utility>
 
+#include "ash/public/cpp/child_accounts/parent_access_controller.h"
 #include "base/check.h"
 #include "base/no_destructor.h"
 #include "base/timer/timer.h"
@@ -20,6 +21,8 @@ namespace chromeos {
 namespace parent_access {
 
 namespace {
+
+using ash::SupervisedAction;
 
 // Returns true when the device owner is a child.
 bool IsDeviceOwnedByChild() {
@@ -51,17 +54,17 @@ bool ParentAccessService::IsApprovalRequired(SupervisedAction action) {
   switch (action) {
     case SupervisedAction::kUpdateClock:
     case SupervisedAction::kUpdateTimezone:
-      if (!base::FeatureList::IsEnabled(
-              features::kParentAccessCodeForTimeChange)) {
-        return false;
-      }
       if (user_manager::UserManager::Get()->IsUserLoggedIn())
         return user_manager::UserManager::Get()->GetActiveUser()->IsChild();
       return IsDeviceOwnedByChild();
-    case SupervisedAction::kOnlineLogin:
+    case SupervisedAction::kAddUser:
+    case SupervisedAction::kReauth:
       if (!features::IsParentAccessCodeForOnlineLoginEnabled())
         return false;
       return IsDeviceOwnedByChild();
+    case SupervisedAction::kUnlockTimeLimits:
+      NOTREACHED();
+      return false;
   }
 }
 

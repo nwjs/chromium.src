@@ -26,6 +26,12 @@ extern const wchar_t kWinlogonUserListRegKey[];
 // Registry key used to determine a user's default credential provider tile.
 extern const wchar_t kLogonUiUserTileRegKey[];
 
+// Registry key where user device resource ID is stored.
+extern const wchar_t kRegUserDeviceResourceId[];
+
+// Specifies custom Chrome path to use for GLS.
+extern const wchar_t kRegGlsPath[];
+
 // Gets any HKLM registry key on the system.
 HRESULT GetMachineRegDWORD(const base::string16& key_name,
                            const base::string16& name,
@@ -58,6 +64,9 @@ DWORD GetGlobalFlagOrDefault(const base::string16& reg_key,
 
 // Sets global DWORD flag.
 HRESULT SetGlobalFlag(const base::string16& name, DWORD value);
+
+// Sets global base::string16 flag.
+HRESULT SetGlobalFlag(const base::string16& name, const base::string16& value);
 
 // Sets global flag. Used for testing purposes only.
 HRESULT SetGlobalFlagForTesting(const base::string16& name,
@@ -162,6 +171,22 @@ HRESULT SetMachineGuidForTesting(const base::string16& machine_guid);
 // Set corresponding registry entry that would make GCPW as the default
 // credential provider.
 HRESULT MakeGcpwDefaultCP();
+
+// Get device resource ID for the user with given |sid|. Returns an empty string
+// if one has not been set for the user.
+base::string16 GetUserDeviceResourceId(const base::string16& sid);
+
+// The token which is written to Windows registry as a result of exchanging
+// enrollment token. The value returned here is the Base64 encoded version of
+// the binary value present in the registry.
+HRESULT GetDmToken(std::string* dm_token);
+
+// Sets HKLM\SOFTWARE\Google\Enrollment\dm_token registry for testing. Note
+// here that the value specified in |dm_token| will be the binary value stored
+// in registry. The value read in GetDmToken() is the Base64 encoded version of
+// this.
+HRESULT SetDmTokenForTesting(const std::string& dm_token);
+
 }  // namespace credential_provider
 
 #endif  // CHROME_CREDENTIAL_PROVIDER_GAIACP_REG_UTILS_H_

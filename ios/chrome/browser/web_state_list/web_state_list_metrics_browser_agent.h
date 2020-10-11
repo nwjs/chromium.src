@@ -10,11 +10,13 @@
 #import "ios/chrome/browser/main/browser_user_data.h"
 #include "ios/chrome/browser/sessions/session_restoration_observer.h"
 #import "ios/chrome/browser/web_state_list/web_state_list_observer.h"
+#import "ios/web/public/web_state_observer.h"
 
 class WebStateListMetricsBrowserAgent
     : BrowserObserver,
       public WebStateListObserver,
       public SessionRestorationObserver,
+      public web::WebStateObserver,
       public BrowserUserData<WebStateListMetricsBrowserAgent> {
  public:
   WebStateListMetricsBrowserAgent();
@@ -52,14 +54,23 @@ class WebStateListMetricsBrowserAgent
   void SessionRestorationFinished(
       const std::vector<web::WebState*>& restored_web_states) override;
 
+  // web::WebStateObserver
+  void DidStartNavigation(web::WebState* web_state,
+                          web::NavigationContext* navigation_context) override;
+  void DidFinishNavigation(web::WebState* web_state,
+                           web::NavigationContext* navigation_context) override;
+  void PageLoaded(
+      web::WebState* web_state,
+      web::PageLoadCompletionStatus load_completion_status) override;
+
   // The WebStateList containing all the monitored tabs.
   WebStateList* web_state_list_;  // weak
 
   // Counters for metrics.
-  int inserted_web_state_counter_;
-  int detached_web_state_counter_;
-  int activated_web_state_counter_;
-  bool metric_collection_paused_;
+  int inserted_web_state_counter_ = 0;
+  int detached_web_state_counter_ = 0;
+  int activated_web_state_counter_ = 0;
+  bool metric_collection_paused_ = false;
 
   DISALLOW_COPY_AND_ASSIGN(WebStateListMetricsBrowserAgent);
 };

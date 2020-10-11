@@ -13,6 +13,7 @@
 #include "base/task/post_task.h"
 #include "base/task/task_traits.h"
 #include "components/paint_preview/browser/file_manager.h"
+#include "components/paint_preview/browser/warm_compositor.h"
 #include "ui/gfx/geometry/rect.h"
 
 #if defined(OS_ANDROID)
@@ -30,6 +31,8 @@ namespace {
 
 constexpr size_t kMaxPerCaptureSizeBytes = 5 * 1000L * 1000L;    // 5 MB.
 constexpr size_t kMaximumTotalCaptureSize = 25 * 1000L * 1000L;  // 25 MB.
+// The time horizon after which unused paint previews will be deleted.
+constexpr int kExpiryHorizonHrs = 72;
 
 #if defined(OS_ANDROID)
 void JavaBooleanCallbackAdapter(base::OnceCallback<void(bool)> callback,
@@ -153,6 +156,18 @@ void PaintPreviewTabService::AuditArtifacts(
                      weak_ptr_factory_.GetWeakPtr(), active_tab_ids));
 }
 
+void PaintPreviewTabService::GetCapturedPaintPreviewProto(
+    const DirectoryKey& key,
+    base::Optional<base::TimeDelta> expiry_horizon,
+    PaintPreviewBaseService::OnReadProtoCallback on_read_proto_callback) {
+  PaintPreviewBaseService::GetCapturedPaintPreviewProto(
+      key,
+      expiry_horizon.has_value()
+          ? expiry_horizon.value()
+          : base::TimeDelta::FromHours(kExpiryHorizonHrs),
+      std::move(on_read_proto_callback));
+}
+
 #if defined(OS_ANDROID)
 void PaintPreviewTabService::CaptureTabAndroid(
     JNIEnv* env,
@@ -273,7 +288,8 @@ void PaintPreviewTabService::OnFinished(int tab_id,
   GetTaskRunner()->PostTaskAndReplyWithResult(
       FROM_HERE,
       base::BindOnce(&FileManager::GetOldestArtifactsForCleanup, file_manager,
-                     kMaximumTotalCaptureSize),
+                     kMaximumTotalCaptureSize,
+                     base::TimeDelta::FromHours(kExpiryHorizonHrs)),
       base::BindOnce(&PaintPreviewTabService::CleanupOldestFiles,
                      weak_ptr_factory_.GetWeakPtr(), tab_id));
 }

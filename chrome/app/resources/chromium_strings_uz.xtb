@@ -37,6 +37,7 @@
 <translation id="2560420686485554789">Yuklab olish uchun Chromium brauzerida omborga saqlash ruxsati bo‘lishi zarur</translation>
 <translation id="2572494885440352020">Chromium yordamchisi</translation>
 <translation id="2587578672395088481">Yangilovni o‘rnatish uchun Chromium OS qaytadan ishga tushirilishi kerak.</translation>
+<translation id="2615699638672665509">Bu kompyuterdagi Chromium yangilanishlari tez orada to‘xtab qolishi mumkin, chunki bu kompyuterdagi qurilmalar ta’minoti boshqa qo‘llab-quvvatlanmaydi.</translation>
 <translation id="2648074677641340862">O‘rnatish vaqtida operatsion tizim xatoligi yuz berdi. Chromium‘ni qaytadan yuklab oling.</translation>
 <translation id="2711502716910134313">Chromium sahifasi</translation>
 <translation id="2718390899429598676">Xavfsizlik himoyasini oshirish maqsadida Chromium ma’lumotlaringizni shifrlaydi.</translation>
@@ -151,7 +152,6 @@
 <translation id="6333502561965082103">Chromium boshqa amalni bajarmoqda. Keyinroq qayta urinib ko‘ring.</translation>
 <translation id="6334986366598267305">Endi Google hisobida Chromium bilan ishlash yanada qulay bo‘ladi, jumladan umumiy kompyuterlarda ham.</translation>
 <translation id="6373523479360886564">Siz haqiqatdan ham Chromium brauzerini o‘chirib tashlamoqchimisiz?</translation>
-<translation id="6400072781405947421">Chromium endi Mac OS X 10.9 tizimida ishlamay qolishi mumkin, chunki uning yangi versiyalarida bu versiyalar ta’minoti to‘xtatilgan.</translation>
 <translation id="6403826409255603130">Chromium - veb sahifalarni va ilovalarni bir necha soniyada ochadigan brauzer. U tez, barqaror va undan foydalanish oson. Chromium brauzerining firibgarlik va zararli dasturlardan saqlovchi ichki o‘rnatilgan himoya vositasi Internetdagi faoliyatni maksimal havfsizlik bilan ta’minlaydi.</translation>
 <translation id="6434250628340475518">Chromium OS tizimi</translation>
 <translation id="6457450909262716557">{SECONDS,plural, =1{Chromium 1 soniyada qayta ishga tushiriladi}other{Chromium # soniyada qayta ishga tushiriladi}}</translation>
@@ -211,6 +211,7 @@ Chromium sozlamalaringizni qaytadan tiklay olmadi.</translation>
 <translation id="7773960292263897147">Diqqat! Chromium kengaytmalarga brauzer tarixini yozib olishni taqiqlay olmaydi. Kengaytmani inkognito rejimida o‘chirib qo‘yish uchun, bayroqchani olib tashlang.</translation>
 <translation id="7790626492778995050"><ph name="PAGE_TITLE" /> - Chromium Canary</translation>
 <translation id="7827169012280634081">Chromium yopilganda barcha cookie fayllari va sayt maʼlumotlari tozalanadi</translation>
+<translation id="7857220146454061152">Chromium yangilanishlari OS X 10.11 yoki undan yuqori versiyalarda ishlaydi. Bu kompyuterdagi versiya: OS X 10.10.</translation>
 <translation id="7867198900892795913">Chromium brauzerining so‘nggi versiyasini o‘rnatib bo‘lmadi. Xavfsizlik sozlamalariga kiritilgan tuzatishlar va yangi funksiyalardan bahramand bo‘la olmaysiz.</translation>
 <translation id="7898472181347242998">Qurilmangiz tizimi yangilanganligini <ph name="LINK_BEGIN" />Chromium OS sozlamalari<ph name="LINK_END" /> orqali bilish mumkin</translation>
 <translation id="7937630085815544518">Avvallari siz Chromium‘ga <ph name="USER_EMAIL_ADDRESS" /> hisobidan kirgandingiz. O‘sha hisobdan foydalanib yana qaytadan kiring.</translation>

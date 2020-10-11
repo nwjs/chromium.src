@@ -220,6 +220,8 @@ bool AppServiceContextMenu::IsCommandIdChecked(int command_id) const {
       FALLTHROUGH;
     case apps::mojom::AppType::kPluginVm:
       FALLTHROUGH;
+    case apps::mojom::AppType::kBorealis:
+      FALLTHROUGH;
     default:
       return AppContextMenu::IsCommandIdChecked(command_id);
   }
@@ -256,6 +258,7 @@ void AppServiceContextMenu::OnGetMenuModel(
 
   // Create default items for non-Remote apps.
   if (app_id() != extension_misc::kChromeAppId &&
+      app_id() != extension_misc::kLacrosAppId &&
       app_type_ != apps::mojom::AppType::kUnknown &&
       app_type_ != apps::mojom::AppType::kRemote) {
     app_list::AppContextMenu::BuildMenu(menu_model.get());
@@ -344,6 +347,8 @@ void AppServiceContextMenu::SetLaunchType(int command_id) {
     case apps::mojom::AppType::kBuiltIn:
       FALLTHROUGH;
     case apps::mojom::AppType::kPluginVm:
+      FALLTHROUGH;
+    case apps::mojom::AppType::kBorealis:
       FALLTHROUGH;
     default:
       return;

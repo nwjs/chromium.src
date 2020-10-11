@@ -39,6 +39,7 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="2560420686485554789">Chromium needs storage access to download files</translation>
 <translation id="2572494885440352020">Chromium Helper</translation>
 <translation id="2587578672395088481">Chromium OS needs to be restarted to apply the update.</translation>
+<translation id="2615699638672665509">This computer will soon stop receiving Chromium updates because its hardware is no longer supported.</translation>
 <translation id="2648074677641340862">An operating system error occurred during installation. Please download Chromium again.</translation>
 <translation id="2711502716910134313">Chromium Tab</translation>
 <translation id="2718390899429598676">For added security, Chromium will encrypt your data.</translation>
@@ -155,7 +156,6 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="6333502561965082103">Another operation on Chromium is in progress. Please try again later.</translation>
 <translation id="6334986366598267305">Now it's easier to use Chromium with your Google Account and on shared computers.</translation>
 <translation id="6373523479360886564">Are you sure you want to uninstall Chromium?</translation>
-<translation id="6400072781405947421">Chromium may not function correctly because it is no longer supported on Mac OS X 10.9.</translation>
 <translation id="6403826409255603130">Chromium is a web browser that runs webpages and applications with lightning speed. It's fast, stable, and easy to use. Browse the web more safely with malware and phishing protection built into Chromium.</translation>
 <translation id="6434250628340475518">Chromium OS System</translation>
 <translation id="6457450909262716557">{SECONDS,plural, =1{Chromium will restart in 1 second}other{Chromium will restart in # seconds}}</translation>
@@ -215,6 +215,7 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="7773960292263897147">Warning: Chromium cannot prevent extensions from recording your browsing history. To disable this extension in incognito mode, unselect this option.</translation>
 <translation id="7790626492778995050"><ph name="PAGE_TITLE" /> – Chromium Canary</translation>
 <translation id="7827169012280634081">Clear cookies and site data when you quit Chromium</translation>
+<translation id="7857220146454061152">To get future Chromium updates, you'll need OS X 10.11 or later. This computer is using OS X 10.10.</translation>
 <translation id="7867198900892795913">Chromium couldn't update to the latest version, so you're missing out on new features and security fixes.</translation>
 <translation id="7898472181347242998">To see if your device is up to date, go to <ph name="LINK_BEGIN" />Chromium OS Settings<ph name="LINK_END" /></translation>
 <translation id="7937630085815544518">You were signed in to Chromium as <ph name="USER_EMAIL_ADDRESS" />. Please use the same account to sign in again.</translation>

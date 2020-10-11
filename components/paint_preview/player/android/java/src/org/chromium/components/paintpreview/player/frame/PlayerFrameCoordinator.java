@@ -5,6 +5,7 @@
 package org.chromium.components.paintpreview.player.frame;
 
 import android.content.Context;
+import android.graphics.Point;
 import android.graphics.Rect;
 import android.util.Size;
 import android.view.View;
@@ -35,7 +36,8 @@ public class PlayerFrameCoordinator {
     public PlayerFrameCoordinator(Context context, PlayerCompositorDelegate compositorDelegate,
             UnguessableToken frameGuid, int contentWidth, int contentHeight, int initialScrollX,
             int initialScrollY, boolean canDetectZoom,
-            @Nullable OverscrollHandler overscrollHandler, PlayerGestureListener gestureHandler) {
+            @Nullable OverscrollHandler overscrollHandler, PlayerGestureListener gestureHandler,
+            @Nullable Runnable firstPaintListener) {
         PropertyModel model = new PropertyModel.Builder(PlayerFrameProperties.ALL_KEYS).build();
         OverScroller scroller = new OverScroller(context);
         scroller.setFriction(ViewConfiguration.getScrollFriction() / 2);
@@ -54,11 +56,20 @@ public class PlayerFrameCoordinator {
         PlayerFrameGestureDetectorDelegate gestureDelegate = new PlayerFrameGestureDetectorDelegate(
                 scaleController, scrollController, mMediator);
 
-        mView = new PlayerFrameView(context, canDetectZoom, mMediator, gestureDelegate);
+        mView = new PlayerFrameView(context, canDetectZoom, mMediator, gestureDelegate,
+                firstPaintListener);
         if (overscrollHandler != null) {
             scrollController.setOverscrollHandler(overscrollHandler);
         }
         PropertyModelChangeProcessor.create(model, mView, PlayerFrameViewBinder::bind);
+    }
+
+    public Point getScrollPosition() {
+        Rect viewPortRect = mMediator.getViewport().asRect();
+        float scaleFactor = mMediator.getViewport().getScale();
+        if (scaleFactor == 0) scaleFactor = 1;
+        return new Point(
+                (int) (viewPortRect.left / scaleFactor), (int) (viewPortRect.top / scaleFactor));
     }
 
     /**
@@ -74,7 +85,7 @@ public class PlayerFrameCoordinator {
     /**
      * @return The mediator associated with this component.
      */
-    public PlayerFrameMediator getMediator() {
+    private PlayerFrameMediator getMediator() {
         return mMediator;
     }
 

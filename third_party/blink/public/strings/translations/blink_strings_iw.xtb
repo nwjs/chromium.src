@@ -13,6 +13,7 @@
 <translation id="1211441953136645838">הערת סיום</translation>
 <translation id="1281252709823657822">דו-שיח</translation>
 <translation id="1306460908038601864">כבוי</translation>
+<translation id="1311894908970423688">הערך חייב להיות <ph name="VALUE_DATE_OR_TIME" />.</translation>
 <translation id="1335095011850992622">קרדיטים</translation>
 <translation id="1342835525016946179">article</translation>
 <translation id="1359897965706325498">מודעת באנר</translation>
@@ -155,9 +156,11 @@
 <translation id="5677946354068040947">אפשרויות נוספות</translation>
 <translation id="576709008726043716">מבוא</translation>
 <translation id="57838592816432529">השתקה</translation>
+<translation id="5860033963881614850">כבוי</translation>
 <translation id="588258955323874662">מסך מלא</translation>
 <translation id="5888666972993069672">מתבצעת העברה אל <ph name="DEVICE_FRIENDLY_NAME" /></translation>
 <translation id="591047860372322273">תיבת חיפוש</translation>
+<translation id="5916664084637901428">פועל</translation>
 <translation id="5939518447894949180">אפס</translation>
 <translation id="5966707198760109579">שבוע</translation>
 <translation id="5987525920412732405">לחצן קביעת ערך</translation>
@@ -185,6 +188,7 @@
 <translation id="6643016212128521049">ניקוי</translation>
 <translation id="668171684555832681">אחר...</translation>
 <translation id="6692633176391053278">פקד חצים</translation>
+<translation id="6709093583001123835">הערך חייב להיות <ph name="VALUE" />.</translation>
 <translation id="6709570249143506788">איכות הפעלה נמוכה</translation>
 <translation id="6755330956360078551">הסבר קצר</translation>
 <translation id="6790428901817661496">הפעל</translation>

@@ -4,7 +4,6 @@
 
 package org.chromium.weblayer;
 
-import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.RemoteException;
@@ -19,6 +18,7 @@ import org.chromium.weblayer_private.interfaces.IDownload;
 import org.chromium.weblayer_private.interfaces.IDownloadCallbackClient;
 import org.chromium.weblayer_private.interfaces.IObjectWrapper;
 import org.chromium.weblayer_private.interfaces.IProfile;
+import org.chromium.weblayer_private.interfaces.IUserIdentityCallbackClient;
 import org.chromium.weblayer_private.interfaces.ObjectWrapper;
 import org.chromium.weblayer_private.interfaces.StrictModeWorkaround;
 
@@ -77,11 +77,7 @@ public class Profile {
     private Profile(String name, IProfile impl) {
         mName = name;
         mImpl = impl;
-        if (WebLayer.getSupportedMajorVersionInternal() >= 83) {
-            mCookieManager = CookieManager.create(impl);
-        } else {
-            mCookieManager = null;
-        }
+        mCookieManager = CookieManager.create(impl);
 
         sProfiles.put(name, this);
     }
@@ -130,9 +126,6 @@ public class Profile {
      */
     public void destroyAndDeleteDataFromDisk(@Nullable Runnable completionCallback) {
         ThreadCheck.ensureOnUiThread();
-        if (WebLayer.getSupportedMajorVersionInternal() < 82) {
-            throw new UnsupportedOperationException();
-        }
         try {
             mImpl.destroyAndDeleteDataFromDisk(ObjectWrapper.wrap(completionCallback));
         } catch (RemoteException e) {
@@ -164,10 +157,6 @@ public class Profile {
      */
     public void setDownloadDirectory(@NonNull File directory) {
         ThreadCheck.ensureOnUiThread();
-        if (WebLayer.getSupportedMajorVersionInternal() < 81) {
-            throw new UnsupportedOperationException();
-        }
-
         try {
             mImpl.setDownloadDirectory(directory.toString());
         } catch (RemoteException e) {
@@ -184,9 +173,6 @@ public class Profile {
      */
     public void setDownloadCallback(@Nullable DownloadCallback callback) {
         ThreadCheck.ensureOnUiThread();
-        if (WebLayer.getSupportedMajorVersionInternal() < 83) {
-            throw new UnsupportedOperationException();
-        }
         try {
             if (callback != null) {
                 mDownloadCallbackClient = new DownloadCallbackClientImpl(callback);
@@ -208,9 +194,6 @@ public class Profile {
     @NonNull
     public CookieManager getCookieManager() {
         ThreadCheck.ensureOnUiThread();
-        if (WebLayer.getSupportedMajorVersionInternal() < 83) {
-            throw new UnsupportedOperationException();
-        }
 
         return mCookieManager;
     }
@@ -226,10 +209,6 @@ public class Profile {
      */
     public void setBooleanSetting(@SettingType int type, boolean value) {
         ThreadCheck.ensureOnUiThread();
-        if (WebLayer.getSupportedMajorVersionInternal() < 84) {
-            throw new UnsupportedOperationException();
-        }
-
         try {
             mImpl.setBooleanSetting(type, value);
         } catch (RemoteException e) {
@@ -245,10 +224,6 @@ public class Profile {
      */
     public boolean getBooleanSetting(@SettingType int type) {
         ThreadCheck.ensureOnUiThread();
-        if (WebLayer.getSupportedMajorVersionInternal() < 84) {
-            throw new UnsupportedOperationException();
-        }
-
         try {
             return mImpl.getBooleanSetting(type);
         } catch (RemoteException e) {
@@ -360,6 +335,24 @@ public class Profile {
         }
     }
 
+    /**
+     * See {@link UserIdentityCallback}.
+     *
+     * @since 87
+     */
+    public void setUserIdentityCallback(@Nullable UserIdentityCallback callback) {
+        ThreadCheck.ensureOnUiThread();
+        if (WebLayer.getSupportedMajorVersionInternal() < 87) {
+            throw new UnsupportedOperationException();
+        }
+        try {
+            mImpl.setUserIdentityCallbackClient(
+                    callback == null ? null : new UserIdentityCallbackClientImpl(callback));
+        } catch (RemoteException e) {
+            throw new APICallException(e);
+        }
+    }
+
     static final class DownloadCallbackClientImpl extends IDownloadCallbackClient.Stub {
         private final DownloadCallback mCallback;
 
@@ -423,15 +416,35 @@ public class Profile {
             StrictModeWorkaround.apply();
             mCallback.onDownloadFailed((Download) download);
         }
+    }
+
+    private static final class UserIdentityCallbackClientImpl
+            extends IUserIdentityCallbackClient.Stub {
+        private UserIdentityCallback mCallback;
+
+        UserIdentityCallbackClientImpl(UserIdentityCallback callback) {
+            mCallback = callback;
+        }
 
         @Override
-        // Deprecated, implementations past 83 call IWebLayerClient.createIntent instead.
-        public Intent createIntent() {
+        public String getEmail() {
             StrictModeWorkaround.apply();
-            // Intent objects need to be created in the client library so they can refer to the
-            // broadcast receiver that will handle them. The broadcast receiver needs to be in the
-            // client library because it's referenced in the manifest.
-            return new Intent(WebLayer.getAppContext(), BroadcastReceiver.class);
+            return mCallback.getEmail();
+        }
+
+        @Override
+        public String getFullName() {
+            StrictModeWorkaround.apply();
+            return mCallback.getFullName();
+        }
+
+        @Override
+        public void getAvatar(int desiredSize, IObjectWrapper avatarLoadedWrapper) {
+            StrictModeWorkaround.apply();
+            ValueCallback<Bitmap> avatarLoadedCallback =
+                    (ValueCallback<Bitmap>) ObjectWrapper.unwrap(
+                            avatarLoadedWrapper, ValueCallback.class);
+            mCallback.getAvatar(desiredSize, avatarLoadedCallback);
         }
     }
 }

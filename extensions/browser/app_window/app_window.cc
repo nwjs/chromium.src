@@ -6,7 +6,7 @@
 
 #include "components/web_cache/browser/web_cache_manager.h"
 #include "content/public/browser/render_process_host.h"
-#include "content/browser/frame_host/render_frame_host_impl.h"
+#include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "base/command_line.h"
 #include <stddef.h>
 

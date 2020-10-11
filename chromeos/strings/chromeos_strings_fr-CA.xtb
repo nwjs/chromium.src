@@ -19,6 +19,7 @@
 <translation id="2161394479394250669">Annuler la tâche d'impression</translation>
 <translation id="2338501278241028356">Activer le Bluetooth pour découvrir les appareils à proximité</translation>
 <translation id="2375079107209812402">Il vous reste <ph name="ATTEMPTS_LEFT" /> tentatives</translation>
+<translation id="2517472476991765520">Rechercher</translation>
 <translation id="2805756323405976993">Applications</translation>
 <translation id="2872961005593481000">Arrêter</translation>
 <translation id="3008341117444806826">ACTUALISER</translation>
@@ -39,7 +40,6 @@
 <translation id="4034824040120875894">Imprimante</translation>
 <translation id="4227825898293920515">Le mot de passe expire dans <ph name="TIME" /></translation>
 <translation id="4238516577297848345">Aucune tâche d'impression en cours</translation>
-<translation id="428217921675623177">Les tâches d'impression datant de plus de 90 jours seront supprimées</translation>
 <translation id="4297501883039923494">Tâche arrêtée : erreur inconnue</translation>
 <translation id="4429881212383817840">Le ticket Kerberos expire bientôt</translation>
 <translation id="445059817448385655">Ancien mot de passe</translation>
@@ -81,7 +81,9 @@ Essayez de toucher le micro pour me demander ce que vous souhaitez.</translation
 <translation id="7805768142964895445">État</translation>
 <translation id="808894953321890993">Changer le mot de passe</translation>
 <translation id="8208861521865154048">Avantages</translation>
+<translation id="8294431847097064396">Source</translation>
 <translation id="8347227221149377169">Tâches d'impression</translation>
+<translation id="8352772353338965963">Ajouter un compte à la connexion multicompte. Tous les comptes connectés sont accessibles sans mot de passe. Nous vous recommandons donc de n'utiliser cette fonctionnalité qu'avec des comptes fiables.</translation>
 <translation id="8701136875688985581">Le domaine <ph name="ENROLLMENT_DOMAIN" /> gère cet utilisateur. Il peut gérer les paramètres et faire le suivi de l'activité de l'utilisateur à distance.</translation>
 <translation id="871560550817059752">Échec : à court d'encre</translation>
 <translation id="8726019395068607495">Tâchez arrêtée : porte de l'imprimante ouverte</translation>

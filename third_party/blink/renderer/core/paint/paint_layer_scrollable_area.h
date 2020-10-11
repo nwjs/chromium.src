@@ -51,7 +51,7 @@
 #include "third_party/blink/renderer/core/page/scrolling/sticky_position_scrolling_constraints.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_fragment.h"
 #include "third_party/blink/renderer/core/scroll/scrollable_area.h"
-#include "third_party/blink/renderer/platform/graphics/scroll_types.h"
+#include "third_party/blink/renderer/platform/graphics/overlay_scrollbar_clip_behavior.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
 
@@ -252,6 +252,9 @@ class CORE_EXPORT PaintLayerScrollableArea final
   explicit PaintLayerScrollableArea(PaintLayer&);
   ~PaintLayerScrollableArea() override;
 
+  // Return the PaintLayerScrollableArea (if any) associated with the Node.
+  static PaintLayerScrollableArea* FromNode(const Node&);
+
   void ForceVerticalScrollbarForFirstLayout() { SetHasVerticalScrollbar(true); }
   bool HasHorizontalScrollbar() const { return HorizontalScrollbar(); }
   bool HasVerticalScrollbar() const { return VerticalScrollbar(); }
@@ -346,7 +349,7 @@ class CORE_EXPORT PaintLayerScrollableArea final
   bool ShouldPlaceVerticalScrollbarOnLeft() const override;
   int PageStep(ScrollbarOrientation) const override;
   mojom::blink::ScrollBehavior ScrollBehaviorStyle() const override;
-  WebColorScheme UsedColorScheme() const override;
+  ColorScheme UsedColorScheme() const override;
   cc::AnimationHost* GetCompositorAnimationHost() const override;
   CompositorAnimationTimeline* GetCompositorAnimationTimeline() const override;
   bool HasTickmarks() const override;
@@ -399,7 +402,7 @@ class CORE_EXPORT PaintLayerScrollableArea final
   bool HasOverflowControls() const;
 
   bool HasOverlayOverflowControls() const;
-  bool HasNonOverlayOverflowControls() const;
+  bool NeedsScrollCorner() const;
 
   bool HasOverflow() const {
     return HasHorizontalOverflow() || HasVerticalOverflow();
@@ -418,12 +421,10 @@ class CORE_EXPORT PaintLayerScrollableArea final
   LayoutUnit ScrollWidth() const;
   LayoutUnit ScrollHeight() const;
 
-  int VerticalScrollbarWidth(
-      OverlayScrollbarClipBehavior =
-          kIgnorePlatformOverlayScrollbarSize) const override;
-  int HorizontalScrollbarHeight(
-      OverlayScrollbarClipBehavior =
-          kIgnorePlatformOverlayScrollbarSize) const override;
+  int VerticalScrollbarWidth(OverlayScrollbarClipBehavior =
+                                 kIgnoreOverlayScrollbarSize) const override;
+  int HorizontalScrollbarHeight(OverlayScrollbarClipBehavior =
+                                    kIgnoreOverlayScrollbarSize) const override;
 
   DoubleSize AdjustedScrollOffset() const {
     return ToDoubleSize(DoublePoint(ScrollOrigin()) + scroll_offset_);
@@ -549,8 +550,10 @@ class CORE_EXPORT PaintLayerScrollableArea final
   // Return the thickness of the existing scrollbar; or, if there is no
   // existing scrollbar, then calculate the thickness it would have if it
   // existed. Returns zero if the (real or hypothetical) scrollbar is an overlay
-  // scrollbar.
-  int HypotheticalScrollbarThickness(ScrollbarOrientation) const;
+  // scrollbar, unless should_include_overlay_thickness has been specified.
+  int HypotheticalScrollbarThickness(
+      ScrollbarOrientation,
+      bool should_include_overlay_thickness = false) const;
 
   void DidAddScrollbar(Scrollbar&, ScrollbarOrientation) override;
   void WillRemoveScrollbar(Scrollbar&, ScrollbarOrientation) override;

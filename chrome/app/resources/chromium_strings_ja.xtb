@@ -37,6 +37,7 @@
 <translation id="2560420686485554789">ファイルをダウンロードするには、Chromium でストレージへのアクセスを許可する必要があります</translation>
 <translation id="2572494885440352020">Chromium Helper</translation>
 <translation id="2587578672395088481">アップデートを適用するには Chromium OS を再起動する必要があります。</translation>
+<translation id="2615699638672665509">このパソコンは、ハードウェアのサポートが終了しているため、まもなく Chromium アップデートの受信を停止します。</translation>
 <translation id="2648074677641340862">インストール中にオペレーティング システム エラーが発生しました。Chromium をダウンロードし直してください。</translation>
 <translation id="2711502716910134313">Chromium タブ</translation>
 <translation id="2718390899429598676">セキュリティ強化のため、Chromium ではデータが暗号化されます。</translation>
@@ -153,7 +154,6 @@
 <translation id="6333502561965082103">Chromium で別の処理が行われています。しばらくしてからもう一度お試しください。</translation>
 <translation id="6334986366598267305">共有パソコンの Chromium で Google アカウントが簡単に使用できるようになりました。</translation>
 <translation id="6373523479360886564">Chromium をアンインストールしてもよろしいですか？</translation>
-<translation id="6400072781405947421">Mac OS X 10.9 はサポートされなくなったため、Chromium は正常に機能しない可能性があります。</translation>
 <translation id="6403826409255603130">Chromium は、ウェブページやアプリケーションを高速に実行できるスピードと、高い安定性を兼ね備えた非常に使いやすいウェブブラウザです。不正なソフトウェアやフィッシングに対する保護機能が組み込まれており、ウェブを安全にブラウジングできます。</translation>
 <translation id="6434250628340475518">Chromium OS システム</translation>
 <translation id="6457450909262716557">{SECONDS,plural, =1{Chromium は 1 秒後に再起動します}other{Chromium は # 秒後に再起動します}}</translation>
@@ -213,6 +213,7 @@
 <translation id="7773960292263897147">警告: 拡張機能による閲覧履歴の記録を Chromium で停止することはできません。シークレット モードでこの拡張機能を無効にするには、このオプションの選択を解除してください。</translation>
 <translation id="7790626492778995050"><ph name="PAGE_TITLE" /> - Chromium Canary</translation>
 <translation id="7827169012280634081">Chromium の終了時に Cookie とサイトデータを削除する</translation>
+<translation id="7857220146454061152">今後、Chromium のアップデートを受信するには、OS X 10.11 以降が必要となります。このパソコンでは OS X 10.10 が実行されています。</translation>
 <translation id="7867198900892795913">Chromium を最新版に更新できませんでした。新しい機能とセキュリティ修正は適用されていません。</translation>
 <translation id="7898472181347242998">デバイスが最新の状態かどうか確認するには、<ph name="LINK_BEGIN" />Chromium OS の設定<ph name="LINK_END" />をご覧ください</translation>
 <translation id="7937630085815544518">Chromium に <ph name="USER_EMAIL_ADDRESS" /> としてログインしていました。再度ログインするには同じアカウントを使用してください。</translation>

@@ -28,7 +28,6 @@
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/separator.h"
 #include "ui/views/controls/styled_label.h"
-#include "ui/views/controls/styled_label_listener.h"
 #include "ui/views/widget/widget.h"
 
 class BubbleHeaderView;
@@ -60,7 +59,6 @@ class PageInfoBubbleView : public PageInfoBubbleViewBase,
                            public PermissionSelectorRowObserver,
                            public ChosenObjectViewObserver,
                            public views::ButtonListener,
-                           public views::StyledLabelListener,
                            public PageInfoUI {
  public:
   // The width of the column size for permissions and chosen object icons.
@@ -75,9 +73,7 @@ class PageInfoBubbleView : public PageInfoBubbleViewBase,
     VIEW_ID_PAGE_INFO_BUTTON_CLOSE,
     VIEW_ID_PAGE_INFO_BUTTON_CHANGE_PASSWORD,
     VIEW_ID_PAGE_INFO_BUTTON_ALLOWLIST_PASSWORD_REUSE,
-    VIEW_ID_PAGE_INFO_LABEL_SECURITY_DETAILS,
     VIEW_ID_PAGE_INFO_LABEL_EV_CERTIFICATE_DETAILS,
-    VIEW_ID_PAGE_INFO_LABEL_RESET_CERTIFICATE_DECISIONS,
     VIEW_ID_PAGE_INFO_LINK_OR_BUTTON_COOKIE_DIALOG,
     VIEW_ID_PAGE_INFO_LINK_OR_BUTTON_SITE_SETTINGS,
     VIEW_ID_PAGE_INFO_LINK_OR_BUTTON_CERTIFICATE_VIEWER,
@@ -99,6 +95,9 @@ class PageInfoBubbleView : public PageInfoBubbleViewBase,
       content::WebContents* web_contents,
       const GURL& url,
       PageInfoClosingCallback closing_callback);
+
+  void SecurityDetailsClicked(const ui::Event& event);
+  void ResetDecisionsClicked();
 
  protected:
   const base::string16 details_text() const { return details_text_; }
@@ -123,19 +122,13 @@ class PageInfoBubbleView : public PageInfoBubbleViewBase,
   void WebContentsDestroyed() override;
 
   // PermissionSelectorRowObserver:
-  void OnPermissionChanged(
-      const PageInfoUI::PermissionInfo& permission) override;
+  void OnPermissionChanged(const PageInfo::PermissionInfo& permission) override;
 
   // ChosenObjectViewObserver:
   void OnChosenObjectDeleted(const PageInfoUI::ChosenObjectInfo& info) override;
 
   // views::ButtonListener:
   void ButtonPressed(views::Button* button, const ui::Event& event) override;
-
-  // views::StyledLabelListener:
-  void StyledLabelLinkClicked(views::StyledLabel* label,
-                              const gfx::Range& range,
-                              int event_flags) override;
 
   // PageInfoUI:
   void SetCookieInfo(const CookieInfoList& cookie_info_list) override;

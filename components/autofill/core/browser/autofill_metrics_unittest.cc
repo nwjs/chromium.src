@@ -12,6 +12,7 @@
 
 #include "base/base64.h"
 #include "base/feature_list.h"
+#include "base/ios/ios_util.h"
 #include "base/macros.h"
 #include "base/metrics/metrics_hashes.h"
 #include "base/metrics/statistics_recorder.h"
@@ -311,6 +312,17 @@ void AddAutoCompleteFieldToForm(const std::string& type, FormData& form) {
   form.fields.push_back(field);
 }
 
+std::string SerializeAndEncode(const AutofillQueryResponse& response) {
+  std::string unencoded_response_string;
+  if (!response.SerializeToString(&unencoded_response_string)) {
+    LOG(ERROR) << "Cannot serialize the response proto";
+    return "";
+  }
+  std::string response_string;
+  base::Base64Encode(unencoded_response_string, &response_string);
+  return response_string;
+}
+
 class MockAutofillClient : public TestAutofillClient {
  public:
   MockAutofillClient() {}
@@ -582,59 +594,6 @@ class AutofillMetricsIFrameTest : public AutofillMetricsTest,
 
 INSTANTIATE_TEST_SUITE_P(AutofillMetricsTest,
                          AutofillMetricsIFrameTest,
-                         testing::Bool());
-
-// Test parameter indicates if the metrics are being logged for a form
-// with a companyname field specified.
-class AutofillMetricsCompanyTest : public AutofillMetricsTest,
-                                   public testing::WithParamInterface<bool> {
- public:
-  AutofillMetricsCompanyTest() : company_name_enabled_(GetParam()) {}
-
-  void SetUp() override {
-    scoped_feature_list_.InitWithFeatureState(
-        features::kAutofillEnableCompanyName, company_name_enabled_);
-    AutofillMetricsTest::SetUp();
-  }
-
- protected:
-  const bool company_name_enabled_;
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
-INSTANTIATE_TEST_SUITE_P(AutofillMetricsTest,
-                         AutofillMetricsCompanyTest,
-                         testing::Bool());
-
-// Test parameter indicates if surfacing server nickname is enabled. The
-// nickname-related metrics are always being logged when a server nickname is
-// available. Note that depending on the experimental setup, the user may not be
-// shown the nickname.
-class AutofillMetricsServerNicknameTest
-    : public AutofillMetricsTest,
-      public testing::WithParamInterface<bool> {
- public:
-  AutofillMetricsServerNicknameTest()
-      : is_surfacing_server_card_nickname_enabled_(GetParam()) {}
-
-  void SetUp() override {
-    scoped_feature_list_.InitWithFeatureState(
-        features::kAutofillEnableSurfacingServerCardNickname,
-        is_surfacing_server_card_nickname_enabled_);
-    AutofillMetricsTest::SetUp();
-  }
-
- protected:
-  const bool is_surfacing_server_card_nickname_enabled_;
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
-INSTANTIATE_TEST_SUITE_P(AutofillMetricsTest,
-                         AutofillMetricsServerNicknameTest,
                          testing::Bool());
 
 // Test that we log quality metrics appropriately.
@@ -1992,6 +1951,18 @@ TEST_F(AutofillMetricsTest, LogHiddenRepresentationalFieldSkipDecision) {
          false}}});
 }
 
+namespace {
+void AddFieldSuggestionToForm(
+    ::autofill::AutofillQueryResponse_FormSuggestion* form_suggestion,
+    autofill::FormFieldData field_data,
+    ServerFieldType field_type) {
+  auto* field_suggestion = form_suggestion->add_field_suggestions();
+  field_suggestion->set_field_signature(
+      CalculateFieldSignatureForField(field_data).value());
+  field_suggestion->set_primary_type_prediction(field_type);
+}
+}  // namespace
+
 // Test that we log the address line fields whose server types are rationalized
 TEST_F(AutofillMetricsTest, LogRepeatedAddressTypeRationalized) {
   // Set up our form data.
@@ -2035,17 +2006,16 @@ TEST_F(AutofillMetricsTest, LogRepeatedAddressTypeRationalized) {
   // |form_structure| will be owned by |autofill_manager_|.
   autofill_manager_->AddSeenForm(form, field_types, field_types);
 
-  AutofillQueryResponseContents response;
-  response.add_field()->set_overall_type_prediction(NAME_FULL);
-  response.add_field()->set_overall_type_prediction(
-      ADDRESS_HOME_STREET_ADDRESS);
-  response.add_field()->set_overall_type_prediction(
-      ADDRESS_HOME_STREET_ADDRESS);
+  AutofillQueryResponse response;
+  auto* form_suggestion = response.add_form_suggestions();
+  AddFieldSuggestionToForm(form_suggestion, form.fields[0], NAME_FULL);
+  AddFieldSuggestionToForm(form_suggestion, form.fields[1],
+                           ADDRESS_HOME_STREET_ADDRESS);
+  AddFieldSuggestionToForm(form_suggestion, form.fields[2],
+                           ADDRESS_HOME_STREET_ADDRESS);
 
-  std::string response_string;
-  ASSERT_TRUE(response.SerializeToString(&response_string));
-
-  FormStructure::ParseQueryResponse(
+  std::string response_string = SerializeAndEncode(response);
+  FormStructure::ParseApiQueryResponse(
       response_string, forms, test::GetEncodedSignatures(forms),
       autofill_manager_->form_interactions_ukm_logger_for_test());
 
@@ -2152,16 +2122,18 @@ TEST_F(AutofillMetricsTest, LogRepeatedStateCountryTypeRationalized) {
   // |form_structure| will be owned by |autofill_manager_|.
   autofill_manager_->AddSeenForm(form, field_types, field_types);
 
-  AutofillQueryResponseContents response;
-  response.add_field()->set_overall_type_prediction(ADDRESS_HOME_COUNTRY);
-  response.add_field()->set_overall_type_prediction(NAME_FULL);
-  response.add_field()->set_overall_type_prediction(ADDRESS_HOME_COUNTRY);
-  response.add_field()->set_overall_type_prediction(ADDRESS_HOME_COUNTRY);
+  AutofillQueryResponse response;
+  auto* form_suggestion = response.add_form_suggestions();
+  AddFieldSuggestionToForm(form_suggestion, form.fields[0],
+                           ADDRESS_HOME_COUNTRY);
+  AddFieldSuggestionToForm(form_suggestion, form.fields[1], NAME_FULL);
+  AddFieldSuggestionToForm(form_suggestion, form.fields[2],
+                           ADDRESS_HOME_COUNTRY);
+  AddFieldSuggestionToForm(form_suggestion, form.fields[3],
+                           ADDRESS_HOME_COUNTRY);
 
-  std::string response_string;
-  ASSERT_TRUE(response.SerializeToString(&response_string));
-
-  FormStructure::ParseQueryResponse(
+  std::string response_string = SerializeAndEncode(response);
+  FormStructure::ParseApiQueryResponse(
       response_string, forms, test::GetEncodedSignatures(forms),
       autofill_manager_->form_interactions_ukm_logger_for_test());
 
@@ -3064,28 +3036,21 @@ TEST_F(AutofillMetricsTest, QualityMetrics_BasedOnAutocomplete) {
   AutofillQueryResponse response;
   auto* form_suggestion = response.add_form_suggestions();
   // Server response will match with autocomplete.
-  form_suggestion->add_field_suggestions()->set_primary_type_prediction(
-      NAME_LAST);
+  AddFieldSuggestionToForm(form_suggestion, form.fields[0], NAME_LAST);
   // Server response will NOT match with autocomplete.
-  form_suggestion->add_field_suggestions()->set_primary_type_prediction(
-      NAME_FIRST);
+  AddFieldSuggestionToForm(form_suggestion, form.fields[1], NAME_FIRST);
   // Server response will have no data.
-  form_suggestion->add_field_suggestions()->set_primary_type_prediction(
-      NO_SERVER_DATA);
+  AddFieldSuggestionToForm(form_suggestion, form.fields[2], NO_SERVER_DATA);
   // Not logged.
-  form_suggestion->add_field_suggestions()->set_primary_type_prediction(
-      NAME_MIDDLE);
+  AddFieldSuggestionToForm(form_suggestion, form.fields[3], NAME_MIDDLE);
 
-  std::string response_string;
-  ASSERT_TRUE(response.SerializeToString(&response_string));
-  std::string encoded_response_string;
-  base::Base64Encode(response_string, &encoded_response_string);
-
+  std::string response_string = SerializeAndEncode(response);
   base::HistogramTester histogram_tester;
   autofill_manager_->OnLoadedServerPredictionsForTest(
-      encoded_response_string, test::GetEncodedSignatures(*form_structure_ptr));
+      response_string, test::GetEncodedSignatures(*form_structure_ptr));
 
-  // Verify that FormStructure::ParseQueryResponse was called (here and below).
+  // Verify that FormStructure::ParseApiQueryResponse was called (here and
+  // below).
   histogram_tester.ExpectBucketCount("Autofill.ServerQueryResponse",
                                      AutofillMetrics::QUERY_RESPONSE_RECEIVED,
                                      1);
@@ -4141,6 +4106,31 @@ TEST_F(AutofillMetricsTest, LogStoredCreditCardWithNicknameMetrics) {
       "Autofill.StoredCreditCardCount.Server.Masked.WithNickname", 2, 1);
 }
 
+TEST_F(AutofillMetricsTest, LogStoredOfferMetrics) {
+  std::vector<std::unique_ptr<AutofillOfferData>> offers;
+  AutofillOfferData offer1 = test::GetCardLinkedOfferData1();
+  AutofillOfferData offer2 = test::GetCardLinkedOfferData2();
+  offer2.eligible_instrument_id.emplace_back(999999);
+  offer2.eligible_instrument_id.emplace_back(888888);
+  offer2.merchant_domain.emplace_back("www.example3.com");
+  offers.push_back(std::make_unique<AutofillOfferData>(offer1));
+  offers.push_back(std::make_unique<AutofillOfferData>(offer2));
+
+  base::HistogramTester histogram_tester;
+  AutofillMetrics::LogStoredOfferMetrics(offers);
+
+  // Validate the count metrics.
+  histogram_tester.ExpectBucketCount("Autofill.Offer.StoredOfferCount", 2, 1);
+  histogram_tester.ExpectBucketCount(
+      "Autofill.Offer.StoredOfferRelatedMerchantCount", 1, 1);
+  histogram_tester.ExpectBucketCount(
+      "Autofill.Offer.StoredOfferRelatedMerchantCount", 2, 1);
+  histogram_tester.ExpectBucketCount(
+      "Autofill.Offer.StoredOfferRelatedCardCount", 1, 1);
+  histogram_tester.ExpectBucketCount(
+      "Autofill.Offer.StoredOfferRelatedCardCount", 3, 1);
+}
+
 // Test that we correctly log when Profile Autofill is enabled at startup.
 TEST_F(AutofillMetricsTest, AutofillProfileIsEnabledAtStartup) {
   base::HistogramTester histogram_tester;
@@ -4275,7 +4265,7 @@ TEST_F(AutofillMetricsTest, AddressSuggestionsCount) {
 
 // Test that we log the correct number of Company Name Autofill suggestions when
 // filling a form.
-TEST_P(AutofillMetricsCompanyTest, CompanyNameSuggestions) {
+TEST_F(AutofillMetricsTest, CompanyNameSuggestions) {
   // Set up our form data.
   FormData form;
   form.unique_renderer_id = MakeFormRendererId();
@@ -4306,12 +4296,8 @@ TEST_P(AutofillMetricsCompanyTest, CompanyNameSuggestions) {
     autofill_manager_->OnQueryFormFieldAutofill(
         0, form, field, gfx::RectF(), /*autoselect_first_suggestion=*/false);
 
-    if (company_name_enabled_) {
-      histogram_tester.ExpectUniqueSample("Autofill.AddressSuggestionsCount", 2,
-                                          1);
-    } else {
-      histogram_tester.ExpectTotalCount("Autofill.AddressSuggestionsCount", 0);
-    }
+    histogram_tester.ExpectUniqueSample("Autofill.AddressSuggestionsCount", 2,
+                                        1);
   }
 }
 
@@ -6638,11 +6624,9 @@ TEST_P(AutofillMetricsIFrameTest, CreditCardWillSubmitFormEvents) {
   }
 }
 
-// Test that we log form events for masked server card nickname. When
-// surfacing-server-nickname flag is off (we won't display the nickname), we
-// still log when user has a masked server card with nickname in order to
-// compare the selection rate on the same group of user.
-TEST_P(AutofillMetricsServerNicknameTest, LogServerNicknameFormEvents) {
+// Test that we log form events for masked server card nickname.
+// TODO(crbug.com/1059087): Remove histogram logging for server nickname.
+TEST_F(AutofillMetricsTest, LogServerNicknameFormEvents) {
   // Set up our form data.
   FormData form;
   form.name = ASCIIToUTF16("TestForm");
@@ -6787,11 +6771,9 @@ TEST_P(AutofillMetricsServerNicknameTest, LogServerNicknameFormEvents) {
 }
 
 // Test that we log suggestion selection duration for masked server card
-// nickname. When surfacing-server-nickname flag is off (we won't display the
-// nickname), we still log when user has a masked server card with nickname in
-// order to compare the selection duration on the same group of user when server
-// nickname is displayed or not.
-TEST_P(AutofillMetricsServerNicknameTest, LogServerNicknameSelectionDuration) {
+// nickname.
+// TODO(crbug.com/1059087): Remove histogram logging for server nickname.
+TEST_F(AutofillMetricsTest, LogServerNicknameSelectionDuration) {
   base::TimeTicks now = AutofillTickClock::NowTicks();
   TestAutofillTickClock test_clock;
   test_clock.SetNowTicks(now);
@@ -9608,18 +9590,33 @@ class AutofillMetricsParseQueryResponseTest : public testing::Test {
   std::vector<FormStructure*> forms_;
 };
 
+namespace {
+void AddFieldSuggestionToForm(
+    ::autofill::AutofillQueryResponse_FormSuggestion* form_suggestion,
+    autofill::FieldSignature field_signature,
+    int field_type) {
+  auto* field_suggestion = form_suggestion->add_field_suggestions();
+  field_suggestion->set_field_signature(field_signature.value());
+  field_suggestion->set_primary_type_prediction(field_type);
+}
+}  // namespace
+
 TEST_F(AutofillMetricsParseQueryResponseTest, ServerHasData) {
-  AutofillQueryResponseContents response;
-  response.add_field()->set_overall_type_prediction(7);
-  response.add_field()->set_overall_type_prediction(30);
-  response.add_field()->set_overall_type_prediction(9);
-  response.add_field()->set_overall_type_prediction(0);
+  AutofillQueryResponse response;
+  auto* form_suggestion = response.add_form_suggestions();
+  AddFieldSuggestionToForm(form_suggestion,
+                           forms_[0]->field(0)->GetFieldSignature(), 7);
+  AddFieldSuggestionToForm(form_suggestion,
+                           forms_[0]->field(1)->GetFieldSignature(), 30);
+  form_suggestion = response.add_form_suggestions();
+  AddFieldSuggestionToForm(form_suggestion,
+                           forms_[1]->field(0)->GetFieldSignature(), 9);
+  AddFieldSuggestionToForm(form_suggestion,
+                           forms_[1]->field(1)->GetFieldSignature(), 0);
 
-  std::string response_string;
-  ASSERT_TRUE(response.SerializeToString(&response_string));
-
+  std::string response_string = SerializeAndEncode(response);
   base::HistogramTester histogram_tester;
-  FormStructure::ParseQueryResponse(
+  FormStructure::ParseApiQueryResponse(
       response_string, forms_, test::GetEncodedSignatures(forms_), nullptr);
   EXPECT_THAT(
       histogram_tester.GetAllSamples("Autofill.ServerResponseHasDataForForm"),
@@ -9629,17 +9626,20 @@ TEST_F(AutofillMetricsParseQueryResponseTest, ServerHasData) {
 // If the server returns NO_SERVER_DATA for one of the forms, expect proper
 // logging.
 TEST_F(AutofillMetricsParseQueryResponseTest, OneFormNoServerData) {
-  AutofillQueryResponseContents response;
-  response.add_field()->set_overall_type_prediction(0);
-  response.add_field()->set_overall_type_prediction(0);
-  response.add_field()->set_overall_type_prediction(9);
-  response.add_field()->set_overall_type_prediction(0);
-
-  std::string response_string;
-  ASSERT_TRUE(response.SerializeToString(&response_string));
-
+  AutofillQueryResponse response;
+  auto* form_suggestion = response.add_form_suggestions();
+  AddFieldSuggestionToForm(form_suggestion,
+                           forms_[0]->field(0)->GetFieldSignature(), 0);
+  AddFieldSuggestionToForm(form_suggestion,
+                           forms_[0]->field(1)->GetFieldSignature(), 0);
+  form_suggestion = response.add_form_suggestions();
+  AddFieldSuggestionToForm(form_suggestion,
+                           forms_[1]->field(0)->GetFieldSignature(), 9);
+  AddFieldSuggestionToForm(form_suggestion,
+                           forms_[1]->field(1)->GetFieldSignature(), 0);
+  std::string response_string = SerializeAndEncode(response);
   base::HistogramTester histogram_tester;
-  FormStructure::ParseQueryResponse(
+  FormStructure::ParseApiQueryResponse(
       response_string, forms_, test::GetEncodedSignatures(forms_), nullptr);
   EXPECT_THAT(
       histogram_tester.GetAllSamples("Autofill.ServerResponseHasDataForForm"),
@@ -9649,16 +9649,19 @@ TEST_F(AutofillMetricsParseQueryResponseTest, OneFormNoServerData) {
 // If the server returns NO_SERVER_DATA for both of the forms, expect proper
 // logging.
 TEST_F(AutofillMetricsParseQueryResponseTest, AllFormsNoServerData) {
-  AutofillQueryResponseContents response;
-  for (int i = 0; i < 4; ++i) {
-    response.add_field()->set_overall_type_prediction(0);
+  AutofillQueryResponse response;
+  for (int form_idx = 0; form_idx < 2; ++form_idx) {
+    auto* form_suggestion = response.add_form_suggestions();
+    for (int field_idx = 0; field_idx < 2; ++field_idx) {
+      AddFieldSuggestionToForm(
+          form_suggestion,
+          forms_[form_idx]->field(field_idx)->GetFieldSignature(), 0);
+    }
   }
 
-  std::string response_string;
-  ASSERT_TRUE(response.SerializeToString(&response_string));
-
+  std::string response_string = SerializeAndEncode(response);
   base::HistogramTester histogram_tester;
-  FormStructure::ParseQueryResponse(
+  FormStructure::ParseApiQueryResponse(
       response_string, forms_, test::GetEncodedSignatures(forms_), nullptr);
   EXPECT_THAT(
       histogram_tester.GetAllSamples("Autofill.ServerResponseHasDataForForm"),
@@ -9668,17 +9671,21 @@ TEST_F(AutofillMetricsParseQueryResponseTest, AllFormsNoServerData) {
 // If the server returns NO_SERVER_DATA for only some of the fields, expect the
 // UMA metric to say there is data.
 TEST_F(AutofillMetricsParseQueryResponseTest, PartialNoServerData) {
-  AutofillQueryResponseContents response;
-  response.add_field()->set_overall_type_prediction(0);
-  response.add_field()->set_overall_type_prediction(10);
-  response.add_field()->set_overall_type_prediction(0);
-  response.add_field()->set_overall_type_prediction(11);
+  AutofillQueryResponse response;
+  auto* form_suggestion = response.add_form_suggestions();
+  AddFieldSuggestionToForm(form_suggestion,
+                           forms_[0]->field(0)->GetFieldSignature(), 0);
+  AddFieldSuggestionToForm(form_suggestion,
+                           forms_[0]->field(1)->GetFieldSignature(), 10);
+  form_suggestion = response.add_form_suggestions();
+  AddFieldSuggestionToForm(form_suggestion,
+                           forms_[1]->field(0)->GetFieldSignature(), 0);
+  AddFieldSuggestionToForm(form_suggestion,
+                           forms_[1]->field(1)->GetFieldSignature(), 11);
 
-  std::string response_string;
-  ASSERT_TRUE(response.SerializeToString(&response_string));
-
+  std::string response_string = SerializeAndEncode(response);
   base::HistogramTester histogram_tester;
-  FormStructure::ParseQueryResponse(
+  FormStructure::ParseApiQueryResponse(
       response_string, forms_, test::GetEncodedSignatures(forms_), nullptr);
   EXPECT_THAT(
       histogram_tester.GetAllSamples("Autofill.ServerResponseHasDataForForm"),
@@ -10421,9 +10428,9 @@ TEST_F(AutofillMetricsTest,
 // Verify that we don't log Autofill.WebOTP.OneTimeCode.FromAutocomplete if the
 // frame has no form.
 TEST_F(AutofillMetricsTest, FrameHasNoForm) {
+  base::HistogramTester histogram_tester;
   autofill_manager_.reset();
-  EXPECT_FALSE(base::StatisticsRecorder::FindHistogram(
-      "Autofill.WebOTP.OneTimeCode.FromAutocomplete"));
+  histogram_tester.ExpectTotalCount("Autofill.WebOTP.OneTimeCode.FromAutocomplete", 0);
 }
 
 // Verify that we correctly log metrics if a frame has
@@ -11377,6 +11384,49 @@ TEST_F(AutofillMetricsTest, GetFieldTypeUserEditStatusMetric) {
   int actual_result =
       autofill::GetFieldTypeUserEditStatusMetric(server_type, metric);
   EXPECT_EQ(expected_result, actual_result);
+}
+
+// Validate that correct page language values are taken from
+// |AutofillClient| and logged upon form submission.
+TEST_F(AutofillMetricsTest, PageLanguageMetricsExpectedCase) {
+  FormData form;
+  CreateSimpleForm(autofill_client_.form_origin(), form);
+
+  // Set up language state.
+  autofill_client_.GetLanguageState()->SetOriginalLanguage("ub");
+  autofill_client_.GetLanguageState()->SetCurrentLanguage("ub");
+  int language_code = 'u' * 256 + 'b';
+
+  // Simulate form submission.
+  base::HistogramTester histogram_tester;
+  autofill_manager_->OnFormSubmitted(form, false,
+                                     SubmissionSource::FORM_SUBMISSION);
+
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.ParsedFieldTypesUsingTranslatedPageLanguage", language_code, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.ParsedFieldTypesWasPageTranslated", false, 1);
+}
+
+// Validate that invalid language codes (with disallowed symbols in this case)
+// get logged as invalid.
+TEST_F(AutofillMetricsTest, PageLanguageMetricsInvalidLanguage) {
+  FormData form;
+  CreateSimpleForm(autofill_client_.form_origin(), form);
+
+  // Set up language state.
+  autofill_client_.GetLanguageState()->SetOriginalLanguage("!ab");
+  autofill_client_.GetLanguageState()->SetCurrentLanguage("other");
+
+  // Simulate form submission.
+  base::HistogramTester histogram_tester;
+  autofill_manager_->OnFormSubmitted(form, false,
+                                     SubmissionSource::FORM_SUBMISSION);
+
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.ParsedFieldTypesUsingTranslatedPageLanguage", 0, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.ParsedFieldTypesWasPageTranslated", true, 1);
 }
 
 }  // namespace autofill

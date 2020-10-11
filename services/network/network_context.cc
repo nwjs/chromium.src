@@ -126,6 +126,7 @@
 #include "net/cert/ct_log_verifier.h"
 #include "net/cert/multi_log_ct_verifier.h"
 #include "services/network/expect_ct_reporter.h"
+#include "services/network/sct_auditing_cache.h"
 #endif  // BUILDFLAG(IS_CT_SUPPORTED)
 
 #if !BUILDFLAG(DISABLE_FTP_SUPPORT)
@@ -436,6 +437,7 @@ NetworkContext::NetworkContext(
 #if BUILDFLAG(IS_CT_SUPPORTED)
   if (params_->ct_policy)
     SetCTPolicy(std::move(params_->ct_policy));
+  SetSCTAuditingEnabled(params_->enable_sct_auditing);
 #endif
 
 #if defined(OS_ANDROID)
@@ -476,9 +478,6 @@ NetworkContext::NetworkContext(
     cors_exempt_header_list_.insert(key);
 
   origin_policy_manager_ = std::make_unique<OriginPolicyManager>(this);
-
-  cors_enabled_ =
-      base::FeatureList::IsEnabled(network::features::kOutOfBlinkCors);
 }
 
 NetworkContext::~NetworkContext() {
@@ -718,13 +717,14 @@ void NetworkContext::ClearTrustTokenData(mojom::ClearDataFilterPtr filter,
       std::move(filter), std::move(done)));
 }
 
-void NetworkContext::ClearNetworkingHistorySince(
-    base::Time time,
+void NetworkContext::ClearNetworkingHistoryBetween(
+    base::Time start_time,
+    base::Time end_time,
     base::OnceClosure completion_callback) {
   auto barrier = base::BarrierClosure(2, std::move(completion_callback));
 
-  url_request_context_->transport_security_state()->DeleteAllDynamicDataSince(
-      time, barrier);
+  url_request_context_->transport_security_state()->DeleteAllDynamicDataBetween(
+      start_time, end_time, barrier);
 
   // TODO(mmenke): Neither of these methods waits until the changes have been
   // commited to disk. They probably should, as most similar methods net/
@@ -770,12 +770,14 @@ void NetworkContext::ClearHostCache(mojom::ClearDataFilterPtr filter,
 }
 
 void NetworkContext::ClearHttpAuthCache(base::Time start_time,
+                                        base::Time end_time,
                                         ClearHttpAuthCacheCallback callback) {
   net::HttpNetworkSession* http_session =
       url_request_context_->http_transaction_factory()->GetSession();
   DCHECK(http_session);
 
-  http_session->http_auth_cache()->ClearEntriesAddedSince(start_time);
+  http_session->http_auth_cache()->ClearEntriesAddedBetween(start_time,
+                                                            end_time);
   // TODO(mmenke): Use another error code for this, as ERR_ABORTED has somewhat
   // magical handling with respect to navigations.
   http_session->CloseAllConnections(net::ERR_ABORTED, "Clearing auth cache");
@@ -1593,9 +1595,7 @@ void NetworkContext::PreconnectSockets(
     request_info.load_flags = net::LOAD_NORMAL;
     request_info.privacy_mode = net::PRIVACY_MODE_DISABLED;
   } else {
-    request_info.load_flags = net::LOAD_DO_NOT_SEND_COOKIES |
-                              net::LOAD_DO_NOT_SAVE_COOKIES |
-                              net::LOAD_DO_NOT_SEND_AUTH_DATA;
+    request_info.load_flags = net::LOAD_DO_NOT_SAVE_COOKIES;
     request_info.privacy_mode = net::PRIVACY_MODE_ENABLED;
   }
   request_info.network_isolation_key = network_isolation_key;
@@ -2479,18 +2479,6 @@ void NetworkContext::InitializeCorsParams() {
   }
   for (const auto& key : params_->cors_exempt_header_list)
     cors_exempt_header_list_.insert(key);
-  switch (params_->cors_mode) {
-    case mojom::NetworkContextParams::CorsMode::kDefault:
-      cors_enabled_ =
-          base::FeatureList::IsEnabled(network::features::kOutOfBlinkCors);
-      break;
-    case mojom::NetworkContextParams::CorsMode::kEnable:
-      cors_enabled_ = true;
-      break;
-    case mojom::NetworkContextParams::CorsMode::kDisable:
-      cors_enabled_ = false;
-      break;
-  }
 }
 
 void NetworkContext::FinishConstructingTrustTokenStore(

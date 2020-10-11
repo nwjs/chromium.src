@@ -410,12 +410,6 @@
 // Returns YES if CreditCardScanner feature is enabled.
 + (BOOL)isCreditCardScannerEnabled WARN_UNUSED_RESULT;
 
-// Returns YES if AutofillEnableCompanyName feature is enabled.
-+ (BOOL)isAutofillCompanyNameEnabled WARN_UNUSED_RESULT;
-
-// Returns YES if kChangeTabSwitcherPosition feature is enabled.
-+ (BOOL)isChangeTabSwitcherPositionEnabled WARN_UNUSED_RESULT;
-
 // Returns YES if DemographicMetricsReporting feature is enabled.
 + (BOOL)isDemographicMetricsReportingEnabled WARN_UNUSED_RESULT;
 
@@ -432,6 +426,12 @@
 
 // Returns whether the mobile version of the websites are requested by default.
 + (BOOL)isMobileModeByDefault WARN_UNUSED_RESULT;
+
+// Returns whether the illustrated empty states feature is enabled.
++ (BOOL)isIllustratedEmptyStatesEnabled;
+
+// Returns whether the native context menus feature is enabled or not.
++ (BOOL)isNativeContextMenusEnabled;
 
 #pragma mark - Popup Blocking
 
@@ -462,6 +462,11 @@
 // clearing Browsing data.
 + (void)resetBrowsingDataPrefs;
 
+#pragma mark - Unified Consent utilities
+
+// Enables or disables URL-keyed anonymized data collection.
++ (void)setURLKeyedAnonymizedDataCollectionEnabled:(BOOL)enabled;
+
 #pragma mark - Keyboard Command utilities
 
 // The count of key commands registered with the currently active BVC.
@@ -474,6 +479,15 @@
 // UIKeyInputEscape constants as |input|.
 + (void)simulatePhysicalKeyboardEvent:(NSString*)input
                                 flags:(UIKeyModifierFlags)flags;
+
+#pragma mark - Pasteboard utilities
+
+// Clears the URLs stored in the pasteboard, from the tested app's perspective.
++ (void)clearPasteboardURLs;
+
+// Retrieves the currently stored string on the pasteboard from the tested app's
+// perspective.
++ (NSString*)pasteboardString;
 
 @end
 

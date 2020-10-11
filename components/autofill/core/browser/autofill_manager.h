@@ -41,10 +41,6 @@
 #include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/signatures.h"
 
-#if defined(OS_ANDROID) || defined(OS_IOS)
-#include "components/autofill/core/browser/autofill_assistant.h"
-#endif
-
 namespace gfx {
 class RectF;
 }
@@ -288,8 +284,8 @@ class AutofillManager : public AutofillHandler,
   // purposes only.
   void OnLoadedServerPredictionsForTest(
       std::string response,
-      const FormAndFieldSignatures& signatures) {
-    OnLoadedServerPredictions(response, signatures);
+      const std::vector<FormSignature>& queried_form_signatures) {
+    OnLoadedServerPredictions(response, queried_form_signatures);
   }
 
   // A public wrapper that calls |MakeFrontendID| for testing purposes only.
@@ -450,7 +446,7 @@ class AutofillManager : public AutofillHandler,
   // AutofillDownloadManager::Observer:
   void OnLoadedServerPredictions(
       std::string response,
-      const FormAndFieldSignatures& signatures) override;
+      const std::vector<FormSignature>& queried_form_signatures) override;
 
   // CreditCardAccessManager::Accessor
   void OnCreditCardFetched(
@@ -606,6 +602,9 @@ class AutofillManager : public AutofillHandler,
                                std::vector<Suggestion>* suggestions,
                                SuggestionsContext* context);
 
+  // Retrieves the page language from |client_|
+  std::string GetPageLanguage() const override;
+
 #if !defined(OS_ANDROID) && !defined(OS_IOS)
   // Whether to show the option to use virtual card in the autofill popup.
   bool ShouldShowVirtualCardOption(FormStructure* form_structure);
@@ -707,10 +706,6 @@ class AutofillManager : public AutofillHandler,
 
   // Delegate used in test to get notifications on certain events.
   AutofillManagerTestDelegate* test_delegate_ = nullptr;
-
-#if defined(OS_ANDROID) || defined(OS_IOS)
-  AutofillAssistant autofill_assistant_;
-#endif
 
   // A map of form names to FillingContext instances used to make refill
   // attempts for dynamic forms.

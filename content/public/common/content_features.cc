@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "content/public/common/content_features.h"
+#include "base/feature_list.h"
 #include "build/build_config.h"
 
 #if defined(OS_WIN)
@@ -42,6 +43,11 @@ const base::Feature kAllowPopupsDuringPageUnload{
 const base::Feature kAllowSignedHTTPExchangeCertsWithoutExtension{
     "AllowSignedHTTPExchangeCertsWithoutExtension",
     base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Allows Blink to request fonts from the Android Downloadable Fonts API through
+// the service implemented on the Java side.
+const base::Feature kAndroidDownloadableFontsMatching{
+    "AndroidDownloadableFontsMatching", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Launches the audio service on the browser startup.
 const base::Feature kAudioServiceLaunchOnStartup{
@@ -92,6 +98,14 @@ const base::Feature kBackForwardCacheMemoryControl{
 const base::Feature kBlockCredentialedSubresources{
     "BlockCredentialedSubresources", base::FEATURE_ENABLED_BY_DEFAULT};
 
+// When kBlockInsecurePrivateNetworkRequests is enabled, requests initiated
+// from a less-private network may only target a more-private network if the
+// initiating context is secure.
+//
+// https://wicg.github.io/cors-rfc1918/#integration-fetch
+const base::Feature kBlockInsecurePrivateNetworkRequests{
+    "BlockInsecurePrivateNetworkRequests", base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Use ThreadPriority::DISPLAY for browser UI and IO threads.
 #if defined(OS_ANDROID) || defined(OS_CHROMEOS)
 const base::Feature kBrowserUseDisplayThreadPriority{
@@ -118,12 +132,6 @@ const base::Feature kCacheInlineScriptCode{"CacheInlineScriptCode",
 const base::Feature kCacheStorageParallelOps{"CacheStorageParallelOps",
                                              base::FEATURE_ENABLED_BY_DEFAULT};
 
-// Enables eagerly reading the response body in cache.match() when the
-// operation was started from a FetchEvent handler with a matching request
-// URL.
-const base::Feature kCacheStorageEagerReading{"CacheStorageEagerReading",
-                                              base::FEATURE_ENABLED_BY_DEFAULT};
-
 // If Canvas2D Image Chromium is allowed, this feature controls whether it is
 // enabled.
 const base::Feature kCanvas2DImageChromium {
@@ -144,7 +152,7 @@ const base::Feature kClickPointerEvent{"ClickPointerEvent",
 
 // When enabled, code cache does not use a browsing_data filter for deletions.
 extern const base::Feature kCodeCacheDeletionWithoutFilter{
-    "CodeCacheDeletionWithoutFilter", base::FEATURE_DISABLED_BY_DEFAULT};
+    "CodeCacheDeletionWithoutFilter", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // When enabled, event.movement is calculated in blink instead of in browser.
 const base::Feature kConsolidatedMovementXY{"ConsolidatedMovementXY",
@@ -206,7 +214,13 @@ const base::Feature kEnumerateDevicesHideDeviceIDs{
 // When a screen reader is detected, allow users the option of letting
 // Google provide descriptions for unlabeled images.
 const base::Feature kExperimentalAccessibilityLabels{
-    "ExperimentalAccessibilityLabels", base::FEATURE_ENABLED_BY_DEFAULT};
+  "ExperimentalAccessibilityLabels",
+#if defined(OS_ANDROID)
+      base::FEATURE_DISABLED_BY_DEFAULT
+#else
+      base::FEATURE_ENABLED_BY_DEFAULT
+#endif
+};
 
 // Throttle tasks in Blink background timer queues based on CPU budgets
 // for the background tab. Bug: https://crbug.com/639852.
@@ -257,11 +271,6 @@ const base::Feature kForwardMemoryPressureEventsToGpuProcess {
 // floating-point numbers rather than truncating to integers.
 const base::Feature kFractionalScrollOffsets{"FractionalScrollOffsets",
                                              base::FEATURE_DISABLED_BY_DEFAULT};
-
-// Enables support for FTP URLs. When disabled FTP URLs will behave the same as
-// any other URL scheme that's unknown to the UA. See https://crbug.com/333943
-const base::Feature kFtpProtocol{"FtpProtocol",
-                                 base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Puts network quality estimate related Web APIs in the holdback mode. When the
 // holdback is enabled the related Web APIs return network quality estimate
@@ -353,6 +362,14 @@ const base::Feature kLogJsConsoleMessages {
 // Enables lowering the priority of the resources in iframes.
 const base::Feature kLowPriorityIframes{"LowPriorityIframes",
                                         base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Removes the association between the `AgentSchedulingGroup` interfaces and the
+// IPC Channel. This will break ordering guarantees between different agent
+// scheduling groups (ordering withing a group is still preserved).
+// DO NOT USE! The feature is not yet fully implemented. See crbug.com/1111231.
+const base::Feature kMbiDetachAgentSchedulingGroupFromChannel{
+    "MbiDetachAgentSchedulingGroupFromChannel",
+    base::FEATURE_DISABLED_BY_DEFAULT};
 
 // If this feature is enabled, media-device enumerations use a cache that is
 // invalidated upon notifications sent by base::SystemMonitor. If disabled, the
@@ -456,10 +473,6 @@ const base::Feature kPepper3DImageChromium {
 const base::Feature kPepperCrossOriginRedirectRestriction{
     "PepperCrossOriginRedirectRestriction", base::FEATURE_ENABLED_BY_DEFAULT};
 
-// Whether we should composite a PLSA even if it means losing lcd text.
-const base::Feature kPreferCompositingToLCDText = {
-    "PreferCompositingToLCDText", base::FEATURE_DISABLED_BY_DEFAULT};
-
 // Enables process sharing for sites that do not require a dedicated process
 // by using a default SiteInstance. Default SiteInstances will only be used
 // on platforms that do not use full site isolation.
@@ -500,6 +513,10 @@ const base::Feature kProactivelySwapBrowsingInstance{
 // for subscription refreshes, revoked permissions or subscription losses
 const base::Feature kPushSubscriptionChangeEvent{
     "PushSubscriptionChangeEvent", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Enables the Direct Sockets API.
+const base::Feature kDirectSockets{"DirectSockets",
+                                   base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Controls whether FileURLLoaderFactory can fetch additional files based on the
 // isolated world's origin. This feature is disabled by default because we want
@@ -572,7 +589,7 @@ const base::Feature kSendBeaconThrowForBlobWithNonSimpleType{
 // IO thread.
 // https://crbug.com/824858
 const base::Feature kServiceWorkerOnUI{"ServiceWorkerOnUI",
-                                       base::FEATURE_DISABLED_BY_DEFAULT};
+                                       base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Service worker based payment apps as defined by w3c here:
 // https://w3c.github.io/webpayments-payment-apps-api/
@@ -617,7 +634,7 @@ const base::Feature kSignedExchangeReportingForDistributors{
 // Subresource prefetching+loading via Signed HTTP Exchange
 // https://www.chromestatus.com/features/5126805474246656
 const base::Feature kSignedExchangeSubresourcePrefetch{
-    "SignedExchangeSubresourcePrefetch", base::FEATURE_DISABLED_BY_DEFAULT};
+    "SignedExchangeSubresourcePrefetch", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Origin-Signed HTTP Exchanges (for WebPackage Loading)
 // https://www.chromestatus.com/features/5745285984681984
@@ -762,7 +779,8 @@ const base::Feature kWebAssemblyThreads {
 };
 
 // Enable WebAssembly trap handler.
-#if (defined(OS_LINUX) || defined(OS_WIN) || defined(OS_MAC)) && \
+#if (defined(OS_LINUX) || defined(OS_CHROMEOS) || defined(OS_WIN) || \
+     defined(OS_MAC)) &&                                             \
     defined(ARCH_CPU_X86_64)
 const base::Feature kWebAssemblyTrapHandler{"WebAssemblyTrapHandler",
                                             base::FEATURE_ENABLED_BY_DEFAULT};

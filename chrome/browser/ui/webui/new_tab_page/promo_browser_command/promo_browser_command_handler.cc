@@ -6,6 +6,7 @@
 
 #include "base/feature_list.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/metrics/user_metrics.h"
 #include "chrome/browser/browser_features.h"
 #include "chrome/browser/command_updater_impl.h"
 #include "chrome/browser/profiles/profile.h"
@@ -64,6 +65,14 @@ void PromoBrowserCommandHandler::ExecuteCommandWithDisposition(
     case Command::kOpenSafetyCheck:
       NavigateToURL(GURL(chrome::GetSettingsUrl(chrome::kSafetyCheckSubPage)),
                     disposition);
+      base::RecordAction(
+          base::UserMetricsAction("NewTabPage_Promos_SafetyCheck"));
+      break;
+    case Command::kOpenSafeBrowsingSettings:
+      NavigateToURL(GURL(chrome::GetSettingsUrl(chrome::kSafeBrowsingSubPage)),
+                    disposition);
+      base::RecordAction(
+          base::UserMetricsAction("NewTabPage_Promos_EnhancedProtection"));
       break;
     default:
       NOTREACHED() << "Unspecified behavior for command " << id;
@@ -77,6 +86,8 @@ void PromoBrowserCommandHandler::EnableCommands() {
       static_cast<int>(Command::kUnknownCommand), true);
   GetCommandUpdater()->UpdateCommandEnabled(
       static_cast<int>(Command::kOpenSafetyCheck), true);
+  GetCommandUpdater()->UpdateCommandEnabled(
+      static_cast<int>(Command::kOpenSafeBrowsingSettings), true);
 }
 
 CommandUpdater* PromoBrowserCommandHandler::GetCommandUpdater() {

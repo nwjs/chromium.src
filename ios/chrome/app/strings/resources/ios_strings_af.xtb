@@ -14,6 +14,7 @@
 <translation id="1084365883616172403">Facebook-plasing is voltooi.</translation>
 <translation id="1103523840287552314">Vertaal <ph name="LANGUAGE" /> altyd</translation>
 <translation id="1104948393051856124">Aanvaar en gaan voort</translation>
+<translation id="110724200315609752">Wissel na oop venster</translation>
 <translation id="1112015203684611006">Kon nie druk nie.</translation>
 <translation id="1125564390852150847">Skep nuwe oortjie.</translation>
 <translation id="1145536944570833626">Vee bestaande data uit.</translation>
@@ -93,6 +94,7 @@
 <translation id="1941314575388338491">Dubbeltik om te kopieer.</translation>
 <translation id="1952172573699511566">Webwerwe sal, indien moontlik, teks in jou voorkeurtaal vertoon.</translation>
 <translation id="1952728750904661634">Meld met bestuurde rekening aan</translation>
+<translation id="1965935827552890526">Voltooi wat jy besig was om in jou ander oop Chrome-venster te doen.</translation>
 <translation id="1974060860693918893">Gevorderd</translation>
 <translation id="1989112275319619282">Blaai deur</translation>
 <translation id="1992734845128748707">Verander verstekblaaier …</translation>
@@ -277,6 +279,7 @@ Terwyl jy in Incognito is, kan werwe nie webkoekies gebruik om jou blaai-aktiwit
 <translation id="408404951701638773">Soekbalk kan nou makliker bereik word</translation>
 <translation id="411254640334432676">Kon nie aflaai nie.</translation>
 <translation id="4112644173421521737">Soek</translation>
+<translation id="4113030288477039509">Deur jou administrateur bestuur</translation>
 <translation id="4121993058175073134">Stel asseblief jou e-posrekening in die Instellingsprogram op om netto-uitvoerdata te stuur.</translation>
 <translation id="4124987746317609294">Tydreeks</translation>
 <translation id="4152011295694446843">Jy sal jou boekmerke hier kry</translation>
@@ -285,11 +288,13 @@ Terwyl jy in Incognito is, kan werwe nie webkoekies gebruik om jou blaai-aktiwit
 <translation id="4181841719683918333">Tale</translation>
 <translation id="424315890655130736">Voer wagfrase in</translation>
 <translation id="4263576668337963058">Wys beskikbare bladsyhandelinge</translation>
+<translation id="4267380167363222949">Volgende oortjie</translation>
 <translation id="4272631900155121838">Aktiveer die kamera in instellings om 'n QR-kode te skandeer</translation>
 <translation id="4276041135170112053">Maak nou reg.</translation>
 <translation id="4277990410970811858">Veiligblaai</translation>
 <translation id="4281844954008187215">Diensbepalings</translation>
 <translation id="430793432425771671">Sinkroniseer alles</translation>
+<translation id="4309403553630140242">Dubbeltik vir meer inligting</translation>
 <translation id="430967081421617822">Alle tye</translation>
 <translation id="4334428914252001502">1 ongeleesde artikel.</translation>
 <translation id="4338650699862464074">Stuur URL'e van bladsye wat jy besoek na Google toe.</translation>
@@ -353,6 +358,7 @@ Jou data is met jou sinkroniseringwagfrase geënkripteer. Voer dit in om te begi
 <translation id="5005498671520578047">Kopieer wagwoord</translation>
 <translation id="5010803260590204777">Maak 'n incognito-oortjie oop om privaat deur die web te blaai.</translation>
 <translation id="5039804452771397117">Laat toe</translation>
+<translation id="5056446788882570708">Kwessies <ph name="TIME" /> gekry.</translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5062321486222145940">Installeer Google Drive</translation>
 <translation id="5083464117946352670">Kan nie lêergrootte bepaal nie.</translation>
@@ -376,7 +382,6 @@ Jou data is met jou sinkroniseringwagfrase geënkripteer. Voer dit in om te begi
 <translation id="5317780077021120954">Berg</translation>
 <translation id="5327248766486351172">Naam</translation>
 <translation id="5339316356165661760">Skakel sinkronisering aan</translation>
-<translation id="5352285283572729470">Hierdie instelling word bestuur</translation>
 <translation id="5388358297987318779">Maak prent oop</translation>
 <translation id="5407969256130905701">Gooi veranderinge weg</translation>
 <translation id="5409365236829784218">Daar is geen programme geïnstalleer wat hierdie lêer kan oopmaak nie.</translation>
@@ -456,6 +461,7 @@ Oorgee moet ook in die Algemene afdeling van Instellings geaktiveer word, en jou
 <translation id="6187302354554850004">Laas gesinkroniseer: <ph name="LAST_USED_TIME" /></translation>
 <translation id="6189413832092199491">Nie gelees nie</translation>
 <translation id="6196207969502475924">Stemsoektog</translation>
+<translation id="6202364442240589072">{COUNT,plural, =1{Maak {COUNT} oortjie toe}other{Maak {COUNT} oortjies toe}}</translation>
 <translation id="6219688215832490856">Moet nooit vertaal nie</translation>
 <translation id="6254066287920239840">Maak skakels in die program oop, in plaas van die blaaier.</translation>
 <translation id="6255097610484507482">Wysig kredietkaart</translation>
@@ -571,6 +577,7 @@ Werwe kan nie webkoekies gebruik om jou blaai-aktiwiteit op verskillende werwe t
 <translation id="734758817008927353">Opsies om 'n kaart te stoor</translation>
 <translation id="7348502496356775519">Boekmerk</translation>
 <translation id="7383797227493018512">Leeslys</translation>
+<translation id="739941347996872055">Vorige oortjie</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> ongeleesde artikels.</translation>
 <translation id="7425346204213733349">Veranderinge aan jou boekmerke, geskiedenis, wagwoorde en ander instellings sal nie meer met jou Google-rekening gesinkroniseer word nie. Jou bestaande data sal egter in jou Google-rekening geberg bly.</translation>
@@ -636,6 +643,7 @@ Werwe kan webkoekies gebruik om jou blaai-aktiwiteit op verskillende werwe te si
 <translation id="8073670137947914548">Aflaai is klaar</translation>
 <translation id="8073872304774253879">Maak soektogte en blaai-ervaring beter</translation>
 <translation id="8076014560081431679">Gestoorde werfinstellings sal nie uitgevee word nie en sal dalk jou blaaigewoontes weerspieël. <ph name="BEGIN_LINK" />Kom meer te wete<ph name="END_LINK" /></translation>
+<translation id="8079602123447022758">Hierdie instelling word bestuur. Dubbeltik vir meer inligting.</translation>
 <translation id="8105368624971345109">Skakel af</translation>
 <translation id="8114753159095730575">Lêer kan afgelaai word. Opsies is naby die onderkant van die skerm beskikbaar.</translation>
 <translation id="8131740175452115882">Bevestig</translation>

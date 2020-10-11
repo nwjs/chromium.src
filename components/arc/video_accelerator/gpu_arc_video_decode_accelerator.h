@@ -12,8 +12,10 @@
 
 #include "base/callback_forward.h"
 #include "base/files/scoped_file.h"
+#include "base/optional.h"
 #include "base/threading/thread_checker.h"
 #include "components/arc/mojom/video_decode_accelerator.mojom.h"
+#include "gpu/config/gpu_driver_bug_workarounds.h"
 #include "gpu/config/gpu_preferences.h"
 #include "media/video/video_decode_accelerator.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -39,6 +41,7 @@ class GpuArcVideoDecodeAccelerator
  public:
   GpuArcVideoDecodeAccelerator(
       const gpu::GpuPreferences& gpu_preferences,
+      const gpu::GpuDriverBugWorkarounds& gpu_workarounds,
       scoped_refptr<ProtectedBufferManager> protected_buffer_manager);
   ~GpuArcVideoDecodeAccelerator() override;
 
@@ -140,6 +143,7 @@ class GpuArcVideoDecodeAccelerator
   ResetCallback pending_reset_callback_;
 
   gpu::GpuPreferences gpu_preferences_;
+  gpu::GpuDriverBugWorkarounds gpu_workarounds_;
   std::unique_ptr<media::VideoDecodeAccelerator> vda_;
   mojo::Remote<mojom::VideoDecodeClient> client_;
 
@@ -150,7 +154,7 @@ class GpuArcVideoDecodeAccelerator
 
   size_t protected_input_buffer_count_ = 0;
 
-  bool secure_mode_ = false;
+  base::Optional<bool> secure_mode_ = base::nullopt;
   size_t output_buffer_count_ = 0;
   bool assign_picture_buffers_called_ = false;
 

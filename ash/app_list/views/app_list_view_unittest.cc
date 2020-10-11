@@ -44,6 +44,7 @@
 #include "ash/public/cpp/ash_features.h"
 #include "ash/public/cpp/pagination/pagination_model.h"
 #include "ash/public/cpp/presentation_time_recorder.h"
+#include "ash/search_box/search_box_constants.h"
 #include "base/macros.h"
 #include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
@@ -56,7 +57,6 @@
 #include "services/content/public/cpp/test/fake_navigable_contents.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/models/simple_menu_model.h"
-#include "ui/chromeos/search_box/search_box_constants.h"
 #include "ui/compositor/layer_animator.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
@@ -1571,9 +1571,9 @@ TEST_P(AppListViewFocusTest, HittingLeftRightWhenFocusOnTextfield) {
   TestLeftAndRightKeyTraversalOnTextfield(search_box_view()->search_box());
 }
 
-// Tests that the focus is reset onto the search box and the folder exits after
-// hitting enter on folder name.
-TEST_P(AppListViewFocusTest, FocusResetAfterHittingEnterOnFolderName) {
+// Tests that the focus is reset and the folder does not exit after hitting
+// enter/escape on folder name.
+TEST_P(AppListViewFocusTest, FocusResetAfterHittingEnterOrEscapeOnFolderName) {
   Show();
 
   // Transition to FULLSCREEN_ALL_APPS state and open the folder.
@@ -1589,8 +1589,14 @@ TEST_P(AppListViewFocusTest, FocusResetAfterHittingEnterOnFolderName) {
 
   // Hit enter key.
   SimulateKeyPress(ui::VKEY_RETURN, false);
-  search_box_view()->search_box()->RequestFocus();
-  EXPECT_FALSE(contents_view()->apps_container_view()->IsInFolderView());
+  EXPECT_TRUE(contents_view()->apps_container_view()->IsInFolderView());
+  EXPECT_FALSE(folder_name_view->HasFocus());
+
+  // Refocus and hit escape key.
+  folder_name_view->RequestFocus();
+  SimulateKeyPress(ui::VKEY_ESCAPE, false);
+  EXPECT_TRUE(contents_view()->apps_container_view()->IsInFolderView());
+  EXPECT_FALSE(folder_name_view->HasFocus());
 }
 
 // Tests that the selection highlight follows the page change.
@@ -2071,7 +2077,7 @@ TEST_F(AppListViewTest, SearchBoxCornerRadiusDuringDragging) {
   view_->OnGestureEvent(&update_event);
 
   EXPECT_TRUE(IsStateShown(ash::AppListState::kStateApps));
-  EXPECT_EQ(search_box::kSearchBoxBorderCornerRadius,
+  EXPECT_EQ(kSearchBoxBorderCornerRadius,
             search_box_view()->GetSearchBoxBorderCornerRadiusForState(
                 ash::AppListState::kStateApps));
 
@@ -2079,7 +2085,7 @@ TEST_F(AppListViewTest, SearchBoxCornerRadiusDuringDragging) {
   // during drag.
   EXPECT_TRUE(SetAppListState(ash::AppListState::kStateSearchResults));
   EXPECT_TRUE(view_->is_in_drag());
-  EXPECT_EQ(search_box::kSearchBoxBorderCornerRadius,
+  EXPECT_EQ(kSearchBoxBorderCornerRadius,
             search_box_view()->GetSearchBoxBorderCornerRadiusForState(
                 ash::AppListState::kStateSearchResults));
   histogram_tester.ExpectTotalCount(
@@ -2099,7 +2105,7 @@ TEST_F(AppListViewTest, SearchBoxCornerRadiusDuringDragging) {
   // Search box should keep |kSearchBoxCornerRadiusFullscreen| corner radius
   // if launcher drag finished.
   EXPECT_FALSE(view_->is_in_drag());
-  EXPECT_EQ(search_box::kSearchBoxBorderCornerRadius,
+  EXPECT_EQ(kSearchBoxBorderCornerRadius,
             search_box_view()->GetSearchBoxBorderCornerRadiusForState(
                 ash::AppListState::kStateApps));
   histogram_tester.ExpectTotalCount(

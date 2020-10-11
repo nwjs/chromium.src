@@ -14,10 +14,10 @@
 #include "base/logging.h"
 #include "base/optional.h"
 #include "base/util/type_safety/pass_key.h"
+#include "chrome/browser/web_applications/components/os_integration_manager.h"
 #include "chrome/browser/web_applications/components/web_app_helpers.h"
 #include "chrome/browser/web_applications/components/web_app_provider_base.h"
 #include "chrome/browser/web_applications/components/web_app_utils.h"
-#include "chrome/browser/web_applications/os_integration_manager.h"
 #include "chrome/browser/web_applications/web_app.h"
 #include "chrome/browser/web_applications/web_app_database.h"
 #include "chrome/browser/web_applications/web_app_database_factory.h"
@@ -55,7 +55,7 @@ std::unique_ptr<syncer::EntityData> CreateSyncEntityData(const WebApp& app) {
   entity_data->name = app.name();
   // TODO(crbug.com/1103570): Remove this fallback later.
   if (entity_data->name.empty())
-    entity_data->name = app.launch_url().spec();
+    entity_data->name = app.start_url().spec();
 
   *(entity_data->specifics.mutable_web_app()) = WebAppToSyncProto(app);
   return entity_data;
@@ -65,22 +65,22 @@ void ApplySyncDataToApp(const sync_pb::WebAppSpecifics& sync_data,
                         WebApp* app) {
   app->AddSource(Source::kSync);
 
-  // app_id is a hash of launch_url. Parse launch_url first:
-  GURL launch_url(sync_data.launch_url());
-  if (launch_url.is_empty() || !launch_url.is_valid()) {
-    DLOG(ERROR) << "ApplySyncDataToApp: launch_url parse error.";
+  // app_id is a hash of start_url. Parse start_url first:
+  GURL start_url(sync_data.start_url());
+  if (start_url.is_empty() || !start_url.is_valid()) {
+    DLOG(ERROR) << "ApplySyncDataToApp: start_url parse error.";
     return;
   }
-  if (app->app_id() != GenerateAppIdFromURL(launch_url)) {
-    DLOG(ERROR) << "ApplySyncDataToApp: app_id doesn't match launch_url.";
+  if (app->app_id() != GenerateAppIdFromURL(start_url)) {
+    DLOG(ERROR) << "ApplySyncDataToApp: app_id doesn't match start_url.";
     return;
   }
 
-  if (app->launch_url().is_empty()) {
-    app->SetLaunchUrl(std::move(launch_url));
-  } else if (app->launch_url() != launch_url) {
+  if (app->start_url().is_empty()) {
+    app->SetStartUrl(std::move(start_url));
+  } else if (app->start_url() != start_url) {
     DLOG(ERROR)
-        << "ApplySyncDataToApp: existing launch_url doesn't match launch_url.";
+        << "ApplySyncDataToApp: existing start_url doesn't match start_url.";
     return;
   }
 
@@ -521,7 +521,7 @@ void WebAppSyncBridge::ApplySyncChangesToRegistrar(
     registrar_->NotifyWebAppUninstalled(app_id);
     WebAppProviderBase::GetProviderBase(profile())
         ->os_integration_manager()
-        .UninstallOsHooks(app_id, base::DoNothing());
+        .UninstallAllOsHooks(app_id, base::DoNothing());
   }
 
   std::vector<WebApp*> apps_to_install;
@@ -618,11 +618,11 @@ std::string WebAppSyncBridge::GetClientTag(
     const syncer::EntityData& entity_data) {
   DCHECK(entity_data.specifics.has_web_app());
 
-  const GURL launch_url(entity_data.specifics.web_app().launch_url());
-  DCHECK(!launch_url.is_empty());
-  DCHECK(launch_url.is_valid());
+  const GURL start_url(entity_data.specifics.web_app().start_url());
+  DCHECK(!start_url.is_empty());
+  DCHECK(start_url.is_valid());
 
-  return GenerateAppIdFromURL(launch_url);
+  return GenerateAppIdFromURL(start_url);
 }
 
 std::string WebAppSyncBridge::GetStorageKey(

@@ -5,6 +5,7 @@
 #include "third_party/blink/renderer/core/paint/paint_invalidator.h"
 
 #include "base/optional.h"
+#include "third_party/blink/renderer/core/accessibility/ax_object_cache.h"
 #include "third_party/blink/renderer/core/editing/frame_selection.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
@@ -18,7 +19,6 @@
 #include "third_party/blink/renderer/core/layout/ng/legacy_layout_tree_walking.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_fragment_child_iterator.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_physical_box_fragment.h"
-#include "third_party/blink/renderer/core/layout/svg/svg_layout_support.h"
 #include "third_party/blink/renderer/core/page/link_highlight.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/paint/clip_path_clipper.h"
@@ -207,10 +207,10 @@ void PaintInvalidator::UpdateLayoutShiftTracking(
   const auto& box = ToLayoutBox(object);
 
   PhysicalRect new_rect = box.PhysicalBorderBoxRect();
-  if (!box.HasOverflowClip())
+  if (!box.ShouldClipOverflowAlongEitherAxis())
     new_rect.Unite(box.PhysicalLayoutOverflowRect());
   PhysicalRect old_rect = PhysicalRect(PhysicalOffset(), box.PreviousSize());
-  if (!box.PreviouslyHadOverflowClip())
+  if (!box.PreviouslyHadNonVisibleOverflow())
     old_rect.Unite(box.PreviousPhysicalLayoutOverflowRect());
 
   bool should_report_layout_shift = [&]() -> bool {

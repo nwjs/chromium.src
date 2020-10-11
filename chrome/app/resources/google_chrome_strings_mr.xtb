@@ -101,6 +101,7 @@
 <translation id="3622797965165704966">आता आपल्या Google खात्यावर आणि शेअर केलेल्या संगणकांवर Chrome वापरणे अधिक सुलभ आहे.</translation>
 <translation id="3718181793972440140">हे या डिव्‍हाइस मधून 1 आयटम हटवेल. नंतर तुमचा डेटा पुनर्प्राप्त करण्‍यासाठी, Chrome मध्ये <ph name="USER_EMAIL" /> म्हणून साइन इन करा.</translation>
 <translation id="3735758079232443276">तुम्ही Chrome सुरू करता तेव्हा कोणते पेज दर्शविले जाते हे "<ph name="EXTENSION_NAME" />" एक्स्टेंशनने बदलले आहे.</translation>
+<translation id="3779473566290487688">भविष्यातील Google Chrome अपडेट मिळवण्यासाठी, तुमच्याकडे OS X 10.11 किंवा त्यानंतरची आवृत्ती असणे आवश्यक आहे. हा कॉंप्युटर OS X 10.10 ही आवृत्ती वापरत आहे.</translation>
 <translation id="3780814664026482060">Chrome - <ph name="PAGE_TITLE" /></translation>
 <translation id="386202838227397562">कृपया सर्व Google Chrome विंडो बंद करा आणि पुन्हा प्रयत्न करा.</translation>
 <translation id="3865754807470779944">Chrome आवृत्ती <ph name="PRODUCT_VERSION" /> इंस्टॉल केली आहे</translation>
@@ -200,6 +201,7 @@ Google Chrome तुमची सेटिंग्ज पुन्हा मि
 <translation id="6967962315388095737">Google Chrome बीटाचा mDNS रहदारीस अनुमती देण्यासाठी इनबाउंड नियम.</translation>
 <translation id="6982337800632491844"><ph name="DOMAIN" /> ला हे डिव्हाइस वापरण्यापूर्वी तुम्ही खालील सेवा अटी वाचणे आणि स्वीकारणे आवश्यक आहे. या अटी Google Chrome OS अटींना विस्तृत, सुधारित किंवा मर्यादित करत नाहीत.</translation>
 <translation id="6989339256997917931">Google Chrome अपडेट केला गेला, परंतु तुम्ही तो किमान 30 दिवसांपासून वापरलेला नाही.</translation>
+<translation id="7054640471403081847">या संगणकाचे हार्डवेअर यापुढे समर्थित नसल्याने Google Chrome अपडेट प्राप्त करणे तो लवकरच थांबवेल.</translation>
 <translation id="7062128746136194023">तुमच्या पालकांनी Chrome साठी "साइट, अ‍ॅप्स आणि एक्स्टेंशनकरिता परवानग्या" सुरू केल्या आहेत. हे <ph name="EXTENSION_TYPE_PARAMETER" /> जोडण्याची अनुमती नाही.</translation>
 <translation id="7098166902387133879">Google Chrome तुमचा मायक्रोफोन वापरत आहे.</translation>
 <translation id="7106741999175697885">टास्क मॅनेजर – Google Chrome</translation>
@@ -219,7 +221,6 @@ Google Chrome तुमची सेटिंग्ज पुन्हा मि
 <translation id="7486227612705979895">ॲड्रेस बारमध्ये सूचना देण्यासाठी Chrome तुमची ड्राइव्ह ॲक्सेस करेल</translation>
 <translation id="7535429826459677826">Google Chrome डेव्हलपर</translation>
 <translation id="7573289029918943991">तुमचे डिव्हाइस अप टू डेट असल्याची खात्री करण्यासाठी <ph name="LINK_BEGIN" />Chrome OS सेटिंग्ज<ph name="LINK_END" /> वर जा</translation>
-<translation id="7589360514048265910">यापुढे Mac OS X 10.9 ला सपोर्ट नसल्यामुळे, या कॉंप्युटरला इथून पुढे Google Chrome चे अपडेट मिळणार नाहीत.</translation>
 <translation id="7592736734348559088">तुमचे खाते साइन इन तपशील कालबाह्य झाल्यामुळे Google Chrome तुमचा डेटा संकालित करू शकले नाही.</translation>
 <translation id="7626032353295482388">Chrome मध्ये स्वागत आहे</translation>
 <translation id="7629695634924605473">तुमचे पासवर्ड कधीही धोक्यात असल्यास, Chrome तुम्हाला कळवते</translation>

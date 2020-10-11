@@ -19,6 +19,7 @@
 <translation id="2161394479394250669">取消打印任务</translation>
 <translation id="2338501278241028356">开启蓝牙以发现附近的设备</translation>
 <translation id="2375079107209812402">剩余尝试次数：<ph name="ATTEMPTS_LEFT" /></translation>
+<translation id="2517472476991765520">扫描</translation>
 <translation id="2805756323405976993">应用</translation>
 <translation id="2872961005593481000">关机</translation>
 <translation id="3008341117444806826">刷新</translation>
@@ -39,7 +40,6 @@
 <translation id="4034824040120875894">打印机</translation>
 <translation id="4227825898293920515">密码将于 <ph name="TIME" />后到期</translation>
 <translation id="4238516577297848345">没有正在进行的打印任务</translation>
-<translation id="428217921675623177">系统会自动移除存在时长已超过 90 天的打印任务</translation>
 <translation id="4297501883039923494">已停止 - 未知错误</translation>
 <translation id="4429881212383817840">Kerberos 票据即将过期</translation>
 <translation id="445059817448385655">旧密码</translation>
@@ -81,7 +81,9 @@
 <translation id="7805768142964895445">状态</translation>
 <translation id="808894953321890993">更改密码</translation>
 <translation id="8208861521865154048">福利</translation>
+<translation id="8294431847097064396">来源</translation>
 <translation id="8347227221149377169">打印任务</translation>
+<translation id="8352772353338965963">为多帐号登录添加帐号。用户无需使用密码即可访问所有已登录的帐号，因此您应仅通过受信任的帐号使用此功能。</translation>
 <translation id="8701136875688985581">此用户由 <ph name="ENROLLMENT_DOMAIN" /> 管理。管理方可能会远程管理设置并监控用户活动。</translation>
 <translation id="871560550817059752">失败 - 墨水已用完</translation>
 <translation id="8726019395068607495">已停止 - 机盖未关</translation>

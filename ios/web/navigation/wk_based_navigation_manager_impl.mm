@@ -83,8 +83,16 @@ void WKBasedNavigationManagerImpl::OnNavigationItemCommitted() {
   DCHECK(item);
   delegate_->OnNavigationItemCommitted(item);
 
-  if (!wk_navigation_util::IsRestoreSessionUrl(item->GetURL()))
+  if (!wk_navigation_util::IsRestoreSessionUrl(item->GetURL())) {
     restored_visible_item_.reset();
+    if (is_restore_session_in_progress_) {
+      // There are crashes because restored_visible_item_ is nil and
+      // is_restore_session_in_progress_ is true. This is a speculative fix,
+      // based on the idea that a navigation item could be committed before
+      // OnNavigationStarted is called. See crbug.com/1127434.
+      FinalizeSessionRestore();
+    }
+  }
 }
 
 void WKBasedNavigationManagerImpl::OnNavigationStarted(const GURL& url) {
@@ -469,7 +477,7 @@ bool WKBasedNavigationManagerImpl::CanTrustLastCommittedItem(
   if (web_view_url.SchemeIs(url::kAboutScheme) ||
       last_committed_url.SchemeIs(url::kAboutScheme) ||
       web_view_url.SchemeIs(url::kFileScheme) ||
-      last_committed_url.SchemeIs(url::kAboutScheme) ||
+      last_committed_url.SchemeIs(url::kFileScheme) ||
       web::GetWebClient()->IsAppSpecificURL(web_view_url) ||
       web::GetWebClient()->IsAppSpecificURL(last_committed_url)) {
     return true;

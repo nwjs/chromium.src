@@ -69,11 +69,13 @@
 #include "extensions/browser/error_map.h"
 #include "extensions/browser/event_router_factory.h"
 #include "extensions/browser/extension_error.h"
+#include "extensions/browser/extension_file_task_runner.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_prefs_factory.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_registry_factory.h"
 #include "extensions/browser/extension_system.h"
+#include "extensions/browser/extension_util.h"
 #include "extensions/browser/file_highlighter.h"
 #include "extensions/browser/management_policy.h"
 #include "extensions/browser/notification_types.h"
@@ -88,6 +90,7 @@
 #include "extensions/common/install_warning.h"
 #include "extensions/common/manifest.h"
 #include "extensions/common/manifest_constants.h"
+#include "extensions/common/manifest_handlers/background_info.h"
 #include "extensions/common/manifest_handlers/options_page_info.h"
 #include "extensions/common/manifest_url_handlers.h"
 #include "extensions/common/permissions/permissions_data.h"
@@ -132,6 +135,11 @@ const char kCannotRepairPolicyExtension[] =
 const char kCannotChangeHostPermissions[] =
     "Cannot change host permissions for the given extension.";
 const char kInvalidHost[] = "Invalid host.";
+const char kInvalidLazyBackgroundPageParameter[] =
+    "isServiceWorker can not be set for lazy background page based extensions.";
+const char kInvalidRenderProcessId[] =
+    "render_process_id can be set to -1 for only lazy background page based or "
+    "service-worker based extensions.";
 
 const char kUnpackedAppsFolder[] = "apps_target";
 const char kManifestFile[] = "manifest.json";
@@ -306,7 +314,7 @@ std::unique_ptr<developer::ProfileInfo> DeveloperPrivateAPI::CreateProfileInfo(
       prefs->GetBoolean(prefs::kExtensionsUIDeveloperMode);
   info->can_load_unpacked =
       ExtensionManagementFactory::GetForBrowserContext(profile)
-          ->HasWhitelistedExtension();
+          ->HasAllowlistedExtension();
   return info;
 }
 
@@ -437,6 +445,18 @@ void DeveloperPrivateEventRouter::OnExtensionFrameUnregistered(
     content::RenderFrameHost* render_frame_host) {
   BroadcastItemStateChanged(developer::EVENT_TYPE_VIEW_UNREGISTERED,
                             extension_id);
+}
+
+void DeveloperPrivateEventRouter::OnServiceWorkerRegistered(
+    const WorkerId& worker_id) {
+  BroadcastItemStateChanged(developer::EVENT_TYPE_SERVICE_WORKER_STARTED,
+                            worker_id.extension_id);
+}
+
+void DeveloperPrivateEventRouter::OnServiceWorkerUnregistered(
+    const WorkerId& worker_id) {
+  BroadcastItemStateChanged(developer::EVENT_TYPE_SERVICE_WORKER_STOPPED,
+                            worker_id.extension_id);
 }
 
 void DeveloperPrivateEventRouter::OnAppWindowAdded(AppWindow* window) {
@@ -1188,7 +1208,8 @@ DeveloperPrivateInstallDroppedFileFunction::Run() {
 
   ExtensionService* service = GetExtensionService(browser_context());
   if (path.MatchesExtension(FILE_PATH_LITERAL(".zip"))) {
-    ZipFileInstaller::Create(MakeRegisterInExtensionServiceCallback(service))
+    ZipFileInstaller::Create(GetExtensionFileTaskRunner(),
+                             MakeRegisterInExtensionServiceCallback(service))
         ->LoadFromZipFile(path);
   } else {
     auto prompt = std::make_unique<ExtensionInstallPrompt>(web_contents);
@@ -1737,17 +1758,37 @@ DeveloperPrivateOpenDevToolsFunction::Run() {
   EXTENSION_FUNCTION_VALIDATE(params);
   const developer::OpenDevToolsProperties& properties = params->properties;
 
-  if (properties.render_process_id == -1) {
-    // This is a lazy background page.
-    const Extension* extension = properties.extension_id ?
-        GetEnabledExtensionById(*properties.extension_id) : nullptr;
+  Profile* profile = Profile::FromBrowserContext(browser_context());
+  if (properties.incognito && *properties.incognito)
+    profile = profile->GetPrimaryOTRProfile();
+
+  const Extension* extension =
+      properties.extension_id
+          ? GetEnabledExtensionById(*properties.extension_id)
+          : nullptr;
+
+  const bool is_service_worker =
+      properties.is_service_worker && *properties.is_service_worker;
+  if (is_service_worker) {
+    if (!BackgroundInfo::IsServiceWorkerBased(extension))
+      return RespondNow(Error(kInvalidLazyBackgroundPageParameter));
     if (!extension)
       return RespondNow(Error(kNoSuchExtensionError));
+    if (properties.render_process_id == -1) {
+      // Start the service worker and open the inspect window.
+      devtools_util::InspectInactiveServiceWorkerBackground(extension, profile);
+      return RespondNow(NoArguments());
+    }
+    devtools_util::InspectServiceWorkerBackground(extension, profile);
+    return RespondNow(NoArguments());
+  }
 
-    Profile* profile = Profile::FromBrowserContext(browser_context());
-    if (properties.incognito && *properties.incognito)
-      profile = profile->GetPrimaryOTRProfile();
-
+  if (properties.render_process_id == -1) {
+    // This is for a lazy background page.
+    if (!extension)
+      return RespondNow(Error(kNoSuchExtensionError));
+    if (!BackgroundInfo::HasLazyBackgroundPage(extension))
+      return RespondNow(Error(kInvalidRenderProcessId));
     // Wakes up the background page and opens the inspect window.
     devtools_util::InspectBackgroundPage(extension, profile);
     return RespondNow(NoArguments());

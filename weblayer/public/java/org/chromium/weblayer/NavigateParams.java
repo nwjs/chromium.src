@@ -60,7 +60,8 @@ public class NavigateParams {
          */
         @NonNull
         public Builder disableIntentProcessing() {
-            if (WebLayer.getSupportedMajorVersionInternal() < 86) {
+            if (WebLayer.shouldPerformVersionChecks()
+                    && WebLayer.getSupportedMajorVersionInternal() < 86) {
                 throw new UnsupportedOperationException();
             }
             mParams.mIntentProcessingDisabled = true;
@@ -75,7 +76,8 @@ public class NavigateParams {
          */
         @NonNull
         public Builder disableNetworkErrorAutoReload() {
-            if (WebLayer.getSupportedMajorVersionInternal() < 86) {
+            if (WebLayer.shouldPerformVersionChecks()
+                    && WebLayer.getSupportedMajorVersionInternal() < 86) {
                 throw new UnsupportedOperationException();
             }
             mParams.mNetworkErrorAutoReloadDisabled = true;
@@ -89,7 +91,8 @@ public class NavigateParams {
          */
         @NonNull
         public Builder enableAutoPlay() {
-            if (WebLayer.getSupportedMajorVersionInternal() < 86) {
+            if (WebLayer.shouldPerformVersionChecks()
+                    && WebLayer.getSupportedMajorVersionInternal() < 86) {
                 throw new UnsupportedOperationException();
             }
             mParams.mAutoPlayEnabled = true;
@@ -118,7 +121,8 @@ public class NavigateParams {
      * @since 86
      */
     public boolean isIntentProcessingDisabled() {
-        if (WebLayer.getSupportedMajorVersionInternal() < 86) {
+        if (WebLayer.shouldPerformVersionChecks()
+                && WebLayer.getSupportedMajorVersionInternal() < 86) {
             throw new UnsupportedOperationException();
         }
         return mIntentProcessingDisabled;
@@ -132,7 +136,8 @@ public class NavigateParams {
      * @since 86
      */
     public boolean isNetworkErrorAutoReloadDisabled() {
-        if (WebLayer.getSupportedMajorVersionInternal() < 86) {
+        if (WebLayer.shouldPerformVersionChecks()
+                && WebLayer.getSupportedMajorVersionInternal() < 86) {
             throw new UnsupportedOperationException();
         }
         return mNetworkErrorAutoReloadDisabled;
@@ -146,7 +151,8 @@ public class NavigateParams {
      * @since 86
      */
     public boolean isAutoPlayEnabled() {
-        if (WebLayer.getSupportedMajorVersionInternal() < 86) {
+        if (WebLayer.shouldPerformVersionChecks()
+                && WebLayer.getSupportedMajorVersionInternal() < 86) {
             throw new UnsupportedOperationException();
         }
         return mAutoPlayEnabled;

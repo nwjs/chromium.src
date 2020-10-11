@@ -102,6 +102,7 @@
 <translation id="3622797965165704966">Одоо та Google хаягаа ашиглан мөн өөр бусад компьютер дээр Chrome-г ашиглахад хялбар боллоо.</translation>
 <translation id="3718181793972440140">Энэ нь төхөөрөмжөөс 1 зүйл устгах болно. Өгөгдлөө дараа сэргээхийн тулд Chrome-д <ph name="USER_EMAIL" />-р нэвтэрнэ үү.</translation>
 <translation id="3735758079232443276">"<ph name="EXTENSION_NAME" />" өргөтгөл нь таныг Chrome-г эхлүүлэх үед хуудсанд харагдах зүйлийг өөрчилсөн.</translation>
+<translation id="3779473566290487688">Google Chrome-н цаашдын шинэчлэлтийг авахын тулд танд OS X 10.11 буюу түүнээс хойших хувилбар хэрэгтэй болно. Энэ компьютер OS X 10.10 хувилбарыг ашиглаж байна.</translation>
 <translation id="3780814664026482060">Chrome - <ph name="PAGE_TITLE" /></translation>
 <translation id="386202838227397562">Бүх Google Chrome-ын цонхнуудыг хааж дахин оролдоно уу.</translation>
 <translation id="3865754807470779944">Chrome <ph name="PRODUCT_VERSION" /> хувилбарыг суулгасан</translation>
@@ -202,6 +203,7 @@ Google Chrome таны тохируулгыг дахин сэргээх боло
 <translation id="6967962315388095737">mDNS урсгалыг зөвшөөрөх Google Chrome Бэта-н дотоод дүрэм.</translation>
 <translation id="6982337800632491844"><ph name="DOMAIN" />-аас таныг энэ төхөөрөмжийг ашиглахаасаа өмнө дараах үйлчилгээний нөхцлийг уншиж, хүлээн зөвшөөрсөн байхыг шаардаж байна. Эдгээр нөхцлүүд нь Google Chrome OS нөхцлүүдийг өргөтгөж, өөрчилж бас хязгаарлахгүй.</translation>
 <translation id="6989339256997917931">Google Chrome шинэчлэгдсэн байна, гэхдээ та үүнийг ядаж 30 хоног ч ашиглаагүй байна.</translation>
+<translation id="7054640471403081847">Энэ компьютерийн хатуу диск дэмжигдэхээ больсон учир удахгүй Google Chrome-ийн шинэчлэлтийг хүлээн авахаа болино.</translation>
 <translation id="7062128746136194023">Таны эцэг эх Chrome-н "Сайтууд, аппууд болон өргөтгөлүүдийн зөвшөөрөл"-ийг унтраасан байна. Энэ <ph name="EXTENSION_TYPE_PARAMETER" />-г нэмэхийг зөвшөөрдөггүй.</translation>
 <translation id="7098166902387133879">Google Chrome таны микрофоныг ашиглаж байна.</translation>
 <translation id="7106741999175697885">Асуудлын менежер - Google Chrome</translation>
@@ -221,7 +223,6 @@ Google Chrome таны тохируулгыг дахин сэргээх боло
 <translation id="7486227612705979895">Chrome хаяг оруулах хэсэгт зөвлөмж харуулахын тулд таны Драйвт хандах болно</translation>
 <translation id="7535429826459677826">Google Chrome Dev</translation>
 <translation id="7573289029918943991">Таны төхөөрөмж шинэчлэгдсэн эсэхийг харахын тулд <ph name="LINK_BEGIN" />Chrome үйлдлийн системийн тохиргоо<ph name="LINK_END" /> руу очно уу</translation>
-<translation id="7589360514048265910">Энэ компьютер Mac үйлдлийн систем X 10.9-г дэмжихээ больсон тул Google Chrome-н шинэчлэлтийг цаашид авахгүй.</translation>
 <translation id="7592736734348559088">Таны дансандаа нэвтрэх мэдээлэл хуучирсан учраас Google Chrome таны өгөгдлийг синхрончилж чадахгүй.</translation>
 <translation id="7626032353295482388">Chrome-д тавтай морил</translation>
 <translation id="7629695634924605473">Хэрэв таны нууц үг алдагдсан байвал Chrome танд мэдэгдэнэ</translation>

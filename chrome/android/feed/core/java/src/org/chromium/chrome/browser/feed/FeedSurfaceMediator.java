@@ -139,6 +139,10 @@ public class FeedSurfaceMediator
         mPrefChangeRegistrar.destroy();
         TemplateUrlServiceFactory.get().removeObserver(this);
     }
+    @VisibleForTesting
+    public void destroyForTesting() {
+        destroy();
+    }
 
     private void initialize() {
         if (mSnapScrollHelper == null) return;
@@ -154,7 +158,7 @@ public class FeedSurfaceMediator
 
     /** Update the content based on supervised user or enterprise policy. */
     private void updateContent() {
-        mFeedEnabled = FeedProcessScopeFactory.isFeedProcessEnabled();
+        mFeedEnabled = FeedFeatures.isFeedEnabled();
         if ((mFeedEnabled && mCoordinator.getStream() != null)
                 || (!mFeedEnabled && mCoordinator.getScrollViewForPolicy() != null)) {
             return;
@@ -221,7 +225,7 @@ public class FeedSurfaceMediator
 
             @Override
             public void onAddStarting() {
-                if (!mCoordinator.isPlaceholderShownInV1()) {
+                if (!mCoordinator.isPlaceholderShown()) {
                     return;
                 }
                 // If the placeholder is shown, set sign-in box visible back.
@@ -642,19 +646,24 @@ public class FeedSurfaceMediator
             // blocking the UI thread for several seconds if the accounts cache is not populated
             // yet.
             if (!isVisible()) return;
-            SigninPromoUtil.setupSigninPromoViewFromCache(mSigninPromoController, mProfileDataCache,
-                    mCoordinator.getSigninPromoView(), null);
+            if (isUserSignedInButNotSyncing()) {
+                SigninPromoUtil.setupSyncPromoViewFromCache(mSigninPromoController,
+                        mProfileDataCache, mCoordinator.getSigninPromoView(), null);
+            } else {
+                SigninPromoUtil.setupSigninPromoViewFromCache(mSigninPromoController,
+                        mProfileDataCache, mCoordinator.getSigninPromoView(), null);
+            }
         }
     }
 
     // TODO(huayinz): Return the Model for testing in Coordinator instead once a Model is created.
     @VisibleForTesting
-    SectionHeader getSectionHeaderForTesting() {
+    public SectionHeader getSectionHeaderForTesting() {
         return mSectionHeader;
     }
 
     @VisibleForTesting
-    SignInPromo getSignInPromoForTesting() {
+    public SignInPromo getSignInPromoForTesting() {
         return mSignInPromo;
     }
 

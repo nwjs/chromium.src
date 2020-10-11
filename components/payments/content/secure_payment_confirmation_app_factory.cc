@@ -111,7 +111,7 @@ void SecurePaymentConfirmationAppFactory::Create(
     base::WeakPtr<Delegate> delegate) {
   DCHECK(delegate);
 
-  PaymentRequestSpec* spec = delegate->GetSpec();
+  base::WeakPtr<PaymentRequestSpec> spec = delegate->GetSpec();
   if (!spec || !base::Contains(spec->payment_method_identifiers_set(),
                                methods::kSecurePaymentConfirmation)) {
     delegate->OnDoneCreatingPaymentApps();
@@ -130,8 +130,9 @@ void SecurePaymentConfirmationAppFactory::Create(
 
       std::unique_ptr<autofill::InternalAuthenticator> authenticator =
           delegate->CreateInternalAuthenticator();
+      auto* authenticator_ptr = authenticator.get();
 
-      authenticator->IsUserVerifyingPlatformAuthenticatorAvailable(
+      authenticator_ptr->IsUserVerifyingPlatformAuthenticatorAvailable(
           base::BindOnce(&SecurePaymentConfirmationAppFactory::
                              OnIsUserVerifyingPlatformAuthenticatorAvailable,
                          weak_ptr_factory_.GetWeakPtr(), delegate,

@@ -14,6 +14,7 @@
 <translation id="1084365883616172403">Публикацията във Facebook е завършена.</translation>
 <translation id="1103523840287552314">Винаги да се превежда от <ph name="LANGUAGE" /></translation>
 <translation id="1104948393051856124">Приемам и напред</translation>
+<translation id="110724200315609752">Превключване към отворения прозорец</translation>
 <translation id="1112015203684611006">Неуспешно отпечатване.</translation>
 <translation id="1125564390852150847">Създаване на нов раздел.</translation>
 <translation id="1145536944570833626">Изтриване на съществуващите данни.</translation>
@@ -93,6 +94,7 @@
 <translation id="1941314575388338491">Докоснете двукратно, за да копирате.</translation>
 <translation id="1952172573699511566">Когато е възможно, текстът на уебсайтовете ще се показва на предпочитания от вас език.</translation>
 <translation id="1952728750904661634">Влизане с управляван профил</translation>
+<translation id="1965935827552890526">Довършете действията си в другия отворен прозорец на Chrome.</translation>
 <translation id="1974060860693918893">Разширени</translation>
 <translation id="1989112275319619282">Сърфиране</translation>
 <translation id="1992734845128748707">Промяна на браузъра по подразбиране…</translation>
@@ -277,6 +279,7 @@
 <translation id="408404951701638773">До лентата за търсене вече се стига по-лесно</translation>
 <translation id="411254640334432676">Изтеглянето не бе успешно.</translation>
 <translation id="4112644173421521737">Търсене</translation>
+<translation id="4113030288477039509">Управлява се от администратора ви</translation>
 <translation id="4121993058175073134">За изпращане на експ. данни от мрежата конфиг. имейла си в Настройки.</translation>
 <translation id="4124987746317609294">Период от време</translation>
 <translation id="4152011295694446843">Тук ще се показват отметките ви</translation>
@@ -285,11 +288,13 @@
 <translation id="4181841719683918333">Езици</translation>
 <translation id="424315890655130736">Въвеждане на пропуск</translation>
 <translation id="4263576668337963058">Показване на наличните действия за страницата</translation>
+<translation id="4267380167363222949">Следващият раздел</translation>
 <translation id="4272631900155121838">За да сканирате код за бърза реакция, активирайте камерата от настройките</translation>
 <translation id="4276041135170112053">Коригиране сега.</translation>
 <translation id="4277990410970811858">Безопасно сърфиране</translation>
 <translation id="4281844954008187215">Условия за ползване</translation>
 <translation id="430793432425771671">Синхронизиране на всичко</translation>
+<translation id="4309403553630140242">Докоснете два пъти за повече информация</translation>
 <translation id="430967081421617822">За цялото време</translation>
 <translation id="4334428914252001502">1 непрочетена статия.</translation>
 <translation id="4338650699862464074">Изпраща до Google URL адресите на посещаваните от вас страници.</translation>
@@ -353,6 +358,7 @@
 <translation id="5005498671520578047">Копиране на паролата</translation>
 <translation id="5010803260590204777">Отворете раздел в режим „инкогнито“, за да сърфирате частно в мрежата.</translation>
 <translation id="5039804452771397117">Разрешаване</translation>
+<translation id="5056446788882570708">Бяха намерени проблеми <ph name="TIME" />.</translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5062321486222145940">Инсталиране на Google Диск</translation>
 <translation id="5083464117946352670">Неизвестен файлов размер.</translation>
@@ -376,7 +382,6 @@
 <translation id="5317780077021120954">Запазване</translation>
 <translation id="5327248766486351172">Име</translation>
 <translation id="5339316356165661760">Включване на синхронизирането</translation>
-<translation id="5352285283572729470">Тази настройка е управлявана</translation>
 <translation id="5388358297987318779">Отваряне на изображението</translation>
 <translation id="5407969256130905701">Отхвърляне на промените</translation>
 <translation id="5409365236829784218">Няма инсталирани приложения, които могат да отворят файла.</translation>
@@ -456,6 +461,7 @@
 <translation id="6187302354554850004">Последно синхр.: <ph name="LAST_USED_TIME" /></translation>
 <translation id="6189413832092199491">Непрочетени</translation>
 <translation id="6196207969502475924">Гласово търсене</translation>
+<translation id="6202364442240589072">{COUNT,plural, =1{Затваряне на {COUNT} раздел}other{Затваряне на {COUNT} раздела}}</translation>
 <translation id="6219688215832490856">Никога да не се превежда</translation>
 <translation id="6254066287920239840">Отваряне на връзките в приложението вместо в браузъра.</translation>
 <translation id="6255097610484507482">Редактиране на кредитната карта</translation>
@@ -571,6 +577,7 @@
 <translation id="734758817008927353">Опции за запазване на картата</translation>
 <translation id="7348502496356775519">Отметка</translation>
 <translation id="7383797227493018512">Списък за четене</translation>
+<translation id="739941347996872055">Предишният раздел</translation>
 <translation id="7400418766976504921">URL адрес</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> непрочетени статии.</translation>
 <translation id="7425346204213733349">Промените в отметките, историята, паролите и другите ви настройки вече няма да се синхронизират с профила ви в Google. Съществуващите ви данни обаче ще продължат да се съхраняват в него.</translation>
@@ -636,6 +643,7 @@
 <translation id="8073670137947914548">Изтеглянето завърши</translation>
 <translation id="8073872304774253879">Подобряване на търсенията и сърфирането</translation>
 <translation id="8076014560081431679">Запазените настройки за сайтове няма да бъдат изтрити и може да отразяват навиците ви при сърфиране. <ph name="BEGIN_LINK" />Научете повече<ph name="END_LINK" /></translation>
+<translation id="8079602123447022758">Тази настройка се управлява. За повече информация докоснете два пъти</translation>
 <translation id="8105368624971345109">Изключване</translation>
 <translation id="8114753159095730575">Наличен е файл за изтегляне. Съответните опции са достъпни в долната част на екрана.</translation>
 <translation id="8131740175452115882">Потвърждаване</translation>

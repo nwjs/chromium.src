@@ -100,6 +100,7 @@
 <translation id="3622797965165704966">এখন আপনার Google অ্যাকাউন্ট ও শেয়ার করা কম্পিউটারগুলিতে Chrome ব্যবহার করা আরো সহজ৷</translation>
 <translation id="3718181793972440140">এটি এই ডিভাইস থেকে ১টি আইটেম মুছে দেবে। আপনার ডেটা পরে পুনরুদ্ধার করার জন্য, Chrome-এ <ph name="USER_EMAIL" /> হিসেবে সাইন-ইন করুন।</translation>
 <translation id="3735758079232443276">আপনি Chrome চালু করলে কোন পৃষ্ঠাটি দেখানো হবে তা "<ph name="EXTENSION_NAME" />" এক্সটেনশনটি পরিবর্তন করেছে।</translation>
+<translation id="3779473566290487688">ভবিষ্যতে Google Chrome আপডেট পেতে হলে, আপনার কম্পিউটারে OS X 10.11 বা তার পরবর্তী ভার্সন থাকতে হবে। এই কম্পিউটারে OS X 10.10 ভার্সন ব্যবহার করা হচ্ছে।</translation>
 <translation id="3780814664026482060">Chrome - <ph name="PAGE_TITLE" /></translation>
 <translation id="386202838227397562">দয়া করে সকল Google Chrome উইন্ডো বন্ধ করুন ও আবার চেষ্টা করুন৷</translation>
 <translation id="3865754807470779944">Chrome ভার্সন <ph name="PRODUCT_VERSION" /> ইনস্টল করা আছে</translation>
@@ -198,6 +199,7 @@
 <translation id="6967962315388095737">mDNS ট্রাফিকের অনুমতি দিতে Google Chrome বিটার জন্য ইনবাউন্ড নিয়ম।</translation>
 <translation id="6982337800632491844"><ph name="DOMAIN" />-এ এই ডিভাইসটি ব্যবহার করার আগে আপনাকে নিম্নলিখিত পরিষেবার শর্তাদি পড়তে হবে এবং এটিকে স্বীকার করতে হবে৷ এই শর্তাদি Chrome OS-এর শর্তাদিকে প্রসারণ, সংশোধন বা সীমাবদ্ধ করে না৷</translation>
 <translation id="6989339256997917931">Google Chrome আপডেট হয়েছে তবে আপনি এটি কমপক্ষে 30 দিন যাবত ব্যবহার করেন নি৷</translation>
+<translation id="7054640471403081847">এই কম্পিউটারটি শীঘ্রই Google Chrome এর আপডেটগুলি গ্রহণ করা বন্ধ করবে কারণ এটির হার্ডওয়্যার আর সমর্থিত নয়৷</translation>
 <translation id="7062128746136194023">তোমার অভিভাবক Chrome-এ "সাইট, অ্যাপ ও এক্সটেনশনের অনুমতি" বন্ধ করে দিয়েছেন। এই <ph name="EXTENSION_TYPE_PARAMETER" /> যোগ করার অনুমতি নেই।</translation>
 <translation id="7098166902387133879">Google Chrome আপনার মাইক্রোফোন ব্যবহার করছে৷</translation>
 <translation id="7106741999175697885">কার্য পরিচালক - Google Chrome</translation>
@@ -217,7 +219,6 @@
 <translation id="7486227612705979895">অ্যাড্রেস বারে সাজেশন দেওয়ার জন্য Chrome আপনার ড্রাইভ অ্যাক্সেস করবে</translation>
 <translation id="7535429826459677826">Google Chrome ডেভেলপার</translation>
 <translation id="7573289029918943991">আপনার ডিভাইস আপ-টু-ডেট আছে কিনা তা দেখতে <ph name="LINK_BEGIN" />Chrome OS সেটিংস<ph name="LINK_END" /> বিকল্পে যান</translation>
-<translation id="7589360514048265910">এই কম্পিউটারটি আর Google Chrome এর আপডেট গ্রহণ করবে না কারণ এই Mac OS X 10.9 আর সমর্থিত নয়৷</translation>
 <translation id="7592736734348559088">Google Chrome আপনার অ্যাকাউন্ট সাইন-ইন বিশদ বিবরণটি পুরনো হওয়ার কারণে সিঙ্ক করতে পারেনি৷</translation>
 <translation id="7626032353295482388">Chrome এ স্বাগতম</translation>
 <translation id="7629695634924605473">আপনার পাসওয়ার্ড কখনও চুরি হলে তা Chrome আপনাকে জানিয়ে দেবে</translation>

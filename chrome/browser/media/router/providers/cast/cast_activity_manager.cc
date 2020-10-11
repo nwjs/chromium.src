@@ -15,14 +15,14 @@
 #include "base/optional.h"
 #include "base/strings/strcat.h"
 #include "chrome/browser/media/router/data_decoder_util.h"
-#include "chrome/browser/media/router/logger_impl.h"
 #include "chrome/browser/media/router/providers/cast/app_activity.h"
 #include "chrome/browser/media/router/providers/cast/cast_media_route_provider_metrics.h"
 #include "chrome/browser/media/router/providers/cast/cast_session_client.h"
 #include "chrome/browser/media/router/providers/cast/mirroring_activity.h"
-#include "chrome/common/media_router/media_source.h"
-#include "chrome/common/media_router/mojom/media_router.mojom.h"
 #include "components/cast_channel/enum_table.h"
+#include "components/media_router/browser/logger_impl.h"
+#include "components/media_router/common/media_source.h"
+#include "components/media_router/common/mojom/media_router.mojom.h"
 #include "url/origin.h"
 
 using blink::mojom::PresentationConnectionCloseReason;
@@ -187,7 +187,7 @@ void CastActivityManager::DoLaunchSession(DoLaunchSessionParams params) {
 
   if (IsSiteInitiatedMirroringSource(cast_source.source_id())) {
     base::UmaHistogramBoolean(kHistogramAudioSender,
-                              cast_source.allow_audio_capture());
+                              cast_source.site_requested_audio_capture());
   }
   RecordLaunchSessionRequestSupportedAppTypes(
       cast_source.supported_app_types());

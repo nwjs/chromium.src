@@ -4,20 +4,24 @@
 
 package org.chromium.chrome.browser.paint_preview;
 
+import android.os.SystemClock;
+
 import androidx.annotation.IntDef;
 
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
+import org.chromium.components.paintpreview.player.CompositorStatus;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Callable;
 
 /** Helper class for recording metrics related to TabbedPaintPreview. */
 public class TabbedPaintPreviewMetricsHelper {
     /** Used for recording the cause for exiting the Paint Preview player. */
     @IntDef({ExitCause.PULL_TO_REFRESH, ExitCause.SNACK_BAR_ACTION, ExitCause.COMPOSITOR_FAILURE,
             ExitCause.TAB_FINISHED_LOADING, ExitCause.LINK_CLICKED, ExitCause.NAVIGATION_STARTED,
-            ExitCause.TAB_DESTROYED})
+            ExitCause.TAB_DESTROYED, ExitCause.TAB_HIDDEN})
     @interface ExitCause {
         int PULL_TO_REFRESH = 0;
         int SNACK_BAR_ACTION = 1;
@@ -26,7 +30,8 @@ public class TabbedPaintPreviewMetricsHelper {
         int LINK_CLICKED = 4;
         int NAVIGATION_STARTED = 5;
         int TAB_DESTROYED = 6;
-        int COUNT = 7;
+        int TAB_HIDDEN = 7;
+        int COUNT = 8;
     }
 
     private static final Map<Integer, String> UPTIME_HISTOGRAM_MAP = new HashMap<>();
@@ -45,12 +50,46 @@ public class TabbedPaintPreviewMetricsHelper {
                 "Browser.PaintPreview.TabbedPlayer.UpTime.RemovedByNavigation");
         UPTIME_HISTOGRAM_MAP.put(ExitCause.TAB_DESTROYED,
                 "Browser.PaintPreview.TabbedPlayer.UpTime.RemovedOnTabDestroy");
+        UPTIME_HISTOGRAM_MAP.put(ExitCause.TAB_HIDDEN,
+                "Browser.PaintPreview.TabbedPlayer.UpTime.RemovedOnTabHidden");
     }
 
     private long mShownTime;
+    private boolean mFirstPaintHappened;
 
     void onShown() {
         mShownTime = System.currentTimeMillis();
+    }
+
+    void onFirstPaint(long activityOnCreateTimestamp, Callable<Boolean> recordFirstPaint) {
+        mFirstPaintHappened = true;
+        boolean shouldRecordHistogram = false;
+        try {
+            shouldRecordHistogram = recordFirstPaint.call();
+        } catch (Exception e) {
+            // no-op just proceed.
+        }
+        if (shouldRecordHistogram) {
+            RecordHistogram.recordLongTimesHistogram(
+                    "Browser.PaintPreview.TabbedPlayer.TimeToFirstBitmap",
+                    SystemClock.elapsedRealtime() - activityOnCreateTimestamp);
+        }
+    }
+
+    void onTabLoadFinished() {
+        RecordHistogram.recordBooleanHistogram(
+                "Browser.PaintPreview.TabbedPlayer.FirstPaintBeforeTabLoad", mFirstPaintHappened);
+    }
+
+    void onCompositorFailure(@CompositorStatus int status) {
+        RecordHistogram.recordEnumeratedHistogram(
+                "Browser.PaintPreview.TabbedPlayer.CompositorFailureReason", status,
+                CompositorStatus.COUNT);
+    }
+
+    void recordHadCapture(boolean hadCapture) {
+        RecordHistogram.recordBooleanHistogram(
+                "Browser.PaintPreview.TabbedPlayer.HadCapture", hadCapture);
     }
 
     void recordExitMetrics(int exitCause, int snackbarShownCount) {
@@ -63,9 +102,9 @@ public class TabbedPaintPreviewMetricsHelper {
                 "Browser.PaintPreview.TabbedPlayer.SnackbarCount", snackbarShownCount);
         RecordHistogram.recordEnumeratedHistogram(
                 "Browser.PaintPreview.TabbedPlayer.ExitCause", exitCause, ExitCause.COUNT);
+        if (mShownTime == 0 || !UPTIME_HISTOGRAM_MAP.containsKey(exitCause)) return;
+
         long upTime = System.currentTimeMillis() - mShownTime;
-        if (UPTIME_HISTOGRAM_MAP.containsKey(exitCause)) {
-            RecordHistogram.recordLongTimesHistogram(UPTIME_HISTOGRAM_MAP.get(exitCause), upTime);
-        }
+        RecordHistogram.recordLongTimesHistogram(UPTIME_HISTOGRAM_MAP.get(exitCause), upTime);
     }
 }

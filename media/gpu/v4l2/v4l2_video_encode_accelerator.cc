@@ -12,6 +12,7 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 
+#include <memory>
 #include <numeric>
 #include <utility>
 
@@ -161,7 +162,7 @@ V4L2VideoEncodeAccelerator::InputFrameInfo::InputFrameInfo(
 V4L2VideoEncodeAccelerator::InputFrameInfo::InputFrameInfo(
     const InputFrameInfo&) = default;
 
-V4L2VideoEncodeAccelerator::InputFrameInfo::~InputFrameInfo() {}
+V4L2VideoEncodeAccelerator::InputFrameInfo::~InputFrameInfo() = default;
 
 V4L2VideoEncodeAccelerator::V4L2VideoEncodeAccelerator(
     scoped_refptr<V4L2Device> device)
@@ -212,7 +213,7 @@ bool V4L2VideoEncodeAccelerator::Initialize(const Config& config,
 
   encoder_input_visible_rect_ = gfx::Rect(config.input_visible_size);
 
-  client_ptr_factory_.reset(new base::WeakPtrFactory<Client>(client));
+  client_ptr_factory_ = std::make_unique<base::WeakPtrFactory<Client>>(client);
   client_ = client_ptr_factory_->GetWeakPtr();
 
   output_format_fourcc_ =
@@ -246,7 +247,8 @@ bool V4L2VideoEncodeAccelerator::Initialize(const Config& config,
   }
 
   // Ask if V4L2_ENC_CMD_STOP (Flush) is supported.
-  struct v4l2_encoder_cmd cmd = {};
+  struct v4l2_encoder_cmd cmd;
+  memset(&cmd, 0, sizeof(cmd));
   cmd.cmd = V4L2_ENC_CMD_STOP;
   is_flush_supported_ = (device_->Ioctl(VIDIOC_TRY_ENCODER_CMD, &cmd) == 0);
   if (!is_flush_supported_)
@@ -1371,8 +1373,7 @@ bool V4L2VideoEncodeAccelerator::StopDevicePoll() {
   // Reset all our accounting info.
   while (!encoder_input_queue_.empty())
     encoder_input_queue_.pop();
-  for (size_t i = 0; i < input_buffer_map_.size(); ++i) {
-    InputRecord& input_record = input_buffer_map_[i];
+  for (auto& input_record : input_buffer_map_) {
     input_record.frame = nullptr;
   }
 
@@ -1655,15 +1656,15 @@ bool V4L2VideoEncodeAccelerator::InitControls(const Config& config) {
   }
 
   if (output_format_fourcc_ == V4L2_PIX_FMT_H264) {
-#ifndef V4L2_CID_MPEG_VIDEO_H264_SPS_PPS_BEFORE_IDR
-#define V4L2_CID_MPEG_VIDEO_H264_SPS_PPS_BEFORE_IDR (V4L2_CID_MPEG_BASE + 388)
+#ifndef V4L2_CID_MPEG_VIDEO_PREPEND_SPSPPS_TO_IDR
+#define V4L2_CID_MPEG_VIDEO_PREPEND_SPSPPS_TO_IDR (V4L2_CID_MPEG_BASE + 644)
 #endif
     // Request to inject SPS and PPS before each IDR, if the device supports
     // that feature. Otherwise we'll have to cache and inject ourselves.
-    if (device_->IsCtrlExposed(V4L2_CID_MPEG_VIDEO_H264_SPS_PPS_BEFORE_IDR)) {
+    if (device_->IsCtrlExposed(V4L2_CID_MPEG_VIDEO_PREPEND_SPSPPS_TO_IDR)) {
       if (!device_->SetExtCtrls(
               V4L2_CTRL_CLASS_MPEG,
-              {V4L2ExtCtrl(V4L2_CID_MPEG_VIDEO_H264_SPS_PPS_BEFORE_IDR, 1)})) {
+              {V4L2ExtCtrl(V4L2_CID_MPEG_VIDEO_PREPEND_SPSPPS_TO_IDR, 1)})) {
         NOTIFY_ERROR(kPlatformFailureError);
         return false;
       }

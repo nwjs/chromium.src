@@ -32,6 +32,7 @@
 #include "chromeos/dbus/power_manager/idle.pb.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/image/image_unittest_util.h"
+#include "ui/views/controls/label.h"
 
 namespace ash {
 
@@ -101,8 +102,10 @@ AmbientAshTestBase::AmbientAshTestBase()
 AmbientAshTestBase::~AmbientAshTestBase() = default;
 
 void AmbientAshTestBase::SetUp() {
-  scoped_feature_list_.InitAndEnableFeature(
-      chromeos::features::kAmbientModeFeature);
+  scoped_feature_list_.InitAndEnableFeatureWithParameters(
+      chromeos::features::kAmbientModeFeature,
+      {{"GeoPhotosEnabled", "true"},
+       {"CapturedOnPixelPhotosEnabled", "false"}});
   image_downloader_ = std::make_unique<TestImageDownloader>();
   ambient_client_ = std::make_unique<TestAmbientClient>(&wake_lock_provider_);
   chromeos::PowerManagerClient::InitializeFake();
@@ -195,6 +198,14 @@ void AmbientAshTestBase::SetScreenBrightnessAndWait(double percent) {
   base::RunLoop().RunUntilIdle();
 }
 
+views::View* AmbientAshTestBase::GetMediaStringViewTextContainer() {
+  return GetMediaStringView()->media_text_container_for_testing();
+}
+
+views::Label* AmbientAshTestBase::GetMediaStringViewTextLabel() {
+  return GetMediaStringView()->media_text_label_for_testing();
+}
+
 void AmbientAshTestBase::SimulateMediaMetadataChanged(
     media_session::MediaMetadata metadata) {
   GetMediaStringView()->MediaSessionMetadataChanged(metadata);
@@ -238,6 +249,10 @@ void AmbientAshTestBase::FastForwardToNextImage() {
   task_environment()->FastForwardBy(1.2 * kPhotoRefreshInterval);
 }
 
+void AmbientAshTestBase::FastForwardToRefreshWeather() {
+  task_environment()->FastForwardBy(1.2 * kWeatherRefreshInterval);
+}
+
 int AmbientAshTestBase::GetNumOfActiveWakeLocks(
     device::mojom::WakeLockType type) {
   base::RunLoop run_loop;
@@ -262,6 +277,10 @@ bool AmbientAshTestBase::IsAccessTokenRequestPending() const {
   return ambient_client_->IsAccessTokenRequestPending();
 }
 
+base::TimeDelta AmbientAshTestBase::GetRefreshTokenDelay() {
+  return token_controller()->GetTimeUntilReleaseForTesting();
+}
+
 AmbientController* AmbientAshTestBase::ambient_controller() {
   return Shell::Get()->ambient_controller();
 }
@@ -276,6 +295,11 @@ AmbientContainerView* AmbientAshTestBase::container_view() {
 
 AmbientAccessTokenController* AmbientAshTestBase::token_controller() {
   return ambient_controller()->access_token_controller_for_testing();
+}
+
+FakeAmbientBackendControllerImpl* AmbientAshTestBase::backend_controller() {
+  return static_cast<FakeAmbientBackendControllerImpl*>(
+      ambient_controller()->ambient_backend_controller());
 }
 
 void AmbientAshTestBase::FetchTopics() {

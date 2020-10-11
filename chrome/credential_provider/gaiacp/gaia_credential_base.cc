@@ -38,6 +38,7 @@
 #include "chrome/credential_provider/common/gcp_strings.h"
 #include "chrome/credential_provider/gaiacp/associated_user_validator.h"
 #include "chrome/credential_provider/gaiacp/auth_utils.h"
+#include "chrome/credential_provider/gaiacp/device_policies_manager.h"
 #include "chrome/credential_provider/gaiacp/event_logs_upload_manager.h"
 #include "chrome/credential_provider/gaiacp/gaia_credential_provider.h"
 #include "chrome/credential_provider/gaiacp/gaia_credential_provider_i.h"
@@ -2094,6 +2095,11 @@ HRESULT CGaiaCredentialBase::PerformPostSigninActions(
       LOGFN(ERROR) << "EnrollToGoogleMdmIfNeeded hr=" << putHR(hr);
   }
 
+  // Ensure GCPW gets updated to the correct version.
+  if (DevicePoliciesManager::Get()->CloudPoliciesEnabled()) {
+    DevicePoliciesManager::Get()->EnforceGcpwUpdatePolicy();
+  }
+
   // TODO(crbug.com/976744): Use the down scoped kKeyMdmAccessToken instead
   // of login scoped token.
   std::string access_token = GetDictStringUTF8(properties, kKeyAccessToken);
@@ -2471,9 +2477,17 @@ HRESULT CGaiaCredentialBase::OnUserAuthenticated(BSTR authentication_info,
   if (UserPoliciesManager::Get()->CloudPoliciesEnabled() &&
       UserPoliciesManager::Get()->GetTimeDeltaSinceLastPolicyFetch(sid) >
           kMaxTimeDeltaSinceLastUserPolicyRefresh) {
+    // Save gaia id since it is needed for the cloud policies server request.
+    base::string16 gaia_id = GetDictString(*authentication_results_, kKeyId);
+    HRESULT hr = SetUserProperty(sid, kUserId, gaia_id);
+    if (FAILED(hr)) {
+      LOGFN(ERROR) << "SetUserProperty(id) hr=" << putHR(hr);
+    }
+
     // TODO(crbug.com/976744) Use downscoped token here.
-    base::string16 access_token = GetDictString(*properties, kKeyAccessToken);
-    HRESULT hr = UserPoliciesManager::Get()->FetchAndStoreCloudUserPolicies(
+    base::string16 access_token =
+        GetDictString(*authentication_results_, kKeyAccessToken);
+    hr = UserPoliciesManager::Get()->FetchAndStoreCloudUserPolicies(
         sid, base::UTF16ToUTF8(access_token));
     SecurelyClearString(access_token);
     if (FAILED(hr)) {

@@ -27,7 +27,6 @@ import org.chromium.base.task.PostTask;
 import org.chromium.base.test.BaseJUnit4ClassRunner;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.DisableIf;
-import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.ScalableTimeout;
 import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.content_public.browser.test.util.Criteria;
@@ -172,7 +171,6 @@ public class PaintPreviewPlayerTest extends DummyUiActivityTestCase {
 
     @Test
     @MediumTest
-    @DisabledTest(message = "crbug.com/1117264")
     public void overscrollRefreshTest() throws Exception {
         initPlayerManager(true);
         UiDevice uiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
@@ -204,8 +202,9 @@ public class PaintPreviewPlayerTest extends DummyUiActivityTestCase {
                     () -> { Assert.fail("Unexpected overscroll refresh attempted."); },
                     () -> {
                         Assert.fail("View Ready callback occurred, but expected a failure.");
-                    }, null,
-                    0xffffffff, () -> { compositorErrorCallback.notifyCalled(); }, false);
+                    },
+                    null, null, 0xffffffff,
+                    (status) -> { compositorErrorCallback.notifyCalled(); }, false);
             mPlayerManager.setCompressOnClose(false);
         });
         compositorErrorCallback.waitForFirst();
@@ -356,8 +355,8 @@ public class PaintPreviewPlayerTest extends DummyUiActivityTestCase {
 
             mPlayerManager = new PlayerManager(new GURL(TEST_URL), getActivity(), service,
                     TEST_DIRECTORY_KEY, mLinkClickHandler, mRefreshedCallback::notifyCalled,
-                    viewReady::notifyCalled, null, 0xffffffff,
-                    () -> { mInitializationFailed = true; }, false);
+                    viewReady::notifyCalled, null, null, 0xffffffff,
+                    (status) -> { mInitializationFailed = true; }, false);
             mPlayerManager.setCompressOnClose(false);
             getActivity().setContentView(mPlayerManager.getView());
         });

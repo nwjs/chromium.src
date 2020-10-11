@@ -122,6 +122,8 @@ class PlatformAppPathLauncher
     if (!file_path.empty() && !app->is_nwjs_app()) //NWJS#5097
       entry_paths_.push_back(file_path);
   }
+  PlatformAppPathLauncher(const PlatformAppPathLauncher&) = delete;
+  PlatformAppPathLauncher& operator=(const PlatformAppPathLauncher&) = delete;
 
   void set_action_data(std::unique_ptr<app_runtime::ActionData> action_data) {
     action_data_ = std::move(action_data);
@@ -361,8 +363,6 @@ class PlatformAppPathLauncher
   extensions::app_file_handler_util::MimeTypeCollector mime_type_collector_;
   extensions::app_file_handler_util::IsDirectoryCollector
       is_directory_collector_;
-
-  DISALLOW_COPY_AND_ASSIGN(PlatformAppPathLauncher);
 };
 
 }  // namespace
@@ -431,8 +431,17 @@ void LaunchPlatformAppWithCommandLineAndLaunchId(
 void LaunchPlatformAppWithPath(content::BrowserContext* context,
                                const Extension* app,
                                const base::FilePath& file_path) {
-  scoped_refptr<PlatformAppPathLauncher> launcher =
-      new PlatformAppPathLauncher(context, app, file_path);
+  auto launcher =
+      base::MakeRefCounted<PlatformAppPathLauncher>(context, app, file_path);
+  launcher->Launch();
+}
+
+void LaunchPlatformAppWithFilePaths(
+    content::BrowserContext* context,
+    const extensions::Extension* app,
+    const std::vector<base::FilePath>& file_paths) {
+  auto launcher =
+      base::MakeRefCounted<PlatformAppPathLauncher>(context, app, file_paths);
   launcher->Launch();
 }
 

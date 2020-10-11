@@ -32,6 +32,7 @@ import org.chromium.weblayer_private.interfaces.ITab;
 import org.chromium.weblayer_private.interfaces.IUrlBarController;
 import org.chromium.weblayer_private.interfaces.ObjectWrapper;
 import org.chromium.weblayer_private.interfaces.StrictModeWorkaround;
+import org.chromium.weblayer_private.media.MediaRouteDialogFragmentImpl;
 
 import java.util.Arrays;
 import java.util.List;
@@ -86,6 +87,17 @@ public class BrowserImpl extends IBrowser.Stub implements View.OnAttachStateChan
         byte[] mCryptoKey;
         byte[] mMinimalPersistenceState;
     };
+
+    /**
+     * @param windowAndroid a window that was created by a {@link BrowserFragmentImpl}. It's not
+     *         valid to call this method with other {@link WindowAndroid} instances. Typically this
+     *         should be the {@link WindowAndroid} of a {@link WebContents}.
+     * @return the associated BrowserImpl instance.
+     */
+    public static BrowserImpl fromWindowAndroid(WindowAndroid windowAndroid) {
+        assert windowAndroid instanceof FragmentWindowAndroid;
+        return ((FragmentWindowAndroid) windowAndroid).getBrowser();
+    }
 
     /**
      * Allows observing of visible security state of the active tab.
@@ -262,6 +274,7 @@ public class BrowserImpl extends IBrowser.Stub implements View.OnAttachStateChan
     }
 
     @Override
+    @NonNull
     public ProfileImpl getProfile() {
         StrictModeWorkaround.apply();
         return mProfile;
@@ -536,6 +549,15 @@ public class BrowserImpl extends IBrowser.Stub implements View.OnAttachStateChan
         updateAllTabsViewAttachedState();
     }
 
+    public MediaRouteDialogFragmentImpl createMediaRouteDialogFragment() {
+        try {
+            return MediaRouteDialogFragmentImpl.fromRemoteFragment(
+                    mClient.createMediaRouteDialogFragment());
+        } catch (RemoteException e) {
+            throw new APICallException(e);
+        }
+    }
+
     private void updateAllTabsViewAttachedState() {
         for (Object tab : getTabs()) {
             ((TabImpl) tab).updateViewAttachedStateFromBrowser();
@@ -581,7 +603,6 @@ public class BrowserImpl extends IBrowser.Stub implements View.OnAttachStateChan
         long createBrowser(long profile, BrowserImpl caller);
         void deleteBrowser(long browser);
         void addTab(long nativeBrowserImpl, long nativeTab);
-        void removeTab(long nativeBrowserImpl, long nativeTab);
         TabImpl[] getTabs(long nativeBrowserImpl);
         void setActiveTab(long nativeBrowserImpl, long nativeTab);
         TabImpl getActiveTab(long nativeBrowserImpl);

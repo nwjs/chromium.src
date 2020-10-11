@@ -5,7 +5,7 @@
 #include "content/browser/renderer_host/input/touch_emulator.h"
 
 #include "content/public/browser/render_frame_host.h"
-#include "content/browser/frame_host/render_frame_host_impl.h"
+#include "content/browser/renderer_host/render_frame_host_impl.h"
 
 #include "base/containers/queue.h"
 #include "base/time/time.h"

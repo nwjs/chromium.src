@@ -186,7 +186,7 @@ public final class BrowserViewController
         if (tab == mTab) return;
 
         if (mTab != null) {
-            mTab.onDidLoseActive();
+            mTab.onDetachedFromViewController();
             mTab.setBrowserControlsVisibilityConstraint(
                     ImplControlsVisibilityReason.ANIMATION, BrowserControlsState.BOTH);
             // WebContentsGestureStateTracker is relatively cheap, easier to destroy rather than
@@ -215,7 +215,9 @@ public final class BrowserViewController
         if (mTab != null) {
             mTab.setBrowserControlsVisibilityConstraint(
                     ImplControlsVisibilityReason.ANIMATION, mBrowserControlsConstraint);
-            mTab.onDidGainActive(mTopControlsContainerView.getNativeHandle(),
+            mTab.setOnlyExpandTopControlsAtPageTop(
+                    mTopControlsContainerView.getOnlyExpandControlsAtPageTop());
+            mTab.onAttachedToViewController(mTopControlsContainerView.getNativeHandle(),
                     mBottomControlsContainerView.getNativeHandle());
             mContentView.requestFocus();
         }
@@ -234,7 +236,13 @@ public final class BrowserViewController
     }
 
     public void setOnlyExpandTopControlsAtPageTop(boolean onlyExpandControlsAtPageTop) {
+        if (onlyExpandControlsAtPageTop
+                == mTopControlsContainerView.getOnlyExpandControlsAtPageTop()) {
+            return;
+        }
         mTopControlsContainerView.setOnlyExpandControlsAtPageTop(onlyExpandControlsAtPageTop);
+        if (mTab == null) return;
+        mTab.setOnlyExpandTopControlsAtPageTop(onlyExpandControlsAtPageTop);
     }
 
     public void setTopControlsAnimationsEnabled(boolean animationsEnabled) {
@@ -300,12 +308,11 @@ public final class BrowserViewController
     private void onDialogVisibilityChanged(boolean showing) {
         if (WebLayerFactoryImpl.getClientMajorVersion() < 82) return;
 
-        // ModalDialogManager.onLastDialogDismissed() may be called if |mTab| is currently null.
-        // This is because in some situations ModalDialogManager calls onLastDialogDismissed() even
-        // if there were no dialogs present and dismissDialog() is called. This matters as
-        // dismissDialog() may be called when |mTab| is null.
-        // TODO(sky): fix ModalDialogManager and remove mTab conditional.
-        if (mModalDialogManager.getCurrentType() == ModalDialogType.TAB && mTab != null) {
+        if (mModalDialogManager.getCurrentType() == ModalDialogType.TAB) {
+            // This shouldn't be called when |mTab| is null and the modal dialog type is TAB. OTOH,
+            // when an app-modal is displayed for a javascript dialog, this method can be called
+            // after the tab is destroyed.
+            assert mTab != null;
             try {
                 mTab.getClient().onTabModalStateChanged(showing);
             } catch (RemoteException e) {

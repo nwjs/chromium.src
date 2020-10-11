@@ -115,7 +115,7 @@ bool WebContentsDelegate::PreHandleGestureEvent(
 bool WebContentsDelegate::CanDragEnter(
     WebContents* source,
     const DropData& data,
-    blink::WebDragOperationsMask operations_allowed) {
+    blink::DragOperationsMask operations_allowed) {
   return true;
 }
 

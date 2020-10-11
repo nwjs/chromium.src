@@ -14,6 +14,7 @@
 <translation id="1084365883616172403">Facebook-ում փակցնումն ավարտվեց:</translation>
 <translation id="1103523840287552314">Միշտ թարգմանել <ph name="LANGUAGE" />-ից</translation>
 <translation id="1104948393051856124">Ընդունել և շարունակել</translation>
+<translation id="110724200315609752">Անցնել բացված պատուհան</translation>
 <translation id="1112015203684611006">Չհաջողվեց տպել:</translation>
 <translation id="1125564390852150847">Ստեղծել նոր ներդիր:</translation>
 <translation id="1145536944570833626">Առկա տվյալների ջնջում։</translation>
@@ -93,6 +94,7 @@
 <translation id="1941314575388338491">Կրկնակի հպեք՝ պատճենելու համար:</translation>
 <translation id="1952172573699511566">Կայքերի տեքստը հնարավորության դեպքում կցուցադրվի ձեր ընտրած լեզվով։</translation>
 <translation id="1952728750904661634">Մուտք գործեք կառավարվող հաշիվ</translation>
+<translation id="1965935827552890526">Ավարտեք աշխատանքը Chrome-ի մյուս բացված պատուհանում։</translation>
 <translation id="1974060860693918893">Լրացուցիչ</translation>
 <translation id="1989112275319619282">Ընտրել</translation>
 <translation id="1992734845128748707">Փոխել կանխադրված դիտարկիչը…</translation>
@@ -277,6 +279,7 @@
 <translation id="408404951701638773">Որոնման տողից այժմ ավելի հեշտ է օգտվել</translation>
 <translation id="411254640334432676">Ներբեռնումը չհաջողվեց:</translation>
 <translation id="4112644173421521737">Որոնել</translation>
+<translation id="4113030288477039509">Կառավարվում է ձեր ադմինիստրատորի կողմից</translation>
 <translation id="4121993058175073134">Զուտ արտահանման տվյալները ուղարկելու համար կազմաձևեք ձեր էլփոստի հաշիվը Կարգավորումներ հավելվածում:</translation>
 <translation id="4124987746317609294">Ժամանակի սանդղակ</translation>
 <translation id="4152011295694446843">Ձեր էջանիշները կգտնեք այստեղ</translation>
@@ -285,11 +288,13 @@
 <translation id="4181841719683918333">Լեզուներ</translation>
 <translation id="424315890655130736">Մուտքագրեք անցաբառը</translation>
 <translation id="4263576668337963058">Ցուցադրել հասանելի գործողությունները էջերի համար</translation>
+<translation id="4267380167363222949">Հաջորդ ներդիրը</translation>
 <translation id="4272631900155121838">QR կոդն օգտագործելու համար կարգավորումներում միացրեք ֆոտոխցիկը</translation>
 <translation id="4276041135170112053">Շտկել</translation>
 <translation id="4277990410970811858">Անվտանգ դիտարկում</translation>
 <translation id="4281844954008187215">Օգտագործման պայմաններ</translation>
 <translation id="430793432425771671">Համաժամացնել բոլորը</translation>
+<translation id="4309403553630140242">Կրկնակի հպեք՝ լրացուցիչ տեղեկություններ ստանալու համար</translation>
 <translation id="430967081421617822">Ամբողջ ժամանակաշրջանի</translation>
 <translation id="4334428914252001502">1 չընթերցված հոդված։</translation>
 <translation id="4338650699862464074">Ուղարկում է Google-ին ձեր այցելած էջերի հասցեները</translation>
@@ -353,6 +358,7 @@
 <translation id="5005498671520578047">Պատճենել գաղտնաբառը</translation>
 <translation id="5010803260590204777">Բացեք ինկոգնիտո ներդիր՝ համացանցում անանուն կերպով կայքեր դիտելու համար:</translation>
 <translation id="5039804452771397117">Թույլ տալ</translation>
+<translation id="5056446788882570708">Խնդիրները հայտնաբերվել են <ph name="TIME" />։</translation>
 <translation id="5059136629401106827">Եղավ</translation>
 <translation id="5062321486222145940">Տեղադրել Google Drive-ը</translation>
 <translation id="5083464117946352670">Չհաջողվեց որոշել ֆայլի չափը:</translation>
@@ -376,7 +382,6 @@
 <translation id="5317780077021120954">Պահել</translation>
 <translation id="5327248766486351172">Անուն</translation>
 <translation id="5339316356165661760">Միացնել համաժամացումը</translation>
-<translation id="5352285283572729470">Այս կարգավորումը կառավարվում է</translation>
 <translation id="5388358297987318779">Բացել պատկերը</translation>
 <translation id="5407969256130905701">Չեղարկել փոփոխությունները</translation>
 <translation id="5409365236829784218">Չկան տեղադրված հավելվածներ, որոնք կարող են բացել այս ֆայլը:</translation>
@@ -456,6 +461,7 @@ Handoff-ը պետք է միացված լինի նաև Կարգավորումնե
 <translation id="6187302354554850004">Վերջին անգամ համաժամացվել է՝ <ph name="LAST_USED_TIME" /></translation>
 <translation id="6189413832092199491">Չկարդացված</translation>
 <translation id="6196207969502475924">Ձայնային որոնում</translation>
+<translation id="6202364442240589072">{COUNT,plural, =1{Փակել {COUNT} ներդիր}one{Փակել {COUNT} ներդիր}other{Փակել {COUNT} ներդիր}}</translation>
 <translation id="6219688215832490856">Երբեք չթարգմանել</translation>
 <translation id="6254066287920239840">Հղումները դիտարկիչի փոխարեն բացել հավելվածում:</translation>
 <translation id="6255097610484507482">Փոխել վարկային քարտը</translation>
@@ -571,6 +577,7 @@ Handoff-ը պետք է միացված լինի նաև Կարգավորումնե
 <translation id="734758817008927353">Քարտը պահելու կարգավորումներ</translation>
 <translation id="7348502496356775519">Էջանիշ</translation>
 <translation id="7383797227493018512">Ընթերցանության ցանկ</translation>
+<translation id="739941347996872055">Նախորդ ներդիրը</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> չընթերցված հոդված</translation>
 <translation id="7425346204213733349">Ձեր էջանիշների, այցելությունների պատմության, գաղտնաբառերի և այլ կարգավորումների փոփոխությունները չեն համաժամացվի ձեր Google հաշվի հետ: Այդուհանդերձ, ձեր առկա տվյալները կպահվեն ձեր Google հաշվում:</translation>
@@ -636,6 +643,7 @@ Handoff-ը պետք է միացված լինի նաև Կարգավորումնե
 <translation id="8073670137947914548">Ներբեռնումն ավարտվեց</translation>
 <translation id="8073872304774253879">Բարելավել որոնումն ու էջերի դիտումը</translation>
 <translation id="8076014560081431679">Պահված կայքերի կարգավորումները չեն ջնջվի և կարող են արտացոլել համացանցում դիտարկման ձեր սովորությունները: <ph name="BEGIN_LINK" />Մանրամասն<ph name="END_LINK" /></translation>
+<translation id="8079602123447022758">Այս կարգավորումը հնարավոր է փոխել։ Ավելին իմանալու համար կրկնակի հպեք։</translation>
 <translation id="8105368624971345109">Անջատել</translation>
 <translation id="8114753159095730575">Ֆայլը հասանելի է ներբեռնման համար: Ընտրանքները հասանելի են էկրանի ներքևի հատվածում:</translation>
 <translation id="8131740175452115882">Հաստատել</translation>

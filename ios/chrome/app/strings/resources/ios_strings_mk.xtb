@@ -14,6 +14,7 @@
 <translation id="1084365883616172403">Објавата на Facebook е завршена.</translation>
 <translation id="1103523840287552314">Секогаш преведувај <ph name="LANGUAGE" /></translation>
 <translation id="1104948393051856124">Прифати и продолжи</translation>
+<translation id="110724200315609752">Префрлете се на отворениот прозорец</translation>
 <translation id="1112015203684611006">Печатењето не успеа.</translation>
 <translation id="1125564390852150847">Создај нова картичка.</translation>
 <translation id="1145536944570833626">Избришете ги постоечките податоци.</translation>
@@ -93,6 +94,7 @@
 <translation id="1941314575388338491">Допрете двапати за да копирате.</translation>
 <translation id="1952172573699511566">Кога е можно, веб-сајтовите ќе прикажуваат текст на вашиот претпочитан јазик.</translation>
 <translation id="1952728750904661634">Најави се со управувана сметка</translation>
+<translation id="1965935827552890526">Завршете го тоа што сте го започнале во другиот отворен прозорец на Chrome.</translation>
 <translation id="1974060860693918893">Напредни</translation>
 <translation id="1989112275319619282">Прелистувај</translation>
 <translation id="1992734845128748707">Променете го стандардниот прелистувач…</translation>
@@ -277,6 +279,7 @@
 <translation id="408404951701638773">Сега е полесно да се дојде до лентата за пребарување</translation>
 <translation id="411254640334432676">Преземањето не успеа.</translation>
 <translation id="4112644173421521737">Пребарај</translation>
+<translation id="4113030288477039509">Управувано од вашиот администратор</translation>
 <translation id="4121993058175073134">За да пратите нето-извозни податоци, конфигурирајте ја е-поштата во апликацијата Поставки.</translation>
 <translation id="4124987746317609294">Временски опсег</translation>
 <translation id="4152011295694446843">Вашите обележувачи ќе ги најдете тука</translation>
@@ -285,11 +288,13 @@
 <translation id="4181841719683918333">Јазици</translation>
 <translation id="424315890655130736">Внесете лозинка</translation>
 <translation id="4263576668337963058">Прикажи ги достапните дејства на страницата</translation>
+<translation id="4267380167363222949">Следна картичка</translation>
 <translation id="4272631900155121838">За да скенирате QR код, овозможете ја камерата во „Поставки“</translation>
 <translation id="4276041135170112053">Поправете сега.</translation>
 <translation id="4277990410970811858">Безбедно прелистување</translation>
 <translation id="4281844954008187215">Услови за користење</translation>
 <translation id="430793432425771671">Синхронизирај сѐ</translation>
+<translation id="4309403553630140242">Допрете двапати за повеќе информации</translation>
 <translation id="430967081421617822">Цело време</translation>
 <translation id="4334428914252001502">1 непрочитана статија.</translation>
 <translation id="4338650699862464074">Ги испраќа URL-адресите на страниците што ги посетувате во Google.</translation>
@@ -353,6 +358,7 @@
 <translation id="5005498671520578047">Копирање лозинка</translation>
 <translation id="5010803260590204777">Отворете инкогнито картичка за да прелистувате приватно на интернет.</translation>
 <translation id="5039804452771397117">Дозволи</translation>
+<translation id="5056446788882570708">Најдени се проблеми <ph name="TIME" />.</translation>
 <translation id="5059136629401106827">Во ред</translation>
 <translation id="5062321486222145940">Инсталирајте Диск на Google</translation>
 <translation id="5083464117946352670">Не може да утврди големина на датотека.</translation>
@@ -376,7 +382,6 @@
 <translation id="5317780077021120954">Зачувај</translation>
 <translation id="5327248766486351172">Име</translation>
 <translation id="5339316356165661760">Вклучи синхронизација</translation>
-<translation id="5352285283572729470">Поставкава е управувана</translation>
 <translation id="5388358297987318779">Отвори слика</translation>
 <translation id="5407969256130905701">Отфрли ги промените</translation>
 <translation id="5409365236829784218">Нема инсталирани апликации кои може да ја отворат датотеката.</translation>
@@ -456,6 +461,7 @@ Handoff мора да биде овозможен и во Општиот дел 
 <translation id="6187302354554850004">Последна синхронизација: <ph name="LAST_USED_TIME" /></translation>
 <translation id="6189413832092199491">Непрочитани</translation>
 <translation id="6196207969502475924">Гласовно пребарување</translation>
+<translation id="6202364442240589072">{COUNT,plural, =1{Затвори {COUNT} картичка}one{Затвори {COUNT} картичка}other{Затвори {COUNT} картички}}</translation>
 <translation id="6219688215832490856">Никогаш не преведувај</translation>
 <translation id="6254066287920239840">Отворајте линкови во апликацијата наместо во прелистувачот.</translation>
 <translation id="6255097610484507482">Измени кредитна картичка</translation>
@@ -571,6 +577,7 @@ Handoff мора да биде овозможен и во Општиот дел 
 <translation id="734758817008927353">Опции за „Зачувај ја картичката“</translation>
 <translation id="7348502496356775519">Обележи</translation>
 <translation id="7383797227493018512">Список за читање</translation>
+<translation id="739941347996872055">Претходна картичка</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> непрочитани статии.</translation>
 <translation id="7425346204213733349">Промените во обележувачите, историјата, лозинките и другите поставки нема веќе да се синхронизираат со вашата сметка на Google. Како и да е, постоечките податоци ќе останат зачувани на сметката на Google.</translation>
@@ -636,6 +643,7 @@ Handoff мора да биде овозможен и во Општиот дел 
 <translation id="8073670137947914548">Преземањето заврши</translation>
 <translation id="8073872304774253879">Подобрете ги пребарувањата и прелистувањето</translation>
 <translation id="8076014560081431679">Поставките на зачуваните сајтови нема да се избришат и може да ги отсликуваат вашите навики за прелистување. <ph name="BEGIN_LINK" />Дознајте повеќе<ph name="END_LINK" /></translation>
+<translation id="8079602123447022758">Поставкава е управувана, допрете двапати за повеќе информации</translation>
 <translation id="8105368624971345109">Исклучи</translation>
 <translation id="8114753159095730575">Достапна е датотека за преземање. Достапни се опции на дното на екранот.</translation>
 <translation id="8131740175452115882">Потврди</translation>

@@ -41,12 +41,11 @@
 #include "chrome/browser/media/history/media_history_keyed_service_factory.h"
 #include "chrome/browser/media/media_engagement_service.h"
 #include "chrome/browser/media/media_engagement_service_factory.h"
-#include "chrome/browser/media/router/media_router_factory.h"
+#include "chrome/browser/media/router/chrome_media_router_factory.h"
+#include "chrome/browser/media/router/presentation/chrome_local_presentation_manager_factory.h"
 #include "chrome/browser/media/webrtc/webrtc_event_log_manager_keyed_service_factory.h"
 #include "chrome/browser/media_galleries/media_galleries_preferences_factory.h"
-#include "chrome/browser/nearby_sharing/nearby_sharing_service_factory.h"
 #include "chrome/browser/notifications/notifier_state_tracker_factory.h"
-#include "chrome/browser/ntp_snippets/content_suggestions_service_factory.h"
 #include "chrome/browser/page_load_metrics/observers/https_engagement_metrics/https_engagement_service_factory.h"
 #include "chrome/browser/password_manager/password_store_factory.h"
 #include "chrome/browser/permissions/adaptive_quiet_notification_permission_ui_enabler.h"
@@ -176,6 +175,7 @@
 
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/cert_provisioning/cert_provisioning_scheduler_user_service.h"
+#include "chrome/browser/nearby_sharing/nearby_sharing_service_factory.h"
 #endif
 
 namespace chrome {
@@ -255,7 +255,6 @@ void ChromeBrowserMainExtraPartsProfiles::
   CloudPrintProxyServiceFactory::GetInstance();
 #endif
   ConsentAuditorFactory::GetInstance();
-  ContentSuggestionsServiceFactory::GetInstance();
   CookieSettingsFactory::GetInstance();
   DomainDiversityReporterFactory::GetInstance();
   dom_distiller::DomDistillerServiceFactory::GetInstance();
@@ -299,7 +298,8 @@ void ChromeBrowserMainExtraPartsProfiles::
 #endif
   if (base::FeatureList::IsEnabled(media::kUseMediaHistoryStore))
     media_history::MediaHistoryKeyedServiceFactory::GetInstance();
-  media_router::MediaRouterFactory::GetInstance();
+  media_router::ChromeLocalPresentationManagerFactory::GetInstance();
+  media_router::ChromeMediaRouterFactory::GetInstance();
 #if !defined(OS_ANDROID)
   media_router::MediaRouterUIServiceFactory::GetInstance();
 #endif
@@ -308,7 +308,7 @@ void ChromeBrowserMainExtraPartsProfiles::
   //metrics::DesktopProfileSessionDurationsServiceFactory::GetInstance();
 #endif
   ModelTypeStoreServiceFactory::GetInstance();
-#if !defined(OS_ANDROID)
+#if defined(OS_CHROMEOS)
   NearbySharingServiceFactory::GetInstance();
 #endif
   NotifierStateTrackerFactory::GetInstance();

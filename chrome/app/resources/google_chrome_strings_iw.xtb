@@ -98,6 +98,7 @@
 <translation id="3622797965165704966">‏קל יותר כעת להשתמש ב-Chrome באמצעות חשבון Google שלך ובמחשבים משותפים.</translation>
 <translation id="3718181793972440140">‏פעולה זו תמחק פריט אחד מהמכשיר. כדי לשחזר את הנתונים מאוחר יותר, היכנס אל Chrome עם <ph name="USER_EMAIL" />.</translation>
 <translation id="3735758079232443276">‏התוסף "<ph name="EXTENSION_NAME" />" שינה את הדף שמוצג כש-Chrome מופעל.</translation>
+<translation id="3779473566290487688">‏כדי לקבל עדכונים של Google Chrome בעתיד, נדרשת מערכת הפעלה OS X 10.11 ואילך. המחשב הזה משתמש במערכת הפעלה OS X 10.10.</translation>
 <translation id="3780814664026482060">‏Chrome - ‏<ph name="PAGE_TITLE" /></translation>
 <translation id="386202838227397562">‏סגור את כל החלונות של Google Chrome ונסה שוב.</translation>
 <translation id="3865754807470779944">‏מותקנת גרסה <ph name="PRODUCT_VERSION" /> של Chrome</translation>
@@ -194,6 +195,7 @@
 <translation id="6967962315388095737">‏כלל נכנס לגרסת הביטא של Google Chrome כדי לאפשר תנועת mDNS.</translation>
 <translation id="6982337800632491844">‏<ph name="DOMAIN" /> דורש שתקרא ותקבל את התנאים וההגבלות הבאים לפני שתשתמש במכשיר הזה. תנאים אלה אינם מרחיבים, משנים או מגבילים את התנאים לשימוש במערכת ההפעלה של Google Chrome.</translation>
 <translation id="6989339256997917931">‏Google Chrome עודכן, אך לא השתמשת בו לפחות 30 ימים.</translation>
+<translation id="7054640471403081847">‏קבלת העדכונים של Google Chrome תופסק בקרוב למחשב זה מאחר והחומרה שלו אינה נתמכת עוד.</translation>
 <translation id="7062128746136194023">‏אחד מההורים השבית ב-Chrome את ההגדרה "הרשאות לאתרים, אפליקציות ותוספים". לא ניתן להוסיף את ה<ph name="EXTENSION_TYPE_PARAMETER" />.</translation>
 <translation id="7098166902387133879">‏Google Chrome משתמש במיקרופון שלך.</translation>
 <translation id="7106741999175697885">‏מנהל המשימות - Google Chrome</translation>
@@ -213,7 +215,6 @@
 <translation id="7486227612705979895">‏Chrome ייגש ל-Drive שלך כדי להציג הצעות בשורת כתובת האתר</translation>
 <translation id="7535429826459677826">‏גרסת הפיתוח של Google Chrome</translation>
 <translation id="7573289029918943991">‏כדי לראות אם המכשיר שלך מעודכן, יש לעבור אל <ph name="LINK_BEGIN" />הגדרות Chrome OS<ph name="LINK_END" /></translation>
-<translation id="7589360514048265910">‏המחשב הזה יפסיק לקבל עדכונים של Google Chrome כי כבר אין תמיכה בגירסה 10.9 של Mac OS X.</translation>
 <translation id="7592736734348559088">‏Google Chrome לא הצליח לסנכרן את הנתונים שלך מפני שפרטי הכניסה של חשבונך אינם מעודכנים.</translation>
 <translation id="7626032353295482388">‏ברוכים הבאים ל-Chrome</translation>
 <translation id="7629695634924605473">‏Chrome מודיע לך אם הסיסמאות שלך נמצאות בסיכון</translation>
