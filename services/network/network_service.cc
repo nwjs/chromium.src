@@ -8,7 +8,6 @@
 #include <utility>
 #include <vector>
 
-#include "net/cert/test_root_certs.h"
 
 #include "base/bind.h"
 #include "base/command_line.h"
@@ -85,6 +84,7 @@
 #include "services/network/sct_auditing_cache.h"
 #endif
 
+#include "net/cert/test_root_certs.h"
 namespace network {
 
 namespace {

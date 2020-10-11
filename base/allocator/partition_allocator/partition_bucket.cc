@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#pragma clang diagnostic ignored "-Wthread-safety-analysis"
 #include "base/allocator/partition_allocator/partition_bucket.h"
 
 #include "base/allocator/partition_allocator/address_pool_manager.h"

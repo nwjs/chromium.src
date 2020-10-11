@@ -56,7 +56,7 @@ GlassBrowserCaptionButtonContainer::GlassBrowserCaptionButtonContainer(
       close_button_(AddChildView(CreateCaptionButton(
           base::BindRepeating(&BrowserFrame::CloseWithReason,
                               base::Unretained(frame_view_->frame()),
-                              views::Widget::ClosedReason::kCloseButtonClicked),
+                              views::Widget::ClosedReason::kCloseButtonClicked, false),
           frame_view_,
           VIEW_ID_CLOSE_BUTTON,
           IDS_APP_ACCNAME_CLOSE))) {
