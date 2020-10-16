@@ -27,6 +27,7 @@
 <translation id="121097972571826261">מילה אחת קדימה</translation>
 <translation id="1225748608451425081">‏ה-Chromebook שלך נעול עקב בעיה ידועה. ניתן יהיה להיכנס בעוד: <ph name="TIME_LEFT" />.</translation>
 <translation id="1229194443904279055">סיום הבחירה</translation>
+<translation id="1239161794459865856">התכונה <ph name="FEATURE_NAME" /> מחוברת.</translation>
 <translation id="1247372569136754018">מיקרופון (פנימי)</translation>
 <translation id="1252999807265626933">טעינה מ-<ph name="POWER_SOURCE" /></translation>
 <translation id="1255033239764210633">מה מזג האוויר?</translation>
@@ -74,6 +75,7 @@
 <translation id="1654477262762802994">הפעלה של שאילתה קולית</translation>
 <translation id="1667964833127753507">במצב 'צבעים ניטרליים' לא נעשה שימוש בצבעים שנשלפו מהטפט, אלא בערכת גוונים ניטרליים, בהירים וכהים.</translation>
 <translation id="1677472565718498478">זמן נותר - <ph name="TIME" /></translation>
+<translation id="1677507110654891115">התכונה <ph name="FEATURE_NAME" /> לא מחוברת.</translation>
 <translation id="1698080062160024910">טיימר של <ph name="TOTAL_TIME" /> · <ph name="LABEL" /></translation>
 <translation id="1698760176351776263">‏כתובת IPv6: <ph name="ADDRESS" /></translation>
 <translation id="1708345662127501511">שולחן עבודה וירטואלי: <ph name="DESK_NAME" /></translation>
@@ -113,6 +115,7 @@
 <translation id="2049240716062114887">שמו של שולחן העבודה הווירטואלי שונה לשם <ph name="DESK_NAME" /></translation>
 <translation id="2050339315714019657">לאורך</translation>
 <translation id="2067602449040652523">בהירות מקלדת</translation>
+<translation id="2074759828767813253">הורדות וצילומי מסך אחרונים</translation>
 <translation id="2083190527011054446">לילה טוב <ph name="GIVEN_NAME" />,</translation>
 <translation id="209965399369889474">לא מחובר לרשת</translation>
 <translation id="2126242104232412123">שולחן עבודה חדש</translation>
@@ -144,6 +147,7 @@
 <translation id="2369165858548251131">"שלום" בסינית</translation>
 <translation id="2390318262976603432">הגדרות שילוב של שפה ואזור</translation>
 <translation id="2391579633712104609">180°</translation>
+<translation id="2405664212338326887">לא מחובר</translation>
 <translation id="2408955596600435184">‏הזן את מספר ה-PIN</translation>
 <translation id="2412593942846481727">יש עדכון זמין</translation>
 <translation id="2413728805700750528"><ph name="DISPLAY_NAME" /> הוא סשן מנוהל שמנוהל על-ידי <ph name="DOMAIN" /></translation>
@@ -197,7 +201,6 @@
 <translation id="2996462380875591307">‏הזכוכית המגדלת במצב עגינה הופעלה. כדי לכבות אותה, יש להקיש שוב על Ctrl+Search+D.</translation>
 <translation id="3000461861112256445">אודיו במונו</translation>
 <translation id="3009178788565917040">פלט</translation>
-<translation id="3025081209054535615">ביטול הצמדה של פקדי מדיה גלובליים למדף</translation>
 <translation id="3033545621352269033">מופעל</translation>
 <translation id="3038571455154067151">‏כדי להיכנס יש להזין את קוד הגישה להורים (הקוד מ-Family Link)</translation>
 <translation id="3045488863354895414">אחה"צ טובים,</translation>
@@ -243,6 +246,7 @@
 <translation id="3364721542077212959">כלי סטיילוס</translation>
 <translation id="3368922792935385530">מחובר</translation>
 <translation id="3371140690572404006">‏מכשיר עם יציאת USB-C (יציאה ימנית-קדמית)</translation>
+<translation id="3375634426936648815">מחובר</translation>
 <translation id="3386978599540877378">הזכוכית המגדלת במסך מלא</translation>
 <translation id="3400357268283240774">הגדרות נוספות</translation>
 <translation id="3410336247007142655">הגדרות של הצגת עיצוב כהה</translation>
@@ -300,6 +304,7 @@
 <translation id="3943857333388298514">הדבק</translation>
 <translation id="394485226368336402">הגדרות אודיו</translation>
 <translation id="3962859241508114581">הטראק הקודם</translation>
+<translation id="3969043077941541451">כבוי</translation>
 <translation id="397105322502079400">מחשב...</translation>
 <translation id="3977512764614765090">‏שיעור הטעינה של הסוללה הוא ‎<ph name="PERCENTAGE" />%‎ והטעינה נמשכת.</translation>
 <translation id="3995138139523574647">‏מכשיר עם יציאת USB-C (יציאה ימנית-אחורית)</translation>
@@ -310,6 +315,7 @@
 <translation id="4032485810211612751"><ph name="HOURS" />:<ph name="MINUTES" />:<ph name="SECONDS" /></translation>
 <translation id="4042660782729322247">המסך שלך משותף</translation>
 <translation id="4065525899979931964">{NUM_APPS,plural, =1{מושבת לאפליקציה אחת}two{מושבת ל-2 אפליקציות}many{מושבת ל-# אפליקציות}other{מושבת ל-# אפליקציות}}</translation>
+<translation id="4066027111132117168">פועל, <ph name="REMAINING_TIME" /></translation>
 <translation id="4072264167173457037">אות בינוני</translation>
 <translation id="4112140312785995938">הרצה לאחור</translation>
 <translation id="4114315158543974537">‏הפעלת Phone Hub</translation>
@@ -320,6 +326,7 @@
 <translation id="4181841719683918333">שפות</translation>
 <translation id="4195877955194704651">לחצן קליקים אוטומטיים</translation>
 <translation id="4197790712631116042">כבוי</translation>
+<translation id="4201033867194214117">התכונה <ph name="FEATURE_NAME" /> לא זמינה.</translation>
 <translation id="4212246570487010370">המשך הגלישה</translation>
 <translation id="4212472694152630271">מעבר לקוד אימות</translation>
 <translation id="4215497585250573029">‏הגדרות VPN</translation>
@@ -331,6 +338,7 @@
 <translation id="4285498937028063278">ביטול הצמדה</translation>
 <translation id="4294319844246081198">בוקר טוב <ph name="GIVEN_NAME" />,</translation>
 <translation id="4296136865091727875">ניקוי כל <ph name="COUNT" /> ההתראות</translation>
+<translation id="4302592941791324970">לא זמינה</translation>
 <translation id="4303223480529385476">הרחבה של אזור הסטטוס</translation>
 <translation id="4321179778687042513">ctrl</translation>
 <translation id="4321776623976362024">הקשת על מקש הקיצור של ניגודיות גבוהה. להפעיל אותה?</translation>
@@ -385,7 +393,7 @@
 <translation id="4804818685124855865">נתק</translation>
 <translation id="4814539958450445987">מסך הכניסה</translation>
 <translation id="4831034276697007977">הקליקים האוטומטיים יושבתו. האם להמשיך?</translation>
-<translation id="4836108105469522644">‏הפעלת התראות מטלפון ה-Android שלך</translation>
+<translation id="4836108105469522644">‏הפעלת התראות מטלפון Android שלך</translation>
 <translation id="4849058404725798627">הדגשה של האובייקט במיקוד המקלדת</translation>
 <translation id="485592688953820832">ללא פעולה (השהיה)</translation>
 <translation id="4868492592575313542">מופעלת</translation>
@@ -424,6 +432,7 @@
 <translation id="5302048478445481009">שפה</translation>
 <translation id="5313326810920013265">‏הגדרות Bluetooth</translation>
 <translation id="5314219114274263156">התבצעה הקלטת מסך</translation>
+<translation id="5329548388331921293">מתבצעת התחברות…</translation>
 <translation id="5331975486040154427">‏מכשיר עם יציאת USB-C (יציאה שמאלית-אחורית)</translation>
 <translation id="5352250171825660495">עיצוב כהה פועל</translation>
 <translation id="5379115545237091094">יותר מדי ניסיונות</translation>
@@ -437,6 +446,7 @@
 <translation id="5465662442746197494">זקוק לעזרה?</translation>
 <translation id="5496819745535887422">מנהל המערכת מחזיר את המכשיר למצב קודם. כל הנתונים יימחקו אחרי שהמכשיר יופעל מחדש.</translation>
 <translation id="5519195206574732858">LTE</translation>
+<translation id="5523434445161341166">התכונה <ph name="FEATURE_NAME" /> מתחברת.</translation>
 <translation id="553675580533261935">יציאה מההפעלה</translation>
 <translation id="5537725057119320332">העברה</translation>
 <translation id="5548285847212963613">התוסף "<ph name="EXTENSION_NAME" />" יכול לעזור בהתחברות אל הרשת הזו.</translation>
@@ -564,6 +574,7 @@
 <translation id="6803622936009808957">לא ניתן היה לשקף מסכים מכיוון שלא נמצאה רזולוציה נתמכת. במקום זאת התצוגה עברה למצב שולחן עבודה מורחב.</translation>
 <translation id="6818242057446442178">מילה אחת אחורה</translation>
 <translation id="6820676911989879663">הגיע הזמן להפסקה</translation>
+<translation id="6857725247182211756"><ph name="SECONDS" /> שניות</translation>
 <translation id="6857811139397017780">הפעל את <ph name="NETWORKSERVICE" /></translation>
 <translation id="685782768769951078">{NUM_DIGITS,plural, =1{נשארה ספרה אחת}two{נשארו # ספרות}many{נשארו # ספרות}other{נשארו # ספרות}}</translation>
 <translation id="6878400149835617132">קיצור הדרך מושבת</translation>
@@ -620,6 +631,7 @@
 <translation id="7526573455193969409">ייתכן שהרשת מנוטרת</translation>
 <translation id="7536035074519304529">‏כתובת IP: <ph name="ADDRESS" /></translation>
 <translation id="7548434653388805669">לילה טוב!</translation>
+<translation id="7551643184018910560">הצמד למדף</translation>
 <translation id="7561982940498449837">סגירת התפריט</translation>
 <translation id="7564874036684306347">העברת חלונות לשולחן עבודה אחר עלולה לגרום להתנהגות בלתי צפויה.
 
@@ -633,6 +645,7 @@
 <translation id="7600875258240007829">הצגת כל ההתראות</translation>
 <translation id="7618774594543487847">ניטרלי</translation>
 <translation id="7624117708979618027">‎<ph name="TEMPERATURE_F" />° F</translation>
+<translation id="7633755430369750696">הצגה של הרשאות שיתוף בקרבת מקום.</translation>
 <translation id="7642647758716480637">פתיחת ההגדרות של <ph name="NETWORK_NAME" />, <ph name="CONNECTION_STATUS" /></translation>
 <translation id="7645176681409127223"><ph name="USER_NAME" /> (בעלים)</translation>
 <translation id="7647488630410863958">בטל את נעילת המכשיר כדי להציג את ההודעות</translation>
@@ -648,6 +661,7 @@
 <translation id="7780159184141939021">סיבוב המסך</translation>
 <translation id="7796353162336583443">‏כדי לרשום הערה או לצלם צילום מסך, או כדי להשתמש ב-Google Assistant, בסמן הלייזר או בזכוכית המגדלת, צריך להקיש על לחצן הסטיילוס במדף.</translation>
 <translation id="7798302898096527229">‏הקש על Search או על Shift כדי לבטל.</translation>
+<translation id="781126011916719498">גישה מהירה לקבצים החשובים שלך. יש ללחוץ לחיצה ימנית או לחיצה ארוכה על קובץ כדי להצמיד אותו.</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> ו-<ph name="MINUTE" /></translation>
 <translation id="7829386189513694949">אות חזק</translation>
 <translation id="7837740436429729974">עבר הזמן</translation>
@@ -702,7 +716,6 @@
 <translation id="8297006494302853456">חלש</translation>
 <translation id="8308637677604853869">התפריט הקודם</translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" />  <ph name="GET_STARTED" /></translation>
-<translation id="8349293353728876872">הצמדת פקדי מדיה גלובליים למדף</translation>
 <translation id="8351131234907093545">יצירת הערה</translation>
 <translation id="8371779926711439835">אות אחת קדימה</translation>
 <translation id="8375916635258623388">מכשיר <ph name="DEVICE_NAME" /> זה והטלפון יחוברו באופן אוטומטי</translation>
@@ -792,6 +805,7 @@
 <translation id="9089416786594320554">שיטות קלט</translation>
 <translation id="9091626656156419976">הוסרה התצוגה של <ph name="DISPLAY_NAME" /></translation>
 <translation id="9151726767154816831">‏הפעל מחדש ובצע פעולת Powerwash כדי לעדכן</translation>
+<translation id="9166331175924255663">החלפת מצב השיתוף בקרבת מקום במידת חשיפה גבוהה.</translation>
 <translation id="9168436347345867845">מאוחר יותר</translation>
 <translation id="9179259655489829027">תכונה זו מאפשרת לך לגשת במהירות לכל משתמש המחובר לחשבון, בלי להזין סיסמה.
 

@@ -34,14 +34,54 @@ class ShoppingTasksModuleElement extends PolymerElement {
     };
   }
 
-  /** @private */
-  onClick_() {
+  /** @override */
+  ready() {
+    super.ready();
+    /** @type {IntersectionObserver} */
+    this.intersectionObserver_ = null;
+  }
+
+  /**
+   * @param {!Event} e
+   * @private
+   */
+  onProductClick_(e) {
+    const index = this.$.productsRepeat.indexForElement(e.target);
+    ShoppingTasksHandlerProxy.getInstance().handler.onProductClicked(index);
+    this.dispatchEvent(new Event('usage', {bubbles: true, composed: true}));
+  }
+
+  /**
+   * @param {!Event} e
+   * @private
+   */
+  onPillClick_(e) {
+    const index = this.$.relatedSearchesRepeat.indexForElement(e.target);
+    ShoppingTasksHandlerProxy.getInstance().handler.onRelatedSearchClicked(
+        index);
     this.dispatchEvent(new Event('usage', {bubbles: true, composed: true}));
   }
 
   /** @private */
   onCloseClick_() {
     this.showInfoDialog = false;
+  }
+
+  /** @private */
+  onDomChange_() {
+    if (!this.intersectionObserver_) {
+      this.intersectionObserver_ = new IntersectionObserver(entries => {
+        entries.forEach(({intersectionRatio, target}) => {
+          target.style.visibility =
+              intersectionRatio < 1 ? 'hidden' : 'visible';
+        });
+        this.dispatchEvent(new Event('visibility-update'));
+      }, {root: this, threshold: 1});
+    } else {
+      this.intersectionObserver_.disconnect();
+    }
+    this.shadowRoot.querySelectorAll('.product, .pill')
+        .forEach(el => this.intersectionObserver_.observe(el));
   }
 }
 
@@ -65,8 +105,14 @@ async function createModule() {
         element.showInfoDialog = true;
       },
       dismiss: () => {
+        ShoppingTasksHandlerProxy.getInstance().handler.dismissShoppingTask(
+            shoppingTask.name);
         return loadTimeData.getStringF(
             'dismissModuleToastMessage', shoppingTask.name);
+      },
+      restore: () => {
+        ShoppingTasksHandlerProxy.getInstance().handler.restoreShoppingTask(
+            shoppingTask.name);
       },
     },
   };

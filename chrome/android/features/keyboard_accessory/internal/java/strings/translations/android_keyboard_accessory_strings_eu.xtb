@@ -11,7 +11,7 @@
 <translation id="2903493209154104877">Helbideak</translation>
 <translation id="3399357656427473483">Ukitzean bete beharreko kredentzialen zerrenda.</translation>
 <translation id="4660011489602794167">Erakutsi teklatua</translation>
-<translation id="4694050069269396220"><ph name="ORIGIN" /> fidagarria dela uste baduzu, beste webgune batean gordetako pasahitz bat erabil dezakezu.</translation>
+<translation id="4694050069269396220"><ph name="ORIGIN" /> fidagarria dela uste baduzu, beste webgune baterako gordetako pasahitz bat erabil dezakezu.</translation>
 <translation id="4778644898150334464">Erabili beste pasahitz bat</translation>
 <translation id="5016175294846053194">Teklatuaren gainean agertzen dira eremuak automatikoki betetzeko iradokizunak</translation>
 <translation id="5088366526685584589">Gordetako helbideak daude ikusgai</translation>
@@ -21,6 +21,7 @@
 <translation id="7029809446516969842">Pasahitzak</translation>
 <translation id="7299100402441711551">Erakutsi helbideak</translation>
 <translation id="7494879913343971937">Erakutsi pasahitzak</translation>
+<translation id="7594473730623999723">Pasatu hatza iradokizun gehiago ikusteko</translation>
 <translation id="7658239707568436148">Utzi</translation>
 <translation id="7992095260806105436">Erabili Chrome-ren automatikoki betetzeko iradokizuna</translation>
 <translation id="8037472847879765671">Erakutsi ordainketa-metodoak</translation>

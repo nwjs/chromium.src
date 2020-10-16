@@ -107,14 +107,6 @@ bool IsUsingSkiaRenderer() {
   if (IsUsingVizForWebView())
     return true;
 
-#if defined(OS_ANDROID)
-  // https://crbug.com/1126490 Mali-400 with <= 512 MB is currently broken.
-  // Must be checked after IsUsingVizForWebView because it requires
-  // SkiaRenderer.
-  if (base::SysInfo::AmountOfPhysicalMemoryMB() <= 512)
-    return false;
-#endif
-
   return base::FeatureList::IsEnabled(kUseSkiaRenderer) ||
          base::FeatureList::IsEnabled(kVulkan);
 }
@@ -122,6 +114,9 @@ bool IsUsingSkiaRenderer() {
 #if defined(OS_ANDROID)
 bool IsDynamicColorGamutEnabled() {
   if (viz::AlwaysUseWideColorGamut())
+    return false;
+  auto* build_info = base::android::BuildInfo::GetInstance();
+  if (!build_info->is_at_least_q())
     return false;
   return base::FeatureList::IsEnabled(kDynamicColorGamut);
 }

@@ -83,7 +83,7 @@ DesktopAutomationHandler = class extends BaseAutomationHandler {
         EventType.SCROLL_VERTICAL_POSITION_CHANGED,
         this.onScrollPositionChanged);
     // Called when a same-page link is followed or the url fragment changes.
-    this.addListener_(EventType.SCROLLED_TO_ANCHOR, this.onEventDefault);
+    this.addListener_(EventType.SCROLLED_TO_ANCHOR, this.onScrolledToAnchor);
     this.addListener_(EventType.SELECTION, this.onSelection);
     this.addListener_(EventType.TEXT_CHANGED, this.onEditableChanged_);
     this.addListener_(
@@ -361,12 +361,35 @@ DesktopAutomationHandler = class extends BaseAutomationHandler {
    * @private
    */
   onEditableChanged_(evt) {
-    // Document selections only apply to rich editables, text selections to
-    // non-rich editables.
-    if (evt.type != EventType.DOCUMENT_SELECTION_CHANGED &&
-        (evt.target.state[StateType.RICHLY_EDITABLE] ||
-         evt.target.htmlTag === 'textarea')) {
+    if (!evt.target.state.editable) {
       return;
+    }
+
+    const isInput = evt.target.htmlTag == 'input';
+    const isTextArea = evt.target.htmlTag == 'textarea';
+    const isContentEditable = evt.target.state[StateType.RICHLY_EDITABLE];
+
+    switch (evt.type) {
+      case EventType.TEXT_CHANGED:
+      case EventType.TEXT_SELECTION_CHANGED:
+      case EventType.VALUE_CHANGED:
+        // Known to be duplicated by document selection changes for content
+        // editables and text areas.
+        if (isContentEditable || isTextArea) {
+          return;
+        }
+        break;
+      case EventType.DOCUMENT_SELECTION_CHANGED:
+        // Known to be duplicated by text selection changes.
+        if (isInput) {
+          return;
+        }
+        break;
+      case EventType.FOCUS:
+        // Allowed no matter what.
+        break;
+      default:
+        return;
     }
 
     if (!this.createTextEditHandlerIfNeeded_(evt.target)) {
@@ -546,6 +569,29 @@ DesktopAutomationHandler = class extends BaseAutomationHandler {
         this.onFocus(event);
       }
     }.bind(this));
+  }
+
+  /**
+   * Provides all feedback once a scrolled to anchor event fires.
+   * @param {!ChromeVoxEvent} evt
+   */
+  onScrolledToAnchor(evt) {
+    if (!evt.target) {
+      return;
+    }
+
+    if (ChromeVoxState.instance.currentRange) {
+      const target = evt.target;
+      const current = ChromeVoxState.instance.currentRange.start.node;
+      if (AutomationUtil.getTopLevelRoot(current) !=
+          AutomationUtil.getTopLevelRoot(target)) {
+        // Ignore this event if the root of the target differs from that of the
+        // current range.
+        return;
+      }
+    }
+
+    this.onEventDefault(evt);
   }
 
   /**

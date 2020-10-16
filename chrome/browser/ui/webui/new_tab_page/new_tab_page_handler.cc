@@ -56,6 +56,7 @@
 #include "components/omnibox/browser/omnibox_event_global_tracker.h"
 #include "components/omnibox/browser/omnibox_log.h"
 #include "components/omnibox/browser/omnibox_prefs.h"
+#include "components/prefs/pref_service.h"
 #include "components/search_engines/omnibox_focus_type.h"
 #include "components/search_engines/template_url_service.h"
 #include "components/search_provider_logos/logo_service.h"
@@ -70,6 +71,8 @@
 namespace {
 
 const int64_t kMaxDownloadBytes = 1024 * 1024;
+
+constexpr char kModulesVisiblePrefName[] = "NewTabPage.ModulesVisible";
 
 new_tab_page::mojom::ThemePtr MakeTheme(const NtpTheme& ntp_theme) {
   auto theme = new_tab_page::mojom::Theme::New();
@@ -335,6 +338,12 @@ new_tab_page::mojom::PromoPtr MakePromo(const PromoData& data) {
 
 }  // namespace
 
+// static
+const char NewTabPageHandler::kModuleDismissedHistogram[] =
+    "NewTabPage.Modules.Dismissed";
+const char NewTabPageHandler::kModuleRestoredHistogram[] =
+    "NewTabPage.Modules.Restored";
+
 NewTabPageHandler::NewTabPageHandler(
     mojo::PendingReceiver<new_tab_page::mojom::PageHandler>
         pending_page_handler,
@@ -379,6 +388,8 @@ NewTabPageHandler::NewTabPageHandler(
   OmniboxTabHelper::FromWebContents(web_contents_)->AddObserver(this);
   promo_service_observer_.Add(promo_service_);
   one_google_bar_service_observer_.Add(one_google_bar_service_);
+  logger_->SetModulesVisible(
+      profile_->GetPrefs()->GetBoolean(kModulesVisiblePrefName));
 }
 
 NewTabPageHandler::~NewTabPageHandler() {
@@ -391,6 +402,11 @@ NewTabPageHandler::~NewTabPageHandler() {
   for (auto bitmap_request_id : bitmap_request_ids_) {
     bitmap_fetcher_service_->CancelRequest(bitmap_request_id);
   }
+}
+
+// static
+void NewTabPageHandler::RegisterProfilePrefs(PrefRegistrySimple* registry) {
+  registry->RegisterBooleanPref(kModulesVisiblePrefName, true);
 }
 
 void NewTabPageHandler::AddMostVisitedTile(
@@ -648,11 +664,25 @@ void NewTabPageHandler::GetPromo(GetPromoCallback callback) {
 }
 
 void NewTabPageHandler::OnDismissModule(const std::string& module_id) {
-  // TODO(crbug.com/1130864): Record histograms.
+  const std::string histogram_prefix(kModuleDismissedHistogram);
+  base::UmaHistogramExactLinear(histogram_prefix, 1, 1);
+  base::UmaHistogramExactLinear(histogram_prefix + "." + module_id, 1, 1);
 }
 
 void NewTabPageHandler::OnRestoreModule(const std::string& module_id) {
-  // TODO(crbug.com/1130864): Record histograms.
+  const std::string histogram_prefix(kModuleRestoredHistogram);
+  base::UmaHistogramExactLinear(histogram_prefix, 1, 1);
+  base::UmaHistogramExactLinear(histogram_prefix + "." + module_id, 1, 1);
+}
+
+void NewTabPageHandler::SetModulesVisible(bool visible) {
+  profile_->GetPrefs()->SetBoolean(kModulesVisiblePrefName, visible);
+  UpdateModulesVisible();
+}
+
+void NewTabPageHandler::UpdateModulesVisible() {
+  page_->SetModulesVisible(
+      profile_->GetPrefs()->GetBoolean(kModulesVisiblePrefName));
 }
 
 void NewTabPageHandler::OnPromoDataUpdated() {

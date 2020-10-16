@@ -133,9 +133,9 @@
 </style>
 <div id="products">
   <template is="dom-repeat" id="productsRepeat"
-      items="[[shoppingTask.products]]">
-    <a class="product" href="[[item.targetUrl.url]]" on-click="onClick_"
-        on-auxclick="onClick_">
+      items="[[shoppingTask.products]]" on-dom-change="onDomChange_">
+    <a class="product" href="[[item.targetUrl.url]]" on-click="onProductClick_"
+        on-auxclick="onProductClick_">
       <div class="image">
         <img is="ntp-img" auto-src="[[item.imageUrl.url]]"></img>
       </div>
@@ -146,10 +146,10 @@
   </template>
 </div>
 <div id="relatedSearches">
-  <template is="dom-repeat"  id="relatedSearchesRepeat"
-      items="[[shoppingTask.relatedSearches]]">
-    <a class="pill" href="[[item.targetUrl.url]]" on-click="onClick_"
-        on-auxclick="onClick_">
+  <template is="dom-repeat" id="relatedSearchesRepeat"
+      items="[[shoppingTask.relatedSearches]]" on-dom-change="onDomChange_">
+    <a class="pill" href="[[item.targetUrl.url]]" on-click="onPillClick_"
+        on-auxclick="onPillClick_">
       <div class="loupe"></div>
       <div class="search-text">[[item.text]]</div>
     </a>

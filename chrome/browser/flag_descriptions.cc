@@ -740,6 +740,10 @@ const char kEnableGpuServiceLoggingName[] = "Enable gpu service logging";
 const char kEnableGpuServiceLoggingDescription[] =
     "Enable printing the actual GL driver calls.";
 
+const char kGuestOsExternalProtocolName[] = "Guest OS External Protocol";
+const char kGuestOsExternalProtocolDescription[] =
+    "Enable Guest OS external protocol handlers";
+
 const char kEnableImplicitRootScrollerName[] = "Implicit Root Scroller";
 const char kEnableImplicitRootScrollerDescription[] =
     "Enables implicitly choosing which scroller on a page is the 'root "
@@ -1325,6 +1329,11 @@ const char kJavascriptHarmonyShippingDescription[] =
     "Some web pages use legacy or non-standard JavaScript extensions that may "
     "conflict with the latest JavaScript features. This flag allows disabling "
     "support of those features for compatibility with such pages.";
+
+const char kKaleidoscopeModuleName[] = "Enforce Kaleidoscope NTP module";
+const char kKaleidoscopeModuleDescription[] =
+    "Enable the Kaleidoscope NTP module to display Kaleidoscope content on the "
+    " New Tab Page.";
 
 const char kLauncherSettingsSearchName[] = "Launcher settings search";
 const char kLauncherSettingsSearchDescription[] =
@@ -2010,6 +2019,14 @@ const char kPrinterStatusDialogName[] =
 const char kPrinterStatusDialogDescription[] =
     "Enables printer status icons and labels for saved printers on the Print "
     "Preview destination dialog";
+
+const char kSafeBrowsingEnhancedProtectionMessageInInterstitialsName[] =
+    "Show enhanced protection message in security interstitials.";
+
+const char kSafeBrowsingEnhancedProtectionMessageInInterstitialsDescription[] =
+    "If enabled, the Safe Browsing interstitials and the SSL interstitials "
+    "will include an enhanced protection message when users are not in "
+    "enhanced protection mode.";
 
 const char kSafetyTipName[] =
     "Show Safety Tip UI when visiting low-reputation websites";
@@ -3397,6 +3414,11 @@ const char kPasswordsWeaknessCheckName[] = "Passwords weakness check";
 const char kPasswordsWeaknessCheckDescription[] =
     "Enables checking passwords for weakness in Password Check";
 
+const char kSCTAuditingName[] = "SCT auditing";
+const char kSCTAuditingDescription[] =
+    "Enables SCT auditing for users who have opted in to Safe Browsing "
+    "Extended Reporting.";
+
 const char kTabFreezeName[] = "Tab Freeze";
 const char kTabFreezeDescription[] =
     "Enables freezing eligible tabs when they have been backgrounded for 5 "
@@ -3894,6 +3916,12 @@ const char kEnhancedClipboardDescription[] =
     "switching. After copying to the clipboard, press search + v to show the "
     "history. Selecting something from the menu will result in a paste to the "
     "active window.";
+
+const char kEnhancedClipboardSimpleRenderName[] =
+    "Only renders html in the Enhanced Clipboard if there are img or table "
+    "tags";
+const char kEnhancedClipboardSimpleRenderDescription[] =
+    "This will result in less HTML rendering in the Enhanced Clipboard menu.";
 
 const char kMultiDisplayOverviewAndSplitViewName[] =
     "Enable multi-display overview and split view.";
@@ -4469,6 +4497,12 @@ const char kZeroCopyVideoCaptureDescription[] =
 // All views-based platforms --------------------------------------------------
 
 #if defined(TOOLKIT_VIEWS)
+
+const char kDesktopInProductHelpSnoozeName[] =
+    "Allow snooze on supported in-product help promos";
+const char kDesktopInProductHelpSnoozeDescription[] =
+    "Snoozing an in-product help promo closes it and schedules it to be shown "
+    "later. When enabled, this functionality is allowed on supported promos.";
 
 const char kEnableMDRoundedCornersOnDialogsName[] =
     "MD corners on secondary UI";

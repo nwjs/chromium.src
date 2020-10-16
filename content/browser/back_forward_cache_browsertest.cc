@@ -336,8 +336,16 @@ class BackForwardCacheBrowserTest : public ContentBrowserTest,
   void ExpectBlocklistedFeature(
       blink::scheduler::WebSchedulerTrackedFeature feature,
       base::Location location) {
-    base::HistogramBase::Sample sample = base::HistogramBase::Sample(feature);
-    AddSampleToBuckets(&expected_blocklisted_features_, sample);
+    ExpectBlocklistedFeatures({feature}, location);
+  }
+
+  void ExpectBlocklistedFeatures(
+      std::vector<blink::scheduler::WebSchedulerTrackedFeature> features,
+      base::Location location) {
+    for (auto feature : features) {
+      base::HistogramBase::Sample sample = base::HistogramBase::Sample(feature);
+      AddSampleToBuckets(&expected_blocklisted_features_, sample);
+    }
 
     EXPECT_THAT(histogram_tester_.GetAllSamples(
                     "BackForwardCache.HistoryNavigationOutcome."
@@ -410,6 +418,7 @@ class BackForwardCacheBrowserTest : public ContentBrowserTest,
         'pageshow',
         'freeze',
         'resume',
+        'unload',
       ];
       for (event_name of event_list) {
         let result = event_name;
@@ -2356,6 +2365,294 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
       blink::scheduler::WebSchedulerTrackedFeature::kKeyboardLock, FROM_HERE);
 }
 
+// Tests which blocklisted features are tracked in the metrics when we used
+// blocklisted features (sticky and non-sticky) and do a browser-initiated
+// cross-site navigation.
+IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
+                       BlocklistedFeaturesTracking_CrossSite_BrowserInitiated) {
+  ASSERT_TRUE(CreateHttpsServer()->Start());
+  GURL url_a(https_server()->GetURL("a.com", "/title1.html"));
+  GURL url_b(https_server()->GetURL("b.com", "/title2.html"));
+  // 1) Navigate to a page.
+  EXPECT_TRUE(NavigateToURL(shell(), url_a));
+  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+
+  RenderFrameHostImpl* rfh_a = current_frame_host();
+  scoped_refptr<SiteInstanceImpl> site_instance_a =
+      static_cast<SiteInstanceImpl*>(rfh_a->GetSiteInstance());
+  RenderFrameDeletedObserver rfh_a_deleted(rfh_a);
+
+  // 2) Use WebRTC (non-sticky) and KeyboardLock (sticky) blocklisted features.
+  EXPECT_TRUE(ExecJs(rfh_a, "new RTCPeerConnection()"));
+  EXPECT_TRUE(ExecJs(rfh_a, R"(
+    new Promise(resolve => {
+      navigator.keyboard.lock();
+      resolve();
+    });
+  )"));
+
+  // 3) Navigate cross-site, browser-initiated.
+  EXPECT_TRUE(NavigateToURL(shell(), url_b));
+  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+
+  // The previous page won't get into the back-forward cache because of the
+  // blocklisted features. Because we used sticky blocklisted features, we will
+  // not do a proactive BrowsingInstance swap, however the RFH will still change
+  // and get deleted.
+  rfh_a_deleted.WaitUntilDeleted();
+  EXPECT_FALSE(site_instance_a->IsRelatedSiteInstance(
+      web_contents()->GetMainFrame()->GetSiteInstance()));
+
+  // 4) Go back.
+  web_contents()->GetController().GoBack();
+  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+
+  ExpectNotRestored(
+      {BackForwardCacheMetrics::NotRestoredReason::kBlocklistedFeatures},
+      FROM_HERE);
+  // All features (sticky and non-sticky) will be tracked, because they're
+  // tracked in RenderFrameHostManager::UnloadOldFrame.
+  ExpectBlocklistedFeatures(
+      {blink::scheduler::WebSchedulerTrackedFeature::kWebRTC,
+       blink::scheduler::WebSchedulerTrackedFeature::kKeyboardLock},
+      FROM_HERE);
+}
+
+// Tests which blocklisted features are tracked in the metrics when we used
+// blocklisted features (sticky and non-sticky) and do a renderer-initiated
+// cross-site navigation.
+IN_PROC_BROWSER_TEST_F(
+    BackForwardCacheBrowserTest,
+    BlocklistedFeaturesTracking_CrossSite_RendererInitiated) {
+  ASSERT_TRUE(CreateHttpsServer()->Start());
+  GURL url_a(https_server()->GetURL("a.com", "/title1.html"));
+  GURL url_b(https_server()->GetURL("b.com", "/title2.html"));
+
+  // 1) Navigate to a page.
+  EXPECT_TRUE(NavigateToURL(shell(), url_a));
+  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+
+  RenderFrameHostImpl* rfh_a = current_frame_host();
+  scoped_refptr<SiteInstanceImpl> site_instance_a =
+      static_cast<SiteInstanceImpl*>(rfh_a->GetSiteInstance());
+
+  // 2) Use WebRTC (non-sticky) and KeyboardLock (sticky) blocklisted
+  // features.
+  EXPECT_TRUE(ExecJs(rfh_a, "new RTCPeerConnection()"));
+  EXPECT_TRUE(ExecJs(rfh_a, R"(
+    new Promise(resolve => {
+      navigator.keyboard.lock();
+      resolve();
+    });
+  )"));
+
+  // 3) Navigate cross-site, renderer-inititated.
+  EXPECT_TRUE(ExecJs(shell(), JsReplace("location = $1;", url_b.spec())));
+  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+  // The previous page won't get into the back-forward cache because of the
+  // blocklisted features. Because we used sticky blocklisted features, we will
+  // not do a proactive BrowsingInstance swap.
+  EXPECT_TRUE(site_instance_a->IsRelatedSiteInstance(
+      web_contents()->GetMainFrame()->GetSiteInstance()));
+
+  // 4) Go back.
+  web_contents()->GetController().GoBack();
+  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+
+  if (AreAllSitesIsolatedForTesting()) {
+    ExpectNotRestored(
+        {BackForwardCacheMetrics::NotRestoredReason::
+             kRelatedActiveContentsExist,
+         BackForwardCacheMetrics::NotRestoredReason::kBlocklistedFeatures},
+        FROM_HERE);
+    // All features (sticky and non-sticky) will be tracked, because they're
+    // tracked in RenderFrameHostManager::UnloadOldFrame.
+    ExpectBlocklistedFeatures(
+        {blink::scheduler::WebSchedulerTrackedFeature::kWebRTC,
+         blink::scheduler::WebSchedulerTrackedFeature::kKeyboardLock},
+        FROM_HERE);
+  } else {
+    ExpectNotRestored({BackForwardCacheMetrics::NotRestoredReason::
+                           kRenderFrameHostReused_CrossSite},
+                      FROM_HERE);
+  }
+}
+
+// Tests which blocklisted features are tracked in the metrics when we used
+// blocklisted features (sticky and non-sticky) and do a same-site navigation.
+IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
+                       BlocklistedFeaturesTracking_SameSite) {
+  ASSERT_TRUE(CreateHttpsServer()->Start());
+
+  ASSERT_TRUE(CreateHttpsServer()->Start());
+  GURL url_1(https_server()->GetURL("/title1.html"));
+  GURL url_2(https_server()->GetURL("/title2.html"));
+
+  // 1) Navigate to a page.
+  EXPECT_TRUE(NavigateToURL(shell(), url_1));
+  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+
+  RenderFrameHostImpl* rfh_1 = current_frame_host();
+  scoped_refptr<SiteInstanceImpl> site_instance_1 =
+      static_cast<SiteInstanceImpl*>(rfh_1->GetSiteInstance());
+
+  // 2) Use WebRTC (non-sticky) and KeyboardLock (sticky) blocklisted features.
+  EXPECT_TRUE(ExecJs(rfh_1, "new RTCPeerConnection()"));
+  EXPECT_TRUE(ExecJs(rfh_1, R"(
+    new Promise(resolve => {
+      navigator.keyboard.lock();
+      resolve();
+    });
+  )"));
+
+  // 3) Navigate same-site.
+  EXPECT_TRUE(NavigateToURL(shell(), url_2));
+  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+
+  // Because we used sticky blocklisted features, we will not do a proactive
+  // BrowsingInstance swap.
+  EXPECT_TRUE(site_instance_1->IsRelatedSiteInstance(
+      web_contents()->GetMainFrame()->GetSiteInstance()));
+
+  // 4) Go back.
+  web_contents()->GetController().GoBack();
+  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+
+  ExpectNotRestored({BackForwardCacheMetrics::NotRestoredReason::
+                         kRenderFrameHostReused_SameSite},
+                    FROM_HERE);
+}
+
+// Tests which blocklisted features are tracked in the metrics when we used a
+// non-sticky blocklisted feature and do a browser-initiated cross-site
+// navigation.
+IN_PROC_BROWSER_TEST_F(
+    BackForwardCacheBrowserTest,
+    BlocklistedFeaturesTracking_CrossSite_BrowserInitiated_NonSticky) {
+  ASSERT_TRUE(CreateHttpsServer()->Start());
+
+  // 1) Navigate to an empty page.
+  GURL url_a(https_server()->GetURL("a.com", "/title1.html"));
+  GURL url_b(https_server()->GetURL("b.com", "/title2.html"));
+  EXPECT_TRUE(NavigateToURL(shell(), url_a));
+  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+
+  RenderFrameHostImpl* rfh_a = current_frame_host();
+  // 2) Use WebRTC (a non-sticky blocklisted feature).
+  EXPECT_TRUE(ExecJs(rfh_a, "new RTCPeerConnection()"));
+  scoped_refptr<SiteInstanceImpl> site_instance_a =
+      static_cast<SiteInstanceImpl*>(
+          web_contents()->GetMainFrame()->GetSiteInstance());
+
+  // 3) Navigate cross-site, browser-initiated.
+  // The previous page won't get into the back-forward cache because of the
+  // blocklisted feature.
+  EXPECT_TRUE(NavigateToURL(shell(), url_b));
+  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+  // Because we only used non-sticky blocklisted features, we will still do a
+  // proactive BrowsingInstance swap.
+  EXPECT_FALSE(site_instance_a->IsRelatedSiteInstance(
+      web_contents()->GetMainFrame()->GetSiteInstance()));
+
+  // 4) Go back.
+  web_contents()->GetController().GoBack();
+  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+
+  // Because the RenderFrameHostManager changed, the blocklisted features will
+  // be tracked in RenderFrameHostManager::UnloadOldFrame.
+  ExpectNotRestored(
+      {BackForwardCacheMetrics::NotRestoredReason::kBlocklistedFeatures},
+      FROM_HERE);
+  ExpectBlocklistedFeature(
+      blink::scheduler::WebSchedulerTrackedFeature::kWebRTC, FROM_HERE);
+}
+
+// Tests which blocklisted features are tracked in the metrics when we used a
+// non-sticky blocklisted feature and do a renderer-initiated cross-site
+// navigation.
+IN_PROC_BROWSER_TEST_F(
+    BackForwardCacheBrowserTest,
+    BlocklistedFeaturesTracking_CrossSite_RendererInitiated_NonSticky) {
+  ASSERT_TRUE(CreateHttpsServer()->Start());
+
+  // 1) Navigate to an empty page.
+  GURL url_a(https_server()->GetURL("a.com", "/title1.html"));
+  GURL url_b(https_server()->GetURL("b.com", "/title1.html"));
+  EXPECT_TRUE(NavigateToURL(shell(), url_a));
+  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+
+  RenderFrameHostImpl* rfh_a = current_frame_host();
+  // 2) Use WebRTC (a non-sticky blocklisted feature).
+  EXPECT_TRUE(ExecJs(rfh_a, "new RTCPeerConnection()"));
+  scoped_refptr<SiteInstanceImpl> site_instance_a =
+      static_cast<SiteInstanceImpl*>(
+          web_contents()->GetMainFrame()->GetSiteInstance());
+
+  // 3) Navigate cross-site, renderer-inititated.
+  // The previous page won't get into the back-forward cache because of the
+  // blocklisted feature.
+  EXPECT_TRUE(ExecJs(shell(), JsReplace("location = $1;", url_b.spec())));
+  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+  // Because we only used non-sticky blocklisted features, we will still do a
+  // proactive BrowsingInstance swap.
+  EXPECT_FALSE(site_instance_a->IsRelatedSiteInstance(
+      web_contents()->GetMainFrame()->GetSiteInstance()));
+
+  // 4) Go back.
+  web_contents()->GetController().GoBack();
+  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+
+  // Because the RenderFrameHostManager changed, the blocklisted features will
+  // be tracked in RenderFrameHostManager::UnloadOldFrame.
+  ExpectNotRestored(
+      {BackForwardCacheMetrics::NotRestoredReason::kBlocklistedFeatures},
+      FROM_HERE);
+  ExpectBlocklistedFeature(
+      blink::scheduler::WebSchedulerTrackedFeature::kWebRTC, FROM_HERE);
+}
+
+// Tests which blocklisted features are tracked in the metrics when we used a
+// non-sticky blocklisted feature and do a same-site navigation.
+IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
+                       BlocklistedFeaturesTracking_SameSite_NonSticky) {
+  ASSERT_TRUE(CreateHttpsServer()->Start());
+
+  // 1) Navigate to an empty page.
+  GURL url_1(https_server()->GetURL("/title1.html"));
+  GURL url_2(https_server()->GetURL("/title2.html"));
+  EXPECT_TRUE(NavigateToURL(shell(), url_1));
+  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+
+  RenderFrameHostImpl* rfh_1 = current_frame_host();
+  // 2) Use WebRTC (a non-sticky blocklisted feature).
+  EXPECT_TRUE(ExecJs(rfh_1, "new RTCPeerConnection()"));
+  scoped_refptr<SiteInstanceImpl> site_instance_1 =
+      static_cast<SiteInstanceImpl*>(
+          web_contents()->GetMainFrame()->GetSiteInstance());
+
+  // 3) Navigate same-site.
+  // The previous page won't get into the back-forward cache because of the
+  // blocklisted feature.
+  EXPECT_TRUE(NavigateToURL(shell(), url_2));
+  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+  // Because we only used non-sticky blocklisted features, we will still do a
+  // proactive BrowsingInstance swap.
+  EXPECT_FALSE(site_instance_1->IsRelatedSiteInstance(
+      web_contents()->GetMainFrame()->GetSiteInstance()));
+
+  // 4) Go back.
+  web_contents()->GetController().GoBack();
+  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+
+  // Because the RenderFrameHostManager changed, the blocklisted features will
+  // be tracked in RenderFrameHostManager::UnloadOldFrame.
+  ExpectNotRestored(
+      {BackForwardCacheMetrics::NotRestoredReason::kBlocklistedFeatures},
+      FROM_HERE);
+  ExpectBlocklistedFeature(
+      blink::scheduler::WebSchedulerTrackedFeature::kWebRTC, FROM_HERE);
+}
+
 IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest, LogIpcPostedToCachedFrame) {
   ASSERT_TRUE(embedded_test_server()->Start());
 
@@ -2928,6 +3225,117 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
                   "window.visibilitychange", "document.freeze",
                   "document.resume", "document.visibilitychange",
                   "window.visibilitychange", "window.pageshow.persisted"));
+}
+
+// Track the events dispatched when a page is deemed ineligible for back-forward
+// cache after we've dispatched the 'pagehide' event with persisted set to true.
+IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
+                       EventsForPageIneligibleAfterPagehidePersisted) {
+  ASSERT_TRUE(CreateHttpsServer()->Start());
+  GURL url_1(https_server()->GetURL("a.com", "/title1.html"));
+  GURL url_2(https_server()->GetURL("a.com", "/title2.html"));
+
+  // 1) Navigate to |url_1|.
+  EXPECT_TRUE(NavigateToURL(shell(), url_1));
+  RenderFrameHostImpl* rfh_1 = current_frame_host();
+  RenderFrameDeletedObserver delete_observer_rfh_1(rfh_1);
+  // 2) Use WebRTC (a non-sticky blocklisted feature), so that we would still do
+  // a RFH swap on same-site navigation and fire the 'pagehide' event during
+  // commit of the new page with 'persisted' set to true, but the page will not
+  // be eligible for back-forward cache after commit.
+  EXPECT_TRUE(ExecJs(rfh_1, "new RTCPeerConnection()"));
+
+  EXPECT_TRUE(ExecJs(rfh_1, R"(
+    window.onpagehide = (e) => {
+      if (e.persisted) {
+        window.domAutomationController.send('pagehide.persisted');
+      }
+    }
+    document.onvisibilitychange = () => {
+      if (document.visibilityState == 'hidden') {
+        window.domAutomationController.send('visibilitychange.hidden');
+      }
+    }
+    window.onunload = () => {
+      window.domAutomationController.send('unload');
+    }
+  )"));
+
+  DOMMessageQueue dom_message_queue(shell()->web_contents());
+  // 3) Navigate to |url_2|.
+  EXPECT_TRUE(NavigateToURL(shell(), url_2));
+  // |rfh_1| will not get into the back-forward cache and eventually get deleted
+  // because it uses a blocklisted feature.
+  delete_observer_rfh_1.WaitUntilDeleted();
+
+  // Only the pagehide and visibilitychange events will be dispatched.
+  int num_messages_received = 0;
+  std::string expected_messages[] = {"\"pagehide.persisted\"",
+                                     "\"visibilitychange.hidden\""};
+  std::string message;
+  while (dom_message_queue.PopMessage(&message)) {
+    EXPECT_EQ(expected_messages[num_messages_received], message);
+    num_messages_received++;
+  }
+  EXPECT_EQ(num_messages_received, 2);
+}
+
+// Track the events dispatched when a page is deemed ineligible for back-forward
+// cache before we've dispatched the pagehide event on it.
+IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
+                       EventsForPageIneligibleBeforePagehide) {
+  ASSERT_TRUE(CreateHttpsServer()->Start());
+  GURL url_1(https_server()->GetURL("a.com", "/title1.html"));
+  GURL url_2(https_server()->GetURL("b.com", "/title2.html"));
+
+  // 1) Navigate to |url_1|.
+  EXPECT_TRUE(NavigateToURL(shell(), url_1));
+  RenderFrameHostImpl* rfh_1 = current_frame_host();
+  RenderFrameDeletedObserver delete_observer_rfh_1(rfh_1);
+  // 2) Use keyboard lock (a sticky blocklisted feature), so that the page is
+  // known to be ineligible for bfcache at commit time, before we dispatch the
+  // pagehide event.
+  EXPECT_TRUE(ExecJs(rfh_1, R"(
+    new Promise(resolve => {
+      navigator.keyboard.lock();
+      resolve();
+    });
+  )"));
+
+  EXPECT_TRUE(ExecJs(rfh_1, R"(
+    window.onpagehide = (e) => {
+      if (!e.persisted) {
+        window.domAutomationController.send('pagehide.not_persisted');
+      }
+    }
+    document.onvisibilitychange = () => {
+      if (document.visibilityState == 'hidden') {
+        window.domAutomationController.send('visibilitychange.hidden');
+      }
+    }
+    window.onunload = () => {
+      window.domAutomationController.send('unload');
+    }
+  )"));
+
+  DOMMessageQueue dom_message_queue(shell()->web_contents());
+  // 3) Navigate to |url_2|.
+  EXPECT_TRUE(NavigateToURL(shell(), url_2));
+  // |rfh_1| will not get into the back-forward cache and eventually get deleted
+  // because it uses a blocklisted feature.
+  delete_observer_rfh_1.WaitUntilDeleted();
+
+  // "pagehide", "visibilitychange", and "unload" events will be dispatched.
+  int num_messages_received = 0;
+  std::string expected_messages[] = {"\"pagehide.not_persisted\"",
+                                     "\"visibilitychange.hidden\"",
+                                     "\"unload\""};
+  std::string message;
+  while (dom_message_queue.PopMessage(&message)) {
+    EXPECT_EQ(expected_messages[num_messages_received], message);
+    num_messages_received++;
+  }
+  EXPECT_EQ(num_messages_received, 3);
 }
 
 IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest, EvictPageWithInfiniteLoop) {
@@ -5552,9 +5960,6 @@ IN_PROC_BROWSER_TEST_F(SensorBackForwardCacheBrowserTest,
   ASSERT_TRUE(NavigateToURL(shell(), url_a));
   RenderFrameHostImpl* rfh_a = current_frame_host();
   RenderFrameDeletedObserver delete_observer_rfh_a(rfh_a);
-  scoped_refptr<SiteInstanceImpl> site_instance_a =
-      static_cast<SiteInstanceImpl*>(
-          web_contents()->GetMainFrame()->GetSiteInstance());
 
   EXPECT_TRUE(ExecJs(rfh_a, R"(
     new Promise(resolve => {
@@ -5564,24 +5969,11 @@ IN_PROC_BROWSER_TEST_F(SensorBackForwardCacheBrowserTest,
     })
   )"));
 
-  // 2) Navigate to B. The navigation is renderer-initiated and should not
-  // create a new RenderFrameHost or BrowsingInstance unless we decided to do
-  // a proactive BrowsingInstance swap.
-  ASSERT_TRUE(NavigateToURLFromRenderer(shell(), url_b));
-  scoped_refptr<SiteInstanceImpl> site_instance_b =
-      static_cast<SiteInstanceImpl*>(
-          web_contents()->GetMainFrame()->GetSiteInstance());
+  // 2) Navigate to B.
+  ASSERT_TRUE(NavigateToURL(shell(), url_b));
 
-  // Page A should not be in the cache, because it uses accelerometer, which is
-  // a blocklisted feature for bfcache.
+  // - Page A should not be in the cache.
   delete_observer_rfh_a.WaitUntilDeleted();
-
-  // We should've done a proactive BrowsingInstance swap for the navigation
-  // from A and B even when we know that there's a blocklisted feature being
-  // used, because we don't account for disallowed features for bfcache
-  // eligibility when determining whether or not we should do a proactive
-  // BrowsingInstance swap.
-  EXPECT_FALSE(site_instance_a->IsRelatedSiteInstance(site_instance_b.get()));
 
   // 3) Go back.
   web_contents()->GetController().GoBack();

@@ -27,6 +27,7 @@ Hier sind ein paar Dinge, die du tun kannst, um loszulegen.</translation>
 <translation id="121097972571826261">Weiter um ein Wort</translation>
 <translation id="1225748608451425081">Dein Chromebook wurde aufgrund eines bekannten Problems gesperrt. Eine Anmeldung ist wieder möglich in: <ph name="TIME_LEFT" />.</translation>
 <translation id="1229194443904279055">Auswahl beenden</translation>
+<translation id="1239161794459865856">"<ph name="FEATURE_NAME" />" ist verbunden.</translation>
 <translation id="1247372569136754018">Mikrofon (intern)</translation>
 <translation id="1252999807265626933">Wird über ein <ph name="POWER_SOURCE" /> aufgeladen</translation>
 <translation id="1255033239764210633">Wie ist das Wetter?</translation>
@@ -62,7 +63,7 @@ Hier sind ein paar Dinge, die du tun kannst, um loszulegen.</translation>
 <translation id="1503394326855300303">Dieses Inhaberkonto muss in einer Sitzung mit Mehrfachanmeldung das erste angemeldete Konto sein.</translation>
 <translation id="1516740043221086139">"Bitte nicht stören" ist aktiviert.</translation>
 <translation id="1520303207432623762">{NUM_APPS,plural, =1{Benachrichtigungseinstellungen anzeigen. Benachrichtigungen sind für eine App deaktiviert.}other{Benachrichtigungseinstellungen anzeigen. Benachrichtigungen sind für # Apps deaktiviert.}}</translation>
-<translation id="1525508553941733066">SCHLIESSEN</translation>
+<translation id="1525508553941733066">SCHLIEẞEN</translation>
 <translation id="15373452373711364">Großer Cursor</translation>
 <translation id="1546492247443594934">Desktop 2</translation>
 <translation id="1550523713251050646">Für weitere Optionen klicken</translation>
@@ -74,6 +75,7 @@ Hier sind ein paar Dinge, die du tun kannst, um loszulegen.</translation>
 <translation id="1654477262762802994">Gesprochene Anfrage starten</translation>
 <translation id="1667964833127753507">Der neutrale Farbmodus verwendet keine aus dem Hintergrund extrahierten Farben, sondern ersetzt sie durch neutrale helle und dunkle Farbtöne.</translation>
 <translation id="1677472565718498478">Verbleibende Zeit: <ph name="TIME" /> h</translation>
+<translation id="1677507110654891115">"<ph name="FEATURE_NAME" />" ist nicht verbunden.</translation>
 <translation id="1698080062160024910">Timer: <ph name="TOTAL_TIME" /> · <ph name="LABEL" /></translation>
 <translation id="1698760176351776263">IPv6-Adresse: <ph name="ADDRESS" /></translation>
 <translation id="1708345662127501511">Desktop: <ph name="DESK_NAME" /></translation>
@@ -113,6 +115,7 @@ Hier sind ein paar Dinge, die du tun kannst, um loszulegen.</translation>
 <translation id="2049240716062114887">Der Name des Desktops wurde zu "<ph name="DESK_NAME" />" geändert</translation>
 <translation id="2050339315714019657">Hochformat</translation>
 <translation id="2067602449040652523">Tastaturhelligkeit</translation>
+<translation id="2074759828767813253">Neueste Screenshots und Downloads</translation>
 <translation id="2083190527011054446">Gute Nacht <ph name="GIVEN_NAME" />,</translation>
 <translation id="209965399369889474">Keine Netzwerkverbindung</translation>
 <translation id="2126242104232412123">Neuer Desktop</translation>
@@ -144,6 +147,7 @@ Hier sind ein paar Dinge, die du tun kannst, um loszulegen.</translation>
 <translation id="2369165858548251131">"Hallo" auf Chinesisch</translation>
 <translation id="2390318262976603432">Spracheinstellungen</translation>
 <translation id="2391579633712104609">180°</translation>
+<translation id="2405664212338326887">Nicht verbunden</translation>
 <translation id="2408955596600435184">PIN eingeben</translation>
 <translation id="2412593942846481727">Update verfügbar</translation>
 <translation id="2413728805700750528">"<ph name="DISPLAY_NAME" />" ist eine verwaltete Sitzung, die von <ph name="DOMAIN" /> verwaltet wird</translation>
@@ -242,6 +246,7 @@ Hier sind ein paar Dinge, die du tun kannst, um loszulegen.</translation>
 <translation id="3364721542077212959">Eingabestift-Tools</translation>
 <translation id="3368922792935385530">Verbunden</translation>
 <translation id="3371140690572404006">USB-C-Gerät (Port vorne rechts)</translation>
+<translation id="3375634426936648815">Verbunden</translation>
 <translation id="3386978599540877378">die Vollbildlupe</translation>
 <translation id="3400357268283240774">Zusätzliche Einstellungen</translation>
 <translation id="3410336247007142655">Einstellungen für das dunkle Design anzeigen</translation>
@@ -299,6 +304,7 @@ Hier sind ein paar Dinge, die du tun kannst, um loszulegen.</translation>
 <translation id="3943857333388298514">Einfügen</translation>
 <translation id="394485226368336402">Audioeinstellungen</translation>
 <translation id="3962859241508114581">Vorheriger Titel</translation>
+<translation id="3969043077941541451">Aus</translation>
 <translation id="397105322502079400">Wird berechnet...</translation>
 <translation id="3977512764614765090">Der Akkustand ist <ph name="PERCENTAGE" /> %. Der Akku wird aufgeladen.</translation>
 <translation id="3995138139523574647">USB-C-Gerät (Port hinten rechts)</translation>
@@ -309,6 +315,7 @@ Hier sind ein paar Dinge, die du tun kannst, um loszulegen.</translation>
 <translation id="4032485810211612751"><ph name="HOURS" />:<ph name="MINUTES" />:<ph name="SECONDS" /></translation>
 <translation id="4042660782729322247">Sie geben Ihren Bildschirm frei</translation>
 <translation id="4065525899979931964">{NUM_APPS,plural, =1{Aus für 1 App}other{Aus für # Apps}}</translation>
+<translation id="4066027111132117168">An, <ph name="REMAINING_TIME" /></translation>
 <translation id="4072264167173457037">Durchschnittliches Signal</translation>
 <translation id="4112140312785995938">Zurück springen</translation>
 <translation id="4114315158543974537">Phone Hub aktivieren</translation>
@@ -319,6 +326,7 @@ Hier sind ein paar Dinge, die du tun kannst, um loszulegen.</translation>
 <translation id="4181841719683918333">Sprachen</translation>
 <translation id="4195877955194704651">Schaltfläche für automatische Klicks</translation>
 <translation id="4197790712631116042">Aus</translation>
+<translation id="4201033867194214117">"<ph name="FEATURE_NAME" />" ist nicht verfügbar.</translation>
 <translation id="4212246570487010370">Weitersurfen</translation>
 <translation id="4212472694152630271">Zu PIN wechseln</translation>
 <translation id="4215497585250573029">VPN-Einstellungen</translation>
@@ -330,6 +338,7 @@ Hier sind ein paar Dinge, die du tun kannst, um loszulegen.</translation>
 <translation id="4285498937028063278">Loslösen</translation>
 <translation id="4294319844246081198">Guten Morgen <ph name="GIVEN_NAME" />,</translation>
 <translation id="4296136865091727875">Alle <ph name="COUNT" /> Benachrichtigungen löschen</translation>
+<translation id="4302592941791324970">Nicht verfügbar</translation>
 <translation id="4303223480529385476">Statusbereich maximieren</translation>
 <translation id="4321179778687042513">Strg</translation>
 <translation id="4321776623976362024">Sie haben die Tastenkombination für den Modus "Hoher Kontrast" gedrückt. Möchten Sie ihn aktivieren?</translation>
@@ -384,6 +393,7 @@ Hier sind ein paar Dinge, die du tun kannst, um loszulegen.</translation>
 <translation id="4804818685124855865">Verbindung trennen</translation>
 <translation id="4814539958450445987">Anmeldebildschirm</translation>
 <translation id="4831034276697007977">Möchten Sie automatische Klicks wirklich deaktivieren?</translation>
+<translation id="4836108105469522644">Benachrichtigungen von Ihrem Android-Smartphone aktivieren</translation>
 <translation id="4849058404725798627">Objekt mit Tastaturfokus hervorheben</translation>
 <translation id="485592688953820832">Keine Aktion (Pause)</translation>
 <translation id="4868492592575313542">aktiviert</translation>
@@ -422,6 +432,7 @@ Hier sind ein paar Dinge, die du tun kannst, um loszulegen.</translation>
 <translation id="5302048478445481009">Sprache</translation>
 <translation id="5313326810920013265">Bluetooth-Einstellungen</translation>
 <translation id="5314219114274263156">Bildschirmaufzeichnung aufgenommen</translation>
+<translation id="5329548388331921293">Wird verbunden…</translation>
 <translation id="5331975486040154427">USB-C-Gerät (Port hinten links)</translation>
 <translation id="5352250171825660495">Dunkles Design ist aktiviert</translation>
 <translation id="5379115545237091094">Zu viele Versuche</translation>
@@ -435,6 +446,7 @@ Hier sind ein paar Dinge, die du tun kannst, um loszulegen.</translation>
 <translation id="5465662442746197494">Brauchen Sie Hilfe?</translation>
 <translation id="5496819745535887422">Ihr Administrator setzt das Gerät zurück. Beim Neustart des Geräts werden alle Daten gelöscht.</translation>
 <translation id="5519195206574732858">LTE</translation>
+<translation id="5523434445161341166">"<ph name="FEATURE_NAME" />" wird verbunden.</translation>
 <translation id="553675580533261935">Sitzung wird beendet</translation>
 <translation id="5537725057119320332">Streamen</translation>
 <translation id="5548285847212963613">Die Erweiterung "<ph name="EXTENSION_NAME" />" kann die Verbindung mit diesem Netzwerk unterstützen.</translation>
@@ -448,7 +460,7 @@ Hier sind ein paar Dinge, die du tun kannst, um loszulegen.</translation>
 <translation id="5669267381087807207">Wird aktiviert</translation>
 <translation id="5673434351075758678">Nach der Synchronisierung der Einstellungen von "<ph name="FROM_LOCALE" />" zu "<ph name="TO_LOCALE" />" geändert.</translation>
 <translation id="5679050765726761783">Leistungsschwaches Netzteil angeschlossen</translation>
-<translation id="5682642926269496722">Google Assistant steht für das aktuelle Nutzerkonto nicht zur Verfügung.</translation>
+<translation id="5682642926269496722">Google Assistant ist für das aktuelle Nutzerkonto nicht verfügbar.</translation>
 <translation id="5689633613396158040">Mit der Funktion "Nachtlicht" ist der Bildschirm bei schwachem Licht nicht störend hell und das Lesen fällt leichter. Wenn Sie hier tippen, können Sie einstellen, wann die Funktion eingeschaltet werden soll, oder sie ganz deaktivieren.</translation>
 <translation id="5691772641933328258">Fingerabdruck nicht erkannt</translation>
 <translation id="5710450975648804523">"Bitte nicht stören" ist aktiviert</translation>
@@ -562,6 +574,7 @@ Hier sind ein paar Dinge, die du tun kannst, um loszulegen.</translation>
 <translation id="6803622936009808957">Der Bildschirm konnte nicht gespiegelt werden, da die Auflösung nicht unterstützt wird. Stattdessen wurde der Modus für den erweiterten Desktop gestartet.</translation>
 <translation id="6818242057446442178">Zurück um ein Wort</translation>
 <translation id="6820676911989879663">Zeit für eine Pause.</translation>
+<translation id="6857725247182211756"><ph name="SECONDS" /> Sek.</translation>
 <translation id="6857811139397017780"><ph name="NETWORKSERVICE" /> aktivieren</translation>
 <translation id="685782768769951078">{NUM_DIGITS,plural, =1{Noch eine Ziffer}other{Noch # Ziffern}}</translation>
 <translation id="6878400149835617132">Tastenkombination deaktiviert</translation>
@@ -618,6 +631,7 @@ Hier sind ein paar Dinge, die du tun kannst, um loszulegen.</translation>
 <translation id="7526573455193969409">Das Netzwerk wird möglicherweise überwacht</translation>
 <translation id="7536035074519304529">IP-Adresse: <ph name="ADDRESS" /></translation>
 <translation id="7548434653388805669">Schlafenszeit</translation>
+<translation id="7551643184018910560">An Ablage anpinnen</translation>
 <translation id="7561982940498449837">Menü schließen</translation>
 <translation id="7564874036684306347">Das Verschieben von Fenstern auf einen anderen Desktop kann zu unerwartetem Verhalten führen. Nachfolgende Benachrichtigungen, Fenster und Dialogfelder werden unter Umständen zwischen den Desktops aufgeteilt.</translation>
 <translation id="7568294522609223312">Automatische Klicks deaktivieren</translation>
@@ -629,6 +643,7 @@ Hier sind ein paar Dinge, die du tun kannst, um loszulegen.</translation>
 <translation id="7600875258240007829">Alle Benachrichtigungen ansehen</translation>
 <translation id="7618774594543487847">Neutral</translation>
 <translation id="7624117708979618027"><ph name="TEMPERATURE_F" /> °F</translation>
+<translation id="7633755430369750696">Nearby Share-Einstellungen anzeigen.</translation>
 <translation id="7642647758716480637">Einstellungen für <ph name="NETWORK_NAME" /> öffnen (<ph name="CONNECTION_STATUS" />)</translation>
 <translation id="7645176681409127223"><ph name="USER_NAME" /> (Eigentümer)</translation>
 <translation id="7647488630410863958">Gerät entsperren, um Benachrichtigungen zu sehen</translation>
@@ -644,6 +659,7 @@ Hier sind ein paar Dinge, die du tun kannst, um loszulegen.</translation>
 <translation id="7780159184141939021">Bildschirm drehen</translation>
 <translation id="7796353162336583443">Tippen Sie auf die Eingabestift-Schaltfläche in der Ablage, um Notizen oder Screenshots zu erstellen, Google Assistant zu aktivieren oder den Laserpointer oder die Lupe zu verwenden.</translation>
 <translation id="7798302898096527229">Drücken Sie die Such-Taste oder Umschalttaste, um die Aktivierung aufzuheben.</translation>
+<translation id="781126011916719498">Greifen Sie schnell auf Ihre wichtigen Dateien zu. Pinnen Sie eine Datei entweder mit einem Rechtsklick an oder berühren und halten Sie sie.</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> und <ph name="MINUTE" /></translation>
 <translation id="7829386189513694949">Starkes Signal</translation>
 <translation id="7837740436429729974">Die Zeit ist um</translation>
@@ -666,7 +682,7 @@ Hier sind ein paar Dinge, die du tun kannst, um loszulegen.</translation>
 <translation id="7984197416080286869">Zu viele Entsperrversuche mit Fingerabdruck</translation>
 <translation id="7994370417837006925">Mehrfachanmeldung</translation>
 <translation id="7995804128062002838">Die Bildschirmaufnahme ist fehlgeschlagen</translation>
-<translation id="8000066093800657092">Nicht verbunden</translation>
+<translation id="8000066093800657092">Kein Netzwerk</translation>
 <translation id="8004512796067398576">Erhöhen</translation>
 <translation id="8029629653277878342">Für mehr Sicherheit ist das Passwort oder die PIN erforderlich</translation>
 <translation id="8030169304546394654">Verbindung getrennt</translation>
@@ -787,6 +803,7 @@ Hier sind ein paar Dinge, die du tun kannst, um loszulegen.</translation>
 <translation id="9089416786594320554">Eingabemethoden</translation>
 <translation id="9091626656156419976">Bildschirm <ph name="DISPLAY_NAME" /> wurde entfernt</translation>
 <translation id="9151726767154816831">Zum Aktualisieren Neustart und Powerwash durchführen</translation>
+<translation id="9166331175924255663">Ein-/Aus-Schaltfläche für hohe Sichtbarkeit bei Nearby Share.</translation>
 <translation id="9168436347345867845">Später</translation>
 <translation id="9179259655489829027">Dank dieser Funktion können Sie schnell auf alle angemeldeten Nutzerkonten zugreifen, ohne ein Passwort eingeben zu müssen. Verwenden Sie diese Funktion nur bei Konten, denen Sie vertrauen.</translation>
 <translation id="9183456764293710005">Vollbildlupe</translation>

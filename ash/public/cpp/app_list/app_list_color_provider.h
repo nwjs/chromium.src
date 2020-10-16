@@ -26,15 +26,20 @@ class ASH_PUBLIC_EXPORT AppListColorProvider {
   virtual SkColor GetSuggestionChipBackgroundColor() const = 0;
   virtual SkColor GetSuggestionChipTextColor() const = 0;
   virtual SkColor GetAppListItemTextColor() const = 0;
-  virtual SkColor GetPageSwitcherButtonColor() const = 0;
-  virtual SkColor GetPageSwitcherInkDropBaseColor() const = 0;
-  virtual SkColor GetPageSwitcherInkDropHighlightColor() const = 0;
-  virtual SkColor GetSearchBoxIconColor() const = 0;
+  virtual SkColor GetPageSwitcherButtonColor(
+      bool is_root_app_grid_page_switcher) const = 0;
+  virtual SkColor GetPageSwitcherInkDropBaseColor(
+      bool is_root_app_grid_page_switcher) const = 0;
+  virtual SkColor GetPageSwitcherInkDropHighlightColor(
+      bool is_root_app_grid_page_switcher) const = 0;
+  virtual SkColor GetSearchBoxIconColor(SkColor default_color) const = 0;
   virtual SkColor GetSearchBoxCardBackgroundColor() const = 0;
-  virtual SkColor GetFolderBackgroundColor() const = 0;
-  virtual SkColor GetFolderTitleTextColor() const = 0;
+  virtual SkColor GetFolderBackgroundColor(SkColor default_color) const = 0;
+  virtual SkColor GetFolderTitleTextColor(SkColor default_color) const = 0;
   virtual SkColor GetFolderHintTextColor() const = 0;
   virtual SkColor GetFolderNameBackgroundColor(bool active) const = 0;
+  virtual SkColor GetFolderNameBorderColor(bool active) const = 0;
+  virtual SkColor GetFolderNameSelectionColor() const = 0;
   virtual SkColor GetContentsBackgroundColor() const = 0;
   virtual SkColor GetSeparatorColor() const = 0;
   virtual SkColor GetSearchResultViewHighlightColor() const = 0;

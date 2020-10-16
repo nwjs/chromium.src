@@ -69,6 +69,7 @@
 #include "chrome/browser/push_messaging/push_messaging_app_identifier.h"
 #include "chrome/browser/rlz/chrome_rlz_tracker_delegate.h"
 #include "chrome/browser/search/search.h"
+#include "chrome/browser/search/shopping_tasks/shopping_tasks_service.h"
 #include "chrome/browser/sharing/sharing_sync_preference.h"
 #include "chrome/browser/ssl/ssl_config_service_manager.h"
 #include "chrome/browser/storage/appcache_feature_prefs.h"
@@ -241,6 +242,7 @@
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
 #include "chrome/browser/ui/webui/history/foreign_session_handler.h"
 #include "chrome/browser/ui/webui/history/history_ui.h"
+#include "chrome/browser/ui/webui/new_tab_page/new_tab_page_handler.h"
 #include "chrome/browser/ui/webui/settings/settings_ui.h"
 #include "chrome/browser/upgrade_detector/upgrade_detector.h"
 #include "components/ntp_tiles/custom_links_manager_impl.h"
@@ -890,6 +892,7 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry,
   //HistoryUI::RegisterProfilePrefs(registry);
   InstantService::RegisterProfilePrefs(registry);
   media_router::RegisterProfilePrefs(registry);
+  NewTabPageHandler::RegisterProfilePrefs(registry);
   NewTabUI::RegisterProfilePrefs(registry);
   ntp_tiles::CustomLinksManagerImpl::RegisterProfilePrefs(registry);
   PinnedTabCodec::RegisterProfilePrefs(registry);
@@ -898,6 +901,7 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry,
   //settings::SettingsUI::RegisterProfilePrefs(registry);
   send_tab_to_self::SendTabToSelfBubbleController::RegisterProfilePrefs(
       registry);
+  ShoppingTasksService::RegisterProfilePrefs(registry);
   signin::RegisterProfilePrefs(registry);
   StartupBrowserCreator::RegisterProfilePrefs(registry);
   UnifiedAutoplayConfig::RegisterProfilePrefs(registry);

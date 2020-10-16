@@ -25,6 +25,7 @@
 #include "ash/public/cpp/app_list/app_list_config.h"
 #include "ash/public/cpp/app_list/app_list_features.h"
 #include "ash/public/cpp/app_list/vector_icons/vector_icons.h"
+#include "ash/public/cpp/ash_features.h"
 #include "ash/public/cpp/wallpaper_types.h"
 #include "ash/resources/vector_icons/vector_icons.h"
 #include "ash/search_box/search_box_constants.h"
@@ -196,9 +197,10 @@ void SearchBoxView::UpdateSearchIcon() {
   const gfx::VectorIcon& icon = search_model_->search_engine_is_google()
                                     ? google_icon
                                     : kSearchEngineNotGoogleIcon;
-  SetSearchIconImage(gfx::CreateVectorIcon(
-      icon, kSearchBoxIconSize,
-      AppListColorProvider::Get()->GetSearchBoxIconColor()));
+  SetSearchIconImage(
+      gfx::CreateVectorIcon(icon, kSearchBoxIconSize,
+                            AppListColorProvider::Get()->GetSearchBoxIconColor(
+                                SkColorSetARGB(0xDE, 0x00, 0x00, 0x00))));
 }
 
 void SearchBoxView::UpdateSearchBoxBorder() {
@@ -232,10 +234,11 @@ int SearchBoxView::GetFocusRingSpacing() {
 
 void SearchBoxView::SetupCloseButton() {
   views::ImageButton* close = close_button();
-  close->SetImage(views::ImageButton::STATE_NORMAL,
-                  gfx::CreateVectorIcon(
-                      views::kIcCloseIcon, kSearchBoxIconSize,
-                      AppListColorProvider::Get()->GetSearchBoxIconColor()));
+  close->SetImage(
+      views::ImageButton::STATE_NORMAL,
+      gfx::CreateVectorIcon(views::kIcCloseIcon, kSearchBoxIconSize,
+                            AppListColorProvider::Get()->GetSearchBoxIconColor(
+                                gfx::kGoogleGrey700)));
   close->SetVisible(false);
   base::string16 close_button_label(
       l10n_util::GetStringUTF16(IDS_APP_LIST_CLEAR_SEARCHBOX));
@@ -391,7 +394,10 @@ void SearchBoxView::OnWallpaperColorsChanged() {
   search_box()->set_placeholder_text_color(
       app_list_color_provider->GetSearchBoxPlaceholderTextColor());
   search_box()->SetTextColor(app_list_color_provider->GetSearchBoxTextColor());
-  UpdateBackgroundColor(app_list_color_provider->GetSearchBoxBackgroundColor());
+  if (features::IsDarkLightModeEnabled()) {
+    UpdateBackgroundColor(
+        app_list_color_provider->GetSearchBoxBackgroundColor());
+  }
   SchedulePaint();
 }
 
@@ -792,9 +798,9 @@ void SearchBoxView::SetupAssistantButton() {
   views::ImageButton* assistant = assistant_button();
   assistant->SetImage(
       views::ImageButton::STATE_NORMAL,
-      gfx::CreateVectorIcon(
-          chromeos::kAssistantIcon, kSearchBoxIconSize,
-          AppListColorProvider::Get()->GetSearchBoxIconColor()));
+      gfx::CreateVectorIcon(chromeos::kAssistantIcon, kSearchBoxIconSize,
+                            AppListColorProvider::Get()->GetSearchBoxIconColor(
+                                gfx::kGoogleGrey700)));
   base::string16 assistant_button_label(
       l10n_util::GetStringUTF16(IDS_APP_LIST_START_ASSISTANT));
   assistant->SetAccessibleName(assistant_button_label);

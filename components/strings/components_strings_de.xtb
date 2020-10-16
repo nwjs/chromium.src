@@ -15,6 +15,7 @@
 <translation id="1038106730571050514">Vorschläge anzeigen</translation>
 <translation id="1038842779957582377">Unbekannter Name</translation>
 <translation id="1041998700806130099">Auftragsblattnachricht</translation>
+<translation id="1048785276086539861">Wenn Sie Anmerkungen bearbeiten, wechselt das Dokument zur Einzelseitenansicht zurück</translation>
 <translation id="1050038467049342496">Andere Apps schließen</translation>
 <translation id="1055184225775184556">&amp;Hinzufügen rückgängig machen</translation>
 <translation id="1056898198331236512">Warnung</translation>
@@ -108,6 +109,7 @@ Sie werden sonst gemäß Ihren Datenschutzeinstellungen blockiert. Wenn Cookies 
 <translation id="1348779747280417563">Namen bestätigen</translation>
 <translation id="1357195169723583938">Letzte Nutzer dieses Geräts und Zeitpunkt der Verwendung</translation>
 <translation id="1360955481084547712">Ein neues Inkognitofenster öffnen, um privat zu surfen</translation>
+<translation id="1363819917331173092">Übersetzen von Seiten in <ph name="SOURCE_LANGUAGE" /> nicht anbieten</translation>
 <translation id="1364822246244961190">Diese Richtlinie ist blockiert und ihr Wert wird deshalb ignoriert.</translation>
 <translation id="1374468813861204354">Vorschläge</translation>
 <translation id="1374692235857187091">Index-4x6 (Postkarte)</translation>
@@ -132,6 +134,7 @@ Sie werden sonst gemäß Ihren Datenschutzeinstellungen blockiert. Wenn Cookies 
 <translation id="1453974140256777690">Eingefügter oder angehängter Text wird zur Analyse an Google Cloud oder Dritte gesendet. Er wird beispielsweise auf sensible Daten geprüft.</translation>
 <translation id="1455413310270022028">Radierer</translation>
 <translation id="1462245070427461050">JIS B9</translation>
+<translation id="1462951478840426066">Die Schriftarten auf Ihrem Computer verwenden, damit Sie High Fidelity-Inhalte erstellen können</translation>
 <translation id="1463543813647160932">5 x 7</translation>
 <translation id="1467432559032391204">Links</translation>
 <translation id="1472675084647422956">Mehr anzeigen</translation>
@@ -204,7 +207,6 @@ Sie werden sonst gemäß Ihren Datenschutzeinstellungen blockiert. Wenn Cookies 
 <translation id="1717494416764505390">Ablage 3</translation>
 <translation id="1718029547804390981">Das Dokument kann aufgrund seiner Größe nicht mit Anmerkungen versehen werden</translation>
 <translation id="1721424275792716183">* Pflichtfeld</translation>
-<translation id="1724638245199909652">Zugriff auf lokal gespeicherte Schriftarten</translation>
 <translation id="1727741090716970331">Gültige Kartennummer hinzufügen</translation>
 <translation id="1728677426644403582">Dies ist die Quelle einer Webseite</translation>
 <translation id="173080396488393970">Dieser Kartentyp wird nicht unterstützt</translation>
@@ -219,6 +221,7 @@ Sie werden sonst gemäß Ihren Datenschutzeinstellungen blockiert. Wenn Cookies 
 <translation id="17513872634828108">Geöffnete Tabs</translation>
 <translation id="1752021286346845558">Ablage 8</translation>
 <translation id="1753706481035618306">Seitennummer</translation>
+<translation id="1757773103848038814">Dicktengleiche Schrift</translation>
 <translation id="1763864636252898013">Dieser Server konnte nicht beweisen, dass er <ph name="DOMAIN" /> ist. Sein Sicherheitszertifikat wird vom Betriebssystem Ihres Geräts als nicht vertrauenswürdig eingestuft. Mögliche Gründe sind eine fehlerhafte Konfiguration oder ein Angreifer, der Ihre Verbindung abfängt.</translation>
 <translation id="1768211456781949159"><ph name="BEGIN_LINK" />Versuchen Sie, die Windows-Netzwerkdiagnose auszuführen.<ph name="END_LINK" /></translation>
 <translation id="1772163372082567643">Der Server <ph name="ORIGIN" />, zu dem Sie gehen, verlangt in einer Header-Datei, dass auf alle an ihn gerichteten Anfragen eine Ursprungsrichtlinie angewendet wird. Die Header-Datei ist allerdings fehlerhaft. Daher kann der Browser Ihre Anforderung für <ph name="SITE" /> nicht ausführen. Ursprungsrichtlinien können von Websitebetreibern verwendet werden, um die Sicherheit und andere Eigenschaften einer Website zu konfigurieren.</translation>
@@ -351,7 +354,7 @@ Sie werden sonst gemäß Ihren Datenschutzeinstellungen blockiert. Wenn Cookies 
 <translation id="2354001756790975382">Weitere Lesezeichen</translation>
 <translation id="2354430244986887761">Google Safe Browsing hat kürzlich <ph name="BEGIN_LINK" />schädliche Apps<ph name="END_LINK" /> auf der Website <ph name="SITE" /> gefunden.</translation>
 <translation id="2355395290879513365">Angreifer können unter Umständen die Bilder sehen, die Sie sich auf dieser Website ansehen, und könnten dann versuchen, Sie durch Ändern der Bilder zu täuschen.</translation>
-<translation id="2356070529366658676">Fragen</translation>
+<translation id="2356070529366658676">Nachfragen</translation>
 <translation id="2359629602545592467">Mehrere</translation>
 <translation id="2359808026110333948">Weiter</translation>
 <translation id="2360873523816792727">Wenn Sie Ihre Karten auf allen Geräten verwenden möchten, aktivieren Sie die Synchronisierung.</translation>
@@ -374,6 +377,7 @@ Sie werden sonst gemäß Ihren Datenschutzeinstellungen blockiert. Wenn Cookies 
 <translation id="2465688316154986572">Heften</translation>
 <translation id="2467694685043708798"><ph name="BEGIN_LINK" />Netzwerkdiagnose ausführen<ph name="END_LINK" /></translation>
 <translation id="2469153820345007638">1-zu-N-Reihenfolge</translation>
+<translation id="2470767536994572628">Wenn Sie Anmerkungen bearbeiten, wechselt das Dokument zur Einzelseitenansicht und seiner ursprünglichen Ausrichtung zurück</translation>
 <translation id="2479410451996844060">Ungültige Such-URL</translation>
 <translation id="2482878487686419369">Benachrichtigungen</translation>
 <translation id="248348093745724435">Computerrichtlinien</translation>
@@ -497,6 +501,7 @@ Sie werden sonst gemäß Ihren Datenschutzeinstellungen blockiert. Wenn Cookies 
 <translation id="2996674880327704673">Vorschläge von Google</translation>
 <translation id="3002501248619246229">Medien im Eingabefach prüfen</translation>
 <translation id="3005723025932146533">Gespeicherte Kopie anzeigen</translation>
+<translation id="3007719053326478567">Ihr Administrator hat das Drucken dieses Inhalts blockiert</translation>
 <translation id="3008447029300691911">Geben Sie den CVC für <ph name="CREDIT_CARD" /> ein. Nach erfolgter Bestätigung werden die Kartendetails an diese Website weitergegeben.</translation>
 <translation id="3010559122411665027">Listeneintrag "<ph name="ENTRY_INDEX" />": <ph name="ERROR" /></translation>
 <translation id="301521992641321250">Automatisch blockiert</translation>
@@ -584,6 +589,7 @@ Sie werden sonst gemäß Ihren Datenschutzeinstellungen blockiert. Wenn Cookies 
 <translation id="3395827396354264108">Abholoption</translation>
 <translation id="3399952811970034796">Lieferadresse</translation>
 <translation id="3402261774528610252">Diese Website wurde unter Verwendung von TLS 1.0 oder TLS 1.1 geladen. Diese Versionen wurden eingestellt und werden zukünftig deaktiviert. Sobald sie deaktiviert wurden, können Nutzer diese Website nicht mehr aufrufen. Auf dem Server sollte TLS 1.2 oder höher laufen.</translation>
+<translation id="3411120537985775570">Ihr Administrator hat das Einfügen von Inhalten aus <ph name="ORIGIN_NAME" /> an diese Stelle blockiert</translation>
 <translation id="3414952576877147120">Größe:</translation>
 <translation id="3417660076059365994">Hochgeladene oder angehängte Dateien werden zur Analyse an Google Cloud oder Dritte gesendet. Sie werden beispielsweise auf sensible Daten oder Malware geprüft.</translation>
 <translation id="3422248202833853650">Versuchen Sie, andere Programme zu beenden, um Speicher freizugeben.</translation>
@@ -621,6 +627,7 @@ Sie werden sonst gemäß Ihren Datenschutzeinstellungen blockiert. Wenn Cookies 
 <translation id="3532844647053365774"><ph name="HOST" /> möchte Ihr Mikrofon verwenden</translation>
 <translation id="3533328374079021623">Ablage 5</translation>
 <translation id="3539171420378717834">Kopie dieser Karte auf diesem Gerät speichern</translation>
+<translation id="3552297013052089404">Schriftart Sans-Serif</translation>
 <translation id="3558573058928565255">Tageszeit</translation>
 <translation id="3566021033012934673">Dies ist keine sichere Verbindung</translation>
 <translation id="3567778190852720481">Registrierung mit Unternehmenskonto nicht möglich (Unternehmenskonto ist nicht berechtigt).</translation>
@@ -762,7 +769,7 @@ Sie werden sonst gemäß Ihren Datenschutzeinstellungen blockiert. Wenn Cookies 
 <translation id="4151403195736952345">Globalen Standard verwenden (Erkennen)</translation>
 <translation id="4152318981910038897">{COUNT,plural, =1{Seite 1}other{Seite {COUNT}}}</translation>
 <translation id="4154664944169082762">Fingerabdrücke</translation>
-<translation id="4159784952369912983">Lila</translation>
+<translation id="4159784952369912983">Violett</translation>
 <translation id="4165986682804962316">Website-Einstellungen</translation>
 <translation id="4171400957073367226">Ungültige Bestätigungssignatur</translation>
 <translation id="4171489848299289778"><ph name="RESULT_MODIFIED_DATE" /> – <ph name="RESULT_OWNER" /> – <ph name="RESULT_PRODUCT_SOURCE" /></translation>
@@ -813,6 +820,7 @@ Sie werden sonst gemäß Ihren Datenschutzeinstellungen blockiert. Wenn Cookies 
 <translation id="4277028893293644418">Passwort zurücksetzen</translation>
 <translation id="4279811152705618813">Ihr <ph name="DEVICE_TYPE" /> wird von <ph name="ENROLLMENT_DOMAIN" /> verwaltet</translation>
 <translation id="428639260510061158">{NUM_CARDS,plural, =1{Diese Karte wurde in Ihrem Google-Konto gespeichert}other{Diese Karten wurden in Ihrem Google-Konto gespeichert}}</translation>
+<translation id="4297502707443874121">Miniaturansicht für Seite <ph name="THUMBNAIL_PAGE" /></translation>
 <translation id="42981349822642051">Maximieren</translation>
 <translation id="4300675098767811073">Mehrfache Lochung rechts</translation>
 <translation id="4302965934281694568">Chou3 (Umschlag)</translation>
@@ -983,6 +991,7 @@ Sie werden sonst gemäß Ihren Datenschutzeinstellungen blockiert. Wenn Cookies 
 <translation id="503069730517007720">Für "<ph name="SOFTWARE_NAME" />" ist ein Stammzertifikat erforderlich, das nicht installiert ist. Ihr IT-Administrator sollte die Konfigurationsanweisungen für "<ph name="SOFTWARE_NAME" />" lesen, um das Problem zu beheben. <ph name="FURTHER_EXPLANATION" /></translation>
 <translation id="5031870354684148875">Über Google Übersetzer</translation>
 <translation id="503498442187459473"><ph name="HOST" /> möchte Ihre Kamera und Ihr Mikrofon verwenden</translation>
+<translation id="5039762155821394373">Schriftgröße</translation>
 <translation id="5039804452771397117">Zulassen</translation>
 <translation id="5040262127954254034">Datenschutz</translation>
 <translation id="5043480802608081735">Von Ihnen kopierter Link</translation>
@@ -1212,6 +1221,7 @@ Sie werden sonst gemäß Ihren Datenschutzeinstellungen blockiert. Wenn Cookies 
 <translation id="5938793338444039872">Troy</translation>
 <translation id="5946937721014915347"><ph name="SITE_NAME" /> wird geöffnet…</translation>
 <translation id="5951495562196540101">Registrierung mit Kundenkonto nicht möglich (Paketlizenz verfügbar).</translation>
+<translation id="5963413905009737549">Section-Element</translation>
 <translation id="5967592137238574583">Kontaktdaten bearbeiten</translation>
 <translation id="5967867314010545767">Aus Verlauf entfernen</translation>
 <translation id="5975083100439434680">Verkleinern</translation>
@@ -1248,6 +1258,7 @@ Sie werden sonst gemäß Ihren Datenschutzeinstellungen blockiert. Wenn Cookies 
 <translation id="6051221802930200923">Sie können <ph name="SITE" /> zurzeit nicht aufrufen, weil die Website das Zertifikats-Pinning nutzt. Netzwerkfehler und Angriffe sind in der Regel nur vorübergehend, sodass die Seite wahrscheinlich später wieder funktioniert.</translation>
 <translation id="6052284303005792909">•</translation>
 <translation id="6053328359599022071">Ihre Anwesenheit teilen?</translation>
+<translation id="6057359309778282021">Ihr Administrator hat das Teilen von <ph name="ORIGIN_NAME" /> mit <ph name="VM_NAME" /> blockiert</translation>
 <translation id="6058977677006700226">Karten auf allen Ihren Geräten nutzen?</translation>
 <translation id="6059925163896151826">USB-Geräte</translation>
 <translation id="6060009363608157444">Ungültiger DnsOverHttps-Modus.</translation>
@@ -1297,6 +1308,7 @@ Sie werden sonst gemäß Ihren Datenschutzeinstellungen blockiert. Wenn Cookies 
         <ph name="END_LIST" /></translation>
 <translation id="6280223929691119688">Die Lieferadresse wird nicht unterstützt. Bitte wählen Sie eine andere Adresse aus.</translation>
 <translation id="6282194474023008486">Postleitzahl</translation>
+<translation id="6289939620939689042">Seitenfarbe</translation>
 <translation id="6290238015253830360">Hier werden Ihre vorgeschlagenen Artikel angezeigt</translation>
 <translation id="6293309776179964942">JIS B5</translation>
 <translation id="6302269476990306341">Google Assistant für Chrome wird beendet</translation>
@@ -1343,6 +1355,7 @@ Sie werden sonst gemäß Ihren Datenschutzeinstellungen blockiert. Wenn Cookies 
 <translation id="6451458296329894277">Erneute Formular-Übermittlung bestätigen</translation>
 <translation id="6457206614190510200">Rückendrahtheftung</translation>
 <translation id="6465306955648956876">Passwörter verwalten…</translation>
+<translation id="6468485451923838994">Schriftarten</translation>
 <translation id="647261751007945333">Geräterichtlinien</translation>
 <translation id="6476284679642588870">Zahlungsmethoden verwalten</translation>
 <translation id="6489534406876378309">Hochladen von Abstürzen starten</translation>
@@ -1390,7 +1403,7 @@ Sie werden sonst gemäß Ihren Datenschutzeinstellungen blockiert. Wenn Cookies 
 <translation id="6687335167692595844">Gewünschte Schriftgröße</translation>
 <translation id="6689249931105087298">Relativ mit Schwarzpunktkompensation</translation>
 <translation id="6689271823431384964">Chrome bietet Ihnen die Möglichkeit, die Karten in Ihrem Google-Konto zu speichern, weil Sie angemeldet sind. Sie können dies in den Einstellungen ändern. Der Name des Karteninhabers stammt aus Ihrem Konto.</translation>
-<translation id="6710213216561001401">Vorherige Einreichung</translation>
+<translation id="6710213216561001401">Zurück</translation>
 <translation id="6710594484020273272">&lt;Suchbegriff eingeben&gt;</translation>
 <translation id="671076103358959139">Registrierungstoken:</translation>
 <translation id="6711464428925977395">Mit dem Proxyserver ist ein Problem aufgetreten oder die Adresse ist falsch.</translation>
@@ -1453,6 +1466,7 @@ Sie werden sonst gemäß Ihren Datenschutzeinstellungen blockiert. Wenn Cookies 
 <translation id="7004583254764674281">Windows Hello verwenden und Karten schneller bestätigen</translation>
 <translation id="7006930604109697472">Trotzdem senden</translation>
 <translation id="7012363358306927923">China UnionPay</translation>
+<translation id="7014741021609395734">Zoomstufe</translation>
 <translation id="7016992613359344582">Diese Belastungen können einmalig oder wiederkehrend sein und sind vielleicht nicht offensichtlich.</translation>
 <translation id="7029809446516969842">Passwörter</translation>
 <translation id="7031646650991750659">Welche Google Play-Apps Sie installiert haben</translation>
@@ -1532,7 +1546,7 @@ Weitere Details:
 <translation id="7337706099755338005">Nicht auf Ihrer Plattform verfügbar.</translation>
 <translation id="733923710415886693">Das Serverzertifikat wurde nicht über die Zertifikatstransparenz offengelegt.</translation>
 <translation id="734600844861828519">11x15</translation>
-<translation id="7346048084945669753">Ist verknüpft:</translation>
+<translation id="7346048084945669753">Ist zugehörig:</translation>
 <translation id="7349430561505560861">A4-Extra</translation>
 <translation id="7353601530677266744">Befehlszeile</translation>
 <translation id="7372973238305370288">Suchergebnis</translation>
@@ -1624,6 +1638,7 @@ Weitere Details:
 <translation id="7647206758853451655">Druckqualität</translation>
 <translation id="7648992873808071793">Dateien auf diesem Gerät speichern</translation>
 <translation id="7653957176542370971">Das Dokument zur Zahlungsabwicklung ist geschlossen</translation>
+<translation id="7654909834015434372">Wenn Sie Anmerkungen bearbeiten, wechselt das Dokument zu seiner ursprünglichen Ausrichtung zurück</translation>
 <translation id="765676359832457558">Erweiterte Einstellungen ausblenden</translation>
 <translation id="7658239707568436148">Abbrechen</translation>
 <translation id="7662298039739062396">Einstellung wird von einer Erweiterung gesteuert</translation>
@@ -1640,7 +1655,7 @@ Weitere Details:
 <translation id="7697066736081121494">Prc8 (Umschlag)</translation>
 <translation id="769721561045429135">Derzeit können bestimmte Karten nur auf diesem Gerät verwendet werden. Klicken Sie auf "Weiter", um sich die Karten anzusehen.</translation>
 <translation id="7699293099605015246">Momentan sind keine Artikel verfügbar</translation>
-<translation id="7701040980221191251">Keine Besuche</translation>
+<translation id="7701040980221191251">Keine</translation>
 <translation id="7704050614460855821"><ph name="BEGIN_LINK" />Weiter zu <ph name="SITE" /> (unsicher)<ph name="END_LINK" /></translation>
 <translation id="7714464543167945231">Zertifikat</translation>
 <translation id="7716147886133743102">Von Ihrem Administrator blockiert</translation>
@@ -1736,7 +1751,7 @@ Weitere Details:
 <translation id="808894953321890993">Passwort ändern</translation>
 <translation id="8090403583893450254">Größe 20</translation>
 <translation id="8091372947890762290">Aktivierung auf dem Server steht noch aus.</translation>
-<translation id="8092774999298748321">Dunkellila</translation>
+<translation id="8092774999298748321">Dunkelviolett</translation>
 <translation id="8094917007353911263">Unter Umständen erfordert das von Ihnen verwendete Netzwerk, dass Sie <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" /> aufrufen.</translation>
 <translation id="809898108652741896">A6</translation>
 <translation id="8100588592594801589">Die ungültigen Karten wurden entfernt</translation>
@@ -1779,6 +1794,7 @@ Weitere Details:
 <translation id="8267698848189296333">Als <ph name="USERNAME" /> anmelden</translation>
 <translation id="8269242089528251720">Getrennte Dokumente/sortierte Kopien</translation>
 <translation id="8269981117540303696">Sie können jetzt privat surfen. Andere Personen, die dieses Gerät verwenden, können Ihre Aktivität nicht sehen. Ihre Downloads und Lesezeichen werden jedoch gespeichert.</translation>
+<translation id="8275952078857499577">Übersetzen dieser Website nicht anbieten</translation>
 <translation id="8277900682056760511">Das Dokument zur Zahlungsabwicklung ist geöffnet</translation>
 <translation id="8281084378435768645">Large-Photo</translation>
 <translation id="8282947398454257691">Ihre eindeutige Geräte-ID abrufen</translation>
@@ -1853,6 +1869,7 @@ Weitere Details:
 <translation id="8622948367223941507">Legal-Extra</translation>
 <translation id="8623885649813806493">Keine übereinstimmenden Passwörter. Alle gespeicherten Passwörter anzeigen.</translation>
 <translation id="8625384913736129811">Diese Karte für dieses Gerät speichern</translation>
+<translation id="8657078576661269990">Ihr Administrator hat das Teilen von <ph name="ORIGIN_NAME" /> mit <ph name="VM_NAME_1" /> und <ph name="VM_NAME_2" /> blockiert</translation>
 <translation id="8663226718884576429">Bestellübersicht, <ph name="TOTAL_LABEL" />, weitere Details</translation>
 <translation id="867224526087042813">Signatur</translation>
 <translation id="8676424191133491403">Keine Verzögerung</translation>
@@ -1865,6 +1882,7 @@ Weitere Details:
 <translation id="8699041776323235191">HID-Gerät</translation>
 <translation id="8703575177326907206">Die Verbindung zu <ph name="DOMAIN" /> ist nicht verschlüsselt.</translation>
 <translation id="8705331520020532516">Seriennummer</translation>
+<translation id="8710842507289500830">Schriftschnitt</translation>
 <translation id="8718314106902482036">Zahlung nicht abgeschlossen</translation>
 <translation id="8719263113926255150"><ph name="ENTITY" />, <ph name="DESCRIPTION" />, Suchvorschlag</translation>
 <translation id="8719528812645237045">Mehrfache Lochung oben</translation>
@@ -1887,6 +1905,7 @@ Weitere Details:
 <translation id="8790007591277257123">&amp;Löschen wiederholen</translation>
 <translation id="8792621596287649091">Sie könnten den Zugriff auf Ihr <ph name="ORG_NAME" />-Konto verlieren oder zum Opfer von Identitätsdiebstahl werden. Chromium empfiehlt Ihnen, Ihr Passwort jetzt zu ändern.</translation>
 <translation id="8793655568873652685"><ph name="ENROLLMENT_DOMAIN" /> hat Chrome Enterprise Connectors für Ihren Browser aktiviert. Diese Connectors haben Zugriff auf einen Teil Ihrer Daten.</translation>
+<translation id="8798099450830957504">Standard</translation>
 <translation id="8805819170075074995">Listeneintrag "<ph name="LANGUAGE_ID" />": Der Eintrag wird ignoriert, weil er auch in der Richtlinie "SpellcheckLanguage" enthalten ist.</translation>
 <translation id="8807160976559152894">Nach jeder Seite zuschneiden</translation>
 <translation id="8816395686387277279"><ph name="UPDATE_CHROME_FOCUSED_FRIENDLY_MATCH_TEXT" /> – drücken Sie die Tabulatortaste und dann die Eingabetaste, um Chrome über die Chrome-Einstellungen zu aktualisieren</translation>
@@ -1986,6 +2005,7 @@ Weitere Details:
 <translation id="9191834167571392248">Lochung unten links</translation>
 <translation id="9205078245616868884">Ihre Daten sind mit Ihrer Synchronisierungspassphrase verschlüsselt. Geben Sie diese ein, um die Synchronisierung zu starten.</translation>
 <translation id="9207861905230894330">Der Artikel konnte nicht hinzugefügt werden.</translation>
+<translation id="9213433120051936369">Layout anpassen</translation>
 <translation id="9215416866750762878">Eine Anwendung verhindert, dass Chrome eine sichere Internetverbindung zu dieser Website herstellt</translation>
 <translation id="9219103736887031265">Bilder</translation>
 <translation id="933712198907837967">Diners Club</translation>

@@ -34,7 +34,7 @@ constexpr base::FeatureParam<bool> kAmbientModeFineArtAlbumEnabled{
     &kAmbientModeFeature, "FineArtAlbumEnabled", false};
 
 constexpr base::FeatureParam<bool> kAmbientModeFeaturedPhotoAlbumEnabled{
-    &kAmbientModeFeature, "FeaturedPhotoAlbumEnabled", false};
+    &kAmbientModeFeature, "FeaturedPhotoAlbumEnabled", true};
 
 constexpr base::FeatureParam<bool> kAmbientModeEarthAndSpaceAlbumEnabled{
     &kAmbientModeFeature, "EarthAndSpaceAlbumEnabled", false};
@@ -46,10 +46,10 @@ constexpr base::FeatureParam<bool> kAmbientModeDefaultFeedEnabled{
     &kAmbientModeFeature, "DefaultFeedEnabled", false};
 
 constexpr base::FeatureParam<bool> kAmbientModePersonalPhotosEnabled{
-    &kAmbientModeFeature, "PersonalPhotosEnabled", false};
+    &kAmbientModeFeature, "PersonalPhotosEnabled", true};
 
 constexpr base::FeatureParam<bool> kAmbientModeFeaturedPhotosEnabled{
-    &kAmbientModeFeature, "FeaturedPhotosEnabled", false};
+    &kAmbientModeFeature, "FeaturedPhotosEnabled", true};
 
 constexpr base::FeatureParam<bool> kAmbientModeGeoPhotosEnabled{
     &kAmbientModeFeature, "GeoPhotosEnabled", false};
@@ -256,6 +256,11 @@ const base::Feature kExoOrdinalMotion{"ExoOrdinalMotion",
 const base::Feature kExoPointerLock{"ExoPointerLock",
                                     base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Enables policy that controls feature to allow Family Link accounts on school
+// owned devices.
+const base::Feature kFamilyLinkOnSchoolDevice{
+    "FamilyLinkOnSchoolDevice", base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Enables the camera folder handling in files app.
 const base::Feature kFilesCameraFolder{"FilesCameraFolder",
                                        base::FEATURE_ENABLED_BY_DEFAULT};
@@ -302,6 +307,11 @@ const base::Feature kMojoDBusRelay{"MojoDBusRelay",
 const base::Feature kClipboardHistory{"ClipboardHistory",
                                       base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Enables rendering html in Clipboard History only if an img or table tag is
+// present.
+const base::Feature kClipboardHistorySimpleRender{
+    "ClipboardHistorySimpleRender", base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Enables copying an image to the system clipboard to support pasting onto
 // different surfaces
 const base::Feature kEnableFilesAppCopyImage{"EnableFilesAppCopyImage",
@@ -318,6 +328,10 @@ const base::Feature kFsNosymfollow{"FsNosymfollow",
 // Enable a D-Bus service for accessing gesture properties.
 const base::Feature kGesturePropertiesDBusService{
     "GesturePropertiesDBusService", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Enable Guest OS external protocol handling.
+const base::Feature kGuestOsExternalProtocol{"GuestOsExternalProtocol",
+                                             base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enables editing with handwriting gestures within the virtual keyboard.
 const base::Feature kHandwritingGestureEditing{
@@ -435,7 +449,7 @@ const base::Feature kPrintJobManagementApp{"PrintJobManagementApp",
 
 // Changes Print Preview Save to Drive to use local Drive.
 const base::Feature kPrintSaveToDrive{"PrintSaveToDrive",
-                                      base::FEATURE_DISABLED_BY_DEFAULT};
+                                      base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Controls whether to enable quick answers.
 const base::Feature kQuickAnswers{"QuickAnswers",
@@ -476,8 +490,8 @@ const base::Feature kQuickUnlockPinAutosubmitBackfill{
     "QuickUnlockPinAutosubmitBackfill", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enables or disables Release Notes notifications on Chrome OS.
-const base::Feature kReleaseNotesNotification{"ReleaseNotesNotification",
-                                              base::FEATURE_ENABLED_BY_DEFAULT};
+const base::Feature kReleaseNotesNotification{
+    "ReleaseNotesNotification", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enables or disables Release Notes notifications on non-stable Chrome OS
 // channels. Used for testing.
@@ -644,6 +658,10 @@ bool IsDiagnosticsAppEnabled() {
   return base::FeatureList::IsEnabled(kDiagnosticsApp);
 }
 
+bool IsFamilyLinkOnSchoolDeviceEnabled() {
+  return base::FeatureList::IsEnabled(kFamilyLinkOnSchoolDevice);
+}
+
 bool IsImeSandboxEnabled() {
   return base::FeatureList::IsEnabled(kEnableImeSandbox);
 }
@@ -670,7 +688,12 @@ bool IsMinimumChromeVersionEnabled() {
 }
 
 bool IsClipboardHistoryEnabled() {
-  return base::FeatureList::IsEnabled(kClipboardHistory);
+  return base::FeatureList::IsEnabled(kClipboardHistory) ||
+         base::FeatureList::IsEnabled(kClipboardHistorySimpleRender);
+}
+
+bool IsClipboardHistorySimpleRenderEnabled() {
+  return base::FeatureList::IsEnabled(kClipboardHistorySimpleRender);
 }
 
 bool IsParentalControlsSettingsEnabled() {

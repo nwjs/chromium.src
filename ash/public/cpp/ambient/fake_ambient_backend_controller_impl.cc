@@ -4,6 +4,7 @@
 
 #include "ash/public/cpp/ambient/fake_ambient_backend_controller_impl.h"
 
+#include <array>
 #include <utility>
 
 #include "ash/public/cpp/ambient/ambient_backend_controller.h"
@@ -25,6 +26,9 @@ constexpr AmbientModeTemperatureUnit kTemperatureUnit =
 constexpr char kFakeUrl[] = "chrome://ambient";
 
 constexpr char kFakeDetails[] = "fake-photo-attribution";
+
+constexpr std::array<const char*, 2> kFakeBackupPhotoUrls = {kFakeUrl,
+                                                             kFakeUrl};
 
 AmbientSettings CreateFakeSettings() {
   AmbientSettings settings;
@@ -79,14 +83,17 @@ FakeAmbientBackendControllerImpl::~FakeAmbientBackendControllerImpl() = default;
 void FakeAmbientBackendControllerImpl::FetchScreenUpdateInfo(
     int num_topics,
     OnScreenUpdateInfoFetchedCallback callback) {
-  ash::AmbientModeTopic topic;
-  topic.url = kFakeUrl;
-  topic.details = kFakeDetails;
-  topic.related_image_url = kFakeUrl;
-  topic.topic_type = AmbientModeTopicType::kCulturalInstitute;
-
   ash::ScreenUpdate update;
-  update.next_topics.emplace_back(topic);
+
+  for (int i = 0; i < num_topics; i++) {
+    ash::AmbientModeTopic topic;
+    topic.url = kFakeUrl;
+    topic.details = kFakeDetails;
+    topic.related_image_url = kFakeUrl;
+    topic.topic_type = AmbientModeTopicType::kCulturalInstitute;
+
+    update.next_topics.emplace_back(topic);
+  }
 
   // Only respond weather info when there is no active weather testing.
   if (!weather_info_) {
@@ -152,6 +159,11 @@ void FakeAmbientBackendControllerImpl::SetPhotoRefreshInterval(
 void FakeAmbientBackendControllerImpl::FetchWeather(
     FetchWeatherCallback callback) {
   std::move(callback).Run(weather_info_);
+}
+
+const std::array<const char*, 2>&
+FakeAmbientBackendControllerImpl::GetBackupPhotoUrls() const {
+  return kFakeBackupPhotoUrls;
 }
 
 void FakeAmbientBackendControllerImpl::ReplyFetchSettingsAndAlbums(

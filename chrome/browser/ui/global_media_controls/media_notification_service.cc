@@ -313,8 +313,6 @@ MediaNotificationService::MediaNotificationService(Profile* profile,
             base::BindRepeating(
                 &MediaNotificationService::OnCastNotificationsChanged,
                 base::Unretained(this)));
-    presentation_request_notification_provider_ =
-        std::make_unique<PresentationRequestNotificationProvider>(this);
   }
   if (media_router::GlobalMediaControlsCastStartStopEnabled()) {
     presentation_request_notification_provider_ =
@@ -860,13 +858,13 @@ void MediaNotificationService::OnNotificationChanged(
   for (auto& observer : observers_)
     observer.OnNotificationListChanged();
 
-  // Avoid re-examining the supplemental notifications as a side-effect or
-  // showing or hiding a supplemental notification.
+  // Avoid re-examining the supplemental notifications as a side-effect of
+  // hiding a supplemental notification.
   if (!changed_notification_id ||
       base::Contains(supplemental_notifications_, *changed_notification_id))
     return;
 
-  // Show or hide supplemental notifications as necessary.
+  // Hide supplemental notifications if necessary.
   for (const auto& pair : supplemental_notifications_) {
     auto* web_contents = pair.second;
     const bool should_hide = std::any_of(
@@ -877,11 +875,9 @@ void MediaNotificationService::OnNotificationChanged(
         });
 
     // If there is an active session associated with the same web contents as
-    // this supplemental notification, hide it; if not, show it.
+    // this supplemental notification, hide it.
     if (should_hide) {
       HideNotification(pair.first);
-    } else {
-      ShowNotification(pair.first);
     }
   }
 }

@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'chrome://resources/cr_elements/cr_button/cr_button.m.js';
 import 'chrome://resources/mojo/mojo/public/mojom/base/big_buffer.mojom-lite.js';
 import 'chrome://resources/mojo/mojo/public/mojom/base/string16.mojom-lite.js';
 import 'chrome://resources/mojo/mojo/public/mojom/base/unguessable_token.mojom-lite.js';
@@ -38,11 +39,8 @@ Polymer({
       value: () => [],
     },
 
-    /**
-     * @type {?mojoBase.mojom.UnguessableToken}
-     * @private
-     */
-    selectedScannerId_: Object,
+    /** @type (?string) */
+    selectedScannerId: String,
 
     /**
      * @type {?chromeos.scanning.mojom.ScannerCapabilities}
@@ -50,11 +48,26 @@ Polymer({
      */
     capabilities_: Object,
 
+    /** @type {?string} */
+    selectedSource: String,
+
     /**
-     * @type {?chromeos.scanning.mojom.ScanSource}
+     * @type {?string}
      * @private
      */
-    selectedSoure_: Object,
+    statusText_: String,
+
+    /** @private */
+    settingsDisabled_: {
+      type: Boolean,
+      value: false,
+    },
+
+    /** @private */
+    scanButtonDisabled_: {
+      type: Boolean,
+      value: true,
+    },
 
     /** @private */
     loaded_: {
@@ -63,10 +76,7 @@ Polymer({
     },
   },
 
-  listeners: {
-    'selected-scanner-change': 'onSelectedScannerChange_',
-    'selected-source-change': 'onSelectedSourceChange_',
-  },
+  observers: ['onSelectedScannerIdChange_(selectedScannerId)'],
 
   /** @override */
   created() {
@@ -88,7 +98,9 @@ Polymer({
 
     // Set the first source as the selected source since it will be the first
     // option in the dropdown.
-    this.selectedSoure_ = this.capabilities_.sources[0];
+    this.selectedSource = this.capabilities_.sources[0].name;
+
+    this.scanButtonDisabled_ = false;
   },
 
   /**
@@ -109,37 +121,63 @@ Polymer({
     // Since the first scanner is the default option in the dropdown, set the
     // selected ID to the fist scanner's ID until a different scanner is
     // selected.
-    this.selectedScannerId_ = this.scanners_[0].id;
-    this.scanService_.getScannerCapabilities(this.selectedScannerId_)
-        .then(this.onCapabilitiesReceived_.bind(this));
+    this.selectedScannerId = tokenToString(this.scanners_[0].id);
   },
 
   /**
-   * @param {!Event} event
+   * @param {!string} selectedScannerId
    * @private
    */
-  onSelectedScannerChange_(event) {
-    const value = event.detail.value;
-    if (!this.scannerIds_.has(value)) {
+  onSelectedScannerIdChange_(selectedScannerId) {
+    if (!this.scannerIds_.has(selectedScannerId)) {
       return;
     }
 
-    this.selectedScannerId_ = this.scannerIds_.get(value);
-    this.scanService_.getScannerCapabilities(this.selectedScannerId_)
+    this.scanButtonDisabled_ = true;
+
+    this.scanService_
+        .getScannerCapabilities(this.scannerIds_.get(selectedScannerId))
         .then(this.onCapabilitiesReceived_.bind(this));
   },
 
+  /** @private */
+  onScanClick_() {
+    if (!this.selectedScannerId || !this.selectedSource) {
+      // TODO(jschettler): Replace status text with finalized i18n strings.
+      this.statusText_ = 'Failed to start scan.';
+      return;
+    }
+
+    this.statusText_ = 'Scanning...';
+    this.settingsDisabled_ = true;
+    this.scanButtonDisabled_ = true;
+
+    // TODO(jschettler): Set color mode and resolution using the selected values
+    // when the corresponding dropdowns are added.
+    const settings = {
+      'sourceName': this.selectedSource,
+      'colorMode': chromeos.scanning.mojom.ColorMode.kColor,
+      'resolutionDpi': 100,
+    };
+    this.scanService_
+        .scan(this.scannerIds_.get(this.selectedScannerId), settings)
+        .then(
+            /*@type {!{success: boolean}}*/ (response) => {
+                this.onScanCompleted_(response)});
+  },
+
   /**
-   * @param {!Event} event
+   * @param {!{success: boolean}} response
    * @private
    */
-  onSelectedSourceChange_(event) {
-    const value = event.detail.value;
-    for (const source of this.capabilities_.sources) {
-      if (source.name === value) {
-        this.selectedSoure_ = source;
-        break;
-      }
+  onScanCompleted_(response) {
+    if (response.success) {
+      this.statusText_ = 'Scan complete! File(s) saved to My files.';
+    } else {
+      this.statusText_ = 'Scan failed.';
     }
+
+    this.settingsDisabled_ = false;
+    this.scanButtonDisabled_ = false;
   },
 });

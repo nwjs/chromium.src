@@ -33,12 +33,20 @@ Polymer({
       value: () => [],
     },
 
+    /** @type {?string} */
+    selectedSource: {
+      type: String,
+      notify: true,
+    },
+
+    settingsDisabled: Boolean,
+
     /** @private */
     disabled_: Boolean,
   },
 
   observers: [
-    'updateDisabled_(sources.length)',
+    'updateDisabled_(sources.length, settingsDisabled)',
   ],
 
   /**
@@ -51,19 +59,12 @@ Polymer({
   },
 
   /**
-   * @param {!Event} event
+   * Disables the dropdown if settings are disabled or the number of available
+   * sources is less than the number of required sources.
    * @private
    */
-  onSelectedSourceChange_(event) {
-    this.fire('selected-source-change', event.target);
-  },
-
-  /**
-   * Disables the dropdown based on the number of available sources.
-   * @param {number} numSources
-   * @private
-   */
-  updateDisabled_(numSources) {
-    this.disabled_ = numSources < NUM_REQUIRED_SOURCES;
+  updateDisabled_() {
+    this.disabled_ =
+        this.settingsDisabled || this.sources.length < NUM_REQUIRED_SOURCES;
   },
 });

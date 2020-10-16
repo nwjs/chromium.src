@@ -16079,6 +16079,22 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="NewTabPage.Promo.EnhancedProtectionPromo.Accepted">
+  <owner>bdea@chromium.org</owner>
+  <owner>chrome-safebrowsing-alerts@google.com</owner>
+  <description>
+    The Safe Browsing Enhanced Protection promo is accepted.
+  </description>
+</action>
+
+<action name="NewTabPage.Promo.EnhancedProtectionPromo.Dismissed">
+  <owner>bdea@chromium.org</owner>
+  <owner>chrome-safebrowsing-alerts@google.com</owner>
+  <description>
+    The Safe Browsing Enhanced Protection promo is dismissed.
+  </description>
+</action>
+
 <action name="NewTabPage_ContentSuggestions_ArticlesUsage"
     not_user_triggered="true">
   <owner>markusheintz@chromium.org</owner>
@@ -18287,6 +18303,12 @@ should be able to be added at any place in this file.
   <description>Please enter the description of this user action.</description>
 </action>
 
+<action name="Options_ShowSafeBrowsingEnhancedProtection">
+  <owner>xinghuilu@chromium.org</owner>
+  <owner>chrome-safebrowsing-alerts@google.com</owner>
+  <description>Settings: Safe Browsing enhanced protection</description>
+</action>
+
 <action name="Options_ShowStorageManager">
   <owner>fukino@chromium.org</owner>
   <description>Settings: Storage management</description>
@@ -20136,6 +20158,15 @@ should be able to be added at any place in this file.
   <description>
     The Safe Browsing setting page is shown to the user. The user reaches the
     page from SafetyCheck.
+  </description>
+</action>
+
+<action name="SafeBrowsing.Settings.ShowedFromSecurityInterstitial">
+  <owner>xinghuilu@chromium.org</owner>
+  <owner>chrome-safebrowsing-alerts@google.com</owner>
+  <description>
+    The Safe Browsing setting page is shown to the user. The user reaches the
+    page from the security interstitial.
   </description>
 </action>
 
@@ -26231,6 +26262,18 @@ should be able to be added at any place in this file.
   <description>
     The user tapped on Share action in a Webapp actions notification.
   </description>
+</action>
+
+<action name="WebApp.SetWindowMode.Tab">
+  <owner>alancutter@chromium.org</owner>
+  <owner>desktop-pwas-team@google.com</owner>
+  <description>The user set a web app to open in a browser tab.</description>
+</action>
+
+<action name="WebApp.SetWindowMode.Window">
+  <owner>alancutter@chromium.org</owner>
+  <owner>desktop-pwas-team@google.com</owner>
+  <description>The user set a web app to open in an app window.</description>
 </action>
 
 <action name="WebappMenuOpenInChrome">

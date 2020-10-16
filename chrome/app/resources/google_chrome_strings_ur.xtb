@@ -23,6 +23,7 @@
 <translation id="1553358976309200471">‏Chrome کو اپ ڈیٹ کریں</translation>
 <translation id="1587223624401073077">‏Google Chrome آپ کا کیمرا استعمال کر رہا ہے۔</translation>
 <translation id="1587325591171447154">‏<ph name="FILE_NAME" /> خطرناک ہے، اس لیے Chrome نے اسے مسدود کر دیا ہے۔</translation>
+<translation id="1597911401261118146">‏یہ دیکھنے کے لئے کہ آیا آپ کے پاس ورڈز ڈیٹا کی خلاف ورزیوں اور دیگر سیکیورٹی مسائل سے محفوظ ہیں، <ph name="BEGIN_LINK" />Chrome میں سائن ان کریں<ph name="END_LINK" />۔</translation>
 <translation id="1619887657840448962">‏Chrome کو محفوظ تر بنانے کیلئے، ہم نے مندرجہ ذیل ایکسٹینشن کو غیر فعال کر دیا ہے جو <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> میں مندرج نہیں ہے اور ممکن ہے کہ اسے آپ کے علم کے بغیر شامل کر دیا گیا ہو۔</translation>
 <translation id="162448658176061655">‏Chrome ہفتے میں ایک بار غیر مطلوبہ سافٹ ویئر کو چیک کرتا ہے۔ آخری بار چیک کیا گیا: ایک لمحہ پہلے۔</translation>
 <translation id="162629503687514352">‏Chrome OS آپ کے پاس ورڈز کی مطابقت پذیری نہیں کر سکا۔</translation>
@@ -38,6 +39,7 @@
 <translation id="1734234790201236882">‏Chrome آپ کے Google اکاؤنٹ میں اس پاس ورڈ کو محفوظ کرے گا۔ آپ کو اسے یاد کرنے کی ضرورت نہیں ہے۔</translation>
 <translation id="174539241580958092">‏Google Chrome سائن ان میں ایک خرابی ہونے کی وجہ سے آپ کے ڈیٹا کی مطابقت پذیری نہیں کر سکا۔</translation>
 <translation id="1759842336958782510">Chrome</translation>
+<translation id="1786003790898721085">‏یقینی بنائیں کہ آپ اپنے <ph name="TARGET_DEVICE_NAME" /> پر Chrome میں سائن ان ہیں اور پھر دوبارہ بھیج کر دیکھیں۔</translation>
 <translation id="1812689907177901597">‏اسے آف کر کے، آپ Chrome میں سائن ان کیے بغیر Gmail جیسی Google سائٹس میں سائن ان کر سکتے ہیں</translation>
 <translation id="1860536484129686729">‏Chrome کو اس سائٹ کیلئے آپ کے کیمرے تک رسائی کی اجازت درکار ہے</translation>
 <translation id="1873233029667955273">‏Google Chrome آپ کا ڈیفالٹ براؤزر نہیں ہے</translation>
@@ -82,6 +84,7 @@
 <translation id="3065168410429928842">‏Chrome ٹیب</translation>
 <translation id="3080151273017101988">‏Google Chrome بند ہونے پر پس منظر کی ایپس چلانا جاری رکھیں</translation>
 <translation id="3089968997497233615">‏Google Chrome کا ایک نیا، محفوظ تر ورژن دستیاب ہے۔</translation>
+<translation id="3114643501466072395">‏یہ چیک کرنے کے لئے کہ آیا آپ کے دیگر پاس ورڈز ڈیٹا کی خلاف ورزیوں اور دیگر سیکیورٹی مسائل سے محفوظ ہیں، <ph name="BEGIN_LINK" />Chrome میں سائن ان کریں<ph name="END_LINK" />۔</translation>
 <translation id="3127818369811890733">‏Chrome OS آپ کے ڈیٹا کی مطابقت پذیری نہیں کر سکا۔</translation>
 <translation id="3149510190863420837">‏Chrome ایپس</translation>
 <translation id="3360895254066713204">‏Chrome مدد کنندہ</translation>
@@ -102,6 +105,7 @@
 <translation id="3622797965165704966">‏اب آپ کے Google اکاؤنٹ کے ساتھ اور اشتراک کردہ کمپیوٹرز پر Chrome کو استعمال کرنا آسان تر ہے۔</translation>
 <translation id="3718181793972440140">‏یہ اس آلہ سے 1 آئٹم کو حذف کر دے گا۔ بعد میں اپنا ڈیٹا بازیافت کرنے کیلئے Chrome میں <ph name="USER_EMAIL" /> کے بطور سائن ان کریں۔</translation>
 <translation id="3735758079232443276">‏آپ کی جانب سے Chrome شروع کرنے پر دکھائی دینے والے صفحہ کو ایکسٹینشن "<ph name="EXTENSION_NAME" />" نے تبدیل کر دیا ہے۔</translation>
+<translation id="3779473566290487688">‏آئندہ کے Google Chrome اپ ڈیٹس حاصل کرنے کے لیے، آپ کو OS X 10.11 یا بعد کی ضرورت ہوگی۔ یہ کمپیوٹر OS X 10.10 کا استعمال کر رہا ہے۔</translation>
 <translation id="3780814664026482060">Chrome - <ph name="PAGE_TITLE" />‎</translation>
 <translation id="386202838227397562">‏براہ کرم سبھی Google Chrome ونڈوز بند کریں اور دوبارہ کوشش کریں۔</translation>
 <translation id="3865754807470779944">‏Chrome ورژن <ph name="PRODUCT_VERSION" /> انسٹال نہیں ہے</translation>
@@ -122,7 +126,7 @@
 <translation id="4325083532956419387">‏Chrome OS ورژن</translation>
 <translation id="4328355335528187361">Google Chrome Dev (mDNS-In)‎</translation>
 <translation id="4331809312908958774">Chrome OS</translation>
-<translation id="4335235004908507846">‏Chrome آپ کو ڈیٹا کی خلاف ورزیوں، غلط ایکسٹینشنز اور بہت کچھ سے محفوظ رکھنے میں مدد کر سکتا ہے</translation>
+<translation id="4335235004908507846">‏Chrome آپ کو ڈیٹا کی خلاف ورزیوں، غلط ایکسٹینشنز اور مزید بہت کچھ سے محفوظ رکھنے میں مدد کر سکتا ہے</translation>
 <translation id="4343195214584226067">‏<ph name="EXTENSION_NAME" /> کو Chrome میں شامل کر دیا گیا ہے</translation>
 <translation id="4384570495110188418">‏Chrome آپ کے پاس ورڈز چیک نہیں کر سکتا کیونکہ آپ سائن ان نہیں ہیں</translation>
 <translation id="4407807842708586359">Google Chrome OS</translation>
@@ -252,6 +256,7 @@ Google Chrome آپ کی ترتیبات کو بازیافت کرنے سے قاص�
 <translation id="8344083974188970894">{NUM_MINS,plural, =1{‏Chrome ہفتے میں ایک بار غیر مطلوبہ سافٹ ویئر کو چیک کرتا ہے۔ آخری بار چیک کیا گیا: 1 منٹ پہلے۔}other{‏Chrome ہفتے میں ایک بار غیر مطلوبہ سافٹ ویئر کو چیک کرتا ہے۔ آخری بار چیک کیا گیا: {NUM_MINS} منٹ پہلے۔}}</translation>
 <translation id="8370517070665726704">‏کاپی رائٹ<ph name="YEAR" /> Google LLC۔ جملہ حقوق محفوظ ہیں۔</translation>
 <translation id="840084489713044809">‏Google Chrome آپ کے پاس ورڈز برآمد کرنا چاہتا ہے۔</translation>
+<translation id="8433638294851456451">‏یہاں سے اپنے Android فون پر نمبر بھیجنے کے لیے، دونوں آلات پر Chrome میں سائن ان کریں۔</translation>
 <translation id="8498858610309223613">‏Google Chrome کے لیے ایک خاص سیکیورٹی اپ ڈیٹ ابھی ابھی لاگو کیا گیا ہے۔ ابھی دوبارہ شروع کریں اور ہم آپ کے ٹیبز کو بحال کر دیں گے۔</translation>
 <translation id="8521348052903287641">‏mDNS ٹریفک کی اجازت دینے کے لیے Google Chrome Dev کے لیے ان باؤنڈ اصول۔</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
@@ -271,6 +276,7 @@ Google Chrome آپ کی ترتیبات کو بازیافت کرنے سے قاص�
 <translation id="884296878221830158">‏یہ آپ کی جانب سے Chrome شروع کرنے یا ہوم بٹن کلک کرنے پر دکھائی دینے والے صفحہ کو بھی کنٹرول کرتا ہے۔</translation>
 <translation id="8862326446509486874">سسٹم کی سطح پر انسٹال کرنے کیلئے آپ کے پاس مناسب حقوق نہیں ہیں۔ انسٹالر کو دوبارہ منتظم کے بطور چلانے کی کوشش کریں۔</translation>
 <translation id="8914504000324227558">‏Chrome کو دوبارہ شروع کریں</translation>
+<translation id="8922193594870374009">‏<ph name="ORIGIN" /> سے اپنے Android فون پر نمبر بھیجنے کے لئے دونوں آلات پر Chrome میں سائن ان کریں۔</translation>
 <translation id="8999208279178790196">{0,plural, =0{‏Chrome کا اپ ڈیٹ دستیاب ہے}=1{‏Chrome کا اپ ڈیٹ دستیاب ہے}other{‏Chrome کا اپ ڈیٹ # دن سے دستیاب ہے}}</translation>
 <translation id="9026991721384951619">‏Chrome OS آپ کے اکاؤنٹ کی سائن ان تفصیلات پرانی ہونے کی وجہ سے آپ کے ڈیٹا کی مطابقت پذیری نہیں کر سکا۔</translation>
 <translation id="9067395829937117663">‏Google Chrome کیلئے Windows 7 یا اس کے بعد کا ورژن درکار ہے۔</translation>

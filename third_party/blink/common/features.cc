@@ -231,7 +231,7 @@ const base::Feature kIntensiveWakeUpThrottling{
 
 // When enabled, timers with timeout=0 are not throttled.
 const base::Feature kOptOutZeroTimeoutTimersFromThrottling{
-    "OptOutZeroTimeoutTimersFromThrottling", base::FEATURE_DISABLED_BY_DEFAULT};
+    "OptOutZeroTimeoutTimersFromThrottling", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // When enabled, no throttling is applied to a page when it uses WebRTC.
 //
@@ -473,7 +473,7 @@ const base::Feature kSubresourceRedirect{"SubresourceRedirect",
 
 // When 'enabled', all cross-origin iframes will get a compositing layer.
 const base::Feature kCompositeCrossOriginIframes{
-    "CompositeCrossOriginIframes", base::FEATURE_DISABLED_BY_DEFAULT};
+    "CompositeCrossOriginIframes", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // When enabled, enforces new interoperable semantics for 3D transforms.
 // See crbug.com/1008483.

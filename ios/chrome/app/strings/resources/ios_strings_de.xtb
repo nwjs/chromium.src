@@ -97,7 +97,6 @@
 <translation id="1965935827552890526">Sie können zu Ihrem offenem Chrome-Fenster zurückkehren, um Ihre vorherige Aktion abzuschließen.</translation>
 <translation id="1974060860693918893">Erweitert</translation>
 <translation id="1989112275319619282">Durchsuchen</translation>
-<translation id="1992734845128748707">Standardbrowser ändern…</translation>
 <translation id="2015722694326466240">Um die Passwörter zu sehen, müssen Sie zuerst einen Passcode auf Ihrem Gerät einrichten.</translation>
 <translation id="2073572773299281212">Vor <ph name="DAYS" /> Tagen aktiv</translation>
 <translation id="2074131957428911366">Sie können in den <ph name="BEGIN_LINK" />Einstellungen<ph name="END_LINK" /> auswählen, was Sie synchronisieren möchten.</translation>
@@ -165,6 +164,7 @@ Websites können Cookies nicht verwenden, um Ihre Browseraktivitäten auf andere
 <translation id="2781331604911854368">An</translation>
 <translation id="2781692009645368755">Google Pay</translation>
 <translation id="2800683595868705743">Tab-Wechsler beenden</translation>
+<translation id="2815198996063984598">2. Tippen Sie auf "Standard-Browser-App"</translation>
 <translation id="2830972654601096923">Adressen verwalten…</translation>
 <translation id="2834956026595107950"><ph name="TITLE" />, <ph name="STATE" />, <ph name="URL" /></translation>
 <translation id="2840687315230832938">Erste Einrichtung der Synchronisierung nicht abgeschlossen</translation>
@@ -181,6 +181,7 @@ Websites können Cookies nicht verwenden, um Ihre Browseraktivitäten auf andere
 <translation id="2921219216347069551">Seite kann nicht geteilt werden</translation>
 <translation id="2923448633003185837">Einfügen und los</translation>
 <translation id="292639812446257861">Als ungelesen markieren</translation>
+<translation id="2952581218264071393">1. Öffnen Sie die Chrome-Einstellungen</translation>
 <translation id="2958718410589002129">Passwörter</translation>
 <translation id="2964349545761222050">Drittanbieter-Cookies blockieren</translation>
 <translation id="2969979262385602596">Anmeldefehler, bitte später erneut versuchen</translation>
@@ -217,6 +218,7 @@ Wenn der Inkognitomodus aktiviert ist, können Websites Cookies nicht verwenden,
 <translation id="3335947283844343239">Geschlossenen Tab wieder öffnen</translation>
 <translation id="3371831930909698441">Übersetzer ist verfügbar. Optionen sind unten auf dem Bildschirm verfügbar.</translation>
 <translation id="3393920035788932672">Pop-ups erlaubt</translation>
+<translation id="3399930248910934354">Chrome-Einstellungen öffnen</translation>
 <translation id="3425644765244388016">Kartenalias</translation>
 <translation id="3433057996795775706">Durch das Entfernen dieses Passworts wird Ihr <ph name="WEBSITE" />-Konto nicht gelöscht. Ändern Sie das Passwort auf <ph name="WEBSITE" />, um das Konto gegen unbefugten Zugriff zu schützen.</translation>
 <translation id="3443810440409579745">Tab erhalten.</translation>
@@ -241,6 +243,9 @@ Wenn der Inkognitomodus aktiviert ist, können Websites Cookies nicht verwenden,
 <translation id="3551320343578183772">Tab schließen</translation>
 <translation id="3581564640715911333">Übersetzung für Seiten in andere Sprachen anbieten</translation>
 <translation id="3588820906588687999">Bild in neuem Tab öffnen</translation>
+<translation id="359441731697487922">Links werden automatisch in Chrome geöffnet, wenn Sie es als Standard-Browser-App festlegen.
+      
+Gehen Sie so vor:</translation>
 <translation id="3603009562372709545">Link-URL kopieren</translation>
 <translation id="3607167657931203000">Daten automatisch ausfüllen</translation>
 <translation id="3609785682760573515">Synchronisieren...</translation>
@@ -288,6 +293,7 @@ Wenn der Inkognitomodus aktiviert ist, können Websites Cookies nicht verwenden,
 <translation id="4181841719683918333">Sprachen</translation>
 <translation id="424315890655130736">Passphrase eingeben</translation>
 <translation id="4263576668337963058">Verfügbare Seitenaktionen anzeigen</translation>
+<translation id="4267380167363222949">Nächster Tab</translation>
 <translation id="4272631900155121838">Um einen QR-Code zu scannen, aktivieren Sie in den Einstellungen die Kamera</translation>
 <translation id="4276041135170112053">Jetzt beheben.</translation>
 <translation id="4277990410970811858">Safe Browsing</translation>
@@ -330,6 +336,7 @@ Ihre Daten sind mit Ihrer Synchronisierungspassphrase verschlüsselt. Geben Sie 
 <translation id="4747097190499141774">Die Passphrasenverschlüsselung enthält keine Zahlungsmethoden oder Adressen von Google Pay. Nur Personen mit Ihrer Passphrase können Ihre verschlüsselten Daten lesen. Die Passphrase wird nicht an Google gesendet oder von Google gespeichert. Falls Sie sie vergessen oder diese Einstellung ändern möchten, müssen Sie die Synchronisierung zurücksetzen. <ph name="BEGIN_LINK" />Weitere Informationen<ph name="END_LINK" /></translation>
 <translation id="4751645464639803239">Neuer Inkognitotab</translation>
 <translation id="4758977202923349869">Positionieren Sie die Kreditkarte in diesem Bereich</translation>
+<translation id="4775879719735953715">Standardbrowser</translation>
 <translation id="4802417911091824046">Die Passphrasenverschlüsselung enthält keine Zahlungsmethoden oder Adressen von Google Pay.
 
 Wenn Sie diese Einstellung ändern möchten, <ph name="BEGIN_LINK" />setzen Sie die Synchronisierung zurück<ph name="END_LINK" /></translation>
@@ -337,6 +344,7 @@ Wenn Sie diese Einstellung ändern möchten, <ph name="BEGIN_LINK" />setzen Sie 
 <translation id="4808744395915275922">Updates</translation>
 <translation id="4818522717893377262">Sprache hinzufügen…</translation>
 <translation id="481968316161811770">Cookies, Websitedaten</translation>
+<translation id="4824497107140370669">{count,plural, =0{{domain}}=1{{domain} und ein weiterer}other{{domain} und {count} weitere}}</translation>
 <translation id="4826218269716039351">Drittanbieter-Cookies blockieren</translation>
 <translation id="48274138579728272">Als gelesen markieren</translation>
 <translation id="4833786495304741580">Nutzungsstatistiken und Absturzberichte werden automatisch an Google gesendet.</translation>
@@ -576,6 +584,7 @@ Websites können Cookies nicht verwenden, um Ihre Browseraktivitäten auf andere
 <translation id="734758817008927353">Optionen zum Speichern von Karten</translation>
 <translation id="7348502496356775519">Lesezeichen</translation>
 <translation id="7383797227493018512">Leseliste</translation>
+<translation id="739941347996872055">Vorheriger Tab</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> ungelesene Artikel.</translation>
 <translation id="7425346204213733349">Änderungen an Ihren Lesezeichen, Ihrem Verlauf, Ihren Passwörtern und anderen Einstellungen werden nicht mehr mit Ihrem Google-Konto synchronisiert. Ihre vorhandenen Daten bleiben aber in Ihrem Google-Konto gespeichert.</translation>
@@ -584,6 +593,7 @@ Websites können Cookies nicht verwenden, um Ihre Browseraktivitäten auf andere
 <translation id="7456847797759667638">Adresse öffnen...</translation>
 <translation id="7460314822154045102">Kamera verwenden</translation>
 <translation id="7464701184726199289">Dadurch werden synchronisierte Daten von allen Geräten gelöscht. Gespeicherte Website-Einstellungen werden nicht gelöscht und können möglicherweise Ihre Surfgewohnheiten wiedergeben. <ph name="BEGIN_LINK" />Weitere Informationen<ph name="END_LINK" /></translation>
+<translation id="746684838091935575">3. Wählen Sie Chrome aus</translation>
 <translation id="7472734401283673885">Unternehmensname</translation>
 <translation id="7473891865547856676">Nein danke</translation>
 <translation id="7481312909269577407">Vorwärts</translation>
@@ -600,7 +610,7 @@ Websites können Cookies nicht verwenden, um Ihre Browseraktivitäten auf andere
 <translation id="7658239707568436148">Abbrechen</translation>
 <translation id="766891008101699113">Fügen Sie einen neuen Tab hinzu, um privat im Web zu surfen.</translation>
 <translation id="7671141431838911305">Installieren</translation>
-<translation id="7701040980221191251">Keine Besuche</translation>
+<translation id="7701040980221191251">Keine</translation>
 <translation id="7765158879357617694">Verschieben</translation>
 <translation id="7771470029643830783">Wenn Sie sich abmelden, werden Ihre Lesezeichen, Ihr Verlauf, Ihre Passwörter und andere Chrome-Daten nicht mehr mit Ihrem Google-Konto synchronisiert.
 

@@ -74,6 +74,7 @@ class ASH_EXPORT AshColorProvider : public SessionObserver {
     kControlBackgroundColorAlert,
     kControlBackgroundColorWarning,
     kControlBackgroundColorPositive,
+    kFocusAuraColor,
     kFocusRingColor,
   };
 
@@ -207,6 +208,8 @@ class ASH_EXPORT AshColorProvider : public SessionObserver {
   SkColor GetLoginBackgroundBaseColor() const;
 
  private:
+  friend class ScopedLightModeAsDefault;
+
   // Gets the background default color.
   SkColor GetBackgroundDefaultColor() const;
 
@@ -221,6 +224,14 @@ class ASH_EXPORT AshColorProvider : public SessionObserver {
 
   // Notifies all the observers on |kColorModeThemed|'s change.
   void NotifyColorModeThemedPrefChange();
+
+  // Default color mode is dark, which is controlled by pref |kDarkModeEnabled|
+  // currently. But we can also override it to light through
+  // ScopedLightModeAsDefault. This is done to help keeping some of the UI
+  // elements as light by default before launching dark/light mode. Overriding
+  // only if the kDarkLightMode feature is disabled. This variable will be
+  // removed once enabled dark/light mode.
+  bool override_light_mode_as_default_ = false;
 
   base::ObserverList<ColorModeObserver> observers_;
   std::unique_ptr<PrefChangeRegistrar> pref_change_registrar_;

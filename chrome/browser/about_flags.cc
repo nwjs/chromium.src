@@ -1554,16 +1554,17 @@ const FeatureEntry::FeatureParam
     kPromoBrowserCommandOpenSafetyCheckCommandParam[] = {
         {features::kPromoBrowserCommandIdParam, "1"}};
 const FeatureEntry::FeatureParam
-    kPromoBrowserCommandOpenSafeBrowsingSettingsCommandParam[] = {
-        {features::kPromoBrowserCommandIdParam, "2"}};
+    kPromoBrowserCommandOpenSafeBrowsingSettingsEnhancedProtectionCommandParam
+        [] = {{features::kPromoBrowserCommandIdParam, "2"}};
 const FeatureEntry::FeatureVariation kPromoBrowserCommandsVariations[] = {
     {"- Unknown Command", kPromoBrowserCommandUnknownCommandParam,
      base::size(kPromoBrowserCommandUnknownCommandParam), nullptr},
     {"- Open Safety Check", kPromoBrowserCommandOpenSafetyCheckCommandParam,
      base::size(kPromoBrowserCommandOpenSafetyCheckCommandParam), nullptr},
-    {"- Open Safe Browsing Settings",
-     kPromoBrowserCommandOpenSafeBrowsingSettingsCommandParam,
-     base::size(kPromoBrowserCommandOpenSafeBrowsingSettingsCommandParam),
+    {"- Open Safe Browsing Enhanced Protection Settings",
+     kPromoBrowserCommandOpenSafeBrowsingSettingsEnhancedProtectionCommandParam,
+     base::size(
+         kPromoBrowserCommandOpenSafeBrowsingSettingsEnhancedProtectionCommandParam),
      nullptr}};
 #if !defined(OS_ANDROID)
 const FeatureEntry::FeatureVariation kNtpShoppingTasksModuleVariations[] = {
@@ -2405,6 +2406,25 @@ const FeatureEntry::FeatureVariation kMetricsSettingsAndroidVariations[] = {
 };
 #endif  // defined(OS_ANDROID)
 
+#if !defined(OS_ANDROID)
+// SCT Auditing feature variations.
+const FeatureEntry::FeatureParam kSCTAuditingSamplingRateNone[] = {
+    {"sampling_rate", "0.0"}};
+const FeatureEntry::FeatureParam kSCTAuditingSamplingRateAlternativeOne[] = {
+    {"sampling_rate", "0.0001"}};
+const FeatureEntry::FeatureParam kSCTAuditingSamplingRateAlternativeTwo[] = {
+    {"sampling_rate", "0.001"}};
+
+const FeatureEntry::FeatureVariation kSCTAuditingVariations[] = {
+    {"Sampling rate 0%", kSCTAuditingSamplingRateNone,
+     base::size(kSCTAuditingSamplingRateNone), nullptr},
+    {"Sampling rate 0.01%", kSCTAuditingSamplingRateAlternativeOne,
+     base::size(kSCTAuditingSamplingRateAlternativeOne), nullptr},
+    {"Sampling rate 0.1%", kSCTAuditingSamplingRateAlternativeTwo,
+     base::size(kSCTAuditingSamplingRateAlternativeTwo), nullptr},
+};
+#endif  // !defined(OS_ANDROID)
+
 // RECORDING USER METRICS FOR FLAGS:
 // -----------------------------------------------------------------------------
 // The first line of the entry is the internal name.
@@ -3086,6 +3106,10 @@ const FeatureEntry kFeatureEntries[] = {
     {"crostini-enable-dlc", flag_descriptions::kCrostiniEnableDlcName,
      flag_descriptions::kCrostiniEnableDlcDescription, kOsCrOS,
      FEATURE_VALUE_TYPE(chromeos::features::kCrostiniEnableDlc)},
+    {"guest-os-external-protocol",
+     flag_descriptions::kGuestOsExternalProtocolName,
+     flag_descriptions::kGuestOsExternalProtocolDescription, kOsCrOS,
+     FEATURE_VALUE_TYPE(chromeos::features::kGuestOsExternalProtocol)},
     {"pluginvm-show-camera-permissions",
      flag_descriptions::kPluginVmShowCameraPermissionsName,
      flag_descriptions::kPluginVmShowCameraPermissionsDescription, kOsCrOS,
@@ -5594,6 +5618,15 @@ const FeatureEntry kFeatureEntries[] = {
      FEATURE_VALUE_TYPE(safe_browsing::kSafeBrowsingSecuritySectionUIAndroid)},
 #endif
 
+    {"safe-browsing-enhanced-protection-message-in-interstitials",
+     flag_descriptions::
+         kSafeBrowsingEnhancedProtectionMessageInInterstitialsName,
+     flag_descriptions::
+         kSafeBrowsingEnhancedProtectionMessageInInterstitialsDescription,
+     kOsAll,
+     FEATURE_VALUE_TYPE(
+         safe_browsing::kEnhancedProtectionMessageInInterstitials)},
+
 #if defined(OS_CHROMEOS)
     {"gesture-properties-dbus-service",
      flag_descriptions::kEnableGesturePropertiesDBusServiceName,
@@ -6643,6 +6676,25 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kDecoupleSyncFromAndroidAutoSyncDescription, kOsAndroid,
      FEATURE_VALUE_TYPE(switches::kDecoupleSyncFromAndroidMasterSync)},
 #endif  // defined(OS_ANDROID)
+
+    {"kaleidoscope-ntp-module", flag_descriptions::kKaleidoscopeModuleName,
+     flag_descriptions::kKaleidoscopeModuleDescription, kOsDesktop,
+     FEATURE_VALUE_TYPE(media::kKaleidoscopeModule)},
+
+#if defined(TOOLKIT_VIEWS)
+    {"desktop-in-product-help-snooze",
+     flag_descriptions::kDesktopInProductHelpSnoozeName,
+     flag_descriptions::kDesktopInProductHelpSnoozeDescription, kOsDesktop,
+     FEATURE_VALUE_TYPE(feature_engagement::kIPHDesktopSnoozeFeature)},
+#endif  // defined(TOOLKIT_VIEWS)
+
+#if !defined(OS_ANDROID)
+    {"sct-auditing", flag_descriptions::kSCTAuditingName,
+     flag_descriptions::kSCTAuditingDescription, kOsDesktop,
+     FEATURE_WITH_PARAMS_VALUE_TYPE(features::kSCTAuditing,
+                                    kSCTAuditingVariations,
+                                    "SCTAuditingVariations")},
+#endif  // !defined(OS_ANDROID)
 
     // NOTE: Adding a new flag requires adding a corresponding entry to enum
     // "LoginCustomFlags" in tools/metrics/histograms/enums.xml. See "Flag

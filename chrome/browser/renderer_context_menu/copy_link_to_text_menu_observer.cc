@@ -27,7 +27,13 @@ CopyLinkToTextMenuObserver::~CopyLinkToTextMenuObserver() = default;
 
 void CopyLinkToTextMenuObserver::InitMenu(
     const content::ContextMenuParams& params) {
-  url_ = params.page_url;
+  if (params.page_url.has_ref()) {
+    GURL::Replacements replacements;
+    replacements.ClearRef();
+    url_ = params.page_url.ReplaceComponents(replacements);
+  } else {
+    url_ = params.page_url;
+  }
   selected_text_ = params.selection_text;
 
   proxy_->AddMenuItem(
@@ -79,7 +85,8 @@ void CopyLinkToTextMenuObserver::OnGeneratedSelector(
   std::string url = url_.spec();
   if (!selector.empty())
     url += kTextFragmentUrlClassifier + selector;
-  scw.WriteText(selected_text_ + base::UTF8ToUTF16("\n" + url));
+  scw.WriteText(base::UTF8ToUTF16("\"") + selected_text_ +
+                base::UTF8ToUTF16("\"\n" + url));
 }
 
 void CopyLinkToTextMenuObserver::OverrideGeneratedSelectorForTesting(

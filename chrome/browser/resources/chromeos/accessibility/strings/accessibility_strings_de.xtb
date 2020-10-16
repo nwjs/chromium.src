@@ -412,7 +412,7 @@
 <translation id="4115378294792113321">Magenta</translation>
 <translation id="4116415223832267137">Benachrichtigung</translation>
 <translation id="4148180433151187540">{COUNT,plural, =1{geschweifte Klammer rechts}other{# geschweifte Klammern rechts}}</translation>
-<translation id="4159784952369912983">Lila</translation>
+<translation id="4159784952369912983">Violett</translation>
 <translation id="4161104397932142764">{COUNT,plural, =1{Sekunde}other{Sekunden}}</translation>
 <translation id="4161663686871496107">Das gesprochene Feedback von ChromeVox ist bereit.</translation>
 <translation id="4176463684765177261">Deaktiviert</translation>
@@ -725,7 +725,7 @@
 <translation id="6696967141280706829">Vorbemerkung</translation>
 <translation id="6697092096875747123">Vorheriges Kombinationsfeld</translation>
 <translation id="6702609185760332517">{COUNT,plural, =1{Ausrufezeichen}other{# Ausrufezeichen}}</translation>
-<translation id="6710213216561001401">Vorherige Einreichung</translation>
+<translation id="6710213216561001401">Zurück</translation>
 <translation id="6714813999819678458">Vorherige Überschrift der Ebene 2</translation>
 <translation id="6730312624811567147">Drücken Sie die Suchtaste in Verbindung mit dem Links- oder Rechtspfeil für "Pos1" oder "Ende", die Suchtaste in Verbindung mit der Steuerungstaste und dem Links- oder Rechtspfeil für "Steuerung-Pos1" oder "Steuerung-Ende" und die Suchtaste in Verbindung mit dem Aufwärts- oder Abwärtspfeil für "Bild auf" oder "Bild ab"</translation>
 <translation id="6736510033526053669">Tab erstellt</translation>
@@ -851,7 +851,7 @@
 <translation id="7684431668231950609">Text bearbeiten, URL-Eintrag</translation>
 <translation id="7685589220304187312">tlbar</translation>
 <translation id="7693840228159394336">Vorheriges Optionsfeld</translation>
-<translation id="7701040980221191251">Keine Besuche</translation>
+<translation id="7701040980221191251">Keine</translation>
 <translation id="7701196182766842984">autolst</translation>
 <translation id="7714340021005120797">Kein nächstes Kombinationsfeld</translation>
 <translation id="772146615414628379">Glückwunsch! Jetzt kennen Sie die Grundlagen für die Nutzung von ChromeVox. Nicht vergessen: Sie können das Befehlsmenü von ChromeVox jederzeit öffnen, indem Sie "Suche + Punkt" drücken. Weitere Informationen zu ChromeVox und Chrome OS erhalten Sie in den folgenden Artikeln.
@@ -912,7 +912,7 @@
 <translation id="8138880386467279117">Berühren</translation>
 <translation id="8173092779156526980">Mit vier Fingern nach links wischen</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{Unterstrich}other{# Unterstriche}}</translation>
-<translation id="8179976553408161302">Enter</translation>
+<translation id="8179976553408161302">Eingabetaste</translation>
 <translation id="8184828902145951186">Zeile</translation>
 <translation id="8186185314313222077">Vollbildmodus an oder aus</translation>
 <translation id="8199231515320852133">Überschriften der aktuellen Zelle ansagen</translation>

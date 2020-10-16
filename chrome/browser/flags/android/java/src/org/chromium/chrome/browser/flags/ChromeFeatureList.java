@@ -306,6 +306,8 @@ public abstract class ChromeFeatureList {
     public static final String INLINE_UPDATE_FLOW = "InlineUpdateFlow";
     public static final String INSTALLABLE_AMBIENT_BADGE_INFOBAR = "InstallableAmbientBadgeInfoBar";
     public static final String INSTANT_START = "InstantStart";
+    public static final String INTEREST_FEEDV1_CLICKS_AND_VIEWS_CONDITIONAL_UPLOAD =
+            "InterestFeedV1ClickAndViewActionsConditionalUpload";
     public static final String INTEREST_FEED_CONTENT_SUGGESTIONS = "InterestFeedContentSuggestions";
     public static final String INTEREST_FEED_FEEDBACK = "InterestFeedFeedback";
     public static final String INTEREST_FEED_V2 = "InterestFeedV2";
@@ -396,6 +398,8 @@ public abstract class ChromeFeatureList {
     public static final String SHARED_CLIPBOARD_UI = "SharedClipboardUI";
     public static final String SHARING_QR_CODE_ANDROID = "SharingQrCodeAndroid";
     public static final String SHOW_TRUSTED_PUBLISHER_URL = "ShowTrustedPublisherURL";
+    public static final String SIGNIN_PROMO_MAX_IMPRESSIONS_ANDROID =
+            "SigninPromoMaxImpressionsAndroid";
     public static final String SMART_SUGGESTION_FOR_LARGE_DOWNLOADS =
             "SmartSuggestionForLargeDownloads";
     public static final String SPANNABLE_INLINE_AUTOCOMPLETE = "SpannableInlineAutocomplete";

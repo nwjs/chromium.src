@@ -26,13 +26,14 @@
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 
-#if defined(OS_CHROMEOS)
+#ifdef OS_CHROMEOS
 #include "chrome/browser/chromeos/policy/user_cloud_policy_manager_chromeos.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 
 namespace reporting {
 namespace {
 
+// This function must run on UI thread.
 StatusOr<Profile*> GetPrimaryProfile() {
   if (!user_manager::UserManager::IsInitialized()) {
     return Status(error::FAILED_PRECONDITION, "User manager not initialized");
@@ -52,6 +53,40 @@ namespace reporting {
 
 using DmServerUploader = DmServerUploadService::DmServerUploader;
 using ::policy::CloudPolicyClient;
+
+namespace {
+// Thread-safe helper callback class: calls callback once |Decrement|
+// is invoked |count| times and then self-destructs. |Increment| can be
+// called at any time, provided that the counter has not dropped to 0 yet.
+class CollectorCallback {
+ public:
+  CollectorCallback(size_t count, base::OnceClosure done_cb)
+      : count_(count), done_cb_(std::move(done_cb)) {
+    DCHECK_GT(count, 0u);
+  }
+  CollectorCallback(CollectorCallback& other) = delete;
+  CollectorCallback& operator=(CollectorCallback& other) = delete;
+  ~CollectorCallback() { std::move(done_cb_).Run(); }
+
+  void Decrement() {
+    size_t old_count = count_.fetch_sub(1);
+    DCHECK_GT(old_count, 0u);
+    if (old_count > 1) {
+      return;
+    }
+    delete this;
+  }
+
+  void Increment() {
+    size_t old_count = count_.fetch_add(1);
+    DCHECK_GT(old_count, 0u) << "Cannot increment if already 0";
+  }
+
+ private:
+  std::atomic<size_t> count_;
+  base::OnceClosure done_cb_;
+};
+}  // namespace
 
 DmServerUploadService::RecordHandler::RecordHandler(CloudPolicyClient* client)
     : client_(client) {}
@@ -121,14 +156,24 @@ void DmServerUploader::HandleRecords() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   Status handle_status = Status::StatusOK();
 
+  // Set collector to count 1; execution_cb will increment it
+  // every time |execution_cb| posts a task, and then callback
+  // will decrement it. Self-destructs when dropping to 0.
+  CollectorCallback* const collector = new CollectorCallback(
+      /*count=*/1, base::BindOnce(&DmServerUploader::OnRecordsHandled,
+                                  base::Unretained(this)));
+
   // TODO(chromium:1078512) Cannot verify client state on this thread. Find a
   // way to do that and restructure this loop to handle it.
   // Passing raw |record_infos_| pointer is safe since record_infos will not die
   // until after handlers_ does.
+  auto done_cb = base::BindRepeating(&CollectorCallback::Decrement,
+                                     base::Unretained(collector));
   auto execution_cb = base::BindRepeating(
       [](std::vector<RecordInfo>* record_infos,
          base::RepeatingCallback<void(const SequencingInformation&)>
              add_successfull_upload_cb,
+         CollectorCallback* collector,
          std::unique_ptr<RecordHandler>& record_handler) {
         for (auto record_info_it = record_infos->begin();
              record_info_it != record_infos->end();) {
@@ -138,6 +183,7 @@ void DmServerUploader::HandleRecords() {
           // Record was successfully handled - mark it as such and move on to
           // the next record.
           if (handle_status.ok()) {
+            collector->Increment();
             add_successfull_upload_cb.Run(
                 record_info_it->sequencing_information);
 
@@ -150,7 +196,8 @@ void DmServerUploader::HandleRecords() {
       },
       &record_infos_,
       base::BindRepeating(&DmServerUploader::AddSuccessfulUpload,
-                          base::Unretained(this)));
+                          base::Unretained(this), done_cb),
+      base::Unretained(collector));
 
   auto predicate_cb = base::BindRepeating(
       [](std::vector<RecordInfo>* record_infos,
@@ -159,11 +206,10 @@ void DmServerUploader::HandleRecords() {
       },
       &record_infos_);
 
-  handlers_->ExecuteOnEachElement(
-      std::move(execution_cb),
-      base::BindOnce(&DmServerUploader::OnRecordsHandled,
-                     base::Unretained(this)),
-      std::move(predicate_cb));
+  handlers_->ExecuteOnEachElement(std::move(execution_cb),
+                                  base::BindOnce(&CollectorCallback::Decrement,
+                                                 base::Unretained(collector)),
+                                  std::move(predicate_cb));
 }
 
 void DmServerUploader::OnRecordsHandled() {
@@ -210,14 +256,27 @@ Status DmServerUploader::IsRecordValid(
 }
 
 void DmServerUploader::AddSuccessfulUpload(
+    base::RepeatingClosure done_cb,
     const SequencingInformation& sequencing_information) {
   Schedule(&DmServerUploader::ProcessSuccessfulUploadAddition,
-           base::Unretained(this), sequencing_information);
+           base::Unretained(this), std::move(done_cb), sequencing_information);
 }
 
 void DmServerUploader::ProcessSuccessfulUploadAddition(
+    base::RepeatingClosure done_cb,
     SequencingInformation sequencing_information) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  // Auto-call done_cb when returning.
+  class CleanUp {
+   public:
+    explicit CleanUp(base::RepeatingClosure done_cb)
+        : done_cb_(std::move(done_cb)) {}
+    ~CleanUp() { std::move(done_cb_).Run(); }
+
+   private:
+    base::RepeatingClosure done_cb_;
+  } clean_up(std::move(done_cb));
 
   // If this is the first successful record - set highest to this record.
   if (!highest_successful_sequence_.has_value()) {
@@ -250,18 +309,39 @@ void DmServerUploader::ProcessSuccessfulUploadAddition(
   highest_successful_sequence_ = sequencing_information;
 }
 
-StatusOr<std::unique_ptr<DmServerUploadService>> DmServerUploadService::Create(
+void DmServerUploadService::Create(
     std::unique_ptr<policy::CloudPolicyClient> client,
-    ReportSuccessfulUploadCallback upload_cb) {
+    ReportSuccessfulUploadCallback report_upload_success_cb,
+    base::OnceCallback<void(StatusOr<std::unique_ptr<DmServerUploadService>>)>
+        created_cb) {
   if (client == nullptr) {
-    return Status(error::INVALID_ARGUMENT, "client may not be nullptr.");
+    std::move(created_cb)
+        .Run(Status(error::INVALID_ARGUMENT, "client may not be nullptr."));
+    return;
   }
-  auto uploader =
-      base::WrapUnique(new DmServerUploadService(std::move(client), upload_cb));
 
-  RETURN_IF_ERROR(uploader->InitRecordHandlers());
-
-  return uploader;
+  auto uploader = base::WrapUnique(
+      new DmServerUploadService(std::move(client), report_upload_success_cb));
+#ifdef OS_CHROMEOS
+  content::GetUIThreadTaskRunner({})->PostTaskAndReplyWithResult(
+      FROM_HERE, base::BindOnce(&GetPrimaryProfile),
+      base::BindOnce(
+          [](std::unique_ptr<DmServerUploadService> uploader,
+             base::OnceCallback<void(
+                 StatusOr<std::unique_ptr<DmServerUploadService>>)> created_cb,
+             StatusOr<Profile*> primary_profile_result) {
+            if (!primary_profile_result.ok()) {
+              std::move(created_cb).Run(primary_profile_result.status());
+              return;
+            }
+            InitRecordHandlers(std::move(uploader),
+                               primary_profile_result.ValueOrDie(),
+                               std::move(created_cb));
+          },
+          std::move(uploader), std::move(created_cb)));
+#else
+  InitRecordHandlers(std::move(uploader), std::move(created_cb));
+#endif  // OS_CHROMEOS
 }
 
 DmServerUploadService::DmServerUploadService(
@@ -295,24 +375,47 @@ Status DmServerUploadService::EnqueueUpload(
   return Status::StatusOK();
 }
 
-Status DmServerUploadService::InitRecordHandlers() {
-  auto* client = GetClient();
+void DmServerUploadService::InitRecordHandlers(
+    std::unique_ptr<DmServerUploadService> uploader,
+#ifdef OS_CHROMEOS
+    Profile* primary_profile,
+#endif  // OS_CHROMEOS
+    base::OnceCallback<void(StatusOr<std::unique_ptr<DmServerUploadService>>)>
+        created_cb) {
+  auto* client = uploader->GetClient();
   if (client == nullptr) {
-    return Status(error::FAILED_PRECONDITION, "Client was null");
+    std::move(created_cb)
+        .Run(Status(error::FAILED_PRECONDITION, "Client was null"));
+    return;
   }
 
-  record_handlers_->PushBack(std::make_unique<AppInstallReportHandler>(client),
-                             base::DoNothing());
-
-  // Temporary wrapper for MeetDeviceTelementry
+  std::vector<std::unique_ptr<RecordHandler>> handlers;
+  handlers.emplace_back(std::make_unique<AppInstallReportHandler>(client));
 #ifdef OS_CHROMEOS
-  ASSIGN_OR_RETURN(Profile* const primary_profile, GetPrimaryProfile());
-  record_handlers_->PushBack(std::make_unique<MeetDeviceTelemetryReportHandler>(
-                                 primary_profile, client),
-                             base::DoNothing());
+  // Temporary wrapper for MeetDeviceTelemetry
+  handlers.emplace_back(std::make_unique<MeetDeviceTelemetryReportHandler>(
+      primary_profile, client));
 #endif  // OS_CHROMEOS
 
-  return Status::StatusOK();
+  // Copy record_handlers_ aside, because uploader is going to be moved.
+  auto record_handlers = uploader->record_handlers_;
+
+  // collector_cb self-destructs upon completion.
+  CollectorCallback* const collector_cb = new CollectorCallback(
+      handlers.size(),
+      base::BindOnce(
+          [](std::unique_ptr<DmServerUploadService> uploader,
+             base::OnceCallback<void(
+                 StatusOr<std::unique_ptr<DmServerUploadService>>)>
+                 created_cb) {
+            std::move(created_cb).Run(std::move(uploader));
+          },
+          std::move(uploader), std::move(created_cb)));
+  for (auto& handler : handlers) {
+    record_handlers->PushBack(std::move(handler),
+                              base::BindOnce(&CollectorCallback::Decrement,
+                                             base::Unretained(collector_cb)));
+  }
 }
 
 void DmServerUploadService::UploadCompletion(

@@ -66,12 +66,12 @@ class LorgnetteManagerClientImpl : public LorgnetteManagerClient {
   }
 
   // LorgnetteManagerClient override.
-  void StartScan(const std::string& device_name,
-                 const lorgnette::ScanSettings& settings,
-                 VoidDBusMethodCallback completion_callback,
-                 base::RepeatingCallback<void(std::string)> page_callback,
-                 base::Optional<base::RepeatingCallback<void(int)>>
-                     progress_callback) override {
+  void StartScan(
+      const std::string& device_name,
+      const lorgnette::ScanSettings& settings,
+      VoidDBusMethodCallback completion_callback,
+      base::RepeatingCallback<void(std::string, uint32_t)> page_callback,
+      base::RepeatingCallback<void(int)> progress_callback) override {
     lorgnette::StartScanRequest request;
     request.set_device_name(device_name);
     *request.mutable_settings() = settings;
@@ -88,8 +88,8 @@ class LorgnetteManagerClientImpl : public LorgnetteManagerClient {
 
     ScanJobState state;
     state.completion_callback = std::move(completion_callback);
-    state.progress_callback = progress_callback;
-    state.page_callback = page_callback;
+    state.progress_callback = std::move(progress_callback);
+    state.page_callback = std::move(page_callback);
 
     lorgnette_daemon_proxy_->CallMethod(
         &method_call, dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
@@ -184,8 +184,8 @@ class LorgnetteManagerClientImpl : public LorgnetteManagerClient {
   // of data into a string.
   struct ScanJobState {
     VoidDBusMethodCallback completion_callback;
-    base::Optional<base::RepeatingCallback<void(int)>> progress_callback;
-    base::RepeatingCallback<void(std::string)> page_callback;
+    base::RepeatingCallback<void(int)> progress_callback;
+    base::RepeatingCallback<void(std::string, uint32_t)> page_callback;
     std::unique_ptr<ScanDataReader> scan_data_reader;
   };
 
@@ -267,6 +267,7 @@ class LorgnetteManagerClientImpl : public LorgnetteManagerClient {
 
   // Called when scan data read is completed.
   void OnScanDataCompleted(const std::string& uuid,
+                           uint32_t page_number,
                            bool more_pages,
                            base::Optional<std::string> data) {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -284,7 +285,7 @@ class LorgnetteManagerClientImpl : public LorgnetteManagerClient {
       return;
     }
 
-    state.page_callback.Run(std::move(data.value()));
+    state.page_callback.Run(std::move(data.value()), page_number);
 
     if (more_pages) {
       GetNextImage(uuid);
@@ -375,16 +376,16 @@ class LorgnetteManagerClientImpl : public LorgnetteManagerClient {
       VLOG(1) << "Scan job " << signal_proto.scan_uuid() << " page "
               << signal_proto.page() << " completed successfully";
       ScanDataReader* reader = state.scan_data_reader.get();
-      reader->Wait(
-          base::BindOnce(&LorgnetteManagerClientImpl::OnScanDataCompleted,
-                         weak_ptr_factory_.GetWeakPtr(),
-                         signal_proto.scan_uuid(), signal_proto.more_pages()));
+      reader->Wait(base::BindOnce(
+          &LorgnetteManagerClientImpl::OnScanDataCompleted,
+          weak_ptr_factory_.GetWeakPtr(), signal_proto.scan_uuid(),
+          signal_proto.page(), signal_proto.more_pages()));
     } else if (signal_proto.state() == lorgnette::SCAN_STATE_COMPLETED) {
       VLOG(1) << "Scan job " << signal_proto.scan_uuid()
               << " completed successfully";
     } else if (signal_proto.state() == lorgnette::SCAN_STATE_IN_PROGRESS &&
-               state.progress_callback.has_value()) {
-      state.progress_callback.value().Run(signal_proto.progress());
+               !state.progress_callback.is_null()) {
+      state.progress_callback.Run(signal_proto.progress());
     }
   }
 

@@ -27,15 +27,20 @@ class AppListColorProviderImpl : public AppListColorProvider {
   SkColor GetSuggestionChipBackgroundColor() const override;
   SkColor GetSuggestionChipTextColor() const override;
   SkColor GetAppListItemTextColor() const override;
-  SkColor GetPageSwitcherButtonColor() const override;
-  SkColor GetPageSwitcherInkDropBaseColor() const override;
-  SkColor GetPageSwitcherInkDropHighlightColor() const override;
-  SkColor GetSearchBoxIconColor() const override;
+  SkColor GetPageSwitcherButtonColor(
+      bool is_root_app_grid_page_switcher) const override;
+  SkColor GetPageSwitcherInkDropBaseColor(
+      bool is_root_app_grid_page_switcher) const override;
+  SkColor GetPageSwitcherInkDropHighlightColor(
+      bool is_root_app_grid_page_switcher) const override;
+  SkColor GetSearchBoxIconColor(SkColor default_color) const override;
   SkColor GetSearchBoxCardBackgroundColor() const override;
-  SkColor GetFolderBackgroundColor() const override;
-  SkColor GetFolderTitleTextColor() const override;
+  SkColor GetFolderBackgroundColor(SkColor default_color) const override;
+  SkColor GetFolderTitleTextColor(SkColor default_color) const override;
   SkColor GetFolderHintTextColor() const override;
   SkColor GetFolderNameBackgroundColor(bool active) const override;
+  SkColor GetFolderNameBorderColor(bool active) const override;
+  SkColor GetFolderNameSelectionColor() const override;
   SkColor GetContentsBackgroundColor() const override;
   SkColor GetSeparatorColor() const override;
   SkColor GetSearchResultViewHighlightColor() const override;

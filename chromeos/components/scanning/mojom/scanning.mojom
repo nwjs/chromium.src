@@ -16,12 +16,17 @@ enum ColorMode {
 
 // The source types from which a scan can be obtained.
 enum SourceType {
+  // An unknown source type.
+  kUnknown,
   // A flatbed that scans a single page.
   kFlatbed,
   // An automatic document feeder that scans a single side of each page.
   kAdfSimplex,
   // An automatic document feeder that scans both sides of each page.
   kAdfDuplex,
+  // The implicit source type used for scanners that do not report any source
+  // options.
+  kDefault,
 };
 
 // The source from which a scan can be obtained.
@@ -38,6 +43,16 @@ struct ScannerCapabilities {
   array<ScanSource> sources;
   array<ColorMode> color_modes;
   array<uint32> resolutions;
+};
+
+// Settings used to perform a scan.
+struct ScanSettings {
+  // The SANE name of the ScanSource from which to scan.
+  string source_name;
+  // The color mode with which to scan.
+  ColorMode color_mode;
+  // The resolution with which to scan in DPI.
+  uint32 resolution_dpi;
 };
 
 // Represents a connected scanner.
@@ -62,4 +77,9 @@ interface ScanService {
   // were obtained via a secure protocol.
   GetScannerCapabilities(mojo_base.mojom.UnguessableToken scanner_id)
       => (ScannerCapabilities capabilities);
+
+  // Performs a scan using the provided |settings|.
+  // TODO(jschettler): Send a ScanJobObserver to get scan job updates.
+  Scan(mojo_base.mojom.UnguessableToken scanner_id, ScanSettings settings)
+      => (bool success);
 };

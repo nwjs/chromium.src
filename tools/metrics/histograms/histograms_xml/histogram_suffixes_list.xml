@@ -11134,8 +11134,10 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
   <suffix name="dummy2" label="Module ID for another dummy module"/>
   <suffix name="kaleidoscope" label="Module ID for Kaleidoscope"/>
   <suffix name="shopping_tasks" label="Module ID for Shopping Tasks"/>
+  <affected-histogram name="NewTabPage.Modules.Dismissed"/>
   <affected-histogram name="NewTabPage.Modules.Impression"/>
   <affected-histogram name="NewTabPage.Modules.Loaded"/>
+  <affected-histogram name="NewTabPage.Modules.Restored"/>
   <affected-histogram name="NewTabPage.Modules.Usage"/>
 </histogram_suffixes>
 
@@ -13687,6 +13689,9 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
 <histogram_suffixes name="PermissionPromptDisposition" separator=".">
   <suffix name="AnchoredBubble"
       label="A bubble under the site settings padlock"/>
+  <suffix name="LocationBarLeftChip"
+      label="A chip on the left-hand side of the location bar that shows a
+             bubble when clicked"/>
   <suffix name="LocationBarRightAnimatedIcon"
       label="An animated indicator on the right-hand side of the location bar"/>
   <suffix name="LocationBarRightStaticIcon"
@@ -13694,7 +13699,8 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
   <suffix name="MiniInfobar"
       label="An initially-collapsed infobar at the bottom of the page"/>
   <suffix name="ModalDialog" label="A modal dialog"/>
-  <suffix name="NotApplicable" label="No permission prompt"/>
+  <suffix name="NoneVisible" label="There was no UI being shown"/>
+  <suffix name="NotApplicable" label="No permission prompt at all"/>
   <affected-histogram name="Permissions.Action.WithDisposition"/>
 </histogram_suffixes>
 
@@ -14808,9 +14814,11 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
       label="Recorded only for users with &gt;=2 profiles but only one
              active; recorded only for the non-active profiles."/>
   <suffix name="SingleProfile" label="Recorded only for single-profile users."/>
+  <suffix name="UponDeletion" label="Recorded for a profile upon its deletion"/>
   <affected-histogram name="Profile.State.Avatar"/>
   <affected-histogram name="Profile.State.LastUsed"/>
   <affected-histogram name="Profile.State.Name"/>
+  <affected-histogram name="Profile.State.SyncEnabled"/>
   <affected-histogram name="Profile.State.UnconsentedPrimaryAccountType"/>
 </histogram_suffixes>
 
@@ -15903,6 +15911,9 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
   <suffix name="SafetyCheck"
       label="The user enters the Safe Browsing settings page from the
              SafetyCheck page."/>
+  <suffix name="SecurityInterstitial"
+      label="The user enters the Safe Browsing settings page from the
+             security interstitial."/>
   <suffix name="SurfaceExplorerPromoSlinger"
       label="The user enters the Safe Browsing settings page from the Surface
              Explorer page."/>

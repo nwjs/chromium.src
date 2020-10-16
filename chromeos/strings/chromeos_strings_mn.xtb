@@ -37,7 +37,7 @@
 <translation id="3820172043799983114">ПИН буруу байна.</translation>
 <translation id="3838338534323494292">Шинэ нууц үг</translation>
 <translation id="39823212440917567"><ph name="NUMBER_OF_DAYS" /> хоногоос дээш хугацаагаар хадгалсан хэвлэлийн ажлуудыг хасах болно</translation>
-<translation id="4003259559679196451"><ph name="ENROLLMENT_DOMAIN" /> энэ төхөөрөмжийг удирддаг бөгөөд хэрэглэгчийн зочилсон вэб хуудас, нууц үг болон имэйл зэрэг бүх үйл ажиллагаанд хандах эрхтэй.</translation>
+<translation id="4003259559679196451"><ph name="ENROLLMENT_DOMAIN" /> энэ төхөөрөмжийг удирддаг бөгөөд хэрэглэгчийн зочилсон веб хуудас, нууц үг болон имэйл зэрэг бүх үйл ажиллагаанд хандах эрхтэй.</translation>
 <translation id="4003384961948020559">Амжилтгүй болсон - Гаралт дүүрсэн</translation>
 <translation id="4027485274696301677">Энэ <ph name="DEVICE_TYPE" />-г <ph name="ENROLLMENT_DOMAIN" /> удирддаг. Администратор төхөөрөмжийг алсаас тохируулах боломжтой.</translation>
 <translation id="4034824040120875894">Хэвлэгч</translation>
@@ -55,6 +55,7 @@
 <translation id="4890353053343094602">Нэн даруй шинийг сонгоно уу</translation>
 <translation id="4917889632206600977">Зогссон - Цаас дууссан</translation>
 <translation id="4932733599132424254">Огноо</translation>
+<translation id="520299634122159966">Боломжтой скан хийгч алга</translation>
 <translation id="5212543919916444558">Би таны дэлгэцээс туслах боломжтой зүйл олсонгүй.
 Асуух зүйл байвал микрофоныг товшиж үзнэ үү.</translation>
 <translation id="5222676887888702881">Гарах</translation>

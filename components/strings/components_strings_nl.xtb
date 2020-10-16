@@ -134,6 +134,7 @@ Anders wordt dit geblokkeerd door je privacyinstellingen. Hierdoor werkt de cont
 <translation id="1453974140256777690">Tekst die je plakt of bijvoegt, wordt voor analyse naar Google Cloud of naar derden gestuurd. De tekst kan bijvoorbeeld worden gescand op gevoelige gegevens of malware.</translation>
 <translation id="1455413310270022028">Gum</translation>
 <translation id="1462245070427461050">JIS B9</translation>
+<translation id="1462951478840426066">Gebruik de lettertypen op je computer voor de fraaiste weergave van je content</translation>
 <translation id="1463543813647160932">5x7</translation>
 <translation id="1467432559032391204">Links</translation>
 <translation id="1472675084647422956">Meer weergeven</translation>
@@ -206,7 +207,6 @@ Anders wordt dit geblokkeerd door je privacyinstellingen. Hierdoor werkt de cont
 <translation id="1717494416764505390">Mailbox 3</translation>
 <translation id="1718029547804390981">Document is te groot om aantekeningen te maken</translation>
 <translation id="1721424275792716183">* Verplicht veld</translation>
-<translation id="1724638245199909652">Toegang tot lokale lettertypen</translation>
 <translation id="1727741090716970331">Een geldig kaartnummer toevoegen</translation>
 <translation id="1728677426644403582">Je bekijkt de bron van een webpagina</translation>
 <translation id="173080396488393970">Dit type pas wordt niet ondersteund</translation>
@@ -221,6 +221,7 @@ Anders wordt dit geblokkeerd door je privacyinstellingen. Hierdoor werkt de cont
 <translation id="17513872634828108">Geopende tabbladen</translation>
 <translation id="1752021286346845558">Mailbox 8</translation>
 <translation id="1753706481035618306">Paginanummer</translation>
+<translation id="1757773103848038814">Monospace-lettertype</translation>
 <translation id="1763864636252898013">De server kan niet bewijzen dat dit <ph name="DOMAIN" /> is. Het beveiligingscertificaat van de server wordt niet vertrouwd door het besturingssysteem van je apparaat. Dit kan worden veroorzaakt door een verkeerde configuratie of een aanvaller die je verbinding onderschept.</translation>
 <translation id="1768211456781949159"><ph name="BEGIN_LINK" />Voer Windows Netwerkcontrole uit<ph name="END_LINK" />.</translation>
 <translation id="1772163372082567643">Voor de server waar je naartoe gaat (<ph name="ORIGIN" />), is een header ingesteld
@@ -586,6 +587,7 @@ Anders wordt dit geblokkeerd door je privacyinstellingen. Hierdoor werkt de cont
 <translation id="3395827396354264108">Ophaalmethode</translation>
 <translation id="3399952811970034796">Bezorgadres</translation>
 <translation id="3402261774528610252">De verbinding waarmee deze site is geladen, gebruikte TLS 1.0 of TLS 1.1. Deze versies zijn verouderd en worden in de toekomst uitgeschakeld. Nadat ze zijn uitgeschakeld, kunnen gebruikers deze site niet meer laden. Voor de server moet TLS 1.2 of hoger worden ingeschakeld.</translation>
+<translation id="3411120537985775570">Plakken van <ph name="ORIGIN_NAME" /> naar deze locatie is geblokkeerd door je beheerder</translation>
 <translation id="3414952576877147120">Grootte:</translation>
 <translation id="3417660076059365994">Bestanden die je uploadt of bijvoegt, worden voor analyse naar Google Cloud of derden gestuurd. De bestanden kunnen bijvoorbeeld worden gescand op gevoelige gegevens of malware.</translation>
 <translation id="3422248202833853650">Probeer andere programma's af te sluiten om geheugen vrij te maken.</translation>
@@ -623,6 +625,7 @@ Anders wordt dit geblokkeerd door je privacyinstellingen. Hierdoor werkt de cont
 <translation id="3532844647053365774"><ph name="HOST" /> wil gebruikmaken van je microfoon</translation>
 <translation id="3533328374079021623">Mailbox 5</translation>
 <translation id="3539171420378717834">Een exemplaar van deze pas op dit apparaat bewaren</translation>
+<translation id="3552297013052089404">Sans-serif-lettertype</translation>
 <translation id="3558573058928565255">Tijd van de dag</translation>
 <translation id="3566021033012934673">Je verbinding is niet privé</translation>
 <translation id="3567778190852720481">Kan niet inschrijven met werkaccount (werkaccount komt niet in aanmerking).</translation>
@@ -820,6 +823,7 @@ Anders wordt dit geblokkeerd door je privacyinstellingen. Hierdoor werkt de cont
 <translation id="4277028893293644418">Wachtwoord opnieuw instellen</translation>
 <translation id="4279811152705618813">Je <ph name="DEVICE_TYPE" /> wordt beheerd door <ph name="ENROLLMENT_DOMAIN" /></translation>
 <translation id="428639260510061158">{NUM_CARDS,plural, =1{Deze pas is opgeslagen in je Google-account}other{Deze passen zijn opgeslagen in je Google-account}}</translation>
+<translation id="4297502707443874121">Miniatuur voor pagina <ph name="THUMBNAIL_PAGE" /></translation>
 <translation id="42981349822642051">Uitvouwen</translation>
 <translation id="4300675098767811073">Meerdere perforaties rechts</translation>
 <translation id="4302965934281694568">Chou3 (envelop)</translation>
@@ -990,6 +994,7 @@ Anders wordt dit geblokkeerd door je privacyinstellingen. Hierdoor werkt de cont
 <translation id="503069730517007720">Er is een rootcertificaat voor '<ph name="SOFTWARE_NAME" />' vereist, maar niet geïnstalleerd. Je IT-beheerder moet de configuratie-instructies voor '<ph name="SOFTWARE_NAME" />' raadplegen om dit probleem op te lossen. <ph name="FURTHER_EXPLANATION" /></translation>
 <translation id="5031870354684148875">Over Google Translate</translation>
 <translation id="503498442187459473"><ph name="HOST" /> wil gebruikmaken van je camera en microfoon</translation>
+<translation id="5039762155821394373">Lettergrootte</translation>
 <translation id="5039804452771397117">Toestaan</translation>
 <translation id="5040262127954254034">Privacy</translation>
 <translation id="5043480802608081735">Link die je hebt gekopieerd</translation>
@@ -1219,6 +1224,7 @@ Anders wordt dit geblokkeerd door je privacyinstellingen. Hierdoor werkt de cont
 <translation id="5938793338444039872">Troy</translation>
 <translation id="5946937721014915347"><ph name="SITE_NAME" /> openen…</translation>
 <translation id="5951495562196540101">Kan consumentenaccount niet inschrijven (verpakte licentie beschikbaar).</translation>
+<translation id="5963413905009737549">Sectie</translation>
 <translation id="5967592137238574583">Contactgegevens bewerken</translation>
 <translation id="5967867314010545767">Verwijderen uit geschiedenis</translation>
 <translation id="5975083100439434680">Uitzoomen</translation>
@@ -1255,6 +1261,7 @@ Anders wordt dit geblokkeerd door je privacyinstellingen. Hierdoor werkt de cont
 <translation id="6051221802930200923">Je kunt <ph name="SITE" /> momenteel niet bezoeken, omdat de website gebruikmaakt van certificaatpinning. Netwerkfouten en aanvallen zijn doorgaans tijdelijk, dus deze pagina werkt later waarschijnlijk correct.</translation>
 <translation id="6052284303005792909">•</translation>
 <translation id="6053328359599022071">Je aanwezigheid delen?</translation>
+<translation id="6057359309778282021">Je beheerder heeft delen door <ph name="ORIGIN_NAME" /> met <ph name="VM_NAME" /> geblokkeerd</translation>
 <translation id="6058977677006700226">Je passen gebruiken op al je apparaten?</translation>
 <translation id="6059925163896151826">USB-apparaten</translation>
 <translation id="6060009363608157444">Ongeldige DnsOverHttps-modus.</translation>
@@ -1303,6 +1310,7 @@ Anders wordt dit geblokkeerd door je privacyinstellingen. Hierdoor werkt de cont
         <ph name="END_LIST" /></translation>
 <translation id="6280223929691119688">Kan niet bezorgen op dit adres. Selecteer een ander adres.</translation>
 <translation id="6282194474023008486">Postcode</translation>
+<translation id="6289939620939689042">Paginakleur</translation>
 <translation id="6290238015253830360">Je voorgestelde artikelen worden hier weergegeven</translation>
 <translation id="6293309776179964942">JIS B5</translation>
 <translation id="6302269476990306341">De Google Assistent in Chrome wordt gestopt</translation>
@@ -1349,6 +1357,7 @@ Anders wordt dit geblokkeerd door je privacyinstellingen. Hierdoor werkt de cont
 <translation id="6451458296329894277">Opnieuw indienen bevestigen</translation>
 <translation id="6457206614190510200">Zadelsteek</translation>
 <translation id="6465306955648956876">Wachtwoorden beheren...</translation>
+<translation id="6468485451923838994">Lettertypen</translation>
 <translation id="647261751007945333">Apparaatbeleid</translation>
 <translation id="6476284679642588870">Betaalmethoden beheren</translation>
 <translation id="6489534406876378309">Uploaden van crashes starten</translation>
@@ -1459,6 +1468,7 @@ Anders wordt dit geblokkeerd door je privacyinstellingen. Hierdoor werkt de cont
 <translation id="7004583254764674281">Gebruik Windows Hello om kaarten sneller te bevestigen</translation>
 <translation id="7006930604109697472">Toch sturen</translation>
 <translation id="7012363358306927923">China UnionPay</translation>
+<translation id="7014741021609395734">Zoomniveau</translation>
 <translation id="7016992613359344582">Dit kunnen eenmalige of terugkerende kosten zijn die misschien niet duidelijk worden aangegeven.</translation>
 <translation id="7029809446516969842">Wachtwoorden</translation>
 <translation id="7031646650991750659">Welke Google Play-apps je hebt geïnstalleerd</translation>
@@ -1860,6 +1870,7 @@ Aanvullende informatie:
 <translation id="8622948367223941507">Legal-Extra</translation>
 <translation id="8623885649813806493">Geen overeenkomende wachtwoorden. Alle opgeslagen wachtwoorden weergeven.</translation>
 <translation id="8625384913736129811">Deze pas opslaan op dit apparaat</translation>
+<translation id="8657078576661269990">Je beheerder heeft delen door <ph name="ORIGIN_NAME" /> met <ph name="VM_NAME_1" /> en <ph name="VM_NAME_2" /> geblokkeerd</translation>
 <translation id="8663226718884576429">Besteloverzicht, <ph name="TOTAL_LABEL" />, meer informatie</translation>
 <translation id="867224526087042813">Handtekening</translation>
 <translation id="8676424191133491403">Geen vertraging</translation>
@@ -1872,6 +1883,7 @@ Aanvullende informatie:
 <translation id="8699041776323235191">HID-apparaat</translation>
 <translation id="8703575177326907206">Je verbinding met <ph name="DOMAIN" /> is niet gecodeerd.</translation>
 <translation id="8705331520020532516">Serienummer</translation>
+<translation id="8710842507289500830">Letterstijl</translation>
 <translation id="8718314106902482036">Betaling niet voltooid</translation>
 <translation id="8719263113926255150"><ph name="ENTITY" />, <ph name="DESCRIPTION" />, zoeksuggestie</translation>
 <translation id="8719528812645237045">Meerdere perforaties boven</translation>
@@ -1894,6 +1906,7 @@ Aanvullende informatie:
 <translation id="8790007591277257123">&amp;Opnieuw verwijderen</translation>
 <translation id="8792621596287649091">Je kunt de toegang tot je account van <ph name="ORG_NAME" /> kwijtraken of slachtoffer worden van identiteitsdiefstal. Chromium raadt je aan je wachtwoord nu te wijzigen.</translation>
 <translation id="8793655568873652685"><ph name="ENROLLMENT_DOMAIN" /> heeft Chrome Enterprise Connectors voor je browser ingeschakeld. Deze connectors hebben toegang tot sommige van je gegevens.</translation>
+<translation id="8798099450830957504">Standaard</translation>
 <translation id="8805819170075074995">Lijstitem '<ph name="LANGUAGE_ID" />': Item is genegeerd omdat dit ook is opgenomen in het beleid SpellcheckLanguage.</translation>
 <translation id="8807160976559152894">Bijsnijden na elke pagina</translation>
 <translation id="8816395686387277279"><ph name="UPDATE_CHROME_FOCUSED_FRIENDLY_MATCH_TEXT" />. Druk op Tab en vervolgens op Enter om Chrome te updaten via je Chrome-instellingen</translation>
@@ -1992,6 +2005,7 @@ Aanvullende informatie:
 <translation id="9191834167571392248">Perforatie linksonder</translation>
 <translation id="9205078245616868884">Je gegevens zijn versleuteld met je wachtwoordzin voor synchronisatie. Geef deze op om de synchronisatie te starten.</translation>
 <translation id="9207861905230894330">Kan artikel niet toevoegen.</translation>
+<translation id="9213433120051936369">Weergave aanpassen</translation>
 <translation id="9215416866750762878">Een app voorkomt dat Chrome veilig verbinding kan maken met deze site</translation>
 <translation id="9219103736887031265">Afbeeldingen</translation>
 <translation id="933712198907837967">Diners Club</translation>

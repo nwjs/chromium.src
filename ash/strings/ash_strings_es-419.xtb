@@ -23,10 +23,11 @@ Estas son algunas de las cosas que puedes probar para comenzar.</translation>
 <translation id="1190609913194133056">Centro de notificaciones</translation>
 <translation id="1195412055398077112">desajuste de dimensiones</translation>
 <translation id="119944043368869598">Borrar todo</translation>
-<translation id="1199716647557067911">¿Confirmas que quieres desactivar la accesibilidad mejorada?</translation>
+<translation id="1199716647557067911">¿Confirmas que quieres desactivar Accesibilidad con interruptores?</translation>
 <translation id="121097972571826261">Avanzar palabra por palabra</translation>
 <translation id="1225748608451425081">Tu Chromebook está bloqueada debido a un problema conocido. Tiempo restante para volver a acceder: <ph name="TIME_LEFT" />.</translation>
 <translation id="1229194443904279055">Dejar de seleccionar</translation>
+<translation id="1239161794459865856">Se conectó <ph name="FEATURE_NAME" />.</translation>
 <translation id="1247372569136754018">Micrófono (interno)</translation>
 <translation id="1252999807265626933">Cargando desde <ph name="POWER_SOURCE" /></translation>
 <translation id="1255033239764210633">¿Cómo está el clima?</translation>
@@ -69,11 +70,12 @@ Estas son algunas de las cosas que puedes probar para comenzar.</translation>
 <translation id="1570871743947603115">Activar o desactivar Bluetooth: <ph name="STATE_TEXT" /></translation>
 <translation id="1589090746204042747">Accede a toda tu actividad en esta sesión</translation>
 <translation id="1611993646327628135">Sí</translation>
-<translation id="1632985212731562677">La accesibilidad mejorada se puede inhabilitar en Configuración &gt; Accesibilidad.</translation>
+<translation id="1632985212731562677">Accesibilidad con interruptores se puede inhabilitar en Configuración &gt; Accesibilidad.</translation>
 <translation id="1651447046299738444">Parece que la conexión Bluetooth o Wi-Fi está desactivada en tu Chromebook. Revisa la conexión para usar Phone Hub.</translation>
 <translation id="1654477262762802994">Iniciar una búsqueda por voz</translation>
 <translation id="1667964833127753507">El modo de color neutral no usa los colores extraídos del fondo de pantalla; los reemplaza por un conjunto de tonos neutros oscuros o claros.</translation>
 <translation id="1677472565718498478">Tiempo restante <ph name="TIME" /></translation>
+<translation id="1677507110654891115">No se conectó <ph name="FEATURE_NAME" />.</translation>
 <translation id="1698080062160024910">Temporizador: <ph name="TOTAL_TIME" /> · <ph name="LABEL" /></translation>
 <translation id="1698760176351776263">Dirección IPv6: <ph name="ADDRESS" /></translation>
 <translation id="1708345662127501511">Escritorio: <ph name="DESK_NAME" /></translation>
@@ -113,6 +115,7 @@ Estas son algunas de las cosas que puedes probar para comenzar.</translation>
 <translation id="2049240716062114887">Se cambió el nombre del escritorio a <ph name="DESK_NAME" /></translation>
 <translation id="2050339315714019657">Vertical</translation>
 <translation id="2067602449040652523">Brillo del teclado</translation>
+<translation id="2074759828767813253">Descargas y capturas de pantalla recientes</translation>
 <translation id="2083190527011054446">Buenas noches, <ph name="GIVEN_NAME" />:</translation>
 <translation id="209965399369889474">Sin conexión a la red</translation>
 <translation id="2126242104232412123">Nuevo escritorio</translation>
@@ -144,6 +147,7 @@ Estas son algunas de las cosas que puedes probar para comenzar.</translation>
 <translation id="2369165858548251131">"Hola" en chino</translation>
 <translation id="2390318262976603432">Configuración regional</translation>
 <translation id="2391579633712104609">180°</translation>
+<translation id="2405664212338326887">No conectado</translation>
 <translation id="2408955596600435184">Ingresa tu PIN</translation>
 <translation id="2412593942846481727">Actualización disponible</translation>
 <translation id="2413728805700750528"><ph name="DISPLAY_NAME" /> es una sesión administrada por <ph name="DOMAIN" /></translation>
@@ -224,7 +228,7 @@ Estas son algunas de las cosas que puedes probar para comenzar.</translation>
 <translation id="3181441307743005334">El reinicio puede tardar unos minutos</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{Conectado a un dispositivo}other{Conectado a # dispositivos}}</translation>
 <translation id="320207200541803018">Establecer temporizador</translation>
-<translation id="3203405173652969239">Se habilitó la accesibilidad mejorada</translation>
+<translation id="3203405173652969239">Se habilitó Accesibilidad con interruptores</translation>
 <translation id="3207953481422525583">Configuración del usuario</translation>
 <translation id="3217205077783620295">El volumen está activado. Si lo desactivas, se silenciará.</translation>
 <translation id="3226991577105957773"><ph name="COUNT" /> más</translation>
@@ -242,6 +246,7 @@ Estas son algunas de las cosas que puedes probar para comenzar.</translation>
 <translation id="3364721542077212959">Herramientas de la pluma stylus</translation>
 <translation id="3368922792935385530">Conectado</translation>
 <translation id="3371140690572404006">Dispositivo USB-C (puerto lateral derecho delantero)</translation>
+<translation id="3375634426936648815">Conectado</translation>
 <translation id="3386978599540877378">la lupa de pantalla completa</translation>
 <translation id="3400357268283240774">Configuración adicional</translation>
 <translation id="3410336247007142655">Mostrar la configuración del Tema oscuro</translation>
@@ -300,6 +305,7 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="3943857333388298514">Pegar</translation>
 <translation id="394485226368336402">Configuración de audio</translation>
 <translation id="3962859241508114581">Pista anterior</translation>
+<translation id="3969043077941541451">No</translation>
 <translation id="397105322502079400">Calculando...</translation>
 <translation id="3977512764614765090">Nivel de la batería: <ph name="PERCENTAGE" />% y cargando</translation>
 <translation id="3995138139523574647">Dispositivo USB-C (puerto lateral derecho trasero)</translation>
@@ -310,6 +316,7 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="4032485810211612751"><ph name="HOURS" />:<ph name="MINUTES" />:<ph name="SECONDS" /></translation>
 <translation id="4042660782729322247">Estás compartiendo tu pantalla</translation>
 <translation id="4065525899979931964">{NUM_APPS,plural, =1{No para 1 app}other{No para # apps}}</translation>
+<translation id="4066027111132117168">Sí (<ph name="REMAINING_TIME" />)</translation>
 <translation id="4072264167173457037">Señal media</translation>
 <translation id="4112140312785995938">Buscar más atrás</translation>
 <translation id="4114315158543974537">Activa Phone Hub</translation>
@@ -320,6 +327,7 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="4181841719683918333">Idiomas</translation>
 <translation id="4195877955194704651">Botón de clic automáticos</translation>
 <translation id="4197790712631116042">No</translation>
+<translation id="4201033867194214117"><ph name="FEATURE_NAME" /> no está disponible.</translation>
 <translation id="4212246570487010370">Seguir explorando</translation>
 <translation id="4212472694152630271">Cambiar a PIN</translation>
 <translation id="4215497585250573029">Configuración de la VPN</translation>
@@ -331,6 +339,7 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="4285498937028063278">No fijar</translation>
 <translation id="4294319844246081198">Buenos días, <ph name="GIVEN_NAME" />:</translation>
 <translation id="4296136865091727875">Borrar las <ph name="COUNT" /> notificaciones</translation>
+<translation id="4302592941791324970">No disponible</translation>
 <translation id="4303223480529385476">Expandir el área de estado</translation>
 <translation id="4321179778687042513">ctrl</translation>
 <translation id="4321776623976362024">Presionaste la combinación de teclas para activar el modo de contraste alto. ¿Quieres activarlo?</translation>
@@ -385,6 +394,7 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="4804818685124855865">Desconectar</translation>
 <translation id="4814539958450445987">Pantalla de acceso</translation>
 <translation id="4831034276697007977">¿Confirmas que quieres desactivar los clics automáticos?</translation>
+<translation id="4836108105469522644">Activa las notificaciones de tu teléfono Android</translation>
 <translation id="4849058404725798627">Resaltar el objeto con el enfoque del teclado</translation>
 <translation id="485592688953820832">No es necesaria ninguna acción (pausa)</translation>
 <translation id="4868492592575313542">activada</translation>
@@ -423,6 +433,7 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="5302048478445481009">Idioma</translation>
 <translation id="5313326810920013265">Configuración de Bluetooth</translation>
 <translation id="5314219114274263156">Se registró una grabación de pantalla</translation>
+<translation id="5329548388331921293">Conectando…</translation>
 <translation id="5331975486040154427">Dispositivo USB-C (puerto lateral izquierdo trasero)</translation>
 <translation id="5352250171825660495">El Tema oscuro está activado</translation>
 <translation id="5379115545237091094">Realizaste demasiados intentos</translation>
@@ -436,6 +447,7 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="5465662442746197494">¿Necesitas ayuda?</translation>
 <translation id="5496819745535887422">El administrador está restableciendo tu dispositivo. Cuando se reinicie, se borrarán todos los datos.</translation>
 <translation id="5519195206574732858">LTE</translation>
+<translation id="5523434445161341166">Se está conectando <ph name="FEATURE_NAME" />.</translation>
 <translation id="553675580533261935">Salir de la sesión</translation>
 <translation id="5537725057119320332">Transmitir</translation>
 <translation id="5548285847212963613">La extensión "<ph name="EXTENSION_NAME" />" puede ayudarte a conectarte a la red.</translation>
@@ -536,7 +548,7 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="6537924328260219877">Intensidad de la señal: <ph name="SIGNAL_STRENGTH" />, nivel de batería del teléfono: <ph name="BATTERY_STATUS" /></translation>
 <translation id="6542521951477560771">Transmitiendo a <ph name="RECEIVER_NAME" /></translation>
 <translation id="6559976592393364813">Pregúntale al administrador</translation>
-<translation id="6584550827717945790">Desactiva la accesibilidad mejorada</translation>
+<translation id="6584550827717945790">Desactivar Accesibilidad con interruptores</translation>
 <translation id="6585808820553845416">La sesión terminará en <ph name="SESSION_TIME_REMAINING" />.</translation>
 <translation id="661203523074512333"><ph name="SECURITY_STATUS" />, intensidad de la señal: <ph name="SIGNAL_STRENGTH" />, administrada por tu administrador</translation>
 <translation id="6614169507485700968">La pantalla de privacidad está activada</translation>
@@ -563,6 +575,7 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="6803622936009808957">No se pudieron reflejar las pantallas porque no se encontraron resoluciones compatibles. En su lugar, se activó el escritorio extendido.</translation>
 <translation id="6818242057446442178">Volver palabra por palabra</translation>
 <translation id="6820676911989879663">Toma un descanso</translation>
+<translation id="6857725247182211756"><ph name="SECONDS" /> s</translation>
 <translation id="6857811139397017780">Activar <ph name="NETWORKSERVICE" /></translation>
 <translation id="685782768769951078">{NUM_DIGITS,plural, =1{Queda un dígito}other{Quedan # dígitos}}</translation>
 <translation id="6878400149835617132">Se desactivó la combinación de teclas</translation>
@@ -586,7 +599,7 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="7067196344162293536">Rotación automática</translation>
 <translation id="7068360136237591149">Abrir archivos</translation>
 <translation id="7076293881109082629">Accediendo</translation>
-<translation id="7088960765736518739">Accesibilidad mejorada</translation>
+<translation id="7088960765736518739">Accesibilidad con interruptores</translation>
 <translation id="7098389117866926363">Dispositivo USB-C (puerto izquierdo en la parte posterior)</translation>
 <translation id="7131634465328662194">Tu sesión se cerrará automáticamente.</translation>
 <translation id="7143207342074048698">Conectando</translation>
@@ -619,6 +632,7 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="7526573455193969409">Es posible que la red esté supervisada</translation>
 <translation id="7536035074519304529">Dirección IP: <ph name="ADDRESS" /></translation>
 <translation id="7548434653388805669">Es hora de ir a la cama</translation>
+<translation id="7551643184018910560">Fijar en la biblioteca</translation>
 <translation id="7561982940498449837">Cerrar menú</translation>
 <translation id="7564874036684306347">Si mueves las ventanas a otro escritorio, puede producirse un comportamiento inesperado. Es posible que las próximas notificaciones, ventanas y cuadros de diálogo se dividan entre los escritorios.</translation>
 <translation id="7568294522609223312">Desactivar los clics automáticos</translation>
@@ -630,6 +644,7 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="7600875258240007829">Ver todas las notificaciones</translation>
 <translation id="7618774594543487847">Neutro</translation>
 <translation id="7624117708979618027"><ph name="TEMPERATURE_F" /> °F</translation>
+<translation id="7633755430369750696">Mostrar la configuración de Compartir con Nearby</translation>
 <translation id="7642647758716480637">Abrir la configuración para <ph name="NETWORK_NAME" />, <ph name="CONNECTION_STATUS" /></translation>
 <translation id="7645176681409127223"><ph name="USER_NAME" /> (propietario/a)</translation>
 <translation id="7647488630410863958">Desbloquea el dispositivo para ver tus notificaciones</translation>
@@ -645,6 +660,7 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="7780159184141939021">Girar pantalla</translation>
 <translation id="7796353162336583443">Presiona el botón de la pluma stylus en la biblioteca para tomar notas o capturas de pantalla, usar el Asistente de Google y activar las funciones de puntero láser o lupa.</translation>
 <translation id="7798302898096527229">Presiona mayúscula o la tecla de búsqueda para cancelarlo.</translation>
+<translation id="781126011916719498">Accede a tus archivos importantes de forma rápida. Haz clic con el botón derecho sobre un archivo o mantenlo presionado para fijarlo.</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> y <ph name="MINUTE" /></translation>
 <translation id="7829386189513694949">Señal fuerte</translation>
 <translation id="7837740436429729974">Tiempo agotado</translation>
@@ -788,6 +804,7 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="9089416786594320554">Métodos de entrada</translation>
 <translation id="9091626656156419976">Se quitó la pantalla <ph name="DISPLAY_NAME" /></translation>
 <translation id="9151726767154816831">Reiniciar y aplicar Powerwash para actualizar</translation>
+<translation id="9166331175924255663">Activar o desactivar la alta visibilidad para Compartir con Nearby</translation>
 <translation id="9168436347345867845">Hacerlo más tarde</translation>
 <translation id="9179259655489829027">Esta función te permite alternar de forma rápida entre los usuarios que hayan accedido a su cuenta, sin necesidad de escribir la contraseña. Usa esta función solo con cuentas de confianza.</translation>
 <translation id="9183456764293710005">Lupa de pantalla completa</translation>

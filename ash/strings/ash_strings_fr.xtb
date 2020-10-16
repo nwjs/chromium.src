@@ -27,6 +27,7 @@ Pour commencer, voici des exemples de ce que vous pouvez me demander.</translati
 <translation id="121097972571826261">Avancer par mot</translation>
 <translation id="1225748608451425081">Votre Chromebook est verrouillé en raison d'un problème connu. Vous pourrez vous connecter dans <ph name="TIME_LEFT" />.</translation>
 <translation id="1229194443904279055">Arrêter la sélection</translation>
+<translation id="1239161794459865856">La fonctionnalité <ph name="FEATURE_NAME" /> est connectée.</translation>
 <translation id="1247372569136754018">Micro (interne)</translation>
 <translation id="1252999807265626933">Charge à partir de la source "<ph name="POWER_SOURCE" />"</translation>
 <translation id="1255033239764210633">Quel temps fait-il ?</translation>
@@ -74,6 +75,7 @@ Pour commencer, voici des exemples de ce que vous pouvez me demander.</translati
 <translation id="1654477262762802994">Soumettre une requête vocale</translation>
 <translation id="1667964833127753507">Le mode couleur neutre n'utilise pas des couleurs issues du fond d'écran : il les remplace par une gamme de tonalités neutres (claires ou sombres).</translation>
 <translation id="1677472565718498478">Temps restant : <ph name="TIME" /></translation>
+<translation id="1677507110654891115">La fonctionnalité <ph name="FEATURE_NAME" /> n'est pas connectée.</translation>
 <translation id="1698080062160024910">Minuteur de <ph name="TOTAL_TIME" /> – <ph name="LABEL" /></translation>
 <translation id="1698760176351776263">Adresse IPv6 : <ph name="ADDRESS" /></translation>
 <translation id="1708345662127501511">Bureau : <ph name="DESK_NAME" /></translation>
@@ -145,6 +147,7 @@ Pour commencer, voici des exemples de ce que vous pouvez me demander.</translati
 <translation id="2369165858548251131">"Bonjour" en chinois</translation>
 <translation id="2390318262976603432">Options des paramètres régionaux</translation>
 <translation id="2391579633712104609">180°</translation>
+<translation id="2405664212338326887">Non connecté</translation>
 <translation id="2408955596600435184">Saisissez votre code.</translation>
 <translation id="2412593942846481727">Mise à jour disponible</translation>
 <translation id="2413728805700750528"><ph name="DISPLAY_NAME" /> est une session gérée par <ph name="DOMAIN" /></translation>
@@ -198,7 +201,6 @@ Pour commencer, voici des exemples de ce que vous pouvez me demander.</translati
 <translation id="2996462380875591307">Le mode Loupe ancrée est activé. Appuyez de nouveau sur Ctrl+Recherche+D pour le désactiver.</translation>
 <translation id="3000461861112256445">Audio mono</translation>
 <translation id="3009178788565917040">Sortie</translation>
-<translation id="3025081209054535615">Retirer les commandes multimédias générales de l'étagère</translation>
 <translation id="3033545621352269033">Activé</translation>
 <translation id="3038571455154067151">Pour vous connecter, saisissez le code d'accès parental Family Link</translation>
 <translation id="3045488863354895414">Bonjour,</translation>
@@ -244,6 +246,7 @@ Pour commencer, voici des exemples de ce que vous pouvez me demander.</translati
 <translation id="3364721542077212959">Outils de stylet</translation>
 <translation id="3368922792935385530">Connecté</translation>
 <translation id="3371140690572404006">Appareil USB de type C (port situé sur la droite de l'appareil, à l'avant)</translation>
+<translation id="3375634426936648815">Connecté</translation>
 <translation id="3386978599540877378">la loupe plein écran</translation>
 <translation id="3400357268283240774">Autres paramètres</translation>
 <translation id="3410336247007142655">Afficher les paramètres du thème sombre</translation>
@@ -301,6 +304,7 @@ Pour commencer, voici des exemples de ce que vous pouvez me demander.</translati
 <translation id="3943857333388298514">Coller</translation>
 <translation id="394485226368336402">Paramètres audio</translation>
 <translation id="3962859241508114581">Titre précédent</translation>
+<translation id="3969043077941541451">Désactivé</translation>
 <translation id="397105322502079400">Calcul en cours…</translation>
 <translation id="3977512764614765090">La batterie est en charge, avec un niveau de <ph name="PERCENTAGE" /> % pour l'instant.</translation>
 <translation id="3995138139523574647">Appareil USB de type C (port situé sur la droite de l'appareil, à l'arrière)</translation>
@@ -311,6 +315,7 @@ Pour commencer, voici des exemples de ce que vous pouvez me demander.</translati
 <translation id="4032485810211612751"><ph name="HOURS" />:<ph name="MINUTES" />:<ph name="SECONDS" /></translation>
 <translation id="4042660782729322247">Vous partagez votre écran</translation>
 <translation id="4065525899979931964">{NUM_APPS,plural, =1{Notif. désactivées pour une appli}one{Notif. désactivées pour # appli}other{Notif. désactivées pour # applis}}</translation>
+<translation id="4066027111132117168">Activé, <ph name="REMAINING_TIME" /></translation>
 <translation id="4072264167173457037">Signal de moyenne intensité</translation>
 <translation id="4112140312785995938">Retour rapide</translation>
 <translation id="4114315158543974537">Activer Phone Hub</translation>
@@ -321,6 +326,7 @@ Pour commencer, voici des exemples de ce que vous pouvez me demander.</translati
 <translation id="4181841719683918333">Langues</translation>
 <translation id="4195877955194704651">Bouton de clics automatiques</translation>
 <translation id="4197790712631116042">Désactivé</translation>
+<translation id="4201033867194214117"><ph name="FEATURE_NAME" /> n'est pas disponible.</translation>
 <translation id="4212246570487010370">Poursuivre la navigation</translation>
 <translation id="4212472694152630271">Authentification par code</translation>
 <translation id="4215497585250573029">Paramètres de VPN</translation>
@@ -332,6 +338,7 @@ Pour commencer, voici des exemples de ce que vous pouvez me demander.</translati
 <translation id="4285498937028063278">Retirer</translation>
 <translation id="4294319844246081198">Bonjour <ph name="GIVEN_NAME" />,</translation>
 <translation id="4296136865091727875">Effacer les <ph name="COUNT" /> notifications</translation>
+<translation id="4302592941791324970">Non disponible</translation>
 <translation id="4303223480529385476">Développer la zone d'état</translation>
 <translation id="4321179778687042513">ctrl</translation>
 <translation id="4321776623976362024">Vous avez appuyé sur le raccourci clavier du contraste élevé. Voulez-vous l'activer ?</translation>
@@ -425,6 +432,7 @@ Pour commencer, voici des exemples de ce que vous pouvez me demander.</translati
 <translation id="5302048478445481009">Langue</translation>
 <translation id="5313326810920013265">Paramètres Bluetooth</translation>
 <translation id="5314219114274263156">Enregistrement d'écran effectué</translation>
+<translation id="5329548388331921293">Connexion…</translation>
 <translation id="5331975486040154427">Appareil USB de type C (port situé sur la gauche de l'appareil, à l'arrière)</translation>
 <translation id="5352250171825660495">Le thème sombre est activé</translation>
 <translation id="5379115545237091094">Trop de tentatives</translation>
@@ -438,6 +446,7 @@ Pour commencer, voici des exemples de ce que vous pouvez me demander.</translati
 <translation id="5465662442746197494">Besoin d'aide ?</translation>
 <translation id="5496819745535887422">Votre administrateur rétablit votre appareil. Toutes les données seront supprimées lors du redémarrage de l'appareil.</translation>
 <translation id="5519195206574732858">LTE</translation>
+<translation id="5523434445161341166"><ph name="FEATURE_NAME" /> est en train de se connecter.</translation>
 <translation id="553675580533261935">Fermeture de la session</translation>
 <translation id="5537725057119320332">Caster</translation>
 <translation id="5548285847212963613">L'extension "<ph name="EXTENSION_NAME" />" peut aider à se connecter à ce réseau.</translation>
@@ -565,6 +574,7 @@ Pour commencer, voici des exemples de ce que vous pouvez me demander.</translati
 <translation id="6803622936009808957">Impossible de dupliquer les écrans, car aucune résolution compatible n'a été détectée. Le bureau étendu a été activé à la place.</translation>
 <translation id="6818242057446442178">Reculer par mot</translation>
 <translation id="6820676911989879663">Faites une pause !</translation>
+<translation id="6857725247182211756"><ph name="SECONDS" /> s</translation>
 <translation id="6857811139397017780">Activer <ph name="NETWORKSERVICE" /></translation>
 <translation id="685782768769951078">{NUM_DIGITS,plural, =1{1 chiffre manquant}one{# chiffre manquant}other{# chiffres manquants}}</translation>
 <translation id="6878400149835617132">Raccourci désactivé</translation>
@@ -621,6 +631,7 @@ Pour commencer, voici des exemples de ce que vous pouvez me demander.</translati
 <translation id="7526573455193969409">Il est possible que le réseau soit surveillé</translation>
 <translation id="7536035074519304529">Adresse IP : <ph name="ADDRESS" /></translation>
 <translation id="7548434653388805669">Il est l'heure d'aller au lit</translation>
+<translation id="7551643184018910560">Épingler sur l'étagère</translation>
 <translation id="7561982940498449837">Fermer le menu</translation>
 <translation id="7564874036684306347">Le déplacement de fenêtres vers un autre écran peut entraîner un comportement inattendu. Par exemple, les notifications, les fenêtres et les boîtes de dialogue peuvent s'afficher sur les deux écrans.</translation>
 <translation id="7568294522609223312">Désactiver les clics automatiques</translation>
@@ -632,6 +643,7 @@ Pour commencer, voici des exemples de ce que vous pouvez me demander.</translati
 <translation id="7600875258240007829">Afficher toutes les notifications</translation>
 <translation id="7618774594543487847">Neutre</translation>
 <translation id="7624117708979618027"><ph name="TEMPERATURE_F" /> °F</translation>
+<translation id="7633755430369750696">Afficher les paramètres de partage à proximité.</translation>
 <translation id="7642647758716480637">Ouvrir les paramètres du réseau <ph name="NETWORK_NAME" /> <ph name="CONNECTION_STATUS" /></translation>
 <translation id="7645176681409127223"><ph name="USER_NAME" /> (propriétaire)</translation>
 <translation id="7647488630410863958">Déverrouiller l'appareil pour consulter vos notifications</translation>
@@ -647,6 +659,7 @@ Pour commencer, voici des exemples de ce que vous pouvez me demander.</translati
 <translation id="7780159184141939021">Rotation d'écran</translation>
 <translation id="7796353162336583443">Appuyez sur le bouton du stylet situé sur l'étagère pour prendre des notes, effectuer des captures d'écran et utiliser l'Assistant Google, le pointeur laser ou la loupe.</translation>
 <translation id="7798302898096527229">Appuyez sur Rechercher ou Maj pour annuler.</translation>
+<translation id="781126011916719498">Accédez rapidement à vos fichiers importants. Effectuez un clic droit sur le fichier souhaité ou appuyez dessus de manière prolongée pour l'épingler.</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> et <ph name="MINUTE" /></translation>
 <translation id="7829386189513694949">Signal de forte intensité</translation>
 <translation id="7837740436429729974">Temps écoulé</translation>
@@ -701,7 +714,6 @@ Pour commencer, voici des exemples de ce que vous pouvez me demander.</translati
 <translation id="8297006494302853456">Faible</translation>
 <translation id="8308637677604853869">Menu précédent</translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" />  <ph name="GET_STARTED" /></translation>
-<translation id="8349293353728876872">Épingler les commandes multimédias générales à l'étagère</translation>
 <translation id="8351131234907093545">Créer une note</translation>
 <translation id="8371779926711439835">Avancer par lettre</translation>
 <translation id="8375916635258623388">L'appareil <ph name="DEVICE_NAME" /> et votre téléphone seront associés automatiquement</translation>
@@ -791,6 +803,7 @@ Pour commencer, voici des exemples de ce que vous pouvez me demander.</translati
 <translation id="9089416786594320554">Modes de saisie</translation>
 <translation id="9091626656156419976">Suppression de l'écran <ph name="DISPLAY_NAME" /></translation>
 <translation id="9151726767154816831">Redémarrer, puis lancer la réinitialisation Powerwash pour mettre à jour le système</translation>
+<translation id="9166331175924255663">Activez/Désactivez le mode haute visibilité du Partage à proximité.</translation>
 <translation id="9168436347345867845">Plus tard</translation>
 <translation id="9179259655489829027">Cette fonctionnalité vous permet d'accéder rapidement à tout compte connecté sans avoir à indiquer le mot de passe. N'utilisez cette fonctionnalité que pour les comptes auxquels vous pouvez faire confiance.</translation>
 <translation id="9183456764293710005">Loupe plein écran</translation>

@@ -2897,13 +2897,6 @@ MULTI_THREAD_BLOCKNOTIFY_TEST_F(
 // its damage is preserved until the next time it is drawn.
 class LayerTreeHostTestUndrawnLayersDamageLater : public LayerTreeHostTest {
  public:
-  void InitializeSettings(LayerTreeSettings* settings) override {
-    // If we don't set the minimum contents scale, it's harder to verify whether
-    // the damage we get is correct. For other scale amounts, please see
-    // LayerTreeHostTestDamageWithScale.
-    settings->minimum_contents_scale = 1.f;
-  }
-
   void SetupTree() override {
     root_layer_ = FakePictureLayer::Create(&client_);
     root_layer_->SetIsDrawable(true);
@@ -9356,6 +9349,57 @@ class LayerTreeHostUkmSmoothnessMetric : public LayerTreeTest {
 };
 
 MULTI_THREAD_TEST_F(LayerTreeHostUkmSmoothnessMetric);
+
+class LayerTreeHostUkmSmoothnessMemoryOwnership : public LayerTreeTest {
+ public:
+  LayerTreeHostUkmSmoothnessMemoryOwnership() = default;
+  ~LayerTreeHostUkmSmoothnessMemoryOwnership() override = default;
+
+  void InitializeSettings(LayerTreeSettings* settings) override {
+    settings->commit_to_active_tree = false;
+  }
+
+  void BeginTest() override {
+    // Start with requesting main-frames.
+    PostSetNeedsCommitToMainThread();
+  }
+
+  void AfterTest() override {
+  }
+
+  void WillBeginImplFrameOnThread(LayerTreeHostImpl* host_impl,
+                                  const viz::BeginFrameArgs& args) override {
+    host_impl->dropped_frame_counter()->OnFcpReceived();
+    host_impl->SetNeedsCommit();
+  }
+
+  void DidFinishImplFrameOnThread(LayerTreeHostImpl* host_impl) override {
+    if (TestEnded())
+      return;
+
+    if (frames_counter_ == 0) {
+      EndTest();
+      return;
+    }
+
+    // Mark every frame as a dropped frame affecting smoothness.
+    host_impl->dropped_frame_counter()->AddDroppedFrameAffectingSmoothness();
+    host_impl->SetNeedsRedraw();
+    --frames_counter_;
+  }
+
+  void DidBeginMainFrame() override {
+    // Re-request the shared memory region in each frame.
+    shmem_region_ = layer_tree_host()->CreateSharedMemoryForSmoothnessUkm();
+  }
+
+ private:
+  const uint32_t kTotalFramesForTest = 50;
+  uint32_t frames_counter_ = kTotalFramesForTest;
+  base::ReadOnlySharedMemoryRegion shmem_region_;
+};
+
+MULTI_THREAD_TEST_F(LayerTreeHostUkmSmoothnessMemoryOwnership);
 
 }  // namespace
 }  // namespace cc

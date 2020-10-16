@@ -1995,22 +1995,6 @@
             ]
         }
     ],
-    "DefaultPassthroughCommandDecoder": [
-        {
-            "platforms": [
-                "linux",
-                "mac"
-            ],
-            "experiments": [
-                {
-                    "name": "Enabled_20191004",
-                    "enable_features": [
-                        "DefaultPassthroughCommandDecoder"
-                    ]
-                }
-            ]
-        }
-    ],
     "DelayAsyncScriptExecution": [
         {
             "platforms": [
@@ -3402,6 +3386,21 @@
                     "name": "Enabled",
                     "enable_features": [
                         "PageInfoRefactoring"
+                    ]
+                }
+            ]
+        }
+    ],
+    "IOSPreloadDelayWebStateReset": [
+        {
+            "platforms": [
+                "ios"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "PreloadDelayWebStateReset"
                     ]
                 }
             ]
@@ -4967,27 +4966,6 @@
                     "name": "Enabled",
                     "enable_features": [
                         "OneCopyRasterBufferPlaybackNormalThreadPriority"
-                    ]
-                }
-            ]
-        }
-    ],
-    "OptOutZeroTimeoutTimersFromThrottling": [
-        {
-            "platforms": [
-                "android",
-                "android_weblayer",
-                "android_webview",
-                "chromeos",
-                "linux",
-                "mac",
-                "windows"
-            ],
-            "experiments": [
-                {
-                    "name": "Enabled",
-                    "enable_features": [
-                        "OptOutZeroTimeoutTimersFromThrottling"
                     ]
                 }
             ]

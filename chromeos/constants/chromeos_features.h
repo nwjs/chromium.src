@@ -126,6 +126,8 @@ extern const base::Feature kExoOrdinalMotion;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kExoPointerLock;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
+extern const base::Feature kFamilyLinkOnSchoolDevice;
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kFilesCameraFolder;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const base::Feature kFilesNG;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
@@ -140,6 +142,8 @@ COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const base::Feature kMojoDBusRelay;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kClipboardHistory;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
+extern const base::Feature kClipboardHistorySimpleRender;
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kEnableFilesAppCopyImage;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kEnableImeSandbox;
@@ -150,6 +154,8 @@ COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kGamepadVibration;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kGesturePropertiesDBusService;
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
+extern const base::Feature kGuestOsExternalProtocol;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kHelpAppFirstRun;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
@@ -286,6 +292,7 @@ COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool IsBetterUpdateEnabled();
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool IsChildSpecificSigninEnabled();
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool IsDeepLinkingEnabled();
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool IsDiagnosticsAppEnabled();
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool IsFamilyLinkOnSchoolDeviceEnabled();
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool IsImeSandboxEnabled();
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 bool IsInstantTetheringBackgroundAdvertisingSupported();
@@ -295,6 +302,8 @@ bool IsLoginDeviceManagementDisclosureEnabled();
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool IsLoginDisplayPasswordButtonEnabled();
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool IsMinimumChromeVersionEnabled();
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool IsClipboardHistoryEnabled();
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
+bool IsClipboardHistorySimpleRenderEnabled();
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool IsOobeScreensPriorityEnabled();
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool IsParentalControlsSettingsEnabled();
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool IsPhoneHubEnabled();

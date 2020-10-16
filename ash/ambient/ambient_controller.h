@@ -20,10 +20,13 @@
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observer.h"
+#include "base/timer/timer.h"
 #include "chromeos/dbus/power/power_manager_client.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_service.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/remote.h"
+#include "services/device/public/mojom/fingerprint.mojom.h"
 #include "services/device/public/mojom/wake_lock.mojom.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_observer.h"
@@ -43,14 +46,16 @@ class ASH_EXPORT AmbientController
       public AmbientBackendModelObserver,
       public SessionObserver,
       public PowerStatus::Observer,
-      public chromeos::PowerManagerClient::Observer {
+      public chromeos::PowerManagerClient::Observer,
+      public device::mojom::FingerprintObserver {
  public:
   static constexpr base::TimeDelta kAutoShowWaitTimeInterval =
       base::TimeDelta::FromSeconds(7);
 
   static void RegisterProfilePrefs(PrefRegistrySimple* registry);
 
-  AmbientController();
+  explicit AmbientController(
+      mojo::PendingRemote<device::mojom::Fingerprint> fingerprint);
   ~AmbientController() override;
 
   // AmbientUiModelObserver:
@@ -58,24 +63,36 @@ class ASH_EXPORT AmbientController
 
   // SessionObserver:
   void OnLockStateChanged(bool locked) override;
+  void OnFirstSessionStarted() override;
 
   // PowerStatus::Observer:
   void OnPowerStatusChanged() override;
 
   // chromeos::PowerManagerClient::Observer:
-  void ScreenIdleStateChanged(
-      const power_manager::ScreenIdleState& idle_state) override;
   void ScreenBrightnessChanged(
       const power_manager::BacklightBrightnessChange& change) override;
+  void ScreenIdleStateChanged(
+      const power_manager::ScreenIdleState& idle_state) override;
+
+  // fingerprint::mojom::FingerprintObserver:
+  void OnAuthScanDone(
+      device::mojom::ScanResult scan_result,
+      const base::flat_map<std::string, std::vector<std::string>>& matches)
+      override;
+  void OnSessionFailed() override {}
+  void OnRestarted() override {}
+  void OnEnrollScanDone(device::mojom::ScanResult scan_result,
+                        bool enroll_session_complete,
+                        int percent_complete) override {}
 
   void AddAmbientViewDelegateObserver(AmbientViewDelegateObserver* observer);
   void RemoveAmbientViewDelegateObserver(AmbientViewDelegateObserver* observer);
 
-  // Invoked to show/close ambient UI in |mode|.
-  void ShowUi(AmbientUiMode mode);
+  void ShowUi();
+  // Ui will be enabled but not shown immediately. If there is no user activity
+  // Ui will be shown after a short delay.
+  void ShowHiddenUi();
   void CloseUi();
-
-  void HideLockScreenUi();
 
   void ToggleInSessionUi();
 
@@ -84,8 +101,6 @@ class ASH_EXPORT AmbientController
 
   // Handles events on the background photo.
   void OnBackgroundPhotoEvents();
-
-  void UpdateUiMode(AmbientUiMode ui_mode);
 
   void RequestAccessToken(
       AmbientAccessTokenController::AccessTokenCallback callback,
@@ -107,8 +122,12 @@ class ASH_EXPORT AmbientController
   class InactivityMonitor;
   friend class AmbientAshTestBase;
 
+  // Hide or close Ambient mode UI.
+  void DismissUI();
+
   // AmbientBackendModelObserver overrides:
-  void OnImagesChanged() override;
+  void OnImagesReady() override;
+  void OnImagesFailed() override;
 
   // Initializes the |container_view_|. Called in |CreateWidget()| to create the
   // contents view.
@@ -184,6 +203,12 @@ class ASH_EXPORT AmbientController
 
   // Used to record Ambient mode engagement metrics.
   base::Optional<base::Time> start_time_ = base::nullopt;
+
+  base::OneShotTimer delayed_lock_timer_;
+
+  mojo::Remote<device::mojom::Fingerprint> fingerprint_;
+  mojo::Receiver<device::mojom::FingerprintObserver>
+      fingerprint_observer_receiver_{this};
 
   base::WeakPtrFactory<AmbientController> weak_ptr_factory_{this};
   DISALLOW_COPY_AND_ASSIGN(AmbientController);

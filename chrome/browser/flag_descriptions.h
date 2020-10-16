@@ -706,6 +706,9 @@ extern const char kGlobalMediaControlsOverlayControlsDescription[];
 extern const char kGpuRasterizationName[];
 extern const char kGpuRasterizationDescription[];
 
+extern const char kGuestOsExternalProtocolName[];
+extern const char kGuestOsExternalProtocolDescription[];
+
 extern const char kH264DecoderBufferIsCompleteFrameName[];
 extern const char kH264DecoderBufferIsCompleteFrameDescription[];
 
@@ -769,6 +772,9 @@ extern const char kJavascriptHarmonyDescription[];
 
 extern const char kJavascriptHarmonyShippingName[];
 extern const char kJavascriptHarmonyShippingDescription[];
+
+extern const char kKaleidoscopeModuleName[];
+extern const char kKaleidoscopeModuleDescription[];
 
 extern const char kLauncherSettingsSearchName[];
 extern const char kLauncherSettingsSearchDescription[];
@@ -1156,6 +1162,10 @@ extern const char kPrinterStatusDescription[];
 
 extern const char kPrinterStatusDialogName[];
 extern const char kPrinterStatusDialogDescription[];
+
+extern const char kSafeBrowsingEnhancedProtectionMessageInInterstitialsName[];
+extern const char
+    kSafeBrowsingEnhancedProtectionMessageInInterstitialsDescription[];
 
 extern const char kSafetyTipName[];
 extern const char kSafetyTipDescription[];
@@ -1937,6 +1947,9 @@ extern const char kOmniboxRefinedFocusStateDescription[];
 extern const char kPasswordsWeaknessCheckName[];
 extern const char kPasswordsWeaknessCheckDescription[];
 
+extern const char kSCTAuditingName[];
+extern const char kSCTAuditingDescription[];
+
 extern const char kTabFreezeName[];
 extern const char kTabFreezeDescription[];
 
@@ -2242,6 +2255,9 @@ extern const char kDragToSnapInClamshellModeDescription[];
 
 extern const char kEnhancedClipboardName[];
 extern const char kEnhancedClipboardDescription[];
+
+extern const char kEnhancedClipboardSimpleRenderName[];
+extern const char kEnhancedClipboardSimpleRenderDescription[];
 
 extern const char kMultiDisplayOverviewAndSplitViewName[];
 extern const char kMultiDisplayOverviewAndSplitViewDescription[];
@@ -2597,6 +2613,9 @@ extern const char kZeroCopyVideoCaptureDescription[];
 // All views-based platforms --------------------------------------------------
 
 #if defined(TOOLKIT_VIEWS)
+
+extern const char kDesktopInProductHelpSnoozeName[];
+extern const char kDesktopInProductHelpSnoozeDescription[];
 
 extern const char kEnableMDRoundedCornersOnDialogsName[];
 extern const char kEnableMDRoundedCornersOnDialogsDescription[];

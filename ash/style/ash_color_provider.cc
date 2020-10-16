@@ -7,6 +7,7 @@
 #include <math.h>
 
 #include "ash/public/cpp/ash_constants.h"
+#include "ash/public/cpp/ash_features.h"
 #include "ash/public/cpp/ash_pref_names.h"
 #include "ash/public/cpp/login_constants.h"
 #include "ash/session/session_controller_impl.h"
@@ -147,6 +148,7 @@ SkColor AshColorProvider::GetControlsLayerColor(ControlsLayerType type) const {
                                       gfx::kGoogleRed600,
                                       gfx::kGoogleYellow600,
                                       gfx::kGoogleGreen600,
+                                      SkColorSetA(gfx::kGoogleBlue600, 0x3D),
                                       gfx::kGoogleBlue600};
   constexpr SkColor kDarkColors[] = {SkColorSetA(SK_ColorWHITE, 0x24),
                                      gfx::kGoogleBlue300,
@@ -154,6 +156,7 @@ SkColor AshColorProvider::GetControlsLayerColor(ControlsLayerType type) const {
                                      gfx::kGoogleRed300,
                                      gfx::kGoogleYellow300,
                                      gfx::kGoogleGreen300,
+                                     SkColorSetA(gfx::kGoogleBlue300, 0x3D),
                                      gfx::kGoogleBlue300};
   DCHECK(base::size(kLightColors) == base::size(kDarkColors));
   static_assert(
@@ -299,6 +302,9 @@ void AshColorProvider::RemoveObserver(ColorModeObserver* observer) {
 }
 
 bool AshColorProvider::IsDarkModeEnabled() const {
+  if (!features::IsDarkLightModeEnabled() && override_light_mode_as_default_)
+    return false;
+
   if (!active_user_pref_service_)
     return kDefaultDarkModeEnabled;
   return active_user_pref_service_->GetBoolean(prefs::kDarkModeEnabled);

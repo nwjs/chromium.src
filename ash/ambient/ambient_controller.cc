@@ -96,10 +96,6 @@ bool IsUiHidden(AmbientUiVisibility visibility) {
   return visibility == AmbientUiVisibility::kHidden;
 }
 
-bool IsLockScreenUi(AmbientUiMode mode) {
-  return mode == AmbientUiMode::kLockScreenUi;
-}
-
 bool IsAmbientModeEnabled() {
   if (!AmbientClient::Get()->IsAmbientModeAllowed())
     return false;
@@ -175,7 +171,9 @@ void AmbientController::RegisterProfilePrefs(PrefRegistrySimple* registry) {
   }
 }
 
-AmbientController::AmbientController() {
+AmbientController::AmbientController(
+    mojo::PendingRemote<device::mojom::Fingerprint> fingerprint)
+    : fingerprint_(std::move(fingerprint)) {
   ambient_backend_controller_ = CreateAmbientBackendController();
 
   ambient_ui_model_observer_.Add(&ambient_ui_model_);
@@ -190,6 +188,9 @@ AmbientController::AmbientController() {
 
   ambient_backend_model_observer_.Add(
       ambient_photo_controller_.ambient_backend_model());
+
+  fingerprint_->AddFingerprintObserver(
+      fingerprint_observer_receiver_.BindNewPipeAndPassRemote());
 }
 
 AmbientController::~AmbientController() {
@@ -204,7 +205,8 @@ void AmbientController::OnAmbientUiVisibilityChanged(
 
       // Record metrics on ambient mode usage.
       ambient::RecordAmbientModeActivation(
-          /*ui_mode=*/ambient_ui_model_.ui_mode(),
+          /*ui_mode=*/LockScreen::HasInstance() ? AmbientUiMode::kLockScreenUi
+                                                : AmbientUiMode::kInSessionUi,
           /*tablet_mode=*/Shell::Get()->IsInTabletMode());
 
       DCHECK(!start_time_);
@@ -283,38 +285,52 @@ void AmbientController::OnAutoShowTimeOut() {
 }
 
 void AmbientController::OnLockStateChanged(bool locked) {
+  if (!locked) {
+    // Ambient screen will be destroyed along with the lock screen when user
+    // logs in.
+    CloseUi();
+    return;
+  }
+
   if (!IsAmbientModeEnabled()) {
     VLOG(1) << "Ambient mode is not allowed.";
     return;
   }
 
-  if (locked) {
-    // We have 3 options to manage the token for lock screen. Here use option 1.
-    // 1. Request only one time after entering lock screen. We will use it once
-    //    to request all the image links and no more requests.
-    // 2. Request one time before entering lock screen. This will introduce
-    //    extra latency.
-    // 3. Request and refresh the token in the background (even the ambient mode
-    //    is not started) with extra buffer time to use. When entering
-    //    lock screen, it will be most likely to have the token already and
-    //    enough time to use. More specifically,
-    //    3a. We will leave enough buffer time (e.g. 10 mins before expire) to
-    //        start to refresh the token.
-    //    3b. When lock screen is triggered, most likely we will have >10 mins
-    //        of token which can be used on lock screen.
-    //    3c. There is a corner case that we may not have the token fetched when
-    //        locking screen, we probably can use PrepareForLock(callback) when
-    //        locking screen. We can add the refresh token into it. If the token
-    //        has already been fetched, then there is not additional time to
-    //        wait.
-    RequestAccessToken(base::DoNothing(), /*may_refresh_token_on_lock=*/true);
+  // Reset image failures to allow retrying ambient mode after lock state
+  // changes.
+  GetAmbientBackendModel()->ResetImageFailures();
 
-    ShowUi(AmbientUiMode::kLockScreenUi);
-  } else {
-    // Ambient screen will be destroyed along with the lock screen when user
-    // logs in.
-    CloseUi();
+  // We have 3 options to manage the token for lock screen. Here use option 1.
+  // 1. Request only one time after entering lock screen. We will use it once
+  //    to request all the image links and no more requests.
+  // 2. Request one time before entering lock screen. This will introduce
+  //    extra latency.
+  // 3. Request and refresh the token in the background (even the ambient mode
+  //    is not started) with extra buffer time to use. When entering
+  //    lock screen, it will be most likely to have the token already and
+  //    enough time to use. More specifically,
+  //    3a. We will leave enough buffer time (e.g. 10 mins before expire) to
+  //        start to refresh the token.
+  //    3b. When lock screen is triggered, most likely we will have >10 mins
+  //        of token which can be used on lock screen.
+  //    3c. There is a corner case that we may not have the token fetched when
+  //        locking screen, we probably can use PrepareForLock(callback) when
+  //        locking screen. We can add the refresh token into it. If the token
+  //        has already been fetched, then there is not additional time to
+  //        wait.
+  RequestAccessToken(base::DoNothing(), /*may_refresh_token_on_lock=*/true);
+
+  if (!IsShown()) {
+    // When lock screen starts, we don't immediately show the UI. The Ui is
+    // hidden and will show after a delay.
+    ShowHiddenUi();
   }
+}
+
+void AmbientController::OnFirstSessionStarted() {
+  if (IsAmbientModeEnabled())
+    ambient_photo_controller_.ScheduleFetchBackupImages();
 }
 
 void AmbientController::OnPowerStatusChanged() {
@@ -362,9 +378,14 @@ void AmbientController::ScreenBrightnessChanged(
   if (!is_screen_off_)
     return;
   is_screen_off_ = false;
+
+  // Reset image failures to allow retrying ambient mode because screen has
+  // turned back on.
+  GetAmbientBackendModel()->ResetImageFailures();
+
   // If screen is back on, turn on ambient mode for lock screen.
   if (LockScreen::HasInstance())
-    ShowUi(AmbientUiMode::kLockScreenUi);
+    ShowHiddenUi();
 }
 
 void AmbientController::ScreenIdleStateChanged(
@@ -382,16 +403,24 @@ void AmbientController::ScreenIdleStateChanged(
   if (!idle_state.dimmed())
     return;
 
-  auto* session_controller = Shell::Get()->session_controller();
-  if (session_controller->CanLockScreen() &&
-      session_controller->ShouldLockScreenAutomatically()) {
-    if (!session_controller->IsScreenLocked()) {
-      // TODO(b/161469136): revise this behavior after further discussion.
-      Shell::Get()->session_controller()->LockScreen();
-    }
-  } else {
-    ShowUi(AmbientUiMode::kInSessionUi);
+  // Do not show the UI if lockscreen is active. The inactivity monitor should
+  // have activated ambient mode.
+  if (LockScreen::HasInstance())
+    return;
+
+  // Do not show UI if loading images was unsuccessful.
+  if (GetAmbientBackendModel()->ImageLoadingFailed()) {
+    VLOG(1) << "Skipping ambient mode activation due to prior failure";
+    return;
   }
+
+  ShowUi();
+}
+
+void AmbientController::OnAuthScanDone(
+    device::mojom::ScanResult scan_result,
+    const base::flat_map<std::string, std::vector<std::string>>& matches) {
+  DismissUI();
 }
 
 void AmbientController::AddAmbientViewDelegateObserver(
@@ -404,8 +433,8 @@ void AmbientController::RemoveAmbientViewDelegateObserver(
   delegate_.RemoveObserver(observer);
 }
 
-void AmbientController::ShowUi(AmbientUiMode mode) {
-  DVLOG(1) << "ShowUi: " << mode;
+void AmbientController::ShowUi() {
+  DVLOG(1) << __func__;
 
   // TODO(meilinw): move the eligibility check to the idle entry point once
   // implemented: b/149246117.
@@ -414,30 +443,29 @@ void AmbientController::ShowUi(AmbientUiMode mode) {
     return;
   }
 
-  ambient_ui_model_.SetUiMode(mode);
-  switch (mode) {
-    case AmbientUiMode::kInSessionUi:
-      ambient_ui_model_.SetUiVisibility(AmbientUiVisibility::kShown);
-      break;
-    case AmbientUiMode::kLockScreenUi:
-      ambient_ui_model_.SetUiVisibility(AmbientUiVisibility::kHidden);
-      break;
+  ambient_ui_model_.SetUiVisibility(AmbientUiVisibility::kShown);
+}
+
+void AmbientController::ShowHiddenUi() {
+  DVLOG(1) << __func__;
+
+  if (!IsAmbientModeEnabled()) {
+    LOG(WARNING) << "Ambient mode is not allowed.";
+    return;
   }
-}
-
-void AmbientController::CloseUi() {
-  ambient_ui_model_.SetUiVisibility(AmbientUiVisibility::kClosed);
-}
-
-void AmbientController::HideLockScreenUi() {
-  DCHECK(IsLockScreenUi(ambient_ui_model_.ui_mode()));
 
   ambient_ui_model_.SetUiVisibility(AmbientUiVisibility::kHidden);
 }
 
+void AmbientController::CloseUi() {
+  DVLOG(1) << __func__;
+
+  ambient_ui_model_.SetUiVisibility(AmbientUiVisibility::kClosed);
+}
+
 void AmbientController::ToggleInSessionUi() {
-  if (!container_view_)
-    ShowUi(AmbientUiMode::kInSessionUi);
+  if (ambient_ui_model_.ui_visibility() == AmbientUiVisibility::kClosed)
+    ShowUi();
   else
     CloseUi();
 }
@@ -447,15 +475,7 @@ bool AmbientController::IsShown() const {
 }
 
 void AmbientController::OnBackgroundPhotoEvents() {
-  // Dismisses the ambient screen when user interacts with the background photo.
-  if (IsLockScreenUi(ambient_ui_model_.ui_mode()))
-    HideLockScreenUi();
-  else
-    CloseUi();
-}
-
-void AmbientController::UpdateUiMode(AmbientUiMode ui_mode) {
-  ambient_ui_model_.SetUiMode(ui_mode);
+  DismissUI();
 }
 
 void AmbientController::AcquireWakeLock() {
@@ -472,6 +492,18 @@ void AmbientController::AcquireWakeLock() {
   DCHECK(wake_lock_);
   wake_lock_->RequestWakeLock();
   VLOG(1) << "Acquired wake lock";
+
+  auto* session_controller = Shell::Get()->session_controller();
+  if (session_controller->CanLockScreen() &&
+      session_controller->ShouldLockScreenAutomatically()) {
+    if (!session_controller->IsScreenLocked() &&
+        !delayed_lock_timer_.IsRunning()) {
+      delayed_lock_timer_.Start(
+          FROM_HERE, kLockScreenDelay, base::BindOnce([]() {
+            Shell::Get()->session_controller()->LockScreen();
+          }));
+    }
+  }
 }
 
 void AmbientController::ReleaseWakeLock() {
@@ -480,6 +512,8 @@ void AmbientController::ReleaseWakeLock() {
 
   wake_lock_->CancelWakeLock();
   VLOG(1) << "Released wake lock";
+
+  delayed_lock_timer_.Stop();
 }
 
 void AmbientController::CloseWidget(bool immediately) {
@@ -501,13 +535,31 @@ void AmbientController::RequestAccessToken(
                                               may_refresh_token_on_lock);
 }
 
+void AmbientController::DismissUI() {
+  if (!IsAmbientModeEnabled()) {
+    CloseUi();
+    return;
+  }
+
+  if (LockScreen::HasInstance()) {
+    ShowHiddenUi();
+    return;
+  }
+
+  CloseUi();
+}
+
 AmbientBackendModel* AmbientController::GetAmbientBackendModel() {
   return ambient_photo_controller_.ambient_backend_model();
 }
 
-void AmbientController::OnImagesChanged() {
-  if (!container_view_)
-    CreateAndShowWidget();
+void AmbientController::OnImagesReady() {
+  CreateAndShowWidget();
+}
+
+void AmbientController::OnImagesFailed() {
+  LOG(ERROR) << "Ambient mode failed to start";
+  ambient_ui_model_.SetUiVisibility(AmbientUiVisibility::kClosed);
 }
 
 std::unique_ptr<AmbientContainerView> AmbientController::CreateContainerView() {

@@ -8,7 +8,6 @@
 #include <utility>
 #include <vector>
 
-#include "base/synchronization/waitable_event.h"
 #include "base/task_runner.h"
 #include "base/test/task_environment.h"
 #include "chrome/browser/policy/messaging_layer/util/shared_vector.h"
@@ -16,6 +15,7 @@
 #include "chrome/test/base/testing_profile.h"
 #include "components/policy/core/browser/browser_policy_connector.h"
 #include "components/policy/core/common/cloud/mock_cloud_policy_client.h"
+#include "content/public/test/browser_task_environment.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace reporting {
@@ -24,63 +24,94 @@ namespace {
 using testing::_;
 using testing::Return;
 
+// Usage (in tests only):
+//
+//   TestEvent<ResType> e;
+//   ... Do some async work passing e.cb() as a completion callback of
+//   base::OnceCallback<void(ResType* res)> type which also may perform some
+//   other action specified by |done| callback provided by the caller.
+//   ... = e.result();  // Will wait for e.cb() to be called and return the
+//   collected result.
+//
+template <typename ResType>
+class TestEvent {
+ public:
+  TestEvent() : run_loop_(std::make_unique<base::RunLoop>()) {}
+  ~TestEvent() = default;
+  TestEvent(const TestEvent& other) = delete;
+  TestEvent& operator=(const TestEvent& other) = delete;
+  ResType result() {
+    run_loop_->Run();
+    return std::forward<ResType>(result_);
+  }
+
+  // Completion callback to hand over to the processing method.
+  base::OnceCallback<void(ResType res)> cb() {
+    return base::BindOnce(
+        [](base::RunLoop* run_loop, ResType* result, ResType res) {
+          *result = std::forward<ResType>(res);
+          run_loop->Quit();
+        },
+        base::Unretained(run_loop_.get()), base::Unretained(&result_));
+  }
+
+ private:
+  std::unique_ptr<base::RunLoop> run_loop_;
+  ResType result_;
+};
+
 // Ensures that profile cannot be null.
 TEST(DmServerUploadServiceTest, DeniesNullptrProfile) {
-  auto result =
-      DmServerUploadService::Create(/*profile=*/nullptr, base::DoNothing());
+  content::BrowserTaskEnvironment task_envrionment;
+  TestEvent<StatusOr<std::unique_ptr<DmServerUploadService>>> e;
+  DmServerUploadService::Create(/*profile=*/nullptr, base::DoNothing(), e.cb());
+  StatusOr<std::unique_ptr<DmServerUploadService>> result = e.result();
   EXPECT_FALSE(result.ok());
   EXPECT_EQ(result.status().error_code(), error::INVALID_ARGUMENT);
 }
 
 class TestCallbackWaiter {
  public:
-  TestCallbackWaiter()
-      : completed_(base::WaitableEvent::ResetPolicy::MANUAL,
-                   base::WaitableEvent::InitialState::NOT_SIGNALED) {}
+  TestCallbackWaiter() : run_loop_(std::make_unique<base::RunLoop>()) {}
 
   void CompleteExpectSuccess(
       DmServerUploadService::CompletionResponse response) {
-    DCHECK(!completed_.IsSignaled());
     EXPECT_TRUE(response.ok());
-    completed_.Signal();
+    run_loop_->Quit();
   }
 
   void CompleteExpectUnimplemented(
       DmServerUploadService::CompletionResponse response) {
-    DCHECK(!completed_.IsSignaled());
     EXPECT_FALSE(response.ok());
     EXPECT_EQ(response.status().error_code(), error::UNIMPLEMENTED);
-    completed_.Signal();
+    run_loop_->Quit();
   }
 
   void CompleteExpectInvalidArgument(
       DmServerUploadService::CompletionResponse response) {
-    DCHECK(!completed_.IsSignaled());
     EXPECT_FALSE(response.ok());
     EXPECT_EQ(response.status().error_code(), error::INVALID_ARGUMENT);
-    completed_.Signal();
+    run_loop_->Quit();
   }
 
   void CompleteExpectFailedPrecondition(
       DmServerUploadService::CompletionResponse response) {
-    DCHECK(!completed_.IsSignaled());
     EXPECT_FALSE(response.ok());
     EXPECT_EQ(response.status().error_code(), error::FAILED_PRECONDITION);
-    completed_.Signal();
+    run_loop_->Quit();
   }
 
   void CompleteExpectDeadlineExceeded(
       DmServerUploadService::CompletionResponse response) {
-    DCHECK(!completed_.IsSignaled());
     EXPECT_FALSE(response.ok());
     EXPECT_EQ(response.status().error_code(), error::DEADLINE_EXCEEDED);
-    completed_.Signal();
+    run_loop_->Quit();
   }
 
-  void Wait() { completed_.Wait(); }
+  void Wait() { run_loop_->Run(); }
 
  private:
-  base::WaitableEvent completed_;
+  std::unique_ptr<base::RunLoop> run_loop_;
 };
 
 class TestRecordHandler : public DmServerUploadService::RecordHandler {
@@ -109,7 +140,7 @@ class DmServerUploaderTest : public testing::Test {
   }
 
  protected:
-  base::test::TaskEnvironment task_envrionment_{
+  content::BrowserTaskEnvironment task_envrionment_{
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
 
   TestRecordHandler* handler_;
