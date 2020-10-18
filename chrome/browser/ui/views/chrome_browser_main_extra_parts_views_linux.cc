@@ -86,11 +86,9 @@ void ChromeBrowserMainExtraPartsViewsLinux::ToolkitInitialized() {
   views::LinuxUI::SetInstance(linux_ui);
   linux_ui->Initialize();
 
-#if defined(USE_OZONE)
   // Cursor theme changes are tracked by LinuxUI (via a CursorThemeManager
   // implementation). Start observing them once it's initialized.
   ui::CursorFactory::GetInstance()->ObserveThemeChanges();
-#endif
 
   DCHECK(ui::LinuxInputMethodContextFactory::instance())
       << "LinuxUI must set LinuxInputMethodContextFactory instance.";

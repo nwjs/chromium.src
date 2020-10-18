@@ -3253,7 +3253,7 @@ static_library("ui") {
           "views/frame/browser_desktop_window_tree_host_platform.h",
         ]
       }
-      sources += [ "views/frame/native_browser_frame_factory_ozone.cc" ]
+      #sources += [ "views/frame/native_browser_frame_factory_ozone.cc" ]
     }
     if (is_desktop_linux) {
       sources += [
