@@ -111,6 +111,13 @@ void MessagePumpUV::Run(Delegate* delegate) {
       continue;
     }
 
+    if (event_.IsSignaled()) {
+      //there is a chance that wake_event_ got processed in uv loop
+      //run above. then the next wait is stalled.
+      event_.Reset();
+      g_msg_pump_did_work_fn(&ctx);
+      continue;
+    }
     if (next_work_info.delayed_run_time.is_max()) {
       // (*node::g_nw_uv_run)(loop, UV_RUN_ONCE);
       g_msg_pump_need_work_fn(&ctx);
@@ -123,6 +130,7 @@ void MessagePumpUV::Run(Delegate* delegate) {
         // uv_timer_stop(&delay_timer);
       g_msg_pump_delay_work_fn(&ctx, delay.InMilliseconds());
     }
+    event_.Reset();
     // Since event_ is auto-reset, we don't need to do anything special here
     // other than service each delegate method.
   }
@@ -161,6 +169,7 @@ void MessagePumpUV::ScheduleWork() {
 // #else
 //   uv_async_send(wakeup_event_);
 // #endif
+  event_.Signal();
   g_msg_pump_sched_work_fn(wakeup_event_);
 }
 
