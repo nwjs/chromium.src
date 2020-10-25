@@ -2798,6 +2798,7 @@
 <translation id="425573743389990240">Стапка на празнење батерија во вати (негативната вредност значи дека батеријата се полни)</translation>
 <translation id="4256316378292851214">За&amp;чувај видео како...</translation>
 <translation id="4258348331913189841">Датотечни системи</translation>
+<translation id="4259388776256904261">Ова може да потрае</translation>
 <translation id="4260182282978351200">Датотеката <ph name="FILE_NAME" /> можеби е опасна. Да се испрати во „Напредна заштита на Google“ за скенирање? Притиснете Shift + F6 за да одите до областа на лентата за преземања.</translation>
 <translation id="4263223596040212967">Проверете го распоредот на тастатурата и обидете се повторно.</translation>
 <translation id="4263757076580287579">Откажана е регистрација на печатач.</translation>
@@ -4435,8 +4436,6 @@
 <translation id="6242852299490624841">Фокусирајте ја картичкава</translation>
 <translation id="6243280677745499710">Поставен во моментов</translation>
 <translation id="6243774244933267674">Серверот не е достапен</translation>
-<translation id="6244185221716469155">Слабите лозинки се лесни за погаѓање. Уверете се дека создавате силни лозинки.
-    <ph name="BEGIN_LINK" />Погледнете повеќе совети за безбедност.<ph name="END_LINK" /></translation>
 <translation id="6244245036423700521">Увези ONC-датотека</translation>
 <translation id="6246790815526961700">Прикачете од уред</translation>
 <translation id="6247620186971210352">Не се најдени апликации</translation>
@@ -5058,6 +5057,7 @@
 <translation id="6995899638241819463">Добијте предупредување ако лозинките се откриени при упад во податоците</translation>
 <translation id="6997642619627518301"><ph name="NAME_PH" /> - Евиденција на активности</translation>
 <translation id="6997707937646349884">На вашите уреди:</translation>
+<translation id="6998093258894828179">Сокриј ги картичките</translation>
 <translation id="6998793565256476099">Запишете го уредот за видео конференции</translation>
 <translation id="6999956497249459195">Нова група</translation>
 <translation id="7000206553895739324"><ph name="PRINTER_NAME" /> е поврзан, но треба да се конфигурира</translation>
@@ -5363,6 +5363,7 @@
 <translation id="7375235221357833624">{0,plural, =1{Ажурирајте го уредот во рок од еден час}one{Ажурирајте го уредот во рок од # час}other{Ажурирајте го уредот во рок од # часа}}</translation>
 <translation id="7376553024552204454">Нагласување на покажувачот на глувчето при движење</translation>
 <translation id="7377451353532943397">Продолжи со блокирање на пристапот до сензорите</translation>
+<translation id="7378611153938412599">Слабите лозинки се лесни за погаѓање. Уверете се дека создавате силни лозинки. <ph name="BEGIN_LINK" />Погледнете повеќе совети за безбедност.<ph name="END_LINK" /></translation>
 <translation id="73786666777299047">Отворете ја Веб-продавницата на Chrome</translation>
 <translation id="7378812711085314936">Поврзи се на интернет</translation>
 <translation id="7380622428988553498">Името на уредот содржи неважечки знаци</translation>
@@ -5728,6 +5729,7 @@
 <translation id="7798844538707273832">Автоматски ја блокираше <ph name="PERMISSION" /></translation>
 <translation id="7799299114731150374">Тапетот е успешно поставен</translation>
 <translation id="7800518121066352902">Ротирај на&amp;лево</translation>
+<translation id="7802539296536804623">Не прикажувај картички на страницава</translation>
 <translation id="780301667611848630">Не, фала</translation>
 <translation id="7804072833593604762">Картичката е затворена</translation>
 <translation id="7805768142964895445">Статус</translation>
@@ -6182,6 +6184,7 @@
 <translation id="8300011035382349091">Изменете го обележувачот за картичкава</translation>
 <translation id="8300374739238450534">Тегет</translation>
 <translation id="8300849813060516376">OTASP не успеа</translation>
+<translation id="8304383784961451596">Не сте овластени за користење на уредов. Контактирајте со администраторот за дозвола за најавување или најавете се со сметка на Google што е под надзор на Family Link.</translation>
 <translation id="8308179586020895837">Прашајте дали <ph name="HOST" /> сака да пристапи до вашиот фотоапарат</translation>
 <translation id="830868413617744215">Бета</translation>
 <translation id="8309458809024885768">Сертификатот веќе постои</translation>
@@ -6341,6 +6344,7 @@
 <translation id="850875081535031620">Не е најден штетен софтвер</translation>
 <translation id="8509177919508253835">Ресетирајте ги безбедносните клучеви и создајте PIN-кодови</translation>
 <translation id="8509646642152301857">Преземањето речник за проверување правопис не успеа.</translation>
+<translation id="8512396579636492893">{COUNT,plural, =0{Не се најдени слаби лозинки}=1{Најдена е {COUNT} слаба лозинка}one{Најдена е {COUNT} слаба лозинка}other{Најдени се {COUNT} слаби лозинки}}</translation>
 <translation id="8512476990829870887">Заврши процес</translation>
 <translation id="851263357009351303">Секогаш дозволи <ph name="HOST" /> да прикажува слики</translation>
 <translation id="8513108775083588393">Авт. ротирање</translation>

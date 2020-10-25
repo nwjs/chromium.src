@@ -2798,6 +2798,7 @@ Anda boleh mengurus tetapan akaun ini dengan memasang apl Family Link pada peran
 <translation id="425573743389990240">Kadar Nyahcas Bateri dalam Watt (Nilai negatif bermakna bateri sedang dicas)</translation>
 <translation id="4256316378292851214">Si&amp;mpan Video Sebagai...</translation>
 <translation id="4258348331913189841">Sistem fail</translation>
+<translation id="4259388776256904261">Persediaan ini mungkin mengambil masa yang agak lama</translation>
 <translation id="4260182282978351200"><ph name="FILE_NAME" /> mungkin berbahaya. Hantar kepada Perlindungan Lanjutan Google untuk pengimbasan? Tekan Shift+F6 untuk mencapai kawasan bar muat turun.</translation>
 <translation id="4263223596040212967">Semak reka letak papan kekunci anda dan cuba lagi.</translation>
 <translation id="4263757076580287579">Pendaftaran pencetak telah dibatalkan.</translation>
@@ -4435,8 +4436,6 @@ Anda boleh mengurus tetapan akaun ini dengan memasang apl Family Link pada peran
 <translation id="6242852299490624841">Fokus pada tab ini</translation>
 <translation id="6243280677745499710">Ditetapkan pada masa ini</translation>
 <translation id="6243774244933267674">Pelayan tidak tersedia</translation>
-<translation id="6244185221716469155">Kata laluan yang lemah mudah diteka. Pastikan anda membuat kata laluan yang kukuh.
-    <ph name="BEGIN_LINK" />Lihat pelbagai lagi petua keselamatan.<ph name="END_LINK" /></translation>
 <translation id="6244245036423700521">Import Fail ONC</translation>
 <translation id="6246790815526961700">Muat naik daripada peranti</translation>
 <translation id="6247620186971210352">Tiada apl ditemukan</translation>
@@ -5058,6 +5057,7 @@ Anda boleh mengurus tetapan akaun ini dengan memasang apl Family Link pada peran
 <translation id="6995899638241819463">Beri amaran kepada anda jika kata laluan terdedah dalam pelanggaran data</translation>
 <translation id="6997642619627518301"><ph name="NAME_PH" /> - Log Aktiviti</translation>
 <translation id="6997707937646349884">Pada peranti anda:</translation>
+<translation id="6998093258894828179">Sembunyikan kad</translation>
 <translation id="6998793565256476099">Daftar peranti untuk persidangan video</translation>
 <translation id="6999956497249459195">Kumpulan baharu</translation>
 <translation id="7000206553895739324"><ph name="PRINTER_NAME" /> disambung tetapi memerlukan konfigurasi</translation>
@@ -5363,6 +5363,7 @@ Anda boleh mengurus tetapan akaun ini dengan memasang apl Family Link pada peran
 <translation id="7375235221357833624">{0,plural, =1{Kemas kini peranti dalam masa sejam}other{Kemas kini peranti dalam masa # jam}}</translation>
 <translation id="7376553024552204454">Serlahkan kursor tetikus semasa kursor bergerak</translation>
 <translation id="7377451353532943397">Teruskan menyekat akses penderia</translation>
+<translation id="7378611153938412599">Kata laluan lemah mudah diteka. Pastikan anda membuat kata laluan kukuh. <ph name="BEGIN_LINK" />Lihat pelbagai lagi petua keselamatan.<ph name="END_LINK" /></translation>
 <translation id="73786666777299047">Buka Gedung Web Chrome</translation>
 <translation id="7378812711085314936">Dapatkan sambungan data</translation>
 <translation id="7380622428988553498">Nama peranti mengandungi aksara tidak sah</translation>
@@ -5728,6 +5729,7 @@ Anda boleh mengurus tetapan akaun ini dengan memasang apl Family Link pada peran
 <translation id="7798844538707273832"><ph name="PERMISSION" /> disekat secara automatik</translation>
 <translation id="7799299114731150374">Kertas dinding berjaya ditetapkan</translation>
 <translation id="7800518121066352902">Putar M&amp;elawan Arah Jam</translation>
+<translation id="7802539296536804623">Jangan paparkan kad pada halaman ini</translation>
 <translation id="780301667611848630">Tidak, terima kasih</translation>
 <translation id="7804072833593604762">Tab Ditutup</translation>
 <translation id="7805768142964895445">Status</translation>
@@ -6180,6 +6182,7 @@ Simpan fail kunci anda di tempat selamat. Anda akan memerlukannya untuk mencipta
 <translation id="8300011035382349091">Edit penanda halaman untuk tab ini</translation>
 <translation id="8300374739238450534">Biru malam</translation>
 <translation id="8300849813060516376">OTASP gagal</translation>
+<translation id="8304383784961451596">Anda tidak akan dibenarkan untuk menggunakan peranti ini. Sila hubungi pentadbir untuk mendapatkan kebenaran log masuk atau log masuk menggunakan akaun Google yang diawasi oleh Family Link.</translation>
 <translation id="8308179586020895837">Tanya jika <ph name="HOST" /> mahu mengakses kamera anda</translation>
 <translation id="830868413617744215">Beta</translation>
 <translation id="8309458809024885768">Sijil sudah wujud</translation>
@@ -6340,6 +6343,7 @@ perubahan ini berlaku, anda mungkin tidak mahukannya.</translation>
 <translation id="850875081535031620">Tiada perisian berbahaya ditemui</translation>
 <translation id="8509177919508253835">Tetapkan semula kunci keselamatan dan buat PIN</translation>
 <translation id="8509646642152301857">Muat turun kamus semakan ejaan gagal.</translation>
+<translation id="8512396579636492893">{COUNT,plural, =0{Tiada kata laluan lemah ditemukan}=1{{COUNT} kata laluan lemah ditemukan}other{{COUNT} kata laluan lemah ditemukan}}</translation>
 <translation id="8512476990829870887">Tamatkan Proses</translation>
 <translation id="851263357009351303">Sentiasa benarkan <ph name="HOST" /> untuk memaparkan imej</translation>
 <translation id="8513108775083588393">Autoputar</translation>

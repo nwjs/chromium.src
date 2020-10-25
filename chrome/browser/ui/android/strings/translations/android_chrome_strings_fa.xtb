@@ -165,6 +165,7 @@
 <translation id="2169830938017475061">اکنون</translation>
 <translation id="2175927920773552910">رمزینه پاسخ‌سریع</translation>
 <translation id="218608176142494674">هم‌رسانی</translation>
+<translation id="2195339740518523951">‏بهره‌مندی از بالاترین سطح امنیت در Chrome</translation>
 <translation id="2227444325776770048">ادامه دادن به‌عنوان <ph name="USER_FULL_NAME" /></translation>
 <translation id="2234876718134438132">‏همگام‌سازی و سرویس‌های Google</translation>
 <translation id="2239812875700136898">کنترل داستان‌ها از دکمه «گزینه‌های یافته‌ها»</translation>
@@ -204,7 +205,7 @@
 <translation id="2497852260688568942">سرپرستتان همگام‌سازی را غیرفعال کرده است</translation>
 <translation id="250020030759455918">‏وضعیت ورود به سیستم <ph name="SITE_NAME" />، داده‌های محصول مرور، و داده‌های سایت را در Chrome خواهید دید</translation>
 <translation id="2512164632052122970">زبان‌های محتوا</translation>
-<translation id="2513403576141822879">‏برای تنظیمات بیشتر مرتبط با حریم خصوصی، امنیت و جمع‌آوری داده‌ها، <ph name="BEGIN_LINK" />همگام‌سازی و سرویس‌های Google<ph name="END_LINK" /> را ببینید</translation>
+<translation id="2513403576141822879">‏برای تنظیمات بیشتر مرتبط با حریم‌خصوصی، امنیت و جمع‌آوری داده‌ها، <ph name="BEGIN_LINK" />همگام‌سازی و سرویس‌های Google<ph name="END_LINK" /> را ببینید</translation>
 <translation id="2517472476991765520">اسکن</translation>
 <translation id="2518590038762162553">‏در «حالت ساده»، Chrome صفحه‌ها را سریع‌تر بار می‌کند و تا ۶۰ درصد مصرف داده را کاهش می‌دهد. برای بهینه‌سازی صفحاتی که بازدید می‌کنید، Chrome ترافیک وب شما را به Google ارسال می‌کند. <ph name="BEGIN_LINK" />بیشتر بدانید<ph name="END_LINK" /></translation>
 <translation id="2523184218357549926">‏نشانی وب صفحه‌هایی را که بازدید می‌کنید برای Google ارسال می‌کند</translation>
@@ -256,6 +257,7 @@
 <translation id="2893180576842394309">‏Google ممکن است از سابقه مرور شما برای شخصی کردن جستجو و سایر سرویس‌های Google استفاده کند</translation>
 <translation id="2898264748040935573">ویرایش گذرواژه ذخیره‌شده</translation>
 <translation id="2900528713135656174">ایجاد رویداد</translation>
+<translation id="2901411048554510387">درحال نمایش پیشنهادهای مربوط به <ph name="WEBSITE_TITLE" /></translation>
 <translation id="2904414404539560095">فهرست دستگاه‌هایی که می‌توان با آن‌ها برگه هم‌رسانی کرد کاملاً باز است.</translation>
 <translation id="2905036901251765993">برای هم‌رسانی کردن با افراد اطراف، اجازه دهید این رمزینه پاسخ‌سریع را اسکن کنند</translation>
 <translation id="2909615210195135082">‏پلتفورم اعلان‌های Google</translation>
@@ -441,6 +443,7 @@
 <translation id="4405224443901389797">انتقال به…</translation>
 <translation id="4411535500181276704">حالت ساده</translation>
 <translation id="4415276339145661267">‏مدیریت «حساب Google»</translation>
+<translation id="4427306783828095590">«محافظت بهبودیافته» کارهای بیشتری برای مسدود کردن رمزگیری و بدافزار انجام می‌دهد</translation>
 <translation id="4440958355523780886">‏صفحه ساده‌شده را Google ارائه کرده است. برای بارگیری صفحه اصلی، ضربه بزنید.</translation>
 <translation id="4452411734226507615">بستن برگه <ph name="TAB_TITLE" /></translation>
 <translation id="4452548195519783679">در <ph name="FOLDER_NAME" /> نشانک گذاشته شد</translation>
@@ -785,7 +788,7 @@
 <translation id="6659594942844771486">برگه</translation>
 <translation id="6663079968236414793">پیوند به نوشتار</translation>
 <translation id="666731172850799929">باز کردن در <ph name="APP_NAME" /></translation>
-<translation id="666981079809192359">‏اخطار حریم خصوصی Chrome</translation>
+<translation id="666981079809192359">‏اخطار حریم‌خصوصی Chrome</translation>
 <translation id="6671495933530132209">کپی تصویر</translation>
 <translation id="6676840375528380067">‏داده‌های Chrome شما از این دستگاه پاک شود؟</translation>
 <translation id="6691888250440401212">‏۱. ‫<ph name="APP_NAME" /> را انتخاب کنید\n۲. روی «تنظیم به‌عنوان پیش‌فرض» ضربه بزنید</translation>
@@ -1098,7 +1101,7 @@
 <translation id="9028914725102941583">برای اشتراک‌گذاری بین دستگاه‌ها، «همگام‌سازی» را روشن کنید</translation>
 <translation id="9040142327097499898">اعلان‌ها مجاز هستند. مکان برای این دستگاه خاموش است.</translation>
 <translation id="9041669420854607037">{FILE_COUNT,plural, =1{# ویدیو}one{# ویدیو}other{# ویدیو}}</translation>
-<translation id="9042893549633094279">حریم خصوصی و امنیت</translation>
+<translation id="9042893549633094279">حریم‌خصوصی و امنیت</translation>
 <translation id="9050666287014529139">عبارت عبور</translation>
 <translation id="9063523880881406963">خاموش کردن درخواست سایت رایانه‌ای</translation>
 <translation id="9065203028668620118">ویرایش</translation>

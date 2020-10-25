@@ -40,7 +40,13 @@ class CORE_EXPORT TextFragmentSelectorGenerator final
     kContextLimitReached,
     kEmptySelection,
 
-    kMaxValue = kContextLimitReached
+    // Recorded from browser/java side when tab or its content becomes
+    // unavailable. Added here to keep in sync with the enums.xml values.
+    kTabHidden,
+    kOmniboxNavigation,
+    kTabCrash,
+
+    kMaxValue = kTabCrash
   };
   explicit TextFragmentSelectorGenerator() = default;
 
@@ -52,8 +58,10 @@ class CORE_EXPORT TextFragmentSelectorGenerator final
   void UpdateSelection(LocalFrame* selection_frame,
                        const EphemeralRangeInFlatTree& selection_range);
 
-  // Extend the selection from start and end to contain full words.
-  void CompleteSelection();
+  // Adjust the selection start/end to a valid position. That includes skipping
+  // non text start/end nodes and extending selection from start and end to
+  // contain full words.
+  void AdjustSelection();
 
   // blink::mojom::blink::TextFragmentSelectorProducer interface
   // Generates selector for current selection.

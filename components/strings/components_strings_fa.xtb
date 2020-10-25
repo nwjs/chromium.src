@@ -124,7 +124,7 @@
 <translation id="1405567553485452995">سبز روشن</translation>
 <translation id="1407135791313364759">باز کردن همه</translation>
 <translation id="1408787208417187241">سه منگنه در بالا</translation>
-<translation id="1413809658975081374">خطای حریم خصوصی</translation>
+<translation id="1413809658975081374">خطای حریم‌خصوصی</translation>
 <translation id="1426410128494586442">بله</translation>
 <translation id="1428146450423315676">پشته‌ساز ۷</translation>
 <translation id="1430915738399379752">چاپ</translation>
@@ -905,6 +905,7 @@
 <translation id="4597348597567598915">اندازه ۸</translation>
 <translation id="4600854749408232102">C6/C5 (Envelope)</translation>
 <translation id="4628948037717959914">عکس</translation>
+<translation id="4631649115723685955">بازگشت نقدی پیوند داده شده است</translation>
 <translation id="464342062220857295">ویژگی‌های جستجو</translation>
 <translation id="4644670975240021822">روبه‌پایین به‌ترتیب معکوس</translation>
 <translation id="4646534391647090355">اکنون من را به آنجا ببر</translation>
@@ -1888,6 +1889,7 @@
 <translation id="8685155993131031756">Prc-16K</translation>
 <translation id="8688672835843460752">دردسترس</translation>
 <translation id="868922510921656628">صفحه‌های هر مجموعه</translation>
+<translation id="8697373104056314601">‏برای بهره‌مندی از بالاترین سطح امنیت در Chrome، <ph name="BEGIN_ENHANCED_PROTECTION_LINK" />«محافظت بهبودیافته» را روشن کنید<ph name="END_ENHANCED_PROTECTION_LINK" />.</translation>
 <translation id="869891660844655955">تاریخ انقضا</translation>
 <translation id="8699041776323235191">‏دستگاه HID</translation>
 <translation id="8703575177326907206">اتصال شما به <ph name="DOMAIN" /> رمزگذاری نشده است.</translation>
@@ -1954,7 +1956,7 @@
 <translation id="8971063699422889582">گواهی سرور منقضی شده است.</translation>
 <translation id="8975012916872825179">شامل اطلاعاتی مانند شماره تلفن، نشانی ایمیل و نشانی تحویل کالا می‌شود</translation>
 <translation id="8975263830901772334">نام فایل‌هایی که چاپ می‌کنید</translation>
-<translation id="8978053250194585037">‏Google Safe Browsing اخیراً در <ph name="SITE" />، <ph name="BEGIN_LINK" />طعمه‌گذاری شناسایی کرده است<ph name="END_LINK" />. سایت‌های طعمه‌گذاری وانمود می‌کنند وب‌سایت‌های دیگری هستند تا شما را فریب دهند.</translation>
+<translation id="8978053250194585037">‏Google Safe Browsing اخیراً در <ph name="SITE" />، <ph name="BEGIN_LINK" />رمزگیری شناسایی کرده است<ph name="END_LINK" />. سایت‌های رمزگیری وانمود می‌کنند وب‌سایت‌های دیگری هستند تا شما را فریب دهند.</translation>
 <translation id="8983003182662520383">‏روش‌های پرداخت و نشانی‌های مورداستفاده در Google Pay</translation>
 <translation id="8987927404178983737">ماه</translation>
 <translation id="8989148748219918422"><ph name="ORGANIZATION" /> [<ph name="COUNTRY" />]</translation>

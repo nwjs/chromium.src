@@ -2797,6 +2797,7 @@ Instala a aplicación Family Link no teu dispositivo e poderás xestionar a conf
 <translation id="425573743389990240">Taxa de descarga da batería en watts (se o valor é negativo, significa que a batería se está cargando)</translation>
 <translation id="4256316378292851214">Gardar &amp;vídeo como...</translation>
 <translation id="4258348331913189841">Sistemas de ficheiros</translation>
+<translation id="4259388776256904261">Este proceso pode tardar uns intres</translation>
 <translation id="4260182282978351200"><ph name="FILE_NAME" /> pode ser perigoso. Queres envialo á Protección avanzada de Google para analizalo? Preme Maiús + F6 para acceder á área da barra de descargas.</translation>
 <translation id="4263223596040212967">Comproba a distribución do teclado e téntao de novo.</translation>
 <translation id="4263757076580287579">Cancelouse o rexistro da impresora.</translation>
@@ -4434,8 +4435,6 @@ Se o teu fillo ou filla non utiliza un Chromebook na clase ou se prefires xestio
 <translation id="6242852299490624841">Enfocar esta pestana</translation>
 <translation id="6243280677745499710">Establecido actualmente</translation>
 <translation id="6243774244933267674">Servidor non dispoñible</translation>
-<translation id="6244185221716469155">Os contrasinais pouco seguros son fáciles de adiviñar. Asegúrate de crear contrasinais seguros.
-    <ph name="BEGIN_LINK" />Ver máis consellos de seguranza<ph name="END_LINK" />.</translation>
 <translation id="6244245036423700521">Importar ficheiro ONC</translation>
 <translation id="6246790815526961700">Cargar desde o dispositivo</translation>
 <translation id="6247620186971210352">Non se atoparon aplicacións</translation>
@@ -5057,6 +5056,7 @@ Se o teu fillo ou filla non utiliza un Chromebook na clase ou se prefires xestio
 <translation id="6995899638241819463">Avisarte se os teus contrasinais están en risco debido a unha violación da seguranza dos datos</translation>
 <translation id="6997642619627518301"><ph name="NAME_PH" /> (rexistro de actividade)</translation>
 <translation id="6997707937646349884">Nos teus dispositivos:</translation>
+<translation id="6998093258894828179">Ocultar tarxetas</translation>
 <translation id="6998793565256476099">Rexistra o dispositivo para realizar videoconferencias</translation>
 <translation id="6999956497249459195">Novo grupo</translation>
 <translation id="7000206553895739324">A impresora <ph name="PRINTER_NAME" /> está conectada, pero é necesario configurala</translation>
@@ -5362,6 +5362,7 @@ Se o teu fillo ou filla non utiliza un Chromebook na clase ou se prefires xestio
 <translation id="7375235221357833624">{0,plural, =1{Actualiza o dispositivo en 1 hora}other{Actualiza o dispositivo en # horas}}</translation>
 <translation id="7376553024552204454">Destacar o cursor do rato cando se move</translation>
 <translation id="7377451353532943397">Continuar bloqueando o acceso aos sensores</translation>
+<translation id="7378611153938412599">Os contrasinais pouco seguros son fáciles de adiviñar. Asegúrate de crear contrasinais seguros. <ph name="BEGIN_LINK" />Ver máis consellos de seguranza<ph name="END_LINK" />.</translation>
 <translation id="73786666777299047">Abrir Chrome Web Store</translation>
 <translation id="7378812711085314936">Conseguir conexión de datos</translation>
 <translation id="7380622428988553498">O nome do dispositivo contén caracteres non válidos</translation>
@@ -5727,6 +5728,7 @@ Se o teu fillo ou filla non utiliza un Chromebook na clase ou se prefires xestio
 <translation id="7798844538707273832">Bloqueouse automaticamente o permiso: <ph name="PERMISSION" /></translation>
 <translation id="7799299114731150374">O fondo de pantalla estableceuse correctamente</translation>
 <translation id="7800518121066352902">Xirar á &amp;esquerda</translation>
+<translation id="7802539296536804623">Non se mostran tarxetas nesta páxina</translation>
 <translation id="780301667611848630">Non, grazas</translation>
 <translation id="7804072833593604762">Pestana pechada</translation>
 <translation id="7805768142964895445">Estado</translation>
@@ -6178,6 +6180,7 @@ Mantén o ficheiro de clave nun lugar seguro, xa que o precisarás para crear no
 <translation id="8300011035382349091">Editar o marcador desta pestana</translation>
 <translation id="8300374739238450534">Azul noite</translation>
 <translation id="8300849813060516376">Erro de OTASP</translation>
+<translation id="8304383784961451596">Non tes autorización para usar este dispositivo. Se queres obter permiso para iniciar sesión, ponte en contacto co administrador. Tamén podes iniciar sesión cunha conta de Google supervisada por Family Link.</translation>
 <translation id="8308179586020895837">Preguntar se <ph name="HOST" /> quere acceder á túa cámara</translation>
 <translation id="830868413617744215">Beta</translation>
 <translation id="8309458809024885768">O certificado xa existe</translation>
@@ -6337,6 +6340,7 @@ Mantén o ficheiro de clave nun lugar seguro, xa que o precisarás para crear no
 <translation id="850875081535031620">Non se atopou software daniño</translation>
 <translation id="8509177919508253835">Restablece as chaves de seguranza e crea os PIN</translation>
 <translation id="8509646642152301857">Non se puido descargar o dicionario da verificación ortográfica.</translation>
+<translation id="8512396579636492893">{COUNT,plural, =0{Non se atopou ningún contrasinal pouco seguro}=1{Atopouse {COUNT} contrasinal pouco seguro}other{Atopáronse {COUNT} contrasinais pouco seguros}}</translation>
 <translation id="8512476990829870887">Finalizar proceso</translation>
 <translation id="851263357009351303">Permitir sempre a <ph name="HOST" /> mostrar imaxes</translation>
 <translation id="8513108775083588393">Xirar autom.</translation>

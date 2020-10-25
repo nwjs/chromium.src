@@ -61,6 +61,7 @@
 <translation id="1479909375538722835">ម៉ឺនុយភាពងាយស្រួលអណ្ដែត</translation>
 <translation id="1484102317210609525"><ph name="DEVICE_NAME" /> (HDMI/DP)</translation>
 <translation id="1503394326855300303">ម្ចាស់គណនីត្រូវចូលគណនីជាមុនសិននៅក្នុងវេនចូលច្រើន.</translation>
+<translation id="1510238584712386396">ឡាន់ឆ័រ</translation>
 <translation id="1516740043221086139">មុខងារ "​កុំ​រំខាន​" ត្រូវបាន​បើក។</translation>
 <translation id="1520303207432623762">{NUM_APPS,plural, =1{បង្ហាញ​ការកំណត់​ការជូនដំណឹង។ ការជូនដំណឹង​ត្រូវបាន​បិទ​សម្រាប់​កម្មវិធីមួយ}other{បង្ហាញ​ការកំណត់​ការជូនដំណឹង។ ការជូនដំណឹង​ត្រូវបាន​បិទ​សម្រាប់​កម្មវិធី #}}</translation>
 <translation id="1525508553941733066">បដិសេធ</translation>
@@ -675,6 +676,7 @@
 <translation id="7904094684485781019">អ្នកគ្រប់គ្រងគណនីនេះមិនអនុញ្ញាតឲ្យមានការចូលច្រើនទេ។</translation>
 <translation id="7933084174919150729">Google ជំនួយ​ការ​អាច​ប្រើបាន​តែជាមួយកម្រង​ព័ត៌មាន​ចម្បង​ប៉ុណ្ណោះ។</translation>
 <translation id="79341161159229895">គណនី​ស្ថិត​ក្រោមការគ្រប់គ្រង​របស់ <ph name="FIRST_PARENT_EMAIL" /> និង <ph name="SECOND_PARENT_EMAIL" /></translation>
+<translation id="793716872548410480">ចុច <ph name="SHORTCUT_KEY_NAME" /> + V ដើម្បីមើល​ឃ្លីបបតរបស់អ្នក។ ធាតុ 5 ចុងក្រោយ​ដែលអ្នកបានចម្លង​ត្រូវបានរក្សាទុក​ទៅក្នុងឃ្លីបបតរបស់អ្នក។</translation>
 <translation id="7955885781510802139">មុខងារ​ភាពដិត​កម្រិតខ្ពស់</translation>
 <translation id="7977927628060636163">កំពុង​ស្វែងរក​បណ្ដាញ​ទូរសព្ទ​ចល័ត...</translation>
 <translation id="7980780401175799550">សាកល្បងវិធីថ្មីក្នុងការរុករក Chrome OS</translation>

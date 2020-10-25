@@ -2795,6 +2795,7 @@
 <translation id="425573743389990240">Батарея зарядының азаю жылдамдығы (теріс мән батарея зарядталып жатқандығын білдіреді)</translation>
 <translation id="4256316378292851214">Бейнені басқаша сақ&amp;тау…</translation>
 <translation id="4258348331913189841">Файл жүйелері</translation>
+<translation id="4259388776256904261">Бұған біраз уақыт қажет болуы мүмкін.</translation>
 <translation id="4260182282978351200"><ph name="FILE_NAME" /> қауіпті болуы мүмкін. Сканерлеу үшін Google Күшейтілген қорғаныс қызметіне жіберілсін бе? Жүктеп алынғандар жолағына оралу үшін Shift+F6 пернелерін басыңыз.</translation>
 <translation id="4263223596040212967">Пернетақта форматын тексеріңіз және қайталап көріңіз.</translation>
 <translation id="4263757076580287579">Принтер тіркеуден бас тартылды.</translation>
@@ -4432,8 +4433,6 @@
 <translation id="6242852299490624841">Осы қойындыны ерекшелеу</translation>
 <translation id="6243280677745499710">Орнатылып тұрған</translation>
 <translation id="6243774244933267674">Сервер қолжетімсіз</translation>
-<translation id="6244185221716469155">Құпия сөзіңіз оңай болса, оны табу оңай болады. Күрделі құпия сөз орнатыңыз.
-    <ph name="BEGIN_LINK" />Қауіпсіздікке қатысты басқа кеңестерді де көріңіз.<ph name="END_LINK" /></translation>
 <translation id="6244245036423700521">ONC файлын импорттау</translation>
 <translation id="6246790815526961700">Құрылғыдан жүктеп салу</translation>
 <translation id="6247620186971210352">Ешқандай қолданбалар табылмады.</translation>
@@ -5055,6 +5054,7 @@
 <translation id="6995899638241819463">Құпия сөздер қолды болған жағдайда, сізге бұл туралы хабарлау</translation>
 <translation id="6997642619627518301"><ph name="NAME_PH" /> – Әрекеттер журналы</translation>
 <translation id="6997707937646349884">Құрылғыларыңызда:</translation>
+<translation id="6998093258894828179">Карталарды жасыру</translation>
 <translation id="6998793565256476099">Бейнеконференция үшін құрылғыны тіркеу</translation>
 <translation id="6999956497249459195">Жаңа топ</translation>
 <translation id="7000206553895739324"><ph name="PRINTER_NAME" /> жалғанды, бірақ оны конфигурациялау қажет.</translation>
@@ -5360,6 +5360,7 @@
 <translation id="7375235221357833624">{0,plural, =1{Құрылғыны 1 сағат ішінде жаңарту керек}other{Құрылғыны # сағат ішінде жаңарту керек}}</translation>
 <translation id="7376553024552204454">Тінтуір курсорын қозғалыс барысында бөлектеу</translation>
 <translation id="7377451353532943397">Датчиктерді пайдалануға тыйым салуды тоқтатпау</translation>
+<translation id="7378611153938412599">Құпия сөзіңіз оңай болса, оны табу да оңай. Күрделі құпия сөз орнатыңыз. <ph name="BEGIN_LINK" />Қауіпсіздікке қатысты басқа кеңестерді де көріңіз.<ph name="END_LINK" /></translation>
 <translation id="73786666777299047">Chrome Web Store қызметін ашу</translation>
 <translation id="7378812711085314936">Деректер қосылымына қол жеткізу</translation>
 <translation id="7380622428988553498">Құрылғы атауында жарамсыз таңбалар бар.</translation>
@@ -5725,6 +5726,7 @@
 <translation id="7798844538707273832"><ph name="PERMISSION" /> автоматты түрде бөгелді.</translation>
 <translation id="7799299114731150374">Тұсқағаз орнатылды</translation>
 <translation id="7800518121066352902">С&amp;ағат тіліне қарсы айналдыру</translation>
+<translation id="7802539296536804623">Бұл бетте карталарды көрсетпеу</translation>
 <translation id="780301667611848630">Жоқ, рақмет</translation>
 <translation id="7804072833593604762">Қойынды жабық</translation>
 <translation id="7805768142964895445">Күйі</translation>
@@ -6176,6 +6178,7 @@
 <translation id="8300011035382349091">Осы қойындының бетбелгісін өзгертіңіз.</translation>
 <translation id="8300374739238450534">Қою көк</translation>
 <translation id="8300849813060516376">OTASP сәтсіз аяқталды</translation>
+<translation id="8304383784961451596">Бұл құрылғыны пайдалануға рұқсатыңыз жоқ. Кіру рұқсатын алу үшін әкімшіге хабарласыңыз немесе Family Link арқылы қадағаланатын Google есептік жазбасымен кіріңіз.</translation>
 <translation id="8308179586020895837"><ph name="HOST" /> камераны пайдаланғысы келгенде, рұқсат сұралсын</translation>
 <translation id="830868413617744215">Бета</translation>
 <translation id="8309458809024885768">Сертификат бұрыннан бар</translation>
@@ -6335,6 +6338,7 @@
 <translation id="850875081535031620">Зиянды бағдарлама табылған жоқ</translation>
 <translation id="8509177919508253835">Қауіпсіздік кілтін бастапқы күйге қайтару және PIN кодтарын жасау</translation>
 <translation id="8509646642152301857">Емлені тексеру сөздігін жүктеу сәтсіз аяқталды.</translation>
+<translation id="8512396579636492893">{COUNT,plural, =0{Ешқандай оңай құпия сөз табылмады.}=1{{COUNT} оңай құпия сөз табылды.}other{{COUNT} оңай құпия сөз табылды.}}</translation>
 <translation id="8512476990829870887">Процесті аяқтау</translation>
 <translation id="851263357009351303"><ph name="HOST" /> хостына кескіндерді әрқашан көрсету мүмкіндігін беру</translation>
 <translation id="8513108775083588393">Автоматты бұру</translation>

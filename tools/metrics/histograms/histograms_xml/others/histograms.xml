@@ -2687,6 +2687,16 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
   </summary>
 </histogram>
 
+<histogram name="ContextMenu.LensChip.Event" enum="LensChipEvent"
+    expires_after="M90">
+  <owner>yusuyoutube@google.com</owner>
+  <owner>benwgold@google.com</owner>
+  <summary>
+    Logged when the Lens chip is shown and relevant events when the user
+    interacts with the Lens chip. Only logged on Android.
+  </summary>
+</histogram>
+
 <histogram name="ContextMenu.LensSupportStatus"
     enum="ContextMenuLensSupportStatus" expires_after="2021-03-15">
   <owner>benwgold@google.com</owner>
@@ -7521,6 +7531,26 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
   </summary>
 </histogram>
 
+<histogram name="Lens.ImageClassification.ClassificationTime" units="ms"
+    expires_after="M90">
+  <owner>yusuyoutube@google.com</owner>
+  <owner>benwgold@google.com</owner>
+  <summary>
+    Logged the end to end latency of the Lens image classifcation call when the
+    user completes a long press on an image. Only logged on Android.
+  </summary>
+</histogram>
+
+<histogram name="Lens.ImageClassification.ResultState"
+    enum="LensClassifyResultState" expires_after="M90">
+  <owner>yusuyoutube@google.com</owner>
+  <owner>benwgold@google.com</owner>
+  <summary>
+    Logged the result state of the Lens image classifcation call when the user
+    completes a long press on an image. Only logged on Android.
+  </summary>
+</histogram>
+
 <histogram name="LevelDB.ApproximateMemTableMemoryUse" units="bytes"
     expires_after="2021-01-03">
   <owner>nyquist@chromium.org</owner>
@@ -10075,6 +10105,34 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
     Time from &quot;request&quot; to &quot;start.&quot; &quot;Request&quot;==
     time when user requested document. &quot;Start&quot;== time when renderer
     requested load of document, after any unload of last document.
+  </summary>
+</histogram>
+
+<histogram name="PreferredApps.FileIOAction" enum="PreferredAppsFileIOAction"
+    expires_after="M89">
+  <obsolete>
+    This was used by mistake, add the entry to avoid anyone accidently using
+    this name. Obsolete in 10/2020. Replaced by Apps.PreferredApps.FileIOAction.
+  </obsolete>
+  <owner>dominickn@chromium.org</owner>
+  <owner>mxcai@chromium.org</owner>
+  <summary>
+    Recorded at the time a read/write operation happens for preferred app to
+    indicate whether the I/O succeeded or not.
+  </summary>
+</histogram>
+
+<histogram name="PreferredApps.UpdateAction" enum="PreferredAppsUpdateAction"
+    expires_after="M89">
+  <obsolete>
+    This was used by mistake, add the entry to avoid anyone accidently using
+    this name. Obsolete in 10/2020. Replaced by Apps.PreferredApps.UpdateAction.
+  </obsolete>
+  <owner>dominickn@chromium.org</owner>
+  <owner>mxcai@chromium.org</owner>
+  <summary>
+    Recorded at the time a update operation happens for preferred apps to
+    indicate the type of update action.
   </summary>
 </histogram>
 
@@ -14327,9 +14385,18 @@ should be kept until we remove incident reporting. -->
   <owner>gayane@chromium.org</owner>
   <owner>chrome-shared-highlighting@google.com</owner>
   <summary>
-    Recorded for every navigatin to a link with a valid text fragment selector
+    Recorded for every navigation to a link with a valid text fragment selector
     (e.g. #:=:text=SELECTOR). Indicates source type that navigation originated
-    from.
+    from. It only know about search engines that come from the pre-populated
+    list installed with Chrome. If the user uses a search engine not on the
+    list, it won't count as a search engine. This is even true if the user have
+    a custom search engine. These custom search engines can be created by hand
+    or auto-generated. In either case, it's not going to count as a search
+    engine. Also, it only checks to see if the *referrer* is from a domain
+    associated with search engine. If someone posts a link somewhere on a web
+    site that happens to have a search engine known to Google and that links
+    includes the fragment tokens, then if a user clicks that link, it'll look
+    like it came from a search engine even thought they did not.
   </summary>
 </histogram>
 

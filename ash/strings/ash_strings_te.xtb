@@ -61,6 +61,7 @@
 <translation id="1479909375538722835">తేలియాడే యాక్సెసిబిలిటీ మెనూ</translation>
 <translation id="1484102317210609525"><ph name="DEVICE_NAME" /> (HDMI/DP)</translation>
 <translation id="1503394326855300303">ఈ యజమాని ఖాతానే బహుళ సైన్-ఇన్ సెషన్‌లో మొదటిగా సైన్-ఇన్ చేయాల్సిన ఖాతా.</translation>
+<translation id="1510238584712386396">లాంచర్</translation>
 <translation id="1516740043221086139">'అంతరాయం కలిగించవద్దు' మోడ్ ఆన్‌లో ఉంది.</translation>
 <translation id="1520303207432623762">{NUM_APPS,plural, =1{ నోటిఫికేషన్ సెట్టింగ్‌లను చూపుతుంది. యాప్ కోసం నోటిఫికేషన్‌లు ఆఫ్ చేయబడి ఉన్నాయి}other{ నోటిఫికేషన్ సెట్టింగ్‌లను చూపుతుంది. # యాప్‌ల కోసం నోటిఫికేషన్‌లు ఆఫ్ చేయబడి ఉన్నాయి}}</translation>
 <translation id="1525508553941733066">తీసివేయి</translation>
@@ -676,6 +677,7 @@
 <translation id="7904094684485781019">ఈ ఖాతా నిర్వాహకులు బహుళ సైన్-ఇన్‌కు అనుమతించలేదు.</translation>
 <translation id="7933084174919150729">ప్రాథమిక ప్రొఫైల్‌కు మాత్రమే Google అసిస్టెంట్ అందుబాటులో ఉంటుంది.</translation>
 <translation id="79341161159229895"><ph name="FIRST_PARENT_EMAIL" /> మరియు <ph name="SECOND_PARENT_EMAIL" /> ద్వారా ఖాతా నిర్వహించబడుతోంది</translation>
+<translation id="793716872548410480">మీ క్లిప్‌బోర్డ్‌ను చూడడానికి, <ph name="SHORTCUT_KEY_NAME" /> + V నొక్కండి. మీరు చివరగా కాపీ చేసిన 5 ఐటెమ్‌లు, మీ క్లిప్‌బోర్డ్‌లో సేవ్ చేయబడతాయి.</translation>
 <translation id="7955885781510802139">అధిక-కాంట్రాస్ట్ మోడ్</translation>
 <translation id="7977927628060636163">మొబైల్ నెట్‌వర్క్‌ల కోసం వెతుకుతోంది...</translation>
 <translation id="7980780401175799550">Chrome OSలో నావిగేట్ చేయడానికి కొత్త మార్గాలను ట్రై చేయండి</translation>

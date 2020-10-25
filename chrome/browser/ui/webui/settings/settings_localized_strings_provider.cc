@@ -823,7 +823,6 @@ void AddAutofillStrings(content::WebUIDataSource* html_source,
        IDS_SETTINGS_CHECK_PASSWORDS_ERROR_GENERIC},
       {"noCompromisedCredentials",
        IDS_SETTINGS_NO_COMPROMISED_CREDENTIALS_LABEL},
-      {"noWeakPasswords", IDS_SETTINGS_NO_WEAK_PASSWORDS_FOUND},
       {"checkPasswordsAgain", IDS_SETTINGS_CHECK_PASSWORDS_AGAIN},
       {"checkPasswordsAgainAfterError",
        IDS_SETTINGS_CHECK_PASSWORDS_AGAIN_AFTER_ERROR},
@@ -1044,6 +1043,11 @@ void AddAutofillStrings(content::WebUIDataSource* html_source,
       l10n_util::GetStringFUTF16(
           IDS_SETTINGS_WEAK_PASSWORDS_DESCRIPTION,
           base::ASCIIToUTF16(chrome::kSeeMoreSecurityTipsURL)));
+  html_source->AddString(
+      "weakPasswordsDescriptionGeneration",
+      l10n_util::GetStringFUTF16(
+          IDS_SETTINGS_WEAK_PASSWORDS_DESCRIPTION_GENERATION,
+          base::ASCIIToUTF16(chrome::kPasswordGenerationLearnMoreURL)));
   html_source->AddString("signedOutUserLabel",
                          l10n_util::GetStringFUTF16(
                              IDS_SETTINGS_SIGNED_OUT_USER_LABEL,

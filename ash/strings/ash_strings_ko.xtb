@@ -61,6 +61,7 @@
 <translation id="1479909375538722835">플로팅 접근성 메뉴</translation>
 <translation id="1484102317210609525"><ph name="DEVICE_NAME" />(HDMI/DP)</translation>
 <translation id="1503394326855300303">이 소유자 계정이 멀티 로그인 세션에서 처음으로 로그인하는 계정이 되어야 합니다.</translation>
+<translation id="1510238584712386396">런처</translation>
 <translation id="1516740043221086139">방해 금지 모드가 사용 설정되어 있습니다.</translation>
 <translation id="1520303207432623762">{NUM_APPS,plural, =1{알림 설정을 표시합니다. 앱 1개의 알림이 사용 중지되어 있습니다.}other{알림 설정을 표시합니다. 앱 #개의 알림이 사용 중지되어 있습니다.}}</translation>
 <translation id="1525508553941733066">닫기</translation>
@@ -675,6 +676,7 @@
 <translation id="7904094684485781019">이 계정의 관리자가 멀티 로그인을 허용하지 않습니다.</translation>
 <translation id="7933084174919150729">Google 어시스턴트는 기본 프로필에서만 사용할 수 있습니다.</translation>
 <translation id="79341161159229895">계정 관리자: <ph name="FIRST_PARENT_EMAIL" /> 및 <ph name="SECOND_PARENT_EMAIL" /></translation>
+<translation id="793716872548410480">클립보드를 보려면 <ph name="SHORTCUT_KEY_NAME" /> + V 키를 누르세요. 최근 복사한 5개 항목이 클립보드에 저장되어 있습니다.</translation>
 <translation id="7955885781510802139">고대비 모드</translation>
 <translation id="7977927628060636163">모바일 네트워크 검색 중...</translation>
 <translation id="7980780401175799550">Chrome OS의 새로운 탐색 방법 사용해 보기</translation>

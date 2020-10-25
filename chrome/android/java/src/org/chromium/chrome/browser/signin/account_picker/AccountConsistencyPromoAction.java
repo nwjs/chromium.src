@@ -25,6 +25,13 @@ import java.lang.annotation.RetentionPolicy;
         AccountConsistencyPromoAction.SIGNED_IN_WITH_NON_DEFAULT_ACCOUNT,
         AccountConsistencyPromoAction.SHOWN,
         AccountConsistencyPromoAction.SUPPRESSED_SIGNIN_NOT_ALLOWED,
+        AccountConsistencyPromoAction.SIGNED_IN_WITH_ADDED_ACCOUNT,
+        AccountConsistencyPromoAction.DISMISSED_SCRIM,
+        AccountConsistencyPromoAction.DISMISSED_SWIPE_DOWN,
+        AccountConsistencyPromoAction.DISMISSED_OTHER,
+        AccountConsistencyPromoAction.AUTH_ERROR_SHOWN,
+        AccountConsistencyPromoAction.GENERIC_ERROR_SHOWN,
+        AccountConsistencyPromoAction.DISMISSED_BUTTON,
 })
 @Retention(RetentionPolicy.SOURCE)
 public @interface AccountConsistencyPromoAction {
@@ -71,5 +78,42 @@ public @interface AccountConsistencyPromoAction {
      */
     int SUPPRESSED_SIGNIN_NOT_ALLOWED = 7;
 
-    int MAX = 8;
+    /**
+     * User has added an account and signed in with this account.
+     * When this metric is recorded, we won't record SIGNED_IN_WITH_DEFAULT_ACCOUNT or
+     * SIGNED_IN_WITH_NON_DEFAULT_ACCOUNT.
+     */
+    int SIGNED_IN_WITH_ADDED_ACCOUNT = 8;
+
+    /**
+     * User has dismissed the promo by tapping on the scrim above the bottom sheet.
+     */
+    int DISMISSED_SCRIM = 9;
+
+    /**
+     * User has dismissed the promo by swiping down the bottom sheet.
+     */
+    int DISMISSED_SWIPE_DOWN = 10;
+
+    /**
+     * User has dismissed the promo by other means.
+     */
+    int DISMISSED_OTHER = 11;
+
+    /**
+     * The auth error screen was shown to the user.
+     */
+    int AUTH_ERROR_SHOWN = 12;
+
+    /**
+     * The generic error screen was shown to the user.
+     */
+    int GENERIC_ERROR_SHOWN = 13;
+
+    /**
+     * User has dismissed the promo by tapping on the dismissal button in the bottom sheet.
+     */
+    int DISMISSED_BUTTON = 14;
+
+    int MAX = 15;
 }

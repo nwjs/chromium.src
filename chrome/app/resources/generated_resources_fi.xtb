@@ -2903,7 +2903,6 @@ Voit ylläpitää tilin asetuksia asentamalla laitteellesi Family Link ‑sovell
 <translation id="4400632832271803360">Pidä Käynnistysohjelma-näppäintä pohjassa, niin voit vaihtaa ylärivin näppäinten toimintaa.</translation>
 <translation id="4400963414856942668">Voit lisätä välilehden kirjanmerkkeihin klikkaamalla tähteä</translation>
 <translation id="4403775189117163360">Valitse toinen kansio</translation>
-<translation id="440391631796167175">Heikkoja salasanoja ei löytynyt</translation>
 <translation id="4404136731284211429">Hae uudelleen</translation>
 <translation id="4404843640767531781"><ph name="APP_NAME" /> on vanhempasi estämä. Pyydä vanhemmaltasi lupaa käyttää tätä sovellusta.</translation>
 <translation id="4405117686468554883">*.jpeg, *.jpg, *.png</translation>
@@ -4436,8 +4435,6 @@ Julkinen eksponentti (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bittiä):
 <translation id="6242852299490624841">Aseta tämä välilehti aktiiviseksi</translation>
 <translation id="6243280677745499710">Nykyinen taustakuva</translation>
 <translation id="6243774244933267674">Palvelin ei ole käytettävissä</translation>
-<translation id="6244185221716469155">Heikko salasana on helppo arvata. Muista käyttää vahvoja salasanoja.
-    <ph name="BEGIN_LINK" />Katso muita tietoturvavinkkejä.<ph name="END_LINK" /></translation>
 <translation id="6244245036423700521">Tuo ONC-tiedosto</translation>
 <translation id="6246790815526961700">Lataa laitteelta</translation>
 <translation id="6247620186971210352">Sovelluksia ei löytynyt.</translation>
@@ -5365,6 +5362,7 @@ Julkinen eksponentti (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bittiä):
 <translation id="7375235221357833624">{0,plural, =1{Päivitä laite tunnin kuluessa}other{Päivitä laite # tunnin kuluessa}}</translation>
 <translation id="7376553024552204454">Korosta hiiren osoitinta, kun se liikkuu</translation>
 <translation id="7377451353532943397">Estä edelleen tunnistimien käyttö</translation>
+<translation id="7378611153938412599">Heikko salasana on helppo arvata. Muista käyttää vahvoja salasanoja. <ph name="BEGIN_LINK" />Katso muita tietoturvavinkkejä.<ph name="END_LINK" /></translation>
 <translation id="73786666777299047">Avaa Chrome Web Store</translation>
 <translation id="7378812711085314936">Luo mobiiliyhteys</translation>
 <translation id="7380622428988553498">Laitteen nimi sisältää virheellisiä merkkejä</translation>
@@ -6342,6 +6340,7 @@ Tallenna avaintiedosto suojattuun sijaintiin. Tarvitset sitä, jos haluat luoda 
 <translation id="850875081535031620">Haittaohjelmia ei löytynyt.</translation>
 <translation id="8509177919508253835">Nollaa suojausavaimet ja luo PIN-koodit</translation>
 <translation id="8509646642152301857">Oikeinkirjoituksen tarkistuksen sanakirjan lataus epäonnistui.</translation>
+<translation id="8512396579636492893">{COUNT,plural, =0{Heikkoja salasanoja ei löytynyt}=1{{COUNT} heikko salasana löytyi}other{{COUNT} heikkoa salasanaa löytyi}}</translation>
 <translation id="8512476990829870887">Lopeta prosessi</translation>
 <translation id="851263357009351303">Salli aina sivuston <ph name="HOST" /> näyttää kuvia</translation>
 <translation id="8513108775083588393">Autom. kääntö</translation>

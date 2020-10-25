@@ -2795,6 +2795,7 @@ Cilësimet e kësaj llogarie mund t'i menaxhosh duke instaluar aplikacionin Fami
 <translation id="425573743389990240">Norma e shkarkimit të baterisë në vat (vlera negative do të thotë se bateria po ngarkohet)</translation>
 <translation id="4256316378292851214">Ruaje videon si...</translation>
 <translation id="4258348331913189841">Sistemet e skedarëve</translation>
+<translation id="4259388776256904261">Kjo mund të zgjasë pak</translation>
 <translation id="4260182282978351200"><ph name="FILE_NAME" /> mund të jetë i rrezikshëm. Të dërgohet te "Mbrojtja e përparuar" e Google për skanim? Shtyp Shift+F6 për të kaluar në cikël në zonën e shiritit të shkarkimeve.</translation>
 <translation id="4263223596040212967">Kontrollo strukturën e tastierës dhe provo përsëri.</translation>
 <translation id="4263757076580287579">Regjistrimi i printerit është anuluar.</translation>
@@ -4432,8 +4433,6 @@ Cilësimet e kësaj llogarie mund t'i menaxhosh duke instaluar aplikacionin Fami
 <translation id="6242852299490624841">Fokuso këtë skedë</translation>
 <translation id="6243280677745499710">Caktuar aktualisht</translation>
 <translation id="6243774244933267674">Serveri është jashtë shërbimit</translation>
-<translation id="6244185221716469155">Fjalëkalimet e dobëta mund të gjenden me lehtësi. Sigurohu që po krijon fjalëkalime të forta.
-    <ph name="BEGIN_LINK" />Shiko më shumë këshilla sigurie.<ph name="END_LINK" /></translation>
 <translation id="6244245036423700521">Importo skedarin ONC</translation>
 <translation id="6246790815526961700">Ngarko nga pajisja</translation>
 <translation id="6247620186971210352">Nuk u gjet asnjë aplikacion</translation>
@@ -5055,6 +5054,7 @@ Cilësimet e kësaj llogarie mund t'i menaxhosh duke instaluar aplikacionin Fami
 <translation id="6995899638241819463">Të të paralajmërojë nëse fjalëkalimet janë ekspozuar në një nxjerrje të paautorizuar të të dhënave</translation>
 <translation id="6997642619627518301"><ph name="NAME_PH" /> - Evidenca e aktivitetit</translation>
 <translation id="6997707937646349884">Në pajisjet e tua:</translation>
+<translation id="6998093258894828179">Fshih kartat</translation>
 <translation id="6998793565256476099">Regjistro pajisjen për video-konferencë</translation>
 <translation id="6999956497249459195">Grup i ri</translation>
 <translation id="7000206553895739324"><ph name="PRINTER_NAME" /> është i lidhur, por ka nevojë për konfigurim</translation>
@@ -5360,6 +5360,7 @@ Cilësimet e kësaj llogarie mund t'i menaxhosh duke instaluar aplikacionin Fami
 <translation id="7375235221357833624">{0,plural, =1{Përditëso pajisjen brenda një ore}other{Përditëso pajisjen brenda # orësh}}</translation>
 <translation id="7376553024552204454">Thekso kursorin e miut kur është në lëvizje</translation>
 <translation id="7377451353532943397">Vazhdo të bllokosh qasjen te sensorët</translation>
+<translation id="7378611153938412599">Fjalëkalimet e dobëta mund të gjenden me lehtësi. Sigurohu që po krijon fjalëkalime të forta. <ph name="BEGIN_LINK" />Shiko më shumë këshilla sigurie.<ph name="END_LINK" /></translation>
 <translation id="73786666777299047">Hap "Dyqanin e uebit të Chrome"</translation>
 <translation id="7378812711085314936">Merr lidhjen e të dhënave</translation>
 <translation id="7380622428988553498">Emri i pajisjes përmban karaktere të pavlefshme</translation>
@@ -5724,6 +5725,7 @@ Cilësimet e kësaj llogarie mund t'i menaxhosh duke instaluar aplikacionin Fami
 <translation id="7798844538707273832"><ph name="PERMISSION" /> është bllokuar automatikisht</translation>
 <translation id="7799299114731150374">Imazhi i sfondit u caktua me sukses</translation>
 <translation id="7800518121066352902">Rrotullo në drejtim &amp;të kundërt të akrepave të orës</translation>
+<translation id="7802539296536804623">Mos shfaq karta në këtë faqe</translation>
 <translation id="780301667611848630">Jo, faleminderit</translation>
 <translation id="7804072833593604762">Skeda u mbyll</translation>
 <translation id="7805768142964895445">Statusi</translation>
@@ -6175,6 +6177,7 @@ Mbaje skedarin e çelësit tënd në një vend të sigurt. Do të të duhet për
 <translation id="8300011035382349091">Modifiko faqeshënuesin për këtë skedë</translation>
 <translation id="8300374739238450534">Blu mesnate</translation>
 <translation id="8300849813060516376">OTASP dështoi</translation>
+<translation id="8304383784961451596">Nuk je i autorizuar ta përdorësh këtë pajisje. Kontakto me administratorin për lejen e identifikimit ose identifikohu me një "Llogari të Google" të mbikëqyrur nga Family Link.</translation>
 <translation id="8308179586020895837">Pyet nëse <ph name="HOST" /> dëshiron të ketë qasje te kamera</translation>
 <translation id="830868413617744215">Beta</translation>
 <translation id="8309458809024885768">Certifikata ekziston tashmë</translation>
@@ -6334,6 +6337,7 @@ Mbaje skedarin e çelësit tënd në një vend të sigurt. Do të të duhet për
 <translation id="850875081535031620">Nuk u gjet asnjë softuer i dëmshëm</translation>
 <translation id="8509177919508253835">Rivendos çelësat e sigurisë dhe krijo kodet PIN</translation>
 <translation id="8509646642152301857">Dështoi shkarkimi i fjalorit të kontrollit të drejtshkrimit.</translation>
+<translation id="8512396579636492893">{COUNT,plural, =0{Nuk u gjet asnjë fjalëkalim i dobët}=1{U gjet {COUNT} fjalëkalim i dobët}other{U gjetën {COUNT} fjalëkalime të dobëta}}</translation>
 <translation id="8512476990829870887">Përfundo procesin</translation>
 <translation id="851263357009351303">Lejo gjithmonë që <ph name="HOST" /> të shfaqë imazhet</translation>
 <translation id="8513108775083588393">Autorrotullim</translation>

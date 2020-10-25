@@ -536,7 +536,7 @@
 <translation id="1604432177629086300">Nu s-a putut printa. Verifică imprimanta și încearcă din nou.</translation>
 <translation id="1605544918554600534"><ph name="PROFILE_NAME" />: sincronizarea parolelor nu funcționează</translation>
 <translation id="1607139524282324606">Șterge intrarea</translation>
-<translation id="1608626060424371292">Eliminați acest utilizator</translation>
+<translation id="1608626060424371292">Ștergeți acest utilizator</translation>
 <translation id="1608668830839595724">Mai multe acțiuni pentru elementele selectate</translation>
 <translation id="161042844686301425">Cyan</translation>
 <translation id="1611432201750675208">Dispozitivul este blocat</translation>
@@ -2112,7 +2112,7 @@ Mesaj de la server: <ph name="SERVER_MSG" /></translation>
 <translation id="346431825526753">Acesta este un cont pentru copii gestionat de <ph name="CUSTODIAN_EMAIL" />.</translation>
 <translation id="3468298837301810372">Etichetă</translation>
 <translation id="3468999815377931311">Telefon Android</translation>
-<translation id="3470442499439619530">Eliminați acest utilizator</translation>
+<translation id="3470442499439619530">Ștergeți acest utilizator</translation>
 <translation id="3471876058939596279">Porturile HDMI și USB Type-C nu pot fi folosite simultan pentru conținut video. Folosește alt port video.</translation>
 <translation id="3473241910002674503">Navighează la ecranul de pornire, înapoi și comută între aplicații folosind butoanele în modul tabletă.</translation>
 <translation id="3473479545200714844">Lupă de ecran</translation>
@@ -2906,7 +2906,6 @@ Mesaj de la server: <ph name="SERVER_MSG" /></translation>
 <translation id="4400632832271803360">Ține apăsată tasta Lansator pentru a schimba comportamentul tastelor de pe rândul de sus</translation>
 <translation id="4400963414856942668">Poți da clic pe pictograma stea pentru a marca o filă</translation>
 <translation id="4403775189117163360">Alege alt dosar</translation>
-<translation id="440391631796167175">Nu s-au găsit parole slabe</translation>
 <translation id="4404136731284211429">Verifică din nou</translation>
 <translation id="4404843640767531781">Aplicația <ph name="APP_NAME" /> a fost blocată de părintele tău. Solicită părintelui permisiunea de a folosi această aplicație.</translation>
 <translation id="4405117686468554883">*.jpeg, *.jpg, *.png</translation>
@@ -4437,8 +4436,6 @@ Mesaj de la server: <ph name="SERVER_MSG" /></translation>
 <translation id="6242852299490624841">Focalizează această filă</translation>
 <translation id="6243280677745499710">Setată în prezent</translation>
 <translation id="6243774244933267674">Server indisponibil</translation>
-<translation id="6244185221716469155">Parolele slabe sunt ușor de ghicit. Creează parole puternice.
-    <ph name="BEGIN_LINK" />Vezi mai multe sfaturi de securitate.<ph name="END_LINK" /></translation>
 <translation id="6244245036423700521">Importă fișierul ONC</translation>
 <translation id="6246790815526961700">Încarcă de pe dispozitiv</translation>
 <translation id="6247620186971210352">Nu s-au găsit aplicații</translation>
@@ -5366,6 +5363,7 @@ Mesaj de la server: <ph name="SERVER_MSG" /></translation>
 <translation id="7375235221357833624">{0,plural, =1{Actualizează dispozitivul într-o oră}few{Actualizează dispozitivul în # ore}other{Actualizează dispozitivul în # de ore}}</translation>
 <translation id="7376553024552204454">Evidențiază cursorul mouse-ului când se mișcă</translation>
 <translation id="7377451353532943397">Blochează în continuare accesul la senzori</translation>
+<translation id="7378611153938412599">Parolele slabe sunt ușor de ghicit. Creează parole puternice. <ph name="BEGIN_LINK" />Vezi mai multe sfaturi de securitate.<ph name="END_LINK" /></translation>
 <translation id="73786666777299047">Deschide Magazinul web Chrome</translation>
 <translation id="7378812711085314936">Obține o conexiune de date</translation>
 <translation id="7380622428988553498">Numele dispozitivului conține caractere nevalide</translation>
@@ -6344,6 +6342,7 @@ Păstrează fișierul cu cheia într-un loc sigur. Acesta va fi necesar la crear
 <translation id="850875081535031620">Nu s-a găsit software dăunător</translation>
 <translation id="8509177919508253835">Resetează cheile de securitate și creează coduri PIN</translation>
 <translation id="8509646642152301857">Descărcarea dicționarului de verificare ortografică nu a reușit.</translation>
+<translation id="8512396579636492893">{COUNT,plural, =0{Nu s-au găsit parole slabe}=1{S-a găsit {COUNT} parolă slabă}few{S-au găsit {COUNT} parole slabe}other{S-au găsit {COUNT} de parole slabe}}</translation>
 <translation id="8512476990829870887">Opriți procesul</translation>
 <translation id="851263357009351303">Permite întotdeauna afișarea de imagini de la <ph name="HOST" /></translation>
 <translation id="8513108775083588393">Rotire autom.</translation>

@@ -2795,6 +2795,7 @@
 <translation id="425573743389990240">بطارية تفريغ شحن البطارية بوحدة الوات (القيمة السالب تعني أنه جارٍ شحن البطارية)</translation>
 <translation id="4256316378292851214">حف&amp;ظ الفيديو باسم...</translation>
 <translation id="4258348331913189841">أنظمة الملفات</translation>
+<translation id="4259388776256904261">قد يستغرق هذا الإعداد بعض الوقت.</translation>
 <translation id="4260182282978351200">‏قد يكون الملف <ph name="FILE_NAME" /> خطيرًا. هل تريد إرساله إلى برنامج "الحماية المتقدّمة" من Google لفحصه؟ ما عليك سوى الضغط على Shift+F6 للانتقال إلى منطقة شريط عمليات التنزيل.</translation>
 <translation id="4263223596040212967">يُرجى التحقق من تنسيق لوحة المفاتيح وإعادة المحاولة.</translation>
 <translation id="4263757076580287579">تم إلغاء تسجيل الطابعة.</translation>
@@ -4434,8 +4435,6 @@
 <translation id="6242852299490624841">التركيز على علامة التبويب هذه</translation>
 <translation id="6243280677745499710">المحدّدة حاليًا</translation>
 <translation id="6243774244933267674">الخادم غير متاح</translation>
-<translation id="6244185221716469155">من السهل تخمين كلمات المرور الضعيفة. يُرجى الحرص على إنشاء كلمات مرور قوية.
-    <ph name="BEGIN_LINK" />الاطّلاع على مزيد من نصائح الأمان<ph name="END_LINK" /></translation>
 <translation id="6244245036423700521">‏استيراد ملف ONC</translation>
 <translation id="6246790815526961700">تحميل من الجهاز</translation>
 <translation id="6247620186971210352">لم يتم العثور على أي تطبيقات</translation>
@@ -5057,6 +5056,7 @@
 <translation id="6995899638241819463">التحذير إذا تم الكشف عن كلمات المرور في عملية اختراق بيانات</translation>
 <translation id="6997642619627518301"><ph name="NAME_PH" /> - سجلّ الأنشطة</translation>
 <translation id="6997707937646349884">على أجهزتك:</translation>
+<translation id="6998093258894828179">إخفاء البطاقات</translation>
 <translation id="6998793565256476099">تسجيل الجهاز لمؤتمر الفيديو</translation>
 <translation id="6999956497249459195">مجموعة جديدة</translation>
 <translation id="7000206553895739324">تم توصيل <ph name="PRINTER_NAME" /> ولكنها بحاجة إلى الضبط</translation>
@@ -5362,6 +5362,7 @@
 <translation id="7375235221357833624">{0,plural, =1{تحديث الجهاز خلال ساعة}zero{تحديث الجهاز خلال # ساعة}two{تحديث الجهاز خلال ساعتَين}few{تحديث الجهاز خلال # ساعات}many{تحديث الجهاز خلال # ساعة}other{تحديث الجهاز خلال # ساعة}}</translation>
 <translation id="7376553024552204454">تمييز مؤشر الماوس عندما يتحرك</translation>
 <translation id="7377451353532943397">مواصلة حظر إمكانية الوصول إلى أجهزة الاستشعار</translation>
+<translation id="7378611153938412599">من السهل تخمين كلمات المرور الضعيفة. يُرجى الحرص على إنشاء كلمات مرور قوية. <ph name="BEGIN_LINK" />الاطّلاع على مزيد من نصائح الأمان<ph name="END_LINK" /></translation>
 <translation id="73786666777299047">‏فتح سوق Chrome الإلكتروني</translation>
 <translation id="7378812711085314936">الحصول على اتصال البيانات</translation>
 <translation id="7380622428988553498">يحتوي اسم الجهاز على أحرف غير صالحة.</translation>
@@ -5727,6 +5728,7 @@
 <translation id="7798844538707273832">تم حظر إذن <ph name="PERMISSION" /> تلقائيًا.</translation>
 <translation id="7799299114731150374">تم ضبط الخلفية بنجاح</translation>
 <translation id="7800518121066352902">تدوير ع&amp;كس اتجاه عقارب الساعة</translation>
+<translation id="7802539296536804623">عدم عرض البطاقات في هذه الصفحة</translation>
 <translation id="780301667611848630">لا، شكرًا</translation>
 <translation id="7804072833593604762">تم إغلاق علامة التبويب.</translation>
 <translation id="7805768142964895445">الحالة</translation>
@@ -6179,6 +6181,7 @@
 <translation id="8300011035382349091">تعديل الإشارة المرجعية لعلامة التبويب هذه</translation>
 <translation id="8300374739238450534">أزرق ليلي</translation>
 <translation id="8300849813060516376">‏تعذّرت OTASP</translation>
+<translation id="8304383784961451596">‏غير مصرّح لك باستخدام هذا الجهاز. يُرجى التواصل مع المشرف للحصول على إذن تسجيل الدخول أو تسجيل الدخول باستخدام حساب Google خاضع لإشراف أحد الوالدَين عبر تطبيق Family Link.</translation>
 <translation id="8308179586020895837">الرجوع إليك عند رغبة <ph name="HOST" /> في الدخول إلى الكاميرا</translation>
 <translation id="830868413617744215">تجريبي</translation>
 <translation id="8309458809024885768">الشهادة موجودة من قَبل</translation>
@@ -6338,6 +6341,7 @@
 <translation id="850875081535031620">لم يتم العثور على أي برامج ضارة</translation>
 <translation id="8509177919508253835">إعادة ضبط مفاتيح الأمان وإنشاء أرقام التعريف الشخصية</translation>
 <translation id="8509646642152301857">تعذّر تنزيل قاموس التدقيق الإملائي.</translation>
+<translation id="8512396579636492893">{COUNT,plural, =0{لم يتم العثور على أي كلمات مرور ضعيفة.}=1{تم العثور على كلمة مرور واحدة ({COUNT}) ضعيفة.}two{تم العثور على كلمتَي مرور ({COUNT}) ضعيفتَين.}few{تم العثور على {COUNT} كلمات مرور ضعيفة.}many{تم العثور على {COUNT} كلمة مرور ضعيفة.}other{تم العثور على {COUNT} كلمة مرور ضعيفة.}}</translation>
 <translation id="8512476990829870887">إنهاء العملية</translation>
 <translation id="851263357009351303">السماح للموقع <ph name="HOST" /> بعرض الصور دومًا</translation>
 <translation id="8513108775083588393">التدوير تلقائي</translation>

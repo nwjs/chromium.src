@@ -87,12 +87,16 @@ class FamilyUserMetricsProviderTest
       /*use_local_policy_server=*/false};
 };
 
-IN_PROC_BROWSER_TEST_P(FamilyUserMetricsProviderTest, UserCategory) {
+IN_PROC_BROWSER_TEST_P(FamilyUserMetricsProviderTest, DISABLED_UserCategory) {
   base::HistogramTester histogram_tester;
   FamilyUserMetricsProvider provider;
   // Simulate calling ProvideCurrentSessionData() prior to logging in.
   // This call should return prematurely.
   provider.ProvideCurrentSessionData(/*uma_proto_unused=*/nullptr);
+
+  // No metrics were recorded.
+  histogram_tester.ExpectTotalCount(
+      FamilyUserMetricsProvider::kFamilyUserLogSegmentHistogramName, 0);
 
   logged_in_user_mixin_.LogInUser();
 

@@ -231,7 +231,7 @@
     сайттын операторлору тарабынан сайттын коопсуздугун жана башка касиеттерин конфигурациялоо үчүн колдонулат.</translation>
 <translation id="1778646502362731194">JIS B0 (1030mm x 1456mm)</translation>
 <translation id="1783075131180517613">Шайкештештирүү купуя сөз айкашыңызды жаңыртыңыз.</translation>
-<translation id="1787142507584202372">Ачылган өтмөктөр бул жерден көрүнөт</translation>
+<translation id="1787142507584202372">Ачылган өтмөктөр бул жерде көрүнөт</translation>
 <translation id="1791429645902722292">Google Smart Lock</translation>
 <translation id="1798447301915465742"><ph name="MULTIPLE_ACTIONS_FOCUSED_FRIENDLY_MATCH_TEXT" />, бир нече аракет жеткиликтүү, Tab баскычын басып, аларды карап чыгыңыз</translation>
 <translation id="1800473098294731951">B9</translation>
@@ -906,6 +906,7 @@
 <translation id="4597348597567598915">Өлчөмү: 8</translation>
 <translation id="4600854749408232102">C6/C5 (Конверт)</translation>
 <translation id="4628948037717959914">Сүрөт</translation>
+<translation id="4631649115723685955">Кешбэк байланыштырылды</translation>
 <translation id="464342062220857295">Функцияларды издөө</translation>
 <translation id="4644670975240021822">Тескери иретте алдыңкы бетин ылдый каратып</translation>
 <translation id="4646534391647090355">Азыр көрсөтүлсүн</translation>
@@ -1889,6 +1890,7 @@
 <translation id="8685155993131031756">Prc-16K</translation>
 <translation id="8688672835843460752">Бош</translation>
 <translation id="868922510921656628">Бир топтомдогу барактар</translation>
+<translation id="8697373104056314601">Chrome’ду жогорку деңгээлде коопсуздандыруу үчүн <ph name="BEGIN_ENHANCED_PROTECTION_LINK" />өркүндөтүлгөн коргоону күйгүзүңүз<ph name="END_ENHANCED_PROTECTION_LINK" />.</translation>
 <translation id="869891660844655955">Мөөнөтү аяктай турган күн</translation>
 <translation id="8699041776323235191">HID түзмөгү</translation>
 <translation id="8703575177326907206"><ph name="DOMAIN" /> менен туташуу аракетиңиз шифрленген эмес.</translation>

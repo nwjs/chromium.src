@@ -61,6 +61,7 @@ Dưới đây là một số việc bạn có thể thử để bắt đầu.</t
 <translation id="1479909375538722835">Trình đơn hỗ trợ tiếp cận nổi</translation>
 <translation id="1484102317210609525"><ph name="DEVICE_NAME" /> (HDMI/DP)</translation>
 <translation id="1503394326855300303">Tài khoản của chủ sở hữu này phải là tài khoản đăng nhập đầu tiên trong phiên đăng nhập nhiều tài khoản.</translation>
+<translation id="1510238584712386396">Trình chạy</translation>
 <translation id="1516740043221086139">Chế độ Không làm phiền đang bật.</translation>
 <translation id="1520303207432623762">{NUM_APPS,plural, =1{Hiển thị tùy chọn cài đặt thông báo. Các thông báo hiện đang tắt cho một ứng dụng}other{Hiển thị tùy chọn cài đặt thông báo. Các thông báo hiện đang tắt cho # ứng dụng}}</translation>
 <translation id="1525508553941733066">LOẠI BỎ</translation>
@@ -675,6 +676,7 @@ Dưới đây là một số việc bạn có thể thử để bắt đầu.</t
 <translation id="7904094684485781019">Quản trị viên của tài khoản này đã không cho phép đăng nhập nhiều tài khoản.</translation>
 <translation id="7933084174919150729">Bạn chỉ có thể sử dụng Trợ lý Google cho hồ sơ chính.</translation>
 <translation id="79341161159229895">Tài khoản được quản lý bởi <ph name="FIRST_PARENT_EMAIL" /> và <ph name="SECOND_PARENT_EMAIL" /></translation>
+<translation id="793716872548410480">Nhấn tổ hợp phím <ph name="SHORTCUT_KEY_NAME" /> + V để xem khay nhớ tạm. 5 mục gần đây nhất mà bạn đã sao chép sẽ được lưu vào khay nhớ tạm.</translation>
 <translation id="7955885781510802139">Chế độ tương phản cao</translation>
 <translation id="7977927628060636163">Đang tìm kiếm mạng di động...</translation>
 <translation id="7980780401175799550">Thử những cách mới để thao tác trong Chrome OS</translation>

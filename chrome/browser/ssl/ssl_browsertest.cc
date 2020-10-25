@@ -6234,6 +6234,71 @@ IN_PROC_BROWSER_TEST_F(SSLUITestWithInsecureFormsWarningEnabled,
             security_interstitials::InsecureFormBlockingPage::kTypeForTesting);
 }
 
+// Checks insecure form warning works for forms that submit on a new tab.
+IN_PROC_BROWSER_TEST_F(SSLUITestWithInsecureFormsWarningEnabled,
+                       TestDisplaysInsecureFormSubmissionWarningTargetBlank) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  ASSERT_TRUE(https_server_.Start());
+
+  std::string replacement_path = GetFilePathWithHostAndPortReplacement(
+      "/ssl/page_displays_insecure_form_target_blank.html",
+      embedded_test_server()->host_port_pair());
+
+  ui_test_utils::NavigateToURL(browser(),
+                               https_server_.GetURL(replacement_path));
+  WebContents* tab = browser()->tab_strip_model()->GetActiveWebContents();
+  content::TestNavigationObserver nav_observer(tab, 1);
+  nav_observer.StartWatchingNewWebContents();
+  ASSERT_TRUE(content::ExecuteScript(tab, "submitForm();"));
+  nav_observer.Wait();
+  tab = browser()->tab_strip_model()->GetActiveWebContents();
+  security_interstitials::SecurityInterstitialTabHelper* helper =
+      security_interstitials::SecurityInterstitialTabHelper::FromWebContents(
+          tab);
+  EXPECT_TRUE(helper->IsDisplayingInterstitial());
+  EXPECT_EQ(helper->GetBlockingPageForCurrentlyCommittedNavigationForTesting()
+                ->GetTypeForTesting(),
+            security_interstitials::InsecureFormBlockingPage::kTypeForTesting);
+}
+
+// Checks reloading the interstitial is not treated as proceeding.
+IN_PROC_BROWSER_TEST_F(SSLUITestWithInsecureFormsWarningEnabled,
+                       TestReloadInsecureFormSubmissionWarningIsNotProceed) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  ASSERT_TRUE(https_server_.Start());
+
+  std::string replacement_path = GetFilePathWithHostAndPortReplacement(
+      "/ssl/page_displays_insecure_form.html",
+      embedded_test_server()->host_port_pair());
+
+  // Navigate to an insecure form, make sure we get a warning.
+  ui_test_utils::NavigateToURL(browser(),
+                               https_server_.GetURL(replacement_path));
+  WebContents* tab = browser()->tab_strip_model()->GetActiveWebContents();
+  content::TestNavigationObserver nav_observer(tab, 1);
+  ASSERT_TRUE(content::ExecuteScript(tab, "submitForm();"));
+  nav_observer.Wait();
+  security_interstitials::SecurityInterstitialTabHelper* helper =
+      security_interstitials::SecurityInterstitialTabHelper::FromWebContents(
+          tab);
+  EXPECT_TRUE(helper->IsDisplayingInterstitial());
+  EXPECT_EQ(helper->GetBlockingPageForCurrentlyCommittedNavigationForTesting()
+                ->GetTypeForTesting(),
+            security_interstitials::InsecureFormBlockingPage::kTypeForTesting);
+  // Reload the interstitial.
+  content::TestNavigationObserver reload_observer(tab, 1);
+  tab->GetController().Reload(content::ReloadType::NORMAL, false);
+  reload_observer.Wait();
+  // Check we get another interstitial.
+  helper =
+      security_interstitials::SecurityInterstitialTabHelper::FromWebContents(
+          tab);
+  EXPECT_TRUE(helper->IsDisplayingInterstitial());
+  EXPECT_EQ(helper->GetBlockingPageForCurrentlyCommittedNavigationForTesting()
+                ->GetTypeForTesting(),
+            security_interstitials::InsecureFormBlockingPage::kTypeForTesting);
+}
+
 // Check proceed works correctly on insecure form warning.
 IN_PROC_BROWSER_TEST_F(SSLUITestWithInsecureFormsWarningEnabled,
                        ProceedThroughInsecureFormWarning) {
@@ -6243,7 +6308,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITestWithInsecureFormsWarningEnabled,
   std::string replacement_path = GetFilePathWithHostAndPortReplacement(
       "/ssl/page_displays_insecure_form.html",
       embedded_test_server()->host_port_pair());
-  GURL form_target_url("http://does-not-exist.test/ssl/google_files/logo.gif?");
+  GURL form_target_url("http://does-not-exist.test/ssl/google_files/logo.gif");
 
   ui_test_utils::NavigateToURL(browser(),
                                https_server_.GetURL(replacement_path));
@@ -6331,7 +6396,7 @@ IN_PROC_BROWSER_TEST_F(MixedFormsPolicyTest, NoWarningOptOutPolicy) {
           "/ssl/page_displays_insecure_form.html",
           embedded_test_server()->host_port_pair());
   GURL form_site_url = https_server.GetURL(replacement_path);
-  GURL form_target_url("http://does-not-exist.test/ssl/google_files/logo.gif?");
+  GURL form_target_url("http://does-not-exist.test/ssl/google_files/logo.gif");
 
   // Navigate to site with insecure form and submit it.
   ui_test_utils::NavigateToURL(browser(), form_site_url);

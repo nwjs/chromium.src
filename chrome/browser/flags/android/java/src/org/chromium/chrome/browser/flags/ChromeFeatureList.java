@@ -350,8 +350,8 @@ public abstract class ChromeFeatureList {
     public static final String PAGE_INFO_PERFORMANCE_HINTS = "PageInfoPerformanceHints";
     public static final String PAINT_PREVIEW_DEMO = "PaintPreviewDemo";
     public static final String PAINT_PREVIEW_SHOW_ON_STARTUP = "PaintPreviewShowOnStartup";
-    public static final String PASSWORD_CHANGE_IN_SETTINGS = "PasswordChangeInSettings";
     public static final String PASSWORD_CHECK = "PasswordCheck";
+    public static final String PASSWORD_SCRIPTS_FETCHING = "PasswordScriptsFetching";
     public static final String PAY_WITH_GOOGLE_V1 = "PayWithGoogleV1";
     public static final String PERMISSION_DELEGATION = "PermissionDelegation";
     public static final String PHOTO_PICKER_VIDEO_SUPPORT = "PhotoPickerVideoSupport";
@@ -398,8 +398,6 @@ public abstract class ChromeFeatureList {
     public static final String SHARED_CLIPBOARD_UI = "SharedClipboardUI";
     public static final String SHARING_QR_CODE_ANDROID = "SharingQrCodeAndroid";
     public static final String SHOW_TRUSTED_PUBLISHER_URL = "ShowTrustedPublisherURL";
-    public static final String SIGNIN_PROMO_MAX_IMPRESSIONS_ANDROID =
-            "SigninPromoMaxImpressionsAndroid";
     public static final String SMART_SUGGESTION_FOR_LARGE_DOWNLOADS =
             "SmartSuggestionForLargeDownloads";
     public static final String SPANNABLE_INLINE_AUTOCOMPLETE = "SpannableInlineAutocomplete";

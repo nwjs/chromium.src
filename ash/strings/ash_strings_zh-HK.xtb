@@ -61,6 +61,7 @@
 <translation id="1479909375538722835">浮動式無障礙選單</translation>
 <translation id="1484102317210609525"><ph name="DEVICE_NAME" /> (HDMI/DP)</translation>
 <translation id="1503394326855300303">擁有者帳戶必須是多重登入工作階段中第一個登入的帳戶。</translation>
+<translation id="1510238584712386396">啟動器</translation>
 <translation id="1516740043221086139">「請勿騷擾」模式已開啟。</translation>
 <translation id="1520303207432623762">{NUM_APPS,plural, =1{顯示通知設定。已關閉 1 個應用程式的通知}other{顯示通知設定。已關閉 # 個應用程式的通知}}</translation>
 <translation id="1525508553941733066">關閉</translation>
@@ -675,6 +676,7 @@
 <translation id="7904094684485781019">這個帳戶的管理員已禁止多重登入。</translation>
 <translation id="7933084174919150729">「Google 助理」僅適用於主要設定檔。</translation>
 <translation id="79341161159229895">帳戶由 <ph name="FIRST_PARENT_EMAIL" /> 和 <ph name="SECOND_PARENT_EMAIL" /> 管理</translation>
+<translation id="793716872548410480">按下<ph name="SHORTCUT_KEY_NAME" /> + V 鍵即可查看剪貼簿。您最後複製的 5 個項目會儲存至剪貼簿。</translation>
 <translation id="7955885781510802139">高對比模式</translation>
 <translation id="7977927628060636163">正在搜尋流動網絡…</translation>
 <translation id="7980780401175799550">試用導覽 Chrome 作業系統的新方式</translation>

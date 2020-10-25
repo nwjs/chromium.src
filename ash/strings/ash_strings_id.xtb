@@ -61,6 +61,7 @@ Berikut ini beberapa hal yang dapat Anda coba untuk memulai.</translation>
 <translation id="1479909375538722835">Menu aksesibilitas mengambang</translation>
 <translation id="1484102317210609525"><ph name="DEVICE_NAME" /> (HDMI/DP)</translation>
 <translation id="1503394326855300303">Akun pemilik ini harus akun yang masuk pertama dalam sesi fitur masuk banyak akun.</translation>
+<translation id="1510238584712386396">Peluncur</translation>
 <translation id="1516740043221086139">Mode Jangan Ganggu aktif.</translation>
 <translation id="1520303207432623762">{NUM_APPS,plural, =1{Tampilkan setelan notifikasi. Notifikasi nonaktif untuk satu aplikasi}other{Tampilkan setelan notifikasi. Notifikasi nonaktif untuk # aplikasi}}</translation>
 <translation id="1525508553941733066">TUTUP</translation>
@@ -675,6 +676,7 @@ Berikut ini beberapa hal yang dapat Anda coba untuk memulai.</translation>
 <translation id="7904094684485781019">Administrator untuk akun ini menonaktifkan fitur masuk banyak akun.</translation>
 <translation id="7933084174919150729">Asisten Google hanya tersedia untuk profil utama.</translation>
 <translation id="79341161159229895">Akun dikelola oleh <ph name="FIRST_PARENT_EMAIL" /> dan <ph name="SECOND_PARENT_EMAIL" /></translation>
+<translation id="793716872548410480">Tekan <ph name="SHORTCUT_KEY_NAME" /> + V untuk menampilkan papan klip. Lima item terakhir yang disalin akan disimpan ke papan klip.</translation>
 <translation id="7955885781510802139">Mode kontras tinggi</translation>
 <translation id="7977927628060636163">Menelusuri jaringan seluler...</translation>
 <translation id="7980780401175799550">Coba cara baru untuk menggunakan Chrome OS</translation>

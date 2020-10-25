@@ -14,6 +14,7 @@
 #include "ios/chrome/browser/chrome_url_constants.h"
 #include "ios/chrome/browser/crash_report/crash_loop_detection_util.h"
 #import "ios/chrome/browser/sessions/session_restoration_browser_agent.h"
+#include "ios/chrome/browser/web_state_list/session_metrics.h"
 #import "ios/chrome/browser/web_state_list/web_state_list.h"
 #include "ios/web/public/browser_state.h"
 #include "ios/web/public/navigation/navigation_context.h"
@@ -27,33 +28,38 @@
 
 BROWSER_USER_DATA_KEY_IMPL(WebStateListMetricsBrowserAgent)
 
+// static
+void WebStateListMetricsBrowserAgent::CreateForBrowser(
+    Browser* browser,
+    SessionMetrics* session_metrics) {
+  if (!FromBrowser(browser)) {
+    browser->SetUserData(UserDataKey(),
+                         base::WrapUnique(new WebStateListMetricsBrowserAgent(
+                             browser, session_metrics)));
+  }
+}
+
 WebStateListMetricsBrowserAgent::WebStateListMetricsBrowserAgent(
-    Browser* browser)
-    : web_state_list_(browser->GetWebStateList()) {
-  browser->AddObserver(this);
+    Browser* browser,
+    SessionMetrics* session_metrics)
+    : web_state_list_(browser->GetWebStateList()),
+      session_metrics_(session_metrics) {
   DCHECK(web_state_list_);
+  DCHECK(session_metrics_);
+  browser->AddObserver(this);
   web_state_list_->AddObserver(this);
+  for (int index = 0; index < web_state_list_->count(); ++index) {
+    web::WebState* web_state = web_state_list_->GetWebStateAt(index);
+    web_state->AddObserver(this);
+  }
+
   SessionRestorationBrowserAgent* restoration_agent =
       SessionRestorationBrowserAgent::FromBrowser(browser);
   if (restoration_agent)
     restoration_agent->AddObserver(this);
 }
 
-WebStateListMetricsBrowserAgent::WebStateListMetricsBrowserAgent() {
-  ResetSessionMetrics();
-}
-
 WebStateListMetricsBrowserAgent::~WebStateListMetricsBrowserAgent() = default;
-
-void WebStateListMetricsBrowserAgent::RecordSessionMetrics() {
-  UMA_HISTOGRAM_CUSTOM_COUNTS("Session.ClosedTabCounts",
-                              detached_web_state_counter_, 1, 200, 50);
-  UMA_HISTOGRAM_CUSTOM_COUNTS("Session.OpenedTabCounts",
-                              activated_web_state_counter_, 1, 200, 50);
-  UMA_HISTOGRAM_CUSTOM_COUNTS("Session.NewTabCounts",
-                              inserted_web_state_counter_, 1, 200, 50);
-  ResetSessionMetrics();
-}
 
 void WebStateListMetricsBrowserAgent::WillStartSessionRestoration() {
   metric_collection_paused_ = true;
@@ -69,20 +75,22 @@ void WebStateListMetricsBrowserAgent::WebStateInsertedAt(
     web::WebState* web_state,
     int index,
     bool activating) {
+  web_state->AddObserver(this);
   if (metric_collection_paused_)
     return;
   base::RecordAction(base::UserMetricsAction("MobileNewTabOpened"));
-  ++inserted_web_state_counter_;
+  session_metrics_->OnWebStateInserted();
 }
 
 void WebStateListMetricsBrowserAgent::WebStateDetachedAt(
     WebStateList* web_state_list,
     web::WebState* web_state,
     int index) {
+  web_state->RemoveObserver(this);
   if (metric_collection_paused_)
     return;
   base::RecordAction(base::UserMetricsAction("MobileTabClosed"));
-  ++detached_web_state_counter_;
+  session_metrics_->OnWebStateDetached();
 }
 
 void WebStateListMetricsBrowserAgent::WebStateActivatedAt(
@@ -93,18 +101,20 @@ void WebStateListMetricsBrowserAgent::WebStateActivatedAt(
     ActiveWebStateChangeReason reason) {
   if (metric_collection_paused_)
     return;
-  ++activated_web_state_counter_;
+  session_metrics_->OnWebStateActivated();
   if (reason == ActiveWebStateChangeReason::Replaced)
     return;
 
   base::RecordAction(base::UserMetricsAction("MobileTabSwitched"));
 }
 
-void WebStateListMetricsBrowserAgent::ResetSessionMetrics() {
-  inserted_web_state_counter_ = 0;
-  detached_web_state_counter_ = 0;
-  activated_web_state_counter_ = 0;
-  metric_collection_paused_ = false;
+void WebStateListMetricsBrowserAgent::WebStateReplacedAt(
+    WebStateList* web_state_list,
+    web::WebState* old_web_state,
+    web::WebState* new_web_state,
+    int index) {
+  old_web_state->RemoveObserver(this);
+  new_web_state->AddObserver(this);
 }
 
 // web::WebStateObserver
@@ -188,11 +198,17 @@ void WebStateListMetricsBrowserAgent::PageLoaded(
 void WebStateListMetricsBrowserAgent::BrowserDestroyed(Browser* browser) {
   DCHECK_EQ(browser->GetWebStateList(), web_state_list_);
 
-  web_state_list_->RemoveObserver(this);
-  browser->RemoveObserver(this);
   SessionRestorationBrowserAgent* restoration_agent =
       SessionRestorationBrowserAgent::FromBrowser(browser);
   if (restoration_agent)
     restoration_agent->RemoveObserver(this);
+
+  for (int index = 0; index < web_state_list_->count(); ++index) {
+    web::WebState* web_state = web_state_list_->GetWebStateAt(index);
+    web_state->RemoveObserver(this);
+  }
+  web_state_list_->RemoveObserver(this);
   web_state_list_ = nullptr;
+
+  browser->RemoveObserver(this);
 }

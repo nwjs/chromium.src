@@ -1490,7 +1490,7 @@ void BrowserView::RestoreFocus() {
     selected_web_contents->RestoreFocus();
 }
 
-void BrowserView::FullscreenStateChanged() {
+void BrowserView::FullscreenStateChanging() {
   if (!GetExclusiveAccessManager())
     return;
   bool fullscreen = IsFullscreen();
@@ -1501,9 +1501,11 @@ void BrowserView::FullscreenStateChanged() {
           : EXCLUSIVE_ACCESS_BUBBLE_TYPE_NONE,
       display::kInvalidDisplayId);
   frame_->GetFrameView()->OnFullscreenStateChanged();
+}
 
+void BrowserView::FullscreenStateChanged() {
 #if defined(OS_MAC)
-  if (!fullscreen && restore_pre_fullscreen_bounds_callback_) {
+  if (!IsFullscreen() && restore_pre_fullscreen_bounds_callback_) {
     base::ThreadTaskRunnerHandle::Get()->PostTask(
         FROM_HERE, std::move(restore_pre_fullscreen_bounds_callback_));
   }

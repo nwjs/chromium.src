@@ -907,6 +907,7 @@ V nasprotnem primeru bodo to blokirale nastavitve zasebnosti. S tem bo vsebina, 
 <translation id="4597348597567598915">Velikost 8</translation>
 <translation id="4600854749408232102">C6/C5 (Envelope)</translation>
 <translation id="4628948037717959914">Fotografija</translation>
+<translation id="4631649115723685955">Vključuje vračilo gotovine</translation>
 <translation id="464342062220857295">Funkcije iskanja</translation>
 <translation id="4644670975240021822">V obratnem vrstnem redu s tiskom na spodnji strani</translation>
 <translation id="4646534391647090355">Odpri zdaj</translation>
@@ -1651,7 +1652,7 @@ Dodatne podrobnosti:
 <translation id="7647206758853451655">Kakovost tiskanja</translation>
 <translation id="7648992873808071793">Shranjevanje datotek v tej napravi</translation>
 <translation id="7653957176542370971">List rutine za obravnavo plačil je zaprt</translation>
-<translation id="7654909834015434372">Če boste urejali pripise, se bo ta dokument vrnil v prvotno stanje vrtenja.</translation>
+<translation id="7654909834015434372">Če boste urejali pripise, se bo ta dokument vrnil v prvotno usmerjenost.</translation>
 <translation id="765676359832457558">Skrij dodatne nastavitve ...</translation>
 <translation id="7658239707568436148">Prekliči</translation>
 <translation id="7662298039739062396">Nastavitev nadzira razširitev</translation>
@@ -1890,6 +1891,7 @@ Dodatne podrobnosti:
 <translation id="8685155993131031756">Prc-16K</translation>
 <translation id="8688672835843460752">Na voljo</translation>
 <translation id="868922510921656628">Strani na niz</translation>
+<translation id="8697373104056314601">Če želite imeti Chromovo največjo raven varnosti, <ph name="BEGIN_ENHANCED_PROTECTION_LINK" />vklopite izboljšano zaščito<ph name="END_ENHANCED_PROTECTION_LINK" />.</translation>
 <translation id="869891660844655955">Datum izteka</translation>
 <translation id="8699041776323235191">Naprava HID</translation>
 <translation id="8703575177326907206">Vaša povezava z <ph name="DOMAIN" /> ni kodirana.</translation>

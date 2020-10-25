@@ -2797,6 +2797,7 @@
 <translation id="425573743389990240">電池放電速率 (瓦特) (如為負值，表示電池正在充電)</translation>
 <translation id="4256316378292851214">另存影片(&amp;V)…</translation>
 <translation id="4258348331913189841">檔案系統</translation>
+<translation id="4259388776256904261">請稍候片刻</translation>
 <translation id="4260182282978351200"><ph name="FILE_NAME" /> 可能不安全。要傳送到「Google 進階保護」進行掃瞄嗎？按住 Shift+F6 鍵即可切換至下載內容列的位置。</translation>
 <translation id="4263223596040212967">請檢查您的鍵盤版面配置，然後再試一次。</translation>
 <translation id="4263757076580287579">已取消註冊打印機。</translation>
@@ -4434,8 +4435,6 @@
 <translation id="6242852299490624841">將焦點移至此分頁</translation>
 <translation id="6243280677745499710">目前設定的桌布</translation>
 <translation id="6243774244933267674">無法與伺服器連線</translation>
-<translation id="6244185221716469155">安全性弱的密碼很容易被猜到。請務必設定安全性強的密碼。
-    <ph name="BEGIN_LINK" />查看更多安全提示。<ph name="END_LINK" /></translation>
 <translation id="6244245036423700521">匯入 ONC 檔案</translation>
 <translation id="6246790815526961700">從裝置上載</translation>
 <translation id="6247620186971210352">找不到應用程式</translation>
@@ -5057,6 +5056,7 @@
 <translation id="6995899638241819463">密碼因資料外洩而被洩露時接收警告</translation>
 <translation id="6997642619627518301"><ph name="NAME_PH" /> - 活動記錄</translation>
 <translation id="6997707937646349884">在您的裝置上：</translation>
+<translation id="6998093258894828179">隱藏資訊卡</translation>
 <translation id="6998793565256476099">註冊視像會議裝置</translation>
 <translation id="6999956497249459195">新群組</translation>
 <translation id="7000206553895739324">已連接 <ph name="PRINTER_NAME" />，但需要設定</translation>
@@ -5362,6 +5362,7 @@
 <translation id="7375235221357833624">{0,plural, =1{請在 1 小時內更新裝置}other{請在 # 小時內更新裝置}}</translation>
 <translation id="7376553024552204454">移動滑鼠時突顯滑鼠游標</translation>
 <translation id="7377451353532943397">繼續封鎖感應器存取權</translation>
+<translation id="7378611153938412599">安全性弱的密碼很容易被猜到。請務必設定安全性強的密碼。<ph name="BEGIN_LINK" />查看更多安全提示。<ph name="END_LINK" /></translation>
 <translation id="73786666777299047">開啟 Chrome 網上應用程式商店</translation>
 <translation id="7378812711085314936">獲取數據連線</translation>
 <translation id="7380622428988553498">裝置名稱包含無效字元</translation>
@@ -5727,6 +5728,7 @@
 <translation id="7798844538707273832">已自動封鎖<ph name="PERMISSION" /></translation>
 <translation id="7799299114731150374">已成功設定桌布</translation>
 <translation id="7800518121066352902">逆時針旋轉(&amp;O)</translation>
+<translation id="7802539296536804623">不要在此頁面顯示資訊卡</translation>
 <translation id="780301667611848630">不用了，謝謝</translation>
 <translation id="7804072833593604762">閂咗分頁</translation>
 <translation id="7805768142964895445">狀態</translation>
@@ -6178,6 +6180,7 @@
 <translation id="8300011035382349091">編輯此分頁的書籤</translation>
 <translation id="8300374739238450534">午夜藍色</translation>
 <translation id="8300849813060516376">OTASP 失敗</translation>
+<translation id="8304383784961451596">您無權使用此裝置。請與管理員聯絡，要求對方授予登入權限，或使用 Family Link 監管的 Google 帳戶登入。</translation>
 <translation id="8308179586020895837">當 <ph name="HOST" /> 要求存取相機時詢問我。</translation>
 <translation id="830868413617744215">測試版</translation>
 <translation id="8309458809024885768">憑證已存在</translation>
@@ -6337,6 +6340,7 @@
 <translation id="850875081535031620">未發現任何有害軟件</translation>
 <translation id="8509177919508253835">重設安全密鑰並建立 PIN</translation>
 <translation id="8509646642152301857">拼字檢查字典下載失敗。</translation>
+<translation id="8512396579636492893">{COUNT,plural, =0{找不到安全性弱的密碼}=1{找到 {COUNT} 個安全性弱的密碼}other{找到 {COUNT} 個安全性弱的密碼}}</translation>
 <translation id="8512476990829870887">結束處理程序</translation>
 <translation id="851263357009351303">永遠允許 <ph name="HOST" /> 顯示圖片</translation>
 <translation id="8513108775083588393">自動旋轉</translation>

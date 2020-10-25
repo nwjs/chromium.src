@@ -1568,8 +1568,8 @@ const FeatureEntry::FeatureVariation kPromoBrowserCommandsVariations[] = {
      nullptr}};
 #if !defined(OS_ANDROID)
 const FeatureEntry::FeatureVariation kNtpShoppingTasksModuleVariations[] = {
-    {"- Real Data", {}, 0, "t4445867" /* variation_id */},
-    {"- Fake Data", {}, 0, "t4445868" /* variation_id */},
+    {"- Real Data", {}, 0, "t3329137" /* variation_id */},
+    {"- Fake Data", {}, 0, "t3329139" /* variation_id */},
 };
 #endif  // !defined(OS_ANDROID)
 
@@ -3523,6 +3523,18 @@ const FeatureEntry kFeatureEntries[] = {
     {"report-feed-user-actions", flag_descriptions::kReportFeedUserActionsName,
      flag_descriptions::kReportFeedUserActionsDescription, kOsAndroid,
      FEATURE_VALUE_TYPE(feed::kReportFeedUserActions)},
+    {"interest-feed-v1-clicks-and-views-cond-upload",
+     flag_descriptions::InterestFeedV1ClickAndViewActionsConditionalUploadName,
+     flag_descriptions::
+         InterestFeedV1ClickAndViewActionsConditionalUploadDescription,
+     kOsAndroid,
+     FEATURE_VALUE_TYPE(feed::kInterestFeedV1ClicksAndViewsConditionalUpload)},
+    {"interest-feed-v2-clicks-and-views-cond-upload",
+     flag_descriptions::InterestFeedV2ClickAndViewActionsConditionalUploadName,
+     flag_descriptions::
+         InterestFeedV2ClickAndViewActionsConditionalUploadDescription,
+     kOsAndroid,
+     FEATURE_VALUE_TYPE(feed::kInterestFeedV2ClicksAndViewsConditionalUpload)},
     {"offlining-recent-pages", flag_descriptions::kOffliningRecentPagesName,
      flag_descriptions::kOffliningRecentPagesDescription, kOsAndroid,
      FEATURE_VALUE_TYPE(offline_pages::kOffliningRecentPagesFeature)},
@@ -6237,6 +6249,10 @@ const FeatureEntry kFeatureEntries[] = {
     {"enhanced_clipboard", flag_descriptions::kEnhancedClipboardName,
      flag_descriptions::kEnhancedClipboardDescription, kOsCrOS,
      FEATURE_VALUE_TYPE(chromeos::features::kClipboardHistory)},
+    {"enhanced_clipboard_simple_render",
+     flag_descriptions::kEnhancedClipboardSimpleRenderName,
+     flag_descriptions::kEnhancedClipboardSimpleRenderDescription, kOsCrOS,
+     FEATURE_VALUE_TYPE(chromeos::features::kClipboardHistorySimpleRender)},
 #endif  // defined(OS_CHROMEOS)
 
 #if defined(OS_WIN)

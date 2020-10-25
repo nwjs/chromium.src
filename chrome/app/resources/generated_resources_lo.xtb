@@ -2904,7 +2904,6 @@
 <translation id="4400632832271803360">ກົດປຸ່ມຕົວເປີດໃຊ້ຄ້າງໄວ້ເພື່ອປ່ຽນພຶດຕິກຳຂອງປຸ່ມແຖວເທິງ</translation>
 <translation id="4400963414856942668">ທ່ານສາມາດຄລິກໃສ່ຮູບດາວເພື່ອບຸກມາກແຖບໃດໜຶ່ງໄວ້</translation>
 <translation id="4403775189117163360">ເລືອກໂຟນເດີອື່ນ</translation>
-<translation id="440391631796167175">ບໍ່ເຫັນລະຫັດຜ່ານງ່າຍ</translation>
 <translation id="4404136731284211429">ສະແກນອີກ</translation>
 <translation id="4404843640767531781">ພໍ່ແມ່ຂອງທ່ານບລັອກ <ph name="APP_NAME" /> ໄວ້ ຂໍອະນຸຍາດນຳພໍ່ແມ່ຂອງທ່ານເພື່ອໃຊ້ແອັບນີ້.</translation>
 <translation id="4405117686468554883">*.jpeg, *.jpg, *.png</translation>
@@ -4435,8 +4434,6 @@
 <translation id="6242852299490624841">ໂຟກັສແຖບນີ້</translation>
 <translation id="6243280677745499710">ຕັ້ງຕອນນີ້ເລີຍ</translation>
 <translation id="6243774244933267674">ບໍ່ມີເຊີບເວີຢູ່</translation>
-<translation id="6244185221716469155">ລະຫັດຜ່ານງ່າຍແມ່ນລະຫັດຜ່ານທີ່ເດົາໄດ້ງ່າຍ. ໃຫ້ແນ່ໃຈວ່າທ່ານກຳລັງສ້າງລະຫັດຜ່ານຍາກ.
-    <ph name="BEGIN_LINK" />ເບິ່ງຄຳແນະນຳຄວາມປອດໄພເພີ່ມເຕີມ.<ph name="END_LINK" /></translation>
 <translation id="6244245036423700521">ນຳເຂົ້າໄຟລ໌ ONC</translation>
 <translation id="6246790815526961700">ອັບໂຫຼດຈາກອຸປະກອນ</translation>
 <translation id="6247620186971210352">ບໍ່ພົບແອັບໃດໆ</translation>
@@ -5364,6 +5361,7 @@
 <translation id="7375235221357833624">{0,plural, =1{ອັບເດດອຸປະກອນພາຍໃນໜຶ່ງຊົ່ວໂມງ}other{ອັບເດດອຸປະກອນພາຍໃນ # ຊົ່ວໂມງ}}</translation>
 <translation id="7376553024552204454">ໝາຍເຄີເຊີເມົ້າໃນເວລາທີ່ມັນເຄື່ອນເໜັງ</translation>
 <translation id="7377451353532943397">ສືບຕໍ່ບລັອກການເຂົ້າເຖິງເຊັນເຊີ</translation>
+<translation id="7378611153938412599">ລະຫັດຜ່ານງ່າຍແມ່ນລະຫັດຜ່ານທີ່ເດົາໄດ້ງ່າຍ. ໃຫ້ແນ່ໃຈວ່າທ່ານກຳລັງສ້າງລະຫັດຜ່ານຍາກ. <ph name="BEGIN_LINK" />ເບິ່ງຄຳແນະນຳຄວາມປອດໄພເພີ່ມເຕີມ.<ph name="END_LINK" /></translation>
 <translation id="73786666777299047">ເປີດ Chrome Web Store</translation>
 <translation id="7378812711085314936">ຮັບເອົາການເຊື່ອມຕໍ່ຂໍ້ມູນ</translation>
 <translation id="7380622428988553498">ຊື່ອຸປະກອນປະກອບມີຕົວອັກສອນທີ່ບໍ່ຖືກຕ້ອງ</translation>
@@ -6340,6 +6338,7 @@
 <translation id="850875081535031620">ບໍ່ພົບຊອບແວອັນຕະລາຍໃດໆ</translation>
 <translation id="8509177919508253835">ຣີເຊັດກະແຈຄວາມປອດໄພ ແລະ ສ້າງ PIN</translation>
 <translation id="8509646642152301857">ດາວໂຫຼດພົດຈະນານຸກົມສະກົດຄໍາບໍ່ສໍາ​ເລັດ​.</translation>
+<translation id="8512396579636492893">{COUNT,plural, =0{ບໍ່ເຫັນລະຫັດຜ່ານງ່າຍ}=1{ເຫັນລະຫັດຜ່ານງ່າຍ {COUNT} ລາຍການ}other{ເຫັນລະຫັດຜ່ານງ່າຍ {COUNT} ລາຍການ}}</translation>
 <translation id="8512476990829870887">ສິ້ນສຸດຂະບວນການ</translation>
 <translation id="851263357009351303">​ອະ​ນຸ​ຍາດ​ໃຫ້ <ph name="HOST" /> ສະ​ແດງຮູບທຸກຄັ້ງ</translation>
 <translation id="8513108775083588393">ໝຸນອັດຕະໂນມັດ</translation>

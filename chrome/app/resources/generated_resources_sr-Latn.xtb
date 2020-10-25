@@ -2903,7 +2903,6 @@ Možete da upravljate podešavanjima ovog naloga ako instalirate aplikaciju Fami
 <translation id="4400632832271803360">Zadržite taster za Pokretač da biste promenili ponašanje tastera u gornjem redu</translation>
 <translation id="4400963414856942668">Možete da obeležite stranicu klikom na karticu</translation>
 <translation id="4403775189117163360">Odaberite drugi direktorijum</translation>
-<translation id="440391631796167175">Nije pronađena nijedna slaba lozinka</translation>
 <translation id="4404136731284211429">Skeniraj ponovo</translation>
 <translation id="4404843640767531781">Roditelj blokira aplikaciju <ph name="APP_NAME" />. Zatraži od roditelja dozvolu za korišćenje ove aplikacije.</translation>
 <translation id="4405117686468554883">*.jpeg, *.jpg, *.png</translation>
@@ -4435,8 +4434,6 @@ Vodite računa da ne otkrijete nikakve osetljive informacije.</translation>
 <translation id="6242852299490624841">Stavi ovu karticu u fokus</translation>
 <translation id="6243280677745499710">Trenutno podešena</translation>
 <translation id="6243774244933267674">Server je nedostupan</translation>
-<translation id="6244185221716469155">Slabe lozinke lako mogu da se pogode. Obavezno napravite jake lozinke.
-    <ph name="BEGIN_LINK" />Pogledajte još saveta za bezbednost.<ph name="END_LINK" /></translation>
 <translation id="6244245036423700521">Uvezi ONC datoteku</translation>
 <translation id="6246790815526961700">Otpremite sa uređaja</translation>
 <translation id="6247620186971210352">Nije pronađena nijedna aplikacija</translation>
@@ -5364,6 +5361,7 @@ Vodite računa da ne otkrijete nikakve osetljive informacije.</translation>
 <translation id="7375235221357833624">{0,plural, =1{Ažurirajte uređaj u roku od jednog sata}one{Ažurirajte uređaj u roku od # sata}few{Ažurirajte uređaj u roku od # sata}other{Ažurirajte uređaj u roku od # sati}}</translation>
 <translation id="7376553024552204454">Ističi kursor miša dok se kreće</translation>
 <translation id="7377451353532943397">Nastavi da blokiraš pristup senzorima</translation>
+<translation id="7378611153938412599">Slabe lozinke lako mogu da se pogode. Obavezno napravite jake lozinke. <ph name="BEGIN_LINK" />Pogledajte još saveta za bezbednost.<ph name="END_LINK" /></translation>
 <translation id="73786666777299047">Otvorite Chrome veb-prodavnicu</translation>
 <translation id="7378812711085314936">Korišćenje veze za prenos podataka</translation>
 <translation id="7380622428988553498">Ime uređaja sadrži nevažeće znakove</translation>
@@ -6342,6 +6340,7 @@ Datoteka ključa: <ph name="KEY_FILE" />
 <translation id="850875081535031620">Nije pronađen nikakav štetan softver</translation>
 <translation id="8509177919508253835">Resetujte bezbednosne ključeve i napravite PIN-ove</translation>
 <translation id="8509646642152301857">Preuzimanje rečnika za proveru pravopisa nije uspelo.</translation>
+<translation id="8512396579636492893">{COUNT,plural, =0{Nije pronađena nijedna slaba lozinka}=1{Pronađena je {COUNT} slaba lozinka}one{Pronađena je {COUNT} slaba lozinka}few{Pronađene su {COUNT} slabe lozinke}other{Pronađeno je {COUNT} slabih lozinki}}</translation>
 <translation id="8512476990829870887">Završi proces</translation>
 <translation id="851263357009351303">Uvek dozvoli sajtu <ph name="HOST" /> da prikazuje slike</translation>
 <translation id="8513108775083588393">Autom. rotir.</translation>

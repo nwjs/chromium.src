@@ -2798,6 +2798,7 @@
 <translation id="425573743389990240">อัตราการใช้แบตเตอรี่เป็นวัตต์ (ค่าลบหมายถึงแบตเตอรี่กำลังชาร์จ)</translation>
 <translation id="4256316378292851214">บั&amp;นทึกวิดีโอเป็น...</translation>
 <translation id="4258348331913189841">ระบบไฟล์</translation>
+<translation id="4259388776256904261">อาจใช้เวลาสักครู่</translation>
 <translation id="4260182282978351200"><ph name="FILE_NAME" /> อาจเป็นอันตราย ส่งไปให้การปกป้องขั้นสูงของ Google สแกนไหม กด Shift+F6 เพื่อวนไปยังบริเวณแถบดาวน์โหลด</translation>
 <translation id="4263223596040212967">โปรดตรวจสอบรูปแบบแป้นพิมพ์แล้วลองอีกครั้ง</translation>
 <translation id="4263757076580287579">การลงทะเบียนเครื่องพิมพ์ถูกยกเลิก</translation>
@@ -4435,8 +4436,6 @@
 <translation id="6242852299490624841">โฟกัสแท็บนี้</translation>
 <translation id="6243280677745499710">วอลเปเปอร์ปัจจุบัน</translation>
 <translation id="6243774244933267674">เซิร์ฟเวอร์ไม่พร้อมใช้งาน</translation>
-<translation id="6244185221716469155">รหัสผ่านที่ไม่รัดกุมนั้นคาดเดาได้ง่าย ตรวจสอบว่าคุณกำลังตั้งรหัสผ่านที่รัดกุม
-    <ph name="BEGIN_LINK" />ดูเคล็ดลับความปลอดภัยเพิ่มเติม<ph name="END_LINK" /></translation>
 <translation id="6244245036423700521">นำเข้าไฟล์ ONC</translation>
 <translation id="6246790815526961700">อัปโหลดจากอุปกรณ์</translation>
 <translation id="6247620186971210352">ไม่พบแอป</translation>
@@ -4944,7 +4943,7 @@
 <translation id="686022878923628150">บล็อกเว็บไซต์ไม่ให้เชื่อมต่อกับอุปกรณ์ MIDI</translation>
 <translation id="6860427144121307915">เปิดในแท็บ</translation>
 <translation id="686366188661646310">ลบรหัสผ่านไหม</translation>
-<translation id="6865313869410766144">ข้อมูลฟอร์มที่ป้อนอัตโนมัติ</translation>
+<translation id="6865313869410766144">ข้อมูลแบบฟอร์มที่ป้อนอัตโนมัติ</translation>
 <translation id="6865598234501509159">หน้านี้ไม่ใช่ภาษา<ph name="LANGUAGE" /></translation>
 <translation id="6865708901122695652">บันทึกเหตุการณ์ WebRTC (<ph name="WEBRTC_EVENT_LOG_COUNT" />)</translation>
 <translation id="686664946474413495">อุณหภูมิสี</translation>
@@ -5058,6 +5057,7 @@
 <translation id="6995899638241819463">เตือนคุณในกรณีที่รหัสผ่านรั่วไหลจากการละเมิดข้อมูล</translation>
 <translation id="6997642619627518301"><ph name="NAME_PH" /> - บันทึกกิจกรรม</translation>
 <translation id="6997707937646349884">บนอุปกรณ์ของคุณ:</translation>
+<translation id="6998093258894828179">ซ่อนการ์ด</translation>
 <translation id="6998793565256476099">ลงทะเบียนอุปกรณ์สำหรับการประชุมทางวิดีโอ</translation>
 <translation id="6999956497249459195">กลุ่มใหม่</translation>
 <translation id="7000206553895739324"><ph name="PRINTER_NAME" /> เชื่อมต่อแล้วแต่ต้องกำหนดค่า</translation>
@@ -5363,6 +5363,7 @@
 <translation id="7375235221357833624">{0,plural, =1{อัปเดตอุปกรณ์ภายใน 1 ชั่วโมง}other{อัปเดตอุปกรณ์ภายใน # ชั่วโมง}}</translation>
 <translation id="7376553024552204454">ไฮไลต์เคอร์เซอร์เมาส์เมื่อขยับ</translation>
 <translation id="7377451353532943397">บล็อกการเข้าถึงเซ็นเซอร์ต่อไป</translation>
+<translation id="7378611153938412599">รหัสผ่านที่ไม่รัดกุมนั้นคาดเดาได้ง่าย ตรวจสอบว่าคุณกำลังตั้งรหัสผ่านที่รัดกุม <ph name="BEGIN_LINK" />ดูเคล็ดลับความปลอดภัยเพิ่มเติม<ph name="END_LINK" /></translation>
 <translation id="73786666777299047">เปิด Chrome เว็บสโตร์</translation>
 <translation id="7378812711085314936">ขอเชื่อมต่อข้อมูล</translation>
 <translation id="7380622428988553498">ชื่ออุปกรณ์มีอักขระที่ไม่ถูกต้อง</translation>
@@ -5728,6 +5729,7 @@
 <translation id="7798844538707273832">บล็อก<ph name="PERMISSION" />โดยอัตโนมัติ</translation>
 <translation id="7799299114731150374">ตั้งค่าวอลเปเปอร์เรียบร้อยแล้ว</translation>
 <translation id="7800518121066352902">หมุน&amp;ทวนเข็มนาฬิกา</translation>
+<translation id="7802539296536804623">ไม่แสดงการ์ดในหน้านี้</translation>
 <translation id="780301667611848630">ไม่ ขอบคุณ</translation>
 <translation id="7804072833593604762">ปิดแท็บแล้ว</translation>
 <translation id="7805768142964895445">สถานะ</translation>
@@ -6180,6 +6182,7 @@
 <translation id="8300011035382349091">แก้ไขบุ๊กมาร์กของแท็บนี้</translation>
 <translation id="8300374739238450534">สีน้ำเงินแก่</translation>
 <translation id="8300849813060516376">OTASP ล้มเหลว</translation>
+<translation id="8304383784961451596">คุณไม่ได้รับอนุญาตให้ใช้อุปกรณ์นี้ โปรดติดต่อผู้ดูแลระบบเพื่อขอสิทธิ์ลงชื่อเข้าใช้ หรือลงชื่อเข้าใช้ด้วยบัญชี Google ที่อยู่ภายใต้การควบคุมดูแลของ Family Link</translation>
 <translation id="8308179586020895837">ถามว่า <ph name="HOST" /> ต้องการเข้าถึงกล้องของคุณไหม</translation>
 <translation id="830868413617744215">เบต้า</translation>
 <translation id="8309458809024885768">มีใบรับรองนี้อยู่แล้ว</translation>
@@ -6339,6 +6342,7 @@
 <translation id="850875081535031620">ไม่พบซอฟต์แวร์ที่เป็นอันตราย</translation>
 <translation id="8509177919508253835">รีเซ็ตคีย์ความปลอดภัยและสร้าง PIN</translation>
 <translation id="8509646642152301857">การดาวน์โหลดพจนานุกรมตรวจสอบการสะกดล้มเหลว</translation>
+<translation id="8512396579636492893">{COUNT,plural, =0{ไม่พบรหัสผ่านที่ไม่รัดกุม}=1{พบรหัสผ่านที่ไม่รัดกุม {COUNT} รายการ}other{พบรหัสผ่านที่ไม่รัดกุม {COUNT} รายการ}}</translation>
 <translation id="8512476990829870887">สิ้นสุดกระบวนการ</translation>
 <translation id="851263357009351303">อนุญาตให้ <ph name="HOST" /> แสดงภาพเสมอ</translation>
 <translation id="8513108775083588393">หมุนอัตโนมัติ</translation>

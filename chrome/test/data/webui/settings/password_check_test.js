@@ -12,11 +12,12 @@ import {webUIListenerCallback} from 'chrome://resources/js/cr.m.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.m.js';
 import {PluralStringProxyImpl} from 'chrome://resources/js/plural_string_proxy.js';
 import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
-import {OpenWindowProxyImpl, PasswordManagerImpl, PasswordManagerProxy, Router, routes} from 'chrome://settings/settings.js';
+import {OpenWindowProxyImpl, PasswordManagerImpl, PasswordManagerProxy, Router, routes, SyncBrowserProxyImpl} from 'chrome://settings/settings.js';
 import {makeCompromisedCredential, makeInsecureCredential, makePasswordCheckStatus} from 'chrome://test/settings/passwords_and_autofill_fake_data.js';
 import {getSyncAllPrefs,simulateSyncStatus} from 'chrome://test/settings/sync_test_util.m.js';
 import {TestOpenWindowProxy} from 'chrome://test/settings/test_open_window_proxy.js';
 import {TestPasswordManagerProxy} from 'chrome://test/settings/test_password_manager_proxy.js';
+import {TestSyncBrowserProxy} from 'chrome://test/settings/test_sync_browser_proxy.m.js';
 import {eventToPromise} from 'chrome://test/test_util.m.js';
 
 // clang-format on
@@ -121,7 +122,9 @@ function validateInsecurePasswordsList(
   const listElements = isCompromised ?
       checkPasswordSection.$.leakedPasswordList :
       checkPasswordSection.$.weakPasswordList;
-  assertEquals(listElements.items.length, insecureCredentials.length);
+  assertEquals(
+      listElements.querySelector('dom-repeat').items.length,
+      insecureCredentials.length);
   const nodes = checkPasswordSection.shadowRoot.querySelectorAll(
       'password-check-list-item');
   for (let index = 0; index < insecureCredentials.length; ++index) {
@@ -166,11 +169,19 @@ suite('PasswordsCheckSection', function() {
   /** @type {TestPasswordManagerProxy} */
   let passwordManager = null;
 
+  /** @type {TestSyncBrowserProxy} */
+  let syncBrowserProxy = null;
+
   setup(function() {
     PolymerTest.clearBody();
     // Override the PasswordManagerImpl for testing.
     passwordManager = new TestPasswordManagerProxy();
     PasswordManagerImpl.instance_ = passwordManager;
+
+    // Override the SyncBrowserProxyImpl for testing.
+    syncBrowserProxy = new TestSyncBrowserProxy();
+    SyncBrowserProxyImpl.instance_ = syncBrowserProxy;
+    syncBrowserProxy.syncStatus = {signedIn: false};
   });
 
   // Test verifies that clicking 'Check again' make proper function call to
@@ -246,9 +257,8 @@ suite('PasswordsCheckSection', function() {
 
     const section = createCheckPasswordSection();
     webUIListenerCallback('sync-prefs-changed', getSyncAllPrefs());
-    simulateSyncStatus({signedIn: true});
-
     await passwordManager.whenCalled('getPasswordCheckStatus');
+    simulateSyncStatus({signedIn: true});
     expectEquals(
         section.i18n('checkPasswordsErrorQuotaGoogleAccount'),
         section.$.title.innerText);
@@ -263,8 +273,6 @@ suite('PasswordsCheckSection', function() {
 
     const section = createCheckPasswordSection();
     webUIListenerCallback('sync-prefs-changed', getSyncAllPrefs());
-    simulateSyncStatus({signedIn: false});
-
     await passwordManager.whenCalled('getPasswordCheckStatus');
     flush();
     expectEquals(
@@ -282,9 +290,8 @@ suite('PasswordsCheckSection', function() {
     const syncPrefs = getSyncAllPrefs();
     syncPrefs.encryptAllData = true;
     webUIListenerCallback('sync-prefs-changed', syncPrefs);
-    simulateSyncStatus({signedIn: true});
-
     await passwordManager.whenCalled('getPasswordCheckStatus');
+    simulateSyncStatus({signedIn: true});
     flush();
     expectEquals(
         section.i18n('checkPasswordsErrorQuota'), section.$.title.innerText);
@@ -319,9 +326,6 @@ suite('PasswordsCheckSection', function() {
         /*state=*/ PasswordCheckState.SIGNED_OUT);
     const section = createCheckPasswordSection();
     webUIListenerCallback('stored-accounts-updated', []);
-    if (isChromeOS) {
-      simulateSyncStatus({signedIn: false});
-    }
     await passwordManager.whenCalled('getPasswordCheckStatus');
     flush();
     expectFalse(isElementVisible(section.$.controlPasswordCheckButton));
@@ -350,9 +354,6 @@ suite('PasswordsCheckSection', function() {
         /*state=*/ PasswordCheckState.SIGNED_OUT);
     const section = createCheckPasswordSection();
     webUIListenerCallback('stored-accounts-updated', []);
-    if (isChromeOS) {
-      simulateSyncStatus({signedIn: false});
-    }
     await passwordManager.whenCalled('getPasswordCheckStatus');
     flush();
     expectTrue(isElementVisible(section.$.controlPasswordCheckButton));
@@ -414,12 +415,12 @@ suite('PasswordsCheckSection', function() {
     const section = createCheckPasswordSection();
     assertFalse(isElementVisible(section.$.noCompromisedCredentials));
     webUIListenerCallback('sync-prefs-changed', getSyncAllPrefs());
-    simulateSyncStatus({signedIn: true});
 
     // Initialize with dummy data breach detection settings
     section.prefs = {profile: {password_manager_leak_detection: {value: true}}};
 
     await passwordManager.whenCalled('getPasswordCheckStatus');
+    simulateSyncStatus({signedIn: true});
     flush();
     assertFalse(isElementVisible(section.$.compromisedCredentialsBody));
     assertTrue(isElementVisible(section.$.noCompromisedCredentials));
@@ -441,12 +442,12 @@ suite('PasswordsCheckSection', function() {
     const section = createCheckPasswordSection();
     assertFalse(isElementVisible(section.$.noCompromisedCredentials));
     webUIListenerCallback('sync-prefs-changed', getSyncAllPrefs());
-    simulateSyncStatus({signedIn: true});
 
     // Initialize with dummy data breach detection settings
     section.prefs = {profile: {password_manager_leak_detection: {value: true}}};
 
     await passwordManager.whenCalled('getPasswordCheckStatus');
+    simulateSyncStatus({signedIn: true});
     flush();
     assertFalse(isElementVisible(section.$.compromisedCredentialsBody));
     assertTrue(isElementVisible(section.$.noCompromisedCredentials));
@@ -534,6 +535,26 @@ suite('PasswordsCheckSection', function() {
     assertEquals('one.com', formattedOrigin);
   });
 
+  // Tests that a secure change password URL gets linkified in the remove
+  // password confirmation dialog.
+  test('secureChangePasswordUrlInRemovePasswordConfirmationDialog', () => {
+    const entry = makeCompromisedCredential('one.com', 'test4', 'LEAKED', 0);
+    entry.changePasswordUrl = 'https://one.com';
+    const removeDialog = createRemovePasswordDialog(entry);
+    assertTrue(isElementVisible(removeDialog.$.link));
+    assertFalse(isElementVisible(removeDialog.$.text));
+  });
+
+  // Tests that an insecure change password URL does not get linkified in the
+  // remove password confirmation dialog.
+  test('insecureChangePasswordUrlInRemovePasswordConfirmationDialog', () => {
+    const entry = makeCompromisedCredential('one.com', 'test4', 'LEAKED', 0);
+    entry.changePasswordUrl = 'http://one.com';
+    const removeDialog = createRemovePasswordDialog(entry);
+    assertFalse(isElementVisible(removeDialog.$.link));
+    assertTrue(isElementVisible(removeDialog.$.text));
+  });
+
   // A changing status is immediately reflected in title, icon and banner.
   test('updatesNumberOfCheckedPasswordsWhileRunning', async function() {
     passwordManager.data.checkStatus = makePasswordCheckStatus(
@@ -599,6 +620,7 @@ suite('PasswordsCheckSection', function() {
 
   // Tests that there is neither spinner nor icon if the check hasn't run yet.
   test('iconWhenFirstRunIsPending', async function() {
+    loadTimeData.overrideValues({passwordsWeaknessCheck: false});
     const data = passwordManager.data;
     assertEquals(0, data.leakedCredentials.length);
     data.checkStatus = makePasswordCheckStatus(PasswordCheckState.IDLE);
@@ -720,7 +742,7 @@ suite('PasswordsCheckSection', function() {
   });
 
   // If passwords weakness check is enabled, shows count of insecure
-  // credentials.
+  // credentials, if compromised credentials exist.
   test('showInsecurePasswordsCount', async function() {
     loadTimeData.overrideValues({passwordsWeaknessCheck: true});
     const data = passwordManager.data;
@@ -737,11 +759,51 @@ suite('PasswordsCheckSection', function() {
     const subtitle = section.$.subtitle;
     assertTrue(isElementVisible(subtitle));
 
-    return PluralStringProxyImpl.getInstance()
-        .getPluralString('insecurePasswords', 2)
-        .then(count => {
-          expectEquals(count, subtitle.textContent.trim());
-        });
+    const count = await PluralStringProxyImpl.getInstance().getPluralString(
+        'insecurePasswords', 2);
+    expectEquals(count, subtitle.textContent.trim());
+  });
+
+  // If passwords weakness check is enabled, shows count of weak
+  // credentials, if no compromised credentials exist.
+  test('showWeakPasswordsCountSignedIn', async function() {
+    loadTimeData.overrideValues({passwordsWeaknessCheck: true});
+    passwordManager.data.weakCredentials = [
+      makeInsecureCredential('one.com', 'test4'),
+      makeInsecureCredential('two.com', 'test5'),
+    ];
+
+    const section = createCheckPasswordSection();
+    webUIListenerCallback('sync-prefs-changed', getSyncAllPrefs());
+    await passwordManager.whenCalled('getPasswordCheckStatus');
+    simulateSyncStatus({signedIn: true});
+    flush();
+    const subtitle = section.$.subtitle;
+    assertTrue(isElementVisible(subtitle));
+
+    const count = await PluralStringProxyImpl.getInstance().getPluralString(
+        'insecurePasswords', 2);
+    expectEquals(count, subtitle.textContent.trim());
+  });
+
+  // If passwords weakness check is enabled, shows count of weak credentials, if
+  // no compromised credentials exist and the user is signed out.
+  test('showWeakPasswordsCountSignedOut', async function() {
+    loadTimeData.overrideValues({passwordsWeaknessCheck: true});
+    passwordManager.data.weakCredentials = [
+      makeInsecureCredential('one.com', 'test4'),
+      makeInsecureCredential('two.com', 'test5'),
+    ];
+
+    const section = createCheckPasswordSection();
+    await passwordManager.whenCalled('getPasswordCheckStatus');
+    flush();
+    const subtitle = section.$.subtitle;
+    assertTrue(isElementVisible(subtitle));
+
+    const count = await PluralStringProxyImpl.getInstance().getPluralString(
+        'weakPasswords', 2);
+    expectEquals(count, subtitle.textContent.trim());
   });
 
   // If passwords weakness check is disabled, shows count of compromised
@@ -769,7 +831,7 @@ suite('PasswordsCheckSection', function() {
 
   // Verify that weak passwords section is shown, if |passwordsWeaknessCheck|
   // flag is enabled.
-  test('showWeakPasswords', async function() {
+  test('showWeakPasswordsSyncing', async function() {
     loadTimeData.overrideValues({passwordsWeaknessCheck: true});
     const weakCredentials = [
       makeInsecureCredential('one.com', 'test1'),
@@ -778,10 +840,35 @@ suite('PasswordsCheckSection', function() {
     passwordManager.data.weakCredentials = weakCredentials;
 
     const section = createCheckPasswordSection();
+    webUIListenerCallback('sync-prefs-changed', getSyncAllPrefs());
+    await passwordManager.whenCalled('getPasswordCheckStatus');
+    simulateSyncStatus({signedIn: true});
+    flush();
+
+    assertTrue(isElementVisible(section.$.weakCredentialsBody));
+    expectEquals(
+        section.i18n('weakPasswordsDescriptionGeneration'),
+        section.$.weakPasswordsDescription.innerText);
+    validateInsecurePasswordsList(section, weakCredentials, false);
+  });
+
+  test('showWeakPasswordsSignedOut', async function() {
+    loadTimeData.overrideValues({passwordsWeaknessCheck: true});
+    const weakCredentials = [
+      makeInsecureCredential('one.com', 'test1'),
+      makeInsecureCredential('two.com', 'test2'),
+    ];
+    passwordManager.data.weakCredentials = weakCredentials;
+
+    const section = createCheckPasswordSection();
+    webUIListenerCallback('sync-prefs-changed', getSyncAllPrefs());
     await passwordManager.whenCalled('getPasswordCheckStatus');
     flush();
 
     assertTrue(isElementVisible(section.$.weakCredentialsBody));
+    expectEquals(
+        section.i18n('weakPasswordsDescription'),
+        section.$.weakPasswordsDescription.innerText);
     validateInsecurePasswordsList(section, weakCredentials, false);
   });
 
@@ -907,7 +994,6 @@ suite('PasswordsCheckSection', function() {
     passwordManager.data.leakedCredentials =
         [makeCompromisedCredential('one.com', 'test4', 'LEAKED', 1)];
     const section = createCheckPasswordSection();
-    simulateSyncStatus({signedIn: false});
     await passwordManager.whenCalled('getPasswordCheckStatus');
     flush();
 
@@ -916,11 +1002,10 @@ suite('PasswordsCheckSection', function() {
     assertTrue(isElementVisible(title));
     expectEquals(section.i18n('checkedPasswords'), title.innerText);
     assertTrue(isElementVisible(subtitle));
-    await PluralStringProxyImpl.getInstance()
-        .getPluralString('insecurePasswords', 2)
-        .then(count => {
-          expectEquals(count, subtitle.textContent.trim());
-        });
+    const count = await PluralStringProxyImpl.getInstance().getPluralString(
+        'insecurePasswords', 2);
+    expectEquals(count, subtitle.textContent.trim());
+
     expectTrue(
         section.$$('iron-icon').classList.contains('has-security-issues'));
     expectFalse(
@@ -947,7 +1032,6 @@ suite('PasswordsCheckSection', function() {
     passwordManager.data.checkStatus =
         makePasswordCheckStatus(PasswordCheckState.SIGNED_OUT);
     const section = createCheckPasswordSection();
-    simulateSyncStatus({signedIn: false});
     await passwordManager.whenCalled('getPasswordCheckStatus');
     flush();
 
@@ -1248,7 +1332,7 @@ suite('PasswordsCheckSection', function() {
     await passwordManager.whenCalled('getCompromisedCredentials');
     flush();
     const listElements = checkPasswordSection.$.leakedPasswordList;
-    const node = listElements.children[1];
+    const node = listElements.children[0];
 
     // Open the more actions menu and click 'Edit Password'.
     node.$.more.click();
@@ -1276,7 +1360,7 @@ suite('PasswordsCheckSection', function() {
     await passwordManager.whenCalled('getCompromisedCredentials');
     flush();
     const listElements = checkPasswordSection.$.leakedPasswordList;
-    const node = listElements.children[1];
+    const node = listElements.children[0];
 
     // Open the more actions menu and click 'Edit Password'.
     node.$.more.click();
@@ -1361,7 +1445,7 @@ suite('PasswordsCheckSection', function() {
 
     flush();
     const listElements = checkPasswordSection.$.leakedPasswordList;
-    const node = listElements.children[1];
+    const node = listElements.children[0];
     assertEquals('password', node.$.insecurePassword.type);
     assertNotEquals('test4', node.$.insecurePassword.value);
 
@@ -1398,7 +1482,7 @@ suite('PasswordsCheckSection', function() {
 
     flush();
     const listElements = checkPasswordSection.$.leakedPasswordList;
-    const node = listElements.children[1];
+    const node = listElements.children[0];
     assertEquals('password', node.$.insecurePassword.type);
     assertNotEquals('test4', node.$.insecurePassword.value);
 
@@ -1419,7 +1503,7 @@ suite('PasswordsCheckSection', function() {
     await passwordManager.whenCalled('getCompromisedCredentials');
     flush();
     const listElements = checkPasswordSection.$.leakedPasswordList;
-    const passwordCheckListItem = listElements.children[1];
+    const passwordCheckListItem = listElements.children[0];
 
     assertFalse(isElementVisible(passwordCheckListItem.$$('#alreadyChanged')));
     passwordCheckListItem.$$('#changePasswordButton').click();
@@ -1438,7 +1522,7 @@ suite('PasswordsCheckSection', function() {
 
     flush();
     const listElements = checkPasswordSection.$.leakedPasswordList;
-    const node = listElements.children[1];
+    const node = listElements.children[0];
     // Clicking change password to show "Already changed password" link
     node.$$('#changePasswordButton').click();
     flush();
@@ -1467,7 +1551,7 @@ suite('PasswordsCheckSection', function() {
 
       flush();
       const listElements = checkPasswordSection.$.leakedPasswordList;
-      const node = listElements.children[1];
+      const node = listElements.children[0];
 
       // Open the more actions menu and click 'Show Password'.
       node.$.more.click();

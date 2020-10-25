@@ -2906,7 +2906,6 @@ Postavkama ovog računa možete upravljati instaliranjem aplikacije Family Link 
 <translation id="4400632832271803360">Držite tipku Pokretač da promijenite ponašanje tipki u gornjem redu</translation>
 <translation id="4400963414856942668">Možete kliknuti na zvjezdicu da označite karticu</translation>
 <translation id="4403775189117163360">Odaberi drugi folder</translation>
-<translation id="440391631796167175">Nije pronađena nijedna slaba lozinka</translation>
 <translation id="4404136731284211429">Ponovo skeniraj</translation>
 <translation id="4404843640767531781">Tvoj roditelj je blokirao aplikaciju <ph name="APP_NAME" />. Traži od roditelja odobrenje da koristiš ovu aplikaciju.</translation>
 <translation id="4405117686468554883">*.jpeg, *.jpg, *.png</translation>
@@ -4437,8 +4436,6 @@ Postavkama ovog računa možete upravljati instaliranjem aplikacije Family Link 
 <translation id="6242852299490624841">Fokusiraj ovu karticu</translation>
 <translation id="6243280677745499710">Trenutačno postavljeno</translation>
 <translation id="6243774244933267674">Server je nedostupan</translation>
-<translation id="6244185221716469155">Slabe lozinke je lako pogoditi. Vodite računa da kreirate jake lozinke.
-    <ph name="BEGIN_LINK" />Pogledajte još sigurnosnih savjeta.<ph name="END_LINK" /></translation>
 <translation id="6244245036423700521">Uvezi ONC fajl</translation>
 <translation id="6246790815526961700">Otpremi s uređaja</translation>
 <translation id="6247620186971210352">Nije pronađena nijedna aplikacija</translation>
@@ -5366,6 +5363,7 @@ Postavkama ovog računa možete upravljati instaliranjem aplikacije Family Link 
 <translation id="7375235221357833624">{0,plural, =1{Ažurirajte uređaj u roku od jednog sata}one{Ažurirajte uređaj u roku od # sata}few{Ažurirajte uređaj u roku od # sata}other{Ažurirajte uređaj u roku od # sati}}</translation>
 <translation id="7376553024552204454">Istakni kursor miša u pokretu</translation>
 <translation id="7377451353532943397">Nastavi blokirati pristup senzoru</translation>
+<translation id="7378611153938412599">Slabe lozinke je lako pogoditi. Vodite računa da kreirate jake lozinke. <ph name="BEGIN_LINK" />Pogledajte još sigurnosnih savjeta.<ph name="END_LINK" /></translation>
 <translation id="73786666777299047">Otvorite Chrome Web trgovinu</translation>
 <translation id="7378812711085314936">Obezbijedite vezu za prijenos podataka</translation>
 <translation id="7380622428988553498">Naziv uređaja sadrži nevažeće znakove</translation>
@@ -5785,7 +5783,7 @@ Postavkama ovog računa možete upravljati instaliranjem aplikacije Family Link 
 <translation id="7839192898639727867">Potvrda ID ključa za subjekat</translation>
 <translation id="7842692330619197998">Ako trebate kreirati novi račun, posjetite g.co/ChromeEnterpriseAccount.</translation>
 <translation id="784273751836026224">Deinstalirajte Linux</translation>
-<translation id="7844553762889824470">Istaknite šta želite čuti, a zatim pritisnite Search + S. Za odabir možete pritisnuti i držati ključ za pretraživanje ili dodirnuti ikonu Odaberite za govor u blizini vaše slike profila.</translation>
+<translation id="7844553762889824470">Istaknite šta želite čuti, a zatim pritisnite Search + S. Za odabir možete pritisnuti i držati tipku za pretraživanje ili dodirnuti ikonu Odaberite za govor u blizini vaše slike profila.</translation>
 <translation id="7844992432319478437">Ažuriranje diff-a</translation>
 <translation id="7846634333498149051">Tastatura</translation>
 <translation id="7847212883280406910">Pritisnite Ctrl + Alt + S da se prebacite na <ph name="IDS_SHORT_PRODUCT_OS_NAME" /></translation>
@@ -6184,7 +6182,7 @@ Fajl ključa: <ph name="KEY_FILE" />
 <translation id="8300011035382349091">Uredite oznaku za ovu karticu</translation>
 <translation id="8300374739238450534">Ponoćno plava</translation>
 <translation id="8300849813060516376">Greška na OTASP-u</translation>
-<translation id="8304383784961451596">Nemate odobrenje za korištenje ovog uređaja. Kontaktirajte administratora zbog odobrenja za prijavu ili se prijavite s Google računom koga nadzire Family Link.</translation>
+<translation id="8304383784961451596">Nemate odobrenje za korištenje ovog uređaja. Kontaktirajte administratora zbog odobrenja za prijavu ili se prijavite s Google računom kojeg nadzire Family Link.</translation>
 <translation id="8308179586020895837">Pitaj ako <ph name="HOST" /> želi pristupiti kameri</translation>
 <translation id="830868413617744215">Beta</translation>
 <translation id="8309458809024885768">Potvrda već postoji</translation>
@@ -6344,6 +6342,7 @@ Fajl ključa: <ph name="KEY_FILE" />
 <translation id="850875081535031620">Nije pronađen nijedan štetan softver</translation>
 <translation id="8509177919508253835">Poništite sigurnosne ključeve i kreirajte PIN-ove</translation>
 <translation id="8509646642152301857">Preuzimanje rječnika za provjeru pravopisa nije uspjelo.</translation>
+<translation id="8512396579636492893">{COUNT,plural, =0{Nije pronađena nijedna slaba lozinka}=1{Pronađena je {COUNT} slaba lozinka}one{Pronađena je {COUNT} slaba lozinka}few{Pronađene su {COUNT} slabe lozinke}other{Pronađeno je {COUNT} slabih lozinki}}</translation>
 <translation id="8512476990829870887">Završi proces</translation>
 <translation id="851263357009351303">Uvijek dozvoli da <ph name="HOST" /> prikazuje slike</translation>
 <translation id="8513108775083588393">Aut. rotiranje</translation>

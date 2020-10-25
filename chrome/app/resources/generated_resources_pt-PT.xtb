@@ -2906,7 +2906,6 @@ Pretende pará-lo?</translation>
 <translation id="4400632832271803360">Prima sem soltar a tecla do iniciador para alterar o comportamento das teclas da linha superior.</translation>
 <translation id="4400963414856942668">Pode clicar na estrela para adicionar um separador aos marcadores</translation>
 <translation id="4403775189117163360">Escolher uma pasta diferente</translation>
-<translation id="440391631796167175">Não foram encontradas palavras-passe fracas.</translation>
 <translation id="4404136731284211429">Procurar novamente</translation>
 <translation id="4404843640767531781">A app <ph name="APP_NAME" /> foi bloqueada pelo teu Pai ou Mãe. Solicita autorização ao teu Pai ou Mãe para utilizares esta app.</translation>
 <translation id="4405117686468554883">*.jpeg, *.jpg, *.png</translation>
@@ -4438,8 +4437,6 @@ Certifique-se de que não revela informações confidenciais.</translation>
 <translation id="6242852299490624841">Focar este separador</translation>
 <translation id="6243280677745499710">Definida atualmente</translation>
 <translation id="6243774244933267674">Servidor indisponível</translation>
-<translation id="6244185221716469155">As palavras-passe fracas são fáceis de adivinhar. Certifique-se de que cria palavras-passe fortes.
-    <ph name="BEGIN_LINK" />Veja mais sugestões de segurança.<ph name="END_LINK" /></translation>
 <translation id="6244245036423700521">Importar ficheiro ONC</translation>
 <translation id="6246790815526961700">Carregar a partir do dispositivo</translation>
 <translation id="6247620186971210352">Não foram encontradas aplicações.</translation>
@@ -5367,6 +5364,7 @@ Certifique-se de que não revela informações confidenciais.</translation>
 <translation id="7375235221357833624">{0,plural, =1{Atualize o dispositivo dentro de uma hora}other{Atualize o dispositivo dentro de # horas}}</translation>
 <translation id="7376553024552204454">Realçar o cursor do rato ao ser movido</translation>
 <translation id="7377451353532943397">Continuar a impedir o acesso aos sensores</translation>
+<translation id="7378611153938412599">As palavras-passe fracas são fáceis de adivinhar. Certifique-se de que cria palavras-passe fortes. <ph name="BEGIN_LINK" />Veja mais sugestões de segurança.<ph name="END_LINK" /></translation>
 <translation id="73786666777299047">Abrir a Web Store do Chrome</translation>
 <translation id="7378812711085314936">Obter ligação de dados</translation>
 <translation id="7380622428988553498">O nome do dispositivo contém carateres inválidos.</translation>
@@ -6344,6 +6342,7 @@ Mantenha o seu ficheiro de chave num local seguro, pois irá precisar dele para 
 <translation id="850875081535031620">Não foi encontrado software prejudicial.</translation>
 <translation id="8509177919508253835">Reponha chaves de segurança e crie PINs</translation>
 <translation id="8509646642152301857">Falha na transferência do dicionário de verificação ortográfica.</translation>
+<translation id="8512396579636492893">{COUNT,plural, =0{Não foram encontradas palavras-passe fracas.}=1{{COUNT} palavra-passe fraca encontrada.}other{{COUNT} palavra-passes fracas encontradas.}}</translation>
 <translation id="8512476990829870887">Terminar Processo</translation>
 <translation id="851263357009351303">Permitir sempre que o site <ph name="HOST" /> mostre imagens</translation>
 <translation id="8513108775083588393">Rotação auto.</translation>

@@ -71,6 +71,12 @@ Polymer({
       computed: 'computeIsSignedOut_(syncStatus_, storedAccounts_)',
     },
 
+    /** @private */
+    isSyncingPasswords_: {
+      type: Boolean,
+      computed: 'computeIsSyncingPasswords_(syncPrefs_, syncStatus_)',
+    },
+
     canUsePasswordCheckup_: {
       type: Boolean,
       computed: 'computeCanUsePasswordCheckup_(syncPrefs_, syncStatus_)',
@@ -197,12 +203,13 @@ Polymer({
     const syncStatusChanged = syncStatus => this.syncStatus_ = syncStatus;
     const syncPrefsChanged = syncPrefs => this.syncPrefs_ = syncPrefs;
 
-    // Request initial data.
-    syncBrowserProxy.getSyncStatus().then(syncStatusChanged);
-
     // Listen for changes.
     this.addWebUIListener('sync-status-changed', syncStatusChanged);
     this.addWebUIListener('sync-prefs-changed', syncPrefsChanged);
+
+    // Request initial data.
+    syncBrowserProxy.getSyncStatus().then(syncStatusChanged);
+    syncBrowserProxy.sendSyncPrefsChanged();
 
     // For non-ChromeOS, also check whether accounts are available.
     // <if expr="not chromeos">
@@ -307,6 +314,18 @@ Polymer({
    */
   hasInsecureCredentials_() {
     return !!this.leakedPasswords.length || this.hasWeakCredentials_();
+  },
+
+  /**
+   * Returns a relevant help text for weak passwords. Contains a link that
+   * depends on whether the user is syncing passwords or not.
+   * @return {string}
+   * @private
+   */
+  getWeakPasswordsHelpText_() {
+    return this.i18nAdvanced(
+        this.isSyncingPasswords_ ? 'weakPasswordsDescriptionGeneration' :
+                                   'weakPasswordsDescription');
   },
 
   /**
@@ -654,22 +673,20 @@ Polymer({
   },
 
   /**
-   * Returns count of insecure credentials, if |passwordsWeaknessCheckEnabled|
-   * is true, otherwise, returns count of compromised credentials.
+   * Returns a localized and pluralized string of the passwords count, depending
+   * on whether the weak check feature is enabled, whether the user is signed in
+   * and whether other compromised passwords exist.
    * @return {string}
    * @private
    */
   getPasswordsCount_() {
-    if (this.passwordsWeaknessCheckEnabled) {
-      if (this.isSignedOut_ &&
-          this.leakedPasswords.length + this.weakPasswords.length === 0) {
-        return this.i18n('noWeakPasswords');
-      } else {
-        return this.insecurePasswordsCount;
-      }
-    } else {
+    if (!this.passwordsWeaknessCheckEnabled) {
       return this.compromisedPasswordsCount;
     }
+
+    return this.isSignedOut_ && this.leakedPasswords.length === 0 ?
+        this.weakPasswordsCount :
+        this.insecurePasswordsCount;
   },
 
   /**
@@ -712,6 +729,17 @@ Polymer({
       return !this.storedAccounts_ || this.storedAccounts_.length === 0;
     }
     return !!this.syncStatus_.hasError;
+  },
+
+  /**
+   * Returns true iff the user is syncing passwords.
+   * @return {boolean}
+   * @private
+   */
+  computeIsSyncingPasswords_() {
+    return !!this.syncStatus_ && !!this.syncStatus_.signedIn &&
+        !this.syncStatus_.hasError && !!this.syncPrefs_ &&
+        this.syncPrefs_.passwordsSynced;
   },
 
   /**

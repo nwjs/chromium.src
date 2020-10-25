@@ -336,7 +336,7 @@
     },
     {
       name: "CompositeSVG",
-      status: "stable"
+      status: "experimental",
     },
     {
       name: "CompositingOptimizations",
@@ -827,7 +827,7 @@
     },
     {
       name: "FlexAspectRatio",
-      status: "stable",
+      status: "experimental",
     },
     {
       name: "FocuslessSpatialNavigation",

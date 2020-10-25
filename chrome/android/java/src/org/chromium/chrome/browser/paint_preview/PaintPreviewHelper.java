@@ -9,6 +9,7 @@ import android.os.SystemClock;
 
 import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
+import org.chromium.base.Callback;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.flags.CachedFeatureFlags;
@@ -34,11 +35,11 @@ import java.util.Map;
  */
 public class PaintPreviewHelper {
     /**
-     * Tracks whether there has been an attempt to display a paint preview before. We use this to
-     * only attempt to display a paint preview on the first tab restoration that happens after
-     * Chrome startup.
+     * Tracks whether a paint preview should be shown on tab restore. We use this to only attempt
+     * to display a paint preview on the first tab restoration that happens on Chrome startup when
+     * cold.
      */
-    private static boolean sHasAttemptedToShowOnRestore;
+    private static boolean sShouldShowOnRestore;
 
     /**
      * A map for keeping Activity-specific variables and classes. New entries are added on calls to
@@ -49,18 +50,30 @@ public class PaintPreviewHelper {
             new HashMap<>();
 
     /**
+     * Sets whether a Paint Preview should attempt to be shown on restoration of a tab. If the
+     * feature is not enabled this is effectively a no-op.
+     */
+    public static void setShouldShowOnRestore(boolean shouldShowOnRestore) {
+        sShouldShowOnRestore = shouldShowOnRestore;
+    }
+
+    /**
      * Initializes the logic required for the Paint Preview on startup feature. Mainly, observes a
      * {@link TabModelSelector} to monitor for initialization completion.
      *
      * @param activity         The ChromeActivity that corresponds to the tabModelSelector.
      * @param tabModelSelector The TabModelSelector to observe.
+     * @param willShowStartSurface Whether the start surface will be shown.
+     * @param progressBarCoordinatorSupplier Supplier for the progress bar.
      */
     public static void initialize(ChromeActivity<?> activity, TabModelSelector tabModelSelector,
+            boolean willShowStartSurface,
             Supplier<LoadProgressCoordinator> progressBarCoordinatorSupplier) {
         if (!CachedFeatureFlags.isEnabled(ChromeFeatureList.PAINT_PREVIEW_SHOW_ON_STARTUP)) return;
 
-        if (!MultiWindowUtils.getInstance().areMultipleChromeInstancesRunning(activity)) {
-            sHasAttemptedToShowOnRestore = false;
+        if (MultiWindowUtils.getInstance().areMultipleChromeInstancesRunning(activity)
+                || willShowStartSurface) {
+            sShouldShowOnRestore = false;
         }
         sWindowAndroidHelperMap.put(activity.getWindowAndroid(),
                 new PaintPreviewWindowAndroidHelper(activity, progressBarCoordinatorSupplier));
@@ -86,7 +99,7 @@ public class PaintPreviewHelper {
      */
     public static void showPaintPreviewOnRestore(Tab tab) {
         if (!CachedFeatureFlags.isEnabled(ChromeFeatureList.PAINT_PREVIEW_SHOW_ON_STARTUP)
-                || sHasAttemptedToShowOnRestore
+                || !sShouldShowOnRestore
                 || ChromeAccessibilityUtil.get().isAccessibilityEnabled()) {
             return;
         }
@@ -95,38 +108,32 @@ public class PaintPreviewHelper {
                 sWindowAndroidHelperMap.get(tab.getWindowAndroid());
         if (windowAndroidHelper == null) return;
 
-        sHasAttemptedToShowOnRestore = true;
-        TabbedPaintPreviewPlayer player = TabbedPaintPreviewPlayer.get(tab);
-        player.setBrowserVisibilityDelegate(
-                windowAndroidHelper.getBrowserControlsManager().getBrowserVisibilityDelegate());
-        player.setProgressSimulatorNeededCallback(
-                () -> {
-                    if (windowAndroidHelper.getLoadProgressCoordinator() == null) return;
-                    windowAndroidHelper.getLoadProgressCoordinator()
-                            .simulateLoadProgressCompletion();
-                });
-        player.setProgressbarUpdatePreventionCallback(
-                (preventProgressbar) -> {
-                    if (windowAndroidHelper.getLoadProgressCoordinator() == null) return;
-                    windowAndroidHelper.getLoadProgressCoordinator().setPreventUpdates(
-                            preventProgressbar);
-                });
+        sShouldShowOnRestore = false;
+        Runnable progressSimulatorCallback = () -> {
+            if (windowAndroidHelper.getLoadProgressCoordinator() == null) return;
+            windowAndroidHelper.getLoadProgressCoordinator().simulateLoadProgressCompletion();
+        };
+        Callback<Boolean> progressPreventionCallback = (preventProgressbar) -> {
+            if (windowAndroidHelper.getLoadProgressCoordinator() == null) return;
+            windowAndroidHelper.getLoadProgressCoordinator().setPreventUpdates(preventProgressbar);
+        };
+
+        StartupPaintPreview startupPaintPreview = new StartupPaintPreview(tab,
+                windowAndroidHelper.getBrowserControlsManager().getBrowserVisibilityDelegate(),
+                progressSimulatorCallback, progressPreventionCallback);
+        startupPaintPreview.setActivityCreationTimestampMs(
+                windowAndroidHelper.getActivityCreationTime());
+        startupPaintPreview.setShouldRecordFirstPaint(
+                () -> UmaUtils.hasComeToForeground() && !UmaUtils.hasComeToBackground());
         PageLoadMetrics.Observer observer = new PageLoadMetrics.Observer() {
             @Override
             public void onFirstMeaningfulPaint(WebContents webContents, long navigationId,
                     long navigationStartTick, long firstMeaningfulPaintMs) {
-                player.onFirstMeaningfulPaint(webContents);
+                startupPaintPreview.onWebContentsFirstMeaningfulPaint(webContents);
             }
         };
-
-        if (!player.maybeShow(()
-                        -> PageLoadMetrics.removeObserver(observer),
-                windowAndroidHelper.getActivityCreationTime(),
-                () -> UmaUtils.hasComeToForeground() && !UmaUtils.hasComeToBackground())) {
-            return;
-        }
-
         PageLoadMetrics.addObserver(observer);
+        startupPaintPreview.show(() -> PageLoadMetrics.removeObserver(observer));
     }
 
     /**
@@ -171,4 +178,6 @@ public class PaintPreviewHelper {
             }
         }
     }
+
+    private PaintPreviewHelper() {}
 }

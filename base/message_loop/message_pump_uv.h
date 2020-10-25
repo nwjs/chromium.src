@@ -9,6 +9,7 @@
 #include "base/message_loop/message_pump.h"
 #include "base/time/time.h"
 #include "content/common/content_export.h"
+#include "base/synchronization/waitable_event.h"
 
 #include <vector>
 
@@ -39,6 +40,7 @@ class BASE_EXPORT MessagePumpUV : public MessagePump {
   // Handle to wake up loop.
   std::vector<void*> wakeup_events_;
   void* wakeup_event_;
+  WaitableEvent event_;
 
   TimeTicks delayed_work_time_;
 

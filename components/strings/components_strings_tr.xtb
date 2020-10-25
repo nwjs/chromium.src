@@ -134,7 +134,7 @@ Aksi halde bu işlem gizlilik ayarlarınız tarafından engellenecek. Buna izin 
 <translation id="1453974140256777690">Yapıştırdığınız veya eklediğiniz metin analiz amacıyla Google Cloud ve üçüncü taraflara gönderilir. Dosyalarınızın hassas veriler içerip içermediği kontrol edilir.</translation>
 <translation id="1455413310270022028">Silgi</translation>
 <translation id="1462245070427461050">JIS B9</translation>
-<translation id="1462951478840426066">Yüksek kaliteli içerik oluşturabilmeniz için bilgisayarınızdaki yazı tiplerini kullanma</translation>
+<translation id="1462951478840426066">Farklı platformlarda tutarlı görünen bir içerik oluşturabilmeniz için bilgisayarınızdaki yazı tiplerini kullanma</translation>
 <translation id="1463543813647160932">5x7</translation>
 <translation id="1467432559032391204">Sola</translation>
 <translation id="1472675084647422956">Daha fazla göster</translation>
@@ -898,6 +898,7 @@ Aksi halde bu işlem gizlilik ayarlarınız tarafından engellenecek. Buna izin 
 <translation id="4597348597567598915">Boyut 8</translation>
 <translation id="4600854749408232102">C6/C5 (Zarf)</translation>
 <translation id="4628948037717959914">Fotoğraf</translation>
+<translation id="4631649115723685955">Nakit para üstü bağlantısı oluşturuldu</translation>
 <translation id="464342062220857295">Özellik ara</translation>
 <translation id="4644670975240021822">Ters sırada ön yüz aşağı bakacak şekilde</translation>
 <translation id="4646534391647090355">İndirilenlere git</translation>
@@ -1882,6 +1883,7 @@ Ek ayrıntılar:
 <translation id="8685155993131031756">Prc-16K</translation>
 <translation id="8688672835843460752">Kullanılabilir</translation>
 <translation id="868922510921656628">Grup başına sayfa</translation>
+<translation id="8697373104056314601">Chrome’un sağladığı en yüksek güvenlik düzeyinden faydalanmak için <ph name="BEGIN_ENHANCED_PROTECTION_LINK" />gelişmiş korumayı açın<ph name="END_ENHANCED_PROTECTION_LINK" />.</translation>
 <translation id="869891660844655955">Son kullanma tarihi</translation>
 <translation id="8699041776323235191">HID cihazı</translation>
 <translation id="8703575177326907206"><ph name="DOMAIN" /> bağlantınız şifrelenmedi.</translation>

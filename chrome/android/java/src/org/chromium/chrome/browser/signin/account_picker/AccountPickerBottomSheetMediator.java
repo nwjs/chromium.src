@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.signin.account_picker;
 import android.accounts.Account;
 import android.content.Context;
 import android.text.TextUtils;
+import android.view.View.OnClickListener;
 
 import androidx.annotation.Nullable;
 
@@ -20,6 +21,7 @@ import org.chromium.components.signin.AccountUtils;
 import org.chromium.components.signin.AccountsChangeObserver;
 import org.chromium.components.signin.base.CoreAccountId;
 import org.chromium.components.signin.base.CoreAccountInfo;
+import org.chromium.components.signin.base.GoogleServiceAuthError;
 import org.chromium.components.signin.base.GoogleServiceAuthError.State;
 import org.chromium.ui.modelutil.PropertyModel;
 
@@ -41,18 +43,26 @@ class AccountPickerBottomSheetMediator implements AccountPickerCoordinator.Liste
     private final AccountsChangeObserver mAccountsChangeObserver = this::onAccountListUpdated;
     private @Nullable String mSelectedAccountName;
     private @Nullable String mDefaultAccountName;
+    private @Nullable String mAddedAccountName;
 
-    AccountPickerBottomSheetMediator(Context context, AccountPickerDelegate accountPickerDelegate) {
+    AccountPickerBottomSheetMediator(Context context, AccountPickerDelegate accountPickerDelegate,
+            Runnable dismissBottomSheetRunnable) {
         mAccountPickerDelegate = accountPickerDelegate;
         mProfileDataCache = new ProfileDataCache(
                 context, context.getResources().getDimensionPixelSize(R.dimen.user_picture_size));
 
+        OnClickListener onDismissClicked = v -> {
+            AccountPickerDelegate.recordAccountConsistencyPromoAction(
+                    AccountConsistencyPromoAction.DISMISSED_BUTTON);
+            dismissBottomSheetRunnable.run();
+        };
         mModel = AccountPickerBottomSheetProperties.createModel(
-                this::onSelectedAccountClicked, this::onContinueAsClicked);
+                this::onSelectedAccountClicked, this::onContinueAsClicked, onDismissClicked);
         mProfileDataCache.addObserver(mProfileDataSourceObserver);
 
         mAccountManagerFacade = AccountManagerFacadeProvider.getInstance();
         mAccountManagerFacade.addObserver(mAccountsChangeObserver);
+        mAddedAccountName = null;
         onAccountListUpdated();
     }
 
@@ -80,7 +90,10 @@ class AccountPickerBottomSheetMediator implements AccountPickerCoordinator.Liste
     public void addAccount() {
         AccountPickerDelegate.recordAccountConsistencyPromoAction(
                 AccountConsistencyPromoAction.ADD_ACCOUNT);
-        mAccountPickerDelegate.addAccount(accountName -> onAccountSelected(accountName, false));
+        mAccountPickerDelegate.addAccount(accountName -> {
+            mAddedAccountName = accountName;
+            onAccountSelected(accountName, false);
+        });
     }
 
     /**
@@ -110,8 +123,6 @@ class AccountPickerBottomSheetMediator implements AccountPickerCoordinator.Liste
             return true;
         } else {
             // The bottom sheet will be dismissed for all other view states
-            AccountPickerDelegate.recordAccountConsistencyPromoAction(
-                    AccountConsistencyPromoAction.DISMISSED_BACK);
             return false;
         }
     }
@@ -206,10 +217,16 @@ class AccountPickerBottomSheetMediator implements AccountPickerCoordinator.Liste
 
     private void signIn() {
         mModel.set(AccountPickerBottomSheetProperties.VIEW_STATE, ViewState.SIGNIN_IN_PROGRESS);
-        AccountPickerDelegate.recordAccountConsistencyPromoAction(
-                TextUtils.equals(mSelectedAccountName, mDefaultAccountName)
-                        ? AccountConsistencyPromoAction.SIGNED_IN_WITH_DEFAULT_ACCOUNT
-                        : AccountConsistencyPromoAction.SIGNED_IN_WITH_NON_DEFAULT_ACCOUNT);
+        if (TextUtils.equals(mSelectedAccountName, mAddedAccountName)) {
+            AccountPickerDelegate.recordAccountConsistencyPromoAction(
+                    AccountConsistencyPromoAction.SIGNED_IN_WITH_ADDED_ACCOUNT);
+        } else if (TextUtils.equals(mSelectedAccountName, mDefaultAccountName)) {
+            AccountPickerDelegate.recordAccountConsistencyPromoAction(
+                    AccountConsistencyPromoAction.SIGNED_IN_WITH_DEFAULT_ACCOUNT);
+        } else {
+            AccountPickerDelegate.recordAccountConsistencyPromoAction(
+                    AccountConsistencyPromoAction.SIGNED_IN_WITH_NON_DEFAULT_ACCOUNT);
+        }
         new AsyncTask<String>() {
             @Override
             protected String doInBackground() {
@@ -220,15 +237,24 @@ class AccountPickerBottomSheetMediator implements AccountPickerCoordinator.Liste
             protected void onPostExecute(String accountGaiaId) {
                 CoreAccountInfo coreAccountInfo = new CoreAccountInfo(
                         new CoreAccountId(accountGaiaId), mSelectedAccountName, accountGaiaId);
-                mAccountPickerDelegate.signIn(coreAccountInfo, error -> {
-                    @ViewState
-                    int newViewState = error.getState() == State.INVALID_GAIA_CREDENTIALS
-                            ? ViewState.SIGNIN_AUTH_ERROR
-                            : ViewState.SIGNIN_GENERAL_ERROR;
-                    mModel.set(AccountPickerBottomSheetProperties.VIEW_STATE, newViewState);
-                });
+                mAccountPickerDelegate.signIn(
+                        coreAccountInfo, AccountPickerBottomSheetMediator.this::onSigninFailed);
             }
         }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+    }
+
+    private void onSigninFailed(GoogleServiceAuthError error) {
+        final @AccountConsistencyPromoAction int promoAction;
+        final @ViewState int newViewState;
+        if (error.getState() == State.INVALID_GAIA_CREDENTIALS) {
+            promoAction = AccountConsistencyPromoAction.AUTH_ERROR_SHOWN;
+            newViewState = ViewState.SIGNIN_AUTH_ERROR;
+        } else {
+            promoAction = AccountConsistencyPromoAction.GENERIC_ERROR_SHOWN;
+            newViewState = ViewState.SIGNIN_GENERAL_ERROR;
+        }
+        AccountPickerDelegate.recordAccountConsistencyPromoAction(promoAction);
+        mModel.set(AccountPickerBottomSheetProperties.VIEW_STATE, newViewState);
     }
 
     private void updateCredentials() {

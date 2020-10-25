@@ -2906,7 +2906,6 @@ Vai vēlaties palaist rīku <ph name="CONTROL_PANEL_APPLET_NAME" />?</translatio
 <translation id="4400632832271803360">Turiet palaišanas programmas taustiņu, lai pārslēgtu augšējās rindas taustiņu funkcijas.</translation>
 <translation id="4400963414856942668">Noklikšķiniet uz zvaigznītes ikonas, lai saglabātu cilni kā grāmatzīmi.</translation>
 <translation id="4403775189117163360">Izvēlēties citu mapi</translation>
-<translation id="440391631796167175">Netika atrasta neviena nedroša parole</translation>
 <translation id="4404136731284211429">Meklēt vēlreiz</translation>
 <translation id="4404843640767531781">Lietotni <ph name="APP_NAME" /> bloķēja kāds no jūsu vecākiem. Lai izmantotu šo lietotni, lūdziet vecākiem piešķirt atļauju.</translation>
 <translation id="4405117686468554883">*.jpeg, *.jpg, *.png</translation>
@@ -4437,8 +4436,6 @@ Vai vēlaties palaist rīku <ph name="CONTROL_PANEL_APPLET_NAME" />?</translatio
 <translation id="6242852299490624841">Izcelt šo cilni</translation>
 <translation id="6243280677745499710">Šobrīd iestatīta</translation>
 <translation id="6243774244933267674">Serveris nav pieejams.</translation>
-<translation id="6244185221716469155">Nedrošas paroles ir viegli uzminēt. Noteikti izveidojiet drošas paroles.
-    <ph name="BEGIN_LINK" />Skatīt vairāk drošības padomu.<ph name="END_LINK" /></translation>
 <translation id="6244245036423700521">Importēt ONC failu</translation>
 <translation id="6246790815526961700">Augšupielādēt no ierīces</translation>
 <translation id="6247620186971210352">Netika atrasta neviena lietotne</translation>
@@ -5366,6 +5363,7 @@ Vai vēlaties palaist rīku <ph name="CONTROL_PANEL_APPLET_NAME" />?</translatio
 <translation id="7375235221357833624">{0,plural, =1{Ierīce jāatjaunina stundas laikā}zero{Ierīce jāatjaunina # stundu laikā}one{Ierīce jāatjaunina # stundas laikā}other{Ierīce jāatjaunina # stundu laikā}}</translation>
 <translation id="7376553024552204454">Izcelt peles kursoru, kad tas tiek kustināts</translation>
 <translation id="7377451353532943397">Turpināt bloķēt piekļuvi sensoriem</translation>
+<translation id="7378611153938412599">Nedrošas paroles ir viegli uzminēt. Noteikti izveidojiet drošas paroles. <ph name="BEGIN_LINK" />Skatiet vairāk drošības padomu.<ph name="END_LINK" /></translation>
 <translation id="73786666777299047">Atveriet Chrome interneta veikalu</translation>
 <translation id="7378812711085314936">Izmantot datu savienojumu</translation>
 <translation id="7380622428988553498">Ierīces nosaukumā ir nederīgas rakstzīmes</translation>
@@ -6343,6 +6341,7 @@ Glabājiet atslēgas failu drošā vietā. Tas būs vajadzīgs, lai izveidotu ja
 <translation id="850875081535031620">Netika atrasta neviena kaitīga programmatūra.</translation>
 <translation id="8509177919508253835">Atiestatiet drošības atslēgas un izveidojiet PIN kodus</translation>
 <translation id="8509646642152301857">Pareizrakstības pārbaudes vārdnīcas lejupielāde neizdevās.</translation>
+<translation id="8512396579636492893">{COUNT,plural, =0{Netika atrasta neviena nedroša parole}=1{Tika atrasta {COUNT} nedroša parole}zero{Tika atrastas {COUNT} nedrošas paroles}one{Tika atrasta {COUNT} nedroša parole}other{Tika atrastas {COUNT} nedrošas paroles}}</translation>
 <translation id="8512476990829870887">Pārtraukt procesu</translation>
 <translation id="851263357009351303">Vienmēr atļaut vietnei <ph name="HOST" /> rādīt attēlus</translation>
 <translation id="8513108775083588393">Pagriezt aut.</translation>

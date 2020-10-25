@@ -972,6 +972,28 @@ Unknown properties are collapsed to zero. -->
     Promo is not shown due to sign-in being disallowed either by an enterprise
     policy or by |Allow Chrome sign-in| toggle.
   </int>
+  <int value="8" label="SignedInWithAddedAccount">
+    User has added an account and signed in with this account.
+  </int>
+  <int value="9" label="DismissedScrim">
+    User has dismissed the promo by tapping on the scrim above the bottom sheet.
+  </int>
+  <int value="10" label="DismissedSwipeDown">
+    User has dismissed the promo by swiping down the bottom sheet.
+  </int>
+  <int value="11" label="DismissedOther">
+    User has dismissed the promo by other means.
+  </int>
+  <int value="12" label="AuthErrorShown">
+    The auth error screen was shown to the user.
+  </int>
+  <int value="13" label="GenericErrorShown">
+    The generic error screen was shown to the user.
+  </int>
+  <int value="14" label="DismissedButton">
+    User has dismissed the promo by tapping on the dismissal button in the
+    bottom sheet.
+  </int>
 </enum>
 
 <enum name="AccountManagerAccountAdditionSource">
@@ -6449,6 +6471,7 @@ Called by update_bad_message_reasons.py.-->
   <int value="231" label="RFH_CSP_ATTRIBUTE"/>
   <int value="232" label="RFH_RECEIVED_ASSOCIATED_MESSAGE_WHILE_BFCACHED"/>
   <int value="233" label="RWH_CLOSE_PORTAL"/>
+  <int value="234" label="MSDH_INVALID_STREAM_TYPE"/>
 </enum>
 
 <enum name="BadMessageReasonExtensions">
@@ -29251,9 +29274,9 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="3399" label="MediaRecorder_MimeType"/>
   <int value="3400" label="MediaRecorder_VideoBitsPerSecond"/>
   <int value="3401" label="MediaRecorder_AudioBitsPerSecond"/>
-  <int value="3402" label="BluetoothRemoteGATTCharacteristic_Uuid"/>
-  <int value="3403" label="BluetoothRemoteGATTDescriptor_Uuid"/>
-  <int value="3404" label="BluetoothRemoteGATTService_Uuid"/>
+  <int value="3402" label="OBSOLETE_BluetoothRemoteGATTCharacteristic_Uuid"/>
+  <int value="3403" label="OBSOLETE_BluetoothRemoteGATTDescriptor_Uuid"/>
+  <int value="3404" label="OBSOLETE_BluetoothRemoteGATTService_Uuid"/>
   <int value="3405" label="GPUAdapter_Name"/>
   <int value="3406" label="WindowScreenInternal"/>
   <int value="3407" label="WindowScreenPrimary"/>
@@ -38522,6 +38545,15 @@ Called by update_gpu_driver_bug_workaround_entries.py.-->
   <int value="5" label="IPV6_INTERFACE_ARRAY_TOO_SHORT"/>
 </enum>
 
+<enum name="IsForceInstalledExtensionFailedWithCrxHeaderInvalidFromCWSBoolean">
+  <summary>
+    A boolean for whether a force installed extension which failed with error
+    CRX_HEADER_INVALID is from Chrome Web Store or not.
+  </summary>
+  <int value="0" label="Offstore"/>
+  <int value="1" label="Chrome Web Store"/>
+</enum>
+
 <enum name="IsFullyManagedBoolean">
   <summary>
     A boolean for whether a device is &quot;fully managed&quot;.
@@ -40095,6 +40127,24 @@ Called by update_gpu_driver_bug_workaround_entries.py.-->
   <int value="10" label="No text"/>
 </enum>
 
+<enum name="LensChipEvent">
+  <int value="0" label="Shown"/>
+  <int value="1" label="Clicked"/>
+  <int value="2" label="Dismissed"/>
+</enum>
+
+<enum name="LensClassifyResultState">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="Success: the image is a shoppy image"/>
+  <int value="2" label="Success: the image is not a shoppy image"/>
+  <int value="3" label="Success: the Lens result is empty"/>
+  <int value="4" label="Success: the intent type is empty"/>
+  <int value="5" label="Error: invalid callback"/>
+  <int value="6" label="Error: invalid package signature"/>
+  <int value="7" label="Error: invalid image uri"/>
+  <int value="8" label="Error: early terminated"/>
+</enum>
+
 <enum name="LevelDBCorruptionRestoreValue">
   <int value="0" label="Database Delete Success"/>
   <int value="1" label="Database Delete Failure"/>
@@ -40236,6 +40286,9 @@ Called by update_gpu_driver_bug_workaround_entries.py.-->
   <int value="3" label="Available context exhausted"/>
   <int value="4" label="Context word limit reached"/>
   <int value="5" label="Empty selection"/>
+  <int value="6" label="Tab hidden"/>
+  <int value="7" label="Omnibox navigation"/>
+  <int value="8" label="Tab crash"/>
 </enum>
 
 <enum name="LinkMonitorFailureType">
@@ -41180,6 +41233,8 @@ from previous Chrome versions.
   <int value="-1925453192" label="BlockInsecurePrivateNetworkRequests:enabled"/>
   <int value="-1925117279" label="disable-quic-https"/>
   <int value="-1925106340" label="CameraSystemWebApp:disabled"/>
+  <int value="-1924837577"
+      label="InterestFeedV1ClickAndViewActionsConditionalUpload:enabled"/>
   <int value="-1921593903" label="ImeInputLogicHmm:disabled"/>
   <int value="-1920912991" label="PermissionChip:disabled"/>
   <int value="-1919683750" label="EnableOopPrintDrivers:disabled"/>
@@ -43363,8 +43418,11 @@ from previous Chrome versions.
   <int value="286717452" label="ContextualSearchDebug:disabled"/>
   <int value="287932297" label="AutofillSettingsCardTypeSplit:enabled"/>
   <int value="288012253" label="CrostiniFiles:enabled"/>
+  <int value="288354568"
+      label="InterestFeedV2ClickAndViewActionsConditionalUpload:disabled"/>
   <int value="288755982"
       label="AutofillEnableLocalCardMigrationForNonSyncUser:enabled"/>
+  <int value="289465857" label="ClipboardHistorySimpleRender:disabled"/>
   <int value="291389947" label="PercentBasedScrolling:disabled"/>
   <int value="291482671" label="ExperimentalFlingAnimation:disabled"/>
   <int value="291866104" label="WebAuthenticationPhoneSupport:enabled"/>
@@ -43953,6 +44011,8 @@ from previous Chrome versions.
   <int value="877059804" label="AutofillPreventMixedFormsFilling:disabled"/>
   <int value="877235225" label="GlobalMediaControlsForChromeOS:enabled"/>
   <int value="877238334" label="WebUITabStripTabDragIntegration:enabled"/>
+  <int value="877257918"
+      label="InterestFeedV2ClickAndViewActionsConditionalUpload:enabled"/>
   <int value="878773995" label="ChromeHomeBottomNavLabels:disabled"/>
   <int value="879699575" label="disable-gesture-tap-highlight"/>
   <int value="879992337" label="disable-pull-to-refresh-effect"/>
@@ -44401,6 +44461,7 @@ from previous Chrome versions.
   <int value="1325459977" label="HandwritingGestureEditing:disabled"/>
   <int value="1327883321"
       label="OmniboxHistoryQuickProviderAllowMidwordContinuations:enabled"/>
+  <int value="1327928774" label="ClipboardHistorySimpleRender:enabled"/>
   <int value="1330264457" label="OmniboxUIExperimentVerticalLayout:disabled"/>
   <int value="1331098784" label="ReducedReferrerGranularity:enabled"/>
   <int value="1331513360" label="SafetyCheckAndroid:disabled"/>
@@ -44718,6 +44779,8 @@ from previous Chrome versions.
   <int value="1646498561" label="OfflineBookmarks:disabled"/>
   <int value="1649121568" label="DynamicTcmallocTuning:disabled"/>
   <int value="1651141490" label="SaveEditedPDFForm:enabled"/>
+  <int value="1652798696"
+      label="InterestFeedV1ClickAndViewActionsConditionalUpload:disabled"/>
   <int value="1654445970" label="EphemeralTabUsingBottomSheet:enabled"/>
   <int value="1657713458" label="disable-virtual-keyboard-overscroll"/>
   <int value="1658644418" label="disable-app-list-voice-search"/>
@@ -63207,6 +63270,9 @@ https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_2.7.1.pdf
   <int value="5" label="User dismissed the Safety Tip with the ignore button"/>
   <int value="6" label="User opened help center"/>
   <int value="7" label="No Safety Tip was shown"/>
+  <int value="8" label="User closed the tab"/>
+  <int value="9" label="User switched to a different tab"/>
+  <int value="10" label="User navigated away"/>
 </enum>
 
 <enum name="SafetyTipStatus">
@@ -72931,6 +72997,10 @@ Full version information for the fingerprint enum values:
   <int value="9" label="kTest"/>
   <int value="10" label="kWebScriptExec"/>
   <int value="11" label="kVoiceSearch"/>
+  <int value="12" label="kExtensionMessagingBothPrivileged"/>
+  <int value="13" label="kExtensionMessagingSenderPrivileged"/>
+  <int value="14" label="kExtensionMessagingReceiverPrivileged"/>
+  <int value="15" label="kExtensionMessagingNeitherPrivileged"/>
 </enum>
 
 <enum name="UserCertContentDisposition">

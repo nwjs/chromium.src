@@ -2798,6 +2798,7 @@ Je kunt de instellingen van dit account beheren door de Family Link-app op je ap
 <translation id="425573743389990240">Batterij-ontlading in Watt (een negatieve waarde betekent dat de batterij wordt opgeladen)</translation>
 <translation id="4256316378292851214">&amp;Video opslaan als...</translation>
 <translation id="4258348331913189841">Bestandssystemen</translation>
+<translation id="4259388776256904261">Dit kan even duren</translation>
 <translation id="4260182282978351200"><ph name="FILE_NAME" /> is misschien gevaarlijk. Wil je het bestand naar 'Geavanceerde beveiliging' van Google sturen zodat het kan worden gescand? Druk op Shift+F6 om naar het gedeelte met de downloadbalk te gaan.</translation>
 <translation id="4263223596040212967">Controleer je toetsenbordindeling en probeer het opnieuw.</translation>
 <translation id="4263757076580287579">Printerregistratie is geannuleerd.</translation>
@@ -4435,8 +4436,6 @@ Je kunt de instellingen van dit account beheren door de Family Link-app op je ap
 <translation id="6242852299490624841">Focus op dit tabblad plaatsen</translation>
 <translation id="6243280677745499710">Momenteel ingesteld</translation>
 <translation id="6243774244933267674">Server is niet beschikbaar</translation>
-<translation id="6244185221716469155">Zwakke wachtwoorden zijn makkelijk te raden. Stel sterke wachtwoorden in.
-    <ph name="BEGIN_LINK" />Meer beveiligingstips bekijken<ph name="END_LINK" /></translation>
 <translation id="6244245036423700521">ONC-bestand importeren</translation>
 <translation id="6246790815526961700">Uploaden via apparaat</translation>
 <translation id="6247620186971210352">Geen apps gevonden</translation>
@@ -5058,6 +5057,7 @@ Je kunt de instellingen van dit account beheren door de Family Link-app op je ap
 <translation id="6995899638241819463">Waarschuwen als je wachtwoorden zijn gelekt bij een gegevenslek</translation>
 <translation id="6997642619627518301"><ph name="NAME_PH" /> - Activiteitenlogboek</translation>
 <translation id="6997707937646349884">Op je apparaten:</translation>
+<translation id="6998093258894828179">Kaarten verbergen</translation>
 <translation id="6998793565256476099">Apparaat aanmelden voor videovergaderingen</translation>
 <translation id="6999956497249459195">Nieuwe groep</translation>
 <translation id="7000206553895739324"><ph name="PRINTER_NAME" /> is verbonden moet worden geconfigureerd</translation>
@@ -5363,6 +5363,7 @@ Je kunt de instellingen van dit account beheren door de Family Link-app op je ap
 <translation id="7375235221357833624">{0,plural, =1{Apparaat binnen een uur updaten}other{Apparaat binnen # uur updaten}}</translation>
 <translation id="7376553024552204454">De muisaanwijzer markeren terwijl deze beweegt</translation>
 <translation id="7377451353532943397">Toegang tot sensoren blijven blokkeren</translation>
+<translation id="7378611153938412599">Zwakke wachtwoorden zijn makkelijk te raden. Stel sterke wachtwoorden in. <ph name="BEGIN_LINK" />Meer beveiligingstips bekijken<ph name="END_LINK" /></translation>
 <translation id="73786666777299047">Chrome Web Store openen</translation>
 <translation id="7378812711085314936">Dataverbinding ophalen</translation>
 <translation id="7380622428988553498">Apparaatnaam bevat ongeldige tekens</translation>
@@ -5727,6 +5728,7 @@ Je kunt de instellingen van dit account beheren door de Family Link-app op je ap
 <translation id="7798844538707273832"><ph name="PERMISSION" /> automatisch geblokkeerd</translation>
 <translation id="7799299114731150374">Achtergrond is ingesteld</translation>
 <translation id="7800518121066352902">Links&amp;om draaien</translation>
+<translation id="7802539296536804623">Geen kaarten op deze pagina weergeven</translation>
 <translation id="780301667611848630">Nee, bedankt</translation>
 <translation id="7804072833593604762">Tabblad gesloten</translation>
 <translation id="7805768142964895445">Status</translation>
@@ -6179,6 +6181,7 @@ Bewaar je sleutelbestand op een veilige plaats. Je hebt het bestand nodig om nie
 <translation id="8300011035382349091">Bookmark voor dit tabblad bewerken</translation>
 <translation id="8300374739238450534">Middernachtblauw</translation>
 <translation id="8300849813060516376">OTASP mislukt</translation>
+<translation id="8304383784961451596">Je hebt geen rechten om dit apparaat te gebruiken. Neem contact op met de beheerder voor toestemming om in te loggen of log in met een Google-account dat onder toezicht staat via Family Link.</translation>
 <translation id="8308179586020895837">Vragen of <ph name="HOST" /> toegang wil tot je camera</translation>
 <translation id="830868413617744215">Bèta</translation>
 <translation id="8309458809024885768">Certificaat bestaat al</translation>
@@ -6338,6 +6341,7 @@ Bewaar je sleutelbestand op een veilige plaats. Je hebt het bestand nodig om nie
 <translation id="850875081535031620">Er is geen schadelijke software gevonden</translation>
 <translation id="8509177919508253835">Beveiligingssleutels resetten en pincodes maken</translation>
 <translation id="8509646642152301857">Downloaden van woordenboek voor spellingcontrole is mislukt.</translation>
+<translation id="8512396579636492893">{COUNT,plural, =0{Geen zwakke wachtwoorden gevonden}=1{{COUNT} zwak wachtwoord gevonden}other{{COUNT} zwakke wachtwoorden gevonden}}</translation>
 <translation id="8512476990829870887">Proces beëindigen</translation>
 <translation id="851263357009351303"><ph name="HOST" /> altijd toestaan afbeeldingen weer te geven</translation>
 <translation id="8513108775083588393">Autom. draaien</translation>

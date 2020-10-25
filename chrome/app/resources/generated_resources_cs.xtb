@@ -2609,7 +2609,7 @@ Zpráva serveru: <ph name="SERVER_MSG" /></translation>
 <translation id="4002329649066944389">Spravovat výjimky pro konkrétní weby</translation>
 <translation id="4002440992267487163">Nastavení kódu PIN</translation>
 <translation id="4005817994523282006">Metoda zjišťování časového pásma</translation>
-<translation id="4007856537951125667">Skrýt klávesové zkratky</translation>
+<translation id="4007856537951125667">Skrýt zkratky</translation>
 <translation id="4008291085758151621">V režimu virtuální reality informace o webu nejsou k dispozici</translation>
 <translation id="4010917659463429001">Chcete-li své záložky mít na mobilním zařízení, <ph name="GET_IOS_APP_LINK" />.</translation>
 <translation id="4014432863917027322">Opravit rozšíření <ph name="EXTENSION_NAME" />?</translation>
@@ -2796,6 +2796,7 @@ Zpráva serveru: <ph name="SERVER_MSG" /></translation>
 <translation id="425573743389990240">Rychlost vybíjení baterie ve wattech (záporná hodnota znamená nabíjení baterie)</translation>
 <translation id="4256316378292851214">Uložit &amp;video jako...</translation>
 <translation id="4258348331913189841">Systémy souborů</translation>
+<translation id="4259388776256904261">Může to chvíli trvat</translation>
 <translation id="4260182282978351200">Soubor <ph name="FILE_NAME" /> může být nebezpečný. Chcete ho odeslat ke kontrole prostřednictvím pokročilé ochrany Google? Stisknutím kombinace kláves Shift+F6 přejdete na lištu se staženými soubory.</translation>
 <translation id="4263223596040212967">Zkontrolujte rozložení klávesnice a zkuste to znovu.</translation>
 <translation id="4263757076580287579">Registrace tiskárny byla zrušena.</translation>
@@ -4433,8 +4434,6 @@ Zpráva serveru: <ph name="SERVER_MSG" /></translation>
 <translation id="6242852299490624841">Vybrat tuto kartu</translation>
 <translation id="6243280677745499710">Aktuálně nastaveno</translation>
 <translation id="6243774244933267674">Server není dostupný</translation>
-<translation id="6244185221716469155">Slabá hesla lze snadno uhodnout. Vždy se snažte vytvářet silná hesla.
-    <ph name="BEGIN_LINK" />Další tipy k zabezpečení<ph name="END_LINK" /></translation>
 <translation id="6244245036423700521">Importovat soubor ONC</translation>
 <translation id="6246790815526961700">Nahrát ze zařízení</translation>
 <translation id="6247620186971210352">Nebyly nalezeny žádné aplikace</translation>
@@ -5056,6 +5055,7 @@ Zpráva serveru: <ph name="SERVER_MSG" /></translation>
 <translation id="6995899638241819463">Upozorňovat v případě vyzrazení hesel při porušení zabezpečení</translation>
 <translation id="6997642619627518301"><ph name="NAME_PH" /> – protokol aktivit</translation>
 <translation id="6997707937646349884">Ve vašich zařízeních:</translation>
+<translation id="6998093258894828179">Skrýt karty</translation>
 <translation id="6998793565256476099">Zaregistrovat zařízení pro videohovory</translation>
 <translation id="6999956497249459195">Nová skupina</translation>
 <translation id="7000206553895739324">Tiskárna <ph name="PRINTER_NAME" /> je připojená, ale je potřeba ji nakonfigurovat</translation>
@@ -5361,6 +5361,7 @@ Zpráva serveru: <ph name="SERVER_MSG" /></translation>
 <translation id="7375235221357833624">{0,plural, =1{Do hodiny zařízení aktualizujte}few{Do # hodin zařízení aktualizujte}many{Do # hodiny zařízení aktualizujte}other{Do # hodin zařízení aktualizujte}}</translation>
 <translation id="7376553024552204454">Zvýraznit ukazatel myši, když se pohybuje.</translation>
 <translation id="7377451353532943397">I nadále blokovat přístup k senzorům</translation>
+<translation id="7378611153938412599">Slabá hesla lze snadno uhodnout. Vždy se snažte vytvářet silná hesla. <ph name="BEGIN_LINK" />Další tipy k zabezpečení<ph name="END_LINK" /></translation>
 <translation id="73786666777299047">Otevřít Internetový obchod Chrome</translation>
 <translation id="7378812711085314936">Získání datového připojení</translation>
 <translation id="7380622428988553498">Název zařízení obsahuje neplatné znaky</translation>
@@ -5726,6 +5727,7 @@ Zpráva serveru: <ph name="SERVER_MSG" /></translation>
 <translation id="7798844538707273832">Automaticky zablokované oprávnění: <ph name="PERMISSION" /></translation>
 <translation id="7799299114731150374">Tapeta byla úspěšně nastavena</translation>
 <translation id="7800518121066352902">Otočit &amp;proti směru hodinových ručiček</translation>
+<translation id="7802539296536804623">Na této stránce nezobrazovat karty</translation>
 <translation id="780301667611848630">Ne, děkuji</translation>
 <translation id="7804072833593604762">Karta zavřena</translation>
 <translation id="7805768142964895445">Stav</translation>
@@ -6177,6 +6179,7 @@ Svůj soubor klíče uchovávejte na bezpečném místě. Budete jej potřebovat
 <translation id="8300011035382349091">Upravit záložku pro tuto kartu</translation>
 <translation id="8300374739238450534">Temně modrá</translation>
 <translation id="8300849813060516376">Selhání OTASP</translation>
+<translation id="8304383784961451596">Nemáte oprávnění používat toto zařízení. Požádejte administrátora o oprávnění k přihlášení nebo se přihlaste pomocí účtu Google dozorovaného prostřednictvím služby Family Link.</translation>
 <translation id="8308179586020895837">Zobrazit dotaz, pokud bude chtít web <ph name="HOST" /> používat kameru</translation>
 <translation id="830868413617744215">Beta</translation>
 <translation id="8309458809024885768">Certifikát již existuje</translation>
@@ -6336,6 +6339,7 @@ Svůj soubor klíče uchovávejte na bezpečném místě. Budete jej potřebovat
 <translation id="850875081535031620">Nebyl nalezen žádný škodlivý software</translation>
 <translation id="8509177919508253835">Resetovat bezpečnostní klíče a vytvořit kódy PIN</translation>
 <translation id="8509646642152301857">Stažení slovníku pro kontrolu pravopisu se nezdařilo.</translation>
+<translation id="8512396579636492893">{COUNT,plural, =0{Nebyla nalezena žádná slabá hesla}=1{Bylo nalezeno {COUNT} slabé heslo}few{Byla nalezena {COUNT} slabá hesla}many{Bylo nalezeno {COUNT} slabého hesla}other{Bylo nalezeno {COUNT} slabých hesel}}</translation>
 <translation id="8512476990829870887">Ukončit proces</translation>
 <translation id="851263357009351303">Vždy povolovat zobrazování obrázků z webu <ph name="HOST" /></translation>
 <translation id="8513108775083588393">Autom. otáčení</translation>

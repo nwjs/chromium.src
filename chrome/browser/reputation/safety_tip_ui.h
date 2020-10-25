@@ -18,7 +18,8 @@ class GURL;
 // Represents the different user interactions with a Safety Tip dialog.
 //
 // These values are persisted to logs. Entries should not be renumbered and
-// numeric values should never be reused. Keep in sync with SafetyTipStatus.
+// numeric values should never be reused. Keep in sync with
+// SafetyTipInteraction in enums.xml.
 enum class SafetyTipInteraction {
   // The user dismissed the safety tip. Every time the user dismisses the
   // dialog, a histogram will be recorded once with this value, and again with a
@@ -36,7 +37,13 @@ enum class SafetyTipInteraction {
   kLearnMore = 6,
   // No safety tip was shown to the user.
   kNotShown = 7,
-  kMaxValue = kNotShown,
+  // The user did not interact with the UI directly, but it did result in the
+  // bubble closing.
+  kCloseTab = 8,
+  kSwitchTab = 9,
+  kStartNewNavigation = 10,
+
+  kMaxValue = kStartNewNavigation,
 };
 
 // Shows Safety Tip UI using the specified information if it is not already
