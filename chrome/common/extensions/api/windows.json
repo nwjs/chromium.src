@@ -250,6 +250,7 @@
               "kiosk": {"type": "boolean", "optional": true, "description": ""},
               "alphaEnabled": {"type": "boolean", "optional": true, "description": ""},
               "new_instance": {"type": "boolean", "optional": true, "description": ""},
+              "mixed_context": {"type": "boolean", "optional": true, "description": ""},
               "block_parser": {"type":"boolean", "optional": true, "description": ""},
               "inject_js_start": {"type":"string", "optional": true, "description": ""},
               "inject_js_end": {"type":"string", "optional": true, "description": ""},
