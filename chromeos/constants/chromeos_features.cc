@@ -263,7 +263,7 @@ const base::Feature kFamilyLinkOnSchoolDevice{
 
 // Enables the camera folder handling in files app.
 const base::Feature kFilesCameraFolder{"FilesCameraFolder",
-                                       base::FEATURE_ENABLED_BY_DEFAULT};
+                                       base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enables the next generation file manager.
 const base::Feature kFilesNG{"FilesNG", base::FEATURE_ENABLED_BY_DEFAULT};
@@ -479,6 +479,10 @@ const base::Feature kQuickAnswersTranslation{"QuickAnswersTranslation",
 const base::Feature kQuickAnswersTranslationCloudAPI{
     "QuickAnswersTranslationCloudAPI", base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Controls whether to trigger quick answers on editable text selection.
+const base::Feature kQuickAnswersOnEditableText{
+    "QuickAnswersOnEditableText", base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Controls whether the PIN auto submit feature is enabled.
 const base::Feature kQuickUnlockPinAutosubmit{"QuickUnlockPinAutosubmit",
                                               base::FEATURE_ENABLED_BY_DEFAULT};
@@ -562,7 +566,7 @@ const base::Feature kSplitSettingsSync{"SplitSettingsSync",
 // Enables a settings UI toggle that controls Suggested Content status. Also
 // enables a corresponding notice in the Launcher about Suggested Content.
 const base::Feature kSuggestedContentToggle{"SuggestedContentToggle",
-                                            base::FEATURE_DISABLED_BY_DEFAULT};
+                                            base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enables or disables using the system input engine for physical typing in
 // languages based on latin script.
@@ -739,6 +743,10 @@ bool IsQuickAnswersTranslationEnabled() {
 
 bool IsQuickAnswersTranslationCloudAPIEnabled() {
   return base::FeatureList::IsEnabled(kQuickAnswersTranslationCloudAPI);
+}
+
+bool IsQuickAnswersOnEditableTextEnabled() {
+  return base::FeatureList::IsEnabled(kQuickAnswersOnEditableText);
 }
 
 bool IsSplitSettingsSyncEnabled() {

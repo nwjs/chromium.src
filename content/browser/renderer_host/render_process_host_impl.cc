@@ -293,11 +293,12 @@
 #endif
 
 #include "content/nw/src/common/shell_switches.h"
-#include "content/nw/src/nw_content.h"
+#include "content/nw/src/browser/nw_content_browser_hooks.h"
 
 namespace nw {
 typedef bool (*RphGuestFilterURLHookFn)(content::RenderProcessHost* rph, const GURL* url);
 CONTENT_EXPORT RphGuestFilterURLHookFn gRphGuestFilterURLHook = nullptr;
+void LoadNodeSymbols();
 }
 
 namespace content {
@@ -3289,6 +3290,10 @@ void RenderProcessHostImpl::AppendRendererCommandLine(
       command_line->AppendSwitch("nwjs-guest-nw");
     else
       command_line->AppendSwitch("nwjs-guest");
+  }
+
+  if (nw::MixedContext()) {
+    command_line->AppendSwitch("mixed-context");
   }
 
   GetContentClient()->browser()->AppendExtraCommandLineSwitches(command_line,

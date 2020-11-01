@@ -2068,6 +2068,7 @@
 <translation id="3428419049384081277">您已登入！</translation>
 <translation id="3428747202529429621">確保您登入使用 Chrome 的安全，並可提升您在其他 Google 應用程式的安全性</translation>
 <translation id="3428800329481094896">正在擷取 Linux 容器 SSH 密鑰</translation>
+<translation id="3429271624041785769">網頁內容語言</translation>
 <translation id="3429275422858276529">將此網頁加入書籤，以便日後輕鬆查找</translation>
 <translation id="3432227430032737297">移除所有顯示項目</translation>
 <translation id="3432757130254800023">傳送要在區域網絡顯示的音效檔案和影片</translation>
@@ -2473,7 +2474,6 @@
 <translation id="3856800405688283469">選取時區</translation>
 <translation id="3857807444929313943">提起手指，然後再次輕觸</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" />：已暫停同步處理</translation>
-<translation id="3861386850461794863">應用程式和網站的語言</translation>
 <translation id="3861638017150647085">使用者名稱「<ph name="USERNAME" />」無法使用</translation>
 <translation id="3862693525629180217">透過內置感應器驗證</translation>
 <translation id="3862788408946266506">含有 "kiosk_only" 資訊清單屬性的應用程式只能在 ChromeOS Kiosk 模式中安裝</translation>
@@ -2493,6 +2493,7 @@
 <translation id="3879748587602334249">下載管理員</translation>
 <translation id="3881478300875776315">顯示較少行</translation>
 <translation id="3882165008614329320">相機或檔案中的現有影片</translation>
+<translation id="3884152383786131369">支援多種語言的網站內容會使用此清單上的第一個支援語言。這些偏好設定會與您的瀏覽器設定同步。<ph name="BEGIN_LINK_LEARN_MORE" />瞭解詳情<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="3886446263141354045">您想存取此網站的要求已傳送至<ph name="NAME" /></translation>
 <translation id="3888550877729210209">正在使用「<ph name="LOCK_SCREEN_APP_NAME" />」寫筆記</translation>
 <translation id="3892414795099177503">新增 OpenVPN/L2TP…</translation>
@@ -4476,7 +4477,6 @@
 <translation id="628352644014831790">4 秒</translation>
 <translation id="6285120108426285413"><ph name="FILE_NAME" /> 不常下載，代表此檔案可能不安全。</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{您網絡上的新打印機}other{您網絡上的新打印機}}</translation>
-<translation id="6289626062715012577">支援多種語言的應用程式和網站將會使用此清單上的第一個支援語言。語言偏好設定會同步至 Chrome 瀏覽器。<ph name="BEGIN_LINK_LEARN_MORE" />瞭解詳情<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="6291163159361301370">「<ph name="ORGANIZATION_NAME" />」要求您備份資料並將此 Chromebook 回復原廠設定，才能啟動 Linux。</translation>
 <translation id="6291949900244949761">在網站要存取 USB 裝置時詢問您 (建議)</translation>
 <translation id="6291953229176937411">在 Finder 中顯示(&amp;S)</translation>

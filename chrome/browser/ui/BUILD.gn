@@ -1251,6 +1251,8 @@ static_library("ui") {
       "thumbnails/thumbnail_scheduler.h",
       "thumbnails/thumbnail_scheduler_impl.cc",
       "thumbnails/thumbnail_scheduler_impl.h",
+      "thumbnails/thumbnail_stats_tracker.cc",
+      "thumbnails/thumbnail_stats_tracker.h",
       "thumbnails/thumbnail_tab_helper.cc",
       "thumbnails/thumbnail_tab_helper.h",
       "toolbar/app_menu_icon_controller.cc",
@@ -4520,6 +4522,8 @@ static_library("ui") {
     sources += [
       "views/frame/webui_tab_strip_container_view.cc",
       "views/frame/webui_tab_strip_container_view.h",
+      "views/frame/webui_tab_strip_field_trial.cc",
+      "views/frame/webui_tab_strip_field_trial.h",
       "views/toolbar/webui_tab_counter_button.cc",
       "views/toolbar/webui_tab_counter_button.h",
       "webui/tab_strip/chrome_content_browser_client_tab_strip_part.cc",

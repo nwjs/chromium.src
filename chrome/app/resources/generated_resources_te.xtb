@@ -2069,6 +2069,7 @@
 <translation id="3428419049384081277">మీరు సైన్ ఇన్ చేసారు!</translation>
 <translation id="3428747202529429621">Chromeలో మిమ్మల్ని సురక్షితంగా ఉంచుతుంది, మీరు సైన్ ఇన్ చేసినప్పుడు ఇతర యాప్‌లలో మీ భద్రతను మెరుగుపరచడానికి ఉపయోగించబడవచ్చు</translation>
 <translation id="3428800329481094896">Linux కంటెయినర్ ssh కీలను పొందుతోంది</translation>
+<translation id="3429271624041785769">వెబ్ కంటెంట్ భాషలు</translation>
 <translation id="3429275422858276529">ఈ పేజీని తర్వాత సులభంగా కనుగొనడానికి దీనిని బుక్‌మార్క్ చేయండి</translation>
 <translation id="3432227430032737297">చూపుతున్నవన్నీ తీసివేయి</translation>
 <translation id="3432757130254800023">స్థానిక నెట్‌వర్క్‌లో డిస్‌ప్లేలకు ఆడియోను, వీడియోను పంపడం</translation>
@@ -2474,7 +2475,6 @@
 <translation id="3856800405688283469">సమయ మండలిని ఎంచుకోండి</translation>
 <translation id="3857807444929313943">పైకి ఎత్తి, మళ్లీ తాకండి</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" />: సమకాలీకరణ పాజ్ అయింది</translation>
-<translation id="3861386850461794863">యాప్‌లు, వెబ్‌సైట్‌ల కోసం భాషలు</translation>
 <translation id="3861638017150647085">"<ph name="USERNAME" />" యూజర్‌నేమ్ అందుబాటులో లేదు</translation>
 <translation id="3862693525629180217">అంతర్నిర్మిత సెన్సార్ ద్వారా ధృవీకరించు</translation>
 <translation id="3862788408946266506">'kiosk_only' మానిఫెస్ట్ ఫీచర్ ఉన్న యాప్‌ను తప్పనిసరిగా Chrome OS కియోస్క్ మోడ్‌లో ఇన్‌స్టాల్ చేయాలి</translation>
@@ -2494,6 +2494,7 @@
 <translation id="3879748587602334249">డౌన్‌లోడ్ మేనేజ‌ర్‌</translation>
 <translation id="3881478300875776315">కొన్ని వరుసలను మాత్రమే చూపించు</translation>
 <translation id="3882165008614329320">కెమెరా లేదా ఫైల్‌లో ఇప్పటికే ఉన్న వీడియో</translation>
+<translation id="3884152383786131369">అనేక భాషలలో అందుబాటులో ఉన్న వెబ్ కంటెంట్, ఈ లిస్ట్‌లోని మొదటి సపోర్ట్ చేసే భాషను ఉపయోగిస్తుంది. ఈ ప్రాధాన్యతలు మీ బ్రౌజర్ సెట్టింగ్‌లతో సింక్ చేయబడతాయి. <ph name="BEGIN_LINK_LEARN_MORE" />మరింత తెలుసుకోండి<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="3886446263141354045">మీరు ఈ సైట్‌ను యాక్సెస్ చేయడానికి చేసిన అభ్యర్థన <ph name="NAME" />కు పంపబడింది</translation>
 <translation id="3888550877729210209"><ph name="LOCK_SCREEN_APP_NAME" />తో గమనికలు రూపొందిస్తున్నారు</translation>
 <translation id="3892414795099177503">OpenVPN / L2TPని జోడించు...</translation>
@@ -4477,7 +4478,6 @@
 <translation id="628352644014831790">4 సెకన్లు</translation>
 <translation id="6285120108426285413"><ph name="FILE_NAME" /> సాధారణంగా డౌన్‌లోడ్ చేయబడలేదు మరియు ప్రమాదకరమైనది కావచ్చు.</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{మీ నెట్‌వర్క్‌లోని కొత్త ప్రింటర్}other{మీ నెట్‌వర్క్‌లోని కొత్త ప్రింటర్‌లు}}</translation>
-<translation id="6289626062715012577">అనేక భాషలను సపోర్ట్ చేసే యాప్‌లు, వెబ్‌సైట్‌లు లిస్ట్ లోని మొదటి సపోర్ట్ చేసే భాషను ఉపయోగించుకుంటాయి. భాష ప్రాధాన్యతలు Chrome బ్రౌజర్‌కు సింక్ చేయబడ్డాయి. <ph name="BEGIN_LINK_LEARN_MORE" />మరింత తెలుసుకోండి<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="6291163159361301370">Linuxను ప్రారంభించడానికి, <ph name="ORGANIZATION_NAME" />కు మీ డేటాను బ్యాకప్ చేసి, ఈ Chromebookను ఫ్యాక్టరీ సెట్టింగ్‌లకు రీసెట్ చేయాలి.</translation>
 <translation id="6291949900244949761">సైట్ USB పరికరాలను యాక్సెస్ చేయాలనుకున్నప్పుడు అడుగు (సిఫార్సు చేయబడింది)</translation>
 <translation id="6291953229176937411">శోధినిలో &amp;చూపించు</translation>

@@ -54,9 +54,21 @@ void ThumbnailCaptureDriver::SetCapturePermittedByScheduler(bool scheduled) {
 }
 
 void ThumbnailCaptureDriver::UpdateCaptureState() {
-  if (!scheduled_) {
+  // If there was a final thumbnail but the page has changed, get set up
+  // for a new capture.
+  if (page_readiness_ < PageReadiness::kReadyForFinalCapture &&
+      capture_state_ == CaptureState::kHaveFinalCapture) {
     client_->StopCapture();
     capture_state_ = CaptureState::kNoCapture;
+  }
+
+  // If de-scheduled, stop any ongoing capture.
+  if (!scheduled_) {
+    client_->StopCapture();
+
+    if (capture_state_ < CaptureState::kHaveFinalCapture)
+      capture_state_ = CaptureState::kNoCapture;
+
     return;
   }
 

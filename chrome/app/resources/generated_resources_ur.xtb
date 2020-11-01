@@ -2070,6 +2070,7 @@ myaccount.google.com/activitycontrols/search پر تبدیل کر سکتے ہي�
 <translation id="3428419049384081277">آپ سائن ان ہیں!</translation>
 <translation id="3428747202529429621">‏آپ کے سائن ان ہونے پر آپ کو Chrome پر محفوظ رکھتا ہے اور دیگر Google ایپس میں آپ کی سیکیورٹی کو بہتر بنانے کے لیے استعمال کیا جا سکتا ہے</translation>
 <translation id="3428800329481094896">‏Linux کنٹینر کی ssh کلیدوں کو بازیاب کیا جا رہا ہے</translation>
+<translation id="3429271624041785769">ویب مواد کی زبانیں</translation>
 <translation id="3429275422858276529">بعد میں اسے تلاش کرنے کے لیے اس صفحے کو بُک مارک کریں</translation>
 <translation id="3432227430032737297">سبھی دکھائے گئے کو ہٹائیں</translation>
 <translation id="3432757130254800023">مقامی نیٹ ورک پر ڈسپلیز میں آڈیو اور ویڈیو بھیجیں</translation>
@@ -2475,7 +2476,6 @@ myaccount.google.com/activitycontrols/search پر تبدیل کر سکتے ہي�
 <translation id="3856800405688283469">ٹائم زون منتخب کریں</translation>
 <translation id="3857807444929313943">اٹھائیں، پھر دوبارہ ٹچ کریں</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" />: مطابقت پذیری موقوف کر دی گئی</translation>
-<translation id="3861386850461794863">ایپس اور ویب سائٹس کے لیے زبانیں</translation>
 <translation id="3861638017150647085">"<ph name="USERNAME" />" صارف نام دستیاب نہیں ہے</translation>
 <translation id="3862693525629180217">پہلے سے شامل سینسر کے ذریعے توثیق کریں</translation>
 <translation id="3862788408946266506">‏'kiosk_only' مینی فیسٹ انتساب والی ایپ کا  Chrome OS کیوسک وضع میں انسٹال ہونا ضروری ہے</translation>
@@ -2495,6 +2495,7 @@ myaccount.google.com/activitycontrols/search پر تبدیل کر سکتے ہي�
 <translation id="3879748587602334249">ڈاؤن لوڈ مینیجر</translation>
 <translation id="3881478300875776315">قدرے کم لائنز دکھائیں</translation>
 <translation id="3882165008614329320">کیمرے یا فائل سے لی گئی موجودہ ویڈیو</translation>
+<translation id="3884152383786131369">متعدد زبانوں میں دستیاب ویب مواد اس فہرست سے پہلی سپورٹ کی جانے والی زبان استعمال کرے گا۔ یہ ترجیحات آپ کے براؤزر کی ترتیبات کے ساتھ مطابقت پذیر ہیں۔ <ph name="BEGIN_LINK_LEARN_MORE" />مزید جانیں<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="3886446263141354045">اس سائٹ تک رسائی حاصل کرنے کی آپ کی درخواست <ph name="NAME" /> کو بھیج دی گئی ہے</translation>
 <translation id="3888550877729210209"><ph name="LOCK_SCREEN_APP_NAME" /> کے ساتھ نوٹس لیے جا رہے ہیں</translation>
 <translation id="3892414795099177503">‏OpenVPN / L2TP شامل کریں…</translation>
@@ -4478,7 +4479,6 @@ myaccount.google.com/activitycontrols/search پر تبدیل کر سکتے ہي�
 <translation id="628352644014831790">4 سیکنڈز</translation>
 <translation id="6285120108426285413"><ph name="FILE_NAME" /> عام طور پر ڈاؤن لوڈ نہیں کی جاتی ہے اور یہ خطرناک ہو سکتی ہے۔</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{آپ کے نیٹ ورک پر نیا پرنٹر}other{آپ کے نیٹ ورک پر نئے پرنٹرز}}</translation>
-<translation id="6289626062715012577">‏متعدد زبانوں کو سپورٹ کرنے والی ایپس اور ویب سائٹس اس فہرست سے پہلی سپورٹ کی جانے والی زبان استعمال کریں گی۔ زبان کی ترجیحات Chrome براؤزر سے سنک ہوتی ہیں۔ <ph name="BEGIN_LINK_LEARN_MORE" />مزید جانیں<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="6291163159361301370">‏Linux شروع کرنے کے لیے <ph name="ORGANIZATION_NAME" /> کا تقاضہ ہے کہ آپ اپنے ڈیٹا کا بیک اپ لیں اور اس Chromebook کو فیکٹری کی ترتیبات پر ری سیٹ کریں۔</translation>
 <translation id="6291949900244949761">‏جب کوئی سائٹ USB آلات تک رسائی حاصل کرنا چاہے تو پوچھیں (تجویز کردہ)</translation>
 <translation id="6291953229176937411">فائنڈر میں &amp;دکھائیں</translation>
@@ -5364,6 +5364,7 @@ myaccount.google.com/activitycontrols/search پر تبدیل کر سکتے ہي�
 <translation id="7375235221357833624">{0,plural, =1{ایک گھنٹے کے اندر آلہ اپ ڈیٹ کریں}other{# گھنٹے کے اندر آلہ اپ ڈیٹ کریں}}</translation>
 <translation id="7376553024552204454">ماؤس کا کرسر حرکت میں ہونے پر اسے ہائی لائٹ کریں</translation>
 <translation id="7377451353532943397">سینسر تک رسائی کو مسدود کرنا جاری رکھیں</translation>
+<translation id="7378611153938412599">کمزور پاس ورڈز کا اندازہ لگانا آسان ہوتا ہے۔ مضبوط پاس ورڈز تخلیق کرنا یقینی بنائیں۔ <ph name="BEGIN_LINK" />سیکیورٹی کی مزید تجاویز دیکھیں۔<ph name="END_LINK" /></translation>
 <translation id="73786666777299047">‏Chrome ویب اسٹور کھولیں</translation>
 <translation id="7378812711085314936">ڈیٹا کنکشن حاصل کریں</translation>
 <translation id="7380622428988553498">آلے کے نام میں غلط حروف شامل ہیں</translation>
@@ -6342,6 +6343,7 @@ myaccount.google.com/activitycontrols/search پر تبدیل کر سکتے ہي�
 <translation id="850875081535031620">کوئی نقصان دہ سافٹ ویئر نہیں ملا</translation>
 <translation id="8509177919508253835">‏سیکیورٹی کلیدوں کو دوبارہ ترتیب دیں اور PINs تخلیق کریں</translation>
 <translation id="8509646642152301857">املا کی جانچ کی لغت کو ڈاؤن لوڈ کرنا ناکام ہوگیا۔</translation>
+<translation id="8512396579636492893">{COUNT,plural, =0{کوئی کمزور پاس ورڈز نہیں ملے}=1{{COUNT} کمزور پاس ورڈ ملا}other{{COUNT} کمزور پاس ورڈز ملے}}</translation>
 <translation id="8512476990829870887">کارروائی ختم کریں</translation>
 <translation id="851263357009351303"><ph name="HOST" /> کو تصاویر دکھانے کی ہمیشہ اجازت دیں</translation>
 <translation id="8513108775083588393">خودکار گھمائیں</translation>

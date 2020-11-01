@@ -125,10 +125,7 @@ NSString* const kContentSuggestionsMostVisitedAccessibilityIdentifierPrefix =
 }
 
 - (void)dealloc {
-  if (self.observingDiscoverFeedHeight) {
-    [self.feedView removeObserver:self forKeyPath:@"contentSize"];
-    self.observingDiscoverFeedHeight = NO;
-  }
+  [self removeContentSizeKVO];
   if (self.discoverFeedVC.parentViewController) {
     [self.discoverFeedVC willMoveToParentViewController:nil];
     [self.discoverFeedVC.view removeFromSuperview];
@@ -439,11 +436,9 @@ NSString* const kContentSuggestionsMostVisitedAccessibilityIdentifierPrefix =
     UIViewController* newFeedViewController = discoverFeedItem.discoverFeed;
 
     if (newFeedViewController != self.discoverFeedVC) {
-      // If previous VC is not nil, remove it from the view hierarchy and stop
-      // osberving its feedView.
+      // If previous VC is not nil, remove it from the view hierarchy.
       if (self.discoverFeedVC) {
-        [self.feedView removeObserver:self forKeyPath:@"contentSize"];
-        self.observingDiscoverFeedHeight = NO;
+        self.feedView = nil;
         [self.discoverFeedVC willMoveToParentViewController:nil];
         [self.discoverFeedVC.view removeFromSuperview];
         [self.discoverFeedVC removeFromParentViewController];
@@ -462,11 +457,6 @@ NSString* const kContentSuggestionsMostVisitedAccessibilityIdentifierPrefix =
             self.feedView = static_cast<UICollectionView*>(view);
           }
         }
-        [self.feedView addObserver:self
-                        forKeyPath:@"contentSize"
-                           options:0
-                           context:nil];
-        self.observingDiscoverFeedHeight = YES;
         self.discoverFeedVC = newFeedViewController;
         return cell;
       }
@@ -840,6 +830,34 @@ NSString* const kContentSuggestionsMostVisitedAccessibilityIdentifierPrefix =
 }
 
 #pragma mark - Private
+
+// |self.feedView| setter.
+- (void)setFeedView:(UICollectionView*)feedView {
+  if (feedView != _feedView) {
+    [self removeContentSizeKVO];
+    _feedView = feedView;
+    [self addContentSizeKVO];
+  }
+}
+
+// Adds KVO observing for the feedView contentSize if there is not one already.
+- (void)addContentSizeKVO {
+  if (!self.observingDiscoverFeedHeight) {
+    [self.feedView addObserver:self
+                    forKeyPath:@"contentSize"
+                       options:0
+                       context:nil];
+    self.observingDiscoverFeedHeight = YES;
+  }
+}
+
+// Removes KVO observing for the feedView contentSize if one exists.
+- (void)removeContentSizeKVO {
+  if (self.observingDiscoverFeedHeight) {
+    [self.feedView removeObserver:self forKeyPath:@"contentSize"];
+    self.observingDiscoverFeedHeight = NO;
+  }
+}
 
 - (void)handleLongPress:(UILongPressGestureRecognizer*)gestureRecognizer {
   if (self.editor.editing ||

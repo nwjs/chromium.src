@@ -2066,6 +2066,7 @@
 <translation id="3428419049384081277">Кірдіңіз!</translation>
 <translation id="3428747202529429621">Есептік жазбаға кірген болсаңыз, сізді Chrome браузерінде қорғайды және басқа Google қолданбаларында қауіпсіздігіңізді жақсартуға пайдаланылуы мүмкін.</translation>
 <translation id="3428800329481094896">Linux контейнерінің SSH кілттері алынуда</translation>
+<translation id="3429271624041785769">Веб-мазмұн тілдері</translation>
 <translation id="3429275422858276529">Бетті кейінірек табу үшін оған бетбелгі қою</translation>
 <translation id="3432227430032737297">Барлық көрсетілгендерді өшіру</translation>
 <translation id="3432757130254800023">Жергілікті желідегі дисплейлерге аудио және бейне жіберу</translation>
@@ -2471,7 +2472,6 @@
 <translation id="3856800405688283469">Уақыт белдеуін таңдау</translation>
 <translation id="3857807444929313943">Саусағыңызды алып, қайта түртіңіз</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" />: синхрондау кідіртілді</translation>
-<translation id="3861386850461794863">Қолданбалар мен веб-сайттарға арналған тіл</translation>
 <translation id="3861638017150647085">"<ph name="USERNAME" />" деген пайдаланушы аты қолжетімді емес.</translation>
 <translation id="3862693525629180217">Ендірілген сенсор арқылы растау</translation>
 <translation id="3862788408946266506">"kiosk_only" манифест атрибутына ие қолданба Chrome OS киоск режимінде орнатылуы тиіс</translation>
@@ -2491,6 +2491,7 @@
 <translation id="3879748587602334249">Жүктеп алу менеджері</translation>
 <translation id="3881478300875776315">Жолдарды азырақ көрсету</translation>
 <translation id="3882165008614329320">Камерадан немесе файлдан алынған бейне</translation>
+<translation id="3884152383786131369">Бірнеше тілдегі веб-мазмұн осы тізімдегі бірінші тілді пайдаланады. Бұл параметрлер браузер параметрлерімен синхрондалады. <ph name="BEGIN_LINK_LEARN_MORE" />Толығырақ<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="3886446263141354045">Бұл сайтқа кіру сұрауыңыз <ph name="NAME" /> деген контактіге жіберілді</translation>
 <translation id="3888550877729210209"><ph name="LOCK_SCREEN_APP_NAME" /> қолданбасымен жазбалар жазу</translation>
 <translation id="3892414795099177503">OpenVPN / L2TP енгізу…</translation>
@@ -4474,7 +4475,6 @@
 <translation id="628352644014831790">4 секунд</translation>
 <translation id="6285120108426285413"><ph name="FILE_NAME" /> әдетте жүктеп алынбайды және ол қауіпті болуы мүмкін.</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{Желіңіздегі жаңа принтер бар}other{Желіңізде жаңа принтерлер бар}}</translation>
-<translation id="6289626062715012577">Бірнеше тілге қолдау көрсететін қолданбалар мен сайттар осы тізімдегі бірінші тілді пайдаланады. Тіл параметрлері Chrome браузерімен синхрондалады. <ph name="BEGIN_LINK_LEARN_MORE" />Толығырақ<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="6291163159361301370">Linux жүйесін іске қосу үшін <ph name="ORGANIZATION_NAME" /> деректердің сақтық көшірмесін жасауды және Chromebook құрылғысын зауыттық параметрлерге қайтаруды талап етеді.</translation>
 <translation id="6291949900244949761">Сайт USB құрылғыларын пайдаланғысы келгенде, рұқсат сұралсын (ұсынылады)</translation>
 <translation id="6291953229176937411">&amp;Іздеу жүйесінде көрсету</translation>

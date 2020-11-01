@@ -2067,6 +2067,7 @@
 <translation id="3428419049384081277">ਤੁਸੀਂ ਸਾਈਨ-ਇਨ ਹੋ!</translation>
 <translation id="3428747202529429621">ਤੁਹਾਡੇ ਸਾਈਨ-ਇਨ ਹੋਣ 'ਤੇ, ਤੁਹਾਨੂੰ Chrome ਵਿੱਚ ਸੁਰੱਖਿਅਤ ਰੱਖਿਆ ਜਾਂਦਾ ਹੈ ਅਤੇ ਸ਼ਾਇਦ ਹੋਰ Google ਐਪਾਂ ਵਿੱਚ ਤੁਹਾਡੀ ਸੁਰੱਖਿਆ ਨੂੰ ਸੁਧਾਰਨ ਲਈ ਵਰਤਿਆ ਜਾ ਸਕੇ</translation>
 <translation id="3428800329481094896">Linux ਕੰਟੇਨਰ ਦੀਆਂ SSH ਕੁੰਜੀਆਂ ਪ੍ਰਾਪਤ ਕੀਤੀਆਂ ਜਾ ਰਹੀਆਂ ਹਨ</translation>
+<translation id="3429271624041785769">ਵੈੱਬ ਸਮੱਗਰੀ ਦੀਆਂ ਭਾਸ਼ਾਵਾਂ</translation>
 <translation id="3429275422858276529">ਇਸ ਪੰਨੇ ਨੂੰ ਬਾਅਦ ਵਿੱਚ ਆਸਾਨੀ ਨਾਲ ਲੱਭਣ ਲਈ ਇਸਨੂੰ ਬੁੱਕਮਾਰਕ ਕਰੋ</translation>
 <translation id="3432227430032737297">ਸਾਰੇ ਵਿਖਾਏ ਗਏ ਹਟਾਓ</translation>
 <translation id="3432757130254800023">ਸਥਾਨਕ ਨੈੱਟਵਰਕ 'ਤੇ ਦਿਖਾਉਣ ਲਈ ਆਡੀਓ ਅਤੇ ਵੀਡੀਓ ਭੇਜੋ</translation>
@@ -2472,7 +2473,6 @@
 <translation id="3856800405688283469">ਸਮਾਂਜ਼ੋਨ ਚੁਣੋ</translation>
 <translation id="3857807444929313943">ਚੁੱਕੋ, ਫਿਰ ਦੁਬਾਰਾ ਸਪਰਸ਼ ਕਰੋ</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" />: ਸਮਕਾਲੀਕਰਨ ਰੋਕਿਆ ਗਿਆ</translation>
-<translation id="3861386850461794863">ਐਪਾਂ ਅਤੇ ਵੈੱਬਸਾਈਟਾਂ ਦੀ ਭਾਸ਼ਾ</translation>
 <translation id="3861638017150647085">ਵਰਤੋਂਕਾਰ ਨਾਮ "<ph name="USERNAME" />" ਉਪਲਬਧ ਨਹੀਂ ਹੈ</translation>
 <translation id="3862693525629180217">ਬਿਲਟ-ਇਨ ਸੈਂਸਰ ਰਾਹੀਂ ਪੁਸ਼ਟੀ ਕਰੋ</translation>
 <translation id="3862788408946266506">'kiosk_only' ਮੈਨੀਫ਼ੈਸਟ ਵਿਸ਼ੇਸ਼ਤਾ ਵਾਲੀ ਐਪ Chrome OS ਕਿਓਸਕ ਮੋਡ ਵਿੱਚ ਲਾਜ਼ਮੀ ਤੌਰ 'ਤੇ ਸਥਾਪਤ ਕੀਤੀ ਜਾਣੀ ਚਾਹੀਦੀ ਹੈ</translation>
@@ -2492,6 +2492,7 @@
 <translation id="3879748587602334249">ਡਾਊਨਲੋਡ ਪ੍ਰਬੰਧਕ</translation>
 <translation id="3881478300875776315">ਘੱਟ ਲਾਈਨਾਂ ਦਿਖਾਓ</translation>
 <translation id="3882165008614329320">ਕੈਮਰੇ ਜਾਂ ਫ਼ਾਈਲ ਤੋਂ ਮੌਜੂਦਾ ਵੀਡੀਓ</translation>
+<translation id="3884152383786131369">ਕਈ ਭਾਸ਼ਾਵਾਂ ਵਿੱਚ ਉਪਲਬਧ ਵੈੱਬ ਸਮੱਗਰੀ ਇਸ ਸੂਚੀ ਤੋਂ ਪਹਿਲੀ ਸਮਰਥਿਤ ਭਾਸ਼ਾ ਦੀ ਵਰਤੋਂ ਕਰੇਗੀ। ਇਹ ਤਰਜੀਹਾਂ ਤੁਹਾਡੀਆਂ ਬ੍ਰਾਊਜ਼ਰ ਸੈਟਿੰਗਾਂ ਨਾਲ ਸਮਕਾਲੀਕਿਰਤ ਕੀਤੀਆਂ ਜਾਂਦੀਆਂ ਹਨ। <ph name="BEGIN_LINK_LEARN_MORE" />ਹੋਰ ਜਾਣੋ<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="3886446263141354045">ਇਸ ਸਾਈਟ 'ਤੇ ਪਹੁੰਚ ਦੀ ਤੁਹਾਡੀ ਬੇਨਤੀ <ph name="NAME" /> ਨੂੰ ਭੇਜੀ ਗਈ ਹੈ</translation>
 <translation id="3888550877729210209"><ph name="LOCK_SCREEN_APP_NAME" /> ਨਾਲ ਨੋਟ-ਕਥਨ ਲਏ ਜਾ ਰਹੇ ਹਨ</translation>
 <translation id="3892414795099177503">OpenVPN / L2TP ਸ਼ਾਮਲ ਕਰੋ...</translation>
@@ -4475,7 +4476,6 @@
 <translation id="628352644014831790">4 ਸਕਿੰਟ</translation>
 <translation id="6285120108426285413"><ph name="FILE_NAME" /> ਆਮ ਤੌਰ 'ਤੇ ਡਾਊਨਲੋਡ ਨਹੀਂ ਕੀਤੀ ਜਾਂਦੀ ਅਤੇ ਇਹ ਹਾਨੀਕਾਰਕ ਹੋ ਸਕਦੀ ਹੈ।</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{ਤੁਹਾਡੇ ਨੈਟਵਰਕ ਤੇ ਨਵਾਂ ਪ੍ਰਿੰਟਰ}one{ਤੁਹਾਡੇ ਨੈਟਵਰਕ ਤੇ ਨਵੇਂ ਪ੍ਰਿੰਟਰ}other{ਤੁਹਾਡੇ ਨੈਟਵਰਕ ਤੇ ਨਵੇਂ ਪ੍ਰਿੰਟਰ}}</translation>
-<translation id="6289626062715012577">ਕਈ ਭਾਸ਼ਾਵਾਂ ਦਾ ਸਮਰਥਨ ਕਰਨ ਵਾਲੀਆਂ ਐਪਾਂ ਅਤੇ ਵੈੱਬਸਾਈਟਾਂ ਇਸ ਸੂਚੀ ਤੋਂ ਪਹਿਲੀ ਸਮਰਥਿਤ ਭਾਸ਼ਾ ਦੀ ਵਰਤੋਂ ਕਰਨਗੀਆਂ। Chrome ਬ੍ਰਾਊਜ਼ਰ ਨਾਲ ਭਾਸ਼ਾ ਤਰਜੀਹਾਂ ਦਾ ਸਮਕਾਲੀਕਰਨ ਹੁੰਦਾ ਹੈ। <ph name="BEGIN_LINK_LEARN_MORE" />ਹੋਰ ਜਾਣੋ<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="6291163159361301370">Linux ਨੂੰ ਸ਼ੁਰੂ ਕਰਨ ਵਾਸਤੇ, <ph name="ORGANIZATION_NAME" /> ਲਈ ਤੁਹਾਨੂੰ ਆਪਣੇ ਡਾਟੇ ਦਾ ਬੈਕਅੱਪ ਲੈਣ ਅਤੇ ਇਸ Chromebook ਨੂੰ ਫੈਕਟਰੀ ਸੈਟਿੰਗਾਂ 'ਤੇ ਰੀਸੈੱਟ ਕਰਨ ਦੀ ਲੋੜ ਹੈ।</translation>
 <translation id="6291949900244949761">ਕਿਸੇ ਸਾਈਟ ਦੇ USB ਡੀਵਾਈਸਾਂ ਤੱਕ ਪਹੁੰਚ ਕਰਨ ਵੇਲੇ ਪੁੱਛੋ (ਸਿਫ਼ਾਰਸ਼ੀ)</translation>
 <translation id="6291953229176937411">&amp;ਫਾਈਂਡਰ ਵਿੱਚ ਦਿਖਾਓ</translation>
@@ -6177,7 +6177,7 @@
 <translation id="8300011035382349091">ਇਸ ਟੈਬ ਦੇ ਬੁੱਕਮਾਰਕ ਦਾ ਸੰਪਾਦਨ ਕਰੋ</translation>
 <translation id="8300374739238450534">ਘਸਮੈਲਾ ਨੀਲਾ</translation>
 <translation id="8300849813060516376">OTASP ਅਸਫ਼ਲ ਹੋ ਗਿਆ</translation>
-<translation id="8304383784961451596">ਤੁਸੀਂ ਇਸ ਡੀਵਾਈਸ ਨੂੰ ਵਰਤਣ ਲਈ ਅਧਿਕਾਰਿਤ ਨਹੀਂ ਹੋ। ਕਿਰਪਾ ਕਰਕੇ ਸਾਈਨ-ਇਨ ਇਜਾਜ਼ਤ ਲਈ ਪ੍ਰਸ਼ਾਸਕ ਨੂੰ ਸੰਪਰਕ ਕਰੋ ਜਾਂ Family Link ਵੱਲੋਂ ਨਿਗਰਾਨੀ ਵਾਲੇ ਕਿਸੇ Google ਖਾਤੇ ਨਾਲ ਸਾਈਨ-ਇਨ ਕਰੋ।</translation>
+<translation id="8304383784961451596">ਤੁਸੀਂ ਇਸ ਡੀਵਾਈਸ ਨੂੰ ਵਰਤਣ ਲਈ ਅਧਿਕਾਰਤ ਨਹੀਂ ਹੋ। ਕਿਰਪਾ ਕਰਕੇ ਸਾਈਨ-ਇਨ ਇਜਾਜ਼ਤ ਲਈ ਪ੍ਰਸ਼ਾਸਕ ਨੂੰ ਸੰਪਰਕ ਕਰੋ ਜਾਂ Family Link ਤੋਂ ਨਿਗਰਾਨੀ ਵਾਲੇ ਕਿਸੇ Google ਖਾਤੇ ਨਾਲ ਸਾਈਨ-ਇਨ ਕਰੋ।</translation>
 <translation id="8308179586020895837">ਪੁੱਛੇ ਕਿ ਕੀ <ph name="HOST" /> ਤੁਹਾਡੇ ਕੈਮਰੇ ਤੱਕ ਪਹੁੰਚ ਪ੍ਰਾਪਤ ਕਰਨਾ ਚਾਹੁੰਦਾ ਹੈ</translation>
 <translation id="830868413617744215">ਬੀਟਾ</translation>
 <translation id="8309458809024885768">ਪ੍ਰਮਾਣ-ਪੱਤਰ ਪਹਿਲਾਂ ਤੋਂ ਮੌਜੂਦ ਹੈ</translation>

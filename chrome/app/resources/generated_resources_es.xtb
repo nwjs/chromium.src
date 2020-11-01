@@ -6,7 +6,7 @@
 <translation id="1003363546227723021">Muestra fotos, la hora, el tiempo e información multimedia mientras la pantalla esté inactiva</translation>
 <translation id="1004218526896219317">Acceso al sitio web</translation>
 <translation id="1005274289863221750">Utilizar el micrófono y la cámara</translation>
-<translation id="1005333234656240382">¿Quieres habilitar la depuración adb?</translation>
+<translation id="1005333234656240382">¿Quieres habilitar la depuración ADB?</translation>
 <translation id="1006873397406093306">Esta extensión puede leer y cambiar tus datos en los sitios web. Puedes controlar a qué sitios web puede acceder la extensión.</translation>
 <translation id="1007408791287232274">No se han podido cargar dispositivos.</translation>
 <translation id="1008186147501209563">Exportar marcadores</translation>
@@ -31,7 +31,7 @@
 <translation id="1032605640136438169">Revisa los nuevos términos</translation>
 <translation id="103279545524624934">Libera espacio del disco para iniciar aplicaciones de Android.</translation>
 <translation id="1033780634303702874">Acceder a tus dispositivos en serie</translation>
-<translation id="1034942643314881546">Ilustración de habilitar ADB para crear aplicaciones</translation>
+<translation id="1034942643314881546">Ilustración de habilitar adb para crear aplicaciones</translation>
 <translation id="1036348656032585052">Desactivar</translation>
 <translation id="1036511912703768636">Acceder a cualquiera de estos dispositivos USB</translation>
 <translation id="1036982837258183574">Pulsa |<ph name="ACCELERATOR" />| para salir del modo de pantalla completa</translation>
@@ -290,7 +290,7 @@
 <translation id="1326317727527857210">Inicia sesión en Chrome para ver las pestañas de tus otros dispositivos.</translation>
 <translation id="1327074568633507428">Impresora en Google Cloud Print</translation>
 <translation id="1327272175893960498">Tickets de Kerberos</translation>
-<translation id="1327495825214193325">Para habilitar la depuración adb, es necesario reiniciar este <ph name="DEVICE_TYPE" />. Para inhabilitarla, es necesario restablecer la configuración de fábrica.</translation>
+<translation id="1327495825214193325">Para habilitar la depuración ADB, es necesario reiniciar este <ph name="DEVICE_TYPE" />. Para inhabilitarla, es necesario restablecer la configuración de fábrica.</translation>
 <translation id="1327794256477341646">Las funciones que necesiten la ubicación no se podrán utilizar</translation>
 <translation id="1327977588028644528">Pasarela</translation>
 <translation id="1329584516321524826">Actualizada ahora mismo</translation>
@@ -374,7 +374,7 @@
 <translation id="1422159345171879700">Cargar secuencias de comandos no seguras</translation>
 <translation id="1426410128494586442">Sí</translation>
 <translation id="142655739075382478">Se ha bloqueado <ph name="APP_NAME" /></translation>
-<translation id="1426870617281699524">Haz clic en Volver a intentarlo y acepta el mensaje que aparece en tu ordenador</translation>
+<translation id="1426870617281699524">Haz clic en Reintentar y acepta el mensaje que aparece en tu ordenador</translation>
 <translation id="1427179946227469514">Tono de síntesis de voz</translation>
 <translation id="1427269577154060167">País</translation>
 <translation id="142758023928848008">Habilitar teclas persistentes (para utilizar combinaciones de teclas sin tocarlas simultáneamente)</translation>
@@ -864,7 +864,7 @@
 <translation id="1974821797477522211">Conectarse a la red</translation>
 <translation id="1975841812214822307">Quitar...</translation>
 <translation id="1976150099241323601">Iniciar sesión en al dispositivo de seguridad</translation>
-<translation id="1976307821760494606"><ph name="DOMAIN" /> ha inhabilitado la depuración adb. Este proceso restablecerá tu <ph name="DEVICE_TYPE" /> dentro de 24 horas. Haz copias de seguridad de los archivos que quieras conservar.</translation>
+<translation id="1976307821760494606"><ph name="DOMAIN" /> ha inhabilitado la depuración ADB. Este proceso restablecerá tu <ph name="DEVICE_TYPE" /> dentro de 24 horas. Haz copias de seguridad de los archivos que quieras conservar.</translation>
 <translation id="1977965994116744507">Acerca el teléfono para desbloquear tu <ph name="DEVICE_TYPE" />.</translation>
 <translation id="1978006917103730774">Las futuras actualizaciones de software y seguridad se instalarán automáticamente.</translation>
 <translation id="1979095679518582070">Aunque esta opción esté desactivada, el dispositivo seguirá pudiendo enviar la información necesaria para realizar los servicios esenciales relacionados, por ejemplo, con la seguridad y las actualizaciones del sistema.</translation>
@@ -1411,7 +1411,7 @@ Puedes gestionar la configuración de esta cuenta instalando la aplicación Fami
 <translation id="262373406453641243">Colemak</translation>
 <translation id="2624142942574147739">Esta página tiene acceso a la cámara y al micrófono.</translation>
 <translation id="2626799779920242286">Vuelve a intentarlo más tarde.</translation>
-<translation id="2628770867680720336">Para habilitar la depuración adb, deben restablecerse los ajustes de fábrica de este Chromebook. <ph name="BEGIN_LINK_LEARN_MORE" />Más información<ph name="END_LINK_LEARN_MORE" /></translation>
+<translation id="2628770867680720336">Para habilitar la depuración ADB, deben restablecerse los ajustes de fábrica de este Chromebook. <ph name="BEGIN_LINK_LEARN_MORE" />Más información<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="2629227353894235473">Desarrollar aplicaciones de Android</translation>
 <translation id="2630681426381349926">Conéctate a una red Wi-Fi para empezar</translation>
 <translation id="2631498379019108537">Mostrar opciones de entrada en la estantería</translation>
@@ -2069,6 +2069,7 @@ Puedes gestionar la configuración de esta cuenta instalando la aplicación Fami
 <translation id="3428419049384081277">Has iniciado sesión</translation>
 <translation id="3428747202529429621">Te protege en Chrome y puede usarse para mejorar tu seguridad en otras aplicaciones de Google cuando has iniciado sesión</translation>
 <translation id="3428800329481094896">Obteniendo las claves SSH del contenedor de Linux</translation>
+<translation id="3429271624041785769">Idiomas del contenido web</translation>
 <translation id="3429275422858276529">Añade esta página a marcadores para encontrarla fácilmente en otro momento</translation>
 <translation id="3432227430032737297">Quitar todas las que se muestran</translation>
 <translation id="3432757130254800023">Enviar audio y vídeo a pantallas de la red local</translation>
@@ -2474,7 +2475,6 @@ Puedes gestionar la configuración de esta cuenta instalando la aplicación Fami
 <translation id="3856800405688283469">Seleccionar zona horaria</translation>
 <translation id="3857807444929313943">Levanta el dedo y toca de nuevo</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" />: sincronización en pausa</translation>
-<translation id="3861386850461794863">Idiomas de aplicaciones y sitios web</translation>
 <translation id="3861638017150647085">El nombre de usuario "<ph name="USERNAME" />" no está disponible</translation>
 <translation id="3862693525629180217">Verificar mediante sensor integrado</translation>
 <translation id="3862788408946266506">La aplicación con el atributo del archivo de manifiesto "kiosk_only" se debe instalar en el modo kiosco de Chrome OS</translation>
@@ -2494,6 +2494,7 @@ Puedes gestionar la configuración de esta cuenta instalando la aplicación Fami
 <translation id="3879748587602334249">Administrador de descargas</translation>
 <translation id="3881478300875776315">Mostrar menos líneas</translation>
 <translation id="3882165008614329320">Vídeo de la cámara o un archivo</translation>
+<translation id="3884152383786131369">El contenido web disponible que esté disponible en varios idiomas usará el primer idioma admitido de esta lista. Estas preferencias se sincronizan con la configuración de tu navegador. <ph name="BEGIN_LINK_LEARN_MORE" />Más información<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="3886446263141354045">Tu solicitud de acceso a este sitio web se ha enviado a <ph name="NAME" /></translation>
 <translation id="3888550877729210209">Tomando notas con <ph name="LOCK_SCREEN_APP_NAME" /></translation>
 <translation id="3892414795099177503">Añadir OpenVPN / L2TP...</translation>
@@ -2897,7 +2898,7 @@ Puedes gestionar la configuración de esta cuenta instalando la aplicación Fami
 <translation id="4390000551125140321">{0,plural, =1{Incógnito}other{# ventanas de incógnito abiertas}}</translation>
 <translation id="439266289085815679">El usuario <ph name="USER_EMAIL" /> controla la configuración del Bluetooth.</translation>
 <translation id="4392896746540753732">Edita el archivo de configuración.</translation>
-<translation id="4393691030048716353"><ph name="DOMAIN" /> ha inhabilitado la depuración adb. Cuando reinicies tu <ph name="DEVICE_TYPE" />, no podrás instalar aplicaciones de fuentes desconocidas.</translation>
+<translation id="4393691030048716353"><ph name="DOMAIN" /> ha inhabilitado la depuración ADB. Cuando reinicies tu <ph name="DEVICE_TYPE" />, no podrás instalar aplicaciones de fuentes desconocidas.</translation>
 <translation id="4394049700291259645">Inhabilitar</translation>
 <translation id="4396956294839002702">{COUNT,plural, =0{&amp;Abrir todas}=1{&amp;Abrir marcador}other{&amp;Abrir todas ({COUNT})}}</translation>
 <translation id="439817266247065935">Tu dispositivo no se apagó correctamente. Reinicia Linux para usar sus aplicaciones.</translation>
@@ -3114,7 +3115,7 @@ Puedes gestionar la configuración de esta cuenta instalando la aplicación Fami
 <translation id="4635444580397524003">Copia de seguridad de Linux restaurada correctamente.</translation>
 <translation id="4636930964841734540">Información</translation>
 <translation id="4637083375689622795">Más acciones, <ph name="EMAIL" /></translation>
-<translation id="4638930039313743000">Habilitar depuración adb</translation>
+<translation id="4638930039313743000">Habilitar depuración ADB</translation>
 <translation id="4641539339823703554">Chrome no ha podido establecer la hora del sistema. Comprueba la hora a continuación y corrígela si es necesario.</translation>
 <translation id="4643612240819915418">&amp;Abrir vídeo en una pestaña nueva</translation>
 <translation id="4645551927492192497">{NUM_DAYS,plural, =1{<ph name="DOMAIN" /> requiere que te conectes a una red Wi‑Fi hoy para descargar una actualización. También puedes descargarla con una conexión de uso medido (es posible que se apliquen cargos).}other{<ph name="DOMAIN" /> requiere que te conectes a una red Wi‑Fi y descargues una actualización antes de la fecha límite. También puedes descargarla con una conexión de uso medido (es posible que se apliquen cargos).}}</translation>
@@ -4080,7 +4081,7 @@ Puedes gestionar la configuración de esta cuenta instalando la aplicación Fami
 <translation id="5833726373896279253">Esta configuración solo puede modificarla el propietario:</translation>
 <translation id="5834581999798853053">Unos <ph name="TIME" /> minutos</translation>
 <translation id="5835486486592033703"><ph name="WINDOW_TITLE" />: grabación de la cámara o del micrófono</translation>
-<translation id="5839574759884227787"><ph name="DOMAIN" /> ha inhabilitado la depuración adb, por lo que se restablecerá tu <ph name="DEVICE_TYPE" />. Haz una copia de seguridad de tus archivos antes de reiniciar.</translation>
+<translation id="5839574759884227787"><ph name="DOMAIN" /> ha inhabilitado la depuración ADB, por lo que se restablecerá tu <ph name="DEVICE_TYPE" />. Haz una copia de seguridad de tus archivos antes de reiniciar.</translation>
 <translation id="5840680448799937675">Los archivos siempre se compartirán sin conexión</translation>
 <translation id="5841270259333717135">Configurar Ethernet</translation>
 <translation id="5842497610951477805">Habilitar Bluetooth</translation>
@@ -4376,7 +4377,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="6169040057125497443">Comprueba el micrófono.</translation>
 <translation id="6169666352732958425">No se ha podido enviar el escritorio.</translation>
 <translation id="6170470584681422115">Bocadillo</translation>
-<translation id="6170498031581934115">No se ha podido habilitar la depuración adb. Ve a Ajustes y vuelve a intentarlo.</translation>
+<translation id="6170498031581934115">No se ha podido habilitar la depuración ADB. Ve a Ajustes y vuelve a intentarlo.</translation>
 <translation id="6173623053897475761">Vuelve a escribir tu PIN</translation>
 <translation id="6173870063490457111">Bloquear ventanas emergentes y redirecciones (recomendado)</translation>
 <translation id="6175314957787328458">GUID de dominio de Microsoft</translation>
@@ -4476,7 +4477,6 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="628352644014831790">4 segundos</translation>
 <translation id="6285120108426285413">El archivo <ph name="FILE_NAME" /> no se descarga habitualmente y puede ser peligroso.</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{Nueva impresora en tu red}other{Nuevas impresoras en tu red}}</translation>
-<translation id="6289626062715012577">Las aplicaciones y los sitios web que admitan varios idiomas utilizarán el primer idioma compatible de esta lista. Las preferencias de idioma se sincronizan con el navegador Chrome. <ph name="BEGIN_LINK_LEARN_MORE" />Más información<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="6291163159361301370">Para iniciar Linux, <ph name="ORGANIZATION_NAME" /> necesita que crees una copia de seguridad de tus datos y restablezcas la configuración de fábrica del Chromebook.</translation>
 <translation id="6291949900244949761">Preguntar cuando un sitio web quiera acceder a los dispositivos USB (recomendado)</translation>
 <translation id="6291953229176937411">&amp;Mostrar en Finder</translation>
@@ -4550,7 +4550,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="636850387210749493">Registro de empresa</translation>
 <translation id="6370021412472292592">No se ha podido cargar el archivo de manifiesto.</translation>
 <translation id="6374077068638737855">Iceweasel</translation>
-<translation id="6374469231428023295">Volver a intentarlo</translation>
+<translation id="6374469231428023295">Reintentar</translation>
 <translation id="6377268785556383139">1 resultado para "<ph name="SEARCH_TEXT" />"</translation>
 <translation id="6380143666419481200">Aceptar y continuar</translation>
 <translation id="6384275966486438344">Cambiar configuración de búsqueda por: <ph name="SEARCH_HOST" /></translation>
@@ -5180,7 +5180,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="7140928199327930795">No hay otros dispositivos disponibles.</translation>
 <translation id="7141105143012495934">Se ha producido un error al iniciar sesión porque no ha sido posible recuperar la información de la cuenta. Ponte en contacto con el administrador o vuelve a intentarlo.</translation>
 <translation id="7143207342074048698">Conectando</translation>
-<translation id="7144878232160441200">Volver a intentar</translation>
+<translation id="7144878232160441200">Reintentar</translation>
 <translation id="714876143603641390">Conectividad LAN</translation>
 <translation id="7149893636342594995">Últimas 24 horas</translation>
 <translation id="715118844758971915">Impresoras clásicas</translation>
@@ -5747,7 +5747,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="7824864914877854148">No se ha podido completar la copia de seguridad debido a un error</translation>
 <translation id="7825666486843191125">Todos los contactos que haya cerca de ti cuando tu pantalla esté desbloqueada</translation>
 <translation id="782590969421016895">Utilizar páginas actuales</translation>
-<translation id="7826249772873145665">Depuración adb inhabilitada</translation>
+<translation id="7826249772873145665">Depuración ADB inhabilitada</translation>
 <translation id="7826254698725248775">Identificador de dispositivo en conflicto.</translation>
 <translation id="7826346148677309647">Puedes buscar más aplicaciones para tu dispositivo en Play Store.</translation>
 <translation id="7826790948326204519"><ph name="BEGIN_H3" />Funciones de depuración<ph name="END_H3" />
@@ -5897,7 +5897,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="7972714317346275248">PKCS #1 SHA-384 con cifrado RSA</translation>
 <translation id="797394244396603170">Selecciona el dispositivo con el que quieras compartir archivos</translation>
 <translation id="7973962044839454485">Se ha producido un error en la autenticación de PPP porque la contraseña o el nombre de usuario son incorrectos</translation>
-<translation id="7974566588408714340">Intentar de nuevo con <ph name="EXTENSIONNAME" /></translation>
+<translation id="7974566588408714340">Reintentar con <ph name="EXTENSIONNAME" /></translation>
 <translation id="7974936243149753750">Reajuste</translation>
 <translation id="7977404132325989121">&amp;Asignar nombre a ventana...</translation>
 <translation id="7978412674231730200">Clave privada</translation>
@@ -5958,7 +5958,7 @@ Guarda tu archivo de clave en un lugar seguro, ya que lo necesitarás para crear
 <translation id="8045253504249021590">La sincronización se ha detenido mediante el Panel de Control de Google.</translation>
 <translation id="8045923671629973368">Introducir el ID de la aplicación o la URL de Chrome Web Store</translation>
 <translation id="8047242494569930800">Mover a cuenta de Google</translation>
-<translation id="804786196054284061">Acuerdo de licencia de usuario final</translation>
+<translation id="804786196054284061">Contrato de licencia de usuario final</translation>
 <translation id="8049705080247101012">Google ha marcado "<ph name="EXTENSION_NAME" />" como extensión maliciosa, por lo que ha evitado que se instale</translation>
 <translation id="8049948037269924837">Desplazamiento inverso del panel táctil</translation>
 <translation id="8050038245906040378">Firma de código comercial de Microsoft</translation>
@@ -5989,9 +5989,9 @@ Guarda tu archivo de clave en un lugar seguro, ya que lo necesitarás para crear
 <translation id="8076492880354921740">Pestañas</translation>
 <translation id="8076835018653442223">Tu administrador ha inhabilitado el acceso a los archivos locales de tu dispositivo</translation>
 <translation id="808089508890593134">Google</translation>
-<translation id="8081989000209387414">¿Quieres inhabilitar la depuración adb?</translation>
+<translation id="8081989000209387414">¿Quieres inhabilitar la depuración ADB?</translation>
 <translation id="8082106343289440791">¿Quieres vincular "<ph name="DEVICE_NAME" />"?</translation>
-<translation id="8082390128630131497">Si se inhabilita la depuración adb, se restablecerá la configuración de fábrica de este <ph name="DEVICE_TYPE" />. Se borrarán todas las cuentas de usuario y todos los datos locales.</translation>
+<translation id="8082390128630131497">Si se inhabilita la depuración ADB, se restablecerá la configuración de fábrica de este <ph name="DEVICE_TYPE" />. Se borrarán todas las cuentas de usuario y todos los datos locales.</translation>
 <translation id="8083058154738359867">Obtén subtítulos para tu contenido multimedia habilitando Subtítulos automáticos en los ajustes</translation>
 <translation id="8084114998886531721">Contraseña guardada</translation>
 <translation id="8086015605808120405">Configurando <ph name="PRINTER_NAME" />...</translation>
@@ -6520,7 +6520,7 @@ Guarda tu archivo de clave en un lugar seguro, ya que lo necesitarás para crear
 <translation id="8724405322205516354">Cuando veas este icono, utiliza tu huella digital para identificarte o aprobar compras.</translation>
 <translation id="8724409975248965964">Huella digital añadida</translation>
 <translation id="8724859055372736596">&amp;Mostrar en carpeta</translation>
-<translation id="8725066075913043281">Volver a intentarlo</translation>
+<translation id="8725066075913043281">Reintentar</translation>
 <translation id="8725178340343806893">Favoritos/Marcadores</translation>
 <translation id="8726206820263995930">Error al recuperar la configuración de política del servidor (<ph name="CLIENT_ERROR" />)</translation>
 <translation id="8727154974495727220">Cuando hayas configurado tu <ph name="DEVICE_TYPE" />, pulsa el botón del Asistente o di "Ok Google" para recibir ayuda en cualquier momento. Si quieres realizar cambios, accede a los ajustes del Asistente.</translation>

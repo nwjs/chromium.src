@@ -15,7 +15,7 @@
 #include <vector>
 
 #include "content/nw/src/nw_base.h"
-#include "content/nw/src/nw_content.h"
+#include "content/nw/src/browser/nw_content_browser_hooks.h"
 #if defined(OS_MAC)
 #include "content/nw/src/nw_content_mac.h"
 #endif
@@ -546,6 +546,7 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
   bool focused = true;
   bool hidden = false;
   bool new_instance = false;
+  bool mixed_context = false;
   bool frameless = false;
   bool kiosk = false;
   bool transparent = false;
@@ -627,6 +628,8 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
       inject_js_end = *create_data->inject_js_end;
     if (create_data->new_instance)
       new_instance = *create_data->new_instance;
+    if (create_data->mixed_context)
+      mixed_context = *create_data->mixed_context;
     if (create_data->frameless)
       frameless = *create_data->frameless;
     if (create_data->kiosk)
@@ -746,7 +749,11 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
 
     if (new_instance)
       nw::SetPinningRenderer(false);
+    if (mixed_context)
+      nw::SetMixedContext(true);
     Navigate(&navigate_params);
+    if (mixed_context)
+      nw::SetMixedContext(false);
     if (new_instance)
       nw::SetPinningRenderer(true);
   }

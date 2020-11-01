@@ -4608,6 +4608,21 @@ Unknown properties are collapsed to zero. -->
   <int value="4" label="NotShown, invalid legal message"/>
 </enum>
 
+<enum name="AutofillCreditCardOfferSelection">
+  <int value="0" label="Selected card without offer"/>
+  <int value="1" label="Selected card with offer"/>
+</enum>
+
+<enum name="AutofillCreditCardOfferSubmission">
+  <int value="0" label="Submitted card without offer"/>
+  <int value="1" label="Submitted card with offer"/>
+</enum>
+
+<enum name="AutofillCreditCardOfferSuggestion">
+  <int value="0" label="No cards with offer suggested"/>
+  <int value="1" label="Card with offer suggested"/>
+</enum>
+
 <enum name="AutofillCreditCardPreflightCallEvent">
   <int value="0" label="Preflight returned first"/>
   <int value="1" label="Card chosen first"/>
@@ -21918,6 +21933,7 @@ Called by update_document_policy_enum.py.-->
   <int value="788" label="MediaRecommendationsEnabled"/>
   <int value="789" label="DeviceFamilyLinkAccountsAllowed"/>
   <int value="790" label="EduCoexistenceToSVersion"/>
+  <int value="801" label="TosDialogBehavior"/>
 </enum>
 
 <enum name="EnterprisePolicyDeviceIdValidity">
@@ -29381,7 +29397,8 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="3504" label="IdentifiabilityStudyReserved3504"/>
   <int value="3505" label="IdentifiabilityStudyReserved3505"/>
   <int value="3506" label="IdentifiabilityStudyReserved3506"/>
-  <int value="3507" label="IdentifiabilityStudyReserved3507"/>
+  <int value="3507"
+      label="V8PushManager_SupportedContentEncodings_AttributeGetter"/>
   <int value="3508" label="IdentifiabilityStudyReserved3508"/>
   <int value="3509" label="IdentifiabilityStudyReserved3509"/>
   <int value="3510" label="IdentifiabilityStudyReserved3510"/>
@@ -56911,6 +56928,15 @@ Called by update_net_trust_anchors.py.-->
   <int value="4" label="REVOKED"/>
 </enum>
 
+<enum name="PermissionAutoRevocationHistory">
+  <summary>
+    Track whether the permission has been automatically revoked in the past at
+    least once.
+  </summary>
+  <int value="0" label="NONE"/>
+  <int value="1" label="PREVIOUSLY_AUTO_REVOKED"/>
+</enum>
+
 <enum name="PermissionEmbargoStatus">
   <int value="0" label="NOT_EMBARGOED"/>
   <int value="1" label="BLACKLISTED"/>
@@ -70606,6 +70632,7 @@ would be helpful to identify which type is being sent.
   <int value="5" label="Navigation Started"/>
   <int value="6" label="Tab Destroyed"/>
   <int value="7" label="Tab Hidden"/>
+  <int value="8" label="Offline Available"/>
 </enum>
 
 <enum name="TabDiscardingEvents">

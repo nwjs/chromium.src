@@ -37,6 +37,7 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
 #include "chrome/browser/ui/views/frame/top_container_view.h"
+#include "chrome/browser/ui/views/frame/webui_tab_strip_field_trial.h"
 #include "chrome/browser/ui/views/in_product_help/feature_promo_colors.h"
 #include "chrome/browser/ui/views/in_product_help/feature_promo_controller_views.h"
 #include "chrome/browser/ui/views/tabs/tab_group_editor_bubble_view.h"
@@ -235,9 +236,12 @@ class WebUITabStripContainerView::AutoCloser : public ui::EventHandler,
     DCHECK(top_container_);
     DCHECK(content_area_);
     DCHECK(omnibox_);
-    view_observer_.Add(top_container_);
+
     view_observer_.Add(content_area_);
     view_observer_.Add(omnibox_);
+#if defined(OS_WIN)
+    view_observer_.Add(top_container_);
+#endif  // defined(OS_WIN)
 
     // Our observed Widget's NativeView may be destroyed before us. We
     // have no reasonable way of un-registering our pre-target handler
@@ -511,6 +515,11 @@ bool WebUITabStripContainerView::SupportsTouchableTabStrip(
 
 // static
 bool WebUITabStripContainerView::UseTouchableTabStrip(const Browser* browser) {
+  // This is called at Browser start to check which mode to use. It is a
+  // good place to check the feature state and set up a synthetic field
+  // trial.
+  WebUITabStripFieldTrial::RegisterFieldTrialIfNecessary();
+
   return browser->is_type_normal() &&
          base::FeatureList::IsEnabled(features::kWebUITabStrip) &&
          ui::TouchUiController::Get()->touch_ui();
@@ -822,6 +831,7 @@ gfx::Size WebUITabStripContainerView::FlexRule(
 }
 
 void WebUITabStripContainerView::OnViewBoundsChanged(View* observed_view) {
+#if defined(OS_WIN)
   if (observed_view == top_container_) {
     if (old_top_container_width_ != top_container_->width()) {
       old_top_container_width_ = top_container_->width();
@@ -829,7 +839,11 @@ void WebUITabStripContainerView::OnViewBoundsChanged(View* observed_view) {
       drag_to_open_handler_->CancelDrag();
       CloseContainer();
     }
-  } else if (observed_view == tab_contents_container_) {
+    return;
+  }
+#endif  // defined(OS_WIN)
+
+  if (observed_view == tab_contents_container_) {
     // TODO(pbos): PreferredSizeChanged seems to cause infinite recursion with
     // BrowserView::ChildPreferredSizeChanged. InvalidateLayout here should be
     // replaceable with PreferredSizeChanged.

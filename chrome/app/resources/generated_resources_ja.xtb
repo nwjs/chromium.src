@@ -2069,6 +2069,7 @@
 <translation id="3428419049384081277">ログインしました</translation>
 <translation id="3428747202529429621">ログイン時に、Chrome を安全に利用できるようにするほか、他の Google アプリのセキュリティ強化に使用されることがあります</translation>
 <translation id="3428800329481094896">Linux コンテナの SSH 認証鍵を取得しています</translation>
+<translation id="3429271624041785769">ウェブ コンテンツの言語</translation>
 <translation id="3429275422858276529">後で見つけやすいようにこのページをブックマークできます</translation>
 <translation id="3432227430032737297">表示中のサイトをすべて削除</translation>
 <translation id="3432757130254800023">映像と音声をローカル ネットワーク経由でディスプレイに送信する</translation>
@@ -2474,7 +2475,6 @@
 <translation id="3856800405688283469">タイムゾーンを選択</translation>
 <translation id="3857807444929313943">指を放して、もう一度タッチ</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" />: 同期が一時停止されています</translation>
-<translation id="3861386850461794863">アプリとウェブサイトの言語</translation>
 <translation id="3861638017150647085">ユーザー名「<ph name="USERNAME" />」は使用できません</translation>
 <translation id="3862693525629180217">内蔵センサーを使って確認</translation>
 <translation id="3862788408946266506">「kiosk_only」のマニフェスト属性が指定されているアプリは、Chrome OS キオスクモードでインストールする必要があります。</translation>
@@ -2494,6 +2494,7 @@
 <translation id="3879748587602334249">ダウンロード マネージャ</translation>
 <translation id="3881478300875776315">表示する行数を減らす</translation>
 <translation id="3882165008614329320">カメラやファイルに保存されている動画</translation>
+<translation id="3884152383786131369">複数の言語に対応しているウェブ コンテンツでは、次のリストの最初にある対応言語が使用されます。これらの設定はブラウザの設定と同期されています。<ph name="BEGIN_LINK_LEARN_MORE" />詳細<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="3886446263141354045">このサイトへのアクセス リクエストを <ph name="NAME" /> さんに送信しました</translation>
 <translation id="3888550877729210209"><ph name="LOCK_SCREEN_APP_NAME" /> でメモをとる</translation>
 <translation id="3892414795099177503">OpenVPN / L2TP を追加...</translation>
@@ -4477,7 +4478,6 @@
 <translation id="628352644014831790">4秒</translation>
 <translation id="6285120108426285413"><ph name="FILE_NAME" /> は一般的にダウンロードされているファイルではなく、危害を及ぼす可能性があります。</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{ネットワーク上の新しいプリンタ}other{ネットワーク上の新しいプリンタ}}</translation>
-<translation id="6289626062715012577">複数の言語に対応しているアプリやウェブサイトでは、次のリストの最初にある対応言語が使用されます。言語の設定は Chrome ブラウザに同期されます。<ph name="BEGIN_LINK_LEARN_MORE" />詳細<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="6291163159361301370">Linux を起動するため、<ph name="ORGANIZATION_NAME" /> がデータをバックアップし、この Chromebook を初期状態にリセットするよう求めています。</translation>
 <translation id="6291949900244949761">サイトから USB デバイスへのアクセス許可を求められたときに確認する（推奨）</translation>
 <translation id="6291953229176937411">Finder で表示(&amp;S)</translation>

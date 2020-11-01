@@ -2069,6 +2069,7 @@ Vous pouvez gérer les paramètres de ce compte en installant l'application Fami
 <translation id="3428419049384081277">Vous êtes connecté</translation>
 <translation id="3428747202529429621">Ce mode assure votre sécurité dans Chrome et peut être utilisé pour améliorer votre sécurité dans d'autres applications Google lorsque vous êtes connecté</translation>
 <translation id="3428800329481094896">Extraction des clés SSH du conteneur Linux…</translation>
+<translation id="3429271624041785769">Langues du contenu Web</translation>
 <translation id="3429275422858276529">Ajoutez cette page aux favoris pour la retrouver facilement</translation>
 <translation id="3432227430032737297">Supprimer tous les cookies affichés</translation>
 <translation id="3432757130254800023">Envoyer les contenus audio et vidéo aux écrans sur le réseau local</translation>
@@ -2474,7 +2475,6 @@ Vous pouvez gérer les paramètres de ce compte en installant l'application Fami
 <translation id="3856800405688283469">Sélectionner un fuseau horaire</translation>
 <translation id="3857807444929313943">Levez le doigt, puis appuyez de nouveau</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" /> : synchronisation en pause</translation>
-<translation id="3861386850461794863">Langues des applications et sites Web</translation>
 <translation id="3861638017150647085">Nom d'utilisateur "<ph name="USERNAME" />" non disponible</translation>
 <translation id="3862693525629180217">Valider via le capteur intégré</translation>
 <translation id="3862788408946266506">L'application dont le fichier manifeste comporte un attribut "kiosk_only" doit être installée en mode Kiosque pour Chrome OS</translation>
@@ -2494,6 +2494,7 @@ Vous pouvez gérer les paramètres de ce compte en installant l'application Fami
 <translation id="3879748587602334249">Gestionnaire de téléchargement</translation>
 <translation id="3881478300875776315">Afficher moins de lignes</translation>
 <translation id="3882165008614329320">Vidéo existante filmée avec la caméra ou lue à partir d'un fichier</translation>
+<translation id="3884152383786131369">Le contenu Web disponible dans plusieurs langues vous sera proposé dans la première langue disponible de cette liste. Ces préférences sont synchronisées avec les paramètres de votre navigateur. <ph name="BEGIN_LINK_LEARN_MORE" />En savoir plus<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="3886446263141354045">Votre demande d'accès à ce site a bien été envoyée à <ph name="NAME" /></translation>
 <translation id="3888550877729210209">Prise de notes avec <ph name="LOCK_SCREEN_APP_NAME" /></translation>
 <translation id="3892414795099177503">Ajouter une connexion OpenVPN/L2TP…</translation>
@@ -2798,7 +2799,7 @@ Souhaitez-vous lancer <ph name="CONTROL_PANEL_APPLET_NAME" /> ?</translation>
 <translation id="425573743389990240">Taux de décharge de la batterie en watts (une valeur négative signifie que la batterie est en charge)</translation>
 <translation id="4256316378292851214">En&amp;registrer la vidéo sous...</translation>
 <translation id="4258348331913189841">Systèmes de fichiers</translation>
-<translation id="4259388776256904261">Cette opération peut prendre quelques instants</translation>
+<translation id="4259388776256904261">Cette opération peut prendre un certain temps</translation>
 <translation id="4260182282978351200">Le fichier <ph name="FILE_NAME" /> est peut-être dangereux. Souhaitez-vous l'envoyer au service Protection Avancée de Google pour analyse ? Appuyez sur Maj+F6 pour accéder à la barre de téléchargements.</translation>
 <translation id="4263223596040212967">Vérifiez la disposition de votre clavier et réessayez.</translation>
 <translation id="4263757076580287579">L'enregistrement de l'imprimante a été annulé.</translation>
@@ -4478,7 +4479,6 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="628352644014831790">4 secondes</translation>
 <translation id="6285120108426285413"><ph name="FILE_NAME" /> n'est pas un fichier couramment téléchargé. Il est peut-être dangereux.</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{Nouvelle imprimante sur le réseau}one{Nouvelle imprimante sur le réseau}other{Nouvelles imprimantes sur le réseau}}</translation>
-<translation id="6289626062715012577">Les applications et les sites Web multilingues utiliseront la première langue compatible de cette liste. Les préférences linguistiques se synchronisent avec le navigateur Chrome. <ph name="BEGIN_LINK_LEARN_MORE" />En savoir plus<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="6291163159361301370"><ph name="ORGANIZATION_NAME" /> exige que vous sauvegardiez vos données et rétablissiez la configuration d'usine de ce Chromebook pour démarrer Linux.</translation>
 <translation id="6291949900244949761">Me demander lorsqu'un site souhaite accéder aux appareils USB (recommandé)</translation>
 <translation id="6291953229176937411">&amp;Afficher dans le Finder</translation>

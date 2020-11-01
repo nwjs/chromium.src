@@ -15,8 +15,6 @@ import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.chrome.browser.identity.UniqueIdentificationGenerator;
 import org.chromium.chrome.browser.identity.UniqueIdentificationGeneratorFactory;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.signin.IdentityServicesProvider;
-import org.chromium.chrome.browser.signin.SigninManager;
 import org.chromium.components.sync.ModelType;
 import org.chromium.components.sync.PassphraseType;
 import org.chromium.components.sync.StopSource;
@@ -71,18 +69,6 @@ public class SyncController implements ProfileSyncService.SyncStateChangedListen
         mProfileSyncService.addSyncStateChangedListener(mSyncNotificationController);
 
         updateSyncStateFromAndroid();
-
-        IdentityServicesProvider.get()
-                .getSigninManager(Profile.getLastUsedRegularProfile())
-                .addSignInStateObserver(new SigninManager.SignInStateObserver() {
-                    @Override
-                    public void onSignedIn() {
-                        mProfileSyncService.requestStart();
-                    }
-
-                    @Override
-                    public void onSignedOut() {}
-                });
     }
 
     /**
@@ -118,22 +104,27 @@ public class SyncController implements ProfileSyncService.SyncStateChangedListen
         if (isSyncEnabled == mProfileSyncService.isSyncRequested()) return;
         if (isSyncEnabled) {
             mProfileSyncService.requestStart();
+            return;
+        }
+
+        if (Profile.getLastUsedRegularProfile().isChild()) {
+            // For child accounts, Sync needs to stay enabled, so we reenable it in settings.
+            // TODO(bauerb): Remove the dependency on child account code and instead go through
+            // prefs (here and in the Sync customization UI).
+            AndroidSyncSettings.get().enableChromeSync();
         } else {
-            if (Profile.getLastUsedRegularProfile().isChild()) {
-                // For child accounts, Sync needs to stay enabled, so we reenable it in settings.
-                // TODO(bauerb): Remove the dependency on child account code and instead go through
-                // prefs (here and in the Sync customization UI).
-                AndroidSyncSettings.get().enableChromeSync();
-            } else {
-                if (AndroidSyncSettings.get().doesMasterSyncSettingAllowChromeSync()) {
-                    RecordHistogram.recordEnumeratedHistogram("Sync.StopSource",
-                            StopSource.ANDROID_CHROME_SYNC, StopSource.STOP_SOURCE_LIMIT);
-                } else {
-                    RecordHistogram.recordEnumeratedHistogram("Sync.StopSource",
-                            StopSource.ANDROID_MASTER_SYNC, StopSource.STOP_SOURCE_LIMIT);
-                }
-                mProfileSyncService.requestStop();
+            // On sign-out, Sync.StopSource is already recorded in the native code, so only
+            // record it here if there's still a primary (syncing) account.
+            // TODO(crbug.com/1105795): Revisit how these metrics are recorded.
+            if (mProfileSyncService.isAuthenticatedAccountPrimary()) {
+                int source = !AndroidSyncSettings.get().doesMasterSyncSettingAllowChromeSync()
+                        ? StopSource.ANDROID_MASTER_SYNC
+                        : StopSource.ANDROID_CHROME_SYNC;
+                RecordHistogram.recordEnumeratedHistogram(
+                        "Sync.StopSource", source, StopSource.STOP_SOURCE_LIMIT);
             }
+
+            mProfileSyncService.requestStop();
         }
     }
 
