@@ -38,9 +38,7 @@ class ChromeCrashReporterClient : public crash_reporter::CrashReporterClient {
   void GetProductNameAndVersion(std::string* product_name,
                                 std::string* version,
                                 std::string* channel) override;
-#if !defined(OS_MACOSX)
   base::FilePath GetReporterLogFilename() override;
-#endif
 #endif
 
   bool GetCrashDumpLocation(base::FilePath* crash_dir) override;

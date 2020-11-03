@@ -9,7 +9,7 @@
 
 #if defined(WEBRTC_MAC) && !defined(WEBRTC_IOS)
 #include <CoreServices/CoreServices.h>
-#endif  // OS_MACOSX
+#endif  // OS_MAC
 
 #include <algorithm>
 #include <iomanip>

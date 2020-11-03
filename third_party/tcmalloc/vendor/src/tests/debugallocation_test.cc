@@ -138,7 +138,7 @@ TEST(DebugAllocationTest, DeallocMismatch) {
     ::operator delete[](y, std::nothrow);
   }
 }
-#endif  // #ifdef OS_MACOSX
+#endif  // #ifdef OS_MAC
 
 TEST(DebugAllocationTest, DoubleFree) {
   int* pint = new int;
