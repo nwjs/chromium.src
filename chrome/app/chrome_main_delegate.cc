@@ -733,7 +733,7 @@ bool ChromeMainDelegate::BasicStartupComplete(int* exit_code) {
       base::NativeLibraryLoadError error;
 #if defined(OS_MAC)
       base::FilePath node_dll_path = base::mac::FrameworkBundlePath().Append(base::FilePath::FromUTF8Unsafe(base::GetNativeLibraryName("node")));
-      base::ScopedCFTypeRef<CFStringRef> natives_file_name(base::SysUTF8ToCFStringRef("v8_context_snapshot.bin"));
+      base::ScopedCFTypeRef<CFStringRef> natives_file_name(base::SysUTF8ToCFStringRef(V8_CONTEXT_SNAPSHOT_FILENAME));
       std::string blob_path = base::mac::PathForFrameworkBundleResource(natives_file_name).AsUTF8Unsafe();
 #else
       base::FilePath node_dll_path = base::FilePath::FromUTF8Unsafe(base::GetNativeLibraryName("node"));

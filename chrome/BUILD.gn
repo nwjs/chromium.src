@@ -1010,6 +1010,7 @@ if (is_win || (is_linux && !is_component_build)) {
     ]
 
     configs += [ "//build/config/compiler:wexit_time_destructors" ]
+    configs += [ "//tools/v8_context_snapshot:use_v8_context_snapshot" ]
   }
 
   mac_framework_bundle("chrome_framework") {
