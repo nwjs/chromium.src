@@ -1088,12 +1088,16 @@ component("base") {
       "mac/mac_util.mm",
       "mac/mach_logging.cc",
       "mac/mach_logging.h",
+      "mac/mach_o.cc",
+      "mac/mach_o.h",
       "mac/mach_port_rendezvous.cc",
       "mac/mach_port_rendezvous.h",
       "mac/objc_release_properties.h",
       "mac/objc_release_properties.mm",
       "mac/os_crash_dumps.cc",
       "mac/os_crash_dumps.h",
+      "mac/rosetta.h",
+      "mac/rosetta.mm",
       "mac/scoped_aedesc.h",
       "mac/scoped_authorizationref.h",
       "mac/scoped_authorizationref.mm",
@@ -1440,6 +1444,8 @@ component("base") {
       "android/path_service_android.cc",
       "android/path_utils.cc",
       "android/path_utils.h",
+      "android/radio_utils.cc",
+      "android/radio_utils.h",
       "android/reached_addresses_bitset.cc",
       "android/reached_addresses_bitset.h",
       "android/reached_code_profiler.cc",
@@ -2614,6 +2620,15 @@ bundle_data("base_unittests_bundle_data") {
     "test/data/serializer_test.json",
     "test/data/serializer_test_nowhitespace.json",
   ]
+  if (is_mac) {
+    sources += [
+      "test/data/mac/arm64",
+      "test/data/mac/elf",
+      "test/data/mac/universal",
+      "test/data/mac/x86",
+      "test/data/mac/x86_64",
+    ]
+  }
   outputs = [ "{{bundle_resources_dir}}/" +
               "{{source_root_relative_dir}}/{{source_file_part}}" ]
 }
@@ -3071,6 +3086,7 @@ test("base_unittests") {
       "mac/dispatch_source_mach_unittest.cc",
       "mac/foundation_util_unittest.mm",
       "mac/mac_util_unittest.mm",
+      "mac/mach_o_unittest.cc",
       "mac/mach_port_rendezvous_unittest.cc",
       "mac/objc_release_properties_unittest.mm",
       "mac/scoped_mach_vm_unittest.cc",
@@ -3079,6 +3095,7 @@ test("base_unittests") {
       "mac/scoped_sending_event_unittest.mm",
       "message_loop/message_pump_mac_unittest.mm",
       "power_monitor/thermal_state_observer_mac_unittest.mm",
+      "process/launch_unittest_mac.cc",
       "process/memory_unittest_mac.h",
       "process/memory_unittest_mac.mm",
       "strings/sys_string_conversions_mac_unittest.mm",
@@ -3479,6 +3496,7 @@ if (is_android) {
       "android/java/src/org/chromium/base/PathService.java",
       "android/java/src/org/chromium/base/PathUtils.java",
       "android/java/src/org/chromium/base/PowerMonitor.java",
+      "android/java/src/org/chromium/base/RadioUtils.java",
       "android/java/src/org/chromium/base/SysUtils.java",
       "android/java/src/org/chromium/base/ThreadUtils.java",
       "android/java/src/org/chromium/base/TimeUtils.java",
@@ -3587,6 +3605,7 @@ if (is_android) {
       "android/java/src/org/chromium/base/PiiElider.java",
       "android/java/src/org/chromium/base/PowerMonitor.java",
       "android/java/src/org/chromium/base/Promise.java",
+      "android/java/src/org/chromium/base/RadioUtils.java",
       "android/java/src/org/chromium/base/SecureRandomInitializer.java",
       "android/java/src/org/chromium/base/StreamUtil.java",
       "android/java/src/org/chromium/base/StrictModeContext.java",

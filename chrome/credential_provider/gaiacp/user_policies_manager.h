@@ -5,17 +5,19 @@
 #ifndef CHROME_CREDENTIAL_PROVIDER_GAIACP_USER_POLICIES_MANAGER_H_
 #define CHROME_CREDENTIAL_PROVIDER_GAIACP_USER_POLICIES_MANAGER_H_
 
+#include "base/component_export.h"
 #include "base/strings/string16.h"
 #include "base/time/time.h"
 #include "base/win/windows_types.h"
 #include "chrome/credential_provider/extension/task_manager.h"
+#include "chrome/credential_provider/gaiacp/gcp_utils.h"
 #include "chrome/credential_provider/gaiacp/user_policies.h"
 #include "url/gurl.h"
 
 namespace credential_provider {
 
 // Manager used to fetch user policies from GCPW backends.
-class UserPoliciesManager {
+class COMPONENT_EXPORT(GCPW_POLICIES) UserPoliciesManager {
  public:
   // Get the user policies manager instance.
   static UserPoliciesManager* Get();
@@ -58,13 +60,20 @@ class UserPoliciesManager {
   // Retrieves the policies for the user with |sid| from local storage. Returns
   // the default user policy if policy not fetched or on any error.
   virtual bool GetUserPolicies(const base::string16& sid,
-                               UserPolicies* user_policies);
+                               UserPolicies* user_policies) const;
+
+  // Returns true if the policies are missing for the user with |sid| or if
+  // they haven't been refreshed recently.
+  virtual bool IsUserPolicyStaleOrMissing(const base::string16& sid) const;
 
   // For testing only return the status of the last policy fetch.
   HRESULT GetLastFetchStatusForTesting() const;
 
   // For testing manually control if the cloud policies feature is enabled.
   void SetCloudPoliciesEnabledForTesting(bool value);
+
+  // Set fakes for cloud policies unit tests.
+  void SetFakesForTesting(FakesForTesting* fakes);
 
  protected:
   // Returns the storage used for the instance pointer.

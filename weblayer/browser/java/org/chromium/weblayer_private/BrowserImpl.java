@@ -11,7 +11,6 @@ import android.os.Bundle;
 import android.os.RemoteException;
 import android.provider.Settings;
 import android.view.View;
-import android.view.ViewGroup;
 import android.webkit.ValueCallback;
 
 import androidx.annotation.NonNull;
@@ -144,8 +143,8 @@ public class BrowserImpl extends IBrowser.Stub implements View.OnAttachStateChan
         return mViewController.getContentView();
     }
 
-    public ViewGroup getAutofillView() {
-        return getViewController().getAutofillView();
+    public UrlBarControllerImpl getUrlBarControllerImpl() {
+        return mUrlBarController;
     }
 
     // Called from constructor and onFragmentAttached() to configure state needed when attached.

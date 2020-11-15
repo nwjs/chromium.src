@@ -18,14 +18,15 @@ import org.chromium.weblayer_private.interfaces.IDownload;
 import org.chromium.weblayer_private.interfaces.IDownloadCallbackClient;
 import org.chromium.weblayer_private.interfaces.IObjectWrapper;
 import org.chromium.weblayer_private.interfaces.IProfile;
+import org.chromium.weblayer_private.interfaces.IProfileClient;
 import org.chromium.weblayer_private.interfaces.IUserIdentityCallbackClient;
 import org.chromium.weblayer_private.interfaces.ObjectWrapper;
 import org.chromium.weblayer_private.interfaces.StrictModeWorkaround;
 
 import java.io.File;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -35,6 +36,7 @@ import java.util.Set;
  */
 public class Profile {
     private static final Map<String, Profile> sProfiles = new HashMap<>();
+    private static final Map<String, Profile> sIncognitoProfiles = new HashMap<>();
 
     /* package */ static Profile of(IProfile impl) {
         ThreadCheck.ensureOnUiThread();
@@ -44,25 +46,43 @@ public class Profile {
         } catch (RemoteException e) {
             throw new APICallException(e);
         }
-        Profile profile = sProfiles.get(name);
+        boolean isIncognito;
+        if (WebLayer.getSupportedMajorVersionInternal() < 87) {
+            isIncognito = "".equals(name);
+        } else {
+            try {
+                isIncognito = impl.isIncognito();
+            } catch (RemoteException e) {
+                throw new APICallException(e);
+            }
+        }
+        Profile profile;
+        if (isIncognito) {
+            profile = sIncognitoProfiles.get(name);
+        } else {
+            profile = sProfiles.get(name);
+        }
         if (profile != null) {
             return profile;
         }
 
-        return new Profile(name, impl);
+        return new Profile(name, impl, isIncognito);
     }
 
     /**
      * Return all profiles that have been created and not yet called destroyed.
-     * Note returned structure is immutable.
      */
     @NonNull
     public static Collection<Profile> getAllProfiles() {
         ThreadCheck.ensureOnUiThread();
-        return Collections.unmodifiableCollection(sProfiles.values());
+        Set<Profile> profiles = new HashSet<Profile>();
+        profiles.addAll(sProfiles.values());
+        profiles.addAll(sIncognitoProfiles.values());
+        return profiles;
     }
 
     private final String mName;
+    private final boolean mIsIncognito;
     private IProfile mImpl;
     private DownloadCallbackClientImpl mDownloadCallbackClient;
     private final CookieManager mCookieManager;
@@ -71,14 +91,16 @@ public class Profile {
     // Constructor for test mocking.
     protected Profile() {
         mName = null;
+        mIsIncognito = false;
         mImpl = null;
         mCookieManager = null;
         mPrerenderController = null;
     }
 
-    private Profile(String name, IProfile impl) {
+    private Profile(String name, IProfile impl, boolean isIncognito) {
         mName = name;
         mImpl = impl;
+        mIsIncognito = isIncognito;
         mCookieManager = CookieManager.create(impl);
         if (WebLayer.getSupportedMajorVersionInternal() >= 87) {
             mPrerenderController = PrerenderController.create(impl);
@@ -86,7 +108,43 @@ public class Profile {
             mPrerenderController = null;
         }
 
-        sProfiles.put(name, this);
+        if (isIncognito) {
+            sIncognitoProfiles.put(name, this);
+        } else {
+            sProfiles.put(name, this);
+        }
+
+        if (WebLayer.getSupportedMajorVersionInternal() >= 87) {
+            try {
+                mImpl.setClient(new ProfileClientImpl());
+            } catch (RemoteException e) {
+                throw new APICallException(e);
+            }
+        }
+    }
+
+    /**
+     * Returns the name of the profile. While added in 88, this can be used with any version.
+     *
+     * @return The name of the profile.
+     *
+     * @since 87
+     */
+    @NonNull
+    public String getName() {
+        return mName;
+    }
+
+    /**
+     * Returns true if the profile is incognito. While added in 88, this can be used with any
+     * version.
+     *
+     * @return True if the profile is incognito.
+     *
+     * @since 87
+     */
+    public boolean isIncognito() {
+        return mIsIncognito;
     }
 
     /**
@@ -138,8 +196,42 @@ public class Profile {
         } catch (RemoteException e) {
             throw new APICallException(e);
         }
-        mImpl = null;
-        sProfiles.remove(mName);
+        onDestroyed();
+    }
+
+    /**
+     * This method provides the same functionality as {@link destroyAndDeleteDataFromDisk}, but
+     * delays until there is no usage of the Profile. If there is no usage of the profile
+     * destruction is immediate. If there is usage, then destruction happens as soon as possible.
+     * It's possible cleanup may not happen until WebLayer is restarted. If cleanup does not happen
+     * until WebLayer is restarted, {@link completionCallback} is not run (because the process was
+     * restarted).
+     *
+     * While destruction may be delayed, once this function is called, the profile name will not be
+     * returned from {@link WebLayer#enumerateAllProfileNames}.
+     *
+     * @param completionCallback Callback this is notified when destruction is complete. This may
+     *         never be called.
+     *
+     * @since 87
+     */
+    public void destroyAndDeleteDataFromDiskSoon(@Nullable Runnable completionCallback) {
+        ThreadCheck.ensureOnUiThread();
+        if (WebLayer.getSupportedMajorVersionInternal() < 87) {
+            throw new UnsupportedOperationException();
+        }
+        throwIfDestroyed();
+        try {
+            mImpl.destroyAndDeleteDataFromDiskSoon(ObjectWrapper.wrap(completionCallback));
+        } catch (RemoteException e) {
+            throw new APICallException(e);
+        }
+    }
+
+    private void throwIfDestroyed() {
+        if (mImpl == null) {
+            throw new IllegalStateException("Profile can not be used once destroyed");
+        }
     }
 
     @Deprecated
@@ -150,8 +242,16 @@ public class Profile {
         } catch (RemoteException e) {
             throw new APICallException(e);
         }
+        onDestroyed();
+    }
+
+    private void onDestroyed() {
+        if (mIsIncognito) {
+            sIncognitoProfiles.remove(mName);
+        } else {
+            sProfiles.remove(mName);
+        }
         mImpl = null;
-        sProfiles.remove(mName);
     }
 
     /**
@@ -467,6 +567,13 @@ public class Profile {
                     (ValueCallback<Bitmap>) ObjectWrapper.unwrap(
                             avatarLoadedWrapper, ValueCallback.class);
             mCallback.getAvatar(desiredSize, avatarLoadedCallback);
+        }
+    }
+
+    private final class ProfileClientImpl extends IProfileClient.Stub {
+        @Override
+        public void onProfileDestroyed() {
+            onDestroyed();
         }
     }
 }

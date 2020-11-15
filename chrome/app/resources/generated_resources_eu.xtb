@@ -977,7 +977,7 @@ Kontu honen ezarpenak kudeatzeko, instalatu Family Link aplikazioa zure gailuan.
 <translation id="2123766928840368256">Aukeratu beste fitxategi bat</translation>
 <translation id="2124930039827422115">{1,plural, =1{Erabiltzaile batek emandako balorazioa: <ph name="AVERAGE_RATING" />.}other{# erabiltzailek emandako balorazioa: <ph name="AVERAGE_RATING" />.}}</translation>
 <translation id="2126167708562367080">Sinkronizazioa desgaitu du administratzaileak.</translation>
-<translation id="2127372758936585790">Potentzia gutxiko kargagailua</translation>
+<translation id="2127372758936585790">Potentzia txikiko kargagailua</translation>
 <translation id="212862741129535676">Frekuentziaren egoera-okupazioaren ehunekoa</translation>
 <translation id="212876957201860463">Gailu mugikorra konfiguratzeko prestatzen…</translation>
 <translation id="2129825002735785149">Eguneratu plugina</translation>
@@ -1063,7 +1063,7 @@ Kontu honen ezarpenak kudeatzeko, instalatu Family Link aplikazioa zure gailuan.
 <translation id="2218019600945559112">Sagua eta ukipen-panela</translation>
 <translation id="2218320521449013367">Errore bat gertatu da Chrome-k software kaltegarria kendu bitartean</translation>
 <translation id="2218515861914035131">Itsatsi testu arrunt gisa</translation>
-<translation id="2220409419896228519">Gehitu laster-markak gogokoen dituzun Google aplikazioetan</translation>
+<translation id="2220409419896228519">Gehitu laster-markak gogoko dituzun Google-ren aplikazioetan</translation>
 <translation id="2220529011494928058">Eman arazo baten berri</translation>
 <translation id="2220572644011485463">PIN kodea edo pasahitza</translation>
 <translation id="2224444042887712269">Ezarpen hau <ph name="OWNER_EMAIL" /> erabiltzailearena da.</translation>
@@ -1534,7 +1534,7 @@ Kontu honen ezarpenak kudeatzeko, instalatu Family Link aplikazioa zure gailuan.
 <translation id="2762441749940182211">Kamera blokeatuta dago</translation>
 <translation id="2764786626780673772">VPN konexioaren xehetasunak</translation>
 <translation id="2765217105034171413">Txikia</translation>
-<translation id="2765729904637714153">Ekarri gogora zure oroitzapen gogokoenak. Albumak gehitu edo editatzeko, joan <ph name="LINK_BEGIN" />Google Argazkiak<ph name="LINK_END" /> zerbitzura.</translation>
+<translation id="2765729904637714153">Ekarri gogora gehien gustatzen zaizkizun oroitzapenak. Albumak gehitu edo editatzeko, joan <ph name="LINK_BEGIN" />Google Argazkiak<ph name="LINK_END" /> zerbitzura.</translation>
 <translation id="2766006623206032690">It&amp;satsi eta listo</translation>
 <translation id="2766161002040448006">Galdetu guraso bati</translation>
 <translation id="2767127727915954024"><ph name="ORIGIN" /> webguneak <ph name="FILENAME" /> fitxategia editatzeko baimena izango du webguneko fitxa guztiak ixten dituzun arte</translation>
@@ -4292,7 +4292,7 @@ Haurrak ikastetxean ez badu Chromebook-ik erabiltzen, edo nahiago baduzu etxean 
 <translation id="6077189836672154517"><ph name="DEVICE_TYPE" /> gailuari buruzko aholkuak eta berritasunak</translation>
 <translation id="6077476112742402730">Ahotsa testu bihurtzeko eginbidea</translation>
 <translation id="6078045608615316905">Sortu irudiaren QR kodea</translation>
-<translation id="6078121669093215958">{0,plural, =1{Gonbidatua}other{Gonbidatuentzako # leiho daude irekita}}</translation>
+<translation id="6078121669093215958">{0,plural, =1{Gonbidatua}other{Gonbidatu moduko # leiho daude irekita}}</translation>
 <translation id="6078323886959318429">Gehitu lasterbidea</translation>
 <translation id="6078752646384677957">Egiaztatu mikrofonoa eta bolumena.</translation>
 <translation id="6078769373519310690">"<ph name="CHROME_EXTENSION_NAME" />" luzapenak HID gailu batekin konektatu nahi du</translation>
@@ -4560,7 +4560,7 @@ Haurrak ikastetxean ez badu Chromebook-ik erabiltzen, edo nahiago baduzu etxean 
 <translation id="6387674443318562538">Zatitu bertikalki</translation>
 <translation id="6388429472088318283">Bilatu hizkuntzak</translation>
 <translation id="6390020764191254941">Eraman fitxa leiho berri batera</translation>
-<translation id="6390799748543157332">Leiho honetan ikusten dituzun orriak ez dira arakatzailearen historian agertuko eta ez dute ordenagailuan beste inolako aztarnarik utziko (adibidez, cookieak) gonbidatuaren leiho guztiak itxi ondoren. Hala ere, deskargatutako fitxategiak mantendu egingo dira.</translation>
+<translation id="6390799748543157332">Leiho honetan ikusten dituzun orriak ez dira arakatzailearen historian agertuko eta ez dute ordenagailuan beste inolako aztarnarik utziko (adibidez, cookieak) gonbidatu moduko leiho guztiak itxi ondoren. Hala ere, deskargatutako fitxategiak mantendu egingo dira.</translation>
 <translation id="6393156038355142111">Iradoki pasahitz seguru bat</translation>
 <translation id="6395423953133416962">Bidali <ph name="BEGIN_LINK1" />sistemari buruzko informazioa<ph name="END_LINK1" /> eta <ph name="BEGIN_LINK2" />estatistikak<ph name="END_LINK2" /></translation>
 <translation id="6396988158856674517">Ez utzi webguneei mugimendu-sentsoreak erabiltzen</translation>

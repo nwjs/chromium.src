@@ -396,6 +396,38 @@ suite('NewTabPageAppTest', () => {
     assertTrue(app.$.mostVisited.hasAttribute('use-title-pill'));
   });
 
+  test('can show promo with browser command', async () => {
+    const testProxy = PromoBrowserCommandProxy.getInstance();
+    testProxy.handler = TestBrowserProxy.fromClass(
+        promoBrowserCommand.mojom.CommandHandlerRemote);
+    testProxy.handler.setResultFor(
+        'canShowPromoWithCommand', Promise.resolve({canShow: true}));
+
+    const commandId = 123;  // Unsupported command.
+    window.dispatchEvent(new MessageEvent('message', {
+      data: {
+        frameType: 'one-google-bar',
+        messageType: 'can-show-promo-with-browser-command',
+        commandId,
+      },
+      source: window,
+      origin: window.origin,
+    }));
+
+    // Make sure the command is sent to the browser.
+    const expectedCommandId =
+        await testProxy.handler.whenCalled('canShowPromoWithCommand');
+    // Unsupported commands get resolved to the default command before being
+    // sent to the browser.
+    assertEquals(
+        promoBrowserCommand.mojom.Command.kUnknownCommand, expectedCommandId);
+
+    // Make sure the promo frame gets notified whether the promo can be shown.
+    const {data} = await eventToPromise('message', window);
+    assertEquals('can-show-promo-with-browser-command', data.messageType);
+    assertTrue(data[commandId]);
+  });
+
   test('executes promo browser command', async () => {
     const testProxy = PromoBrowserCommandProxy.getInstance();
     testProxy.handler = TestBrowserProxy.fromClass(
@@ -454,6 +486,10 @@ suite('NewTabPageAppTest', () => {
             title: 'Bar Title',
           }
         ]);
+        $$(app, 'ntp-middle-slot-promo')
+            .dispatchEvent(new Event(
+                'ntp-middle-slot-promo-loaded',
+                {bubbles: true, composed: true}));
         testProxy.callbackRouterRemote.setModulesVisible(visible);
         await flushTasks();  // Wait for module descriptor resolution.
 

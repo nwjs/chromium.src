@@ -332,7 +332,7 @@ class DebuggerExtensionApiTest : public ExtensionApiTest {
     ExtensionApiTest::SetUpOnMainThread();
     host_resolver()->AddRule("*", "127.0.0.1");
     embedded_test_server()->ServeFilesFromSourceDirectory("chrome/test/data");
-    ASSERT_TRUE(embedded_test_server()->Start());
+    ASSERT_TRUE(StartEmbeddedTestServer());
   }
 };
 
@@ -358,6 +358,10 @@ IN_PROC_BROWSER_TEST_F(DebuggerExtensionApiTest,
   EXPECT_TRUE(
       RunExtensionTestWithArg("debugger_inspect_worker", url.spec().c_str()))
       << message_;
+}
+
+IN_PROC_BROWSER_TEST_F(DebuggerExtensionApiTest, AttachToEmptyUrls) {
+  ASSERT_TRUE(RunExtensionTest("debugger_attach_to_empty_urls")) << message_;
 }
 
 class SitePerProcessDebuggerExtensionApiTest : public DebuggerExtensionApiTest {
@@ -406,6 +410,11 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessDebuggerExtensionApiTest,
   ASSERT_TRUE(RunExtensionTestWithArg("debugger_auto_attach_permissions",
                                       url.spec().c_str()))
       << message_;
+}
+
+IN_PROC_BROWSER_TEST_F(SitePerProcessDebuggerExtensionApiTest,
+                       DebuggerCheckInnerUrl) {
+  ASSERT_TRUE(RunExtensionTest("debugger_check_inner_url")) << message_;
 }
 
 }  // namespace extensions

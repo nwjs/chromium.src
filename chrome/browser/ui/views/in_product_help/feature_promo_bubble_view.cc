@@ -56,6 +56,9 @@ constexpr gfx::Insets kBubbleButtonPadding(8, 10);
 // The text color of the button.
 constexpr SkColor kBubbleButtonTextColor = SK_ColorWHITE;
 
+// The outline color of the button.
+constexpr SkColor kBubbleButtonBorderColor = gfx::kGoogleGrey300;
+
 // The focus ring color of the button.
 constexpr SkColor kBubbleButtonFocusRingColor = SK_ColorWHITE;
 
@@ -86,6 +89,7 @@ class MdIPHBubbleButton : public MdTextButton {
     // inactive style when the bubble loses focus.
     SetTextColor(ButtonState::STATE_DISABLED, kBubbleButtonTextColor);
     focus_ring()->SetColor(kBubbleButtonFocusRingColor);
+    GetViewAccessibility().OverrideIsLeaf(true);
   }
 
   void UpdateBackgroundColor() override {
@@ -104,9 +108,7 @@ class MdIPHBubbleButton : public MdTextButton {
       bg_color = theme->GetSystemButtonPressedColor(bg_color);
 
     SkColor stroke_color =
-        has_border_
-            ? theme->GetSystemColor(ui::NativeTheme::kColorId_ButtonBorderColor)
-            : kBubbleBackgroundColor;
+        has_border_ ? kBubbleButtonBorderColor : kBubbleBackgroundColor;
 
     SetBackground(CreateBackgroundFromPainter(
         Painter::CreateRoundRectWith1PxBorderPainter(bg_color, stroke_color,
@@ -147,11 +149,6 @@ FeaturePromoBubbleView::FeaturePromoBubbleView(
   const base::string16 body_text =
       l10n_util::GetStringUTF16(params.body_string_specifier);
 
-  // Feature promos are purely informational. We can skip reading the UI
-  // elements inside the bubble and just have the information announced when the
-  // bubble shows. To do so, we change the a11y tree to make this a leaf node
-  // and set the name to the message we want to announce.
-  GetViewAccessibility().OverrideIsLeaf(true);
   if (!params.screenreader_string_specifier) {
     accessible_name_ = body_text;
   } else if (params.feature_accelerator) {

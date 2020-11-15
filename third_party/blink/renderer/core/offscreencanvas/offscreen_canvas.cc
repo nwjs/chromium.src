@@ -179,6 +179,13 @@ void OffscreenCanvas::SetSize(const IntSize& size) {
   }
 }
 
+ScriptPromise OffscreenCanvas::convertToBlob(ScriptState* script_state,
+                                             const ImageEncodeOptions* options,
+                                             ExceptionState& exception_state) {
+  return CanvasRenderingContextHost::convertToBlob(script_state, options,
+                                                   exception_state, context_);
+}
+
 void OffscreenCanvas::RecordTransfer() {
   UMA_HISTOGRAM_BOOLEAN("Blink.OffscreenCanvas.Transferred", true);
 }
@@ -227,7 +234,7 @@ ImageBitmap* OffscreenCanvas::transferToImageBitmap(
 void OffscreenCanvas::RecordIdentifiabilityMetric(
     const blink::IdentifiableSurface& surface,
     const IdentifiableToken& token) const {
-  if (!IdentifiabilityStudySettings::Get()->IsSurfaceAllowed(surface))
+  if (!IdentifiabilityStudySettings::Get()->ShouldSample(surface))
     return;
   blink::IdentifiabilityMetricBuilder(GetExecutionContext()->UkmSourceID())
       .Set(surface, token)

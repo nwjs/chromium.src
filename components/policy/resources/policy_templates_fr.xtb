@@ -1005,6 +1005,7 @@ Si elle n'est pas définie, l'écran de confidentialité est désactivé initial
 
        Si cette règle n'est pas configurée, les statistiques et les données de diagnostic ne sont pas envoyées concernant les appareils non gérés, mais le sont pour les appareils gérés.</translation>
 <translation id="2454228136871844693">Privilégier la stabilité.</translation>
+<translation id="2455033019778127130">Utiliser le comportement par défaut du navigateur, afficher les conditions d'utilisation et attendre que l'utilisateur les accepte.</translation>
 <translation id="2456629156652006573">Privé uniquement</translation>
 <translation id="2463034609187171371">Activer des suites de chiffrement DHE dans TLS</translation>
 <translation id="2463365186486772703">Paramètres régionaux de l'application</translation>
@@ -2447,6 +2448,7 @@ Si elle est définie sur "False", <ph name="PRODUCT_NAME" /> n'utilise pas les n
       Si vous ne configurez pas cette règle, le paramètre sera désactivé par défaut pour les utilisateurs gérés par une entreprise et activé par défaut pour les utilisateurs non gérés.</translation>
 <translation id="4555850956567117258">Activer l'attestation à distance pour l'utilisateur</translation>
 <translation id="4557134566541205630">URL de la page Nouvel onglet du moteur de recherche par défaut</translation>
+<translation id="4558166110367609724">Ignorer les conditions d'utilisation et charger le navigateur automatiquement.</translation>
 <translation id="4562165737444703281">Autoriser les utilisateurs à [activer/configurer] le transfert de port Crostini</translation>
 <translation id="456686782928669977">Permet de déterminer si les instructions de la règle SiteListe d'<ph name="IE_PRODUCT_NAME" /> doivent être ou non chargées.
 
@@ -2643,6 +2645,17 @@ Si elle est définie sur "False", <ph name="PRODUCT_NAME" /> n'utilise pas les n
 
       Si cette règle est désactivée ou si elle n'est pas définie, <ph name="PRODUCT_NAME" /> ne signale pas les événements à risque.
       </translation>
+<translation id="4892647988357350237">Par défaut, les conditions d'utilisation sont affichées la première fois que des onglets personnalisés Chrome sont exécutés. Si cette règle est définie sur <ph name="SKIP_TOS_DIALOG" />, la boîte de dialogue des conditions d'utilisation ne s'affiche ni à la première exécution, ni lors des suivantes. Si cette règle est définie sur <ph name="STANDARD_TOS_DIALOG" /> ou qu'elle n'est pas configurée, la boîte de dialogue des conditions d'utilisation s'affiche à la première exécution. Notez également les points suivants :
+
+      - Cette règle ne peut être appliquée que sur des appareils Android entièrement gérés qui peuvent être configurés par des fournisseurs UEM (Unified Endpoint Management, gestion unifiée des points de terminaison).
+
+      - Si cette règle est définie sur <ph name="SKIP_TOS_DIALOG" />, la règle BrowserSignin n'a aucune incidence.
+
+      - Si cette règle est définie sur <ph name="SKIP_TOS_DIALOG" />, les statistiques ne sont pas transmises au serveur.
+
+      - Si cette règle est définie sur <ph name="SKIP_TOS_DIALOG" />, les fonctionnalités du navigateur sont limitées.
+
+      - Si cette règle est définie sur <ph name="SKIP_TOS_DIALOG" />, les administrateurs doivent le signaler aux utilisateurs finaux de l'appareil.</translation>
 <translation id="4894290482695457375">Tant que la règle <ph name="ENABLE_MEDIA_ROUTER_POLICY_NAME" /> n'est pas désactivée, le fait d'activer la règle <ph name="MEDIA_ROUTER_CAST_ALLOW_ALL_IPS_POLICY_NAME" /> connecte <ph name="PRODUCT_NAME" /> aux appareils Cast pour toutes les adresses IP, et pas seulement les adresses privées décrites dans la RFC 1918 ou la RFC 4193.
 
       Si cette règle est désactivée, <ph name="PRODUCT_NAME" /> ne se connecte aux appareils Cast que sur les adresses privées décrites dans la RFC 1918 ou la RFC 4193.
@@ -3889,6 +3902,19 @@ Lorsque cette règle n'est pas configurée, le paramètre par défaut utilisé c
       Remarque : Pour les instances Windows® qui ne sont pas associées à un domaine <ph name="MS_AD_NAME" />, l'installation d'office est limitée aux applications et aux extensions répertoriées sur le Chrome Web Store.</translation>
 <translation id="6598235178374410284">Avatar de l'utilisateur</translation>
 <translation id="6603004149426829878">Toujours transmettre les signaux de localisation disponibles au serveur tout en mettant à jour le fuseau horaire</translation>
+<translation id="660567106648774919">Cette règle est obsolète (veuillez utiliser la règle <ph name="TOS_DIALOG_BEHAVIOR_POLICY_NAME" /> à la place).
+
+      Par défaut, les conditions d'utilisation sont affichées la première fois que des onglets personnalisés Chrome sont exécutés. Si cette règle est désactivée, la boîte de dialogue des conditions d'utilisation ne s'affiche ni à la première exécution, ni lors des suivantes. Si cette règle est activée ou qu'elle n'est pas configurée, la boîte de dialogue des conditions d'utilisation s'affiche à la première exécution. Notez également les points suivants :
+
+      - Cette règle ne peut être appliquée que sur des appareils Android entièrement gérés qui peuvent être configurés par des fournisseurs UEM (Unified Endpoint Management, gestion unifiée des points de terminaison).
+
+      - Si cette règle est désactivée, la règle BrowserSignin n'a aucune incidence.
+
+      - Si cette règle est désactivée, les statistiques ne sont pas transmises au serveur.
+
+      - Si cette règle est désactivée, les fonctionnalités du navigateur sont limitées.
+
+      - Si cette règle est désactivée, les administrateurs doivent le signaler aux utilisateurs finaux de l'appareil.</translation>
 <translation id="6607920041550065565">
       Lorsque cette règle est définie sur "False", l'appareil ne peut pas lancer Powerwash. Exception : Si la règle <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_NAME" /> est définie sur une valeur permettant la mise à jour du micrologiciel TPM et que celui-ci n'a pas encore été mis à jour.
       Lorsque cette règle est définie sur "True", l'appareil peut lancer Powerwash.
@@ -4226,6 +4252,7 @@ Lorsque cette règle n'est pas configurée, le paramètre par défaut utilisé c
 
       Si cette règle est désactivée, <ph name="PRODUCT_NAME" /> ferme l'onglet après le basculement vers un navigateur secondaire, même s'il s'agit du dernier onglet. <ph name="PRODUCT_NAME" /> est alors fermé complètement.</translation>
 <translation id="7019805045859631636">Rapide</translation>
+<translation id="7025332601572838001">Configurer le comportement de la boîte de dialogue des conditions d'utilisation la première fois que des onglets personnalisés Chrome sont exécutés</translation>
 <translation id="7027785306666625591">Configurer la gestion de l'alimentation dans <ph name="PRODUCT_OS_NAME" />
 
       Ces règles vous permettent de configurer le comportement du système d'exploitation "<ph name="PRODUCT_OS_NAME" />" lorsque l'utilisateur est inactif pendant un certain temps.</translation>
@@ -4590,17 +4617,6 @@ Si elle est définie sur "False" ou si elle n'est pas configurée, ces publicit�
 <translation id="747014869399137701">Si cette règle est définie sur "1", les sites Web peuvent afficher des notifications sur le bureau. Si cette règle est définie sur "2", les sites ne sont pas autorisés à afficher ces notifications.
 
       Si cette règle n'est pas configurée, la règle <ph name="ASK_NOTIFICATIONS_POLICY_NAME" /> s'applique. Toutefois, les utilisateurs peuvent modifier ce paramètre.</translation>
-<translation id="7471828226549672843">Par défaut, les conditions d'utilisation sont affichées la première fois que des onglets personnalisés Chrome sont exécutés. Si cette règle est désactivée, la boîte de dialogue des conditions d'utilisation ne s'affiche ni à la première exécution, ni lors des suivantes. Si cette règle est activée ou qu'elle n'est pas configurée, la boîte de dialogue des conditions d'utilisation s'affiche à la première exécution. Notez également les points suivants :
-
-      - Cette règle ne peut être appliquée que sur des appareils Android entièrement gérés qui peuvent être configurés par des fournisseurs UEM (Unified Endpoint Management, gestion unifiée des points de terminaison).
-
-      - Si cette règle est désactivée, la règle BrowserSignin n'a aucune incidence.
-
-      - Si cette règle est désactivée, les statistiques ne sont pas transmises au serveur.
-
-      - Si cette règle est désactivée, les fonctionnalités du navigateur sont limitées.
-
-      - Si cette règle est désactivée, les administrateurs doivent le signaler aux utilisateurs finaux de l'appareil.</translation>
 <translation id="747275827471712187">Rétablir l'ancien comportement <ph name="ATTRIBUTE_SAMESITE_NAME" /> pour les cookies sur ces sites</translation>
 <translation id="7477231245051133709">Activer la fonctionnalité d'accessibilité d'audio mono</translation>
 <translation id="7477239290070847560">Destinations des protocoles basés sur Zeroconf (mDNS + DNS-SD)</translation>

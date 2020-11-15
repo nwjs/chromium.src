@@ -18,6 +18,7 @@
 <translation id="1112015203684611006">છાપવાનું નિષ્ફળ થયું.</translation>
 <translation id="1125564390852150847">નવું ટૅબ બનાવો.</translation>
 <translation id="1145536944570833626">અસ્તિત્વમાંના ડેટાને ડિલીટ કરો.</translation>
+<translation id="1154690515305205900">હાઇલાઇટ કરેલી ટેક્સ્ટ માટે લિંક બનાવી શકાતી નથી.</translation>
 <translation id="1165039591588034296">ભૂલ</translation>
 <translation id="1172898394251786223">આગલું ફીલ્ડ</translation>
 <translation id="1176932207622159128">ફોટા સાચવી શકતું નથી</translation>
@@ -177,7 +178,7 @@
 <translation id="2876369937070532032">તમારી સુરક્ષા જોખમમાં હોય ત્યારે, તમે મુલાકાત લેતા હો તે કેટલાક પેજના URLs Googleને મોકલે છે</translation>
 <translation id="288655811176831528">ટૅબ બંધ કરો</translation>
 <translation id="2898963176829412617">નવું ફોલ્ડર…</translation>
-<translation id="2916171785467530738">શોધ અને URLsને આપમેળે પૂર્ણ કરો</translation>
+<translation id="2916171785467530738">શોધ અને URLsને ઑટોમૅટિક રીતે પૂર્ણ કરો</translation>
 <translation id="291754862089661335">QR કોડ અથવા બારકોડને આ ફ્રેમમાં મૂકો</translation>
 <translation id="2921219216347069551">પૃષ્ઠને શેર કરી શકાતું નથી</translation>
 <translation id="2923448633003185837">પેસ્ટ કરો અને જાઓ</translation>
@@ -211,6 +212,7 @@
 <translation id="3268451620468152448">ઓપન ટેબ્સ</translation>
 <translation id="3272527697863656322">રદ કરો</translation>
 <translation id="3277021493514034324">સાઇટનું ઍડ્રેસ કૉપિ કર્યું</translation>
+<translation id="3285962946108803577">પેજ શેર કરો...</translation>
 <translation id="3290875554372353449">એકાઉન્ટ પસંદ કરો</translation>
 <translation id="3311748811247479259">બંધ</translation>
 <translation id="3324193307694657476">સરનામાં 2</translation>
@@ -285,7 +287,7 @@
 <translation id="408404951701638773">શોધ બાર સુધી પહોંચવું હવે વધુ સરળ છે</translation>
 <translation id="411254640334432676">ડાઉનલોડ નિષ્ફળ થયું.</translation>
 <translation id="4112644173421521737">શોધો</translation>
-<translation id="4113030288477039509">તમારા વ્યવસ્થાપક દ્વારા સંચાલિત</translation>
+<translation id="4113030288477039509">તમારા વ્યવસ્થાપક દ્વારા મેનેજ થયેલ</translation>
 <translation id="4121993058175073134">ચોખ્ખો-નિકાસ ડેટા મોકલવા માટે, કૃપા કરીને સેટિંગ એપ્લિકેશનમાં તમારા ઇમેઇલ એકાઉન્ટને ગોઠવો.</translation>
 <translation id="4124987746317609294">સમય શ્રેણી</translation>
 <translation id="4152011295694446843">તમને તમારા બુકમાર્ક અહીં મળશે</translation>
@@ -611,6 +613,7 @@
 <translation id="7658239707568436148">રદ કરો</translation>
 <translation id="766891008101699113">વેબને ખાનગી રીતે બ્રાઉઝ કરવા માટે, નવી ટૅબ ઉમેરો.</translation>
 <translation id="7671141431838911305">ઇન્સ્ટોલ કરો</translation>
+<translation id="7690812411882623730">ટેક્સ્ટ સાથે લિંક કરી શકતા નથી</translation>
 <translation id="7701040980221191251">કોઈ નથી</translation>
 <translation id="7765158879357617694">સ્થાન</translation>
 <translation id="7771470029643830783">સાઇન આઉટ કરવાથી તમારા બુકમાર્ક, ઇતિહાસ, પાસવર્ડ અને અન્ય Chrome ડેટા હવેથી તમારા Google એકાઉન્ટ પર સિંક થશે નહીં.
@@ -733,7 +736,7 @@
 <translation id="9148126808321036104">ફરીથી સાઇન ઇન કરો </translation>
 <translation id="9152539721251340337">QR કોડ બનાવો</translation>
 <translation id="9157836665414082580">સંવાદો નાબૂદ કરો</translation>
-<translation id="9188680907066685419">સંચાલિત એકાઉન્ટમાંથી સાઇન આઉટ કરો</translation>
+<translation id="9188680907066685419">મેનેજ થયેલા એકાઉન્ટમાંથી સાઇન આઉટ કરો</translation>
 <translation id="9203116392574189331">હેન્ડઓફ</translation>
 <translation id="9223358826628549784">ક્રૅશ રિપોર્ટ મોકલ્યો.</translation>
 <translation id="952704832371081537">રદ કરો</translation>

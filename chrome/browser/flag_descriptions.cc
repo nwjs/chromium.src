@@ -705,7 +705,13 @@ const char kPostQuantumCECPQ2Description[] =
 const char kMacCoreLocationImplementationName[] =
     "Core Location Implementation";
 const char kMacCoreLocationImplementationDescription[] =
-    "Enables usage of the Core Location APIs on macOS for geolocation";
+    "Enables usage of the Core Location APIs to get location permission on "
+    "macOS";
+
+const char kMacCoreLocationBackendName[] = "Core Location Backend";
+const char kMacCoreLocationBackendDescription[] =
+    "Enables usage of the Core Location APIs as the backend for Geolocation "
+    "API";
 
 const char kNewMacNotificationAPIName[] =
     "Determines which notification API to use on macOS devices";
@@ -3022,6 +3028,8 @@ const char kProcessSharingWithStrictSiteInstancesDescription[] =
 
 const char kQueryTilesName[] = "Show query tiles";
 const char kQueryTilesDescription[] = "Shows query tiles in Chrome";
+const char kQueryTilesNTPName[] = "Show query tiles in NTP";
+const char kQueryTilesNTPDescription[] = "Shows query tiles in NTP";
 const char kQueryTilesOmniboxName[] = "Show query tiles in omnibox";
 const char kQueryTilesOmniboxDescription[] = "Shows query tiles in omnibox";
 const char kQueryTilesSingleTierName[] = "Show only one level of query tiles";

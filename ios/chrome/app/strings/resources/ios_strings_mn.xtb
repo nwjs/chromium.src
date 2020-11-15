@@ -18,6 +18,7 @@
 <translation id="1112015203684611006">Хэвлэж чадсангүй.</translation>
 <translation id="1125564390852150847">Шинэ чихтэй хуудас үүсгэнэ үү.</translation>
 <translation id="1145536944570833626">Одоо байгаа өгөгдлийг устгана уу.</translation>
+<translation id="1154690515305205900">Тодруулсан текстийн холбоосыг үүсгэх боломжгүй.</translation>
 <translation id="1165039591588034296">Алдаа</translation>
 <translation id="1172898394251786223">Дараагийн талбар</translation>
 <translation id="1176932207622159128">Зургийг хадгалж чадахгүй байна</translation>
@@ -211,6 +212,7 @@
 <translation id="3268451620468152448">Цонхнуудыг нээх</translation>
 <translation id="3272527697863656322">Цуцлах</translation>
 <translation id="3277021493514034324">Сайтын хаягийг хуулсан</translation>
+<translation id="3285962946108803577">Хуудас хуваалцах...</translation>
 <translation id="3290875554372353449">Бүртгэл сонгох</translation>
 <translation id="3311748811247479259">Унтраалттай байна</translation>
 <translation id="3324193307694657476">Хаяг 2</translation>
@@ -498,7 +500,7 @@ Handoff-ыг Тохиргооны ерөнхий хэсэгт идэвхижүү
 <translation id="6434591244308415567">Алдаа гарлаа. Дараа дахин оролдоно уу.</translation>
 <translation id="6439338047467462846">Бүгдийг зөвшөөрөх</translation>
 <translation id="6445051938772793705">Улс</translation>
-<translation id="6445981559479772097">Зурвас илгээгдсэн.</translation>
+<translation id="6445981559479772097">Мессеж илгээгдсэн.</translation>
 <translation id="6447842834002726250">Cookies</translation>
 <translation id="6453018583485750254">Огт шалгаж байгаагүй.</translation>
 <translation id="6464071786529933911">Нууцлалын шинэ чихтэй хуудсанд нээх</translation>
@@ -610,6 +612,7 @@ Handoff-ыг Тохиргооны ерөнхий хэсэгт идэвхижүү
 <translation id="7658239707568436148">Болих</translation>
 <translation id="766891008101699113">Вебийг нуугдаж хөтлөхийн тулд шинэ чихтэй хуудас нэмнэ үү.</translation>
 <translation id="7671141431838911305">СУУЛГАХ</translation>
+<translation id="7690812411882623730">Текстэд холбох боломжгүй</translation>
 <translation id="7701040980221191251">Тодорхойгүй</translation>
 <translation id="7765158879357617694">Зөөх</translation>
 <translation id="7771470029643830783">Гарснаар таны хавчуурга, түүх, нууц үгс болон Chrome-н бусад өгөгдлийг таны Google Бүртгэлд цаашид синк хийхгүй.
@@ -718,7 +721,7 @@ Handoff-ыг Тохиргооны ерөнхий хэсэгт идэвхижүү
 <translation id="8985320356172329008">Google-д дараахаар нэвтэрсэн</translation>
 <translation id="9034759925968272072">Таныг Google Бүртгэлээс гаргахгүй. Таны Google Бүртгэл <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" />-д хайлтын түүхийн өөр хэлбэртэй байна.</translation>
 <translation id="9037965129289936994">Эх хувийг харуулах</translation>
-<translation id="9039373489628511875">Зурвасын өргөн</translation>
+<translation id="9039373489628511875">Мессежийн өргөн</translation>
 <translation id="9055772144595778347">Нэвтэрч чадахгүй байна</translation>
 <translation id="9065203028668620118">Засварлах</translation>
 <translation id="9079935439869366234">Бүгдийг уншаагүй гэж тэмдэглэх</translation>

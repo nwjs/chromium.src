@@ -1719,7 +1719,8 @@ const FeatureEntry::FeatureParam kTabGridLayoutAndroid_TallNTV[] = {
     {"thumbnail_aspect_ratio", "0.85"},
     {"allow_to_refetch", "true"},
     {"tab_grid_layout_android_new_tab", "NewTabVariation"},
-    {"enable_launch_polish", "true"}};
+    {"enable_launch_polish", "true"},
+    {"enable_launch_bug_fix", "true"}};
 
 const FeatureEntry::FeatureParam kTabGridLayoutAndroid_SearchChip[] = {
     {"enable_search_term_chip", "true"}};
@@ -3413,6 +3414,9 @@ const FeatureEntry kFeatureEntries[] = {
     {"query-tiles", flag_descriptions::kQueryTilesName,
      flag_descriptions::kQueryTilesDescription, kOsAndroid,
      FEATURE_VALUE_TYPE(query_tiles::features::kQueryTiles)},
+    {"query-tiles-ntp", flag_descriptions::kQueryTilesNTPName,
+     flag_descriptions::kQueryTilesNTPDescription, kOsAndroid,
+     FEATURE_VALUE_TYPE(query_tiles::features::kQueryTilesInNTP)},
     {"query-tiles-omnibox", flag_descriptions::kQueryTilesOmniboxName,
      flag_descriptions::kQueryTilesOmniboxDescription, kOsAndroid,
      FEATURE_VALUE_TYPE(query_tiles::features::kQueryTilesInOmnibox)},
@@ -5981,6 +5985,13 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kWinrtGeolocationImplementationName,
      flag_descriptions::kWinrtGeolocationImplementationDescription, kOsWin,
      FEATURE_VALUE_TYPE(features::kWinrtGeolocationImplementation)},
+#endif
+
+#if defined(OS_MAC)
+    {"enable-core-location-backend",
+     flag_descriptions::kMacCoreLocationBackendName,
+     flag_descriptions::kMacCoreLocationBackendDescription, kOsMac,
+     FEATURE_VALUE_TYPE(features::kMacCoreLocationBackend)},
 #endif
 
 #if defined(OS_MAC)

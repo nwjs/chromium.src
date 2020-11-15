@@ -260,6 +260,7 @@ public final class WebLayerImpl extends IWebLayer.Stub {
                 FirebaseConfig.getFirebaseAppIdForPackage(packageInfo.packageName));
 
         SelectionPopupController.setMustUseWebContentsContext();
+        SelectionPopupController.setShouldGetReadbackViewFromWindowAndroid();
 
         ResourceBundle.setAvailablePakLocales(new String[] {}, ProductConfig.UNCOMPRESSED_LOCALES);
         BundleUtils.setIsBundle(ProductConfig.IS_BUNDLE);
@@ -350,7 +351,14 @@ public final class WebLayerImpl extends IWebLayer.Stub {
     @Override
     public IProfile getProfile(String profileName) {
         StrictModeWorkaround.apply();
-        return mProfileManager.getProfile(profileName);
+        boolean isIncognito = "".equals(profileName);
+        return mProfileManager.getProfile(profileName, isIncognito);
+    }
+
+    @Override
+    public IProfile getIncognitoProfile(String profileName) {
+        StrictModeWorkaround.apply();
+        return mProfileManager.getProfile(profileName, true);
     }
 
     @Override

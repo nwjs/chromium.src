@@ -294,6 +294,8 @@ public abstract class ChromeFeatureList {
             "FocusOmniboxInIncognitoTabIntents";
     public static final String GRANT_NOTIFICATIONS_TO_DSE = "GrantNotificationsToDSE";
     public static final String HANDLE_MEDIA_INTENTS = "HandleMediaIntents";
+    public static final String HIDE_FROM_API_3_TRANSITIONS_FROM_HISTORY =
+            "HideFromApi3TransitionsFromHistory";
     public static final String HOMEPAGE_LOCATION_POLICY = "HomepageLocationPolicy";
     public static final String HOMEPAGE_PROMO_CARD = "HomepagePromoCard";
     public static final String HOMEPAGE_PROMO_SYNTHETIC_PROMO_SEEN_ENABLED =
@@ -339,6 +341,7 @@ public abstract class ChromeFeatureList {
     public static final String OMNIBOX_DEFERRED_KEYBOARD_POPUP = "OmniboxDeferredKeyboardPopup";
     public static final String OMNIBOX_ENABLE_CLIPBOARD_PROVIDER_IMAGE_SUGGESTIONS =
             "OmniboxEnableClipboardProviderImageSuggestions";
+    public static final String OMNIBOX_HIDE_VISITS_FROM_CCT = "OmniboxHideVisitsFromCct";
     public static final String OMNIBOX_MOST_VISITED_TILES = "OmniboxMostVisitedTiles";
     public static final String OMNIBOX_SEARCH_ENGINE_LOGO = "OmniboxSearchEngineLogo";
     public static final String OMNIBOX_SEARCH_READY_INCOGNITO = "OmniboxSearchReadyIncognito";
@@ -368,6 +371,7 @@ public abstract class ChromeFeatureList {
     public static final String PROBABILISTIC_CRYPTID_RENDERER = "ProbabilisticCryptidRenderer";
     public static final String QUERY_TILES_GEO_FILTER = "QueryTilesGeoFilter";
     public static final String QUERY_TILES = "QueryTiles";
+    public static final String QUERY_TILES_IN_NTP = "QueryTilesInNTP";
     public static final String QUERY_TILES_IN_OMNIBOX = "QueryTilesInOmnibox";
     public static final String QUERY_TILES_ENABLE_QUERY_EDITING = "QueryTilesEnableQueryEditing";
     public static final String QUERY_TILES_LOCAL_ORDERING = "QueryTilesLocalOrdering";

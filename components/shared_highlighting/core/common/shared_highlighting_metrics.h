@@ -9,29 +9,46 @@
 
 namespace shared_highlighting {
 
-// Update corresponding |LinkGenerationError| in enums.xml.
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+// The type of errors that can happen during link generation.
 enum class LinkGenerationError {
-  kIncorrectSelector,
-  kNoRange,
-  kNoContext,
-  kContextExhausted,
-  kContextLimitReached,
-  kEmptySelection,
+  kIncorrectSelector = 0,
+  kNoRange = 1,
+  kNoContext = 2,
+  kContextExhausted = 3,
+  kContextLimitReached = 4,
+  kEmptySelection = 5,
 
-  kTabHidden,
-  kOmniboxNavigation,
-  kTabCrash,
+  // Android specific.
+  kTabHidden = 6,
+  kOmniboxNavigation = 7,
+  kTabCrash = 8,
 
-  kMaxValue = kTabCrash
+  // Catch-all bucket.
+  kUnknown = 9,
+
+  // Selection happened on iframe.
+  kIFrame = 10,
+
+  kMaxValue = kIFrame
 };
 
-// Update corresponding |TextFragmentLinkOpenSource| in enums.xml.
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+// The different sources from which a text fragment URL can come from.
 enum class TextFragmentLinkOpenSource {
-  kUnknown,
-  kSearchEngine,
+  kUnknown = 0,
+  kSearchEngine = 1,
 
   kMaxValue = kSearchEngine,
 };
+
+// Records the reason why the link generation failed.
+void LogLinkGenerationErrorReason(LinkGenerationError reason);
+
+// Records whether the link generation attempt was successful or not.
+void LogLinkGenerationStatus(bool link_generated);
 
 // Records whether an individual text fragment could not be scrolled to because
 // there was an |ambiguous_match| (generally because more than one matching
@@ -57,6 +74,10 @@ void LogGenerateErrorOmniboxNavigation();
 
 // Records when tab crashes before generation is complete.
 void LogGenerateErrorTabCrash();
+
+// Records when link generation was not completed because selection happened on
+// iframe.
+void LogGenerateErrorIFrame();
 
 }  // namespace shared_highlighting
 

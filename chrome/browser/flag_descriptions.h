@@ -421,6 +421,9 @@ extern const char kPostQuantumCECPQ2Description[];
 extern const char kMacCoreLocationImplementationName[];
 extern const char kMacCoreLocationImplementationDescription[];
 
+extern const char kMacCoreLocationBackendName[];
+extern const char kMacCoreLocationBackendDescription[];
+
 extern const char kNewMacNotificationAPIName[];
 extern const char kNewMacNotificationAPIDescription[];
 
@@ -1734,6 +1737,8 @@ extern const char kProcessSharingWithStrictSiteInstancesDescription[];
 
 extern const char kQueryTilesName[];
 extern const char kQueryTilesDescription[];
+extern const char kQueryTilesNTPName[];
+extern const char kQueryTilesNTPDescription[];
 extern const char kQueryTilesOmniboxName[];
 extern const char kQueryTilesOmniboxDescription[];
 extern const char kQueryTilesSingleTierName[];

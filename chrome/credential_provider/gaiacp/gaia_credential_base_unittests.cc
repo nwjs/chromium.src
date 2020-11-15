@@ -12,6 +12,7 @@
 #include "base/base64.h"
 #include "base/base_paths_win.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/guid.h"
 #include "base/json/json_writer.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
@@ -20,7 +21,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/scoped_path_override.h"
 #include "base/time/time_override.h"
-
 #include "chrome/browser/ui/startup/credential_provider_signin_dialog_win_test_data.h"
 #include "chrome/credential_provider/common/gcp_strings.h"
 #include "chrome/credential_provider/gaiacp/gaia_credential_base.h"
@@ -3156,9 +3156,7 @@ TEST_P(GcpGaiaCredentialBaseUploadDeviceDetailsTest, UploadDeviceDetails) {
   GoogleRegistrationDataForTesting g_registration_data(serial_number);
   base::string16 domain = L"domain";
   base::string16 machine_guid = L"machine_guid";
-  std::string dm_token = "dm_token";
   SetMachineGuidForTesting(machine_guid);
-  SetDmTokenForTesting(dm_token);
 
   std::vector<std::string> mac_addresses;
   mac_addresses.push_back("mac_address_1");
@@ -3172,6 +3170,10 @@ TEST_P(GcpGaiaCredentialBaseUploadDeviceDetailsTest, UploadDeviceDetails) {
                       kDefaultUsername, L"password", L"Full Name", L"comment",
                       base::UTF8ToUTF16(kDefaultGaiaId), base::string16(),
                       domain, &sid));
+
+  std::string dm_token = base::GenerateGUID();
+  FakeTokenGenerator fake_token_generator;
+  fake_token_generator.SetTokensForTesting({dm_token});
 
   // Change token response to an invalid one.
   SetDefaultTokenHandleResponse(kDefaultValidTokenHandleResponse);
@@ -3255,9 +3257,7 @@ TEST_P(GcpGaiaCredentialBaseUploadDeviceDetailsTest, UploadDeviceDetails) {
   ASSERT_TRUE(request_dict.FindBoolKey("is_ad_joined_user").has_value());
   ASSERT_EQ(request_dict.FindBoolKey("is_ad_joined_user").value(), true);
   ASSERT_TRUE(request_dict.FindKey("wlan_mac_addr")->is_list());
-  std::string encoded_dm_token;
-  base::Base64Encode(dm_token, &encoded_dm_token);
-  ASSERT_EQ(*request_dict.FindStringKey("dm_token"), encoded_dm_token);
+  ASSERT_EQ(*request_dict.FindStringKey("dm_token"), dm_token);
 
   std::vector<std::string> actual_mac_address_list;
   for (const base::Value& value :
@@ -3532,7 +3532,19 @@ INSTANTIATE_TEST_SUITE_P(All,
 // 3. bool :       Whether cloud policies feature is enabled.
 class GcpGaiaCredentialBaseFetchCloudPoliciesTest
     : public GcpGaiaCredentialBaseTest,
-      public ::testing::WithParamInterface<std::tuple<bool, bool, bool>> {};
+      public ::testing::WithParamInterface<std::tuple<bool, bool, bool>> {
+ protected:
+  void SetUp() override;
+};
+
+void GcpGaiaCredentialBaseFetchCloudPoliciesTest::SetUp() {
+  GcpGaiaCredentialBaseTest::SetUp();
+
+  FakesForTesting fakes;
+  fakes.fake_win_http_url_fetcher_creator =
+      fake_http_url_fetcher_factory()->GetCreatorCallback();
+  UserPoliciesManager::Get()->SetFakesForTesting(&fakes);  // IN-TEST
+}
 
 TEST_P(GcpGaiaCredentialBaseFetchCloudPoliciesTest, FetchAndStore) {
   bool fail_fetch_policies = std::get<0>(GetParam());
@@ -3551,13 +3563,8 @@ TEST_P(GcpGaiaCredentialBaseFetchCloudPoliciesTest, FetchAndStore) {
   base::string16 sid = OLE2W(sid_str);
 
   if (cloud_policies_enabled) {
-    base::string16 fetch_time_millis = L"0";
-    if (policy_refreshed_recently) {
-      fetch_time_millis = base::NumberToString16(
-          base::Time::Now().ToDeltaSinceWindowsEpoch().InMilliseconds());
-    }
-    ASSERT_EQ(S_OK, SetUserProperty(sid, L"last_policy_refresh_time",
-                                    fetch_time_millis));
+    fake_user_policies_manager.SetUserPolicyStaleOrMissing(
+        sid, !policy_refreshed_recently);
 
     std::string expected_response;
     if (fail_fetch_policies) {
@@ -3767,6 +3774,74 @@ INSTANTIATE_TEST_SUITE_P(
                        ::testing::Values(L"", L"81.1.33.42"),
                        ::testing::Values(L"", L"beta"),
                        ::testing::Values(L"", L"80.2.35.4")));
+
+// Test the allowed domains to login policy defined either through registry or
+// through a cloud policy.
+// Parameters are:
+// 1. int  : 0 - Domains set through cloud policy.
+//           1 - Domains set through deprecated "ed" registry entry.
+//           2 - Domains set through "domains_allowed_to_login" registry entry.
+// 2. string : List of domains from which users are allowed to login.
+class GcpGaiaCredentialBaseAllowedDomainsCloudPolicyTest
+    : public GcpGaiaCredentialBaseTest,
+      public ::testing::WithParamInterface<std::tuple<int, const wchar_t*>> {
+ public:
+  void SetUp() override;
+};
+
+void GcpGaiaCredentialBaseAllowedDomainsCloudPolicyTest::SetUp() {
+  GcpGaiaCredentialBaseTest::SetUp();
+
+  // Delete any existing registry entries. Setting to empty deletes them.
+  SetGlobalFlagForTesting(L"ed", L"");
+  SetGlobalFlagForTesting(L"domains_allowed_to_login", L"");
+}
+
+TEST_P(GcpGaiaCredentialBaseAllowedDomainsCloudPolicyTest, OmahaPolicyTest) {
+  bool cloud_policies_enabled = std::get<0>(GetParam()) == 0;
+  bool use_old_domains_reg_key = std::get<0>(GetParam()) == 1;
+  base::string16 allowed_domains(std::get<1>(GetParam()));
+
+  FakeDevicePoliciesManager fake_device_policies_manager(
+      cloud_policies_enabled);
+
+  if (cloud_policies_enabled) {
+    DevicePolicies device_policies;
+    if (!allowed_domains.empty()) {
+      device_policies.domains_allowed_to_login = base::SplitString(
+          allowed_domains, L",", base::WhitespaceHandling::TRIM_WHITESPACE,
+          base::SplitResult::SPLIT_WANT_NONEMPTY);
+    }
+    fake_device_policies_manager.SetDevicePolicies(device_policies);
+  } else if (use_old_domains_reg_key) {
+    SetGlobalFlagForTesting(L"ed", allowed_domains);
+  } else {
+    SetGlobalFlagForTesting(L"domains_allowed_to_login", allowed_domains);
+  }
+
+  // Create provider and start logon.
+  Microsoft::WRL::ComPtr<ICredentialProviderCredential> cred;
+
+  ASSERT_EQ(S_OK, InitializeProviderAndGetCredential(0, &cred));
+
+  if (allowed_domains.empty()) {
+    ASSERT_EQ(S_OK,
+              StartLogonProcess(/*succeeds=*/false, IDS_EMAIL_MISMATCH_BASE));
+  } else {
+    ASSERT_EQ(S_OK, StartLogonProcessAndWait());
+
+    // Finish logon successfully.
+    ASSERT_EQ(S_OK, FinishLogonProcess(true, true, 0));
+
+    ASSERT_EQ(S_OK, ReleaseProvider());
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    GcpGaiaCredentialBaseAllowedDomainsCloudPolicyTest,
+    ::testing::Combine(::testing::Values(0, 1, 2),
+                       ::testing::Values(L"", L"acme.com,acme.org")));
 
 }  // namespace testing
 }  // namespace credential_provider

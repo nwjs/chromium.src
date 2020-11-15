@@ -537,6 +537,7 @@ if (is_android) {
 
     sources = [
       "../browser/android/customtabs/custom_tabs_browsertest.cc",
+      "../browser/android/tab_android_browsertest.cc",
       "../browser/android/webapk/webapk_icon_hasher_browsertest.cc",
       "../browser/engagement/important_sites_util_browsertest.cc",
       "../browser/games/games_service_browsertest.cc",
@@ -581,6 +582,7 @@ if (is_android) {
       "//chrome/test/data/banners/",
       "//chrome/test/data/android/customtabs/",
       "//chrome/test/data/ssl/",
+      "//content/test/data",
     ]
   }
 
@@ -3326,6 +3328,7 @@ test("unit_tests") {
     "../browser/android/chrome_backup_agent_unittest.cc",
     "../browser/android/customtabs/detached_resource_request_unittest.cc",
     "../browser/android/favicon_helper_unittest.cc",
+    "../browser/android/history/history_deletion_bridge_unittest.cc",
     "../browser/android/metrics/background_task_memory_metrics_emitter_unittest.cc",
     "../browser/android/oom_intervention/near_oom_monitor_unittest.cc",
     "../browser/android/oom_intervention/oom_intervention_decider_unittest.cc",
@@ -3642,6 +3645,7 @@ test("unit_tests") {
     "../browser/prefs/profile_pref_store_manager_unittest.cc",
     "../browser/prefs/proxy_policy_unittest.cc",
     "../browser/prefs/session_startup_pref_unittest.cc",
+    "../browser/prerender/isolated/isolated_prerender_prefetch_metrics_collector_unittest.cc",
     "../browser/prerender/isolated/isolated_prerender_proxy_configurator_unittest.cc",
     "../browser/prerender/isolated/isolated_prerender_tab_helper_unittest.cc",
     "../browser/prerender/isolated/isolated_prerender_url_loader_interceptor_unittest.cc",

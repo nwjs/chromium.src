@@ -441,16 +441,19 @@ if (is_win || (is_linux && !is_component_build)) {
 
   tweak_info_plist("chrome_app_plist") {
     info_plist = "app/app-Info.plist"
-    _keystone_arg = "0"
-    if (is_chrome_branded) {
-      _keystone_arg = "1"
-    }
     args = [
       "--breakpad=0",
-      "--keystone=$_keystone_arg",
       "--scm=1",
       "--bundle_id=$chrome_mac_bundle_id",
     ]
+    if (is_chrome_branded) {
+      args += [ "--keystone=1" ]
+      if (current_cpu == "arm64") {
+        args += [ "--keystone-base-tag=arm64" ]
+      }
+    } else {
+      args += [ "--keystone=0" ]
+    }
   }
 
   mac_app_bundle("chrome_app") {
@@ -808,7 +811,7 @@ if (is_win || (is_linux && !is_component_build)) {
     if (v8_use_external_startup_data) {
       public_deps += [ "//v8" ]
       if (use_v8_context_snapshot) {
-        sources += [ "$root_out_dir/v8_context_snapshot.bin" ]
+        sources += [ "$root_out_dir/$v8_context_snapshot_filename" ]
         public_deps += [ "//tools/v8_context_snapshot" ]
       } else {
         sources += [ "$root_out_dir/snapshot_blob.bin" ]

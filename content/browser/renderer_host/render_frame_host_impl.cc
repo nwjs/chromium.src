@@ -1812,13 +1812,24 @@ bool RenderFrameHostImpl::OnMessageReceived(const IPC::Message& msg) {
 void RenderFrameHostImpl::OnAssociatedInterfaceRequest(
     const std::string& interface_name,
     mojo::ScopedInterfaceEndpointHandle handle) {
-  ContentBrowserClient* browser_client = GetContentClient()->browser();
-  if (!associated_registry_->TryBindInterface(interface_name, &handle) &&
-      !browser_client->BindAssociatedReceiverFromFrame(this, interface_name,
-                                                       &handle)) {
-    delegate_->OnAssociatedInterfaceRequest(this, interface_name,
-                                            std::move(handle));
+  // TODO(https://crbug.com/1123438) It is not understood why
+  // OnAssociatedInterfaceRequest can be received after resetting
+  // `associated_registry_`. This is reset in InvalidateMojoConnection(), which
+  // means we want to stop receiving messages on behalf of the frame. Ignoring
+  // this request sounded like the right way to handle this.
+  if (!associated_registry_)
+    return;
+
+  if (associated_registry_->TryBindInterface(interface_name, &handle))
+    return;
+
+  if (GetContentClient()->browser()->BindAssociatedReceiverFromFrame(
+          this, interface_name, &handle)) {
+    return;
   }
+
+  delegate_->OnAssociatedInterfaceRequest(this, interface_name,
+                                          std::move(handle));
 }
 
 void RenderFrameHostImpl::AccessibilityPerformAction(
@@ -2725,6 +2736,9 @@ void RenderFrameHostImpl::UpdateRenderProcessHostFramePriorities() {
 }
 
 void RenderFrameHostImpl::Detach() {
+  if (lifecycle_state() == LifecycleState::kSpeculative)
+    return;
+
   if (!parent_) {
     bad_message::ReceivedBadMessage(GetProcess(),
                                     bad_message::RFH_DETACH_MAIN_FRAME);
@@ -7897,14 +7911,6 @@ void RenderFrameHostImpl::BindHasTrustTokensAnswerer(
     return;
   }
 
-  // This is enforced in benign renderers by the [SecureContext] IDL
-  // attribute on Document::hasTrustToken.
-  if (!network::IsOriginPotentiallyTrustworthy(GetLastCommittedOrigin())) {
-    mojo::ReportBadMessage(
-        "Attempted to get a HasTrustTokensAnswerer from an insecure context.");
-    return;
-  }
-
   // This is enforced in benign renderers by the RuntimeEnabled=TrustTokens IDL
   // attribute (the base::Feature's value is tied to the
   // RuntimeEnabledFeature's).
@@ -7914,6 +7920,11 @@ void RenderFrameHostImpl::BindHasTrustTokensAnswerer(
         "disabled.");
     return;
   }
+
+  // TODO(crbug.com/1145346): Document.hasTrustToken is restricted to secure
+  // contexts, so we could additionally add a check verifying that the bind
+  // request "is coming from a secure context"---but there's currently no
+  // direct way to perform such a check in the browser.
 
   GetProcess()->GetStoragePartition()->CreateHasTrustTokensAnswerer(
       std::move(receiver), ComputeTopFrameOrigin(GetLastCommittedOrigin()));

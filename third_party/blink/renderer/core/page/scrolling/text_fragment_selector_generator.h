@@ -46,7 +46,11 @@ class CORE_EXPORT TextFragmentSelectorGenerator final
     kOmniboxNavigation,
     kTabCrash,
 
-    kMaxValue = kTabCrash
+    kUnknown,
+
+    kIFrame,
+
+    kMaxValue = kIFrame
   };
   explicit TextFragmentSelectorGenerator() = default;
 

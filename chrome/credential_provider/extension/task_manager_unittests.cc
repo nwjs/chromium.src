@@ -7,6 +7,7 @@
 #include <atlcomcli.h>
 #include <windows.h>
 
+#include "base/guid.h"
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/scoped_run_loop_timeout.h"
@@ -35,6 +36,8 @@ class TaskManagerTest : public ::testing::Test {
   }
 
   void SetUp() override {
+    ScopedLsaPolicy::SetCreatorForTesting(
+        fake_scoped_lsa_factory_.GetCreatorCallback());
     registry_override.OverrideRegistry(HKEY_LOCAL_MACHINE);
   }
 
@@ -50,6 +53,7 @@ class TaskManagerTest : public ::testing::Test {
  private:
   FakeTaskManager fake_task_manager_;
   FakeOSUserManager fake_os_user_manager_;
+  FakeScopedLsaPolicyFactory fake_scoped_lsa_factory_;
   registry_util::RegistryOverrideManager registry_override;
   base::test::SingleThreadTaskEnvironment task_environment_{
       base::test::SingleThreadTaskEnvironment::TimeSource::MOCK_TIME};
@@ -65,7 +69,7 @@ TEST_F(TaskManagerTest, PeriodicExecution) {
 
   task_environment()->FastForwardBy(base::TimeDelta::FromHours(5));
 
-  ASSERT_EQ(fake_task_manager()->NumOfTimesExecuted(), 2);
+  ASSERT_EQ(fake_task_manager()->NumOfTimesExecuted(), 5);
 
   ASSERT_NE(
       GetGlobalFlagOrDefault(
@@ -73,7 +77,7 @@ TEST_F(TaskManagerTest, PeriodicExecution) {
       L"");
   task_environment()->FastForwardBy(base::TimeDelta::FromHours(2));
 
-  ASSERT_EQ(fake_task_manager()->NumOfTimesExecuted(), 3);
+  ASSERT_EQ(fake_task_manager()->NumOfTimesExecuted(), 7);
 }
 
 class FakeTask : public extension::Task {
@@ -121,10 +125,10 @@ TEST_F(TaskManagerTest, TaskExecuted) {
   GoogleRegistrationDataForTesting g_registration_data(serial_number);
   base::string16 machine_guid = L"machine_guid";
   SetMachineGuidForTesting(machine_guid);
-  ASSERT_EQ(S_OK, SetDmTokenForTesting("dmtoken"));
-  std::string dm_token;
-  // DM token gets Base64 encoded so get the encoded value here.
-  ASSERT_EQ(S_OK, GetDmToken(&dm_token));
+
+  FakeTokenGenerator fake_token_generator;
+  fake_token_generator.SetTokensForTesting(
+      {base::GenerateGUID(), base::GenerateGUID()});
 
   // Create a fake user associated to a gaia id.
   CComBSTR sid1;
@@ -135,6 +139,11 @@ TEST_F(TaskManagerTest, TaskExecuted) {
   base::string16 device_resource_id1 = L"foo_resource_id";
   ASSERT_EQ(S_OK, SetUserProperty(OLE2W(sid1), L"device_resource_id",
                                   device_resource_id1));
+
+  ASSERT_EQ(S_OK, GenerateGCPWDmToken((BSTR)sid1));
+
+  base::string16 dm_token1;
+  ASSERT_EQ(S_OK, GetGCPWDmToken((BSTR)sid1, &dm_token1));
 
   ASSERT_EQ(
       GetGlobalFlagOrDefault(
@@ -148,11 +157,10 @@ TEST_F(TaskManagerTest, TaskExecuted) {
 
   task_environment()->FastForwardBy(base::TimeDelta::FromHours(5));
 
-  ASSERT_EQ(FakeTask::number_of_times_executed_, 2);
+  ASSERT_EQ(FakeTask::number_of_times_executed_, 5);
   ASSERT_EQ(FakeTask::user_device_context_.size(), (size_t)1);
   extension::UserDeviceContext c1 = {device_resource_id1, serial_number,
-                                     machine_guid, OLE2W(sid1),
-                                     base::UTF8ToUTF16(dm_token)};
+                                     machine_guid, OLE2W(sid1), dm_token1};
   ASSERT_TRUE(FakeTask::user_device_context_[0] == c1);
 
   ASSERT_NE(
@@ -169,14 +177,18 @@ TEST_F(TaskManagerTest, TaskExecuted) {
   ASSERT_EQ(S_OK, SetUserProperty(OLE2W(sid2), L"device_resource_id",
                                   device_resource_id2));
 
+  ASSERT_EQ(S_OK, GenerateGCPWDmToken((BSTR)sid2));
+
+  base::string16 dm_token2;
+  ASSERT_EQ(S_OK, GetGCPWDmToken((BSTR)sid2, &dm_token2));
+
   task_environment()->FastForwardBy(base::TimeDelta::FromHours(2));
 
-  ASSERT_EQ(FakeTask::number_of_times_executed_, 3);
+  ASSERT_EQ(FakeTask::number_of_times_executed_, 7);
   ASSERT_EQ(FakeTask::user_device_context_.size(), (size_t)2);
 
   extension::UserDeviceContext c2 = {device_resource_id2, serial_number,
-                                     machine_guid, OLE2W(sid2),
-                                     base::UTF8ToUTF16(dm_token)};
+                                     machine_guid, OLE2W(sid2), dm_token2};
   ASSERT_TRUE(FakeTask::user_device_context_[0] == c1);
   ASSERT_TRUE(FakeTask::user_device_context_[1] == c2);
 }

@@ -4644,6 +4644,7 @@ bool LayoutBox::StretchesToViewportInQuirksMode() const {
 
 bool LayoutBox::SkipContainingBlockForPercentHeightCalculation(
     const LayoutBox* containing_block) {
+  const bool in_quirks_mode = containing_block->GetDocument().InQuirksMode();
   // Anonymous blocks should not impede percentage resolution on a child.
   // Examples of such anonymous blocks are blocks wrapped around inlines that
   // have block siblings (from the CSS spec) and multicol flow threads (an
@@ -4652,6 +4653,9 @@ bool LayoutBox::SkipContainingBlockForPercentHeightCalculation(
   // objects, such as table-cells, will be treated just as if they were
   // non-anonymous.
   if (containing_block->IsAnonymous()) {
+    if (!in_quirks_mode && containing_block->Parent() &&
+        containing_block->Parent()->IsLayoutNGFieldset())
+      return false;
     EDisplay display = containing_block->StyleRef().Display();
     return display == EDisplay::kBlock || display == EDisplay::kInlineBlock ||
            display == EDisplay::kFlowRoot;
@@ -4659,8 +4663,7 @@ bool LayoutBox::SkipContainingBlockForPercentHeightCalculation(
 
   // For quirks mode, we skip most auto-height containing blocks when computing
   // percentages.
-  if (!containing_block->GetDocument().InQuirksMode() ||
-      !containing_block->StyleRef().LogicalHeight().IsAuto())
+  if (!in_quirks_mode || !containing_block->StyleRef().LogicalHeight().IsAuto())
     return false;
 
   const Node* node = containing_block->GetNode();
@@ -7488,10 +7491,10 @@ void LayoutBox::MutableForPainting::SavePreviousOverflowData() {
   auto& previous_overflow = GetLayoutBox().overflow_->previous_overflow_data;
   if (!previous_overflow)
     previous_overflow.emplace();
-  previous_overflow->previously_had_non_visible_overflow =
-      GetLayoutBox().HasNonVisibleOverflow();
   previous_overflow->previous_physical_layout_overflow_rect =
       GetLayoutBox().PhysicalLayoutOverflowRect();
+  previous_overflow->previous_physical_visual_overflow_rect =
+      GetLayoutBox().PhysicalVisualOverflowRect();
   previous_overflow->previous_physical_self_visual_overflow_rect =
       GetLayoutBox().PhysicalSelfVisualOverflowRect();
 }
@@ -7499,13 +7502,10 @@ void LayoutBox::MutableForPainting::SavePreviousOverflowData() {
 void LayoutBox::MutableForPainting::SetPreviousGeometryForLayoutShiftTracking(
     const PhysicalOffset& paint_offset,
     const LayoutSize& size,
-    bool has_overflow_clip,
-    const PhysicalRect& layout_overflow_rect) {
+    const PhysicalRect& visual_overflow_rect) {
   FirstFragment().SetPaintOffset(paint_offset);
   GetLayoutBox().previous_size_ = size;
-  if (has_overflow_clip)
-    return;
-  if (PhysicalRect(PhysicalOffset(), size).Contains(layout_overflow_rect))
+  if (PhysicalRect(PhysicalOffset(), size).Contains(visual_overflow_rect))
     return;
 
   if (!GetLayoutBox().overflow_)
@@ -7513,11 +7513,10 @@ void LayoutBox::MutableForPainting::SetPreviousGeometryForLayoutShiftTracking(
   auto& previous_overflow = GetLayoutBox().overflow_->previous_overflow_data;
   if (!previous_overflow)
     previous_overflow.emplace();
-  previous_overflow->previous_physical_layout_overflow_rect =
-      layout_overflow_rect;
-  // previous_physical_self_visual_overflow_rect doesn't matter because it is
-  // used for paint invalidation and we always do full paint invalidation on
-  // reattachment.
+  previous_overflow->previous_physical_visual_overflow_rect =
+      visual_overflow_rect;
+  // Other previous rects don't matter because they are used for paint
+  // invalidation and we always do full paint invalidation on reattachment.
 }
 
 RasterEffectOutset LayoutBox::VisualRectOutsetForRasterEffects() const {

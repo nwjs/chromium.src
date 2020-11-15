@@ -18,6 +18,7 @@
 <translation id="1112015203684611006">打印操作失败。</translation>
 <translation id="1125564390852150847">创建新的标签页。</translation>
 <translation id="1145536944570833626">删除现有数据。</translation>
+<translation id="1154690515305205900">无法创建指向突出显示的文本的链接。</translation>
 <translation id="1165039591588034296">错误</translation>
 <translation id="1172898394251786223">下一个字段</translation>
 <translation id="1176932207622159128">无法保存图片</translation>
@@ -58,7 +59,7 @@
 <translation id="1523341279170789507">允许所有 Cookie</translation>
 <translation id="1535268707340844072">您目前的设置可能会导致部分网站无法正常运行。若要管理所有网站的 Cookie，请参阅 <ph name="BEGIN_LINK" />Cookie 设置<ph name="END_LINK" />。</translation>
 <translation id="1540800554400757039">地址第1行</translation>
-<translation id="1545749641540134597">扫描 QR 码</translation>
+<translation id="1545749641540134597">扫描二维码</translation>
 <translation id="1552525382687785070">您的管理员已停用同步功能</translation>
 <translation id="1554477036522844996">打开新的窗口</translation>
 <translation id="1580715474678097352">时刻保护您免受危险网站的侵害</translation>
@@ -211,6 +212,7 @@
 <translation id="3268451620468152448">打开的标签页</translation>
 <translation id="3272527697863656322">取消</translation>
 <translation id="3277021493514034324">已复制网站地址</translation>
+<translation id="3285962946108803577">分享页面…</translation>
 <translation id="3290875554372353449">选择帐号</translation>
 <translation id="3311748811247479259">已关闭</translation>
 <translation id="3324193307694657476">地址第2行</translation>
@@ -611,6 +613,7 @@
 <translation id="7658239707568436148">取消</translation>
 <translation id="766891008101699113">要以私密方式浏览网页，请添加新标签页。</translation>
 <translation id="7671141431838911305">安装</translation>
+<translation id="7690812411882623730">无法链接到所选文本</translation>
 <translation id="7701040980221191251">无</translation>
 <translation id="7765158879357617694">移动</translation>
 <translation id="7771470029643830783">退出帐号后，您的书签、历史记录、密码及其他 Chrome 数据将不再同步到您的 Google 帐号中。

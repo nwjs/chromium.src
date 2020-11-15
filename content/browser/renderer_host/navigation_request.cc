@@ -1160,8 +1160,9 @@ NavigationRequest::NavigationRequest(
     bool is_renderer_initiated = !browser_initiated_;
     Referrer referrer(*common_params_->referrer);
     GetContentClient()->browser()->OverrideNavigationParams(
-        source_site_instance_.get(), &common_params_->transition,
-        &is_renderer_initiated, &referrer, &common_params_->initiator_origin);
+        controller->GetWebContents(), source_site_instance_.get(),
+        &common_params_->transition, &is_renderer_initiated, &referrer,
+        &common_params_->initiator_origin);
     common_params_->referrer =
         blink::mojom::Referrer::New(referrer.url, referrer.policy);
     browser_initiated_ = !is_renderer_initiated;
@@ -1673,20 +1674,6 @@ NavigationRequest::TakeCoepReporter() {
 
 ukm::SourceId NavigationRequest::GetPreviousPageUkmSourceId() {
   return previous_page_ukm_source_id_;
-}
-
-NavigationEntry* NavigationRequest::GetNavigationEntry() {
-  if (nav_entry_id_ == 0)
-    return nullptr;
-
-  NavigationControllerImpl* controller = GetNavigationController();
-  NavigationEntry* entry = controller->GetEntryWithUniqueID(nav_entry_id_);
-  if (entry)
-    return entry;
-  return (controller->GetPendingEntry() &&
-          controller->GetPendingEntry()->GetUniqueID() == nav_entry_id_)
-             ? controller->GetPendingEntry()
-             : nullptr;
 }
 
 void NavigationRequest::OnRequestRedirected(
@@ -4784,6 +4771,20 @@ const base::Optional<url::Origin>& NavigationRequest::GetInitiatorOrigin() {
 
 bool NavigationRequest::IsSameProcess() {
   return is_same_process_;
+}
+
+NavigationEntry* NavigationRequest::GetNavigationEntry() {
+  if (nav_entry_id_ == 0)
+    return nullptr;
+
+  NavigationControllerImpl* controller = GetNavigationController();
+  NavigationEntry* entry = controller->GetEntryWithUniqueID(nav_entry_id_);
+  if (entry)
+    return entry;
+  return (controller->GetPendingEntry() &&
+          controller->GetPendingEntry()->GetUniqueID() == nav_entry_id_)
+             ? controller->GetPendingEntry()
+             : nullptr;
 }
 
 int NavigationRequest::GetNavigationEntryOffset() {

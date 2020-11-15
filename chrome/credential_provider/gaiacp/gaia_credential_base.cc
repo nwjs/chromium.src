@@ -71,8 +71,6 @@ namespace credential_provider {
 
 namespace {
 
-constexpr wchar_t kEmailDomainsKey[] = L"ed";  // deprecated.
-constexpr wchar_t kEmailDomainsKeyNew[] = L"domains_allowed_to_login";
 constexpr wchar_t kPermittedAccounts[] = L"permitted_accounts";
 constexpr wchar_t kPermittedAccountsSeparator[] = L",";
 constexpr char kGetAccessTokenBodyWithScopeFormat[] =
@@ -116,6 +114,14 @@ base::string16 GetEmailDomains(
 }
 
 base::string16 GetEmailDomains() {
+  if (DevicePoliciesManager::Get()->CloudPoliciesEnabled()) {
+    DevicePolicies device_policies;
+    DevicePoliciesManager::Get()->GetDevicePolicies(&device_policies);
+    return device_policies.GetAllowedDomainsStr();
+  }
+
+  // TODO (crbug.com/1135458): Clean up directly reading from registry after
+  // cloud policies is launched.
   base::string16 email_domains_reg = GetEmailDomains(kEmailDomainsKey);
   base::string16 email_domains_reg_new = GetEmailDomains(kEmailDomainsKeyNew);
   return email_domains_reg.empty() ? email_domains_reg_new : email_domains_reg;
@@ -2060,6 +2066,11 @@ HRESULT CGaiaCredentialBase::PerformActions(const base::Value& properties) {
   if (FAILED(hr) && hr != E_NOTIMPL)
     LOGFN(ERROR) << "StoreWindowsPasswordIfNeeded hr=" << putHR(hr);
 
+  hr = GenerateGCPWDmToken(sid);
+  if (FAILED(hr)) {
+    LOGFN(ERROR) << "GenerateGCPWDmToken hr=" << putHR(hr);
+  }
+
   // Upload device details to gem database.
   hr = GemDeviceDetailsManager::Get()->UploadDeviceDetails(access_token, sid,
                                                            username, domain);
@@ -2483,8 +2494,7 @@ HRESULT CGaiaCredentialBase::OnUserAuthenticated(BSTR authentication_info,
 
   base::string16 sid = OLE2CW(user_sid_);
   if (UserPoliciesManager::Get()->CloudPoliciesEnabled() &&
-      UserPoliciesManager::Get()->GetTimeDeltaSinceLastPolicyFetch(sid) >
-          kMaxTimeDeltaSinceLastUserPolicyRefresh) {
+      UserPoliciesManager::Get()->IsUserPolicyStaleOrMissing(sid)) {
     // Save gaia id since it is needed for the cloud policies server request.
     base::string16 gaia_id = GetDictString(*authentication_results_, kKeyId);
     HRESULT hr = SetUserProperty(sid, kUserId, gaia_id);

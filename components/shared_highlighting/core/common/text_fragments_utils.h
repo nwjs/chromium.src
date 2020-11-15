@@ -2,14 +2,17 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef IOS_WEB_NAVIGATION_TEXT_FRAGMENTS_UTILS_H_
-#define IOS_WEB_NAVIGATION_TEXT_FRAGMENTS_UTILS_H_
+#ifndef COMPONENTS_SHARED_HIGHLIGHTING_CORE_COMMON_TEXT_FRAGMENTS_UTILS_H_
+#define COMPONENTS_SHARED_HIGHLIGHTING_CORE_COMMON_TEXT_FRAGMENTS_UTILS_H_
+
+#include <vector>
 
 #include "base/values.h"
+#include "url/gurl.h"
 
-class GURL;
+namespace shared_highlighting {
 
-namespace web {
+class TextFragment;
 
 // This file contains helper functions relating to Text Fragments, which are
 // appended to the reference fragment in the URL and instruct the user agent
@@ -18,17 +21,17 @@ namespace web {
 
 // Checks the fragment portion of the URL for Text Fragments. Returns zero or
 // more dictionaries containing the parsed parameters used by the fragment-
-// finding algorithm, as defined in the spec.
+// finding algorithm, as defined in the spec.J
 base::Value ParseTextFragments(const GURL& url);
 
 // Extracts the text fragments, if any, from a ref string.
 std::vector<std::string> ExtractTextFragments(std::string ref_string);
 
-// Breaks a text fragment into its component parts, as needed for the algorithm
-// described in the spec. Returns a dictionary Value, or a None Value if the
-// fragment is malformed.
-base::Value TextFragmentToValue(std::string fragment);
+// Appends a set of text |fragments| with the correct format to the given
+// |base_url|. Returns an empty GURL if |base_url| is invalid.
+GURL AppendFragmentDirectives(const GURL& base_url,
+                              std::vector<TextFragment> fragments);
 
-}  // namespace web
+}  // namespace shared_highlighting
 
-#endif  // IOS_WEB_NAVIGATION_TEXT_FRAGMENTS_UTILS_H_
+#endif  // COMPONENTS_SHARED_HIGHLIGHTING_CORE_COMMON_TEXT_FRAGMENTS_UTILS_H_

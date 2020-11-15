@@ -199,6 +199,7 @@ public class VideoCaptureCamera
         }
         android.hardware.Camera.Parameters parameters = getCameraParameters(camera);
         if (parameters == null) {
+            camera.release();
             return false;
         }
 
@@ -231,6 +232,10 @@ public class VideoCaptureCamera
                 + (cameraInfo.facing == android.hardware.Camera.CameraInfo.CAMERA_FACING_FRONT
                                   ? "front"
                                   : "back");
+    }
+
+    static String getDeviceId(int id) {
+        return Integer.toString(id);
     }
 
     static VideoCaptureFormat[] getDeviceSupportedFormats(int id) {

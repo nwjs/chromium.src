@@ -27,6 +27,7 @@
 #include "components/download/public/common/download_features.h"
 #include "components/feature_engagement/public/feature_list.h"
 #include "components/feed/feed_feature_list.h"
+#include "components/history/core/browser/features.h"
 #include "components/invalidation/impl/invalidation_switches.h"
 #include "components/language/core/common/language_experiments.h"
 #include "components/messages/android/messages_feature.h"
@@ -102,6 +103,7 @@ const base::Feature* kFeaturesExposedToJava[] = {
     &feed::kInterestFeedFeedback,
     &feed::kInterestFeedV2,
     &feed::kReportFeedUserActions,
+    &history::kHideFromApi3Transitions,
     &kAdjustWebApkInstallationSpace,
     &kAllowNewIncognitoTabIntents,
     &kAllowRemoteContextForNotifications,
@@ -239,6 +241,7 @@ const base::Feature* kFeaturesExposedToJava[] = {
     &omnibox::kAdaptiveSuggestionsCount,
     &omnibox::kCompactSuggestions,
     &omnibox::kDeferredKeyboardPopup,
+    &omnibox::kHideVisitsFromCct,
     &omnibox::kMostVisitedTiles,
     &omnibox::kOmniboxAssistantVoiceSearch,
     &omnibox::kOmniboxSearchEngineLogo,
@@ -253,6 +256,7 @@ const base::Feature* kFeaturesExposedToJava[] = {
     &performance_hints::features::kPageInfoPerformanceHints,
     &query_tiles::features::kQueryTilesGeoFilter,
     &query_tiles::features::kQueryTiles,
+    &query_tiles::features::kQueryTilesInNTP,
     &query_tiles::features::kQueryTilesInOmnibox,
     &query_tiles::features::kQueryTilesEnableQueryEditing,
     &query_tiles::features::kQueryTilesLocalOrdering,

@@ -10,6 +10,7 @@
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/renderer_context_menu/render_view_context_menu_proxy.h"
+#include "components/shared_highlighting/core/common/shared_highlighting_metrics.h"
 #include "content/public/browser/context_menu_params.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
@@ -66,15 +67,24 @@ void CopyLinkToTextMenuObserver::ExecuteCommand(int command_id) {
   // the generated string if it succeeds or an empty string if it fails.
   content::RenderFrameHost* main_frame =
       proxy_->GetWebContents()->GetMainFrame();
-  if (main_frame) {
-    main_frame->GetRemoteInterfaces()->GetInterface(
-        remote_.BindNewPipeAndPassReceiver());
-    remote_->GenerateSelector(
-        base::BindOnce(&CopyLinkToTextMenuObserver::OnGeneratedSelector,
-                       weak_ptr_factory_.GetWeakPtr(),
-                       std::make_unique<ui::ClipboardDataEndpoint>(
-                           main_frame->GetLastCommittedOrigin())));
+  if (!main_frame)
+    return;
+
+  if (main_frame != proxy_->GetWebContents()->GetFocusedFrame()) {
+    shared_highlighting::LogGenerateErrorIFrame();
+    OnGeneratedSelector(std::make_unique<ui::ClipboardDataEndpoint>(
+                            main_frame->GetLastCommittedOrigin()),
+                        std::string());
+    return;
   }
+
+  main_frame->GetRemoteInterfaces()->GetInterface(
+      remote_.BindNewPipeAndPassReceiver());
+  remote_->GenerateSelector(
+      base::BindOnce(&CopyLinkToTextMenuObserver::OnGeneratedSelector,
+                     weak_ptr_factory_.GetWeakPtr(),
+                     std::make_unique<ui::ClipboardDataEndpoint>(
+                         main_frame->GetLastCommittedOrigin())));
 }
 
 void CopyLinkToTextMenuObserver::OnGeneratedSelector(

@@ -2,10 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "ios/chrome/browser/ui/link_to_text/link_to_text_mediator.h"
+#import "ios/chrome/browser/ui/link_to_text/link_to_text_mediator.h"
 
+#import "components/shared_highlighting/core/common/shared_highlighting_metrics.h"
+#import "ios/chrome/browser/link_to_text/link_to_text_payload.h"
+#import "ios/chrome/browser/link_to_text/link_to_text_response.h"
 #import "ios/chrome/browser/link_to_text/link_to_text_tab_helper.h"
-#import "ios/chrome/browser/link_to_text/shared_highlight.h"
+#import "ios/chrome/browser/ui/link_to_text/link_to_text_consumer.h"
 #import "ios/chrome/browser/ui/ui_feature_flags.h"
 #import "ios/chrome/browser/web_state_list/web_state_list.h"
 #import "ios/web/public/web_state.h"
@@ -14,19 +17,27 @@
 #error "This file requires ARC support."
 #endif
 
+using shared_highlighting::LinkGenerationError;
+
 @interface LinkToTextMediator ()
 
 // The Browser's WebStateList.
 @property(nonatomic, readonly) WebStateList* webStateList;
 
+// Instance in charge of handling link-to-text updates.
+@property(nonatomic, readonly, weak) id<LinkToTextConsumer> consumer;
+
 @end
 
 @implementation LinkToTextMediator
 
-- (instancetype)initWithWebStateList:(WebStateList*)webStateList {
+- (instancetype)initWithWebStateList:(WebStateList*)webStateList
+                            consumer:(id<LinkToTextConsumer>)consumer {
   if (self = [super init]) {
     DCHECK(webStateList);
+    DCHECK(consumer);
     _webStateList = webStateList;
+    _consumer = consumer;
   }
   return self;
 }
@@ -44,12 +55,33 @@
 
 - (void)handleLinkToTextSelection {
   DCHECK(base::FeatureList::IsEnabled(kSharedHighlightingIOS));
-  [self shareLinkToText:[self getLinkToTextTabHelper]
-                            ->GetLinkToSelectedTextAndQuote()];
+  LinkToTextTabHelper* tabHelper = [self getLinkToTextTabHelper];
+
+  __weak __typeof(self) weakSelf = self;
+  tabHelper->GetLinkToText(^(LinkToTextResponse* response) {
+    [weakSelf receivedLinkToTextResponse:response];
+  });
 }
 
-- (void)shareLinkToText:(SharedHighlight)sharedHighlight {
-  // TODO(crbug.com/1134707): Trigger the share sheet.
+- (void)receivedLinkToTextResponse:(LinkToTextResponse*)response {
+  DCHECK(response);
+  if (response.error.has_value()) {
+    [self linkGenerationFailedWithError:response.error.value()];
+  } else {
+    [self shareLinkToText:response.payload];
+  }
+}
+
+- (void)shareLinkToText:(LinkToTextPayload*)payload {
+  DCHECK(payload);
+  shared_highlighting::LogLinkGenerationStatus(true);
+  [self.consumer generatedPayload:payload];
+}
+
+- (void)linkGenerationFailedWithError:(LinkGenerationError)error {
+  shared_highlighting::LogLinkGenerationStatus(false);
+  shared_highlighting::LogLinkGenerationErrorReason(error);
+  [self.consumer linkGenerationFailed];
 }
 
 - (LinkToTextTabHelper*)getLinkToTextTabHelper {

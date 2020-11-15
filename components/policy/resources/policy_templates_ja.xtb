@@ -980,6 +980,7 @@
 
        このポリシーを未設定のままにすると、統計情報と診断データの送信は管理対象外のデバイスではオフになり、管理対象のデバイスではオンになります。</translation>
 <translation id="2454228136871844693">安定性を重視します。</translation>
+<translation id="2455033019778127130">デフォルトのブラウザ処理を行い、利用規約を表示してユーザーの同意を待ちます。</translation>
 <translation id="2456629156652006573">プライベートのみ</translation>
 <translation id="2463034609187171371">TLS の DHE 暗号スイートを有効にする</translation>
 <translation id="2463365186486772703">アプリケーションの言語/地域</translation>
@@ -1801,7 +1802,7 @@ False に設定した場合、<ph name="PRODUCT_NAME" /> はネイティブ通�
 <translation id="3580414086211696382">読み取りを目的とする File System API の使用を管理する</translation>
 <translation id="3583230441447348508">事前設定のネットワーク ファイル共有のリストを指定します。
 
-      このポリシーのリストの各項目には、「share_url」と「mode」の 2 つで構成されるオブジェクトを指定します。「share_url」には、共有場所の URL を指定します。「mode」には、「drop_down」または「pre_mount」を指定します。「drop_down」モードの場合は、共有場所の一覧プルダウンに「share_url」が追加されます。「pre_mount」モードの場合は、「share_url」がマウントされます。</translation>
+      このポリシーのリストの各項目には、「share_url」と「mode」の 2 つで構成されるオブジェクトを指定します。「share_url」には、共有場所の URL を指定します。「mode」には、「drop_down」または「pre_mount」を指定します。「drop_down」モードの場合は、共有の検出の一覧プルダウンに「share_url」が追加されます。「pre_mount」モードの場合は、「share_url」がマウントされます。</translation>
 <translation id="3584194414857209694">テストポリシーを有効にする</translation>
 <translation id="3584722841530002134">このポリシーでは、<ph name="PRODUCT_NAME" /> が委任できるサーバーを割り当てることができます。複数のサーバー名を入力するときはカンマで区切ります。ワイルドカード（<ph name="WILDCARD_VALUE" />）を使用できます。
 
@@ -2412,12 +2413,13 @@ False に設定した場合、<ph name="PRODUCT_NAME" /> はネイティブ通�
 
       このポリシーを設定しない場合、ユーザーはシステムにインストールされたどのプラグインも無効にできます。</translation>
 <translation id="4554651132977135445">ユーザー ポリシーのループバック処理モード</translation>
-<translation id="4554841826517980623"><ph name="PRODUCT_NAME" /> のネットワーク ファイル共有の機能で、ネットワーク上の共有場所の検出に <ph name="NETBIOS_PROTOCOL" /> を使用するかどうかを設定します。
-      このポリシーが True に設定されている場合、共有場所の検出処理ではネットワーク上の共有場所の検出に <ph name="NETBIOS_PROTOCOL" /> プロトコルが使用されます。
-      このポリシーが False に設定されている場合、共有場所の検出処理では共有場所の検出に <ph name="NETBIOS_PROTOCOL" /> プロトコルは使用されません。
+<translation id="4554841826517980623"><ph name="PRODUCT_NAME" /> のネットワーク ファイル共有の機能で、ネットワーク上の共有の検出に <ph name="NETBIOS_PROTOCOL" /> を使用するかどうかを設定します。
+      このポリシーが True に設定されている場合、共有の検出処理ではネットワーク上の共有の検出に <ph name="NETBIOS_PROTOCOL" /> プロトコルが使用されます。
+      このポリシーが False に設定されている場合、共有の検出処理では共有の検出に <ph name="NETBIOS_PROTOCOL" /> プロトコルは使用されません。
       このポリシーが未設定の場合、デフォルトの設定は、企業の管理対象ユーザーに対しては「無効」、管理対象外のユーザーに対しては「有効」となります。</translation>
 <translation id="4555850956567117258">ユーザーのリモート認証を有効にする</translation>
 <translation id="4557134566541205630">デフォルトの検索プロバイダの新しいタブ ページ URL</translation>
+<translation id="4558166110367609724">利用規約を自動的にスキップし、ブラウザを読み込みます。</translation>
 <translation id="4562165737444703281">Crostini ポート転送の [有効化 / 設定] をユーザーに許可する</translation>
 <translation id="456686782928669977">このポリシーでは、<ph name="IE_PRODUCT_NAME" /> のサイトリスト ポリシーからルールを読み込むかどうかを管理します。
 
@@ -2611,6 +2613,17 @@ False に設定した場合、<ph name="PRODUCT_NAME" /> はネイティブ通�
 
       このポリシーを無効に設定するか未設定にした場合、<ph name="PRODUCT_NAME" /> では安全でないイベントのレポートは送信されません。
       </translation>
+<translation id="4892647988357350237">デフォルトでは、利用規約は CCT の初回実行時に表示されます。このポリシーを <ph name="SKIP_TOS_DIALOG" /> に設定した場合、利用規約のダイアログは初回実行時もその後の実行時にも表示されません。このポリシーを <ph name="STANDARD_TOS_DIALOG" /> に設定するか未設定のままにした場合、利用規約のダイアログは初回実行時に表示されます。その他の注意事項:
+
+      - このポリシーは、統合エンドポイント管理ベンダーによる設定が可能な完全管理対象の Android デバイスのみに適用されます。
+
+      - このポリシーが <ph name="SKIP_TOS_DIALOG" /> の場合、BrowserSignin ポリシーは無視されます。
+
+      - このポリシーが <ph name="SKIP_TOS_DIALOG" /> の場合、指標はサーバーに送信されません。
+
+      - このポリシーが <ph name="SKIP_TOS_DIALOG" /> の場合、ブラウザの機能が制限されます。
+
+      - このポリシーが <ph name="SKIP_TOS_DIALOG" /> の場合、管理者はそのことをデバイスのエンドユーザーに知らせる必要があります。</translation>
 <translation id="4894290482695457375"><ph name="ENABLE_MEDIA_ROUTER_POLICY_NAME" /> が無効に設定されていない場合に、<ph name="MEDIA_ROUTER_CAST_ALLOW_ALL_IPS_POLICY_NAME" /> を有効に設定すると、RFC1918 と RFC4193 のプライベート アドレスだけでなくすべての IP アドレスのキャスト デバイスに <ph name="PRODUCT_NAME" /> を接続します。
 
       このポリシーを無効に設定した場合は、RFC1918 と RFC4193 のキャスト デバイスにのみ <ph name="PRODUCT_NAME" /> を接続します。
@@ -3833,6 +3846,19 @@ False に設定した場合、<ph name="PRODUCT_NAME" /> はネイティブ通�
       注: <ph name="MS_AD_NAME" /> ドメインに登録されていない Windows インスタンスの場合、強制的にインストールされるのは Chrome ウェブストアに公開されているアプリと拡張機能のみとなります。</translation>
 <translation id="6598235178374410284">ユーザーのアバター画像</translation>
 <translation id="6603004149426829878">タイムゾーンを解決する際、常に利用可能な位置情報の信号をサーバーに送信する</translation>
+<translation id="660567106648774919">このポリシーはサポートが終了しています。代わりに <ph name="TOS_DIALOG_BEHAVIOR_POLICY_NAME" /> ポリシーを使用してください。
+
+      デフォルトでは、利用規約は CCT の初回実行時に表示されます。このポリシーを無効に設定した場合、利用規約のダイアログは初回実行時もその後の実行時にも表示されません。このポリシーを有効に設定するか未設定のままにした場合、利用規約のダイアログは初回実行時に表示されます。その他の注意事項:
+
+      - このポリシーは、統合エンドポイント管理ベンダーによる設定が可能な完全管理対象の Android デバイスのみに適用されます。
+
+      - このポリシーが無効の場合、BrowserSignin ポリシーは無視されます。
+
+      - このポリシーが無効の場合、指標はサーバーに送信されません。
+
+      - このポリシーが無効の場合、ブラウザの機能が制限されます。
+
+      - このポリシーが無効の場合、管理者はそのことをデバイスのエンドユーザーに知らせる必要があります。</translation>
 <translation id="6607920041550065565">
       このポリシーを False に設定すると、デバイスによる Powerwash の実行は許可されません。ただし、<ph name="TPM_FIRMWARE_UPDATE_SETTINGS_NAME" /> ポリシーが TPM ファームウェアの更新を許可する値に設定され、TPM ファームウェアがまだ更新されていない場合は除きます。
       True に設定すると、デバイスによる Powerwash の実行が許可されます。
@@ -4166,6 +4192,7 @@ False に設定した場合、<ph name="PRODUCT_NAME" /> はネイティブ通�
 
       このポリシーを無効に設定した場合、<ph name="PRODUCT_NAME" /> は、最後のタブであっても代替ブラウザへの切り替え後にタブを閉じます。その結果、<ph name="PRODUCT_NAME" /> が完全に終了します。</translation>
 <translation id="7019805045859631636">速い</translation>
+<translation id="7025332601572838001">CCT の初回実行時の利用規約処理を設定します</translation>
 <translation id="7027785306666625591"><ph name="PRODUCT_OS_NAME" /> の電源管理を設定します。
 
       これらのポリシーでは、アイドル状態が一定時間続いたときの <ph name="PRODUCT_OS_NAME" /> の動作を設定できます。</translation>
@@ -4522,17 +4549,6 @@ False に設定した場合、<ph name="PRODUCT_NAME" /> はネイティブ通�
 <translation id="747014869399137701">このポリシーを 1 に設定した場合、ウェブサイトによるデスクトップ通知の表示が許可されます。このポリシーを 2 に設定した場合、デスクトップ通知は拒否されます。
 
       このポリシーを未設定のままにした場合、<ph name="ASK_NOTIFICATIONS_POLICY_NAME" /> は適用されますが、ユーザーはこの設定を変更できます。</translation>
-<translation id="7471828226549672843">デフォルトでは、利用規約は CCT の初回実行時に表示されます。このポリシーを無効に設定した場合、利用規約のダイアログは初回実行時もその後の実行時にも表示されません。このポリシーを有効に設定するか未設定のままにした場合、利用規約のダイアログは初回実行時に表示されます。その他の注意事項:
-
-      - このポリシーは、統合エンドポイント管理ベンダーによる設定が可能な完全管理対象の Android デバイスのみに適用されます。
-
-      - このポリシーが無効の場合、BrowserSignin ポリシーは無視されます。
-
-      - このポリシーが無効の場合、指標はサーバーに送信されません。
-
-      - このポリシーが無効の場合、ブラウザの機能が制限されます。
-
-      - このポリシーが無効の場合、管理者はそのことをデバイスのエンドユーザーに知らせる必要があります。</translation>
 <translation id="747275827471712187">指定したサイトの Cookie を以前の <ph name="ATTRIBUTE_SAMESITE_NAME" /> 動作に戻す</translation>
 <translation id="7477231245051133709">「モノラル音声」のユーザー補助機能を有効にする</translation>
 <translation id="7477239290070847560">Zeroconf（mDNS+DNS-SD）プロトコルの送信先</translation>
@@ -5347,11 +5363,11 @@ False に設定した場合、<ph name="PRODUCT_NAME" /> はネイティブ通�
 <translation id="8665314828727504286">セーフ ブラウジングの保護レベル</translation>
 <translation id="8672321184841719703">自動更新の対象バージョンを指定</translation>
 <translation id="867410340948518937">U2F（Universal Second Factor）</translation>
-<translation id="8680488165461049026">このポリシーでは、スピード アンサーに、選択したコンテンツへのアクセスとサーバーへの情報送信を許可します。
+<translation id="8680488165461049026">このポリシーでは、クイック アンサーに、選択したコンテンツへのアクセスとサーバーへの情報送信を許可します。
 
-      このポリシーを有効にした場合、スピード アンサーは選択したコンテンツにアクセスできます。
-      このポリシーを無効にした場合、スピード アンサーは選択したコンテンツにアクセスできません。
-      このポリシーが設定されていない場合、スピード アンサーに選択したコンテンツへのアクセスを許可するかどうかをユーザーが指定できます。</translation>
+      このポリシーを有効にした場合、クイック アンサーは選択したコンテンツにアクセスできます。
+      このポリシーを無効にした場合、クイック アンサーは選択したコンテンツにアクセスできません。
+      このポリシーが設定されていない場合、クイック アンサーに選択したコンテンツへのアクセスを許可するかどうかをユーザーが指定できます。</translation>
 <translation id="8685024486845674965">パスワードが再使用されたときに、パスワード保護について警告する</translation>
 <translation id="8685680544554917389">このポリシーを True に設定した場合、<ph name="PRODUCT_NAME" /> でメディアの自動再生が可能になります。このポリシーを False に設定した場合、<ph name="PRODUCT_NAME" /> でメディアは自動再生されません。
 
@@ -5809,7 +5825,7 @@ False に設定した場合、<ph name="PRODUCT_NAME" /> はネイティブ通�
 <translation id="944817693306670849">ディスク キャッシュ サイズを設定します</translation>
 <translation id="949278212566535827">パスワードで保護されているファイルのダウンロードを許可する</translation>
 <translation id="974349541138387272">希望の DNS-over-HTTPS リゾルバの URI テンプレートを指定する</translation>
-<translation id="974479807614498635">「スピード アンサーに、選択したコンテンツへのアクセスを許可する」</translation>
+<translation id="974479807614498635">「クイック アンサーに、選択したコンテンツへのアクセスを許可する」</translation>
 <translation id="981346395360763138">Google 位置情報サービスが無効</translation>
 <translation id="982497069985795632">スペルチェックを有効にする</translation>
 <translation id="983256325512298435">ユーザーに許可を求めずに外部アプリケーションを実行できるプロトコルとその提供元のリストを定義します</translation>

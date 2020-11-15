@@ -50,7 +50,7 @@ gclient_gn_args = [
 
 
 vars = {
-  "buildspec_platforms": "linux64, mac64, win, win64",
+  "buildspec_platforms": "all",
   # Variable that can be used to support multiple build scenarios, like having
   # Chromium specific targets in a client project's GN file or sync dependencies
   # conditionally etc.
@@ -201,7 +201,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling V8
   # and whatever else without interference from each other.
-  'v8_revision': '5e4b41ddd544a41fca89a6d4951a5060978fed7c',
+  'v8_revision': 'd2fef9fb0ac356d6cf6759f29e2b56ebea8bc58d',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling swarming_client
   # and whatever else without interference from each other.
@@ -209,7 +209,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling ANGLE
   # and whatever else without interference from each other.
-  'angle_revision': 'ac18d9c83f8533eaea97950fc86fc901df806f65',
+  'angle_revision': '4b254ce7b497e14be3f7ae8a6f62b2c879916317',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling SwiftShader
   # and whatever else without interference from each other.
@@ -268,7 +268,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling devtools-frontend
   # and whatever else without interference from each other.
-  'devtools_frontend_revision': '51af4604a0b50bbf4d09e9c4e3eaf950d0278ff5',
+  'devtools_frontend_revision': 'de2381a554e581b523cfe54395a537e1300b4780',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling libprotobuf-mutator
   # and whatever else without interference from each other.
@@ -1259,7 +1259,7 @@ deps = {
   },
 
   'src/third_party/perfetto':
-    Var('android_git') + '/platform/external/perfetto.git' + '@' + 'bce69fefbe63cae099a90ff890fe8f1daaa9cd70',
+    Var('android_git') + '/platform/external/perfetto.git' + '@' + 'f4cf78e052c9427d8b6c49faf39ddf2a2e236069',
 
   'src/third_party/perl': {
       'url': Var('chromium_git') + '/chromium/deps/perl.git' + '@' + '6f3e5028eb65d0b4c5fdd792106ac4c84eee1eb3',
@@ -1422,7 +1422,7 @@ deps = {
     Var('swiftshader_git') + '/SwiftShader.git' + '@' +  Var('swiftshader_revision'),
 
   'src/third_party/text-fragments-polyfill/src': {
-    'url': Var('chromium_git') + '/external/github.com/GoogleChromeLabs/text-fragments-polyfill.git' + '@' + '4fedbe17115628cf72e41ea32770f4f3155aa760',
+    'url': Var('chromium_git') + '/external/github.com/GoogleChromeLabs/text-fragments-polyfill.git' + '@' + 'b2df6bf7b4dc1665989306a8119eb041f013f567',
     'condition': 'checkout_ios',
   },
 
@@ -1491,7 +1491,7 @@ deps = {
   },
 
   'src/third_party/webrtc':
-    Var('webrtc_git') + '/src.git' + '@' + '1c6bde1913107de53a2db29c4b4e7685f0b0f53d',
+    Var('webrtc_git') + '/src.git' + '@' + 'a1aa01aad009d29d7fa00f6d407d919372e5ecf8',
 
   'src/third_party/libgifcodec':
      Var('skia_git') + '/libgifcodec' + '@'+  Var('libgifcodec_revision'),
@@ -1563,7 +1563,7 @@ deps = {
   #  Var('chromium_git') + '/v8/v8.git' + '@' +  Var('v8_revision'),
 
   'src-internal': {
-    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@175c507b0a21259d038a0675853907d56fad6acb',
+    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@19cbbda7bd3067eeba6c0f7f22026fb57136a84d',
     'condition': 'checkout_src_internal',
   },
 
@@ -1571,7 +1571,7 @@ deps = {
     'packages': [
       {
         'package': 'chromeos_internal/apps/help_app/app',
-        'version': 'T6gPp8Ky1tPZf16RQSiLa1YTO1Q2iv-5oa8YHP4nq8YC',
+        'version': 'HyHG-r1J8mLoHDeHiDHWs1LV1v_XxhKkxgYUVQQtvO0C',
       },
     ],
     'condition': 'checkout_chromeos and checkout_src_internal',

@@ -646,12 +646,18 @@ FakeWinHttpUrlFetcherFactory::Response::~Response() = default;
 
 FakeWinHttpUrlFetcherFactory::FakeWinHttpUrlFetcherFactory()
     : original_creator_(*WinHttpUrlFetcher::GetCreatorFunctionStorage()) {
-  *WinHttpUrlFetcher::GetCreatorFunctionStorage() = base::BindRepeating(
-      &FakeWinHttpUrlFetcherFactory::Create, base::Unretained(this));
+  fake_creator_ = base::BindRepeating(&FakeWinHttpUrlFetcherFactory::Create,
+                                      base::Unretained(this));
+  *WinHttpUrlFetcher::GetCreatorFunctionStorage() = fake_creator_;
 }
 
 FakeWinHttpUrlFetcherFactory::~FakeWinHttpUrlFetcherFactory() {
   *WinHttpUrlFetcher::GetCreatorFunctionStorage() = original_creator_;
+}
+
+WinHttpUrlFetcher::CreatorCallback
+FakeWinHttpUrlFetcherFactory::GetCreatorCallback() {
+  return fake_creator_;
 }
 
 void FakeWinHttpUrlFetcherFactory::SetFakeResponse(
@@ -1192,16 +1198,31 @@ HRESULT FakeUserPoliciesManager::FetchAndStoreCloudUserPolicies(
 void FakeUserPoliciesManager::SetUserPolicies(const base::string16& sid,
                                               const UserPolicies& policies) {
   user_policies_[sid] = policies;
+  user_policies_stale_[sid] = false;
 }
 
 bool FakeUserPoliciesManager::GetUserPolicies(const base::string16& sid,
-                                              UserPolicies* policies) {
+                                              UserPolicies* policies) const {
   if (user_policies_.find(sid) != user_policies_.end()) {
-    *policies = user_policies_[sid];
+    *policies = user_policies_.at(sid);
     return true;
   }
 
   return false;
+}
+
+void FakeUserPoliciesManager::SetUserPolicyStaleOrMissing(
+    const base::string16& sid,
+    bool status) {
+  user_policies_stale_[sid] = status;
+}
+
+bool FakeUserPoliciesManager::IsUserPolicyStaleOrMissing(
+    const base::string16& sid) const {
+  if (user_policies_stale_.find(sid) != user_policies_stale_.end())
+    return user_policies_stale_.at(sid);
+
+  return true;
 }
 
 int FakeUserPoliciesManager::GetNumTimesFetchAndStoreCalled() const {
@@ -1370,6 +1391,12 @@ DWORD FakeOSServiceManager::DeleteService() {
   return ERROR_SUCCESS;
 }
 
+DWORD FakeOSServiceManager::ChangeServiceConfig(DWORD dwServiceType,
+                                                DWORD dwStartType,
+                                                DWORD dwErrorControl) {
+  return ERROR_SUCCESS;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 FakeTaskManager::FakeTaskManager()
@@ -1391,10 +1418,32 @@ void FakeTaskManager::RunTasksInternal() {
 
   int64_t current = base::Time::Now().ToDeltaSinceWindowsEpoch().InHours();
 
-  ASSERT_EQ(current - start_hour, (num_of_times_executed_ - 1) * 3)
+  ASSERT_EQ(current - start_hour, (num_of_times_executed_ - 1) * 1)
       << (current - start_hour) << " hours since first run";
 
   TaskManager::RunTasksInternal();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+FakeTokenGenerator::FakeTokenGenerator()
+    : token_generator_(*GetInstanceStorage()) {
+  *GetInstanceStorage() = this;
+}
+
+FakeTokenGenerator::~FakeTokenGenerator() {
+  *GetInstanceStorage() = token_generator_;
+}
+
+std::string FakeTokenGenerator::GenerateToken() {
+  auto token = test_tokens_.front();
+  test_tokens_.erase(test_tokens_.begin());
+  return token;
+}
+
+void FakeTokenGenerator::SetTokensForTesting(
+    const std::vector<std::string>& test_tokens) {
+  test_tokens_ = test_tokens;
 }
 
 }  // namespace credential_provider
