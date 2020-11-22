@@ -392,7 +392,6 @@ DownloadRequestLimiter* TestingBrowserProcess::download_request_limiter() {
   return download_request_limiter_.get();
 }
 
-#if 0
 component_updater::ComponentUpdateService*
 TestingBrowserProcess::component_updater() {
   return nullptr;

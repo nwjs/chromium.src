@@ -129,7 +129,6 @@ class TestingBrowserProcess : public BrowserProcess {
 #endif
 
 
-#if 0
   component_updater::ComponentUpdateService* component_updater() override;
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
   component_updater::SupervisedUserWhitelistInstaller*
