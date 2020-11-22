@@ -217,7 +217,6 @@ void PluginInfoHostImpl::PluginsLoaded(
         plugin_metadata->identifier(), &output->status);
   }
 
-#if 1
   if (output->status == chrome::mojom::PluginStatus::kNotFound) {
     // Check to see if the component updater can fetch an implementation.
     std::unique_ptr<component_updater::ComponentInfo> cus_plugin_info =
@@ -226,10 +225,10 @@ void PluginInfoHostImpl::PluginsLoaded(
     ComponentPluginLookupDone(params, std::move(output), std::move(callback),
                               std::move(plugin_metadata),
                               std::move(cus_plugin_info));
-  } else
-#endif
+  } else {
     GetPluginInfoFinish(params, std::move(output), std::move(callback),
                         std::move(plugin_metadata));
+  }
 }
 
 void PluginInfoHostImpl::Context::DecidePluginStatus(

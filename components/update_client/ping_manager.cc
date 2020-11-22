@@ -66,7 +66,7 @@ PingSender::~PingSender() {
 void PingSender::SendPing(const Component& component, Callback callback) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
 
-  if (true) { //component.events().empty()) {
+  if (component.events().empty()) {
     base::ThreadTaskRunnerHandle::Get()->PostTask(
         FROM_HERE, base::BindOnce(std::move(callback), kErrorNoEvents, ""));
     return;

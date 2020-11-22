@@ -218,7 +218,6 @@ void PluginObserver::BlockedOutdatedPlugin(
 void PluginObserver::BlockedComponentUpdatedPlugin(
     mojo::PendingRemote<chrome::mojom::PluginRenderer> plugin_renderer,
     const std::string& identifier) {
-#if 1
   auto component_observer = std::make_unique<ComponentObserver>(
       this, identifier, std::move(plugin_renderer));
   component_observers_[component_observer.get()] =
@@ -226,7 +225,6 @@ void PluginObserver::BlockedComponentUpdatedPlugin(
   g_browser_process->component_updater()->GetOnDemandUpdater().OnDemandUpdate(
       identifier, component_updater::OnDemandUpdater::Priority::FOREGROUND,
       component_updater::Callback());
-#endif
 }
 
 void PluginObserver::RemoveComponentObserver(

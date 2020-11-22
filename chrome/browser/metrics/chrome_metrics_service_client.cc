@@ -660,11 +660,9 @@ void ChromeMetricsServiceClient::RegisterMetricsServiceProviders() {
       std::make_unique<translate::TranslateRankerMetricsProvider>());
 #endif
 
-#if 1
   metrics_service_->RegisterMetricsProvider(
       std::make_unique<metrics::ComponentMetricsProvider>(
           g_browser_process->component_updater()));
-#endif
 
   metrics_service_->RegisterMetricsProvider(
       std::make_unique<tracing::BackgroundTracingMetricsProvider>());

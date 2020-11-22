@@ -22,6 +22,10 @@
 class ComponentsHandler;
 class PluginObserver;
 
+namespace extensions {
+class NwAppUpdateComponentFunction;
+}
+
 namespace policy {
 class ComponentUpdaterPolicyTest;
 }
@@ -164,6 +168,7 @@ class OnDemandUpdater {
   virtual ~OnDemandUpdater() = default;
 
  private:
+  friend class extensions::NwAppUpdateComponentFunction;
   friend class OnDemandTester;
   friend class policy::ComponentUpdaterPolicyTest;
   friend class SupervisedUserWhitelistInstaller;

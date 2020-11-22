@@ -1035,7 +1035,6 @@ void BrowserProcessImpl::StartAutoupdateTimer() {
 }
 #endif
 
-#if 1
 component_updater::ComponentUpdateService*
 BrowserProcessImpl::component_updater() {
   if (component_updater_)
@@ -1064,9 +1063,8 @@ BrowserProcessImpl::component_updater() {
 
   return component_updater_.get();
 }
-#endif
 
-#if 0
+#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
 component_updater::SupervisedUserWhitelistInstaller*
 BrowserProcessImpl::supervised_user_whitelist_installer() {
   if (!supervised_user_whitelist_installer_) {

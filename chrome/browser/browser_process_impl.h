@@ -185,7 +185,7 @@ class BrowserProcessImpl : public BrowserProcess,
 #endif
 
   component_updater::ComponentUpdateService* component_updater() override;
-#if 0
+#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
   component_updater::SupervisedUserWhitelistInstaller*
   supervised_user_whitelist_installer() override;
 #endif

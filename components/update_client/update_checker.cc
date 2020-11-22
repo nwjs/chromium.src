@@ -40,7 +40,6 @@ namespace update_client {
 
 namespace {
 
-#if 0
 // Returns a sanitized version of the brand or an empty string otherwise.
 std::string SanitizeBrand(const std::string& brand) {
   return IsValidBrand(brand) ? brand : std::string("");
@@ -69,7 +68,6 @@ InstallerAttributesFlatMap SanitizeInstallerAttributes(
   return sanitized_attrs;
 }
 
-#endif
 
 class UpdateCheckerImpl : public UpdateChecker {
  public:
@@ -163,7 +161,6 @@ void UpdateCheckerImpl::CheckForUpdatesHelper(
     const base::flat_map<std::string, std::string>& additional_attributes,
     bool enabled_component_updates) {
   DCHECK(thread_checker_.CalledOnValidThread());
-#if 0
   auto urls(config_->UpdateUrl());
   if (IsEncryptionRequired(components))
     RemoveUnsecureUrls(&urls);
@@ -227,7 +224,6 @@ void UpdateCheckerImpl::CheckForUpdatesHelper(
       config_->EnabledCupSigning(),
       base::BindOnce(&UpdateCheckerImpl::OnRequestSenderComplete,
                      base::Unretained(this)));
-#endif
 }
 
 void UpdateCheckerImpl::OnRequestSenderComplete(

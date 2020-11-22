@@ -108,7 +108,7 @@ base::FilePath GetPlatformDirectory(const base::FilePath& base_path) {
   return base_path.AppendASCII("_platform_specific").AppendASCII(platform_arch);
 }
 
-#if !defined(OS_LINUX) && !defined(OS_CHROMEOS)
+#if 1 //!defined(OS_LINUX) && !defined(OS_CHROMEOS)
 // On Linux the Widevine CDM is loaded at startup before the zygote is locked
 // down. As a result there is no need to register the CDM with Chrome as it
 // can't be used until Chrome is restarted. Instead we simply update the hint
@@ -313,7 +313,7 @@ void WidevineCdmComponentInstallerPolicy::UpdateCdmPath(
     return;
   }
 
-#if defined(OS_LINUX) || defined(OS_CHROMEOS)
+#if 0 //defined(OS_LINUX) || defined(OS_CHROMEOS)
   VLOG(1) << "Updating hint file with Widevine CDM " << cdm_version;
 
   // This is running on a thread that allows IO, so simply update the hint file.
@@ -389,6 +389,14 @@ void RegisterWidevineCdmComponent(ComponentUpdateService* cus) {
       std::make_unique<WidevineCdmComponentInstallerPolicy>());
   installer->Register(cus, base::OnceClosure());
 }
+
+void RegisterWidevineCdmComponent(ComponentUpdateService* cus,
+                                  base::OnceClosure callback) {
+  auto installer = base::MakeRefCounted<ComponentInstaller>(
+          std::make_unique<WidevineCdmComponentInstallerPolicy>());
+  installer->Register(cus, std::move(callback));
+}
+
 
 bool WasWidevineCdmComponentRejectedDueToNoRosetta() {
   return g_was_widevine_cdm_component_rejected_due_to_no_rosetta;

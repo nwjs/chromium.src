@@ -392,12 +392,13 @@ DownloadRequestLimiter* TestingBrowserProcess::download_request_limiter() {
   return download_request_limiter_.get();
 }
 
+#if 0
 component_updater::ComponentUpdateService*
 TestingBrowserProcess::component_updater() {
   return nullptr;
 }
-#if 0
 
+#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
 component_updater::SupervisedUserWhitelistInstaller*
 TestingBrowserProcess::supervised_user_whitelist_installer() {
   return nullptr;

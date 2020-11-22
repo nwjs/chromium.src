@@ -1600,12 +1600,10 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
 
   PreBrowserStart();
 
-#if 1
   if (!parsed_command_line().HasSwitch(switches::kDisableComponentUpdate)) {
     component_updater::RegisterComponentsForUpdate(profile_->IsOffTheRecord(),
                                                    profile_->GetPrefs());
   }
-#endif
 
   variations::VariationsService* variations_service =
       browser_process_->variations_service();

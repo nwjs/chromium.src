@@ -254,12 +254,13 @@ class BrowserProcess {
   virtual void StartAutoupdateTimer() = 0;
 #endif
 
-
   virtual component_updater::ComponentUpdateService* component_updater() = 0;
-#if 0
+
+#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
   virtual component_updater::SupervisedUserWhitelistInstaller*
   supervised_user_whitelist_installer() = 0;
 #endif
+
   virtual MediaFileSystemRegistry* media_file_system_registry() = 0;
 
   virtual WebRtcLogUploader* webrtc_log_uploader() = 0;

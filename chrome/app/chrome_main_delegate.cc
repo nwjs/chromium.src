@@ -1046,7 +1046,6 @@ void ChromeMainDelegate::PreSandboxStartup() {
   if (chrome::ProcessNeedsProfileDir(process_type))
     InitializeUserDataDir(base::CommandLine::ForCurrentProcess());
 
-#if 1
   // Register component_updater PathProvider after DIR_USER_DATA overidden by
   // command line flags. Maybe move the chrome PathProvider down here also?
   int alt_preinstalled_components_dir =
@@ -1058,7 +1057,6 @@ void ChromeMainDelegate::PreSandboxStartup() {
   component_updater::RegisterPathProvider(chrome::DIR_COMPONENTS,
                                           alt_preinstalled_components_dir,
                                           chrome::DIR_USER_DATA);
-#endif
 
 #if !defined(OS_ANDROID) && !defined(OS_WIN)
   // Android does InitLogging when library is loaded. Skip here.

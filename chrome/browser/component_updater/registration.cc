@@ -87,28 +87,27 @@ namespace component_updater {
 
 void RegisterComponentsForUpdate(bool is_off_the_record_profile,
                                  PrefService* profile_prefs) {
-#if 1
-#if BUILDFLAG(ENABLE_WIDEVINE_CDM_COMPONENT)
-  auto* const cus = g_browser_process->component_updater();
+  //auto* const cus = g_browser_process->component_updater();
 
+#if 0
 #if defined(OS_WIN)
   RegisterRecoveryImprovedComponent(cus, g_browser_process->local_state());
 #else
   // TODO(crbug.com/687231): Implement the Improved component on Mac, etc.
   RegisterRecoveryComponent(cus, g_browser_process->local_state());
 #endif  // defined(OS_WIN)
-#endif
-
-#else //if 1
 
 #if BUILDFLAG(ENABLE_PLUGINS)
   RegisterPepperFlashComponent(cus);
 #endif
 
+#endif
+
 #if BUILDFLAG(ENABLE_WIDEVINE_CDM_COMPONENT)
-  RegisterWidevineCdmComponent(cus);
+  //RegisterWidevineCdmComponent(cus);
 #endif  // BUILDFLAG(ENABLE_WIDEVINE_CDM_COMPONENT)
 
+#if 0
 #if BUILDFLAG(ENABLE_NACL) && !defined(OS_ANDROID)
 #if defined(OS_CHROMEOS)
   // PNaCl on Chrome OS is on rootfs and there is no need to download it. But
@@ -200,7 +199,7 @@ void RegisterComponentsForUpdate(bool is_off_the_record_profile,
   RegisterZxcvbnDataComponent(cus);
 
   RegisterAutofillStatesComponent(cus, profile_prefs);
-#endif // disable component updater
+#endif
 }
 
 }  // namespace component_updater
