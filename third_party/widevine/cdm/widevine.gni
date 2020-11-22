@@ -10,7 +10,7 @@ declare_args() {
   # on Android and Fuchsia platforms.
   # Can be optionally enabled in Chromium on non-Android platforms. Please see
   # //src/third_party/widevine/LICENSE file for details.
-  enable_widevine = is_chrome_branded || is_android || is_fuchsia
+  enable_widevine = true #is_chrome_branded || is_android || is_fuchsia
 }
 
 # Disable Widevine when running linux-chromeos.
