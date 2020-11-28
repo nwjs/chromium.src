@@ -336,7 +336,7 @@ class UserScript {
   // script.
   bool emulate_greasemonkey_ = false;
 
-  bool in_main_world_;
+  bool in_main_world_ = false;
 
   // Whether the user script should run in all frames, or only just the top one.
   bool match_all_frames_ = false;

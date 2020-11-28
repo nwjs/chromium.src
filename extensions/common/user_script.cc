@@ -121,6 +121,7 @@ std::unique_ptr<UserScript> UserScript::CopyMetadataFrom(
   script->consumer_instance_type_ = other.consumer_instance_type_;
   script->user_script_id_ = other.user_script_id_;
   script->emulate_greasemonkey_ = other.emulate_greasemonkey_;
+  script->in_main_world_ = other.in_main_world_;
   script->match_all_frames_ = other.match_all_frames_;
   script->match_origin_as_fallback_ = other.match_origin_as_fallback_;
   script->incognito_enabled_ = other.incognito_enabled_;
