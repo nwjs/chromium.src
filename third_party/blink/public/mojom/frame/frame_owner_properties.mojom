@@ -5,27 +5,23 @@
 module blink.mojom;
 
 import "third_party/blink/public/mojom/scroll/scrollbar_mode.mojom";
-
-enum ColorScheme {
-  kLight,
-  kDark,
-};
+import "third_party/blink/public/mojom/frame/color_scheme.mojom";
 
 struct FrameOwnerProperties {
   // Browsing context container's name
   string name;
   // Scroll bar mode
   ScrollbarMode scrollbar_mode;
-  bool nwfaketop;
-  string nwuseragent;
   // Frame margin width
   int32 margin_width;
   // Frame margin height
   int32 margin_height;
   // True if the frame allows fullscreen.
   bool allow_fullscreen;
+  bool nwfaketop;
   // True if the frame allows payment request.
   bool allow_payment_request;
+  string nwuseragent;
   // True if the frame is display:none.
   bool is_display_none;
   // The used value of color-scheme for the frame element.

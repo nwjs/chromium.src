@@ -19,8 +19,8 @@
 #include "base/base_paths_fuchsia.h"
 #include "base/base_switches.h"
 #include "base/bind.h"
-#include "base/bind_helpers.h"
 #include "base/callback.h"
+#include "base/callback_helpers.h"
 #include "base/command_line.h"
 #include "base/files/file.h"
 #include "base/files/file_util.h"
@@ -29,7 +29,7 @@
 #include "base/fuchsia/file_utils.h"
 #include "base/fuchsia/fuchsia_logging.h"
 #include "base/path_service.h"
-#include "base/test/bind_test_util.h"
+#include "base/test/bind.h"
 #include "base/test/multiprocess_test.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_timeouts.h"
@@ -104,7 +104,7 @@ base::Process LaunchFakeContextProcess(const base::CommandLine& command_line,
 fuchsia::web::CreateContextParams BuildCreateContextParams() {
   fuchsia::web::CreateContextParams output;
   zx_status_t result = fdio_service_connect(
-      base::fuchsia::kServiceDirectoryPath,
+      base::kServiceDirectoryPath,
       output.mutable_service_directory()->NewRequest().TakeChannel().release());
   ZX_CHECK(result == ZX_OK, result) << "Failed to open /svc";
   return output;
@@ -113,7 +113,7 @@ fuchsia::web::CreateContextParams BuildCreateContextParams() {
 fidl::InterfaceHandle<fuchsia::io::Directory> OpenCacheDirectory() {
   fidl::InterfaceHandle<fuchsia::io::Directory> cache_handle;
   zx_status_t result =
-      fdio_service_connect(base::fuchsia::kPersistedCacheDirectoryPath,
+      fdio_service_connect(base::kPersistedCacheDirectoryPath,
                            cache_handle.NewRequest().TakeChannel().release());
   ZX_CHECK(result == ZX_OK, result) << "Failed to open /cache";
   return cache_handle;
@@ -350,7 +350,7 @@ TEST_F(ContextProviderImplTest, WithProfileDir) {
 
   // Pass a handle data dir to the context.
   create_params.set_data_directory(
-      base::fuchsia::OpenDirectory(profile_temp_dir.GetPath()));
+      base::OpenDirectoryHandle(profile_temp_dir.GetPath()));
 
   provider_ptr_->Create(std::move(create_params), context.NewRequest());
 
@@ -370,8 +370,7 @@ TEST_F(ContextProviderImplTest, FailsDataDirectoryIsFile) {
 
   // Pass in a handle to a file instead of a directory.
   CHECK(base::CreateTemporaryFile(&temp_file_path));
-  create_params.set_data_directory(
-      base::fuchsia::OpenDirectory(temp_file_path));
+  create_params.set_data_directory(base::OpenDirectoryHandle(temp_file_path));
 
   provider_ptr_->Create(std::move(create_params), context.NewRequest());
 

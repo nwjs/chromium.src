@@ -17,16 +17,14 @@ namespace {
 
 using payments::mojom::blink::CreateDigitalGoodsResponseCode;
 
-const char known_payment_method_[] = "https://play.google.com/billing";
-
 void OnCreateDigitalGoodsResponse(
     ScriptPromiseResolver* resolver,
     CreateDigitalGoodsResponseCode code,
     mojo::PendingRemote<payments::mojom::blink::DigitalGoods> pending_remote) {
   if (code != CreateDigitalGoodsResponseCode::kOk) {
     DCHECK(!pending_remote);
-    DVLOG(1) << "CreateDigitalGoodsResponseCode " << code;
-    resolver->Resolve();
+    VLOG(1) << "CreateDigitalGoodsResponseCode " << code;
+    resolver->Resolve(v8::Null(resolver->GetScriptState()->GetIsolate()));
     return;
   }
   DCHECK(pending_remote);
@@ -55,19 +53,36 @@ ScriptPromise DOMWindowDigitalGoods::GetDigitalGoodsService(
   auto promise = resolver->Promise();
 
   if (payment_method.IsEmpty()) {
-    resolver->Resolve();
-    return promise;
-  }
-  if (payment_method != known_payment_method_) {
-    resolver->Resolve();
+    VLOG(1) << "GetDigitalGoodsService error: Empty payment method.";
+    resolver->Resolve(v8::Null(script_state->GetIsolate()));
     return promise;
   }
 
-  // TODO: Bind only on platforms where an implementation exists.
+  if (!script_state->ContextIsValid()) {
+    VLOG(1) << "GetDigitalGoodsService error: Context invalid.";
+    resolver->Resolve(v8::Null(script_state->GetIsolate()));
+    return promise;
+  }
+
+  auto* execution_context = ExecutionContext::From(script_state);
+  DCHECK(execution_context);
+
+  if (execution_context->IsContextDestroyed()) {
+    VLOG(1) << "GetDigitalGoodsService error: Context destroyed.";
+    resolver->Resolve(v8::Null(script_state->GetIsolate()));
+    return promise;
+  }
+
+  if (!execution_context->IsFeatureEnabled(
+          mojom::blink::FeaturePolicyFeature::kPayment)) {
+    VLOG(1) << "GetDigitalGoodsService error: Payments not enabled.";
+    resolver->Resolve(v8::Null(script_state->GetIsolate()));
+    return promise;
+  }
+
   if (!mojo_service_) {
-    ExecutionContext::From(script_state)
-        ->GetBrowserInterfaceBroker()
-        .GetInterface(mojo_service_.BindNewPipeAndPassReceiver());
+    execution_context->GetBrowserInterfaceBroker().GetInterface(
+        mojo_service_.BindNewPipeAndPassReceiver());
   }
 
   mojo_service_->CreateDigitalGoods(

@@ -28,7 +28,8 @@ DrawImage CreateDrawImage(const PaintImage& image,
                           const SkMatrix& matrix) {
   if (!image)
     return DrawImage();
-  return DrawImage(image, SkIRect::MakeWH(image.width(), image.height()),
+  return DrawImage(image, flags->useDarkModeForImage(),
+                   SkIRect::MakeWH(image.width(), image.height()),
                    flags ? flags->getFilterQuality() : kLow_SkFilterQuality,
                    matrix);
 }
@@ -1430,15 +1431,21 @@ void DrawImageOp::RasterWithFlags(const DrawImageOp* op,
       canvas->scale(1.f / op->scale_adjustment.width(),
                     1.f / op->scale_adjustment.height());
     }
-    auto sk_image = op->image.IsTextureBacked()
-                        ? op->image.GetAcceleratedSkImage()
-                        : op->image.GetSwSkImage();
+    sk_sp<SkImage> sk_image;
+    if (op->image.IsTextureBacked()) {
+      sk_image = op->image.GetAcceleratedSkImage();
+      DCHECK(sk_image || !canvas->recordingContext());
+    }
+    if (!sk_image)
+      sk_image = op->image.GetSwSkImage();
+
     canvas->drawImage(sk_image.get(), op->left, op->top, &paint);
     return;
   }
 
+  // Dark mode is applied only for OOP raster during serialization.
   DrawImage draw_image(
-      op->image, SkIRect::MakeWH(op->image.width(), op->image.height()),
+      op->image, false, SkIRect::MakeWH(op->image.width(), op->image.height()),
       flags ? flags->getFilterQuality() : kNone_SkFilterQuality,
       canvas->getTotalMatrix());
   auto scoped_result = params.image_provider->GetRasterContent(draw_image);
@@ -1503,9 +1510,13 @@ void DrawImageRectOp::RasterWithFlags(const DrawImageRectOp* op,
   if (!params.image_provider) {
     SkRect adjusted_src = AdjustSrcRectForScale(op->src, op->scale_adjustment);
     flags->DrawToSk(canvas, [op, adjusted_src](SkCanvas* c, const SkPaint& p) {
-      auto sk_image = op->image.IsTextureBacked()
-                          ? op->image.GetAcceleratedSkImage()
-                          : op->image.GetSwSkImage();
+      sk_sp<SkImage> sk_image;
+      if (op->image.IsTextureBacked()) {
+        sk_image = op->image.GetAcceleratedSkImage();
+        DCHECK(sk_image || !c->recordingContext());
+      }
+      if (!sk_image)
+        sk_image = op->image.GetSwSkImage();
       c->drawImageRect(sk_image.get(), adjusted_src, op->dst, &p,
                        op->constraint);
     });
@@ -1519,8 +1530,9 @@ void DrawImageRectOp::RasterWithFlags(const DrawImageRectOp* op,
   SkIRect int_src_rect;
   op->src.roundOut(&int_src_rect);
 
+  // Dark mode is applied only for OOP raster during serialization.
   DrawImage draw_image(
-      op->image, int_src_rect,
+      op->image, false, int_src_rect,
       flags ? flags->getFilterQuality() : kNone_SkFilterQuality, matrix);
   auto scoped_result = params.image_provider->GetRasterContent(draw_image);
   if (!scoped_result)
@@ -2760,7 +2772,7 @@ void PaintOpBuffer::Playback(SkCanvas* canvas,
       !has_effects_preventing_lcd_text_for_save_layer_alpha_;
   if (save_layer_alpha_should_preserve_lcd_text) {
     // Check if the canvas supports LCD text.
-    SkSurfaceProps props(SkSurfaceProps::kLegacyFontHost_InitType);
+    SkSurfaceProps props;
     canvas->getProps(&props);
     if (props.pixelGeometry() == kUnknown_SkPixelGeometry)
       save_layer_alpha_should_preserve_lcd_text = false;

@@ -9,7 +9,7 @@
 
 #include "base/notreached.h"
 #include "skia/ext/skia_utils_base.h"
-#include "ui/base/clipboard/clipboard_data_endpoint.h"
+#include "ui/base/data_transfer_policy/data_transfer_endpoint.h"
 #include "ui/gfx/skia_util.h"
 
 namespace ui {
@@ -29,7 +29,7 @@ ClipboardData::ClipboardData(const ClipboardData& other) {
   custom_data_data_ = other.custom_data_data_;
   web_smart_paste_ = other.web_smart_paste_;
   svg_data_ = other.svg_data_;
-  src_ = other.src_ ? std::make_unique<ClipboardDataEndpoint>(*other.src_.get())
+  src_ = other.src_ ? std::make_unique<DataTransferEndpoint>(*other.src_.get())
                     : nullptr;
 }
 
@@ -57,10 +57,8 @@ bool ClipboardData::operator!=(const ClipboardData& that) const {
 }
 
 void ClipboardData::SetBitmapData(const SkBitmap& bitmap) {
-  if (!skia::SkBitmapToN32OpaqueOrPremul(bitmap, &bitmap_)) {
-    NOTREACHED() << "Unable to convert bitmap for clipboard";
-    return;
-  }
+  DCHECK_EQ(bitmap.colorType(), kN32_SkColorType);
+  bitmap_ = bitmap;
   format_ |= static_cast<int>(ClipboardInternalFormat::kBitmap);
 }
 

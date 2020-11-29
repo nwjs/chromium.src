@@ -9,6 +9,8 @@
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/buildflags.h"
+#include "chrome/browser/component_updater/autofill_regex_component_installer.h"
 #include "chrome/browser/component_updater/autofill_states_component_installer.h"
 #include "chrome/browser/component_updater/crl_set_component_installer.h"
 #include "chrome/browser/component_updater/crowd_deny_component_installer.h"
@@ -16,10 +18,11 @@
 #include "chrome/browser/component_updater/first_party_sets_component_installer.h"
 #include "chrome/browser/component_updater/floc_component_installer.h"
 #include "chrome/browser/component_updater/games_component_installer.h"
+#include "chrome/browser/component_updater/hyphenation_component_installer.h"
 #include "chrome/browser/component_updater/mei_preload_component_installer.h"
 #include "chrome/browser/component_updater/optimization_hints_component_installer.h"
 #include "chrome/browser/component_updater/origin_trials_component_installer.h"
-#include "chrome/browser/component_updater/safety_tips_component_installer.h"
+#include "chrome/browser/component_updater/pepper_flash_component_installer.h"
 #include "chrome/browser/component_updater/ssl_error_assistant_component_installer.h"
 #include "chrome/browser/component_updater/sth_set_component_remover.h"
 #include "chrome/browser/component_updater/subresource_filter_component_installer.h"
@@ -32,6 +35,7 @@
 #include "components/component_updater/component_updater_service.h"
 #include "components/component_updater/crl_set_remover.h"
 #include "components/component_updater/installer_policies/on_device_head_suggest_component_installer.h"
+#include "components/component_updater/installer_policies/safety_tips_component_installer.h"
 #include "components/nacl/common/buildflags.h"
 #include "device/vr/buildflags/buildflags.h"
 #include "third_party/widevine/cdm/buildflags.h"
@@ -63,10 +67,6 @@
 #include "chrome/browser/component_updater/pnacl_component_installer.h"
 #endif  // BUILDFLAG(ENABLE_NACL)
 
-#if BUILDFLAG(ENABLE_PLUGINS)
-#include "chrome/browser/component_updater/pepper_flash_component_installer.h"
-#endif
-
 #if BUILDFLAG(ENABLE_VR)
 #include "chrome/browser/component_updater/vr_assets_component_installer.h"
 #endif
@@ -87,7 +87,9 @@ namespace component_updater {
 
 void RegisterComponentsForUpdate(bool is_off_the_record_profile,
                                  PrefService* profile_prefs) {
+#if BUILDFLAG(ENABLE_WIDEVINE_CDM_COMPONENT)
   //auto* const cus = g_browser_process->component_updater();
+#endif
 
 #if 0
 #if defined(OS_WIN)
@@ -97,10 +99,8 @@ void RegisterComponentsForUpdate(bool is_off_the_record_profile,
   RegisterRecoveryComponent(cus, g_browser_process->local_state());
 #endif  // defined(OS_WIN)
 
-#if BUILDFLAG(ENABLE_PLUGINS)
-  RegisterPepperFlashComponent(cus);
-#endif
-
+  // TODO(crbug.com/1069814): Remove after 2021-10-01.
+  CleanUpPepperFlashComponent();
 #endif
 
 #if BUILDFLAG(ENABLE_WIDEVINE_CDM_COMPONENT)
@@ -125,7 +125,7 @@ void RegisterComponentsForUpdate(bool is_off_the_record_profile,
 #endif
 
   RegisterSubresourceFilterComponent(cus);
-  RegisterFlocComponent(cus, g_browser_process->floc_blocklist_service(),
+  RegisterFlocComponent(cus,
                         g_browser_process->floc_sorting_lsh_clusters_service());
   RegisterOnDeviceHeadSuggestComponent(
       cus, g_browser_process->GetApplicationLocale());
@@ -187,19 +187,25 @@ void RegisterComponentsForUpdate(bool is_off_the_record_profile,
 #if !defined(OS_ANDROID)
   base::UmaHistogramBoolean("Accessibility.LiveCaption.FeatureEnabled",
                             base::FeatureList::IsEnabled(media::kLiveCaption));
-  component_updater::RegisterSODAComponent(cus, profile_prefs,
+  component_updater::RegisterSodaComponent(cus, profile_prefs,
+                                           g_browser_process->local_state(),
                                            base::OnceClosure());
-  component_updater::RegisterSodaLanguageComponent(cus, profile_prefs);
+  component_updater::RegisterSodaLanguageComponent(
+      cus, profile_prefs, g_browser_process->local_state());
 #endif
 
 #if defined(OS_CHROMEOS)
   RegisterSmartDimComponent(cus);
 #endif  // !defined(OS_CHROMEOS)
 
+#if BUILDFLAG(USE_MINIKIN_HYPHENATION) && !defined(OS_ANDROID)
+  RegisterHyphenationComponent(cus);
+#endif
+
   RegisterZxcvbnDataComponent(cus);
 
-  RegisterAutofillStatesComponent(cus, profile_prefs);
-#endif
+  RegisterAutofillStatesComponent(cus, g_browser_process->local_state());
+#endif // disable component updater
 }
 
 }  // namespace component_updater

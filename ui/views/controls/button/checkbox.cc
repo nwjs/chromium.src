@@ -45,12 +45,9 @@ class Checkbox::FocusRingHighlightPathGenerator
 };
 
 Checkbox::Checkbox(const base::string16& label, PressedCallback callback)
-    : LabelButton(std::move(callback), label),
-      checked_(false),
-      label_ax_id_(0) {
+    : LabelButton(std::move(callback), label) {
   SetImageCentered(false);
   SetHorizontalAlignment(gfx::ALIGN_LEFT);
-  SetFocusForPlatform();
 
   SetRequestFocusOnPress(false);
   SetInkDropMode(InkDropMode::ON);
@@ -70,9 +67,6 @@ Checkbox::Checkbox(const base::string16& label, PressedCallback callback)
   // the checkbox view (otherwise it gets clipped which looks weird).
   views::InstallEmptyHighlightPathGenerator(this);
 }
-
-Checkbox::Checkbox(const base::string16& label, ButtonListener* listener)
-    : Checkbox(label, PressedCallback(listener, this)) {}
 
 Checkbox::~Checkbox() = default;
 

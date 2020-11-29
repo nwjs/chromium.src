@@ -41,6 +41,7 @@
 #include "services/data_decoder/public/mojom/resource_snapshot_for_web_bundle.mojom-blink.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/mojom/content_security_policy.mojom-blink.h"
+#include "services/network/public/mojom/source_location.mojom-blink.h"
 #include "skia/public/mojom/skcolor.mojom-blink.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/browser_interface_broker_proxy.h"
@@ -50,6 +51,7 @@
 #include "third_party/blink/public/mojom/ad_tagging/ad_frame.mojom-blink.h"
 #include "third_party/blink/public/mojom/blob/blob_url_store.mojom-blink.h"
 #include "third_party/blink/public/mojom/favicon/favicon_url.mojom-blink.h"
+#include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-blink.h"
 #include "third_party/blink/public/mojom/frame/blocked_navigation_types.mojom-blink.h"
 #include "third_party/blink/public/mojom/frame/frame.mojom-blink.h"
 #include "third_party/blink/public/mojom/frame/frame_owner_properties.mojom-blink.h"
@@ -143,6 +145,7 @@
 #include "third_party/blink/renderer/core/loader/document_loader.h"
 #include "third_party/blink/renderer/core/loader/frame_load_request.h"
 #include "third_party/blink/renderer/core/loader/idleness_detector.h"
+#include "third_party/blink/renderer/core/loader/mixed_content_checker.h"
 #include "third_party/blink/renderer/core/messaging/message_port.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/drag_controller.h"
@@ -171,6 +174,7 @@
 #include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
 #include "third_party/blink/renderer/platform/instrumentation/resource_coordinator/document_resource_coordinator.h"
+#include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/json/json_values.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
@@ -325,6 +329,43 @@ class ResourceSnapshotForWebBundleImpl
 
  private:
   const Deque<SerializedResource> resources_;
+};
+
+class ActiveURLMessageFilter : public mojo::MessageFilter {
+ public:
+  explicit ActiveURLMessageFilter(LocalFrame* local_frame)
+      : local_frame_(local_frame) {}
+
+  ~ActiveURLMessageFilter() override {
+    if (debug_url_set_) {
+      Platform::Current()->SetActiveURL(WebURL(), WebString());
+    }
+  }
+
+  // mojo::MessageFilter overrides.
+  bool WillDispatch(mojo::Message* message) override {
+    // We expect local_frame_ always to be set because this MessageFilter
+    // is owned by the LocalFrame. We do not want to introduce a Persistent
+    // reference so we don't cause a cycle. If you hit this CHECK then you
+    // likely didn't reset your mojo receiver in Detach.
+    CHECK(local_frame_);
+    debug_url_set_ = true;
+    Platform::Current()->SetActiveURL(local_frame_->GetDocument()->Url(),
+                                      local_frame_->Top()
+                                          ->GetSecurityContext()
+                                          ->GetSecurityOrigin()
+                                          ->ToString());
+    return true;
+  }
+
+  void DidDispatchOrReject(mojo::Message* message, bool accepted) override {
+    Platform::Current()->SetActiveURL(WebURL(), WebString());
+    debug_url_set_ = false;
+  }
+
+ private:
+  WeakPersistent<LocalFrame> local_frame_;
+  bool debug_url_set_ = false;
 };
 
 }  // namespace
@@ -519,6 +560,19 @@ void LocalFrame::Navigate(FrameLoadRequest& request,
 }
 
 void LocalFrame::DetachImpl(FrameDetachType type) {
+  if (IsProvisional()) {
+    Frame* provisional_owner = nullptr;
+    if (Owner()) {
+      provisional_owner = Owner()->ContentFrame();
+    } else {
+      provisional_owner = GetPage()->MainFrame();
+    }
+    // Having multiple provisional frames somehow associated with the same frame
+    // to potentially replace is a logic error.
+    DCHECK_EQ(provisional_owner->ProvisionalFrame(), this);
+    provisional_owner->SetProvisionalFrame(nullptr);
+  }
+
   // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   // BEGIN RE-ENTRANCY SAFE BLOCK
   // Starting here, the code must be safe against re-entrancy. Dispatching
@@ -608,7 +662,7 @@ void LocalFrame::DetachImpl(FrameDetachType type) {
 
   GetEventHandlerRegistry().DidRemoveAllEventHandlers(*DomWindow());
 
-  probe::FrameDetachedFromParent(this);
+  probe::FrameDetachedFromParent(this, type);
 
   supplements_.clear();
   frame_scheduler_.reset();
@@ -731,6 +785,11 @@ void LocalFrame::SetOptimizationGuideHints(
         std::move(optimization_guide_hints_
                       ->delay_competing_low_priority_requests_hints));
   }
+}
+
+void LocalFrame::SetPolicyContainer(
+    std::unique_ptr<PolicyContainer> container) {
+  policy_container_ = std::move(container);
 }
 
 void LocalFrame::Reload(WebFrameLoadType load_type) {
@@ -910,6 +969,35 @@ SuddenTerminationDisablerTypeForEventType(const AtomicString& event_type) {
   return mojom::blink::SuddenTerminationDisablerType::kUnloadHandler;
 }
 
+int NumberOfSuddenTerminationEventListeners(const EventTarget& event_target,
+                                            const AtomicString& event_type) {
+  if (event_type != event_type_names::kVisibilitychange)
+    return event_target.NumberOfEventListeners(event_type);
+  // For visibilitychange, we need to count the number of event listeners that
+  // are registered on the document and the window, as the event is initially
+  // dispatched on the document but might bubble up to the window.
+  // The other events (beforeunload, unload, pagehide) are dispatched on the
+  // window and won't bubble up anywhere, so we don't need to check for
+  // listeners the document for those events.
+  int total_listeners_count = event_target.NumberOfEventListeners(event_type);
+  if (auto* dom_window = event_target.ToLocalDOMWindow()) {
+    // |event_target| is the window, so get the count for listeners registered
+    // on the document.
+    total_listeners_count +=
+        dom_window->document()->NumberOfEventListeners(event_type);
+  } else {
+    auto* node = const_cast<EventTarget*>(&event_target)->ToNode();
+    DCHECK(node);
+    DCHECK(node->IsDocumentNode());
+    DCHECK(node->GetDocument().domWindow());
+    // |event_target| is the document, so get the count for listeners registered
+    // on the window.
+    total_listeners_count +=
+        node->GetDocument().domWindow()->NumberOfEventListeners(event_type);
+  }
+  return total_listeners_count;
+}
+
 void LocalFrame::UpdateSuddenTerminationStatus(
     bool added_listener,
     mojom::blink::SuddenTerminationDisablerType disabler_type) {
@@ -921,7 +1009,7 @@ void LocalFrame::UpdateSuddenTerminationStatus(
 void LocalFrame::AddedSuddenTerminationDisablerListener(
     const EventTarget& event_target,
     const AtomicString& event_type) {
-  if (event_target.NumberOfEventListeners(event_type) == 1) {
+  if (NumberOfSuddenTerminationEventListeners(event_target, event_type) == 1) {
     // The first handler of this type was added.
     UpdateSuddenTerminationStatus(
         true, SuddenTerminationDisablerTypeForEventType(event_type));
@@ -931,7 +1019,7 @@ void LocalFrame::AddedSuddenTerminationDisablerListener(
 void LocalFrame::RemovedSuddenTerminationDisablerListener(
     const EventTarget& event_target,
     const AtomicString& event_type) {
-  if (event_target.NumberOfEventListeners(event_type) == 0) {
+  if (NumberOfSuddenTerminationEventListeners(event_target, event_type) == 0) {
     // The last handler of this type was removed.
     UpdateSuddenTerminationStatus(
         false, SuddenTerminationDisablerTypeForEventType(event_type));
@@ -954,9 +1042,11 @@ void LocalFrame::DidChangeThemeColor() {
   GetLocalFrameHostRemote().DidChangeThemeColor(sk_color);
 }
 
-void LocalFrame::DidChangeBackgroundColor(SkColor background_color) {
+void LocalFrame::DidChangeBackgroundColor(SkColor background_color,
+                                          bool color_adjust) {
   DCHECK(!Tree().Parent());
-  GetLocalFrameHostRemote().DidChangeBackgroundColor(background_color);
+  GetLocalFrameHostRemote().DidChangeBackgroundColor(background_color,
+                                                     color_adjust);
 }
 
 LocalFrame& LocalFrame::LocalFrameRoot() const {
@@ -1006,7 +1096,7 @@ void LocalFrame::SetPrinting(bool printing,
     if (LayoutView* layout_view = View()->GetLayoutView()) {
       layout_view->SetIntrinsicLogicalWidthsDirty();
       layout_view->SetNeedsLayout(layout_invalidation_reason::kPrintingChanged);
-      layout_view->SetShouldDoFullPaintInvalidationForViewAndAllDescendants();
+      layout_view->InvalidatePaintForViewAndDescendants();
     }
     View()->UpdateLayout();
     View()->AdjustViewSize();
@@ -1342,6 +1432,7 @@ LocalFrame::LocalFrame(LocalFrameClient* client,
                        const base::UnguessableToken& frame_token,
                        WindowAgentFactory* inheriting_agent_factory,
                        InterfaceRegistry* interface_registry,
+                       std::unique_ptr<PolicyContainer> policy_container,
                        const base::TickClock* clock)
     : Frame(client,
             page,
@@ -1376,7 +1467,8 @@ LocalFrame::LocalFrame(LocalFrameClient* client,
                               ? interface_registry
                               : InterfaceRegistry::GetEmptyInterfaceRegistry()),
       is_save_data_enabled_(GetNetworkStateNotifier().SaveDataEnabled()),
-      lifecycle_state_(mojom::FrameLifecycleState::kRunning) {
+      lifecycle_state_(mojom::FrameLifecycleState::kRunning),
+      policy_container_(std::move(policy_container)) {
   auto frame_tracking_result = GetLocalFramesMap().insert(
       base::UnguessableTokenHash()(frame_token), this);
   CHECK(frame_tracking_result.stored_value) << "Inserting a duplicate item.";
@@ -1827,6 +1919,10 @@ void LocalFrame::WasHidden() {
     return;
   hidden_ = true;
 
+  if (content_capture_manager_) {
+    content_capture_manager_->OnFrameWasHidden();
+  }
+
   // An iframe may get a "was hidden" notification before it has been attached
   // to the frame tree; in that case, skip further processing.
   if (!Owner() || IsProvisional())
@@ -1844,7 +1940,7 @@ void LocalFrame::WasHidden() {
 
   // Frame was already occluded, nothing more to do.
   if (intersection_state_.occlusion_state ==
-      FrameOcclusionState::kPossiblyOccluded) {
+      mojom::blink::FrameOcclusionState::kPossiblyOccluded) {
     return;
   }
 
@@ -1864,6 +1960,10 @@ void LocalFrame::WasShown() {
   hidden_ = false;
   if (LocalFrameView* frame_view = View())
     frame_view->ScheduleAnimation();
+
+  if (content_capture_manager_) {
+    content_capture_manager_->OnFrameWasShown();
+  }
 }
 
 bool LocalFrame::ClipsContent() const {
@@ -1879,7 +1979,7 @@ bool LocalFrame::ClipsContent() const {
 }
 
 void LocalFrame::SetViewportIntersectionFromParent(
-    const ViewportIntersectionState& intersection_state) {
+    const mojom::blink::ViewportIntersectionState& intersection_state) {
   DCHECK(IsLocalRoot());
   // Notify the render frame observers when the main frame intersection changes.
   if (intersection_state_.main_frame_intersection !=
@@ -1947,12 +2047,12 @@ void LocalFrame::SetOpener(Frame* opener_frame) {
   SetOpenerDoNotNotify(opener_frame);
 }
 
-FrameOcclusionState LocalFrame::GetOcclusionState() const {
+mojom::blink::FrameOcclusionState LocalFrame::GetOcclusionState() const {
   if (hidden_)
-    return FrameOcclusionState::kPossiblyOccluded;
+    return mojom::blink::FrameOcclusionState::kPossiblyOccluded;
   // TODO(dcheng): Get rid of this branch for the main frame.
   if (IsMainFrame())
-    return FrameOcclusionState::kGuaranteedNotOccluded;
+    return mojom::blink::FrameOcclusionState::kGuaranteedNotOccluded;
   if (IsLocalRoot())
     return intersection_state_.occlusion_state;
   return LocalFrameRoot().GetOcclusionState();
@@ -2029,6 +2129,8 @@ void LocalFrame::SetIsAdSubframe(blink::mojom::AdFrameType ad_frame_type) {
   ad_frame_type_ = ad_frame_type;
   UpdateAdHighlight();
   frame_scheduler_->SetIsAdFrame();
+
+  UseCounter::Count(DomWindow(), WebFeature::kAdFrameDetected);
   InstanceCounters::IncrementCounter(InstanceCounters::kAdSubframeCounter);
 }
 
@@ -2144,7 +2246,7 @@ void LocalFrame::NotifyUserActivation(
   GetLocalFrameHostRemote().UpdateUserActivationState(update_type,
                                                       notification_type);
   Client()->NotifyUserActivation();
-  NotifyUserActivationInLocalTree(notification_type);
+  NotifyUserActivationInFrameTree(notification_type);
 }
 
 bool LocalFrame::ConsumeTransientUserActivation(
@@ -2154,7 +2256,7 @@ bool LocalFrame::ConsumeTransientUserActivation(
         mojom::blink::UserActivationUpdateType::kConsumeTransientActivation,
         mojom::blink::UserActivationNotificationType::kNone);
   }
-  return ConsumeTransientUserActivationInLocalTree();
+  return ConsumeTransientUserActivationInFrameTree();
 }
 
 namespace {
@@ -2233,7 +2335,8 @@ void LocalFrame::ForciblyPurgeV8Memory() {
 
 void LocalFrame::OnPageLifecycleStateUpdated() {
   if (frozen_ != GetPage()->Frozen()) {
-    if (GetPage()->Frozen()) {
+    frozen_ = GetPage()->Frozen();
+    if (frozen_) {
       DidFreeze();
     } else {
       DidResume();
@@ -2241,10 +2344,7 @@ void LocalFrame::OnPageLifecycleStateUpdated() {
     // The event handlers might have detached the frame.
     if (!IsAttached())
       return;
-
-    frozen_ = GetPage()->Frozen();
   }
-
   SetContextPaused(GetPage()->Paused());
 
   mojom::blink::FrameLifecycleState frame_lifecycle_state =
@@ -2263,10 +2363,14 @@ void LocalFrame::SetContextPaused(bool is_paused) {
     return;
   paused_ = is_paused;
 
-  GetDocument()->Fetcher()->SetDefersLoading(is_paused);
-  Loader().SetDefersLoading(is_paused);
+  GetDocument()->Fetcher()->SetDefersLoading(IsLoadDeferred());
+  Loader().SetDefersLoading(IsLoadDeferred());
   // TODO(altimin): Move this to PageScheduler level.
   GetFrameScheduler()->SetPaused(is_paused);
+}
+
+bool LocalFrame::IsLoadDeferred() {
+  return frozen_ || paused_;
 }
 
 void LocalFrame::DidFreeze() {
@@ -2282,6 +2386,9 @@ void LocalFrame::DidFreeze() {
     document_resource_coordinator->SetLifecycleState(
         performance_manager::mojom::LifecycleState::kFrozen);
   }
+
+  GetDocument()->Fetcher()->SetDefersLoading(true);
+  Loader().SetDefersLoading(true);
 }
 
 void LocalFrame::DidResume() {
@@ -2298,6 +2405,8 @@ void LocalFrame::DidResume() {
     document_resource_coordinator->SetLifecycleState(
         performance_manager::mojom::LifecycleState::kRunning);
   }
+  GetDocument()->Fetcher()->SetDefersLoading(IsLoadDeferred());
+  Loader().SetDefersLoading(IsLoadDeferred());
 }
 
 void LocalFrame::MaybeLogAdClickNavigation() {
@@ -2455,12 +2564,11 @@ void LocalFrame::PluginActionAt(const gfx::Point& location,
   if (!IsA<HTMLObjectElement>(*node) && !IsA<HTMLEmbedElement>(*node))
     return;
 
-  LayoutObject* object = node->GetLayoutObject();
-  if (!object || !object->IsLayoutEmbeddedContent())
+  auto* embedded = DynamicTo<LayoutEmbeddedContent>(node->GetLayoutObject());
+  if (!embedded)
     return;
 
-  WebPluginContainerImpl* plugin_view =
-      ToLayoutEmbeddedContent(object)->Plugin();
+  WebPluginContainerImpl* plugin_view = embedded->Plugin();
   if (!plugin_view)
     return;
 
@@ -2558,9 +2666,13 @@ void LocalFrame::OnPortalActivated(
     mojo::PendingAssociatedRemote<mojom::blink::Portal> portal,
     mojo::PendingAssociatedReceiver<mojom::blink::PortalClient> portal_client,
     BlinkTransferableMessage data,
+    uint64_t trace_id,
     OnPortalActivatedCallback callback) {
   DCHECK(GetDocument());
   PaintTiming::From(*GetDocument()).OnPortalActivate();
+
+  TRACE_EVENT_WITH_FLOW0("navigation", "LocalFrame::OnPortalActivated",
+                         TRACE_ID_GLOBAL(trace_id), TRACE_EVENT_FLAG_FLOW_IN);
 
   DOMWindowPortalHost::portalHost(*DomWindow())->OnPortalActivated();
   GetPage()->SetInsidePortal(false);
@@ -3138,6 +3250,25 @@ void LocalFrame::GetSavableResourceLinks(
   std::move(callback).Run(std::move(reply));
 }
 
+void LocalFrame::MixedContentFound(
+    const KURL& main_resource_url,
+    const KURL& mixed_content_url,
+    mojom::blink::RequestContextType request_context,
+    bool was_allowed,
+    const KURL& url_before_redirects,
+    bool had_redirect,
+    network::mojom::blink::SourceLocationPtr source_location) {
+  std::unique_ptr<SourceLocation> source;
+  if (source_location) {
+    source = std::make_unique<SourceLocation>(source_location->url,
+                                              source_location->line,
+                                              source_location->column, nullptr);
+  }
+  MixedContentChecker::MixedContentFound(
+      this, main_resource_url, mixed_content_url, request_context, was_allowed,
+      url_before_redirects, had_redirect, std::move(source));
+}
+
 bool LocalFrame::ShouldThrottleDownload() {
   const auto now = base::TimeTicks::Now();
   if (num_burst_download_requests_ == 0) {
@@ -3174,6 +3305,7 @@ void LocalFrame::BindToReceiver(
   frame->receiver_.Bind(
       std::move(receiver),
       frame->GetTaskRunner(blink::TaskType::kInternalDefault));
+  frame->receiver_.SetFilter(std::make_unique<ActiveURLMessageFilter>(frame));
 }
 
 void LocalFrame::BindToMainFrameReceiver(
@@ -3186,6 +3318,8 @@ void LocalFrame::BindToMainFrameReceiver(
   frame->main_frame_receiver_.Bind(
       std::move(receiver),
       frame->GetTaskRunner(blink::TaskType::kInternalDefault));
+  frame->main_frame_receiver_.SetFilter(
+      std::make_unique<ActiveURLMessageFilter>(frame));
 }
 
 void LocalFrame::BindToHighPriorityReceiver(
@@ -3196,6 +3330,8 @@ void LocalFrame::BindToHighPriorityReceiver(
   high_priority_frame_receiver_.Bind(
       std::move(receiver),
       GetTaskRunner(blink::TaskType::kInternalHighPriorityLocalFrame));
+  high_priority_frame_receiver_.SetFilter(
+      std::make_unique<ActiveURLMessageFilter>(this));
 }
 
 void LocalFrame::BindTextFragmentSelectorProducer(

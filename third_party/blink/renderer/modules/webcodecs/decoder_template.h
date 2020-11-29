@@ -18,6 +18,7 @@
 #include "third_party/blink/renderer/modules/modules_export.h"
 #include "third_party/blink/renderer/modules/webcodecs/codec_config_eval.h"
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
+#include "third_party/blink/renderer/platform/context_lifecycle_observer.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/heap/heap_allocator.h"
@@ -26,7 +27,9 @@
 namespace blink {
 
 template <typename Traits>
-class MODULES_EXPORT DecoderTemplate : public ScriptWrappable {
+class MODULES_EXPORT DecoderTemplate
+    : public ScriptWrappable,
+      public ExecutionContextLifecycleObserver {
  public:
   typedef typename Traits::ConfigType ConfigType;
   typedef typename Traits::MediaConfigType MediaConfigType;
@@ -48,6 +51,9 @@ class MODULES_EXPORT DecoderTemplate : public ScriptWrappable {
   void close(ExceptionState&);
   String state() const { return state_; }
 
+  // ExecutionContextLifecycleObserver override.
+  void ContextDestroyed() override;
+
   // GarbageCollected override.
   void Trace(Visitor*) const override;
 
@@ -62,9 +68,11 @@ class MODULES_EXPORT DecoderTemplate : public ScriptWrappable {
 
   // Convert a chunk to a DecoderBuffer. You can assume that the last
   // configuration sent to MakeMediaConfig() is the active configuration for
-  // |chunk|.
-  virtual scoped_refptr<media::DecoderBuffer> MakeDecoderBuffer(
-      const InputType& chunk) = 0;
+  // |chunk|. If there is an error in the conversion process, the resulting
+  // DecoderBuffer will be null, and |out_status| will contain a description of
+  // the error.
+  virtual media::StatusOr<scoped_refptr<media::DecoderBuffer>>
+  MakeDecoderBuffer(const InputType& chunk) = 0;
 
  private:
   struct Request final : public GarbageCollected<Request> {
@@ -87,6 +95,9 @@ class MODULES_EXPORT DecoderTemplate : public ScriptWrappable {
 
     // For kFlush Requests.
     Member<ScriptPromiseResolver> resolver;
+
+    // For reporting an error at the time when a request is processed.
+    media::Status status;
   };
 
   void ProcessRequests();
@@ -94,8 +105,8 @@ class MODULES_EXPORT DecoderTemplate : public ScriptWrappable {
   bool ProcessDecodeRequest(Request* request);
   bool ProcessFlushRequest(Request* request);
   bool ProcessResetRequest(Request* request);
-  void HandleError();
-  void Shutdown(bool is_error);
+  void HandleError(std::string context, media::Status);
+  void Shutdown(DOMException* ex = nullptr);
 
   // Called by |decoder_|.
   void OnInitializeDone(media::Status status);
@@ -123,6 +134,14 @@ class MODULES_EXPORT DecoderTemplate : public ScriptWrappable {
   // Could be a configure, flush, or reset. Decodes go in |pending_decodes_|.
   Member<Request> pending_request_;
 
+  // |parent_media_log_| must be destroyed if ever the ExecutionContext is
+  // destroyed, since the blink::MediaInspectorContext* pointer given to
+  // InspectorMediaEventHandler might no longer be valid.
+  // |parent_media_log_| should not be used directly. Use |media_log_| instead.
+  std::unique_ptr<media::MediaLog> parent_media_log_;
+
+  // We might destroy |parent_media_log_| at any point, so keep a clone which
+  // can be safely accessed, and whose raw pointer can be given to |decoder_|.
   std::unique_ptr<media::MediaLog> media_log_;
 
   // TODO(sandersd): Store the last config, flush, and reset so that

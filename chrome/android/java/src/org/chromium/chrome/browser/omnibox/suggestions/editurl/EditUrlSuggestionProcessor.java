@@ -25,7 +25,7 @@ import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.tab.SadTab;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.ui.favicon.LargeIconBridge;
+import org.chromium.components.favicon.LargeIconBridge;
 import org.chromium.ui.base.Clipboard;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.url.GURL;
@@ -83,7 +83,8 @@ public class EditUrlSuggestionProcessor extends BaseSuggestionViewProcessor {
         if (position != 0) return false;
 
         Tab activeTab = mTabSupplier.get();
-        if (activeTab == null || activeTab.isNativePage() || SadTab.isShowing(activeTab)) {
+        if (activeTab == null || !activeTab.isInitialized() || activeTab.isNativePage()
+                || SadTab.isShowing(activeTab)) {
             return false;
         }
 
@@ -165,15 +166,16 @@ public class EditUrlSuggestionProcessor extends BaseSuggestionViewProcessor {
     }
 
     @Override
-    public void recordItemUsed(PropertyModel model) {
-        RecordUserAction.record("Omnibox.EditUrlSuggestion.Tap");
-    }
-
-    @Override
     public void onUrlFocusChange(boolean hasFocus) {
         if (hasFocus) return;
         mOriginalTitle = null;
         mHasClearedOmniboxForFocus = false;
+    }
+
+    @Override
+    protected void onSuggestionClicked(OmniboxSuggestion suggestion, int position) {
+        super.onSuggestionClicked(suggestion, position);
+        RecordUserAction.record("Omnibox.EditUrlSuggestion.Tap");
     }
 
     /** Invoked when user interacts with Share action button. */

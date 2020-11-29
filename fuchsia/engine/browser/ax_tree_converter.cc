@@ -145,6 +145,14 @@ fuchsia::accessibility::semantics::States ConvertStates(
         node.GetFloatAttribute(ax::mojom::FloatAttribute::kValueForRange));
   }
 
+  // The scroll offsets, if the element is a scrollable container.
+  const auto x_scroll_offset =
+      node.GetIntAttribute(ax::mojom::IntAttribute::kScrollX);
+  const auto y_scroll_offset =
+      node.GetIntAttribute(ax::mojom::IntAttribute::kScrollY);
+  if (x_scroll_offset || y_scroll_offset)
+    states.set_viewport_offset({x_scroll_offset, y_scroll_offset});
+
   return states;
 }
 
@@ -175,21 +183,22 @@ std::vector<fuchsia::accessibility::semantics::Action> ConvertActions(
   return fuchsia_actions;
 }
 
-std::vector<uint32_t> ConvertChildIds(std::vector<int32_t> ids) {
+std::vector<uint32_t> ConvertChildIds(std::vector<int32_t> ids,
+                                      int32_t ax_root_id) {
   std::vector<uint32_t> child_ids;
   child_ids.reserve(ids.size());
   for (auto i : ids) {
-    child_ids.push_back(base::checked_cast<uint32_t>(i));
+    child_ids.push_back(ConvertToFuchsiaNodeId(i, ax_root_id));
   }
   return child_ids;
 }
 
 fuchsia::ui::gfx::BoundingBox ConvertBoundingBox(gfx::RectF bounds) {
   fuchsia::ui::gfx::BoundingBox box;
-  box.min = scenic::NewVector3({bounds.bottom_left().x(),
-                                bounds.bottom_left().y(), 0.0f});
-  box.max = scenic::NewVector3({bounds.top_right().x(), bounds.top_right().y(),
-                                0.0f});
+  // Since the origin is at the top left, min should represent the top left and
+  // max should be the bottom right.
+  box.min = scenic::NewVector3({bounds.x(), bounds.y(), 0.0f});
+  box.max = scenic::NewVector3({bounds.right(), bounds.bottom(), 0.0f});
   return box;
 }
 
@@ -207,14 +216,15 @@ fuchsia::ui::gfx::mat4 ConvertTransform(gfx::Transform* transform) {
 }  // namespace
 
 fuchsia::accessibility::semantics::Node AXNodeDataToSemanticNode(
-    const ui::AXNodeData& node) {
+    const ui::AXNodeData& node,
+    int32_t ax_root_id) {
   fuchsia::accessibility::semantics::Node fuchsia_node;
-  fuchsia_node.set_node_id(base::checked_cast<uint32_t>(node.id));
+  fuchsia_node.set_node_id(ConvertToFuchsiaNodeId(node.id, ax_root_id));
   fuchsia_node.set_role(AxRoleToFuchsiaSemanticRole(node.role));
   fuchsia_node.set_states(ConvertStates(node));
   fuchsia_node.set_attributes(ConvertAttributes(node));
   fuchsia_node.set_actions(ConvertActions(node));
-  fuchsia_node.set_child_ids(ConvertChildIds(node.child_ids));
+  fuchsia_node.set_child_ids(ConvertChildIds(node.child_ids, ax_root_id));
   fuchsia_node.set_location(ConvertBoundingBox(node.relative_bounds.bounds));
   if (node.relative_bounds.transform) {
     fuchsia_node.set_transform(

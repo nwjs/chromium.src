@@ -16,6 +16,7 @@
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/loader/resource_type_util.h"
+#include "third_party/blink/public/common/mobile_metrics/mobile_friendliness.h"
 #include "third_party/blink/public/platform/web_rect.h"
 #include "third_party/blink/public/web/web_document.h"
 #include "third_party/blink/public/web/web_document_loader.h"
@@ -49,20 +50,23 @@ class MojoPageTimingSender : public PageTimingSender {
 
   ~MojoPageTimingSender() override = default;
 
-  void SendTiming(const mojom::PageLoadTimingPtr& timing,
-                  const mojom::FrameMetadataPtr& metadata,
-                  mojom::PageLoadFeaturesPtr new_features,
-                  std::vector<mojom::ResourceDataUpdatePtr> resources,
-                  const mojom::FrameRenderDataUpdate& render_data,
-                  const mojom::CpuTimingPtr& cpu_timing,
-                  mojom::DeferredResourceCountsPtr new_deferred_resource_data,
-                  mojom::InputTimingPtr input_timing_delta) override {
+  void SendTiming(
+      const mojom::PageLoadTimingPtr& timing,
+      const mojom::FrameMetadataPtr& metadata,
+      mojom::PageLoadFeaturesPtr new_features,
+      std::vector<mojom::ResourceDataUpdatePtr> resources,
+      const mojom::FrameRenderDataUpdate& render_data,
+      const mojom::CpuTimingPtr& cpu_timing,
+      mojom::DeferredResourceCountsPtr new_deferred_resource_data,
+      mojom::InputTimingPtr input_timing_delta,
+      const blink::MobileFriendliness& mobile_friendliness) override {
     DCHECK(page_load_metrics_);
     page_load_metrics_->UpdateTiming(
         limited_sending_mode_ ? CreatePageLoadTiming() : timing->Clone(),
         metadata->Clone(), std::move(new_features), std::move(resources),
         render_data.Clone(), cpu_timing->Clone(),
-        std::move(new_deferred_resource_data), std::move(input_timing_delta));
+        std::move(new_deferred_resource_data), std::move(input_timing_delta),
+        std::move(mobile_friendliness));
   }
 
   void SetUpSmoothnessReporting(
@@ -89,8 +93,7 @@ class MojoPageTimingSender : public PageTimingSender {
 
 MetricsRenderFrameObserver::MetricsRenderFrameObserver(
     content::RenderFrame* render_frame)
-    : content::RenderFrameObserver(render_frame),
-      scoped_ad_resource_observer_(this) {}
+    : content::RenderFrameObserver(render_frame) {}
 
 MetricsRenderFrameObserver::~MetricsRenderFrameObserver() {
   if (page_timing_metrics_sender_)
@@ -341,12 +344,13 @@ void MetricsRenderFrameObserver::DidCommitProvisionalLoad(
 void MetricsRenderFrameObserver::SetAdResourceTracker(
     subresource_filter::AdResourceTracker* ad_resource_tracker) {
   // Remove all sources and set a new source for the observer.
-  scoped_ad_resource_observer_.RemoveAll();
-  scoped_ad_resource_observer_.Add(ad_resource_tracker);
+  if (scoped_ad_resource_observation_.IsObserving())
+    scoped_ad_resource_observation_.RemoveObservation();
+  scoped_ad_resource_observation_.Observe(ad_resource_tracker);
 }
 
 void MetricsRenderFrameObserver::OnAdResourceTrackerGoingAway() {
-  scoped_ad_resource_observer_.RemoveAll();
+  scoped_ad_resource_observation_.RemoveObservation();
 }
 
 void MetricsRenderFrameObserver::OnAdResourceObserved(int request_id) {
@@ -358,6 +362,12 @@ void MetricsRenderFrameObserver::OnMainFrameIntersectionChanged(
   if (page_timing_metrics_sender_)
     page_timing_metrics_sender_->OnMainFrameIntersectionChanged(
         main_frame_intersection);
+}
+
+void MetricsRenderFrameObserver::OnMobileFriendlinessChanged(
+    const blink::MobileFriendliness& mf) {
+  if (page_timing_metrics_sender_)
+    page_timing_metrics_sender_->DidObserveMobileFriendlinessChanged(mf);
 }
 
 bool MetricsRenderFrameObserver::SetUpSmoothnessReporting(

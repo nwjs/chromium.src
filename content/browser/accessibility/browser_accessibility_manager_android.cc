@@ -151,14 +151,14 @@ void BrowserAccessibilityManagerAndroid::FireBlinkEvent(
       static_cast<BrowserAccessibilityAndroid*>(node);
 
   switch (event_type) {
+    case ax::mojom::Event::kClicked:
+      wcax->HandleClicked(android_node->unique_id());
+      break;
     case ax::mojom::Event::kHover:
       HandleHoverEvent(node);
       break;
     case ax::mojom::Event::kScrolledToAnchor:
       wcax->HandleScrolledToAnchor(android_node->unique_id());
-      break;
-    case ax::mojom::Event::kClicked:
-      wcax->HandleClicked(android_node->unique_id());
       break;
     default:
       break;
@@ -183,21 +183,6 @@ void BrowserAccessibilityManagerAndroid::FireGeneratedEvent(
     wcax->HandleContentChanged(android_node->unique_id());
 
   switch (event_type) {
-    case ui::AXEventGenerator::Event::LOAD_COMPLETE:
-      if (node->manager() == GetRootManager()) {
-        auto* android_focused =
-            static_cast<BrowserAccessibilityAndroid*>(GetFocus());
-        if (android_focused)
-          wcax->HandlePageLoaded(android_focused->unique_id());
-      }
-      break;
-    case ui::AXEventGenerator::Event::CHECKED_STATE_CHANGED:
-      wcax->HandleCheckStateChanged(android_node->unique_id());
-      break;
-    case ui::AXEventGenerator::Event::SCROLL_HORIZONTAL_POSITION_CHANGED:
-    case ui::AXEventGenerator::Event::SCROLL_VERTICAL_POSITION_CHANGED:
-      wcax->HandleScrollPositionChanged(android_node->unique_id());
-      break;
     case ui::AXEventGenerator::Event::ALERT: {
       // When an alertdialog is shown, we will announce the hint, which
       // (should) contain the description set by the author. If it is
@@ -209,15 +194,12 @@ void BrowserAccessibilityManagerAndroid::FireGeneratedEvent(
       wcax->AnnounceLiveRegionText(text);
       break;
     }
-    case ui::AXEventGenerator::Event::LIVE_REGION_NODE_CHANGED: {
-      // This event is fired when an object appears in a live region.
-      // Speak its text.
-      base::string16 text = android_node->GetInnerText();
-      wcax->AnnounceLiveRegionText(text);
+    case ui::AXEventGenerator::Event::CHECKED_STATE_CHANGED:
+      wcax->HandleCheckStateChanged(android_node->unique_id());
       break;
-    }
     case ui::AXEventGenerator::Event::DOCUMENT_SELECTION_CHANGED: {
-      int32_t focus_id = ax_tree()->GetUnignoredSelection().focus_object_id;
+      ui::AXNode::AXID focus_id =
+          ax_tree()->GetUnignoredSelection().focus_object_id;
       BrowserAccessibility* focus_object = GetFromID(focus_id);
       if (focus_object) {
         BrowserAccessibilityAndroid* android_focus_object =
@@ -226,19 +208,43 @@ void BrowserAccessibilityManagerAndroid::FireGeneratedEvent(
       }
       break;
     }
-    case ui::AXEventGenerator::Event::VALUE_CHANGED:
-      if (android_node->IsTextField() && GetFocus() == node) {
-        wcax->HandleEditableTextChanged(android_node->unique_id());
-      } else if (android_node->IsSlider()) {
-        wcax->HandleSliderChanged(android_node->unique_id());
+    case ui::AXEventGenerator::Event::LOAD_COMPLETE:
+      if (node->manager() == GetRootManager()) {
+        auto* android_focused =
+            static_cast<BrowserAccessibilityAndroid*>(GetFocus());
+        if (android_focused)
+          wcax->HandlePageLoaded(android_focused->unique_id());
       }
       break;
+    case ui::AXEventGenerator::Event::SCROLL_HORIZONTAL_POSITION_CHANGED:
+    case ui::AXEventGenerator::Event::SCROLL_VERTICAL_POSITION_CHANGED:
+      wcax->HandleScrollPositionChanged(android_node->unique_id());
+      break;
+    case ui::AXEventGenerator::Event::LIVE_REGION_NODE_CHANGED: {
+      // This event is fired when an object appears in a live region.
+      // Speak its text.
+      base::string16 text = android_node->GetInnerText();
+      wcax->AnnounceLiveRegionText(text);
+      break;
+    }
+    case ui::AXEventGenerator::Event::RANGE_VALUE_CHANGED:
+      DCHECK(android_node->GetData().IsRangeValueSupported());
+      if (android_node->IsSlider())
+        wcax->HandleSliderChanged(android_node->unique_id());
+      break;
+    case ui::AXEventGenerator::Event::VALUE_IN_TEXT_FIELD_CHANGED:
+      DCHECK(android_node->IsTextField());
+      if (GetFocus() == node)
+        wcax->HandleEditableTextChanged(android_node->unique_id());
+      break;
+
+    // Currently unused events on this platform.
     case ui::AXEventGenerator::Event::ACCESS_KEY_CHANGED:
     case ui::AXEventGenerator::Event::ACTIVE_DESCENDANT_CHANGED:
     case ui::AXEventGenerator::Event::ATK_TEXT_OBJECT_ATTRIBUTE_CHANGED:
     case ui::AXEventGenerator::Event::ATOMIC_CHANGED:
-    case ui::AXEventGenerator::Event::BUSY_CHANGED:
     case ui::AXEventGenerator::Event::AUTO_COMPLETE_CHANGED:
+    case ui::AXEventGenerator::Event::BUSY_CHANGED:
     case ui::AXEventGenerator::Event::CHILDREN_CHANGED:
     case ui::AXEventGenerator::Event::CLASS_NAME_CHANGED:
     case ui::AXEventGenerator::Event::COLLAPSED:
@@ -248,6 +254,7 @@ void BrowserAccessibilityManagerAndroid::FireGeneratedEvent(
     case ui::AXEventGenerator::Event::DOCUMENT_TITLE_CHANGED:
     case ui::AXEventGenerator::Event::DROPEFFECT_CHANGED:
     case ui::AXEventGenerator::Event::EXPANDED:
+    case ui::AXEventGenerator::Event::EDITABLE_TEXT_CHANGED:
     case ui::AXEventGenerator::Event::ENABLED_CHANGED:
     case ui::AXEventGenerator::Event::FOCUS_CHANGED:
     case ui::AXEventGenerator::Event::FLOW_FROM_CHANGED:
@@ -273,9 +280,13 @@ void BrowserAccessibilityManagerAndroid::FireGeneratedEvent(
     case ui::AXEventGenerator::Event::NAME_CHANGED:
     case ui::AXEventGenerator::Event::OBJECT_ATTRIBUTE_CHANGED:
     case ui::AXEventGenerator::Event::OTHER_ATTRIBUTE_CHANGED:
+    case ui::AXEventGenerator::Event::PARENT_CHANGED:
     case ui::AXEventGenerator::Event::PLACEHOLDER_CHANGED:
     case ui::AXEventGenerator::Event::PORTAL_ACTIVATED:
     case ui::AXEventGenerator::Event::POSITION_IN_SET_CHANGED:
+    case ui::AXEventGenerator::Event::RANGE_VALUE_MAX_CHANGED:
+    case ui::AXEventGenerator::Event::RANGE_VALUE_MIN_CHANGED:
+    case ui::AXEventGenerator::Event::RANGE_VALUE_STEP_CHANGED:
     case ui::AXEventGenerator::Event::READONLY_CHANGED:
     case ui::AXEventGenerator::Event::RELATED_NODE_CHANGED:
     case ui::AXEventGenerator::Event::REQUIRED_STATE_CHANGED:
@@ -283,17 +294,14 @@ void BrowserAccessibilityManagerAndroid::FireGeneratedEvent(
     case ui::AXEventGenerator::Event::ROW_COUNT_CHANGED:
     case ui::AXEventGenerator::Event::SELECTED_CHANGED:
     case ui::AXEventGenerator::Event::SELECTED_CHILDREN_CHANGED:
+    case ui::AXEventGenerator::Event::SELECTED_VALUE_CHANGED:
+    case ui::AXEventGenerator::Event::SELECTION_IN_TEXT_FIELD_CHANGED:
     case ui::AXEventGenerator::Event::SET_SIZE_CHANGED:
     case ui::AXEventGenerator::Event::SORT_CHANGED:
     case ui::AXEventGenerator::Event::STATE_CHANGED:
     case ui::AXEventGenerator::Event::SUBTREE_CREATED:
     case ui::AXEventGenerator::Event::TEXT_ATTRIBUTE_CHANGED:
-    case ui::AXEventGenerator::Event::VALUE_MAX_CHANGED:
-    case ui::AXEventGenerator::Event::VALUE_MIN_CHANGED:
-    case ui::AXEventGenerator::Event::VALUE_STEP_CHANGED:
     case ui::AXEventGenerator::Event::WIN_IACCESSIBLE_STATE_CHANGED:
-      // There are some notifications that aren't meaningful on Android.
-      // It's okay to skip them.
       break;
   }
 }
@@ -325,9 +333,11 @@ bool BrowserAccessibilityManagerAndroid::NextAtGranularity(
       base::string16 text = node->GetInnerText();
       if (cursor_index >= static_cast<int32_t>(text.length()))
         return false;
-      base::i18n::UTF16CharIterator iter(text.data(), text.size());
-      while (!iter.end() && iter.array_pos() <= cursor_index)
+      base::i18n::UTF16CharIterator iter(text);
+      while (!iter.end() &&
+             static_cast<int32_t>(iter.array_pos()) <= cursor_index) {
         iter.Advance();
+      }
       *end_index = iter.array_pos();
       iter.Rewind();
       *start_index = iter.array_pos();
@@ -370,9 +380,10 @@ bool BrowserAccessibilityManagerAndroid::PreviousAtGranularity(
       if (cursor_index <= 0)
         return false;
       base::string16 text = node->GetInnerText();
-      base::i18n::UTF16CharIterator iter(text.data(), text.size());
+      base::i18n::UTF16CharIterator iter(text);
       int previous_index = 0;
-      while (!iter.end() && iter.array_pos() < cursor_index) {
+      while (!iter.end() &&
+             static_cast<int32_t>(iter.array_pos()) < cursor_index) {
         previous_index = iter.array_pos();
         iter.Advance();
       }

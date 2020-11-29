@@ -19,7 +19,6 @@ import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.app.tab_activity_glue.ReparentingDelegateFactory;
 import org.chromium.chrome.browser.app.tab_activity_glue.ReparentingTask;
 import org.chromium.chrome.browser.init.StartupTabPreloader;
-import org.chromium.chrome.browser.ntp.NewTabPage;
 import org.chromium.chrome.browser.tab.RedirectHandlerTabHelper;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabAssociatedApp;
@@ -30,6 +29,7 @@ import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabParentIntent;
 import org.chromium.chrome.browser.tab.TabState;
 import org.chromium.components.embedder_support.util.UrlConstants;
+import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.components.url_formatter.UrlFormatter;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.WebContents;
@@ -49,9 +49,10 @@ public class ChromeTabCreator extends TabCreator {
          * Handles showing the StartSurface instead of the NTP if needed.
          * @param isNTP Whether tab with NTP should be created.
          * @param isIncognito Whether tab is created in incognito.
+         * @param parentTab The parent tab of the tab creation.
          * @return Whether NTP creation was handled.
          */
-        boolean handleCreateNTPIfNeeded(boolean isNTP, boolean isIncognito);
+        boolean handleCreateNTPIfNeeded(boolean isNTP, boolean isIncognito, Tab parentTab);
     }
 
     private static final String TAG = "ChromeTabCreator";
@@ -129,7 +130,7 @@ public class ChromeTabCreator extends TabCreator {
             int position, Intent intent) {
         if (mOverviewNTPCreator != null
                 && mOverviewNTPCreator.handleCreateNTPIfNeeded(
-                        NewTabPage.isNTPUrl(loadUrlParams.getUrl()), mIncognito)) {
+                        UrlUtilities.isNTPUrl(loadUrlParams.getUrl()), mIncognito, parent)) {
             return null;
         }
         try {
@@ -433,8 +434,6 @@ public class ChromeTabCreator extends TabCreator {
     private int getTransitionType(@TabLaunchType int type, Intent intent) {
         int transition = PageTransition.LINK;
         switch (type) {
-            case TabLaunchType.FROM_RESTORE:
-            case TabLaunchType.FROM_LINK:
             case TabLaunchType.FROM_EXTERNAL_APP:
             case TabLaunchType.FROM_BROWSER_ACTIONS:
                 transition = PageTransition.LINK | PageTransition.FROM_API;
@@ -446,7 +445,9 @@ public class ChromeTabCreator extends TabCreator {
             case TabLaunchType.FROM_LAUNCH_NEW_INCOGNITO_TAB:
                 transition = PageTransition.AUTO_TOPLEVEL;
                 break;
+            case TabLaunchType.FROM_LINK:
             case TabLaunchType.FROM_LONGPRESS_FOREGROUND:
+            case TabLaunchType.FROM_RESTORE:
                 transition = PageTransition.LINK;
                 break;
             case TabLaunchType.FROM_LONGPRESS_BACKGROUND:

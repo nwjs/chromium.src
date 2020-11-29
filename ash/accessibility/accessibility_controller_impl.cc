@@ -35,13 +35,14 @@
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/system/accessibility/accessibility_feature_disable_dialog.h"
 #include "ash/system/accessibility/floating_accessibility_controller.h"
+#include "ash/system/accessibility/select_to_speak_menu_bubble_controller.h"
 #include "ash/system/accessibility/switch_access_menu_bubble_controller.h"
 #include "ash/system/power/backlights_forced_off_setter.h"
 #include "ash/system/power/power_status.h"
 #include "ash/system/power/scoped_backlights_forced_off.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "base/bind.h"
-#include "base/bind_helpers.h"
+#include "base/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/user_metrics.h"
 #include "base/strings/string16.h"
@@ -163,6 +164,7 @@ constexpr const char* const kCopiedOnSigninAccessibilityPrefs[]{
     prefs::kAccessibilityLargeCursorEnabled,
     prefs::kAccessibilityMonoAudioEnabled,
     prefs::kAccessibilityScreenMagnifierEnabled,
+    prefs::kAccessibilityScreenMagnifierFocusFollowingEnabled,
     prefs::kAccessibilityScreenMagnifierScale,
     prefs::kAccessibilitySelectToSpeakEnabled,
     prefs::kAccessibilitySpokenFeedbackEnabled,
@@ -188,11 +190,8 @@ constexpr const char* const kSwitchAccessPrefsCopiedToSignin[]{
     prefs::kAccessibilitySwitchAccessAutoScanSpeedMs,
     prefs::kAccessibilitySwitchAccessEnabled,
     prefs::kAccessibilitySwitchAccessNextKeyCodes,
-    prefs::kAccessibilitySwitchAccessNextSetting,
     prefs::kAccessibilitySwitchAccessPreviousKeyCodes,
-    prefs::kAccessibilitySwitchAccessPreviousSetting,
     prefs::kAccessibilitySwitchAccessSelectKeyCodes,
-    prefs::kAccessibilitySwitchAccessSelectSetting,
 };
 
 // Helper function that is used to verify the validity of kFeatures and
@@ -645,6 +644,9 @@ void AccessibilityControllerImpl::RegisterProfilePrefs(
   registry->RegisterBooleanPref(
       prefs::kAccessibilityScreenMagnifierEnabled, false,
       user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PREF);
+  registry->RegisterBooleanPref(
+      prefs::kAccessibilityScreenMagnifierFocusFollowingEnabled, true,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PREF);
   registry->RegisterDoublePref(prefs::kAccessibilityScreenMagnifierScale,
                                std::numeric_limits<double>::min());
   registry->RegisterBooleanPref(prefs::kAccessibilitySpokenFeedbackEnabled,
@@ -665,24 +667,13 @@ void AccessibilityControllerImpl::RegisterProfilePrefs(
       prefs::kAccessibilitySwitchAccessSelectKeyCodes,
       base::Value(std::vector<base::Value>()),
       user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PREF);
-  registry->RegisterIntegerPref(
-      prefs::kAccessibilitySwitchAccessSelectSetting,
-      kSwitchAccessAssignmentNone,
-      user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PREF);
   registry->RegisterListPref(
       prefs::kAccessibilitySwitchAccessNextKeyCodes,
       base::Value(std::vector<base::Value>()),
       user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PREF);
-  registry->RegisterIntegerPref(
-      prefs::kAccessibilitySwitchAccessNextSetting, kSwitchAccessAssignmentNone,
-      user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PREF);
   registry->RegisterListPref(
       prefs::kAccessibilitySwitchAccessPreviousKeyCodes,
       base::Value(std::vector<base::Value>()),
-      user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PREF);
-  registry->RegisterIntegerPref(
-      prefs::kAccessibilitySwitchAccessPreviousSetting,
-      kSwitchAccessAssignmentNone,
       user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PREF);
   registry->RegisterBooleanPref(
       prefs::kAccessibilitySwitchAccessAutoScanEnabled, false,
@@ -1011,6 +1002,27 @@ SelectToSpeakState AccessibilityControllerImpl::GetSelectToSpeakState() const {
   return select_to_speak_state_;
 }
 
+void AccessibilityControllerImpl::ShowSelectToSpeakPanel(
+    const gfx::Rect& anchor,
+    bool is_paused) {
+  if (!features::IsSelectToSpeakNavigationControlEnabled()) {
+    return;
+  }
+  if (!select_to_speak_bubble_controller_) {
+    select_to_speak_bubble_controller_ =
+        std::make_unique<SelectToSpeakMenuBubbleController>();
+  }
+  select_to_speak_bubble_controller_->Show(anchor, is_paused);
+}
+
+void AccessibilityControllerImpl::HideSelectToSpeakPanel() {
+  if (!features::IsSelectToSpeakNavigationControlEnabled() ||
+      !select_to_speak_bubble_controller_) {
+    return;
+  }
+  select_to_speak_bubble_controller_->Hide();
+}
+
 bool AccessibilityControllerImpl::IsSwitchAccessRunning() const {
   return switch_access().enabled() || switch_access_disable_dialog_showing_;
 }
@@ -1060,16 +1072,21 @@ void AccessibilityControllerImpl::ShowSwitchAccessMenu(
   switch_access_bubble_controller_->ShowMenu(anchor, actions_to_show);
 }
 
+bool AccessibilityControllerImpl::IsPointScanEnabled() {
+  return point_scan_controller_.get() &&
+         point_scan_controller_->IsPointScanEnabled();
+}
+
+void AccessibilityControllerImpl::ActivatePointScan() {
+  if (::switches::IsSwitchAccessPointScanningEnabled()) {
+    point_scan_controller_ = std::make_unique<PointScanController>();
+    point_scan_controller_->Start();
+  }
+}
+
 void AccessibilityControllerImpl::
     DisablePolicyRecommendationRestorerForTesting() {
   Shell::Get()->policy_recommendation_restorer()->DisableForTesting();
-}
-
-void AccessibilityControllerImpl::StartPointScanning() {
-  if (!point_scan_controller_)
-    point_scan_controller_.reset(new PointScanController());
-
-  point_scan_controller_->Start();
 }
 
 bool AccessibilityControllerImpl::IsStickyKeysSettingVisibleInTray() {
@@ -1101,6 +1118,10 @@ void AccessibilityControllerImpl::ShowFloatingMenuIfEnabled() {
 FloatingAccessibilityController*
 AccessibilityControllerImpl::GetFloatingMenuController() {
   return floating_menu_controller_.get();
+}
+
+PointScanController* AccessibilityControllerImpl::GetPointScanController() {
+  return point_scan_controller_.get();
 }
 
 void AccessibilityControllerImpl::SetTabletModeShelfNavigationButtonsEnabled(
@@ -1393,21 +1414,6 @@ void AccessibilityControllerImpl::ObservePrefs(PrefService* prefs) {
                               UpdateSwitchAccessAutoScanKeyboardSpeedFromPref,
                           base::Unretained(this)));
   pref_change_registrar_->Add(
-      prefs::kAccessibilitySwitchAccessNextSetting,
-      base::BindRepeating(
-          &AccessibilityControllerImpl::SyncSwitchAccessPrefsToSignInProfile,
-          base::Unretained(this)));
-  pref_change_registrar_->Add(
-      prefs::kAccessibilitySwitchAccessPreviousSetting,
-      base::BindRepeating(
-          &AccessibilityControllerImpl::SyncSwitchAccessPrefsToSignInProfile,
-          base::Unretained(this)));
-  pref_change_registrar_->Add(
-      prefs::kAccessibilitySwitchAccessSelectSetting,
-      base::BindRepeating(
-          &AccessibilityControllerImpl::SyncSwitchAccessPrefsToSignInProfile,
-          base::Unretained(this)));
-  pref_change_registrar_->Add(
       prefs::kAccessibilityTabletModeShelfNavigationButtonsEnabled,
       base::BindRepeating(&AccessibilityControllerImpl::
                               UpdateTabletModeShelfNavigationButtonsFromPref,
@@ -1522,6 +1528,12 @@ void AccessibilityControllerImpl::RequestAutoclickScrollableBoundsForPoint(
     gfx::Point& point_in_screen) {
   if (client_)
     client_->RequestAutoclickScrollableBoundsForPoint(point_in_screen);
+}
+
+void AccessibilityControllerImpl::MagnifierBoundsChanged(
+    const gfx::Rect& bounds_in_screen) {
+  if (client_)
+    client_->MagnifierBoundsChanged(bounds_in_screen);
 }
 
 void AccessibilityControllerImpl::UpdateAutoclickMenuBoundsIfNeeded() {
@@ -1724,8 +1736,6 @@ void AccessibilityControllerImpl::ActivateSwitchAccess() {
   switch_access_bubble_controller_ =
       std::make_unique<SwitchAccessMenuBubbleController>();
   UpdateKeyCodesAfterSwitchAccessEnabled();
-  if (::switches::IsSwitchAccessPointScanningEnabled())
-    StartPointScanning();
   if (skip_switch_access_notification_) {
     skip_switch_access_notification_ = false;
     return;
@@ -1824,6 +1834,11 @@ bool AccessibilityControllerImpl::IsAccessibilityFeatureVisibleInTrayMenu(
   return true;
 }
 
+void AccessibilityControllerImpl::SuspendSwitchAccessKeyHandling(bool suspend) {
+  accessibility_event_rewriter_->set_suspend_switch_access_key_handling(
+      suspend);
+}
+
 void AccessibilityControllerImpl::UpdateFeatureFromPref(FeatureType feature) {
   bool enabled = features_[feature]->enabled();
 
@@ -1896,8 +1911,7 @@ void AccessibilityControllerImpl::UpdateFeatureFromPref(FeatureType feature) {
         } else {
           // Show a dialog before disabling Switch Access.
           new AccessibilityFeatureDisableDialog(
-              IDS_ASH_SWITCH_ACCESS_DISABLE_CONFIRMATION_TITLE,
-              IDS_ASH_SWITCH_ACCESS_DISABLE_CONFIRMATION_BODY,
+              IDS_ASH_SWITCH_ACCESS_DISABLE_CONFIRMATION_TEXT,
               base::BindOnce(
                   &AccessibilityControllerImpl::SwitchAccessDisableDialogClosed,
                   weak_ptr_factory_.GetWeakPtr(), true),

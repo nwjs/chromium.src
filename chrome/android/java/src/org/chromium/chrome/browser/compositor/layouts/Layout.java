@@ -15,11 +15,12 @@ import androidx.annotation.VisibleForTesting;
 
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.compositor.LayerTitleCache;
-import org.chromium.chrome.browser.compositor.animation.CompositorAnimationHandler;
 import org.chromium.chrome.browser.compositor.layouts.components.LayoutTab;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
-import org.chromium.chrome.browser.compositor.layouts.eventfilter.EventFilter;
-import org.chromium.chrome.browser.compositor.scene_layer.SceneLayer;
+import org.chromium.chrome.browser.layouts.EventFilter;
+import org.chromium.chrome.browser.layouts.LayoutType;
+import org.chromium.chrome.browser.layouts.animation.CompositorAnimationHandler;
+import org.chromium.chrome.browser.layouts.scene_layer.SceneLayer;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
@@ -38,6 +39,7 @@ import java.util.List;
  */
 
 public abstract class Layout implements TabContentManager.ThumbnailChangeListener {
+
     /**
      * The orientation of the device.
      */
@@ -101,7 +103,10 @@ public abstract class Layout implements TabContentManager.ThumbnailChangeListene
     protected LayoutTab[] mLayoutTabs;
 
     // True means that the layout is going to hide as soon as the animation finishes.
-    private boolean mIsHiding;
+    private boolean mIsStartingToHide;
+
+    // True means that the layout is going to show as soon as the animation finishes.
+    private boolean mIsStartingToShow;
 
     // The next id to show when the layout is hidden, or TabBase#INVALID_TAB_ID if no change.
     protected int mNextTabId = Tab.INVALID_TAB_ID;
@@ -403,15 +408,22 @@ public abstract class Layout implements TabContentManager.ThumbnailChangeListene
      */
     public void startHiding(int nextTabId, boolean hintAtTabSelection) {
         mUpdateHost.startHiding(nextTabId, hintAtTabSelection);
-        mIsHiding = true;
+        mIsStartingToHide = true;
         mNextTabId = nextTabId;
     }
 
     /**
      * @return True is the layout is in the process of hiding itself.
      */
-    public boolean isHiding() {
-        return mIsHiding;
+    public boolean isStartingToHide() {
+        return mIsStartingToHide;
+    }
+
+    /**
+     * @return True is the layout is in the process of showing itself.
+     */
+    public boolean isStartingToShow() {
+        return mIsStartingToShow;
     }
 
     /**
@@ -425,6 +437,9 @@ public abstract class Layout implements TabContentManager.ThumbnailChangeListene
      * To be called when the transition into the layout is done.
      */
     public void doneShowing() {
+        if (!mIsStartingToShow) return;
+
+        mIsStartingToShow = false;
         mUpdateHost.doneShowing();
     }
 
@@ -433,7 +448,9 @@ public abstract class Layout implements TabContentManager.ThumbnailChangeListene
      * This is currently called by the renderer when all the animation are done while hiding.
      */
     public void doneHiding() {
-        mIsHiding = false;
+        if (!mIsStartingToHide) return;
+
+        mIsStartingToHide = false;
         if (mNextTabId != Tab.INVALID_TAB_ID) {
             TabModel model = mTabModelSelector.getModelForTabId(mNextTabId);
             if (model != null) {
@@ -464,7 +481,9 @@ public abstract class Layout implements TabContentManager.ThumbnailChangeListene
      * @param animate Whether to play an entry animation.
      */
     public void show(long time, boolean animate) {
-        mIsHiding = false;
+        // TODO(crbug.com/1108496): Remove after LayoutManager explicitly hide the old layout.
+        mIsStartingToHide = false;
+        mIsStartingToShow = true;
         mNextTabId = Tab.INVALID_TAB_ID;
     }
 
@@ -800,4 +819,10 @@ public abstract class Layout implements TabContentManager.ThumbnailChangeListene
     protected void updateSceneLayer(RectF viewport, RectF contentViewport,
             LayerTitleCache layerTitleCache, TabContentManager tabContentManager,
             ResourceManager resourceManager, BrowserControlsStateProvider browserControls) {}
+
+    /**
+     * @return The {@link LayoutType}.
+     */
+    @LayoutType
+    public abstract int getLayoutType();
 }

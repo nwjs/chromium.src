@@ -7,6 +7,7 @@
 
 #include <utility>
 
+#include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/page/page.h"
 
@@ -93,8 +94,10 @@ void InspectorMediaAgent::Restore() {
 
 void InspectorMediaAgent::RegisterAgent() {
   instrumenting_agents_->AddInspectorMediaAgent(this);
-  auto* cache = MediaInspectorContextImpl::From(*local_frame_->DomWindow());
-  Vector<WebString> players = cache->AllPlayerIds();
+  auto* cache = MediaInspectorContextImpl::From(
+      *local_frame_->DomWindow()->GetExecutionContext());
+  Vector<WebString> players = cache->AllPlayerIdsAndMarkSent();
+  cache->IncrementActiveSessionCount();
   PlayersCreated(players);
   for (const auto& player_id : players) {
     const auto& media_player = cache->MediaPlayerFromId(player_id);
@@ -122,6 +125,9 @@ protocol::Response InspectorMediaAgent::disable() {
     return protocol::Response::Success();
   enabled_.Clear();
   instrumenting_agents_->RemoveInspectorMediaAgent(this);
+  auto* cache = MediaInspectorContextImpl::From(
+      *local_frame_->DomWindow()->GetExecutionContext());
+  cache->DecrementActiveSessionCount();
   return protocol::Response::Success();
 }
 

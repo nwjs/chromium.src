@@ -557,15 +557,15 @@ void ShillToONCTranslator::TranslateNetworkWithState() {
     }
     onc_object_->SetKey(::onc::network_config::kConnectionState,
                         base::Value(onc_state));
-    // Only set 'RestrictedConnectivity' if captive portal state is true.
-    if (NetworkState::NetworkStateIsCaptivePortal(*shill_dictionary_)) {
+  }
+
+  if (network_state_) {
+    // Only visible networks set RestrictedConnectivity, and only if true.
+    if (network_state_->IsCaptivePortal()) {
       onc_object_->SetKey(::onc::network_config::kRestrictedConnectivity,
                           base::Value(true));
     }
-  }
-
-  // Non-visible networks (with null network_state_) do not set ErrorState.
-  if (network_state_) {
+    // Only visible networks set ErrorState, and only if not empty.
     if (!network_state_->GetError().empty()) {
       onc_object_->SetKey(::onc::network_config::kErrorState,
                           base::Value(network_state_->GetError()));
@@ -645,11 +645,10 @@ void ShillToONCTranslator::TranslateNetworkWithState() {
   const std::string* proxy_config_str =
       shill_dictionary_->FindStringKey(shill::kProxyConfigProperty);
   if (proxy_config_str && !proxy_config_str->empty()) {
-    std::unique_ptr<base::Value> proxy_config_value(
-        ReadDictionaryFromJson(*proxy_config_str));
-    if (proxy_config_value) {
+    base::Value proxy_config_value = ReadDictionaryFromJson(*proxy_config_str);
+    if (!proxy_config_value.is_none()) {
       base::Value proxy_settings =
-          ConvertProxyConfigToOncProxySettings(*proxy_config_value);
+          ConvertProxyConfigToOncProxySettings(proxy_config_value);
       if (!proxy_settings.is_none()) {
         onc_object_->SetKey(::onc::network_config::kProxySettings,
                             std::move(proxy_settings));

@@ -487,12 +487,12 @@ public class SingleWebsiteSettings extends SiteSettingsPreferenceFragment
      * summary and (intentionally) loses its click handler.
      * @return A read-only copy of the preference passed in as |oldPreference|.
      */
-    private ChromeImageViewPreference replaceWithReadOnlyCopyOf(
-            Preference oldPreference, String newSummary) {
+    private ChromeImageViewPreference replaceWithReadOnlyCopyOf(Preference oldPreference,
+            String newSummary, @ContentSettingValues @Nullable Integer value) {
         ChromeImageViewPreference newPreference =
                 new ChromeImageViewPreference(oldPreference.getContext());
         newPreference.setKey(oldPreference.getKey());
-        setUpPreferenceCommon(newPreference);
+        setUpPreferenceCommon(newPreference, value);
         newPreference.setSummary(newSummary);
 
         // This preference is read-only so should not attempt to persist to shared prefs.
@@ -504,23 +504,29 @@ public class SingleWebsiteSettings extends SiteSettingsPreferenceFragment
         return newPreference;
     }
 
-    private boolean setUpManagedByPreference(Preference preference,
-            @StringRes int contentDescriptionRes, @ContentSettingsType int type) {
+    /**
+     * A permission can be managed by an app. For example, with a Chrome SiteSettingsClient,
+     * Notifications could be controlled by PWA, however for a Weblayer variant, Location could be
+     * controlled by the DSE.
+     */
+    private boolean setupAppDelegatePreference(Preference preference,
+            @StringRes int contentDescriptionRes, @ContentSettingsType int type,
+            @ContentSettingValues @Nullable Integer value) {
         Origin origin = Origin.create(mSite.getAddress().getOrigin());
         if (origin == null) {
             return false;
         }
 
-        String managedBy = getSiteSettingsClient().getDelegateAppNameForOrigin(origin, type);
-        if (managedBy == null) {
+        String managedByAppName = getSiteSettingsClient().getDelegateAppNameForOrigin(origin, type);
+        if (managedByAppName == null) {
             return false;
         }
 
         final Intent settingsIntent = getSettingsIntent(
                 getSiteSettingsClient().getDelegatePackageNameForOrigin(origin, type), type);
-        String summaryText = getString(R.string.website_setting_managed_by_app, managedBy);
+        String summaryText = getString(R.string.website_setting_managed_by_app, managedByAppName);
         ChromeImageViewPreference newPreference =
-                replaceWithReadOnlyCopyOf(preference, summaryText);
+                replaceWithReadOnlyCopyOf(preference, summaryText, value);
 
         newPreference.setImageView(R.drawable.permission_popups, contentDescriptionRes, null);
         // By disabling the ImageView, clicks will go through to the preference.
@@ -534,17 +540,17 @@ public class SingleWebsiteSettings extends SiteSettingsPreferenceFragment
     }
 
     private void setUpNotificationsPreference(Preference preference, boolean isEmbargoed) {
-        if (setUpManagedByPreference(preference, R.string.website_notification_settings,
-                    ContentSettingsType.NOTIFICATIONS)) {
-            return;
-        }
-
         final @ContentSettingValues @Nullable Integer value =
                 mSite.getContentSetting(getSiteSettingsClient().getBrowserContextHandle(),
                         ContentSettingsType.NOTIFICATIONS);
+        if (setupAppDelegatePreference(preference, R.string.website_notification_settings,
+                    ContentSettingsType.NOTIFICATIONS, value)) {
+            return;
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (value == null
-                    || (value != null && value != ContentSettingValues.ALLOW
+                    || (value != ContentSettingValues.ALLOW
                             && value != ContentSettingValues.BLOCK)) {
                 // TODO(crbug.com/735110): Figure out if this is the correct thing to do, for values
                 // that are non-null, but not ALLOW or BLOCK either. (In setupListPreference we
@@ -554,19 +560,17 @@ public class SingleWebsiteSettings extends SiteSettingsPreferenceFragment
             }
             String overrideSummary;
             if (isPermissionControlledByDSE(ContentSettingsType.NOTIFICATIONS)) {
-                overrideSummary = getString(value != null && value == ContentSettingValues.ALLOW
-                                ? R.string.website_settings_permissions_allow_dse
-                                : R.string.website_settings_permissions_block_dse);
+                overrideSummary = getDSECategorySummary(value);
             } else {
                 overrideSummary = isEmbargoed
                         ? getString(R.string.automatically_blocked)
-                        : getString(ContentSettingsResources.getSiteSummary(value));
+                        : getString(ContentSettingsResources.getCategorySummary(value));
             }
 
             // On Android O this preference is read-only, so we replace the existing pref with a
             // regular Preference that takes users to OS settings on click.
             ChromeImageViewPreference newPreference =
-                    replaceWithReadOnlyCopyOf(preference, overrideSummary);
+                    replaceWithReadOnlyCopyOf(preference, overrideSummary, value);
             newPreference.setDefaultValue(value);
 
             newPreference.setOnPreferenceClickListener(unused -> {
@@ -576,7 +580,7 @@ public class SingleWebsiteSettings extends SiteSettingsPreferenceFragment
         } else {
             setUpListPreference(preference, value, isEmbargoed);
             if (isPermissionControlledByDSE(ContentSettingsType.NOTIFICATIONS) && value != null) {
-                updatePreferenceForDSESetting(preference);
+                updatePreferenceForDSESetting(preference, value);
             }
         }
     }
@@ -782,9 +786,12 @@ public class SingleWebsiteSettings extends SiteSettingsPreferenceFragment
         @ContentSettingValues
         Integer permission = mSite.getContentSetting(
                 browserContextHandle, SiteSettingsCategory.contentSettingsType(type));
-        return permission != null
-                && SiteSettingsCategory.createFromType(browserContextHandle, type)
-                           .showPermissionBlockedMessage(getActivity());
+
+        if (permission == null || permission == ContentSettingValues.BLOCK) {
+            return false;
+        }
+        return SiteSettingsCategory.createFromType(browserContextHandle, type)
+                .showPermissionBlockedMessage(getActivity());
     }
 
     private boolean hasUsagePreferences() {
@@ -816,7 +823,7 @@ public class SingleWebsiteSettings extends SiteSettingsPreferenceFragment
             getPreferenceScreen().removePreference(preference);
             return;
         }
-        setUpPreferenceCommon(preference);
+        setUpPreferenceCommon(preference, value);
         ListPreference listPreference = (ListPreference) preference;
 
         CharSequence[] keys = new String[2];
@@ -830,7 +837,9 @@ public class SingleWebsiteSettings extends SiteSettingsPreferenceFragment
         listPreference.setEntryValues(keys);
         listPreference.setEntries(descriptions);
         listPreference.setOnPreferenceChangeListener(this);
-        listPreference.setSummary(isEmbargoed ? getString(R.string.automatically_blocked) : "%s");
+        listPreference.setSummary(isEmbargoed
+                        ? getString(R.string.automatically_blocked)
+                        : getString(ContentSettingsResources.getCategorySummary(value)));
         // TODO(crbug.com/735110): Figure out if this is the correct thing to do - here we are
         // effectively treating non-ALLOW values as BLOCK.
         int index = (value == ContentSettingValues.ALLOW ? 0 : 1);
@@ -841,11 +850,12 @@ public class SingleWebsiteSettings extends SiteSettingsPreferenceFragment
      * Sets some properties that apply to both regular Preferences and ListPreferences, i.e.
      * preference title, enabled-state, and icon, based on the preference's key.
      */
-    private void setUpPreferenceCommon(Preference preference) {
+    private void setUpPreferenceCommon(
+            Preference preference, @ContentSettingValues @Nullable Integer value) {
         int contentType = getContentSettingsTypeFromPreferenceKey(preference.getKey());
-        int explanationResourceId = ContentSettingsResources.getExplanation(contentType);
-        if (explanationResourceId != 0) {
-            preference.setTitle(explanationResourceId);
+        int titleResourceId = ContentSettingsResources.getTitle(contentType);
+        if (titleResourceId != 0) {
+            preference.setTitle(titleResourceId);
         }
         if (!preference.isEnabled()) {
             preference.setIcon(
@@ -854,7 +864,8 @@ public class SingleWebsiteSettings extends SiteSettingsPreferenceFragment
         }
         SiteSettingsCategory category = SiteSettingsCategory.createFromContentSettingsType(
                 getSiteSettingsClient().getBrowserContextHandle(), contentType);
-        if (category != null && !category.enabledInAndroid(getActivity())) {
+        if (category != null && value != null && value != ContentSettingValues.BLOCK
+                && !category.enabledInAndroid(getActivity())) {
             preference.setIcon(category.getDisabledInAndroidIcon(getActivity()));
             preference.setEnabled(false);
         } else {
@@ -864,19 +875,19 @@ public class SingleWebsiteSettings extends SiteSettingsPreferenceFragment
     }
 
     private void setUpLocationPreference(Preference preference) {
-        if (setUpManagedByPreference(preference, R.string.website_location_settings,
-                    ContentSettingsType.GEOLOCATION)) {
-            return;
-        }
-
         @ContentSettingValues
         @Nullable
         Integer permission = mSite.getContentSetting(
                 getSiteSettingsClient().getBrowserContextHandle(), ContentSettingsType.GEOLOCATION);
+        if (setupAppDelegatePreference(preference, R.string.website_location_settings,
+                    ContentSettingsType.GEOLOCATION, permission)) {
+            return;
+        }
+
         setUpListPreference(
                 preference, permission, isPermissionEmbargoed(ContentSettingsType.GEOLOCATION));
         if (isPermissionControlledByDSE(ContentSettingsType.GEOLOCATION) && permission != null) {
-            updatePreferenceForDSESetting(preference);
+            updatePreferenceForDSESetting(preference, permission);
         }
     }
 
@@ -967,6 +978,12 @@ public class SingleWebsiteSettings extends SiteSettingsPreferenceFragment
         listPreference.setValueIndex(permission == ContentSettingValues.ALLOW ? 0 : 1);
     }
 
+    private String getDSECategorySummary(@ContentSettingValues int value) {
+        return value == ContentSettingValues.ALLOW
+                ? getString(R.string.website_settings_permissions_allowed_dse)
+                : getString(R.string.website_settings_permissions_blocked_dse);
+    }
+
     /**
      * Returns true if the DSE (default search engine) geolocation and notifications permissions
      * are configured for the DSE.
@@ -982,12 +999,14 @@ public class SingleWebsiteSettings extends SiteSettingsPreferenceFragment
      * for searches that happen from the omnibox.
      * @param preference The Location preference to modify.
      */
-    private void updatePreferenceForDSESetting(Preference preference) {
+    private void updatePreferenceForDSESetting(
+            Preference preference, @ContentSettingValues int value) {
         ListPreference listPreference = (ListPreference) preference;
         listPreference.setEntries(new String[] {
                 getString(R.string.website_settings_permissions_allow_dse),
                 getString(R.string.website_settings_permissions_block_dse),
         });
+        listPreference.setSummary(getDSECategorySummary(value));
     }
 
     public @ContentSettingsType int getContentSettingsTypeFromPreferenceKey(String preferenceKey) {
@@ -1015,13 +1034,17 @@ public class SingleWebsiteSettings extends SiteSettingsPreferenceFragment
     public boolean onPreferenceChange(Preference preference, Object newValue) {
         @ContentSettingValues
         int permission = ContentSetting.fromString((String) newValue);
-        // Embargoed permission preserves summary. Refresh it manually.
-        preference.setSummary("%s");
         BrowserContextHandle browserContextHandle =
                 getSiteSettingsClient().getBrowserContextHandle();
         int type = getContentSettingsTypeFromPreferenceKey(preference.getKey());
         if (type != ContentSettingsType.DEFAULT) {
             mSite.setContentSetting(browserContextHandle, type, permission);
+            if (isPermissionControlledByDSE(type)) {
+                preference.setSummary(getDSECategorySummary(permission));
+            } else {
+                preference.setSummary(
+                        getString(ContentSettingsResources.getCategorySummary(permission)));
+            }
 
             if (mWebsiteSettingsObserver != null) {
                 mWebsiteSettingsObserver.onPermissionChanged();

@@ -173,10 +173,9 @@ bool LayoutShiftTracker::NeedsToTrack(const LayoutObject& object) const {
   if (object.StyleRef().Visibility() != EVisibility::kVisible)
     return false;
 
-  // Ignore layout objects that move (in the coordinate space of the paint
-  // invalidation container) on scroll.
+  // Ignore sticky-positioend objects that move on scroll.
   // TODO(skobes): Find a way to detect when these objects shift.
-  if (object.IsFixedPositioned() || object.IsStickyPositioned())
+  if (object.IsStickyPositioned())
     return false;
 
   if (object.IsLayoutView())
@@ -216,10 +215,6 @@ void LayoutShiftTracker::ObjectShifted(
       object.View()->FirstFragment().LocalBorderBoxProperties();
   FloatClipRect clip_rect =
       GeometryMapper::LocalToAncestorClipRect(property_tree_state, root_state);
-  clip_rect.Intersect(FloatClipRect(FloatRect(
-      FloatPoint(),
-      FloatSize(
-          frame_view_->GetScrollableArea()->VisibleContentRect().Size()))));
 
   // If the clip region is empty, then the resulting layout shift isn't visible
   // in the viewport so ignore it.
@@ -688,7 +683,7 @@ void ReattachHookScope::NotifyDetach(const Node& node) {
   auto& fragment = layout_object->GetMutableForPainting().FirstFragment();
 
   // Save the visual rect for restoration on future reattachment.
-  const auto& box = ToLayoutBox(*layout_object);
+  const auto& box = To<LayoutBox>(*layout_object);
   PhysicalRect visual_overflow_rect = box.PreviousPhysicalVisualOverflowRect();
   if (visual_overflow_rect.IsEmpty() && box.PreviousSize().IsEmpty())
     return;
@@ -709,7 +704,7 @@ void ReattachHookScope::NotifyAttach(const Node& node) {
   auto iter = map.find(&node);
   if (iter == map.end())
     return;
-  ToLayoutBox(layout_object)
+  To<LayoutBox>(layout_object)
       ->GetMutableForPainting()
       .SetPreviousGeometryForLayoutShiftTracking(
           iter->value.paint_offset, iter->value.size,

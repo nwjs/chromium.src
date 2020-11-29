@@ -61,10 +61,12 @@ if (is_android) {
   android_library("java") {
     sources = [
       "android/java/src/org/chromium/chrome/browser/video_tutorials/Language.java",
+      "android/java/src/org/chromium/chrome/browser/video_tutorials/LanguageInfoProvider.java",
       "android/java/src/org/chromium/chrome/browser/video_tutorials/Tutorial.java",
       "android/java/src/org/chromium/chrome/browser/video_tutorials/VideoTutorialService.java",
       "android/java/src/org/chromium/chrome/browser/video_tutorials/iph/VideoIPHCoordinator.java",
       "android/java/src/org/chromium/chrome/browser/video_tutorials/iph/VideoTutorialIPHUtils.java",
+      "android/java/src/org/chromium/chrome/browser/video_tutorials/iph/VideoTutorialTryNowTracker.java",
       "android/java/src/org/chromium/chrome/browser/video_tutorials/list/TutorialListCoordinator.java",
       "android/java/src/org/chromium/chrome/browser/video_tutorials/player/VideoPlayerCoordinator.java",
     ]
@@ -92,7 +94,6 @@ if (is_android) {
     ]
 
     deps = [
-      "//chrome/browser/download/android:java_resources",
       "//chrome/browser/ui/android/strings:ui_strings_grd",
       "//components/browser_ui/widget/android:java_resources",
       "//ui/android:ui_java_resources",
@@ -123,11 +124,17 @@ if (is_android) {
   }
 
   android_library("test_support_java") {
-    sources = [ "android/java/src/org/chromium/chrome/browser/video_tutorials/test/TestVideoTutorialService.java" ]
+    sources = [
+      "android/java/src/org/chromium/chrome/browser/video_tutorials/test/TestImageFetcher.java",
+      "android/java/src/org/chromium/chrome/browser/video_tutorials/test/TestVideoTutorialService.java",
+    ]
 
     deps = [
       ":java",
       "//base:base_java",
+      "//chrome/browser/image_fetcher:java",
+      "//third_party/android_deps:androidx_annotation_annotation_java",
+      "//third_party/gif_player:gif_player_java",
     ]
   }
 }

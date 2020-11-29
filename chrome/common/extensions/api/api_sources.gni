@@ -29,6 +29,7 @@ schema_sources_ = [
   "debugger.json",
   "desktop_capture.json",
   "developer_private.idl",
+  "crash_report_private.idl",
   "downloads.idl",
   "downloads_internal.idl",
   "enterprise_hardware_platform.idl",
@@ -47,6 +48,7 @@ schema_sources_ = [
   "passwords_private.idl",
   "permissions.json",
   "resources_private.idl",
+  "scripting.idl",
   "search.idl",
   "sessions.json",
   "settings_private.idl",
@@ -54,6 +56,7 @@ schema_sources_ = [
   "system_indicator.idl",
   "system_private.json",
   "tab_capture.idl",
+  "tab_groups.json",
   "tabs.json",
   "types.json",
   "web_navigation.json",
@@ -77,7 +80,10 @@ if (is_chromeos || is_mac || is_win) {
 }
 
 if (is_chromeos || chromeos_is_browser_only) {
-  schema_sources_ += [ "enterprise_platform_keys.idl" ]
+  schema_sources_ += [
+    "enterprise_platform_keys.idl",
+    "enterprise_platform_keys_internal.idl",
+  ]
 }
 
 if (is_chromeos) {
@@ -88,7 +94,6 @@ if (is_chromeos) {
     "echo_private.json",
     "enterprise_device_attributes.idl",
     "enterprise_networking_attributes.idl",
-    "enterprise_platform_keys_internal.idl",
     "enterprise_platform_keys_private.json",
     "file_browser_handler_internal.json",
     "file_manager_private.idl",

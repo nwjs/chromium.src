@@ -17,7 +17,7 @@
 
 #include "base/auto_reset.h"
 #include "base/bind.h"
-#include "base/bind_helpers.h"
+#include "base/callback_helpers.h"
 #include "base/check.h"
 #include "base/command_line.h"
 #include "base/files/file_path.h"
@@ -77,11 +77,8 @@
 #include "content/browser/storage_partition_impl.h"
 #include "content/common/content_constants_internal.h"
 #include "content/common/cursors/webcursor.h"
-#include "content/common/drag_messages.h"
 #include "content/common/frame_messages.h"
 #include "content/common/input_messages.h"
-#include "content/common/view_messages.h"
-#include "content/common/widget_messages.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/device_service.h"
@@ -110,6 +107,7 @@
 #include "services/network/public/mojom/referrer_policy.mojom-shared.h"
 #include "skia/ext/image_operations.h"
 #include "skia/ext/platform_canvas.h"
+#include "skia/ext/skia_utils_base.h"
 #include "storage/browser/file_system/isolated_context.h"
 #include "third_party/blink/public/common/input/synthetic_web_input_event_builders.h"
 #include "third_party/blink/public/common/web_preferences/web_preferences.h"
@@ -376,7 +374,6 @@ RenderWidgetHostImpl::RenderWidgetHostImpl(
                              routing_id_),
           this));
   CHECK(result.second) << "Inserting a duplicate item!";
-  agent_scheduling_group_.AddRoute(routing_id_, this);
   agent_scheduling_group.GetProcess()->AddObserver(this);
   render_process_blocked_state_changed_subscription_ =
       agent_scheduling_group.GetProcess()->RegisterBlockStateChangedCallback(
@@ -589,6 +586,13 @@ void RenderWidgetHostImpl::BindWidgetInterfaces(
   blink_widget_.Bind(std::move(widget));
 }
 
+void RenderWidgetHostImpl::BindPopupWidgetInterface(
+    mojo::PendingAssociatedReceiver<blink::mojom::PopupWidgetHost>
+        popup_widget_host) {
+  blink_popup_widget_host_receiver_.reset();
+  blink_popup_widget_host_receiver_.Bind(std::move(popup_widget_host));
+}
+
 std::pair<mojo::PendingAssociatedRemote<blink::mojom::FrameWidgetHost>,
           mojo::PendingAssociatedReceiver<blink::mojom::FrameWidget>>
 RenderWidgetHostImpl::BindNewFrameWidgetInterfaces() {
@@ -652,36 +656,7 @@ void RenderWidgetHostImpl::ShutdownAndDestroyWidget(bool also_delete) {
   CancelKeyboardLock();
   RejectMouseLockOrUnlockIfNecessary(
       blink::mojom::PointerLockResult::kElementDestroyed);
-
-  if (GetProcess()->IsInitializedAndNotDead() && !owner_delegate()) {
-    // Tell the RendererWidget to close. We only want to do this if the
-    // RenderWidget is the root of the renderer object graph, which is for
-    // pepper fullscreen and popups.
-    bool rv = Send(new WidgetMsg_Close(routing_id_));
-    DCHECK(rv);
-  }
-
   Destroy(also_delete);
-}
-
-bool RenderWidgetHostImpl::OnMessageReceived(const IPC::Message &msg) {
-  // Only process most messages if the RenderWidget is alive.
-  if (!renderer_initialized())
-    return false;
-
-  bool handled = true;
-  IPC_BEGIN_MESSAGE_MAP(RenderWidgetHostImpl, msg)
-    IPC_MESSAGE_HANDLER(WidgetHostMsg_Close, OnClose)
-    IPC_MESSAGE_HANDLER(WidgetHostMsg_RequestSetBounds, OnRequestSetBounds)
-    IPC_MESSAGE_HANDLER(DragHostMsg_UpdateDragCursor, OnUpdateDragCursor)
-    IPC_MESSAGE_UNHANDLED(handled = false)
-  IPC_END_MESSAGE_MAP()
-
-  return handled;
-}
-
-bool RenderWidgetHostImpl::Send(IPC::Message* msg) {
-  return agent_scheduling_group_.Send(msg);
 }
 
 void RenderWidgetHostImpl::SetIsLoading(bool is_loading) {
@@ -986,7 +961,7 @@ blink::VisualProperties RenderWidgetHostImpl::GetVisualProperties() {
   // The root widget's window segments are computed here - child frames just
   // use the value provided from the parent.
   if (is_top_most_widget) {
-    const DisplayFeature* display_feature = view_->GetDisplayFeature();
+    base::Optional<DisplayFeature> display_feature = view_->GetDisplayFeature();
     if (display_feature) {
       visual_properties.root_widget_window_segments =
           display_feature->ComputeWindowSegments(
@@ -1126,16 +1101,12 @@ void RenderWidgetHostImpl::GotFocus() {
   Focus();
   if (owner_delegate_)
     owner_delegate_->RenderWidgetGotFocus();
-  if (delegate_)
-    delegate_->RenderWidgetGotFocus(this);
 }
 
 void RenderWidgetHostImpl::LostFocus() {
   Blur();
   if (owner_delegate_)
     owner_delegate_->RenderWidgetLostFocus();
-  if (delegate_)
-    delegate_->RenderWidgetLostFocus(this);
 }
 
 void RenderWidgetHostImpl::Focus() {
@@ -1254,7 +1225,6 @@ void RenderWidgetHostImpl::StartInputEventAckTimeout() {
         FROM_HERE, hung_renderer_delay_,
         base::BindOnce(&RenderWidgetHostImpl::OnInputEventAckTimeout,
                        weak_factory_.GetWeakPtr()));
-    input_event_ack_start_time_ = clock_->NowTicks();
   }
 }
 
@@ -1274,16 +1244,6 @@ bool RenderWidgetHostImpl::IsCurrentlyUnresponsive() {
 
 void RenderWidgetHostImpl::StopInputEventAckTimeout() {
   input_event_ack_timeout_.Stop();
-
-  if (!input_event_ack_start_time_.is_null()) {
-    base::TimeDelta elapsed = clock_->NowTicks() - input_event_ack_start_time_;
-    const base::TimeDelta kMinimumHangTimeToReport =
-        base::TimeDelta::FromSeconds(5);
-    if (elapsed >= kMinimumHangTimeToReport)
-      UMA_HISTOGRAM_LONG_TIMES("Renderer.Hung.Duration", elapsed);
-
-    input_event_ack_start_time_ = TimeTicks();
-  }
   RendererIsResponsive();
 }
 
@@ -1686,12 +1646,6 @@ void RenderWidgetHostImpl::TakeSyntheticGestureController(
   }
 }
 
-void RenderWidgetHostImpl::SetCursor(const WebCursor& cursor) {
-  if (!view_)
-    return;
-  view_->UpdateCursor(cursor);
-}
-
 void RenderWidgetHostImpl::OnCursorVisibilityStateChanged(bool is_visible) {
   GetWidgetInputHandler()->CursorVisibilityChanged(is_visible);
 }
@@ -1793,9 +1747,14 @@ void RenderWidgetHostImpl::DragTargetDragEnterWithMetaData(
     const gfx::PointF& screen_pt,
     DragOperationsMask operations_allowed,
     int key_modifiers) {
-  Send(new DragMsg_TargetDragEnter(GetRoutingID(), metadata, client_pt,
-                                   screen_pt, operations_allowed,
-                                   key_modifiers));
+  // TODO(https://crbug.com/1102769): Replace with a for_frame() check.
+  if (blink_frame_widget_) {
+    blink_frame_widget_->DragTargetDragEnter(
+        DropMetaDataToDragData(metadata), client_pt, screen_pt,
+        operations_allowed, key_modifiers,
+        base::BindOnce(&RenderWidgetHostImpl::OnUpdateDragCursor,
+                       base::Unretained(this)));
+  }
 }
 
 void RenderWidgetHostImpl::DragTargetDragOver(
@@ -1809,7 +1768,7 @@ void RenderWidgetHostImpl::DragTargetDragOver(
         ConvertWindowPointToViewport(client_point), screen_point,
         operations_allowed, key_modifiers,
         base::BindOnce(&RenderWidgetHostImpl::OnUpdateDragCursor,
-                       weak_factory_.GetWeakPtr()));
+                       base::Unretained(this)));
   }
 }
 
@@ -1871,8 +1830,22 @@ void RenderWidgetHostImpl::FilterDropData(DropData* drop_data) {
   }
 }
 
-void RenderWidgetHostImpl::SetCursor(const ui::Cursor& cursor) {
-  SetCursor(WebCursor(cursor));
+void RenderWidgetHostImpl::SetCursor(const ui::Cursor& unsafe_cursor) {
+  SkBitmap bitmap;
+  // On receipt of an arbitrary bitmap from the renderer, we convert to an N32
+  // 32bpp bitmap. Other pixel sizes can lead to out-of-bounds mistakes when
+  // transferring the pixels out of the/ bitmap into other buffers.
+  if (!skia::SkBitmapToN32OpaqueOrPremul(unsafe_cursor.custom_bitmap(),
+                                         &bitmap)) {
+    NOTREACHED() << "Unable to convert bitmap for cursor";
+    return;
+  }
+
+  ui::Cursor cursor = unsafe_cursor;
+  cursor.set_custom_bitmap(std::move(bitmap));
+
+  if (view_)
+    view_->UpdateCursor(WebCursor(cursor));
 }
 
 void RenderWidgetHostImpl::ShowContextMenuAtPoint(
@@ -2195,11 +2168,14 @@ void RenderWidgetHostImpl::Destroy(bool also_delete) {
     view_.reset();
   }
 
+  // Reset the popup host receiver, this will cause a disconnection notification
+  // on the renderer to delete Popup widgets.
+  blink_popup_widget_host_receiver_.reset();
+
   render_process_blocked_state_changed_subscription_.reset();
   pending_show_closure_.Reset();
   GetProcess()->RemovePriorityClient(this);
   GetProcess()->RemoveObserver(this);
-  agent_scheduling_group_.RemoveRoute(routing_id_);
   g_routing_id_widget_map.Get().erase(
       RenderWidgetHostID(GetProcess()->GetID(), routing_id_));
 
@@ -2272,12 +2248,23 @@ void RenderWidgetHostImpl::OnKeyboardEventAck(
   // HandleKeyboardEvent destroys this RenderWidgetHostImpl).
 }
 
-void RenderWidgetHostImpl::OnClose() {
-  if (owner_delegate_) {
-    owner_delegate_->RenderWidgetDidClose();
-  } else {
-    ShutdownAndDestroyWidget(true);
-  }
+void RenderWidgetHostImpl::RequestClosePopup() {
+  DCHECK(!owner_delegate_);
+  ShutdownAndDestroyWidget(true);
+}
+
+void RenderWidgetHostImpl::SetPopupBounds(const gfx::Rect& bounds,
+                                          SetPopupBoundsCallback callback) {
+  if (view_)
+    view_->SetBounds(bounds);
+  std::move(callback).Run();
+}
+
+void RenderWidgetHostImpl::ShowPopup(const gfx::Rect& initial_rect,
+                                     ShowPopupCallback callback) {
+  delegate_->ShowCreatedWidget(GetProcess()->GetID(), GetRoutingID(),
+                               initial_rect);
+  std::move(callback).Run();
 }
 
 void RenderWidgetHostImpl::SetToolTipText(
@@ -2325,15 +2312,6 @@ void RenderWidgetHostImpl::OnUpdateScreenRectsAck() {
   }
 
   SendScreenRects();
-}
-
-void RenderWidgetHostImpl::OnRequestSetBounds(const gfx::Rect& bounds) {
-  if (owner_delegate_) {
-    owner_delegate_->RequestSetBounds(bounds);
-  } else if (view_) {
-    view_->SetBounds(bounds);
-  }
-  Send(new WidgetMsg_SetBounds_ACK(routing_id_));
 }
 
 void RenderWidgetHostImpl::OnLocalSurfaceIdChanged(
@@ -2529,11 +2507,21 @@ void RenderWidgetHostImpl::DidFirstVisuallyNonEmptyPaint() {
 void RenderWidgetHostImpl::StartDragging(
     blink::mojom::DragDataPtr drag_data,
     blink::DragOperationsMask drag_operations_mask,
-    const SkBitmap& bitmap,
+    const SkBitmap& unsafe_bitmap,
     const gfx::Vector2d& bitmap_offset_in_dip,
     blink::mojom::DragEventSourceInfoPtr event_info) {
   RenderViewHostDelegateView* view = delegate_->GetDelegateView();
   if (!view || !GetView()) {
+    // Need to clear drag and drop state in blink.
+    DragSourceSystemDragEnded();
+    return;
+  }
+  SkBitmap bitmap;
+  // On receipt of an arbitrary bitmap from the renderer, we convert to an N32
+  // 32bpp bitmap. Other pixel sizes can lead to out-of-bounds mistakes when
+  // transferring the pixels out of the/ bitmap into other buffers.
+  if (!skia::SkBitmapToN32OpaqueOrPremul(unsafe_bitmap, &bitmap)) {
+    NOTREACHED() << "Unable to convert bitmap for drag-and-drop";
     // Need to clear drag and drop state in blink.
     DragSourceSystemDragEnded();
     return;
@@ -2631,7 +2619,6 @@ void RenderWidgetHostImpl::SetMouseCapture(bool capture) {
 
 void RenderWidgetHostImpl::RequestMouseLock(
     bool from_user_gesture,
-    bool privileged,
     bool unadjusted_movement,
     InputRouterImpl::RequestMouseLockCallback response) {
   if (pending_mouse_lock_request_) {
@@ -2650,22 +2637,18 @@ void RenderWidgetHostImpl::RequestMouseLock(
 
   pending_mouse_lock_request_ = true;
   mouse_lock_raw_movement_ = unadjusted_movement;
-  if (delegate_) {
-    delegate_->RequestToLockMouse(this, from_user_gesture,
-                                  is_last_unlocked_by_target_,
-                                  privileged && allow_privileged_mouse_lock_);
-    // We need to reset |is_last_unlocked_by_target_| here as we don't know
-    // request source in |LostMouseLock()|.
-    is_last_unlocked_by_target_ = false;
+  if (!delegate_) {
+    // No delegate, reject message.
+    GotResponseToLockMouseRequest(
+        blink::mojom::PointerLockResult::kPermissionDenied);
     return;
   }
 
-  // Directly reject or approve the mouse lock based on privilege.
-  if (allow_privileged_mouse_lock_ && privileged)
-    GotResponseToLockMouseRequest(blink::mojom::PointerLockResult::kSuccess);
-  else
-    GotResponseToLockMouseRequest(
-        blink::mojom::PointerLockResult::kPermissionDenied);
+  delegate_->RequestToLockMouse(this, from_user_gesture,
+                                is_last_unlocked_by_target_, false);
+  // We need to reset |is_last_unlocked_by_target_| here as we don't know
+  // request source in |LostMouseLock()|.
+  is_last_unlocked_by_target_ = false;
 }
 
 void RenderWidgetHostImpl::RequestMouseLockChange(
@@ -3159,7 +3142,7 @@ void RenderWidgetHostImpl::RequestCompositionUpdates(bool immediate_request,
                                                      monitor_updates);
 }
 
-void RenderWidgetHostImpl::RequestCompositorFrameSink(
+void RenderWidgetHostImpl::CreateFrameSink(
     mojo::PendingReceiver<viz::mojom::CompositorFrameSink>
         compositor_frame_sink_receiver,
     mojo::PendingRemote<viz::mojom::CompositorFrameSinkClient>

@@ -19,6 +19,7 @@ import android.view.ViewStructure;
 import android.view.autofill.AutofillValue;
 import android.webkit.ValueCallback;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
@@ -100,9 +101,8 @@ public final class TabImpl extends ITab.Stub {
     private FullscreenCallbackProxy mFullscreenCallbackProxy;
     private TabViewAndroidDelegate mViewAndroidDelegate;
     private GoogleAccountsCallbackProxy mGoogleAccountsCallbackProxy;
-    // BrowserImpl this TabImpl is in. This is null before attached to a Browser. While this is null
-    // before attached, there are code paths that may trigger calling methods before set.
-    @Nullable
+    // BrowserImpl this TabImpl is in.
+    @NonNull
     private BrowserImpl mBrowser;
     /**
      * The AutofillProvider that integrates with system-level autofill. This is null until
@@ -138,6 +138,7 @@ public final class TabImpl extends ITab.Stub {
     private DisplayCutoutController mDisplayCutoutController;
 
     private boolean mPostContainerViewInitDone;
+    private ActionModeCallback mActionModeCallback;
 
     private WebLayerAccessibilityUtil.Observer mAccessibilityObserver;
 
@@ -236,7 +237,8 @@ public final class TabImpl extends ITab.Stub {
         return sTabMap.get(tabId);
     }
 
-    public TabImpl(ProfileImpl profile, WindowAndroid windowAndroid) {
+    public TabImpl(BrowserImpl browser, ProfileImpl profile, WindowAndroid windowAndroid) {
+        mBrowser = browser;
         mId = ++sNextId;
         init(profile, windowAndroid, TabImplJni.get().createTab(profile.getNativeProfile(), this));
     }
@@ -245,8 +247,10 @@ public final class TabImpl extends ITab.Stub {
      * This constructor is called when the native side triggers creation of a TabImpl
      * (as happens with popups and other scenarios).
      */
-    public TabImpl(ProfileImpl profile, WindowAndroid windowAndroid, long nativeTab) {
+    public TabImpl(
+            BrowserImpl browser, ProfileImpl profile, WindowAndroid windowAndroid, long nativeTab) {
         mId = ++sNextId;
+        mBrowser = browser;
         TabImplJni.get().setJavaImpl(nativeTab, TabImpl.this);
         init(profile, windowAndroid, nativeTab);
     }
@@ -308,7 +312,7 @@ public final class TabImpl extends ITab.Stub {
         // before installing this observer.
         if (WebLayerFactoryImpl.getClientMajorVersion() >= 85) {
             mMediaSessionHelper = new MediaSessionHelper(
-                    mWebContents, MediaSessionManager.createMediaSessionHelperDelegate(mId));
+                    mWebContents, MediaSessionManager.createMediaSessionHelperDelegate(this));
         }
     }
 
@@ -318,7 +322,8 @@ public final class TabImpl extends ITab.Stub {
         mPostContainerViewInitDone = true;
         SelectionPopupController controller =
                 SelectionPopupController.fromWebContents(mWebContents);
-        controller.setActionModeCallback(new ActionModeCallback(mWebContents));
+        mActionModeCallback = new ActionModeCallback(mWebContents);
+        controller.setActionModeCallback(mActionModeCallback);
         controller.setSelectionClient(SelectionClient.createSmartSelectionClient(mWebContents));
     }
 
@@ -334,6 +339,9 @@ public final class TabImpl extends ITab.Stub {
      * Sets the BrowserImpl this TabImpl is contained in.
      */
     public void attachToBrowser(BrowserImpl browser) {
+        // NOTE: during tab creation this is called with |mBrowser| set to |browser|. This happens
+        // because the tab is created with |mBrowser| already set (to avoid having a bunch of null
+        // checks).
         mBrowser = browser;
         updateFromBrowser();
     }
@@ -417,7 +425,6 @@ public final class TabImpl extends ITab.Stub {
     public void onAttachedToViewController(
             long topControlsContainerViewHandle, long bottomControlsContainerViewHandle) {
         // attachToFragment() must be called before activate().
-        assert mBrowser != null;
         TabImplJni.get().setBrowserControlsContainerViews(
                 mNativeTab, topControlsContainerViewHandle, bottomControlsContainerViewHandle);
         mInfoBarContainer.onTabAttachedToViewController();
@@ -454,7 +461,7 @@ public final class TabImpl extends ITab.Stub {
     public boolean isVisible() {
         return isActiveTab()
                 && ((mBrowser.isStarted() && mBrowser.isViewAttachedToWindow())
-                        || mBrowser.isFragmentStoppedForConfigurationChange());
+                        || mBrowser.isInConfigurationChangeAndWasAttached());
     }
 
     @CalledByNative
@@ -469,7 +476,7 @@ public final class TabImpl extends ITab.Stub {
     }
 
     public boolean isActiveTab() {
-        return mBrowser != null && mBrowser.getActiveTab() == this;
+        return mBrowser.getActiveTab() == this;
     }
 
     private void updateWebContentsVisibility() {
@@ -529,6 +536,7 @@ public final class TabImpl extends ITab.Stub {
         StrictModeWorkaround.apply();
         mClient = client;
         mTabCallbackProxy = new TabCallbackProxy(mNativeTab, client);
+        mActionModeCallback.setTabClient(mClient);
     }
 
     @Override
@@ -596,11 +604,13 @@ public final class TabImpl extends ITab.Stub {
 
     @Override
     public void setTranslateTargetLanguage(String targetLanguage) {
+        StrictModeWorkaround.apply();
         TabImplJni.get().setTranslateTargetLanguage(mNativeTab, targetLanguage);
     }
 
     @Override
     public void setScrollOffsetsEnabled(boolean enabled) {
+        StrictModeWorkaround.apply();
         if (enabled) {
             if (mGestureStateListenerWithScroll == null) {
                 mGestureStateListenerWithScroll = new GestureStateListenerWithScroll() {
@@ -622,6 +632,12 @@ public final class TabImpl extends ITab.Stub {
                     .removeListener(mGestureStateListenerWithScroll);
             mGestureStateListenerWithScroll = null;
         }
+    }
+
+    @Override
+    public void setFloatingActionModeOverride(int actionModeItemTypes) {
+        StrictModeWorkaround.apply();
+        mActionModeCallback.setOverride(actionModeItemTypes);
     }
 
     public void removeFaviconCallbackProxy(FaviconCallbackProxy proxy) {
@@ -809,16 +825,12 @@ public final class TabImpl extends ITab.Stub {
     }
 
     @CalledByNative
-    private void onFindResultAvailable(
-            int numberOfMatches, int activeMatchOrdinal, boolean finalUpdate) {
-        try {
-            if (mFindInPageCallbackClient != null) {
-                // The WebLayer API deals in indices instead of ordinals.
-                mFindInPageCallbackClient.onFindResult(
-                        numberOfMatches, activeMatchOrdinal - 1, finalUpdate);
-            }
-        } catch (RemoteException e) {
-            throw new AndroidRuntimeException(e);
+    private void onFindResultAvailable(int numberOfMatches, int activeMatchOrdinal,
+            boolean finalUpdate) throws RemoteException {
+        if (mFindInPageCallbackClient != null) {
+            // The WebLayer API deals in indices instead of ordinals.
+            mFindInPageCallbackClient.onFindResult(
+                    numberOfMatches, activeMatchOrdinal - 1, finalUpdate);
         }
 
         if (mFindResultBar != null) {
@@ -947,6 +959,11 @@ public final class TabImpl extends ITab.Stub {
         mMediaStreamManager.destroy();
         mMediaStreamManager = null;
 
+        if (mMediaSessionHelper != null) {
+            mMediaSessionHelper.destroy();
+            mMediaSessionHelper = null;
+        }
+
         // Destroying FaviconCallbackProxy removes from mFaviconCallbackProxies. Copy to avoid
         // problems.
         Set<FaviconCallbackProxy> faviconCallbackProxies = mFaviconCallbackProxies;
@@ -1037,8 +1054,6 @@ public final class TabImpl extends ITab.Stub {
     }
 
     private void onBrowserControlsConstraintUpdated(int constraint) {
-        // WARNING: this may be called before attached. This means |mBrowser| may be null.
-
         // If something has overridden the FIP's SHOWN constraint, cancel FIP. This causes FIP to
         // dismiss when entering fullscreen.
         if (constraint != BrowserControlsState.SHOWN) {
@@ -1105,7 +1120,11 @@ public final class TabImpl extends ITab.Stub {
     @Nullable
     private BrowserViewController getViewController() {
         if (!isActiveTab()) return null;
-        return mBrowser.getPossiblyNullViewController();
+        // During rotation it's possible for this to be called before BrowserViewController has been
+        // updated. Verify BrowserViewController reflects this is the active tab before returning
+        // it.
+        BrowserViewController viewController = mBrowser.getPossiblyNullViewController();
+        return viewController != null && viewController.getTab() == this ? viewController : null;
     }
 
     @VisibleForTesting
@@ -1121,6 +1140,13 @@ public final class TabImpl extends ITab.Stub {
         TranslateCompactInfoBar translateInfoBar = (TranslateCompactInfoBar) infobars.get(0);
 
         return translateInfoBar.getTargetLanguageForTesting();
+    }
+
+    /** Called by {@link FaviconCallbackProxy} when the favicon for the current page has changed. */
+    public void onFaviconChanged(Bitmap bitmap) {
+        if (mMediaSessionHelper != null) {
+            mMediaSessionHelper.updateFavicon(bitmap);
+        }
     }
 
     @NativeMethods

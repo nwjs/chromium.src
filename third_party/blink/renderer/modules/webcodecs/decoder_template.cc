@@ -13,6 +13,7 @@
 #include "base/time/time.h"
 #include "media/base/media_util.h"
 #include "media/media_buildflags.h"
+#include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_audio_decoder_init.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_encoded_audio_chunk.h"
@@ -22,6 +23,7 @@
 #include "third_party/blink/renderer/bindings/modules/v8/v8_video_decoder_init.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
+#include "third_party/blink/renderer/core/inspector/inspector_media_context_impl.h"
 #include "third_party/blink/renderer/modules/modules_export.h"
 #include "third_party/blink/renderer/modules/webcodecs/audio_decoder.h"
 #include "third_party/blink/renderer/modules/webcodecs/audio_frame.h"
@@ -43,10 +45,31 @@ template <typename Traits>
 DecoderTemplate<Traits>::DecoderTemplate(ScriptState* script_state,
                                          const InitType* init,
                                          ExceptionState& exception_state)
-    : script_state_(script_state), state_(V8CodecState::Enum::kUnconfigured) {
+    : ExecutionContextLifecycleObserver(ExecutionContext::From(script_state)),
+      script_state_(script_state),
+      state_(V8CodecState::Enum::kUnconfigured) {
   DVLOG(1) << __func__;
   DCHECK(init->hasOutput());
   DCHECK(init->hasError());
+
+  ExecutionContext* context = GetExecutionContext();
+
+  DCHECK(context);
+
+  parent_media_log_ = Platform::Current()->GetMediaLog(
+      MediaInspectorContextImpl::From(*context),
+      context->GetTaskRunner(TaskType::kInternalMedia));
+
+  if (!parent_media_log_)
+    parent_media_log_ = std::make_unique<media::NullMediaLog>();
+
+  // This allows us to destroy |parent_media_log_| and stop logging,
+  // without causing problems to |media_log_| users.
+  media_log_ = parent_media_log_->Clone();
+
+  media_log_->SetProperty<media::MediaLogProperty::kFrameUrl>(
+      GetExecutionContext()->Url().GetString().Ascii());
+
   output_cb_ = init->output();
   error_cb_ = init->error();
 }
@@ -112,7 +135,14 @@ void DecoderTemplate<Traits>::decode(const InputType* chunk,
 
   Request* request = MakeGarbageCollected<Request>();
   request->type = Request::Type::kDecode;
-  request->decoder_buffer = MakeDecoderBuffer(*chunk);
+  auto status_or_buffer = MakeDecoderBuffer(*chunk);
+
+  if (status_or_buffer.has_value()) {
+    request->decoder_buffer = std::move(status_or_buffer.value());
+  } else {
+    request->status = std::move(status_or_buffer.error());
+  }
+
   requests_.push_back(request);
   ++requested_decodes_;
   ProcessRequests();
@@ -161,7 +191,7 @@ void DecoderTemplate<Traits>::close(ExceptionState& exception_state) {
   if (ThrowIfCodecStateClosed(state_, "close", exception_state))
     return;
 
-  Shutdown(false);
+  Shutdown();
 }
 
 template <typename Traits>
@@ -204,11 +234,12 @@ bool DecoderTemplate<Traits>::ProcessConfigureRequest(Request* request) {
   // until there is a decode request.
 
   if (!decoder_) {
-    media_log_ = std::make_unique<media::NullMediaLog>();
     decoder_ = Traits::CreateDecoder(*ExecutionContext::From(script_state_),
                                      media_log_.get());
     if (!decoder_) {
-      HandleError();
+      HandleError("Configuration error",
+                  media::Status(media::StatusCode::kDecoderCreationFailed,
+                                "Could not create decoder."));
       return false;
     }
 
@@ -255,7 +286,10 @@ bool DecoderTemplate<Traits>::ProcessDecodeRequest(Request* request) {
   // TODO(sandersd): If a reset has been requested, complete immediately.
 
   if (!decoder_) {
-    HandleError();
+    HandleError(
+        "Decoding error",
+        media::Status(media::StatusCode::kDecoderInitializeNeverCompleted,
+                      "No decoder found."));
     return false;
   }
 
@@ -267,7 +301,13 @@ bool DecoderTemplate<Traits>::ProcessDecodeRequest(Request* request) {
 
   // The request may be invalid, if so report that now.
   if (!request->decoder_buffer || request->decoder_buffer->data_size() == 0) {
-    HandleError();
+    media::Status error =
+        !request->status.is_ok()
+            ? request->status
+            : media::Status(media::StatusCode::kDecoderFailedDecode,
+                            "Null or empty decoder buffer.");
+
+    HandleError("Decoding error", error);
     return false;
   }
 
@@ -334,16 +374,26 @@ bool DecoderTemplate<Traits>::ProcessResetRequest(Request* request) {
 }
 
 template <typename Traits>
-void DecoderTemplate<Traits>::HandleError() {
+void DecoderTemplate<Traits>::HandleError(std::string context,
+                                          media::Status status) {
   DVLOG(1) << __func__;
   if (IsClosed())
     return;
 
-  Shutdown(true);
+  media_log_->NotifyError(status);
+
+  std::string message =
+      context + (status.message().empty() ? "." : ": " + status.message());
+
+  // We could have different DOMExceptionCodes, but for the moment, all of our
+  // exceptions seem appropriate as operation errors.
+  auto* ex = MakeGarbageCollected<DOMException>(
+      DOMExceptionCode::kOperationError, message.c_str());
+  Shutdown(ex);
 }
 
 template <typename Traits>
-void DecoderTemplate<Traits>::Shutdown(bool is_error) {
+void DecoderTemplate<Traits>::Shutdown(DOMException* exception) {
   DVLOG(3) << __func__;
   DCHECK(!IsClosed());
 
@@ -365,9 +415,12 @@ void DecoderTemplate<Traits>::Shutdown(bool is_error) {
   requested_resets_ = 0;
 
   // Fire the error callback if necessary.
-  // TODO(sandersd): Create a DOMException to report.
-  if (is_error)
-    error_cb->InvokeAndReportException(nullptr, nullptr);
+  if (exception)
+    error_cb->InvokeAndReportException(nullptr, exception);
+
+  // TODO(http://crbug.com/1139089): Should |exception| be given to the promise
+  // resolvers? VideoEncoder resolves promises with exceptions, so these should
+  // at least be unified.
 
   // Clear any pending requests, rejecting all promises.
   if (pending_request_ && pending_request_->resolver)
@@ -391,7 +444,7 @@ void DecoderTemplate<Traits>::OnConfigureFlushDone(media::Status status) {
   DCHECK_EQ(pending_request_->type, Request::Type::kConfigure);
 
   if (!status.is_ok()) {
-    HandleError();
+    HandleError("Configuration error", status);
     return;
   }
 
@@ -412,11 +465,12 @@ void DecoderTemplate<Traits>::OnInitializeDone(media::Status status) {
   DCHECK_EQ(pending_request_->type, Request::Type::kConfigure);
 
   if (!status.is_ok()) {
-    // TODO(tmathmeyer): this drops the media error - should we consider logging
-    // it or converting it to the DOMException type somehow?
-    HandleError();
+    HandleError("Decoder initialization error", status);
     return;
   }
+
+  Traits::UpdateDecoderLog(*decoder_, *pending_request_->media_config,
+                           media_log_.get());
 
   pending_request_.Release();
 
@@ -431,7 +485,7 @@ void DecoderTemplate<Traits>::OnDecodeDone(uint32_t id, media::Status status) {
     return;
 
   if (!status.is_ok() && status.code() != media::StatusCode::kAborted) {
-    HandleError();
+    HandleError("Decoding error", status);
     return;
   }
 
@@ -451,7 +505,7 @@ void DecoderTemplate<Traits>::OnFlushDone(media::Status status) {
   DCHECK_EQ(pending_request_->type, Request::Type::kFlush);
 
   if (!status.is_ok()) {
-    HandleError();
+    HandleError("Flushing error", status);
     return;
   }
 
@@ -491,6 +545,12 @@ void DecoderTemplate<Traits>::Trace(Visitor* visitor) const {
   visitor->Trace(pending_request_);
   visitor->Trace(pending_decodes_);
   ScriptWrappable::Trace(visitor);
+  ExecutionContextLifecycleObserver::Trace(visitor);
+}
+
+template <typename Traits>
+void DecoderTemplate<Traits>::ContextDestroyed() {
+  parent_media_log_ = nullptr;
 }
 
 template <typename Traits>

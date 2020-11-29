@@ -51,11 +51,13 @@ bool IsForContinuousGestures(DesksSwitchSource source) {
 DeskActivationAnimation::DeskActivationAnimation(DesksController* controller,
                                                  int starting_desk_index,
                                                  int ending_desk_index,
-                                                 DesksSwitchSource source)
+                                                 DesksSwitchSource source,
+                                                 bool update_window_activation)
     : DeskAnimationBase(controller,
                         ending_desk_index,
                         IsForContinuousGestures(source)),
       switch_source_(source),
+      update_window_activation_(update_window_activation),
       presentation_time_recorder_(CreatePresentationTimeHistogramRecorder(
           desks_util::GetSelectedCompositorForPerformanceMetrics(),
           kDeskUpdateGestureHistogramName,
@@ -66,6 +68,11 @@ DeskActivationAnimation::DeskActivationAnimation(DesksController* controller,
             root, starting_desk_index, ending_desk_index, this,
             /*for_remove=*/false));
   }
+
+  // On starting, the user may stay on the current desk for a touchpad swipe.
+  // All other switch sources are guaranteed to move at least once.
+  if (switch_source_ != DesksSwitchSource::kDeskSwitchTouchpad)
+    visible_desk_changes_ = 1;
 }
 
 DeskActivationAnimation::~DeskActivationAnimation() = default;
@@ -93,6 +100,11 @@ bool DeskActivationAnimation::Replace(bool moving_left,
   }
 
   ending_desk_index_ = new_ending_desk_index;
+
+  // Similar to on starting, for touchpad, the user can replace the animation
+  // without switching visible desks.
+  if (switch_source_ != DesksSwitchSource::kDeskSwitchTouchpad)
+    ++visible_desk_changes_;
 
   // List of animators that need a screenshot. It should be either empty or
   // match the size of |desk_switch_animators_| as all the animations should be
@@ -145,7 +157,8 @@ bool DeskActivationAnimation::UpdateSwipeAnimation(float scroll_delta_x) {
   }
 
   // Activate the target desk and take a screenshot.
-  DCHECK_EQ(pending_animators.size(), desk_switch_animators_.size());
+  // TODO(crbug.com/1134390): Convert back to DCHECK when the issue is fixed.
+  CHECK_EQ(pending_animators.size(), desk_switch_animators_.size());
   ending_desk_index_ = desk_switch_animators_[0]->ending_desk_index();
   PrepareDeskForScreenshot(ending_desk_index_);
   for (auto* animator : pending_animators)
@@ -187,7 +200,7 @@ void DeskActivationAnimation::OnDeskSwitchAnimationFinishedInternal() {
   // proper desk here.
   controller_->ActivateDeskInternal(
       controller_->desks()[ending_desk_index_].get(),
-      /*update_window_activation=*/true);
+      update_window_activation_);
 }
 
 metrics_util::ReportCallback DeskActivationAnimation::GetReportCallback()
@@ -223,7 +236,7 @@ void DeskActivationAnimation::PrepareDeskForScreenshot(int index) {
 
   controller_->ActivateDeskInternal(
       controller_->desks()[ending_desk_index_].get(),
-      /*update_window_activation=*/true);
+      update_window_activation_);
 
   MaybeRestoreSplitView(/*refresh_snapped_windows=*/true);
 }

@@ -33,7 +33,25 @@ const char BaseRenderingContext2D::kDefaultFont[] = "10px sans-serif";
 const char BaseRenderingContext2D::kInheritDirectionString[] = "inherit";
 const char BaseRenderingContext2D::kRtlDirectionString[] = "rtl";
 const char BaseRenderingContext2D::kLtrDirectionString[] = "ltr";
+const char BaseRenderingContext2D::kAutoKerningString[] = "auto";
+const char BaseRenderingContext2D::kNormalKerningString[] = "normal";
+const char BaseRenderingContext2D::kNoneKerningString[] = "none";
+const char BaseRenderingContext2D::kNormalVariantString[] = "normal";
+const char BaseRenderingContext2D::kSmallCapsVariantString[] = "small-caps";
+const char BaseRenderingContext2D::kAllSmallCapsVariantString[] =
+    "all-small-caps";
+const char BaseRenderingContext2D::kPetiteVariantString[] = "petite-caps";
+const char BaseRenderingContext2D::kAllPetiteVariantString[] =
+    "all-petite-caps";
+const char BaseRenderingContext2D::kUnicaseVariantString[] = "unicase";
+const char BaseRenderingContext2D::kTitlingCapsVariantString[] = "titling-caps";
 const double BaseRenderingContext2D::kCDeviceScaleFactor = 1.0;
+const char BaseRenderingContext2D::kAutoRendering[] = "auto";
+const char BaseRenderingContext2D::kOptimizeSpeedRendering[] = "optimizespeed";
+const char BaseRenderingContext2D::kOptimizeLegibilityRendering[] =
+    "optimizelegibility";
+const char BaseRenderingContext2D::kGeometricPrecisionRendering[] =
+    "geometricprecision";
 
 BaseRenderingContext2D::BaseRenderingContext2D()
     : clip_antialiasing_(kNotAntiAliased), origin_tainted_by_content_(false) {
@@ -95,13 +113,13 @@ void BaseRenderingContext2D::restore() {
     return;
   // Verify that the current state's transform is invertible.
   if (GetState().IsTransformInvertible())
-    path_.Transform(GetState().Transform());
+    path_.Transform(GetState().GetTransform());
 
   state_stack_.pop_back();
   state_stack_.back()->ClearResolvedFilter();
 
   if (GetState().IsTransformInvertible())
-    path_.Transform(GetState().Transform().Inverse());
+    path_.Transform(GetState().GetTransform().Inverse());
 
   cc::PaintCanvas* c = GetOrCreatePaintCanvas();
 
@@ -121,7 +139,8 @@ void BaseRenderingContext2D::RestoreMatrixClipStack(cc::PaintCanvas* c) const {
     c->setMatrix(SkMatrix::I());
     if (curr_state->Get()) {
       curr_state->Get()->PlaybackClips(c);
-      c->setMatrix(AffineTransformToSkMatrix(curr_state->Get()->Transform()));
+      c->setMatrix(
+          TransformationMatrixToSkMatrix(curr_state->Get()->GetTransform()));
     }
     c->save();
   }
@@ -187,6 +206,15 @@ void BaseRenderingContext2D::IdentifiabilityMaybeUpdateForStyleUnion(
     identifiability_study_helper_.MaybeUpdateBuilder(
         style.GetAsCanvasGradient()->GetIdentifiableToken());
   }
+}
+
+RespectImageOrientationEnum
+BaseRenderingContext2D::RespectImageOrientationInternal(
+    CanvasImageSource* image_source) {
+  if ((image_source->IsImageBitmap() || image_source->IsImageElement()) &&
+      image_source->WouldTaintOrigin())
+    return kRespectImageOrientation;
+  return RespectImageOrientation();
 }
 
 void BaseRenderingContext2D::strokeStyle(
@@ -462,11 +490,11 @@ void BaseRenderingContext2D::scale(double sx, double sy) {
   if (!std::isfinite(sx) || !std::isfinite(sy))
     return;
 
-  AffineTransform new_transform = GetState().Transform();
+  TransformationMatrix new_transform = GetState().GetTransform();
   float fsx = clampTo<float>(sx);
   float fsy = clampTo<float>(sy);
   new_transform.ScaleNonUniform(fsx, fsy);
-  if (GetState().Transform() == new_transform)
+  if (GetState().GetTransform() == new_transform)
     return;
 
   ModifiableState().SetTransform(new_transform);
@@ -485,9 +513,9 @@ void BaseRenderingContext2D::rotate(double angle_in_radians) {
   if (!std::isfinite(angle_in_radians))
     return;
 
-  AffineTransform new_transform = GetState().Transform();
-  new_transform.RotateRadians(angle_in_radians);
-  if (GetState().Transform() == new_transform)
+  TransformationMatrix new_transform = GetState().GetTransform();
+  new_transform.Rotate(rad2deg(angle_in_radians));
+  if (GetState().GetTransform() == new_transform)
     return;
 
   ModifiableState().SetTransform(new_transform);
@@ -507,12 +535,12 @@ void BaseRenderingContext2D::translate(double tx, double ty) {
   if (!std::isfinite(tx) || !std::isfinite(ty))
     return;
 
-  AffineTransform new_transform = GetState().Transform();
+  TransformationMatrix new_transform = GetState().GetTransform();
   // clamp to float to avoid float cast overflow when used as SkScalar
   float ftx = clampTo<float>(tx);
   float fty = clampTo<float>(ty);
   new_transform.Translate(ftx, fty);
-  if (GetState().Transform() == new_transform)
+  if (GetState().GetTransform() == new_transform)
     return;
 
   ModifiableState().SetTransform(new_transform);
@@ -544,16 +572,16 @@ void BaseRenderingContext2D::transform(double m11,
   float fdx = clampTo<float>(dx);
   float fdy = clampTo<float>(dy);
 
-  AffineTransform transform(fm11, fm12, fm21, fm22, fdx, fdy);
-  AffineTransform new_transform = GetState().Transform() * transform;
-  if (GetState().Transform() == new_transform)
+  TransformationMatrix transform(fm11, fm12, fm21, fm22, fdx, fdy);
+  TransformationMatrix new_transform = GetState().GetTransform() * transform;
+  if (GetState().GetTransform() == new_transform)
     return;
 
   ModifiableState().SetTransform(new_transform);
   if (!GetState().IsTransformInvertible())
     return;
 
-  c->concat(AffineTransformToSkMatrix(transform));
+  c->concat(TransformationMatrixToSkMatrix(transform));
   path_.Transform(transform.Inverse());
 }
 
@@ -562,7 +590,7 @@ void BaseRenderingContext2D::resetTransform() {
   if (!c)
     return;
 
-  AffineTransform ctm = GetState().Transform();
+  TransformationMatrix ctm = GetState().GetTransform();
   bool invertible_ctm = GetState().IsTransformInvertible();
   // It is possible that CTM is identity while CTM is not invertible.
   // When CTM becomes non-invertible, realizeSaves() can make CTM identity.
@@ -571,7 +599,7 @@ void BaseRenderingContext2D::resetTransform() {
 
   // resetTransform() resolves the non-invertible CTM state.
   ModifiableState().ResetTransform();
-  c->setMatrix(AffineTransformToSkMatrix(AffineTransform()));
+  c->setMatrix(TransformationMatrixToSkMatrix(TransformationMatrix()));
 
   if (invertible_ctm)
     path_.Transform(ctm);
@@ -615,7 +643,7 @@ void BaseRenderingContext2D::setTransform(DOMMatrix2DInit* transform,
 }
 
 DOMMatrix* BaseRenderingContext2D::getTransform() {
-  const AffineTransform& t = GetState().Transform();
+  const TransformationMatrix& t = GetState().GetTransform();
   DOMMatrix* m = DOMMatrix::Create();
   m->setA(t.A());
   m->setB(t.B());
@@ -847,7 +875,7 @@ bool BaseRenderingContext2D::IsPointInPathInternal(
   if (!std::isfinite(x) || !std::isfinite(y))
     return false;
   FloatPoint point(clampTo<float>(x), clampTo<float>(y));
-  AffineTransform ctm = GetState().Transform();
+  TransformationMatrix ctm = GetState().GetTransform();
   FloatPoint transformed_point = ctm.Inverse().MapPoint(point);
 
   return path.Contains(transformed_point,
@@ -876,7 +904,7 @@ bool BaseRenderingContext2D::IsPointInStrokeInternal(const Path& path,
   if (!std::isfinite(x) || !std::isfinite(y))
     return false;
   FloatPoint point(clampTo<float>(x), clampTo<float>(y));
-  AffineTransform ctm = GetState().Transform();
+  AffineTransform ctm = GetState().GetAffineTransform();
   FloatPoint transformed_point = ctm.Inverse().MapPoint(point);
 
   StrokeData stroke_data;
@@ -1031,7 +1059,8 @@ void BaseRenderingContext2D::drawImage(
       ToImageSourceInternal(image_source, exception_state);
   if (!image_source_internal)
     return;
-  RespectImageOrientationEnum respect_orientation = RespectImageOrientation();
+  RespectImageOrientationEnum respect_orientation =
+      RespectImageOrientationInternal(image_source_internal);
   FloatSize default_object_size(Width(), Height());
   FloatSize source_rect_size = image_source_internal->ElementSize(
       default_object_size, respect_orientation);
@@ -1056,7 +1085,8 @@ void BaseRenderingContext2D::drawImage(
     return;
   FloatSize default_object_size(this->Width(), this->Height());
   FloatSize source_rect_size = image_source_internal->ElementSize(
-      default_object_size, RespectImageOrientation());
+      default_object_size,
+      RespectImageOrientationInternal(image_source_internal));
   drawImage(script_state, image_source_internal, 0, 0, source_rect_size.Width(),
             source_rect_size.Height(), x, y, width, height, exception_state);
 }
@@ -1158,7 +1188,8 @@ void BaseRenderingContext2D::DrawImageInternal(cc::PaintCanvas* c,
     // We always use the image-orientation property on the canvas element
     // because the alternative would result in complex rules depending on
     // the source of the image.
-    RespectImageOrientationEnum respect_orientation = RespectImageOrientation();
+    RespectImageOrientationEnum respect_orientation =
+        RespectImageOrientationInternal(image_source);
     FloatRect corrected_src_rect = src_rect;
     if (respect_orientation == kRespectImageOrientation &&
         !image->HasDefaultOrientation()) {
@@ -1244,8 +1275,8 @@ void BaseRenderingContext2D::drawImage(ScriptState* script_state,
 
   FloatRect src_rect = NormalizeRect(FloatRect(fsx, fsy, fsw, fsh));
   FloatRect dst_rect = NormalizeRect(FloatRect(fdx, fdy, fdw, fdh));
-  FloatSize image_size =
-      image_source->ElementSize(default_object_size, RespectImageOrientation());
+  FloatSize image_size = image_source->ElementSize(
+      default_object_size, RespectImageOrientationInternal(image_source));
 
   ClipRectsToImageRect(FloatRect(FloatPoint(), image_size), &src_rect,
                        &dst_rect);
@@ -1349,7 +1380,7 @@ bool BaseRenderingContext2D::RectContainsTransformedRect(
   FloatQuad transformed_quad(
       FloatRect(transformed_rect.x(), transformed_rect.y(),
                 transformed_rect.width(), transformed_rect.height()));
-  return GetState().Transform().MapQuad(quad).ContainsQuad(transformed_quad);
+  return GetState().GetTransform().MapQuad(quad).ContainsQuad(transformed_quad);
 }
 
 CanvasGradient* BaseRenderingContext2D::createLinearGradient(double x0,
@@ -1464,7 +1495,8 @@ CanvasPattern* BaseRenderingContext2D::createPattern(
           String::Format("The canvas %s is 0.",
                          image_source
                                  ->ElementSize(default_object_size,
-                                               RespectImageOrientation())
+                                               RespectImageOrientationInternal(
+                                                   image_source))
                                  .Width()
                              ? "height"
                              : "width"));
@@ -1504,7 +1536,7 @@ bool BaseRenderingContext2D::ComputeDirtyRect(
     const FloatRect& local_rect,
     const SkIRect& transformed_clip_bounds,
     SkIRect* dirty_rect) {
-  FloatRect canvas_rect = GetState().Transform().MapRect(local_rect);
+  FloatRect canvas_rect = GetState().GetTransform().MapRect(local_rect);
 
   if (AlphaChannel(GetState().ShadowColor())) {
     FloatRect shadow_rect(canvas_rect);
@@ -1818,7 +1850,8 @@ void BaseRenderingContext2D::putImageData(ImageData* data,
            .AssignIfValid(&data_length))
     return;
 
-  if (data_color_params.NeedsColorConversion(context_color_params) ||
+  if (data_color_params.ColorSpace() != context_color_params.ColorSpace() ||
+      data_color_params.PixelFormat() != context_color_params.PixelFormat() ||
       PixelFormat() == CanvasPixelFormat::kF16) {
     std::unique_ptr<uint8_t[]> converted_pixels(new uint8_t[data_length]);
     if (data->ImageDataInCanvasColorSettings(
@@ -1898,17 +1931,11 @@ void BaseRenderingContext2D::PutByteArray(const unsigned char* source,
     alpha_type = kUnpremul_SkAlphaType;
   }
 
-  SkImageInfo info;
-  if (ColorParams().GetSkColorSpaceForSkSurfaces()) {
-    info = SkImageInfo::Make(source_rect.Width(), source_rect.Height(),
-                             ColorParams().GetSkColorType(), alpha_type,
-                             ColorParams().GetSkColorSpaceForSkSurfaces());
-    if (info.colorType() == kN32_SkColorType)
-      info = info.makeColorType(kRGBA_8888_SkColorType);
-  } else {
-    info = SkImageInfo::Make(source_rect.Width(), source_rect.Height(),
-                             kRGBA_8888_SkColorType, alpha_type);
-  }
+  SkImageInfo info = SkImageInfo::Make(
+      source_rect.Width(), source_rect.Height(), ColorParams().GetSkColorType(),
+      alpha_type, ColorParams().GetSkColorSpace());
+  if (info.colorType() == kN32_SkColorType)
+    info = info.makeColorType(kRGBA_8888_SkColorType);
   WritePixels(info, src_addr, src_bytes_per_row, dest_x, dest_y);
 }
 
@@ -2012,6 +2039,18 @@ void BaseRenderingContext2D::CheckOverdraw(
   WillOverwriteCanvas();
 }
 
+double BaseRenderingContext2D::textLetterSpacing() const {
+  return GetState().GetTextLetterSpacing();
+}
+
+double BaseRenderingContext2D::textWordSpacing() const {
+  return GetState().GetTextWordSpacing();
+}
+
+String BaseRenderingContext2D::textRendering() const {
+  return ToString(GetState().GetTextRendering());
+}
+
 float BaseRenderingContext2D::GetFontBaseline(
     const SimpleFontData& font_data) const {
   return TextMetrics::GetFontBaseline(GetState().GetTextBaseline(), font_data);
@@ -2045,6 +2084,14 @@ void BaseRenderingContext2D::setTextBaseline(const String& s) {
   if (GetState().GetTextBaseline() == baseline)
     return;
   ModifiableState().SetTextBaseline(baseline);
+}
+
+String BaseRenderingContext2D::fontKerning() const {
+  return FontDescription::ToString(GetState().GetFontKerning());
+}
+
+String BaseRenderingContext2D::fontVariantCaps() const {
+  return FontDescription::ToString(GetState().GetFontVariantCaps());
 }
 
 void BaseRenderingContext2D::Trace(Visitor* visitor) const {

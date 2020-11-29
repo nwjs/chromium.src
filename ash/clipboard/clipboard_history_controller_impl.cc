@@ -7,10 +7,10 @@
 #include <memory>
 
 #include "ash/accelerators/accelerator_controller_impl.h"
-#include "ash/clipboard/clipboard_history.h"
 #include "ash/clipboard/clipboard_history_menu_model_adapter.h"
 #include "ash/clipboard/clipboard_history_resource_manager.h"
 #include "ash/clipboard/clipboard_history_util.h"
+#include "ash/clipboard/clipboard_nudge_controller.h"
 #include "ash/public/cpp/window_tree_host_lookup.h"
 #include "ash/resources/vector_icons/vector_icons.h"
 #include "ash/shell.h"
@@ -22,8 +22,8 @@
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/clipboard/clipboard_constants.h"
 #include "ui/base/clipboard/clipboard_data.h"
-#include "ui/base/clipboard/clipboard_data_endpoint.h"
 #include "ui/base/clipboard/clipboard_non_backed.h"
+#include "ui/base/data_transfer_policy/data_transfer_endpoint.h"
 #include "ui/base/ime/input_method.h"
 #include "ui/base/ime/text_input_client.h"
 #include "ui/base/models/image_model.h"
@@ -60,12 +60,16 @@ bool IsRectContainedByAnyDisplay(const gfx::Rect& rect) {
 }
 
 void SendSyntheticKeyEvent(ui::KeyboardCode key_code, int flags) {
-  ui::KeyEvent synthetic_key_event(/*type=*/ui::ET_KEY_PRESSED, key_code,
-                                   /*code=*/static_cast<ui::DomCode>(0), flags);
+  ui::KeyEvent key_pressed(/*type=*/ui::ET_KEY_PRESSED, key_code,
+                           /*code=*/static_cast<ui::DomCode>(0), flags);
   auto* host = GetWindowTreeHostForDisplay(
-      display::Screen::GetScreen()->GetPrimaryDisplay().id());
+      display::Screen::GetScreen()->GetDisplayForNewWindows().id());
   DCHECK(host);
-  host->DeliverEventToSink(&synthetic_key_event);
+  host->DeliverEventToSink(&key_pressed);
+
+  ui::KeyEvent key_released(/*type=*/ui::ET_KEY_RELEASED, key_code,
+                            /*code=*/static_cast<ui::DomCode>(0), flags);
+  host->DeliverEventToSink(&key_released);
 }
 
 }  // namespace
@@ -77,44 +81,51 @@ class ClipboardHistoryControllerImpl::AcceleratorTarget
  public:
   explicit AcceleratorTarget(ClipboardHistoryControllerImpl* controller)
       : controller_(controller),
-        show_menu_combo_(
-            ui::Accelerator(/*key_code=*/ui::VKEY_V,
-                            /*modifiers=*/ui::EF_COMMAND_DOWN,
-                            /*key_state=*/ui::Accelerator::KeyState::PRESSED)),
         delete_selected_(ui::Accelerator(
             /*key_code=*/ui::VKEY_BACK,
             /*modifiers=*/ui::EF_NONE,
+            /*key_state=*/ui::Accelerator::KeyState::PRESSED)),
+        tab_navigation_(ui::Accelerator(
+            /*key_code=*/ui::VKEY_TAB,
+            /*modifiers=*/ui::EF_NONE,
+            /*key_state=*/ui::Accelerator::KeyState::PRESSED)),
+        shift_tab_navigation_(ui::Accelerator(
+            /*key_code=*/ui::VKEY_TAB,
+            /*modifiers=*/ui::EF_SHIFT_DOWN,
             /*key_state=*/ui::Accelerator::KeyState::PRESSED)) {}
   AcceleratorTarget(const AcceleratorTarget&) = delete;
   AcceleratorTarget& operator=(const AcceleratorTarget&) = delete;
   ~AcceleratorTarget() override = default;
 
-  void Init() {
-    // Register, but no need to unregister because this outlives
-    // AcceleratorController.
-    Shell::Get()->accelerator_controller()->Register(
-        {show_menu_combo_}, /*accelerator_target=*/this);
-  }
-
   void OnMenuShown() {
     Shell::Get()->accelerator_controller()->Register(
-        {delete_selected_}, /*accelerator_target=*/this);
+        {delete_selected_, tab_navigation_, shift_tab_navigation_},
+        /*accelerator_target=*/this);
   }
 
   void OnMenuClosed() {
     Shell::Get()->accelerator_controller()->Unregister(
-        {delete_selected_}, /*accelerator_target=*/this);
+        delete_selected_, /*accelerator_target=*/this);
+    Shell::Get()->accelerator_controller()->Unregister(
+        tab_navigation_, /*accelerator_target=*/this);
+    Shell::Get()->accelerator_controller()->Unregister(
+        shift_tab_navigation_, /*accelerator_target=*/this);
   }
 
  private:
   // ui::AcceleratorTarget:
   bool AcceleratorPressed(const ui::Accelerator& accelerator) override {
-    DCHECK(accelerator == show_menu_combo_ || accelerator == delete_selected_);
+    if (accelerator == delete_selected_) {
+      HandleDeleteSelected(accelerator.modifiers());
+    } else if (accelerator == tab_navigation_) {
+      HandleTab();
+    } else if (accelerator == shift_tab_navigation_) {
+      HandleShiftTab();
+    } else {
+      NOTREACHED();
+      return false;
+    }
 
-    if (accelerator == show_menu_combo_)
-      HandleShowMenuCombo();
-    else
-      HandleDeleteSelected();
     return true;
   }
 
@@ -122,27 +133,34 @@ class ClipboardHistoryControllerImpl::AcceleratorTarget
     return controller_->IsMenuShowing() || controller_->CanShowMenu();
   }
 
-  void HandleShowMenuCombo() {
-    if (controller_->IsMenuShowing())
-      controller_->ExecuteSelectedMenuItem(show_menu_combo_.modifiers());
-    else
-      controller_->ShowMenuByAccelerator();
+  void HandleDeleteSelected(int event_flags) {
+    DCHECK(controller_->IsMenuShowing());
+    controller_->ExecuteCommand(ClipboardHistoryUtil::kDeleteCommandId,
+                                event_flags);
   }
 
-  void HandleDeleteSelected() {
+  void HandleTab() {
     DCHECK(controller_->IsMenuShowing());
-    controller_->DeleteSelectedMenuItemIfAny();
+    controller_->AdvancePseudoFocus(/*reverse=*/false);
+  }
+
+  void HandleShiftTab() {
+    DCHECK(controller_->IsMenuShowing());
+    controller_->AdvancePseudoFocus(/*reverse=*/true);
   }
 
   // The controller responsible for showing the Clipboard History menu.
   ClipboardHistoryControllerImpl* const controller_;
 
-  // The accelerator to show the menu or execute the selected menu item.
-  const ui::Accelerator show_menu_combo_;
-
   // The accelerator to delete the selected menu item. It is only registered
   // while the menu is showing.
   const ui::Accelerator delete_selected_;
+
+  // Move the pseudo focus forward.
+  const ui::Accelerator tab_navigation_;
+
+  // Moves the pseudo focus backward.
+  const ui::Accelerator shift_tab_navigation_;
 };
 
 // ClipboardHistoryControllerImpl::MenuDelegate --------------------------------
@@ -157,12 +175,7 @@ class ClipboardHistoryControllerImpl::MenuDelegate
 
   // ui::SimpleMenuModel::Delegate:
   void ExecuteCommand(int command_id, int event_flags) override {
-    if (command_id == ClipboardHistoryUtil::kDeleteCommandId) {
-      controller_->DeleteSelectedMenuItemIfAny();
-      return;
-    }
-
-    controller_->MenuOptionSelected(command_id, event_flags);
+    controller_->ExecuteCommand(command_id, event_flags);
   }
 
  private:
@@ -178,17 +191,35 @@ ClipboardHistoryControllerImpl::ClipboardHistoryControllerImpl()
           clipboard_history_.get())),
       accelerator_target_(std::make_unique<AcceleratorTarget>(this)),
       menu_delegate_(std::make_unique<MenuDelegate>(this)),
-      nudge_controller_(std::make_unique<ClipboardNudgeController>(
-          clipboard_history_.get())) {}
+      nudge_controller_(
+          std::make_unique<ClipboardNudgeController>(clipboard_history_.get(),
+                                                     this)) {
+  clipboard_history_->AddObserver(this);
+}
 
-ClipboardHistoryControllerImpl::~ClipboardHistoryControllerImpl() = default;
+ClipboardHistoryControllerImpl::~ClipboardHistoryControllerImpl() {
+  clipboard_history_->RemoveObserver(this);
+}
 
-void ClipboardHistoryControllerImpl::Init() {
-  accelerator_target_->Init();
+void ClipboardHistoryControllerImpl::AddObserver(Observer* observer) const {
+  observers_.AddObserver(observer);
+}
+
+void ClipboardHistoryControllerImpl::RemoveObserver(Observer* observer) const {
+  observers_.RemoveObserver(observer);
 }
 
 bool ClipboardHistoryControllerImpl::IsMenuShowing() const {
   return context_menu_ && context_menu_->IsRunning();
+}
+
+void ClipboardHistoryControllerImpl::ShowMenuByAccelerator() {
+  if (IsMenuShowing()) {
+    ExecuteSelectedMenuItem(ui::EF_COMMAND_DOWN);
+    return;
+  }
+  ShowMenu(CalculateAnchorRect(), views::MenuAnchorPosition::kBubbleRight,
+           ui::MENU_SOURCE_KEYBOARD);
 }
 
 gfx::Rect ClipboardHistoryControllerImpl::GetMenuBoundsInScreenForTest() const {
@@ -218,11 +249,12 @@ void ClipboardHistoryControllerImpl::ShowMenu(
   DCHECK(IsMenuShowing());
   accelerator_target_->OnMenuShown();
 
-  // Send the synthetic key event to let the menu controller select the first
-  // menu item after showing the clipboard history menu. Note that calling
-  // `MenuItemView::SetSelected()` directly cannot update the menu controller
-  // so it does not work here.
-  SendSyntheticKeyEvent(ui::VKEY_DOWN, ui::EF_NONE);
+  // The first menu item should be selected as default after the clipboard
+  // history menu shows.
+  context_menu_->SelectMenuItemWithCommandId(
+      ClipboardHistoryUtil::kFirstItemCommandId);
+  for (auto& observer : observers_)
+    observer.OnClipboardHistoryMenuShown();
 }
 
 bool ClipboardHistoryControllerImpl::CanShowMenu() const {
@@ -230,8 +262,19 @@ bool ClipboardHistoryControllerImpl::CanShowMenu() const {
          clipboard_history_->IsEnabledInCurrentMode();
 }
 
+void ClipboardHistoryControllerImpl::OnClipboardHistoryCleared() {
+  // Prevent clipboard contents getting restored if the Clipboard is cleared
+  // soon after a `PasteMenuItemData()`.
+  weak_ptr_factory_.InvalidateWeakPtrs();
+  if (!IsMenuShowing())
+    return;
+  context_menu_->Cancel();
+  context_menu_.reset();
+}
+
 void ClipboardHistoryControllerImpl::ExecuteSelectedMenuItem(int event_flags) {
   DCHECK(IsMenuShowing());
+
   auto command = context_menu_->GetSelectedMenuItemCommand();
 
   // If no menu item is currently selected, we'll fallback to the first item.
@@ -239,13 +282,21 @@ void ClipboardHistoryControllerImpl::ExecuteSelectedMenuItem(int event_flags) {
       command.value_or(ClipboardHistoryUtil::kFirstItemCommandId), event_flags);
 }
 
-void ClipboardHistoryControllerImpl::ShowMenuByAccelerator() {
-  ShowMenu(CalculateAnchorRect(), views::MenuAnchorPosition::kBubbleRight,
-           ui::MENU_SOURCE_KEYBOARD);
+void ClipboardHistoryControllerImpl::ExecuteCommand(int command_id,
+                                                    int event_flags) {
+  DCHECK(context_menu_);
+
+  if (command_id == ClipboardHistoryUtil::kDeleteCommandId) {
+    DeleteSelectedMenuItemIfAny();
+    return;
+  }
+
+  DCHECK_GE(command_id, ClipboardHistoryUtil::kFirstItemCommandId);
+  PasteMenuItemData(command_id, event_flags & ui::EF_SHIFT_DOWN);
 }
 
-void ClipboardHistoryControllerImpl::MenuOptionSelected(int command_id,
-                                                        int event_flags) {
+void ClipboardHistoryControllerImpl::PasteMenuItemData(int command_id,
+                                                       bool paste_plain_text) {
   UMA_HISTOGRAM_ENUMERATION(
       "Ash.ClipboardHistory.ContextMenu.MenuOptionSelected", command_id,
       ClipboardHistoryUtil::kMaxCommandId);
@@ -262,19 +313,18 @@ void ClipboardHistoryControllerImpl::MenuOptionSelected(int command_id,
 
   // If necessary, replace the clipboard's |original_data| temporarily so that
   // we can paste the selected history item.
-  const bool shift_key_pressed = event_flags & ui::EF_SHIFT_DOWN;
-  ui::ClipboardDataEndpoint data_dst(ui::EndpointType::kClipboardHistory);
-  if (shift_key_pressed ||
+  ui::DataTransferEndpoint data_dst(ui::EndpointType::kClipboardHistory);
+  if (paste_plain_text ||
       selected_item.data() != *clipboard->GetClipboardData(&data_dst)) {
     std::unique_ptr<ui::ClipboardData> temp_data;
-    if (shift_key_pressed) {
+    if (paste_plain_text) {
       // When the shift key is pressed, we only paste plain text.
       temp_data = std::make_unique<ui::ClipboardData>();
       temp_data->set_text(selected_item.data().text());
-      ui::ClipboardDataEndpoint* data_src = selected_item.data().source();
+      ui::DataTransferEndpoint* data_src = selected_item.data().source();
       if (data_src) {
         temp_data->set_source(
-            std::make_unique<ui::ClipboardDataEndpoint>(*data_src));
+            std::make_unique<ui::DataTransferEndpoint>(*data_src));
       }
     } else {
       temp_data = std::make_unique<ui::ClipboardData>(selected_item.data());
@@ -286,6 +336,9 @@ void ClipboardHistoryControllerImpl::MenuOptionSelected(int command_id,
   }
 
   SendSyntheticKeyEvent(ui::VKEY_V, ui::EF_CONTROL_DOWN);
+
+  for (auto& observer : observers_)
+    observer.OnClipboardHistoryPasted();
 
   if (!original_data)
     return;
@@ -343,21 +396,12 @@ void ClipboardHistoryControllerImpl::DeleteSelectedMenuItemIfAny() {
     return;
   }
 
-  using SelectionMoveDirection =
-      ClipboardHistoryMenuModelAdapter::SelectionMoveDirection;
-  SelectionMoveDirection move_direction =
-      context_menu_->CalculateSelectionMoveAfterDeletion(*selected_command);
+  context_menu_->RemoveSelectedMenuItem();
+}
 
-  context_menu_->RemoveMenuItemWithCommandId(*selected_command);
-
-  // Select a new menu item.
-  switch (move_direction) {
-    case SelectionMoveDirection::kPrevious:
-      SendSyntheticKeyEvent(ui::VKEY_UP, ui::EF_NONE);
-      break;
-    case SelectionMoveDirection::kNext:
-      SendSyntheticKeyEvent(ui::VKEY_DOWN, ui::EF_NONE);
-  }
+void ClipboardHistoryControllerImpl::AdvancePseudoFocus(bool reverse) {
+  DCHECK(context_menu_);
+  context_menu_->AdvancePseudoFocus(reverse);
 }
 
 gfx::Rect ClipboardHistoryControllerImpl::CalculateAnchorRect() const {

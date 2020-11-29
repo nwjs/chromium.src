@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.autofill_assistant;
 
+import static org.chromium.chrome.browser.autofill_assistant.AutofillAssistantArguments.PARAMETER_REQUEST_TRIGGER_SCRIPT;
+import static org.chromium.chrome.browser.autofill_assistant.AutofillAssistantArguments.PARAMETER_STARTED_WITH_TRIGGER_SCRIPT;
 import static org.chromium.chrome.browser.autofill_assistant.AutofillAssistantArguments.PARAMETER_TRIGGER_FIRST_TIME_USER;
 import static org.chromium.chrome.browser.autofill_assistant.AutofillAssistantArguments.PARAMETER_TRIGGER_RETURNING_TIME_USER;
 import static org.chromium.chrome.browser.autofill_assistant.AutofillAssistantArguments.PARAMETER_TRIGGER_SCRIPT_USED;
@@ -17,14 +19,17 @@ import androidx.annotation.Nullable;
 import org.chromium.base.Callback;
 import org.chromium.base.annotations.UsedByReflection;
 import org.chromium.chrome.browser.ActivityTabProvider;
+import org.chromium.chrome.browser.autofill_assistant.metrics.LiteScriptFinishedState;
 import org.chromium.chrome.browser.autofill_assistant.metrics.LiteScriptOnboarding;
 import org.chromium.chrome.browser.autofill_assistant.metrics.LiteScriptStarted;
 import org.chromium.chrome.browser.autofill_assistant.metrics.OnBoarding;
+import org.chromium.chrome.browser.autofill_assistant.trigger_scripts.AssistantTriggerScriptBridge;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
 import org.chromium.chrome.browser.signin.UnifiedConsentServiceBridge;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.content_public.browser.WebContents;
+import org.chromium.ui.base.ActivityKeyboardVisibilityDelegate;
 
 import java.util.Map;
 
@@ -37,10 +42,11 @@ public class AutofillAssistantModuleEntryImpl implements AutofillAssistantModule
     @Override
     public void start(BottomSheetController bottomSheetController,
             BrowserControlsStateProvider browserControls, CompositorViewHolder compositorViewHolder,
-            Context context, @NonNull WebContents webContents, boolean skipOnboarding,
+            Context context, @NonNull WebContents webContents,
+            ActivityKeyboardVisibilityDelegate keyboardVisibilityDelegate, boolean skipOnboarding,
             boolean isChromeCustomTab, @NonNull String initialUrl, Map<String, String> parameters,
             String experimentIds, @Nullable String callerAccount, @Nullable String userName) {
-        if (!TextUtils.isEmpty(parameters.get(PARAMETER_TRIGGER_FIRST_TIME_USER))) {
+        if (shouldStartTriggerScript(parameters)) {
             if (!UnifiedConsentServiceBridge.isUrlKeyedAnonymizedDataCollectionEnabled(
                         AutofillAssistantUiController.getProfile())) {
                 // Opt-out users who have disabled anonymous data collection.
@@ -49,11 +55,37 @@ public class AutofillAssistantModuleEntryImpl implements AutofillAssistantModule
 
             boolean isFirstTimeUser =
                     AutofillAssistantPreferencesUtil.isAutofillAssistantFirstTimeLiteScriptUser();
-            String firstTimeUserScriptPath = parameters.get(PARAMETER_TRIGGER_FIRST_TIME_USER);
-            String returningUserScriptPath = parameters.get(PARAMETER_TRIGGER_RETURNING_TIME_USER);
             AutofillAssistantMetrics.recordLiteScriptStarted(webContents,
                     isFirstTimeUser ? LiteScriptStarted.LITE_SCRIPT_FIRST_TIME_USER
                                     : LiteScriptStarted.LITE_SCRIPT_RETURNING_USER);
+
+            // Start trigger script and transition to regular flow on success.
+            if (TextUtils.equals(parameters.get(PARAMETER_REQUEST_TRIGGER_SCRIPT), "true")) {
+                AssistantTriggerScriptBridge triggerScriptBridge =
+                        new AssistantTriggerScriptBridge();
+                triggerScriptBridge.start(bottomSheetController, context,
+                        keyboardVisibilityDelegate, webContents, initialUrl, parameters,
+                        experimentIds, new AssistantTriggerScriptBridge.Delegate() {
+                            @Override
+                            public void onTriggerScriptFinished(
+                                    @LiteScriptFinishedState int finishedState) {
+                                if (finishedState
+                                        == LiteScriptFinishedState.LITE_SCRIPT_PROMPT_SUCCEEDED) {
+                                    parameters.put(PARAMETER_STARTED_WITH_TRIGGER_SCRIPT, "true");
+                                    startAutofillAssistantRegular(bottomSheetController,
+                                            browserControls, compositorViewHolder, context,
+                                            webContents, skipOnboarding, isChromeCustomTab,
+                                            initialUrl, parameters, experimentIds, callerAccount,
+                                            userName);
+                                }
+                            }
+                        });
+                return;
+            }
+
+            // Legacy lite scripts, remove as soon as possible.
+            String firstTimeUserScriptPath = parameters.get(PARAMETER_TRIGGER_FIRST_TIME_USER);
+            String returningUserScriptPath = parameters.get(PARAMETER_TRIGGER_RETURNING_TIME_USER);
             startAutofillAssistantLite(bottomSheetController, browserControls, compositorViewHolder,
                     webContents, firstTimeUserScriptPath, returningUserScriptPath, result -> {
                         if (result) {
@@ -75,6 +107,11 @@ public class AutofillAssistantModuleEntryImpl implements AutofillAssistantModule
                 experimentIds, callerAccount, userName);
     }
 
+    /** Whether {@code parameters} indicate that a trigger script should be started. */
+    private boolean shouldStartTriggerScript(Map<String, String> parameters) {
+        return !TextUtils.isEmpty(parameters.get(PARAMETER_TRIGGER_FIRST_TIME_USER))
+                || TextUtils.equals(parameters.get(PARAMETER_REQUEST_TRIGGER_SCRIPT), "true");
+    }
     /**
      * Starts a 'lite' autofill assistant script in the background. Does not show the onboarding.
      * Does not have access to any information aside from the trigger script paths. Calls {@code
@@ -100,7 +137,8 @@ public class AutofillAssistantModuleEntryImpl implements AutofillAssistantModule
             boolean isChromeCustomTab, @NonNull String initialUrl, Map<String, String> parameters,
             String experimentIds, @Nullable String callerAccount, @Nullable String userName) {
         if (skipOnboarding) {
-            if (parameters.containsKey(PARAMETER_TRIGGER_SCRIPT_USED)) {
+            if (parameters.containsKey(PARAMETER_TRIGGER_SCRIPT_USED)
+                    || parameters.containsKey(PARAMETER_STARTED_WITH_TRIGGER_SCRIPT)) {
                 AutofillAssistantMetrics.recordLiteScriptOnboarding(
                         webContents, LiteScriptOnboarding.LITE_SCRIPT_ONBOARDING_ALREADY_ACCEPTED);
             }
@@ -116,7 +154,8 @@ public class AutofillAssistantModuleEntryImpl implements AutofillAssistantModule
                 experimentIds, parameters, context, bottomSheetController, browserControls,
                 compositorViewHolder, bottomSheetController.getScrimCoordinator());
         onboardingCoordinator.show(accepted -> {
-            if (parameters.containsKey(PARAMETER_TRIGGER_SCRIPT_USED)) {
+            if (parameters.containsKey(PARAMETER_TRIGGER_SCRIPT_USED)
+                    || parameters.containsKey(PARAMETER_STARTED_WITH_TRIGGER_SCRIPT)) {
                 AutofillAssistantMetrics.recordLiteScriptOnboarding(webContents,
                         accepted ? LiteScriptOnboarding.LITE_SCRIPT_ONBOARDING_SEEN_AND_ACCEPTED
                                  : LiteScriptOnboarding.LITE_SCRIPT_ONBOARDING_SEEN_AND_REJECTED);

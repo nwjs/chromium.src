@@ -68,6 +68,7 @@
 <translation id="1383876407941801731">جستجو</translation>
 <translation id="1396114365388024581">tablst</translation>
 <translation id="1405567553485452995">سبز روشن</translation>
+<translation id="141454040365657399">سرصفحه</translation>
 <translation id="1417889266572670458">آبی سورمه‌ای</translation>
 <translation id="1431911867058218151">بنفش کدر</translation>
 <translation id="1439316808600711881">rgn</translation>
@@ -346,8 +347,8 @@
 <translation id="352577523970648069">فیلد نوشتاری قابل ویرایش</translation>
 <translation id="3538907380453898475">فهرست شرح</translation>
 <translation id="3549141990712742152"><ph name="TEXT" /> را ببرید.</translation>
-<translation id="3549680091535286226">برای توقف موقتی گفتار، با دو انگشت ضربه بزنید</translation>
 <translation id="3564729643041517261">سبک نمایش کنونی، پهلوبه‌پهلو است</translation>
+<translation id="3573145950452451508">پاصفحه</translation>
 <translation id="3587482841069643663">همه</translation>
 <translation id="3589661172894441357">واژه‌نامه</translation>
 <translation id="3591784666823501596">آبی سلطنتی</translation>
@@ -454,6 +455,7 @@
 <translation id="4402014469255336455">آبی آسمانی پررنگ</translation>
 <translation id="4406249099130339147">بازگویی علائم سجاوندی</translation>
 <translation id="4432457053224379116">جگری</translation>
+<translation id="4432896207833262240">محتوای علامت‌دار</translation>
 <translation id="4437615272777527928">برای جستجو در منوها، تایپ کنید. برای جابه‌جایی بین نتایج از پیکان‌های بالا و پایین استفاده کنید. برای تنظیم کردن هشتک نوشتار و حرکت کردن بین منوها از پیکان‌های چپ و راست استفاده کنید.</translation>
 <translation id="4457472090507035117">انتخاب صدای فعلی:</translation>
 <translation id="4476183483923481720">خط جدید</translation>
@@ -592,6 +594,7 @@
 <translation id="5561345396546889625">فهرست بعدی</translation>
 <translation id="5562645715554321347">hdnggrp</translation>
 <translation id="5574412348552378458">‏حالت یادگیری ChromeVox</translation>
+<translation id="5582839680698949063">منوی اصلی</translation>
 <translation id="5585044216466955529">ویرایش نوشتار، ورودی ایمیل</translation>
 <translation id="5597170376237141345">کادر انتخاب بعدی</translation>
 <translation id="5598905979683743333"><ph name="NAME" />، دکمه رادیویی انتخاب نشد</translation>
@@ -825,7 +828,6 @@
 <translation id="7491962110804786152">برگه</translation>
 <translation id="7492497529767769458">به بخش بعدی بروید. نمونه‌ها شامل «سینی وضعیت» و «راه‌انداز» می‌شود.</translation>
 <translation id="7505149250476994901">‏گفتن «cap» (حرف بزرگ) قبل از حرف</translation>
-<translation id="7518543783849163354">‏برای توقف موقت صدای ChromeVox، کلید Control را فشار دهید.</translation>
 <translation id="7533226154149229506">لیمویی روشن</translation>
 <translation id="7543255924852002459">برچسب صرف‌نظر کردن</translation>
 <translation id="7552432549459840808">‏میان‌برهای مفید Chrome</translation>

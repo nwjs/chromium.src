@@ -27,7 +27,7 @@ std::vector<TutorialGroup> CreateSampleGroups(
   std::vector<TutorialGroup> groups;
   for (const auto& locale : locales) {
     TutorialGroup group;
-    group.language.locale = locale;
+    group.language = locale;
     group.tutorials.emplace_back(Tutorial());
     group.tutorials.emplace_back(Tutorial());
     groups.emplace_back(group);
@@ -63,7 +63,7 @@ class TestStore : public Store<TutorialGroup> {
         entries->emplace_back(group);
       } else {
         for (auto& key : keys) {
-          if (key == group.language.locale) {
+          if (key == group.language) {
             entries->emplace_back(group);
           }
         }
@@ -132,12 +132,8 @@ class TutorialManagerTest : public testing::Test {
   }
 
   void SaveGroups(std::unique_ptr<std::vector<TutorialGroup>> groups) {
-    base::RunLoop loop;
-    manager()->SaveGroups(
-        std::move(groups),
-        base::BindOnce(&TutorialManagerTest::OnComplete, base::Unretained(this),
-                       loop.QuitClosure()));
-    loop.Run();
+    manager()->SaveGroups(std::move(groups));
+    base::RunLoop().RunUntilIdle();
   }
 
  protected:
@@ -161,6 +157,7 @@ TEST_F(TutorialManagerTest, InitAndGetTutorials) {
 
   auto languages = manager()->GetSupportedLanguages();
   EXPECT_EQ(languages.size(), 2u);
+  manager()->SetPreferredLocale("hi");
   GetTutorials();
   EXPECT_EQ(last_results().size(), 2u);
 }
@@ -171,6 +168,7 @@ TEST_F(TutorialManagerTest, SaveNewData) {
   tutorial_store->InitStoreData("hi", groups);
   CreateTutorialManager(std::move(tutorial_store));
 
+  manager()->SetPreferredLocale("hi");
   auto languages = manager()->GetSupportedLanguages();
   EXPECT_EQ(languages.size(), 2u);
   GetTutorials();

@@ -31,6 +31,12 @@ namespace {
 using testing::IsSupersetOf;
 using testing::Key;
 
+uint64_t HashFeature(const blink::mojom::WebFeature& feature) {
+  return blink::IdentifiableSurface::FromTypeAndToken(
+             blink::IdentifiableSurface::Type::kWebFeature, feature)
+      .ToUkmMetricHash();
+}
+
 // This test runs on Android as well as desktop platforms.
 class PrivacyBudgetBrowserTest : public PlatformBrowserTest {
  public:
@@ -96,22 +102,23 @@ IN_PROC_BROWSER_TEST_F(PrivacyBudgetBrowserTest, SamplingScreenAPIs) {
   // Shouldn't be more than one source here. If this changes, then we'd need to
   // adjust this test to deal.
   ASSERT_EQ(1u, merged_entries.size());
-  const auto& metrics = merged_entries.begin()->second->metrics;
 
   // All of the following features should be included in the list of returned
   // metrics here. The exact values depend on the test host.
-  for (auto feature :
-       {blink::mojom::WebFeature::kV8Screen_Height_AttributeGetter,
-        blink::mojom::WebFeature::kV8Screen_Width_AttributeGetter,
-        blink::mojom::WebFeature::kV8Screen_AvailLeft_AttributeGetter,
-        blink::mojom::WebFeature::kV8Screen_AvailTop_AttributeGetter,
-        blink::mojom::WebFeature::kV8Screen_AvailWidth_AttributeGetter,
-        blink::mojom::WebFeature::kV8Screen_Height_AttributeGetter}) {
-    EXPECT_TRUE(metrics.contains(
-        blink::IdentifiableSurface::FromTypeAndToken(
-            blink::IdentifiableSurface::Type::kWebFeature, feature)
-            .ToUkmMetricHash()));
-  }
+  EXPECT_THAT(
+      merged_entries.begin()->second->metrics,
+      IsSupersetOf({
+          Key(HashFeature(
+              blink::mojom::WebFeature::kV8Screen_Height_AttributeGetter)),
+          Key(HashFeature(
+              blink::mojom::WebFeature::kV8Screen_Width_AttributeGetter)),
+          Key(HashFeature(
+              blink::mojom::WebFeature::kV8Screen_AvailLeft_AttributeGetter)),
+          Key(HashFeature(
+              blink::mojom::WebFeature::kV8Screen_AvailTop_AttributeGetter)),
+          Key(HashFeature(
+              blink::mojom::WebFeature::kV8Screen_AvailWidth_AttributeGetter)),
+      }));
 }
 
 IN_PROC_BROWSER_TEST_F(PrivacyBudgetBrowserTest, CallsCanvasToBlob) {

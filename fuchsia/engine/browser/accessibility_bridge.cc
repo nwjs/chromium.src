@@ -11,6 +11,7 @@
 
 #include "base/fuchsia/fuchsia_logging.h"
 #include "base/logging.h"
+#include "content/public/browser/render_widget_host_view.h"
 #include "fuchsia/engine/browser/ax_tree_converter.h"
 #include "ui/accessibility/ax_action_data.h"
 #include "ui/gfx/geometry/rect_conversions.h"
@@ -171,8 +172,9 @@ void AccessibilityBridge::HitTest(fuchsia::math::PointF local_point,
   ui::AXActionData action_data;
   action_data.action = ax::mojom::Action::kHitTest;
   gfx::Point point;
-  point.set_x(local_point.x);
-  point.set_y(local_point.y);
+  float device_scale_factor = GetDeviceScaleFactor();
+  point.set_x(local_point.x * device_scale_factor);
+  point.set_y(local_point.y * device_scale_factor);
   action_data.target_point = point;
   action_data.hit_test_event_to_fire = ax::mojom::Event::kHitTestResult;
   pending_hit_test_callbacks_[action_data.request_id] = std::move(callback);
@@ -227,9 +229,8 @@ void AccessibilityBridge::OnAtomicUpdateFinished(
   // deleted are already gone, which means that all updates collected here in
   // |to_update_| are going to be executed after |to_delete_|.
   for (const ui::AXTreeObserver::Change& change : changes) {
-    ui::AXNodeData ax_data = change.node->data();
-    ax_data.id = ConvertToFuchsiaNodeId(change.node->id(), root_id_);
-    to_update_.push_back(AXNodeDataToSemanticNode(ax_data));
+    to_update_.push_back(
+        AXNodeDataToSemanticNode(change.node->data(), root_id_));
   }
   // TODO(https://crbug.com/1134737): Separate updates of atomic updates and
   // don't allow all of them to be in the same commit.
@@ -244,4 +245,11 @@ void AccessibilityBridge::InterruptPendingActions() {
     callback.second(std::move(hit));
   }
   pending_hit_test_callbacks_.clear();
+}
+
+float AccessibilityBridge::GetDeviceScaleFactor() {
+  if (device_scale_factor_override_for_test_) {
+    return *device_scale_factor_override_for_test_;
+  }
+  return web_contents_->GetRenderWidgetHostView()->GetDeviceScaleFactor();
 }

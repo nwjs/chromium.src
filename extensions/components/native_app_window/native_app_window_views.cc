@@ -89,6 +89,10 @@ void NativeAppWindowViews::Init(
   }
 #endif
 
+  SetCanMinimize(!app_window_->show_on_lock_screen());
+  SetCanMaximize(CanMaximizeWindow());
+  SetCanResize(CanResizeWindow());
+
   widget_ = new views::Widget;
   widget_->AddObserver(this);
   InitializeWindow(app_window, create_params);
@@ -233,20 +237,6 @@ void NativeAppWindowViews::OnWidgetMove() {
 
 views::View* NativeAppWindowViews::GetInitiallyFocusedView() {
   return web_view_;
-}
-
-bool NativeAppWindowViews::CanResize() const {
-  return resizable_ && !size_constraints_.HasFixedSize() &&
-         !WidgetHasHitTestMask();
-}
-
-bool NativeAppWindowViews::CanMaximize() const {
-  return resizable_ && !size_constraints_.HasMaximumSize() &&
-         !WidgetHasHitTestMask();
-}
-
-bool NativeAppWindowViews::CanMinimize() const {
-  return !app_window_->show_on_lock_screen();
 }
 
 base::string16 NativeAppWindowViews::GetWindowTitle() const {
@@ -498,7 +488,12 @@ void NativeAppWindowViews::SetContentSizeConstraints(
     const gfx::Size& max_size) {
   size_constraints_.set_minimum_size(min_size);
   size_constraints_.set_maximum_size(max_size);
+
+  SetCanMaximize(CanMaximizeWindow());
+  SetCanResize(CanResizeWindow());
+
   saved_size_constraints_ = size_constraints_;
+
   widget_->OnSizeConstraintsChanged();
 }
 
@@ -535,9 +530,24 @@ void NativeAppWindowViews::RemoveObserver(
   observer_list_.RemoveObserver(observer);
 }
 
+void NativeAppWindowViews::OnWidgetHasHitTestMaskChanged() {
+  SetCanMaximize(CanMaximizeWindow());
+  SetCanResize(CanResizeWindow());
+}
+
 void NativeAppWindowViews::OnViewWasResized() {
   for (auto& observer : observer_list_)
     observer.OnPositionRequiresUpdate();
+}
+
+bool NativeAppWindowViews::CanResizeWindow() const {
+  return resizable_ && !size_constraints_.HasFixedSize() &&
+         !WidgetHasHitTestMask();
+}
+
+bool NativeAppWindowViews::CanMaximizeWindow() const {
+  return resizable_ && !size_constraints_.HasMaximumSize() &&
+         !WidgetHasHitTestMask();
 }
 
 }  // namespace native_app_window

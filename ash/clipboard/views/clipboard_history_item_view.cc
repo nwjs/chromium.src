@@ -11,9 +11,11 @@
 #include "ash/clipboard/views/clipboard_history_text_item_view.h"
 #include "ash/resources/vector_icons/vector_icons.h"
 #include "ash/style/ash_color_provider.h"
+#include "ash/style/scoped_light_mode_as_default.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/utf_string_conversions.h"
 #include "third_party/skia/include/core/SkBitmap.h"
+#include "ui/accessibility/ax_node_data.h"
 #include "ui/base/clipboard/clipboard_data.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/image/image.h"
@@ -21,20 +23,22 @@
 #include "ui/gfx/image/image_skia_operations.h"
 #include "ui/gfx/paint_vector_icon.h"
 #include "ui/native_theme/native_theme.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/menu/menu_config.h"
 #include "ui/views/controls/menu/menu_item_view.h"
 #include "ui/views/layout/fill_layout.h"
 
 namespace {
 
-// The opacity of the disabled item view.
-constexpr float kDisabledAlpha = 0.38f;
-
 // The insets within the contents view.
 constexpr gfx::Insets kContentsInsets(/*vertical=*/4, /*horizontal=*/16);
 
 // The size of the `DeleteButton`.
 constexpr int kDeleteButtonSizeDip = 16;
+
+// The menu background's color type.
+constexpr ash::AshColorProvider::BaseLayerType kMenuBackgroundColorType =
+    ash::AshColorProvider::BaseLayerType::kOpaque;
 
 }  // namespace
 
@@ -49,15 +53,12 @@ ClipboardHistoryItemView::ContentsView::ContentsView(
 
 ClipboardHistoryItemView::ContentsView::~ContentsView() = default;
 
-void ClipboardHistoryItemView::ContentsView::OnSelectionChanged() {
-  // Update `delete_button_`'s visibility if the selection state switches.
-  const bool is_selected = container_->IsSelected();
-  if (is_selected != delete_button_->GetVisible())
-    delete_button_->SetVisible(is_selected);
-}
-
 void ClipboardHistoryItemView::ContentsView::InstallDeleteButton() {
   delete_button_ = CreateDeleteButton();
+}
+
+const char* ClipboardHistoryItemView::ContentsView::GetClassName() const {
+  return "ContenstView";
 }
 
 // Accepts the event only when |delete_button_| should be the handler.
@@ -79,7 +80,9 @@ class ash::ClipboardHistoryItemView::MainButton : public views::Button {
   explicit MainButton(ClipboardHistoryItemView* container)
       : Button(), container_(container) {
     SetFocusBehavior(views::View::FocusBehavior::ALWAYS);
-    SetAccessibleName(base::ASCIIToUTF16(std::string(GetClassName())));
+
+    // Let the parent handle accessibility features.
+    GetViewAccessibility().OverrideIsIgnored(/*value=*/true);
   }
   MainButton(const MainButton& rhs) = delete;
   MainButton& operator=(const MainButton& rhs) = delete;
@@ -87,20 +90,32 @@ class ash::ClipboardHistoryItemView::MainButton : public views::Button {
 
  private:
   // views::Button:
+  void OnThemeChanged() override {
+    views::Button::OnThemeChanged();
+    SchedulePaint();
+  }
   const char* GetClassName() const override { return "MainButton"; }
 
   void PaintButtonContents(gfx::Canvas* canvas) override {
-    if (!container_->IsSelected())
+    if (!container_->ShouldHighlight())
       return;
+
+    // Use the light mode as default because the light mode is the default mode
+    // of the native theme which decides the context menu's background color.
+    // TODO(andrewxu): remove this line after https://crbug.com/1143009 is
+    // fixed.
+    ScopedLightModeAsDefault scoped_light_mode_as_default;
 
     // Highlight the background when the menu item is selected or pressed.
     cc::PaintFlags flags;
     flags.setAntiAlias(true);
 
-    const ui::NativeTheme::ColorId color_id =
-        ui::NativeTheme::kColorId_FocusedMenuItemBackgroundColor;
-    flags.setColor(GetNativeTheme()->GetSystemColor(color_id));
-
+    const auto* color_provider = AshColorProvider::Get();
+    const AshColorProvider::RippleAttributes ripple_attributes =
+        color_provider->GetRippleAttributes(
+            color_provider->GetBaseLayerColor(kMenuBackgroundColorType));
+    flags.setColor(SkColorSetA(ripple_attributes.base_color,
+                               ripple_attributes.highlight_opacity * 0xFF));
     flags.setStyle(cc::PaintFlags::kFill_Style);
     canvas->DrawRect(GetLocalBounds(), flags);
   }
@@ -120,16 +135,23 @@ ClipboardHistoryItemView::DeleteButton::DeleteButton(
   SetImageHorizontalAlignment(views::ImageButton::ALIGN_CENTER);
   SetImageVerticalAlignment(views::ImageButton::ALIGN_MIDDLE);
   SetPreferredSize(gfx::Size(kDeleteButtonSizeDip, kDeleteButtonSizeDip));
-
-  AshColorProvider::Get()->DecorateCloseButton(
-      this, AshColorProvider::ButtonType::kCloseButtonWithSmallBase,
-      kDeleteButtonSizeDip, kCloseButtonIcon);
 }
 
 ClipboardHistoryItemView::DeleteButton::~DeleteButton() = default;
 
 const char* ClipboardHistoryItemView::DeleteButton::GetClassName() const {
   return "DeleteButton";
+}
+
+void ClipboardHistoryItemView::DeleteButton::OnThemeChanged() {
+  // Use the light mode as default because the light mode is the default mode of
+  // the native theme which decides the context menu's background color.
+  // TODO(andrewxu): remove this line after https://crbug.com/1143009 is fixed.
+  ScopedLightModeAsDefault scoped_light_mode_as_default;
+
+  views::ImageButton::OnThemeChanged();
+  AshColorProvider::Get()->DecorateCloseButton(this, kDeleteButtonSizeDip,
+                                               kCloseButtonIcon);
 }
 
 // static
@@ -160,16 +182,30 @@ ClipboardHistoryItemView::ClipboardHistoryItemView(
     : clipboard_history_item_(clipboard_history_item), container_(container) {}
 
 void ClipboardHistoryItemView::Init() {
+  SetFocusBehavior(views::View::FocusBehavior::ACCESSIBLE_ONLY);
+  GetViewAccessibility().OverrideRole(ax::mojom::Role::kMenuItem);
+
   SetLayoutManager(std::make_unique<views::FillLayout>());
 
   // Ensures that MainButton is below any other child views.
   main_button_ = AddChildView(std::make_unique<MainButton>(this));
-  main_button_->set_callback(base::BindRepeating(
-      [](ClipboardHistoryItemView* item, views::MenuItemView* container,
-         const ui::Event& event) {
-        item->ExecuteCommand(container->GetCommand(), event);
+  main_button_->SetCallback(base::BindRepeating(
+      [](ClipboardHistoryItemView* item, const ui::Event& event) {
+        // Note that the callback may be triggered through the ENTER key when
+        // the delete button is under the pseudo focus. Because the delete
+        // button is not hot-tracked by the menu controller. Meanwhile, the menu
+        // controller always sends the key event to the hot-tracked view.
+        // TODO(https://crbug.com/1144994): Modify this part after the clipboard
+        // history menu code is refactored.
+
+        // When an item view is under gesture tap, it may be not under pseudo
+        // focus yet.
+        if (event.type() == ui::ET_GESTURE_TAP)
+          item->pseudo_focus_ = PseudoFocus::kMainButton;
+
+        item->ExecuteCommand(item->CalculateCommandId(), event);
       },
-      base::Unretained(this), container_));
+      base::Unretained(this)));
 
   contents_view_ = AddChildView(CreateContentsView());
 
@@ -177,13 +213,54 @@ void ClipboardHistoryItemView::Init() {
       &ClipboardHistoryItemView::OnSelectionChanged, base::Unretained(this)));
 }
 
-bool ClipboardHistoryItemView::IsSelected() const {
-  return container_->IsSelected();
+void ClipboardHistoryItemView::OnSelectionChanged() {
+  if (!container_->IsSelected()) {
+    SetPseudoFocus(PseudoFocus::kEmpty);
+    return;
+  }
+
+  // If the pseudo focus is moved from another item view via focus traversal,
+  // `pseudo_focus_` is already up to date.
+  if (pseudo_focus_ != PseudoFocus::kEmpty)
+    return;
+
+  InitiatePseudoFocus(/*reverse=*/false);
 }
 
-void ClipboardHistoryItemView::OnSelectionChanged() {
-  contents_view_->OnSelectionChanged();
-  main_button_->SchedulePaint();
+bool ClipboardHistoryItemView::AdvancePseudoFocus(bool reverse) {
+  if (pseudo_focus_ == PseudoFocus::kEmpty) {
+    InitiatePseudoFocus(reverse);
+    return true;
+  }
+
+  // When the menu item is disabled, only the delete button is able to work.
+  if (!container_->GetEnabled()) {
+    DCHECK_EQ(PseudoFocus::kDeleteButton, pseudo_focus_);
+    SetPseudoFocus(PseudoFocus::kEmpty);
+    return false;
+  }
+
+  DCHECK(pseudo_focus_ == PseudoFocus::kMainButton ||
+         pseudo_focus_ == PseudoFocus::kDeleteButton);
+  int new_pseudo_focus = pseudo_focus_;
+  bool move_focus_out = false;
+  if (reverse) {
+    --new_pseudo_focus;
+    if (new_pseudo_focus == PseudoFocus::kEmpty)
+      move_focus_out = true;
+  } else {
+    ++new_pseudo_focus;
+    if (new_pseudo_focus == PseudoFocus::kMaxValue)
+      move_focus_out = true;
+  }
+
+  if (move_focus_out) {
+    SetPseudoFocus(PseudoFocus::kEmpty);
+    return false;
+  }
+
+  SetPseudoFocus(static_cast<PseudoFocus>(new_pseudo_focus));
+  return true;
 }
 
 void ClipboardHistoryItemView::RecordButtonPressedHistogram(
@@ -198,14 +275,18 @@ void ClipboardHistoryItemView::RecordButtonPressedHistogram(
       *clipboard_history_item_);
 }
 
-float ClipboardHistoryItemView::GetContentsOpacity() const {
-  return container_->GetEnabled() ? 1.f : kDisabledAlpha;
+bool ClipboardHistoryItemView::IsItemEnabled() const {
+  return container_->GetEnabled();
 }
 
 gfx::Size ClipboardHistoryItemView::CalculatePreferredSize() const {
   const int preferred_width =
       views::MenuConfig::instance().touchable_menu_width;
   return gfx::Size(preferred_width, GetHeightForWidth(preferred_width));
+}
+
+void ClipboardHistoryItemView::GetAccessibleNodeData(ui::AXNodeData* data) {
+  data->SetName(GetAccessibleName());
 }
 
 void ClipboardHistoryItemView::ExecuteCommand(int command_id,
@@ -215,6 +296,62 @@ void ClipboardHistoryItemView::ExecuteCommand(int command_id,
   views::MenuDelegate* delegate = container_->GetDelegate();
   DCHECK(delegate->IsCommandEnabled(command_id));
   container_->GetDelegate()->ExecuteCommand(command_id, event.flags());
+}
+
+int ClipboardHistoryItemView::CalculateCommandId() const {
+  switch (pseudo_focus_) {
+    case PseudoFocus::kMainButton:
+      return container_->GetCommand();
+    case PseudoFocus::kDeleteButton:
+      return ClipboardHistoryUtil::kDeleteCommandId;
+    case PseudoFocus::kEmpty:
+    case PseudoFocus::kMaxValue:
+      NOTREACHED();
+      return -1;
+  }
+}
+
+bool ClipboardHistoryItemView::ShouldHighlight() const {
+  return pseudo_focus_ == PseudoFocus::kMainButton && IsItemEnabled();
+}
+
+bool ClipboardHistoryItemView::ShouldShowDeleteButton() const {
+  return (pseudo_focus_ == PseudoFocus::kMainButton && IsMouseHovered()) ||
+         pseudo_focus_ == PseudoFocus::kDeleteButton;
+}
+
+void ClipboardHistoryItemView::InitiatePseudoFocus(bool reverse) {
+  PseudoFocus target_pseudo_focus;
+  if (!container_->GetEnabled() || reverse)
+    target_pseudo_focus = PseudoFocus::kDeleteButton;
+  else
+    target_pseudo_focus = PseudoFocus::kMainButton;
+
+  SetPseudoFocus(target_pseudo_focus);
+}
+
+void ClipboardHistoryItemView::SetPseudoFocus(PseudoFocus new_pseudo_focus) {
+  if (pseudo_focus_ == new_pseudo_focus)
+    return;
+
+  pseudo_focus_ = new_pseudo_focus;
+  contents_view_->delete_button()->SetVisible(ShouldShowDeleteButton());
+  main_button_->SchedulePaint();
+  switch (pseudo_focus_) {
+    case PseudoFocus::kEmpty:
+      break;
+    case PseudoFocus::kMainButton:
+      NotifyAccessibilityEvent(ax::mojom::Event::kSelection,
+                               /*send_native_event=*/true);
+      break;
+    case PseudoFocus::kDeleteButton:
+      contents_view_->delete_button()->NotifyAccessibilityEvent(
+          ax::mojom::Event::kHover, /*send_native_event*/ true);
+      break;
+    case PseudoFocus::kMaxValue:
+      NOTREACHED();
+      break;
+  }
 }
 
 }  // namespace ash

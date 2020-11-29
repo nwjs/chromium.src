@@ -68,6 +68,7 @@
 <translation id="1383876407941801731">Որոնում</translation>
 <translation id="1396114365388024581">tablst</translation>
 <translation id="1405567553485452995">Բաց կանաչ</translation>
+<translation id="141454040365657399">Էջագլուխ</translation>
 <translation id="1417889266572670458">Կապույտ</translation>
 <translation id="1431911867058218151">Սալորագույն</translation>
 <translation id="1439316808600711881">rgn</translation>
@@ -346,8 +347,8 @@
 <translation id="352577523970648069">խմբագրելի տեքստային դաշտ</translation>
 <translation id="3538907380453898475">նկարագրությունների ցանկ</translation>
 <translation id="3549141990712742152">կտրել «<ph name="TEXT" />» տեքստը:</translation>
-<translation id="3549680091535286226">Հպեք 2 մատով՝ հնչեցումը ժամանակավորապես դադարեցնելու համար</translation>
 <translation id="3564729643041517261">Էկրանի ընթացիկ ոճը՝ կողք կողքի</translation>
+<translation id="3573145950452451508">Էջատակ</translation>
 <translation id="3587482841069643663">Բոլորը</translation>
 <translation id="3589661172894441357">Բառացանկ</translation>
 <translation id="3591784666823501596">Թագավորական կապույտ</translation>
@@ -454,6 +455,7 @@
 <translation id="4402014469255336455">Մուգ երկնագույն</translation>
 <translation id="4406249099130339147">Կետադրական նշանների արձագանք՝</translation>
 <translation id="4432457053224379116">Հնդկական կարմիր</translation>
+<translation id="4432896207833262240">Նշված բովանդակություն</translation>
 <translation id="4437615272777527928">Մուտքագրեք տեքստը, որն անհրաժեշտ է գտնել ընտրացանկերում։ Մեկ արդյունքից մյուսն անցնելու համար օգտագործեք «վեր» և «վար» սլաքները։ Տեքստի նշորդը տեղաշարժելու և մեկ ընտրացանկից մյուսն անցնելու համար օգտագործեք «ձախ» և «աջ» սլաքները։</translation>
 <translation id="4457472090507035117">Ընտրեք ընթացիկ ձայնը`</translation>
 <translation id="4476183483923481720">նոր տող</translation>
@@ -592,6 +594,7 @@
 <translation id="5561345396546889625">Հաջորդ ցանկը</translation>
 <translation id="5562645715554321347">hdnggrp</translation>
 <translation id="5574412348552378458">ChromeVox. սովորելու ռեժիմ</translation>
+<translation id="5582839680698949063">Հիմնական ընտրացանկ</translation>
 <translation id="5585044216466955529">Տեքստի խմբագրում, էլփոստի մուտքագրում</translation>
 <translation id="5597170376237141345">Հաջորդ նշավանդակը</translation>
 <translation id="5598905979683743333"><ph name="NAME" /> կետակոճակ, ընտրված չէ</translation>
@@ -825,7 +828,6 @@
 <translation id="7491962110804786152">tab</translation>
 <translation id="7492497529767769458">Անցնել հաջորդ բաժին (օր․՝ Կարգավիճակի տող, Գործարկիչ և այլ)։</translation>
 <translation id="7505149250476994901">Տառից առաջ արտասանեք «մեծատառ»</translation>
-<translation id="7518543783849163354">ChromeVox-ի ձայնը ժամանակավորապես անջատելու համար սեղմեք Control ստեղնը:</translation>
 <translation id="7533226154149229506">Բաց ոսկեդեղին</translation>
 <translation id="7543255924852002459">Հեռացնել պիտակը</translation>
 <translation id="7552432549459840808">Chrome-ի օգտակար դյուրանցումներ</translation>

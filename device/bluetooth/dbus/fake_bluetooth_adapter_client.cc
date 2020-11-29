@@ -7,8 +7,8 @@
 #include <map>
 #include <utility>
 
-#include "base/bind_helpers.h"
 #include "base/callback_forward.h"
+#include "base/callback_helpers.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/single_thread_task_runner.h"
@@ -300,6 +300,15 @@ void FakeBluetoothAdapterClient::RemoveServiceRecord(
   }
   records_.erase(it);
   std::move(callback).Run();
+}
+
+void FakeBluetoothAdapterClient::ConnectDevice(
+    const dbus::ObjectPath& object_path,
+    const std::string& address,
+    const base::Optional<AddressType>& address_type,
+    ConnectDeviceCallback callback,
+    ErrorCallback error_callback) {
+  NOTIMPLEMENTED();
 }
 
 void FakeBluetoothAdapterClient::SetSimulationIntervalMs(int interval_ms) {

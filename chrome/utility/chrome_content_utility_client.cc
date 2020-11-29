@@ -99,11 +99,11 @@ void ChromeContentUtilityClient::UtilityThreadStarted() {
   }
 }
 
-mojo::ServiceFactory*
-ChromeContentUtilityClient::GetMainThreadServiceFactory() {
+void ChromeContentUtilityClient::RegisterMainThreadServices(
+    mojo::ServiceFactory& services) {
   if (utility_process_running_elevated_)
-    return ::GetElevatedMainThreadServiceFactory();
-  return ::GetMainThreadServiceFactory();
+    return ::RegisterElevatedMainThreadServices(services);
+  return ::RegisterMainThreadServices(services);
 }
 
 void ChromeContentUtilityClient::PostIOThreadCreated(
@@ -113,8 +113,9 @@ void ChromeContentUtilityClient::PostIOThreadCreated(
                                 metrics::CallStackProfileParams::IO_THREAD));
 }
 
-mojo::ServiceFactory* ChromeContentUtilityClient::GetIOThreadServiceFactory() {
-  return ::GetIOThreadServiceFactory();
+void ChromeContentUtilityClient::RegisterIOThreadServices(
+    mojo::ServiceFactory& services) {
+  return ::RegisterIOThreadServices(services);
 }
 
 // static

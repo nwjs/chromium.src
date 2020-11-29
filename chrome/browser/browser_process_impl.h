@@ -172,7 +172,6 @@ class BrowserProcessImpl : public BrowserProcess,
   safe_browsing::SafeBrowsingService* safe_browsing_service() override;
   subresource_filter::RulesetService* subresource_filter_ruleset_service()
       override;
-  federated_learning::FlocBlocklistService* floc_blocklist_service() override;
   federated_learning::FlocSortingLshClustersService*
   floc_sorting_lsh_clusters_service() override;
   optimization_guide::OptimizationGuideService* optimization_guide_service()
@@ -185,7 +184,7 @@ class BrowserProcessImpl : public BrowserProcess,
 #endif
 
   component_updater::ComponentUpdateService* component_updater() override;
-#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
+#if 0
   component_updater::SupervisedUserWhitelistInstaller*
   supervised_user_whitelist_installer() override;
 #endif
@@ -326,9 +325,6 @@ class BrowserProcessImpl : public BrowserProcess,
   bool created_subresource_filter_ruleset_service_ = false;
   std::unique_ptr<subresource_filter::RulesetService>
       subresource_filter_ruleset_service_;
-
-  std::unique_ptr<federated_learning::FlocBlocklistService>
-      floc_blocklist_service_;
 
   std::unique_ptr<federated_learning::FlocSortingLshClustersService>
       floc_sorting_lsh_clusters_service_;

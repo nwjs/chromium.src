@@ -8,8 +8,8 @@
 #include "base/base64.h"
 #include "base/base_switches.h"
 #include "base/bind.h"
-#include "base/bind_helpers.h"
 #include "base/callback.h"
+#include "base/callback_helpers.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/json/json_reader.h"
@@ -26,7 +26,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/current_thread.h"
-#include "base/test/bind_test_util.h"
+#include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_command_line.h"
 #include "base/test/scoped_feature_list.h"
@@ -65,12 +65,12 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
+#include "chrome/browser/web_applications/components/web_application_info.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/api/safe_browsing_private.h"
 #include "chrome/common/pref_names.h"
-#include "chrome/common/web_application_info.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/test_launcher_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -140,7 +140,6 @@
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/network_service_util.h"
-#include "content/public/common/page_state.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -189,6 +188,7 @@
 #include "services/network/public/mojom/network_service.mojom.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/common/page_state/page_state.h"
 #include "third_party/blink/public/common/web_preferences/web_preferences.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -872,8 +872,11 @@ class SSLUITestBase : public InProcessBrowserTest,
 class SSLUITest : public SSLUITestBase {
  public:
   SSLUITest() : SSLUITestBase() {
-    scoped_feature_list_.InitAndDisableFeature(
-        blink::features::kMixedContentAutoupgrade);
+    scoped_feature_list_.InitWithFeatures(
+        /* enabled_features */ {},
+        /* disabled_features */ {
+            blink::features::kMixedContentAutoupgrade,
+            safe_browsing::kEnhancedProtectionMessageInInterstitials});
   }
 
  protected:
@@ -1998,8 +2001,8 @@ class SSLUITestWithClientCert : public SSLUITestBase {
     base::RunLoop loop;
     GetNSSCertDatabaseForProfile(
         browser()->profile(),
-        base::Bind(&SSLUITestWithClientCert::DidGetCertDatabase,
-                   base::Unretained(this), &loop));
+        base::BindOnce(&SSLUITestWithClientCert::DidGetCertDatabase,
+                       base::Unretained(this), &loop));
     loop.Run();
   }
 
@@ -2065,7 +2068,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITestWithClientCert, TestWSSClientCert) {
   HostContentSettingsMapFactory::GetForProfile(profile)
       ->SetWebsiteSettingDefaultScope(
           url, GURL(), ContentSettingsType::AUTO_SELECT_CERTIFICATE,
-          std::string(), std::move(setting));
+          std::move(setting));
 
   // Visit a HTTPS page which requires client certs.
   ui_test_utils::NavigateToURL(browser(), url);
@@ -2168,7 +2171,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, TestBrowserUseClientCertStore) {
   HostContentSettingsMapFactory::GetForProfile(profile)
       ->SetWebsiteSettingDefaultScope(
           https_url, GURL(), ContentSettingsType::AUTO_SELECT_CERTIFICATE,
-          std::string(), std::move(setting));
+          std::move(setting));
 
   // Visit a HTTPS page which requires client certs.
   ui_test_utils::NavigateToURLBlockUntilNavigationsComplete(browser(),
@@ -2204,7 +2207,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, TestClientAuthSigningFails) {
   HostContentSettingsMapFactory::GetForProfile(profile)
       ->SetWebsiteSettingDefaultScope(
           https_url, GURL(), ContentSettingsType::AUTO_SELECT_CERTIFICATE,
-          std::string(), std::move(setting));
+          std::move(setting));
 
   // Visit a HTTPS page which requires client certs.
   ui_test_utils::NavigateToURLBlockUntilNavigationsComplete(browser(),
@@ -2267,7 +2270,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, TestCertDBChangedFlushesClientAuthCache) {
   HostContentSettingsMapFactory::GetForProfile(profile)
       ->SetWebsiteSettingDefaultScope(
           https_url, GURL(), ContentSettingsType::AUTO_SELECT_CERTIFICATE,
-          std::string(), std::move(setting));
+          std::move(setting));
 
   // Visit a HTTPS page which requires client certs.
   ui_test_utils::NavigateToURLBlockUntilNavigationsComplete(browser(),
@@ -3269,7 +3272,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, TestGoodFrameNavigation) {
   // And the frame should be blocked.
   bool is_content_evil = true;
   content::RenderFrameHost* content_frame = content::FrameMatchingPredicate(
-      tab, base::Bind(&content::FrameMatchesName, "contentFrame"));
+      tab, base::BindRepeating(&content::FrameMatchesName, "contentFrame"));
   std::string is_evil_js(
       "window.domAutomationController.send("
       "document.getElementById('evilDiv') != null);");
@@ -3405,7 +3408,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, TestUnauthenticatedFrameNavigation) {
   // And the frame should have been blocked (see bug #2316).
   bool is_content_evil = true;
   content::RenderFrameHost* content_frame = content::FrameMatchingPredicate(
-      tab, base::Bind(&content::FrameMatchesName, "contentFrame"));
+      tab, base::BindRepeating(&content::FrameMatchesName, "contentFrame"));
   std::string is_evil_js(
       "window.domAutomationController.send("
       "document.getElementById('evilDiv') != null);");
@@ -3717,8 +3720,10 @@ IN_PROC_BROWSER_TEST_P(SSLUIWorkerFetchTest,
 // This test checks the behavior of mixed content blocking for the requests
 // from a dedicated worker by changing the settings in WebPreferences
 // with allow_running_insecure_content = true.
-IN_PROC_BROWSER_TEST_P(SSLUIWorkerFetchTest,
-                       MixedContentSettings_AllowRunningInsecureContent) {
+// Flaky. See https://crbug.com/1145674.
+IN_PROC_BROWSER_TEST_P(
+        SSLUIWorkerFetchTest,
+        DISABLED_MixedContentSettings_AllowRunningInsecureContent) {
   ChromeContentBrowserClientForMixedContentTest browser_client;
   content::ContentBrowserClient* old_browser_client =
       content::SetBrowserClientForTesting(&browser_client);
@@ -5873,8 +5878,8 @@ class SSLUITestCustomCACerts : public SSLUITestNoCert {
       base::RunLoop loop;
       GetNSSCertDatabaseForProfile(
           profile_1_,
-          base::Bind(&SSLUITestCustomCACerts::DidGetCertDatabase,
-                     base::Unretained(this), &loop, &profile_1_cert_db_));
+          base::BindOnce(&SSLUITestCustomCACerts::DidGetCertDatabase,
+                         base::Unretained(this), &loop, &profile_1_cert_db_));
       loop.Run();
     }
 
@@ -5882,8 +5887,8 @@ class SSLUITestCustomCACerts : public SSLUITestNoCert {
       base::RunLoop loop;
       GetNSSCertDatabaseForProfile(
           profile_2_,
-          base::Bind(&SSLUITestCustomCACerts::DidGetCertDatabase,
-                     base::Unretained(this), &loop, &profile_2_cert_db_));
+          base::BindOnce(&SSLUITestCustomCACerts::DidGetCertDatabase,
+                         base::Unretained(this), &loop, &profile_2_cert_db_));
       loop.Run();
     }
 
@@ -8393,6 +8398,10 @@ class SSLUITestWithEnhancedProtectionMessage : public SSLUITest {
 
 IN_PROC_BROWSER_TEST_F(SSLUITestWithEnhancedProtectionMessage,
                        VerifyEnhancedProtectionMessageShown) {
+  base::HistogramTester histograms;
+  const std::string interaction_histogram =
+      "interstitial.ssl_overridable.interaction";
+
   safe_browsing::SetExtendedReportingPrefForTests(
       browser()->profile()->GetPrefs(), true);
   safe_browsing::SetSafeBrowsingState(
@@ -8409,6 +8418,14 @@ IN_PROC_BROWSER_TEST_F(SSLUITestWithEnhancedProtectionMessage,
                                   true /* expect_hidden */);
   ExpectInterstitialElementHidden(contents, "enhanced-protection-message",
                                   false /* expect_hidden */);
+
+  histograms.ExpectTotalCount(interaction_histogram, 2);
+  histograms.ExpectBucketCount(
+      interaction_histogram,
+      security_interstitials::MetricsHelper::TOTAL_VISITS, 1);
+  histograms.ExpectBucketCount(
+      interaction_histogram,
+      security_interstitials::MetricsHelper::SHOW_ENHANCED_PROTECTION, 1);
 }
 
 IN_PROC_BROWSER_TEST_F(SSLUITestWithEnhancedProtectionMessage,

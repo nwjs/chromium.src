@@ -15,7 +15,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/content_settings/cookie_settings_factory.h"
 #include "chrome/browser/engagement/site_engagement_service.h"
-#include "chrome/browser/prerender/prerender_manager_factory.h"
+#include "chrome/browser/prefetch/no_state_prefetch/prerender_manager_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/common/pref_names.h"
@@ -23,15 +23,15 @@
 #include "components/content_settings/core/common/features.h"
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/metrics/net/network_metrics_provider.h"
+#include "components/no_state_prefetch/browser/prerender_manager.h"
+#include "components/no_state_prefetch/browser/prerender_util.h"
+#include "components/no_state_prefetch/common/prerender_final_status.h"
+#include "components/no_state_prefetch/common/prerender_origin.h"
 #include "components/offline_pages/buildflags/buildflags.h"
 #include "components/page_load_metrics/browser/observers/core/largest_contentful_paint_handler.h"
 #include "components/page_load_metrics/browser/page_load_metrics_util.h"
 #include "components/page_load_metrics/browser/protocol_util.h"
 #include "components/prefs/pref_service.h"
-#include "components/prerender/browser/prerender_manager.h"
-#include "components/prerender/browser/prerender_util.h"
-#include "components/prerender/common/prerender_final_status.h"
-#include "components/prerender/common/prerender_origin.h"
 #include "components/search_engines/template_url_service.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"
@@ -118,6 +118,16 @@ int SiteInstanceRenderProcessAssignmentToInt(
       return 3;
   }
   return 0;
+}
+
+int BucketWithOffsetAndUnit(int num, int offset, uint32_t unit) {
+  // Bucketing raw number with `offset` centered.
+  const int grid = (num - offset) / unit;
+  const int bucketed =
+      grid == 0 ? 0
+                : grid > 0 ? std::pow(2, static_cast<int>(std::log2(grid)))
+                           : -std::pow(2, static_cast<int>(std::log2(-grid)));
+  return bucketed * unit + offset;
 }
 
 }  // namespace
@@ -333,6 +343,7 @@ void UkmPageLoadMetricsObserver::OnComplete(
   RecordSmoothnessMetrics();
   ReportPerfectHeuristicsMetrics();
   RecordPageEndMetrics(&timing, current_time);
+  RecordMobileFriendlinessMetrics();
 }
 
 void UkmPageLoadMetricsObserver::OnResourceDataUseObserved(
@@ -520,7 +531,7 @@ void UkmPageLoadMetricsObserver::RecordTimingMetrics(
   if (main_frame_largest_contentful_paint.ContainsValidTime() &&
       WasStartedInForegroundOptionalEventInForeground(
           main_frame_largest_contentful_paint.Time(), GetDelegate())) {
-    builder.SetPaintTiming_NavigationToLargestContentfulPaint_MainFrame(
+    builder.SetPaintTiming_NavigationToLargestContentfulPaint2_MainFrame(
         main_frame_largest_contentful_paint.Time().value().InMilliseconds());
   }
   const page_load_metrics::ContentfulPaintTimingInfo&
@@ -531,9 +542,10 @@ void UkmPageLoadMetricsObserver::RecordTimingMetrics(
   if (all_frames_largest_contentful_paint.ContainsValidTime() &&
       WasStartedInForegroundOptionalEventInForeground(
           all_frames_largest_contentful_paint.Time(), GetDelegate())) {
-    builder.SetPaintTiming_NavigationToLargestContentfulPaint(
+    builder.SetPaintTiming_NavigationToLargestContentfulPaint2(
         all_frames_largest_contentful_paint.Time().value().InMilliseconds());
   }
+  // TODO(crbug.com/1045640): Stop reporting the experimental obsolete versions.
   const page_load_metrics::ContentfulPaintTimingInfo&
       main_frame_experimental_largest_contentful_paint =
           GetDelegate()
@@ -543,11 +555,10 @@ void UkmPageLoadMetricsObserver::RecordTimingMetrics(
       WasStartedInForegroundOptionalEventInForeground(
           main_frame_experimental_largest_contentful_paint.Time(),
           GetDelegate())) {
-    builder
-        .SetPaintTiming_NavigationToExperimentalLargestContentfulPaint_MainFrame(
-            main_frame_experimental_largest_contentful_paint.Time()
-                .value()
-                .InMilliseconds());
+    builder.SetPaintTiming_NavigationToLargestContentfulPaint_MainFrame(
+        main_frame_experimental_largest_contentful_paint.Time()
+            .value()
+            .InMilliseconds());
   }
   const page_load_metrics::ContentfulPaintTimingInfo&
       all_frames_experimental_largest_contentful_paint =
@@ -558,7 +569,7 @@ void UkmPageLoadMetricsObserver::RecordTimingMetrics(
       WasStartedInForegroundOptionalEventInForeground(
           all_frames_experimental_largest_contentful_paint.Time(),
           GetDelegate())) {
-    builder.SetPaintTiming_NavigationToExperimentalLargestContentfulPaint(
+    builder.SetPaintTiming_NavigationToLargestContentfulPaint(
         all_frames_experimental_largest_contentful_paint.Time()
             .value()
             .InMilliseconds());
@@ -837,6 +848,11 @@ void UkmPageLoadMetricsObserver::ReportLayoutStability() {
       .SetLayoutInstability_CumulativeShiftScore(
           page_load_metrics::LayoutShiftUkmValue(
               GetDelegate().GetPageRenderData().layout_shift_score))
+      .SetLayoutInstability_CumulativeShiftScore_BeforeInputOrScroll(
+          page_load_metrics::LayoutShiftUkmValue(
+              GetDelegate()
+                  .GetPageRenderData()
+                  .layout_shift_score_before_input_or_scroll))
       .SetLayoutInstability_CumulativeShiftScore_MainFrame(
           page_load_metrics::LayoutShiftUkmValue(
               GetDelegate().GetMainFrameRenderData().layout_shift_score))
@@ -955,6 +971,27 @@ void UkmPageLoadMetricsObserver::RecordSmoothnessMetrics() {
       .SetAboveThreshold(smoothness_data.above_threshold)
       .SetWorstCase(smoothness_data.worst_smoothness)
       .Record(ukm::UkmRecorder::Get());
+}
+
+void UkmPageLoadMetricsObserver::RecordMobileFriendlinessMetrics() {
+  ukm::builders::MobileFriendliness mf(GetDelegate().GetPageUkmSourceId());
+  mf.SetViewportDeviceWidth(
+        GetDelegate().GetMobileFriendliness().viewport_device_width)
+      .SetAllowUserZoom(GetDelegate().GetMobileFriendliness().allow_user_zoom);
+  const int initial_scale_x10 = std::floor(
+      GetDelegate().GetMobileFriendliness().viewport_initial_scale * 10);
+  if (initial_scale_x10 > 0) {
+    mf.SetViewportInitialScaleX10(
+        ukm::GetExponentialBucketMin(initial_scale_x10, 1.2));
+  }
+
+  const int hardcoded_width =
+      GetDelegate().GetMobileFriendliness().viewport_hardcoded_width;
+  if (hardcoded_width > 0) {
+    mf.SetViewportHardcodedWidth(
+        BucketWithOffsetAndUnit(hardcoded_width, 500, 10));
+  }
+  mf.Record(ukm::UkmRecorder::Get());
 }
 
 void UkmPageLoadMetricsObserver::RecordPageEndMetrics(

@@ -19,7 +19,7 @@ namespace ui {
 
 ScopedClipboardWriter::ScopedClipboardWriter(
     ClipboardBuffer buffer,
-    std::unique_ptr<ClipboardDataEndpoint> data_src)
+    std::unique_ptr<DataTransferEndpoint> data_src)
     : buffer_(buffer), data_src_(std::move(data_src)) {}
 
 ScopedClipboardWriter::~ScopedClipboardWriter() {
@@ -124,6 +124,11 @@ void ScopedClipboardWriter::WriteImage(const SkBitmap& bitmap) {
     return;
   DCHECK(bitmap.getPixels());
   RecordWrite(ClipboardFormatMetric::kImage);
+
+  // The platform code that sets this bitmap into the system clipboard expects
+  // to get N32 32bpp bitmaps. If they get the wrong type and mishandle it, a
+  // memcpy of the pixels can cause out-of-bounds issues.
+  CHECK_EQ(bitmap.colorType(), kN32_SkColorType);
 
   bitmap_ = bitmap;
   // TODO(dcheng): This is slightly less horrible than what we used to do, but

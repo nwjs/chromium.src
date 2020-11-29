@@ -59,17 +59,18 @@
 #include "gpu/command_buffer/service/skia_utils.h"
 #include "gpu/command_buffer/service/wrapped_sk_image.h"
 #include "gpu/vulkan/buildflags.h"
+#include "skia/ext/legacy_display_globals.h"
 #include "third_party/skia/include/core/SkCanvas.h"
 #include "third_party/skia/include/core/SkDeferredDisplayListRecorder.h"
 #include "third_party/skia/include/core/SkPromiseImageTexture.h"
 #include "third_party/skia/include/core/SkSurface.h"
 #include "third_party/skia/include/core/SkSurfaceProps.h"
 #include "third_party/skia/include/core/SkTypeface.h"
-#include "third_party/skia/include/core/SkYUVAIndex.h"
+#include "third_party/skia/include/core/SkYUVAInfo.h"
 #include "third_party/skia/include/gpu/GrBackendSemaphore.h"
 #include "third_party/skia/include/gpu/GrBackendSurface.h"
 #include "third_party/skia/include/gpu/GrDirectContext.h"
-#include "third_party/skia/include/gpu/GrTypes.h"
+#include "third_party/skia/include/gpu/GrYUVABackendTextures.h"
 #include "ui/gfx/buffer_format_util.h"
 #include "ui/gfx/skia_util.h"
 #include "ui/gl/gl_context.h"
@@ -1595,7 +1596,8 @@ void RasterDecoderImpl::SetUpForRasterCHROMIUMForTest() {
   // backed surface for OOP raster commands.
   auto info = SkImageInfo::MakeN32(10, 10, kPremul_SkAlphaType,
                                    SkColorSpace::MakeSRGB());
-  sk_surface_for_testing_ = SkSurface::MakeRaster(info);
+  SkSurfaceProps props = skia::LegacyDisplayGlobals::GetSkSurfaceProps();
+  sk_surface_for_testing_ = SkSurface::MakeRaster(info, &props);
   sk_surface_ = sk_surface_for_testing_.get();
   raster_canvas_ = sk_surface_->getCanvas();
 }
@@ -2185,7 +2187,7 @@ void RasterDecoderImpl::DoCopySubTextureINTERNALGL(
       source_type, dest_target, dest_level, dest_internal_format, unpack_flip_y,
       NeedsUnpackPremultiplyAlpha(*source_shared_image),
       false /* unpack_unmultiply_alpha */, false /* dither */);
-#if defined(OS_CHROMEOS) && defined(ARCH_CPU_X86_FAMILY)
+#if BUILDFLAG(IS_ASH) && defined(ARCH_CPU_X86_FAMILY)
   // glDrawArrays is faster than glCopyTexSubImage2D on IA Mesa driver,
   // although opposite in Android.
   // TODO(dshwang): After Mesa fixes this issue, remove this hack.
@@ -2735,19 +2737,14 @@ void RasterDecoderImpl::DoConvertYUVMailboxesToRGBINTERNAL(
 
     SkISize dest_size =
         SkISize::Make(dest_surface->width(), dest_surface->height());
-
-    std::array<SkYUVAIndex, SkYUVAIndex::kIndexCount> yuva_indices;
-    yuva_indices[SkYUVAIndex::kY_Index] = {0, SkColorChannel::kR};
-    yuva_indices[SkYUVAIndex::kU_Index] = {1, SkColorChannel::kR};
-    if (is_nv12)
-      yuva_indices[SkYUVAIndex::kV_Index] = {1, SkColorChannel::kG};
-    else
-      yuva_indices[SkYUVAIndex::kV_Index] = {2, SkColorChannel::kR};
-    yuva_indices[SkYUVAIndex::kA_Index] = {-1, SkColorChannel::kA};
-
-    auto result_image = SkImage::MakeFromYUVATextures(
-        gr_context(), src_color_space, yuva_textures.data(),
-        yuva_indices.data(), dest_size, kTopLeft_GrSurfaceOrigin, nullptr);
+    SkYUVAInfo::PlanarConfig planar_config =
+        is_nv12 ? SkYUVAInfo::PlanarConfig::kY_UV_420
+                : SkYUVAInfo::PlanarConfig::kY_U_V_420;
+    SkYUVAInfo yuva_info(dest_size, planar_config, src_color_space);
+    GrYUVABackendTextures yuva_backend_textures(yuva_info, yuva_textures.data(),
+                                                kTopLeft_GrSurfaceOrigin);
+    auto result_image =
+        SkImage::MakeFromYUVATextures(gr_context(), yuva_backend_textures);
     if (!result_image) {
       LOCAL_SET_GL_ERROR(
           GL_INVALID_OPERATION, "glConvertYUVMailboxesToRGB",
@@ -2883,9 +2880,7 @@ void RasterDecoderImpl::DoBeginRasterCHROMIUM(GLuint sk_color,
   uint32_t flags = 0;
   SkSurfaceProps surface_props(flags, kUnknown_SkPixelGeometry);
   if (can_use_lcd_text) {
-    // LegacyFontHost will get LCD text and skia figures out what type to use.
-    surface_props =
-        SkSurfaceProps(flags, SkSurfaceProps::kLegacyFontHost_InitType);
+    surface_props = skia::LegacyDisplayGlobals::GetSkSurfaceProps(flags);
   }
 
   SkColorType sk_color_type = viz::ResourceFormatToClosestSkColorType(
@@ -3259,6 +3254,7 @@ void RasterDecoderImpl::RestoreStateForAttrib(GLuint attrib_index,
 // we can easily edit the non-auto generated parts right here in this file
 // instead of having to edit some template or the code generator.
 #include "base/macros.h"
+#include "build/chromeos_buildflags.h"
 #include "gpu/command_buffer/service/raster_decoder_autogen.h"
 
 }  // namespace raster

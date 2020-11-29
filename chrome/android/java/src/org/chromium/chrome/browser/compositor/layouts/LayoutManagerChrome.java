@@ -15,22 +15,22 @@ import org.chromium.base.ObserverList;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.OneshotSupplierImpl;
-import org.chromium.chrome.browser.ActivityTabProvider;
+import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.accessibility_tab_switcher.OverviewListLayout;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
+import org.chromium.chrome.browser.compositor.LayerTitleCache;
 import org.chromium.chrome.browser.compositor.TitleCache;
 import org.chromium.chrome.browser.compositor.layouts.components.LayoutTab;
-import org.chromium.chrome.browser.compositor.layouts.components.VirtualView;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.compositor.layouts.eventfilter.EdgeSwipeHandler;
 import org.chromium.chrome.browser.compositor.layouts.eventfilter.EmptyEdgeSwipeHandler;
 import org.chromium.chrome.browser.compositor.layouts.eventfilter.ScrollDirection;
 import org.chromium.chrome.browser.compositor.layouts.phone.StackLayout;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelperManager;
-import org.chromium.chrome.browser.contextualsearch.ContextualSearchManagementDelegate;
 import org.chromium.chrome.browser.device.DeviceClassManager;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
-import org.chromium.chrome.browser.ntp.NewTabPage;
+import org.chromium.chrome.browser.layouts.LayoutStateProvider;
+import org.chromium.chrome.browser.layouts.components.VirtualView;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
@@ -43,16 +43,17 @@ import org.chromium.chrome.browser.toolbar.ControlContainer;
 import org.chromium.chrome.browser.util.ChromeAccessibilityUtil;
 import org.chromium.chrome.features.start_surface.StartSurface;
 import org.chromium.chrome.features.start_surface.StartSurfaceConfiguration;
+import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.ui.resources.dynamics.DynamicResourceLoader;
 
 import java.util.List;
 
 /**
  * A {@link Layout} controller for the more complicated Chrome browser.  This is currently a
- * superset of {@link LayoutManager}.
+ * superset of {@link LayoutManagerImpl}.
  */
-public class LayoutManagerChrome
-        extends LayoutManager implements OverviewModeController, ChromeAccessibilityUtil.Observer {
+public class LayoutManagerChrome extends LayoutManagerImpl
+        implements OverviewModeController, ChromeAccessibilityUtil.Observer {
     // Layouts
     /** An {@link Layout} that should be used as the accessibility tab switcher. */
     protected OverviewListLayout mOverviewListLayout;
@@ -90,8 +91,11 @@ public class LayoutManagerChrome
     public LayoutManagerChrome(LayoutManagerHost host, ViewGroup contentContainer,
             boolean createOverviewLayout, @Nullable StartSurface startSurface,
             ObservableSupplier<TabContentManager> tabContentManagerSupplier,
-            OneshotSupplierImpl<OverviewModeBehavior> overviewModeBehaviorSupplier) {
-        super(host, contentContainer, tabContentManagerSupplier);
+            Supplier<LayerTitleCache> layerTitleCacheSupplier,
+            OneshotSupplierImpl<OverviewModeBehavior> overviewModeBehaviorSupplier,
+            OneshotSupplierImpl<LayoutStateProvider> layoutStateProviderOneshotSupplier) {
+        super(host, contentContainer, tabContentManagerSupplier, layerTitleCacheSupplier,
+                layoutStateProviderOneshotSupplier);
         Context context = host.getContext();
         LayoutRenderHost renderHost = host.getLayoutRenderHost();
 
@@ -118,14 +122,7 @@ public class LayoutManagerChrome
                 TabManagementDelegate tabManagementDelegate =
                         TabManagementModuleProvider.getDelegate();
                 assert tabManagementDelegate != null;
-                startSurface.setStateChangeObserver(new StartSurface.StateObserver() {
-                    @Override
-                    public void onStateChanged(@OverviewModeState int overviewModeState,
-                            boolean shouldShowTabSwitcherToolbar) {
-                        notifyObserversStateChanged(
-                                overviewModeState, shouldShowTabSwitcherToolbar);
-                    }
-                });
+
                 final ObservableSupplier<? extends BrowserControlsStateProvider>
                         browserControlsSupplier = mHost.getBrowserControlsManagerSupplier();
                 mOverviewLayout = tabManagementDelegate.createStartSurfaceLayout(context, this,
@@ -167,9 +164,7 @@ public class LayoutManagerChrome
 
     @Override
     public void init(TabModelSelector selector, TabCreatorManager creator,
-            ControlContainer controlContainer,
-            ContextualSearchManagementDelegate contextualSearchDelegate,
-            DynamicResourceLoader dynamicResourceLoader, ActivityTabProvider tabProvider) {
+            ControlContainer controlContainer, DynamicResourceLoader dynamicResourceLoader) {
         Context context = mHost.getContext();
         LayoutRenderHost renderHost = mHost.getLayoutRenderHost();
         BrowserControlsStateProvider browserControlsStateProvider =
@@ -187,8 +182,7 @@ public class LayoutManagerChrome
                     (ObservableSupplier<BrowserControlsStateProvider>) browserControlsSupplier);
         }
 
-        super.init(selector, creator, controlContainer, contextualSearchDelegate,
-                dynamicResourceLoader, tabProvider);
+        super.init(selector, creator, controlContainer, dynamicResourceLoader);
 
         // TODO: TitleCache should be a part of the ResourceManager.
         mTitleCache = mHost.getTitleCache();
@@ -271,13 +265,7 @@ public class LayoutManagerChrome
 
         Layout layoutBeingShown = getActiveLayout();
 
-        // Check if a layout is showing that should hide the overlay panels.
-        if (isOverviewLayout(layoutBeingShown) || layoutBeingShown == mToolbarSwipeLayout) {
-            if (mContextualSearchDelegate != null) {
-                mContextualSearchDelegate.dismissContextualSearchBar();
-            }
-        }
-
+        // TODO(crbug.com/1108496): Remove after migrates to LayoutStateObserver.
         // Check if we should notify OverviewModeObservers.
         if (isOverviewLayout(layoutBeingShown)) {
             boolean showToolbar = animate && (!mEnableAnimations
@@ -290,6 +278,7 @@ public class LayoutManagerChrome
     public void startHiding(int nextTabId, boolean hintAtTabSelection) {
         super.startHiding(nextTabId, hintAtTabSelection);
 
+        // TODO(crbug.com/1108496): Remove after migrates to LayoutStateObserver.
         Layout layoutBeingHidden = getActiveLayout();
         if (isOverviewLayout(layoutBeingHidden)) {
             boolean showToolbar = true;
@@ -308,6 +297,7 @@ public class LayoutManagerChrome
     public void doneShowing() {
         super.doneShowing();
 
+        // TODO(crbug.com/1108496): Remove after migrates to LayoutStateObserver.
         if (isOverviewLayout(getActiveLayout())) {
             notifyObserversFinishedShowing();
         }
@@ -324,9 +314,31 @@ public class LayoutManagerChrome
 
         super.doneHiding();
 
+        // TODO(crbug.com/1108496): Remove after migrates to Observer.
         if (isOverviewLayout(layoutBeingHidden)) {
             notifyObserversFinishedHiding();
         }
+    }
+
+    @Override
+    protected boolean shouldDelayHideAnimation(Layout layoutBeingHidden) {
+        return mEnableAnimations && layoutBeingHidden == mOverviewLayout && mCreatingNtp;
+    }
+
+    @Override
+    protected boolean shouldShowToolbarAnimationOnShow(boolean isAnimate) {
+        return isAnimate
+                && (!mEnableAnimations || getTabModelSelector().getCurrentModel().getCount() <= 0);
+    }
+
+    @Override
+    protected boolean shouldShowToolbarAnimationOnHide(Layout layoutBeingHidden, int nextTabId) {
+        boolean showAnimation = true;
+        if (mEnableAnimations && layoutBeingHidden == mOverviewLayout) {
+            final LayoutTab tab = layoutBeingHidden.getLayoutTab(nextTabId);
+            showAnimation = tab == null || !tab.showToolbar();
+        }
+        return showAnimation;
     }
 
     @Override
@@ -413,7 +425,7 @@ public class LayoutManagerChrome
     @Override
     public void hideOverview(boolean animate) {
         Layout activeLayout = getActiveLayout();
-        if (activeLayout != null && !activeLayout.isHiding()) {
+        if (activeLayout != null && !activeLayout.isStartingToHide()) {
             if (animate) {
                 activeLayout.onTabSelecting(time(), Tab.INVALID_TAB_ID);
             } else {
@@ -442,7 +454,7 @@ public class LayoutManagerChrome
     @Override
     public boolean overviewVisible() {
         Layout activeLayout = getActiveLayout();
-        return isOverviewLayout(activeLayout) && !activeLayout.isHiding();
+        return isOverviewLayout(activeLayout) && !activeLayout.isStartingToHide();
     }
 
     @Override
@@ -585,7 +597,7 @@ public class LayoutManagerChrome
 
         // Close the previous tab if the previous tab is a NTP.
         Tab lastTab = getTabById(lastTabId);
-        if (NewTabPage.isNTPUrl(lastTab.getUrl()) && !lastTab.canGoBack()
+        if (UrlUtilities.isNTPUrl(lastTab.getUrl()) && !lastTab.canGoBack()
                 && !lastTab.canGoForward()) {
             getTabModelSelector()
                     .getModel(lastTab.isIncognito())
@@ -621,16 +633,6 @@ public class LayoutManagerChrome
         mOverviewModeBehaviorSupplier.onAvailable((unused) -> {
             for (OverviewModeObserver overviewModeObserver : mOverviewModeObservers) {
                 overviewModeObserver.onOverviewModeFinishedHiding();
-            }
-        });
-    }
-
-    private void notifyObserversStateChanged(
-            @OverviewModeState int overviewModeState, boolean shouldShowTabSwitcherToolbar) {
-        mOverviewModeBehaviorSupplier.onAvailable((unused) -> {
-            for (OverviewModeObserver overviewModeObserver : mOverviewModeObservers) {
-                overviewModeObserver.onOverviewModeStateChanged(
-                        overviewModeState, shouldShowTabSwitcherToolbar);
             }
         });
     }

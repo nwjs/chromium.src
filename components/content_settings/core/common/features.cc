@@ -19,8 +19,4 @@ const base::Feature kDisallowWildcardsInPluginContentSettings{
     "DisallowWildcardsInPluginContentSettings",
     base::FEATURE_DISABLED_BY_DEFAULT};
 
-const base::Feature kDisallowExtensionsToSetPluginContentSettings{
-    "DisallowExtensionsToSetPluginContentSettings",
-    base::FEATURE_DISABLED_BY_DEFAULT};
-
 }  // namespace content_settings

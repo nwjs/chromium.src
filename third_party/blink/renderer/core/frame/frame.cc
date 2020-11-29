@@ -42,11 +42,11 @@
 #include "third_party/blink/renderer/core/dom/increment_load_event_delay_count.h"
 #include "third_party/blink/renderer/core/dom/node_computed_style.h"
 #include "third_party/blink/renderer/core/execution_context/window_agent_factory.h"
-#include "third_party/blink/renderer/core/exported/web_remote_frame_impl.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/page_dismissal_scope.h"
 #include "third_party/blink/renderer/core/frame/remote_frame_owner.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
+#include "third_party/blink/renderer/core/frame/web_remote_frame_impl.h"
 #include "third_party/blink/renderer/core/html/html_frame_element_base.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
 #include "third_party/blink/renderer/core/layout/layout_embedded_content.h"
@@ -55,6 +55,7 @@
 #include "third_party/blink/renderer/core/page/focus_controller.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
+#include "third_party/blink/renderer/platform/bindings/script_forbidden_scope.h"
 #include "third_party/blink/renderer/platform/instrumentation/instance_counters.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_error.h"
@@ -107,6 +108,7 @@ void Frame::Trace(Visitor* visitor) const {
   visitor->Trace(next_sibling_);
   visitor->Trace(first_child_);
   visitor->Trace(last_child_);
+  visitor->Trace(provisional_frame_);
   visitor->Trace(navigation_rate_limiter_);
   visitor->Trace(window_agent_factory_);
   visitor->Trace(opened_frame_tracker_);
@@ -125,12 +127,36 @@ void Frame::Detach(FrameDetachType type) {
 
   if (GetPage())
     GetPage()->GetFocusController().FrameDetached(this);
-
+  
   // Due to re-entrancy, |this| could have completed detaching already.
   // TODO(dcheng): This DCHECK is not always true. See https://crbug.com/838348.
   DCHECK(IsDetached() == !client_);
   if (!client_)
     return;
+
+  // TODO(dcheng): FocusController::FrameDetached() *should* fire JS events,
+  // hence the above check for `client_` being null. However, when this was
+  // previously placed before the `FrameDetached()` call, nothing crashes, which
+  // is suspicious. Investigate if we really don't need to fire JS events--and
+  // if we don't, move `forbid_scripts` up to be instantiated sooner and
+  // simplify this code.
+  ScriptForbiddenScope forbid_scripts;
+
+  if (provisional_frame_) {
+    // This path should never be taken for a swap of any sort.
+    // 1. When swapping local->remote, that means the actual navigation is
+    //    committing in a different process. Thus, there should be no
+    //    provisional frame in this process, since there should only be one
+    //    provisional frame for a FrameTreeNode at any given time.
+    // 2. When swapping remote->local, that means the actual navigation is
+    //    committing in this frame tree. However, the committing frame should
+    //    have unset itself as the provisional frame in `Swap()` already, so
+    //    this should never be reached.
+    // 3. Similarly, when swapping local->local, the actual navigation is
+    //    committing in this frame tree, and the same logic applies.
+    DCHECK_EQ(FrameDetachType::kRemove, type);
+    provisional_frame_->Detach(type);
+  }
 
   SetOpener(nullptr);
   // After this, we must no longer talk to the client since this clears
@@ -255,7 +281,7 @@ void Frame::DidChangeVisibilityState() {
     child_frames[i]->DidChangeVisibilityState();
 }
 
-void Frame::NotifyUserActivationInLocalTree(
+void Frame::NotifyUserActivationInFrameTree(
     mojom::blink::UserActivationNotificationType notification_type) {
   for (Frame* node = this; node; node = node->Tree().Parent()) {
     node->user_activation_state_.Activate(notification_type);
@@ -281,7 +307,7 @@ void Frame::NotifyUserActivationInLocalTree(
   }
 }
 
-bool Frame::ConsumeTransientUserActivationInLocalTree() {
+bool Frame::ConsumeTransientUserActivationInFrameTree() {
   bool was_active = user_activation_state_.IsActive();
   Frame& root = Tree().Top();
 
@@ -296,7 +322,7 @@ bool Frame::ConsumeTransientUserActivationInLocalTree() {
   return was_active;
 }
 
-void Frame::ClearUserActivationInLocalTree() {
+void Frame::ClearUserActivationInFrameTree() {
   for (Frame* node = this; node; node = node->Tree().TraverseNext(this))
     node->user_activation_state_.Clear();
 }
@@ -524,8 +550,16 @@ Frame* Frame::Top() {
 bool Frame::Swap(WebFrame* frame) {
   using std::swap;
   Frame* old_frame = this;
+  // TODO(dcheng): This should not be reachable. Reaching this implies `Swap()`
+  // is being called on an already-detached frame which should never happen...
   if (!old_frame->IsAttached())
     return false;
+  if (provisional_frame_) {
+    // `this` is about to be replaced, so if `provisional_frame_` is set, it
+    // should match `frame` which is being swapped in.
+    DCHECK_EQ(provisional_frame_, WebFrame::ToCoreFrame(*frame));
+    provisional_frame_ = nullptr;
+  }
   FrameOwner* owner = old_frame->Owner();
   FrameSwapScope frame_swap_scope(owner);
   Frame* new_frame_parent = WebFrame::ToCoreFrame(*frame) && frame->Parent()

@@ -58,7 +58,6 @@ class RulesetService;
 }
 
 namespace federated_learning {
-class FlocBlocklistService;
 class FlocSortingLshClustersService;
 }
 
@@ -225,10 +224,6 @@ class BrowserProcess {
   virtual subresource_filter::RulesetService*
   subresource_filter_ruleset_service() = 0;
 
-  // Returns the service providing versioned storage for a blocklist of flocs.
-  virtual federated_learning::FlocBlocklistService*
-  floc_blocklist_service() = 0;
-
   // Returns the service providing versioned storage for a list of limit values
   // for calculating the floc based on SortingLSH.
   virtual federated_learning::FlocSortingLshClustersService*
@@ -254,13 +249,12 @@ class BrowserProcess {
   virtual void StartAutoupdateTimer() = 0;
 #endif
 
-  virtual component_updater::ComponentUpdateService* component_updater() = 0;
 
-#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
+  virtual component_updater::ComponentUpdateService* component_updater() = 0;
+#if 0
   virtual component_updater::SupervisedUserWhitelistInstaller*
   supervised_user_whitelist_installer() = 0;
 #endif
-
   virtual MediaFileSystemRegistry* media_file_system_registry() = 0;
 
   virtual WebRtcLogUploader* webrtc_log_uploader() = 0;

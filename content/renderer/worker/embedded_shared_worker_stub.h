@@ -18,12 +18,12 @@
 #include "mojo/public/cpp/bindings/remote.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "services/network/public/mojom/url_loader_factory.mojom-forward.h"
+#include "third_party/blink/public/common/renderer_preferences/renderer_preferences.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
 #include "third_party/blink/public/mojom/browser_interface_broker.mojom-forward.h"
 #include "third_party/blink/public/mojom/devtools/devtools_agent.mojom-forward.h"
 #include "third_party/blink/public/mojom/renderer_preference_watcher.mojom-forward.h"
-#include "third_party/blink/public/mojom/renderer_preferences.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/controller_service_worker.mojom-forward.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_provider.mojom-forward.h"
 #include "third_party/blink/public/mojom/worker/shared_worker.mojom.h"
@@ -36,6 +36,7 @@
 #include "url/gurl.h"
 
 namespace blink {
+class ChildURLLoaderFactoryBundle;
 class WebSharedWorker;
 }  // namespace blink
 
@@ -45,8 +46,6 @@ class PendingURLLoaderFactoryBundle;
 }  // namespace blink
 
 namespace content {
-
-class ChildURLLoaderFactoryBundle;
 
 // A stub class to receive IPC from browser process and talk to
 // blink::WebSharedWorker. Implements blink::WebSharedWorkerClient.
@@ -65,7 +64,7 @@ class EmbeddedSharedWorkerStub : public blink::WebSharedWorkerClient,
       const blink::UserAgentMetadata& ua_metadata,
       bool pause_on_start,
       const base::UnguessableToken& devtools_worker_token,
-      const blink::mojom::RendererPreferences& renderer_preferences,
+      const blink::RendererPreferences& renderer_preferences,
       mojo::PendingReceiver<blink::mojom::RendererPreferenceWatcher>
           preference_watcher_receiver,
       mojo::PendingRemote<blink::mojom::WorkerContentSettingsProxy>
@@ -97,7 +96,7 @@ class EmbeddedSharedWorkerStub : public blink::WebSharedWorkerClient,
 
   scoped_refptr<blink::WebWorkerFetchContext> CreateWorkerFetchContext(
       const GURL& url,
-      const blink::mojom::RendererPreferences& renderer_preferences,
+      const blink::RendererPreferences& renderer_preferences,
       mojo::PendingReceiver<blink::mojom::RendererPreferenceWatcher>
           preference_watcher_receiver,
       const std::vector<std::string>& cors_exempt_header_list);
@@ -110,7 +109,8 @@ class EmbeddedSharedWorkerStub : public blink::WebSharedWorkerClient,
   base::FilePath root_path_;
 
   // The factory bundle used for loading subresources for this shared worker.
-  scoped_refptr<ChildURLLoaderFactoryBundle> subresource_loader_factory_bundle_;
+  scoped_refptr<blink::ChildURLLoaderFactoryBundle>
+      subresource_loader_factory_bundle_;
 
   // Out-of-process NetworkService:
   // Detects disconnection from the default factory of the loader factory bundle

@@ -33,26 +33,25 @@ import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Feature;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
-import org.chromium.chrome.browser.ntp.NewTabPage;
+import org.chromium.chrome.browser.omnibox.LocationBarDataProvider;
 import org.chromium.chrome.browser.omnibox.UrlBarData;
 import org.chromium.chrome.browser.omnibox.UrlBarEditingTextStateProvider;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteController.OnSuggestionsReceivedListener;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteCoordinator;
-import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteCoordinatorImpl;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteDelegate;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteResult;
-import org.chromium.chrome.browser.omnibox.suggestions.OmniboxSuggestionsDropdown;
+import org.chromium.chrome.browser.omnibox.suggestions.OmniboxSuggestionsDropdownEmbedder;
 import org.chromium.chrome.browser.omnibox.voice.VoiceRecognitionHandler.VoiceInteractionSource;
 import org.chromium.chrome.browser.omnibox.voice.VoiceRecognitionHandler.VoiceResult;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.MockTab;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.toolbar.NewTabPageDelegate;
 import org.chromium.chrome.browser.toolbar.ToolbarDataProvider;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
-import org.chromium.chrome.test.util.OmniboxTestUtils.SuggestionsResult;
-import org.chromium.chrome.test.util.OmniboxTestUtils.TestAutocompleteController;
 import org.chromium.chrome.test.util.browser.Features.EnableFeatures;
+import org.chromium.components.metrics.OmniboxEventProtos.OmniboxEventProto.PageClassification;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.ui.base.ActivityWindowAndroid;
 import org.chromium.ui.base.AndroidPermissionDelegate;
@@ -63,7 +62,6 @@ import org.chromium.ui.base.WindowAndroid.IntentCallback;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
@@ -84,7 +82,6 @@ public class VoiceRecognitionHandlerTest {
     private TestDataProvider mDataProvider;
     private TestDelegate mDelegate;
     private TestVoiceRecognitionHandler mHandler;
-    private TestAutocompleteController mAutocomplete;
     private TestAndroidPermissionDelegate mPermissionDelegate;
     private TestWindowAndroid mWindowAndroid;
     private Tab mTab;
@@ -196,7 +193,7 @@ public class VoiceRecognitionHandlerTest {
     /**
      * Test implementation of {@link ToolbarDataProvider}.
      */
-    private class TestDataProvider implements ToolbarDataProvider {
+    private class TestDataProvider implements LocationBarDataProvider {
         private boolean mIncognito;
 
         public void setIncognito(boolean incognito) {
@@ -214,23 +211,24 @@ public class VoiceRecognitionHandlerTest {
         }
 
         @Override
+        public void addObserver(Observer observer) {}
+
+        @Override
+        public void removeObserver(Observer observer) {}
+
+        @Override
         public String getCurrentUrl() {
             return null;
         }
 
         @Override
-        public NewTabPage getNewTabPageForCurrentTab() {
-            return null;
+        public NewTabPageDelegate getNewTabPageDelegate() {
+            return NewTabPageDelegate.EMPTY;
         }
 
         @Override
         public boolean isIncognito() {
             return mIncognito;
-        }
-
-        @Override
-        public boolean shouldShowLocationBarInOverviewMode() {
-            return false;
         }
 
         @Override
@@ -279,6 +277,11 @@ public class VoiceRecognitionHandlerTest {
         }
 
         @Override
+        public int getPageClassification(boolean isFocusedFromFakebox) {
+            return PageClassification.NTP_VALUE;
+        }
+
+        @Override
         public int getSecurityIconResource(boolean isTablet) {
             return 0;
         }
@@ -287,14 +290,19 @@ public class VoiceRecognitionHandlerTest {
         public @ColorRes int getSecurityIconColorStateList() {
             return 0;
         }
+
+        @Override
+        public int getSecurityIconContentDescriptionResourceId() {
+            return 0;
+        }
     }
 
     /**
-     * TODO(crbug.com/962527): Remove this dependency on {@link AutocompleteCoordinatorImpl}.
+     * TODO(crbug.com/962527): Remove this dependency on {@link AutocompleteCoordinator}.
      */
-    private class TestAutocompleteCoordinatorImpl extends AutocompleteCoordinatorImpl {
-        public TestAutocompleteCoordinatorImpl(ViewGroup parent, AutocompleteDelegate delegate,
-                OmniboxSuggestionsDropdown.Embedder dropdownEmbedder,
+    private class TestAutocompleteCoordinator extends AutocompleteCoordinator {
+        public TestAutocompleteCoordinator(ViewGroup parent, AutocompleteDelegate delegate,
+                OmniboxSuggestionsDropdownEmbedder dropdownEmbedder,
                 UrlBarEditingTextStateProvider urlBarEditingTextProvider) {
             super(parent, delegate, dropdownEmbedder, urlBarEditingTextProvider);
         }
@@ -317,8 +325,7 @@ public class VoiceRecognitionHandlerTest {
             ViewGroup parent =
                     (ViewGroup) mActivityTestRule.getActivity().findViewById(android.R.id.content);
             Assert.assertNotNull(parent);
-            mAutocompleteCoordinator =
-                    new TestAutocompleteCoordinatorImpl(parent, null, null, null);
+            mAutocompleteCoordinator = new TestAutocompleteCoordinator(parent, null, null, null);
         }
 
         @Override
@@ -335,7 +342,7 @@ public class VoiceRecognitionHandlerTest {
         public void setSearchQuery(final String query) {}
 
         @Override
-        public ToolbarDataProvider getToolbarDataProvider() {
+        public LocationBarDataProvider getLocationBarDataProvider() {
             return mDataProvider;
         }
 
@@ -348,6 +355,9 @@ public class VoiceRecognitionHandlerTest {
         public WindowAndroid getWindowAndroid() {
             return mWindowAndroid;
         }
+
+        @Override
+        public void clearOmniboxFocus() {}
 
         public boolean updatedMicButtonState() {
             return mUpdatedMicButtonState;
@@ -494,8 +504,6 @@ public class VoiceRecognitionHandlerTest {
         mDelegate = TestThreadUtils.runOnUiThreadBlocking(() -> new TestDelegate());
         mHandler = new TestVoiceRecognitionHandler(mDelegate);
         mPermissionDelegate = new TestAndroidPermissionDelegate();
-        mAutocomplete = new TestAutocompleteController(null /* view */, sEmptySuggestionListener,
-                new HashMap<String, List<SuggestionsResult>>());
 
         TestThreadUtils.runOnUiThreadBlocking(() -> {
             mWindowAndroid = new TestWindowAndroid(mActivityTestRule.getActivity());
@@ -504,6 +512,7 @@ public class VoiceRecognitionHandlerTest {
         });
 
         doReturn(false).when(mAssistantVoiceSearchService).shouldRequestAssistantVoiceSearch();
+        doReturn(false).when(mAssistantVoiceSearchService).needsEnabledCheck();
         doReturn(mIntent).when(mAssistantVoiceSearchService).getAssistantVoiceSearchIntent();
         mHandler.setAssistantVoiceSearchService(mAssistantVoiceSearchService);
     }

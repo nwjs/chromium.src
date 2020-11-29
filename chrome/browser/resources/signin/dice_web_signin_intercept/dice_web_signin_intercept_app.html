@@ -7,10 +7,9 @@
 
   #header {
     background-color: var(--header-background-color);
-    border-radius: 4px;
     color: var(--header-text-color);
-    margin: 8px 8px 16px;
-    min-height: 128px;
+    margin-bottom: 16px;
+    min-height: 136px;
     position: relative;
   }
 
@@ -87,6 +86,10 @@
     margin: 0 0 8px;
   }
 
+  #contents {
+    overflow-wrap: break-word;  /** For very long names and emails */
+  }
+
   .action-container {
     padding: 0 16px 16px;
   }
@@ -103,7 +106,7 @@
         src="[[interceptionParameters_.interceptedAccount.pictureUrl]]">
     <div class="work-badge" id="badge"
         hidden="[[!interceptionParameters_.interceptedAccount.isManaged]]">
-      <iron-icon class="icon" icon="signin:business"></iron-icon>
+      <iron-icon class="icon" icon="cr:domain"></iron-icon>
     </div>
   </div>
 </div>
@@ -116,9 +119,9 @@
 <div class="action-container">
   <cr-button id="acceptButton" class="action-button" on-click="onAccept_"
       autofocus>
-    $i18n{diceWebSigninInterceptAcceptLabel}
+    [[interceptionParameters_.confirmButtonLabel]]
   </cr-button>
   <cr-button id="cancelButton" on-click="onCancel_">
-    $i18n{diceWebSigninInterceptCancelLabel}
+    [[interceptionParameters_.cancelButtonLabel]]
   </cr-button>
 </div>

@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_UI_ASH_CHROME_CAPTURE_MODE_DELEGATE_H_
 
 #include "ash/public/cpp/capture_mode_delegate.h"
+#include "base/callback.h"
 
 // Implements the interface needed for the delegate of the Capture Mode feature
 // in Chrome.
@@ -20,7 +21,22 @@ class ChromeCaptureModeDelegate : public ash::CaptureModeDelegate {
   // ash::CaptureModeDelegate:
   base::FilePath GetActiveUserDownloadsDir() const override;
   void ShowScreenCaptureItemInFolder(const base::FilePath& file_path) override;
+  void OpenScreenshotInImageEditor(const base::FilePath& file_path) override;
   bool Uses24HourFormat() const override;
+  bool IsCaptureModeInitRestricted() const override;
+  bool IsCaptureAllowed(const aura::Window* window,
+                        const gfx::Rect& bounds,
+                        bool for_video) const override;
+  void StartObservingRestrictedContent(
+      const aura::Window* window,
+      const gfx::Rect& bounds,
+      base::OnceClosure stop_callback) override;
+  void StopObservingRestrictedContent() override;
+  void OpenFeedbackDialog() override;
+  mojo::Remote<recording::mojom::RecordingService> LaunchRecordingService()
+      const override;
+  void BindAudioStreamFactory(
+      mojo::PendingReceiver<audio::mojom::StreamFactory> receiver) override;
 };
 
 #endif  // CHROME_BROWSER_UI_ASH_CHROME_CAPTURE_MODE_DELEGATE_H_

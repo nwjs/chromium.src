@@ -295,9 +295,11 @@ public class ChromeProvidedSharingOptionsProviderTest {
 
     @Test
     @MediumTest
-    @Features.DisableFeatures({ChromeFeatureList.CHROME_SHARING_HUB_V15})
+    @Features.DisableFeatures(
+            {ChromeFeatureList.CHROME_SHARING_HUB_V15, ChromeFeatureList.CHROME_SHARE_SCREENSHOT})
     @Features.EnableFeatures({ChromeFeatureList.CHROME_SHARE_HIGHLIGHTS_ANDROID})
-    public void getPropertyModels_sharingHub15Disabled_noHighlights() {
+    public void
+    getPropertyModels_sharingHub15Disabled_noHighlights() {
         setUpChromeProvidedSharingOptionsProviderTest(/*printingEnabled=*/false);
         List<PropertyModel> propertyModels =
                 mChromeProvidedSharingOptionsProvider.getPropertyModels(
@@ -310,6 +312,7 @@ public class ChromeProvidedSharingOptionsProviderTest {
     @MediumTest
     @Features.EnableFeatures({ChromeFeatureList.CHROME_SHARING_HUB_V15,
             ChromeFeatureList.CHROME_SHARE_HIGHLIGHTS_ANDROID})
+    @Features.DisableFeatures({ChromeFeatureList.CHROME_SHARE_SCREENSHOT})
     public void
     getPropertyModels_sharingHub15HighlightsEnabled() {
         setUpChromeProvidedSharingOptionsProviderTest(/*printingEnabled=*/false);
@@ -375,7 +378,8 @@ public class ChromeProvidedSharingOptionsProviderTest {
                         /*TabPrinterDelegate=*/null,
                         /*settingsLauncher=*/null,
                         /*syncState=*/false,
-                        /*shareStartTime=*/0, mShareSheetCoordinator);
+                        /*shareStartTime=*/0, mShareSheetCoordinator,
+                        /*imageEditorModuleProvider*/ null);
     }
 
     private void assertCorrectModelsAreInTheRightOrder(

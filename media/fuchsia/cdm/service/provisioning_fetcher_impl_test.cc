@@ -9,7 +9,7 @@
 
 #include "base/bind.h"
 #include "base/location.h"
-#include "base/test/bind_test_util.h"
+#include "base/test/bind.h"
 #include "base/test/task_environment.h"
 #include "fuchsia/base/mem_buffer_util.h"
 #include "media/fuchsia/cdm/service/mock_provision_fetcher.h"
@@ -27,7 +27,7 @@ using ::testing::Invoke;
 using ::testing::WithArgs;
 using MockProvisionFetcher = ::media::testing::MockProvisionFetcher;
 
-constexpr char kTestDefaultUrl[] = "http://test_default_url.com";
+constexpr char kTestDefaultUrl[] = "http://test_default_url.com/";
 constexpr char kTestRequest[] = "test_request_message";
 constexpr char kTestResponse[] = "test_response_message";
 

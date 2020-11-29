@@ -16,14 +16,13 @@
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
 #include "base/synchronization/waitable_event.h"
-#include "components/sync/base/cancelation_observer.h"
 #include "components/sync/base/model_type.h"
 #include "components/sync/base/passphrase_enums.h"
+#include "components/sync/engine/commit_and_get_updates_types.h"
 #include "components/sync/engine/commit_queue.h"
-#include "components/sync/engine/non_blocking_sync_common.h"
 #include "components/sync/engine/sync_encryption_handler.h"
+#include "components/sync/engine_impl/cancelation_signal.h"
 #include "components/sync/engine_impl/commit_contributor.h"
-#include "components/sync/engine_impl/cycle/data_type_debug_info_emitter.h"
 #include "components/sync/engine_impl/nudge_handler.h"
 #include "components/sync/engine_impl/update_handler.h"
 #include "components/sync/nigori/cryptographer.h"
@@ -37,11 +36,11 @@ class ModelTypeProcessor;
 
 // A smart cache for sync types to communicate with the sync thread.
 //
-// When the non-blocking sync type wants to talk with the sync server, it will
+// When the sync data type wants to talk to the sync server, it will
 // send a message from its thread to this object on the sync thread. This
 // object ensures the appropriate sync server communication gets scheduled and
-// executed. The response, if any, will be returned to the non-blocking sync
-// type's thread eventually.
+// executed. The response, if any, will be returned to the data types's thread
+// eventually.
 //
 // This object also has a role to play in communications in the opposite
 // direction. Sometimes the sync thread will receive changes from the sync
@@ -67,7 +66,6 @@ class ModelTypeWorker : public UpdateHandler,
                   PassphraseType passphrase_type,
                   NudgeHandler* nudge_handler,
                   std::unique_ptr<ModelTypeProcessor> model_type_processor,
-                  DataTypeDebugInfoEmitter* debug_info_emitter,
                   CancelationSignal* cancelation_signal);
   ~ModelTypeWorker() override;
 
@@ -103,16 +101,6 @@ class ModelTypeWorker : public UpdateHandler,
   // CommitContributor implementation.
   std::unique_ptr<CommitContribution> GetContribution(
       size_t max_entries) override;
-
-  // Extended overload of ProcessGetUpdatesResponse() that allows specifying
-  // whether the updates are coming from the USS migrator, which influences how
-  // UMA metrics are logged.
-  SyncerError ProcessGetUpdatesResponse(
-      const sync_pb::DataTypeProgressMarker& progress_marker,
-      const sync_pb::DataTypeContext& mutated_context,
-      const SyncEntityList& applicable_updates,
-      bool from_uss_migrator,
-      StatusController* status);
 
   bool HasLocalChangesForTest() const;
 
@@ -210,7 +198,6 @@ class ModelTypeWorker : public UpdateHandler,
   void OnFullCommitFailure(SyncCommitError commit_error);
 
   ModelType type_;
-  DataTypeDebugInfoEmitter* debug_info_emitter_;
 
   // State that applies to the entire model type.
   sync_pb::ModelTypeState model_type_state_;
@@ -264,31 +251,31 @@ class ModelTypeWorker : public UpdateHandler,
 //     base::MakeRefCounted<GetLocalChangesRequest>(cancelation_signal_);
 // model_type_processor_->GetLocalChanges(
 //     max_entries,
-//     base::Bind(&GetLocalChangesRequest::SetResponse, request));
-// request->WaitForResponse();
+//     base::BindOnce(&GetLocalChangesRequest::SetResponse, request));
+// request->WaitForResponseOrCancelation();
 // CommitRequestDataList response;
 // if (!request->WasCancelled())
 //   response = request->ExtractResponse();
 class GetLocalChangesRequest
     : public base::RefCountedThreadSafe<GetLocalChangesRequest>,
-      public CancelationObserver {
+      public CancelationSignal::Observer {
  public:
   explicit GetLocalChangesRequest(CancelationSignal* cancelation_signal);
 
-  // CancelationObserver implementation.
-  void OnSignalReceived() override;
+  // CancelationSignal::Observer implementation.
+  void OnCancelationSignalReceived() override;
 
   // Blocks current thread until either SetResponse is called or
   // cancelation_signal_ is signaled.
-  void WaitForResponse();
+  void WaitForResponseOrCancelation();
 
-  // SetResponse takes ownership of |local_changes| and unblocks WaitForResponse
-  // call. It is called by model type through callback passed to
-  // GetLocalChanges.
+  // SetResponse takes ownership of |local_changes| and unblocks
+  // WaitForResponseOrCancelation call. It is called by model type through
+  // callback passed to GetLocalChanges.
   void SetResponse(CommitRequestDataList&& local_changes);
 
-  // Checks if WaitForResponse was canceled through CancelationSignal. When
-  // returns true calling ExtractResponse is unsafe.
+  // Checks if WaitForResponseOrCancelation was canceled through
+  // CancelationSignal. When returns true calling ExtractResponse is unsafe.
   bool WasCancelled();
 
   // Returns response set by SetResponse().

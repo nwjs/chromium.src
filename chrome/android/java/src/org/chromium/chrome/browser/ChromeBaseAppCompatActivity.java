@@ -15,7 +15,6 @@ import androidx.annotation.StyleRes;
 import androidx.appcompat.app.AppCompatActivity;
 
 import org.chromium.base.ContextUtils;
-import org.chromium.chrome.browser.language.AppLocaleUtils;
 import org.chromium.chrome.browser.language.GlobalAppLocaleController;
 import org.chromium.chrome.browser.night_mode.GlobalNightModeStateProviderHolder;
 import org.chromium.chrome.browser.night_mode.NightModeStateProvider;
@@ -40,15 +39,9 @@ public class ChromeBaseAppCompatActivity
         // that applyOverrideConfiguration() does not interpret it as an overridden value.
         // https://crbug.com/834191
         config.fontScale = 0;
+        // NightMode and other applyOverrides must be done before onCreate in attachBaseContext.
+        // https://crbug.com/1139760
         if (applyOverrides(newBase, config)) applyOverrideConfiguration(config);
-    }
-
-    @Override
-    public Context createConfigurationContext(Configuration overrideConfiguration) {
-        Context newContext = super.createConfigurationContext(overrideConfiguration);
-        // If the activity locale will be overridden enable using language splits.
-        AppLocaleUtils.maybeInstallActivitySplitCompat(newContext);
-        return newContext;
     }
 
     @Override
@@ -56,6 +49,9 @@ public class ChromeBaseAppCompatActivity
         initializeNightModeStateProvider();
         mNightModeStateProvider.addObserver(this);
         super.onCreate(savedInstanceState);
+
+        // Activity level locale overrides must be done in onCreate.
+        GlobalAppLocaleController.getInstance().maybeOverrideContextConfig(this);
     }
 
     @Override
@@ -87,11 +83,8 @@ public class ChromeBaseAppCompatActivity
      */
     @CallSuper
     protected boolean applyOverrides(Context baseContext, Configuration overrideConfig) {
-        boolean applied = NightModeUtils.applyOverridesForNightMode(
+        return NightModeUtils.applyOverridesForNightMode(
                 getNightModeStateProvider(), overrideConfig);
-        applied |= GlobalAppLocaleController.getInstance().applyActivityOverrides(
-                baseContext, overrideConfig);
-        return applied;
     }
 
     /**

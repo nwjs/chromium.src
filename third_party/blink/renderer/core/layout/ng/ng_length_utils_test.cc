@@ -26,7 +26,8 @@ static NGConstraintSpace ConstructConstraintSpace(
     WritingMode writing_mode = WritingMode::kHorizontalTb) {
   LogicalSize size = {LayoutUnit(inline_size), LayoutUnit(block_size)};
 
-  NGConstraintSpaceBuilder builder(writing_mode, writing_mode,
+  NGConstraintSpaceBuilder builder(writing_mode,
+                                   {writing_mode, TextDirection::kLtr},
                                    /* is_new_fc */ false);
   builder.SetAvailableSize(size);
   builder.SetPercentageResolutionSize(size);
@@ -98,7 +99,7 @@ class NGLengthUtilsTestWithNode : public NGLayoutTest {
   LayoutUnit ComputeInlineSizeForFragment(
       NGConstraintSpace constraint_space = ConstructConstraintSpace(200, 300),
       const MinMaxSizes& sizes = MinMaxSizes()) {
-    LayoutBox* body = ToLayoutBox(GetDocument().body()->GetLayoutObject());
+    LayoutBox* body = GetDocument().body()->GetLayoutBox();
     body->SetStyle(style_);
     body->SetIntrinsicLogicalWidthsDirty();
     NGBlockNode node(body);
@@ -113,7 +114,7 @@ class NGLengthUtilsTestWithNode : public NGLayoutTest {
       NGConstraintSpace constraint_space = ConstructConstraintSpace(200, 300),
       LayoutUnit content_size = LayoutUnit(),
       base::Optional<LayoutUnit> inline_size = base::nullopt) {
-    LayoutBox* body = ToLayoutBox(GetDocument().body()->GetLayoutObject());
+    LayoutBox* body = GetDocument().body()->GetLayoutBox();
     body->SetStyle(style_);
     body->SetIntrinsicLogicalWidthsDirty();
 
@@ -172,7 +173,7 @@ TEST_F(NGLengthUtilsTestWithNode, testComputeContentContribution) {
   MinMaxSizes sizes;
   sizes.min_size = LayoutUnit(30);
   sizes.max_size = LayoutUnit(40);
-  LayoutBox* body = ToLayoutBox(GetDocument().body()->GetLayoutObject());
+  LayoutBox* body = GetDocument().body()->GetLayoutBox();
   body->SetStyle(style_);
   NGBlockNode node(body);
 

@@ -44,8 +44,7 @@ void NotificationPermissionContext::UpdatePermission(
     case CONTENT_SETTING_DEFAULT:
       HostContentSettingsMapFactory::GetForProfile(browser_context)
           ->SetContentSettingDefaultScope(
-              origin, GURL(), ContentSettingsType::NOTIFICATIONS,
-              content_settings::ResourceIdentifier(), setting);
+              origin, GURL(), ContentSettingsType::NOTIFICATIONS, setting);
       break;
 
     default:
@@ -153,8 +152,8 @@ void NotificationPermissionContext::DecidePermission(
             base::BindOnce(&NotificationPermissionContext::NotifyPermissionSet,
                            weak_factory_ui_thread_.GetWeakPtr(), id,
                            requesting_origin, embedding_origin,
-                           std::move(callback), true /* persist */,
-                           CONTENT_SETTING_BLOCK),
+                           std::move(callback), /*persist=*/true,
+                           CONTENT_SETTING_BLOCK, /*is_one_time=*/false),
             base::TimeDelta::FromSecondsD(delay_seconds));
     return;
   }

@@ -71,7 +71,6 @@ class NotificationBarClientView : public views::ClientView {
 // ScreenCaptureNotificationUI implementation using Views.
 class ScreenCaptureNotificationUIViews : public ScreenCaptureNotificationUI,
                                          public views::WidgetDelegateView,
-                                         public views::ButtonListener,
                                          public views::ViewObserver {
  public:
   explicit ScreenCaptureNotificationUIViews(const base::string16& text);
@@ -91,9 +90,6 @@ class ScreenCaptureNotificationUIViews : public ScreenCaptureNotificationUI,
   bool ShouldShowWindowTitle() const override;
   bool ShouldShowCloseButton() const override;
   bool CanActivate() const override;
-
-  // views::ButtonListener:
-  void ButtonPressed(views::Button* sender, const ui::Event& event) override;
 
   // views::ViewObserver:
   void OnViewBoundsChanged(View* observed_view) override;
@@ -136,18 +132,23 @@ ScreenCaptureNotificationUIViews::ScreenCaptureNotificationUIViews(
 
   base::string16 source_text =
       l10n_util::GetStringUTF16(IDS_MEDIA_SCREEN_CAPTURE_NOTIFICATION_SOURCE);
-  source_button_ =
-      AddChildView(std::make_unique<views::MdTextButton>(this, source_text));
+  source_button_ = AddChildView(std::make_unique<views::MdTextButton>(
+      base::BindRepeating(&ScreenCaptureNotificationUIViews::NotifySourceChange,
+                          base::Unretained(this)),
+      source_text));
 
   base::string16 stop_text =
       l10n_util::GetStringUTF16(IDS_MEDIA_SCREEN_CAPTURE_NOTIFICATION_STOP);
-  auto stop_button = std::make_unique<views::MdTextButton>(this, stop_text);
+  auto stop_button = std::make_unique<views::MdTextButton>(
+      base::BindRepeating(&ScreenCaptureNotificationUIViews::NotifyStopped,
+                          base::Unretained(this)),
+      stop_text);
   stop_button->SetProminent(true);
   stop_button_ = AddChildView(std::move(stop_button));
 
   auto hide_link = std::make_unique<views::Link>(
       l10n_util::GetStringUTF16(IDS_MEDIA_SCREEN_CAPTURE_NOTIFICATION_HIDE));
-  hide_link->set_callback(base::BindRepeating(
+  hide_link->SetCallback(base::BindRepeating(
       [](ScreenCaptureNotificationUIViews* view) {
         view->GetWidget()->Minimize();
       },
@@ -268,16 +269,6 @@ bool ScreenCaptureNotificationUIViews::CanActivate() const {
   // can be sent to the window; when the window is minimized, we don't want it
   // to activate, otherwise it sometimes does not show properly on Windows.
   return GetWidget() && GetWidget()->IsVisible();
-}
-
-void ScreenCaptureNotificationUIViews::ButtonPressed(views::Button* sender,
-                                                     const ui::Event& event) {
-  if (sender == stop_button_) {
-    NotifyStopped();
-  } else {
-    DCHECK_EQ(source_button_, sender);
-    NotifySourceChange();
-  }
 }
 
 void ScreenCaptureNotificationUIViews::OnViewBoundsChanged(

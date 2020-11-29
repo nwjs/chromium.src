@@ -22,8 +22,6 @@
 #include "chrome/browser/infobars/mock_infobar_service.h"
 #include "chrome/browser/ssl/stateful_ssl_host_state_delegate_factory.h"
 #include "chrome/browser/ssl/tls_deprecation_test_utils.h"
-#include "chrome/browser/subresource_filter/subresource_filter_content_settings_manager.h"
-#include "chrome/browser/subresource_filter/subresource_filter_profile_context.h"
 #include "chrome/browser/subresource_filter/subresource_filter_profile_context_factory.h"
 #include "chrome/browser/ui/page_info/chrome_page_info_delegate.h"
 #include "chrome/browser/ui/page_info/chrome_page_info_ui_delegate.h"
@@ -41,6 +39,8 @@
 #include "components/security_interstitials/content/stateful_ssl_host_state_delegate.h"
 #include "components/security_state/core/features.h"
 #include "components/strings/grit/components_strings.h"
+#include "components/subresource_filter/content/browser/subresource_filter_content_settings_manager.h"
+#include "components/subresource_filter/content/browser/subresource_filter_profile_context.h"
 #include "content/public/browser/ssl_host_state_delegate.h"
 #include "content/public/browser/ssl_status.h"
 #include "content/public/common/content_switches.h"
@@ -435,24 +435,24 @@ TEST_F(PageInfoTest, OnPermissionsChanged) {
   HostContentSettingsMap* content_settings =
       HostContentSettingsMapFactory::GetForProfile(profile());
   ContentSetting setting = content_settings->GetContentSetting(
-      url(), url(), ContentSettingsType::POPUPS, std::string());
+      url(), url(), ContentSettingsType::POPUPS);
   EXPECT_EQ(setting, CONTENT_SETTING_BLOCK);
 #if BUILDFLAG(ENABLE_PLUGINS)
-  setting = content_settings->GetContentSetting(
-      url(), url(), ContentSettingsType::PLUGINS, std::string());
+  setting = content_settings->GetContentSetting(url(), url(),
+                                                ContentSettingsType::PLUGINS);
   EXPECT_EQ(setting, CONTENT_SETTING_BLOCK);
 #endif
   setting = content_settings->GetContentSetting(
-      url(), url(), ContentSettingsType::GEOLOCATION, std::string());
+      url(), url(), ContentSettingsType::GEOLOCATION);
   EXPECT_EQ(setting, CONTENT_SETTING_ASK);
   setting = content_settings->GetContentSetting(
-      url(), url(), ContentSettingsType::NOTIFICATIONS, std::string());
+      url(), url(), ContentSettingsType::NOTIFICATIONS);
   EXPECT_EQ(setting, CONTENT_SETTING_ASK);
   setting = content_settings->GetContentSetting(
-      url(), url(), ContentSettingsType::MEDIASTREAM_MIC, std::string());
+      url(), url(), ContentSettingsType::MEDIASTREAM_MIC);
   EXPECT_EQ(setting, CONTENT_SETTING_ASK);
   setting = content_settings->GetContentSetting(
-      url(), url(), ContentSettingsType::MEDIASTREAM_CAMERA, std::string());
+      url(), url(), ContentSettingsType::MEDIASTREAM_CAMERA);
   EXPECT_EQ(setting, CONTENT_SETTING_ASK);
 
   EXPECT_CALL(*mock_ui(), SetIdentityInfo(_));
@@ -484,25 +484,25 @@ TEST_F(PageInfoTest, OnPermissionsChanged) {
                                        CONTENT_SETTING_ALLOW);
 
   // Verify that the site permissions were changed correctly.
-  setting = content_settings->GetContentSetting(
-      url(), url(), ContentSettingsType::POPUPS, std::string());
+  setting = content_settings->GetContentSetting(url(), url(),
+                                                ContentSettingsType::POPUPS);
   EXPECT_EQ(setting, CONTENT_SETTING_ALLOW);
 #if BUILDFLAG(ENABLE_PLUGINS)
-  setting = content_settings->GetContentSetting(
-      url(), url(), ContentSettingsType::PLUGINS, std::string());
+  setting = content_settings->GetContentSetting(url(), url(),
+                                                ContentSettingsType::PLUGINS);
   EXPECT_EQ(setting, CONTENT_SETTING_BLOCK);
 #endif
   setting = content_settings->GetContentSetting(
-      url(), url(), ContentSettingsType::GEOLOCATION, std::string());
+      url(), url(), ContentSettingsType::GEOLOCATION);
   EXPECT_EQ(setting, CONTENT_SETTING_ALLOW);
   setting = content_settings->GetContentSetting(
-      url(), url(), ContentSettingsType::NOTIFICATIONS, std::string());
+      url(), url(), ContentSettingsType::NOTIFICATIONS);
   EXPECT_EQ(setting, CONTENT_SETTING_ALLOW);
   setting = content_settings->GetContentSetting(
-      url(), url(), ContentSettingsType::MEDIASTREAM_MIC, std::string());
+      url(), url(), ContentSettingsType::MEDIASTREAM_MIC);
   EXPECT_EQ(setting, CONTENT_SETTING_ALLOW);
   setting = content_settings->GetContentSetting(
-      url(), url(), ContentSettingsType::MEDIASTREAM_CAMERA, std::string());
+      url(), url(), ContentSettingsType::MEDIASTREAM_CAMERA);
   EXPECT_EQ(setting, CONTENT_SETTING_ALLOW);
 }
 
@@ -1508,12 +1508,14 @@ TEST_F(PageInfoTest, SubresourceFilterSetting_MatchesActivation) {
   // Now, explicitly set site activation metadata to simulate activation on
   // that origin, which is encoded by the existence of the website setting. The
   // setting should then appear in page_info.
-  SubresourceFilterContentSettingsManager* settings_manager =
-      SubresourceFilterProfileContextFactory::GetForProfile(profile())
-          ->settings_manager();
+  subresource_filter::SubresourceFilterContentSettingsManager*
+      settings_manager =
+          SubresourceFilterProfileContextFactory::GetForProfile(profile())
+              ->settings_manager();
   settings_manager->SetSiteMetadataBasedOnActivation(
       url(), true,
-      SubresourceFilterContentSettingsManager::ActivationSource::kSafeBrowsing);
+      subresource_filter::SubresourceFilterContentSettingsManager::
+          ActivationSource::kSafeBrowsing);
 
   page_info();
   EXPECT_TRUE(showing_setting(last_permission_info_list()));

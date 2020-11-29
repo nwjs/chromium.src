@@ -6,7 +6,7 @@
 
 #include <string>
 
-#include "base/bind_helpers.h"
+#include "base/callback_helpers.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
@@ -43,9 +43,10 @@ class HungRendererDialogViewBrowserTest : public DialogBrowserTest {
   // DialogBrowserTest:
   void ShowUi(const std::string& name) override {
     auto* web_contents = browser()->tab_strip_model()->GetActiveWebContents();
-    HungRendererDialogView::Show(web_contents,
-                                 web_contents->GetRenderViewHost()->GetWidget(),
-                                 base::DoNothing::Repeatedly());
+    HungRendererDialogView::Show(
+        web_contents,
+        web_contents->GetMainFrame()->GetRenderViewHost()->GetWidget(),
+        base::DoNothing::Repeatedly());
 
     if (name == "MultiplePages") {
       auto* web_contents2 = chrome::DuplicateTabAt(browser(), 0);

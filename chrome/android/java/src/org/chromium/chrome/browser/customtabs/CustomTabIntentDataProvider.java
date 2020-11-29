@@ -38,15 +38,17 @@ import androidx.browser.trusted.sharing.ShareTarget;
 
 import org.chromium.base.IntentUtils;
 import org.chromium.base.Log;
+import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.ChromeVersionInfo;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.browserservices.BrowserServicesIntentDataProvider;
 import org.chromium.chrome.browser.flags.ActivityType;
+import org.chromium.chrome.browser.flags.CachedFeatureFlags;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.gsa.GSAState;
+import org.chromium.chrome.browser.version.ChromeVersionInfo;
 import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.browser_ui.widget.TintedDrawable;
 import org.chromium.components.embedder_support.util.UrlConstants;
@@ -73,6 +75,22 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
     public @interface LaunchSourceType {
         int OTHER = -1;
         int MEDIA_LAUNCHER_ACTIVITY = 3;
+    }
+
+    // These values are persisted to logs. Entries should not be renumbered and numeric values
+    // should never be reused.
+    @IntDef({ShareOptionLocation.TOOLBAR, ShareOptionLocation.MENU,
+            ShareOptionLocation.TOOLBAR_FULL_MENU_FALLBACK, ShareOptionLocation.NO_SPACE,
+            ShareOptionLocation.SHARE_DISABLED, ShareOptionLocation.NUM_ENTRIES})
+    private @interface ShareOptionLocation {
+        int TOOLBAR = 0;
+        int MENU = 1;
+        int TOOLBAR_FULL_MENU_FALLBACK = 2;
+        int NO_SPACE = 3;
+        int SHARE_DISABLED = 4;
+
+        // Must be the last one.
+        int NUM_ENTRIES = 5;
     }
 
     /**
@@ -209,7 +227,7 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
     private List<CustomButtonParams> mCustomButtonParams;
     private Drawable mCloseButtonIcon;
     private List<Pair<String, PendingIntent>> mMenuEntries = new ArrayList<>();
-    private boolean mShowShareItem;
+    private boolean mShowShareItemInMenu;
     private List<CustomButtonParams> mToolbarButtons = new ArrayList<>(1);
     private List<CustomButtonParams> mBottombarButtons = new ArrayList<>(2);
     private RemoteViews mRemoteViews;
@@ -320,8 +338,8 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
 
         List<Bundle> menuItems =
                 IntentUtils.getParcelableArrayListExtra(intent, CustomTabsIntent.EXTRA_MENU_ITEMS);
-
         updateExtraMenuItems(menuItems);
+        addShareOption(intent, context);
 
         mActivityType = IntentUtils.safeGetBooleanExtra(
                                 intent, TrustedWebUtils.EXTRA_LAUNCH_AS_TRUSTED_WEB_ACTIVITY, false)
@@ -332,9 +350,6 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
         mTrustedWebActivityDisplayMode = resolveTwaDisplayMode();
         mTitleVisibilityState = IntentUtils.safeGetIntExtra(
                 intent, CustomTabsIntent.EXTRA_TITLE_VISIBILITY_STATE, CustomTabsIntent.NO_TITLE);
-        mShowShareItem = IntentUtils.safeGetBooleanExtra(intent,
-                CustomTabsIntent.EXTRA_DEFAULT_SHARE_MENU_ITEM,
-                mIsOpenedByChrome && mUiType == CustomTabsUiType.DEFAULT);
         mRemoteViews =
                 IntentUtils.safeGetParcelableExtra(intent, CustomTabsIntent.EXTRA_REMOTEVIEWS);
         mClickableViewIds = IntentUtils.safeGetIntArrayExtra(
@@ -469,6 +484,53 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
 
     private int getMaxCustomToolbarItems() {
         return MAX_CUSTOM_TOOLBAR_ITEMS;
+    }
+
+    /**
+     * Adds a share option to the custom tab according to the {@link
+     * CustomTabsIntent#EXTRA_SHARE_STATE} stored in the intent.
+     *
+     * <p>Shows share options according to the following rules:
+     *
+     * <ul>
+     *   <li>If {@link CustomTabsIntent#SHARE_STATE_ON} or
+     *   {@link CustomTabsIntent#SHARE_STATE_DEFAULT}, add to the top toolbar if empty, otherwise
+     *   add to the overflow menu if it is not customized.
+     *   <li>If {@link CustomTabsIntent#SHARE_STATE_OFF}, add to the overflow menu depending on
+     *   {@link CustomTabsIntent#EXTRA_DEFAULT_SHARE_MENU_ITEM}.
+     * </ul>
+     */
+    private void addShareOption(Intent intent, Context context) {
+        int shareState = IntentUtils.safeGetIntExtra(
+                intent, CustomTabsIntent.EXTRA_SHARE_STATE, CustomTabsIntent.SHARE_STATE_DEFAULT);
+        if (shareState == CustomTabsIntent.SHARE_STATE_ON
+                || (shareState == CustomTabsIntent.SHARE_STATE_DEFAULT
+                        && CachedFeatureFlags.isEnabled(
+                                ChromeFeatureList.SHARE_BY_DEFAULT_IN_CCT))) {
+            if (mToolbarButtons.isEmpty()) {
+                mToolbarButtons.add(CustomButtonParams.createShareButton(context, mToolbarColor));
+                logShareOptionLocation(ShareOptionLocation.TOOLBAR);
+            } else if (mMenuEntries.isEmpty()) {
+                mShowShareItemInMenu = true;
+                logShareOptionLocation(ShareOptionLocation.TOOLBAR_FULL_MENU_FALLBACK);
+            } else {
+                logShareOptionLocation(ShareOptionLocation.NO_SPACE);
+            }
+        } else {
+            mShowShareItemInMenu = IntentUtils.safeGetBooleanExtra(intent,
+                    CustomTabsIntent.EXTRA_DEFAULT_SHARE_MENU_ITEM,
+                    mIsOpenedByChrome && mUiType == CustomTabsUiType.DEFAULT);
+            if (mShowShareItemInMenu) {
+                logShareOptionLocation(ShareOptionLocation.MENU);
+            } else {
+                logShareOptionLocation(ShareOptionLocation.SHARE_DISABLED);
+            }
+        }
+    }
+
+    private static void logShareOptionLocation(@ShareOptionLocation int shareOptionLocation) {
+        RecordHistogram.recordEnumeratedHistogram("CustomTabs.ShareOptionLocation",
+                shareOptionLocation, ShareOptionLocation.NUM_ENTRIES);
     }
 
     /**
@@ -672,7 +734,7 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
 
     @Override
     public boolean shouldShowShareMenuItem() {
-        return mShowShareItem;
+        return mShowShareItemInMenu;
     }
 
     @Override

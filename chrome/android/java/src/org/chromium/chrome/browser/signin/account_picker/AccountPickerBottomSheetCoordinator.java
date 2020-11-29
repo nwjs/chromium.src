@@ -10,9 +10,9 @@ import android.view.View;
 import androidx.annotation.MainThread;
 import androidx.annotation.VisibleForTesting;
 
+import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.incognito.interstitial.IncognitoInterstitialCoordinator;
 import org.chromium.chrome.browser.incognito.interstitial.IncognitoInterstitialDelegate;
-import org.chromium.chrome.browser.signin.account_picker.AccountPickerCoordinator.AccountPickerAccessPoint;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.StateChangeReason;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
@@ -31,16 +31,17 @@ public class AccountPickerBottomSheetCoordinator {
         @Override
         public void onSheetClosed(@StateChangeReason int reason) {
             super.onSheetClosed(reason);
+            final @AccountConsistencyPromoAction int promoAction;
             if (reason == StateChangeReason.SWIPE) {
-                AccountPickerDelegate.recordAccountConsistencyPromoAction(
-                        AccountConsistencyPromoAction.DISMISSED_SWIPE_DOWN);
+                promoAction = AccountConsistencyPromoAction.DISMISSED_SWIPE_DOWN;
             } else if (reason == StateChangeReason.BACK_PRESS) {
-                AccountPickerDelegate.recordAccountConsistencyPromoAction(
-                        AccountConsistencyPromoAction.DISMISSED_BACK);
+                promoAction = AccountConsistencyPromoAction.DISMISSED_BACK;
             } else if (reason == StateChangeReason.TAP_SCRIM) {
-                AccountPickerDelegate.recordAccountConsistencyPromoAction(
-                        AccountConsistencyPromoAction.DISMISSED_SCRIM);
+                promoAction = AccountConsistencyPromoAction.DISMISSED_SCRIM;
+            } else {
+                promoAction = AccountConsistencyPromoAction.DISMISSED_OTHER;
             }
+            AccountPickerDelegate.recordAccountConsistencyPromoAction(promoAction);
         }
 
         @Override
@@ -68,7 +69,8 @@ public class AccountPickerBottomSheetCoordinator {
                 activity, accountPickerDelegate, this::dismissBottomSheet);
         mView = new AccountPickerBottomSheetView(activity, mAccountPickerBottomSheetMediator);
         mAccountPickerCoordinator = new AccountPickerCoordinator(mView.getAccountListView(),
-                mAccountPickerBottomSheetMediator, null, AccountPickerAccessPoint.WEB);
+                mAccountPickerBottomSheetMediator, /* selectedAccountName= */ null,
+                /* showIncognitoRow= */ IncognitoUtils.isIncognitoModeEnabled());
         IncognitoInterstitialCoordinator incognitoInterstitialCoordinator =
                 new IncognitoInterstitialCoordinator(
                         mView.getIncognitoInterstitialView(), incognitoInterstitialDelegate);

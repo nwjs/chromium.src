@@ -69,6 +69,7 @@
 <translation id="1383876407941801731">Αναζήτηση</translation>
 <translation id="1396114365388024581">λίστα καρτελών</translation>
 <translation id="1405567553485452995">Ανοιχτό πράσινο</translation>
+<translation id="141454040365657399">Κεφαλίδα σελίδας</translation>
 <translation id="1417889266572670458">Ναυτικό μπλε</translation>
 <translation id="1431911867058218151">Δαμασκηνί</translation>
 <translation id="1439316808600711881">περιοχή</translation>
@@ -347,8 +348,8 @@
 <translation id="352577523970648069">Ένα πεδίο κειμένου με δυνατότητα επεξεργασίας</translation>
 <translation id="3538907380453898475">dscrplst</translation>
 <translation id="3549141990712742152">αποκοπή <ph name="TEXT" />.</translation>
-<translation id="3549680091535286226">Πατήστε με δύο δάκτυλα για να διακόψετε προσωρινά την ομιλία</translation>
 <translation id="3564729643041517261">Το τρέχον στιλ προβολής είναι η παράθεση.</translation>
+<translation id="3573145950452451508">Υποσέλιδο σελίδας</translation>
 <translation id="3587482841069643663">Όλες</translation>
 <translation id="3589661172894441357">Γλωσσάρι</translation>
 <translation id="3591784666823501596">Μπλε ρουά</translation>
@@ -455,6 +456,7 @@
 <translation id="4402014469255336455">Βαθύ μπλε του ουρανού</translation>
 <translation id="4406249099130339147">Εκφώνηση σημείων στίξης:</translation>
 <translation id="4432457053224379116">Ινδικό κόκκινο</translation>
+<translation id="4432896207833262240">Επισημασμένο περιεχόμενο</translation>
 <translation id="4437615272777527928">Πληκτρολογήστε για αναζήτηση στα μενού. Χρησιμοποιήστε το επάνω και το κάτω βέλος για περιήγηση μεταξύ των αποτελεσμάτων. Χρησιμοποιήστε το αριστερό και το δεξί βέλος, για να προσαρμόσετε τον δρομέα κειμένου και για να μετακινηθείτε μεταξύ των μενού.</translation>
 <translation id="4457472090507035117">Επιλογή τρέχουσας φωνής:</translation>
 <translation id="4476183483923481720">νέα γραμμή</translation>
@@ -593,6 +595,7 @@
 <translation id="5561345396546889625">Επόμενη λίστα</translation>
 <translation id="5562645715554321347">hdnggrp</translation>
 <translation id="5574412348552378458">Λειτουργία εκμάθησης ChromeVox</translation>
+<translation id="5582839680698949063">Κύριο μενού</translation>
 <translation id="5585044216466955529">Επεξεργασία κειμένου, καταχώριση διεύθυνσης ηλεκτρονικού ταχυδρομείου</translation>
 <translation id="5597170376237141345">Επόμενο πλαίσιο ελέγχου</translation>
 <translation id="5598905979683743333"><ph name="NAME" />, μη επιλεγμένο κουμπί επιλογής</translation>
@@ -826,7 +829,6 @@
 <translation id="7491962110804786152">καρτέλα</translation>
 <translation id="7492497529767769458">Μεταβείτε στην επόμενη ενότητα. Στα παραδείγματα περιλαμβάνονται η Περιοχή κατάστασης και η Εφαρμογή εκκίνησης.</translation>
 <translation id="7505149250476994901">Πείτε "κεφαλαίο" πριν από το γράμμα</translation>
-<translation id="7518543783849163354">Για προσωρινή διακοπή της εκφώνησης του ChromeVox, πατήστε το πλήκτρο Control.</translation>
 <translation id="7533226154149229506">Ανοιχτή χρυσοκίτρινη ράβδος</translation>
 <translation id="7543255924852002459">Ετικέτα απόρριψης</translation>
 <translation id="7552432549459840808">Χρήσιμες συντομεύσεις Chrome</translation>

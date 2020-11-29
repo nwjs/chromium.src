@@ -9,7 +9,7 @@
 #include <utility>
 
 #include "base/bind.h"
-#include "base/bind_helpers.h"
+#include "base/callback_helpers.h"
 #include "base/format_macros.h"
 #include "base/logging.h"
 #include "base/macros.h"
@@ -266,16 +266,6 @@ class CrasAudioClientImpl : public CrasAudioClient {
   void SetFixA2dpPacketSize(bool enabled) override {
     dbus::MethodCall method_call(cras::kCrasControlInterface,
                                  cras::kSetFixA2dpPacketSize);
-    dbus::MessageWriter writer(&method_call);
-    writer.AppendBool(enabled);
-    cras_proxy_->CallMethod(&method_call,
-                            dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
-                            base::DoNothing());
-  }
-
-  void SetNextHandsfreeProfile(bool enabled) override {
-    dbus::MethodCall method_call(cras::kCrasControlInterface,
-                                 cras::kSetNextHandsfreeProfile);
     dbus::MessageWriter writer(&method_call);
     writer.AppendBool(enabled);
     cras_proxy_->CallMethod(&method_call,

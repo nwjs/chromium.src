@@ -23,6 +23,7 @@
 #include "chromeos/services/assistant/assistant_manager_service.h"
 #include "chromeos/services/assistant/assistant_settings_impl.h"
 #include "chromeos/services/assistant/chromium_api_delegate.h"
+#include "chromeos/services/assistant/proxy/assistant_proxy.h"
 #include "chromeos/services/assistant/public/cpp/assistant_notification.h"
 #include "chromeos/services/assistant/public/cpp/assistant_service.h"
 #include "chromeos/services/assistant/public/cpp/device_actions.h"
@@ -58,10 +59,12 @@ namespace chromeos {
 namespace assistant {
 
 class AssistantMediaSession;
+class AssistantDeviceSettingsDelegate;
+class AssistantManagerServiceDelegate;
+class AssistantProxy;
 class CrosPlatformApi;
 class ServiceContext;
-class AssistantManagerServiceDelegate;
-class AssistantDeviceSettingsDelegate;
+class ServiceController;
 
 // Enumeration of Assistant query response type, also recorded in histograms.
 // These values are persisted to logs. Entries should not be renumbered and
@@ -111,7 +114,8 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) AssistantManagerServiceImpl
       std::unique_ptr<AssistantManagerServiceDelegate> delegate,
       std::unique_ptr<network::PendingSharedURLLoaderFactory>
           pending_url_loader_factory,
-      base::Optional<std::string> s3_server_uri_override);
+      base::Optional<std::string> s3_server_uri_override,
+      base::Optional<std::string> device_id_override);
 
   ~AssistantManagerServiceImpl() override;
 
@@ -196,8 +200,6 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) AssistantManagerServiceImpl
   void OnRespondingStarted(bool is_error_response) override;
 
   // AssistantManagerDelegate overrides:
-  bool IsSettingSupported(const std::string& setting_id) override;
-  bool SupportsModifySettings() override;
   void OnConversationTurnStartedInternal(
       const assistant_client::ConversationTurnMetadata& metadata) override;
   void OnNotificationRemoved(const std::string& grouping_key) override;
@@ -212,12 +214,8 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) AssistantManagerServiceImpl
   void OnAndroidAppListRefreshed(
       const std::vector<AndroidAppInfo>& apps_info) override;
 
-  assistant_client::AssistantManager* assistant_manager() {
-    return assistant_manager_.get();
-  }
-  assistant_client::AssistantManagerInternal* assistant_manager_internal() {
-    return assistant_manager_internal_;
-  }
+  assistant_client::AssistantManager* assistant_manager();
+  assistant_client::AssistantManagerInternal* assistant_manager_internal();
   CrosPlatformApi* platform_api() { return platform_api_.get(); }
 
   // assistant_client::MediaManager::Listener overrides:
@@ -247,9 +245,10 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) AssistantManagerServiceImpl
   }
 
  private:
-  void StartAssistantInternal(const base::Optional<UserInfo>& user,
-                              const std::string& locale);
+  void InitAssistant(const base::Optional<UserInfo>& user,
+                     const std::string& locale);
   void PostInitAssistant();
+  bool IsServiceStarted() const;
 
   // Update device id, type and locale
   void UpdateDeviceSettings();
@@ -279,9 +278,9 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) AssistantManagerServiceImpl
   // Record the response type for each query. Note that query on device
   // actions (e.g. turn on Bluetooth, turn on WiFi) will cause duplicate
   // record because it interacts with server twice on on the same query.
-  // The first round interaction checks IsSettingSupported with no responses
-  // sent back and ends normally (will be recorded as kUnspecified), and
-  // settings modification proto along with any text/voice responses would
+  // The first round interaction checks if a setting is supported with no
+  // responses sent back and ends normally (will be recorded as kUnspecified),
+  // and settings modification proto along with any text/voice responses would
   // be sent back in the second round (recorded as kDeviceAction).
   void RecordQueryResponseTypeUMA();
 
@@ -305,6 +304,11 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) AssistantManagerServiceImpl
   DeviceActions* device_actions();
   scoped_refptr<base::SequencedTaskRunner> main_task_runner();
 
+  CrosDisplayConnection* display_connection();
+  ServiceController& service_controller();
+  const ServiceController& service_controller() const;
+  base::Thread& background_thread();
+
   void SetStateAndInformObservers(State new_state);
 
   State state_ = State::STOPPED;
@@ -312,25 +316,10 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) AssistantManagerServiceImpl
   std::unique_ptr<CrosPlatformApi> platform_api_;
   std::unique_ptr<action::CrosActionModule> action_module_;
   ChromiumApiDelegate chromium_api_delegate_;
-  // NOTE: |display_connection_| is used by |assistant_manager_| and must be
-  // declared before so it will be destructed after.
-  std::unique_ptr<CrosDisplayConnection> display_connection_;
-  // Similar to |new_asssistant_manager_|, created on |background_thread_| then
-  // posted to main thread to finish initialization then move to
-  // |display_connection_|.
-  std::unique_ptr<CrosDisplayConnection> new_display_connection_;
-  std::unique_ptr<assistant_client::AssistantManager> assistant_manager_;
   std::unique_ptr<AssistantSettingsImpl> assistant_settings_;
-  // |new_assistant_manager_| is created on |background_thread_| then posted to
-  // main thread to finish initialization then move to |assistant_manager_|.
-  std::unique_ptr<assistant_client::AssistantManager> new_assistant_manager_;
-  // Same ownership as |new_assistant_manager_|.
-  assistant_client::AssistantManagerInternal* new_assistant_manager_internal_ =
-      nullptr;
-  base::Lock new_assistant_manager_lock_;
-  // same ownership as |assistant_manager_|.
-  assistant_client::AssistantManagerInternal* assistant_manager_internal_ =
-      nullptr;
+
+  std::unique_ptr<AssistantProxy> assistant_proxy_;
+
   base::ObserverList<AssistantInteractionSubscriber> interaction_subscribers_;
   mojo::Remote<media_session::mojom::MediaController> media_controller_;
 
@@ -345,8 +334,6 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) AssistantManagerServiceImpl
   std::string last_trigger_source_;
   base::Lock last_trigger_source_lock_;
   base::TimeTicks started_time_;
-
-  base::Thread background_thread_;
 
   int next_interaction_id_ = 1;
   std::map<std::string, std::unique_ptr<AssistantInteractionMetadata>>

@@ -45,7 +45,6 @@
 #include "chrome/browser/web_applications/components/web_app_tab_helper_base.h"
 #include "chrome/browser/web_applications/system_web_app_manager.h"
 #include "chrome/browser/web_launch/web_launch_files_helper.h"
-#include "chrome/common/chrome_features.h"
 #include "chrome/common/extensions/manifest_handlers/app_launch_info.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/web_contents.h"
@@ -222,8 +221,8 @@ WebContents* OpenApplicationTab(Profile* profile,
     //
     // TODO(erg): AppLaunchParams should pass user_gesture from the extension
     // system to here.
-    browser =
-        new Browser(Browser::CreateParams(Browser::TYPE_NORMAL, profile, true));
+    browser = Browser::Create(
+        Browser::CreateParams(Browser::TYPE_NORMAL, profile, true));
     browser->window()->Show();
     // There's no current tab in this browser window, so add a new one.
     disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
@@ -300,7 +299,7 @@ WebContents* OpenApplicationTab(Profile* profile,
 }
 
 WebContents* OpenEnabledApplication(Profile* profile,
-                                    const apps::AppLaunchParams& params) {
+                                    apps::AppLaunchParams&& params) {
   const Extension* extension = GetExtension(profile, params);
   if (!extension)
     return NULL;
@@ -337,8 +336,8 @@ WebContents* OpenEnabledApplication(Profile* profile,
   base::Optional<web_app::SystemAppType> system_app_type =
       web_app::GetSystemWebAppTypeForAppId(profile, extension->id());
   if (system_app_type) {
-    Browser* browser =
-        web_app::LaunchSystemWebApp(profile, *system_app_type, url, params);
+    Browser* browser = web_app::LaunchSystemWebApp(profile, *system_app_type,
+                                                   url, std::move(params));
     return browser->tab_strip_model()->GetActiveWebContents();
   }
 
@@ -396,9 +395,8 @@ WebContents* OpenEnabledApplication(Profile* profile,
 
 }  // namespace
 
-WebContents* OpenApplication(Profile* profile,
-                             const apps::AppLaunchParams& params) {
-  return OpenEnabledApplication(profile, params);
+WebContents* OpenApplication(Profile* profile, apps::AppLaunchParams&& params) {
+  return OpenEnabledApplication(profile, std::move(params));
 }
 
 Browser* CreateApplicationWindow(Profile* profile,
@@ -445,7 +443,7 @@ Browser* CreateApplicationWindow(Profile* profile,
       DetermineWindowShowState(profile, params.container, extension);
   browser_params.can_resize = can_resize;
 
-  return new Browser(browser_params);
+  return Browser::Create(browser_params);
 }
 
 WebContents* NavigateApplicationWindow(Browser* browser,
@@ -494,7 +492,7 @@ WebContents* OpenApplicationWindow(Profile* profile,
 }
 
 void OpenApplicationWithReenablePrompt(Profile* profile,
-                                       const apps::AppLaunchParams& params) {
+                                       apps::AppLaunchParams&& params) {
   const Extension* extension = GetExtension(profile, params);
   if (!extension)
     return;
@@ -511,12 +509,12 @@ void OpenApplicationWithReenablePrompt(Profile* profile,
     (new EnableViaDialogFlow(
          service, registry, profile, extension->id(),
          base::Bind(base::IgnoreResult(OpenEnabledApplication), profile,
-                    params)))
+                    base::Passed(std::move(params)))))
         ->Run();
     return;
   }
 
-  OpenEnabledApplication(profile, params);
+  OpenEnabledApplication(profile, std::move(params));
 }
 
 WebContents* OpenAppShortcutWindow(Profile* profile, const GURL& url) {

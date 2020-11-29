@@ -32,7 +32,7 @@ class CORE_EXPORT TextFragmentSelectorGenerator final
       public blink::mojom::blink::TextFragmentSelectorProducer {
  public:
   // Update corresponding |LinkGenerationError| in enums.xml.
-  enum LinkGenerationError {
+  enum class LinkGenerationError {
     kIncorrectSelector,
     kNoRange,
     kNoContext,

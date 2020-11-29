@@ -4,10 +4,18 @@
 
 import {browserProxy} from './browser_proxy/browser_proxy.js';
 import {assertInstanceof} from './chrome_util.js';
-import {ErrorLevel, ErrorType, reportError} from './error.js';
+import * as dom from './dom.js';
+import {reportError} from './error.js';
+import * as Comlink from './lib/comlink.js';
 import * as state from './state.js';
 import * as tooltip from './tooltip.js';
-import {Facing} from './type.js';
+import {
+  ErrorLevel,
+  ErrorType,
+  Facing,
+  UntrustedOrigin,  // eslint-disable-line no-unused-vars
+} from './type.js';
+import {WaitableEvent} from './waitable_event.js';
 
 /**
  * Creates a canvas element for 2D drawing.
@@ -361,7 +369,22 @@ export async function scalePicture(url, isVideo, width, height = undefined) {
   }
   await new Promise((resolve, reject) => {
     element.addEventListener(isVideo ? 'canplay' : 'load', resolve);
-    element.addEventListener('error', reject);
+    element.addEventListener('error', () => {
+      if (isVideo) {
+        let msg = 'Failed to load video';
+        /**
+         * https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/error
+         * @type {?MediaError}
+         */
+        const err = element.error;
+        if (err !== null) {
+          msg += `: ${err.message}`;
+        }
+        reject(new Error(msg));
+      } else {
+        reject(new Error('Failed to load image'));
+      }
+    });
     element.src = url;
   });
   if (height === undefined) {
@@ -412,11 +435,13 @@ export function toggleChecked(element, checked) {
  */
 export function bindElementAriaLabelWithState(
     {element, state: s, onLabel, offLabel}) {
-  state.addObserver(s, (value) => {
+  const update = (value) => {
     const label = value ? onLabel : offLabel;
     element.setAttribute('i18n-label', label);
     element.setAttribute('aria-label', browserProxy.getI18nMessage(label));
-  });
+  };
+  update(state.get(s));
+  state.addObserver(s, update);
 }
 
 /**
@@ -438,4 +463,39 @@ export function setInkdropEffect(el) {
     el.style.setProperty('--drop-radius', `${radius}px`);
     animateOnce(el);
   });
+}
+
+/**
+ * Instantiates template with the target selector.
+ * @param {string} selector
+ * @return {!Node}
+ */
+export function instantiateTemplate(selector) {
+  const tpl = dom.get(selector, HTMLTemplateElement);
+  const node = document.importNode(tpl.content, true);
+  setupI18nElements(node);
+  return node;
+}
+
+/**
+ * Creates JS module by given |scriptUrl| under untrusted context with given
+ * origin and returns its proxy.
+ * @param {string} scriptUrl The URL of the script to load.
+ * @param {!UntrustedOrigin} origin The origin of the untrusted context.
+ * @return {!Promise<!Object>}
+ */
+export async function createUntrustedJSModule(scriptUrl, origin) {
+  const untrustedPageReady = new WaitableEvent();
+  const iFrame =
+      /** @type {!HTMLIFrameElement} */ (document.createElement('iframe'));
+  iFrame.addEventListener('load', () => untrustedPageReady.signal());
+  iFrame.setAttribute('src', `${origin}/views/untrusted_script_loader.html`);
+  iFrame.hidden = true;
+  document.body.appendChild(iFrame);
+  await untrustedPageReady.wait();
+
+  const untrustedRemote =
+      await Comlink.wrap(Comlink.windowEndpoint(iFrame.contentWindow, self));
+  await untrustedRemote.loadScript(scriptUrl);
+  return untrustedRemote;
 }

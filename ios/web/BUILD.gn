@@ -574,6 +574,7 @@ test("ios_web_inttests") {
     "web_state/http_auth_inttest.mm",
     "web_state/keep_render_process_alive_inttest.mm",
     "web_state/web_state_observer_inttest.mm",
+    "webui/web_ui_inttest.mm",
     "webui/web_ui_mojo_inttest.mm",
   ]
 
@@ -665,10 +666,6 @@ grit("resources") {
   outputs = [
     "grit/ios_web_resources.h",
     "ios_web_resources.pak",
-  ]
-  grit_flags = [
-    "-E",
-    "root_gen_dir=" + rebase_path(root_gen_dir, root_build_dir),
   ]
   deps = [ "//mojo/public/js:bindings" ]
 }

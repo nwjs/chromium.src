@@ -68,6 +68,7 @@
 <translation id="1383876407941801731">ស្វែងរក</translation>
 <translation id="1396114365388024581">tablst</translation>
 <translation id="1405567553485452995">បៃតងខ្ចី</translation>
+<translation id="141454040365657399">ក្បាលទំព័រ</translation>
 <translation id="1417889266572670458">ខៀវចាស់</translation>
 <translation id="1431911867058218151">ស្វាយចាស់</translation>
 <translation id="1439316808600711881">rgn</translation>
@@ -346,8 +347,8 @@
 <translation id="352577523970648069">ប្រអប់បំពេញដែលអាចកែសម្រួលបាន</translation>
 <translation id="3538907380453898475">dscrplst</translation>
 <translation id="3549141990712742152">កាត់ <ph name="TEXT" /> ។</translation>
-<translation id="3549680091535286226">ចុច​ដោយប្រើ​ម្រាមដៃ 2 ដើម្បី​បញ្ឈប់​ការនិយាយ​ជាបណ្តោះអាសន្ន</translation>
 <translation id="3564729643041517261">រចនាប័ទ្មផ្ទាំងអេក្រង់បច្ចុប្បន្នមានទម្រង់នៅជាប់គ្នា</translation>
+<translation id="3573145950452451508">ជើងទំព័រ</translation>
 <translation id="3587482841069643663">ទាំងអស់</translation>
 <translation id="3589661172894441357">សទ្ទានុក្រម</translation>
 <translation id="3591784666823501596">ខៀវចាស់</translation>
@@ -454,6 +455,7 @@
 <translation id="4402014469255336455">ស៊ីលៀប</translation>
 <translation id="4406249099130339147">ការនិយាយ​តាមសញ្ញាវណ្ណយុត្ត៖</translation>
 <translation id="4432457053224379116">ឈាមជ្រូក​ចាស់</translation>
+<translation id="4432896207833262240">ខ្លឹមសារ​ដែលបានសម្គាល់</translation>
 <translation id="4437615272777527928">វាយបញ្ចូល ដើម្បីស្វែងរកម៉ឺនុយ។ ប្រើ​ព្រួញ​ឡើងលើ និង​ចុះក្រោម ដើម្បី​រុករកលទ្ធផល។ ប្រើព្រួញទៅឆ្វេង និងទៅស្ដាំ ដើម្បីកែតម្រូវទស្សន៍ទ្រនិច​អក្សរ និងដើម្បីផ្លាស់ទីរវាងម៉ឺនុយនានា។</translation>
 <translation id="4457472090507035117">ជ្រើសរើស​សំឡេង​បច្ចុប្បន្ន៖</translation>
 <translation id="4476183483923481720">បន្ទាត់ថ្មី</translation>
@@ -592,6 +594,7 @@
 <translation id="5561345396546889625">បញ្ជីបន្ទាប់</translation>
 <translation id="5562645715554321347">hdnggrp</translation>
 <translation id="5574412348552378458">មុខងារស្វែងយល់ ChromeVox</translation>
+<translation id="5582839680698949063">ម៉ឺនុយមេ</translation>
 <translation id="5585044216466955529">កែប្រែអត្ថបទ ធាតុអ៊ីម៉ែល</translation>
 <translation id="5597170376237141345">ប្រអប់ធីកបន្ទាប់</translation>
 <translation id="5598905979683743333"><ph name="NAME" /> ប៊ូតុងវិទ្យុត្រូវបានដកការជ្រើសរើស</translation>
@@ -825,7 +828,6 @@
 <translation id="7491962110804786152">ផ្ទាំង</translation>
 <translation id="7492497529767769458">ទៅ​កាន់​ផ្នែក​បន្ទាប់។ ឧទាហរណ៍រួមបញ្ចូលកម្មវិធី​ចាប់ផ្ដើម និងរបារស្ថានភាព។</translation>
 <translation id="7505149250476994901">និយាយថា "អក្សរធំ" បន្ទាប់ពី​អក្សរ</translation>
-<translation id="7518543783849163354">ដើម្បីបញ្ឈប់ ChromeVox ពីការនិយាយជាបណ្តោះអាសន្ន សូមចុចគ្រាប់ចុច Control ។</translation>
 <translation id="7533226154149229506">លឿងខ្ចី</translation>
 <translation id="7543255924852002459">លុបចោលស្លាក</translation>
 <translation id="7552432549459840808">ផ្លូវកាត់ Chrome ដែលមានប្រយោជន៍</translation>

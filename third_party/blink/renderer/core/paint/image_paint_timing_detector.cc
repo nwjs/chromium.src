@@ -3,6 +3,8 @@
 // found in the LICENSE file.
 #include "third_party/blink/renderer/core/paint/image_paint_timing_detector.h"
 
+#include "services/metrics/public/cpp/ukm_builders.h"
+#include "services/metrics/public/cpp/ukm_recorder.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/layout/layout_image_resource.h"
@@ -137,6 +139,7 @@ ImageRecord* ImagePaintTimingDetector::UpdateCandidate() {
 
 void ImagePaintTimingDetector::OnPaintFinished() {
   frame_index_++;
+  viewport_size_ = base::nullopt;
   if (need_update_timing_at_frame_end_) {
     need_update_timing_at_frame_end_ = false;
     frame_view_->GetPaintTimingDetector()
@@ -172,6 +175,17 @@ void ImagePaintTimingDetector::NotifyImageRemoved(
     return;
   records_manager_.RemoveVisibleRecord(record_id);
   need_update_timing_at_frame_end_ = true;
+}
+
+void ImagePaintTimingDetector::StopRecordEntries() {
+  is_recording_ = false;
+  if (frame_view_->GetFrame().IsMainFrame()) {
+    DCHECK(frame_view_->GetFrame().GetDocument());
+    ukm::builders::Blink_PaintTiming(
+        frame_view_->GetFrame().GetDocument()->UkmSourceID())
+        .SetLCPDebugging_HasViewportImage(contains_full_viewport_image_)
+        .Record(ukm::UkmRecorder::Get());
+  }
 }
 
 void ImagePaintTimingDetector::RegisterNotifySwapTime() {
@@ -297,6 +311,20 @@ uint64_t ImagePaintTimingDetector::ComputeImageRectSize(
   FloatRect float_visual_rect =
       frame_view_->GetPaintTimingDetector().BlinkSpaceToDIPs(
           FloatRect(image_border));
+  if (!viewport_size_.has_value()) {
+    FloatRect viewport = frame_view_->GetPaintTimingDetector().BlinkSpaceToDIPs(
+        FloatRect(frame_view_->GetScrollableArea()->VisibleContentRect()));
+    viewport_size_ = viewport.Size().Area();
+  }
+  // An SVG image size is computed with respect to the virtual viewport of the
+  // SVG, so |rect_size| can be larger than |*viewport_size| in edge cases. If
+  // the rect occupies the whole viewport, disregard this candidate by saying
+  // the size is 0.
+  if (rect_size >= *viewport_size_) {
+    contains_full_viewport_image_ = true;
+    return 0;
+  }
+
   rect_size = DownScaleIfIntrinsicSizeIsSmaller(
       rect_size, intrinsic_size.Area(),
       float_visual_rect.Width() * float_visual_rect.Height());

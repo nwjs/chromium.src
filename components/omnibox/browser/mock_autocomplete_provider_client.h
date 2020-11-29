@@ -36,6 +36,7 @@ class MockAutocompleteProviderClient
 
   // AutocompleteProviderClient:
   MOCK_METHOD0(GetPrefs, PrefService*());
+  MOCK_METHOD0(GetLocalState, PrefService*());
   MOCK_CONST_METHOD0(GetSchemeClassifier,
                      const AutocompleteSchemeClassifier&());
   MOCK_METHOD0(GetAutocompleteClassifier, AutocompleteClassifier*());
@@ -81,6 +82,10 @@ class MockAutocompleteProviderClient
     return nullptr;
   }
   query_tiles::TileService* GetQueryTileService() const override {
+    return nullptr;
+  }
+  OmniboxTriggeredFeatureService* GetOmniboxTriggeredFeatureService()
+      const override {
     return nullptr;
   }
 

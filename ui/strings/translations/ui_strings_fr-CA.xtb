@@ -23,6 +23,7 @@
 <translation id="1450753235335490080">Impossible de partager l'élément suivant : <ph name="CONTENT_TYPE" /></translation>
 <translation id="1487931858675166540"><ph name="FIRST_ITEM_TITLE" /> a changé de place avec <ph name="SECOND_ITEM_TITLE" /></translation>
 <translation id="1498028757988366001">Vous avez déjà effectué cette recherche. La suppression de « <ph name="QUERY" /> » de votre historique la supprimera de manière permanente de votre compte sur tous vos appareils.</translation>
+<translation id="1510238584712386396">Lanceur</translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 minute et }one{# minute et }other{# minutes et }}</translation>
 <translation id="1643823602425662293">Notification</translation>
 <translation id="169515659049020177">Maj</translation>
@@ -151,6 +152,7 @@
 <translation id="5763338081255973061">{DAYS,plural, =0{Actif aujourd'hui}=1{Actif il y a 1 jour}one{Actif il y a # jour}other{Actif il y a # jours}}</translation>
 <translation id="5768079895599174203">{DAYS,plural, =1{1 jour et }one{# jour et }other{# jours et }}</translation>
 <translation id="5789643057113097023">,</translation>
+<translation id="5843690142429128814">Image.</translation>
 <translation id="5866104238061687188">{YEARS,plural, =1{dans 1 an}one{dans # an}other{dans # ans}}</translation>
 <translation id="588258955323874662">Plein écran</translation>
 <translation id="5906667377645263094">{SECONDS,plural, =1{1 seconde restante}one{# seconde restante}other{# secondes restantes}}</translation>
@@ -191,6 +193,7 @@
 <translation id="6845533974506654842">appuyer</translation>
 <translation id="6863590663815976734">{HOURS,plural, =1{1 heure restante}one{# heure restante}other{# heures restantes}}</translation>
 <translation id="688711909580084195">Page Web sans titre</translation>
+<translation id="6902419395050653510">Contenu HTML.</translation>
 <translation id="6907759265145635167"><ph name="QUANTITY" /> Po/s</translation>
 <translation id="6917971086528278418">{YEARS,plural, =1{Un an restant}one{# an restant}other{# ans restants}}</translation>
 <translation id="6945221475159498467">Sélectionner</translation>

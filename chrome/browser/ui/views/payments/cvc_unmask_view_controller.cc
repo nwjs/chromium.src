@@ -42,10 +42,6 @@
 
 namespace payments {
 
-enum class Tags {
-  CONFIRM_TAG = static_cast<int>(PaymentRequestCommonTags::PAY_BUTTON_TAG),
-};
-
 CvcUnmaskViewController::CvcUnmaskViewController(
     base::WeakPtr<PaymentRequestSpec> spec,
     base::WeakPtr<PaymentRequestState> state,
@@ -189,7 +185,7 @@ void CvcUnmaskViewController::FillContentView(views::View* content_view) {
   layout->StartRow(views::GridLayout::kFixedSize, 1);
   if (requesting_expiration) {
     auto month = std::make_unique<views::Combobox>(&month_combobox_model_);
-    month->set_callback(base::BindRepeating(
+    month->SetCallback(base::BindRepeating(
         &CvcUnmaskViewController::OnPerformAction, base::Unretained(this)));
     month->SetID(static_cast<int>(DialogViewID::CVC_MONTH));
     month->SelectValue(credit_card_.Expiration2DigitMonthAsString());
@@ -197,7 +193,7 @@ void CvcUnmaskViewController::FillContentView(views::View* content_view) {
     layout->AddView(std::move(month));
 
     auto year = std::make_unique<views::Combobox>(&year_combobox_model_);
-    year->set_callback(base::BindRepeating(
+    year->SetCallback(base::BindRepeating(
         &CvcUnmaskViewController::OnPerformAction, base::Unretained(this)));
     year->SetID(static_cast<int>(DialogViewID::CVC_YEAR));
     year->SelectValue(credit_card_.Expiration4DigitYearAsString());
@@ -258,37 +254,27 @@ void CvcUnmaskViewController::FillContentView(views::View* content_view) {
   layout->AddView(std::move(error_label));
 }
 
-std::unique_ptr<views::Button> CvcUnmaskViewController::CreatePrimaryButton() {
-  auto button = std::make_unique<views::MdTextButton>(
-      this, l10n_util::GetStringUTF16(IDS_CONFIRM));
-  button->SetProminent(true);
-  button->SetEnabled(false);  // Only enabled when a valid CVC is entered.
-  button->SetID(static_cast<int>(DialogViewID::CVC_PROMPT_CONFIRM_BUTTON));
-  button->set_tag(static_cast<int>(Tags::CONFIRM_TAG));
-  return button;
+base::string16 CvcUnmaskViewController::GetPrimaryButtonLabel() {
+  return l10n_util::GetStringUTF16(IDS_CONFIRM);
+}
+
+views::Button::PressedCallback
+CvcUnmaskViewController::GetPrimaryButtonCallback() {
+  return base::BindRepeating(&CvcUnmaskViewController::CvcConfirmed,
+                             base::Unretained(this));
+}
+
+int CvcUnmaskViewController::GetPrimaryButtonId() {
+  return static_cast<int>(DialogViewID::CVC_PROMPT_CONFIRM_BUTTON);
+}
+
+bool CvcUnmaskViewController::GetPrimaryButtonEnabled() {
+  return false;  // Only enabled when a valid CVC is entered.
 }
 
 bool CvcUnmaskViewController::ShouldShowSecondaryButton() {
   // Do not show the "Cancel Payment" button.
   return false;
-}
-
-void CvcUnmaskViewController::ButtonPressed(views::Button* sender,
-                                            const ui::Event& event) {
-  if (!dialog()->IsInteractive())
-    return;
-
-  switch (sender->tag()) {
-    case static_cast<int>(Tags::CONFIRM_TAG):
-      CvcConfirmed();
-      break;
-    case static_cast<int>(PaymentRequestCommonTags::BACK_BUTTON_TAG):
-      unmask_delegate_->OnUnmaskPromptClosed();
-      dialog()->GoBack();
-      break;
-    default:
-      PaymentRequestSheetController::ButtonPressed(sender, event);
-  }
 }
 
 void CvcUnmaskViewController::CvcConfirmed() {
@@ -377,6 +363,13 @@ bool CvcUnmaskViewController::GetSheetId(DialogViewID* sheet_id) {
 
 views::View* CvcUnmaskViewController::GetFirstFocusedView() {
   return cvc_field_;
+}
+
+void CvcUnmaskViewController::BackButtonPressed() {
+  if (dialog()->IsInteractive()) {
+    unmask_delegate_->OnUnmaskPromptClosed();
+    dialog()->GoBack();
+  }
 }
 
 void CvcUnmaskViewController::ContentsChanged(

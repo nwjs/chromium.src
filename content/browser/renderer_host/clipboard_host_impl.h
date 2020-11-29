@@ -161,7 +161,7 @@ class CONTENT_EXPORT ClipboardHostImpl : public blink::mojom::ClipboardHost {
       const base::flat_map<base::string16, base::string16>& data) override;
   void WriteBookmark(const std::string& url,
                      const base::string16& title) override;
-  void WriteImage(const SkBitmap& bitmap) override;
+  void WriteImage(const SkBitmap& unsafe_bitmap) override;
   void CommitWrite() override;
 #if defined(OS_MAC)
   void WriteStringToFindPboard(const base::string16& text) override;
@@ -178,12 +178,11 @@ class CONTENT_EXPORT ClipboardHostImpl : public blink::mojom::ClipboardHost {
                    ReadImageCallback callback,
                    const SkBitmap& bitmap);
 
-  std::unique_ptr<ui::ClipboardDataEndpoint> CreateDataEndpoint();
+  std::unique_ptr<ui::DataTransferEndpoint> CreateDataEndpoint();
 
   mojo::Receiver<blink::mojom::ClipboardHost> receiver_;
   ui::Clipboard* const clipboard_;  // Not owned
-  int render_frame_routing_id_ = MSG_ROUTING_NONE;
-  int render_process_id_ = ChildProcessHost::kInvalidUniqueID;
+  GlobalFrameRoutingId render_frame_routing_id_;
   std::unique_ptr<ui::ScopedClipboardWriter> clipboard_writer_;
 
   // Outstanding is allowed requests per clipboard contents.  Maps a clipboard

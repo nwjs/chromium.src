@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "base/test/scoped_feature_list.h"
+#include "base/version.h"
 #include "chrome/browser/chromeos/login/users/fake_chrome_user_manager.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
@@ -17,6 +18,7 @@
 #include "components/account_id/account_id.h"
 #include "components/prefs/pref_service.h"
 #include "components/user_manager/scoped_user_manager.h"
+#include "components/version_info/version_info.h"
 #include "content/public/test/browser_task_environment.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -44,7 +46,8 @@ class ReleaseNotesStorageTest : public testing::Test,
     scoped_feature_list_.InitWithFeatures(
         /*enabled_features=*/{chromeos::features::kReleaseNotesNotification,
                               chromeos::features::
-                                  kReleaseNotesNotificationAllChannels},
+                                  kReleaseNotesNotificationAllChannels,
+                              chromeos::features::kReleaseNotesSuggestionChip},
         /*disabled_features=*/{});
     std::unique_ptr<Profile> profile = CreateProfile(email);
     profile->GetProfilePolicyConnector()->OverrideIsManagedForTesting(
@@ -60,24 +63,41 @@ class ReleaseNotesStorageTest : public testing::Test,
   DISALLOW_COPY_AND_ASSIGN(ReleaseNotesStorageTest);
 };
 
-// Release notes sets current milestone to "last shown" after OOBE and should
-// not be shown.
+// Release notes are not shown for profiles that have been created in this
+// milestone.
 TEST_F(ReleaseNotesStorageTest, ShouldNotShowReleaseNotesOOBE) {
   std::unique_ptr<Profile> profile =
       SetupStandardEnvironmentAndProfile("test@gmail.com", false);
+  profile.get()->GetPrefs()->SetString(prefs::kProfileCreatedByVersion,
+                                       version_info::GetVersion().GetString());
   std::unique_ptr<ReleaseNotesStorage> release_notes_storage =
       std::make_unique<ReleaseNotesStorage>(profile.get());
 
   EXPECT_EQ(false, release_notes_storage->ShouldNotify());
 }
 
+// Release notes are shown for profiles that have been created in an earlier
+// version of chrome.
+TEST_F(ReleaseNotesStorageTest, ShouldShowReleaseNotesOldProfile) {
+  std::unique_ptr<Profile> profile =
+      SetupStandardEnvironmentAndProfile("test@gmail.com", false);
+  profile.get()->GetPrefs()->SetString(prefs::kProfileCreatedByVersion,
+                                       "20.0.0.0");
+  std::unique_ptr<ReleaseNotesStorage> release_notes_storage =
+      std::make_unique<ReleaseNotesStorage>(profile.get());
+
+  EXPECT_EQ(true, release_notes_storage->ShouldNotify());
+}
+
+// We have previously seen another notification on an earlier chrome version,
+// release notes should be shown.
 TEST_F(ReleaseNotesStorageTest, ShouldShowReleaseNotes) {
   std::unique_ptr<Profile> profile =
       SetupStandardEnvironmentAndProfile("test@gmail.com", false);
   std::unique_ptr<ReleaseNotesStorage> release_notes_storage =
       std::make_unique<ReleaseNotesStorage>(profile.get());
   profile.get()->GetPrefs()->SetInteger(prefs::kReleaseNotesLastShownMilestone,
-                                        -1);
+                                        20);
 
   EXPECT_EQ(true, release_notes_storage->ShouldNotify());
 }
@@ -89,12 +109,12 @@ TEST_F(ReleaseNotesStorageTest, ReleaseNotesShouldOnlyBeNotifiedOnce) {
   std::unique_ptr<ReleaseNotesStorage> release_notes_storage =
       std::make_unique<ReleaseNotesStorage>(profile.get());
   profile.get()->GetPrefs()->SetInteger(prefs::kReleaseNotesLastShownMilestone,
-                                        -1);
+                                        20);
   ASSERT_EQ(true, release_notes_storage->ShouldNotify());
 
   release_notes_storage->MarkNotificationShown();
 
-  EXPECT_NE(-1, profile.get()->GetPrefs()->GetInteger(
+  EXPECT_NE(20, profile.get()->GetPrefs()->GetInteger(
                     prefs::kReleaseNotesLastShownMilestone));
   EXPECT_EQ(false, release_notes_storage->ShouldNotify());
 }
@@ -105,7 +125,7 @@ TEST_F(ReleaseNotesStorageTest, ShouldNotShowReleaseNotesForManagedProfile) {
   std::unique_ptr<ReleaseNotesStorage> release_notes_storage =
       std::make_unique<ReleaseNotesStorage>(profile.get());
   profile.get()->GetPrefs()->SetInteger(prefs::kReleaseNotesLastShownMilestone,
-                                        -1);
+                                        20);
 
   EXPECT_EQ(false, release_notes_storage->ShouldNotify());
 }
@@ -116,7 +136,7 @@ TEST_F(ReleaseNotesStorageTest, ShouldShowReleaseNotesForGoogler) {
   std::unique_ptr<ReleaseNotesStorage> release_notes_storage =
       std::make_unique<ReleaseNotesStorage>(profile.get());
   profile.get()->GetPrefs()->SetInteger(prefs::kReleaseNotesLastShownMilestone,
-                                        -1);
+                                        20);
 
   EXPECT_EQ(true, release_notes_storage->ShouldNotify());
 }
@@ -129,14 +149,27 @@ TEST_F(ReleaseNotesStorageTest, ShouldNotShowReleaseNotesIfFeatureDisabled) {
   std::unique_ptr<ReleaseNotesStorage> release_notes_storage =
       std::make_unique<ReleaseNotesStorage>(profile.get());
   profile.get()->GetPrefs()->SetInteger(prefs::kReleaseNotesLastShownMilestone,
-                                        -1);
+                                        20);
 
   EXPECT_EQ(false, release_notes_storage->ShouldNotify());
 }
 
+// Tests that when kReleaseNotesSuggestionChipTimesLeftToShow is 0,
+// ReleaseNotesStorage::ShouldShowSuggestionChip returns false.
+TEST_F(ReleaseNotesStorageTest, DoesNotShowReleaseNotesSuggestionChip) {
+  std::unique_ptr<Profile> profile =
+      SetupStandardEnvironmentAndProfile("test@gmail.com", false);
+  std::unique_ptr<ReleaseNotesStorage> release_notes_storage =
+      std::make_unique<ReleaseNotesStorage>(profile.get());
+  profile.get()->GetPrefs()->SetInteger(
+      prefs::kReleaseNotesSuggestionChipTimesLeftToShow, 0);
+
+  EXPECT_EQ(false, release_notes_storage->ShouldShowSuggestionChip());
+}
+
 // Tests that when kReleaseNotesSuggestionChipTimesLeftToShow is greater than 0,
-// ReleaseNotesStorage::ShouldShowSuggestionChip returns true, and when the
-// value is 0 the method returns false.
+// ReleaseNotesStorage::ShouldShowSuggestionChip returns true, and when
+// decreased the method returns false again.
 TEST_F(ReleaseNotesStorageTest, ShowReleaseNotesSuggestionChip) {
   std::unique_ptr<Profile> profile =
       SetupStandardEnvironmentAndProfile("test@gmail.com", false);

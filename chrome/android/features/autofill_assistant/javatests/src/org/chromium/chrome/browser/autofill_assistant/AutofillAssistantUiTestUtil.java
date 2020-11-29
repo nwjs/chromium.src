@@ -7,11 +7,12 @@ package org.chromium.chrome.browser.autofill_assistant;
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 
-import static org.chromium.content_public.browser.test.util.CriteriaHelper.DEFAULT_MAX_TIME_TO_POLL;
-import static org.chromium.content_public.browser.test.util.CriteriaHelper.DEFAULT_POLLING_INTERVAL;
+import static org.chromium.base.test.util.CriteriaHelper.DEFAULT_MAX_TIME_TO_POLL;
+import static org.chromium.base.test.util.CriteriaHelper.DEFAULT_POLLING_INTERVAL;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
@@ -49,6 +50,9 @@ import org.json.JSONArray;
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.Callback;
 import org.chromium.base.ThreadUtils;
+import org.chromium.base.test.util.Criteria;
+import org.chromium.base.test.util.CriteriaHelper;
+import org.chromium.base.test.util.CriteriaNotSatisfiedException;
 import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.customtabs.CustomTabActivity;
 import org.chromium.chrome.browser.customtabs.CustomTabActivityTestRule;
@@ -58,9 +62,6 @@ import org.chromium.chrome.browser.image_fetcher.ImageFetcherConfig;
 import org.chromium.chrome.test.ChromeActivityTestRule;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.content_public.browser.WebContents;
-import org.chromium.content_public.browser.test.util.Criteria;
-import org.chromium.content_public.browser.test.util.CriteriaHelper;
-import org.chromium.content_public.browser.test.util.CriteriaNotSatisfiedException;
 import org.chromium.content_public.browser.test.util.TestCallbackHelperContainer;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.content_public.browser.test.util.TestTouchUtils;
@@ -559,11 +560,17 @@ class AutofillAssistantUiTestUtil {
 
         // Sanity check, can only click on coordinates on screen.
         DisplayMetrics displayMetrics = testRule.getActivity().getResources().getDisplayMetrics();
-        if (x < 0 || x > displayMetrics.widthPixels || y < 0 || y > displayMetrics.heightPixels) {
+        BottomSheetController bottomSheetController =
+                testRule.getActivity().getRootUiCoordinatorForTesting().getBottomSheetController();
+        int totalBottomSheetHeight = bottomSheetController.getCurrentOffset()
+                + bottomSheetController.getTopShadowHeight();
+        if (x < 0 || x > displayMetrics.widthPixels || y < 0
+                || y > displayMetrics.heightPixels - totalBottomSheetHeight) {
             throw new IllegalArgumentException(Arrays.toString(elementIds)
                     + " not on screen: tried to tap x=" + x + ", y=" + y
                     + ", which is outside of display with w=" + displayMetrics.widthPixels
-                    + ", h=" + displayMetrics.heightPixels);
+                    + ", h=" + displayMetrics.heightPixels
+                    + ", or obstructed by the BottomSheet with height=" + totalBottomSheetHeight);
         }
         TestTouchUtils.singleClick(InstrumentationRegistry.getInstrumentation(), x, y);
     }
@@ -686,7 +693,10 @@ class AutofillAssistantUiTestUtil {
         javascriptHelper.evaluateJavaScriptForTests(webContents,
                 "(function() {"
                         + " const v = window.visualViewport;"
-                        + " return [v.pageLeft, v.pageTop, v.width, v.height]"
+                        + " return ["
+                        + "   v.pageLeft, v.pageTop,"
+                        + "   v.pageLeft + v.width, v.pageTop + v.height"
+                        + " ];"
                         + "})()");
         javascriptHelper.waitUntilHasValue();
         JSONArray values = new JSONArray(javascriptHelper.getJsonResultAndClear());
@@ -710,6 +720,22 @@ class AutofillAssistantUiTestUtil {
         javascriptHelper.waitUntilHasValue();
         JSONArray result = new JSONArray(javascriptHelper.getJsonResultAndClear());
         return result.getString(0);
+    }
+
+    /**
+     * Converts a view into a bitmap.
+     */
+    public static Bitmap getBitmapFromView(View view) {
+        Bitmap resultBitmap =
+                Bitmap.createBitmap(view.getWidth(), view.getHeight(), Bitmap.Config.ARGB_8888);
+        Drawable backgroundDrawable = view.getBackground();
+        if (backgroundDrawable == null) {
+            return resultBitmap;
+        }
+        Canvas canvas = new Canvas(resultBitmap);
+        backgroundDrawable.draw(canvas);
+        view.draw(canvas);
+        return resultBitmap;
     }
 
     private static String getElementSelectorString(String[] elementIds) {

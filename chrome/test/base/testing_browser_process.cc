@@ -27,7 +27,6 @@
 #include "chrome/common/buildflags.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/test/base/testing_browser_process_platform_part.h"
-#include "components/federated_learning/floc_blocklist_service.h"
 #include "components/federated_learning/floc_sorting_lsh_clusters_service.h"
 #include "components/network_time/network_time_tracker.h"
 #include "components/optimization_guide/optimization_guide_service.h"
@@ -281,11 +280,6 @@ TestingBrowserProcess::subresource_filter_ruleset_service() {
   return subresource_filter_ruleset_service_.get();
 }
 
-federated_learning::FlocBlocklistService*
-TestingBrowserProcess::floc_blocklist_service() {
-  return floc_blocklist_service_.get();
-}
-
 federated_learning::FlocSortingLshClustersService*
 TestingBrowserProcess::floc_sorting_lsh_clusters_service() {
   return floc_sorting_lsh_clusters_service_.get();
@@ -396,8 +390,8 @@ component_updater::ComponentUpdateService*
 TestingBrowserProcess::component_updater() {
   return nullptr;
 }
+#if 0
 
-#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
 component_updater::SupervisedUserWhitelistInstaller*
 TestingBrowserProcess::supervised_user_whitelist_installer() {
   return nullptr;
@@ -518,11 +512,6 @@ void TestingBrowserProcess::SetSafeBrowsingService(
 void TestingBrowserProcess::SetRulesetService(
     std::unique_ptr<subresource_filter::RulesetService> ruleset_service) {
   subresource_filter_ruleset_service_.swap(ruleset_service);
-}
-
-void TestingBrowserProcess::SetFlocBlocklistService(
-    std::unique_ptr<federated_learning::FlocBlocklistService> service) {
-  floc_blocklist_service_.swap(service);
 }
 
 void TestingBrowserProcess::SetFlocSortingLshClustersService(

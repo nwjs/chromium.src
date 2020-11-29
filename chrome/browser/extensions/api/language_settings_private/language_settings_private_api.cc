@@ -216,7 +216,7 @@ ExtensionFunction::ResponseAction
 LanguageSettingsPrivateGetLanguageListFunction::Run() {
 #if 1
   std::unique_ptr<base::ListValue> language_list(new base::ListValue);
-  return RespondNow(OneArgument(std::move(language_list)));
+  return RespondNow(OneArgument(base::Value::FromUniquePtrValue(std::move(language_list))));
 #else
   // Collect the language codes from the supported accept-languages.
   const std::string app_locale = g_browser_process->GetApplicationLocale();
@@ -302,7 +302,8 @@ LanguageSettingsPrivateGetLanguageListFunction::Run() {
   }
 #endif  // defined(OS_WIN)
 
-  return RespondNow(OneArgument(std::move(language_list_)));
+  return RespondNow(
+      OneArgument(base::Value::FromUniquePtrValue(std::move(language_list_))));
 #endif
 }
 
@@ -310,7 +311,8 @@ LanguageSettingsPrivateGetLanguageListFunction::Run() {
 void LanguageSettingsPrivateGetLanguageListFunction::
     OnDictionariesInitialized() {
   UpdateSupportedPlatformDictionaries();
-  Respond(OneArgument(std::move(language_list_)));
+  Respond(
+      OneArgument(base::Value::FromUniquePtrValue(std::move(language_list_))));
   // Matches the AddRef in Run().
   Release();
 }
@@ -515,7 +517,8 @@ LanguageSettingsPrivateGetSpellcheckWordsFunction::Run() {
   SpellcheckCustomDictionary* dictionary = service->GetCustomDictionary();
 
   if (dictionary->IsLoaded())
-    return RespondNow(OneArgument(GetSpellcheckWords()));
+    return RespondNow(
+        OneArgument(base::Value::FromUniquePtrValue(GetSpellcheckWords())));
 
   dictionary->AddObserver(this);
   AddRef();  // Balanced in OnCustomDictionaryLoaded().
@@ -527,7 +530,7 @@ void LanguageSettingsPrivateGetSpellcheckWordsFunction::
   SpellcheckService* service =
       SpellcheckServiceFactory::GetForContext(browser_context());
   service->GetCustomDictionary()->RemoveObserver(this);
-  Respond(OneArgument(GetSpellcheckWords()));
+  Respond(OneArgument(base::Value::FromUniquePtrValue(GetSpellcheckWords())));
   Release();
 }
 
@@ -577,7 +580,7 @@ LanguageSettingsPrivateAddSpellcheckWordFunction::Run() {
   }
 #endif
 
-  return RespondNow(OneArgument(std::make_unique<base::Value>(success)));
+  return RespondNow(OneArgument(base::Value(success)));
 }
 
 LanguageSettingsPrivateRemoveSpellcheckWordFunction::
@@ -603,7 +606,7 @@ LanguageSettingsPrivateRemoveSpellcheckWordFunction::Run() {
   }
 #endif
 
-  return RespondNow(OneArgument(std::make_unique<base::Value>(success)));
+  return RespondNow(OneArgument(base::Value(success)));
 }
 
 LanguageSettingsPrivateGetTranslateTargetLanguageFunction::
@@ -620,9 +623,8 @@ LanguageSettingsPrivateGetTranslateTargetLanguageFunction::Run() {
   language::LanguageModel* language_model =
       LanguageModelManagerFactory::GetForBrowserContext(profile)
           ->GetPrimaryModel();
-  return RespondNow(OneArgument(
-      std::make_unique<base::Value>(TranslateService::GetTargetLanguage(
-          profile->GetPrefs(), language_model))));
+  return RespondNow(OneArgument(base::Value(TranslateService::GetTargetLanguage(
+      profile->GetPrefs(), language_model))));
 #else
   return RespondNow(NoArguments());
 #endif
@@ -714,7 +716,8 @@ LanguageSettingsPrivateGetInputMethodListsFunction::Run() {
         ext_ime_descriptors, &input_method_lists.third_party_extension_imes);
   }
 
-  return RespondNow(OneArgument(input_method_lists.ToValue()));
+  return RespondNow(OneArgument(
+      base::Value::FromUniquePtrValue(input_method_lists.ToValue())));
 #endif
 }
 

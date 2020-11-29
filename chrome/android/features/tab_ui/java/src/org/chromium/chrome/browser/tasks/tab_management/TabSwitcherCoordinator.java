@@ -154,9 +154,9 @@ public class TabSwitcherCoordinator
 
         PropertyModel containerViewModel = new PropertyModel(TabListContainerProperties.ALL_KEYS);
 
-        mMediator =
-                new TabSwitcherMediator(this, containerViewModel, tabModelSelector, browserControls,
-                        container, tabContentManager, this, multiWindowModeStateDispatcher, mode);
+        mMediator = new TabSwitcherMediator(context, this, containerViewModel, tabModelSelector,
+                browserControls, container, tabContentManager, this, multiWindowModeStateDispatcher,
+                mode);
 
         mMultiThumbnailCardProvider =
                 new MultiThumbnailCardProvider(context, tabContentManager, tabModelSelector);
@@ -206,8 +206,8 @@ public class TabSwitcherCoordinator
             });
         }
 
-        mMessageCardProviderCoordinator =
-                new MessageCardProviderCoordinator(context, (identifier) -> {
+        mMessageCardProviderCoordinator = new MessageCardProviderCoordinator(
+                context, tabModelSelector::isIncognitoSelected, (identifier) -> {
                     mTabListCoordinator.removeSpecialListItem(
                             TabProperties.UiType.MESSAGE, identifier);
                     appendNextMessage(identifier);

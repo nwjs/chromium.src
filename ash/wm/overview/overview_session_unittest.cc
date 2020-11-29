@@ -73,7 +73,6 @@
 #include "base/test/metrics/user_action_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/time/time.h"
-#include "chromeos/constants/chromeos_switches.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/client/window_types.h"
 #include "ui/aura/test/test_window_delegate.h"
@@ -105,6 +104,8 @@
 
 namespace ash {
 namespace {
+
+using ::chromeos::WindowStateType;
 
 constexpr const char kActiveWindowChangedFromOverview[] =
     "WindowSelector_ActiveWindowChanged";
@@ -1849,9 +1850,7 @@ TEST_P(OverviewSessionTest, NoWindowsIndicatorPositionSplitview) {
   // account.
   const int bounds_left = 200 + 4;
   int expected_x = bounds_left + (400 - (bounds_left)) / 2;
-  int workarea_bottom_inset = ShelfConfig::Get()->shelf_size();
-  if (chromeos::switches::ShouldShowShelfHotseat())
-    workarea_bottom_inset = ShelfConfig::Get()->in_app_shelf_size();
+  const int workarea_bottom_inset = ShelfConfig::Get()->in_app_shelf_size();
   const int expected_y = (300 - workarea_bottom_inset) / 2;
   EXPECT_EQ(gfx::Point(expected_x, expected_y),
             no_windows_widget->GetWindowBoundsInScreen().CenterPoint());
@@ -5819,23 +5818,6 @@ TEST_P(SplitViewOverviewSessionTest, SwapWindowAndOverviewGrid) {
       GetGridBounds(),
       split_view_controller()->GetSnappedWindowBoundsInScreen(
           SplitViewController::LEFT, /*window_for_minimum_size=*/nullptr));
-}
-
-// Verify the behavior when trying to exit overview with one snapped window
-// is as expected.
-TEST_P(SplitViewOverviewSessionTest, ExitOverviewWithOneSnapped) {
-  std::unique_ptr<aura::Window> window(CreateWindow(gfx::Rect(400, 400)));
-
-  // Tests that we cannot exit overview when there is one snapped window and no
-  // windows in overview normally.
-  ToggleOverview();
-  split_view_controller()->SnapWindow(window.get(), SplitViewController::LEFT);
-  ToggleOverview();
-  ASSERT_TRUE(InOverviewSession());
-
-  // Tests that we can exit overview if we swipe up from the shelf.
-  ToggleOverview(OverviewEnterExitType::kSwipeFromShelf);
-  EXPECT_FALSE(InOverviewSession());
 }
 
 // Test that in tablet mode, pressing tab key in overview should not crash.

@@ -37,7 +37,6 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.components.embedder_support.contextmenu.ContextMenuParams;
 import org.chromium.components.search_engines.TemplateUrlService;
-import org.chromium.content_public.browser.RenderFrameHost;
 import org.chromium.content_public.browser.test.NativeLibraryTestUtils;
 import org.chromium.ui.base.MenuSourceType;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
@@ -67,7 +66,7 @@ public class ChromeContextMenuPopulatorTest {
     @Mock
     private ExternalAuthUtils mExternalAuthUtils;
     @Mock
-    private RenderFrameHost mRenderFrameHost;
+    private ContextMenuNativeDelegate mNativeDelegate;
 
     // Despite this being a spy, we add the @Mock annotation so that proguard doesn't strip the
     // spied class.
@@ -91,6 +90,7 @@ public class ChromeContextMenuPopulatorTest {
         HashMap<String, Boolean> features = new HashMap<String, Boolean>();
         features.put(ChromeFeatureList.CONTEXT_MENU_SEARCH_WITH_GOOGLE_LENS, false);
         features.put(ChromeFeatureList.EPHEMERAL_TAB_USING_BOTTOM_SHEET, false);
+        features.put(ChromeFeatureList.READ_LATER, false);
 
         ChromeFeatureList.setTestFeatures(features);
     }
@@ -100,14 +100,14 @@ public class ChromeContextMenuPopulatorTest {
                 ()
                         -> mShareDelegate,
                 mode, mExternalAuthUtils, ContextUtils.getApplicationContext(), params,
-                mRenderFrameHost));
+                mNativeDelegate));
         doReturn(mTemplateUrlService).when(mPopulator).getTemplateUrlService();
         doReturn(false).when(mPopulator).shouldTriggerEphemeralTabHelpUi();
         doReturn(true).when(mExternalAuthUtils).isGoogleSigned(IntentHandler.PACKAGE_GSA);
     }
 
     private void checkMenuOptions(int[]... tabs) {
-        List<Pair<Integer, ModelList>> contextMenuState = mPopulator.buildContextMenu(false);
+        List<Pair<Integer, ModelList>> contextMenuState = mPopulator.buildContextMenu();
 
         assertEquals("Number of groups doesn't match", tabs[0] == null ? 0 : tabs.length,
                 contextMenuState.size());
@@ -182,6 +182,7 @@ public class ChromeContextMenuPopulatorTest {
 
         HashMap<String, Boolean> features = new HashMap<String, Boolean>();
         features.put(ChromeFeatureList.EPHEMERAL_TAB_USING_BOTTOM_SHEET, true);
+        features.put(ChromeFeatureList.READ_LATER, false);
         ChromeFeatureList.setTestFeatures(features);
 
         initializePopulator(ChromeContextMenuPopulator.ContextMenuMode.NORMAL, params);

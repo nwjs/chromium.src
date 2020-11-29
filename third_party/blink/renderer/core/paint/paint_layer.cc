@@ -491,8 +491,7 @@ void PaintLayer::ConvertFromFlowThreadToVisualBoundingBoxInAncestor(
     PhysicalRect& rect) const {
   PaintLayer* pagination_layer = EnclosingPaginationLayer();
   DCHECK(pagination_layer);
-  LayoutFlowThread& flow_thread =
-      ToLayoutFlowThread(pagination_layer->GetLayoutObject());
+  auto& flow_thread = To<LayoutFlowThread>(pagination_layer->GetLayoutObject());
 
   // First make the flow thread rectangle relative to the flow thread, not to
   // |layer|.
@@ -786,16 +785,16 @@ void PaintLayer::UpdateLayerPosition() {
     // nearest enclosing object with a layer.
     LayoutObject* curr = GetLayoutObject().Container();
     while (curr && !curr->HasLayer()) {
-      if (curr->IsBox() && !curr->IsTableRow()) {
+      if (curr->IsBox() && !curr->IsLegacyTableRow()) {
         // Rows and cells share the same coordinate space (that of the section).
         // Omit them when computing our xpos/ypos.
-        local_point += ToLayoutBox(curr)->PhysicalLocation();
+        local_point += To<LayoutBox>(curr)->PhysicalLocation();
       }
       curr = curr->Container();
     }
-    if (curr && curr->IsTableRow()) {
+    if (curr && curr->IsLegacyTableRow()) {
       // Put ourselves into the row coordinate space.
-      local_point -= ToLayoutBox(curr)->PhysicalLocation();
+      local_point -= To<LayoutBox>(curr)->PhysicalLocation();
     }
   }
 
@@ -807,8 +806,8 @@ void PaintLayer::UpdateLayerPosition() {
             GetLayoutObject().StyleRef().GetPosition())) {
       // Adjust offset for absolute under in-flow positioned inline.
       PhysicalOffset offset =
-          ToLayoutInline(container).OffsetForInFlowPositionedInline(
-              ToLayoutBox(GetLayoutObject()));
+          To<LayoutInline>(container).OffsetForInFlowPositionedInline(
+              To<LayoutBox>(GetLayoutObject()));
       local_point += offset;
     }
   }
@@ -834,7 +833,7 @@ bool PaintLayer::UpdateSize() {
     size_ = LayoutSize(GetLayoutObject().GetDocument().View()->Size());
   } else if (GetLayoutObject().IsInline() &&
              GetLayoutObject().IsLayoutInline()) {
-    LayoutInline& inline_flow = ToLayoutInline(GetLayoutObject());
+    auto& inline_flow = To<LayoutInline>(GetLayoutObject());
     IntRect line_box = EnclosingIntRect(inline_flow.PhysicalLinesBoundingBox());
     size_ = LayoutSize(line_box.Size());
   } else if (LayoutBox* box = GetLayoutBox()) {
@@ -900,7 +899,7 @@ PaintLayer* PaintLayer::ContainingLayer(const PaintLayer* ancestor,
     if (skipped_ancestor && skip_info->AncestorSkipped())
       *skipped_ancestor = true;
     if (container->HasLayer())
-      return ToLayoutBoxModelObject(container)->Layer();
+      return To<LayoutBoxModelObject>(container)->Layer();
     object = container;
   }
   return nullptr;
@@ -914,7 +913,7 @@ PhysicalOffset PaintLayer::ComputeOffsetFromAncestor(
       PhysicalOffset(), &ancestor_object, kIgnoreTransforms);
   if (ancestor_object.UsesCompositedScrolling()) {
     result += PhysicalOffset(
-        ToLayoutBox(ancestor_object).PixelSnappedScrolledContentOffset());
+        To<LayoutBox>(ancestor_object).PixelSnappedScrolledContentOffset());
   }
   return result;
 }
@@ -1162,7 +1161,7 @@ bool PaintLayer::HasNonIsolatedDescendantWithBlendMode() const {
   if (has_non_isolated_descendant_with_blend_mode_)
     return true;
   if (GetLayoutObject().IsSVGRoot()) {
-    return ToLayoutSVGRoot(GetLayoutObject())
+    return To<LayoutSVGRoot>(GetLayoutObject())
         .HasNonIsolatedBlendingDescendants();
   }
   return false;
@@ -1514,8 +1513,7 @@ PhysicalOffset PaintLayer::VisualOffsetFromAncestor(
     return offset;
   }
 
-  LayoutFlowThread& flow_thread =
-      ToLayoutFlowThread(pagination_layer->GetLayoutObject());
+  auto& flow_thread = To<LayoutFlowThread>(pagination_layer->GetLayoutObject());
   ConvertToLayerCoords(pagination_layer, offset);
   offset = PhysicalOffsetToBeNoop(
       flow_thread.FlowThreadPointToVisualPoint(offset.ToLayoutPoint()));
@@ -1619,6 +1617,13 @@ void PaintLayer::AppendSingleFragmentIgnoringPagination(
                       offset_from_root);
   fragment.root_fragment_data = &root_layer->GetLayoutObject().FirstFragment();
   fragment.fragment_data = &GetLayoutObject().FirstFragment();
+  if (GetLayoutObject().CanTraversePhysicalFragments()) {
+    // Make sure that we actually traverse the fragment tree, by providing a
+    // physical fragment. Otherwise we'd fall back to LayoutObject traversal.
+    if (const auto* layout_box = GetLayoutBox())
+      fragment.physical_fragment = layout_box->GetPhysicalFragment(0);
+  }
+
   fragments.push_back(fragment);
 }
 
@@ -1731,7 +1736,7 @@ void PaintLayer::CollectFragments(
     fragment.fragment_data = fragment_data;
 
     if (GetLayoutObject().CanTraversePhysicalFragments()) {
-      if (const LayoutBox* layout_box = ToLayoutBoxOrNull(GetLayoutObject())) {
+      if (const auto* layout_box = GetLayoutBox()) {
         fragment.physical_fragment =
             layout_box->GetPhysicalFragment(physical_fragment_idx);
         DCHECK(fragment.physical_fragment);
@@ -1957,7 +1962,7 @@ PaintLayer* PaintLayer::HitTestLayer(PaintLayer* root_layer,
 
   // For the global root scroller, hit test the layout viewport scrollbars
   // first, as they are visually presented on top of the content.
-  if (GetLayoutObject().IsGlobalRootScroller()) {
+  if (layout_object.IsGlobalRootScroller()) {
     // There are a number of early outs below that don't apply to the the
     // global root scroller.
     DCHECK(!Transform());
@@ -1966,7 +1971,10 @@ PaintLayer* PaintLayer::HitTestLayer(PaintLayer* root_layer,
     if (scrollable_area_) {
       IntPoint point = scrollable_area_->ConvertFromRootFrameToVisualViewport(
           RoundedIntPoint(recursion_data.location.Point()));
-      if (scrollable_area_->HitTestOverflowControls(result, point))
+
+      DCHECK(GetLayoutBox());
+      if (GetLayoutBox()->HitTestOverflowControl(result, HitTestLocation(point),
+                                                 PhysicalOffset()))
         return this;
     }
   }
@@ -2254,9 +2262,22 @@ bool PaintLayer::HitTestContentsForFragments(
     inside_clip_rect = true;
     PhysicalOffset fragment_offset = offset;
     fragment_offset += fragment.layer_bounds.offset;
-    if (HitTestContents(result, fragment.physical_fragment, fragment_offset,
-                        hit_test_location, hit_test_filter))
+
+    if (UNLIKELY(layer_fragments.size() > 1 &&
+                 GetLayoutObject().IsLayoutInline() &&
+                 GetLayoutObject().CanTraversePhysicalFragments())) {
+      // When hit-testing a relatively positioned inline, we'll search for it in
+      // each fragment of the containing block. Each fragment has its own
+      // offset, and we need to do one fragment at a time.
+      HitTestLocation location_for_fragment(hit_test_location, i);
+      if (HitTestContents(result, fragment.physical_fragment, fragment_offset,
+                          location_for_fragment, hit_test_filter))
+        return true;
+    } else if (HitTestContents(result, fragment.physical_fragment,
+                               fragment_offset, hit_test_location,
+                               hit_test_filter)) {
       return true;
+    }
   }
 
   return false;
@@ -2544,7 +2565,10 @@ bool PaintLayer::HitTestClippedOutByClipPath(
   if (clip_path_operation->GetType() == ClipPathOperation::SHAPE) {
     ShapeClipPathOperation* clip_path =
         To<ShapeClipPathOperation>(clip_path_operation);
-    return !clip_path->GetPath(reference_box).Contains(point);
+    return !clip_path
+                ->GetPath(reference_box,
+                          GetLayoutObject().StyleRef().EffectiveZoom())
+                .Contains(point);
   }
   DCHECK_EQ(clip_path_operation->GetType(), ClipPathOperation::REFERENCE);
   LayoutSVGResourceClipper* clipper = GetSVGResourceAsType(clip_path_operation);
@@ -3025,7 +3049,8 @@ bool PaintLayer::ShouldBeSelfPaintingLayer() const {
          ScrollsOverflow() ||
          (RuntimeEnabledFeatures::CompositeSVGEnabled() &&
           GetLayoutObject().IsSVGRoot() &&
-          ToLayoutSVGRoot(GetLayoutObject()).HasDescendantCompositingReasons());
+          To<LayoutSVGRoot>(GetLayoutObject())
+              .HasDescendantCompositingReasons());
 }
 
 void PaintLayer::UpdateSelfPaintingLayer() {
@@ -3077,7 +3102,7 @@ bool PaintLayer::HasNonEmptyChildLayoutObjects() const {
       if (child->IsLayoutInline() || !child->IsBox())
         return true;
 
-      const auto* box = ToLayoutBox(child);
+      const auto* box = To<LayoutBox>(child);
       if (!box->Size().IsZero() || box->HasVisualOverflow())
         return true;
     }
@@ -3232,11 +3257,8 @@ void PaintLayer::StyleDidChange(StyleDifference diff,
   // to recompute the bit once scrollbars have been updated.
   UpdateSelfPaintingLayer();
 
-  const ComputedStyle& new_style = GetLayoutObject().StyleRef();
-
-  if (diff.CompositingReasonsChanged()) {
-    SetNeedsCompositingInputsUpdate();
-  } else if (!RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
+  if (!diff.CompositingReasonsChanged() &&
+      !RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
     // For querying stale GetCompositingState().
     DisableCompositingQueryAsserts disable;
 
@@ -3260,14 +3282,17 @@ void PaintLayer::StyleDidChange(StyleDifference diff,
     SetNeedsCompositingInputsUpdate();
   }
 
+  // See also |LayoutObject::SetStyle| which handles these invalidations if a
+  // PaintLayer is not present.
   if (diff.TransformChanged() || diff.OpacityChanged() ||
-      diff.ZIndexChanged() || diff.FilterChanged() ||
-      diff.BackdropFilterChanged() || diff.CssClipChanged() ||
-      diff.BlendModeChanged() || diff.MaskChanged()) {
+      diff.ZIndexChanged() || diff.FilterChanged() || diff.CssClipChanged() ||
+      diff.BlendModeChanged() || diff.MaskChanged() ||
+      diff.CompositingReasonsChanged()) {
     GetLayoutObject().SetNeedsPaintPropertyUpdate();
     SetNeedsCompositingInputsUpdate();
   }
 
+  const ComputedStyle& new_style = GetLayoutObject().StyleRef();
   // HasNonContainedAbsolutePositionDescendant depends on position changes.
   if (!old_style || old_style->GetPosition() != new_style.GetPosition())
     MarkAncestorChainForFlagsUpdate();

@@ -16,7 +16,7 @@
 #include "chrome/browser/nearby_sharing/nearby_connection_impl.h"
 #include "chrome/browser/nearby_sharing/nearby_file_handler.h"
 #include "chrome/browser/nearby_sharing/nearby_process_manager.h"
-#include "chrome/services/sharing/public/mojom/nearby_connections.mojom.h"
+#include "chromeos/services/nearby/public/mojom/nearby_connections.mojom.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/receiver_set.h"
 
@@ -46,6 +46,7 @@ class NearbyConnectionsManagerImpl
                         ConnectionsCallback callback) override;
   void StopAdvertising() override;
   void StartDiscovery(DiscoveryListener* listener,
+                      DataUsage data_usage,
                       ConnectionsCallback callback) override;
   void StopDiscovery() override;
   void Connect(std::vector<uint8_t> endpoint_info,

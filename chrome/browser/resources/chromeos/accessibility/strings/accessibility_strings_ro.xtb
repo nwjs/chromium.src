@@ -68,6 +68,7 @@
 <translation id="1383876407941801731">Caută</translation>
 <translation id="1396114365388024581">listă de file</translation>
 <translation id="1405567553485452995">Verde deschis</translation>
+<translation id="141454040365657399">Antetul paginii</translation>
 <translation id="1417889266572670458">Bleumarin</translation>
 <translation id="1431911867058218151">Violet prună</translation>
 <translation id="1439316808600711881">regiune</translation>
@@ -346,8 +347,8 @@
 <translation id="352577523970648069">Un câmp de text editabil</translation>
 <translation id="3538907380453898475">dscrplst</translation>
 <translation id="3549141990712742152">decupează <ph name="TEXT" />.</translation>
-<translation id="3549680091535286226">Atingeți cu două degete ca să opriți vorbirea temporar</translation>
 <translation id="3564729643041517261">Stilul de afișare actual este alăturat</translation>
+<translation id="3573145950452451508">Subsolul paginii</translation>
 <translation id="3587482841069643663">Toate</translation>
 <translation id="3589661172894441357">Glosar</translation>
 <translation id="3591784666823501596">Albastru regal</translation>
@@ -454,6 +455,7 @@
 <translation id="4402014469255336455">Albastru celest</translation>
 <translation id="4406249099130339147">Redare vocală a punctuației:</translation>
 <translation id="4432457053224379116">Roșu indian</translation>
+<translation id="4432896207833262240">Conținut marcat</translation>
 <translation id="4437615272777527928">Tastează pentru a căuta în meniuri. Folosește săgețile în sus și în jos pentru a răsfoi rezultatele. Folosește săgețile spre dreapta și spre stânga pentru a ajusta cursorul pentru text și pentru a trece de la un meniu la altul.</translation>
 <translation id="4457472090507035117">Selectează vocea actuală:</translation>
 <translation id="4476183483923481720">rând nou</translation>
@@ -592,6 +594,7 @@
 <translation id="5561345396546889625">Lista următoare</translation>
 <translation id="5562645715554321347">grup de titluri</translation>
 <translation id="5574412348552378458">Modul de învățare din ChromeVox</translation>
+<translation id="5582839680698949063">Meniu principal</translation>
 <translation id="5585044216466955529">Câmp pentru editare text de tip e-mail</translation>
 <translation id="5597170376237141345">Caseta de selectare următoare</translation>
 <translation id="5598905979683743333"><ph name="NAME" />, buton radio deselectat</translation>
@@ -825,7 +828,6 @@
 <translation id="7491962110804786152">filă</translation>
 <translation id="7492497529767769458">Treci la secțiunea următoare. Printre exemple se numără Bara de stare și Lansatorul.</translation>
 <translation id="7505149250476994901">Rostește „majusculă” înaintea literei</translation>
-<translation id="7518543783849163354">Pentru a opri temporar feedbackul rostit din ChromeVox, apasă pe tasta Ctrl.</translation>
 <translation id="7533226154149229506">Galben auriu</translation>
 <translation id="7543255924852002459">Etichetă de renunțare</translation>
 <translation id="7552432549459840808">Comenzi rapide utile pentru Chrome</translation>

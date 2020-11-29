@@ -135,7 +135,7 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
 </histogram>
 
 <histogram name="InputMethod.Assistive.TimeToAccept.Emoji" units="ms"
-    expires_after="2021-01-01">
+    expires_after="2021-05-09">
   <owner>myy@google.com</owner>
   <owner>essential-inputs-team@google.com</owner>
   <summary>
@@ -165,7 +165,7 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
 </histogram>
 
 <histogram name="InputMethod.Assistive.TimeToDismiss.PersonalInfo" units="ms"
-    expires_after="2021-01-01">
+    expires_after="2021-05-09">
   <owner>jiwan@google.com</owner>
   <owner>essential-inputs-team@google.com</owner>
   <summary>
@@ -247,7 +247,7 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
 </histogram>
 
 <histogram name="InputMethod.Handwriting.Actions" enum="ImeHandwritingActions"
-    expires_after="2021-03-01">
+    expires_after="2021-05-02">
   <owner>shend@chromium.org</owner>
   <owner>essential-inputs-team@google.com</owner>
   <summary>
@@ -289,7 +289,7 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
 </histogram>
 
 <histogram name="InputMethod.Handwriting.CharsEdited10s" units="chars"
-    expires_after="2021-03-01">
+    expires_after="2021-05-02">
   <owner>shend@chromium.org</owner>
   <owner>essential-inputs-team@google.com</owner>
   <summary>
@@ -299,7 +299,7 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
 </histogram>
 
 <histogram name="InputMethod.Handwriting.CharsEdited5s" units="chars"
-    expires_after="2021-03-01">
+    expires_after="2021-05-02">
   <owner>shend@chromium.org</owner>
   <owner>essential-inputs-team@google.com</owner>
   <summary>
@@ -352,7 +352,7 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
 </histogram>
 
 <histogram name="InputMethod.KeyEventLatency" units="ms"
-    expires_after="2021-01-31">
+    expires_after="2021-04-04">
   <owner>shend@chromium.org</owner>
   <owner>essential-inputs-team@google.com</owner>
   <summary>Time taken by the engine to handle a key event.</summary>
@@ -518,7 +518,7 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
 </histogram>
 
 <histogram name="InputMethod.VirtualKeyboard.DecoderEvent"
-    enum="InputMethodDecoderEvent" expires_after="2021-02-01">
+    enum="InputMethodDecoderEvent" expires_after="2021-04-11">
   <owner>shend@chromium.org</owner>
   <owner>essential-inputs-team@google.com</owner>
   <summary>
@@ -542,7 +542,7 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
 </histogram>
 
 <histogram name="InputMethod.VirtualKeyboard.ErrorType"
-    enum="VirtualKeyboardErrorTypeHashes" expires_after="2021-02-01">
+    enum="VirtualKeyboardErrorTypeHashes" expires_after="2021-04-04">
   <owner>shend@chromium.org</owner>
   <owner>essential-inputs-team@google.com</owner>
   <summary>Errors from the virtual keyboard extension</summary>
@@ -596,15 +596,6 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
   </summary>
 </histogram>
 
-<histogram name="InputMethod.VirtualKeyboard.InitLatency" units="ms"
-    expires_after="M95">
-  <owner>shend@chromium.org</owner>
-  <owner>essential-inputs-team@google.com</owner>
-  <summary>
-    The on-screen keyboard initialization latency in milliseconds.
-  </summary>
-</histogram>
-
 <histogram name="InputMethod.VirtualKeyboard.InitLatency.KeyboardShownLongTail"
     units="ms" expires_after="2021-03-28">
   <owner>jopalmer@chromium.org</owner>
@@ -614,6 +605,29 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
     InputMethod.VirtualKeyboard.KeyboardShown but with a larger maximum to
     capture more of the distribution.
   </summary>
+</histogram>
+
+<histogram name="InputMethod.VirtualKeyboard.InitLatency{IMEVKLatency}"
+    units="ms" expires_after="M95">
+  <owner>shend@chromium.org</owner>
+  <owner>essential-inputs-team@google.com</owner>
+  <summary>
+    The on-screen keyboard initialization latency in milliseconds.
+    {IMEVKLatency}
+  </summary>
+  <token key="IMEVKLatency">
+    <variant name=""/>
+    <variant name=".BackgroundSettingsFetched"
+        summary="Latency for settings fetched from background"/>
+    <variant name=".HtmlLoaded" summary="Latency for the page is loaded"/>
+    <variant name=".KeyboardCreated"
+        summary="Latency for the keyboard is created"/>
+    <variant name=".KeyboardShown" summary="Latency for keyboard is shown"/>
+    <variant name=".KeysetLoaded"
+        summary="Latency for keyset config is loaded"/>
+    <variant name=".LayoutLoaded"
+        summary="Latency for layout definition is loaded"/>
+  </token>
 </histogram>
 
 <histogram name="InputMethod.VirtualKeyboard.Layout" enum="IMEVKLayout"

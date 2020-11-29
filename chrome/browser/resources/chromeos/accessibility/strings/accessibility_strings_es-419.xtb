@@ -68,6 +68,7 @@
 <translation id="1383876407941801731">Buscar</translation>
 <translation id="1396114365388024581">tablst</translation>
 <translation id="1405567553485452995">Verde claro</translation>
+<translation id="141454040365657399">Encabezado</translation>
 <translation id="1417889266572670458">Azul marino</translation>
 <translation id="1431911867058218151">Ciruela</translation>
 <translation id="1439316808600711881">rgn</translation>
@@ -346,8 +347,8 @@
 <translation id="352577523970648069">Un campo de texto editable</translation>
 <translation id="3538907380453898475">listadesc</translation>
 <translation id="3549141990712742152">Cortar <ph name="TEXT" /></translation>
-<translation id="3549680091535286226">Presiona con 2 dedos para silenciar la voz temporalmente</translation>
 <translation id="3564729643041517261">El estilo actual de la pantalla es lado a lado</translation>
+<translation id="3573145950452451508">Pie de página</translation>
 <translation id="3587482841069643663">Todos</translation>
 <translation id="3589661172894441357">Glosario</translation>
 <translation id="3591784666823501596">Azul real</translation>
@@ -454,6 +455,7 @@
 <translation id="4402014469255336455">Azul cielo oscuro</translation>
 <translation id="4406249099130339147">Eco de los signos de puntuación:</translation>
 <translation id="4432457053224379116">Rojo indio</translation>
+<translation id="4432896207833262240">Contenido marcado</translation>
 <translation id="4437615272777527928">Escribe para realizar una búsqueda en los menús. Usa las flechas hacia arriba y abajo para moverte entre los resultados. Usa las flechas hacia la izquierda y la derecha para ajustar el símbolo de intercalación de texto y para moverte entre los menús.</translation>
 <translation id="4457472090507035117">Seleccionar voz actual:</translation>
 <translation id="4476183483923481720">Nueva línea</translation>
@@ -592,6 +594,7 @@
 <translation id="5561345396546889625">Siguiente lista</translation>
 <translation id="5562645715554321347">hdnggrp</translation>
 <translation id="5574412348552378458">Modo de aprendizaje de ChromeVox</translation>
+<translation id="5582839680698949063">Menú principal</translation>
 <translation id="5585044216466955529">Editar texto, entrada de correo electrónico</translation>
 <translation id="5597170376237141345">Siguiente casilla de verificación</translation>
 <translation id="5598905979683743333"><ph name="NAME" />, botón de selección no seleccionado</translation>
@@ -825,7 +828,6 @@
 <translation id="7491962110804786152">tab</translation>
 <translation id="7492497529767769458">Ve a la siguiente sección. Los ejemplos incluyen la bandeja de estado y el Selector.</translation>
 <translation id="7505149250476994901">Decir "mayúscula" antes de la letra</translation>
-<translation id="7518543783849163354">Para silenciar ChromeVox de forma temporal, presiona la tecla Ctrl.</translation>
 <translation id="7533226154149229506">Amarillo oro claro</translation>
 <translation id="7543255924852002459">Etiqueta Descartar</translation>
 <translation id="7552432549459840808">Accesos directos útiles de Chrome</translation>

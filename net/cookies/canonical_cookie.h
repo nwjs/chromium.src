@@ -59,6 +59,7 @@ class NET_EXPORT CanonicalCookie {
       bool httponly,
       CookieSameSite same_site,
       CookiePriority priority,
+      bool same_party,
       CookieSourceScheme scheme_secure = CookieSourceScheme::kUnset);
 
   ~CanonicalCookie();
@@ -104,7 +105,30 @@ class NET_EXPORT CanonicalCookie {
       bool secure,
       bool http_only,
       CookieSameSite same_site,
-      CookiePriority priority);
+      CookiePriority priority,
+      bool same_party);
+
+  // FromStorage is a factory method which is meant for creating a new
+  // CanonicalCookie using properties of a previously existing cookie
+  // that was already ingested into the cookie store.
+  // This should NOT be used to create a new CanonicalCookie that was not
+  // already in the store.
+  // Returns nullptr if the resulting cookie is not canonical,
+  // i.e. cc->IsCanonical() returns false.
+  static std::unique_ptr<CanonicalCookie> FromStorage(
+      const std::string& name,
+      const std::string& value,
+      const std::string& domain,
+      const std::string& path,
+      const base::Time& creation,
+      const base::Time& expiration,
+      const base::Time& last_access,
+      bool secure,
+      bool httponly,
+      CookieSameSite same_site,
+      CookiePriority priority,
+      bool same_party,
+      CookieSourceScheme source_scheme);
 
   const std::string& Name() const { return name_; }
   const std::string& Value() const { return value_; }
@@ -122,6 +146,7 @@ class NET_EXPORT CanonicalCookie {
   bool IsHttpOnly() const { return httponly_; }
   CookieSameSite SameSite() const { return same_site_; }
   CookiePriority Priority() const { return priority_; }
+  bool IsSameParty() const { return same_party_; }
   // Returns an enum indicating the source scheme that set this cookie. This is
   // not part of the cookie spec but is being used to collect metrics for a
   // potential change to the cookie spec.
@@ -347,6 +372,14 @@ class NET_EXPORT CanonicalCookie {
   // Returns whether the cookie was created at most |age_threshold| ago.
   bool IsRecentlyCreated(base::TimeDelta age_threshold) const;
 
+  // Returns true iff the cookie does not violate any rules associated with
+  // creating a cookie with the SameParty attribute. In particular, if a cookie
+  // has SameParty, then it must be Secure and must not be SameSite=Strict.
+  static bool IsCookieSamePartyValid(const ParsedCookie& parsed_cookie);
+  static bool IsCookieSamePartyValid(bool is_same_party,
+                                     bool is_secure,
+                                     CookieSameSite same_site);
+
   std::string name_;
   std::string value_;
   std::string domain_;
@@ -358,6 +391,7 @@ class NET_EXPORT CanonicalCookie {
   bool httponly_;
   CookieSameSite same_site_;
   CookiePriority priority_;
+  bool same_party_;
   CookieSourceScheme source_scheme_;
 };
 

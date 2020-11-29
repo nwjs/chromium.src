@@ -64,9 +64,8 @@ os = struct(
     MAC_10_13 = os_enum("Mac-10.13", os_category.MAC),
     MAC_10_14 = os_enum("Mac-10.14", os_category.MAC),
     MAC_10_15 = os_enum("Mac-10.15", os_category.MAC),
-    MAC_11_0 = os_enum("Mac-11.0", os_category.MAC),
-    # TODO(crbug/1121185): Remove 10.13 once builders have been migrated to 10.15.
-    MAC_DEFAULT = os_enum("Mac-10.13|Mac-10.15", os_category.MAC),
+    MAC_11_0 = os_enum("Mac-11.0|Mac-10.16", os_category.MAC),
+    MAC_DEFAULT = os_enum("Mac-10.15", os_category.MAC),
     MAC_ANY = os_enum("Mac", os_category.MAC),
     WINDOWS_7 = os_enum("Windows-7", os_category.WINDOWS),
     WINDOWS_8_1 = os_enum("Windows-8.1", os_category.WINDOWS),
@@ -137,8 +136,8 @@ xcode_cache = struct(
     x11e608cwk = xcode_enum("xcode_ios_11e608cwk", "xcode_ios_11e608cwk.app"),
     # (current default) xc12 gm seed
     x12a7209 = xcode_enum("xcode_ios_12a7209", "xcode_ios_12a7209.app"),
-    # Xcode 12.2 beta 1
-    x12b5018i = xcode_enum("xcode_ios_12b5018i", "xcode_ios_12b5018i.app"),
+    # latest Xcode 12 beta version.
+    x12b5035g = xcode_enum("xcode_ios_12b5035g", "xcode_ios_12b5035g.app"),
 )
 
 ################################################################################
@@ -151,12 +150,8 @@ _DEFAULT_BUILDERLESS_OS_CATEGORIES = [os_category.LINUX]
 # setting ssd:0 dimension
 _EXCLUDE_BUILDERLESS_SSD_OS_CATEGORIES = [os_category.MAC]
 
-def _chromium_tests_property(*, bucketed_triggers, project_trigger_overrides):
+def _chromium_tests_property(*, project_trigger_overrides):
     chromium_tests = {}
-
-    bucketed_triggers = defaults.get_value("bucketed_triggers", bucketed_triggers)
-    if bucketed_triggers:
-        chromium_tests["bucketed_triggers"] = True
 
     project_trigger_overrides = defaults.get_value("project_trigger_overrides", project_trigger_overrides)
     if project_trigger_overrides:
@@ -202,6 +197,7 @@ def _code_coverage_property(
         *,
         use_clang_coverage,
         use_java_coverage,
+        use_javascript_coverage,
         coverage_exclude_sources,
         coverage_test_types):
     code_coverage = {}
@@ -216,6 +212,10 @@ def _code_coverage_property(
     use_java_coverage = defaults.get_value("use_java_coverage", use_java_coverage)
     if use_java_coverage:
         code_coverage["use_java_coverage"] = True
+
+    use_javascript_coverage = defaults.get_value("use_javascript_coverage", use_javascript_coverage)
+    if use_javascript_coverage:
+        code_coverage["use_javascript_coverage"] = True
 
     coverage_exclude_sources = defaults.get_value(
         "coverage_exclude_sources",
@@ -254,7 +254,6 @@ defaults = args.defaults(
     auto_builder_dimension = args.COMPUTE,
     builder_group = None,
     builderless = args.COMPUTE,
-    bucketed_triggers = False,
     configure_kitchen = False,
     cores = None,
     cpu = None,
@@ -269,6 +268,7 @@ defaults = args.defaults(
     ssd = args.COMPUTE,
     use_clang_coverage = False,
     use_java_coverage = False,
+    use_javascript_coverage = False,
     coverage_exclude_sources = None,
     coverage_test_types = None,
     resultdb_bigquery_exports = [],
@@ -287,7 +287,7 @@ defaults = args.defaults(
 def builder(
         *,
         name,
-        branch_selector = branches.MAIN_ONLY,
+        branch_selector = branches.MAIN,
         bucket = args.DEFAULT,
         executable = args.DEFAULT,
         triggered_by = args.DEFAULT,
@@ -300,7 +300,6 @@ def builder(
         builder_group = args.DEFAULT,
         pool = args.DEFAULT,
         ssd = args.DEFAULT,
-        bucketed_triggers = args.DEFAULT,
         project_trigger_overrides = args.DEFAULT,
         configure_kitchen = args.DEFAULT,
         goma_backend = args.DEFAULT,
@@ -309,6 +308,7 @@ def builder(
         goma_jobs = args.DEFAULT,
         use_clang_coverage = args.DEFAULT,
         use_java_coverage = args.DEFAULT,
+        use_javascript_coverage = args.DEFAULT,
         coverage_exclude_sources = args.DEFAULT,
         coverage_test_types = args.DEFAULT,
         resultdb_bigquery_exports = args.DEFAULT,
@@ -368,10 +368,6 @@ def builder(
         If True, emits a 'ssd:1' dimension. If False, emits a 'ssd:0' parameter.
         By default, considered False if builderless is considered True and
         otherwise None.
-      * bucketed_triggers - a boolean indicating whether jobs triggered by the
-        builder being defined should have the bucket prepended to the builder name
-        to trigger. If True, the 'bucketed_triggers' field will be set in the
-        '$build/chromium_tests' property. By default, considered False.
       * project_trigger_overrides - a dict mapping the LUCI projects declared in
         recipe BotSpecs to the LUCI project to use when triggering builders. When
         this builder triggers another builder, if the BotSpec for that builder has
@@ -399,6 +395,9 @@ def builder(
       * use_java_coverage - a boolean indicating whether java coverage should be
         used. If True, the 'use_java_coverage" field will be set in the
         '$build/code_coverage' property. By default, considered False.
+      * use_javascript_coverage - a boolean indicating whether javascript coverage
+        should be enabled. If True the 'use_javascript_coverage' field will be set
+        in the '$build/code_coverage' property. By default, considered False.
       * coverage_exclude_sources - a string as the key to find the source file
         exclusion pattern in code_coverage recipe module. Will be copied to
         '$build/code_coverage' property if set. By default, considered None.
@@ -431,8 +430,8 @@ def builder(
              "use goma_backend, goma_dbug, goma_enable_ats and goma_jobs instead")
     if "$build/code_coverage" in properties:
         fail('Setting "$build/code_coverage" property is not supported: ' +
-             "use use_clang_coverage, use_java_coverage, coverage_exclude_sources" +
-             " and/or coverage_test_types instead")
+             "use use_clang_coverage, use_java_coverage, use_javascript_coverage " +
+             " coverage_exclude_sources and/or coverage_test_types instead")
     if "$recipe_engine/isolated" in properties:
         fail('Setting "$recipe_engine/isolated" property is not supported: ' +
              "use isolated_server instead")
@@ -500,7 +499,6 @@ def builder(
         }
 
     chromium_tests = _chromium_tests_property(
-        bucketed_triggers = bucketed_triggers,
         project_trigger_overrides = project_trigger_overrides,
     )
     if chromium_tests != None:
@@ -519,6 +517,7 @@ def builder(
     code_coverage = _code_coverage_property(
         use_clang_coverage = use_clang_coverage,
         use_java_coverage = use_java_coverage,
+        use_javascript_coverage = use_javascript_coverage,
         coverage_exclude_sources = coverage_exclude_sources,
         coverage_test_types = coverage_test_types,
     )

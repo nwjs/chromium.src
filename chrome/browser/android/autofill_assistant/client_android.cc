@@ -26,9 +26,9 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/common/channel_info.h"
-#include "components/autofill_assistant/browser/access_token_fetcher.h"
 #include "components/autofill_assistant/browser/controller.h"
 #include "components/autofill_assistant/browser/features.h"
+#include "components/autofill_assistant/browser/service/access_token_fetcher.h"
 #include "components/autofill_assistant/browser/switches.h"
 #include "components/autofill_assistant/browser/website_login_manager_impl.h"
 #include "components/password_manager/core/browser/password_manager_client.h"
@@ -104,14 +104,12 @@ ClientAndroid::~ClientAndroid() {
     Metrics::RecordDropOut(Metrics::DropOutReason::CONTENT_DESTROYED);
   }
 
-  auto* password_manager_client = GetPasswordManagerClient();
-  if (password_manager_client) {
-    password_manager_client->GetPasswordManager()->SetAutofillAssistantMode(
-        password_manager::AutofillAssistantMode::kUINotShown);
-  }
-
   Java_AutofillAssistantClient_clearNativePtr(AttachCurrentThread(),
                                               java_object_);
+}
+
+base::WeakPtr<ClientAndroid> ClientAndroid::GetWeakPtr() {
+  return weak_ptr_factory_.GetWeakPtr();
 }
 
 base::android::ScopedJavaLocalRef<jobject> ClientAndroid::GetJavaObject() {
@@ -173,7 +171,24 @@ bool ClientAndroid::Start(JNIEnv* env,
   return controller_->Start(initial_url, std::move(trigger_context));
 }
 
-void ClientAndroid::DestroyUI(
+void ClientAndroid::StartTriggerScript(
+    JNIEnv* env,
+    const base::android::JavaParamRef<jobject>& jcaller,
+    const base::android::JavaParamRef<jobject>& jdelegate,
+    const base::android::JavaParamRef<jstring>& jinitial_url,
+    const base::android::JavaParamRef<jstring>& jexperiment_ids,
+    const base::android::JavaParamRef<jobjectArray>& jparameter_names,
+    const base::android::JavaParamRef<jobjectArray>& jparameter_values,
+    jlong jservice_request_sender) {
+  trigger_script_bridge_.StartTriggerScript(
+      this, jdelegate,
+      GURL(base::android::ConvertJavaStringToUTF8(env, jinitial_url)),
+      CreateTriggerContext(env, jexperiment_ids, jparameter_names,
+                           jparameter_values),
+      jservice_request_sender);
+}
+
+void ClientAndroid::OnJavaDestroyUI(
     JNIEnv* env,
     const base::android::JavaParamRef<jobject>& jcaller) {
   DestroyUI();
@@ -189,12 +204,6 @@ void ClientAndroid::TransferUITo(
   auto ui_ptr = std::move(ui_controller_android_);
   // From this point on, the UIController, in ui_ptr, is either transferred or
   // deleted.
-
-  auto* password_manager_client = GetPasswordManagerClient();
-  if (password_manager_client) {
-    password_manager_client->GetPasswordManager()->SetAutofillAssistantMode(
-        password_manager::AutofillAssistantMode::kUINotShown);
-  }
 
   if (!jother_web_contents)
     return;
@@ -429,13 +438,6 @@ void ClientAndroid::AttachUI(
     if (!controller_)
       CreateController(nullptr);
     ui_controller_android_->Attach(web_contents_, this, controller_.get());
-
-    // Suppress password manager's prompts.
-    auto* password_manager_client = GetPasswordManagerClient();
-    if (password_manager_client) {
-      password_manager_client->GetPasswordManager()->SetAutofillAssistantMode(
-          password_manager::AutofillAssistantMode::kUIShown);
-    }
   }
 }
 
@@ -471,20 +473,11 @@ autofill::PersonalDataManager* ClientAndroid::GetPersonalDataManager() const {
       ProfileManager::GetLastUsedProfile());
 }
 
-password_manager::PasswordManagerClient*
-ClientAndroid::GetPasswordManagerClient() const {
-  if (!password_manager_client_) {
-    password_manager_client_ =
-        ChromePasswordManagerClient::FromWebContents(web_contents_);
-  }
-  return password_manager_client_;
-}
-
 WebsiteLoginManager* ClientAndroid::GetWebsiteLoginManager() const {
   if (!website_login_manager_) {
-    auto* client = GetPasswordManagerClient();
-    website_login_manager_ =
-        std::make_unique<WebsiteLoginManagerImpl>(client, web_contents_);
+    website_login_manager_ = std::make_unique<WebsiteLoginManagerImpl>(
+        ChromePasswordManagerClient::FromWebContents(web_contents_),
+        web_contents_);
   }
   return website_login_manager_.get();
 }
@@ -538,27 +531,29 @@ bool ClientAndroid::HasHadUI() const {
   return has_had_ui_;
 }
 
+bool ClientAndroid::IsFirstTimeTriggerScriptUser() const {
+  return Java_AutofillAssistantClient_isFirstTimeTriggerScriptUser(
+      AttachCurrentThread());
+}
+
 void ClientAndroid::Shutdown(Metrics::DropOutReason reason) {
   if (!controller_)
     return;
 
-  auto* password_manager_client = GetPasswordManagerClient();
-  if (password_manager_client) {
-    password_manager_client->GetPasswordManager()->SetAutofillAssistantMode(
-        password_manager::AutofillAssistantMode::kUINotShown);
+  // Shutdown in a separate task. This avoids tricky ordering issues when
+  // Shutdown is called from the controller or the ui_controller.
+  content::GetUIThreadTaskRunner({})->PostTask(
+      FROM_HERE, base::BindOnce(&ClientAndroid::SafeDestroyControllerAndUI,
+                                weak_ptr_factory_.GetWeakPtr(), reason));
+}
+
+void ClientAndroid::SafeDestroyControllerAndUI(Metrics::DropOutReason reason) {
+  if (started_) {
+    Metrics::RecordDropOut(reason);
   }
 
-  if (ui_controller_android_ && ui_controller_android_->IsAttached())
-    DestroyUI();
-
-  if (started_)
-    Metrics::RecordDropOut(reason);
-
-  // Delete the controller in a separate task. This avoids tricky ordering
-  // issues when Shutdown is called from the controller.
-  content::GetUIThreadTaskRunner({})->PostTask(
-      FROM_HERE, base::BindOnce(&ClientAndroid::DestroyController,
-                                weak_ptr_factory_.GetWeakPtr()));
+  DestroyUI();
+  DestroyController();
 }
 
 void ClientAndroid::FetchAccessToken(
@@ -587,7 +582,8 @@ void ClientAndroid::CreateController(std::unique_ptr<Service> service) {
 
   controller_ = std::make_unique<Controller>(
       web_contents_, /* client= */ this, base::DefaultTickClock::GetInstance(),
-      RuntimeManagerImpl::GetForWebContents(web_contents_), std::move(service));
+      RuntimeManagerImpl::GetForWebContents(web_contents_)->GetWeakPtr(),
+      std::move(service));
   controller_->SetStatusMessage(status_message);
 }
 

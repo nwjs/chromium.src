@@ -50,6 +50,7 @@
 #include "fuchsia/engine/switches.h"
 #include "gpu/command_buffer/service/gpu_switches.h"
 #include "gpu/config/gpu_finch_features.h"
+#include "gpu/config/gpu_switches.h"
 #include "media/base/key_system_names.h"
 #include "media/base/media_switches.h"
 #include "net/http/http_util.h"
@@ -157,6 +158,7 @@ bool MaybeAddCommandLineArgsFromConfig(const base::Value& config,
       cc::switches::kEnableGpuBenchmarking,
       switches::kDisableFeatures,
       switches::kDisableGpuWatchdog,
+      switches::kDisableMipmapGeneration,
       // TODO(crbug.com/1082821): Remove this switch from the allow-list.
       switches::kEnableCastStreamingReceiver,
       switches::kEnableFeatures,
@@ -166,6 +168,7 @@ bool MaybeAddCommandLineArgsFromConfig(const base::Value& config,
       switches::kForceMaxTextureSize,
       switches::kMaxDecodedImageSizeMb,
       switches::kRendererProcessLimit,
+      switches::kUseLegacyAndroidUserAgent,
       switches::kWebglAntialiasingMode,
       switches::kWebglMSAASampleCount,
   };
@@ -390,6 +393,8 @@ void ContextProviderImpl::Create(
       web_engine_config.FindBoolPath("use-overlays-for-video").value_or(false);
 
   if (enable_protected_graphics) {
+    launch_command.AppendSwitch(switches::kEnableVulkanProtectedMemory);
+    // TODO(crbug.com/1143764): Remove this after underlays are stable.
     if (force_protected_graphics || !use_overlays_for_video) {
       launch_command.AppendSwitch(switches::kEnforceVulkanProtectedMemory);
     }
@@ -406,6 +411,9 @@ void ContextProviderImpl::Create(
     // Overlays are only available if OutputPresenterFuchsia is in use.
     AppendFeature(switches::kEnableFeatures,
                   features::kUseSkiaOutputDeviceBufferQueue.name,
+                  &launch_command);
+    AppendFeature(switches::kEnableFeatures,
+                  features::kUseRealBuffersForPageFlipTest.name,
                   &launch_command);
     launch_command.AppendSwitchASCII(switches::kEnableHardwareOverlays,
                                      "underlay");

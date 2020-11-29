@@ -55,6 +55,7 @@
 #include "ios/chrome/grit/ios_strings.h"
 #include "ios/components/webui/web_ui_url_constants.h"
 #include "ios/public/provider/chrome/browser/chrome_browser_provider.h"
+#import "ios/public/provider/chrome/browser/text_zoom_provider.h"
 #import "ios/public/provider/chrome/browser/user_feedback/user_feedback_provider.h"
 #include "ios/web/common/features.h"
 #include "ios/web/common/user_agent.h"
@@ -697,6 +698,23 @@ PopupMenuTextItem* CreateEnterpriseInfoItem(NSString* imageName,
   return translate_manager->CanManuallyTranslate();
 }
 
+// Determines whether or not translate is available on the page and logs the
+// result. This method should only be called once per popup menu shown.
+- (void)logTranslateAvailability {
+  if (!self.webState)
+    return;
+
+  auto* translate_client =
+      ChromeIOSTranslateClient::FromWebState(self.webState);
+  if (!translate_client)
+    return;
+
+  translate::TranslateManager* translate_manager =
+      translate_client->GetTranslateManager();
+  DCHECK(translate_manager);
+  translate_manager->CanManuallyTranslate(true);
+}
+
 // Whether find in page is enabled.
 - (BOOL)isFindInPageEnabled {
   if (!self.webState)
@@ -706,7 +724,7 @@ PopupMenuTextItem* CreateEnterpriseInfoItem(NSString* imageName,
           !helper->IsFindUIActive());
 }
 
-// Whether or not text zoom is enabled
+// Whether or not text zoom is enabled for this page.
 - (BOOL)isTextZoomEnabled {
   if (self.webContentAreaShowingOverlay) {
     return NO;
@@ -913,8 +931,7 @@ PopupMenuTextItem* CreateEnterpriseInfoItem(NSString* imageName,
   [actionsArray addObject:self.bookmarkItem];
 
   // Translate.
-  UMA_HISTOGRAM_BOOLEAN("Translate.MobileMenuTranslate.Shown",
-                        [self isTranslateEnabled]);
+  [self logTranslateAvailability];
   self.translateItem = CreateTableViewItem(
       IDS_IOS_TOOLS_MENU_TRANSLATE, PopupMenuActionTranslate,
       @"popup_menu_translate", kToolsMenuTranslateId);
@@ -933,8 +950,9 @@ PopupMenuTextItem* CreateEnterpriseInfoItem(NSString* imageName,
   [actionsArray addObject:self.findInPageItem];
 
   // Text Zoom
-  if (!IsIPadIdiom() &&
-      base::FeatureList::IsEnabled(web::kWebPageTextAccessibility)) {
+  if (ios::GetChromeBrowserProvider()
+          ->GetTextZoomProvider()
+          ->IsTextZoomEnabled()) {
     self.textZoomItem = CreateTableViewItem(
         IDS_IOS_TOOLS_MENU_TEXT_ZOOM, PopupMenuActionTextZoom,
         @"popup_menu_text_zoom", kToolsMenuTextZoom);
@@ -1043,14 +1061,10 @@ PopupMenuTextItem* CreateEnterpriseInfoItem(NSString* imageName,
       CreateTableViewItem(IDS_IOS_TOOLS_MENU_SETTINGS, PopupMenuActionSettings,
                           @"popup_menu_settings", kToolsMenuSettingsId);
 
-  // If downloads manager's flag is enabled, displays Downloads.
-  if (base::FeatureList::IsEnabled(web::features::kEnablePersistentDownloads)) {
-    return @[
-      bookmarks, self.readingListItem, recentTabs, history, downloadsFolder,
-      settings
-    ];
-  }
-  return @[ bookmarks, self.readingListItem, recentTabs, history, settings ];
+  return @[
+    bookmarks, self.readingListItem, recentTabs, history, downloadsFolder,
+    settings
+  ];
 }
 
 // Creates the section for enterprise info.

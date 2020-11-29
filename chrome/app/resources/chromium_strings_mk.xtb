@@ -1,7 +1,6 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="mk">
-<translation id="1060499346270045814">{NUM_HOURS,plural, =1{Chromium проверува дали има несакан софтвер еднаш неделно. Последна проверка: пред 1 час.}one{Chromium проверува дали има несакан софтвер еднаш неделно. Последна проверка: пред {NUM_HOURS} час.}other{Chromium проверува дали има несакан софтвер еднаш неделно. Последна проверка: пред {NUM_HOURS} часа.}}</translation>
 <translation id="1065672644894730302">Вашите претпочитани вредности не може да се прочитаат.
 
 Некои функции може да се недостапни и промените на претпочитаните вредности нема да се зачуваат.</translation>
@@ -12,9 +11,9 @@
 <translation id="1131805035311359397">За да проверите дали вашите лозинки се заштитени од упад во податоците и други проблеми со безбедноста, <ph name="BEGIN_LINK" />најавете се на Chromium<ph name="END_LINK" />.</translation>
 <translation id="1185134272377778587">За Chromium</translation>
 <translation id="1315551408014407711">Поставете нов профил на Chromium</translation>
+<translation id="1357932062193643861">Прашувај кога ќе се отвори Chromium</translation>
 <translation id="1396446129537741364">Chromium се обидува да покаже лозинки.</translation>
 <translation id="1414495520565016063">Најавени сте на Chromium!</translation>
-<translation id="1414973082589232775">За да користите Rosetta за пуштање заштитени аудиовизуелни содржини, треба да го рестартирате Chromium.</translation>
 <translation id="151962892725702025">Chromium ОС не може да ги синхронизира вашите податоци бидејќи синхронизацијата не е достапна за вашиот домен.</translation>
 <translation id="1524282610922162960">Споделете картичка на Chromium</translation>
 <translation id="1553461853655228091">На Chromium му треба дозвола за да пристапи до камерата и да создаде 3D-карта од вашето опкружување</translation>
@@ -48,10 +47,8 @@
 <translation id="2711502716910134313">Картичка на Chromium</translation>
 <translation id="2718390899429598676">За дополнителна безбедност, Chromium ќе ги шифрира вашите податоци.</translation>
 <translation id="2770231113462710648">Променете го стандардниот прелистувач во:</translation>
-<translation id="2797461000988640326">{NUM_MINS,plural, =1{Chromium проверува дали има несакан софтвер еднаш неделно. Последна проверка: пред 1 минута.}one{Chromium проверува дали има несакан софтвер еднаш неделно. Последна проверка: пред {NUM_MINS} мин.}other{Chromium проверува дали има несакан софтвер еднаш неделно. Последна проверка: пред {NUM_MINS} мин.}}</translation>
 <translation id="2799223571221894425">Рестартирај</translation>
 <translation id="2847479871509788944">Отстрани од Chromium</translation>
-<translation id="2853765747879685679">Прашувај кога ќе го отворам Chromium</translation>
 <translation id="2885378588091291677">Управник со задачи</translation>
 <translation id="2910007522516064972">За &amp;Chromium</translation>
 <translation id="2977470724722393594">Chromium е ажуриран</translation>
@@ -59,7 +56,6 @@
 <translation id="3032706164202344641">Chromium не може да ги провери вашите лозинки. Обидете се пак подоцна.</translation>
 <translation id="3032787606318309379">Се додава на Chromium...</translation>
 <translation id="3068515742935458733">Помогнете да го подобриме Chromium со испраќање извештаи за падови и <ph name="UMA_LINK" /> до Google</translation>
-<translation id="3086207596048762442">Chromium проверува дали има несакан софтвер еднаш неделно</translation>
 <translation id="3103660991484857065">Инсталаторот не успеа да ја декомпримира архивата. Преземете го Chromium повторно.</translation>
 <translation id="3130323860337406239">Chromium го користи микрофонот.</translation>
 <translation id="3155163173539279776">Рестартирајте го Chromium</translation>
@@ -135,7 +131,6 @@
 <translation id="5634636535844844681">Chromium бара Windows 7 или понова верзија.</translation>
 <translation id="5653831366781983928">Рестартирајте го Chromium сега</translation>
 <translation id="5698481217667032250">Прикажи го Chromium на овој јазик</translation>
-<translation id="5736967399513123100">За да му овозможите на Chromium да пушта заштитени аудиовизуелни содржини, треба да инсталирате Rosetta. Дали сакате да се инсталира сега?</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="5862307444128926510">Добре дојдовте во Chromium</translation>
 <translation id="5895138241574237353">Рестартирај</translation>
@@ -181,9 +176,7 @@
 <translation id="6847869444787758381">Chromium ве известува дали вашите лозинки се компромитирани</translation>
 <translation id="6857782730669500492">Chromium - <ph name="PAGE_TITLE" /></translation>
 <translation id="6863361426438995919">Google Pay (копирана во Chromium)</translation>
-<translation id="6863846675160669383">{NUM_DAYS,plural, =1{Chromium проверува дали има несакан софтвер еднаш неделно. Последна проверка: пред 1 ден.}one{Chromium проверува дали има несакан софтвер еднаш неделно. Последна проверка: пред {NUM_DAYS} ден.}other{Chromium проверува дали има несакан софтвер еднаш неделно. Последна проверка: пред {NUM_DAYS} дена.}}</translation>
 <translation id="6893813176749746474">Chromium се ажурираше, но не сте го употребиле најмалку 30 дена.</translation>
-<translation id="6897548120660295439">Rosetta му овозможува на Chromium да пушта заштитени аудиовизуелни содржини на страницава.</translation>
 <translation id="6964305034639999644">Отвори го линкот во инко&amp;гнито прозорец на Chromium</translation>
 <translation id="6978145336957848883">Слабите лозинки се лесни за погаѓање. Дозволете Chromium да ви <ph name="BEGIN_LINK" />создаде и запомни силни лозинки<ph name="END_LINK" />.</translation>
 <translation id="6990124437352146030">На Chromium му треба дозвола за да пристапи до микрофонот за сајтов</translation>
@@ -215,7 +208,6 @@ Chromium не може да ги обнови вашите поставки.</tr
     поставките за Chromium OS<ph name="LINK_END" /></translation>
 <translation id="761356813943268536">Chromium ги користи фотоапаратот и микрофонот.</translation>
 <translation id="7617377681829253106">Chromium е подобрен</translation>
-<translation id="7628001322379820951">Chromium најде штетен софтвер на вашиот компјутер</translation>
 <translation id="7686590090926151193">Chromium не е вашиот стандарден прелистувач</translation>
 <translation id="7689606757190482937">Синхронизирајте го и персонализирајте го Chromium на сите ваши уреди</translation>
 <translation id="7729447699958282447">Chromium не можеше да ги синхронизира вашите податоци затоа што Синхронизација не е достапна на вашиот домен.</translation>
@@ -248,7 +240,6 @@ Chromium не може да ги обнови вашите поставки.</tr
 <translation id="8621669128220841554">Инсталирањето не успеа поради неназначена грешка. Преземете го Chromium повторно.</translation>
 <translation id="8697124171261953979">Контролира и која страница се прикажува кога го стартувате Chromium или ако пребарувате од лентата за адреси.</translation>
 <translation id="8704119203788522458">Ова е вашиот Chromium</translation>
-<translation id="8705191560707593947">Chromium проверува дали има несакан софтвер еднаш неделно. Последна проверка: вчера.</translation>
 <translation id="8796602469536043152">На Chromium му треба дозвола за да пристапи до камерата и микрофонот за сајтов</translation>
 <translation id="8803635938069941624">Услови на Chromium OS</translation>
 <translation id="8821041990367117597">Chromium не може да ги синхронизира вашите податоци бидејќи вашите информации за пријавување на сметката се застарени.</translation>
@@ -264,7 +255,6 @@ Chromium не може да ги обнови вашите поставки.</tr
 <translation id="91086099826398415">Отвори го линкот во нова &amp;картичка на Chromium</translation>
 <translation id="911206726377975832">Да се избришат ли и вашите податоци од пребарувањата?</translation>
 <translation id="9158494823179993217">Администраторот на системот го конфигурирал Chromium да отвора друг прелистувач за пристап до <ph name="TARGET_URL_HOSTNAME" />.</translation>
-<translation id="9164845895615421500">Chromium проверува дали има несакан софтвер еднаш неделно. Последна проверка: предмалку.</translation>
 <translation id="9190841055450128916">Chromium (mDNS-In)</translation>
 <translation id="93478295209880648">Chromium може да не функционира правилно затоа што веќе не е поддржан на Windows XP или Windows Vista</translation>
 <translation id="95514773681268843"><ph name="DOMAIN" /> бара да ги прочитате и да ги прифатите следните Услови за користење пред да го користите уредот. Условите не ги прошируваат, менуваат или ограничуваат Условите на ОС Chromium.</translation>

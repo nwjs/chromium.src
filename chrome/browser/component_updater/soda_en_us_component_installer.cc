@@ -135,12 +135,6 @@ void RegisterSodaEnUsComponent(ComponentUpdateService* cus,
                                PrefService* prefs,
                                base::OnceClosure callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  if (base::FeatureList::IsEnabled(media::kUseSodaForLiveCaption)) {
-    if (!prefs->GetBoolean(prefs::kLiveCaptionEnabled) ||
-        !base::FeatureList::IsEnabled(media::kLiveCaption)) {
-      return;
-    }
-
     auto installer = base::MakeRefCounted<ComponentInstaller>(
         std::make_unique<SodaEnUsComponentInstallerPolicy>(base::BindRepeating(
             [](ComponentUpdateService* cus, PrefService* prefs,
@@ -153,12 +147,6 @@ void RegisterSodaEnUsComponent(ComponentUpdateService* cus,
             cus, prefs)));
 
     installer->Register(cus, std::move(callback));
-  }
 }
 
-bool UninstallSodaEnUsComponent(ComponentUpdateService* cus,
-                                PrefService* prefs) {
-  return cus->UnregisterComponent(
-      SodaEnUsComponentInstallerPolicy::GetExtensionId());
-}
 }  // namespace component_updater

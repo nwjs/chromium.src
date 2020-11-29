@@ -162,9 +162,11 @@ void SupervisedUserService::Init() {
       base::Bind(&SupervisedUserService::OnSupervisedUserIdChanged,
           base::Unretained(this)));
 
+#if 0
   allowlist_service_->AddSiteListsChangedCallback(
       base::Bind(&SupervisedUserService::OnSiteListsChanged,
                  weak_ptr_factory_.GetWeakPtr()));
+#endif
 
   SetActive(IsChild());
 }
@@ -326,12 +328,13 @@ SupervisedUserService::SupervisedUserService(Profile* profile)
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   registry_observer_.Add(extensions::ExtensionRegistry::Get(profile));
 #endif
-
+#if 0
   std::string client_id = component_updater::SupervisedUserWhitelistInstaller::
       ClientIdForProfilePath(profile_->GetPath());
   allowlist_service_ = std::make_unique<SupervisedUserAllowlistService>(
       profile_->GetPrefs(),
       g_browser_process->supervised_user_whitelist_installer(), client_id);
+#endif
 }
 
 void SupervisedUserService::SetPrimaryPermissionCreatorForTest(

@@ -30,6 +30,7 @@
 <translation id="1806710327868736751">alert_dialog</translation>
 <translation id="1821985195704844674">ٹری گرڈ</translation>
 <translation id="1822429046913737220">AM/PM</translation>
+<translation id="1823704031293214298">صفحے کا فٹر</translation>
 <translation id="1832974991323546415">ریموٹ آلہ پر چلائیں</translation>
 <translation id="190587075670221089">حذف کرنا</translation>
 <translation id="1907737156431278478">مثال</translation>
@@ -105,11 +106,14 @@
 <translation id="4201051445878709314">پچھلا مہینہ دکھائیں</translation>
 <translation id="421884353938374759">رنگ کا منتخب کنندہ</translation>
 <translation id="4248100235867064564">مینو بار</translation>
+<translation id="4293574643247337246">صفحے کا ہیڈر</translation>
 <translation id="4360991593054037559">براہ کرم ایک درست قدر درج کریں۔ دو قریب ترین درست اقدار <ph name="VALID_VALUE_LOW" /> اور <ph name="VALID_VALUE_HIGHER" /> ہیں۔</translation>
+<translation id="4384249794467006333">یہ تصویر لیبل شدہ نہیں ہے۔ تصویر کی تفصیلات حاصل کرنے کے لیے اوپر دائيں جانب مزید اختیارات کا مینو کھولیں۔</translation>
 <translation id="4384583879834880242">سوال و جواب</translation>
 <translation id="4444765639179266822">بظاہر یہ لکھا ہے: <ph name="OCR_TEXT" /></translation>
 <translation id="4446524499724042288">فرہنگ کا حوالہ</translation>
 <translation id="4522570452068850558">تفصیلات</translation>
+<translation id="4576178047100686001">یہ تصویر لیبل شدہ نہیں ہے۔ تصویر کی تفصیلات حاصل کرنے کے لیے اوپر بائيں جانب مزید اختیارات کا مینو کھولیں۔</translation>
 <translation id="4597532268155981612">فارم</translation>
 <translation id="4661075872484491155">ٹری</translation>
 <translation id="4664250907885839816">'<ph name="ATSIGN" />' کے بعد کے حصہ میں علامت '<ph name="INVALIDCHARACTER" />' شامل نہیں ہونی چاہیے۔</translation>

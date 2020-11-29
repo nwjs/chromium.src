@@ -90,8 +90,12 @@ class CORE_EXPORT ChromeClientImpl final : public ChromeClient {
                              const WebWindowFeatures&,
                              network::mojom::blink::WebSandboxFlags,
                              const FeaturePolicyFeatureState&,
-                             const SessionStorageNamespaceId&, WebString*) override;
-  void Show(NavigationPolicy, WebString* manifest = nullptr) override;
+                             const SessionStorageNamespaceId&,
+                             bool& consumed_user_gesture, WebString*) override;
+  void Show(const base::UnguessableToken& opener_frame_token,
+            NavigationPolicy navigation_policy,
+            const IntRect& initial_rect,
+            bool user_gesture, WebString* manifest = nullptr) override;
   void DidOverscroll(const gfx::Vector2dF& overscroll_delta,
                      const gfx::Vector2dF& accumulated_overscroll,
                      const gfx::PointF& position_in_viewport,
@@ -234,14 +238,6 @@ class CORE_EXPORT ChromeClientImpl final : public ChromeClient {
       UIElementType,
       const String& dialog_message,
       Document::PageDismissalType) const override;
-
-  bool RequestPointerLock(LocalFrame*,
-                          WebWidgetClient::PointerLockCallback,
-                          bool) override;
-  bool RequestPointerLockChange(LocalFrame*,
-                                WebWidgetClient::PointerLockCallback,
-                                bool) override;
-  void RequestPointerUnlock(LocalFrame*) override;
 
   // AutofillClient pass throughs:
   void DidAssociateFormControlsAfterLoad(LocalFrame*) override;

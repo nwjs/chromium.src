@@ -23,6 +23,7 @@
 #include "ui/aura/aura_export.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_observer.h"
+#include "ui/base/win/power_setting_change_listener.h"
 #include "ui/base/win/session_change_observer.h"
 
 namespace base {
@@ -38,7 +39,9 @@ namespace aura {
 // This class keeps track of whether any HWNDs are occluding any app windows.
 // It notifies the host of any app window whose occlusion state changes. Most
 // code should not need to use this; it's an implementation detail.
-class AURA_EXPORT NativeWindowOcclusionTrackerWin : public WindowObserver {
+class AURA_EXPORT NativeWindowOcclusionTrackerWin
+    : public WindowObserver,
+      public ui::PowerSettingChangeListener {
  public:
   static NativeWindowOcclusionTrackerWin* GetOrCreateInstance();
 
@@ -67,7 +70,8 @@ class AURA_EXPORT NativeWindowOcclusionTrackerWin : public WindowObserver {
   class WindowOcclusionCalculator {
    public:
     using UpdateOcclusionStateCallback = base::RepeatingCallback<void(
-        const base::flat_map<HWND, Window::OcclusionState>&)>;
+        const base::flat_map<HWND, Window::OcclusionState>&,
+        bool show_all_windows)>;
 
     // Creates WindowOcclusionCalculator instance. Must be called on UI thread.
     static void CreateInstance(
@@ -231,6 +235,10 @@ class AURA_EXPORT NativeWindowOcclusionTrackerWin : public WindowObserver {
     // windows from |unoccluded_desktop_region_|.
     int num_root_windows_with_unknown_occlusion_state_;
 
+    // This is true if the task bar thumbnails or the alt tab thumbnails are
+    // showing.
+    bool showing_thumbnails_ = false;
+
     // Only used on Win10+.
     Microsoft::WRL::ComPtr<IVirtualDesktopManager> virtual_desktop_manager_;
 
@@ -250,13 +258,23 @@ class AURA_EXPORT NativeWindowOcclusionTrackerWin : public WindowObserver {
   // window rectangle in |window_rect|.
   static bool IsWindowVisibleAndFullyOpaque(HWND hwnd, gfx::Rect* window_rect);
 
-  // Updates root windows occclusion state.
+  // Updates root windows occclusion state. If |show_all_windows| is true,
+  // all non-hidden windows will be marked visible.  This is used to force
+  // rendering of thumbnails.
   void UpdateOcclusionState(const base::flat_map<HWND, Window::OcclusionState>&
-                                root_window_hwnds_occlusion_state);
+                                root_window_hwnds_occlusion_state,
+                            bool show_all_windows);
 
   // This is called with session changed notifications. If the screen is locked
   // by the current session, it marks app windows as occluded.
   void OnSessionChange(WPARAM status_code, const bool* is_current_session);
+
+  // This is called when the display is put to sleep. If the display is sleeping
+  // it marks app windows as occluded.
+  void OnDisplayStateChanged(bool display_on) override;
+
+  // Marks all root windows as either occluded, or if hwnd IsIconic, hidden.
+  void MarkNonIconicWindowsOccluded();
 
   // Task runner to call ComputeNativeWindowOcclusionStatus, and to handle
   // Windows event notifications, off of the UI thread.
@@ -273,8 +291,14 @@ class AURA_EXPORT NativeWindowOcclusionTrackerWin : public WindowObserver {
   // Manages observation of Windows Session Change messages.
   ui::SessionChangeObserver session_change_observer_;
 
+  // Listens for Power Setting Change messages.
+  ui::ScopedPowerSettingChangeListener power_setting_change_listener_;
+
   // If the screen is locked, windows are considered occluded.
   bool screen_locked_ = false;
+
+  // If the display is off, windows are considered occluded.
+  bool display_on_ = true;
 
   base::WeakPtrFactory<NativeWindowOcclusionTrackerWin> weak_factory_{this};
 

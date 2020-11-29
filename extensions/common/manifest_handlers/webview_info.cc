@@ -208,12 +208,38 @@ bool WebviewHandler::Parse(Extension* extension, base::string16* error) {
       if (try_pattern.Parse(url_list_view[i].GetString()) == URLPattern::ParseResult::kSuccess) {
         partition_item->AddPattern(try_pattern);
       } else {
-      partition_item->AddPattern(
-          URLPattern(URLPattern::SCHEME_EXTENSION,
-                     Extension::GetResourceURL(extension->url(),
-                                               url_list_view[i].GetString())
-                         .spec()));
+
+      GURL pattern_url = Extension::GetResourceURL(
+          extension->url(), url_list_view[i].GetString());
+      // If passed a non-relative URL (like http://example.com),
+      // Extension::GetResourceURL() will return that URL directly. (See
+      // https://crbug.com/1135236). Check if this happened by comparing the
+      // host.
+      if (pattern_url.host_piece() != extension->id()) {
+        // NOTE: Warning instead of error because there are existing apps that
+        // have this bug, and we don't want to hard-error on them.
+        // https://crbug.com/856948.
+        std::string warning = ErrorUtils::FormatErrorMessage(
+            errors::kInvalidWebviewAccessibleResource, base::NumberToString(i));
+        extension->AddInstallWarning(
+            InstallWarning(std::move(warning), keys::kWebview));
+        continue;
       }
+      URLPattern pattern(URLPattern::SCHEME_EXTENSION);
+      if (pattern.Parse(pattern_url.spec()) !=
+          URLPattern::ParseResult::kSuccess) {
+        // NOTE: Warning instead of error because there are existing apps that
+        // have this bug, and we don't want to hard-error on them.
+        // https://crbug.com/856948.
+        std::string warning = ErrorUtils::FormatErrorMessage(
+            errors::kInvalidWebviewAccessibleResource, base::NumberToString(i));
+        extension->AddInstallWarning(
+            InstallWarning(std::move(warning), keys::kWebview));
+        continue;
+      }
+
+      partition_item->AddPattern(std::move(pattern));
+      } //nwjs
     }
     info->AddPartitionItem(std::move(partition_item));
   }

@@ -19,7 +19,7 @@
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/app_window/native_app_window.h"
 #include "extensions/common/extension_messages.h"
-#include "third_party/blink/public/mojom/renderer_preferences.mojom.h"
+#include "third_party/blink/public/common/renderer_preferences/renderer_preferences.h"
 
 #include "content/nw/src/nw_content.h"
 
@@ -48,7 +48,7 @@ void AppWindowContentsImpl::Initialize(content::BrowserContext* context,
 
   static_cast<content::WebContentsImpl*>(web_contents_.get())->SetSkipBlockingParser(skip_blocking_parser || new_site);
   Observe(web_contents_.get());
-  blink::mojom::RendererPreferences* render_prefs =
+  blink::RendererPreferences* render_prefs =
       web_contents_->GetMutableRendererPrefs();
   if (!extension || !extension->is_nwjs_app())
     render_prefs->browser_handles_all_top_level_requests = true;

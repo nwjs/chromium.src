@@ -174,11 +174,6 @@ class CORE_EXPORT ExecutionContext : public Supplementable<ExecutionContext>,
 
   // Returns the content security policy to be used based on the current
   // JavaScript world we are in.
-  // Note: As part of crbug.com/896041, existing usages of
-  // ContentSecurityPolicy::ShouldBypassMainWorld should eventually be replaced
-  // by GetContentSecurityPolicyForCurrentWorld. However this is under active
-  // development, hence new callers should still use
-  // ContentSecurityPolicy::ShouldBypassMainWorld for now.
   ContentSecurityPolicy* GetContentSecurityPolicyForCurrentWorld();
 
   // Returns the content security policy to be used for the given |world|.
@@ -244,6 +239,7 @@ class CORE_EXPORT ExecutionContext : public Supplementable<ExecutionContext>,
   mojom::FrameLifecycleState ContextPauseState() const {
     return lifecycle_state_;
   }
+  bool IsLoadDeferred() const;
 
   // Gets the next id in a circular sequence from 1 to 2^31-1.
   int CircularSequentialID();
@@ -378,6 +374,12 @@ class CORE_EXPORT ExecutionContext : public Supplementable<ExecutionContext>,
   // https://html.spec.whatwg.org/C/webappapis.html#concept-settings-object-cross-origin-isolated-capability
   virtual bool CrossOriginIsolatedCapability() const = 0;
 
+  // Returns true if SharedArrayBuffers can be transferred via PostMessage,
+  // false otherwise. SharedArrayBuffer allows pages to craft high-precision
+  // timers useful for Spectre-style side channel attacks, so are restricted
+  // to cross-origin isolated contexts.
+  bool SharedArrayBufferTransferAllowed() const;
+
   virtual ukm::UkmRecorder* UkmRecorder() { return nullptr; }
   virtual ukm::SourceId UkmSourceID() const { return ukm::kInvalidSourceId; }
 
@@ -422,11 +424,6 @@ class CORE_EXPORT ExecutionContext : public Supplementable<ExecutionContext>,
   virtual void AddConsoleMessageImpl(ConsoleMessage*,
                                      bool discard_duplicates) = 0;
 
-  // Temporary method to record when the result of calling IsFeatureEnabled
-  // would change under the proposal in https://crbug.com/937131.
-  void FeaturePolicyPotentialBehaviourChangeObserved(
-      mojom::blink::FeaturePolicyFeature feature) const;
-
   v8::Isolate* const isolate_;
 
   SecurityContext security_context_;
@@ -470,11 +467,6 @@ class CORE_EXPORT ExecutionContext : public Supplementable<ExecutionContext>,
   network::mojom::blink::IPAddressSpace address_space_;
 
   Member<OriginTrialContext> origin_trial_context_;
-
-  // Tracks which feature policy features have been logged in this execution
-  // context as to the FeaturePolicyProposalWouldChangeBehaviour
-  // histogram, in order not to overcount.
-  mutable Vector<bool> feature_policy_behaviour_change_counted_;
 };
 
 }  // namespace blink

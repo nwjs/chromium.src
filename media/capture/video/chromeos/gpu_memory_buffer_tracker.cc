@@ -72,19 +72,7 @@ mojo::ScopedSharedBufferHandle GpuMemoryBufferTracker::DuplicateAsMojoBuffer() {
 
 gfx::GpuMemoryBufferHandle GpuMemoryBufferTracker::GetGpuMemoryBufferHandle() {
   DCHECK(buffer_);
-  // Overriding the GpuMemoryBuffer id to an invalid id to avoid buffer
-  // collision in GpuMemoryBufferFactoryNativePixmap when we pass the handle
-  // to a different process. (crbug.com/993265)
-  //
-  // This will force the GPU process to look up the real native pixmap handle
-  // through the DMA-buf fds in [1] when creating SharedImage, instead of
-  // re-using a wrong pixmap handle in the cache.
-  //
-  // [1]: https://tinyurl.com/yymtv22y
-  constexpr int kInvalidId = -1;
-  gfx::GpuMemoryBufferHandle handle = buffer_->CloneHandle();
-  handle.id = gfx::GpuMemoryBufferId(kInvalidId);
-  return handle;
+  return buffer_->CloneHandle();
 }
 
 uint32_t GpuMemoryBufferTracker::GetMemorySizeInBytes() {

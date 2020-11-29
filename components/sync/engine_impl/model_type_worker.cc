@@ -19,7 +19,6 @@
 #include "base/strings/stringprintf.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/trace_event/memory_usage_estimator.h"
-#include "components/sync/base/cancelation_signal.h"
 #include "components/sync/base/client_tag_hash.h"
 #include "components/sync/base/data_type_histogram.h"
 #include "components/sync/base/hash_util.h"
@@ -28,8 +27,10 @@
 #include "components/sync/base/unique_position.h"
 #include "components/sync/engine/model_type_processor.h"
 #include "components/sync/engine_impl/bookmark_update_preprocessing.h"
+#include "components/sync/engine_impl/cancelation_signal.h"
 #include "components/sync/engine_impl/commit_contribution.h"
-#include "components/sync/engine_impl/non_blocking_type_commit_contribution.h"
+#include "components/sync/engine_impl/commit_contribution_impl.h"
+#include "components/sync/engine_impl/cycle/entity_change_metric_recording.h"
 #include "components/sync/protocol/proto_memory_estimations.h"
 
 namespace syncer {
@@ -73,10 +74,8 @@ ModelTypeWorker::ModelTypeWorker(
     PassphraseType passphrase_type,
     NudgeHandler* nudge_handler,
     std::unique_ptr<ModelTypeProcessor> model_type_processor,
-    DataTypeDebugInfoEmitter* debug_info_emitter,
     CancelationSignal* cancelation_signal)
     : type_(type),
-      debug_info_emitter_(debug_info_emitter),
       model_type_state_(initial_state),
       model_type_processor_(std::move(model_type_processor)),
       cryptographer_(std::move(cryptographer)),
@@ -169,17 +168,6 @@ SyncerError ModelTypeWorker::ProcessGetUpdatesResponse(
     const sync_pb::DataTypeContext& mutated_context,
     const SyncEntityList& applicable_updates,
     StatusController* status) {
-  return ProcessGetUpdatesResponse(progress_marker, mutated_context,
-                                   applicable_updates,
-                                   /*from_uss_migrator=*/false, status);
-}
-
-SyncerError ModelTypeWorker::ProcessGetUpdatesResponse(
-    const sync_pb::DataTypeProgressMarker& progress_marker,
-    const sync_pb::DataTypeContext& mutated_context,
-    const SyncEntityList& applicable_updates,
-    bool from_uss_migrator,
-    StatusController* status) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   const bool is_initial_sync = !model_type_state_.initial_sync_done();
@@ -188,21 +176,17 @@ SyncerError ModelTypeWorker::ProcessGetUpdatesResponse(
   *model_type_state_.mutable_type_context() = mutated_context;
   *model_type_state_.mutable_progress_marker() = progress_marker;
 
-  UpdateCounters* counters = debug_info_emitter_->GetMutableUpdateCounters();
-
-  if (!from_uss_migrator) {
-    if (is_initial_sync) {
-      counters->num_initial_updates_received += applicable_updates.size();
-    } else {
-      counters->num_non_initial_updates_received += applicable_updates.size();
-    }
-  }
-
   for (const sync_pb::SyncEntity* update_entity : applicable_updates) {
+    RecordEntityChangeMetrics(
+        type_, is_initial_sync
+                   ? ModelTypeEntityChange::kRemoteInitialUpdate
+                   : ModelTypeEntityChange::kRemoteNonInitialUpdate);
+
     if (update_entity->deleted()) {
       status->increment_num_tombstone_updates_downloaded_by(1);
       if (!is_initial_sync) {
-        ++counters->num_non_initial_tombstone_updates_received;
+        RecordEntityChangeMetrics(type_,
+                                  ModelTypeEntityChange::kRemoteDeletion);
       }
     }
 
@@ -211,6 +195,8 @@ SyncerError ModelTypeWorker::ProcessGetUpdatesResponse(
                                        *update_entity, &response_data)) {
       case SUCCESS:
         pending_updates_.push_back(std::move(response_data));
+        // Override any previously undecryptable update for the same id.
+        entries_pending_decryption_.erase(update_entity->id_string());
         break;
       case DECRYPTION_PENDING:
         // Cannot decrypt now, copy the sync entity for later decryption.
@@ -227,7 +213,6 @@ SyncerError ModelTypeWorker::ProcessGetUpdatesResponse(
     }
   }
 
-  debug_info_emitter_->EmitUpdateCountersUpdate();
   return SyncerError(SyncerError::SYNCER_OK);
 }
 
@@ -370,14 +355,8 @@ void ModelTypeWorker::ApplyPendingUpdates() {
   DeduplicatePendingUpdatesBasedOnClientTagHash();
   DeduplicatePendingUpdatesBasedOnOriginatorClientItemId();
 
-  int num_updates_applied = pending_updates_.size();
   model_type_processor_->OnUpdateReceived(model_type_state_,
                                           std::move(pending_updates_));
-
-  UpdateCounters* counters = debug_info_emitter_->GetMutableUpdateCounters();
-  counters->num_updates_applied += num_updates_applied;
-  debug_info_emitter_->EmitUpdateCountersUpdate();
-  debug_info_emitter_->EmitStatusCountersUpdate();
 
   pending_updates_.clear();
 }
@@ -415,7 +394,7 @@ std::unique_ptr<CommitContribution> ModelTypeWorker::GetContribution(
   model_type_processor_->GetLocalChanges(
       max_entries,
       base::BindOnce(&GetLocalChangesRequest::SetResponse, request));
-  request->WaitForResponse();
+  request->WaitForResponseOrCancelation();
   CommitRequestDataList response;
   if (!request->WasCancelled())
     response = request->ExtractResponse();
@@ -425,13 +404,13 @@ std::unique_ptr<CommitContribution> ModelTypeWorker::GetContribution(
   }
 
   DCHECK(response.size() <= max_entries);
-  return std::make_unique<NonBlockingTypeCommitContribution>(
+  return std::make_unique<CommitContributionImpl>(
       GetModelType(), model_type_state_.type_context(), std::move(response),
       base::BindOnce(&ModelTypeWorker::OnCommitResponse,
                      weak_ptr_factory_.GetWeakPtr()),
       base::BindOnce(&ModelTypeWorker::OnFullCommitFailure,
                      weak_ptr_factory_.GetWeakPtr()),
-      cryptographer_.get(), passphrase_type_, debug_info_emitter_,
+      cryptographer_.get(), passphrase_type_,
       CommitOnlyTypes().Has(GetModelType()));
 }
 
@@ -655,11 +634,11 @@ GetLocalChangesRequest::GetLocalChangesRequest(
 
 GetLocalChangesRequest::~GetLocalChangesRequest() {}
 
-void GetLocalChangesRequest::OnSignalReceived() {
+void GetLocalChangesRequest::OnCancelationSignalReceived() {
   response_accepted_.Signal();
 }
 
-void GetLocalChangesRequest::WaitForResponse() {
+void GetLocalChangesRequest::WaitForResponseOrCancelation() {
   if (!cancelation_signal_->TryRegisterHandler(this)) {
     return;
   }

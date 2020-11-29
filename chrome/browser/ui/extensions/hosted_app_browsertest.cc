@@ -17,7 +17,7 @@
 #include "base/strings/string_split.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/test/bind_test_util.h"
+#include "base/test/bind.h"
 #include "base/test/metrics/user_action_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/values.h"
@@ -48,10 +48,10 @@
 #include "chrome/browser/web_applications/components/web_app_helpers.h"
 #include "chrome/browser/web_applications/components/web_app_id.h"
 #include "chrome/browser/web_applications/components/web_app_provider_base.h"
+#include "chrome/browser/web_applications/components/web_application_info.h"
 #include "chrome/browser/web_applications/test/web_app_install_observer.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/common/web_application_info.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/sessions/core/tab_restore_service.h"
 #include "content/public/browser/child_process_security_policy.h"
@@ -81,8 +81,8 @@
 #include "testing/gtest/include/gtest/gtest-param-test.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/common/renderer_preferences/renderer_preferences.h"
 #include "third_party/blink/public/mojom/manifest/display_mode.mojom.h"
-#include "third_party/blink/public/mojom/renderer_preferences.mojom.h"
 
 using content::RenderFrameHost;
 using content::WebContents;
@@ -115,7 +115,6 @@ constexpr const char kExampleURL[] = "https://www.example.com/empty.html";
 
 enum class AppType {
   HOSTED_APP,    // Using HostedAppBrowserController
-  BOOKMARK_APP,  // Using WebAppBrowserController, BookmarkAppRegistrar
   WEB_APP,       // Using WebAppBrowserController, WebAppRegistrar
 };
 
@@ -124,22 +123,18 @@ std::string AppTypeParamToString(
   switch (app_type.param) {
     case AppType::HOSTED_APP:
       return "HostedApp";
-    case AppType::BOOKMARK_APP:
-      return "BookmarkApp";
     case AppType::WEB_APP:
       return "WebApp";
   }
 }
 
 void CheckWebContentsHasAppPrefs(content::WebContents* web_contents) {
-  blink::mojom::RendererPreferences* prefs =
-      web_contents->GetMutableRendererPrefs();
+  blink::RendererPreferences* prefs = web_contents->GetMutableRendererPrefs();
   EXPECT_FALSE(prefs->can_accept_load_drops);
 }
 
 void CheckWebContentsDoesNotHaveAppPrefs(content::WebContents* web_contents) {
-  blink::mojom::RendererPreferences* prefs =
-      web_contents->GetMutableRendererPrefs();
+  blink::RendererPreferences* prefs = web_contents->GetMutableRendererPrefs();
   EXPECT_TRUE(prefs->can_accept_load_drops);
 }
 
@@ -168,25 +163,15 @@ bool TryToLoadImage(const content::ToRenderFrameHost& adapter,
 }  // namespace
 
 // Parameters are {app_type, desktop_pwa_flag}. |app_type| controls whether it
-// is a Hosted or Bookmark or Web app.
+// is a Hosted or Web app.
 class HostedOrWebAppTest : public extensions::ExtensionBrowserTest,
                            public ::testing::WithParamInterface<AppType> {
  public:
   HostedOrWebAppTest()
       : app_browser_(nullptr),
         https_server_(net::EmbeddedTestServer::TYPE_HTTPS) {
-    if (GetParam() == AppType::HOSTED_APP) {
-      scoped_feature_list_.InitWithFeatures(
-          {}, {predictors::kSpeculativePreconnectFeature});
-    } else if (GetParam() == AppType::BOOKMARK_APP) {
-      scoped_feature_list_.InitWithFeatures(
-          {}, {features::kDesktopPWAsWithoutExtensions,
-               predictors::kSpeculativePreconnectFeature});
-    } else {
-      scoped_feature_list_.InitWithFeatures(
-          {features::kDesktopPWAsWithoutExtensions},
-          {predictors::kSpeculativePreconnectFeature});
-    }
+    scoped_feature_list_.InitAndDisableFeature(
+        predictors::kSpeculativePreconnectFeature);
   }
   ~HostedOrWebAppTest() override = default;
 
@@ -280,9 +265,8 @@ class HostedOrWebAppTest : public extensions::ExtensionBrowserTest,
     // By default, all SSL cert checks are valid. Can be overridden in tests.
     cert_verifier_.mock_cert_verifier()->set_default_result(net::OK);
 
-    web_app::WebAppProviderBase::GetProviderBase(profile())
-        ->os_integration_manager()
-        .SuppressOsHooksForTesting();
+    os_hooks_suppress_ =
+        web_app::OsIntegrationManager::ScopedSuppressOsHooksForTesting();
 
     app_service_test_.SetUp(profile());
   }
@@ -339,6 +323,7 @@ class HostedOrWebAppTest : public extensions::ExtensionBrowserTest,
   // used by the NetworkService.
   content::ContentMockCertVerifier cert_verifier_;
 
+  web_app::ScopedOsHooksSuppress os_hooks_suppress_;
   DISALLOW_COPY_AND_ASSIGN(HostedOrWebAppTest);
 };
 
@@ -679,36 +664,6 @@ IN_PROC_BROWSER_TEST_P(HostedOrWebAppTest, CanUserUninstall) {
   EXPECT_TRUE(app_browser_->app_controller()->CanUninstall());
 }
 
-using BookmarkAppTest = HostedOrWebAppTest;
-
-IN_PROC_BROWSER_TEST_P(BookmarkAppTest, InstallFromSync) {
-  ASSERT_TRUE(https_server()->Start());
-
-  const GURL app_url =
-      https_server()->GetURL("/banners/manifest_test_page.html");
-  const web_app::AppId app_id = web_app::GenerateAppIdFromURL(app_url);
-
-  auto web_app_info = std::make_unique<WebApplicationInfo>();
-  web_app_info->start_url = app_url;
-  web_app_info->scope = app_url.GetWithoutFilename();
-
-  base::RunLoop run_loop;
-  web_app::WebAppProviderBase* const provider =
-      web_app::WebAppProviderBase::GetProviderBase(profile());
-  DCHECK(provider);
-  provider->install_manager().InstallBookmarkAppFromSync(
-      app_id, std::move(web_app_info),
-      base::BindLambdaForTesting([&](const web_app::AppId& installed_app_id,
-                                     web_app::InstallResultCode code) {
-        EXPECT_EQ(web_app::InstallResultCode::kSuccessNewInstall, code);
-        EXPECT_EQ(app_id, installed_app_id);
-        run_loop.Quit();
-      }));
-  run_loop.Run();
-  EXPECT_EQ(web_app::DisplayMode::kStandalone,
-            provider->registrar().GetAppDisplayMode(app_id));
-}
-
 // Tests that platform apps can still load mixed content.
 IN_PROC_BROWSER_TEST_P(HostedAppTestWithAutoupgradesDisabled,
                        MixedContentInPlatformApp) {
@@ -875,7 +830,7 @@ class HostedAppProcessModelTest : public HostedOrWebAppTest {
     nav_observer.Wait();
 
     RenderFrameHost* subframe = content::FrameMatchingPredicate(
-        web_contents, base::Bind(&content::FrameHasSourceUrl, url));
+        web_contents, base::BindRepeating(&content::FrameHasSourceUrl, url));
 
     EXPECT_EQ(expect_same_process,
               parent_rfh->GetProcess() == subframe->GetProcess())
@@ -929,7 +884,7 @@ IN_PROC_BROWSER_TEST_P(HostedAppProcessModelTest, IframesInsideHostedApp) {
 
   auto find_frame = [web_contents](const std::string& name) {
     return content::FrameMatchingPredicate(
-        web_contents, base::Bind(&content::FrameMatchesName, name));
+        web_contents, base::BindRepeating(&content::FrameMatchesName, name));
   };
   RenderFrameHost* app = web_contents->GetMainFrame();
   RenderFrameHost* same_dir = find_frame("SameOrigin-SamePath");
@@ -1112,7 +1067,7 @@ IN_PROC_BROWSER_TEST_P(HostedAppProcessModelTest, PopupsInsideHostedApp) {
 
   auto find_frame = [web_contents](const std::string& name) {
     return content::FrameMatchingPredicate(
-        web_contents, base::Bind(&content::FrameMatchesName, name));
+        web_contents, base::BindRepeating(&content::FrameMatchesName, name));
   };
   RenderFrameHost* app = web_contents->GetMainFrame();
   RenderFrameHost* same_dir = find_frame("SameOrigin-SamePath");
@@ -1280,8 +1235,17 @@ IN_PROC_BROWSER_TEST_P(HostedAppProcessModelTest,
 // "//" path (on which GURL::Resolve() currently fails due to
 // https://crbug.com/1034197), and that the resulting SiteInstance has a valid
 // site URL. See https://crbug.com/1016954.
+// The navigation currently fails/results in a 404 on Windows, so it's currently
+// disabled.  TODO(crbug.com/1137323): Fix this.
+#if defined(OS_WIN)
+#define MAYBE_NavigateToAppURLWithDoubleSlashPath \
+  DISABLED_NavigateToAppURLWithDoubleSlashPath
+#else
+#define MAYBE_NavigateToAppURLWithDoubleSlashPath \
+  NavigateToAppURLWithDoubleSlashPath
+#endif
 IN_PROC_BROWSER_TEST_P(HostedAppProcessModelTest,
-                       NavigateToAppURLWithDoubleSlashPath) {
+                       MAYBE_NavigateToAppURLWithDoubleSlashPath) {
   // Set up and launch the hosted app.
   GURL app_url =
       embedded_test_server()->GetURL("app.site.com", "/frame_tree/simple.htm");
@@ -1857,17 +1821,12 @@ IN_PROC_BROWSER_TEST_P(HostedAppProcessModelTest,
 INSTANTIATE_TEST_SUITE_P(All,
                          HostedOrWebAppTest,
                          ::testing::Values(AppType::HOSTED_APP,
-                                           AppType::BOOKMARK_APP,
                                            AppType::WEB_APP),
                          AppTypeParamToString);
 
 INSTANTIATE_TEST_SUITE_P(All,
                          HostedAppTest,
                          ::testing::Values(AppType::HOSTED_APP));
-
-INSTANTIATE_TEST_SUITE_P(All,
-                         BookmarkAppTest,
-                         ::testing::Values(AppType::BOOKMARK_APP));
 
 INSTANTIATE_TEST_SUITE_P(All,
                          HostedAppTestWithAutoupgradesDisabled,

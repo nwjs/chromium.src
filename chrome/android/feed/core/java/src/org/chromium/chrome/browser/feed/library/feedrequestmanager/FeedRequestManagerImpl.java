@@ -8,6 +8,8 @@ import android.content.Context;
 import android.os.Build;
 import android.util.DisplayMetrics;
 
+import androidx.annotation.VisibleForTesting;
+
 import com.google.protobuf.ByteString;
 
 import org.chromium.base.Consumer;
@@ -42,6 +44,7 @@ import org.chromium.chrome.browser.feed.library.common.time.TimingUtils;
 import org.chromium.chrome.browser.feed.library.common.time.TimingUtils.ElapsedTimeTracker;
 import org.chromium.chrome.browser.feed.library.feedrequestmanager.internal.Utils;
 import org.chromium.chrome.browser.feed.shared.FeedFeatures;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileManager;
@@ -79,6 +82,11 @@ import java.util.Map;
 /** Default implementation of FeedRequestManager. */
 public class FeedRequestManagerImpl implements FeedRequestManager {
     private static final String TAG = "FeedRequestManagerImpl";
+
+    static final String NOTICE_CARD_VIEWS_COUNT_THRESHOLD_PARAM_NAME =
+            "notice-card-views-count-threshold";
+    static final String NOTICE_CARD_CLICKS_COUNT_THRESHOLD_PARAM_NAME =
+            "notice-card-clicks-count-threshold";
 
     private final Configuration mConfiguration;
     private final NetworkClient mNetworkClient;
@@ -145,6 +153,10 @@ public class FeedRequestManagerImpl implements FeedRequestManager {
         Logger.i(TAG, "trigger refresh %s", reason);
         RequestBuilder request = newDefaultRequest(reason).setConsistencyToken(token);
 
+        if (shouldDismissNoticeCard()) {
+            request.dismissNoticeCard();
+        }
+
         if (mThreadUtils.isMainThread()) {
             // This will make a new request, it should invalidate the existing head to delay
             // everything until the response is obtained.
@@ -153,6 +165,34 @@ public class FeedRequestManagerImpl implements FeedRequestManager {
         } else {
             executeRequest(request, consumer, true);
         }
+    }
+
+    @VisibleForTesting
+    boolean shouldDismissNoticeCard() {
+        if (!ChromeFeatureList.isEnabled(
+                    ChromeFeatureList.INTEREST_FEED_NOTICE_CARD_AUTO_DISMISS)) {
+            return false;
+        }
+
+        int viewsCountThreshold = ChromeFeatureList.getFieldTrialParamByFeatureAsInt(
+                ChromeFeatureList.INTEREST_FEED_NOTICE_CARD_AUTO_DISMISS,
+                NOTICE_CARD_VIEWS_COUNT_THRESHOLD_PARAM_NAME, 3);
+        int viewsCount = UserPrefs.get(Profile.getLastUsedRegularProfile())
+                                 .getInteger(Pref.NOTICE_CARD_VIEWS_COUNT);
+        if (viewsCount >= viewsCountThreshold) {
+            return true;
+        }
+
+        int clicksCountThreshold = ChromeFeatureList.getFieldTrialParamByFeatureAsInt(
+                ChromeFeatureList.INTEREST_FEED_NOTICE_CARD_AUTO_DISMISS,
+                NOTICE_CARD_CLICKS_COUNT_THRESHOLD_PARAM_NAME, 1);
+        int clicksCount = UserPrefs.get(Profile.getLastUsedRegularProfile())
+                                  .getInteger(Pref.NOTICE_CARD_CLICKS_COUNT);
+        if (clicksCount >= clicksCountThreshold) {
+            return true;
+        }
+
+        return false;
     }
 
     private RequestBuilder newDefaultRequest(@RequestReason int requestReason) {
@@ -265,12 +305,13 @@ public class FeedRequestManagerImpl implements FeedRequestManager {
                         "FeedRequestManagerImpl consumer", () -> consumer.accept(Result.failure()));
                 return;
             }
-            handleResponseBytes(input.getResponseBody(), consumer, isRefreshRequest);
+            handleResponseBytes(
+                    input.getResponseBody(), consumer, isRefreshRequest, input.isSignedIn());
         });
     }
 
     private void handleResponseBytes(final byte[] responseBytes,
-            final Consumer<Result<Model>> consumer, boolean isRefreshRequest) {
+            final Consumer<Result<Model>> consumer, boolean isRefreshRequest, boolean isSignedIn) {
         mTaskQueue.execute(Task.HANDLE_RESPONSE_BYTES, TaskType.IMMEDIATE, () -> {
             Response response;
             boolean isLengthPrefixed = mConfiguration.getValueOrDefault(
@@ -287,8 +328,14 @@ public class FeedRequestManagerImpl implements FeedRequestManager {
                 return;
             }
             logServerCapabilities(response, isRefreshRequest);
-            mMainThreadRunner.execute("FeedRequestManagerImpl consumer",
-                    () -> consumer.accept(mProtocolAdapter.createModel(response)));
+            mMainThreadRunner.execute("FeedRequestManagerImpl consumer", () -> {
+                // Update the signed in pref only when the request is a refresh. It shouldn't be
+                // done for other requests such as load more.
+                if (isRefreshRequest) {
+                    updateLastRefreshSignedPref(isSignedIn);
+                }
+                consumer.accept(mProtocolAdapter.createModel(response));
+            });
         });
     }
 
@@ -312,6 +359,11 @@ public class FeedRequestManagerImpl implements FeedRequestManager {
     private void updateNoticeCardPref(boolean hasNoticeCard) {
         UserPrefs.get(Profile.getLastUsedRegularProfile())
                 .setBoolean(Pref.LAST_FETCH_HAD_NOTICE_CARD, hasNoticeCard);
+    }
+
+    private void updateLastRefreshSignedPref(boolean isSignedIn) {
+        UserPrefs.get(Profile.getLastUsedRegularProfile())
+                .setBoolean(Pref.LAST_REFRESH_WAS_SIGNED_IN, isSignedIn);
     }
 
     private static final class RequestBuilder {
@@ -394,6 +446,10 @@ public class FeedRequestManagerImpl implements FeedRequestManager {
             return requestBuilder.build();
         }
 
+        // TODO(b/1146458): Implement this function once we are decided on the right wire protocol
+        // to dismiss the notice card from the client.
+        public void dismissNoticeCard() {}
+
         private void addCapabilities(FeedRequest.Builder feedRequestBuilder) {
             addCapabilityIfConfigEnabled(
                     feedRequestBuilder, ConfigKey.FEED_UI_ENABLED, Capability.FEED_UI);
@@ -401,8 +457,7 @@ public class FeedRequestManagerImpl implements FeedRequestManager {
                     Capability.UNDOABLE_ACTIONS);
             addCapabilityIfConfigEnabled(feedRequestBuilder, ConfigKey.MANAGE_INTERESTS_ENABLED,
                     Capability.MANAGE_INTERESTS);
-            addCapabilityIfConfigEnabled(
-                    feedRequestBuilder, ConfigKey.SEND_FEEDBACK_ENABLED, Capability.SEND_FEEDBACK);
+            feedRequestBuilder.addClientCapability(Capability.SEND_FEEDBACK);
             addCapabilityIfConfigEnabled(
                     feedRequestBuilder, ConfigKey.ENABLE_CAROUSELS, Capability.CAROUSELS);
             if (mCardMenuTooltipWouldTrigger) {

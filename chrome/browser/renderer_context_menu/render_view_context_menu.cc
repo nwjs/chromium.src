@@ -93,7 +93,6 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/content_restriction.h"
 #include "chrome/common/pref_names.h"
-#include "chrome/common/render_messages.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/chromium_strings.h"
@@ -159,8 +158,8 @@
 #include "third_party/blink/public/public_buildflags.h"
 #include "third_party/metrics_proto/omnibox_input_type.pb.h"
 #include "ui/base/clipboard/clipboard.h"
-#include "ui/base/clipboard/clipboard_data_endpoint.h"
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
+#include "ui/base/data_transfer_policy/data_transfer_endpoint.h"
 #include "ui/base/emoji/emoji_panel_helper.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/image_model.h"
@@ -787,8 +786,9 @@ void RenderViewContextMenu::WriteURLToClipboard(const GURL& url) {
   if (url.is_empty() || !url.is_valid())
     return;
 
-  ui::ScopedClipboardWriter scw(ui::ClipboardBuffer::kCopyPaste,
-                                CreateDataEndpoint());
+  ui::ScopedClipboardWriter scw(
+      ui::ClipboardBuffer::kCopyPaste,
+      CreateDataEndpoint(/*notify_if_restricted=*/true));
   scw.WriteText(FormatURLForClipboard(url));
 }
 
@@ -1554,8 +1554,11 @@ void RenderViewContextMenu::AppendPageItems() {
 #if 0
   ChromeTranslateClient* chrome_translate_client =
       ChromeTranslateClient::FromWebContents(embedder_web_contents_);
-  if (chrome_translate_client &&
-      chrome_translate_client->GetTranslateManager()->CanManuallyTranslate()) {
+  const bool canTranslate =
+      chrome_translate_client &&
+      chrome_translate_client->GetTranslateManager()->CanManuallyTranslate(
+          true);
+  if (canTranslate) {
     language::LanguageModel* language_model =
         LanguageModelManagerFactory::GetForBrowserContext(browser_context_)
             ->GetPrimaryModel();
@@ -2726,7 +2729,8 @@ bool RenderViewContextMenu::IsPasteEnabled() const {
 
   std::vector<base::string16> types;
   ui::Clipboard::GetForCurrentThread()->ReadAvailableTypes(
-      ui::ClipboardBuffer::kCopyPaste, CreateDataEndpoint().get(), &types);
+      ui::ClipboardBuffer::kCopyPaste,
+      CreateDataEndpoint(/*notify_if_restricted=*/false).get(), &types);
   return !types.empty();
 }
 
@@ -2736,7 +2740,8 @@ bool RenderViewContextMenu::IsPasteAndMatchStyleEnabled() const {
 
   return ui::Clipboard::GetForCurrentThread()->IsFormatAvailable(
       ui::ClipboardFormatType::GetPlainTextType(),
-      ui::ClipboardBuffer::kCopyPaste, CreateDataEndpoint().get());
+      ui::ClipboardBuffer::kCopyPaste,
+      CreateDataEndpoint(/*notify_if_restricted=*/false).get());
 }
 
 bool RenderViewContextMenu::IsPrintPreviewEnabled() const {
@@ -2782,12 +2787,12 @@ void RenderViewContextMenu::AppendQRCodeGeneratorItem(bool for_image,
   }
 }
 
-std::unique_ptr<ui::ClipboardDataEndpoint>
-RenderViewContextMenu::CreateDataEndpoint() const {
+std::unique_ptr<ui::DataTransferEndpoint>
+RenderViewContextMenu::CreateDataEndpoint(bool notify_if_restricted) const {
   RenderFrameHost* render_frame_host = GetRenderFrameHost();
   if (render_frame_host) {
-    return std::make_unique<ui::ClipboardDataEndpoint>(
-        render_frame_host->GetLastCommittedOrigin());
+    return std::make_unique<ui::DataTransferEndpoint>(
+        render_frame_host->GetLastCommittedOrigin(), notify_if_restricted);
   }
   return nullptr;
 }
@@ -2842,7 +2847,7 @@ void RenderViewContextMenu::ExecOpenWebApp() {
   launch_params.override_url = params_.link_url;
   apps::AppServiceProxyFactory::GetForProfile(GetProfile())
       ->BrowserAppLauncher()
-      ->LaunchAppWithParams(launch_params);
+      ->LaunchAppWithParams(std::move(launch_params));
 }
 
 void RenderViewContextMenu::ExecProtocolHandler(int event_flags,
@@ -2918,7 +2923,6 @@ void RenderViewContextMenu::ExecSaveLinkAs() {
 
   auto dl_params = std::make_unique<DownloadUrlParameters>(
       url, render_frame_host->GetProcess()->GetID(),
-      render_frame_host->GetRenderViewHost()->GetRoutingID(),
       render_frame_host->GetRoutingID(), traffic_annotation);
   content::Referrer referrer = CreateReferrer(url, params_);
   dl_params->set_referrer(referrer.url);
@@ -2963,8 +2967,9 @@ void RenderViewContextMenu::ExecExitFullscreen() {
 }
 
 void RenderViewContextMenu::ExecCopyLinkText() {
-  ui::ScopedClipboardWriter scw(ui::ClipboardBuffer::kCopyPaste,
-                                CreateDataEndpoint());
+  ui::ScopedClipboardWriter scw(
+      ui::ClipboardBuffer::kCopyPaste,
+      CreateDataEndpoint(/*notify_if_restricted=*/true));
   scw.WriteText(params_.link_text);
 }
 
@@ -3165,8 +3170,9 @@ void RenderViewContextMenu::MediaPlayerActionAt(
 void RenderViewContextMenu::PluginActionAt(
     const gfx::Point& location,
     blink::mojom::PluginActionType plugin_action) {
-  source_web_contents_->GetRenderViewHost()->ExecutePluginActionAtLocation(
-      location, plugin_action);
+  source_web_contents_->GetMainFrame()
+      ->GetRenderViewHost()
+      ->ExecutePluginActionAtLocation(location, plugin_action);
 }
 
 Browser* RenderViewContextMenu::GetBrowser() const {

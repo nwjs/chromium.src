@@ -6,7 +6,9 @@
 
 #include "base/base_switches.h"
 #include "base/bind.h"
+#include "base/json/json_reader.h"
 #include "base/task/current_thread.h"
+#include "base/task/task_traits.h"
 #include "base/threading/thread.h"
 #include "base/threading/thread_restrictions.h"
 #include "build/build_config.h"
@@ -14,7 +16,9 @@
 #include "components/captive_portal/core/buildflags.h"
 #include "components/prefs/pref_service.h"
 #include "components/startup_metric_utils/browser/startup_metric_utils.h"
+#include "components/subresource_filter/content/browser/ruleset_service.h"
 #include "components/translate/core/browser/translate_download_manager.h"
+#include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/devtools_agent_host.h"
 #include "content/public/browser/render_process_host.h"
@@ -35,6 +39,7 @@
 #include "weblayer/browser/translate_accept_languages_factory.h"
 #include "weblayer/browser/translate_ranker_factory.h"
 #include "weblayer/browser/webui/web_ui_controller_factory.h"
+#include "weblayer/grit/weblayer_resources.h"
 #include "weblayer/public/main.h"
 
 #if defined(OS_ANDROID)
@@ -56,9 +61,6 @@
 #include "weblayer/common/features.h"
 #endif
 
-#if defined(USE_X11)
-#include "ui/base/x/x11_util.h"  // nogncheck
-#endif
 #if defined(USE_AURA) && defined(USE_X11)
 #include "ui/base/ui_base_features.h"
 #include "ui/events/devices/x11/touch_factory_x11.h"  // nogncheck
@@ -75,6 +77,27 @@ namespace weblayer {
 
 namespace {
 
+// Indexes and publishes the subresource filter ruleset data from resources in
+// the resource bundle.
+void PublishSubresourceFilterRulesetFromResourceBundle() {
+  // First obtain the version of the ruleset data from the manifest.
+  std::string ruleset_manifest_string =
+      ui::ResourceBundle::GetSharedInstance().LoadDataResourceString(
+          IDR_SUBRESOURCE_FILTER_UNINDEXED_RULESET_MANIFEST_JSON);
+  auto ruleset_manifest = base::JSONReader::Read(ruleset_manifest_string);
+  DCHECK(ruleset_manifest);
+  std::string* content_version = ruleset_manifest->FindStringKey("version");
+
+  // Instruct the RulesetService to obtain the unindexed ruleset data from the
+  // ResourceBundle and give it the version of that data.
+  auto* ruleset_service =
+      BrowserProcess::GetInstance()->subresource_filter_ruleset_service();
+  subresource_filter::UnindexedRulesetInfo ruleset_info;
+  ruleset_info.resource_id = IDR_SUBRESOURCE_FILTER_UNINDEXED_RULESET;
+  ruleset_info.content_version = *content_version;
+  ruleset_service->IndexAndStoreAndPublishRulesetIfNeeded(ruleset_info);
+}
+
 // Instantiates all weblayer KeyedService factories, which is
 // especially important for services that should be created at profile
 // creation time as compared to lazily on first access.
@@ -90,7 +113,7 @@ void EnsureBrowserContextKeyedServiceFactoriesBuilt() {
   PrerenderLinkManagerFactory::GetInstance();
   PrerenderManagerFactory::GetInstance();
 #if defined(OS_ANDROID)
-  if (base::FeatureList::IsEnabled(features::kMediaRouter)) {
+  if (MediaRouterFactory::IsFeatureEnabled()) {
     LocalPresentationManagerFactory::GetInstance();
     MediaRouterFactory::GetInstance();
   }
@@ -153,10 +176,6 @@ void BrowserMainPartsImpl::PreMainMessageLoopStart() {
 int BrowserMainPartsImpl::PreEarlyInitialization() {
   browser_process_ = std::make_unique<BrowserProcess>(std::move(local_state_));
 
-#if defined(USE_X11)
-  if (!features::IsUsingOzonePlatform())
-    ui::SetDefaultX11ErrorHandlers();
-#endif
 #if defined(USE_AURA) && (defined(OS_LINUX) || defined(OS_CHROMEOS))
   ui::InitializeInputMethodForTesting();
 #endif
@@ -190,6 +209,17 @@ void BrowserMainPartsImpl::PreMainMessageLoopRun() {
       WebUIControllerFactory::GetInstance());
 
   BrowserProcess::GetInstance()->PreMainMessageLoopRun();
+
+  // Publish the ruleset data. On the vast majority of runs this will
+  // effectively be a no-op as the version of the data changes at most once per
+  // release. Nonetheless, post it as a best-effort task to take it off the
+  // critical path of startup. Note that best-effort tasks are guaranteed to
+  // execute within a reasonable delay (assuming of course that the app isn't
+  // shut down first).
+  content::GetUIThreadTaskRunner({base::TaskPriority::BEST_EFFORT})
+      ->PostTask(
+          FROM_HERE,
+          base::BindOnce(&PublishSubresourceFilterRulesetFromResourceBundle));
 
   if (main_function_params_.ui_task) {
     std::move(*main_function_params_.ui_task).Run();

@@ -28,7 +28,7 @@ class TextFragmentAnchorMetricsTest : public SimTest {
  public:
   void SetUp() override {
     SimTest::SetUp();
-    WebView().MainFrameWidget()->Resize(WebSize(800, 600));
+    WebView().MainFrameViewWidget()->Resize(gfx::Size(800, 600));
   }
 
   void RunAsyncMatchingTasks() {
@@ -581,7 +581,7 @@ TEST_P(TextFragmentAnchorScrollMetricsTest, ScrollCancelled) {
     <p>This is a test page</p>
   )HTML");
 
-  Compositor().PaintFrame();
+  GetDocument().View()->UpdateAllLifecyclePhasesForTest();
 
   mojom::blink::ScrollType scroll_type = GetParam();
   GetDocument().View()->LayoutViewport()->ScrollBy(ScrollOffset(0, 100),

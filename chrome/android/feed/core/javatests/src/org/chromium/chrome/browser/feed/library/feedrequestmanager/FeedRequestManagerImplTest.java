@@ -6,6 +6,8 @@ package org.chromium.chrome.browser.feed.library.feedrequestmanager;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.anyBoolean;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.never;
@@ -113,7 +115,8 @@ import java.util.Set;
 @Config(manifest = Config.NONE, shadows = {ShadowRecordHistogram.class})
 @Features.EnableFeatures(ChromeFeatureList.INTEREST_FEED_CONTENT_SUGGESTIONS)
 @Features.
-DisableFeatures({ChromeFeatureList.REPORT_FEED_USER_ACTIONS, ChromeFeatureList.INTEREST_FEED_V2})
+DisableFeatures({ChromeFeatureList.REPORT_FEED_USER_ACTIONS, ChromeFeatureList.INTEREST_FEED_V2,
+        ChromeFeatureList.INTEREST_FEED_NOTICE_CARD_AUTO_DISMISS})
 public class FeedRequestManagerImplTest {
     private static final int NOT_FOUND = 404;
     private static final String TABLE = "table";
@@ -239,6 +242,7 @@ public class FeedRequestManagerImplTest {
                                 getTestFeedRequestBuilder()
                                         .setFeedQuery(FeedQuery.newBuilder().setReason(
                                                 FeedQuery.RequestReason.SCHEDULED_REFRESH))
+                                        .addClientCapability(Capability.SEND_FEEDBACK)
                                         .addClientCapability(Capability.BASE_UI)
                                         .build())
                         .build();
@@ -280,7 +284,7 @@ public class FeedRequestManagerImplTest {
                                                 Capability.REPORT_FEED_USER_ACTIONS_NOTICE_CARD)
                                         .build())
                         .build();
-        mFakeNetworkClient.addResponse(new HttpResponse(200, response.toByteArray()));
+        mFakeNetworkClient.addResponse(new HttpResponse(200, response.toByteArray(), false));
         mRequestManager.triggerRefresh(RequestReason.HOST_REQUESTED, input -> {});
         verify(mPrefService, times(1)).setBoolean(Pref.LAST_FETCH_HAD_NOTICE_CARD, true);
         assertThat(noticeCardNotFulfilledDelta.getDelta()).isEqualTo(0);
@@ -288,12 +292,34 @@ public class FeedRequestManagerImplTest {
 
         // Trigger a refresh that doesn't have a notice card.
         mFakeNetworkClient.addResponse(
-                new HttpResponse(200, Response.getDefaultInstance().toByteArray()));
+                new HttpResponse(200, Response.getDefaultInstance().toByteArray(), false));
         mRequestManager.triggerRefresh(RequestReason.HOST_REQUESTED, input -> {});
         assertThat(obsoleteNoticeCardNotFulfilledDelta.getDelta()).isEqualTo(1);
         assertThat(obsoleteNoticeCardFulfilledDelta.getDelta()).isEqualTo(1);
         assertThat(noticeCardNotFulfilledDelta.getDelta()).isEqualTo(1);
         assertThat(noticeCardFulfilledDelta.getDelta()).isEqualTo(1);
+    }
+
+    @Test
+    public void testTriggerRefresh_setLastRefreshWasSignedInPref() throws Exception {
+        // Skip the read of the int that determines the length of the encoded proto. This is to
+        // avoid having to encode the length which is a feature we don't want to test here.
+        Configuration configuration =
+                new Configuration.Builder()
+                        .put(ConfigKey.FEED_SERVER_RESPONSE_LENGTH_PREFIXED, false)
+                        .build();
+
+        mRequestManager = new FeedRequestManagerImpl(configuration, mFakeNetworkClient,
+                mFakeProtocolAdapter, new FeedExtensionRegistry(ArrayList::new), mScheduler,
+                mFakeTaskQueue, mTimingUtils, mFakeThreadUtils, mFakeActionReader, mContext,
+                mApplicationInfo, mFakeMainThreadRunner, mFakeBasicLoggingApi,
+                mFakeTooltipSupportedApi);
+
+        mFakeNetworkClient.addResponse(
+                new HttpResponse(200, Response.getDefaultInstance().toByteArray(), true));
+        mRequestManager.triggerRefresh(RequestReason.HOST_REQUESTED, input -> {});
+
+        verify(mPrefService, times(1)).setBoolean(Pref.LAST_REFRESH_WAS_SIGNED_IN, true);
     }
 
     @Test
@@ -334,7 +360,7 @@ public class FeedRequestManagerImplTest {
                                                 Capability.REPORT_FEED_USER_ACTIONS_NOTICE_CARD)
                                         .build())
                         .build();
-        mFakeNetworkClient.addResponse(new HttpResponse(200, response.toByteArray()));
+        mFakeNetworkClient.addResponse(new HttpResponse(200, response.toByteArray(), false));
         StreamToken token =
                 StreamToken.newBuilder()
                         .setNextPageToken(ByteString.copyFrom("abc", Charset.defaultCharset()))
@@ -343,7 +369,7 @@ public class FeedRequestManagerImplTest {
 
         // Trigger a load more without a notice card in the query response.
         mFakeNetworkClient.addResponse(
-                new HttpResponse(200, Response.getDefaultInstance().toByteArray()));
+                new HttpResponse(200, Response.getDefaultInstance().toByteArray(), false));
         mRequestManager.loadMore(token, ConsistencyToken.getDefaultInstance(), input -> {});
 
         // Verify that only the obsolete histograms were recorded.
@@ -353,6 +379,33 @@ public class FeedRequestManagerImplTest {
         assertThat(obsoleteNoticeCardFulfilledDelta.getDelta()).isEqualTo(1);
         // Verify that no attempts were made to update the notice card presence pref.
         verify(mPrefService, never()).setBoolean(eq(Pref.LAST_FETCH_HAD_NOTICE_CARD), anyBoolean());
+    }
+
+    @Test
+    public void testLoadMore_dontSetLastRefreshWasSignedInPref() throws Exception {
+        // Skip the read of the int that determines the length of the encoded proto. This is to
+        // avoid having to encode the length which is a feature we don't want to test here.
+        Configuration configuration =
+                new Configuration.Builder()
+                        .put(ConfigKey.FEED_SERVER_RESPONSE_LENGTH_PREFIXED, false)
+                        .build();
+
+        mRequestManager = new FeedRequestManagerImpl(configuration, mFakeNetworkClient,
+                mFakeProtocolAdapter, new FeedExtensionRegistry(ArrayList::new), mScheduler,
+                mFakeTaskQueue, mTimingUtils, mFakeThreadUtils, mFakeActionReader, mContext,
+                mApplicationInfo, mFakeMainThreadRunner, mFakeBasicLoggingApi,
+                mFakeTooltipSupportedApi);
+
+        mFakeNetworkClient.addResponse(
+                new HttpResponse(200, Response.getDefaultInstance().toByteArray(), false));
+        StreamToken token =
+                StreamToken.newBuilder()
+                        .setNextPageToken(ByteString.copyFrom("abc", Charset.defaultCharset()))
+                        .build();
+        mFakeThreadUtils.enforceMainThread(false);
+        mRequestManager.loadMore(token, ConsistencyToken.getDefaultInstance(), input -> {});
+
+        verify(mPrefService, never()).setBoolean(Pref.LAST_REFRESH_WAS_SIGNED_IN, true);
     }
 
     @Test
@@ -371,8 +424,8 @@ public class FeedRequestManagerImplTest {
     }
 
     @Test
-    public void testTriggerRefresh_sendFeedbackCapabilityAddedWhenFlagIsOn() throws Exception {
-        testCapabilityAdded(ConfigKey.SEND_FEEDBACK_ENABLED, Capability.SEND_FEEDBACK);
+    public void testTriggerRefresh_sendFeedbackCapabilityAdded() throws Exception {
+        testCapabilityAdded(Capability.SEND_FEEDBACK);
     }
 
     @Test
@@ -410,6 +463,40 @@ public class FeedRequestManagerImplTest {
     public void testTriggerRefresh_enableFeedActions() throws Exception {
         testCapabilityAdded(Capability.CLICK_ACTION, Capability.VIEW_ACTION,
                 Capability.REPORT_FEED_USER_ACTIONS_NOTICE_CARD);
+    }
+
+    @Test
+    @Features.EnableFeatures({ChromeFeatureList.INTEREST_FEED_NOTICE_CARD_AUTO_DISMISS})
+    public void testTriggerRefresh_dismissNoticeCard() throws Exception {
+        // Simulate enough views and clicks.
+        when(mPrefService.getInteger(Pref.NOTICE_CARD_CLICKS_COUNT)).thenReturn(1);
+        when(mPrefService.getInteger(Pref.NOTICE_CARD_VIEWS_COUNT)).thenReturn(3);
+
+        assertTrue(mRequestManager.shouldDismissNoticeCard());
+    }
+
+    @Test
+    public void testTriggerRefresh_dontDismissNoticeCard_whenFeatureDisabled() throws Exception {
+        // Simulate enough views and clicks.
+        when(mPrefService.getInteger(Pref.NOTICE_CARD_CLICKS_COUNT)).thenReturn(1);
+        when(mPrefService.getInteger(Pref.NOTICE_CARD_VIEWS_COUNT)).thenReturn(3);
+
+        mRequestManager.triggerRefresh(RequestReason.HOST_REQUESTED, input -> {});
+
+        assertFalse(mRequestManager.shouldDismissNoticeCard());
+    }
+
+    @Test
+    @Features.EnableFeatures({ChromeFeatureList.INTEREST_FEED_NOTICE_CARD_AUTO_DISMISS})
+    public void testTriggerRefresh_dontDismissNoticeCard_whenCountThresholdsNotReached()
+            throws Exception {
+        // Simulate not enough views nor clicks.
+        when(mPrefService.getInteger(Pref.NOTICE_CARD_CLICKS_COUNT)).thenReturn(0);
+        when(mPrefService.getInteger(Pref.NOTICE_CARD_VIEWS_COUNT)).thenReturn(2);
+
+        mRequestManager.triggerRefresh(RequestReason.HOST_REQUESTED, input -> {});
+
+        assertFalse(mRequestManager.shouldDismissNoticeCard());
     }
 
     @Test
@@ -454,6 +541,7 @@ public class FeedRequestManagerImplTest {
                                                                 expectedSemanticProperties)
                                                         .addAllFeedActionQueryDataItem(
                                                                 expectedDataItems))
+                                        .addClientCapability(Capability.SEND_FEEDBACK)
                                         .addClientCapability(Capability.BASE_UI)
                                         .build())
                         .build();
@@ -508,6 +596,7 @@ public class FeedRequestManagerImplTest {
                                                                 expectedSemanticProperties)
                                                         .addAllFeedActionQueryDataItem(
                                                                 expectedDataItems))
+                                        .addClientCapability(Capability.SEND_FEEDBACK)
                                         .addClientCapability(Capability.BASE_UI)
                                         .build())
                         .build();
@@ -562,6 +651,7 @@ public class FeedRequestManagerImplTest {
                                                                 expectedSemanticProperties)
                                                         .addAllFeedActionQueryDataItem(
                                                                 expectedDataItems))
+                                        .addClientCapability(Capability.SEND_FEEDBACK)
                                         .addClientCapability(Capability.BASE_UI)
                                         .build())
                         .build();
@@ -615,6 +705,7 @@ public class FeedRequestManagerImplTest {
                                                                 expectedSemanticProperties)
                                                         .addAllFeedActionQueryDataItem(
                                                                 expectedDataItems))
+                                        .addClientCapability(Capability.SEND_FEEDBACK)
                                         .addClientCapability(Capability.BASE_UI)
                                         .build())
                         .build();
@@ -679,6 +770,7 @@ public class FeedRequestManagerImplTest {
                                                                 expectedSemanticProperties)
                                                         .addAllFeedActionQueryDataItem(
                                                                 expectedDataItems))
+                                        .addClientCapability(Capability.SEND_FEEDBACK)
                                         .addClientCapability(Capability.BASE_UI)
                                         .build())
                         .build();
@@ -739,6 +831,7 @@ public class FeedRequestManagerImplTest {
                                                                 expectedSemanticProperties)
                                                         .addAllFeedActionQueryDataItem(
                                                                 expectedDataItems))
+                                        .addClientCapability(Capability.SEND_FEEDBACK)
                                         .addClientCapability(Capability.BASE_UI)
                                         .build())
                         .build();
@@ -798,6 +891,7 @@ public class FeedRequestManagerImplTest {
                                                                 expectedSemanticProperties)
                                                         .addAllFeedActionQueryDataItem(
                                                                 expectedDataItems))
+                                        .addClientCapability(Capability.SEND_FEEDBACK)
                                         .addClientCapability(Capability.BASE_UI)
                                         .build())
                         .build();
@@ -841,7 +935,7 @@ public class FeedRequestManagerImplTest {
     @Test
     public void testHandleResponse_missingLengthPrefixNotSupported() {
         mFakeNetworkClient.addResponse(new HttpResponse(
-                /* responseCode= */ 200, Response.getDefaultInstance().toByteArray()));
+                /* responseCode= */ 200, Response.getDefaultInstance().toByteArray(), false));
         mRequestManager.triggerRefresh(RequestReason.HOST_REQUESTED, mConsumer);
         assertThat(mConsumer.isCalled()).isTrue();
         assertThat(mConsumedResult.isSuccessful()).isFalse();
@@ -959,6 +1053,7 @@ public class FeedRequestManagerImplTest {
                                                                         .setScreenHeightInPixels(
                                                                                 470))
                                                         .build())
+                                        .addClientCapability(Capability.SEND_FEEDBACK)
                                         .addClientCapability(Capability.BASE_UI)
                                         .build())
                         .build();
@@ -998,7 +1093,7 @@ public class FeedRequestManagerImplTest {
         codedOutputStream.writeUInt32NoTag(rawResponse.length);
         codedOutputStream.writeRawBytes(rawResponse);
         codedOutputStream.flush();
-        return new HttpResponse(responseCode, buffer.array());
+        return new HttpResponse(responseCode, buffer.array(), false);
     }
 
     private static DismissActionWithSemanticProperties buildDismissAction(
@@ -1069,7 +1164,7 @@ public class FeedRequestManagerImplTest {
         HttpRequest httpRequest = mFakeNetworkClient.getLatestRequest();
         assertHttpRequestFormattedCorrectly(httpRequest, mContext);
 
-        Set<Capability> expectedCap = EnumSet.of(Capability.BASE_UI);
+        Set<Capability> expectedCap = EnumSet.of(Capability.BASE_UI, Capability.SEND_FEEDBACK);
         Collections.addAll(expectedCap, capability);
 
         Request request = getRequestFromHttpRequest(httpRequest);

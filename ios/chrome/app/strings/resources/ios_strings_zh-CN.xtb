@@ -19,6 +19,7 @@
 <translation id="1125564390852150847">创建新的标签页。</translation>
 <translation id="1145536944570833626">删除现有数据。</translation>
 <translation id="1154690515305205900">无法创建指向突出显示的文本的链接。</translation>
+<translation id="1157749421655780457">允许使用位置信息…</translation>
 <translation id="1165039591588034296">错误</translation>
 <translation id="1172898394251786223">下一个字段</translation>
 <translation id="1176932207622159128">无法保存图片</translation>
@@ -53,6 +54,7 @@
 <translation id="1449835205994625556">隐藏密码</translation>
 <translation id="145015347812617860">有<ph name="COUNT" />个书签</translation>
 <translation id="1491277525950327607">点按两次即可切换设置</translation>
+<translation id="1492417797159476138">您已为此网站保存该用户名</translation>
 <translation id="1509486075633541495">登录网站</translation>
 <translation id="1509960214886564027">很多网站上的功能可能会无法正常运作</translation>
 <translation id="152234381334907219">一律不保存</translation>
@@ -340,6 +342,7 @@
 <translation id="4751645464639803239">打开新的无痕式标签页</translation>
 <translation id="4758977202923349869">将信用卡放到此框内</translation>
 <translation id="4775879719735953715">默认浏览器</translation>
+<translation id="4778644898150334464">使用其他密码</translation>
 <translation id="4802417911091824046">密码加密不包括 Google Pay 中的付款方式和地址。
 
 要更改此设置，请<ph name="BEGIN_LINK" />重置同步设置<ph name="END_LINK" /></translation>
@@ -372,6 +375,7 @@
 <translation id="5059136629401106827">知道了</translation>
 <translation id="5062321486222145940">安装Google云端硬盘</translation>
 <translation id="5083464117946352670">无法确定文件大小。</translation>
+<translation id="5090832849094901128">删除此密码不会删除您在 <ph name="WEBSITE" /> 上的帐号。</translation>
 <translation id="5094827893301452931">Tweet 信息发布已完成。</translation>
 <translation id="5118764316110575523">已关闭</translation>
 <translation id="5127805178023152808">同步功能已关闭</translation>
@@ -511,6 +515,9 @@
 <translation id="6476800141292307438">将页面翻译成<ph name="LANGUAGE" />。选项位于屏幕底部附近。</translation>
 <translation id="648164694371393720">身份验证出错</translation>
 <translation id="6482629121755362506">删除了<ph name="NUMBER_OF_SELECTED_BOOKMARKS" />项</translation>
+<translation id="6497772452874122664">如果您信任 <ph name="TIME" />，则可使用您为另一网站保存的密码。
+
+请尽量为每个网站使用独一无二的密码。</translation>
 <translation id="651505212789431520">取消同步？您随时可在“设置”中开启同步功能。</translation>
 <translation id="6561262006871132942">放大</translation>
 <translation id="6585618849026997638">您可以为重要网页添加书签以便返回查看</translation>
@@ -590,6 +597,7 @@
 <translation id="739941347996872055">上一个标签页</translation>
 <translation id="7400418766976504921">网址</translation>
 <translation id="7409985198648820906">有 <ph name="UNREAD_COUNT" /> 篇未读文章。</translation>
+<translation id="7412027924265291969">继续</translation>
 <translation id="7425346204213733349">对您的书签、历史记录、密码及其他设置所做的更改将不再同步到您的 Google 帐号。但现有数据将继续存储在您的 Google 帐号中。</translation>
 <translation id="7435356471928173109">已被您的管理员关闭</translation>
 <translation id="7454057999980797137">省/区/县</translation>
@@ -733,6 +741,7 @@
 <translation id="9094033019050270033">更新密码</translation>
 <translation id="9100610230175265781">必须提供密码</translation>
 <translation id="9107664647686727385">检查是否有已泄露的密码</translation>
+<translation id="9137526406337347448">Google 服务</translation>
 <translation id="9148126808321036104">重新登录</translation>
 <translation id="9152539721251340337">生成二维码</translation>
 <translation id="9157836665414082580">禁止显示对话框</translation>

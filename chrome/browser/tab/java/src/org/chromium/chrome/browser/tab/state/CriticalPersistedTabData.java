@@ -138,13 +138,9 @@ public class CriticalPersistedTabData extends PersistedTabData {
         PersistedTabData.from(tab,
                 (data, storage, id)
                         -> { return new CriticalPersistedTabData(tab, data, storage, id); },
-                ()
-                        -> {
-                    if (tab.isInitialized()) {
-                        return CriticalPersistedTabData.build(tab);
-                    }
-                    return null;
-                },
+                (supplierCallback)
+                        -> supplierCallback.onResult(
+                                tab.isInitialized() ? CriticalPersistedTabData.build(tab) : null),
                 CriticalPersistedTabData.class, callback);
     }
 

@@ -14,6 +14,7 @@
 #include "base/android/scoped_java_ref.h"
 #include "base/callback_forward.h"
 #include "base/macros.h"
+#include "base/observer_list.h"
 #include "base/strings/string16.h"
 #include "base/supports_user_data.h"
 #include "chrome/browser/sync/glue/synced_tab_delegate_android.h"
@@ -47,6 +48,12 @@ class TabAndroid : public base::SupportsUserData {
     DEFAULT_PAGE_LOAD = 1,
     PARTIAL_PRERENDERED_PAGE_LOAD = 2,
     FULL_PRERENDERED_PAGE_LOAD = 3,
+  };
+
+  class Observer : public base::CheckedObserver {
+   public:
+    // Called when WebContents is initialized.
+    virtual void OnInitWebContents(TabAndroid* tab) = 0;
   };
 
   // Convenience method to retrieve the Tab associated with the passed
@@ -112,6 +119,12 @@ class TabAndroid : public base::SupportsUserData {
   }
 
   bool hide_future_navigations() const { return hide_future_navigations_; }
+
+  // Observers -----------------------------------------------------------------
+
+  // Adds/Removes an Observer.
+  void AddObserver(Observer* observer);
+  void RemoveObserver(Observer* observer);
 
   // Methods called from Java via JNI -----------------------------------------
 
@@ -199,6 +212,8 @@ class TabAndroid : public base::SupportsUserData {
   std::unique_ptr<browser_sync::SyncedTabDelegateAndroid> synced_tab_delegate_;
   bool should_add_api2_transition_to_future_navigations_ = false;
   bool hide_future_navigations_ = false;
+
+  base::ObserverList<Observer> observers_;
 
   DISALLOW_COPY_AND_ASSIGN(TabAndroid);
 };

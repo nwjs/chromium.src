@@ -18,6 +18,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
+#include "build/chromeos_buildflags.h"
 #include "cc/layers/layer.h"
 #include "cc/trees/layer_tree_settings.h"
 #include "components/viz/common/features.h"
@@ -46,7 +47,6 @@
 #include "content/browser/renderer_host/render_widget_host_view_event_handler.h"
 #include "content/browser/renderer_host/ui_events_helper.h"
 #include "content/common/input_messages.h"
-#include "content/common/view_messages.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/common/content_features.h"
@@ -111,16 +111,13 @@
 #include "ui/gfx/gdi_util.h"
 #endif
 
-#if defined(OS_LINUX) && !defined(OS_CHROMEOS)
+#if defined(OS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS)
 #include "content/browser/accessibility/browser_accessibility_auralinux.h"
-#endif
-
-#if defined(OS_LINUX) && !defined(OS_CHROMEOS)
 #include "ui/base/ime/linux/text_edit_command_auralinux.h"
 #include "ui/base/ime/linux/text_edit_key_bindings_delegate_auralinux.h"
 #endif
 
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "ui/wm/core/ime_util_chromeos.h"
 #endif
 
@@ -376,6 +373,9 @@ void RenderWidgetHostViewAura::InitAsPopup(
   }
   popup_parent_host_view_->SetPopupChild(this);
   CreateAuraWindow(aura::client::WINDOW_TYPE_MENU);
+  // Use transparent background color for the popup in order to avoid flashing
+  // the white background on popup open when dark color-scheme is used.
+  SetContentBackgroundColor(SK_ColorTRANSPARENT);
 
   // Setting the transient child allows for the popup to get mouse events when
   // in a system modal dialog. Do this before calling ParentWindowWithContext
@@ -492,7 +492,7 @@ gfx::NativeViewAccessible RenderWidgetHostViewAura::GetNativeViewAccessible() {
   if (manager)
     return ToBrowserAccessibilityWin(manager->GetRoot())->GetCOM();
 
-#elif defined(OS_LINUX) && !defined(OS_CHROMEOS)
+#elif defined(OS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS)
   BrowserAccessibilityManager* manager =
       host()->GetOrCreateRootBrowserAccessibilityManager();
   if (manager && manager->GetRoot())
@@ -684,6 +684,18 @@ void RenderWidgetHostViewAura::UpdateBackgroundColor() {
   window_->layer()->SetColor(color);
 }
 
+base::Optional<DisplayFeature> RenderWidgetHostViewAura::GetDisplayFeature() {
+  return display_feature_;
+}
+
+void RenderWidgetHostViewAura::SetDisplayFeatureForTesting(
+    const DisplayFeature* display_feature) {
+  if (display_feature)
+    display_feature_ = *display_feature;
+  else
+    display_feature_ = base::nullopt;
+}
+
 void RenderWidgetHostViewAura::WindowTitleChanged() {
   if (delegated_frame_host_) {
     delegated_frame_host_->WindowTitleChanged(
@@ -794,7 +806,7 @@ void RenderWidgetHostViewAura::CopyFromSurface(
 
 #if defined(OS_WIN)
 bool RenderWidgetHostViewAura::UsesNativeWindowFrame() const {
-  return (legacy_render_widget_host_HWND_ != NULL);
+  return (legacy_render_widget_host_HWND_ != nullptr);
 }
 
 void RenderWidgetHostViewAura::UpdateMouseLockRegion() {
@@ -1238,10 +1250,8 @@ gfx::Rect RenderWidgetHostViewAura::ConvertRectToScreen(
     return rect;
   screen_position_client->ConvertPointToScreen(window_, &origin);
   screen_position_client->ConvertPointToScreen(window_, &end);
-  return gfx::Rect(origin.x(),
-                   origin.y(),
-                   end.x() - origin.x(),
-                   end.y() - origin.y());
+  return gfx::Rect(origin.x(), origin.y(), base::ClampSub(end.x(), origin.x()),
+                   base::ClampSub(end.y(), origin.y()));
 }
 
 gfx::Rect RenderWidgetHostViewAura::ConvertRectFromScreen(
@@ -1417,7 +1427,7 @@ void RenderWidgetHostViewAura::ExtendSelectionAndDelete(
 void RenderWidgetHostViewAura::EnsureCaretNotInRect(
     const gfx::Rect& rect_in_screen) {
   aura::Window* top_level_window = window_->GetToplevelWindow();
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
   wm::EnsureWindowNotInRect(top_level_window, rect_in_screen);
 #endif
 
@@ -1454,7 +1464,7 @@ bool RenderWidgetHostViewAura::ShouldDoLearning() {
   return GetTextInputManager() && GetTextInputManager()->should_do_learning();
 }
 
-#if defined(OS_WIN) || defined(OS_CHROMEOS)
+#if defined(OS_WIN) || BUILDFLAG(IS_CHROMEOS_ASH)
 bool RenderWidgetHostViewAura::SetCompositionFromExistingText(
     const gfx::Range& range,
     const std::vector<ui::ImeTextSpan>& ui_ime_text_spans) {
@@ -1469,7 +1479,7 @@ bool RenderWidgetHostViewAura::SetCompositionFromExistingText(
 
 #endif
 
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
 gfx::Range RenderWidgetHostViewAura::GetAutocorrectRange() const {
   if (!text_input_manager_ || !text_input_manager_->GetActiveWidget())
     return gfx::Range();
@@ -1696,7 +1706,7 @@ void RenderWidgetHostViewAura::OnWindowDestroying(aura::Window* window) {
     legacy_render_widget_host_HWND_->Destroy();
     // The Destroy call above will delete the LegacyRenderWidgetHostHWND
     // instance.
-    legacy_render_widget_host_HWND_ = NULL;
+    legacy_render_widget_host_HWND_ = nullptr;
   }
 #endif
 
@@ -2079,7 +2089,7 @@ void RenderWidgetHostViewAura::UpdateCursorIfOverSelf() {
 
   gfx::Point cursor_screen_point = screen->GetCursorScreenPoint();
 
-#if !defined(OS_CHROMEOS)
+#if !BUILDFLAG(IS_CHROMEOS_ASH)
   // Ignore cursor update messages if the window under the cursor is not us.
   aura::Window* window_at_screen_point = screen->GetWindowAtScreenPoint(
       cursor_screen_point);
@@ -2104,7 +2114,7 @@ void RenderWidgetHostViewAura::UpdateCursorIfOverSelf() {
       (window_at_screen_point->GetRootWindow() != root_window)) {
     return;
   }
-#endif  // !defined(OS_CHROMEOS)
+#endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
 
   gfx::Point root_window_point = cursor_screen_point;
   aura::client::ScreenPositionClient* screen_position_client =
@@ -2224,7 +2234,7 @@ bool RenderWidgetHostViewAura::NeedsInputGrab() {
 }
 
 bool RenderWidgetHostViewAura::NeedsMouseCapture() {
-#if defined(OS_LINUX) && !defined(OS_CHROMEOS)
+#if defined(OS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS)
   return NeedsInputGrab();
 #else
   return false;
@@ -2357,9 +2367,9 @@ void RenderWidgetHostViewAura::DetachFromInputMethod(bool is_removed) {
   ui::InputMethod* input_method = GetInputMethod();
   if (input_method) {
     input_method->DetachTextInputClient(this);
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
     wm::RestoreWindowBoundsOnClientFocusLost(window_->GetToplevelWindow());
-#endif  // defined(OS_CHROMEOS)
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
   }
 
 #if defined(OS_WIN)
@@ -2388,7 +2398,7 @@ void RenderWidgetHostViewAura::ForwardKeyboardEventWithLatencyInfo(
   if (!target_host)
     return;
 
-#if defined(OS_LINUX) && !defined(OS_CHROMEOS)
+#if defined(OS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS)
   ui::TextEditKeyBindingsDelegateAuraLinux* keybinding_delegate =
       ui::GetTextEditKeyBindingsDelegate();
   std::vector<ui::TextEditCommandAuraLinux> commands;
@@ -2540,7 +2550,7 @@ void RenderWidgetHostViewAura::OnTextSelectionChanged(
   if (GetInputMethod())
     GetInputMethod()->OnCaretBoundsChanged(this);
 
-#if defined(USE_X11) || (defined(USE_OZONE) && !defined(OS_CHROMEOS))
+#if defined(USE_X11) || (defined(USE_OZONE) && !BUILDFLAG(IS_CHROMEOS_ASH))
   const TextInputManager::TextSelection* selection =
       GetTextInputManager()->GetTextSelection(focused_view);
   if (selection->selected_text().length()) {
@@ -2548,7 +2558,8 @@ void RenderWidgetHostViewAura::OnTextSelectionChanged(
     ui::ScopedClipboardWriter clipboard_writer(ui::ClipboardBuffer::kSelection);
     clipboard_writer.WriteText(selection->selected_text());
   }
-#endif  // defined(USE_X11) || (defined(USE_OZONE) && !defined(OS_CHROMEOS))
+#endif  // defined(USE_X11) || (defined(USE_OZONE) &&
+        // !BUILDFLAG(IS_CHROMEOS_ASH))
 }
 
 void RenderWidgetHostViewAura::SetPopupChild(

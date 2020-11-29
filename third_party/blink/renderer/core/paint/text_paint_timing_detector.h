@@ -18,6 +18,7 @@
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 
 namespace blink {
+class WebString;
 class LayoutBoxModelObject;
 class LocalFrameView;
 class PropertyTreeStateOrAlias;

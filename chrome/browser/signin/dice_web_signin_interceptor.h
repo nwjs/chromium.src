@@ -63,9 +63,19 @@ enum class SigninInterceptionHeuristicOutcome {
   kAbortProfileCreationDisallowed = 9,
   // The interceptor was shut down before the heuristic completed.
   kAbortShutdown = 10,
+  // The interceptor is not offered when WebContents has no browser associated.
+  kAbortNoBrowser = 11,
+  // A password update is required for the account, and this takes priority over
+  // signin interception.
+  kAbortPasswordUpdate = 12,
 
-  kMaxValue = kAbortShutdown,
+  kMaxValue = kAbortPasswordUpdate,
 };
+
+// Returns whether the heuristic outcome is a success (the signin should be
+// intercepted).
+bool SigninInterceptionHeuristicOutcomeIsSuccess(
+    SigninInterceptionHeuristicOutcome outcome);
 
 // Called after web signed in, after a successful token exchange through Dice.
 // The DiceWebSigninInterceptor may offer the user to create a new profile or
@@ -73,7 +83,7 @@ enum class SigninInterceptionHeuristicOutcome {
 //
 // Implementation notes: here is how an entire interception flow work for the
 // enterprise or multi-user case:
-// * MaybeInterceptSignin() is called when the new signin happens.
+// * MaybeInterceptWebSignin() is called when the new signin happens.
 // * Wait until the account info is downloaded.
 // * Interception UI is shown by the delegate.
 // * If the user approved, a new profile is created and the token is moved from
@@ -147,6 +157,23 @@ class DiceWebSigninInterceptor : public KeyedService,
       content::WebContents* intercepted_contents,
       bool show_customization_bubble);
 
+  // Returns the outcome of the interception heuristic.
+  // If the outcome is kInterceptProfileSwitch, the target profile is returned
+  // in |entry|.
+  // In some cases the outcome cannot be fully computed synchronously, when this
+  // happens, the signin interception is highly likely (but not guaranteed).
+  base::Optional<SigninInterceptionHeuristicOutcome> GetHeuristicOutcome(
+      bool is_new_account,
+      bool is_sync_signin,
+      const std::string& email,
+      const ProfileAttributesEntry** entry = nullptr) const;
+
+  // Returns true if the interception is in progress (running the heuristic or
+  // showing on screen).
+  bool is_interception_in_progress() const {
+    return is_interception_in_progress_;
+  }
+
   // KeyedService:
   void Shutdown() override;
 
@@ -161,12 +188,6 @@ class DiceWebSigninInterceptor : public KeyedService,
                            ShouldShowEnterpriseBubbleWithoutUPA);
   FRIEND_TEST_ALL_PREFIXES(DiceWebSigninInterceptorTest,
                            ShouldShowMultiUserBubble);
-  FRIEND_TEST_ALL_PREFIXES(DiceWebSigninInterceptorTest,
-                           InterceptionInProgress);
-  FRIEND_TEST_ALL_PREFIXES(DiceWebSigninInterceptorTest,
-                           NoInterceptionWithOneAccount);
-  FRIEND_TEST_ALL_PREFIXES(DiceWebSigninInterceptorTest,
-                           ProfileCreationDisallowed);
 
   // Cancels any current signin interception and resets the interceptor to its
   // initial state.
@@ -174,10 +195,12 @@ class DiceWebSigninInterceptor : public KeyedService,
 
   // Helper functions to determine which interception UI should be shown.
   const ProfileAttributesEntry* ShouldShowProfileSwitchBubble(
-      const CoreAccountInfo& intercepted_account_info,
-      ProfileAttributesStorage* profile_attribute_storage);
-  bool ShouldShowEnterpriseBubble(const AccountInfo& intercepted_account_info);
-  bool ShouldShowMultiUserBubble(const AccountInfo& intercepted_account_info);
+      const std::string& intercepted_email,
+      ProfileAttributesStorage* profile_attribute_storage) const;
+  bool ShouldShowEnterpriseBubble(
+      const AccountInfo& intercepted_account_info) const;
+  bool ShouldShowMultiUserBubble(
+      const AccountInfo& intercepted_account_info) const;
 
   // signin::IdentityManager::Observer:
   void OnExtendedAccountInfoUpdated(const AccountInfo& info) override;

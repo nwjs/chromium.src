@@ -7,6 +7,7 @@
 #include <string>
 #include <utility>
 
+#include "base/auto_reset.h"
 #include "base/bind.h"
 #include "base/bits.h"
 #include "base/command_line.h"
@@ -550,7 +551,7 @@ class SkiaRenderer::ScopedSkImageBuilder {
                        ResourceId resource_id,
                        SkAlphaType alpha_type = kPremul_SkAlphaType,
                        GrSurfaceOrigin origin = kTopLeft_GrSurfaceOrigin,
-                       bool use_skia_color_conversion = true);
+                       bool use_target_color_space = false);
   ~ScopedSkImageBuilder() = default;
 
   const SkImage* sk_image() const { return sk_image_; }
@@ -566,14 +567,18 @@ SkiaRenderer::ScopedSkImageBuilder::ScopedSkImageBuilder(
     ResourceId resource_id,
     SkAlphaType alpha_type,
     GrSurfaceOrigin origin,
-    bool use_skia_color_conversion) {
+    bool use_target_color_space) {
   if (!resource_id)
     return;
   auto* resource_provider = skia_renderer->resource_provider_;
   DCHECK(IsTextureResource(resource_provider, resource_id));
 
+  gfx::ColorSpace color_space;
+  if (use_target_color_space)
+    color_space = skia_renderer->CurrentRenderPassColorSpace();
+
   auto* image_context = skia_renderer->lock_set_for_external_use_->LockResource(
-      resource_id, use_skia_color_conversion);
+      resource_id, /*is_video_plane=*/false, color_space);
   // |ImageContext::image| provides thread safety: (a) this ImageContext is
   // only accessed by GPU thread after |image| is set and (b) the fields of
   // ImageContext that are accessed by both compositor and GPU thread are no
@@ -612,20 +617,20 @@ class SkiaRenderer::ScopedYUVSkImageBuilder {
     // Skia API ignores the color space information on the individual planes.
     // Dropping them here avoids some LOG spam.
     auto* y_context = skia_renderer->lock_set_for_external_use_->LockResource(
-        quad->y_plane_resource_id(), /*use_skia_color_conversion=*/false);
+        quad->y_plane_resource_id(), /*is_video_plane=*/true);
     contexts.push_back(std::move(y_context));
     auto* u_context = skia_renderer->lock_set_for_external_use_->LockResource(
-        quad->u_plane_resource_id(), /*use_skia_color_conversion=*/false);
+        quad->u_plane_resource_id(), /*is_video_plane=*/true);
     contexts.push_back(std::move(u_context));
     if (is_i420) {
       auto* v_context = skia_renderer->lock_set_for_external_use_->LockResource(
-          quad->v_plane_resource_id(), /*use_skia_color_conversion=*/false);
+          quad->v_plane_resource_id(), /*is_video_plane=*/true);
       contexts.push_back(std::move(v_context));
     }
 
     if (has_alpha) {
       auto* a_context = skia_renderer->lock_set_for_external_use_->LockResource(
-          quad->a_plane_resource_id(), /*use_skia_color_conversion=*/false);
+          quad->a_plane_resource_id(), /*is_video_plane=*/true);
       contexts.push_back(std::move(a_context));
     }
 
@@ -746,14 +751,17 @@ void SkiaRenderer::SwapBuffers(SwapFrameData swap_frame_data) {
 
   skia_output_surface_->SwapBuffers(std::move(output_frame));
   swap_buffer_rect_ = gfx::Rect();
+
+  FlushOutputSurface();
 }
 
 void SkiaRenderer::SwapBuffersSkipped() {
   skia_output_surface_->SwapBuffersSkipped();
+  FlushOutputSurface();
 }
 
 void SkiaRenderer::SwapBuffersComplete() {
-  // Right now, only macOS needs to return maliboxes of released overlays, so
+  // Right now, only macOS needs to return mailboxes of released overlays, so
   // we should not release |committed_overlay_locks_| here. The resources in it
   // will be released by DidReceiveReleasedOverlays() later.
 #if defined(OS_APPLE)
@@ -1237,8 +1245,8 @@ SkiaRenderer::DrawQuadParams SkiaRenderer::CalculateDrawQuadParams(
   if (ShouldApplyRoundedCorner(quad)) {
     // Transform by the window and projection matrix to go from target to
     // device space, which should always be a scale+translate.
-    SkRRect corner_bounds =
-        SkRRect(quad->shared_quad_state->rounded_corner_bounds);
+    SkRRect corner_bounds = SkRRect(
+        quad->shared_quad_state->mask_filter_info.rounded_corner_bounds());
     SkMatrix to_device;
     gfx::TransformToFlattenedSkMatrix(target_to_device, &to_device);
 
@@ -1808,7 +1816,7 @@ void SkiaRenderer::DrawTextureQuad(const TextureDrawQuad* quad,
       this, quad->resource_id(),
       quad->premultiplied_alpha ? kPremul_SkAlphaType : kUnpremul_SkAlphaType,
       quad->y_flipped ? kBottomLeft_GrSurfaceOrigin : kTopLeft_GrSurfaceOrigin,
-      /*use_skia_color_conversion=*/!needs_color_conversion_filter);
+      /*use_target_color_space=*/needs_color_conversion_filter);
   const SkImage* image = builder.sk_image();
   if (!image)
     return;
@@ -2498,20 +2506,34 @@ void SkiaRenderer::FinishDrawingQuadList() {
   if (!batched_quads_.empty())
     FlushBatchedQuads();
 
+  bool is_root_render_pass =
+      current_frame()->current_render_pass == current_frame()->root_render_pass;
+
+  // Drawing the delegated ink trail must happen after the final
+  // FlushBatchedQuads() call so that the trail can always be on top of
+  // everything else that has already been drawn on the page. For the same
+  // reason, it should only happen on the root render pass.
+  if (is_root_render_pass && delegated_ink_point_renderer_)
+    DrawDelegatedInkTrail();
+
   base::OnceClosure on_finished_callback;
   // Signal |current_frame_resource_fence_| when the root render pass is
   // finished.
   if (current_frame_resource_fence_ &&
-      current_frame_resource_fence_->WasSet() &&
-      current_frame()->current_render_pass ==
-          current_frame()->root_render_pass) {
+      current_frame_resource_fence_->WasSet() && is_root_render_pass) {
     on_finished_callback = base::BindOnce(
         &FrameResourceFence::Signal, std::move(current_frame_resource_fence_));
   }
-  gpu::SyncToken sync_token =
-      skia_output_surface_->SubmitPaint(std::move(on_finished_callback));
+  skia_output_surface_->EndPaint(std::move(on_finished_callback));
 
-  lock_set_for_external_use_->UnlockResources(sync_token);
+  // Defer flushing drawing task for root render pass, to avoid extra
+  // MakeCurrent() call. It is expensive on GL.
+  // TODO(https://crbug.com/1141008): Consider deferring drawing tasks for
+  // all render passes.
+  if (is_root_render_pass)
+    return;
+
+  FlushOutputSurface();
 }
 
 void SkiaRenderer::GenerateMipmap() {
@@ -2575,20 +2597,37 @@ void SkiaRenderer::AllocateRenderPassResourceIfNeeded(
                          color_space, format}));
 }
 
+void SkiaRenderer::FlushOutputSurface() {
+  auto sync_token = skia_output_surface_->Flush();
+  lock_set_for_external_use_->UnlockResources(sync_token);
+}
+
 #if defined(OS_APPLE)
 void SkiaRenderer::PrepareRenderPassOverlay(CALayerOverlay* overlay) {
   DCHECK(!current_canvas_);
   DCHECK(batched_quads_.empty());
   DCHECK(overlay->rpdq);
 
+  // The |current_render_pass| could be used for caculating destination
+  // color space or clipping rect for backdrop filters. However
+  // the |current_render_pass| is nullptr during ScheduleOverlays(), since all
+  // overlay quads should be in the |root_render_pass|, before they are promoted
+  // to overlays, so set the |root_render_pass| to the |current_render_pass|.
+  DCHECK(!current_frame()->current_render_pass);
+  base::AutoReset<const AggregatedRenderPass*> auto_reset(
+      &current_frame()->current_render_pass, current_frame()->root_render_pass);
+
   auto* const quad = overlay->rpdq;
   overlay->rpdq = nullptr;
   gfx::Transform target_to_device =
       current_frame()->window_matrix * current_frame()->projection_matrix;
-  const gfx::Rect* scissor = is_scissor_enabled_ ? &scissor_rect_ : nullptr;
-
+  // Use nullptr scissor, so we can always render the whole render pass in an
+  // overlay backing.
+  // TODO(penghuang): reusing overlay backing from previous frame to avoid
+  // reproducing the overlay backing if the render pass content quad properties
+  // and content are not changed.
   DrawQuadParams params = CalculateDrawQuadParams(
-      target_to_device, scissor, quad, /*draw_region=*/nullptr);
+      target_to_device, /*scissor=*/nullptr, quad, /*draw_region=*/nullptr);
   DrawRPDQParams rpdq_params = CalculateRPDQParams(quad, &params);
 
   // |filter_bounds| is the content space bounds that includes any filtered
@@ -2726,6 +2765,17 @@ bool SkiaRenderer::CreateDelegatedInkPointRenderer() {
   delegated_ink_point_renderer_ =
       std::make_unique<DelegatedInkPointRendererSkia>();
   return true;
+}
+
+void SkiaRenderer::DrawDelegatedInkTrail() {
+  delegated_ink_point_renderer_->DrawDelegatedInkTrail(current_canvas_);
+}
+
+DelegatedInkPointRendererBase* SkiaRenderer::GetDelegatedInkPointRenderer() {
+  if (!delegated_ink_point_renderer_ && !CreateDelegatedInkPointRenderer())
+    return nullptr;
+
+  return delegated_ink_point_renderer_.get();
 }
 
 #if defined(OS_APPLE)

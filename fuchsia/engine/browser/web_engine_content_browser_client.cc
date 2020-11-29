@@ -8,6 +8,7 @@
 #include <string>
 #include <utility>
 
+#include "base/command_line.h"
 #include "base/stl_util.h"
 #include "base/strings/string_split.h"
 #include "components/version_info/version_info.h"
@@ -16,6 +17,7 @@
 #include "content/public/common/content_switches.h"
 #include "content/public/common/user_agent.h"
 #include "fuchsia/base/fuchsia_dir_scheme.h"
+#include "fuchsia/engine/browser/frame_impl.h"
 #include "fuchsia/engine/browser/url_request_rewrite_rules_manager.h"
 #include "fuchsia/engine/browser/web_engine_browser_context.h"
 #include "fuchsia/engine/browser/web_engine_browser_interface_binders.h"
@@ -25,8 +27,9 @@
 #include "fuchsia/engine/common/web_engine_url_loader_throttle.h"
 #include "fuchsia/engine/switches.h"
 #include "media/base/media_switches.h"
+#include "services/metrics/public/cpp/ukm_source_id.h"
 #include "services/network/public/mojom/network_service.mojom.h"
-#include "third_party/blink/public/common/web_preferences/web_preferences.h"
+#include "third_party/blink/public/mojom/webpreferences/web_preferences.mojom.h"
 
 namespace {
 
@@ -97,13 +100,22 @@ std::string WebEngineContentBrowserClient::GetProduct() {
 }
 
 std::string WebEngineContentBrowserClient::GetUserAgent() {
-  std::string user_agent = content::BuildUserAgentFromProduct(GetProduct());
+  std::string user_agent;
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kUseLegacyAndroidUserAgent)) {
+    user_agent =
+        content::BuildUserAgentFromOSAndProduct("Linux; Android", GetProduct());
+  } else {
+    user_agent = content::BuildUserAgentFromProduct(GetProduct());
+  }
+
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kUserAgentProductAndVersion)) {
     user_agent +=
         " " + base::CommandLine::ForCurrentProcess()->GetSwitchValueNative(
                   switches::kUserAgentProductAndVersion);
   }
+
   return user_agent;
 }
 
@@ -119,7 +131,7 @@ void WebEngineContentBrowserClient::OverrideWebkitPrefs(
   // Allow media to autoplay.
   // TODO(crbug.com/1067101): Provide a FIDL API to configure AutoplayPolicy.
   web_prefs->autoplay_policy =
-      blink::web_pref::AutoplayPolicy::kNoUserGestureRequired;
+      blink::mojom::AutoplayPolicy::kNoUserGestureRequired;
 }
 
 void WebEngineContentBrowserClient::RegisterBrowserInterfaceBindersForFrame(
@@ -131,8 +143,7 @@ void WebEngineContentBrowserClient::RegisterBrowserInterfaceBindersForFrame(
 void WebEngineContentBrowserClient::
     RegisterNonNetworkNavigationURLLoaderFactories(
         int frame_tree_node_id,
-        base::UkmSourceId ukm_source_id,
-        NonNetworkURLLoaderFactoryDeprecatedMap* uniquely_owned_factories,
+        ukm::SourceIdObj ukm_source_id,
         NonNetworkURLLoaderFactoryMap* factories) {
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kContentDirectories)) {
@@ -145,7 +156,6 @@ void WebEngineContentBrowserClient::
     RegisterNonNetworkSubresourceURLLoaderFactories(
         int render_process_id,
         int render_frame_id,
-        NonNetworkURLLoaderFactoryDeprecatedMap* uniquely_owned_factories,
         NonNetworkURLLoaderFactoryMap* factories) {
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kContentDirectories)) {
@@ -195,16 +205,10 @@ WebEngineContentBrowserClient::CreateURLLoaderThrottles(
     return {};
   }
 
-  UrlRequestRewriteRulesManager* adapter =
-      UrlRequestRewriteRulesManager::ForFrameTreeNodeId(frame_tree_node_id);
-  if (!adapter) {
-    // No popup support for rules rewriter.
-    return {};
-  }
-
   std::vector<std::unique_ptr<blink::URLLoaderThrottle>> throttles;
   throttles.emplace_back(std::make_unique<WebEngineURLLoaderThrottle>(
-      UrlRequestRewriteRulesManager::ForFrameTreeNodeId(frame_tree_node_id)));
+      FrameImpl::FromWebContents(wc_getter.Run())
+          ->url_request_rewrite_rules_manager()));
   return throttles;
 }
 

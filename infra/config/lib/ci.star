@@ -15,7 +15,6 @@ to set the default value. Can also be accessed through `ci.defaults`.
 
 load("@stdlib//internal/graph.star", "graph")
 load("@stdlib//internal/luci/common.star", "keys")
-load("//project.star", "settings")
 load("./args.star", "args")
 load("./branches.star", "branches")
 load("./builders.star", "builders")
@@ -30,93 +29,6 @@ defaults = args.defaults(
     repo = None,
     refs = None,
 )
-
-def declare_bucket(milestone_vars, *, branch_selector = branches.MAIN_ONLY):
-    if not branches.matches(branch_selector):
-        return
-
-    luci.bucket(
-        name = milestone_vars.ci_bucket,
-        acls = [
-            acl.entry(
-                roles = acl.BUILDBUCKET_READER,
-                groups = "all",
-            ),
-            acl.entry(
-                roles = acl.BUILDBUCKET_TRIGGERER,
-                groups = "project-chromium-ci-schedulers",
-            ),
-            acl.entry(
-                roles = acl.BUILDBUCKET_OWNER,
-                groups = "google/luci-task-force@google.com",
-            ),
-        ],
-    )
-
-    luci.gitiles_poller(
-        name = milestone_vars.ci_poller,
-        bucket = milestone_vars.ci_bucket,
-        repo = "https://chromium.googlesource.com/chromium/src",
-        refs = [milestone_vars.ref],
-    )
-
-    # TODO(gbeaty) Determine what should be in each main console and define it
-    # separately
-    for name, title in (
-        (milestone_vars.main_console_name, milestone_vars.main_console_title),
-        (milestone_vars.cq_mirrors_console_name, milestone_vars.cq_mirrors_console_title),
-    ):
-        ci.overview_console_view(
-            name = name,
-            branch_selector = branch_selector,
-            header = "//chromium-header.textpb",
-            repo = "https://chromium.googlesource.com/chromium/src",
-            refs = [milestone_vars.ref],
-            title = title,
-            top_level_ordering = [
-                "chromium",
-                "chromium.win",
-                "chromium.mac",
-                "chromium.linux",
-                "chromium.chromiumos",
-                "chromium.android",
-                "chrome",
-                "chromium.memory",
-                "chromium.dawn",
-                "chromium.gpu",
-                "chromium.fyi",
-                "chromium.android.fyi",
-                "chromium.clang",
-                "chromium.fuzz",
-                "chromium.gpu.fyi",
-                "chromium.swangle",
-            ],
-        )
-
-def set_defaults(milestone_vars, **kwargs):
-    default_values = dict(
-        add_to_console_view = milestone_vars.is_master,
-        bucket = milestone_vars.ci_bucket,
-        build_numbers = True,
-        configure_kitchen = True,
-        cores = 8,
-        cpu = builders.cpu.X86_64,
-        executable = "recipe:chromium",
-        execution_timeout = 3 * time.hour,
-        header = "//chromium-header.textpb",
-        os = builders.os.LINUX_DEFAULT,
-        pool = "luci.chromium.ci",
-        project_trigger_overrides = {"chromium": settings.project} if not settings.is_master else None,
-        repo = "https://chromium.googlesource.com/chromium/src",
-        refs = [milestone_vars.ref],
-        service_account = "chromium-ci-builder@chops-service-accounts.iam.gserviceaccount.com",
-        swarming_tags = ["vpython:native-python-wrapper"],
-        triggered_by = [milestone_vars.ci_poller],
-        # TODO(crbug.com/1129723): set default goma_backend here.
-    )
-    default_values.update(kwargs)
-    for k, v in default_values.items():
-        getattr(defaults, k).set(v)
 
 def _console_view_ordering_graph_key(console_name):
     return graph.key("@chromium", "", "console_view_ordering", console_name)
@@ -318,7 +230,7 @@ def ordering(*, short_names = None, categories = None):
         categories = categories or [],
     )
 
-def console_view(*, name, branch_selector = branches.MAIN_ONLY, ordering = None, **kwargs):
+def console_view(*, name, branch_selector = branches.MAIN, ordering = None, **kwargs):
     """Create a console view, optionally providing an entry ordering.
 
     Args:
@@ -365,7 +277,7 @@ def console_view(*, name, branch_selector = branches.MAIN_ONLY, ordering = None,
         ordering = ordering or {},
     )
 
-def overview_console_view(*, name, top_level_ordering, branch_selector = branches.MAIN_ONLY, **kwargs):
+def overview_console_view(*, name, top_level_ordering, branch_selector = branches.MAIN, **kwargs):
     """Create an overview console view.
 
     An overview console view is a console view that contains a subset of
@@ -418,7 +330,7 @@ def console_view_entry(*, category = None, short_name = None):
 def ci_builder(
         *,
         name,
-        branch_selector = branches.MAIN_ONLY,
+        branch_selector = branches.MAIN,
         add_to_console_view = args.DEFAULT,
         console_view = args.DEFAULT,
         main_console_view = args.DEFAULT,
@@ -426,6 +338,8 @@ def ci_builder(
         console_view_entry = None,
         tree_closing = False,
         notifies = None,
+        resultdb_bigquery_exports = None,
+        experiments = None,
         **kwargs):
     """Define a CI builder.
 
@@ -459,6 +373,14 @@ def ci_builder(
         criteria will close the tree and email the sheriff. See the
         'chromium-tree-closer' config in notifiers.star for the full criteria.
       notifies - Any extra notifiers to attach to this builder.
+      resultdb_bigquery_exports - a list of resultdb.export_test_results(...)
+        specifying additional parameters for exporting test results to BigQuery.
+        Will always upload to the following tables in addition to any tables
+        specified by the list's elements:
+          luci-resultdb.chromium.ci_test_results
+          luci-resultdb.chromium.gpu_ci_test_results
+      experiments - a dict of experiment name to the percentage chance (0-100)
+        that it will apply to builds generated from this builder.
     """
     if not branches.matches(branch_selector):
         return
@@ -469,15 +391,33 @@ def ci_builder(
     if tree_closing and bucket == "ci":
         notifies = (notifies or []) + ["chromium-tree-closer", "chromium-tree-closer-email"]
 
+    merged_resultdb_bigquery_exports = [
+        resultdb.export_test_results(
+            bq_table = "luci-resultdb.chromium.ci_test_results",
+        ),
+        resultdb.export_test_results(
+            bq_table = "luci-resultdb.chromium.gpu_ci_test_results",
+            predicate = resultdb.test_result_predicate(
+                # Only match the telemetry_gpu_integration_test and
+                # fuchsia_telemetry_gpu_integration_test targets.
+                test_id_regexp = "ninja://(chrome/test:|content/test:fuchsia_)telemetry_gpu_integration_test/.+",
+            ),
+        ),
+    ]
+    merged_resultdb_bigquery_exports.extend(resultdb_bigquery_exports or [])
+
+    # Enable "chromium.resultdb.result_sink" on ci builders at 50%.
+    experiments = experiments or {}
+    experiments.setdefault("chromium.resultdb.result_sink", 50)
+
     # Define the builder first so that any validation of luci.builder arguments
     # (e.g. bucket) occurs before we try to use it
     builders.builder(
         name = name,
         branch_selector = branch_selector,
-        resultdb_bigquery_exports = [resultdb.export_test_results(
-            bq_table = "luci-resultdb.chromium.ci_test_results",
-        )],
+        resultdb_bigquery_exports = merged_resultdb_bigquery_exports,
         notifies = notifies,
+        experiments = experiments,
         **kwargs
     )
 
@@ -590,10 +530,13 @@ def clang_mac_builder(*, name, cores = 24, **kwargs):
     return clang_builder(
         name = name,
         cores = cores,
-        os = builders.os.MAC_10_14,
+        os = builders.os.MAC_10_15,
         ssd = True,
         properties = {
-            "xcode_build_version": "11a1027",
+            # The Chromium build doesn't need system Xcode, but the ToT clang
+            # bots also build clang and llvm and that build does need system
+            # Xcode.
+            "xcode_build_version": "12a7209",
         },
         **kwargs
     )
@@ -682,6 +625,11 @@ def fyi_builder(
         builder_group = "chromium.fyi",
         execution_timeout = execution_timeout,
         goma_backend = goma_backend,
+        # TODO(crbug.com/1108016): Move this kwarg to ci.builder(), after
+        # ResultSink and result_adapter is confirmed to work.
+        experiments = {
+            "chromium.resultdb.result_sink": 100,
+        },
         **kwargs
     )
 
@@ -1024,7 +972,7 @@ def swangle_windows_builder(*, name, **kwargs):
     return swangle_builder(
         name = name,
         goma_backend = builders.goma.backend.RBE_PROD,
-        os = builders.os.WINDOWS_DEFAULT,
+        os = builders.os.WINDOWS_ANY,
         pool = "luci.chromium.gpu.ci",
         **kwargs
     )
@@ -1045,6 +993,17 @@ def thin_tester(
         **kwargs
     )
 
+def updater_builder(
+        *,
+        name,
+        **kwargs):
+    return ci.builder(
+        name = name,
+        builder_group = "chromium.updater",
+        goma_backend = builders.goma.backend.RBE_PROD,
+        **kwargs
+    )
+
 def win_builder(
         *,
         name,
@@ -1061,14 +1020,19 @@ def win_builder(
     )
 
 ci = struct(
-    builder = ci_builder,
-    console_view = console_view,
-    console_view_entry = console_view_entry,
-    declare_bucket = declare_bucket,
+    # Module-level defaults for ci functions
     defaults = defaults,
+
+    # Functions for declaring automatically maintained consoles
+    console_view = console_view,
     overview_console_view = overview_console_view,
     ordering = ordering,
-    set_defaults = set_defaults,
+
+    # Functions for declaring CI builders
+    builder = ci_builder,
+    console_view_entry = console_view_entry,
+
+    # More specific builder wrapper functions
     android_builder = android_builder,
     android_fyi_builder = android_fyi_builder,
     chromium_builder = chromium_builder,
@@ -1104,5 +1068,6 @@ ci = struct(
     swangle_mac_builder = swangle_mac_builder,
     swangle_windows_builder = swangle_windows_builder,
     thin_tester = thin_tester,
+    updater_builder = updater_builder,
     win_builder = win_builder,
 )

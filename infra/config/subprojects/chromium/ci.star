@@ -5,23 +5,92 @@
 load("//lib/branches.star", "branches")
 load("//lib/builders.star", "builder_name", "cpu", "goma", "os", "xcode_cache")
 load("//lib/ci.star", "ci")
+load("//console-header.star", "HEADER")
 load("//project.star", "settings")
 
 def main_console_if_on_branch():
-    return None if settings.is_master else settings.main_console_name
+    return branches.value(for_branches = "main")
 
-ci.set_defaults(
-    settings,
+ci.defaults.set(
     add_to_console_view = True,
+    bucket = "ci",
+    build_numbers = True,
+    configure_kitchen = True,
+    cores = 8,
+    cpu = cpu.X86_64,
+    executable = "recipe:chromium",
+    execution_timeout = 3 * time.hour,
+    header = HEADER,
+    os = os.LINUX_DEFAULT,
+    pool = "luci.chromium.ci",
+    project_trigger_overrides = branches.value(for_branches = {"chromium": settings.project}),
+    repo = "https://chromium.googlesource.com/chromium/src",
+    refs = [settings.ref],
+    service_account = "chromium-ci-builder@chops-service-accounts.iam.gserviceaccount.com",
+    swarming_tags = ["vpython:native-python-wrapper"],
+    triggered_by = ["chromium-gitiles-trigger"],
+    # TODO(crbug.com/1129723): set default goma_backend here.
 )
 
-ci.declare_bucket(settings, branch_selector = branches.ALL_RELEASES)
+luci.bucket(
+    name = "ci",
+    acls = [
+        acl.entry(
+            roles = acl.BUILDBUCKET_READER,
+            groups = "all",
+        ),
+        acl.entry(
+            roles = acl.BUILDBUCKET_TRIGGERER,
+            groups = "project-chromium-ci-schedulers",
+        ),
+        acl.entry(
+            roles = acl.BUILDBUCKET_OWNER,
+            groups = "google/luci-task-force@google.com",
+        ),
+    ],
+)
+
+luci.gitiles_poller(
+    name = "chromium-gitiles-trigger",
+    bucket = "ci",
+    repo = "https://chromium.googlesource.com/chromium/src",
+    refs = [settings.ref],
+)
 
 # Automatically maintained consoles
 
+[ci.overview_console_view(
+    name = name,
+    repo = "https://chromium.googlesource.com/chromium/src",
+    refs = [settings.ref],
+    title = title,
+    top_level_ordering = [
+        "chromium",
+        "chromium.win",
+        "chromium.mac",
+        "chromium.linux",
+        "chromium.chromiumos",
+        "chromium.android",
+        "chrome",
+        "chromium.memory",
+        "chromium.dawn",
+        "chromium.gpu",
+        "chromium.fyi",
+        "chromium.android.fyi",
+        "chromium.clang",
+        "chromium.fuzz",
+        "chromium.gpu.fyi",
+        "chromium.swangle",
+        "chromium.updater",
+    ],
+) for name, title in (
+    ("main", settings.main_console_title),
+    ("mirrors", settings.cq_mirrors_console_title),
+)]
+
 ci.console_view(
     name = "chromium",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     include_experimental_builds = True,
     ordering = {
         "*type*": ci.ordering(short_names = ["dbg", "rel", "off"]),
@@ -35,7 +104,7 @@ ci.console_view(
 
 ci.console_view(
     name = "chromium.android",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     ordering = {
         None: ["cronet", "builder", "tester"],
         "*cpu*": ["arm", "arm64", "x86"],
@@ -56,7 +125,7 @@ ci.console_view(
 
 ci.console_view(
     name = "chromium.chromiumos",
-    branch_selector = branches.ALL_RELEASES,
+    branch_selector = branches.ALL_BRANCHES,
     ordering = {
         None: ["default"],
         "default": ci.ordering(short_names = ["ful", "rel"]),
@@ -92,7 +161,7 @@ ci.console_view(
 
 ci.console_view(
     name = "chromium.dawn",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     ordering = {
         None: ["ToT"],
         "*builder*": ["Builder"],
@@ -110,10 +179,9 @@ ci.console_view(
 
 ci.console_view(
     name = "chromium.fyi",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     ordering = {
         None: [
-            "closure_compilation",
             "code_coverage",
             "cronet",
             "mac",
@@ -129,9 +197,10 @@ ci.console_view(
             "viz",
             "win10",
             "win32",
+            "paeverywhere",
         ],
         "code_coverage": ci.ordering(
-            short_names = ["and", "ann", "lnx", "lcr", "mac"],
+            short_names = ["and", "ann", "lnx", "lcr", "jcr", "mac"],
         ),
         "mac": ci.ordering(short_names = ["bld", "15", "herm"]),
         "deterministic|mac": ci.ordering(short_names = ["rel", "dbg"]),
@@ -174,7 +243,7 @@ ci.console_view(
 
 ci.console_view(
     name = "chromium.gpu",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     ordering = {
         None: ["Windows", "Mac", "Linux"],
     },
@@ -213,7 +282,7 @@ ci.console_view(
 
 ci.console_view(
     name = "chromium.linux",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     ordering = {
         None: ["release", "debug"],
         "release": ci.ordering(short_names = ["bld", "tst", "nsl", "gcc"]),
@@ -223,7 +292,7 @@ ci.console_view(
 
 ci.console_view(
     name = "chromium.mac",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     ordering = {
         None: ["release"],
         "release": ci.ordering(short_names = ["bld"]),
@@ -234,7 +303,7 @@ ci.console_view(
 
 ci.console_view(
     name = "chromium.memory",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     ordering = {
         None: ["win", "mac", "linux", "cros"],
         "*build-or-test*": ci.ordering(short_names = ["bld", "tst"]),
@@ -268,8 +337,12 @@ ci.console_view(
 )
 
 ci.console_view(
+    name = "chromium.updater",
+)
+
+ci.console_view(
     name = "chromium.win",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     ordering = {
         None: ["release", "debug"],
         "debug|builder": ci.ordering(short_names = ["64", "32"]),
@@ -300,6 +373,7 @@ ci.console_view(
     category = "chrome",
     short_name = short_name,
 ) for name, short_name in (
+    ("lacros-chrome", "lcr"),
     ("linux-chromeos-chrome", "cro"),
     ("linux-chrome", "lnx"),
     ("mac-chrome", "mac"),
@@ -311,6 +385,14 @@ ci.console_view(
 # them, then lexicographically by their name
 
 ci.builder(
+    name = "android-androidx-packager",
+    executable = "recipe:android/androidx_packager",
+    schedule = "0 7,14,22 * * * *",
+    service_account = "chromium-cipd-builder@chops-service-accounts.iam.gserviceaccount.com",
+    triggered_by = [],
+)
+
+ci.builder(
     name = "android-avd-packager",
     executable = "recipe:android/avd_packager",
     properties = {
@@ -318,7 +400,9 @@ ci.builder(
             "tools/android/avd/proto/creation/generic_android23.textpb",
             "tools/android/avd/proto/creation/generic_android28.textpb",
             "tools/android/avd/proto/creation/generic_android29.textpb",
+            "tools/android/avd/proto/creation/generic_android30.textpb",
             "tools/android/avd/proto/creation/generic_playstore_android28.textpb",
+            "tools/android/avd/proto/creation/generic_playstore_android30.textpb",
         ],
     },
     schedule = "0 7 * * 0 *",
@@ -428,60 +512,60 @@ ci.android_builder(
 
 ci.android_builder(
     name = "Android WebView M (dbg)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "tester|webview",
         short_name = "M",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
     triggered_by = [builder_name("Android arm64 Builder (dbg)")],
 )
 
 ci.android_builder(
     name = "Android WebView N (dbg)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "tester|webview",
         short_name = "N",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
     triggered_by = [builder_name("Android arm64 Builder (dbg)")],
 )
 
 ci.android_builder(
     name = "Android WebView O (dbg)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "tester|webview",
         short_name = "O",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
     triggered_by = [builder_name("Android arm64 Builder (dbg)")],
 )
 
 ci.android_builder(
     name = "Android WebView P (dbg)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "tester|webview",
         short_name = "P",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
     triggered_by = [builder_name("Android arm64 Builder (dbg)")],
 )
 
 ci.android_builder(
     name = "Android arm Builder (dbg)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "builder|arm",
         short_name = "32",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     execution_timeout = 4 * time.hour,
     main_console_view = main_console_if_on_branch(),
     tree_closing = True,
@@ -489,12 +573,12 @@ ci.android_builder(
 
 ci.android_builder(
     name = "Android arm64 Builder (dbg)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "builder|arm",
         short_name = "64",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     goma_jobs = goma.jobs.MANY_JOBS_FOR_CI,
     execution_timeout = 5 * time.hour,
     main_console_view = main_console_if_on_branch(),
@@ -503,36 +587,36 @@ ci.android_builder(
 
 ci.android_builder(
     name = "Android x64 Builder (dbg)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "builder|x86",
         short_name = "64",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     execution_timeout = 5 * time.hour,
     main_console_view = main_console_if_on_branch(),
 )
 
 ci.android_builder(
     name = "Android x86 Builder (dbg)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "builder|x86",
         short_name = "32",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     execution_timeout = 4 * time.hour,
     main_console_view = main_console_if_on_branch(),
 )
 
 ci.android_builder(
     name = "Cast Android (dbg)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "on_cq",
         short_name = "cst",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
     tree_closing = True,
 )
@@ -587,12 +671,12 @@ ci.android_builder(
 
 ci.android_builder(
     name = "Marshmallow 64 bit Tester",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "tester|phone",
         short_name = "M",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
     triggered_by = [builder_name("Android arm64 Builder (dbg)")],
 )
@@ -611,24 +695,24 @@ ci.android_builder(
 
 ci.android_builder(
     name = "Nougat Phone Tester",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "tester|phone",
         short_name = "N",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
     triggered_by = [builder_name("Android arm64 Builder (dbg)")],
 )
 
 ci.android_builder(
     name = "Oreo Phone Tester",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "tester|phone",
         short_name = "O",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
     triggered_by = [builder_name("Android arm64 Builder (dbg)")],
 )
@@ -670,24 +754,24 @@ ci.android_builder(
 
 ci.android_builder(
     name = "android-cronet-arm-dbg",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "cronet|arm",
         short_name = "dbg",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
     notifies = ["cronet"],
 )
 
 ci.android_builder(
     name = "android-cronet-arm-rel",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "cronet|arm",
         short_name = "rel",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
     notifies = ["cronet"],
 )
@@ -720,12 +804,12 @@ ci.android_builder(
 
 ci.android_builder(
     name = "android-cronet-arm-rel-kitkat-tests",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "cronet|test",
         short_name = "k",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
     notifies = ["cronet"],
     triggered_by = [builder_name("android-cronet-arm-rel")],
@@ -733,12 +817,12 @@ ci.android_builder(
 
 ci.android_builder(
     name = "android-cronet-arm-rel-lollipop-tests",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "cronet|test",
         short_name = "l",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
     notifies = ["cronet"],
     triggered_by = [builder_name("android-cronet-arm-rel")],
@@ -795,36 +879,36 @@ ci.android_builder(
 
 ci.android_builder(
     name = "android-lollipop-arm-rel",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "on_cq",
         short_name = "L",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
     tree_closing = True,
 )
 
 ci.android_builder(
     name = "android-marshmallow-arm64-rel",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "on_cq",
         short_name = "M",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
     tree_closing = True,
 )
 
 ci.android_builder(
     name = "android-marshmallow-x86-rel",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "builder_tester|x86",
         short_name = "M",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
 )
 
@@ -838,35 +922,35 @@ ci.android_builder(
 
 ci.android_builder(
     name = "android-nougat-arm64-rel",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "builder_tester|arm64",
         short_name = "N",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
 )
 
 ci.android_builder(
     name = "android-pie-arm64-dbg",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "tester|phone",
         short_name = "P",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
     triggered_by = [builder_name("Android arm64 Builder (dbg)")],
 )
 
 ci.android_builder(
     name = "android-pie-arm64-rel",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "on_cq",
         short_name = "P",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
     tree_closing = True,
 )
@@ -888,10 +972,48 @@ ci.android_builder(
 )
 
 ci.android_fyi_builder(
-    name = "android-weblayer-pie-x86-fyi-rel",
+    name = "android-inverse-fieldtrials-pie-x86-fyi-rel",
     console_view_entry = ci.console_view_entry(
-        category = "weblayer",
-        short_name = "p-x86-rel",
+        category = "builder_tester|x86",
+        short_name = "P-IFT",
+    ),
+)
+
+ci.android_fyi_builder(
+    name = "android-weblayer-10-x86-rel-tests",
+    console_view_entry = ci.console_view_entry(
+        category = "tester|weblayer",
+        short_name = "10",
+    ),
+    triggered_by = ["android-weblayer-x86-fyi-rel"],
+    notifies = ["weblayer-sheriff"],
+)
+
+ci.android_fyi_builder(
+    name = "android-weblayer-marshmallow-x86-rel-tests",
+    console_view_entry = ci.console_view_entry(
+        category = "tester|weblayer",
+        short_name = "M",
+    ),
+    triggered_by = ["android-weblayer-x86-fyi-rel"],
+    notifies = ["weblayer-sheriff"],
+)
+
+ci.android_fyi_builder(
+    name = "android-weblayer-pie-x86-rel-tests",
+    console_view_entry = ci.console_view_entry(
+        category = "tester|weblayer",
+        short_name = "P",
+    ),
+    triggered_by = ["android-weblayer-x86-fyi-rel"],
+    notifies = ["weblayer-sheriff"],
+)
+
+ci.android_fyi_builder(
+    name = "android-weblayer-x86-fyi-rel",
+    console_view_entry = ci.console_view_entry(
+        category = "builder|weblayer",
+        short_name = "x86",
     ),
 )
 
@@ -912,6 +1034,14 @@ ci.android_fyi_builder(
     ),
     goma_jobs = goma.jobs.J150,
     schedule = "triggered",  # triggered manually via Scheduler UI
+)
+
+ci.android_fyi_builder(
+    name = "android-11-x86-fyi-rel",
+    console_view_entry = ci.console_view_entry(
+        category = "emulator|11|x86",
+        short_name = "rel",
+    ),
 )
 
 ci.chromium_builder(
@@ -937,8 +1067,8 @@ ci.chromium_builder(
 
 ci.chromium_builder(
     name = "android-official",
-    branch_selector = branches.STANDARD_RELEASES,
-    main_console_view = settings.main_console_name,
+    branch_selector = branches.STANDARD_MILESTONE,
+    main_console_view = "main",
     console_view_entry = ci.console_view_entry(
         category = "android",
         short_name = "off",
@@ -949,8 +1079,8 @@ ci.chromium_builder(
 
 ci.chromium_builder(
     name = "fuchsia-official",
-    branch_selector = branches.STANDARD_RELEASES,
-    main_console_view = settings.main_console_name,
+    branch_selector = branches.STANDARD_MILESTONE,
+    main_console_view = "main",
     console_view_entry = ci.console_view_entry(
         category = "fuchsia",
         short_name = "off",
@@ -986,10 +1116,10 @@ ci.chromium_builder(
 
 ci.chromium_builder(
     name = "linux-official",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     builderless = False,
     # TODO(https://crbug.com/1072012) Use the default console view and add
-    # main_console_view = settings.main_console_name once the build is green
+    # main_console_view = 'main' once the build is green
     console_view = "chromium.fyi",
     console_view_entry = ci.console_view_entry(
         category = "linux",
@@ -1029,7 +1159,7 @@ ci.chromium_builder(
     name = "mac-official",
     builderless = False,
     # TODO(https://crbug.com/1072012) Use the default console view and add
-    # main_console_view = settings.main_console_name once the build is green
+    # main_console_view = 'main' once the build is green
     console_view = "chromium.fyi",
     console_view_entry = ci.console_view_entry(
         category = "mac",
@@ -1069,8 +1199,8 @@ ci.chromium_builder(
 
 ci.chromium_builder(
     name = "win-official",
-    branch_selector = branches.STANDARD_RELEASES,
-    main_console_view = settings.main_console_name,
+    branch_selector = branches.STANDARD_MILESTONE,
+    main_console_view = "main",
     console_view_entry = ci.console_view_entry(
         category = "win|off",
         short_name = "64",
@@ -1106,8 +1236,8 @@ ci.chromium_builder(
 
 ci.chromium_builder(
     name = "win32-official",
-    branch_selector = branches.STANDARD_RELEASES,
-    main_console_view = settings.main_console_name,
+    branch_selector = branches.STANDARD_MILESTONE,
+    main_console_view = "main",
     console_view_entry = ci.console_view_entry(
         category = "win|off",
         short_name = "32",
@@ -1147,35 +1277,35 @@ ci.chromiumos_builder(
 
 ci.chromiumos_builder(
     name = "chromeos-amd64-generic-dbg",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "simple|debug|x64",
         short_name = "dbg",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
 )
 
 ci.chromiumos_builder(
     name = "chromeos-amd64-generic-lacros-dbg",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "lacros|x64",
         short_name = "dbg",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
 )
 
 ci.chromiumos_builder(
     name = "chromeos-amd64-generic-rel",
-    branch_selector = branches.ALL_RELEASES,
+    branch_selector = branches.ALL_BRANCHES,
     console_view_entry = ci.console_view_entry(
         category = "simple|release|x64",
         short_name = "rel",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
 )
 
 ci.chromiumos_builder(
@@ -1189,18 +1319,18 @@ ci.chromiumos_builder(
 
 ci.chromiumos_builder(
     name = "chromeos-arm-generic-rel",
-    branch_selector = branches.ALL_RELEASES,
+    branch_selector = branches.ALL_BRANCHES,
     console_view_entry = ci.console_view_entry(
         category = "simple|release",
         short_name = "arm",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
 )
 
 ci.chromiumos_builder(
     name = "chromeos-kevin-rel",
-    branch_selector = branches.ALL_RELEASES,
+    branch_selector = branches.ALL_BRANCHES,
     console_view_entry = ci.console_view_entry(
         category = "simple|release",
         short_name = "kvn",
@@ -1210,46 +1340,46 @@ ci.chromiumos_builder(
 
 ci.chromiumos_builder(
     name = "linux-chromeos-dbg",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "default",
         short_name = "dbg",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
 )
 
 ci.chromiumos_builder(
     name = "linux-chromeos-rel",
-    branch_selector = branches.ALL_RELEASES,
+    branch_selector = branches.ALL_BRANCHES,
     console_view_entry = ci.console_view_entry(
         category = "default",
         short_name = "rel",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
 )
 
 ci.chromiumos_builder(
     name = "linux-lacros-builder-rel",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "default",
         short_name = "lcr",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
 )
 
 ci.chromiumos_builder(
     name = "linux-lacros-tester-rel",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "default",
         short_name = "lcr",
     ),
-    main_console_view = settings.main_console_name,
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    main_console_view = "main",
+    cq_mirrors_console_view = "mirrors",
     triggered_by = ["linux-lacros-builder-rel"],
     tree_closing = False,
 )
@@ -1482,6 +1612,16 @@ ci.clang_builder(
 )
 
 ci.clang_builder(
+    name = "ToTWindowsCoverage",
+    console_view_entry = ci.console_view_entry(
+        category = "ToT Code Coverage",
+        short_name = "win",
+    ),
+    executable = "recipe:chromium_clang_coverage_tot",
+    os = os.WINDOWS_ANY,
+)
+
+ci.clang_builder(
     name = "linux-win_cross-rel",
     console_view_entry = ci.console_view_entry(
         category = "ToT Windows",
@@ -1564,35 +1704,35 @@ ci.dawn_linux_builder(
 
 ci.dawn_linux_builder(
     name = "Dawn Linux x64 DEPS Builder",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "DEPS|Linux|Builder",
         short_name = "x64",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
 )
 
 ci.dawn_thin_tester(
     name = "Dawn Linux x64 DEPS Release (Intel HD 630)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "DEPS|Linux|Intel",
         short_name = "x64",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
     triggered_by = [builder_name("Dawn Linux x64 DEPS Builder")],
 )
 
 ci.dawn_thin_tester(
     name = "Dawn Linux x64 DEPS Release (NVIDIA)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "DEPS|Linux|Nvidia",
         short_name = "x64",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
     triggered_by = [builder_name("Dawn Linux x64 DEPS Builder")],
 )
@@ -1625,12 +1765,12 @@ ci.dawn_mac_builder(
 
 ci.dawn_mac_builder(
     name = "Dawn Mac x64 DEPS Builder",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "DEPS|Mac|Builder",
         short_name = "x64",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
 )
 
@@ -1638,24 +1778,24 @@ ci.dawn_mac_builder(
 # physical Mac hardware in the Swarming pool which is why they run on linux
 ci.dawn_thin_tester(
     name = "Dawn Mac x64 DEPS Release (AMD)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "DEPS|Mac|AMD",
         short_name = "x64",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
     triggered_by = [builder_name("Dawn Mac x64 DEPS Builder")],
 )
 
 ci.dawn_thin_tester(
     name = "Dawn Mac x64 DEPS Release (Intel)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "DEPS|Mac|Intel",
         short_name = "x64",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
     triggered_by = [builder_name("Dawn Mac x64 DEPS Builder")],
 )
@@ -1696,12 +1836,12 @@ ci.dawn_windows_builder(
 
 ci.dawn_windows_builder(
     name = "Dawn Win10 x64 DEPS Builder",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "DEPS|Windows|Builder",
         short_name = "x64",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
 )
 
@@ -1709,24 +1849,24 @@ ci.dawn_windows_builder(
 # physical Win hardware in the Swarming pool, which is why they run on linux
 ci.dawn_thin_tester(
     name = "Dawn Win10 x64 DEPS Release (Intel HD 630)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "DEPS|Windows|Intel",
         short_name = "x64",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
     triggered_by = [builder_name("Dawn Win10 x64 DEPS Builder")],
 )
 
 ci.dawn_thin_tester(
     name = "Dawn Win10 x64 DEPS Release (NVIDIA)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "DEPS|Windows|Nvidia",
         short_name = "x64",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
     triggered_by = [builder_name("Dawn Win10 x64 DEPS Builder")],
 )
@@ -1759,12 +1899,12 @@ ci.dawn_windows_builder(
 
 ci.dawn_windows_builder(
     name = "Dawn Win10 x86 DEPS Builder",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "DEPS|Windows|Builder",
         short_name = "x86",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
 )
 
@@ -1772,24 +1912,24 @@ ci.dawn_windows_builder(
 # physical Win hardware in the Swarming pool, which is why they run on linux
 ci.dawn_thin_tester(
     name = "Dawn Win10 x86 DEPS Release (Intel HD 630)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "DEPS|Windows|Intel",
         short_name = "x86",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
     triggered_by = [builder_name("Dawn Win10 x86 DEPS Builder")],
 )
 
 ci.dawn_thin_tester(
     name = "Dawn Win10 x86 DEPS Release (NVIDIA)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "DEPS|Windows|Nvidia",
         short_name = "x86",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
     triggered_by = [builder_name("Dawn Win10 x86 DEPS Builder")],
 )
@@ -2072,7 +2212,7 @@ ci.fuzz_libfuzzer_builder(
         category = "libfuzz",
         short_name = "linux-ubsan",
     ),
-    execution_timeout = 3 * time.hour + 30 * time.minute,
+    execution_timeout = 4 * time.hour,
     triggering_policy = scheduler.greedy_batching(
         max_concurrent_invocations = 5,
     ),
@@ -2168,15 +2308,6 @@ ci.fuzz_libfuzzer_builder(
 )
 
 ci.fyi_builder(
-    name = "Closure Compilation Linux",
-    console_view_entry = ci.console_view_entry(
-        category = "closure_compilation",
-    ),
-    executable = "recipe:closure_compilation",
-    notifies = ["Closure Compilation Linux"],
-)
-
-ci.fyi_builder(
     name = "Linux Viz",
     console_view_entry = ci.console_view_entry(
         category = "viz",
@@ -2208,12 +2339,52 @@ ci.fyi_builder(
 
 ci.fyi_builder(
     name = "VR Linux",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "linux",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
+)
+
+ci.fyi_builder(
+    name = "android-paeverywhere-arm-fyi-dbg",
+    builderless = True,
+    console_view_entry = ci.console_view_entry(
+        category = "paeverywhere|android",
+        short_name = "32dbg",
+    ),
+    notifies = ["chrome-memory-safety"],
+)
+
+ci.fyi_builder(
+    name = "android-paeverywhere-arm-fyi-rel",
+    builderless = True,
+    console_view_entry = ci.console_view_entry(
+        category = "paeverywhere|android",
+        short_name = "32rel",
+    ),
+    notifies = ["chrome-memory-safety"],
+)
+
+ci.fyi_builder(
+    name = "android-paeverywhere-arm64-fyi-dbg",
+    builderless = True,
+    console_view_entry = ci.console_view_entry(
+        category = "paeverywhere|android",
+        short_name = "64dbg",
+    ),
+    notifies = ["chrome-memory-safety"],
+)
+
+ci.fyi_builder(
+    name = "android-paeverywhere-arm64-fyi-rel",
+    builderless = True,
+    console_view_entry = ci.console_view_entry(
+        category = "paeverywhere|android",
+        short_name = "64rel",
+    ),
+    notifies = ["chrome-memory-safety"],
 )
 
 ci.fyi_builder(
@@ -2358,46 +2529,6 @@ ci.fyi_builder(
     notifies = ["linux-blink-heap-verification"],
 )
 
-# For testing impact of builderful: https://crbug.com/1123673
-# remove by 2020-10-05 gatong
-ci.fyi_builder(
-    name = "linux-builderful-fast-fyi-rel",
-    console_view_entry = ci.console_view_entry(
-        category = "build test",
-        short_name = "bff",
-    ),
-    builderless = False,
-)
-
-ci.fyi_builder(
-    name = "linux-builderful-slow-fyi-rel",
-    console_view_entry = ci.console_view_entry(
-        category = "build test",
-        short_name = "bfs",
-    ),
-    builderless = False,
-    schedule = "with 2h interval",
-    triggered_by = [],
-)
-
-ci.fyi_builder(
-    name = "linux-builderless-fast-fyi-rel",
-    console_view_entry = ci.console_view_entry(
-        category = "build test",
-        short_name = "blf",
-    ),
-)
-
-ci.fyi_builder(
-    name = "linux-builderless-slow-fyi-rel",
-    console_view_entry = ci.console_view_entry(
-        category = "build test",
-        short_name = "bls",
-    ),
-    schedule = "with 2h interval",
-    triggered_by = [],
-)
-
 ci.fyi_builder(
     name = "linux-chromium-tests-staging-builder",
     console_view_entry = ci.console_view_entry(
@@ -2491,8 +2622,8 @@ ci.fyi_builder(
     triggered_by = ["ci/Mac Builder"],
 )
 
-ci.fyi_builder(
-    name = "mac-omaha-builder-rel",
+ci.updater_builder(
+    name = "mac-updater-builder-rel",
     console_view_entry = ci.console_view_entry(
         category = "updater|mac",
         short_name = "bld",
@@ -2503,62 +2634,62 @@ ci.fyi_builder(
     cores = None,
 )
 
-ci.fyi_builder(
-    name = "mac10.10-omaha-tester-rel",
+ci.updater_builder(
+    name = "mac10.10-updater-tester-rel",
     console_view_entry = ci.console_view_entry(
         category = "updater|mac",
         short_name = "10.10",
     ),
-    triggered_by = ["mac-omaha-builder-rel"],
+    triggered_by = ["mac-updater-builder-rel"],
 )
 
-ci.fyi_builder(
-    name = "mac10.11-omaha-tester-rel",
+ci.updater_builder(
+    name = "mac10.11-updater-tester-rel",
     console_view_entry = ci.console_view_entry(
         category = "updater|mac",
         short_name = "10.11",
     ),
-    triggered_by = ["mac-omaha-builder-rel"],
+    triggered_by = ["mac-updater-builder-rel"],
 )
 
-ci.fyi_builder(
-    name = "mac10.12-omaha-tester-rel",
+ci.updater_builder(
+    name = "mac10.12-updater-tester-rel",
     console_view_entry = ci.console_view_entry(
         category = "updater|mac",
         short_name = "10.12",
     ),
-    triggered_by = ["mac-omaha-builder-rel"],
+    triggered_by = ["mac-updater-builder-rel"],
 )
 
-ci.fyi_builder(
-    name = "mac10.13-omaha-tester-rel",
+ci.updater_builder(
+    name = "mac10.13-updater-tester-rel",
     console_view_entry = ci.console_view_entry(
         category = "updater|mac",
         short_name = "10.13",
     ),
-    triggered_by = ["mac-omaha-builder-rel"],
+    triggered_by = ["mac-updater-builder-rel"],
 )
 
-ci.fyi_builder(
-    name = "mac10.14-omaha-tester-rel",
+ci.updater_builder(
+    name = "mac10.14-updater-tester-rel",
     console_view_entry = ci.console_view_entry(
         category = "updater|mac",
         short_name = "10.14",
     ),
-    triggered_by = ["mac-omaha-builder-rel"],
+    triggered_by = ["mac-updater-builder-rel"],
 )
 
-ci.fyi_builder(
-    name = "mac10.15-omaha-tester-rel",
+ci.updater_builder(
+    name = "mac10.15-updater-tester-rel",
     console_view_entry = ci.console_view_entry(
         category = "updater|mac",
         short_name = "10.15",
     ),
-    triggered_by = ["mac-omaha-builder-rel"],
+    triggered_by = ["mac-updater-builder-rel"],
 )
 
-ci.fyi_builder(
-    name = "win-omaha-builder-rel",
+ci.updater_builder(
+    name = "win-updater-builder-rel",
     console_view_entry = ci.console_view_entry(
         category = "updater|win",
         short_name = "bld",
@@ -2567,23 +2698,67 @@ ci.fyi_builder(
     cpu = cpu.X86,
 )
 
-ci.fyi_builder(
-    name = "win7-omaha-tester-rel",
+ci.updater_builder(
+    name = "win7-updater-tester-rel",
     console_view_entry = ci.console_view_entry(
         category = "updater|win",
         short_name = "7",
     ),
-    triggered_by = ["win-omaha-builder-rel"],
+    triggered_by = ["win-updater-builder-rel"],
 )
 
-ci.fyi_builder(
-    name = "win10-omaha-tester-rel",
+ci.updater_builder(
+    name = "win10-updater-tester-rel",
     console_view_entry = ci.console_view_entry(
         category = "updater|win",
         short_name = "10",
     ),
     os = os.WINDOWS_10,
-    triggered_by = ["win-omaha-builder-rel"],
+    triggered_by = ["win-updater-builder-rel"],
+)
+
+ci.fyi_builder(
+    name = "win-paeverywhere-x86-fyi-dbg",
+    builderless = True,
+    console_view_entry = ci.console_view_entry(
+        category = "paeverywhere|win",
+        short_name = "32dbg",
+    ),
+    notifies = ["chrome-memory-safety"],
+    os = os.WINDOWS_ANY,
+)
+
+ci.fyi_builder(
+    name = "win-paeverywhere-x86-fyi-rel",
+    builderless = True,
+    console_view_entry = ci.console_view_entry(
+        category = "paeverywhere|win",
+        short_name = "32rel",
+    ),
+    notifies = ["chrome-memory-safety"],
+    os = os.WINDOWS_ANY,
+)
+
+ci.fyi_builder(
+    name = "win-paeverywhere-x64-fyi-dbg",
+    builderless = True,
+    console_view_entry = ci.console_view_entry(
+        category = "paeverywhere|win",
+        short_name = "64dbg",
+    ),
+    notifies = ["chrome-memory-safety"],
+    os = os.WINDOWS_ANY,
+)
+
+ci.fyi_builder(
+    name = "win-paeverywhere-x64-fyi-rel",
+    builderless = True,
+    console_view_entry = ci.console_view_entry(
+        category = "paeverywhere|win",
+        short_name = "64rel",
+    ),
+    notifies = ["chrome-memory-safety"],
+    os = os.WINDOWS_ANY,
 )
 
 ci.fyi_builder(
@@ -2702,6 +2877,17 @@ ci.fyi_coverage_builder(
 )
 
 ci.fyi_coverage_builder(
+    name = "linux-chromeos-js-code-coverage",
+    console_view_entry = ci.console_view_entry(
+        category = "code_coverage",
+        short_name = "jcr",
+    ),
+    use_javascript_coverage = True,
+    schedule = "triggered",
+    triggered_by = [],
+)
+
+ci.fyi_coverage_builder(
     name = "linux-code-coverage",
     console_view_entry = ci.console_view_entry(
         category = "code_coverage",
@@ -2752,12 +2938,12 @@ ci.fyi_ios_builder(
 
 ci.fyi_ios_builder(
     name = "ios-simulator-cronet",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     caches = [xcode_cache.x11e146],
     console_view_entry = ci.console_view_entry(
         category = "cronet",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
     notifies = ["cronet"],
     properties = {
@@ -2829,9 +3015,9 @@ ci.fyi_ios_builder(
         category = "iOS|iOS14",
         short_name = "sdk14",
     ),
-    caches = [xcode_cache.x12b5018i],
+    caches = [xcode_cache.x12b5035g],
     properties = {
-        "xcode_build_version": "12b5018i",
+        "xcode_build_version": "12b5035g",
     },
 )
 
@@ -2938,23 +3124,33 @@ ci.fyi_windows_builder(
     notifies = ["annotator-rel"],
 )
 
+ci.fyi_windows_builder(
+    name = "win10-inverse-fieldtrials-fyi-rel",
+    builderless = True,
+    console_view_entry = ci.console_view_entry(
+        category = "win10",
+        short_name = "IFT",
+    ),
+    os = os.WINDOWS_10,
+)
+
 ci.gpu_linux_builder(
     name = "Android Release (Nexus 5X)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "Android",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
 )
 
 ci.gpu_linux_builder(
     name = "GPU Linux Builder",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "Linux",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
 )
 
@@ -2968,11 +3164,11 @@ ci.gpu_linux_builder(
 
 ci.gpu_mac_builder(
     name = "GPU Mac Builder",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "Mac",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
 )
 
@@ -2986,11 +3182,11 @@ ci.gpu_mac_builder(
 
 ci.gpu_windows_builder(
     name = "GPU Win x64 Builder",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "Windows",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
 )
 
@@ -3013,8 +3209,8 @@ ci.gpu_thin_tester(
 
 ci.gpu_thin_tester(
     name = "Linux Release (NVIDIA)",
-    branch_selector = branches.STANDARD_RELEASES,
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    branch_selector = branches.STANDARD_MILESTONE,
+    cq_mirrors_console_view = "mirrors",
     console_view_entry = ci.console_view_entry(
         category = "Linux",
     ),
@@ -3033,11 +3229,11 @@ ci.gpu_thin_tester(
 
 ci.gpu_thin_tester(
     name = "Mac Release (Intel)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "Mac",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
     triggered_by = [builder_name("GPU Mac Builder")],
 )
@@ -3053,11 +3249,11 @@ ci.gpu_thin_tester(
 
 ci.gpu_thin_tester(
     name = "Mac Retina Release (AMD)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "Mac",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
     triggered_by = [builder_name("GPU Mac Builder")],
 )
@@ -3073,11 +3269,11 @@ ci.gpu_thin_tester(
 
 ci.gpu_thin_tester(
     name = "Win10 x64 Release (NVIDIA)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "Windows",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
     triggered_by = [builder_name("GPU Win x64 Builder")],
 )
@@ -3365,6 +3561,15 @@ ci.gpu_fyi_thin_tester(
     name = "Linux FYI Release (AMD R7 240)",
     console_view_entry = ci.console_view_entry(
         category = "Linux|AMD",
+        short_name = "240",
+    ),
+    triggered_by = ["GPU FYI Linux Builder"],
+)
+
+ci.gpu_fyi_thin_tester(
+    name = "Linux FYI Release (AMD RX 5500 XT)",
+    console_view_entry = ci.console_view_entry(
+        category = "Linux|AMD",
         short_name = "rel",
     ),
     triggered_by = ["GPU FYI Linux Builder"],
@@ -3472,6 +3677,15 @@ ci.gpu_fyi_thin_tester(
     console_view_entry = ci.console_view_entry(
         category = "Mac|Intel",
         short_name = "rel",
+    ),
+    triggered_by = ["GPU FYI Mac Builder"],
+)
+
+ci.gpu_fyi_thin_tester(
+    name = "Mac FYI Release (Intel UHD 630)",
+    console_view_entry = ci.console_view_entry(
+        category = "Mac|Intel",
+        short_name = "uhd",
     ),
     triggered_by = ["GPU FYI Mac Builder"],
 )
@@ -3588,6 +3802,15 @@ ci.gpu_fyi_thin_tester(
     name = "Win10 FYI x64 Release (AMD RX 550)",
     console_view_entry = ci.console_view_entry(
         category = "Windows|10|x64|AMD",
+        short_name = "550",
+    ),
+    triggered_by = ["GPU FYI Win x64 Builder"],
+)
+
+ci.gpu_fyi_thin_tester(
+    name = "Win10 FYI x64 Release (AMD RX 5500 XT)",
+    console_view_entry = ci.console_view_entry(
+        category = "Windows|10|x64|AMD",
         short_name = "rel",
     ),
     triggered_by = ["GPU FYI Win x64 Builder"],
@@ -3649,15 +3872,6 @@ ci.gpu_fyi_windows_builder(
         category = "Windows|10|x64|Nvidia",
         short_name = "skd",
     ),
-)
-
-ci.gpu_fyi_thin_tester(
-    name = "Win10 FYI x64 SkiaRenderer GL (NVIDIA)",
-    console_view_entry = ci.console_view_entry(
-        category = "Windows|10|x64|Nvidia",
-        short_name = "skgl",
-    ),
-    triggered_by = ["GPU FYI Win x64 Builder"],
 )
 
 ci.gpu_fyi_thin_tester(
@@ -3825,14 +4039,14 @@ ci.linux_builder(
 
 ci.linux_builder(
     name = "Cast Linux",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "cast",
         short_name = "vid",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     goma_jobs = goma.jobs.J50,
-    main_console_view = settings.main_console_name,
+    main_console_view = "main",
 )
 
 ci.linux_builder(
@@ -3877,25 +4091,25 @@ ci.linux_builder(
 
 ci.linux_builder(
     name = "Fuchsia ARM64",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "fuchsia|a64",
         short_name = "rel",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
     extra_notifies = ["cr-fuchsia"],
 )
 
 ci.linux_builder(
     name = "Fuchsia x64",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "fuchsia|x64",
         short_name = "rel",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
     extra_notifies = ["cr-fuchsia"],
 )
 
@@ -3912,24 +4126,24 @@ ci.linux_builder(
 
 ci.linux_builder(
     name = "Linux Builder",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "release",
         short_name = "bld",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
 )
 
 ci.linux_builder(
     name = "Linux Builder (dbg)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "debug|builder",
         short_name = "64",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
 )
 
 ci.linux_builder(
@@ -3943,38 +4157,38 @@ ci.linux_builder(
 
 ci.linux_builder(
     name = "Linux Tests",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "release",
         short_name = "tst",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     goma_backend = None,
-    main_console_view = settings.main_console_name,
+    main_console_view = "main",
     triggered_by = [builder_name("Linux Builder")],
 )
 
 ci.linux_builder(
     name = "Linux Tests (dbg)(1)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "debug|tester",
         short_name = "64",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
     triggered_by = [builder_name("Linux Builder (dbg)")],
 )
 
 ci.linux_builder(
     name = "fuchsia-arm64-cast",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "fuchsia|cast",
         short_name = "a64",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
     # Set tree_closing to false to disable the defaualt tree closer, which
     # filters by step name, and instead enable tree closing for any step
     # failure.
@@ -3993,13 +4207,13 @@ ci.linux_builder(
 
 ci.linux_builder(
     name = "fuchsia-x64-cast",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "fuchsia|cast",
         short_name = "x64",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
     # Set tree_closing to false to disable the defaualt tree closer, which
     # filters by step name, and instead enable tree closing for any step
     # failure.
@@ -4038,13 +4252,13 @@ ci.linux_builder(
 
 ci.linux_builder(
     name = "linux-ozone-rel",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "release",
         short_name = "ozo",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
     # Set tree_closing to false to disable the defaualt tree closer, which
     # filters by step name, and instead enable tree closing for any step
     # failure.
@@ -4054,41 +4268,83 @@ ci.linux_builder(
 
 ci.linux_builder(
     name = "Linux Ozone Tester (Headless)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view = "chromium.fyi",
     console_view_entry = ci.console_view_entry(
         category = "linux",
         short_name = "loh",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
     triggered_by = [builder_name("linux-ozone-rel")],
 )
 
 ci.linux_builder(
     name = "Linux Ozone Tester (Wayland)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view = "chromium.fyi",
     console_view_entry = ci.console_view_entry(
         category = "linux",
         short_name = "low",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
     triggered_by = [builder_name("linux-ozone-rel")],
 )
 
 ci.linux_builder(
     name = "Linux Ozone Tester (X11)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view = "chromium.fyi",
     console_view_entry = ci.console_view_entry(
         category = "linux",
         short_name = "lox",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     main_console_view = main_console_if_on_branch(),
     triggered_by = [builder_name("linux-ozone-rel")],
+)
+
+ci.linux_builder(
+    # CI tester for Ozone/Headless
+    name = "Linux Tester (Ozone Headless)",
+    branch_selector = branches.STANDARD_MILESTONE,
+    console_view_entry = ci.console_view_entry(
+        category = "release|ozone",
+        short_name = "ltoh",
+    ),
+    main_console_view = "main",
+    cq_mirrors_console_view = "mirrors",
+    triggered_by = [builder_name("linux-ozone-rel")],
+    tree_closing = False,
+)
+
+ci.linux_builder(
+    # CI tester for Ozone/Wayland
+    name = "Linux Tester (Ozone Wayland)",
+    branch_selector = branches.STANDARD_MILESTONE,
+    console_view_entry = ci.console_view_entry(
+        category = "release|ozone",
+        short_name = "ltow",
+    ),
+    main_console_view = "main",
+    cq_mirrors_console_view = "mirrors",
+    triggered_by = [builder_name("linux-ozone-rel")],
+    tree_closing = False,
+)
+
+ci.linux_builder(
+    # CI tester for Ozone/X11
+    name = "Linux Tester (Ozone X11)",
+    branch_selector = branches.STANDARD_MILESTONE,
+    console_view_entry = ci.console_view_entry(
+        category = "release|ozone",
+        short_name = "ltox",
+    ),
+    main_console_view = "main",
+    cq_mirrors_console_view = "mirrors",
+    triggered_by = [builder_name("linux-ozone-rel")],
+    tree_closing = False,
 )
 
 ci.linux_builder(
@@ -4111,36 +4367,36 @@ ci.linux_builder(
 
 ci.mac_builder(
     name = "Mac Builder",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "release",
         short_name = "bld",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
     os = os.MAC_10_15,
 )
 
 ci.mac_builder(
     name = "Mac Builder (dbg)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "debug",
         short_name = "bld",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
     os = os.MAC_ANY,
 )
 
 ci.mac_builder(
     name = "mac-arm64-rel",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "release|arm64",
         short_name = "bld",
     ),
-    main_console_view = settings.main_console_name,
+    main_console_view = "main",
     cores = None,
     os = os.MAC_ANY,
 )
@@ -4155,98 +4411,101 @@ ci.thin_tester(
         category = "mac",
         short_name = "a64",
     ),
+    # TODO(gbeaty) Once we have sufficient test capacity to not need to
+    # serialize tests, use the default execution_timout
+    execution_timeout = 6 * time.hour,
     tree_closing = False,
     triggered_by = [builder_name("mac-arm64-rel")],
 )
 
 ci.thin_tester(
     name = "Mac10.10 Tests",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     builder_group = "chromium.mac",
     console_view_entry = ci.console_view_entry(
         category = "release",
         short_name = "10",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
     triggered_by = [builder_name("Mac Builder")],
 )
 
 ci.thin_tester(
     name = "Mac10.11 Tests",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     builder_group = "chromium.mac",
     console_view_entry = ci.console_view_entry(
         category = "release",
         short_name = "11",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
     triggered_by = [builder_name("Mac Builder")],
 )
 
 ci.thin_tester(
     name = "Mac10.12 Tests",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     builder_group = "chromium.mac",
     console_view_entry = ci.console_view_entry(
         category = "release",
         short_name = "12",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
     triggered_by = [builder_name("Mac Builder")],
 )
 
 ci.thin_tester(
     name = "Mac10.13 Tests",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     builder_group = "chromium.mac",
     console_view_entry = ci.console_view_entry(
         category = "release",
         short_name = "13",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
     triggered_by = [builder_name("Mac Builder")],
 )
 
 ci.thin_tester(
     name = "Mac10.14 Tests",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     builder_group = "chromium.mac",
     console_view_entry = ci.console_view_entry(
         category = "release",
         short_name = "14",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
     triggered_by = [builder_name("Mac Builder")],
 )
 
 ci.thin_tester(
     name = "Mac10.15 Tests",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     builder_group = "chromium.mac",
     console_view_entry = ci.console_view_entry(
         category = "release",
         short_name = "15",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
     triggered_by = [builder_name("Mac Builder")],
 )
 
 ci.thin_tester(
     name = "Mac10.13 Tests (dbg)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     builder_group = "chromium.mac",
     console_view_entry = ci.console_view_entry(
         category = "debug",
         short_name = "13",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
     triggered_by = [builder_name("Mac Builder (dbg)")],
 )
 
@@ -4263,24 +4522,24 @@ ci.mac_ios_builder(
 
 ci.mac_ios_builder(
     name = "ios-simulator",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "ios|default",
         short_name = "sim",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
 )
 
 ci.mac_ios_builder(
     name = "ios-simulator-full-configs",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "ios|default",
         short_name = "ful",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
 )
 
 ci.mac_ios_builder(
@@ -4312,49 +4571,49 @@ ci.memory_builder(
 
 ci.memory_builder(
     name = "Linux ASan LSan Builder",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "linux|asan lsan",
         short_name = "bld",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
     ssd = True,
 )
 
 ci.memory_builder(
     name = "Linux ASan LSan Tests (1)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "linux|asan lsan",
         short_name = "tst",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
     triggered_by = [builder_name("Linux ASan LSan Builder")],
 )
 
 ci.memory_builder(
     name = "Linux ASan Tests (sandboxed)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "linux|asan lsan",
         short_name = "sbx",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
     triggered_by = [builder_name("Linux ASan LSan Builder")],
 )
 
 ci.memory_builder(
     name = "Linux TSan Builder",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "linux|TSan v2",
         short_name = "bld",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
 )
 
 ci.memory_builder(
@@ -4450,14 +4709,14 @@ ci.memory_builder(
 
 ci.memory_builder(
     name = "Linux TSan Tests",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "linux|TSan v2",
         short_name = "tst",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     triggered_by = [builder_name("Linux TSan Builder")],
-    main_console_view = settings.main_console_name,
+    main_console_view = "main",
 )
 
 ci.memory_builder(
@@ -4763,65 +5022,65 @@ ci.win_builder(
 
 ci.win_builder(
     name = "Win7 Tests (dbg)(1)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "debug|tester",
         short_name = "7",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     os = os.WINDOWS_7,
-    main_console_view = settings.main_console_name,
+    main_console_view = "main",
     triggered_by = [builder_name("Win Builder (dbg)")],
 )
 
 ci.win_builder(
     name = "Win 7 Tests x64 (1)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "release|tester",
         short_name = "64",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
+    cq_mirrors_console_view = "mirrors",
     os = os.WINDOWS_7,
-    main_console_view = settings.main_console_name,
+    main_console_view = "main",
     triggered_by = [builder_name("Win x64 Builder")],
 )
 
 ci.win_builder(
     name = "Win Builder (dbg)",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "debug|builder",
         short_name = "32",
     ),
     cores = 32,
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
     os = os.WINDOWS_ANY,
 )
 
 ci.win_builder(
     name = "Win x64 Builder",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "release|builder",
         short_name = "64",
     ),
     cores = 32,
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
     os = os.WINDOWS_ANY,
 )
 
 ci.win_builder(
     name = "Win10 Tests x64",
-    branch_selector = branches.STANDARD_RELEASES,
+    branch_selector = branches.STANDARD_MILESTONE,
     console_view_entry = ci.console_view_entry(
         category = "release|tester",
         short_name = "w10",
     ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
+    cq_mirrors_console_view = "mirrors",
+    main_console_view = "main",
     triggered_by = [builder_name("Win x64 Builder")],
 )
 

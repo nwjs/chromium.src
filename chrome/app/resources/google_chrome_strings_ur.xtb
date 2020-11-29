@@ -25,7 +25,6 @@
 <translation id="1587325591171447154">‏<ph name="FILE_NAME" /> خطرناک ہے، اس لیے Chrome نے اسے مسدود کر دیا ہے۔</translation>
 <translation id="1597911401261118146">‏یہ دیکھنے کے لئے کہ آیا آپ کے پاس ورڈز ڈیٹا کی خلاف ورزیوں اور دیگر سیکیورٹی مسائل سے محفوظ ہیں، <ph name="BEGIN_LINK" />Chrome میں سائن ان کریں<ph name="END_LINK" />۔</translation>
 <translation id="1619887657840448962">‏Chrome کو محفوظ تر بنانے کیلئے، ہم نے مندرجہ ذیل ایکسٹینشن کو غیر فعال کر دیا ہے جو <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> میں مندرج نہیں ہے اور ممکن ہے کہ اسے آپ کے علم کے بغیر شامل کر دیا گیا ہو۔</translation>
-<translation id="162448658176061655">‏Chrome ہفتے میں ایک بار غیر مطلوبہ سافٹ ویئر کو چیک کرتا ہے۔ آخری بار چیک کیا گیا: ایک لمحہ پہلے۔</translation>
 <translation id="162629503687514352">‏Chrome OS آپ کے پاس ورڈز کی مطابقت پذیری نہیں کر سکا۔</translation>
 <translation id="1628000112320670027">‏Chrome کے بارے میں مدد حاصل کریں</translation>
 <translation id="1662639173275167396">‏Chrome OS کو اضافی <ph name="BEGIN_LINK_CROS_OSS" />اوپن سورس سافٹ ویئر<ph name="END_LINK_CROS_OSS" /> کے ذریعے ممکن بنایا جاتا ہے، جیسے کہ <ph name="BEGIN_LINK_LINUX_OSS" />Linux(بی ٹا)<ph name="END_LINK_LINUX_OSS" />۔</translation>
@@ -80,6 +79,7 @@
 <translation id="2926676257163822632">‏کمزور پاس ورڈز کا اندازہ لگانا آسان ہوتا ہے۔ Chrome کو <ph name="BEGIN_LINK" />آپ کے لیے مضبوط پاس ورڈز تخلیق کرنے اور یاد رکھنے دیں<ph name="END_LINK" />۔</translation>
 <translation id="2929907241665500097">‏Chrome اپ ڈیٹ نہیں ہوا، کچھ غلط ہو گیا۔ <ph name="BEGIN_LINK" />Chrome اپ ڈیٹ کی دشواریوں اور ناکام اپ ڈیٹس کو درست کریں۔<ph name="END_LINK" /></translation>
 <translation id="2969728957078202736">‏<ph name="PAGE_TITLE" /> - نیٹ ورک سائن ان - Chrome</translation>
+<translation id="298099161970687941">‏جب Chrome کھولتا ہے تب پوچھیں</translation>
 <translation id="3037838751736561277">‏Google Chrome پس منظر وضع میں ہے۔</translation>
 <translation id="3059710691562604940">‏محفوظ براؤزنگ آف ہے۔ Chrome اسے آن کرنے کی تجویز کرتا ہے۔</translation>
 <translation id="3065168410429928842">‏Chrome ٹیب</translation>
@@ -148,7 +148,6 @@
 <translation id="4771048833395599659">‏یہ فائل خطرناک ہو سکتی ہے، اس لیے Chrome نے اسے مسدود کر دیا ہے۔</translation>
 <translation id="479167709087336770">‏یہ وہی املا جانچ کنندہ استعمال کرتا ہے جسے Google تلاش میں استعمال کیا جاتا ہے۔ آپ براؤزر میں جو متن ٹائپ کرتے ہیں، اسے Google کو بھیجا جاتا ہے۔ آپ اس برتاؤ کو کسی بھی وقت ترتیبات میں تبدیل کر سکتے ہیں۔</translation>
 <translation id="4891791193823137474">‏Google Chrome کو پس منظر میں چلنے دیں</translation>
-<translation id="489337168347244450">{NUM_DAYS,plural, =1{‏Chrome ہفتے میں ایک بار غیر مطلوبہ سافٹ ویئر کو چیک کرتا ہے۔ آخری بار چیک کیا گیا: 1 دن پہلے۔}other{‏Chrome ہفتے میں ایک بار غیر مطلوبہ سافٹ ویئر کو چیک کرتا ہے۔ آخری بار چیک کیا گیا: {NUM_DAYS} دن پہلے۔}}</translation>
 <translation id="4895437082222824641">‏لنک کو نئے Chrome &amp;ٹیب میں کھولیں</translation>
 <translation id="4953650215774548573">‏Google Chrome کو اپنے ڈیفالٹ براؤزر کے بطور سیٹ کریں</translation>
 <translation id="495931528404527476">‏Chrome میں</translation>
@@ -168,7 +167,6 @@
 Google Chrome آپ کی ترتیبات کو بازیافت کرنے سے قاصر ہے۔</translation>
 <translation id="556024056938947818">‏Google Chrome پاس ورڈز دکھانے کی کوشش کر رہا ہے۔</translation>
 <translation id="5566025111015594046">‎Google Chrome (mDNS-In)‎</translation>
-<translation id="5633355459292055250">‏جب میں Chrome کھولتا ہوں تو پوچھیں</translation>
 <translation id="5657226924540934362">‏اگر اس صفحے پر کوئی ترتیب دکھائی نہیں دے رہی ہے تو اپنے <ph name="LINK_BEGIN" />
       Chrome OS کی ترتیبات<ph name="LINK_END" /> میں دیکھیں</translation>
 <translation id="565744775970812598">‏<ph name="FILE_NAME" /> خطرناک ہو سکتی ہے، اس لیے Chrome نے اسے مسدود کر دیا ہے۔</translation>
@@ -194,10 +192,8 @@ Google Chrome آپ کی ترتیبات کو بازیافت کرنے سے قاص�
 <translation id="6291549208091401781">‏Google Chrome پہلے سے ہی آپ کے کمپیوٹر پر سبھی صارفین کیلئے انسٹال ہے۔</translation>
 <translation id="6338556085225130112">‏Google Chrome کو اپ ڈیٹ کیا جا رہا ہے</translation>
 <translation id="6368958679917195344">‏Chrome OS کو اضافی <ph name="BEGIN_LINK_CROS_OSS" />اوپن سورس سافٹ ویئر<ph name="END_LINK_CROS_OSS" /> کے ذریعے ممکن بنایا جاتا ہے۔</translation>
-<translation id="6454142105866844106">‏Chrome ہفتے میں ایک بار غیر مطلوبہ سافٹ ویئر کو چیک کرتا ہے</translation>
 <translation id="6515495397637126556"><ph name="PAGE_TITLE" /> - Google Chrome Dev</translation>
 <translation id="6566149418543181476">‏Google Chrome کو اپ ڈیٹ کیا جا رہا ہے (<ph name="PROGRESS_PERCENT" />)</translation>
-<translation id="6650333065969705433">‏تحفظ یافتہ میڈیا چلانے کی خاطر Rosetta استعمال کرنے کیلئے آپ کو Chrome ری سٹارٹ کرنا ضروری ہے۔</translation>
 <translation id="6676384891291319759">انٹرنیٹ تک رسائی حاصل کریں</translation>
 <translation id="6679975945624592337">‏Google Chrome کو پس منظر میں چلنے دیں</translation>
 <translation id="6750954913813541382">‏املا کی غلطیوں کو درست کرنے کے لیے، آپ براؤزر میں جو متن ٹائپ کرتے ہیں، Chrome اسے Google کو بھیج دیتا ہے</translation>
@@ -214,13 +210,11 @@ Google Chrome آپ کی ترتیبات کو بازیافت کرنے سے قاص�
 <translation id="7106741999175697885">‏ٹاسک مینیجر - Google Chrome</translation>
 <translation id="7140653346177713799">{COUNT,plural, =0{‏Chrome کیلئے ایک نیا اپ ڈیٹ دستیاب ہے اور جیسے ہی آپ اسے بند کر کے دوبارہ چلائیں گے اسے لاگو کر دیا جائے گا۔}=1{‏Chrome کیلئے ایک نیا اپ ڈیٹ دستیاب ہے اور جیسے ہی آپ اسے بند کر کے دوبارہ چلائیں گے اسے لاگو کر دیا جائے گا۔ آپ کی پوشیدگی ونڈو دوبارہ نہیں کھلے گی۔}other{‏Chrome کیلئے ایک نیا اپ ڈیٹ دستیاب ہے اور جیسے ہی آپ اسے بند کر کے دوبارہ چلائیں گے اسے لاگو کر دیا جائے گا۔ آپ کی # پوشیدگی ونڈوز دوبارہ نہیں کھلیں گی۔}}</translation>
 <translation id="7155997830309522122">‏اگر ایسا ہے تو براہ کرم Chrome میں اپنے محفوظ کردہ پاس ورڈ میں ترمیم کریں تاکہ یہ آپ کے نئے پاس ورڈ سے مماثل ہو جائے۔</translation>
-<translation id="7236955538461508933">{NUM_HOURS,plural, =1{‏Chrome ہفتے میں ایک بار غیر مطلوبہ سافٹ ویئر کو چیک کرتا ہے۔ آخری بار چیک کیا گیا: 1 گھنٹہ پہلے۔}other{‏Chrome ہفتے میں ایک بار غیر مطلوبہ سافٹ ویئر کو چیک کرتا ہے۔ آخری بار چیک کیا گیا: {NUM_HOURS} گھنٹے پہلے۔}}</translation>
 <translation id="7242029209006116544">‏آپ ایک زیر انتظام اکاؤنٹ کے ساتھ سائن ان کر رہے ہیں اور اس کے منتظم کو اپنے Google Chrome پروفائل پر کنٹرول دے رہے ہیں۔ آپ کا Chrome کا ڈیٹا جیسے آپ کی ایپس، بُک مارکس، سرگزشت، پاس ورڈز اور دیگر ترتیبات <ph name="USER_NAME" /> سے مستقل طور پر مربوط ہو جائیں گی۔ آپ Google اکاؤنٹس ڈیش بورڈ کے ذریعہ یہ ڈیٹا حذف کر سکیں گے، لیکن آپ یہ ڈیٹا دوسرے اکاؤنٹ کے ساتھ وابستہ نہیں کر سکیں گے۔ آپ اختیاری طور پر اپنا موجودہ Chrome ڈیٹا علاحدہ رکھنے کیلئے ایک نیا پروفائل بنا سکتے ہیں۔ <ph name="LEARN_MORE" /></translation>
 <translation id="7295052994004373688">‏اس زبان کا استعمال Google Chrome UI ڈسپلے کرنے کیلئے کیا جاتا ہے</translation>
 <translation id="7296210096911315575">استعمال اور حفاظت سے متعلق اہم معلومات</translation>
 <translation id="7308322188646931570">‏Chrome کو فائلیں ڈاؤن لوڈ کرنے کیلئے اسٹوریج تک رسائی درکار ہے</translation>
 <translation id="7339898014177206373">نئی ونڈو</translation>
-<translation id="7386132805935307836">‏Chrome ہفتے میں ایک بار غیر مطلوبہ سافٹ ویئر کو چیک کرتا ہے۔ آخری بار چیک کیا گیا: گزشتہ کل۔</translation>
 <translation id="7398801000654795464">‏آپ Chrome میں بطور <ph name="USER_EMAIL_ADDRESS" /> سائن ان تھے۔ براہ کرم دوبارہ سائن ان کرنے کیلئے وہی اکاؤنٹ استعمال کریں۔</translation>
 <translation id="7408085963519505752">‏Chrome OS کی شرائط</translation>
 <translation id="7419046106786626209">‏Chrome OS آپ کے ڈیٹا کی مطابقت پذیری نہیں کر سکا کیونکہ Sync آپ کے ڈومین کیلئے دستیاب نہیں ہے۔</translation>
@@ -255,7 +249,6 @@ Google Chrome آپ کی ترتیبات کو بازیافت کرنے سے قاص�
 <translation id="828798499196665338">‏آپ کے والدین نے "Chrome کی خاطر سائٹس، ایپس اور ایکسٹینشنز کے لیے اجازتوں" کو آف کر دیا ہے۔ اس <ph name="EXTENSION_TYPE_PARAMETER" /> کو فعال کرنے کی اجازت نہیں ہے۔</translation>
 <translation id="8290100596633877290">‏افوہ! Google Chrome کریش ہوگیا ہے۔ ابھی دوبارہ شروع کریں؟</translation>
 <translation id="8342675569599923794">‏یہ فائل خطرناک ہے، اس لیے Chrome نے اسے مسدود کر دیا ہے۔</translation>
-<translation id="8344083974188970894">{NUM_MINS,plural, =1{‏Chrome ہفتے میں ایک بار غیر مطلوبہ سافٹ ویئر کو چیک کرتا ہے۔ آخری بار چیک کیا گیا: 1 منٹ پہلے۔}other{‏Chrome ہفتے میں ایک بار غیر مطلوبہ سافٹ ویئر کو چیک کرتا ہے۔ آخری بار چیک کیا گیا: {NUM_MINS} منٹ پہلے۔}}</translation>
 <translation id="8370517070665726704">‏کاپی رائٹ<ph name="YEAR" /> Google LLC۔ جملہ حقوق محفوظ ہیں۔</translation>
 <translation id="840084489713044809">‏Google Chrome آپ کے پاس ورڈز برآمد کرنا چاہتا ہے۔</translation>
 <translation id="8433638294851456451">‏یہاں سے اپنے Android فون پر نمبر بھیجنے کے لیے، دونوں آلات پر Chrome میں سائن ان کریں۔</translation>
@@ -263,14 +256,12 @@ Google Chrome آپ کی ترتیبات کو بازیافت کرنے سے قاص�
 <translation id="8521348052903287641">‏mDNS ٹریفک کی اجازت دینے کے لیے Google Chrome Dev کے لیے ان باؤنڈ اصول۔</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8556340503434111824">‏Google Chrome کا ایک نیا ورژن دستیاب ہے اور پہلے سے کہیں زیادہ تیز ہے۔</translation>
-<translation id="861359755029082151">‏اس صفحے پر تحفظ یافتہ میڈیا چلانے کیلئے Rosetta‏ Chrome کو فعال کرتا ہے۔</translation>
 <translation id="8614913330719544658">‏Google Chrome جواب نہیں دے رہا ہے۔ ابھی دوبارہ شروع کریں؟</translation>
 <translation id="861702415419836452">‏اپنے اطراف کا 3D نقشہ تخلیق کرنے کی خاطر Chrome کو آپ کے کیمرے تک رسائی کی اجازت درکار ہے</translation>
 <translation id="8625237574518804553">{0,plural, =1{‏1 منٹ میں Chrome دوبارہ لانچ ہوگا}other{‏# منٹ میں Chrome دوبارہ لانچ ہوگا}}</translation>
 <translation id="8641606876632989680">‏جب آپ کسی متاثرہ پاس ورڈ سے سائن ان کریں گے تو Chrome آپ کو مطلع کرے گا</translation>
 <translation id="8669527147644353129">‏Google Chrome مدد کنندہ</translation>
 <translation id="8679801911857917785">‏یہ آپ کی جانب سے Chrome شروع کیے جانے پر دکھائی دینے والے صفحہ کو بھی کنٹرول کرتا ہے۔</translation>
-<translation id="8681614230122836773">‏Chrome کو آپ کے کمپیوٹر پر نقصان دہ سافٹ ویئر ملا</translation>
 <translation id="870251953148363156">‏‎&amp;Google Chrome اپ ڈیٹ کریں</translation>
 <translation id="873133009373065397">‏Google Chrome ڈیفالٹ براؤزر کا تعین یا اس کو سیٹ نہیں کر سکتا ہے</translation>
 <translation id="8748242232968346981">‏Chrome میں اپنی خود کی پروفائل بنائیں؟</translation>
@@ -278,7 +269,6 @@ Google Chrome آپ کی ترتیبات کو بازیافت کرنے سے قاص�
 <translation id="8834965163890861871">‏Google Chrome پاس ورڈز میں ترمیم کرنے کی کوشش کر رہا ہے۔ اس کی اجازت دینے کے لیے اپنا Windows پاس ورڈ ٹائپ کریں۔</translation>
 <translation id="884296878221830158">‏یہ آپ کی جانب سے Chrome شروع کرنے یا ہوم بٹن کلک کرنے پر دکھائی دینے والے صفحہ کو بھی کنٹرول کرتا ہے۔</translation>
 <translation id="8862326446509486874">سسٹم کی سطح پر انسٹال کرنے کیلئے آپ کے پاس مناسب حقوق نہیں ہیں۔ انسٹالر کو دوبارہ منتظم کے بطور چلانے کی کوشش کریں۔</translation>
-<translation id="8907709077090383765">‏تحفظ یافتہ میڈیا چلانے کی خاطر Chrome کو فعال کرنے کیلئے، آپ کو Rosetta انسٹال کرنے کی ضرورت ہے۔ کیا آپ اسے ابھی انسٹال کرنا چاہتے ہیں؟</translation>
 <translation id="8914504000324227558">‏Chrome کو دوبارہ شروع کریں</translation>
 <translation id="8922193594870374009">‏<ph name="ORIGIN" /> سے اپنے Android فون پر نمبر بھیجنے کے لئے دونوں آلات پر Chrome میں سائن ان کریں۔</translation>
 <translation id="8999208279178790196">{0,plural, =0{‏Chrome کا اپ ڈیٹ دستیاب ہے}=1{‏Chrome کا اپ ڈیٹ دستیاب ہے}other{‏Chrome کا اپ ڈیٹ # دن سے دستیاب ہے}}</translation>

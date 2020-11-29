@@ -9,7 +9,7 @@
 #include <algorithm>
 
 #include "base/bind.h"
-#include "base/bind_helpers.h"
+#include "base/callback_helpers.h"
 #include "base/stl_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
@@ -25,6 +25,8 @@
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/history/top_sites_factory.h"
+#include "chrome/browser/prefetch/search_prefetch/search_prefetch_service.h"
+#include "chrome/browser/prefetch/search_prefetch/search_prefetch_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_key.h"
 #include "chrome/browser/query_tiles/tile_service_factory.h"
@@ -72,9 +74,12 @@ namespace {
 
 #if defined(OS_ANDROID)
 class AutocompleteClientTabAndroidUserData
-    : public TabAndroidUserData<AutocompleteClientTabAndroidUserData> {
+    : public TabAndroidUserData<AutocompleteClientTabAndroidUserData>,
+      public TabAndroid::Observer {
  public:
-  ~AutocompleteClientTabAndroidUserData() override = default;
+  ~AutocompleteClientTabAndroidUserData() override {
+    tab_->RemoveObserver(this);
+  }
 
   const GURL& GetStrippedURL() { return stripped_url_; }
 
@@ -89,10 +94,19 @@ class AutocompleteClientTabAndroidUserData
     }
   }
 
+  // TabAndroid::Observer implementation
+  void OnInitWebContents(TabAndroid* tab) override {
+    tab->RemoveUserData(UserDataKey());
+  }
+
  private:
-  explicit AutocompleteClientTabAndroidUserData(TabAndroid* tab) {}
+  explicit AutocompleteClientTabAndroidUserData(TabAndroid* tab) : tab_(tab) {
+    DCHECK(tab);
+    tab->AddObserver(this);
+  }
   friend class TabAndroidUserData<AutocompleteClientTabAndroidUserData>;
 
+  TabAndroid* tab_;
   bool initialized_ = false;
   GURL stripped_url_;
 
@@ -166,7 +180,9 @@ ChromeAutocompleteProviderClient::ChromeAutocompleteProviderClient(
           unified_consent::UrlKeyedDataCollectionConsentHelper::
               NewPersonalizedDataCollectionConsentHelper(
                   ProfileSyncServiceFactory::GetForProfile(profile_))),
-      storage_partition_(nullptr) {
+      storage_partition_(nullptr),
+      omnibox_triggered_feature_service_(
+          std::make_unique<OmniboxTriggeredFeatureService>()) {
   if (OmniboxFieldTrial::IsPedalSuggestionsEnabled())
     pedal_provider_ = std::make_unique<OmniboxPedalProvider>(*this);
 }
@@ -182,6 +198,10 @@ ChromeAutocompleteProviderClient::GetURLLoaderFactory() {
 
 PrefService* ChromeAutocompleteProviderClient::GetPrefs() {
   return profile_->GetPrefs();
+}
+
+PrefService* ChromeAutocompleteProviderClient::GetLocalState() {
+  return g_browser_process->local_state();
 }
 
 const AutocompleteSchemeClassifier&
@@ -234,12 +254,6 @@ ChromeAutocompleteProviderClient::GetRemoteSuggestionsService(
     bool create_if_necessary) const {
   return RemoteSuggestionsServiceFactory::GetForProfile(profile_,
                                                         create_if_necessary);
-}
-
-query_tiles::TileService*
-ChromeAutocompleteProviderClient::GetQueryTileService() const {
-  ProfileKey* profile_key = profile_->GetProfileKey();
-  return query_tiles::TileServiceFactory::GetForKey(profile_key);
 }
 
 DocumentSuggestionsService*
@@ -328,6 +342,17 @@ ChromeAutocompleteProviderClient::GetBuiltinsToProvideAsUserTypes() {
 component_updater::ComponentUpdateService*
 ChromeAutocompleteProviderClient::GetComponentUpdateService() {
   return g_browser_process->component_updater();
+}
+
+query_tiles::TileService*
+ChromeAutocompleteProviderClient::GetQueryTileService() const {
+  ProfileKey* profile_key = profile_->GetProfileKey();
+  return query_tiles::TileServiceFactory::GetForKey(profile_key);
+}
+
+OmniboxTriggeredFeatureService*
+ChromeAutocompleteProviderClient::GetOmniboxTriggeredFeatureService() const {
+  return omnibox_triggered_feature_service_.get();
 }
 
 bool ChromeAutocompleteProviderClient::IsOffTheRecord() const {
@@ -449,6 +474,16 @@ bool ChromeAutocompleteProviderClient::IsBrowserUpdateAvailable() const {
 #endif
 }
 
+void ChromeAutocompleteProviderClient::OnAutocompleteControllerResultReady(
+    AutocompleteController* controller) {
+  auto* search_prefetch_service =
+      SearchPrefetchServiceFactory::GetForProfile(profile_);
+
+  // Prefetches result pages that the search provider marked as prefetchable.
+  if (search_prefetch_service)
+    search_prefetch_service->OnResultChanged(controller);
+}
+
 bool ChromeAutocompleteProviderClient::StrippedURLsAreEqual(
     const GURL& url1,
     const GURL& url2,
@@ -505,8 +540,6 @@ TabAndroid* ChromeAutocompleteProviderClient::GetTabOpenWithURL(
       } else {
         // Browser did not load the tab yet after Chrome started. To avoid
         // reloading WebContents, we just compare URLs.
-        // TODO(crbug.com/1138729): Delete user data after WebContents is
-        // initialized.
         AutocompleteClientTabAndroidUserData::CreateForTabAndroid(tab);
         AutocompleteClientTabAndroidUserData* user_data =
             AutocompleteClientTabAndroidUserData::FromTabAndroid(tab);

@@ -8,31 +8,38 @@
 #include <string>
 #include <utility>
 
+#include "ash/capture_mode/capture_mode_metrics.h"
 #include "ash/capture_mode/capture_mode_session.h"
-#include "ash/capture_mode/stop_recording_button_tray.h"
+#include "ash/capture_mode/capture_mode_util.h"
+#include "ash/capture_mode/video_recording_watcher.h"
 #include "ash/public/cpp/ash_features.h"
 #include "ash/public/cpp/capture_mode_delegate.h"
 #include "ash/public/cpp/holding_space/holding_space_client.h"
 #include "ash/public/cpp/holding_space/holding_space_controller.h"
 #include "ash/public/cpp/notification_utils.h"
 #include "ash/resources/vector_icons/vector_icons.h"
-#include "ash/root_window_controller.h"
 #include "ash/shell.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/system/status_area_widget.h"
+#include "base/bind.h"
 #include "base/check.h"
 #include "base/check_op.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
+#include "base/location.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/notreached.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/current_thread.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
+#include "base/threading/thread_task_runner_handle.h"
 #include "base/time/time.h"
-#include "components/prefs/pref_service.h"
+#include "components/vector_icons/vector_icons.h"
+#include "components/viz/host/host_frame_sink_manager.h"
+#include "ui/aura/env.h"
 #include "ui/base/clipboard/clipboard_data.h"
 #include "ui/base/clipboard/clipboard_non_backed.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -48,6 +55,8 @@ namespace {
 CaptureModeController* g_instance = nullptr;
 
 constexpr char kScreenCaptureNotificationId[] = "capture_mode_notification";
+constexpr char kScreenCaptureStoppedNotificationId[] =
+    "capture_mode_stopped_notification";
 constexpr char kScreenCaptureNotifierId[] = "ash.capture_mode_controller";
 
 // The format strings of the file names of captured images.
@@ -59,10 +68,20 @@ constexpr char kDateFmtStr[] = "%d-%02d-%02d";
 constexpr char k24HourTimeFmtStr[] = "%02d.%02d.%02d";
 constexpr char kAmPmTimeFmtStr[] = "%d.%02d.%02d";
 
-// The notification button index.
-enum NotificationButtonIndex {
+// The amount of time to wait before attempting to relaunch the recording
+// service if it crashes and gets disconnected.
+constexpr base::TimeDelta kReconnectDelay =
+    base::TimeDelta::FromMilliseconds(100);
+
+// The screenshot notification button index.
+enum ScreenshotNotificationButtonIndex {
   BUTTON_EDIT = 0,
   BUTTON_DELETE,
+};
+
+// The video notification button index.
+enum VideoNotificationButtonIndex {
+  BUTTON_DELETE_VIDEO = 0,
 };
 
 // Returns the date extracted from |timestamp| as a string to be part of
@@ -118,12 +137,10 @@ bool SaveFile(scoped_refptr<base::RefCountedMemory> data,
   return true;
 }
 
-void DeleteFileAsync(const base::FilePath& path) {
-  base::ThreadPool::PostTaskAndReplyWithResult(
-      FROM_HERE,
-      {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
-       base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN},
-      base::BindOnce(&base::DeleteFile, path),
+void DeleteFileAsync(scoped_refptr<base::SequencedTaskRunner> task_runner,
+                     const base::FilePath& path) {
+  task_runner->PostTaskAndReplyWithResult(
+      FROM_HERE, base::BindOnce(&base::DeleteFile, path),
       base::BindOnce(
           [](const base::FilePath& path, bool success) {
             // TODO(afakhry): Show toast?
@@ -164,10 +181,21 @@ void ShowNotification(
 // Shows a notification informing the user that Capture Mode operations are
 // currently disabled.
 void ShowDisabledNotification() {
-  ShowNotification(
-      l10n_util::GetStringUTF16(IDS_ASH_SCREEN_CAPTURE_DISABLED_TITLE),
-      l10n_util::GetStringUTF16(IDS_ASH_SCREEN_CAPTURE_DISABLED_MESSAGE),
-      /*optional_fields=*/{}, /*delegate=*/nullptr);
+  std::unique_ptr<message_center::Notification> notification =
+      CreateSystemNotification(
+          message_center::NOTIFICATION_TYPE_SIMPLE,
+          kScreenCaptureNotificationId,
+          l10n_util::GetStringUTF16(IDS_ASH_SCREEN_CAPTURE_DISABLED_TITLE),
+          l10n_util::GetStringUTF16(IDS_ASH_SCREEN_CAPTURE_DISABLED_MESSAGE),
+          /*display_source=*/base::string16(), GURL(),
+          message_center::NotifierId(
+              message_center::NotifierType::SYSTEM_COMPONENT,
+              kScreenCaptureNotifierId),
+          /*optional_fields=*/{}, /*delegate=*/nullptr,
+          vector_icons::kBusinessIcon,
+          message_center::SystemNotificationWarningLevel::CRITICAL_WARNING);
+  message_center::MessageCenter::Get()->AddNotification(
+      std::move(notification));
 }
 
 // Shows a notification informing the user that a Capture Mode operation has
@@ -179,6 +207,25 @@ void ShowFailureNotification() {
       /*optional_fields=*/{}, /*delegate=*/nullptr);
 }
 
+// Shows a notification informing the user that video recording was stopped.
+void ShowVideoRecordingStoppedNotification() {
+  std::unique_ptr<message_center::Notification> notification =
+      CreateSystemNotification(
+          message_center::NOTIFICATION_TYPE_SIMPLE,
+          kScreenCaptureStoppedNotificationId,
+          l10n_util::GetStringUTF16(IDS_ASH_SCREEN_CAPTURE_STOPPED_TITLE),
+          l10n_util::GetStringUTF16(IDS_ASH_SCREEN_CAPTURE_STOPPED_MESSAGE),
+          /*display_source=*/base::string16(), GURL(),
+          message_center::NotifierId(
+              message_center::NotifierType::SYSTEM_COMPONENT,
+              kScreenCaptureNotifierId),
+          /*optional_fields=*/{}, /*delegate=*/nullptr,
+          vector_icons::kBusinessIcon,
+          message_center::SystemNotificationWarningLevel::CRITICAL_WARNING);
+  message_center::MessageCenter::Get()->AddNotification(
+      std::move(notification));
+}
+
 // Copies the bitmap representation of the given |image| to the clipboard.
 void CopyImageToClipboard(const gfx::Image& image) {
   auto* clipboard = ui::ClipboardNonBacked::GetForCurrentThread();
@@ -188,25 +235,25 @@ void CopyImageToClipboard(const gfx::Image& image) {
   clipboard->WriteClipboardData(std::move(clipboard_data));
 }
 
-// Shows the stop-recording button in the Shelf's status area widget. Note that
-// the button hides itself when clicked.
-void ShowStopRecordingButton(aura::Window* root) {
-  DCHECK(root);
-  DCHECK(root->IsRootWindow());
-
-  auto* stop_recording_button = RootWindowController::ForWindow(root)
-                                    ->GetStatusAreaWidget()
-                                    ->stop_recording_button_tray();
-  stop_recording_button->SetVisiblePreferred(true);
-}
-
 }  // namespace
 
 CaptureModeController::CaptureModeController(
     std::unique_ptr<CaptureModeDelegate> delegate)
-    : delegate_(std::move(delegate)) {
+    : delegate_(std::move(delegate)),
+      task_runner_(base::ThreadPool::CreateSequencedTaskRunner(
+          // A task priority of BEST_EFFORT is good enough for this runner,
+          // since it's used for blocking file IO such as saving the screenshots
+          // or the successive webm video chunks received from the recording
+          // service.
+          {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
+           base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN})),
+      recording_service_client_receiver_(this) {
   DCHECK_EQ(g_instance, nullptr);
   g_instance = this;
+
+  on_video_file_status_ =
+      base::BindRepeating(&CaptureModeController::OnVideoFileStatus,
+                          weak_ptr_factory_.GetWeakPtr());
 
   // Schedule recording of the number of screenshots taken per day.
   num_screenshots_taken_in_last_day_scheduler_.Start(
@@ -221,6 +268,10 @@ CaptureModeController::CaptureModeController(
       base::BindRepeating(
           &CaptureModeController::RecordNumberOfScreenshotsTakenInLastWeek,
           weak_ptr_factory_.GetWeakPtr()));
+
+  // TODO(afakhry): Explore starting this only when a video recording starts, so
+  // as not to consume system resources while idle. https://crbug.com/1143411.
+  LaunchRecordingService();
 }
 
 CaptureModeController::~CaptureModeController() {
@@ -252,17 +303,21 @@ void CaptureModeController::SetType(CaptureModeType type) {
     capture_mode_session_->OnCaptureTypeChanged(type_);
 }
 
-void CaptureModeController::Start() {
+void CaptureModeController::Start(CaptureModeEntryType entry_type) {
   if (capture_mode_session_)
     return;
 
-  // TODO(afakhry): Use root window of the mouse cursor or the one for new
-  // windows.
-  capture_mode_session_ =
-      std::make_unique<CaptureModeSession>(this, Shell::GetPrimaryRootWindow());
+  if (delegate_->IsCaptureModeInitRestricted()) {
+    ShowDisabledNotification();
+    return;
+  }
+
+  RecordCaptureModeEntryType(entry_type);
+  capture_mode_session_ = std::make_unique<CaptureModeSession>(this);
 }
 
 void CaptureModeController::Stop() {
+  DCHECK(IsActive());
   capture_mode_session_.reset();
 }
 
@@ -275,26 +330,120 @@ void CaptureModeController::PerformCapture() {
     return;
   }
 
+  DCHECK(capture_mode_session_);
+  capture_mode_session_->ReportSessionHistograms();
+
   if (type_ == CaptureModeType::kImage)
     CaptureImage();
   else
     CaptureVideo();
-
-  // The above capture functions should have ended the session.
-  DCHECK(!IsActive());
 }
 
 void CaptureModeController::EndVideoRecording() {
-  // TODO(afakhry): We should instead ask the recording service to stop
-  // recording, and only do the below when the service tells us that it's done
-  // with all the frames.
-  is_recording_in_progress_ = false;
-  Shell::Get()->UpdateCursorCompositingEnabled();
+  recording_service_remote_->StopRecording();
+  TerminateRecordingUiElements();
+}
+
+void CaptureModeController::OpenFeedbackDialog() {
+  delegate_->OpenFeedbackDialog();
+}
+
+void CaptureModeController::BindVideoCapturer(
+    mojo::PendingReceiver<viz::mojom::FrameSinkVideoCapturer> receiver) {
+  if (!is_recording_in_progress_ || !recording_service_remote_.is_connected()) {
+    NOTREACHED();
+    return;
+  }
+
+  aura::Env::GetInstance()
+      ->context_factory()
+      ->GetHostFrameSinkManager()
+      ->CreateVideoCapturer(std::move(receiver));
+}
+
+void CaptureModeController::BindAudioStreamFactory(
+    mojo::PendingReceiver<audio::mojom::StreamFactory> receiver) {
+  if (!is_recording_in_progress_ || !recording_service_remote_.is_connected()) {
+    NOTREACHED();
+    return;
+  }
+
+  delegate_->BindAudioStreamFactory(std::move(receiver));
+}
+
+void CaptureModeController::OnMuxerOutput(const std::string& chunk) {
+  DCHECK(video_file_handler_);
+  video_file_handler_.AsyncCall(&VideoFileHandler::AppendChunk)
+      .WithArgs(const_cast<std::string&>(chunk))
+      .Then(on_video_file_status_);
+}
+
+void CaptureModeController::OnRecordingEnded(bool success) {
+  delegate_->StopObservingRestrictedContent();
+  window_frame_sink_.reset();
+
+  // If |success| is false, then recording has been force-terminated due to a
+  // failure on the service side, or a disconnection to it. We need to terminate
+  // the recording-related UI elements.
+  if (!success) {
+    // TODO(afakhry): Show user a failure message.
+    TerminateRecordingUiElements();
+  }
+
+  DCHECK(video_file_handler_);
+  video_file_handler_.AsyncCall(&VideoFileHandler::FlushBufferedChunks)
+      .Then(base::BindOnce(&CaptureModeController::OnVideoFileSaved,
+                           weak_ptr_factory_.GetWeakPtr()));
+}
+
+void CaptureModeController::StartVideoRecordingImmediatelyForTesting() {
+  DCHECK(IsActive());
+  DCHECK_EQ(type_, CaptureModeType::kVideo);
+  OnVideoRecordCountDownFinished();
+}
+
+void CaptureModeController::LaunchRecordingService() {
+  recording_service_remote_.reset();
+  recording_service_client_receiver_.reset();
+  recording_service_remote_ = delegate_->LaunchRecordingService();
+  recording_service_remote_.set_disconnect_handler(
+      base::BindOnce(&CaptureModeController::OnRecordingServiceDisconnected,
+                     base::Unretained(this)));
+  recording_service_remote_->SetClient(
+      recording_service_client_receiver_.BindNewPipeAndPassRemote());
+}
+
+void CaptureModeController::OnRecordingServiceDisconnected() {
+  // TODO(afakhry): Consider what to do if the service crashes during an ongoin
+  // video recording. Do we try to resume recording, or notify with failure?
+  // For now, just end the recording and relaunch the service.
+  if (is_recording_in_progress_)
+    OnRecordingEnded(/*success=*/false);
+
+  // TODO(afakhry): Do we need an exponential backoff delay here?
+  base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(&CaptureModeController::LaunchRecordingService,
+                     weak_ptr_factory_.GetWeakPtr()),
+      kReconnectDelay);
 }
 
 bool CaptureModeController::IsCaptureAllowed() const {
-  // TODO(afakhry): Fill in here.
-  return true;
+  const base::Optional<CaptureParams> capture_params = GetCaptureParams();
+  if (!capture_params)
+    return false;
+  return delegate_->IsCaptureAllowed(
+      capture_params->window, capture_params->bounds,
+      /*for_video=*/type_ == CaptureModeType::kVideo);
+}
+
+void CaptureModeController::TerminateRecordingUiElements() {
+  is_recording_in_progress_ = false;
+  Shell::Get()->UpdateCursorCompositingEnabled();
+  capture_mode_util::SetStopRecordingButtonVisibility(
+      video_recording_watcher_->window_being_recorded()->GetRootWindow(),
+      false);
+  video_recording_watcher_.reset();
 }
 
 base::Optional<CaptureModeController::CaptureParams>
@@ -308,11 +457,7 @@ CaptureModeController::GetCaptureParams() const {
       window = capture_mode_session_->current_root();
       DCHECK(window);
       DCHECK(window->IsRootWindow());
-      // In video mode, the recording service is not given any bounds as it
-      // should just use the same bounds of the frame captured from the root
-      // window.
-      if (type_ == CaptureModeType::kImage)
-        bounds = window->bounds();
+      bounds = window->bounds();
       break;
 
     case CaptureModeSource::kWindow:
@@ -322,13 +467,9 @@ CaptureModeController::GetCaptureParams() const {
         // window was selected.
         return base::nullopt;
       }
-      // Also here, the recording service will use the same frame size as
-      // captured from |window| and does not need any crop bounds.
-      if (type_ == CaptureModeType::kImage) {
-        // window->bounds() are in root coordinates, but we want to get the
-        // capture area in |window|'s coordinates.
-        bounds = gfx::Rect(window->bounds().size());
-      }
+      // window->bounds() are in root coordinates, but we want to get the
+      // capture area in |window|'s coordinates.
+      bounds = gfx::Rect(window->bounds().size());
       break;
 
     case CaptureModeSource::kRegion:
@@ -378,27 +519,14 @@ void CaptureModeController::CaptureVideo() {
   DCHECK_EQ(CaptureModeType::kVideo, type_);
   DCHECK(IsCaptureAllowed());
 
-  const base::Optional<CaptureParams> capture_params = GetCaptureParams();
-  // Stop the capture session now, so the bar doesn't show up in the captured
-  // video.
-  Stop();
-
-  if (!capture_params)
+  if (skip_count_down_ui_) {
+    OnVideoRecordCountDownFinished();
     return;
+  }
 
-  // We provide the service with no crop bounds except when we're capturing a
-  // custom region.
-  DCHECK_EQ(source_ != CaptureModeSource::kRegion,
-            capture_params->bounds.IsEmpty());
-
-  // We enable the software-composited cursor, in order for the video capturer
-  // to be able to record it.
-  is_recording_in_progress_ = true;
-  Shell::Get()->UpdateCursorCompositingEnabled();
-
-  // TODO(afakhry): Call into the recording service.
-
-  ShowStopRecordingButton(capture_params->window->GetRootWindow());
+  capture_mode_session_->StartCountDown(
+      base::BindOnce(&CaptureModeController::OnVideoRecordCountDownFinished,
+                     weak_ptr_factory_.GetWeakPtr()));
 }
 
 void CaptureModeController::OnImageCaptured(
@@ -411,10 +539,8 @@ void CaptureModeController::OnImageCaptured(
   }
 
   const base::FilePath path = BuildImagePath(timestamp);
-  base::ThreadPool::PostTaskAndReplyWithResult(
-      FROM_HERE,
-      {base::MayBlock(), base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN},
-      base::BindOnce(&SaveFile, png_bytes, path),
+  task_runner_->PostTaskAndReplyWithResult(
+      FROM_HERE, base::BindOnce(&SaveFile, png_bytes, path),
       base::BindOnce(&CaptureModeController::OnImageFileSaved,
                      weak_ptr_factory_.GetWeakPtr(), png_bytes, path));
 }
@@ -428,29 +554,63 @@ void CaptureModeController::OnImageFileSaved(
     return;
   }
 
+  if (!on_file_saved_callback_.is_null())
+    std::move(on_file_saved_callback_).Run(path);
+
   DCHECK(png_bytes && png_bytes->size());
   const auto image = gfx::Image::CreateFrom1xPNGBytes(png_bytes);
   CopyImageToClipboard(image);
-  ShowPreviewNotification(path, image);
+  ShowPreviewNotification(path, image, CaptureModeType::kImage);
 
   if (features::IsTemporaryHoldingSpaceEnabled())
     HoldingSpaceController::Get()->client()->AddScreenshot(path);
 }
 
+void CaptureModeController::OnVideoFileStatus(bool success) {
+  if (success)
+    return;
+
+  // TODO(afakhry): Show the user a message about IO failure.
+  EndVideoRecording();
+}
+
+void CaptureModeController::OnVideoFileSaved(bool success) {
+  DCHECK(base::CurrentUIThread::IsSet());
+  DCHECK(video_file_handler_);
+
+  if (!success) {
+    ShowFailureNotification();
+  } else {
+    ShowPreviewNotification(current_video_file_path_, gfx::Image(),
+                            CaptureModeType::kVideo);
+    DCHECK(!recording_start_time_.is_null());
+    RecordCaptureModeRecordTime(
+        (base::TimeTicks::Now() - recording_start_time_).InSeconds());
+  }
+
+  if (!on_file_saved_callback_.is_null())
+    std::move(on_file_saved_callback_).Run(current_video_file_path_);
+
+  recording_start_time_ = base::TimeTicks();
+  current_video_file_path_.clear();
+  video_file_handler_.Reset();
+}
+
 void CaptureModeController::ShowPreviewNotification(
     const base::FilePath& screen_capture_path,
-    const gfx::Image& preview_image) {
-  const base::string16 title =
-      l10n_util::GetStringUTF16(type_ == CaptureModeType::kImage
-                                    ? IDS_ASH_SCREEN_CAPTURE_SCREENSHOT_TITLE
-                                    : IDS_ASH_SCREEN_CAPTURE_RECORDING_TITLE);
+    const gfx::Image& preview_image,
+    const CaptureModeType type) {
+  const base::string16 title = l10n_util::GetStringUTF16(
+      type == CaptureModeType::kImage ? IDS_ASH_SCREEN_CAPTURE_SCREENSHOT_TITLE
+                                      : IDS_ASH_SCREEN_CAPTURE_RECORDING_TITLE);
   const base::string16 message =
       l10n_util::GetStringUTF16(IDS_ASH_SCREEN_CAPTURE_MESSAGE);
 
   message_center::RichNotificationData optional_fields;
   message_center::ButtonInfo edit_button(
       l10n_util::GetStringUTF16(IDS_ASH_SCREEN_CAPTURE_BUTTON_EDIT));
-  optional_fields.buttons.push_back(edit_button);
+  if (type == CaptureModeType::kImage)
+    optional_fields.buttons.push_back(edit_button);
   message_center::ButtonInfo delete_button(
       l10n_util::GetStringUTF16(IDS_ASH_SCREEN_CAPTURE_BUTTON_DELETE));
   optional_fields.buttons.push_back(delete_button);
@@ -462,28 +622,45 @@ void CaptureModeController::ShowPreviewNotification(
       base::MakeRefCounted<message_center::HandleNotificationClickDelegate>(
           base::BindRepeating(&CaptureModeController::HandleNotificationClicked,
                               weak_ptr_factory_.GetWeakPtr(),
-                              screen_capture_path)));
+                              screen_capture_path, type)));
 }
 
 void CaptureModeController::HandleNotificationClicked(
     const base::FilePath& screen_capture_path,
+    const CaptureModeType type,
     base::Optional<int> button_index) {
+  message_center::MessageCenter::Get()->RemoveNotification(
+      kScreenCaptureNotificationId, /*by_user=*/false);
+
   if (!button_index.has_value()) {
     // Show the item in the folder.
     delegate_->ShowScreenCaptureItemInFolder(screen_capture_path);
-  } else {
-    // TODO: fill in here.
-    switch (button_index.value()) {
-      case NotificationButtonIndex::BUTTON_EDIT:
-        break;
-      case NotificationButtonIndex::BUTTON_DELETE:
-        DeleteFileAsync(screen_capture_path);
-        break;
-    }
+    return;
   }
 
-  message_center::MessageCenter::Get()->RemoveNotification(
-      kScreenCaptureNotificationId, /*by_user=*/false);
+  const int button_index_value = button_index.value();
+
+  // Handle a button clicked for a video preview notification.
+  if (type == CaptureModeType::kVideo) {
+    DCHECK_EQ(button_index_value,
+              VideoNotificationButtonIndex::BUTTON_DELETE_VIDEO);
+    DeleteFileAsync(task_runner_, screen_capture_path);
+    return;
+  }
+
+  // Handle a button clicked for an image preview notification.
+  DCHECK_EQ(type, CaptureModeType::kImage);
+  switch (button_index_value) {
+    case ScreenshotNotificationButtonIndex::BUTTON_EDIT:
+      delegate_->OpenScreenshotInImageEditor(screen_capture_path);
+      break;
+    case ScreenshotNotificationButtonIndex::BUTTON_DELETE:
+      DeleteFileAsync(task_runner_, screen_capture_path);
+      break;
+    default:
+      NOTREACHED();
+      break;
+  }
 }
 
 base::FilePath CaptureModeController::BuildImagePath(
@@ -517,6 +694,87 @@ void CaptureModeController::RecordNumberOfScreenshotsTakenInLastWeek() {
   base::UmaHistogramCounts1000("Ash.CaptureModeController.ScreenshotsPerWeek",
                                num_screenshots_taken_in_last_week_);
   num_screenshots_taken_in_last_week_ = 0;
+}
+
+void CaptureModeController::OnVideoRecordCountDownFinished() {
+  // If this event is dispatched after the capture session was cancelled or
+  // destroyed, this should be a no-op.
+  if (!IsActive())
+    return;
+
+  const base::Optional<CaptureParams> capture_params = GetCaptureParams();
+  // Stop the capture session now, so the bar doesn't show up in the captured
+  // video.
+  Stop();
+
+  if (!capture_params)
+    return;
+
+  // We enable the software-composited cursor, in order for the video capturer
+  // to be able to record it.
+  is_recording_in_progress_ = true;
+  Shell::Get()->UpdateCursorCompositingEnabled();
+  video_recording_watcher_ =
+      std::make_unique<VideoRecordingWatcher>(this, capture_params->window);
+
+  // TODO(afakhry): Choose a real buffer capacity when the recording service is
+  // in.
+  constexpr size_t kVideoBufferCapacityBytes = 512 * 1024;
+  DCHECK(current_video_file_path_.empty());
+  recording_start_time_ = base::TimeTicks::Now();
+  current_video_file_path_ = BuildVideoPath(base::Time::Now());
+  video_file_handler_ = VideoFileHandler::Create(
+      task_runner_, current_video_file_path_, kVideoBufferCapacityBytes);
+  video_file_handler_.AsyncCall(&VideoFileHandler::Initialize)
+      .Then(on_video_file_status_);
+
+  DCHECK(recording_service_remote_.is_bound());
+  DCHECK(recording_service_remote_.is_connected());
+
+  auto frame_sink_id = capture_params->window->GetFrameSinkId();
+  if (!frame_sink_id.is_valid()) {
+    window_frame_sink_ = capture_params->window->CreateLayerTreeFrameSink();
+    frame_sink_id = capture_params->window->GetFrameSinkId();
+    DCHECK(frame_sink_id.is_valid());
+  }
+  const auto bounds = capture_params->bounds;
+  switch (source_) {
+    case CaptureModeSource::kFullscreen:
+      recording_service_remote_->RecordFullscreen(frame_sink_id, bounds.size());
+      break;
+
+    case CaptureModeSource::kWindow:
+      // TODO(crbug.com/1143930): Window recording doesn't produce any frames at
+      // the moment.
+      recording_service_remote_->RecordWindow(
+          frame_sink_id, bounds.size(),
+          capture_params->window->GetRootWindow()
+              ->GetBoundsInRootWindow()
+              .size());
+      break;
+
+    case CaptureModeSource::kRegion:
+      recording_service_remote_->RecordRegion(
+          frame_sink_id,
+          capture_params->window->GetRootWindow()
+              ->GetBoundsInRootWindow()
+              .size(),
+          bounds);
+      break;
+  }
+
+  delegate_->StartObservingRestrictedContent(
+      capture_params->window, capture_params->bounds,
+      base::BindOnce(&CaptureModeController::InterruptVideoRecording,
+                     weak_ptr_factory_.GetWeakPtr()));
+
+  capture_mode_util::SetStopRecordingButtonVisibility(
+      capture_params->window->GetRootWindow(), true);
+}
+
+void CaptureModeController::InterruptVideoRecording() {
+  ShowVideoRecordingStoppedNotification();
+  EndVideoRecording();
 }
 
 }  // namespace ash

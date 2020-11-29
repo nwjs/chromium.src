@@ -23,12 +23,14 @@
 #include "base/optional.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
+#include "build/chromeos_buildflags.h"
 #include "mojo/public/cpp/base/big_buffer.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/bindings/unique_receiver_set.h"
+#include "net/base/network_isolation_key.h"
 #include "net/cert/cert_verifier.h"
 #include "net/cert/cert_verify_result.h"
 #include "net/dns/host_resolver.h"
@@ -57,7 +59,7 @@
 #include "services/network/socket_factory.h"
 #include "services/network/url_request_context_owner.h"
 
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_ASH)
 #include "crypto/scoped_nss_types.h"
 #endif
 
@@ -93,17 +95,18 @@ class CertVerifierWithTrustAnchors;
 class CookieManager;
 class ExpectCTReporter;
 class HostResolver;
+class MdnsResponderManager;
 class NetworkService;
 class NetworkServiceNetworkDelegate;
 class NetworkServiceProxyDelegate;
-class MdnsResponderManager;
 class P2PSocketManager;
+class PendingTrustTokenStore;
 class ProxyLookupRequest;
 class QuicTransport;
 class ResourceScheduler;
 class ResourceSchedulerClient;
+class SessionCleanupCookieStore;
 class SQLiteTrustTokenPersister;
-class PendingTrustTokenStore;
 class WebSocketFactory;
 
 namespace cors {
@@ -221,7 +224,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
                             ComputeHttpCacheSizeCallback callback) override;
   void NotifyExternalCacheHit(const GURL& url,
                               const std::string& http_method,
-                              const net::NetworkIsolationKey& key) override;
+                              const net::NetworkIsolationKey& key,
+                              bool is_subframe_document_resource) override;
   void ClearHostCache(mojom::ClearDataFilterPtr filter,
                       ClearHostCacheCallback callback) override;
   void ClearHttpAuthCache(base::Time start_time,
@@ -248,7 +252,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   void SetAcceptLanguage(const std::string& new_accept_language) override;
   void SetEnableReferrers(bool enable_referrers) override;
   void SetTrustAnchors(const net::CertificateList&) override;
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_ASH)
   void UpdateAdditionalCertificates(
       mojom::AdditionalCertificatesPtr additional_certificates) override;
 #endif
@@ -338,6 +342,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   void VerifyCertForSignedExchange(
       const scoped_refptr<net::X509Certificate>& certificate,
       const GURL& url,
+      const net::NetworkIsolationKey& network_isolation_key,
       const std::string& ocsp_result,
       const std::string& sct_list,
       VerifyCertForSignedExchangeCallback callback) override;
@@ -385,10 +390,12 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   void QueueReport(const std::string& type,
                    const std::string& group,
                    const GURL& url,
+                   const net::NetworkIsolationKey& network_isolation_key,
                    const base::Optional<std::string>& user_agent,
                    base::Value body) override;
   void QueueSignedExchangeReport(
-      mojom::SignedExchangeReportPtr report) override;
+      mojom::SignedExchangeReportPtr report,
+      const net::NetworkIsolationKey& network_isolation_key) override;
   void AddDomainReliabilityContextForTesting(
       const GURL& origin,
       const GURL& upload_url,
@@ -412,7 +419,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
       const GURL& url,
       const net::NetworkIsolationKey& network_isolation_key,
       LookupServerBasicAuthCredentialsCallback callback) override;
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_ASH)
   void LookupProxyAuthCredentials(
       const net::ProxyServer& proxy_server,
       const std::string& auth_scheme,
@@ -520,7 +527,10 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
  private:
   URLRequestContextOwner MakeURLRequestContext(
       mojo::PendingRemote<mojom::URLLoaderFactory>
-          url_loader_factory_for_cert_net_fetcher);
+          url_loader_factory_for_cert_net_fetcher,
+      scoped_refptr<SessionCleanupCookieStore>);
+  scoped_refptr<SessionCleanupCookieStore> MakeSessionCleanupCookieStore()
+      const;
 
   // Invoked when the HTTP cache was cleared. Invokes |callback|.
   void OnHttpCacheCleared(ClearHttpCacheCallback callback,
@@ -545,9 +555,9 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   void CanUploadDomainReliability(const GURL& origin,
                                   base::OnceCallback<void(bool)> callback);
 
-  void OnCertVerifyForSignedExchangeComplete(int cert_verify_id, int result);
+  void OnVerifyCertForSignedExchangeComplete(int cert_verify_id, int result);
 
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_ASH)
   void TrustAnchorUsed();
 #endif
 
@@ -675,8 +685,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
 #endif  // BUILDFLAG(IS_CT_SUPPORTED)
 
   nw::PolicyCertVerifier* nw_cert_verifier_ = nullptr;
-
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_ASH)
   CertVerifierWithTrustAnchors* cert_verifier_with_trust_anchors_ = nullptr;
 #endif
 
@@ -702,6 +711,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   struct PendingCertVerify {
     PendingCertVerify();
     ~PendingCertVerify();
+
     // CertVerifyResult must be freed after the Request has been destructed.
     // So |result| must be written before |request|.
     std::unique_ptr<net::CertVerifyResult> result;
@@ -709,6 +719,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
     VerifyCertForSignedExchangeCallback callback;
     scoped_refptr<net::X509Certificate> certificate;
     GURL url;
+    net::NetworkIsolationKey network_isolation_key;
     std::string ocsp_result;
     std::string sct_list;
   };

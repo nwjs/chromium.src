@@ -64,7 +64,7 @@ class MediaPlayerAction;
 }
 
 namespace ui {
-class ClipboardDataEndpoint;
+class DataTransferEndpoint;
 }
 
 class RenderViewContextMenu : public RenderViewContextMenuBase {
@@ -77,10 +77,6 @@ class RenderViewContextMenu : public RenderViewContextMenuBase {
   // Adds the spell check service item to the context menu.
   static void AddSpellCheckServiceItem(ui::SimpleMenuModel* menu,
                                        bool is_checked);
-
-  // Range of command IDs to use for the items in the send tab to self submenu.
-  static const int kMaxSendTabToSelfSubMenuCommandId =
-      send_tab_to_self::SendTabToSelfSubMenuModel::kMaxCommandId;
 
   // RenderViewContextMenuBase:
   bool IsCommandIdChecked(int command_id) const override;
@@ -201,7 +197,8 @@ class RenderViewContextMenu : public RenderViewContextMenuBase {
   void AppendSharedClipboardItem();
   void AppendQRCodeGeneratorItem(bool for_image, bool draw_icon);
 
-  std::unique_ptr<ui::ClipboardDataEndpoint> CreateDataEndpoint() const;
+  std::unique_ptr<ui::DataTransferEndpoint> CreateDataEndpoint(
+      bool notify_if_restricted) const;
 
   // Command enabled query functions.
   bool IsReloadEnabled() const;

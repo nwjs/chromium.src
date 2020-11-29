@@ -80,6 +80,14 @@
     &lt;/ol&gt;</translation>
 <translation id="1257286744552378071">Ја внесовте лозинката на сајт што не е управуван од организацијата. За да ја заштитите сметката, не користете ја лозинката повторно на други апликации и сајтови.</translation>
 <translation id="1263231323834454256">Список за читање</translation>
+<translation id="1267173982554786072"><ph name="BEGIN_BOLD" />
+        Активност што нема да остане на уредов:
+        <ph name="END_BOLD" />
+        <ph name="BEGIN_LIST" />
+          <ph name="LIST_ITEM" />страниците што ги прегледувате во овој прозорец
+          <ph name="LIST_ITEM" />колачињата и податоците за сајтот
+          <ph name="LIST_ITEM" />податоците на сметката (<ph name="LINK_BEGIN" />одјавете се<ph name="LINK_END" />)
+        <ph name="END_LIST" /></translation>
 <translation id="1270502636509132238">Начин на подигнување</translation>
 <translation id="1281476433249504884">Фиока за складирање 1</translation>
 <translation id="1285320974508926690">Никогаш не преведувај ја оваа локација</translation>
@@ -283,6 +291,7 @@
 <translation id="204357726431741734">Најавете се за да користите лозинки зачувани во вашата сметка на Google</translation>
 <translation id="2053111141626950936">Страниците на <ph name="LANGUAGE" /> нема да се преведуваат.</translation>
 <translation id="2053553514270667976">Поштенски број</translation>
+<translation id="2054665754582400095">Вашето присуство</translation>
 <translation id="2064691555167957331">{COUNT,plural, =1{1 предлог}one{# предлог}other{# предлози}}</translation>
 <translation id="2079545284768500474">Врати</translation>
 <translation id="20817612488360358">Поставките на прокси на системот се поставени да се користат, но назначена е и јасна конфигурација на прокси.</translation>
@@ -307,6 +316,7 @@
 <translation id="214556005048008348">Откажи го плаќањето</translation>
 <translation id="2147827593068025794">Синхронизација во заднина</translation>
 <translation id="2148613324460538318">Додајте картичка</translation>
+<translation id="2149968176347646218">Врската не е безбедна</translation>
 <translation id="2154054054215849342">Не е достапна синхронизација за вашиот домен</translation>
 <translation id="2154484045852737596">Уредете ја картичката</translation>
 <translation id="2161656808144014275">Текст</translation>
@@ -317,7 +327,6 @@
 <translation id="2181821976797666341">Политики</translation>
 <translation id="2183608646556468874">Телефонски број</translation>
 <translation id="2184405333245229118">{COUNT,plural, =1{1 адреса}one{# адреса}other{# адреси}}</translation>
-<translation id="2187243482123994665">Присуство на корисник</translation>
 <translation id="2187317261103489799">Откриј (стандардно)</translation>
 <translation id="2188375229972301266">Повеќе дупки долу</translation>
 <translation id="2202020181578195191">Внесете важечка година на истекување</translation>
@@ -470,6 +479,7 @@
 <translation id="2839501879576190149">Пред вас е лажен сајт</translation>
 <translation id="2850739647070081192">Invite (плик)</translation>
 <translation id="2856444702002559011">Напаѓачите можеби се обидуваат да ги украдат вашите информации од <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> (на пример, лозинки, пораки или кредитни картички). <ph name="BEGIN_LEARN_MORE_LINK" />Дознајте повеќе<ph name="END_LEARN_MORE_LINK" /></translation>
+<translation id="2859806420264540918">Сајтов прикажува нападни или лажни реклами.</translation>
 <translation id="2878197950673342043">Превиткување постер</translation>
 <translation id="2878424575911748999">A1</translation>
 <translation id="2880660355386638022">Поставување прозорец</translation>
@@ -508,7 +518,6 @@
 <translation id="2996674880327704673">Предлози од Google</translation>
 <translation id="3002501248619246229">Провери ги содржините во влезната фиока</translation>
 <translation id="3005723025932146533">Прикажи зачувана копија</translation>
-<translation id="3007719053326478567">Администраторот го блокирал печатењето на содржинава</translation>
 <translation id="3008447029300691911">Внесете го CVC за <ph name="CREDIT_CARD" />. Откако ќе потврдите, деталите за вашата картичка ќе се споделат со сајтот.</translation>
 <translation id="3010559122411665027">Запис во список „<ph name="ENTRY_INDEX" />“: <ph name="ERROR" /></translation>
 <translation id="301521992641321250">Автоматски блокирана</translation>
@@ -555,6 +564,7 @@
 <translation id="3207960819495026254">Обележано</translation>
 <translation id="3209034400446768650">Страницата може да наплаќа</translation>
 <translation id="3212581601480735796">Вашата активност на <ph name="HOSTNAME" /> се набљудува</translation>
+<translation id="3212623355668894776">Затворете ги сите гостински прозорци за да може активноста од прелистувањето да се избрише од уредов.</translation>
 <translation id="3215092763954878852">Не може да се користи WebAuthn</translation>
 <translation id="3218181027817787318">Релативна</translation>
 <translation id="3225919329040284222">Серверот претстави сертификат што не се совпаѓа со вградените очекувања. Овие очекувања се вклучени за сигурни веб-локации со голема сигурност за да бидете заштитени.</translation>
@@ -702,6 +712,7 @@
 <translation id="3784372983762739446">Уреди со Bluetooth</translation>
 <translation id="3787705759683870569">Истекува на <ph name="EXPIRATION_MONTH" />/<ph name="EXPIRATION_YEAR" /></translation>
 <translation id="3789155188480882154">Големина 16</translation>
+<translation id="3789841737615482174">Инсталирај</translation>
 <translation id="3793574014653384240">Број на падови и причини за падовите што се случиле неодамна</translation>
 <translation id="3797522431967816232">Prc3 (плик)</translation>
 <translation id="3799805948399000906">Побаран е фонт</translation>
@@ -915,6 +926,7 @@
 <translation id="4658638640878098064">Спојување горе лево</translation>
 <translation id="4668929960204016307">,</translation>
 <translation id="4670064810192446073">Виртуелна реалност</translation>
+<translation id="4675657451653251260">Во режим на гостин нема да гледате податоци за профили на Chrome. Може да се <ph name="LINK_BEGIN" />најавите<ph name="LINK_END" /> за да пристапите до податоците на сметката на Google, како лозинките и начините на плаќање.</translation>
 <translation id="467662567472608290">Серверот не можеше да докаже дека е <ph name="DOMAIN" />; неговиот безбедносен сертификат содржи грешки. Тоа може да се должи на погрешна конфигурација или на напаѓач што го пресретнува поврзувањето.</translation>
 <translation id="4677585247300749148"><ph name="URL" /> сака да одговара на настани за пристапност</translation>
 <translation id="467809019005607715">Google Slides</translation>
@@ -942,6 +954,12 @@
 <translation id="4761104368405085019">Користете го микрофонот</translation>
 <translation id="4764776831041365478">Веб-локацијата на <ph name="URL" /> можеби привремено не работи или можеби е трајно преместена на нова веб-адреса.</translation>
 <translation id="4766713847338118463">Двојно спојување долу</translation>
+<translation id="4768815695067202997"><ph name="BEGIN_BOLD" />
+        Активност што ќе остане на уредов:
+        <ph name="END_BOLD" />
+        <ph name="BEGIN_LIST" />
+          <ph name="LIST_ITEM" />сите датотеки што ги преземате во овој прозорец
+        <ph name="END_LIST" /></translation>
 <translation id="4771973620359291008">Се појави непозната грешка.</translation>
 <translation id="477945296921629067">{NUM_POPUPS,plural, =1{Скокачкиот прозорец е блокиран}one{# скокачки прозорец е блокиран}other{# скокачки прозорци се блокирани}}</translation>
 <translation id="4780366598804516005">Поштенско сандаче 1</translation>
@@ -1104,11 +1122,13 @@
 <translation id="5386426401304769735">Синџирот со сертификати за сајтов содржи сертификат потпишан со SHA-1.</translation>
 <translation id="538659543871111977">A4-Tab</translation>
 <translation id="5396631636586785122">Шиење на работ десно</translation>
+<translation id="5398772614898833570">Рекламите се блокирани</translation>
 <translation id="5400836586163650660">Сива</translation>
 <translation id="540969355065856584">Серверот не можеше да докаже дека е <ph name="DOMAIN" />; неговиот безбедносен сертификат не е важечки во моментов. Тоа може да се должи на погрешна конфигурација или на напаѓач што го пресретнува поврзувањето.</translation>
 <translation id="541416427766103491">Фиока за складирање 4</translation>
 <translation id="5421136146218899937">Исчисти податоци од прелистување…</translation>
 <translation id="5426179911063097041"><ph name="SITE" /> сака да ви испраќа известувања</translation>
+<translation id="542872847390508405">Пребарувате како Гостин</translation>
 <translation id="5430298929874300616">Отстрани обележувач</translation>
 <translation id="5439770059721715174">Грешка при потврдување шема на „<ph name="ERROR_PATH" />“: <ph name="ERROR" /></translation>
 <translation id="5443468954631487277">Обратен редослед со лицето нагоре</translation>
@@ -1150,6 +1170,7 @@
 <translation id="5571083550517324815">Не може да се подигне од оваа адреса. Изберете друга.</translation>
 <translation id="5580958916614886209">Проверете го месецот на истекување и обидете се повторно</translation>
 <translation id="5586446728396275693">Нема зачувани адреси</translation>
+<translation id="5593349413089863479">Врската не е потполно безбедна</translation>
 <translation id="5595485650161345191">Измени адреса</translation>
 <translation id="5598944008576757369">Изберете начин на плаќање</translation>
 <translation id="560412284261940334">Управувањето не е поддржано</translation>
@@ -1394,6 +1415,7 @@
 <translation id="6587923378399804057">Линкот што го копиравте</translation>
 <translation id="6591833882275308647">Вашиот <ph name="DEVICE_TYPE" /> не е управуван</translation>
 <translation id="6596325263575161958">Опции за шифрирање</translation>
+<translation id="6596892391065203054">Администраторот го блокирал печатењето на содржинава.</translation>
 <translation id="6604181099783169992">Сензори за движење или светлина</translation>
 <translation id="6609880536175561541">Prc7 (плик)</translation>
 <translation id="6612358246767739896">Заштитена содржина</translation>
@@ -1564,6 +1586,7 @@
 <translation id="7346048084945669753">Е поврзан:</translation>
 <translation id="7349430561505560861">A4-Extra</translation>
 <translation id="7353601530677266744">Командна линија</translation>
+<translation id="7359588939039777303">Рекламите се блокирани.</translation>
 <translation id="7372973238305370288">резултат од пребарувањето</translation>
 <translation id="7374733840632556089">Грешкава се случува поради сертификат што вие или некој друг сте го инсталирале на уредот. Познато е дека сертификатов се користи за надзор и пресретнување мрежи и Chrome нема доверба во него. Иако постојат и легитимни случаи за надзор, како на пр., во училишна или компаниска мрежа, Chrome сака да се увери дека знаете дека постои надзор, дури и ако не може да го сопрете. Надзорот може да се случи во кој било прелистувач или апликација што пристапува на интернет.</translation>
 <translation id="7375818412732305729">Приложена е датотека</translation>
@@ -1738,6 +1761,7 @@
 <translation id="7976214039405368314">Премногу барања</translation>
 <translation id="7977538094055660992">Излезен уред</translation>
 <translation id="7977894662897852582">Edp</translation>
+<translation id="79859296434321399">За да прегледувате содржини во проширена реалност, инсталирајте го ARCore</translation>
 <translation id="799149739215780103">Врзување</translation>
 <translation id="7995512525968007366">Не е наведено</translation>
 <translation id="800218591365569300">Обидете се да ги затворите другите картички или програми за да ослободите меморија.</translation>
@@ -1865,20 +1889,32 @@
 <translation id="8507227106804027148">Командна линија</translation>
 <translation id="8508648098325802031">Икона за пребарување</translation>
 <translation id="8522552481199248698">Chrome може да ви помогне да ја заштитите сметката на Google и да ја промените лозинката.</translation>
+<translation id="8525306231823319788">Цел екран</translation>
 <translation id="8530813470445476232">Избришете ја историјата на прелистување, колачињата, кешот и друго во поставките за Chrome</translation>
 <translation id="8533619373899488139">Одете на &lt;strong&gt;chrome://policy&lt;/strong&gt; за да го видите списокот со блокирани URL-адреси, како и други правила што ги наметнал системскиот администратор.</translation>
 <translation id="8541158209346794904">Уред со Bluetooth</translation>
 <translation id="8542014550340843547">Тројно спојување долу</translation>
 <translation id="8543181531796978784">Може да <ph name="BEGIN_ERROR_LINK" />пријавите проблем со откривањето<ph name="END_ERROR_LINK" /> или, доколку ги разбирате ризиците по безбедноста, <ph name="BEGIN_LINK" />посетете ја оваа небезбедна страница<ph name="END_LINK" />.</translation>
 <translation id="8557066899867184262">CVC-бројот се наоѓа на задната страна на картичката.</translation>
+<translation id="8558485628462305855">За да прегледувате содржини во проширена реалност, ажурирајте го ARCore</translation>
 <translation id="8559762987265718583">Не може да се воспостави приватна врска до <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /> бидејќи датумот и времето на вашиот уред (<ph name="DATE_AND_TIME" />) се погрешни.</translation>
 <translation id="8564182942834072828">Одделни документи/неподредени примероци</translation>
 <translation id="8564985650692024650">Chromium препорачува ресетирање на лозинката за <ph name="BEGIN_BOLD" /><ph name="ORG_NAME" /><ph name="END_BOLD" /> ако повторно сте ја употребиле на други сајтови.</translation>
+<translation id="856887218454489335"><ph name="BEGIN_BOLD" />
+        Активност што нема да остане на уредов:
+        <ph name="END_BOLD" />
+        <ph name="BEGIN_LIST" />
+          <ph name="LIST_ITEM" />страниците што ги прегледувате во овој прозорец
+          <ph name="LIST_ITEM" />колачињата и податоците за сајтот
+        <ph name="END_LIST" /></translation>
 <translation id="8574899947864779331">Користете Touch ID за побрзо потврдување на картичките</translation>
 <translation id="858637041960032120">Додај телефонски број</translation>
 <translation id="8589998999637048520">Најдобар квалитет</translation>
 <translation id="860043288473659153">Име на сопственикот на картичката</translation>
 <translation id="8606726445206553943">Користете ги MIDI уредите</translation>
+<translation id="8612761427948161954">Здраво <ph name="USERNAME" />,
+        <ph name="BR" />
+        Прелистувате како гостин</translation>
 <translation id="861775596732816396">Големина 4</translation>
 <translation id="8622948367223941507">Legal-Extra</translation>
 <translation id="8623885649813806493">Нема лозинки што се совпаѓаат. Прикажи ги сите зачувани лозинки.</translation>
@@ -1945,6 +1981,7 @@
 <translation id="8912362522468806198">Сметка на Google</translation>
 <translation id="8913778647360618320">Копче „Управувајте со начините на плаќање“, притиснете Enter за да управувате со податоците за плаќањата и кредитната картичка во поставките за Chrome</translation>
 <translation id="8918231688545606538">Страницава е сомнителна</translation>
+<translation id="8922013791253848639">Секогаш дозволувај реклами на сајтов</translation>
 <translation id="892588693504540538">Дупка горе десно</translation>
 <translation id="8931333241327730545">Дали сакате да ја зачувате картичкава на сметката на Google?</translation>
 <translation id="8932102934695377596">Вашиот часовник доцни</translation>
@@ -2016,6 +2053,7 @@
 <translation id="9183302530794969518">Документи на Google</translation>
 <translation id="9183425211371246419"><ph name="HOST_NAME" /> користи неподдржан протокол.</translation>
 <translation id="9191834167571392248">Дупка долу лево</translation>
+<translation id="9199905725844810519">Печатењето е блокирано</translation>
 <translation id="9205078245616868884">Вашите податоци се шифрирани со лозинката за синхронизирање. Внесете ја за да го започнете синхронизирањето.</translation>
 <translation id="9207861905230894330">Не успеа да се додаде напис.</translation>
 <translation id="9213433120051936369">Приспособете го изгледот</translation>

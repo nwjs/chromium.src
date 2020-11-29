@@ -106,7 +106,6 @@ class RenderWidgetHostOwnerDelegate;
 class SyntheticGestureController;
 class TimeoutMonitor;
 class TouchEmulator;
-class WebCursor;
 
 // This implements the RenderWidgetHost interface that is exposed to
 // embedders of content, and adds things only visible to content.
@@ -143,9 +142,9 @@ class CONTENT_EXPORT RenderWidgetHostImpl
       public RenderProcessHostImpl::PriorityClient,
       public RenderProcessHostObserver,
       public SyntheticGestureController::Delegate,
-      public IPC::Listener,
       public RenderFrameMetadataProvider::Observer,
       public blink::mojom::FrameWidgetHost,
+      public blink::mojom::PopupWidgetHost,
       public blink::mojom::WidgetHost,
       public blink::mojom::PointerLockContext {
  public:
@@ -276,6 +275,22 @@ class CONTENT_EXPORT RenderWidgetHostImpl
                               const gfx::Rect& focus_rect,
                               base::i18n::TextDirection focus_dir,
                               bool is_anchor_first) override;
+  void CreateFrameSink(
+      mojo::PendingReceiver<viz::mojom::CompositorFrameSink>
+          compositor_frame_sink_receiver,
+      mojo::PendingRemote<viz::mojom::CompositorFrameSinkClient>) override;
+  void RegisterRenderFrameMetadataObserver(
+      mojo::PendingReceiver<cc::mojom::RenderFrameMetadataObserverClient>
+          render_frame_metadata_observer_client_receiver,
+      mojo::PendingRemote<cc::mojom::RenderFrameMetadataObserver>
+          render_frame_metadata_observer) override;
+
+  // blink::mojom::PopupWidgetHost implementation.
+  void RequestClosePopup() override;
+  void ShowPopup(const gfx::Rect& initial_rect,
+                 ShowPopupCallback callback) override;
+  void SetPopupBounds(const gfx::Rect& bounds,
+                      SetPopupBoundsCallback callback) override;
 
   // Notification that the screen info has changed.
   void NotifyScreenInfoChanged();
@@ -314,6 +329,11 @@ class CONTENT_EXPORT RenderWidgetHostImpl
       mojo::PendingAssociatedReceiver<blink::mojom::WidgetHost> widget_host,
       mojo::PendingAssociatedRemote<blink::mojom::Widget> widget);
 
+  // Bind the provided popup widget interface.
+  void BindPopupWidgetInterface(
+      mojo::PendingAssociatedReceiver<blink::mojom::PopupWidgetHost>
+          popup_widget_host);
+
   // Allocate and bind new frame widget interfaces.
   std::pair<mojo::PendingAssociatedRemote<blink::mojom::FrameWidgetHost>,
             mojo::PendingAssociatedReceiver<blink::mojom::FrameWidget>>
@@ -346,12 +366,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl
 
   // Tells the renderer to die and optionally delete |this|.
   void ShutdownAndDestroyWidget(bool also_delete);
-
-  // IPC::Listener
-  bool OnMessageReceived(const IPC::Message& msg) override;
-
-  // Sends a message to the corresponding object in the renderer.
-  bool Send(IPC::Message* msg) override;
 
   // Indicates if the page has finished loading.
   void SetIsLoading(bool is_loading);
@@ -481,8 +495,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // Returns an emulator for this widget. See TouchEmulator for more details.
   TouchEmulator* GetTouchEmulator();
 
-  void SetCursor(const WebCursor& cursor);
-
   // Queues a synthetic gesture for testing purposes.  Invokes the on_complete
   // callback when the gesture is finished running.
   void QueueSyntheticGesture(
@@ -551,10 +563,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // Returns true if |allowed| is true and the mouse has been successfully
   // locked.
   bool GotResponseToLockMouseRequest(blink::mojom::PointerLockResult result);
-
-  void set_allow_privileged_mouse_lock(bool allow) {
-    allow_privileged_mouse_lock_ = allow;
-  }
 
   // Called when the response to a pending keyboard lock request has arrived.
   // |allowed| should be true if the current tab is in tab initiated fullscreen
@@ -675,18 +683,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // renderer unless it is for an immediate request.
   void RequestCompositionUpdates(bool immediate_request, bool monitor_updates);
 
-  void RequestCompositorFrameSink(
-      mojo::PendingReceiver<viz::mojom::CompositorFrameSink>
-          compositor_frame_sink_receiver,
-      mojo::PendingRemote<viz::mojom::CompositorFrameSinkClient>
-          compositor_frame_sink_client);
-
-  void RegisterRenderFrameMetadataObserver(
-      mojo::PendingReceiver<cc::mojom::RenderFrameMetadataObserverClient>
-          render_frame_metadata_observer_client_receiver,
-      mojo::PendingRemote<cc::mojom::RenderFrameMetadataObserver>
-          render_frame_metadata_observer);
-
   RenderFrameMetadataProviderImpl* render_frame_metadata_provider() {
     return &render_frame_metadata_provider_;
   }
@@ -715,7 +711,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   void SetMouseCapture(bool capture) override;
   void RequestMouseLock(
       bool from_user_gesture,
-      bool privileged,
       bool unadjusted_movement,
       InputRouterImpl::RequestMouseLockCallback response) override;
   gfx::Size GetRootWidgetViewportSize() override;
@@ -800,6 +795,12 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   mojo::AssociatedReceiver<blink::mojom::FrameWidgetHost>&
   frame_widget_host_receiver_for_testing() {
     return blink_frame_widget_host_receiver_;
+  }
+
+  // Exposed so that tests can swap the implementation and intercept calls.
+  mojo::AssociatedReceiver<blink::mojom::PopupWidgetHost>&
+  popup_widget_host_receiver_for_testing() {
+    return blink_popup_widget_host_receiver_;
   }
 
   // Exposed so that tests can swap the implementation and intercept calls.
@@ -909,7 +910,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // IPC message handlers
   void OnClose();
   void OnUpdateScreenRectsAck();
-  void OnRequestSetBounds(const gfx::Rect& bounds);
   void OnUpdateDragCursor(blink::DragOperation current_op);
 
   // blink::mojom::FrameWidgetHost overrides.
@@ -926,7 +926,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   void DidFirstVisuallyNonEmptyPaint() override;
   void StartDragging(blink::mojom::DragDataPtr drag_data,
                      blink::DragOperationsMask drag_operations_mask,
-                     const SkBitmap& bitmap,
+                     const SkBitmap& unsafe_bitmap,
                      const gfx::Vector2d& bitmap_offset_in_dip,
                      blink::mojom::DragEventSourceInfoPtr event_info) override;
 
@@ -1216,7 +1216,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   bool suppress_events_until_keydown_ = false;
 
   bool pending_mouse_lock_request_ = false;
-  bool allow_privileged_mouse_lock_ = false;
   bool mouse_lock_raw_movement_ = false;
   // Stores the keyboard keys to lock while waiting for a pending lock request.
   base::Optional<base::flat_set<ui::DomCode>> keyboard_keys_to_lock_;
@@ -1242,7 +1241,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   std::unique_ptr<InputRouter> input_router_;
 
   base::OneShotTimer input_event_ack_timeout_;
-  base::TimeTicks input_event_ack_start_time_;
 
   std::unique_ptr<
       RenderProcessHost::BlockStateChangedCallbackList::Subscription>
@@ -1331,6 +1329,11 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   mojo::AssociatedReceiver<blink::mojom::FrameWidgetHost>
       blink_frame_widget_host_receiver_{this};
   mojo::AssociatedRemote<blink::mojom::FrameWidget> blink_frame_widget_;
+
+  // If this is initialized with a popup this member will be valid and
+  // manages the lifecycle of the popup in blink.
+  mojo::AssociatedReceiver<blink::mojom::PopupWidgetHost>
+      blink_popup_widget_host_receiver_{this};
 
   mojo::AssociatedReceiver<blink::mojom::WidgetHost>
       blink_widget_host_receiver_{this};

@@ -75,5 +75,8 @@ interface ITab {
 
   // Added in 87
   void setScrollOffsetsEnabled(in boolean enabled) = 26;
+
+  // Added in 88
+  void setFloatingActionModeOverride(in int actionModeItemTypes) = 27;
   boolean willAutomaticallyReloadAfterCrash() = 28;
 }

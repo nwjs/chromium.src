@@ -141,7 +141,9 @@ const char* const kMigratedExtensionIds[] = {
 
 // IDs of component extensions that have been obsoleted and need to be
 // uninstalled.
+// Note: We preserve at least one entry here for continued testing coverage.
 const char* const kObsoleteComponentExtensionIds[] = {
+    // Obsolete since M86.
     "ljoammodoonkhnehlncldjelhidljdpi"  // Genius
 };
 
@@ -420,6 +422,7 @@ ExtensionService::ExtensionService(Profile* profile,
   ExtensionManagementFactory::GetForBrowserContext(profile_)->AddObserver(this);
 
   // Set up the ExtensionUpdater.
+#if 0
   if (autoupdate_enabled) {
     updater_.reset(new ExtensionUpdater(
         this, extension_prefs, profile->GetPrefs(), profile,
@@ -429,6 +432,7 @@ ExtensionService::ExtensionService(Profile* profile,
                    profile)));
   }
 
+#endif
   component_loader_ = std::make_unique<ComponentLoader>(system_, profile);
 
 #if 0

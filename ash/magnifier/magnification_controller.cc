@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "ash/accelerators/accelerator_controller_impl.h"
+#include "ash/accessibility/accessibility_controller_impl.h"
 #include "ash/accessibility/accessibility_delegate.h"
 #include "ash/display/root_window_transformers.h"
 #include "ash/host/ash_window_tree_host.h"
@@ -61,8 +62,8 @@ constexpr int kDefaultAnimationDurationInMs = 100;
 constexpr gfx::Tween::Type kCenterCaretAnimationTweenType = gfx::Tween::LINEAR;
 
 // The delay of the timer for moving magnifier window for centering the text
-// input focus.
-constexpr int kMoveMagnifierDelayInMs = 10;
+// input focus. Keep under one frame length (~16ms at 60hz).
+constexpr int kMoveMagnifierDelayInMs = 15;
 
 // Threshold of panning. If the cursor moves to within pixels (in DIP) of
 // |kCursorPanningMargin| from the edge, the view-port moves.
@@ -541,7 +542,7 @@ ui::EventDispatchDetails MagnificationController::RewriteEvent(
   if (gesture_provider_->OnTouchEvent(&touch_event_copy)) {
     gesture_provider_->OnTouchEventAck(
         touch_event_copy.unique_event_id(), false /* event_consumed */,
-        false /* is_source_touch_event_set_non_blocking */);
+        false /* is_source_touch_event_set_blocking */);
   } else {
     return DiscardEvent(continuation);
   }
@@ -700,6 +701,9 @@ bool MagnificationController::RedrawDIP(const gfx::PointF& position_in_dip,
 
   if (duration_in_ms > 0)
     is_on_animation_ = true;
+
+  Shell::Get()->accessibility_controller()->MagnifierBoundsChanged(
+      GetViewportRect());
 
   return true;
 }

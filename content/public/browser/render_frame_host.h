@@ -85,6 +85,9 @@ class StoragePartition;
 class WebUI;
 
 // The interface provides a communication conduit with a frame in the renderer.
+// The preferred way to keep a reference to a RenderFrameHost is storing a
+// GlobalFrameRoutingId and using RenderFrameHost::FromID() when you need to
+// access it.
 class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
                                        public IPC::Sender {
  public:
@@ -146,6 +149,10 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   // Returns the process for this frame.
   // Associated RenderProcessHost never changes.
   virtual RenderProcessHost* GetProcess() = 0;
+
+  // Returns the GlobalFrameRoutingId for this frame. Embedders should store
+  // this instead of a raw RenderFrameHost pointer.
+  virtual GlobalFrameRoutingId GetGlobalFrameRoutingId() = 0;
 
   // Returns a StoragePartition associated with this RenderFrameHost.
   // Associated StoragePartition never changes.
@@ -384,6 +391,12 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   //  deletion").
   // In both cases, IsCurrent() becomes false for this frame and all its
   // children.
+  //
+  // This method should be called before trying to display some UI to the user
+  // on behalf of the given RenderFrameHost (or when crossing document / tab
+  // boundary in general, e.g. when using WebContents::FromRenderFrameHost) to
+  // check if the given RenderFrameHost is currently being displayed in a given
+  // tab.
   virtual bool IsCurrent() = 0;
 
   // Returns true iff the RenderFrameHost is inactive i.e., when the
@@ -466,18 +479,6 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   // Returns true if the queried FeaturePolicyFeature is allowed by
   // feature policy.
   virtual bool IsFeatureEnabled(blink::mojom::FeaturePolicyFeature feature) = 0;
-
-  // Returns true if the given |threshold_value| is below the threshold value
-  // specified in the policy for |feature| for this RenderFrameHost. See
-  // third_party/blink/public/common/feature_policy/document_policy.h for how to
-  // compare values of different types. Use this in the browser process to
-  // determine whether access to a feature is allowed.
-  virtual bool IsFeatureEnabled(blink::mojom::DocumentPolicyFeature feature,
-                                blink::PolicyValue threshold_value) = 0;
-  // Same as above, with |threshold_value| set to the max value the given
-  // |feature| can have.
-  virtual bool IsFeatureEnabled(
-      blink::mojom::DocumentPolicyFeature feature) = 0;
 
   // Opens view-source tab for the document last committed in this
   // RenderFrameHost.
@@ -632,7 +633,7 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
       blink::mojom::HeavyAdResolutionStatus resolution,
       blink::mojom::HeavyAdReason reason) = 0;
 
-  // Returns whether a document uses WebOTP. Returns true if an SmsService is
+  // Returns whether a document uses WebOTP. Returns true if a WebOTPService is
   // created on the document.
   virtual bool DocumentUsedWebOTP() = 0;
 

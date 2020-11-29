@@ -63,8 +63,7 @@ const int kCurrentVersionNumber = 28;
 // version can still read/write the current database.
 const int kCompatibleVersionNumber = 28;
 
-base::Pickle SerializeValueElementPairs(
-    const autofill::ValueElementVector& vec) {
+base::Pickle SerializeValueElementPairs(const ValueElementVector& vec) {
   base::Pickle p;
   for (const auto& pair : vec) {
     p.WriteString16(pair.first);
@@ -73,9 +72,8 @@ base::Pickle SerializeValueElementPairs(
   return p;
 }
 
-autofill::ValueElementVector DeserializeValueElementPairs(
-    const base::Pickle& p) {
-  autofill::ValueElementVector ret;
+ValueElementVector DeserializeValueElementPairs(const base::Pickle& p) {
+  ValueElementVector ret;
   base::string16 value;
   base::string16 field_name;
 
@@ -83,7 +81,7 @@ autofill::ValueElementVector DeserializeValueElementPairs(
   while (iterator.ReadString16(&value)) {
     bool name_success = iterator.ReadString16(&field_name);
     DCHECK(name_success);
-    ret.push_back(autofill::ValueElementPair(value, field_name));
+    ret.push_back(ValueElementPair(value, field_name));
   }
   return ret;
 }
@@ -614,16 +612,15 @@ struct LoginDatabase::PrimaryKeyAndPassword {
 
 LoginDatabase::LoginDatabase(const base::FilePath& db_path,
                              IsAccountStore is_account_store)
-    : db_path_(db_path), is_account_store_(is_account_store) {}
+    : db_path_(db_path),
+      is_account_store_(is_account_store),
+      // Set options for a small, private database (based on WebDatabase).
+      db_({.exclusive_locking = true, .page_size = 2048, .cache_size = 32}) {}
 
 LoginDatabase::~LoginDatabase() = default;
 
 bool LoginDatabase::Init() {
   TRACE_EVENT0("passwords", "LoginDatabase::Init");
-  // Set pragmas for a small, private database (based on WebDatabase).
-  db_.set_page_size(2048);
-  db_.set_cache_size(32);
-  db_.set_exclusive_locking();
   db_.set_histogram_tag("Passwords");
 
   if (!db_.Open(db_path_)) {

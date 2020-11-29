@@ -17,13 +17,16 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
+import org.chromium.base.Log;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.omnibox.LocationBarDataProvider;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteCoordinator;
+import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
+import org.chromium.chrome.browser.settings.SettingsLauncherImpl;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.toolbar.ToolbarDataProvider;
 import org.chromium.chrome.browser.util.VoiceRecognitionUtil;
 import org.chromium.content_public.browser.NavigationHandle;
 import org.chromium.content_public.browser.RenderFrameHost;
@@ -40,6 +43,8 @@ import java.util.List;
  * Class containing functionality related to voice search.
  */
 public class VoiceRecognitionHandler {
+    private static final String TAG = "VoiceRecognition";
+
     // The minimum confidence threshold that will result in navigating directly to a voice search
     // response (as opposed to treating it like a typed string in the Omnibox).
     @VisibleForTesting
@@ -57,13 +62,17 @@ public class VoiceRecognitionHandler {
     // VoiceInteractionEventSource defined in tools/metrics/histograms/enums.xml.
     // Do not reorder or remove items, only add new items before HISTOGRAM_BOUNDARY.
     @IntDef({VoiceInteractionSource.OMNIBOX, VoiceInteractionSource.NTP,
-            VoiceInteractionSource.SEARCH_WIDGET, VoiceInteractionSource.TASKS_SURFACE})
+            VoiceInteractionSource.SEARCH_WIDGET, VoiceInteractionSource.TASKS_SURFACE,
+            VoiceInteractionSource.TOOLBAR})
     public @interface VoiceInteractionSource {
         int OMNIBOX = 0;
         int NTP = 1;
         int SEARCH_WIDGET = 2;
         int TASKS_SURFACE = 3;
-        int HISTOGRAM_BOUNDARY = 4;
+        int TOOLBAR = 4;
+
+        // Be sure to also update enums.xml when updating these values.
+        int HISTOGRAM_BOUNDARY = 5;
     }
 
     /**
@@ -90,11 +99,11 @@ public class VoiceRecognitionHandler {
         void setSearchQuery(final String query);
 
         /**
-         * Grabs a reference to the toolbar data provider from the location bar.
-         * @return The {@link ToolbarDataProvider} currently in use by the
+         * Grabs a reference to the location data provider from the location bar.
+         * @return The {@link LocationBarDataProvider} currently in use by the
          *         {@link LocationBarLayout}.
          */
-        ToolbarDataProvider getToolbarDataProvider();
+        LocationBarDataProvider getLocationBarDataProvider();
 
         /**
          * Grabs a reference to the autocomplete coordinator from the location bar.
@@ -110,6 +119,9 @@ public class VoiceRecognitionHandler {
          * @return The current {@link WindowAndroid}.
          */
         WindowAndroid getWindowAndroid();
+
+        /** Clears omnibox focus, used to display the dialog when the keyboard is shown. */
+        void clearOmniboxFocus();
     }
 
     /**
@@ -269,7 +281,7 @@ public class VoiceRecognitionHandler {
                 return;
             }
 
-            String url = autocompleteCoordinator.qualifyPartialURLQuery(topResultQuery);
+            String url = AutocompleteCoordinator.qualifyPartialURLQuery(topResultQuery);
             if (url == null) {
                 url = TemplateUrlServiceFactory.get()
                               .getUrlForVoiceSearchQuery(topResultQuery)
@@ -287,8 +299,10 @@ public class VoiceRecognitionHandler {
             }
 
             // Since voice was used, we need to let the frame know that there was a user gesture.
-            ToolbarDataProvider toolbarDataProvider = mDelegate.getToolbarDataProvider();
-            Tab currentTab = toolbarDataProvider != null ? toolbarDataProvider.getTab() : null;
+            LocationBarDataProvider locationBarDataProvider =
+                    mDelegate.getLocationBarDataProvider();
+            Tab currentTab =
+                    locationBarDataProvider != null ? locationBarDataProvider.getTab() : null;
             if (currentTab != null) {
                 if (mVoiceSearchWebContentsObserver != null) {
                     mVoiceSearchWebContentsObserver.destroy();
@@ -317,9 +331,6 @@ public class VoiceRecognitionHandler {
         // Langues is optional, so only check the size when it's non-null.
         if (languages != null && languages.size() != strings.size()) return null;
 
-        AutocompleteCoordinator autocompleteCoordinator = mDelegate.getAutocompleteCoordinator();
-        assert autocompleteCoordinator != null;
-
         List<VoiceResult> results = new ArrayList<>();
         for (int i = 0; i < strings.size(); ++i) {
             // Remove any spaces in the voice search match when determining whether it
@@ -329,7 +340,7 @@ public class VoiceRecognitionHandler {
             // If the string appears to be a URL, then use it instead of the string returned from
             // the voice engine.
             String culledString = strings.get(i).replaceAll(" ", "");
-            String url = autocompleteCoordinator.qualifyPartialURLQuery(culledString);
+            String url = AutocompleteCoordinator.qualifyPartialURLQuery(culledString);
             String language = languages == null ? null : languages.get(i);
             results.add(new VoiceResult(
                     url == null ? strings.get(i) : culledString, confidences[i], language));
@@ -351,32 +362,12 @@ public class VoiceRecognitionHandler {
         Activity activity = windowAndroid.getActivity().get();
         if (activity == null) return;
 
-        if (mAssistantVoiceSearchService != null) {
-            // Report the client's eligibility for Assistant voice search.
-            mAssistantVoiceSearchService.reportUserEligibility();
+        if (startAGSAForAssistantVoiceSearch(activity, windowAndroid, source)) return;
 
-            if (mAssistantVoiceSearchService.shouldRequestAssistantVoiceSearch()) {
-                startAGSAForAssistantVoiceSearch(windowAndroid, source);
-                return;
-            }
-        }
-
-        // Check if we need to request audio permissions. If we don't, then trigger a permissions
-        // prompt will appear and startVoiceRecognition will be called again.
-        if (!ensureAudioPermissionGranted(windowAndroid, source)) return;
-
-        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-        intent.putExtra(
-                RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_WEB_SEARCH);
-        intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE,
-                activity.getComponentName().flattenToString());
-        intent.putExtra(RecognizerIntent.EXTRA_WEB_SEARCH_ONLY, true);
-
-        if (!showSpeechRecognitionIntent(windowAndroid, intent, source)) {
-            // Requery whether or not the recognition intent can be handled.
-            isRecognitionIntentPresent(false);
-            mDelegate.updateMicButtonState();
-            recordVoiceSearchFailureEventSource(source);
+        if (!startSystemForVoiceSearch(activity, windowAndroid, source)) {
+            // TODO(wylieb): Emit histogram here to identify how many users are attempting to use
+            // voice search, but fail completely.
+            Log.w(TAG, "Couldn't find suitable provider for voice searching");
         }
     }
 
@@ -415,15 +406,75 @@ public class VoiceRecognitionHandler {
         return false;
     }
 
-    /** Start AGSA to fulfill the current voice search. */
-    private void startAGSAForAssistantVoiceSearch(
-            WindowAndroid windowAndroid, @VoiceInteractionSource int source) {
+    /** Start the system-provided service to fulfill the current voice search. */
+    private boolean startSystemForVoiceSearch(
+            Activity activity, WindowAndroid windowAndroid, @VoiceInteractionSource int source) {
+        // Check if we need to request audio permissions. If we don't, then trigger a permissions
+        // prompt will appear and startVoiceRecognition will be called again.
+        if (!ensureAudioPermissionGranted(windowAndroid, source)) return false;
+
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent.putExtra(
+                RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_WEB_SEARCH);
+        intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE,
+                activity.getComponentName().flattenToString());
+        intent.putExtra(RecognizerIntent.EXTRA_WEB_SEARCH_ONLY, true);
+
+        if (!showSpeechRecognitionIntent(windowAndroid, intent, source)) {
+            // Requery whether or not the recognition intent can be handled.
+            isRecognitionIntentPresent(false);
+            mDelegate.updateMicButtonState();
+            recordVoiceSearchFailureEventSource(source);
+
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Start AGSA to fulfill the current voice search.
+     *
+     * @return Whether AGSA was actually started, when false we should fallback to
+     *         {@link startSystemForVoiceSearch}.
+     */
+    private boolean startAGSAForAssistantVoiceSearch(
+            Activity activity, WindowAndroid windowAndroid, @VoiceInteractionSource int source) {
+        if (mAssistantVoiceSearchService == null) return false;
+
+        if (mAssistantVoiceSearchService.canRequestAssistantVoiceSearch()
+                && mAssistantVoiceSearchService.needsEnabledCheck()) {
+            mDelegate.clearOmniboxFocus();
+            AssistantVoiceSearchConsentUi.show(windowAndroid,
+                    SharedPreferencesManager.getInstance(), new SettingsLauncherImpl(),
+                    (useAssistant) -> {
+                        if (useAssistant) {
+                            if (!startAGSAForAssistantVoiceSearch(
+                                        activity, windowAndroid, source)) {
+                                // Fallback to system voice search.
+                                startSystemForVoiceSearch(activity, windowAndroid, source);
+                            }
+                        } else {
+                            startSystemForVoiceSearch(activity, windowAndroid, source);
+                        }
+                    });
+
+            return true;
+        }
+
+        // Report the client's eligibility for Assistant voice search.
+        mAssistantVoiceSearchService.reportUserEligibility();
+        if (!mAssistantVoiceSearchService.shouldRequestAssistantVoiceSearch()) return false;
+
         Intent intent = mAssistantVoiceSearchService.getAssistantVoiceSearchIntent();
 
         if (!showSpeechRecognitionIntent(windowAndroid, intent, source)) {
             mDelegate.updateMicButtonState();
             recordVoiceSearchFailureEventSource(source);
+
+            return false;
         }
+
+        return true;
     }
 
     /**
@@ -448,10 +499,10 @@ public class VoiceRecognitionHandler {
      * @return Whether or not voice search is enabled.
      */
     public boolean isVoiceSearchEnabled() {
-        ToolbarDataProvider toolbarDataProvider = mDelegate.getToolbarDataProvider();
-        if (toolbarDataProvider == null) return false;
+        LocationBarDataProvider locationBarDataProvider = mDelegate.getLocationBarDataProvider();
+        if (locationBarDataProvider == null) return false;
 
-        boolean isIncognito = toolbarDataProvider.isIncognito();
+        boolean isIncognito = locationBarDataProvider.isIncognito();
         WindowAndroid windowAndroid = mDelegate.getWindowAndroid();
         if (windowAndroid == null || isIncognito) return false;
 

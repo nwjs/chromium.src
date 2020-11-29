@@ -98,9 +98,9 @@
 #include "chrome/installer/util/google_update_util.h"
 #endif
 
+using installer::InitialPreferences;
 using installer::InstallationState;
 using installer::InstallerState;
-using installer::MasterPreferences;
 using installer::ProductState;
 
 namespace {
@@ -650,7 +650,7 @@ installer::InstallStatus UninstallProducts(InstallationState& original_state,
 installer::InstallStatus InstallProducts(InstallationState& original_state,
                                          const base::FilePath& setup_exe,
                                          const base::CommandLine& cmd_line,
-                                         const MasterPreferences& prefs,
+                                         const InitialPreferences& prefs,
                                          InstallerState* installer_state,
                                          base::FilePath* installer_directory) {
   DCHECK(installer_state);
@@ -925,7 +925,8 @@ bool HandleNonInstallCmdLineOptions(installer::ModifyParams& modify_params,
                                                false))
         status = installer::IN_USE_UPDATED;
     } else {
-      if (ShellUtil::RegisterChromeBrowser(chrome_exe, suffix, false))
+      if (ShellUtil::RegisterChromeBrowser(chrome_exe, suffix,
+                                           /*elevate_if_not_admin=*/false))
         status = installer::IN_USE_UPDATED;
     }
     *exit_code = InstallUtil::GetInstallReturnCode(status);
@@ -933,7 +934,7 @@ bool HandleNonInstallCmdLineOptions(installer::ModifyParams& modify_params,
              cmd_line.HasSwitch(installer::switches::kRenameChromeExe)) {
     std::unique_ptr<installer::SetupSingleton> setup_singleton(
         installer::SetupSingleton::Acquire(
-            cmd_line, MasterPreferences::ForCurrentProcess(), original_state,
+            cmd_line, InitialPreferences::ForCurrentProcess(), original_state,
             installer_state));
     if (!setup_singleton) {
       *exit_code = installer::SETUP_SINGLETON_ACQUISITION_FAILED;
@@ -976,7 +977,7 @@ bool HandleNonInstallCmdLineOptions(installer::ModifyParams& modify_params,
     *exit_code = InstallUtil::GetInstallReturnCode(status);
   } else if (cmd_line.HasSwitch(installer::switches::kUserExperiment)) {
     installer::RunUserExperiment(cmd_line,
-                                 MasterPreferences::ForCurrentProcess(),
+                                 InitialPreferences::ForCurrentProcess(),
                                  original_state, installer_state);
     exit_code = 0;
   } else if (cmd_line.HasSwitch(installer::switches::kPatch)) {
@@ -1043,7 +1044,7 @@ namespace installer {
 InstallStatus InstallProductsHelper(InstallationState& original_state,
                                     const base::FilePath& setup_exe,
                                     const base::CommandLine& cmd_line,
-                                    const MasterPreferences& prefs,
+                                    const InitialPreferences& prefs,
                                     InstallerState& installer_state,
                                     base::FilePath* installer_directory,
                                     ArchiveType* archive_type) {
@@ -1203,7 +1204,7 @@ InstallStatus InstallProductsHelper(InstallationState& original_state,
       installer_state.SetStage(FINISHING);
 
       bool do_not_register_for_update_launch = false;
-      prefs.GetBool(master_preferences::kDoNotRegisterForUpdateLaunch,
+      prefs.GetBool(initial_preferences::kDoNotRegisterForUpdateLaunch,
                     &do_not_register_for_update_launch);
 
       bool write_chrome_launch_string = (!do_not_register_for_update_launch &&
@@ -1217,7 +1218,7 @@ InstallStatus InstallProductsHelper(InstallationState& original_state,
         VLOG(1) << "First install successful.";
         // We never want to launch Chrome in system level install mode.
         bool do_not_launch_chrome = false;
-        prefs.GetBool(master_preferences::kDoNotLaunchChrome,
+        prefs.GetBool(initial_preferences::kDoNotLaunchChrome,
                       &do_not_launch_chrome);
         if (!system_install && !do_not_launch_chrome)
           LaunchChromeBrowser(installer_state.target_path());
@@ -1236,7 +1237,7 @@ InstallStatus InstallProductsHelper(InstallationState& original_state,
         installer_state.target_path().AppendASCII(
             installer::kDefaultMasterPrefs));
     std::string install_id;
-    if (prefs.GetString(installer::master_preferences::kMsiProductId,
+    if (prefs.GetString(installer::initial_preferences::kMsiProductId,
                         &install_id)) {
       // A currently active MSI install will have specified the master-
       // preferences file on the command-line that includes the product-id.
@@ -1313,7 +1314,7 @@ int WINAPI wWinMain(HINSTANCE instance,
   // install_util uses chrome paths.
   chrome::RegisterPathProvider();
 
-  const MasterPreferences& prefs = MasterPreferences::ForCurrentProcess();
+  const InitialPreferences& prefs = InitialPreferences::ForCurrentProcess();
   installer::InitInstallerLogging(prefs);
 
   const base::CommandLine& cmd_line = *base::CommandLine::ForCurrentProcess();
@@ -1322,7 +1323,7 @@ int WINAPI wWinMain(HINSTANCE instance,
   InitializeInstallDetails(cmd_line, prefs);
 
   bool system_install = false;
-  prefs.GetBool(installer::master_preferences::kSystemLevel, &system_install);
+  prefs.GetBool(installer::initial_preferences::kSystemLevel, &system_install);
   VLOG(1) << "system install is " << system_install;
 
   InstallationState original_state;

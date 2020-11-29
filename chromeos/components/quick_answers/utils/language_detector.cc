@@ -4,34 +4,72 @@
 
 #include "chromeos/components/quick_answers/utils/language_detector.h"
 
-#include "third_party/cld_3/src/src/nnet_language_identifier.h"
+#include "base/callback.h"
 
 namespace chromeos {
 namespace quick_answers {
 namespace {
 
-using chrome_lang_id::NNetLanguageIdentifier;
+// TODO(b/173143583): Make the thresholds finch params.
+constexpr float kSelectedTextConfidenceThreshold = 0.7;
+constexpr float kSurroundingTextConfidenceThreshold = 0.9;
 
-const int kMinNumBytes = 0;
-const int kMaxNumBytes = 1000;
+base::Optional<std::string> GetLanguageWithConfidence(
+    const std::vector<machine_learning::mojom::TextLanguagePtr>& languages,
+    float confidence_threshold) {
+  // The languages are sorted according to the confidence score, from the
+  // highest to the lowest (according to the mojom method documentation).
+  if (!languages.empty() &&
+      languages.front()->confidence > confidence_threshold) {
+    return languages.front()->locale;
+  }
+  return base::nullopt;
+}
 
 }  // namespace
 
-LanguageDetector::LanguageDetector() {
-  lang_id_ =
-      std::make_unique<NNetLanguageIdentifier>(kMinNumBytes, kMaxNumBytes);
-}
+LanguageDetector::LanguageDetector(
+    chromeos::machine_learning::mojom::TextClassifier* text_classifier)
+    : text_classifier_(text_classifier) {}
 
 LanguageDetector::~LanguageDetector() = default;
 
-std::string LanguageDetector::DetectLanguage(const std::string& text) {
-  const NNetLanguageIdentifier::Result result = lang_id_->FindLanguage(text);
+void LanguageDetector::DetectLanguage(const std::string& surrounding_text,
+                                      const std::string& selected_text,
+                                      DetectLanguageCallback callback) {
+  text_classifier_->FindLanguages(
+      selected_text,
+      base::BindOnce(&LanguageDetector::FindLanguagesForSelectedTextCallback,
+                     weak_factory_.GetWeakPtr(), surrounding_text,
+                     std::move(callback)));
+}
 
-  std::string language;
-  if (result.is_reliable)
-    language = result.language;
+void LanguageDetector::FindLanguagesForSelectedTextCallback(
+    const std::string& surrounding_text,
+    DetectLanguageCallback callback,
+    std::vector<machine_learning::mojom::TextLanguagePtr> languages) {
+  auto locale = GetLanguageWithConfidence(std::move(languages),
+                                          kSelectedTextConfidenceThreshold);
+  if (locale.has_value()) {
+    std::move(callback).Run(std::move(locale));
+    return;
+  }
 
-  return language;
+  // If find language failed or the confidence level is too low, fall back to
+  // find language for the surrounding text.
+  text_classifier_->FindLanguages(
+      surrounding_text,
+      base::BindOnce(&LanguageDetector::FindLanguagesForSurroundingTextCallback,
+                     weak_factory_.GetWeakPtr(), std::move(callback)));
+}
+
+void LanguageDetector::FindLanguagesForSurroundingTextCallback(
+    DetectLanguageCallback callback,
+    std::vector<machine_learning::mojom::TextLanguagePtr> languages) {
+  auto locale =
+      GetLanguageWithConfidence(languages, kSurroundingTextConfidenceThreshold);
+
+  std::move(callback).Run(std::move(locale));
 }
 
 }  // namespace quick_answers

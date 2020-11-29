@@ -68,6 +68,7 @@
 <translation id="1383876407941801731">Meklēt</translation>
 <translation id="1396114365388024581">ciļņu saraksts</translation>
 <translation id="1405567553485452995">Gaiši zaļa</translation>
+<translation id="141454040365657399">Lapas galvene</translation>
 <translation id="1417889266572670458">Tumšzila</translation>
 <translation id="1431911867058218151">Plūmju</translation>
 <translation id="1439316808600711881">reģions</translation>
@@ -346,8 +347,8 @@
 <translation id="352577523970648069">Rediģējams teksta lauks</translation>
 <translation id="3538907380453898475">apraksti</translation>
 <translation id="3549141990712742152">izgriezt tekstu “<ph name="TEXT" />”.</translation>
-<translation id="3549680091535286226">Pieskarieties ar diviem pirkstiem, lai īslaicīgi apturētu runas izvadi</translation>
 <translation id="3564729643041517261">Pašreizējais displeja veids ir attēlojums līdzās.</translation>
+<translation id="3573145950452451508">Lapas kājene</translation>
 <translation id="3587482841069643663">Visi</translation>
 <translation id="3589661172894441357">Glosārijs</translation>
 <translation id="3591784666823501596">Karaliski zila</translation>
@@ -454,6 +455,7 @@
 <translation id="4402014469255336455">Piesātināti debeszils</translation>
 <translation id="4406249099130339147">Pieturzīmju atbalss:</translation>
 <translation id="4432457053224379116">Dzelzs oksīda sarkana</translation>
+<translation id="4432896207833262240">Atzīmētais saturs</translation>
 <translation id="4437615272777527928">Rakstiet, lai meklētu saturu izvēlnēs. Lai pārlūkotu rezultātus, izmantojiet augšupvērsto un lejupvērsto bultiņu. Izmantojiet pa kreisi un pa labi vērstās bultiņas, lai pielāgotu teksta ievietošanas punktu un pārvietotos pa izvēlnēm.</translation>
 <translation id="4457472090507035117">Atlasiet pašreizējo balsi:</translation>
 <translation id="4476183483923481720">jauna rindiņa</translation>
@@ -592,6 +594,7 @@
 <translation id="5561345396546889625">Nākamais saraksts</translation>
 <translation id="5562645715554321347">virsrakstu grupa</translation>
 <translation id="5574412348552378458">ChromeVox mācību režīms</translation>
+<translation id="5582839680698949063">Galvenā izvēlne</translation>
 <translation id="5585044216466955529">Rediģējams teksts: e-pasta adreses ievade</translation>
 <translation id="5597170376237141345">Nākamā izvēles rūtiņa</translation>
 <translation id="5598905979683743333"><ph name="NAME" />, neatlasīta radiopoga</translation>
@@ -825,7 +828,6 @@
 <translation id="7491962110804786152">cilne</translation>
 <translation id="7492497529767769458">Pārejiet uz nākamo sadaļu. Piemēri: “Statusa josla” un “Palaidējs”.</translation>
 <translation id="7505149250476994901">Pirms burta pasakiet “cap” (lielais burts).</translation>
-<translation id="7518543783849163354">Lai īslaicīgi pārtrauktu ChromeVox balss komentārus, nospiediet vadības taustiņu.</translation>
 <translation id="7533226154149229506">Gaiši zeltgalvīšu dzeltena</translation>
 <translation id="7543255924852002459">Atmest iezīmi</translation>
 <translation id="7552432549459840808">Noderīgi Chrome īsinājumtaustiņi</translation>

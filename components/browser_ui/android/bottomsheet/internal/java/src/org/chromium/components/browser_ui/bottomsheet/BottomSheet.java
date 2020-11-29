@@ -111,9 +111,6 @@ class BottomSheet extends FrameLayout
     /** The height of the view that contains the bottom sheet. */
     private int mContainerHeight;
 
-    /** The width of the bottom sheet content view. */
-    private int mContentWidth;
-
     /** The desired height of the current content view. */
     private float mContentDesiredHeight = HEIGHT_UNSPECIFIED;
 
@@ -325,8 +322,6 @@ class BottomSheet extends FrameLayout
         mContainerHeight = root.getHeight();
         mScrollableHeight = mContainerHeight + mToolbarShadowHeight;
 
-        mContentWidth = mContainerWidth;
-
         // Listen to height changes on the root.
         root.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
             private int mPreviousKeyboardHeight;
@@ -341,10 +336,6 @@ class BottomSheet extends FrameLayout
                 mContainerWidth = right - left;
                 mContainerHeight = bottom - top;
                 mScrollableHeight = mContainerHeight + mToolbarShadowHeight;
-
-                // TODO(https://crbug.com/1148421): Remove this update once we can handle
-                // mContentWidth update in onContentSizeChanged
-                mContentWidth = mContainerWidth;
 
                 if (previousWidth != mContainerWidth || previousHeight != mContainerHeight) {
                     if (mCurrentState == SheetState.HALF && !isHalfStateEnabled()) {
@@ -1048,8 +1039,10 @@ class BottomSheet extends FrameLayout
         if (mContentDesiredHeight != HEIGHT_UNSPECIFIED) {
             return;
         }
+
         mSheetContent.getContentView().measure(
-                MeasureSpec.makeMeasureSpec(mContentWidth, MeasureSpec.EXACTLY),
+                MeasureSpec.makeMeasureSpec(
+                        mBottomSheetContentContainer.getMeasuredWidth(), MeasureSpec.EXACTLY),
                 MeasureSpec.makeMeasureSpec(getMaxContentHeight(), MeasureSpec.AT_MOST));
         mContentDesiredHeight = mSheetContent.getContentView().getMeasuredHeight();
     }
@@ -1232,7 +1225,7 @@ class BottomSheet extends FrameLayout
     protected void onSheetContentChanged(@Nullable final BottomSheetContent content) {
         mSheetContent = content;
 
-        if (isFullHeightWrapContent()) {
+        if (content != null && isFullHeightWrapContent()) {
             // Listen for layout/size changes.
             if (!content.setContentSizeListener(this::onContentSizeChanged)) {
                 content.getContentView().addOnLayoutChangeListener(this);
@@ -1259,9 +1252,6 @@ class BottomSheet extends FrameLayout
     @Override
     public void onLayoutChange(View v, int left, int top, int right, int bottom, int oldLeft,
             int oldTop, int oldRight, int oldBottom) {
-        // When there is a device rotation, mContentWidth needs to be updated before the new
-        // view is drawn.
-        mContentWidth = right - left;
         invalidateContentDesiredHeight();
         ensureContentIsWrapped(/* animate= */ true);
     }

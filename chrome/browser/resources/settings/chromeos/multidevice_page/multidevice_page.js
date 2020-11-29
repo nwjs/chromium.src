@@ -114,7 +114,7 @@ Polymer({
         this.onPageContentDataChanged_.bind(this));
 
     this.browserProxy_.getPageContentData().then(
-        this.onPageContentDataChanged_.bind(this));
+        this.onInitialPageContentDataFetched_.bind(this));
   },
 
   /**
@@ -369,13 +369,13 @@ Polymer({
    */
   isAuthenticationRequiredToEnable_(feature) {
     // Enabling SmartLock always requires authentication.
-    if (feature == settings.MultiDeviceFeature.SMART_LOCK) {
+    if (feature === settings.MultiDeviceFeature.SMART_LOCK) {
       return true;
     }
 
     // Enabling any feature besides SmartLock and the Better Together suite does
     // not require authentication.
-    if (feature != settings.MultiDeviceFeature.BETTER_TOGETHER_SUITE) {
+    if (feature !== settings.MultiDeviceFeature.BETTER_TOGETHER_SUITE) {
       return false;
     }
 
@@ -387,9 +387,9 @@ Polymer({
     // SmartLock is implicitly enabled if it is only currently not enabled due
     // to the suite being disabled or due to the SmartLock host device not
     // having a lock screen set.
-    return smartLockState ==
+    return smartLockState ===
         settings.MultiDeviceFeatureState.UNAVAILABLE_SUITE_DISABLED ||
-        smartLockState ==
+        smartLockState ===
         settings.MultiDeviceFeatureState.UNAVAILABLE_INSUFFICIENT_SECURITY;
   },
 
@@ -413,7 +413,7 @@ Polymer({
 
     // Host status doesn't matter if we are navigating to Nearby Share
     // settings.
-    if (settings.routes.NEARBY_SHARE ==
+    if (settings.routes.NEARBY_SHARE ===
         settings.Router.getInstance().getCurrentRoute()) {
       return;
     }
@@ -421,7 +421,7 @@ Polymer({
     // If the user gets to the a nested page without a host (e.g. by clicking a
     // stale 'existing user' notifications after forgetting their host) we
     // direct them back to the main settings page.
-    if (settings.routes.MULTIDEVICE !=
+    if (settings.routes.MULTIDEVICE !==
             settings.Router.getInstance().getCurrentRoute() &&
         settings.routes.MULTIDEVICE.contains(
             settings.Router.getInstance().getCurrentRoute()) &&
@@ -430,6 +430,25 @@ Polymer({
       Polymer.RenderStatus.beforeNextRender(this, () => {
         settings.Router.getInstance().navigateTo(settings.routes.MULTIDEVICE);
       });
+    }
+  },
+
+  /**
+   * @param {!settings.MultiDevicePageContentData} newData
+   * @private
+   */
+  onInitialPageContentDataFetched_(newData) {
+    this.onPageContentDataChanged_(newData);
+
+    if (this.pageContentData.isNotificationAccessGranted) {
+      return;
+    }
+
+    // Show the notification access dialog if the url contains the correct
+    // param.
+    const urlParams = settings.Router.getInstance().getQueryParameters();
+    if (urlParams.get('showNotificationAccessSetupDialog') !== null) {
+      this.showNotificationAccessSetupDialog_ = true;
     }
   },
 

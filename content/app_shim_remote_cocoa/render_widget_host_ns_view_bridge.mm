@@ -246,10 +246,8 @@ CALayer* RenderWidgetHostNSViewBridge::GetBackgroundLayer() {
   return background_layer_;
 }
 
-void RenderWidgetHostNSViewBridge::DisplayCursor(
-    const content::WebCursor& cursor) {
-  content::WebCursor non_const_cursor(cursor);
-  [cocoa_view_ updateCursor:non_const_cursor.GetNativeCursor()];
+void RenderWidgetHostNSViewBridge::DisplayCursor(const ui::Cursor& cursor) {
+  [cocoa_view_ updateCursor:content::WebCursor(cursor).GetNativeCursor()];
 }
 
 void RenderWidgetHostNSViewBridge::SetCursorLocked(bool locked) {

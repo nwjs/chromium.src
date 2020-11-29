@@ -344,7 +344,6 @@ void ResetTouchAction(RenderWidgetHost* host);
 // Requests mouse lock on the implementation of the given RenderWidgetHost
 void RequestMouseLock(RenderWidgetHost* host,
                       bool user_gesture,
-                      bool privileged,
                       bool request_unadjusted_movement);
 
 // Spins a run loop until effects of previously forwarded input are fully
@@ -1327,12 +1326,10 @@ class RenderFrameSubmissionObserver
 // This is accomplished by sending an IPC to RenderWidget, then blocking until
 // the ACK is received and processed.
 //
-// When the main thread receives the ACK it is enqueued. The queue is not
-// processed until a new FrameToken is received.
-//
-// So while the ACK can arrive before a CompositorFrame submission occurs. The
-// processing does not occur until after the FrameToken for that frame
-// submission arrives to the main thread.
+// The ACK is sent from compositor thread, when the CompositorFrame is submited
+// to the display compositor
+// TODO(danakj): This class seems to provide the same as
+// RenderFrameSubmissionObserver, consider using that instead.
 class MainThreadFrameObserver {
  public:
   explicit MainThreadFrameObserver(RenderWidgetHost* render_widget_host);
@@ -1601,6 +1598,7 @@ class NavigationHandleCommitObserver : public content::WebContentsObserver {
 class WebContentsConsoleObserver : public WebContentsObserver {
  public:
   struct Message {
+    RenderFrameHost* source_frame;
     blink::mojom::ConsoleMessageLevel log_level;
     base::string16 message;
     int32_t line_no;
@@ -1635,7 +1633,8 @@ class WebContentsConsoleObserver : public WebContentsObserver {
 
  private:
   // WebContentsObserver:
-  void OnDidAddMessageToConsole(blink::mojom::ConsoleMessageLevel log_level,
+  void OnDidAddMessageToConsole(RenderFrameHost* source_frame,
+                                blink::mojom::ConsoleMessageLevel log_level,
                                 const base::string16& message,
                                 int32_t line_no,
                                 const base::string16& source_id) override;
@@ -1688,10 +1687,15 @@ void VerifyStaleContentOnFrameEviction(
 // sent by the renderer.
 class ContextMenuFilter : public content::BrowserMessageFilter {
  public:
-  ContextMenuFilter();
+  // Whether or not the ContextMenu should be prevented from performing
+  // its default action, preventing the context menu from showing.
+  enum ShowBehavior { kShow, kPreventShow };
+
+  explicit ContextMenuFilter(ShowBehavior behavior = ShowBehavior::kShow);
 
   bool OnMessageReceived(const IPC::Message& message) override;
   void Wait();
+  void Reset();
 
   content::UntrustworthyContextMenuParams get_params() { return last_params_; }
 
@@ -1703,6 +1707,7 @@ class ContextMenuFilter : public content::BrowserMessageFilter {
   std::unique_ptr<base::RunLoop> run_loop_;
   base::OnceClosure quit_closure_;
   content::UntrustworthyContextMenuParams last_params_;
+  const ShowBehavior show_behavior_;
 
   DISALLOW_COPY_AND_ASSIGN(ContextMenuFilter);
 };

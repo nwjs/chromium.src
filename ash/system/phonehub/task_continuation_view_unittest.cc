@@ -12,6 +12,7 @@
 #include "chromeos/components/phonehub/phone_model_test_util.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "testing/gmock/include/gmock/gmock.h"
+#include "ui/views/test/button_test_api.h"
 
 namespace ash {
 
@@ -110,18 +111,6 @@ TEST_F(TaskContinuationViewTest, TaskChipsView) {
   expected_tabs = 2;
   EXPECT_EQ(expected_tabs, task_view()->chips_view_->children().size());
 
-  tabs.push_back(metadata);
-  phone_model()->SetBrowserTabsModel(BrowserTabsModel(true, tabs));
-  // The chips view should contains 3 tab.
-  expected_tabs = 3;
-  EXPECT_EQ(expected_tabs, task_view()->chips_view_->children().size());
-
-  tabs.push_back(metadata);
-  phone_model()->SetBrowserTabsModel(BrowserTabsModel(true, tabs));
-  // The chips view should contains 4 tab.
-  expected_tabs = 4;
-  EXPECT_EQ(expected_tabs, task_view()->chips_view_->children().size());
-
   for (auto* child : task_view()->chips_view_->children()) {
     ContinueBrowsingChip* chip = static_cast<ContinueBrowsingChip*>(child);
     // NewTabWithUrl is expected to call after button pressed simulation.
@@ -131,7 +120,7 @@ TEST_F(TaskContinuationViewTest, TaskChipsView) {
           EXPECT_TRUE(from_user_interaction);
         });
     // Simulate clicking button using dummy event.
-    chip->ButtonPressed(nullptr, DummyEvent());
+    views::test::ButtonTestApi(chip).NotifyClick(DummyEvent());
   }
 }
 

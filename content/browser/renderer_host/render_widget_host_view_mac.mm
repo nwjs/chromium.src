@@ -40,7 +40,6 @@
 #include "content/browser/renderer_host/render_widget_host_input_event_router.h"
 #import "content/browser/renderer_host/text_input_client_mac.h"
 #import "content/browser/renderer_host/ui_events_helper.h"
-#include "content/common/view_messages.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_plugin_guest_manager.h"
 #include "content/public/browser/native_web_keyboard_event.h"
@@ -369,6 +368,10 @@ void RenderWidgetHostViewMac::InitAsPopup(
   }
   popup_parent_host_view_->popup_child_host_view_ = this;
 
+  // Use transparent background color for the popup in order to avoid flashing
+  // the white background on popup open when dark color-scheme is used.
+  SetContentBackgroundColor(SK_ColorTRANSPARENT);
+
   // This path is used by the time/date picker.
   // When FormControlsRefresh is enabled the popup window should use
   // the native shadow.
@@ -549,7 +552,7 @@ void RenderWidgetHostViewMac::UpdateCursor(const WebCursor& cursor) {
 }
 
 void RenderWidgetHostViewMac::DisplayCursor(const WebCursor& cursor) {
-  ns_view_->DisplayCursor(cursor);
+  ns_view_->DisplayCursor(cursor.cursor());
 }
 
 CursorManager* RenderWidgetHostViewMac::GetCursorManager() {
@@ -1322,13 +1325,6 @@ viz::SurfaceId RenderWidgetHostViewMac::GetCurrentSurfaceId() const {
   return browser_compositor_->GetDelegatedFrameHost()->GetCurrentSurfaceId();
 }
 
-bool RenderWidgetHostViewMac::Send(IPC::Message* message) {
-  if (host())
-    return host()->Send(message);
-  delete message;
-  return false;
-}
-
 void RenderWidgetHostViewMac::ShutdownHost() {
   weak_factory_.InvalidateWeakPtrs();
   host()->ShutdownAndDestroyWidget(true);
@@ -1382,6 +1378,18 @@ void RenderWidgetHostViewMac::SetBackgroundLayerColor(SkColor color) {
     return;
   background_layer_color_ = color;
   ns_view_->SetBackgroundColor(color);
+}
+
+base::Optional<DisplayFeature> RenderWidgetHostViewMac::GetDisplayFeature() {
+  return display_feature_;
+}
+
+void RenderWidgetHostViewMac::SetDisplayFeatureForTesting(
+    const DisplayFeature* display_feature) {
+  if (display_feature)
+    display_feature_ = *display_feature;
+  else
+    display_feature_ = base::nullopt;
 }
 
 BrowserAccessibilityManager*

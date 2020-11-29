@@ -17,6 +17,14 @@
 <dom-module id="settings-multidevice-feature-item">
   <template>
     <style include="settings-shared">
+      :host([is-sub-feature]) iron-icon {
+        display: none;
+      }
+
+      :host([is-sub-feature]) .settings-box .middle {
+        padding-inline-start: 64px;
+      }
+
       #card {
         border-top: var(--cr-separator-line);
         border-top-style: var(--feature-item-border-top-style, solid);
@@ -32,8 +40,8 @@
       }
     </style>
     <div id="card" class="settings-box two-line no-padding">
-      <div class="link-wrapper" actionable
-           actionable$="[[hasSubpageClickHandler_(
+      <div id="linkWrapper" class="link-wrapper"
+           actionable$="[[isRowClickable_(
                feature, pageContentData, subpageRoute)]]"
            on-click="handleItemClick_">
         <slot name="icon">
@@ -41,11 +49,13 @@
         </slot>
         <div id="item-text-container" class="middle">
           <div id="featureName">[[getFeatureName(feature)]]</div>
-          <settings-localized-link
-              class="secondary"
-              id="featureSecondary"
-              localized-string="[[getFeatureSummaryHtml(feature)]]">
-          </settings-localized-link>
+          <slot name="feature-summary">
+            <settings-localized-link
+                class="secondary"
+                id="featureSecondary"
+                localized-string="[[getFeatureSummaryHtml(feature)]]">
+            </settings-localized-link>
+          </slot>
         </div>
         <template is="dom-if"
                   if="[[hasSubpageClickHandler_(

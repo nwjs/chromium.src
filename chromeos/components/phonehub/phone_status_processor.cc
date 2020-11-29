@@ -141,8 +141,7 @@ base::Optional<Notification> ProcessNotificationProto(
           base::UTF8ToUTF16(proto.origin_app().visible_name()),
           proto.origin_app().package_name(),
           CreateImageFromSerializedIcon(proto.origin_app().icon())),
-      base::Time::FromDeltaSinceWindowsEpoch(
-          base::TimeDelta::FromMilliseconds(proto.epoch_time_millis())),
+      base::Time::FromJsTime(proto.epoch_time_millis()),
       GetNotificationImportanceFromProto(proto.importance()), actions_it->id(),
       title, text_content, shared_image, contact_image);
 }
@@ -188,6 +187,7 @@ PhoneStatusProcessor::PhoneStatusProcessor(
 
   message_receiver_->AddObserver(this);
   feature_status_provider_->AddObserver(this);
+  multidevice_setup_client_->AddObserver(this);
 
   MaybeSetPhoneModelName(multidevice_setup_client_->GetHostStatus().second);
 }
@@ -195,6 +195,7 @@ PhoneStatusProcessor::PhoneStatusProcessor(
 PhoneStatusProcessor::~PhoneStatusProcessor() {
   message_receiver_->RemoveObserver(this);
   feature_status_provider_->RemoveObserver(this);
+  multidevice_setup_client_->RemoveObserver(this);
 }
 
 void PhoneStatusProcessor::SetReceivedNotifications(
@@ -255,11 +256,14 @@ void PhoneStatusProcessor::OnPhoneStatusUpdateReceived(
   SetReceivedNotifications(phone_status_update.updated_notifications());
   SetReceivedPhoneStatusModelStates(phone_status_update.properties());
 
-  base::flat_set<int64_t> removed_notification_ids;
-  for (auto& id : phone_status_update.removed_notification_ids()) {
-    removed_notification_ids.emplace(id);
+  if (!phone_status_update.removed_notification_ids().empty()) {
+    base::flat_set<int64_t> removed_notification_ids;
+    for (auto& id : phone_status_update.removed_notification_ids()) {
+      removed_notification_ids.emplace(id);
+    }
+    notification_manager_->RemoveNotificationsInternal(
+        removed_notification_ids);
   }
-  notification_manager_->RemoveNotificationsInternal(removed_notification_ids);
 }
 
 void PhoneStatusProcessor::OnHostStatusChanged(

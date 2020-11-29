@@ -14,7 +14,6 @@
 #include "remoting/base/logging.h"
 #include "remoting/base/util.h"
 #include "ui/gfx/x/extension_manager.h"
-#include "ui/gfx/x/x11.h"
 #include "ui/gfx/x/xproto.h"
 #include "ui/gfx/x/xproto_util.h"
 
@@ -28,15 +27,6 @@ void XServerClipboard::Init(x11::Connection* connection,
                             const ClipboardChangedCallback& callback) {
   connection_ = connection;
   callback_ = callback;
-
-  // If any of these X API calls fail, an X Error will be raised, crashing the
-  // process.  This is unlikely to occur in practice, and even if it does, it
-  // would mean the X server is in a bad state, so it's not worth trying to
-  // trap such errors here.
-
-  // TODO(lambroslambrou): Consider using ScopedXErrorHandler here, or consider
-  // placing responsibility for handling X Errors outside this class, since
-  // X Error handlers are global to all X connections.
 
   if (!connection_->xfixes().present()) {
     HOST_LOG << "X server does not support XFixes.";
@@ -94,7 +84,7 @@ void XServerClipboard::Init(x11::Connection* connection,
 
 void XServerClipboard::SetClipboard(const std::string& mime_type,
                                     const std::string& data) {
-  DCHECK(connection_->display());
+  DCHECK(connection_->Ready());
 
   if (clipboard_window_ == x11::Window::None)
     return;

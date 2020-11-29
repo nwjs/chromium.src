@@ -30,6 +30,7 @@
 <translation id="1806710327868736751">dialogu i sinjalizimit</translation>
 <translation id="1821985195704844674">rrjeta pemë</translation>
 <translation id="1822429046913737220">Paradite/Pasdite</translation>
+<translation id="1823704031293214298">fundi i faqes</translation>
 <translation id="1832974991323546415">luaje në pajisjen në distancë</translation>
 <translation id="190587075670221089">fshirje</translation>
 <translation id="1907737156431278478">shembull</translation>
@@ -105,11 +106,14 @@
 <translation id="4201051445878709314">Trego muajin e kaluar</translation>
 <translation id="421884353938374759">zgjedhësi i ngjyrave</translation>
 <translation id="4248100235867064564">shiriti i menysë</translation>
+<translation id="4293574643247337246">koka e faqes</translation>
 <translation id="4360991593054037559">Fut një vlerë të vlefshme. Dy vlerat më e afërta të vlefshme janë <ph name="VALID_VALUE_LOW" /> dhe <ph name="VALID_VALUE_HIGHER" />.</translation>
+<translation id="4384249794467006333">Ky imazh nuk është i etiketuar. Hap menynë "Më shumë opsione" në krye djathtas për të marrë përshkrimet e imazheve.</translation>
 <translation id="4384583879834880242">Pyetje dhe përgjigje</translation>
 <translation id="4444765639179266822">Duket se thotë: <ph name="OCR_TEXT" /></translation>
 <translation id="4446524499724042288">referencë fjalorthi</translation>
 <translation id="4522570452068850558">Detajet</translation>
+<translation id="4576178047100686001">Ky imazh nuk është i etiketuar. Hap menynë "Më shumë opsione" në krye majtas për të marrë përshkrimet e imazheve.</translation>
 <translation id="4597532268155981612">formulari</translation>
 <translation id="4661075872484491155">pemë</translation>
 <translation id="4664250907885839816">Një pjesë që ndjek "<ph name="ATSIGN" />" nuk duhet të përmbajë simbolin "<ph name="INVALIDCHARACTER" />".</translation>

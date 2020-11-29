@@ -24,7 +24,6 @@
 #include "components/autofill/content/renderer/html_based_username_detector.h"
 #include "components/autofill/core/common/field_data_manager.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom.h"
-#include "components/autofill/core/common/password_form.h"
 #include "components/autofill/core/common/password_form_fill_data.h"
 #include "components/autofill/core/common/renderer_id.h"
 #include "content/public/renderer/render_frame_observer.h"
@@ -162,6 +161,9 @@ class PasswordAutofillAgent : public content::RenderFrameObserver,
   // function may trigger UI and should only be called when other UI won't be
   // shown.
   void UpdateStateForTextChange(const blink::WebInputElement& element);
+
+  // Instructs `autofill_agent_` to track the autofilled `element`.
+  void TrackAutofilledElement(const blink::WebFormControlElement& element);
 
   // Fills the username and password fields of this form with the given values.
   // Returns true if the fields were filled, false otherwise.

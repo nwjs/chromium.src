@@ -9,8 +9,8 @@
 #include <vector>
 
 #include "base/bind.h"
-#include "base/bind_helpers.h"
 #include "base/callback_forward.h"
+#include "base/callback_helpers.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/ui/views/chrome_typography.h"
 #include "chrome/browser/ui/views/payments/payment_request_dialog_view.h"
@@ -38,16 +38,6 @@
 namespace payments {
 
 namespace {
-
-enum class PaymentMethodViewControllerTags : int {
-  // The tag for the button that triggers the "add card" flow. Starts at
-  // |PAYMENT_REQUEST_COMMON_TAG_MAX| not to conflict with tags common to all
-  // views.
-  ADD_CREDIT_CARD_BUTTON = static_cast<int>(
-      PaymentRequestCommonTags::PAYMENT_REQUEST_COMMON_TAG_MAX),
-  // This value is passed to inner views so they can use it as a starting tag.
-  MAX_TAG,
-};
 
 class PaymentMethodListItem : public PaymentRequestItemList::Item {
  public:
@@ -80,10 +70,8 @@ class PaymentMethodListItem : public PaymentRequestItemList::Item {
         // Since we are a list item, we only care about the on_edited callback.
         dialog_->ShowCreditCardEditor(
             BackNavigationType::kPaymentSheet,
-            static_cast<int>(PaymentMethodViewControllerTags::MAX_TAG),
             /*on_edited=*/
-            base::BindOnce(&PaymentRequestState::SetSelectedApp,
-                           state()->AsWeakPtr(), app_),
+            base::BindOnce(&PaymentRequestState::SetSelectedApp, state(), app_),
             /*on_added=*/
             base::OnceCallback<void(const autofill::CreditCard&)>(),
             static_cast<AutofillPaymentApp*>(app_)->credit_card());
@@ -216,38 +204,30 @@ void PaymentMethodViewController::FillContentView(views::View* content_view) {
   content_view->AddChildView(list_view.release());
 }
 
-void PaymentMethodViewController::ButtonPressed(views::Button* sender,
-                                                const ui::Event& event) {
-  if (sender->tag() == GetSecondaryButtonTag()) {
-    // Only provide the |on_added| callback, in response to this button.
-    dialog()->ShowCreditCardEditor(
-        BackNavigationType::kPaymentSheet,
-        static_cast<int>(PaymentMethodViewControllerTags::MAX_TAG),
-        /*on_edited=*/base::OnceClosure(),
-        /*on_added=*/
-        base::BindOnce(&PaymentRequestState::AddAutofillPaymentApp,
-                       state()->AsWeakPtr(), /*selected=*/true),
-        /*credit_card=*/nullptr);
-  } else {
-    PaymentRequestSheetController::ButtonPressed(sender, event);
-  }
+bool PaymentMethodViewController::ShouldShowPrimaryButton() {
+  return false;
+}
+
+bool PaymentMethodViewController::ShouldShowSecondaryButton() {
+  return enable_add_card_;
 }
 
 base::string16 PaymentMethodViewController::GetSecondaryButtonLabel() {
   return l10n_util::GetStringUTF16(IDS_PAYMENTS_ADD_CARD);
 }
 
-int PaymentMethodViewController::GetSecondaryButtonTag() {
-  return static_cast<int>(
-      PaymentMethodViewControllerTags::ADD_CREDIT_CARD_BUTTON);
+views::Button::PressedCallback
+PaymentMethodViewController::GetSecondaryButtonCallback() {
+  return base::BindRepeating(
+      &PaymentRequestDialogView::ShowCreditCardEditor, dialog(),
+      BackNavigationType::kPaymentSheet, base::RepeatingClosure(),
+      base::BindRepeating(&PaymentRequestState::AddAutofillPaymentApp, state(),
+                          true),
+      nullptr);
 }
 
 int PaymentMethodViewController::GetSecondaryButtonId() {
   return static_cast<int>(DialogViewID::PAYMENT_METHOD_ADD_CARD_BUTTON);
-}
-
-bool PaymentMethodViewController::ShouldShowSecondaryButton() {
-  return enable_add_card_;
 }
 
 }  // namespace payments

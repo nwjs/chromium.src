@@ -74,6 +74,9 @@ class StyleFetchedImage final : public StyleImage,
 
   void LoadDeferredImage(const Document& document);
 
+  RespectImageOrientationEnum ForceOrientationIfNecessary(
+      RespectImageOrientationEnum default_orientation) const override;
+
   void Trace(Visitor*) const override;
 
  private:
@@ -82,7 +85,7 @@ class StyleFetchedImage final : public StyleImage,
 
   // ImageResourceObserver overrides
   void ImageNotifyFinished(ImageResourceContent*) override;
-  bool GetImageAnimationPolicy(web_pref::ImageAnimationPolicy&) override;
+  bool GetImageAnimationPolicy(mojom::blink::ImageAnimationPolicy&) override;
 
   Member<ImageResourceContent> image_;
   Member<const Document> document_;

@@ -8,6 +8,8 @@ import android.graphics.drawable.Drawable;
 import android.view.View.OnClickListener;
 
 import org.chromium.ui.modelutil.PropertyKey;
+import org.chromium.ui.modelutil.PropertyModel.WritableFloatPropertyKey;
+import org.chromium.ui.modelutil.PropertyModel.WritableIntPropertyKey;
 import org.chromium.ui.modelutil.PropertyModel.WritableObjectPropertyKey;
 
 /**
@@ -23,6 +25,7 @@ public class MessageBannerProperties {
             new WritableObjectPropertyKey<>();
     public static final WritableObjectPropertyKey<Drawable> ICON =
             new WritableObjectPropertyKey<>();
+    public static final WritableIntPropertyKey ICON_RESOURCE_ID = new WritableIntPropertyKey();
     // Secondary icon is shown as a button, so content description should be always set.
     public static final WritableObjectPropertyKey<Drawable> SECONDARY_ICON =
             new WritableObjectPropertyKey<>();
@@ -32,11 +35,18 @@ public class MessageBannerProperties {
     public static final WritableObjectPropertyKey<Runnable> ON_DISMISSED =
             new WritableObjectPropertyKey<>();
 
+    // TRANSLATION_Y and ALPHA should only be accessed by the message banner component.
+    static final WritableFloatPropertyKey TRANSLATION_Y = new WritableFloatPropertyKey();
+    static final WritableFloatPropertyKey ALPHA = new WritableFloatPropertyKey();
+    static final WritableObjectPropertyKey<Runnable> ON_TOUCH_RUNNABLE =
+            new WritableObjectPropertyKey<>();
+
     public static final PropertyKey[] ALL_KEYS =
             new PropertyKey[] {PRIMARY_BUTTON_TEXT, PRIMARY_BUTTON_CLICK_LISTENER, TITLE,
-                    DESCRIPTION, ICON, SECONDARY_ICON, SECONDARY_ICON_CONTENT_DESCRIPTION};
+                    DESCRIPTION, ICON, ICON_RESOURCE_ID, SECONDARY_ICON,
+                    SECONDARY_ICON_CONTENT_DESCRIPTION, TRANSLATION_Y, ALPHA, ON_TOUCH_RUNNABLE};
 
-    public static final PropertyKey[] SINGLE_ACTION_MESSAGE_KEYS =
-            new PropertyKey[] {PRIMARY_BUTTON_TEXT, PRIMARY_BUTTON_CLICK_LISTENER, TITLE,
-                    DESCRIPTION, ICON, ON_DISMISSED};
+    public static final PropertyKey[] SINGLE_ACTION_MESSAGE_KEYS = new PropertyKey[] {
+            PRIMARY_BUTTON_TEXT, PRIMARY_BUTTON_CLICK_LISTENER, TITLE, DESCRIPTION, ICON,
+            ICON_RESOURCE_ID, ON_DISMISSED, TRANSLATION_Y, ALPHA, ON_TOUCH_RUNNABLE};
 }

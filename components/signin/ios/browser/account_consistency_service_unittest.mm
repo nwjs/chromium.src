@@ -9,9 +9,9 @@
 #include <memory>
 
 #include "base/bind.h"
-#include "base/bind_helpers.h"
+#include "base/callback_helpers.h"
 #include "base/ios/ios_util.h"
-#include "base/test/bind_test_util.h"
+#include "base/test/bind.h"
 #import "base/test/ios/wait_util.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
@@ -21,6 +21,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/signin/core/browser/account_reconcilor.h"
 #include "components/signin/core/browser/account_reconcilor_delegate.h"
+#include "components/signin/ios/browser/features.h"
 #include "components/signin/public/base/list_accounts_test_utils.h"
 #include "components/signin/public/base/test_signin_client.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
@@ -135,7 +136,7 @@ class TestWebState : public web::TestWebState {
     __block web::WebStatePolicyDecider::PolicyDecision policyDecision =
         web::WebStatePolicyDecider::PolicyDecision::Allow();
     auto callback =
-        base::Bind(^(web::WebStatePolicyDecider::PolicyDecision decision) {
+        base::BindOnce(^(web::WebStatePolicyDecider::PolicyDecision decision) {
           policyDecision = decision;
         });
     decider_->ShouldAllowResponse(response, for_main_frame,
@@ -217,10 +218,9 @@ class AccountConsistencyServiceTest : public PlatformTest {
     WaitUntilAllCookieRequestsAreApplied();
   }
 
-  void SignOutAndSimulateGaiaCookieManagerServiceLogout() {
+  void SignOut() {
     signin::ClearPrimaryAccount(identity_test_env_->identity_manager(),
                                 signin::ClearPrimaryAccountPolicy::DEFAULT);
-    SimulateGaiaCookieManagerServiceLogout();
     WaitUntilAllCookieRequestsAreApplied();
   }
 
@@ -285,7 +285,7 @@ class AccountConsistencyServiceTest : public PlatformTest {
 
   // Simulate the action of the action GaiaCookieManagerService to cleanup
   // the cookies once the sign-out is done.
-  void SimulateGaiaCookieManagerServiceLogout() {
+  void RemoveAllChromeConnectedCookies() {
     base::RunLoop run_loop;
     account_consistency_service_->RemoveAllChromeConnectedCookies(
         run_loop.QuitClosure());
@@ -302,8 +302,8 @@ class AccountConsistencyServiceTest : public PlatformTest {
 
   // Simulates updating the Gaia cookie on the Google domain at the designated
   // time interval. Returns the time at which the cookie was updated.
-  void SimulateUpdateGaiaCookie() {
-    account_consistency_service_->SetGaiaCookiesIfDeleted();
+  void SimulateUpdateGaiaCookie(base::OnceClosure callback) {
+    account_consistency_service_->SetGaiaCookiesIfDeleted(std::move(callback));
   }
 
   void CheckGoogleDomainHasGaiaCookie() {
@@ -371,7 +371,7 @@ TEST_F(AccountConsistencyServiceTest, SignInSignOut) {
   CheckDomainHasChromeConnectedCookie(kYoutubeDomain);
   CheckDomainHasChromeConnectedCookie(kCountryGoogleDomain);
 
-  SignOutAndSimulateGaiaCookieManagerServiceLogout();
+  SignOut();
   CheckNoChromeConnectedCookies();
 }
 
@@ -379,7 +379,7 @@ TEST_F(AccountConsistencyServiceTest, SignInSignOut) {
 TEST_F(AccountConsistencyServiceTest, SignOutWithoutDomains) {
   CheckNoChromeConnectedCookies();
 
-  SignOutAndSimulateGaiaCookieManagerServiceLogout();
+  SignOut();
   CheckNoChromeConnectedCookies();
 }
 
@@ -622,7 +622,7 @@ TEST_F(AccountConsistencyServiceTest, DomainsWithCookieLoadedFromPrefs) {
   CheckDomainHasChromeConnectedCookie(kGoogleDomain);
   CheckDomainHasChromeConnectedCookie(kYoutubeDomain);
 
-  SignOutAndSimulateGaiaCookieManagerServiceLogout();
+  SignOut();
   CheckNoChromeConnectedCookies();
 }
 
@@ -687,24 +687,24 @@ TEST_F(AccountConsistencyServiceTest, SetChromeConnectedCookieAtUpdateTime) {
 
 TEST_F(AccountConsistencyServiceTest, SetGaiaCookieUpdateNotUpdateTime) {
   SignIn();
-  SimulateUpdateGaiaCookie();
+  SimulateUpdateGaiaCookie(base::OnceClosure());
 
   // Advance clock, but stay within the one-hour Gaia update time.
   const base::Time first_update_time = base::Time::Now();
   task_environment_.FastForwardBy(base::TimeDelta::FromMinutes(1));
-  SimulateUpdateGaiaCookie();
+  SimulateUpdateGaiaCookie(base::OnceClosure());
 
   EXPECT_EQ(first_update_time, GetGaiaLastUpdateTime());
 }
 
 TEST_F(AccountConsistencyServiceTest, SetGaiaCookieUpdateAtUpdateTime) {
   SignIn();
-  SimulateUpdateGaiaCookie();
+  SimulateUpdateGaiaCookie(base::OnceClosure());
 
   // Advance clock past one-hour Gaia update time.
   task_environment_.FastForwardBy(base::TimeDelta::FromHours(2));
   const base::Time second_update_time = base::Time::Now();
-  SimulateUpdateGaiaCookie();
+  SimulateUpdateGaiaCookie(base::OnceClosure());
 
   EXPECT_EQ(second_update_time, GetGaiaLastUpdateTime());
 }
@@ -713,15 +713,50 @@ TEST_F(AccountConsistencyServiceTest, SetGaiaCookieUpdateAtUpdateTime) {
 // |kRestoreGAIACookiesIfDeleted| experiment is disabled.
 TEST_F(AccountConsistencyServiceTest, GAIACookieStatusLoggedProperly) {
   base::HistogramTester histogram_tester;
+  __block bool cookie_updated = false;
+  base::OnceClosure callback = base::BindOnce(^() {
+    cookie_updated = true;
+  });
 
   histogram_tester.ExpectTotalCount(kGAIACookiePresentHistogram, 0);
-  SimulateUpdateGaiaCookie();
+
+  SimulateUpdateGaiaCookie(std::move(callback));
   base::RunLoop().RunUntilIdle();
   histogram_tester.ExpectTotalCount(kGAIACookiePresentHistogram, 0);
+  ASSERT_FALSE(cookie_updated);
+
   SignIn();
-  SimulateUpdateGaiaCookie();
+  SimulateUpdateGaiaCookie(std::move(callback));
   base::RunLoop().RunUntilIdle();
   histogram_tester.ExpectTotalCount(kGAIACookiePresentHistogram, 1);
+  ASSERT_FALSE(cookie_updated);
+}
+
+// Ensures that in the case Gaia cookies are restored the restoration callback
+// is completed.
+TEST_F(AccountConsistencyServiceTest, GAIACookieRestoreCallbackFinished) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      signin::kRestoreGaiaCookiesIfDeleted);
+
+  base::HistogramTester histogram_tester;
+  histogram_tester.ExpectTotalCount(kGAIACookiePresentHistogram, 0);
+
+  __block bool cookie_updated = false;
+  SimulateUpdateGaiaCookie(base::BindOnce(^{
+    cookie_updated = true;
+  }));
+  base::RunLoop().RunUntilIdle();
+  histogram_tester.ExpectTotalCount(kGAIACookiePresentHistogram, 0);
+  ASSERT_FALSE(cookie_updated);
+
+  SignIn();
+  SimulateUpdateGaiaCookie(base::BindOnce(^{
+    cookie_updated = true;
+  }));
+  base::RunLoop().RunUntilIdle();
+  histogram_tester.ExpectTotalCount(kGAIACookiePresentHistogram, 1);
+  ASSERT_TRUE(cookie_updated);
 }
 
 // Ensures that set and remove cookie operations are handled in the order
@@ -736,7 +771,7 @@ TEST_F(AccountConsistencyServiceTest, DeleteChromeConnectedCookiesAfterSet) {
   account_consistency_service_->SetChromeConnectedCookieWithUrls(
       {GURL("https://google.ca"), GURL("https://google.fr"),
        GURL("https://google.de")});
-  SimulateGaiaCookieManagerServiceLogout();
+  RemoveAllChromeConnectedCookies();
 
   WaitUntilAllCookieRequestsAreApplied();
   CheckNoChromeConnectedCookies();
@@ -754,7 +789,7 @@ TEST_F(AccountConsistencyServiceTest, SetChromeConnectedCookiesAfterDelete) {
   account_consistency_service_->SetChromeConnectedCookieWithUrls(
       {GURL("https://google.ca"), GURL("https://google.fr"),
        GURL("https://google.de")});
-  SimulateGaiaCookieManagerServiceLogout();
+  RemoveAllChromeConnectedCookies();
   account_consistency_service_->SetChromeConnectedCookieWithUrls(
       {GURL("https://google.ca")});
 

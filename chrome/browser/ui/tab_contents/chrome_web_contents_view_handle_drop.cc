@@ -11,8 +11,8 @@
 #include "base/task/post_task.h"
 #include "base/task/thread_pool.h"
 #include "base/task_runner_util.h"
+#include "chrome/browser/enterprise/connectors/content_analysis_delegate.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/safe_browsing/cloud_content_scanning/deep_scanning_dialog_delegate.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/deep_scanning_utils.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_view_delegate.h"
@@ -21,10 +21,10 @@
 namespace {
 
 #if 0
-void DeepScanCompletionCallback(
+void CompletionCallback(
     content::WebContentsViewDelegate::DropCompletionCallback callback,
-    const safe_browsing::DeepScanningDialogDelegate::Data& data,
-    const safe_browsing::DeepScanningDialogDelegate::Result& result) {
+    const enterprise_connectors::ContentAnalysisDelegate::Data& data,
+    const enterprise_connectors::ContentAnalysisDelegate::Result& result) {
   // If any result is negative, block the drop.
   const auto all_true_fn = [](const auto& vec) {
     return std::all_of(vec.cbegin(), vec.cend(), [](bool b) { return b; });
@@ -38,10 +38,10 @@ void DeepScanCompletionCallback(
           : content::WebContentsViewDelegate::DropCompletionResult::kAbort);
 }
 
-safe_browsing::DeepScanningDialogDelegate::Data GetPathsToScan(
+enterprise_connectors::ContentAnalysisDelegate::Data GetPathsToScan(
     content::WebContents* web_contents,
     const content::DropData& drop_data,
-    safe_browsing::DeepScanningDialogDelegate::Data data) {
+    enterprise_connectors::ContentAnalysisDelegate::Data data) {
   for (const auto& file : drop_data.filenames) {
     base::File::Info info;
 
@@ -67,10 +67,10 @@ safe_browsing::DeepScanningDialogDelegate::Data GetPathsToScan(
 
 void ScanData(content::WebContents* web_contents,
               content::WebContentsViewDelegate::DropCompletionCallback callback,
-              safe_browsing::DeepScanningDialogDelegate::Data data) {
-  safe_browsing::DeepScanningDialogDelegate::ShowForWebContents(
+              enterprise_connectors::ContentAnalysisDelegate::Data data) {
+  enterprise_connectors::ContentAnalysisDelegate::CreateForWebContents(
       web_contents, std::move(data),
-      base::BindOnce(&DeepScanCompletionCallback, std::move(callback)),
+      base::BindOnce(&CompletionCallback, std::move(callback)),
       safe_browsing::DeepScanAccessPoint::DRAG_AND_DROP);
 }
 
@@ -81,7 +81,7 @@ void HandleOnPerformDrop(
     content::WebContents* web_contents,
     const content::DropData& drop_data,
     content::WebContentsViewDelegate::DropCompletionCallback callback) {
-  //safe_browsing::DeepScanningDialogDelegate::Data data;
+  //enterprise_connectors::ContentAnalysisDelegate::Data data;
 #if 0
   Profile* profile =
       Profile::FromBrowserContext(web_contents->GetBrowserContext());
@@ -89,7 +89,7 @@ void HandleOnPerformDrop(
       drop_data.filenames.empty()
           ? enterprise_connectors::AnalysisConnector::BULK_DATA_ENTRY
           : enterprise_connectors::AnalysisConnector::FILE_ATTACHED;
-  if (!safe_browsing::DeepScanningDialogDelegate::IsEnabled(
+  if (!enterprise_connectors::ContentAnalysisDelegate::IsEnabled(
           profile, web_contents->GetLastCommittedURL(), &data, connector)) {
 #endif
   if (true) { //!safe_browsing::DeepScanningDialogDelegate::IsEnabled(

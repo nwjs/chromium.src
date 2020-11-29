@@ -68,6 +68,7 @@ Til að opna vafravalmynd Chrome skal ýta á Alt+F.</translation>
 <translation id="1383876407941801731">Leita</translation>
 <translation id="1396114365388024581">tablst</translation>
 <translation id="1405567553485452995">Ljósgrænn</translation>
+<translation id="141454040365657399">Síðuhaus</translation>
 <translation id="1417889266572670458">Svarblár</translation>
 <translation id="1431911867058218151">Plómurauður</translation>
 <translation id="1439316808600711881">svæði</translation>
@@ -346,8 +347,8 @@ Til að opna vafravalmynd Chrome skal ýta á Alt+F.</translation>
 <translation id="352577523970648069">Breytanlegur textareitur</translation>
 <translation id="3538907380453898475">lýslisti</translation>
 <translation id="3549141990712742152">klippa <ph name="TEXT" />.</translation>
-<translation id="3549680091535286226">Ýttu með tveimur fingrum til að stöðva tal tímabundið</translation>
 <translation id="3564729643041517261">Núverandi birtingarstíll er hlið við hlið</translation>
+<translation id="3573145950452451508">Síðufótur</translation>
 <translation id="3587482841069643663">Allar</translation>
 <translation id="3589661172894441357">Orðalisti</translation>
 <translation id="3591784666823501596">Kóngablár</translation>
@@ -454,6 +455,7 @@ Til að opna vafravalmynd Chrome skal ýta á Alt+F.</translation>
 <translation id="4402014469255336455">Dökkhiminblár</translation>
 <translation id="4406249099130339147">Upplestur greinarmerkja:</translation>
 <translation id="4432457053224379116">Rauðbrúnn</translation>
+<translation id="4432896207833262240">Merkt efni</translation>
 <translation id="4437615272777527928">Skrifaðu til að leita í valmyndunum. Notaðu upp- og niðurörvarnar til að fletta í gegnum niðurstöður. Notaðu örvarnar til vinstri og hægri til að færa textabendilinn til og fara á milli valmynda.</translation>
 <translation id="4457472090507035117">Velja núverandi rödd:</translation>
 <translation id="4476183483923481720">ný lína</translation>
@@ -592,6 +594,7 @@ Til að opna vafravalmynd Chrome skal ýta á Alt+F.</translation>
 <translation id="5561345396546889625">Næsti listi</translation>
 <translation id="5562645715554321347">hdnggrp</translation>
 <translation id="5574412348552378458">Fræðslustilling ChromeVox</translation>
+<translation id="5582839680698949063">Aðalvalmynd</translation>
 <translation id="5585044216466955529">Textareitur, innsláttur netfangs</translation>
 <translation id="5597170376237141345">Næsti gátreitur</translation>
 <translation id="5598905979683743333"><ph name="NAME" />, valhnappur ekki valinn</translation>
@@ -825,7 +828,6 @@ Til að opna vafravalmynd Chrome skal ýta á Alt+F.</translation>
 <translation id="7491962110804786152">flipi</translation>
 <translation id="7492497529767769458">Fara yfir í næsta hluta. Þar eru m.a. stöðusvæði og ræsiforrit.</translation>
 <translation id="7505149250476994901">Segðu „cap“ á undan staf</translation>
-<translation id="7518543783849163354">Ýttu á Ctrl-lykilinn til að fá ChromeVox til að hætta tímabundið að tala.</translation>
 <translation id="7533226154149229506">Ljósgulur</translation>
 <translation id="7543255924852002459">Merking fyrir „Fleygja“</translation>
 <translation id="7552432549459840808">Gagnlegir flýtilyklar í Chrome</translation>

@@ -10,9 +10,9 @@
 #include "ash/shell.h"
 #include "base/stl_util.h"
 #include "base/threading/sequenced_task_runner_handle.h"
-#include "ui/base/clipboard/clipboard_data_endpoint.h"
 #include "ui/base/clipboard/clipboard_monitor.h"
 #include "ui/base/clipboard/clipboard_non_backed.h"
+#include "ui/base/data_transfer_policy/data_transfer_endpoint.h"
 
 namespace ash {
 
@@ -82,9 +82,16 @@ void ClipboardHistory::OnClipboardDataChanged() {
   auto* clipboard = ui::ClipboardNonBacked::GetForCurrentThread();
   CHECK(clipboard);
 
-  ui::ClipboardDataEndpoint data_dst(ui::EndpointType::kClipboardHistory);
+  ui::DataTransferEndpoint data_dst(ui::EndpointType::kClipboardHistory);
   const auto* clipboard_data = clipboard->GetClipboardData(&data_dst);
-  CHECK(clipboard_data);
+  if (!clipboard_data) {
+    // |clipboard_data| is only empty when the Clipboard is cleared. This is
+    // done to prevent data leakage into or from locked forms(Locked Fullscreen
+    // state). Clear ClipboardHistory.
+    commit_data_weak_factory_.InvalidateWeakPtrs();
+    Clear();
+    return;
+  }
 
   // We post commit |clipboard_data| at the end of the current task sequence to
   // debounce the case where multiple copies are programmatically performed.

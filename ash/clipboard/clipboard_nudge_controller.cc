@@ -11,12 +11,17 @@
 #include "ash/session/session_controller_impl.h"
 #include "ash/shell.h"
 #include "base/logging.h"
+#include "base/metrics/histogram_functions.h"
+#include "base/metrics/histogram_macros.h"
 #include "base/no_destructor.h"
 #include "base/util/values/values_util.h"
+#include "chromeos/constants/chromeos_features.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
 #include "ui/base/clipboard/clipboard_monitor.h"
+#include "ui/compositor/layer_animation_observer.h"
+#include "ui/compositor/scoped_layer_animation_settings.h"
 
 namespace {
 
@@ -24,20 +29,56 @@ namespace {
 constexpr char kShownCount[] = "shown_count";
 constexpr char kLastTimeShown[] = "last_time_shown";
 
+// The maximum number of 1 second buckets used to record the time between
+// showing the nudge and recording the feature being opened/used.
+constexpr int kBucketCount = 61;
+
+// A class for observing the clipboard nudge fade out animation. Once the fade
+// out animation is complete the clipboard nudge will be destroyed.
+class ImplicitNudgeHideAnimationObserver
+    : public ui::ImplicitAnimationObserver {
+ public:
+  explicit ImplicitNudgeHideAnimationObserver(
+      std::unique_ptr<ash::ClipboardNudge> nudge)
+      : nudge_(std::move(nudge)) {}
+  ImplicitNudgeHideAnimationObserver(
+      const ImplicitNudgeHideAnimationObserver&) = delete;
+  ImplicitNudgeHideAnimationObserver& operator=(
+      const ImplicitNudgeHideAnimationObserver&) = delete;
+  ~ImplicitNudgeHideAnimationObserver() override {
+    StopObservingImplicitAnimations();
+    nudge_->Close();
+  }
+
+  // ui::ImplicitAnimationObserver:
+  void OnImplicitAnimationsCompleted() override { delete this; }
+
+ private:
+  std::unique_ptr<ash::ClipboardNudge> nudge_;
+};
+
 }  // namespace
 
 namespace ash {
 
 ClipboardNudgeController::ClipboardNudgeController(
-    ClipboardHistory* clipboard_history)
-    : clipboard_history_(clipboard_history) {
+    ClipboardHistory* clipboard_history,
+    ClipboardHistoryControllerImpl* clipboard_history_controller)
+    : clipboard_history_(clipboard_history),
+      clipboard_history_controller_(clipboard_history_controller) {
   clipboard_history_->AddObserver(this);
+  clipboard_history_controller_->AddObserver(this);
   ui::ClipboardMonitor::GetInstance()->AddObserver(this);
+  if (chromeos::features::IsClipboardHistoryNudgeSessionResetEnabled())
+    Shell::Get()->session_controller()->AddObserver(this);
 }
 
 ClipboardNudgeController::~ClipboardNudgeController() {
   clipboard_history_->RemoveObserver(this);
+  clipboard_history_controller_->RemoveObserver(this);
   ui::ClipboardMonitor::GetInstance()->RemoveObserver(this);
+  if (chromeos::features::IsClipboardHistoryNudgeSessionResetEnabled())
+    Shell::Get()->session_controller()->RemoveObserver(this);
 }
 
 // static
@@ -98,19 +139,70 @@ void ClipboardNudgeController::OnClipboardDataRead() {
   }
 }
 
+void ClipboardNudgeController::OnActiveUserPrefServiceChanged(
+    PrefService* prefs) {
+  // Reset the nudge prefs so that the nudge can be shown again.
+  DictionaryPrefUpdate update(prefs, prefs::kMultipasteNudges);
+  update->SetIntPath(kShownCount, 0);
+  update->SetPath(kLastTimeShown, util::TimeToValue(base::Time()));
+}
+
 void ClipboardNudgeController::ShowNudge() {
   // Create and show the nudge.
   nudge_ = std::make_unique<ClipboardNudge>();
+  StartFadeAnimation(/*show=*/true);
 
   // Start a timer to close the nudge after a set amount of time.
   hide_nudge_timer_.Start(FROM_HERE, kNudgeShowTime,
                           base::BindOnce(&ClipboardNudgeController::HideNudge,
                                          weak_ptr_factory_.GetWeakPtr()));
+  last_shown_time_ = GetTime();
+
+  // Tracks the number of times the ClipboardHistory nudge is shown.
+  // This allows us to understand the conversion rate of showing a nudge to
+  // a user opening and then using the clipboard history feature.
+  base::UmaHistogramExactLinear(
+      "Ash.ClipboardHistory.ContextualNudge.ShownCount", 1, 1);
 }
 
 void ClipboardNudgeController::HideNudge() {
-  nudge_->Close();
-  nudge_.reset();
+  StartFadeAnimation(/*show=*/false);
+}
+
+void ClipboardNudgeController::StartFadeAnimation(bool show) {
+  ui::Layer* layer = nudge_->widget()->GetLayer();
+  gfx::Rect widget_bounds = layer->bounds();
+
+  gfx::Transform scaled_nudge_transform;
+  float x_offset =
+      widget_bounds.width() * (1.0f - kNudgeFadeAnimationScale) / 2.0f;
+  float y_offset =
+      widget_bounds.height() * (1.0f - kNudgeFadeAnimationScale) / 2.0f;
+  scaled_nudge_transform.Translate(x_offset, y_offset);
+  scaled_nudge_transform.Scale(kNudgeFadeAnimationScale,
+                               kNudgeFadeAnimationScale);
+
+  layer->SetOpacity(show ? 0.0f : 1.0f);
+  layer->SetTransform(show ? scaled_nudge_transform : gfx::Transform());
+
+  {
+    // Perform the scaling animation on the clipboard nudge.
+    ui::ScopedLayerAnimationSettings settings(layer->GetAnimator());
+    settings.SetTransitionDuration(kNudgeFadeAnimationTime);
+    settings.SetTweenType(kNudgeFadeScalingAnimationTweenType);
+    layer->SetTransform(show ? gfx::Transform() : scaled_nudge_transform);
+  }
+  {
+    // Perform the opacity animation on the clipboard nudge.
+    ui::ScopedLayerAnimationSettings settings(layer->GetAnimator());
+    settings.SetTransitionDuration(kNudgeFadeAnimationTime);
+    settings.SetTweenType(kNudgeFadeOpacityAnimationTweenType);
+    layer->SetOpacity(show ? 1.0f : 0.0f);
+    if (!show) {
+      settings.AddObserver(
+          new ImplicitNudgeHideAnimationObserver(std::move(nudge_)));
+    }
+  }
 }
 
 void ClipboardNudgeController::HandleNudgeShown() {
@@ -121,6 +213,30 @@ void ClipboardNudgeController::HandleNudgeShown() {
   DictionaryPrefUpdate update(prefs, prefs::kMultipasteNudges);
   update->SetIntPath(kShownCount, shown_count + 1);
   update->SetPath(kLastTimeShown, util::TimeToValue(GetTime()));
+}
+
+void ClipboardNudgeController::OnClipboardHistoryMenuShown() {
+  if (last_shown_time_.is_null())
+    return;
+  base::TimeDelta time_since_shown = GetTime() - last_shown_time_;
+
+  // Tracks the amount of time between showing the user a nudge and the user
+  // opening the ClipboardHistory menu.
+  base::UmaHistogramExactLinear(
+      "Ash.ClipboardHistory.ContextualNudge.NudgeToFeatureOpenTime",
+      time_since_shown.InSeconds(), kBucketCount);
+}
+
+void ClipboardNudgeController::OnClipboardHistoryPasted() {
+  if (last_shown_time_.is_null())
+    return;
+  base::TimeDelta time_since_shown = GetTime() - last_shown_time_;
+
+  // Tracks the amount of time between showing the user a nudge and the user
+  // using the ClipboardHistory feature.
+  base::UmaHistogramExactLinear(
+      "Ash.ClipboardHistory.ContextualNudge.NudgeToFeatureUseTime",
+      time_since_shown.InSeconds(), kBucketCount);
 }
 
 void ClipboardNudgeController::OverrideClockForTesting(

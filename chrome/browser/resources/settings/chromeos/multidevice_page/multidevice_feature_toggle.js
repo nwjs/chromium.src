@@ -19,6 +19,8 @@ Polymer({
     /** @type {!settings.MultiDeviceFeature} */
     feature: Number,
 
+    toggleAriaLabel: String,
+
     /** @private {boolean} */
     checked_: Boolean,
   },
@@ -35,6 +37,21 @@ Polymer({
   /** @override */
   focus() {
     this.$.toggle.focus();
+  },
+
+  /**
+   * Callback for clicking on the toggle itself, or a row containing a toggle
+   * without other links. It attempts to toggle the feature's status if the user
+   * is allowed.
+   */
+  toggleFeature() {
+    this.resetChecked_();
+
+    // Pass the negation of |this.checked_|: this indicates that if the toggle
+    // is checked, the intent is for it to be unchecked, and vice versa.
+    this.fire(
+        'feature-toggle-clicked',
+        {feature: this.feature, enabled: !this.checked_});
   },
 
   /**
@@ -65,17 +82,10 @@ Polymer({
   },
 
   /**
-   * Callback for clicking on the toggle. It attempts to toggle the feature's
-   * status if the user is allowed.
+   * Returns the A11y label for the toggle.
    * @private
    */
-  onChange_() {
-    this.resetChecked_();
-
-    // Pass the negation of |this.checked_|: this indicates that if the toggle
-    // is checked, the intent is for it to be unchecked, and vice versa.
-    this.fire(
-        'feature-toggle-clicked',
-        {feature: this.feature, enabled: !this.checked_});
-  },
+  getToggleA11yLabel_() {
+    return this.toggleAriaLabel || this.getFeatureName(this.feature);
+  }
 });

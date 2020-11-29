@@ -11,6 +11,7 @@
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/content_settings/core/common/content_settings_utils.h"
 #include "content/public/common/webplugininfo.h"
+#include "extensions/buildflags/buildflags.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -43,19 +44,18 @@ void GetPluginContentSettingInternal(
   bool uses_plugin_specific_setting = false;
   if (use_javascript_setting) {
     value = host_content_settings_map->GetWebsiteSetting(
-        main_frame_url, main_frame_url, ContentSettingsType::JAVASCRIPT,
-        std::string(), &info);
+        main_frame_url, main_frame_url, ContentSettingsType::JAVASCRIPT, &info);
   } else {
     content_settings::SettingInfo specific_info;
     std::unique_ptr<base::Value> specific_setting =
         host_content_settings_map->GetWebsiteSetting(
-            main_frame_url, plugin_url, ContentSettingsType::PLUGINS, resource,
+            main_frame_url, plugin_url, ContentSettingsType::PLUGINS,
             &specific_info);
     content_settings::SettingInfo general_info;
     std::unique_ptr<base::Value> general_setting =
         host_content_settings_map->GetWebsiteSetting(
             main_frame_url, plugin_url, ContentSettingsType::PLUGINS,
-            std::string(), &general_info);
+            &general_info);
     // If there is a plugin-specific setting, we use it, unless the general
     // setting was set by policy, in which case it takes precedence.
     uses_plugin_specific_setting =
@@ -83,11 +83,10 @@ void GetPluginContentSettingInternal(
 
   // Special behavior for non-JavaScript treated plugins (Flash):
   if (!use_javascript_setting) {
-#if 0
     // ALLOW-by-default is obsolete and should be treated as DETECT.
     if (*setting == CONTENT_SETTING_ALLOW && uses_default_content_setting)
       *setting = CONTENT_SETTING_DETECT_IMPORTANT_CONTENT;
-#endif
+
     // Unless the setting is explicitly ALLOW, return BLOCK for any scheme that
     // is not HTTP, HTTPS, FILE, or chrome-extension.
     if (*setting != CONTENT_SETTING_ALLOW &&
@@ -153,19 +152,6 @@ ContentSetting PluginUtils::UnsafeGetRawDefaultFlashContentSetting(
   return plugin_setting;
 }
 
-// static
-void PluginUtils::RememberFlashChangedForSite(
-    HostContentSettingsMap* host_content_settings_map,
-    const GURL& top_level_url) {
-  // A |base::DictionaryValue| is set here but for now, clients only check this
-  // is a non-nullptr value.
-  auto dict = std::make_unique<base::DictionaryValue>();
-  constexpr char kFlagKey[] = "flashPreviouslyChanged";
-  dict->SetKey(kFlagKey, base::Value(true));
-  host_content_settings_map->SetWebsiteSettingDefaultScope(
-      top_level_url, top_level_url, ContentSettingsType::PLUGINS_DATA,
-      std::string(), std::move(dict));
-}
 
 // static
 std::string PluginUtils::GetExtensionIdForMimeType(

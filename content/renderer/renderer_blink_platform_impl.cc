@@ -33,6 +33,7 @@
 #include "build/build_config.h"
 #include "components/url_formatter/url_formatter.h"
 #include "content/child/child_process.h"
+#include "content/common/android/sync_compositor_statics.h"
 #include "content/common/content_constants_internal.h"
 #include "content/common/frame_messages.h"
 #include "content/public/common/content_features.h"
@@ -42,10 +43,12 @@
 #include "content/public/common/webplugininfo.h"
 #include "content/public/renderer/content_renderer_client.h"
 #include "content/public/renderer/render_frame.h"
-#include "content/renderer/loader/child_url_loader_factory_bundle.h"
 #include "content/renderer/loader/resource_dispatcher.h"
 #include "content/renderer/loader/web_url_loader_impl.h"
 #include "content/renderer/media/audio_decoder.h"
+#include "content/renderer/media/batching_media_log.h"
+#include "content/renderer/media/inspector_media_event_handler.h"
+#include "content/renderer/media/render_media_event_handler.h"
 #include "content/renderer/media/renderer_webaudiodevice_impl.h"
 #include "content/renderer/render_frame_impl.h"
 #include "content/renderer/render_thread_impl.h"
@@ -75,6 +78,7 @@
 #include "storage/common/database/database_identifier.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/origin_trials/trial_token_validator.h"
+#include "third_party/blink/public/common/security/protocol_handler_security_level.h"
 #include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
 #include "third_party/blink/public/mojom/indexeddb/indexeddb.mojom.h"
 #include "third_party/blink/public/platform/blame_context.h"
@@ -92,6 +96,7 @@
 #include "third_party/blink/public/platform/web_vector.h"
 #include "third_party/blink/public/web/modules/media/audio/web_audio_device_factory.h"
 #include "third_party/blink/public/web/web_local_frame.h"
+#include "third_party/blink/public/web/web_media_inspector.h"
 #include "third_party/sqlite/sqlite3.h"
 #include "ui/base/ui_base_switches.h"
 #include "ui/gl/buildflags.h"
@@ -159,8 +164,6 @@ gpu::ContextType ToGpuContextType(blink::Platform::ContextType type) {
       return gpu::CONTEXT_TYPE_WEBGL1;
     case blink::Platform::kWebGL2ContextType:
       return gpu::CONTEXT_TYPE_WEBGL2;
-    case blink::Platform::kWebGL2ComputeContextType:
-      return gpu::CONTEXT_TYPE_WEBGL2_COMPUTE;
     case blink::Platform::kGLES2ContextType:
       return gpu::CONTEXT_TYPE_OPENGLES2;
     case blink::Platform::kGLES3ContextType:
@@ -435,8 +438,20 @@ bool RendererBlinkPlatformImpl::IsGpuCompositingDisabled() {
 }
 
 #if defined(OS_ANDROID)
-bool RendererBlinkPlatformImpl::IsSynchronousCompositingEnabled() {
+bool RendererBlinkPlatformImpl::
+    IsSynchronousCompositingEnabledForAndroidWebView() {
   return GetContentClient()->UsingSynchronousCompositing();
+}
+
+bool RendererBlinkPlatformImpl::
+    IsZeroCopySynchronousSwDrawEnabledForAndroidWebView() {
+  return base::CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kSingleProcess);
+}
+
+SkCanvas*
+RendererBlinkPlatformImpl::SynchronousCompositorGetSkCanvasForAndroidWebView() {
+  return content::SynchronousCompositorGetSkCanvas();
 }
 #endif
 
@@ -517,9 +532,20 @@ RendererBlinkPlatformImpl::NewAudioCapturerSource(
       web_frame->GetLocalFrameToken(), params);
 }
 
-viz::RasterContextProvider*
+scoped_refptr<viz::RasterContextProvider>
 RendererBlinkPlatformImpl::SharedMainThreadContextProvider() {
-  return RenderThreadImpl::current()->SharedMainThreadContextProvider().get();
+  return RenderThreadImpl::current()->SharedMainThreadContextProvider();
+}
+
+scoped_refptr<viz::RasterContextProvider>
+RendererBlinkPlatformImpl::SharedCompositorWorkerContextProvider() {
+  return RenderThreadImpl::current()->SharedCompositorWorkerContextProvider(
+      /*try_gpu_rasterization=*/true);
+}
+
+scoped_refptr<gpu::GpuChannelHost>
+RendererBlinkPlatformImpl::EstablishGpuChannelSync() {
+  return RenderThreadImpl::current()->EstablishGpuChannelSync();
 }
 
 bool RendererBlinkPlatformImpl::RTCSmoothnessAlgorithmEnabled() {
@@ -925,6 +951,11 @@ bool RendererBlinkPlatformImpl::AllowScriptExtensionForServiceWorker(
       script_origin);
 }
 
+blink::ProtocolHandlerSecurityLevel
+RendererBlinkPlatformImpl::GetProtocolHandlerSecurityLevel() {
+  return GetContentClient()->renderer()->GetProtocolHandlerSecurityLevel();
+}
+
 bool RendererBlinkPlatformImpl::IsExcludedHeaderForServiceWorkerFetchEvent(
     const blink::WebString& header_name) {
   return GetContentClient()
@@ -940,6 +971,27 @@ void RendererBlinkPlatformImpl::RecordMetricsForBackgroundedRendererPurge() {
   if (!render_thread)
     return;
   render_thread->RecordMetricsForBackgroundedRendererPurge();
+}
+
+//------------------------------------------------------------------------------
+
+// The returned BatchingMediaLog can be used on any thread, but must be
+// destroyed on |owner_task_runner|. The aggregated MediaLogRecords will be
+// sent back to the Browser via Mojo objects bound to |owner_task_runner|.
+std::unique_ptr<media::MediaLog> RendererBlinkPlatformImpl::GetMediaLog(
+    blink::MediaInspectorContext* inspector_context,
+    scoped_refptr<base::SingleThreadTaskRunner> owner_task_runner) {
+  std::vector<std::unique_ptr<BatchingMediaLog::EventHandler>> handlers;
+
+  // For chrome://media-internals.
+  handlers.push_back(std::make_unique<RenderMediaEventHandler>());
+
+  // For devtools' media tab.
+  handlers.push_back(
+      std::make_unique<InspectorMediaEventHandler>(inspector_context));
+
+  return std::make_unique<BatchingMediaLog>(owner_task_runner,
+                                            std::move(handlers));
 }
 
 //------------------------------------------------------------------------------
@@ -959,6 +1011,13 @@ void RendererBlinkPlatformImpl::SetRenderingColorSpace(
     return;
 
   render_thread->SetRenderingColorSpace(color_space);
+}
+
+//------------------------------------------------------------------------------
+
+void RendererBlinkPlatformImpl::SetActiveURL(const blink::WebURL& url,
+                                             const blink::WebString& top_url) {
+  GetContentClient()->SetActiveURL(url, top_url.Utf8());
 }
 
 //------------------------------------------------------------------------------

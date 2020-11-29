@@ -42,8 +42,9 @@ void LayoutSVGResourceMasker::RemoveAllClientsFromCache() {
   NOT_DESTROYED();
   cached_paint_record_.reset();
   mask_content_boundaries_ = FloatRect();
-  MarkAllClientsForInvalidation(SVGResourceClient::kLayoutInvalidation |
-                                SVGResourceClient::kBoundariesInvalidation);
+  MarkAllClientsForInvalidation(
+      SVGResourceClient::kPaintPropertiesInvalidation |
+      SVGResourceClient::kPaintInvalidation);
 }
 
 sk_sp<const PaintRecord> LayoutSVGResourceMasker::CreatePaintRecord(
@@ -105,6 +106,7 @@ FloatRect LayoutSVGResourceMasker::ResourceBoundingBox(
     const FloatRect& reference_box,
     float reference_box_zoom) {
   NOT_DESTROYED();
+  DCHECK(!NeedsLayout());
   auto* mask_element = To<SVGMaskElement>(GetElement());
   DCHECK(mask_element);
 
@@ -116,10 +118,6 @@ FloatRect LayoutSVGResourceMasker::ResourceBoundingBox(
   // box.
   if (mask_units == SVGUnitTypes::kSvgUnitTypeUserspaceonuse)
     mask_boundaries.Scale(reference_box_zoom);
-
-  // Resource was not layouted yet. Give back clipping rect of the mask.
-  if (SelfNeedsLayout())
-    return mask_boundaries;
 
   if (mask_content_boundaries_.IsEmpty())
     CalculateMaskContentVisualRect();

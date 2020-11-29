@@ -240,10 +240,6 @@ void FullscreenController::OnTabDetachedFromView(WebContents* old_contents) {
     return;
   }
 
-  content::RenderWidgetHostView* const current_fs_view =
-      old_contents->GetFullscreenRenderWidgetHostView();
-  if (current_fs_view)
-    current_fs_view->SetSize(old_contents->GetPreferredSize());
   old_contents->Resize(gfx::Rect(old_contents->GetPreferredSize()));
 }
 
@@ -426,18 +422,6 @@ void FullscreenController::ExitFullscreenModeInternal() {
 
   exclusive_access_manager()->UpdateExclusiveAccessExitBubbleContent(
       ExclusiveAccessBubbleHideCallback());
-}
-
-bool FullscreenController::IsPrivilegedFullscreenForTab() const {
-  const bool embedded_widget_present =
-      exclusive_access_tab() &&
-      exclusive_access_tab()->GetFullscreenRenderWidgetHostView();
-  return embedded_widget_present || is_privileged_fullscreen_for_testing_;
-}
-
-void FullscreenController::SetPrivilegedFullscreenForTesting(
-    bool is_privileged) {
-  is_privileged_fullscreen_for_testing_ = is_privileged;
 }
 
 bool FullscreenController::MaybeToggleFullscreenWithinTab(

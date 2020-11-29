@@ -37,95 +37,8 @@ defaults = args.defaults(
     list_view = args.COMPUTE,
     main_list_view = None,
     subproject_list_view = None,
+    resultdb_bigquery_exports = [],
 )
-
-def declare_bucket(milestone_vars, *, branch_selector = branches.MAIN_ONLY):
-    if not branches.matches(branch_selector):
-        return
-
-    luci.bucket(
-        name = milestone_vars.try_bucket,
-        acls = [
-            acl.entry(
-                roles = acl.BUILDBUCKET_READER,
-                groups = "all",
-            ),
-            acl.entry(
-                roles = acl.BUILDBUCKET_TRIGGERER,
-                users = [
-                    "findit-for-me@appspot.gserviceaccount.com",
-                    "tricium-prod@appspot.gserviceaccount.com",
-                ],
-                groups = [
-                    "project-chromium-tryjob-access",
-                    # Allow Pinpoint to trigger builds for bisection
-                    "service-account-chromeperf",
-                    "service-account-cq",
-                ],
-                projects = milestone_vars.try_triggering_projects,
-            ),
-            acl.entry(
-                roles = acl.BUILDBUCKET_OWNER,
-                groups = "service-account-chromium-tryserver",
-            ),
-        ],
-    )
-
-    luci.cq_group(
-        name = milestone_vars.cq_group,
-        retry_config = cq.RETRY_ALL_FAILURES,
-        tree_status_host = milestone_vars.tree_status_host,
-        watch = cq.refset(
-            repo = "https://chromium.googlesource.com/chromium/src",
-            refs = [milestone_vars.cq_ref_regexp],
-        ),
-        acls = [
-            acl.entry(
-                acl.CQ_COMMITTER,
-                groups = "project-chromium-committers",
-            ),
-            acl.entry(
-                acl.CQ_DRY_RUNNER,
-                groups = "project-chromium-tryjob-access",
-            ),
-        ],
-    )
-
-    try_.list_view(
-        name = milestone_vars.main_list_view_name,
-        branch_selector = branch_selector,
-        title = milestone_vars.main_list_view_title,
-    )
-
-def set_defaults(milestone_vars, **kwargs):
-    default_values = dict(
-        add_to_list_view = milestone_vars.is_master,
-        bucket = milestone_vars.try_bucket,
-        build_numbers = True,
-        caches = [
-            swarming.cache(
-                name = "win_toolchain",
-                path = "win_toolchain",
-            ),
-        ],
-        configure_kitchen = True,
-        cores = 8,
-        cpu = builders.cpu.X86_64,
-        cq_group = milestone_vars.cq_group,
-        executable = "recipe:chromium_trybot",
-        execution_timeout = 4 * time.hour,
-        # Max. pending time for builds. CQ considers builds pending >2h as timed
-        # out: http://shortn/_8PaHsdYmlq. Keep this in sync.
-        expiration_timeout = 2 * time.hour,
-        os = builders.os.LINUX_DEFAULT,
-        pool = "luci.chromium.try",
-        service_account = "chromium-try-builder@chops-service-accounts.iam.gserviceaccount.com",
-        swarming_tags = ["vpython:native-python-wrapper"],
-        task_template_canary_percentage = 5,
-    )
-    default_values.update(kwargs)
-    for k, v in default_values.items():
-        getattr(defaults, k).set(v)
 
 def _sorted_list_view_graph_key(console_name):
     return graph.key("@chromium", "", "sorted_list_view", console_name)
@@ -152,7 +65,7 @@ def _sort_console_entries(ctx):
 
 lucicfg.generator(_sort_console_entries)
 
-def list_view(*, name, branch_selector = branches.MAIN_ONLY, **kwargs):
+def list_view(*, name, branch_selector = branches.MAIN, **kwargs):
     if not branches.matches(branch_selector):
         return
 
@@ -201,13 +114,15 @@ def tryjob(
 def try_builder(
         *,
         name,
-        branch_selector = branches.MAIN_ONLY,
+        branch_selector = branches.MAIN,
         add_to_list_view = args.DEFAULT,
         cq_group = args.DEFAULT,
         list_view = args.DEFAULT,
         main_list_view = args.DEFAULT,
         subproject_list_view = args.DEFAULT,
         tryjob = None,
+        experiments = None,
+        resultdb_bigquery_exports = args.DEFAULT,
         **kwargs):
     """Define a try builder.
 
@@ -236,18 +151,49 @@ def try_builder(
         no effect on adding an entry to the subproject list view.
       tryjob - A struct containing the details of the tryjob verifier for the
         builder, obtained by calling the `tryjob` function.
+      experiments - a dict of experiment name to the percentage chance (0-100)
+        that it will apply to builds generated from this builder.
+      resultdb_bigquery_exports - a list of resultdb.export_test_results(...)
+        specifying additional parameters for exporting test results to BigQuery.
+        Will always upload to the following tables in addition to any tables
+        specified by the list's elements:
+          luci-resultdb.chromium.try_test_results
+          luci-resultdb.chromium.gpu_try_test_results
     """
     if not branches.matches(branch_selector):
         return
+
+    # Enable "chromium.resultdb.result_sink" on try builders at 50%.
+    experiments = experiments or {}
+    experiments.setdefault("chromium.resultdb.result_sink", 50)
+
+    merged_resultdb_bigquery_exports = [
+        resultdb.export_test_results(
+            bq_table = "luci-resultdb.chromium.try_test_results",
+        ),
+        resultdb.export_test_results(
+            bq_table = "luci-resultdb.chromium.gpu_try_test_results",
+            predicate = resultdb.test_result_predicate(
+                # Only match the telemetry_gpu_integration_test and
+                # fuchsia_telemetry_gpu_integration_test targets.
+                test_id_regexp = "ninja://(chrome/test:|content/test:fuchsia_)telemetry_gpu_integration_test/.+",
+            ),
+        ),
+    ]
+    merged_resultdb_bigquery_exports.extend(
+        defaults.get_value(
+            "resultdb_bigquery_exports",
+            resultdb_bigquery_exports,
+        ),
+    )
 
     # Define the builder first so that any validation of luci.builder arguments
     # (e.g. bucket) occurs before we try to use it
     builders.builder(
         name = name,
         branch_selector = branch_selector,
-        resultdb_bigquery_exports = [resultdb.export_test_results(
-            bq_table = "luci-resultdb.chromium.try_test_results",
-        )],
+        resultdb_bigquery_exports = merged_resultdb_bigquery_exports,
+        experiments = experiments,
         **kwargs
     )
 
@@ -525,12 +471,17 @@ def gpu_chromium_win_builder(*, name, os = builders.os.WINDOWS_ANY, **kwargs):
     )
 
 try_ = struct(
+    # Module-level defaults for try functions
     defaults = defaults,
-    builder = try_builder,
-    declare_bucket = declare_bucket,
-    job = tryjob,
+
+    # Functions for declaring automatically maintained list views
     list_view = list_view,
-    set_defaults = set_defaults,
+
+    # Functions for declaring try builders
+    builder = try_builder,
+    job = tryjob,
+
+    # More specific builder wrapper functions
     blink_builder = blink_builder,
     blink_mac_builder = blink_mac_builder,
     chromium_builder = chromium_builder,

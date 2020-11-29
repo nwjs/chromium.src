@@ -360,7 +360,7 @@ void LayoutGrid::UpdateBlockLayout(bool relayout_children) {
     // LayoutBox::ComputeContentAndScrollbarLogicalHeightUsing() is adding the
     // ScrollbarLogicalHeight() for the intrinsic height cases. But that's
     // causing more problems as described in the bug linked before.
-    if (!StyleRef().LogicalHeight().IsIntrinsic())
+    if (!StyleRef().LogicalHeight().IsContentOrIntrinsic())
       track_based_logical_height += ComputeLogicalScrollbars().BlockSum();
 
     SetLogicalHeight(track_based_logical_height);
@@ -944,7 +944,7 @@ void LayoutGrid::PlaceItemsOnGrid(
 // TODO(lajava): Consider rafactoring this code with
 // LocalFrameView::PrepareOrthogonalWritingModeRootForLayout
 static bool PrepareOrthogonalWritingModeRootForLayout(LayoutObject& root) {
-  DCHECK(root.IsBox() && ToLayoutBox(root).IsOrthogonalWritingModeRoot());
+  DCHECK(To<LayoutBox>(root).IsOrthogonalWritingModeRoot());
   if (!root.NeedsLayout() || root.IsOutOfFlowPositioned() ||
       root.IsColumnSpanAll() || root.IsTablePart())
     return false;

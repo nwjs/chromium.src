@@ -126,7 +126,6 @@
 #include "third_party/blink/renderer/core/page/print_context.h"
 #include "third_party/blink/renderer/core/page/scrolling/root_scroller_controller.h"
 #include "third_party/blink/renderer/core/page/scrolling/scroll_state.h"
-#include "third_party/blink/renderer/core/page/scrolling/scrolling_coordinator_context.h"
 #include "third_party/blink/renderer/core/page/spatial_navigation_controller.h"
 #include "third_party/blink/renderer/core/page/validation_message_client.h"
 #include "third_party/blink/renderer/core/page/viewport_description.h"
@@ -263,11 +262,9 @@ static ScrollableArea* ScrollableAreaForNode(Node* node) {
   if (!node)
     return nullptr;
 
-  LayoutObject* layout_object = node->GetLayoutObject();
-  if (!layout_object || !layout_object->IsBox())
-    return nullptr;
-
-  return ToLayoutBox(layout_object)->GetScrollableArea();
+  if (auto* box = DynamicTo<LayoutBox>(node->GetLayoutObject()))
+    return box->GetScrollableArea();
+  return nullptr;
 }
 
 void Internals::ResetToConsistentState(Page* page) {
@@ -600,7 +597,7 @@ void Internals::pauseAnimations(double pause_time,
   if (!GetFrame())
     return;
 
-  GetFrame()->View()->UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
+  GetFrame()->View()->UpdateAllLifecyclePhasesForTest();
   GetFrame()->GetDocument()->Timeline().PauseAnimationsForTesting(pause_time);
 }
 
@@ -736,8 +733,7 @@ Node* Internals::previousInFlatTree(Node* node,
 String Internals::elementLayoutTreeAsText(Element* element,
                                           ExceptionState& exception_state) {
   DCHECK(element);
-  element->GetDocument().View()->UpdateAllLifecyclePhases(
-      DocumentUpdateReason::kTest);
+  element->GetDocument().View()->UpdateAllLifecyclePhasesForTest();
 
   String representation = ExternalRepresentation(element);
   if (representation.IsEmpty()) {
@@ -1883,7 +1879,7 @@ HitTestLayerRectList* Internals::touchEventTargetLayerRects(
     return nullptr;
   }
 
-  document->View()->UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
+  document->View()->UpdateAllLifecyclePhasesForTest();
 
   auto* hit_test_rects = MakeGarbageCollected<HitTestLayerRectList>();
   for (const auto& layer : document->View()->RootCcLayer()->children()) {
@@ -2126,8 +2122,7 @@ bool Internals::scrollsWithRespectTo(Element* element1,
                                      ExceptionState& exception_state) {
   DCHECK(!RuntimeEnabledFeatures::CompositeAfterPaintEnabled());
   DCHECK(element1 && element2);
-  element1->GetDocument().View()->UpdateAllLifecyclePhases(
-      DocumentUpdateReason::kTest);
+  element1->GetDocument().View()->UpdateAllLifecyclePhasesForTest();
 
   LayoutObject* layout_object1 = element1->GetLayoutObject();
   LayoutObject* layout_object2 = element2->GetLayoutObject();
@@ -2148,8 +2143,8 @@ bool Internals::scrollsWithRespectTo(Element* element1,
     return false;
   }
 
-  PaintLayer* layer1 = ToLayoutBox(layout_object1)->Layer();
-  PaintLayer* layer2 = ToLayoutBox(layout_object2)->Layer();
+  PaintLayer* layer1 = To<LayoutBox>(layout_object1)->Layer();
+  PaintLayer* layer2 = To<LayoutBox>(layout_object2)->Layer();
   if (!layer1 || !layer2) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidAccessError,
@@ -2172,7 +2167,7 @@ String Internals::layerTreeAsText(Document* document,
     return String();
   }
 
-  document->View()->UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
+  document->View()->UpdateAllLifecyclePhasesForTest();
 
   return document->GetFrame()->GetLayerTreeAsTextForTesting(flags);
 }
@@ -2191,20 +2186,9 @@ String Internals::mainThreadScrollingReasons(
     return String();
   }
 
-  document->GetFrame()->View()->UpdateAllLifecyclePhases(
-      DocumentUpdateReason::kTest);
+  document->GetFrame()->View()->UpdateAllLifecyclePhasesForTest();
 
   return document->GetFrame()->View()->MainThreadScrollingReasonsAsText();
-}
-
-void Internals::markGestureScrollRegionDirty(
-    Document* document,
-    ExceptionState& exception_state) const {
-  FrameView* frame_view = document->View();
-  if (!frame_view || !frame_view->IsLocalFrameView())
-    return;
-  LocalFrameView* lfv = static_cast<LocalFrameView*>(frame_view);
-  lfv->GetScrollingContext()->SetScrollGestureRegionIsDirty(true);
 }
 
 DOMRectList* Internals::nonFastScrollableRects(
@@ -2218,7 +2202,7 @@ DOMRectList* Internals::nonFastScrollableRects(
     return nullptr;
   }
 
-  frame->View()->UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
+  frame->View()->UpdateAllLifecyclePhasesForTest();
 
   auto* pac = document->View()->GetPaintArtifactCompositor();
   auto* layer_tree_host = pac->RootLayer()->layer_tree_host();
@@ -2553,7 +2537,7 @@ void Internals::startTrackingRepaints(Document* document,
   }
 
   LocalFrameView* frame_view = document->View();
-  frame_view->UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
+  frame_view->UpdateAllLifecyclePhasesForTest();
   frame_view->SetTracksRasterInvalidations(true);
 }
 
@@ -2567,7 +2551,7 @@ void Internals::stopTrackingRepaints(Document* document,
   }
 
   LocalFrameView* frame_view = document->View();
-  frame_view->UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
+  frame_view->UpdateAllLifecyclePhasesForTest();
   frame_view->SetTracksRasterInvalidations(false);
 }
 
@@ -2602,9 +2586,8 @@ void Internals::forceFullRepaint(Document* document,
     return;
   }
 
-  auto* layout_view = document->GetLayoutView();
-  if (layout_view)
-    layout_view->InvalidatePaintForViewAndCompositedLayers();
+  if (auto* layout_view = document->GetLayoutView())
+    layout_view->InvalidatePaintForViewAndDescendants();
 }
 
 DOMRectList* Internals::draggableRegions(Document* document,
@@ -2813,7 +2796,7 @@ ScriptValue Internals::deserializeBuffer(v8::Isolate* isolate,
                                          DOMArrayBuffer* buffer) const {
   scoped_refptr<SerializedScriptValue> serialized_value =
       SerializedScriptValue::Create(static_cast<const char*>(buffer->Data()),
-                                    buffer->ByteLengthAsSizeT());
+                                    buffer->ByteLength());
   return ScriptValue(isolate, serialized_value->Deserialize(isolate));
 }
 
@@ -3003,8 +2986,7 @@ void Internals::forceCompositingUpdate(Document* document,
     return;
   }
 
-  document->GetFrame()->View()->UpdateAllLifecyclePhases(
-      DocumentUpdateReason::kTest);
+  document->GetFrame()->View()->UpdateAllLifecyclePhasesForTest();
 }
 
 void Internals::setShouldRevealPassword(Element* element,

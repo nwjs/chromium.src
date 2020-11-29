@@ -5,6 +5,10 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 
 #include "base/json/json_reader.h"
+#include "extensions/common/extension_messages.h"
+#include "extensions/browser/app_window/app_window.h"
+#include "content/nw/src/nw_content.h"
+#include "content/nw/src/nw_base.h"
 
 #include "base/command_line.h"
 #include "base/feature_list.h"
@@ -87,6 +91,15 @@ void AddWebContents(Browser* browser,
       mnfst->GetBoolean("fullscreen", &fullscreen);
     }
   }
+  extensions::AppWindow::CreateParams params0;
+  std::string js_doc_start, js_doc_end;
+  nw::CalcNewWinParams(new_contents.get(), &params0, &js_doc_start, &js_doc_end, manifest);
+  new_contents->GetMutableRendererPrefs()->
+    nw_inject_js_doc_start = js_doc_start;
+  new_contents->GetMutableRendererPrefs()->
+    nw_inject_js_doc_end = js_doc_end;
+  new_contents->SyncRendererPrefs();
+
   NavigateParams params(browser, std::move(new_contents));
   params.source_contents = source_contents;
   params.url = target_url;
@@ -119,9 +132,6 @@ void CloseWebContents(Browser* browser,
 }
 
 void ConfigureTabGroupForNavigation(NavigateParams* nav_params) {
-  if (!base::FeatureList::IsEnabled(features::kTabGroups))
-    return;
-
   if (!nav_params->source_contents)
     return;
 
@@ -146,7 +156,7 @@ void ConfigureTabGroupForNavigation(NavigateParams* nav_params) {
       nav_params->disposition == WindowOpenDisposition::NEW_BACKGROUND_TAB) {
     nav_params->group = model->GetTabGroupForTab(source_index);
     if (base::FeatureList::IsEnabled(features::kTabGroupsAutoCreate) &&
-        !nav_params->group.has_value()) {
+        !nav_params->group.has_value() && !model->IsTabPinned(source_index)) {
       const GURL& source_url =
           nav_params->source_contents->GetLastCommittedURL();
       const GURL& target_url = nav_params->url;

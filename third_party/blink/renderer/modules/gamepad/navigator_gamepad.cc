@@ -190,16 +190,17 @@ GamepadList* NavigatorGamepad::Gamepads() {
 
   // Allow gamepad button presses to qualify as user activations if the page is
   // visible.
-  if (GetFrame() && GetPage() && GetPage()->IsPageVisible() &&
+  if (DomWindow() && DomWindow()->GetFrame()->GetPage()->IsPageVisible() &&
       GamepadComparisons::HasUserActivation(gamepads_)) {
     LocalFrame::NotifyUserActivation(
-        GetFrame(), mojom::blink::UserActivationNotificationType::kInteraction);
+        DomWindow()->GetFrame(),
+        mojom::blink::UserActivationNotificationType::kInteraction);
   }
   is_gamepads_exposed_ = true;
 
   ExecutionContext* context = DomWindow();
 
-  if (GetFrame() && GetFrame()->IsCrossOriginToMainFrame()) {
+  if (DomWindow() && DomWindow()->GetFrame()->IsCrossOriginToMainFrame()) {
     UseCounter::Count(context, WebFeature::kGetGamepadsFromCrossOriginSubframe);
   }
 
@@ -267,7 +268,7 @@ void NavigatorGamepad::Trace(Visitor* visitor) const {
 
 bool NavigatorGamepad::StartUpdatingIfAttached() {
   // The frame must be attached to start updating.
-  if (GetFrame()) {
+  if (DomWindow()) {
     StartUpdating();
     return true;
   }
@@ -276,7 +277,6 @@ bool NavigatorGamepad::StartUpdatingIfAttached() {
 
 void NavigatorGamepad::DidUpdateData() {
   // We should stop listening once we detached.
-  DCHECK(GetFrame());
   DCHECK(DomWindow());
 
   // Record when gamepad data was first made available to the page.
@@ -298,9 +298,8 @@ NavigatorGamepad::NavigatorGamepad(Navigator& navigator)
 
   // Fetch |window.performance.timing.navigationStart|. Gamepad timestamps are
   // reported relative to this value.
-  DocumentLoader* loader = GetFrame()->Loader().GetDocumentLoader();
-  if (loader)
-    navigation_start_ = loader->GetTiming().NavigationStart();
+  auto& timing = DomWindow()->document()->Loader()->GetTiming();
+  navigation_start_ = timing.NavigationStart();
 
   vibration_actuators_.resize(device::Gamepads::kItemsLengthCap);
 }
@@ -308,7 +307,7 @@ NavigatorGamepad::NavigatorGamepad(Navigator& navigator)
 NavigatorGamepad::~NavigatorGamepad() = default;
 
 void NavigatorGamepad::RegisterWithDispatcher() {
-  gamepad_dispatcher_->AddController(this, GetFrame());
+  gamepad_dispatcher_->AddController(this, DomWindow());
 }
 
 void NavigatorGamepad::UnregisterWithDispatcher() {

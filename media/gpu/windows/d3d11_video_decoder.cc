@@ -9,8 +9,8 @@
 #include <utility>
 
 #include "base/bind.h"
-#include "base/bind_helpers.h"
 #include "base/callback.h"
+#include "base/callback_helpers.h"
 #include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
@@ -187,7 +187,7 @@ HRESULT D3D11VideoDecoder::InitializeAcceleratedDecoder(
   return hr;
 }
 
-ErrorOr<std::tuple<ComD3D11VideoDecoder>>
+StatusOr<std::tuple<ComD3D11VideoDecoder>>
 D3D11VideoDecoder::CreateD3D11Decoder() {
   HRESULT hr;
 
@@ -215,7 +215,7 @@ D3D11VideoDecoder::CreateD3D11Decoder() {
       decoder_configurator_->TextureFormat(),
       is_hdr_supported_ ? TextureSelector::HDRMode::kSDROrHDR
                         : TextureSelector::HDRMode::kSDROnly,
-      &format_checker, media_log_.get());
+      &format_checker, video_device_, device_context_, media_log_.get());
   if (!texture_selector_)
     return StatusCode::kCreateTextureSelectorFailed;
 
@@ -595,13 +595,9 @@ void D3D11VideoDecoder::DoDecode() {
         return;
       CreatePictureBuffers();
     } else if (result == media::AcceleratedVideoDecoder::kConfigChange) {
-      // TODO(liberato): I think we support this now, as long as it's the same
-      // decoder.  Should update |config_| though.
       if (profile_ != accelerated_video_decoder_->GetProfile()) {
-        // TODO(crbug.com/1022246): Handle profile change.
-        LOG(ERROR) << "Profile change is not supported";
-        NotifyError("Profile change is not supported");
-        return;
+        profile_ = accelerated_video_decoder_->GetProfile();
+        config_.set_profile(profile_);
       }
       // Before the first frame, we get a config change that we should ignore.
       // We only want to take action if this is a mid-stream config change.  We
@@ -688,7 +684,7 @@ void D3D11VideoDecoder::CreatePictureBuffers() {
   DCHECK(texture_selector_);
   gfx::Size size = accelerated_video_decoder_->GetPicSize();
 
-  gl::HDRMetadata stream_metadata;
+  gfx::HDRMetadata stream_metadata;
   if (config_.hdr_metadata())
     stream_metadata = *config_.hdr_metadata();
   // else leave |stream_metadata| default-initialized.  We might use it anyway.
@@ -727,8 +723,7 @@ void D3D11VideoDecoder::CreatePictureBuffers() {
 
     DCHECK(!!in_texture);
 
-    auto tex_wrapper = texture_selector_->CreateTextureWrapper(
-        device_, video_device_, device_context_, size);
+    auto tex_wrapper = texture_selector_->CreateTextureWrapper(device_, size);
     if (!tex_wrapper) {
       NotifyError(StatusCode::kAllocateTextureForCopyingWrapperFailed);
       return;
@@ -912,25 +907,6 @@ D3D11VideoDecoder::GetSupportedVideoDecoderConfigs(
     const gpu::GpuDriverBugWorkarounds& gpu_workarounds,
     GetD3D11DeviceCB get_d3d11_device_cb) {
   const std::string uma_name("Media.D3D11.WasVideoSupported");
-
-  // This workaround accounts for almost half of all startup results, and it's
-  // unclear that it's relevant here.  If it's off, or if we're allowed to copy
-  // pictures in case binding isn't allowed, then proceed with init.
-  // NOTE: experimentation showed that, yes, it does actually matter.
-  if (!base::FeatureList::IsEnabled(kD3D11VideoDecoderCopyPictures)) {
-    // Must allow zero-copy of nv12 textures.
-    if (!gpu_preferences.enable_zero_copy_dxgi_video) {
-      UMA_HISTOGRAM_ENUMERATION(uma_name,
-                                NotSupportedReason::kZeroCopyNv12Required);
-      return {};
-    }
-
-    if (gpu_workarounds.disable_dxgi_zero_copy_video) {
-      UMA_HISTOGRAM_ENUMERATION(uma_name,
-                                NotSupportedReason::kZeroCopyVideoRequired);
-      return {};
-    }
-  }
 
   if (!base::FeatureList::IsEnabled(kD3D11VideoDecoderIgnoreWorkarounds)) {
     // Allow all of d3d11 to be turned off by workaround.

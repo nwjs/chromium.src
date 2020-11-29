@@ -17,18 +17,18 @@ import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.compositor.LayerTitleCache;
 import org.chromium.chrome.browser.compositor.TitleCache;
-import org.chromium.chrome.browser.compositor.layouts.LayoutManager;
+import org.chromium.chrome.browser.compositor.layouts.LayoutManagerImpl;
 import org.chromium.chrome.browser.compositor.layouts.LayoutRenderHost;
 import org.chromium.chrome.browser.compositor.layouts.LayoutUpdateHost;
 import org.chromium.chrome.browser.compositor.layouts.components.CompositorButton;
 import org.chromium.chrome.browser.compositor.layouts.components.CompositorButton.CompositorOnClickHandler;
-import org.chromium.chrome.browser.compositor.layouts.components.VirtualView;
 import org.chromium.chrome.browser.compositor.layouts.eventfilter.AreaGestureEventFilter;
-import org.chromium.chrome.browser.compositor.layouts.eventfilter.EventFilter;
 import org.chromium.chrome.browser.compositor.layouts.eventfilter.GestureHandler;
-import org.chromium.chrome.browser.compositor.overlays.SceneOverlay;
-import org.chromium.chrome.browser.compositor.scene_layer.SceneOverlayLayer;
 import org.chromium.chrome.browser.compositor.scene_layer.TabStripSceneLayer;
+import org.chromium.chrome.browser.layouts.EventFilter;
+import org.chromium.chrome.browser.layouts.SceneOverlay;
+import org.chromium.chrome.browser.layouts.components.VirtualView;
+import org.chromium.chrome.browser.layouts.scene_layer.SceneOverlayLayer;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabLaunchType;
@@ -97,6 +97,7 @@ public class StripLayoutHelperManager implements SceneOverlay {
 
     private final String mDefaultTitle;
     private final Supplier<TitleCache> mTitleCacheSupplier;
+    private final Supplier<LayerTitleCache> mLayerTitleCacheSupplier;
 
     private class TabStripEventHandler implements GestureHandler {
         @Override
@@ -148,7 +149,7 @@ public class StripLayoutHelperManager implements SceneOverlay {
         }
 
         private long time() {
-            return LayoutManager.time();
+            return LayoutManagerImpl.time();
         }
     }
 
@@ -158,11 +159,14 @@ public class StripLayoutHelperManager implements SceneOverlay {
      * @param updateHost The parent {@link LayoutUpdateHost}.
      * @param renderHost The {@link LayoutRenderHost}.
      * @param titleCacheSupplier A supplier of the title cache.
+     * @param layerTitleCacheSupplier A supplier of the cache that holds the title textures.
      */
     public StripLayoutHelperManager(Context context, LayoutUpdateHost updateHost,
-            LayoutRenderHost renderHost, Supplier<TitleCache> titleCacheSupplier) {
+            LayoutRenderHost renderHost, Supplier<TitleCache> titleCacheSupplier,
+            Supplier<LayerTitleCache> layerTitleCacheSupplier) {
         mUpdateHost = updateHost;
         mTitleCacheSupplier = titleCacheSupplier;
+        mLayerTitleCacheSupplier = layerTitleCacheSupplier;
         mTabStripTreeProvider = new TabStripSceneLayer(context);
         mTabStripEventHandler = new TabStripEventHandler();
         mDefaultTitle = context.getString(R.string.tab_loading_default_title);
@@ -233,15 +237,15 @@ public class StripLayoutHelperManager implements SceneOverlay {
     }
 
     @Override
-    public SceneOverlayLayer getUpdatedSceneOverlayTree(RectF viewport, RectF visibleViewport,
-            LayerTitleCache layerTitleCache, ResourceManager resourceManager, float yOffset) {
+    public SceneOverlayLayer getUpdatedSceneOverlayTree(
+            RectF viewport, RectF visibleViewport, ResourceManager resourceManager, float yOffset) {
         assert mTabStripTreeProvider != null;
 
         Tab selectedTab = mTabModelSelector.getCurrentModel().getTabAt(
                 mTabModelSelector.getCurrentModel().index());
         int selectedTabId = selectedTab == null ? TabModel.INVALID_TAB_INDEX : selectedTab.getId();
-        mTabStripTreeProvider.pushAndUpdateStrip(this, layerTitleCache, resourceManager,
-                getActiveStripLayoutHelper().getStripLayoutTabsToRender(), yOffset,
+        mTabStripTreeProvider.pushAndUpdateStrip(this, mLayerTitleCacheSupplier.get(),
+                resourceManager, getActiveStripLayoutHelper().getStripLayoutTabsToRender(), yOffset,
                 selectedTabId);
         return mTabStripTreeProvider;
     }

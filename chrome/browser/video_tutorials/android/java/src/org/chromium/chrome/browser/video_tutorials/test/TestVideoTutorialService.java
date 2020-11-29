@@ -15,12 +15,12 @@ import java.util.List;
 
 /** A video tutorial service implementation for tests. */
 public class TestVideoTutorialService implements VideoTutorialService {
-    public static final Language HINDI = new Language("hi", "Hindi", "Hindi Native");
-    public static final Language TAMIL = new Language("ta", "Tamil", "Tamil Native");
-    public static final Language ENGLISH = new Language("en", "English", "English Native");
+    public static final Language HINDI = new Language("hi", "hindi", "हिंदी");
+    public static final Language TAMIL = new Language("ta", "Tamil", "தமிழ்");
+    public static final Language ENGLISH = new Language("en", "English", "English");
 
     private final List<Tutorial> mTutorials = new ArrayList<>();
-    private final List<Language> mLanguages = new ArrayList<>();
+    private final List<String> mLanguages = new ArrayList<>();
     private String mPreferredLocale;
 
     public TestVideoTutorialService() {
@@ -42,7 +42,7 @@ public class TestVideoTutorialService implements VideoTutorialService {
     }
 
     @Override
-    public List<Language> getSupportedLanguages() {
+    public List<String> getSupportedLanguages() {
         return mLanguages;
     }
 
@@ -56,7 +56,7 @@ public class TestVideoTutorialService implements VideoTutorialService {
         mPreferredLocale = locale;
     }
 
-    public List<Language> getTestLanguages() {
+    public List<String> getTestLanguages() {
         return mLanguages;
     }
 
@@ -65,6 +65,11 @@ public class TestVideoTutorialService implements VideoTutorialService {
     }
 
     private void initializeTutorialList() {
+        mTutorials.add(new Tutorial(FeatureType.CHROME_INTRO, "Introduction to chrome",
+                "https://storage.googleapis.com/stock-wizard.appspot.com/portrait.jpg",
+                "https://storage.googleapis.com/stock-wizard.appspot.com/portrait.jpg",
+                "caption url", "share url", 25));
+
         mTutorials.add(new Tutorial(FeatureType.DOWNLOAD,
                 "How to use Google Chrome's download functionality",
                 "https://storage.googleapis.com/stock-wizard.appspot.com/portrait.jpg",
@@ -75,12 +80,12 @@ public class TestVideoTutorialService implements VideoTutorialService {
                 new Tutorial(FeatureType.SEARCH, "How to efficiently search with Google Chrome",
                         "https://storage.googleapis.com/stock-wizard.appspot.com/elephant.jpg ",
                         "https://storage.googleapis.com/stock-wizard.appspot.com/elephant.jpg",
-                        "caption url", "share url", 35));
+                        "caption url", "share url", 335));
     }
 
     private void initializeLanguages() {
-        mLanguages.add(HINDI);
-        mLanguages.add(TAMIL);
-        mLanguages.add(ENGLISH);
+        mLanguages.add("hi");
+        mLanguages.add("ta");
+        mLanguages.add("en");
     }
 }

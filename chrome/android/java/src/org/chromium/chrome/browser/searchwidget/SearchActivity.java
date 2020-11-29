@@ -33,6 +33,7 @@ import org.chromium.chrome.browser.document.ChromeLauncherActivity;
 import org.chromium.chrome.browser.init.AsyncInitializationActivity;
 import org.chromium.chrome.browser.init.SingleWindowKeyboardVisibilityDelegate;
 import org.chromium.chrome.browser.locale.LocaleManager;
+import org.chromium.chrome.browser.omnibox.LocationBarCoordinator;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabBuilder;
@@ -52,6 +53,7 @@ import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.common.ContentUrlConstants;
 import org.chromium.ui.base.ActivityKeyboardVisibilityDelegate;
 import org.chromium.ui.base.ActivityWindowAndroid;
+import org.chromium.ui.base.PageTransition;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.url.GURL;
 
@@ -110,6 +112,7 @@ public class SearchActivity extends AsyncInitializationActivity
 
     /** The View that represents the search box. */
     private SearchActivityLocationBarLayout mSearchBox;
+    private LocationBarCoordinator mLocationBarCoordinator;
 
     private SnackbarManager mSnackbarManager;
     private SearchBoxDataProvider mSearchBoxDataProvider;
@@ -164,10 +167,13 @@ public class SearchActivity extends AsyncInitializationActivity
         mSearchBox = (SearchActivityLocationBarLayout) mContentView.findViewById(
                 R.id.search_location_bar);
         mSearchBox.setDelegate(this);
-        mSearchBox.setToolbarDataProvider(mSearchBoxDataProvider);
-        mSearchBox.initializeControls(
-                new WindowDelegate(getWindow()), getWindowAndroid(), null, null, null, null);
-        mSearchBox.setProfileSupplier(mProfileSupplier);
+        mLocationBarCoordinator = new LocationBarCoordinator(mSearchBox, mProfileSupplier,
+                mSearchBoxDataProvider, null, new WindowDelegate(getWindow()), getWindowAndroid(),
+                /*activityTabProvider=*/null, /*modalDialogManagerSupplier=*/null,
+                /*shareDelegateSupplier=*/null, /*incognitoStateProvider=*/null,
+                getLifecycleDispatcher(), /*overrideUrlLoadingDelegate=*/
+                (String url, @PageTransition int transition, String postDataType, byte[] postData,
+                        boolean incognito) -> false);
 
         // Kick off everything needed for the user to type into the box.
         beginQuery();
@@ -252,7 +258,6 @@ public class SearchActivity extends AsyncInitializationActivity
         mTab.loadUrl(new LoadUrlParams(ContentUrlConstants.ABOUT_BLANK_DISPLAY_URL));
 
         mSearchBoxDataProvider.onNativeLibraryReady(mTab);
-        mSearchBox.onNativeLibraryReady();
         mProfileSupplier.set(Profile.fromWebContents(webContents));
 
         // Force the user to choose a search engine if they have to.

@@ -14,7 +14,7 @@
 #include "base/optional.h"
 #include "chrome/browser/nearby_sharing/common/nearby_share_enums.h"
 #include "chrome/browser/nearby_sharing/nearby_connection.h"
-#include "chrome/services/sharing/public/mojom/nearby_connections_types.mojom.h"
+#include "chromeos/services/nearby/public/mojom/nearby_connections_types.mojom.h"
 
 // A wrapper around the Nearby Connections mojo API.
 class NearbyConnectionsManager {
@@ -88,6 +88,7 @@ class NearbyConnectionsManager {
   // Starts discovery through Nearby Connections. Caller is expected to ensure
   // |listener| remains valid until StopDiscovery is called.
   virtual void StartDiscovery(DiscoveryListener* listener,
+                              DataUsage data_usage,
                               ConnectionsCallback callback) = 0;
 
   // Stops discovery through Nearby Connections.

@@ -33,6 +33,11 @@ public interface ContextMenuItemDelegate {
     void onDestroy();
 
     /**
+     * @return The title of the current tab associated with this delegate..
+     */
+    String getPageTitle();
+
+    /**
      * @return The web contents of the current tab owned by this delegate.
      */
     WebContents getWebContents();
@@ -204,4 +209,11 @@ public interface ContextMenuItemDelegate {
      * @param title The title text to show on top control.
      */
     void onOpenInEphemeralTab(String url, String title);
+
+    /**
+     * Called when Read Later was selected from the context menu.
+     * @param url The URL to be saved to the reading list.
+     * @param title The title text to be shown for this item in the reading list.
+     */
+    void onReadLater(String url, String title);
 }

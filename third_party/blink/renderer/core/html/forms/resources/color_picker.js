@@ -4,6 +4,8 @@
 
 /**
  * @fileoverview Color picker used by <input type='color' />
+ *
+ * This can be debugged with manual_tests/forms/color-suggestion-picker.html
  */
 
 function initializeColorPicker() {
@@ -811,6 +813,8 @@ class EyeDropper extends HTMLElement {
     }
 
     this.setAttribute('tabIndex', 0);
+    this.setAttribute('role', 'button');
+    this.setAttribute('aria-label', global.params.axEyedropperLabel);
     this.addEventListener('click', this.onClick_);
     this.addEventListener('keydown', this.onKeyDown_);
   }

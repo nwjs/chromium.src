@@ -29,10 +29,8 @@ import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.NavigationPopup;
 import org.chromium.chrome.browser.download.DownloadUtils;
-import org.chromium.chrome.browser.homepage.HomepageManager;
-import org.chromium.chrome.browser.ntp.NewTabPage;
 import org.chromium.chrome.browser.omnibox.LocationBar;
-import org.chromium.chrome.browser.omnibox.LocationBarTablet;
+import org.chromium.chrome.browser.omnibox.LocationBarCoordinator;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -40,6 +38,7 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.toolbar.ButtonData;
 import org.chromium.chrome.browser.toolbar.HomeButton;
 import org.chromium.chrome.browser.toolbar.KeyboardNavigationListener;
+import org.chromium.chrome.browser.toolbar.NewTabPageDelegate;
 import org.chromium.chrome.browser.toolbar.TabCountProvider;
 import org.chromium.chrome.browser.toolbar.TabCountProvider.TabCountObserver;
 import org.chromium.chrome.browser.toolbar.ToolbarColors;
@@ -85,14 +84,12 @@ public class ToolbarTablet extends ToolbarLayout
     private NavigationPopup mNavigationPopup;
 
     private Boolean mIsIncognito;
-    private LocationBarTablet mLocationBar;
+    private LocationBarCoordinator mLocationBar;
 
     private final int mStartPaddingWithButtons;
     private final int mStartPaddingWithoutButtons;
     private boolean mShouldAnimateButtonVisibilityChange;
     private AnimatorSet mButtonVisibilityAnimators;
-
-    private NewTabPage mVisibleNtp;
 
     /**
      * Constructs a ToolbarTablet object.
@@ -110,8 +107,6 @@ public class ToolbarTablet extends ToolbarLayout
     @Override
     public void onFinishInflate() {
         super.onFinishInflate();
-        mLocationBar = (LocationBarTablet) findViewById(R.id.location_bar);
-
         mHomeButton = findViewById(R.id.home_button);
         mBackButton = findViewById(R.id.back_button);
         mForwardButton = findViewById(R.id.forward_button);
@@ -149,9 +144,8 @@ public class ToolbarTablet extends ToolbarLayout
     }
 
     @Override
-    void destroy() {
-        super.destroy();
-        mHomeButton.destroy();
+    public void setLocationBarCoordinator(LocationBarCoordinator locationBarCoordinator) {
+        mLocationBar = locationBarCoordinator;
     }
 
     /**
@@ -161,7 +155,6 @@ public class ToolbarTablet extends ToolbarLayout
     @Override
     public void onNativeLibraryReady() {
         super.onNativeLibraryReady();
-        mLocationBar.onNativeLibraryReady();
         mHomeButton.setOnClickListener(this);
         mHomeButton.setOnKeyListener(new KeyboardNavigationListener() {
             @Override
@@ -264,9 +257,6 @@ public class ToolbarTablet extends ToolbarLayout
                 return getMenuButtonCoordinator().onEnterKeyPress();
             }
         });
-        if (HomepageManager.isHomepageEnabled()) {
-            mHomeButton.setVisibility(VISIBLE);
-        }
 
         mSaveOfflineButton.setOnClickListener(this);
         mSaveOfflineButton.setOnLongClickListener(this);
@@ -391,7 +381,8 @@ public class ToolbarTablet extends ToolbarLayout
         setBackgroundColor(color);
         final int textBoxColor = ToolbarColors.getTextBoxColorForToolbarBackgroundInNonNativePage(
                 getResources(), color, isIncognito());
-        mLocationBar.getBackground().setColorFilter(textBoxColor, PorterDuff.Mode.SRC_IN);
+        mLocationBar.getTabletCoordinator().getBackground().setColorFilter(
+                textBoxColor, PorterDuff.Mode.SRC_IN);
 
         mLocationBar.updateVisualsForState();
     }
@@ -400,24 +391,13 @@ public class ToolbarTablet extends ToolbarLayout
      * Called when the currently visible New Tab Page changes.
      */
     private void updateNtp() {
-        NewTabPage newVisibleNtp = getToolbarDataProvider().getNewTabPageForCurrentTab();
-        if (mVisibleNtp == newVisibleNtp) return;
-
-        if (mVisibleNtp != null) {
-            mVisibleNtp.setSearchBoxScrollListener(null);
-        }
-        mVisibleNtp = newVisibleNtp;
-        if (mVisibleNtp != null) {
-            mVisibleNtp.setSearchBoxScrollListener(new NewTabPage.OnSearchBoxScrollListener() {
-                @Override
-                public void onNtpScrollChanged(float scrollPercentage) {
-                    // Fade the search box out in the first 40% of the scrolling transition.
-                    float alpha = Math.max(1f - scrollPercentage * 2.5f, 0f);
-                    mVisibleNtp.setSearchBoxAlpha(alpha);
-                    mVisibleNtp.setSearchProviderLogoAlpha(alpha);
-                }
-            });
-        }
+        NewTabPageDelegate ntpDelegate = getToolbarDataProvider().getNewTabPageDelegate();
+        ntpDelegate.setSearchBoxScrollListener((scrollFraction) -> {
+            // Fade the search box out in the first 40% of the scrolling transition.
+            float alpha = Math.max(1f - scrollFraction * 2.5f, 0f);
+            ntpDelegate.setSearchBoxAlpha(alpha);
+            ntpDelegate.setSearchProviderLogoAlpha(alpha);
+        });
     }
 
     @Override
@@ -428,7 +408,7 @@ public class ToolbarTablet extends ToolbarLayout
 
     @Override
     void updateButtonVisibility() {
-        mLocationBar.updateButtonVisibility();
+        mLocationBar.getTabletCoordinator().updateButtonVisibility();
     }
 
     @Override
@@ -497,8 +477,10 @@ public class ToolbarTablet extends ToolbarLayout
 
     @Override
     protected void initialize(ToolbarDataProvider toolbarDataProvider,
-            ToolbarTabController tabController, MenuButtonCoordinator menuButtonCoordinator) {
-        super.initialize(toolbarDataProvider, tabController, menuButtonCoordinator);
+            ToolbarTabController tabController, MenuButtonCoordinator menuButtonCoordinator,
+            Runnable tabOrModelChangeRunnable) {
+        super.initialize(toolbarDataProvider, tabController, menuButtonCoordinator,
+                tabOrModelChangeRunnable);
         menuButtonCoordinator.setVisibility(true);
     }
 
@@ -601,7 +583,7 @@ public class ToolbarTablet extends ToolbarLayout
     }
 
     @Override
-    public HomeButton getHomeButtonForTesting() {
+    public HomeButton getHomeButton() {
         return mHomeButton;
     }
 
@@ -616,7 +598,7 @@ public class ToolbarTablet extends ToolbarLayout
             for (ImageButton button : mToolbarButtons) {
                 button.setVisibility(visible ? View.VISIBLE : View.GONE);
             }
-            mLocationBar.setShouldShowButtonsWhenUnfocused(visible);
+            mLocationBar.getTabletCoordinator().setShouldShowButtonsWhenUnfocused(visible);
             setStartPaddingBasedOnButtonVisibility(visible);
         }
     }
@@ -657,11 +639,11 @@ public class ToolbarTablet extends ToolbarLayout
 
         // Create animators for all of the toolbar buttons.
         for (ImageButton button : mToolbarButtons) {
-            animators.add(mLocationBar.createShowButtonAnimator(button));
+            animators.add(mLocationBar.getTabletCoordinator().createShowButtonAnimator(button));
         }
 
         // Add animators for location bar.
-        animators.addAll(mLocationBar.getShowButtonsWhenUnfocusedAnimators(
+        animators.addAll(mLocationBar.getTabletCoordinator().getShowButtonsWhenUnfocusedAnimators(
                 getStartPaddingDifferenceForButtonVisibilityAnimation()));
 
         AnimatorSet set = new AnimatorSet();
@@ -692,11 +674,11 @@ public class ToolbarTablet extends ToolbarLayout
 
         // Create animators for all of the toolbar buttons.
         for (ImageButton button : mToolbarButtons) {
-            animators.add(mLocationBar.createHideButtonAnimator(button));
+            animators.add(mLocationBar.getTabletCoordinator().createHideButtonAnimator(button));
         }
 
         // Add animators for location bar.
-        animators.addAll(mLocationBar.getHideButtonsWhenUnfocusedAnimators(
+        animators.addAll(mLocationBar.getTabletCoordinator().getHideButtonsWhenUnfocusedAnimators(
                 getStartPaddingDifferenceForButtonVisibilityAnimation()));
 
         AnimatorSet set = new AnimatorSet();

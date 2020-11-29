@@ -23,6 +23,11 @@ BrowserProcessPlatformPart::BrowserProcessPlatformPart() {
 BrowserProcessPlatformPart::~BrowserProcessPlatformPart() {
 }
 
+void BrowserProcessPlatformPart::BeginStartTearDown() {
+  if (app_shim_manager_)
+    app_shim_manager_->OnBeginTearDown();
+}
+
 void BrowserProcessPlatformPart::StartTearDown() {
   app_shim_listener_ = nullptr;
 }

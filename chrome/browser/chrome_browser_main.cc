@@ -540,6 +540,15 @@ void ChromeBrowserMainParts::SetupMetrics() {
 void ChromeBrowserMainParts::StartMetricsRecording() {
   TRACE_EVENT0("startup", "ChromeBrowserMainParts::StartMetricsRecording");
 
+  // Register a synthetic field trial for the sampling profiler configuration
+  // that was already chosen.
+  std::string trial_name, group_name;
+  if (ThreadProfilerConfiguration::Get()->GetSyntheticFieldTrial(&trial_name,
+                                                                 &group_name)) {
+    ChromeMetricsServiceAccessor::RegisterSyntheticFieldTrial(trial_name,
+                                                              group_name);
+  }
+
 #if defined(OS_ANDROID)
   // Android updates the metrics service dynamically depending on whether the
   // application is in the foreground or not. Do not start here unless
@@ -556,15 +565,6 @@ void ChromeBrowserMainParts::StartMetricsRecording() {
   // schedule to get the bast possible accuracy for the assessment.
   g_browser_process->metrics_service()->StartUpdatingLastLiveTimestamp();
 #endif
-
-  // Register a synthetic field trial for the sampling profiler configuration
-  // that was already chosen.
-  std::string trial_name, group_name;
-  if (ThreadProfilerConfiguration::Get()->GetSyntheticFieldTrial(&trial_name,
-                                                                 &group_name)) {
-    ChromeMetricsServiceAccessor::RegisterSyntheticFieldTrial(trial_name,
-                                                              group_name);
-  }
 
   g_browser_process->GetMetricsServicesManager()->UpdateUploadPermissions(false);
 }
@@ -1600,10 +1600,12 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
 
   PreBrowserStart();
 
+#if 1
   if (!parsed_command_line().HasSwitch(switches::kDisableComponentUpdate)) {
     component_updater::RegisterComponentsForUpdate(profile_->IsOffTheRecord(),
                                                    profile_->GetPrefs());
   }
+#endif
 
   variations::VariationsService* variations_service =
       browser_process_->variations_service();

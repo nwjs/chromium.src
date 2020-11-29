@@ -173,11 +173,6 @@ bool SyncUserSettingsImpl::IsEncryptEverythingEnabled() const {
   return crypto_->IsEncryptEverythingEnabled();
 }
 
-void SyncUserSettingsImpl::EnableEncryptEverything() {
-  DCHECK(IsEncryptEverythingAllowed());
-  crypto_->EnableEncryptEverything();
-}
-
 bool SyncUserSettingsImpl::IsPassphraseRequired() const {
   return crypto_->IsPassphraseRequired();
 }
@@ -267,16 +262,12 @@ ModelTypeSet SyncUserSettingsImpl::GetEncryptedDataTypes() const {
 }
 
 bool SyncUserSettingsImpl::IsEncryptedDatatypeEnabled() const {
-  if (IsEncryptionPending())
+  if (crypto_->encryption_pending())
     return true;
   const ModelTypeSet preferred_types = GetPreferredDataTypes();
   const ModelTypeSet encrypted_types = GetEncryptedDataTypes();
   DCHECK(encrypted_types.Has(PASSWORDS));
   return !Intersection(preferred_types, encrypted_types).Empty();
-}
-
-bool SyncUserSettingsImpl::IsEncryptionPending() const {
-  return crypto_->encryption_pending();
 }
 
 // static

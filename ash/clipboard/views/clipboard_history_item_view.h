@@ -33,11 +33,16 @@ class ClipboardHistoryItemView : public views::View {
   // Initializes the menu item.
   void Init();
 
-  // Returns whether the menu item is under selection.
-  bool IsSelected() const;
-
   // Called when the selection state has changed.
   void OnSelectionChanged();
+
+  // Advances the pseudo focus (backward if reverse is true). Returns whether
+  // the view still keeps the pseudo focus.
+  bool AdvancePseudoFocus(bool reverse);
+
+  const views::View* delete_button_for_test() const {
+    return contents_view_->delete_button();
+  }
 
  protected:
   class MainButton;
@@ -53,6 +58,7 @@ class ClipboardHistoryItemView : public views::View {
    private:
     // views::ImageButton:
     const char* GetClassName() const override;
+    void OnThemeChanged() override;
   };
 
   // Used by subclasses to draw contents, such as text or bitmaps.
@@ -66,24 +72,27 @@ class ClipboardHistoryItemView : public views::View {
     // Install DeleteButton on the contents view.
     void InstallDeleteButton();
 
-    // Called when the `container_`'s selection state has changed.
-    void OnSelectionChanged();
-
+    views::View* delete_button() { return delete_button_; }
     const views::View* delete_button() const { return delete_button_; }
 
    protected:
     virtual DeleteButton* CreateDeleteButton() = 0;
 
-    // The parent of ContentsView.
-    ClipboardHistoryItemView* const container_;
+    ClipboardHistoryItemView* container() { return container_; }
 
    private:
+    // views::View:
+    const char* GetClassName() const override;
+
     // views::ViewTargeterDelegate:
     bool DoesIntersectRect(const views::View* target,
                            const gfx::Rect& rect) const override;
 
     // Owned by the view hierarchy.
     DeleteButton* delete_button_ = nullptr;
+
+    // The parent of ContentsView.
+    ClipboardHistoryItemView* const container_;
   };
 
   ClipboardHistoryItemView(const ClipboardHistoryItem* clipboard_history_item,
@@ -95,20 +104,57 @@ class ClipboardHistoryItemView : public views::View {
   // Creates the contents view.
   virtual std::unique_ptr<ContentsView> CreateContentsView() = 0;
 
-  // Returns the opacity of the menu item view's contents depending on the
-  // enabled state.
-  float GetContentsOpacity() const;
+  // Returns the name of the accessible node.
+  virtual base::string16 GetAccessibleName() const = 0;
+
+  // Returns whether the item view is enabled. The item view is disabled when
+  // it is not allowed to read clipboard data.
+  bool IsItemEnabled() const;
 
   const ClipboardHistoryItem* clipboard_history_item() {
     return clipboard_history_item_;
   }
 
  private:
+  // Indicates the child under pseudo focus, i.e. the view responding to the
+  // user actions on the menu item (like clicking the mouse or triggering an
+  // accelerator). Note that the child under pseudo focus does not have view
+  // focus. It is where "pseudo" comes from.
+  // The enumeration types are arranged in the forward focus traversal order.
+  enum PseudoFocus {
+    // No child is under pseudo focus.
+    kEmpty = 0,
+
+    // The main button has pseudo focus.
+    kMainButton = 1,
+
+    // The delete button has pseudo focus.
+    kDeleteButton = 2,
+
+    // Marks the end. It should not be assigned to `pseudo_focus_`.
+    kMaxValue = 3
+  };
+
   // views::View:
   gfx::Size CalculatePreferredSize() const override;
+  void GetAccessibleNodeData(ui::AXNodeData* data) override;
 
   // Executes |command_id| on the delegate.
   void ExecuteCommand(int command_id, const ui::Event& event);
+
+  // Calculates the command id, which indicates the response to user actions.
+  int CalculateCommandId() const;
+
+  // Returns whether the highlight background should show.
+  bool ShouldHighlight() const;
+
+  bool ShouldShowDeleteButton() const;
+
+  // Called when receiving pseudo focus for the first time.
+  void InitiatePseudoFocus(bool reverse);
+
+  // Updates `pseudo_focus_` and children visibility.
+  void SetPseudoFocus(PseudoFocus new_pseudo_focus);
 
   // Owned by ClipboardHistoryMenuModelAdapter.
   const ClipboardHistoryItem* const clipboard_history_item_;
@@ -118,6 +164,8 @@ class ClipboardHistoryItemView : public views::View {
   ContentsView* contents_view_ = nullptr;
 
   MainButton* main_button_ = nullptr;
+
+  PseudoFocus pseudo_focus_ = PseudoFocus::kEmpty;
 
   views::PropertyChangedSubscription subscription_;
 };

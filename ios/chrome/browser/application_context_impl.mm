@@ -16,6 +16,7 @@
 #include "base/memory/ptr_util.h"
 #include "base/path_service.h"
 #include "base/sequenced_task_runner.h"
+#include "base/strings/sys_string_conversions.h"
 #include "base/task/post_task.h"
 #include "base/task/thread_pool.h"
 #include "base/time/default_clock.h"
@@ -33,7 +34,6 @@
 #include "components/network_time/network_time_tracker.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
-#include "components/safe_browsing/core/features.h"
 #include "components/sessions/core/session_id_generator.h"
 #include "components/translate/core/browser/translate_download_manager.h"
 #include "components/ukm/ukm_service.h"
@@ -49,6 +49,7 @@
 #include "ios/chrome/browser/component_updater/ios_component_updater_configurator.h"
 #import "ios/chrome/browser/crash_report/breadcrumbs/application_breadcrumbs_logger.h"
 #include "ios/chrome/browser/crash_report/breadcrumbs/breadcrumb_manager.h"
+#include "ios/chrome/browser/crash_report/breadcrumbs/breadcrumb_persistent_storage_manager.h"
 #include "ios/chrome/browser/crash_report/breadcrumbs/features.h"
 #include "ios/chrome/browser/gcm/ios_chrome_gcm_profile_service_factory.h"
 #include "ios/chrome/browser/history/history_service_factory.h"
@@ -81,6 +82,25 @@
 #endif
 
 namespace {
+
+// If enabled local state file will have NSURLFileProtectionNone protection
+// level set for NSURLFileProtectionKey key. The purpose of this feature is to
+// understand if file protection interferes with "clean exit beacon" pref.
+const base::Feature kRemoveProtectionFromPrefFile{
+    "RemoveProtectionFromPrefFile", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Sets |level| value for NSURLFileProtectionKey key for the URL with given
+// |local_state_path|.
+void SetProtectionLevel(const base::FilePath& file_path, id level) {
+  NSString* file_path_string = base::SysUTF8ToNSString(file_path.value());
+  NSURL* file_path_url = [NSURL fileURLWithPath:file_path_string
+                                    isDirectory:NO];
+  NSError* error = nil;
+  BOOL protection_set = [file_path_url setResourceValue:level
+                                                 forKey:NSURLFileProtectionKey
+                                                  error:&error];
+  DCHECK(protection_set) << base::SysNSStringToUTF8(error.localizedDescription);
+}
 
 // Requests a network::mojom::ProxyResolvingSocketFactory on the UI thread.
 // Note that this cannot be called on a thread that is not the UI thread.
@@ -154,6 +174,22 @@ void ApplicationContextImpl::PreMainMessageLoopRun() {
     browser_policy_connector->Init(GetLocalState(),
                                    GetSharedURLLoaderFactory());
   }
+
+  if (base::FeatureList::IsEnabled(kLogBreadcrumbs)) {
+    breadcrumb_manager_ = std::make_unique<BreadcrumbManager>();
+    application_breadcrumbs_logger_ =
+        std::make_unique<ApplicationBreadcrumbsLogger>(
+            breadcrumb_manager_.get());
+
+    base::FilePath storage_dir;
+    bool result = base::PathService::Get(ios::DIR_USER_DATA, &storage_dir);
+    DCHECK(result);
+    breadcrumb_persistent_storage_manager_ =
+        std::make_unique<BreadcrumbPersistentStorageManager>(storage_dir);
+
+    application_breadcrumbs_logger_->SetPersistentStorageManager(
+        breadcrumb_persistent_storage_manager_.get());
+  }
 }
 
 void ApplicationContextImpl::StartTearDown() {
@@ -223,13 +259,6 @@ void ApplicationContextImpl::OnAppEnterForeground() {
   ukm::UkmService* ukm_service = GetMetricsServicesManager()->GetUkmService();
   if (ukm_service)
     ukm_service->OnAppEnterForeground();
-
-  if (base::FeatureList::IsEnabled(kLogBreadcrumbs) && !breadcrumb_manager_) {
-    breadcrumb_manager_ = std::make_unique<BreadcrumbManager>();
-    application_breadcrumbs_logger_ =
-        std::make_unique<ApplicationBreadcrumbsLogger>(
-            breadcrumb_manager_.get());
-  }
 }
 
 void ApplicationContextImpl::OnAppEnterBackground() {
@@ -395,9 +424,7 @@ ApplicationContextImpl::GetComponentUpdateService() {
 
 SafeBrowsingService* ApplicationContextImpl::GetSafeBrowsingService() {
   DCHECK(thread_checker_.CalledOnValidThread());
-  if (base::FeatureList::IsEnabled(
-          safe_browsing::kSafeBrowsingAvailableOnIOS) &&
-      !safe_browsing_service_) {
+  if (!safe_browsing_service_) {
     safe_browsing_service_ = base::MakeRefCounted<SafeBrowsingServiceImpl>();
   }
   return safe_browsing_service_.get();
@@ -441,8 +468,8 @@ BrowserPolicyConnectorIOS* ApplicationContextImpl::GetBrowserPolicyConnector() {
           (channel != version_info::Channel::STABLE &&
            channel != version_info::Channel::BETA);
       browser_policy_connector_ = std::make_unique<BrowserPolicyConnectorIOS>(
-          base::Bind(&BuildPolicyHandlerList,
-                     enable_future_policies_without_allowlist));
+          base::BindRepeating(&BuildPolicyHandlerList,
+                              enable_future_policies_without_allowlist));
 
       // Install a mock platform policy provider, if running under EG2 and one
       // is supplied.
@@ -453,6 +480,12 @@ BrowserPolicyConnectorIOS* ApplicationContextImpl::GetBrowserPolicyConnector() {
     }
   }
   return browser_policy_connector_.get();
+}
+
+BreadcrumbPersistentStorageManager*
+ApplicationContextImpl::GetBreadcrumbPersistentStorageManager() {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  return breadcrumb_persistent_storage_manager_.get();
 }
 
 void ApplicationContextImpl::SetApplicationLocale(const std::string& locale) {
@@ -468,6 +501,24 @@ void ApplicationContextImpl::CreateLocalState() {
 
   base::FilePath local_state_path;
   CHECK(base::PathService::Get(ios::FILE_LOCAL_STATE, &local_state_path));
+
+  NSString* const kRemoveProtectionFromPrefFileKey =
+      @"RemoveProtectionFromPrefKey";
+  if (base::FeatureList::IsEnabled(kRemoveProtectionFromPrefFile)) {
+    SetProtectionLevel(local_state_path, NSURLFileProtectionNone);
+    [NSUserDefaults.standardUserDefaults
+        setBool:YES
+         forKey:kRemoveProtectionFromPrefFileKey];
+  } else if ([NSUserDefaults.standardUserDefaults
+                 boolForKey:kRemoveProtectionFromPrefFileKey]) {
+    // Restore default protection level when user is no longer in the
+    // experimental group.
+    SetProtectionLevel(local_state_path,
+                       NSFileProtectionCompleteUntilFirstUserAuthentication);
+    [NSUserDefaults.standardUserDefaults
+        removeObjectForKey:kRemoveProtectionFromPrefFileKey];
+  }
+
   scoped_refptr<PrefRegistrySimple> pref_registry(new PrefRegistrySimple);
 
   // Register local state preferences.

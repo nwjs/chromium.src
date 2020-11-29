@@ -10,8 +10,16 @@
 
 namespace reading_list {
 namespace switches {
+// Allow users to save tabs for later. Enables a new button and menu for
+// accessing tabs saved for later. https://crbug.com/1109316
+const base::Feature kReadLater{"ReadLater", base::FEATURE_DISABLED_BY_DEFAULT};
+
 bool IsReadingListEnabled() {
+#if defined(OS_IOS)
   return BUILDFLAG(ENABLE_READING_LIST);
+#else
+  return base::FeatureList::IsEnabled(kReadLater);
+#endif
 }
 }  // namespace switches
 }  // namespace reading_list

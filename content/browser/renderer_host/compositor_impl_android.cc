@@ -365,11 +365,8 @@ void CompositorImpl::SetRootLayer(scoped_refptr<cc::Layer> root_layer) {
   }
 }
 
-void CompositorImpl::SetSurface(jobject surface,
+void CompositorImpl::SetSurface(const base::android::JavaRef<jobject>& surface,
                                 bool can_be_used_with_surface_control) {
-  can_be_used_with_surface_control &=
-      !root_window_->ApplyDisableSurfaceControlWorkaround();
-
   JNIEnv* env = base::android::AttachCurrentThread();
   gpu::GpuSurfaceTracker* tracker = gpu::GpuSurfaceTracker::Get();
 
@@ -388,7 +385,7 @@ void CompositorImpl::SetSurface(jobject surface,
     // ANativeWindow_fromSurface are released immediately. This is needed as a
     // workaround for https://code.google.com/p/android/issues/detail?id=68174
     base::android::ScopedJavaLocalFrame scoped_local_reference_frame(env);
-    window = ANativeWindow_fromSurface(env, surface);
+    window = ANativeWindow_fromSurface(env, surface.obj());
   }
 
   if (window) {

@@ -13,7 +13,7 @@
 
 #include "base/atomic_ref_count.h"
 #include "base/bind.h"
-#include "base/bind_helpers.h"
+#include "base/callback_helpers.h"
 #include "base/command_line.h"
 #include "base/debug/leak_annotations.h"
 #include "base/files/file_path.h"
@@ -89,7 +89,6 @@
 #include "components/component_updater/component_updater_service.h"
 #include "components/component_updater/timer_update_scheduler.h"
 #include "components/crash/core/common/crash_key.h"
-#include "components/federated_learning/floc_blocklist_service.h"
 #include "components/federated_learning/floc_constants.h"
 #include "components/federated_learning/floc_sorting_lsh_clusters_service.h"
 #include "components/gcm_driver/gcm_driver.h"
@@ -195,6 +194,10 @@
 #include "chrome/browser/notifications/notification_ui_manager.h"
 #include "chrome/browser/ui/user_manager.h"
 #include "components/enterprise/browser/controller/chrome_browser_cloud_management_controller.h"
+#endif
+
+#if defined(OS_LINUX) || defined(OS_CHROMEOS)
+#include "chrome/browser/error_reporting/chrome_js_error_report_processor.h"  // nogncheck
 #endif
 
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
@@ -369,6 +372,8 @@ void BrowserProcessImpl::StartTearDown() {
   // |tearing_down_| necessary in IsShuttingDown().
   tearing_down_ = true;
   DCHECK(IsShuttingDown());
+
+  platform_part()->BeginStartTearDown();
 
   metrics_services_manager_.reset();
   intranet_redirect_detector_.reset();
@@ -998,14 +1003,6 @@ BrowserProcessImpl::subresource_filter_ruleset_service() {
   return subresource_filter_ruleset_service_.get();
 }
 
-federated_learning::FlocBlocklistService*
-BrowserProcessImpl::floc_blocklist_service() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (!floc_blocklist_service_)
-    CreateFlocBlocklistService();
-  return floc_blocklist_service_.get();
-}
-
 federated_learning::FlocSortingLshClustersService*
 BrowserProcessImpl::floc_sorting_lsh_clusters_service() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -1035,6 +1032,7 @@ void BrowserProcessImpl::StartAutoupdateTimer() {
 }
 #endif
 
+#if 1
 component_updater::ComponentUpdateService*
 BrowserProcessImpl::component_updater() {
   if (component_updater_)
@@ -1063,8 +1061,9 @@ BrowserProcessImpl::component_updater() {
 
   return component_updater_.get();
 }
+#endif
 
-#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
+#if 0
 component_updater::SupervisedUserWhitelistInstaller*
 BrowserProcessImpl::supervised_user_whitelist_installer() {
   if (!supervised_user_whitelist_installer_) {
@@ -1160,6 +1159,10 @@ void BrowserProcessImpl::PreMainMessageLoopRun() {
 
 #if !defined(OS_ANDROID)
   ApplyMetricsReportingPolicy();
+#endif
+
+#if defined(OS_LINUX) || defined(OS_CHROMEOS)
+  ChromeJsErrorReportProcessor::Create();
 #endif
 
 #if BUILDFLAG(ENABLE_PLUGINS)
@@ -1285,12 +1288,6 @@ void BrowserProcessImpl::CreateSubresourceFilterRulesetService() {
   base::PathService::Get(chrome::DIR_USER_DATA, &user_data_dir);
   subresource_filter_ruleset_service_ =
       subresource_filter::RulesetService::Create(local_state(), user_data_dir);
-}
-
-void BrowserProcessImpl::CreateFlocBlocklistService() {
-  DCHECK(!floc_blocklist_service_);
-  floc_blocklist_service_ =
-      std::make_unique<federated_learning::FlocBlocklistService>();
 }
 
 void BrowserProcessImpl::CreateFlocSortingLshClustersService() {

@@ -31,6 +31,9 @@ namespace paint_preview {
 
 namespace {
 
+// To minimize peak memory usage limit the number of concurrent bitmap requests.
+constexpr size_t kMaxParallelBitmapRequests = 6;
+
 ScopedJavaLocalRef<jobjectArray> ToJavaUnguessableTokenArray(
     JNIEnv* env,
     const std::vector<base::UnguessableToken>& tokens) {
@@ -51,7 +54,7 @@ ScopedJavaLocalRef<jobjectArray> ToJavaUnguessableTokenArray(
 
 ScopedJavaGlobalRef<jobject> ConvertToJavaBitmap(const SkBitmap& sk_bitmap) {
   return ScopedJavaGlobalRef<jobject>(
-      gfx::ConvertToJavaBitmap(&sk_bitmap, gfx::OomBehavior::kReturnNullOnOom));
+      gfx::ConvertToJavaBitmap(sk_bitmap, gfx::OomBehavior::kReturnNullOnOom));
 }
 
 }  // namespace
@@ -88,7 +91,7 @@ PlayerCompositorDelegateAndroid::PlayerCompositorDelegateAndroid(
           base::android::ConvertJavaStringToUTF8(env, j_directory_key)},
       base::BindOnce(&base::android::RunIntCallbackAndroid,
                      ScopedJavaGlobalRef<jobject>(j_compositor_error_callback)),
-      base::TimeDelta::FromSeconds(15));
+      base::TimeDelta::FromSeconds(15), kMaxParallelBitmapRequests);
   java_ref_.Reset(env, j_object);
 }
 
@@ -154,6 +157,18 @@ void PlayerCompositorDelegateAndroid::OnCompositorReady(
       j_scroll_offsets, j_subframe_count, j_subframe_ids, j_subframe_rects);
 }
 
+void PlayerCompositorDelegateAndroid::OnMemoryPressure(
+    base::MemoryPressureListener::MemoryPressureLevel memory_pressure_level) {
+  // Don't handle the critical case leave that to the base class implementation
+  // which should kill the preview.
+  if (memory_pressure_level ==
+      base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_MODERATE) {
+    Java_PlayerCompositorDelegateImpl_onModerateMemoryPressure(
+        base::android::AttachCurrentThread(), java_ref_);
+  }
+  PlayerCompositorDelegate::OnMemoryPressure(memory_pressure_level);
+}
+
 // static
 void PlayerCompositorDelegateAndroid::CompositeResponseFramesToVectors(
     const base::flat_map<base::UnguessableToken, mojom::FrameDataPtr>& frames,
@@ -190,7 +205,7 @@ void PlayerCompositorDelegateAndroid::CompositeResponseFramesToVectors(
   }
 }
 
-void PlayerCompositorDelegateAndroid::RequestBitmap(
+jint PlayerCompositorDelegateAndroid::RequestBitmap(
     JNIEnv* env,
     const JavaParamRef<jobject>& j_frame_guid,
     const JavaParamRef<jobject>& j_bitmap_callback,
@@ -204,7 +219,7 @@ void PlayerCompositorDelegateAndroid::RequestBitmap(
       "paint_preview", "PlayerCompositorDelegateAndroid::RequestBitmap",
       TRACE_ID_LOCAL(request_id_));
 
-  PlayerCompositorDelegate::RequestBitmap(
+  int32_t id = PlayerCompositorDelegate::RequestBitmap(
       base::android::UnguessableTokenAndroid::FromJavaUnguessableToken(
           env, j_frame_guid),
       gfx::Rect(j_clip_x, j_clip_y, j_clip_width, j_clip_height),
@@ -215,6 +230,19 @@ void PlayerCompositorDelegateAndroid::RequestBitmap(
                      ScopedJavaGlobalRef<jobject>(j_error_callback),
                      request_id_));
   ++request_id_;
+
+  return static_cast<jint>(id);
+}
+
+jboolean PlayerCompositorDelegateAndroid::CancelBitmapRequest(
+    JNIEnv* env,
+    jint j_request_id) {
+  return static_cast<jboolean>(PlayerCompositorDelegate::CancelBitmapRequest(
+      static_cast<int32_t>(j_request_id)));
+}
+
+void PlayerCompositorDelegateAndroid::CancelAllBitmapRequests(JNIEnv* env) {
+  PlayerCompositorDelegate::CancelAllBitmapRequests();
 }
 
 void PlayerCompositorDelegateAndroid::OnBitmapCallback(

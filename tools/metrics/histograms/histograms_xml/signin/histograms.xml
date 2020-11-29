@@ -96,8 +96,9 @@ prefs when the profile is loaded.  -->
 </histogram>
 
 <histogram name="Signin.AndroidAccountSigninViewSeedingTime" units="ms"
-    expires_after="M85">
+    expires_after="M89">
   <owner>bsazonov@chromium.org</owner>
+  <owner>chrome-signin-team@google.com</owner>
   <summary>
     The time it takes to seed accounts before proceeding to the account
     confirmation screen.
@@ -142,8 +143,9 @@ prefs when the profile is loaded.  -->
 </histogram>
 
 <histogram name="Signin.AndroidGmsUpdatingDialogShownTime" units="ms"
-    expires_after="M85">
+    expires_after="M89">
   <owner>bsazonov@chromium.org</owner>
+  <owner>chrome-signin-team@google.com</owner>
   <summary>
     How long the &quot;Waiting for Google Play Services to finish updating&quot;
     dialog is shown.
@@ -160,7 +162,7 @@ prefs when the profile is loaded.  -->
 </histogram>
 
 <histogram name="Signin.AuthenticatedLaunchUserEvent"
-    enum="AuthenticatedLaunchUserEvent" expires_after="M88">
+    enum="AuthenticatedLaunchUserEvent" expires_after="M95">
   <owner>zmin@chromium.org</owner>
   <owner>pastarmovj@chromium.org</owner>
   <summary>
@@ -171,7 +173,7 @@ prefs when the profile is loaded.  -->
 </histogram>
 
 <histogram name="Signin.AuthError" enum="GoogleServiceAuthError"
-    expires_after="2021-03-07">
+    expires_after="2021-05-09">
   <owner>msarda@chromium.org</owner>
   <owner>droger@chromium.org</owner>
   <summary>
@@ -204,7 +206,7 @@ prefs when the profile is loaded.  -->
 </histogram>
 
 <histogram base="true" name="Signin.CookieJar.SignedInCountWithPrimary"
-    units="accounts" expires_after="2021-03-01">
+    units="accounts" expires_after="2021-05-02">
   <owner>jkrcal@chromium.org</owner>
   <owner>droger@chromium.org</owner>
   <summary>
@@ -299,6 +301,9 @@ prefs when the profile is loaded.  -->
 
 <histogram name="Signin.ForceSigninVerificationRequest" enum="BooleanRequested"
     expires_after="M88">
+  <obsolete>
+    Removed 2020-10.
+  </obsolete>
   <owner>zmin@chromium.org</owner>
   <owner>pastarmovj@chromium.org</owner>
   <summary>
@@ -310,6 +315,9 @@ prefs when the profile is loaded.  -->
 
 <histogram name="Signin.ForceSigninVerificationTime" units="ms"
     expires_after="M85">
+  <obsolete>
+    Removed 2020-10.
+  </obsolete>
   <owner>zmin@chromium.org</owner>
   <owner>pastarmovj@chromium.org</owner>
   <summary>
@@ -938,6 +946,7 @@ kept as long as profile signout is possible -->
 
   <owner>jlebel@chromium.org</owner>
   <owner>fernandex@chromium.org</owner>
+  <owner>chrome-signin-team@google.com</owner>
   <summary>
     Tracks the SSO identity cache state before calling -[GCRSSOService
     identitiesWithError:] or -[GCRSSOService identitiesForDisplay]. See:
@@ -951,9 +960,74 @@ kept as long as profile signout is possible -->
 
   <owner>jlebel@chromium.org</owner>
   <owner>fernandex@chromium.org</owner>
+  <owner>chrome-signin-team@google.com</owner>
   <summary>
     Tracks the time it takes to call -[GCRSSOService identitiesWithError:] or
     -[GCRSSOService identitiesForDisplay]. See: https://crbug.com/897470.
+  </summary>
+</histogram>
+
+<histogram
+    name="Signin.SSOIdentityListRequest.FetchIdentitiesWithCallback.Duration"
+    units="ms" expires_after="2021-04-19">
+  <owner>jlebel@chromium.org</owner>
+  <owner>fernandex@chromium.org</owner>
+  <owner>chrome-signin-team@google.com</owner>
+  <summary>
+    Tracks the time between -[GCRSSOService fetchIdentitiesWithCallback:] and
+    the callback is invoked. See: https://crbug.com/897470.
+  </summary>
+</histogram>
+
+<histogram
+    name="Signin.SSOIdentityListRequest.RunAfterCacheIsPopulated.CacheState"
+    enum="SigninSSOIdentityListRequestCacheState" expires_after="2021-04-19">
+  <owner>jlebel@chromium.org</owner>
+  <owner>fernandex@chromium.org</owner>
+  <owner>chrome-signin-team@google.com</owner>
+  <summary>
+    Tracks the state of the SSO identity cache before
+    ChromeIdentityServiceImpl::RunAfterCacheIsPopulated() is called. See:
+    https://crbug.com/897470.
+  </summary>
+</histogram>
+
+<histogram
+    name="Signin.SSOIdentityListRequest.RunAfterCacheIsPopulated.Duration"
+    units="ms" expires_after="2021-04-19">
+  <owner>jlebel@chromium.org</owner>
+  <owner>fernandex@chromium.org</owner>
+  <owner>chrome-signin-team@google.com</owner>
+  <summary>
+    Tracks the time between
+    ChromeIdentityServiceImpl::RunAfterCacheIsPopulated() and the callback is
+    invoked. See: https://crbug.com/897470.
+  </summary>
+</histogram>
+
+<histogram
+    name="Signin.SSOIdentityListRequest.WaitUntilCacheIsPopulated.CacheState"
+    enum="SigninSSOIdentityListRequestCacheState" expires_after="2021-04-19">
+  <owner>jlebel@chromium.org</owner>
+  <owner>fernandex@chromium.org</owner>
+  <owner>chrome-signin-team@google.com</owner>
+  <summary>
+    Tracks the state of the SSO identity cache before
+    ChromeIdentityServiceImpl::WaitUntilCacheIsPopulated() is called. See:
+    https://crbug.com/897470.
+  </summary>
+</histogram>
+
+<histogram
+    name="Signin.SSOIdentityListRequest.WaitUntilCacheIsPopulated.Duration"
+    units="ms" expires_after="2021-04-19">
+  <owner>jlebel@chromium.org</owner>
+  <owner>fernandex@chromium.org</owner>
+  <owner>chrome-signin-team@google.com</owner>
+  <summary>
+    Tracks the time between
+    ChromeIdentityServiceImpl::WaitUntilCacheIsPopulated() and the callback is
+    invoked. See: https://crbug.com/897470.
   </summary>
 </histogram>
 
@@ -1009,7 +1083,7 @@ kept as long as profile signout is possible -->
 </histogram>
 
 <histogram name="Signin.SyncFirstSetupCompleteSource"
-    enum="SyncFirstSetupCompleteSource" expires_after="M87">
+    enum="SyncFirstSetupCompleteSource" expires_after="M89">
   <owner>triploblastic@chromium.org</owner>
   <owner>bsazonov@chromium.org</owner>
   <summary>Tracks where FirstSetupComplete bit is set from.</summary>
@@ -1041,7 +1115,7 @@ should be kept for as long as we store refresh tokens in an SQLite DB. -->
 
 <histogram
     name="Signin.TransactionalReauthGaiaNavigationDuration.FromConfirmClick"
-    units="ms" expires_after="2021-02-21">
+    units="ms" expires_after="2021-04-25">
   <owner>alexilin@chromium.org</owner>
   <owner>droger@chromium.org</owner>
   <summary>
@@ -1052,7 +1126,7 @@ should be kept for as long as we store refresh tokens in an SQLite DB. -->
 
 <histogram
     name="Signin.TransactionalReauthGaiaNavigationDuration.FromReauthStart"
-    units="ms" expires_after="2021-02-21">
+    units="ms" expires_after="2021-04-25">
   <owner>alexilin@chromium.org</owner>
   <owner>droger@chromium.org</owner>
   <summary>
@@ -1062,7 +1136,7 @@ should be kept for as long as we store refresh tokens in an SQLite DB. -->
 </histogram>
 
 <histogram name="Signin.TransactionalReauthResult" enum="SigninReauthResult"
-    expires_after="2021-02-21">
+    expires_after="2021-04-25">
 <!-- Name completed by histogram_suffixes
 name="TransactionalReauthEntryPoint" -->
 
@@ -1076,7 +1150,7 @@ name="TransactionalReauthEntryPoint" -->
 </histogram>
 
 <histogram name="Signin.TransactionalReauthUserAction"
-    enum="SigninReauthUserAction" expires_after="2021-02-21">
+    enum="SigninReauthUserAction" expires_after="2021-04-25">
 <!-- Name completed by histogram_suffixes
 name="TransactionalReauthEntryPoint" -->
 
@@ -1116,7 +1190,7 @@ Chrome adds accounts to the Gaia cookies. -->
 </histogram>
 
 <histogram name="Signin.UserRequestedWipeDataOnSignout" enum="BooleanRequested"
-    expires_after="2021-02-20">
+    expires_after="2021-04-25">
   <owner>triploblastic@google.com</owner>
   <owner>bsazonov@chromium.org</owner>
   <summary>User requested to wipe local device data on signout.</summary>

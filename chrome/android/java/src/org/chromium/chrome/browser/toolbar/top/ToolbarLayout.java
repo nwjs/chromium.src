@@ -19,7 +19,6 @@ import android.widget.FrameLayout;
 import android.widget.ProgressBar;
 
 import androidx.annotation.CallSuper;
-import androidx.annotation.ColorRes;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
@@ -27,15 +26,17 @@ import org.chromium.base.Callback;
 import org.chromium.base.ObserverList;
 import org.chromium.base.TraceEvent;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior;
-import org.chromium.chrome.browser.ntp.NewTabPage;
+import org.chromium.chrome.browser.findinpage.FindToolbar;
 import org.chromium.chrome.browser.omnibox.LocationBar;
+import org.chromium.chrome.browser.omnibox.LocationBarCoordinator;
+import org.chromium.chrome.browser.omnibox.OmniboxFocusReason;
 import org.chromium.chrome.browser.omnibox.UrlBarData;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.toolbar.ButtonData;
 import org.chromium.chrome.browser.toolbar.HomeButton;
+import org.chromium.chrome.browser.toolbar.NewTabPageDelegate;
 import org.chromium.chrome.browser.toolbar.TabCountProvider;
 import org.chromium.chrome.browser.toolbar.ThemeColorProvider;
 import org.chromium.chrome.browser.toolbar.ThemeColorProvider.ThemeColorObserver;
@@ -47,7 +48,6 @@ import org.chromium.chrome.browser.toolbar.ToolbarTabController;
 import org.chromium.chrome.browser.toolbar.menu_button.MenuButtonCoordinator;
 import org.chromium.chrome.browser.toolbar.top.TopToolbarCoordinator.UrlExpansionObserver;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuButtonHelper;
-import org.chromium.components.security_state.ConnectionSecurityLevel;
 import org.chromium.ui.UiUtils;
 import org.chromium.ui.base.ViewUtils;
 
@@ -83,6 +83,9 @@ public abstract class ToolbarLayout
     private MenuButtonCoordinator mMenuButtonCoordinator;
     private AppMenuButtonHelper mAppMenuButtonHelper;
 
+    private Callback<Boolean> mOverlayVisibilityCallback;
+    private Runnable mTabOrModelChangeRunnable;
+
     /**
      * Basic constructor for {@link ToolbarLayout}.
      */
@@ -113,10 +116,29 @@ public abstract class ToolbarLayout
      */
     @CallSuper
     protected void initialize(ToolbarDataProvider toolbarDataProvider,
-            ToolbarTabController tabController, MenuButtonCoordinator menuButtonCoordinator) {
+            ToolbarTabController tabController, MenuButtonCoordinator menuButtonCoordinator,
+            Runnable tabOrModelChangeRunnable) {
         mToolbarDataProvider = toolbarDataProvider;
         mToolbarTabController = tabController;
         mMenuButtonCoordinator = menuButtonCoordinator;
+        mTabOrModelChangeRunnable = tabOrModelChangeRunnable;
+    }
+
+    /**
+     * @param callback Callback to invoke on visibility change of the texture version
+     *        of the top toolbar.
+     */
+    public void setOverlayVisibilityCallback(Callback<Boolean> callback) {
+        mOverlayVisibilityCallback = callback;
+        mOverlayVisibilityCallback.onResult(getVisibility() == View.VISIBLE);
+    }
+
+    @Override
+    public void setVisibility(int visibility) {
+        super.setVisibility(visibility);
+        if (mOverlayVisibilityCallback != null) {
+            mOverlayVisibilityCallback.onResult(visibility == View.VISIBLE);
+        }
     }
 
     /**
@@ -125,6 +147,10 @@ public abstract class ToolbarLayout
     void setAppMenuButtonHelper(AppMenuButtonHelper appMenuButtonHelper) {
         mAppMenuButtonHelper = appMenuButtonHelper;
     }
+
+    // TODO(pnoland, https://crbug.com/865801): Move this from ToolbarLayout to forthcoming
+    // BrowsingModeToolbarCoordinator.
+    public void setLocationBarCoordinator(LocationBarCoordinator locationBarCoordinator) {}
 
     /**
      * Cleans up any code as necessary.
@@ -135,19 +161,17 @@ public abstract class ToolbarLayout
             mThemeColorProvider.removeThemeColorObserver(this);
             mThemeColorProvider = null;
         }
-
-        getLocationBar().destroy();
     }
 
     /**
-     * @param urlExpansionObserver The observer that observes URL expansion percentage change.
+     * @param urlExpansionObserver The observer that observes URL expansion progress change.
      */
     void addUrlExpansionObserver(UrlExpansionObserver urlExpansionObserver) {
         mUrlExpansionObservers.addObserver(urlExpansionObserver);
     }
 
     /**
-     * @param urlExpansionObserver The observer that observes URL expansion percentage change.
+     * @param urlExpansionObserver The observer that observes URL expansion progress change.
      */
     void removeUrlExpansionObserver(UrlExpansionObserver urlExpansionObserver) {
         mUrlExpansionObservers.removeObserver(urlExpansionObserver);
@@ -236,11 +260,6 @@ public abstract class ToolbarLayout
             }
 
             @Override
-            public boolean hasTab() {
-                return false;
-            }
-
-            @Override
             public String getCurrentUrl() {
                 return "";
             }
@@ -251,13 +270,8 @@ public abstract class ToolbarLayout
             }
 
             @Override
-            public String getTitle() {
-                return "";
-            }
-
-            @Override
-            public NewTabPage getNewTabPageForCurrentTab() {
-                return null;
+            public NewTabPageDelegate getNewTabPageDelegate() {
+                return NewTabPageDelegate.EMPTY;
             }
 
             @Override
@@ -268,31 +282,6 @@ public abstract class ToolbarLayout
             @Override
             public boolean isUsingBrandColor() {
                 return false;
-            }
-
-            @Override
-            public boolean isOfflinePage() {
-                return false;
-            }
-
-            @Override
-            public boolean isPreview() {
-                return false;
-            }
-
-            @Override
-            public int getSecurityLevel() {
-                return ConnectionSecurityLevel.NONE;
-            }
-
-            @Override
-            public int getSecurityIconResource(boolean isTablet) {
-                return 0;
-            }
-
-            @Override
-            public @ColorRes int getSecurityIconColorStateList() {
-                return 0;
             }
         };
     }
@@ -359,6 +348,7 @@ public abstract class ToolbarLayout
     /**
      * @return The {@link ProgressBar} this layout uses.
      */
+    @Nullable
     protected ToolbarProgressBar getProgressBar() {
         return mProgressBar;
     }
@@ -468,6 +458,7 @@ public abstract class ToolbarLayout
      * @return The name of the publisher of the content if it can be reliably extracted, or null
      *         otherwise.
      */
+    @Nullable
     protected String getContentPublisher() {
         return null;
     }
@@ -533,11 +524,7 @@ public abstract class ToolbarLayout
      * not guarantee that the model's current tab is non-null.
      */
     void onTabOrModelChanged() {
-        NewTabPage ntp = getToolbarDataProvider().getNewTabPageForCurrentTab();
-        if (ntp != null) {
-            getLocationBar().onTabLoadingNTP(ntp);
-        }
-
+        mTabOrModelChangeRunnable.run();
         getLocationBar().updateMicButtonState();
     }
 
@@ -588,8 +575,7 @@ public abstract class ToolbarLayout
      * Triggered when the content view for the specified tab has changed.
      */
     void onTabContentViewChanged() {
-        NewTabPage ntp = getToolbarDataProvider().getNewTabPageForCurrentTab();
-        if (ntp != null) getLocationBar().onTabLoadingNTP(ntp);
+        mTabOrModelChangeRunnable.run();
     }
 
     boolean isReadyForTextureCapture() {
@@ -601,8 +587,6 @@ public abstract class ToolbarLayout
     }
 
     void setLayoutUpdater(Runnable layoutUpdater) {}
-
-    void setOverviewModeBehavior(OverviewModeBehavior overviewModeBehavior) {}
 
     /**
      * @param attached Whether or not the web content is attached to the view heirarchy.
@@ -768,9 +752,7 @@ public abstract class ToolbarLayout
      * @return Whether or not the current Tab did go back.
      */
     boolean back() {
-        if (getLocationBar() != null) {
-            getLocationBar().setUrlBarFocus(false, null, LocationBar.OmniboxFocusReason.UNFOCUS);
-        }
+        maybeUnfocusUrlBar();
         return mToolbarTabController != null && mToolbarTabController.back();
     }
 
@@ -779,9 +761,7 @@ public abstract class ToolbarLayout
      * @return Whether or not the current Tab did go forward.
      */
     boolean forward() {
-        if (getLocationBar() != null) {
-            getLocationBar().setUrlBarFocus(false, null, LocationBar.OmniboxFocusReason.UNFOCUS);
-        }
+        maybeUnfocusUrlBar();
         return mToolbarTabController != null ? mToolbarTabController.forward() : false;
     }
 
@@ -792,9 +772,7 @@ public abstract class ToolbarLayout
      * <p>The buttons of the toolbar will be updated as a result of making this call.
      */
     void stopOrReloadCurrentTab() {
-        if (getLocationBar() != null) {
-            getLocationBar().setUrlBarFocus(false, null, LocationBar.OmniboxFocusReason.UNFOCUS);
-        }
+        maybeUnfocusUrlBar();
         if (mToolbarTabController != null) mToolbarTabController.stopOrReloadCurrentTab();
     }
 
@@ -802,10 +780,15 @@ public abstract class ToolbarLayout
      * Opens hompage in the current tab.
      */
     void openHomepage() {
-        if (getLocationBar() != null) {
-            getLocationBar().setUrlBarFocus(false, null, LocationBar.OmniboxFocusReason.UNFOCUS);
-        }
+        maybeUnfocusUrlBar();
         if (mToolbarTabController != null) mToolbarTabController.openHomepage();
+    }
+
+    private void maybeUnfocusUrlBar() {
+        if (getLocationBar() != null && getLocationBar().getFakeboxDelegate() != null) {
+            getLocationBar().getFakeboxDelegate().setUrlBarFocus(
+                    false, null, OmniboxFocusReason.UNFOCUS);
+        }
     }
 
     /**
@@ -836,8 +819,7 @@ public abstract class ToolbarLayout
     /**
      * @return {@link HomeButton} this {@link ToolbarLayout} contains.
      */
-    @VisibleForTesting
-    public HomeButton getHomeButtonForTesting() {
+    public HomeButton getHomeButton() {
         return null;
     }
 }

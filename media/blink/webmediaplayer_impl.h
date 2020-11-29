@@ -49,6 +49,7 @@
 #include "media/renderers/paint_canvas_video_renderer.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "services/media_session/public/cpp/media_position.h"
+#include "third_party/blink/public/common/media/display_type.h"
 #include "third_party/blink/public/platform/media/webmediaplayer_delegate.h"
 #include "third_party/blink/public/platform/web_audio_source_provider.h"
 #include "third_party/blink/public/platform/web_content_decryption_module_result.h"
@@ -62,6 +63,7 @@ class WebAudioSourceProviderImpl;
 class WebLocalFrame;
 class WebMediaPlayerClient;
 class WebMediaPlayerEncryptedMediaClient;
+class WatchTimeReporter;
 }  // namespace blink
 
 namespace base {
@@ -87,7 +89,6 @@ class MediaLog;
 class MemoryDumpProviderProxy;
 class UrlIndex;
 class VideoFrameCompositor;
-class WatchTimeReporter;
 
 // The canonical implementation of blink::WebMediaPlayer that's backed by
 // Pipeline. Handles normal resource loading, Media Source, and
@@ -149,6 +150,7 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
              cc::PaintFlags& flags,
              int already_uploaded_id,
              VideoFrameUploadMetadata* out_metadata) override;
+  scoped_refptr<VideoFrame> GetCurrentFrame() override;
 
   // True if the loaded media has a playable video/audio track.
   bool HasVideo() const override;
@@ -238,7 +240,7 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
   void SetIsEffectivelyFullscreen(
       blink::WebFullscreenVideoStatus fullscreen_video_status) override;
   void OnHasNativeControlsChanged(bool) override;
-  void OnDisplayTypeChanged(WebMediaPlayer::DisplayType display_type) override;
+  void OnDisplayTypeChanged(blink::DisplayType display_type) override;
 
   // blink::WebMediaPlayerDelegate::Observer implementation.
   void OnFrameHidden() override;
@@ -748,7 +750,7 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
   // Document::shutdown() is called before the frame detaches (and before the
   // frame is destroyed). RenderFrameImpl owns |delegate_| and is guaranteed
   // to outlive |this|; thus it is safe to store |delegate_| as a raw pointer.
-  blink::WebMediaPlayerDelegate* const delegate_;
+  blink::WebMediaPlayerDelegate* delegate_;
   int delegate_id_ = 0;
 
   // The playback state last reported to |delegate_|, to avoid setting duplicate
@@ -895,7 +897,7 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
   base::OneShotTimer background_pause_timer_;
 
   // Monitors the watch time of the played content.
-  std::unique_ptr<WatchTimeReporter> watch_time_reporter_;
+  std::unique_ptr<blink::WatchTimeReporter> watch_time_reporter_;
   std::string audio_decoder_name_;
   std::string video_decoder_name_;
 
@@ -925,8 +927,7 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
   // Monitors the player events.
   base::WeakPtr<MediaObserver> observer_;
 
-  // Owns the weblayer and obtains/maintains SurfaceIds for
-  // kUseSurfaceLayerForVideo feature.
+  // Owns the weblayer and obtains/maintains SurfaceIds.
   std::unique_ptr<blink::WebSurfaceLayerBridge> bridge_;
 
   // The maximum video keyframe distance that allows triggering background

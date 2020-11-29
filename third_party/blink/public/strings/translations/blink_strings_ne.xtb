@@ -30,6 +30,7 @@
 <translation id="1806710327868736751">alert_dialog</translation>
 <translation id="1821985195704844674">ट्री ग्रिड</translation>
 <translation id="1822429046913737220">बिहना/साँझ</translation>
+<translation id="1823704031293214298">पेज फुटर</translation>
 <translation id="1832974991323546415">टाढाको यन्त्रमा प्ले गर्नुहोस्</translation>
 <translation id="190587075670221089">मेट्ने कार्य</translation>
 <translation id="1907737156431278478">उदाहरण</translation>
@@ -105,11 +106,14 @@
 <translation id="4201051445878709314">अघिल्लो महिना देखाउनुहोस्</translation>
 <translation id="421884353938374759">रंग चयनकर्ता</translation>
 <translation id="4248100235867064564">मेनु बार</translation>
+<translation id="4293574643247337246">पेज हेडर</translation>
 <translation id="4360991593054037559">कृपया एउटा वैध मान प्रविष्टि गर्नुहोस्। दुईवा सबैभण्दा नजिकका वैध मानहरू <ph name="VALID_VALUE_LOW" /> र <ph name="VALID_VALUE_HIGHER" /> हुन्।</translation>
+<translation id="4384249794467006333">यो फोटोमा लेबल प्रदान गरिएको छैन। फोटोका विवरणहरू प्राप्त गर्न सिरानको दायाँपट्टि रहेको थप विकल्पहरू नामक मेनु खोल्नुहोस्।</translation>
 <translation id="4384583879834880242">प्रश्नोत्तर</translation>
 <translation id="4444765639179266822">निम्न कुरा भन्न खोजे जस्तो छ: <ph name="OCR_TEXT" /></translation>
 <translation id="4446524499724042288">शब्दावलीको सन्दर्भ</translation>
 <translation id="4522570452068850558">विवरणहरू</translation>
+<translation id="4576178047100686001">यो फोटोमा लेबल प्रदान गरिएको छैन। फोटोका विवरणहरू प्राप्त गर्न सिरानको बायाँपट्टि रहेको थप विकल्पहरू नामक मेनु खोल्नुहोस्।</translation>
 <translation id="4597532268155981612">फाराम</translation>
 <translation id="4661075872484491155">tree</translation>
 <translation id="4664250907885839816">'<ph name="ATSIGN" />' पछ्याउने भागले '<ph name="INVALIDCHARACTER" />' चिन्ह समावेश गर्नु हुँदैन।</translation>

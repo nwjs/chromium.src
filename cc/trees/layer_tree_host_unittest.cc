@@ -11,7 +11,7 @@
 
 #include "base/auto_reset.h"
 #include "base/bind.h"
-#include "base/bind_helpers.h"
+#include "base/callback_helpers.h"
 #include "base/location.h"
 #include "base/single_thread_task_runner.h"
 #include "base/stl_util.h"
@@ -2897,13 +2897,6 @@ MULTI_THREAD_BLOCKNOTIFY_TEST_F(
 // its damage is preserved until the next time it is drawn.
 class LayerTreeHostTestUndrawnLayersDamageLater : public LayerTreeHostTest {
  public:
-  void InitializeSettings(LayerTreeSettings* settings) override {
-    // If we don't set the minimum contents scale, it's harder to verify whether
-    // the damage we get is correct. For other scale amounts, please see
-    // LayerTreeHostTestDamageWithScale.
-    settings->minimum_contents_scale = 1.f;
-  }
-
   void SetupTree() override {
     root_layer_ = FakePictureLayer::Create(&client_);
     root_layer_->SetIsDrawable(true);
@@ -6726,7 +6719,7 @@ class LayerTreeHostTestSynchronousCompositeSwapPromise
         new TestSwapPromise(&swap_promise_result_[0]));
     layer_tree_host()->GetSwapPromiseManager()->QueueSwapPromise(
         std::move(swap_promise0));
-    layer_tree_host()->Composite(base::TimeTicks::Now(), raster);
+    layer_tree_host()->CompositeForTest(base::TimeTicks::Now(), raster);
 
     // Fail to swap (no damage) if not reclaiming resources from the Display.
     std::unique_ptr<SwapPromise> swap_promise1(
@@ -6734,7 +6727,7 @@ class LayerTreeHostTestSynchronousCompositeSwapPromise
     layer_tree_host()->GetSwapPromiseManager()->QueueSwapPromise(
         std::move(swap_promise1));
     layer_tree_host()->SetNeedsCommit();
-    layer_tree_host()->Composite(base::TimeTicks::Now(), raster);
+    layer_tree_host()->CompositeForTest(base::TimeTicks::Now(), raster);
 
     // Fail to draw (not visible).
     std::unique_ptr<SwapPromise> swap_promise2(
@@ -6743,7 +6736,7 @@ class LayerTreeHostTestSynchronousCompositeSwapPromise
         std::move(swap_promise2));
     layer_tree_host()->SetNeedsDisplayOnAllLayers();
     layer_tree_host()->SetVisible(false);
-    layer_tree_host()->Composite(base::TimeTicks::Now(), raster);
+    layer_tree_host()->CompositeForTest(base::TimeTicks::Now(), raster);
 
     EndTest();
   }
@@ -7985,7 +7978,7 @@ class LayerTreeHostTestQueueImageDecode : public LayerTreeHostTest {
       return;
     first_ = false;
 
-    image_ = DrawImage(CreateDiscardablePaintImage(gfx::Size(400, 400)),
+    image_ = DrawImage(CreateDiscardablePaintImage(gfx::Size(400, 400)), false,
                        SkIRect::MakeWH(400, 400), kNone_SkFilterQuality,
                        SkMatrix::I(), PaintImage::kDefaultFrameIndex,
                        gfx::ColorSpace());
@@ -8911,6 +8904,7 @@ class LayerTreeHostTestDelegatedInkMetadataOnAndOff
 
   void DrawLayersOnThread(LayerTreeHostImpl* impl) override {
     if (expected_metadata_.has_value()) {
+      EXPECT_EQ(metadata_frame_time_, impl->CurrentBeginFrameArgs().frame_time);
       // Now try again with no metadata to confirm everything is cleared out.
       expected_metadata_.reset();
     }
@@ -8927,6 +8921,11 @@ class LayerTreeHostTestDelegatedInkMetadataOnAndOff
       EXPECT_EQ(expected_metadata_->presentation_area(),
                 actual_metadata->presentation_area());
       EXPECT_EQ(expected_metadata_->timestamp(), actual_metadata->timestamp());
+
+      // Record the frame time from the metadata so we can confirm that it
+      // matches the LayerTreeHostImpl's frame time in DrawLayersOnThread.
+      EXPECT_GT(actual_metadata->frame_time(), base::TimeTicks::Min());
+      metadata_frame_time_ = actual_metadata->frame_time();
     } else {
       EXPECT_FALSE(had_delegated_ink_metadata);
       EXPECT_FALSE(actual_metadata);
@@ -8949,6 +8948,7 @@ class LayerTreeHostTestDelegatedInkMetadataOnAndOff
   FakeContentLayerClient client_;
   scoped_refptr<Layer> layer_;
   bool set_needs_display_ = true;
+  base::TimeTicks metadata_frame_time_;
 };
 
 SINGLE_AND_MULTI_THREAD_TEST_F(LayerTreeHostTestDelegatedInkMetadataOnAndOff);
@@ -8984,12 +8984,23 @@ class LayerTreeHostTestEventsMetrics : public LayerTreeHostTest {
 
  private:
   void SimulateEventOnMain() {
-    auto scoped_event_monitor =
-        layer_tree_host()->GetScopedEventMetricsMonitor(EventMetrics::Create(
-            ui::ET_GESTURE_SCROLL_UPDATE,
-            EventMetrics::ScrollUpdateType::kContinued, base::TimeTicks::Now(),
-            ui::ScrollInputType::kWheel));
-    layer_tree_host()->SetNeedsAnimate();
+    std::unique_ptr<EventMetrics> metrics = EventMetrics::Create(
+        ui::ET_GESTURE_SCROLL_UPDATE,
+        EventMetrics::ScrollUpdateType::kContinued, base::TimeTicks::Now(),
+        ui::ScrollInputType::kWheel);
+    {
+      auto done_callback = base::BindOnce(
+          [](std::unique_ptr<EventMetrics> metrics, bool handled) {
+            std::unique_ptr<EventMetrics> result =
+                handled ? std::move(metrics) : nullptr;
+            return result;
+          },
+          std::move(metrics));
+      auto scoped_event_monitor =
+          layer_tree_host()->GetScopedEventMetricsMonitor(
+              std::move(done_callback));
+      layer_tree_host()->SetNeedsAnimate();
+    }
     EXPECT_SCOPED(VerifyMainSavedEventsMetricsCountOnMain(1));
   }
 
@@ -9344,7 +9355,7 @@ class LayerTreeHostUkmSmoothnessMetric : public LayerTreeTest {
     }
 
     // Mark every frame as a dropped frame affecting smoothness.
-    host_impl->dropped_frame_counter()->AddDroppedFrameAffectingSmoothness();
+    host_impl->dropped_frame_counter()->OnEndFrame(viz::BeginFrameArgs(), true);
     host_impl->SetNeedsRedraw();
     --frames_counter_;
   }
@@ -9390,7 +9401,7 @@ class LayerTreeHostUkmSmoothnessMemoryOwnership : public LayerTreeTest {
     }
 
     // Mark every frame as a dropped frame affecting smoothness.
-    host_impl->dropped_frame_counter()->AddDroppedFrameAffectingSmoothness();
+    host_impl->dropped_frame_counter()->OnEndFrame(viz::BeginFrameArgs(), true);
     host_impl->SetNeedsRedraw();
     --frames_counter_;
   }

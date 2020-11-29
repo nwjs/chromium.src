@@ -47,11 +47,11 @@
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
 #include "chrome/browser/performance_hints/performance_hints_features.h"
 #include "chrome/browser/performance_hints/performance_hints_observer.h"
-#include "chrome/browser/plugins/pdf_plugin_placeholder_observer.h"
+#include "chrome/browser/permissions/last_tab_standing_tracker_tab_helper.h"
 #include "chrome/browser/predictors/loading_predictor_factory.h"
 #include "chrome/browser/predictors/loading_predictor_tab_helper.h"
-#include "chrome/browser/prerender/isolated/isolated_prerender_tab_helper.h"
-#include "chrome/browser/prerender/prerender_tab_helper.h"
+#include "chrome/browser/prefetch/no_state_prefetch/no_state_prefetch_tab_helper.h"
+#include "chrome/browser/prefetch/prefetch_proxy/prefetch_proxy_tab_helper.h"
 #include "chrome/browser/previews/previews_ui_tab_helper.h"
 #include "chrome/browser/previews/resource_loading_hints/resource_loading_hints_web_contents_observer.h"
 #include "chrome/browser/profiles/profile.h"
@@ -106,8 +106,8 @@
 #include "components/password_manager/core/browser/password_manager.h"
 #include "components/performance_manager/public/decorators/tab_properties_decorator.h"
 #include "components/performance_manager/public/performance_manager.h"
+#include "components/permissions/features.h"
 #include "components/permissions/permission_request_manager.h"
-#include "components/subresource_filter/core/browser/subresource_filter_features.h"
 #include "components/sync/engine/sync_engine_switches.h"
 #include "components/tracing/common/tracing_switches.h"
 #include "components/ukm/content/source_url_recorder.h"
@@ -122,9 +122,11 @@
 #include "chrome/browser/android/search_permissions/search_geolocation_disclosure_tab_helper.h"
 #include "chrome/browser/banners/app_banner_manager_android.h"
 #include "chrome/browser/flags/android/chrome_feature_list.h"
+#include "chrome/browser/ui/android/autofill_assistant/autofill_assistant_tab_helper.h"
 #include "chrome/browser/ui/android/context_menu_helper.h"
 #include "chrome/browser/ui/javascript_dialogs/javascript_tab_modal_dialog_manager_delegate_android.h"
 #include "chrome/browser/video_tutorials/video_tutorial_tab_helper.h"
+#include "components/autofill_assistant/browser/features.h"
 #else
 #include "chrome/browser/banners/app_banner_manager_desktop.h"
 #include "chrome/browser/tab_contents/form_interaction_tab_helper.h"
@@ -243,10 +245,8 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
   ChromePasswordManagerClient::CreateForWebContentsWithAutofillClient(
       web_contents,
       autofill::ChromeAutofillClient::FromWebContents(web_contents));
-  if (base::FeatureList::IsEnabled(
-          subresource_filter::kSafeBrowsingSubresourceFilter)) {
-    ChromeSubresourceFilterClient::CreateForWebContents(web_contents);
-  }
+  ChromeSubresourceFilterClient::CreateThrottleManagerWithClientForWebContents(
+      web_contents);
   //ChromeTranslateClient::CreateForWebContents(web_contents);
   ConnectionHelpTabHelper::CreateForWebContents(web_contents);
   CoreTabHelper::CreateForWebContents(web_contents);
@@ -262,7 +262,7 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
   HistoryTabHelper::CreateForWebContents(web_contents);
   InfoBarService::CreateForWebContents(web_contents);
   InstallableManager::CreateForWebContents(web_contents);
-  IsolatedPrerenderTabHelper::CreateForWebContents(web_contents);
+  PrefetchProxyTabHelper::CreateForWebContents(web_contents);
   LiteVideoObserver::MaybeCreateForWebContents(web_contents);
 
 #if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
@@ -287,7 +287,6 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
   }
   OutOfMemoryReporter::CreateForWebContents(web_contents);
   chrome::InitializePageLoadMetricsForWebContents(web_contents);
-  PDFPluginPlaceholderObserver::CreateForWebContents(web_contents);
   if (performance_manager::PerformanceManager::IsAvailable())
     performance_manager::TabPropertiesDecorator::SetIsTab(web_contents, true);
   permissions::PermissionRequestManager::CreateForWebContents(web_contents);
@@ -300,7 +299,7 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
   if (predictors::LoadingPredictorFactory::GetForProfile(profile))
     predictors::LoadingPredictorTabHelper::CreateForWebContents(web_contents);
   PrefsTabHelper::CreateForWebContents(web_contents);
-  prerender::PrerenderTabHelper::CreateForWebContents(web_contents);
+  prerender::NoStatePrefetchTabHelper::CreateForWebContents(web_contents);
   PreviewsUITabHelper::CreateForWebContents(web_contents);
   RecentlyAudibleHelper::CreateForWebContents(web_contents);
   // TODO(siggi): Remove this once the Resource Coordinator refactoring is done.
@@ -363,6 +362,11 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
   }
   SearchGeolocationDisclosureTabHelper::CreateForWebContents(web_contents);
   video_tutorials::VideoTutorialTabHelper::CreateForWebContents(web_contents);
+  if (base::FeatureList::IsEnabled(
+          autofill_assistant::features::kAutofillAssistantWithTabHelper)) {
+    autofill_assistant::AutofillAssistantTabHelper::CreateForWebContents(
+        web_contents);
+  }
 #else
   banners::AppBannerManagerDesktop::CreateForWebContents(web_contents);
   BookmarkTabHelper::CreateForWebContents(web_contents);
@@ -375,6 +379,10 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
       web_contents,
       std::make_unique<JavaScriptTabModalDialogManagerDelegateDesktop>(
           web_contents));
+  if (base::FeatureList::IsEnabled(
+          permissions::features::kOneTimeGeolocationPermission)) {
+    LastTabStandingTrackerTabHelper::CreateForWebContents(web_contents);
+  }
   ManagePasswordsUIController::CreateForWebContents(web_contents);
   if (media_feeds::MediaFeedsService::IsEnabled())
     MediaFeedsContentsObserver::CreateForWebContents(web_contents);

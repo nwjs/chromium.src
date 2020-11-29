@@ -34,13 +34,11 @@
 #include "chrome/browser/plugins/chrome_plugin_service_filter.h"
 #include "chrome/browser/plugins/plugin_utils.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/subresource_filter/chrome_subresource_filter_client.h"
 #include "chrome/browser/ui/collected_cookies_infobar_delegate.h"
 #include "chrome/browser/ui/content_settings/content_setting_bubble_model_delegate.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
-#include "chrome/common/render_messages.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/theme_resources.h"
 #include "components/blocked_content/popup_blocker_tab_helper.h"
@@ -59,6 +57,7 @@
 #include "components/permissions/permissions_client.h"
 #include "components/prefs/pref_service.h"
 #include "components/strings/grit/components_strings.h"
+#include "components/subresource_filter/content/browser/content_subresource_filter_throttle_manager.h"
 #include "components/subresource_filter/core/browser/subresource_filter_constants.h"
 #include "components/subresource_filter/core/browser/subresource_filter_features.h"
 #include "components/url_formatter/elide_url.h"
@@ -128,7 +127,7 @@ bool GetSettingManagedByUser(const GURL& url,
   } else {
     SettingInfo info;
     std::unique_ptr<base::Value> value =
-        map->GetWebsiteSetting(url, url, type, std::string(), &info);
+        map->GetWebsiteSetting(url, url, type, &info);
     setting = content_settings::ValueToContentSetting(value.get());
     source = info.source;
   }
@@ -1123,7 +1122,7 @@ void ContentSettingMediaStreamBubbleModel::UpdateSettings(
             permissions::PermissionSourceUI::PAGE_ACTION);
     map->SetContentSettingDefaultScope(
         page_content_settings->media_stream_access_origin(), GURL(),
-        ContentSettingsType::MEDIASTREAM_MIC, std::string(), setting);
+        ContentSettingsType::MEDIASTREAM_MIC, setting);
   }
   if (CameraAccessed()) {
     permissions::PermissionUmaUtil::ScopedRevocationReporter
@@ -1133,7 +1132,7 @@ void ContentSettingMediaStreamBubbleModel::UpdateSettings(
             permissions::PermissionSourceUI::PAGE_ACTION);
     map->SetContentSettingDefaultScope(
         page_content_settings->media_stream_access_origin(), GURL(),
-        ContentSettingsType::MEDIASTREAM_CAMERA, std::string(), setting);
+        ContentSettingsType::MEDIASTREAM_CAMERA, setting);
   }
 }
 
@@ -1386,8 +1385,8 @@ ContentSettingSubresourceFilterBubbleModel::
   SetManageText();
   set_done_button_text(l10n_util::GetStringUTF16(IDS_OK));
   set_show_learn_more(true);
-  ChromeSubresourceFilterClient::LogAction(
-      SubresourceFilterAction::kDetailsShown);
+  subresource_filter::ContentSubresourceFilterThrottleManager::LogAction(
+      subresource_filter::SubresourceFilterAction::kDetailsShown);
 }
 
 ContentSettingSubresourceFilterBubbleModel::
@@ -1415,15 +1414,16 @@ void ContentSettingSubresourceFilterBubbleModel::OnManageCheckboxChecked(
 
 void ContentSettingSubresourceFilterBubbleModel::OnLearnMoreClicked() {
   DCHECK(delegate());
-  ChromeSubresourceFilterClient::LogAction(
-      SubresourceFilterAction::kClickedLearnMore);
+  subresource_filter::ContentSubresourceFilterThrottleManager::LogAction(
+      subresource_filter::SubresourceFilterAction::kClickedLearnMore);
   delegate()->ShowLearnMorePage(ContentSettingsType::ADS);
 }
 
 void ContentSettingSubresourceFilterBubbleModel::CommitChanges() {
   if (is_checked_) {
-    ChromeSubresourceFilterClient::FromWebContents(web_contents())
-        ->OnReloadRequested();
+    subresource_filter::ContentSubresourceFilterThrottleManager::
+        FromWebContents(web_contents())
+            ->OnReloadRequested();
   }
 }
 
@@ -1583,6 +1583,7 @@ ContentSettingNotificationsBubbleModel::ContentSettingNotificationsBubbleModel(
     return;
   switch (manager->ReasonForUsingQuietUi()) {
     case QuietUiReason::kEnabledInPrefs:
+    case QuietUiReason::kPredictedVeryUnlikelyGrant:
       set_message(l10n_util::GetStringUTF16(
           IDS_NOTIFICATIONS_QUIET_PERMISSION_BUBBLE_DESCRIPTION));
       set_done_button_text(l10n_util::GetStringUTF16(
@@ -1647,6 +1648,7 @@ void ContentSettingNotificationsBubbleModel::OnDoneButtonClicked() {
   switch (manager->ReasonForUsingQuietUi()) {
     case QuietUiReason::kEnabledInPrefs:
     case QuietUiReason::kTriggeredByCrowdDeny:
+    case QuietUiReason::kPredictedVeryUnlikelyGrant:
       manager->Accept();
       base::RecordAction(
           base::UserMetricsAction("Notifications.Quiet.ShowForSiteClicked"));
@@ -1667,6 +1669,7 @@ void ContentSettingNotificationsBubbleModel::OnCancelButtonClicked() {
   switch (manager->ReasonForUsingQuietUi()) {
     case QuietUiReason::kEnabledInPrefs:
     case QuietUiReason::kTriggeredByCrowdDeny:
+    case QuietUiReason::kPredictedVeryUnlikelyGrant:
       // No-op.
       break;
     case QuietUiReason::kTriggeredDueToAbusiveRequests:

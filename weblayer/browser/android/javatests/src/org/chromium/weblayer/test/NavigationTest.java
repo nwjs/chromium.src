@@ -26,8 +26,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import org.chromium.base.test.util.CallbackHelper;
-import org.chromium.content_public.browser.test.util.Criteria;
-import org.chromium.content_public.browser.test.util.CriteriaHelper;
+import org.chromium.base.test.util.Criteria;
+import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.net.test.util.TestWebServer;
 import org.chromium.weblayer.Browser;
@@ -515,16 +515,16 @@ public class NavigationTest {
         InstrumentationActivity activity = mActivityTestRule.launchShellWithUrl("about:blank");
         setNavigationCallback(activity);
 
-        int curCompletedCount = mCallback.onCompletedCallback.getCallCount();
+        int curFailedCount = mCallback.onFailedCallback.getCallCount();
 
         // navigateAndWait() expects a success code, so it won't work here.
         runOnUiThreadBlocking(
                 () -> { activity.getTab().getNavigationController().navigate(Uri.parse(url)); });
 
-        mCallback.onCompletedCallback.assertCalledWith(
-                curCompletedCount, url, LoadError.HTTP_CLIENT_ERROR);
-        assertEquals(mCallback.onCompletedCallback.getHttpStatusCode(), 404);
-        assertEquals(mCallback.onCompletedCallback.getNavigationState(), NavigationState.COMPLETE);
+        mCallback.onFailedCallback.assertCalledWith(
+                curFailedCount, url, LoadError.HTTP_CLIENT_ERROR);
+        assertEquals(mCallback.onFailedCallback.getHttpStatusCode(), 404);
+        assertEquals(mCallback.onFailedCallback.getNavigationState(), NavigationState.FAILED);
     }
 
     @Test
@@ -925,6 +925,8 @@ public class NavigationTest {
 
     private void navigateToStream(InstrumentationActivity activity, String mimeType,
             String cacheControl) throws Exception {
+        int curOnFirstContentfulPaintCount =
+                mCallback.onFirstContentfulPaintCallback.getCallCount();
         InputStream stream = new ByteArrayInputStream(STREAM_HTML.getBytes(StandardCharsets.UTF_8));
         WebResourceResponse response = new WebResourceResponse(mimeType, "UTF-8", stream);
         if (cacheControl != null) {
@@ -938,10 +940,10 @@ public class NavigationTest {
                 ()
                         -> activity.getTab().getNavigationController().navigate(
                                 Uri.parse(STREAM_URL), params));
+        mCallback.onFirstContentfulPaintCallback.waitForCallback(curOnFirstContentfulPaintCount);
     }
 
-    private void assertStreamContent(int curOnFirstContentfulPaintCount) throws Exception {
-        mCallback.onFirstContentfulPaintCallback.waitForCallback(curOnFirstContentfulPaintCount);
+    private void assertStreamContent() throws Exception {
         assertEquals(STREAM_INNER_BODY,
                 mActivityTestRule.executeScriptAndExtractString("document.body.innerText"));
     }
@@ -955,10 +957,8 @@ public class NavigationTest {
         TestThreadUtils.runOnUiThreadBlocking(() -> { activity.getBrowser().setTopView(null); });
         setNavigationCallback(activity);
 
-        int curOnFirstContentfulPaintCount =
-                mCallback.onFirstContentfulPaintCallback.getCallCount();
         navigateToStream(activity, "text/html", null);
-        assertStreamContent(curOnFirstContentfulPaintCount);
+        assertStreamContent();
     }
 
     @Test
@@ -969,10 +969,8 @@ public class NavigationTest {
         TestThreadUtils.runOnUiThreadBlocking(() -> { activity.getBrowser().setTopView(null); });
         setNavigationCallback(activity);
 
-        int curOnFirstContentfulPaintCount =
-                mCallback.onFirstContentfulPaintCallback.getCallCount();
         navigateToStream(activity, "", null);
-        assertStreamContent(curOnFirstContentfulPaintCount);
+        assertStreamContent();
     }
 
     @Test
@@ -1009,7 +1007,8 @@ public class NavigationTest {
                 mCallback.onFirstContentfulPaintCallback.getCallCount();
         navigateAndWaitForCompletion(
                 STREAM_URL, () -> { activity.getTab().getNavigationController().goBack(); });
-        assertStreamContent(curOnFirstContentfulPaintCount);
+        mCallback.onFirstContentfulPaintCallback.waitForCallback(curOnFirstContentfulPaintCount);
+        assertStreamContent();
     }
 
     @Test
@@ -1028,7 +1027,8 @@ public class NavigationTest {
                 mCallback.onFirstContentfulPaintCallback.getCallCount();
         navigateAndWaitForCompletion(
                 STREAM_URL, () -> { activity.getTab().getNavigationController().goBack(); });
-        assertStreamContent(curOnFirstContentfulPaintCount);
+        mCallback.onFirstContentfulPaintCallback.waitForCallback(curOnFirstContentfulPaintCount);
+        assertStreamContent();
     }
 
     @Test

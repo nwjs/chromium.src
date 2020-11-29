@@ -24,6 +24,7 @@ namespace ash {
 
 class AccessibilityEventRewriterDelegate;
 enum class SwitchAccessCommand;
+enum class MagnifierCommand;
 
 // AccessibilityEventRewriter sends key events to Accessibility extensions (such
 // as ChromeVox and Switch Access) via the delegate when the corresponding
@@ -59,6 +60,10 @@ class ASH_EXPORT AccessibilityEventRewriter
     chromevox_send_mouse_events_ = value;
   }
 
+  void set_suspend_switch_access_key_handling(bool suspend) {
+    suspend_switch_access_key_handling_ = suspend;
+  }
+
   // For testing use only.
   std::set<int> switch_access_key_codes_to_capture_for_test() {
     return switch_access_key_codes_to_capture_;
@@ -75,6 +80,10 @@ class ASH_EXPORT AccessibilityEventRewriter
                                 const Continuation continuation);
   bool RewriteEventForSwitchAccess(const ui::Event& event,
                                    const Continuation continuation);
+  bool RewriteEventForMagnifier(const ui::Event& event,
+                                const Continuation continuation);
+  void OnMagnifierKeyPressed(const ui::KeyEvent* event);
+  void OnMagnifierKeyReleased(const ui::KeyEvent* event);
 
   // Updates the list of allowed keyboard device ids based on the current set of
   // keyboard input types.
@@ -121,6 +130,9 @@ class ASH_EXPORT AccessibilityEventRewriter
   // Used to refresh state when keyboard devices change.
   ScopedObserver<ui::DeviceDataManager, ui::InputDeviceEventObserver> observer_{
       this};
+
+  // Suspends key handling for Switch Access during key assignment in web ui.
+  bool suspend_switch_access_key_handling_ = false;
 };
 
 }  // namespace ash

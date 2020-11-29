@@ -5,6 +5,8 @@
 #include "build/build_config.h"
 #include "extensions/common/manifest_constants.h"
 
+#include "build/chromeos_buildflags.h"
+
 namespace extensions {
 
 namespace manifest_keys {
@@ -23,13 +25,13 @@ const char kActionDefaultIcon[] = "default_icon";
 const char kActionDefaultPopup[] = "default_popup";
 const char kActionDefaultState[] = "default_state";
 const char kActionDefaultTitle[] = "default_title";
-const char kAllFrames[] = "all_frames";
 const char kAltKey[] = "altKey";
 const char kApp[] = "app";
 const char kAppDisplayMode[] = "app.display_mode";
 const char kAppIconColor[] = "app.icon_color";
 const char kAppThemeColor[] = "app.theme_color";
 const char kAutomation[] = "automation";
+const char kBackground[] = "background";
 const char kBackgroundAllowJsAccess[] = "background.allow_js_access";
 const char kBackgroundPage[] = "background.page";
 const char kBackgroundPersistent[] = "background.persistent";
@@ -41,16 +43,12 @@ const char kBrowserAction[] = "browser_action";
 const char kChromeURLOverrides[] = "chrome_url_overrides";
 const char kCommands[] = "commands";
 const char kContentCapabilities[] = "content_capabilities";
-const char kContentScripts[] = "content_scripts";
 const char kContentSecurityPolicy[] = "content_security_policy";
 const char kContentSecurityPolicy_ExtensionPagesPath[] =
     "content_security_policy.extension_pages";
-const char kContentSecurityPolicy_IsolatedWorldPath[] =
-    "content_security_policy.isolated_world";
 const char kContentSecurityPolicy_SandboxedPagesPath[] =
     "content_security_policy.sandbox";
 const char kConvertedFromUserScript[] = "converted_from_user_script";
-const char kCss[] = "css";
 const char kCtrlKey[] = "ctrlKey";
 const char kCurrentLocale[] = "current_locale";
 const char kDefaultLocale[] = "default_locale";
@@ -60,8 +58,6 @@ const char kDifferentialFingerprint[] = "differential_fingerprint";
 const char kDisplayInLauncher[] = "display_in_launcher";
 const char kDisplayInNewTabPage[] = "display_in_new_tab_page";
 const char kEventName[] = "event_name";
-const char kExcludeGlobs[] = "exclude_globs";
-const char kExcludeMatches[] = "exclude_matches";
 const char kExport[] = "export";
 const char kExternallyConnectable[] = "externally_connectable";
 const char kEventRules[] = "event_rules";
@@ -82,12 +78,10 @@ const char kIcons[] = "icons";
 const char kId[] = "id";
 const char kImeOptionsPage[] = "options_page";
 const char kImport[] = "import";
-const char kIncludeGlobs[] = "include_globs";
 const char kIndicator[] = "indicator";
 const char kInputComponents[] = "input_components";
 const char kInputView[] = "input_view";
 const char kIsolation[] = "app.isolation";
-const char kJs[] = "js";
 const char kKey[] = "key";
 const char kKeycode[] = "keyCode";
 const char kKiosk[] = "kiosk";
@@ -109,8 +103,6 @@ const char kLinkedAppIcons[] = "app.linked_icons";
 const char kLinkedAppIconURL[] = "url";
 const char kLinkedAppIconSize[] = "size";
 const char kManifestVersion[] = "manifest_version";
-const char kMatchAboutBlank[] = "match_about_blank";
-const char kMatchOriginAsFallback[] = "match_origin_as_fallback";
 const char kInMainWorld[] = "in_main_world";
 const char kMatches[] = "matches";
 const char kMinimumChromeVersion[] = "minimum_chrome_version";
@@ -147,7 +139,6 @@ const char kRemoveButton[] = "remove_button";
 const char kReplacementAndroidApp[] = "replacement_android_app";
 const char kReplacementWebApp[] = "replacement_web_app";
 const char kRequirements[] = "requirements";
-const char kRunAt[] = "run_at";
 const char kSandboxedPages[] = "sandbox.pages";
 const char kSandboxedPagesCSP[] = "sandbox.content_security_policy";
 const char kSettingsOverride[] = "chrome_settings_overrides";
@@ -194,6 +185,10 @@ const char kUsbPrinters[] = "usb_printers";
 const char kVersion[] = "version";
 const char kVersionName[] = "version_name";
 const char kWebAccessibleResources[] = "web_accessible_resources";
+const char kWebAccessibleResourcesExtensionIds[] = "extension_ids";
+const char kWebAccessibleResourcesMatches[] = "matches";
+const char kWebAccessibleResourcesResources[] = "resources";
+const char kWebAccessibleResourcesUseDynamicUrl[] = "use_dynamic_url";
 const char kWebAppFileHandlers[] = "web_app_file_handlers";
 const char kWebAppFileHandlerAccept[] = "accept";
 const char kWebAppFileHandlerAction[] = "action";
@@ -209,7 +204,7 @@ const char kWebview[] = "webview";
 const char kWebviewAccessibleResources[] = "accessible_resources";
 const char kWebviewName[] = "name";
 const char kWebviewPartitions[] = "partitions";
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
 const char kActionHandlers[] = "action_handlers";
 const char kActionHandlerActionKey[] = "action";
 const char kActionHandlerEnabledOnLockScreenKey[] = "enabled_on_lock_screen";
@@ -257,9 +252,6 @@ const char kKeyShift[] = "Shift";
 const char kKeySpace[] = "Space";
 const char kKeyTab[] = "Tab";
 const char kKeyUp[] = "Up";
-const char kRunAtDocumentStart[] = "document_start";
-const char kRunAtDocumentEnd[] = "document_end";
-const char kRunAtDocumentIdle[] = "document_idle";
 const char kPageActionCommandEvent[] = "_execute_page_action";
 const char kLaunchContainerPanelDeprecated[] = "panel";
 const char kLaunchContainerTab[] = "tab";
@@ -340,8 +332,6 @@ const char kInvalidActionDefaultIcon[] = "Invalid value for 'default_icon'.";
 const char kInvalidActionDefaultPopup[] = "Invalid type for 'default_popup'.";
 const char kInvalidActionDefaultState[] = "Invalid value for 'default_state'.";
 const char kInvalidActionDefaultTitle[] = "Invalid value for 'default_title'.";
-const char kInvalidAllFrames[] =
-    "Invalid value for 'content_scripts[*].all_frames'.";
 const char kInvalidAppDisplayMode[] = "Invalid value for app.display_mode.";
 const char kInvalidAppIconColor[] = "Invalid value for app.icon_color.";
 const char kInvalidAppThemeColor[] = "Invalid value for app.theme_color.";
@@ -383,10 +373,6 @@ const char kInvalidContentCapabilitiesMatchOrigin[] =
     "Domain wildcards are not allowed for content_capabilities URL patterns.";
 const char kInvalidContentCapabilitiesPermission[] =
     "Invalid content_capabilities permission: *.";
-const char kInvalidContentScript[] =
-    "Invalid value for 'content_scripts[*]'.";
-const char kInvalidContentScriptsList[] =
-    "Invalid value for 'content_scripts'.";
 const char kInvalidCSPInsecureValueIgnored[] =
     "'*': Ignored insecure CSP value \"*\" in directive '*'.";
 const char kInvalidCSPInsecureValueError[] =
@@ -394,10 +380,6 @@ const char kInvalidCSPInsecureValueError[] =
 const char kInvalidCSPMissingSecureSrc[] =
     "'*': CSP directive '*' must be specified (either explicitly, or "
     "implicitly via 'default-src') and must whitelist only secure resources.";
-const char kInvalidCss[] =
-    "Invalid value for 'content_scripts[*].css[*]'.";
-const char kInvalidCssList[] =
-    "Required value 'content_scripts[*].css' is invalid.";
 const char kInvalidDefaultLocale[] =
     "Invalid value for default locale - locale name must be a string.";
 const char kInvalidDescription[] =
@@ -458,10 +440,6 @@ const char kInvalidFileHandlerTypeElement[] =
     "Invalid value for 'file_handlers[*].types[*]'.";
 const char kInvalidFileHandlerVerb[] =
     "Invalid value for 'file_handlers[*].verb'.";
-const char kInvalidGlob[] =
-    "Invalid value for 'content_scripts[*].*[*]'.";
-const char kInvalidGlobList[] =
-    "Invalid value for 'content_scripts[*].*'.";
 const char kInvalidHomepageOverrideURL[] =
     "Invalid value for overriding homepage url: '[*]'.";
 const char kInvalidHomepageURL[] =
@@ -502,10 +480,6 @@ const char kInvalidIsolation[] =
     "Invalid value for 'app.isolation'.";
 const char kInvalidIsolationValue[] =
     "Invalid value for 'app.isolation[*]'.";
-const char kInvalidJs[] =
-    "Invalid value for 'content_scripts[*].js[*]'.";
-const char kInvalidJsList[] =
-    "Required value 'content_scripts[*].js' is invalid.";
 const char kInvalidKey[] =
     "Value 'key' is missing or invalid.";
 const char kInvalidKeyBinding[] =
@@ -566,10 +540,6 @@ const char kInvalidManifestVersionOld[] =
     "See developer.chrome.com/*/manifestVersion.html for details.";
 const char kInvalidMatch[] =
     "Invalid value for 'content_scripts[*].matches[*]': *";
-const char kInvalidMatchAboutBlank[] =
-    "Invalid value for 'content_scripts[*].match_about_blank'.";
-const char kInvalidMatchOriginAsFallback[] =
-    "Invalid value for 'content_scripts[*].match_origin_as_fallback'.";
 const char kInvalidInMainWorld[] =
     "Invalid value for 'content_scripts[*].in_main_world'.";
 const char kInvalidMatchCount[] =
@@ -623,8 +593,7 @@ const char kInvalidPermission[] =
     "Invalid value for 'permissions[*]'.";
 const char kInvalidPermissions[] =
     "Invalid value for 'permissions'.";
-const char kInvalidPermissionScheme[] =
-    "Invalid scheme for 'permissions[*]'.";
+const char kInvalidPermissionScheme[] = "Invalid scheme for '*[*]'.";
 const char kInvalidReplacementAndroidApp[] =
     "Invalid value for 'replacement_android_app'";
 const char kInvalidReplacementWebApp[] =
@@ -636,8 +605,6 @@ const char kInvalidRequirements[] =
 const char kInvalidRulesetID[] =
     "'*.*': Invalid 'id' specified for Ruleset at index *. The ID must be "
     "non-empty, unique and must not start with '_'.";
-const char kInvalidRunAt[] =
-    "Invalid value for 'content_scripts[*].run_at'.";
 const char kInvalidSandboxedPagesList[] =
     "Invalid value for 'sandbox.pages'.";
 const char kInvalidSandboxedPage[] =
@@ -849,7 +816,7 @@ const char kUrlHandlersInHostedApps[] =
     "'url_handlers' cannot be used in Hosted Apps.";
 const char kWebRequestConflictsWithLazyBackground[] =
     "The 'webRequest' API cannot be used with event pages.";
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
 const char kDuplicateActionHandlerFound[] =
     "'action_handlers' list contains duplicate entries for the action: \"*\".";
 const char kIllegalPlugins[] =

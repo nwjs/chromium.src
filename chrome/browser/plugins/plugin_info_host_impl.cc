@@ -4,9 +4,6 @@
 
 #include "chrome/browser/plugins/plugin_info_host_impl.h"
 
-#include "base/path_service.h"
-#include "chrome/common/chrome_paths.h"
-
 #include <stddef.h>
 
 #include <algorithm>
@@ -32,7 +29,6 @@
 #include "chrome/browser/ui/browser_otr_state.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/chrome_content_client.h"
-#include "chrome/common/chrome_features.h"
 #include "chrome/common/plugin.mojom.h"
 #include "chrome/common/pref_names.h"
 #include "components/component_updater/component_updater_service.h"
@@ -103,15 +99,6 @@ bool IsPluginLoadingAccessibleResourceInWebView(
     extensions::ExtensionRegistry* extension_registry,
     int process_id,
     const GURL& resource) {
-  const std::string extension_id = resource.host();
-  const extensions::Extension* extension = extension_registry->GetExtensionById(
-      extension_id, extensions::ExtensionRegistry::ENABLED);
-#if 0
-  if (extension && extension->is_nwjs_app()) //NWJS#5548: enable flash
-                                             //by default
-    return true;
-#endif
-
   extensions::WebViewRendererState* renderer_state =
       extensions::WebViewRendererState::GetInstance();
   std::string partition_id;
@@ -120,6 +107,9 @@ bool IsPluginLoadingAccessibleResourceInWebView(
     return false;
   }
 
+  const std::string extension_id = resource.host();
+  const extensions::Extension* extension = extension_registry->GetExtensionById(
+      extension_id, extensions::ExtensionRegistry::ENABLED);
   if (!extension || !extensions::WebviewInfo::IsResourceWebviewAccessible(
                         extension, partition_id, resource.path())) {
     return false;
@@ -175,7 +165,7 @@ void PluginInfoHostImpl::ShutdownOnUIThread() {
 // static
 void PluginInfoHostImpl::RegisterUserPrefs(
     user_prefs::PrefRegistrySyncable* registry) {
-  registry->RegisterBooleanPref(prefs::kPluginsAllowOutdated, true);
+  registry->RegisterBooleanPref(prefs::kPluginsAllowOutdated, false);
   registry->RegisterBooleanPref(prefs::kRunAllFlashInAllowMode, false);
 }
 
@@ -217,6 +207,7 @@ void PluginInfoHostImpl::PluginsLoaded(
         plugin_metadata->identifier(), &output->status);
   }
 
+#if 1
   if (output->status == chrome::mojom::PluginStatus::kNotFound) {
     // Check to see if the component updater can fetch an implementation.
     std::unique_ptr<component_updater::ComponentInfo> cus_plugin_info =
@@ -225,10 +216,10 @@ void PluginInfoHostImpl::PluginsLoaded(
     ComponentPluginLookupDone(params, std::move(output), std::move(callback),
                               std::move(plugin_metadata),
                               std::move(cus_plugin_info));
-  } else {
+  } else
+#endif
     GetPluginInfoFinish(params, std::move(output), std::move(callback),
                         std::move(plugin_metadata));
-  }
 }
 
 void PluginInfoHostImpl::Context::DecidePluginStatus(
@@ -243,10 +234,11 @@ void PluginInfoHostImpl::Context::DecidePluginStatus(
     return;
   }
 
-#if 0
-  base::FilePath internal_dir;
-  if (PathService::Get(chrome::DIR_INTERNAL_PLUGINS, &internal_dir) && internal_dir.IsParent(plugin.path)) {
-    *status = chrome::mojom::PluginStatus::kAllowed;
+// This block is separate from the outdated check, because the deprecated UI
+// must take precedence over any content setting or HTML5 by Default.
+#if BUILDFLAG(ENABLE_PLUGINS)
+  if (security_status == PluginMetadata::SECURITY_STATUS_DEPRECATED) {
+    *status = chrome::mojom::PluginStatus::kDeprecated;
     return;
   }
 #endif
@@ -313,11 +305,7 @@ void PluginInfoHostImpl::Context::DecidePluginStatus(
                          : chrome::mojom::PluginStatus::kBlocked;
   }
 
-#if 0
-  // if use kUnauthorized, it will be enabled by default in
-  // ChromeWebViewPermissionHelperDelegate::BlockedUnauthorizedPlugin
-  // NWJS#6216
-
+#if BUILDFLAG(ENABLE_EXTENSIONS)
   // Allow an embedder of <webview> to block a plugin from being loaded inside
   // the guest. In order to do this, set the status to 'Unauthorized' here,
   // and update the status as appropriate depending on the response from the
@@ -375,16 +363,6 @@ bool PluginInfoHostImpl::Context::FindEnabledPlugin(
     // Otherwise, we only found disabled plugins, so we take the first one.
     i = 0;
     *status = chrome::mojom::PluginStatus::kDisabled;
-
-    // Special case for Flash: this is our Prefer HTML over Plugins logic.
-    if (matching_plugins[0].name ==
-        base::ASCIIToUTF16(content::kFlashPluginName)) {
-      *status = chrome::mojom::PluginStatus::kFlashHiddenPreferHtml;
-
-      // In the Prefer HTML case, the plugin is actually enabled, but hidden.
-      // It will still be blocked in the body of DecidePluginStatus.
-      enabled = true;
-    }
   }
 
   *plugin = matching_plugins[i];
@@ -431,40 +409,7 @@ void PluginInfoHostImpl::GetPluginInfoFinish(
 
   context_.MaybeGrantAccess(output->status, output->plugin.path);
 
-  if (output->status != chrome::mojom::PluginStatus::kNotFound) {
-    ReportMetrics(params.render_frame_id, output->actual_mime_type,
-                  params.main_frame_origin);
-  }
   std::move(callback).Run(std::move(output));
-}
-
-void PluginInfoHostImpl::ReportMetrics(int render_frame_id,
-                                       const base::StringPiece& mime_type,
-                                       const url::Origin& main_frame_origin) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-
-  content::RenderFrameHost* frame = content::RenderFrameHost::FromID(
-      context_.render_process_id(), render_frame_id);
-  content::WebContents* web_contents =
-      content::WebContents::FromRenderFrameHost(frame);
-  // This can occur the web contents has already been closed or navigated away.
-  if (!web_contents)
-    return;
-
-  if (web_contents->GetBrowserContext()->IsOffTheRecord())
-    return;
-
-  if (main_frame_origin.opaque())
-    return;
-
-  if (mime_type != content::kFlashPluginSwfMimeType &&
-      mime_type != content::kFlashPluginSplMimeType) {
-    return;
-  }
-
-  ukm::builders::Plugins_FlashInstance(
-      ukm::GetSourceIdForWebContentsDocument(web_contents))
-      .Record(ukm::UkmRecorder::Get());
 }
 
 void PluginInfoHostImpl::Context::MaybeGrantAccess(

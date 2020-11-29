@@ -29,10 +29,9 @@ TEST_F(LayoutSVGRootTest, VisualRectMappingWithoutViewportClipWithBorder) {
     </svg>
   )HTML");
 
-  const LayoutSVGRoot& root =
-      *ToLayoutSVGRoot(GetLayoutObjectByElementId("root"));
-  const LayoutSVGShape& svg_rect =
-      *ToLayoutSVGShape(GetLayoutObjectByElementId("rect"));
+  const auto& root = *To<LayoutSVGRoot>(GetLayoutObjectByElementId("root"));
+  const auto& svg_rect =
+      *To<LayoutSVGShape>(GetLayoutObjectByElementId("rect"));
 
   auto rect = SVGLayoutSupport::VisualRectInAncestorSpace(svg_rect, root);
   // (80, 80, 100, 100) added by root's content rect offset from border rect,
@@ -56,8 +55,7 @@ TEST_F(LayoutSVGRootTest, VisualOverflowExpandsLayer) {
     </svg>
   )HTML");
 
-  const LayoutSVGRoot& root =
-      *ToLayoutSVGRoot(GetLayoutObjectByElementId("root"));
+  const auto& root = *To<LayoutSVGRoot>(GetLayoutObjectByElementId("root"));
   auto* paint_layer = root.Layer();
   ASSERT_TRUE(paint_layer);
   auto* graphics_layer = paint_layer->GraphicsLayerBacking(&root);
@@ -78,10 +76,9 @@ TEST_F(LayoutSVGRootTest, VisualRectMappingWithViewportClipAndBorder) {
     </svg>
   )HTML");
 
-  const LayoutSVGRoot& root =
-      *ToLayoutSVGRoot(GetLayoutObjectByElementId("root"));
-  const LayoutSVGShape& svg_rect =
-      *ToLayoutSVGShape(GetLayoutObjectByElementId("rect"));
+  const auto& root = *To<LayoutSVGRoot>(GetLayoutObjectByElementId("root"));
+  const auto& svg_rect =
+      *To<LayoutSVGShape>(GetLayoutObjectByElementId("rect"));
 
   auto rect = SVGLayoutSupport::VisualRectInAncestorSpace(svg_rect, root);
   EXPECT_EQ(PhysicalRect(90, 90, 100, 20), rect);
@@ -146,8 +143,7 @@ TEST_P(CompositeSVGLayoutSVGRootTest, PaintLayerType) {
     </svg>
   )HTML");
 
-  const LayoutSVGRoot& root =
-      *ToLayoutSVGRoot(GetLayoutObjectByElementId("root"));
+  const auto& root = *To<LayoutSVGRoot>(GetLayoutObjectByElementId("root"));
   ASSERT_TRUE(root.Layer());
   EXPECT_FALSE(root.Layer()->IsSelfPaintingLayer());
 
@@ -174,12 +170,19 @@ TEST_P(CompositeSVGLayoutSVGRootTest, HasDescendantCompositingReasons) {
     </svg>
   )HTML");
 
-  const LayoutSVGRoot& root =
-      *ToLayoutSVGRoot(GetLayoutObjectByElementId("root"));
+  const auto& root = *To<LayoutSVGRoot>(GetLayoutObjectByElementId("root"));
   EXPECT_FALSE(root.HasDescendantCompositingReasons());
 
   GetDocument().getElementById("rect")->setAttribute("style",
                                                      "will-change: transform");
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_TRUE(root.HasDescendantCompositingReasons());
+  GetDocument().getElementById("rect")->removeAttribute("style");
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_FALSE(root.HasDescendantCompositingReasons());
+
+  GetDocument().getElementById("rect")->setAttribute(
+      "style", "backdrop-filter: invert(100%)");
   UpdateAllLifecyclePhasesForTest();
   EXPECT_TRUE(root.HasDescendantCompositingReasons());
   GetDocument().getElementById("rect")->removeAttribute("style");
@@ -201,6 +204,35 @@ TEST_P(CompositeSVGLayoutSVGRootTest, HasDescendantCompositingReasons) {
   GetDocument().getElementById("tspan")->removeAttribute("style");
   UpdateAllLifecyclePhasesForTest();
   EXPECT_FALSE(root.HasDescendantCompositingReasons());
+
+  GetDocument().getElementById("tspan")->setAttribute(
+      "style", "backdrop-filter: invert(100%)");
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_TRUE(root.HasDescendantCompositingReasons());
+  GetDocument().getElementById("tspan")->removeAttribute("style");
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_FALSE(root.HasDescendantCompositingReasons());
+}
+
+TEST_P(CompositeSVGLayoutSVGRootTest, CompositedSVGMetric) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      .anim { animation: anim 5s infinite; }
+      @keyframes anim {
+        from { transform: translateX(0); }
+        to { transform: translateX(100px); }
+      }
+    </style>
+    <svg style="width: 200px; height: 200px;">
+      <rect id="rect" width="100" height="100" fill="green"/>
+    </svg>
+  )HTML");
+
+  EXPECT_FALSE(GetDocument().IsUseCounted(WebFeature::kCompositedSVG));
+  auto* rect = GetDocument().getElementById("rect");
+  rect->setAttribute(html_names::kClassAttr, "anim");
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_TRUE(GetDocument().IsUseCounted(WebFeature::kCompositedSVG));
 }
 
 }  // namespace blink

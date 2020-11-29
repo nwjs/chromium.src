@@ -570,6 +570,11 @@ void PasswordAutofillAgent::UpdateStateForTextChange(
   }
 }
 
+void PasswordAutofillAgent::TrackAutofilledElement(
+    const blink::WebFormControlElement& element) {
+  autofill_agent_->TrackAutofilledElement(element);
+}
+
 bool PasswordAutofillAgent::FillSuggestion(
     const WebFormControlElement& control_element,
     const base::string16& username,
@@ -640,6 +645,7 @@ void PasswordAutofillAgent::FillField(WebInputElement* input,
   const FieldRendererId input_id(input->UniqueRendererFormControlId());
   field_data_manager_->UpdateFieldDataMap(
       input_id, credential, FieldPropertiesFlags::kAutofilledOnUserTrigger);
+  TrackAutofilledElement(*input);
 }
 
 void PasswordAutofillAgent::FillPasswordFieldAndSave(
@@ -797,19 +803,6 @@ bool PasswordAutofillAgent::ShouldSuppressKeyboard() {
 
 bool PasswordAutofillAgent::TryToShowTouchToFill(
     const WebFormControlElement& control_element) {
-  // Don't show Touch To Fill if it should only be enabled for insecure origins
-  // and we are currently on a potentially trustworthy origin.
-  if (base::GetFieldTrialParamByFeatureAsBool(features::kAutofillTouchToFill,
-                                              "insecure-origins-only",
-                                              /*default_value=*/false) &&
-      render_frame()
-          ->GetWebFrame()
-          ->GetDocument()
-          .GetSecurityOrigin()
-          .IsPotentiallyTrustworthy()) {
-    return false;
-  }
-
   if (touch_to_fill_state_ != TouchToFillState::kShouldShow)
     return false;
 

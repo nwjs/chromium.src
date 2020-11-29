@@ -9,6 +9,7 @@
 
 #include "base/bind.h"
 #include "base/command_line.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/macros.h"
 #include "base/optional.h"
@@ -397,13 +398,10 @@ IN_PROC_BROWSER_TEST_F(BrowserCloseManagerBrowserTest, PRE_TestSessionRestore) {
 // Test that the tab closed after the aborted shutdown attempt is not re-opened
 // when restoring the session.
 // Flaky on Windows trybots, see https://crbug.com/737860.
-#if defined(OS_WIN)
-#define MAYBE_TestSessionRestore DISABLED_TestSessionRestore
-#else
-#define MAYBE_TestSessionRestore TestSessionRestore
-#endif
+// Flaky on chromium.chromeos, chromium.linux, and chromium.mac bots. See
+// https://crbug.com/1145235.
 IN_PROC_BROWSER_TEST_F(BrowserCloseManagerBrowserTest,
-                       MAYBE_TestSessionRestore) {
+                       DISABLED_TestSessionRestore) {
   // The testing framework launches Chrome with about:blank as args.
   EXPECT_EQ(2, browser()->tab_strip_model()->count());
   EXPECT_EQ(GURL(chrome::kChromeUIVersionURL),
@@ -718,8 +716,9 @@ IN_PROC_BROWSER_TEST_F(BrowserCloseManagerBrowserTest,
   AddBlankTabAndShow(browsers_[1]);
   ASSERT_NO_FATAL_FAILURE(ui_test_utils::NavigateToURL(
       browsers_[1], embedded_test_server()->GetURL("/beforeunload.html")));
-  PrepareForDialog(browsers_[0]);
-  PrepareForDialog(browsers_[1]);
+  // Prep the new tabs for dialog to ensure the beforeunload dialog will show.
+  PrepareForDialog(browsers_[0]->tab_strip_model()->GetWebContentsAt(1));
+  PrepareForDialog(browsers_[1]->tab_strip_model()->GetWebContentsAt(1));
   ASSERT_NO_FATAL_FAILURE(AcceptClose());
   ASSERT_NO_FATAL_FAILURE(CancelClose());
   cancel_observer.Wait();
