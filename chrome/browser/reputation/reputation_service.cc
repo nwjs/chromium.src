@@ -111,9 +111,9 @@ void ReputationService::GetReputationStatus(const GURL& url,
                                             ReputationCheckCallback callback) {
   DCHECK(url.SchemeIsHTTPOrHTTPS());
 
-  bool has_delayed_warning =
-      !!safe_browsing::SafeBrowsingUserInteractionObserver::FromWebContents(
-          web_contents);
+  bool has_delayed_warning = false;
+      //!!safe_browsing::SafeBrowsingUserInteractionObserver::FromWebContents(
+      //    web_contents);
 
   LookalikeUrlService* service = LookalikeUrlService::Get(profile_);
   if (service->EngagedSitesNeedUpdating()) {
