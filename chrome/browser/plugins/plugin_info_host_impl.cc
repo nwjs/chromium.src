@@ -244,11 +244,14 @@ void PluginInfoHostImpl::Context::DecidePluginStatus(
   }
 
 #if 0
-  base::FilePath internal_dir;
-  if (PathService::Get(chrome::DIR_INTERNAL_PLUGINS, &internal_dir) && internal_dir.IsParent(plugin.path)) {
-    *status = chrome::mojom::PluginStatus::kAllowed;
+// This block is separate from the outdated check, because the deprecated UI
+// must take precedence over any content setting or HTML5 by Default.
+#if BUILDFLAG(ENABLE_PLUGINS)
+  if (security_status == PluginMetadata::SECURITY_STATUS_DEPRECATED) {
+    *status = chrome::mojom::PluginStatus::kDeprecated;
     return;
   }
+#endif
 #endif
 
   ContentSetting plugin_setting = CONTENT_SETTING_DEFAULT;

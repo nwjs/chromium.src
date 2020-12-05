@@ -1230,30 +1230,6 @@ ci.chromiumos_builder(
     main_console_view = settings.main_console_name,
 )
 
-ci.chromiumos_builder(
-    name = "linux-lacros-builder-rel",
-    branch_selector = branches.STANDARD_RELEASES,
-    console_view_entry = ci.console_view_entry(
-        category = "default",
-        short_name = "lcr",
-    ),
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    main_console_view = settings.main_console_name,
-)
-
-ci.chromiumos_builder(
-    name = "linux-lacros-tester-rel",
-    branch_selector = branches.STANDARD_RELEASES,
-    console_view_entry = ci.console_view_entry(
-        category = "default",
-        short_name = "lcr",
-    ),
-    main_console_view = settings.main_console_name,
-    cq_mirrors_console_view = settings.cq_mirrors_console_name,
-    triggered_by = ["linux-lacros-builder-rel"],
-    tree_closing = False,
-)
-
 ci.clang_builder(
     name = "CFI Linux CF",
     goma_backend = goma.backend.RBE_PROD,
@@ -4089,6 +4065,48 @@ ci.linux_builder(
     cq_mirrors_console_view = settings.cq_mirrors_console_name,
     main_console_view = main_console_if_on_branch(),
     triggered_by = [builder_name("linux-ozone-rel")],
+)
+
+ci.linux_builder(
+    # CI tester for Ozone/Headless
+    name = "Linux Tester (Ozone Headless)",
+    branch_selector = branches.STANDARD_RELEASES,
+    console_view_entry = ci.console_view_entry(
+        category = "release|ozone",
+        short_name = "ltoh",
+    ),
+    main_console_view = "main",
+    cq_mirrors_console_view = "mirrors",
+    triggered_by = [builder_name("linux-ozone-rel")],
+    tree_closing = False,
+)
+
+ci.linux_builder(
+    # CI tester for Ozone/Wayland
+    name = "Linux Tester (Ozone Wayland)",
+    branch_selector = branches.STANDARD_RELEASES,
+    console_view_entry = ci.console_view_entry(
+        category = "release|ozone",
+        short_name = "ltow",
+    ),
+    main_console_view = "main",
+    cq_mirrors_console_view = "mirrors",
+    triggered_by = [builder_name("linux-ozone-rel")],
+    tree_closing = False,
+)
+
+ci.linux_builder(
+    # CI tester for Ozone/X11
+    name = "Linux Tester (Ozone X11)",
+    branch_selector = branches.STANDARD_RELEASES,
+    console_view_entry = ci.console_view_entry(
+        category = "release|ozone",
+        short_name = "ltox",
+    ),
+    main_console_view = "main",
+    cq_mirrors_console_view = "mirrors",
+    triggered_by = [builder_name("linux-ozone-rel")],
+    tree_closing = False,
 )
 
 ci.linux_builder(

@@ -201,7 +201,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling V8
   # and whatever else without interference from each other.
-  'v8_revision': '3cd8a8915ce4f62b50e6371f5b7fc155b5d78413',
+  'v8_revision': '45d51f3f97a6058fced26b9c378fba5dcd924704',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling swarming_client
   # and whatever else without interference from each other.
@@ -1491,7 +1491,7 @@ deps = {
   },
 
   'src/third_party/webrtc':
-    Var('webrtc_git') + '/src.git' + '@' + 'a1aa01aad009d29d7fa00f6d407d919372e5ecf8',
+    Var('webrtc_git') + '/src.git' + '@' + '69202b2a57b8b7f7046dc26930aafd6f779a152e',
 
   'src/third_party/libgifcodec':
      Var('skia_git') + '/libgifcodec' + '@'+  Var('libgifcodec_revision'),
@@ -1563,7 +1563,7 @@ deps = {
   #  Var('chromium_git') + '/v8/v8.git' + '@' +  Var('v8_revision'),
 
   'src-internal': {
-    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@2f3f492fc1edb354af4e307f3ad873380d56cf61',
+    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@793bbaac5d5aa00d07666c05446a37949c634aee',
     'condition': 'checkout_src_internal',
   },
 
