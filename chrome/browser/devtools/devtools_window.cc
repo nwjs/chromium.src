@@ -392,10 +392,16 @@ class DevToolsWindow::Throttle : public content::NavigationThrottle {
 class DevToolsWindow::OwnedMainWebContents {
  public:
   explicit OwnedMainWebContents(
-      std::unique_ptr<content::WebContents> web_contents)
-      : keep_alive_(KeepAliveOrigin::DEVTOOLS_WINDOW,
-                    KeepAliveRestartOption::DISABLED),
-        web_contents_(std::move(web_contents)) {}
+         std::unique_ptr<content::WebContents> web_contents, bool headless = false)
+      : /* keep_alive_(KeepAliveOrigin::DEVTOOLS_WINDOW,
+           KeepAliveRestartOption::DISABLED), */
+        web_contents_(std::move(web_contents)) {
+    if (!headless) //NWJS#7588: deadlock; in this NW feature, browser
+                   //quit/zero keepalive count
+                   //triggers destruction of DevToolsWindow
+      keep_alive_ = std::make_unique<ScopedKeepAlive>(KeepAliveOrigin::DEVTOOLS_WINDOW,
+                                                      KeepAliveRestartOption::DISABLED);
+  }
 
   static std::unique_ptr<content::WebContents> TakeWebContents(
       std::unique_ptr<OwnedMainWebContents> instance) {
@@ -403,7 +409,7 @@ class DevToolsWindow::OwnedMainWebContents {
   }
 
  private:
-  ScopedKeepAlive keep_alive_;
+  std::unique_ptr<ScopedKeepAlive> keep_alive_;
   std::unique_ptr<content::WebContents> web_contents_;
 };
 
@@ -981,7 +987,7 @@ DevToolsWindow::DevToolsWindow(FrontendType frontend_type,
       browser_(nullptr),
       is_docked_(true),
       owned_main_web_contents_(
-          std::make_unique<OwnedMainWebContents>(std::move(main_web_contents))),
+        std::make_unique<OwnedMainWebContents>(std::move(main_web_contents), headless)),
       can_dock_(can_dock),
       close_on_detach_(true),
       headless_(headless),
