@@ -513,6 +513,8 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   bool AccessibilityIsIgnored() const;
   // Whether objects are ignored but included in the tree.
   bool AccessibilityIsIgnoredButIncludedInTree() const;
+  // Is visibility:hidden or display:none being used to hide this element.
+  bool IsHiddenViaStyle() const;
 
   // Whether objects are included in the tree. Nodes that are included in the
   // tree are serialized, even if they are ignored. This allows browser-side
@@ -801,7 +803,6 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   virtual bool SupportsARIADragging() const { return false; }
   virtual void Dropeffects(
       Vector<ax::mojom::blink::Dropeffect>& dropeffects) const {}
-  virtual bool SupportsARIAOwns() const { return false; }
   bool SupportsARIAReadOnly() const;
 
   // Returns 0-based index.
@@ -1205,8 +1206,10 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   virtual void SelectionChanged();
 
   // Static helper functions.
+  // TODO(accessibility) Move these to a static helper util class.
   static bool IsARIAControl(ax::mojom::blink::Role);
   static bool IsARIAInput(ax::mojom::blink::Role);
+  static bool HasARIAOwns(Element* element);
   // Is this a widget that requires container widget.
   bool IsSubWidget() const;
   static ax::mojom::blink::Role AriaRoleToWebCoreRole(const String&);
@@ -1310,10 +1313,11 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   mutable bool cached_is_ignored_but_included_in_tree_ : 1;
 
   mutable bool cached_is_inert_or_aria_hidden_ : 1;
+  mutable bool cached_is_hidden_via_style : 1;
   mutable bool cached_is_descendant_of_leaf_node_ : 1;
   mutable bool cached_is_descendant_of_disabled_node_ : 1;
   mutable bool cached_has_inherited_presentational_role_ : 1;
-  mutable bool cached_is_editable_root_;
+  mutable bool cached_is_editable_root_ : 1;
   mutable Member<AXObject> cached_live_region_root_;
   mutable int cached_aria_column_index_;
   mutable int cached_aria_row_index_;
@@ -1345,7 +1349,7 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   bool HasInternalsAttribute(Element&, const QualifiedName&) const;
   const AtomicString& GetInternalsAttribute(Element&,
                                             const QualifiedName&) const;
-  bool IsHiddenViaStyle() const;
+  bool ComputeIsHiddenViaStyle() const;
 
   // This returns true if the element associated with this AXObject is has
   // focusable style, meaning that it is visible. Note that we prefer to rely on
