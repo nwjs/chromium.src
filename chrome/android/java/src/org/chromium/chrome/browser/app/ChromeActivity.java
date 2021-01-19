@@ -62,7 +62,6 @@ import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.IntentHandler.IntentHandlerDelegate;
 import org.chromium.chrome.browser.IntentHandler.TabOpenType;
 import org.chromium.chrome.browser.PlayServicesVersionInfo;
-import org.chromium.chrome.browser.TabbedModeTabDelegateFactory;
 import org.chromium.chrome.browser.WarmupManager;
 import org.chromium.chrome.browser.accessibility.FontSizePrefs;
 import org.chromium.chrome.browser.app.appmenu.AppMenuPropertiesDelegateImpl;
@@ -70,6 +69,7 @@ import org.chromium.chrome.browser.app.flags.ChromeCachedFlags;
 import org.chromium.chrome.browser.app.tab_activity_glue.ReparentingDelegateFactory;
 import org.chromium.chrome.browser.app.tabmodel.AsyncTabParamsManagerSingleton;
 import org.chromium.chrome.browser.bookmarks.BookmarkBridge;
+import org.chromium.chrome.browser.bookmarks.BookmarkBridge.BookmarkItem;
 import org.chromium.chrome.browser.bookmarks.BookmarkModel;
 import org.chromium.chrome.browser.bookmarks.BookmarkUtils;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
@@ -137,7 +137,6 @@ import org.chromium.chrome.browser.sync.ProfileSyncService;
 import org.chromium.chrome.browser.sync.SyncController;
 import org.chromium.chrome.browser.tab.AccessibilityVisibilityHandler;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.TabDelegateFactory;
 import org.chromium.chrome.browser.tab.TabHidingType;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabSelectionType;
@@ -168,11 +167,11 @@ import org.chromium.chrome.browser.vr.ArDelegateProvider;
 import org.chromium.chrome.browser.vr.VrModuleProvider;
 import org.chromium.chrome.browser.webapps.addtohomescreen.AddToHomescreenCoordinator;
 import org.chromium.components.bookmarks.BookmarkId;
+import org.chromium.components.bookmarks.BookmarkType;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.modaldialog.AppModalPresenter;
 import org.chromium.components.browser_ui.notifications.NotificationManagerProxy;
 import org.chromium.components.browser_ui.notifications.NotificationManagerProxyImpl;
-import org.chromium.components.browser_ui.util.ComposedBrowserControlsVisibilityDelegate;
 import org.chromium.components.browser_ui.widget.InsetObserverView;
 import org.chromium.components.browser_ui.widget.MenuOrKeyboardActionController;
 import org.chromium.components.browser_ui.widget.textbubble.TextBubble;
@@ -1508,30 +1507,57 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
             return;
         }
 
-        // Note we get user bookmark ID over just a bookmark ID here: Managed bookmarks can't be
-        // edited. If the current URL is only bookmarked by managed bookmarks, this will return
-        // INVALID_ID, so the code below will fall back on adding a new bookmark instead.
-        // TODO(bauerb): This does not take partner bookmarks into account.
-        final long bookmarkId = bridge.getUserBookmarkIdForTab(tabToBookmark);
+        TrackerFactory.getTrackerForProfile(Profile.getLastUsedRegularProfile())
+                .notifyEvent(EventConstants.APP_MENU_BOOKMARK_STAR_ICON_PRESSED);
 
         final BookmarkModel bookmarkModel = new BookmarkModel();
-
         bookmarkModel.finishLoadingBookmarkModel(() -> {
             // Gives up the bookmarking if the tab is being destroyed.
-            if (!tabToBookmark.isClosing() && tabToBookmark.isInitialized()) {
-                // The BookmarkModel will be destroyed by BookmarkUtils#addOrEditBookmark() when
-                // done.
-                BookmarkId newBookmarkId =
-                        BookmarkUtils.addOrEditBookmark(bookmarkId, bookmarkModel, tabToBookmark,
-                                getSnackbarManager(), ChromeActivity.this, isCustomTab());
-                // If a new bookmark was created, try to save an offline page for it.
-                if (newBookmarkId != null && newBookmarkId.getId() != bookmarkId) {
-                    OfflinePageUtils.saveBookmarkOffline(newBookmarkId, tabToBookmark);
-                }
-            } else {
+            if (tabToBookmark.isClosing() || !tabToBookmark.isInitialized()) {
                 bookmarkModel.destroy();
+                return;
             }
+
+            // TODO(crbug.com/1150559): Make getUserBookmarkIdForTab return BookmarkItem instead,
+            // currently it's a sync call that doesn't check loading states, and only checks the
+            // bookmark backend and managed bookmarks.
+            BookmarkItem currentBookmarkItem = null;
+            if (ChromeFeatureList.isEnabled(ChromeFeatureList.READ_LATER)) {
+                currentBookmarkItem =
+                        bookmarkModel.getReadingListItem(tabToBookmark.getOriginalUrl());
+            }
+
+            if (currentBookmarkItem == null) {
+                // Note we get user bookmark ID over just a bookmark ID here: Managed bookmarks
+                // can't be edited. If the current URL is only bookmarked by managed bookmarks, this
+                // will return INVALID_ID.
+                // TODO(bauerb): This does not take partner bookmarks into account.
+                final long bookmarkId = bridge.getUserBookmarkIdForTab(tabToBookmark);
+                if (bookmarkId != BookmarkId.INVALID_ID) {
+                    currentBookmarkItem = bookmarkModel.getBookmarkById(
+                            new BookmarkId(bookmarkId, BookmarkType.NORMAL));
+                }
+            }
+
+            onBookmarkModelLoaded(tabToBookmark, currentBookmarkItem, bookmarkModel);
         });
+    }
+
+    private void onBookmarkModelLoaded(final Tab tabToBookmark,
+            @Nullable final BookmarkItem currentBookmarkItem, final BookmarkModel bookmarkModel) {
+        // The BookmarkModel will be destroyed by BookmarkUtils#addOrEditBookmark() when
+        // done.
+        BookmarkUtils.addOrEditBookmark(currentBookmarkItem, bookmarkModel, tabToBookmark,
+                getSnackbarManager(), mRootUiCoordinator.getBottomSheetController(),
+                ChromeActivity.this, isCustomTab(), (newBookmarkId) -> {
+                    BookmarkId currentBookmarkId =
+                            (currentBookmarkItem == null) ? null : currentBookmarkItem.getId();
+                    // Add offline page for a new bookmark.
+                    if (newBookmarkId != null && !newBookmarkId.equals(currentBookmarkId)) {
+                        OfflinePageUtils.saveBookmarkOffline(newBookmarkId, tabToBookmark);
+                    }
+                    bookmarkModel.destroy();
+                });
     }
 
     /**
@@ -1559,12 +1585,6 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
      */
     public ActivityTabProvider getActivityTabProvider() {
         return mActivityTabProvider;
-    }
-
-    public TabDelegateFactory getTabDelegateFactory() {
-        return new TabbedModeTabDelegateFactory(this,
-                new ComposedBrowserControlsVisibilityDelegate(), getShareDelegateSupplier(), null,
-                mRootUiCoordinator.getBottomSheetController());
     }
 
     /**
@@ -2008,6 +2028,12 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
                 || id == R.id.add_to_bookmarks_menu_id) {
             addOrEditBookmark(currentTab);
             RecordUserAction.record("MobileMenuAddToBookmarks");
+        } else if (id == R.id.add_to_reading_list_menu_id) {
+            mBookmarkBridgeSupplier.get().finishLoadingBookmarkModel(() -> {
+                BookmarkUtils.addToReadingList(currentTab.getOriginalUrl(), currentTab.getTitle(),
+                        this.getSnackbarManager(), mBookmarkBridgeSupplier.get(), this);
+            });
+            RecordUserAction.record("MobileMenuAddToReadingList");
         } else if (id == R.id.offline_page_id || id == R.id.offline_page_chip_id
                 || id == R.id.add_to_downloads_menu_id) {
             DownloadUtils.downloadOfflinePage(this, currentTab);
@@ -2044,11 +2070,12 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
                         new TabPrinter(currentTab), new PrintManagerDelegateImpl(this));
                 RecordUserAction.record("MobileMenuPrint");
             }
-        } else if (id == R.id.add_to_homescreen_id || id == R.id.add_to_homescreen_menu_id) {
+        } else if (id == R.id.add_to_homescreen_id || id == R.id.add_to_homescreen_menu_id
+                || id == R.id.install_app_id) {
             AddToHomescreenCoordinator.showForAppMenu(currentTab, this, getWindowAndroid(),
                     getModalDialogManager(), currentTab.getWebContents(), mMenuItemData);
             RecordUserAction.record("MobileMenuAddToHomescreen");
-        } else if (id == R.id.open_webapk_id) {
+        } else if (id == R.id.open_webapk_id || id == R.id.menu_open_webapk_id) {
             Context context = ContextUtils.getApplicationContext();
             String packageName =
                     WebApkValidator.queryFirstWebApkPackage(context, currentTab.getUrlString());

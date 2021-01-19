@@ -55,6 +55,8 @@ constexpr base::TimeDelta kBackgroundAdvertisementRotationDelayMin =
     base::TimeDelta::FromMinutes(12);
 constexpr base::TimeDelta kBackgroundAdvertisementRotationDelayMax =
     base::TimeDelta::FromMinutes(15);
+constexpr base::TimeDelta kInvalidateSurfaceStateDelayAfterTransferDone =
+    base::TimeDelta::FromMilliseconds(3000);
 
 // Used to hash a token into a 4 digit string.
 constexpr int kHashModulo = 9973;
@@ -269,6 +271,7 @@ NearbySharingServiceImpl::NearbySharingServiceImpl(
 
   nearby_process_observer_.Add(process_manager_);
   power_client_->AddObserver(this);
+  certificate_manager_->AddObserver(this);
 
   settings_.AddSettingsObserver(settings_receiver_.BindNewPipeAndPassRemote());
 
@@ -315,6 +318,7 @@ void NearbySharingServiceImpl::Shutdown() {
     process_manager_->StopProcess(profile_);
 
   power_client_->RemoveObserver(this);
+  certificate_manager_->RemoveObserver(this);
 
   // TODO(crbug/1147652): The call to update the advertising interval is
   // removed to prevent a Bluez crash. We need to either reduce the global
@@ -356,6 +360,9 @@ void NearbySharingServiceImpl::Shutdown() {
     contact_manager_->Stop();
     certificate_manager_->Stop();
   }
+
+  process_shutdown_pending_timer_.Stop();
+  rotate_background_advertisement_timer_.Stop();
 
   // |profile_| has now been shut down so we shouldn't use it anymore.
   profile_ = nullptr;
@@ -748,6 +755,77 @@ void NearbySharingServiceImpl::Reject(
 void NearbySharingServiceImpl::Cancel(
     const ShareTarget& share_target,
     StatusCodesCallback status_codes_callback) {
+  NS_LOG(INFO) << __func__ << ": User canceled transfer";
+  DoCancel(share_target, std::move(status_codes_callback),
+           /*write_cancel_frame=*/true);
+}
+
+void NearbySharingServiceImpl::DoCancel(
+    ShareTarget share_target,
+    StatusCodesCallback status_codes_callback,
+    bool write_cancel_frame) {
+  ShareTargetInfo* info = GetShareTargetInfo(share_target);
+  if (!info || !info->endpoint_id()) {
+    NS_LOG(ERROR) << __func__
+                  << ": Cancel invoked for unknown share target, returning "
+                     "kOutOfOrderApiCall";
+    // Make sure to clean up files just in case.
+    RemoveIncomingPayloads(share_target);
+    std::move(status_codes_callback).Run(StatusCodes::kOutOfOrderApiCall);
+    return;
+  }
+
+  // Cancel all ongoing payload transfers before invoking the transfer update
+  // callback. Invoking the transfer update callback first could result in
+  // payload cleanup before we have a chance to cancel the payload via Nearby
+  // Connections, and the payload tracker might not receive the expected
+  // cancellation signals. Also, note that there might not be any ongoing
+  // payload transfer, for example, if a connection has not been established
+  // yet.
+  for (int64_t attachment_id : share_target.GetAttachmentIds()) {
+    base::Optional<int64_t> payload_id = GetAttachmentPayloadId(attachment_id);
+    if (payload_id) {
+      nearby_connections_manager_->Cancel(*payload_id);
+    }
+  }
+
+  // Inform the user that the transfer has been cancelled before disconnecting
+  // because subsequent disconnections might be interpreted as failure. The
+  // TransferUpdateDecorator will ignore subsequent statuses in favor of this
+  // cancelled status. Note that the transfer update callback might have already
+  // been invoked as a result of the payload cancellations above, but again,
+  // superfluous status updates are handled gracefully by the
+  // TransferUpdateDecorator.
+  if (info->transfer_update_callback()) {
+    info->transfer_update_callback()->OnTransferUpdate(
+        share_target, TransferMetadataBuilder()
+                          .set_status(TransferMetadata::Status::kCancelled)
+                          .build());
+  }
+
+  // If a connection exists, close the connection after a short delay that
+  // allows for final processing by the other device. Otherwise, disconnect from
+  // endpoint id directly. Note: A share attempt can be cancelled by the user
+  // before a connection is fully established, in which case, info->connection()
+  // will be null.
+  if (info->connection()) {
+    info->connection()->SetDisconnectionListener(
+        base::BindOnce(&NearbySharingServiceImpl::UnregisterShareTarget,
+                       weak_ptr_factory_.GetWeakPtr(), share_target));
+    base::SequencedTaskRunnerHandle::Get()->PostDelayedTask(
+        FROM_HERE,
+        base::BindOnce(&NearbySharingServiceImpl::CloseConnection,
+                       weak_ptr_factory_.GetWeakPtr(), share_target),
+        kIncomingCancelDelay);
+
+    if (write_cancel_frame) {
+      WriteCancel(*info->connection());
+    }
+  } else {
+    nearby_connections_manager_->Disconnect(*info->endpoint_id());
+    UnregisterShareTarget(share_target);
+  }
+
   std::move(status_codes_callback).Run(StatusCodes::kOk);
 }
 
@@ -911,6 +989,22 @@ void NearbySharingServiceImpl::OnAllowedContactsChanged(
   // TODO(vecore): handle visible contacts change
 }
 
+void NearbySharingServiceImpl::OnPublicCertificatesDownloaded() {
+  // TODO(https://crbug.com/1152158): Possibly restart scanning after public
+  // certificates are downloaded.
+}
+
+void NearbySharingServiceImpl::OnPrivateCertificatesChanged() {
+  // If we are currently advertising, restart advertising using the updated
+  // private certificates.
+  if (rotate_background_advertisement_timer_.IsRunning()) {
+    NS_LOG(VERBOSE)
+        << __func__
+        << ": Private certificates changed; rotating background advertisement.";
+    rotate_background_advertisement_timer_.FireNow();
+  }
+}
+
 void NearbySharingServiceImpl::OnEndpointDiscovered(
     const std::string& endpoint_id,
     const std::vector<uint8_t>& endpoint_info) {
@@ -1007,6 +1101,10 @@ NearbySharingServiceImpl::CreateEndpointInfo(
     if (encrypted_metadata_key) {
       salt = encrypted_metadata_key->salt();
       encrypted_key = encrypted_metadata_key->encrypted_key();
+    } else {
+      NS_LOG(WARNING) << __func__
+                      << ": Failed to encrypt private certificate metadata key "
+                      << "for advertisement.";
     }
   }
 
@@ -1223,8 +1321,19 @@ void NearbySharingServiceImpl::InvalidateSurfaceState() {
   InvalidateSendSurfaceState();
   InvalidateReceiveSurfaceState();
   if (ShouldStopNearbyProcess()) {
-    NS_LOG(VERBOSE) << __func__ << ": Stopping process because it's not in use";
-    process_manager_->StopProcess(profile_);
+    // We need to debounce the call to shut down the process in case this state
+    // is temporary (we don't want to the thrash the process). Any advertisment,
+    // scanning or transfering will stop this timer from triggering.
+    NS_LOG(INFO) << __func__
+                 << ": Scheduling process shutdown if not needed in 15 seconds";
+    // NOTE: Using base::Unretained is safe because if shutdown_pending_timer_
+    // goes out of scope the timer will be canceled.
+    process_shutdown_pending_timer_.Start(
+        FROM_HERE, base::TimeDelta::FromSeconds(15),
+        base::BindOnce(&NearbySharingServiceImpl::OnProcessShutdownTimerFired,
+                       base::Unretained(this)));
+  } else {
+    process_shutdown_pending_timer_.Stop();
   }
 }
 
@@ -1255,6 +1364,14 @@ bool NearbySharingServiceImpl::ShouldStopNearbyProcess() {
 
   // We're not using NearbyConnections, should stop the process.
   return true;
+}
+
+void NearbySharingServiceImpl::OnProcessShutdownTimerFired() {
+  if (ShouldStopNearbyProcess()) {
+    NS_LOG(INFO) << __func__
+                 << ": Shutdown Process timer fired, shutting down process";
+    process_manager_->StopProcess(profile_);
+  }
 }
 
 void NearbySharingServiceImpl::InvalidateSendSurfaceState() {
@@ -1326,6 +1443,7 @@ void NearbySharingServiceImpl::InvalidateScanningState() {
     return;
   }
 
+  process_shutdown_pending_timer_.Stop();
   // Screen is on, Bluetooth is enabled, and Nearby Sharing is enabled! Start
   // discovery.
   StartScanning();
@@ -1392,6 +1510,8 @@ void NearbySharingServiceImpl::InvalidateFastInitiationAdvertising() {
         << "Failed to advertise FastInitiation. Already advertising.";
     return;
   }
+
+  process_shutdown_pending_timer_.Stop();
 
   StartFastInitiationAdvertising();
 }
@@ -1485,6 +1605,8 @@ void NearbySharingServiceImpl::InvalidateAdvertisingState() {
     return;
   }
 
+  process_shutdown_pending_timer_.Stop();
+
   PowerLevel power_level;
   if (foreground_receive_callbacks_.might_have_observers()) {
     power_level = PowerLevel::kHighPower;
@@ -1536,7 +1658,7 @@ void NearbySharingServiceImpl::InvalidateAdvertisingState() {
 
   nearby_connections_manager_->StartAdvertising(
       *endpoint_info,
-      /* listener= */ this, power_level, data_usage,
+      /*listener=*/this, power_level, data_usage,
       base::BindOnce(&NearbySharingServiceImpl::OnStartAdvertisingResult,
                      weak_ptr_factory_.GetWeakPtr(), device_name.has_value()));
 
@@ -1593,7 +1715,7 @@ void NearbySharingServiceImpl::StartScanning() {
   ClearOutgoingShareTargetInfoMap();
 
   nearby_connections_manager_->StartDiscovery(
-      /* listener= */ this, settings_.GetDataUsage(),
+      /*listener=*/this, settings_.GetDataUsage(),
       base::BindOnce([](NearbyConnectionsManager::ConnectionsStatus status) {
         NS_LOG(VERBOSE) << __func__
                         << ": Scanning start attempted over Nearby Connections "
@@ -1685,20 +1807,22 @@ void NearbySharingServiceImpl::RemoveOutgoingShareTargetWithEndpointId(
 }
 
 void NearbySharingServiceImpl::OnTransferComplete() {
+  bool was_sending_files = is_sending_files_;
   is_receiving_files_ = false;
   is_transferring_ = false;
   is_sending_files_ = false;
 
   NS_LOG(VERBOSE) << __func__
                   << ": NearbySharing state change transfer finished";
-  // TODO(crbug.com/1123167): Check if we need to delay InvalidateSurfaceState()
-  // for 500ms similar to GmsCore impl.
-  // Post a task as InvalidateSurfaceState() might invalidate ShareTargetInfo
-  // object that are still in use.
-  base::SequencedTaskRunnerHandle::Get()->PostTask(
+  // Files transfer is done! Receivers can immediately cancel, but senders
+  // should add a short delay to ensure the final in-flight packet(s) make
+  // it to the remote device.
+  base::SequencedTaskRunnerHandle::Get()->PostDelayedTask(
       FROM_HERE,
       base::BindOnce(&NearbySharingServiceImpl::InvalidateSurfaceState,
-                     weak_ptr_factory_.GetWeakPtr()));
+                     weak_ptr_factory_.GetWeakPtr()),
+      was_sending_files ? kInvalidateSurfaceStateDelayAfterTransferDone
+                        : base::TimeDelta());
 }
 
 void NearbySharingServiceImpl::OnTransferStarted(bool is_incoming) {
@@ -2194,6 +2318,20 @@ void NearbySharingServiceImpl::WriteResponse(
   connection.Write(std::move(data));
 }
 
+void NearbySharingServiceImpl::WriteCancel(NearbyConnection& connection) {
+  NS_LOG(INFO) << __func__ << ": Writing cancel frame.";
+
+  sharing::nearby::Frame frame;
+  frame.set_version(sharing::nearby::Frame::V1);
+  sharing::nearby::V1Frame* v1_frame = frame.mutable_v1();
+  v1_frame->set_type(sharing::nearby::V1Frame::CANCEL);
+
+  std::vector<uint8_t> data(frame.ByteSize());
+  frame.SerializeToArray(data.data(), frame.ByteSize());
+
+  connection.Write(std::move(data));
+}
+
 void NearbySharingServiceImpl::Fail(const ShareTarget& share_target,
                                     TransferMetadata::Status status) {
   ShareTargetInfo* info = GetShareTargetInfo(share_target);
@@ -2293,6 +2431,11 @@ void NearbySharingServiceImpl::OnIncomingTransferUpdate(
     RecordNearbyShareTransferCompletionStatusMetric(
         /*is_incoming=*/true, share_target.type, metadata.status());
     OnTransferComplete();
+    if (metadata.status() != TransferMetadata::Status::kComplete) {
+      // For any type of failure, lets make sure any pending files get cleaned
+      // up.
+      RemoveIncomingPayloads(share_target);
+    }
   } else if (metadata.status() ==
              TransferMetadata::Status::kAwaitingLocalConfirmation) {
     OnTransferStarted(/*is_incoming=*/true);
@@ -2920,9 +3063,8 @@ void NearbySharingServiceImpl::OnFrameRead(
   sharing::mojom::V1FramePtr v1_frame = std::move(*frame);
   switch (v1_frame->which()) {
     case sharing::mojom::V1Frame::Tag::CANCEL_FRAME:
-      NS_LOG(VERBOSE) << __func__
-                      << ": Read the cancel frame, closing connection";
-      Cancel(share_target, base::DoNothing());
+      NS_LOG(INFO) << __func__ << ": Read the cancel frame, closing connection";
+      DoCancel(share_target, base::DoNothing(), /*write_cancel_frame=*/false);
       break;
 
     case sharing::mojom::V1Frame::Tag::CERTIFICATE_INFO:
@@ -3090,10 +3232,11 @@ void NearbySharingServiceImpl::OnPayloadTransferUpdate(
   if (info && info->transfer_update_callback())
     info->transfer_update_callback()->OnTransferUpdate(share_target, metadata);
 
-  if (TransferMetadata::IsFinalStatus(metadata.status())) {
-    if (metadata.status() != TransferMetadata::Status::kComplete)
-      OnPayloadsFailed(share_target);
-
+  // Cancellation has its own disconnection strategy, possibly adding a delay
+  // before disconnection to provide the other party time to process the
+  // cancellation.
+  if (TransferMetadata::IsFinalStatus(metadata.status()) &&
+      metadata.status() != TransferMetadata::Status::kCancelled) {
     Disconnect(share_target, metadata);
   }
 }
@@ -3171,9 +3314,12 @@ bool NearbySharingServiceImpl::OnIncomingPayloadsComplete(
   return true;
 }
 
-void NearbySharingServiceImpl::OnPayloadsFailed(ShareTarget share_target) {
+void NearbySharingServiceImpl::RemoveIncomingPayloads(
+    ShareTarget share_target) {
   if (!share_target.is_incoming)
     return;
+
+  NS_LOG(INFO) << __func__ << ": Cleaning up payloads due to transfer failure";
 
   nearby_connections_manager_->ClearIncomingPayloads();
   std::vector<base::FilePath> files_for_deletion;
@@ -3266,8 +3412,9 @@ ShareTargetInfo& NearbySharingServiceImpl::GetOrCreateShareTargetInfo(
     info.set_endpoint_id(endpoint_id);
     return info;
   } else {
-    // We need to explicitly remove any previous share target for |endpoint_id|
-    // if one exists, notifying observers that a share target is lost.
+    // We need to explicitly remove any previous share target for
+    // |endpoint_id| if one exists, notifying observers that a share target is
+    // lost.
     const auto it = outgoing_share_target_map_.find(endpoint_id);
     if (it != outgoing_share_target_map_.end() &&
         it->second.id != share_target.id) {

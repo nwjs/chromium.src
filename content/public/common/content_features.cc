@@ -284,6 +284,11 @@ const base::Feature kFractionalScrollOffsets{"FractionalScrollOffsets",
 const base::Feature kNetworkQualityEstimatorWebHoldback{
     "NetworkQualityEstimatorWebHoldback", base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Determines if an extra brand version pair containing possibly escaped double
+// quotes and escaped backslashed should be added to the Sec-CH-UA header
+// (activated by kUserAgentClientHint)
+const base::Feature kGreaseUACH{"GreaseUACH", base::FEATURE_ENABLED_BY_DEFAULT};
+
 // If a page does a client side redirect or adds to the history without a user
 // gesture, then skip it on back/forward UI.
 const base::Feature kHistoryManipulationIntervention{
@@ -430,7 +435,7 @@ const base::Feature kNotificationTriggers{"NotificationTriggers",
 // Note that the origin policy-based variant of origin isolation is controlled
 // by kOriginPolicy, instead.
 const base::Feature kOriginIsolationHeader{"OriginIsolationHeader",
-                                           base::FEATURE_ENABLED_BY_DEFAULT};
+                                           base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Origin Policy. See https://crbug.com/751996
 const base::Feature kOriginPolicy{"OriginPolicy",

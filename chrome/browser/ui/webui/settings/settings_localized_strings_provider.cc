@@ -604,6 +604,7 @@ void AddResetStrings(content::WebUIDataSource* html_source, Profile* profile) {
     {"triggeredResetPageExplanation",
      IDS_TRIGGERED_RESET_PROFILE_SETTINGS_EXPLANATION},
     {"triggeredResetPageTitle", IDS_TRIGGERED_RESET_PROFILE_SETTINGS_TITLE},
+    {"resetDialogTitle", IDS_SETTINGS_RESET_PROMPT_TITLE},
     {"resetDialogCommit", IDS_SETTINGS_RESET},
     {"resetPageFeedback", IDS_SETTINGS_RESET_PROFILE_FEEDBACK},
 
@@ -1238,7 +1239,7 @@ void AddPeopleStrings(content::WebUIDataSource* html_source, Profile* profile) {
                           ProfileShortcutManager::IsFeatureEnabled());
 #if !defined(OS_CHROMEOS)
   html_source->AddLocalizedString(
-      "editPerson", base::FeatureList::IsEnabled(features::kProfilesUIRevamp)
+      "editPerson", base::FeatureList::IsEnabled(features::kNewProfilePicker)
                         ? IDS_SETTINGS_CUSTOMIZE_PROFILE
                         : IDS_SETTINGS_EDIT_PERSON);
 #endif

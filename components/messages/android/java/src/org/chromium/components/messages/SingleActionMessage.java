@@ -7,6 +7,7 @@ package org.chromium.components.messages;
 import android.annotation.SuppressLint;
 import android.text.format.DateUtils;
 import android.view.LayoutInflater;
+import android.view.View;
 
 import androidx.annotation.VisibleForTesting;
 
@@ -42,6 +43,9 @@ public class SingleActionMessage implements MessageStateHandler {
         mDismissHandler = dismissHandler;
         mAutoDismissTimer = new MessageAutoDismissTimer(10 * DateUtils.SECOND_IN_MILLIS);
         mMaxTranslationSupplier = maxTranslationSupplier;
+
+        mModel.set(
+                MessageBannerProperties.PRIMARY_BUTTON_CLICK_LISTENER, this::handlePrimaryAction);
     }
 
     /**
@@ -53,14 +57,20 @@ public class SingleActionMessage implements MessageStateHandler {
         if (mMessageBanner == null) {
             mView = (MessageBannerView) LayoutInflater.from(mContainer.getContext())
                             .inflate(R.layout.message_banner_view, mContainer, false);
-            mMessageBanner = new MessageBannerCoordinator(
-                    mView, mModel, mMaxTranslationSupplier, mContainer.getResources());
+            mMessageBanner = new MessageBannerCoordinator(mView, mModel, mMaxTranslationSupplier,
+                    mContainer.getResources(), mDismissHandler.bind(mModel));
         }
         mContainer.addMessage(mView);
-        mMessageBanner.show(() -> {
+
+        final Runnable showRunnable = () -> mMessageBanner.show(() -> {
             mMessageBanner.setOnTouchRunnable(mAutoDismissTimer::resetTimer);
             mAutoDismissTimer.startTimer(() -> { mDismissHandler.onResult(mModel); });
         });
+
+        // Wait until the message and the container are measured before showing the message. This
+        // is required in case the animation set-up requires the height of the container, e.g.
+        // showing messages without the top controls visible.
+        mContainer.runAfterInitialLayout(showRunnable);
     }
 
     /**
@@ -89,6 +99,11 @@ public class SingleActionMessage implements MessageStateHandler {
         mAutoDismissTimer.cancelTimer();
         Runnable onDismissed = mModel.get(MessageBannerProperties.ON_DISMISSED);
         if (onDismissed != null) onDismissed.run();
+    }
+
+    private void handlePrimaryAction(View v) {
+        mModel.get(MessageBannerProperties.ON_PRIMARY_ACTION).run();
+        mDismissHandler.onResult(mModel);
     }
 
     @VisibleForTesting

@@ -58,7 +58,7 @@ Ndryshe kjo do të bllokohet nga cilësimet e tua të privatësisë. Kjo do ta l
 <translation id="1186201132766001848">Kontrollo fjalëkalimet</translation>
 <translation id="1195558154361252544">Njoftimet janë bllokuar automatikisht për të gjitha sajtet përveçse për ato që lejon ti</translation>
 <translation id="1197088940767939838">Portokalli</translation>
-<translation id="1201402288615127009">Tjetra</translation>
+<translation id="1201402288615127009">Para</translation>
 <translation id="1201895884277373915">Më shumë nga ky sajt</translation>
 <translation id="1206967143813997005">Nënshkrimi fillestar i gabuar</translation>
 <translation id="1209206284964581585">Fshih për momentin</translation>
@@ -304,6 +304,7 @@ Ndryshe kjo do të bllokohet nga cilësimet e tua të privatësisë. Kjo do ta l
 <translation id="2102495993840063010">Aplikacionet e Android</translation>
 <translation id="2107021941795971877">Mbështetjet e printimit</translation>
 <translation id="2108755909498034140">Rinis kompjuterin</translation>
+<translation id="2111166930115883695">Shtyp hapësirën për të luajtur</translation>
 <translation id="2111256659903765347">Super-A</translation>
 <translation id="2113977810652731515">Karta</translation>
 <translation id="2114841414352855701">U shpërfill për shkak se u anulua nga <ph name="POLICY_NAME" />.</translation>
@@ -315,6 +316,7 @@ Ndryshe kjo do të bllokohet nga cilësimet e tua të privatësisë. Kjo do ta l
 <translation id="214556005048008348">Anulo pagesën</translation>
 <translation id="2147827593068025794">Sinkronizimi në sfond</translation>
 <translation id="2148613324460538318">Shto kartë</translation>
+<translation id="2149968176347646218">Lidhja nuk është e sigurt</translation>
 <translation id="2154054054215849342">Sinkronizimi nuk ofrohet për domenin tënd</translation>
 <translation id="2154484045852737596">Redakto kartën</translation>
 <translation id="2161656808144014275">Teksti</translation>
@@ -518,6 +520,7 @@ Ndryshe kjo do të bllokohet nga cilësimet e tua të privatësisë. Kjo do ta l
 <translation id="3010559122411665027">Hyrja e listës "<ph name="ENTRY_INDEX" />": <ph name="ERROR" /></translation>
 <translation id="301521992641321250">Bllokuar automatikisht</translation>
 <translation id="3016780570757425217">Njihu me vendndodhjen tënde</translation>
+<translation id="3017086357773116182"><ph name="REMOVE_SUGGESTION_SUFFIX" />, shtyp Tab dhe më pas shtyp Enter për të hequr sugjerimin.</translation>
 <translation id="3023071826883856138">You4 (Zarf)</translation>
 <translation id="3024663005179499861">Lloj i gabuar politike</translation>
 <translation id="3037605927509011580">Ndërprerje aksidentale!</translation>
@@ -760,6 +763,7 @@ Ndryshe kjo do të bllokohet nga cilësimet e tua të privatësisë. Kjo do ta l
 <translation id="4056223980640387499">Sepia</translation>
 <translation id="4058922952496707368">Çelësi "<ph name="SUBKEY" />": <ph name="ERROR" /></translation>
 <translation id="4067263367174615723">C1 (Zarf)</translation>
+<translation id="4067669230157909013">Regjistrimi i ekranit u riaktivizua.</translation>
 <translation id="4067947977115446013">Shto adresë të vlefshme</translation>
 <translation id="4072486802667267160">Ndodhi një gabim gjatë përpunimit të porosisë. Provo përsëri.</translation>
 <translation id="4075732493274867456">Klienti dhe serveri nuk mbështesin një version të zakonshëm të protokollit SSL ose një paketë të shifrimit.</translation>
@@ -842,6 +846,7 @@ Ndryshe kjo do të bllokohet nga cilësimet e tua të privatësisë. Kjo do ta l
 <translation id="4297502707443874121">Miniatura për faqen <ph name="THUMBNAIL_PAGE" /></translation>
 <translation id="42981349822642051">Zgjero</translation>
 <translation id="4300675098767811073">Shumë shpime djathtas</translation>
+<translation id="4302514097724775343">Trokit te dinozauri për të luajtur</translation>
 <translation id="4302965934281694568">Chou3 (Zarf)</translation>
 <translation id="4305666528087210886">Qasja te skedari ishte e pamundur</translation>
 <translation id="4305817255990598646">Ndërro</translation>
@@ -1164,12 +1169,12 @@ Ndryshe kjo do të bllokohet nga cilësimet e tua të privatësisë. Kjo do ta l
 <translation id="5571083550517324815">Nuk mund të merret nga kjo adresë. Zgjidh një adresë tjetër.</translation>
 <translation id="5580958916614886209">Kontrollo muajin e skadimit dhe provo përsëri</translation>
 <translation id="5586446728396275693">Nuk ka adresa të ruajtura</translation>
+<translation id="5593349413089863479">Lidhja nuk është plotësisht e sigurt</translation>
 <translation id="5595485650161345191">Redakto adresën</translation>
 <translation id="5598944008576757369">Zgjidh mënyrën e pagesës</translation>
 <translation id="560412284261940334">Menaxhimi nuk mbështetet</translation>
 <translation id="5605670050355397069">Ledger</translation>
 <translation id="5607240918979444548">Architecture-C</translation>
-<translation id="5608165884683734521">Ky sajt mund të jetë i rremë ose mashtrues. Chrome rekomandon që të largohesh tani.</translation>
 <translation id="5610142619324316209">Të kontrollosh lidhjen</translation>
 <translation id="5610807607761827392">Mund t'i menaxhosh kartat dhe adresat te <ph name="BEGIN_LINK" />Cilësimet<ph name="END_LINK" />.</translation>
 <translation id="561165882404867731">Përktheje këtë faqe me "Përkthe me Google"</translation>
@@ -1241,6 +1246,7 @@ Ndryshe kjo do të bllokohet nga cilësimet e tua të privatësisë. Kjo do ta l
 <translation id="5901630391730855834">E verdhë</translation>
 <translation id="5905445707201418379">Bllokuar sipas politikës së origjinës së <ph name="ORIGIN" />.</translation>
 <translation id="5908541034548427511"><ph name="TYPE_1" /> (sinkronizuar)</translation>
+<translation id="5913377024445952699">Regjistrimi i ekranit u vendos në pauzë</translation>
 <translation id="59174027418879706">Aktivizuar</translation>
 <translation id="5919090499915321845">B10</translation>
 <translation id="5921185718311485855">Aktive</translation>
@@ -1253,6 +1259,7 @@ Ndryshe kjo do të bllokohet nga cilësimet e tua të privatësisë. Kjo do ta l
 <translation id="5963413905009737549">Seksioni</translation>
 <translation id="5967592137238574583">Modifiko informacionet e kontaktit</translation>
 <translation id="5967867314010545767">Hiqe nga historiku</translation>
+<translation id="5968793460449681917">Në çdo vizitë</translation>
 <translation id="5975083100439434680">Zvogëlo</translation>
 <translation id="5979084224081478209">Kontrollo fjalëkalimet</translation>
 <translation id="5980920751713728343">Index-3x5</translation>
@@ -1467,6 +1474,7 @@ Ndryshe kjo do të bllokohet nga cilësimet e tua të privatësisë. Kjo do ta l
 <translation id="6895330447102777224">Karta jote është konfirmuar</translation>
 <translation id="6897140037006041989">Agjenti i përdoruesit</translation>
 <translation id="6898699227549475383">Organizata (O)</translation>
+<translation id="6907293445143367439">Lejo <ph name="SITE_NAME" /> te:</translation>
 <translation id="6910240653697687763"><ph name="URL" /> kërkon të marrë nën kontroll të plotë pajisjet e tua MIDI</translation>
 <translation id="6915804003454593391">Përdoruesi:</translation>
 <translation id="6934672428414710184">Ky emër është nga "Llogaria jote e Google"</translation>
@@ -1902,6 +1910,7 @@ Detaje shtesë:
 <translation id="8574899947864779331">Përdor Touch ID për të konfirmuar kartat më shpejt</translation>
 <translation id="858637041960032120">Shto numrin e telefonit</translation>
 <translation id="8589998999637048520">Cilësia më e mirë</translation>
+<translation id="8600271352425265729">Vetëm këtë herë</translation>
 <translation id="860043288473659153">Emri i mbajtësit të kartës</translation>
 <translation id="8606726445206553943">Përdor pajisjet e tua MIDI</translation>
 <translation id="8612761427948161954">Përshëndetje <ph name="USERNAME" />,
@@ -1911,6 +1920,7 @@ Detaje shtesë:
 <translation id="8622948367223941507">Legal-Extra</translation>
 <translation id="8623885649813806493">Nuk ka asnjë fjalëkalim që përputhet. Shfaq të gjitha fjalëkalimet e ruajtura.</translation>
 <translation id="8625384913736129811">Ruaje këtë kartë në këtë pajisje</translation>
+<translation id="8627040765059109009">Regjistrimi i ekranit u riaktivizua</translation>
 <translation id="8657078576661269990">Administratori yt ka bllokuar ndarjen nga <ph name="ORIGIN_NAME" /> në <ph name="VM_NAME_1" /> dhe <ph name="VM_NAME_2" /></translation>
 <translation id="8663226718884576429">Përmbledhje e porosisë, <ph name="TOTAL_LABEL" />, detaje të tjera</translation>
 <translation id="867224526087042813">Nënshkrimi</translation>
@@ -2058,6 +2068,7 @@ Detaje shtesë:
 <translation id="939736085109172342">Dosje e re</translation>
 <translation id="945855313015696284">Kontrollo informacionin më poshtë dhe fshi çdo kartë të pavlefshme</translation>
 <translation id="950736567201356821">Tri shpime lart</translation>
+<translation id="951941430552851965">Regjistrimi i ekranit u vendos në pauzë nga administratori yt për shkak të përmbajtjes në ekranin tënd.</translation>
 <translation id="961663415146723894">Lidhje poshtë</translation>
 <translation id="962484866189421427">Kjo përmbajtje mund të përpiqet të instalojë aplikacione mashtruese që pretendojnë se janë diçka tjetër ose që mbledhin të dhëna që mund të përdoren për të të gjurmuar. <ph name="BEGIN_LINK" />Shfaq gjithsesi<ph name="END_LINK" /></translation>
 <translation id="969892804517981540">Ndërtimi zyrtar</translation>

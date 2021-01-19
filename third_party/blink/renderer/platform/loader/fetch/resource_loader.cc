@@ -206,7 +206,7 @@ class ResourceLoader::CodeCacheRequest {
  public:
   CodeCacheRequest(std::unique_ptr<WebCodeCacheLoader> code_cache_loader,
                    const KURL& url,
-                   bool defers_loading)
+                   WebURLLoader::DeferType defers_loading)
       : status_(kNoRequestSent),
         code_cache_loader_(std::move(code_cache_loader)),
         url_(url),
@@ -232,7 +232,7 @@ class ResourceLoader::CodeCacheRequest {
   // once fetching from code cache is finished. Returns true if the
   // request is handled here and hence need not be handled by the loader.
   // Returns false otherwise.
-  bool SetDefersLoading(bool defers);
+  bool SetDefersLoading(WebURLLoader::DeferType defers);
 
  private:
   enum CodeCacheRequestStatus {
@@ -259,7 +259,8 @@ class ResourceLoader::CodeCacheRequest {
   CodeCacheRequestStatus status_;
   std::unique_ptr<WebCodeCacheLoader> code_cache_loader_;
   const WebURL url_;
-  bool defers_loading_ = false;
+  WebURLLoader::DeferType defers_loading_ =
+      WebURLLoader::DeferType::kNotDeferred;
   mojo_base::BigBuffer cached_code_;
   base::Time cached_code_response_time_;
   base::Time resource_response_time_;
@@ -279,7 +280,7 @@ bool ResourceLoader::CodeCacheRequest::FetchFromCodeCache(
   // ensure that the resource receives cached code before the response data.
   // This directly calls the WebURLLoader's SetDefersLoading without going
   // through ResourceLoader.
-  url_loader->SetDefersLoading(true);
+  url_loader->SetDefersLoading(WebURLLoader::DeferType::kDeferred);
 
   WebCodeCacheLoader::FetchCodeCacheCallback callback =
       base::BindOnce(&ResourceLoader::CodeCacheRequest::DidReceiveCachedCode,
@@ -317,7 +318,8 @@ void ResourceLoader::CodeCacheRequest::DidReceiveResponse(
 
 // Returns true if |this| handles |defers| and therefore the callsite, i.e. the
 // loader, doesn't need to take care of it). Returns false otherwise.
-bool ResourceLoader::CodeCacheRequest::SetDefersLoading(bool defers) {
+bool ResourceLoader::CodeCacheRequest::SetDefersLoading(
+    WebURLLoader::DeferType defers) {
   defers_loading_ = defers;
   if (status_ == kPendingResponse) {
     // The flag doesn't need to be handled by the loader. The value is stored
@@ -550,7 +552,7 @@ void ResourceLoader::DidFinishLoadingBody() {
   const ResourceResponse& response = resource_->GetResponse();
   if (deferred_finish_loading_info_) {
     DidFinishLoading(
-        deferred_finish_loading_info_->response_end,
+        deferred_finish_loading_info_->response_end_time,
         response.EncodedDataLength(), response.EncodedBodyLength(),
         response.DecodedBodyLength(),
         deferred_finish_loading_info_->should_report_corb_blocking);
@@ -558,7 +560,8 @@ void ResourceLoader::DidFinishLoadingBody() {
 }
 
 void ResourceLoader::DidFailLoadingBody() {
-  DidFail(WebURLError(ResourceError::Failure(resource_->Url())), 0, 0, 0);
+  DidFail(WebURLError(ResourceError::Failure(resource_->Url())),
+          base::TimeTicks::Now(), 0, 0, 0);
 }
 
 void ResourceLoader::DidCancelLoadingBody() {
@@ -578,12 +581,12 @@ void ResourceLoader::StartWith(const ResourceRequestHead& request) {
 
   is_downloading_to_blob_ = request.DownloadToBlob();
 
-  SetDefersLoading(fetcher_->GetProperties().IsLoadDeferred());
+  SetDefersLoading(fetcher_->GetProperties().DeferType());
 
   if (ShouldFetchCodeCache()) {
     code_cache_request_ = std::make_unique<CodeCacheRequest>(
         fetcher_->CreateCodeCacheLoader(), request.Url(),
-        fetcher_->GetProperties().IsLoadDeferred());
+        fetcher_->GetProperties().DeferType());
   }
 
   if (is_cache_aware_loading_activated_) {
@@ -620,7 +623,7 @@ void ResourceLoader::Restart(const ResourceRequestHead& request) {
   StartWith(request);
 }
 
-void ResourceLoader::SetDefersLoading(bool defers) {
+void ResourceLoader::SetDefersLoading(WebURLLoader::DeferType defers) {
   DCHECK(loader_);
   defers_ = defers;
   // If CodeCacheRequest handles this, then no need to handle here.
@@ -628,16 +631,21 @@ void ResourceLoader::SetDefersLoading(bool defers) {
     return;
 
   if (response_body_loader_) {
-    if (defers && !response_body_loader_->IsSuspended()) {
-      response_body_loader_->Suspend();
+    if (defers != WebURLLoader::DeferType::kNotDeferred &&
+        !response_body_loader_->IsSuspended()) {
+      response_body_loader_->Suspend(defers);
+      if (defers == WebURLLoader::DeferType::kDeferredWithBackForwardCache) {
+        response_body_loader_->EvictFromBackForwardCacheIfDrained();
+      }
     }
-    if (!defers && response_body_loader_->IsSuspended()) {
+    if (defers == WebURLLoader::DeferType::kNotDeferred &&
+        response_body_loader_->IsSuspended()) {
       response_body_loader_->Resume();
     }
   }
 
   if (defers_handling_data_url_) {
-    if (!defers_) {
+    if (defers_ == WebURLLoader::DeferType::kNotDeferred) {
       defers_handling_data_url_ = false;
       GetLoadingTaskRunner()->PostTask(
           FROM_HERE,
@@ -646,7 +654,7 @@ void ResourceLoader::SetDefersLoading(bool defers) {
   }
 
   loader_->SetDefersLoading(defers);
-  if (defers) {
+  if (defers != WebURLLoader::DeferType::kNotDeferred) {
     resource_->VirtualTimePauser().UnpauseVirtualTime();
   } else {
     resource_->VirtualTimePauser().PauseVirtualTime();
@@ -1064,7 +1072,7 @@ void ResourceLoader::DidStartLoadingResponseBody(
   DataPipeBytesConsumer::CompletionNotifier* completion_notifier = nullptr;
   DidStartLoadingResponseBodyInternal(
       *MakeGarbageCollected<DataPipeBytesConsumer>(
-          GetLoadingTaskRunner(), std::move(body), &completion_notifier));
+          task_runner_for_body_loader_, std::move(body), &completion_notifier));
   data_pipe_completion_notifier_ = completion_notifier;
 }
 
@@ -1097,7 +1105,7 @@ void ResourceLoader::DidFinishLoadingFirstPartInMultipart() {
                                0, false);
 }
 
-void ResourceLoader::DidFinishLoading(base::TimeTicks response_end,
+void ResourceLoader::DidFinishLoading(base::TimeTicks response_end_time,
                                       int64_t encoded_data_length,
                                       int64_t encoded_body_length,
                                       int64_t decoded_body_length,
@@ -1106,13 +1114,15 @@ void ResourceLoader::DidFinishLoading(base::TimeTicks response_end,
   resource_->SetEncodedBodyLength(encoded_body_length);
   resource_->SetDecodedBodyLength(decoded_body_length);
 
+  response_end_time_for_error_cases_ = response_end_time;
+
   if ((response_body_loader_ && !has_seen_end_of_body_ &&
        !response_body_loader_->IsAborted()) ||
       (is_downloading_to_blob_ && !blob_finished_ && blob_response_started_)) {
     // If the body is still being loaded, we defer the completion until all the
     // body is received.
-    deferred_finish_loading_info_ =
-        DeferredFinishLoadingInfo{response_end, should_report_corb_blocking};
+    deferred_finish_loading_info_ = DeferredFinishLoadingInfo{
+        response_end_time, should_report_corb_blocking};
 
     if (data_pipe_completion_notifier_)
       data_pipe_completion_notifier_->SignalComplete();
@@ -1135,15 +1145,17 @@ void ResourceLoader::DidFinishLoading(base::TimeTicks response_end,
       "endData", EndResourceLoadData(RequestOutcome::kSuccess));
 
   fetcher_->HandleLoaderFinish(
-      resource_.Get(), response_end, ResourceFetcher::kDidFinishLoading,
+      resource_.Get(), response_end_time, ResourceFetcher::kDidFinishLoading,
       inflight_keepalive_bytes_, should_report_corb_blocking);
 }
 
 void ResourceLoader::DidFail(const WebURLError& error,
+                             base::TimeTicks response_end_time,
                              int64_t encoded_data_length,
                              int64_t encoded_body_length,
                              int64_t decoded_body_length) {
   const ResourceRequestHead& request = resource_->GetResourceRequest();
+  response_end_time_for_error_cases_ = response_end_time;
 
   if (request.IsAutomaticUpgrade()) {
     mojo::PendingRemote<ukm::mojom::UkmRecorderInterface> pending_recorder;
@@ -1199,8 +1211,20 @@ void ResourceLoader::HandleError(const ResourceError& error) {
                           TRACE_ID_LOCAL(resource_->InspectorId())),
       "endData", EndResourceLoadData(RequestOutcome::kFail));
 
-  fetcher_->HandleLoaderError(resource_.Get(), error,
+  // Set Now() as the response time, in case a more accurate one wasn't set in
+  // DidFinishLoading or DidFail. This is important for error cases that don't
+  // go through those methods.
+  if (response_end_time_for_error_cases_.is_null()) {
+    response_end_time_for_error_cases_ = base::TimeTicks::Now();
+  }
+  fetcher_->HandleLoaderError(resource_.Get(),
+                              response_end_time_for_error_cases_, error,
                               inflight_keepalive_bytes_);
+}
+
+void ResourceLoader::EvictFromBackForwardCache(
+    mojom::RendererEvictionReason reason) {
+  fetcher_->EvictFromBackForwardCache(reason);
 }
 
 void ResourceLoader::RequestSynchronously(const ResourceRequestHead& request) {
@@ -1253,8 +1277,8 @@ void ResourceLoader::RequestSynchronously(const ResourceRequestHead& request) {
     return;
   int64_t decoded_body_length = data_out.size();
   if (error_out) {
-    DidFail(*error_out, encoded_data_length, encoded_body_length,
-            decoded_body_length);
+    DidFail(*error_out, base::TimeTicks::Now(), encoded_data_length,
+            encoded_body_length, decoded_body_length);
     return;
   }
   DidReceiveResponse(response_out);
@@ -1406,7 +1430,7 @@ void ResourceLoader::FinishedCreatingBlob(
   if (deferred_finish_loading_info_) {
     const ResourceResponse& response = resource_->GetResponse();
     DidFinishLoading(
-        deferred_finish_loading_info_->response_end,
+        deferred_finish_loading_info_->response_end_time,
         response.EncodedDataLength(), response.EncodedBodyLength(),
         response.DecodedBodyLength(),
         deferred_finish_loading_info_->should_report_corb_blocking);
@@ -1445,7 +1469,7 @@ ResourceLoader::CheckResponseNosniff(
 void ResourceLoader::HandleDataUrl() {
   if (!IsLoading())
     return;
-  if (defers_) {
+  if (defers_ != WebURLLoader::DeferType::kNotDeferred) {
     defers_handling_data_url_ = true;
     return;
   }

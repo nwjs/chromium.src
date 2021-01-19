@@ -41,7 +41,7 @@ class MockDiceWebSigninInterceptorDelegate
               ShowSigninInterceptionBubble,
               (content::WebContents * web_contents,
                const BubbleParameters& bubble_parameters,
-               base::OnceCallback<void(bool)> callback),
+               base::OnceCallback<void(SigninInterceptionResult)> callback),
               (override));
   void ShowProfileCustomizationBubble(Browser* browser) override {}
 };
@@ -119,7 +119,7 @@ class DiceWebSigninInterceptorTest : public BrowserWithTestWindowTest {
                                            /*is_sync_signin=*/false);
   }
 
-  // Calls MaybeInterceptWebSignin and verifies the hsueristic outcome, the
+  // Calls MaybeInterceptWebSignin and verifies the heuristic outcome, the
   // histograms and whether the interception is in progress.
   // This function only works if the interception decision can be made
   // synchronously (GetHeuristicOutcome() returns a value).
@@ -410,6 +410,28 @@ TEST_F(DiceWebSigninInterceptorTest, HeuristicDefaultsToGmail) {
       SigninInterceptionHeuristicOutcome::kAbortSingleAccount);
 }
 
+// Checks that no heuristic is returned if signin interception is disabled.
+TEST_F(DiceWebSigninInterceptorTest, InterceptionDsiabled) {
+  // Setup for profile switch interception.
+  std::string email = "bob@gmail.com";
+  Profile* profile_2 = CreateTestingProfile("Profile 2");
+  profile()->GetPrefs()->SetBoolean(prefs::kSigninInterceptionEnabled, false);
+  ProfileAttributesEntry* entry = nullptr;
+  ASSERT_TRUE(profile_attributes_storage()->GetProfileAttributesWithPath(
+      profile_2->GetPath(), &entry));
+  entry->SetAuthInfo("dummy_gaia_id", base::UTF8ToUTF16(email),
+                     /*is_consented_primary_account=*/false);
+  EXPECT_EQ(interceptor()->GetHeuristicOutcome(
+                /*is_new_account=*/true, /*is_sync_signin=*/false, "bob",
+                /*entry=*/nullptr),
+            SigninInterceptionHeuristicOutcome::kAbortInterceptionDisabled);
+  EXPECT_EQ(
+      interceptor()->GetHeuristicOutcome(
+          /*is_new_account=*/true, /*is_sync_signin=*/false, "bob@example.com",
+          /*entry=*/nullptr),
+      SigninInterceptionHeuristicOutcome::kAbortInterceptionDisabled);
+}
+
 TEST_F(DiceWebSigninInterceptorTest, InterceptionInProgress) {
   // Setup for profile switch interception.
   std::string email = "bob@example.com";
@@ -425,13 +447,14 @@ TEST_F(DiceWebSigninInterceptorTest, InterceptionInProgress) {
   DiceWebSigninInterceptor::Delegate::BubbleParameters expected_parameters = {
       DiceWebSigninInterceptor::SigninInterceptionType::kProfileSwitch,
       account_info, AccountInfo(), SkColor()};
-  base::OnceCallback<void(bool)> delegate_callback;
+  base::OnceCallback<void(SigninInterceptionResult)> delegate_callback;
   EXPECT_CALL(*mock_delegate(),
               ShowSigninInterceptionBubble(
                   web_contents(), MatchBubbleParameters(expected_parameters),
                   testing::_))
       .WillOnce(testing::WithArg<2>(testing::Invoke(
-          [&delegate_callback](base::OnceCallback<void(bool)> callback) {
+          [&delegate_callback](
+              base::OnceCallback<void(SigninInterceptionResult)> callback) {
             delegate_callback = std::move(callback);
           })));
   MaybeIntercept(account_info.account_id);
@@ -447,7 +470,7 @@ TEST_F(DiceWebSigninInterceptorTest, InterceptionInProgress) {
       SigninInterceptionHeuristicOutcome::kAbortInterceptInProgress, 1);
 
   // Complete the interception that was in progress.
-  std::move(delegate_callback).Run(false);
+  std::move(delegate_callback).Run(SigninInterceptionResult::kDeclined);
   EXPECT_FALSE(interceptor()->is_interception_in_progress());
 
   // A new interception can now start.
@@ -456,6 +479,84 @@ TEST_F(DiceWebSigninInterceptorTest, InterceptionInProgress) {
                   web_contents(), MatchBubbleParameters(expected_parameters),
                   testing::_));
   MaybeIntercept(account_info.account_id);
+}
+
+TEST_F(DiceWebSigninInterceptorTest, DeclineRepeatedly) {
+  base::HistogramTester histogram_tester;
+  AccountInfo primary_account_info =
+      identity_test_env()->MakeUnconsentedPrimaryAccountAvailable(
+          "bob@example.com");
+  AccountInfo account_info =
+      identity_test_env()->MakeAccountAvailable("alice@example.com");
+  MakeValidAccountInfo(&account_info);
+  account_info.hosted_domain = "example.com";
+  identity_test_env()->UpdateAccountInfoForAccount(account_info);
+
+  // Decline the interception three times.
+  DiceWebSigninInterceptor::Delegate::BubbleParameters expected_parameters = {
+      DiceWebSigninInterceptor::SigninInterceptionType::kEnterprise,
+      account_info, primary_account_info, SkColor()};
+  for (int i = 0; i < 3; ++i) {
+    EXPECT_CALL(*mock_delegate(),
+                ShowSigninInterceptionBubble(
+                    web_contents(), MatchBubbleParameters(expected_parameters),
+                    testing::_))
+        .WillOnce(testing::WithArg<2>(testing::Invoke(
+            [](base::OnceCallback<void(SigninInterceptionResult)> callback) {
+              std::move(callback).Run(SigninInterceptionResult::kDeclined);
+            })));
+    MaybeIntercept(account_info.account_id);
+    histogram_tester.ExpectUniqueSample(
+        "Signin.Intercept.HeuristicOutcome",
+        SigninInterceptionHeuristicOutcome::kInterceptEnterprise, i + 1);
+  }
+
+  // Fourth time the interception is not shown again.
+  MaybeIntercept(account_info.account_id);
+  EXPECT_EQ(interceptor()->is_interception_in_progress(), false);
+  histogram_tester.ExpectBucketCount(
+      "Signin.Intercept.HeuristicOutcome",
+      SigninInterceptionHeuristicOutcome::kAbortUserDeclinedProfileForAccount,
+      1);
+
+  // Even with a slightly different email.
+  MaybeIntercept(account_info.account_id);
+  account_info.email = "al.ice@example.com";
+  EXPECT_EQ(interceptor()->is_interception_in_progress(), false);
+  histogram_tester.ExpectBucketCount(
+      "Signin.Intercept.HeuristicOutcome",
+      SigninInterceptionHeuristicOutcome::kAbortUserDeclinedProfileForAccount,
+      2);
+
+  // Another account can still be intercepted.
+  account_info.email = "oscar@example.com";
+  identity_test_env()->UpdateAccountInfoForAccount(account_info);
+  expected_parameters = {
+      DiceWebSigninInterceptor::SigninInterceptionType::kEnterprise,
+      account_info, primary_account_info, SkColor()};
+  EXPECT_CALL(*mock_delegate(),
+              ShowSigninInterceptionBubble(
+                  web_contents(), MatchBubbleParameters(expected_parameters),
+                  testing::_));
+  MaybeIntercept(account_info.account_id);
+  histogram_tester.ExpectBucketCount(
+      "Signin.Intercept.HeuristicOutcome",
+      SigninInterceptionHeuristicOutcome::kInterceptEnterprise, 4);
+  EXPECT_EQ(interceptor()->is_interception_in_progress(), true);
+}
+
+TEST_F(DiceWebSigninInterceptorTest, PersistentHash) {
+  // The hash is persistent (the value should never change).
+  EXPECT_EQ("email_174",
+            interceptor()->GetPersistentEmailHash("alice@example.com"));
+  // Different email get another hash.
+  EXPECT_NE(interceptor()->GetPersistentEmailHash("bob@gmail.com"),
+            interceptor()->GetPersistentEmailHash("alice@example.com"));
+  // Equivalent emails get the same hash.
+  EXPECT_EQ(interceptor()->GetPersistentEmailHash("bo.b@gmail.com"),
+            interceptor()->GetPersistentEmailHash("bob@gmail.com"));
+  EXPECT_EQ(interceptor()->GetPersistentEmailHash("bob"),
+            interceptor()->GetPersistentEmailHash("bob@gmail.com"));
 }
 
 // Interception other than the profile switch require at least 2 accounts.

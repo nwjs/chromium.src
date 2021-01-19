@@ -1177,6 +1177,9 @@ This file contains the strings for ash.
       <message name="IDS_ASH_PHONE_HUB_NOTIFICATION_HOTSPOT_FAILED_MESSAGE" desc="Message inside a PhoneHub notification when enable hotspot failed to find a connection.">
         Tap to configure
       </message>
+      <message name="IDS_ASH_PHONE_HUB_SILENCE_BUTTON_NOT_AVAILABLE_TOOLTIP" translateable="false" desc="Tooltip message that indicates to the user that the Silence Phone feature is disabled because their phone is on a work profile.">
+        Silence phone is not available on work profile
+      </message>
 
       <message name="IDS_ASH_STYLUS_TOOLS_CAPTURE_REGION_ACTION" desc="Title of the capture region action in the stylus tools (a pop-up panel next to the status tray). This causes a partial screenshot to be taken (the user selects an area of the screen to take a screenshot of).">
         Capture region
@@ -3073,6 +3076,9 @@ Here are some things you can try to get started.
       </message>
 
       <!-- Capture Mode -->
+      <message name="IDS_ASH_SCREEN_CAPTURE_HDCP_BLOCKED_MESSAGE" desc="The text of the notification that informs the user the screen recording is blocked due to existence of protected content.">
+        Screen capture is not allowed while protected content is present
+      </message>
       <message name="IDS_ASH_SCREEN_CAPTURE_DISABLED_TITLE" desc="The title of the notification when capture mode is disabled.">
         Screen capture is blocked
       </message>
@@ -3103,6 +3109,9 @@ Here are some things you can try to get started.
       <message name="IDS_ASH_SCREEN_CAPTURE_MESSAGE" desc="The message shows in the screenshot or screen recording notification.">
         Show in folder
       </message>
+      <message name="IDS_ASH_SCREEN_CAPTURE_LOW_DISK_SPACE_MESSAGE" desc="The message shows in the screen recording notification when recording ends due to low disk space.">
+        Recording ended due to critically low disk space
+      </message>
       <message name="IDS_ASH_SCREEN_CAPTURE_BUTTON_EDIT" desc="The edit button label for the screen capture notification.">
         Edit
       </message>
@@ -3114,6 +3123,12 @@ Here are some things you can try to get started.
       </message>
       <message name="IDS_ASH_SCREEN_CAPTURE_LABEL_FULLSCREEN_IMAGE_CAPTURE_TABLET" desc="The capture label message which shows in the middle of the screen when in fullscreen image capture mode in tablet mode.">
         Tap anywhere to capture full screen
+      </message>
+      <message name="IDS_ASH_SCREEN_CAPTURE_LABEL_FULLSCREEN_VIDEO_RECORD_CLAMSHELL" desc="The capture label message which shows in the middle of the screen when in fullscreen image capture mode in clamshell mode.">
+        Click anywhere to record full screen
+      </message>
+      <message name="IDS_ASH_SCREEN_CAPTURE_LABEL_FULLSCREEN_VIDEO_RECORD_TABLET" desc="The capture label message which shows in the middle of the screen when in fullscreen image capture mode in tablet mode.">
+        Tap anywhere to record full screen
       </message>
       <message name="IDS_ASH_SCREEN_CAPTURE_LABEL_REGION_IMAGE_CAPTURE" desc="The caputre label message which shows in the middle of the screen when in region image capture mode.">
         Drag to select an area to capture

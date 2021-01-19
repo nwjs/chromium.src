@@ -115,6 +115,10 @@ ExecutionContext* ExecutionContext::ForRelevantRealm(
   return ToExecutionContext(ctx);
 }
 
+void ExecutionContext::SetIsInBackForwardCache(bool value) {
+  is_in_back_forward_cache_ = value;
+}
+
 void ExecutionContext::SetLifecycleState(mojom::FrameLifecycleState state) {
   if (lifecycle_state_ == state)
     return;
@@ -231,6 +235,17 @@ bool ExecutionContext::DispatchErrorEventInternal(
 
 bool ExecutionContext::IsContextPaused() const {
   return lifecycle_state_ == mojom::blink::FrameLifecycleState::kPaused;
+}
+
+WebURLLoader::DeferType ExecutionContext::DeferType() const {
+  if (is_in_back_forward_cache_) {
+    DCHECK_EQ(lifecycle_state_, mojom::blink::FrameLifecycleState::kFrozen);
+    return WebURLLoader::DeferType::kDeferredWithBackForwardCache;
+  } else if (lifecycle_state_ == mojom::blink::FrameLifecycleState::kFrozen ||
+             lifecycle_state_ == mojom::blink::FrameLifecycleState::kPaused) {
+    return WebURLLoader::DeferType::kDeferred;
+  }
+  return WebURLLoader::DeferType::kNotDeferred;
 }
 
 bool ExecutionContext::IsLoadDeferred() const {

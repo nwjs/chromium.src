@@ -202,6 +202,8 @@ class CORE_EXPORT LocalFrame final
       Frame* child) override;
   void DidFocus() override;
 
+  void EvictFromBackForwardCache(mojom::blink::RendererEvictionReason reason);
+
   void DidChangeThemeColor();
   void DidChangeBackgroundColor(SkColor background_color, bool color_adjust);
 
@@ -719,6 +721,7 @@ class CORE_EXPORT LocalFrame final
   PolicyContainer* GetPolicyContainer() { return policy_container_.get(); }
   void SetPolicyContainer(std::unique_ptr<PolicyContainer> container);
 
+  WebURLLoader::DeferType GetLoadDeferType();
   bool IsLoadDeferred();
 
  private:
@@ -772,8 +775,6 @@ class CORE_EXPORT LocalFrame final
   void DidFreeze();
   void DidResume();
   void SetContextPaused(bool);
-
-  void EvictFromBackForwardCache();
 
   HitTestResult HitTestResultForVisualViewportPos(
       const IntPoint& pos_in_viewport);

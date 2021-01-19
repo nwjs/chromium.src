@@ -11299,6 +11299,7 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
   <suffix name="__Test__" label=""/>
   <suffix name="ChromeUpdate" label=""/>
   <suffix name="Prefetch" label=""/>
+  <suffix name="ReadingList" label=""/>
   <suffix name="Unknown" label=""/>
   <suffix name="WebUI" label=""/>
   <affected-histogram name="Notifications.Scheduler.IhnrActionButtonEvent"/>
@@ -13709,6 +13710,7 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
 <histogram_suffixes name="PermissionPromptDisposition" separator=".">
   <suffix name="AnchoredBubble"
       label="A bubble under the site settings padlock"/>
+  <suffix name="CustomModalDialog" label="Other custom modal dialogs"/>
   <suffix name="LocationBarLeftChip"
       label="A chip on the left-hand side of the location bar that shows a
              bubble when clicked"/>
@@ -13728,6 +13730,7 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
   <suffix name="Gesture" label="With user gesture"/>
   <suffix name="NoGesture" label="Without user gesture"/>
   <affected-histogram name="Permissions.Prompt.Accepted"/>
+  <affected-histogram name="Permissions.Prompt.AcceptedOnce"/>
   <affected-histogram name="Permissions.Prompt.Denied"/>
   <affected-histogram name="Permissions.Prompt.Shown"/>
 </histogram_suffixes>
@@ -13752,6 +13755,7 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
   <suffix name="VideoCapture" label="Camera permission"/>
   <suffix name="VR" label="VR permission"/>
   <affected-histogram name="Permissions.Engagement.Accepted"/>
+  <affected-histogram name="Permissions.Engagement.AcceptedOnce"/>
   <affected-histogram name="Permissions.Engagement.Denied"/>
   <affected-histogram name="Permissions.Engagement.Dismissed"/>
   <affected-histogram name="Permissions.Engagement.Ignored"/>
@@ -13797,6 +13801,9 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
   <affected-histogram name="Permissions.Prompt.Accepted.PriorDismissCount2"/>
   <affected-histogram name="Permissions.Prompt.Accepted.PriorIgnoreCount"/>
   <affected-histogram name="Permissions.Prompt.Accepted.PriorIgnoreCount2"/>
+  <affected-histogram
+      name="Permissions.Prompt.AcceptedOnce.PriorDismissCount2"/>
+  <affected-histogram name="Permissions.Prompt.AcceptedOnce.PriorIgnoreCount2"/>
   <affected-histogram name="Permissions.Prompt.Denied.Persisted"/>
   <affected-histogram name="Permissions.Prompt.Denied.PriorDismissCount"/>
   <affected-histogram name="Permissions.Prompt.Denied.PriorDismissCount2"/>
@@ -17603,6 +17610,7 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
   <affected-histogram name="Graphics.Smoothness.FrameSequenceLength"/>
   <affected-histogram name="Graphics.Smoothness.Jank.Compositor"/>
   <affected-histogram name="Graphics.Smoothness.Jank.Main"/>
+  <affected-histogram name="Graphics.Smoothness.MaxStale"/>
   <affected-histogram
       name="Graphics.Smoothness.PercentDroppedFrames.CompositorThread"/>
   <affected-histogram
@@ -17622,6 +17630,7 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
       name="Graphics.Smoothness.PercentMissedDeadlineFrames.MainThread"/>
   <affected-histogram
       name="Graphics.Smoothness.PercentMissedDeadlineFrames.ScrollingThread"/>
+  <affected-histogram name="Graphics.Smoothness.Stale"/>
   <affected-histogram name="SingleThreadedCompositorLatency"/>
   <affected-histogram name="SingleThreadedCompositorLatency.MissedFrame"/>
   <affected-histogram
@@ -18339,6 +18348,7 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
   <affected-histogram name="Sync.ModelTypeErrorSite"/>
   <affected-histogram name="Sync.ModelTypeMemoryKB"/>
   <affected-histogram name="Sync.ModelTypeStoreCommitWriteBatchOutcome"/>
+  <affected-histogram name="Sync.ModelTypeTimeUntilEncryptionKeyFound"/>
   <affected-histogram name="Sync.NonReflectionUpdateFreshnessPossiblySkewed">
     <obsolete>
       Deprecated 06/2019. Replaced by

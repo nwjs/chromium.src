@@ -2855,7 +2855,12 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
   void SetShouldDoFullPaintInvalidation(
       PaintInvalidationReason = PaintInvalidationReason::kFull);
   void SetShouldDoFullPaintInvalidationWithoutGeometryChange(
-      PaintInvalidationReason = PaintInvalidationReason::kFull);
+      PaintInvalidationReason reason = PaintInvalidationReason::kFull) {
+    NOT_DESTROYED();
+    // Use SetBackgroundNeedsFullPaintInvalidation() instead. See comment above.
+    DCHECK_NE(reason, PaintInvalidationReason::kBackground);
+    SetShouldDoFullPaintInvalidationWithoutGeometryChangeInternal(reason);
+  }
 
   void ClearPaintInvalidationFlags();
 
@@ -2904,6 +2909,7 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
     return bitfields_.ShouldDelayFullPaintInvalidation();
   }
   void SetShouldDelayFullPaintInvalidation();
+  void ClearShouldDelayFullPaintInvalidation();
 
   bool ShouldInvalidateSelection() const {
     NOT_DESTROYED();
@@ -3052,8 +3058,9 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
     }
     void SetShouldDoFullPaintInvalidationWithoutGeometryChange(
         PaintInvalidationReason reason) {
-      layout_object_.SetShouldDoFullPaintInvalidationWithoutGeometryChange(
-          reason);
+      layout_object_
+          .SetShouldDoFullPaintInvalidationWithoutGeometryChangeInternal(
+              reason);
     }
     void SetBackgroundNeedsFullPaintInvalidation() {
       layout_object_.SetBackgroundNeedsFullPaintInvalidation();
@@ -3109,6 +3116,10 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
       layout_object_.bitfields_.SetNeedsPaintPropertyUpdate(false);
     }
 #endif
+
+    void SetShouldSkipNextLayoutShiftTracking(bool b) {
+      layout_object_.SetShouldSkipNextLayoutShiftTracking(b);
+    }
 
     FragmentData& FirstFragment() { return layout_object_.fragment_; }
 
@@ -3217,7 +3228,7 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
   }
   void SetBackgroundNeedsFullPaintInvalidation() {
     NOT_DESTROYED();
-    SetShouldDoFullPaintInvalidationWithoutGeometryChange(
+    SetShouldDoFullPaintInvalidationWithoutGeometryChangeInternal(
         PaintInvalidationReason::kBackground);
     bitfields_.SetBackgroundNeedsFullPaintInvalidation(true);
   }
@@ -3319,6 +3330,13 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
   bool TransformAffectsVectorEffect() const {
     NOT_DESTROYED();
     return bitfields_.TransformAffectsVectorEffect();
+  }
+
+  bool ShouldSkipNextLayoutShiftTracking() const {
+    return bitfields_.ShouldSkipNextLayoutShiftTracking();
+  }
+  void SetShouldSkipNextLayoutShiftTracking(bool b) {
+    bitfields_.SetShouldSkipNextLayoutShiftTracking(b);
   }
 
  protected:
@@ -3627,6 +3645,9 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
 
   void MarkSelfPaintingLayerForVisualOverflowRecalc();
 
+  void SetShouldDoFullPaintInvalidationWithoutGeometryChangeInternal(
+      PaintInvalidationReason);
+
   // This is set by Set[Subtree]ShouldDoFullPaintInvalidation, and cleared
   // during PrePaint in this object's InvalidatePaint(). It's different from
   // DisplayItemClient::GetPaintInvalidationReason() which is set during
@@ -3752,6 +3773,7 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
           is_layout_ng_object_for_list_marker_image_(false),
           is_table_column_constraints_dirty_(false),
           transform_affects_vector_effect_(false),
+          should_skip_next_layout_shift_tracking_(true),
           positioned_state_(kIsStaticallyPositioned),
           selection_state_(static_cast<unsigned>(SelectionState::kNone)),
           subtree_paint_property_update_reasons_(
@@ -4065,6 +4087,11 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
     // included).
     ADD_BOOLEAN_BITFIELD(transform_affects_vector_effect_,
                          TransformAffectsVectorEffect);
+
+    // Whether to skip layout shift tracking in the next paint invalidation.
+    // See PaintInvalidator::UpdateLayoutShiftTracking().
+    ADD_BOOLEAN_BITFIELD(should_skip_next_layout_shift_tracking_,
+                         ShouldSkipNextLayoutShiftTracking);
 
    private:
     // This is the cached 'position' value of this object

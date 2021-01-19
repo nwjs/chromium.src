@@ -33,7 +33,9 @@
 #include "base/single_thread_task_runner.h"
 #include "third_party/blink/public/mojom/blob/blob_registry.mojom-blink.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-blink-forward.h"
+#include "third_party/blink/public/mojom/frame/back_forward_cache_controller.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/service_worker/controller_service_worker_mode.mojom-blink-forward.h"
+#include "third_party/blink/public/platform/web_url_loader.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_parameters.h"
 #include "third_party/blink/renderer/platform/loader/fetch/preload_key.h"
@@ -63,7 +65,6 @@ class ResourceLoadObserver;
 class ResourceTimingInfo;
 class SubresourceWebBundle;
 class WebCodeCacheLoader;
-class WebURLLoader;
 struct ResourceFetcherInit;
 struct ResourceLoaderOptions;
 
@@ -216,7 +217,7 @@ class PLATFORM_EXPORT ResourceFetcher
 
   MHTMLArchive* Archive() const { return archive_.Get(); }
 
-  void SetDefersLoading(bool);
+  void SetDefersLoading(WebURLLoader::DeferType);
   void StopFetching();
 
   bool ShouldDeferImageLoad(const KURL&) const;
@@ -232,6 +233,7 @@ class PLATFORM_EXPORT ResourceFetcher
                           uint32_t inflight_keepalive_bytes,
                           bool should_report_corb_blocking);
   void HandleLoaderError(Resource*,
+                         base::TimeTicks finish_time,
                          const ResourceError&,
                          uint32_t inflight_keepalive_bytes);
   blink::mojom::ControllerServiceWorkerMode IsControlledByServiceWorker() const;
@@ -303,6 +305,8 @@ class PLATFORM_EXPORT ResourceFetcher
 
   void AddSubresourceWebBundle(SubresourceWebBundle& subresource_web_bundle);
   void RemoveSubresourceWebBundle(SubresourceWebBundle& subresource_web_bundle);
+
+  void EvictFromBackForwardCache(mojom::RendererEvictionReason reason);
 
  private:
   friend class ResourceCacheValidationSuppressor;
@@ -475,6 +479,9 @@ class PLATFORM_EXPORT ResourceFetcher
   bool should_log_request_as_invalid_in_imported_document_ : 1;
 
   static constexpr uint32_t kKeepaliveInflightBytesQuota = 64 * 1024;
+
+  // NOTE: This must be the last member.
+  base::WeakPtrFactory<ResourceFetcher> weak_ptr_factory_{this};
 
   DISALLOW_COPY_AND_ASSIGN(ResourceFetcher);
 };

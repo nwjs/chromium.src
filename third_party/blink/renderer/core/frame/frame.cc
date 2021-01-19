@@ -55,7 +55,6 @@
 #include "third_party/blink/renderer/core/page/focus_controller.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
-#include "third_party/blink/renderer/platform/bindings/script_forbidden_scope.h"
 #include "third_party/blink/renderer/platform/instrumentation/instance_counters.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_error.h"
@@ -108,7 +107,6 @@ void Frame::Trace(Visitor* visitor) const {
   visitor->Trace(next_sibling_);
   visitor->Trace(first_child_);
   visitor->Trace(last_child_);
-  visitor->Trace(provisional_frame_);
   visitor->Trace(navigation_rate_limiter_);
   visitor->Trace(window_agent_factory_);
   visitor->Trace(opened_frame_tracker_);
@@ -127,36 +125,12 @@ void Frame::Detach(FrameDetachType type) {
 
   if (GetPage())
     GetPage()->GetFocusController().FrameDetached(this);
-  
+
   // Due to re-entrancy, |this| could have completed detaching already.
   // TODO(dcheng): This DCHECK is not always true. See https://crbug.com/838348.
   DCHECK(IsDetached() == !client_);
   if (!client_)
     return;
-
-  // TODO(dcheng): FocusController::FrameDetached() *should* fire JS events,
-  // hence the above check for `client_` being null. However, when this was
-  // previously placed before the `FrameDetached()` call, nothing crashes, which
-  // is suspicious. Investigate if we really don't need to fire JS events--and
-  // if we don't, move `forbid_scripts` up to be instantiated sooner and
-  // simplify this code.
-  ScriptForbiddenScope forbid_scripts;
-
-  if (provisional_frame_) {
-    // This path should never be taken for a swap of any sort.
-    // 1. When swapping local->remote, that means the actual navigation is
-    //    committing in a different process. Thus, there should be no
-    //    provisional frame in this process, since there should only be one
-    //    provisional frame for a FrameTreeNode at any given time.
-    // 2. When swapping remote->local, that means the actual navigation is
-    //    committing in this frame tree. However, the committing frame should
-    //    have unset itself as the provisional frame in `Swap()` already, so
-    //    this should never be reached.
-    // 3. Similarly, when swapping local->local, the actual navigation is
-    //    committing in this frame tree, and the same logic applies.
-    DCHECK_EQ(FrameDetachType::kRemove, type);
-    provisional_frame_->Detach(type);
-  }
 
   SetOpener(nullptr);
   // After this, we must no longer talk to the client since this clears
@@ -549,44 +523,34 @@ Frame* Frame::Top() {
 
 bool Frame::Swap(WebFrame* frame) {
   using std::swap;
-  Frame* old_frame = this;
   // TODO(dcheng): This should not be reachable. Reaching this implies `Swap()`
   // is being called on an already-detached frame which should never happen...
-  if (!old_frame->IsAttached())
+  if (!IsAttached())
     return false;
-  if (provisional_frame_) {
-    // `this` is about to be replaced, so if `provisional_frame_` is set, it
-    // should match `frame` which is being swapped in.
-    DCHECK_EQ(provisional_frame_, WebFrame::ToCoreFrame(*frame));
-    provisional_frame_ = nullptr;
-  }
-  FrameOwner* owner = old_frame->Owner();
+  // Important: do not cache frame tree pointers (e.g.  `previous_sibling_`,
+  // `next_sibling_`, `first_child_`, `last_child_`) here. It is possible for
+  // `DetachDocument()` to mutate the frame tree and cause cached values to
+  // become invalid.
+  FrameOwner* owner = owner_;
   FrameSwapScope frame_swap_scope(owner);
-  Frame* new_frame_parent = WebFrame::ToCoreFrame(*frame) && frame->Parent()
-                                ? WebFrame::ToCoreFrame(*frame->Parent())
-                                : nullptr;
-
-  Page* page = old_frame->GetPage();
-  AtomicString name = old_frame->Tree().GetName();
-  Frame* old_frame_opener = old_frame->Opener();
-  Frame* old_frame_parent = old_frame->parent_;
-  Frame* old_frame_previous_sibling = old_frame->previous_sibling_;
-  Frame* old_frame_next_sibling = old_frame->next_sibling_;
+  Page* page = page_;
+  AtomicString name = Tree().GetName();
 
   // Unload the current Document in this frame: this calls unload handlers,
   // detaches child frames, etc. Since this runs script, make sure this frame
   // wasn't detached before continuing with the swap.
-  // FIXME: There is no unit test for this condition, so one needs to be
-  // written.
-  if (!old_frame->DetachDocument()) {
+  if (!DetachDocument()) {
     // If the Swap() fails, it should be because the frame has been detached
     // already. Otherwise the caller will not detach the frame when we return
     // false, and the browser and renderer will disagree about the destruction
-    // of |old_frame|.
-    CHECK(!old_frame->IsAttached());
+    // of |this|.
+    CHECK(!IsAttached());
     return false;
   }
 
+  // TODO(dcheng): This probably isn't necessary if we fix the ordering of
+  // events in `Swap()`, e.g. `Detach()` should not happen before `new_frame` is
+  // swapped in.
   // If there is a local parent, it might incorrectly declare itself complete
   // during the detach phase of this swap. Suppress its completion until swap is
   // over, at which point its completion will be correctly dependent on its
@@ -599,83 +563,77 @@ bool Frame::Swap(WebFrame* frame) {
 
   v8::HandleScope handle_scope(v8::Isolate::GetCurrent());
   WindowProxyManager::GlobalProxyVector global_proxies;
-  old_frame->GetWindowProxyManager()->ClearForSwap();
-  old_frame->GetWindowProxyManager()->ReleaseGlobalProxies(global_proxies);
+  GetWindowProxyManager()->ClearForSwap();
+  GetWindowProxyManager()->ReleaseGlobalProxies(global_proxies);
 
   // This must be before Detach so DidChangeOpener is not called.
-  if (old_frame_opener)
-    old_frame->SetOpenerDoNotNotify(nullptr);
+  Frame* original_opener = opener_;
+  if (original_opener)
+    SetOpenerDoNotNotify(nullptr);
 
   // Although the Document in this frame is now unloaded, many resources
-  // associated with the frame itself have not yet been freed yet.
-  old_frame->Detach(FrameDetachType::kSwap);
+  // associated with the frame itself have not yet been freed yet. Note that
+  // after `Detach()` returns, `this` is detached but *not* yet unlinked from
+  // the frame tree.
+  // TODO(dcheng): Merge this into the `DetachDocument()` step above. Executing
+  // parts of `Detach()` twice is confusing.
+  Detach(FrameDetachType::kSwap);
   if (frame->IsWebRemoteFrame()) {
     CHECK(!WebFrame::ToCoreFrame(*frame));
     To<WebRemoteFrameImpl>(frame)->InitializeCoreFrame(
-        *page, owner, WebFrame::FromFrame(old_frame_parent), nullptr,
-        FrameInsertType::kInsertLater, name,
-        &old_frame->window_agent_factory());
+        *page, owner, WebFrame::FromFrame(parent_), nullptr,
+        FrameInsertType::kInsertLater, name, &window_agent_factory());
+    // At this point, a `RemoteFrame` will have already updated
+    // `Page::MainFrame()` or `FrameOwner::ContentFrame()` as appropriate, and
+    // its `parent_` pointer is also populated.
+  } else {
+    // This is local frame created by `WebLocalFrame::CreateProvisional()`. The
+    // `parent` pointer was set when it was constructed; however,
+    // `Page::MainFrame()` or `FrameOwner::ContentFrame()` updates are deferred
+    // until after `new_frame` is linked into the frame tree.
+    // TODO(dcheng): Make local and remote frame updates more uniform.
   }
 
   Frame* new_frame = WebFrame::ToCoreFrame(*frame);
   CHECK(new_frame);
 
-  // Swaps the |new_frame| and |old_frame| in their frame trees.
-  // For the |old_frame|, we use the frame tree position prior to the Detach()
-  // call.
-  Frame* new_frame_previous_sibling = new_frame->previous_sibling_;
-  Frame* new_frame_next_sibling = new_frame->next_sibling_;
+  // At this point, `new_frame->parent_` is correctly set, but `new_frame`'s
+  // sibling pointers are both still null and not yet updated. In addition, the
+  // parent frame (if any) still has not updated its `first_child_` and
+  // `last_child_` pointers.
+  CHECK_EQ(new_frame->parent_, parent_);
+  CHECK(!new_frame->previous_sibling_);
+  CHECK(!new_frame->next_sibling_);
+  if (previous_sibling_) {
+    previous_sibling_->next_sibling_ = new_frame;
+  }
+  swap(previous_sibling_, new_frame->previous_sibling_);
+  if (next_sibling_) {
+    next_sibling_->previous_sibling_ = new_frame;
+  }
+  swap(next_sibling_, new_frame->next_sibling_);
 
-  new_frame->parent_ = old_frame_parent;
-  new_frame->previous_sibling_ = old_frame_previous_sibling;
-  new_frame->next_sibling_ = old_frame_next_sibling;
-  if (new_frame_previous_sibling) {
-    new_frame_previous_sibling->next_sibling_ = old_frame;
-  }
-  if (new_frame_next_sibling) {
-    new_frame_next_sibling->previous_sibling_ = old_frame;
-  }
-  if (new_frame_parent) {
-    if (new_frame_parent->first_child_ == new_frame) {
-      new_frame_parent->first_child_ = old_frame;
+  if (parent_) {
+    if (parent_->first_child_ == this) {
+      parent_->first_child_ = new_frame;
     }
-    if (new_frame_parent->last_child_ == new_frame) {
-      new_frame_parent->last_child_ = old_frame;
+    if (parent_->last_child_ == this) {
+      parent_->last_child_ = new_frame;
     }
-  }
-  old_frame->parent_ = new_frame_parent;
-  old_frame->previous_sibling_ = new_frame_previous_sibling;
-  old_frame->next_sibling_ = new_frame_next_sibling;
-  if (old_frame_previous_sibling) {
-    old_frame_previous_sibling->next_sibling_ = new_frame;
-  }
-  if (old_frame_next_sibling) {
-    old_frame_next_sibling->previous_sibling_ = new_frame;
-  }
-  if (old_frame_parent) {
-    if (old_frame_parent->first_child_ == old_frame) {
-      old_frame_parent->first_child_ = new_frame;
-    }
-    if (old_frame_parent->last_child_ == old_frame) {
-      old_frame_parent->last_child_ = new_frame;
-    }
+    // Not strictly necessary, but keep state as self-consistent as possible.
+    parent_ = nullptr;
   }
 
-  if (old_frame_opener) {
-    new_frame->SetOpenerDoNotNotify(old_frame_opener);
+  if (original_opener) {
+    new_frame->SetOpenerDoNotNotify(original_opener);
   }
   opened_frame_tracker_.TransferTo(new_frame);
 
   // Clone the state of the current Frame into the one being swapped in.
-  // FIXME: This is a bit clunky; this results in pointless decrements and
-  // increments of connected subframes.
   if (auto* new_local_frame = DynamicTo<LocalFrame>(new_frame)) {
-    // TODO(dcheng): in an ideal world, both branches would just use
-    // WebFrame's initializeCoreFrame() helper. However, Blink
-    // currently requires a 'provisional' local frame to serve as a
-    // placeholder for loading state when swapping to a local frame.
-    // In this case, the core LocalFrame is already initialized, so just
-    // update a bit of state.
+    // A `LocalFrame` being swapped in is created provisionally, so
+    // `Page::MainFrame()` or `FrameOwner::ContentFrame()` needs to be updated
+    // to point to the newly swapped-in frame.
     DCHECK_EQ(owner, new_local_frame->Owner());
     if (owner) {
       owner->SetContentFrame(*new_local_frame);
@@ -696,12 +654,12 @@ bool Frame::Swap(WebFrame* frame) {
 
   new_frame->GetWindowProxyManager()->SetGlobalProxies(global_proxies);
 
-  parent_ = nullptr;
-
   if (auto* frame_owner_element = DynamicTo<HTMLFrameOwnerElement>(owner)) {
     if (auto* new_local_frame = DynamicTo<LocalFrame>(new_frame)) {
       probe::FrameOwnerContentUpdated(new_local_frame, frame_owner_element);
-    } else if (auto* old_local_frame = DynamicTo<LocalFrame>(old_frame)) {
+    } else if (auto* old_local_frame = DynamicTo<LocalFrame>(this)) {
+      // TODO(dcheng): What is this probe for? Shouldn't it happen *before*
+      // detach?
       probe::FrameOwnerContentUpdated(old_local_frame, frame_owner_element);
     }
   }

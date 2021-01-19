@@ -14,6 +14,7 @@ import android.widget.Space;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
+import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.chrome.autofill_assistant.R;
 import org.chromium.chrome.browser.autofill_assistant.AssistantBottomBarDelegate;
 import org.chromium.chrome.browser.autofill_assistant.AssistantBottomSheetContent;
@@ -24,10 +25,13 @@ import org.chromium.chrome.browser.autofill_assistant.carousel.AssistantChipView
 import org.chromium.chrome.browser.autofill_assistant.generic_ui.AssistantDimension;
 import org.chromium.chrome.browser.autofill_assistant.header.AssistantHeaderCoordinator;
 import org.chromium.chrome.browser.autofill_assistant.header.AssistantHeaderModel;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.StateChangeReason;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
 import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
+import org.chromium.content_public.browser.WebContents;
+import org.chromium.ui.base.ApplicationViewportInsetSupplier;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -48,13 +52,20 @@ public class AssistantTriggerScript {
     private AssistantBottomSheetContent mContent;
     private final Context mContext;
     private final Delegate mDelegate;
+    private final WebContents mWebContents;
     private final BottomSheetController mBottomSheetController;
     private final BottomSheetObserver mBottomSheetObserver;
+    private final ObservableSupplierImpl<Integer> mInsetSupplier = new ObservableSupplierImpl<>();
+    private final ApplicationViewportInsetSupplier mApplicationViewportInsetSupplier;
 
     private AssistantHeaderCoordinator mHeaderCoordinator;
-    private final AssistantHeaderModel mHeaderModel = new AssistantHeaderModel();
+    private AssistantHeaderModel mHeaderModel;
     private LinearLayout mChipsContainer;
     private final int mInnerChipSpacing;
+    /** Height of the bottom sheet's shadow, used to compute the viewport resize offset. */
+    private final int mShadowHeight;
+    /** Whether the visual viewport should be resized while the trigger script is shown. */
+    private boolean mResizeVisualViewport;
 
     private final List<AssistantChip> mLeftAlignedChips = new ArrayList<>();
     private final List<AssistantChip> mRightAlignedChips = new ArrayList<>();
@@ -64,12 +75,16 @@ public class AssistantTriggerScript {
 
     private boolean mAnimateBottomSheet = true;
 
-    public AssistantTriggerScript(
-            Context context, Delegate delegate, BottomSheetController controller) {
+    public AssistantTriggerScript(Context context, Delegate delegate, WebContents webContents,
+            BottomSheetController controller,
+            ApplicationViewportInsetSupplier applicationViewportInsetSupplier) {
         assert delegate != null;
         mContext = context;
         mDelegate = delegate;
+        mWebContents = webContents;
         mBottomSheetController = controller;
+        mApplicationViewportInsetSupplier = applicationViewportInsetSupplier;
+        mApplicationViewportInsetSupplier.addSupplier(mInsetSupplier);
         mBottomSheetObserver = new EmptyBottomSheetObserver() {
             @Override
             public void onSheetClosed(@StateChangeReason int reason) {
@@ -77,11 +92,23 @@ public class AssistantTriggerScript {
                     mDelegate.onBottomSheetClosedWithSwipe();
                 }
             }
+
+            @Override
+            public void onSheetContentChanged(@Nullable BottomSheetContent newContent) {
+                // TODO(crbug.com/806868): Make sure this works and does not interfere with Duet
+                // once we are in ChromeTabbedActivity.
+                updateVisualViewportHeight();
+            }
+
+            @Override
+            public void onSheetOffsetChanged(float heightFraction, float offsetPx) {
+                updateVisualViewportHeight();
+            }
         };
         mInnerChipSpacing = mContext.getResources().getDimensionPixelSize(
                 R.dimen.autofill_assistant_actions_spacing);
-        mHeaderModel.set(
-                AssistantHeaderModel.FEEDBACK_BUTTON_CALLBACK, mDelegate::onFeedbackButtonClicked);
+        mShadowHeight = mContext.getResources().getDimensionPixelSize(
+                R.dimen.bottom_sheet_toolbar_shadow_height);
     }
 
     private void createBottomSheetContents() {
@@ -104,10 +131,6 @@ public class AssistantTriggerScript {
         // Allow swipe-to-dismiss.
         mContent.setPeekModeDisabled(true);
 
-        if (mHeaderCoordinator != null) {
-            mHeaderCoordinator.destroy();
-        }
-        mHeaderCoordinator = new AssistantHeaderCoordinator(mContext, mHeaderModel);
         mChipsContainer = new LinearLayout(mContext);
         mChipsContainer.setOrientation(LinearLayout.HORIZONTAL);
         int horizontalMargin = mContext.getResources().getDimensionPixelSize(
@@ -119,6 +142,7 @@ public class AssistantTriggerScript {
         AssistantRootViewContainer rootViewContainer =
                 (AssistantRootViewContainer) LayoutInflater.from(mContext).inflate(
                         R.layout.autofill_assistant_bottom_sheet_content, /* root= */ null);
+        rootViewContainer.disableTalkbackViewResizing();
         ScrollView scrollableContent = rootViewContainer.findViewById(R.id.scrollable_content);
         rootViewContainer.addView(mHeaderCoordinator.getView(), 0);
         rootViewContainer.addView(mChipsContainer,
@@ -129,7 +153,10 @@ public class AssistantTriggerScript {
 
     public void destroy() {
         mBottomSheetController.removeObserver(mBottomSheetObserver);
-        mHeaderCoordinator.destroy();
+        if (mHeaderCoordinator != null) {
+            mHeaderCoordinator.destroy();
+        }
+        mApplicationViewportInsetSupplier.removeSupplier(mInsetSupplier);
     }
 
     @VisibleForTesting
@@ -164,7 +191,14 @@ public class AssistantTriggerScript {
         }
     }
 
-    public AssistantHeaderModel getHeaderModel() {
+    public AssistantHeaderModel createHeaderAndGetModel() {
+        mHeaderModel = new AssistantHeaderModel();
+        if (mHeaderCoordinator != null) {
+            mHeaderCoordinator.destroy();
+        }
+        mHeaderCoordinator = new AssistantHeaderCoordinator(mContext, mHeaderModel);
+        mHeaderModel.set(
+                AssistantHeaderModel.FEEDBACK_BUTTON_CALLBACK, mDelegate::onFeedbackButtonClicked);
         return mHeaderModel;
     }
 
@@ -216,17 +250,51 @@ public class AssistantTriggerScript {
         addChipsToContainer(mChipsContainer, mRightAlignedChips);
     }
 
-    public void show() {
+    public boolean show(boolean resizeVisualViewport) {
+        if (mHeaderModel == null || mHeaderCoordinator == null) {
+            assert false : "createHeaderAndGetModel() must be called before show()";
+            return false;
+        }
+        mResizeVisualViewport = resizeVisualViewport;
         createBottomSheetContents();
         update();
         mBottomSheetController.removeObserver(mBottomSheetObserver);
         mBottomSheetController.addObserver(mBottomSheetObserver);
         BottomSheetUtils.showContentAndMaybeExpand(mBottomSheetController, mContent,
                 /* shouldExpand = */ true, /* animate = */ mAnimateBottomSheet);
+        return true;
     }
 
     public void hide() {
         mBottomSheetController.removeObserver(mBottomSheetObserver);
         mBottomSheetController.hideContent(mContent, /* animate = */ mAnimateBottomSheet);
+        mResizeVisualViewport = false;
+        updateVisualViewportHeight();
+    }
+
+    private void updateVisualViewportHeight() {
+        if (!mResizeVisualViewport || mBottomSheetController.getCurrentSheetContent() != mContent) {
+            setVisualViewportResizing(0);
+            return;
+        }
+        // In order to align the bottom of a website with the top of the bottom sheet, we need to
+        // remove the shadow height from the sheet's current offset. Note that mShadowHeight is
+        // different from the sheet controller's getTopShadowHeight().
+        setVisualViewportResizing(mBottomSheetController.getCurrentOffset() - mShadowHeight);
+    }
+
+    /**
+     * Shrink the visual viewport by {@code resizing} pixels. 0 will restore original size.
+     *
+     * Fork of {@code AssistantBottomBarCoordinator}. TODO(arbesser): refactor, share code.
+     */
+    private void setVisualViewportResizing(int resizing) {
+        int currentInset = mInsetSupplier.get() != null ? mInsetSupplier.get() : 0;
+        if (resizing == currentInset || mWebContents == null
+                || mWebContents.getRenderWidgetHostView() == null) {
+            return;
+        }
+
+        mInsetSupplier.set(resizing);
     }
 }

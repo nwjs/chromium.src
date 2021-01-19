@@ -31,6 +31,15 @@ class COMPONENT_EXPORT(DEVICE_FIDO) ChromeOSAuthenticator
   bool HasCredentialForGetAssertionRequest(
       const CtapGetAssertionRequest& request);
 
+  // Returns whether the platform authenticator is available, which is true if
+  // the current user has a PIN set up or biometrics enrolled.
+  //
+  // Since this call makes a (quick) dbus call, it is potentially blocking and
+  // should not run on the main thread/sequence.
+  //
+  // TODO(crbug.com/1154063): Refactor IsUVPAA() to be async.
+  static bool IsUVPlatformAuthenticatorAvailableBlocking();
+
   // FidoAuthenticator
   void InitializeAuthenticator(base::OnceClosure callback) override;
   void MakeCredential(CtapMakeCredentialRequest request,
@@ -39,7 +48,7 @@ class COMPONENT_EXPORT(DEVICE_FIDO) ChromeOSAuthenticator
                     CtapGetAssertionOptions options,
                     GetAssertionCallback callback) override;
   void GetNextAssertion(GetAssertionCallback callback) override {}
-  void Cancel() override {}
+  void Cancel() override;
   std::string GetId() const override;
   base::string16 GetDisplayName() const override;
   const base::Optional<AuthenticatorSupportedOptions>& Options() const override;
@@ -65,6 +74,11 @@ class COMPONENT_EXPORT(DEVICE_FIDO) ChromeOSAuthenticator
                           GetAssertionCallback callback,
                           dbus::Response* dbus_response,
                           dbus::ErrorResponse* error);
+
+  void OnCancelResp(dbus::Response* dbus_response);
+
+  // Current request_id, used for cancelling the request.
+  uint32_t current_request_id_ = 0u;
 
   // Callback to set request_id in the window property.
   base::RepeatingCallback<uint32_t()> generate_request_id_callback_;

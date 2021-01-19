@@ -22,6 +22,7 @@
   CONNECTION_DISCONNECTED: 3,
   SENT_MESSAGE_TO_PHONE_AND_WAITING_FOR_RESPONSE: 4,
   COMPLETED_SUCCESSFULLY: 5,
+  NOTIFICATION_ACCESS_PROHIBITED: 6,
 };
 
 Polymer({
@@ -83,10 +84,16 @@ Polymer({
     },
 
     /** @private */
+    isNotificationAccessProhibited_: {
+      type: Boolean,
+      computed: 'computeIsNotificationAccessProhibited_(setupState_)',
+    },
+
+    /** @private */
     shouldShowSetupInstructionsSeparately_: {
       type: Boolean,
       computed: 'computeShouldShowSetupInstructionsSeparately_(' +
-          'hasNotStartedSetupAttempt_, isSetupAttemptInProgress_)',
+          'setupState_)',
       reflectToAttribute: true,
     },
   },
@@ -149,12 +156,23 @@ Polymer({
   /**
    * @return {boolean}
    * @private
+   */
+  computeIsNotificationAccessProhibited_() {
+    return this.setupState_ ===
+        NotificationAccessSetupOperationStatus.NOTIFICATION_ACCESS_PROHIBITED;
+  },
+
+  /**
+   * @return {boolean}
+   * @private
    * */
   computeDidSetupAttemptFail_() {
     return this.setupState_ ===
         NotificationAccessSetupOperationStatus.TIMED_OUT_CONNECTING ||
         this.setupState_ ===
-        NotificationAccessSetupOperationStatus.CONNECTION_DISCONNECTED;
+        NotificationAccessSetupOperationStatus.CONNECTION_DISCONNECTED ||
+        this.setupState_ ===
+        NotificationAccessSetupOperationStatus.NOTIFICATION_ACCESS_PROHIBITED;
   },
 
   /**
@@ -162,7 +180,10 @@ Polymer({
    * @private
    */
   computeShouldShowSetupInstructionsSeparately_() {
-    return this.isSetupAttemptInProgress_ || this.hasNotStartedSetupAttempt_;
+    return this.setupState_ === null ||
+        this.setupState_ ===
+        NotificationAccessSetupOperationStatus.CONNECTION_REQUESTED ||
+        this.setupState_ === NotificationAccessSetupOperationStatus.CONNECTING;
   },
 
   /** @private */
@@ -179,7 +200,7 @@ Polymer({
   },
 
   /** @private */
-  onDoneButtonClicked_() {
+  onDoneOrCloseButtonClicked_() {
     this.$.dialog.close();
   },
 
@@ -196,8 +217,10 @@ Polymer({
     switch (this.setupState_) {
       case Status.CONNECTION_REQUESTED:
       case Status.CONNECTING:
-      case Status.SENT_MESSAGE_TO_PHONE_AND_WAITING_FOR_RESPONSE:
         return this.i18n('multideviceNotificationAccessSetupConnectingTitle');
+      case Status.SENT_MESSAGE_TO_PHONE_AND_WAITING_FOR_RESPONSE:
+        return this.i18n(
+            'multideviceNotificationAccessSetupAwaitingResponseTitle');
       case Status.COMPLETED_SUCCESSFULLY:
         return this.i18n('multideviceNotificationAccessSetupCompletedTitle');
       case Status.TIMED_OUT_CONNECTING:
@@ -206,6 +229,9 @@ Polymer({
       case Status.CONNECTION_DISCONNECTED:
         return this.i18n(
             'multideviceNotificationAccessSetupConnectionLostWithPhoneTitle');
+      case Status.NOTIFICATION_ACCESS_PROHIBITED:
+        return this.i18n(
+            'multideviceNotificationAccessSetupAccessProhibitedTitle');
       default:
         return '';
     }
@@ -230,13 +256,40 @@ Polymer({
       case Status.CONNECTION_DISCONNECTED:
         return this.i18n(
             'multideviceNotificationAccessSetupMaintainFailureSummary');
+      case Status.NOTIFICATION_ACCESS_PROHIBITED:
+        return this.i18nAdvanced(
+            'multideviceNotificationAccessSetupAccessProhibitedSummary');
+      case Status.SENT_MESSAGE_TO_PHONE_AND_WAITING_FOR_RESPONSE:
+        return this.i18n(
+            'multideviceNotificationAccessSetupAwaitingResponseSummary');
 
       // Only setup instructions will be shown.
       case Status.CONNECTION_REQUESTED:
       case Status.CONNECTING:
-      case Status.SENT_MESSAGE_TO_PHONE_AND_WAITING_FOR_RESPONSE:
       default:
         return '';
     }
+  },
+
+  /**
+   * @return {boolean}
+   * @private
+   */
+  shouldShowCancelButton_() {
+    return this.setupState_ !==
+        NotificationAccessSetupOperationStatus.COMPLETED_SUCCESSFULLY &&
+        this.setupState_ !==
+        NotificationAccessSetupOperationStatus.NOTIFICATION_ACCESS_PROHIBITED;
+  },
+
+  /**
+   * @return {boolean}
+   * @private
+   */
+  shouldShowTryAgainButton_() {
+    return this.setupState_ ===
+        NotificationAccessSetupOperationStatus.TIMED_OUT_CONNECTING ||
+        this.setupState_ ===
+        NotificationAccessSetupOperationStatus.CONNECTION_DISCONNECTED;
   },
 });

@@ -2448,14 +2448,6 @@ void AXNodeObject::AriaOwnsElements(AXObjectVector& owns) const {
   AccessibilityChildrenFromAOMProperty(AOMRelationListProperty::kOwns, owns);
 }
 
-bool AXNodeObject::SupportsARIAOwns() const {
-  if (!GetLayoutObject())
-    return false;
-  const AtomicString& aria_owns = GetAttribute(html_names::kAriaOwnsAttr);
-
-  return !aria_owns.IsEmpty();
-}
-
 // TODO(accessibility): Aria-dropeffect and aria-grabbed are deprecated in
 // aria 1.1 Also those properties are expected to be replaced by a new feature
 // in a future version of WAI-ARIA. After that we will re-implement them
@@ -3149,6 +3141,14 @@ int AXNodeObject::TextOffsetInFormattingContext(int offset) const {
     return AXObject::TextOffsetInFormattingContext(offset);
   }
 
+  // TODO(crbug.com/1149171): NGInlineOffsetMappingBuilder does not properly
+  // compute offset mappings for empty LayoutText objects. Other text objects
+  // (such as some list markers) are not affected.
+  if (const LayoutText* layout_text = DynamicTo<LayoutText>(layout_obj)) {
+    if (layout_text->GetText().IsEmpty())
+      return AXObject::TextOffsetInFormattingContext(offset);
+  }
+
   LayoutBlockFlow* formatting_context =
       NGOffsetMapping::GetInlineFormattingContextOf(*layout_obj);
   if (!formatting_context || formatting_context == layout_obj)
@@ -3406,6 +3406,10 @@ void AXNodeObject::AddChildren() {
           child_obj->CanIgnoreTextAsEmpty())
         continue;
 
+      // TODO(crbug.com/1158511) This shouldn't be needed!
+      if (IsDetached())
+        return;
+
       AddChild(child_obj);
     }
   } else {
@@ -3418,6 +3422,10 @@ void AXNodeObject::AddChildren() {
       AddChild(obj);
     }
   }
+
+  // TODO(crbug.com/1158511) This shouldn't be needed!
+  if (IsDetached())
+    return;
 
   AddHiddenChildren();
   AddPopupChildren();

@@ -8,12 +8,18 @@ import android.content.Context;
 import android.content.ContextWrapper;
 import android.view.LayoutInflater;
 
+import androidx.collection.ArraySet;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentFactory;
+
 import org.chromium.base.BundleUtils;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.annotations.IdentifierNameString;
 
 /** Utils for compatibility with isolated splits. */
 public class SplitCompatUtils {
+    private static final ArraySet<ClassLoader> sInflationClassLoaders = new ArraySet<>();
+
     private SplitCompatUtils() {}
 
     /**
@@ -31,12 +37,13 @@ public class SplitCompatUtils {
     }
 
     /**
-     * Constructs a new instance of the given class name using the class loader from the context.
+     * Constructs a new instance of the given class name. If the application context class loader
+     * can load the class, that class loader will be used, otherwise the class loader from the
+     * passed in context will be used.
      */
     public static Object newInstance(Context context, String className) {
-        // TODO(crbug.com/1142589): If this crash fix works we can remove the context arg from here.
         Context appContext = ContextUtils.getApplicationContext();
-        if (appContext != null) {
+        if (appContext != null && canLoadClass(appContext.getClassLoader(), className)) {
             context = appContext;
         }
         try {
@@ -57,6 +64,9 @@ public class SplitCompatUtils {
         }
         ClassLoader splitClassLoader =
                 BundleUtils.createIsolatedSplitContext(context, splitName).getClassLoader();
+        // All Contexts for a split share a ClassLoader, so the maximum size of this set will be the
+        // number of installed splits.
+        sInflationClassLoaders.add(splitClassLoader);
         return new ContextWrapper(context) {
             @Override
             public ClassLoader getClassLoader() {
@@ -72,5 +82,49 @@ public class SplitCompatUtils {
                 return ret;
             }
         };
+    }
+
+    /**
+     * Returns a FragmentFactory which can load fragment classes from any split which an inflation
+     * context has been created for. This is useful if a fragment lives in an isolated split and is
+     * not retained. It may be recreated on configuration changes, and will need to be loaded from
+     * the correct ClassLoader.
+     */
+    public static FragmentFactory createFragmentFactory() {
+        return new FragmentFactory() {
+            @Override
+            public Fragment instantiate(ClassLoader classLoader, String className) {
+                if (canLoadClass(classLoader, className)) {
+                    return super.instantiate(classLoader, className);
+                }
+
+                for (ClassLoader cl : sInflationClassLoaders) {
+                    if (canLoadClass(cl, className)) {
+                        return super.instantiate(cl, className);
+                    }
+                }
+
+                // TODO(crbug.com/1151456): On startup, fragment classes may be restored which live
+                // in splits, and there's no good way to know which split the class comes from.
+                // Right now, feedv2 is the only split which actually contains any fragments, so it
+                // works to hardcode it. We will need a more general solution for this when other
+                // splits want to use fragments.
+                Context context = ContextUtils.getApplicationContext();
+                if (BundleUtils.isIsolatedSplitInstalled(context, "feedv2")) {
+                    classLoader = BundleUtils.createIsolatedSplitContext(context, "feedv2")
+                                          .getClassLoader();
+                }
+                return super.instantiate(classLoader, className);
+            }
+        };
+    }
+
+    private static boolean canLoadClass(ClassLoader classLoader, String className) {
+        try {
+            Class.forName(className, false, classLoader);
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
     }
 }

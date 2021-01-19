@@ -30,7 +30,6 @@
 #include "base/task/thread_pool.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/trace_event/trace_event.h"
-#include "gpu/ipc/service/gpu_memory_buffer_factory.h"
 #include "media/base/bitstream_buffer.h"
 #include "media/base/color_plane_layout.h"
 #include "media/base/scopedfd_helper.h"
@@ -181,7 +180,7 @@ V4L2VideoEncodeAccelerator::V4L2VideoEncodeAccelerator(
       // TODO(akahuang): Remove WithBaseSyncPrimitives() after replacing poll
       // thread by V4L2DevicePoller.
       encoder_task_runner_(base::ThreadPool::CreateSingleThreadTaskRunner(
-          {base::WithBaseSyncPrimitives()},
+          {base::WithBaseSyncPrimitives(), base::MayBlock()},
           base::SingleThreadTaskRunnerThreadMode::DEDICATED)),
       device_poll_thread_("V4L2EncoderDevicePollThread") {
   DCHECK_CALLED_ON_VALID_SEQUENCE(child_sequence_checker_);
@@ -402,17 +401,8 @@ bool V4L2VideoEncodeAccelerator::CreateImageProcessor(
     return false;
   }
 
-  if (!image_processor_gmb_factory_) {
-    image_processor_gmb_factory_ =
-        gpu::GpuMemoryBufferFactory::CreateNativeType(nullptr);
-    if (!image_processor_gmb_factory_) {
-      VLOGF(1) << "Failed to create GpuMemoryBufferFactory";
-      return false;
-    }
-  }
-
   auto platform_layout = GetPlatformVideoFrameLayout(
-      image_processor_gmb_factory_.get(), output_format, output_size,
+      /*gpu_memory_buffer_factory=*/nullptr, output_format, output_size,
       gfx::BufferUsage::SCANOUT_VEA_READ_CAMERA_AND_CPU_READ_WRITE);
   if (!platform_layout) {
     VLOGF(1) << "Failed to get Platform VideoFrameLayout";
@@ -441,6 +431,7 @@ bool V4L2VideoEncodeAccelerator::CreateImageProcessor(
     VLOGF(1) << "Failed initializing image processor";
     return false;
   }
+  num_frames_in_image_processor_ = 0;
 
   // The output of image processor is the input of encoder. Output coded
   // width of processor must be the same as input coded width of encoder.
@@ -466,7 +457,6 @@ bool V4L2VideoEncodeAccelerator::CreateImageProcessor(
 bool V4L2VideoEncodeAccelerator::AllocateImageProcessorOutputBuffers(
     size_t count) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(encoder_sequence_checker_);
-  DCHECK(image_processor_gmb_factory_);
   DCHECK(image_processor_);
   DCHECK_EQ(image_processor_->output_mode(),
             ImageProcessor::OutputMode::IMPORT);
@@ -482,7 +472,7 @@ bool V4L2VideoEncodeAccelerator::AllocateImageProcessorOutputBuffers(
     switch (output_config.storage_type()) {
       case VideoFrame::STORAGE_GPU_MEMORY_BUFFER:
         image_processor_output_buffers_[i] = CreateGpuMemoryBufferVideoFrame(
-            image_processor_gmb_factory_.get(),
+            /*gpu_memory_buffer_factory=*/nullptr,
             output_config.fourcc.ToVideoPixelFormat(), output_config.size,
             output_config.visible_rect, output_config.visible_rect.size(),
             base::TimeDelta(),
@@ -628,6 +618,10 @@ void V4L2VideoEncodeAccelerator::FrameProcessed(
 
   encoder_input_queue_.emplace(std::move(frame), force_keyframe,
                                output_buffer_index);
+  CHECK_GT(num_frames_in_image_processor_, 0u);
+  num_frames_in_image_processor_--;
+  MaybeFlushImageProcessor();
+
   encoder_task_runner_->PostTask(
       FROM_HERE,
       base::BindOnce(&V4L2VideoEncodeAccelerator::Enqueue, weak_this_));
@@ -752,16 +746,6 @@ void V4L2VideoEncodeAccelerator::EncodeTask(scoped_refptr<VideoFrame> frame,
     return;
 
   if (image_processor_) {
-    if (!frame) {
-      DCHECK(!flush_callback_.is_null());
-      NOTREACHED()
-          << "Flushing is not supported when using an image processor and this "
-             "situation should not happen for well behaved clients.";
-      NOTIFY_ERROR(kIllegalStateError);
-      child_task_runner_->PostTask(
-          FROM_HERE, base::BindOnce(std::move(flush_callback_), false));
-      return;
-    }
     image_processor_input_queue_.emplace(std::move(frame), force_keyframe);
     InputImageProcessorTask();
   } else {
@@ -859,13 +843,34 @@ bool V4L2VideoEncodeAccelerator::ReconfigureFormatIfNeeded(
   return true;
 }
 
+void V4L2VideoEncodeAccelerator::MaybeFlushImageProcessor() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(encoder_sequence_checker_);
+  DCHECK(image_processor_);
+  if (image_processor_input_queue_.size() == 1 &&
+      !image_processor_input_queue_.front().frame &&
+      num_frames_in_image_processor_ == 0) {
+    // Flush the encoder once the image processor is done with its own flush.
+    DVLOGF(3) << "All frames to be flush have been processed by "
+              << "|image_processor_|. Move the flush request to the encoder";
+    image_processor_input_queue_.pop();
+    encoder_input_queue_.emplace(nullptr, false);
+  }
+}
+
 void V4L2VideoEncodeAccelerator::InputImageProcessorTask() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(encoder_sequence_checker_);
+
+  MaybeFlushImageProcessor();
 
   if (free_image_processor_output_buffer_indices_.empty())
     return;
   if (image_processor_input_queue_.empty())
     return;
+  // The flush request is at the top. Waiting until all frames are processed by
+  // the image processor.
+  if (!image_processor_input_queue_.front().frame)
+    return;
+
   const size_t output_buffer_index =
       free_image_processor_output_buffer_indices_.back();
   free_image_processor_output_buffer_indices_.pop_back();
@@ -895,6 +900,8 @@ void V4L2VideoEncodeAccelerator::InputImageProcessorTask() {
       NOTIFY_ERROR(kPlatformFailureError);
     }
   }
+
+  num_frames_in_image_processor_++;
 }
 
 void V4L2VideoEncodeAccelerator::UseOutputBitstreamBufferTask(
@@ -1632,16 +1639,8 @@ bool V4L2VideoEncodeAccelerator::SetFormats(VideoPixelFormat input_format,
 
   gfx::Size input_size = encoder_input_visible_rect_.size();
   if (native_input_mode_) {
-    DCHECK(!image_processor_gmb_factory_);
-    image_processor_gmb_factory_ =
-        gpu::GpuMemoryBufferFactory::CreateNativeType(nullptr);
-    if (!image_processor_gmb_factory_) {
-      VLOGF(1) << "Failed to create GpuMemoryBufferFactory";
-      return false;
-    }
-
     auto input_layout = GetPlatformVideoFrameLayout(
-        image_processor_gmb_factory_.get(), input_format,
+        /*gpu_memory_buffer_factory=*/nullptr, input_format,
         encoder_input_visible_rect_.size(),
         gfx::BufferUsage::SCANOUT_VEA_READ_CAMERA_AND_CPU_READ_WRITE);
     if (!input_layout)

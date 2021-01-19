@@ -287,6 +287,10 @@ class CORE_EXPORT ChromeClientImpl final : public ChromeClient {
   void BatterySavingsChanged(LocalFrame& main_frame,
                              WebBatterySavingsFlags savings) override;
 
+  void FormElementReset(HTMLFormElement& element) override;
+
+  void PasswordFieldReset(HTMLInputElement& element) override;
+
  private:
   bool IsChromeClientImpl() const override { return true; }
 

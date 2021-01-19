@@ -8,6 +8,7 @@
 #include <memory>
 
 #include "ash/ash_export.h"
+#include "base/callback.h"
 #include "base/memory/weak_ptr.h"
 #include "ui/compositor/layer_animation_observer.h"
 
@@ -262,12 +263,21 @@ class ASH_EXPORT RootWindowDeskSwitchAnimator
   // Called as a user is performing a touchpad swipe. Requests a new screenshot
   // if necessary based on the last direction as specified in |scroll_delta_x|.
   // |scroll_delta_x| is in touchpad units, it will be converted to display
-  // units and then used to shift the animation layer.
-  bool UpdateSwipeAnimation(float scroll_delta_x);
+  // units and then used to shift the animation layer. If the animation layer is
+  // near its boundaries, this will return an index for the desk we should take
+  // a screenshot for. If we are not near the boundaries, or if there is no next
+  // adjacent desk in the direction we are heading, return base::nullopt. The
+  // delegate is responsible for requesting the screenshot.
+  base::Optional<int> UpdateSwipeAnimation(float scroll_delta_x);
+
+  // Maybe called after UpdateSwipeAnimation() if we need a new screenshot.
+  // Updates |ending_desk_index_| and resets some other internal state related
+  // to the ending desk screenshot.
+  void PrepareForEndingDeskScreenshot(int new_ending_desk_index);
 
   // Called when a user ends a touchpad swipe. This will animate to the most
-  // visible desk.
-  void EndSwipeAnimation();
+  // visible desk, whose index is also returned.
+  int EndSwipeAnimation();
 
   // ui::ImplicitAnimationObserver:
   void OnImplicitAnimationsCompleted() override;
@@ -375,6 +385,10 @@ class ASH_EXPORT RootWindowDeskSwitchAnimator
   // calling SetTransform will trigger OnImplicitAnimationsCompleted. In these
   // cases we do not want to notify our delegate that the animation is finished.
   bool setting_new_transform_ = false;
+
+  // Callback that is run after the ending screenshot is taken for testing
+  // purposes.
+  base::OnceClosure on_ending_screenshot_taken_callback_for_testing_;
 
   base::WeakPtrFactory<RootWindowDeskSwitchAnimator> weak_ptr_factory_{this};
 };

@@ -363,6 +363,10 @@ const flags_ui::FeatureEntry kFeatureEntries[] = {
          omnibox::kUIExperimentMaxAutocompleteMatches,
          kOmniboxUIMaxAutocompleteMatchesVariations,
          "OmniboxUIMaxAutocompleteVariations")},
+    {"omnibox-local-history-zero-suggest",
+     flag_descriptions::kOmniboxLocalHistoryZeroSuggestName,
+     flag_descriptions::kOmniboxLocalHistoryZeroSuggestDescription,
+     flags_ui::kOsIos, FEATURE_VALUE_TYPE(omnibox::kLocalHistoryZeroSuggest)},
     {"infobar-ui-reboot", flag_descriptions::kInfobarUIRebootName,
      flag_descriptions::kInfobarUIRebootDescription, flags_ui::kOsIos,
      FEATURE_VALUE_TYPE(kIOSInfobarUIReboot)},
@@ -628,6 +632,10 @@ const flags_ui::FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kLocationPermissionsPromptName,
      flag_descriptions::kLocationPermissionsPromptDescription, flags_ui::kOsIos,
      FEATURE_VALUE_TYPE(kLocationPermissionsPrompt)},
+    {"ios-persist-crash-restore-infobar",
+     flag_descriptions::kIOSPersistCrashRestoreName,
+     flag_descriptions::kIOSPersistCrashRestoreDescription, flags_ui::kOsIos,
+     FEATURE_VALUE_TYPE(kIOSPersistCrashRestore)},
 };
 
 bool SkipConditionalFeatureEntry(const flags_ui::FeatureEntry& entry) {

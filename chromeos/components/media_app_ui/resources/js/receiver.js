@@ -284,7 +284,7 @@ async function loadFiles(fileList) {
     await app.loadFiles(fileList);
   } else {
     // Note we don't await in this case, which may affect b/152729704.
-    window.customLaunchData = {files: fileList};
+    window.customLaunchData.files = fileList;
   }
 }
 
@@ -317,6 +317,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // Note: go/bbsrc/flags.ts processes this, `window.features` variable.
   /** @type{{features: Object<string, boolean>}} */ (window).features = {
     imageAnnotation: loadTimeData.getBoolean('imageAnnotation'),
+    pdfInInk: loadTimeData.getBoolean('pdfInInk'),
     flagsMenu: loadTimeData.getBoolean('flagsMenu'),
     isDevChannel: loadTimeData.getBoolean('isDevChannel'),
   };
@@ -335,6 +336,7 @@ window.addEventListener('DOMContentLoaded', () => {
 // Ensure that if no files are loaded into the media app there is a default
 // empty file list available.
 window.customLaunchData = {
+  delegate: DELEGATE,
   files: new ReceivedFileList({files: [], writableFileIndex: 0})
 };
 

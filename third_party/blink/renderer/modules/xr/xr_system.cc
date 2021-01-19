@@ -64,6 +64,9 @@ const char kImmersiveArModeNotValid[] =
     "Failed to execute '%s' on 'XRSystem': The provided value 'immersive-ar' "
     "is not a valid enum value of type XRSessionMode.";
 
+const char kTrackedImageWidthInvalid[] =
+    "trackedImages[%d].widthInMeters invalid, must be a positive number.";
+
 constexpr device::mojom::XRSessionFeature kDefaultImmersiveVrFeatures[] = {
     device::mojom::XRSessionFeature::REF_SPACE_VIEWER,
     device::mojom::XRSessionFeature::REF_SPACE_LOCAL,
@@ -901,20 +904,6 @@ void XRSystem::ExitPresent(base::OnceClosure on_exited) {
     if (doc->IsXrOverlay()) {
       Element* fullscreen_element = Fullscreen::FullscreenElementFrom(*doc);
       DVLOG(3) << __func__ << ": fullscreen_element=" << fullscreen_element;
-
-      // Restore the FrameView background color that was changed in
-      // OnRequestSessionReturned. The layout view can be null on navigation.
-      auto* layout_view = doc->GetLayoutView();
-      if (layout_view) {
-        auto* frame_view = layout_view->GetFrameView();
-        // SetBaseBackgroundColor updates composited layer mappings.
-        // That DCHECKs IsAllowedToQueryCompositingState which requires
-        // DocumentLifecycle >= kInCompositingUpdate.
-        frame_view->UpdateLifecycleToCompositingInputsClean(
-            DocumentUpdateReason::kBaseColor);
-        frame_view->SetBaseBackgroundColor(original_base_background_color_);
-      }
-
       if (fullscreen_element) {
         fullscreen_exit_observer_ =
             MakeGarbageCollected<OverlayFullscreenExitObserver>(this);
@@ -1336,7 +1325,16 @@ ScriptPromise XRSystem::requestSession(ScriptState* script_state,
     DCHECK(session_init->hasTrackedImages());
     DVLOG(3) << __func__ << ": set up trackedImages";
     Vector<device::mojom::blink::XRTrackedImage> images;
+    int index = 0;
     for (auto& image : session_init->trackedImages()) {
+      DCHECK(image->hasImage()) << "required in IDL";
+      DCHECK(image->hasWidthInMeters()) << "required in IDL";
+      if (std::isnan(image->widthInMeters()) ||
+          image->widthInMeters() <= 0.0f) {
+        String message = String::Format(kTrackedImageWidthInvalid, index);
+        query->RejectWithTypeError(message, &exception_state);
+        return promise;
+      }
       // Extract an SkBitmap snapshot for each image.
       scoped_refptr<StaticBitmapImage> static_bitmap_image =
           image->image()->BitmapImage();
@@ -1345,6 +1343,7 @@ ScriptPromise XRSystem::requestSession(ScriptState* script_state,
       IntSize int_size = static_bitmap_image->Size();
       gfx::Size size(int_size.Width(), int_size.Height());
       images.emplace_back(sk_bitmap, size, image->widthInMeters());
+      ++index;
     }
     query->SetTrackedImages(images);
   }
@@ -1520,18 +1519,6 @@ void XRSystem::OnRequestSessionReturned(
         // element is already in fullscreen mode, and the session can
         // proceed.
         session->SetDOMOverlayElement(query->DOMOverlayElement());
-
-        // Save the current base background color (restored in ExitPresent),
-        // and set a transparent background for the FrameView.
-        auto* frame_view =
-            DomWindow()->document()->GetLayoutView()->GetFrameView();
-        // SetBaseBackgroundColor updates composited layer mappings.
-        // That DCHECKs IsAllowedToQueryCompositingState which requires
-        // DocumentLifecycle >= kInCompositingUpdate.
-        frame_view->UpdateLifecycleToCompositingInputsClean(
-            DocumentUpdateReason::kBaseColor);
-        original_base_background_color_ = frame_view->BaseBackgroundColor();
-        frame_view->SetBaseBackgroundColor(Color::kTransparent);
       }
     }
 

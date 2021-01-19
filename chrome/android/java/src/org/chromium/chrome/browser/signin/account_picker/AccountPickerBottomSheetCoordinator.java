@@ -13,6 +13,7 @@ import androidx.annotation.VisibleForTesting;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.incognito.interstitial.IncognitoInterstitialCoordinator;
 import org.chromium.chrome.browser.incognito.interstitial.IncognitoInterstitialDelegate;
+import org.chromium.chrome.browser.signin.SigninPreferencesManager;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.StateChangeReason;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
@@ -31,17 +32,16 @@ public class AccountPickerBottomSheetCoordinator {
         @Override
         public void onSheetClosed(@StateChangeReason int reason) {
             super.onSheetClosed(reason);
-            final @AccountConsistencyPromoAction int promoAction;
             if (reason == StateChangeReason.SWIPE) {
-                promoAction = AccountConsistencyPromoAction.DISMISSED_SWIPE_DOWN;
+                AccountPickerDelegate.recordAccountConsistencyPromoAction(
+                        AccountConsistencyPromoAction.DISMISSED_SWIPE_DOWN);
             } else if (reason == StateChangeReason.BACK_PRESS) {
-                promoAction = AccountConsistencyPromoAction.DISMISSED_BACK;
+                AccountPickerDelegate.recordAccountConsistencyPromoAction(
+                        AccountConsistencyPromoAction.DISMISSED_BACK);
             } else if (reason == StateChangeReason.TAP_SCRIM) {
-                promoAction = AccountConsistencyPromoAction.DISMISSED_SCRIM;
-            } else {
-                promoAction = AccountConsistencyPromoAction.DISMISSED_OTHER;
+                AccountPickerDelegate.recordAccountConsistencyPromoAction(
+                        AccountConsistencyPromoAction.DISMISSED_SCRIM);
             }
-            AccountPickerDelegate.recordAccountConsistencyPromoAction(promoAction);
         }
 
         @Override
@@ -62,8 +62,11 @@ public class AccountPickerBottomSheetCoordinator {
             BottomSheetController bottomSheetController,
             AccountPickerDelegate accountPickerDelegate,
             IncognitoInterstitialDelegate incognitoInterstitialDelegate) {
+        SigninPreferencesManager.getInstance().incrementAccountPickerBottomSheetShownCount();
         AccountPickerDelegate.recordAccountConsistencyPromoAction(
                 AccountConsistencyPromoAction.SHOWN);
+        AccountPickerDelegate.recordAccountConsistencyPromoShownCount(
+                "Signin.AccountConsistencyPromoAction.Shown.Count");
 
         mAccountPickerBottomSheetMediator = new AccountPickerBottomSheetMediator(
                 activity, accountPickerDelegate, this::dismissBottomSheet);

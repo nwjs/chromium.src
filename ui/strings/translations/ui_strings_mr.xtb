@@ -100,6 +100,7 @@
 <translation id="3600969208114796418"><ph name="SAVEAS_EXTENSION_TYPE" /> फाइल</translation>
 <translation id="3608915363409716668"><ph name="MAXIMUM_VALUE" />+</translation>
 <translation id="3618849550573277856">“<ph name="LOOKUP_STRING" />” पहा</translation>
+<translation id="3622035490309591977">क्लिपबोर्डचा इतिहास</translation>
 <translation id="364720409959344976">अपलोड करण्यासाठी फोल्डर निवडा</translation>
 <translation id="3660179305079774227">Up Arrow</translation>
 <translation id="3670030362669914947">नंबर</translation>
@@ -115,7 +116,7 @@
 <translation id="4202807286478387388">जंप करा</translation>
 <translation id="4250229828105606438">स्क्रीनशॉट</translation>
 <translation id="4266252015790371705">{MONTHS,plural, =1{1 महिन्यापूर्वी}other{# महिन्यांपूर्वी}}</translation>
-<translation id="4289300219472526559">बोलणे प्रारंभ करा</translation>
+<translation id="4289300219472526559">बोलणे सुरू करा</translation>
 <translation id="430191667033048642"><ph name="MOVED_APP_NAME" /> फोल्डर <ph name="FOLDER_NAME" /> वर हलवले.</translation>
 <translation id="4316910396681052118">सर्व अ‍ॅप्स</translation>
 <translation id="4491109536499578614">इमेज</translation>

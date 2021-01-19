@@ -78,12 +78,12 @@ Polymer({
     isProfileShortcutSettingVisible_: Boolean,
 
     /**
-     * True if the 'kProfilesUIRevamp' feature is enabled.
+     * True if the 'kNewProfilePicker' feature is enabled.
      * @private
      */
-    isProfilesUIRevamp_: {
+    isNewProfilePicker_: {
       type: Boolean,
-      value: () => loadTimeData.getBoolean('profilesUIRevamp')
+      value: () => loadTimeData.getBoolean('newProfilePicker')
     },
 
     /**
@@ -176,7 +176,8 @@ Polymer({
     if (this.profileAvatar_.isGaiaAvatar) {
       this.browserProxy_.setProfileIconToGaiaAvatar();
     } else {
-      this.browserProxy_.setProfileIconToDefaultAvatar(this.profileAvatar_.url);
+      this.browserProxy_.setProfileIconToDefaultAvatar(
+          this.profileAvatar_.index);
     }
   },
 

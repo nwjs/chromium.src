@@ -4,8 +4,6 @@
 
 package org.chromium.components.messages;
 
-import android.view.View;
-
 import androidx.annotation.DrawableRes;
 
 import org.chromium.base.annotations.CalledByNative;
@@ -35,8 +33,9 @@ public final class MessageWrapper {
         mNativeMessageWrapper = nativeMessageWrapper;
         mMessageProperties =
                 new PropertyModel.Builder(MessageBannerProperties.SINGLE_ACTION_MESSAGE_KEYS)
-                        .with(MessageBannerProperties.PRIMARY_BUTTON_CLICK_LISTENER,
-                                this::handleActionClick)
+                        .with(MessageBannerProperties.ON_PRIMARY_ACTION, this::handleActionClick)
+                        .with(MessageBannerProperties.ON_SECONDARY_ACTION,
+                                this::handleSecondaryActionClick)
                         .with(MessageBannerProperties.ON_DISMISSED, this::handleMessageDismissed)
                         .build();
     }
@@ -46,8 +45,18 @@ public final class MessageWrapper {
     }
 
     @CalledByNative
+    String getTitle() {
+        return mMessageProperties.get(MessageBannerProperties.TITLE);
+    }
+
+    @CalledByNative
     void setTitle(String title) {
         mMessageProperties.set(MessageBannerProperties.TITLE, title);
+    }
+
+    @CalledByNative
+    String getDescription() {
+        return mMessageProperties.get(MessageBannerProperties.DESCRIPTION);
     }
 
     @CalledByNative
@@ -56,8 +65,29 @@ public final class MessageWrapper {
     }
 
     @CalledByNative
+    String getPrimaryButtonText() {
+        return mMessageProperties.get(MessageBannerProperties.PRIMARY_BUTTON_TEXT);
+    }
+
+    @CalledByNative
     void setPrimaryButtonText(String primaryButtonText) {
         mMessageProperties.set(MessageBannerProperties.PRIMARY_BUTTON_TEXT, primaryButtonText);
+    }
+
+    @CalledByNative
+    String getSecondaryActionText() {
+        return mMessageProperties.get(MessageBannerProperties.SECONDARY_ACTION_TEXT);
+    }
+
+    @CalledByNative
+    void setSecondaryActionText(String secondaryActionText) {
+        mMessageProperties.set(MessageBannerProperties.SECONDARY_ACTION_TEXT, secondaryActionText);
+    }
+
+    @CalledByNative
+    @DrawableRes
+    int getIconResourceId() {
+        return mMessageProperties.get(MessageBannerProperties.ICON_RESOURCE_ID);
     }
 
     @CalledByNative
@@ -66,22 +96,42 @@ public final class MessageWrapper {
     }
 
     @CalledByNative
+    @DrawableRes
+    int getSecondaryIconResourceId() {
+        return mMessageProperties.get(MessageBannerProperties.SECONDARY_ICON_RESOURCE_ID);
+    }
+
+    @CalledByNative
+    void setSecondaryIconResourceId(@DrawableRes int resourceId) {
+        mMessageProperties.set(MessageBannerProperties.SECONDARY_ICON_RESOURCE_ID, resourceId);
+    }
+
+    @CalledByNative
     void clearNativePtr() {
         mNativeMessageWrapper = 0;
     }
 
-    private void handleActionClick(View v) {
+    private void handleActionClick() {
         if (mNativeMessageWrapper == 0) return;
         MessageWrapperJni.get().handleActionClick(mNativeMessageWrapper);
     }
 
+    private void handleSecondaryActionClick() {
+        if (mNativeMessageWrapper == 0) return;
+        MessageWrapperJni.get().handleSecondaryActionClick(mNativeMessageWrapper);
+    }
+
     private void handleMessageDismissed() {
+        // mNativeMessageWrapper can be null if the message was dismissed from native API.
+        // In this case dismiss callback should have already been called.
+        if (mNativeMessageWrapper == 0) return;
         MessageWrapperJni.get().handleDismissCallback(mNativeMessageWrapper);
     }
 
     @NativeMethods
     interface Natives {
         void handleActionClick(long nativeMessageWrapper);
+        void handleSecondaryActionClick(long nativeMessageWrapper);
         void handleDismissCallback(long nativeMessageWrapper);
     }
 }

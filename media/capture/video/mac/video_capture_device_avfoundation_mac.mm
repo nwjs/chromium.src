@@ -566,31 +566,85 @@ AVCaptureDeviceFormat* FindBestCaptureFormat(
       kCVReturnSuccess) {
     return NO;
   }
-  char* baseAddress = 0;
-  size_t frameSize = 0;
+
+  // Retrieve the layout of the planes of |pixelBuffer|.
+  const size_t numPlanes =
+      media::VideoFrame::NumPlanes(captureFormat.pixel_format);
+  std::vector<uint8_t*> pixelBufferAddresses;
+  std::vector<size_t> pixelBufferBytesPerRows;
+  std::vector<size_t> pixelBufferHeights;
   if (!CVPixelBufferIsPlanar(pixelBuffer)) {
     // For nonplanar buffers, CVPixelBufferGetBaseAddress returns a pointer
     // to (0,0). (For planar buffers, it returns something else.)
     // https://developer.apple.com/documentation/corevideo/1457115-cvpixelbuffergetbaseaddress?language=objc
-    baseAddress = static_cast<char*>(CVPixelBufferGetBaseAddress(pixelBuffer));
+    CHECK_EQ(numPlanes, 1u);
+    pixelBufferAddresses.push_back(
+        static_cast<uint8_t*>(CVPixelBufferGetBaseAddress(pixelBuffer)));
+    pixelBufferBytesPerRows.push_back(CVPixelBufferGetBytesPerRow(pixelBuffer));
+    pixelBufferHeights.push_back(CVPixelBufferGetHeight(pixelBuffer));
   } else {
     // For planar buffers, CVPixelBufferGetBaseAddressOfPlane() is used. If
     // the buffer is contiguous (CHECK'd below) then we only need to know
     // the address of the first plane, regardless of
     // CVPixelBufferGetPlaneCount().
-    baseAddress =
-        static_cast<char*>(CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 0));
+    CHECK_EQ(numPlanes, CVPixelBufferGetPlaneCount(pixelBuffer));
+    for (size_t plane = 0; plane < numPlanes; ++plane) {
+      pixelBufferAddresses.push_back(static_cast<uint8_t*>(
+          CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, plane)));
+      pixelBufferBytesPerRows.push_back(
+          CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, plane));
+      pixelBufferHeights.push_back(
+          CVPixelBufferGetHeightOfPlane(pixelBuffer, plane));
+    }
   }
   // CVPixelBufferGetDataSize() works for both nonplanar and planar buffers
   // as long as they are contiguous in memory. If it is not contiguous, 0 is
   // returned.
-  frameSize = CVPixelBufferGetDataSize(pixelBuffer);
+  size_t frameSize = CVPixelBufferGetDataSize(pixelBuffer);
   // Only contiguous buffers are supported.
   CHECK(frameSize);
+
+  // Compute the tightly-packed layout for |captureFormat|.
+  size_t packedBufferSize = 0;
+  std::vector<size_t> packedBytesPerRows;
+  std::vector<size_t> packedHeights;
+  for (size_t plane = 0; plane < numPlanes; ++plane) {
+    size_t bytesPerRow = media::VideoFrame::RowBytes(
+        plane, captureFormat.pixel_format, captureFormat.frame_size.width());
+    size_t height =
+        media::VideoFrame::PlaneSize(captureFormat.pixel_format, plane,
+                                     captureFormat.frame_size)
+            .height();
+    packedBytesPerRows.push_back(bytesPerRow);
+    packedHeights.push_back(height);
+    packedBufferSize += bytesPerRow * height;
+  }
+
+  // If |pixelBuffer| is not tightly packed, then copy it to |packedBufferCopy|,
+  // because ReceiveFrame() below assumes tight packing.
+  // https://crbug.com/1151936
+  bool needsCopyToPackedBuffer = pixelBufferBytesPerRows != packedBytesPerRows;
+  CHECK(pixelBufferHeights == packedHeights);
+  std::vector<uint8_t> packedBufferCopy;
+  if (needsCopyToPackedBuffer) {
+    CHECK(pixelBufferHeights == packedHeights);
+    packedBufferCopy.resize(packedBufferSize);
+    uint8_t* dstAddr = packedBufferCopy.data();
+    for (size_t plane = 0; plane < numPlanes; ++plane) {
+      uint8_t* srcAddr = pixelBufferAddresses[plane];
+      for (size_t row = 0; row < packedHeights[plane]; ++row) {
+        memcpy(dstAddr, srcAddr, packedBytesPerRows[plane]);
+        dstAddr += packedBytesPerRows[plane];
+        srcAddr += pixelBufferBytesPerRows[plane];
+      }
+    }
+  }
+
   _lock.AssertAcquired();
-  _frameReceiver->ReceiveFrame(reinterpret_cast<const uint8_t*>(baseAddress),
-                               frameSize, captureFormat, colorSpace, 0, 0,
-                               timestamp);
+  _frameReceiver->ReceiveFrame(
+      packedBufferCopy.empty() ? pixelBufferAddresses[0]
+                               : packedBufferCopy.data(),
+      frameSize, captureFormat, colorSpace, 0, 0, timestamp);
   CVPixelBufferUnlockBaseAddress(pixelBuffer, kCVPixelBufferLock_ReadOnly);
   return YES;
 }
@@ -640,11 +694,22 @@ AVCaptureDeviceFormat* FindBestCaptureFormat(
 
   const base::TimeDelta timestamp = GetCMSampleBufferTimestamp(sampleBuffer);
 
+  // The SampleBufferTransformer CHECK-crashes if the sample buffer is not MJPEG
+  // and does not have a pixel buffer (https://crbug.com/1160647) so we fall
+  // back on the M87 code path if this is the case.
+  // TODO(https://crbug.com/1160315): When the SampleBufferTransformer is
+  // patched to support non-MJPEG-and-non-pixel-buffer sample buffers, remove
+  // this workaround.
+  bool sampleBufferLacksPixelBufferAndIsNotMjpeg =
+      !CMSampleBufferGetImageBuffer(sampleBuffer) &&
+      CMFormatDescriptionGetMediaSubType(CMSampleBufferGetFormatDescription(
+          sampleBuffer)) != kCMVideoCodecType_JPEG_OpenDML;
+
   // If the SampleBufferTransformer is enabled, convert all possible capture
   // formats to an IOSurface-backed NV12 pixel buffer.
   // TODO(hbos): If |_sampleBufferTransformer| gets shipped 100%, delete the
   // other code paths.
-  if (_sampleBufferTransformer) {
+  if (_sampleBufferTransformer && !sampleBufferLacksPixelBufferAndIsNotMjpeg) {
     base::ScopedCFTypeRef<CVPixelBufferRef> pixelBuffer =
         _sampleBufferTransformer->AutoReconfigureAndTransform(sampleBuffer);
     if (!pixelBuffer) {
@@ -652,9 +717,9 @@ AVCaptureDeviceFormat* FindBestCaptureFormat(
       return;
     }
     IOSurfaceRef ioSurface = CVPixelBufferGetIOSurface(pixelBuffer);
-    DCHECK(ioSurface);
-    DCHECK(CVPixelBufferGetPixelFormatType(pixelBuffer) ==
-           kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange);  // NV12
+    CHECK(ioSurface);
+    CHECK_EQ(CVPixelBufferGetPixelFormatType(pixelBuffer),
+             kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange);  // NV12
     const media::VideoCaptureFormat captureFormat(
         gfx::Size(CVPixelBufferGetWidth(pixelBuffer),
                   CVPixelBufferGetHeight(pixelBuffer)),

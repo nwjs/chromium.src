@@ -99,6 +99,8 @@ BLINK_COMMON_EXPORT extern const base::Feature
     kBlockingFocusWithoutUserActivation;
 
 BLINK_COMMON_EXPORT extern const base::Feature kAudioWorkletRealtimeThread;
+BLINK_COMMON_EXPORT extern const base::Feature
+    kAudioWorkletThreadRealtimePriority;
 
 BLINK_COMMON_EXPORT extern const base::Feature kLightweightNoStatePrefetch;
 
@@ -335,6 +337,9 @@ BLINK_COMMON_EXPORT extern const base::Feature kWebRtcLibvpxEncodeNV12;
 BLINK_COMMON_EXPORT extern const base::Feature kLoadingTasksUnfreezable;
 
 BLINK_COMMON_EXPORT extern const base::Feature kTargetBlankImpliesNoOpener;
+
+BLINK_COMMON_EXPORT extern const base::Feature
+    kMediaStreamTrackUseConfigMaxFrameRate;
 }  // namespace features
 }  // namespace blink
 

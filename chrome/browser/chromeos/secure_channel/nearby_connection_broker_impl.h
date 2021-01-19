@@ -8,7 +8,10 @@
 #include <memory>
 #include <ostream>
 
+#include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
+#include "base/time/time.h"
+#include "base/timer/timer.h"
 #include "chrome/browser/chromeos/secure_channel/nearby_connection_broker.h"
 #include "chromeos/services/nearby/public/mojom/nearby_connections.mojom.h"
 #include "mojo/public/cpp/bindings/shared_remote.h"
@@ -28,9 +31,6 @@ class NearbyEndpointFinder;
 //
 // Deleting an instance of this class tears down any active connection and
 // performs cleanup if necessary.
-//
-// TODO(khorimoto): Add the ability to upgrade bandwidth to WebRTC and to
-// receive payloads.
 class NearbyConnectionBrokerImpl
     : public NearbyConnectionBroker,
       public location::nearby::connections::mojom::ConnectionLifecycleListener,
@@ -49,7 +49,9 @@ class NearbyConnectionBrokerImpl
             location::nearby::connections::mojom::NearbyConnections>&
             nearby_connections,
         base::OnceClosure on_connected_callback,
-        base::OnceClosure on_disconnected_callback);
+        base::OnceClosure on_disconnected_callback,
+        std::unique_ptr<base::OneShotTimer> timer =
+            std::make_unique<base::OneShotTimer>());
     static void SetFactoryForTesting(Factory* test_factory);
 
     virtual ~Factory() = default;
@@ -66,7 +68,8 @@ class NearbyConnectionBrokerImpl
             location::nearby::connections::mojom::NearbyConnections>&
             nearby_connections,
         base::OnceClosure on_connected_callback,
-        base::OnceClosure on_disconnected_callback) = 0;
+        base::OnceClosure on_disconnected_callback,
+        std::unique_ptr<base::OneShotTimer> timer) = 0;
   };
 
   ~NearbyConnectionBrokerImpl() override;
@@ -80,6 +83,7 @@ class NearbyConnectionBrokerImpl
     kAcceptingConnection,
     kWaitingForConnectionToBeAcceptedByRemoteDevice,
     kConnected,
+    kDisconnecting,
     kDisconnected,
   };
   friend std::ostream& operator<<(
@@ -95,10 +99,12 @@ class NearbyConnectionBrokerImpl
           location::nearby::connections::mojom::NearbyConnections>&
           nearby_connections,
       base::OnceClosure on_connected_callback,
-      base::OnceClosure on_disconnected_callback);
+      base::OnceClosure on_disconnected_callback,
+      std::unique_ptr<base::OneShotTimer> timer);
 
   void TransitionToStatus(ConnectionStatus connection_status);
-  void TransitionToDisconnected();
+  void Disconnect();
+  void TransitionToDisconnectedAndInvokeCallback();
 
   void OnEndpointDiscovered(
       const std::string& endpoint_id,
@@ -111,6 +117,12 @@ class NearbyConnectionBrokerImpl
       location::nearby::connections::mojom::Status status);
   void OnSendPayloadResult(SendMessageCallback callback,
                            location::nearby::connections::mojom::Status status);
+  void OnDisconnectFromEndpointResult(
+      location::nearby::connections::mojom::Status status);
+  void OnConnectionStatusChangeTimeout();
+
+  // NearbyConnectionBroker:
+  void OnMojoDisconnection() override;
 
   // mojom::NearbyMessageSender:
   void SendMessage(const std::string& message,
@@ -133,14 +145,17 @@ class NearbyConnectionBrokerImpl
   void OnPayloadReceived(
       const std::string& endpoint_id,
       location::nearby::connections::mojom::PayloadPtr payload) override;
+  // Note: Intentionally left empty; SecureChannel messages are always sent as
+  // bytes and do not require transfer updates.
   void OnPayloadTransferUpdate(
       const std::string& endpoint_id,
       location::nearby::connections::mojom::PayloadTransferUpdatePtr update)
-      override;
+      override {}
 
   NearbyEndpointFinder* endpoint_finder_;
   mojo::SharedRemote<location::nearby::connections::mojom::NearbyConnections>
       nearby_connections_;
+  std::unique_ptr<base::OneShotTimer> timer_;
 
   mojo::Receiver<
       location::nearby::connections::mojom::ConnectionLifecycleListener>
@@ -149,10 +164,16 @@ class NearbyConnectionBrokerImpl
       payload_listener_receiver_{this};
 
   ConnectionStatus connection_status_ = ConnectionStatus::kUninitialized;
-  int64_t next_sent_payload_id_ = 0L;
 
-  // Set once an endpoint is discovered.
+  // Starts empty, then set in OnEndpointDiscovered().
   std::string remote_endpoint_id_;
+
+  // Starts as false; set to true in OnConnectionInitiated() and back to false
+  // in OnDisconnected().
+  bool need_to_disconnect_endpoint_ = false;
+
+  // Starts as null; set in OnConnectionAccepted().
+  base::Time time_when_connection_accepted_;
 
   base::WeakPtrFactory<NearbyConnectionBrokerImpl> weak_ptr_factory_{this};
 };

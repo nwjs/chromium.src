@@ -453,7 +453,7 @@ void D3D11VideoDecoder::ReceivePictureBufferFromClient(
   // We may decode into this buffer again.
   // Note that |buffer| might no longer be in |picture_buffers_| if we've
   // replaced them.  That's okay.
-  buffer->set_in_client_use(false);
+  buffer->remove_client_use();
 
   // Also re-start decoding in case it was waiting for more pictures.
   DoDecode();
@@ -595,22 +595,31 @@ void D3D11VideoDecoder::DoDecode() {
         return;
       CreatePictureBuffers();
     } else if (result == media::AcceleratedVideoDecoder::kConfigChange) {
-      if (profile_ != accelerated_video_decoder_->GetProfile()) {
-        profile_ = accelerated_video_decoder_->GetProfile();
-        config_.set_profile(profile_);
-      }
       // Before the first frame, we get a config change that we should ignore.
       // We only want to take action if this is a mid-stream config change.  We
       // could wait until now to allocate the first D3D11VideoDecoder, but we
       // don't, so that init can fail rather than decoding if there's a problem
-      // creating it.  If there's a config change at the start of the stream,
-      // then this might not work.
-      if (!picture_buffers_.size())
+      // creating it.  We could also unconditionally re-allocate the decoder,
+      // but we keep it if it's ready to go.
+      const auto new_profile = accelerated_video_decoder_->GetProfile();
+      const auto new_coded_size = accelerated_video_decoder_->GetPicSize();
+      if (new_profile == config_.profile() &&
+          new_coded_size == config_.coded_size()) {
         continue;
+      }
 
       // Update the config.
-      const auto new_coded_size = accelerated_video_decoder_->GetPicSize();
+      MEDIA_LOG(INFO, media_log_)
+          << "D3D11VideoDecoder config change: profile: "
+          << static_cast<int>(new_profile) << " coded_size: ("
+          << new_coded_size.width() << ", " << new_coded_size.height() << ")";
+      profile_ = new_profile;
+      config_.set_profile(profile_);
       config_.set_coded_size(new_coded_size);
+
+      // Replace the decoder, and clear any picture buffers we have.  It's okay
+      // if we don't have any picture buffer yet; this might be before the
+      // accelerated decoder asked for any.
       auto video_decoder_or_error = CreateD3D11Decoder();
       if (video_decoder_or_error.has_error()) {
         NotifyError(video_decoder_or_error.error());
@@ -775,13 +784,20 @@ D3D11PictureBuffer* D3D11VideoDecoder::GetPicture() {
   return nullptr;
 }
 
+void D3D11VideoDecoder::UpdateTimestamp(D3D11PictureBuffer* picture_buffer) {
+  // A picture is being reused with a different timestamp; since we've already
+  // generated a VideoFrame from the previous picture buffer, we can just stamp
+  // the new timestamp directly onto the buffer.
+  picture_buffer->timestamp_ = current_timestamp_;
+}
+
 bool D3D11VideoDecoder::OutputResult(const CodecPicture* picture,
                                      D3D11PictureBuffer* picture_buffer) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(texture_selector_);
   TRACE_EVENT0("gpu", "D3D11VideoDecoder::OutputResult");
 
-  picture_buffer->set_in_client_use(true);
+  picture_buffer->add_client_use();
 
   // Note: The pixel format doesn't matter.
   gfx::Rect visible_rect = picture->visible_rect();

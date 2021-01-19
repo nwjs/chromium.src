@@ -3,12 +3,12 @@
 # found in the LICENSE file.
 
 load("//lib/branches.star", "branches")
-load("//lib/builders.star", "cpu", "goma", "os", "xcode_cache")
+load("//lib/builders.star", "cpu", "goma", "os", "xcode")
+load("//lib/consoles.star", "consoles")
 load("//lib/try.star", "try_")
 load("//project.star", "settings")
 
 try_.defaults.set(
-    add_to_list_view = True,
     bucket = "try",
     build_numbers = True,
     caches = [
@@ -84,64 +84,65 @@ luci.cq_group(
 
 # Automatically maintained consoles
 
-try_.list_view(
+consoles.list_view(
     name = "try",
     title = settings.main_list_view_title,
+    branch_selector = branches.ALL_BRANCHES,
 )
 
-try_.list_view(
+consoles.list_view(
     name = "luci.chromium.try",
     branch_selector = branches.ALL_BRANCHES,
 )
 
-try_.list_view(
+consoles.list_view(
     name = "tryserver.blink",
     branch_selector = branches.STANDARD_MILESTONE,
 )
 
-try_.list_view(
+consoles.list_view(
     name = "tryserver.chromium",
     branch_selector = branches.STANDARD_MILESTONE,
 )
 
-try_.list_view(
+consoles.list_view(
     name = "tryserver.chromium.android",
     branch_selector = branches.STANDARD_MILESTONE,
 )
 
-try_.list_view(
+consoles.list_view(
     name = "tryserver.chromium.angle",
 )
 
-try_.list_view(
+consoles.list_view(
     name = "tryserver.chromium.chromiumos",
     branch_selector = branches.ALL_BRANCHES,
 )
 
-try_.list_view(
+consoles.list_view(
     name = "tryserver.chromium.codesearch",
 )
 
-try_.list_view(
+consoles.list_view(
     name = "tryserver.chromium.dawn",
     branch_selector = branches.STANDARD_MILESTONE,
 )
 
-try_.list_view(
+consoles.list_view(
     name = "tryserver.chromium.linux",
     branch_selector = branches.STANDARD_MILESTONE,
 )
 
-try_.list_view(
+consoles.list_view(
     name = "tryserver.chromium.mac",
     branch_selector = branches.STANDARD_MILESTONE,
 )
 
-try_.list_view(
+consoles.list_view(
     name = "tryserver.chromium.swangle",
 )
 
-try_.list_view(
+consoles.list_view(
     name = "tryserver.chromium.win",
     branch_selector = branches.STANDARD_MILESTONE,
 )
@@ -268,13 +269,15 @@ try_.chromium_android_builder(
     properties = {
         "$build/binary_size": {
             "analyze_targets": [
-                "//chrome/android:validate_expectations",
                 "//chrome/android:monochrome_public_minimal_apks",
+                "//chrome/android:trichrome_minimal_apks",
+                "//chrome/android:validate_expectations",
                 "//tools/binary_size:binary_size_trybot_py",
             ],
             "compile_targets": [
                 "monochrome_public_minimal_apks",
                 "monochrome_static_initializers",
+                "trichrome_minimal_apks",
                 "validate_expectations",
             ],
         },
@@ -1229,10 +1232,6 @@ try_.chromium_mac_builder(
 # they are built, hence no additional dimension is specified.
 # The 10.xx version translates to which bots will run isolated tests.
 try_.chromium_mac_builder(
-    name = "mac_chromium_10.10",
-)
-
-try_.chromium_mac_builder(
     name = "mac_chromium_10.12_rel_ng",
 )
 
@@ -1322,11 +1321,7 @@ try_.chromium_mac_ios_builder(
 try_.chromium_mac_ios_builder(
     name = "ios-simulator-cronet",
     branch_selector = branches.STANDARD_MILESTONE,
-    caches = [xcode_cache.x11e146],
     main_list_view = "try",
-    properties = {
-        "xcode_build_version": "11e146",
-    },
     tryjob = try_.job(
         location_regexp = [
             ".+/[+]/components/cronet/.+",
@@ -1337,6 +1332,7 @@ try_.chromium_mac_ios_builder(
             ".+/[+]/components/cronet/android/.+",
         ],
     ),
+    xcode = xcode.x11e146,
 )
 
 try_.chromium_mac_ios_builder(
@@ -1386,10 +1382,7 @@ try_.chromium_mac_ios_builder(
 
 try_.chromium_mac_ios_builder(
     name = "ios14-sdk-simulator",
-    caches = [xcode_cache.x12b5035g],
-    properties = {
-        "xcode_build_version": "12b5035g",
-    },
+    xcode = [xcode.x12b5035g],
 )
 
 try_.chromium_win_builder(

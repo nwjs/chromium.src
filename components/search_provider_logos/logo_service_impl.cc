@@ -93,6 +93,9 @@ void ObserverOnLogoAvailable(LogoObserver* observer,
       break;
 
     case LogoCallbackReason::REVALIDATED:
+      observer->OnCachedLogoRevalidated();
+      break;
+
     case LogoCallbackReason::DETERMINED:
       observer->OnLogoAvailable(logo ? &logo.value() : nullptr, from_cache);
       break;

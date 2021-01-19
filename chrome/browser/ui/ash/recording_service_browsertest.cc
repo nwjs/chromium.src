@@ -129,6 +129,12 @@ class RecordingServiceBrowserTest : public InProcessBrowserTest {
     // To improve the test efficiency, we set the display to a small size.
     display::test::DisplayManagerTestApi(ash::ShellTestApi().display_manager())
         .UpdateDisplay("300x200");
+    // To avoid flaky tests, we disable audio recording, since the bots won't
+    // capture any audio and won't produce any audio frames. This will cause the
+    // muxer to discard video frames if it expects audio frames but got none,
+    // which may cause the produced webm file to be empty. See issues
+    // https://crbug.com/1151167 and https://crbug.com/1151418.
+    ash::CaptureModeTestApi().SetAudioRecordingEnabled(false);
   }
 
   aura::Window* GetBrowserWindow() const {
@@ -153,6 +159,7 @@ class RecordingServiceBrowserTest : public InProcessBrowserTest {
 
   void FinishVideoRecordingTest(ash::CaptureModeTestApi* test_api) {
     test_api->PerformCapture();
+    test_api->FlushRecordingServiceForTesting();
     // Record a 1.5-second long video to give it enough time to produce and send
     // video frames in order to exercise all the code paths of the service and
     // its client.
@@ -206,4 +213,17 @@ IN_PROC_BROWSER_TEST_F(RecordingServiceBrowserTest, SuccessiveRecording) {
   test_api.StartForRegion(/*for_video=*/true);
   test_api.SetUserSelectedRegion(gfx::Rect(50, 200));
   FinishVideoRecordingTest(&test_api);
+}
+
+// Tests that recording will be interrupted once screen capture becomes locked.
+IN_PROC_BROWSER_TEST_F(RecordingServiceBrowserTest,
+                       RecordingInterruptedOnCaptureLocked) {
+  ash::CaptureModeTestApi test_api;
+  test_api.StartForFullscreen(/*for_video=*/true);
+  test_api.PerformCapture();
+  test_api.FlushRecordingServiceForTesting();
+  WaitForMilliseconds(1000);
+  ChromeCaptureModeDelegate::Get()->SetIsScreenCaptureLocked(true);
+  const base::FilePath video_path = WaitForVideoFileToBeSaved();
+  VerifyVideoFileAndDelete(video_path);
 }

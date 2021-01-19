@@ -54,7 +54,6 @@
 <translation id="6600954340915313787">Kopierat till Chrome</translation>
 <translation id="6648150602980899529">Du håller på att logga in med ett konto som hanteras av <ph name="DOMAIN" /> vilket ger administratören kontroll över data i Chrome. Din data kopplas permanent till det här kontot. Om du loggar ut från Chrome raderas all din data från enheten, men den lagras fortfarande på Google-kontot.</translation>
 <translation id="6676840375528380067">Vill du rensa din data i Chrome från den här enheten?</translation>
-<translation id="6707926552788741012">När du tillåter att din plats används skickas den från Chrome till din standardsökmotor och webbplatser du ger behörighet. Webbplatser använder vanligtvis din plats för att visa lokal information, till exempel nyheter eller butiker i närheten.</translation>
 <translation id="6822673484890854830">Chrome kunde inte kontrollera alla lösenord. Försök igen senare.</translation>
 <translation id="7124339256045485976">Håll Chrome uppdaterad</translation>
 <translation id="7161390184744336561">Google Chrome-versionen är inaktuell</translation>
@@ -77,4 +76,5 @@
 <translation id="840168496893712993">Några tillägg har fått Chrome att krascha. Testa att avinstallera dem.</translation>
 <translation id="8459495907675268833">Den data som markerades har tagits bort från Chrome och från synkroniserade enheter. Det kan finnas andra former av webbhistorik i Google-kontot på history.google.com, t.ex. sökningar och aktivitet på andra tjänster från Google.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
+<translation id="9135668017386497357">När du ger Chrome åtkomst till din plats skickas den från Chrome till din standardsökmotor och alla webbplatser som du ger behörighet till. Webbplatser kan fråga efter din plats när det finns lokal information att visa, till exempel butiker i närheten eller nyheter.</translation>
 </translationbundle>

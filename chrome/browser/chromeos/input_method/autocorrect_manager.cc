@@ -4,6 +4,7 @@
 
 #include "chrome/browser/chromeos/input_method/autocorrect_manager.h"
 
+#include "base/metrics/histogram_functions.h"
 #include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/chromeos/input_method/assistive_window_properties.h"
@@ -12,9 +13,45 @@
 #include "ui/base/ime/chromeos/ime_input_context_handler_interface.h"
 #include "ui/base/l10n/l10n_util.h"
 
+namespace {
+
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused. Needs to match ImeAutocorrectActions
+// in enums.xml.
+enum class AutocorrectActions {
+  kWindowShown = 0,
+  kUnderlined = 1,
+  kMaxValue = kUnderlined,
+};
+
+void LogAssistiveAutocorrectAction(AutocorrectActions action) {
+  base::UmaHistogramEnumeration("InputMethod.Assistive.Autocorrect.Actions",
+                                action);
+}
+
+}  // namespace
+
 namespace chromeos {
+namespace {
+
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused. Needs to match ImeAutocorrectActions
+// in enums.xml.
+enum class AutocorrectActions {
+  kWindowShown = 0,
+  kUnderlined = 1,
+  kReverted = 2,
+  kMaxValue = kReverted,
+};
+
+void LogAssistiveAutocorrectAction(AutocorrectActions action) {
+  base::UmaHistogramEnumeration("InputMethod.Assistive.Autocorrect.Actions",
+                                action);
+}
 
 constexpr int kKeysUntilAutocorrectWindowHides = 4;
+
+}  // namespace
 
 AutocorrectManager::AutocorrectManager(InputMethodEngine* engine)
     : engine_(engine) {}
@@ -32,6 +69,8 @@ void AutocorrectManager::MarkAutocorrectRange(const std::string& corrected_word,
   if (context_id_ != -1) {
     engine_->SetAutocorrectRange(base::UTF8ToUTF16(corrected_word), start_index,
                                  start_index + corrected_word.length());
+    autocorrect_time_ = base::TimeTicks::Now();
+    LogAssistiveAutocorrectAction(AutocorrectActions::kUnderlined);
   }
 }
 
@@ -90,6 +129,7 @@ void AutocorrectManager::OnSurroundingTextChanged(const base::string16& text,
       window_visible = true;
       button_highlighted = false;
       engine_->SetAssistiveWindowProperties(context_id_, properties, &error);
+      LogAssistiveAutocorrectAction(AutocorrectActions::kWindowShown);
     }
     key_presses_until_underline_hide_ = kKeysUntilAutocorrectWindowHides;
   } else if (window_visible) {
@@ -145,6 +185,9 @@ void AutocorrectManager::UndoAutocorrect() {
        last_typed_word_)
           .c_str(),
       &error);
+  LogAssistiveAutocorrectAction(AutocorrectActions::kReverted);
+  base::UmaHistogramMediumTimes("InputMethod.Assistive.Autocorrect.Delay",
+                                (base::TimeTicks::Now() - autocorrect_time_));
 }
 
 }  // namespace chromeos

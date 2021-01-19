@@ -6,6 +6,7 @@
 
 #include "chromeos/components/multidevice/logging/logging.h"
 #include "chromeos/components/phonehub/pref_names.h"
+#include "chromeos/components/phonehub/util/histogram_util.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 
@@ -42,8 +43,10 @@ MultideviceSetupStateUpdater::~MultideviceSetupStateUpdater() {
 }
 
 void MultideviceSetupStateUpdater::OnNotificationAccessChanged() {
-  if (notification_access_manager_->HasAccessBeenGranted())
+  if (notification_access_manager_->GetAccessStatus() ==
+      NotificationAccessManager::AccessStatus::kAccessGranted) {
     return;
+  }
 
   PA_LOG(INFO) << "Disabling PhoneHubNotifications feature.";
 
@@ -68,6 +71,7 @@ void MultideviceSetupStateUpdater::OnHostStatusChanged(
     multidevice_setup_client_->SetFeatureEnabledState(
         Feature::kPhoneHub, /*enabled=*/true, /*auth_token=*/base::nullopt,
         base::DoNothing());
+    util::LogFeatureOptInEntryPoint(util::OptInEntryPoint::kSetupFlow);
   }
 
   UpdateIsAwaitingVerifiedHost(host_status);

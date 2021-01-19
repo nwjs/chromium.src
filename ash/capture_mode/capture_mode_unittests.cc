@@ -7,6 +7,7 @@
 #include "ash/capture_mode/capture_mode_bar_view.h"
 #include "ash/capture_mode/capture_mode_button.h"
 #include "ash/capture_mode/capture_mode_controller.h"
+#include "ash/capture_mode/capture_mode_metrics.h"
 #include "ash/capture_mode/capture_mode_session.h"
 #include "ash/capture_mode/capture_mode_source_view.h"
 #include "ash/capture_mode/capture_mode_toggle_button.h"
@@ -15,21 +16,31 @@
 #include "ash/capture_mode/capture_mode_util.h"
 #include "ash/capture_mode/stop_recording_button_tray.h"
 #include "ash/display/cursor_window_controller.h"
+#include "ash/display/output_protection_delegate.h"
 #include "ash/display/window_tree_host_manager.h"
 #include "ash/magnifier/magnifier_glass.h"
 #include "ash/public/cpp/ash_features.h"
+#include "ash/public/cpp/capture_mode_test_api.h"
 #include "ash/root_window_controller.h"
 #include "ash/shell.h"
 #include "ash/system/status_area_widget.h"
 #include "ash/test/ash_test_base.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
+#include "ash/wm/tablet_mode/tablet_mode_controller_test_api.h"
 #include "ash/wm/window_state.h"
+#include "ash/wm/window_util.h"
+#include "base/callback_helpers.h"
 #include "base/run_loop.h"
 #include "base/scoped_observation.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
+#include "chromeos/dbus/power/fake_power_manager_client.h"
+#include "chromeos/dbus/power_manager/suspend.pb.h"
+#include "components/account_id/account_id.h"
+#include "ui/aura/window_tracker.h"
 #include "ui/compositor/scoped_animation_duration_scale_mode.h"
+#include "ui/display/types/display_constants.h"
 #include "ui/events/keycodes/keyboard_codes_posix.h"
 #include "ui/events/test/event_generator.h"
 #include "ui/gfx/geometry/insets.h"
@@ -41,6 +52,9 @@
 namespace ash {
 
 namespace {
+
+constexpr char kEndRecordingReasonInClamshellHistogramName[] =
+    "Ash.CaptureModeController.EndRecordingReason.ClamshellMode";
 
 // Returns true if the software-composited cursor is enabled.
 bool IsCursorCompositingEnabled() {
@@ -108,6 +122,10 @@ class CaptureModeSessionTestApi {
     return session_->magnifier_glass_;
   }
 
+  bool IsUsingCustomCursor(CaptureModeType type) const {
+    return session_->IsUsingCustomCursor(type);
+  }
+
  private:
   const CaptureModeSession* const session_;
 };
@@ -115,6 +133,8 @@ class CaptureModeSessionTestApi {
 class CaptureModeTest : public AshTestBase {
  public:
   CaptureModeTest() = default;
+  CaptureModeTest(base::test::TaskEnvironment::TimeSource time)
+      : AshTestBase(time) {}
   CaptureModeTest(const CaptureModeTest&) = delete;
   CaptureModeTest& operator=(const CaptureModeTest&) = delete;
   ~CaptureModeTest() override = default;
@@ -263,6 +283,29 @@ class CaptureModeTest : public AshTestBase {
     base::RunLoop().RunUntilIdle();
   }
 
+  void SwitchToUser2() {
+    auto* session_controller = GetSessionControllerClient();
+    constexpr char kUserEmail[] = "user2@capture_mode";
+    session_controller->AddUserSession(kUserEmail);
+    session_controller->SwitchActiveUser(AccountId::FromUserEmail(kUserEmail));
+  }
+
+  void WaitForSeconds(int seconds) {
+    base::RunLoop loop;
+    base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
+        FROM_HERE, base::BindLambdaForTesting([&]() { loop.Quit(); }),
+        base::TimeDelta::FromSeconds(seconds));
+    loop.Run();
+  }
+
+  void WaitForCaptureFileToBeSaved() {
+    base::RunLoop run_loop;
+    CaptureModeTestApi().SetOnCaptureFileSavedCallback(
+        base::BindLambdaForTesting(
+            [&run_loop](const base::FilePath& path) { run_loop.Quit(); }));
+    run_loop.Run();
+  }
+
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
 };
@@ -297,7 +340,14 @@ TEST_F(CaptureModeTest, StartStop) {
   // Calling start again is a no-op.
   controller->Start(CaptureModeEntryType::kQuickSettings);
   EXPECT_TRUE(controller->IsActive());
+
+  // Closing the session should close the native window of capture mode bar
+  // immediately.
+  CaptureModeSessionTestApi test_api(controller->capture_mode_session());
+  auto* bar_window = test_api.capture_mode_bar_widget()->GetNativeWindow();
+  aura::WindowTracker tracker({bar_window});
   controller->Stop();
+  EXPECT_TRUE(tracker.windows().empty());
   EXPECT_FALSE(controller->IsActive());
 }
 
@@ -367,17 +417,10 @@ TEST_F(CaptureModeTest, ChangeTypeAndSourceFromUI) {
   EXPECT_EQ(controller->source(), CaptureModeSource::kFullscreen);
 }
 
-// TODO(https://crbug.com/1141927): test is flakey.
-TEST_F(CaptureModeTest, DISABLED_VideoRecordingUiBehavior) {
-  // We need a non-zero duration to avoid infinite loop on countdown.
-  ui::ScopedAnimationDurationScaleMode animatin_scale(
-      ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
-
-  auto* controller = CaptureModeController::Get();
+TEST_F(CaptureModeTest, VideoRecordingUiBehavior) {
   // Start Capture Mode in a fullscreen video recording mode.
-  controller->SetSource(CaptureModeSource::kFullscreen);
-  controller->SetType(CaptureModeType::kVideo);
-  controller->Start(CaptureModeEntryType::kQuickSettings);
+  CaptureModeController* controller = StartCaptureSession(
+      CaptureModeSource::kFullscreen, CaptureModeType::kVideo);
   EXPECT_TRUE(controller->IsActive());
   EXPECT_FALSE(controller->is_recording_in_progress());
   EXPECT_FALSE(IsCursorCompositingEnabled());
@@ -399,10 +442,14 @@ TEST_F(CaptureModeTest, DISABLED_VideoRecordingUiBehavior) {
 
   // End recording via the stop-recording button. Expect that it's now hidden,
   // and the cursor compositing is now disabled.
+  base::HistogramTester histogram_tester;
   ClickOnView(stop_recording_button, event_generator);
   EXPECT_FALSE(stop_recording_button->visible_preferred());
   EXPECT_FALSE(controller->is_recording_in_progress());
   EXPECT_FALSE(IsCursorCompositingEnabled());
+  histogram_tester.ExpectBucketCount(
+      kEndRecordingReasonInClamshellHistogramName,
+      EndRecordingReason::kStopRecordingButton, 1);
 }
 
 // Tests the behavior of repositioning a region with capture mode.
@@ -996,7 +1043,9 @@ TEST_F(CaptureModeTest, RegionCursorStates) {
   EXPECT_EQ(CursorType::kPointer, cursor_manager->GetCursor().type());
   event_generator->ClickLeftButton();
   ASSERT_EQ(CaptureModeSource::kWindow, controller->source());
-  EXPECT_FALSE(cursor_manager->IsCursorLocked());
+  // The event on the capture bar to change capture source will still keep the
+  // cursor locked.
+  EXPECT_TRUE(cursor_manager->IsCursorLocked());
   EXPECT_EQ(original_cursor_type, cursor_manager->GetCursor().type());
 
   // Tests that on changing back to region capture mode, the cursor becomes
@@ -1011,8 +1060,175 @@ TEST_F(CaptureModeTest, RegionCursorStates) {
   event_generator->MoveMouseTo(gfx::Point(50, 50));
   EXPECT_EQ(CursorType::kCell, cursor_manager->GetCursor().type());
 
+  // Enter tablet mode, the cursor should be hidden.
+  TabletModeControllerTestApi tablet_mode_controller_test_api;
+  // To avoid flaky failures due to mouse devices blocking entering tablet mode,
+  // we detach all mouse devices. This shouldn't affect testing the cursor
+  // status.
+  tablet_mode_controller_test_api.DetachAllMice();
+  tablet_mode_controller_test_api.EnterTabletMode();
+  EXPECT_FALSE(cursor_manager->IsCursorVisible());
+  EXPECT_TRUE(cursor_manager->IsCursorLocked());
+
+  // Move mouse but it should still be invisible.
+  event_generator->MoveMouseTo(gfx::Point(100, 100));
+  EXPECT_FALSE(cursor_manager->IsCursorVisible());
+  EXPECT_TRUE(cursor_manager->IsCursorLocked());
+
+  // Return to clamshell mode, mouse should appear again.
+  tablet_mode_controller_test_api.LeaveTabletMode();
+  EXPECT_TRUE(cursor_manager->IsCursorVisible());
+  EXPECT_EQ(CursorType::kCell, cursor_manager->GetCursor().type());
+
   // Tests that when exiting capture mode that the cursor is restored to its
   // original state.
+  controller->Stop();
+  EXPECT_FALSE(controller->IsActive());
+  EXPECT_FALSE(cursor_manager->IsCursorLocked());
+  EXPECT_EQ(original_cursor_type, cursor_manager->GetCursor().type());
+}
+
+TEST_F(CaptureModeTest, FullscreenCursorStates) {
+  using ui::mojom::CursorType;
+
+  auto* cursor_manager = Shell::Get()->cursor_manager();
+  CursorType original_cursor_type = cursor_manager->GetCursor().type();
+  EXPECT_FALSE(cursor_manager->IsCursorLocked());
+  EXPECT_EQ(CursorType::kPointer, original_cursor_type);
+
+  auto* event_generator = GetEventGenerator();
+  CaptureModeController* controller = StartCaptureSession(
+      CaptureModeSource::kFullscreen, CaptureModeType::kImage);
+  EXPECT_EQ(controller->type(), CaptureModeType::kImage);
+  EXPECT_TRUE(cursor_manager->IsCursorLocked());
+  event_generator->MoveMouseTo(gfx::Point(175, 175));
+  EXPECT_TRUE(cursor_manager->IsCursorVisible());
+
+  // Use image capture icon as the mouse cursor icon in image capture mode.
+  EXPECT_EQ(CursorType::kCustom, cursor_manager->GetCursor().type());
+  CaptureModeSessionTestApi test_api(controller->capture_mode_session());
+  EXPECT_TRUE(test_api.IsUsingCustomCursor(CaptureModeType::kImage));
+
+  // Move the mouse over to capture label widget won't change the cursor since
+  // it's a label not a label button.
+  event_generator->MoveMouseTo(
+      test_api.capture_label_widget()->GetWindowBoundsInScreen().CenterPoint());
+  EXPECT_EQ(CursorType::kCustom, cursor_manager->GetCursor().type());
+  EXPECT_TRUE(test_api.IsUsingCustomCursor(CaptureModeType::kImage));
+
+  // Use pointer mouse if the event is on the capture bar.
+  ClickOnView(GetVideoToggleButton(), event_generator);
+  EXPECT_EQ(controller->type(), CaptureModeType::kVideo);
+  EXPECT_EQ(CursorType::kPointer, cursor_manager->GetCursor().type());
+  EXPECT_TRUE(cursor_manager->IsCursorLocked());
+  EXPECT_TRUE(cursor_manager->IsCursorVisible());
+
+  // Use video record icon as the mouse cursor icon in video recording mode.
+  event_generator->MoveMouseTo(gfx::Point(175, 175));
+  EXPECT_EQ(CursorType::kCustom, cursor_manager->GetCursor().type());
+  EXPECT_TRUE(test_api.IsUsingCustomCursor(CaptureModeType::kVideo));
+  EXPECT_TRUE(cursor_manager->IsCursorLocked());
+  EXPECT_TRUE(cursor_manager->IsCursorVisible());
+
+  // Enter tablet mode, the cursor should be hidden.
+  TabletModeControllerTestApi tablet_mode_controller_test_api;
+  // To avoid flaky failures due to mouse devices blocking entering tablet mode,
+  // we detach all mouse devices. This shouldn't affect testing the cursor
+  // status.
+  tablet_mode_controller_test_api.DetachAllMice();
+  tablet_mode_controller_test_api.EnterTabletMode();
+  EXPECT_FALSE(cursor_manager->IsCursorVisible());
+  EXPECT_TRUE(cursor_manager->IsCursorLocked());
+
+  // Exit tablet mode, the cursor should appear again.
+  tablet_mode_controller_test_api.LeaveTabletMode();
+  EXPECT_TRUE(cursor_manager->IsCursorVisible());
+  EXPECT_EQ(CursorType::kCustom, cursor_manager->GetCursor().type());
+  EXPECT_TRUE(test_api.IsUsingCustomCursor(CaptureModeType::kVideo));
+  EXPECT_TRUE(cursor_manager->IsCursorLocked());
+
+  // Stop capture mode, the cursor should be restored to its original state.
+  controller->Stop();
+  EXPECT_FALSE(controller->IsActive());
+  EXPECT_FALSE(cursor_manager->IsCursorLocked());
+  EXPECT_EQ(original_cursor_type, cursor_manager->GetCursor().type());
+}
+
+TEST_F(CaptureModeTest, WindowCursorStates) {
+  using ui::mojom::CursorType;
+
+  std::unique_ptr<aura::Window> window(CreateTestWindow(gfx::Rect(200, 200)));
+
+  auto* cursor_manager = Shell::Get()->cursor_manager();
+  CursorType original_cursor_type = cursor_manager->GetCursor().type();
+  EXPECT_FALSE(cursor_manager->IsCursorLocked());
+  EXPECT_EQ(CursorType::kPointer, original_cursor_type);
+
+  auto* event_generator = GetEventGenerator();
+  CaptureModeController* controller =
+      StartCaptureSession(CaptureModeSource::kWindow, CaptureModeType::kImage);
+  EXPECT_EQ(controller->type(), CaptureModeType::kImage);
+
+  // If the mouse is above the window, use the image capture icon.
+  event_generator->MoveMouseTo(gfx::Point(150, 150));
+  EXPECT_TRUE(cursor_manager->IsCursorLocked());
+  EXPECT_TRUE(cursor_manager->IsCursorVisible());
+  EXPECT_EQ(CursorType::kCustom, cursor_manager->GetCursor().type());
+  CaptureModeSessionTestApi test_api(controller->capture_mode_session());
+  EXPECT_TRUE(test_api.IsUsingCustomCursor(CaptureModeType::kImage));
+
+  // If the mouse is not above the window, use the original mouse cursor.
+  event_generator->MoveMouseTo(gfx::Point(300, 300));
+  EXPECT_FALSE(cursor_manager->IsCursorLocked());
+  EXPECT_TRUE(cursor_manager->IsCursorVisible());
+  EXPECT_EQ(original_cursor_type, cursor_manager->GetCursor().type());
+
+  // Use pointer mouse if the event is on the capture bar.
+  ClickOnView(GetVideoToggleButton(), event_generator);
+  EXPECT_EQ(controller->type(), CaptureModeType::kVideo);
+  EXPECT_EQ(CursorType::kPointer, cursor_manager->GetCursor().type());
+  EXPECT_TRUE(cursor_manager->IsCursorLocked());
+  EXPECT_TRUE(cursor_manager->IsCursorVisible());
+
+  // Use video record icon as the mouse cursor icon in video recording mode.
+  event_generator->MoveMouseTo(gfx::Point(150, 150));
+  EXPECT_TRUE(cursor_manager->IsCursorLocked());
+  EXPECT_TRUE(cursor_manager->IsCursorVisible());
+  EXPECT_EQ(CursorType::kCustom, cursor_manager->GetCursor().type());
+  EXPECT_TRUE(test_api.IsUsingCustomCursor(CaptureModeType::kVideo));
+
+  // If the mouse is not above the window, use the original mouse cursor.
+  event_generator->MoveMouseTo(gfx::Point(300, 300));
+  EXPECT_FALSE(cursor_manager->IsCursorLocked());
+  EXPECT_TRUE(cursor_manager->IsCursorVisible());
+  EXPECT_EQ(original_cursor_type, cursor_manager->GetCursor().type());
+
+  // Move above the window again, the cursor should change back to the video
+  // record icon.
+  event_generator->MoveMouseTo(gfx::Point(150, 150));
+  EXPECT_TRUE(cursor_manager->IsCursorLocked());
+  EXPECT_TRUE(cursor_manager->IsCursorVisible());
+  EXPECT_EQ(CursorType::kCustom, cursor_manager->GetCursor().type());
+  EXPECT_TRUE(test_api.IsUsingCustomCursor(CaptureModeType::kVideo));
+
+  // Enter tablet mode, the cursor should be hidden.
+  TabletModeControllerTestApi tablet_mode_controller_test_api;
+  // To avoid flaky failures due to mouse devices blocking entering tablet mode,
+  // we detach all mouse devices. This shouldn't affect testing the cursor
+  // status.
+  tablet_mode_controller_test_api.DetachAllMice();
+  tablet_mode_controller_test_api.EnterTabletMode();
+  EXPECT_FALSE(cursor_manager->IsCursorVisible());
+  EXPECT_TRUE(cursor_manager->IsCursorLocked());
+
+  // Exit tablet mode, the cursor should appear again.
+  tablet_mode_controller_test_api.LeaveTabletMode();
+  EXPECT_TRUE(cursor_manager->IsCursorVisible());
+  EXPECT_EQ(CursorType::kCustom, cursor_manager->GetCursor().type());
+  EXPECT_TRUE(test_api.IsUsingCustomCursor(CaptureModeType::kVideo));
+  EXPECT_TRUE(cursor_manager->IsCursorLocked());
+
+  // Stop capture mode, the cursor should be restored to its original state.
   controller->Stop();
   EXPECT_FALSE(controller->IsActive());
   EXPECT_FALSE(cursor_manager->IsCursorLocked());
@@ -1069,7 +1285,7 @@ TEST_F(CaptureModeTest, RegionDragCursorCompositing) {
 // incoming input events.
 TEST_F(CaptureModeTest, DoNotHandleEventDuringCountDown) {
   // We need a non-zero duration to avoid infinite loop on countdown.
-  ui::ScopedAnimationDurationScaleMode animatin_scale(
+  ui::ScopedAnimationDurationScaleMode animation_scale(
       ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
 
   // Create 2 windows that overlap with each other.
@@ -1171,6 +1387,170 @@ TEST_F(CaptureModeTest, CaptureModeEntryPointHistograms) {
       kTabletHistogram, CaptureModeEntryType::kAccelTakePartialScreenshot, 2);
 }
 
+// Tests the behavior of screen recording with the presence of HDCP secure
+// content on the screen in all capture mode sources (fullscreen, region, and
+// window) depending on the test param.
+class CaptureModeHdcpTest
+    : public CaptureModeTest,
+      public ::testing::WithParamInterface<CaptureModeSource> {
+ public:
+  CaptureModeHdcpTest() = default;
+  ~CaptureModeHdcpTest() override = default;
+
+  // CaptureModeTest:
+  void SetUp() override {
+    CaptureModeTest::SetUp();
+    window_ = CreateTestWindow(gfx::Rect(200, 200));
+    protection_delegate_ =
+        std::make_unique<OutputProtectionDelegate>(window_.get());
+    CaptureModeController::Get()->set_user_capture_region(gfx::Rect(20, 50));
+  }
+
+  void TearDown() override {
+    protection_delegate_.reset();
+    window_.reset();
+    CaptureModeTest::TearDown();
+  }
+
+  // Enters the capture mode session.
+  void StartSessionForVideo() {
+    StartCaptureSession(GetParam(), CaptureModeType::kVideo);
+  }
+
+  // Starts video recording from the capture mode source set by the test param.
+  void StartRecording() {
+    auto* controller = CaptureModeController::Get();
+    ASSERT_TRUE(controller->IsActive());
+
+    switch (GetParam()) {
+      case CaptureModeSource::kFullscreen:
+      case CaptureModeSource::kRegion:
+        controller->StartVideoRecordingImmediatelyForTesting();
+        break;
+
+      case CaptureModeSource::kWindow:
+        // Window capture mode selects the window under the cursor as the
+        // capture source.
+        auto* event_generator = GetEventGenerator();
+        event_generator->MoveMouseToCenterOf(window_.get());
+        controller->StartVideoRecordingImmediatelyForTesting();
+        break;
+    }
+  }
+
+ protected:
+  std::unique_ptr<aura::Window> window_;
+  std::unique_ptr<OutputProtectionDelegate> protection_delegate_;
+};
+
+TEST_P(CaptureModeHdcpTest, WindowBecomesProtectedWhileRecording) {
+  StartSessionForVideo();
+  StartRecording();
+
+  auto* controller = CaptureModeController::Get();
+  EXPECT_TRUE(controller->is_recording_in_progress());
+
+  // The window becomes HDCP protected, which should end video recording.
+  base::HistogramTester histogram_tester;
+  protection_delegate_->SetProtection(display::CONTENT_PROTECTION_METHOD_HDCP,
+                                      base::DoNothing());
+
+  EXPECT_FALSE(controller->is_recording_in_progress());
+  histogram_tester.ExpectBucketCount(
+      kEndRecordingReasonInClamshellHistogramName,
+      EndRecordingReason::kHdcpInterruption, 1);
+}
+
+TEST_P(CaptureModeHdcpTest, ProtectedWindowDestruction) {
+  auto window_2 = CreateTestWindow(gfx::Rect(100, 50));
+  OutputProtectionDelegate protection_delegate_2(window_2.get());
+  protection_delegate_2.SetProtection(display::CONTENT_PROTECTION_METHOD_HDCP,
+                                      base::DoNothing());
+
+  StartSessionForVideo();
+  StartRecording();
+
+  // Recording cannot start because of another protected window on the screen,
+  // except when we're capturing a different |window_|.
+  auto* controller = CaptureModeController::Get();
+  EXPECT_FALSE(controller->IsActive());
+  if (GetParam() == CaptureModeSource::kWindow) {
+    EXPECT_TRUE(controller->is_recording_in_progress());
+    controller->EndVideoRecording(EndRecordingReason::kStopRecordingButton);
+    EXPECT_FALSE(controller->is_recording_in_progress());
+    // Wait for the video file to be saved so that we can start a new recording.
+    WaitForCaptureFileToBeSaved();
+  } else {
+    EXPECT_FALSE(controller->is_recording_in_progress());
+  }
+
+  // When the protected window is destroyed, it's possbile now to record from
+  // all capture sources.
+  window_2.reset();
+  StartSessionForVideo();
+  StartRecording();
+
+  EXPECT_FALSE(controller->IsActive());
+  EXPECT_TRUE(controller->is_recording_in_progress());
+}
+
+TEST_P(CaptureModeHdcpTest, WindowBecomesProtectedBeforeRecording) {
+  protection_delegate_->SetProtection(display::CONTENT_PROTECTION_METHOD_HDCP,
+                                      base::DoNothing());
+  StartSessionForVideo();
+  StartRecording();
+
+  // Recording cannot even start.
+  auto* controller = CaptureModeController::Get();
+  EXPECT_FALSE(controller->is_recording_in_progress());
+  EXPECT_FALSE(controller->IsActive());
+}
+
+TEST_P(CaptureModeHdcpTest, ProtectedWindowInMultiDisplay) {
+  UpdateDisplay("400x400,401+0-400x400");
+  auto roots = Shell::GetAllRootWindows();
+  ASSERT_EQ(2u, roots.size());
+  protection_delegate_->SetProtection(display::CONTENT_PROTECTION_METHOD_HDCP,
+                                      base::DoNothing());
+
+  // Move the cursor to the secondary display before starting the session to
+  // make sure the session starts on that display.
+  auto* event_generator = GetEventGenerator();
+  MoveMouseToAndUpdateCursorDisplay(roots[1]->GetBoundsInScreen().CenterPoint(),
+                                    event_generator);
+  StartSessionForVideo();
+  // Also, make sure the selected region is in the secondary display.
+  auto* controller = CaptureModeController::Get();
+  EXPECT_EQ(controller->capture_mode_session()->current_root(), roots[1]);
+  StartRecording();
+
+  // Recording should be able to start (since the protected window is on the
+  // first display) unless the protected window itself is the one being
+  // recorded.
+  if (GetParam() == CaptureModeSource::kWindow) {
+    EXPECT_FALSE(controller->is_recording_in_progress());
+  } else {
+    EXPECT_TRUE(controller->is_recording_in_progress());
+
+    // Moving the protected window to the display being recorded should
+    // terminate the recording.
+    base::HistogramTester histogram_tester;
+    window_util::MoveWindowToDisplay(window_.get(),
+                                     roots[1]->GetHost()->GetDisplayId());
+    ASSERT_EQ(window_->GetRootWindow(), roots[1]);
+    EXPECT_FALSE(controller->is_recording_in_progress());
+    histogram_tester.ExpectBucketCount(
+        kEndRecordingReasonInClamshellHistogramName,
+        EndRecordingReason::kHdcpInterruption, 1);
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         CaptureModeHdcpTest,
+                         testing::Values(CaptureModeSource::kFullscreen,
+                                         CaptureModeSource::kRegion,
+                                         CaptureModeSource::kWindow));
+
 TEST_F(CaptureModeTest, ClosingWindowBeingRecorded) {
   auto window = CreateTestWindow(gfx::Rect(200, 200));
   StartCaptureSession(CaptureModeSource::kWindow, CaptureModeType::kVideo);
@@ -1182,6 +1562,7 @@ TEST_F(CaptureModeTest, ClosingWindowBeingRecorded) {
   EXPECT_TRUE(controller->is_recording_in_progress());
 
   // Closing the window being recorded should end video recording.
+  base::HistogramTester histogram_tester;
   window.reset();
 
   auto* stop_recording_button = Shell::GetPrimaryRootWindowController()
@@ -1189,6 +1570,9 @@ TEST_F(CaptureModeTest, ClosingWindowBeingRecorded) {
                                     ->stop_recording_button_tray();
   EXPECT_FALSE(stop_recording_button->visible_preferred());
   EXPECT_FALSE(controller->is_recording_in_progress());
+  histogram_tester.ExpectBucketCount(
+      kEndRecordingReasonInClamshellHistogramName,
+      EndRecordingReason::kDisplayOrWindowClosing, 1);
 }
 
 TEST_F(CaptureModeTest, DetachDisplayWhileWindowRecording) {
@@ -1226,6 +1610,75 @@ TEST_F(CaptureModeTest, DetachDisplayWhileWindowRecording) {
   EXPECT_TRUE(stop_recording_button->visible_preferred());
 }
 
+TEST_F(CaptureModeTest, SuspendWhileSessionIsActive) {
+  auto* controller = StartCaptureSession(CaptureModeSource::kFullscreen,
+                                         CaptureModeType::kVideo);
+  EXPECT_TRUE(controller->IsActive());
+  power_manager_client()->SendSuspendImminent(
+      power_manager::SuspendImminent::IDLE);
+  EXPECT_FALSE(controller->IsActive());
+}
+
+TEST_F(CaptureModeTest, SuspendAfterCountdownStarts) {
+  // User NORMAL_DURATION for the countdown animation so we can have predictable
+  // timings.
+  ui::ScopedAnimationDurationScaleMode animation_scale(
+      ui::ScopedAnimationDurationScaleMode::NORMAL_DURATION);
+  auto* controller = StartCaptureSession(CaptureModeSource::kFullscreen,
+                                         CaptureModeType::kVideo);
+  // Hit Enter to begin recording, wait for 1 second, then suspend the device.
+  auto* event_generator = GetEventGenerator();
+  SendKey(ui::VKEY_RETURN, event_generator);
+  WaitForSeconds(1);
+  power_manager_client()->SendSuspendImminent(
+      power_manager::SuspendImminent::IDLE);
+  EXPECT_FALSE(controller->IsActive());
+  EXPECT_FALSE(controller->is_recording_in_progress());
+}
+
+TEST_F(CaptureModeTest, SuspendAfterRecordingStarts) {
+  auto* controller = StartCaptureSession(CaptureModeSource::kFullscreen,
+                                         CaptureModeType::kVideo);
+  controller->StartVideoRecordingImmediatelyForTesting();
+  EXPECT_TRUE(controller->is_recording_in_progress());
+  base::HistogramTester histogram_tester;
+  power_manager_client()->SendSuspendImminent(
+      power_manager::SuspendImminent::IDLE);
+  EXPECT_FALSE(controller->is_recording_in_progress());
+  histogram_tester.ExpectBucketCount(
+      kEndRecordingReasonInClamshellHistogramName,
+      EndRecordingReason::kImminentSuspend, 1);
+}
+
+TEST_F(CaptureModeTest, SwitchUsersWhileRecording) {
+  auto* controller = StartCaptureSession(CaptureModeSource::kFullscreen,
+                                         CaptureModeType::kVideo);
+  controller->StartVideoRecordingImmediatelyForTesting();
+  base::HistogramTester histogram_tester;
+  EXPECT_TRUE(controller->is_recording_in_progress());
+  SwitchToUser2();
+  EXPECT_FALSE(controller->is_recording_in_progress());
+  histogram_tester.ExpectBucketCount(
+      kEndRecordingReasonInClamshellHistogramName,
+      EndRecordingReason::kActiveUserChange, 1);
+}
+
+TEST_F(CaptureModeTest, SwitchUsersAfterCountdownStarts) {
+  // User NORMAL_DURATION for the countdown animation so we can have predictable
+  // timings.
+  ui::ScopedAnimationDurationScaleMode animation_scale(
+      ui::ScopedAnimationDurationScaleMode::NORMAL_DURATION);
+  auto* controller = StartCaptureSession(CaptureModeSource::kFullscreen,
+                                         CaptureModeType::kVideo);
+  // Hit Enter to begin recording, wait for 1 second, then switch users.
+  auto* event_generator = GetEventGenerator();
+  SendKey(ui::VKEY_RETURN, event_generator);
+  WaitForSeconds(1);
+  SwitchToUser2();
+  EXPECT_FALSE(controller->IsActive());
+  EXPECT_FALSE(controller->is_recording_in_progress());
+}
+
 TEST_F(CaptureModeTest, ClosingDisplayBeingFullscreenRecorded) {
   UpdateDisplay("400x400,401+0-400x400");
   auto roots = Shell::GetAllRootWindows();
@@ -1246,6 +1699,7 @@ TEST_F(CaptureModeTest, ClosingDisplayBeingFullscreenRecorded) {
 
   // Disconnecting the display being fullscreen recorded should end the
   // recording and remove the stop recording button.
+  base::HistogramTester histogram_tester;
   RemoveSecondaryDisplay();
   roots = Shell::GetAllRootWindows();
   ASSERT_EQ(1u, roots.size());
@@ -1255,6 +1709,9 @@ TEST_F(CaptureModeTest, ClosingDisplayBeingFullscreenRecorded) {
                               ->GetStatusAreaWidget()
                               ->stop_recording_button_tray();
   EXPECT_FALSE(stop_recording_button->visible_preferred());
+  histogram_tester.ExpectBucketCount(
+      kEndRecordingReasonInClamshellHistogramName,
+      EndRecordingReason::kDisplayOrWindowClosing, 1);
 }
 
 TEST_F(CaptureModeTest, ShuttingDownWhileRecording) {
@@ -1362,18 +1819,14 @@ TEST_F(CaptureModeTest, CaptureSessionSwitchedModeMetric) {
 
 // Test that cancel recording during countdown won't cause crash.
 TEST_F(CaptureModeTest, CancelCaptureDuringCountDown) {
-  ui::ScopedAnimationDurationScaleMode animatin_scale(
+  ui::ScopedAnimationDurationScaleMode animation_scale(
       ui::ScopedAnimationDurationScaleMode::NORMAL_DURATION);
   StartCaptureSession(CaptureModeSource::kFullscreen, CaptureModeType::kVideo);
   // Hit Enter to begin recording, Wait for 1 second, then press ESC while count
   // down is in progress.
   auto* event_generator = GetEventGenerator();
   SendKey(ui::VKEY_RETURN, event_generator);
-  base::RunLoop loop;
-  base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
-      FROM_HERE, base::BindLambdaForTesting([&]() { loop.Quit(); }),
-      base::TimeDelta::FromSeconds(1));
-  loop.Run();
+  WaitForSeconds(1);
   SendKey(ui::VKEY_ESCAPE, event_generator);
 }
 
@@ -1458,6 +1911,206 @@ TEST_F(CaptureModeTest, NumberOfCaptureRegionAdjustmentsHistogram) {
   SelectRegion(gfx::Rect(0, 0, 100, 100));
   controller->PerformCapture();
   histogram_tester.ExpectBucketCount(kTabletHistogram, 0, 1);
+}
+
+TEST_F(CaptureModeTest, FullscreenCapture) {
+  ui::ScopedAnimationDurationScaleMode animation_scale(
+      ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
+  CaptureModeController* controller = StartCaptureSession(
+      CaptureModeSource::kFullscreen, CaptureModeType::kImage);
+  EXPECT_TRUE(controller->IsActive());
+  // Press anywhere to capture image.
+  auto* event_generator = GetEventGenerator();
+  event_generator->ClickLeftButton();
+  EXPECT_FALSE(controller->IsActive());
+
+  controller = StartCaptureSession(CaptureModeSource::kFullscreen,
+                                   CaptureModeType::kVideo);
+  EXPECT_TRUE(controller->IsActive());
+  // Press anywhere to capture video.
+  event_generator->ClickLeftButton();
+  WaitForCountDownToFinish();
+  EXPECT_FALSE(controller->IsActive());
+}
+
+// Tests that metrics are recorded properly for capture mode configurations when
+// taking a screenshot.
+TEST_F(CaptureModeTest, ScreenshotConfigurationHistogram) {
+  constexpr char kClamshellHistogram[] =
+      "Ash.CaptureModeController.CaptureConfiguration.ClamshellMode";
+  constexpr char kTabletHistogram[] =
+      "Ash.CaptureModeController.CaptureConfiguration.TabletMode";
+  base::HistogramTester histogram_tester;
+  // Use a set display size as we will be choosing points in this test.
+  UpdateDisplay("800x800");
+
+  // Create a window for window captures later.
+  std::unique_ptr<aura::Window> window1(
+      CreateTestWindow(gfx::Rect(600, 600, 100, 100)));
+
+  // Perform a fullscreen screenshot.
+  auto* controller = StartCaptureSession(CaptureModeSource::kFullscreen,
+                                         CaptureModeType::kImage);
+  controller->PerformCapture();
+  histogram_tester.ExpectBucketCount(
+      kClamshellHistogram, CaptureModeConfiguration::kFullscreenScreenshot, 1);
+
+  // Perform a region screenshot.
+  controller =
+      StartCaptureSession(CaptureModeSource::kRegion, CaptureModeType::kImage);
+  const gfx::Rect capture_region(200, 200, 400, 400);
+  SelectRegion(capture_region);
+  controller->PerformCapture();
+  histogram_tester.ExpectBucketCount(
+      kClamshellHistogram, CaptureModeConfiguration::kRegionScreenshot, 1);
+
+  // Perform a window screenshot.
+  controller =
+      StartCaptureSession(CaptureModeSource::kWindow, CaptureModeType::kImage);
+  auto* event_generator = GetEventGenerator();
+  event_generator->MoveMouseToCenterOf(window1.get());
+  EXPECT_EQ(window1.get(),
+            controller->capture_mode_session()->GetSelectedWindow());
+  controller->PerformCapture();
+  histogram_tester.ExpectBucketCount(
+      kClamshellHistogram, CaptureModeConfiguration::kWindowScreenshot, 1);
+
+  // Switch to tablet mode.
+  auto* tablet_mode_controller = Shell::Get()->tablet_mode_controller();
+  tablet_mode_controller->SetEnabledForTest(true);
+  ASSERT_TRUE(tablet_mode_controller->InTabletMode());
+
+  // Perform a fullscreen screenshot.
+  controller = StartCaptureSession(CaptureModeSource::kFullscreen,
+                                   CaptureModeType::kImage);
+  controller->PerformCapture();
+  histogram_tester.ExpectBucketCount(
+      kTabletHistogram, CaptureModeConfiguration::kFullscreenScreenshot, 1);
+
+  // Perform a region screenshot.
+  controller =
+      StartCaptureSession(CaptureModeSource::kRegion, CaptureModeType::kImage);
+  controller->PerformCapture();
+  histogram_tester.ExpectBucketCount(
+      kTabletHistogram, CaptureModeConfiguration::kRegionScreenshot, 1);
+
+  // Perform a window screenshot.
+  controller =
+      StartCaptureSession(CaptureModeSource::kWindow, CaptureModeType::kImage);
+  event_generator->MoveMouseToCenterOf(window1.get());
+  EXPECT_EQ(window1.get(),
+            controller->capture_mode_session()->GetSelectedWindow());
+  controller->PerformCapture();
+  histogram_tester.ExpectBucketCount(
+      kTabletHistogram, CaptureModeConfiguration::kWindowScreenshot, 1);
+}
+
+// Tests that there is no crash when touching the capture label widget in tablet
+// mode when capturing a window. Regression test for https://crbug.com/1152938.
+TEST_F(CaptureModeTest, TabletTouchCaptureLabelWidgetWindowMode) {
+  TabletModeControllerTestApi tablet_mode_controller_test_api;
+  tablet_mode_controller_test_api.EnterTabletMode();
+
+  // Enter capture window mode.
+  CaptureModeController* controller =
+      StartCaptureSession(CaptureModeSource::kWindow, CaptureModeType::kImage);
+  ASSERT_TRUE(controller->IsActive());
+
+  // Press and release on where the capture label widget would be.
+  auto* event_generator = GetEventGenerator();
+  CaptureModeSessionTestApi test_api(controller->capture_mode_session());
+  DCHECK(test_api.capture_label_widget());
+  event_generator->set_current_screen_location(
+      test_api.capture_label_widget()->GetWindowBoundsInScreen().CenterPoint());
+  event_generator->PressTouch();
+  event_generator->ReleaseTouch();
+
+  // There are no windows so the window finder algorithm will find the app list
+  // window and take a picture of that, ending capture mode.
+  EXPECT_FALSE(controller->IsActive());
+}
+
+// A test class that uses a mock time task environment.
+class CaptureModeMockTimeTest : public CaptureModeTest {
+ public:
+  CaptureModeMockTimeTest()
+      : CaptureModeTest(base::test::TaskEnvironment::TimeSource::MOCK_TIME) {}
+  CaptureModeMockTimeTest(const CaptureModeMockTimeTest&) = delete;
+  CaptureModeMockTimeTest& operator=(const CaptureModeMockTimeTest&) = delete;
+  ~CaptureModeMockTimeTest() override = default;
+};
+
+// Tests that the consecutive screenshots histogram is recorded properly.
+TEST_F(CaptureModeMockTimeTest, ConsecutiveScreenshotsHistograms) {
+  constexpr char kConsecutiveScreenshotsHistogram[] =
+      "Ash.CaptureModeController.ConsecutiveScreenshots";
+  base::HistogramTester histogram_tester;
+
+  auto take_n_screenshots = [this](int n) {
+    for (int i = 0; i < n; ++i) {
+      auto* controller = StartImageRegionCapture();
+      controller->PerformCapture();
+    }
+  };
+
+  // Take three consecutive screenshots. Should only record after 5 seconds.
+  StartImageRegionCapture();
+  const gfx::Rect capture_region(200, 200, 400, 400);
+  SelectRegion(capture_region);
+  take_n_screenshots(3);
+  histogram_tester.ExpectBucketCount(kConsecutiveScreenshotsHistogram, 3, 0);
+  task_environment()->FastForwardBy(base::TimeDelta::FromSeconds(5));
+  histogram_tester.ExpectBucketCount(kConsecutiveScreenshotsHistogram, 3, 1);
+
+  // Take only one screenshot. This should not be recorded.
+  take_n_screenshots(1);
+  histogram_tester.ExpectBucketCount(kConsecutiveScreenshotsHistogram, 1, 0);
+  task_environment()->FastForwardBy(base::TimeDelta::FromSeconds(5));
+  histogram_tester.ExpectBucketCount(kConsecutiveScreenshotsHistogram, 1, 0);
+
+  // Take a screenshot, change source and take another screenshot. This should
+  // count as 2 consecutive screenshots.
+  take_n_screenshots(1);
+  auto* controller = StartCaptureSession(CaptureModeSource::kFullscreen,
+                                         CaptureModeType::kImage);
+  controller->PerformCapture();
+  histogram_tester.ExpectBucketCount(kConsecutiveScreenshotsHistogram, 2, 0);
+  task_environment()->FastForwardBy(base::TimeDelta::FromSeconds(5));
+  histogram_tester.ExpectBucketCount(kConsecutiveScreenshotsHistogram, 2, 1);
+}
+
+TEST_F(CaptureModeTest, CannotDoMultipleRecordings) {
+  StartCaptureSession(CaptureModeSource::kFullscreen, CaptureModeType::kVideo);
+
+  auto* controller = CaptureModeController::Get();
+  controller->StartVideoRecordingImmediatelyForTesting();
+  EXPECT_TRUE(controller->is_recording_in_progress());
+  EXPECT_EQ(CaptureModeType::kVideo, controller->type());
+
+  // Start a new session with the current type which set to kVideo, the type
+  // should be switched automatically to kImage, and video toggle button should
+  // be disabled.
+  controller->Start(CaptureModeEntryType::kQuickSettings);
+  EXPECT_TRUE(controller->IsActive());
+  EXPECT_EQ(CaptureModeType::kImage, controller->type());
+  EXPECT_TRUE(GetImageToggleButton()->GetToggled());
+  EXPECT_FALSE(GetVideoToggleButton()->GetToggled());
+  EXPECT_FALSE(GetVideoToggleButton()->GetEnabled());
+
+  // Clicking on the video button should do nothing.
+  ClickOnView(GetVideoToggleButton(), GetEventGenerator());
+  EXPECT_TRUE(GetImageToggleButton()->GetToggled());
+  EXPECT_FALSE(GetVideoToggleButton()->GetToggled());
+  EXPECT_EQ(CaptureModeType::kImage, controller->type());
+
+  // Things should go back to normal when there's no recording going on.
+  controller->Stop();
+  controller->EndVideoRecording(EndRecordingReason::kStopRecordingButton);
+  StartCaptureSession(CaptureModeSource::kFullscreen, CaptureModeType::kVideo);
+  EXPECT_EQ(CaptureModeType::kVideo, controller->type());
+  EXPECT_FALSE(GetImageToggleButton()->GetToggled());
+  EXPECT_TRUE(GetVideoToggleButton()->GetToggled());
+  EXPECT_TRUE(GetVideoToggleButton()->GetEnabled());
 }
 
 }  // namespace ash

@@ -65,6 +65,8 @@ source_set("feed_core_v2") {
     "tasks/load_stream_from_store_task.h",
     "tasks/load_stream_task.cc",
     "tasks/load_stream_task.h",
+    "tasks/prefetch_images_task.cc",
+    "tasks/prefetch_images_task.h",
     "tasks/upload_actions_task.cc",
     "tasks/upload_actions_task.h",
     "tasks/wait_for_store_initialize_task.cc",
@@ -73,6 +75,7 @@ source_set("feed_core_v2") {
     "types.h",
   ]
   deps = [
+    ":common",
     "//components/feed/core:feed_core",
     "//components/feed/core/common:feed_core_common",
     "//components/history/core/browser",
@@ -97,6 +100,11 @@ source_set("feed_core_v2") {
     "//components/feed/core/common:feed_core_common",
     "//components/feed/core/proto:proto_v2",
   ]
+}
+
+source_set("common") {
+  sources = [ "common_enums.h" ]
+  deps = []
 }
 
 source_set("core_unit_tests") {
@@ -125,6 +133,7 @@ source_set("core_unit_tests") {
   ]
 
   deps = [
+    ":common",
     ":feed_core_v2",
     ":unit_tests_bundle_data",
     "//base",

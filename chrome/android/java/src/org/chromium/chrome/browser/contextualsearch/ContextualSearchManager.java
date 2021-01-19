@@ -167,7 +167,7 @@ public class ContextualSearchManager
     private long mLoadedSearchUrlTimeMs;
     private boolean mWereSearchResultsSeen;
     private boolean mWereInfoBarsHidden;
-    private int mPromoteSearchNavigationCounter;
+    private boolean mDidPromoteSearchNavigation;
 
     private boolean mWasActivatedByTap;
     private boolean mIsInitialized;
@@ -481,8 +481,7 @@ public class ContextualSearchManager
         mReceivedContextualCardsEntityData = false;
 
         String selection = mSelectionController.getSelectedText();
-        boolean canResolve = mSelectionController.getSelectionType() == SelectionType.TAP
-                || mSelectionController.getSelectionType() == SelectionType.RESOLVING_LONG_PRESS;
+        boolean canResolve = mPolicy.isResolvingGesture();
         if (canResolve) {
             // If we can resolve then we should not delay before loading content.
             mShouldLoadDelayedSearch = false;
@@ -526,7 +525,8 @@ public class ContextualSearchManager
     public void startSearchTermResolutionRequest(String selection, boolean isExactResolve) {
         WebContents baseWebContents = getBaseWebContents();
         if (baseWebContents != null && mContext != null && mContext.canResolve()) {
-            if (isExactResolve) mContext.setExactResolve();
+            mContext.prepareToResolve(
+                    isExactResolve, mPolicy.getRelatedSearchesStamp((getBasePageLanguage())));
             ContextualSearchManagerJni.get().startSearchTermResolutionRequest(
                     mNativeContextualSearchManagerPtr, this, mContext, getBaseWebContents());
             ContextualSearchUma.logResolveRequested(mSelectionController.isTapSelection());
@@ -643,8 +643,8 @@ public class ContextualSearchManager
             if (surroundingText.length() == 0) {
                 mInternalStateController.reset(StateChangeReason.UNKNOWN);
             } else {
-                mContext.setSurroundingText(encoding, surroundingText, startOffset, endOffset,
-                        mPolicy.isProcessingRelatedSearch());
+                mContext.setSurroundingText(encoding, surroundingText, startOffset, endOffset);
+                mPolicy.logRelatedSearchesQualifiedUsers(getBasePageLanguage());
                 mInternalStateController.notifyFinishedWorkOn(InternalState.GATHERING_SURROUNDINGS);
             }
         }
@@ -770,10 +770,9 @@ public class ContextualSearchManager
             // TODO(donnd): Instead of preloading, we should prefetch (ie the URL should not
             // appear in the user's history until the user views it).  See crbug.com/406446.
             boolean shouldPreload = !doPreventPreload && mPolicy.shouldPrefetchSearchResult();
-            boolean doRequireGoogleUrl = !mPolicy.isProcessingRelatedSearch();
             mSearchRequest = new ContextualSearchRequest(searchTerm, alternateTerm,
                     resolvedSearchTerm.mid(), shouldPreload, resolvedSearchTerm.searchUrlFull(),
-                    resolvedSearchTerm.searchUrlPreload(), doRequireGoogleUrl);
+                    resolvedSearchTerm.searchUrlPreload());
             // Trigger translation, if enabled.
             mTranslateController.forceTranslateIfNeeded(mSearchRequest,
                     resolvedSearchTerm.contextLanguage(), mSelectionController.isTapSelection());
@@ -1040,7 +1039,7 @@ public class ContextualSearchManager
 
         @Override
         public void onContentLoadStarted(String url) {
-            mPromoteSearchNavigationCounter++;
+            mDidPromoteSearchNavigation = false;
         }
 
         @Override
@@ -1057,7 +1056,7 @@ public class ContextualSearchManager
                 }
                 if (mSearchRequest != null
                         && (!mDidStartLoadingResolvedSearchRequest || mShouldLoadDelayedSearch)) {
-                    // mShouldLoadDelayedSearch is used in the long-press case to load content.
+                    // mShouldLoadDelayedSearch is used in the non-preloading case to load content.
                     // Since content is now created and destroyed for each request, was impossible
                     // to know if content was already loaded or recently needed to be; this is for
                     // the case where it needed to be.
@@ -1191,16 +1190,14 @@ public class ContextualSearchManager
      * @param url The URL we are navigating to.
      */
     public void onExternalNavigation(String url) {
-        if (mSearchPanel != null && !BLACKLISTED_URL.equals(url)
-                && !url.startsWith(INTENT_URL_PREFIX) && shouldPromoteSearchNavigation()
-                && mPromoteSearchNavigationCounter
-                        > mPolicy.navigateWithoutPromotionLimitForRelatedSearches()) {
+        if (!mDidPromoteSearchNavigation && mSearchPanel != null && !BLACKLISTED_URL.equals(url)
+                && !url.startsWith(INTENT_URL_PREFIX) && shouldPromoteSearchNavigation()) {
             // Do not promote to a regular tab if we're loading our Resolved Search
             // URL, otherwise we'll promote it when prefetching the Serp.
             // Don't promote URLs when they are navigating to an intent - this is
             // handled by the InterceptNavigationDelegate which uses a faster
             // maximizing animation.
-            mPromoteSearchNavigationCounter = 0;
+            mDidPromoteSearchNavigation = true;
             mSearchPanel.maximizePanelThenPromoteToTab(StateChangeReason.SERP_NAVIGATION);
         }
     }
@@ -1587,7 +1584,8 @@ public class ContextualSearchManager
                     // Also clear any tap-based selection unless the Tap IPH is showing. In the
                     // latter case we preserve the selection so the help bubble has something to
                     // point to.
-                    if (mSelectionController.getSelectionType() == SelectionType.TAP
+                    if (!mPolicy.isLiteralSearchTapEnabled()
+                            && mSelectionController.getSelectionType() == SelectionType.TAP
                             && !mInProductHelp.isShowingForTappedButShouldLongpress()) {
                         mSelectionController.clearSelection();
                     }
@@ -1604,10 +1602,7 @@ public class ContextualSearchManager
                     }
                 };
 
-                boolean isResolvingGesture =
-                        mSelectionController.getSelectionType() == SelectionType.TAP
-                        || mSelectionController.getSelectionType()
-                                == SelectionType.RESOLVING_LONG_PRESS;
+                boolean isResolvingGesture = mPolicy.isResolvingGesture();
                 if (isResolvingGesture && mPolicy.shouldPreviousGestureResolve()) {
                     ContextualSearchInteractionPersister.PersistedInteraction interaction =
                             mInteractionRecorder.getInteractionPersister()
@@ -1621,7 +1616,7 @@ public class ContextualSearchManager
                     mContext.setResolveProperties(mPolicy.getHomeCountry(mActivity),
                             mPolicy.doSendBasePageUrl(), interaction.getEventId(),
                             interaction.getEncodedUserInteractions(), targetLanguage,
-                            fluentLanguages, mPolicy.doRelatedSearches());
+                            fluentLanguages);
                 }
                 WebContents webContents = getBaseWebContents();
                 if (webContents != null) {
@@ -1680,17 +1675,6 @@ public class ContextualSearchManager
             /** Starts showing the Tap UI by selecting a word around the current caret. */
             @Override
             public void startShowingTapUi() {
-                // Related Searches skips the "Show Tap UI" so the word tapped does not select.
-                // Otherwise the regular tap pipeline continues.
-                if (mPolicy.isProcessingRelatedSearch()) {
-                    // Skip showing the tap-ui (selecting the word) for Related Searches.
-                    mInternalStateController.notifyStartingWorkOn(
-                            InternalState.START_SHOWING_TAP_UI);
-                    mInternalStateController.notifyFinishedWorkOn(
-                            InternalState.START_SHOWING_TAP_UI);
-                    return;
-                }
-
                 WebContents baseWebContents = getBaseWebContents();
                 if (baseWebContents != null) {
                     mInternalStateController.notifyStartingWorkOn(
@@ -1750,8 +1734,6 @@ public class ContextualSearchManager
                 mInternalStateController.notifyStartingWorkOn(InternalState.RESOLVING);
 
                 String selection = mSelectionController.getSelectedText();
-                selection = mPolicy.overrideSelectionIfProcessingRelatedSearches(
-                        selection, mContext.getWordTapped());
                 assert !TextUtils.isEmpty(selection);
                 mNetworkCommunicator.startSearchTermResolutionRequest(
                         selection, mSelectionController.isAdjustedSelection());
@@ -1779,12 +1761,13 @@ public class ContextualSearchManager
             }
 
             @Override
-            public void showContextualSearchLongpressUi() {
-                mInternalStateController.notifyStartingWorkOn(
-                        InternalState.SHOWING_LONGPRESS_SEARCH);
-                showContextualSearch(StateChangeReason.TEXT_SELECT_LONG_PRESS);
-                mInternalStateController.notifyFinishedWorkOn(
-                        InternalState.SHOWING_LONGPRESS_SEARCH);
+            public void showContextualSearchLiteralSearchUi() {
+                mInternalStateController.notifyStartingWorkOn(InternalState.SHOWING_LITERAL_SEARCH);
+                showContextualSearch(
+                        mSelectionController.getSelectionType() == SelectionType.LONG_PRESS
+                                ? StateChangeReason.TEXT_SELECT_LONG_PRESS
+                                : StateChangeReason.TEXT_SELECT_TAP);
+                mInternalStateController.notifyFinishedWorkOn(InternalState.SHOWING_LITERAL_SEARCH);
             }
         };
     }
@@ -1847,6 +1830,13 @@ public class ContextualSearchManager
     public static void setContextualSearchState(boolean enabled) {
         getPrefService().setString(Pref.CONTEXTUAL_SEARCH_ENABLED,
                 enabled ? CONTEXTUAL_SEARCH_ENABLED : CONTEXTUAL_SEARCH_DISABLED);
+    }
+
+    // Private helper functions
+
+    /** @return The language of the base page being viewed by the user. */
+    private String getBasePageLanguage() {
+        return mContext.getDetectedLanguage();
     }
 
     private static PrefService getPrefService() {

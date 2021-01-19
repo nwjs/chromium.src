@@ -9,15 +9,19 @@
 #include <utility>
 
 #include "base/command_line.h"
+#include "base/i18n/rtl.h"
 #include "base/stl_util.h"
 #include "base/strings/string_split.h"
+#include "components/policy/content/safe_sites_navigation_throttle.h"
 #include "components/version_info/version_info.h"
 #include "content/public/browser/devtools_manager_delegate.h"
+#include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/network_service_instance.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/user_agent.h"
 #include "fuchsia/base/fuchsia_dir_scheme.h"
 #include "fuchsia/engine/browser/frame_impl.h"
+#include "fuchsia/engine/browser/navigation_policy_throttle.h"
 #include "fuchsia/engine/browser/url_request_rewrite_rules_manager.h"
 #include "fuchsia/engine/browser/web_engine_browser_context.h"
 #include "fuchsia/engine/browser/web_engine_browser_interface_binders.h"
@@ -28,6 +32,7 @@
 #include "fuchsia/engine/switches.h"
 #include "media/base/media_switches.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
+#include "services/network/public/cpp/network_switches.h"
 #include "services/network/public/mojom/network_service.mojom.h"
 #include "third_party/blink/public/mojom/webpreferences/web_preferences.mojom.h"
 
@@ -127,17 +132,15 @@ void WebEngineContentBrowserClient::OverrideWebkitPrefs(
 
   if (allow_insecure_content_)
     web_prefs->allow_running_insecure_content = true;
-
-  // Allow media to autoplay.
-  // TODO(crbug.com/1067101): Provide a FIDL API to configure AutoplayPolicy.
-  web_prefs->autoplay_policy =
-      blink::mojom::AutoplayPolicy::kNoUserGestureRequired;
 }
 
 void WebEngineContentBrowserClient::RegisterBrowserInterfaceBindersForFrame(
     content::RenderFrameHost* render_frame_host,
     mojo::BinderMapWithContext<content::RenderFrameHost*>* map) {
-  PopulateFuchsiaFrameBinders(map, &media_resource_provider_service_);
+  MediaResourceProviderService* const provider =
+      main_parts_->media_resource_provider_service();
+  DCHECK(provider);
+  PopulateFuchsiaFrameBinders(map, provider);
 }
 
 void WebEngineContentBrowserClient::
@@ -186,11 +189,51 @@ void WebEngineContentBrowserClient::AppendExtraCommandLineSwitches(
       switches::kForceProtectedVideoOutputBuffers,
       switches::kMaxDecodedImageSizeMb,
       switches::kPlayreadyKeySystem,
+      network::switches::kUnsafelyTreatInsecureOriginAsSecure,
       switches::kUseOverlaysForVideo,
   };
 
   command_line->CopySwitchesFrom(*base::CommandLine::ForCurrentProcess(),
                                  kSwitchesToCopy, base::size(kSwitchesToCopy));
+}
+
+std::string WebEngineContentBrowserClient::GetApplicationLocale() {
+  // ICU is configured with the system locale by WebEngineBrowserMainParts.
+  return base::i18n::GetConfiguredLocale();
+}
+
+std::string WebEngineContentBrowserClient::GetAcceptLangs(
+    content::BrowserContext* context) {
+  DCHECK_EQ(main_parts_->browser_context(), context);
+  return static_cast<WebEngineBrowserContext*>(context)
+      ->GetPreferredLanguages();
+}
+
+std::vector<std::unique_ptr<content::NavigationThrottle>>
+WebEngineContentBrowserClient::CreateThrottlesForNavigation(
+    content::NavigationHandle* navigation_handle) {
+  std::vector<std::unique_ptr<content::NavigationThrottle>> throttles;
+  auto* frame_impl =
+      FrameImpl::FromWebContents(navigation_handle->GetWebContents());
+
+  // Only create throttle if FrameImpl has a NavigationPolicyProvider,
+  // indicating an interest in navigations.
+  if (frame_impl->navigation_policy_handler()) {
+    throttles.push_back(std::make_unique<NavigationPolicyThrottle>(
+        navigation_handle, frame_impl->navigation_policy_handler()));
+  }
+
+  const base::Optional<std::string>& explicit_sites_filter_error_page =
+      frame_impl->explicit_sites_filter_error_page();
+
+  if (explicit_sites_filter_error_page) {
+    throttles.push_back(std::make_unique<SafeSitesNavigationThrottle>(
+        navigation_handle,
+        navigation_handle->GetWebContents()->GetBrowserContext(),
+        *explicit_sites_filter_error_page));
+  }
+
+  return throttles;
 }
 
 std::vector<std::unique_ptr<blink::URLLoaderThrottle>>
@@ -218,9 +261,10 @@ void WebEngineContentBrowserClient::ConfigureNetworkContextParams(
     const base::FilePath& relative_partition_path,
     network::mojom::NetworkContextParams* network_context_params,
     network::mojom::CertVerifierCreationParams* cert_verifier_creation_params) {
-  // Same as ContentBrowserClient::ConfigureNetworkContextParams().
   network_context_params->user_agent = GetUserAgent();
-  network_context_params->accept_language = "en-us,en";
+  network_context_params
+      ->accept_language = net::HttpUtil::GenerateAcceptLanguageHeader(
+      static_cast<WebEngineBrowserContext*>(context)->GetPreferredLanguages());
 
   // Set the list of cors_exempt_headers which may be specified in a URLRequest,
   // starting with the headers passed in via

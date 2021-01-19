@@ -29,6 +29,7 @@ import org.chromium.base.Callback;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
+import org.chromium.base.test.util.DisabledTest;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
@@ -127,6 +128,7 @@ public class AssistantVoiceSearchConsentUiTest {
 
     @Test
     @MediumTest
+    @DisabledTest(message = "Failing on beta in M88 only, crbug.com/1152516")
     public void testDialogInteractivity_LearnMoreButton() {
         showConsentUi();
 
@@ -154,6 +156,6 @@ public class AssistantVoiceSearchConsentUiTest {
                                        ASSISTANT_VOICE_SEARCH_ENABLED, /* default= */ true),
                     is(false));
         });
-        Mockito.verify(mCallback).onResult(false);
+        Mockito.verify(mCallback, Mockito.timeout(1000)).onResult(false);
     }
 }

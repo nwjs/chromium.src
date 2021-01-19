@@ -83,6 +83,29 @@
 // Records an unknown |commandID| performed by the Feed.
 - (void)recordCommandID:(int)commandID;
 
+// Records if a notice card was presented at the time the feed was initially
+// loaded. e.g. Launch time, user refreshes, and acccount switches.
+- (void)recordNoticeCardShown:(BOOL)shown;
+
+// Records the |durationInSeconds| it took to Discover feed to Fetch articles.
+// |success| is YES if operation was successful.
+- (void)recordFeedArticlesFetchDurationInSeconds:
+            (NSTimeInterval)durationInSeconds
+                                         success:(BOOL)success;
+
+// Records the |durationInSeconds| it took to Discover feed to Fetch more
+// articles (e.g. New "infinite feed" articles). |success| is YES if operation
+// was successful.
+- (void)recordFeedMoreArticlesFetchDurationInSeconds:
+            (NSTimeInterval)durationInSeconds
+                                             success:(BOOL)success;
+
+// Records the |durationInSeconds| it took to Discover feed to upload actions.
+// |success| is YES if operation was successful.
+- (void)recordFeedUploadActionsDurationInSeconds:
+            (NSTimeInterval)durationInSeconds
+                                         success:(BOOL)success;
+
 @end
 
 #endif  // IOS_CHROME_BROWSER_UI_CONTENT_SUGGESTIONS_DISCOVER_FEED_METRICS_RECORDER_H_

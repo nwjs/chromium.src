@@ -1,9 +1,10 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "chrome/browser/permissions/prediction_based_permission_ui_selector.h"
 
+#include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/time/default_clock.h"
 #include "base/util/values/values_util.h"
@@ -11,6 +12,7 @@
 #include "chrome/browser/permissions/prediction_service_request.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_features.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "components/permissions/permission_util.h"
 #include "components/permissions/prediction_service/prediction_service.h"
@@ -23,7 +25,7 @@ namespace {
 using QuietUiReason = PredictionBasedPermissionUiSelector::QuietUiReason;
 using Decision = PredictionBasedPermissionUiSelector::Decision;
 
-const auto VeryUnlikely = permissions::
+constexpr auto VeryUnlikely = permissions::
     PermissionSuggestion_Likelihood_DiscretizedLikelihood_VERY_UNLIKELY;
 
 // The data we consider can only be at most 28 days old to match the data that
@@ -34,11 +36,48 @@ constexpr base::TimeDelta kPermissionActionCutoffAge =
 constexpr char kPermissionActionEntryActionKey[] = "action";
 constexpr char kPermissionActionEntryTimestampKey[] = "time";
 
+base::Optional<
+    permissions::PermissionSuggestion_Likelihood_DiscretizedLikelihood>
+ParsePredictionServiceMockLikelihood(const std::string& value) {
+  if (value == "very-unlikely") {
+    return permissions::
+        PermissionSuggestion_Likelihood_DiscretizedLikelihood_VERY_UNLIKELY;
+  } else if (value == "unlikely") {
+    return permissions::
+        PermissionSuggestion_Likelihood_DiscretizedLikelihood_UNLIKELY;
+  } else if (value == "neutral") {
+    return permissions::
+        PermissionSuggestion_Likelihood_DiscretizedLikelihood_NEUTRAL;
+  } else if (value == "likely") {
+    return permissions::
+        PermissionSuggestion_Likelihood_DiscretizedLikelihood_LIKELY;
+  } else if (value == "very-likely") {
+    return permissions::
+        PermissionSuggestion_Likelihood_DiscretizedLikelihood_VERY_LIKELY;
+  }
+
+  return base::nullopt;
+}
+
+bool ShouldPredictionTriggerQuietUi(
+    permissions::PermissionUmaUtil::PredictionGrantLikelihood likelihood) {
+  return likelihood == VeryUnlikely;
+}
+
 }  // namespace
 
 PredictionBasedPermissionUiSelector::PredictionBasedPermissionUiSelector(
     Profile* profile)
-    : profile_(profile) {}
+    : profile_(profile) {
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kPredictionServiceMockLikelihood)) {
+    auto mock_likelihood = ParsePredictionServiceMockLikelihood(
+        base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+            switches::kPredictionServiceMockLikelihood));
+    if (mock_likelihood.has_value())
+      set_likelihood_override(mock_likelihood.value());
+  }
+}
 
 PredictionBasedPermissionUiSelector::~PredictionBasedPermissionUiSelector() =
     default;
@@ -50,6 +89,20 @@ void PredictionBasedPermissionUiSelector::SelectUiToUse(
     std::move(callback).Run(Decision::UseNormalUiAndShowNoWarning());
     return;
   }
+
+  if (likelihood_override_for_testing_.has_value()) {
+    if (ShouldPredictionTriggerQuietUi(
+            likelihood_override_for_testing_.value())) {
+      std::move(callback).Run(
+          Decision(QuietUiReason::kPredictedVeryUnlikelyGrant,
+                   Decision::ShowNoWarning()));
+    } else {
+      std::move(callback).Run(Decision::UseNormalUiAndShowNoWarning());
+    }
+    return;
+  }
+
+  last_request_grant_likelihood_ = base::nullopt;
 
   DCHECK(!request_);
   permissions::PredictionService* service =
@@ -65,6 +118,11 @@ void PredictionBasedPermissionUiSelector::SelectUiToUse(
 void PredictionBasedPermissionUiSelector::Cancel() {
   request_.reset();
   callback_.Reset();
+}
+
+base::Optional<permissions::PermissionUmaUtil::PredictionGrantLikelihood>
+PredictionBasedPermissionUiSelector::PredictedGrantLikelihoodForUKM() {
+  return last_request_grant_likelihood_;
 }
 
 permissions::PredictionRequestFeatures
@@ -129,8 +187,10 @@ void PredictionBasedPermissionUiSelector::LookupReponseReceived(
     return;
   }
 
-  if (response->suggestion(0).grant_likelihood().discretized_likelihood() ==
-      VeryUnlikely) {
+  last_request_grant_likelihood_ =
+      response->suggestion(0).grant_likelihood().discretized_likelihood();
+
+  if (ShouldPredictionTriggerQuietUi(last_request_grant_likelihood_.value())) {
     std::move(callback_).Run(Decision(
         QuietUiReason::kPredictedVeryUnlikelyGrant, Decision::ShowNoWarning()));
     return;

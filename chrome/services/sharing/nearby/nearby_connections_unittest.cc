@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <algorithm>
 #include <memory>
+#include <sstream>
 #include <utility>
 
 #include "base/bind.h"
@@ -37,7 +38,7 @@ namespace {
 const char kServiceId[] = "NearbySharing";
 const char kFastAdvertisementServiceUuid[] =
     "0000fef3-0000-1000-8000-00805f9b34fb";
-const char kRemoteEndpointId[] = "remote_endpoint_id";
+const size_t kEndpointIdLength = 4u;
 const char kEndpointInfo[] = {0x0d, 0x07, 0x07, 0x07, 0x07};
 const char kRemoteEndpointInfo[] = {0x0d, 0x07, 0x06, 0x08, 0x09};
 const char kAuthenticationToken[] = "authentication_token";
@@ -76,13 +77,20 @@ struct EndpointData {
   std::vector<uint8_t> remote_endpoint_info;
 };
 
-const EndpointData CreateEndpointData(int suffix) {
+const EndpointData CreateEndpointData(int id) {
   EndpointData endpoint_data;
-  endpoint_data.remote_endpoint_id =
-      kRemoteEndpointId + base::NumberToString(suffix);
+
+  // Create an endpoint ID of length |kEndpointIdLength| which consists of
+  // |id| followed by spaces until the correct length is reached.
+  std::stringstream ss;
+  ss << id;
+  while (ss.str().size() < kEndpointIdLength)
+    ss << " ";
+  endpoint_data.remote_endpoint_id = ss.str();
+
   endpoint_data.remote_endpoint_info = std::vector<uint8_t>(
       std::begin(kRemoteEndpointInfo), std::end(kRemoteEndpointInfo));
-  endpoint_data.remote_endpoint_info.push_back(suffix);
+  endpoint_data.remote_endpoint_info.push_back(id);
   return endpoint_data;
 }
 
@@ -485,6 +493,9 @@ TEST_F(NearbyConnectionsTest, InjectEndpoint) {
                     const OutOfBandConnectionMetadata& metadata) {
         EXPECT_EQ(kServiceId, service_id);
         EXPECT_EQ(Medium::BLUETOOTH, metadata.medium);
+        EXPECT_EQ(endpoint_data.remote_endpoint_id, metadata.endpoint_id);
+        EXPECT_EQ(endpoint_data.remote_endpoint_info,
+                  ByteArrayToMojom(metadata.endpoint_info));
         EXPECT_EQ(bluetooth_mac_address,
                   ByteArrayToMojom(metadata.remote_bluetooth_mac_address));
         client_proxy->OnEndpointFound(
@@ -496,7 +507,8 @@ TEST_F(NearbyConnectionsTest, InjectEndpoint) {
 
   base::RunLoop inject_run_loop;
   nearby_connections_->InjectBluetoothEndpoint(
-      kServiceId, bluetooth_mac_address,
+      kServiceId, endpoint_data.remote_endpoint_id,
+      endpoint_data.remote_endpoint_info, bluetooth_mac_address,
       base::BindLambdaForTesting([&](mojom::Status status) {
         EXPECT_EQ(mojom::Status::kSuccess, status);
         inject_run_loop.Quit();
@@ -1292,20 +1304,42 @@ TEST_F(NearbyConnectionsTest, ReceiveStreamPayload) {
       AcceptConnection(fake_payload_listener, endpoint_data.remote_endpoint_id);
   accepted_run_loop.Run();
 
+  base::RunLoop payload_run_loop;
   fake_payload_listener.payload_cb = base::BindLambdaForTesting(
-      [](const std::string& endpoint_id, mojom::PayloadPtr payload) {
-        NOTREACHED();
+      [&](const std::string& endpoint_id, mojom::PayloadPtr payload) {
+        EXPECT_EQ(endpoint_data.remote_endpoint_id, endpoint_id);
+        EXPECT_EQ(kPayloadId, payload->id);
+        ASSERT_TRUE(payload->content->is_bytes());
+        EXPECT_EQ(expected_payload, payload->content->get_bytes()->bytes);
+        payload_run_loop.Quit();
       });
 
-  EXPECT_CALL(*service_controller_ptr_,
-              CancelPayload(testing::_, testing::Eq(kPayloadId)))
-      .WillOnce(testing::Return(Status{Status::kSuccess}));
-
+  std::string expected_payload_str(expected_payload.begin(),
+                                   expected_payload.end());
   testing::NiceMock<MockInputStream> input_stream;
+  EXPECT_CALL(input_stream, Read(_))
+      .WillOnce(
+          Return(ExceptionOr<ByteArray>(ByteArray(expected_payload_str))));
+  EXPECT_CALL(input_stream, Close());
+
   client_proxy->OnPayload(
       endpoint_data.remote_endpoint_id,
       Payload(kPayloadId,
               [&input_stream]() -> InputStream& { return input_stream; }));
+  client_proxy->OnPayloadProgress(
+      endpoint_data.remote_endpoint_id,
+      {.payload_id = kPayloadId,
+       .status = PayloadProgressInfo::Status::kInProgress,
+       .total_bytes = expected_payload.size(),
+       .bytes_transferred = expected_payload.size()});
+  client_proxy->OnPayloadProgress(
+      endpoint_data.remote_endpoint_id,
+      {.payload_id = kPayloadId,
+       .status = PayloadProgressInfo::Status::kSuccess,
+       .total_bytes = expected_payload.size(),
+       .bytes_transferred = expected_payload.size()});
+
+  payload_run_loop.Run();
 }
 
 }  // namespace connections

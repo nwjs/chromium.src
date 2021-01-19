@@ -1919,6 +1919,9 @@ const char kWebAppsDailyMetricsDate[] = "web_apps.daily_metrics_date";
 // Dictionary that maps web app URLs to Chrome extension IDs.
 const char kWebAppsExtensionIDs[] = "web_apps.extension_ids";
 
+// Dictionary that stores IPH state not scoped to a particular app.
+const char kWebAppsAppAgnosticIphState[] = "web_apps.app_agnostic_iph_state";
+
 // A string representing the last version of Chrome preinstalled web apps were
 // synchronised for.
 const char kWebAppsLastPreinstallSynchronizeVersion[] =
@@ -2036,6 +2039,10 @@ const char kGloballyScopeHTTPAuthCacheEnabled[] =
 // 3 - Allow ambient authentication in regular, incognito and guest sessions
 const char kAmbientAuthenticationInPrivateModesEnabled[] =
     "auth.ambient_auth_in_private_modes";
+
+// Boolean that specifies whether HTTP Basic authentication is allowed for HTTP
+// requests.
+const char kBasicAuthOverHttpEnabled[] = "auth.basic_over_http_enabled";
 
 #if defined(OS_LINUX) || defined(OS_MAC) || defined(OS_CHROMEOS)
 // Boolean that specifies whether OK-AS-DELEGATE flag from KDC is respected
@@ -2667,6 +2674,10 @@ const char kBrowserAddPersonEnabled[] = "profile.add_person_enabled";
 // Whether profile can be used before sign in.
 const char kForceBrowserSignin[] = "profile.force_browser_signin";
 
+// Whether profile picker is enabled, disabled or forced on startup.
+const char kBrowserProfilePickerAvailabilityOnStartup[] =
+    "profile.picker_availability_on_startup";
+
 // Whether to show the profile picker on startup or not.
 const char kBrowserShowProfilePickerOnStartup[] =
     "profile.show_picker_on_startup";
@@ -2674,6 +2685,9 @@ const char kBrowserShowProfilePickerOnStartup[] =
 // Boolean which indicates if the user is allowed to sign into Chrome on the
 // next startup.
 const char kSigninAllowedOnNextStartup[] = "signin.allowed_on_next_startup";
+
+// Boolean which indicate if signin interception is enabled.
+const char kSigninInterceptionEnabled[] = "signin.interception_enabled";
 
 // Device identifier used by CryptAuth stored in local state. This ID is
 // combined with a user ID before being registered with the CryptAuth server,

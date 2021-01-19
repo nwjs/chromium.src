@@ -12,6 +12,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/bookmarks/browser/bookmark_node.h"
+#include "components/bookmarks/browser/bookmark_utils.h"
 #include "components/reading_list/core/reading_list_model.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "url/gurl.h"
@@ -47,7 +48,10 @@ bool SyncToBookmark(const ReadingListEntry& entry, BookmarkNode* bookmark) {
 
 ReadingListManagerImpl::ReadingListManagerImpl(
     ReadingListModel* reading_list_model)
-    : reading_list_model_(reading_list_model), maximum_id_(0L), loaded_(false) {
+    : reading_list_model_(reading_list_model),
+      maximum_id_(0L),
+      loaded_(false),
+      performing_batch_update_(false) {
   DCHECK(reading_list_model_);
   root_ = std::make_unique<BookmarkNode>(maximum_id_++, base::GenerateGUID(),
                                          GURL());
@@ -95,6 +99,28 @@ void ReadingListManagerImpl::ReadingListDidMoveEntry(
   AddOrUpdateBookmark(moved_entry);
 }
 
+void ReadingListManagerImpl::ReadingListDidApplyChanges(
+    ReadingListModel* model) {
+  // Ignores ReadingListDidApplyChanges() invocations during batch update.
+  if (performing_batch_update_)
+    return;
+
+  NotifyReadingListChanged();
+}
+
+void ReadingListManagerImpl::ReadingListModelBeganBatchUpdates(
+    const ReadingListModel* model) {
+  performing_batch_update_ = true;
+}
+
+void ReadingListManagerImpl::ReadingListModelCompletedBatchUpdates(
+    const ReadingListModel* model) {
+  performing_batch_update_ = false;
+
+  // Batch update is done, notify the observer only once.
+  NotifyReadingListChanged();
+}
+
 void ReadingListManagerImpl::AddObserver(Observer* observer) {
   observers_.AddObserver(observer);
 }
@@ -131,6 +157,27 @@ const BookmarkNode* ReadingListManagerImpl::GetNodeByID(int64_t id) const {
   }
 
   return nullptr;
+}
+
+void ReadingListManagerImpl::GetMatchingNodes(
+    const bookmarks::QueryFields& query,
+    size_t max_count,
+    std::vector<const BookmarkNode*>* results) {
+  if (results->size() >= max_count)
+    return;
+
+  auto query_words = bookmarks::ParseBookmarkQuery(query);
+  if (query_words.empty())
+    return;
+
+  for (const auto& node : root_->children()) {
+    if (bookmarks::DoesBookmarkContainWords(node->GetTitle(), node->url(),
+                                            query_words)) {
+      results->push_back(node.get());
+      if (results->size() == max_count)
+        break;
+    }
+  }
 }
 
 bool ReadingListManagerImpl::IsReadingListBookmark(
@@ -232,4 +279,9 @@ const BookmarkNode* ReadingListManagerImpl::AddOrUpdateBookmark(
       maximum_id_++, base::GenerateGUID(), entry->URL());
   bool success = SyncToBookmark(*entry, new_node.get());
   return success ? root_->Add(std::move(new_node)) : nullptr;
+}
+
+void ReadingListManagerImpl::NotifyReadingListChanged() {
+  for (Observer& observer : observers_)
+    observer.ReadingListChanged();
 }

@@ -5,6 +5,7 @@
 #ifndef ASH_CLIPBOARD_VIEWS_CLIPBOARD_HISTORY_ITEM_VIEW_H_
 #define ASH_CLIPBOARD_VIEWS_CLIPBOARD_HISTORY_ITEM_VIEW_H_
 
+#include "ash/clipboard/clipboard_history_util.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/view_targeter_delegate.h"
 
@@ -39,6 +40,12 @@ class ClipboardHistoryItemView : public views::View {
   // Advances the pseudo focus (backward if reverse is true). Returns whether
   // the view still keeps the pseudo focus.
   bool AdvancePseudoFocus(bool reverse);
+
+  ClipboardHistoryUtil::Action action() const { return action_; }
+
+  views::View* delete_button_for_test() {
+    return contents_view_->delete_button();
+  }
 
   const views::View* delete_button_for_test() const {
     return contents_view_->delete_button();
@@ -99,7 +106,7 @@ class ClipboardHistoryItemView : public views::View {
                            views::MenuItemView* container);
 
   // Records histograms after the button is pressed.
-  void RecordButtonPressedHistogram(bool is_delete_button);
+  void RecordButtonPressedHistogram() const;
 
   // Creates the contents view.
   virtual std::unique_ptr<ContentsView> CreateContentsView() = 0;
@@ -139,11 +146,11 @@ class ClipboardHistoryItemView : public views::View {
   gfx::Size CalculatePreferredSize() const override;
   void GetAccessibleNodeData(ui::AXNodeData* data) override;
 
-  // Executes |command_id| on the delegate.
-  void ExecuteCommand(int command_id, const ui::Event& event);
+  // Activates the menu item with the specified action and event flags.
+  void Activate(ClipboardHistoryUtil::Action action, int event_flags);
 
-  // Calculates the command id, which indicates the response to user actions.
-  int CalculateCommandId() const;
+  // Calculates the action type when `main_button_` is clicked.
+  ClipboardHistoryUtil::Action CalculateActionForMainButtonClick() const;
 
   // Returns whether the highlight background should show.
   bool ShouldHighlight() const;
@@ -156,6 +163,9 @@ class ClipboardHistoryItemView : public views::View {
   // Updates `pseudo_focus_` and children visibility.
   void SetPseudoFocus(PseudoFocus new_pseudo_focus);
 
+  // Attempts to handle the gesture event redirected from `main_button_`.
+  void MaybeHandleGestureEventFromMainButton(ui::GestureEvent* event);
+
   // Owned by ClipboardHistoryMenuModelAdapter.
   const ClipboardHistoryItem* const clipboard_history_item_;
 
@@ -166,6 +176,13 @@ class ClipboardHistoryItemView : public views::View {
   MainButton* main_button_ = nullptr;
 
   PseudoFocus pseudo_focus_ = PseudoFocus::kEmpty;
+
+  // Indicates whether the menu item is under the gesture long press.
+  bool under_gesture_long_press_ = false;
+
+  // Indicates the action to take. It is set when the menu item is activated
+  // through `main_button_` or the delete button.
+  ClipboardHistoryUtil::Action action_ = ClipboardHistoryUtil::Action::kEmpty;
 
   views::PropertyChangedSubscription subscription_;
 };

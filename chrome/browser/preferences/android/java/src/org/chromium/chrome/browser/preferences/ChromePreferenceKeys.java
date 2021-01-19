@@ -49,6 +49,9 @@ public final class ChromePreferenceKeys {
      */
     public static final String ACCESSIBILITY_TAB_SWITCHER = "accessibility_tab_switcher";
 
+    public static final String ACCOUNT_PICKER_BOTTOM_SHEET_SHOWN_COUNT =
+            "Chrome.AccountPickerBottomSheet.ShownCount";
+
     /** The language code to override application language with. */
     public static final String APPLICATION_OVERRIDE_LANGUAGE =
             "Chrome.Language.ApplicationOverrideLanguage";
@@ -531,6 +534,17 @@ public final class ChromePreferenceKeys {
     public static final String PREFETCH_NOTIFICATION_TIME = "prefetch_notification_shown_time";
     public static final String PREFETCH_OFFLINE_COUNTER = "prefetch_notification_offline_counter";
 
+    /**
+     * Whether users disable the PriceWelcomeMessageCard.
+     */
+    public static final String PRICE_TRACKING_PRICE_WELCOME_MESSAGE_CARD =
+            "Chrome.PriceTracking.PriceWelcome";
+    /**
+     * Whether users turn on the feature track prices on tabs.
+     */
+    public static final String PRICE_TRACKING_TRACK_PRICES_ON_TABS =
+            "Chrome.PriceTracking.TrackPricesOnTabs";
+
     public static final String PRIVACY_METRICS_REPORTING = "metrics_reporting";
     public static final String PRIVACY_METRICS_IN_SAMPLE = "in_metrics_sample";
     public static final String PRIVACY_NETWORK_PREDICTIONS = "network_predictions";
@@ -725,6 +739,7 @@ public final class ChromePreferenceKeys {
 
     public static final String VERIFIED_DIGITAL_ASSET_LINKS = "verified_digital_asset_links";
 
+    public static final String VIDEO_TUTORIALS_SHARE_URL_SET = "Chrome.VideoTutorials.ShareUrls";
     public static final String VR_EXIT_TO_2D_COUNT = "VR_EXIT_TO_2D_COUNT";
     public static final String VR_FEEDBACK_OPT_OUT = "VR_FEEDBACK_OPT_OUT";
 
@@ -796,6 +811,7 @@ public final class ChromePreferenceKeys {
     static List<String> getKeysInUse() {
         // clang-format off
         return Arrays.asList(
+                ACCOUNT_PICKER_BOTTOM_SHEET_SHOWN_COUNT,
                 ASSISTANT_LAST_VERSION,
                 ASSISTANT_VOICE_SEARCH_ENABLED,
                 ASSISTANT_VOICE_SEARCH_SUPPORTED,
@@ -830,12 +846,15 @@ public final class ChromePreferenceKeys {
                 IMAGE_DESCRIPTIONS_JUST_ONCE_COUNT,
                 IMAGE_DESCRIPTIONS_DONT_ASK_AGAIN,
                 PERSISTENT_OFFLINE_CONTENT_AVAILABILITY_STATUS,
+                PRICE_TRACKING_PRICE_WELCOME_MESSAGE_CARD,
+                PRICE_TRACKING_TRACK_PRICES_ON_TABS,
                 PROMO_IS_DISMISSED.pattern(),
                 PROMO_TIMES_SEEN.pattern(),
                 SETTINGS_SAFETY_CHECK_LAST_RUN_TIMESTAMP,
                 SETTINGS_SAFETY_CHECK_RUN_COUNTER,
                 SIGNIN_PROMO_IMPRESSIONS_COUNT_NTP,
-                TWA_DISCLOSURE_SEEN_PACKAGES
+                TWA_DISCLOSURE_SEEN_PACKAGES,
+                VIDEO_TUTORIALS_SHARE_URL_SET
         );
         // clang-format on
     }

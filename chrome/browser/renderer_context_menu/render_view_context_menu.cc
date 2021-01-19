@@ -796,7 +796,6 @@ void RenderViewContextMenu::InitMenu() {
   RenderViewContextMenuBase::InitMenu();
 
 #if 0
-  AppendQuickAnswersItems();
 
   if (content_type_->SupportsGroup(
           ContextMenuContentType::ITEM_GROUP_PASSWORD)) {
@@ -964,6 +963,11 @@ void RenderViewContextMenu::InitMenu() {
   if (added_accessibility_labels_items && menu_model_.GetItemCount() == 1) {
     menu_model_.RemoveItemAt(0);
   }
+
+  // Always add Quick Answers view last, as it is rendered next to the context
+  // menu, meaning that each menu item added/removed in this function will cause
+  // it to visibly jump on the screen (see b/173569669).
+  AppendQuickAnswersItems();
 }
 
 Profile* RenderViewContextMenu::GetProfile() const {
@@ -1601,9 +1605,11 @@ void RenderViewContextMenu::AppendCopyItem() {
 }
 
 void RenderViewContextMenu::AppendCopyLinkToTextItem() {
-  if (!copy_link_to_text_menu_observer_) {
-    copy_link_to_text_menu_observer_ =
-        std::make_unique<CopyLinkToTextMenuObserver>(this);
+  if (copy_link_to_text_menu_observer_)
+    return;
+
+  copy_link_to_text_menu_observer_ = CopyLinkToTextMenuObserver::Create(this);
+  if (copy_link_to_text_menu_observer_) {
     observers_.AddObserver(copy_link_to_text_menu_observer_.get());
     copy_link_to_text_menu_observer_->InitMenu(params_);
   }

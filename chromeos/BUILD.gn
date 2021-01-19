@@ -325,6 +325,12 @@ if (is_chromeos_device) {
       # crbug.com/1148036
       "ui.ExistingUserLogin",
       "ui.SigninProfileExtension",
+
+      # crbug.com/1152167
+      "ui.ShelfLaunchedApps",
+
+      # crbug.com/1153220
+      "camera.CCAUISmoke.fake",
     ]
   }
 

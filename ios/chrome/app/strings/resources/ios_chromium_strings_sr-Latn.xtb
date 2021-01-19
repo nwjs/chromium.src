@@ -18,6 +18,7 @@
 <translation id="2178608107313874732">Chromium trenutno ne može da koristi kameru</translation>
 <translation id="2195025571279539885">Želite li da Chromium sledeći put ponudi da prevede stranice sa ovog sajta čiji je jezik <ph name="LANGUAGE_NAME" />?</translation>
 <translation id="2590893390871230428">Sinhronizujte Chromium podatke</translation>
+<translation id="259614951763923692">Ako dozvolite da Chromium sazna lokaciju, Chromium je šalje podrazumevanom pretraživaču i svim sajtovima za koje date dozvolu. Sajtovi mogu da zatraže lokaciju kada imaju da vam prikažu lokalne informacije, poput radnji ili vesti u blizini.</translation>
 <translation id="2650312721222849884">Da biste videli kartice na bilo kojem uređaju na kom koristite Chromium, uključite sinhronizaciju</translation>
 <translation id="2730884209570016437">Chromium ne može da koristi kameru zato što je već koristi druga aplikacija</translation>
 <translation id="2915596697727466327">Chromium koristi Face ID da bi lozinkama mogle da pristupaju samo ovlašćene osobe.</translation>
@@ -69,7 +70,6 @@
 <translation id="8240981428553046115">Chromium ne može da traži ažuriranja. Probajte ponovo kasnije.</translation>
 <translation id="8252885722420466166">Poboljšajte Google doživljaj u Chromium-u na osnovu lokacije.</translation>
 <translation id="8586442755830160949">Autorska prava <ph name="YEAR" />. Autori Chromium-a. Sva prava zadržana.</translation>
-<translation id="8598001418772159712">Kada omogućite korišćenje lokacije, Chromium je šalje u podrazumevani pretraživač i na sajtove gde dajete dozvolu. Sajtovi obično koriste lokaciju za lokalne informacije, kao što su vesti ili prodavnice u blizini.</translation>
 <translation id="8663480472502753423">Redovno ažuriraju Chromium</translation>
 <translation id="8776843108004031667">Ovaj nalog i svi nesačuvani podaci ukloniće se iz Chromium-a.</translation>
 <translation id="9022552996538154597">Prijavljivanje na Chromium</translation>

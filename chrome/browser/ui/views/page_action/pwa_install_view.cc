@@ -9,6 +9,8 @@
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/user_metrics.h"
+#include "base/strings/string16.h"
+#include "base/strings/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/banners/app_banner_manager.h"
 #include "chrome/browser/installable/installable_metrics.h"
@@ -40,6 +42,12 @@ constexpr base::FeatureParam<ExperimentIcon>::Option kIconParamOptions[] = {
 constexpr base::FeatureParam<ExperimentIcon> kInstallIconParam{
     &kInstallIconExperiment, "installIcon", ExperimentIcon::kDownloadToDevice,
     &kIconParamOptions};
+
+// Site engagement score threshold to show In-Product Help.
+// Add x_ prefix so the IPH feature engagement tracker can ignore this.
+constexpr base::FeatureParam<int> kIphSiteEngagementThresholdParam{
+    &feature_engagement::kIPHDesktopPwaInstallFeature,
+    "x_site_engagement_threshold", 10};
 
 }  // namespace
 
@@ -79,7 +87,7 @@ void PwaInstallView::UpdateImpl() {
   else
     ResetSlideAnimation(false);
 
-  if (is_probably_promotable) {
+  if (is_probably_promotable && ShouldShowIph(web_contents, manager)) {
     FeaturePromoControllerViews* controller =
         FeaturePromoControllerViews::GetForView(this);
     if (controller) {
@@ -177,4 +185,20 @@ base::string16 PwaInstallView::GetTextForTooltipAndAccessibleName() const {
 
 const char* PwaInstallView::GetClassName() const {
   return "PwaInstallView";
+}
+
+bool PwaInstallView::ShouldShowIph(content::WebContents* web_contents,
+                                   banners::AppBannerManager* manager) {
+  auto start_url = manager->GetManifestStartUrl();
+  if (start_url.is_empty())
+    return false;
+
+  web_app::AppId app_id = web_app::GenerateAppIdFromURL(start_url);
+
+  Profile* profile =
+      Profile::FromBrowserContext(web_contents->GetBrowserContext());
+  auto score =
+      SiteEngagementService::Get(profile)->GetScore(web_contents->GetURL());
+  return score > kIphSiteEngagementThresholdParam.Get() &&
+         web_app::ShouldShowIph(profile->GetPrefs(), app_id);
 }

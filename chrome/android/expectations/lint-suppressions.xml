@@ -235,7 +235,8 @@ Still reading?
     <ignore regexp="The resource `R.string.accessibility_close_tab_group_button_with_group_name` appears to be unused"/>
     <ignore regexp="The resource `R.string.accessibility_expand_tab_group_with_group_name` appears to be unused"/>
 
-    <!-- crbug.com/1128074 remove this line and following 12 lines after the bug is resolved -->
+    <!-- crbug.com/1128074 remove this line and following 15 lines after the bug is resolved -->
+    <ignore regexp="The resource `R.drawable.ic_reading_list_folder` appears to be unused"/>
     <ignore regexp="The resource `R.string.reading_list_title` appears to be unused"/>
     <ignore regexp="The resource `R.string.reading_list_read` appears to be unused"/>
     <ignore regexp="The resource `R.string.reading_list_unread` appears to be unused"/>
@@ -246,6 +247,7 @@ Still reading?
     <ignore regexp="The resource `R.plurals.reading_list_reminder_notification_subtitle` appears to be unused"/>
     <ignore regexp="The resource `R.plurals.reading_list_unread_page_count` appears to be unused"/>
     <ignore regexp="The resource `R.string.reading_list_intro_text` appears to be unused"/>
+    <ignore regexp="The resource `R.string.reading_list_save_pages_for_later` appears to be unused"/>
     <ignore regexp="The resource `R.string.reading_list_find_in_bookmarks` appears to be unused"/>
     <ignore regexp="The resource `R.string.reading_list_empty_list_title` appears to be unused"/>
     <ignore regexp="The resource `R.string.reading_list_empty_list_description` appears to be unused"/>
@@ -323,8 +325,7 @@ Still reading?
     <ignore regexp="The resource `R.string.ntp_article_suggestions_section_empty` appears to be unused"/>
     <!-- 1: TODO(crbug.com/1137985) resource is used in downstream image editor. -->
     <ignore regexp="The resource `R.string.clear` appears to be unused"/>
-    <!-- 4: Temporarily suppressed until impelmentation is ready, see https://crbug.com/1144742, https://crbug.com/1148020 -->
-    <ignore regexp="The resource `R.string.menu_track_prices` appears to be unused"/>
+    <!-- 3: Temporarily suppressed until impelmentation is ready, see https://crbug.com/1148020 -->
     <ignore regexp="The resource `R.string.price_drop_spotted_title` appears to be unused"/>
     <ignore regexp="The resource `R.string.price_drop_spotted_content` appears to be unused"/>
     <ignore regexp="The resource `R.string.price_drop_spotted_show_me` appears to be unused"/>

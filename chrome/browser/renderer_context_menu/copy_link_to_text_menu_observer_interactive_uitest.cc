@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/browser/extensions/extension_browsertest.h"
 #include "chrome/browser/renderer_context_menu/copy_link_to_text_menu_observer.h"
 
 #include "base/macros.h"
@@ -20,12 +21,13 @@
 
 namespace {
 
-class CopyLinkToTextMenuObserverTest : public InProcessBrowserTest {
+class CopyLinkToTextMenuObserverTest : public extensions::ExtensionBrowserTest {
  public:
   CopyLinkToTextMenuObserverTest();
 
   void SetUp() override { InProcessBrowserTest::SetUp(); }
   void SetUpOnMainThread() override {
+    extensions::ExtensionBrowserTest::SetUpOnMainThread();
     Reset(false);
 
     host_resolver()->AddRule("*", "127.0.0.1");
@@ -42,7 +44,7 @@ class CopyLinkToTextMenuObserverTest : public InProcessBrowserTest {
 
   void Reset(bool incognito) {
     menu_ = std::make_unique<MockRenderViewContextMenu>(incognito);
-    observer_ = std::make_unique<CopyLinkToTextMenuObserver>(menu_.get());
+    observer_ = CopyLinkToTextMenuObserver::Create(menu_.get());
     menu_->SetObserver(observer_.get());
   }
 
@@ -89,9 +91,7 @@ IN_PROC_BROWSER_TEST_F(CopyLinkToTextMenuObserverTest, CopiesLinkToText) {
   ui::Clipboard* clipboard = ui::Clipboard::GetForCurrentThread();
   base::string16 text;
   clipboard->ReadText(ui::ClipboardBuffer::kCopyPaste, nullptr, &text);
-  EXPECT_EQ(base::UTF8ToUTF16(
-                "\"hello world\"\nhttp://foo.com/#:~:text=hello%20world"),
-            text);
+  EXPECT_EQ(base::UTF8ToUTF16("http://foo.com/#:~:text=hello%20world"), text);
 }
 
 IN_PROC_BROWSER_TEST_F(CopyLinkToTextMenuObserverTest,
@@ -107,7 +107,7 @@ IN_PROC_BROWSER_TEST_F(CopyLinkToTextMenuObserverTest,
   ui::Clipboard* clipboard = ui::Clipboard::GetForCurrentThread();
   base::string16 text;
   clipboard->ReadText(ui::ClipboardBuffer::kCopyPaste, nullptr, &text);
-  EXPECT_EQ(base::UTF8ToUTF16("\"hello world\"\nhttp://foo.com/"), text);
+  EXPECT_EQ(base::UTF8ToUTF16("http://foo.com/"), text);
 }
 
 IN_PROC_BROWSER_TEST_F(CopyLinkToTextMenuObserverTest, ReplacesRefInURL) {
@@ -122,8 +122,7 @@ IN_PROC_BROWSER_TEST_F(CopyLinkToTextMenuObserverTest, ReplacesRefInURL) {
   ui::Clipboard* clipboard = ui::Clipboard::GetForCurrentThread();
   base::string16 text;
   clipboard->ReadText(ui::ClipboardBuffer::kCopyPaste, nullptr, &text);
-  EXPECT_EQ(base::UTF8ToUTF16("\"hello world\"\nhttp://foo.com/#:~:text=hello"),
-            text);
+  EXPECT_EQ(base::UTF8ToUTF16("http://foo.com/#:~:text=hello"), text);
 }
 
 // crbug.com/1139864
@@ -153,5 +152,19 @@ IN_PROC_BROWSER_TEST_F(CopyLinkToTextMenuObserverTest,
   ui::Clipboard* clipboard = ui::Clipboard::GetForCurrentThread();
   base::string16 text;
   clipboard->ReadText(ui::ClipboardBuffer::kCopyPaste, nullptr, &text);
-  EXPECT_EQ(base::UTF8ToUTF16("\"hello world\"\n" + main_url.spec()), text);
+  EXPECT_EQ(base::UTF8ToUTF16(main_url.spec()), text);
+}
+
+IN_PROC_BROWSER_TEST_F(CopyLinkToTextMenuObserverTest, HiddenForExtensions) {
+  const extensions::Extension* extension =
+      LoadExtension(test_data_dir_.AppendASCII("simple_with_file"));
+  ui_test_utils::NavigateToURL(browser(),
+                               extension->GetResourceURL("file.html"));
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  menu()->set_web_contents(web_contents);
+
+  std::unique_ptr<CopyLinkToTextMenuObserver> observer =
+      CopyLinkToTextMenuObserver::Create(menu());
+  EXPECT_EQ(nullptr, observer);
 }

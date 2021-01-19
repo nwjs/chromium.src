@@ -18,6 +18,7 @@
 <translation id="2178608107313874732">現在 Chromium ではカメラを使用できません</translation>
 <translation id="2195025571279539885">次回から Chromium でこのサイトの <ph name="LANGUAGE_NAME" /> ページの翻訳を表示しますか？</translation>
 <translation id="2590893390871230428">Chromium のデータを同期する</translation>
+<translation id="259614951763923692">Chromium に位置情報の利用を許可した場合、その情報が Chromium から既定の検索エンジンや許可済みのサイトに送信されます。また、サイトで付近の店舗やニュースなどの地域情報を表示できる場合に位置情報を要求されることがあります。</translation>
 <translation id="2650312721222849884">どのデバイスからでも Chromium で自分のタブにアクセスするには、同期をオンにしてください</translation>
 <translation id="2730884209570016437">カメラは別のアプリが使用中のため、Chromium では使用できません</translation>
 <translation id="2915596697727466327">Chromium では Face ID の使用により、パスワードへの認証されたアクセスのみが許可されます。</translation>
@@ -69,7 +70,6 @@
 <translation id="8240981428553046115">Chromium でアップデートを確認できませんでした。しばらくしてからもう一度お試しください。</translation>
 <translation id="8252885722420466166">ユーザーの現在時に基づいて Chromium で Google を使いやすくします。</translation>
 <translation id="8586442755830160949">Copyright <ph name="YEAR" /> The Chromium Authors. All rights reserved.</translation>
-<translation id="8598001418772159712">Chromium に位置情報の利用を許可すると、許可を与えたサイトとデフォルトの検索エンジンに位置情報が提供されます。多くのサイトは、ニュースや付近の店舗などの地域情報を提供するために、位置情報を利用します。</translation>
 <translation id="8663480472502753423">Chromium を最新の状態に維持します</translation>
 <translation id="8776843108004031667">このアカウントと保存されていないデータは Chromium から削除されます。</translation>
 <translation id="9022552996538154597">Chromium にログイン</translation>

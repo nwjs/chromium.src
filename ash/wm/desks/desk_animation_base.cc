@@ -33,7 +33,10 @@ void DeskAnimationBase::Launch() {
   for (auto& observer : controller_->observers_)
     observer.OnDeskSwitchAnimationLaunching();
 
-  throughput_tracker_.Start(GetReportCallback());
+  // The throughput tracker measures the animation when the user lifts their
+  // fingers off the trackpad, which is done in EndSwipeAnimation.
+  if (!is_continuous_gesture_animation_)
+    throughput_tracker_.Start(GetReportCallback());
 
   // This step makes sure that the containers of the target desk are shown at
   // the beginning of the animation (but not actually visible to the user yet,
@@ -128,6 +131,9 @@ void DeskAnimationBase::OnDeskSwitchAnimationFinished() {
   for (auto& observer : controller_->observers_)
     observer.OnDeskSwitchAnimationFinished();
 
+  if (skip_notify_controller_on_animation_finished_for_testing_)
+    return;
+
   controller_->OnAnimationFinished(this);
   // `this` is now deleted.
 }
@@ -137,9 +143,9 @@ void DeskAnimationBase::OnVisibleDeskChanged() {
 }
 
 RootWindowDeskSwitchAnimator*
-DeskAnimationBase::GetFirstDeskSwitchAnimatorForTesting() const {
-  DCHECK(!desk_switch_animators_.empty());
-  return desk_switch_animators_.front().get();
+DeskAnimationBase::GetDeskSwitchAnimatorAtIndexForTesting(size_t index) const {
+  DCHECK_LT(index, desk_switch_animators_.size());
+  return desk_switch_animators_[index].get();
 }
 
 }  // namespace ash

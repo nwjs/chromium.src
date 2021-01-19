@@ -1655,12 +1655,6 @@ bool ChildProcessSecurityPolicyImpl::CanAccessDataForOrigin(
         // BrowsingInstances are registered in the process. Allow this for now,
         // to maintain legacy behavior, until we rule out all the ways it can
         // happen.
-        LogCanAccessDataForOriginCrashKeys(
-            expected_process_lock.ToString(),
-            GetKilledProcessOriginLock(security_state), url.GetOrigin().spec(),
-            "process is locked, but there are no BrowsingInstanceIds "
-            "registered");
-        base::debug::DumpWithoutCrashing();
         return true;
       }
       for (auto browsing_instance_id :
@@ -2332,7 +2326,8 @@ void ChildProcessSecurityPolicyImpl::
 void ChildProcessSecurityPolicyImpl::AddOptInIsolatedOriginForBrowsingInstance(
     const IsolationContext& isolation_context,
     const url::Origin& origin) {
-  DCHECK(IsolatedOriginUtil::IsValidOriginForOptInIsolation(origin));
+  DCHECK(IsolatedOriginUtil::IsValidOriginForOptInIsolation(origin))
+      << "Attempting to opt-in invalid origin: " << origin;
 
   BrowsingInstanceId browsing_instance_id(
       isolation_context.browsing_instance_id());

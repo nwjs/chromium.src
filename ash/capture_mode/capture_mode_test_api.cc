@@ -5,6 +5,7 @@
 #include "ash/public/cpp/capture_mode_test_api.h"
 
 #include "ash/capture_mode/capture_mode_controller.h"
+#include "ash/capture_mode/capture_mode_metrics.h"
 #include "ash/capture_mode/capture_mode_types.h"
 #include "base/auto_reset.h"
 #include "base/check.h"
@@ -54,12 +55,22 @@ void CaptureModeTestApi::PerformCapture() {
 
 void CaptureModeTestApi::StopVideoRecording() {
   DCHECK(controller_->is_recording_in_progress());
-  controller_->EndVideoRecording();
+  controller_->EndVideoRecording(EndRecordingReason::kStopRecordingButton);
 }
 
 void CaptureModeTestApi::SetOnCaptureFileSavedCallback(
     OnFileSavedCallback callback) {
   controller_->on_file_saved_callback_ = std::move(callback);
+}
+
+void CaptureModeTestApi::SetAudioRecordingEnabled(bool enabled) {
+  DCHECK(!controller_->is_recording_in_progress());
+  controller_->enable_audio_recording_ = enabled;
+}
+
+void CaptureModeTestApi::FlushRecordingServiceForTesting() {
+  DCHECK(controller_->is_recording_in_progress());
+  controller_->recording_service_remote_.FlushForTesting();
 }
 
 void CaptureModeTestApi::SetType(bool for_video) {

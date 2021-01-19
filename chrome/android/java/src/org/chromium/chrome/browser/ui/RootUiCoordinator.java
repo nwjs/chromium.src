@@ -64,6 +64,7 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.share.ShareButtonController;
 import org.chromium.chrome.browser.share.ShareDelegate;
+import org.chromium.chrome.browser.share.ShareDelegateImpl.ShareOrigin;
 import org.chromium.chrome.browser.share.ShareUtils;
 import org.chromium.chrome.browser.tab.AccessibilityVisibilityHandler;
 import org.chromium.chrome.browser.tab.Tab;
@@ -78,6 +79,7 @@ import org.chromium.chrome.browser.ui.appmenu.AppMenuBlocker;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuCoordinator;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuCoordinatorFactory;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
+import org.chromium.chrome.browser.util.ChromeAccessibilityUtil;
 import org.chromium.chrome.browser.vr.VrModuleProvider;
 import org.chromium.chrome.features.start_surface.StartSurface;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
@@ -91,6 +93,7 @@ import org.chromium.components.browser_ui.widget.scrim.ScrimCoordinator;
 import org.chromium.components.feature_engagement.EventConstants;
 import org.chromium.components.messages.ManagedMessageDispatcher;
 import org.chromium.components.messages.MessageContainer;
+import org.chromium.components.messages.MessageUtils;
 import org.chromium.components.messages.MessagesFactory;
 import org.chromium.content_public.browser.ActionModeCallbackHelper;
 import org.chromium.content_public.browser.LoadUrlParams;
@@ -255,6 +258,8 @@ public class RootUiCoordinator
 
         mActivity.getLayoutManagerSupplier().removeObserver(mLayoutManagerSupplierCallback);
 
+        MessageUtils.setAccessibilityUtil(null);
+
         if (mMessageDispatcher != null) {
             MessagesFactory.detachMessageDispatcher(mMessageDispatcher);
             mMessageDispatcher = null;
@@ -397,15 +402,16 @@ public class RootUiCoordinator
     @CallSuper
     public void onFinishNativeInitialization() {
         if (ChromeFeatureList.isEnabled(ChromeFeatureList.MESSAGES_FOR_ANDROID_INFRASTRUCTURE)) {
+            MessageUtils.setAccessibilityUtil(ChromeAccessibilityUtil.get());
             MessageContainer container = mActivity.findViewById(R.id.message_container);
             mMessageContainerCoordinator =
                     new MessageContainerCoordinator(container, getBrowserControlsManager());
             mMessageDispatcher = MessagesFactory.createMessageDispatcher(
                     container, mMessageContainerCoordinator::getMessageMaxTranslation);
-            mMessageQueueMediator =
-                    new ChromeMessageQueueMediator(mActivity.getBrowserControlsManager(),
-                            mMessageContainerCoordinator, mActivity.getFullscreenManager(),
-                            mLayoutStateProviderOneShotSupplier, mMessageDispatcher);
+            mMessageQueueMediator = new ChromeMessageQueueMediator(
+                    mActivity.getBrowserControlsManager(), mMessageContainerCoordinator,
+                    mActivity.getFullscreenManager(), mLayoutStateProviderOneShotSupplier,
+                    mTabModelSelectorSupplier, mMessageDispatcher);
             mMessageDispatcher.setDelegate(mMessageQueueMediator);
             MessagesFactory.attachMessageDispatcher(
                     mActivity.getWindowAndroid(), mMessageDispatcher);
@@ -439,7 +445,12 @@ public class RootUiCoordinator
 
         if (shareDelegate == null || tab == null) return;
 
-        shareDelegate.share(tab, shareDirectly);
+        if (shareDirectly) {
+            RecordUserAction.record("MobileMenuDirectShare");
+        } else {
+            RecordUserAction.record("MobileMenuShare");
+        }
+        shareDelegate.share(tab, shareDirectly, ShareOrigin.OVERFLOW_MENU);
     }
 
     // MenuOrKeyboardActionHandler implementation

@@ -535,6 +535,9 @@ extern const char kDownloadLaterDebugOnWifiNameDescription[];
 extern const char kDuetTabStripIntegrationAndroidName[];
 extern const char kDuetTabStripIntegrationAndroidDescription[];
 
+extern const char kEnableLoginDetectionName[];
+extern const char kEnableLoginDetectionDescription[];
+
 extern const char kEnableNewDownloadBackendName[];
 extern const char kEnableNewDownloadBackendDescription[];
 
@@ -1498,6 +1501,9 @@ extern const char kAndroidSurfaceControlDescription[];
 extern const char kAppNotificationStatusMessagingName[];
 extern const char kAppNotificationStatusMessagingDescription[];
 
+extern const char kAssistantIntentPageUrlName[];
+extern const char kAssistantIntentPageUrlDescription[];
+
 extern const char kAsyncDnsName[];
 extern const char kAsyncDnsDescription[];
 
@@ -1632,16 +1638,19 @@ extern const char kIntentBlockExternalFormRedirectsNoGestureDescription[];
 extern const char kInterestFeedContentSuggestionsName[];
 extern const char kInterestFeedContentSuggestionsDescription[];
 
+extern const char kInterestFeedNoticeCardAutoDismissName[];
+extern const char kInterestFeedNoticeCardAutoDismissDescription[];
+
 extern const char kInterestFeedV2Name[];
 extern const char kInterestFeedV2Description[];
 
-extern const char InterestFeedV1ClickAndViewActionsConditionalUploadName[];
+extern const char kInterestFeedV1ClickAndViewActionsConditionalUploadName[];
 extern const char
-    InterestFeedV1ClickAndViewActionsConditionalUploadDescription[];
+    kInterestFeedV1ClickAndViewActionsConditionalUploadDescription[];
 
-extern const char InterestFeedV2ClickAndViewActionsConditionalUploadName[];
+extern const char kInterestFeedV2ClickAndViewActionsConditionalUploadName[];
 extern const char
-    InterestFeedV2ClickAndViewActionsConditionalUploadDescription[];
+    kInterestFeedV2ClickAndViewActionsConditionalUploadDescription[];
 
 extern const char kMessagesForAndroidInfrastructureName[];
 extern const char kMessagesForAndroidInfrastructureDescription[];
@@ -1846,6 +1855,9 @@ extern const char kAndroidDarkSearchDescription[];
 
 extern const char kAndroidNightModeTabReparentingName[];
 extern const char kAndroidNightModeTabReparentingDescription[];
+
+extern const char kSwipeToMoveCursorName[];
+extern const char kSwipeToMoveCursorDescription[];
 
 extern const char kTabbedAppOverflowMenuIconsName[];
 extern const char kTabbedAppOverflowMenuIconsDescription[];
@@ -2123,6 +2135,9 @@ extern const char kBluetoothAggressiveAppearanceFilterDescription[];
 extern const char kBluetoothFixA2dpPacketSizeName[];
 extern const char kBluetoothFixA2dpPacketSizeDescription[];
 
+extern const char kBluetoothWbsDogfoodName[];
+extern const char kBluetoothWbsDogfoodDescription[];
+
 extern const char kCameraSystemWebAppName[];
 extern const char kCameraSystemWebAppDescription[];
 
@@ -2190,6 +2205,9 @@ extern const char kDisableCancelAllTouchesDescription[];
 
 extern const char kDisableCryptAuthV1DeviceSyncName[];
 extern const char kDisableCryptAuthV1DeviceSyncDescription[];
+
+extern const char kDisableIdleSocketsCloseOnMemoryPressureName[];
+extern const char kDisableIdleSocketsCloseOnMemoryPressureDescription[];
 
 extern const char kDisableExplicitDmaFencesName[];
 extern const char kDisableExplicitDmaFencesDescription[];
@@ -2501,6 +2519,9 @@ extern const char kLimitShelfItemsToActiveDeskDescription[];
 extern const char kListAllDisplayModesName[];
 extern const char kListAllDisplayModesDescription[];
 
+extern const char kEnableHardwareMirrorModeName[];
+extern const char kEnableHardwareMirrorModeDescription[];
+
 extern const char kLockScreenMediaControlsName[];
 extern const char kLockScreenMediaControlsDescription[];
 
@@ -2512,6 +2533,9 @@ extern const char kMediaAppDescription[];
 
 extern const char kMediaAppAnnotationName[];
 extern const char kMediaAppAnnotationDescription[];
+
+extern const char kMediaAppPdfInInkName[];
+extern const char kMediaAppPdfInInkDescription[];
 
 extern const char kMediaNotificationsCounterName[];
 extern const char kMediaNotificationsCounterDescription[];

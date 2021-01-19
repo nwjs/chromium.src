@@ -263,6 +263,11 @@ extern const char kIOSLegacyTLSInterstitialsDescription[];
 extern const char kIOSLookalikeUrlNavigationSuggestionsUIName[];
 extern const char kIOSLookalikeUrlNavigationSuggestionsUIDescription[];
 
+// Title and description for the flag to persist the Crash Restore Infobar
+// across navigations.
+extern const char kIOSPersistCrashRestoreName[];
+extern const char kIOSPersistCrashRestoreDescription[];
+
 // Title and description for the flag to experiment with different location
 // permission user experiences.
 extern const char kLocationPermissionsPromptName[];
@@ -320,6 +325,11 @@ extern const char kOmniboxOnFocusSuggestionsDescription[];
 // Title and description for the flag to enable the new design of the page info.
 extern const char kPageInfoRefactoringName[];
 extern const char kPageInfoRefactoringDescription[];
+
+// Title and description for the flag to control Omnibox Local zero-prefix
+// suggestions.
+extern const char kOmniboxLocalHistoryZeroSuggestName[];
+extern const char kOmniboxLocalHistoryZeroSuggestDescription[];
 
 #if defined(__IPHONE_13_4)
 // Title and description for the flag to enable pointer support on tablets.

@@ -1746,6 +1746,8 @@ void RenderFrameImpl::CreateFrame(
         devtools_frame_token);
     render_frame->InitializeBlameContext(nullptr);
     render_frame->previous_routing_id_ = previous_routing_id;
+    if (previous_proxy)
+      previous_proxy->set_provisional_frame_routing_id(routing_id);
     web_frame = blink::WebLocalFrame::CreateProvisional(
         render_frame, render_frame->blink_interface_registry_.get(),
         frame_token, previous_web_frame, replicated_state.frame_policy,
@@ -3540,7 +3542,9 @@ void RenderFrameImpl::CommitSameDocumentNavigation(
   DCHECK(!commit_params->is_view_source);
   DCHECK(NavigationTypeUtils::IsSameDocument(common_params->navigation_type));
 
-  CHECK(in_frame_tree_);
+  // TODO(danakj): Disabled for M87, but underlying problem exists.
+  // CHECK(in_frame_tree_);
+
   // Unlike a cross-document navigation commit, detach the MHTMLBodyLoaderClient
   // before resetting it. In the case of a cross-document navigation, it's
   // important to ensure *something* commits, even if the original commit
@@ -4102,6 +4106,26 @@ void RenderFrameImpl::FrameDetached() {
   frame_->Close();
   frame_ = nullptr;
 
+  // If this was a provisional frame with an associated frame to replace, tell
+  // the previous_proxy it is no longer associated with this frame.
+  if (previous_routing_id_ != MSG_ROUTING_NONE) {
+    RenderFrameProxy* proxy =
+        RenderFrameProxy::FromRoutingID(previous_routing_id_);
+
+    // |proxy| should always exist. Detaching the proxy would've also
+    // detached this provisional frame. The proxy should also not be
+    // associated with another provisional frame at this point.
+    //
+    // RenderDocument: The |previous_routing_id_| represents a RenderFrame
+    // instead of a RenderFrameProxy when a local<->local RenderFrame
+    // navigation happens. In this case |proxy| is null.
+    if (proxy) {
+      CHECK_EQ(routing_id_, proxy->provisional_frame_routing_id());
+      proxy->set_provisional_frame_routing_id(MSG_ROUTING_NONE);
+    } else
+      CHECK(ShouldCreateNewHostForSameSiteSubframe());
+  }
+
   if (mhtml_body_loader_client_) {
     mhtml_body_loader_client_->Detach();
     mhtml_body_loader_client_.reset();
@@ -4492,6 +4516,11 @@ void RenderFrameImpl::DidFinishSameDocumentNavigation(
 
   for (auto& observer : observers_)
     observer.DidFinishSameDocumentNavigation();
+}
+
+void RenderFrameImpl::DidSetPageLifecycleState() {
+  for (auto& observer : observers_)
+    observer.DidSetPageLifecycleState();
 }
 
 void RenderFrameImpl::DidUpdateCurrentHistoryItem() {

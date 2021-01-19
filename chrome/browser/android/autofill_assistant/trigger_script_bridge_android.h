@@ -10,8 +10,8 @@
 #include <string>
 
 #include "base/android/jni_android.h"
+#include "base/optional.h"
 #include "components/autofill_assistant/browser/client.h"
-#include "components/autofill_assistant/browser/client_settings.h"
 #include "components/autofill_assistant/browser/metrics.h"
 #include "components/autofill_assistant/browser/service.pb.h"
 #include "components/autofill_assistant/browser/trigger_context.h"
@@ -57,6 +57,18 @@ class TriggerScriptBridgeAndroid : public TriggerScriptCoordinator::Observer {
   bool OnBackButtonPressed(JNIEnv* env,
                            const base::android::JavaParamRef<jobject>& jcaller);
 
+  // Called by the UI when the tab's interactability has changed.
+  void OnTabInteractabilityChanged(
+      JNIEnv* env,
+      const base::android::JavaParamRef<jobject>& jcaller,
+      jboolean jinteractable);
+
+  // Access to the last shown trigger script.
+  base::Optional<TriggerScriptUIProto> GetLastShownTriggerScript() const;
+
+  // Clears the last shown trigger script.
+  void ClearLastShownTriggerScript();
+
   // Called by the UI when the keyboard was shown or hidden.
   void OnKeyboardVisibilityChanged(
       JNIEnv* env,
@@ -68,10 +80,12 @@ class TriggerScriptBridgeAndroid : public TriggerScriptCoordinator::Observer {
   void OnTriggerScriptShown(const TriggerScriptUIProto& proto) override;
   void OnTriggerScriptHidden() override;
   void OnTriggerScriptFinished(Metrics::LiteScriptFinishedState state) override;
+  void OnVisibilityChanged(bool visible) override;
 
   // Reference to the Java counterpart to this class.
   base::android::ScopedJavaGlobalRef<jobject> java_object_;
-  ClientSettings client_settings_;
+  bool disable_header_animations_for_testing_ = false;
+  base::Optional<TriggerScriptUIProto> last_shown_trigger_script_;
   std::unique_ptr<TriggerScriptCoordinator> trigger_script_coordinator_;
 };
 

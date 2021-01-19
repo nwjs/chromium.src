@@ -4,6 +4,7 @@
 
 #include "cc/metrics/compositor_frame_reporting_controller.h"
 
+#include <algorithm>
 #include <utility>
 #include <vector>
 
@@ -1381,6 +1382,31 @@ TEST_F(CompositorFrameReportingControllerTest,
 
   reporting_controller_.ResetReporters();
   reporting_controller_.SetDroppedFrameCounter(nullptr);
+}
+
+TEST_F(CompositorFrameReportingControllerTest,
+       SkippedFramesFromDisplayCompositorAreDroppedUpToLimit) {
+  // Submit and present two compositor frames.
+  SimulatePresentCompositorFrame();
+  EXPECT_EQ(1u, dropped_counter.total_frames());
+  EXPECT_EQ(0u, dropped_counter.total_main_dropped());
+  EXPECT_EQ(0u, dropped_counter.total_compositor_dropped());
+
+  SimulatePresentCompositorFrame();
+  EXPECT_EQ(2u, dropped_counter.total_frames());
+  EXPECT_EQ(0u, dropped_counter.total_main_dropped());
+  EXPECT_EQ(0u, dropped_counter.total_compositor_dropped());
+
+  // Now skip over a 101 frames (It should be ignored as it more than 100)
+  // and submit + present another frame.
+  const uint32_t kSkipFrames = 101;
+  const uint32_t kSkipFramesActual = 0;
+  for (uint32_t i = 0; i < kSkipFrames; ++i)
+    IncrementCurrentId();
+  SimulatePresentCompositorFrame();
+  EXPECT_EQ(3u + kSkipFramesActual, dropped_counter.total_frames());
+  EXPECT_EQ(0u, dropped_counter.total_main_dropped());
+  EXPECT_EQ(kSkipFramesActual, dropped_counter.total_compositor_dropped());
 }
 
 }  // namespace

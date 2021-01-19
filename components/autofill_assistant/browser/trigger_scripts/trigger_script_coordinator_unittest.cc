@@ -38,10 +38,10 @@ class MockObserver : public TriggerScriptCoordinator::Observer {
   MOCK_METHOD0(OnTriggerScriptHidden, void());
   MOCK_METHOD1(OnTriggerScriptFinished,
                void(Metrics::LiteScriptFinishedState state));
+  MOCK_METHOD1(OnVisibilityChanged, void(bool visible));
 };
 
 const char kFakeDeepLink[] = "https://example.com/q?data=test";
-const char kFakeSubdomainDeepLink[] = "https://b.example.com";
 const char kFakeServerUrl[] =
     "https://www.fake.backend.com/trigger_script_server";
 
@@ -94,6 +94,10 @@ class TriggerScriptCoordinatorTest : public content::RenderViewHostTestHarness {
     coordinator_->OnVisibilityChanged(visibility);
   }
 
+  void SimulateWebContentsInteractabilityChanged(bool interactable) {
+    coordinator_->OnTabInteractabilityChanged(interactable);
+  }
+
   void SimulateNavigateToUrl(const GURL& url) {
     content::WebContentsTester::For(web_contents())->SetLastCommittedURL(url);
     content::NavigationSimulator::NavigateAndCommitFromDocument(
@@ -137,31 +141,6 @@ class TriggerScriptCoordinatorTest : public content::RenderViewHostTestHarness {
   NiceMock<MockStaticTriggerConditions>* mock_static_trigger_conditions_;
   NiceMock<MockDynamicTriggerConditions>* mock_dynamic_trigger_conditions_;
 };
-
-TEST_F(TriggerScriptCoordinatorTest, StartSucceedsForCorrectDomain) {
-  SimulateNavigateToUrl(GURL(kFakeDeepLink));
-  EXPECT_CALL(*mock_request_sender_, OnSendRequest).Times(1);
-  coordinator_->Start(GURL(kFakeDeepLink),
-                      std::make_unique<TriggerContextImpl>());
-}
-TEST_F(TriggerScriptCoordinatorTest, StartSucceedsForSubDomain) {
-  SimulateNavigateToUrl(GURL(kFakeSubdomainDeepLink));
-  EXPECT_CALL(*mock_request_sender_, OnSendRequest).Times(1);
-  coordinator_->Start(GURL(kFakeDeepLink),
-                      std::make_unique<TriggerContextImpl>());
-}
-
-TEST_F(TriggerScriptCoordinatorTest, StartFailsForDifferentDomain) {
-  SimulateNavigateToUrl(GURL("https://different.com/example"));
-  EXPECT_CALL(*mock_request_sender_, OnSendRequest).Times(0);
-  EXPECT_CALL(mock_observer_,
-              OnTriggerScriptFinished(Metrics::LiteScriptFinishedState::
-                                          LITE_SCRIPT_PROMPT_FAILED_NAVIGATE));
-  coordinator_->Start(GURL(kFakeDeepLink),
-                      std::make_unique<TriggerContextImpl>());
-  AssertRecordedFinishedState(
-      Metrics::LiteScriptFinishedState::LITE_SCRIPT_PROMPT_FAILED_NAVIGATE);
-}
 
 TEST_F(TriggerScriptCoordinatorTest, StartSendsOnlyApprovedFields) {
   std::map<std::string, std::string> input_script_params{
@@ -224,6 +203,18 @@ TEST_F(TriggerScriptCoordinatorTest, StopOnParsingError) {
                       std::make_unique<TriggerContextImpl>());
   AssertRecordedFinishedState(
       Metrics::LiteScriptFinishedState::LITE_SCRIPT_GET_ACTIONS_PARSE_ERROR);
+}
+
+TEST_F(TriggerScriptCoordinatorTest, StopOnNoTriggerScriptsAvailable) {
+  EXPECT_CALL(*mock_request_sender_, OnSendRequest(GURL(kFakeServerUrl), _, _))
+      .WillOnce(RunOnceCallback<2>(net::HTTP_OK, ""));
+  EXPECT_CALL(mock_observer_, OnTriggerScriptFinished(
+                                  Metrics::LiteScriptFinishedState::
+                                      LITE_SCRIPT_NO_TRIGGER_SCRIPT_AVAILABLE));
+  coordinator_->Start(GURL(kFakeDeepLink),
+                      std::make_unique<TriggerContextImpl>());
+  AssertRecordedFinishedState(Metrics::LiteScriptFinishedState::
+                                  LITE_SCRIPT_NO_TRIGGER_SCRIPT_AVAILABLE);
 }
 
 TEST_F(TriggerScriptCoordinatorTest, StartChecksStaticAndDynamicConditions) {
@@ -318,6 +309,7 @@ TEST_F(TriggerScriptCoordinatorTest, PauseAndResumeOnTabVisibilityChange) {
   // When a tab becomes invisible, the trigger script is hidden and trigger
   // condition evaluation is suspended.
   EXPECT_CALL(mock_observer_, OnTriggerScriptHidden).Times(1);
+  EXPECT_CALL(mock_observer_, OnVisibilityChanged(false)).Times(1);
   EXPECT_CALL(*mock_dynamic_trigger_conditions_,
               OnUpdate(mock_web_controller_, _))
       .Times(0);
@@ -335,6 +327,7 @@ TEST_F(TriggerScriptCoordinatorTest, PauseAndResumeOnTabVisibilityChange) {
   EXPECT_CALL(*mock_dynamic_trigger_conditions_, GetSelectorMatches)
       .WillOnce(Return(true));
   EXPECT_CALL(mock_observer_, OnTriggerScriptShown).Times(1);
+  EXPECT_CALL(mock_observer_, OnVisibilityChanged(true)).Times(1);
   SimulateWebContentsVisibilityChanged(content::Visibility::VISIBLE);
 }
 
@@ -541,18 +534,21 @@ TEST_F(TriggerScriptCoordinatorTest, IgnoreNavigationEventsWhileNotStarted) {
               OnUpdate(mock_web_controller_, _))
       .Times(0);
   SimulateWebContentsVisibilityChanged(content::Visibility::HIDDEN);
+  // Note: in reality, it should be impossible to navigate on hidden tabs.
   SimulateNavigateToUrl(GURL("https://example.different.com"));
+  SimulateNavigateToUrl(GURL("https://also-not-supported.com"));
 
-  // However, when the tab becomes visible again, resuming the trigger script
-  // will fail if the last committed URL is still on a non-supported domain.
-  EXPECT_CALL(
-      mock_observer_,
-      OnTriggerScriptFinished(
-          Metrics::LiteScriptFinishedState::LITE_SCRIPT_PROMPT_FAILED_NAVIGATE))
+  EXPECT_CALL(*mock_request_sender_, OnSendRequest(GURL(kFakeServerUrl), _, _))
+      .WillOnce(RunOnceCallback<2>(net::HTTP_OK, /* response = */ ""));
+  // However, when the tab becomes visible again, the trigger script is
+  // restarted and thus fails if the tab is still on an unsupported domain.
+  EXPECT_CALL(mock_observer_, OnTriggerScriptFinished(
+                                  Metrics::LiteScriptFinishedState::
+                                      LITE_SCRIPT_NO_TRIGGER_SCRIPT_AVAILABLE))
       .Times(1);
   SimulateWebContentsVisibilityChanged(content::Visibility::VISIBLE);
-  AssertRecordedFinishedState(
-      Metrics::LiteScriptFinishedState::LITE_SCRIPT_PROMPT_FAILED_NAVIGATE);
+  AssertRecordedFinishedState(Metrics::LiteScriptFinishedState::
+                                  LITE_SCRIPT_NO_TRIGGER_SCRIPT_AVAILABLE);
 }
 
 TEST_F(TriggerScriptCoordinatorTest, BottomSheetClosedWithSwipe) {
@@ -733,6 +729,108 @@ TEST_F(TriggerScriptCoordinatorTest, KeyboardEventTriggersOutOfScheduleCheck) {
   task_environment()->FastForwardBy(base::TimeDelta::FromSeconds(1));
   AssertRecordedFinishedState(
       Metrics::LiteScriptFinishedState::LITE_SCRIPT_TRIGGER_CONDITION_TIMEOUT);
+}
+
+TEST_F(TriggerScriptCoordinatorTest, OnTriggerScriptFailedToShow) {
+  GetTriggerScriptsResponseProto response;
+  response.add_trigger_scripts();
+  std::string serialized_response;
+  response.SerializeToString(&serialized_response);
+
+  EXPECT_CALL(*mock_request_sender_, OnSendRequest(GURL(kFakeServerUrl), _, _))
+      .WillOnce(RunOnceCallback<2>(net::HTTP_OK, serialized_response));
+  EXPECT_CALL(*mock_static_trigger_conditions_, Init)
+      .WillOnce(RunOnceCallback<3>());
+  EXPECT_CALL(*mock_dynamic_trigger_conditions_,
+              OnUpdate(mock_web_controller_, _))
+      .WillRepeatedly(RunOnceCallback<1>());
+
+  EXPECT_CALL(mock_observer_, OnTriggerScriptShown).WillOnce([&]() {
+    coordinator_->OnTriggerScriptShown(/* success = */ false);
+  });
+  EXPECT_CALL(
+      mock_observer_,
+      OnTriggerScriptFinished(
+          Metrics::LiteScriptFinishedState::LITE_SCRIPT_FAILED_TO_SHOW));
+  coordinator_->Start(GURL(kFakeDeepLink),
+                      std::make_unique<TriggerContextImpl>());
+  AssertRecordedFinishedState(
+      Metrics::LiteScriptFinishedState::LITE_SCRIPT_FAILED_TO_SHOW);
+}
+
+TEST_F(TriggerScriptCoordinatorTest, OnProactiveHelpSettingDisabled) {
+  GetTriggerScriptsResponseProto response;
+  response.add_trigger_scripts();
+  std::string serialized_response;
+  response.SerializeToString(&serialized_response);
+
+  EXPECT_CALL(*mock_request_sender_, OnSendRequest(GURL(kFakeServerUrl), _, _))
+      .WillOnce(RunOnceCallback<2>(net::HTTP_OK, serialized_response));
+  EXPECT_CALL(*mock_static_trigger_conditions_, Init)
+      .WillOnce(RunOnceCallback<3>());
+  EXPECT_CALL(*mock_dynamic_trigger_conditions_,
+              OnUpdate(mock_web_controller_, _))
+      .WillRepeatedly(RunOnceCallback<1>());
+
+  EXPECT_CALL(mock_observer_, OnTriggerScriptShown).Times(1);
+  coordinator_->Start(GURL(kFakeDeepLink),
+                      std::make_unique<TriggerContextImpl>());
+
+  EXPECT_CALL(
+      mock_observer_,
+      OnTriggerScriptFinished(Metrics::LiteScriptFinishedState::
+                                  LITE_SCRIPT_DISABLED_PROACTIVE_HELP_SETTING));
+  coordinator_->OnProactiveHelpSettingChanged(
+      /* proactive_help_enabled = */ false);
+  AssertRecordedFinishedState(Metrics::LiteScriptFinishedState::
+                                  LITE_SCRIPT_DISABLED_PROACTIVE_HELP_SETTING);
+}
+
+TEST_F(TriggerScriptCoordinatorTest, PauseAndResumeOnTabSwitch) {
+  GetTriggerScriptsResponseProto response;
+  *response.add_trigger_scripts()
+       ->mutable_trigger_condition()
+       ->mutable_selector() = ToSelectorProto("#selector");
+  std::string serialized_response;
+  response.SerializeToString(&serialized_response);
+
+  EXPECT_CALL(*mock_request_sender_, OnSendRequest(GURL(kFakeServerUrl), _, _))
+      .WillOnce(RunOnceCallback<2>(net::HTTP_OK, serialized_response));
+  EXPECT_CALL(*mock_static_trigger_conditions_, Init)
+      .WillOnce(RunOnceCallback<3>());
+  EXPECT_CALL(*mock_dynamic_trigger_conditions_,
+              OnUpdate(mock_web_controller_, _))
+      .WillOnce(RunOnceCallback<1>());
+  EXPECT_CALL(*mock_dynamic_trigger_conditions_, GetSelectorMatches)
+      .WillOnce(Return(true));
+  EXPECT_CALL(mock_observer_, OnTriggerScriptShown).Times(1);
+  coordinator_->Start(GURL(kFakeDeepLink),
+                      std::make_unique<TriggerContextImpl>());
+
+  // During tab switching, the tab becomes non-interactive. In this test, the
+  // same tab is then re-selected (otherwise, the original tab's visibility
+  // would change).
+  EXPECT_CALL(mock_observer_, OnTriggerScriptHidden).Times(1);
+  EXPECT_CALL(mock_observer_, OnVisibilityChanged(false)).Times(1);
+  EXPECT_CALL(*mock_dynamic_trigger_conditions_,
+              OnUpdate(mock_web_controller_, _))
+      .Times(0);
+  SimulateWebContentsInteractabilityChanged(/* interactable = */ false);
+
+  // When a non-interactable tab becomes interactable again, the trigger scripts
+  // must be fetched again.
+  EXPECT_CALL(*mock_request_sender_, OnSendRequest(GURL(kFakeServerUrl), _, _))
+      .WillOnce(RunOnceCallback<2>(net::HTTP_OK, serialized_response));
+  EXPECT_CALL(*mock_static_trigger_conditions_, Init)
+      .WillOnce(RunOnceCallback<3>());
+  EXPECT_CALL(*mock_dynamic_trigger_conditions_,
+              OnUpdate(mock_web_controller_, _))
+      .WillOnce(RunOnceCallback<1>());
+  EXPECT_CALL(*mock_dynamic_trigger_conditions_, GetSelectorMatches)
+      .WillOnce(Return(true));
+  EXPECT_CALL(mock_observer_, OnTriggerScriptShown).Times(1);
+  EXPECT_CALL(mock_observer_, OnVisibilityChanged(true)).Times(1);
+  SimulateWebContentsInteractabilityChanged(/* interactable = */ true);
 }
 
 }  // namespace autofill_assistant

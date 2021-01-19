@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <utility>
 #include "base/auto_reset.h"
+#include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/mojom/frame/back_forward_cache_controller.mojom-blink.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_context.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_loader.h"
@@ -15,6 +17,8 @@
 namespace blink {
 
 constexpr size_t ResponseBodyLoader::kMaxNumConsumedBytesInTask;
+
+constexpr size_t kDefaultMaxBufferedBodyBytes = 100 * 1000;
 
 class ResponseBodyLoader::DelegatingBytesConsumer final
     : public BytesConsumer,
@@ -277,6 +281,66 @@ class ResponseBodyLoader::DelegatingBytesConsumer final
   bool waiting_for_lookahead_bytes_ = false;
 };
 
+class ResponseBodyLoader::Buffer final
+    : public GarbageCollected<ResponseBodyLoader::Buffer> {
+ public:
+  explicit Buffer(ResponseBodyLoader* owner)
+      : owner_(owner),
+        max_bytes_to_read_(base::GetFieldTrialParamByFeatureAsInt(
+            blink::features::kLoadingTasksUnfreezable,
+            "max_buffered_bytes",
+            kDefaultMaxBufferedBodyBytes)) {}
+
+  bool IsEmpty() const { return buffered_data_.IsEmpty(); }
+
+  // Tries to add |buffer| to |buffered_data_|. Will return false if this
+  // exceeds |max_bytes_to_read_| bytes.
+  bool AddChunk(const char* buffer, size_t available) {
+    total_bytes_read_ += available;
+    if (total_bytes_read_ > max_bytes_to_read_)
+      return false;
+    Vector<char> new_chunk;
+    new_chunk.Append(buffer, available);
+    buffered_data_.emplace_back(std::move(new_chunk));
+    return true;
+  }
+
+  // Dispatches the frontmost chunk in |buffered_data_|. Returns the size of
+  // the data that got dispatched.
+  size_t DispatchChunk(size_t max_chunk_size) {
+    // Dispatch the chunk at the front of the queue.
+    const Vector<char>& current_chunk = buffered_data_.front();
+    DCHECK_LT(offset_in_current_chunk_, current_chunk.size());
+    // Send as much of the chunk as possible without exceeding |max_chunk_size|.
+    base::span<const char> span(current_chunk);
+    span = span.subspan(offset_in_current_chunk_);
+    span = span.subspan(0, std::min(span.size(), max_chunk_size));
+    owner_->DidReceiveData(span);
+
+    size_t sent_size = span.size();
+    offset_in_current_chunk_ += sent_size;
+    if (offset_in_current_chunk_ == current_chunk.size()) {
+      // We've finished sending the chunk at the front of the queue, pop it so
+      // that we'll send the next chunk next time.
+      offset_in_current_chunk_ = 0;
+      buffered_data_.pop_front();
+    }
+
+    return sent_size;
+  }
+
+  void Trace(Visitor* visitor) const { visitor->Trace(owner_); }
+
+ private:
+  const Member<ResponseBodyLoader> owner_;
+  // We save the response body read when suspended as a queue of chunks so that
+  // we can free memory as soon as we finish sending a chunk completely.
+  Deque<Vector<char>> buffered_data_;
+  size_t offset_in_current_chunk_ = 0;
+  size_t total_bytes_read_ = 0;
+  const size_t max_bytes_to_read_;
+};
+
 ResponseBodyLoader::ResponseBodyLoader(
     BytesConsumer& bytes_consumer,
     ResponseBodyLoaderClient& client,
@@ -285,6 +349,7 @@ ResponseBodyLoader::ResponseBodyLoader(
       client_(client),
       task_runner_(std::move(task_runner)) {
   bytes_consumer_->SetClient(this);
+  body_buffer_ = MakeGarbageCollected<Buffer>(this);
 }
 
 mojo::ScopedDataPipeConsumerHandle ResponseBodyLoader::DrainAsDataPipe(
@@ -333,7 +398,7 @@ void ResponseBodyLoader::DidFinishLoadingBody() {
   if (aborted_)
     return;
 
-  if (suspended_) {
+  if (IsSuspended()) {
     finish_signal_is_pending_ = true;
     return;
   }
@@ -346,7 +411,7 @@ void ResponseBodyLoader::DidFailLoadingBody() {
   if (aborted_)
     return;
 
-  if (suspended_) {
+  if (IsSuspended()) {
     fail_signal_is_pending_ = true;
     return;
   }
@@ -359,13 +424,19 @@ void ResponseBodyLoader::DidCancelLoadingBody() {
   if (aborted_)
     return;
 
-  if (suspended_) {
+  if (IsSuspended()) {
     cancel_signal_is_pending_ = true;
     return;
   }
 
   cancel_signal_is_pending_ = false;
   client_->DidCancelLoadingBody();
+}
+
+// TODO(yuzus): Remove this and provide the capability to the loader.
+void ResponseBodyLoader::EvictFromBackForwardCache(
+    mojom::blink::RendererEvictionReason reason) {
+  client_->EvictFromBackForwardCache(reason);
 }
 
 void ResponseBodyLoader::Start() {
@@ -391,20 +462,38 @@ void ResponseBodyLoader::Abort() {
   }
 }
 
-void ResponseBodyLoader::Suspend() {
+void ResponseBodyLoader::Suspend(WebURLLoader::DeferType suspended_state) {
   if (aborted_)
     return;
 
-  DCHECK(!suspended_);
-  suspended_ = true;
+  bool was_suspended = (suspended_state_ == WebURLLoader::DeferType::kDeferred);
+
+  suspended_state_ = suspended_state;
+  if (IsSuspendedForBackForwardCache()) {
+    DCHECK(base::FeatureList::IsEnabled(features::kLoadingTasksUnfreezable));
+    // If we're already suspended (but not for back-forward cache), we might've
+    // ignored some OnStateChange calls.
+    if (was_suspended) {
+      task_runner_->PostTask(FROM_HERE,
+                             base::BindOnce(&ResponseBodyLoader::OnStateChange,
+                                            WrapPersistent(this)));
+    }
+  }
+}
+
+void ResponseBodyLoader::EvictFromBackForwardCacheIfDrained() {
+  if (IsDrained()) {
+    client_->EvictFromBackForwardCache(
+        mojom::blink::RendererEvictionReason::kNetworkRequestDatapipeDrained);
+  }
 }
 
 void ResponseBodyLoader::Resume() {
   if (aborted_)
     return;
 
-  DCHECK(suspended_);
-  suspended_ = false;
+  DCHECK(IsSuspended());
+  suspended_state_ = WebURLLoader::DeferType::kNotDeferred;
 
   if (finish_signal_is_pending_) {
     task_runner_->PostTask(
@@ -432,8 +521,7 @@ void ResponseBodyLoader::OnStateChange() {
   TRACE_EVENT0("blink", "ResponseBodyLoader::OnStateChange");
 
   size_t num_bytes_consumed = 0;
-
-  while (!aborted_) {
+  while (!aborted_ && (!IsSuspended() || IsSuspendedForBackForwardCache())) {
     if (kMaxNumConsumedBytesInTask == num_bytes_consumed) {
       // We've already consumed many bytes in this task. Defer the remaining
       // to the next task.
@@ -443,19 +531,11 @@ void ResponseBodyLoader::OnStateChange() {
       return;
     }
 
-    if (!suspended_ && bytes_remaining_in_buffer_ > 0) {
-      // We need to empty |buffered_data_| first before reading more from
+    if (!IsSuspended() && body_buffer_ && !body_buffer_->IsEmpty()) {
+      // We need to empty |body_buffer_| first before reading more from
       // |bytes_consumer_|.
-      auto* start_position = buffered_data_.end() - bytes_remaining_in_buffer_;
-      size_t size_to_send =
-          std::min(bytes_remaining_in_buffer_,
-                   kMaxNumConsumedBytesInTask - num_bytes_consumed);
-      DidReceiveData(
-          base::make_span(start_position, start_position + size_to_send));
-      bytes_remaining_in_buffer_ -= size_to_send;
-      num_bytes_consumed += size_to_send;
-      if (bytes_remaining_in_buffer_ == 0)
-        buffered_data_.clear();
+      num_bytes_consumed += body_buffer_->DispatchChunk(
+          kMaxNumConsumedBytesInTask - num_bytes_consumed);
       continue;
     }
 
@@ -467,19 +547,26 @@ void ResponseBodyLoader::OnStateChange() {
     if (result == BytesConsumer::Result::kOk) {
       TRACE_EVENT1("blink", "ResponseBodyLoader::OnStateChange", "available",
                    available);
-      in_two_phase_read_ = true;
 
+      base::AutoReset<bool> auto_reset_for_in_two_phase_read(
+          &in_two_phase_read_, true);
       available =
           std::min(available, kMaxNumConsumedBytesInTask - num_bytes_consumed);
-      if (suspended_) {
-        // When suspended, save the read data into |buffered_data_| instead.
-        buffered_data_.insert(buffered_data_.size(), buffer, available);
-        bytes_remaining_in_buffer_ += available;
+      if (IsSuspendedForBackForwardCache()) {
+        // Save the read data into |body_buffer_| instead.
+        if (!body_buffer_->AddChunk(buffer, available)) {
+          // We've read too much data while suspended for back-forward cache.
+          // Evict the page from the back-forward cache.
+          result = bytes_consumer_->EndRead(available);
+          EvictFromBackForwardCache(
+              mojom::blink::RendererEvictionReason::kNetworkExceedsBufferLimit);
+          return;
+        }
       } else {
+        DCHECK(!IsSuspended());
         DidReceiveData(base::make_span(buffer, available));
       }
       result = bytes_consumer_->EndRead(available);
-      in_two_phase_read_ = false;
       num_bytes_consumed += available;
 
       if (aborted_) {
@@ -488,7 +575,8 @@ void ResponseBodyLoader::OnStateChange() {
       }
     }
     DCHECK_NE(result, BytesConsumer::Result::kShouldWait);
-    if (suspended_ && result != BytesConsumer::Result::kOk) {
+    if (IsSuspendedForBackForwardCache() &&
+        result != BytesConsumer::Result::kOk) {
       // Don't dispatch finish/failure messages when suspended. We'll dispatch
       // them later when we call OnStateChange again after resuming.
       return;
@@ -509,6 +597,7 @@ void ResponseBodyLoader::Trace(Visitor* visitor) const {
   visitor->Trace(bytes_consumer_);
   visitor->Trace(delegating_bytes_consumer_);
   visitor->Trace(client_);
+  visitor->Trace(body_buffer_);
   ResponseBodyLoaderDrainableInterface::Trace(visitor);
   ResponseBodyLoaderClient::Trace(visitor);
   BytesConsumer::Client::Trace(visitor);

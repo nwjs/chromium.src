@@ -22,6 +22,7 @@
 #include "components/blocked_content/popup_tracker.h"
 #include "components/captive_portal/core/buildflags.h"
 #include "components/content_settings/browser/page_specific_content_settings.h"
+#include "components/embedder_support/android/util/user_agent_utils.h"
 #include "components/find_in_page/find_tab_helper.h"
 #include "components/find_in_page/find_types.h"
 #include "components/js_injection/browser/js_communication_host.h"
@@ -37,8 +38,10 @@
 #include "components/webrtc/media_stream_devices_controller.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/context_menu_params.h"
 #include "content/public/browser/file_select_listener.h"
 #include "content/public/browser/navigation_controller.h"
+#include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_view_host.h"
@@ -63,6 +66,7 @@
 #include "weblayer/browser/infobar_service.h"
 #include "weblayer/browser/js_communication/web_message_host_factory_wrapper.h"
 #include "weblayer/browser/navigation_controller_impl.h"
+#include "weblayer/browser/navigation_entry_data.h"
 #include "weblayer/browser/no_state_prefetch/prerender_tab_helper.h"
 #include "weblayer/browser/page_load_metrics_initialize.h"
 #include "weblayer/browser/page_specific_content_settings_delegate.h"
@@ -72,6 +76,7 @@
 #include "weblayer/browser/popup_navigation_delegate_impl.h"
 #include "weblayer/browser/profile_impl.h"
 #include "weblayer/browser/translate_client_impl.h"
+#include "weblayer/browser/user_agent.h"
 #include "weblayer/browser/weblayer_features.h"
 #include "weblayer/common/isolated_world_ids.h"
 #include "weblayer/public/fullscreen_delegate.h"
@@ -92,6 +97,7 @@
 #include "base/trace_event/trace_event.h"
 #include "components/autofill/android/provider/autofill_provider_android.h"
 #include "components/browser_ui/sms/android/sms_infobar.h"
+#include "components/download/content/public/context_menu_download.h"
 #include "components/embedder_support/android/contextmenu/context_menu_builder.h"
 #include "components/embedder_support/android/delegate/color_chooser_android.h"
 #include "components/javascript_dialogs/tab_modal_dialog_manager.h"  // nogncheck
@@ -257,6 +263,15 @@ static ScopedJavaLocalRef<jobject> JNI_TabImpl_FromWebContents(
   return nullptr;
 }
 
+static void JNI_TabImpl_DestroyContextMenuParams(
+    JNIEnv* env,
+    jlong native_context_menu_params) {
+  // Note: this runs on the finalizer thread which isn't the UI thread.
+  auto* context_menu_params =
+      reinterpret_cast<content::ContextMenuParams*>(native_context_menu_params);
+  delete context_menu_params;
+}
+
 TabImpl::TabImpl(ProfileImpl* profile,
                  const JavaParamRef<jobject>& java_impl,
                  std::unique_ptr<content::WebContents> web_contents)
@@ -281,12 +296,6 @@ TabImpl::TabImpl(ProfileImpl* profile,
   // before |this| observes the WebContents to ensure favicons are reset before
   // notifying weblayer observers of changes.
   FaviconTabHelper::CreateForWebContents(web_contents_.get());
-
-  // By default renderer initiated navigations inherit the user-agent override
-  // of the current NavigationEntry. For WebLayer, the user-agent override is
-  // set on a per NavigationEntry entry basis.
-  web_contents_->SetRendererInitiatedUserAgentOverrideOption(
-      content::NavigationController::UA_OVERRIDE_FALSE);
 
   UpdateRendererPrefs(false);
   locale_change_subscription_ =
@@ -546,7 +555,8 @@ void TabImpl::ShowContextMenu(const content::ContextMenuParams& params) {
 #if defined(OS_ANDROID)
   Java_TabImpl_showContextMenu(
       base::android::AttachCurrentThread(), java_impl_,
-      context_menu::BuildJavaContextMenuParams(params));
+      context_menu::BuildJavaContextMenuParams(params),
+      reinterpret_cast<jlong>(new content::ContextMenuParams(params)));
 #endif
 }
 
@@ -797,6 +807,58 @@ void TabImpl::SetTranslateTargetLanguage(
           ->GetTranslateManager();
   translate_manager->SetPredefinedTargetLanguage(
       base::android::ConvertJavaStringToUTF8(env, translate_target_lang));
+}
+
+void TabImpl::SetDesktopUserAgentEnabled(JNIEnv* env, jboolean enable) {
+  if (desktop_user_agent_enabled_ == enable)
+    return;
+
+  desktop_user_agent_enabled_ = enable;
+
+  // Reset state that an earlier call to Navigation::SetUserAgentString()
+  // could have modified.
+  embedder_support::SetDesktopUserAgentOverride(web_contents_.get(),
+                                                GetUserAgentMetadata());
+  web_contents_->SetRendererInitiatedUserAgentOverrideOption(
+      content::NavigationController::UA_OVERRIDE_INHERIT);
+
+  content::NavigationEntry* entry =
+      web_contents_->GetController().GetLastCommittedEntry();
+  if (!entry)
+    return;
+
+  entry->SetIsOverridingUserAgent(enable);
+  web_contents_->NotifyPreferencesChanged();
+  web_contents_->GetController().Reload(
+      content::ReloadType::ORIGINAL_REQUEST_URL, true);
+}
+
+jboolean TabImpl::IsDesktopUserAgentEnabled(JNIEnv* env) {
+  auto* entry = web_contents_->GetController().GetLastCommittedEntry();
+  if (!entry)
+    return false;
+
+  // The same user agent override mechanism is used for per-navigation user
+  // agent and desktop mode. Make sure not to return desktop mode for
+  // navigation entries which used a per-navigation user agent.
+  auto* entry_data = NavigationEntryData::Get(entry);
+  if (entry_data && entry_data->per_navigation_user_agent_override())
+    return false;
+
+  return entry->GetIsOverridingUserAgent();
+}
+
+void TabImpl::Download(JNIEnv* env, jlong native_context_menu_params) {
+  auto* context_menu_params =
+      reinterpret_cast<content::ContextMenuParams*>(native_context_menu_params);
+
+  bool is_link = context_menu_params->media_type !=
+                     blink::ContextMenuDataMediaType::kImage &&
+                 context_menu_params->media_type !=
+                     blink::ContextMenuDataMediaType::kVideo;
+
+  download::CreateContextMenuDownload(web_contents_.get(), *context_menu_params,
+                                      std::string(), is_link);
 }
 #endif  // OS_ANDROID
 

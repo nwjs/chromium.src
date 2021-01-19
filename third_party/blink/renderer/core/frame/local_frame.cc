@@ -560,19 +560,6 @@ void LocalFrame::Navigate(FrameLoadRequest& request,
 }
 
 void LocalFrame::DetachImpl(FrameDetachType type) {
-  if (IsProvisional()) {
-    Frame* provisional_owner = nullptr;
-    if (Owner()) {
-      provisional_owner = Owner()->ContentFrame();
-    } else {
-      provisional_owner = GetPage()->MainFrame();
-    }
-    // Having multiple provisional frames somehow associated with the same frame
-    // to potentially replace is a logic error.
-    DCHECK_EQ(provisional_owner->ProvisionalFrame(), this);
-    provisional_owner->SetProvisionalFrame(nullptr);
-  }
-
   // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   // BEGIN RE-ENTRANCY SAFE BLOCK
   // Starting here, the code must be safe against re-entrancy. Dispatching
@@ -871,8 +858,10 @@ void LocalFrame::HookBackForwardCacheEviction() {
             LocalDOMWindow* window = LocalDOMWindow::From(script_state);
             DCHECK(window);
             LocalFrame* frame = window->GetFrame();
-            if (frame)
-              frame->EvictFromBackForwardCache();
+            if (frame) {
+              frame->EvictFromBackForwardCache(
+                  mojom::blink::RendererEvictionReason::kJavaScriptExecution);
+            }
           });
 }
 
@@ -2363,14 +2352,24 @@ void LocalFrame::SetContextPaused(bool is_paused) {
     return;
   paused_ = is_paused;
 
-  GetDocument()->Fetcher()->SetDefersLoading(IsLoadDeferred());
-  Loader().SetDefersLoading(IsLoadDeferred());
+  GetDocument()->Fetcher()->SetDefersLoading(GetLoadDeferType());
+  Loader().SetDefersLoading(GetLoadDeferType());
   // TODO(altimin): Move this to PageScheduler level.
   GetFrameScheduler()->SetPaused(is_paused);
 }
 
 bool LocalFrame::IsLoadDeferred() {
   return frozen_ || paused_;
+}
+
+WebURLLoader::DeferType LocalFrame::GetLoadDeferType() {
+  if (GetPage()->GetPageScheduler()->IsInBackForwardCache() &&
+      base::FeatureList::IsEnabled(features::kLoadingTasksUnfreezable)) {
+    return WebURLLoader::DeferType::kDeferredWithBackForwardCache;
+  }
+  if (paused_ || frozen_)
+    return WebURLLoader::DeferType::kDeferred;
+  return WebURLLoader::DeferType::kNotDeferred;
 }
 
 void LocalFrame::DidFreeze() {
@@ -2387,8 +2386,13 @@ void LocalFrame::DidFreeze() {
         performance_manager::mojom::LifecycleState::kFrozen);
   }
 
-  GetDocument()->Fetcher()->SetDefersLoading(true);
-  Loader().SetDefersLoading(true);
+  if (GetPage()->GetPageScheduler()->IsInBackForwardCache()) {
+    DomWindow()->SetIsInBackForwardCache(true);
+  }
+
+  WebURLLoader::DeferType defer = GetLoadDeferType();
+  GetDocument()->Fetcher()->SetDefersLoading(defer);
+  Loader().SetDefersLoading(defer);
 }
 
 void LocalFrame::DidResume() {
@@ -2405,8 +2409,13 @@ void LocalFrame::DidResume() {
     document_resource_coordinator->SetLifecycleState(
         performance_manager::mojom::LifecycleState::kRunning);
   }
-  GetDocument()->Fetcher()->SetDefersLoading(IsLoadDeferred());
-  Loader().SetDefersLoading(IsLoadDeferred());
+
+  // TODO(yuzus): Figure out if we should call GetLoadDeferType().
+  GetDocument()->Fetcher()->SetDefersLoading(
+      WebURLLoader::DeferType::kNotDeferred);
+  Loader().SetDefersLoading(WebURLLoader::DeferType::kNotDeferred);
+
+  DomWindow()->SetIsInBackForwardCache(false);
 }
 
 void LocalFrame::MaybeLogAdClickNavigation() {
@@ -2507,8 +2516,9 @@ void LocalFrame::WasAttachedAsLocalMainFrame() {
       &LocalFrame::BindToMainFrameReceiver, WrapWeakPersistent(this)));
 }
 
-void LocalFrame::EvictFromBackForwardCache() {
-  GetBackForwardCacheControllerHostRemote().EvictFromBackForwardCache();
+void LocalFrame::EvictFromBackForwardCache(
+    mojom::blink::RendererEvictionReason reason) {
+  GetBackForwardCacheControllerHostRemote().EvictFromBackForwardCache(reason);
 }
 
 void LocalFrame::AnimateDoubleTapZoom(const gfx::Point& point,

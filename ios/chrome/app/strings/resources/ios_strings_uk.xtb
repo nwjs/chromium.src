@@ -200,7 +200,7 @@
 <translation id="3153862085237805241">Зберегти картку</translation>
 <translation id="3157684681743766797">Позначити всі…</translation>
 <translation id="3161291298470460782">Ваш сеанс в обліковому записі буде завершено, синхронізацію – вимкнено, а всі дані Chrome на пристрої – видалено. Синхронізовані дані залишаться у вашому обліковому записі Google.</translation>
-<translation id="3169472444629675720">Discover</translation>
+<translation id="3169472444629675720">Рекомендації</translation>
 <translation id="3175081911749765310">Веб-служби</translation>
 <translation id="3178650076442119961">У мережі сьогодні</translation>
 <translation id="3181954750937456830">Безпечний перегляд (захищає вас і ваш пристрій від небезпечних сайтів)</translation>
@@ -610,6 +610,7 @@
 <translation id="7472734401283673885">Назва компанії</translation>
 <translation id="7473891865547856676">Ні, дякую</translation>
 <translation id="7481312909269577407">Переслати</translation>
+<translation id="7483467499335917849">Використовуйте свої поточні геодані</translation>
 <translation id="750493650310597496">Вибрано 0</translation>
 <translation id="7514365320538308">Завантажити</translation>
 <translation id="7537586195939242955">Не вдалося внести дані в Passbook.</translation>

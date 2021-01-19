@@ -478,6 +478,7 @@ SET TIMEOUT: css/CSS2/selectors/dom-hover-001.xht
 SET TIMEOUT: css/CSS2/selectors/dom-hover-002.xht
 SET TIMEOUT: css/CSS2/tables/tables-102.xht
 SET TIMEOUT: css/mediaqueries/min-width-tables-001.html
+SET TIMEOUT: css/css-text/crashtests/rendering-rtl-bidi-override-crash.html
 
 ## Build system stuff
 CSS-COLLIDING-SUPPORT-NAME: css/*/README
@@ -728,6 +729,7 @@ MISSING DEPENDENCY: webxr/resources/webxr_util.js
 
 # Tests that are false positives for using Ahem as a system font
 AHEM SYSTEM FONT: acid/acid3/test.html
+AHEM SYSTEM FONT: resource-timing/font-timestamps.html
 AHEM SYSTEM FONT: resource-timing/resources/all_resource_types.htm
 AHEM SYSTEM FONT: resource-timing/resources/iframe-reload-TAO.sub.html
 AHEM SYSTEM FONT: html/canvas/element/drawing-text-to-the-canvas/2d.text.measure.fontBoundingBox.ahem.html

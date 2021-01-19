@@ -16,7 +16,6 @@
 #include "base/memory/ptr_util.h"
 #include "base/single_thread_task_runner.h"
 #include "base/stl_util.h"
-#include "base/strings/utf_string_conversions.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/values.h"
 #include "build/build_config.h"
@@ -27,9 +26,7 @@
 #include "components/policy/core/common/policy_types.h"
 #include "components/policy/core/common/values_util.h"
 #include "components/policy/policy_constants.h"
-#include "components/strings/grit/components_strings.h"
 #include "extensions/buildflags/buildflags.h"
-#include "ui/base/l10n/l10n_util.h"
 
 #if defined(OS_ANDROID)
 #include "components/policy/core/common/android/policy_service_android.h"
@@ -140,16 +137,11 @@ void RemapRenamedPolicies(PolicyMap* policies) {
   for (const auto& policy_pair : renamed_policies) {
     PolicyMap::Entry* old_policy = policies->GetMutable(policy_pair.first);
     const PolicyMap::Entry* new_policy = policies->Get(policy_pair.second);
-    if (old_policy && !new_policy) {
+    if (old_policy &&
+        (!new_policy || old_policy->has_higher_priority_than(*new_policy))) {
       PolicyMap::Entry policy_entry = old_policy->DeepCopy();
-      policy_entry.AddError(
-                            //l10n_util::GetStringFUTF8(IDS_POLICY_MIGRATED_NEW_POLICY,
-                            std::string("This policy was automatically copied from the deprecated ") + policy_pair.first);
-      // TOTO(pastarmovj): Readd the old_policy error when the tast tests
-      // for chromeos have been updated.
-      // old_policy->AddError(
-      //    l10n_util::GetStringFUTF8(IDS_POLICY_MIGRATED_OLD_POLICY,
-      //                              base::UTF8ToUTF16(policy_pair.second)));
+      // TODO(pastarmovj): Re-add the policy errors in a way that does not
+      // depend on resources being loaded that early.
       policies->Set(policy_pair.second, std::move(policy_entry));
     }
     if (policy_lists_to_merge.contains(policy_pair.first) &&

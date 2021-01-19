@@ -717,6 +717,7 @@ _CONFIG = [
         'paths': ['third_party/blink/renderer/core/page/scrolling'],
         'allowed': [
             'cc::ScrollbarLayerBase',
+            'shared_highlighting::.+',
         ],
     },
     {
@@ -880,8 +881,9 @@ _CONFIG = [
             'third_party/blink/renderer/modules/imagecapture/',
         ],
         'allowed': [
-            'media::.+',
+            'cc::SkiaPaintCanvas',
             'libyuv::.+',
+            'media::.+',
         ]
     },
     {

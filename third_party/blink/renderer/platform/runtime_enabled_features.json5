@@ -357,11 +357,11 @@
     },
     {
       name: "CompositeRelativeKeyframes",
-      status: "stable",
+      status: "experimental",
     },
     {
       name: "CompositeSVG",
-      status: "stable"
+      status: "test"
     },
     {
       name: "CompositingOptimizations",
@@ -1363,7 +1363,7 @@
     {
       name: "OriginIsolationHeader",
       origin_trial_feature_name: "OriginIsolationHeader",
-      status: "stable",
+      status: "experimental",
     },
     {
       name: "OriginPolicy",
@@ -2250,6 +2250,9 @@
       name: "WebXRViewportScale",
       depends_on: ["WebXRARModule"],
       status: "experimental",
+    },
+    {
+      name: "WheelEventRegions",
     },
     // Extends window placement functionality for multi-screen devices. Also
     // exposes requisite information about displays connected to the device.

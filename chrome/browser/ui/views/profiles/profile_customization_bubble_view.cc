@@ -54,6 +54,7 @@ ProfileCustomizationBubbleView::ProfileCustomizationBubbleView(
                                        ->GetWebUI()
                                        ->GetController()
                                        ->GetAs<ProfileCustomizationUI>();
+  SetInitiallyFocusedView(web_view.get());
   DCHECK(web_ui);
   web_ui->Initialize(
       base::BindOnce(&ProfileCustomizationBubbleView::OnDoneButtonClicked,
@@ -74,9 +75,6 @@ void ProfileCustomizationBubbleView::OnDoneButtonClicked() {
 void DiceWebSigninInterceptorDelegate::ShowProfileCustomizationBubbleInternal(
     Browser* browser) {
   DCHECK(browser);
-
-  if (!base::FeatureList::IsEnabled(features::kProfilesUIRevamp))
-    return;
 
   views::View* anchor_view = BrowserView::GetBrowserViewForBrowser(browser)
                                  ->toolbar_button_provider()

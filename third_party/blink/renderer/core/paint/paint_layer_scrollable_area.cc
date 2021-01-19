@@ -1477,6 +1477,8 @@ static inline const LayoutObject& ScrollbarStyleSource(
         doc_element->GetLayoutObject()->StyleRef().HasPseudoElementStyle(
             kPseudoIdScrollbar))
       return *doc_element->GetLayoutObject();
+  } else if (!layout_box.GetNode() && layout_box.Parent()) {
+    return *layout_box.Parent();
   }
 
   return layout_box;
@@ -2563,8 +2565,7 @@ bool PaintLayerScrollableArea::ComputeNeedsCompositedScrollingInternal(
   if (CompositingReasonFinder::RequiresCompositingForRootScroller(*layer_))
     return true;
 
-  if (!layer_->ScrollsOverflow() &&
-      !layer_->NeedsReorderOverlayOverflowControls())
+  if (!layer_->ScrollsOverflow())
     return false;
 
   if (layer_->Size().IsEmpty())
@@ -3028,6 +3029,9 @@ static IntRect InvalidatePaintOfScrollbarIfNeeded(
 
 void PaintLayerScrollableArea::InvalidatePaintOfScrollControlsIfNeeded(
     const PaintInvalidatorContext& context) {
+  if (context.subtree_flags & PaintInvalidatorContext::kSubtreeFullInvalidation)
+    SetScrollControlsNeedFullPaintInvalidation();
+
   LayoutBox& box = *GetLayoutBox();
   bool box_geometry_has_been_invalidated = false;
   horizontal_scrollbar_visual_rect_ = InvalidatePaintOfScrollbarIfNeeded(

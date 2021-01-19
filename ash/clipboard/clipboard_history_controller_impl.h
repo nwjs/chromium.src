@@ -14,6 +14,7 @@
 #include "ash/public/cpp/clipboard_history_controller.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
+#include "base/optional.h"
 
 namespace views {
 enum class MenuAnchorPosition;
@@ -28,6 +29,7 @@ namespace ash {
 class ClipboardHistoryMenuModelAdapter;
 class ClipboardHistoryResourceManager;
 class ClipboardNudgeController;
+class ScopedClipboardHistoryPause;
 
 // Shows a menu with the last few things saved in the clipboard when the
 // keyboard shortcut is pressed.
@@ -53,11 +55,10 @@ class ASH_EXPORT ClipboardHistoryControllerImpl
   void AddObserver(Observer* observer) const;
   void RemoveObserver(Observer* observer) const;
 
+  void Init();
+
   // Returns if the contextual menu is currently showing.
   bool IsMenuShowing() const;
-
-  // Shows the clipboard history menu through the keyboard accelerator.
-  void ShowMenuByAccelerator();
 
   // Returns bounds for the contextual menu in screen coordinates.
   gfx::Rect GetMenuBoundsInScreenForTest() const;
@@ -84,13 +85,17 @@ class ASH_EXPORT ClipboardHistoryControllerImpl
   class MenuDelegate;
 
   // ClipboardHistoryController:
+  bool CanShowMenu() const override;
   void ShowMenu(const gfx::Rect& anchor_rect,
                 views::MenuAnchorPosition menu_anchor_position,
                 ui::MenuSourceType source_type) override;
-  bool CanShowMenu() const override;
+  std::unique_ptr<ScopedClipboardHistoryPause> CreateScopedPause() override;
 
   // ClipboardHistory::Observer:
   void OnClipboardHistoryCleared() override;
+
+  // Shows the clipboard history menu through the keyboard accelerator.
+  void ShowMenuByAccelerator();
 
   void ExecuteSelectedMenuItem(int event_flags);
 
@@ -106,9 +111,13 @@ class ASH_EXPORT ClipboardHistoryControllerImpl
   // is selected, do nothing.
   void DeleteSelectedMenuItemIfAny();
 
+  // Delete the menu item specified by `command_id` and its corresponding data.
+  void DeleteItemWithCommandId(int command_id);
+
   // Advances the pseudo focus (backward if `reverse` is true).
   void AdvancePseudoFocus(bool reverse);
 
+  // Calculates the anchor rect for the ClipboardHistory menu.
   gfx::Rect CalculateAnchorRect() const;
 
   // Called when the contextual menu is closed.

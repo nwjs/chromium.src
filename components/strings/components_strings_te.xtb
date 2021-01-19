@@ -159,7 +159,7 @@
 <translation id="1513706915089223971">చరిత్ర నమోదుల జాబితా</translation>
 <translation id="1517433312004943670">ఫోన్ నంబర్ అవసరం</translation>
 <translation id="1519264250979466059">బిల్డ్ తేదీ</translation>
-<translation id="1521655867290435174">Google షీట్‌లు</translation>
+<translation id="1521655867290435174">Google Sheets</translation>
 <translation id="1527263332363067270">కనెక్షన్ కోసం వేచి ఉన్నాము...</translation>
 <translation id="1529521330346880926">10x15 (ఎన్వలప్)</translation>
 <translation id="1529789484829130889">ట్రే 8</translation>
@@ -307,6 +307,7 @@
 <translation id="2102495993840063010">Android అనువర్తనాలు</translation>
 <translation id="2107021941795971877">ప్రింట్ మద్దతులు</translation>
 <translation id="2108755909498034140">మీ కంప్యూటర్‌ను పునఃప్రారంభించండి</translation>
+<translation id="2111166930115883695">ఆడటానికి స్పేస్‌ను నొక్కండి</translation>
 <translation id="2111256659903765347">సూపర్-A</translation>
 <translation id="2113977810652731515">కార్డ్</translation>
 <translation id="2114841414352855701">ఇది <ph name="POLICY_NAME" /> ద్వారా భర్తీ చేయబడినందున విస్మరించబడింది.</translation>
@@ -522,6 +523,7 @@
 <translation id="3010559122411665027">జాబితా నమోదు "<ph name="ENTRY_INDEX" />": <ph name="ERROR" /></translation>
 <translation id="301521992641321250">స్వయంచాలకంగా బ్లాక్ చేయబడింది</translation>
 <translation id="3016780570757425217">మీ స్థానాన్ని తెలుసుకోవాలనుకుంటోంది</translation>
+<translation id="3017086357773116182"><ph name="REMOVE_SUGGESTION_SUFFIX" />, సూచనను తీసివేయడానికి Tabను నొక్కి, ఆపై ఎంటర్‌ను నొక్కండి.</translation>
 <translation id="3023071826883856138">You4 (ఎన్వలప్)</translation>
 <translation id="3024663005179499861">చెల్లని విధాన రకం</translation>
 <translation id="3037605927509011580">ఆవ్, స్నాప్!</translation>
@@ -732,7 +734,7 @@
 <translation id="388632593194507180">పర్యవేక్షణ గుర్తించబడింది</translation>
 <translation id="3886948180919384617">స్టాకర్ 3</translation>
 <translation id="3890664840433101773">ఇమెయిల్‌ను జోడించండి</translation>
-<translation id="3897092660631435901">మెను</translation>
+<translation id="3897092660631435901">మెనూ</translation>
 <translation id="3901925938762663762">కార్డ్ గడువు సమయం ముగిసింది</translation>
 <translation id="3906600011954732550">B5-అదనం</translation>
 <translation id="3906954721959377182">టాబ్లెట్</translation>
@@ -764,6 +766,7 @@
 <translation id="4056223980640387499">సెపియా</translation>
 <translation id="4058922952496707368">కీ "<ph name="SUBKEY" />": <ph name="ERROR" /></translation>
 <translation id="4067263367174615723">C1 (ఎన్వలప్)</translation>
+<translation id="4067669230157909013">స్క్రీన్ క్యాప్చర్ కొనసాగించబడింది.</translation>
 <translation id="4067947977115446013">చెల్లుబాటు అయ్యే చిరునామాను జోడించండి</translation>
 <translation id="4072486802667267160">మీ ఆర్డర్‌ను ప్రాసెస్ చేస్తున్నప్పుడు ఎర్రర్ ఏర్పడింది. దయచేసి మళ్లీ ప్రయత్నించండి.</translation>
 <translation id="4075732493274867456">క్లయింట్, సర్వర్- ఒకే SSL ప్రోటోకాల్ సంస్కరణ లేదా సైఫర్ సూట్‌కు మద్దతు ఇవ్వవు.</translation>
@@ -848,6 +851,7 @@
 <translation id="4297502707443874121"><ph name="THUMBNAIL_PAGE" /> పేజీ కోసం థంబ్‌నెయిల్</translation>
 <translation id="42981349822642051">విస్తరించు</translation>
 <translation id="4300675098767811073">కుడివైపు అనేక రంధ్రాలు</translation>
+<translation id="4302514097724775343">ఆడటానికి డైనోసార్‌ను ట్యాప్ చేయండి</translation>
 <translation id="4302965934281694568">Chou3 (ఎన్వలప్)</translation>
 <translation id="4305666528087210886">మీ ఫైల్‌ను యాక్సెస్ చేయడం సాధ్యపడలేదు</translation>
 <translation id="4305817255990598646">స్విచ్</translation>
@@ -929,7 +933,7 @@
 <translation id="4675657451653251260">గెస్ట్ మోడ్‌లో మీరు ఎటువంటి Chrome ప్రొఫైల్ సమాచారాన్నీ చూడలేరు. పాస్‌వర్డ్‌లు, పేమెంట్ ఆప్షన్‌ల వంటి మీ Google ఖాతా సమాచారాన్ని యాక్సెస్ చేయడానికి, మీరు <ph name="LINK_BEGIN" />సైన్ ఇన్<ph name="LINK_END" /> చేయవచ్చు.</translation>
 <translation id="467662567472608290">ఈ సర్వర్ <ph name="DOMAIN" /> అని నిరూపించుకోలేకపోయింది; దీని భద్రతా ప్రమాణపత్రంలో లోపాలు ఉన్నాయి. ఇది తప్పుగా కాన్ఫిగర్ చేయడం వలన లేదా దాడిచేసే వ్యక్తి మీ కనెక్షన్‌కు అంతరాయం కలిగించడం వలన జరిగి ఉండవచ్చు.</translation>
 <translation id="4677585247300749148">యాక్సెసిబిలిటీ ఈవెంట్‌లకు <ph name="URL" /> ప్రతిస్పందించాలని అనుకుంటోంది</translation>
-<translation id="467809019005607715">Google స్లయిడ్‌లు</translation>
+<translation id="467809019005607715">Google Slides</translation>
 <translation id="4680804919228900307">మీరు మోసపూరితమైన సైట్‌లో మీ పాస్‌వర్డ్‌ను ఎంటర్ చేశారు. <ph name="WEBSITE_1" />, <ph name="WEBSITE_2" />, <ph name="WEBSITE_3" />, ఇతర సైట్‌లలో ప్రస్తుతం మీరు ఎక్కడైతే ఈ పాస్‌వర్డ్‌ను ఉపయోగిస్తారో, అక్కడ మీ సేవ్ చేసిన పాస్‌వర్డ్‌లను తనిఖీ చేసుకోమని Chromium సిఫార్సు చేస్తోంది.</translation>
 <translation id="4690462567478992370">చెల్లని ప్రమాణపత్రాన్ని ఉపయోగించడాన్ని ఆపివేయి</translation>
 <translation id="4691835149146451662">ఆర్కిటెక్చర్-A (ఎన్వలప్)</translation>
@@ -1176,7 +1180,6 @@
 <translation id="560412284261940334">నిర్వహణకు మద్దతు లేదు</translation>
 <translation id="5605670050355397069">లెడ్జర్</translation>
 <translation id="5607240918979444548">ఆర్కిటెక్చర్-C</translation>
-<translation id="5608165884683734521">ఈ సైట్ నకిలీ లేదా మోసపూరితమైనది కావచ్చు. ఇప్పుడే నిష్క్రమించమని Chrome సిఫార్సు చేస్తోంది.</translation>
 <translation id="5610142619324316209">కనెక్షన్‌ను తనిఖీ చేయడం</translation>
 <translation id="5610807607761827392">మీరు కార్డ్‌లు మరియు చిరునామాలను <ph name="BEGIN_LINK" />సెట్టింగ్‌ల<ph name="END_LINK" />లో నిర్వహించగలరు.</translation>
 <translation id="561165882404867731">Google Translateతో ఈ పేజీని అనువదించండి</translation>
@@ -1248,6 +1251,7 @@
 <translation id="5901630391730855834">పసుపు</translation>
 <translation id="5905445707201418379"><ph name="ORIGIN" /> యొక్క ఆరిజిన్ ఎర్రర్ విధానం ప్రకారం బ్లాక్ చేయబడింది.</translation>
 <translation id="5908541034548427511"><ph name="TYPE_1" /> (సమకాలీకరించబడింది)</translation>
+<translation id="5913377024445952699">స్క్రీన్‌ను క్యాప్చర్ చేయడం పాజ్ చేయబడింది</translation>
 <translation id="59174027418879706">ప్రారంభించబడింది</translation>
 <translation id="5919090499915321845">B10</translation>
 <translation id="5921185718311485855">ఆన్ చేయబడ్డాయి</translation>
@@ -1260,6 +1264,7 @@
 <translation id="5963413905009737549">విభాగం</translation>
 <translation id="5967592137238574583">సంప్రదింపు సమాచారాన్ని సవరించండి</translation>
 <translation id="5967867314010545767">చరిత్ర నుండి తీసివేయి</translation>
+<translation id="5968793460449681917">ప్రతి సందర్శనలో</translation>
 <translation id="5975083100439434680">దూరంగా జూమ్ చేయి</translation>
 <translation id="5979084224081478209">పాస్‌వర్డ్‌లను తనిఖీ చేయి</translation>
 <translation id="5980920751713728343">సూచిక-3x5</translation>
@@ -1475,6 +1480,7 @@
 <translation id="6895330447102777224">మీ కార్డ్ నిర్ధారించబడింది</translation>
 <translation id="6897140037006041989">వినియోగదారు ప్రతినిధి</translation>
 <translation id="6898699227549475383">సంస్థ (O)</translation>
+<translation id="6907293445143367439">దీనికి <ph name="SITE_NAME" />ను అనుమతించండి:</translation>
 <translation id="6910240653697687763"><ph name="URL" /> మీ MIDI పరికరాలకు పూర్తి నియంత్రణను పొందాలనుకుంటోంది</translation>
 <translation id="6915804003454593391">వినియోగదారు:</translation>
 <translation id="6934672428414710184">ఇది మీ Google ఖాతాలో ఉన్న పేరు</translation>
@@ -1494,7 +1500,7 @@
 <translation id="6973656660372572881">రెండు స్థిర ప్రాక్సీ సర్వర్లు మరియు ఒక .pac స్క్రిప్ట్ URL పేర్కొనబడ్డాయి.</translation>
 <translation id="6973932557599545801">క్షమించండి నేను సహాయం చేయలేకపోయాను, దయచేసి మీరే స్వంతంగా కొనసాగండి.</translation>
 <translation id="6975012522936652259">మీరు మోసపూరితమైన సైట్‌లో మీ పాస్‌వర్డ్‌ను ఎంటర్ చేశారు. మీరు ఈ పాస్‌వర్డ్‌ను ఉపయోగించిన<ph name="WEBSITE_1" />, <ph name="WEBSITE_2" />, ఇతర సైట్‌లకు ఇప్పుడే వెళ్లి, మీ పాస్‌వర్డ్‌ను మార్చాల్సిందిగా Chromium సిఫార్సు చేస్తోంది.</translation>
-<translation id="6979158407327259162">Google డిస్క్</translation>
+<translation id="6979158407327259162">Google Drive</translation>
 <translation id="6979440798594660689">మ్యూట్ (డిఫాల్ట్)</translation>
 <translation id="6979983982287291980">మీరు డౌన్‌లోడ్ చేసిన ఫైల్స్ Google క్లౌడ్ లేదా థర్డ్ పార్టీలకు విశ్లేషణ కోసం పంపబడతాయి. ఉదాహరణకు, వాటిని సున్నితమైన వ్యక్తిగత సమాచారం లేదా మాల్‌వేర్ కోసం స్కాన్ చేయబడవచ్చు.</translation>
 <translation id="6989763994942163495">అధునాతన సెట్టింగ్‌లను చూపించు...</translation>
@@ -1910,6 +1916,7 @@
 <translation id="8574899947864779331">కార్డ్‌లను వేగంగా నిర్ధారించడానికి Touch IDని ఉపయోగించండి</translation>
 <translation id="858637041960032120">ఫోన్ నం. జోడిం.</translation>
 <translation id="8589998999637048520">ఉత్తమ నాణ్యత</translation>
+<translation id="8600271352425265729">ఈ ఒక్కసారి మాత్రమే</translation>
 <translation id="860043288473659153">కార్డుదారుని పేరు</translation>
 <translation id="8606726445206553943">మీ MIDI పరికరాలను ఉపయోగించాలనుకుంటోంది</translation>
 <translation id="8612761427948161954">హాయ్ <ph name="USERNAME" />,
@@ -1919,6 +1926,7 @@
 <translation id="8622948367223941507">చట్ట సంబంధితం-అదనం</translation>
 <translation id="8623885649813806493">పాస్‌వర్డ్‌లు ఏవీ మ్యాచ్ అవ్వలేదు. సేవ్ చేసిన అన్ని పాస్‌వర్డ్‌లను చూపు.</translation>
 <translation id="8625384913736129811">ఈ కార్డ్‌ను ఈ పరికరానికి సేవ్ చేయి</translation>
+<translation id="8627040765059109009">స్క్రీన్ క్యాప్చర్ కొనసాగించబడింది</translation>
 <translation id="8657078576661269990"><ph name="ORIGIN_NAME" /> నుండి <ph name="VM_NAME_1" />, <ph name="VM_NAME_2" />లకు షేర్ చేయడాన్ని మీ అడ్మినిస్ట్రేటర్ బ్లాక్ చేశారు</translation>
 <translation id="8663226718884576429">ఆర్డర్ సారాంశం, <ph name="TOTAL_LABEL" />, మరిన్ని వివరాలు</translation>
 <translation id="867224526087042813">సంతకం</translation>
@@ -2050,7 +2058,7 @@
 <translation id="917450738466192189">సర్వర్ యొక్క ప్రమాణపత్రం చెల్లుబాటు కాదు.</translation>
 <translation id="9174917557437862841">ట్యాబ్ స్విచ్ బటన్, ఈ ట్యాబ్‌కి మారడానికి ఎంటర్‌ని నొక్కండి</translation>
 <translation id="9179703756951298733">Chrome సెట్టింగ్‌లలో మీ పేమెంట్‌లను, క్రెడిట్ కార్డ్ సమాచారాన్ని మేనేజ్ చేయండి</translation>
-<translation id="9183302530794969518">Google డాక్స్</translation>
+<translation id="9183302530794969518">Google Docs</translation>
 <translation id="9183425211371246419"><ph name="HOST_NAME" /> మద్దతు లేని ప్రోటోకాల్‌ను ఉపయోగిస్తోంది.</translation>
 <translation id="9191834167571392248">ఎడమవైపు దిగువ భాగంలో రంధ్రం</translation>
 <translation id="9199905725844810519">ప్రింటింగ్ బ్లాక్ చేయబడింది</translation>
@@ -2058,7 +2066,7 @@
 <translation id="9207861905230894330">కథనాన్ని జోడించడంలో విఫలమైంది.</translation>
 <translation id="9213433120051936369">కనిపించే తీరును అనుకూలంగా మార్చండి</translation>
 <translation id="9215416866750762878">ఒక అప్లికేషన్ కారణంగా Chrome ఈ సైట్‌కు సురక్షితంగా కనెక్ట్ కాలేకపోతోంది</translation>
-<translation id="9219103736887031265">చిత్రాలు</translation>
+<translation id="9219103736887031265">ఇమేజ్‌లు</translation>
 <translation id="933712198907837967">డైనర్స్ క్లబ్</translation>
 <translation id="935608979562296692">ఫారమ్‌ను తీసివేయండి</translation>
 <translation id="936474030629450166">సూపర్-B</translation>
@@ -2066,6 +2074,7 @@
 <translation id="939736085109172342">క్రొత్త  ఫోల్డర్</translation>
 <translation id="945855313015696284">ఈ కింది వివరాలను ఒక్కసారి పరిశీలించి చెల్లని కార్డ్‌లు ఏమైనా ఉంటే తొలగించండి</translation>
 <translation id="950736567201356821">ఎగువ భాగంలో మూడు రంధ్రాలు</translation>
+<translation id="951941430552851965">మీ స్క్రీన్‌పైన కంటెంట్ కారణంగా మీ అడ్మినిస్ట్రేటర్ ద్వారా స్క్రీన్ క్యాప్చర్ ఆపివేయబడింది.</translation>
 <translation id="961663415146723894">దిగువ భాగంలో బైండ్</translation>
 <translation id="962484866189421427">ఈ కంటెంట్ వేరేవాటిలా కనిపించే మోసపూరిత యాప్‌లను ఇన్‌స్టాల్ చేయడానికి ప్రయత్నించవచ్చు లేదా మిమ్మల్ని ట్రాక్ చేయడానికి ఉపయోగించే డేటాని సేకరించవచ్చు. <ph name="BEGIN_LINK" />అయినప్పటికీ, చూపించు<ph name="END_LINK" /></translation>
 <translation id="969892804517981540">అధికారిక బిల్డ్</translation>

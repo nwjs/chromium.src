@@ -57,6 +57,7 @@ public class ChromeCachedFlags {
                 ChromeFeatureList.COMMAND_LINE_ON_NON_ROOTED,
                 ChromeFeatureList.CONDITIONAL_TAB_STRIP_ANDROID,
                 ChromeFeatureList.DOWNLOADS_AUTO_RESUMPTION_NATIVE,
+                ChromeFeatureList.EARLY_LIBRARY_LOAD,
                 ChromeFeatureList.HORIZONTAL_TAB_SWITCHER_ANDROID,
                 ChromeFeatureList.IMMERSIVE_UI_MODE,
                 ChromeFeatureList.INSTANT_START,
@@ -75,7 +76,8 @@ public class ChromeCachedFlags {
                 ChromeFeatureList.TABBED_APP_OVERFLOW_MENU_ICONS,
                 ChromeFeatureList.TABBED_APP_OVERFLOW_MENU_REGROUP,
                 ChromeFeatureList.TABBED_APP_OVERFLOW_MENU_THREE_BUTTON_ACTIONBAR,
-                ChromeFeatureList.USE_CHIME_ANDROID_SDK);
+                ChromeFeatureList.USE_CHIME_ANDROID_SDK,
+                ChromeFeatureList.READ_LATER);
         // clang-format on
         CachedFeatureFlags.cacheNativeFlags(featuresToCache);
         CachedFeatureFlags.cacheAdditionalNativeFlags();

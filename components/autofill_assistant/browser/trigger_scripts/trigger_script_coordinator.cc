@@ -75,13 +75,6 @@ void TriggerScriptCoordinator::Start(
     const GURL& deeplink_url,
     std::unique_ptr<TriggerContext> trigger_context) {
   deeplink_url_ = deeplink_url;
-  GURL current_url = client_->GetWebContents()->GetLastCommittedURL();
-  if (!url_utils::IsInDomainOrSubDomain(current_url, deeplink_url_)) {
-    LOG(ERROR) << "Trigger script requested for domain other than the deeplink";
-    Stop(Metrics::LiteScriptFinishedState::LITE_SCRIPT_PROMPT_FAILED_NAVIGATE);
-    return;
-  }
-
   trigger_context_ = std::make_unique<TriggerContextImpl>(
       ExtractDebugScriptParameters(*trigger_context),
       trigger_context->experiment_ids());
@@ -113,6 +106,11 @@ void TriggerScriptCoordinator::OnGetTriggerScripts(
                                           &additional_allowed_domains_,
                                           &check_interval_ms, &timeout_ms)) {
     Stop(Metrics::LiteScriptFinishedState::LITE_SCRIPT_GET_ACTIONS_PARSE_ERROR);
+    return;
+  }
+  if (trigger_scripts_.empty()) {
+    Stop(Metrics::LiteScriptFinishedState::
+             LITE_SCRIPT_NO_TRIGGER_SCRIPT_AVAILABLE);
     return;
   }
   trigger_condition_check_interval_ =
@@ -206,6 +204,22 @@ void TriggerScriptCoordinator::OnKeyboardVisibilityChanged(bool visible) {
   RunOutOfScheduleTriggerConditionCheck();
 }
 
+void TriggerScriptCoordinator::OnTriggerScriptShown(bool success) {
+  if (!success) {
+    Stop(Metrics::LiteScriptFinishedState::LITE_SCRIPT_FAILED_TO_SHOW);
+    return;
+  }
+}
+
+void TriggerScriptCoordinator::OnProactiveHelpSettingChanged(
+    bool proactive_help_enabled) {
+  if (!proactive_help_enabled) {
+    Stop(Metrics::LiteScriptFinishedState::
+             LITE_SCRIPT_DISABLED_PROACTIVE_HELP_SETTING);
+    return;
+  }
+}
+
 void TriggerScriptCoordinator::Stop(Metrics::LiteScriptFinishedState state) {
   HideTriggerScript();
   StopCheckingTriggerConditions();
@@ -243,9 +257,8 @@ void TriggerScriptCoordinator::DidFinishNavigation(
 
   // The user has navigated away from the target domain. This will cancel the
   // current trigger script session.
-  if (!url_utils::IsInDomainOrSubDomain(web_contents()->GetLastCommittedURL(),
-                                        deeplink_url_) &&
-      !url_utils::IsInDomainOrSubDomain(web_contents()->GetLastCommittedURL(),
+  if (!url_utils::IsInDomainOrSubDomain(GetCurrentURL(), deeplink_url_) &&
+      !url_utils::IsInDomainOrSubDomain(GetCurrentURL(),
                                         additional_allowed_domains_)) {
     Stop(Metrics::LiteScriptFinishedState::LITE_SCRIPT_PROMPT_FAILED_NAVIGATE);
     return;
@@ -258,9 +271,21 @@ void TriggerScriptCoordinator::OnVisibilityChanged(
   if (web_contents_visible_ == visible) {
     return;
   }
-
   web_contents_visible_ = visible;
-  if (web_contents_visible_) {
+  OnEffectiveVisibilityChanged();
+}
+
+void TriggerScriptCoordinator::OnTabInteractabilityChanged(bool interactable) {
+  if (web_contents_interactable_ == interactable) {
+    return;
+  }
+  web_contents_interactable_ = interactable;
+  OnEffectiveVisibilityChanged();
+}
+
+void TriggerScriptCoordinator::OnEffectiveVisibilityChanged() {
+  bool visible = web_contents_visible_ && web_contents_interactable_;
+  if (visible) {
     // Restore UI on tab switch. NOTE: an arbitrary amount of time can pass
     // between tab-hide and tab-show. It is not guaranteed that the trigger
     // script that was shown before is still available, hence we need to fetch
@@ -271,6 +296,10 @@ void TriggerScriptCoordinator::OnVisibilityChanged(
     // Hide UI on tab switch.
     StopCheckingTriggerConditions();
     HideTriggerScript();
+  }
+
+  for (Observer& observer : observers_) {
+    observer.OnVisibilityChanged(visible);
   }
 }
 
@@ -442,6 +471,14 @@ void TriggerScriptCoordinator::NotifyOnTriggerScriptFinished(
   for (Observer& observer : observers_) {
     observer.OnTriggerScriptFinished(state);
   }
+}
+
+GURL TriggerScriptCoordinator::GetCurrentURL() const {
+  GURL current_url = web_contents()->GetLastCommittedURL();
+  if (current_url.is_empty()) {
+    return deeplink_url_;
+  }
+  return current_url;
 }
 
 }  // namespace autofill_assistant

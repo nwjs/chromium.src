@@ -324,14 +324,12 @@ const int kMainIntentCheckDelay = 1;
           }
           if (!appStartupFromExternalIntent) {
             base::RecordAction(
-                base::UserMetricsAction("IOSLaunchedBySearchInChromeIntent"));
+                base::UserMetricsAction("IOSOpenByMainIntent"));
           }
-
-          [_appState
-              applicationWillEnterForeground:UIApplication.sharedApplication
-                             metricsMediator:_metricsMediator
-                                memoryHelper:_memoryHelper];
         });
+    [_appState applicationWillEnterForeground:UIApplication.sharedApplication
+                              metricsMediator:_metricsMediator
+                                 memoryHelper:_memoryHelper];
   }
 }
 

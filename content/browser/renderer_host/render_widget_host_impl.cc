@@ -1855,6 +1855,23 @@ void RenderWidgetHostImpl::ShowContextMenuAtPoint(
     blink_frame_widget_->ShowContextMenu(source_type, point);
 }
 
+void RenderWidgetHostImpl::InsertVisualStateCallback(
+    VisualStateCallback callback) {
+  if (!blink_frame_widget_) {
+    std::move(callback).Run(false);
+    return;
+  }
+
+  if (!widget_compositor_) {
+    blink_frame_widget_->BindWidgetCompositor(
+        widget_compositor_.BindNewPipeAndPassReceiver());
+  }
+
+  widget_compositor_->VisualStateRequest(base::BindOnce(
+      [](VisualStateCallback callback) { std::move(callback).Run(true); },
+      mojo::WrapCallbackWithDefaultInvokeIfNotRun(std::move(callback), false)));
+}
+
 RenderProcessHost::Priority RenderWidgetHostImpl::GetPriority() {
   RenderProcessHost::Priority priority = {
     is_hidden_,
@@ -2851,23 +2868,6 @@ bool RenderWidgetHostImpl::RemovePendingUserActivationIfAvailable() {
     return true;
   }
   return false;
-}
-
-void RenderWidgetHostImpl::InsertVisualStateCallback(
-    VisualStateCallback callback) {
-  if (!blink_frame_widget_) {
-    std::move(callback).Run(false);
-    return;
-  }
-
-  if (!widget_compositor_) {
-    blink_frame_widget_->BindWidgetCompositor(
-        widget_compositor_.BindNewPipeAndPassReceiver());
-  }
-
-  widget_compositor_->VisualStateRequest(base::BindOnce(
-      [](VisualStateCallback callback) { std::move(callback).Run(true); },
-      mojo::WrapCallbackWithDefaultInvokeIfNotRun(std::move(callback), false)));
 }
 
 const mojo::AssociatedRemote<blink::mojom::FrameWidget>&

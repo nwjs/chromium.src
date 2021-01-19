@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.share;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.doReturn;
 
@@ -28,6 +29,7 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
+import org.chromium.chrome.browser.lens.LensIntentParams;
 import org.chromium.chrome.browser.lens.LensQueryResult;
 import org.chromium.chrome.test.ChromeBrowserTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
@@ -865,6 +867,38 @@ public class LensUtilsTest {
     }
 
     /**
+     * Test {@link LensUtils#shouldLogUkm(isIncognito)} method for enable UKM logging for Lens chip
+     * integration.
+     */
+    @CommandLineFlags.
+    Add({"enable-features=" + ChromeFeatureList.CONTEXT_MENU_GOOGLE_LENS_CHIP + "<FakeStudyName",
+            "force-fieldtrials=FakeStudyName/Enabled",
+            "force-fieldtrial-params=FakeStudyName.Enabled:disableOnIncognito/true/"
+                    + "logUkm/true"})
+    @Test
+    @SmallTest
+    public void
+    shouldLogUkm_shoppingChipUkmLoggingEnabled() {
+        assertTrue(shouldLogUkmOnUiThread(/* isIncognito=*/false));
+    }
+
+    /**
+     * Test {@link LensUtils#shouldLogUkm(isIncognito)} method for enable UKM logging for Lens chip
+     * integration.
+     */
+    @CommandLineFlags.
+    Add({"enable-features=" + ChromeFeatureList.CONTEXT_MENU_GOOGLE_LENS_CHIP + "<FakeStudyName",
+            "force-fieldtrials=FakeStudyName/Enabled",
+            "force-fieldtrial-params=FakeStudyName.Enabled:disableOnIncognito/true/"
+                    + "logUkm/false"})
+    @Test
+    @SmallTest
+    public void
+    shouldLogUkm_shoppingChipUkmLoggingDisabled() {
+        assertFalse(shouldLogUkmOnUiThread(/* isIncognito=*/false));
+    }
+
+    /**
      * Test {@link LensUtils#isInShoppingAllowlist(url)} method for url with default shopping url
      * patterns.
      */
@@ -876,6 +910,36 @@ public class LensUtilsTest {
         final String googleShoppingPageUrl = "https://www.google.com/search?=8893t5/tbm=shop/dress";
         assertTrue(isInShoppingAllowlistOnUiThread(googleShoppingPageUrl));
         assertTrue(isInShoppingAllowlistOnUiThread(googleShoppingItemUrl));
+    }
+
+    /**
+     * Test {@link LensUtils#buildLensIntentParams()} method for building intent parameters for
+     * startng Lens.
+     */
+    @Test
+    @SmallTest
+    public void buildLensIntentParamsTest() {
+        final String contentUrl = "content://image-url";
+        final boolean isIncognito = false;
+        final String srcUrl = "https://www.google.com";
+        final String titleOrAltText = "Image Title";
+        final String pageUrl = "https://www.google.com";
+        final boolean requiresConfirmation = false;
+        LensIntentParams lensIntentParams = LensUtils.buildLensIntentParams(Uri.parse(contentUrl),
+                isIncognito, srcUrl, titleOrAltText, pageUrl, requiresConfirmation);
+
+        Assert.assertEquals("Lens intent parameters has incorrect image URI.", contentUrl,
+                lensIntentParams.getImageUri().toString());
+        Assert.assertEquals("Lens intent parameters has incorrect incognito value.", isIncognito,
+                lensIntentParams.getIsIncognito());
+        Assert.assertEquals("Lens intent parameters has incorrect src URL.", srcUrl,
+                lensIntentParams.getSrcUrl());
+        Assert.assertEquals("Lens intent parameters has incorrect title or alt text.",
+                titleOrAltText, lensIntentParams.getImageTitleOrAltText());
+        Assert.assertEquals("Lens intent parameters has incorrect page URL.", pageUrl,
+                lensIntentParams.getPageUrl());
+        Assert.assertEquals("Lens intent parameters has incorrect requires confirmation value.",
+                requiresConfirmation, lensIntentParams.getRequiresConfirmation());
     }
 
     private boolean isInShoppingAllowlistOnUiThread(String imageUri) {
@@ -896,5 +960,10 @@ public class LensUtilsTest {
     private boolean enableImageChipOnUiThread(boolean isIncognito) {
         return TestThreadUtils.runOnUiThreadBlockingNoException(
                 () -> LensUtils.enableImageChip(isIncognito));
+    }
+
+    private boolean shouldLogUkmOnUiThread(boolean isIncognito) {
+        return TestThreadUtils.runOnUiThreadBlockingNoException(
+                () -> LensUtils.shouldLogUkm(isIncognito));
     }
 }

@@ -159,6 +159,7 @@ import org.chromium.chrome.browser.vr.VrModuleProvider;
 import org.chromium.chrome.features.start_surface.StartSurface;
 import org.chromium.chrome.features.start_surface.StartSurfaceConfiguration;
 import org.chromium.chrome.features.start_surface.StartSurfaceState;
+import org.chromium.chrome.features.start_surface.StartSurfaceUserData;
 import org.chromium.components.browser_ui.util.BrowserControlsVisibilityDelegate;
 import org.chromium.components.browser_ui.util.ComposedBrowserControlsVisibilityDelegate;
 import org.chromium.components.embedder_support.util.UrlConstants;
@@ -570,7 +571,7 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
                     StartSurface startSurface = tabManagementDelegate.createStartSurface(this,
                             mRootUiCoordinator.getScrimCoordinator(),
                             mRootUiCoordinator.getBottomSheetController(), mStartSurfaceSupplier,
-                            mStartSurfaceParentTabSupplier);
+                            mStartSurfaceParentTabSupplier, hadWarmStart());
                 }
             }
             mLayoutManager = new LayoutManagerChromePhone(compositorViewHolder, mContentContainer,
@@ -1656,6 +1657,7 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
         Supplier<TabDelegateFactory> tabDelegateFactorySupplier = () -> {
             return new TabbedModeTabDelegateFactory(this, getAppBrowserControlsVisibilityDelegate(),
                     getShareDelegateSupplier(), mEphemeralTabCoordinatorSupplier,
+                    ((TabbedRootUiCoordinator) mRootUiCoordinator)::onContextMenuCopyLink,
                     mRootUiCoordinator.getBottomSheetController());
         };
 
@@ -1850,8 +1852,12 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
             return true;
         }
 
-        // If we are in overview mode and not a tablet, then leave overview mode on back.
-        if (mOverviewModeController.overviewVisible() && !isTablet()) {
+        // If we are in the tab switcher mode (not in the Start surface homepage) and not a tablet,
+        // then leave tab switcher mode on back.
+        if (mOverviewModeController.overviewVisible() && !isTablet()
+                && (mStartSurfaceSupplier.get() == null
+                        || mStartSurfaceSupplier.get().getController().getStartSurfaceState()
+                                == StartSurfaceState.SHOWN_TABSWITCHER)) {
             mOverviewModeController.hideOverview(true);
             return true;
         }
@@ -1868,11 +1874,22 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
             return true;
         }
 
-        // If the current tab is created from the start surface, then the back button should close
-        // the tab and go back to the start surface.
-        if (type == TabLaunchType.FROM_START_SURFACE) {
-            getCurrentTabModel().closeTab(currentTab);
-            showOverview(StartSurfaceState.SHOWING_PREVIOUS);
+        // If we aren't in the overview mode, we handle the Tab with launchType
+        // TabLaunchType.FROM_START_SURFACE here.
+        if (!mOverviewModeController.overviewVisible()
+                && type == TabLaunchType.FROM_START_SURFACE) {
+            if (StartSurfaceUserData.getKeepTab(currentTab)) {
+                // If the current tab is created from the start surface with the keepTab property,
+                // shows the Start surface Homepage to prevent a loop between the current tab and
+                // previous overview mode. Once in the Start surface, it will close Chrome if back
+                // button is tapped again.
+                showOverview(StartSurfaceState.SHOWING_HOMEPAGE);
+            } else {
+                // Otherwise, clicking the back button should close the tab and go back to the
+                // previous overview mode.
+                getCurrentTabModel().closeTab(currentTab);
+                showOverview(StartSurfaceState.SHOWING_PREVIOUS);
+            }
             return true;
         }
 
@@ -2057,7 +2074,14 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
             mStartSurfaceSupplier.get().getController().setOverviewState(state);
         }
 
-        if (mOverviewModeController == null || mOverviewModeController.overviewVisible()) return;
+        if (mOverviewModeController == null) return;
+
+        if (mOverviewModeController.overviewVisible()) {
+            if (didFinishNativeInitialization()) {
+                getCompositorViewHolder().hideKeyboard(() -> {});
+            }
+            return;
+        }
 
         Tab currentTab = getActivityTab();
         // If we don't have a current tab, show the overview mode.

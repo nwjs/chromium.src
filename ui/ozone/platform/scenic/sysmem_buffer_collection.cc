@@ -140,7 +140,8 @@ bool SysmemBufferCollection::Initialize(
   is_protected_ = force_protected;
 
   if (register_with_image_pipe) {
-    scenic_overlay_view_.emplace(scenic_surface_factory->CreateScenicSession());
+    scenic_overlay_view_.emplace(scenic_surface_factory->CreateScenicSession(),
+                                 scenic_surface_factory);
     surface_factory_ = scenic_surface_factory;
   }
 
@@ -339,7 +340,7 @@ SysmemBufferCollection::~SysmemBufferCollection() {
 bool SysmemBufferCollection::InitializeInternal(
     fuchsia::sysmem::Allocator_Sync* allocator,
     fuchsia::sysmem::BufferCollectionTokenSyncPtr collection_token,
-    size_t buffers_for_camping) {
+    size_t min_buffer_count) {
   fidl::InterfaceHandle<fuchsia::sysmem::BufferCollectionToken>
       collection_token_for_vulkan;
   collection_token->Duplicate(ZX_RIGHT_SAME_RIGHTS,
@@ -383,7 +384,7 @@ bool SysmemBufferCollection::InitializeInternal(
     constraints.usage.none = fuchsia::sysmem::noneUsage;
   }
 
-  constraints.min_buffer_count_for_camping = buffers_for_camping;
+  constraints.min_buffer_count = min_buffer_count;
   constraints.image_format_constraints_count = 0;
 
   status = collection_->SetConstraints(/*has_constraints=*/true,
@@ -432,7 +433,7 @@ bool SysmemBufferCollection::InitializeInternal(
     return false;
   }
 
-  DCHECK_GE(buffers_info_.buffer_count, buffers_for_camping);
+  DCHECK_GE(buffers_info_.buffer_count, min_buffer_count);
   DCHECK(buffers_info_.settings.has_image_format_constraints);
 
   // The logic should match LogicalBufferCollection::Allocate().

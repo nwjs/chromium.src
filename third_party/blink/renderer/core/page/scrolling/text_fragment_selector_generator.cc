@@ -6,6 +6,7 @@
 
 #include "base/metrics/histogram_macros.h"
 #include "base/time/default_tick_clock.h"
+#include "components/shared_highlighting/core/common/shared_highlighting_metrics.h"
 #include "third_party/blink/public/common/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/interface_registry.h"
 #include "third_party/blink/renderer/core/editing/ephemeral_range.h"
@@ -16,38 +17,33 @@
 #include "third_party/blink/renderer/core/page/scrolling/text_fragment_finder.h"
 #include "third_party/blink/renderer/platform/text/text_boundaries.h"
 
+using LinkGenerationError = shared_highlighting::LinkGenerationError;
+
 namespace blink {
 
 namespace {
 
-// Returns text within given positions of the node, skipping invisible children
-// and comments.
-String GetText(Node* node, int start_position, int end_position) {
-  auto range_start = Position(node, start_position);
-  auto range_end = Position(node, end_position);
-  return PlainText(EphemeralRange(range_start, range_end));
-}
-
-// Returns text content of the node, skipping invisible children and comments.
-String GetText(Node* node) {
-  return PlainText(EphemeralRange::RangeOfContents(*node));
-}
-
 // Returns true if text from beginning of |node| until |pos_offset| can be
 // considered empty. Otherwise, return false.
 bool IsFirstVisiblePosition(Node* node, unsigned pos_offset) {
-  return pos_offset == 0 ||
-         GetText(node, 0, pos_offset).StripWhiteSpace().IsEmpty();
+  auto range_start = Position::FirstPositionInNode(*node);
+  auto range_end = Position(node, pos_offset);
+  return pos_offset == 0 || PlainText(EphemeralRange(range_start, range_end))
+                                .StripWhiteSpace()
+                                .IsEmpty();
 }
 
 // Returns true if text from |pos_offset| until end of |node| can be considered
 // empty. Otherwise, return false.
 bool IsLastVisiblePosition(Node* node, unsigned pos_offset) {
+  auto range_start = Position(node, pos_offset);
+  auto range_end = Position::LastPositionInNode(*node);
   return pos_offset == node->textContent().length() ||
-         GetText(node, pos_offset, node->textContent().length())
+         PlainText(EphemeralRange(range_start, range_end))
              .StripWhiteSpace()
              .IsEmpty();
 }
+
 struct ForwadDirection {
   static Node* Next(const Node& node) { return FlatTreeTraversal::Next(node); }
   static Node* Next(const Node& node, const Node* stay_within) {
@@ -78,7 +74,9 @@ Node* NextNonEmptyVisibleTextNode(Node* start_node) {
   // Move forward/backward until non empty visible text node is found.
   for (Node* node = start_node; node; node = Direction::Next(*node)) {
     Node* next_node = Direction::GetVisibleTextNode(*node);
-    if (!next_node || !GetText(next_node).IsEmpty())
+    if (!next_node || !PlainText(EphemeralRange::RangeOfContents(*next_node))
+                           .StripWhiteSpace()
+                           .IsEmpty())
       return next_node;
     node = next_node;
   }
@@ -226,8 +224,10 @@ void TextFragmentSelectorGenerator::AdjustSelection() {
   int corrected_end_offset =
       ephemeral_range.EndPosition().ComputeOffsetInContainerNode();
   if (IsFirstVisiblePosition(corrected_end, corrected_end_offset)) {
+    // Here, |Previous()| already skips the children of the given node,
+    // because we're doing pre-order traversal.
     corrected_end = BackwardNonEmptyVisibleTextNode(
-        FlatTreeTraversal::PreviousSkippingChildren(*corrected_end));
+        FlatTreeTraversal::Previous(*corrected_end));
     if (corrected_end)
       corrected_end_offset = corrected_end->textContent().length();
   } else {
@@ -269,6 +269,7 @@ void TextFragmentSelectorGenerator::GenerateSelector(
   generation_start_time_ = base::DefaultTickClock::GetInstance()->NowTicks();
   pending_generate_selector_callback_ = std::move(callback);
   state_ = kNeedsNewCandidate;
+  error_.reset();
   step_ = kExact;
   max_available_prefix_ = "";
   max_available_suffix_ = "";
@@ -276,7 +277,10 @@ void TextFragmentSelectorGenerator::GenerateSelector(
   max_available_range_end_ = "";
   num_prefix_words_ = 0;
   num_suffix_words_ = 0;
+  num_range_start_words_ = 0;
+  num_range_end_words_ = 0;
   iteration_ = 0;
+  selector_ = nullptr;
 
   AdjustSelection();
   UMA_HISTOGRAM_COUNTS_1000(
@@ -347,10 +351,9 @@ void TextFragmentSelectorGenerator::DidFindMatch(
 }
 
 void TextFragmentSelectorGenerator::NoMatchFound() {
-  UMA_HISTOGRAM_ENUMERATION("SharedHighlights.LinkGenerated.Error",
-                            LinkGenerationError::kIncorrectSelector);
-  NotifySelectorReady(
-      TextFragmentSelector(TextFragmentSelector::SelectorType::kInvalid));
+  state_ = kFailure;
+  error_ = LinkGenerationError::kIncorrectSelector;
+  ResolveSelectorState();
 }
 
 void TextFragmentSelectorGenerator::NotifySelectorReady(
@@ -361,6 +364,9 @@ void TextFragmentSelectorGenerator::NotifySelectorReady(
   UMA_HISTOGRAM_BOOLEAN(
       "SharedHighlights.LinkGenerated",
       selector.Type() != TextFragmentSelector::SelectorType::kInvalid);
+
+  ukm::UkmRecorder* recorder = selection_frame_->GetDocument()->UkmRecorder();
+  ukm::SourceId source_id = selection_frame_->GetDocument()->UkmSourceID();
 
   if (selector.Type() != TextFragmentSelector::SelectorType::kInvalid) {
     UMA_HISTOGRAM_COUNTS_1000("SharedHighlights.LinkGenerated.ParamLength",
@@ -374,6 +380,8 @@ void TextFragmentSelectorGenerator::NotifySelectorReady(
     UMA_HISTOGRAM_ENUMERATION(
         "SharedHighlights.LinkGenerated.SelectorParameters",
         TextFragmentAnchorMetrics::GetParametersForSelector(selector));
+
+    shared_highlighting::LogLinkGeneratedSuccessUkmEvent(recorder, source_id);
   } else {
     UMA_HISTOGRAM_EXACT_LINEAR(
         "SharedHighlights.LinkGenerated.Error.Iterations", iteration_,
@@ -381,6 +389,12 @@ void TextFragmentSelectorGenerator::NotifySelectorReady(
     UMA_HISTOGRAM_TIMES("SharedHighlights.LinkGenerated.Error.TimeToGenerate",
                         base::DefaultTickClock::GetInstance()->NowTicks() -
                             generation_start_time_);
+
+    LinkGenerationError error =
+        error_.has_value() ? error_.value() : LinkGenerationError::kUnknown;
+    shared_highlighting::LogLinkGenerationErrorReason(error);
+    shared_highlighting::LogLinkGeneratedErrorUkmEvent(recorder, source_id,
+                                                       error);
   }
 
   std::move(pending_generate_selector_callback_).Run(selector.ToString());
@@ -404,17 +418,10 @@ void TextFragmentSelectorGenerator::GenerateExactSelector() {
   DCHECK_EQ(kExact, step_);
   DCHECK_EQ(kNeedsNewCandidate, state_);
   EphemeralRangeInFlatTree ephemeral_range(selection_range_);
-  Node* start_container =
-      ephemeral_range.StartPosition().ComputeContainerNode();
-  Node* end_container = ephemeral_range.EndPosition().ComputeContainerNode();
-
-  Node& start_first_block_ancestor =
-      FindBuffer::GetFirstBlockLevelAncestorInclusive(*start_container);
-  Node& end_first_block_ancestor =
-      FindBuffer::GetFirstBlockLevelAncestorInclusive(*end_container);
 
   // If not in same node, should use ranges.
-  if (!start_first_block_ancestor.isSameNode(&end_first_block_ancestor)) {
+  if (!IsInSameUninterruptedBlock(selection_range_->StartPosition(),
+                                  selection_range_->EndPosition())) {
     step_ = kRange;
     return;
   }
@@ -425,9 +432,8 @@ void TextFragmentSelectorGenerator::GenerateExactSelector() {
 
   String selected_text = PlainText(ephemeral_range).StripWhiteSpace();
   if (selected_text.IsEmpty()) {
-    UMA_HISTOGRAM_ENUMERATION("SharedHighlights.LinkGenerated.Error",
-                              LinkGenerationError::kEmptySelection);
     state_ = kFailure;
+    error_ = LinkGenerationError::kEmptySelection;
     return;
   }
 
@@ -464,17 +470,10 @@ void TextFragmentSelectorGenerator::ExtendRangeSelector() {
       max_available_range_end_.IsEmpty()) {
     EphemeralRangeInFlatTree ephemeral_range(selection_range_);
 
-    Node& start_first_block_ancestor =
-        FindBuffer::GetFirstBlockLevelAncestorInclusive(
-            *ephemeral_range.StartPosition().ComputeContainerNode());
-    Node& end_first_block_ancestor =
-        FindBuffer::GetFirstBlockLevelAncestorInclusive(
-            *ephemeral_range.EndPosition().ComputeContainerNode());
-
     // If selection starts and ends in the same block, then split selected text
     // roughly in the middle.
-    // TODO(gayane): Should also check that there are no nested blocks.
-    if (start_first_block_ancestor.isSameNode(&end_first_block_ancestor)) {
+    if (IsInSameUninterruptedBlock(selection_range_->StartPosition(),
+                                   selection_range_->EndPosition())) {
       String selection_text = PlainText(ephemeral_range);
       selection_text.Ensure16Bit();
       int selection_length = selection_text.length();
@@ -486,9 +485,8 @@ void TextFragmentSelectorGenerator::ExtendRangeSelector() {
       // If from middle till end of selection there is no word break, then we
       // cannot use it for range end.
       if (mid_point == selection_length) {
-        UMA_HISTOGRAM_ENUMERATION("SharedHighlights.LinkGenerated.Error",
-                                  LinkGenerationError::kNoRange);
         state_ = kFailure;
+        error_ = LinkGenerationError::kNoRange;
         return;
       }
 
@@ -528,9 +526,8 @@ void TextFragmentSelectorGenerator::ExtendContext() {
   // Give up if context is already too long.
   if (num_prefix_words_ == kMaxContextWords ||
       num_prefix_words_ == kMaxContextWords) {
-    UMA_HISTOGRAM_ENUMERATION("SharedHighlights.LinkGenerated.Error",
-                              LinkGenerationError::kContextLimitReached);
     state_ = kFailure;
+    error_ = LinkGenerationError::kContextLimitReached;
     return;
   }
 
@@ -542,9 +539,8 @@ void TextFragmentSelectorGenerator::ExtendContext() {
   }
 
   if (max_available_prefix_.IsEmpty() && max_available_suffix_.IsEmpty()) {
-    UMA_HISTOGRAM_ENUMERATION("SharedHighlights.LinkGenerated.Error",
-                              LinkGenerationError::kNoContext);
     state_ = kFailure;
+    error_ = LinkGenerationError::kNoContext;
     return;
   }
 
@@ -553,9 +549,8 @@ void TextFragmentSelectorGenerator::ExtendContext() {
 
   // Give up if we were unable to get new prefix and suffix.
   if (prefix == selector_->Prefix() && suffix == selector_->Suffix()) {
-    UMA_HISTOGRAM_ENUMERATION("SharedHighlights.LinkGenerated.Error",
-                              LinkGenerationError::kContextExhausted);
     state_ = kFailure;
+    error_ = LinkGenerationError::kContextExhausted;
     return;
   }
   selector_ = std::make_unique<TextFragmentSelector>(
@@ -574,7 +569,7 @@ String TextFragmentSelectorGenerator::GetPreviousTextBlock(
   // use the preceding visible node for the suffix.
   if (IsFirstVisiblePosition(prefix_end, prefix_end_offset)) {
     prefix_end = BackwardNonEmptyVisibleTextNode(
-        FlatTreeTraversal::PreviousSkippingChildren(*prefix_end));
+        FlatTreeTraversal::Previous(*prefix_end));
 
     if (!prefix_end)
       return "";
@@ -617,5 +612,31 @@ String TextFragmentSelectorGenerator::GetNextTextBlock(
   auto range_start = Position(suffix_start, suffix_start_offset);
   auto range_end = Position(suffix_end, suffix_end->textContent().length());
   return PlainText(EphemeralRange(range_start, range_end)).StripWhiteSpace();
+}
+
+bool TextFragmentSelectorGenerator::IsInSameUninterruptedBlock(
+    const Position& start,
+    const Position& end) {
+  Node* start_node = start.ComputeContainerNode();
+  Node* end_node = end.ComputeContainerNode();
+
+  if (start_node->isSameNode(end_node))
+    return true;
+
+  Node& start_ancestor =
+      FindBuffer::GetFirstBlockLevelAncestorInclusive(*start_node);
+  Node& end_ancestor =
+      FindBuffer::GetFirstBlockLevelAncestorInclusive(*end_node);
+
+  if (!start_ancestor.isSameNode(&end_ancestor))
+    return false;
+
+  Node* node = start_node;
+  while (!node->isSameNode(end_node)) {
+    if (FindBuffer::IsNodeBlockLevel(*node))
+      return false;
+    node = FlatTreeTraversal::Next(*node);
+  }
+  return true;
 }
 }  // namespace blink

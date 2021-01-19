@@ -82,7 +82,7 @@
 <translation id="1687475363370981210">Označiť všetko ako prečítané</translation>
 <translation id="1689333818294560261">Prezývka</translation>
 <translation id="1690731385917361335">Žiadne položky</translation>
-<translation id="1692118695553449118">Synchronizácia je zapnutá.</translation>
+<translation id="1692118695553449118">Synchronizácia je zapnutá</translation>
 <translation id="1700629756560807968">Počet vybraných záložiek: <ph name="NUMBER_OF_SELECTED_BOOKMARKS" /></translation>
 <translation id="1740468249224277719">Dvojitým klepnutím spustíte inštaláciu.</translation>
 <translation id="1746815479209538200">Ak chcete prehliadať internet, pridajte novú kartu.</translation>
@@ -189,7 +189,7 @@ Weby si nemôžu na základe súborov cookie zobraziť vašu históriu prehliada
 <translation id="2952581218264071393">1. Otvorte nastavenia Chromu</translation>
 <translation id="2958718410589002129">Heslá</translation>
 <translation id="2964349545761222050">Blokovať súbory cookie tretích strán</translation>
-<translation id="2969979262385602596">Prihlásenie zlyhalo. Skúste to znova neskôr.</translation>
+<translation id="2969979262385602596">Prihlásenie zlyhalo. Skúste to neskôr.</translation>
 <translation id="298306318844797842">Pridať spôsob platby…</translation>
 <translation id="2989805286512600854">Otvoriť na novej karte</translation>
 <translation id="3037605927509011580">Aj, chyba!</translation>
@@ -380,7 +380,7 @@ Ak chcete toto nastavenie zmeniť, <ph name="BEGIN_LINK" />resetujte synchroniz�
 <translation id="5090832849094901128">Odstránením tohto hesla nevymažete svoj účet na <ph name="WEBSITE" />.</translation>
 <translation id="5094827893301452931">Tweet bol uverejnený.</translation>
 <translation id="5118764316110575523">Vypnuté</translation>
-<translation id="5127805178023152808">Synchronizácia je vypnutá.</translation>
+<translation id="5127805178023152808">Synchronizácia je vypnutá</translation>
 <translation id="5132942445612118989">Synchronizujte svoje heslá, históriu a ďalší obsah vo všetkých zariadeniach</translation>
 <translation id="5140288047769711648">Chrome si toto heslo zapamätá za vás. Nemusíte sa ho učiť naspamäť.</translation>
 <translation id="5150492518600715772">Odoslať do vášho zariadenia</translation>
@@ -504,7 +504,7 @@ Funkciu Handoff musíte povoliť v nastaveniach v časti Všeobecné a vaše zar
 
 Vaše údaje boli <ph name="TIME" /> zašifrované pomocou vlastnej prístupovej frázy synchronizácie. Keď ju zadáte, synchronizácia sa spustí.</translation>
 <translation id="6418346271604475326">Príprava PDF</translation>
-<translation id="6434591244308415567">Vyskytla sa chyba. Skúste to znova neskôr.</translation>
+<translation id="6434591244308415567">Vyskytla sa chyba. Skúste to neskôr.</translation>
 <translation id="6439338047467462846">Povoliť všetky</translation>
 <translation id="6445051938772793705">Krajina</translation>
 <translation id="6445981559479772097">Správa sa odoslala.</translation>
@@ -610,6 +610,7 @@ Pre každý web skúste použiť jedinečné heslo.</translation>
 <translation id="7472734401283673885">Názov spoločnosti</translation>
 <translation id="7473891865547856676">Nie, ďakujem</translation>
 <translation id="7481312909269577407">Dopredu</translation>
+<translation id="7483467499335917849">Používanie aktuálnej polohy</translation>
 <translation id="750493650310597496">Počet vybraných záložiek: 0</translation>
 <translation id="7514365320538308">Stiahnuť</translation>
 <translation id="7537586195939242955">Kupón Pass sa momentálne nedá do aplikácie Passbook nainštalovať.</translation>
@@ -703,7 +704,7 @@ Na základe súborov cookie si môžu zobraziť vašu históriu prehliadania v 
 <translation id="8548878600947630424">Nájsť na stránke...</translation>
 <translation id="8574235780160508979">Zmluvné podmienky prehliadača Chrome sa 31. marca zmenia. <ph name="BEGIN_LINK" />Prehliadnuť si nové zmluvné podmienky<ph name="END_LINK" /></translation>
 <translation id="8588404856427128947">Vypnúť</translation>
-<translation id="8591976964826315682">Blokovať súbory cookie tretích strán v anonymnom režime</translation>
+<translation id="8591976964826315682">Blokovať súbory cookie tretích strán v režime inkognito</translation>
 <translation id="8605219856220328675">Zatvoriť kartu.</translation>
 <translation id="8620640915598389714">Upraviť</translation>
 <translation id="8636825310635137004">Ak chcete získať karty zo svojich ostatných zariadení, zapnite synchronizáciu.</translation>

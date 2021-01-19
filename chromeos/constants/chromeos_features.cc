@@ -83,8 +83,8 @@ const base::Feature kArcManagedAdbSideloadingSupport{
     "ArcManagedAdbSideloadingSupport", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Controls whether to enable support for View.onKeyPreIme() of ARC apps.
-const base::Feature kArcPreImeKeyEventSupport{"ArcPreImeKeyEventSupport",
-                                              base::FEATURE_ENABLED_BY_DEFAULT};
+const base::Feature kArcPreImeKeyEventSupport{
+    "ArcPreImeKeyEventSupport", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enables or disables auto screen-brightness adjustment when ambient light
 // changes.
@@ -136,6 +136,11 @@ const base::Feature kBetterUpdateScreen{"BetterUpdateScreen",
 const base::Feature kBluetoothAggressiveAppearanceFilter{
     "BluetoothAggressiveAppearanceFilter", base::FEATURE_ENABLED_BY_DEFAULT};
 
+// Enables or disables Bluetooth WBS microphone be selected as default
+// audio input option.
+const base::Feature kBluetoothWbsDogfood{"BluetoothWbsDogfood",
+                                         base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Enables or disables the usage of fixed Bluetooth A2DP packet size to improve
 // audio performance in noisy environment.
 const base::Feature kBluetoothFixA2dpPacketSize{
@@ -144,6 +149,10 @@ const base::Feature kBluetoothFixA2dpPacketSize{
 // Enables or disables more filtering out of phones from the Bluetooth UI.
 const base::Feature kBluetoothPhoneFilter{"BluetoothPhoneFilter",
                                           base::FEATURE_ENABLED_BY_DEFAULT};
+
+// Enable or disables running the Camera App as a System Web App.
+const base::Feature kCameraSystemWebApp{"CameraSystemWebApp",
+                                        base::FEATURE_ENABLED_BY_DEFAULT};
 
 // If enabled, will use the CDM in the Chrome OS daemon rather than loading the
 // CDM using the library CDM interface.
@@ -192,6 +201,15 @@ const base::Feature kCrostiniEnableDlc{"CrostiniEnableDlc",
 // Enables or disables using Cryptauth's GetDevicesActivityStatus API.
 const base::Feature kCryptAuthV2DeviceActivityStatus{
     "CryptAuthV2DeviceActivityStatus", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Disable idle sockets closing on memory pressure for NetworkContexts that
+// belong to Profiles. It only applies to Profiles because the goal is to
+// improve perceived performance of web browsing within the Chrome OS user
+// session by avoiding re-estabshing TLS connections that require client
+// certificates.
+const base::Feature kDisableIdleSocketsCloseOnMemoryPressure{
+    "disable_idle_sockets_close_on_memory_pressure",
+    base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enables or disables the CryptAuth v2 DeviceSync flow. Regardless of this
 // flag, v1 DeviceSync will continue to operate until it is disabled via the
@@ -422,6 +440,10 @@ const base::Feature kMediaAppAnnotation{"MediaAppAnnotation",
 const base::Feature kMediaAppHandlesRaw{"MediaAppHandlesRaw",
                                         base::FEATURE_ENABLED_BY_DEFAULT};
 
+// Whether Pdf files loading ink is enabled in the ChromeOS media app.
+const base::Feature kMediaAppPdfInInk{"MediaAppPdfInInk",
+                                      base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Enables a unique URL for each path in CrOS settings.
 // This allows deep linking to individual settings, i.e. in settings search.
 const base::Feature kOsSettingsDeepLinking{"OsSettingsDeepLinking",
@@ -629,7 +651,7 @@ const base::Feature kUseSearchClickForRightClick{
 
 // Enable or disable bordered key for virtual keyboard on Chrome OS.
 const base::Feature kVirtualKeyboardBorderedKey{
-    "VirtualKeyboardBorderedKey", base::FEATURE_ENABLED_BY_DEFAULT};
+    "VirtualKeyboardBorderedKey", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enable or disable the camera/mic indicators/notifications for VMs.
 const base::Feature kVmCameraMicIndicatorsAndNotifications{

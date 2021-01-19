@@ -337,6 +337,28 @@ bool IsLoadDataWithBaseURL(
                                                   validated_params.base_url);
 }
 
+BackForwardCacheMetrics::NotRestoredReason
+RendererEvictionReasonToNotRestoredReason(
+    blink::mojom::RendererEvictionReason reason) {
+  switch (reason) {
+    case blink::mojom::RendererEvictionReason::kJavaScriptExecution:
+      return BackForwardCacheMetrics::NotRestoredReason::kJavaScriptExecution;
+    case blink::mojom::RendererEvictionReason::kNetworkRequestDatapipeDrained:
+      return BackForwardCacheMetrics::NotRestoredReason::
+          kNetworkRequestDatapipeDrained;
+    case blink::mojom::RendererEvictionReason::kNetworkRequestRedirected:
+      return BackForwardCacheMetrics::NotRestoredReason::
+          kNetworkRequestRedirected;
+    case blink::mojom::RendererEvictionReason::kNetworkRequestTimeout:
+      return BackForwardCacheMetrics::NotRestoredReason::kNetworkRequestTimeout;
+    case blink::mojom::RendererEvictionReason::kNetworkExceedsBufferLimit:
+      return BackForwardCacheMetrics::NotRestoredReason::
+          kNetworkExceedsBufferLimit;
+  }
+  NOTREACHED();
+  return BackForwardCacheMetrics::NotRestoredReason::kUnknown;
+}
+
 // Ensure that we reset nav_entry_id_ in DidCommitProvisionalLoad if any of
 // the validations fail and lead to an early return.  Call disable() once we
 // know the commit will be successful.  Resetting nav_entry_id_ avoids acting on
@@ -3313,32 +3335,36 @@ void RenderFrameHostImpl::ProcessBeforeUnloadCompletedFromFrame(
     beforeunload_timeout_->Stop();
   send_before_unload_start_time_ = base::TimeTicks();
 
-  // If the ACK is for a navigation, send it to the Navigator to have the
-  // current navigation stop/proceed. Otherwise, send it to the
-  // RenderFrameHostManager which handles closing.
-  if (unload_ack_is_for_navigation_) {
-    frame_tree_node_->navigator().BeforeUnloadCompleted(
-        frame_tree_node_, proceed, before_unload_end_time);
-  } else {
-    // We could reach this from a subframe destructor for |frame| while we're
-    // in the middle of closing the current tab.  In that case, dispatch the
-    // ACK to prevent re-entrancy and a potential nested attempt to free the
-    // current frame.  See https://crbug.com/866382.
-    base::OnceClosure task = base::BindOnce(
-        [](base::WeakPtr<RenderFrameHostImpl> self,
-           const base::TimeTicks& before_unload_end_time, bool proceed) {
-          if (!self)
-            return;
-          self->frame_tree_node()->render_manager()->BeforeUnloadCompleted(
+  // We could reach this from a subframe destructor for |frame| while we're in
+  // the middle of closing the current tab. In that case, dispatch the ACK to
+  // prevent re-entrancy and a potential nested attempt to free the current
+  // frame. See https://crbug.com/866382 and https://crbug.com/1147567.
+  base::OnceClosure task = base::BindOnce(
+      [](base::WeakPtr<RenderFrameHostImpl> self,
+         const base::TimeTicks& before_unload_end_time, bool proceed,
+         bool unload_ack_is_for_navigation) {
+        if (!self)
+          return;
+        FrameTreeNode* frame = self->frame_tree_node();
+        // If the ACK is for a navigation, send it to the Navigator to have the
+        // current navigation stop/proceed. Otherwise, send it to the
+        // RenderFrameHostManager which handles closing.
+        if (unload_ack_is_for_navigation) {
+          frame->navigator().BeforeUnloadCompleted(frame, proceed,
+                                                   before_unload_end_time);
+        } else {
+          frame->render_manager()->BeforeUnloadCompleted(
               proceed, before_unload_end_time);
-        },
-        weak_ptr_factory_.GetWeakPtr(), before_unload_end_time, proceed);
-    if (is_frame_being_destroyed) {
-      DCHECK(proceed);
-      base::ThreadTaskRunnerHandle::Get()->PostTask(FROM_HERE, std::move(task));
-    } else {
-      std::move(task).Run();
-    }
+        }
+      },
+      weak_ptr_factory_.GetWeakPtr(), before_unload_end_time, proceed,
+      unload_ack_is_for_navigation_);
+
+  if (is_frame_being_destroyed) {
+    DCHECK(proceed);
+    base::ThreadTaskRunnerHandle::Get()->PostTask(FROM_HERE, std::move(task));
+  } else {
+    std::move(task).Run();
   }
 
   // If canceled, notify the delegate to cancel its pending navigation entry.
@@ -4482,11 +4508,10 @@ bool RenderFrameHostImpl::IsInactiveAndDisallowReactivation() {
   }
 }
 
-void RenderFrameHostImpl::EvictFromBackForwardCache() {
-  // TODO(hajimehoshi): This function should take the reason from the renderer
-  // side.
+void RenderFrameHostImpl::EvictFromBackForwardCache(
+    blink::mojom::RendererEvictionReason reason) {
   EvictFromBackForwardCacheWithReason(
-      BackForwardCacheMetrics::NotRestoredReason::kJavaScriptExecution);
+      RendererEvictionReasonToNotRestoredReason(reason));
 }
 
 void RenderFrameHostImpl::EvictFromBackForwardCacheWithReason(
@@ -5532,16 +5557,6 @@ void RenderFrameHostImpl::BeginNavigation(
         GetStoragePartition(), validated_params->url);
   }
 
-  if (NavigationTypeUtils::IsSameDocument(validated_params->navigation_type)) {
-    // TODO(crbug.com/1125106): A same document navigation can not be done
-    // with a provisional frame, and yet it is happening inside a provisional
-    // frame somehow. This path appears to only allow cross-document
-    // navigation as the renderer never constructs a SAME document request to
-    // send to BeginNavigation(). This DumpWithoutCrashing() is to verify that
-    // fact.
-    base::debug::DumpWithoutCrashing();
-  }
-
   if (waiting_for_init_) {
     pending_navigate_ = std::make_unique<PendingNavigation>(
         std::move(validated_params), std::move(begin_params),
@@ -6516,66 +6531,10 @@ void RenderFrameHostImpl::CommitNavigation(
          subresource_loader_factories);
 
   if (is_same_document) {
-    if (frame_tree_node()->current_frame_host() != this) {
-      // TODO(crbug.com/1125106): A same document navigation can not be done
-      // with a provisional frame, and yet it is happening inside a provisional
-      // frame somehow.
-      RenderFrameHostImpl* current = frame_tree_node()->current_frame_host();
-      std::string from_url;
-      std::string from_site_info;
-      std::string from_process_lock;
-      int64_t from_item_seq_number = -2;
-      int64_t from_document_seq_number = -2;
-      std::string to_url;
-      std::string to_site_info;
-      std::string to_process_lock;
-      int64_t to_item_seq_number;
-      int64_t to_document_seq_number;
-      if (current) {
-        SiteInstanceImpl* current_site = current->GetSiteInstance();
-
-        from_url = current->GetLastCommittedURL().possibly_invalid_spec();
-        from_site_info = current_site->GetSiteInfo().GetDebugString();
-        from_process_lock = current_site->GetProcessLock().ToString();
-        delegate_->GetFrameSequenceNumbersForDebugging(
-            current, from_item_seq_number, from_document_seq_number);
-      }
-      to_url = navigation_request->GetURL().possibly_invalid_spec();
-      to_site_info = GetSiteInstance()->GetSiteInfo().GetDebugString();
-      to_process_lock = GetSiteInstance()->GetProcessLock().ToString();
-      to_item_seq_number = navigation_request->ItemSequenceNumberForDebugging();
-      to_document_seq_number =
-          navigation_request->DocumentSequenceNumberForDebugging();
-
-      bool is_speculative =
-          frame_tree_node()->render_manager()->speculative_frame_host() == this;
-      SCOPED_CRASH_KEY_BOOL(SpecSameDocNav, is_speculative, is_speculative);
-      SCOPED_CRASH_KEY_BOOL(SpecSameDocNav, browser_initiated,
-                            navigation_request->browser_initiated());
-
-      SCOPED_CRASH_KEY_NUMBER(SpecSameDocNav, from_item_sequence,
-                              from_item_seq_number);
-      SCOPED_CRASH_KEY_NUMBER(SpecSameDocNav, to_item_sequence,
-                              to_item_seq_number);
-      SCOPED_CRASH_KEY_NUMBER(SpecSameDocNav, from_document_sequence,
-                              from_document_seq_number);
-      SCOPED_CRASH_KEY_NUMBER(SpecSameDocNav, to_document_sequence,
-                              to_document_seq_number);
-      SCOPED_CRASH_KEY_STRING256(SpecSameDocNav, from_url, from_url);
-      SCOPED_CRASH_KEY_STRING256(SpecSameDocNav, to_url, to_url);
-      SCOPED_CRASH_KEY_STRING256(SpecSameDocNav, from_site_info,
-                                 from_site_info);
-      SCOPED_CRASH_KEY_STRING256(SpecSameDocNav, to_site_info, to_site_info);
-      SCOPED_CRASH_KEY_STRING256(SpecSameDocNav, from_process_lock,
-                                 from_process_lock);
-      SCOPED_CRASH_KEY_STRING256(SpecSameDocNav, to_process_lock,
-                                 to_process_lock);
-
-      base::debug::DumpWithoutCrashing();
-    }
+    DCHECK_EQ(frame_tree_node()->current_frame_host(), this);
+    DCHECK(same_document_navigation_request_);
     bool should_replace_current_entry =
         common_params->should_replace_current_entry;
-    DCHECK(same_document_navigation_request_);
     GetNavigationControl()->CommitSameDocumentNavigation(
         std::move(common_params), std::move(commit_params),
         base::BindOnce(&RenderFrameHostImpl::OnSameDocumentCommitProcessed,

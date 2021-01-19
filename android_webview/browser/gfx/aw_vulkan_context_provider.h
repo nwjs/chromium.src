@@ -48,6 +48,7 @@ class AwVulkanContextProvider final : public viz::VulkanContextProvider {
       AwDrawFn_InitVkParams* params);
 
   // viz::VulkanContextProvider implementation:
+  bool InitializeGrContext(const GrContextOptions& context_options) override;
   gpu::VulkanImplementation* GetVulkanImplementation() override;
   gpu::VulkanDeviceQueue* GetDeviceQueue() override;
   GrDirectContext* GetGrContext() override;
@@ -55,6 +56,7 @@ class AwVulkanContextProvider final : public viz::VulkanContextProvider {
   void EnqueueSecondaryCBSemaphores(
       std::vector<VkSemaphore> semaphores) override;
   void EnqueueSecondaryCBPostSubmitTask(base::OnceClosure closure) override;
+  uint32_t GetSyncCpuMemoryLimit() const override;
 
   VkDevice device() { return globals_->device_queue->GetVulkanDevice(); }
   VkQueue queue() { return globals_->device_queue->GetVulkanQueue(); }

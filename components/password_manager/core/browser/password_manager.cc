@@ -13,6 +13,7 @@
 
 #include "base/metrics/field_trial.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/ranges/algorithm.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -60,6 +61,7 @@ using autofill::NOT_USERNAME;
 using autofill::SINGLE_USERNAME;
 using autofill::UNKNOWN_TYPE;
 using autofill::USERNAME;
+using autofill::mojom::SubmissionIndicatorEvent;
 using base::NumberToString;
 using BlacklistedStatus =
     password_manager::OriginCredentialStore::BlacklistedStatus;
@@ -1225,6 +1227,47 @@ void PasswordManager::ResetPendingCredentials() {
   for (auto& form_manager : form_managers_)
     form_manager->ResetState();
   owned_submitted_form_manager_.reset();
+}
+
+void PasswordManager::OnPasswordFormCleared(
+    PasswordManagerDriver* driver,
+    const autofill::FormData& form_data) {
+  PasswordFormManager* manager = GetMatchedManager(driver, form_data);
+  if (!manager || !manager->is_submitted() ||
+      !manager->GetSubmittedForm()->IsPossibleChangePasswordForm()) {
+    return;
+  }
+  // If a password form was cleared, login is successful.
+  if (form_data.is_form_tag &&
+      base::FeatureList::IsEnabled(
+          password_manager::features::kDetectFormSubmissionOnFormClear)) {
+    manager->UpdateSubmissionIndicatorEvent(
+        SubmissionIndicatorEvent::CHANGE_PASSWORD_FORM_CLEARED);
+    OnLoginSuccessful();
+    return;
+  }
+  // If password fields outside the <form> tag were cleared, it should be
+  // verified that fields are relevant.
+  FieldRendererId new_password_field_id =
+      manager->GetSubmittedForm()->new_password_element_renderer_id;
+  auto it = base::ranges::find(form_data.fields, new_password_field_id,
+                               &autofill::FormFieldData::unique_renderer_id);
+  if (it != form_data.fields.end() && it->value.empty() &&
+      base::FeatureList::IsEnabled(
+          features::kDetectFormSubmissionOnFormClear)) {
+    manager->UpdateSubmissionIndicatorEvent(
+        SubmissionIndicatorEvent::CHANGE_PASSWORD_FORM_CLEARED);
+    OnLoginSuccessful();
+  }
+}
+
+bool PasswordManager::IsFormManagerPendingPasswordUpdate() const {
+  for (const auto& form_manager : form_managers_) {
+    if (form_manager->IsPasswordUpdate())
+      return true;
+  }
+  return owned_submitted_form_manager_ &&
+         owned_submitted_form_manager_->IsPasswordUpdate();
 }
 
 #if defined(OS_IOS)

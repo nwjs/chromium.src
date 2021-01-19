@@ -447,6 +447,7 @@
         'AuthSchemes',
         'DisableAuthNegotiateCnameLookup',
         'EnableAuthNegotiatePort',
+        'BasicAuthOverHttpEnabled',
         'AuthServerAllowlist',
         'AuthServerWhitelist',
         'AuthNegotiateDelegateAllowlist',
@@ -1362,8 +1363,8 @@
         'chrome.*:8-',
         'chrome_os:11-',
         'android:30-',
+        'ios:88-',
       ],
-      'future_on': [ 'ios' ],
       'features': {
         'can_be_recommended': True,
         'dynamic_refresh': True,
@@ -1763,8 +1764,8 @@
         'chrome.*:8-',
         'chrome_os:11-',
         'android:30-',
+        'ios:88-',
       ],
-      'future_on': [ 'ios' ],
       'features': {
         'dynamic_refresh': True,
         'per_profile': True,
@@ -2291,8 +2292,12 @@
       'owners': ['file://components/policy/resources/OWNERS'],
       'type': 'main',
       'schema': { 'type': 'boolean' },
-      'supported_on': ['chrome.*:8-', 'chrome_os:11-', 'android:39-'],
-      'future_on': [ 'ios' ],
+      'supported_on': [
+        'chrome.*:8-',
+        'chrome_os:11-',
+        'android:39-',
+        'ios:88-',
+      ],
       'features': {
         'dynamic_refresh': True,
         'per_profile': True,
@@ -3067,8 +3072,8 @@
         'chrome.*:8-',
         'chrome_os:11-',
         'android:30-',
+        'ios:88-',
       ],
-      'future_on': [ 'ios' ],
       'features': {
         'can_be_recommended': True,
         'dynamic_refresh': True,
@@ -3120,8 +3125,8 @@
         'chrome.*:83-',
         'chrome_os:83-',
         'android:87-',
+        'ios:88-',
       ],
-      'future_on': [ 'ios' ],
       'features': {
         'can_be_recommended': True,
         'dynamic_refresh': True,
@@ -3151,8 +3156,10 @@
       'owners': ['file://components/policy/resources/OWNERS'],
       'type': 'main',
       'schema': { 'type': 'boolean' },
-      'supported_on': ['chrome.*:8-'],
-      'future_on': [ 'ios' ],
+      'supported_on': [
+        'chrome.*:8-',
+        'ios:88-',
+      ],
       'features': {
         'can_be_recommended': True,
         'dynamic_refresh': False,
@@ -3183,8 +3190,8 @@
         'chrome.*:8-',
         'chrome_os:11-',
         'android:30-',
+        'ios:88-',
       ],
-      'future_on': [ 'ios' ],
       'features': {
         'can_be_recommended': True,
         'dynamic_refresh': True,
@@ -3286,8 +3293,8 @@
         'chrome.*:69-',
         'chrome_os:69-',
         'android:69-',
+        'ios:88-',
       ],
-      'future_on': [ 'ios' ],
       'features': {
         'can_be_recommended': True,
         'dynamic_refresh': True,
@@ -3310,8 +3317,8 @@
         'chrome.*:63-',
         'chrome_os:63-',
         'android:63-',
+        'ios:88-',
       ],
-      'future_on': [ 'ios' ],
       'features': {
         'can_be_recommended': True,
         'dynamic_refresh': True,
@@ -4234,7 +4241,7 @@
       'schema': { 'type': 'boolean' },
       'supported_on': ['chrome.*:9-','android:46-','chrome_os:62-'],
       'features': {
-        'dynamic_refresh': False,
+        'dynamic_refresh': True,
         'per_profile': False,
       },
       'example_value': False,
@@ -4252,7 +4259,7 @@
       'schema': { 'type': 'boolean' },
       'supported_on': ['chrome.*:9-','chrome_os:62-'],
       'features': {
-        'dynamic_refresh': False,
+        'dynamic_refresh': True,
         'per_profile': False,
       },
       'example_value': False,
@@ -4262,6 +4269,35 @@
       'desc': '''Setting the policy to Enabled and entering a nonstandard port (in other words, a port other than 80 or 443) includes it in the generated Kerberos SPN.
 
       Setting the policy to Disabled or leaving it unset means the generated Kerberos SPN won't include a port.''',
+    },
+    {
+      'name': 'BasicAuthOverHttpEnabled',
+      'owners': ['file://components/policy/resources/OWNERS'],
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome.*:88-','chrome_os:88-'],
+      'features': {
+        'dynamic_refresh': True,
+        'per_profile': False,
+      },
+      'items': [
+        {
+          'value': True,
+          'caption': '<ph name="BASIC_AUTH">Basic</ph> authentication is allowed on HTTP connections',
+        },
+        {
+          'value': False,
+          'caption': 'Non-secure HTTP connections are not permitted to use <ph name="BASIC_AUTH">Basic</ph> authentication; HTTPS is required',
+        },
+      ],
+      'default': True,
+      'example_value': False,
+      'id': 806,
+      'caption': '''Allow <ph name="BASIC_AUTH">Basic</ph> authentication for HTTP''',
+      'tags': [],
+      'desc': '''Setting the policy to Enabled or leaving it unset will allow <ph name="BASIC_AUTH">Basic</ph> authentication challenges received over non-secure HTTP.
+
+      Setting the policy to Disabled forbids non-secure HTTP requests from using the <ph name="BASIC_AUTH">Basic</ph> authentication scheme; only secure HTTPS is allowed.''',
     },
     {
       'name': 'AuthServerWhitelist',
@@ -4293,7 +4329,7 @@
       'schema': { 'type': 'string' },
       'supported_on': ['chrome.*:86-','android:86-','webview_android:86-','chrome_os:86-'],
       'features': {
-        'dynamic_refresh': False,
+        'dynamic_refresh': True,
         'per_profile': False,
       },
       'example_value': '*.example.com,example.com',
@@ -4334,7 +4370,7 @@
       'schema': { 'type': 'string' },
       'supported_on': ['chrome.*:86-','android:86-','chrome_os:86-'],
       'features': {
-        'dynamic_refresh': False,
+        'dynamic_refresh': True,
         'per_profile': False,
       },
       'example_value': 'foobar.example.com',
@@ -5042,8 +5078,8 @@
         'chrome.*:8-',
         'chrome_os:11-',
         'android:30-',
+        'ios:88-',
       ],
-      'future_on': [ 'ios' ],
       'features': {
         'dynamic_refresh': True,
         'per_profile': True,
@@ -5089,8 +5125,8 @@
         'chrome.*:8-',
         'chrome_os:11-',
         'android:30-',
+        'ios:88-',
       ],
-      'future_on': [ 'ios' ],
       'features': {
         'dynamic_refresh': True,
         'per_profile': True,
@@ -5112,8 +5148,8 @@
         'chrome.*:8-',
         'chrome_os:11-',
         'android:30-',
+        'ios:88-',
       ],
-      'future_on': [ 'ios' ],
       'features': {
         'dynamic_refresh': True,
         'per_profile': True,
@@ -5135,8 +5171,8 @@
         'chrome.*:8-',
         'chrome_os:11-',
         'android:30-',
+        'ios:88-',
       ],
-      'future_on': [ 'ios' ],
       'features': {
         'dynamic_refresh': True,
         'per_profile': True,
@@ -5158,8 +5194,8 @@
         'chrome.*:8-',
         'chrome_os:11-',
         'android:30-',
+        'ios:88-',
       ],
-      'future_on': [ 'ios' ],
       'features': {
         'dynamic_refresh': True,
         'per_profile': True,
@@ -5204,8 +5240,8 @@
         'chrome.*:8-',
         'chrome_os:11-',
         'android:30-',
+        'ios:88-',
       ],
-      'future_on': [ 'ios' ],
       'features': {
         'dynamic_refresh': True,
         'per_profile': True,
@@ -5230,8 +5266,8 @@
         'chrome.*:8-',
         'chrome_os:11-',
         'android:30-',
+        'ios:88-',
       ],
-      'future_on': [ 'ios' ],
       'features': {
         'dynamic_refresh': True,
         'per_profile': True,
@@ -5256,8 +5292,8 @@
         'chrome.*:24-',
         'chrome_os:24-',
         'android:30-',
+        'ios:88-',
       ],
-      'future_on': [ 'ios' ],
       'features': {
         'dynamic_refresh': True,
         'per_profile': True,
@@ -5300,8 +5336,8 @@
         'chrome.*:29-',
         'chrome_os:29-',
         'android:30-',
+        'ios:88-',
       ],
-      'future_on': [ 'ios' ],
       'features': {
         'dynamic_refresh': True,
         'per_profile': True,
@@ -5323,8 +5359,8 @@
         'chrome.*:30-',
         'chrome_os:30-',
         'android:30-',
+        'ios:88-',
       ],
-      'future_on': [ 'ios' ],
       'features': {
         'dynamic_refresh': True,
         'per_profile': True,
@@ -5346,8 +5382,8 @@
         'chrome.*:29-',
         'chrome_os:29-',
         'android:30-',
+        'ios:88-',
       ],
-      'future_on': [ 'ios' ],
       'features': {
         'dynamic_refresh': True,
         'per_profile': True,
@@ -5369,8 +5405,8 @@
         'chrome.*:29-',
         'chrome_os:29-',
         'android:30-',
+        'ios:88-',
       ],
-      'future_on': [ 'ios' ],
       'features': {
         'dynamic_refresh': True,
         'per_profile': True,
@@ -5413,8 +5449,8 @@
         'chrome.*:29-',
         'chrome_os:29-',
         'android:30-',
+        'ios:88-',
       ],
-      'future_on': [ 'ios' ],
       'features': {
         'dynamic_refresh': True,
         'per_profile': True,
@@ -5604,8 +5640,8 @@
         'chrome.*:10-',
         'chrome_os:11-',
         'android:33-',
+        'ios:88-',
       ],
-      'future_on': [ 'ios' ],
       'features': {
         'dynamic_refresh': True,
         'per_profile': True,
@@ -6813,8 +6849,8 @@
         'chrome.*:11-',
         'chrome_os:11-',
         'android:34-',
+        'ios:88-',
       ],
-      'future_on': [ 'ios' ],
       'features': {
         'dynamic_refresh': True,
         'per_profile': True,
@@ -6882,8 +6918,8 @@
         'chrome.*:11-',
         'chrome_os:11-',
         'android:34-',
+        'ios:88-',
       ],
-      'future_on': [ 'ios' ],
       'features': {
         'dynamic_refresh': True,
         'per_profile': True,
@@ -7566,8 +7602,8 @@
         'chrome.*:12-',
         'chrome_os:12-',
         'android:30-',
+        'ios:88-',
       ],
-      'future_on': [ 'ios' ],
       'features': {
         'can_be_recommended': True,
         'dynamic_refresh': True,
@@ -7667,8 +7703,8 @@
         'chrome.*:12-',
         'chrome_os:12-',
         'android:30-',
+        'ios:88-',
       ],
-      'future_on': [ 'ios' ],
       'features': {
         'dynamic_refresh': True,
         'per_profile': True,
@@ -10294,9 +10330,9 @@
       'supported_on': [
         'chrome.*:22-',
         'chrome_os:22-',
-        'android:30-'
+        'android:30-',
+        'ios:88-',
       ],
-      'future_on': ['ios'],
       'features': {
         'dynamic_refresh': True,
         'per_profile': True,
@@ -13115,8 +13151,10 @@
           'caption': '''Disable all variations''',
         },
       ],
-      'supported_on': ['chrome.*:83-'],
-      'future_on': ['ios'],
+      'supported_on': [
+        'chrome.*:83-',
+        'ios:88-',
+      ],
       'features': {
         'dynamic_refresh': True,
         'per_profile': False,
@@ -13388,8 +13426,8 @@
         'android:30-',
         'chrome.*:37-',
         'chrome_os:37-',
+        'ios:88-',
       ],
-      'future_on': [ 'ios' ],
       'features': {
         'dynamic_refresh': True,
         'per_profile': True,
@@ -16824,7 +16862,7 @@
 
       Setting the policy means users can turn on an app on the lock screen if the app's extension ID is in the policy list value. So, setting it to an empty list will turn off note-taking on the lock screen. The policy with an app ID doesn't necessarily mean that users can turn the app on as a note-taking app on the lock screen. For example, on <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> 61, the set of available apps is also restricted by the platform.
 
-      Leaving the policy unset amounts to no restrictions on the set of apps users can enable on the lock screen imposed by the policy."'''
+      Leaving the policy unset amounts to no restrictions on the set of apps users can enable on the lock screen imposed by the policy.'''
     },
     {
       'name': 'CastReceiverEnabled',
@@ -16954,8 +16992,10 @@
       'owners': ['zmin@chromium.org', 'pastarmovj@chromium.org'],
       'type': 'main',
       'schema': { 'type': 'boolean'},
-      'supported_on': ['chrome.*:75-'],
-      'future_on': ['ios'],
+      'supported_on': [
+        'chrome.*:75-',
+        'ios:88-',
+      ],
       'features': {
         'dynamic_refresh': False,
         'per_profile': False,
@@ -18024,8 +18064,10 @@
       'owners': ['zmin@chromium.org', 'pastarmovj@chromium.org', 'rogerta@chromium.org'],
       'type': 'string',
       'schema': { 'type': 'string' },
-      'supported_on': ['chrome.*:72-'],
-      'future_on': [ 'ios' ],
+      'supported_on': [
+        'chrome.*:72-',
+        'ios:88-',
+      ],
       'features': {
         'dynamic_refresh': False,
         'per_profile': False,
@@ -19232,8 +19274,11 @@
         'per_profile': False,
         'cloud_only': True,
       },
-      'supported_on': ['chrome.*:72-', 'chrome_os:81-'],
-      'future_on': [ 'ios' ],
+      'supported_on': [
+        'chrome.*:72-',
+        'chrome_os:81-',
+        'ios:88-',
+      ],
       'caption': '''Enables <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> cloud reporting''',
       'example_value': True,
       'desc': '''This policy controls <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> cloud reporting which uploads information about the browser operation to Google Admin console.
@@ -23524,8 +23569,7 @@ If you disable this policy, web page scrolling to specific text fragments via UR
           },
         },
       },
-      'future_on': ['android'],
-      'supported_on': ['chrome.*:87-', 'chrome_os:87-'],
+      'future_on': ['android', 'chrome.*', 'chrome_os'],
       'features': {
         'dynamic_refresh': True,
         'per_profile': True,
@@ -23572,6 +23616,88 @@ If you disable this policy, web page scrolling to specific text fragments via UR
 
       If this policy is unset, the user cannot use the Lacros browser.''',
     },
+    {
+      'name': 'ProfilePickerOnStartupAvailability',
+      'owners': ['file://components/policy/resources/OWNERS'],
+      'type': 'int-enum',
+      'schema': {
+        'type': 'integer',
+        'enum': [ 0, 1, 2 ],
+      },
+      'items': [
+        {
+          'name': 'Enabled',
+          'value': 0,
+          'caption': '''Profile picker available at startup''',
+        },
+        {
+          'name': 'Disabled',
+          'value': 1,
+          'caption': '''Profile picker disabled at startup''',
+        },
+        {
+          'name': 'Forced',
+          'value': 2,
+          'caption': '''Profile picker forced at startup''',
+        },
+      ],
+      'supported_on': [
+        'chrome.*:88-',
+      ],
+      'features': {
+        'dynamic_refresh': False,
+        'per_profile': False,
+      },
+      'default': 0,
+      'example_value': 0,
+      'id': 810,
+      'caption': '''Profile picker availabily on startup''',
+      'tags': [],
+      'desc': '''Specifies whether the profile picker is enabled, disabled or forced at the browser startup.
+
+      By default the profile picker is not shown if the browser starts in guest or incognito mode, a profile directory and/or urls are specified by command line, an app is explicitly requested to open, the browser was launched by a native notification, there is only one profile available or the policy ForceBrowserSignin is set to true.
+
+      If 'Enabled' (0) is selected or the policy is left unset, the profile picker will be shown at startup by default, but users will be able to enable/disable it.
+
+      If 'Disabled' (1) is selected, the profile picker will never be shown, and users will not be able to change the setting.
+
+      If 'Forced' (2) is selected, the profile picker cannot be suppressed by the user. The profile picker will be shown even if there is only one profile available.''',
+    },
+    {
+      'name': 'SigninInterceptionEnabled',
+      'owners': ['ydago@chromium.org', 'pastarmovj@chromium.org'],
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome.*:88-'],
+      'features': {
+        'dynamic_refresh': False,
+        'per_profile': True,
+      },
+      'items': [
+        {
+          'value': True,
+          'caption': 'Enable signin interception',
+        },
+        {
+          'value': False,
+          'caption': 'Disable signin interception',
+        },
+        {
+          'value': None,
+          'caption': 'Enable signin interception',
+        },
+      ],
+      'example_value': True,
+      'id': 811,
+      'default': None,
+      'caption': '''Enable signin interception''',
+      'tags': [],
+      'desc': '''This settings enables or disables signin interception.
+
+      When this policy not set or is set to True, the signin interception dialog triggers when a Google account is added on the web, and the user may benefit from moving this account to another (new or existing) profile.
+
+      When this is set to False, the signin interception dialog does not trigger.''',
+    }
   ],
 
   'messages': {
@@ -24492,8 +24618,8 @@ The recommended way to configure policy on Windows is via GPO, although provisio
     },
   ],
   'placeholders': [],
-  'deleted_policy_ids': [114, 115, 204, 205, 206, 412, 476, 544, 546, 562, 569, 578, 583, 585, 586, 587, 588, 589, 590, 591, 600, 668, 669],
+  'deleted_policy_ids': [114, 115, 204, 205, 206, 412, 476, 544, 546, 562, 569, 578, 583, 585, 586, 587, 588, 589, 590, 591, 600, 668, 669, 807, 808, 809],
   'deleted_atomic_policy_group_ids': [19],
-  'highest_id_currently_used': 805,
+  'highest_id_currently_used': 811,
   'highest_atomic_group_id_currently_used': 40
 }

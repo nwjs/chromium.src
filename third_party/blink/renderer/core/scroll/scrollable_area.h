@@ -271,8 +271,17 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
   virtual bool HasTickmarks() const { return false; }
   virtual Vector<IntRect> GetTickmarks() const { return Vector<IntRect>(); }
 
+  // Note that this function just set the scrollbar itself needs repaint by
+  // blink during paint, but doesn't set the scrollbar parts (thumb or track)
+  // of an accelerated scrollbar needing repaint by the compositor.
+  // Use Scrollbar::SetNeedsPaintInvaldiation() instead.
   virtual void SetScrollbarNeedsPaintInvalidation(ScrollbarOrientation);
+
   virtual void SetScrollCornerNeedsPaintInvalidation();
+
+  // Set all scrollbars and their parts and the scroll corner needs full paint
+  // invalidation.
+  void SetScrollControlsNeedFullPaintInvalidation();
 
   // Convert points and rects between the scrollbar and its containing
   // EmbeddedContentView. The client needs to implement these in order to be
@@ -535,6 +544,11 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
   // PaintLayerScrollableArea (which can be null) is returned.
   static ScrollableArea* GetForScrolling(const LayoutBox* layout_box);
 
+  // Returns a Node at which 'scroll' events should be dispatched.
+  // For <fieldset>, a ScrollableArea is associated to its internal anonymous
+  // box. GetLayoutBox()->GetNode() doesn't work in this case.
+  Node* EventTargetNode() const;
+
  protected:
   // Deduces the mojom::blink::ScrollBehavior based on the
   // element style and the parameter set by programmatic scroll into either
@@ -568,10 +582,6 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
 
   bool HasBeenDisposed() const { return has_been_disposed_; }
 
-  // Returns a Node at which 'scroll' events should be dispatched.
-  // For <fieldset>, a ScrollableArea is associated to its internal anonymous
-  // box. GetLayoutBox()->GetNode() doesn't work in this case.
-  Node* EventTargetNode() const;
   virtual const Document* GetDocument() const;
 
   // Resolves into un-zoomed physical pixels a scroll |delta| based on its

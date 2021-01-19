@@ -6,6 +6,8 @@
 
 #include "chromeos/components/multidevice/logging/logging.h"
 #include "chromeos/components/phonehub/phone_status_model.h"
+#include "chromeos/components/phonehub/user_action_recorder.h"
+#include "chromeos/components/phonehub/util/histogram_util.h"
 #include "chromeos/services/network_config/in_process_instance.h"
 
 namespace chromeos {
@@ -53,17 +55,21 @@ void TetherControllerImpl::TetherNetworkConnector::GetNetworkStateList(
 
 TetherControllerImpl::TetherControllerImpl(
     PhoneModel* phone_model,
+    UserActionRecorder* user_action_recorder,
     MultiDeviceSetupClient* multidevice_setup_client)
     : TetherControllerImpl(
           phone_model,
+          user_action_recorder,
           multidevice_setup_client,
           std::make_unique<TetherControllerImpl::TetherNetworkConnector>()) {}
 
 TetherControllerImpl::TetherControllerImpl(
     PhoneModel* phone_model,
+    UserActionRecorder* user_action_recorder,
     MultiDeviceSetupClient* multidevice_setup_client,
     std::unique_ptr<TetherControllerImpl::TetherNetworkConnector> connector)
     : phone_model_(phone_model),
+      user_action_recorder_(user_action_recorder),
       multidevice_setup_client_(multidevice_setup_client),
       connector_(std::move(connector)) {
   // Receive updates when devices (e.g., Tether, Ethernet, Wi-Fi) go on/offline
@@ -113,6 +119,9 @@ void TetherControllerImpl::AttemptConnection() {
   }
 
   PA_LOG(INFO) << "Attempting connection; current status is " << status_;
+  user_action_recorder_->RecordTetherConnectionAttempt();
+  util::LogTetherConnectionResult(
+      util::TetherConnectionResult::kAttemptConnection);
 
   FeatureState feature_state =
       multidevice_setup_client_->GetFeatureState(Feature::kInstantTethering);
@@ -383,6 +392,11 @@ void TetherControllerImpl::UpdateStatus() {
 
   PA_LOG(INFO) << "TetherController status update: " << status_ << " => "
                << status;
+
+  // Log the connection attempt result if it has succeed.
+  if (status == Status::kConnected)
+    util::LogTetherConnectionResult(util::TetherConnectionResult::kSuccess);
+
   status_ = status;
 
   NotifyStatusChanged();

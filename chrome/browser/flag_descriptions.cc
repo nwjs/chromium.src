@@ -951,6 +951,10 @@ const char kMemlogStackModeNative[] = "Native";
 const char kMemlogStackModeNativeWithThreadNames[] = "Native with thread names";
 const char kMemlogStackModePseudo[] = "Trace events";
 
+const char kEnableLoginDetectionName[] = "Enable login detection";
+const char kEnableLoginDetectionDescription[] =
+    "Allow user sign-in to be detected based on heuristics.";
+
 const char kEnablePixelCanvasRecordingName[] = "Enable pixel canvas recording";
 const char kEnablePixelCanvasRecordingDescription[] =
     "Pixel canvas recording allows the compositor to raster contents aligned "
@@ -2570,6 +2574,12 @@ const char kAppNotificationStatusMessagingDescription[] =
     "Enables messaging in site permissions UI informing user when "
     "notifications are disabled for the entire app.";
 
+const char kAssistantIntentPageUrlName[] =
+    "Include page URL in Assistant intent";
+const char kAssistantIntentPageUrlDescription[] =
+    "Include the current page's URL in the Assistant voice transcription "
+    "intent.";
+
 const char kAsyncDnsName[] = "Async DNS resolver";
 const char kAsyncDnsDescription[] = "Enables the built-in DNS resolver.";
 
@@ -2804,20 +2814,26 @@ const char kInterestFeedContentSuggestionsDescription[] =
 const char kInterestFeedContentSuggestionsName[] =
     "Interest Feed Content Suggestions";
 
+const char kInterestFeedNoticeCardAutoDismissName[] =
+    "Interest Feed notice card auto-dismiss";
+const char kInterestFeedNoticeCardAutoDismissDescription[] =
+    "Auto-dismiss the notice card when there are enough clicks or views on the "
+    "notice card.";
+
 const char kInterestFeedV2Name[] = "Interest Feed v2";
 const char kInterestFeedV2Description[] =
     "Show content suggestions on the New Tab Page and Start Surface using the "
     "new Feed Component.";
 
-const char InterestFeedV1ClickAndViewActionsConditionalUploadName[] =
+const char kInterestFeedV1ClickAndViewActionsConditionalUploadName[] =
     "Interest Feed V1 clicks/views conditional upload";
-const char InterestFeedV1ClickAndViewActionsConditionalUploadDescription[] =
+const char kInterestFeedV1ClickAndViewActionsConditionalUploadDescription[] =
     "Only enable the upload of clicks/views in Feed V1 after reaching "
     "conditions.";
 
-const char InterestFeedV2ClickAndViewActionsConditionalUploadName[] =
+const char kInterestFeedV2ClickAndViewActionsConditionalUploadName[] =
     "Interest Feed V2 clicks/views conditional upload";
-const char InterestFeedV2ClickAndViewActionsConditionalUploadDescription[] =
+const char kInterestFeedV2ClickAndViewActionsConditionalUploadDescription[] =
     "Only enable the upload of clicks/views in Feed V2 after reaching "
     "conditions.";
 
@@ -3199,6 +3215,11 @@ const char kAndroidNightModeTabReparentingName[] =
 const char kAndroidNightModeTabReparentingDescription[] =
     "If enabled, when the user changes themes the current tabs are reparented "
     "instead of reloaded.";
+
+const char kSwipeToMoveCursorName[] = "Swipe to move cursor";
+const char kSwipeToMoveCursorDescription[] =
+    "Allows user to use touch gestures to move the text cursor around. This "
+    "flag will only take effect on Android 11 and above.";
 
 const char kTabbedAppOverflowMenuIconsName[] =
     "Android tabbed app overflow menu icons";
@@ -3663,6 +3684,14 @@ const char kBluetoothFixA2dpPacketSizeDescription[] =
     "Fixes Bluetooth A2DP packet size to a smaller default value to improve "
     "audio quality and may fix audio stutter.";
 
+const char kBluetoothWbsDogfoodName[] = "Bluetooth WBS dogfood";
+const char kBluetoothWbsDogfoodDescription[] =
+    "Enables Bluetooth wideband speech mic as default audio option. "
+    "Note that flipping this flag makes no difference on most of the "
+    "Chrome OS models, because Bluetooth WBS is either unsupported "
+    "or fully launched. Only on the few models that Bluetooth WBS is "
+    "still stablizing this flag will take effect.";
+
 const char kCameraSystemWebAppName[] = "Camera System Web App";
 const char kCameraSystemWebAppDescription[] =
     "Run the Chrome Camera App as a System Web App.";
@@ -3764,6 +3793,12 @@ const char kDisableCryptAuthV1DeviceSyncName[] =
 const char kDisableCryptAuthV1DeviceSyncDescription[] =
     "Disable the CryptAuth v1 DeviceSync protocol. The v2 DeviceSync flag "
     "should be enabled before this flag is flipped.";
+
+const char kDisableIdleSocketsCloseOnMemoryPressureName[] =
+    "Disable closing idle sockets on memory pressure";
+const char kDisableIdleSocketsCloseOnMemoryPressureDescription[] =
+    "If enabled, idle sockets will not be closed when chrome detects memory "
+    "pressure. This applies to web pages only and not to internal requests.";
 
 const char kDisableExplicitDmaFencesName[] = "Disable explicit dma-fences";
 const char kDisableExplicitDmaFencesDescription[] =
@@ -4277,6 +4312,10 @@ const char kListAllDisplayModesName[] = "List all display modes";
 const char kListAllDisplayModesDescription[] =
     "Enables listing all external displays' modes in the display settings.";
 
+const char kEnableHardwareMirrorModeName[] = "Enable Hardware Mirror Mode";
+const char kEnableHardwareMirrorModeDescription[] =
+    "Enables hardware support when multiple displays are set to mirror mode.";
+
 const char kLockScreenMediaControlsName[] = "Lock screen media controls";
 const char kLockScreenMediaControlsDescription[] =
     "Enable media controls on the lock screen.";
@@ -4292,6 +4331,10 @@ const char kMediaAppDescription[] =
 const char kMediaAppAnnotationName[] = "Media App Annotation";
 const char kMediaAppAnnotationDescription[] =
     "Enables image annotation in chrome://media-app";
+
+const char kMediaAppPdfInInkName[] = "Media App Pdf in Ink";
+const char kMediaAppPdfInInkDescription[] =
+    "Enables loading PDFs into Ink in chrome://media-app";
 
 const char kMediaNotificationsCounterName[] = "Media Notifications Counter";
 const char kMediaNotificationsCounterDescription[] =

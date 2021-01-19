@@ -80,6 +80,8 @@ const base::Feature* kFeaturesExposedToJava[] = {
     &autofill_assistant::features::kAutofillAssistantChromeEntry,
     &autofill_assistant::features::kAutofillAssistantDirectActions,
     &autofill_assistant::features::kAutofillAssistantProactiveHelp,
+    &autofill_assistant::features::
+        kAutofillAssistantDisableProactiveHelpTiedToMSBB,
     &device::kWebAuthPhoneSupport,
     &download::features::kDownloadAutoResumptionNative,
     &download::features::kDownloadLater,
@@ -88,6 +90,7 @@ const base::Feature* kFeaturesExposedToJava[] = {
     &embedder_support::kShowTrustedPublisherURL,
     &features::kClearOldBrowsingData,
     &features::kDownloadsLocationChange,
+    &features::kEarlyLibraryLoad,
     &features::kGenericSensorExtraClasses,
     &features::kInstallableAmbientBadgeInfoBar,
     &features::kMetricsSettingsAndroid,
@@ -105,6 +108,7 @@ const base::Feature* kFeaturesExposedToJava[] = {
     &feature_engagement::kIPHTabSwitcherButtonFeature,
     &feed::kInterestFeedContentSuggestions,
     &feed::kInterestFeedNoticeCardAutoDismiss,
+    &feed::kInterestFeedSpinnerAlwaysAnimate,
     &feed::kInterestFeedV1ClicksAndViewsConditionalUpload,
     &feed::kInterestFeedV2,
     &feed::kReportFeedUserActions,
@@ -119,6 +123,7 @@ const base::Feature* kFeaturesExposedToJava[] = {
     &kAndroidPartnerCustomizationPhenotype,
     &kAndroidPayIntegrationV2,
     &kAndroidSearchEngineChoiceNotification,
+    &kAssistantIntentPageUrl,
     &kBentoOffline,
     &kCastDeviceFilter,
     &kCloseTabSuggestions,
@@ -151,6 +156,7 @@ const base::Feature* kFeaturesExposedToJava[] = {
     &kContextualSearchDebug,
     &kContextualSearchDefinitions,
     &kContextualSearchLegacyHttpPolicy,
+    &kContextualSearchLiteralSearchTap,
     &kContextualSearchLongpressResolve,
     &kContextualSearchMlTapSuppression,
     &kContextualSearchSecondTap,
@@ -216,6 +222,14 @@ const base::Feature* kFeaturesExposedToJava[] = {
     &kTestDefaultDisabled,
     &kTestDefaultEnabled,
     &kToolbarIphAndroid,
+    &kToolbarIphAndroidCohort1,
+    &kToolbarIphAndroidCohort2,
+    &kToolbarIphAndroidCohort3,
+    &kToolbarIphAndroidCohort4,
+    &kToolbarIphAndroidCohort5,
+    &kToolbarIphAndroidCohort6,
+    &kToolbarIphAndroidCohort7,
+    &kToolbarIphAndroidCohort8,
     &kTrustedWebActivityLocationDelegation,
     &kTrustedWebActivityNewDisclosure,
     &kTrustedWebActivityPostMessage,
@@ -226,6 +240,7 @@ const base::Feature* kFeaturesExposedToJava[] = {
     &kUmaBackgroundSessions,
     &kUpdateNotificationSchedulingIntegration,
     &kUpdateNotificationScheduleServiceImmediateShowOption,
+    &kVoiceSearchAudioCapturePolicy,
     &kVoiceButtonInTopToolbar,
     &kVrBrowsingFeedback,
     &kWebApkAdaptiveIcon,
@@ -327,6 +342,9 @@ const base::Feature kAndroidPayIntegrationV2{"AndroidPayIntegrationV2",
 const base::Feature kAndroidSearchEngineChoiceNotification{
     "AndroidSearchEngineChoiceNotification", base::FEATURE_ENABLED_BY_DEFAULT};
 
+const base::Feature kAssistantIntentPageUrl{"AssistantIntentPageUrl",
+                                            base::FEATURE_DISABLED_BY_DEFAULT};
+
 const base::Feature kBackgroundTaskComponentUpdate{
     "BackgroundTaskComponentUpdate", base::FEATURE_DISABLED_BY_DEFAULT};
 
@@ -425,6 +443,9 @@ const base::Feature kContextualSearchDefinitions{
 
 const base::Feature kContextualSearchLegacyHttpPolicy{
     "ContextualSearchLegacyHttpPolicy", base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::Feature kContextualSearchLiteralSearchTap{
+    "ContextualSearchLiteralSearchTap", base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kContextualSearchLongpressResolve{
     "ContextualSearchLongpressResolve", base::FEATURE_DISABLED_BY_DEFAULT};
@@ -625,6 +646,22 @@ const base::Feature kTestDefaultEnabled{"TestDefaultEnabled",
 
 const base::Feature kToolbarIphAndroid{"ToolbarIphAndroid",
                                        base::FEATURE_DISABLED_BY_DEFAULT};
+const base::Feature kToolbarIphAndroidCohort1{
+    "ToolbarIphAndroidCohort1", base::FEATURE_DISABLED_BY_DEFAULT};
+const base::Feature kToolbarIphAndroidCohort2{
+    "ToolbarIphAndroidCohort2", base::FEATURE_DISABLED_BY_DEFAULT};
+const base::Feature kToolbarIphAndroidCohort3{
+    "ToolbarIphAndroidCohort3", base::FEATURE_DISABLED_BY_DEFAULT};
+const base::Feature kToolbarIphAndroidCohort4{
+    "ToolbarIphAndroidCohort4", base::FEATURE_DISABLED_BY_DEFAULT};
+const base::Feature kToolbarIphAndroidCohort5{
+    "ToolbarIphAndroidCohort5", base::FEATURE_DISABLED_BY_DEFAULT};
+const base::Feature kToolbarIphAndroidCohort6{
+    "ToolbarIphAndroidCohort6", base::FEATURE_DISABLED_BY_DEFAULT};
+const base::Feature kToolbarIphAndroidCohort7{
+    "ToolbarIphAndroidCohort7", base::FEATURE_DISABLED_BY_DEFAULT};
+const base::Feature kToolbarIphAndroidCohort8{
+    "ToolbarIphAndroidCohort8", base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kTrustedWebActivityLocationDelegation{
     "TrustedWebActivityLocationDelegation", base::FEATURE_ENABLED_BY_DEFAULT};
@@ -667,6 +704,9 @@ const base::Feature kUpdateNotificationScheduleServiceImmediateShowOption{
 
 const base::Feature kUserMediaScreenCapturing{
     "UserMediaScreenCapturing", base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::Feature kVoiceSearchAudioCapturePolicy{
+    "VoiceSearchAudioCapturePolicy", base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kVoiceButtonInTopToolbar{"VoiceButtonInTopToolbar",
                                              base::FEATURE_DISABLED_BY_DEFAULT};

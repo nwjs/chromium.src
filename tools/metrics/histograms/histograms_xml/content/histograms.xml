@@ -865,6 +865,22 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
   </summary>
 </histogram>
 
+<histogram name="ContentSuggestions.Feed.Network.Duration.{NetworkEvent}"
+    units="ms" expires_after="M90">
+  <owner>sczs@chromium.org</owner>
+  <owner>harringtond@chromium.org</owner>
+  <owner>feed@chromium.org</owner>
+  <summary>The amount of time a {NetworkEvent} network event took.</summary>
+  <token key="NetworkEvent">
+    <variant name="ActionUploadFailure"/>
+    <variant name="ActionUploadSuccess"/>
+    <variant name="ArticlesFetchFailure"/>
+    <variant name="ArticlesFetchSuccess"/>
+    <variant name="MoreArticlesFetchFailure"/>
+    <variant name="MoreArticlesFetchSuccess"/>
+  </token>
+</histogram>
+
 <histogram name="ContentSuggestions.Feed.Network.RequestSizeKB.Compressed"
     units="KB" expires_after="M90">
   <owner>carlosk@chromium.org</owner>
@@ -1210,7 +1226,21 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
   <owner>carlosk@chromium.org</owner>
   <owner>feed@chromium.org</owner>
   <summary>
-    Counts of user actions within the feed surface (Feed v2 only).
+    Counts of user actions within the feed surface (Feed v2 only). Recorded
+    whenever a user has taken an explicit action in the Feed. e.g. (Open a Card,
+    Hide the Feed, etc.)
+  </summary>
+</histogram>
+
+<histogram name="ContentSuggestions.Feed.UserActions.Commands"
+    enum="FeedUserCommandType" expires_after="2021-09-01">
+  <owner>harringtond@chromium.org</owner>
+  <owner>sczs@chromium.org</owner>
+  <owner>feed@chromium.org</owner>
+  <summary>
+    Recorded whenever an Elements commands has taken place which wasn't handled
+    explicitly by ContentSuggestions.Feed.UserActions. e.g. A new command to
+    added server side to &quot;Report Content&quot;.(iOS only).
   </summary>
 </histogram>
 

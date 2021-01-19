@@ -11,6 +11,8 @@
 #include "ash/clipboard/clipboard_history_resource_manager.h"
 #include "ash/clipboard/clipboard_history_util.h"
 #include "ash/clipboard/clipboard_nudge_controller.h"
+#include "ash/clipboard/scoped_clipboard_history_pause_impl.h"
+#include "ash/public/cpp/clipboard_image_model_factory.h"
 #include "ash/public/cpp/window_tree_host_lookup.h"
 #include "ash/resources/vector_icons/vector_icons.h"
 #include "ash/shell.h"
@@ -60,16 +62,12 @@ bool IsRectContainedByAnyDisplay(const gfx::Rect& rect) {
 }
 
 void SendSyntheticKeyEvent(ui::KeyboardCode key_code, int flags) {
-  ui::KeyEvent key_pressed(/*type=*/ui::ET_KEY_PRESSED, key_code,
-                           /*code=*/static_cast<ui::DomCode>(0), flags);
+  ui::KeyEvent synthetic_key_event(/*type=*/ui::ET_KEY_PRESSED, key_code,
+                                   /*code=*/static_cast<ui::DomCode>(0), flags);
   auto* host = GetWindowTreeHostForDisplay(
-      display::Screen::GetScreen()->GetDisplayForNewWindows().id());
+      display::Screen::GetScreen()->GetPrimaryDisplay().id());
   DCHECK(host);
-  host->DeliverEventToSink(&key_pressed);
-
-  ui::KeyEvent key_released(/*type=*/ui::ET_KEY_RELEASED, key_code,
-                            /*code=*/static_cast<ui::DomCode>(0), flags);
-  host->DeliverEventToSink(&key_released);
+  host->DeliverEventToSink(&synthetic_key_event);
 }
 
 }  // namespace
@@ -81,6 +79,10 @@ class ClipboardHistoryControllerImpl::AcceleratorTarget
  public:
   explicit AcceleratorTarget(ClipboardHistoryControllerImpl* controller)
       : controller_(controller),
+        show_menu_combo_(
+            ui::Accelerator(/*key_code=*/ui::VKEY_V,
+                            /*modifiers=*/ui::EF_COMMAND_DOWN,
+                            /*key_state=*/ui::Accelerator::KeyState::PRESSED)),
         delete_selected_(ui::Accelerator(
             /*key_code=*/ui::VKEY_BACK,
             /*modifiers=*/ui::EF_NONE,
@@ -96,6 +98,13 @@ class ClipboardHistoryControllerImpl::AcceleratorTarget
   AcceleratorTarget(const AcceleratorTarget&) = delete;
   AcceleratorTarget& operator=(const AcceleratorTarget&) = delete;
   ~AcceleratorTarget() override = default;
+
+  void Init() {
+    // Register, but no need to unregister because this outlives
+    // AcceleratorController.
+    Shell::Get()->accelerator_controller()->Register(
+        {show_menu_combo_}, /*accelerator_target=*/this);
+  }
 
   void OnMenuShown() {
     Shell::Get()->accelerator_controller()->Register(
@@ -115,7 +124,9 @@ class ClipboardHistoryControllerImpl::AcceleratorTarget
  private:
   // ui::AcceleratorTarget:
   bool AcceleratorPressed(const ui::Accelerator& accelerator) override {
-    if (accelerator == delete_selected_) {
+    if (accelerator == show_menu_combo_) {
+      HandleShowMenuCombo();
+    } else if (accelerator == delete_selected_) {
       HandleDeleteSelected(accelerator.modifiers());
     } else if (accelerator == tab_navigation_) {
       HandleTab();
@@ -135,8 +146,14 @@ class ClipboardHistoryControllerImpl::AcceleratorTarget
 
   void HandleDeleteSelected(int event_flags) {
     DCHECK(controller_->IsMenuShowing());
-    controller_->ExecuteCommand(ClipboardHistoryUtil::kDeleteCommandId,
-                                event_flags);
+    controller_->DeleteSelectedMenuItemIfAny();
+  }
+
+  void HandleShowMenuCombo() {
+    if (controller_->IsMenuShowing())
+      controller_->ExecuteSelectedMenuItem(show_menu_combo_.modifiers());
+    else
+      controller_->ShowMenuByAccelerator();
   }
 
   void HandleTab() {
@@ -151,6 +168,9 @@ class ClipboardHistoryControllerImpl::AcceleratorTarget
 
   // The controller responsible for showing the Clipboard History menu.
   ClipboardHistoryControllerImpl* const controller_;
+
+  // The accelerator to show the menu or execute the selected menu item.
+  const ui::Accelerator show_menu_combo_;
 
   // The accelerator to delete the selected menu item. It is only registered
   // while the menu is showing.
@@ -209,17 +229,12 @@ void ClipboardHistoryControllerImpl::RemoveObserver(Observer* observer) const {
   observers_.RemoveObserver(observer);
 }
 
-bool ClipboardHistoryControllerImpl::IsMenuShowing() const {
-  return context_menu_ && context_menu_->IsRunning();
+void ClipboardHistoryControllerImpl::Init() {
+  accelerator_target_->Init();
 }
 
-void ClipboardHistoryControllerImpl::ShowMenuByAccelerator() {
-  if (IsMenuShowing()) {
-    ExecuteSelectedMenuItem(ui::EF_COMMAND_DOWN);
-    return;
-  }
-  ShowMenu(CalculateAnchorRect(), views::MenuAnchorPosition::kBubbleRight,
-           ui::MENU_SOURCE_KEYBOARD);
+bool ClipboardHistoryControllerImpl::IsMenuShowing() const {
+  return context_menu_ && context_menu_->IsRunning();
 }
 
 gfx::Rect ClipboardHistoryControllerImpl::GetMenuBoundsInScreenForTest() const {
@@ -259,7 +274,13 @@ void ClipboardHistoryControllerImpl::ShowMenu(
 
 bool ClipboardHistoryControllerImpl::CanShowMenu() const {
   return !clipboard_history_->IsEmpty() &&
-         clipboard_history_->IsEnabledInCurrentMode();
+         ClipboardHistoryUtil::IsEnabledInCurrentMode();
+}
+
+std::unique_ptr<ScopedClipboardHistoryPause>
+ClipboardHistoryControllerImpl::CreateScopedPause() {
+  return std::make_unique<ScopedClipboardHistoryPauseImpl>(
+      clipboard_history_.get());
 }
 
 void ClipboardHistoryControllerImpl::OnClipboardHistoryCleared() {
@@ -274,25 +295,45 @@ void ClipboardHistoryControllerImpl::OnClipboardHistoryCleared() {
 
 void ClipboardHistoryControllerImpl::ExecuteSelectedMenuItem(int event_flags) {
   DCHECK(IsMenuShowing());
+  // Deactivate ClipboardImageModelFactory prior to pasting to ensure that any
+  // modifications to the clipboard for HTML rendering purposes are reversed.
+  ClipboardImageModelFactory::Get()->Deactivate();
 
   auto command = context_menu_->GetSelectedMenuItemCommand();
 
   // If no menu item is currently selected, we'll fallback to the first item.
-  menu_delegate_->ExecuteCommand(
-      command.value_or(ClipboardHistoryUtil::kFirstItemCommandId), event_flags);
+  PasteMenuItemData(command.value_or(ClipboardHistoryUtil::kFirstItemCommandId),
+                    event_flags);
 }
 
 void ClipboardHistoryControllerImpl::ExecuteCommand(int command_id,
                                                     int event_flags) {
   DCHECK(context_menu_);
 
-  if (command_id == ClipboardHistoryUtil::kDeleteCommandId) {
-    DeleteSelectedMenuItemIfAny();
-    return;
-  }
-
   DCHECK_GE(command_id, ClipboardHistoryUtil::kFirstItemCommandId);
-  PasteMenuItemData(command_id, event_flags & ui::EF_SHIFT_DOWN);
+  DCHECK_LE(command_id, ClipboardHistoryUtil::kMaxItemCommandId);
+
+  using Action = ClipboardHistoryUtil::Action;
+  Action action = context_menu_->GetActionForCommandId(command_id);
+  switch (action) {
+    case Action::kPaste:
+      PasteMenuItemData(command_id, event_flags & ui::EF_SHIFT_DOWN);
+      return;
+    case Action::kDelete:
+      DeleteItemWithCommandId(command_id);
+      return;
+    case Action::kSelect:
+      context_menu_->SelectMenuItemWithCommandId(command_id);
+      return;
+    case Action::kEmpty:
+      NOTREACHED();
+      return;
+  }
+}
+
+void ClipboardHistoryControllerImpl::ShowMenuByAccelerator() {
+  ShowMenu(CalculateAnchorRect(), views::MenuAnchorPosition::kBubbleRight,
+           ui::MENU_SOURCE_KEYBOARD);
 }
 
 void ClipboardHistoryControllerImpl::PasteMenuItemData(int command_id,
@@ -300,6 +341,11 @@ void ClipboardHistoryControllerImpl::PasteMenuItemData(int command_id,
   UMA_HISTOGRAM_ENUMERATION(
       "Ash.ClipboardHistory.ContextMenu.MenuOptionSelected", command_id,
       ClipboardHistoryUtil::kMaxCommandId);
+
+  // Deactivate ClipboardImageModelFactory prior to pasting to ensure that any
+  // modifications to the clipboard for HTML rendering purposes are reversed.
+  ClipboardImageModelFactory::Get()->Deactivate();
+
   // Force close the context menu. Failure to do so before dispatching our
   // synthetic key event will result in the context menu consuming the event.
   DCHECK(context_menu_);
@@ -331,7 +377,7 @@ void ClipboardHistoryControllerImpl::PasteMenuItemData(int command_id,
     }
 
     // Pause clipboard history when manipulating the clipboard for a paste.
-    ClipboardHistory::ScopedPause scoped_pause(clipboard_history_.get());
+    ScopedClipboardHistoryPauseImpl scoped_pause(clipboard_history_.get());
     original_data = clipboard->WriteClipboardData(std::move(temp_data));
   }
 
@@ -356,9 +402,9 @@ void ClipboardHistoryControllerImpl::PasteMenuItemData(int command_id,
             // need to pause clipboard history. Failure to do so will result in
             // the original item being re-recorded when this restoration step
             // should actually be opaque to the user.
-            std::unique_ptr<ClipboardHistory::ScopedPause> scoped_pause;
+            std::unique_ptr<ScopedClipboardHistoryPauseImpl> scoped_pause;
             if (weak_ptr) {
-              scoped_pause = std::make_unique<ClipboardHistory::ScopedPause>(
+              scoped_pause = std::make_unique<ScopedClipboardHistoryPauseImpl>(
                   weak_ptr->clipboard_history_.get());
             }
             GetClipboard()->WriteClipboardData(std::move(original_data));
@@ -375,10 +421,11 @@ void ClipboardHistoryControllerImpl::DeleteSelectedMenuItemIfAny() {
   if (!selected_command.has_value())
     return;
 
-  DCHECK_GE(*selected_command, ClipboardHistoryUtil::kFirstItemCommandId);
+  DeleteItemWithCommandId(*selected_command);
+}
 
-  const auto& to_be_deleted_item =
-      context_menu_->GetItemFromCommandId(*selected_command);
+void ClipboardHistoryControllerImpl::DeleteItemWithCommandId(int command_id) {
+  DCHECK(context_menu_);
 
   // Pressing VKEY_DELETE is handled here via AcceleratorTarget because the
   // contextual menu consumes the key event. Record the "pressing the delete
@@ -386,6 +433,8 @@ void ClipboardHistoryControllerImpl::DeleteSelectedMenuItemIfAny() {
   // activating the button directly via click/tap. There is no special handling
   // for pasting an item via VKEY_RETURN because in that case the menu does not
   // process the key event.
+  const auto& to_be_deleted_item =
+      context_menu_->GetItemFromCommandId(command_id);
   ClipboardHistoryUtil::RecordClipboardHistoryItemDeleted(to_be_deleted_item);
   clipboard_history_->RemoveItemForId(to_be_deleted_item.id());
 
@@ -396,7 +445,7 @@ void ClipboardHistoryControllerImpl::DeleteSelectedMenuItemIfAny() {
     return;
   }
 
-  context_menu_->RemoveSelectedMenuItem();
+  context_menu_->RemoveMenuItemWithCommandId(command_id);
 }
 
 void ClipboardHistoryControllerImpl::AdvancePseudoFocus(bool reverse) {

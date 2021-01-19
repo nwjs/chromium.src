@@ -14,6 +14,7 @@ import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.IS_VOICE_
 import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.MORE_TABS_CLICK_LISTENER;
 import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.MV_TILES_CONTAINER_TOP_MARGIN;
 import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.MV_TILES_VISIBLE;
+import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.RESET_TASK_SURFACE_HEADER_SCROLL_POSITION;
 import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.TAB_SWITCHER_TITLE_TOP_MARGIN;
 import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.TASKS_SURFACE_BODY_TOP_MARGIN;
 import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.TRENDY_TERMS_VISIBLE;
@@ -26,6 +27,7 @@ import static org.chromium.chrome.features.start_surface.StartSurfaceProperties.
 import static org.chromium.chrome.features.start_surface.StartSurfaceProperties.IS_SECONDARY_SURFACE_VISIBLE;
 import static org.chromium.chrome.features.start_surface.StartSurfaceProperties.IS_SHOWING_OVERVIEW;
 import static org.chromium.chrome.features.start_surface.StartSurfaceProperties.IS_SHOWING_STACK_TAB_SWITCHER;
+import static org.chromium.chrome.features.start_surface.StartSurfaceProperties.RESET_FEED_SURFACE_SCROLL_POSITION;
 import static org.chromium.chrome.features.start_surface.StartSurfaceProperties.TOP_MARGIN;
 
 import android.content.res.Resources;
@@ -166,6 +168,7 @@ class StartSurfaceMediator
      */
     @Nullable
     private Boolean mFeedVisibilityInSharedPreferenceOnStartUp;
+    private boolean mHadWarmStart;
 
     StartSurfaceMediator(TabSwitcher.Controller controller, TabModelSelector tabModelSelector,
             @Nullable PropertyModel propertyModel,
@@ -173,7 +176,8 @@ class StartSurfaceMediator
             @SurfaceMode int surfaceMode, NightModeStateProvider nightModeStateProvider,
             BrowserControlsStateProvider browserControlsStateProvider,
             ActivityStateChecker activityStateChecker, boolean excludeMVTiles,
-            boolean showStackTabSwitcher, OneshotSupplier<StartSurface> startSurfaceSupplier) {
+            boolean showStackTabSwitcher, OneshotSupplier<StartSurface> startSurfaceSupplier,
+            boolean hadWarmStart) {
         mController = controller;
         mTabModelSelector = tabModelSelector;
         mPropertyModel = propertyModel;
@@ -185,6 +189,7 @@ class StartSurfaceMediator
         mExcludeMVTiles = excludeMVTiles;
         mShowStackTabSwitcher = showStackTabSwitcher;
         mStartSurfaceSupplier = startSurfaceSupplier;
+        mHadWarmStart = hadWarmStart;
 
         if (mPropertyModel != null) {
             assert mSurfaceMode == SurfaceMode.SINGLE_PANE || mSurfaceMode == SurfaceMode.TWO_PANES
@@ -419,6 +424,13 @@ class StartSurfaceMediator
 
         if (mPropertyModel == null || state == mStartSurfaceState) return;
 
+        // When entering the Start surface by tapping home button or new tab page, we need to reset
+        // the scrolling position.
+        if (state == StartSurfaceState.SHOWING_HOMEPAGE) {
+            mPropertyModel.set(RESET_TASK_SURFACE_HEADER_SCROLL_POSITION, true);
+            mPropertyModel.set(RESET_FEED_SURFACE_SCROLL_POSITION, true);
+        }
+
         // Cache previous state.
         if (mStartSurfaceState != StartSurfaceState.NOT_SHOWN) {
             mPreviousStartSurfaceState = mStartSurfaceState;
@@ -543,12 +555,10 @@ class StartSurfaceMediator
         }
     }
 
-    // TODO(crbug.com/1115757): After crrev.com/c/2315823, Overview state and Startsurface state are
-    // two different things, audit the wording usage and see if we can rename this method to
-    // getStartSurfaceState.
     @VisibleForTesting
+    @Override
     @StartSurfaceState
-    public int getOverviewState() {
+    public int getStartSurfaceState() {
         return mStartSurfaceState;
     }
 
@@ -629,6 +639,12 @@ class StartSurfaceMediator
             }
         }
 
+        // Pressing back button on the Start surface homepage is handled by
+        // ChromeTabbedActivity#handleBackPressed().
+        if (mStartSurfaceState == StartSurfaceState.SHOWN_HOMEPAGE && !mShowStackTabSwitcher) {
+            return false;
+        }
+
         if (mPropertyModel != null && mPropertyModel.get(IS_EXPLORE_SURFACE_VISIBLE)
                 && mStartSurfaceState == StartSurfaceState.SHOWN_TABSWITCHER_TWO_PANES) {
             setExploreSurfaceVisibility(false);
@@ -663,8 +679,9 @@ class StartSurfaceMediator
     }
 
     @Override
-    public boolean isHomePageShowing() {
-        return mStartSurfaceState == StartSurfaceState.SHOWN_HOMEPAGE;
+    public boolean inShowState() {
+        return mStartSurfaceState != StartSurfaceState.NOT_SHOWN
+                && mStartSurfaceState != StartSurfaceState.DISABLED;
     }
 
     // Implements TabSwitcher.OverviewModeObserver.
@@ -755,7 +772,7 @@ class StartSurfaceMediator
 
         return mSurfaceMode == SurfaceMode.SINGLE_PANE
                 && CachedFeatureFlags.isEnabled(ChromeFeatureList.INSTANT_START)
-                && StartSurfaceConfiguration.getFeedArticlesVisibility();
+                && StartSurfaceConfiguration.getFeedArticlesVisibility() && !mHadWarmStart;
     }
 
     /** This interface builds the feed surface coordinator when showing if needed. */
@@ -930,6 +947,9 @@ class StartSurfaceMediator
                         ? StartSurfaceState.SHOWN_HOMEPAGE
                         : mPreviousStartSurfaceState;
             } else if (mStartSurfaceState == StartSurfaceState.SHOWING_START) {
+                if (mTabModelSelector.isIncognitoSelected() && !mShowStackTabSwitcher) {
+                    return StartSurfaceState.SHOWN_TABSWITCHER;
+                }
                 return StartSurfaceState.SHOWN_HOMEPAGE;
             } else if (mStartSurfaceState == StartSurfaceState.SHOWING_TABSWITCHER) {
                 return StartSurfaceState.SHOWN_TABSWITCHER;

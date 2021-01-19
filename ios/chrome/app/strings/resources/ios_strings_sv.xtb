@@ -359,7 +359,7 @@ Din data har krypterats med lösenfrasen för synkronisering. Ange den om du vil
 <translation id="4840495572919996524">Bokmärken, historik, lösenord och annat synkroniseras inte längre med ditt Google-konto.</translation>
 <translation id="4854345657858711387">Ställ in ett lösenord</translation>
 <translation id="4860895144060829044">Ring</translation>
-<translation id="4872323082491632254">Kontrollera lösenorden</translation>
+<translation id="4872323082491632254">Kontrollera lösenord</translation>
 <translation id="4881695831933465202">Öppna</translation>
 <translation id="4901778704868714008">Spara …</translation>
 <translation id="4904877109095351937">Markera som läst</translation>
@@ -610,6 +610,7 @@ Sträva efter att använda ett unikt lösenord för varje webbplats.</translatio
 <translation id="7472734401283673885">Företagets namn</translation>
 <translation id="7473891865547856676">Nej tack</translation>
 <translation id="7481312909269577407">Framåt</translation>
+<translation id="7483467499335917849">Använd din aktuella plats</translation>
 <translation id="750493650310597496">0 valda</translation>
 <translation id="7514365320538308">Ladda ned</translation>
 <translation id="7537586195939242955">Det går tyvärr inte att installera det här objektet i Passbook just nu.</translation>

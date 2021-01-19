@@ -137,6 +137,18 @@ enum class EnterTabSwitcherSnapshotResult {
   kMaxValue = kPageNotLoadingAndSnapshotSucceeded,
 };
 
+// Histogram enum values for showing the experiment arms of the location
+// permissions experiment. These values are persisted to logs. Entries should
+// not be renumbered and numeric values should never be reused.
+enum class LocationPermissionsUI {
+  // The First Run native location prompt was not shown.
+  kFirstRunPromptNotShown = 0,
+  // The First Run location permissions modal was shown.
+  kFirstRunModal = 1,
+  // kMaxValue should share the value of the highest enumerator.
+  kMaxValue = kFirstRunModal,
+};
+
 // Used to update the current BVC mode if a new tab is added while the tab
 // switcher view is being dismissed.  This is different than ApplicationMode in
 // that it can be set to |NONE| when not in use.
@@ -643,22 +655,20 @@ const char kMultiWindowOpenInNewWindowHistogram[] =
     }
   }
 
-  // Before bringing up the UI, make sure the launch mode is correct, and
-  // check for previous crashes.
-  BOOL startInIncognito =
-      [[NSUserDefaults standardUserDefaults] boolForKey:kIncognitoCurrentKey];
-  BOOL switchFromIncognito =
-      startInIncognito &&
-      !self.sceneState.appState.startupInformation.canLaunchInIncognito;
+  // Make sure the launch mode is correct and consistent with the mode used
+  // when the application was terminated. It is possible for the incognito
+  // UI to have been presented but with no tabs (e.g. the tab switcher was
+  // active and user closed the last tab). In that case, switch to regular
+  // UI. Also, if the app crashed, always switch back to regular UI.
+  const BOOL startInIncognito =
+      self.sceneState.incognitoContentVisible &&
+      !self.sceneState.appState.postCrashLaunch &&
+      !self.interfaceProvider.incognitoInterface.browser->GetWebStateList()
+           ->empty();
 
-  if (self.sceneState.appState.postCrashLaunch || switchFromIncognito) {
+  // If the application crashed, clear incognito state.
+  if (self.sceneState.appState.postCrashLaunch)
     [self clearIOSSpecificIncognitoData];
-    if (switchFromIncognito)
-      [self.browserViewWrangler
-          switchGlobalStateToMode:ApplicationMode::NORMAL];
-  }
-  if (switchFromIncognito)
-    startInIncognito = NO;
 
   [self createInitialUI:(startInIncognito ? ApplicationMode::INCOGNITO
                                           : ApplicationMode::NORMAL)];
@@ -706,8 +716,6 @@ const char kMultiWindowOpenInNewWindowHistogram[] =
   // Decide if the First Run UI needs to run.
   const bool firstRun = ShouldPresentFirstRunExperience();
 
-  [self.browserViewWrangler switchGlobalStateToMode:launchMode];
-
   Browser* browser;
   if (launchMode == ApplicationMode::INCOGNITO) {
     browser = self.incognitoInterface.browser;
@@ -748,9 +756,10 @@ const char kMultiWindowOpenInNewWindowHistogram[] =
     self.sceneState.appState.startupInformation.restoreHelper = nil;
   }
 
-  // If skipping first run and not in Safe Mode, consider showing the default
-  // browser promo.
-  if (!firstRun && !self.sceneState.appState.isInSafeMode) {
+  // If skipping first run, not in Safe Mode, and the launch is not after a
+  // crash, consider showing the default browser promo.
+  if (!firstRun && !self.sceneState.appState.isInSafeMode &&
+      !self.sceneState.appState.postCrashLaunch) {
     // Show the Default Browser promo UI if the user's past behavior fits
     // the categorization of potentially interested users or if the user is
     // signed in. Do not show if it is determined that Chrome is already the
@@ -834,6 +843,11 @@ const char kMultiWindowOpenInNewWindowHistogram[] =
   return base::SysUTF16ToNSString(formattedTitle);
 }
 
+- (void)logLocationPermissionsExperimentForGroupShown:
+    (LocationPermissionsUI)experimentGroup {
+  UMA_HISTOGRAM_ENUMERATION("IOS.LocationPermissionsUI", experimentGroup);
+}
+
 #pragma mark - First Run
 
 // Initializes the first run UI and presents it to the user.
@@ -907,11 +921,20 @@ const char kMultiWindowOpenInNewWindowHistogram[] =
                 name:kChromeFirstRunUIDidFinishNotification
               object:nil];
 
-  if (!location_permissions_field_trial::IsInRemoveFirstRunPromptGroup()) {
+  if (!location_permissions_field_trial::IsInRemoveFirstRunPromptGroup() &&
+      !location_permissions_field_trial::IsInFirstRunModalGroup()) {
+    [self logLocationPermissionsExperimentForGroupShown:
+              LocationPermissionsUI::kFirstRunPromptNotShown];
     // As soon as First Run has finished, give OmniboxGeolocationController an
     // opportunity to present the iOS system location alert.
     [[OmniboxGeolocationController sharedInstance]
         triggerSystemPromptForNewUser:YES];
+  } else if (location_permissions_field_trial::
+                 IsInRemoveFirstRunPromptGroup()) {
+    // If in RemoveFirstRunPrompt group, the system prompt will be delayed until
+    // the site requests location information.
+    [[OmniboxGeolocationController sharedInstance]
+        systemPromptSkippedForNewUser];
   }
 }
 
@@ -1143,6 +1166,8 @@ const char kMultiWindowOpenInNewWindowHistogram[] =
 
 - (void)showLocationPermissionsFromViewController:
     (UIViewController*)baseViewController {
+  [self logLocationPermissionsExperimentForGroupShown:LocationPermissionsUI::
+                                                          kFirstRunModal];
   self.locationPermissionsCoordinator = [[LocationPermissionsCoordinator alloc]
       initWithBaseViewController:baseViewController
                          browser:self.mainInterface.browser];
@@ -1587,6 +1612,9 @@ const char kMultiWindowOpenInNewWindowHistogram[] =
       };
     case START_QR_CODE_SCANNER:
       return ^{
+        if (!self.currentInterface.browser) {
+          return;
+        }
         id<QRScannerCommands> QRHandler = HandlerForProtocol(
             self.currentInterface.browser->GetCommandDispatcher(),
             QRScannerCommands);
@@ -1594,6 +1622,9 @@ const char kMultiWindowOpenInNewWindowHistogram[] =
       };
     case FOCUS_OMNIBOX:
       return ^{
+        if (!self.currentInterface.browser) {
+          return;
+        }
         id<OmniboxCommands> focusHandler = HandlerForProtocol(
             self.currentInterface.browser->GetCommandDispatcher(),
             OmniboxCommands);

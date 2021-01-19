@@ -18,6 +18,7 @@
 <translation id="2178608107313874732">Chromium tidak dapat menggunakan kamera anda sekarang</translation>
 <translation id="2195025571279539885">Adakah anda mahu Chromium menawarkan halaman <ph name="LANGUAGE_NAME" /> dari tapak ini diterjemahkan pada masa akan datang?</translation>
 <translation id="2590893390871230428">Segerakkan Data Chromium Anda</translation>
+<translation id="259614951763923692">Jika anda membenarkan Chromium mengetahui lokasi anda, Chromium akan menghantar maklumat itu kepada enjin carian lalai anda dan mana-mana laman yang anda benarkan. Laman mungkin meminta lokasi anda apabila laman itu mempunyai maklumat setempat untuk ditunjukkan kepada anda, seperti kedai atau berita berdekatan.</translation>
 <translation id="2650312721222849884">Untuk melihat tab anda daripada mana-mana tempat anda menggunakan Chromium, hidupkan penyegerakan</translation>
 <translation id="2730884209570016437">Chromium tidak dapat menggunakan kamera anda kerana kamera sedang digunakan oleh aplikasi lain</translation>
 <translation id="2915596697727466327">Chromium menggunakan ID Wajah untuk memastikan akses yang dibenarkan kepada kata laluan anda.</translation>
@@ -69,7 +70,6 @@
 <translation id="8240981428553046115">Chromium tidak dapat menyemak kemaskinian. Cuba lagi nanti.</translation>
 <translation id="8252885722420466166">Dapatkan pengalaman yang lebih baik di Chromium berdasarkan lokasi anda.</translation>
 <translation id="8586442755830160949">Hak Cipta <ph name="YEAR" /> Pengarang Chromium. Hak cipta terpelihara.</translation>
-<translation id="8598001418772159712">Apabila penggunaan lokasi dibenarkan, Chromium akan menghantar lokasi anda kepada enjin carian lalai anda dan laman yang anda berikan kebenaran. Laman biasanya menggunakan lokasi anda untuk memberikan maklumat setempat, seperti berita atau kedai berdekatan.</translation>
 <translation id="8663480472502753423">Pastikan Chromium terkini</translation>
 <translation id="8776843108004031667">Akaun ini dan sebarang data yang tidak disimpan akan dialih keluar daripada Chromium.</translation>
 <translation id="9022552996538154597">Log masuk ke Chromium</translation>

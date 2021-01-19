@@ -4,6 +4,10 @@
 
 #include "cc/paint/paint_op_buffer.h"
 
+#include <memory>
+#include <utility>
+#include <vector>
+
 #include "build/build_config.h"
 #include "cc/paint/decoded_draw_image.h"
 #include "cc/paint/display_item_list.h"
@@ -1431,14 +1435,9 @@ void DrawImageOp::RasterWithFlags(const DrawImageOp* op,
       canvas->scale(1.f / op->scale_adjustment.width(),
                     1.f / op->scale_adjustment.height());
     }
-    sk_sp<SkImage> sk_image;
-    if (op->image.IsTextureBacked()) {
-      sk_image = op->image.GetAcceleratedSkImage();
-      DCHECK(sk_image || !canvas->recordingContext());
-    }
-    if (!sk_image)
-      sk_image = op->image.GetSwSkImage();
-
+    auto sk_image = op->image.IsTextureBacked()
+                        ? op->image.GetAcceleratedSkImage()
+                        : op->image.GetSwSkImage();
     canvas->drawImage(sk_image.get(), op->left, op->top, &paint);
     return;
   }
@@ -1483,6 +1482,13 @@ void DrawImageRectOp::RasterWithFlags(const DrawImageRectOp* op,
     // we should draw nothing.
     if (!params.image_provider)
       return;
+    // TODO(crbug.com/1157152): We shouldn't need this check, QuickRejectDraw
+    // should have done the job.
+    const SkRect& clip_rect = SkRect::Make(canvas->getDeviceClipBounds());
+    const SkMatrix& ctm = canvas->getTotalMatrix();
+    gfx::Rect local_op_rect = PaintOp::ComputePaintRect(op, clip_rect, ctm);
+    if (local_op_rect.IsEmpty())
+      return;
     ImageProvider::ScopedResult result =
         params.image_provider->GetRasterContent(DrawImage(op->image));
 
@@ -1510,13 +1516,9 @@ void DrawImageRectOp::RasterWithFlags(const DrawImageRectOp* op,
   if (!params.image_provider) {
     SkRect adjusted_src = AdjustSrcRectForScale(op->src, op->scale_adjustment);
     flags->DrawToSk(canvas, [op, adjusted_src](SkCanvas* c, const SkPaint& p) {
-      sk_sp<SkImage> sk_image;
-      if (op->image.IsTextureBacked()) {
-        sk_image = op->image.GetAcceleratedSkImage();
-        DCHECK(sk_image || !c->recordingContext());
-      }
-      if (!sk_image)
-        sk_image = op->image.GetSwSkImage();
+      auto sk_image = op->image.IsTextureBacked()
+                          ? op->image.GetAcceleratedSkImage()
+                          : op->image.GetSwSkImage();
       c->drawImageRect(sk_image.get(), adjusted_src, op->dst, &p,
                        op->constraint);
     });

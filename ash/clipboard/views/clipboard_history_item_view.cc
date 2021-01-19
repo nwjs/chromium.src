@@ -12,6 +12,7 @@
 #include "ash/resources/vector_icons/vector_icons.h"
 #include "ash/style/ash_color_provider.h"
 #include "ash/style/scoped_light_mode_as_default.h"
+#include "base/auto_reset.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/utf_string_conversions.h"
 #include "third_party/skia/include/core/SkBitmap.h"
@@ -29,6 +30,7 @@
 #include "ui/views/layout/fill_layout.h"
 
 namespace {
+using Action = ash::ClipboardHistoryUtil::Action;
 
 // The insets within the contents view.
 constexpr gfx::Insets kContentsInsets(/*vertical=*/4, /*horizontal=*/16);
@@ -96,6 +98,19 @@ class ash::ClipboardHistoryItemView::MainButton : public views::Button {
   }
   const char* GetClassName() const override { return "MainButton"; }
 
+  void OnGestureEvent(ui::GestureEvent* event) override {
+    // Give `container_` a chance to handle `event`.
+    container_->MaybeHandleGestureEventFromMainButton(event);
+    if (event->handled())
+      return;
+
+    views::Button::OnGestureEvent(event);
+
+    // Prevent the menu controller from handling gesture events. The menu
+    // controller may bring side-effects such as canceling the item selection.
+    event->SetHandled();
+  }
+
   void PaintButtonContents(gfx::Canvas* canvas) override {
     if (!container_->ShouldHighlight())
       return;
@@ -126,10 +141,11 @@ class ash::ClipboardHistoryItemView::MainButton : public views::Button {
 
 ClipboardHistoryItemView::DeleteButton::DeleteButton(
     ClipboardHistoryItemView* listener)
-    : views::ImageButton(
-          base::BindRepeating(&ClipboardHistoryItemView::ExecuteCommand,
-                              base::Unretained(listener),
-                              ClipboardHistoryUtil::kDeleteCommandId)) {
+    : views::ImageButton(base::BindRepeating(
+          [](ClipboardHistoryItemView* item_view, const ui::Event& event) {
+            item_view->Activate(Action::kDelete, event.flags());
+          },
+          base::Unretained(listener))) {
   SetFocusBehavior(FocusBehavior::ACCESSIBLE_ONLY);
   SetAccessibleName(base::ASCIIToUTF16(std::string(GetClassName())));
   SetImageHorizontalAlignment(views::ImageButton::ALIGN_CENTER);
@@ -203,7 +219,8 @@ void ClipboardHistoryItemView::Init() {
         if (event.type() == ui::ET_GESTURE_TAP)
           item->pseudo_focus_ = PseudoFocus::kMainButton;
 
-        item->ExecuteCommand(item->CalculateCommandId(), event);
+        item->Activate(item->CalculateActionForMainButtonClick(),
+                       event.flags());
       },
       base::Unretained(this)));
 
@@ -263,16 +280,22 @@ bool ClipboardHistoryItemView::AdvancePseudoFocus(bool reverse) {
   return true;
 }
 
-void ClipboardHistoryItemView::RecordButtonPressedHistogram(
-    bool is_delete_button) {
-  if (is_delete_button) {
-    ClipboardHistoryUtil::RecordClipboardHistoryItemDeleted(
-        *clipboard_history_item_);
-    return;
+void ClipboardHistoryItemView::RecordButtonPressedHistogram() const {
+  switch (action_) {
+    case Action::kDelete:
+      ClipboardHistoryUtil::RecordClipboardHistoryItemDeleted(
+          *clipboard_history_item_);
+      return;
+    case Action::kPaste:
+      ClipboardHistoryUtil::RecordClipboardHistoryItemPasted(
+          *clipboard_history_item_);
+      return;
+    case Action::kSelect:
+      return;
+    case Action::kEmpty:
+      NOTREACHED();
+      return;
   }
-
-  ClipboardHistoryUtil::RecordClipboardHistoryItemPasted(
-      *clipboard_history_item_);
 }
 
 bool ClipboardHistoryItemView::IsItemEnabled() const {
@@ -289,25 +312,36 @@ void ClipboardHistoryItemView::GetAccessibleNodeData(ui::AXNodeData* data) {
   data->SetName(GetAccessibleName());
 }
 
-void ClipboardHistoryItemView::ExecuteCommand(int command_id,
-                                              const ui::Event& event) {
-  RecordButtonPressedHistogram(/*is_delete_button=*/command_id ==
-                               ClipboardHistoryUtil::kDeleteCommandId);
+void ClipboardHistoryItemView::Activate(Action action, int event_flags) {
+  DCHECK(Action::kEmpty == action_ && action_ != action);
+
+  base::AutoReset<Action> action_to_take(&action_, action);
+  RecordButtonPressedHistogram();
+
   views::MenuDelegate* delegate = container_->GetDelegate();
+  const int command_id = container_->GetCommand();
   DCHECK(delegate->IsCommandEnabled(command_id));
-  container_->GetDelegate()->ExecuteCommand(command_id, event.flags());
+  delegate->ExecuteCommand(command_id, event_flags);
 }
 
-int ClipboardHistoryItemView::CalculateCommandId() const {
+Action ClipboardHistoryItemView::CalculateActionForMainButtonClick() const {
+  // `main_button_` may be clicked when the delete button is under the pseudo
+  // focus. It happens when a user presses the ENTER key. Note that the menu
+  // controller sends the accelerator to the hot-tracked view and `main_button_`
+  // is hot-tracked when the delete button is under the pseudo focus. The menu
+  // controller should not hot-track the delete button. Otherwise, pressing the
+  // up/down arrow key will select a delete button instead of a neighboring
+  // menu item.
+
   switch (pseudo_focus_) {
     case PseudoFocus::kMainButton:
-      return container_->GetCommand();
+      return Action::kPaste;
     case PseudoFocus::kDeleteButton:
-      return ClipboardHistoryUtil::kDeleteCommandId;
+      return Action::kDelete;
     case PseudoFocus::kEmpty:
     case PseudoFocus::kMaxValue:
       NOTREACHED();
-      return -1;
+      return Action::kEmpty;
   }
 }
 
@@ -317,7 +351,8 @@ bool ClipboardHistoryItemView::ShouldHighlight() const {
 
 bool ClipboardHistoryItemView::ShouldShowDeleteButton() const {
   return (pseudo_focus_ == PseudoFocus::kMainButton && IsMouseHovered()) ||
-         pseudo_focus_ == PseudoFocus::kDeleteButton;
+         pseudo_focus_ == PseudoFocus::kDeleteButton ||
+         under_gesture_long_press_;
 }
 
 void ClipboardHistoryItemView::InitiatePseudoFocus(bool reverse) {
@@ -351,6 +386,49 @@ void ClipboardHistoryItemView::SetPseudoFocus(PseudoFocus new_pseudo_focus) {
     case PseudoFocus::kMaxValue:
       NOTREACHED();
       break;
+  }
+}
+
+void ClipboardHistoryItemView::MaybeHandleGestureEventFromMainButton(
+    ui::GestureEvent* event) {
+  // `event` is always handled here if the menu item view is under the gesture
+  // long press. It prevents other event handlers from introducing side effects.
+  // For example, if `main_button_` handles the ui::ET_GESTURE_END event,
+  // `main_button_`'s state will be reset. However, `main_button_` is expected
+  // to be at the "hovered" state when the menu item is selected.
+  if (under_gesture_long_press_) {
+    DCHECK_NE(ui::ET_GESTURE_LONG_PRESS, event->type());
+    if (event->type() == ui::ET_GESTURE_END)
+      under_gesture_long_press_ = false;
+
+    event->SetHandled();
+    return;
+  }
+
+  if (event->type() == ui::ET_GESTURE_LONG_PRESS) {
+    under_gesture_long_press_ = true;
+    switch (pseudo_focus_) {
+      case PseudoFocus::kEmpty:
+        // Select the menu item if it is not selected yet.
+        Activate(Action::kSelect, event->flags());
+        break;
+      case PseudoFocus::kMainButton: {
+        // The menu item is already selected so show the delete button if the
+        // button is hidden.
+        views::View* delete_button = contents_view_->delete_button();
+        if (!delete_button->GetVisible())
+          delete_button->SetVisible(true);
+        break;
+      }
+      case PseudoFocus::kDeleteButton:
+        // The delete button already shows, so do nothing.
+        DCHECK(contents_view_->delete_button()->GetVisible());
+        break;
+      case PseudoFocus::kMaxValue:
+        NOTREACHED();
+        break;
+    }
+    event->SetHandled();
   }
 }
 

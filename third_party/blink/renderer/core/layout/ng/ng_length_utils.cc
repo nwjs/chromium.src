@@ -233,11 +233,18 @@ LayoutUnit InlineSizeFromAspectRatio(const NGBoxStrut& border_padding,
                                      const LogicalSize& aspect_ratio,
                                      EBoxSizing box_sizing,
                                      LayoutUnit block_size) {
-  if (box_sizing == EBoxSizing::kBorderBox)
-    return block_size * aspect_ratio.inline_size / aspect_ratio.block_size;
+  // TODO(dgrogan/ikilpatrick): These calculations might need to be done in
+  // integer space, in a potential BoundedMultiplyAndDivide(LayoutUnit,
+  // LayoutUnit, LayoutUnit) function.
+  if (box_sizing == EBoxSizing::kBorderBox) {
+    return LayoutUnit::FromDoubleRound(block_size *
+                                       aspect_ratio.inline_size.ToDouble() /
+                                       aspect_ratio.block_size.ToDouble());
+  }
 
-  return ((block_size - border_padding.BlockSum()) * aspect_ratio.inline_size /
-          aspect_ratio.block_size) +
+  return LayoutUnit::FromDoubleRound((block_size - border_padding.BlockSum()) *
+                                     aspect_ratio.inline_size.ToDouble() /
+                                     aspect_ratio.block_size.ToDouble()) +
          border_padding.InlineSum();
 }
 
@@ -245,11 +252,16 @@ LayoutUnit BlockSizeFromAspectRatio(const NGBoxStrut& border_padding,
                                     const LogicalSize& aspect_ratio,
                                     EBoxSizing box_sizing,
                                     LayoutUnit inline_size) {
-  if (box_sizing == EBoxSizing::kBorderBox)
-    return inline_size * aspect_ratio.block_size / aspect_ratio.inline_size;
+  if (box_sizing == EBoxSizing::kBorderBox) {
+    return LayoutUnit::FromDoubleRound(inline_size *
+                                       aspect_ratio.block_size.ToDouble() /
+                                       aspect_ratio.inline_size.ToDouble());
+  }
 
-  return ((inline_size - border_padding.InlineSum()) * aspect_ratio.block_size /
-          aspect_ratio.inline_size) +
+  return LayoutUnit::FromDoubleRound(
+             (inline_size - border_padding.InlineSum()) *
+             aspect_ratio.block_size.ToDouble() /
+             aspect_ratio.inline_size.ToDouble()) +
          border_padding.BlockSum();
 }
 
@@ -589,8 +601,11 @@ LayoutUnit ComputeBlockSizeForFragmentInternal(
       constraint_space, style, border_padding, logical_height, intrinsic_size,
       LengthResolvePhase::kLayout,
       opt_percentage_resolution_block_size_for_min_max);
-  if (UNLIKELY((extent == kIndefiniteSize || logical_height.IsAuto()) &&
-               !style.AspectRatio().IsAuto() && inline_size)) {
+  if (UNLIKELY(!style.AspectRatio().IsAuto() && inline_size &&
+               BlockLengthUnresolvable(
+                   constraint_space, logical_height,
+                   LengthResolvePhase::kLayout,
+                   opt_percentage_resolution_block_size_for_min_max))) {
     extent =
         BlockSizeFromAspectRatio(border_padding, style.LogicalAspectRatio(),
                                  style.BoxSizing(), *inline_size);

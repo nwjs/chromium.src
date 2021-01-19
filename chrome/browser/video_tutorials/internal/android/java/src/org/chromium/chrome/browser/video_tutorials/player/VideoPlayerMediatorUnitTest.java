@@ -101,6 +101,18 @@ public class VideoPlayerMediatorUnitTest {
     }
 
     @Test
+    public void languagePickerNotShownIfOnlyOneLanguage() {
+        mTestVideoTutorialService.setPreferredLocale(null);
+        mTestVideoTutorialService.initializeTestLanguages(new String[] {"hi"});
+        Tutorial tutorial = mTestVideoTutorialService.getTestTutorials().get(0);
+        mMediator.playVideoTutorial(tutorial);
+
+        assertThat(mModel.get(VideoPlayerProperties.SHOW_LANGUAGE_PICKER), equalTo(false));
+        Mockito.verify(mLanguagePicker, Mockito.times(0))
+                .showLanguagePicker(mLanguagePickerCallback.capture(), any());
+    }
+
+    @Test
     public void languagePickerNotShownIfPreferredLocaleSetAlready() {
         mTestVideoTutorialService.setPreferredLocale("en");
         Tutorial tutorial = mTestVideoTutorialService.getTestTutorials().get(0);
@@ -116,7 +128,7 @@ public class VideoPlayerMediatorUnitTest {
         Tutorial tutorial = mTestVideoTutorialService.getTestTutorials().get(0);
         mMediator.playVideoTutorial(tutorial);
         Mockito.verify(mNavigationController).loadUrl(any());
-        assertThat(mModel.get(VideoPlayerProperties.SHOW_LOADING_SCREEN), equalTo(true));
+        assertThat(mModel.get(VideoPlayerProperties.SHOW_LOADING_SCREEN), equalTo(false));
         assertThat(mModel.get(VideoPlayerProperties.SHOW_MEDIA_CONTROLS), equalTo(false));
 
         mMediator.onPlay();
@@ -214,5 +226,23 @@ public class VideoPlayerMediatorUnitTest {
         Assert.assertTrue(VideoTutorialUtils.shouldShowTryNow(FeatureType.SEARCH));
         Assert.assertTrue(VideoTutorialUtils.shouldShowTryNow(FeatureType.VOICE_SEARCH));
         Assert.assertFalse(VideoTutorialUtils.shouldShowTryNow(99));
+    }
+
+    @Test
+    public void testVideoPlayerURL() {
+        String videoUrl = "https://example/video.mp4";
+        String posterUrl = "https://example/poster.png";
+        String animationUrl = "https://example/anim.gif";
+        String thumbnailUrl = "https://example/thumb.png";
+        String captionUrl = "https://example/caption.vtt";
+        String shareUrl = "https://example/share.mp4";
+        Tutorial testTutorial = new Tutorial(FeatureType.CHROME_INTRO, "title", videoUrl, posterUrl,
+                animationUrl, thumbnailUrl, captionUrl, shareUrl, 25);
+
+        assertThat(VideoPlayerURLBuilder.buildFromTutorial(testTutorial),
+                equalTo("chrome-untrusted://video-tutorials/"
+                        + "?video_url=https://example/video.mp4"
+                        + "&poster_url=https://example/poster.png"
+                        + "&caption_url=https://example/caption.vtt"));
     }
 }

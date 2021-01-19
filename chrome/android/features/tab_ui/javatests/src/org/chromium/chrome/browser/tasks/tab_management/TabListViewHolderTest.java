@@ -6,6 +6,9 @@ package org.chromium.chrome.browser.tasks.tab_management;
 
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doReturn;
 
 import static org.chromium.base.GarbageCollectionTestUtils.canBeGarbageCollected;
 
@@ -24,18 +27,26 @@ import android.widget.TextView;
 import androidx.test.filters.MediumTest;
 
 import org.junit.Assert;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
 import org.chromium.base.Callback;
 import org.chromium.base.test.UiThreadTest;
 import org.chromium.base.test.util.CriteriaHelper;
+import org.chromium.base.test.util.JniMocker;
+import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.MockTab;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.state.LevelDBPersistedTabDataStorage;
+import org.chromium.chrome.browser.tab.state.LevelDBPersistedTabDataStorageJni;
 import org.chromium.chrome.browser.tab.state.ShoppingPersistedTabData;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.components.browser_ui.widget.selectable_list.SelectionDelegate;
+import org.chromium.components.embedder_support.browser_context.BrowserContextHandle;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
@@ -54,6 +65,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 @RunWith(ChromeJUnit4ClassRunner.class)
 public class TabListViewHolderTest extends DummyUiActivityTestCase {
+    @Rule
+    public JniMocker mMocker = new JniMocker();
+
     private static final int TAB1_ID = 456;
     private static final int TAB2_ID = 789;
     private static final String EXPECTED_PRICE_STRING = "$287";
@@ -71,7 +85,14 @@ public class TabListViewHolderTest extends DummyUiActivityTestCase {
     private PropertyModel mSelectableModel;
     private PropertyModelChangeProcessor mSelectableMCP;
 
+    private ViewGroup mTabListView;
     private ViewGroup mSelectableTabListView;
+
+    @Mock
+    private Profile mProfile;
+
+    @Mock
+    private LevelDBPersistedTabDataStorage.Natives mLevelDBPersistedTabDataStorage;
 
     private TabListMediator.ThumbnailFetcher mMockThumbnailProvider =
             new TabListMediator.ThumbnailFetcher(new TabListMediator.ThumbnailProvider() {
@@ -124,6 +145,7 @@ public class TabListViewHolderTest extends DummyUiActivityTestCase {
     @Override
     public void setUpTest() throws Exception {
         super.setUpTest();
+        MockitoAnnotations.initMocks(this);
         ViewGroup view = new LinearLayout(getActivity());
         FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
@@ -139,11 +161,14 @@ public class TabListViewHolderTest extends DummyUiActivityTestCase {
                     R.layout.selectable_tab_grid_card_item, null);
             mSelectableTabListView = (ViewGroup) getActivity().getLayoutInflater().inflate(
                     R.layout.selectable_tab_list_card_item, null);
+            mTabListView = (ViewGroup) getActivity().getLayoutInflater().inflate(
+                    R.layout.closable_tab_list_card_item, null);
 
             view.addView(mTabGridView);
             view.addView(mTabStripView);
             view.addView(mSelectableTabGridView);
             view.addView(mSelectableTabListView);
+            view.addView(mTabListView);
         });
 
         SelectionDelegate<Integer> mSelectionDelegate = new SelectionDelegate<>();
@@ -177,7 +202,16 @@ public class TabListViewHolderTest extends DummyUiActivityTestCase {
                     mSelectableModel, mSelectableTabGridView, TabGridViewBinder::bindSelectableTab);
             PropertyModelChangeProcessor.create(mSelectableModel, mSelectableTabListView,
                     TabListViewBinder::bindSelectableListTab);
+            PropertyModelChangeProcessor.create(
+                    mGridModel, mTabListView, TabListViewBinder::bindListTab);
         });
+        mMocker.mock(LevelDBPersistedTabDataStorageJni.TEST_HOOKS, mLevelDBPersistedTabDataStorage);
+        doNothing()
+                .when(mLevelDBPersistedTabDataStorage)
+                .init(any(LevelDBPersistedTabDataStorage.class), any(BrowserContextHandle.class));
+        doReturn(false).when(mProfile).isOffTheRecord();
+        LevelDBPersistedTabDataStorage.setSkipNativeAssertionsForTesting(true);
+        Profile.setLastUsedProfileForTesting(mProfile);
     }
 
     private void testGridSelected(ViewGroup holder, PropertyModel model) {
@@ -428,18 +462,42 @@ public class TabListViewHolderTest extends DummyUiActivityTestCase {
         Assert.assertFalse(mSelectClicked.get());
         mTabGridView.performClick();
         Assert.assertTrue(mSelectClicked.get());
-        mSelectClicked.set(false);
         int firstSelectId = mSelectTabId.get();
         Assert.assertEquals(TAB1_ID, firstSelectId);
+        mSelectClicked.set(false);
+        mSelectTabId.set(Tab.INVALID_TAB_ID);
+
+        Assert.assertFalse(mSelectClicked.get());
+        mTabListView.performClick();
+        Assert.assertTrue(mSelectClicked.get());
+        firstSelectId = mSelectTabId.get();
+        Assert.assertEquals(TAB1_ID, firstSelectId);
+        mSelectClicked.set(false);
 
         mGridModel.set(TabProperties.TAB_ID, TAB2_ID);
         mTabGridView.performClick();
         Assert.assertTrue(mSelectClicked.get());
-        mSelectClicked.set(false);
         int secondSelectId = mSelectTabId.get();
         // When TAB_ID in PropertyModel is updated, binder should select tab with updated tab ID.
         Assert.assertEquals(TAB2_ID, secondSelectId);
         Assert.assertNotEquals(firstSelectId, secondSelectId);
+        mSelectClicked.set(false);
+        mSelectTabId.set(Tab.INVALID_TAB_ID);
+
+        Assert.assertFalse(mSelectClicked.get());
+        mTabListView.performClick();
+        Assert.assertTrue(mSelectClicked.get());
+        secondSelectId = mSelectTabId.get();
+        Assert.assertEquals(TAB2_ID, secondSelectId);
+        Assert.assertNotEquals(firstSelectId, secondSelectId);
+        mSelectClicked.set(false);
+
+        mGridModel.set(TabProperties.TAB_SELECTED_LISTENER, null);
+        mTabGridView.performClick();
+        Assert.assertFalse(mSelectClicked.get());
+        mTabListView.performClick();
+        Assert.assertFalse(mSelectClicked.get());
+        mSelectClicked.set(false);
 
         ImageButton button = mTabStripView.findViewById(R.id.tab_strip_item_button);
         mStripModel.set(TabProperties.IS_SELECTED, false);
@@ -466,27 +524,50 @@ public class TabListViewHolderTest extends DummyUiActivityTestCase {
     @MediumTest
     @UiThreadTest
     public void testClickToClose() {
-        ImageView actionButton = mTabGridView.findViewById(R.id.action_button);
+        ImageView gridActionButton = mTabGridView.findViewById(R.id.action_button);
+        ImageView listActionButton = mTabListView.findViewById(R.id.end_button);
         ImageButton button = mTabStripView.findViewById(R.id.tab_strip_item_button);
 
         Assert.assertFalse(mCloseClicked.get());
-        actionButton.performClick();
+        gridActionButton.performClick();
         Assert.assertTrue(mCloseClicked.get());
-        mCloseClicked.set(false);
         int firstCloseId = mCloseTabId.get();
         Assert.assertEquals(TAB1_ID, firstCloseId);
 
+        mCloseClicked.set(false);
+        mCloseTabId.set(Tab.INVALID_TAB_ID);
+
+        Assert.assertFalse(mCloseClicked.get());
+        listActionButton.performClick();
+        Assert.assertTrue(mCloseClicked.get());
+        firstCloseId = mCloseTabId.get();
+        Assert.assertEquals(TAB1_ID, firstCloseId);
+
+        mCloseClicked.set(false);
+
         mGridModel.set(TabProperties.TAB_ID, TAB2_ID);
-        actionButton.performClick();
+        gridActionButton.performClick();
         Assert.assertTrue(mCloseClicked.get());
         mCloseClicked.set(false);
         int secondClosed = mCloseTabId.get();
+
+        mCloseClicked.set(false);
+        mCloseTabId.set(Tab.INVALID_TAB_ID);
+
+        Assert.assertFalse(mCloseClicked.get());
+        listActionButton.performClick();
+        Assert.assertTrue(mCloseClicked.get());
+        secondClosed = mCloseTabId.get();
         // When TAB_ID in PropertyModel is updated, binder should close tab with updated tab ID.
         Assert.assertEquals(TAB2_ID, secondClosed);
         Assert.assertNotEquals(firstCloseId, secondClosed);
 
+        mCloseClicked.set(false);
+
         mGridModel.set(TabProperties.TAB_CLOSED_LISTENER, null);
-        actionButton.performClick();
+        gridActionButton.performClick();
+        Assert.assertFalse(mCloseClicked.get());
+        listActionButton.performClick();
         Assert.assertFalse(mCloseClicked.get());
 
         mStripModel.set(TabProperties.IS_SELECTED, true);
@@ -590,6 +671,20 @@ public class TabListViewHolderTest extends DummyUiActivityTestCase {
         fetcher.setNullPriceDrop();
         testPriceString(
                 tab, fetcher, View.GONE, EXPECTED_PRICE_STRING, EXPECTED_PREVIOUS_PRICE_STRING);
+    }
+
+    @Test
+    @MediumTest
+    @UiThreadTest
+    public void testPriceStringTurnFeatureOff() {
+        Tab tab = MockTab.createAndInitialize(1, false);
+        MockShoppingPersistedTabDataFetcher fetcher = new MockShoppingPersistedTabDataFetcher(tab);
+        fetcher.setPriceStrings(EXPECTED_PRICE_STRING, EXPECTED_PREVIOUS_PRICE_STRING);
+        testPriceString(
+                tab, fetcher, View.VISIBLE, EXPECTED_PRICE_STRING, EXPECTED_PREVIOUS_PRICE_STRING);
+        mGridModel.set(TabProperties.SHOPPING_PERSISTED_TAB_DATA_FETCHER, null);
+        PriceCardView priceCardView = mTabGridView.findViewById(R.id.price_info_box_outer);
+        Assert.assertEquals(View.GONE, priceCardView.getVisibility());
     }
 
     private void testPriceString(Tab tab, MockShoppingPersistedTabDataFetcher fetcher,

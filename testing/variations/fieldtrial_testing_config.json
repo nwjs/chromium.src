@@ -1098,26 +1098,6 @@
             ]
         }
     ],
-    "BlinkSchedulerHighPriorityBeforeUnload": [
-        {
-            "platforms": [
-                "android",
-                "android_webview",
-                "chromeos",
-                "linux",
-                "mac",
-                "windows"
-            ],
-            "experiments": [
-                {
-                    "name": "Enabled",
-                    "enable_features": [
-                        "HighPriorityBeforeUnload"
-                    ]
-                }
-            ]
-        }
-    ],
     "BlinkSchedulerPerAgentSchedulingStudy": [
         {
             "platforms": [
@@ -1952,6 +1932,21 @@
             ]
         }
     ],
+    "CriticalPersistedTabData": [
+        {
+            "platforms": [
+                "android"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "CriticalPersistedTabData"
+                    ]
+                }
+            ]
+        }
+    ],
     "CrosSchedulerCore": [
         {
             "platforms": [
@@ -2751,6 +2746,7 @@
                     "name": "Enabled",
                     "params": {
                         "availability": "any",
+                        "ephemeral_tab_open_mode": "1",
                         "event_trigger": "name:ephemeral_tab_triggered;comparator:<2;window:90;storage:90",
                         "event_used": "name:ephemeral_tab_used;comparator:==0;window:90;storage:90",
                         "session_rate": "any"
@@ -3930,6 +3926,26 @@
             ]
         }
     ],
+    "LayoutShiftNormalization": [
+        {
+            "platforms": [
+                "android",
+                "chromeos",
+                "linux",
+                "mac",
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "LayoutShiftNormalizationEmitShiftsForKeyMetrics",
+                        "LayoutShiftNormalizationRecordUKM"
+                    ]
+                }
+            ]
+        }
+    ],
     "LegacyTLSDeprecation2": [
         {
             "platforms": [
@@ -4058,6 +4074,26 @@
                         "LoadingPredictorPrefetch",
                         "LoadingPredictorUseLocalPredictions",
                         "LoadingPredictorUseOptimizationGuide"
+                    ]
+                }
+            ]
+        }
+    ],
+    "LookalikeTargetEmbeddingHeuristic": [
+        {
+            "platforms": [
+                "android",
+                "chromeos",
+                "ios",
+                "linux",
+                "mac",
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "TargetEmbeddingLookalikes"
                     ]
                 }
             ]
@@ -6237,21 +6273,6 @@
                     },
                     "enable_features": [
                         "ResamplingScrollEvents"
-                    ]
-                }
-            ]
-        }
-    ],
-    "ScrollToTextIOS": [
-        {
-            "platforms": [
-                "ios"
-            ],
-            "experiments": [
-                {
-                    "name": "Enabled",
-                    "enable_features": [
-                        "ScrollToTextIOS"
                     ]
                 }
             ]

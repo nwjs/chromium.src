@@ -62,9 +62,17 @@ public class MessageWrapperTest {
         Assert.assertEquals("Button text doesn't match provided value", "Primary button",
                 messageProperties.get(MessageBannerProperties.PRIMARY_BUTTON_TEXT));
 
+        message.setSecondaryActionText("Primary button");
+        Assert.assertEquals("Button text doesn't match provided value", "Primary button",
+                messageProperties.get(MessageBannerProperties.SECONDARY_ACTION_TEXT));
+
         message.setIconResourceId(1);
         Assert.assertEquals("Icon resource id doesn't match provided value", 1,
                 messageProperties.get(MessageBannerProperties.ICON_RESOURCE_ID));
+
+        message.setSecondaryIconResourceId(2);
+        Assert.assertEquals("Icon resource id doesn't match provided value", 2,
+                messageProperties.get(MessageBannerProperties.SECONDARY_ICON_RESOURCE_ID));
     }
 
     /**
@@ -76,8 +84,10 @@ public class MessageWrapperTest {
         final long nativePtr = 1;
         MessageWrapper message = MessageWrapper.create(nativePtr);
         PropertyModel messageProperties = message.getMessageProperties();
-        messageProperties.get(MessageBannerProperties.PRIMARY_BUTTON_CLICK_LISTENER).onClick(null);
+        messageProperties.get(MessageBannerProperties.ON_PRIMARY_ACTION).run();
         Mockito.verify(mNativeMock).handleActionClick(nativePtr);
+        messageProperties.get(MessageBannerProperties.ON_SECONDARY_ACTION).run();
+        Mockito.verify(mNativeMock).handleSecondaryActionClick(nativePtr);
         messageProperties.get(MessageBannerProperties.ON_DISMISSED).run();
         Mockito.verify(mNativeMock).handleDismissCallback(nativePtr);
     }
@@ -93,8 +103,10 @@ public class MessageWrapperTest {
         PropertyModel messageProperties = message.getMessageProperties();
 
         message.clearNativePtr();
-        messageProperties.get(MessageBannerProperties.PRIMARY_BUTTON_CLICK_LISTENER).onClick(null);
+        messageProperties.get(MessageBannerProperties.ON_PRIMARY_ACTION).run();
         Mockito.verify(mNativeMock, never()).handleActionClick(nativePtr);
+        messageProperties.get(MessageBannerProperties.ON_SECONDARY_ACTION).run();
+        Mockito.verify(mNativeMock, never()).handleSecondaryActionClick(nativePtr);
         messageProperties.get(MessageBannerProperties.ON_DISMISSED).run();
         Mockito.verify(mNativeMock, never()).handleDismissCallback(nativePtr);
     }

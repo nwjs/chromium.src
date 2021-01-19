@@ -192,6 +192,7 @@ Google Chrome तुमची सेटिंग्ज पुन्हा मि
 <translation id="6368958679917195344"> Chrome OS अतिरिक्त <ph name="BEGIN_LINK_CROS_OSS" />मुक्त स्रोत सॉफ्टवेअर<ph name="END_LINK_CROS_OSS" /> द्वारे शक्य झाले आहे.</translation>
 <translation id="6515495397637126556"><ph name="PAGE_TITLE" /> - Google Chrome डेव्हलपर</translation>
 <translation id="6566149418543181476">Google Chrome अपडेट करीत आहे (<ph name="PROGRESS_PERCENT" />)</translation>
+<translation id="6650333065969705433">संरक्षित मीडिया प्ले करण्यासाठी Rosetta सुरू करण्यासाठी, तुम्ही Chrome रीस्टार्ट करणे आवश्यक आहे.</translation>
 <translation id="6676384891291319759">इंटरनेट ॲक्सेस करा</translation>
 <translation id="6679975945624592337">Google Chrome बॅकग्राउंडमध्ये सुरू द्या</translation>
 <translation id="6750954913813541382">शब्दलेखनाच्या चुकांमध्ये सुधारणा करण्यासाठी, तुम्ही ब्राउझरमध्ये टाइप करता तो मजकूर Chrome Google ला पाठवते</translation>
@@ -226,7 +227,7 @@ Google Chrome तुमची सेटिंग्ज पुन्हा मि
 <translation id="7641148173327520642">तुमच्या सिस्टम अ‍ॅडमिनिस्ट्रेटरने <ph name="TARGET_URL_HOSTNAME" /> अ‍ॅक्सेस करण्यासाठी <ph name="ALTERNATIVE_BROWSER_NAME" /> उघडण्याकरिता Google Chrome कॉंफिगर केले आहे.</translation>
 <translation id="7651907282515937834">Chrome एंटरप्राइझ लोगो</translation>
 <translation id="7747138024166251722">इन्स्टॉलर तात्पुरती डिरेक्टरी तयार करू शकत नाही. कृपया सॉफ्टवेअर इंस्टॉल करण्यासाठी रिक्त डिस्क स्थान आणि परवानगी पहा.</translation>
-<translation id="7761834446675418963">Chrome उघडण्यासाठी तुमचे नाव क्लिक करा आणि ब्राउझिंग प्रारंभ करा.</translation>
+<translation id="7761834446675418963">Chrome उघडण्यासाठी तुमचे नाव क्लिक करा आणि ब्राउझिंग सुरू करा.</translation>
 <translation id="7777080907402804672">इमेजचे उपयोगी वर्णन नसल्यास, Chrome तुमच्यासाठी ते देण्याचा प्रयत्न करेल. वर्णने तयार करण्यासाठी, इमेज Google ला पाठवल्या जातात. तुम्ही हे सेटिंग्जमध्ये कधीही बंद करू शकता.</translation>
 <translation id="7781002470561365167">Google Chrome ची नवी आवृत्ती उपलब्ध आहे. </translation>
 <translation id="7787950393032327779">प्रोफाइल दुसर्‍या कॉंप्युटरवरील (<ph name="HOST_NAME" />) दुसर्‍या Google Chrome प्रक्रियेद्वारे (<ph name="PROCESS_ID" />) वापरले जात असल्याचे दिसते. Chrome ने प्रोफाइल लॉक केले आहे जेणेकरून ते दूषित होत नाही. कोणत्याही इतर प्रक्रिया हे प्रोफाइल वापरत नसल्याची तुम्हाला खात्री असल्यास, तुम्ही प्रोफाइल अनलॉक करू शकता आणि Chrome पुन्हा एकदा लॉंच करू शकता.</translation>
@@ -254,6 +255,7 @@ Google Chrome तुमची सेटिंग्ज पुन्हा मि
 <translation id="8521348052903287641">Google Chrome विकासकाने mDNS रहदारीस अनुमती देण्यासाठी इनबाउंड नियम.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8556340503434111824">Google Chrome ची नवीन आवृत्ती उपलब्ध आहे, आणि ही नेहमीपेक्षा द्रुत आहे. </translation>
+<translation id="861359755029082151">या पेजवर संरक्षित मीडिया प्ले करण्यासाठी, Rosetta हे Chrome सुरू करते.</translation>
 <translation id="8614913330719544658">Google Chrome प्रतिसाद देत नाही. त्वरित पुन्हा लाँच करायचा?</translation>
 <translation id="861702415419836452">तुमच्या आसपासचा 3D नकाशा तयार करण्यासाठी Chrome ला तुमचा कॅमेरा अ‍ॅक्सेस करण्याची परवानगी हवी आहे</translation>
 <translation id="8625237574518804553">{0,plural, =1{Chrome एका मिनिटामध्ये पुन्हा लॉंच होईल}other{Chrome # मिनिटांमध्ये पुन्हा लॉंच होईल}}</translation>
@@ -267,6 +269,7 @@ Google Chrome तुमची सेटिंग्ज पुन्हा मि
 <translation id="8834965163890861871">Google Chrome पासवर्ड संपादित करण्याचा प्रयत्‍न करत आहे. हे करू देण्यासाठी तुमचा Windows पासवर्ड टाइप करा.</translation>
 <translation id="884296878221830158">तुम्ही Chrome सुरू करता किंवा होम बटण क्लिक करता तेव्हा कोणते पेज दर्शविले जाते ते देखील हे नियंत्रित करते.</translation>
 <translation id="8862326446509486874">तुमच्याकडे सिस्टम स्तरावरील इंस्टॉलसाठी योग्य अधिकार नाहीत. ॲडमिनिस्ट्रेटर म्हणून पुन्हा इंस्टॉलर चालविण्याचा प्रयत्न करा.</translation>
+<translation id="8907709077090383765">संरक्षित मीडिया प्ले करण्यासाठी Chrome सुरू करण्यासाठी, तुम्ही Rosetta इंस्टॉल करणे आवश्यक आहे. तुम्हाला ते आता इंस्टॉल करायचे आहे का?</translation>
 <translation id="8914504000324227558">Chrome रीलाँच करा</translation>
 <translation id="8922193594870374009"><ph name="ORIGIN" /> वरून तुमच्या Android फोनवर नंबर पाठवण्यासाठी, दोन्ही डिव्हाइसवर Chrome मध्ये साइन इन करा.</translation>
 <translation id="8999208279178790196">{0,plural, =0{Chrome अपडेट उपलब्ध आहे}=1{Chrome अपडेट उपलब्ध आहे}other{Chrome अपडेट # दिवसांसाठी उपलब्ध आहे}}</translation>

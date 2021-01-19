@@ -244,8 +244,7 @@ bool TranslateManager::CanManuallyTranslate(bool menuLogging) {
   }
 
   if (!translate_client_->IsTranslatableURL(
-          translate_driver_->GetVisibleURL()) ||
-      !language_state_.page_needs_translation()) {
+          translate_driver_->GetVisibleURL())) {
     if (!menuLogging)
       return false;
     TranslateBrowserMetrics::ReportMenuTranslationUnavailableReason(
@@ -299,7 +298,9 @@ bool TranslateManager::CanManuallyTranslate(bool menuLogging) {
     can_translate = false;
   }
 
-  UMA_HISTOGRAM_BOOLEAN("Translate.MenuTranslation.IsAvailable", can_translate);
+  if (menuLogging)
+    UMA_HISTOGRAM_BOOLEAN("Translate.MenuTranslation.IsAvailable",
+                          can_translate);
 
   return can_translate;
 }

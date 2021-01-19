@@ -29,10 +29,6 @@
 #include "media/video/video_encode_accelerator.h"
 #include "ui/gfx/geometry/size.h"
 
-namespace gpu {
-class GpuMemoryBufferFactory;
-}  // namespace gpu
-
 namespace media {
 class BitstreamBuffer;
 
@@ -191,6 +187,8 @@ class MEDIA_GPU_EXPORT V4L2VideoEncodeAccelerator
   // |image_processor_|.
   void InputImageProcessorTask();
 
+  void MaybeFlushImageProcessor();
+
   // Change encoding parameters.
   void RequestEncodingParametersChangeTask(uint32_t bitrate,
                                            uint32_t framerate);
@@ -324,9 +322,6 @@ class MEDIA_GPU_EXPORT V4L2VideoEncodeAccelerator
 
   // Image processor, if one is in use.
   std::unique_ptr<ImageProcessor> image_processor_;
-  // GpuMemoryBufferFactory to create GMB-based VideoFrame. This is needed only
-  // if image processor is used and its output buffer is GMB-based VideoFrame.
-  std::unique_ptr<gpu::GpuMemoryBufferFactory> image_processor_gmb_factory_;
   // Video frames for image processor output / VideoEncodeAccelerator input.
   // Only accessed on child thread.
   std::vector<scoped_refptr<VideoFrame>> image_processor_output_buffers_;
@@ -335,6 +330,8 @@ class MEDIA_GPU_EXPORT V4L2VideoEncodeAccelerator
   std::vector<size_t> free_image_processor_output_buffer_indices_;
   // Video frames ready to be processed. Only accessed on child thread.
   base::queue<InputFrameInfo> image_processor_input_queue_;
+  // The number of frames that are being processed by |image_processor_|.
+  size_t num_frames_in_image_processor_ = 0;
 
   const scoped_refptr<base::SingleThreadTaskRunner> encoder_task_runner_;
   SEQUENCE_CHECKER(encoder_sequence_checker_);

@@ -87,7 +87,7 @@ bool ExecuteCodeFunction::Execute(const std::string& code_string,
   ScriptExecutor::FrameScope frame_scope =
       details_->all_frames.get() && *details_->all_frames
           ? ScriptExecutor::INCLUDE_SUB_FRAMES
-          : ScriptExecutor::SINGLE_FRAME;
+          : ScriptExecutor::SPECIFIED_FRAMES;
 
   int frame_id = details_->frame_id.get() ? *details_->frame_id
                                           : ExtensionApiFrameIdMap::kTopFrameId;
@@ -122,7 +122,7 @@ bool ExecuteCodeFunction::Execute(const std::string& code_string,
     ? ScriptExecutor::MAIN_WORLD : ScriptExecutor::ISOLATED_WORLD;
 
   executor->ExecuteScript(
-      host_id_, action_type, code_string, frame_scope, frame_id,
+      host_id_, action_type, code_string, frame_scope, {frame_id},
       match_about_blank, run_at, world_type,
       IsWebView() ? ScriptExecutor::WEB_VIEW_PROCESS
                   : ScriptExecutor::DEFAULT_PROCESS,

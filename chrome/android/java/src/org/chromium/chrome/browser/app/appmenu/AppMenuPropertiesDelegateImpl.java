@@ -52,6 +52,7 @@ import org.chromium.chrome.browser.share.ShareHelper;
 import org.chromium.chrome.browser.share.ShareUtils;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.chrome.browser.tasks.tab_management.PriceTrackingUtilities;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiFeatureUtilities;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
 import org.chromium.chrome.browser.translate.TranslateUtils;
@@ -440,6 +441,11 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
                         addToMenuItem.getSubMenu().findItem(R.id.add_to_bookmarks_menu_id);
                 updateBookmarkMenuItem(addToBookmarksMenuItem, currentTab);
 
+                MenuItem addToReadingListMenuItem =
+                        addToMenuItem.getSubMenu().findItem(R.id.add_to_reading_list_menu_id);
+                addToReadingListMenuItem.setVisible(
+                        CachedFeatureFlags.isEnabled(ChromeFeatureList.READ_LATER));
+
                 MenuItem addToDownloadsMenuItem =
                         addToMenuItem.getSubMenu().findItem(R.id.add_to_downloads_menu_id);
                 addToDownloadsMenuItem.setEnabled(shouldEnableDownloadPage(currentTab));
@@ -450,6 +456,10 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
                         menuOpenWebApkItem, menu, currentTab,
                         shouldShowHomeScreenMenuItem(
                                 isChromeScheme, isFileScheme, isContentScheme, isIncognito, url));
+                if (addToHomescreenMenuItem.isVisible()) {
+                    // addToHomescreenMenuItem in "Add to" dialog uses a different string.
+                    addToHomescreenMenuItem.setTitle(R.string.menu_homescreen);
+                }
             }
         }
 
@@ -523,6 +533,9 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
                                 .getTabsWithNoOtherRelatedTabs()
                                 .size()
                         > 1;
+        boolean isPriceTrackingVisible = TabUiFeatureUtilities.isPriceTrackingEnabled()
+                && !DeviceClassManager.enableAccessibilityLayout();
+        boolean isPriceTrackingEnabled = isPriceTrackingVisible;
 
         for (int i = 0; i < menu.size(); ++i) {
             MenuItem item = menu.getItem(i);
@@ -570,6 +583,14 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
             if (item.getItemId() == R.id.menu_group_tabs) {
                 item.setVisible(isMenuGroupTabsVisible);
                 item.setEnabled(isMenuGroupTabsEnabled);
+            }
+            if (item.getItemId() == R.id.track_prices_row_menu_id) {
+                item.setVisible(isPriceTrackingVisible);
+                item.setEnabled(isPriceTrackingEnabled);
+                if (isPriceTrackingVisible) {
+                    menu.findItem(R.id.track_prices_check_id)
+                            .setChecked(PriceTrackingUtilities.isTrackPricesOnTabsEnabled());
+                }
             }
             if (item.getItemId() == R.id.close_all_tabs_menu_id) {
                 boolean hasTabs = mTabModelSelector.getTotalTabCount() > 0;
@@ -774,7 +795,8 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
     public Bundle getBundleForMenuItem(MenuItem item) {
         Bundle bundle = new Bundle();
         if (item.getItemId() == R.id.add_to_homescreen_id
-                || item.getItemId() == R.id.add_to_homescreen_menu_id) {
+                || item.getItemId() == R.id.add_to_homescreen_menu_id
+                || item.getItemId() == R.id.install_app_id) {
             bundle.putInt(AppBannerManager.MENU_TITLE_KEY, mAddAppTitleShown);
         }
         return bundle;

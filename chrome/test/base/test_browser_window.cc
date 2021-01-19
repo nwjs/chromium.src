@@ -250,7 +250,7 @@ ExclusiveAccessContext* TestBrowserWindow::GetExclusiveAccessContext() {
 }
 
 std::string TestBrowserWindow::GetWorkspace() const {
-  return std::string();
+  return workspace_;
 }
 
 bool TestBrowserWindow::IsVisibleOnAllWorkspaces() const {

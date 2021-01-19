@@ -8,6 +8,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <vector>
 
 #include "base/callback.h"
 #include "base/optional.h"
@@ -48,7 +49,7 @@ class ScriptExecutor {
 
   // The scope of the script injection across the frames.
   enum FrameScope {
-    SINGLE_FRAME,
+    SPECIFIED_FRAMES,
     INCLUDE_SUB_FRAMES,
   };
 
@@ -85,9 +86,10 @@ class ScriptExecutor {
   // Executes a script. The arguments match ExtensionMsg_ExecuteCode_Params in
   // extension_messages.h (request_id is populated automatically).
   //
-  // The script will be executed in the frame identified by |frame_id| (which is
-  // an extension API frame ID). If |frame_scope| is INCLUDE_SUB_FRAMES, then
-  // the script will also be executed in all descendants of the frame.
+  // The script will be executed in the frames identified by |frame_ids| (which
+  // are extension API frame IDs). If |frame_scope| is INCLUDE_SUB_FRAMES,
+  // then the script will also be executed in all descendants of the specified
+  // frames.
   //
   // |callback| will always be called even if the IPC'd renderer is destroyed
   // before a response is received (in this case the callback will be with a
@@ -96,7 +98,7 @@ class ScriptExecutor {
                      UserScript::ActionType action_type,
                      const std::string& code,
                      FrameScope frame_scope,
-                     int frame_id,
+                     const std::vector<int>& frame_ids,
                      MatchAboutBlank match_about_blank,
                      UserScript::RunLocation run_at,
                      WorldType world_type,

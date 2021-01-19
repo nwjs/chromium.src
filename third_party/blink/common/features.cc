@@ -346,6 +346,12 @@ const base::Feature kBlockingFocusWithoutUserActivation{
 const base::Feature kAudioWorkletRealtimeThread{
     "AudioWorkletRealtimeThread", base::FEATURE_DISABLED_BY_DEFAULT};
 
+// A server-side switch for the REALTIME_AUDIO thread priority of
+// RealtimeAudioWorkletThread object. When disabled, it will use the NORMAL
+// priority thread.
+const base::Feature kAudioWorkletThreadRealtimePriority{
+    "AudioWorkletThreadRealtimePriority", base::FEATURE_DISABLED_BY_DEFAULT};
+
 // A feature to reduce the set of resources fetched by No-State Prefetch.
 const base::Feature kLightweightNoStatePrefetch {
   "LightweightNoStatePrefetch",
@@ -750,7 +756,7 @@ const base::Feature kContentCaptureConstantStreaming = {
 
 // Enables the user activated exponential delay in the ContentCapture task.
 const base::Feature kContentCaptureUserActivatedDelay = {
-    "ContentCaptureUserActivatedDelay", base::FEATURE_DISABLED_BY_DEFAULT};
+    "ContentCaptureUserActivatedDelay", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Dispatches a fake fetch event to a service worker to check the offline
 // capability of the site before promoting installation.
@@ -800,8 +806,14 @@ const base::Feature kWebAppEnableProtocolHandlers{
 
 // When enabled NV12 frames on a GPU will be forwarded to libvpx encoders
 // without conversion to I420.
-const base::Feature kWebRtcLibvpxEncodeNV12{"WebRtcLibvpxEncodeNV12",
-                                            base::FEATURE_DISABLED_BY_DEFAULT};
+const base::Feature kWebRtcLibvpxEncodeNV12 {
+  "WebRtcLibvpxEncodeNV12",
+#if defined(OS_CHROMEOS)
+      base::FEATURE_DISABLED_BY_DEFAULT
+#else
+      base::FEATURE_ENABLED_BY_DEFAULT
+#endif
+};
 
 // Makes network loading tasks unfreezable so that they can be processed while
 // the page is frozen.
@@ -812,5 +824,10 @@ const base::Feature kLoadingTasksUnfreezable{"LoadingTasksUnfreezable",
 // noopener behavior by default. TODO(crbug.com/898942): Remove in Chrome 95.
 const base::Feature kTargetBlankImpliesNoOpener{
     "TargetBlankImpliesNoOpener", base::FEATURE_ENABLED_BY_DEFAULT};
+
+// Controls how max frame rates are enforced in MediaStreamTracks.
+// TODO(crbug.com/1152307): Remove in M91.
+const base::Feature kMediaStreamTrackUseConfigMaxFrameRate{
+    "MediaStreamTrackUseConfigMaxFrameRate", base::FEATURE_DISABLED_BY_DEFAULT};
 }  // namespace features
 }  // namespace blink

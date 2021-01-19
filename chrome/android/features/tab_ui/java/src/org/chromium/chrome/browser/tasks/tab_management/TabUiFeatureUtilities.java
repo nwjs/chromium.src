@@ -186,7 +186,8 @@ public class TabUiFeatureUtilities {
      */
     public static boolean supportInstantStart(boolean isTablet) {
         return !DeviceClassManager.enableAccessibilityLayout()
-                && CachedFeatureFlags.isEnabled(ChromeFeatureList.INSTANT_START) && !isTablet;
+                && CachedFeatureFlags.isEnabled(ChromeFeatureList.INSTANT_START) && !isTablet
+                && !SysUtils.isLowEndDevice();
     }
 
     /**
@@ -201,5 +202,16 @@ public class TabUiFeatureUtilities {
      */
     public static boolean isLaunchBugFixEnabled() {
         return ENABLE_LAUNCH_BUG_FIX.getValue();
+    }
+
+    /**
+     * @return Whether the price tracking feature is enabled and available for use.
+     */
+    public static boolean isPriceTrackingEnabled() {
+        // TODO(crbug.com/1152925): Now PriceTracking feature is broken if StartSurface is enabled,
+        // we need to remove !StartSurfaceConfiguration.isStartSurfaceEnabled() when the bug is
+        // fixed.
+        return ENABLE_PRICE_TRACKING.getValue()
+                && !StartSurfaceConfiguration.isStartSurfaceEnabled();
     }
 }

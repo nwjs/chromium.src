@@ -23,6 +23,8 @@ class GetSuggestionsResponse;
 class PredictionBasedPermissionUiSelector
     : public permissions::NotificationPermissionUiSelector {
  public:
+  using PredictionGrantLikelihood =
+      permissions::PermissionUmaUtil::PredictionGrantLikelihood;
   // Constructs an instance in the context of the given |profile|.
   explicit PredictionBasedPermissionUiSelector(Profile* profile);
   ~PredictionBasedPermissionUiSelector() override;
@@ -38,6 +40,9 @@ class PredictionBasedPermissionUiSelector
 
   void Cancel() override;
 
+  base::Optional<PredictionGrantLikelihood> PredictedGrantLikelihoodForUKM()
+      override;
+
  private:
   permissions::PredictionRequestFeatures BuildPredictionRequestFeatures(
       permissions::PermissionRequest* request);
@@ -47,8 +52,16 @@ class PredictionBasedPermissionUiSelector
       std::unique_ptr<permissions::GetSuggestionsResponse> response);
   bool IsAllowedToUseAssistedPrompts();
 
+  void set_likelihood_override(PredictionGrantLikelihood mock_likelihood) {
+    likelihood_override_for_testing_ = mock_likelihood;
+  }
+
   Profile* profile_;
   std::unique_ptr<PredictionServiceRequest> request_;
+  base::Optional<PredictionGrantLikelihood> last_request_grant_likelihood_;
+
+  base::Optional<PredictionGrantLikelihood> likelihood_override_for_testing_;
+
   DecisionMadeCallback callback_;
 };
 

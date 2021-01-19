@@ -51,6 +51,7 @@ import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.share.ChromeShareExtras;
 import org.chromium.chrome.browser.share.LensUtils;
 import org.chromium.chrome.browser.share.ShareDelegate;
+import org.chromium.chrome.browser.share.ShareDelegateImpl.ShareOrigin;
 import org.chromium.chrome.browser.share.ShareHelper;
 import org.chromium.components.browser_ui.share.ShareParams;
 import org.chromium.components.embedder_support.contextmenu.ContextMenuParams;
@@ -91,6 +92,7 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
     private final LensQueryResult mLensQueryResultWithShoppingItent =
             (new LensQueryResult.Builder()).withIsShoppyIntent(true).build();
     private boolean mEnableLensWithSearchByImageText;
+    private boolean mIsLensIntentInProgress;
     private @Nullable UkmRecorder.Bridge mUkmRecorderBridge;
     private ContextMenuNativeDelegate mNativeDelegate;
     private static final String LENS_SEARCH_MENU_ITEM_KEY = "searchWithGoogleLensMenuItem";
@@ -136,7 +138,8 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
                 Action.SHARE_LINK, Action.OPEN_IN_EPHEMERAL_TAB, Action.OPEN_IMAGE_IN_EPHEMERAL_TAB,
                 Action.DIRECT_SHARE_LINK, Action.DIRECT_SHARE_IMAGE, Action.SEARCH_WITH_GOOGLE_LENS,
                 Action.COPY_IMAGE, Action.SHOP_SIMILAR_PRODUCTS, Action.SHOP_IMAGE_WITH_GOOGLE_LENS,
-                Action.SEARCH_SIMILAR_PRODUCTS, Action.READ_LATER})
+                Action.SEARCH_SIMILAR_PRODUCTS, Action.READ_LATER,
+                Action.SHOP_WITH_GOOGLE_LENS_CHIP})
         @Retention(RetentionPolicy.SOURCE)
         public @interface Action {
             int OPEN_IN_NEW_TAB = 0;
@@ -177,7 +180,8 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
             int SHOP_IMAGE_WITH_GOOGLE_LENS = 31;
             int SEARCH_SIMILAR_PRODUCTS = 32;
             int READ_LATER = 33;
-            int NUM_ENTRIES = 34;
+            int SHOP_WITH_GOOGLE_LENS_CHIP = 34;
+            int NUM_ENTRIES = 35;
         }
 
         // Note: these values must match the ContextMenuSaveLinkType enum in enums.xml.
@@ -539,7 +543,8 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
                               .second;
             if (mMode == ContextMenuMode.WEB_APP) {
                 items.add(createListItem(Item.OPEN_IN_CHROME));
-            } else if (mMode == ContextMenuMode.CUSTOM_TAB) {
+            } else if (mMode == ContextMenuMode.CUSTOM_TAB
+                    && mItemDelegate.supportsOpenInChromeFromCct()) {
                 boolean addNewEntries = false;
                 try {
                     URI uri = new URI(mParams.getUrl());
@@ -690,8 +695,9 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
                             .Builder(getWindow(), ContextMenuUtils.getTitle(mParams),
                                     mParams.getUrl())
                             .build();
-            mShareDelegateSupplier.get().share(
-                    linkShareParams, new ChromeShareExtras.Builder().setSaveLastUsed(true).build());
+            mShareDelegateSupplier.get().share(linkShareParams,
+                    new ChromeShareExtras.Builder().setSaveLastUsed(true).build(),
+                    ShareOrigin.CONTEXT_MENU);
         } else if (itemId == R.id.contextmenu_read_later) {
             recordContextMenuSelection(ContextMenuUma.Action.READ_LATER);
             // TODO(crbug.com/1147475): Download the page to offline page backend.
@@ -775,6 +781,11 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
                     TrackerFactory.getTrackerForProfile(Profile.getLastUsedRegularProfile());
             if (tracker.isInitialized()) tracker.dismissed(FeatureConstants.EPHEMERAL_TAB_FEATURE);
         }
+
+        if (!mIsLensIntentInProgress) {
+            // TODO(crbug/1158604): Remove leftover Lens dependencies.
+            LensUtils.terminateLensConnectionsIfNecessary(mItemDelegate.isIncognito());
+        }
     }
 
     private WindowAndroid getWindow() {
@@ -816,7 +827,8 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
                     new ChromeShareExtras.Builder()
                             .setSaveLastUsed(true)
                             .setImageSrcUrl(mParams.getSrcUrl())
-                            .build());
+                            .build(),
+                    ShareOrigin.CONTEXT_MENU);
         });
     }
 
@@ -834,11 +846,36 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
      */
     protected void searchWithGoogleLens(
             boolean requiresConfirmation, @Nullable LensQueryResult lensQueryResult) {
+        mIsLensIntentInProgress = true;
         mNativeDelegate.retrieveImageForShare(ContextMenuImageFormat.PNG, (Uri imageUri) -> {
             ShareHelper.shareImageWithGoogleLens(getWindow(), imageUri, mItemDelegate.isIncognito(),
                     mParams.getSrcUrl(), mParams.getTitleText(), mParams.getPageUrl(),
                     lensQueryResult, requiresConfirmation);
         });
+    }
+
+    @Override
+    public @Nullable ChipDelegate getChipDelegate() {
+        if (LensUtils.enableImageChip(isIncognito())) {
+            return new LensChipDelegate(mParams.getPageUrl(), mParams.getTitleText(),
+                    mParams.getSrcUrl(), getPageTitle(), isIncognito(),
+                    mItemDelegate.getWebContents(), mNativeDelegate, getOnChipClickedCallback(),
+                    getOnChipShownCallback());
+        }
+
+        return null;
+    }
+
+    private Runnable getOnChipClickedCallback() {
+        return () -> {
+            recordContextMenuSelection(ContextMenuUma.Action.SHOP_WITH_GOOGLE_LENS_CHIP);
+        };
+    }
+
+    private Runnable getOnChipShownCallback() {
+        return () -> {
+            maybeRecordBooleanUkm("ContextMenuAndroid.Shown", "ShopWithGoogleLensChip");
+        };
     }
 
     /**

@@ -6,8 +6,10 @@
 
 #include "base/check.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/strings/strcat.h"
 #include "base/time/default_tick_clock.h"
 #include "base/trace_event/trace_event.h"
+#include "components/shared_highlighting/core/common/shared_highlighting_metrics.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 
@@ -69,9 +71,11 @@ void TextFragmentAnchorMetrics::DidScrollToTop() {
   DCHECK(!first_scroll_into_view_time_.is_null());
   DCHECK(scroll_to_top_time >= first_scroll_into_view_time_);
 
+  std::string uma_prefix = GetPrefixForHistograms();
+
   base::TimeDelta time_to_scroll_to_top(scroll_to_top_time -
                                         first_scroll_into_view_time_);
-  base::UmaHistogramTimes("TextFragmentAnchor.TimeToScrollToTop",
+  base::UmaHistogramTimes(base::StrCat({uma_prefix, "TimeToScrollToTop"}),
                           time_to_scroll_to_top);
   TRACE_EVENT_INSTANT1("blink", "TextFragmentAnchorMetrics::ReportMetrics",
                        TRACE_EVENT_SCOPE_THREAD, "time_to_scroll_to_top",
@@ -90,13 +94,20 @@ void TextFragmentAnchorMetrics::ReportMetrics() {
     UseCounter::Count(document_, WebFeature::kTextFragmentAnchorMatchFound);
   }
 
-  base::UmaHistogramCounts100("TextFragmentAnchor.SelectorCount",
+  shared_highlighting::LogLinkOpenedUkmEvent(
+      document_->UkmRecorder(), document_->UkmSourceID(),
+      KURL(document_->referrer()),
+      /*success=*/matches_.size() == selector_count_);
+
+  std::string uma_prefix = GetPrefixForHistograms();
+
+  base::UmaHistogramCounts100(base::StrCat({uma_prefix, "SelectorCount"}),
                               selector_count_);
   TRACE_EVENT_INSTANT1("blink", "TextFragmentAnchorMetrics::ReportMetrics",
                        TRACE_EVENT_SCOPE_THREAD, "selector_count",
                        selector_count_);
 
-  base::UmaHistogramCounts1000("TextFragmentAnchor.DirectiveLength",
+  base::UmaHistogramCounts1000(base::StrCat({uma_prefix, "DirectiveLength"}),
                                directive_length_);
   TRACE_EVENT_INSTANT1("blink", "TextFragmentAnchorMetrics::ReportMetrics",
                        TRACE_EVENT_SCOPE_THREAD, "directive_length",
@@ -104,7 +115,7 @@ void TextFragmentAnchorMetrics::ReportMetrics() {
 
   const int match_rate_percent =
       static_cast<int>(100 * ((matches_.size() + 0.0) / selector_count_));
-  base::UmaHistogramPercentage("TextFragmentAnchor.MatchRate",
+  base::UmaHistogramPercentage(base::StrCat({uma_prefix, "MatchRate"}),
                                match_rate_percent);
   TRACE_EVENT_INSTANT1("blink", "TextFragmentAnchorMetrics::ReportMetrics",
                        TRACE_EVENT_SCOPE_THREAD, "match_rate",
@@ -118,30 +129,31 @@ void TextFragmentAnchorMetrics::ReportMetrics() {
         match.text.length());
 
     if (match.selector.Type() == TextFragmentSelector::kExact) {
-      base::UmaHistogramCounts1000("TextFragmentAnchor.ExactTextLength",
-                                   match.text.length());
+      base::UmaHistogramCounts1000(
+          base::StrCat({uma_prefix, "ExactTextLength"}), match.text.length());
       TRACE_EVENT_INSTANT1("blink", "TextFragmentAnchorMetrics::ReportMetrics",
                            TRACE_EVENT_SCOPE_THREAD, "exact_text_length",
                            match.text.length());
 
-      base::UmaHistogramBoolean("TextFragmentAnchor.ListItemMatch",
+      base::UmaHistogramBoolean(base::StrCat({uma_prefix, "ListItemMatch"}),
                                 match.is_list_item);
-      base::UmaHistogramBoolean("TextFragmentAnchor.TableCellMatch",
+      base::UmaHistogramBoolean(base::StrCat({uma_prefix, "TableCellMatch"}),
                                 match.is_table_cell);
     } else if (match.selector.Type() == TextFragmentSelector::kRange) {
-      base::UmaHistogramCounts1000("TextFragmentAnchor.RangeMatchLength",
-                                   match.text.length());
+      base::UmaHistogramCounts1000(
+          base::StrCat({uma_prefix, "RangeMatchLength"}), match.text.length());
       TRACE_EVENT_INSTANT1("blink", "TextFragmentAnchorMetrics::ReportMetrics",
                            TRACE_EVENT_SCOPE_THREAD, "range_match_length",
                            match.text.length());
 
-      base::UmaHistogramCounts1000("TextFragmentAnchor.StartTextLength",
-                                   match.selector.Start().length());
+      base::UmaHistogramCounts1000(
+          base::StrCat({uma_prefix, "StartTextLength"}),
+          match.selector.Start().length());
       TRACE_EVENT_INSTANT1("blink", "TextFragmentAnchorMetrics::ReportMetrics",
                            TRACE_EVENT_SCOPE_THREAD, "start_text_length",
                            match.selector.Start().length());
 
-      base::UmaHistogramCounts1000("TextFragmentAnchor.EndTextLength",
+      base::UmaHistogramCounts1000(base::StrCat({uma_prefix, "EndTextLength"}),
                                    match.selector.End().length());
       TRACE_EVENT_INSTANT1("blink", "TextFragmentAnchorMetrics::ReportMetrics",
                            TRACE_EVENT_SCOPE_THREAD, "end_text_length",
@@ -151,17 +163,17 @@ void TextFragmentAnchorMetrics::ReportMetrics() {
       DCHECK(!match.is_list_item && !match.is_table_cell);
     }
 
-    base::UmaHistogramEnumeration("TextFragmentAnchor.Parameters",
+    base::UmaHistogramEnumeration(base::StrCat({uma_prefix, "Parameters"}),
                                   GetParametersForSelector(match.selector));
   }
 
-  base::UmaHistogramBoolean("TextFragmentAnchor.AmbiguousMatch",
+  base::UmaHistogramBoolean(base::StrCat({uma_prefix, "AmbiguousMatch"}),
                             ambiguous_match_);
   TRACE_EVENT_INSTANT1("blink", "TextFragmentAnchorMetrics::ReportMetrics",
                        TRACE_EVENT_SCOPE_THREAD, "ambiguous_match",
                        ambiguous_match_);
 
-  base::UmaHistogramBoolean("TextFragmentAnchor.ScrollCancelled",
+  base::UmaHistogramBoolean(base::StrCat({uma_prefix, "ScrollCancelled"}),
                             scroll_cancelled_);
   TRACE_EVENT_INSTANT1("blink", "TextFragmentAnchorMetrics::ReportMetrics",
                        TRACE_EVENT_SCOPE_THREAD, "scroll_cancelled",
@@ -170,7 +182,7 @@ void TextFragmentAnchorMetrics::ReportMetrics() {
   if (!first_scroll_into_view_time_.is_null()) {
     DCHECK(first_scroll_into_view_time_ >= search_start_time_);
 
-    base::UmaHistogramBoolean("TextFragmentAnchor.DidScrollIntoView",
+    base::UmaHistogramBoolean(base::StrCat({uma_prefix, "DidScrollIntoView"}),
                               did_non_zero_scroll_);
     TRACE_EVENT_INSTANT1("blink", "TextFragmentAnchorMetrics::ReportMetrics",
                          TRACE_EVENT_SCOPE_THREAD, "did_scroll_into_view",
@@ -178,7 +190,7 @@ void TextFragmentAnchorMetrics::ReportMetrics() {
 
     base::TimeDelta time_to_scroll_into_view(first_scroll_into_view_time_ -
                                              search_start_time_);
-    base::UmaHistogramTimes("TextFragmentAnchor.TimeToScrollIntoView",
+    base::UmaHistogramTimes(base::StrCat({uma_prefix, "TimeToScrollIntoView"}),
                             time_to_scroll_into_view);
     TRACE_EVENT_INSTANT1("blink", "TextFragmentAnchorMetrics::ReportMetrics",
                          TRACE_EVENT_SCOPE_THREAD, "time_to_scroll_into_view",
@@ -243,6 +255,12 @@ void TextFragmentAnchorMetrics::SetTickClockForTesting(
 void TextFragmentAnchorMetrics::SetSearchEngineSource(
     bool has_search_engine_source) {
   has_search_engine_source_ = has_search_engine_source;
+}
+
+std::string TextFragmentAnchorMetrics::GetPrefixForHistograms() const {
+  std::string source = has_search_engine_source_ ? "SearchEngine" : "Unknown";
+  std::string uma_prefix = base::StrCat({"TextFragmentAnchor.", source, "."});
+  return uma_prefix;
 }
 
 }  // namespace blink

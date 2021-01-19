@@ -63,7 +63,8 @@ class FakeConnectionBrokerFactory : public NearbyConnectionBrokerImpl::Factory {
           location::nearby::connections::mojom::NearbyConnections>&
           nearby_connections,
       base::OnceClosure on_connected_callback,
-      base::OnceClosure on_disconnected_callback) override {
+      base::OnceClosure on_disconnected_callback,
+      std::unique_ptr<base::OneShotTimer> timer) override {
     auto instance = std::make_unique<FakeNearbyConnectionBroker>(
         bluetooth_public_address, std::move(message_sender_receiver),
         std::move(message_receiver_remote), std::move(on_connected_callback),
@@ -204,7 +205,7 @@ TEST_F(NearbyConnectorImplTest, ConnectAndTransferMessages) {
   // Disconnect.
   base::RunLoop disconnect_run_loop;
   receiver.SetMojoDisconnectHandler(disconnect_run_loop.QuitClosure());
-  broker->Disconnect();
+  broker->InvokeDisconnectedCallback();
   disconnect_run_loop.Run();
   EXPECT_EQ(0u, fake_nearby_process_manager_.GetNumActiveReferences());
 }
@@ -246,14 +247,59 @@ TEST_F(NearbyConnectorImplTest, TwoConnections) {
   // there is still an active connection.
   base::RunLoop disconnect_run_loop1;
   receiver1.SetMojoDisconnectHandler(disconnect_run_loop1.QuitClosure());
-  broker1->Disconnect();
+  broker1->InvokeDisconnectedCallback();
   disconnect_run_loop1.Run();
   EXPECT_EQ(1u, fake_nearby_process_manager_.GetNumActiveReferences());
 
   // Disconnect connection 2. The process reference should have been released.
   base::RunLoop disconnect_run_loop2;
   receiver2.SetMojoDisconnectHandler(disconnect_run_loop2.QuitClosure());
-  broker2->Disconnect();
+  broker2->InvokeDisconnectedCallback();
+  disconnect_run_loop2.Run();
+  EXPECT_EQ(0u, fake_nearby_process_manager_.GetNumActiveReferences());
+}
+
+// Regression test for https://crbug.com/1156162.
+TEST_F(NearbyConnectorImplTest, TwoConnections_FirstFails) {
+  // Attempt connection 1.
+  FakeMessageReceiver receiver1;
+  Connect(&receiver1, GetBluetoothAddress(/*repeated_address_value=*/1u));
+  FakeNearbyConnectionBroker* broker1 =
+      fake_connection_broker_factory_.last_created();
+  EXPECT_EQ(1u, fake_nearby_process_manager_.GetNumActiveReferences());
+
+  // Attempt connection 2 before connection 1 has completed. No new broker
+  // should have been created since they are queued.
+  FakeMessageReceiver receiver2;
+  Connect(&receiver2, GetBluetoothAddress(/*repeated_address_value=*/2u));
+  EXPECT_EQ(broker1, fake_connection_broker_factory_.last_created());
+  EXPECT_EQ(1u, fake_nearby_process_manager_.GetNumActiveReferences());
+
+  // Fail connection 1 by calling Disconnect() before completing the connection.
+  base::RunLoop connect_run_loop;
+  on_connect_ = connect_run_loop.QuitClosure();
+  base::RunLoop disconnect_run_loop;
+  receiver1.SetMojoDisconnectHandler(disconnect_run_loop.QuitClosure());
+  broker1->InvokeDisconnectedCallback();
+  connect_run_loop.Run();
+  disconnect_run_loop.Run();
+
+  // A new broker should have been created for connection 2 since connection 1
+  // has completed.
+  FakeNearbyConnectionBroker* broker2 =
+      fake_connection_broker_factory_.last_created();
+  EXPECT_EQ(1u, fake_nearby_process_manager_.GetNumActiveReferences());
+
+  // Complete connection 2.
+  base::RunLoop connect_run_loop2;
+  on_connect_ = connect_run_loop2.QuitClosure();
+  broker2->NotifyConnected();
+  connect_run_loop2.Run();
+
+  // Disconnect connection 2. The process reference should have been released.
+  base::RunLoop disconnect_run_loop2;
+  receiver2.SetMojoDisconnectHandler(disconnect_run_loop2.QuitClosure());
+  broker2->InvokeDisconnectedCallback();
   disconnect_run_loop2.Run();
   EXPECT_EQ(0u, fake_nearby_process_manager_.GetNumActiveReferences());
 }
@@ -271,7 +317,7 @@ TEST_F(NearbyConnectorImplTest, FailToConnect) {
   on_connect_ = connect_run_loop.QuitClosure();
   base::RunLoop disconnect_run_loop;
   receiver.SetMojoDisconnectHandler(disconnect_run_loop.QuitClosure());
-  broker->Disconnect();
+  broker->InvokeDisconnectedCallback();
   connect_run_loop.Run();
   disconnect_run_loop.Run();
 

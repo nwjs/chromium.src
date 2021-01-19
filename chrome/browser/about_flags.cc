@@ -34,6 +34,7 @@
 #include "chrome/browser/chromeos/android_sms/android_sms_switches.h"
 #include "chrome/browser/flag_descriptions.h"
 #include "chrome/browser/lite_video/lite_video_switches.h"
+#include "chrome/browser/login_detection/login_detection_util.h"
 #include "chrome/browser/navigation_predictor/navigation_predictor_features.h"
 #include "chrome/browser/navigation_predictor/search_engine_preconnector.h"
 #include "chrome/browser/net/stub_resolver_config_reader.h"
@@ -56,7 +57,6 @@
 #include "chrome/browser/unexpire_flags.h"
 #include "chrome/browser/unexpire_flags_gen.h"
 #include "chrome/browser/video_tutorials/switches.h"
-#include "chrome/browser/web_applications/components/external_app_install_features.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/channel_info.h"
 #include "chrome/common/chrome_content_client.h"
@@ -1511,9 +1511,20 @@ const FeatureEntry::FeatureVariation kPromoBrowserCommandsVariations[] = {
          kPromoBrowserCommandOpenSafeBrowsingSettingsEnhancedProtectionCommandParam),
      nullptr}};
 #if !defined(OS_ANDROID)
+
+const FeatureEntry::FeatureParam kNtpRecipeTasksModuleFakeData[] = {
+    {ntp_features::kNtpStatefulTasksModuleDataParam, "fake"}};
+const FeatureEntry::FeatureVariation kNtpRecipeTasksModuleVariations[] = {
+    {"- Fake Data", kNtpRecipeTasksModuleFakeData,
+     base::size(kNtpRecipeTasksModuleFakeData), nullptr},
+};
+
+const FeatureEntry::FeatureParam kNtpShoppingTasksModuleFakeData[] = {
+    {ntp_features::kNtpStatefulTasksModuleDataParam, "fake"}};
 const FeatureEntry::FeatureVariation kNtpShoppingTasksModuleVariations[] = {
-    {"- Real Data", {}, 0, "t3329137" /* variation_id */},
-    {"- Fake Data", {}, 0, "t3329139" /* variation_id */},
+    {"- Fake Data", kNtpShoppingTasksModuleFakeData,
+     base::size(kNtpShoppingTasksModuleFakeData),
+     "t3329139" /* variation_id */},
 };
 
 const FeatureEntry::FeatureParam kNtpRepeatableQueriesInsertPositionStart[] = {
@@ -1566,6 +1577,22 @@ const FeatureEntry::FeatureVariation
         {"(Force automatic translation of blocked sites for hrefTranslate)",
          kOverridePrefsForHrefTranslateForceAuto,
          base::size(kOverridePrefsForHrefTranslateForceAuto), nullptr}};
+
+#if defined(OS_ANDROID)
+const FeatureEntry::FeatureParam kEphemeralTabOpenPeek[] = {
+    {"ephemeral_tab_open_mode", "0"}};
+const FeatureEntry::FeatureParam kEphemeralTabOpenHalf[] = {
+    {"ephemeral_tab_open_mode", "1"}};
+const FeatureEntry::FeatureParam kEphemeralTabOpenFull[] = {
+    {"ephemeral_tab_open_mode", "2"}};
+const FeatureEntry::FeatureVariation kEphemeralTabOpenVariations[] = {
+    {"Open at peek state", kEphemeralTabOpenPeek,
+     base::size(kEphemeralTabOpenPeek), nullptr},
+    {"Open at half state", kEphemeralTabOpenHalf,
+     base::size(kEphemeralTabOpenHalf), nullptr},
+    {"Open at full state", kEphemeralTabOpenFull,
+     base::size(kEphemeralTabOpenFull), nullptr}};
+#endif
 
 #if defined(OS_ANDROID)
 const FeatureEntry::FeatureParam kExploreSitesExperimental = {
@@ -1682,6 +1709,9 @@ const FeatureEntry::FeatureParam kTabGridLayoutAndroid_TallNTV[] = {
 const FeatureEntry::FeatureParam kTabGridLayoutAndroid_SearchChip[] = {
     {"enable_search_term_chip", "true"}};
 
+const FeatureEntry::FeatureParam kTabGridLayoutAndroid_PriceAlerts[] = {
+    {"enable_price_tracking", "true"}};
+
 const FeatureEntry::FeatureVariation kTabGridLayoutAndroidVariations[] = {
     {"New Tab Variation", kTabGridLayoutAndroid_NewTabVariation,
      base::size(kTabGridLayoutAndroid_NewTabVariation), nullptr},
@@ -1691,6 +1721,8 @@ const FeatureEntry::FeatureVariation kTabGridLayoutAndroidVariations[] = {
      base::size(kTabGridLayoutAndroid_TallNTV), nullptr},
     {"Search term chip", kTabGridLayoutAndroid_SearchChip,
      base::size(kTabGridLayoutAndroid_SearchChip), nullptr},
+    {"Price alerts", kTabGridLayoutAndroid_PriceAlerts,
+     base::size(kTabGridLayoutAndroid_PriceAlerts), nullptr},
 };
 
 const FeatureEntry::FeatureParam kStartSurfaceAndroid_SingleSurface[] = {
@@ -2731,6 +2763,9 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kBluetoothFixA2dpPacketSizeName,
      flag_descriptions::kBluetoothFixA2dpPacketSizeDescription, kOsCrOS,
      FEATURE_VALUE_TYPE(chromeos::features::kBluetoothFixA2dpPacketSize)},
+    {"bluetooth-wbs-dogfood", flag_descriptions::kBluetoothWbsDogfoodName,
+     flag_descriptions::kBluetoothWbsDogfoodDescription, kOsCrOS,
+     FEATURE_VALUE_TYPE(chromeos::features::kBluetoothWbsDogfood)},
     {"cryptauth-v2-device-activity-status",
      flag_descriptions::kCryptAuthV2DeviceActivityStatusName,
      flag_descriptions::kCryptAuthV2DeviceActivityStatusDescription, kOsCrOS,
@@ -2745,6 +2780,12 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kDisableCryptAuthV1DeviceSyncName,
      flag_descriptions::kDisableCryptAuthV1DeviceSyncDescription, kOsCrOS,
      FEATURE_VALUE_TYPE(chromeos::features::kDisableCryptAuthV1DeviceSync)},
+    {"disable-idle-sockets-close-on-memory-pressure",
+     flag_descriptions::kDisableIdleSocketsCloseOnMemoryPressureName,
+     flag_descriptions::kDisableIdleSocketsCloseOnMemoryPressureDescription,
+     kOsCrOS,
+     FEATURE_VALUE_TYPE(
+         chromeos::features::kDisableIdleSocketsCloseOnMemoryPressure)},
     {"disable-office-editing-component-app",
      flag_descriptions::kDisableOfficeEditingComponentAppName,
      flag_descriptions::kDisableOfficeEditingComponentAppDescription, kOsCrOS,
@@ -2785,6 +2826,10 @@ const FeatureEntry kFeatureEntries[] = {
     {"list-all-display-modes", flag_descriptions::kListAllDisplayModesName,
      flag_descriptions::kListAllDisplayModesDescription, kOsCrOS,
      FEATURE_VALUE_TYPE(display::features::kListAllDisplayModes)},
+    {"enable-hardware_mirror-mode",
+     flag_descriptions::kEnableHardwareMirrorModeName,
+     flag_descriptions::kEnableHardwareMirrorModeDescription, kOsCrOS,
+     FEATURE_VALUE_TYPE(display::features::kEnableHardwareMirrorMode)},
     {"instant-tethering", flag_descriptions::kTetherName,
      flag_descriptions::kTetherDescription, kOsCrOS,
      FEATURE_VALUE_TYPE(chromeos::features::kInstantTethering)},
@@ -3015,6 +3060,10 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kVoiceButtonInTopToolbarName,
      flag_descriptions::kVoiceButtonInTopToolbarDescription, kOsAndroid,
      FEATURE_VALUE_TYPE(chrome::android::kVoiceButtonInTopToolbar)},
+    {"assistant-intent-page-url",
+     flag_descriptions::kAssistantIntentPageUrlName,
+     flag_descriptions::kAssistantIntentPageUrlDescription, kOsAndroid,
+     FEATURE_VALUE_TYPE(chrome::android::kAssistantIntentPageUrl)},
     {"share-button-in-top-toolbar",
      flag_descriptions::kShareButtonInTopToolbarName,
      flag_descriptions::kShareButtonInTopToolbarDescription, kOsAndroid,
@@ -3151,6 +3200,9 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kEnableSubresourceRedirectName,
      flag_descriptions::kEnableSubresourceRedirectDescription, kOsAll,
      FEATURE_VALUE_TYPE(blink::features::kSubresourceRedirect)},
+    {"enable-login-detection", flag_descriptions::kEnableLoginDetectionName,
+     flag_descriptions::kEnableLoginDetectionDescription, kOsAll,
+     FEATURE_VALUE_TYPE(login_detection::kLoginDetection)},
 #if defined(OS_ANDROID)
     {"enable-offline-previews", flag_descriptions::kEnableOfflinePreviewsName,
      flag_descriptions::kEnableOfflinePreviewsDescription, kOsAndroid,
@@ -3502,17 +3554,21 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kReportFeedUserActionsDescription, kOsAndroid,
      FEATURE_VALUE_TYPE(feed::kReportFeedUserActions)},
     {"interest-feed-v1-clicks-and-views-cond-upload",
-     flag_descriptions::InterestFeedV1ClickAndViewActionsConditionalUploadName,
+     flag_descriptions::kInterestFeedV1ClickAndViewActionsConditionalUploadName,
      flag_descriptions::
-         InterestFeedV1ClickAndViewActionsConditionalUploadDescription,
+         kInterestFeedV1ClickAndViewActionsConditionalUploadDescription,
      kOsAndroid,
      FEATURE_VALUE_TYPE(feed::kInterestFeedV1ClicksAndViewsConditionalUpload)},
     {"interest-feed-v2-clicks-and-views-cond-upload",
-     flag_descriptions::InterestFeedV2ClickAndViewActionsConditionalUploadName,
+     flag_descriptions::kInterestFeedV2ClickAndViewActionsConditionalUploadName,
      flag_descriptions::
-         InterestFeedV2ClickAndViewActionsConditionalUploadDescription,
+         kInterestFeedV2ClickAndViewActionsConditionalUploadDescription,
      kOsAndroid,
      FEATURE_VALUE_TYPE(feed::kInterestFeedV2ClicksAndViewsConditionalUpload)},
+    {"interest-feed-notice-card-auto-dismiss",
+     flag_descriptions::kInterestFeedNoticeCardAutoDismissName,
+     flag_descriptions::kInterestFeedNoticeCardAutoDismissDescription,
+     kOsAndroid, FEATURE_VALUE_TYPE(feed::kInterestFeedNoticeCardAutoDismiss)},
     {"offlining-recent-pages", flag_descriptions::kOffliningRecentPagesName,
      flag_descriptions::kOffliningRecentPagesDescription, kOsAndroid,
      FEATURE_VALUE_TYPE(offline_pages::kOffliningRecentPagesFeature)},
@@ -3748,7 +3804,7 @@ const FeatureEntry kFeatureEntries[] = {
 #if defined(OS_CHROMEOS)
     {"camera-system-web-app", flag_descriptions::kCameraSystemWebAppName,
      flag_descriptions::kCameraSystemWebAppDescription, kOsCrOS,
-     FEATURE_VALUE_TYPE(web_app::kCameraSystemWebApp)},
+     FEATURE_VALUE_TYPE(chromeos::features::kCameraSystemWebApp)},
     {"crostini-gpu-support", flag_descriptions::kCrostiniGpuSupportName,
      flag_descriptions::kCrostiniGpuSupportDescription, kOsCrOS,
      FEATURE_VALUE_TYPE(chromeos::features::kCrostiniGpuSupport)},
@@ -4324,7 +4380,9 @@ const FeatureEntry kFeatureEntries[] = {
 
     {"ntp-recipe-tasks-module", flag_descriptions::kNtpRecipeTasksModuleName,
      flag_descriptions::kNtpRecipeTasksModuleDescription, kOsDesktop,
-     FEATURE_VALUE_TYPE(ntp_features::kNtpRecipeTasksModule)},
+     FEATURE_WITH_PARAMS_VALUE_TYPE(ntp_features::kNtpRecipeTasksModule,
+                                    kNtpRecipeTasksModuleVariations,
+                                    "NtpRecipeTasksModule")},
 
     {"ntp-shopping-tasks-module",
      flag_descriptions::kNtpShoppingTasksModuleName,
@@ -4909,7 +4967,10 @@ const FeatureEntry kFeatureEntries[] = {
     {"enable-ephemeral-tab-bottom-sheet",
      flag_descriptions::kEphemeralTabUsingBottomSheetName,
      flag_descriptions::kEphemeralTabUsingBottomSheetDescription, kOsAndroid,
-     FEATURE_VALUE_TYPE(chrome::android::kEphemeralTabUsingBottomSheet)},
+     FEATURE_WITH_PARAMS_VALUE_TYPE(
+         chrome::android::kEphemeralTabUsingBottomSheet,
+         kEphemeralTabOpenVariations,
+         "EphemeralTabOpenMode")},
 #endif  // defined(OS_ANDROID)
 
 #if defined(OS_CHROMEOS)
@@ -5973,6 +6034,9 @@ const FeatureEntry kFeatureEntries[] = {
     {"media-app-annotation", flag_descriptions::kMediaAppAnnotationName,
      flag_descriptions::kMediaAppAnnotationDescription, kOsCrOS,
      FEATURE_VALUE_TYPE(chromeos::features::kMediaAppAnnotation)},
+    {"media-app-pdf-in-ink", flag_descriptions::kMediaAppPdfInInkName,
+     flag_descriptions::kMediaAppPdfInInkDescription, kOsCrOS,
+     FEATURE_VALUE_TYPE(chromeos::features::kMediaAppPdfInInk)},
     {"os-settings-polymer3", flag_descriptions::kOsSettingsPolymer3Name,
      flag_descriptions::kOsSettingsPolymer3Description, kOsCrOS,
      FEATURE_VALUE_TYPE(chromeos::features::kOsSettingsPolymer3)},
@@ -6713,6 +6777,12 @@ const FeatureEntry kFeatureEntries[] = {
     {"permission-predictions", flag_descriptions::kPermissionPredictionsName,
      flag_descriptions::kPermissionPredictionsDescription, kOsAll,
      FEATURE_VALUE_TYPE(features::kPermissionPredictions)},
+
+#if defined(OS_ANDROID)
+    {"enable-swipe-to-move-cursor", flag_descriptions::kSwipeToMoveCursorName,
+     flag_descriptions::kSwipeToMoveCursorDescription, kOsAndroid,
+     FEATURE_VALUE_TYPE(features::kSwipeToMoveCursor)},
+#endif  // defined(OS_ANDROID)
 
     // NOTE: Adding a new flag requires adding a corresponding entry to enum
     // "LoginCustomFlags" in tools/metrics/histograms/enums.xml. See "Flag

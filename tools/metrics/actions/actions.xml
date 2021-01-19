@@ -1651,6 +1651,43 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="Android.BookmarkPage.ReadingList.MarkAsRead">
+  <owner>shaktisahu@chromium.org</owner>
+  <owner>xingliu@chromium.org</owner>
+  <description>
+    User marked an item as read in the Reading List page from the Android
+    bookmark page by clicking &quot;Mark As Read&quot; from the &quot;more&quot;
+    menu.
+  </description>
+</action>
+
+<action name="Android.BookmarkPage.ReadingList.OpenReadingList">
+  <owner>shaktisahu@chromium.org</owner>
+  <owner>xingliu@chromium.org</owner>
+  <description>
+    User navigated to the Reading List page from the Android bookmark page by
+    clicking on reading list folder.
+  </description>
+</action>
+
+<action name="Android.BookmarkPage.ReadingList.RemoveItem">
+  <owner>shaktisahu@chromium.org</owner>
+  <owner>xingliu@chromium.org</owner>
+  <description>
+    User removed an item from the Reading List page from the Android bookmarks
+    page by clicking &quot;delete&quot; from the &quot;more&quot; menu.
+  </description>
+</action>
+
+<action name="Android.BookmarkPage.ReadingList.SelectFromMenu">
+  <owner>shaktisahu@chromium.org</owner>
+  <owner>xingliu@chromium.org</owner>
+  <description>
+    User selected an item from the Reading List page from the Android bookmark
+    page by clicking &quot;select&quot; from the &quot;more&quot; menu.
+  </description>
+</action>
+
 <action name="Android.BookmarkPage.RemoveItem">
   <owner>twellington@chromium.org</owner>
   <owner>clank-app-team@google.com</owner>
@@ -1666,6 +1703,16 @@ should be able to be added at any place in this file.
   <description>
     User selected an item on the native Android bookmark page by clicking
     &quot;select&quot; from the &quot;more&quot; menu.
+  </description>
+</action>
+
+<action name="Android.Bookmarks.BottomSheet.Open">
+  <owner>shaktisahu@chromium.org</owner>
+  <owner>xingliu@chromium.org</owner>
+  <description>
+    User tapped on the star icon from the app menu to bookmark a page. This
+    resulted in opening the bookmarks bottom sheet that presents a list of
+    destination folders to choose from for saving the bookmark.
   </description>
 </action>
 
@@ -4929,6 +4976,22 @@ should be able to be added at any place in this file.
   <description>Please enter the description of this user action.</description>
 </action>
 
+<action name="ContentSuggestions.Feed.CardAction.ClosedContextMenu">
+  <owner>harringtond@chromium.org</owner>
+  <owner>carlosk@chromium.org</owner>
+  <owner>feed@chromium.org</owner>
+  <description>The user closed the context menu for a Feed card.</description>
+</action>
+
+<action name="ContentSuggestions.Feed.CardAction.ClosedReportContent">
+  <owner>harringtond@chromium.org</owner>
+  <owner>sczs@chromium.org</owner>
+  <owner>feed@chromium.org</owner>
+  <description>
+    The user closed the 'report content' option for a Feed card.
+  </description>
+</action>
+
 <action name="ContentSuggestions.Feed.CardAction.ContextMenu">
   <owner>harringtond@chromium.org</owner>
   <owner>carlosk@chromium.org</owner>
@@ -4972,6 +5035,15 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="ContentSuggestions.Feed.CardAction.NativeContextMenu">
+  <owner>sczs@chromium.org</owner>
+  <owner>gogerald@chromium.org</owner>
+  <owner>feed@chromium.org</owner>
+  <description>
+    The user opened the native context menu for a Feed card.(iOS only)
+  </description>
+</action>
+
 <action name="ContentSuggestions.Feed.CardAction.NotInterestedIn">
   <owner>harringtond@chromium.org</owner>
   <owner>carlosk@chromium.org</owner>
@@ -5012,6 +5084,15 @@ should be able to be added at any place in this file.
   <owner>feed@chromium.org</owner>
   <description>
     The user selected the 'Read Later' option for a Feed card.
+  </description>
+</action>
+
+<action name="ContentSuggestions.Feed.CardAction.ReportContent">
+  <owner>harringtond@chromium.org</owner>
+  <owner>sczs@chromium.org</owner>
+  <owner>feed@chromium.org</owner>
+  <description>
+    The user selected the 'report content' option for a Feed card.
   </description>
 </action>
 
@@ -12920,13 +13001,19 @@ should be able to be added at any place in this file.
 <action name="MobileActionMode.Share">
   <owner>donnd@chromium.org</owner>
   <description>
-    The user pressed the Share button in the mobile Action Bar.
+    The user pressed the Share option in the mobile Action Bar, or in the
+    floating toolbar for Android M+. The bars are shown after the user selects
+    text.
   </description>
 </action>
 
 <action name="MobileActionMode.WebSearch">
   <owner>donnd@chromium.org</owner>
-  <description>User pressed 'Web Search' in the mobile action bar.</description>
+  <description>
+    The user pressed the Web Search option in the mobile Action Bar, or in the
+    floating toolbar for Android M+. The bars are shown after the user selects
+    text.
+  </description>
 </action>
 
 <action name="MobileAddBookmarkViaIntent">
@@ -13787,6 +13874,11 @@ should be able to be added at any place in this file.
 <action name="MobileMenuAddToHomescreen">
   <owner>aurimas@chromium.org</owner>
   <description>User pressed 'Add to homescreen' in the app menu.</description>
+</action>
+
+<action name="MobileMenuAddToReadingList">
+  <owner>xingliu@chromium.org</owner>
+  <description>User pressed 'Add to reading list' in the app menu.</description>
 </action>
 
 <action name="MobileMenuAllBookmarks">

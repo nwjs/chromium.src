@@ -39,6 +39,7 @@
 #include "base/numerics/checked_math.h"
 #include "build/build_config.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
+#include "services/metrics/public/cpp/ukm_source_id.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/privacy_budget/identifiability_metric_builder.h"
 #include "third_party/blink/public/common/privacy_budget/identifiability_metrics.h"
@@ -120,8 +121,7 @@ HTMLCanvasElement::HTMLCanvasElement(Document& document)
       ExecutionContextLifecycleObserver(GetExecutionContext()),
       PageVisibilityObserver(document.GetPage()),
       CanvasRenderingContextHost(
-          CanvasRenderingContextHost::HostType::kCanvasHost,
-          {document.UkmRecorder(), document.UkmSourceID()}),
+          CanvasRenderingContextHost::HostType::kCanvasHost),
       size_(kDefaultCanvasWidth, kDefaultCanvasHeight),
       context_creation_was_blocked_(false),
       ignore_reset_(false),
@@ -147,6 +147,7 @@ void HTMLCanvasElement::Dispose() {
 
   // We need to drop frame dispatcher, to prevent mojo calls from completing.
   frame_dispatcher_ = nullptr;
+  DiscardResourceProvider();
 
   if (context_) {
     UMA_HISTOGRAM_BOOLEAN("Blink.Canvas.HasRendered", bool(ResourceProvider()));
@@ -287,12 +288,13 @@ CanvasRenderingContext* HTMLCanvasElement::GetCanvasRenderingContext(
 
   if (IdentifiabilityStudySettings::Get()->ShouldSample(
           IdentifiableSurface::Type::kCanvasRenderingContext)) {
-    IdentifiabilityMetricBuilder(ukm_params_.source_id)
+    Document& doc = GetDocument();
+    IdentifiabilityMetricBuilder(doc.UkmSourceID())
         .Set(IdentifiableSurface::FromTypeAndToken(
                  IdentifiableSurface::Type::kCanvasRenderingContext,
                  CanvasRenderingContext::ContextTypeFromId(type)),
              !!result)
-        .Record(ukm_params_.ukm_recorder);
+        .Record(doc.UkmRecorder());
   }
 
   if (ContentsCcLayer() != old_contents_cc_layer)
@@ -697,8 +699,11 @@ void HTMLCanvasElement::NotifyListenersCanvasChanged() {
       return;
     for (CanvasDrawListener* listener : listeners_) {
       if (listener->NeedsNewFrame()) {
+        // Here we need to use the SharedGpuContext as some of the images may
+        // have been originated with other contextProvider, but we internally
+        // need a context_provider that has a RasterInterface available.
         listener->SendNewFrame(source_image,
-                               source_image->ContextProviderWrapper());
+                               SharedGpuContext::ContextProviderWrapper());
       }
     }
   }
@@ -862,6 +867,10 @@ void HTMLCanvasElement::PaintInternal(GraphicsContext& context,
 
 bool HTMLCanvasElement::IsPrinting() const {
   return GetDocument().BeforePrintingOrPrinting();
+}
+
+UkmParameters HTMLCanvasElement::GetUkmParameters() {
+  return {GetDocument().UkmRecorder(), GetDocument().UkmSourceID()};
 }
 
 void HTMLCanvasElement::SetSurfaceSize(const IntSize& size) {
@@ -1034,7 +1043,6 @@ void HTMLCanvasElement::toBlob(V8BlobCallback* callback,
         image_bitmap, options,
         CanvasAsyncBlobCreator::kHTMLCanvasToBlobCallback, callback, start_time,
         GetExecutionContext(),
-        UkmParameters{GetDocument().UkmRecorder(), GetDocument().UkmSourceID()},
         IdentifiabilityStudySettings::Get()->IsTypeAllowed(
             IdentifiableSurface::Type::kCanvasReadback)
             ? IdentifiabilityInputDigest(context_)

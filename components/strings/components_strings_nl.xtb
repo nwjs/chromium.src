@@ -300,6 +300,7 @@ Anders wordt dit geblokkeerd door je privacyinstellingen. Hierdoor werkt de cont
 <translation id="2102495993840063010">Android-apps</translation>
 <translation id="2107021941795971877">Afdruksteunen</translation>
 <translation id="2108755909498034140">Je computer opnieuw opstarten</translation>
+<translation id="2111166930115883695">Druk op de spatiebalk om te spelen</translation>
 <translation id="2111256659903765347">Super-A</translation>
 <translation id="2113977810652731515">Pas</translation>
 <translation id="2114841414352855701">Genegeerd omdat het werd overschreven door <ph name="POLICY_NAME" />.</translation>
@@ -450,7 +451,7 @@ Anders wordt dit geblokkeerd door je privacyinstellingen. Hierdoor werkt de cont
 <translation id="272451190272506600">Raak de sensor aan om te betalen</translation>
 <translation id="2728127805433021124">Het certificaat van de server is ondertekend met een zwak ondertekeningsalgoritme.</translation>
 <translation id="2730326759066348565"><ph name="BEGIN_LINK" />Verbindingsdiagnose uitvoeren<ph name="END_LINK" /></translation>
-<translation id="2734544361860335147">Als je deze functies inschakelt, kun je browsergegevens kwijtraken of je veiligheid of privacy in gevaar brengen. Ingeschakelde functies zijn van toepassing op alle gebruikers van deze browser.</translation>
+<translation id="2734544361860335147">Als je deze functies inschakelt, kun je browsegegevens kwijtraken of je veiligheid of privacy in gevaar brengen. Ingeschakelde functies zijn van toepassing op alle gebruikers van deze browser.</translation>
 <translation id="2735043616039983645">Er zijn meerdere bronnen met conflicterende waarden aanwezig voor dit beleid.</translation>
 <translation id="2738330467931008676">Ophaaladres kiezen</translation>
 <translation id="2740531572673183784">OK</translation>
@@ -515,9 +516,10 @@ Anders wordt dit geblokkeerd door je privacyinstellingen. Hierdoor werkt de cont
 <translation id="3010559122411665027">Lijstitem '<ph name="ENTRY_INDEX" />': <ph name="ERROR" /></translation>
 <translation id="301521992641321250">Automatisch geblokkeerd</translation>
 <translation id="3016780570757425217">Je locatie weten</translation>
+<translation id="3017086357773116182"><ph name="REMOVE_SUGGESTION_SUFFIX" />, druk op Tab en daarna op Enter om de suggestie te verwijderen.</translation>
 <translation id="3023071826883856138">You4 (envelop)</translation>
 <translation id="3024663005179499861">Onjuist beleidstype</translation>
-<translation id="3037605927509011580">Helaas.</translation>
+<translation id="3037605927509011580">Asjemenou!</translation>
 <translation id="3041612393474885105">Certificaatgegevens</translation>
 <translation id="3060227939791841287">C9 (envelop)</translation>
 <translation id="3061707000357573562">Patchservice</translation>
@@ -752,6 +754,7 @@ Anders wordt dit geblokkeerd door je privacyinstellingen. Hierdoor werkt de cont
 <translation id="4056223980640387499">Sepia</translation>
 <translation id="4058922952496707368">Sleutel '<ph name="SUBKEY" />': <ph name="ERROR" /></translation>
 <translation id="4067263367174615723">C1 (envelop)</translation>
+<translation id="4067669230157909013">De schermopname is hervat.</translation>
 <translation id="4067947977115446013">Geldig adres toevoegen</translation>
 <translation id="4072486802667267160">Er is een fout opgetreden bij het verwerken van je bestelling. Probeer het opnieuw.</translation>
 <translation id="4075732493274867456">De client en server ondersteunen geen algemene SSL-protocolversie of coderingssuite.</translation>
@@ -816,7 +819,7 @@ Anders wordt dit geblokkeerd door je privacyinstellingen. Hierdoor werkt de cont
     &lt;p&gt;Deze foutmelding wordt weergegeven wanneer je antivirussoftware gebruikt met HTTPS-bescherming of HTTPS-scannen. Deze software verhindert dat Chrome beveiliging biedt.&lt;/p&gt;
     &lt;p&gt;Schakel je antivirussoftware uit om het probleem op te lossen. Als de pagina werkt nadat je de software hebt uitgeschakeld, kun je de software uitschakelen wanneer je beveiligde sites bezoekt.&lt;/p&gt;
     &lt;p&gt;Vergeet niet je antivirussoftware weer in te schakelen zodra je klaar bent.&lt;/p&gt;
-    &lt;h4&gt;Stap 5: Vraag extra ondersteuning&lt;/h4&gt;
+    &lt;h4&gt;Stap 5: Vraag extra support&lt;/h4&gt;
     &lt;p&gt;Als de fout nog steeds wordt weergegeven, neem je contact op met de eigenaar van de website.&lt;/p&gt;</translation>
 <translation id="4226937834893929579"><ph name="BEGIN_LINK" />Voer Netwerkcontrole uit<ph name="END_LINK" />.</translation>
 <translation id="4234495348042597185"><ph name="BEGIN_LINK" />Doorgaan naar <ph name="SITE" /><ph name="END_LINK" /></translation>
@@ -836,6 +839,7 @@ Anders wordt dit geblokkeerd door je privacyinstellingen. Hierdoor werkt de cont
 <translation id="4297502707443874121">Miniatuur voor pagina <ph name="THUMBNAIL_PAGE" /></translation>
 <translation id="42981349822642051">Uitvouwen</translation>
 <translation id="4300675098767811073">Meerdere perforaties rechts</translation>
+<translation id="4302514097724775343">Tik op de dino om te spelen</translation>
 <translation id="4302965934281694568">Chou3 (envelop)</translation>
 <translation id="4305666528087210886">Je bestand kan niet worden geopend</translation>
 <translation id="4305817255990598646">Overschakelen</translation>
@@ -1162,7 +1166,6 @@ Anders wordt dit geblokkeerd door je privacyinstellingen. Hierdoor werkt de cont
 <translation id="560412284261940334">Beheer wordt niet ondersteund</translation>
 <translation id="5605670050355397069">Ledger</translation>
 <translation id="5607240918979444548">Architecture-C</translation>
-<translation id="5608165884683734521">Deze site is mogelijk nep of bedrieglijk. Chrome raadt je aan de site direct te verlaten.</translation>
 <translation id="5610142619324316209">Controleer de verbinding</translation>
 <translation id="5610807607761827392">Je kunt passen en adressen beheren in <ph name="BEGIN_LINK" />Instellingen<ph name="END_LINK" />.</translation>
 <translation id="561165882404867731">Deze pagina vertalen met Google Translate</translation>
@@ -1234,6 +1237,7 @@ Anders wordt dit geblokkeerd door je privacyinstellingen. Hierdoor werkt de cont
 <translation id="5901630391730855834">Geel</translation>
 <translation id="5905445707201418379">Geblokkeerd op basis van het herkomstbeleid van <ph name="ORIGIN" />.</translation>
 <translation id="5908541034548427511"><ph name="TYPE_1" /> (gesynchroniseerd)</translation>
+<translation id="5913377024445952699">Schermopname onderbroken</translation>
 <translation id="59174027418879706">Ingeschakeld</translation>
 <translation id="5919090499915321845">B10</translation>
 <translation id="5921185718311485855">Aan</translation>
@@ -1246,6 +1250,7 @@ Anders wordt dit geblokkeerd door je privacyinstellingen. Hierdoor werkt de cont
 <translation id="5963413905009737549">Sectie</translation>
 <translation id="5967592137238574583">Contactgegevens bewerken</translation>
 <translation id="5967867314010545767">Verwijderen uit geschiedenis</translation>
+<translation id="5968793460449681917">Bij elk bezoek</translation>
 <translation id="5975083100439434680">Uitzoomen</translation>
 <translation id="5979084224081478209">Wachtwoorden controleren</translation>
 <translation id="5980920751713728343">Index-3x5</translation>
@@ -1302,7 +1307,7 @@ Anders wordt dit geblokkeerd door je privacyinstellingen. Hierdoor werkt de cont
 <translation id="6165508094623778733">Meer informatie</translation>
 <translation id="6177128806592000436">Je verbinding met deze site is niet beveiligd</translation>
 <translation id="6180316780098470077">Interval voor nieuwe poging</translation>
-<translation id="6196640612572343990">Indirecte cookies blokkeren</translation>
+<translation id="6196640612572343990">Cookies van derden blokkeren</translation>
 <translation id="6203231073485539293">Controleer je internetverbinding</translation>
 <translation id="6218753634732582820">Adres verwijderen uit Chromium?</translation>
 <translation id="622039917539443112">Parallelvouw</translation>
@@ -1460,6 +1465,7 @@ Anders wordt dit geblokkeerd door je privacyinstellingen. Hierdoor werkt de cont
 <translation id="6895330447102777224">Je creditcard is bevestigd</translation>
 <translation id="6897140037006041989">User-agent</translation>
 <translation id="6898699227549475383">Organisatie (O)</translation>
+<translation id="6907293445143367439">Toestaan dat <ph name="SITE_NAME" /> het volgende doet:</translation>
 <translation id="6910240653697687763"><ph name="URL" /> wil volledig beheer van je MIDI-apparaten hebben</translation>
 <translation id="6915804003454593391">Gebruiker:</translation>
 <translation id="6934672428414710184">Dit is de naam die in je Google-account staat</translation>
@@ -1893,6 +1899,7 @@ Aanvullende informatie:
 <translation id="8574899947864779331">Gebruik Touch ID om kaarten sneller te bevestigen</translation>
 <translation id="858637041960032120">Telnr. toevoegen</translation>
 <translation id="8589998999637048520">Beste kwaliteit</translation>
+<translation id="8600271352425265729">Alleen deze keer</translation>
 <translation id="860043288473659153">Naam kaarthouder</translation>
 <translation id="8606726445206553943">Je MIDI-apparaten gebruiken</translation>
 <translation id="8612761427948161954">Hallo <ph name="USERNAME" />,
@@ -1902,6 +1909,7 @@ Aanvullende informatie:
 <translation id="8622948367223941507">Legal-Extra</translation>
 <translation id="8623885649813806493">Geen overeenkomende wachtwoorden. Alle opgeslagen wachtwoorden weergeven.</translation>
 <translation id="8625384913736129811">Deze pas opslaan op dit apparaat</translation>
+<translation id="8627040765059109009">Schermopname hervat</translation>
 <translation id="8657078576661269990">Je beheerder heeft delen door <ph name="ORIGIN_NAME" /> met <ph name="VM_NAME_1" /> en <ph name="VM_NAME_2" /> geblokkeerd</translation>
 <translation id="8663226718884576429">Besteloverzicht, <ph name="TOTAL_LABEL" />, meer informatie</translation>
 <translation id="867224526087042813">Handtekening</translation>
@@ -2049,6 +2057,7 @@ Aanvullende informatie:
 <translation id="939736085109172342">Nieuwe map</translation>
 <translation id="945855313015696284">Controleer de informatie hieronder en verwijder alle ongeldige passen</translation>
 <translation id="950736567201356821">Drie perforaties boven</translation>
+<translation id="951941430552851965">Je beheerder heeft de schermopname onderbroken vanwege de content op je scherm.</translation>
 <translation id="961663415146723894">Onder inbinden</translation>
 <translation id="962484866189421427">Deze content kan mogelijk proberen misleidende apps te installeren die zich voordoen als iets anders of gegevens verzamelen die kunnen worden gebruikt om je te volgen. <ph name="BEGIN_LINK" />Toch weergeven<ph name="END_LINK" /></translation>
 <translation id="969892804517981540">Officiële build</translation>

@@ -55,6 +55,7 @@ import org.chromium.chrome.browser.tasks.pseudotab.PseudoTab;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.tasks.tab_management.TabListCoordinator.TabListMode;
 import org.chromium.chrome.features.start_surface.StartSurfaceConfiguration;
+import org.chromium.chrome.features.start_surface.StartSurfaceUserData;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -65,8 +66,10 @@ import java.util.List;
  * The Mediator that is responsible for resetting the tab grid or carousel based on visibility and
  * model changes.
  */
-class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView.VisibilityListener,
-                                     TabListMediator.GridCardOnClickListenerProvider {
+class TabSwitcherMediator
+        implements TabSwitcher.Controller, TabListRecyclerView.VisibilityListener,
+                   TabListMediator.GridCardOnClickListenerProvider,
+                   PriceWelcomeMessageService.PriceWelcomeMessageReviewActionProvider {
     private static final String TAG = "TabSwitcherMediator";
 
     // This should be the same as TabListCoordinator.GRID_LAYOUT_SPAN_COUNT for the selected tab
@@ -272,7 +275,7 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
                 }
 
                 if (mContainerViewModel.get(IS_VISIBLE)) {
-                    onTabSelecting(tab.getId());
+                    onTabSelecting(tab.getId(), false);
                 }
             }
 
@@ -688,7 +691,7 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
         }
         if (mTabModelSelector.getCurrentTab() == null) return false;
 
-        onTabSelecting(mTabModelSelector.getCurrentTabId());
+        onTabSelecting(mTabModelSelector.getCurrentTabId(), false);
 
         return true;
     }
@@ -771,11 +774,21 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
     }
 
     @Override
-    public void onTabSelecting(int tabId) {
+    public void onTabSelecting(int tabId, boolean fromActionButton) {
+        if (fromActionButton && (mMode == TabListMode.CAROUSEL || mMode == TabListMode.GRID)) {
+            Tab newlySelectedTab =
+                    TabModelUtils.getTabById(mTabModelSelector.getCurrentModel(), tabId);
+            StartSurfaceUserData.setKeepTab(newlySelectedTab, true);
+        }
         mIsSelectingInTabSwitcher = true;
         if (mOnTabSelectingListener != null) {
             mOnTabSelectingListener.onTabSelecting(LayoutManagerImpl.time(), tabId);
         }
+    }
+
+    @Override
+    public void scrollToBindingTab(int tabIndex) {
+        mContainerViewModel.set(TabListContainerProperties.INITIAL_SCROLL_INDEX, tabIndex);
     }
 
     private boolean ableToOpenDialog(Tab tab) {

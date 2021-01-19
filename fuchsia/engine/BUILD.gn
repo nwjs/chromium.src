@@ -74,10 +74,12 @@ component("web_engine_core") {
     "//base:base_static",
     "//base/util/memory_pressure",
     "//components/cdm/renderer",
+    "//components/keyed_service/content",
     "//components/media_control/browser",
     "//components/media_control/renderer",
     "//components/on_load_script_injector/browser",
     "//components/on_load_script_injector/renderer",
+    "//components/policy/content:safe_sites_navigation_throttle",
     "//components/version_info",
     "//content/public/app",
     "//content/public/browser",
@@ -287,6 +289,7 @@ source_set("browsertest_core") {
   ]
   data = [ "test/data" ]
   deps = [
+    ":switches",
     ":web_engine_core",
     "//content/public/browser",
     "//content/test:test_support",
@@ -300,24 +303,38 @@ source_set("browsertest_core") {
 test("web_engine_browsertests") {
   sources = [
     "browser/accessibility_bridge_browsertest.cc",
+    "browser/autoplay_browsertest.cc",
     "browser/cast_streaming_browsertest.cc",
     "browser/content_directory_browsertest.cc",
     "browser/context_impl_browsertest.cc",
+    "browser/fake_navigation_policy_provider.cc",
+    "browser/fake_navigation_policy_provider.h",
     "browser/fake_semantic_tree.cc",
     "browser/fake_semantic_tree.h",
     "browser/fake_semantics_manager.cc",
     "browser/fake_semantics_manager.h",
+    "browser/frame_impl_browser_test_base.cc",
+    "browser/frame_impl_browser_test_base.h",
     "browser/frame_impl_browsertest.cc",
     "browser/headless_browsertest.cc",
     "browser/media_browsertest.cc",
+    "browser/navigation_policy_browsertest.cc",
     "browser/theme_manager_browsertest.cc",
   ]
+
+  # TODO(crbug.com/1157909): Move to the list above when the bug is fixed.
+  if (!is_component_build) {
+    sources += [ "browser/explicit_sites_filter_browsertest.cc" ]
+  }
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
   deps = [
     ":browsertest_core",
     ":switches",
     ":web_engine_core",
     "//base/test:test_support",
+    "//components/policy/content:safe_sites_navigation_throttle",
+    "//components/safe_search_api:safe_search_api",
+    "//components/safe_search_api:test_support",
     "//content/public/browser",
     "//content/test:test_support",
     "//fuchsia/base",

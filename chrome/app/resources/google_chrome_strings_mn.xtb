@@ -64,7 +64,7 @@
 <translation id="2586406160782125153">Энэ нь төхөөрөмжөөс таны хайлтын өгөгдлийг устгах болно. Өгөгдлөө дараа нь сэргээхийн тулд Chrome-д <ph name="USER_EMAIL" />-р нэвтэрнэ үү.</translation>
 <translation id="2622559029861875898">Chrome нь шинэчлэлтийг шалгах боломжгүй байна. Интернэт холболтоо шалгаж үзнэ үү.</translation>
 <translation id="2644798301485385923">Chrome OS-н систем</translation>
-<translation id="2652691236519827073">Холбоосыг шинэ Chrome-н чихтэй хуудсанд нээх</translation>
+<translation id="2652691236519827073">Холбоосыг шинэ Chrome-н табад нээх</translation>
 <translation id="2665296953892887393">Google рүү эвдрэлийн тайлан болон <ph name="UMA_LINK" />-ыг илгээх замаар Google Chrome-ыг сайжруулахад туслаач</translation>
 <translation id="2689103672227170538">Энэ өргөтгөл нь таныг Chrome-г эхлүүлэх үед хуудсанд харагдах зүйлийг өөрчилсөн.</translation>
 <translation id="2765403129283291972">Энэ сайтыг ашиглахын тулд Chrome-д таны микрофонд хандах зөвшөөрөл шаардлагатай</translation>
@@ -82,7 +82,7 @@
 <translation id="298099161970687941">Chrome-г нээх үед асуух</translation>
 <translation id="3037838751736561277">Google Chrome нь суурь горимд байна.</translation>
 <translation id="3059710691562604940">Аюулгүй үзэх онцлог унтраалттай байна. Chrome түүнийг асаахыг зөвлөж байна.</translation>
-<translation id="3065168410429928842">Chrome-н чихтэй хуудас</translation>
+<translation id="3065168410429928842">Chrome-н таб</translation>
 <translation id="3080151273017101988">Google Chrome хаагдсан үед үндсэн аппликйешнуудыг үргэлжлүүлэн ажиллуул</translation>
 <translation id="3089968997497233615">Google Chrome-ийн шинэ, илүү аюулгүй хувилбар бэлэн боллоо.</translation>
 <translation id="3114643501466072395">Бусад нууц үгэндээ өгөгдлийн зөрчил болон аюулгүй байдлын өөр асуудал байхгүй болохыг шалгахын тулд <ph name="BEGIN_LINK" />Chrome-д нэвтэрнэ үү<ph name="END_LINK" />.</translation>
@@ -148,7 +148,7 @@
 <translation id="4771048833395599659">Энэ файл аюултай байж болзошгүй тул Chrome блоклосон байна.</translation>
 <translation id="479167709087336770">Энэ нь Google хайлтад ашигладаг зөв бичгийн ижил алдаа шалгагчийг ашигладаг. Таны хөтчид бичсэн текстийг Google-д илгээдэг. Та энэ ажиллах төлөвийг хүссэн үедээ тохиргоонд өөрчилж болно</translation>
 <translation id="4891791193823137474">Google Chrome-ыг энэ дэвсгэр дээр ажиллуулна уу</translation>
-<translation id="4895437082222824641">Холбоосыг шинэ Chrome-н чихтэй хуудсанд нээх</translation>
+<translation id="4895437082222824641">Холбоосыг шинэ Chrome-н табад нээх</translation>
 <translation id="4953650215774548573">Google Chrome-ыг өөрийн анхдагч веб хөтөч болгон тохируулна уу</translation>
 <translation id="495931528404527476">Chrome-д</translation>
 <translation id="4990567037958725628">Google Chrome цайвар шаргал өнгө</translation>
@@ -194,6 +194,7 @@ Google Chrome таны тохируулгыг дахин сэргээх боло
 <translation id="6368958679917195344">Chrome OS-ийг нэмэлт <ph name="BEGIN_LINK_CROS_OSS" /> нээлттэй эхийн программ хангамжаар ажиллуулж байна <ph name="END_LINK_CROS_OSS" />.</translation>
 <translation id="6515495397637126556"><ph name="PAGE_TITLE" /> - Google Chrome Дев</translation>
 <translation id="6566149418543181476">Google Chrome-г шинэчилж байна (<ph name="PROGRESS_PERCENT" />)</translation>
+<translation id="6650333065969705433">Хамгаалагдсан медиаг тоглуулахын тулд Rosetta-г ашиглах бол та Chrome-г дахин эхлүүлэх ёстой.</translation>
 <translation id="6676384891291319759">Интернэтэд нэвтрэх</translation>
 <translation id="6679975945624592337">Google Chrome-г цаана ажиллуулахыг зөвшөөрөх</translation>
 <translation id="6750954913813541382">Зөв бичгийн алдааг засахын тулд Chrome таны хөтөч дээр бичсэн текстийг Google-д илгээдэг</translation>
@@ -202,7 +203,7 @@ Google Chrome таны тохируулгыг дахин сэргээх боло
 <translation id="6885412569789873916">Chrome Бэта Апп</translation>
 <translation id="6943584222992551122">Энэ хэрэглэгчийн хөтчийн өгөгдлийг энэ төхөөрөмжөөс устгана. Өгөгдлийг сэргээхийн тулд Chrome-д <ph name="USER_EMAIL" />-р нэвтэрнэ үү.</translation>
 <translation id="6967962315388095737">mDNS урсгалыг зөвшөөрөх Google Chrome Бэта-н дотоод дүрэм.</translation>
-<translation id="6982337800632491844"><ph name="DOMAIN" />-аас таныг энэ төхөөрөмжийг ашиглахаасаа өмнө дараах үйлчилгээний нөхцлийг уншиж, хүлээн зөвшөөрсөн байхыг шаардаж байна. Эдгээр нөхцлүүд нь Google Chrome OS нөхцлүүдийг өргөтгөж, өөрчилж бас хязгаарлахгүй.</translation>
+<translation id="6982337800632491844"><ph name="DOMAIN" />-аас таныг энэ төхөөрөмжийг ашиглахаасаа өмнө дараах үйлчилгээний нөхцлийг уншиж, хүлээн зөвшөөрсөн байхыг шаардаж байна. Эдгээр нөхцөл нь Google Chrome OS нөхцлүүдийг өргөтгөх, өөрчлөх эсвэл хязгаарлахгүй.</translation>
 <translation id="6989339256997917931">Google Chrome шинэчлэгдсэн байна, гэхдээ та үүнийг ядаж 30 хоног ч ашиглаагүй байна.</translation>
 <translation id="7054640471403081847">Энэ компьютерийн хатуу диск дэмжигдэхээ больсон учир удахгүй Google Chrome-ийн шинэчлэлтийг хүлээн авахаа болино.</translation>
 <translation id="7062128746136194023">Таны эцэг эх Chrome-н "Сайтууд, аппууд болон өргөтгөлүүдийн зөвшөөрөл"-ийг унтраасан байна. Энэ <ph name="EXTENSION_TYPE_PARAMETER" />-г нэмэхийг зөвшөөрдөггүй.</translation>
@@ -256,6 +257,7 @@ Google Chrome таны тохируулгыг дахин сэргээх боло
 <translation id="8521348052903287641">mDNS урсгалыг зөвшөөрөх Google Chrome-н дотоод дүрэм.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8556340503434111824">Google Chrome-ийн шинэ хувилбар боломжтой байгаа бөгөөд энэ нь урьд урьдныхаас ч илүү хурдан.</translation>
+<translation id="861359755029082151">Rosetta нь Chrome-г энэ хуудсан дээр хамгаалагдсан медиа тоглуулах боломжтой болгодог.</translation>
 <translation id="8614913330719544658">Google Chrome ажиллахгүй байна. Дахин эхүүлэх үү?</translation>
 <translation id="861702415419836452">Орчин тойрны тань 3D газрын зургийг үүсгэхийн тулд таны камерт хандах зөвшөөрөл Chrome-д шаардлагатай</translation>
 <translation id="8625237574518804553">{0,plural, =1{Chrome-г 1 минутын дотор дахин ажиллуулна}other{Chrome-г # минутын дотор дахин ажиллуулна}}</translation>
@@ -269,6 +271,7 @@ Google Chrome таны тохируулгыг дахин сэргээх боло
 <translation id="8834965163890861871">Google Chrome нь нууц үгсийг засах гэж оролдож байна. Үүнийг зөвшөөрөхийн тулд Windows-н нууц үгээ бичнэ үү.</translation>
 <translation id="884296878221830158">Энэ нь мөн таныг Chrome-ыг эхлүүлэх эсвэл Home товчийг дарах үед гарч ирсэн хуудсыг хянаж байдаг.</translation>
 <translation id="8862326446509486874">Танд системийн түвшинд суулгах зохих эрх байхгүй байна. Суулгагчийг админы хувиар дахин ажиллуулахыг оролдож үзнэ үү.</translation>
+<translation id="8907709077090383765">Chrome-г хамгаалагдсан медиа тоглуулах боломжтой болгохын тулд та Rosetta-г суулгах шаардлагатай. Та үүнийг одоо суулгамаар байна уу?</translation>
 <translation id="8914504000324227558">Chrome-г дахин эхлүүлэх</translation>
 <translation id="8922193594870374009"><ph name="ORIGIN" />-с Android утсандаа дугаар илгээхийн тулд хоёр төхөөрөмжийнхөө аль алинаас нь Chrome-д нэвтэрнэ үү.</translation>
 <translation id="8999208279178790196">{0,plural, =0{Chrome-н шинэчлэлт боломжтой байна}=1{Chrome-н шинэчлэлт боломжтой байна}other{Chromium-н шинэчлэлт # хоногийн турш боломжтой байсаар байна}}</translation>

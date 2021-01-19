@@ -1457,6 +1457,8 @@ void WebView::ApplyWebPreferences(const web_pref::WebPreferences& prefs,
   blink::WebNetworkStateNotifier::SetSaveDataEnabled(prefs.data_saver_enabled);
   settings->SetLocalStorageEnabled(prefs.local_storage_enabled);
   settings->SetSyncXHRInDocumentsEnabled(prefs.sync_xhr_in_documents_enabled);
+  settings->SetTargetBlankImpliesNoOpenerEnabledWillBeRemoved(
+      prefs.target_blank_implies_no_opener_enabled_will_be_removed);
   RuntimeEnabledFeatures::SetDatabaseEnabled(prefs.databases_enabled);
   settings->SetOfflineWebApplicationCacheEnabled(
       prefs.application_cache_enabled);
@@ -2464,6 +2466,13 @@ void WebViewImpl::SetPageLifecycleStateInternal(
   ReportActiveSchedulerTrackedFeatures();
 
   GetPage()->SetPageLifecycleState(std::move(new_state));
+
+  // Notify all local frames that we've updated the page lifecycle state.
+  for (WebFrame* frame = MainFrame(); frame; frame = frame->TraverseNext()) {
+    if (frame->IsWebLocalFrame()) {
+      frame->ToWebLocalFrame()->Client()->DidSetPageLifecycleState();
+    }
+  }
 }
 
 void WebViewImpl::ReportActiveSchedulerTrackedFeatures() {

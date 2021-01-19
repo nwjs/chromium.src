@@ -81,6 +81,7 @@
 #include "content/public/test/no_renderer_crashes_assertion.h"
 #include "content/public/test/simple_url_loader_test_helper.h"
 #include "content/public/test/test_fileapi_operation_waiter.h"
+#include "content/public/test/test_frame_navigation_observer.h"
 #include "content/public/test/test_launcher.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "content/public/test/test_utils.h"
@@ -587,6 +588,36 @@ bool NavigateToURL(WebContents* web_contents,
   return is_same_url;
 }
 
+bool NavigateToURLFromRenderer(const ToRenderFrameHost& adapter,
+                               const GURL& url) {
+  return NavigateToURLFromRenderer(adapter, url, url);
+}
+
+bool NavigateToURLFromRenderer(const ToRenderFrameHost& adapter,
+                               const GURL& url,
+                               const GURL& expected_commit_url) {
+  RenderFrameHost* rfh = adapter.render_frame_host();
+  TestFrameNavigationObserver nav_observer(rfh);
+  if (!ExecJs(rfh, JsReplace("location = $1", url)))
+    return false;
+  nav_observer.Wait();
+  return nav_observer.last_committed_url() == expected_commit_url &&
+         nav_observer.last_navigation_succeeded();
+}
+
+bool NavigateToURLFromRendererWithoutUserGesture(
+    const ToRenderFrameHost& adapter,
+    const GURL& url) {
+  RenderFrameHost* rfh = adapter.render_frame_host();
+  TestFrameNavigationObserver nav_observer(rfh);
+  if (!ExecJs(rfh, JsReplace("location = $1", url),
+              EXECUTE_SCRIPT_NO_USER_GESTURE)) {
+    return false;
+  }
+  nav_observer.Wait();
+  return nav_observer.last_committed_url() == url;
+}
+
 bool NavigateIframeToURL(WebContents* web_contents,
                          const std::string& iframe_id,
                          const GURL& url) {
@@ -743,13 +774,8 @@ bool WaitForLoadStop(WebContents* web_contents) {
 void PrepContentsForBeforeUnloadTest(WebContents* web_contents,
                                      bool trigger_user_activation) {
   for (auto* frame : web_contents->GetAllFrames()) {
-    if (trigger_user_activation && frame->IsRenderFrameLive()) {
-      // Execute script with user interaction to prep the page to show
-      // before unload dialog if needed. Must wait on a response from the
-      // renderer before proceeding to ensure the page has been interacted with.
-
-      ExecuteScriptWithUserGestureControl(frame, std::string(), true);
-    }
+    if (trigger_user_activation)
+      frame->ExecuteJavaScriptWithUserGestureForTests(base::string16());
 
     // Disable the hang monitor, otherwise there will be a race between the
     // beforeunload dialog and the beforeunload hang timer.

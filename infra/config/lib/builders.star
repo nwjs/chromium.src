@@ -123,21 +123,25 @@ goma = struct(
     ),
 )
 
-def xcode_enum(cache_name, cache_path):
-    return swarming.cache(name = cache_name, path = cache_path)
+def xcode_enum(version):
+    return struct(
+        version = version,
+        cache_name = "xcode_ios_{}".format(version),
+        cache_path = "xcode_ios_{}.app".format(version),
+    )
 
 # Keep this in-sync with the versions of bots in //ios/build/bots/.
-xcode_cache = struct(
+xcode = struct(
     # in use by webrtc mac builders
-    x11c29 = xcode_enum("xcode_ios_11c29", "xcode_ios_11c29.app"),
+    x11c29 = xcode_enum("11c29"),
     # in use by ci/ios-simulator-cronet and try/ios-simulator-cronet
-    x11e146 = xcode_enum("xcode_ios_11e146", "xcode_ios_11e146.app"),
+    x11e146 = xcode_enum("11e146"),
     # in use by ios-webkit-tot
-    x11e608cwk = xcode_enum("xcode_ios_11e608cwk", "xcode_ios_11e608cwk.app"),
+    x11e608cwk = xcode_enum("11e608cwk"),
     # (current default) xc12 gm seed
-    x12a7209 = xcode_enum("xcode_ios_12a7209", "xcode_ios_12a7209.app"),
+    x12a7209 = xcode_enum("12a7209"),
     # latest Xcode 12 beta version.
-    x12b5035g = xcode_enum("xcode_ios_12b5035g", "xcode_ios_12b5035g.app"),
+    x12b5035g = xcode_enum("12b5035g"),
 )
 
 ################################################################################
@@ -262,9 +266,11 @@ defaults = args.defaults(
     goma_debug = False,
     goma_enable_ats = args.COMPUTE,
     goma_jobs = None,
+    list_view = args.COMPUTE,
     os = None,
     project_trigger_overrides = None,
     pool = None,
+    xcode = None,
     ssd = args.COMPUTE,
     use_clang_coverage = False,
     use_java_coverage = False,
@@ -300,6 +306,9 @@ def builder(
         builder_group = args.DEFAULT,
         pool = args.DEFAULT,
         ssd = args.DEFAULT,
+        xcode = args.DEFAULT,
+        console_view_entry = None,
+        list_view = args.DEFAULT,
         project_trigger_overrides = args.DEFAULT,
         configure_kitchen = args.DEFAULT,
         goma_backend = args.DEFAULT,
@@ -368,6 +377,19 @@ def builder(
         If True, emits a 'ssd:1' dimension. If False, emits a 'ssd:0' parameter.
         By default, considered False if builderless is considered True and
         otherwise None.
+      * xcode - a member of the `xcode` enum indicating the xcode version the
+        builder requires. Emits a cache declaration of the form
+        ```{
+          name: <xcode.cache_name>
+          path: <xcode.cache_path>
+        }```. Also emits a 'xcode_build_version:<xcode.version>' property if the
+        property is not already set.
+      * console_view_entry - A `consoles.console_view_entry` struct or a list of
+        them describing console view entries to create for the builder.
+        See `consoles.console_view_entry` for details.
+      * list_view - A string or a list of strings identifying the ID(s) of the
+        list view(s) to add an entry to. Supports a module-level default that
+        defaults to no list views.
       * project_trigger_overrides - a dict mapping the LUCI projects declared in
         recipe BotSpecs to the LUCI project to use when triggering builders. When
         this builder triggers another builder, if the BotSpec for that builder has
@@ -539,8 +561,15 @@ def builder(
     triggered_by = defaults.get_value("triggered_by", triggered_by)
     if triggered_by != args.COMPUTE:
         kwargs["triggered_by"] = triggered_by
+    xcode = defaults.get_value("xcode", xcode)
+    if xcode:
+        kwargs["caches"] = (kwargs.get("caches") or []) + [swarming.cache(
+            name = xcode.cache_name,
+            path = xcode.cache_path,
+        )]
+        properties.setdefault("xcode_build_version", xcode.version)
 
-    return branches.builder(
+    builder = branches.builder(
         name = name,
         branch_selector = branch_selector,
         dimensions = dimensions,
@@ -555,6 +584,57 @@ def builder(
         **kwargs
     )
 
+    builder_name = "{}/{}".format(bucket, name)
+
+    if console_view_entry:
+        if type(console_view_entry) == type(struct()):
+            entries = [console_view_entry]
+        else:
+            entries = console_view_entry
+        entries_without_console_view = [
+            e
+            for e in entries
+            if e.console_view == None
+        ]
+        if len(entries_without_console_view) > 1:
+            fail("Multiple entries provided without console_view: {}"
+                .format(entries_without_console_view))
+
+        for entry in entries:
+            if not branches.matches(entry.branch_selector):
+                continue
+
+            console_view = entry.console_view
+            if console_view == None:
+                console_view = builder_group
+                if not console_view:
+                    fail("Builder does not have builder group and " +
+                         "console_view_entry does not have console view: {}".format(entry))
+
+            luci.console_view_entry(
+                builder = builder_name,
+                console_view = console_view,
+                category = entry.category,
+                short_name = entry.short_name,
+            )
+
+    list_view = defaults.get_value("list_view", list_view)
+
+    # The default for list_view is set to args.COMPUTE instead of None so that
+    # the try builder function can override the default behavior
+    if list_view == args.COMPUTE:
+        list_view = None
+    if list_view:
+        if type(list_view) == type(""):
+            list_view = [list_view]
+        for view in list_view:
+            luci.list_view_entry(
+                builder = builder_name,
+                list_view = view,
+            )
+
+    return builder
+
 def builder_name(builder, bucket = args.DEFAULT):
     bucket = defaults.get_value("bucket", bucket)
     if bucket == args.COMPUTE:
@@ -568,5 +648,5 @@ builders = struct(
     defaults = defaults,
     goma = goma,
     os = os,
-    xcode_cache = xcode_cache,
+    xcode = xcode,
 )

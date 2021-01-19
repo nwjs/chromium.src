@@ -7,6 +7,7 @@ package org.chromium.components.browser_ui.site_settings;
 import static org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridge.SITE_WILDCARD;
 
 import android.app.Activity;
+import android.app.Dialog;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
@@ -169,6 +170,8 @@ public class SingleWebsiteSettings extends SiteSettingsPreferenceFragment
     // Map from preference key to ContentSettingsType.
     private Map<String, Integer> mPreferenceMap;
 
+    private Dialog mConfirmationDialog;
+
     private class SingleWebsitePermissionsPopulator
             implements WebsitePermissionsFetcher.WebsitePermissionsCallback {
         private final WebsiteAddress mSiteAddress;
@@ -231,7 +234,22 @@ public class SingleWebsiteSettings extends SiteSettingsPreferenceFragment
         super.onActivityCreated(savedInstanceState);
     }
 
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        if (mConfirmationDialog != null) {
+            mConfirmationDialog.dismiss();
+        }
+    }
+
     private void init() {
+        // Remove this Preference if it gets restored without a valid SiteSettingsClient. This
+        // can happen e.g. when it is included in PageInfo.
+        if (getSiteSettingsClient() == null) {
+            getParentFragmentManager().beginTransaction().remove(this).commit();
+            return;
+        }
+
         Object extraSite = getArguments().getSerializable(EXTRA_SITE);
         Object extraSiteAddress = getArguments().getSerializable(EXTRA_SITE_ADDRESS);
 
@@ -1032,6 +1050,10 @@ public class SingleWebsiteSettings extends SiteSettingsPreferenceFragment
 
     @Override
     public boolean onPreferenceChange(Preference preference, Object newValue) {
+        // It is possible that this UI is destroyed while a ListPreference dialog is open because
+        // incognito mode is closed through the system notification.
+        if (getView() == null) return true;
+
         @ContentSettingValues
         int permission = ContentSetting.fromString((String) newValue);
         BrowserContextHandle browserContextHandle =
@@ -1063,23 +1085,26 @@ public class SingleWebsiteSettings extends SiteSettingsPreferenceFragment
                 : R.string.website_reset_confirmation;
         int buttonResId = mHideNonPermissionPreferences ? R.string.reset : titleResId;
         // Handle the Clear & Reset preference click by showing a confirmation.
-        new AlertDialog.Builder(getActivity(), R.style.Theme_Chromium_AlertDialog)
-                .setTitle(titleResId)
-                .setMessage(confirmationResId)
-                .setPositiveButton(buttonResId,
-                        (dialog, which) -> {
-                            if (mHideNonPermissionPreferences) {
-                                mSiteDataCleaner.resetPermissions(
-                                        getSiteSettingsClient().getBrowserContextHandle(), mSite);
-                            } else {
-                                resetSite();
-                            }
-                            if (mWebsiteSettingsObserver != null) {
-                                mWebsiteSettingsObserver.onPermissionsReset();
-                            }
-                        })
-                .setNegativeButton(R.string.cancel, null)
-                .show();
+        mConfirmationDialog =
+                new AlertDialog.Builder(getActivity(), R.style.Theme_Chromium_AlertDialog)
+                        .setTitle(titleResId)
+                        .setMessage(confirmationResId)
+                        .setPositiveButton(buttonResId,
+                                (dialog, which) -> {
+                                    if (mHideNonPermissionPreferences) {
+                                        mSiteDataCleaner.resetPermissions(
+                                                getSiteSettingsClient().getBrowserContextHandle(),
+                                                mSite);
+                                    } else {
+                                        resetSite();
+                                    }
+                                    if (mWebsiteSettingsObserver != null) {
+                                        mWebsiteSettingsObserver.onPermissionsReset();
+                                    }
+                                })
+                        .setNegativeButton(
+                                R.string.cancel, (dialog, which) -> mConfirmationDialog = null)
+                        .show();
         return true;
     }
 

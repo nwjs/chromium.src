@@ -232,7 +232,7 @@
 <translation id="1757773103848038814">Monospace フォント</translation>
 <translation id="1763864636252898013">このサーバーが <ph name="DOMAIN" /> であることを確認できませんでした。このサーバーのセキュリティ証明書は、ご使用のデバイスのオペレーティング システムによって信頼されているものではありません。原因としては、不適切な設定や、悪意のあるユーザーによる接続妨害が考えられます。</translation>
 <translation id="1768211456781949159"><ph name="BEGIN_LINK" />Windows ネットワーク診断ツールを実行してみてください<ph name="END_LINK" />。</translation>
-<translation id="1772163372082567643">アクセスしているサーバー <ph name="ORIGIN" /> では、サーバーへのすべてのリクエストにオリジン ポリシーを適用することを求めるヘッダーが設定されていますが、ヘッダーの形式が正しくないため、ブラウザは <ph name="SITE" /> のリクエストを満たすことができません。オリジン ポリシーは、サイトのセキュリティやその他のプロパティを設定する目的でサイト運営者が使用するものです。</translation>
+<translation id="1772163372082567643">アクセスしているサーバー <ph name="ORIGIN" /> では、サーバーへのすべてのリクエストにオリジン ポリシーを適用することを求めるヘッダーが設定されていますが、ヘッダーの形式が正しくないため、ブラウザは <ph name="SITE" /> のリクエストを満たすことができません。オリジン ポリシーは、サイトのセキュリティやその他のプロパティを設定する目的でパブリッシャーが使用するものです。</translation>
 <translation id="1778646502362731194">JIS B0</translation>
 <translation id="1783075131180517613">同期パスフレーズを更新してください。</translation>
 <translation id="1787142507584202372">最近開いたタブがここに表示されます</translation>
@@ -301,6 +301,7 @@
 <translation id="2102495993840063010">Android アプリ</translation>
 <translation id="2107021941795971877">印刷サポート</translation>
 <translation id="2108755909498034140">パソコンを再起動する</translation>
+<translation id="2111166930115883695">プレイするには Space キーを押してください</translation>
 <translation id="2111256659903765347">Super-A</translation>
 <translation id="2113977810652731515">カード</translation>
 <translation id="2114841414352855701"><ph name="POLICY_NAME" /> によって上書きされるため無視されます。</translation>
@@ -516,6 +517,7 @@
 <translation id="3010559122411665027">リスト エントリ「<ph name="ENTRY_INDEX" />」: <ph name="ERROR" /></translation>
 <translation id="301521992641321250">自動ブロックされました</translation>
 <translation id="3016780570757425217">ユーザーの現在地の認識</translation>
+<translation id="3017086357773116182"><ph name="REMOVE_SUGGESTION_SUFFIX" /> です。Tab キー、Enter キーの順に押すと、候補を削除します。</translation>
 <translation id="3023071826883856138">洋4（封筒）</translation>
 <translation id="3024663005179499861">ポリシー タイプが間違っています</translation>
 <translation id="3037605927509011580">エラー</translation>
@@ -757,6 +759,7 @@
 <translation id="4056223980640387499">セピア</translation>
 <translation id="4058922952496707368">キー「<ph name="SUBKEY" />」: <ph name="ERROR" /></translation>
 <translation id="4067263367174615723">C1（封筒）</translation>
+<translation id="4067669230157909013">スクリーン キャプチャが再開されました。</translation>
 <translation id="4067947977115446013">有効なアドレスの追加</translation>
 <translation id="4072486802667267160">ご注文の処理中にエラーが発生しました。もう一度お試しください。</translation>
 <translation id="4075732493274867456">クライアントとサーバーで、共通の SSL プロトコル バージョンまたは暗号スイートがサポートされていません。</translation>
@@ -796,7 +799,7 @@
 <translation id="4196861286325780578">移動のやり直し（&amp;R）</translation>
 <translation id="4203896806696719780"><ph name="BEGIN_LINK" />ファイアウォールとウイルス対策の設定を確認する<ph name="END_LINK" /></translation>
 <translation id="4209092469652827314">大</translation>
-<translation id="4209166701302774460">アクセスしているサーバー <ph name="ORIGIN" /> では、サーバーへのすべてのリクエストにオリジン ポリシーを適用することが求められていますが、ポリシーがサーバーから送信されなかったため、ブラウザは <ph name="SITE" /> のリクエストを満たすことができません。オリジン ポリシーは、サイトのセキュリティやその他のプロパティを設定する目的でサイト運営者が使用するものです。</translation>
+<translation id="4209166701302774460">アクセスしているサーバー <ph name="ORIGIN" /> では、サーバーへのすべてのリクエストにオリジン ポリシーを適用することが求められていますが、ポリシーがサーバーから送信されなかったため、ブラウザは <ph name="SITE" /> のリクエストを満たすことができません。オリジン ポリシーは、サイトのセキュリティやその他のプロパティを設定する目的でパブリッシャーが使用するものです。</translation>
 <translation id="421066178035138955">バーチャル リアリティ デバイスとデータの使用</translation>
 <translation id="4214357935346142455">ログイン画面のプロファイル</translation>
 <translation id="4215751373031079683">7x9（封筒）</translation>
@@ -837,6 +840,7 @@
 <translation id="4297502707443874121"><ph name="THUMBNAIL_PAGE" /> ページのサムネイル</translation>
 <translation id="42981349822642051">展開</translation>
 <translation id="4300675098767811073">多穴パンチ（右）</translation>
+<translation id="4302514097724775343">プレイするには恐竜をタップしてください</translation>
 <translation id="4302965934281694568">長3（封筒）</translation>
 <translation id="4305666528087210886">ファイルにアクセスできませんでした</translation>
 <translation id="4305817255990598646">切り替え</translation>
@@ -1165,7 +1169,6 @@
 <translation id="560412284261940334">管理はサポートされていません</translation>
 <translation id="5605670050355397069">Ledger</translation>
 <translation id="5607240918979444548">Architecture-C</translation>
-<translation id="5608165884683734521">偽のサイトまたは不正なサイトの可能性があります。このサイトから離れることをおすすめします。</translation>
 <translation id="5610142619324316209">接続を確認する</translation>
 <translation id="5610807607761827392">カードと住所は [<ph name="BEGIN_LINK" />設定<ph name="END_LINK" />] で管理できます。</translation>
 <translation id="561165882404867731">Google 翻訳でこのページを翻訳する</translation>
@@ -1237,6 +1240,7 @@
 <translation id="5901630391730855834">黄</translation>
 <translation id="5905445707201418379"><ph name="ORIGIN" /> のオリジン ポリシーに沿ってブロックしました。</translation>
 <translation id="5908541034548427511"><ph name="TYPE_1" />（同期済み）</translation>
+<translation id="5913377024445952699">画面キャプチャが一時停止されました</translation>
 <translation id="59174027418879706">有効</translation>
 <translation id="5919090499915321845">B10</translation>
 <translation id="5921185718311485855">オン</translation>
@@ -1249,6 +1253,7 @@
 <translation id="5963413905009737549">セクション</translation>
 <translation id="5967592137238574583">連絡先情報の編集</translation>
 <translation id="5967867314010545767">履歴から削除</translation>
+<translation id="5968793460449681917">アクセスするたびに確認</translation>
 <translation id="5975083100439434680">縮小する</translation>
 <translation id="5979084224081478209">パスワードを確認</translation>
 <translation id="5980920751713728343">Index-3x5</translation>
@@ -1464,6 +1469,7 @@
 <translation id="6895330447102777224">カードを確認しました</translation>
 <translation id="6897140037006041989">ユーザー エージェント</translation>
 <translation id="6898699227549475383">組織（O）</translation>
+<translation id="6907293445143367439"><ph name="SITE_NAME" /> に次の権限を許可:</translation>
 <translation id="6910240653697687763"><ph name="URL" /> から、MIDI デバイスをフル コントロールする許可を求められています</translation>
 <translation id="6915804003454593391">ユーザー:</translation>
 <translation id="6934672428414710184">Google アカウントで設定されている名前です</translation>
@@ -1900,6 +1906,7 @@
 <translation id="858637041960032120">電話番号を追加
 </translation>
 <translation id="8589998999637048520">最高画質</translation>
+<translation id="8600271352425265729">今回のみ</translation>
 <translation id="860043288473659153">カード名義人</translation>
 <translation id="8606726445206553943">MIDI デバイスの使用</translation>
 <translation id="8612761427948161954"><ph name="USERNAME" />様
@@ -1909,6 +1916,7 @@
 <translation id="8622948367223941507">Legal-Extra</translation>
 <translation id="8623885649813806493">一致するパスワードがありません。保存したパスワードをすべて表示します。</translation>
 <translation id="8625384913736129811">このカード情報をこのデバイスに保存する</translation>
+<translation id="8627040765059109009">画面キャプチャが再開されました</translation>
 <translation id="8657078576661269990"><ph name="ORIGIN_NAME" /> から <ph name="VM_NAME_1" /> および <ph name="VM_NAME_2" /> への共有は、管理者によってブロックされています</translation>
 <translation id="8663226718884576429">ご注文の概要、<ph name="TOTAL_LABEL" />、その他の詳細</translation>
 <translation id="867224526087042813">署名</translation>
@@ -2056,6 +2064,7 @@
 <translation id="939736085109172342">新しいフォルダ</translation>
 <translation id="945855313015696284">下記の情報を確認し、無効なカードがあれば削除してください</translation>
 <translation id="950736567201356821">3 穴パンチ（上）</translation>
+<translation id="951941430552851965">画面上のコンテンツに問題があるため、管理者によってスクリーン キャプチャが一時停止されました。</translation>
 <translation id="961663415146723894">製本（下綴じ）</translation>
 <translation id="962484866189421427">このコンテンツを表示すると、詐欺的なアプリ（他のものに成りすましたり、ユーザーの追跡などに使用可能なデータを収集したりするアプリ）のインストールが試行される可能性があります。<ph name="BEGIN_LINK" />危険性を理解したうえで表示する<ph name="END_LINK" /></translation>
 <translation id="969892804517981540">Official Build</translation>

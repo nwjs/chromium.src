@@ -646,6 +646,7 @@ extern const char kWebAppInstallMetrics[];
 extern const char kWebAppsDailyMetrics[];
 extern const char kWebAppsDailyMetricsDate[];
 extern const char kWebAppsExtensionIDs[];
+extern const char kWebAppsAppAgnosticIphState[];
 extern const char kWebAppsLastPreinstallSynchronizeVersion[];
 extern const char kWebAppsPreferences[];
 extern const char kWebAppsUserDisplayModeCleanedUp[];
@@ -780,6 +781,7 @@ extern const char kAuthAndroidNegotiateAccountType[];
 extern const char kAllowCrossOriginAuthPrompt[];
 extern const char kGloballyScopeHTTPAuthCacheEnabled[];
 extern const char kAmbientAuthenticationInPrivateModesEnabled[];
+extern const char kBasicAuthOverHttpEnabled[];
 
 #if defined(OS_LINUX) || defined(OS_MAC) || defined(OS_CHROMEOS)
 extern const char kAuthNegotiateDelegateByKdcPolicy[];
@@ -893,8 +895,10 @@ extern const char kBrowserGuestModeEnabled[];
 extern const char kBrowserGuestModeEnforced[];
 extern const char kBrowserAddPersonEnabled[];
 extern const char kForceBrowserSignin[];
+extern const char kBrowserProfilePickerAvailabilityOnStartup[];
 extern const char kBrowserShowProfilePickerOnStartup[];
 extern const char kSigninAllowedOnNextStartup[];
+extern const char kSigninInterceptionEnabled[];
 
 extern const char kCryptAuthDeviceId[];
 extern const char kCryptAuthInstanceId[];

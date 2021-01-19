@@ -144,6 +144,22 @@ LayoutObject* FindAncestorByPredicate(const LayoutObject* descendant,
       return object;
     if (skip_info)
       skip_info->Update(*object);
+
+    // According to the HTML standard, a rendered legend is a child of a
+    // fieldset. However a rendered legend is a child of an anonymous fieldset
+    // content box in a LayoutObject tree.  NG fragment trees follow the
+    // structure of the standard.
+    //
+    // The following code resolves this inconsistency, and we skip anonymous
+    // fieldset content boxes if |descendant| is in a rendered legend.
+    if (UNLIKELY(object->IsRenderedLegend())) {
+      LayoutObject* legend_parent = object->Parent();
+      if (legend_parent->IsAnonymous()) {
+        if (skip_info)
+          skip_info->Update(*legend_parent);
+        object = legend_parent;
+      }
+    }
   }
   return nullptr;
 }
@@ -4304,8 +4320,9 @@ static PaintInvalidationReason DocumentLifecycleBasedPaintInvalidationReason(
   }
 }
 
-void LayoutObject::SetShouldDoFullPaintInvalidationWithoutGeometryChange(
-    PaintInvalidationReason reason) {
+void LayoutObject::
+    SetShouldDoFullPaintInvalidationWithoutGeometryChangeInternal(
+        PaintInvalidationReason reason) {
   NOT_DESTROYED();
   // Only full invalidation reasons are allowed.
   DCHECK(IsFullPaintInvalidationReason(reason));
@@ -4374,6 +4391,13 @@ void LayoutObject::SetShouldDelayFullPaintInvalidation() {
     // invalidation.
     GetFrameView()->ScheduleVisualUpdateForPaintInvalidationIfNeeded();
   }
+}
+
+void LayoutObject::ClearShouldDelayFullPaintInvalidation() {
+  // This will clear ShouldDelayFullPaintInvalidation() flag and enable previous
+  // BackgroundNeedsFullPaintInvalidaiton() if it's set.
+  SetShouldDoFullPaintInvalidationWithoutGeometryChangeInternal(
+      FullPaintInvalidationReason());
 }
 
 void LayoutObject::ClearPaintInvalidationFlags() {

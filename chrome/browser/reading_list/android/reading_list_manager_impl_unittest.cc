@@ -13,6 +13,7 @@
 #include "base/test/simple_test_clock.h"
 #include "chrome/browser/reading_list/android/reading_list_manager.h"
 #include "components/bookmarks/browser/bookmark_node.h"
+#include "components/bookmarks/browser/bookmark_utils.h"
 #include "components/reading_list/core/reading_list_model_impl.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -23,10 +24,11 @@ using ReadingListEntries = ReadingListModelImpl::ReadingListEntries;
 namespace {
 
 constexpr char kURL[] = "https://www.example.com";
+constexpr char kURL1[] = "https://www.anotherexample.com";
 constexpr char kTitle[] =
     "In earlier tellings, the dog had a better reputation than the cat, "
     "however the president vetoed it.";
-constexpr char kTitle1[] = "boring title.";
+constexpr char kTitle1[] = "boring title about dogs.";
 constexpr char kReadStatusKey[] = "read_status";
 constexpr char kReadStatusRead[] = "true";
 constexpr char kReadStatusUnread[] = "false";
@@ -38,6 +40,7 @@ class MockObserver : public ReadingListManager::Observer {
 
   // ReadingListManager::Observer implementation.
   MOCK_METHOD(void, ReadingListLoaded, (), (override));
+  MOCK_METHOD(void, ReadingListChanged, (), (override));
 };
 
 class ReadingListManagerImplTest : public testing::Test {
@@ -63,6 +66,21 @@ class ReadingListManagerImplTest : public testing::Test {
   }
   base::SimpleTestClock* clock() { return &clock_; }
   MockObserver* observer() { return &observer_; }
+
+  const BookmarkNode* Add(const GURL& url, const std::string& title) {
+    EXPECT_CALL(*observer(), ReadingListChanged());
+    return manager()->Add(url, title);
+  }
+
+  void Delete(const GURL& url) {
+    EXPECT_CALL(*observer(), ReadingListChanged());
+    manager()->Delete(url);
+  }
+
+  void SetReadStatus(const GURL& url, bool read) {
+    EXPECT_CALL(*observer(), ReadingListChanged());
+    manager()->SetReadStatus(url, read);
+  }
 
  private:
   base::SimpleTestClock clock_;
@@ -98,7 +116,7 @@ TEST_F(ReadingListManagerImplTest, Load) {
 TEST_F(ReadingListManagerImplTest, AddGetDelete) {
   // Adds a node.
   GURL url(kURL);
-  manager()->Add(url, kTitle);
+  Add(url, kTitle);
   EXPECT_EQ(1u, manager()->size());
   EXPECT_EQ(1u, manager()->unread_size());
   EXPECT_EQ(1u, manager()->GetRoot()->children().size())
@@ -118,7 +136,7 @@ TEST_F(ReadingListManagerImplTest, AddGetDelete) {
   EXPECT_EQ(nullptr, manager()->Get(GURL("invalid spec")));
 
   // Deletes the node.
-  manager()->Delete(url);
+  Delete(url);
   EXPECT_EQ(0u, manager()->size());
   EXPECT_EQ(0u, manager()->unread_size());
   EXPECT_TRUE(manager()->GetRoot()->children().empty());
@@ -127,7 +145,7 @@ TEST_F(ReadingListManagerImplTest, AddGetDelete) {
 // Verifies GetNodeByID() and IsReadingListBookmark() works correctly.
 TEST_F(ReadingListManagerImplTest, GetNodeByIDIsReadingListBookmark) {
   GURL url(kURL);
-  const auto* node = manager()->Add(url, kTitle);
+  const auto* node = Add(url, kTitle);
 
   // Find the root.
   EXPECT_EQ(manager()->GetRoot(),
@@ -149,13 +167,63 @@ TEST_F(ReadingListManagerImplTest, GetNodeByIDIsReadingListBookmark) {
   EXPECT_FALSE(manager()->IsReadingListBookmark(node_same_url.get()));
 }
 
+// Verifies GetMatchingNodes() API in reading list manager.
+TEST_F(ReadingListManagerImplTest, GetMatchingNodes) {
+  manager()->Add(GURL(kURL), kTitle);
+  manager()->Add(GURL(kURL1), kTitle1);
+  EXPECT_EQ(2u, manager()->size());
+
+  // Search with a multi-word query text.
+  std::vector<const BookmarkNode*> results;
+  bookmarks::QueryFields query;
+  query.word_phrase_query.reset(
+      new base::string16(base::ASCIIToUTF16("dog cat")));
+  manager()->GetMatchingNodes(query, 5, &results);
+  EXPECT_EQ(1u, results.size());
+
+  // Search with a single word query text.
+  results.clear();
+  query.word_phrase_query.reset(new base::string16(base::ASCIIToUTF16("dog")));
+  manager()->GetMatchingNodes(query, 5, &results);
+  EXPECT_EQ(2u, results.size());
+
+  // Search with empty string. Shouldn't match anything.
+  results.clear();
+  query.word_phrase_query.reset(new base::string16());
+  manager()->GetMatchingNodes(query, 5, &results);
+  EXPECT_EQ(0u, results.size());
+}
+
+TEST_F(ReadingListManagerImplTest, GetMatchingNodesWithMaxCount) {
+  manager()->Add(GURL(kURL), kTitle);
+  manager()->Add(GURL(kURL1), kTitle1);
+  EXPECT_EQ(2u, manager()->size());
+
+  // Search with a query text.
+  std::vector<const BookmarkNode*> results;
+  bookmarks::QueryFields query;
+  query.word_phrase_query.reset(new base::string16(base::ASCIIToUTF16("dog")));
+  manager()->GetMatchingNodes(query, 5, &results);
+  EXPECT_EQ(2u, results.size());
+
+  // Search with having pre-existing elements in |results|.
+  manager()->GetMatchingNodes(query, 5, &results);
+  EXPECT_EQ(4u, results.size());
+
+  // Max count should never be exceeded.
+  manager()->GetMatchingNodes(query, 5, &results);
+  EXPECT_EQ(5u, results.size());
+  manager()->GetMatchingNodes(query, 5, &results);
+  EXPECT_EQ(5u, results.size());
+}
+
 // If Add() the same URL twice, the first bookmark node pointer will be
 // invalidated.
 TEST_F(ReadingListManagerImplTest, AddTwice) {
   // Adds a node twice.
   GURL url(kURL);
-  manager()->Add(url, kTitle);
-  const auto* new_node = manager()->Add(url, kTitle1);
+  Add(url, kTitle);
+  const auto* new_node = Add(url, kTitle1);
   EXPECT_EQ(kTitle1, base::UTF16ToUTF8(new_node->GetTitle()));
   EXPECT_EQ(url, new_node->url());
 }
@@ -163,14 +231,15 @@ TEST_F(ReadingListManagerImplTest, AddTwice) {
 // Verifes SetReadStatus()/GetReadStatus() API.
 TEST_F(ReadingListManagerImplTest, ReadStatus) {
   GURL url(kURL);
+
+  // No op when no reading list entries.
   manager()->SetReadStatus(url, true);
   EXPECT_EQ(0u, manager()->size());
 
-  // Add a node.
-  manager()->Add(url, kTitle);
-  manager()->SetReadStatus(url, true);
+  // Add a node and mark as read.
+  Add(url, kTitle);
+  SetReadStatus(url, true);
 
-  // Mark as read.
   const BookmarkNode* node = manager()->Get(url);
   ASSERT_TRUE(node);
   EXPECT_EQ(url, node->url());
@@ -181,7 +250,7 @@ TEST_F(ReadingListManagerImplTest, ReadStatus) {
   EXPECT_TRUE(manager()->GetReadStatus(node));
 
   // Mark as unread.
-  manager()->SetReadStatus(url, false);
+  SetReadStatus(url, false);
   node = manager()->Get(url);
   node->GetMetaInfo(kReadStatusKey, &read_status);
   EXPECT_EQ(kReadStatusUnread, read_status);
@@ -201,6 +270,7 @@ TEST_F(ReadingListManagerImplTest, ReadStatus) {
 // reading list entry from |reading_list_model_|.
 TEST_F(ReadingListManagerImplTest, ReadingListDidAddEntry) {
   GURL url(kURL);
+  EXPECT_CALL(*observer(), ReadingListChanged()).RetiresOnSaturation();
   reading_list_model()->AddEntry(url, kTitle, reading_list::ADDED_VIA_SYNC);
 
   const auto* node = manager()->Get(url);
@@ -215,13 +285,13 @@ TEST_F(ReadingListManagerImplTest, ReadingListWillRemoveEntry) {
   GURL url(kURL);
 
   // Adds a node.
-  manager()->Add(url, kTitle);
-  const auto* node = manager()->Get(url);
+  const auto* node = Add(url, kTitle);
   EXPECT_TRUE(node);
   EXPECT_EQ(url, node->url());
   EXPECT_EQ(1u, manager()->size());
 
   // Removes it from |reading_list_model_|.
+  EXPECT_CALL(*observer(), ReadingListChanged()).RetiresOnSaturation();
   reading_list_model()->RemoveEntryByURL(url);
   node = manager()->Get(url);
   EXPECT_FALSE(node);
@@ -234,12 +304,11 @@ TEST_F(ReadingListManagerImplTest, ReadingListWillMoveEntry) {
   GURL url(kURL);
 
   // Adds a node.
-  manager()->Add(url, kTitle);
-  const auto* node = manager()->Get(url);
+  const auto* node = Add(url, kTitle);
   EXPECT_TRUE(node);
   EXPECT_FALSE(manager()->GetReadStatus(node));
 
-  reading_list_model()->SetReadStatus(url, true);
+  SetReadStatus(url, true);
   EXPECT_TRUE(manager()->GetReadStatus(node));
 }
 

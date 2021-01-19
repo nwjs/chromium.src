@@ -6,6 +6,7 @@
 
 #include "base/android/jni_array.h"
 #include "base/android/jni_string.h"
+#include "base/base64url.h"
 #include "chrome/android/features/autofill_assistant/jni_headers/AssistantTriggerScriptBridge_jni.h"
 #include "chrome/browser/android/autofill_assistant/assistant_header_model.h"
 #include "chrome/browser/android/autofill_assistant/ui_controller_android_utils.h"
@@ -13,7 +14,9 @@
 #include "components/autofill_assistant/browser/service/api_key_fetcher.h"
 #include "components/autofill_assistant/browser/service/server_url_fetcher.h"
 #include "components/autofill_assistant/browser/service/service_request_sender_impl.h"
+#include "components/autofill_assistant/browser/service/service_request_sender_local_impl.h"
 #include "components/autofill_assistant/browser/service/simple_url_loader_factory.h"
+#include "components/autofill_assistant/browser/string_conversions_util.h"
 #include "components/autofill_assistant/browser/trigger_scripts/dynamic_trigger_conditions.h"
 #include "components/autofill_assistant/browser/trigger_scripts/static_trigger_conditions.h"
 #include "components/autofill_assistant/browser/web/web_controller.h"
@@ -46,10 +49,22 @@ void TriggerScriptBridgeAndroid::StartTriggerScript(
   if (jservice_request_sender) {
     service_request_sender.reset(static_cast<ServiceRequestSender*>(
         reinterpret_cast<void*>(jservice_request_sender)));
-    ClientSettingsProto::IntegrationTestSettings test_settings;
-    test_settings.set_disable_header_animations(true);
-    test_settings.set_disable_carousel_change_animations(true);
-    client_settings_.integration_test_settings = test_settings;
+    // TODO(b/171776026): consider exposing this in proto.
+    disable_header_animations_for_testing_ = true;
+  } else if (trigger_context->GetBase64TriggerScriptsResponseProto()
+                 .has_value()) {
+    std::string response;
+    if (!base::Base64UrlDecode(
+            trigger_context->GetBase64TriggerScriptsResponseProto().value(),
+            base::Base64UrlDecodePolicy::IGNORE_PADDING, &response)) {
+      LOG(ERROR) << "Failed to base64-decode trigger scripts response";
+      Metrics::RecordLiteScriptFinished(
+          ukm::UkmRecorder::Get(), client->GetWebContents(),
+          Metrics::LiteScriptFinishedState::LITE_SCRIPT_BASE64_DECODING_ERROR);
+      return;
+    }
+    service_request_sender =
+        std::make_unique<ServiceRequestSenderLocalImpl>(response);
   } else {
     service_request_sender = std::make_unique<ServiceRequestSenderImpl>(
         client->GetWebContents()->GetBrowserContext(),
@@ -110,6 +125,16 @@ bool TriggerScriptBridgeAndroid::OnBackButtonPressed(
   return trigger_script_coordinator_->OnBackButtonPressed();
 }
 
+void TriggerScriptBridgeAndroid::OnTabInteractabilityChanged(
+    JNIEnv* env,
+    const base::android::JavaParamRef<jobject>& jcaller,
+    jboolean jinteractable) {
+  if (!trigger_script_coordinator_) {
+    return;
+  }
+  trigger_script_coordinator_->OnTabInteractabilityChanged(jinteractable);
+}
+
 void TriggerScriptBridgeAndroid::OnKeyboardVisibilityChanged(
     JNIEnv* env,
     const base::android::JavaParamRef<jobject>& jcaller,
@@ -127,8 +152,12 @@ void TriggerScriptBridgeAndroid::OnTriggerScriptShown(
   }
   JNIEnv* env = AttachCurrentThread();
   auto jheader_model =
-      Java_AssistantTriggerScriptBridge_getHeaderModel(env, java_object_);
+      Java_AssistantTriggerScriptBridge_createHeaderAndGetModel(env,
+                                                                java_object_);
   AssistantHeaderModel header_model(jheader_model);
+  if (disable_header_animations_for_testing_) {
+    header_model.SetDisableAnimations(disable_header_animations_for_testing_);
+  }
   header_model.SetStatusMessage(proto.status_message());
   header_model.SetBubbleMessage(proto.callout_message());
   header_model.SetProgressVisible(proto.has_progress_bar());
@@ -171,11 +200,14 @@ void TriggerScriptBridgeAndroid::OnTriggerScriptShown(
     cancel_popup_actions.emplace_back(static_cast<int>(choice.action()));
   }
 
-  Java_AssistantTriggerScriptBridge_showTriggerScript(
+  last_shown_trigger_script_ = proto;
+  jboolean success = Java_AssistantTriggerScriptBridge_showTriggerScript(
       env, java_object_, ToJavaArrayOfStrings(env, cancel_popup_items),
       ToJavaIntArray(env, cancel_popup_actions), jleft_aligned_chips,
       ToJavaIntArray(env, left_aligned_chip_actions), jright_aligned_chips,
-      ToJavaIntArray(env, right_aligned_chip_actions));
+      ToJavaIntArray(env, right_aligned_chip_actions),
+      proto.resize_visual_viewport());
+  trigger_script_coordinator_->OnTriggerScriptShown(success);
 }
 
 void TriggerScriptBridgeAndroid::OnTriggerScriptHidden() {
@@ -196,6 +228,27 @@ void TriggerScriptBridgeAndroid::OnTriggerScriptFinished(
   Java_AssistantTriggerScriptBridge_onTriggerScriptFinished(
       AttachCurrentThread(), java_object_, static_cast<int>(state));
   StopTriggerScript();
+}
+
+void TriggerScriptBridgeAndroid::OnVisibilityChanged(bool visible) {
+  if (!visible || !trigger_script_coordinator_) {
+    return;
+  }
+
+  // Every time the tab becomes visible again we have to double-check if the
+  // proactive help settings is still enabled.
+  trigger_script_coordinator_->OnProactiveHelpSettingChanged(
+      Java_AssistantTriggerScriptBridge_isProactiveHelpEnabled(
+          AttachCurrentThread()));
+}
+
+base::Optional<TriggerScriptUIProto>
+TriggerScriptBridgeAndroid::GetLastShownTriggerScript() const {
+  return last_shown_trigger_script_;
+}
+
+void TriggerScriptBridgeAndroid::ClearLastShownTriggerScript() {
+  last_shown_trigger_script_.reset();
 }
 
 }  // namespace autofill_assistant

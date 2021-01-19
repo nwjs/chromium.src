@@ -56,6 +56,7 @@
 #include "net/http/http_util.h"
 #include "sandbox/policy/fuchsia/sandbox_policy_fuchsia.h"
 #include "services/network/public/cpp/features.h"
+#include "services/network/public/cpp/network_switches.h"
 #include "third_party/blink/public/common/switches.h"
 #include "third_party/widevine/cdm/widevine_cdm_common.h"
 #include "ui/gfx/switches.h"
@@ -156,6 +157,7 @@ bool MaybeAddCommandLineArgsFromConfig(const base::Value& config,
       blink::switches::kGpuRasterizationMSAASampleCount,
       blink::switches::kMinHeightForGpuRasterTile,
       cc::switches::kEnableGpuBenchmarking,
+      cc::switches::kEnableClippedImageScaling,
       switches::kDisableFeatures,
       switches::kDisableGpuWatchdog,
       switches::kDisableMipmapGeneration,
@@ -171,6 +173,8 @@ bool MaybeAddCommandLineArgsFromConfig(const base::Value& config,
       switches::kUseLegacyAndroidUserAgent,
       switches::kWebglAntialiasingMode,
       switches::kWebglMSAASampleCount,
+      switches::kVulkanHeapMemoryLimitMb,
+      switches::kVulkanSyncCpuMemoryLimitMb,
   };
 
   for (const auto& arg : args->DictItems()) {
@@ -264,6 +268,8 @@ void ContextProviderImpl::Create(
   launch_options.handles_to_transfer.push_back(
       {kContextRequestHandleId, context_request.channel().get()});
 
+  base::CommandLine launch_command(*base::CommandLine::ForCurrentProcess());
+
   // Bind |data_directory| to /data directory, if provided.
   zx::channel data_directory_channel;
   if (params.has_data_directory()) {
@@ -284,10 +290,13 @@ void ContextProviderImpl::Create(
     }
     launch_options.paths_to_transfer.push_back(
         base::PathToTransfer{data_path, data_directory_channel.release()});
-  }
 
-  base::CommandLine launch_command = *base::CommandLine::ForCurrentProcess();
-  std::vector<zx::channel> devtools_listener_channels;
+    if (params.has_data_quota_bytes()) {
+      launch_command.AppendSwitchNative(
+          switches::kDataQuotaBytes,
+          base::NumberToString(params.data_quota_bytes()));
+    }
+  }
 
   // Process command-line settings specified in our package config-data.
   base::Value web_engine_config;
@@ -309,6 +318,7 @@ void ContextProviderImpl::Create(
         base::NumberToString(params.remote_debugging_port()));
   }
 
+  std::vector<zx::channel> devtools_listener_channels;
   if (devtools_listeners_.size() != 0) {
     // Connect DevTools listeners to the new Context process.
     std::vector<std::string> handles_ids;
@@ -492,6 +502,12 @@ void ContextProviderImpl::Create(
                                       kCdmDataPath);
     launch_options.paths_to_transfer.push_back(base::PathToTransfer{
         base::FilePath(kCdmDataPath), cdm_data_directory_channel.get()});
+
+    if (params.has_cdm_data_quota_bytes()) {
+      launch_command.AppendSwitchNative(
+          switches::kCdmDataQuotaBytes,
+          base::NumberToString(params.cdm_data_quota_bytes()));
+    }
   }
 
   bool enable_hardware_video_decoder =
@@ -559,15 +575,17 @@ void ContextProviderImpl::Create(
     const std::vector<std::string>& insecure_origins =
         params.unsafely_treat_insecure_origins_as_secure();
     for (auto origin : insecure_origins) {
-      if (origin == switches::kAllowRunningInsecureContent)
+      if (origin == switches::kAllowRunningInsecureContent) {
         launch_command.AppendSwitch(switches::kAllowRunningInsecureContent);
-      if (origin == kDisableMixedContentAutoupgradeOrigin) {
+      } else if (origin == kDisableMixedContentAutoupgradeOrigin) {
         AppendFeature(switches::kDisableFeatures,
                       kMixedContentAutoupgradeFeatureName, &launch_command);
+      } else {
+        // Pass the rest of the list to the Context process.
+        AppendFeature(network::switches::kUnsafelyTreatInsecureOriginAsSecure,
+                      origin, &launch_command);
       }
     }
-    // TODO(crbug.com/1023510): Pass the rest of the list to the Context
-    // process.
   }
 
   if (params.has_cors_exempt_headers()) {

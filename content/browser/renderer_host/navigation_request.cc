@@ -66,7 +66,6 @@
 #include "content/browser/web_package/web_bundle_utils.h"
 #include "content/common/appcache_interfaces.h"
 #include "content/common/content_constants_internal.h"
-#include "content/common/content_navigation_policy.h"
 #include "content/common/frame_messages.h"
 #include "content/common/navigation_params.h"
 #include "content/common/navigation_params_mojom_traits.h"
@@ -2603,8 +2602,7 @@ void NavigationRequest::OnRequestFailedInternal(
   loader_.reset();
 
   common_params_->previews_state = blink::PreviewsTypes::PREVIEWS_OFF;
-  if (status.ssl_info.has_value())
-    ssl_info_ = status.ssl_info;
+  ssl_info_ = status.ssl_info;
 
   devtools_instrumentation::OnNavigationRequestFailed(*this, status);
 
@@ -3226,22 +3224,6 @@ void NavigationRequest::AddOldPageInfoToCommitParamsIfNeeded() {
 }
 
 void NavigationRequest::CommitNavigation() {
-  // TODO(https://crbug.com/1146573): Remove this when the bug is closed.
-  RenderFrameHostManager* manager = frame_tree_node_->render_manager();
-  if (RenderFrameHost* speculative_rfh = manager->speculative_frame_host()) {
-    RenderFrameHost* current_rfh = manager->current_frame_host();
-    if (speculative_rfh != current_rfh &&
-        speculative_rfh->GetSiteInstance() == current_rfh->GetSiteInstance() &&
-        !ShouldCreateNewHostForSameSiteSubframe()) {
-      SCOPED_CRASH_KEY_STRING256(
-          CommitNavigation, OldSiteInstance,
-          current_rfh->GetSiteInstance()->GetSiteURL().spec());
-      SCOPED_CRASH_KEY_STRING256(
-          CommitNavigation, NewSiteInstance,
-          speculative_rfh->GetSiteInstance()->GetSiteURL().spec());
-      base::debug::DumpWithoutCrashing();
-    }
-  }
   UpdateCommitNavigationParamsHistory();
   DCHECK(NeedsUrlLoader() == !!response_head_ ||
          (was_redirected_ && common_params_->url.IsAboutBlank()));

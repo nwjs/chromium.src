@@ -31,8 +31,10 @@
 #include "third_party/blink/public/common/loader/previews_state.h"
 #include "third_party/blink/public/common/loader/url_loader_throttle.h"
 #include "third_party/blink/public/mojom/blob/blob_registry.mojom-forward.h"
+#include "third_party/blink/public/mojom/frame/back_forward_cache_controller.mojom-forward.h"
 #include "third_party/blink/public/mojom/loader/resource_load_info.mojom-shared.h"
 #include "third_party/blink/public/mojom/loader/resource_load_info.mojom.h"
+#include "third_party/blink/public/platform/web_url_loader.h"
 #include "third_party/blink/public/platform/web_url_request.h"
 #include "url/gurl.h"
 
@@ -141,7 +143,8 @@ class CONTENT_EXPORT ResourceDispatcher {
                       scoped_refptr<base::SingleThreadTaskRunner> task_runner);
 
   // Toggles the is_deferred attribute for the specified request.
-  virtual void SetDefersLoading(int request_id, bool value);
+  virtual void SetDefersLoading(int request_id,
+                                blink::WebURLLoader::DeferType value);
 
   // Indicates the priority of the specified request changed.
   void DidChangePriority(int request_id,
@@ -159,6 +162,9 @@ class CONTENT_EXPORT ResourceDispatcher {
   }
 
   void OnTransferSizeUpdated(int request_id, int32_t transfer_size_diff);
+
+  void EvictFromBackForwardCache(blink::mojom::RendererEvictionReason reason,
+                                 int request_id);
 
   // Sets the CORS exempt header list for sanity checking.
   void SetCorsExemptHeaderList(const std::vector<std::string>& list);
@@ -194,7 +200,8 @@ class CONTENT_EXPORT ResourceDispatcher {
     std::unique_ptr<RequestPeer> peer;
     network::mojom::RequestDestination request_destination;
     int render_frame_id;
-    bool is_deferred = false;
+    blink::WebURLLoader::DeferType is_deferred =
+        blink::WebURLLoader::DeferType::kNotDeferred;
     // Original requested url.
     GURL url;
     // The url, method and referrer of the latest response even in case of

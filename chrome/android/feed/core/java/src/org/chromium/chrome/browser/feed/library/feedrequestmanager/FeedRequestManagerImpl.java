@@ -8,8 +8,6 @@ import android.content.Context;
 import android.os.Build;
 import android.util.DisplayMetrics;
 
-import androidx.annotation.VisibleForTesting;
-
 import com.google.protobuf.ByteString;
 
 import org.chromium.base.Consumer;
@@ -52,6 +50,7 @@ import org.chromium.chrome.browser.signin.IdentityServicesProvider;
 import org.chromium.components.feed.core.proto.libraries.api.internal.StreamDataProto.StreamToken;
 import org.chromium.components.feed.core.proto.wire.ActionTypeProto;
 import org.chromium.components.feed.core.proto.wire.CapabilityProto.Capability;
+import org.chromium.components.feed.core.proto.wire.ChromeFulfillmentInfoProto.ChromeFulfillmentInfo;
 import org.chromium.components.feed.core.proto.wire.ClientInfoProto.ClientInfo;
 import org.chromium.components.feed.core.proto.wire.ClientInfoProto.ClientInfo.PlatformType;
 import org.chromium.components.feed.core.proto.wire.ConsistencyTokenProto.ConsistencyToken;
@@ -153,8 +152,8 @@ public class FeedRequestManagerImpl implements FeedRequestManager {
         Logger.i(TAG, "trigger refresh %s", reason);
         RequestBuilder request = newDefaultRequest(reason).setConsistencyToken(token);
 
-        if (shouldDismissNoticeCard()) {
-            request.dismissNoticeCard();
+        if (shouldAcknowledgeNoticeCard()) {
+            request.acknowledgeNoticeCard();
         }
 
         if (mThreadUtils.isMainThread()) {
@@ -167,8 +166,7 @@ public class FeedRequestManagerImpl implements FeedRequestManager {
         }
     }
 
-    @VisibleForTesting
-    boolean shouldDismissNoticeCard() {
+    boolean shouldAcknowledgeNoticeCard() {
         if (!ChromeFeatureList.isEnabled(
                     ChromeFeatureList.INTEREST_FEED_NOTICE_CARD_AUTO_DISMISS)) {
             return false;
@@ -177,22 +175,36 @@ public class FeedRequestManagerImpl implements FeedRequestManager {
         int viewsCountThreshold = ChromeFeatureList.getFieldTrialParamByFeatureAsInt(
                 ChromeFeatureList.INTEREST_FEED_NOTICE_CARD_AUTO_DISMISS,
                 NOTICE_CARD_VIEWS_COUNT_THRESHOLD_PARAM_NAME, 3);
-        int viewsCount = UserPrefs.get(Profile.getLastUsedRegularProfile())
-                                 .getInteger(Pref.NOTICE_CARD_VIEWS_COUNT);
-        if (viewsCount >= viewsCountThreshold) {
-            return true;
-        }
+        assert viewsCountThreshold >= 0 : "view count threshold cannot be negative";
 
         int clicksCountThreshold = ChromeFeatureList.getFieldTrialParamByFeatureAsInt(
                 ChromeFeatureList.INTEREST_FEED_NOTICE_CARD_AUTO_DISMISS,
                 NOTICE_CARD_CLICKS_COUNT_THRESHOLD_PARAM_NAME, 1);
-        int clicksCount = UserPrefs.get(Profile.getLastUsedRegularProfile())
-                                  .getInteger(Pref.NOTICE_CARD_CLICKS_COUNT);
-        if (clicksCount >= clicksCountThreshold) {
+        assert clicksCountThreshold >= 0 : "clicks count threshold cannot be negative";
+
+        // Make sure that there is at least one condition to auto-dismiss the notice card.
+        assert (viewsCountThreshold > 0 || clicksCountThreshold > 0)
+            : String.join(" ", "all notice card auto-dismiss thresholds are set to 0",
+                    "when there should be at least one threshold above 0");
+
+        if (viewsCountThreshold > 0 && getNoticeCardViewsCount() >= viewsCountThreshold) {
+            return true;
+        }
+        if (clicksCountThreshold > 0 && getNoticeCardClicksCount() >= clicksCountThreshold) {
             return true;
         }
 
         return false;
+    }
+
+    private static int getNoticeCardViewsCount() {
+        return UserPrefs.get(Profile.getLastUsedRegularProfile())
+                .getInteger(Pref.NOTICE_CARD_VIEWS_COUNT);
+    }
+
+    private static int getNoticeCardClicksCount() {
+        return UserPrefs.get(Profile.getLastUsedRegularProfile())
+                .getInteger(Pref.NOTICE_CARD_CLICKS_COUNT);
     }
 
     private RequestBuilder newDefaultRequest(@RequestReason int requestReason) {
@@ -377,6 +389,7 @@ public class FeedRequestManagerImpl implements FeedRequestManager {
         @RequestReason
         private final int mClientLoggingRequestReason;
         private boolean mCardMenuTooltipWouldTrigger;
+        private boolean mIsNoticeCardAcknowledged;
 
         RequestBuilder(Context context, ApplicationInfo applicationInfo,
                 Configuration configuration, @RequestReason int requestReason) {
@@ -429,6 +442,10 @@ public class FeedRequestManagerImpl implements FeedRequestManager {
             if (mToken != null) {
                 feedQuery.setPageToken(mToken);
             }
+            if (mIsNoticeCardAcknowledged) {
+                feedQuery.setChromeFulfillmentInfo(
+                        ChromeFulfillmentInfo.newBuilder().setNoticeCardAcknowledged(true));
+            }
             FeedRequest.Builder feedRequestBuilder =
                     FeedRequest.newBuilder().setFeedQuery(feedQuery);
             if (mConsistencyToken != null) {
@@ -446,9 +463,9 @@ public class FeedRequestManagerImpl implements FeedRequestManager {
             return requestBuilder.build();
         }
 
-        // TODO(b/1146458): Implement this function once we are decided on the right wire protocol
-        // to dismiss the notice card from the client.
-        public void dismissNoticeCard() {}
+        public void acknowledgeNoticeCard() {
+            mIsNoticeCardAcknowledged = true;
+        }
 
         private void addCapabilities(FeedRequest.Builder feedRequestBuilder) {
             addCapabilityIfConfigEnabled(

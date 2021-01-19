@@ -43,6 +43,7 @@
 #include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
 #include "third_party/blink/public/mojom/devtools/console_message.mojom-blink.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-blink.h"
+#include "third_party/blink/public/mojom/frame/back_forward_cache_controller.mojom-blink.h"
 #include "third_party/blink/public/mojom/web_feature/web_feature.mojom-blink.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/scheduler/web_scoped_virtual_time_pauser.h"
@@ -1914,6 +1915,7 @@ void ResourceFetcher::HandleLoaderFinish(Resource* resource,
 }
 
 void ResourceFetcher::HandleLoaderError(Resource* resource,
+                                        base::TimeTicks finish_time,
                                         const ResourceError& error,
                                         uint32_t inflight_keepalive_bytes) {
   DCHECK(resource);
@@ -1926,7 +1928,7 @@ void ResourceFetcher::HandleLoaderError(Resource* resource,
   if (scoped_refptr<ResourceTimingInfo> info =
           resource_timing_info_map_.Take(resource)) {
     PopulateAndAddResourceTimingInfo(
-        resource, info, info->InitialTime(),
+        resource, info, finish_time,
         resource->GetResponse().EncodedDataLength());
     if (resource->Options().request_initiator_context == kDocumentContext)
       Context().AddResourceTiming(*info);
@@ -2062,7 +2064,7 @@ void ResourceFetcher::StopFetching() {
   StopFetchingInternal(StopFetchingTarget::kExcludingKeepaliveLoaders);
 }
 
-void ResourceFetcher::SetDefersLoading(bool defers) {
+void ResourceFetcher::SetDefersLoading(WebURLLoader::DeferType defers) {
   for (const auto& loader : non_blocking_loaders_)
     loader->SetDefersLoading(defers);
   for (const auto& loader : loaders_)
@@ -2266,6 +2268,14 @@ void ResourceFetcher::AddSubresourceWebBundle(
 void ResourceFetcher::RemoveSubresourceWebBundle(
     SubresourceWebBundle& subresource_web_bundle) {
   subresource_web_bundles_.erase(&subresource_web_bundle);
+}
+
+void ResourceFetcher::EvictFromBackForwardCache(
+    mojom::RendererEvictionReason reason) {
+  if (!resource_load_observer_)
+    return;
+
+  resource_load_observer_->EvictFromBackForwardCache(reason);
 }
 
 void ResourceFetcher::Trace(Visitor* visitor) const {

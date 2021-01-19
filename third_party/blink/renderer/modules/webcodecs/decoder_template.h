@@ -11,6 +11,7 @@
 #include "media/base/decode_status.h"
 #include "media/base/media_log.h"
 #include "media/base/status.h"
+#include "third_party/blink/renderer/bindings/core/v8/active_script_wrappable.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_codec_state.h"
@@ -24,11 +25,16 @@
 #include "third_party/blink/renderer/platform/heap/heap_allocator.h"
 #include "third_party/blink/renderer/platform/heap/member.h"
 
+namespace media {
+class GpuVideoAcceleratorFactories;
+}
+
 namespace blink {
 
 template <typename Traits>
 class MODULES_EXPORT DecoderTemplate
     : public ScriptWrappable,
+      public ActiveScriptWrappable<DecoderTemplate<Traits>>,
       public ExecutionContextLifecycleObserver {
  public:
   typedef typename Traits::ConfigType ConfigType;
@@ -54,13 +60,13 @@ class MODULES_EXPORT DecoderTemplate
   // ExecutionContextLifecycleObserver override.
   void ContextDestroyed() override;
 
+  // ScriptWrappable override.
+  bool HasPendingActivity() const override;
+
   // GarbageCollected override.
   void Trace(Visitor*) const override;
 
  protected:
-  // TODO(sandersd): Consider moving these to the Traits class, and creating an
-  // instance of the traits.
-
   // Convert a configuration to a DecoderConfig.
   virtual CodecConfigEval MakeMediaConfig(const ConfigType& config,
                                           MediaConfigType* out_media_config,
@@ -98,6 +104,10 @@ class MODULES_EXPORT DecoderTemplate
 
     // For reporting an error at the time when a request is processed.
     media::Status status;
+
+    // The value of |reset_generation_| at the time of this request. Used to
+    // abort pending requests following a reset().
+    uint32_t reset_generation = 0;
   };
 
   void ProcessRequests();
@@ -106,6 +116,7 @@ class MODULES_EXPORT DecoderTemplate
   bool ProcessFlushRequest(Request* request);
   bool ProcessResetRequest(Request* request);
   void HandleError(std::string context, media::Status);
+  void ResetAlgorithm();
   void Shutdown(DOMException* ex = nullptr);
 
   // Called by |decoder_|.
@@ -114,7 +125,7 @@ class MODULES_EXPORT DecoderTemplate
   void OnFlushDone(media::Status);
   void OnConfigureFlushDone(media::Status);
   void OnResetDone();
-  void OnOutput(scoped_refptr<MediaOutputType>);
+  void OnOutput(uint32_t reset_generation, scoped_refptr<MediaOutputType>);
 
   // Helper function making it easier to check |state_|.
   bool IsClosed();
@@ -124,8 +135,10 @@ class MODULES_EXPORT DecoderTemplate
   Member<V8WebCodecsErrorCallback> error_cb_;
 
   HeapDeque<Member<Request>> requests_;
-  int32_t requested_decodes_ = 0;
-  int32_t requested_resets_ = 0;
+  int32_t num_pending_decodes_ = 0;
+
+  // Monotonic increasing generation counter for calls to ResetAlgorithm().
+  uint32_t reset_generation_ = 0;
 
   // Which state the codec is in, determining which calls we can receive.
   V8CodecState state_;
@@ -143,6 +156,8 @@ class MODULES_EXPORT DecoderTemplate
   // We might destroy |parent_media_log_| at any point, so keep a clone which
   // can be safely accessed, and whose raw pointer can be given to |decoder_|.
   std::unique_ptr<media::MediaLog> media_log_;
+
+  media::GpuVideoAcceleratorFactories* gpu_factories_ = nullptr;
 
   // TODO(sandersd): Store the last config, flush, and reset so that
   // duplicates can be elided.

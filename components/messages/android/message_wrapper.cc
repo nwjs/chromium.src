@@ -22,9 +22,15 @@ MessageWrapper::MessageWrapper(base::OnceClosure action_callback,
 }
 
 MessageWrapper::~MessageWrapper() {
-  JNIEnv* env = base::android::AttachCurrentThread();
-  Java_MessageWrapper_clearNativePtr(env, java_message_wrapper_);
   CHECK(message_dismissed_);
+}
+
+base::string16 MessageWrapper::GetTitle() {
+  JNIEnv* env = base::android::AttachCurrentThread();
+  base::android::ScopedJavaLocalRef<jstring> jtitle =
+      Java_MessageWrapper_getTitle(env, java_message_wrapper_);
+  return jtitle.is_null() ? base::string16()
+                          : base::android::ConvertJavaStringToUTF16(jtitle);
 }
 
 void MessageWrapper::SetTitle(const base::string16& title) {
@@ -34,11 +40,29 @@ void MessageWrapper::SetTitle(const base::string16& title) {
   Java_MessageWrapper_setTitle(env, java_message_wrapper_, jtitle);
 }
 
+base::string16 MessageWrapper::GetDescription() {
+  JNIEnv* env = base::android::AttachCurrentThread();
+  base::android::ScopedJavaLocalRef<jstring> jdescription =
+      Java_MessageWrapper_getDescription(env, java_message_wrapper_);
+  return jdescription.is_null()
+             ? base::string16()
+             : base::android::ConvertJavaStringToUTF16(jdescription);
+}
+
 void MessageWrapper::SetDescription(const base::string16& description) {
   JNIEnv* env = base::android::AttachCurrentThread();
   base::android::ScopedJavaLocalRef<jstring> jdescription =
       base::android::ConvertUTF16ToJavaString(env, description);
   Java_MessageWrapper_setDescription(env, java_message_wrapper_, jdescription);
+}
+
+base::string16 MessageWrapper::GetPrimaryButtonText() {
+  JNIEnv* env = base::android::AttachCurrentThread();
+  base::android::ScopedJavaLocalRef<jstring> jprimary_button_text =
+      Java_MessageWrapper_getPrimaryButtonText(env, java_message_wrapper_);
+  return jprimary_button_text.is_null()
+             ? base::string16()
+             : base::android::ConvertJavaStringToUTF16(jprimary_button_text);
 }
 
 void MessageWrapper::SetPrimaryButtonText(
@@ -50,10 +74,49 @@ void MessageWrapper::SetPrimaryButtonText(
                                            jprimary_button_text);
 }
 
+base::string16 MessageWrapper::GetSecondaryActionText() {
+  JNIEnv* env = base::android::AttachCurrentThread();
+  base::android::ScopedJavaLocalRef<jstring> jsecondary_action_text =
+      Java_MessageWrapper_getSecondaryActionText(env, java_message_wrapper_);
+  return jsecondary_action_text.is_null()
+             ? base::string16()
+             : base::android::ConvertJavaStringToUTF16(jsecondary_action_text);
+}
+
+void MessageWrapper::SetSecondaryActionText(
+    const base::string16& secondary_action_text) {
+  JNIEnv* env = base::android::AttachCurrentThread();
+  base::android::ScopedJavaLocalRef<jstring> jsecondary_action_text =
+      base::android::ConvertUTF16ToJavaString(env, secondary_action_text);
+  Java_MessageWrapper_setSecondaryActionText(env, java_message_wrapper_,
+                                             jsecondary_action_text);
+}
+
+int MessageWrapper::GetIconResourceId() {
+  JNIEnv* env = base::android::AttachCurrentThread();
+  return Java_MessageWrapper_getIconResourceId(env, java_message_wrapper_);
+}
+
 void MessageWrapper::SetIconResourceId(int resource_id) {
   JNIEnv* env = base::android::AttachCurrentThread();
   Java_MessageWrapper_setIconResourceId(env, java_message_wrapper_,
                                         resource_id);
+}
+
+int MessageWrapper::GetSecondaryIconResourceId() {
+  JNIEnv* env = base::android::AttachCurrentThread();
+  return Java_MessageWrapper_getSecondaryIconResourceId(env,
+                                                        java_message_wrapper_);
+}
+
+void MessageWrapper::SetSecondaryIconResourceId(int resource_id) {
+  JNIEnv* env = base::android::AttachCurrentThread();
+  Java_MessageWrapper_setSecondaryIconResourceId(env, java_message_wrapper_,
+                                                 resource_id);
+}
+
+void MessageWrapper::SetSecondaryActionCallback(base::OnceClosure callback) {
+  secondary_action_callback_ = std::move(callback);
 }
 
 void MessageWrapper::HandleActionClick(JNIEnv* env) {
@@ -61,10 +124,21 @@ void MessageWrapper::HandleActionClick(JNIEnv* env) {
     std::move(action_callback_).Run();
 }
 
+void MessageWrapper::HandleSecondaryActionClick(JNIEnv* env) {
+  if (!secondary_action_callback_.is_null())
+    std::move(secondary_action_callback_).Run();
+}
+
 void MessageWrapper::HandleDismissCallback(JNIEnv* env) {
+  // Make sure message dismissed callback is called exactly once.
+  CHECK(!message_dismissed_);
   message_dismissed_ = true;
+  Java_MessageWrapper_clearNativePtr(env, java_message_wrapper_);
   if (!dismiss_callback_.is_null())
     std::move(dismiss_callback_).Run();
+  // Dismiss callback typically deletes the instance of MessageWrapper,
+  // invalidating |this| pointer. Don't call any methods after dismiss_callback_
+  // is invoked.
 }
 
 const base::android::JavaRef<jobject>& MessageWrapper::GetJavaMessageWrapper()

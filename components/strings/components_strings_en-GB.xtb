@@ -29,7 +29,7 @@
 <translation id="1080116354587839789">Fit to width</translation>
 <translation id="1086953900555227778">Index-5x8</translation>
 <translation id="1088860948719068836">Add Name on Card</translation>
-<translation id="1089439967362294234">Change Password</translation>
+<translation id="1089439967362294234">Change password</translation>
 <translation id="1096545575934602868">This field should not have more than <ph name="MAX_ITEMS_LIMIT" /> entries. All further entries will be discarded.</translation>
 <translation id="1101672080107056897">Error action</translation>
 <translation id="1103523840287552314">Always translate <ph name="LANGUAGE" /></translation>
@@ -96,13 +96,13 @@ This will otherwise be blocked by your privacy settings. This will allow the con
 <translation id="129553762522093515">Recently closed</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Try clearing your cookies<ph name="END_LINK" /></translation>
 <translation id="1301324364792935241">Check your secure DNS settings</translation>
-<translation id="1307966114820526988">Deprecated Features</translation>
+<translation id="1307966114820526988">Deprecated features</translation>
 <translation id="131405271941274527"><ph name="URL" /> wants to send and receive info when you tap your phone on an NFC device</translation>
 <translation id="1314509827145471431">Bind right</translation>
 <translation id="1320233736580025032">Prc1 (Envelope)</translation>
 <translation id="132301787627749051">Search for clipboard image</translation>
 <translation id="1323433172918577554">Show More</translation>
-<translation id="132390688737681464">Save and Fill Addresses</translation>
+<translation id="132390688737681464">Save and fill addresses</translation>
 <translation id="1330449323196174374">Left gate fold</translation>
 <translation id="1333989956347591814">Your activity <ph name="BEGIN_EMPHASIS" />might still be visible<ph name="END_EMPHASIS" /> to:
         <ph name="BEGIN_LIST" />
@@ -123,7 +123,7 @@ This will otherwise be blocked by your privacy settings. This will allow the con
 <translation id="1374692235857187091">Index-4x6 (Postcard)</translation>
 <translation id="1375198122581997741">About Version</translation>
 <translation id="1376836354785490390">Show Less</translation>
-<translation id="1377321085342047638">Card Number</translation>
+<translation id="1377321085342047638">Card number</translation>
 <translation id="1380591466760231819">Letter fold</translation>
 <translation id="138218114945450791">Light blue</translation>
 <translation id="1382194467192730611">USB device allowed by your administrator</translation>
@@ -242,7 +242,7 @@ This will otherwise be blocked by your privacy settings. This will allow the con
 <translation id="1791429645902722292">Google Smart Lock</translation>
 <translation id="1798447301915465742"><ph name="MULTIPLE_ACTIONS_FOCUSED_FRIENDLY_MATCH_TEXT" />, multiple actions are available; press 'Tab' to cycle through them</translation>
 <translation id="1800473098294731951">B9</translation>
-<translation id="1803264062614276815">Cardholder Name</translation>
+<translation id="1803264062614276815">Cardholder name</translation>
 <translation id="1807246157184219062">Light</translation>
 <translation id="1807528111851433570">Start sheet</translation>
 <translation id="1821930232296380041">Invalid request or request parameters</translation>
@@ -304,6 +304,7 @@ This will otherwise be blocked by your privacy settings. This will allow the con
 <translation id="2102495993840063010">Android apps</translation>
 <translation id="2107021941795971877">Print supports</translation>
 <translation id="2108755909498034140">Restart your computer</translation>
+<translation id="2111166930115883695">Press space to play</translation>
 <translation id="2111256659903765347">Super-A</translation>
 <translation id="2113977810652731515">Card</translation>
 <translation id="2114841414352855701">Ignored because it was overridden by <ph name="POLICY_NAME" />.</translation>
@@ -311,7 +312,7 @@ This will otherwise be blocked by your privacy settings. This will allow the con
 <translation id="2119867082804433120">Punch bottom right</translation>
 <translation id="2129079103035905234">Motion Sensors</translation>
 <translation id="2130448033692577677">The templates that you've specified may not be applied due to the DnsOverHttpsMode policy not being set.</translation>
-<translation id="213826338245044447">Mobile Bookmarks</translation>
+<translation id="213826338245044447">Mobile bookmarks</translation>
 <translation id="214556005048008348">Cancel payment</translation>
 <translation id="2147827593068025794">Background Sync</translation>
 <translation id="2148613324460538318">Add Card</translation>
@@ -387,7 +388,7 @@ This will otherwise be blocked by your privacy settings. This will allow the con
 <translation id="2465402087343596252">Architecture-E</translation>
 <translation id="2465655957518002998">Choose delivery method</translation>
 <translation id="2465688316154986572">Staple</translation>
-<translation id="2467694685043708798"><ph name="BEGIN_LINK" />Running Network Diagnostics<ph name="END_LINK" /></translation>
+<translation id="2467694685043708798"><ph name="BEGIN_LINK" />Running network diagnostics<ph name="END_LINK" /></translation>
 <translation id="2469153820345007638">1-to-N order</translation>
 <translation id="2470767536994572628">When you edit annotations, this document will return to single-page view and its original rotation</translation>
 <translation id="2479410451996844060">Invalid search URL.</translation>
@@ -399,7 +400,7 @@ This will otherwise be blocked by your privacy settings. This will allow the con
 <translation id="2495093607237746763">If ticked, Chromium will store a copy of your card on this device for faster form filling.</translation>
 <translation id="2498091847651709837">Scan new card</translation>
 <translation id="2501278716633472235">Go back</translation>
-<translation id="2505268675989099013">Protect Account</translation>
+<translation id="2505268675989099013">Protect account</translation>
 <translation id="2515629240566999685">Checking the signal in your area</translation>
 <translation id="2521385132275182522">Staple bottom right</translation>
 <translation id="2523886232349826891">Saved on this device only</translation>
@@ -493,7 +494,7 @@ This will otherwise be blocked by your privacy settings. This will allow the con
 <translation id="2916038427272391327">Close other programmes</translation>
 <translation id="2922350208395188000">Server's certificate cannot be checked.</translation>
 <translation id="2925673989565098301">Delivery Method</translation>
-<translation id="2928905813689894207">Billing Address</translation>
+<translation id="2928905813689894207">Billing address</translation>
 <translation id="2929525460561903222">{SHIPPING_ADDRESS,plural, =0{<ph name="SHIPPING_ADDRESS_PREVIEW" />}=1{<ph name="SHIPPING_ADDRESS_PREVIEW" /> and <ph name="NUMBER_OF_ADDITIONAL_ADDRESSES" /> more}other{<ph name="SHIPPING_ADDRESS_PREVIEW" /> and <ph name="NUMBER_OF_ADDITIONAL_ADDRESSES" /> more}}</translation>
 <translation id="2930577230479659665">Trim after each copy</translation>
 <translation id="2932085390869194046">Suggest password...</translation>
@@ -521,6 +522,7 @@ This will otherwise be blocked by your privacy settings. This will allow the con
 <translation id="3010559122411665027">List entry "<ph name="ENTRY_INDEX" />": <ph name="ERROR" /></translation>
 <translation id="301521992641321250">Automatically blocked</translation>
 <translation id="3016780570757425217">Know your location</translation>
+<translation id="3017086357773116182"><ph name="REMOVE_SUGGESTION_SUFFIX" />, press tab then enter to remove suggestion.</translation>
 <translation id="3023071826883856138">You4 (Envelope)</translation>
 <translation id="3024663005179499861">Wrong policy type</translation>
 <translation id="3037605927509011580">Aw, Snap!</translation>
@@ -664,7 +666,7 @@ This will otherwise be blocked by your privacy settings. This will allow the con
 <translation id="361438452008624280">List entry '<ph name="LANGUAGE_ID" />': unknown or unsupported language.</translation>
 <translation id="3615877443314183785">Enter a valid expiry date</translation>
 <translation id="36224234498066874">Clear Browsing Data...</translation>
-<translation id="362276910939193118">Show Full History</translation>
+<translation id="362276910939193118">Show full history</translation>
 <translation id="3630155396527302611">If it is already listed as a program allowed to access the network, try
       removing it from the list and adding it again.</translation>
 <translation id="3630699740441428070">Administrators of this device have configured your network connection, which may allow them to see your network traffic, including which websites that you visit.</translation>
@@ -763,6 +765,7 @@ This will otherwise be blocked by your privacy settings. This will allow the con
 <translation id="4056223980640387499">Sepia</translation>
 <translation id="4058922952496707368">Key "<ph name="SUBKEY" />": <ph name="ERROR" /></translation>
 <translation id="4067263367174615723">C1 (Envelope)</translation>
+<translation id="4067669230157909013">Screen capture was resumed.</translation>
 <translation id="4067947977115446013">Add Valid Address</translation>
 <translation id="4072486802667267160">There was an error processing your order. Please try again.</translation>
 <translation id="4075732493274867456">The client and server don't support a common SSL protocol version or cipher suite.</translation>
@@ -847,6 +850,7 @@ This will otherwise be blocked by your privacy settings. This will allow the con
 <translation id="4297502707443874121">Thumbnail for page <ph name="THUMBNAIL_PAGE" /></translation>
 <translation id="42981349822642051">Expand</translation>
 <translation id="4300675098767811073">Multiple punch right</translation>
+<translation id="4302514097724775343">Tap the dino to play</translation>
 <translation id="4302965934281694568">Chou3 (Envelope)</translation>
 <translation id="4305666528087210886">Your file couldn’t be accessed</translation>
 <translation id="4305817255990598646">Switch</translation>
@@ -1013,7 +1017,7 @@ This will otherwise be blocked by your privacy settings. This will allow the con
 <translation id="4989809363548539747">This plug-in is not supported</translation>
 <translation id="4995216769782533993">Confirm the security code to share your card details with this site</translation>
 <translation id="5002932099480077015">If enabled, Chrome will store a copy of your card on this device for faster form filling.</translation>
-<translation id="5015510746216210676">Machine Name:</translation>
+<translation id="5015510746216210676">Machine name:</translation>
 <translation id="5017554619425969104">Text that you copied</translation>
 <translation id="5018422839182700155">Can't open this page</translation>
 <translation id="5019198164206649151">Backing store in bad state</translation>
@@ -1175,7 +1179,6 @@ This will otherwise be blocked by your privacy settings. This will allow the con
 <translation id="560412284261940334">Management not supported</translation>
 <translation id="5605670050355397069">Ledger</translation>
 <translation id="5607240918979444548">Architecture-C</translation>
-<translation id="5608165884683734521">This site could be fake or fraudulent. Chrome recommends leaving now.</translation>
 <translation id="5610142619324316209">Checking the connection</translation>
 <translation id="5610807607761827392">You can manage cards and addresses in <ph name="BEGIN_LINK" />Settings<ph name="END_LINK" />.</translation>
 <translation id="561165882404867731">Translate this page with Google Translate</translation>
@@ -1247,6 +1250,7 @@ This will otherwise be blocked by your privacy settings. This will allow the con
 <translation id="5901630391730855834">Yellow</translation>
 <translation id="5905445707201418379">Blocked according to <ph name="ORIGIN" />'s origin policy.</translation>
 <translation id="5908541034548427511"><ph name="TYPE_1" /> (synced)</translation>
+<translation id="5913377024445952699">Screen capture paused</translation>
 <translation id="59174027418879706">Enabled</translation>
 <translation id="5919090499915321845">B10</translation>
 <translation id="5921185718311485855">On</translation>
@@ -1259,6 +1263,7 @@ This will otherwise be blocked by your privacy settings. This will allow the con
 <translation id="5963413905009737549">Section</translation>
 <translation id="5967592137238574583">Edit Contact Info</translation>
 <translation id="5967867314010545767">Remove from history</translation>
+<translation id="5968793460449681917">On every visit</translation>
 <translation id="5975083100439434680">Zoom out</translation>
 <translation id="5979084224081478209">Check passwords</translation>
 <translation id="5980920751713728343">Index-3x5</translation>
@@ -1472,8 +1477,9 @@ This will otherwise be blocked by your privacy settings. This will allow the con
 <translation id="6888584790432772780">Chrome simplified this page to make it easier to read. Chrome retrieved the original page over an insecure connection.</translation>
 <translation id="6891596781022320156">Policy level is not supported.</translation>
 <translation id="6895330447102777224">Your card is confirmed</translation>
-<translation id="6897140037006041989">User Agent</translation>
+<translation id="6897140037006041989">User agent</translation>
 <translation id="6898699227549475383">Organisation (O)</translation>
+<translation id="6907293445143367439">Allow <ph name="SITE_NAME" /> to:</translation>
 <translation id="6910240653697687763"><ph name="URL" /> wants to get full control of your MIDI devices</translation>
 <translation id="6915804003454593391">User:</translation>
 <translation id="6934672428414710184">This name is from your Google Account</translation>
@@ -1556,7 +1562,7 @@ This will otherwise be blocked by your privacy settings. This will allow the con
 <translation id="7221855153210829124">Show notifications</translation>
 <translation id="7229659723041939809">You just entered your password on a deceptive site. Chrome recommends checking your saved passwords for <ph name="WEBSITE_1" />, <ph name="WEBSITE_2" />, <ph name="WEBSITE_3" /> and other sites where you use this password now.</translation>
 <translation id="7233592378249864828">Print confirmation sheet</translation>
-<translation id="7238585580608191973">SHA-256 Fingerprint</translation>
+<translation id="7238585580608191973">SHA-256 fingerprint</translation>
 <translation id="7240120331469437312">Certificate Subject Alternative Name</translation>
 <translation id="7243010569062352439"><ph name="PASSWORDS" />; <ph name="SIGNIN_DATA" /></translation>
 <translation id="724691107663265825">The site ahead contains malware</translation>
@@ -1574,7 +1580,7 @@ Additional details:
 <translation id="7304030187361489308">High</translation>
 <translation id="7313965965371928911"><ph name="BEGIN_LINK" />Safe Browsing<ph name="END_LINK" /> warnings</translation>
 <translation id="7319430975418800333">A3</translation>
-<translation id="7320336641823683070">Connection Help</translation>
+<translation id="7320336641823683070">Connection help</translation>
 <translation id="7323804146520582233">Hide the '<ph name="SECTION" />' section</translation>
 <translation id="733354035281974745">Device local account override</translation>
 <translation id="7333654844024768166">You just entered your password on a deceptive site. Chromium recommends going to <ph name="WEBSITE_1" />, <ph name="WEBSITE_2" />, <ph name="WEBSITE_3" /> and other sites where you use this password and changing it now.</translation>
@@ -1909,6 +1915,7 @@ Additional details:
 <translation id="8574899947864779331">Use Touch ID to confirm cards faster</translation>
 <translation id="858637041960032120">Add phone no.</translation>
 <translation id="8589998999637048520">Best quality</translation>
+<translation id="8600271352425265729">Only this time</translation>
 <translation id="860043288473659153">Cardholder name</translation>
 <translation id="8606726445206553943">Use your MIDI devices</translation>
 <translation id="8612761427948161954">Hi <ph name="USERNAME" />,
@@ -1918,6 +1925,7 @@ Additional details:
 <translation id="8622948367223941507">Legal-Extra</translation>
 <translation id="8623885649813806493">No matching passwords. Show all saved passwords.</translation>
 <translation id="8625384913736129811">Save This Card to This Device</translation>
+<translation id="8627040765059109009">Screen capture resumed</translation>
 <translation id="8657078576661269990">Your administrator has blocked sharing from <ph name="ORIGIN_NAME" /> to <ph name="VM_NAME_1" /> and <ph name="VM_NAME_2" /></translation>
 <translation id="8663226718884576429">Order Summary, <ph name="TOTAL_LABEL" />, More Details</translation>
 <translation id="867224526087042813">Signature</translation>
@@ -1984,7 +1992,7 @@ Additional details:
 <translation id="892588693504540538">Punch top right</translation>
 <translation id="8931333241327730545">Do you want to save this card to your Google Account?</translation>
 <translation id="8932102934695377596">Your clock is behind</translation>
-<translation id="893332455753468063">Add Name</translation>
+<translation id="893332455753468063">Add name</translation>
 <translation id="8942355029279167844">Your administrator has allowed <ph name="APP_NAME" /> to collect diagnostics data to improve the product experience. See <ph name="BEGIN_LINK" />https://www.parallels.com/pcep<ph name="END_LINK" /> for more information.</translation>
 <translation id="8943282376843390568">Lime</translation>
 <translation id="8957210676456822347">Captive Portal Authorisation</translation>
@@ -2065,6 +2073,7 @@ Additional details:
 <translation id="939736085109172342">New folder</translation>
 <translation id="945855313015696284">Check the info below and delete any invalid cards</translation>
 <translation id="950736567201356821">Triple punch top</translation>
+<translation id="951941430552851965">Screen capture was paused by your administrator due to content on your screen.</translation>
 <translation id="961663415146723894">Bind bottom</translation>
 <translation id="962484866189421427">This content might try to install deceptive apps that pretend to be something else or collect data that may be used to track you. <ph name="BEGIN_LINK" />Show anyway<ph name="END_LINK" /></translation>
 <translation id="969892804517981540">Official Build</translation>

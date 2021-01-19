@@ -54,7 +54,6 @@
 <translation id="6600954340915313787">已复制到 Chrome</translation>
 <translation id="6648150602980899529">您正要登录由 <ph name="DOMAIN" /> 管理的帐号，并要授权其管理员控制您的 Chrome 数据。您的数据将与此帐号永久关联。退出 Chrome 后，您的数据将从这台设备上删除，但仍会保留在您的 Google 帐号中。</translation>
 <translation id="6676840375528380067">从这部设备中清除您的 Chrome 数据？</translation>
-<translation id="6707926552788741012">如果您允许使用您的位置信息，Chrome 便会将其发送到已获您授权的默认搜索引擎和网站。网站通常会使用您的位置信息来提供本地信息（例如新闻或附近的商店）。</translation>
 <translation id="6822673484890854830">Chrome 无法检查所有密码。请稍后再试。</translation>
 <translation id="7124339256045485976">让 Chrome 保持最新状态</translation>
 <translation id="7161390184744336561">Google Chrome 版本太旧</translation>
@@ -77,4 +76,5 @@
 <translation id="840168496893712993">部分插件导致 Chrome 崩溃，请尝试卸载这些插件。</translation>
 <translation id="8459495907675268833">所选数据已从 Chrome 和同步的设备中移除。不过，您的 Google 帐号在 history.google.com 上可能有其他形式的浏览记录（例如，在其他 Google 服务中的搜索记录和活动记录）。</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
+<translation id="9135668017386497357">如果您允许 Chrome 获取您的位置信息，Chrome 便会将该信息发送到您的默认搜索引擎和已获您授权的所有网站。网站可能会请求使用您的位置信息以便为您显示本地信息（例如附近的商店或新闻）。</translation>
 </translationbundle>

@@ -10,12 +10,20 @@
 #include "base/win/windows_version.h"
 #endif
 
+#if defined(OS_ANDROID)
+#include "base/android/build_info.h"
+#endif
+
 namespace features {
 
 #if defined(OS_WIN)
 // If enabled, calculate native window occlusion - Windows-only.
 const base::Feature kCalculateNativeWinOcclusion{
     "CalculateNativeWinOcclusion", base::FEATURE_ENABLED_BY_DEFAULT};
+
+const base::Feature kCalculateNativeWinOcclusionCheckVirtualDesktopUsed{
+    "CalculateNativeWinOcclusionCheckVirtualDesktopUsed",
+    base::FEATURE_DISABLED_BY_DEFAULT};
 #endif  // OW_WIN
 
 // Whether or not to delegate color queries to the color provider.
@@ -265,5 +273,17 @@ const char kFilterNameOneEuro[] = "one_euro_filter";
 
 const base::Feature kSwipeToMoveCursor{"SwipeToMoveCursor",
                                        base::FEATURE_DISABLED_BY_DEFAULT};
+
+bool IsSwipeToMoveCursorEnabled() {
+  static const bool enabled =
+      base::FeatureList::IsEnabled(kSwipeToMoveCursor)
+#if defined(OS_ANDROID)
+      && base::android::BuildInfo::GetInstance()->sdk_int() >=
+             base::android::SDK_VERSION_R;
+#else
+      ;
+#endif
+  return enabled;
+}
 
 }  // namespace features

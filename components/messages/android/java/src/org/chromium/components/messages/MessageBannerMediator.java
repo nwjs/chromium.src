@@ -40,18 +40,19 @@ class MessageBannerMediator implements SwipeHandler {
     private Supplier<Integer> mMaxTranslationSupplier;
 
     private final float mHideThresholdPx;
+    private final Runnable mMessageDismissed;
 
     private float mSwipeStartTranslationY;
 
     /**
      * Constructs the message banner mediator.
      */
-    MessageBannerMediator(
-            PropertyModel model, Supplier<Integer> maxTranslationSupplier, Resources resources) {
+    MessageBannerMediator(PropertyModel model, Supplier<Integer> maxTranslationSupplier,
+            Resources resources, Runnable messageDismissed) {
         mModel = model;
         mMaxTranslationSupplier = maxTranslationSupplier;
-        mModel.set(TRANSLATION_Y, -mMaxTranslationSupplier.get());
         mHideThresholdPx = resources.getDimensionPixelSize(R.dimen.message_hide_threshold);
+        mMessageDismissed = messageDismissed;
     }
 
     /**
@@ -59,6 +60,9 @@ class MessageBannerMediator implements SwipeHandler {
      * @param messageShown The {@link Runnable} that will run once the message banner is shown.
      */
     void show(Runnable messageShown) {
+        if (mAnimatorSet == null) {
+            mModel.set(TRANSLATION_Y, -mMaxTranslationSupplier.get());
+        }
         cancelAnyAnimations();
         mAnimatorSet = createAnimatorSet(true);
         mAnimatorSet.addListener(new CancelAwareAnimatorListener() {
@@ -117,12 +121,12 @@ class MessageBannerMediator implements SwipeHandler {
         // No need to animate if the message banner is in resting position.
         if (mModel.get(TRANSLATION_Y) == 0.f) return;
 
-        mAnimatorSet = createAnimatorSet(mModel.get(TRANSLATION_Y) > -mHideThresholdPx);
+        final boolean isShow = mModel.get(TRANSLATION_Y) > -mHideThresholdPx;
+        mAnimatorSet = createAnimatorSet(isShow);
         mAnimatorSet.addListener(new CancelAwareAnimatorListener() {
             @Override
             public void onEnd(Animator animator) {
-                // TODO(sinansahin): We need a way to notify someone to dismiss the message once
-                // it's hidden.
+                if (!isShow) mMessageDismissed.run();
                 mAnimatorSet = null;
             }
         });

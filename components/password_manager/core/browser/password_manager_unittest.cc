@@ -3724,6 +3724,143 @@ TEST_P(PasswordManagerTest, GenerationOnChangedForm) {
   }
 }
 
+#if !defined(OS_IOS)
+TEST_P(PasswordManagerTest, SubmissionDetectedOnClearedForm) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(features::kDetectFormSubmissionOnFormClear);
+  EXPECT_CALL(client_, IsSavingAndFillingEnabled).WillRepeatedly(Return(true));
+  PasswordForm saved_match(MakeSavedForm());
+  EXPECT_CALL(*store_, GetLogins)
+      .WillRepeatedly(WithArg<1>(InvokeConsumer(store_.get(), saved_match)));
+
+  // Create FormData for a form with 1 password field and process it.
+  FormData form_data;
+  form_data.unique_renderer_id = FormRendererId(0);
+  form_data.url = GURL("http://www.google.com/a/LoginAuth");
+
+  FormFieldData old_password_field;
+  old_password_field.form_control_type = "password";
+  old_password_field.unique_renderer_id = FieldRendererId(1);
+  old_password_field.name = ASCIIToUTF16("oldpass");
+  old_password_field.value = ASCIIToUTF16("oldpass");
+  form_data.fields.push_back(old_password_field);
+
+  FormFieldData new_password_field;
+  new_password_field.form_control_type = "password";
+  new_password_field.unique_renderer_id = FieldRendererId(2);
+  new_password_field.name = ASCIIToUTF16("newpass");
+  new_password_field.autocomplete_attribute = "new-password";
+  form_data.fields.push_back(new_password_field);
+
+  FormFieldData confirm_password_field;
+  confirm_password_field.form_control_type = "password";
+  confirm_password_field.unique_renderer_id = FieldRendererId(3);
+  confirm_password_field.name = ASCIIToUTF16("confpass");
+  form_data.fields.push_back(confirm_password_field);
+
+  manager()->OnPasswordFormsParsed(&driver_, {form_data});
+
+  form_data.fields[0].value = ASCIIToUTF16("oldpass");
+  form_data.fields[1].value = ASCIIToUTF16("newpass");
+  form_data.fields[2].value = ASCIIToUTF16("newpass");
+
+  manager()->OnInformAboutUserInput(&driver_, form_data);
+
+  std::unique_ptr<PasswordFormManagerForUI> form_manager_to_save;
+  EXPECT_CALL(client_, PromptUserToSaveOrUpdatePasswordPtr)
+      .WillOnce(WithArg<0>(SaveToScopedPtr(&form_manager_to_save)));
+  manager()->OnPasswordFormCleared(&driver_, form_data);
+}
+
+TEST_P(PasswordManagerTest, SubmissionDetectedOnClearedFormlessFields) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(features::kDetectFormSubmissionOnFormClear);
+  EXPECT_CALL(client_, IsSavingAndFillingEnabled).WillRepeatedly(Return(true));
+  PasswordForm saved_match(MakeSavedForm());
+  EXPECT_CALL(*store_, GetLogins)
+      .WillRepeatedly(WithArg<1>(InvokeConsumer(store_.get(), saved_match)));
+
+  for (bool new_password_field_was_cleared : {true, false}) {
+    SCOPED_TRACE(testing::Message("#new password field was cleared = ")
+                 << new_password_field_was_cleared);
+
+    // Create FormData for a form with 1 password field and process it.
+    FormData form_data;
+    form_data.is_form_tag = false;
+    form_data.unique_renderer_id = FormRendererId(0);
+    form_data.url = GURL("http://www.google.com/a/LoginAuth");
+
+    FormFieldData old_password_field;
+    old_password_field.form_control_type = "password";
+    old_password_field.unique_renderer_id = FieldRendererId(1);
+    old_password_field.name = ASCIIToUTF16("oldpass");
+    old_password_field.value = ASCIIToUTF16("oldpass");
+    form_data.fields.push_back(old_password_field);
+
+    FormFieldData new_password_field;
+    new_password_field.form_control_type = "password";
+    new_password_field.unique_renderer_id = FieldRendererId(2);
+    new_password_field.name = ASCIIToUTF16("newpass");
+    new_password_field.autocomplete_attribute = "new-password";
+    form_data.fields.push_back(new_password_field);
+
+    FormFieldData confirm_password_field;
+    confirm_password_field.form_control_type = "password";
+    confirm_password_field.unique_renderer_id = FieldRendererId(3);
+    confirm_password_field.name = ASCIIToUTF16("confpass");
+    form_data.fields.push_back(confirm_password_field);
+
+    manager()->OnPasswordFormsParsed(&driver_, {form_data});
+
+    form_data.fields[0].value = ASCIIToUTF16("oldpass");
+    form_data.fields[1].value = ASCIIToUTF16("newpass");
+    form_data.fields[2].value = ASCIIToUTF16("newpass");
+
+    manager()->OnInformAboutUserInput(&driver_, form_data);
+
+    form_data.fields[0].value = base::string16();
+    form_data.fields[2].value = base::string16();
+    if (new_password_field_was_cleared)
+      form_data.fields[1].value = base::string16();
+
+    std::unique_ptr<PasswordFormManagerForUI> form_manager_to_save;
+    if (new_password_field_was_cleared) {
+      EXPECT_CALL(client_, PromptUserToSaveOrUpdatePasswordPtr)
+          .WillOnce(WithArg<0>(SaveToScopedPtr(&form_manager_to_save)));
+    } else {
+      EXPECT_CALL(client_, PromptUserToSaveOrUpdatePasswordPtr).Times(0);
+    }
+
+    manager()->OnPasswordFormCleared(&driver_, form_data);
+  }
+}
+#endif  // !defined(OS_IOS)
+
+TEST_P(PasswordManagerTest, IsFormManagerPendingPasswordUpdate) {
+  PasswordForm form(MakeSimpleForm());
+  std::vector<FormData> observed = {form.form_data};
+  EXPECT_CALL(client_, IsSavingAndFillingEnabled).WillRepeatedly(Return(true));
+  EXPECT_CALL(*store_, GetLogins)
+      .WillOnce(WithArg<1>(InvokeConsumer(store_.get(), form)));
+  manager()->OnPasswordFormsParsed(&driver_, observed);
+  manager()->OnPasswordFormsRendered(&driver_, observed, true);
+
+  // Password was not updated yet.
+  EXPECT_FALSE(manager()->IsFormManagerPendingPasswordUpdate());
+
+  // The user updates the password.
+  FormData updated_data(form.form_data);
+  updated_data.fields[1].value = ASCIIToUTF16("new_password");
+  manager()->OnInformAboutUserInput(&driver_, updated_data);
+  EXPECT_TRUE(manager()->IsFormManagerPendingPasswordUpdate());
+
+  // The user submits the form.
+  OnPasswordFormSubmitted(updated_data);
+  EXPECT_TRUE(manager()->GetSubmittedManagerForTest());
+  // OnFormManagerPendingPasswordUpdate() still returns true after submission.
+  EXPECT_TRUE(manager()->IsFormManagerPendingPasswordUpdate());
+}
+
 INSTANTIATE_TEST_SUITE_P(, PasswordManagerTest, testing::Bool());
 
 }  // namespace password_manager

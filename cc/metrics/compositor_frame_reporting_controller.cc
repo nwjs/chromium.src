@@ -78,9 +78,18 @@ void CompositorFrameReportingController::WillBeginImplFrame(
   if (reporters_[PipelineStage::kBeginImplFrame]) {
     auto& reporter = reporters_[PipelineStage::kBeginImplFrame];
     DCHECK(reporter->did_finish_impl_frame());
-    DCHECK(reporter->did_not_produce_frame());
-    reporter->TerminateFrame(FrameTerminationStatus::kDidNotProduceFrame,
-                             reporter->did_not_produce_frame_time());
+    // TODO(1144353): This is a speculative fix. This code should only be
+    // reached after the previous frame have been explicitly marked as 'did not
+    // produce frame', i.e. this code should have a DCHECK instead of a
+    // conditional:
+    //   DCHECK(reporter->did_not_produce_frame()).
+    if (reporter->did_not_produce_frame()) {
+      reporter->TerminateFrame(FrameTerminationStatus::kDidNotProduceFrame,
+                               reporter->did_not_produce_frame_time());
+    } else {
+      reporter->TerminateFrame(FrameTerminationStatus::kReplacedByNewReporter,
+                               Now());
+    }
   }
   auto reporter = std::make_unique<CompositorFrameReporter>(
       active_trackers_, args, latency_ukm_reporter_.get(),
@@ -488,6 +497,14 @@ void CompositorFrameReportingController::CreateReportersForDroppedFrames(
             old_args.frame_id.sequence_number);
   const uint32_t interval =
       new_args.frame_id.sequence_number - old_args.frame_id.sequence_number;
+
+  // Up to 100 frames will be reported (100 closest frames to new_args).
+  const uint32_t kMaxFrameCount = 100;
+
+  // If there are more than 100 frames skipped, ignore them
+  if (interval > kMaxFrameCount)
+    return;
+
   auto timestamp = old_args.frame_time + old_args.interval;
   for (uint32_t i = 1; i < interval; ++i, timestamp += old_args.interval) {
     auto args = viz::BeginFrameArgs::Create(

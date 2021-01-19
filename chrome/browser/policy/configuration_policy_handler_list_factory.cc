@@ -333,6 +333,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kAmbientAuthenticationInPrivateModesEnabled,
     prefs::kAmbientAuthenticationInPrivateModesEnabled,
     base::Value::Type::INTEGER },
+  { key::kBasicAuthOverHttpEnabled,
+    prefs::kBasicAuthOverHttpEnabled,
+    base::Value::Type::BOOLEAN },
   { key::kDisable3DAPIs,
     prefs::kDisable3DAPIs,
     base::Value::Type::BOOLEAN },
@@ -1219,6 +1222,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kChromeVariations,
     variations::prefs::kVariationsRestrictionsByPolicy,
     base::Value::Type::INTEGER },
+  { key::kSigninInterceptionEnabled,
+    prefs::kSigninInterceptionEnabled,
+    base::Value::Type::BOOLEAN },
 #endif  // !defined(OS_ANDROID) && !defined(OS_CHROMEOS)
 
 #if !defined(OS_MAC) && !defined(OS_CHROMEOS)
@@ -1845,7 +1851,14 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
           extensions::pref_names::kNativeMessagingBlocklist, true));
   handlers->AddHandler(
       std::make_unique<AutoLaunchProtocolsPolicyHandler>(chrome_schema));
-#endif  // !defined(OS_CHROMEOS) && !defined(OS_ANDROID)
+
+  handlers->AddHandler(std::make_unique<SimpleSchemaValidatingPolicyHandler>(
+      key::kProfilePickerOnStartupAvailability,
+      prefs::kBrowserProfilePickerAvailabilityOnStartup, chrome_schema,
+      SCHEMA_ALLOW_UNKNOWN,
+      SimpleSchemaValidatingPolicyHandler::RECOMMENDED_PROHIBITED,
+      SimpleSchemaValidatingPolicyHandler::MANDATORY_ALLOWED));
+#endif  // !BUILDFLAG(IS_CHROMEOS_ASH) && !defined(OS_ANDROID)
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   handlers->AddHandler(std::make_unique<extensions::ExtensionListPolicyHandler>(

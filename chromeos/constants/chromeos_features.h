@@ -76,9 +76,13 @@ extern const base::Feature kBetterUpdateScreen;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kBluetoothAggressiveAppearanceFilter;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
+extern const base::Feature kBluetoothWbsDogfood;
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kBluetoothFixA2dpPacketSize;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kBluetoothPhoneFilter;
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
+extern const base::Feature kCameraSystemWebApp;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kCdmFactoryDaemon;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
@@ -101,6 +105,8 @@ COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kDisableCryptAuthV1DeviceSync;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kCryptAuthV2DeviceActivityStatus;
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
+extern const base::Feature kDisableIdleSocketsCloseOnMemoryPressure;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kCrostiniWebUIUpgrader;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
@@ -189,6 +195,8 @@ COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kMediaAppAnnotation;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kMediaAppHandlesRaw;
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
+extern const base::Feature kMediaAppPdfInInk;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kMinimumChromeVersion;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)

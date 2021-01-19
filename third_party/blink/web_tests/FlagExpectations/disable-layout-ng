@@ -61,6 +61,7 @@ crbug.com/591099 external/wpt/css/css-flexbox/image-as-flexitem-size-003v.html [
 crbug.com/591099 external/wpt/css/css-flexbox/image-as-flexitem-size-004.html [ Failure ]
 crbug.com/591099 external/wpt/css/css-flexbox/image-as-flexitem-size-004v.html [ Failure ]
 crbug.com/1132627 external/wpt/css/css-flexbox/flex-minimum-width-flex-items-007.xht [ Failure ]
+crbug.com/1162704 external/wpt/css/css-flexbox/flex-aspect-ratio-img-row-015.html [ Failure ]
 
 ### external/wpt/css/css-fonts/
 crbug.com/591099 external/wpt/css/css-fonts/font-features-across-space-1.html [ Failure ]
@@ -137,6 +138,8 @@ crbug.com/591099 external/wpt/css/css-shapes/shape-outside/supported-shapes/poly
 crbug.com/1045668 external/wpt/css/css-sizing/aspect-ratio/abspos-013.html [ Pass ]
 crbug.com/1045668 external/wpt/css/css-sizing/aspect-ratio/block-aspect-ratio-024.html [ Failure ]
 crbug.com/1045668 external/wpt/css/css-sizing/aspect-ratio/block-aspect-ratio-028.html [ Failure ]
+crbug.com/1154572 external/wpt/css/css-sizing/aspect-ratio/block-aspect-ratio-030.html [ Failure ]
+crbug.com/1157740 external/wpt/css/css-sizing/aspect-ratio/flex-aspect-ratio-024.html [ Failure ]
 crbug.com/591099 external/wpt/css/css-sizing/clone-nowrap-intrinsic-size-bidi.html [ Failure ]
 crbug.com/591099 external/wpt/css/css-sizing/intrinsic-percent-non-replaced-004.html [ Failure ]
 crbug.com/591099 external/wpt/css/css-sizing/intrinsic-percent-non-replaced-005.html [ Failure ]
@@ -413,10 +416,12 @@ crbug.com/591099 fast/selectors/input-with-selection-pseudo-element.html [ Failu
 crbug.com/591099 fast/writing-mode/flipped-blocks-inline-map-local-to-container.html [ Failure ]
 
 ### external/wpt/html/rendering
+crbug.com/591099 external/wpt/html/rendering/non-replaced-elements/the-fieldset-and-legend-elements/fieldset-containing-block.html [ Failure ]
 crbug.com/591099 external/wpt/html/rendering/non-replaced-elements/the-fieldset-and-legend-elements/fieldset-overflow-hidden.html [ Failure ]
 crbug.com/591099 external/wpt/html/rendering/non-replaced-elements/the-fieldset-and-legend-elements/fieldset-overflow.html [ Crash Failure ]
 crbug.com/591099 external/wpt/html/rendering/non-replaced-elements/the-fieldset-and-legend-elements/fieldset-vertical.html [ Failure ]
 crbug.com/875235 external/wpt/html/rendering/non-replaced-elements/the-fieldset-and-legend-elements/legend-painting-order.html [ Failure ]
+crbug.com/1151295 external/wpt/html/rendering/non-replaced-elements/the-fieldset-and-legend-elements/legend-position-relative-2.html [ Failure ]
 
 ### virtual/text-antialias/
 crbug.com/591099 virtual/text-antialias/justify-ideograph-simple.html [ Failure ]
@@ -711,6 +716,9 @@ crbug.com/591099 external/wpt/appmanifest/start_url-member/start_url-member-pass
 crbug.com/591099 external/wpt/css/css-flexbox/percentage-size-quirks-002.html [ Failure ]
 crbug.com/591099 external/wpt/css/css-flexbox/position-absolute-014.html [ Failure ]
 crbug.com/591099 external/wpt/css/css-flexbox/position-absolute-015.html [ Failure ]
+
+### external/wpt/css/css-grid/
+crbug.com/591099 external/wpt/css/css-grid/grid-items/percentage-size-indefinite-replaced.html [ Failure ]
 
 ### external/wpt/css/css-pseudo/
 crbug.com/591099 external/wpt/css/css-pseudo/active-selection-011.html [ Failure ]
