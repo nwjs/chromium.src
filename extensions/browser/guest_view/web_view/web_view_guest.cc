@@ -5,6 +5,8 @@
 #include "extensions/browser/guest_view/web_view/web_view_guest.h"
 
 #include "content/nw/src/nw_content.h"
+#include "content/public/common/content_client.h"
+#include "content/public/browser/content_browser_client.h"
 
 #include <stddef.h>
 #include "content/nw/src/nw_content.h"
@@ -1379,12 +1381,15 @@ bool WebViewGuest::LoadDataWithBaseURL(const GURL& data_url,
   }
   const url::Origin& owner_origin =
       owner_web_contents()->GetMainFrame()->GetLastCommittedOrigin();
+  bool owner_is_nwjs =
+    content::GetContentClient()->browser()->IsNWOrigin(owner_origin, browser_context());
   const bool base_in_owner_origin =
       owner_origin.IsSameOriginWith(url::Origin::Create(base_url));
   // |base_url| must be a valid URL. It is also limited to URLs that the owner
   // is trusted to have control over.
   if (!base_url.is_valid() ||
-      (!base_url.SchemeIsHTTPOrHTTPS() && !base_in_owner_origin)) {
+      (!base_url.SchemeIsHTTPOrHTTPS() && !base_in_owner_origin &&
+       !owner_is_nwjs)) {
     base::SStringPrintf(error, webview::kAPILoadDataInvalidBaseURL,
                         base_url.possibly_invalid_spec().c_str());
     return false;
