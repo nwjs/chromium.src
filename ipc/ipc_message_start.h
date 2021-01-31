@@ -25,7 +25,6 @@ enum IPCMessageStart {
   ExtensionMsgStart,
   ShellMsgStart,
   ChromotingMsgStart,
-  AndroidWebViewMsgStart,
   NaClHostMsgStart,
   EncryptedMediaMsgStart,
   GinJavaBridgeMsgStart,
@@ -35,7 +34,6 @@ enum IPCMessageStart {
   MediaPlayerDelegateMsgStart,
   ExtensionWorkerMsgStart,
   SubresourceFilterMsgStart,
-  UnfreezableFrameMsgStart,
   LastIPCMsgStart  // Must come last.
 };
 

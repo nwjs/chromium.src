@@ -2,12 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/containers/contains.h"
 #include "base/macros.h"
-#include "base/stl_util.h"
 #include "base/strings/strcat.h"
 #include "base/strings/stringprintf.h"
 #include "base/threading/thread_restrictions.h"
 #include "build/build_config.h"
+#include "build/chromeos_buildflags.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/extensions/active_tab_permission_granter.h"
 #include "chrome/browser/extensions/api/commands/command_service.h"
@@ -277,7 +278,7 @@ class CommandsApiTest : public ExtensionApiTest {
         .id();
   }
 
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
   void RunChromeOSConversionTest(const std::string& extension_path) {
     // Setup the environment.
     ASSERT_TRUE(embedded_test_server()->Start());
@@ -300,7 +301,7 @@ class CommandsApiTest : public ExtensionApiTest {
 
     ASSERT_TRUE(catcher.GetNextResult());
   }
-#endif  // OS_CHROMEOS
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 };
 
 class IncognitoCommandsApiTest : public CommandsApiTest,
@@ -935,7 +936,7 @@ IN_PROC_BROWSER_TEST_F(CommandsApiTest,
 }
 
 //
-#if defined(OS_CHROMEOS) && !defined(NDEBUG)
+#if BUILDFLAG(IS_CHROMEOS_ASH) && !defined(NDEBUG)
 // TODO(dtseng): Test times out on Chrome OS debug. See http://crbug.com/412456.
 #define MAYBE_ContinuePropagation DISABLED_ContinuePropagation
 #else
@@ -973,7 +974,7 @@ IN_PROC_BROWSER_TEST_F(CommandsApiTest, MAYBE_ContinuePropagation) {
 }
 
 // Test is only applicable on Chrome OS.
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
 // http://crbug.com/410534
 #if defined(USE_OZONE)
 #define MAYBE_ChromeOSConversions DISABLED_ChromeOSConversions
@@ -983,7 +984,7 @@ IN_PROC_BROWSER_TEST_F(CommandsApiTest, MAYBE_ContinuePropagation) {
 IN_PROC_BROWSER_TEST_F(CommandsApiTest, MAYBE_ChromeOSConversions) {
   RunChromeOSConversionTest("keybinding/chromeos_conversions");
 }
-#endif  // OS_CHROMEOS
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 // Make sure component extensions retain keybindings after removal then
 // re-adding.
@@ -1016,8 +1017,14 @@ IN_PROC_BROWSER_TEST_F(CommandsApiTest, TabParameter) {
   EXPECT_TRUE(catcher.GetNextResult()) << catcher.message();
 }
 
+// Disable this test only for Lacros due to flakiness. crbug.com/1154365.
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+#define MAYBE_IncognitoMode DISABLED_IncognitoMode
+#else
+#define MAYBE_IncognitoMode IncognitoMode
+#endif
 // Test Keybinding in incognito mode.
-IN_PROC_BROWSER_TEST_P(IncognitoCommandsApiTest, IncognitoMode) {
+IN_PROC_BROWSER_TEST_P(IncognitoCommandsApiTest, MAYBE_IncognitoMode) {
   ASSERT_TRUE(embedded_test_server()->Start());
 
   bool is_incognito_enabled = GetParam();

@@ -13,6 +13,7 @@
 #include "base/command_line.h"
 #include "base/macros.h"
 #include "base/strings/string_number_conversions.h"
+#include "build/chromeos_buildflags.h"
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sessions/session_service.h"
@@ -82,7 +83,7 @@ std::string GetWindowName(const Browser* browser) {
     return browser->windows_key();
   switch (browser->type()) {
     case Browser::TYPE_NORMAL:
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
     case Browser::TYPE_CUSTOM_TAB:
 #endif
       return prefs::kBrowserWindowPlacement;

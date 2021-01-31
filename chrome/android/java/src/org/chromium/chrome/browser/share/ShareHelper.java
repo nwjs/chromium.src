@@ -35,6 +35,7 @@ import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
 import org.chromium.components.browser_ui.share.ShareParams;
 import org.chromium.components.browser_ui.share.ShareParams.TargetChosenCallback;
 import org.chromium.ui.base.WindowAndroid;
+import org.chromium.url.GURL;
 
 import java.util.List;
 
@@ -133,11 +134,12 @@ public class ShareHelper extends org.chromium.components.browser_ui.share.ShareH
      * @param requiresConfirmation Whether the request requires an confirmation dialog.
      */
     public static void shareImageWithGoogleLens(final WindowAndroid window, Uri imageUri,
-            boolean isIncognito, String srcUrl, String titleOrAltText, String pageUrl,
+            boolean isIncognito, GURL srcUrl, String titleOrAltText, GURL pageUrl,
             LensQueryResult lensQueryResult, boolean requiresConfirmation) {
         if (LensUtils.useDirectIntentSdkIntegration(ContextUtils.getApplicationContext())) {
-            LensIntentParams intentParams = LensUtils.buildLensIntentParams(
-                    imageUri, isIncognito, srcUrl, titleOrAltText, pageUrl, requiresConfirmation);
+            LensIntentParams intentParams = LensUtils.buildLensIntentParams(imageUri, isIncognito,
+                    srcUrl.getValidSpecOrEmpty(), titleOrAltText, pageUrl.getValidSpecOrEmpty(),
+                    requiresConfirmation);
             LensController.getInstance().startLens(window, intentParams);
         } else {
             Intent shareIntent =

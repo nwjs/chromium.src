@@ -34,7 +34,7 @@ constexpr int kLabelPreviewSpacing = 8;
 
 constexpr int kCloseButtonMargin = 8;
 
-constexpr int kMinDeskNameViewWidth = 20;
+constexpr int kMinDeskNameViewWidth = 56;
 
 // Returns the width of the desk preview based on its |preview_height| and the
 // aspect ratio of the root window taken from |root_window_size|.
@@ -95,6 +95,11 @@ DeskMiniView::~DeskMiniView() {
     desk_->RemoveObserver(this);
 }
 
+gfx::Rect DeskMiniView::GetPreviewBoundsInScreen() const {
+  DCHECK(desk_preview_);
+  return desk_preview_->GetBoundsInScreen();
+}
+
 aura::Window* DeskMiniView::GetDeskContainer() const {
   DCHECK(desk_);
   return desk_->GetDeskContainerForRoot(root_window_);
@@ -111,7 +116,7 @@ void DeskMiniView::UpdateCloseButtonVisibility() {
   // navigate to it.
   close_desk_button_->SetVisible(
       DesksController::Get()->CanRemoveDesks() &&
-      !owner_bar_->dragged_item_over_bar() &&
+      !owner_bar_->dragged_item_over_bar() && !owner_bar_->IsDraggingDesk() &&
       (IsMouseHovered() || force_show_close_button_ ||
        Shell::Get()->accessibility_controller()->IsSwitchAccessRunning()));
 }
@@ -241,6 +246,7 @@ void DeskMiniView::OnDeskNameChanged(const base::string16& new_name) {
     return;
 
   desk_name_view_->SetTextAndElideIfNeeded(new_name);
+  desk_name_view_->SetAccessibleName(new_name);
   desk_preview_->SetAccessibleName(new_name);
 
   Layout();
@@ -257,6 +263,21 @@ void DeskMiniView::MaybeActivateHighlightedView() {
 
 void DeskMiniView::MaybeCloseHighlightedView() {
   OnCloseButtonPressed();
+}
+
+void DeskMiniView::MaybeSwapHighlightedView(bool right) {
+  const int old_index = owner_bar_->GetMiniViewIndex(this);
+  DCHECK_NE(old_index, -1);
+
+  int new_index = right ? old_index + 1 : old_index - 1;
+  if (new_index < 0 ||
+      new_index == static_cast<int>(owner_bar_->mini_views().size())) {
+    return;
+  }
+
+  auto* desks_controller = DesksController::Get();
+  desks_controller->ReorderDesk(old_index, new_index);
+  desks_controller->UpdateDesksDefaultNames();
 }
 
 void DeskMiniView::OnViewHighlighted() {

@@ -15,6 +15,7 @@
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "base/trace_event/trace_event.h"
+#include "build/chromeos_buildflags.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/favicon/favicon_utils.h"
 #include "chrome/browser/profiles/profile.h"
@@ -31,7 +32,7 @@ namespace {
 constexpr base::TimeDelta kTabsChangeDelay =
     base::TimeDelta::FromMilliseconds(50);
 
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
 constexpr char kFeedbackCategoryTag[] = "FromTabSearch";
 #else
 constexpr char kFeedbackCategoryTag[] = "FromTabSearchBrowser";
@@ -82,11 +83,10 @@ void TabSearchPageHandler::CloseTab(int32_t tab_id) {
 }
 
 void TabSearchPageHandler::GetProfileTabs(GetProfileTabsCallback callback) {
-  TRACE_EVENT0("browser", "TabSearchPageHandler::GetProfileTabs");
+  TRACE_EVENT0("browser", "webui_metric:TabSearchPageHandler:GetProfileTabs");
   auto profile_tabs = tab_search::mojom::ProfileTabs::New();
-  Profile* profile = browser_->profile();
   for (auto* browser : *BrowserList::GetInstance()) {
-    if (browser->profile() != profile)
+    if (!ShouldTrackBrowser(browser))
       continue;
     TabStripModel* tab_strip_model = browser->tab_strip_model();
     auto window_tabs = tab_search::mojom::WindowTabs::New();
@@ -115,9 +115,8 @@ void TabSearchPageHandler::GetProfileTabs(GetProfileTabsCallback callback) {
 
 base::Optional<TabSearchPageHandler::TabDetails>
 TabSearchPageHandler::GetTabDetails(int32_t tab_id) {
-  Profile* profile = browser_->profile();
   for (auto* browser : *BrowserList::GetInstance()) {
-    if (browser->profile() != profile) {
+    if (!ShouldTrackBrowser(browser)) {
       continue;
     }
 
@@ -232,7 +231,7 @@ void TabSearchPageHandler::TabChangedAt(content::WebContents* contents,
   Browser* browser = chrome::FindBrowserWithWebContents(contents);
   if (!browser)
     return;
-  TRACE_EVENT0("browser", "TabSearchPageHandler::TabChangedAt");
+  TRACE_EVENT0("browser", "webui_metric:TabSearchPageHandler:TabChangedAt");
   page_->TabUpdated(GetTabData(browser->tab_strip_model(), contents, index));
 }
 
@@ -247,7 +246,8 @@ void TabSearchPageHandler::NotifyTabsChanged() {
 }
 
 bool TabSearchPageHandler::ShouldTrackBrowser(Browser* browser) {
-  return browser->profile() == browser_->profile();
+  return browser->profile() == browser_->profile() &&
+         browser->type() == Browser::Type::TYPE_NORMAL;
 }
 
 void TabSearchPageHandler::SetTimerForTesting(

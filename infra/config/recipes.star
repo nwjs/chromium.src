@@ -64,6 +64,10 @@ build_recipe(
 )
 
 build_recipe(
+    name = "recipe:chromium_3pp",
+)
+
+build_recipe(
     name = "recipe:chromium_afl",
 )
 
@@ -131,6 +135,10 @@ build_recipe(
 
 build_recipe(
     name = "recipe:tricium_metrics",
+)
+
+build_recipe(
+    name = "recipe:tricium_oilpan",
 )
 
 build_recipe(

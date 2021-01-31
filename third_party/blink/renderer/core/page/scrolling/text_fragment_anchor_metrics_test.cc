@@ -15,6 +15,7 @@
 #include "third_party/blink/renderer/core/input/event_handler.h"
 #include "third_party/blink/renderer/core/page/scrolling/text_fragment_anchor.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
+#include "third_party/blink/renderer/core/testing/scoped_fake_ukm_recorder.h"
 #include "third_party/blink/renderer/core/testing/sim/sim_request.h"
 #include "third_party/blink/renderer/core/testing/sim/sim_test.h"
 #include "third_party/blink/renderer/platform/testing/histogram_tester.h"
@@ -63,11 +64,12 @@ class TextFragmentAnchorMetricsTest : public SimTest {
   }
 
  protected:
-  HistogramTester histogram_tester_;
+  ukm::TestUkmRecorder* ukm_recorder() {
+    return scoped_fake_ukm_recorder_.recorder();
+  }
 
-  // TODO(crbug.com/1153990): Find a better mocking solution and clean up this
-  // variable.
-  std::unique_ptr<ukm::UkmRecorder> old_ukm_recorder_;
+  HistogramTester histogram_tester_;
+  ScopedFakeUkmRecorder scoped_fake_ukm_recorder_;
 };
 
 // Test UMA metrics collection
@@ -1468,6 +1470,79 @@ TEST_P(TextFragmentRelatedMetricTest, TextFragmentActivationDoesNotCountAPI) {
       WebFeature::kV8Document_FragmentDirective_AttributeGetter));
 }
 
+// Test recording of the SpansMultipleBlocks metric. Records true because the
+// range crosses an intervening block element.
+TEST_F(TextFragmentAnchorMetricsTest, SpansMultipleBlocksInterveningBlock) {
+  SimRequest request("https://example.com/test.html#:~:text=start,end",
+                     "text/html");
+  LoadURL("https://example.com/test.html#:~:text=start,end");
+  request.Complete(R"HTML(
+    <!DOCTYPE html>
+    <div>
+      start of text
+      <div>block</div>
+      text end
+    </div>
+  )HTML");
+  RunAsyncMatchingTasks();
+
+  BeginEmptyFrame();
+  BeginEmptyFrame();
+
+  histogram_tester_.ExpectTotalCount(
+      "TextFragmentAnchor.Unknown.SpansMultipleBlocks", 1);
+  histogram_tester_.ExpectUniqueSample(
+      "TextFragmentAnchor.Unknown.SpansMultipleBlocks", 1, 1);
+}
+
+// Test recording of the SpansMultipleBlocks metric. Records true because the
+// range start and end are in different block elements.
+TEST_F(TextFragmentAnchorMetricsTest, SpansMultipleBlocks) {
+  SimRequest request("https://example.com/test.html#:~:text=start,end",
+                     "text/html");
+  LoadURL("https://example.com/test.html#:~:text=start,end");
+  request.Complete(R"HTML(
+    <!DOCTYPE html>
+    <div>
+      <div>start of text</div>
+      text end
+    </div>
+  )HTML");
+  RunAsyncMatchingTasks();
+
+  BeginEmptyFrame();
+  BeginEmptyFrame();
+
+  histogram_tester_.ExpectTotalCount(
+      "TextFragmentAnchor.Unknown.SpansMultipleBlocks", 1);
+  histogram_tester_.ExpectUniqueSample(
+      "TextFragmentAnchor.Unknown.SpansMultipleBlocks", 1, 1);
+}
+
+// Test recording of the SpansMultipleBlocks metric. Records false because the
+// range start and end are in the same block element with no intervening block.
+TEST_F(TextFragmentAnchorMetricsTest, SpansMultipleBlocksSingleBlock) {
+  SimRequest request("https://example.com/test.html#:~:text=start,end",
+                     "text/html");
+  LoadURL("https://example.com/test.html#:~:text=start,end");
+  request.Complete(R"HTML(
+    <!DOCTYPE html>
+    <div>
+      start of <i>text</i>
+      text end
+    </div>
+  )HTML");
+  RunAsyncMatchingTasks();
+
+  BeginEmptyFrame();
+  BeginEmptyFrame();
+
+  histogram_tester_.ExpectTotalCount(
+      "TextFragmentAnchor.Unknown.SpansMultipleBlocks", 1);
+  histogram_tester_.ExpectUniqueSample(
+      "TextFragmentAnchor.Unknown.SpansMultipleBlocks", 0, 1);
+}
+
 // Tests that a LinkOpened UKM Event is recorded upon a successful fragment
 // highlight.
 TEST_F(TextFragmentAnchorMetricsTest, LinkOpenedSuccessUKM) {
@@ -1489,26 +1564,21 @@ TEST_F(TextFragmentAnchorMetricsTest, LinkOpenedSuccessUKM) {
   )HTML");
   RunAsyncMatchingTasks();
 
-  // Stub UKM Recorder. Set the older recorder as member variable as other
-  // instances might depend on it. Its destruction would cause the test to crash
-  // during teardown.
-  old_ukm_recorder_ = std::move(GetDocument().ukm_recorder_);
-  GetDocument().ukm_recorder_ = std::make_unique<ukm::TestUkmRecorder>();
-
   // Render two frames to handle the async step added by the beforematch event.
   Compositor().BeginFrame();
   BeginEmptyFrame();
 
-  auto* recorder =
-      static_cast<ukm::TestUkmRecorder*>(GetDocument().UkmRecorder());
+  // Flush UKM logging mojo request.
+  RunPendingTasks();
 
-  auto entries = recorder->GetEntriesByName(
+  auto entries = ukm_recorder()->GetEntriesByName(
       ukm::builders::SharedHighlights_LinkOpened::kEntryName);
   ASSERT_EQ(1u, entries.size());
   const ukm::mojom::UkmEntry* entry = entries[0];
   EXPECT_EQ(GetDocument().UkmSourceID(), entry->source_id);
-  recorder->ExpectEntryMetric(entry, kSuccessUkmMetric, /*success=*/true);
-  EXPECT_TRUE(recorder->GetEntryMetric(entry, kSourceUkmMetric));
+  ukm_recorder()->ExpectEntryMetric(entry, kSuccessUkmMetric,
+                                    /*expected_value=*/true);
+  EXPECT_TRUE(ukm_recorder()->GetEntryMetric(entry, kSourceUkmMetric));
 }
 
 // Tests that a LinkOpened UKM Event is recorded upon a failed fragment
@@ -1533,26 +1603,77 @@ TEST_F(TextFragmentAnchorMetricsTest, LinkOpenedFailedUKM) {
   )HTML");
   RunAsyncMatchingTasks();
 
-  // Stub UKM Recorder. Set the older recorder as member variable as other
-  // instances might depend on it. Its destruction would cause the test to crash
-  // during teardown.
-  old_ukm_recorder_ = std::move(GetDocument().ukm_recorder_);
-  GetDocument().ukm_recorder_ = std::make_unique<ukm::TestUkmRecorder>();
+  // Render two frames to handle the async step added by the beforematch event.
+  Compositor().BeginFrame();
+  BeginEmptyFrame();
+
+  // Flush UKM logging mojo request.
+  RunPendingTasks();
+
+  auto entries = ukm_recorder()->GetEntriesByName(
+      ukm::builders::SharedHighlights_LinkOpened::kEntryName);
+  ASSERT_EQ(1u, entries.size());
+  const ukm::mojom::UkmEntry* entry = entries[0];
+  EXPECT_EQ(GetDocument().UkmSourceID(), entry->source_id);
+  ukm_recorder()->ExpectEntryMetric(entry, kSuccessUkmMetric,
+                                    /*expected_value=*/false);
+  EXPECT_TRUE(ukm_recorder()->GetEntryMetric(entry, kSourceUkmMetric));
+}
+
+// Tests that loading a page that has a ForceLoadAtTop DocumentPolicy invokes
+// the UseCounter.
+TEST_F(TextFragmentAnchorMetricsTest, ForceLoadAtTopUseCounter) {
+  SimRequest::Params params;
+  params.response_http_headers.insert("Document-Policy", "force-load-at-top");
+  SimRequest request("https://example.com/test.html", "text/html", params);
+  LoadURL("https://example.com/test.html");
+  request.Complete(R"HTML(
+    <!DOCTYPE html>
+    <p>This is a test page</p>
+  )HTML");
+  RunAsyncMatchingTasks();
 
   // Render two frames to handle the async step added by the beforematch event.
   Compositor().BeginFrame();
   BeginEmptyFrame();
 
-  auto* recorder =
-      static_cast<ukm::TestUkmRecorder*>(GetDocument().UkmRecorder());
+  EXPECT_TRUE(GetDocument().IsUseCounted(WebFeature::kForceLoadAtTop));
+}
 
-  auto entries = recorder->GetEntriesByName(
-      ukm::builders::SharedHighlights_LinkOpened::kEntryName);
-  ASSERT_EQ(1u, entries.size());
-  const ukm::mojom::UkmEntry* entry = entries[0];
-  EXPECT_EQ(GetDocument().UkmSourceID(), entry->source_id);
-  recorder->ExpectEntryMetric(entry, kSuccessUkmMetric, /*success=*/false);
-  EXPECT_TRUE(recorder->GetEntryMetric(entry, kSourceUkmMetric));
+// Tests that loading a page that explicitly disables ForceLoadAtTop
+// DocumentPolicy or has no DocumentPolicy doesn't invoke the UseCounter for
+// ForceLoadAtTop.
+TEST_F(TextFragmentAnchorMetricsTest, NoForceLoadAtTopUseCounter) {
+  SimRequest::Params params;
+  params.response_http_headers.insert("Document-Policy",
+                                      "no-force-load-at-top");
+  SimRequest request("https://example.com/test.html", "text/html", params);
+  LoadURL("https://example.com/test.html");
+  request.Complete(R"HTML(
+    <!DOCTYPE html>
+    <p>This is a test page</p>
+  )HTML");
+  RunAsyncMatchingTasks();
+
+  // Render two frames to handle the async step added by the beforematch event.
+  Compositor().BeginFrame();
+  BeginEmptyFrame();
+
+  EXPECT_FALSE(GetDocument().IsUseCounted(WebFeature::kForceLoadAtTop));
+
+  // Try without any DocumentPolicy headers.
+  SimRequest request2("https://example.com/test2.html", "text/html");
+  LoadURL("https://example.com/test2.html");
+  request2.Complete(R"HTML(
+    <!DOCTYPE html>
+    <p>This is a different test page</p>
+  )HTML");
+  RunAsyncMatchingTasks();
+
+  Compositor().BeginFrame();
+  BeginEmptyFrame();
+
+  EXPECT_FALSE(GetDocument().IsUseCounted(WebFeature::kForceLoadAtTop));
 }
 
 }  // namespace blink

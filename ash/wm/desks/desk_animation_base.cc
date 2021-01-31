@@ -27,7 +27,10 @@ DeskAnimationBase::DeskAnimationBase(DesksController* controller,
   DCHECK_GE(ending_desk_index_, 0);
 }
 
-DeskAnimationBase::~DeskAnimationBase() = default;
+DeskAnimationBase::~DeskAnimationBase() {
+  for (auto& observer : controller_->observers_)
+    observer.OnDeskSwitchAnimationFinished();
+}
 
 void DeskAnimationBase::Launch() {
   for (auto& observer : controller_->observers_)
@@ -128,18 +131,11 @@ void DeskAnimationBase::OnDeskSwitchAnimationFinished() {
 
   throughput_tracker_.Stop();
 
-  for (auto& observer : controller_->observers_)
-    observer.OnDeskSwitchAnimationFinished();
-
   if (skip_notify_controller_on_animation_finished_for_testing_)
     return;
 
   controller_->OnAnimationFinished(this);
   // `this` is now deleted.
-}
-
-void DeskAnimationBase::OnVisibleDeskChanged() {
-  ++visible_desk_changes_;
 }
 
 RootWindowDeskSwitchAnimator*

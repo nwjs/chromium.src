@@ -7,6 +7,7 @@
 #include <set>
 #include <string>
 
+#include "base/command_line.h"
 #include "base/metrics/histogram_macros.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
@@ -14,10 +15,12 @@
 #include "chrome/browser/predictors/loading_predictor_factory.h"
 #include "chrome/browser/predictors/predictors_enums.h"
 #include "chrome/browser/predictors/predictors_features.h"
+#include "chrome/browser/predictors/predictors_switches.h"
 #include "chrome/browser/prefetch/no_state_prefetch/prerender_manager_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "components/google/core/common/google_util.h"
 #include "components/no_state_prefetch/browser/prerender_manager.h"
-#include "components/optimization_guide/optimization_guide_decider.h"
+#include "components/optimization_guide/content/optimization_guide_decider.h"
 #include "components/optimization_guide/proto/hints.pb.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_handle.h"
@@ -62,6 +65,7 @@ net::RequestPriority GetRequestPriority(
     case network::mojom::RequestDestination::kSharedWorker:
     case network::mojom::RequestDestination::kTrack:
     case network::mojom::RequestDestination::kVideo:
+    case network::mojom::RequestDestination::kWebBundle:
     case network::mojom::RequestDestination::kWorker:
     case network::mojom::RequestDestination::kXslt:
       return net::LOWEST;
@@ -128,6 +132,11 @@ class ScopedOptimizationHintsReceiveStatusRecorder {
   OptimizationHintsReceiveStatus status_;
 };
 
+bool IsFromGwsPageLoad(content::WebContents* web_contents) {
+  GURL previous_main_frame_url = web_contents->GetLastCommittedURL();
+  return google_util::IsGoogleSearchUrl(previous_main_frame_url);
+}
+
 }  // namespace
 
 LoadingPredictorTabHelper::LoadingPredictorTabHelper(
@@ -179,6 +188,13 @@ void LoadingPredictorTabHelper::DidStartNavigation(
 
   if (!optimization_guide_decider_)
     return;
+
+  // Only consult Optimization Guide if it is a FromGWS page load.
+  if (!IsFromGwsPageLoad(web_contents()) &&
+      !base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kLoadingPredictorOptimizationGuideAllowNonGwsForTesting)) {
+    return;
+  }
 
   last_optimization_guide_prediction_ = OptimizationGuidePrediction();
   last_optimization_guide_prediction_->decision =

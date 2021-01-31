@@ -42,7 +42,6 @@ import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
-import org.chromium.chrome.browser.signin.IdentityServicesProvider;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabCreationState;
@@ -77,6 +76,7 @@ import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.ui.base.PageTransition;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.SimpleRecyclerViewAdapter;
+import org.chromium.url.GURL;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -1070,8 +1070,7 @@ class TabListMediator {
                     TabProperties.PAGE_INFO_ICON_DRAWABLE_ID, mSearchChipIconDrawableId);
         }
 
-        if (TabUiFeatureUtilities.ENABLE_PRICE_TRACKING.getValue() && mMode == TabListMode.GRID
-                && pseudoTab.hasRealTab() && !pseudoTab.isIncognito() && isSignedIn()
+        if (mMode == TabListMode.GRID && pseudoTab.hasRealTab() && !pseudoTab.isIncognito()
                 && PriceTrackingUtilities.isTrackPricesOnTabsEnabled()) {
             mModel.get(index).model.set(TabProperties.SHOPPING_PERSISTED_TAB_DATA_FETCHER,
                     new ShoppingPersistedTabDataFetcher(pseudoTab.getTab()));
@@ -1089,15 +1088,6 @@ class TabListMediator {
                             forceUpdate && !TabUiFeatureUtilities.isTabToGtsAnimationEnabled());
             mModel.get(index).model.set(TabProperties.THUMBNAIL_FETCHER, callback);
         }
-    }
-
-    // TODO(crbug.com/1150712) move to ShoppingPersistedTabData. Only possible when
-    // IdentityServicesProvider is modularized.
-    @VisibleForTesting
-    protected boolean isSignedIn() {
-        return IdentityServicesProvider.get()
-                .getIdentityManager(Profile.getLastUsedRegularProfile())
-                .hasPrimaryAccount();
     }
 
     /**
@@ -1616,7 +1606,7 @@ class TabListMediator {
 
         private static TabObserver sLazyNavigateToLastSearchQuery = new EmptyTabObserver() {
             @Override
-            public void onPageLoadStarted(Tab tab, String url) {
+            public void onPageLoadStarted(Tab tab, GURL url) {
                 assert tab.getWebContents() != null;
                 if (tab.getWebContents() == null) return;
 
@@ -1640,11 +1630,11 @@ class TabListMediator {
                 int offset = i - history.getCurrentEntryIndex();
                 if (!controller.canGoToOffset(offset)) continue;
 
-                String url = history.getEntryAtIndex(i).getOriginalUrl();
+                GURL url = history.getEntryAtIndex(i).getOriginalUrl();
                 String query = TemplateUrlServiceFactory.get().getSearchQueryForUrl(url);
                 if (TextUtils.isEmpty(query)) continue;
 
-                tab.loadUrl(new LoadUrlParams(url, PageTransition.KEYWORD_GENERATED));
+                tab.loadUrl(new LoadUrlParams(url.getSpec(), PageTransition.KEYWORD_GENERATED));
                 return;
             }
         }

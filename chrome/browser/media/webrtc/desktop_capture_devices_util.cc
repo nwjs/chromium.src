@@ -196,7 +196,8 @@ std::unique_ptr<content::MediaStreamUI> GetDevicesForDesktopCapture(
 
   return MediaCaptureDevicesDispatcher::GetInstance()
       ->GetMediaStreamCaptureIndicator()
-      ->RegisterMediaStream(web_contents, *devices, std::move(notification_ui));
+      ->RegisterMediaStream(web_contents, *devices, std::move(notification_ui),
+                            application_title);
 #endif
   std::unique_ptr<content::MediaStreamUI> ui;
   return ui;

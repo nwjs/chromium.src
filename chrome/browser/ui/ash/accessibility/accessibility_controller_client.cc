@@ -10,6 +10,7 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/aura/accessibility/automation_manager_aura.h"
 #include "chrome/grit/generated_resources.h"
+#include "chromeos/audio/chromeos_sounds.h"
 #include "content/public/browser/tts_controller.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -97,7 +98,7 @@ void AccessibilityControllerClient::TriggerAccessibilityAlertWithMessage(
   AutomationManagerAura::GetInstance()->HandleAlert(message);
 }
 
-void AccessibilityControllerClient::PlayEarcon(int32_t sound_key) {
+void AccessibilityControllerClient::PlayEarcon(chromeos::Sound sound_key) {
   chromeos::AccessibilityManager::Get()->PlayEarcon(
       sound_key, chromeos::PlaySoundOption::ONLY_IF_SPOKEN_FEEDBACK_ENABLED);
 }
@@ -158,4 +159,11 @@ void AccessibilityControllerClient::MagnifierBoundsChanged(
 
 void AccessibilityControllerClient::OnSwitchAccessDisabled() {
   chromeos::AccessibilityManager::Get()->OnSwitchAccessDisabled();
+}
+
+void AccessibilityControllerClient::OnSelectToSpeakPanelAction(
+    ash::SelectToSpeakPanelAction action,
+    double value) {
+  chromeos::AccessibilityManager::Get()->OnSelectToSpeakPanelAction(action,
+                                                                    value);
 }

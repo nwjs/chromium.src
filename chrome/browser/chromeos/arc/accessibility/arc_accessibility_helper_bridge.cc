@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "ash/public/cpp/app_types.h"
 #include "ash/public/cpp/external_arc/message_center/arc_notification_surface.h"
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/public/cpp/window_properties.h"
@@ -94,9 +95,14 @@ void DispatchFocusChange(arc::mojom::AccessibilityNodeInfoData* node_data,
   if (!active_window)
     return;
 
-  gfx::Rect bounds_in_screen = gfx::ToEnclosingRect(arc::ToChromeBounds(
+  // Convert bounds from Android pixels to Chrome DIP, and adjust coordinate to
+  // Chrome's screen coordinate.
+  gfx::Rect bounds_in_screen = gfx::ScaleToEnclosingRect(
       node_data->bounds_in_screen,
-      views::Widget::GetWidgetForNativeView(active_window)));
+      1.0f / exo::WMHelper::GetInstance()->GetDeviceScaleFactorForWindow(
+                 active_window));
+  bounds_in_screen.Offset(0,
+                          arc::GetChromeWindowHeightOffsetInDip(active_window));
 
   bool is_editable = arc::GetBooleanProperty(
       node_data, arc::mojom::AccessibilityBooleanProperty::EDITABLE);
@@ -425,23 +431,11 @@ void ArcAccessibilityHelperBridge::OnNotificationStateChanged(
   auto key = KeyForNotification(notification_key);
   switch (state) {
     case arc::mojom::AccessibilityNotificationStateType::SURFACE_CREATED: {
-      aura::Window* window = nullptr;
-      auto* surface_manager = ArcNotificationSurfaceManager::Get();
-      if (surface_manager) {
-        ArcNotificationSurface* surface =
-            surface_manager->GetArcSurface(notification_key);
-        if (surface)
-          window = surface->GetWindow();
-      }
-
       AXTreeSourceArc* tree_source = GetFromKey(key);
-      if (tree_source) {
-        tree_source->set_device_scale_factor(
-            DeviceScaleFactorFromWindow(window));
+      if (tree_source)
         return;
-      }
 
-      tree_source = CreateFromKey(std::move(key), window);
+      tree_source = CreateFromKey(std::move(key));
       UpdateTreeIdOfNotificationSurface(notification_key,
                                         tree_source->ax_tree_id());
       break;
@@ -547,8 +541,6 @@ void ArcAccessibilityHelperBridge::OnNotificationSurfaceAdded(
     return;
 
   surface->SetAXTreeId(tree->ax_tree_id());
-  tree->set_device_scale_factor(
-      DeviceScaleFactorFromWindow(surface->GetWindow()));
 
   // Dispatch ax::mojom::Event::kChildrenChanged to force AXNodeData of the
   // notification updated. As order of OnNotificationSurfaceAdded call is not
@@ -576,8 +568,8 @@ void ArcAccessibilityHelperBridge::OnWindowActivated(
   // ToggleNativeChromeVoxArcSupport event.
   //  - When non-ChromeVox ARC window becomes inactive, dispatch |true|.
   //  - When non-ChromeVox ARC window becomes active, dispatch |false|.
-  bool lost_arc = arc::IsArcAppWindow(lost_active);
-  bool gained_arc = arc::IsArcAppWindow(gained_active);
+  bool lost_arc = ash::IsArcWindow(lost_active);
+  bool gained_arc = ash::IsArcWindow(gained_active);
   bool talkback_enabled = !native_chromevox_enabled_;
   if (talkback_enabled && lost_arc != gained_arc)
     DispatchCustomSpokenFeedbackToggled(gained_arc);
@@ -695,8 +687,8 @@ ArcAccessibilityHelperBridge::OnGetTextLocationDataResultInternal(
   if (!active_window)
     return base::nullopt;
 
-  gfx::RectF rect_f = arc::ToChromeScale(*result_rect);
-  rect_f.Scale(DeviceScaleFactorFromWindow(active_window));
+  const gfx::RectF& rect_f =
+      ScaleAndroidPxToChromePx(result_rect.value(), active_window);
   return gfx::ToEnclosingRect(rect_f);
 }
 
@@ -769,7 +761,7 @@ void ArcAccessibilityHelperBridge::UpdateEnabledFeature() {
 
   exo::WMHelper* wm_helper = exo::WMHelper::GetInstance();
   aura::Window* active_window = GetActiveWindow();
-  bool is_arc_active = arc::IsArcAppWindow(active_window);
+  bool is_arc_active = ash::IsArcWindow(active_window);
   if (add_activation_observer) {
     wm_helper->AddActivationObserver(this);
     activation_observer_added_ = true;
@@ -785,7 +777,7 @@ void ArcAccessibilityHelperBridge::UpdateEnabledFeature() {
 
 void ArcAccessibilityHelperBridge::UpdateWindowProperties(
     aura::Window* window) {
-  if (!arc::IsArcAppWindow(window))
+  if (!ash::IsArcWindow(window))
     return;
 
   int32_t task_id = arc::GetWindowTaskId(window);
@@ -810,7 +802,7 @@ void ArcAccessibilityHelperBridge::UpdateWindowProperties(
     TreeKey key = KeyForTaskId(task_id);
     AXTreeSourceArc* tree = GetFromKey(key);
     if (!tree)
-      tree = CreateFromKey(std::move(key), window);
+      tree = CreateFromKey(std::move(key));
 
     // Just after the creation of window, widget has not been set yet and this
     // is not dispatched to ShellSurfaceBase. Thus, call this every time.
@@ -882,14 +874,14 @@ void ArcAccessibilityHelperBridge::HandleFilterTypeAllEvent(
       return;
 
     if (!trees_.count(KeyForInputMethod())) {
-      auto* tree = CreateFromKey(KeyForInputMethod(),
-                                 input_method_surface->host_window());
+      auto* tree = CreateFromKey(KeyForInputMethod());
       input_method_surface->SetChildAxTreeId(tree->ax_tree_id());
     }
 
     tree_source = GetFromKey(KeyForInputMethod());
   } else {
     aura::Window* active_window = GetActiveWindow();
+    // TODO(b/173658482): Support non-active windows.
     if (!active_window)
       return;
 
@@ -911,7 +903,7 @@ void ArcAccessibilityHelperBridge::HandleFilterTypeAllEvent(
     tree_source = GetFromKey(key);
 
     if (!tree_source) {
-      tree_source = CreateFromKey(key, active_window);
+      tree_source = CreateFromKey(key);
       SetChildAxTreeIDForWindow(active_window, tree_source->ax_tree_id());
       if (chromeos::AccessibilityManager::Get() &&
           chromeos::AccessibilityManager::Get()->IsSpokenFeedbackEnabled()) {
@@ -919,9 +911,6 @@ void ArcAccessibilityHelperBridge::HandleFilterTypeAllEvent(
         // compare this with TalkBack usage.
         base::UmaHistogramBoolean("Arc.AccessibilityWithTalkBack", false);
       }
-    } else {
-      tree_source->set_device_scale_factor(
-          DeviceScaleFactorFromWindow(active_window));
     }
   }
 
@@ -1023,11 +1012,8 @@ void ArcAccessibilityHelperBridge::DispatchCustomSpokenFeedbackToggled(
   GetEventRouter()->BroadcastEvent(std::move(event));
 }
 
-AXTreeSourceArc* ArcAccessibilityHelperBridge::CreateFromKey(
-    TreeKey key,
-    aura::Window* window) {
-  auto tree = std::make_unique<AXTreeSourceArc>(
-      this, DeviceScaleFactorFromWindow(window));
+AXTreeSourceArc* ArcAccessibilityHelperBridge::CreateFromKey(TreeKey key) {
+  auto tree = std::make_unique<AXTreeSourceArc>(this);
   auto* tree_ptr = tree.get();
   trees_.insert(std::make_pair(std::move(key), std::move(tree)));
   return tree_ptr;

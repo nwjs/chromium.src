@@ -18,6 +18,7 @@
 #include "base/macros.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
+#include "build/chromeos_buildflags.h"
 #include "chrome/browser/browser_about_handler.h"
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/platform_util.h"
@@ -54,7 +55,7 @@
 #include "extensions/buildflags/buildflags.h"
 #include "url/url_constants.h"
 
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "ash/public/cpp/multi_user_window_manager.h"
 #include "chrome/browser/ui/ash/multi_user/multi_user_window_manager_helper.h"
 #include "chrome/browser/ui/settings_window_manager_chromeos.h"
@@ -127,9 +128,12 @@ Browser* GetOrCreateBrowser(Profile* profile, const NavigateParams& params) {
 
 Browser* GetOrCreateBrowser(Profile* profile, bool user_gesture) {
   Browser* browser = chrome::FindTabbedBrowser(profile, false);
-  return browser
-             ? browser
-             : Browser::Create(Browser::CreateParams(profile, user_gesture));
+
+  if (!browser && Browser::GetCreationStatusForProfile(profile) ==
+                      Browser::CreationStatus::kOk) {
+    browser = Browser::Create(Browser::CreateParams(profile, user_gesture));
+  }
+  return browser;
 }
 
 // Change some of the navigation parameters based on the particular URL.
@@ -183,12 +187,15 @@ std::pair<Browser*, int> GetBrowserAndTabForDisposition(
                                                 /*window_only=*/true);
     if (app_id) {
       std::string app_name = web_app::GenerateApplicationNameFromAppId(*app_id);
-      return {
-          Browser::Create(Browser::CreateParams::CreateForApp(
-              app_name,
-              true,  // trusted_source. Installed PWAs are considered trusted.
-              params.window_bounds, profile, params.user_gesture)),
-          -1};
+      Browser* browser = nullptr;
+      if (Browser::GetCreationStatusForProfile(profile) ==
+          Browser::CreationStatus::kOk) {
+        browser = Browser::Create(Browser::CreateParams::CreateForApp(
+            app_name,
+            true,  // trusted_source. Installed PWAs are considered trusted.
+            params.window_bounds, profile, params.user_gesture));
+      }
+      return {browser, -1};
     }
   }
 #endif
@@ -249,6 +256,10 @@ std::pair<Browser*, int> GetBrowserAndTabForDisposition(
         app_name = params.browser->app_name();
       }
 #endif
+      if (Browser::GetCreationStatusForProfile(profile) !=
+          Browser::CreationStatus::kOk) {
+        return {nullptr, -1};
+      }
       if (app_name.empty()) {
         Browser::CreateParams browser_params(Browser::TYPE_POPUP, profile,
                                              params.user_gesture);
@@ -262,12 +273,16 @@ std::pair<Browser*, int> GetBrowserAndTabForDisposition(
               -1};
     }
     case WindowOpenDisposition::NEW_WINDOW: {
+      // Make a new normal browser window.
+      Browser* browser = nullptr;
+      if (Browser::GetCreationStatusForProfile(profile) ==
+          Browser::CreationStatus::kOk) {
       Browser::CreateParams browser_params(profile, params.user_gesture, params.window_bounds);
       browser_params.frameless = params.frameless;
-      // Make a new normal browser window.
-      return {
-          Browser::Create(browser_params),
-          -1};
+      browser = Browser::Create(browser_params);
+      }
+
+      return {browser, -1};
     }
     case WindowOpenDisposition::OFF_THE_RECORD:
       // Make or find an incognito window.
@@ -351,7 +366,8 @@ void LoadURLInContents(WebContents* target_contents,
                        const GURL& url,
                        NavigateParams* params) {
   NavigationController::LoadURLParams load_url_params(url);
-  load_url_params.initiator_routing_id = params->initiator_routing_id;
+  load_url_params.initiator_frame_token = params->initiator_frame_token;
+  load_url_params.initiator_process_id = params->initiator_process_id;
   load_url_params.initiator_origin = params->initiator_origin;
   load_url_params.source_site_instance = params->source_site_instance;
   load_url_params.referrer = params->referrer;
@@ -377,7 +393,8 @@ void LoadURLInContents(WebContents* target_contents,
       content::RenderFrameHost::kNoFrameTreeNodeId) {
     load_url_params.navigation_ui_data =
         ChromeNavigationUIData::CreateForMainFrameNavigation(
-            target_contents, params->disposition);
+            target_contents, params->disposition,
+            params->is_using_https_as_default_scheme);
   }
 
   if (params->post_data) {
@@ -578,10 +595,13 @@ void Navigate(NavigateParams* params) {
     // preserve. Fallback to the behavior used for singletons: overwrite the
     // current tab if it's the NTP, otherwise open a new tab.
     params->disposition = WindowOpenDisposition::SINGLETON_TAB;
-    ShowSingletonTabOverwritingNTP(params->browser, std::move(*params));
+    // Copy to a local variable first to avoid std::move from clearing
+    // |params->browser|.
+    Browser* browser = params->browser;
+    ShowSingletonTabOverwritingNTP(browser, std::move(*params));
     return;
   }
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
   if (source_browser) {
     // Open OS settings in PWA, even when user types in URL bar.
     if (params->url.GetOrigin() ==
@@ -806,7 +826,7 @@ bool IsHostAllowedInIncognito(const GURL& url) {
   // chrome://settings.
   return host != chrome::kChromeUIAppLauncherPageHost &&
          host != chrome::kChromeUISettingsHost &&
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
          host != chrome::kChromeUIOSSettingsHost &&
 #endif
          host != chrome::kChromeUIHelpHost &&

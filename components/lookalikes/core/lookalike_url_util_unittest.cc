@@ -105,6 +105,14 @@ TEST(LookalikeUrlUtilTest, EditDistanceExcludesCommonFalsePositives) {
       {"abcde.com", "axbcde.com", false},   // Deletion
       {"axbcde.com", "abcde.com", false},   // Insertion
       {"axbcde.com", "aybcde.com", false},  // Substitution
+
+      // We permit matches that only differ due to a single "-".
+      {"-abcde.com", "abcde.com", true},
+      {"ab-cde.com", "abcde.com", true},
+      {"abcde-.com", "abcde.com", true},
+      {"abcde.com", "-abcde.com", true},
+      {"abcde.com", "ab-cde.com", true},
+      {"abcde.com", "abcde-.com", true},
   };
   for (const TestCase& test_case : kTestCases) {
     auto navigated =
@@ -207,6 +215,9 @@ TEST(LookalikeUrlUtilTest, TargetEmbeddingTest) {
        TargetEmbeddingType::kInterstitial},
       {"foo.jobs.org-foo.com", "", TargetEmbeddingType::kNone},
       {"foo.office.org-foo.com", "", TargetEmbeddingType::kNone},
+      // Common words (like 'jobs' are included in the big common word list.
+      // Ensure that the supplemental kCommonWords list is also checked.
+      {"foo.hoteles.com-foo.com", "", TargetEmbeddingType::kNone},
 
       // Targets could be embedded without their dots and dashes.
       {"googlecom-foo.com", "google.com", TargetEmbeddingType::kInterstitial},
@@ -291,7 +302,12 @@ TEST(LookalikeUrlUtilTest, TargetEmbeddingTest) {
           << test_case.expected_safe_host << ", but "
           << (safe_hostname.empty() ? "it didn't trigger at all."
                                     : "triggered on " + safe_hostname);
-      EXPECT_EQ(embedding_type, test_case.expected_type);
+      EXPECT_EQ(embedding_type, test_case.expected_type)
+          << test_case.hostname << " should trigger on "
+          << test_case.expected_safe_host << " but it returned "
+          << (embedding_type == TargetEmbeddingType::kNone
+                  ? "kNone."
+                  : "something unexpected");
     } else {
       EXPECT_EQ(embedding_type, TargetEmbeddingType::kNone)
           << test_case.hostname << " unexpectedly triggered on "

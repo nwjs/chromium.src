@@ -106,7 +106,10 @@ class CONTENT_EXPORT RenderFrameObserver : public IPC::Listener,
   // Called when a RenderFrame's page lifecycle state gets updated.
   virtual void DidSetPageLifecycleState() {}
 
-  // These match the Blink API notifications
+  // These match the Blink API notifications. These will not be called for the
+  // initial empty document, since that already exists before an observer for a
+  // frame has a chance to be created (before notification about the RenderFrame
+  // being created occurs).
   virtual void DidCreateNewDocument() {}
   virtual void DidCreateDocumentElement() {}
   // TODO(dgozman): replace next two methods with DidFinishNavigation.
@@ -263,6 +266,20 @@ class CONTENT_EXPORT RenderFrameObserver : public IPC::Listener,
   // Called when a frame's intersection with the main frame changes.
   virtual void OnMainFrameIntersectionChanged(
       const blink::WebRect& intersect_rect) {}
+
+  // Overlay-popup-ad violates The Better Ads Standards
+  // (https://www.betterads.org/standards/). This method will be called when an
+  // overlay-popup-ad is detected, to let the embedder
+  // (i.e. subresource_filter::ContentSubresourceFilterThrottleManager) know the
+  // violation so as to apply further interventions.
+  virtual void OnOverlayPopupAdDetected() {}
+
+  // Large-sticky-ad violates The Better Ads Standards
+  // (https://www.betterads.org/standards/). This method will be called when a
+  // large-sticky-ad is detected, to let the embedder
+  // (i.e. subresource_filter::ContentSubresourceFilterThrottleManager) know the
+  // violation so as to apply further interventions.
+  virtual void OnLargeStickyAdDetected() {}
 
   // Called to give the embedder an opportunity to bind an interface request
   // for a frame. If the request can be bound, |interface_pipe| will be taken.

@@ -26,152 +26,186 @@
 
 namespace {
 
+constexpr CGFloat kNativeCheckmarkWidth = 18;
+constexpr CGFloat kNativeMenuItemHeight = 18;
+constexpr CGFloat kIPHDotSize = 6;
+
 NSImage* NewTagImage() {
-  static NSImage* new_tag = []() {
-    // 1. Make the attributed string.
+  // 1. Make the attributed string.
 
-    NSString* badge_text = l10n_util::GetNSString(IDS_NEW_BADGE);
+  NSString* badge_text = l10n_util::GetNSString(IDS_NEW_BADGE);
 
-    // The preferred font is slightly smaller and slightly more bold than the
-    // menu font. The size change is required to make it look correct in the
-    // badge; we add a small degree of bold to prevent color smearing/blurring
-    // due to font smoothing. This ensures readability on all platforms and in
-    // both light and dark modes.
-    gfx::Font badge_font = gfx::Font(
-        new gfx::PlatformFontMac(gfx::PlatformFontMac::SystemFontType::kMenu));
-    badge_font =
-        badge_font.Derive(views::NewBadge::kNewBadgeFontSizeAdjustment,
-                          gfx::Font::NORMAL, gfx::Font::Weight::MEDIUM);
+  // The preferred font is slightly smaller and slightly more bold than the
+  // menu font. The size change is required to make it look correct in the
+  // badge; we add a small degree of bold to prevent color smearing/blurring
+  // due to font smoothing. This ensures readability on all platforms and in
+  // both light and dark modes.
+  gfx::Font badge_font = gfx::Font(
+      new gfx::PlatformFontMac(gfx::PlatformFontMac::SystemFontType::kMenu));
+  badge_font = badge_font.Derive(views::NewBadge::kNewBadgeFontSizeAdjustment,
+                                 gfx::Font::NORMAL, gfx::Font::Weight::MEDIUM);
 
-    NSColor* badge_text_color = skia::SkColorToSRGBNSColor(
-        ui::NativeTheme::GetInstanceForNativeUi()->GetSystemColor(
-            ui::NativeTheme::kColorId_TextOnProminentButtonColor));
+  NSColor* badge_text_color = skia::SkColorToSRGBNSColor(
+      ui::NativeTheme::GetInstanceForNativeUi()->GetSystemColor(
+          ui::NativeTheme::kColorId_TextOnProminentButtonColor));
 
-    NSDictionary* badge_attrs = @{
-      NSFontAttributeName : badge_font.GetNativeFont(),
-      NSForegroundColorAttributeName : badge_text_color,
-    };
+  NSDictionary* badge_attrs = @{
+    NSFontAttributeName : badge_font.GetNativeFont(),
+    NSForegroundColorAttributeName : badge_text_color,
+  };
 
-    NSMutableAttributedString* badge_attr_string =
-        [[NSMutableAttributedString alloc] initWithString:badge_text
-                                               attributes:badge_attrs];
+  NSMutableAttributedString* badge_attr_string =
+      [[NSMutableAttributedString alloc] initWithString:badge_text
+                                             attributes:badge_attrs];
 
-    if (base::mac::IsOS10_10()) {
-      // The system font for 10.10 is Helvetica Neue, and when used for this
-      // "new tag" the letters look cramped. Track it out so that there's some
-      // breathing room. There is no tracking attribute, so instead add kerning
-      // to all but the last character.
-      [badge_attr_string
-          addAttribute:NSKernAttributeName
-                 value:@0.4
-                 range:NSMakeRange(0, [badge_attr_string length] - 1)];
-    }
+  // 2. Calculate the size required.
 
-    // 2. Calculate the size required.
+  NSSize badge_size = [badge_attr_string size];
+  badge_size.width = trunc(badge_size.width);
+  badge_size.height = trunc(badge_size.height);
 
-    NSSize badge_size = [badge_attr_string size];
-    badge_size.width = trunc(badge_size.width);
-    badge_size.height = trunc(badge_size.height);
+  badge_size.width += 2 * views::NewBadge::kNewBadgeInternalPadding +
+                      2 * views::NewBadge::kNewBadgeHorizontalMargin;
+  badge_size.height += views::NewBadge::kNewBadgeInternalPaddingTopMac;
 
-    badge_size.width += 2 * views::NewBadge::kNewBadgeInternalPadding +
-                        2 * views::NewBadge::kNewBadgeHorizontalMargin;
-    badge_size.height += views::NewBadge::kNewBadgeInternalPaddingTopMac;
+  // 3. Craft the image.
 
-    // 3. Craft the image.
+  return [NSImage
+       imageWithSize:badge_size
+             flipped:NO
+      drawingHandler:^(NSRect dest_rect) {
+        NSRect badge_frame = NSInsetRect(
+            dest_rect, views::NewBadge::kNewBadgeHorizontalMargin, 0);
+        NSBezierPath* rounded_badge_rect = [NSBezierPath
+            bezierPathWithRoundedRect:badge_frame
+                              xRadius:views::NewBadge::kNewBadgeCornerRadius
+                              yRadius:views::NewBadge::kNewBadgeCornerRadius];
+        NSColor* badge_color = skia::SkColorToSRGBNSColor(
+            ui::NativeTheme::GetInstanceForNativeUi()->GetSystemColor(
+                ui::NativeTheme::kColorId_ProminentButtonColor));
+        [badge_color set];
+        [rounded_badge_rect fill];
 
-    return [[NSImage
-         imageWithSize:badge_size
-               flipped:NO
-        drawingHandler:^(NSRect dest_rect) {
-          NSRect badge_frame = NSInsetRect(
-              dest_rect, views::NewBadge::kNewBadgeHorizontalMargin, 0);
-          NSBezierPath* rounded_badge_rect = [NSBezierPath
-              bezierPathWithRoundedRect:badge_frame
-                                xRadius:views::NewBadge::kNewBadgeCornerRadius
-                                yRadius:views::NewBadge::kNewBadgeCornerRadius];
-          NSColor* badge_color = skia::SkColorToSRGBNSColor(
-              ui::NativeTheme::GetInstanceForNativeUi()->GetSystemColor(
-                  ui::NativeTheme::kColorId_ProminentButtonColor));
-          [badge_color set];
-          [rounded_badge_rect fill];
+        NSPoint badge_text_location = NSMakePoint(
+            NSMinX(badge_frame) + views::NewBadge::kNewBadgeInternalPadding,
+            NSMinY(badge_frame) +
+                views::NewBadge::kNewBadgeInternalPaddingTopMac);
+        [badge_attr_string drawAtPoint:badge_text_location];
 
-          NSPoint badge_text_location = NSMakePoint(
-              NSMinX(badge_frame) + views::NewBadge::kNewBadgeInternalPadding,
-              NSMinY(badge_frame) +
-                  views::NewBadge::kNewBadgeInternalPaddingTopMac);
-          [badge_attr_string drawAtPoint:badge_text_location];
-
-          return YES;
-        }] retain];
-  }();
-
-  return new_tag;
+        return YES;
+      }];
 }
 
-}  // namespace
+NSImage* IPHDotImage() {
+  // Embed horizontal centering space as NSMenuItem will otherwise left-align
+  // it.
+  return [NSImage
+       imageWithSize:NSMakeSize(2 * kIPHDotSize, kIPHDotSize)
+             flipped:NO
+      drawingHandler:^(NSRect dest_rect) {
+        NSBezierPath* dot_path = [NSBezierPath
+            bezierPathWithOvalInRect:NSMakeRect(kIPHDotSize / 2, 0, kIPHDotSize,
+                                                kIPHDotSize)];
+        NSColor* dot_color = skia::SkColorToSRGBNSColor(
+            ui::NativeTheme::GetInstanceForNativeUi()->GetSystemColor(
+                ui::NativeTheme::kColorId_ProminentButtonColor));
+        [dot_color set];
+        [dot_path fill];
 
-@interface NewTagAttachmentCell : NSTextAttachmentCell
-@end
-
-@implementation NewTagAttachmentCell
-
-- (instancetype)init {
-  if (self = [super init]) {
-    self.image = NewTagImage();
-  }
-  return self;
+        return YES;
+      }];
 }
 
-- (NSPoint)cellBaselineOffset {
-  return NSMakePoint(0, views::NewBadge::kNewBadgeBaslineOffsetMac);
-}
-
-- (NSSize)cellSize {
-  return [self.image size];
-}
-
-@end
-
-@interface MenuControllerDelegate : NSObject <MenuControllerCocoaDelegate>
-@end
-
-@implementation MenuControllerDelegate
-
-- (void)controllerWillAddItem:(NSMenuItem*)menuItem
-                    fromModel:(ui::MenuModel*)model
-                      atIndex:(NSInteger)index {
-  static const bool feature_enabled =
-      base::FeatureList::IsEnabled(views::features::kEnableNewBadgeOnMenuItems);
-  if (!feature_enabled || !model->IsNewFeatureAt(index))
-    return;
-
-  // TODO(avi): When moving to 10.11 as the minimum macOS, switch to using
-  // NSTextAttachment's |image| and |bounds| properties and avoid the whole
-  // NSTextAttachmentCell subclassing mishegas.
-  base::scoped_nsobject<NSTextAttachment> attachment(
-      [[NSTextAttachment alloc] init]);
-  attachment.get().attachmentCell =
-      [[[NewTagAttachmentCell alloc] init] autorelease];
-
-  // Starting in 10.13, if an attributed string is set as a menu item title, and
-  // NSFontAttributeName is not specified for it, it is automatically rendered
-  // in a font matching other menu items. Prior to then, a menu item with no
-  // specified font is rendered in Helvetica. In addition, while the
-  // documentation says that -[NSFont menuFontOfSize:0] gives the standard menu
-  // font, that doesn't actually match up. Therefore, specify a font that
+NSMutableAttributedString* MutableAttributedStringForMenuItemTitleString(
+    NSString* string) {
+  // Starting in 10.13, if an attributed string is set as a menu item title,
+  // and NSFontAttributeName is not specified for it, it is automatically
+  // rendered in a font matching other menu items. Prior to then, a menu item
+  // with no specified font is rendered in Helvetica. In addition, while the
+  // documentation says that -[NSFont menuFontOfSize:0] gives the standard
+  // menu font, that doesn't actually match up. Therefore, specify a font that
   // visually matches.
   NSDictionary* attrs = nil;
   if (base::mac::IsAtMostOS10_12())
     attrs = @{NSFontAttributeName : [NSFont menuFontOfSize:14]};
 
-  base::scoped_nsobject<NSMutableAttributedString> attrTitle(
-      [[NSMutableAttributedString alloc] initWithString:menuItem.title
-                                             attributes:attrs]);
-  [attrTitle
-      appendAttributedString:[NSAttributedString
-                                 attributedStringWithAttachment:attachment]];
+  return [[[NSMutableAttributedString alloc] initWithString:string
+                                                 attributes:attrs] autorelease];
+}
 
-  menuItem.attributedTitle = attrTitle;
+}  // namespace
+
+// --- Private API begin ---
+
+@interface NSCarbonMenuImpl : NSObject
+- (void)highlightItemAtIndex:(NSInteger)index;
+@end
+
+@interface NSMenu ()
+- (NSCarbonMenuImpl*)_menuImpl;
+@end
+
+// --- Private API end ---
+
+@interface MenuControllerDelegate : NSObject <MenuControllerCocoaDelegate> {
+  id<NSObject> _menuOpenObserver;
+}
+@end
+
+@implementation MenuControllerDelegate
+
+- (void)dealloc {
+  if (_menuOpenObserver)
+    [[NSNotificationCenter defaultCenter] removeObserver:_menuOpenObserver];
+
+  [super dealloc];
+}
+
+- (void)controllerWillAddItem:(NSMenuItem*)menuItem
+                    fromModel:(ui::MenuModel*)model
+                      atIndex:(NSInteger)index {
+  static const bool newBadgeFeatureEnabled =
+      base::FeatureList::IsEnabled(views::features::kEnableNewBadgeOnMenuItems);
+  if (newBadgeFeatureEnabled && model->IsNewFeatureAt(index)) {
+    NSTextAttachment* attachment =
+        [[[NSTextAttachment alloc] initWithData:nil ofType:nil] autorelease];
+    attachment.image = NewTagImage();
+    NSSize newTagSize = attachment.image.size;
+    attachment.bounds =
+        NSMakeRect(0, views::NewBadge::kNewBadgeBaselineOffsetMac,
+                   newTagSize.width, newTagSize.height);
+
+    NSMutableAttributedString* attrTitle =
+        MutableAttributedStringForMenuItemTitleString(menuItem.title);
+    [attrTitle
+        appendAttributedString:[NSAttributedString
+                                   attributedStringWithAttachment:attachment]];
+
+    menuItem.attributedTitle = attrTitle;
+  }
+
+  if (model->IsAlertedAt(index)) {
+    NSImage* iphDotImage = IPHDotImage();
+    menuItem.onStateImage = iphDotImage;
+    menuItem.offStateImage = iphDotImage;
+    menuItem.mixedStateImage = iphDotImage;
+
+    DCHECK(!_menuOpenObserver);
+    _menuOpenObserver = [[NSNotificationCenter defaultCenter]
+        addObserverForName:NSMenuDidBeginTrackingNotification
+                    object:menuItem.menu
+                     queue:nil
+                usingBlock:^(NSNotification* note) {
+                  NSMenu* menu = note.object;
+                  if ([menu respondsToSelector:@selector(_menuImpl)]) {
+                    NSCarbonMenuImpl* menuImpl = [menu _menuImpl];
+                    if ([menuImpl respondsToSelector:@selector
+                                  (highlightItemAtIndex:)]) {
+                      [menuImpl highlightItemAtIndex:index];
+                    }
+                  }
+                }];
+  }
 }
 
 @end
@@ -179,9 +213,6 @@ NSImage* NewTagImage() {
 namespace views {
 namespace internal {
 namespace {
-
-constexpr CGFloat kNativeCheckmarkWidth = 18;
-constexpr CGFloat kNativeMenuItemHeight = 18;
 
 // Returns the first item in |menu_controller|'s menu that will be checked.
 NSMenuItem* FirstCheckedItem(MenuControllerCocoa* menu_controller) {

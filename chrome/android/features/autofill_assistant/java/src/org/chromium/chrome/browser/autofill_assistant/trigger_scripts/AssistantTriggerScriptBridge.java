@@ -128,6 +128,12 @@ public class AssistantTriggerScriptBridge {
         return mContext;
     }
 
+    /** Returns whether the user has seen a trigger script before or not. */
+    @CalledByNative
+    private static boolean isFirstTimeTriggerScriptUser() {
+        return AutofillAssistantPreferencesUtil.isAutofillAssistantFirstTimeLiteScriptUser();
+    }
+
     /**
      * Used by native to update and show the UI. The header should be created and updated using
      * {@code createHeaderAndGetModel} prior to calling this function.
@@ -137,7 +143,7 @@ public class AssistantTriggerScriptBridge {
     private boolean showTriggerScript(String[] cancelPopupMenuItems, int[] cancelPopupMenuActions,
             List<AssistantChip> leftAlignedChips, int[] leftAlignedChipsActions,
             List<AssistantChip> rightAlignedChips, int[] rightAlignedChipsActions,
-            boolean resizeVisualViewport) {
+            boolean resizeVisualViewport, boolean scrollToHide) {
         // Trigger scripts currently do not support switching activities (such as CCT->tab).
         // TODO(b/171776026): Re-inject dependencies on activity change to support CCT->tab.
         if (TabUtils.getActivity(TabUtils.fromWebContents(mWebContents)) != mContext) {
@@ -148,7 +154,7 @@ public class AssistantTriggerScriptBridge {
         mTriggerScript.setCancelPopupMenu(cancelPopupMenuItems, cancelPopupMenuActions);
         mTriggerScript.setLeftAlignedChips(leftAlignedChips, leftAlignedChipsActions);
         mTriggerScript.setRightAlignedChips(rightAlignedChips, rightAlignedChipsActions);
-        boolean shown = mTriggerScript.show(resizeVisualViewport);
+        boolean shown = mTriggerScript.show(resizeVisualViewport, scrollToHide);
 
         // A trigger script was displayed, users are no longer considered first-time users.
         if (shown) {
@@ -172,7 +178,7 @@ public class AssistantTriggerScriptBridge {
 
     @CalledByNative
     private static boolean isProactiveHelpEnabled() {
-        return AutofillAssistantPreferencesUtil.isProactiveHelpSwitchOn();
+        return AutofillAssistantPreferencesUtil.isProactiveHelpOn();
     }
 
     @CalledByNative

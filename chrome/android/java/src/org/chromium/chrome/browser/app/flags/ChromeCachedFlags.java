@@ -13,7 +13,6 @@ import org.chromium.chrome.browser.firstrun.FirstRunUtils;
 import org.chromium.chrome.browser.flags.CachedFeatureFlags;
 import org.chromium.chrome.browser.flags.CachedFieldTrialParameter;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.init.ChromeStartupDelegate;
 import org.chromium.chrome.browser.tasks.ConditionalTabStripUtils;
 import org.chromium.chrome.browser.tasks.ReturnToChromeExperimentsUtil;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiFeatureUtilities;
@@ -51,6 +50,8 @@ public class ChromeCachedFlags {
         List<String> featuresToCache = Arrays.asList(
                 ChromeFeatureList.ANDROID_MANAGED_BY_MENU_ITEM,
                 ChromeFeatureList.ANDROID_PARTNER_CUSTOMIZATION_PHENOTYPE,
+                ChromeFeatureList.CCT_INCOGNITO_AVAILABLE_TO_THIRD_PARTY,
+                ChromeFeatureList.CCT_REMOVE_REMOTE_VIEW_IDS,
                 ChromeFeatureList.CHROME_STARTUP_DELEGATE,
                 ChromeFeatureList.CLOSE_TAB_SUGGESTIONS,
                 ChromeFeatureList.CRITICAL_PERSISTED_TAB_DATA,
@@ -77,7 +78,8 @@ public class ChromeCachedFlags {
                 ChromeFeatureList.TABBED_APP_OVERFLOW_MENU_REGROUP,
                 ChromeFeatureList.TABBED_APP_OVERFLOW_MENU_THREE_BUTTON_ACTIONBAR,
                 ChromeFeatureList.USE_CHIME_ANDROID_SDK,
-                ChromeFeatureList.READ_LATER);
+                ChromeFeatureList.READ_LATER,
+                ChromeFeatureList.OFFLINE_MEASUREMENTS_BACKGROUND_TASK);
         // clang-format on
         CachedFeatureFlags.cacheNativeFlags(featuresToCache);
         CachedFeatureFlags.cacheAdditionalNativeFlags();
@@ -86,7 +88,6 @@ public class ChromeCachedFlags {
         List<CachedFieldTrialParameter> fieldTrialsToCache = Arrays.asList(
                 AppMenuPropertiesDelegateImpl.ACTION_BAR_VARIATION,
                 AppMenuPropertiesDelegateImpl.THREE_BUTTON_ACTION_BAR_VARIATION,
-                ChromeStartupDelegate.ENABLED,
                 ConditionalTabStripUtils.CONDITIONAL_TAB_STRIP_INFOBAR_LIMIT,
                 ConditionalTabStripUtils.CONDITIONAL_TAB_STRIP_INFOBAR_PERIOD,
                 ConditionalTabStripUtils.CONDITIONAL_TAB_STRIP_SESSION_TIME_MS,
@@ -138,12 +139,12 @@ public class ChromeCachedFlags {
     }
 
     /**
-     * Caches flags that are enabled in ServiceManager only mode and must take effect on startup but
-     * are set via native code. This function needs to be called in ServiceManager only mode to mark
-     * these field trials as active, otherwise histogram data recorded in ServiceManager only mode
+     * Caches flags that are enabled in minimal browser mode and must take effect on startup but
+     * are set via native code. This function needs to be called in minimal browser mode to mark
+     * these field trials as active, otherwise histogram data recorded in minimal browser mode
      * won't be tagged with their corresponding field trial experiments.
      */
-    public void cacheServiceManagerOnlyFlags() {
+    public void cacheMinimalBrowserFlags() {
         // TODO(crbug.com/995355): Move other related flags from cacheNativeFlags() to here.
         CachedFeatureFlags.cacheNativeFlags(
                 Arrays.asList(ChromeFeatureList.SERVICE_MANAGER_FOR_DOWNLOAD,

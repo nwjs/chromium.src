@@ -31,10 +31,7 @@ import org.chromium.chrome.browser.compositor.bottombar.contextualsearch.Context
 import org.chromium.chrome.browser.compositor.layouts.Layout.Orientation;
 import org.chromium.chrome.browser.compositor.layouts.components.LayoutTab;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
-import org.chromium.chrome.browser.compositor.layouts.eventfilter.EdgeSwipeHandler;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelperManager;
-import org.chromium.chrome.browser.compositor.overlays.toolbar.TopToolbarOverlayCoordinator;
-import org.chromium.chrome.browser.compositor.scene_layer.ScrollingBottomViewSceneLayer;
 import org.chromium.chrome.browser.fullscreen.BrowserControlsManager;
 import org.chromium.chrome.browser.gesturenav.HistoryNavigationCoordinator;
 import org.chromium.chrome.browser.layouts.CompositorModelChangeProcessor;
@@ -55,7 +52,6 @@ import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabHidingType;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabSelectionType;
-import org.chromium.chrome.browser.tab.TabThemeColorHelper;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelSelectorObserver;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModel;
@@ -64,8 +60,12 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
+import org.chromium.chrome.browser.theme.TopUiThemeColorProvider;
 import org.chromium.chrome.browser.toolbar.ControlContainer;
 import org.chromium.chrome.browser.toolbar.ToolbarColors;
+import org.chromium.chrome.browser.toolbar.bottom.ScrollingBottomViewSceneLayer;
+import org.chromium.chrome.browser.toolbar.top.TopToolbarOverlayCoordinator;
+import org.chromium.components.browser_ui.widget.gesture.SwipeGestureListener.SwipeHandler;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.ui.base.LocalizationUtils;
 import org.chromium.ui.base.SPenSupport;
@@ -177,6 +177,9 @@ public class LayoutManagerImpl implements LayoutManager, LayoutUpdateHost, Layou
     /** The supplier used to supply the LayoutStateProvider. */
     private final OneshotSupplierImpl<LayoutStateProvider> mLayoutStateProviderOneshotSupplier;
 
+    /** The supplier of {@link ThemeColorProvider} for top UI. */
+    private final Supplier<TopUiThemeColorProvider> mTopUiThemeColorProvider;
+
     /** A cache of title textures to use in different layouts. */
     protected Supplier<LayerTitleCache> mLayerTitleCacheSupplier;
 
@@ -260,11 +263,13 @@ public class LayoutManagerImpl implements LayoutManager, LayoutUpdateHost, Layou
      * @param layerTitleCacheSupplier A supplier of the cache of title textures.
      * @param layoutStateProviderOneshotSupplier Supplier used to supply the {@link
      *         LayoutStateProvider}.
+     * @param topUiThemeColorProvider {@link ThemeColorProvider} for top UI.
      */
     public LayoutManagerImpl(LayoutManagerHost host, ViewGroup contentContainer,
             ObservableSupplier<TabContentManager> tabContentManagerSupplier,
             Supplier<LayerTitleCache> layerTitleCacheSupplier,
-            OneshotSupplierImpl<LayoutStateProvider> layoutStateProviderOneshotSupplier) {
+            OneshotSupplierImpl<LayoutStateProvider> layoutStateProviderOneshotSupplier,
+            Supplier<TopUiThemeColorProvider> topUiThemeColorProvider) {
         mHost = host;
         mPxToDp = 1.f / mHost.getContext().getResources().getDisplayMetrics().density;
         mAndroidViewShownSupplier = new ObservableSupplierImpl<>();
@@ -272,7 +277,7 @@ public class LayoutManagerImpl implements LayoutManager, LayoutUpdateHost, Layou
         mTabContentManagerSupplier = tabContentManagerSupplier;
         mLayoutStateProviderOneshotSupplier = layoutStateProviderOneshotSupplier;
         mLayerTitleCacheSupplier = layerTitleCacheSupplier;
-
+        mTopUiThemeColorProvider = topUiThemeColorProvider;
         mContext = host.getContext();
         LayoutRenderHost renderHost = host.getLayoutRenderHost();
 
@@ -477,7 +482,8 @@ public class LayoutManagerImpl implements LayoutManager, LayoutUpdateHost, Layou
 
         // Build Layouts
         mStaticLayout = new StaticLayout(mContext, this, renderHost, mHost, mFrameRequestSupplier,
-                selector, mTabContentManagerSupplier.get(), mBrowserControlsStateProviderSupplier);
+                selector, mTabContentManagerSupplier.get(), mBrowserControlsStateProviderSupplier,
+                mTopUiThemeColorProvider);
 
         // Set up layout parameters
         mStaticLayout.setLayoutHandlesTabLifecycles(true);
@@ -792,16 +798,16 @@ public class LayoutManagerImpl implements LayoutManager, LayoutUpdateHost, Layou
         String url = tab.getUrlString();
         boolean isNativePage = tab.isNativePage()
                 || (url != null && url.startsWith(UrlConstants.CHROME_NATIVE_URL_PREFIX));
-        int themeColor = TabThemeColorHelper.getColor(tab);
 
         boolean canUseLiveTexture = tab.getWebContents() != null && !SadTab.isShowing(tab)
                 && !isNativePage && !tab.isHidden();
 
-        layoutTab.initFromHost(TabThemeColorHelper.getBackgroundColor(tab), shouldStall(tab),
-                canUseLiveTexture, ToolbarColors.getToolbarSceneLayerBackground(tab),
-                ToolbarColors.getTextBoxColorForToolbarBackground(
-                        mContext.getResources(), tab, themeColor),
-                ToolbarColors.getTextBoxAlphaForToolbarBackground(tab));
+        TopUiThemeColorProvider topUiTheme = mTopUiThemeColorProvider.get();
+        layoutTab.initFromHost(topUiTheme.getBackgroundColor(tab), shouldStall(tab),
+                canUseLiveTexture, topUiTheme.getSceneLayerBackground(tab),
+                ToolbarColors.getTextBoxColorForToolbarBackground(mContext.getResources(), tab,
+                        topUiTheme.calculateColor(tab, tab.getThemeColor())),
+                topUiTheme.getTextBoxBackgroundAlpha(tab));
 
         mHost.requestRender();
     }
@@ -949,7 +955,6 @@ public class LayoutManagerImpl implements LayoutManager, LayoutUpdateHost, Layou
      * @param animate Whether or not {@code layout} should animate as it shows.
      */
     protected void startShowing(Layout layout, boolean animate) {
-        assert mTabModelSelector != null : "init() must be called first.";
         assert layout != null : "Can't show a null layout.";
 
         // Set the new layout
@@ -1024,19 +1029,19 @@ public class LayoutManagerImpl implements LayoutManager, LayoutUpdateHost, Layou
     }
 
     /**
-     * @return The {@link EdgeSwipeHandler} responsible for processing swipe events for the normal
+     * @return The {@link SwipeHandler} responsible for processing swipe events for the normal
      *         toolbar. By default this returns null.
      */
-    public EdgeSwipeHandler getToolbarSwipeHandler() {
+    public SwipeHandler getToolbarSwipeHandler() {
         return null;
     }
 
     /**
-     * Creates a {@link EdgeSwipeHandler} instance.
+     * Creates a {@link SwipeHandler} instance.
      * @param supportSwipeDown Whether or not to the handler should support swipe down gesture.
-     * @return The {@link EdgeSwipeHandler} cerated.
+     * @return The {@link SwipeHandler} cerated.
      */
-    public EdgeSwipeHandler createToolbarSwipeHandler(boolean supportSwipeDown) {
+    public SwipeHandler createToolbarSwipeHandler(boolean supportSwipeDown) {
         return null;
     }
 

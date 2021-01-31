@@ -12,13 +12,15 @@
 #include "components/error_page/common/error.h"
 #include "components/grit/components_scaled_resources.h"
 #include "components/js_injection/renderer/js_communication.h"
-#include "components/no_state_prefetch/common/prerender_types.mojom.h"
 #include "components/no_state_prefetch/common/prerender_url_loader_throttle.h"
-#include "components/no_state_prefetch/renderer/prerender_helper.h"
+#include "components/no_state_prefetch/renderer/no_state_prefetch_client.h"
+#include "components/no_state_prefetch/renderer/no_state_prefetch_helper.h"
 #include "components/no_state_prefetch/renderer/prerender_render_frame_observer.h"
 #include "components/no_state_prefetch/renderer/prerender_utils.h"
-#include "components/no_state_prefetch/renderer/prerenderer_client.h"
 #include "components/page_load_metrics/renderer/metrics_render_frame_observer.h"
+#include "components/subresource_filter/content/renderer/subresource_filter_agent.h"
+#include "components/subresource_filter/content/renderer/unverified_ruleset_dealer.h"
+#include "components/subresource_filter/core/common/common_features.h"
 #include "content/public/renderer/render_frame.h"
 #include "content/public/renderer/render_thread.h"
 #include "content/public/renderer/render_view.h"
@@ -85,6 +87,10 @@ void ContentRendererClientImpl::RenderThreadStarted() {
 
   browser_interface_broker_ =
       blink::Platform::Current()->GetBrowserInterfaceBroker();
+
+  subresource_filter_ruleset_dealer_ =
+      std::make_unique<subresource_filter::UnverifiedRulesetDealer>();
+  thread->AddObserver(subresource_filter_ruleset_dealer_.get());
 }
 
 void ContentRendererClientImpl::RenderFrameCreated(
@@ -108,6 +114,13 @@ void ContentRendererClientImpl::RenderFrameCreated(
 
   new page_load_metrics::MetricsRenderFrameObserver(render_frame);
 
+  // TODO(crbug.com/1116095): Bring up AdResourceTracker?
+  auto* subresource_filter_agent =
+      new subresource_filter::SubresourceFilterAgent(
+          render_frame, subresource_filter_ruleset_dealer_.get(),
+          /*ad_resource_tracker=*/nullptr);
+  subresource_filter_agent->Initialize();
+
 #if defined(OS_ANDROID)
   // |SpellCheckProvider| manages its own lifetime (and destroys itself when the
   // RenderFrame is destroyed).
@@ -117,21 +130,22 @@ void ContentRendererClientImpl::RenderFrameCreated(
   new js_injection::JsCommunication(render_frame);
 
   if (!render_frame->IsMainFrame()) {
-    auto* prerender_helper = prerender::PrerenderHelper::Get(
-        render_frame->GetRenderView()->GetMainRenderFrame());
-    if (prerender_helper) {
+    auto* main_frame_no_state_prefetch_helper =
+        prerender::NoStatePrefetchHelper::Get(
+            render_frame->GetRenderView()->GetMainRenderFrame());
+    if (main_frame_no_state_prefetch_helper) {
       // Avoid any race conditions from having the browser tell subframes that
-      // they're prerendering.
-      new prerender::PrerenderHelper(render_frame,
-                                     prerender_helper->prerender_mode(),
-                                     prerender_helper->histogram_prefix());
+      // they're no-state prefetching.
+      new prerender::NoStatePrefetchHelper(
+          render_frame,
+          main_frame_no_state_prefetch_helper->histogram_prefix());
     }
   }
 }
 
 void ContentRendererClientImpl::RenderViewCreated(
     content::RenderView* render_view) {
-  new prerender::PrerendererClient(render_view);
+  new prerender::NoStatePrefetchClient(render_view);
 }
 
 SkBitmap* ContentRendererClientImpl::GetSadPluginBitmap() {
@@ -187,10 +201,8 @@ void ContentRendererClientImpl::
 }
 
 bool ContentRendererClientImpl::IsPrefetchOnly(
-    content::RenderFrame* render_frame,
-    const blink::WebURLRequest& request) {
-  return prerender::PrerenderHelper::GetPrerenderMode(render_frame) ==
-         prerender::mojom::PrerenderMode::kPrefetchOnly;
+    content::RenderFrame* render_frame) {
+  return prerender::NoStatePrefetchHelper::IsPrefetching(render_frame);
 }
 
 bool ContentRendererClientImpl::DeferMediaLoad(

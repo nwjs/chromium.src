@@ -5,6 +5,7 @@
 #include "chrome/browser/web_applications/components/external_app_install_features.h"
 
 #include "base/feature_list.h"
+#include "build/chromeos_buildflags.h"
 
 namespace web_app {
 
@@ -25,14 +26,24 @@ bool g_always_enabled_for_testing = false;
 // Enables migration of default installed GSuite apps over to their replacement
 // web apps.
 const base::Feature kMigrateDefaultChromeAppToWebAppsGSuite{
-    "MigrateDefaultChromeAppToWebAppsGSuite",
-    base::FEATURE_DISABLED_BY_DEFAULT};
+  "MigrateDefaultChromeAppToWebAppsGSuite",
+#if BUILDFLAG(IS_CHROMEOS_ASH) || BUILDFLAG(IS_CHROMEOS_LACROS)
+      base::FEATURE_ENABLED_BY_DEFAULT
+#else
+      base::FEATURE_DISABLED_BY_DEFAULT
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH) || BUILDFLAG(IS_CHROMEOS_LACROS)
+};
 
 // Enables migration of default installed non-GSuite apps over to their
 // replacement web apps.
 const base::Feature kMigrateDefaultChromeAppToWebAppsNonGSuite{
-    "MigrateDefaultChromeAppToWebAppsNonGSuite",
-    base::FEATURE_DISABLED_BY_DEFAULT};
+  "MigrateDefaultChromeAppToWebAppsNonGSuite",
+#if BUILDFLAG(IS_CHROMEOS_ASH) || BUILDFLAG(IS_CHROMEOS_LACROS)
+      base::FEATURE_ENABLED_BY_DEFAULT
+#else
+      base::FEATURE_DISABLED_BY_DEFAULT
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH) || BUILDFLAG(IS_CHROMEOS_LACROS)
+};
 
 bool IsExternalAppInstallFeatureEnabled(base::StringPiece feature_name) {
   if (g_always_enabled_for_testing)

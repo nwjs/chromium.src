@@ -218,7 +218,8 @@ void VideoDecoderPipeline::Initialize(const VideoDecoderConfig& config,
   }
 #endif  // !BUILDFLAG(USE_CHROMEOS_PROTECTED_MEDIA)
 
-  needs_bitstream_conversion_ = (config.codec() == kCodecH264);
+  needs_bitstream_conversion_ =
+      (config.codec() == kCodecH264) || (config.codec() == kCodecHEVC);
 
   decoder_task_runner_->PostTask(
       FROM_HERE, base::BindOnce(&VideoDecoderPipeline::InitializeTask,
@@ -431,9 +432,9 @@ void VideoDecoderPipeline::OnFrameConverted(scoped_refptr<VideoFrame> frame) {
   }
 
   // Flag that the video frame is capable of being put in an overlay.
-  frame->metadata()->allow_overlay = true;
+  frame->metadata().allow_overlay = true;
   // Flag that the video frame was decoded in a power efficient way.
-  frame->metadata()->power_efficient = true;
+  frame->metadata().power_efficient = true;
 
   // MojoVideoDecoderService expects the |output_cb_| to be called on the client
   // task runner, even though media::VideoDecoder states frames should be output

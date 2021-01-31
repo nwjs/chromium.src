@@ -281,29 +281,21 @@ Frame* CreateNewWindow(LocalFrame& opener_frame,
     return nullptr;
   }
 
-  bool propagate_sandbox =
-      opener_window.IsSandboxed(network::mojom::blink::WebSandboxFlags::
-                                    kPropagatesToAuxiliaryBrowsingContexts);
   network::mojom::blink::WebSandboxFlags sandbox_flags =
-      propagate_sandbox ? opener_window.GetSandboxFlags()
-                        : network::mojom::blink::WebSandboxFlags::kNone;
-  bool not_sandboxed = opener_window.GetSandboxFlags() ==
-                       network::mojom::blink::WebSandboxFlags::kNone;
-  FeaturePolicyFeatureState opener_feature_state =
-      (not_sandboxed || propagate_sandbox) ? opener_window.GetSecurityContext()
-                                                 .GetFeaturePolicy()
-                                                 ->GetFeatureState()
-                                           : FeaturePolicyFeatureState();
+      opener_window.IsSandboxed(network::mojom::blink::WebSandboxFlags::
+                                    kPropagatesToAuxiliaryBrowsingContexts)
+          ? opener_window.GetSandboxFlags()
+          : network::mojom::blink::WebSandboxFlags::kNone;
 
   SessionStorageNamespaceId new_namespace_id =
       AllocateSessionStorageNamespaceId();
 
   Page* old_page = opener_frame.GetPage();
-  // TODO(dmurph): Don't copy session storage when features.noopener is true:
-  // https://html.spec.whatwg.org/C/#copy-session-storage
-  // https://crbug.com/771959
-  CoreInitializer::GetInstance().CloneSessionStorage(old_page,
-                                                     new_namespace_id);
+  if (!features.noopener ||
+      base::FeatureList::IsEnabled(features::kCloneSessionStorageForNoOpener)) {
+    CoreInitializer::GetInstance().CloneSessionStorage(old_page,
+                                                       new_namespace_id);
+  }
 
   WebString manifest_str("");
   if (manifest)
@@ -311,7 +303,7 @@ Frame* CreateNewWindow(LocalFrame& opener_frame,
   bool consumed_user_gesture = false;
   Page* page = old_page->GetChromeClient().CreateWindow(
       &opener_frame, request, frame_name, features, sandbox_flags,
-      opener_feature_state, new_namespace_id, consumed_user_gesture, &manifest_str);
+      new_namespace_id, consumed_user_gesture, &manifest_str);
   if (!page)
     return nullptr;
 

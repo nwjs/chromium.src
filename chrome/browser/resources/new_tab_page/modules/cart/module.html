@@ -1,0 +1,176 @@
+<style include="cr-hidden-style cr-icons">
+  :host {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+  }
+
+  #moduleContent {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: row;
+    float: left;
+    height: 100%;
+    padding-inline-end: 15px;
+    padding-inline-start: 15px;
+    width: 100%;
+  }
+
+  .cart-item {
+    border: 1px solid var(--ntp-border-color);
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    height: 160px;
+    margin: 0 4px;
+    outline: none;
+    position: relative;
+    text-decoration: none;
+    width: 120px;
+  }
+
+  .cart-item:hover cr-icon-button {
+    opacity: 1;
+    transition-delay: 400ms;
+  }
+
+  :host-context(.focus-outline-visible) .cart-item:focus {
+    box-shadow: var(--ntp-focus-shadow);
+  }
+
+  .cart-title {
+    color: var(--ntp-theme-text-color);
+    display: block;
+    font-size: 12px;
+    height: 20px;
+    margin-inline-end: auto;
+    margin-inline-start: auto;
+    margin-top: 6px;
+    text-align: center;
+    width: 72px;
+  }
+
+  .cart-title .merchant {
+    font-weight: 400;
+    max-width: 54px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-shadow: var(--ntp-theme-text-shadow);
+    white-space: nowrap;
+  }
+
+  .cart-title .item-count {
+    color: var(--cr-secondary-text-color);
+  }
+
+  .favicon-image {
+    border-radius: 2px;
+    display: block;
+    height: 24px;
+    margin-inline-end: auto;
+    margin-inline-start: auto;
+    margin-top: 16px;
+    width: 24px;
+  }
+
+  .thumbnail-container {
+    height: 100%;
+    margin-top: 12px;
+    text-align: center;
+    width: auto;
+  }
+
+  .thumbnail-container ul {
+    list-style-type: none;
+    margin-inline-end: 24px;
+    padding: 0;
+  }
+
+  .thumbnail-container li {
+    display: inline;
+    margin-inline-end: -24px;
+  }
+
+  .thumbnail-img {
+    border: 2px solid white;
+    border-radius: 50%;
+    height: 46px;
+    object-fit: cover;
+    width: 46px;
+  }
+
+  .thumbnail-fallback {
+    height: 48px;
+    position: relative;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 102px;
+  }
+
+  :host-context([dir=rtl]) cr-icon-button {
+    left: 0;
+    right: unset;
+  }
+
+  cr-icon-button {
+    --cr-icon-button-fill-color: var(--ntp-icon-button-color);
+    --cr-icon-button-size: 16px;
+    --cr-icon-button-transition: none;
+    margin: 11px 8px;
+    opacity: 0;
+    position: absolute;
+    right: 0;
+    top: 0;
+    transition: opacity 100ms ease-in-out;
+  }
+
+  cr-icon-button:hover {
+    --cr-icon-button-fill-color: var(--ntp-icon-button-color-active);
+  }
+</style>
+<ntp-module-header
+    chip-text="$i18n{modulesCartHeaderNew}"
+    show-dismiss-button on-dismiss-button-click="onDismissButtonClick_">
+  $i18n{modulesCartTitle}
+</ntp-module-header>
+<div id="moduleContent">
+  <template id="cartItemRepeat" is="dom-repeat" items="[[cartItems]]">
+    <a class="cart-item" title="[[item.merchant]]"
+        href="[[item.cartUrl.url]]">
+      <cr-icon-button class="icon-more-vert"
+          title="$i18n{moreActions}" on-click="onMenuButtonClick_">
+      </cr-icon-button>
+      <img class="favicon-image" is="ntp-img"
+          auto-src="[[getFaviconUrl_(item.cartUrl.url)]]"></img>
+      <div class="cart-title">
+        <span class="merchant">[[item.merchant]]</span>
+        <template is="dom-if" if="[[item.productImageUrls.length]]">
+          <span class="item-count">
+            &nbsp•&nbsp[[item.productImageUrls.length]]
+          </span>
+        </template>
+      </div>
+      <div class="thumbnail-container">
+        <template is="dom-if"
+            if="[[item.productImageUrls.length]]">
+          <ul class="thumbnail-list">
+            <template is="dom-repeat"
+                items="[[getImagesToShow_(item.productImageUrls)]]">
+              <li>
+                <img class="thumbnail-img" is="ntp-img"
+                    auto-src="[[item.url]]"></img>
+              </li>
+            </template>
+          </ul>
+        </template>
+        <template id="thumbnailFallback" is="dom-if"
+            if="[[!item.productImageUrls.length]]">
+          <img class="thumbnail-fallback"
+              src="chrome://new-tab-page/icons/cart_fallback.svg">
+        </template>
+      </div>
+    </a>
+  </template>
+  <cr-action-menu id="actionMenu"></cr-action-menu>
+</div>

@@ -7,7 +7,7 @@
 #include <utility>
 
 #include "base/auto_reset.h"
-#include "base/stl_util.h"
+#include "base/containers/contains.h"
 #include "base/strings/utf_string_conversions.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
@@ -234,9 +234,7 @@ void NavigationControllerImpl::Navigate(
 }
 
 ScopedJavaLocalRef<jstring>
-NavigationControllerImpl::GetNavigationEntryDisplayUri(
-    JNIEnv* env,
-    int index) {
+NavigationControllerImpl::GetNavigationEntryDisplayUri(JNIEnv* env, int index) {
   return ScopedJavaLocalRef<jstring>(base::android::ConvertUTF8ToJavaString(
       env, GetNavigationEntryDisplayURL(index).spec()));
 }
@@ -252,6 +250,13 @@ bool NavigationControllerImpl::IsNavigationEntrySkippable(JNIEnv* env,
                                                           int index) {
   return IsNavigationEntrySkippable(index);
 }
+
+base::android::ScopedJavaGlobalRef<jobject>
+NavigationControllerImpl::GetNavigationImplFromId(JNIEnv* env, int64_t id) {
+  auto* navigation_impl = GetNavigationImplFromId(id);
+  return navigation_impl ? navigation_impl->java_navigation() : nullptr;
+}
+
 #endif
 
 void NavigationControllerImpl::WillRedirectRequest(

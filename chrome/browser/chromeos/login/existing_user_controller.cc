@@ -44,7 +44,6 @@
 #include "chrome/browser/chromeos/login/quick_unlock/pin_storage_cryptohome.h"
 #include "chrome/browser/chromeos/login/reauth_stats.h"
 #include "chrome/browser/chromeos/login/screens/encryption_migration_mode.h"
-#include "chrome/browser/chromeos/login/screens/encryption_migration_screen.h"
 #include "chrome/browser/chromeos/login/session/user_session_manager.h"
 #include "chrome/browser/chromeos/login/signin/oauth2_token_initializer.h"
 #include "chrome/browser/chromeos/login/signin_specifics.h"
@@ -76,7 +75,7 @@
 #include "chrome/browser/ui/webui/chromeos/login/l10n_util.h"
 #include "chrome/browser/ui/webui/chromeos/login/tpm_error_screen_handler.h"
 #include "chrome/browser/ui/webui/chromeos/login/update_required_screen_handler.h"
-#include "chrome/browser/ui/webui/management_ui_handler.h"
+#include "chrome/browser/ui/webui/management/management_ui_handler.h"
 #include "chrome/common/channel_info.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
@@ -136,9 +135,6 @@ const char kAutoLaunchNotificationId[] =
     "chrome://managed_guest_session/auto_launch";
 
 const char kAutoLaunchNotifierId[] = "ash.managed_guest_session-auto_launch";
-
-// Auto-launch notification timeout, in milliseconds.
-int kAutoLaunchNotificationDelay = 2500;
 
 // Enum types for Login.PasswordChangeFlow.
 // Don't change the existing values and update LoginPasswordChangeFlow in
@@ -363,66 +359,6 @@ AccountId GetPublicSessionAutoLoginAccountId(
   return EmptyAccountId();
 }
 
-class AutoLaunchNotificationDelegate
-    : public message_center::HandleNotificationClickDelegate {
- public:
-  AutoLaunchNotificationDelegate()
-      : message_center::HandleNotificationClickDelegate(
-            base::BindRepeating([](base::Optional<int> button_index) {
-              DCHECK(button_index);
-              SystemTrayClient::Get()->ShowEnterpriseInfo();
-            })) {
-    PrefService* local_state = g_browser_process->local_state();
-    if (local_state) {
-      pref_change_registrar_.Init(local_state);
-
-      // base::Unretained is safe here because `this` outlives the registrar.
-      pref_change_registrar_.Add(
-          prefs::kManagedGuestSessionAutoLaunchNotificationReduced,
-          base::BindRepeating(&AutoLaunchNotificationDelegate::
-                                  OnAutoLaunchNotificationPrefChanged,
-                              base::Unretained(this)));
-    }
-  }
-
- protected:
-  ~AutoLaunchNotificationDelegate() override {}
-
- private:
-  // Starts auto_login_notification_timer_ if the pref is set to close the
-  // privacy warning notification, and stops it otherwise.
-  void OnAutoLaunchNotificationPrefChanged() {
-    bool is_pref_set = g_browser_process->local_state()->GetBoolean(
-        prefs::kManagedGuestSessionAutoLaunchNotificationReduced);
-    if (is_pref_set) {
-      auto_launch_notification_timer_.reset(new base::OneShotTimer);
-      auto_launch_notification_timer_->Start(
-          FROM_HERE,
-          base::TimeDelta::FromMilliseconds(kAutoLaunchNotificationDelay),
-          base::BindOnce(
-              &AutoLaunchNotificationDelegate::CloseAutoLaunchNotification,
-              weak_factory_.GetWeakPtr()));
-    } else if (auto_launch_notification_timer_ &&
-               auto_launch_notification_timer_->IsRunning()) {
-      auto_launch_notification_timer_->Stop();
-    }
-  }
-
-  void CloseAutoLaunchNotification() {
-    SystemNotificationHelper::GetInstance()->Close(kAutoLaunchNotificationId);
-  }
-
-  // Used for the pref of the ManagedGuestSessionAutoLaunchNotificationReduced
-  // policy.
-  PrefChangeRegistrar pref_change_registrar_;
-
-  // ManagedGuestSessionAutoLaunchNotificationReduced timer.
-  std::unique_ptr<base::OneShotTimer> auto_launch_notification_timer_;
-
-  // Factory of callbacks.
-  base::WeakPtrFactory<AutoLaunchNotificationDelegate> weak_factory_{this};
-};
-
 }  // namespace
 
 // Utility class used to wait for a Public Session policy store load if public
@@ -545,7 +481,7 @@ void ExistingUserController::UpdateLoginDisplay(
     if (user->IsKioskType())
       continue;
     // TODO(xiyuan): Clean user profile whose email is not in allowlist.
-    if (user->GetType() == user_manager::USER_TYPE_SUPERVISED)
+    if (user->GetType() == user_manager::USER_TYPE_SUPERVISED_DEPRECATED)
       continue;
     const bool meets_allowlist_requirements =
         !user->HasGaiaAccount() || user_manager->IsGaiaUserAllowed(*user);
@@ -823,12 +759,6 @@ void ExistingUserController::ContinuePerformLoginWithoutMigration(
   ContinuePerformLogin(auth_mode, user_context_ecryptfs);
 }
 
-void ExistingUserController::RestartLogin(const UserContext& user_context) {
-  is_login_in_progress_ = false;
-  login_performer_.reset();
-  GetLoginDisplay()->ShowSigninUI(user_context.GetAccountId().GetUserEmail());
-}
-
 void ExistingUserController::OnSigninScreenReady() {
   // Used to debug crbug.com/902315. Feel free to remove after that is fixed.
   VLOG(1) << "OnSigninScreenReady";
@@ -936,21 +866,11 @@ void ExistingUserController::ShowKioskAutolaunchScreen() {
 void ExistingUserController::ShowEncryptionMigrationScreen(
     const UserContext& user_context,
     EncryptionMigrationMode migration_mode) {
-  GetLoginDisplayHost()->StartWizard(EncryptionMigrationScreenView::kScreenId);
-
-  EncryptionMigrationScreen* migration_screen =
-      static_cast<EncryptionMigrationScreen*>(
-          WizardController::default_controller()->GetScreen(
-              EncryptionMigrationScreenView::kScreenId));
-  DCHECK(migration_screen);
-  migration_screen->SetUserContext(user_context);
-  migration_screen->SetMode(migration_mode);
-  migration_screen->SetOperationCallbacks(
+  GetLoginDisplayHost()->GetSigninUI()->StartEncryptionMigration(
+      user_context, migration_mode,
       base::BindOnce(&ExistingUserController::ContinuePerformLogin,
-                     weak_factory_.GetWeakPtr(), login_performer_->auth_mode()),
-      base::BindOnce(&ExistingUserController::RestartLogin,
-                     weak_factory_.GetWeakPtr()));
-  migration_screen->SetupInitialView();
+                     weak_factory_.GetWeakPtr(),
+                     login_performer_->auth_mode()));
 }
 
 void ExistingUserController::ShowTPMError() {
@@ -969,13 +889,8 @@ void ExistingUserController::ShowPasswordChangedDialog(
   bool show_invalid_old_password_error =
       login_performer_->password_changed_callback_count() > 1;
 
-  // Note: We allow owner using "full sync" mode which will recreate
-  // cryptohome and deal with owner private key being lost. This also allows
-  // us to recover from a lost owner password/homedir.
-  // TODO(gspencer): We shouldn't have to erase stateful data when
-  // doing this.  See http://crosbug.com/9115 http://crosbug.com/7792
-  GetLoginDisplay()->ShowPasswordChangedDialog(show_invalid_old_password_error,
-                                               user_context.GetAccountId());
+  GetLoginDisplayHost()->GetSigninUI()->ShowPasswordChangedDialog(
+      user_context.GetAccountId(), show_invalid_old_password_error);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1020,6 +935,15 @@ void ExistingUserController::OnAuthFailure(const AuthFailure& failure) {
     ForceOnlineLoginForAccountId(last_login_attempt_account_id_);
     RecordReauthReason(last_login_attempt_account_id_,
                        ReauthReason::MISSING_CRYPTOHOME);
+  } else if (is_known_user &&
+             failure.reason() == AuthFailure::UNRECOVERABLE_CRYPTOHOME) {
+    // TODO(chromium:1140868, dlunev): for now we route unrecoverable the same
+    // way as missing because it is removed under the hood in cryptohomed when
+    // the condition met. We should surface that up and deal with it on the
+    // chromium level, including making the decision user-driven.
+    ForceOnlineLoginForAccountId(last_login_attempt_account_id_);
+    RecordReauthReason(last_login_attempt_account_id_,
+                       ReauthReason::UNRECOVERABLE_CRYPTOHOME);
   } else {
     // Check networking after trying to login in case user is
     // cached locally or the local admin account.
@@ -1162,7 +1086,12 @@ void ExistingUserController::ShowAutoLaunchManagedGuestSessionNotification() {
   const base::string16 message = l10n_util::GetStringFUTF16(
       IDS_ASH_LOGIN_MANAGED_SESSION_MONITORING_FULL_WARNING,
       base::UTF8ToUTF16(connector->GetEnterpriseDomainManager()));
-  auto delegate = base::MakeRefCounted<AutoLaunchNotificationDelegate>();
+  auto delegate =
+      base::MakeRefCounted<message_center::HandleNotificationClickDelegate>(
+          base::BindRepeating([](base::Optional<int> button_index) {
+            DCHECK(button_index);
+            SystemTrayClient::Get()->ShowEnterpriseInfo();
+          }));
   std::unique_ptr<message_center::Notification> notification =
       ash::CreateSystemNotification(
           message_center::NOTIFICATION_TYPE_SIMPLE, kAutoLaunchNotificationId,
@@ -1264,7 +1193,7 @@ void ExistingUserController::ForceOnlineLoginForAccountId(
   // Start online sign-in UI for the user.
   is_login_in_progress_ = false;
   login_performer_.reset();
-  GetLoginDisplay()->ShowSigninUI(account_id.GetUserEmail());
+  GetLoginDisplayHost()->ShowGaiaDialog(account_id);
 }
 
 void ExistingUserController::AllowlistCheckFailed(const std::string& email) {
@@ -1441,7 +1370,7 @@ void ExistingUserController::LoginAsPublicSessionWithPolicyStoreReady(
     // select the first layout from the list and continue login.
     VLOG(2) << "Requesting keyboard layouts for public session";
     GetKeyboardLayoutsForLocale(
-        base::Bind(
+        base::BindOnce(
             &ExistingUserController::SetPublicSessionKeyboardLayoutAndLogin,
             weak_factory_.GetWeakPtr(), new_user_context),
         locale);
@@ -1838,12 +1767,6 @@ void ExistingUserController::ClearActiveDirectoryState() {
   }
   // Clear authpolicyd state so nothing could leak from one user to another.
   AuthPolicyHelper::Restart();
-}
-
-void ExistingUserController::RegisterLocalStatePrefs(
-    PrefRegistrySimple* registry) {
-  registry->RegisterBooleanPref(
-      prefs::kManagedGuestSessionAutoLaunchNotificationReduced, false);
 }
 
 }  // namespace chromeos

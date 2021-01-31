@@ -16,6 +16,7 @@
 #include "ui/aura/window_observer.h"
 #include "ui/compositor/layer_delegate.h"
 #include "ui/compositor/layer_owner.h"
+#include "ui/display/display_observer.h"
 #include "ui/events/event.h"
 #include "ui/events/event_handler.h"
 #include "ui/views/controls/button/button.h"
@@ -30,6 +31,7 @@ namespace ash {
 
 class CaptureModeBarView;
 class CaptureModeController;
+class CaptureModeSettingsView;
 class CaptureWindowObserver;
 class WindowDimmer;
 
@@ -44,7 +46,8 @@ class ASH_EXPORT CaptureModeSession : public ui::LayerOwner,
                                       public ui::LayerDelegate,
                                       public ui::EventHandler,
                                       public TabletModeObserver,
-                                      public aura::WindowObserver {
+                                      public aura::WindowObserver,
+                                      public display::DisplayObserver {
  public:
   // Creates the bar widget on a calculated root window.
   explicit CaptureModeSession(CaptureModeController* controller);
@@ -62,6 +65,9 @@ class ASH_EXPORT CaptureModeSession : public ui::LayerOwner,
   aura::Window* current_root() const { return current_root_; }
   bool is_selecting_region() const { return is_selecting_region_; }
   bool is_drag_in_progress() const { return is_drag_in_progress_; }
+  void set_a11y_alert_on_session_exit(bool value) {
+    a11y_alert_on_session_exit_ = value;
+  }
 
   // Gets the current window selected for |kWindow| capture source. Returns
   // nullptr if no window is available for selection.
@@ -70,6 +76,12 @@ class ASH_EXPORT CaptureModeSession : public ui::LayerOwner,
   // Called when either the capture source or type changes.
   void OnCaptureSourceChanged(CaptureModeSource new_source);
   void OnCaptureTypeChanged(CaptureModeType new_type);
+
+  // Called when the settings menu is toggled.
+  void SetSettingsMenuShown(bool shown);
+
+  // Called when the record microphone setting is toggled.
+  void OnMicrophoneChanged(bool microphone_enabled);
 
   // Called when the user performs a capture. Records histograms related to this
   // session.
@@ -94,6 +106,10 @@ class ASH_EXPORT CaptureModeSession : public ui::LayerOwner,
 
   // aura::WindowObserver:
   void OnWindowDestroying(aura::Window* window) override;
+
+  // display::DisplayObserver:
+  void OnDisplayMetricsChanged(const display::Display& display,
+                               uint32_t metrics) override;
 
  private:
   friend class CaptureModeSessionTestApi;
@@ -125,15 +141,17 @@ class ASH_EXPORT CaptureModeSession : public ui::LayerOwner,
   // Handles updating the select region UI.
   void OnLocatedEventPressed(const gfx::Point& location_in_root,
                              bool is_touch,
-                             bool is_event_on_capture_bar);
+                             bool is_event_on_capture_bar_or_menu);
   void OnLocatedEventDragged(const gfx::Point& location_in_root);
-  void OnLocatedEventReleased(const gfx::Point& location_in_root,
-                              bool is_event_on_capture_bar);
+  void OnLocatedEventReleased(bool is_event_on_capture_bar_or_menu,
+                              bool region_intersects_capture_bar);
 
   // Updates the capture region and the capture region widgets depending on the
-  // value of |is_resizing|.
+  // value of |is_resizing|. |by_user| is true if the capture region is changed
+  // by user.
   void UpdateCaptureRegion(const gfx::Rect& new_capture_region,
-                           bool is_resizing);
+                           bool is_resizing,
+                           bool by_user);
 
   // Updates the dimensions label widget shown during a region capture session.
   // If not |is_resizing|, not a region capture session or the capture region is
@@ -197,6 +215,36 @@ class ASH_EXPORT CaptureModeSession : public ui::LayerOwner,
   // kImage or using custom video capture icon when |type| is kVideo.
   bool IsUsingCustomCursor(CaptureModeType type) const;
 
+  // Updates the capture bar widget with a given opacity. There is a different
+  // animation duration and tween type for mouse/touch release.
+  void UpdateCaptureBarWidgetOpacity(float opacity, bool on_release);
+
+  // Ensure the user region in |controller_| is within the bounds of the root
+  // window. This is called when creating |this| or when the display bounds have
+  // changed.
+  void ClampCaptureRegionToRootWindowSize();
+
+  // Ends a region selection. Cleans up internal state and updates the cursor,
+  // capture bar opacity and magnifier glass.
+  void EndSelection(bool is_event_on_capture_bar_or_menu,
+                    bool region_intersects_capture_bar);
+
+  // Schedules a paint on the region and enough inset around it so that the
+  // shadow, affordance circles, etc. are all repainted.
+  void RepaintRegion();
+
+  // Selects a default region that is centered and whose size is a ratio of the
+  // root window bounds. Called when the space key is pressed.
+  void SelectDefaultRegion();
+
+  // Updates the region either horizontally or vertically. Called when the arrow
+  // keys are pressed.
+  void UpdateRegionHorizontally(bool left, bool is_shift_down);
+  void UpdateRegionVertically(bool up, bool is_shift_down);
+
+  // Returns true if the event is on a visible settings menu.
+  bool IsEventOnSettingsWidget(const gfx::Point& location_in_screen);
+
   CaptureModeController* const controller_;
 
   // The current root window on which the capture session is active, which may
@@ -208,6 +256,11 @@ class ASH_EXPORT CaptureModeSession : public ui::LayerOwner,
 
   // The content view of the above widget and owned by its views hierarchy.
   CaptureModeBarView* capture_mode_bar_view_ = nullptr;
+
+  views::UniqueWidgetPtr capture_mode_settings_widget_;
+
+  // The content view of the above widget and owned by its views hierarchy.
+  CaptureModeSettingsView* capture_mode_settings_view_ = nullptr;
 
   // Widget which displays capture region size during a region capture session.
   views::UniqueWidgetPtr dimensions_label_widget_;
@@ -266,6 +319,17 @@ class ASH_EXPORT CaptureModeSession : public ui::LayerOwner,
   // True if at any point during the lifetime of |this|, the capture source
   // changed. Used for metrics collection.
   bool capture_source_changed_ = false;
+
+  // The current focused fine tune position. This changes as user tabs while a
+  // in capture region mode.
+  FineTunePosition focused_fine_tune_position_ = FineTunePosition::kNone;
+
+  // The window which had input capture prior to entering the session. It may be
+  // null if no such window existed.
+  aura::Window* input_capture_window_ = nullptr;
+
+  // False only when we end the session to start recording.
+  bool a11y_alert_on_session_exit_ = true;
 };
 
 }  // namespace ash

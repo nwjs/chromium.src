@@ -147,7 +147,6 @@ Page* ChromeClient::CreateWindow(
     const AtomicString& frame_name,
     const WebWindowFeatures& features,
     network::mojom::blink::WebSandboxFlags sandbox_flags,
-    const FeaturePolicyFeatureState& opener_feature_state,
     const SessionStorageNamespaceId& session_storage_namespace_id,
     bool& consumed_user_gesture, WebString* manifest) {
 #if 0
@@ -157,9 +156,9 @@ Page* ChromeClient::CreateWindow(
   }
 #endif
 
-  return CreateWindowDelegate(
-      frame, r, frame_name, features, sandbox_flags, opener_feature_state,
-      session_storage_namespace_id, consumed_user_gesture, manifest);
+  return CreateWindowDelegate(frame, r, frame_name, features, sandbox_flags,
+                              session_storage_namespace_id,
+                              consumed_user_gesture, manifest);
 }
 
 template <typename Delegate>

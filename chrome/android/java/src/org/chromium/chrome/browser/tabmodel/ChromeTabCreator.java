@@ -240,7 +240,7 @@ public class ChromeTabCreator extends TabCreator {
 
     @Override
     public boolean createTabWithWebContents(
-            @Nullable Tab parent, WebContents webContents, @TabLaunchType int type, String url) {
+            @Nullable Tab parent, WebContents webContents, @TabLaunchType int type, GURL url) {
         // The parent tab was already closed.  Do not open child tabs.
         int parentId = parent != null ? parent.getId() : Tab.INVALID_TAB_ID;
         if (mTabModel.isClosurePending(parentId)) return false;
@@ -399,10 +399,13 @@ public class ChromeTabCreator extends TabCreator {
                             mActivity.getCompositorViewHolder(), mActivity.getWindowAndroid(),
                             createDefaultTabDelegateFactory()),
                     params.getFinalizeCallback());
-            // TODO(crbug.com/1108562): This is a temporary fix for RBS issue crbug.com/1105810,
+            // TODO(crbug.com/1108562): Photos/videos viewed in custom tabs aren't displayed
+            // properly after reparenting. This is a temporary fix for RBS issue crbug.com/1105810,
             // investigate and fix the root cause.
             if (tab.getUrl().getScheme().equals(UrlConstants.FILE_SCHEME)) {
                 tab.reloadIgnoringCache();
+            } else if (tab.needsReload()) {
+                tab.reload();
             }
         }
         if (tab == null) {
@@ -440,8 +443,11 @@ public class ChromeTabCreator extends TabCreator {
             case TabLaunchType.FROM_START_SURFACE:
                 transition = originalTransitionType;
                 break;
+            case TabLaunchType.FROM_RESTORE:
+            case TabLaunchType.FROM_LINK:
             case TabLaunchType.FROM_EXTERNAL_APP:
             case TabLaunchType.FROM_BROWSER_ACTIONS:
+                // FROM_API ensures intent handling isn't used.
                 transition = PageTransition.LINK | PageTransition.FROM_API;
                 break;
             case TabLaunchType.FROM_CHROME_UI:
@@ -450,9 +456,7 @@ public class ChromeTabCreator extends TabCreator {
             case TabLaunchType.FROM_LAUNCH_NEW_INCOGNITO_TAB:
                 transition = PageTransition.AUTO_TOPLEVEL;
                 break;
-            case TabLaunchType.FROM_LINK:
             case TabLaunchType.FROM_LONGPRESS_FOREGROUND:
-            case TabLaunchType.FROM_RESTORE:
                 transition = PageTransition.LINK;
                 break;
             case TabLaunchType.FROM_LONGPRESS_BACKGROUND:

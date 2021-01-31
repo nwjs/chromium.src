@@ -40,10 +40,10 @@ class WebContents;
 }  // namespace content
 
 namespace sessions {
+class CommandStorageManager;
 class SessionCommand;
 struct SessionTab;
 struct SessionWindow;
-class SnapshottingCommandStorageManager;
 }  // namespace sessions
 
 // SessionService ------------------------------------------------------------
@@ -199,6 +199,7 @@ class SessionService : public sessions::CommandStorageManagerDelegate,
   // CommandStorageManagerDelegate:
   bool ShouldUseDelayedSave() override;
   void OnWillSaveCommands() override;
+  void OnErrorWritingSessionCommands() override;
 
   // sessions::SessionTabHelperDelegate:
   void SetTabUserAgentOverride(const SessionID& window_id,
@@ -226,6 +227,7 @@ class SessionService : public sessions::CommandStorageManagerDelegate,
   FRIEND_TEST_ALL_PREFIXES(SessionServiceTest, RestoreActivation2);
   FRIEND_TEST_ALL_PREFIXES(SessionServiceTest, RemoveUnusedRestoreWindowsTest);
   FRIEND_TEST_ALL_PREFIXES(SessionServiceTest, Workspace);
+  FRIEND_TEST_ALL_PREFIXES(SessionServiceTest, WorkspaceSavedOnOpened);
   FRIEND_TEST_ALL_PREFIXES(NoStartupWindowTest, DontInitSessionServiceForApps);
 
   typedef std::map<SessionID, std::pair<int, int>> IdToRange;
@@ -337,8 +339,7 @@ class SessionService : public sessions::CommandStorageManagerDelegate,
   // (which should only be used for testing).
   bool should_use_delayed_save_;
 
-  std::unique_ptr<sessions::SnapshottingCommandStorageManager>
-      command_storage_manager_;
+  std::unique_ptr<sessions::CommandStorageManager> command_storage_manager_;
 
   // Maps from session tab id to the range of navigation entries that has
   // been written to disk.

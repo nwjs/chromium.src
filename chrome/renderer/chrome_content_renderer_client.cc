@@ -24,6 +24,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "base/values.h"
+#include "build/chromeos_buildflags.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/channel_info.h"
 #include "chrome/common/chrome_content_client.h"
@@ -59,7 +60,8 @@
 #include "chrome/renderer/plugins/pdf_plugin_placeholder.h"
 #include "chrome/renderer/plugins/plugin_uma.h"
 #include "chrome/renderer/previews/resource_loading_hints_agent.h"
-#include "chrome/renderer/subresource_redirect/subresource_redirect_hints_agent.h"
+#include "chrome/renderer/subresource_redirect/login_robots_decider_agent.h"
+#include "chrome/renderer/subresource_redirect/public_image_hints_decider_agent.h"
 #include "chrome/renderer/subresource_redirect/subresource_redirect_params.h"
 #include "chrome/renderer/sync_encryption_keys_extension.h"
 #include "chrome/renderer/url_loader_throttle_provider_impl.h"
@@ -85,12 +87,11 @@
 #include "components/error_page/common/localized_error.h"
 #include "components/grit/components_scaled_resources.h"
 #include "components/network_hints/renderer/web_prescient_networking_impl.h"
-#include "components/no_state_prefetch/common/prerender_types.mojom.h"
 #include "components/no_state_prefetch/common/prerender_url_loader_throttle.h"
-#include "components/no_state_prefetch/renderer/prerender_helper.h"
+#include "components/no_state_prefetch/renderer/no_state_prefetch_client.h"
+#include "components/no_state_prefetch/renderer/no_state_prefetch_helper.h"
 #include "components/no_state_prefetch/renderer/prerender_render_frame_observer.h"
 #include "components/no_state_prefetch/renderer/prerender_utils.h"
-#include "components/no_state_prefetch/renderer/prerenderer_client.h"
 #include "components/page_load_metrics/renderer/metrics_render_frame_observer.h"
 #include "components/paint_preview/buildflags/buildflags.h"
 #include "components/pdf/renderer/pepper_pdf_host.h"
@@ -100,6 +101,7 @@
 #include "components/subresource_filter/content/renderer/subresource_filter_agent.h"
 #include "components/subresource_filter/content/renderer/unverified_ruleset_dealer.h"
 #include "components/subresource_filter/core/common/common_features.h"
+#include "components/subresource_redirect/common/subresource_redirect_features.h"
 #include "components/sync/engine/sync_engine_switches.h"
 #include "components/translate/content/renderer/per_frame_translate_agent.h"
 #include "components/translate/core/common/translate_util.h"
@@ -112,7 +114,6 @@
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/page_visibility_state.h"
-#include "content/public/common/service_names.mojom.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/common/webplugininfo.h"
 #include "content/public/renderer/render_frame.h"
@@ -127,7 +128,6 @@
 #include "mojo/public/cpp/bindings/remote.h"
 #include "net/base/net_errors.h"
 #include "ppapi/buildflags/buildflags.h"
-#include "ppapi/shared_impl/ppapi_switches.h"
 #include "printing/buildflags/buildflags.h"
 #include "services/network/public/cpp/is_potentially_trustworthy.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
@@ -195,6 +195,7 @@
 #if BUILDFLAG(ENABLE_PLUGINS)
 #include "chrome/common/plugin_utils.h"
 #include "chrome/renderer/plugins/chrome_plugin_placeholder.h"
+#include "ppapi/shared_impl/ppapi_switches.h"  // nogncheck crbug.com/1125897
 #else
 #include "components/plugins/renderer/plugin_placeholder.h"
 #endif
@@ -453,18 +454,19 @@ void ChromeContentRendererClient::RenderThreadStarted() {
         WebString::FromASCII(scheme));
   }
 
-  // This doesn't work in single-process mode.
   if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kSingleProcess)) {
+    // This doesn't work in single-process mode.
     ThreadProfiler::SetMainThreadTaskRunner(
         base::ThreadTaskRunnerHandle::Get());
     mojo::PendingRemote<metrics::mojom::CallStackProfileCollector> collector;
     thread->BindHostReceiver(collector.InitWithNewPipeAndPassReceiver());
     ThreadProfiler::SetCollectorForChildProcess(std::move(collector));
-  }
 
-  blink::IdentifiabilityStudySettings::SetGlobalProvider(
-      std::make_unique<PrivacyBudgetSettingsProvider>());
+    // This is superfluous in single-process mode and triggers a DCHECK
+    blink::IdentifiabilityStudySettings::SetGlobalProvider(
+        std::make_unique<PrivacyBudgetSettingsProvider>());
+  }
 }
 
 void ChromeContentRendererClient::ExposeInterfacesToBrowser(
@@ -545,14 +547,15 @@ void ChromeContentRendererClient::RenderFrameCreated(
 #endif
 
   if (!render_frame->IsMainFrame()) {
-    auto* prerender_helper = prerender::PrerenderHelper::Get(
-        render_frame->GetRenderView()->GetMainRenderFrame());
-    if (prerender_helper) {
+    auto* main_frame_no_state_prefetch_helper =
+        prerender::NoStatePrefetchHelper::Get(
+            render_frame->GetRenderView()->GetMainRenderFrame());
+    if (main_frame_no_state_prefetch_helper) {
       // Avoid any race conditions from having the browser tell subframes that
-      // they're prerendering.
-      new prerender::PrerenderHelper(render_frame,
-                                     prerender_helper->prerender_mode(),
-                                     prerender_helper->histogram_prefix());
+      // they're no-state prefetching.
+      new prerender::NoStatePrefetchHelper(
+          render_frame,
+          main_frame_no_state_prefetch_helper->histogram_prefix());
     }
   }
 
@@ -607,9 +610,11 @@ void ChromeContentRendererClient::RenderFrameCreated(
         std::make_unique<subresource_filter::AdResourceTracker>();
     metrics_render_frame_observer->SetAdResourceTracker(
         ad_resource_tracker.get());
-    new subresource_filter::SubresourceFilterAgent(
-        render_frame, subresource_filter_ruleset_dealer_.get(),
-        std::move(ad_resource_tracker));
+    auto* subresource_filter_agent =
+        new subresource_filter::SubresourceFilterAgent(
+            render_frame, subresource_filter_ruleset_dealer_.get(),
+            std::move(ad_resource_tracker));
+    subresource_filter_agent->Initialize();
   }
 
   if (lite_video::IsLiteVideoEnabled())
@@ -617,8 +622,14 @@ void ChromeContentRendererClient::RenderFrameCreated(
 
   new previews::ResourceLoadingHintsAgent(associated_interfaces, render_frame);
 
-  if (subresource_redirect::IsPublicImageHintsBasedCompressionEnabled())
-    new subresource_redirect::SubresourceRedirectHintsAgent(render_frame);
+  if (subresource_redirect::ShouldEnablePublicImageHintsBasedCompression()) {
+    new subresource_redirect::PublicImageHintsDeciderAgent(
+        associated_interfaces, render_frame);
+  } else if (subresource_redirect::
+                 ShouldEnableLoginRobotsCheckedCompression()) {
+    new subresource_redirect::LoginRobotsDeciderAgent(associated_interfaces,
+                                                      render_frame);
+  }
 
 #if 0
   if (translate::IsSubFrameTranslationEnabled()) {
@@ -647,7 +658,7 @@ void ChromeContentRendererClient::RenderFrameCreated(
 
 void ChromeContentRendererClient::RenderViewCreated(
     content::RenderView* render_view) {
-  new prerender::PrerendererClient(render_view);
+  new prerender::NoStatePrefetchClient(render_view);
 }
 
 SkBitmap* ChromeContentRendererClient::GetSadPluginBitmap() {
@@ -818,6 +829,16 @@ WebPlugin* ChromeContentRendererClient::CreatePlugin(
           render_frame, original_params);
     }
   } else {
+    // Flash is deprecated in M87 and removed in M88+. If a plugin uses flash,
+    // its status will be |PluginStatus::kNotFound|. If for some reason the
+    // status is different, we should not treat it as JavaScript plugin but
+    // return a deprecated message.
+    if (!ShouldUseJavaScriptSettingForPlugin(info)) {
+      return NonLoadablePluginPlaceholder::CreateFlashDeprecatedPlaceholder(
+                 render_frame, original_params)
+          ->plugin();
+    }
+
     // TODO(bauerb): This should be in content/.
     WebPluginParams params(original_params);
     for (const auto& mime_type : info.mime_types) {
@@ -840,10 +861,7 @@ WebPlugin* ChromeContentRendererClient::CreatePlugin(
     auto* content_settings_agent_delegate =
         ChromeContentSettingsAgentDelegate::Get(render_frame);
 
-    const ContentSettingsType content_type =
-        ShouldUseJavaScriptSettingForPlugin(info)
-            ? ContentSettingsType::JAVASCRIPT
-            : ContentSettingsType::PLUGINS;
+    const ContentSettingsType content_type = ContentSettingsType::JAVASCRIPT;
 
     if ((status == chrome::mojom::PluginStatus::kUnauthorized ||
          status == chrome::mojom::PluginStatus::kBlocked) &&
@@ -922,7 +940,7 @@ WebPlugin* ChromeContentRendererClient::CreatePlugin(
                 blink::mojom::ConsoleMessageLevel::kError, error_message));
             placeholder = create_blocked_plugin(
                 IDR_BLOCKED_PLUGIN_HTML,
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
                 l10n_util::GetStringUTF16(IDS_NACL_PLUGIN_BLOCKED));
 #else
                 l10n_util::GetStringFUTF16(IDS_PLUGIN_BLOCKED, group_name));
@@ -958,19 +976,19 @@ WebPlugin* ChromeContentRendererClient::CreatePlugin(
                   : PDFLoadStatus::kLoadedEmbeddedPdfWithPdfium);
         }
 
-        // Delay loading plugins if prerendering.
-        // TODO(mmenke):  In the case of prerendering, feed into
+        // Delay loading plugins if no-state prefetching.
+        // TODO(mmenke):  In the case of NoStatePrefetch, feed into
         //                ChromeContentRendererClient::CreatePlugin instead, to
         //                reduce the chance of future regressions.
-        bool is_prerendering =
-            prerender::PrerenderHelper::IsPrerendering(render_frame);
+        bool is_no_state_prefetching =
+            prerender::NoStatePrefetchHelper::IsPrefetching(render_frame);
 
-        if (is_prerendering) {
+        if (is_no_state_prefetching) {
           placeholder = ChromePluginPlaceholder::CreateBlockedPlugin(
               render_frame, params, info, identifier, group_name,
               IDR_BLOCKED_PLUGIN_HTML,
               l10n_util::GetStringFUTF16(IDS_PLUGIN_BLOCKED, group_name));
-          placeholder->set_blocked_for_prerendering(is_prerendering);
+          placeholder->set_blocked_for_prerendering(is_no_state_prefetching);
           placeholder->AllowLoading();
           break;
         }
@@ -1287,14 +1305,12 @@ void ChromeContentRendererClient::WillSendRequest(
     const blink::WebURL& url,
     const net::SiteForCookies& site_for_cookies,
     const url::Origin* initiator_origin,
-    GURL* new_url,
-    bool* force_ignore_site_for_cookies) {
-// Check whether the request should be allowed. If not allowed, we reset the
-// URL to something invalid to prevent the request and cause an error.
+    GURL* new_url) {
 #if BUILDFLAG(ENABLE_EXTENSIONS)
+  // Check whether the request should be allowed. If not allowed, we reset the
+  // URL to something invalid to prevent the request and cause an error.
   ChromeExtensionsRendererClient::GetInstance()->WillSendRequest(
-      frame, transition_type, url, site_for_cookies, initiator_origin, new_url,
-      force_ignore_site_for_cookies);
+      frame, transition_type, url, site_for_cookies, initiator_origin, new_url);
   if (!new_url->is_empty())
     return;
 #endif
@@ -1315,10 +1331,8 @@ void ChromeContentRendererClient::WillSendRequest(
 }
 
 bool ChromeContentRendererClient::IsPrefetchOnly(
-    content::RenderFrame* render_frame,
-    const blink::WebURLRequest& request) {
-  return prerender::PrerenderHelper::GetPrerenderMode(render_frame) ==
-         prerender::mojom::PrerenderMode::kPrefetchOnly;
+    content::RenderFrame* render_frame) {
+  return prerender::NoStatePrefetchHelper::IsPrefetching(render_frame);
 }
 
 uint64_t ChromeContentRendererClient::VisitedLinkHash(const char* canonical_url,
@@ -1348,7 +1362,26 @@ bool ChromeContentRendererClient::IsExternalPepperPlugin(
 
 bool ChromeContentRendererClient::IsOriginIsolatedPepperPlugin(
     const base::FilePath& plugin_path) {
-  return plugin_path.value() == ChromeContentClient::kPDFPluginPath;
+  // Hosting plugins in-process is inherently incompatible with attempting to
+  // process-isolate plugins from different origins.
+  auto* cmdline = base::CommandLine::ForCurrentProcess();
+  if (cmdline->HasSwitch(switches::kPpapiInProcess)) {
+    // The kPpapiInProcess switch should only be used by tests.  In particular,
+    // we expect that the PDF plugin should always be isolated in the product
+    // (and that the switch won't interfere with PDF isolation).
+    CHECK_NE(ChromeContentClient::kPDFPluginPath, plugin_path.value());
+
+    return false;
+  }
+
+#if BUILDFLAG(ENABLE_NACL)
+  // Don't isolate the NaCl plugin (preserving legacy behavior).
+  if (plugin_path.value() == ChromeContentClient::kNaClPluginFileName)
+    return false;
+#endif
+
+  // Isolate all the other plugins (including the PDF plugin + test plugins).
+  return true;
 }
 
 #if BUILDFLAG(ENABLE_PLUGINS) && BUILDFLAG(ENABLE_EXTENSIONS)
@@ -1485,10 +1518,11 @@ void ChromeContentRendererClient::
   // Web Share is conditionally enabled here in chrome/, to avoid it being
   // made available in other clients of content/ that do not have a Web Share
   // Mojo implementation (e.g. WebView).  Web Share is shipped on Android.
-#if defined(OS_CHROMEOS) || defined(OS_WIN)
+#if BUILDFLAG(IS_CHROMEOS_ASH) || defined(OS_WIN) || defined(OS_MAC)
   if (base::FeatureList::IsEnabled(features::kWebShare))
 #endif
-#if defined(OS_CHROMEOS) || defined(OS_WIN) || defined(OS_ANDROID)
+#if BUILDFLAG(IS_CHROMEOS_ASH) || defined(OS_WIN) || defined(OS_MAC) || \
+    defined(OS_ANDROID)
     blink::WebRuntimeFeatures::EnableWebShare(true);
 #endif
 
@@ -1609,8 +1643,9 @@ bool ChromeContentRendererClient::IsSafeRedirectTarget(const GURL& url) {
         extensions::RendererExtensionRegistry::Get()->GetByID(url.host());
     if (!extension)
       return false;
+    // TODO(solomonkinard): Use initiator_origin and add tests.
     return extensions::WebAccessibleResourcesInfo::IsResourceWebAccessible(
-        extension, url.path());
+        extension, url.path(), base::Optional<url::Origin>());
   }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
   return true;
@@ -1635,15 +1670,13 @@ bool ChromeContentRendererClient::RequiresHtmlImports(const GURL& url) {
            // TODO(crbug.com/1110954): Remove when migrated away from HTML
            // imports.
            host_piece == chrome::kChromeUIBluetoothInternalsHost ||
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
            // TODO(crbug.com/1111430): Remove when migrated to Polymer3.
            host_piece == chrome::kChromeUIAccountManagerErrorHost ||
            host_piece == chrome::kChromeUIAccountManagerWelcomeHost ||
            host_piece == chrome::kChromeUIAccountMigrationWelcomeHost ||
            // TODO(crbug.com/1111430): Remove when migrated to Polymer3.
            host_piece == chrome::kChromeUIAddSupervisionHost ||
-           // TODO(crbug.com/1111849): Remove when migrated to Polymer3.
-           host_piece == chrome::kChromeUIAssistantOptInHost ||
            // TODO(crbug.com/1111477): Remove when migrated to Polymer3.
            host_piece == chrome::kChromeUICellularSetupHost ||
            // TODO(crbug.com/1090884): Remove when migrated to Polymer3.
@@ -1654,9 +1687,6 @@ bool ChromeContentRendererClient::RequiresHtmlImports(const GURL& url) {
            host_piece == chrome::kChromeUIMultiDeviceSetupHost ||
            // TODO(crbug.com/1111852): Remove when migrated to Polymer3.
            host_piece == chrome::kChromeUINetworkHost ||
-           // TODO(crbug.com/1111387): Remove when migrated away from HTML
-           // Imports.
-           host_piece == chrome::kChromeUIOobeHost ||
            // TODO(crbug.com/1045266): Remove when migrated to Polymer3.
            host_piece == chrome::kChromeUIOSSettingsHost ||
            // TODO(crbug.com/1022192): Remove when migrated to Polymer3.

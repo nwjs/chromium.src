@@ -134,6 +134,18 @@ gfx::Rect ScaleBoundsToPixelSnappedToParent(
   return gfx::Rect(new_x, new_y, new_right - new_x, new_bottom - new_y);
 }
 
+void ScaleSkRegion(const SkRegion& src, float scale, SkRegion* dst) {
+  SkRegion::Iterator iter(src);
+  for (; !iter.done(); iter.next()) {
+    SkIRect r;
+    r.fLeft = base::ClampFloor(iter.rect().fLeft * scale);
+    r.fTop = base::ClampFloor(iter.rect().fTop * scale);
+    r.fRight = base::ClampCeil(iter.rect().fRight * scale);
+    r.fBottom = base::ClampCeil(iter.rect().fBottom * scale);
+    dst->op(r, SkRegion::kUnion_Op);
+  }
+}
+
 ash::ShelfLayoutManager* GetShelfLayoutManagerForDisplay(
     const display::Display& display) {
   auto* root = ash::Shell::GetRootWindowForDisplayId(display.id());
@@ -608,16 +620,19 @@ void remote_surface_unset_pip_original_window(wl_client* client,
 void remote_surface_set_system_gesture_exclusion(wl_client* client,
                                                  wl_resource* resource,
                                                  wl_resource* region_resource) {
-  auto* widget = GetUserDataAs<ShellSurfaceBase>(resource)->GetWidget();
+  auto* shell_surface = GetUserDataAs<ClientControlledShellSurface>(resource);
+  auto* widget = shell_surface->GetWidget();
   if (!widget) {
     LOG(ERROR) << "no widget found for setting system gesture exclusion";
     return;
   }
 
   if (region_resource) {
-    widget->GetNativeWindow()->SetProperty(
-        ash::kSystemGestureExclusionKey,
-        new SkRegion(*GetUserDataAs<SkRegion>(region_resource)));
+    SkRegion* dst = new SkRegion;
+    ScaleSkRegion(*GetUserDataAs<SkRegion>(region_resource),
+                  shell_surface->GetClientToDpScale(), dst);
+    widget->GetNativeWindow()->SetProperty(ash::kSystemGestureExclusionKey,
+                                           dst);
   } else {
     widget->GetNativeWindow()->ClearProperty(ash::kSystemGestureExclusionKey);
   }
@@ -909,6 +924,7 @@ class WaylandRemoteShell : public ash::TabletModeObserver,
 
   void SetUseDefaultScaleCancellation(bool use_default_scale) {
     use_default_scale_cancellation_ = use_default_scale;
+    WMHelper::GetInstance()->SetDefaultScaleCancellation(use_default_scale);
   }
 
   // TODO(mukai, oshima): rewrite this through delegate-style instead of
@@ -1130,6 +1146,21 @@ class WaylandRemoteShell : public ash::TabletModeObserver,
     if (lost_active_surface_resource &&
         wl_resource_get_client(lost_active_surface_resource) != client) {
       lost_active_surface_resource = nullptr;
+    }
+
+    if (wl_resource_get_version(remote_shell_resource_) >=
+        ZCR_REMOTE_SHELL_V1_DESKTOP_FOCUS_STATE_CHANGED_SINCE_VERSION) {
+      uint32_t focus_state;
+      if (gained_active_surface_resource) {
+        focus_state = ZCR_REMOTE_SHELL_V1_DESKTOP_FOCUS_STATE_CLIENT_FOCUSED;
+      } else if (gained_active) {
+        focus_state =
+            ZCR_REMOTE_SHELL_V1_DESKTOP_FOCUS_STATE_OTHER_CLIENT_FOCUSED;
+      } else {
+        focus_state = ZCR_REMOTE_SHELL_V1_DESKTOP_FOCUS_STATE_NO_FOCUS;
+      }
+      zcr_remote_shell_v1_send_desktop_focus_state_changed(
+          remote_shell_resource_, focus_state);
     }
 
     zcr_remote_shell_v1_send_activated(remote_shell_resource_,

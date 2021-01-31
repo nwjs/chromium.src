@@ -122,12 +122,12 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   };
 
   // Behavior when escape is pressed during a move loop.
-  enum MoveLoopEscapeBehavior {
+  enum class MoveLoopEscapeBehavior {
     // Indicates the window should be hidden.
-    MOVE_LOOP_ESCAPE_BEHAVIOR_HIDE,
+    kHide,
 
     // Indicates the window should not be hidden.
-    MOVE_LOOP_ESCAPE_BEHAVIOR_DONT_HIDE,
+    kDontHide,
   };
 
   // Type of visibility change transition that should animate.
@@ -935,8 +935,7 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
 
   // Registers |callback| to be called whenever the "paint as active" state
   // changes.
-  std::unique_ptr<PaintAsActiveCallbackList::Subscription>
-  RegisterPaintAsActiveChangedCallback(
+  base::CallbackListSubscription RegisterPaintAsActiveChangedCallback(
       PaintAsActiveCallbackList::CallbackType callback);
 
   // Prevents the widget from being rendered as inactive during the lifetime of

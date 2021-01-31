@@ -2323,7 +2323,8 @@ ExtensionFunction::ResponseAction TabsDetectLanguageFunction::Run() {
   // Observe the WebContents' lifetime and navigations.
   Observe(contents);
   // Wait until the language is determined.
-  chrome_translate_client->translate_driver()->AddObserver(this);
+  chrome_translate_client->GetTranslateDriver()->AddLanguageDetectionObserver(
+      this);
   is_observing_ = true;
 
   return RespondLater();
@@ -2354,8 +2355,8 @@ void TabsDetectLanguageFunction::RespondWithLanguage(
   if (is_observing_) {
 #if 0
     ChromeTranslateClient::FromWebContents(web_contents())
-        ->translate_driver()
-        ->RemoveObserver(this);
+        ->GetTranslateDriver()
+        ->RemoveLanguageDetectionObserver(this);
 #endif
     Observe(nullptr);
   }

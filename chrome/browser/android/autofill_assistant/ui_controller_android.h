@@ -97,7 +97,7 @@ class UiControllerAndroid : public ControllerObserver {
       const CollectUserDataOptions* collect_user_data_options) override;
   void OnUserDataChanged(const UserData* state,
                          UserData::FieldChange field_change) override;
-  void OnDetailsChanged(const Details* details) override;
+  void OnDetailsChanged(const std::vector<Details>& details) override;
   void OnInfoBoxChanged(const InfoBox* info_box) override;
   void OnProgressChanged(int progress) override;
   void OnProgressActiveStepChanged(int active_step) override;
@@ -194,6 +194,10 @@ class UiControllerAndroid : public ControllerObserver {
   void OnCloseButtonClicked(
       JNIEnv* env,
       const base::android::JavaParamRef<jobject>& jcaller);
+  void OnFeedbackButtonClicked(
+      JNIEnv* env,
+      const base::android::JavaParamRef<jobject>& jcaller,
+      jint actionIndex);
   void OnKeyboardVisibilityChanged(
       JNIEnv* env,
       const base::android::JavaParamRef<jobject>& jcaller,

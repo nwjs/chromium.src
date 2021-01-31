@@ -6,18 +6,24 @@
 
 #include "ash/capture_mode/capture_mode_bar_view.h"
 #include "ash/capture_mode/capture_mode_button.h"
+#include "ash/capture_mode/capture_mode_constants.h"
 #include "ash/capture_mode/capture_mode_controller.h"
 #include "ash/capture_mode/capture_mode_metrics.h"
 #include "ash/capture_mode/capture_mode_session.h"
+#include "ash/capture_mode/capture_mode_settings_entry_view.h"
+#include "ash/capture_mode/capture_mode_settings_view.h"
 #include "ash/capture_mode/capture_mode_source_view.h"
 #include "ash/capture_mode/capture_mode_toggle_button.h"
 #include "ash/capture_mode/capture_mode_type_view.h"
 #include "ash/capture_mode/capture_mode_types.h"
 #include "ash/capture_mode/capture_mode_util.h"
 #include "ash/capture_mode/stop_recording_button_tray.h"
+#include "ash/capture_mode/test_capture_mode_delegate.h"
 #include "ash/display/cursor_window_controller.h"
 #include "ash/display/output_protection_delegate.h"
+#include "ash/display/screen_orientation_controller_test_api.h"
 #include "ash/display/window_tree_host_manager.h"
+#include "ash/home_screen/home_screen_controller.h"
 #include "ash/magnifier/magnifier_glass.h"
 #include "ash/public/cpp/ash_features.h"
 #include "ash/public/cpp/capture_mode_test_api.h"
@@ -46,6 +52,10 @@
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/vector2d.h"
+#include "ui/message_center/message_center.h"
+#include "ui/message_center/message_center_observer.h"
+#include "ui/message_center/public/cpp/notification.h"
+#include "ui/message_center/public/cpp/notification_delegate.h"
 #include "ui/views/view.h"
 #include "ui/views/widget/widget_observer.h"
 
@@ -55,6 +65,7 @@ namespace {
 
 constexpr char kEndRecordingReasonInClamshellHistogramName[] =
     "Ash.CaptureModeController.EndRecordingReason.ClamshellMode";
+constexpr char kScreenCaptureNotificationId[] = "capture_mode_notification";
 
 // Returns true if the software-composited cursor is enabled.
 bool IsCursorCompositingEnabled() {
@@ -75,9 +86,27 @@ void ClickOnView(const views::View* view,
 }
 
 void SendKey(ui::KeyboardCode key_code,
-             ui::test::EventGenerator* event_generator) {
-  event_generator->PressKey(key_code, /*flags=*/0);
-  event_generator->ReleaseKey(key_code, /*flags=*/0);
+             ui::test::EventGenerator* event_generator,
+             bool shift_down = false) {
+  int flags = shift_down ? ui::EF_SHIFT_DOWN : 0;
+  event_generator->PressKey(key_code, flags);
+  event_generator->ReleaseKey(key_code, flags);
+}
+
+const message_center::Notification* GetPreviewNotification() {
+  const message_center::NotificationList::Notifications notifications =
+      message_center::MessageCenter::Get()->GetVisibleNotifications();
+  for (const auto* notification : notifications) {
+    if (notification->id() == kScreenCaptureNotificationId)
+      return notification;
+  }
+  return nullptr;
+}
+
+void ClickNotification(base::Optional<int> button_index) {
+  const message_center::Notification* notification = GetPreviewNotification();
+  DCHECK(notification);
+  notification->delegate()->Click(button_index, base::nullopt);
 }
 
 // Moves the mouse and updates the cursor's display manually to imitate what a
@@ -108,6 +137,14 @@ class CaptureModeSessionTestApi {
 
   views::Widget* capture_mode_bar_widget() const {
     return session_->capture_mode_bar_widget_.get();
+  }
+
+  CaptureModeSettingsView* capture_mode_settings_view() const {
+    return session_->capture_mode_settings_view_;
+  }
+
+  views::Widget* capture_mode_settings_widget() const {
+    return session_->capture_mode_settings_widget_.get();
   }
 
   views::Widget* capture_label_widget() const {
@@ -157,6 +194,18 @@ class CaptureModeTest : public AshTestBase {
     return CaptureModeSessionTestApi(session).capture_mode_bar_widget();
   }
 
+  CaptureModeSettingsView* GetCaptureModeSettingsView() const {
+    auto* session = CaptureModeController::Get()->capture_mode_session();
+    DCHECK(session);
+    return CaptureModeSessionTestApi(session).capture_mode_settings_view();
+  }
+
+  views::Widget* GetCaptureModeSettingsWidget() const {
+    auto* session = CaptureModeController::Get()->capture_mode_session();
+    DCHECK(session);
+    return CaptureModeSessionTestApi(session).capture_mode_settings_widget();
+  }
+
   CaptureModeToggleButton* GetImageToggleButton() const {
     auto* controller = CaptureModeController::Get();
     DCHECK(controller->IsActive());
@@ -193,16 +242,25 @@ class CaptureModeTest : public AshTestBase {
         ->window_toggle_button();
   }
 
-  CaptureModeButton* GetFeedbackButton() const {
+  CaptureModeToggleButton* GetSettingsButton() const {
     auto* controller = CaptureModeController::Get();
     DCHECK(controller->IsActive());
-    return GetCaptureModeBarView()->feedback_button_for_testing();
+    return GetCaptureModeBarView()->settings_button();
   }
 
   CaptureModeButton* GetCloseButton() const {
     auto* controller = CaptureModeController::Get();
     DCHECK(controller->IsActive());
     return GetCaptureModeBarView()->close_button_for_testing();
+  }
+
+  views::ToggleButton* GetMicrophoneToggle() const {
+    auto* controller = CaptureModeController::Get();
+    DCHECK(controller->IsActive());
+    DCHECK(GetCaptureModeSettingsView());
+    return GetCaptureModeSettingsView()
+        ->microphone_view_for_testing()
+        ->toggle_button_view();
   }
 
   aura::Window* GetDimensionsLabelWindow() const {
@@ -326,11 +384,32 @@ class CaptureSessionWidgetObserver : public views::WidgetObserver {
   // views::WidgetObserver
   void OnWidgetClosing(views::Widget* widget) override {
     DCHECK(observer_.IsObservingSource(widget));
-    observer_.RemoveObservation();
+    observer_.Reset();
   }
 
  private:
   base::ScopedObservation<views::Widget, views::WidgetObserver> observer_{this};
+};
+
+class CaptureNotificationWaiter : public message_center::MessageCenterObserver {
+ public:
+  CaptureNotificationWaiter() {
+    message_center::MessageCenter::Get()->AddObserver(this);
+  }
+  ~CaptureNotificationWaiter() override {
+    message_center::MessageCenter::Get()->RemoveObserver(this);
+  }
+
+  void Wait() { run_loop_.Run(); }
+
+  // message_center::MessageCenterObserver:
+  void OnNotificationAdded(const std::string& notification_id) override {
+    if (notification_id == kScreenCaptureNotificationId)
+      run_loop_.Quit();
+  }
+
+ private:
+  base::RunLoop run_loop_;
 };
 
 TEST_F(CaptureModeTest, StartStop) {
@@ -379,15 +458,6 @@ TEST_F(CaptureModeTest, StartWithMostRecentTypeAndSource) {
   EXPECT_FALSE(GetWindowToggleButton()->GetToggled());
 
   ClickOnView(GetCloseButton(), GetEventGenerator());
-  EXPECT_FALSE(controller->IsActive());
-}
-
-TEST_F(CaptureModeTest, FeedbackButtonExits) {
-  auto* controller = CaptureModeController::Get();
-  controller->Start(CaptureModeEntryType::kQuickSettings);
-  EXPECT_TRUE(controller->IsActive());
-
-  ClickOnView(GetFeedbackButton(), GetEventGenerator());
   EXPECT_FALSE(controller->IsActive());
 }
 
@@ -979,6 +1049,26 @@ TEST_F(CaptureModeTest, MultiDisplayRegionSourceRootWindow) {
                   .Contains(GetCaptureModeBarView()->GetBoundsInScreen()));
 }
 
+// Tests that using touch on multi display setups works as intended. Regression
+// test for https://crbug.com/1159512.
+TEST_F(CaptureModeTest, MultiDisplayTouch) {
+  UpdateDisplay("800x800,801+0-800x800");
+  ASSERT_EQ(2u, Shell::GetAllRootWindows().size());
+
+  auto* controller = StartImageRegionCapture();
+  auto* session = controller->capture_mode_session();
+  ASSERT_EQ(Shell::GetAllRootWindows()[0], session->current_root());
+
+  // Touch and move your finger on the secondary display. We should switch roots
+  // and the region size should be as expected.
+  auto* event_generator = GetEventGenerator();
+  event_generator->PressTouch(gfx::Point(1000, 200));
+  event_generator->MoveTouch(gfx::Point(1200, 400));
+  event_generator->ReleaseTouch();
+  EXPECT_EQ(Shell::GetAllRootWindows()[1], session->current_root());
+  EXPECT_EQ(gfx::Size(200, 200), controller->user_capture_region().size());
+}
+
 TEST_F(CaptureModeTest, RegionCursorStates) {
   using ui::mojom::CursorType;
 
@@ -1152,6 +1242,15 @@ TEST_F(CaptureModeTest, FullscreenCursorStates) {
   EXPECT_FALSE(controller->IsActive());
   EXPECT_FALSE(cursor_manager->IsCursorLocked());
   EXPECT_EQ(original_cursor_type, cursor_manager->GetCursor().type());
+
+  // Test that if we're in tablet mode for dev purpose, the cursor should still
+  // be visible.
+  Shell::Get()->tablet_mode_controller()->SetEnabledForDev(true);
+  StartCaptureSession(CaptureModeSource::kFullscreen, CaptureModeType::kImage);
+  EXPECT_EQ(controller->type(), CaptureModeType::kImage);
+  EXPECT_TRUE(cursor_manager->IsCursorLocked());
+  event_generator->MoveMouseTo(gfx::Point(175, 175));
+  EXPECT_TRUE(cursor_manager->IsCursorVisible());
 }
 
 TEST_F(CaptureModeTest, WindowCursorStates) {
@@ -1233,6 +1332,37 @@ TEST_F(CaptureModeTest, WindowCursorStates) {
   EXPECT_FALSE(controller->IsActive());
   EXPECT_FALSE(cursor_manager->IsCursorLocked());
   EXPECT_EQ(original_cursor_type, cursor_manager->GetCursor().type());
+}
+
+TEST_F(CaptureModeTest, CursorUpdatedOnDisplayRotation) {
+  using ui::mojom::CursorType;
+
+  UpdateDisplay("600x400");
+  const int64_t display_id =
+      display::Screen::GetScreen()->GetPrimaryDisplay().id();
+  display::Display::SetInternalDisplayId(display_id);
+  ScreenOrientationControllerTestApi orientation_test_api(
+      Shell::Get()->screen_orientation_controller());
+
+  auto* event_generator = GetEventGenerator();
+  auto* cursor_manager = Shell::Get()->cursor_manager();
+  CaptureModeController* controller = StartCaptureSession(
+      CaptureModeSource::kFullscreen, CaptureModeType::kImage);
+  event_generator->MoveMouseTo(gfx::Point(175, 175));
+  EXPECT_TRUE(cursor_manager->IsCursorVisible());
+
+  // Use image capture icon as the mouse cursor icon in image capture mode.
+  const ui::Cursor landscape_cursor = cursor_manager->GetCursor();
+  EXPECT_EQ(CursorType::kCustom, landscape_cursor.type());
+  CaptureModeSessionTestApi test_api(controller->capture_mode_session());
+  EXPECT_TRUE(test_api.IsUsingCustomCursor(CaptureModeType::kImage));
+
+  // Rotate the screen.
+  orientation_test_api.SetDisplayRotation(
+      display::Display::ROTATE_270, display::Display::RotationSource::ACTIVE);
+  const ui::Cursor portrait_cursor = cursor_manager->GetCursor();
+  EXPECT_TRUE(test_api.IsUsingCustomCursor(CaptureModeType::kImage));
+  EXPECT_NE(landscape_cursor, portrait_cursor);
 }
 
 // Tests that in Region mode, cursor compositing is used instead of the system
@@ -1387,6 +1517,82 @@ TEST_F(CaptureModeTest, CaptureModeEntryPointHistograms) {
       kTabletHistogram, CaptureModeEntryType::kAccelTakePartialScreenshot, 2);
 }
 
+TEST_F(CaptureModeTest, WindowRecordingCaptureId) {
+  auto window = CreateTestWindow(gfx::Rect(200, 200));
+  StartCaptureSession(CaptureModeSource::kWindow, CaptureModeType::kVideo);
+
+  auto* event_generator = GetEventGenerator();
+  event_generator->MoveMouseToCenterOf(window.get());
+  auto* controller = CaptureModeController::Get();
+  controller->StartVideoRecordingImmediatelyForTesting();
+  EXPECT_TRUE(controller->is_recording_in_progress());
+
+  // The window should have a valid capture ID.
+  EXPECT_TRUE(window->subtree_capture_id().is_valid());
+
+  // Once recording ends, the window should no longer be marked as capturable.
+  controller->EndVideoRecording(EndRecordingReason::kStopRecordingButton);
+  EXPECT_FALSE(controller->is_recording_in_progress());
+  EXPECT_FALSE(window->subtree_capture_id().is_valid());
+}
+
+TEST_F(CaptureModeTest, MultiDisplayWindowRecording) {
+  UpdateDisplay("400x400,401+0-800x800");
+  auto roots = Shell::GetAllRootWindows();
+  ASSERT_EQ(2u, roots.size());
+
+  auto window = CreateTestWindow(gfx::Rect(200, 200));
+  StartCaptureSession(CaptureModeSource::kWindow, CaptureModeType::kVideo);
+
+  auto* event_generator = GetEventGenerator();
+  event_generator->MoveMouseToCenterOf(window.get());
+  auto* controller = CaptureModeController::Get();
+  controller->StartVideoRecordingImmediatelyForTesting();
+  EXPECT_TRUE(controller->is_recording_in_progress());
+
+  // The capturer should capture from the frame sink of the first display, and
+  // the video size should match the size of the current root window.
+  CaptureModeTestApi test_api;
+  test_api.FlushRecordingServiceForTesting();
+  auto* test_delegate =
+      static_cast<TestCaptureModeDelegate*>(controller->delegate_for_testing());
+  EXPECT_EQ(roots[0]->GetFrameSinkId(), test_delegate->GetCurrentFrameSinkId());
+  EXPECT_EQ(roots[0]->bounds().size(), test_delegate->GetCurrentVideoSize());
+
+  // Moving a window to a different display should be propagated to the service,
+  // with the new root's frame sink ID, and the new root's size.
+  window_util::MoveWindowToDisplay(window.get(),
+                                   roots[1]->GetHost()->GetDisplayId());
+  test_api.FlushRecordingServiceForTesting();
+  ASSERT_EQ(window->GetRootWindow(), roots[1]);
+  EXPECT_EQ(roots[1]->GetFrameSinkId(), test_delegate->GetCurrentFrameSinkId());
+  EXPECT_EQ(roots[1]->bounds().size(), test_delegate->GetCurrentVideoSize());
+}
+
+TEST_F(CaptureModeTest, RotateDisplayWhileRecording) {
+  UpdateDisplay("600x800");
+
+  auto* controller =
+      StartCaptureSession(CaptureModeSource::kRegion, CaptureModeType::kVideo);
+  SelectRegion(gfx::Rect(20, 40, 100, 200));
+  controller->StartVideoRecordingImmediatelyForTesting();
+  EXPECT_TRUE(controller->is_recording_in_progress());
+
+  // Initially the video size matches the un-rotated display size in DIPs.
+  CaptureModeTestApi test_api;
+  test_api.FlushRecordingServiceForTesting();
+  auto* test_delegate =
+      static_cast<TestCaptureModeDelegate*>(controller->delegate_for_testing());
+  EXPECT_EQ(gfx::Size(600, 800), test_delegate->GetCurrentVideoSize());
+
+  // Rotate by 90 degree, the video size should be updated to match that.
+  Shell::Get()->display_manager()->SetDisplayRotation(
+      WindowTreeHostManager::GetPrimaryDisplayId(), display::Display::ROTATE_90,
+      display::Display::RotationSource::USER);
+  test_api.FlushRecordingServiceForTesting();
+  EXPECT_EQ(gfx::Size(800, 600), test_delegate->GetCurrentVideoSize());
+}
+
 // Tests the behavior of screen recording with the presence of HDCP secure
 // content on the screen in all capture mode sources (fullscreen, region, and
 // window) depending on the test param.
@@ -1403,7 +1609,8 @@ class CaptureModeHdcpTest
     window_ = CreateTestWindow(gfx::Rect(200, 200));
     protection_delegate_ =
         std::make_unique<OutputProtectionDelegate>(window_.get());
-    CaptureModeController::Get()->set_user_capture_region(gfx::Rect(20, 50));
+    CaptureModeController::Get()->SetUserCaptureRegion(gfx::Rect(20, 50),
+                                                       /*by_user=*/true);
   }
 
   void TearDown() override {
@@ -1560,6 +1767,9 @@ TEST_F(CaptureModeTest, ClosingWindowBeingRecorded) {
   auto* controller = CaptureModeController::Get();
   controller->StartVideoRecordingImmediatelyForTesting();
   EXPECT_TRUE(controller->is_recording_in_progress());
+
+  // The window should have a valid capture ID.
+  EXPECT_TRUE(window->subtree_capture_id().is_valid());
 
   // Closing the window being recorded should end video recording.
   base::HistogramTester histogram_tester;
@@ -2009,6 +2219,7 @@ TEST_F(CaptureModeTest, ScreenshotConfigurationHistogram) {
 // mode when capturing a window. Regression test for https://crbug.com/1152938.
 TEST_F(CaptureModeTest, TabletTouchCaptureLabelWidgetWindowMode) {
   TabletModeControllerTestApi tablet_mode_controller_test_api;
+  tablet_mode_controller_test_api.DetachAllMice();
   tablet_mode_controller_test_api.EnterTabletMode();
 
   // Enter capture window mode.
@@ -2025,9 +2236,132 @@ TEST_F(CaptureModeTest, TabletTouchCaptureLabelWidgetWindowMode) {
   event_generator->PressTouch();
   event_generator->ReleaseTouch();
 
-  // There are no windows so the window finder algorithm will find the app list
-  // window and take a picture of that, ending capture mode.
-  EXPECT_FALSE(controller->IsActive());
+  // There are no windows and home screen window is excluded from window capture
+  // mode, so capture mode will still remain active.
+  EXPECT_TRUE(Shell::Get()->home_screen_controller()->IsHomeScreenVisible());
+  EXPECT_TRUE(controller->IsActive());
+}
+
+// Tests that after rotating a display, the capture session widgets are updated
+// and the capture region is reset.
+TEST_F(CaptureModeTest, DisplayRotation) {
+  UpdateDisplay("1200x600");
+
+  auto* controller = StartImageRegionCapture();
+  SelectRegion(gfx::Rect(1200, 400));
+
+  // Rotate the primary display by 90 degrees. Test that the region and capture
+  // bar fit within the rotated bounds, and the capture label widget is still
+  // centered in the region.
+  Shell::Get()->display_manager()->SetDisplayRotation(
+      WindowTreeHostManager::GetPrimaryDisplayId(), display::Display::ROTATE_90,
+      display::Display::RotationSource::USER);
+  const gfx::Rect rotated_root_bounds(600, 1200);
+  EXPECT_TRUE(rotated_root_bounds.Contains(controller->user_capture_region()));
+  EXPECT_TRUE(rotated_root_bounds.Contains(
+      GetCaptureModeBarView()->GetBoundsInScreen()));
+  views::Widget* capture_label_widget =
+      CaptureModeSessionTestApi(controller->capture_mode_session())
+          .capture_label_widget();
+  ASSERT_TRUE(capture_label_widget);
+  EXPECT_EQ(controller->user_capture_region().CenterPoint(),
+            capture_label_widget->GetWindowBoundsInScreen().CenterPoint());
+}
+
+TEST_F(CaptureModeTest, DisplayBoundsChange) {
+  UpdateDisplay("1200x600");
+
+  auto* controller = StartImageRegionCapture();
+  SelectRegion(gfx::Rect(1200, 400));
+
+  // Shrink the display. The capture region should shrink, and the capture bar
+  // should be adjusted to be centered.
+  UpdateDisplay("600x600");
+  EXPECT_EQ(gfx::Rect(600, 400), controller->user_capture_region());
+  EXPECT_EQ(300,
+            GetCaptureModeBarView()->GetBoundsInScreen().CenterPoint().x());
+}
+
+TEST_F(CaptureModeTest, ReenterOnSmallerDisplay) {
+  UpdateDisplay("1200x600,1201+0-600x600");
+
+  // Start off with the primary display as the targeted display. Create a region
+  // that fits the primary display but would be too big for the secondary
+  // display.
+  auto* event_generator = GetEventGenerator();
+  MoveMouseToAndUpdateCursorDisplay(gfx::Point(600, 300), event_generator);
+  auto* controller = StartImageRegionCapture();
+  SelectRegion(gfx::Rect(1200, 400));
+  EXPECT_EQ(gfx::Rect(1200, 400), controller->user_capture_region());
+  controller->Stop();
+
+  // Make the secondary display the targeted display. Test that the region has
+  // shrunk to fit the display.
+  MoveMouseToAndUpdateCursorDisplay(gfx::Point(1500, 300), event_generator);
+  StartImageRegionCapture();
+  EXPECT_EQ(gfx::Rect(600, 400), controller->user_capture_region());
+}
+
+// Tests that functionality to create and adjust a region with keyboard
+// shortcuts works as intended.
+TEST_F(CaptureModeTest, SelectRegionWithKeyboard) {
+  auto* controller = StartImageRegionCapture();
+  auto* event_generator = GetEventGenerator();
+  ASSERT_TRUE(controller->user_capture_region().IsEmpty());
+
+  // Test that hitting space will create a default region.
+  SendKey(ui::VKEY_SPACE, event_generator);
+  gfx::Rect capture_region = controller->user_capture_region();
+  EXPECT_FALSE(capture_region.IsEmpty());
+
+  // Test that hitting an arrow key will do nothing as nothing is focused
+  // initially.
+  SendKey(ui::VKEY_RIGHT, event_generator);
+  EXPECT_EQ(capture_region, controller->user_capture_region());
+
+  const int arrow_shift = capture_mode::kArrowKeyboardRegionChangeDp;
+
+  // Hit tab so that the whole region is focused. Arrow keys should shift the
+  // whole region.
+  SendKey(ui::VKEY_TAB, event_generator);
+  SendKey(ui::VKEY_RIGHT, event_generator);
+  EXPECT_EQ(capture_region.origin() + gfx::Vector2d(arrow_shift, 0),
+            controller->user_capture_region().origin());
+  EXPECT_EQ(capture_region.size(), controller->user_capture_region().size());
+  SendKey(ui::VKEY_RIGHT, event_generator, /*shift_down=*/true);
+  EXPECT_EQ(
+      capture_region.origin() +
+          gfx::Vector2d(
+              arrow_shift + capture_mode::kShiftArrowKeyboardRegionChangeDp, 0),
+      controller->user_capture_region().origin());
+  EXPECT_EQ(capture_region.size(), controller->user_capture_region().size());
+
+  // Hit tab so that the top left affordance circle is focused. Left and up keys
+  // should enlarge the region, right and bottom keys should shrink the region.
+  capture_region = controller->user_capture_region();
+  SendKey(ui::VKEY_TAB, event_generator);
+  SendKey(ui::VKEY_LEFT, event_generator);
+  SendKey(ui::VKEY_UP, event_generator);
+  EXPECT_EQ(capture_region.size() + gfx::Size(arrow_shift, arrow_shift),
+            controller->user_capture_region().size());
+  SendKey(ui::VKEY_RIGHT, event_generator);
+  SendKey(ui::VKEY_DOWN, event_generator);
+  EXPECT_EQ(capture_region.size(), controller->user_capture_region().size());
+
+  // Tab until we focus the bottom right affordance circle. Left and up keys
+  // should shrink the region, right and bottom keys should enlarge the region.
+  SendKey(ui::VKEY_TAB, event_generator);
+  SendKey(ui::VKEY_TAB, event_generator);
+  SendKey(ui::VKEY_TAB, event_generator);
+  SendKey(ui::VKEY_TAB, event_generator);
+
+  SendKey(ui::VKEY_LEFT, event_generator);
+  SendKey(ui::VKEY_UP, event_generator);
+  EXPECT_EQ(capture_region.size() - gfx::Size(arrow_shift, arrow_shift),
+            controller->user_capture_region().size());
+  SendKey(ui::VKEY_RIGHT, event_generator);
+  SendKey(ui::VKEY_DOWN, event_generator);
+  EXPECT_EQ(capture_region.size(), controller->user_capture_region().size());
 }
 
 // A test class that uses a mock time task environment.
@@ -2079,6 +2413,142 @@ TEST_F(CaptureModeMockTimeTest, ConsecutiveScreenshotsHistograms) {
   histogram_tester.ExpectBucketCount(kConsecutiveScreenshotsHistogram, 2, 1);
 }
 
+// Tests that the user capture region will be cleared up after a period of time.
+TEST_F(CaptureModeMockTimeTest, ClearUserCaptureRegionBetweenSessions) {
+  UpdateDisplay("800x800");
+  auto* controller = StartImageRegionCapture();
+  EXPECT_EQ(gfx::Rect(), controller->user_capture_region());
+
+  const gfx::Rect capture_region(100, 100, 600, 600);
+  SelectRegion(capture_region);
+  EXPECT_EQ(capture_region, controller->user_capture_region());
+  controller->PerformCapture();
+  EXPECT_EQ(capture_region, controller->user_capture_region());
+
+  // Start region image capture again shortly after the previous capture
+  // session, we should still be able to reuse the previous capture region.
+  task_environment()->FastForwardBy(base::TimeDelta::FromMinutes(1));
+  StartImageRegionCapture();
+  EXPECT_EQ(capture_region, controller->user_capture_region());
+  auto* event_generator = GetEventGenerator();
+  // Even if the capture is cancelled, we still remember the capture region.
+  SendKey(ui::VKEY_ESCAPE, event_generator);
+  EXPECT_EQ(capture_region, controller->user_capture_region());
+
+  // Wait for 8 second and then start region image capture again. We should have
+  // forgot the previous capture region.
+  task_environment()->FastForwardBy(base::TimeDelta::FromMinutes(8));
+  StartImageRegionCapture();
+  EXPECT_EQ(gfx::Rect(), controller->user_capture_region());
+}
+
+// Tests that in Region mode, the capture bar hides and shows itself correctly.
+TEST_F(CaptureModeTest, CaptureBarOpacity) {
+  UpdateDisplay("800x800");
+
+  auto* event_generator = GetEventGenerator();
+  auto* controller = StartImageRegionCapture();
+  EXPECT_TRUE(controller->IsActive());
+
+  ui::Layer* capture_bar_layer = GetCaptureModeBarWidget()->GetLayer();
+
+  // Check to see it starts off opaque.
+  EXPECT_EQ(1.f, capture_bar_layer->GetTargetOpacity());
+
+  // Make sure that the bar is transparent when selecting a region.
+  const gfx::Rect target_region(gfx::BoundingRect(
+      gfx::Point(0, 0),
+      GetCaptureModeBarView()->GetBoundsInScreen().top_right() +
+          gfx::Vector2d(0, -50)));
+  event_generator->MoveMouseTo(target_region.origin());
+  event_generator->PressLeftButton();
+  EXPECT_EQ(0.f, capture_bar_layer->GetTargetOpacity());
+  event_generator->MoveMouseTo(target_region.bottom_right());
+  EXPECT_EQ(0.f, capture_bar_layer->GetTargetOpacity());
+  event_generator->ReleaseLeftButton();
+
+  // When there is no overlap of the selected region and the bar, the bar should
+  // be opaque.
+  EXPECT_EQ(1.f, capture_bar_layer->GetTargetOpacity());
+
+  // Bar becomes transparent when the region is being moved.
+  event_generator->MoveMouseTo(target_region.origin() + gfx::Vector2d(50, 50));
+  event_generator->PressLeftButton();
+  EXPECT_EQ(0.f, capture_bar_layer->GetTargetOpacity());
+  event_generator->MoveMouseTo(target_region.bottom_center());
+  EXPECT_EQ(0.f, capture_bar_layer->GetTargetOpacity());
+  event_generator->ReleaseLeftButton();
+
+  // The region overlaps the capture bar, so we set the opacity of the bar to
+  // 0.1f.
+  EXPECT_EQ(0.1f, capture_bar_layer->GetTargetOpacity());
+
+  // When there is overlap, the toolbar turns opaque on mouseover.
+  event_generator->MoveMouseTo(
+      GetCaptureModeBarView()->GetBoundsInScreen().CenterPoint());
+  EXPECT_EQ(1.f, capture_bar_layer->GetTargetOpacity());
+
+  // Capture bar drops back to 0.1 opacity when the mouse is no longer hovering.
+  event_generator->MoveMouseTo(
+      GetCaptureModeBarView()->GetBoundsInScreen().top_center() +
+      gfx::Vector2d(0, -50));
+  EXPECT_EQ(0.1f, capture_bar_layer->GetTargetOpacity());
+
+  // Check that the opacity is reset when we select another region.
+  SelectRegion(target_region);
+  EXPECT_EQ(1.f, capture_bar_layer->GetTargetOpacity());
+}
+
+// Tests that the quick action histogram is recorded properly.
+TEST_F(CaptureModeTest, QuickActionHistograms) {
+  constexpr char kQuickActionHistogramName[] =
+      "Ash.CaptureModeController.QuickAction";
+  base::HistogramTester histogram_tester;
+
+  auto* controller = StartCaptureSession(CaptureModeSource::kFullscreen,
+                                         CaptureModeType::kImage);
+  EXPECT_TRUE(controller->IsActive());
+  {
+    CaptureNotificationWaiter waiter;
+    controller->PerformCapture();
+    waiter.Wait();
+  }
+  // Verify clicking delete on screenshot notification.
+  const int delete_button = 1;
+  ClickNotification(delete_button);
+  EXPECT_FALSE(GetPreviewNotification());
+  histogram_tester.ExpectBucketCount(kQuickActionHistogramName,
+                                     CaptureQuickAction::kDelete, 1);
+
+  controller = StartCaptureSession(CaptureModeSource::kFullscreen,
+                                   CaptureModeType::kImage);
+  {
+    CaptureNotificationWaiter waiter;
+    controller->PerformCapture();
+    waiter.Wait();
+  }
+  // Click on the notification body. This should take us to the files app.
+  ClickNotification(base::nullopt);
+  EXPECT_FALSE(GetPreviewNotification());
+  histogram_tester.ExpectBucketCount(kQuickActionHistogramName,
+                                     CaptureQuickAction::kFiles, 1);
+
+  controller = StartCaptureSession(CaptureModeSource::kFullscreen,
+                                   CaptureModeType::kImage);
+
+  {
+    CaptureNotificationWaiter waiter;
+    controller->PerformCapture();
+    waiter.Wait();
+  }
+  const int edit_button = 0;
+  // Verify clicking edit on screenshot notification.
+  ClickNotification(edit_button);
+  EXPECT_FALSE(GetPreviewNotification());
+  histogram_tester.ExpectBucketCount(kQuickActionHistogramName,
+                                     CaptureQuickAction::kBacklight, 1);
+}
+
 TEST_F(CaptureModeTest, CannotDoMultipleRecordings) {
   StartCaptureSession(CaptureModeSource::kFullscreen, CaptureModeType::kVideo);
 
@@ -2111,6 +2581,159 @@ TEST_F(CaptureModeTest, CannotDoMultipleRecordings) {
   EXPECT_FALSE(GetImageToggleButton()->GetToggled());
   EXPECT_TRUE(GetVideoToggleButton()->GetToggled());
   EXPECT_TRUE(GetVideoToggleButton()->GetEnabled());
+}
+
+// Tests the basic settings menu functionality.
+TEST_F(CaptureModeTest, SettingsMenuVisibilityBasic) {
+  auto* event_generator = GetEventGenerator();
+  auto* controller = StartImageRegionCapture();
+  EXPECT_TRUE(controller->IsActive());
+
+  // Session starts with settings menu not initialized.
+  EXPECT_FALSE(GetCaptureModeSettingsWidget());
+
+  // Test clicking the settings button toggles the button as well as
+  // opens/closes the settings menu.
+  ClickOnView(GetSettingsButton(), event_generator);
+  EXPECT_TRUE(GetCaptureModeSettingsWidget());
+  EXPECT_TRUE(GetSettingsButton()->GetToggled());
+  ClickOnView(GetSettingsButton(), event_generator);
+  EXPECT_FALSE(GetCaptureModeSettingsWidget());
+  EXPECT_FALSE(GetSettingsButton()->GetToggled());
+}
+
+// Tests how interacting with the rest of the screen (i.e. clicking outside of
+// the bar/menu, on other buttons) affects whether the settings menu should
+// close or not.
+TEST_F(CaptureModeTest, SettingsMenuVisibilityClicking) {
+  UpdateDisplay("800x800");
+
+  auto* event_generator = GetEventGenerator();
+  auto* controller = StartImageRegionCapture();
+  EXPECT_TRUE(controller->IsActive());
+
+  // Test clicking on the settings menu and toggling settings doesn't close the
+  // settings menu.
+  ClickOnView(GetSettingsButton(), event_generator);
+  ClickOnView(GetCaptureModeSettingsView(), event_generator);
+  EXPECT_TRUE(GetCaptureModeSettingsWidget());
+  EXPECT_TRUE(GetSettingsButton()->GetToggled());
+  ClickOnView(GetMicrophoneToggle(), event_generator);
+  EXPECT_TRUE(GetCaptureModeSettingsWidget());
+  EXPECT_TRUE(GetSettingsButton()->GetToggled());
+
+  // Test clicking on the capture bar closes the settings menu.
+  event_generator->MoveMouseTo(
+      GetCaptureModeBarView()->GetBoundsInScreen().top_center() +
+      gfx::Vector2d(0, 2));
+  event_generator->ClickLeftButton();
+  EXPECT_FALSE(GetCaptureModeSettingsWidget());
+  EXPECT_FALSE(GetSettingsButton()->GetToggled());
+
+  // Test clicking on a different source closes the settings menu.
+  ClickOnView(GetSettingsButton(), event_generator);
+  ClickOnView(GetFullscreenToggleButton(), event_generator);
+  EXPECT_FALSE(GetCaptureModeSettingsWidget());
+
+  // Test clicking on a different type closes the settings menu.
+  ClickOnView(GetSettingsButton(), event_generator);
+  ClickOnView(GetVideoToggleButton(), event_generator);
+  EXPECT_FALSE(GetCaptureModeSettingsWidget());
+
+  // Exit the capture session with the settings menu open, and test to make sure
+  // the new session starts with the settings menu hidden.
+  ClickOnView(GetSettingsButton(), event_generator);
+  SendKey(ui::VKEY_ESCAPE, event_generator);
+  StartCaptureSession(CaptureModeSource::kFullscreen, CaptureModeType::kImage);
+  EXPECT_FALSE(GetCaptureModeSettingsWidget());
+
+  // Take a screenshot with the settings menu open, and test to make sure the
+  // new session starts with the settings menu hidden.
+  ClickOnView(GetSettingsButton(), event_generator);
+  // Take screenshot.
+  SendKey(ui::VKEY_RETURN, event_generator);
+  StartImageRegionCapture();
+  EXPECT_FALSE(GetCaptureModeSettingsWidget());
+}
+
+// Tests the settings menu functionality when in region mode.
+TEST_F(CaptureModeTest, SettingsMenuVisibilityDrawingRegion) {
+  UpdateDisplay("800x800");
+
+  auto* event_generator = GetEventGenerator();
+  auto* controller = StartImageRegionCapture();
+  EXPECT_TRUE(controller->IsActive());
+
+  // Test the settings menu is hidden when the user clicks to start selecting a
+  // region.
+  ClickOnView(GetSettingsButton(), event_generator);
+  EXPECT_TRUE(GetCaptureModeSettingsWidget());
+  const gfx::Rect target_region(gfx::BoundingRect(
+      gfx::Point(0, 0),
+      GetCaptureModeBarView()->GetBoundsInScreen().top_right() +
+          gfx::Vector2d(0, -50)));
+  event_generator->MoveMouseTo(target_region.origin());
+  event_generator->PressLeftButton();
+  EXPECT_FALSE(GetCaptureModeSettingsWidget());
+  event_generator->MoveMouseTo(target_region.bottom_right());
+  event_generator->ReleaseLeftButton();
+  EXPECT_FALSE(GetCaptureModeSettingsWidget());
+
+  // Test that the settings menu is hidden when we drag a region. This drags a
+  // region that overlapps the capture bar for later steps of testing.
+  ClickOnView(GetSettingsButton(), event_generator);
+  event_generator->MoveMouseTo(target_region.origin() + gfx::Vector2d(50, 50));
+  event_generator->PressLeftButton();
+  EXPECT_FALSE(GetCaptureModeSettingsWidget());
+  event_generator->MoveMouseTo(target_region.bottom_center());
+  event_generator->ReleaseLeftButton();
+
+  // With an overlapping region (as dragged to above), the capture bar opacity
+  // is changed based on hover. If the settings menu is open/visible, we close
+  // it when we hide the capture bar. Capture bar starts off opaque.
+  ui::Layer* capture_bar_layer = GetCaptureModeBarWidget()->GetLayer();
+  event_generator->MoveMouseTo(target_region.origin());
+  EXPECT_EQ(0.1f, capture_bar_layer->GetTargetOpacity());
+  ClickOnView(GetSettingsButton(), event_generator);
+  EXPECT_EQ(1.f, capture_bar_layer->GetTargetOpacity());
+  // Move mouse onto the settings menu, confirm the capture bar is still
+  // visible.
+  event_generator->MoveMouseTo(
+      GetCaptureModeSettingsView()->GetBoundsInScreen().CenterPoint());
+  EXPECT_EQ(1.f, capture_bar_layer->GetTargetOpacity());
+  // Move the mouse off both the capture bar and the settings menu, and confirm
+  // that both bars are visible.
+  event_generator->MoveMouseTo(
+      GetCaptureModeSettingsView()->GetBoundsInScreen().top_center() +
+      gfx::Vector2d(0, -50));
+  EXPECT_EQ(1.f, capture_bar_layer->GetTargetOpacity());
+  EXPECT_TRUE(GetCaptureModeSettingsWidget());
+}
+
+// Tests that toggling the microphone setting updates the state in the
+// controller, and persists between sessions.
+TEST_F(CaptureModeTest, AudioRecordingSetting) {
+  auto* controller = StartImageRegionCapture();
+  auto* event_generator = GetEventGenerator();
+
+  // Test that the audio recording preference is defaulted to false, so the
+  // toggle should start in the off position.
+  EXPECT_FALSE(controller->enable_audio_recording());
+
+  // Test that toggling on the micophone updates the preference in the
+  // controller, as well as displaying the toggle as on.
+  ClickOnView(GetSettingsButton(), event_generator);
+  EXPECT_FALSE(GetMicrophoneToggle()->GetIsOn());
+  ClickOnView(GetMicrophoneToggle(), event_generator);
+  EXPECT_TRUE(controller->enable_audio_recording());
+  EXPECT_TRUE(GetMicrophoneToggle()->GetIsOn());
+
+  // Test that the user selected audio preference for audio recording is
+  // remembered between sessions.
+  SendKey(ui::VKEY_ESCAPE, event_generator);
+  EXPECT_TRUE(controller->enable_audio_recording());
+  StartImageRegionCapture();
+  EXPECT_TRUE(controller->enable_audio_recording());
 }
 
 }  // namespace ash

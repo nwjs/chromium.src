@@ -29,6 +29,7 @@
 #include "chromeos/dbus/attestation/interface.pb.h"
 #include "chromeos/dbus/constants/attestation_constants.h"
 #include "chromeos/dbus/cryptohome/fake_cryptohome_client.h"
+#include "chromeos/dbus/tpm_manager/tpm_manager_client.h"
 #include "components/prefs/pref_service.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "content/public/test/browser_task_environment.h"
@@ -44,7 +45,6 @@ namespace attestation {
 namespace {
 
 constexpr char kTestUserEmail[] = "test@google.com";
-constexpr char kTestUserDomain[] = "google.com";
 constexpr char kTestUserGaiaId[] = "test_gaia_id";
 constexpr char kEmptyKeyName[] = "";
 constexpr char kNonDefaultKeyName[] = "key_name_123";
@@ -208,6 +208,7 @@ class TpmChallengeKeySubtleTest : public ::testing::Test {
 
 TpmChallengeKeySubtleTest::TpmChallengeKeySubtleTest()
     : testing_profile_manager_(TestingBrowserProcess::GetGlobal()) {
+  ::chromeos::TpmManagerClient::InitializeFake();
   ::chromeos::AttestationClient::InitializeFake();
   CHECK(testing_profile_manager_.SetUp());
 
@@ -221,6 +222,7 @@ TpmChallengeKeySubtleTest::TpmChallengeKeySubtleTest()
 
 TpmChallengeKeySubtleTest::~TpmChallengeKeySubtleTest() {
   ::chromeos::AttestationClient::Shutdown();
+  ::chromeos::TpmManagerClient::Shutdown();
 }
 
 void TpmChallengeKeySubtleTest::InitSigninProfile() {
@@ -473,7 +475,10 @@ TEST_F(TpmChallengeKeySubtleTest, AttestationUnsupported) {
   chromeos::AttestationClient::Get()
       ->GetTestInterface()
       ->ConfigureEnrollmentPreparations(false);
-  cryptohome_client_.set_tpm_is_enabled(false);
+  chromeos::TpmManagerClient::Get()
+      ->GetTestInterface()
+      ->mutable_nonsensitive_status_reply()
+      ->set_is_enabled(false);
 
   RunOneStepAndExpect(
       KEY_DEVICE, /*will_register_key=*/false, kEmptyKeyName,
@@ -516,7 +521,7 @@ TEST_F(TpmChallengeKeySubtleTest, DeviceKeyNotRegisteredSuccess) {
 
   ::attestation::SignEnterpriseChallengeRequest expected_request;
   expected_request.set_key_label(key_name);
-  expected_request.set_domain(kTestUserDomain);
+  expected_request.set_domain(std::string());
   expected_request.set_device_id(GetInstallAttributes()->GetDeviceId());
   AttestationClient::Get()
       ->GetTestInterface()
@@ -537,7 +542,7 @@ TEST_F(TpmChallengeKeySubtleTest, DeviceKeyRegisteredSuccess) {
   ::attestation::SignEnterpriseChallengeRequest expected_request;
   expected_request.set_key_label(GetDefaultKeyName(key_type));
   expected_request.set_key_name_for_spkac(key_name);
-  expected_request.set_domain(kTestUserDomain);
+  expected_request.set_domain(std::string());
   expected_request.set_device_id(GetInstallAttributes()->GetDeviceId());
   AttestationClient::Get()
       ->GetTestInterface()

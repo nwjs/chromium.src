@@ -24,12 +24,11 @@ import org.chromium.chrome.browser.omnibox.LocationBarDataProvider;
 import org.chromium.chrome.browser.omnibox.SearchEngineLogoUtils;
 import org.chromium.chrome.browser.omnibox.UrlBarEditingTextStateProvider;
 import org.chromium.chrome.browser.omnibox.status.StatusProperties.StatusIconResource;
-import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteCoordinator;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider;
-import org.chromium.chrome.browser.toolbar.ToolbarColors;
+import org.chromium.chrome.browser.theme.ThemeUtils;
 import org.chromium.components.security_state.ConnectionSecurityLevel;
-import org.chromium.content_public.browser.BrowserStartupController;
 import org.chromium.ui.modelutil.PropertyModel;
 
 /**
@@ -39,18 +38,10 @@ class StatusMediator implements IncognitoStateProvider.IncognitoStateObserver {
     @VisibleForTesting
     @MockedInTests
     class StatusMediatorDelegate {
-        /** @see {@link AutocompleteCoordinator#qualifyPartialURLQuery} */
-        boolean isUrlValid(String partialUrl) {
-            if (TextUtils.isEmpty(partialUrl)) return false;
-
-            return BrowserStartupController.getInstance().isFullBrowserStarted()
-                    && AutocompleteCoordinator.qualifyPartialURLQuery(partialUrl) != null;
-        }
-
         /** @see {@link SearchEngineLogoUtils#getSearchEngineLogoFavicon} */
         void getSearchEngineLogoFavicon(Resources res, Callback<Bitmap> callback) {
-            SearchEngineLogoUtils.getSearchEngineLogoFavicon(
-                    Profile.getLastUsedRegularProfile(), res, callback);
+            SearchEngineLogoUtils.getSearchEngineLogoFavicon(Profile.getLastUsedRegularProfile(),
+                    res, callback, TemplateUrlServiceFactory.get());
         }
 
         /** @see {@link SearchEngineLogoUtils#shouldShowSearchEngineLogo} */
@@ -67,7 +58,6 @@ class StatusMediator implements IncognitoStateProvider.IncognitoStateObserver {
     private final PropertyModel mModel;
     private boolean mDarkTheme;
     private boolean mUrlHasFocus;
-    private boolean mFirstSuggestionIsSearchQuery;
     private boolean mVerboseStatusSpaceAvailable;
     private boolean mPageIsPreview;
     private boolean mPageIsPaintPreview;
@@ -98,8 +88,7 @@ class StatusMediator implements IncognitoStateProvider.IncognitoStateObserver {
     private LocationBarDataProvider mLocationBarDataProvider;
     private UrlBarEditingTextStateProvider mUrlBarEditingTextStateProvider;
 
-    private String mUrlBarTextWithAutocomplete = "";
-    private boolean mUrlBarTextIsValidUrl;
+    private boolean mUrlBarTextIsSearch = true;
 
     private float mUrlFocusPercent;
     private String mSearchEngineLogoUrl;
@@ -117,8 +106,11 @@ class StatusMediator implements IncognitoStateProvider.IncognitoStateObserver {
 
     StatusMediator(PropertyModel model, Resources resources, Context context,
             UrlBarEditingTextStateProvider urlBarEditingTextStateProvider, boolean isTablet,
-            Runnable forceModelViewReconciliationRunnable) {
+            Runnable forceModelViewReconciliationRunnable,
+            IncognitoStateProvider incognitoStateProvider,
+            LocationBarDataProvider locationBarDataProvider) {
         mModel = model;
+        mLocationBarDataProvider = locationBarDataProvider;
         mDelegate = new StatusMediatorDelegate();
         updateColorTheme();
 
@@ -136,13 +128,16 @@ class StatusMediator implements IncognitoStateProvider.IncognitoStateObserver {
 
         mIsTablet = isTablet;
         mForceModelViewReconciliationRunnable = forceModelViewReconciliationRunnable;
+        if (incognitoStateProvider != null) {
+            incognitoStateProvider.addIncognitoStateObserverAndTrigger(this);
+        }
     }
 
     /**
-     * Set the ToolbarDataProvider for this class.
+     * Override the LocationBarDataProvider for this class for testing purposes.
      */
-    void setLocationBarDataProvider(LocationBarDataProvider toolbarCommonPropertiesModel) {
-        mLocationBarDataProvider = toolbarCommonPropertiesModel;
+    void setLocationBarDataProviderForTesting(LocationBarDataProvider locationBarDataProvider) {
+        mLocationBarDataProvider = locationBarDataProvider;
     }
 
     /**
@@ -282,9 +277,9 @@ class StatusMediator implements IncognitoStateProvider.IncognitoStateObserver {
         updateStatusVisibility();
         updateLocationBarIcon();
 
-        // Set the autocomplete text to be empty on an unfocus event to avoid the globe sticking
+        // Set the default match to be a search on an unfocus event to avoid the globe sticking
         // around for subsequent focus events.
-        if (!mUrlHasFocus) updateLocationBarIconForUrlBarAutocompleteText("");
+        if (!mUrlHasFocus) updateLocationBarIconForDefaultMatchCategory(true);
     }
 
     // Extra logic to support extra NTP use cases which show the status icon when animating and when
@@ -345,14 +340,6 @@ class StatusMediator implements IncognitoStateProvider.IncognitoStateObserver {
     }
 
     /**
-     * Reports whether the first omnibox suggestion is a search query.
-     */
-    void setFirstSuggestionIsSearchType(boolean firstSuggestionIsSearchQuery) {
-        mFirstSuggestionIsSearchQuery = firstSuggestionIsSearchQuery;
-        updateLocationBarIcon();
-    }
-
-    /**
      * Specify minimum width of an URL field.
      */
     void setUrlMinWidth(int width) {
@@ -367,13 +354,6 @@ class StatusMediator implements IncognitoStateProvider.IncognitoStateObserver {
             mDarkTheme = useDarkColors;
             updateColorTheme();
         }
-    }
-
-    /**
-     * @param incognitoBadgeVisible Whether or not the incognito badge is visible.
-     */
-    void setIncognitoBadgeVisibility(boolean incognitoBadgeVisible) {
-        mModel.set(StatusProperties.INCOGNITO_BADGE_VISIBLE, incognitoBadgeVisible);
     }
 
     /**
@@ -430,7 +410,7 @@ class StatusMediator implements IncognitoStateProvider.IncognitoStateObserver {
         }
 
         @ColorRes
-        int tintColor = ToolbarColors.getThemedToolbarIconTintRes(!mDarkTheme);
+        int tintColor = ThemeUtils.getThemedToolbarIconTintRes(!mDarkTheme);
 
         mModel.set(StatusProperties.SEPARATOR_COLOR_RES, separatorColor);
         mNavigationIconTintRes = tintColor;
@@ -498,8 +478,8 @@ class StatusMediator implements IncognitoStateProvider.IncognitoStateObserver {
         mIsSecurityButtonShown = false;
         if (mUrlHasFocus) {
             if (mShowStatusIconWhenUrlFocused) {
-                icon = mFirstSuggestionIsSearchQuery ? R.drawable.ic_suggestion_magnifier
-                                                     : R.drawable.ic_globe_24dp;
+                icon = mUrlBarTextIsSearch ? R.drawable.ic_suggestion_magnifier
+                                           : R.drawable.ic_globe_24dp;
                 tint = mNavigationIconTintRes;
             }
         } else if (mSecurityIconRes != 0) {
@@ -553,7 +533,7 @@ class StatusMediator implements IncognitoStateProvider.IncognitoStateObserver {
             boolean isIncognito, Callback<StatusIconResource> resourceCallback) {
         mShouldCancelCustomFavicon = false;
         // If the current url text is a valid url, then swap the dse icon for a globe.
-        if (mUrlBarTextIsValidUrl) {
+        if (!mUrlBarTextIsSearch) {
             resourceCallback.onResult(new StatusIconResource(R.drawable.ic_globe_24dp,
                     getSecurityIconTintForSearchEngineIcon(R.drawable.ic_globe_24dp)));
         } else if (mIsSearchEngineGoogle) {
@@ -600,7 +580,7 @@ class StatusMediator implements IncognitoStateProvider.IncognitoStateObserver {
             tint = 0;
         } else {
             tint = mDarkTheme ? R.color.default_icon_color_secondary_tint_list
-                              : ToolbarColors.getThemedToolbarIconTintRes(!mDarkTheme);
+                              : ThemeUtils.getThemedToolbarIconTintRes(!mDarkTheme);
         }
 
         return tint;
@@ -621,23 +601,13 @@ class StatusMediator implements IncognitoStateProvider.IncognitoStateObserver {
         return 0;
     }
 
-    /** @see org.chromium.chrome.browser.omnibox.UrlBar.UrlTextChangeListener */
-    void onTextChanged(CharSequence urlBarText) {
-        updateLocationBarIconForUrlBarAutocompleteText(
-                resolveUrlBarTextWithAutocomplete(urlBarText));
-    }
-
     /**
-     * Updates variables and possibly the status icon based on the given urlBarTextWithAutocomplete.
+     *  Informs StatusMediator that the default match may have changed categories, updating the
+     * status icon if it has.
      */
-    private void updateLocationBarIconForUrlBarAutocompleteText(String urlBarTextWithAutocomplete) {
-        // Ignore text we've already seen to avoid unnecessary updates to the drawable resource.
-        if (TextUtils.equals(mUrlBarTextWithAutocomplete, urlBarTextWithAutocomplete)) return;
-
-        mUrlBarTextWithAutocomplete = urlBarTextWithAutocomplete;
-        boolean isValid = mDelegate.isUrlValid(mUrlBarTextWithAutocomplete);
-        if (isValid != mUrlBarTextIsValidUrl) {
-            mUrlBarTextIsValidUrl = isValid;
+    /* package */ void updateLocationBarIconForDefaultMatchCategory(boolean defaultMatchIsSearch) {
+        if (defaultMatchIsSearch != mUrlBarTextIsSearch) {
+            mUrlBarTextIsSearch = defaultMatchIsSearch;
             updateLocationBarIcon();
         }
     }
@@ -662,15 +632,12 @@ class StatusMediator implements IncognitoStateProvider.IncognitoStateObserver {
         return urlTextWithAutocomplete;
     }
 
-    public void setIncognitoStateProvider(IncognitoStateProvider incognitoStateProvider) {
-        if (incognitoStateProvider == null) return;
-        incognitoStateProvider.addIncognitoStateObserverAndTrigger(this);
-    }
-
     @Override
     public void onIncognitoStateChanged(boolean isIncognito) {
         boolean previousIsIncognito = mIsIncognito;
         mIsIncognito = isIncognito;
+        boolean incognitoBadgeVisible = isIncognito && !mIsTablet;
+        mModel.set(StatusProperties.INCOGNITO_BADGE_VISIBLE, incognitoBadgeVisible);
         if (previousIsIncognito != isIncognito) reconcileVisualState();
     }
 

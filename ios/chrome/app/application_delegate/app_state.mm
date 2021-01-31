@@ -426,6 +426,10 @@ initWithBrowserLauncher:(id<BrowserLauncher>)browserLauncher
 }
 
 - (void)applicationWillTerminate:(UIApplication*)application {
+  if (!_applicationInBackground) {
+    base::UmaHistogramBoolean(
+        "Stability.IOS.UTE.AppWillTerminateWasCalledInForeground", true);
+  }
   if (_appIsTerminating) {
     // Previous handling of this method spun the runloop, resulting in
     // recursive calls; this does not appear to happen with the new shutdown
@@ -434,6 +438,8 @@ initWithBrowserLauncher:(id<BrowserLauncher>)browserLauncher
     CHECK(false);
   }
   _appIsTerminating = YES;
+
+  [_appCommandDispatcher prepareForShutdown];
 
   // Cancel any in-flight distribution notifications.
   CHECK(ios::GetChromeBrowserProvider());

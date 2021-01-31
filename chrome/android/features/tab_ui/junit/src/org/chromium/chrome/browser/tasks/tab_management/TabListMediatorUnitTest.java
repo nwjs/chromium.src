@@ -39,6 +39,7 @@ import static org.chromium.chrome.browser.flags.ChromeFeatureList.TAB_GROUPS_AND
 import static org.chromium.chrome.browser.flags.ChromeFeatureList.TAB_GROUPS_CONTINUATION_ANDROID;
 import static org.chromium.chrome.browser.tasks.tab_management.MessageCardViewProperties.MESSAGE_TYPE;
 import static org.chromium.chrome.browser.tasks.tab_management.MessageService.MessageType.FOR_TESTING;
+import static org.chromium.chrome.browser.tasks.tab_management.MessageService.MessageType.PRICE_WELCOME;
 import static org.chromium.chrome.browser.tasks.tab_management.MessageService.MessageType.TAB_SUGGESTION;
 import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.CARD_TYPE;
 import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.ModelType.MESSAGE;
@@ -94,6 +95,9 @@ import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.flags.CachedFeatureFlags;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
+import org.chromium.chrome.browser.optimization_guide.OptimizationGuideBridge;
+import org.chromium.chrome.browser.optimization_guide.OptimizationGuideBridge.OptimizationGuideCallback;
+import org.chromium.chrome.browser.optimization_guide.OptimizationGuideBridgeJni;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.tab.MockTab;
@@ -106,6 +110,7 @@ import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab.state.CriticalPersistedTabData;
 import org.chromium.chrome.browser.tab.state.PersistedTabDataConfiguration;
 import org.chromium.chrome.browser.tab.state.ShoppingPersistedTabData;
+import org.chromium.chrome.browser.tab.state.ShoppingPersistedTabData.PriceDrop;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelFilter;
@@ -123,6 +128,7 @@ import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.components.embedder_support.util.UrlUtilitiesJni;
 import org.chromium.components.feature_engagement.EventConstants;
 import org.chromium.components.feature_engagement.Tracker;
+import org.chromium.components.optimization_guide.OptimizationGuideDecision;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.NavigationController;
@@ -132,6 +138,8 @@ import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.base.PageTransition;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.SimpleRecyclerViewAdapter;
+import org.chromium.url.GURL;
+import org.chromium.url.JUnitTestGURLs;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -236,6 +244,8 @@ public class TabListMediatorUnitTest {
     @Mock
     UrlUtilities.Natives mUrlUtilitiesJniMock;
     @Mock
+    OptimizationGuideBridge.Natives mOptimizationGuideBridgeJniMock;
+    @Mock
     TabListMediator.TabGridAccessibilityHelper mTabGridAccessibilityHelper;
     @Mock
     TemplateUrlService mTemplateUrlService;
@@ -274,6 +284,10 @@ public class TabListMediatorUnitTest {
         MockitoAnnotations.initMocks(this);
         mMocker.mock(UrlUtilitiesJni.TEST_HOOKS, mUrlUtilitiesJniMock);
         mMocker.mock(EndpointFetcherJni.TEST_HOOKS, mEndpointFetcherJniMock);
+        mMocker.mock(OptimizationGuideBridgeJni.TEST_HOOKS, mOptimizationGuideBridgeJniMock);
+        // Ensure native pointer is initialized
+        doReturn(1L).when(mOptimizationGuideBridgeJniMock).init();
+        mockOptimizationGuideResponse(OptimizationGuideDecision.TRUE);
 
         CachedFeatureFlags.setForTesting(ChromeFeatureList.START_SURFACE_ANDROID, false);
         TabUiFeatureUtilities.ENABLE_SEARCH_CHIP.setForTesting(true);
@@ -1525,6 +1539,41 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
+    public void removeSpecialItem_Message_PriceWelcome() {
+        PropertyModel model = mock(PropertyModel.class);
+        int expectedMessageType = PRICE_WELCOME;
+        int wrongMessageType = TAB_SUGGESTION;
+        when(model.get(CARD_TYPE)).thenReturn(MESSAGE);
+        when(model.get(MESSAGE_TYPE)).thenReturn(expectedMessageType);
+        mMediator.addSpecialItemToModel(0, TabProperties.UiType.PRICE_WELCOME, model);
+        assertEquals(1, mModel.size());
+
+        mMediator.removeSpecialItemFromModel(TabProperties.UiType.MESSAGE, wrongMessageType);
+        assertEquals(1, mModel.size());
+
+        mMediator.removeSpecialItemFromModel(
+                TabProperties.UiType.PRICE_WELCOME, expectedMessageType);
+        assertEquals(0, mModel.size());
+    }
+
+    @Test
+    public void testGetFirstTabShowingPriceCard() {
+        initAndAssertAllProperties();
+        mModel.get(0).model.set(TabProperties.PRICE_DROP, null);
+        mModel.get(1).model.set(TabProperties.PRICE_DROP, null);
+        assertNull(mModel.getFirstTabShowingPriceCard());
+
+        PriceDrop priceDrop1 = new PriceDrop("$1", "$2");
+        PriceDrop priceDrop2 = new PriceDrop("$3", "$4");
+        mModel.get(1).model.set(TabProperties.PRICE_DROP, priceDrop2);
+        assertEquals(TAB2_ID, mModel.getFirstTabShowingPriceCard().bindingTabId);
+        assertEquals(priceDrop2, mModel.getFirstTabShowingPriceCard().priceDrop);
+        mModel.get(0).model.set(TabProperties.PRICE_DROP, priceDrop1);
+        assertEquals(TAB1_ID, mModel.getFirstTabShowingPriceCard().bindingTabId);
+        assertEquals(priceDrop1, mModel.getFirstTabShowingPriceCard().priceDrop);
+    }
+
+    @Test
     @Features.DisableFeatures({TAB_GROUPS_ANDROID})
     public void testUrlUpdated_forSingleTab_GTS_GroupNotEnabled() {
         initAndAssertAllProperties();
@@ -1850,11 +1899,12 @@ public class TabListMediatorUnitTest {
     @Test
     public void testPriceTrackingProperty() {
         TabUiFeatureUtilities.ENABLE_PRICE_TRACKING.setForTesting(true);
-        for (boolean signedIn : new boolean[] {false, true}) {
+        for (boolean signedInAndSyncEnabled : new boolean[] {false, true}) {
             for (boolean priceTrackingEnabled : new boolean[] {false, true}) {
                 for (boolean incognito : new boolean[] {false, true}) {
                     TabListMediator mMediatorSpy = spy(mMediator);
-                    doReturn(signedIn).when(mMediatorSpy).isSignedIn();
+                    PriceTrackingUtilities.setIsSignedInAndSyncEnabledForTesting(
+                            signedInAndSyncEnabled);
                     PriceTrackingUtilities.SHARED_PREFERENCES_MANAGER.writeBoolean(
                             PriceTrackingUtilities.TRACK_PRICES_ON_TABS, priceTrackingEnabled);
                     Profile.setLastUsedProfileForTesting(mProfile);
@@ -1873,7 +1923,7 @@ public class TabListMediatorUnitTest {
 
                     mMediatorSpy.resetWithListOfTabs(PseudoTab.getListOfPseudoTab(tabs),
                             /*quickMode =*/false, /*mruMode =*/false);
-                    if (signedIn && priceTrackingEnabled && !incognito) {
+                    if (signedInAndSyncEnabled && priceTrackingEnabled && !incognito) {
                         mModel.get(0)
                                 .model.get(TabProperties.SHOPPING_PERSISTED_TAB_DATA_FETCHER)
                                 .fetch((shoppingPersistedTabData) -> {
@@ -1948,10 +1998,10 @@ public class TabListMediatorUnitTest {
     public void navigateToLastSearchQuery() {
         initAndAssertAllProperties();
 
-        String otherUrl = "https://example.com";
-        String searchUrl = "https://www.google.com/search?q=test";
+        GURL otherUrl = JUnitTestGURLs.getGURL(JUnitTestGURLs.EXAMPLE_URL);
+        GURL searchUrl = JUnitTestGURLs.getGURL(JUnitTestGURLs.SEARCH_URL);
         String searchTerm = "test";
-        String searchUrl2 = "https://www.google.com/search?q=query";
+        GURL searchUrl2 = JUnitTestGURLs.getGURL(JUnitTestGURLs.SEARCH_2_URL);
         String searchTerm2 = "query";
         TemplateUrlService service = Mockito.mock(TemplateUrlService.class);
         doReturn(null).when(service).getSearchQueryForUrl(otherUrl);
@@ -1985,47 +2035,47 @@ public class TabListMediatorUnitTest {
         doReturn(otherUrl).when(navigationEntry0).getOriginalUrl();
         TabListMediator.SearchTermChipUtils.navigateToLastSearchQuery(mTab1);
         inOrder.verify(mTab1).loadUrl(
-                refEq(new LoadUrlParams(searchUrl, PageTransition.KEYWORD_GENERATED)));
+                refEq(new LoadUrlParams(searchUrl.getSpec(), PageTransition.KEYWORD_GENERATED)));
 
         // Has earlier SRP.
         doReturn(otherUrl).when(navigationEntry1).getOriginalUrl();
         doReturn(searchUrl2).when(navigationEntry0).getOriginalUrl();
         TabListMediator.SearchTermChipUtils.navigateToLastSearchQuery(mTab1);
         inOrder.verify(mTab1).loadUrl(
-                refEq(new LoadUrlParams(searchUrl2, PageTransition.KEYWORD_GENERATED)));
+                refEq(new LoadUrlParams(searchUrl2.getSpec(), PageTransition.KEYWORD_GENERATED)));
 
         // Latest one wins.
         doReturn(searchUrl).when(navigationEntry1).getOriginalUrl();
         doReturn(searchUrl2).when(navigationEntry0).getOriginalUrl();
         TabListMediator.SearchTermChipUtils.navigateToLastSearchQuery(mTab1);
         inOrder.verify(mTab1).loadUrl(
-                refEq(new LoadUrlParams(searchUrl, PageTransition.KEYWORD_GENERATED)));
+                refEq(new LoadUrlParams(searchUrl.getSpec(), PageTransition.KEYWORD_GENERATED)));
 
         // Rejected by canGoToOffset().
         doReturn(false).when(navigationController).canGoToOffset(eq(-1));
         TabListMediator.SearchTermChipUtils.navigateToLastSearchQuery(mTab1);
         inOrder.verify(mTab1).loadUrl(
-                refEq(new LoadUrlParams(searchUrl2, PageTransition.KEYWORD_GENERATED)));
+                refEq(new LoadUrlParams(searchUrl2.getSpec(), PageTransition.KEYWORD_GENERATED)));
 
         // Reset canGoToOffset().
         doReturn(true).when(navigationController).canGoToOffset(anyInt());
         TabListMediator.SearchTermChipUtils.navigateToLastSearchQuery(mTab1);
         inOrder.verify(mTab1).loadUrl(
-                refEq(new LoadUrlParams(searchUrl, PageTransition.KEYWORD_GENERATED)));
+                refEq(new LoadUrlParams(searchUrl.getSpec(), PageTransition.KEYWORD_GENERATED)));
 
         // Only care about previous ones.
         doReturn(1).when(navigationHistory).getCurrentEntryIndex();
         TabListMediator.SearchTermChipUtils.navigateToLastSearchQuery(mTab1);
         inOrder.verify(mTab1).loadUrl(
-                refEq(new LoadUrlParams(searchUrl2, PageTransition.KEYWORD_GENERATED)));
+                refEq(new LoadUrlParams(searchUrl2.getSpec(), PageTransition.KEYWORD_GENERATED)));
     }
 
     @Test
     public void searchListener() {
         initAndAssertAllProperties();
 
-        String otherUrl = "https://example.com";
-        String searchUrl = "https://www.google.com/search?q=test";
+        GURL otherUrl = JUnitTestGURLs.getGURL(JUnitTestGURLs.EXAMPLE_URL);
+        GURL searchUrl = JUnitTestGURLs.getGURL(JUnitTestGURLs.SEARCH_URL);
         String searchTerm = "test";
         TemplateUrlService service = Mockito.mock(TemplateUrlService.class);
         doReturn(null).when(service).getSearchQueryForUrl(otherUrl);
@@ -2054,14 +2104,14 @@ public class TabListMediatorUnitTest {
         verify(mGridCardOnClickListenerProvider)
                 .onTabSelecting(mModel.get(0).model.get(TabProperties.TAB_ID), true);
         verify(mTab1).loadUrl(
-                refEq(new LoadUrlParams(searchUrl, PageTransition.KEYWORD_GENERATED)));
+                refEq(new LoadUrlParams(searchUrl.getSpec(), PageTransition.KEYWORD_GENERATED)));
     }
 
     @Test
     public void searchListener_frozenTab() {
         initAndAssertAllProperties();
 
-        String searchUrl = "https://www.google.com/search?q=test";
+        GURL searchUrl = JUnitTestGURLs.getGURL(JUnitTestGURLs.SEARCH_URL);
         String searchTerm = "test";
         TemplateUrlService service = Mockito.mock(TemplateUrlService.class);
         doReturn(searchTerm).when(service).getSearchQueryForUrl(searchUrl);
@@ -2089,7 +2139,7 @@ public class TabListMediatorUnitTest {
         doReturn(webContents).when(mTab1).getWebContents();
         mTabObserverCaptor.getValue().onPageLoadStarted(mTab1, searchUrl);
         verify(mTab1).loadUrl(
-                refEq(new LoadUrlParams(searchUrl, PageTransition.KEYWORD_GENERATED)));
+                refEq(new LoadUrlParams(searchUrl.getSpec(), PageTransition.KEYWORD_GENERATED)));
     }
 
     @Test
@@ -2538,5 +2588,20 @@ public class TabListMediatorUnitTest {
                             anyString(), anyString(), any(String[].class), anyString(), anyLong(),
                             any(Callback.class));
         }
+    }
+
+    private void mockOptimizationGuideResponse(@OptimizationGuideDecision int decision) {
+        doAnswer(new Answer<Void>() {
+            @Override
+            public Void answer(InvocationOnMock invocation) {
+                OptimizationGuideCallback callback =
+                        (OptimizationGuideCallback) invocation.getArguments()[3];
+                callback.onOptimizationGuideDecision(decision, null);
+                return null;
+            }
+        })
+                .when(mOptimizationGuideBridgeJniMock)
+                .canApplyOptimization(
+                        anyLong(), any(GURL.class), anyInt(), any(OptimizationGuideCallback.class));
     }
 }

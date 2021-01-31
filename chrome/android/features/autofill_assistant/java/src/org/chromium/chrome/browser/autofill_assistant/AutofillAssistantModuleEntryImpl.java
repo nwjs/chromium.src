@@ -27,7 +27,7 @@ import org.chromium.chrome.browser.autofill_assistant.metrics.OnBoarding;
 import org.chromium.chrome.browser.autofill_assistant.trigger_scripts.AssistantTriggerScriptBridge;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
-import org.chromium.chrome.browser.signin.UnifiedConsentServiceBridge;
+import org.chromium.chrome.browser.signin.services.UnifiedConsentServiceBridge;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.base.ActivityKeyboardVisibilityDelegate;
@@ -51,7 +51,7 @@ public class AutofillAssistantModuleEntryImpl implements AutofillAssistantModule
             @NonNull String initialUrl, Map<String, String> parameters, String experimentIds,
             @Nullable String callerAccount, @Nullable String userName) {
         if (shouldStartTriggerScript(parameters)) {
-            if (!AutofillAssistantPreferencesUtil.isProactiveHelpSwitchOn()) {
+            if (!AutofillAssistantPreferencesUtil.isProactiveHelpOn()) {
                 // Opt-out users who have disabled the proactive help Chrome setting.
                 AutofillAssistantMetrics.recordLiteScriptStarted(
                         webContents, LiteScriptStarted.LITE_SCRIPT_PROACTIVE_TRIGGERING_DISABLED);
@@ -167,9 +167,11 @@ public class AutofillAssistantModuleEntryImpl implements AutofillAssistantModule
             return;
         }
 
-        AssistantOnboardingCoordinator onboardingCoordinator = new AssistantOnboardingCoordinator(
-                experimentIds, parameters, context, bottomSheetController, browserControls,
-                compositorViewHolder, bottomSheetController.getScrimCoordinator());
+        BottomSheetOnboardingCoordinator onboardingCoordinator =
+                new BottomSheetOnboardingCoordinator(experimentIds, parameters, context,
+                        bottomSheetController, browserControls, compositorViewHolder,
+                        bottomSheetController.getScrimCoordinator());
+
         onboardingCoordinator.show(accepted -> {
             if (parameters.containsKey(PARAMETER_TRIGGER_SCRIPT_USED)
                     || parameters.containsKey(PARAMETER_STARTED_WITH_TRIGGER_SCRIPT)) {
@@ -184,7 +186,7 @@ public class AutofillAssistantModuleEntryImpl implements AutofillAssistantModule
             AutofillAssistantClient.fromWebContents(webContents)
                     .start(initialUrl, parameters, experimentIds, callerAccount, userName,
                             isChromeCustomTab, onboardingCoordinator);
-        });
+        }, webContents, initialUrl);
     }
 
     @Override

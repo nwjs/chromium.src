@@ -123,13 +123,14 @@ bool ExecuteCodeFunction::Execute(const std::string& code_string,
 
   executor->ExecuteScript(
       host_id_, action_type, code_string, frame_scope, {frame_id},
-      match_about_blank, run_at, world_type,
+      match_about_blank, run_at,
+      world_type,
       IsWebView() ? ScriptExecutor::WEB_VIEW_PROCESS
                   : ScriptExecutor::DEFAULT_PROCESS,
       GetWebViewSrc(), script_url_, user_gesture(), css_origin,
       has_callback() ? ScriptExecutor::JSON_SERIALIZED_RESULT
                      : ScriptExecutor::NO_RESULT,
-      base::Bind(&ExecuteCodeFunction::OnExecuteCodeFinished, this));
+      base::BindOnce(&ExecuteCodeFunction::OnExecuteCodeFinished, this));
   return true;
 }
 

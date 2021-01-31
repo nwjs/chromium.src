@@ -400,8 +400,8 @@ void DownloadsDOMHandler::ShowDangerPrompt(
 #if 0
   DownloadDangerPrompt* danger_prompt = DownloadDangerPrompt::Create(
       dangerous_item, GetWebUIWebContents(), false,
-      base::Bind(&DownloadsDOMHandler::DangerPromptDone,
-                 weak_ptr_factory_.GetWeakPtr(), dangerous_item->GetId()));
+      base::BindOnce(&DownloadsDOMHandler::DangerPromptDone,
+                     weak_ptr_factory_.GetWeakPtr(), dangerous_item->GetId()));
   // danger_prompt will delete itself.
   DCHECK(danger_prompt);
 #endif

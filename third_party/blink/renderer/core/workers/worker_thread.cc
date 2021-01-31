@@ -411,10 +411,6 @@ HashSet<WorkerThread*>& WorkerThread::WorkerThreads() {
   return threads;
 }
 
-PlatformThreadId WorkerThread::GetPlatformThreadId() {
-  return GetWorkerBackingThread().BackingThread().ThreadId();
-}
-
 bool WorkerThread::IsForciblyTerminated() {
   MutexLocker lock(mutex_);
   switch (exit_code_) {

@@ -267,6 +267,23 @@ bool SiteInfo::ShouldUseProcessPerSite(BrowserContext* browser_context) const {
                                                                 site_url_);
 }
 
+class SiteInstanceImpl::DefaultSiteInstanceState {
+ public:
+  void AddSiteInfo(const SiteInfo& site_info) {
+    default_site_url_set_.insert(site_info.site_url());
+  }
+
+  bool ContainsSite(const GURL& site_url) {
+    return base::Contains(default_site_url_set_, site_url);
+  }
+
+ private:
+  // Keeps track of the site URLs that have been mapped to the default
+  // SiteInstance.
+  // TODO(wjmaclean): Revise this to store SiteInfos instead of GURLs.
+  std::set<GURL> default_site_url_set_;
+};
+
 SiteInstanceImpl::SiteInstanceImpl(BrowsingInstance* browsing_instance)
     : id_(next_site_instance_id_++),
       active_frame_count_(0),
@@ -436,11 +453,17 @@ RenderProcessHost* SiteInstanceImpl::GetDefaultProcessIfUsable() {
 }
 
 bool SiteInstanceImpl::IsDefaultSiteInstance() const {
-  return browsing_instance_->IsDefaultSiteInstance(this);
+  return default_site_instance_state_ != nullptr;
+}
+
+void SiteInstanceImpl::AddSiteInfoToDefault(const SiteInfo& site_info) {
+  DCHECK(IsDefaultSiteInstance());
+  default_site_instance_state_->AddSiteInfo(site_info);
 }
 
 bool SiteInstanceImpl::IsSiteInDefaultSiteInstance(const GURL& site_url) const {
-  return browsing_instance_->IsSiteInDefaultSiteInstance(site_url);
+  DCHECK(IsDefaultSiteInstance());
+  return default_site_instance_state_->ContainsSite(site_url);
 }
 
 void SiteInstanceImpl::MaybeSetBrowsingInstanceDefaultProcess() {
@@ -560,8 +583,9 @@ void SiteInstanceImpl::SetProcessInternal(RenderProcessHost* process) {
   CHECK(process);
   process_ = process;
   process_->AddObserver(this);
-  DCHECK(!agent_scheduling_group_);
-  agent_scheduling_group_ = AgentSchedulingGroupHost::Get(*this, *process_);
+  CHECK(!agent_scheduling_group_);
+  agent_scheduling_group_ =
+      AgentSchedulingGroupHost::GetOrCreate(*this, *process_);
 
   MaybeSetBrowsingInstanceDefaultProcess();
 
@@ -613,6 +637,7 @@ void SiteInstanceImpl::SetSiteInfoToDefault() {
   TRACE_EVENT1("navigation", "SiteInstanceImpl::SetSiteInfoToDefault",
                "site id", id_);
   DCHECK(!has_site_);
+  default_site_instance_state_ = std::make_unique<DefaultSiteInstanceState>();
   original_url_ = GetDefaultSiteURL();
   SetSiteInfoInternal(SiteInfo::CreateForDefaultSiteInstance(
       browsing_instance_->coop_coep_cross_origin_isolated_info()));
@@ -627,6 +652,12 @@ void SiteInstanceImpl::SetSiteInfoInternal(const SiteInfo& site_info) {
   has_site_ = true;
   site_info_ = site_info;
 
+  // Now that we have a site, register it with the BrowsingInstance.  This
+  // ensures that we won't create another SiteInstance for this site within
+  // the same BrowsingInstance, because all same-site pages within a
+  // BrowsingInstance can script each other.
+  browsing_instance_->RegisterSiteInstance(this);
+
   if (site_info_.is_origin_keyed()) {
     // Track this origin's isolation in the current BrowsingInstance.  This is
     // needed to consistently isolate future navigations to this origin in this
@@ -637,12 +668,6 @@ void SiteInstanceImpl::SetSiteInfoInternal(const SiteInfo& site_info) {
     policy->AddOptInIsolatedOriginForBrowsingInstance(
         browsing_instance_->isolation_context(), site_origin);
   }
-
-  // Now that we have a site, register it with the BrowsingInstance.  This
-  // ensures that we won't create another SiteInstance for this site within
-  // the same BrowsingInstance, because all same-site pages within a
-  // BrowsingInstance can script each other.
-  browsing_instance_->RegisterSiteInstance(this);
 
   // Update the process reuse policy based on the site.
   bool should_use_process_per_site = ShouldUseProcessPerSite();
@@ -663,8 +688,18 @@ void SiteInstanceImpl::SetSiteInfoInternal(const SiteInfo& site_info) {
 void SiteInstanceImpl::ConvertToDefaultOrSetSite(const UrlInfo& url_info) {
   DCHECK(!has_site_);
 
-  if (browsing_instance_->TrySettingDefaultSiteInstance(this, url_info))
-    return;
+  if (!browsing_instance_->HasDefaultSiteInstance()) {
+    const SiteInfo site_info = ComputeSiteInfo(
+        GetIsolationContext(), url_info, GetCoopCoepCrossOriginIsolatedInfo());
+    if (CanBePlacedInDefaultSiteInstance(GetIsolationContext(), url_info.url,
+                                         site_info)) {
+      SetSiteInfoToDefault();
+      AddSiteInfoToDefault(site_info);
+
+      DCHECK(browsing_instance_->HasDefaultSiteInstance());
+      return;
+    }
+  }
 
   SetSite(url_info);
 }

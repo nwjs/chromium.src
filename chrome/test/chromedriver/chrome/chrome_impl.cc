@@ -54,7 +54,7 @@ Status ChromeImpl::GetWebViewIdForFirstTab(std::string* web_view_id,
     return status;
   UpdateWebViews(views_info, w3c_compliant);
   std::string ret;
-  for (size_t i = 0; i < views_info.GetSize(); ++i) {
+  for (int i = views_info.GetSize() - 1; i >= 0; --i) {
     const WebViewInfo& view = views_info.Get(i);
     if (view.type == WebViewInfo::kPage ||
         view.type == WebViewInfo::kApp ||

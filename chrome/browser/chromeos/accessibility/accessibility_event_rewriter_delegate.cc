@@ -5,6 +5,7 @@
 #include "chrome/browser/chromeos/accessibility/accessibility_event_rewriter_delegate.h"
 
 #include "ash/public/cpp/accessibility_controller_enums.h"
+#include "ash/public/cpp/app_types.h"
 #include "ash/public/cpp/event_rewriter_controller.h"
 #include "chrome/browser/chromeos/accessibility/accessibility_manager.h"
 #include "chrome/browser/chromeos/accessibility/event_handler_common.h"
@@ -12,7 +13,6 @@
 #include "chrome/browser/ui/aura/accessibility/automation_manager_aura.h"
 #include "chrome/common/extensions/api/accessibility_private.h"
 #include "chrome/common/extensions/extension_constants.h"
-#include "components/arc/arc_util.h"
 #include "components/exo/wm_helper.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/native_web_keyboard_event.h"
@@ -25,8 +25,7 @@
 
 namespace {
 
-std::string AccessibilityPrivateEnumForCommand(
-    ash::SwitchAccessCommand command) {
+std::string ToString(ash::SwitchAccessCommand command) {
   switch (command) {
     case ash::SwitchAccessCommand::kSelect:
       return extensions::api::accessibility_private::ToString(
@@ -42,6 +41,28 @@ std::string AccessibilityPrivateEnumForCommand(
       NOTREACHED();
       return "";
   }
+}
+
+std::string ToString(ash::MagnifierCommand command) {
+  switch (command) {
+    case ash::MagnifierCommand::kMoveStop:
+      return extensions::api::accessibility_private::ToString(
+          extensions::api::accessibility_private::MAGNIFIER_COMMAND_MOVESTOP);
+    case ash::MagnifierCommand::kMoveUp:
+      return extensions::api::accessibility_private::ToString(
+          extensions::api::accessibility_private::MAGNIFIER_COMMAND_MOVEUP);
+    case ash::MagnifierCommand::kMoveDown:
+      return extensions::api::accessibility_private::ToString(
+          extensions::api::accessibility_private::MAGNIFIER_COMMAND_MOVEDOWN);
+    case ash::MagnifierCommand::kMoveLeft:
+      return extensions::api::accessibility_private::ToString(
+          extensions::api::accessibility_private::MAGNIFIER_COMMAND_MOVELEFT);
+    case ash::MagnifierCommand::kMoveRight:
+      return extensions::api::accessibility_private::ToString(
+          extensions::api::accessibility_private::MAGNIFIER_COMMAND_MOVERIGHT);
+  }
+
+  return "";
 }
 
 }  // namespace
@@ -75,15 +96,13 @@ void AccessibilityEventRewriterDelegate::DispatchKeyEventToChromeVox(
   chromeos::ForwardKeyToExtension(*(event->AsKeyEvent()), host);
 }
 
-void AccessibilityEventRewriterDelegate::DispatchMouseEventToChromeVox(
+void AccessibilityEventRewriterDelegate::DispatchMouseEvent(
     std::unique_ptr<ui::Event> event) {
   if (is_arc_window_active_)
     return;
 
-  if (event->type() == ui::ET_MOUSE_MOVED) {
-    AutomationManagerAura::GetInstance()->HandleEvent(
-        ax::mojom::Event::kMouseMoved);
-  }
+  AutomationManagerAura::GetInstance()->HandleEvent(
+      ax::mojom::Event::kMouseMoved);
 }
 
 void AccessibilityEventRewriterDelegate::SendSwitchAccessCommand(
@@ -92,7 +111,7 @@ void AccessibilityEventRewriterDelegate::SendSwitchAccessCommand(
       chromeos::AccessibilityManager::Get()->profile());
 
   auto event_args = std::make_unique<base::ListValue>();
-  event_args->AppendString(AccessibilityPrivateEnumForCommand(command));
+  event_args->AppendString(ToString(command));
 
   auto event = std::make_unique<extensions::Event>(
       extensions::events::ACCESSIBILITY_PRIVATE_ON_SWITCH_ACCESS_COMMAND,
@@ -109,8 +128,12 @@ void AccessibilityEventRewriterDelegate::SendPointScanPoint(
       chromeos::AccessibilityManager::Get()->profile());
 
   auto event_args = std::make_unique<base::ListValue>();
-  event_args->AppendDouble(point.x());
-  event_args->AppendDouble(point.y());
+  auto point_dict = std::make_unique<base::DictionaryValue>();
+
+  point_dict->SetDouble("x", point.x());
+  point_dict->SetDouble("y", point.y());
+
+  event_args->Append(std::move(point_dict));
 
   auto event = std::make_unique<extensions::Event>(
       extensions::events::ACCESSIBILITY_PRIVATE_ON_POINT_SCAN_SET,
@@ -119,6 +142,23 @@ void AccessibilityEventRewriterDelegate::SendPointScanPoint(
 
   event_router->DispatchEventWithLazyListener(
       extension_misc::kSwitchAccessExtensionId, std::move(event));
+}
+
+void AccessibilityEventRewriterDelegate::SendMagnifierCommand(
+    ash::MagnifierCommand command) {
+  extensions::EventRouter* event_router = extensions::EventRouter::Get(
+      chromeos::AccessibilityManager::Get()->profile());
+
+  auto event_args = std::make_unique<base::ListValue>();
+  event_args->AppendString(ToString(command));
+
+  auto event = std::make_unique<extensions::Event>(
+      extensions::events::ACCESSIBILITY_PRIVATE_ON_SWITCH_ACCESS_COMMAND,
+      extensions::api::accessibility_private::OnMagnifierCommand::kEventName,
+      std::move(event_args));
+
+  event_router->DispatchEventWithLazyListener(
+      extension_misc::kAccessibilityCommonExtensionId, std::move(event));
 }
 
 void AccessibilityEventRewriterDelegate::OnUnhandledSpokenFeedbackEvent(
@@ -141,5 +181,5 @@ void AccessibilityEventRewriterDelegate::OnWindowActivated(
   if (gained_active == lost_active)
     return;
 
-  is_arc_window_active_ = arc::IsArcAppWindow(gained_active);
+  is_arc_window_active_ = ash::IsArcWindow(gained_active);
 }

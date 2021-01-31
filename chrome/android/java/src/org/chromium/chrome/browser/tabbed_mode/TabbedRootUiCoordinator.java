@@ -11,6 +11,7 @@ import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.Callback;
+import org.chromium.base.CommandLine;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
@@ -33,6 +34,7 @@ import org.chromium.chrome.browser.datareduction.DataReductionPromoScreen;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.fullscreen.BrowserControlsManager;
 import org.chromium.chrome.browser.gesturenav.HistoryNavigationCoordinator;
 import org.chromium.chrome.browser.gesturenav.NavigationSheet;
@@ -62,6 +64,8 @@ import org.chromium.chrome.browser.ui.appmenu.AppMenuHandler;
 import org.chromium.chrome.browser.ui.default_browser_promo.DefaultBrowserPromoUtils;
 import org.chromium.chrome.browser.ui.tablet.emptybackground.EmptyBackgroundViewWrapper;
 import org.chromium.chrome.browser.vr.VrModuleProvider;
+import org.chromium.chrome.browser.webapps.PwaBottomSheetController;
+import org.chromium.chrome.browser.webapps.PwaBottomSheetControllerFactory;
 import org.chromium.chrome.features.start_surface.StartSurface;
 import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
 import org.chromium.components.browser_ui.util.ComposedBrowserControlsVisibilityDelegate;
@@ -86,6 +90,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
     private UrlFocusChangeListener mUrlFocusChangeListener;
     private @Nullable ToolbarButtonInProductHelpController mToolbarButtonInProductHelpController;
     private AppBannerInProductHelpController mAppBannerInProductHelpController;
+    private PwaBottomSheetController mPwaBottomSheetController;
     private HistoryNavigationCoordinator mHistoryNavigationCoordinator;
     private NavigationSheet mNavigationSheet;
     private ComposedBrowserControlsVisibilityDelegate mAppBrowserControlsVisibilityDelegate;
@@ -168,6 +173,10 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
             AppBannerInProductHelpControllerFactory.detach(mAppBannerInProductHelpController);
         }
 
+        if (mPwaBottomSheetController != null) {
+            PwaBottomSheetControllerFactory.detach(mPwaBottomSheetController);
+        }
+
         if (mHistoryNavigationCoordinator != null) {
             mHistoryNavigationCoordinator.destroy();
             mHistoryNavigationCoordinator = null;
@@ -204,9 +213,10 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
     public void showFullHistorySheet() {
         Tab tab = mActivity.getActivityTabProvider().get();
         if (tab == null || tab.getWebContents() == null || !tab.isUserInteractable()) return;
+        Profile profile = Profile.fromWebContents(tab.getWebContents());
         mNavigationSheet = NavigationSheet.create(
                 mActivity.getWindow().getDecorView().findViewById(android.R.id.content), mActivity,
-                this::getBottomSheetController);
+                this::getBottomSheetController, profile);
         mNavigationSheet.setDelegate(new TabbedSheetDelegate(tab, aTab -> {
             HistoryManagerUtils.showHistoryManager(mActivity, aTab);
         }, mActivity.getResources().getString(R.string.show_full_history)));
@@ -250,6 +260,12 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
             mEmptyBackgroundViewWrapper.initialize();
         }
 
+        if (!mActivity.isTablet()
+                && (TabUiFeatureUtilities.isTabGroupsAndroidEnabled()
+                        || TabUiFeatureUtilities.isConditionalTabStripEnabled())) {
+            getToolbarManager().enableBottomControls();
+        }
+
         if (EphemeralTabCoordinator.isSupported()) {
             mEphemeralTabCoordinatorSupplier.set(new EphemeralTabCoordinator(mActivity,
                     mActivity.getWindowAndroid(), mActivity.getWindow().getDecorView(),
@@ -259,6 +275,14 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
 
         mIntentMetadataOneshotSupplier.onAvailable(mCallbackController.makeCancelable(
                 (metadata) -> initializeIPH(metadata.getIsIntentWithEffect())));
+
+        // TODO(https://crbug.com/1157955): Investigate switching to per-Activity coordinator that
+        // uses signals from the current Tab to decide when to show the PWA install bottom sheet
+        // rather than relying on unowned user data.
+        mPwaBottomSheetController =
+                PwaBottomSheetControllerFactory.createPwaBottomSheetController(mActivity);
+        PwaBottomSheetControllerFactory.attach(
+                mActivity.getWindowAndroid(), mPwaBottomSheetController);
     }
 
     // Protected class methods
@@ -269,16 +293,6 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
 
         initStatusIndicatorCoordinator(layoutManager);
         mLayoutManager = layoutManager;
-    }
-
-    @Override
-    protected void initializeToolbar() {
-        super.initializeToolbar();
-        if (!mActivity.isTablet()
-                && (TabUiFeatureUtilities.isTabGroupsAndroidEnabled()
-                        || TabUiFeatureUtilities.isConditionalTabStripEnabled())) {
-            getToolbarManager().enableBottomControls();
-        }
     }
 
     @Override
@@ -318,8 +332,10 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
         if (mActivity == null) return;
         mToolbarButtonIphTabSupplier = new ObservableSupplierImpl<>();
         mToolbarButtonInProductHelpController =
-                new ToolbarButtonInProductHelpController(mActivity, mAppMenuCoordinator,
-                        mActivity.getLifecycleDispatcher(), mToolbarButtonIphTabSupplier);
+                new ToolbarButtonInProductHelpController(mActivity, mActivity.getWindowAndroid(),
+                        mAppMenuCoordinator, mActivity.getLifecycleDispatcher(),
+                        mToolbarButtonIphTabSupplier, mActivity::isInOverviewMode,
+                        mToolbarManager.getMenuButtonView(), mToolbarManager.getSecurityIconView());
         ActivityTabProvider activityTabProvider = mActivity.getActivityTabProvider();
         mToolbarButtonIphTabObserver = new ActivityTabTabObserver(activityTabProvider) {
             @Override
@@ -476,6 +492,10 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
      */
     private boolean triggerPromo(boolean intentWithEffect) {
         try (TraceEvent e = TraceEvent.scoped("TabbedRootUiCoordinator.triggerPromo")) {
+            if (CommandLine.getInstance().hasSwitch(ChromeSwitches.DISABLE_STARTUP_PROMOS)) {
+                return false;
+            }
+
             SharedPreferencesManager preferenceManager = SharedPreferencesManager.getInstance();
             // Promos can only be shown when we start with ACTION_MAIN intent and
             // after FRE is complete. Native initialization can finish before the FRE flow is
@@ -518,7 +538,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
             return true;
         }
         if (DefaultBrowserPromoUtils.prepareLaunchPromoIfNeeded(
-                    mActivity, mActivity.getLifecycleDispatcher(), mActivity.getWindowAndroid())) {
+                    mActivity, mActivity.getWindowAndroid())) {
             return true;
         }
 

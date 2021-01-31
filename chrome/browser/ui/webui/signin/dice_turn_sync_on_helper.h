@@ -39,6 +39,8 @@ class DiceTurnSyncOnHelper
       public policy::PolicyService::ProviderUpdateObserver {
  public:
   // Behavior when the signin is aborted (by an error or cancelled by the user).
+  // The mode has no effect on the sync-is-disabled flow where cancelling always
+  // implies removing the account.
   enum class SigninAbortedMode {
     // The token is revoked and the account is signed out of the web.
     REMOVE_ACCOUNT,
@@ -255,8 +257,7 @@ class DiceTurnSyncOnHelper
 
   std::unique_ptr<SyncStartupTracker> sync_startup_tracker_;
   std::unique_ptr<DiceSignedInProfileCreator> dice_signed_in_profile_creator_;
-  std::unique_ptr<KeyedServiceShutdownNotifier::Subscription>
-      shutdown_subscription_;
+  base::CallbackListSubscription shutdown_subscription_;
 
   base::WeakPtrFactory<DiceTurnSyncOnHelper> weak_pointer_factory_{this};
   DISALLOW_COPY_AND_ASSIGN(DiceTurnSyncOnHelper);

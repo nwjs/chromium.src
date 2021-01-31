@@ -172,7 +172,7 @@ class ArcAccessibilityHelperBridge
       mojom::AccessibilityEventData* event_data) const;
   void DispatchCustomSpokenFeedbackToggled(bool enabled) const;
 
-  AXTreeSourceArc* CreateFromKey(TreeKey, aura::Window* window);
+  AXTreeSourceArc* CreateFromKey(TreeKey);
   AXTreeSourceArc* GetFromKey(const TreeKey&);
   AXTreeSourceArc* GetFromTreeId(ui::AXTreeID tree_id) const;
 
@@ -185,8 +185,7 @@ class ArcAccessibilityHelperBridge
 
   std::map<int32_t, int32_t> window_id_to_task_id_;
 
-  std::unique_ptr<chromeos::AccessibilityStatusSubscription>
-      accessibility_status_subscription_;
+  base::CallbackListSubscription accessibility_status_subscription_;
 
   arc::mojom::AccessibilityFilterType filter_type_ =
       arc::mojom::AccessibilityFilterType::OFF;

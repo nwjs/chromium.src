@@ -47,6 +47,10 @@ class ASH_EXPORT DeskMiniView
     return close_desk_button_;
   }
 
+  DesksBarView* owner_bar() { return owner_bar_; }
+
+  gfx::Rect GetPreviewBoundsInScreen() const;
+
   // Returns the associated desk's container window on the display this
   // mini_view resides on.
   aura::Window* GetDeskContainer() const;
@@ -84,6 +88,7 @@ class ASH_EXPORT DeskMiniView
   views::View* GetView() override;
   void MaybeActivateHighlightedView() override;
   void MaybeCloseHighlightedView() override;
+  void MaybeSwapHighlightedView(bool right) override;
   void OnViewHighlighted() override;
   void OnViewUnhighlighted() override;
 

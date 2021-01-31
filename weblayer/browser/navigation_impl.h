@@ -77,6 +77,7 @@ class NavigationImpl : public Navigation {
   bool IsSameDocument(JNIEnv* env) { return IsSameDocument(); }
   bool IsErrorPage(JNIEnv* env) { return IsErrorPage(); }
   bool IsDownload(JNIEnv* env) { return IsDownload(); }
+  bool IsKnownProtocol(JNIEnv* env) { return IsKnownProtocol(); }
   bool WasStopCalled(JNIEnv* env) { return WasStopCalled(); }
   int GetLoadError(JNIEnv* env) { return static_cast<int>(GetLoadError()); }
   jboolean SetRequestHeader(JNIEnv* env,
@@ -87,6 +88,9 @@ class NavigationImpl : public Navigation {
       const base::android::JavaParamRef<jstring>& value);
   jboolean IsPageInitiated(JNIEnv* env) { return IsPageInitiated(); }
   jboolean IsReload(JNIEnv* env) { return IsReload(); }
+  jboolean IsServedFromBackForwardCache(JNIEnv* env) {
+    return IsServedFromBackForwardCache();
+  }
   jboolean DisableNetworkErrorAutoReload(JNIEnv* env);
 
   void SetResponse(
@@ -106,6 +110,7 @@ class NavigationImpl : public Navigation {
   bool IsSameDocument() override;
   bool IsErrorPage() override;
   bool IsDownload() override;
+  bool IsKnownProtocol() override;
   bool WasStopCalled() override;
   LoadError GetLoadError() override;
   void SetRequestHeader(const std::string& name,
@@ -114,6 +119,7 @@ class NavigationImpl : public Navigation {
   void DisableNetworkErrorAutoReload() override;
   bool IsPageInitiated() override;
   bool IsReload() override;
+  bool IsServedFromBackForwardCache() override;
 
  private:
   content::NavigationHandle* navigation_handle_;

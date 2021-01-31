@@ -172,7 +172,7 @@ class BLINK_EXPORT WebFrame {
   // TODO(crbug.com/1096617): Make this return a FrameToken instead.
   const base::UnguessableToken& GetFrameToken() const { return frame_token_; }
 
-  static WebFrame* FromFrame(Frame*);
+  static WebFrame* FromCoreFrame(Frame*);
 #if INSIDE_BLINK
   static Frame* ToCoreFrame(const WebFrame&);
 

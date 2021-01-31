@@ -55,21 +55,21 @@ if (nwjs_sdk) {
   ]
 }
 
-if (is_chromeos) {
+if (is_chromeos_ash) {
   grit_defines += [
     "-D",
     "chromeos",
   ]
 }
 
-if (chromeos_is_browser_only) {
+if (is_chromeos_lacros) {
   grit_defines += [
     "-D",
     "lacros",
   ]
 }
 
-if (is_linux) {
+if (is_linux || is_chromeos_lacros) {
   grit_defines += [
     "-D",
     "desktop_linux",

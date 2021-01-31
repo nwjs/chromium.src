@@ -22,6 +22,7 @@
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_commands.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_constants.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_feature.h"
+#import "ios/chrome/browser/ui/content_suggestions/content_suggestions_header_controlling.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_header_synchronizing.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_layout.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_menu_provider.h"
@@ -31,6 +32,7 @@
 #import "ios/chrome/browser/ui/content_suggestions/discover_feed_metrics_recorder.h"
 #import "ios/chrome/browser/ui/content_suggestions/ntp_home_constant.h"
 #import "ios/chrome/browser/ui/content_suggestions/theme_change_delegate.h"
+#import "ios/chrome/browser/ui/gestures/view_revealing_vertical_pan_handler.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_header_constants.h"
 #import "ios/chrome/browser/ui/ntp_tile_views/ntp_tile_layout_util.h"
 #import "ios/chrome/browser/ui/overscroll_actions/overscroll_actions_controller.h"
@@ -94,6 +96,9 @@ NSString* const kContentSuggestionsMostVisitedAccessibilityIdentifierPrefix =
 // The CollectionViewController scroll position when an scrolling event starts.
 @property(nonatomic, assign) int scrollStartPosition;
 
+// The layout of the content suggestions collection view.
+@property(nonatomic, strong) ContentSuggestionsLayout* layout;
+
 @end
 
 @implementation ContentSuggestionsViewController
@@ -111,11 +116,12 @@ NSString* const kContentSuggestionsMostVisitedAccessibilityIdentifierPrefix =
 #pragma mark - Lifecycle
 
 - (instancetype)initWithStyle:(CollectionViewControllerStyle)style
-                       offset:(CGFloat)offset {
+                       offset:(CGFloat)offset
+                  feedVisible:(BOOL)visible {
   _offset = offset;
-  UICollectionViewLayout* layout =
-      [[ContentSuggestionsLayout alloc] initWithOffset:offset];
-  self = [super initWithLayout:layout style:style];
+  _layout = [[ContentSuggestionsLayout alloc] initWithOffset:offset
+                                                 feedVisible:visible];
+  self = [super initWithLayout:_layout style:style];
   if (self) {
     _collectionUpdater = [[ContentSuggestionsCollectionUpdater alloc] init];
     _initialContentOffset = NAN;
@@ -307,6 +313,9 @@ NSString* const kContentSuggestionsMostVisitedAccessibilityIdentifierPrefix =
   [self.collectionView.collectionViewLayout invalidateLayout];
   // Ensure initial fake omnibox layout.
   [self.headerSynchronizer updateFakeOmniboxOnCollectionScroll];
+  // TODO(crbug.com/1114792): Plumb the collection view.
+  self.layout.parentCollectionView =
+      static_cast<UICollectionView*>(self.view.superview);
 }
 
 - (void)viewDidAppear:(BOOL)animated {
@@ -317,9 +326,7 @@ NSString* const kContentSuggestionsMostVisitedAccessibilityIdentifierPrefix =
   // Remove forced height if it was already applied, since the scroll position
   // was already maintained.
   if (self.offset > 0) {
-    ContentSuggestionsLayout* layout = static_cast<ContentSuggestionsLayout*>(
-        self.collectionView.collectionViewLayout);
-    layout.offset = 0;
+    self.layout.offset = 0;
   }
 }
 
@@ -625,7 +632,7 @@ NSString* const kContentSuggestionsMostVisitedAccessibilityIdentifierPrefix =
                                  (UICollectionViewLayout*)collectionViewLayout
     referenceSizeForHeaderInSection:(NSInteger)section {
   if ([self.collectionUpdater isHeaderSection:section]) {
-    return CGSizeMake(0, [self.headerSynchronizer headerHeight]);
+    return CGSizeMake(0, [self.headerProvider headerHeight]);
   }
   if ([self.collectionUpdater isDiscoverSection:section]) {
     return CGSizeMake(0, kDiscoverFeedFeaderHeight);
@@ -709,6 +716,7 @@ NSString* const kContentSuggestionsMostVisitedAccessibilityIdentifierPrefix =
 
 - (void)scrollViewDidScroll:(UIScrollView*)scrollView {
   [super scrollViewDidScroll:scrollView];
+  [self.panGestureHandler scrollViewDidScroll:scrollView];
   [self.overscrollActionsController scrollViewDidScroll:scrollView];
   [self.headerSynchronizer updateFakeOmniboxOnCollectionScroll];
   self.scrolledToTop =
@@ -737,6 +745,7 @@ NSString* const kContentSuggestionsMostVisitedAccessibilityIdentifierPrefix =
 
 - (void)scrollViewWillBeginDragging:(UIScrollView*)scrollView {
   [self.overscrollActionsController scrollViewWillBeginDragging:scrollView];
+  [self.panGestureHandler scrollViewWillBeginDragging:scrollView];
   self.scrollStartPosition = scrollView.contentOffset.y;
 }
 
@@ -745,6 +754,8 @@ NSString* const kContentSuggestionsMostVisitedAccessibilityIdentifierPrefix =
   [super scrollViewDidEndDragging:scrollView willDecelerate:decelerate];
   [self.overscrollActionsController scrollViewDidEndDragging:scrollView
                                               willDecelerate:decelerate];
+  [self.panGestureHandler scrollViewDidEndDragging:scrollView
+                                    willDecelerate:decelerate];
   if (IsDiscoverFeedEnabled()) {
     [self.discoverFeedMetricsRecorder
         recordFeedScrolled:scrollView.contentOffset.y -
@@ -765,6 +776,9 @@ NSString* const kContentSuggestionsMostVisitedAccessibilityIdentifierPrefix =
       scrollViewWillEndDragging:scrollView
                    withVelocity:velocity
             targetContentOffset:targetContentOffset];
+  [self.panGestureHandler scrollViewWillEndDragging:scrollView
+                                       withVelocity:velocity
+                                targetContentOffset:targetContentOffset];
 }
 
 #pragma mark - UIGestureRecognizerDelegate

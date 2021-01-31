@@ -30,9 +30,14 @@ interface INavigation {
 
   boolean wasStopCalled() = 10;
 
-  // @since 86
   boolean isPageInitiated() = 11;
   boolean isReload() = 12;
+
+  // @since 89
+  boolean wasIntentLaunched() = 13;
+  boolean isUserDecidingIntentLaunch() = 14;
+  boolean isKnownProtocol() = 15;
+  boolean isServedFromBackForwardCache() = 16;
 
   // @since 88
   void disableNetworkErrorAutoReload() = 17;

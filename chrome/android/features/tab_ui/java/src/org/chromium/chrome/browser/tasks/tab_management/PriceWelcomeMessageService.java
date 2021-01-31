@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.tasks.tab_management;
 
+import androidx.annotation.VisibleForTesting;
+
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.state.ShoppingPersistedTabData;
 
@@ -113,6 +115,14 @@ public class PriceWelcomeMessageService extends MessageService {
         }
     }
 
+    private static final int MAX_PRICE_WELCOME_MESSAGE_SHOW_COUNT = 10;
+    // TODO(crbug.com/1148020): Currently every time entering the tab switcher, {@link
+    // ResetHandler.resetWithTabs} will be called twice if {@link
+    // TabUiFeatureUtilities#isTabToGtsAnimationEnabled} returns true, see {@link
+    // TabSwitcherMediator#prepareOverview}.
+    private static final int PREPARE_MESSAGE_TIMES_ENTERING_TAB_SWITCHER =
+            TabUiFeatureUtilities.isTabToGtsAnimationEnabled() ? 2 : 1;
+
     private final PriceWelcomeMessageProvider mPriceWelcomeMessageProvider;
     private final PriceWelcomeMessageReviewActionProvider mPriceWelcomeMessageReviewActionProvider;
 
@@ -130,8 +140,15 @@ public class PriceWelcomeMessageService extends MessageService {
         if (PriceTrackingUtilities.isPriceWelcomeMessageCardDisabled()) return;
         PriceTabData priceTabData = mPriceWelcomeMessageProvider.getFirstTabShowingPriceCard();
         if (priceTabData == null) {
-            mPriceTabData = null;
-            sendInvalidNotification();
+            invalidateMessage();
+            return;
+        }
+        PriceTrackingUtilities.increasePriceWelcomeMessageCardShowCount();
+        if (PriceTrackingUtilities.getPriceWelcomeMessageCardShowCount()
+                > MAX_PRICE_WELCOME_MESSAGE_SHOW_COUNT
+                        * PREPARE_MESSAGE_TIMES_ENTERING_TAB_SWITCHER) {
+            invalidateMessage();
+            PriceTrackingUtilities.disablePriceWelcomeMessageCard();
         } else if (!priceTabData.equals(mPriceTabData)) {
             mPriceTabData = priceTabData;
             sendInvalidNotification();
@@ -140,14 +157,31 @@ public class PriceWelcomeMessageService extends MessageService {
         }
     }
 
-    private void review() {
+    int getBindingTabId() {
+        if (mPriceTabData == null) return Tab.INVALID_TAB_ID;
+        return mPriceTabData.bindingTabId;
+    }
+
+    void invalidateMessage() {
+        mPriceTabData = null;
+        sendInvalidNotification();
+    }
+
+    @VisibleForTesting
+    public void review() {
         assert mPriceTabData != null;
         mPriceWelcomeMessageReviewActionProvider.scrollToBindingTab(
                 mPriceWelcomeMessageProvider.getTabIndexFromTabId(mPriceTabData.bindingTabId));
         PriceTrackingUtilities.disablePriceWelcomeMessageCard();
     }
 
-    private void dismiss() {
+    @VisibleForTesting
+    public void dismiss() {
         PriceTrackingUtilities.disablePriceWelcomeMessageCard();
+    }
+
+    @VisibleForTesting
+    PriceTabData getPriceTabDataForTesting() {
+        return mPriceTabData;
     }
 }

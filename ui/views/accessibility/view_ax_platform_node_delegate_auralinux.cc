@@ -10,9 +10,9 @@
 #include <memory>
 #include <vector>
 
+#include "base/containers/contains.h"
 #include "base/memory/singleton.h"
 #include "base/scoped_observer.h"
-#include "base/stl_util.h"
 #include "ui/accessibility/ax_action_data.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
@@ -53,7 +53,7 @@ Widget* GetWidgetOfParentWindowIncludingTransient(Widget* widget) {
 // Return the toplevel widget ancestor of |widget|, including widgets of
 // parents of transient windows.
 Widget* GetToplevelWidgetIncludingTransientWindows(Widget* widget) {
-  widget = widget = widget->GetTopLevelWidget();
+  widget = widget->GetTopLevelWidget();
   if (Widget* parent_widget = GetWidgetOfParentWindowIncludingTransient(widget))
     return GetToplevelWidgetIncludingTransientWindows(parent_widget);
   return widget;
@@ -189,8 +189,9 @@ ViewAXPlatformNodeDelegateAuraLinux::ViewAXPlatformNodeDelegateAuraLinux(
 
 gfx::NativeViewAccessible ViewAXPlatformNodeDelegateAuraLinux::GetParent() {
   if (gfx::NativeViewAccessible parent =
-          ViewAXPlatformNodeDelegate::GetParent())
+          ViewAXPlatformNodeDelegate::GetParent()) {
     return parent;
+  }
 
   Widget* parent_widget =
       GetWidgetOfParentWindowIncludingTransient(view()->GetWidget());

@@ -15,6 +15,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
 #include "build/build_config.h"
+#include "build/chromeos_buildflags.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
 #include "chrome/browser/chrome_notification_types.h"
@@ -58,11 +59,12 @@
 #include "ui/base/theme_provider.h"
 #include "ui/base/webui/jstemplate_builder.h"
 #include "ui/base/webui/web_ui_util.h"
+#include "ui/chromeos/devicetype_utils.h"
 #include "ui/gfx/animation/animation.h"
 #include "ui/gfx/color_utils.h"
 #include "ui/native_theme/native_theme.h"
 
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "chrome/browser/chromeos/policy/browser_policy_connector_chromeos.h"
 #include "chromeos/strings/grit/chromeos_strings.h"
 #endif
@@ -77,7 +79,7 @@ namespace {
 
 // The URL for the the Learn More page shown on incognito new tab.
 const char kLearnMoreIncognitoUrl[] =
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
     "https://support.google.com/chromebook/?p=incognito";
 #else
     "https://support.google.com/chrome/?p=incognito";
@@ -85,7 +87,7 @@ const char kLearnMoreIncognitoUrl[] =
 
 // The URL for the Learn More page shown on guest session new tab.
 const char kLearnMoreGuestSessionUrl[] =
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
     "https://support.google.com/chromebook/?p=chromebook_guest";
 #else
     "https://support.google.com/chrome/?p=ui_guest";
@@ -165,8 +167,8 @@ NTPResourceCache::NTPResourceCache(Profile* profile)
                  content::Source<ThemeService>(
                      ThemeServiceFactory::GetForProfile(profile)));
 
-  base::Closure callback = base::Bind(&NTPResourceCache::OnPreferenceChanged,
-                                      base::Unretained(this));
+  base::RepeatingClosure callback = base::BindRepeating(
+      &NTPResourceCache::OnPreferenceChanged, base::Unretained(this));
 
   // Watch for pref changes that cause us to need to invalidate the HTML cache.
   profile_pref_change_registrar_.Init(profile_->GetPrefs());
@@ -176,7 +178,7 @@ NTPResourceCache::NTPResourceCache(Profile* profile)
   profile_pref_change_registrar_.Add(prefs::kHideWebStoreIcon, callback);
   profile_pref_change_registrar_.Add(prefs::kCookieControlsMode, callback);
 
-  theme_observer_.Add(ui::NativeTheme::GetInstanceForNativeUi());
+  theme_observation_.Observe(ui::NativeTheme::GetInstanceForNativeUi());
 
   policy_change_registrar_ = std::make_unique<policy::PolicyChangeRegistrar>(
       profile->GetProfilePolicyConnector()->policy_service(),
@@ -217,23 +219,19 @@ NTPResourceCache::WindowType NTPResourceCache::GetWindowType(
 }
 
 base::RefCountedMemory* NTPResourceCache::GetNewTabGuestHTML() {
-  if (!profile_->IsEphemeralGuestProfile()) {
-    if (!new_tab_guest_html_) {
-      GuestNTPInfo guest_ntp_info{kLearnMoreGuestSessionUrl, IDR_GUEST_TAB_HTML,
-                                  IDS_NEW_TAB_GUEST_SESSION_HEADING,
-                                  IDS_NEW_TAB_GUEST_SESSION_DESCRIPTION};
-      new_tab_guest_html_ = CreateNewTabGuestHTML(guest_ntp_info);
-    }
-
-    return new_tab_guest_html_.get();
+  // TODO(crbug.com/1134111): For full launch of ephemeral Guest profiles,
+  // instead of the below code block, use IdentityManager for ephemeral Guest
+  // profiles to check sign in status and return either
+  // |CreateNewTabEphemeralGuestSignedInHTML()| or
+  // |CreateNewTabEphemeralGuestSignedOutHTML()|.
+  if (!new_tab_guest_html_) {
+    GuestNTPInfo guest_ntp_info{kLearnMoreGuestSessionUrl, IDR_GUEST_TAB_HTML,
+                                IDS_NEW_TAB_GUEST_SESSION_HEADING,
+                                IDS_NEW_TAB_GUEST_SESSION_DESCRIPTION};
+    new_tab_guest_html_ = CreateNewTabGuestHTML(guest_ntp_info);
   }
 
-  // TODO(crbug.com/1134111): Use IdentityManager to check sign in status when
-  // Ephemeral Guest sign in functioncality is implemented.
-  const bool is_signed_in =
-      signin_util::GuestSignedInUserData::IsSignedIn(profile_);
-  return is_signed_in ? CreateNewTabEphemeralGuestSignedInHTML()
-                      : CreateNewTabEphemeralGuestSignedOutHTML();
+  return new_tab_guest_html_.get();
 }
 
 base::RefCountedMemory* NTPResourceCache::GetNewTabHTML(WindowType win_type) {
@@ -317,10 +315,12 @@ void NTPResourceCache::CreateNewTabIncognitoHTML() {
 
   // Ensure passing off-the-record profile; |profile_| is not an OTR profile.
   DCHECK(!profile_->IsOffTheRecord());
-  DCHECK(profile_->HasPrimaryOTRProfile());
+  DCHECK(profile_->HasAnyOffTheRecordProfile());
+  // Cookie controls service returns the same result for all off-the-record
+  // profiles, so it doesn't matter which of them we use.
   CookieControlsService* cookie_controls_service =
       CookieControlsServiceFactory::GetForProfile(
-          profile_->GetPrimaryOTRProfile());
+          profile_->GetAllOffTheRecordProfiles()[0]);
 
   replacements["incognitoTabDescription"] =
       l10n_util::GetStringUTF8(IDS_NEW_TAB_OTR_SUBTITLE);
@@ -410,7 +410,7 @@ scoped_refptr<base::RefCountedString> NTPResourceCache::CreateNewTabGuestHTML(
       l10n_util::GetStringUTF16(IDS_NEW_TAB_TITLE));
   int guest_tab_idr = guest_ntp_info.html_idr;
 
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
   guest_tab_idr = IDR_GUEST_SESSION_TAB_HTML;
 
   policy::BrowserPolicyConnectorChromeOS* connector =
@@ -427,11 +427,11 @@ scoped_refptr<base::RefCountedString> NTPResourceCache::CreateNewTabGuestHTML(
       const std::string enterprise_domain_manager =
           connector->GetEnterpriseDomainManager();
       enterprise_info = l10n_util::GetStringFUTF16(
-          IDS_ASH_ENTERPRISE_DEVICE_MANAGED_BY,
+          IDS_ASH_ENTERPRISE_DEVICE_MANAGED_BY, ui::GetChromeOSDeviceName(),
           base::UTF8ToUTF16(enterprise_domain_manager));
     } else if (connector->IsActiveDirectoryManaged()) {
-      enterprise_info =
-          l10n_util::GetStringUTF16(IDS_ASH_ENTERPRISE_DEVICE_MANAGED);
+      enterprise_info = l10n_util::GetStringFUTF16(
+          IDS_ASH_ENTERPRISE_DEVICE_MANAGED, ui::GetChromeOSDeviceName());
     } else {
       NOTREACHED() << "Unknown management type";
     }
@@ -603,8 +603,10 @@ void NTPResourceCache::CreateNewTabHTML() {
 }
 
 void NTPResourceCache::CreateNewTabIncognitoCSS() {
+  // Same theme is used by all off-the-record profiles, so just getting it from
+  // the first one.
   const ui::ThemeProvider& tp = ThemeService::GetThemeProviderForProfile(
-      profile_->GetPrimaryOTRProfile());
+      profile_->GetAllOffTheRecordProfiles()[0]);
 
   // Generate the replacements.
   ui::TemplateReplacements substitutions;

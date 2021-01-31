@@ -33,6 +33,7 @@
 #include "chrome/browser/ui/ash/chrome_new_window_client.h"
 #include "chrome/browser/ui/ash/ime_controller_client.h"
 #include "chrome/browser/ui/ash/in_session_auth_dialog_client.h"
+#include "chrome/browser/ui/ash/launcher/app_service/exo_app_type_resolver.h"
 #include "chrome/browser/ui/ash/launcher/chrome_launcher_controller.h"
 #include "chrome/browser/ui/ash/login_screen_client.h"
 #include "chrome/browser/ui/ash/media_client_impl.h"
@@ -119,8 +120,10 @@ void ChromeBrowserMainExtraPartsAsh::PreProfileInit() {
       std::make_unique<NetworkConnectDelegateChromeOS>();
   chromeos::NetworkConnect::Initialize(network_connect_delegate_.get());
 
-  cast_config_controller_media_router_ =
-      std::make_unique<CastConfigControllerMediaRouter>();
+  if (CastConfigControllerMediaRouter::MediaRouterEnabled()) {
+    cast_config_controller_media_router_ =
+        std::make_unique<CastConfigControllerMediaRouter>();
+  }
 
   // Needed by AmbientController in ash.
   if (chromeos::features::IsAmbientModeEnabled())
@@ -179,6 +182,10 @@ void ChromeBrowserMainExtraPartsAsh::PreProfileInit() {
 
 #if BUILDFLAG(ENABLE_WAYLAND_SERVER)
   exo_parts_ = ExoParts::CreateIfNecessary();
+  if (exo_parts_) {
+    exo::WMHelper::GetInstance()->RegisterAppPropertyResolver(
+        std::make_unique<ExoAppTypeResolver>());
+  }
 #endif
 
   night_light_client_ = std::make_unique<NightLightClient>(
@@ -282,8 +289,7 @@ class ChromeBrowserMainExtraPartsAsh::NotificationObserver
     switch (type) {
       case chrome::NOTIFICATION_LOGIN_USER_PROFILE_PREPARED: {
         Profile* profile = content::Details<Profile>(details).ptr();
-        if (!chromeos::ProfileHelper::IsSigninProfile(profile) &&
-            !chromeos::ProfileHelper::IsLockScreenAppProfile(profile) &&
+        if (chromeos::ProfileHelper::IsRegularProfile(profile) &&
             !profile->IsGuestSession()) {
           // Start the error notifier services to show auth/sync notifications.
           SigninErrorNotifierFactory::GetForProfile(profile);

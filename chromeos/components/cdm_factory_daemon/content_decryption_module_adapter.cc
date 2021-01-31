@@ -7,11 +7,14 @@
 #include <utility>
 
 #include "base/bind.h"
+#include "base/memory/scoped_refptr.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/time/time.h"
 #include "media/base/cdm_promise.h"
 #include "media/base/decoder_buffer.h"
 #include "media/base/eme_constants.h"
 #include "media/base/subsample_entry.h"
+#include "media/cdm/cdm_context_ref_impl.h"
 
 namespace {
 
@@ -87,6 +90,10 @@ scoped_refptr<media::DecoderBuffer> CopyDecryptedDataToDecoderBuffer(
 void RejectPromiseConnectionLost(std::unique_ptr<media::CdmPromise> promise) {
   promise->reject(media::CdmPromise::Exception::INVALID_STATE_ERROR, 0,
                   "Mojo connection lost");
+}
+
+void ReportSystemCodeUMA(uint32_t system_code) {
+  base::UmaHistogramSparse("Media.EME.CrosPlatformCdm.SystemCode", system_code);
 }
 
 }  // namespace
@@ -243,6 +250,17 @@ media::CdmContext* ContentDecryptionModuleAdapter::GetCdmContext() {
   return this;
 }
 
+void ContentDecryptionModuleAdapter::DeleteOnCorrectThread() const {
+  DVLOG(1) << __func__;
+
+  if (!mojo_task_runner_->RunsTasksInCurrentSequence()) {
+    // When DeleteSoon returns false, |this| will be leaked, which is okay.
+    mojo_task_runner_->DeleteSoon(FROM_HERE, this);
+  } else {
+    delete this;
+  }
+}
+
 std::unique_ptr<media::CallbackRegistration>
 ContentDecryptionModuleAdapter::RegisterEventCB(EventCB event_cb) {
   return event_callbacks_.Register(std::move(event_cb));
@@ -281,6 +299,11 @@ void ContentDecryptionModuleAdapter::GetHwKeyData(
 
   cros_cdm_remote_->GetHwKeyData(std::move(cros_decrypt_config), hw_identifier,
                                  std::move(callback));
+}
+
+std::unique_ptr<media::CdmContextRef>
+ContentDecryptionModuleAdapter::GetCdmContextRef() {
+  return std::make_unique<media::CdmContextRefImpl>(base::WrapRefCounted(this));
 }
 
 void ContentDecryptionModuleAdapter::OnSessionMessage(
@@ -521,6 +544,7 @@ void ContentDecryptionModuleAdapter::OnConnectionError() {
 void ContentDecryptionModuleAdapter::RejectTrackedPromise(
     uint32_t promise_id,
     cdm::mojom::CdmPromiseResultPtr promise_result) {
+  ReportSystemCodeUMA(promise_result->system_code);
   cdm_promise_adapter_.RejectPromise(promise_id, promise_result->exception,
                                      promise_result->system_code,
                                      promise_result->error_message);

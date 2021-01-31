@@ -53,6 +53,7 @@ class RecordingService : public mojom::RecordingService,
       mojo::PendingRemote<viz::mojom::FrameSinkVideoCapturer> video_capturer,
       mojo::PendingRemote<audio::mojom::StreamFactory> audio_stream_factory,
       const viz::FrameSinkId& frame_sink_id,
+      const viz::SubtreeCaptureId& subtree_capture_id,
       const gfx::Size& initial_video_size,
       const gfx::Size& max_video_size) override;
   void RecordRegion(
@@ -63,6 +64,10 @@ class RecordingService : public mojom::RecordingService,
       const gfx::Size& full_capture_size,
       const gfx::Rect& crop_region) override;
   void StopRecording() override;
+  void OnRecordedWindowChangingRoot(
+      const viz::FrameSinkId& new_frame_sink_id,
+      const gfx::Size& new_max_video_size) override;
+  void OnDisplaySizeChanged(const gfx::Size& new_display_size) override;
 
   // viz::mojom::FrameSinkVideoConsumer:
   void OnFrameCaptured(
@@ -89,6 +94,10 @@ class RecordingService : public mojom::RecordingService,
       mojo::PendingRemote<viz::mojom::FrameSinkVideoCapturer> video_capturer,
       mojo::PendingRemote<audio::mojom::StreamFactory> audio_stream_factory,
       std::unique_ptr<VideoCaptureParams> capture_params);
+
+  // Called on the main thread during an on-going recording to reconfigure an
+  // existing video encoder.
+  void ReconfigureVideoEncoder();
 
   // Called on the main thread on |success| from OnStopped() when all video
   // frames have been sent, or from OnEncodingFailure() with |success| set to
@@ -189,9 +198,11 @@ class RecordingService : public mojom::RecordingService,
   scoped_refptr<media::AudioCapturerSource> audio_capturer_
       GUARDED_BY_CONTEXT(main_thread_checker_);
 
-  // Performs all encoding and muxing operations on the |encoding_task_runner_|,
-  // and it is bound to the sequence of that task runner.
-  base::SequenceBound<RecordingEncoderMuxer> encoder_muxer_;
+  // Performs all encoding and muxing operations asynchronously on the
+  // |encoding_task_runner_|. However, the |encoder_muxer_| object itself is
+  // constructed, used, and destroyed on the main thread sequence.
+  base::SequenceBound<RecordingEncoderMuxer> encoder_muxer_
+      GUARDED_BY_CONTEXT(main_thread_checker_);
 
   // To avoid doing a ton of IPC calls to the client for each muxed chunk
   // received from |encoder_muxer_| in OnMuxerWrite(), we buffer those chunks

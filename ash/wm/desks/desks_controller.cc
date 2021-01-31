@@ -14,6 +14,7 @@
 #include "ash/public/cpp/window_properties.h"
 #include "ash/session/session_controller_impl.h"
 #include "ash/shell.h"
+#include "ash/shell_delegate.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/wm/desks/desk.h"
 #include "ash/wm/desks/desk_animation_base.h"
@@ -28,17 +29,18 @@
 #include "ash/wm/splitview/split_view_controller.h"
 #include "ash/wm/splitview/split_view_utils.h"
 #include "ash/wm/switchable_windows.h"
-#include "ash/wm/window_cycle_controller.h"
+#include "ash/wm/window_cycle/window_cycle_controller.h"
 #include "ash/wm/window_util.h"
 #include "base/auto_reset.h"
 #include "base/check_op.h"
+#include "base/containers/contains.h"
 #include "base/containers/unique_ptr_adapters.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
 #include "base/numerics/ranges.h"
-#include "base/stl_util.h"
 #include "base/timer/timer.h"
+#include "ui/aura/client/aura_constants.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/wm/public/activation_client.h"
 
@@ -60,6 +62,14 @@ constexpr char kNumberOfWindowsOnDesk_3_HistogramName[] =
     "Ash.Desks.NumberOfWindowsOnDesk_3";
 constexpr char kNumberOfWindowsOnDesk_4_HistogramName[] =
     "Ash.Desks.NumberOfWindowsOnDesk_4";
+constexpr char kNumberOfWindowsOnDesk_5_HistogramName[] =
+    "Ash.Desks.NumberOfWindowsOnDesk_5";
+constexpr char kNumberOfWindowsOnDesk_6_HistogramName[] =
+    "Ash.Desks.NumberOfWindowsOnDesk_6";
+constexpr char kNumberOfWindowsOnDesk_7_HistogramName[] =
+    "Ash.Desks.NumberOfWindowsOnDesk_7";
+constexpr char kNumberOfWindowsOnDesk_8_HistogramName[] =
+    "Ash.Desks.NumberOfWindowsOnDesk_8";
 
 constexpr char kNumberOfDeskTraversalsHistogramName[] =
     "Ash.Desks.NumberOfDeskTraversals";
@@ -70,6 +80,12 @@ constexpr int kDeskTraversalsMaxValue = 20;
 // interval.
 constexpr base::TimeDelta kDeskTraversalsTimeout =
     base::TimeDelta::FromSeconds(5);
+
+constexpr int kDeskDefaultNameIds[] = {
+    IDS_ASH_DESKS_DESK_1_MINI_VIEW_TITLE, IDS_ASH_DESKS_DESK_2_MINI_VIEW_TITLE,
+    IDS_ASH_DESKS_DESK_3_MINI_VIEW_TITLE, IDS_ASH_DESKS_DESK_4_MINI_VIEW_TITLE,
+    IDS_ASH_DESKS_DESK_5_MINI_VIEW_TITLE, IDS_ASH_DESKS_DESK_6_MINI_VIEW_TITLE,
+    IDS_ASH_DESKS_DESK_7_MINI_VIEW_TITLE, IDS_ASH_DESKS_DESK_8_MINI_VIEW_TITLE};
 
 // Appends the given |windows| to the end of the currently active overview mode
 // session such that the most-recently used window is added first. If
@@ -100,18 +116,6 @@ void RemoveAllWindowsFromOverview() {
     while (!grid->empty())
       overview_session->RemoveItem(grid->window_list()[0].get());
   }
-}
-
-base::string16 GetDeskDefaultName(size_t desk_index) {
-  DCHECK_LT(desk_index, desks_util::kMaxNumberOfDesks);
-  constexpr int kStringIds[] = {IDS_ASH_DESKS_DESK_1_MINI_VIEW_TITLE,
-                                IDS_ASH_DESKS_DESK_2_MINI_VIEW_TITLE,
-                                IDS_ASH_DESKS_DESK_3_MINI_VIEW_TITLE,
-                                IDS_ASH_DESKS_DESK_4_MINI_VIEW_TITLE};
-  static_assert(desks_util::kMaxNumberOfDesks == base::size(kStringIds),
-                "Wrong default desks' names.");
-
-  return l10n_util::GetStringUTF16(kStringIds[desk_index]);
 }
 
 // Updates the |ShelfItem::is_on_active_desk| of the items associated with
@@ -242,6 +246,12 @@ DesksController* DesksController::Get() {
   return Shell::Get()->desks_controller();
 }
 
+// static
+base::string16 DesksController::GetDeskDefaultName(size_t desk_index) {
+  DCHECK_LT(desk_index, desks_util::GetMaxNumberOfDesks());
+  return l10n_util::GetStringUTF16(kDeskDefaultNameIds[desk_index]);
+}
+
 const Desk* DesksController::GetTargetActiveDesk() const {
   if (animation_)
     return desks_[animation_->ending_desk_index()].get();
@@ -279,7 +289,7 @@ bool DesksController::AreDesksBeingModified() const {
 }
 
 bool DesksController::CanCreateDesks() const {
-  return desks_.size() < desks_util::kMaxNumberOfDesks;
+  return desks_.size() < desks_util::GetMaxNumberOfDesks();
 }
 
 Desk* DesksController::GetNextDesk() const {
@@ -313,17 +323,26 @@ void DesksController::NewDesk(DesksCreationRemovalSource source) {
   desks_.push_back(std::make_unique<Desk>(available_container_ids_.front()));
   available_container_ids_.pop();
   Desk* new_desk = desks_.back().get();
-  new_desk->SetName(GetDeskDefaultName(desks_.size() - 1),
-                    /*set_by_user=*/false);
 
-  Shell::Get()
-      ->accessibility_controller()
-      ->TriggerAccessibilityAlertWithMessage(l10n_util::GetStringFUTF8(
-          IDS_ASH_VIRTUAL_DESKS_ALERT_NEW_DESK_CREATED,
-          base::NumberToString16(desks_.size())));
+  // If Bento is enabled and the user creates a desk with the button, the new
+  // desk should have an empty name to encourage them to rename their desks.
+  const bool empty_name = features::IsBentoEnabled() &&
+                          source == DesksCreationRemovalSource::kButton &&
+                          desks_.size() > 1;
+  if (!empty_name) {
+    new_desk->SetName(GetDeskDefaultName(desks_.size() - 1),
+                      /*set_by_user=*/false);
+  }
+
+  auto* shell = Shell::Get();
+  shell->accessibility_controller()->TriggerAccessibilityAlertWithMessage(
+      l10n_util::GetStringFUTF8(IDS_ASH_VIRTUAL_DESKS_ALERT_NEW_DESK_CREATED,
+                                base::NumberToString16(desks_.size())));
 
   for (auto& observer : observers_)
     observer.OnDeskAdded(new_desk);
+
+  shell->shell_delegate()->DesksStateChanged(desks_.size());
 
   if (!is_first_ever_desk) {
     desks_restore_util::UpdatePrimaryUserDesksPrefs();
@@ -357,6 +376,13 @@ void DesksController::RemoveDesk(const Desk* desk,
   }
 
   RemoveDeskInternal(desk, source);
+}
+
+void DesksController::ReorderDesk(int old_index, int new_index) {
+  desks_util::ReorderItem(desks_, old_index, new_index);
+
+  for (auto& observer : observers_)
+    observer.OnDeskReordered(old_index, new_index);
 }
 
 void DesksController::ActivateDesk(const Desk* desk, DesksSwitchSource source) {
@@ -473,6 +499,16 @@ bool DesksController::MoveWindowFromActiveDeskTo(
   if (!base::Contains(active_desk_->windows(), window))
     return false;
 
+  if (window->GetProperty(aura::client::kVisibleOnAllWorkspacesKey)) {
+    if (source == DesksMoveWindowFromActiveDeskSource::kDragAndDrop) {
+      // Since a visible on all desks window is on all desks, prevent users from
+      // moving them manually in overview.
+      return false;
+    } else if (source == DesksMoveWindowFromActiveDeskSource::kShortcut) {
+      window->SetProperty(aura::client::kVisibleOnAllWorkspacesKey, false);
+    }
+  }
+
   base::AutoReset<bool> in_progress(&are_desks_being_modified_, true);
 
   auto* overview_controller = Shell::Get()->overview_controller();
@@ -516,6 +552,18 @@ bool DesksController::MoveWindowFromActiveDeskTo(
   return true;
 }
 
+void DesksController::AddVisibleOnAllDesksWindow(aura::Window* window) {
+  if (!features::IsBentoEnabled())
+    return;
+
+  const bool added = visible_on_all_desks_windows_.emplace(window).second;
+  DCHECK(added);
+}
+
+void DesksController::MaybeRemoveVisibleOnAllDesksWindow(aura::Window* window) {
+  visible_on_all_desks_windows_.erase(window);
+}
+
 void DesksController::RevertDeskNameToDefault(Desk* desk) {
   DCHECK(HasDesk(desk));
   desk->SetName(GetDeskDefaultName(GetDeskIndex(desk)), /*set_by_user=*/false);
@@ -549,14 +597,72 @@ int DesksController::GetDeskIndex(const Desk* desk) const {
   return -1;
 }
 
+aura::Window* DesksController::GetDeskContainer(aura::Window* target_root,
+                                                int desk_index) {
+  if (desk_index < 0 || desk_index >= int{desks_.size()})
+    return nullptr;
+  return desks_[desk_index]->GetDeskContainerForRoot(target_root);
+}
+
 bool DesksController::BelongsToActiveDesk(aura::Window* window) {
   return desks_util::BelongsToActiveDesk(window);
+}
+
+int DesksController::GetActiveDeskIndex() const {
+  return GetDeskIndex(active_desk_);
+}
+
+base::string16 DesksController::GetDeskName(int index) const {
+  return index < static_cast<int>(desks_.size()) ? desks_[index]->name()
+                                                 : base::string16();
+}
+
+int DesksController::GetNumberOfDesks() const {
+  return static_cast<int>(desks_.size());
+}
+
+void DesksController::SendToDeskAtIndex(aura::Window* window, int desk_index) {
+  if (desk_index < 0 || desk_index >= static_cast<int>(desks_.size()))
+    return;
+
+  if (window->GetProperty(aura::client::kVisibleOnAllWorkspacesKey))
+    window->SetProperty(aura::client::kVisibleOnAllWorkspacesKey, false);
+
+  const int active_desk_index = GetDeskIndex(active_desk_);
+  if (desk_index == active_desk_index)
+    return;
+
+  DCHECK(desks_.at(desk_index));
+
+  desks_animations::PerformWindowMoveToDeskAnimation(
+      window, /*going_left=*/desk_index < active_desk_index);
+  MoveWindowFromActiveDeskTo(window, desks_[desk_index].get(),
+                             window->GetRootWindow(),
+                             DesksMoveWindowFromActiveDeskSource::kSendToDesk);
+}
+
+void DesksController::UpdateDesksDefaultNames() {
+  size_t i = 0;
+  for (auto& desk : desks_) {
+    // Do not overwrite user-modified desks' names.
+    if (!desk->is_name_set_by_user())
+      desk->SetName(GetDeskDefaultName(i), /*set_by_user=*/false);
+    i++;
+  }
 }
 
 void DesksController::OnWindowActivating(ActivationReason reason,
                                          aura::Window* gaining_active,
                                          aura::Window* losing_active) {
   if (AreDesksBeingModified())
+    return;
+
+  // Browser session restore opens all restored windows, so it activates
+  // every single window and activates the parent desk. Therefore, this check
+  // prevents repetitive desk activation. Moreover, when Bento desks restore is
+  // enabled, it avoid switching desk back and forth when windows are restored
+  // to different desks.
+  if (Shell::Get()->shell_delegate()->IsSessionRestoreInProgress())
     return;
 
   if (!gaining_active)
@@ -637,7 +743,9 @@ void DesksController::ActivateDeskInternal(const Desk* desk,
   // `old_active` desk do not activate other windows on the same desk. See
   // `ash::AshFocusRules::GetNextActivatableWindow()`.
   Desk* old_active = active_desk_;
+  MoveVisibleOnAllDesksWindowsFromActiveDeskTo(const_cast<Desk*>(desk));
   active_desk_ = const_cast<Desk*>(desk);
+  RestackAssignedWindowsOnActiveDesk();
 
   // There should always be an active desk at any time.
   DCHECK(old_active);
@@ -649,16 +757,15 @@ void DesksController::ActivateDeskInternal(const Desk* desk,
   // If in the middle of a window cycle gesture, reset the window cycle list
   // contents so it contains the new active desk's windows.
   auto* shell = Shell::Get();
-  if (features::IsAltTabLimitedToActiveDesk()) {
-    auto* window_cycle_controller = shell->window_cycle_controller();
+  auto* window_cycle_controller = shell->window_cycle_controller();
+  if (window_cycle_controller->IsAltTabPerActiveDesk())
     window_cycle_controller->MaybeResetCycleList();
-  }
 
   for (auto& observer : observers_)
     observer.OnDeskActivationChanged(active_desk_, old_active);
 
   // Only update active desk prefs when a primary user switches a desk.
-  if (features::IsDesksRestoreEnabled() &&
+  if (features::IsBentoEnabled() &&
       shell->session_controller()->IsUserPrimary()) {
     desks_restore_util::UpdatePrimaryUserActiveDeskPrefs(
         GetDeskIndex(active_desk_));
@@ -681,12 +788,14 @@ void DesksController::RemoveDeskInternal(const Desk* desk,
 
   // Keep the removed desk alive until the end of this function.
   std::unique_ptr<Desk> removed_desk = std::move(*iter);
+  removed_desk->SetDeskBeingRemoved();
   DCHECK_EQ(removed_desk.get(), desk);
   auto iter_after = desks_.erase(iter);
 
   DCHECK(!desks_.empty());
 
-  auto* overview_controller = Shell::Get()->overview_controller();
+  auto* shell = Shell::Get();
+  auto* overview_controller = shell->overview_controller();
   const bool in_overview = overview_controller->InOverviewSession();
   const std::vector<aura::Window*> removed_desk_windows =
       removed_desk->windows();
@@ -757,6 +866,10 @@ void DesksController::RemoveDeskInternal(const Desk* desk,
     // Desk activation should not change overview mode state.
     DCHECK_EQ(in_overview, overview_controller->InOverviewSession());
 
+    // Now that |target_desk| is activated, we can restack the visible on all
+    // desks windows that were moved from the old active desk.
+    RestackAssignedWindowsOnActiveDesk();
+
     // Now that the windows from the removed and target desks merged, add them
     // all to the grid in the order of the new MRU.
     if (in_overview)
@@ -773,6 +886,8 @@ void DesksController::RemoveDeskInternal(const Desk* desk,
 
   for (auto& observer : observers_)
     observer.OnDeskRemoved(removed_desk.get());
+
+  shell->shell_delegate()->DesksStateChanged(desks_.size());
 
   available_container_ids_.push(removed_desk->container_id());
 
@@ -803,7 +918,59 @@ void DesksController::RemoveDeskInternal(const Desk* desk,
 
   desks_restore_util::UpdatePrimaryUserDesksPrefs();
 
-  DCHECK_LE(available_container_ids_.size(), desks_util::kMaxNumberOfDesks);
+  DCHECK_LE(available_container_ids_.size(), desks_util::GetMaxNumberOfDesks());
+}
+
+void DesksController::MoveVisibleOnAllDesksWindowsFromActiveDeskTo(
+    Desk* new_desk) {
+  // Ignore activations in the MRU tracker until we finish moving all visible on
+  // all desks windows so we maintain global MRU order that is used later
+  // for stacking visible on all desks windows.
+  auto* mru_tracker = Shell::Get()->mru_window_tracker();
+  mru_tracker->SetIgnoreActivations(true);
+
+  for (auto* visible_on_all_desks_window : visible_on_all_desks_windows_) {
+    MoveWindowFromActiveDeskTo(
+        visible_on_all_desks_window, new_desk,
+        visible_on_all_desks_window->GetRootWindow(),
+        DesksMoveWindowFromActiveDeskSource::kVisibleOnAllDesks);
+  }
+
+  mru_tracker->SetIgnoreActivations(false);
+}
+
+void DesksController::RestackAssignedWindowsOnActiveDesk() {
+  auto mru_windows =
+      Shell::Get()->mru_window_tracker()->BuildMruWindowList(kActiveDesk);
+  for (auto* visible_on_all_desks_window : visible_on_all_desks_windows_) {
+    auto visible_on_all_desks_window_iter = std::find(
+        mru_windows.begin(), mru_windows.end(), visible_on_all_desks_window);
+    DCHECK(visible_on_all_desks_window_iter != mru_windows.end());
+    auto* desk_container =
+        visible_on_all_desks_window->GetRootWindow()->GetChildById(
+            active_desk_->container_id());
+    DCHECK_EQ(desk_container, visible_on_all_desks_window->parent());
+
+    // Search through the MRU list for the next element that shares the same
+    // parent. This will be used to stack |visible_on_all_desks_window| in
+    // the active desk so its stacking respects global MRU order.
+    auto closest_window_below_iter =
+        std::next(visible_on_all_desks_window_iter);
+    while (closest_window_below_iter != mru_windows.end() &&
+           (*closest_window_below_iter)->parent() !=
+               visible_on_all_desks_window->parent()) {
+      closest_window_below_iter = std::next(closest_window_below_iter);
+    }
+
+    if (closest_window_below_iter == mru_windows.end()) {
+      // There was no element in the MRU list that was used after
+      // |visible_on_all_desks_window| so stack it at the bottom.
+      desk_container->StackChildAtBottom(visible_on_all_desks_window);
+    } else {
+      desk_container->StackChildAbove(visible_on_all_desks_window,
+                                      *closest_window_below_iter);
+    }
+  }
 }
 
 const Desk* DesksController::FindDeskOfWindow(aura::Window* window) const {
@@ -841,6 +1008,26 @@ void DesksController::ReportNumberOfWindowsPerDeskHistogram() const {
                                  windows_count);
         break;
 
+      case 4:
+        UMA_HISTOGRAM_COUNTS_100(kNumberOfWindowsOnDesk_5_HistogramName,
+                                 windows_count);
+        break;
+
+      case 5:
+        UMA_HISTOGRAM_COUNTS_100(kNumberOfWindowsOnDesk_6_HistogramName,
+                                 windows_count);
+        break;
+
+      case 6:
+        UMA_HISTOGRAM_COUNTS_100(kNumberOfWindowsOnDesk_7_HistogramName,
+                                 windows_count);
+        break;
+
+      case 7:
+        UMA_HISTOGRAM_COUNTS_100(kNumberOfWindowsOnDesk_8_HistogramName,
+                                 windows_count);
+        break;
+
       default:
         NOTREACHED();
         break;
@@ -849,19 +1036,9 @@ void DesksController::ReportNumberOfWindowsPerDeskHistogram() const {
 }
 
 void DesksController::ReportDesksCountHistogram() const {
-  DCHECK_LE(desks_.size(), desks_util::kMaxNumberOfDesks);
+  DCHECK_LE(desks_.size(), desks_util::GetMaxNumberOfDesks());
   UMA_HISTOGRAM_EXACT_LINEAR(kDesksCountHistogramName, desks_.size(),
-                             desks_util::kMaxNumberOfDesks);
-}
-
-void DesksController::UpdateDesksDefaultNames() {
-  size_t i = 0;
-  for (auto& desk : desks_) {
-    // Do not overwrite user-modified desks' names.
-    if (!desk->is_name_set_by_user())
-      desk->SetName(GetDeskDefaultName(i), /*set_by_user=*/false);
-    i++;
-  }
+                             desks_util::GetMaxNumberOfDesks());
 }
 
 }  // namespace ash

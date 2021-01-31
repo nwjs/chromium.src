@@ -7,9 +7,9 @@
 #include <memory>
 #include "ui/gfx/geometry/point_f.h"
 
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "ash/shell.h"
-#endif  // defined(OS_CHROMEOS)
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 #include "base/auto_reset.h"
 #include "base/barrier_closure.h"
@@ -18,6 +18,8 @@
 #include "base/memory/weak_ptr.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
+#include "build/chromeos_buildflags.h"
+#include "components/exo/data_exchange_delegate.h"
 #include "components/exo/data_source.h"
 #include "components/exo/drag_drop_operation.h"
 #include "components/exo/mime_utils.h"
@@ -52,7 +54,9 @@ Surface* GetEffectiveFocus(aura::Window* window) {
 
 }  // namespace
 
-Seat::Seat() : changing_clipboard_data_to_selection_source_(false) {
+Seat::Seat(std::unique_ptr<DataExchangeDelegate> delegate)
+    : changing_clipboard_data_to_selection_source_(false),
+      data_exchange_delegate_(std::move(delegate)) {
   WMHelper::GetInstance()->AddFocusObserver(this);
   // Prepend handler as it's critical that we see all events.
   WMHelper::GetInstance()->PrependPreTargetHandler(this);
@@ -61,7 +65,7 @@ Seat::Seat() : changing_clipboard_data_to_selection_source_(false) {
   // null. https://crbug.com/856230
   if (ui::PlatformEventSource::GetInstance())
     ui::PlatformEventSource::GetInstance()->AddPlatformEventObserver(this);
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
   ui_lock_controller_ = std::make_unique<UILockController>(this);
 
   // Seat needs to be registered as observers before any Keyboard,
@@ -74,6 +78,8 @@ Seat::Seat() : changing_clipboard_data_to_selection_source_(false) {
 #endif
 }
 
+Seat::Seat() : Seat(nullptr) {}
+
 Seat::~Seat() {
   Shutdown();
 }
@@ -83,7 +89,7 @@ void Seat::Shutdown() {
     return;
   shutdown_ = true;
   DCHECK(!selection_source_) << "DataSource must be released before Seat";
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
   ash::Shell::Get()->ime_controller()->RemoveObserver(this);
 #endif
   WMHelper::GetInstance()->RemoveFocusObserver(this);
@@ -105,14 +111,14 @@ Surface* Seat::GetFocusedSurface() {
   return GetEffectiveFocus(WMHelper::GetInstance()->GetFocusedWindow());
 }
 
-void Seat::StartDrag(FileHelper* file_helper,
-                     DataSource* source,
+void Seat::StartDrag(DataSource* source,
                      Surface* origin,
                      Surface* icon,
                      ui::mojom::DragEventSource event_source) {
   // DragDropOperation manages its own lifetime.
-  drag_drop_operation_ = DragDropOperation::Create(
-      file_helper, source, origin, icon, last_pointer_location_, event_source);
+  drag_drop_operation_ =
+      DragDropOperation::Create(data_exchange_delegate_.get(), source, origin,
+                                icon, last_pointer_location_, event_source);
 }
 
 void Seat::SetLastPointerLocation(const gfx::PointF& last_pointer_location) {
@@ -126,6 +132,7 @@ void Seat::AbortPendingDragOperation() {
 
 void Seat::SetSelection(DataSource* source) {
   Surface* focused_surface = GetFocusedSurface();
+  DCHECK(focused_surface);
   if (!source || !source->CanBeDataSourceForCopy(focused_surface))
     return;
 
@@ -136,7 +143,9 @@ void Seat::SetSelection(DataSource* source) {
   }
   selection_source_ = std::make_unique<ScopedDataSource>(source, this);
   scoped_refptr<RefCountedScopedClipboardWriter> writer =
-      base::MakeRefCounted<RefCountedScopedClipboardWriter>();
+      base::MakeRefCounted<RefCountedScopedClipboardWriter>(
+          data_exchange_delegate_->GetDataTransferEndpointType(
+              focused_surface->window()));
 
   base::RepeatingClosure data_read_callback = base::BarrierClosure(
       kMaxClipboardDataTypes,
@@ -161,10 +170,10 @@ class Seat::RefCountedScopedClipboardWriter
     : public ui::ScopedClipboardWriter,
       public base::RefCounted<RefCountedScopedClipboardWriter> {
  public:
-  explicit RefCountedScopedClipboardWriter()
-      : ScopedClipboardWriter(ui::ClipboardBuffer::kCopyPaste,
-                              std::make_unique<ui::DataTransferEndpoint>(
-                                  ui::EndpointType::kGuestOs)) {}
+  explicit RefCountedScopedClipboardWriter(ui::EndpointType type)
+      : ScopedClipboardWriter(
+            ui::ClipboardBuffer::kCopyPaste,
+            std::make_unique<ui::DataTransferEndpoint>(type)) {}
 
  private:
   friend class base::RefCounted<RefCountedScopedClipboardWriter>;
@@ -200,7 +209,7 @@ void Seat::OnImageRead(scoped_refptr<RefCountedScopedClipboardWriter> writer,
                        base::OnceClosure callback,
                        const std::string& mime_type,
                        const std::vector<uint8_t>& data) {
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
   data_decoder::DecodeImageIsolated(
       data, data_decoder::mojom::ImageCodec::DEFAULT, false,
       std::numeric_limits<int64_t>::max(), gfx::Size(),
@@ -208,10 +217,10 @@ void Seat::OnImageRead(scoped_refptr<RefCountedScopedClipboardWriter> writer,
                      std::move(callback), writer));
 #else
   std::move(callback).Run();
-#endif  // defined(OS_CHROMEOS)
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 }
 
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
 void Seat::OnImageDecoded(base::OnceClosure callback,
                           scoped_refptr<RefCountedScopedClipboardWriter> writer,
                           const SkBitmap& bitmap) {
@@ -219,7 +228,7 @@ void Seat::OnImageDecoded(base::OnceClosure callback,
     writer->WriteImage(bitmap);
   std::move(callback).Run();
 }
-#endif  // defined(OS_CHROMEOS)
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 void Seat::OnFilenamesRead(
     scoped_refptr<RefCountedScopedClipboardWriter> writer,
@@ -314,7 +323,7 @@ void Seat::OnKeyEvent(ui::KeyEvent* event) {
         break;
     }
   }
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
   xkb_tracker_->UpdateKeyboardModifiers(event->flags());
 #endif
 }
@@ -329,7 +338,7 @@ void Seat::OnClipboardDataChanged() {
   selection_source_.reset();
 }
 
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
 ////////////////////////////////////////////////////////////////////////////////
 // ash::ImeControllerImpl::Observer overrides:
 

@@ -8,6 +8,7 @@
 #include <memory>
 
 #include "components/viz/common/surfaces/frame_sink_id.h"
+#include "components/viz/common/surfaces/subtree_capture_id.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "services/viz/privileged/mojom/compositing/frame_sink_video_capture.mojom-forward.h"
 
@@ -35,14 +36,19 @@ class VideoCaptureParams {
       viz::FrameSinkId frame_sink_id,
       const gfx::Size& video_size);
 
-  // Returns a capture params instance for a recording of a window which has
-  // the given |frame_sink_id| and its initial size is given as
+  // Returns a capture params instance for a recording of a window. The given
+  //|frame_sink_id| is either of that window (if it submits compositor frames
+  // independently), or of the root window it descends from (if it doesn't
+  // submit its compositor frames). In the latter case, the window must be
+  // identifiable by a valid |subtree_capture_id| (created by calling
+  // aura::window::MakeWindowCapturable() before recording starts).
   // |initial_video_size| and |max_video_size| specify a range of acceptable
   // capture resolutions in DIPs. The resolution of the output will adapt
   // dynamically as the window being recorded gets resized by the end user (e.g.
   // resized, maximized, fullscreened, ... etc.). |frame_sink_id| must be valid.
   static std::unique_ptr<VideoCaptureParams> CreateForWindowCapture(
       viz::FrameSinkId frame_sink_id,
+      viz::SubtreeCaptureId subtree_capture_id,
       const gfx::Size& initial_video_size,
       const gfx::Size& max_video_size);
 
@@ -72,10 +78,37 @@ class VideoCaptureParams {
   // Returns the size in DIPs with which the audio encoder will be initialized.
   virtual gfx::Size GetCaptureSize() const = 0;
 
- protected:
-  explicit VideoCaptureParams(viz::FrameSinkId frame_sink_id);
+  // Called when a window, being recorded by the given |capturer|, is moved to
+  // a different display whose root window has the given |new_frame_sink_id|,
+  // and |new_max_video_size| which matches the new display's size.
+  // The default implementation is to *crash* the service, as this is only valid
+  // when recording a window.
+  // Returns true if the video encoder needs to be reconfigured, which happens
+  // when the bounds of the new display is different than that of the old
+  // display. Returns false otherwise.
+  virtual bool OnRecordedWindowChangingRoot(
+      mojo::Remote<viz::mojom::FrameSinkVideoCapturer>& capturer,
+      viz::FrameSinkId new_frame_sink_id,
+      const gfx::Size& new_max_video_size) WARN_UNUSED_RESULT;
 
-  const viz::FrameSinkId frame_sink_id_;
+  // Called when the dimensions of the display on which recording is happening
+  // is changed due to e.g. display rotation or device scale factor changes. The
+  // given |new_display_size| is in DIPs, and will be used to update the
+  // resolution constraints on the given |capturer|.
+  // The default implementation is to *crash* the service, as this is only valid
+  // when recording a window or a partial region.
+  // Returns true if the video encoder needs to be reconfigured, indicating an
+  // actual change in the video size. False otherwise.
+  virtual bool OnDisplaySizeChanged(
+      mojo::Remote<viz::mojom::FrameSinkVideoCapturer>& capturer,
+      const gfx::Size& new_display_size) WARN_UNUSED_RESULT;
+
+ protected:
+  explicit VideoCaptureParams(viz::FrameSinkId frame_sink_id,
+                              viz::SubtreeCaptureId subtree_capture_id);
+
+  viz::FrameSinkId frame_sink_id_;
+  const viz::SubtreeCaptureId subtree_capture_id_;
 };
 
 }  // namespace recording

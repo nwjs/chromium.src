@@ -4,7 +4,9 @@
 
 #include "components/autofill_assistant/browser/trigger_scripts/trigger_script_coordinator.h"
 
+#include <array>
 #include <map>
+#include <string>
 
 #include "base/numerics/clamped_math.h"
 #include "components/autofill_assistant/browser/client_context.h"
@@ -19,31 +21,18 @@
 
 namespace {
 
-const char kScriptParameterDebugBundleId[] = "DEBUG_BUNDLE_ID";
-const char kScriptParameterDebugBundleVersion[] = "DEBUG_BUNDLE_VERSION";
-const char kScriptParameterDebugSocketId[] = "DEBUG_SOCKET_ID";
+constexpr std::array<const char*, 5> kWhitelistedScriptParameters = {
+    "DEBUG_BUNDLE_ID", "DEBUG_BUNDLE_VERSION", "DEBUG_SOCKET_ID",
+    "FALLBACK_BUNDLE_ID", "FALLBACK_BUNDLE_VERSION"};
 
 std::map<std::string, std::string> ExtractDebugScriptParameters(
     const autofill_assistant::TriggerContext& trigger_context) {
   std::map<std::string, std::string> debug_script_parameters;
-  auto debug_bundle_id =
-      trigger_context.GetParameter(kScriptParameterDebugBundleId);
-  auto debug_bundle_version =
-      trigger_context.GetParameter(kScriptParameterDebugBundleVersion);
-  auto debug_socket_id =
-      trigger_context.GetParameter(kScriptParameterDebugSocketId);
-
-  if (debug_bundle_id) {
-    debug_script_parameters.insert(
-        {kScriptParameterDebugBundleId, *debug_bundle_id});
-  }
-  if (debug_bundle_version) {
-    debug_script_parameters.insert(
-        {kScriptParameterDebugBundleVersion, *debug_bundle_version});
-  }
-  if (debug_socket_id) {
-    debug_script_parameters.insert(
-        {kScriptParameterDebugSocketId, *debug_socket_id});
+  for (const char* parameter : kWhitelistedScriptParameters) {
+    auto value = trigger_context.GetParameter(parameter);
+    if (value) {
+      debug_script_parameters.insert({parameter, *value});
+    }
   }
   return debug_script_parameters;
 }
@@ -53,15 +42,18 @@ std::map<std::string, std::string> ExtractDebugScriptParameters(
 namespace autofill_assistant {
 
 TriggerScriptCoordinator::TriggerScriptCoordinator(
-    Client* client,
+    content::WebContents* web_contents,
+    WebsiteLoginManager* website_login_manager,
+    base::RepeatingCallback<bool(void)> is_first_time_user_callback,
     std::unique_ptr<WebController> web_controller,
     std::unique_ptr<ServiceRequestSender> request_sender,
     const GURL& get_trigger_scripts_server,
     std::unique_ptr<StaticTriggerConditions> static_trigger_conditions,
     std::unique_ptr<DynamicTriggerConditions> dynamic_trigger_conditions,
     ukm::UkmRecorder* ukm_recorder)
-    : content::WebContentsObserver(client->GetWebContents()),
-      client_(client),
+    : content::WebContentsObserver(web_contents),
+      website_login_manager_(website_login_manager),
+      is_first_time_user_callback_(std::move(is_first_time_user_callback)),
       request_sender_(std::move(request_sender)),
       get_trigger_scripts_server_(get_trigger_scripts_server),
       web_controller_(std::move(web_controller)),
@@ -128,7 +120,7 @@ void TriggerScriptCoordinator::OnGetTriggerScripts(
       initial_trigger_condition_evaluations_;
 
   Metrics::RecordLiteScriptShownToUser(
-      ukm_recorder_, client_->GetWebContents(),
+      ukm_recorder_, web_contents(),
       Metrics::LiteScriptShownToUser::LITE_SCRIPT_RUNNING);
   StartCheckingTriggerConditions();
 }
@@ -139,7 +131,7 @@ void TriggerScriptCoordinator::PerformTriggerScriptAction(
     case TriggerScriptProto::NOT_NOW:
       if (visible_trigger_script_ != -1) {
         Metrics::RecordLiteScriptShownToUser(
-            ukm_recorder_, client_->GetWebContents(),
+            ukm_recorder_, web_contents(),
             Metrics::LiteScriptShownToUser::LITE_SCRIPT_NOT_NOW);
         trigger_scripts_[visible_trigger_script_]
             ->waiting_for_precondition_no_longer_true(true);
@@ -180,7 +172,7 @@ void TriggerScriptCoordinator::OnBottomSheetClosedWithSwipe() {
     return;
   }
   Metrics::RecordLiteScriptShownToUser(
-      ukm_recorder_, client_->GetWebContents(),
+      ukm_recorder_, web_contents(),
       Metrics::LiteScriptShownToUser::LITE_SCRIPT_SWIPE_DISMISSED);
   PerformTriggerScriptAction(trigger_scripts_[visible_trigger_script_]
                                  ->AsProto()
@@ -191,8 +183,8 @@ bool TriggerScriptCoordinator::OnBackButtonPressed() {
   if (visible_trigger_script_ == -1) {
     return false;
   }
-  if (client_->GetWebContents()->GetController().CanGoBack()) {
-    client_->GetWebContents()->GetController().GoBack();
+  if (web_contents()->GetController().CanGoBack()) {
+    web_contents()->GetController().GoBack();
   }
   // We need to handle this event, because by default the bottom sheet will
   // close when the back button is pressed.
@@ -306,7 +298,7 @@ void TriggerScriptCoordinator::OnEffectiveVisibilityChanged() {
 void TriggerScriptCoordinator::WebContentsDestroyed() {
   if (!finished_state_recorded_) {
     Metrics::RecordLiteScriptFinished(
-        ukm_recorder_, client_->GetWebContents(),
+        ukm_recorder_, web_contents(),
         visible_trigger_script_ == -1
             ? Metrics::LiteScriptFinishedState::
                   LITE_SCRIPT_WEB_CONTENTS_DESTROYED_WHILE_INVISIBLE
@@ -324,7 +316,8 @@ void TriggerScriptCoordinator::StartCheckingTriggerConditions() {
         trigger_script->AsProto());
   }
   static_trigger_conditions_->Init(
-      client_, deeplink_url_, trigger_context_.get(),
+      website_login_manager_, is_first_time_user_callback_, deeplink_url_,
+      trigger_context_.get(),
       base::BindOnce(&TriggerScriptCoordinator::CheckDynamicTriggerConditions,
                      weak_ptr_factory_.GetWeakPtr()));
 }
@@ -348,7 +341,7 @@ void TriggerScriptCoordinator::ShowTriggerScript(int index) {
   }
 
   Metrics::RecordLiteScriptShownToUser(
-      ukm_recorder_, client_->GetWebContents(),
+      ukm_recorder_, web_contents(),
       Metrics::LiteScriptShownToUser::LITE_SCRIPT_SHOWN_TO_USER);
   visible_trigger_script_ = index;
   auto proto = trigger_scripts_[index]->AsProto().user_interface();
@@ -395,7 +388,7 @@ void TriggerScriptCoordinator::OnDynamicTriggerConditionsEvaluated(
   if (visible_trigger_script_ != -1 &&
       !evaluated_trigger_conditions[visible_trigger_script_]) {
     Metrics::RecordLiteScriptShownToUser(
-        ukm_recorder_, client_->GetWebContents(),
+        ukm_recorder_, web_contents(),
         Metrics::LiteScriptShownToUser::
             LITE_SCRIPT_HIDE_ON_TRIGGER_CONDITION_NO_LONGER_TRUE);
     HideTriggerScript();
@@ -464,8 +457,7 @@ void TriggerScriptCoordinator::NotifyOnTriggerScriptFinished(
     Metrics::LiteScriptFinishedState state) {
   if (!finished_state_recorded_) {
     finished_state_recorded_ = true;
-    Metrics::RecordLiteScriptFinished(ukm_recorder_, client_->GetWebContents(),
-                                      state);
+    Metrics::RecordLiteScriptFinished(ukm_recorder_, web_contents(), state);
   }
 
   for (Observer& observer : observers_) {

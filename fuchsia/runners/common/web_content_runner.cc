@@ -77,8 +77,8 @@ void WebContentRunner::StartComponent(
   }
 
   std::unique_ptr<WebComponent> component = std::make_unique<WebComponent>(
-      this,
-      std::make_unique<base::fuchsia::StartupContext>(std::move(startup_info)),
+      std::string(), this,
+      std::make_unique<base::StartupContext>(std::move(startup_info)),
       std::move(controller_request));
 #if BUILDFLAG(WEB_RUNNER_REMOTE_DEBUGGING_PORT) != 0
   component->EnableRemoteDebugging();

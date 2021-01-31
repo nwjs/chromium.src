@@ -40,10 +40,15 @@ class ASH_EXPORT EventRewriterControllerImpl : public EventRewriterController,
   void OnUnhandledSpokenFeedbackEvent(
       std::unique_ptr<ui::Event> event) override;
   void CaptureAllKeysForSpokenFeedback(bool capture) override;
-  void SetSendMouseEventsToDelegate(bool value) override;
+  void SetSendMouseEvents(bool value) override;
 
   // aura::EnvObserver:
   void OnHostInitialized(aura::WindowTreeHost* host) override;
+
+  // Enable/disable Alt + left click mapping in EventRewriterChromeOS. This
+  // only applies if the feature
+  // `chromeos::features::kUseSearchClickForRightClick` is not enabled.
+  void SetAltLeftClickRemappingEnabled(bool enabled);
 
  private:
   // The |EventRewriter|s managed by this controller.
@@ -52,6 +57,7 @@ class ASH_EXPORT EventRewriterControllerImpl : public EventRewriterController,
   // Owned by |rewriters_|.
   AccessibilityEventRewriter* accessibility_event_rewriter_ = nullptr;
   KeyboardDrivenEventRewriter* keyboard_driven_event_rewriter_ = nullptr;
+  ui::EventRewriterChromeOS* event_rewriter_chromeos_ = nullptr;
 
   DISALLOW_COPY_AND_ASSIGN(EventRewriterControllerImpl);
 };

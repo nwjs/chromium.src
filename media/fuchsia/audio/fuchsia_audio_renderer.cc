@@ -255,6 +255,8 @@ void FuchsiaAudioRenderer::SetLatencyHint(
 
 void FuchsiaAudioRenderer::SetPreservesPitch(bool preserves_pitch) {}
 
+void FuchsiaAudioRenderer::SetAutoplayInitiated(bool autoplay_initiated) {}
+
 void FuchsiaAudioRenderer::StartTicking() {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
 
@@ -524,7 +526,7 @@ void FuchsiaAudioRenderer::OnDemuxerStreamReadDone(
     }
     stream_sink_->EndOfStream();
 
-    // No more data is going to be biffered. Update buffering state to ensure
+    // No more data is going to be buffered. Update buffering state to ensure
     // RendererImpl starts playback in case it was waiting for buffering to
     // finish.
     SetBufferState(BUFFERING_HAVE_ENOUGH);

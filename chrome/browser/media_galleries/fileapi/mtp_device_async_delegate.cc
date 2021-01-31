@@ -11,16 +11,22 @@ MTPDeviceAsyncDelegate::ReadBytesRequest::ReadBytesRequest(
     net::IOBuffer* buf,
     int64_t offset,
     int buf_len,
-    const ReadBytesSuccessCallback& success_callback,
-    const ErrorCallback& error_callback)
+    ReadBytesSuccessCallback success_callback,
+    ErrorCallback error_callback)
     : file_id(file_id),
       buf(buf),
       offset(offset),
       buf_len(buf_len),
-      success_callback(success_callback),
-      error_callback(error_callback) {}
+      success_callback(std::move(success_callback)),
+      error_callback(std::move(error_callback)) {}
 
 MTPDeviceAsyncDelegate::ReadBytesRequest::ReadBytesRequest(
-    const ReadBytesRequest& other) = default;
+    ReadBytesRequest&& other)
+    : file_id(other.file_id),
+      buf(other.buf),
+      offset(other.offset),
+      buf_len(other.buf_len),
+      success_callback(std::move(other.success_callback)),
+      error_callback(std::move(other.error_callback)) {}
 
-MTPDeviceAsyncDelegate::ReadBytesRequest::~ReadBytesRequest() {}
+MTPDeviceAsyncDelegate::ReadBytesRequest::~ReadBytesRequest() = default;

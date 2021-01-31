@@ -81,7 +81,10 @@ public class CachedFeatureFlags {
             put(ChromeFeatureList.TABBED_APP_OVERFLOW_MENU_REGROUP, false);
             put(ChromeFeatureList.TABBED_APP_OVERFLOW_MENU_THREE_BUTTON_ACTIONBAR, false);
             put(ChromeFeatureList.USE_CHIME_ANDROID_SDK, false);
+            put(ChromeFeatureList.CCT_INCOGNITO_AVAILABLE_TO_THIRD_PARTY, false);
             put(ChromeFeatureList.READ_LATER, false);
+            put(ChromeFeatureList.CCT_REMOVE_REMOTE_VIEW_IDS, true);
+            put(ChromeFeatureList.OFFLINE_MEASUREMENTS_BACKGROUND_TASK, false);
         }
     };
 
@@ -216,6 +219,10 @@ public class CachedFeatureFlags {
 
     @VisibleForTesting
     public static void setOverrideTestValue(String preferenceKey, String overrideValue) {
+        if (sOverridesTestFeatures == null) {
+            sOverridesTestFeatures = new HashMap<>();
+        }
+
         sOverridesTestFeatures.put(preferenceKey, overrideValue);
     }
 

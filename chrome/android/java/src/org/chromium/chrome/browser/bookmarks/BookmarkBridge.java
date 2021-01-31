@@ -25,6 +25,7 @@ import org.chromium.components.bookmarks.BookmarkType;
 import org.chromium.components.url_formatter.SchemeDisplay;
 import org.chromium.components.url_formatter.UrlFormatter;
 import org.chromium.content_public.browser.WebContents;
+import org.chromium.url.GURL;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -839,9 +840,10 @@ public class BookmarkBridge {
      * bookmark ID will be returned.
      * @param title The title to be used for the reading list item.
      * @param url The URL of the reading list item.
-     * @return The bookmark ID created after saving the article to the reading list.
+     * @return The bookmark ID created after saving the article to the reading list, or null on
+     *         error.
      */
-    public BookmarkId addToReadingList(String title, String url) {
+    public @Nullable BookmarkId addToReadingList(String title, String url) {
         ThreadUtils.assertOnUiThread();
         assert title != null;
         assert url != null;
@@ -872,6 +874,15 @@ public class BookmarkBridge {
     public void setReadStatusForReadingList(String url, boolean read) {
         BookmarkBridgeJni.get().setReadStatus(
                 mNativeBookmarkBridge, BookmarkBridge.this, url, read);
+    }
+
+    /**
+     * Checks whether supplied URL has already been bookmarked.
+     * @param url The URL to check.
+     * @return Whether the URL has been bookmarked.
+     */
+    public boolean isBookmarked(GURL url) {
+        return BookmarkBridgeJni.get().isBookmarked(mNativeBookmarkBridge, url);
     }
 
     @VisibleForTesting
@@ -1118,5 +1129,6 @@ public class BookmarkBridge {
         boolean isEditBookmarksEnabled(long nativeBookmarkBridge);
         void reorderChildren(long nativeBookmarkBridge, BookmarkBridge caller, BookmarkId parent,
                 long[] orderedNodes);
+        boolean isBookmarked(long nativeBookmarkBridge, GURL url);
     }
 }

@@ -47,14 +47,10 @@ public class Profile {
             throw new APICallException(e);
         }
         boolean isIncognito;
-        if (WebLayer.getSupportedMajorVersionInternal() < 87) {
-            isIncognito = "".equals(name);
-        } else {
-            try {
-                isIncognito = impl.isIncognito();
-            } catch (RemoteException e) {
-                throw new APICallException(e);
-            }
+        try {
+            isIncognito = impl.isIncognito();
+        } catch (RemoteException e) {
+            throw new APICallException(e);
         }
         Profile profile;
         if (isIncognito) {
@@ -102,11 +98,7 @@ public class Profile {
         mImpl = impl;
         mIsIncognito = isIncognito;
         mCookieManager = CookieManager.create(impl);
-        if (WebLayer.getSupportedMajorVersionInternal() >= 87) {
-            mPrerenderController = PrerenderController.create(impl);
-        } else {
-            mPrerenderController = null;
-        }
+        mPrerenderController = PrerenderController.create(impl);
 
         if (isIncognito) {
             sIncognitoProfiles.put(name, this);
@@ -114,12 +106,10 @@ public class Profile {
             sProfiles.put(name, this);
         }
 
-        if (WebLayer.getSupportedMajorVersionInternal() >= 87) {
-            try {
-                mImpl.setClient(new ProfileClientImpl());
-            } catch (RemoteException e) {
-                throw new APICallException(e);
-            }
+        try {
+            mImpl.setClient(new ProfileClientImpl());
+        } catch (RemoteException e) {
+            throw new APICallException(e);
         }
     }
 
@@ -127,8 +117,6 @@ public class Profile {
      * Returns the name of the profile. While added in 87, this can be used with any version.
      *
      * @return The name of the profile.
-     *
-     * @since 87
      */
     @NonNull
     public String getName() {
@@ -140,8 +128,6 @@ public class Profile {
      * version.
      *
      * @return True if the profile is incognito.
-     *
-     * @since 87
      */
     public boolean isIncognito() {
         return mIsIncognito;
@@ -187,7 +173,12 @@ public class Profile {
      * * This object is considered destroyed after this method returns. Calling any other method
      *   after will throw exceptions.
      * * Creating a new profile of the same name before doneCallback runs will throw an exception.
-     * @since 82
+     *
+     * After calling this function, {@link #getAllProfiles()} will not return the Profile, and
+     * {@link #enumerateAllProfileNames} will not return the profile name.
+     *
+     * @param completionCallback Callback that is notified when destruction and deletion of data is
+     * complete.
      */
     public void destroyAndDeleteDataFromDisk(@Nullable Runnable completionCallback) {
         ThreadCheck.ensureOnUiThread();
@@ -201,25 +192,28 @@ public class Profile {
 
     /**
      * This method provides the same functionality as {@link destroyAndDeleteDataFromDisk}, but
-     * delays until there is no usage of the Profile. If there is no usage of the profile
-     * destruction is immediate. If there is usage, then destruction happens as soon as possible.
-     * It's possible cleanup may not happen until WebLayer is restarted. If cleanup does not happen
-     * until WebLayer is restarted, {@link completionCallback} is not run (because the process was
-     * restarted).
+     * delays until there is no usage of the Profile. If there is no usage of the profile,
+     * destruction and deletion of data on disk is immediate. If there is usage, then destruction
+     * and deletion of data happens when there is no usage of the Profile.  If the process is killed
+     * before deletion of data on disk occurs, then deletion of data happens when WebLayer is
+     * restarted.
      *
      * While destruction may be delayed, once this function is called, the profile name will not be
-     * returned from {@link WebLayer#enumerateAllProfileNames}.
+     * returned from {@link WebLayer#enumerateAllProfileNames}. OTOH, {@link #getAllProfiles()}
+     * returns this profile until there are no more usages.
      *
-     * @param completionCallback Callback this is notified when destruction is complete. This may
-     *         never be called.
+     * If this function is called multiple times before the Profile is destroyed, then every
+     * callback supplied is run once destruction and deletion of data is complete.
      *
-     * @since 87
+     * @param completionCallback Callback that is notified when destruction and deletion of data is
+     * complete. If the process is killed before all references are removed, the callback is never
+     * called.
+     *
+     * @throws IllegalStateException If the Profile has already been destroyed. You can check for
+     * that by looking for the profile in {@link #getAllProfiles()}.
      */
     public void destroyAndDeleteDataFromDiskSoon(@Nullable Runnable completionCallback) {
         ThreadCheck.ensureOnUiThread();
-        if (WebLayer.getSupportedMajorVersionInternal() < 87) {
-            throw new UnsupportedOperationException();
-        }
         throwIfDestroyed();
         try {
             mImpl.destroyAndDeleteDataFromDiskSoon(ObjectWrapper.wrap(completionCallback));
@@ -259,8 +253,6 @@ public class Profile {
      * download directory.
      *
      * @param directory the directory to place downloads in.
-     *
-     * @since 81
      */
     public void setDownloadDirectory(@NonNull File directory) {
         ThreadCheck.ensureOnUiThread();
@@ -275,8 +267,6 @@ public class Profile {
      * Allows embedders to control how downloads function.
      *
      * @param callback the callback interface implemented by the embedder.
-     *
-     * @since 83
      */
     public void setDownloadCallback(@Nullable DownloadCallback callback) {
         ThreadCheck.ensureOnUiThread();
@@ -295,8 +285,6 @@ public class Profile {
 
     /**
      * Gets the cookie manager for this profile.
-     *
-     * @since 83
      */
     @NonNull
     public CookieManager getCookieManager() {
@@ -307,15 +295,9 @@ public class Profile {
 
     /**
      * Gets the prerender controller for this profile.
-     *
-     * @since 87
      */
     @NonNull
     public PrerenderController getPrerenderController() {
-        if (WebLayer.getSupportedMajorVersionInternal() < 87) {
-            throw new UnsupportedOperationException();
-        }
-
         ThreadCheck.ensureOnUiThread();
         return mPrerenderController;
     }
@@ -326,8 +308,6 @@ public class Profile {
      *
      * @param type See {@link SettingType}.
      * @param value The value to set for the setting.
-     *
-     * @since 84
      */
     public void setBooleanSetting(@SettingType int type, boolean value) {
         ThreadCheck.ensureOnUiThread();
@@ -341,8 +321,6 @@ public class Profile {
     /**
      * Returns the current value for the given setting type, see {@link SettingType} for more
      * details and the possible options.
-     *
-     * @since 84
      */
     public boolean getBooleanSetting(@SettingType int type) {
         ThreadCheck.ensureOnUiThread();
@@ -360,14 +338,9 @@ public class Profile {
      * @param callback The callback that is supplied the set of ids.
      *
      * @throws IllegalStateException If called on an in memory profile.
-     *
-     * @since 85
      */
     public void getBrowserPersistenceIds(@NonNull Callback<Set<String>> callback) {
         ThreadCheck.ensureOnUiThread();
-        if (WebLayer.getSupportedMajorVersionInternal() < 85) {
-            throw new UnsupportedOperationException();
-        }
         if (mName.isEmpty()) {
             throw new IllegalStateException(
                     "getBrowserPersistenceIds() is not applicable to in-memory profiles");
@@ -390,15 +363,10 @@ public class Profile {
      *
      * @throws IllegalStateException If called on an in memory profile.
      * @throws IllegalArgumentException if {@link ids} contains an empty/null string.
-     *
-     * @since 85
      */
     public void removeBrowserPersistenceStorage(
             @NonNull Set<String> ids, @NonNull Callback<Boolean> callback) {
         ThreadCheck.ensureOnUiThread();
-        if (WebLayer.getSupportedMajorVersionInternal() < 85) {
-            throw new UnsupportedOperationException();
-        }
         if (mName.isEmpty()) {
             throw new IllegalStateException(
                     "removetBrowserPersistenceStorage() is not applicable to in-memory profiles");
@@ -419,15 +387,9 @@ public class Profile {
      * safe to call this multiple times or when it is not certain that the spare renderer will be
      * used, although calling this too eagerly may reduce performance as unnecessary processes are
      * created.
-     *
-     * @since 85
      */
     public void prepareForPossibleCrossOriginNavigation() {
         ThreadCheck.ensureOnUiThread();
-        if (WebLayer.getSupportedMajorVersionInternal() < 85) {
-            throw new UnsupportedOperationException();
-        }
-
         try {
             mImpl.prepareForPossibleCrossOriginNavigation();
         } catch (RemoteException e) {
@@ -441,14 +403,9 @@ public class Profile {
      * @param uri The uri to get the favicon for.
      * @param callback The callback that is notified of the bitmap. The bitmap passed to the
      * callback will be null if one is not available.
-     *
-     * @since 86
      */
     public void getCachedFaviconForPageUri(@NonNull Uri uri, @NonNull Callback<Bitmap> callback) {
         ThreadCheck.ensureOnUiThread();
-        if (WebLayer.getSupportedMajorVersionInternal() < 86) {
-            throw new UnsupportedOperationException();
-        }
         try {
             mImpl.getCachedFaviconForPageUri(
                     uri.toString(), ObjectWrapper.wrap((ValueCallback<Bitmap>) callback::onResult));
@@ -459,14 +416,9 @@ public class Profile {
 
     /**
      * See {@link UserIdentityCallback}.
-     *
-     * @since 87
      */
     public void setUserIdentityCallback(@Nullable UserIdentityCallback callback) {
         ThreadCheck.ensureOnUiThread();
-        if (WebLayer.getSupportedMajorVersionInternal() < 87) {
-            throw new UnsupportedOperationException();
-        }
         try {
             mImpl.setUserIdentityCallbackClient(
                     callback == null ? null : new UserIdentityCallbackClientImpl(callback));

@@ -73,6 +73,7 @@ import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Restriction;
+import org.chromium.base.test.util.ScalableTimeout;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.compositor.layouts.Layout;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManagerChromePhone;
@@ -81,6 +82,7 @@ import org.chromium.chrome.browser.compositor.layouts.StaticLayout;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.device.DeviceClassManager;
 import org.chromium.chrome.browser.feed.FeedV1;
+import org.chromium.chrome.browser.feed.FeedV2;
 import org.chromium.chrome.browser.feed.shared.FeedFeatures;
 import org.chromium.chrome.browser.flags.CachedFeatureFlags;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -112,6 +114,7 @@ import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.chrome.test.util.OmniboxTestUtils;
 import org.chromium.chrome.test.util.ViewUtils;
 import org.chromium.chrome.test.util.browser.Features;
+import org.chromium.chrome.test.util.browser.Features.DisableFeatures;
 import org.chromium.chrome.test.util.browser.Features.EnableFeatures;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
@@ -121,7 +124,7 @@ import org.chromium.ui.test.util.UiRestriction;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -159,13 +162,16 @@ public class InstantStartTest {
      * Parameter set controlling whether Feed v2 is enabled.
      */
     public static class FeedParams implements ParameterProvider {
-        private static List<ParameterSet> sFeedParams =
-                Arrays.asList(new ParameterSet().value(false).name("FeedV1"),
-                        new ParameterSet().value(true).name("FeedV2"));
-
         @Override
         public List<ParameterSet> getParameters() {
-            return sFeedParams;
+            List<ParameterSet> feedParams = new ArrayList<ParameterSet>();
+            if (FeedV1.IS_AVAILABLE) {
+                feedParams.add(new ParameterSet().value(false).name("FeedV1"));
+            }
+            if (FeedV2.IS_AVAILABLE) {
+                feedParams.add(new ParameterSet().value(true).name("FeedV2"));
+            }
+            return feedParams;
         }
     }
 
@@ -182,7 +188,7 @@ public class InstantStartTest {
         Intent intent = new Intent(Intent.ACTION_MAIN);
         intent.addCategory(Intent.CATEGORY_LAUNCHER);
         mActivityTestRule.prepareUrlIntent(intent, null);
-        mActivityTestRule.startActivityCompletely(intent);
+        mActivityTestRule.launchActivity(intent);
     }
 
     public static Bitmap createThumbnailBitmapAndWriteToFile(int tabId) {
@@ -281,7 +287,8 @@ public class InstantStartTest {
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> mActivityTestRule.getActivity().startDelayedNativeInitializationForTests());
         CriteriaHelper.pollUiThread(
-                mActivityTestRule.getActivity().getTabModelSelector()::isTabStateInitialized);
+                mActivityTestRule.getActivity().getTabModelSelector()::isTabStateInitialized,
+                ScalableTimeout.scaleTimeout(10000L), CriteriaHelper.DEFAULT_POLLING_INTERVAL);
         Assert.assertTrue(LibraryLoader.getInstance().isInitialized());
     }
 
@@ -578,6 +585,7 @@ public class InstantStartTest {
             RecyclerView.ViewHolder viewHolder = recyclerView.findViewHolderForAdapterPosition(i);
             if (viewHolder != null) {
                 ImageView thumbnail = viewHolder.itemView.findViewById(R.id.tab_thumbnail);
+                if (!(thumbnail.getDrawable() instanceof BitmapDrawable)) return false;
                 BitmapDrawable drawable = (BitmapDrawable) thumbnail.getDrawable();
                 Bitmap bitmap = drawable.getBitmap();
                 if (bitmap == null) return false;
@@ -1017,6 +1025,43 @@ public class InstantStartTest {
         ChromeRenderTestRule.sanitize(surface);
         // TODO(crbug.com/1065314): fix favicon.
         mRenderTestRule.render(surface, "singlePane_floatingTopToolbar");
+    }
+
+    @Test
+    @SmallTest
+    @Restriction({UiRestriction.RESTRICTION_TYPE_PHONE})
+    // clang-format off
+    @EnableFeatures({ChromeFeatureList.TAB_SWITCHER_ON_RETURN + "<Study,",
+            ChromeFeatureList.START_SURFACE_ANDROID + "<Study"})
+    @CommandLineFlags.Add({ChromeSwitches.DISABLE_NATIVE_INITIALIZATION,
+            "force-fieldtrials=Study/Group",
+            IMMEDIATE_RETURN_PARAMS + "/start_surface_variation/single"})
+    public void testShadowVisibility() throws IOException {
+        // clang-format on
+        startMainActivityFromLauncher();
+        CriteriaHelper.pollUiThread(
+                () -> mActivityTestRule.getActivity().getLayoutManager().overviewVisible());
+
+        int shadowVisibility =
+                mActivityTestRule.getActivity().findViewById(R.id.toolbar_shadow).getVisibility();
+
+        Assert.assertEquals(View.INVISIBLE, shadowVisibility);
+    }
+
+    @Test
+    @SmallTest
+    @Restriction({UiRestriction.RESTRICTION_TYPE_PHONE})
+    // clang-format off
+    @EnableFeatures({ChromeFeatureList.TAB_SWITCHER_ON_RETURN + "<Study,",
+            ChromeFeatureList.START_SURFACE_ANDROID + "<Study"})
+    @DisableFeatures(ChromeFeatureList.INSTANT_START)
+    @CommandLineFlags.Add({ChromeSwitches.DISABLE_NATIVE_INITIALIZATION,
+            "force-fieldtrials=Study/Group",
+            IMMEDIATE_RETURN_PARAMS + "/start_surface_variation/single"})
+    public void testShadowVisibilityWithoutInstantStart() throws IOException {
+        // clang-format on
+        startMainActivityFromLauncher();
+        onViewWaiting(withId(R.id.toolbar_shadow)).check(matches(isDisplayed()));
     }
 
     @Test

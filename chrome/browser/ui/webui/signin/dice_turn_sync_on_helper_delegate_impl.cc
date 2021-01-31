@@ -94,7 +94,7 @@ void DiceTurnSyncOnHelperDelegateImpl::ShowSyncConfirmation(
         callback) {
   DCHECK(callback);
   sync_confirmation_callback_ = std::move(callback);
-  scoped_login_ui_service_observer_.Add(
+  scoped_login_ui_service_observation_.Observe(
       LoginUIServiceFactory::GetForProfile(profile_));
   browser_ = EnsureBrowser(browser_, profile_);
   browser_->signin_view_controller()->ShowModalSyncConfirmationDialog();
@@ -131,6 +131,9 @@ void DiceTurnSyncOnHelperDelegateImpl::SwitchToProfile(Profile* new_profile) {
 void DiceTurnSyncOnHelperDelegateImpl::OnSyncConfirmationUIClosed(
     LoginUIService::SyncConfirmationUIClosedResult result) {
   DCHECK(sync_confirmation_callback_);
+  // Treat closing the ui as an implicit ABORT_SYNC action.
+  if (result == LoginUIService::UI_CLOSED)
+    result = LoginUIService::ABORT_SYNC;
   std::move(sync_confirmation_callback_).Run(result);
 }
 

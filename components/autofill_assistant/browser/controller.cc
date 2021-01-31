@@ -24,6 +24,7 @@
 #include "components/autofill_assistant/browser/url_utils.h"
 #include "components/autofill_assistant/browser/user_data.h"
 #include "components/autofill_assistant/browser/view_layout.pb.h"
+#include "components/autofill_assistant/browser/web/element_store.h"
 #include "components/google/core/common/google_util.h"
 #include "components/password_manager/core/browser/password_manager_client.h"
 #include "components/strings/grit/components_strings.h"
@@ -113,6 +114,30 @@ Controller::~Controller() {
   user_model_.RemoveObserver(this);
 }
 
+Controller::DetailsHolder::DetailsHolder(
+    std::unique_ptr<Details> details,
+    std::unique_ptr<base::OneShotTimer> timer)
+    : details_(std::move(details)), timer_(std::move(timer)) {}
+
+Controller::DetailsHolder::~DetailsHolder() = default;
+Controller::DetailsHolder::DetailsHolder(DetailsHolder&& other) = default;
+Controller::DetailsHolder& Controller::DetailsHolder::operator=(
+    DetailsHolder&& other) = default;
+
+const Details& Controller::DetailsHolder::GetDetails() const {
+  return *details_;
+}
+
+bool Controller::DetailsHolder::CurrentlyVisible() const {
+  // If there is a timer associated to these details, then they should be shown
+  // only once the timer has triggered.
+  return !timer_;
+}
+
+void Controller::DetailsHolder::Enable() {
+  timer_.reset();
+}
+
 const ClientSettings& Controller::GetSettings() {
   return settings_;
 }
@@ -142,6 +167,13 @@ WebController* Controller::GetWebController() {
     web_controller_ = WebController::CreateForWebContents(web_contents());
   }
   return web_controller_.get();
+}
+
+ElementStore* Controller::GetElementStore() const {
+  if (!element_store_) {
+    element_store_ = std::make_unique<ElementStore>(web_contents());
+  }
+  return element_store_.get();
 }
 
 const TriggerContext* Controller::GetTriggerContext() {
@@ -195,15 +227,69 @@ std::string Controller::GetBubbleMessage() const {
   return bubble_message_;
 }
 
-void Controller::SetDetails(std::unique_ptr<Details> details) {
-  details_ = std::move(details);
-  for (ControllerObserver& observer : observers_) {
-    observer.OnDetailsChanged(details_.get());
+void Controller::SetDetails(std::unique_ptr<Details> details,
+                            base::TimeDelta delay) {
+  details_.clear();
+
+  // There is nothing to append: notify that we cleared the details and return.
+  if (!details) {
+    NotifyDetailsChanged();
+    return;
+  }
+
+  // If there is a delay, notify now that details have been cleared. If there is
+  // no delay, AppendDetails will take care of the notifying the observers after
+  // appending the details.
+  if (!delay.is_zero()) {
+    NotifyDetailsChanged();
+  }
+
+  AppendDetails(std::move(details), delay);
+}
+
+void Controller::AppendDetails(std::unique_ptr<Details> details,
+                               base::TimeDelta delay) {
+  if (!details) {
+    return;
+  }
+
+  if (delay.is_zero()) {
+    details_.push_back(DetailsHolder(std::move(details), /* timer= */ nullptr));
+    NotifyDetailsChanged();
+    return;
+  }
+
+  // Delay the addition of the new details.
+  size_t details_index = details_.size();
+  auto timer = std::make_unique<base::OneShotTimer>();
+  timer->Start(FROM_HERE, delay,
+               base::BindOnce(&Controller::MakeDetailsVisible,
+                              weak_ptr_factory_.GetWeakPtr(), details_index));
+  details_.push_back(DetailsHolder(std::move(details), std::move(timer)));
+}
+
+void Controller::MakeDetailsVisible(size_t details_index) {
+  if (details_index < details_.size()) {
+    details_[details_index].Enable();
+    NotifyDetailsChanged();
   }
 }
 
-const Details* Controller::GetDetails() const {
-  return details_.get();
+void Controller::NotifyDetailsChanged() {
+  std::vector<Details> details = GetDetails();
+  for (ControllerObserver& observer : observers_) {
+    observer.OnDetailsChanged(details);
+  }
+}
+
+std::vector<Details> Controller::GetDetails() const {
+  std::vector<Details> details;
+  for (const auto& holder : details_) {
+    if (holder.CurrentlyVisible()) {
+      details.push_back(holder.GetDetails());
+    }
+  }
+  return details;
 }
 
 int Controller::GetProgress() const {
@@ -420,6 +506,11 @@ void Controller::ClearGenericUi() {
 
 void Controller::SetBrowseModeInvisible(bool invisible) {
   browse_mode_invisible_ = invisible;
+}
+
+bool Controller::ShouldShowWarning() {
+  return state_ == AutofillAssistantState::RUNNING ||
+         state_ == AutofillAssistantState::PROMPT;
 }
 
 void Controller::AddNavigationListener(
@@ -727,7 +818,7 @@ void Controller::EnterStoppedState() {
     script_tracker_->StopScript();
 
   ClearInfoBox();
-  SetDetails(nullptr);
+  SetDetails(nullptr, base::TimeDelta());
   SetUserActions(nullptr);
   SetCollectUserDataOptions(nullptr);
   SetForm(nullptr, base::DoNothing(), base::DoNothing());
@@ -917,7 +1008,9 @@ void Controller::OnGetScripts(const GURL& url,
       observer.OnClientSettingsChanged(settings_);
     }
   }
-
+  if (response_proto.has_script_store_config()) {
+    GetService()->SetScriptStoreConfig(response_proto.script_store_config());
+  }
   std::vector<std::unique_ptr<Script>> scripts;
   for (const auto& script_proto : response_proto.scripts()) {
     ProtocolUtils::AddScript(script_proto, &scripts);
@@ -1093,7 +1186,7 @@ bool Controller::MaybeAutostartScript(
 void Controller::InitFromParameters() {
   auto details = std::make_unique<Details>();
   if (details->UpdateFromParameters(*trigger_context_))
-    SetDetails(std::move(details));
+    SetDetails(std::move(details), base::TimeDelta());
 
   const base::Optional<std::string> overlay_color =
       trigger_context_->GetOverlayColors();
@@ -1242,8 +1335,11 @@ std::string Controller::GetDebugContext() {
   }
   dict.SetKey("scripts", script_tracker()->GetDebugContext());
 
-  if (details_)
-    dict.SetKey("details", details_->GetDebugContext());
+  std::vector<base::Value> details_list;
+  for (const auto& holder : details_) {
+    details_list.push_back(holder.GetDetails().GetDebugContext());
+  }
+  dict.SetKey("details", base::Value(details_list));
 
   std::string output_js;
   base::JSONWriter::Write(dict, &output_js);
@@ -1785,6 +1881,18 @@ void Controller::ExpectNavigation() {
   expect_navigation_ = true;
 }
 
+void Controller::OnNavigationShutdownOrError(const GURL& url,
+                                             Metrics::DropOutReason reason) {
+  if (google_util::IsGoogleDomainUrl(
+          url, google_util::ALLOW_SUBDOMAIN,
+          google_util::DISALLOW_NON_STANDARD_PORTS)) {
+    client_->Shutdown(reason);
+  } else {
+    OnScriptError(l10n_util::GetStringUTF8(IDS_AUTOFILL_ASSISTANT_GIVE_UP),
+                  reason);
+  }
+}
+
 void Controller::DidStartNavigation(
     content::NavigationHandle* navigation_handle) {
   if (!navigation_handle->IsInMainFrame() ||
@@ -1842,8 +1950,8 @@ void Controller::DidStartNavigation(
       web_contents()->GetLastCommittedURL().is_valid() &&
       !navigation_handle->WasServerRedirect() &&
       !navigation_handle->IsRendererInitiated()) {
-    OnScriptError(l10n_util::GetStringUTF8(IDS_AUTOFILL_ASSISTANT_GIVE_UP),
-                  Metrics::DropOutReason::NAVIGATION);
+    OnNavigationShutdownOrError(navigation_handle->GetURL(),
+                                Metrics::DropOutReason::NAVIGATION);
     return;
   }
 
@@ -1852,8 +1960,9 @@ void Controller::DidStartNavigation(
   if (state_ == AutofillAssistantState::RUNNING &&
       !navigation_handle->WasServerRedirect() &&
       !navigation_handle->IsRendererInitiated()) {
-    OnScriptError(l10n_util::GetStringUTF8(IDS_AUTOFILL_ASSISTANT_GIVE_UP),
-                  Metrics::DropOutReason::NAVIGATION_WHILE_RUNNING);
+    OnNavigationShutdownOrError(
+        navigation_handle->GetURL(),
+        Metrics::DropOutReason::NAVIGATION_WHILE_RUNNING);
     return;
   }
 
@@ -1881,23 +1990,16 @@ void Controller::DidFinishNavigation(
 
   // When in BROWSE state, stop autofill assistant if the user navigates away
   // from the original assisted domain. Subdomains of the original domain are
-  // supported.
+  // supported. If the new URL is on a Google property, destroy the UI
+  // immediately, without showing an error.
   if (state_ == AutofillAssistantState::BROWSE) {
     if (!url_utils::IsInDomainOrSubDomain(GetCurrentURL(), script_url_) &&
         !url_utils::IsInDomainOrSubDomain(GetCurrentURL(),
                                           browse_domains_allowlist_)) {
-      OnScriptError(l10n_util::GetStringUTF8(IDS_AUTOFILL_ASSISTANT_GIVE_UP),
-                    Metrics::DropOutReason::DOMAIN_CHANGE_DURING_BROWSE_MODE);
+      OnNavigationShutdownOrError(
+          web_contents()->GetLastCommittedURL(),
+          Metrics::DropOutReason::DOMAIN_CHANGE_DURING_BROWSE_MODE);
     }
-  }
-  // When in STOPPED state, entered by an unexpected DidStartNavigation or
-  // domain change while in BROWSE state (above), and the new URL is on a
-  // Google property, destroy the UI immediately.
-  if (state_ == AutofillAssistantState::STOPPED &&
-      google_util::IsGoogleDomainUrl(
-          web_contents()->GetLastCommittedURL(), google_util::ALLOW_SUBDOMAIN,
-          google_util::DISALLOW_NON_STANDARD_PORTS)) {
-    client_->DestroyUI();
   }
 
   if (start_after_navigation_) {

@@ -25,6 +25,7 @@ class TabGroupEditorBubbleViewDialogBrowserTest : public DialogBrowserTest {
   void ShowUi(const std::string& name) override {
     tab_groups::TabGroupId group =
         browser()->tab_strip_model()->AddToNewGroup({0});
+    browser()->tab_strip_model()->OpenTabGroupEditor(group);
 
     BrowserView* browser_view = static_cast<BrowserView*>(browser()->window());
     TabGroupHeader* header = browser_view->tabstrip()->group_header(group);
@@ -51,7 +52,7 @@ IN_PROC_BROWSER_TEST_F(TabGroupEditorBubbleViewDialogBrowserTest,
   TabGroupModel* group_model = browser()->tab_strip_model()->group_model();
   std::vector<tab_groups::TabGroupId> group_list = group_model->ListTabGroups();
   ASSERT_EQ(1u, group_list.size());
-  ASSERT_EQ(1u, group_model->GetTabGroup(group_list[0])->ListTabs().size());
+  ASSERT_EQ(1u, group_model->GetTabGroup(group_list[0])->ListTabs().length());
 
   BrowserView* browser_view = static_cast<BrowserView*>(browser()->window());
   TabGroupHeader* header =
@@ -68,7 +69,7 @@ IN_PROC_BROWSER_TEST_F(TabGroupEditorBubbleViewDialogBrowserTest,
                                 gfx::PointF(), base::TimeTicks(), 0, 0);
   views::test::ButtonTestApi(new_tab_button).NotifyClick(released_event);
 
-  EXPECT_EQ(2u, group_model->GetTabGroup(group_list[0])->ListTabs().size());
+  EXPECT_EQ(2u, group_model->GetTabGroup(group_list[0])->ListTabs().length());
 }
 
 IN_PROC_BROWSER_TEST_F(TabGroupEditorBubbleViewDialogBrowserTest, Ungroup) {
@@ -79,7 +80,7 @@ IN_PROC_BROWSER_TEST_F(TabGroupEditorBubbleViewDialogBrowserTest, Ungroup) {
   TabGroupModel* group_model = tsm->group_model();
   std::vector<tab_groups::TabGroupId> group_list = group_model->ListTabGroups();
   ASSERT_EQ(1u, group_list.size());
-  ASSERT_EQ(1u, group_model->GetTabGroup(group_list[0])->ListTabs().size());
+  ASSERT_EQ(1u, group_model->GetTabGroup(group_list[0])->ListTabs().length());
 
   BrowserView* browser_view = static_cast<BrowserView*>(browser()->window());
   TabGroupHeader* header =
@@ -108,7 +109,7 @@ IN_PROC_BROWSER_TEST_F(TabGroupEditorBubbleViewDialogBrowserTest,
   TabGroupModel* group_model = browser()->tab_strip_model()->group_model();
   std::vector<tab_groups::TabGroupId> group_list = group_model->ListTabGroups();
   ASSERT_EQ(1u, group_list.size());
-  ASSERT_EQ(1u, group_model->GetTabGroup(group_list[0])->ListTabs().size());
+  ASSERT_EQ(1u, group_model->GetTabGroup(group_list[0])->ListTabs().length());
 
   BrowserView* browser_view = static_cast<BrowserView*>(browser()->window());
   TabGroupHeader* header =
@@ -138,7 +139,7 @@ IN_PROC_BROWSER_TEST_F(TabGroupEditorBubbleViewDialogBrowserTest,
   TabGroupModel* group_model = browser()->tab_strip_model()->group_model();
   std::vector<tab_groups::TabGroupId> group_list = group_model->ListTabGroups();
   ASSERT_EQ(1u, group_list.size());
-  ASSERT_EQ(1u, group_model->GetTabGroup(group_list[0])->ListTabs().size());
+  ASSERT_EQ(1u, group_model->GetTabGroup(group_list[0])->ListTabs().length());
 
   BrowserView* browser_view = static_cast<BrowserView*>(browser()->window());
   TabGroupHeader* header =

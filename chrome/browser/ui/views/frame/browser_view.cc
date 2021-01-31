@@ -40,6 +40,7 @@
 #include "base/callback_forward.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
+#include "base/containers/contains.h"
 #include "base/containers/flat_set.h"
 #include "base/feature_list.h"
 #include "base/i18n/rtl.h"
@@ -50,7 +51,6 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
 #include "base/single_thread_task_runner.h"
-#include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/trace_event/trace_event.h"
@@ -108,7 +108,6 @@
 #include "chrome/browser/ui/views/accessibility/accessibility_focus_highlight.h"
 #include "chrome/browser/ui/views/accessibility/caption_bubble_controller_views.h"
 #include "chrome/browser/ui/views/accessibility/caret_browsing_dialog_delegate.h"
-#include "chrome/browser/ui/views/accessibility/invert_bubble_view.h"
 #include "chrome/browser/ui/views/autofill/autofill_bubble_handler_impl.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_bubble_view.h"
@@ -182,7 +181,7 @@
 #include "components/omnibox/browser/omnibox_view.h"
 #include "components/permissions/permission_request_manager.h"
 #include "components/prefs/pref_service.h"
-#include "components/safe_browsing/content/password_protection/metrics_util.h"
+#include "components/safe_browsing/core/password_protection/metrics_util.h"
 #include "components/sessions/core/tab_restore_service.h"
 #include "components/translate/core/browser/language_state.h"
 #include "components/translate/core/browser/translate_manager.h"
@@ -231,7 +230,7 @@
 #include "ui/views/widget/widget.h"
 #include "ui/views/window/dialog_delegate.h"
 
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "ash/public/cpp/accelerators.h"
 #include "ash/public/cpp/desks_helper.h"
 #include "ash/public/cpp/metrics_util.h"
@@ -241,7 +240,7 @@
 #include "ui/compositor/throughput_tracker.h"
 #else
 #include "chrome/browser/ui/signin_view_controller.h"
-#endif  // !defined(OS_CHROMEOS)
+#endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
 
 #if defined(OS_MAC)
 #include "chrome/browser/global_keyboard_shortcuts_mac.h"
@@ -295,7 +294,7 @@ namespace {
 // locate this object using just the handle.
 const char* const kBrowserViewKey = "__BROWSER_VIEW__";
 
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
 // UMA histograms that record animation smoothness for tab loading animation.
 constexpr char kTabLoadingSmoothnessHistogramName[] =
     "Chrome.Tabs.AnimationSmoothness.TabLoading";
@@ -457,7 +456,7 @@ class ContentsSeparator : public views::Separator {
 };
 
 bool ShouldShowWindowIcon(const Browser* browser) {
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
   // For Chrome OS only, trusted windows (apps and settings) do not show a
   // window icon, crbug.com/119411. Child windows (i.e. popups) do show an icon.
   if (browser->is_trusted_source())
@@ -598,7 +597,6 @@ BrowserView::BrowserView(std::unique_ptr<Browser> browser)
   CHECK(browser_->is_type_popup() || browser_->is_type_devtools()) << "opening browser window.";
   SetShowIcon(::ShouldShowWindowIcon(browser_.get()));
   SetHasWindowSizeControls(!chrome::IsRunningInForcedAppMode());
-  SetCanResize(browser_->can_resize());
 
   browser_->tab_strip_model()->AddObserver(this);
   resizable_ = browser_->initial_resizable();
@@ -969,7 +967,7 @@ bool BrowserView::CanSupportTabStrip() const {
 }
 
 bool BrowserView::IsBrowserTypeWebApp() const {
-  return web_app::AppBrowserController::IsForWebAppBrowser(browser_.get());
+  return web_app::AppBrowserController::IsWebApp(browser_.get());
 }
 
 bool BrowserView::IsTopControlsSlideBehaviorEnabled() const {
@@ -988,7 +986,7 @@ float BrowserView::GetTopControlsSlideBehaviorShownRatio() const {
 // BrowserView, BrowserWindow implementation:
 
 void BrowserView::Show() {
-#if !defined(OS_WIN) && !defined(OS_CHROMEOS)
+#if !defined(OS_WIN) && !BUILDFLAG(IS_CHROMEOS_ASH)
   // The Browser associated with this browser window must become the active
   // browser at the time |Show()| is called. This is the natural behavior under
   // Windows and Chrome OS, but other platforms will not trigger
@@ -1013,8 +1011,6 @@ void BrowserView::Show() {
 
   browser()->OnWindowDidShow();
 
-  MaybeShowInvertBubbleView(this);
-
   // The fullscreen transition clears out focus, but there are some cases (for
   // example, new window in Mac fullscreen with toolbar showing) where we need
   // restore it.
@@ -1024,13 +1020,13 @@ void BrowserView::Show() {
     SetFocusToLocationBar(false);
   }
 
-#if !defined(OS_CHROMEOS)
+#if !BUILDFLAG(IS_CHROMEOS_ASH)
   if (features::IsAccessibilityFocusHighlightEnabled() &&
       !accessibility_focus_highlight_) {
     accessibility_focus_highlight_ =
         std::make_unique<AccessibilityFocusHighlight>(this);
   }
-#endif  // !defined(OS_CHROMEOS)
+#endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
 }
 
 void BrowserView::ShowInactive() {
@@ -1098,7 +1094,7 @@ bool BrowserView::IsOnCurrentWorkspace() const {
   if (!native_win)
     return true;
 
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
   return ash::DesksHelper::Get()->BelongsToActiveDesk(native_win);
 #elif defined(OS_WIN)
   if (base::win::GetVersion() < base::win::Version::WIN10)
@@ -1129,7 +1125,7 @@ bool BrowserView::IsOnCurrentWorkspace() const {
          workspace_guid == GUID_NULL;
 #else
   return true;
-#endif  // defined(OS_CHROMEOS)
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 }
 
 void BrowserView::SetTopControlsShownRatio(content::WebContents* web_contents,
@@ -1197,7 +1193,7 @@ void BrowserView::UpdateDevTools() {
 void BrowserView::UpdateLoadingAnimations(bool should_animate) {
   if (should_animate) {
     if (!loading_animation_timer_.IsRunning()) {
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
       loading_animation_tracker_.emplace(
         GetWidget()->GetCompositor()->RequestNewThroughputTracker());
       loading_animation_tracker_->Start(ash::metrics_util::ForSmoothness(
@@ -1212,7 +1208,7 @@ void BrowserView::UpdateLoadingAnimations(bool should_animate) {
   } else {
     if (loading_animation_timer_.IsRunning()) {
       loading_animation_timer_.Stop();
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
       loading_animation_tracker_->Stop();
 #endif
       // Loads are now complete, update the state if a task was scheduled.
@@ -1298,7 +1294,7 @@ void BrowserView::OnActiveTabChanged(content::WebContents* old_contents,
       InfoBarService::FromWebContents(new_contents));
 
   ObserveAppBannerManager(
-      banners::AppBannerManager::FromWebContents(new_contents));
+      webapps::AppBannerManager::FromWebContents(new_contents));
 
   UpdateUIForContents(new_contents);
   RevealTabStripIfNeeded();
@@ -1358,7 +1354,7 @@ void BrowserView::OnTabDetached(content::WebContents* contents,
       loading_bar_->SetWebContents(nullptr);
     contents_web_view_->SetWebContents(nullptr);
     infobar_container_->ChangeInfoBarManager(nullptr);
-    app_banner_manager_observer_.RemoveAll();
+    app_banner_manager_observation_.Reset();
     UpdateDevToolsForContents(nullptr, true);
   }
 }
@@ -1575,7 +1571,7 @@ void BrowserView::SetFocusToLocationBar(bool is_user_initiated) {
   // already. On Chrome OS, changing focus makes a view believe it has a focus
   // even if the widget doens't have a focus. Either cases, we need to ignore
   // this when the browser window isn't active.
-#if defined(OS_WIN) || defined(OS_CHROMEOS)
+#if defined(OS_WIN) || BUILDFLAG(IS_CHROMEOS_ASH)
   if (!IsActive())
     return;
 #endif
@@ -1667,7 +1663,9 @@ void BrowserView::ToolbarSizeChanged(bool is_animating) {
 void BrowserView::TabDraggingStatusChanged(bool is_dragging) {
   // TODO(crbug.com/1110266): Remove explicit OS_CHROMEOS check once OS_LINUX
   // CrOS cleanup is done.
-#if !defined(OS_LINUX) || defined(OS_CHROMEOS)
+// TODO(crbug.com/1052397): Revisit the macro expression once build flag switch
+// of lacros-chrome is complete.
+#if !(defined(OS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS))
   contents_web_view_->SetFastResize(is_dragging);
   if (!is_dragging) {
     // When tab dragging is ended, we need to make sure the web contents get
@@ -1679,8 +1677,7 @@ void BrowserView::TabDraggingStatusChanged(bool is_dragging) {
 #endif
 }
 
-BrowserView::OnLinkOpeningFromGestureSubscription
-BrowserView::AddOnLinkOpeningFromGestureCallback(
+base::CallbackListSubscription BrowserView::AddOnLinkOpeningFromGestureCallback(
     OnLinkOpeningFromGestureCallback callback) {
   return link_opened_from_gesture_callbacks_.Add(callback);
 }
@@ -1713,7 +1710,7 @@ void BrowserView::FocusAppMenu() {
   // location.
   //
   // Not used on the Mac, which has a normal menu bar.
-  if (toolbar_->IsAppMenuFocused()) {
+  if (toolbar_->GetAppMenuFocused()) {
     RestoreFocus();
   } else {
     DCHECK(!immersive_mode_controller_->IsEnabled());
@@ -2012,13 +2009,13 @@ DownloadShelf* BrowserView::GetDownloadShelf() {
 void BrowserView::ConfirmBrowserCloseWithPendingDownloads(
     int download_count,
     Browser::DownloadCloseType dialog_type,
-    const base::Callback<void(bool)>& callback) {
+    base::OnceCallback<void(bool)> callback) {
   // The dialog eats mouse events which results in the close button
   // getting stuck in the hover state. Reset the window controls to
   // prevent this.
   frame()->non_client_view()->ResetWindowControls();
   DownloadInProgressDialogView::Show(GetNativeWindow(), download_count,
-                                     dialog_type, callback);
+                                     dialog_type, std::move(callback));
 }
 
 void BrowserView::UserChangedTheme(BrowserThemeChangeType theme_change_type) {
@@ -2050,7 +2047,9 @@ void BrowserView::UserChangedTheme(BrowserThemeChangeType theme_change_type) {
   const bool should_use_native_frame = frame_->ShouldUseNativeFrame();
 
   bool must_regenerate_frame;
-#if defined(OS_LINUX) && !defined(OS_CHROMEOS)
+// TODO(crbug.com/1052397): Revisit the macro expression once build flag switch
+// of lacros-chrome is complete.
+#if defined(OS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS)
   // GTK and user theme changes can both change frame buttons, so the frame
   // always needs to be regenerated on Linux.
   must_regenerate_frame = true;
@@ -2131,13 +2130,13 @@ content::KeyboardEventProcessingResult BrowserView::PreHandleKeyboardEvent(
     return content::KeyboardEventProcessingResult::NOT_HANDLED;
   }
 
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
   if (ash::AcceleratorController::Get()->IsDeprecated(accelerator)) {
     return (event.GetType() == blink::WebInputEvent::Type::kRawKeyDown)
                ? content::KeyboardEventProcessingResult::NOT_HANDLED_IS_SHORTCUT
                : content::KeyboardEventProcessingResult::NOT_HANDLED;
   }
-#endif  // defined(OS_CHROMEOS)
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
   content::KeyboardEventProcessingResult result =
       frame_->PreHandleKeyboardEvent(event);
@@ -2338,7 +2337,7 @@ bool BrowserView::CanActivate() const {
     return true;
   }
 
-#if defined(USE_AURA) && defined(OS_CHROMEOS)
+#if defined(USE_AURA) && BUILDFLAG(IS_CHROMEOS_ASH)
   // On Aura window manager controls all windows so settings focus via PostTask
   // will make only worse because posted task will keep trying to steal focus.
   queue->ActivateModalDialog();
@@ -2566,7 +2565,7 @@ bool BrowserView::CanChangeWindowIcon() const {
     return false;
   if (browser_->app_controller())
     return true;
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
   // On ChromeOS, the tabbed browser always use a static image for the window
   // icon. See GetWindowIcon().
   if (browser_->is_type_normal())
@@ -2591,7 +2590,7 @@ bool BrowserView::CanShowWindowIcon() const {
 #endif
 
 bool BrowserView::ShouldShowWindowTitle() const {
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
   // For Chrome OS only, trusted windows (apps and settings) do not show a
   // title, crbug.com/119411. Child windows (i.e. popups) do show a title.
   if (browser_->is_trusted_source())
@@ -2684,7 +2683,7 @@ gfx::ImageSkia BrowserView::GetWindowIcon() {
   if (app_controller)
     return app_controller->GetWindowIcon();
 
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
   ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
   if (browser_->is_type_normal()) {
     return rb.GetImageNamed(IDR_CHROME_APP_ICON_192).AsImageSkia();
@@ -2824,7 +2823,8 @@ void BrowserView::NativeWindowChanged() {
 }
 
 void BrowserView::OnWidgetDestroying(views::Widget* widget) {
-  widget_observer_.Remove(widget);
+  DCHECK(widget_observation_.IsObservingSource(widget));
+  widget_observation_.Reset();
   // Destroy any remaining WebContents early on. Doing so may result in
   // calling back to one of the Views/LayoutManagers or supporting classes of
   // BrowserView. By destroying here we ensure all said classes are valid.
@@ -3120,7 +3120,7 @@ void BrowserView::ViewHierarchyChanged(
 void BrowserView::AddedToWidget() {
   views::ClientView::AddedToWidget();
 
-  widget_observer_.Add(GetWidget());
+  widget_observation_.Observe(GetWidget());
 
   // Stow a pointer to this object onto the window handle so that we can get at
   // it later when all we have is a native view.
@@ -3139,7 +3139,7 @@ void BrowserView::AddedToWidget() {
 
   toolbar_->Init();
 
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
   // TopControlsSlideController must be initialized here in AddedToWidget()
   // rather than Init() as it depends on the browser frame being ready.
   // It also needs to be after the |toolbar_| had been initialized since it uses
@@ -3217,8 +3217,6 @@ void BrowserView::OnThemeChanged() {
 
   if (status_bubble_)
     status_bubble_->OnThemeChanged();
-
-  MaybeShowInvertBubbleView(this);
 }
 
 bool BrowserView::GetDropFormats(
@@ -3508,14 +3506,25 @@ void BrowserView::ProcessFullscreen(bool fullscreen,
     display::Screen* screen = display::Screen::GetScreen();
     display::Display display;
     if (screen && screen->GetDisplayWithDisplayId(display_id, &display)) {
-      const gfx::Rect& current_bounds = frame_->GetWindowBoundsInScreen();
+      const gfx::Rect current_bounds = frame_->GetWindowBoundsInScreen();
+      const bool is_maximized = frame_->IsMaximized();
       restore_pre_fullscreen_bounds_callback_ = base::BindOnce(
-          [](base::WeakPtr<BrowserView> view, const gfx::Rect& bounds) {
-            if (view && view->frame())
-              view->frame()->SetBounds(bounds);
+          [](base::WeakPtr<BrowserView> view, const gfx::Rect& bounds,
+             bool maximize) {
+            if (view && view->frame()) {
+              // Adjust the restored bounds to be onscreen, in case the original
+              // screen was disconnected or repositioned during fullscreen.
+              view->frame()->SetBoundsConstrained(bounds);
+              if (maximize)
+                view->frame()->Maximize();
+            }
           },
-          weak_ptr_factory_.GetWeakPtr(), current_bounds);
-      frame_->SetBounds({display.work_area().origin(), current_bounds.size()});
+          weak_ptr_factory_.GetWeakPtr(), current_bounds, is_maximized);
+      // Maximized windows must be restored to actually move between displays.
+      if (is_maximized)
+        frame_->Restore();
+      frame_->SetBounds({display.work_area().origin(),
+                         frame_->GetWindowBoundsInScreen().size()});
     }
   }
 
@@ -3555,7 +3564,7 @@ void BrowserView::ProcessFullscreen(bool fullscreen,
 }
 
 bool BrowserView::ShouldUseImmersiveFullscreenForUrl(const GURL& url) const {
-#if defined(OS_CHROMEOS) || BUILDFLAG(IS_LACROS)
+#if BUILDFLAG(IS_CHROMEOS_ASH) || BUILDFLAG(IS_CHROMEOS_LACROS)
   // Kiosk mode needs the whole screen.
   if (chrome::IsRunningInAppMode())
     return false;
@@ -3641,7 +3650,7 @@ void BrowserView::UpdateAcceleratorMetrics(const ui::Accelerator& accelerator,
       base::RecordAction(base::UserMetricsAction("Accel_NewTabInGroup"));
   }
 
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
   // Collect information about the relative popularity of various accelerators
   // on Chrome OS.
   switch (command_id) {
@@ -3693,12 +3702,10 @@ void BrowserView::ShowAvatarBubbleFromAvatarButton(
   if (!avatar_button)
     return;
 
-  GetAutofillBubbleHandler()->HideSignInPromo();
-
   profiles::BubbleViewMode bubble_view_mode;
   profiles::BubbleViewModeFromAvatarBubbleMode(mode, GetProfile(),
                                                &bubble_view_mode);
-#if !defined(OS_CHROMEOS)
+#if !BUILDFLAG(IS_CHROMEOS_ASH)
   if (SigninViewController::ShouldShowSigninForMode(bubble_view_mode)) {
     browser_->signin_view_controller()->ShowSignin(bubble_view_mode,
                                                    access_point);
@@ -3802,9 +3809,9 @@ bool BrowserView::FindCommandIdForAccelerator(
 }
 
 void BrowserView::ObserveAppBannerManager(
-    banners::AppBannerManager* new_manager) {
-  app_banner_manager_observer_.RemoveAll();
-  app_banner_manager_observer_.Add(new_manager);
+    webapps::AppBannerManager* new_manager) {
+  app_banner_manager_observation_.Reset();
+  app_banner_manager_observation_.Observe(new_manager);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -3920,7 +3927,7 @@ void BrowserView::OnImmersiveModeControllerDestroyed() {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// BrowserView, banners::AppBannerManager::Observer implementation:
+// BrowserView, webapps::AppBannerManager::Observer implementation:
 void BrowserView::OnInstallableWebAppStatusUpdated() {
   UpdatePageActionIcon(PageActionIconType::kPwaInstall);
 }

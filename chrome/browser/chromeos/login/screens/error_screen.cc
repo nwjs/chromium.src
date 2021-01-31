@@ -172,8 +172,8 @@ void ErrorScreen::SetIsPersistentError(bool is_persistent) {
     view_->SetIsPersistentError(is_persistent);
 }
 
-ErrorScreen::ConnectRequestCallbackSubscription
-ErrorScreen::RegisterConnectRequestCallback(const base::Closure& callback) {
+base::CallbackListSubscription ErrorScreen::RegisterConnectRequestCallback(
+    const base::Closure& callback) {
   return connect_request_callbacks_.Add(callback);
 }
 
@@ -236,7 +236,8 @@ void ErrorScreen::ShowNetworkErrorMessage(NetworkStateInformer::State state,
   const bool guest_signin_allowed =
       user_manager::UserManager::Get()->IsGuestSessionAllowed();
   const bool offline_login_allowed =
-      GetErrorState() != NetworkError::ERROR_STATE_AUTH_EXT_TIMEOUT;
+      GetErrorState() != NetworkError::ERROR_STATE_AUTH_EXT_TIMEOUT &&
+      !user_manager::UserManager::Get()->GetUsers().empty();
   AllowGuestSignin(guest_signin_allowed);
   AllowOfflineLogin(offline_login_allowed);
 

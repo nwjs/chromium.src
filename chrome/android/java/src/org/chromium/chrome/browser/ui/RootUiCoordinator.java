@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.ui;
 
+import android.os.Build;
 import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.text.TextUtils;
@@ -29,7 +30,6 @@ import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.ChromeActionModeHandler;
-import org.chromium.chrome.browser.TabThemeColorProvider;
 import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.bookmarks.BookmarkBridge;
 import org.chromium.chrome.browser.compositor.bottombar.OverlayPanel;
@@ -60,6 +60,7 @@ import org.chromium.chrome.browser.omnibox.geo.GeolocationHeader;
 import org.chromium.chrome.browser.omnibox.voice.VoiceRecognitionHandler;
 import org.chromium.chrome.browser.omnibox.voice.VoiceRecognitionHandler.VoiceInteractionSource;
 import org.chromium.chrome.browser.paint_preview.DemoPaintPreview;
+import org.chromium.chrome.browser.previews.Previews;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.share.ShareButtonController;
@@ -67,9 +68,11 @@ import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.share.ShareDelegateImpl.ShareOrigin;
 import org.chromium.chrome.browser.share.ShareUtils;
 import org.chromium.chrome.browser.tab.AccessibilityVisibilityHandler;
+import org.chromium.chrome.browser.tab.AutofillSessionLifetimeController;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.chrome.browser.theme.TopUiThemeColorProvider;
 import org.chromium.chrome.browser.toolbar.ButtonDataProvider;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
 import org.chromium.chrome.browser.toolbar.VoiceToolbarButtonController;
@@ -93,7 +96,6 @@ import org.chromium.components.browser_ui.widget.scrim.ScrimCoordinator;
 import org.chromium.components.feature_engagement.EventConstants;
 import org.chromium.components.messages.ManagedMessageDispatcher;
 import org.chromium.components.messages.MessageContainer;
-import org.chromium.components.messages.MessageUtils;
 import org.chromium.components.messages.MessagesFactory;
 import org.chromium.content_public.browser.ActionModeCallbackHelper;
 import org.chromium.content_public.browser.LoadUrlParams;
@@ -122,6 +124,7 @@ public class RootUiCoordinator
     private final MenuOrKeyboardActionController mMenuOrKeyboardActionController;
     private final TabObscuringHandler mTabObscuringHandler;
     private final AccessibilityVisibilityHandler mAccessibilityVisibilityHandler;
+    private final @Nullable AutofillSessionLifetimeController mAutofillSessionLifetimeController;
 
     private ActivityTabProvider mActivityTabProvider;
     private ObservableSupplier<ShareDelegate> mShareDelegateSupplier;
@@ -138,7 +141,8 @@ public class RootUiCoordinator
     private LayoutStateProvider.LayoutStateObserver mLayoutStateObserver;
 
     /** A means of providing the theme color to different features. */
-    private TabThemeColorProvider mTabThemeColorProvider;
+    private TopUiThemeColorProvider mTopUiThemeColorProvider;
+
     @Nullable
     private Callback<Boolean> mOnOmniboxFocusChangedListener;
     protected ToolbarManager mToolbarManager;
@@ -180,6 +184,8 @@ public class RootUiCoordinator
     // This supplier only ever updated when feature TOOLBAR_IPH_ANDROID is enabled.
     protected OneshotSupplierImpl<Boolean> mPromoShownOneshotSupplier = new OneshotSupplierImpl<>();
     protected Supplier<Tab> mStartSurfaceParentTabSupplier;
+    private final ObservableSupplierImpl<Tab> mActivityTabSupplier = new ObservableSupplierImpl<>();
+    private final ActivityTabProvider.ActivityTabTabObserver mTabObserver;
 
     /**
      * Create a new {@link RootUiCoordinator} for the given activity.
@@ -224,6 +230,14 @@ public class RootUiCoordinator
         mTabObscuringHandler = new TabObscuringHandler();
         mAccessibilityVisibilityHandler = new AccessibilityVisibilityHandler(
                 activity.getLifecycleDispatcher(), mActivityTabProvider, mTabObscuringHandler);
+        // While Autofill is supported on Android O, meaningful Autofill interactions in Chrome
+        // require the compatibility mode introduced in Android P.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            mAutofillSessionLifetimeController = new AutofillSessionLifetimeController(
+                    activity, activity.getLifecycleDispatcher(), mActivityTabProvider);
+        } else {
+            mAutofillSessionLifetimeController = null;
+        }
         mProfileSupplier = profileSupplier;
         mBookmarkBridgeSupplier = bookmarkBridgeSupplier;
         mAppMenuSupplier = new OneshotSupplierImpl<>();
@@ -242,11 +256,28 @@ public class RootUiCoordinator
         mIntentMetadataOneshotSupplier = intentMetadataOneshotSupplier;
 
         mStartSurfaceParentTabSupplier = startSurfaceParentTabSupplier;
+
+        mTabObserver = new ActivityTabProvider.ActivityTabTabObserver(mActivityTabProvider) {
+            @Override
+            public void onObservingDifferentTab(Tab tab, boolean hint) {
+                mActivityTabSupplier.set(tab);
+            }
+        };
+        mTopUiThemeColorProvider = new TopUiThemeColorProvider(mActivity, mActivityTabSupplier,
+                mActivity::getActivityThemeColor, mActivity::isTablet, Previews::isPreview);
     }
 
     // TODO(pnoland, crbug.com/865801): remove this in favor of wiring it directly.
     public ToolbarManager getToolbarManager() {
         return mToolbarManager;
+    }
+
+    // TODO(jinsukkim): remove this in favor of wiring it directly.
+    /**
+     * @return {@link ThemeColorProvider} for top UI.
+     */
+    public TopUiThemeColorProvider getTopUiThemeColorProvider() {
+        return mTopUiThemeColorProvider;
     }
 
     @Override
@@ -257,8 +288,6 @@ public class RootUiCoordinator
         mMenuOrKeyboardActionController.unregisterMenuOrKeyboardActionHandler(this);
 
         mActivity.getLayoutManagerSupplier().removeObserver(mLayoutManagerSupplierCallback);
-
-        MessageUtils.setAccessibilityUtil(null);
 
         if (mMessageDispatcher != null) {
             MessagesFactory.detachMessageDispatcher(mMessageDispatcher);
@@ -288,16 +317,19 @@ public class RootUiCoordinator
             mToolbarManager.destroy();
             mToolbarManager = null;
         }
+
         if (mAppMenuCoordinator != null) {
             mAppMenuCoordinator.unregisterAppMenuBlocker(this);
             mAppMenuCoordinator.unregisterAppMenuBlocker(mActivity);
             mAppMenuCoordinator.destroy();
         }
 
-        if (mTabThemeColorProvider != null) {
-            mTabThemeColorProvider.destroy();
-            mTabThemeColorProvider = null;
+        if (mTopUiThemeColorProvider != null) {
+            mTopUiThemeColorProvider.destroy();
+            mTopUiThemeColorProvider = null;
         }
+
+        mTabObserver.destroy();
 
         if (mFindToolbarManager != null) mFindToolbarManager.removeObserver(mFindToolbarObserver);
 
@@ -347,9 +379,6 @@ public class RootUiCoordinator
     @Override
     public void onInflationComplete() {
         mScrimCoordinator = buildScrimWidget();
-
-        mTabThemeColorProvider = new TabThemeColorProvider(mActivity);
-        mTabThemeColorProvider.setActivityTabProvider(mActivity.getActivityTabProvider());
 
         initFindToolbarManager();
         initializeToolbar();
@@ -402,12 +431,13 @@ public class RootUiCoordinator
     @CallSuper
     public void onFinishNativeInitialization() {
         if (ChromeFeatureList.isEnabled(ChromeFeatureList.MESSAGES_FOR_ANDROID_INFRASTRUCTURE)) {
-            MessageUtils.setAccessibilityUtil(ChromeAccessibilityUtil.get());
             MessageContainer container = mActivity.findViewById(R.id.message_container);
             mMessageContainerCoordinator =
                     new MessageContainerCoordinator(container, getBrowserControlsManager());
-            mMessageDispatcher = MessagesFactory.createMessageDispatcher(
-                    container, mMessageContainerCoordinator::getMessageMaxTranslation);
+            mMessageDispatcher = MessagesFactory.createMessageDispatcher(container,
+                    mMessageContainerCoordinator::getMessageMaxTranslation,
+                    ChromeAccessibilityUtil.get(),
+                    mActivity.getWindowAndroid()::startAnimationOverContent);
             mMessageQueueMediator = new ChromeMessageQueueMediator(
                     mActivity.getBrowserControlsManager(), mMessageContainerCoordinator,
                     mActivity.getFullscreenManager(), mLayoutStateProviderOneShotSupplier,
@@ -481,8 +511,8 @@ public class RootUiCoordinator
         } else if (id == R.id.paint_preview_show_id) {
             DemoPaintPreview.showForTab(mActivityTabProvider.get());
         } else if (id == R.id.get_image_descriptions_id) {
-            ImageDescriptionsController.getInstance().onImageDescriptionsMenuItemSelected(
-                    mActivity, mActivity.getModalDialogManager());
+            ImageDescriptionsController.getInstance().onImageDescriptionsMenuItemSelected(mActivity,
+                    mActivity.getModalDialogManager(), mActivityTabProvider.get().getWebContents());
         }
 
         return false;
@@ -615,7 +645,7 @@ public class RootUiCoordinator
             mToolbarManager = new ToolbarManager(mActivity, mActivity.getBrowserControlsManager(),
                     mActivity.getFullscreenManager(), toolbarContainer,
                     mActivity.getCompositorViewHolder(), urlFocusChangedCallback,
-                    mTabThemeColorProvider, mTabObscuringHandler, mShareDelegateSupplier,
+                    mTopUiThemeColorProvider, mTabObscuringHandler, mShareDelegateSupplier,
                     mIdentityDiscController, mButtonDataProviders, mActivityTabProvider,
                     mScrimCoordinator, mActionModeControllerCallback, mFindToolbarManager,
                     mProfileSupplier, mBookmarkBridgeSupplier, mCanAnimateBrowserControls,
@@ -625,7 +655,7 @@ public class RootUiCoordinator
                     mPromoShownOneshotSupplier, mActivity.getWindowAndroid(),
                     mActivity::isInOverviewMode, mActivity.isCustomTab(),
                     mActivity.getModalDialogManagerSupplier(),
-                    mActivity.getNightModeStateProvider(), mActivity.getStatusBarColorController(),
+                    mActivity.getStatusBarColorController(),
                     /* appMenuDelegate= */ mActivity, mActivity.getLifecycleDispatcher(),
                     mStartSurfaceParentTabSupplier);
             if (!mActivity.supportsAppMenu()) {

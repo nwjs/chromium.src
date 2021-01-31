@@ -143,7 +143,10 @@ class ControllerTest : public content::RenderViewHostTestHarness {
     controller_->AddObserver(&mock_observer_);
   }
 
-  void TearDown() override { controller_->RemoveObserver(&mock_observer_); }
+  void TearDown() override {
+    controller_->RemoveObserver(&mock_observer_);
+    RenderViewHostTestHarness::TearDown();
+  }
 
  protected:
   static SupportedScriptProto* AddRunnableScript(
@@ -1167,6 +1170,26 @@ TEST_F(ControllerTest, WaitForNavigationActionStartWithinTimeout) {
   EXPECT_EQ(ACTION_APPLIED, processed_actions_capture[1].status());
 }
 
+TEST_F(ControllerTest, SetScriptStoreConfig) {
+  // A single script, and its corresponding bundle info.
+  SupportsScriptResponseProto script_response;
+  AddRunnableScript(&script_response, "script");
+  script_response.mutable_script_store_config()->set_bundle_path("bundle/path");
+  script_response.mutable_script_store_config()->set_bundle_version(12);
+  SetupScripts(script_response);
+
+  ScriptStoreConfig script_store_config;
+  std::vector<ProcessedActionProto> processed_actions_capture;
+  EXPECT_CALL(*mock_service_, SetScriptStoreConfig(_))
+      .WillOnce(SaveArg<0>(&script_store_config));
+
+  Start("http://a.example.com/path");
+  controller_->GetUserActions();
+
+  EXPECT_THAT(script_store_config.bundle_path(), Eq("bundle/path"));
+  EXPECT_THAT(script_store_config.bundle_version(), Eq(12));
+}
+
 TEST_F(ControllerTest, InitialDataUrlDoesNotChange) {
   const std::string deeplink_url("http://initialurl.com/path");
   Start(deeplink_url);
@@ -1563,6 +1586,13 @@ TEST_F(ControllerTest, BrowseStateWithDomainAllowlist) {
   // AA.
   SimulateNavigateToUrl(GURL("http://other-example.com/"));
   EXPECT_EQ(AutofillAssistantState::BROWSE, controller_->GetState());
+
+  // Navigation to different domain should stop AA.
+  EXPECT_CALL(
+      mock_client_,
+      RecordDropOut(Metrics::DropOutReason::DOMAIN_CHANGE_DURING_BROWSE_MODE));
+  SimulateNavigateToUrl(GURL("http://unknown.com"));
+  EXPECT_EQ(AutofillAssistantState::STOPPED, controller_->GetState());
 }
 
 TEST_F(ControllerTest, BrowseStateWithDomainAllowlistCleanup) {
@@ -1893,7 +1923,7 @@ TEST_F(ControllerTest, NavigationAfterStopped) {
                                    AutofillAssistantState::STOPPED));
 }
 
-TEST_F(ControllerTest, NavigationToGooglePropertyDestroysUI) {
+TEST_F(ControllerTest, NavigationToGooglePropertyShutsDownDestroyingUI) {
   SupportsScriptResponseProto script_response;
   AddRunnableScript(&script_response, "autostart")
       ->mutable_presentation()
@@ -1911,23 +1941,20 @@ TEST_F(ControllerTest, NavigationToGooglePropertyDestroysUI) {
   Start();
   EXPECT_EQ(AutofillAssistantState::PROMPT, controller_->GetState());
 
-  EXPECT_CALL(mock_client_, RecordDropOut(Metrics::DropOutReason::NAVIGATION));
-  EXPECT_CALL(mock_client_, DestroyUI);
+  EXPECT_CALL(mock_client_, Shutdown(Metrics::DropOutReason::NAVIGATION));
   GURL google("https://google.com/search");
   SetLastCommittedUrl(google);
   content::NavigationSimulator::NavigateAndCommitFromBrowser(web_contents(),
                                                              google);
 
-  EXPECT_EQ(AutofillAssistantState::STOPPED, controller_->GetState());
-
   // Full history of state transitions.
   EXPECT_THAT(states_, ElementsAre(AutofillAssistantState::STARTING,
                                    AutofillAssistantState::RUNNING,
-                                   AutofillAssistantState::PROMPT,
-                                   AutofillAssistantState::STOPPED));
+                                   AutofillAssistantState::PROMPT));
 }
 
-TEST_F(ControllerTest, DomainChangeToGooglePropertyDuringBrowseDestroysUI) {
+TEST_F(ControllerTest,
+       DomainChangeToGooglePropertyDuringBrowseShutsDownDestroyingUI) {
   SupportsScriptResponseProto script_response;
   AddRunnableScript(&script_response, "runnable")
       ->mutable_presentation()
@@ -1948,20 +1975,16 @@ TEST_F(ControllerTest, DomainChangeToGooglePropertyDuringBrowseDestroysUI) {
 
   EXPECT_CALL(
       mock_client_,
-      RecordDropOut(Metrics::DropOutReason::DOMAIN_CHANGE_DURING_BROWSE_MODE));
-  EXPECT_CALL(mock_client_, DestroyUI);
+      Shutdown(Metrics::DropOutReason::DOMAIN_CHANGE_DURING_BROWSE_MODE));
   GURL google("https://google.com/search");
   SetLastCommittedUrl(google);
   content::NavigationSimulator::NavigateAndCommitFromBrowser(web_contents(),
                                                              google);
 
-  EXPECT_EQ(AutofillAssistantState::STOPPED, controller_->GetState());
-
   // Full history of state transitions.
   EXPECT_THAT(states_, ElementsAre(AutofillAssistantState::STARTING,
                                    AutofillAssistantState::RUNNING,
-                                   AutofillAssistantState::BROWSE,
-                                   AutofillAssistantState::STOPPED));
+                                   AutofillAssistantState::BROWSE));
 }
 
 TEST_F(ControllerTest, UserDataFormEmpty) {
@@ -2931,5 +2954,66 @@ TEST_F(ControllerTest, OnGetScriptsFailedWillShutdown) {
 
   Start();
   EXPECT_EQ(AutofillAssistantState::STOPPED, controller_->GetState());
+}
+
+TEST_F(ControllerTest, Details) {
+  // The current controller details, as notified to the observers.
+  std::vector<Details> observed_details;
+
+  ON_CALL(mock_observer_, OnDetailsChanged(_))
+      .WillByDefault(
+          Invoke([&observed_details](const std::vector<Details>& details) {
+            observed_details = details;
+          }));
+
+  // Details are initially empty.
+  EXPECT_THAT(controller_->GetDetails(), IsEmpty());
+
+  // Set 2 details.
+  controller_->SetDetails(std::make_unique<Details>(), base::TimeDelta());
+  EXPECT_THAT(controller_->GetDetails(), SizeIs(1));
+  EXPECT_THAT(observed_details, SizeIs(1));
+
+  // Set 2 details in 1s (which directly clears the current details).
+  controller_->SetDetails(std::make_unique<Details>(),
+                          base::TimeDelta::FromMilliseconds(1000));
+  EXPECT_THAT(controller_->GetDetails(), IsEmpty());
+  EXPECT_THAT(observed_details, IsEmpty());
+
+  task_environment()->FastForwardBy(base::TimeDelta::FromMilliseconds(1000));
+  EXPECT_THAT(controller_->GetDetails(), SizeIs(1));
+  EXPECT_THAT(observed_details, SizeIs(1));
+
+  controller_->AppendDetails(std::make_unique<Details>(),
+                             /* delay= */ base::TimeDelta());
+  EXPECT_THAT(controller_->GetDetails(), SizeIs(2));
+  EXPECT_THAT(observed_details, SizeIs(2));
+
+  // Delay the appending of the details.
+  controller_->AppendDetails(
+      std::make_unique<Details>(),
+      /* delay= */ base::TimeDelta::FromMilliseconds(1000));
+  EXPECT_THAT(controller_->GetDetails(), SizeIs(2));
+  EXPECT_THAT(observed_details, SizeIs(2));
+
+  task_environment()->FastForwardBy(base::TimeDelta::FromMilliseconds(999));
+  EXPECT_THAT(controller_->GetDetails(), SizeIs(2));
+  EXPECT_THAT(observed_details, SizeIs(2));
+
+  task_environment()->FastForwardBy(base::TimeDelta::FromMilliseconds(1));
+  EXPECT_THAT(controller_->GetDetails(), SizeIs(3));
+  EXPECT_THAT(observed_details, SizeIs(3));
+
+  // Setting the details clears the timers.
+  controller_->AppendDetails(
+      std::make_unique<Details>(),
+      /* delay= */ base::TimeDelta::FromMilliseconds(1000));
+  controller_->SetDetails(nullptr, base::TimeDelta());
+  EXPECT_THAT(controller_->GetDetails(), IsEmpty());
+  EXPECT_THAT(observed_details, IsEmpty());
+
+  task_environment()->FastForwardBy(base::TimeDelta::FromMilliseconds(2000));
+  EXPECT_THAT(controller_->GetDetails(), IsEmpty());
+  EXPECT_THAT(observed_details, IsEmpty());
 }
 }  // namespace autofill_assistant

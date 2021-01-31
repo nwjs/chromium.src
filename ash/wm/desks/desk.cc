@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,9 +8,11 @@
 #include <utility>
 
 #include "ash/public/cpp/app_types.h"
+#include "ash/public/cpp/ash_features.h"
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/public/cpp/window_properties.h"
 #include "ash/shell.h"
+#include "ash/wm/desks/desks_controller.h"
 #include "ash/wm/mru_window_tracker.h"
 #include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/window_positioner.h"
@@ -21,7 +23,9 @@
 #include "ash/wm/workspace/workspace_layout_manager.h"
 #include "ash/wm/workspace_controller.h"
 #include "base/containers/adapters.h"
+#include "base/containers/contains.h"
 #include "base/stl_util.h"
+#include "chromeos/ui/base/window_properties.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/window_tracker.h"
 #include "ui/display/screen.h"
@@ -196,6 +200,13 @@ void Desk::AddWindowToDesk(aura::Window* window) {
   // there in the first place.
   if (!window->GetProperty(kHideInDeskMiniViewKey))
     NotifyContentChanged();
+
+  // Update the window's workspace to this parent desk.
+  if (features::IsBentoEnabled() && !is_desk_being_removed_) {
+    auto* desks_controller = DesksController::Get();
+    window->SetProperty(aura::client::kWindowWorkspaceKey,
+                        desks_controller->GetDeskIndex(this));
+  }
 }
 
 void Desk::RemoveWindowFromDesk(aura::Window* window) {
@@ -372,10 +383,13 @@ void Desk::MoveWindowToDesk(aura::Window* window,
     MoveWindowToDeskInternal(transient_root, target_desk, target_root);
 
     // Unminimize the window so that it shows up in the mini_view after it had
-    // been dragged and moved to another desk.
+    // been dragged and moved to another desk. Don't unminimize if the window is
+    // visible on all desks since it's being moved during desk activation.
     auto* window_state = WindowState::Get(transient_root);
-    if (window_state->IsMinimized())
+    if (window_state->IsMinimized() &&
+        !window->GetProperty(aura::client::kVisibleOnAllWorkspacesKey)) {
       window_state->Unminimize();
+    }
   }
 
   NotifyContentChanged();
@@ -412,6 +426,10 @@ void Desk::NotifyContentChanged() {
 void Desk::UpdateDeskBackdrops() {
   for (auto* root : Shell::GetAllRootWindows())
     UpdateBackdropController(GetDeskContainerForRoot(root));
+}
+
+void Desk::SetDeskBeingRemoved() {
+  is_desk_being_removed_ = true;
 }
 
 void Desk::MoveWindowToDeskInternal(aura::Window* window,

@@ -11,12 +11,12 @@
 
 #include "base/bind.h"
 #include "base/callback_helpers.h"
+#include "base/containers/contains.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/location.h"
 #include "base/run_loop.h"
 #include "base/single_thread_task_runner.h"
-#include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/atomic_flag.h"
@@ -1246,6 +1246,35 @@ TEST_F(SessionServiceTest, Workspace) {
   std::unique_ptr<sessions::SessionCommand> workspace_command =
       sessions::CreateSetWindowWorkspaceCommand(browser()->session_id(),
                                                 window_workspace);
+  for (const auto& command : pending_commands) {
+    if (command->id() == workspace_command->id() &&
+        command->contents_as_string_piece() ==
+            workspace_command->contents_as_string_piece()) {
+      found_workspace_command = true;
+      break;
+    }
+  }
+  EXPECT_TRUE(found_workspace_command);
+}
+
+// Tests that the workspace is saved in the browser session during
+// `SessionService::WindowOpened(),` called in `Browser()` constructor to
+// save the current workspace to newly created browser.
+TEST_F(SessionServiceTest, WorkspaceSavedOnOpened) {
+  const std::string workspace = "xyz";
+  auto* test_browser_window =
+      static_cast<TestBrowserWindow*>(browser()->window());
+  test_browser_window->set_workspace(workspace);
+  service()->WindowOpened(browser());
+
+  sessions::CommandStorageManager* command_storage_manager =
+      service()->GetCommandStorageManagerForTest();
+  const std::vector<std::unique_ptr<sessions::SessionCommand>>&
+      pending_commands = command_storage_manager->pending_commands();
+  bool found_workspace_command = false;
+  std::unique_ptr<sessions::SessionCommand> workspace_command =
+      sessions::CreateSetWindowWorkspaceCommand(browser()->session_id(),
+                                                workspace);
   for (const auto& command : pending_commands) {
     if (command->id() == workspace_command->id() &&
         command->contents_as_string_piece() ==

@@ -12,7 +12,10 @@
 #import "ios/chrome/browser/snapshots/snapshot_browser_agent.h"
 #import "ios/chrome/browser/ui/commands/application_commands.h"
 #import "ios/chrome/browser/ui/commands/browsing_data_commands.h"
+#import "ios/chrome/browser/ui/main/scene_state.h"
+#import "ios/chrome/browser/ui/main/scene_state_browser_agent.h"
 #include "ios/chrome/browser/ui/tab_switcher/tab_grid/tab_grid_coordinator_delegate.h"
+#import "ios/chrome/browser/ui/util/uikit_ui_util.h"
 #import "ios/chrome/test/block_cleanup_test.h"
 #include "ios/web/public/test/web_task_environment.h"
 #include "testing/gtest_mac.h"
@@ -22,6 +25,20 @@
 #error "This file requires ARC support."
 #endif
 
+@interface StubSceneState : SceneState
+@end
+
+@implementation StubSceneState {
+  UIWindow* _window;
+}
+- (void)setWindow:(UIWindow*)window {
+  _window = window;
+}
+- (UIWindow*)window {
+  return _window;
+}
+@end
+
 @interface TestTabGridCoordinatorDelegate
     : NSObject <TabGridCoordinatorDelegate>
 @property(nonatomic) BOOL didEndCalled;
@@ -30,27 +47,44 @@
 @implementation TestTabGridCoordinatorDelegate
 @synthesize didEndCalled = _didEndCalled;
 - (void)tabGrid:(TabGridCoordinator*)tabGrid
-    shouldFinishWithBrowser:(Browser*)browser
-               focusOmnibox:(BOOL)focusOmnibox {
+    shouldActivateBrowser:(Browser*)browser
+           dismissTabGrid:(BOOL)dismissTabGrid
+             focusOmnibox:(BOOL)focusOmnibox {
   // No-op.
 }
 
 - (void)tabGridDismissTransitionDidEnd:(TabGridCoordinator*)tabGrid {
   self.didEndCalled = YES;
 }
+
+- (TabGridPage)activePageForTabGrid:(TabGridCoordinator*)tabGrid {
+  return TabGridPageRegularTabs;
+}
 @end
 
 namespace {
 
+void AddAgentsToBrowser(Browser* browser, SceneState* scene_state) {
+  SnapshotBrowserAgent::CreateForBrowser(browser);
+  SnapshotBrowserAgent::FromBrowser(browser)->SetSessionID(
+      base::SysNSStringToUTF8([[NSUUID UUID] UUIDString]));
+  SceneStateBrowserAgent::CreateForBrowser(browser, scene_state);
+}
+
 class TabGridCoordinatorTest : public BlockCleanupTest {
  public:
   TabGridCoordinatorTest() {
-    browser_ = std::make_unique<TestBrowser>();
-    SnapshotBrowserAgent::CreateForBrowser(browser_.get());
-    SnapshotBrowserAgent::FromBrowser(browser_.get())
-        ->SetSessionID(base::SysNSStringToUTF8([[NSUUID UUID] UUIDString]));
+    scene_state_ = [[StubSceneState alloc] initWithAppState:nil];
+    scene_state_.window =
+        [[UIApplication sharedApplication].windows firstObject];
 
-    UIWindow* window = [UIApplication sharedApplication].keyWindow;
+    browser_ = std::make_unique<TestBrowser>();
+    AddAgentsToBrowser(browser_.get(), scene_state_);
+
+    incognito_browser_ = std::make_unique<TestBrowser>();
+    AddAgentsToBrowser(incognito_browser_.get(), scene_state_);
+
+    UIWindow* window = GetAnyKeyWindow();
     coordinator_ = [[TabGridCoordinator alloc]
                      initWithWindow:window
          applicationCommandEndpoint:OCMProtocolMock(
@@ -58,12 +92,11 @@ class TabGridCoordinatorTest : public BlockCleanupTest {
         browsingDataCommandEndpoint:OCMProtocolMock(
                                         @protocol(BrowsingDataCommands))
                      regularBrowser:browser_.get()
-                   incognitoBrowser:nil];
+                   incognitoBrowser:incognito_browser_.get()];
     coordinator_.animationsDisabledForTesting = YES;
     // TabGirdCoordinator will make its view controller the root, so stash the
     // original root view controller before starting |coordinator_|.
-    original_root_view_controller_ =
-        [[[UIApplication sharedApplication] keyWindow] rootViewController];
+    original_root_view_controller_ = [GetAnyKeyWindow() rootViewController];
 
     [coordinator_ start];
 
@@ -81,8 +114,7 @@ class TabGridCoordinatorTest : public BlockCleanupTest {
 
   void TearDown() override {
     if (original_root_view_controller_) {
-      [[UIApplication sharedApplication] keyWindow].rootViewController =
-          original_root_view_controller_;
+      GetAnyKeyWindow().rootViewController = original_root_view_controller_;
       original_root_view_controller_ = nil;
     }
     [coordinator_ stop];
@@ -92,6 +124,12 @@ class TabGridCoordinatorTest : public BlockCleanupTest {
   web::WebTaskEnvironment task_environment_;
   // Browser for the coordinator.
   std::unique_ptr<Browser> browser_;
+
+  // Browser for the coordinator.
+  std::unique_ptr<Browser> incognito_browser_;
+
+  // Scene state emulated in this test.
+  SceneState* scene_state_;
 
   // The TabGridCoordinator that is under test.  The test fixture sets
   // this VC as the root VC for the window.
@@ -120,6 +158,7 @@ TEST_F(TabGridCoordinatorTest, InitialActiveViewController) {
 // TabSwitcher.
 TEST_F(TabGridCoordinatorTest, TabViewControllerBeforeTabSwitcher) {
   [coordinator_ showTabViewController:normal_tab_view_controller_
+                   shouldCloseTabGrid:YES
                            completion:nil];
   EXPECT_EQ(normal_tab_view_controller_, coordinator_.activeViewController);
 
@@ -140,6 +179,7 @@ TEST_F(TabGridCoordinatorTest, TabViewControllerAfterTabSwitcher) {
   EXPECT_EQ(coordinator_.baseViewController, coordinator_.activeViewController);
 
   [coordinator_ showTabViewController:normal_tab_view_controller_
+                   shouldCloseTabGrid:YES
                            completion:nil];
   EXPECT_EQ(normal_tab_view_controller_, coordinator_.activeViewController);
 
@@ -156,10 +196,12 @@ TEST_F(TabGridCoordinatorTest, TabViewControllerAfterTabSwitcher) {
 // Tests swapping between two TabViewControllers.
 TEST_F(TabGridCoordinatorTest, SwapTabViewControllers) {
   [coordinator_ showTabViewController:normal_tab_view_controller_
+                   shouldCloseTabGrid:YES
                            completion:nil];
   EXPECT_EQ(normal_tab_view_controller_, coordinator_.activeViewController);
 
   [coordinator_ showTabViewController:incognito_tab_view_controller_
+                   shouldCloseTabGrid:YES
                            completion:nil];
   EXPECT_EQ(incognito_tab_view_controller_, coordinator_.activeViewController);
 }
@@ -176,10 +218,12 @@ TEST_F(TabGridCoordinatorTest, ShowTabSwitcherTwice) {
 // Tests calling showTabViewController twice in a row with the same VC.
 TEST_F(TabGridCoordinatorTest, ShowTabViewControllerTwice) {
   [coordinator_ showTabViewController:normal_tab_view_controller_
+                   shouldCloseTabGrid:YES
                            completion:nil];
   EXPECT_EQ(normal_tab_view_controller_, coordinator_.activeViewController);
 
   [coordinator_ showTabViewController:normal_tab_view_controller_
+                   shouldCloseTabGrid:YES
                            completion:nil];
   EXPECT_EQ(normal_tab_view_controller_, coordinator_.activeViewController);
 }
@@ -195,6 +239,7 @@ TEST_F(TabGridCoordinatorTest, CompletionHandlers) {
   delegate_.didEndCalled = NO;
   __block BOOL completion_handler_was_called = NO;
   [coordinator_ showTabViewController:normal_tab_view_controller_
+                   shouldCloseTabGrid:YES
                            completion:^{
                              completion_handler_was_called = YES;
                            }];
@@ -208,6 +253,7 @@ TEST_F(TabGridCoordinatorTest, CompletionHandlers) {
   // view controller. Tests that the delegate 'didEnd' method is *not* called.
   delegate_.didEndCalled = NO;
   [coordinator_ showTabViewController:incognito_tab_view_controller_
+                   shouldCloseTabGrid:YES
                            completion:^{
                              completion_handler_was_called = YES;
                            }];

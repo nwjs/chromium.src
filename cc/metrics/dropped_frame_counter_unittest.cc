@@ -4,8 +4,11 @@
 
 #include "cc/metrics/dropped_frame_counter.h"
 
+#include <vector>
+
 #include "base/synchronization/lock.h"
 #include "base/synchronization/waitable_event.h"
+#include "base/time/time.h"
 #include "cc/animation/animation_host.h"
 #include "cc/test/fake_content_layer_client.h"
 #include "cc/test/fake_picture_layer.h"
@@ -246,6 +249,147 @@ class DroppedFrameCounterMainDropsSmoothnessTest
 
 // TODO(crbug.com/1115376) Disabled for flakiness.
 // MULTI_THREAD_TEST_F(DroppedFrameCounterMainDropsSmoothnessTest);
+
+class DroppedFrameCounterTest : public testing::Test {
+ public:
+  DroppedFrameCounterTest() {
+    dropped_frame_counter_.set_total_counter(&total_frame_counter_);
+    dropped_frame_counter_.OnFcpReceived();
+  }
+  ~DroppedFrameCounterTest() override = default;
+
+  // For each boolean in frame_states produces a frame
+  void SimulateFrameSequence(std::vector<bool> frame_states, int repeat) {
+    for (int i = 0; i < repeat; i++) {
+      for (auto is_dropped : frame_states) {
+        viz::BeginFrameArgs args_ = SimulateBeginFrameArgs();
+        dropped_frame_counter_.OnBeginFrame(args_);
+        dropped_frame_counter_.OnEndFrame(args_, is_dropped);
+        sequence_number_++;
+        frame_time_ += interval_;
+      }
+    }
+  }
+
+  void AdvancetimeByIntervals(int interval_count) {
+    frame_time_ += interval_ * interval_count;
+  }
+
+  double MaxPercentDroppedFrame() {
+    return dropped_frame_counter_.sliding_window_max_percent_dropped();
+  }
+
+  double PercentDroppedFrame95Percentile() {
+    return dropped_frame_counter_.SlidingWindow95PercentilePercentDropped();
+  }
+
+  double GetTotalFramesInWindow() {
+    return base::TimeDelta::FromSeconds(1) / interval_;
+  }
+
+  void SetInterval(base::TimeDelta interval) { interval_ = interval; }
+
+ private:
+  DroppedFrameCounter dropped_frame_counter_;
+  TotalFrameCounter total_frame_counter_;
+  uint64_t sequence_number_ = 1;
+  uint64_t source_id_ = 1;
+  const base::TickClock* tick_clock_ = base::DefaultTickClock::GetInstance();
+  base::TimeTicks frame_time_ = tick_clock_->NowTicks();
+  base::TimeDelta interval_ =
+      base::TimeDelta::FromMicroseconds(16667);  // 16.667 ms
+
+  viz::BeginFrameArgs SimulateBeginFrameArgs() {
+    viz::BeginFrameId current_id_(source_id_, sequence_number_);
+    viz::BeginFrameArgs args = viz::BeginFrameArgs();
+    args.frame_id = current_id_;
+    args.frame_time = frame_time_;
+    args.interval = interval_;
+    return args;
+  }
+};
+
+TEST_F(DroppedFrameCounterTest, SimplePattern1) {
+  // 2 out of every 3 frames are dropped (In total 80 frames out of 120).
+  SimulateFrameSequence({true, true, true, false, true, false}, 20);
+
+  double expected_percent_dropped_frame = (40 / GetTotalFramesInWindow()) * 100;
+  EXPECT_FLOAT_EQ(MaxPercentDroppedFrame(), expected_percent_dropped_frame);
+  EXPECT_EQ(PercentDroppedFrame95Percentile(), 67);  // all values are in the
+  // 67th bucket, and as a result 95th percentile is also 67.
+}
+
+TEST_F(DroppedFrameCounterTest, SimplePattern2) {
+  // 1 out of every 5 frames are dropped (In total 24 frames out of 120).
+  SimulateFrameSequence({false, false, false, false, true}, 24);
+
+  double expected_percent_dropped_frame = (12 / GetTotalFramesInWindow()) * 100;
+  EXPECT_FLOAT_EQ(MaxPercentDroppedFrame(), expected_percent_dropped_frame);
+  EXPECT_EQ(PercentDroppedFrame95Percentile(), 20);  // all values are in the
+  // 20th bucket, and as a result 95th percentile is also 20.
+}
+
+TEST_F(DroppedFrameCounterTest, IncompleteWindow) {
+  // There are only 5 frames submitted and both Max and 95pct should report
+  // zero.
+  SimulateFrameSequence({false, false, false, false, true}, 1);
+  EXPECT_EQ(MaxPercentDroppedFrame(), 0.0);
+  EXPECT_EQ(PercentDroppedFrame95Percentile(), 0);
+}
+
+TEST_F(DroppedFrameCounterTest, MaxPercentDroppedChanges) {
+  // First 60 frames have 20% dropped.
+  SimulateFrameSequence({false, false, false, false, true}, 12);
+
+  double expected_percent_dropped_frame1 =
+      (12 / GetTotalFramesInWindow()) * 100;
+  EXPECT_EQ(MaxPercentDroppedFrame(), expected_percent_dropped_frame1);
+  EXPECT_FLOAT_EQ(PercentDroppedFrame95Percentile(), 20);  // There is only one
+  // element in the histogram and that is 20.
+
+  // 30 new frames are added that have 18 dropped frames.
+  // and the 30 frame before that had 6 dropped frames.
+  // So in total in the window has 24 frames dropped out of 60 frames.
+  SimulateFrameSequence({false, false, true, true, true}, 6);
+  double expected_percent_dropped_frame2 =
+      (24 / GetTotalFramesInWindow()) * 100;
+  EXPECT_FLOAT_EQ(MaxPercentDroppedFrame(), expected_percent_dropped_frame2);
+
+  // 30 new frames are added that have 24 dropped frames.
+  // and the 30 frame before that had 18 dropped frames.
+  // So in total in the window has 42 frames dropped out of 60 frames.
+  SimulateFrameSequence({false, true, true, true, true}, 6);
+  double expected_percent_dropped_frame3 =
+      (42 / GetTotalFramesInWindow()) * 100;
+  EXPECT_FLOAT_EQ(MaxPercentDroppedFrame(), expected_percent_dropped_frame3);
+
+  // Percent dropped frame of window increases gradually to 70%.
+  // 1 value exist when we reach 60 frames and 1 value thereafter for each
+  // frame added. So there 61 values in histogram. Last value is 70 (2 sampels)
+  // and then 67 with 1 sample, which would be the 95th percentile.
+  EXPECT_EQ(PercentDroppedFrame95Percentile(), 67);
+}
+
+TEST_F(DroppedFrameCounterTest, MaxPercentDroppedWithIdleFrames) {
+  // First 20 frames have 4 frames dropped (20%).
+  SimulateFrameSequence({false, false, false, false, true}, 4);
+
+  // Then no frames are added for 20 intervals.
+  AdvancetimeByIntervals(20);
+
+  // Then 20 frames have 16 frames dropped (60%).
+  SimulateFrameSequence({false, false, true, true, true}, 4);
+
+  // So in total, there are 40 frames in the 1 second window with 16 dropped
+  // frames (40% in total).
+  double expected_percent_dropped_frame = (16 / GetTotalFramesInWindow()) * 100;
+  EXPECT_FLOAT_EQ(MaxPercentDroppedFrame(), expected_percent_dropped_frame);
+}
+
+TEST_F(DroppedFrameCounterTest, NoCrashForIntervalLargerThanWindow) {
+  SetInterval(base::TimeDelta::FromMilliseconds(1000));
+  SimulateFrameSequence({false, false}, 1);
+}
 
 }  // namespace
 }  // namespace cc

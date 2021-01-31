@@ -8,8 +8,8 @@
 
 #include "base/bind.h"
 #include "base/callback.h"
+#include "base/containers/contains.h"
 #include "base/optional.h"
-#include "base/stl_util.h"
 #include "chrome/browser/chromeos/remote_apps/remote_apps_manager.h"
 #include "chrome/browser/chromeos/remote_apps/remote_apps_manager_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -48,7 +48,7 @@ bool RemoteAppsImpl::IsAllowed(content::RenderFrameHost* render_frame_host,
 
   const extensions::Feature* feature =
       extensions::FeatureProvider::GetBehaviorFeature(
-          extensions::behavior_feature::kKeyImprivataInSessionExtension);
+          extensions::behavior_feature::kImprivataInSessionExtension);
   DCHECK(feature);
   return feature->IsAvailableToExtension(extension).is_available();
 }

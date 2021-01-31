@@ -421,7 +421,9 @@ public class CriticalPersistedTabData extends PersistedTabData {
     }
 
     @Override
-    public void destroy() {}
+    public void destroy() {
+        mObservers.clear();
+    }
 
     /**
      * @return title of the {@link Tab}

@@ -222,6 +222,15 @@ std::string ChromeAutofillClient::GetVariationConfigCountryCode() const {
              : std::string();
 }
 
+profile_metrics::BrowserProfileType ChromeAutofillClient::GetProfileType()
+    const {
+  Profile* profile = GetProfile();
+  // Profile can only be null in tests, therefore it is safe to always return
+  // |kRegular| when it does not exist.
+  return profile ? ProfileMetrics::GetBrowserProfileType(profile)
+                 : profile_metrics::BrowserProfileType::kRegular;
+}
+
 std::unique_ptr<InternalAuthenticator>
 ChromeAutofillClient::CreateCreditCardInternalAuthenticator(
     content::RenderFrameHost* rfh) {
@@ -724,7 +733,7 @@ ChromeAutofillClient::ChromeAutofillClient(content::WebContents* web_contents)
   log_manager_ =
       LogManager::Create(AutofillLogRouterFactory::GetForBrowserContext(
                              web_contents->GetBrowserContext()),
-                         base::Closure());
+                         base::NullCallback());
   // Initialize StrikeDatabase so its cache will be loaded and ready to use when
   // when requested by other Autofill classes.
   GetStrikeDatabase();

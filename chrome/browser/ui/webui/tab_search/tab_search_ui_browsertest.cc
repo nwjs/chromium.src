@@ -10,6 +10,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/webui/tab_search/tab_search_ui.h"
 #include "chrome/common/chrome_isolated_world_ids.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -48,6 +49,12 @@ class TabSearchUIBrowserTest : public InProcessBrowserTest {
     return browser()->tab_strip_model()->GetActiveWebContents();
   }
 
+  TabSearchUI* GetWebUIController() {
+    return webui_contents_->GetWebUI()
+        ->GetController()
+        ->template GetAs<TabSearchUI>();
+  }
+
  protected:
   std::unique_ptr<content::WebContents> webui_contents_;
 
@@ -55,13 +62,21 @@ class TabSearchUIBrowserTest : public InProcessBrowserTest {
   base::test::ScopedFeatureList feature_list_;
 };
 
+IN_PROC_BROWSER_TEST_F(TabSearchUIBrowserTest,
+                       EmbedderHiddenDestroysPageHandler) {
+  EXPECT_NE(nullptr, GetWebUIController());
+  EXPECT_NE(nullptr, GetWebUIController()->page_handler_for_testing());
+  GetWebUIController()->EmbedderHidden();
+  EXPECT_EQ(nullptr, GetWebUIController()->page_handler_for_testing());
+}
+
 // TODO(romanarora): Investigate a way to call WebUI custom methods and refactor
 // JS code below.
 
 IN_PROC_BROWSER_TEST_F(TabSearchUIBrowserTest, InitialTabItemsListed) {
   const std::string tab_items_js =
       "const tabItems = document.querySelector('tab-search-app').shadowRoot"
-      "    .getElementById('tabsList').shadowRoot"
+      "    .getElementById('tabsList')"
       "    .querySelectorAll('tab-search-item');";
   int tab_item_count =
       content::EvalJs(webui_contents_.get(), tab_items_js + "tabItems.length",
@@ -82,7 +97,8 @@ IN_PROC_BROWSER_TEST_F(TabSearchUIBrowserTest, SwitchToTabAction) {
 
   const std::string tab_item_js = base::StringPrintf(
       "document.querySelector('tab-search-app').shadowRoot"
-      "    .getElementById('tabsList').shadowRoot.getElementById('%s')",
+      "    .getElementById('tabsList')"
+      "    .querySelector('tab-search-item[id=\"%s\"]')",
       base::NumberToString(tab_id).c_str());
   ASSERT_TRUE(content::ExecJs(webui_contents_.get(), tab_item_js + ".click()",
                               content::EXECUTE_SCRIPT_DEFAULT_OPTIONS,
@@ -98,7 +114,8 @@ IN_PROC_BROWSER_TEST_F(TabSearchUIBrowserTest, CloseTabAction) {
 
   const std::string tab_item_button_js = base::StringPrintf(
       "document.querySelector('tab-search-app').shadowRoot"
-      "    .getElementById('tabsList').shadowRoot.getElementById('%s')"
+      "    .getElementById('tabsList')"
+      "    .querySelector('tab-search-item[id=\"%s\"]')"
       "    .shadowRoot.getElementById('closeButton')",
       base::NumberToString(tab_id).c_str());
   ASSERT_TRUE(content::ExecJs(webui_contents_.get(),

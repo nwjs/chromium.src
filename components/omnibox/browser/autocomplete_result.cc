@@ -12,6 +12,7 @@
 
 #include "base/check_op.h"
 #include "base/command_line.h"
+#include "base/containers/contains.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
@@ -76,11 +77,6 @@ size_t AutocompleteResult::GetMaxMatches(bool is_zero_suggest) {
   static_assert(kMaxAutocompletePositionValue > kDefaultMaxAutocompleteMatches,
                 "kMaxAutocompletePositionValue must be larger than the largest "
                 "possible autocomplete result size.");
-
-  // If new search features are disabled, ignore the other parameters and use
-  // the default value.
-  if (!base::FeatureList::IsEnabled(omnibox::kNewSearchFeatures))
-    return kDefaultMaxAutocompleteMatches;
 
   // If we're interested in the zero suggest match limit, and one has been
   // specified, return it.
@@ -272,8 +268,6 @@ void AutocompleteResult::SortAndCull(
     LimitNumberOfURLsShown(GetMaxMatches(is_zero_suggest), max_url_count,
                            comparing_object);
 
-  GroupAndDemoteMatchesWithHeaders();
-
   // Limit total matches accounting for suggestions score <= 0, sub matches, and
   // feature configs such as OmniboxUIExperimentMaxAutocompleteMatches,
   // OmniboxMaxZeroSuggestMatches, and OmniboxDynamicMaxAutocomplete.
@@ -302,6 +296,12 @@ void AutocompleteResult::SortAndCull(
     if (base::FeatureList::IsEnabled(omnibox::kBubbleUrlSuggestions))
       BubbleURLSuggestions(next, begin_url, matches_);
   }
+
+  // Grouping and Demoting Matches with Headers needs to be done only after
+  // matches are grouped by Search and URL type to ensure that URLs don't sink
+  // to the bottom of the suggestions list, and surface below the Matches with
+  // headers.
+  GroupAndDemoteMatchesWithHeaders();
 
   // If we have a default match, run some sanity checks. Skip these checks if
   // the default match has no |destination_url|. An example of this is the
@@ -624,7 +624,7 @@ void AutocompleteResult::DiscourageTopMatchFromBeingSearchEntity(
   if (top_match->type != ACMatchType::SEARCH_SUGGEST_ENTITY)
     return;
 
-  // Search the duplicates for a equivalent non-entity search suggestion.
+  // Search the duplicates for an equivalent non-entity search suggestion.
   for (auto it = top_match->duplicate_matches.begin();
        it != top_match->duplicate_matches.end(); ++it) {
     // Reject any ineligible duplicates.
@@ -654,7 +654,6 @@ size_t AutocompleteResult::CalculateNumMatches(
     const CompareWithDemoteByType<AutocompleteMatch>& comparing_object) {
   // Use alternative CalculateNumMatchesPerUrlCount if applicable.
   if (!is_zero_suggest &&
-      base::FeatureList::IsEnabled(omnibox::kNewSearchFeatures) &&
       base::FeatureList::IsEnabled(omnibox::kDynamicMaxAutocomplete))
     return CalculateNumMatchesPerUrlCount(matches, comparing_object);
   // In the process of trimming, drop all matches with a demoted relevance
@@ -702,10 +701,17 @@ void AutocompleteResult::Reset() {
   matches_.clear();
   headers_map_.clear();
   hidden_group_ids_.clear();
+#if defined(OS_ANDROID)
+  java_result_.Reset();
+#endif
 }
 
 void AutocompleteResult::Swap(AutocompleteResult* other) {
   matches_.swap(other->matches_);
+#if defined(OS_ANDROID)
+  java_result_.Reset();
+  other->java_result_.Reset();
+#endif
 }
 
 void AutocompleteResult::CopyFrom(const AutocompleteResult& other) {
@@ -713,6 +719,9 @@ void AutocompleteResult::CopyFrom(const AutocompleteResult& other) {
     return;
 
   matches_ = other.matches_;
+#if defined(OS_ANDROID)
+  java_result_.Reset();
+#endif
 }
 
 #if DCHECK_IS_ON()

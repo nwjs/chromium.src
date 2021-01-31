@@ -11,6 +11,7 @@
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
+#include "build/chromeos_buildflags.h"
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
@@ -165,6 +166,7 @@ RenderViewContextMenuBase::RenderViewContextMenuBase(
       browser_context_(source_web_contents_->GetBrowserContext()),
       menu_model_(this),
       render_frame_id_(render_frame_host->GetRoutingID()),
+      render_frame_token_(render_frame_host->GetFrameToken()),
       render_process_id_(render_frame_host->GetProcess()->GetID()),
       command_executed_(false) {}
 
@@ -259,7 +261,7 @@ void RenderViewContextMenuBase::UpdateMenuIcon(int command_id,
     return;
 
   menu_model_.SetIcon(index, icon);
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
   if (toolkit_delegate_)
     toolkit_delegate_->RebuildMenu();
 #endif
@@ -449,8 +451,8 @@ void RenderViewContextMenuBase::OpenURLWithExtraHeaders(
   open_url_params.source_render_process_id = render_process_id_;
   open_url_params.source_render_frame_id = render_frame_id_;
 
-  open_url_params.initiator_routing_id =
-      GlobalFrameRoutingId(render_process_id_, render_frame_id_);
+  open_url_params.initiator_frame_token = render_frame_token_;
+  open_url_params.initiator_process_id = render_process_id_;
 
   if (disposition != WindowOpenDisposition::OFF_THE_RECORD)
     open_url_params.impression = params_.impression;
