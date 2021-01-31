@@ -8376,8 +8376,10 @@ bool RenderFrameHostImpl::ValidateDidCommitParams(
 
   // Commits in the error page process must only be failures, otherwise
   // successful navigations could commit documents from origins different
-  // than the chrome-error://chromewebdata/ one and violate expectations.
-  if (should_commit_unreachable_url && !params->url_is_unreachable) {
+  // than the chrome-error://chromewebdata/ one and violate
+  // expectations.
+  // NWJS: different process model where the pages are in the same process
+  if (false && should_commit_unreachable_url && !params->url_is_unreachable) {
     DEBUG_ALIAS_FOR_ORIGIN(origin_debug_alias, params->origin);
     bad_message::ReceivedBadMessage(
         process, bad_message::RFH_ERROR_PROCESS_NON_ERROR_COMMIT);
