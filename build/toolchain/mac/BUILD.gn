@@ -445,7 +445,10 @@ template("mac_toolchain") {
       # hardlink but ensure the file have distinct metadata (thus avoid the
       # error with ditto, see https://crbug.com/1042182).
       if (host_os == "mac") {
-        command = "rm -rf {{output}} && cp -Rc {{source}} {{output}}"
+        command =
+          "rm -rf {{output}} && cp -fRc {{source}} {{output}} 2>/dev/null " +
+          "|| (rm -rf {{output}} && cp -fR {{source}} {{output}})"
+
       } else {
         command = "rm -rf {{output}} && cp -Rl {{source}} {{output}}"
       }
