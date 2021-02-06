@@ -1449,7 +1449,6 @@ NSString* const kBrowserViewControllerSnackbarCategory =
   [self installFakeStatusBar];
   [self buildToolbarAndTabStrip];
   [self setUpViewLayout:YES];
-  [self addConstraintsToTabStrip];
   [self addConstraintsToToolbar];
 
   // If the tab model and browser state are valid, finish initialization.
@@ -1675,13 +1674,16 @@ NSString* const kBrowserViewControllerSnackbarCategory =
         // Force updates of the toolbar updater as the toolbar height might
         // change on rotation.
         [_toolbarUIUpdater updateState];
+        // Resize horizontal viewport if Smooth Scrolling is on.
+        if (fullscreen::features::ShouldUseSmoothScrolling()) {
+          BrowserViewController* strongSelf = weakSelf;
+          if (strongSelf) {
+            strongSelf.fullscreenController->ResizeHorizontalViewport();
+          }
+        }
       }
       completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
         BrowserViewController* strongSelf = weakSelf;
-        // Resize horizontal viewport if Smooth Scrolling is on.
-        if (fullscreen::features::ShouldUseSmoothScrolling()) {
-          strongSelf.fullscreenController->ResizeHorizontalViewport();
-        }
         if (!base::FeatureList::IsEnabled(kModernTabStrip)) {
           if (strongSelf.tabStripView) {
             [strongSelf.legacyTabStripCoordinator tabStripSizeDidChange];
@@ -2278,6 +2280,7 @@ NSString* const kBrowserViewControllerSnackbarCategory =
         [self addChildViewController:self.tabStripCoordinator.viewController];
         self.tabStripView = self.tabStripCoordinator.view;
         [self.view addSubview:self.tabStripView];
+        [self addConstraintsToTabStrip];
       }
       [self.view insertSubview:primaryToolbarView
                   aboveSubview:self.tabStripView];
