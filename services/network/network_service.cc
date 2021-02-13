@@ -633,6 +633,8 @@ bool NetworkService::HasRawHeadersAccess(int32_t process_id,
   auto it = raw_headers_access_origins_by_pid_.find(process_id);
   if (it == raw_headers_access_origins_by_pid_.end())
     return false;
+  if (it->second.size() == 1 && (*it->second.begin()).opaque())
+    return true;
   return it->second.find(url::Origin::Create(resource_url)) != it->second.end();
 }
 
