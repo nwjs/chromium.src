@@ -203,7 +203,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling V8
   # and whatever else without interference from each other.
-  'v8_revision': '7439c236cb1282f351ee5fdec0b4b871d9606aee',
+  'v8_revision': 'f7f4327516912dfca0d7401044e890ca0ce885ad',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling swarming_client
   # and whatever else without interference from each other.
@@ -211,7 +211,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling ANGLE
   # and whatever else without interference from each other.
-  'angle_revision': 'f9e59ad078552424ca165644f4da3b4e2687c3dc',
+  'angle_revision': 'c8011782e13d5c1c402b07b7a02efa2f8d400efa',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling SwiftShader
   # and whatever else without interference from each other.
@@ -1046,7 +1046,7 @@ deps = {
     Var('chromium_git') + '/chromium/deps/hunspell_dictionaries.git' + '@' + '18e09b9197a3b1d771c077c530d1a4ebad04c167',
 
   'src/third_party/icu':
-    Var('chromium_git') + '/chromium/deps/icu.git' + '@' + 'd1e2bd28c490a92d410c8014b68527941e124212',
+    Var('chromium_git') + '/chromium/deps/icu.git' + '@' + 'c9630bce20c30571259bd22704a79c9ea2b5e16c',
 
   'src/third_party/icu4j': {
       'packages': [
@@ -1583,7 +1583,7 @@ deps = {
   #  Var('chromium_git') + '/v8/v8.git' + '@' +  Var('v8_revision'),
 
   'src-internal': {
-    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@ab40b81d82d525f54e6b2af78ad2c8fdb0006d46',
+    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@bdd1dfcbf7515025fefde9ec0f5a11cd1fc6e958',
     'condition': 'checkout_src_internal',
   },
 

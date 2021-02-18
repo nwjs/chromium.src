@@ -307,7 +307,7 @@
 <translation id="2114841414352855701">由于已被 <ph name="POLICY_NAME" /> 替换，该政策已忽略。</translation>
 <translation id="2119505898009119320">颁发对象：<ph name="ORGANIZATION" /> [<ph name="JURISDICTION" />]</translation>
 <translation id="2119867082804433120">打孔（右下角）</translation>
-<translation id="2129079103035905234">动态传感器</translation>
+<translation id="2129079103035905234">移动传感器</translation>
 <translation id="2130448033692577677">您指定的模板未必会被应用，因为 DnsOverHttpsMode 政策未设置。</translation>
 <translation id="213826338245044447">移动设备书签</translation>
 <translation id="214556005048008348">取消付款</translation>
@@ -752,7 +752,7 @@
 <translation id="4014128326099193693">{COUNT,plural, =1{包含 {COUNT} 页内容的 PDF 文档}other{包含 {COUNT} 页内容的 PDF 文档}}</translation>
 <translation id="4030383055268325496">撤消添加(&amp;U)</translation>
 <translation id="4032320456957708163">您的浏览器由 <ph name="ENROLLMENT_DOMAIN" /> 管理</translation>
-<translation id="4056223980640387499">棕色调</translation>
+<translation id="4056223980640387499">棕褐色调</translation>
 <translation id="4058922952496707368">“<ph name="SUBKEY" />”键：<ph name="ERROR" /></translation>
 <translation id="4067263367174615723">C1 (Envelope)</translation>
 <translation id="4067669230157909013">屏幕截取功能已恢复。</translation>
@@ -2057,6 +2057,7 @@
 <translation id="936474030629450166">Super-B</translation>
 <translation id="936602727769022409">您可能会无法再访问自己的 Google 帐号。Chromium 建议您立即更改密码。系统会要求您登录。</translation>
 <translation id="939736085109172342">新建文件夹</translation>
+<translation id="945522503751344254">发送反馈</translation>
 <translation id="945855313015696284">请查看下面的信息，并删除所有无效卡片</translation>
 <translation id="950736567201356821">三孔（顶部）</translation>
 <translation id="951941430552851965">为了保护您屏幕上的内容，管理员已暂停屏幕截取功能。</translation>
