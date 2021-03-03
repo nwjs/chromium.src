@@ -275,6 +275,13 @@ LoginDisplay* GetLoginDisplay() {
   return GetLoginDisplayHost()->GetLoginDisplay();
 }
 
+void AllowOfflineLoginOnErrorScreen(bool allowed) {
+  if (!GetLoginDisplayHost()->GetOobeUI())
+    return;
+  GetLoginDisplayHost()->GetOobeUI()->GetErrorScreen()->AllowOfflineLogin(
+      allowed);
+}
+
 void SetLoginExtensionApiLaunchExtensionIdPref(const AccountId& account_id,
                                                const std::string extension_id) {
   const user_manager::User* user =
@@ -467,13 +474,14 @@ void ExistingUserController::UpdateLoginDisplay(
     policy::PowerwashRequirementsChecker::Initialize();
   }
   bool show_users_on_signin;
-  user_manager::UserList filtered_users;
   user_manager::UserList saml_users_for_password_sync;
 
   cros_settings_->GetBoolean(kAccountsPrefShowUserNamesOnSignIn,
                              &show_users_on_signin);
   user_manager::UserManager* const user_manager =
       user_manager::UserManager::Get();
+  // By default disable offline login from the error screen.
+  AllowOfflineLoginOnErrorScreen(false /* allowed */);
   for (auto* user : users) {
     // Skip kiosk apps for login screen user list. Kiosk apps as pods (aka new
     // kiosk UI) is currently disabled and it gets the apps directly from
@@ -483,24 +491,23 @@ void ExistingUserController::UpdateLoginDisplay(
     // TODO(xiyuan): Clean user profile whose email is not in allowlist.
     if (user->GetType() == user_manager::USER_TYPE_SUPERVISED_DEPRECATED)
       continue;
-    const bool meets_allowlist_requirements =
-        !user->HasGaiaAccount() || user_manager->IsGaiaUserAllowed(*user);
-
-    // Public session accounts are always shown on login screen.
-    const bool meets_show_users_requirements =
-        show_users_on_signin ||
-        user->GetType() == user_manager::USER_TYPE_PUBLIC_ACCOUNT;
-    if (meets_allowlist_requirements) {
-      if (meets_show_users_requirements) {
-        filtered_users.push_back(user);
-      }
-      if (user->using_saml()) {
-        saml_users_for_password_sync.push_back(user);
-      }
+    // Allow offline login from the error screen if user of one of these types
+    // has already logged in.
+    if (user->GetType() == user_manager::USER_TYPE_REGULAR ||
+        user->GetType() == user_manager::USER_TYPE_CHILD ||
+        user->GetType() == user_manager::USER_TYPE_ACTIVE_DIRECTORY) {
+      AllowOfflineLoginOnErrorScreen(true /* allowed */);
     }
+    const bool meets_allowlist_requirements =
+        !user->HasGaiaAccount() ||
+        user_manager::UserManager::Get()->IsGaiaUserAllowed(*user);
+    if (meets_allowlist_requirements && user->using_saml())
+      saml_users_for_password_sync.push_back(user);
   }
 
-  ForceOnlineFlagChanged(filtered_users);
+  auto login_users = ExtractLoginUsers(users);
+  ForceOnlineFlagChanged(login_users);
+
   // ExistingUserController owns PasswordSyncTokenLoginCheckers only if user
   // pods are hidden.
   if (!show_users_on_signin && !saml_users_for_password_sync.empty()) {
@@ -515,10 +522,10 @@ void ExistingUserController::UpdateLoginDisplay(
   // If no user pods are visible, fallback to single new user pod which will
   // have guest session link.
   bool show_guest = user_manager->IsGuestSessionAllowed();
-  show_users_on_signin |= !filtered_users.empty();
+  show_users_on_signin |= !login_users.empty();
   bool allow_new_user = true;
   cros_settings_->GetBoolean(kAccountsPrefAllowNewUser, &allow_new_user);
-  GetLoginDisplay()->Init(filtered_users, show_guest, show_users_on_signin,
+  GetLoginDisplay()->Init(login_users, show_guest, show_users_on_signin,
                           allow_new_user);
   GetLoginDisplayHost()->OnPreferencesChanged();
 }
@@ -1259,6 +1266,35 @@ bool ExistingUserController::password_changed() const {
     return login_performer_->password_changed();
 
   return password_changed_;
+}
+
+// static
+user_manager::UserList ExistingUserController::ExtractLoginUsers(
+    const user_manager::UserList& users) {
+  bool show_users_on_signin;
+  chromeos::CrosSettings::Get()->GetBoolean(
+      chromeos::kAccountsPrefShowUserNamesOnSignIn, &show_users_on_signin);
+  user_manager::UserList filtered_users;
+  for (auto* user : users) {
+    // Skip kiosk apps for login screen user list. Kiosk apps as pods (aka new
+    // kiosk UI) is currently disabled and it gets the apps directly from
+    // KioskAppManager, ArcKioskAppManager and WebKioskAppManager.
+    if (user->IsKioskType())
+      continue;
+    // TODO(xiyuan): Clean user profile whose email is not in allowlist.
+    if (user->GetType() == user_manager::USER_TYPE_SUPERVISED_DEPRECATED)
+      continue;
+    const bool meets_allowlist_requirements =
+        !user->HasGaiaAccount() ||
+        user_manager::UserManager::Get()->IsGaiaUserAllowed(*user);
+    // Public session accounts are always shown on login screen.
+    const bool meets_show_users_requirements =
+        show_users_on_signin ||
+        user->GetType() == user_manager::USER_TYPE_PUBLIC_ACCOUNT;
+    if (meets_allowlist_requirements && meets_show_users_requirements)
+      filtered_users.push_back(user);
+  }
+  return filtered_users;
 }
 
 void ExistingUserController::LoginAsGuest() {

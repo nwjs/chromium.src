@@ -47,6 +47,7 @@
 #include "components/policy/core/common/policy_service.h"
 #include "components/policy/policy_constants.h"
 #include "components/prefs/pref_service.h"
+#include "components/reading_list/features/reading_list_switches.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/browser_thread.h"
@@ -205,16 +206,19 @@ bool NTPResourceCache::NewTabHTMLNeedsRefresh() {
 
 NTPResourceCache::WindowType NTPResourceCache::GetWindowType(
     Profile* profile, content::RenderProcessHost* render_host) {
-  if (profile->IsGuestSession() || profile->IsEphemeralGuestProfile()) {
+  if (profile->IsGuestSession() || profile->IsEphemeralGuestProfile())
     return GUEST;
-  } else if (render_host) {
-    // Sometimes the |profile| is the parent (non-incognito) version of the user
-    // so we check the |render_host| if it is provided.
-    if (render_host->GetBrowserContext()->IsOffTheRecord())
-      return INCOGNITO;
-  } else if (profile->IsOffTheRecord()) {
+
+  // Sometimes the |profile| is the parent (non-incognito) version of the user
+  // so we check the |render_host| if it is provided.
+  if (render_host && render_host->GetBrowserContext()->IsOffTheRecord())
+    profile = Profile::FromBrowserContext(render_host->GetBrowserContext());
+
+  if (profile->IsIncognitoProfile())
     return INCOGNITO;
-  }
+  if (profile->IsOffTheRecord())
+    return NON_PRIMARY_OTR;
+
   return NORMAL;
 }
 
@@ -236,22 +240,31 @@ base::RefCountedMemory* NTPResourceCache::GetNewTabGuestHTML() {
 
 base::RefCountedMemory* NTPResourceCache::GetNewTabHTML(WindowType win_type) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  if (win_type == GUEST) {
-    return GetNewTabGuestHTML();
-  }
+  switch (win_type) {
+    case GUEST:
+      return GetNewTabGuestHTML();
 
-  if (win_type == INCOGNITO) {
-    if (!new_tab_incognito_html_)
-      CreateNewTabIncognitoHTML();
-    return new_tab_incognito_html_.get();
-  }
+    case INCOGNITO:
+      if (!new_tab_incognito_html_)
+        CreateNewTabIncognitoHTML();
+      return new_tab_incognito_html_.get();
 
-  // Refresh the cached HTML if necessary.
-  // NOTE: NewTabHTMLNeedsRefresh() must be called every time the new tab
-  // HTML is fetched, because it needs to initialize cached values.
-  if (NewTabHTMLNeedsRefresh() || !new_tab_html_)
-    CreateNewTabHTML();
-  return new_tab_html_.get();
+    case NON_PRIMARY_OTR:
+      if (!new_tab_non_primary_otr_html_) {
+        std::string empty_html;
+        new_tab_non_primary_otr_html_ =
+            base::RefCountedString::TakeString(&empty_html);
+      }
+      return new_tab_non_primary_otr_html_.get();
+
+    case NORMAL:
+      // Refresh the cached HTML if necessary.
+      // NOTE: NewTabHTMLNeedsRefresh() must be called every time the new tab
+      // HTML is fetched, because it needs to initialize cached values.
+      if (NewTabHTMLNeedsRefresh() || !new_tab_html_)
+        CreateNewTabHTML();
+      return new_tab_html_.get();
+    }
 }
 
 base::RefCountedMemory* NTPResourceCache::GetNewTabCSS(WindowType win_type) {
@@ -323,7 +336,9 @@ void NTPResourceCache::CreateNewTabIncognitoHTML() {
           profile_->GetAllOffTheRecordProfiles()[0]);
 
   replacements["incognitoTabDescription"] =
-      l10n_util::GetStringUTF8(IDS_NEW_TAB_OTR_SUBTITLE);
+      l10n_util::GetStringUTF8(reading_list::switches::IsReadingListEnabled()
+                                   ? IDS_NEW_TAB_OTR_SUBTITLE_WITH_READING_LIST
+                                   : IDS_NEW_TAB_OTR_SUBTITLE);
   replacements["incognitoTabHeading"] =
       l10n_util::GetStringUTF8(IDS_NEW_TAB_OTR_TITLE);
   replacements["incognitoTabWarning"] =
@@ -603,10 +618,8 @@ void NTPResourceCache::CreateNewTabHTML() {
 }
 
 void NTPResourceCache::CreateNewTabIncognitoCSS() {
-  // Same theme is used by all off-the-record profiles, so just getting it from
-  // the first one.
   const ui::ThemeProvider& tp = ThemeService::GetThemeProviderForProfile(
-      profile_->GetAllOffTheRecordProfiles()[0]);
+      profile_->GetPrimaryOTRProfile());
 
   // Generate the replacements.
   ui::TemplateReplacements substitutions;

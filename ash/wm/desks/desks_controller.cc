@@ -258,6 +258,18 @@ const Desk* DesksController::GetTargetActiveDesk() const {
   return active_desk();
 }
 
+base::flat_set<aura::Window*>
+DesksController::GetVisibleOnAllDesksWindowsOnRoot(
+    aura::Window* root_window) const {
+  DCHECK(root_window->IsRootWindow());
+  base::flat_set<aura::Window*> filtered_visible_on_all_desks_windows;
+  for (auto* visible_on_all_desks_window : visible_on_all_desks_windows_) {
+    if (visible_on_all_desks_window->GetRootWindow() == root_window)
+      filtered_visible_on_all_desks_windows.insert(visible_on_all_desks_window);
+  }
+  return filtered_visible_on_all_desks_windows;
+}
+
 void DesksController::RestorePrimaryUserActiveDeskIndex(int active_desk_index) {
   DCHECK_GE(active_desk_index, 0);
   DCHECK_LT(active_desk_index, int{desks_.size()});
@@ -270,6 +282,11 @@ void DesksController::RestorePrimaryUserActiveDeskIndex(int active_desk_index) {
   // TODO(crbug.com/1145404): consider adding an UMA metric for desks
   // restoring to change the source to kDeskRestored.
   ActivateDesk(desks_[active_desk_index].get(), DesksSwitchSource::kUserSwitch);
+}
+
+void DesksController::OnNewUserShown() {
+  RestackVisibleOnAllDesksWindowsOnActiveDesk();
+  NotifyAllDesksForContentChanged();
 }
 
 void DesksController::Shutdown() {
@@ -389,6 +406,17 @@ void DesksController::ActivateDesk(const Desk* desk, DesksSwitchSource source) {
   DCHECK(HasDesk(desk));
   DCHECK(!animation_);
 
+  // If we are switching users, we don't want to notify desks of content changes
+  // until the user switch animation has shown the new user's windows.
+  const bool is_user_switch = source == DesksSwitchSource::kUserSwitch;
+  std::vector<base::AutoReset<bool>> desks_scoped_notify_disablers;
+  if (is_user_switch) {
+    for (const auto& desk : desks_) {
+      desks_scoped_notify_disablers.push_back(
+          desk->GetScopedNotifyContentChangedDisabler());
+    }
+  }
+
   OverviewController* overview_controller = Shell::Get()->overview_controller();
   const bool in_overview = overview_controller->InOverviewSession();
   if (desk == active_desk_) {
@@ -411,8 +439,7 @@ void DesksController::ActivateDesk(const Desk* desk, DesksSwitchSource source) {
             IDS_ASH_VIRTUAL_DESKS_ALERT_DESK_ACTIVATED, desk->name()));
   }
 
-  if (source == DesksSwitchSource::kDeskRemoved ||
-      source == DesksSwitchSource::kUserSwitch) {
+  if (source == DesksSwitchSource::kDeskRemoved || is_user_switch) {
     // Desk switches due to desks removal or user switches in a multi-profile
     // session result in immediate desk activation without animation.
     ActivateDeskInternal(desk, /*update_window_activation=*/!in_overview);
@@ -523,10 +550,13 @@ bool DesksController::MoveWindowFromActiveDeskTo(
   if (in_overview) {
     auto* overview_session = overview_controller->overview_session();
     auto* item = overview_session->GetOverviewItemForWindow(window);
-    DCHECK(item);
-    item->OnMovingWindowToAnotherDesk();
-    // The item no longer needs to be in the overview grid.
-    overview_session->RemoveItem(item);
+    // |item| can be null when we are switching users and we're moving visible
+    // on all desks windows, so skip if |item| is null.
+    if (item) {
+      item->OnMovingWindowToAnotherDesk();
+      // The item no longer needs to be in the overview grid.
+      overview_session->RemoveItem(item);
+    }
   }
 
   active_desk_->MoveWindowToDesk(window, target_desk, target_root);
@@ -558,10 +588,12 @@ void DesksController::AddVisibleOnAllDesksWindow(aura::Window* window) {
 
   const bool added = visible_on_all_desks_windows_.emplace(window).second;
   DCHECK(added);
+  NotifyAllDesksForContentChanged();
 }
 
 void DesksController::MaybeRemoveVisibleOnAllDesksWindow(aura::Window* window) {
-  visible_on_all_desks_windows_.erase(window);
+  if (visible_on_all_desks_windows_.erase(window))
+    NotifyAllDesksForContentChanged();
 }
 
 void DesksController::RevertDeskNameToDefault(Desk* desk) {
@@ -745,7 +777,7 @@ void DesksController::ActivateDeskInternal(const Desk* desk,
   Desk* old_active = active_desk_;
   MoveVisibleOnAllDesksWindowsFromActiveDeskTo(const_cast<Desk*>(desk));
   active_desk_ = const_cast<Desk*>(desk);
-  RestackAssignedWindowsOnActiveDesk();
+  RestackVisibleOnAllDesksWindowsOnActiveDesk();
 
   // There should always be an active desk at any time.
   DCHECK(old_active);
@@ -868,7 +900,7 @@ void DesksController::RemoveDeskInternal(const Desk* desk,
 
     // Now that |target_desk| is activated, we can restack the visible on all
     // desks windows that were moved from the old active desk.
-    RestackAssignedWindowsOnActiveDesk();
+    RestackVisibleOnAllDesksWindowsOnActiveDesk();
 
     // Now that the windows from the removed and target desks merged, add them
     // all to the grid in the order of the new MRU.
@@ -939,13 +971,15 @@ void DesksController::MoveVisibleOnAllDesksWindowsFromActiveDeskTo(
   mru_tracker->SetIgnoreActivations(false);
 }
 
-void DesksController::RestackAssignedWindowsOnActiveDesk() {
+void DesksController::RestackVisibleOnAllDesksWindowsOnActiveDesk() {
   auto mru_windows =
       Shell::Get()->mru_window_tracker()->BuildMruWindowList(kActiveDesk);
   for (auto* visible_on_all_desks_window : visible_on_all_desks_windows_) {
     auto visible_on_all_desks_window_iter = std::find(
         mru_windows.begin(), mru_windows.end(), visible_on_all_desks_window);
-    DCHECK(visible_on_all_desks_window_iter != mru_windows.end());
+    if (visible_on_all_desks_window_iter == mru_windows.end())
+      continue;
+
     auto* desk_container =
         visible_on_all_desks_window->GetRootWindow()->GetChildById(
             active_desk_->container_id());
@@ -971,6 +1005,11 @@ void DesksController::RestackAssignedWindowsOnActiveDesk() {
                                       *closest_window_below_iter);
     }
   }
+}
+
+void DesksController::NotifyAllDesksForContentChanged() {
+  for (const auto& desk : desks_)
+    desk->NotifyContentChanged();
 }
 
 const Desk* DesksController::FindDeskOfWindow(aura::Window* window) const {

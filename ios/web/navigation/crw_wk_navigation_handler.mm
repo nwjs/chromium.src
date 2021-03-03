@@ -1474,15 +1474,20 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
 // application, for example if a new tab redirects to the App Store.
 - (BOOL)shouldClosePageOnNativeApplicationLoad {
   // The page should be closed if it was initiated by the DOM and there has been
-  // no user interaction with the page since the web view was created, or if
-  // the page has no navigation items, as occurs when an App Store link is
-  // opened from another application.
+  // no user interaction with the page since the web view was created, or if the
+  // page has no navigation items. An exception to that when an URL redirect to
+  // an application was initiated from another application (intent), in that
+  // case a prompt will show and page initiating the redirect needs to stay
+  // open to make sure that a prompt is properly owned and to give the user
+  // context about that prompt.
   BOOL rendererInitiatedWithoutInteraction =
       self.webStateImpl->HasOpener() &&
       !self.userInteractionState
            ->UserInteractionRegisteredSinceWebViewCreated();
   BOOL noNavigationItems = !(self.navigationManagerImpl->GetItemCount());
-  return rendererInitiatedWithoutInteraction || noNavigationItems;
+  BOOL isIntent = !self.webStateImpl->HasOpener() && noNavigationItems;
+  return !isIntent &&
+         (rendererInitiatedWithoutInteraction || noNavigationItems);
 }
 
 // Returns YES if response should be rendered in WKWebView.
@@ -1615,8 +1620,10 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
     // chain), thus if intermediates were considered, the keys would mismatch.
     scoped_refptr<net::X509Certificate> leafCert =
         net::x509_util::CreateX509CertificateFromSecCertificate(
-            SecTrustGetCertificateAtIndex(trust, 0),
-            std::vector<SecCertificateRef>());
+            base::ScopedCFTypeRef<SecCertificateRef>(
+                SecTrustGetCertificateAtIndex(trust, 0),
+                base::scoped_policy::RETAIN),
+            {});
     if (leafCert) {
       bool is_recoverable =
           policy == web::CERT_ACCEPT_POLICY_RECOVERABLE_ERROR_UNDECIDED_BY_USER;

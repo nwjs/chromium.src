@@ -50,6 +50,7 @@
 #include "content/public/test/browser_test_utils.h"
 #include "google_apis/gaia/gaia_urls.h"
 #include "third_party/skia/include/core/SkColor.h"
+#include "ui/views/widget/widget_delegate.h"
 #include "url/gurl.h"
 
 namespace {
@@ -193,8 +194,8 @@ class TestTabDialogs : public TabDialogs {
 
   void ShowProfileSigninConfirmation(
       Browser* browser,
-      Profile* profile,
       const std::string& username,
+      bool prompt_for_new_profile,
       std::unique_ptr<ui::ProfileSigninConfirmationDelegate> delegate)
       override {
     delegate->OnContinueSignin();
@@ -272,12 +273,29 @@ class ProfilePickerCreationFlowBrowserTest : public ProfilePickerTestBase {
           base::flat_set<policy::EnterpriseManagementAuthority>());
 };
 
+IN_PROC_BROWSER_TEST_F(ProfilePickerCreationFlowBrowserTest, ShowPicker) {
+  ProfilePicker::Show(ProfilePicker::EntryPoint::kOnStartup);
+  WaitForLayoutWithoutToolbar();
+  EXPECT_TRUE(ProfilePicker::IsOpen());
+  // Check that non-default accessible title is provided both before the page
+  // loads and after it loads.
+  views::WidgetDelegate* delegate = widget()->widget_delegate();
+  EXPECT_NE(delegate->GetWindowTitle(), delegate->GetAccessibleWindowTitle());
+  WaitForFirstPaint(web_contents(), GURL("chrome://profile-picker"));
+  EXPECT_NE(delegate->GetWindowTitle(), delegate->GetAccessibleWindowTitle());
+}
+
 IN_PROC_BROWSER_TEST_F(ProfilePickerCreationFlowBrowserTest, ShowChoice) {
   ProfilePicker::Show(ProfilePicker::EntryPoint::kProfileMenuAddNewProfile);
   WaitForLayoutWithoutToolbar();
   EXPECT_TRUE(ProfilePicker::IsOpen());
+  // Check that non-default accessible title is provided both before the page
+  // loads and after it loads.
+  views::WidgetDelegate* delegate = widget()->widget_delegate();
+  EXPECT_NE(delegate->GetWindowTitle(), delegate->GetAccessibleWindowTitle());
   WaitForFirstPaint(web_contents(),
                     GURL("chrome://profile-picker/new-profile"));
+  EXPECT_NE(delegate->GetWindowTitle(), delegate->GetAccessibleWindowTitle());
 }
 
 IN_PROC_BROWSER_TEST_F(ProfilePickerCreationFlowBrowserTest,
@@ -803,6 +821,7 @@ IN_PROC_BROWSER_TEST_P(ProfilePickerCreationFlowEphemeralProfileBrowserTest,
                   .GetProfileAttributesWithPath(
                       profile_being_created->GetPath(), &entry));
   EXPECT_TRUE(entry->IsEphemeral());
+  EXPECT_TRUE(entry->IsOmitted());
   // Add an account - simulate a successful Gaia sign-in.
   signin::IdentityManager* identity_manager =
       IdentityManagerFactory::GetForProfile(profile_being_created);
@@ -830,6 +849,7 @@ IN_PROC_BROWSER_TEST_P(ProfilePickerCreationFlowEphemeralProfileBrowserTest,
   EXPECT_EQ(entry->GetLocalProfileName(), base::UTF8ToUTF16("Joe"));
   // The profile is no longer ephemeral, unless the policy is enabled.
   EXPECT_EQ(entry->IsEphemeral(), AreEphemeralProfilesForced());
+  EXPECT_FALSE(entry->IsOmitted());
   // The preference is consistent with the policy.
   CheckPolicyApplied(profile_being_created);
 }
@@ -867,6 +887,7 @@ IN_PROC_BROWSER_TEST_P(ProfilePickerCreationFlowEphemeralProfileBrowserTest,
                   .GetProfileAttributesWithPath(
                       profile_being_created->GetPath(), &entry));
   EXPECT_TRUE(entry->IsEphemeral());
+  EXPECT_TRUE(entry->IsOmitted());
   // Exit Chrome while still in the signin flow.
 }
 

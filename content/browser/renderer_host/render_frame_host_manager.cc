@@ -144,8 +144,9 @@ bool IsSiteInstanceCompatibleWithErrorIsolation(SiteInstance* site_instance,
   // SiteInstance but the navigation will fail and actually need an error page
   // SiteInstance.
   bool is_site_instance_for_failures =
-      static_cast<SiteInstanceImpl*>(site_instance)->GetSiteInfo() ==
-      SiteInfo::CreateForErrorPage();
+      static_cast<SiteInstanceImpl*>(site_instance)
+          ->GetSiteInfo()
+          .is_error_page();
   return is_site_instance_for_failures == is_failure;
 }
 
@@ -978,7 +979,7 @@ RenderFrameHostImpl* RenderFrameHostManager::GetFrameHostForNavigation(
   auto* policy = ChildProcessSecurityPolicyImpl::GetInstance();
   const ProcessLock process_lock =
       navigation_rfh->GetSiteInstance()->GetProcessLock();
-  if (process_lock != ProcessLock::CreateForErrorPage() &&
+  if (!process_lock.is_error_page() &&
       request->common_params().url.IsStandard() &&
       !policy->CanAccessDataForOrigin(navigation_rfh->GetProcess()->GetID(),
                                       request->common_params().url) &&
@@ -1006,6 +1007,28 @@ RenderFrameHostImpl* RenderFrameHostManager::GetFrameHostForNavigation(
   }
 
   return navigation_rfh;
+}
+
+void RenderFrameHostManager::MaybeCleanUpNavigation() {
+  // This is called when a renderer aborts a NavigationRequest
+  // that was in the READY_TO_COMMIT state. The caller has already
+  // disassociated the NavigationRequest from the RenderFrameHost,
+  // which may or may not have been the speculative one. Either way,
+  // if there are no remaining NavigationRequests associated with
+  // |speculative_render_frame_host_|, then it is safe to call
+  // CleanUpNavigation() to discard |speculative_render_frame_host_|.
+  if (!speculative_render_frame_host_ ||
+      speculative_render_frame_host_->HasPendingCommitNavigation()) {
+    return;
+  }
+  NavigationRequest* navigation_request =
+      frame_tree_node_->navigation_request();
+  if (navigation_request &&
+      navigation_request->associated_site_instance_type() ==
+          NavigationRequest::AssociatedSiteInstanceType::SPECULATIVE) {
+    return;
+  }
+  CleanUpNavigation();
 }
 
 void RenderFrameHostManager::CleanUpNavigation() {

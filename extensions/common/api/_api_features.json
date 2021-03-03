@@ -302,14 +302,17 @@
     "matches": [
       "chrome://bookmarks/*",
       "chrome://extensions/*",
+      "chrome://new-tab-page/*",
       "chrome://os-settings/*",
       "chrome://settings/*",
       "chrome://sync-confirmation/*",
+      "chrome://read-later/*",
       "chrome://tab-search/*",
       "chrome://tab-strip/*",
       "chrome://welcome/*",
       "chrome://profile-picker/*",
-      "chrome://file-manager/*"
+      "chrome://file-manager/*",
+      "chrome://help-app/*"
     ]
   }, {
     "channel": "stable",

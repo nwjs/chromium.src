@@ -7929,6 +7929,16 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
       label="In product help for tab swticher button."/>
   <suffix name="IPH_TranslateMenuButton"
       label="In product help translate menu button."/>
+  <suffix name="IPH_VideoTutorial_NTP_ChromeIntro"
+      label="Video tutorial card on NTP about introduction to chrome."/>
+  <suffix name="IPH_VideoTutorial_NTP_Download"
+      label="Video tutorial card on NTP about downloading in chrome."/>
+  <suffix name="IPH_VideoTutorial_NTP_Search"
+      label="Video tutorial card on NTP about search in chrome."/>
+  <suffix name="IPH_VideoTutorial_NTP_Summary"
+      label="Video tutorial summary card on NTP."/>
+  <suffix name="IPH_VideoTutorial_NTP_VoiceSearch"
+      label="Video tutorial card on NTP about voice search in chrome."/>
   <suffix name="IPH_WebUITabStrip"
       label="In product help for opening the WebUI tab strip."/>
   <affected-histogram name="InProductHelp.NotifyEventReadyState"/>
@@ -11201,6 +11211,7 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
   <suffix name="shopping_tasks" label="Module ID for Shopping Tasks"/>
   <affected-histogram name="NewTabPage.Modules.Dismissed"/>
   <affected-histogram name="NewTabPage.Modules.Impression"/>
+  <affected-histogram name="NewTabPage.Modules.ImpressionRatio"/>
   <affected-histogram name="NewTabPage.Modules.LoadDuration"/>
   <affected-histogram name="NewTabPage.Modules.Loaded"/>
   <affected-histogram name="NewTabPage.Modules.Restored"/>
@@ -18116,6 +18127,8 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
   <suffix name="WarmStartup" label="Startup was warm (almost no hard faults)."/>
   <affected-histogram
       name="LibraryLoader.PercentageOfResidentCodeBeforePrefetch"/>
+  <affected-histogram
+      name="ProfilePicker.StartupTime.FirstPaint.FromApplicationStart"/>
   <affected-histogram name="Startup.BrowserMainToRendererMain"/>
   <affected-histogram
       name="Startup.BrowserMessageLoopStart.To.MainNavigationStart"/>

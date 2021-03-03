@@ -12,6 +12,7 @@
 #include "chrome/browser/android/autofill_assistant/ui_controller_android_utils.h"
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
 #include "chrome/common/channel_info.h"
+#include "components/autofill_assistant/browser/onboarding_result.h"
 #include "components/autofill_assistant/browser/service/api_key_fetcher.h"
 #include "components/autofill_assistant/browser/service/server_url_fetcher.h"
 #include "components/autofill_assistant/browser/service/service_request_sender_impl.h"
@@ -69,7 +70,7 @@ void TriggerScriptBridgeAndroid::StartTriggerScript(
             base::Base64UrlDecodePolicy::IGNORE_PADDING, &response)) {
       LOG(ERROR) << "Failed to base64-decode trigger scripts response";
       Metrics::RecordLiteScriptFinished(
-          ukm::UkmRecorder::Get(), web_contents,
+          ukm::UkmRecorder::Get(), web_contents, UNSPECIFIED_TRIGGER_UI_TYPE,
           Metrics::LiteScriptFinishedState::LITE_SCRIPT_BASE64_DECODING_ERROR);
       return;
     }
@@ -266,6 +267,27 @@ TriggerScriptBridgeAndroid::GetLastShownTriggerScript() const {
 
 void TriggerScriptBridgeAndroid::ClearLastShownTriggerScript() {
   last_shown_trigger_script_.reset();
+}
+
+void TriggerScriptBridgeAndroid::OnOnboardingRequested(
+    bool is_dialog_onboarding_enabled) {
+  if (!java_object_) {
+    return;
+  }
+  Java_AssistantTriggerScriptBridge_onOnboardingRequested(
+      AttachCurrentThread(), java_object_, is_dialog_onboarding_enabled);
+}
+
+void TriggerScriptBridgeAndroid::OnOnboardingFinished(
+    JNIEnv* env,
+    const base::android::JavaParamRef<jobject>& jcaller,
+    jboolean jonboarding_shown,
+    jint jresult) {
+  if (!trigger_script_coordinator_) {
+    return;
+  }
+  trigger_script_coordinator_->OnOnboardingFinished(
+      jonboarding_shown, static_cast<OnboardingResult>(jresult));
 }
 
 }  // namespace autofill_assistant

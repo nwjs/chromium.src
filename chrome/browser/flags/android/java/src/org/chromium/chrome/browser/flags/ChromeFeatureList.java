@@ -219,6 +219,7 @@ public abstract class ChromeFeatureList {
             "AndroidPartnerCustomizationPhenotype";
     public static final String ANDROID_SEARCH_ENGINE_CHOICE_NOTIFICATION =
             "AndroidSearchEngineChoiceNotification";
+    public static final String ASSISTANT_INTENT_EXPERIMENT_ID = "AssistantIntentExperimentId";
     public static final String ASSISTANT_INTENT_PAGE_URL = "AssistantIntentPageUrl";
     public static final String ASSISTANT_INTENT_TRANSLATE_INFO = "AssistantIntentTranslateInfo";
     public static final String AUTOFILL_ASSISTANT = "AutofillAssistant";
@@ -226,6 +227,9 @@ public abstract class ChromeFeatureList {
     public static final String AUTOFILL_ASSISTANT_DIRECT_ACTIONS = "AutofillAssistantDirectActions";
     public static final String AUTOFILL_ASSISTANT_DISABLE_ONBOARDING_FLOW =
             "AutofillAssistantDisableOnboardingFlow";
+    public static final String AUTOFILL_ASSISTANT_FEEDBACK_CHIP = "AutofillAssistantFeedbackChip";
+    public static final String AUTOFILL_ASSISTANT_LOAD_DFM_FOR_TRIGGER_SCRIPTS =
+            "AutofillAssistantLoadDFMForTriggerScripts";
     public static final String AUTOFILL_ASSISTANT_PROACTIVE_HELP = "AutofillAssistantProactiveHelp";
     public static final String AUTOFILL_ASSISTANT_DISABLE_PROACTIVE_HELP_TIED_TO_MSBB =
             "AutofillAssistantDisableProactiveHelpTiedToMSBB";
@@ -297,6 +301,7 @@ public abstract class ChromeFeatureList {
     public static final String DECOUPLE_SYNC_FROM_ANDROID_MASTER_SYNC =
             "DecoupleSyncFromAndroidMasterSync";
     public static final String DETAILED_LANGUAGE_SETTINGS = "DetailedLanguageSettings";
+    public static final String DEX_FIXER = "DexFixer";
     public static final String DIRECT_ACTIONS = "DirectActions";
     public static final String DNS_OVER_HTTPS = "DnsOverHttps";
     public static final String DOWNLOAD_FILE_PROVIDER = "DownloadFileProvider";
@@ -373,6 +378,7 @@ public abstract class ChromeFeatureList {
     public static final String OMNIBOX_SEARCH_READY_INCOGNITO = "OmniboxSearchReadyIncognito";
     public static final String OMNIBOX_SPARE_RENDERER = "OmniboxSpareRenderer";
     public static final String OVERLAY_NEW_LAYOUT = "OverlayNewLayout";
+    public static final String PAGE_ANNOTATIONS_SERVICE = "PageAnnotationsService";
     public static final String PAGE_INFO_PERFORMANCE_HINTS = "PageInfoPerformanceHints";
     public static final String PAINT_PREVIEW_DEMO = "PaintPreviewDemo";
     public static final String PAINT_PREVIEW_SHOW_ON_STARTUP = "PaintPreviewShowOnStartup";

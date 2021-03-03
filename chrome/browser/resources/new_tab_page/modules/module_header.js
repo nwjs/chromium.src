@@ -30,6 +30,12 @@ class ModuleHeaderElement extends PolymerElement {
       chipText: String,
 
       /**
+       * The description text showing in the header.
+       * @type {string}
+       */
+      descriptionText: String,
+
+      /**
        * True if the header should display an info button.
        * @type {boolean}
        */
@@ -46,6 +52,15 @@ class ModuleHeaderElement extends PolymerElement {
         type: Boolean,
         value: false,
       },
+
+      /**
+       * True if the header should display a menu button.
+       * @type {boolean}
+       */
+      showMenuButton: {
+        type: Boolean,
+        value: false,
+      },
     };
   }
 
@@ -58,6 +73,11 @@ class ModuleHeaderElement extends PolymerElement {
   onDismissButtonClick_() {
     this.dispatchEvent(
         new CustomEvent('dismiss-button-click', {bubbles: true}));
+  }
+
+  /** @private */
+  onMenuButtonClick_() {
+    this.dispatchEvent(new CustomEvent('menu-button-click', {bubbles: true}));
   }
 }
 

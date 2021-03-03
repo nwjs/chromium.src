@@ -1564,6 +1564,10 @@ void DevToolsUIBindings::ShowSurvey(DispatchCallback callback,
                                     const std::string& trigger) {
   HatsService* hats_service =
       HatsServiceFactory::GetForProfile(profile_->GetOriginalProfile(), true);
+  if (!hats_service) {
+    ShowSurveyCallback(std::move(callback), false);
+    return;
+  }
   base::RepeatingCallback<void(const base::Value*)> on_survey =
       base::AdaptCallbackForRepeating(std::move(callback));
   hats_service->LaunchSurvey(
@@ -1575,7 +1579,7 @@ void DevToolsUIBindings::CanShowSurvey(DispatchCallback callback,
                                        const std::string& trigger) {
   HatsService* hats_service =
       HatsServiceFactory::GetForProfile(profile_->GetOriginalProfile(), true);
-  bool can_show = hats_service->CanShowSurvey(trigger);
+  bool can_show = hats_service ? hats_service->CanShowSurvey(trigger) : false;
   base::DictionaryValue response;
   response.SetBoolean("canShowSurvey", can_show);
   std::move(callback).Run(&response);

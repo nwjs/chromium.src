@@ -284,23 +284,19 @@ void VideoTrackRecorderImpl::Encoder::StartFrameEncode(
   if (paused_)
     return;
 
-  const bool is_format_supported =
-      video_frame->format() == media::PIXEL_FORMAT_I420 ||
-      video_frame->format() == media::PIXEL_FORMAT_ARGB ||
-      video_frame->format() == media::PIXEL_FORMAT_ABGR ||
-      video_frame->format() == media::PIXEL_FORMAT_I420A ||
-      video_frame->format() == media::PIXEL_FORMAT_NV12 ||
-      video_frame->format() == media::PIXEL_FORMAT_XRGB;
-
   if (num_frames_in_encode_->count() > kMaxNumberOfFramesInEncode) {
     DLOG(WARNING) << "Too many frames are queued up. Dropping this one.";
     return;
   }
 
-  if (!is_format_supported ||
-      (video_frame->HasTextures() &&
-       video_frame->storage_type() !=
-           media::VideoFrame::STORAGE_GPU_MEMORY_BUFFER)) {
+  // The recorder currently does not consider scaled versions of the frame.
+  const bool is_format_supported =
+      (video_frame->format() == media::PIXEL_FORMAT_NV12 &&
+       video_frame->HasGpuMemoryBuffer()) ||
+      (video_frame->IsMappable() &&
+       (video_frame->format() == media::PIXEL_FORMAT_I420 ||
+        video_frame->format() == media::PIXEL_FORMAT_I420A));
+  if (!is_format_supported) {
     PostCrossThreadTask(
         *encoding_task_runner_.get(), FROM_HERE,
         CrossThreadBindOnce(&Encoder::RetrieveFrameOnEncodingTaskRunner,
@@ -311,7 +307,7 @@ void VideoTrackRecorderImpl::Encoder::StartFrameEncode(
   }
 
   scoped_refptr<media::VideoFrame> frame = video_frame;
-  if (frame->storage_type() != media::VideoFrame::STORAGE_GPU_MEMORY_BUFFER) {
+  if (!video_frame->HasGpuMemoryBuffer()) {
     // Drop alpha channel if the encoder does not support it yet.
     if (!CanEncodeAlphaChannel() &&
         video_frame->format() == media::PIXEL_FORMAT_I420A) {
@@ -480,20 +476,17 @@ bool VideoTrackRecorderImpl::Encoder::CanEncodeAlphaChannel() {
 scoped_refptr<media::VideoFrame>
 VideoTrackRecorderImpl::Encoder::ConvertToI420ForSoftwareEncoder(
     scoped_refptr<media::VideoFrame> frame) {
-  DCHECK_EQ(frame->storage_type(),
-            media::VideoFrame::STORAGE_GPU_MEMORY_BUFFER);
-  // NV12 is currently the only supported pixel format for GpuMemoryBuffer.
   DCHECK_EQ(frame->format(), media::VideoPixelFormat::PIXEL_FORMAT_NV12);
 
-  auto* gmb = frame->GetGpuMemoryBuffer();
-  if (!gmb->Map())
-    return frame;
+  if (frame->GetGpuMemoryBuffer())
+    frame = media::ConvertToMemoryMappedFrame(frame);
+
   scoped_refptr<media::VideoFrame> i420_frame = frame_pool_.CreateFrame(
       media::VideoPixelFormat::PIXEL_FORMAT_I420, frame->coded_size(),
       frame->visible_rect(), frame->natural_size(), frame->timestamp());
   auto ret = libyuv::NV12ToI420(
-      static_cast<const uint8_t*>(gmb->memory(0)), gmb->stride(0),
-      static_cast<const uint8_t*>(gmb->memory(1)), gmb->stride(1),
+      static_cast<const uint8_t*>(frame->data(0)), frame->stride(0),
+      static_cast<const uint8_t*>(frame->data(1)), frame->stride(1),
       i420_frame->data(media::VideoFrame::kYPlane),
       i420_frame->stride(media::VideoFrame::kYPlane),
       i420_frame->data(media::VideoFrame::kUPlane),
@@ -501,7 +494,6 @@ VideoTrackRecorderImpl::Encoder::ConvertToI420ForSoftwareEncoder(
       i420_frame->data(media::VideoFrame::kVPlane),
       i420_frame->stride(media::VideoFrame::kVPlane),
       frame->coded_size().width(), frame->coded_size().height());
-  gmb->Unmap();
   if (ret)
     return frame;
   return i420_frame;

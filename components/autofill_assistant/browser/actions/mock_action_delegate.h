@@ -225,7 +225,7 @@ class MockActionDelegate : public ActionDelegate {
   MOCK_METHOD1(WaitForNavigation,
                bool(base::OnceCallback<void(bool)> callback));
   MOCK_METHOD1(LoadURL, void(const GURL& url));
-  MOCK_METHOD0(Shutdown, void());
+  MOCK_METHOD1(Shutdown, void(bool show_feedback_chip));
   MOCK_METHOD0(Close, void());
   MOCK_METHOD0(Restart, void());
   MOCK_CONST_METHOD0(GetUserData, UserData*());
@@ -323,7 +323,8 @@ class MockActionDelegate : public ActionDelegate {
   MOCK_METHOD1(SetOverlayBehavior,
                void(ConfigureUiStateProto::OverlayBehavior));
 
-  MOCK_METHOD0(MaybeShowSlowWebsiteWarning, void());
+  MOCK_METHOD1(MaybeShowSlowWebsiteWarning,
+               void(base::OnceCallback<void(bool)>));
   MOCK_METHOD0(MaybeShowSlowConnectionWarning, void());
 
   base::WeakPtr<ActionDelegate> GetWeakPtr() const override {

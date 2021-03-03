@@ -8,7 +8,8 @@
 #include "ash/shell.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/style/ash_color_provider.h"
-#include "ash/wm/desks/desk_preview_view.h"
+#include "ash/wm/desks/desk_mini_view.h"
+#include "ash/wm/desks/desk_name_view.h"
 #include "ash/wm/desks/desks_bar_view.h"
 #include "ash/wm/desks/zero_state_button.h"
 #include "ash/wm/overview/overview_controller.h"
@@ -27,22 +28,12 @@ constexpr int kBorderCornerRadius = 6;
 
 constexpr int kCornerRadius = 4;
 
-// The new desk button in expand desks bar in Bento has the same size as the
-// desk preview, which is proportional to the size of the display on which it
-// resides.
-gfx::Rect GetExpandedStateNewDeskButtonBounds(aura::Window* root_window) {
-  const int preview_height =
-      DeskPreviewView::GetHeight(root_window, /*compact=*/false);
-  const auto root_size = root_window->bounds().size();
-  return gfx::Rect(preview_height * root_size.width() / root_size.height(),
-                   preview_height);
-}
-
 // The button belongs to ExpandedStateNewDeskButton.
 class ASH_EXPORT InnerNewDeskButton : public DeskButtonBase {
  public:
-  InnerNewDeskButton()
-      : DeskButtonBase(base::string16(), kBorderCornerRadius, kCornerRadius) {
+  InnerNewDeskButton(ExpandedStateNewDeskButton* outer_button)
+      : DeskButtonBase(base::string16(), kBorderCornerRadius, kCornerRadius),
+        outer_button_(outer_button) {
     paint_contents_only_ = true;
   }
   InnerNewDeskButton(const InnerNewDeskButton&) = delete;
@@ -68,6 +59,7 @@ class ASH_EXPORT InnerNewDeskButton : public DeskButtonBase {
 
   // Update the button's enable/disable state based on current desks state.
   void UpdateButtonState() override {
+    outer_button_->UpdateLabelColor();
     const bool enabled = DesksController::Get()->CanCreateDesks();
 
     // Notify the overview highlight if we are about to be disabled.
@@ -90,36 +82,66 @@ class ASH_EXPORT InnerNewDeskButton : public DeskButtonBase {
         color_provider->GetRippleAttributes(background_color_).inkdrop_opacity);
     SchedulePaint();
   }
+
+ private:
+  ExpandedStateNewDeskButton* outer_button_;
 };
 
 }  // namespace
 
 ExpandedStateNewDeskButton::ExpandedStateNewDeskButton(DesksBarView* bar_view)
     : bar_view_(bar_view),
-      new_desk_button_(AddChildView(std::make_unique<InnerNewDeskButton>())),
+      new_desk_button_(
+          AddChildView(std::make_unique<InnerNewDeskButton>(this))),
       label_(AddChildView(std::make_unique<views::Label>())) {
   SetPaintToLayer();
   layer()->SetFillsBoundsOpaquely(false);
 
   label_->SetText(l10n_util::GetStringUTF16(IDS_ASH_DESKS_NEW_DESK_BUTTON));
   label_->SetHorizontalAlignment(gfx::ALIGN_CENTER);
+  label_->SetBackgroundColor(AshColorProvider::Get()->GetShieldLayerColor(
+      AshColorProvider::ShieldLayerType::kShield80));
+  UpdateLabelColor();
 }
 
 void ExpandedStateNewDeskButton::Layout() {
-  const gfx::Rect new_desk_button_bounds = GetExpandedStateNewDeskButtonBounds(
-      bar_view_->GetWidget()->GetNativeWindow()->GetRootWindow());
+  // Layout the button until |mini_views_| have been created. This button only
+  // needs to be laid out in the expanded desks bar where the |mini_views_| is
+  // always not empty.
+  if (bar_view_->mini_views().empty())
+    return;
+
+  const gfx::Rect new_desk_button_bounds = DeskMiniView::GetDeskPreviewBounds(
+      bar_view_->GetWidget()->GetNativeWindow()->GetRootWindow(),
+      /*compact=*/false);
   new_desk_button_->SetBoundsRect(new_desk_button_bounds);
 
   const gfx::Size label_size = label_->GetPreferredSize();
+  // Set the label to have the same height as the DeskNameView to keep them at
+  // the same horizotal level. Note, don't get the label's width from
+  // DeskNameView since desk's name is changeable, but this label here is not.
+  const int label_height =
+      bar_view_->mini_views()[0]->desk_name_view()->GetPreferredSize().height();
   label_->SetBoundsRect(gfx::Rect(
       gfx::Point(
           (new_desk_button_bounds.width() - label_size.width()) / 2,
-          new_desk_button_bounds.bottom() + kNewDeskButtonAndNameSpacing),
-      label_size));
+          new_desk_button_bounds.bottom() -
+              bar_view_->mini_views()[0]->GetPreviewBorderInsets().bottom() +
+              kNewDeskButtonAndNameSpacing),
+      gfx::Size(label_size.width(), label_height)));
 }
 
 void ExpandedStateNewDeskButton::UpdateButtonState() {
   new_desk_button_->UpdateButtonState();
+}
+
+void ExpandedStateNewDeskButton::UpdateLabelColor() {
+  const SkColor label_color = AshColorProvider::Get()->GetContentLayerColor(
+      AshColorProvider::ContentLayerType::kTextColorPrimary);
+  label_->SetEnabledColor(
+      DesksController::Get()->CanCreateDesks()
+          ? label_color
+          : AshColorProvider::Get()->GetDisabledColor(label_color));
 }
 
 }  // namespace ash

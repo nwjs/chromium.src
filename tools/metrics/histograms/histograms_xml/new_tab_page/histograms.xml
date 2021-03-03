@@ -90,6 +90,28 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
   </summary>
 </histogram>
 
+<histogram name="NewTabPage.Carts.CartCount" units="count"
+    expires_after="2021-08-01">
+  <owner>wychen@chromium.org</owner>
+  <owner>yuezhanggg@chromium.org</owner>
+  <owner>chrome-shopping@google.com</owner>
+  <summary>
+    Logged when the cart module is created. The value is equal to the initial
+    number of carts within the module (could be zero).
+  </summary>
+</histogram>
+
+<histogram name="NewTabPage.Carts.ClickCart" units="index"
+    expires_after="2021-08-01">
+  <owner>wychen@chromium.org</owner>
+  <owner>yuezhanggg@chromium.org</owner>
+  <owner>chrome-shopping@google.com</owner>
+  <summary>
+    Logged when a user clicks on a cart in the cart module. The value is equal
+    to the index of the cart.
+  </summary>
+</histogram>
+
 <histogram name="NewTabPage.ContentSuggestions.ArticlesListVisible"
     enum="BooleanVisible" expires_after="2021-07-01">
   <owner>freedjm@chromium.org</owner>
@@ -774,6 +796,19 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
   </summary>
 </histogram>
 
+<histogram name="NewTabPage.Modules.Hover" enum="NtpModules"
+    expires_after="2022-01-01">
+  <owner>danielms@google.com</owner>
+  <owner>tiborg@chromium.org</owner>
+  <owner>chrome-desktop-ntp@google.com</owner>
+  <summary>
+    Logged when the user hovers on a module. Only logged once per NTP and
+    module. Only logged on the 1P NTP. Note that even if the user has Google as
+    their default search engine, Incognito and Guest mode NTPs are not
+    considered 1P and dont't log this histogram.
+  </summary>
+</histogram>
+
 <histogram name="NewTabPage.Modules.Impression" units="ms"
     expires_after="2021-07-04">
   <owner>tiborg@chromium.org</owner>
@@ -785,6 +820,26 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
     (viewport). If the module header is mostly below the page fold, the time
     delta will include the time it takes for the user to scroll the module into
     view.
+  </summary>
+</histogram>
+
+<histogram name="NewTabPage.Modules.ImpressionRatio" units="perdecage"
+    expires_after="2022-01-01">
+  <owner>danielms@google.com</owner>
+  <owner>tiborg@chromium.org</owner>
+  <owner>chrome-desktop-ntp@google.com</owner>
+  <summary>
+    Records the maximum amount that any (base histogram) or a particular (sub
+    histograms) module was visible in the NTP content's area between load and
+    unload of an NTP. The amount is recorded as the perdecage (x/10th) of the
+    module's total size. Logged when the NTP unloads, such as via navigating
+    somewhere else or closing the tab (switching tabs does not cause an unload).
+    Logs a value into the base histogram and the corresponding sub histogram for
+    each module that is present. Only logged on the 1P NTP. Note that even if
+    the user has Google as their default search engine, Incognito and Guest mode
+    NTPs are not considered 1P and don't log these histograms. It is possible
+    for this histogram to log a value of 0 if, for instance, the module was
+    always more than 90% below the fold.
   </summary>
 </histogram>
 

@@ -18,6 +18,7 @@ android_library("java") {
     "java/src/org/chromium/chrome/browser/tab/TabHidingType.java",
     "java/src/org/chromium/chrome/browser/tab/TabLifecycle.java",
     "java/src/org/chromium/chrome/browser/tab/TabObserver.java",
+    "java/src/org/chromium/chrome/browser/tab/TabResolver.java",
     "java/src/org/chromium/chrome/browser/tab/TabState.java",
     "java/src/org/chromium/chrome/browser/tab/TabViewManager.java",
     "java/src/org/chromium/chrome/browser/tab/TabViewProvider.java",
@@ -30,10 +31,12 @@ android_library("java") {
     "java/src/org/chromium/chrome/browser/tab/state/CriticalPersistedTabDataObserver.java",
     "java/src/org/chromium/chrome/browser/tab/state/EncryptedFilePersistedTabDataStorage.java",
     "java/src/org/chromium/chrome/browser/tab/state/FilePersistedTabDataStorage.java",
+    "java/src/org/chromium/chrome/browser/tab/state/LevelDBPersistedDataStorage.java",
     "java/src/org/chromium/chrome/browser/tab/state/LevelDBPersistedTabDataStorage.java",
     "java/src/org/chromium/chrome/browser/tab/state/LevelDBPersistedTabDataStorageFactory.java",
     "java/src/org/chromium/chrome/browser/tab/state/MockPersistedTabData.java",
     "java/src/org/chromium/chrome/browser/tab/state/MockPersistedTabDataStorage.java",
+    "java/src/org/chromium/chrome/browser/tab/state/PersistedDataStorage.java",
     "java/src/org/chromium/chrome/browser/tab/state/PersistedTabData.java",
     "java/src/org/chromium/chrome/browser/tab/state/PersistedTabDataConfiguration.java",
     "java/src/org/chromium/chrome/browser/tab/state/PersistedTabDataFactory.java",
@@ -53,7 +56,9 @@ android_library("java") {
     "//chrome/browser/android/crypto:java",
     "//chrome/browser/contextmenu:java",
     "//chrome/browser/endpoint_fetcher:java",
+    "//chrome/browser/flags:java",
     "//chrome/browser/optimization_guide/android:java",
+    "//chrome/browser/page_annotations/android:java",
     "//chrome/browser/profiles/android:java",
     "//chrome/browser/ui/android/native_page:java",
     "//components/browser_ui/util/android:java",
@@ -85,7 +90,7 @@ generate_jni("jni_headers") {
   sources = [
     "java/src/org/chromium/chrome/browser/tab/TrustedCdn.java",
     "java/src/org/chromium/chrome/browser/tab/WebContentsStateBridge.java",
-    "java/src/org/chromium/chrome/browser/tab/state/LevelDBPersistedTabDataStorage.java",
+    "java/src/org/chromium/chrome/browser/tab/state/LevelDBPersistedDataStorage.java",
   ]
 }
 

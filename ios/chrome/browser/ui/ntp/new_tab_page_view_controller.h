@@ -54,6 +54,19 @@
 // position.
 - (void)setContentOffset:(CGFloat)offset;
 
+// Updates this ViewController layout to match the new ContentSuggestions
+// layout.
+// TODO(crbug.com/1170995): Remove once ContentSuggestions can be added as part
+// of a header.
+- (void)updateLayoutForContentSuggestions;
+
+// Returns the current height of the content suggestions content.
+- (CGFloat)contentSuggestionsContentHeight;
+
+// Handles device rotation logic.
+// TODO(crbug.com/1177953): Detect device rotation in NewTabPageViewController.
+- (void)handleDeviceRotation;
+
 @end
 
 #endif  // IOS_CHROME_BROWSER_UI_NTP_NEW_TAB_PAGE_VIEW_CONTROLLER_H_

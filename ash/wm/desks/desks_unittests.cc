@@ -469,6 +469,29 @@ TEST_F(DesksTest, DesksBarViewDeskCreation) {
   EXPECT_TRUE(GetNewDeskButton(desks_bar_view)->GetEnabled());
 }
 
+TEST_F(DesksTest, RemoveDeskWithEmptyName) {
+  auto* controller = DesksController::Get();
+
+  auto* overview_controller = Shell::Get()->overview_controller();
+  overview_controller->StartOverview();
+  EXPECT_TRUE(overview_controller->InOverviewSession());
+
+  auto* overview_grid = GetOverviewGridForRoot(Shell::GetPrimaryRootWindow());
+
+  const auto* desks_bar_view = overview_grid->desks_bar_view();
+
+  auto* event_generator = GetEventGenerator();
+
+  // Create a new desk by using button with empty name.
+  controller->NewDesk(DesksCreationRemovalSource::kButton);
+  EXPECT_EQ(2u, controller->desks().size());
+
+  // Close the newly created desk with the close button.
+  auto* mini_view = desks_bar_view->mini_views().back();
+  CloseDeskFromMiniView(mini_view, event_generator);
+  EXPECT_EQ(1u, controller->desks().size());
+}
+
 // Test that gesture taps do not reset the button state to normal when the
 // button is disabled. https://crbug.com/1084241.
 TEST_F(DesksTest, GestureTapOnNewDeskButton) {
@@ -701,6 +724,7 @@ TEST_F(DesksTest, TransientWindows) {
   // it's tracked in desk_1 (even though desk_2 is the currently active one).
   // This is because the transient parent exists in desk_1.
   auto win2 = CreateTransientWindow(win1.get(), gfx::Rect(100, 100, 50, 50));
+  EXPECT_FALSE(controller->AreDesksBeingModified());
   EXPECT_EQ(3u, desk_1->windows().size());
   EXPECT_TRUE(desk_2->windows().empty());
   EXPECT_FALSE(DoesActiveDeskContainWindow(win2.get()));
@@ -719,6 +743,47 @@ TEST_F(DesksTest, TransientWindows) {
   EXPECT_EQ(win0.get(), desk_2_container->children()[0]);
   EXPECT_EQ(win1.get(), desk_2_container->children()[1]);
   EXPECT_EQ(win2.get(), desk_2_container->children()[2]);
+}
+
+TEST_F(DesksTest, WindowStackingAfterWindowMoveToAnotherDesk) {
+  auto* controller = DesksController::Get();
+  auto win0 = CreateAppWindow(gfx::Rect(0, 0, 250, 100));
+
+  NewDesk();
+  Desk* desk_2 = controller->desks()[1].get();
+  ActivateDesk(desk_2);
+
+  auto win1 = CreateAppWindow(gfx::Rect(10, 10, 250, 100));
+  auto win2 = CreateTransientWindow(win1.get(), gfx::Rect(100, 100, 100, 100));
+  wm::ActivateWindow(win2.get());
+  auto win3 = CreateAppWindow(gfx::Rect(20, 20, 250, 100));
+
+  // Move back to desk_1, so |win0| becomes the most recent.
+  Desk* desk_1 = controller->desks()[0].get();
+  ActivateDesk(desk_1);
+  EXPECT_EQ(win0.get(), window_util::GetActiveWindow());
+
+  // The global MRU order should be {win0, win3, win2, win1}.
+  auto* mru_tracker = Shell::Get()->mru_window_tracker();
+  EXPECT_EQ(std::vector<aura::Window*>(
+                {win0.get(), win3.get(), win2.get(), win1.get()}),
+            mru_tracker->BuildMruWindowList(DesksMruType::kAllDesks));
+
+  // Now move back to desk_2, and move its windows to desk_1. Their window
+  // stacking should match their order in the MRU.
+  ActivateDesk(desk_2);
+  // The global MRU order is updated to be {win3, win0, win2, win1}.
+  EXPECT_EQ(std::vector<aura::Window*>(
+                {win3.get(), win0.get(), win2.get(), win1.get()}),
+            mru_tracker->BuildMruWindowList(DesksMruType::kAllDesks));
+
+  // Moving |win2| should be enough to get its transient parent |win1| moved as
+  // well.
+  desk_2->MoveWindowToDesk(win2.get(), desk_1, win1->GetRootWindow());
+  desk_2->MoveWindowToDesk(win3.get(), desk_1, win1->GetRootWindow());
+  EXPECT_TRUE(IsStackedBelow(win1.get(), win2.get()));
+  EXPECT_TRUE(IsStackedBelow(win2.get(), win0.get()));
+  EXPECT_TRUE(IsStackedBelow(win0.get(), win3.get()));
 }
 
 TEST_F(DesksTest, TransientModalChildren) {
@@ -3845,7 +3910,7 @@ TEST_F(DesksBentoTest, NameNudges) {
 }
 
 TEST_F(DesksBentoTest, ScrollableDesks) {
-  UpdateDisplay("301x600");
+  UpdateDisplay("201x400");
   auto* overview_controller = Shell::Get()->overview_controller();
   overview_controller->StartOverview();
   EXPECT_TRUE(overview_controller->InOverviewSession());
@@ -4254,6 +4319,83 @@ TEST_F(DesksBentoTest, NewDeskButton) {
   EXPECT_TRUE(new_desk_button->GetEnabled());
 }
 
+TEST_F(DesksBentoTest, ZeroStateDeskButtonText) {
+  UpdateDisplay("1600x1200");
+  auto* overview_controller = Shell::Get()->overview_controller();
+  overview_controller->StartOverview();
+
+  auto* root_window = Shell::GetPrimaryRootWindow();
+  auto* desks_bar_view = GetOverviewGridForRoot(root_window)->desks_bar_view();
+  ASSERT_TRUE(desks_bar_view->IsZeroState());
+  // Show the default name "Desk 1" while initializing the desks bar at the
+  // first time.
+  EXPECT_EQ(base::UTF8ToUTF16("Desk 1"),
+            desks_bar_view->zero_state_default_desk_button()->GetText());
+
+  auto* event_generator = GetEventGenerator();
+  ClickOnView(desks_bar_view->zero_state_default_desk_button(),
+              event_generator);
+  EXPECT_TRUE(desks_bar_view->mini_views()[0]->desk_name_view()->HasFocus());
+
+  auto send_key = [this](ui::KeyboardCode key_code, int flags = 0) {
+    auto* generator = GetEventGenerator();
+    generator->PressKey(key_code, flags);
+    generator->ReleaseKey(key_code, flags);
+  };
+
+  // Change the desk name to "test".
+  send_key(ui::VKEY_T);
+  send_key(ui::VKEY_E);
+  send_key(ui::VKEY_S);
+  send_key(ui::VKEY_T);
+  send_key(ui::VKEY_RETURN);
+  overview_controller->EndOverview();
+  overview_controller->StartOverview();
+
+  desks_bar_view = GetOverviewGridForRoot(root_window)->desks_bar_view();
+  EXPECT_TRUE(desks_bar_view->IsZeroState());
+  // Should show the desk's current name "test" instead of the default name.
+  EXPECT_EQ(base::UTF8ToUTF16("test"),
+            desks_bar_view->zero_state_default_desk_button()->GetText());
+
+  // Create 'Desk 2'.
+  ClickOnView(desks_bar_view->zero_state_new_desk_button(), event_generator);
+  EXPECT_FALSE(desks_bar_view->IsZeroState());
+  send_key(ui::VKEY_RETURN);
+  EXPECT_EQ(base::UTF8ToUTF16("Desk 2"),
+            DesksController::Get()->desks()[1].get()->name());
+
+  // Close desk 'test' should return to zero state and the zero state default
+  // desk button should show current desk's name, which is 'Desk 1'.
+  CloseDeskFromMiniView(desks_bar_view->mini_views()[0], event_generator);
+  EXPECT_TRUE(desks_bar_view->IsZeroState());
+  EXPECT_EQ(base::UTF8ToUTF16("Desk 1"),
+            desks_bar_view->zero_state_default_desk_button()->GetText());
+
+  // Set a super long desk name.
+  ClickOnView(desks_bar_view->zero_state_default_desk_button(),
+              event_generator);
+  for (size_t i = 0; i < DeskNameView::kMaxLength + 5; i++)
+    send_key(ui::VKEY_A);
+  send_key(ui::VKEY_RETURN);
+  overview_controller->EndOverview();
+  overview_controller->StartOverview();
+
+  desks_bar_view = GetOverviewGridForRoot(root_window)->desks_bar_view();
+  auto* zero_state_default_desk_button =
+      desks_bar_view->zero_state_default_desk_button();
+  base::string16 desk_button_text = zero_state_default_desk_button->GetText();
+  base::string16 expected_desk_name(DeskNameView::kMaxLength, L'a');
+  // Zero state desk button should show the elided name as the DeskNameView.
+  EXPECT_EQ(expected_desk_name,
+            DesksController::Get()->desks()[0].get()->name());
+  EXPECT_NE(expected_desk_name, desk_button_text);
+  EXPECT_TRUE(base::StartsWith(base::UTF16ToUTF8(desk_button_text), "aaa",
+                               base::CompareCase::SENSITIVE));
+  EXPECT_FALSE(base::EndsWith(base::UTF16ToUTF8(desk_button_text), "aaa",
+                              base::CompareCase::SENSITIVE));
+}
+
 TEST_F(DesksBentoTest, ReorderDesksByMouse) {
   auto* desks_controller = DesksController::Get();
 
@@ -4464,6 +4606,8 @@ TEST_F(DesksBentoTest, ReorderDesksByKeyboard) {
   EXPECT_EQ(1, desks_controller->GetDeskIndex(desk_0));
   EXPECT_EQ(2, desks_controller->GetDeskIndex(desk_2));
 }
+
+// TODO(zxdan): Add a regression test for crbug/1171880
 
 // TODO(afakhry): Add more tests:
 // - Always on top windows are not tracked by any desk.

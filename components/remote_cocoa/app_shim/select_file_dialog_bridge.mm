@@ -206,9 +206,10 @@ void SelectFileDialogBridge::Show(
           base::SysUTF8ToNSString(default_path.BaseName().value());
     }
   }
-
+#if 0
   const bool keep_extension_visible =
       file_types ? file_types->keep_extension_visible : false;
+#endif
   if (type_ != SelectFileDialogType::kFolder &&
       type_ != SelectFileDialogType::kUploadFolder &&
       type_ != SelectFileDialogType::kExistingFolder) {

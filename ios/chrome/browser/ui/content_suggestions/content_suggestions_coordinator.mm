@@ -278,6 +278,7 @@
   self.suggestionsViewController.discoverFeedMetricsRecorder =
       self.discoverFeedMetricsRecorder;
   self.suggestionsViewController.panGestureHandler = self.panGestureHandler;
+  self.suggestionsViewController.bubblePresenter = self.bubblePresenter;
 
   self.discoverFeedHeaderDelegate =
       self.suggestionsViewController.discoverFeedHeaderDelegate;
@@ -340,6 +341,7 @@
   self.ntpMediator = nil;
   [self.contentSuggestionsMediator disconnect];
   self.contentSuggestionsMediator = nil;
+  self.suggestionsViewController = nil;
   [self.sharingCoordinator stop];
   self.sharingCoordinator = nil;
   self.headerController = nil;
@@ -486,7 +488,7 @@
                   action:^{
                     [weakSelf setDiscoverFeedVisible:NO];
                     if (IsRefactoredNTP()) {
-                      [weakSelf.ntpCommandHandler setDiscoverFeedVisible:NO];
+                      [weakSelf.ntpCommandHandler updateDiscoverFeedVisibility];
                     }
                   }
                    style:UIAlertActionStyleDestructive];
@@ -497,7 +499,7 @@
                   action:^{
                     [weakSelf setDiscoverFeedVisible:YES];
                     if (IsRefactoredNTP()) {
-                      [weakSelf.ntpCommandHandler setDiscoverFeedVisible:YES];
+                      [weakSelf.ntpCommandHandler updateDiscoverFeedVisibility];
                     }
                   }
                    style:UIAlertActionStyleDefault];
@@ -553,6 +555,10 @@
   return [SceneStateBrowserAgent::FromBrowser(self.browser)
               ->GetSceneState()
               .window.rootViewController.view safeAreaInsets];
+}
+
+- (void)contentSuggestionsWasUpdated {
+  [self.ntpCommandHandler updateDiscoverFeedLayout];
 }
 
 #pragma mark - ContentSuggestionsActionHandler
@@ -689,7 +695,7 @@
 
 // Creates, configures and returns a DiscoverFeed ViewController.
 - (UIViewController*)discoverFeed {
-  if (!IsDiscoverFeedEnabled())
+  if (!IsDiscoverFeedEnabled() || IsRefactoredNTP())
     return nil;
 
   UIViewController* discoverFeed = ios::GetChromeBrowserProvider()

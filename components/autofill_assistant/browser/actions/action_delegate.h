@@ -313,7 +313,7 @@ class ActionDelegate {
   virtual void LoadURL(const GURL& url) = 0;
 
   // Shut down Autofill Assistant at the end of the current script.
-  virtual void Shutdown() = 0;
+  virtual void Shutdown(bool show_feedback_chip) = 0;
 
   // Shut down Autofill Assistant and closes Chrome.
   virtual void Close() = 0;
@@ -447,7 +447,8 @@ class ActionDelegate {
 
   // Maybe shows a warning letting the user know that the website is unusually
   // slow, depending on the current settings.
-  virtual void MaybeShowSlowWebsiteWarning() = 0;
+  virtual void MaybeShowSlowWebsiteWarning(
+      base::OnceCallback<void(bool)> callback) = 0;
 
   // Maybe shows a warning letting the user know that a slow connection was
   // detected, depending on the current settings.

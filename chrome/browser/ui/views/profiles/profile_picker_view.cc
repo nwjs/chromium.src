@@ -514,6 +514,9 @@ void ProfilePickerView::OnProfileForSigninCreated(
   // Mark this profile ephemeral so that it is deleted upon next startup if the
   // browser crashes before finishing the flow.
   entry->SetIsEphemeral(true);
+  // Mark this profile as omitted so that it is not displayed in the list of
+  // profiles.
+  entry->SetIsOmitted(true);
 
   // Record that the sign in process starts (its end is recorded automatically
   // by the instance of DiceTurnSyncOnHelper constructed later on).
@@ -548,9 +551,13 @@ void ProfilePickerView::OnProfileForSigninCreated(
 
   // Make sure the web contents used for sign-in has proper background to match
   // the toolbar (for dark mode).
+  SkColor background_color =
+      GetThemeProvider()->GetColor(ThemeProperties::COLOR_TOOLBAR);
   views::WebContentsSetBackgroundColor::CreateForWebContentsWithColor(
-      new_profile_contents_.get(),
-      GetThemeProvider()->GetColor(ThemeProperties::COLOR_TOOLBAR));
+      new_profile_contents_.get(), background_color);
+  // On Mac, the WebContents is initially transparent. Set the color for the
+  // main view as well.
+  SetBackground(views::CreateSolidBackground(background_color));
 
   UpdateToolbarColor();
 
@@ -589,6 +596,14 @@ views::ClientView* ProfilePickerView::CreateClientView(views::Widget* widget) {
 
 views::View* ProfilePickerView::GetContentsView() {
   return this;
+}
+
+base::string16 ProfilePickerView::GetAccessibleWindowTitle() const {
+  if (!web_view_ || !web_view_->GetWebContents() ||
+      web_view_->GetWebContents()->GetTitle().empty()) {
+    return l10n_util::GetStringUTF16(IDS_PROFILE_PICKER_MAIN_VIEW_TITLE);
+  }
+  return web_view_->GetWebContents()->GetTitle();
 }
 
 gfx::Size ProfilePickerView::CalculatePreferredSize() const {
@@ -942,6 +957,7 @@ void ProfilePickerView::FinishSignedInCreationFlowImpl(
     return;
   }
 
+  entry->SetIsOmitted(false);
   if (!signed_in_profile_being_created_->GetPrefs()->GetBoolean(
           prefs::kForceEphemeralProfiles)) {
     // Unmark this profile ephemeral so that it isn't deleted upon next startup.

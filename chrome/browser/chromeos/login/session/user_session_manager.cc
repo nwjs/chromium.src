@@ -1064,6 +1064,8 @@ void UserSessionManager::CreateUserSession(const UserContext& user_context,
 void UserSessionManager::PreStartSession() {
   // Switch log file as soon as possible.
   logging::RedirectChromeLogging(*base::CommandLine::ForCurrentProcess());
+
+  UserSessionInitializer::Get()->PreStartSession();
 }
 
 void UserSessionManager::StoreUserContextDataBeforeProfileIsCreated() {
@@ -2248,6 +2250,14 @@ void UserSessionManager::SetSwitchesForUser(
     const std::vector<std::string>& switches) {
   // TODO(pmarko): Introduce a CHECK that `account_id` is the primary user
   // (https://crbug.com/832857).
+  // Early out so that switches for secondary users are not applied to the whole
+  // session. This could be removed when things like flags UI of secondary users
+  // are fixed properly and TODO above to add CHECK() is done.
+  if (user_manager::UserManager::Get()->GetPrimaryUser()->GetAccountId() !=
+      account_id) {
+    return;
+  }
+
   command_line_switches_[switches_type] = switches;
 
   // Apply all command-line switch types in session manager as a flat list.

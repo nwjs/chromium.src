@@ -1336,6 +1336,11 @@ TEST_F(ModelTypeWorkerTest, TimeUntilEncryptionKeyFoundMetric) {
   TriggerUpdateFromServer(10, kTag1, kValue1);
   gu_responses_while_should_have_been_known++;
 
+  // The fact that the data type is now blocked should have been recorded.
+  histogram_tester.ExpectUniqueSample(
+      "Sync.ModelTypeBlockedDueToUndecryptableUpdate",
+      ModelTypeHistogramValue(worker()->GetModelType()), 1);
+
   // Send empty GetUpdatesResponse. Again, the cryptographer isn't in a pending
   // state, so increase |gu_responses_while_should_have_been_known|.
   worker()->ProcessGetUpdatesResponse(
@@ -1354,7 +1359,7 @@ TEST_F(ModelTypeWorkerTest, TimeUntilEncryptionKeyFoundMetric) {
   // Double check the histogram hasn't been recorded so far.
   const std::string histogram_name =
       std::string("Sync.ModelTypeTimeUntilEncryptionKeyFound.") +
-      ModelTypeToString(worker()->GetModelType());
+      ModelTypeToHistogramSuffix(worker()->GetModelType());
   EXPECT_TRUE(histogram_tester.GetAllSamples(histogram_name).empty());
 
   // Make the key available. The correct number of GetUpdatesResponse should
@@ -1392,7 +1397,7 @@ TEST_F(ModelTypeWorkerTest, IgnoreUpdatesEncryptedWithKeysMissingForTooLong) {
   // Should have recorded that 1 entity was dropped.
   histogram_tester.ExpectUniqueSample(
       base::StrCat({"Sync.ModelTypeUndecryptablePendingUpdatesDropped.",
-                    ModelTypeToString(worker()->GetModelType())}),
+                    ModelTypeToHistogramSuffix(worker()->GetModelType())}),
       1, 1);
 
   // From now on, incoming updates encrypted with the missing key don't block

@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "ash/capture_mode/capture_mode_metrics.h"
+#include "ash/capture_mode/capture_mode_notification_view.h"
 #include "ash/capture_mode/capture_mode_session.h"
 #include "ash/capture_mode/capture_mode_util.h"
 #include "ash/capture_mode/video_recording_watcher.h"
@@ -49,6 +50,7 @@
 #include "ui/message_center/message_center.h"
 #include "ui/message_center/public/cpp/notification.h"
 #include "ui/message_center/public/cpp/notification_delegate.h"
+#include "ui/message_center/views/message_view_factory.h"
 #include "ui/snapshot/snapshot.h"
 
 namespace ash {
@@ -66,6 +68,8 @@ constexpr char kScreenCaptureNotificationId[] = "capture_mode_notification";
 constexpr char kScreenCaptureStoppedNotificationId[] =
     "capture_mode_stopped_notification";
 constexpr char kScreenCaptureNotifierId[] = "ash.capture_mode_controller";
+constexpr char kScreenCaptureNotificationType[] =
+    "capture_mode_notification_type";
 
 // The format strings of the file names of captured images.
 // TODO(afakhry): Discuss with UX localizing "Screenshot" and "Screen
@@ -169,7 +173,7 @@ void ShowNotification(
     const gfx::VectorIcon& notification_icon = kCaptureModeIcon) {
   const auto type = optional_fields.image.IsEmpty()
                         ? message_center::NOTIFICATION_TYPE_SIMPLE
-                        : message_center::NOTIFICATION_TYPE_IMAGE;
+                        : message_center::NOTIFICATION_TYPE_CUSTOM;
   std::unique_ptr<message_center::Notification> notification =
       CreateSystemNotification(
           type, notification_id, l10n_util::GetStringUTF16(title_id),
@@ -180,6 +184,8 @@ void ShowNotification(
               message_center::NotifierType::SYSTEM_COMPONENT,
               kScreenCaptureNotifierId),
           optional_fields, delegate, notification_icon, warning_level);
+  if (type == message_center::NOTIFICATION_TYPE_CUSTOM)
+    notification->set_custom_view_type(kScreenCaptureNotificationType);
 
   // Remove the previous notification before showing the new one if there is
   // any.
@@ -261,6 +267,12 @@ CaptureModeController::CaptureModeController(
           &CaptureModeController::RecordAndResetScreenshotsTakenInLastWeek,
           weak_ptr_factory_.GetWeakPtr()));
 
+  DCHECK(!message_center::MessageViewFactory::HasCustomNotificationViewFactory(
+      kScreenCaptureNotificationType));
+  message_center::MessageViewFactory::SetCustomNotificationViewFactory(
+      kScreenCaptureNotificationType,
+      base::BindRepeating(&CaptureModeNotificationView::Create));
+
   Shell::Get()->session_controller()->AddObserver(this);
   chromeos::PowerManagerClient::Get()->AddObserver(this);
 }
@@ -268,6 +280,10 @@ CaptureModeController::CaptureModeController(
 CaptureModeController::~CaptureModeController() {
   chromeos::PowerManagerClient::Get()->RemoveObserver(this);
   Shell::Get()->session_controller()->RemoveObserver(this);
+  // Remove the custom notification view factory.
+  message_center::MessageViewFactory::ClearCustomNotificationViewFactory(
+      kScreenCaptureNotificationType);
+
   DCHECK_EQ(g_instance, this);
   g_instance = nullptr;
 }
@@ -511,7 +527,7 @@ void CaptureModeController::PushNewRootSizeToRecordingService(
   DCHECK(video_recording_watcher_);
   DCHECK(recording_service_remote_);
 
-  recording_service_remote_->OnDisplaySizeChanged(root_size);
+  recording_service_remote_->OnFrameSinkSizeChanged(root_size);
 }
 
 void CaptureModeController::OnRecordedWindowChangingRoot(
@@ -532,6 +548,15 @@ void CaptureModeController::OnRecordedWindowChangingRoot(
 
   recording_service_remote_->OnRecordedWindowChangingRoot(
       new_root->GetFrameSinkId(), new_root->GetBoundsInRootWindow().size());
+}
+
+void CaptureModeController::OnRecordedWindowSizeChanged(
+    const gfx::Size& new_size) {
+  DCHECK(is_recording_in_progress_);
+  DCHECK(video_recording_watcher_);
+  DCHECK(recording_service_remote_);
+
+  recording_service_remote_->OnRecordedWindowSizeChanged(new_size);
 }
 
 bool CaptureModeController::ShouldBlockRecordingForContentProtection(
@@ -626,7 +651,9 @@ CaptureModeController::GetCaptureParams() const {
 }
 
 void CaptureModeController::LaunchRecordingServiceAndStartRecording(
-    const CaptureParams& capture_params) {
+    const CaptureParams& capture_params,
+    mojo::PendingReceiver<viz::mojom::FrameSinkVideoCaptureOverlay>
+        cursor_overlay) {
   DCHECK(!recording_service_remote_.is_bound())
       << "Should not launch a new recording service while one is already "
          "running.";
@@ -643,11 +670,16 @@ void CaptureModeController::LaunchRecordingServiceAndStartRecording(
   // audio stream factory.
   mojo::PendingRemote<recording::mojom::RecordingServiceClient> client =
       recording_service_client_receiver_.BindNewPipeAndPassRemote();
-  mojo::PendingRemote<viz::mojom::FrameSinkVideoCapturer> video_capturer;
+  mojo::Remote<viz::mojom::FrameSinkVideoCapturer> video_capturer_remote;
   aura::Env::GetInstance()
       ->context_factory()
       ->GetHostFrameSinkManager()
-      ->CreateVideoCapturer(video_capturer.InitWithNewPipeAndPassReceiver());
+      ->CreateVideoCapturer(video_capturer_remote.BindNewPipeAndPassReceiver());
+
+  // The overlay is to be rendered on top of the video frames.
+  constexpr int kStackingIndex = 1;
+  video_capturer_remote->CreateOverlay(kStackingIndex,
+                                       std::move(cursor_overlay));
 
   // We bind the audio stream factory only if audio recording is enabled. This
   // is ok since the |audio_stream_factory| parameter in the recording service
@@ -665,7 +697,7 @@ void CaptureModeController::LaunchRecordingServiceAndStartRecording(
   switch (source_) {
     case CaptureModeSource::kFullscreen:
       recording_service_remote_->RecordFullscreen(
-          std::move(client), std::move(video_capturer),
+          std::move(client), video_capturer_remote.Unbind(),
           std::move(audio_stream_factory), frame_sink_id, bounds.size());
       break;
 
@@ -679,17 +711,17 @@ void CaptureModeController::LaunchRecordingServiceAndStartRecording(
       DCHECK(capture_params.window->subtree_capture_id().is_valid());
 
       recording_service_remote_->RecordWindow(
-          std::move(client), std::move(video_capturer),
+          std::move(client), video_capturer_remote.Unbind(),
           std::move(audio_stream_factory), frame_sink_id,
-          capture_params.window->subtree_capture_id(), bounds.size(),
           capture_params.window->GetRootWindow()
               ->GetBoundsInRootWindow()
-              .size());
+              .size(),
+          capture_params.window->subtree_capture_id(), bounds.size());
       break;
 
     case CaptureModeSource::kRegion:
       recording_service_remote_->RecordRegion(
-          std::move(client), std::move(video_capturer),
+          std::move(client), video_capturer_remote.Unbind(),
           std::move(audio_stream_factory), frame_sink_id,
           capture_params.window->GetRootWindow()
               ->GetBoundsInRootWindow()
@@ -730,7 +762,6 @@ void CaptureModeController::TerminateRecordingUiElements() {
     return;
 
   is_recording_in_progress_ = false;
-  Shell::Get()->UpdateCursorCompositingEnabled();
   capture_mode_util::SetStopRecordingButtonVisibility(
       video_recording_watcher_->window_being_recorded()->GetRootWindow(),
       false);
@@ -1024,6 +1055,13 @@ void CaptureModeController::OnVideoRecordCountDownFinished() {
   capture_mode_session_->set_a11y_alert_on_session_exit(false);
 
   const base::Optional<CaptureParams> capture_params = GetCaptureParams();
+
+  // Acquire the session's layer in order to potentially reuse it for painting
+  // a highlight around the region being recorded.
+  std::unique_ptr<ui::Layer> session_layer =
+      capture_mode_session_->ReleaseLayer();
+  session_layer->set_delegate(nullptr);
+
   // Stop the capture session now, so the bar doesn't show up in the captured
   // video.
   Stop();
@@ -1045,12 +1083,17 @@ void CaptureModeController::OnVideoRecordCountDownFinished() {
     return;
   }
 
-  // We enable the software-composited cursor, in order for the video capturer
-  // to be able to record it.
   is_recording_in_progress_ = true;
-  Shell::Get()->UpdateCursorCompositingEnabled();
-  video_recording_watcher_ =
-      std::make_unique<VideoRecordingWatcher>(this, capture_params->window);
+  mojo::PendingRemote<viz::mojom::FrameSinkVideoCaptureOverlay>
+      cursor_capture_overlay;
+  auto cursor_overlay_receiver =
+      cursor_capture_overlay.InitWithNewPipeAndPassReceiver();
+  video_recording_watcher_ = std::make_unique<VideoRecordingWatcher>(
+      this, capture_params->window, std::move(cursor_capture_overlay));
+
+  // We only paint the recorded area highlight for window and region captures.
+  if (source_ != CaptureModeSource::kFullscreen)
+    video_recording_watcher_->Reset(std::move(session_layer));
 
   constexpr size_t kVideoBufferCapacityBytes = 512 * 1024;
 
@@ -1077,7 +1120,8 @@ void CaptureModeController::OnVideoRecordCountDownFinished() {
   video_file_handler_.AsyncCall(&VideoFileHandler::Initialize)
       .Then(on_video_file_status_);
 
-  LaunchRecordingServiceAndStartRecording(*capture_params);
+  LaunchRecordingServiceAndStartRecording(*capture_params,
+                                          std::move(cursor_overlay_receiver));
 
   delegate_->StartObservingRestrictedContent(
       capture_params->window, capture_params->bounds,

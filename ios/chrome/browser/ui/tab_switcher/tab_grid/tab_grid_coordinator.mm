@@ -96,6 +96,10 @@
     RecentTabsContextMenuHelper* recentTabsContextMenuHelper;
 // The action sheet coordinator, if one is currently being shown.
 @property(nonatomic, strong) ActionSheetCoordinator* actionSheetCoordinator;
+// The timestamp of the user entering the tab grid.
+@property(nonatomic, assign) base::TimeTicks tabGridEnterTime;
+// The timestamp of the user exiting the tab grid.
+@property(nonatomic, assign) base::TimeTicks tabGridExitTime;
 
 @end
 
@@ -234,14 +238,31 @@
                  }];
     });
   }
+  self.tabGridEnterTime = base::TimeTicks::Now();
+
   // Record when the tab switcher is presented.
   base::RecordAction(base::UserMetricsAction("MobileTabGridEntered"));
+}
+
+- (void)reportTabGridUsageTime {
+  base::TimeDelta duration = self.tabGridExitTime - self.tabGridEnterTime;
+  base::UmaHistogramLongTimes("IOS.TabSwitcher.TimeSpent", duration);
+  self.tabGridEnterTime = base::TimeTicks();
+  self.tabGridExitTime = base::TimeTicks();
 }
 
 - (void)showTabViewController:(UIViewController*)viewController
            shouldCloseTabGrid:(BOOL)shouldCloseTabGrid
                    completion:(ProceduralBlock)completion {
   DCHECK(viewController || (IsThumbStripEnabled() && self.bvcContainer));
+
+  if (shouldCloseTabGrid) {
+    self.tabGridExitTime = base::TimeTicks::Now();
+
+    // Record when the tab switcher is dismissed.
+    base::RecordAction(base::UserMetricsAction("MobileTabGridExited"));
+    [self reportTabGridUsageTime];
+  }
 
   // If thumb strip is enabled, this will always be true except during initial
   // setup before the BVC container has been created.
@@ -253,10 +274,8 @@
     if (shouldCloseTabGrid) {
       [self.thumbStripCoordinator.panHandler setState:ViewRevealState::Hidden
                                              animated:YES];
-
-      // Record when the tab switcher is dismissed.
-      base::RecordAction(base::UserMetricsAction("MobileTabGridExited"));
     }
+
     if (completion) {
       completion();
     }

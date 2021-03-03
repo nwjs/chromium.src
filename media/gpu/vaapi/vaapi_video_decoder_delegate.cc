@@ -5,6 +5,7 @@
 #include "media/gpu/vaapi/vaapi_video_decoder_delegate.h"
 
 #include "base/bind.h"
+#include "base/containers/contains.h"
 #include "base/logging.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/time/default_tick_clock.h"
@@ -23,6 +24,15 @@ namespace {
 // interval no greater than this. This allows updating of key usage data.
 constexpr base::TimeDelta kKeyRetrievalMaxPeriod =
     base::TimeDelta::FromMinutes(1);
+// This increments the lower 64 bit counter of an 128 bit IV.
+void ctr128_inc64(uint8_t* counter) {
+  uint32_t n = 16;
+  do {
+    if (++counter[--n] != 0)
+      return;
+  } while (n > 8);
+}
+
 }  // namespace
 #endif
 
@@ -40,7 +50,8 @@ VaapiVideoDecoderDelegate::VaapiVideoDecoderDelegate(
           std::move(on_protected_session_update_cb)),
       encryption_scheme_(encryption_scheme),
       protected_session_state_(ProtectedSessionState::kNotCreated),
-      scaled_surface_id_(VA_INVALID_ID) {
+      scaled_surface_id_(VA_INVALID_ID),
+      performing_recovery_(false) {
   DCHECK(vaapi_wrapper_);
   DCHECK(vaapi_dec_);
   DETACH_FROM_SEQUENCE(sequence_checker_);
@@ -55,6 +66,10 @@ VaapiVideoDecoderDelegate::VaapiVideoDecoderDelegate(
 VaapiVideoDecoderDelegate::~VaapiVideoDecoderDelegate() {
   // TODO(mcasas): consider enabling the checker, https://crbug.com/789160
   // DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  // Also destroy the protected session on destruction of the accelerator
+  // delegate. That way if a new delegate is created, when it tries to create a
+  // new protected session it won't overwrite the existing one.
+  vaapi_wrapper_->DestroyProtectedSession();
 }
 
 void VaapiVideoDecoderDelegate::set_vaapi_wrapper(
@@ -62,9 +77,20 @@ void VaapiVideoDecoderDelegate::set_vaapi_wrapper(
   DETACH_FROM_SEQUENCE(sequence_checker_);
   vaapi_wrapper_ = std::move(vaapi_wrapper);
   protected_session_state_ = ProtectedSessionState::kNotCreated;
+  hw_identifier_.clear();
+  hw_key_data_map_.clear();
 }
 
 void VaapiVideoDecoderDelegate::OnVAContextDestructionSoon() {}
+
+bool VaapiVideoDecoderDelegate::HasInitiatedProtectedRecovery() {
+  if (protected_session_state_ != ProtectedSessionState::kNeedsRecovery)
+    return false;
+
+  performing_recovery_ = true;
+  protected_session_state_ = ProtectedSessionState::kNotCreated;
+  return true;
+}
 
 bool VaapiVideoDecoderDelegate::SetDecryptConfig(
     std::unique_ptr<DecryptConfig> decrypt_config) {
@@ -146,7 +172,7 @@ VaapiVideoDecoderDelegate::SetupDecryptDecode(
   DCHECK(decrypt_config_);
   // We also need to make sure we have the key data for the active
   // DecryptConfig now that the protected session exists.
-  if (!hw_key_data_map_.count(decrypt_config_->key_id())) {
+  if (!base::Contains(hw_key_data_map_, decrypt_config_->key_id())) {
     DVLOG(1) << "Looking up the key data for: " << decrypt_config_->key_id();
     chromeos_cdm_context_->GetHwKeyData(
         decrypt_config_.get(), hw_identifier_,
@@ -161,13 +187,17 @@ VaapiVideoDecoderDelegate::SetupDecryptDecode(
   }
 
   // We may also need to request the key in order to update key usage times in
-  // OEMCrypto. We can ignore the return callback in this case since we already
-  // have the key information.
+  // OEMCrypto. We do care about the return value, because it will indicate key
+  // validity for us.
   if (base::DefaultTickClock::GetInstance()->NowTicks() -
           last_key_retrieval_time_ >
       kKeyRetrievalMaxPeriod) {
-    chromeos_cdm_context_->GetHwKeyData(decrypt_config_.get(), hw_identifier_,
-                                        base::DoNothing());
+    chromeos_cdm_context_->GetHwKeyData(
+        decrypt_config_.get(), hw_identifier_,
+        BindToCurrentLoop(base::BindOnce(
+            &VaapiVideoDecoderDelegate::OnGetHwKeyData,
+            weak_factory_.GetWeakPtr(), decrypt_config_->key_id())));
+
     last_key_retrieval_time_ =
         base::DefaultTickClock::GetInstance()->NowTicks();
   }
@@ -192,19 +222,34 @@ VaapiVideoDecoderDelegate::SetupDecryptDecode(
            DecryptConfig::kDecryptionKeySize);
     segments->emplace_back(std::move(segment_info));
   } else {
+    size_t total_cypher_size = 0;
+    std::vector<uint8_t> iv(DecryptConfig::kDecryptionKeySize);
+    iv.assign(decrypt_config_->iv().begin(), decrypt_config_->iv().end());
     for (const auto& entry : subsamples) {
       VAEncryptionSegmentInfo segment_info = {};
       segment_info.segment_start_offset = offset;
       segment_info.segment_length = entry.clear_bytes + entry.cypher_bytes;
-      segment_info.partial_aes_block_size = 0;
-      segment_info.init_byte_length = entry.clear_bytes;
-      memcpy(segment_info.aes_cbc_iv_or_ctr, decrypt_config_->iv().data(),
+      size_t partial_block_size =
+          (DecryptConfig::kDecryptionKeySize -
+           (total_cypher_size % DecryptConfig::kDecryptionKeySize)) %
+          DecryptConfig::kDecryptionKeySize;
+      segment_info.partial_aes_block_size = partial_block_size;
+      memcpy(segment_info.aes_cbc_iv_or_ctr, iv.data(),
              DecryptConfig::kDecryptionKeySize);
-      segments->emplace_back(std::move(segment_info));
+      // If we are finishing a block, increment the counter.
+      if (partial_block_size && entry.cypher_bytes > partial_block_size)
+        ctr128_inc64(iv.data());
+      // Increment the counter for every complete block we are adding.
+      for (size_t block = 0; block < (entry.cypher_bytes - partial_block_size) /
+                                         DecryptConfig::kDecryptionKeySize;
+           ++block)
+        ctr128_inc64(iv.data());
+      total_cypher_size += entry.cypher_bytes;
+      segment_info.init_byte_length = entry.clear_bytes;
       offset += entry.clear_bytes + entry.cypher_bytes;
+      segments->emplace_back(std::move(segment_info));
     }
   }
-
   memcpy(crypto_params->wrapped_decrypt_blob,
          hw_key_data_map_[decrypt_config_->key_id()].data(),
          DecryptConfig::kDecryptionKeySize);
@@ -213,6 +258,24 @@ VaapiVideoDecoderDelegate::SetupDecryptDecode(
   protected_session_state_ = ProtectedSessionState::kFailed;
 #endif
   return protected_session_state_;
+}
+
+bool VaapiVideoDecoderDelegate::NeedsProtectedSessionRecovery() {
+  if (!IsEncryptedSession() || !vaapi_wrapper_->IsProtectedSessionDead() ||
+      performing_recovery_) {
+    return false;
+  }
+
+  LOG(WARNING) << "Protected session loss detected, initiating recovery";
+  protected_session_state_ = ProtectedSessionState::kNeedsRecovery;
+  hw_key_data_map_.clear();
+  hw_identifier_.clear();
+  vaapi_wrapper_->DestroyProtectedSession();
+  return true;
+}
+
+void VaapiVideoDecoderDelegate::ProtectedDecodedSucceeded() {
+  performing_recovery_ = false;
 }
 
 bool VaapiVideoDecoderDelegate::FillDecodeScalingIfNeeded(
@@ -277,6 +340,18 @@ void VaapiVideoDecoderDelegate::OnGetHwKeyData(
     Decryptor::Status status,
     const std::vector<uint8_t>& key_data) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  // There's a special case here where we are updating usage times/checking on
+  // key validity, and in that case the key is already in the map.
+  if (base::Contains(hw_key_data_map_, key_id)) {
+    if (status == Decryptor::Status::kSuccess)
+      return;
+    // This key is no longer valid, decryption will fail, so stop playback
+    // now. This key should have been renewed by the CDM instead.
+    LOG(ERROR) << "CDM has lost key information, stopping playback";
+    protected_session_state_ = ProtectedSessionState::kFailed;
+    on_protected_session_update_cb_.Run(false);
+    return;
+  }
   if (status != Decryptor::Status::kSuccess) {
     // If it's a failure, then indicate so, otherwise if it's waiting for a key,
     // then we don't do anything since we will get called again when there's a

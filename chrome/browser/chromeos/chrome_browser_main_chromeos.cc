@@ -162,6 +162,7 @@
 #include "chromeos/cryptohome/system_salt_getter.h"
 #include "chromeos/dbus/constants/cryptohome_key_delegate_constants.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
+#include "chromeos/dbus/pciguard/pciguard_client.h"
 #include "chromeos/dbus/power/power_manager_client.h"
 #include "chromeos/dbus/power/power_policy_controller.h"
 #include "chromeos/dbus/services/cros_dbus_service.h"
@@ -1017,10 +1018,11 @@ void ChromeBrowserMainPartsChromeos::PostProfileInit() {
   // available.
   idle_action_warning_observer_ = std::make_unique<IdleActionWarningObserver>();
 
-  // Start watching for low disk space events to notify the user if it is not a
-  // guest profile.
-  if (!user_manager::UserManager::Get()->IsLoggedInAsGuest())
+  if (!user_manager::UserManager::Get()->IsLoggedInAsGuest()) {
+    // Start watching for low disk space events to notify the user if it is not
+    // a guest profile.
     low_disk_notification_ = std::make_unique<LowDiskNotification>();
+  }
 
   gnubby_notification_ = std::make_unique<GnubbyNotification>();
   demo_mode_resources_remover_ = DemoModeResourcesRemover::CreateIfNeeded(
@@ -1110,6 +1112,14 @@ void ChromeBrowserMainPartsChromeos::PostBrowserStart() {
       ->PostTask(FROM_HERE,
                  base::BindOnce(&CrosUsbDetector::ConnectToDeviceManager,
                                 base::Unretained(cros_usb_detector_.get())));
+
+  // External PCI devices are only allowed in non-guest, primary users.
+  if (!user_manager::UserManager::Get()->IsLoggedInAsGuest() &&
+      ProfileHelper::IsPrimaryProfile(profile())) {
+    PciguardClient::Get()->SendExternalPciDevicesPermissionState(
+        base::FeatureList::IsEnabled(
+            features::kDisablePeripheralDataAccessProtection));
+  }
 
   crostini_unsupported_action_notifier_ =
       std::make_unique<crostini::CrostiniUnsupportedActionNotifier>();

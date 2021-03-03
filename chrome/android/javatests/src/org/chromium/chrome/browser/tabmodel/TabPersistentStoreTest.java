@@ -16,15 +16,19 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 
 import org.chromium.base.ActivityState;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.task.AsyncTask;
-import org.chromium.base.test.BaseJUnit4ClassRunner;
+import org.chromium.base.test.params.ParameterAnnotations;
+import org.chromium.base.test.params.ParameterProvider;
+import org.chromium.base.test.params.ParameterSet;
+import org.chromium.base.test.params.ParameterizedRunner;
 import org.chromium.base.test.util.AdvancedMockContext;
-import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CallbackHelper;
+import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.MinAndroidSdkLevel;
@@ -35,15 +39,21 @@ import org.chromium.chrome.browser.app.tabmodel.ChromeTabModelFilterFactory;
 import org.chromium.chrome.browser.app.tabmodel.TabWindowManagerSingleton;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelper;
 import org.chromium.chrome.browser.flags.ActivityType;
+import org.chromium.chrome.browser.flags.CachedFeatureFlags;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.fullscreen.BrowserControlsManager;
 import org.chromium.chrome.browser.metrics.LaunchCauseMetrics;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab.TabState;
 import org.chromium.chrome.browser.tab.TabStateFileManager;
+import org.chromium.chrome.browser.tab.state.CriticalPersistedTabData;
+import org.chromium.chrome.browser.tab.state.LoadCallbackHelper;
 import org.chromium.chrome.browser.tabmodel.NextTabPolicy.NextTabPolicySupplier;
 import org.chromium.chrome.browser.tabmodel.TabPersistentStore.TabModelSelectorMetadata;
 import org.chromium.chrome.browser.tabmodel.TabPersistentStore.TabPersistentStoreObserver;
@@ -52,21 +62,35 @@ import org.chromium.chrome.browser.tabmodel.TestTabModelDirectory.TabModelMetaDa
 import org.chromium.chrome.browser.tabmodel.TestTabModelDirectory.TabStateInfo;
 import org.chromium.chrome.browser.tabpersistence.TabStateDirectory;
 import org.chromium.chrome.test.ChromeBrowserTestRule;
+import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
+import org.chromium.chrome.test.util.browser.Features;
+import org.chromium.chrome.test.util.browser.Features.DisableFeatures;
 import org.chromium.chrome.test.util.browser.tabmodel.MockTabCreator;
 import org.chromium.chrome.test.util.browser.tabmodel.MockTabCreatorManager;
 import org.chromium.chrome.test.util.browser.tabmodel.MockTabModelSelector;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 
 /** Tests for the TabPersistentStore. */
-@RunWith(BaseJUnit4ClassRunner.class)
-@Batch(Batch.PER_CLASS)
+
+// TODO(crbug.com/1174662) reintroduce batching - batching was removed because introducing
+// parameterized tests caused cross-talk between tests.
+@RunWith(ParameterizedRunner.class)
+@ParameterAnnotations.UseRunnerDelegate(ChromeJUnit4RunnerDelegate.class)
+@CommandLineFlags.
+Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE, "force-fieldtrials=Study/Group"})
 public class TabPersistentStoreTest {
     @Rule
     public final ChromeBrowserTestRule mBrowserTestRule = new ChromeBrowserTestRule();
+
+    @Rule
+    public TestRule mProcessor = new Features.InstrumentationProcessor();
 
     private ChromeActivity mChromeActivity;
 
@@ -217,6 +241,18 @@ public class TabPersistentStoreTest {
             };
     private static TabWindowManagerImpl sTabWindowManager;
 
+    /**
+     * Parameterizes whether CriticalPersistedTabData flag should be turned on
+     * or off
+     */
+    public static class StoreParamProvider implements ParameterProvider {
+        @Override
+        public Iterable<ParameterSet> getParameters() {
+            return Arrays.asList(new ParameterSet().value(false).name("TabState"),
+                    new ParameterSet().value(true).name("CriticalPersistedTabData"));
+        }
+    }
+
     /** Class for mocking out the directory containing all of the TabState files. */
     private TestTabModelDirectory mMockDirectory;
     private AdvancedMockContext mAppContext;
@@ -225,6 +261,9 @@ public class TabPersistentStoreTest {
     @BeforeClass
     public static void beforeClassSetUp() {
         TestThreadUtils.runOnUiThreadBlocking(() -> {
+            // Required for parameterized tests - otherwise we will fail
+            // assert sInstance == null in setTabModelSelectorFactoryForTesting
+            TabWindowManagerSingleton.resetTabModelSelectorFactoryForTesting();
             TabWindowManagerSingleton.setTabModelSelectorFactoryForTesting(
                     sMockTabModelSelectorFactory);
             sTabWindowManager = (TabWindowManagerImpl) TabWindowManagerSingleton.getInstance();
@@ -233,6 +272,7 @@ public class TabPersistentStoreTest {
 
     @Before
     public void setUp() {
+        CachedFeatureFlags.setForTesting(ChromeFeatureList.CRITICAL_PERSISTED_TAB_DATA, false);
         TestThreadUtils.runOnUiThreadBlocking(() -> {
             mChromeActivity = new ChromeActivity() {
                 @Override
@@ -300,7 +340,10 @@ public class TabPersistentStoreTest {
     @Test
     @SmallTest
     @Feature("TabPersistentStore")
-    public void testBasic() throws Exception {
+    @ParameterAnnotations.UseMethodParameter(StoreParamProvider.class)
+    public void testBasic(boolean isCriticalPersistedTabDataEnabled) throws Exception {
+        CachedFeatureFlags.setForTesting(
+                ChromeFeatureList.CRITICAL_PERSISTED_TAB_DATA, isCriticalPersistedTabDataEnabled);
         TabModelMetaDataInfo info = TestTabModelDirectory.TAB_MODEL_METADATA_V4;
         int numExpectedTabs = info.contents.length;
 
@@ -350,8 +393,61 @@ public class TabPersistentStoreTest {
 
     @Test
     @SmallTest
+    @Feature("TabPersistentStore")
+    @DisableFeatures({ChromeFeatureList.CRITICAL_PERSISTED_TAB_DATA + "<Study"})
+    public void testCleanup() throws TimeoutException, ExecutionException {
+        MockTabModelSelector mockSelector = TestThreadUtils.runOnUiThreadBlocking(
+                () -> { return new MockTabModelSelector(1, 1, null); });
+        Tab regularTab = mockSelector.getModel(false).getTabAt(0);
+        Tab incognitoTab = mockSelector.getModel(true).getTabAt(0);
+        TestThreadUtils.runOnUiThreadBlocking(() -> {
+            enableTabSaving(regularTab);
+            enableTabSaving(incognitoTab);
+            CriticalPersistedTabData.from(regularTab).save();
+            CriticalPersistedTabData.from(incognitoTab).save();
+        });
+        verifyIfTabIsSaved(regularTab.getId(), regularTab.isIncognito(), false);
+        verifyIfTabIsSaved(incognitoTab.getId(), incognitoTab.isIncognito(), false);
+
+        MockTabCreatorManager mockManager = new MockTabCreatorManager(mockSelector);
+        TabPersistencePolicy persistencePolicy =
+                new TabbedModeTabPersistencePolicy(/* selectorIndex = */ 0, false);
+        final TabPersistentStore store =
+                buildTabPersistentStore(persistencePolicy, mockSelector, mockManager);
+        verifyIfTabIsSaved(regularTab.getId(), regularTab.isIncognito(), true);
+        verifyIfTabIsSaved(incognitoTab.getId(), incognitoTab.isIncognito(), true);
+    }
+
+    public void verifyIfTabIsSaved(int tabId, boolean isIncognito, boolean isNull)
+            throws TimeoutException {
+        LoadCallbackHelper callbackHelper = new LoadCallbackHelper();
+        int chCount = callbackHelper.getCallCount();
+        TestThreadUtils.runOnUiThreadBlocking(() -> {
+            CriticalPersistedTabData.restore(
+                    tabId, isIncognito, (res) -> { callbackHelper.notifyCalled(res); });
+        });
+        callbackHelper.waitForCallback(chCount);
+        if (isNull) {
+            Assert.assertNull(callbackHelper.getRes());
+        } else {
+            Assert.assertNotNull(callbackHelper.getRes());
+        }
+    }
+
+    private void enableTabSaving(Tab tab) {
+        tab.setIsTabSaveEnabled(true);
+        ((TabImpl) tab).registerTabSaving();
+        CriticalPersistedTabData.from(tab).setShouldSaveForTesting(true);
+    }
+
+    @Test
+    @SmallTest
     @Feature({"TabPersistentStore"})
-    public void testInterruptedButStillRestoresAllTabs() throws Exception {
+    @ParameterAnnotations.UseMethodParameter(StoreParamProvider.class)
+    public void testInterruptedButStillRestoresAllTabs(boolean isCriticalPersistedTabDataEnabled)
+            throws Exception {
+        CachedFeatureFlags.setForTesting(
+                ChromeFeatureList.CRITICAL_PERSISTED_TAB_DATA, isCriticalPersistedTabDataEnabled);
         TabModelMetaDataInfo info = TestTabModelDirectory.TAB_MODEL_METADATA_V4;
         int numExpectedTabs = info.contents.length;
 
@@ -573,7 +669,10 @@ public class TabPersistentStoreTest {
     @Test
     @SmallTest
     @Feature({"TabPersistentStore"})
-    public void testPrefetchActiveTab() throws Exception {
+    @ParameterAnnotations.UseMethodParameter(StoreParamProvider.class)
+    public void testPrefetchActiveTab(boolean isCriticalPersistedTabDataEnabled) throws Exception {
+        CachedFeatureFlags.setForTesting(
+                ChromeFeatureList.CRITICAL_PERSISTED_TAB_DATA, isCriticalPersistedTabDataEnabled);
         final TabModelMetaDataInfo info = TestTabModelDirectory.TAB_MODEL_METADATA_V5_NO_M18;
         mMockDirectory.writeTabModelFiles(info, true);
 
@@ -618,7 +717,11 @@ public class TabPersistentStoreTest {
     @Test
     @SmallTest
     @Feature({"TabPersistentStore"})
-    public void testUndoSingleTabClosureWritesTabListFile() throws Exception {
+    @ParameterAnnotations.UseMethodParameter(StoreParamProvider.class)
+    public void testUndoSingleTabClosureWritesTabListFile(boolean isCriticalPersistedTabDataEnabled)
+            throws Exception {
+        CachedFeatureFlags.setForTesting(
+                ChromeFeatureList.CRITICAL_PERSISTED_TAB_DATA, isCriticalPersistedTabDataEnabled);
         TabModelMetaDataInfo info = TestTabModelDirectory.TAB_MODEL_METADATA_V5_NO_M18;
         mMockDirectory.writeTabModelFiles(info, true);
 

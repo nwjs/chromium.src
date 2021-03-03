@@ -7,6 +7,7 @@
 #include "base/mac/foundation_util.h"
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
+#import "ios/chrome/browser/ui/bubble/bubble_presenter.h"
 #import "ios/chrome/browser/ui/collection_view/cells/MDCCollectionViewCell+Chrome.h"
 #import "ios/chrome/browser/ui/collection_view/cells/collection_view_item.h"
 #import "ios/chrome/browser/ui/collection_view/collection_view_model.h"
@@ -312,7 +313,7 @@ NSString* const kContentSuggestionsMostVisitedAccessibilityIdentifierPrefix =
       updateFakeOmniboxOnNewWidth:self.collectionView.bounds.size.width];
   [self.collectionView.collectionViewLayout invalidateLayout];
   // Ensure initial fake omnibox layout.
-  [self.headerSynchronizer updateFakeOmniboxOnCollectionScroll];
+  [self.headerSynchronizer updateFakeOmniboxForScrollPosition];
   // TODO(crbug.com/1114792): Plumb the collection view.
   self.layout.parentCollectionView =
       static_cast<UICollectionView*>(self.view.superview);
@@ -328,6 +329,8 @@ NSString* const kContentSuggestionsMostVisitedAccessibilityIdentifierPrefix =
   if (self.offset > 0) {
     self.layout.offset = 0;
   }
+
+  [self.bubblePresenter presentDiscoverFeedHeaderTipBubble];
 }
 
 - (void)viewDidLayoutSubviews {
@@ -369,7 +372,7 @@ NSString* const kContentSuggestionsMostVisitedAccessibilityIdentifierPrefix =
   if (previousTraitCollection.preferredContentSizeCategory !=
       self.traitCollection.preferredContentSizeCategory) {
     [self.collectionViewLayout invalidateLayout];
-    [self.headerSynchronizer updateFakeOmniboxOnCollectionScroll];
+    [self.headerSynchronizer updateFakeOmniboxForScrollPosition];
   }
   [self.headerSynchronizer updateConstraints];
   [self updateOverscrollActionsState];
@@ -718,7 +721,7 @@ NSString* const kContentSuggestionsMostVisitedAccessibilityIdentifierPrefix =
   [super scrollViewDidScroll:scrollView];
   [self.panGestureHandler scrollViewDidScroll:scrollView];
   [self.overscrollActionsController scrollViewDidScroll:scrollView];
-  [self.headerSynchronizer updateFakeOmniboxOnCollectionScroll];
+  [self.headerSynchronizer updateFakeOmniboxForScrollPosition];
   self.scrolledToTop =
       scrollView.contentOffset.y >= [self.headerSynchronizer pinnedOffsetY];
 

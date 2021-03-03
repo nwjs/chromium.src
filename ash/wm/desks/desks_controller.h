@@ -90,8 +90,17 @@ class ASH_EXPORT DesksController : public DesksHelper,
   // switch animation is in progress.
   const Desk* GetTargetActiveDesk() const;
 
+  // Returns the visible on all desks windows that reside on |root_window|.
+  base::flat_set<aura::Window*> GetVisibleOnAllDesksWindowsOnRoot(
+      aura::Window* root_window) const;
+
   // Restores the primary user's activate desk at active_desk_index.
   void RestorePrimaryUserActiveDeskIndex(int active_desk_index);
+
+  // Restacks the visible on all desks windows on the active desks and notifies
+  // all desks of content change. Should be called during user switch when the
+  // new user's windows have been shown.
+  void OnNewUserShown();
 
   // Destroys any pending animations in preparation for shutdown.
   void Shutdown();
@@ -173,6 +182,9 @@ class ASH_EXPORT DesksController : public DesksHelper,
   // Removes |window| if it is in |visible_on_all_desks_windows_|.
   void MaybeRemoveVisibleOnAllDesksWindow(aura::Window* window);
 
+  // Notifies each desk in |desks_| that their contents has changed.
+  void NotifyAllDesksForContentChanged();
+
   // Reverts the name of the given |desk| to the default value (i.e. "Desk 1",
   // "Desk 2", ... etc.) according to its position in the |desks_| list, as if
   // it was never modified by users.
@@ -249,7 +261,7 @@ class ASH_EXPORT DesksController : public DesksHelper,
   // Iterates through the visible on all desks windows on the active desk
   // and restacks them based on their position in the global MRU tracker. This
   // should be called after desk activation.
-  void RestackAssignedWindowsOnActiveDesk();
+  void RestackVisibleOnAllDesksWindowsOnActiveDesk();
 
   // Returns the desk to which |window| belongs or nullptr if it doesn't belong
   // to any desk.

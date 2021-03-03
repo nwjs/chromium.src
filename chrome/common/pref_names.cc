@@ -1242,6 +1242,22 @@ const char kSodaEnUsConfigPath[] =
 const char kSodaJaJpConfigPath[] =
     "accessibility.captions.soda_ja_jp_config_path";
 
+// The file path of the de-DE Speech On-Device API (SODA) configuration file.
+const char kSodaDeDeConfigPath[] =
+    "accessibility.captions.soda_de_de_config_path";
+
+// The file path of the es-ES Speech On-Device API (SODA) configuration file.
+const char kSodaEsEsConfigPath[] =
+    "accessibility.captions.soda_es_es_config_path";
+
+// The file path of the fr-FR Speech On-Device API (SODA) configuration file.
+const char kSodaFrFrConfigPath[] =
+    "accessibility.captions.soda_fr_fr_config_path";
+
+// The file path of the it-IT Speech On-Device API (SODA) configuration file.
+const char kSodaItItConfigPath[] =
+    "accessibility.captions.soda_it_it_config_path";
+
 // The scheduled time to clean up the Speech On-Device API (SODA) files from the
 // device.
 const char kSodaScheduledDeletionTime[] =
@@ -1959,6 +1975,17 @@ const char kWebAppsAppAgnosticIphState[] = "web_apps.app_agnostic_iph_state";
 // synchronised for.
 const char kWebAppsLastPreinstallSynchronizeVersion[] =
     "web_apps.last_preinstall_synchronize_version";
+
+// A list of all apps that have been migrated to web apps.
+const char kWebAppsMigratedDefaultApps[] = "web_apps.migrated_default_apps";
+
+// A list of migrated features for migrating default chrome apps.
+const char kWebAppsDidMigrateDefaultChromeApps[] =
+    "web_apps.did_migrate_default_chrome_apps";
+
+// A list of default chrome apps that were uninstalled by the user.
+const char kWebAppsUninstalledDefaultChromeApps[] =
+    "web_apps.uninstalled_default_chrome_apps";
 
 // Dictionary that maps web app ID to a dictionary of various preferences.
 // Used only in the new web applications system to store app preferences which
@@ -3150,7 +3177,13 @@ const char kSecurityTokenSessionNotificationScheduledDomain[] =
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 #if !defined(OS_ANDROID)
-// Boolean pref indicating whether user has dismissed the cart module on NTP.
-const char kCartModuleDismissed[] = "cart_module_dismissed";
+// Boolean pref indicating whether user has hidden the cart module on NTP.
+const char kCartModuleHidden[] = "cart_module_hidden";
+// Boolean pref indicating whether user has removed the cart module on NTP.
+const char kCartModuleRemoved[] = "cart_module_removed";
+// An integer that keeps track of how many times welcome surface has shown in
+// cart module.
+const char kCartModuleWelcomeSurfaceShownTimes[] =
+    "cart_module_welcome_surface_shown_times";
 #endif
 }  // namespace prefs

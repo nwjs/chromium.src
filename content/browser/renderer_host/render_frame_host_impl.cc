@@ -664,79 +664,6 @@ void OnDataURLRetrieved(
   StartDownload(std::move(parameters), nullptr);
 }
 
-void RecordWebPlatformSecurityMetrics(RenderFrameHostImpl* rfh,
-                                      NavigationRequest* navigation_request) {
-  ContentBrowserClient* client = GetContentClient()->browser();
-  if (rfh->cross_origin_opener_policy().value ==
-      network::mojom::CrossOriginOpenerPolicyValue::kSameOrigin) {
-    client->LogWebFeatureForCurrentPage(
-        rfh, blink::mojom::WebFeature::kCrossOriginOpenerPolicySameOrigin);
-  }
-  if (rfh->cross_origin_opener_policy().value ==
-      network::mojom::CrossOriginOpenerPolicyValue::kSameOriginAllowPopups) {
-    client->LogWebFeatureForCurrentPage(
-        rfh, blink::mojom::WebFeature::
-                 kCrossOriginOpenerPolicySameOriginAllowPopups);
-  }
-
-  if (rfh->cross_origin_embedder_policy().value ==
-      network::mojom::CrossOriginEmbedderPolicyValue::kRequireCorp) {
-    client->LogWebFeatureForCurrentPage(
-        rfh, blink::mojom::WebFeature::kCrossOriginEmbedderPolicyRequireCorp);
-  }
-
-  if (rfh->cross_origin_opener_policy().value ==
-      network::mojom::CrossOriginOpenerPolicyValue::kSameOriginPlusCoep) {
-    client->LogWebFeatureForCurrentPage(
-        rfh, blink::mojom::WebFeature::kCoopAndCoepIsolated);
-  }
-
-  if (rfh->cross_origin_opener_policy().reporting_endpoint ||
-      rfh->cross_origin_opener_policy().report_only_reporting_endpoint) {
-    client->LogWebFeatureForCurrentPage(
-        rfh, blink::mojom::WebFeature::kCrossOriginOpenerPolicyReporting);
-  }
-
-  // Record iframes embedded in cross-origin contexts without a CSP
-  // frame-ancestor directive.
-  bool is_embedded_in_cross_origin_context = false;
-  RenderFrameHostImpl* parent = rfh->frame_tree_node()->parent();
-  while (parent) {
-    if (!parent->GetLastCommittedOrigin().IsSameOriginWith(
-            rfh->GetLastCommittedOrigin())) {
-      is_embedded_in_cross_origin_context = true;
-      break;
-    }
-    parent = parent->frame_tree_node()->parent();
-  }
-
-  bool has_embedding_control = false;
-  if (!navigation_request->response()) {
-    // This navigation did not result in a network request. The embedding of
-    // the frame is not controlled by network headers.
-    has_embedding_control = true;
-  } else {
-    // Check if the request has a CSP frame-ancestor directive.
-    for (const auto& csp : navigation_request->response()
-                               ->parsed_headers->content_security_policy) {
-      if (csp->header->type ==
-              network::mojom::ContentSecurityPolicyType::kEnforce &&
-          csp->directives.contains(
-              network::mojom::CSPDirectiveName::FrameAncestors)) {
-        has_embedding_control = true;
-        break;
-      }
-    }
-  }
-
-  if (is_embedded_in_cross_origin_context && !has_embedding_control &&
-      !navigation_request->IsErrorPage()) {
-    client->LogWebFeatureForCurrentPage(
-        rfh,
-        blink::mojom::WebFeature::kCrossOriginSubframeWithoutEmbeddingControl);
-  }
-}
-
 // Subframe navigations can optionally have associated Trust Tokens operations
 // (https://github.com/wicg/trust-token-api). If the operation's type is
 // "redemption" or "signing" (as opposed to "issuance"), the parent's frame
@@ -6398,8 +6325,7 @@ void RenderFrameHostImpl::CommitNavigation(
   // debug issues with browser-side security checks. https://crbug.com/931895.
   auto* policy = ChildProcessSecurityPolicyImpl::GetInstance();
   const ProcessLock process_lock = GetSiteInstance()->GetProcessLock();
-  if (process_lock != ProcessLock::CreateForErrorPage() &&
-      common_params->url.IsStandard() &&
+  if (!process_lock.is_error_page() && common_params->url.IsStandard() &&
       !policy->CanAccessDataForOrigin(GetProcess()->GetID(),
                                       common_params->url) &&
       !is_mhtml_subframe) {
@@ -7078,7 +7004,7 @@ bool RenderFrameHostImpl::IsFocused() {
 bool RenderFrameHostImpl::CreateWebUI(const GURL& dest_url,
                                       int entry_bindings) {
   // Verify expectation that WebUI should not be created for error pages.
-  DCHECK_NE(GetSiteInstance()->GetSiteInfo(), SiteInfo::CreateForErrorPage());
+  DCHECK(!GetSiteInstance()->GetSiteInfo().is_error_page());
 
   WebUI::TypeID new_web_ui_type =
       WebUIControllerFactoryRegistry::GetInstance()->GetWebUIType(
@@ -8539,7 +8465,7 @@ bool RenderFrameHostImpl::ShouldBypassSecurityChecksForErrorPage(
     *should_commit_unreachable_url = false;
 
   if (SiteIsolationPolicy::IsErrorPageIsolationEnabled(is_main_frame())) {
-    if (GetSiteInstance()->GetSiteInfo() == SiteInfo::CreateForErrorPage()) {
+    if (GetSiteInstance()->GetSiteInfo().is_error_page()) {
       if (should_commit_unreachable_url)
         *should_commit_unreachable_url = true;
 
@@ -8615,8 +8541,10 @@ bool RenderFrameHostImpl::ValidateDidCommitParams(
 
   // Commits in the error page process must only be failures, otherwise
   // successful navigations could commit documents from origins different
-  // than the chrome-error://chromewebdata/ one and violate expectations.
-  if (should_commit_unreachable_url && !params->url_is_unreachable) {
+  // than the chrome-error://chromewebdata/ one and violate
+  // expectations.
+  // NWJS: different process model where the pages are in the same process
+  if (false && should_commit_unreachable_url && !params->url_is_unreachable) {
     DEBUG_ALIAS_FOR_ORIGIN(origin_debug_alias, params->origin);
     bad_message::ReceivedBadMessage(
         process, bad_message::RFH_ERROR_PROCESS_NON_ERROR_COMMIT);
@@ -9109,8 +9037,6 @@ void RenderFrameHostImpl::DidCommitNewDocument(
       NavigationRequest::IsLoadDataWithBaseURLAndUnreachableURL(
           frame_tree_node_->IsMainFrame(), navigation_request->common_params(),
           data_url_as_string);
-
-  RecordWebPlatformSecurityMetrics(this, navigation_request);
 
   CrossOriginOpenerPolicyReporter::InstallAccessMonitorsIfNeeded(
       frame_tree_node_);
@@ -10268,12 +10194,12 @@ RenderFrameHostImpl::PerformMakeCredentialWebAuthSecurityChecks(
   return blink::mojom::AuthenticatorStatus::SUCCESS;
 }
 
-void RenderFrameHostImpl::IsClipboardPasteAllowed(
+void RenderFrameHostImpl::IsClipboardPasteContentAllowed(
     const ui::ClipboardFormatType& data_type,
     const std::string& data,
-    IsClipboardPasteAllowedCallback callback) {
-  delegate_->IsClipboardPasteAllowed(GetLastCommittedURL(), data_type, data,
-                                     std::move(callback));
+    IsClipboardPasteContentAllowedCallback callback) {
+  delegate_->IsClipboardPasteContentAllowed(GetLastCommittedURL(), data_type,
+                                            data, std::move(callback));
 }
 
 RenderFrameHostImpl* RenderFrameHostImpl::ParentOrOuterDelegateFrame() {
@@ -10492,6 +10418,11 @@ void RenderFrameHostImpl::SetEmbeddingToken(
   // or the main frame of an inner web contents (i.e. would need to send it to
   // the RenderFrameProxyHost for the outer web contents owning the inner one).
   PropagateEmbeddingTokenToParentFrame();
+
+  // The accessibility tree for the outermost root frame contains references
+  // to the focused frame via its AXTreeID, so ensure that we update that.
+  if (GetOutermostMainFrame() != this)
+    GetOutermostMainFrame()->UpdateAXTreeData();
 }
 
 bool RenderFrameHostImpl::DocumentUsedWebOTP() {

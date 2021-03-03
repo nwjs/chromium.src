@@ -77,7 +77,7 @@ class ScriptExecutor : public ActionDelegate,
     // Shut down Autofill Assistant.
     SHUTDOWN,
 
-    // Shut down Autofill Assistant after a delay.
+    // Stop Autofill Assistant but keep showing the UI.
     SHUTDOWN_GRACEFULLY,
 
     // Shut down Autofill Assistant and CCT.
@@ -227,7 +227,7 @@ class ScriptExecutor : public ActionDelegate,
       override;
 
   void LoadURL(const GURL& url) override;
-  void Shutdown() override;
+  void Shutdown(bool show_feedback_chip) override;
   void Close() override;
   autofill::PersonalDataManager* GetPersonalDataManager() override;
   WebsiteLoginManager* GetWebsiteLoginManager() override;
@@ -273,7 +273,8 @@ class ScriptExecutor : public ActionDelegate,
   void ClearGenericUi() override;
   void SetOverlayBehavior(
       ConfigureUiStateProto::OverlayBehavior overlay_behavior) override;
-  void MaybeShowSlowWebsiteWarning() override;
+  void MaybeShowSlowWebsiteWarning(
+      base::OnceCallback<void(bool)> callback) override;
   void MaybeShowSlowConnectionWarning() override;
   base::WeakPtr<ActionDelegate> GetWeakPtr() const override;
 
@@ -292,6 +293,9 @@ class ScriptExecutor : public ActionDelegate,
                                              const ScriptExecutor::Result*,
                                              base::TimeDelta)>;
 
+    using WarningCallback =
+        base::OnceCallback<void(base::OnceCallback<void(bool)>)>;
+
     // |main_script_| must not be null and outlive this instance.
     WaitForDomOperation(
         ScriptExecutor* main_script,
@@ -306,7 +310,7 @@ class ScriptExecutor : public ActionDelegate,
 
     void Run();
     void Terminate();
-    void SetTimeoutWarningCallback(base::OnceCallback<void()> timeout_warning);
+    void SetTimeoutWarningCallback(WarningCallback timeout_warning);
 
    private:
     void Start();
@@ -334,6 +338,7 @@ class ScriptExecutor : public ActionDelegate,
     void RunCallback(const ClientStatus& element_status);
     void RunCallbackWithResult(const ClientStatus& element_status,
                                const ScriptExecutor::Result* result);
+    void SetSlowWarningStatus(bool was_shown);
 
     // Saves the current state and sets save_pre_interrupt_state_.
     void SavePreInterruptState();
@@ -355,9 +360,11 @@ class ScriptExecutor : public ActionDelegate,
                                  base::OnceCallback<void(const ClientStatus&)>)>
         check_elements_;
     WaitForDomOperation::Callback callback_;
-    base::OnceCallback<void()> timeout_warning_callback_;
+    base::OnceCallback<void(base::OnceCallback<void(bool)>)> warning_callback_;
     std::unique_ptr<base::OneShotTimer> warning_timer_;
-    base::TimeDelta timeout_warning_period_;
+    base::TimeDelta timeout_warning_delay_;
+
+    SlowWarningStatus warning_status_ = NO_WARNING;
 
     std::unique_ptr<BatchElementChecker> batch_element_checker_;
 
@@ -459,7 +466,7 @@ class ScriptExecutor : public ActionDelegate,
 
   // Maybe shows the message specified in a callout, depending on the current
   // state and client settings.
-  void MaybeShowSlowWarning(const std::string& message, bool enabled);
+  bool MaybeShowSlowWarning(const std::string& message, bool enabled);
 
   const std::string script_path_;
   std::unique_ptr<TriggerContext> additional_context_;
@@ -537,7 +544,8 @@ class ScriptExecutor : public ActionDelegate,
   base::TimeTicks batch_start_time_;
   RoundtripTimingStats roundtrip_timing_stats_;
 
-  bool warning_callout_already_shown_ = false;
+  bool connection_warning_already_shown_ = false;
+  bool website_warning_already_shown_ = false;
   int consecutive_slow_roundtrip_counter_ = 0;
 
   base::WeakPtrFactory<ScriptExecutor> weak_ptr_factory_{this};

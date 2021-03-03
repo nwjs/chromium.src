@@ -55,6 +55,39 @@ class TestCompositorFrameReportingController
       reporters()[i] = nullptr;
     }
   }
+
+  size_t GetBlockingReportersCount() {
+    size_t count = 0;
+    const PipelineStage kStages[] = {
+        PipelineStage::kBeginImplFrame,
+        PipelineStage::kBeginMainFrame,
+        PipelineStage::kCommit,
+        PipelineStage::kActivate,
+    };
+    for (auto stage : kStages) {
+      auto& reporter = reporters()[stage];
+      if (reporter && reporter->GetPartialUpdateDependentsCount() > 0) {
+        ++count;
+      }
+    }
+    return count;
+  }
+
+  size_t GetBlockedReportersCount() {
+    size_t count = 0;
+    const PipelineStage kStages[] = {
+        PipelineStage::kBeginImplFrame,
+        PipelineStage::kBeginMainFrame,
+        PipelineStage::kCommit,
+        PipelineStage::kActivate,
+    };
+    for (auto stage : kStages) {
+      auto& reporter = reporters()[stage];
+      if (reporter)
+        count += reporter->GetPartialUpdateDependentsCount();
+    }
+    return count;
+  }
 };
 
 class CompositorFrameReportingControllerTest : public testing::Test {
@@ -411,31 +444,6 @@ TEST_F(CompositorFrameReportingControllerTest,
                                     0);
   histogram_tester.ExpectTotalCount(
       "CompositorLatency.DroppedFrame.EndActivateToSubmitCompositorFrame", 0);
-}
-
-TEST_F(CompositorFrameReportingControllerTest, ImplFrameCausedNoDamage) {
-  base::HistogramTester histogram_tester;
-
-  SimulateBeginImplFrame();
-  reporting_controller_.OnFinishImplFrame(args_.frame_id);
-  reporting_controller_.DidNotProduceFrame(args_.frame_id,
-                                           FrameSkippedReason::kNoDamage);
-  SimulateBeginImplFrame();
-  histogram_tester.ExpectTotalCount(
-      "CompositorLatency.DroppedFrame.BeginImplFrameToSendBeginMainFrame", 0);
-  histogram_tester.ExpectBucketCount(
-      "CompositorLatency.Type",
-      CompositorFrameReporter::FrameReportType::kDroppedFrame, 0);
-
-  reporting_controller_.OnFinishImplFrame(args_.frame_id);
-  reporting_controller_.DidNotProduceFrame(args_.frame_id,
-                                           FrameSkippedReason::kWaitingOnMain);
-  SimulateBeginImplFrame();
-  histogram_tester.ExpectTotalCount(
-      "CompositorLatency.DroppedFrame.BeginImplFrameToSendBeginMainFrame", 1);
-  histogram_tester.ExpectBucketCount(
-      "CompositorLatency.Type",
-      CompositorFrameReporter::FrameReportType::kDroppedFrame, 1);
 }
 
 TEST_F(CompositorFrameReportingControllerTest, MainFrameCausedNoDamage) {
@@ -1384,6 +1392,10 @@ TEST_F(CompositorFrameReportingControllerTest,
 
 TEST_F(CompositorFrameReportingControllerTest,
        NewMainUpdateIsNotPartialUpdate) {
+  // Start a frame with main-thread update. Submit the frame (and present)
+  // before the main-thread responds. This creates two reporters: R1C and R1M
+  // (R1C for the submitted frame with updates from compositor-thread, and R1M
+  // for the pending main-thread frame).
   SimulateBeginMainFrame();
   reporting_controller_.OnFinishImplFrame(current_id_);
   reporting_controller_.DidSubmitCompositorFrame(1u, current_id_, {}, {});
@@ -1391,6 +1403,7 @@ TEST_F(CompositorFrameReportingControllerTest,
   details.presentation_feedback.timestamp = AdvanceNowByMs(10);
   reporting_controller_.DidPresentCompositorFrame(1u, details);
 
+  // The main-thread responds now, triggering a commit and activation.
   reporting_controller_.WillCommit();
   reporting_controller_.DidCommit();
   reporting_controller_.WillActivate();
@@ -1398,6 +1411,9 @@ TEST_F(CompositorFrameReportingControllerTest,
 
   const auto previous_id = current_id_;
 
+  // Start a new frame with main-thread update. Submit the frame (and present)
+  // before the main-thread responds. This also again creates two reporters: R2C
+  // and R2M.
   SimulateBeginMainFrame();
   reporting_controller_.OnFinishImplFrame(current_id_);
   reporting_controller_.DidSubmitCompositorFrame(1u, current_id_, previous_id,
@@ -1405,8 +1421,13 @@ TEST_F(CompositorFrameReportingControllerTest,
   details.presentation_feedback.timestamp = AdvanceNowByMs(10);
   reporting_controller_.DidPresentCompositorFrame(1u, details);
 
-  EXPECT_EQ(3u, dropped_counter.total_frames());
+  // In total, two frames have been completed: R1C, and R1M.
+  // R2C has been presented, but it is blocked on R2M to know whether R2C
+  // contains partial update, or complete updates. So it is kept alive.
+  EXPECT_EQ(2u, dropped_counter.total_frames());
   EXPECT_EQ(1u, dropped_counter.total_main_dropped());
+  EXPECT_EQ(1u, reporting_controller_.GetBlockingReportersCount());
+  EXPECT_EQ(1u, reporting_controller_.GetBlockedReportersCount());
 
   reporting_controller_.ResetReporters();
   reporting_controller_.SetDroppedFrameCounter(nullptr);
@@ -1472,6 +1493,116 @@ TEST_F(CompositorFrameReportingControllerTest,
   EXPECT_EQ(3u + kSkipFramesActual, dropped_counter.total_frames());
   EXPECT_EQ(0u, dropped_counter.total_main_dropped());
   EXPECT_EQ(kSkipFramesActual, dropped_counter.total_compositor_dropped());
+}
+
+TEST_F(CompositorFrameReportingControllerTest,
+       CompositorFrameBlockedOnMainFrameWithNoDamage) {
+  viz::BeginFrameId current_id_1(1, 1);
+  viz::BeginFrameArgs args_1 = SimulateBeginFrameArgs(current_id_1);
+
+  viz::BeginFrameId current_id_2(1, 2);
+  viz::BeginFrameArgs args_2 = SimulateBeginFrameArgs(current_id_2);
+
+  viz::BeginFrameId current_id_3(1, 3);
+  viz::BeginFrameArgs args_3 = SimulateBeginFrameArgs(current_id_3);
+
+  viz::BeginFrameId current_id_4(1, 4);
+  viz::BeginFrameArgs args_4 = SimulateBeginFrameArgs(current_id_4);
+
+  reporting_controller_.WillBeginImplFrame(args_1);
+  reporting_controller_.WillBeginMainFrame(args_1);
+  reporting_controller_.OnFinishImplFrame(current_id_1);
+  EXPECT_EQ(0u, dropped_counter.total_compositor_dropped());
+  reporting_controller_.DidNotProduceFrame(args_1.frame_id,
+                                           FrameSkippedReason::kWaitingOnMain);
+
+  reporting_controller_.WillBeginImplFrame(args_2);
+  reporting_controller_.OnFinishImplFrame(args_2.frame_id);
+  reporting_controller_.DidNotProduceFrame(args_2.frame_id,
+                                           FrameSkippedReason::kWaitingOnMain);
+
+  reporting_controller_.WillBeginImplFrame(args_3);
+  reporting_controller_.OnFinishImplFrame(args_3.frame_id);
+  reporting_controller_.DidNotProduceFrame(args_3.frame_id,
+                                           FrameSkippedReason::kWaitingOnMain);
+
+  EXPECT_EQ(1u, reporting_controller_.GetBlockingReportersCount());
+  EXPECT_EQ(3u, reporting_controller_.GetBlockedReportersCount());
+
+  // All frames are waiting for the main frame
+  EXPECT_EQ(0u, dropped_counter.total_main_dropped());
+  EXPECT_EQ(0u, dropped_counter.total_compositor_dropped());
+  EXPECT_EQ(0u, dropped_counter.total_frames());
+
+  reporting_controller_.BeginMainFrameAborted(args_1.frame_id);
+  reporting_controller_.DidNotProduceFrame(args_1.frame_id,
+                                           FrameSkippedReason::kNoDamage);
+  EXPECT_EQ(0u, dropped_counter.total_compositor_dropped());
+
+  // New reporters replace older reporters
+  reporting_controller_.WillBeginImplFrame(args_4);
+  reporting_controller_.WillBeginMainFrame(args_4);
+
+  EXPECT_EQ(4u, dropped_counter.total_frames());
+  EXPECT_EQ(0u, dropped_counter.total_main_dropped());
+  EXPECT_EQ(0u, dropped_counter.total_compositor_dropped());
+}
+
+TEST_F(CompositorFrameReportingControllerTest,
+       SkippedFramesFromDisplayCompositorHaveSmoothThread) {
+  auto thread_type_compositor = FrameSequenceMetrics::ThreadType::kCompositor;
+  reporting_controller_.SetThreadAffectsSmoothness(thread_type_compositor,
+                                                   true);
+  dropped_counter.OnFcpReceived();
+
+  // Submit and present two compositor frames.
+  SimulatePresentCompositorFrame();
+  EXPECT_EQ(1u, dropped_counter.total_frames());
+  EXPECT_EQ(0u, dropped_counter.total_main_dropped());
+  EXPECT_EQ(0u, dropped_counter.total_compositor_dropped());
+
+  SimulatePresentCompositorFrame();
+  EXPECT_EQ(2u, dropped_counter.total_frames());
+  EXPECT_EQ(0u, dropped_counter.total_main_dropped());
+  EXPECT_EQ(0u, dropped_counter.total_compositor_dropped());
+
+  // Now skip over a few frames, and submit + present another frame.
+  const uint32_t kSkipFrames_1 = 5;
+  for (uint32_t i = 0; i < kSkipFrames_1; ++i)
+    IncrementCurrentId();
+  SimulatePresentCompositorFrame();
+  EXPECT_EQ(3u + kSkipFrames_1, dropped_counter.total_frames());
+  EXPECT_EQ(0u, dropped_counter.total_main_dropped());
+  EXPECT_EQ(kSkipFrames_1, dropped_counter.total_compositor_dropped());
+  EXPECT_EQ(kSkipFrames_1, dropped_counter.total_smoothness_dropped());
+
+  // Now skip over a few frames which are not affecting smoothness.
+  reporting_controller_.SetThreadAffectsSmoothness(thread_type_compositor,
+                                                   false);
+  const uint32_t kSkipFrames_2 = 7;
+  for (uint32_t i = 0; i < kSkipFrames_2; ++i)
+    IncrementCurrentId();
+  SimulatePresentCompositorFrame();  // Present another frame.
+  EXPECT_EQ(4u + kSkipFrames_1 + kSkipFrames_2, dropped_counter.total_frames());
+  EXPECT_EQ(0u, dropped_counter.total_main_dropped());
+  EXPECT_EQ(kSkipFrames_1 + kSkipFrames_2,
+            dropped_counter.total_compositor_dropped());
+  EXPECT_EQ(kSkipFrames_1, dropped_counter.total_smoothness_dropped());
+
+  // Now skip over a few frames more frames which are affecting smoothness.
+  reporting_controller_.SetThreadAffectsSmoothness(thread_type_compositor,
+                                                   true);
+  const uint32_t kSkipFrames_3 = 10;
+  for (uint32_t i = 0; i < kSkipFrames_3; ++i)
+    IncrementCurrentId();
+  SimulatePresentCompositorFrame();  // Present another frame.
+  EXPECT_EQ(5u + kSkipFrames_1 + kSkipFrames_2 + kSkipFrames_3,
+            dropped_counter.total_frames());
+  EXPECT_EQ(0u, dropped_counter.total_main_dropped());
+  EXPECT_EQ(kSkipFrames_1 + kSkipFrames_2 + kSkipFrames_3,
+            dropped_counter.total_compositor_dropped());
+  EXPECT_EQ(kSkipFrames_1 + kSkipFrames_3,
+            dropped_counter.total_smoothness_dropped());
 }
 
 }  // namespace

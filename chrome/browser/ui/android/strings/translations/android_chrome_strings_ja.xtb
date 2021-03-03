@@ -14,7 +14,7 @@
 <translation id="107147699690128016">ファイル拡張子を変更すると、ファイルが別のアプリケーションで開かれる可能性があり、場合によってはデバイスに損害が生じます。</translation>
 <translation id="1094515529340404628">ウェブクラウドと広告の効果測定</translation>
 <translation id="1100066534610197918">新しいタブをグループで開く</translation>
-<translation id="1105960400813249514">画面キャプチャ</translation>
+<translation id="1105960400813249514">スクリーン キャプチャ</translation>
 <translation id="1111673857033749125">他のデバイスに保存されているブックマークがここに表示されます。</translation>
 <translation id="1113597929977215864">簡易表示する</translation>
 <translation id="1118561384561215815">ウェブ上のタスクのサポート</translation>
@@ -242,6 +242,7 @@
 <translation id="2704606927547763573">コピーしました</translation>
 <translation id="2707726405694321444">ページを更新</translation>
 <translation id="2709516037105925701">自動入力</translation>
+<translation id="271033894570825754">新しいファイル</translation>
 <translation id="2718352093833049315">Wi-Fi接続時のみ</translation>
 <translation id="2718846868787000099">ご希望の言語でコンテンツを表示するため、アクセス先のサイトには設定内容が伝えられます</translation>
 <translation id="2723001399770238859">音声</translation>
@@ -1099,6 +1100,7 @@
 <translation id="8583805026567836021">アカウント データをクリア中</translation>
 <translation id="8587585930972369234">長押しして検索</translation>
 <translation id="860043288473659153">カード名義人</translation>
+<translation id="860282621117673749">値下げアラート</translation>
 <translation id="8616006591992756292">お使いの Google アカウントの <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> に、他の形式の閲覧履歴が記録されている場合があります。</translation>
 <translation id="8617240290563765734">ダウンロード コンテンツに指定されている URL を開きますか？</translation>
 <translation id="8636825310635137004">他のデバイスと同じタブを使用するには、同期を有効にします。</translation>

@@ -157,7 +157,8 @@ VaapiVideoDecoder::~VaapiVideoDecoder() {
 void VaapiVideoDecoder::Initialize(const VideoDecoderConfig& config,
                                    CdmContext* cdm_context,
                                    InitCB init_cb,
-                                   const OutputCB& output_cb) {
+                                   const OutputCB& output_cb,
+                                   const WaitingCB& waiting_cb) {
   DVLOGF(2) << config.AsHumanReadableString();
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(config.IsValidConfig());
@@ -268,6 +269,7 @@ void VaapiVideoDecoder::Initialize(const VideoDecoderConfig& config,
   pixel_aspect_ratio_ = config.GetPixelAspectRatio();
 
   output_cb_ = std::move(output_cb);
+  waiting_cb_ = std::move(waiting_cb);
   SetState(State::kWaitingForInput);
 
   // Notify client initialization was successful.
@@ -389,7 +391,12 @@ void VaapiVideoDecoder::HandleDecodeTask() {
       break;
     case AcceleratedVideoDecoder::kTryAgain:
       DVLOG(1) << "Decoder going into the waiting for protected state";
+      DCHECK_NE(encryption_scheme_, EncryptionScheme::kUnencrypted);
       SetState(State::kWaitingForProtected);
+      // If we have lost our protected HW session, it should be recoverable, so
+      // indicate that we have lost our decoder state so it can be reloaded.
+      if (decoder_delegate_->HasInitiatedProtectedRecovery())
+        waiting_cb_.Run(WaitingReason::kDecoderStateLost);
       break;
   }
 }
@@ -568,6 +575,14 @@ void VaapiVideoDecoder::SurfaceReady(scoped_refptr<VASurface> va_surface,
     video_frame = std::move(wrapped_frame);
   }
 
+  if (cdm_context_ref_) {
+    // For protected content we also need to set the ID for validating protected
+    // surfaces in the VideoFrame metadata so we can check if the surface is
+    // still valid once we get to the compositor stage.
+    uint32_t protected_instance_id = vaapi_wrapper_->GetProtectedInstanceID();
+    video_frame->metadata().hw_protected_validation_id = protected_instance_id;
+  }
+
   const auto gfx_color_space = color_space.ToGfxColorSpace();
   if (gfx_color_space.IsValid())
     video_frame->set_color_space(gfx_color_space);
@@ -602,9 +617,18 @@ void VaapiVideoDecoder::ApplyResolutionChangeWithScreenSizes(
     const std::vector<gfx::Size>& screen_resolutions) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(state_ == State::kChangingResolution ||
-         state_ == State::kWaitingForInput);
+         state_ == State::kWaitingForInput || state_ == State::kResetting ||
+         state_ == State::kError);
   DCHECK(output_frames_.empty());
   VLOGF(2);
+  // If we are not in the state for changing resolution, then skip doing it. For
+  // all the other states, those can occur because something happened after the
+  // async call to get the screen sizes in ApplyResolutionChange(), and in that
+  // case we will get another resolution change event when the decoder parses
+  // the resolution and notifies us.
+  if (state_ != State::kChangingResolution)
+    return;
+
   const uint8_t bit_depth = decoder_->GetBitDepth();
   const base::Optional<VideoPixelFormat> format =
       GetPixelFormatForBitDepth(bit_depth);
@@ -995,7 +1019,8 @@ void VaapiVideoDecoder::SetState(State state) {
     case State::kResetting:
       DCHECK(state_ == State::kWaitingForInput ||
              state_ == State::kWaitingForOutput || state_ == State::kDecoding ||
-             state_ == State::kWaitingForProtected);
+             state_ == State::kWaitingForProtected ||
+             state_ == State::kChangingResolution);
       ClearDecodeTaskQueue(DecodeStatus::ABORTED);
       break;
     case State::kChangingResolution:

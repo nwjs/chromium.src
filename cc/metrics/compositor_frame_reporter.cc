@@ -389,6 +389,10 @@ CompositorFrameReporter::CompositorFrameReporter(
 
 std::unique_ptr<CompositorFrameReporter>
 CompositorFrameReporter::CopyReporterAtBeginImplStage() {
+  // If |this| reporter is dependent on another reporter to decide about partial
+  // update, then |this| should not have any such dependents.
+  DCHECK(!partial_update_decider_);
+
   if (stage_history_.empty() ||
       stage_history_.front().stage_type !=
           StageType::kBeginImplFrameToSendBeginMainFrame ||
@@ -405,11 +409,11 @@ CompositorFrameReporter::CopyReporterAtBeginImplStage() {
       StageType::kBeginImplFrameToSendBeginMainFrame;
   new_reporter->current_stage_.start_time = stage_history_.front().start_time;
   new_reporter->set_tick_clock(tick_clock_);
-  new_reporter->cloned_from_ = weak_factory_.GetWeakPtr();
 
-  // TODO(https://crbug.com/1127872) Check |cloned_to_| is null before replacing
-  // it.
-  cloned_to_ = new_reporter->GetWeakPtr();
+  // Set up the new reporter so that it depends on |this| for partial update
+  // information.
+  new_reporter->SetPartialUpdateDecider(weak_factory_.GetWeakPtr());
+
   return new_reporter;
 }
 
@@ -530,21 +534,34 @@ void CompositorFrameReporter::TerminateReporter() {
     case FrameTerminationStatus::kReplacedByNewReporter:
       EnableReportType(FrameReportType::kDroppedFrame);
       break;
-    case FrameTerminationStatus::kDidNotProduceFrame:
-      if (frame_skip_reason_.has_value() &&
-          frame_skip_reason() == FrameSkippedReason::kNoDamage) {
-        // If this reporter was cloned, and the cloned repoter was marked as
+    case FrameTerminationStatus::kDidNotProduceFrame: {
+      const bool no_update_from_main =
+          frame_skip_reason_.has_value() &&
+          frame_skip_reason() == FrameSkippedReason::kNoDamage;
+      const bool no_update_from_compositor =
+          !has_partial_update_ && frame_skip_reason_.has_value() &&
+          frame_skip_reason() == FrameSkippedReason::kWaitingOnMain;
+
+      if (no_update_from_main) {
+        // If this reporter was cloned, and the cloned reporter was marked as
         // containing 'partial update' (i.e. missing desired updates from the
         // main-thread), but this reporter terminated with 'no damage', then
-        // reset the 'partial update' flag from the cloned reporter.
-        if (cloned_to_ && cloned_to_->has_partial_update())
-          cloned_to_->set_has_partial_update(false);
-      } else {
-        // If no frames were produced, it was not due to no-damage, then it is a
-        // dropped frame.
+        // reset the 'partial update' flag from the cloned reporter (as well as
+        // other depending reporters).
+        while (!partial_update_dependents_.empty()) {
+          auto dependent = partial_update_dependents_.front();
+          if (dependent)
+            dependent->set_has_partial_update(false);
+          partial_update_dependents_.pop();
+        }
+      } else if (!no_update_from_compositor) {
+        // If rather main thread has damage or compositor thread has partial
+        // damage, then it's a dropped frame.
         EnableReportType(FrameReportType::kDroppedFrame);
       }
+
       break;
+    }
     case FrameTerminationStatus::kUnknown:
       break;
   }
@@ -581,6 +598,11 @@ void CompositorFrameReporter::TerminateReporter() {
     dropped_frame_counter_->OnEndFrame(args_,
                                        IsDroppedFrameAffectingSmoothness());
   }
+
+  if (discarded_partial_update_dependents_count_ > 0)
+    UMA_HISTOGRAM_CUSTOM_COUNTS(
+        "Graphics.Smoothness.Diagnostic.DiscardedDependentCount",
+        discarded_partial_update_dependents_count_, 1, 1000, 50);
 }
 
 void CompositorFrameReporter::EndCurrentStage(base::TimeTicks end_time) {
@@ -951,7 +973,7 @@ void CompositorFrameReporter::ReportCompositorLatencyTraceEvents() const {
                    FrameTerminationStatus::kDidNotProduceFrame) {
           state = ChromeFrameReporter::STATE_NO_UPDATE_DESIRED;
         } else {
-          state = has_partial_update()
+          state = has_partial_update_
                       ? ChromeFrameReporter::STATE_PRESENTED_PARTIAL
                       : ChromeFrameReporter::STATE_PRESENTED_ALL;
         }
@@ -1236,8 +1258,41 @@ base::WeakPtr<CompositorFrameReporter> CompositorFrameReporter::GetWeakPtr() {
 
 void CompositorFrameReporter::AdoptReporter(
     std::unique_ptr<CompositorFrameReporter> reporter) {
-  DCHECK_EQ(cloned_to_.get(), reporter.get());
-  own_cloned_to_ = std::move(reporter);
+  // If |this| reporter is dependent on another reporter to decide about partial
+  // update, then |this| should not have any such dependents.
+  DCHECK(!partial_update_decider_);
+  DCHECK(!partial_update_dependents_.empty());
+  owned_partial_update_dependents_.push(std::move(reporter));
+  DiscardOldPartialUpdateReporters();
+}
+
+void CompositorFrameReporter::SetPartialUpdateDecider(
+    base::WeakPtr<CompositorFrameReporter> decider) {
+  DCHECK(decider);
+  has_partial_update_ = true;
+  partial_update_decider_ = decider;
+  decider->partial_update_dependents_.push(GetWeakPtr());
+  DCHECK(partial_update_dependents_.empty());
+}
+
+void CompositorFrameReporter::DiscardOldPartialUpdateReporters() {
+  DCHECK_LE(owned_partial_update_dependents_.size(),
+            partial_update_dependents_.size());
+  while (owned_partial_update_dependents_.size() > 300u) {
+    auto& dependent = owned_partial_update_dependents_.front();
+    dependent->set_has_partial_update(false);
+    partial_update_dependents_.pop();
+    owned_partial_update_dependents_.pop();
+    discarded_partial_update_dependents_count_++;
+  }
+}
+
+bool CompositorFrameReporter::MightHavePartialUpdate() const {
+  return !!partial_update_decider_;
+}
+
+size_t CompositorFrameReporter::GetPartialUpdateDependentsCount() const {
+  return partial_update_dependents_.size();
 }
 
 }  // namespace cc

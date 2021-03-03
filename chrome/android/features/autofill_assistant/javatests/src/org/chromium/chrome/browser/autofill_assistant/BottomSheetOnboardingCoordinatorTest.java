@@ -11,6 +11,7 @@ import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.assertThat;
 import static androidx.test.espresso.matcher.ViewMatchers.isCompletelyDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
+import static androidx.test.espresso.matcher.ViewMatchers.withContentDescription;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 
 import static org.hamcrest.CoreMatchers.allOf;
@@ -77,7 +78,7 @@ public class BottomSheetOnboardingCoordinatorTest {
     public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Mock
-    Callback<Boolean> mCallback;
+    Callback<Integer> mCallback;
 
     private ChromeActivity mActivity;
     private BottomSheetController mBottomSheetController;
@@ -106,17 +107,19 @@ public class BottomSheetOnboardingCoordinatorTest {
     @Test
     @MediumTest
     public void testAcceptOnboarding() throws Exception {
-        testOnboarding(R.id.button_init_ok, true);
+        testOnboarding(R.id.button_init_ok, AssistantOnboardingResult.ACCEPTED);
     }
 
     @Test
     @MediumTest
     public void testRejectOnboarding() throws Exception {
-        testOnboarding(R.id.button_init_not_ok, false);
+        testOnboarding(R.id.button_init_not_ok, AssistantOnboardingResult.REJECTED);
     }
 
-    private void testOnboarding(@IdRes int buttonToClick, boolean expectAccept) throws Exception {
-        AutofillAssistantPreferencesUtil.setInitialPreferences(!expectAccept);
+    private void testOnboarding(@IdRes int buttonToClick,
+            @AssistantOnboardingResult int expectedResult) throws Exception {
+        AutofillAssistantPreferencesUtil.setInitialPreferences(
+                expectedResult != AssistantOnboardingResult.ACCEPTED);
 
         BottomSheetOnboardingCoordinator coordinator = createCoordinator();
         showOnboardingAndWait(coordinator, mCallback);
@@ -125,9 +128,10 @@ public class BottomSheetOnboardingCoordinatorTest {
         onView(is(mScrimCoordinator.getViewForTesting())).check(matches(isDisplayed()));
         onView(withId(buttonToClick)).perform(scrollTo(), click());
 
-        verify(mCallback).onResult(expectAccept);
+        verify(mCallback).onResult(expectedResult);
         assertFalse(TestThreadUtils.runOnUiThreadBlocking(coordinator::isInProgress));
-        assertEquals(expectAccept, AutofillAssistantPreferencesUtil.isAutofillOnboardingAccepted());
+        assertEquals(expectedResult == AssistantOnboardingResult.ACCEPTED,
+                AutofillAssistantPreferencesUtil.isAutofillOnboardingAccepted());
     }
 
     @Test
@@ -136,9 +140,14 @@ public class BottomSheetOnboardingCoordinatorTest {
         BottomSheetOnboardingCoordinator coordinator = createCoordinator();
         showOnboardingAndWait(coordinator, mCallback);
 
+        onView(withId(R.id.button_init_not_ok))
+                .check(matches(withContentDescription(R.string.cancel)));
+        onView(withId(R.id.button_init_ok))
+                .check(matches(withContentDescription(R.string.init_ok)));
+
         onView(withId(R.id.button_init_ok)).perform(click());
 
-        verify(mCallback).onResult(true);
+        verify(mCallback).onResult(AssistantOnboardingResult.ACCEPTED);
     }
 
     @Test
@@ -148,8 +157,8 @@ public class BottomSheetOnboardingCoordinatorTest {
 
         List<AssistantOverlayCoordinator> capturedOverlays =
                 Collections.synchronizedList(new ArrayList<>());
-        showOnboardingAndWait(coordinator,
-                (accepted) -> { capturedOverlays.add(coordinator.transferControls()); });
+        showOnboardingAndWait(
+                coordinator, (result) -> { capturedOverlays.add(coordinator.transferControls()); });
 
         onView(withId(R.id.button_init_ok)).perform(click());
         assertFalse(TestThreadUtils.runOnUiThreadBlocking(coordinator::isInProgress));
@@ -370,7 +379,7 @@ public class BottomSheetOnboardingCoordinatorTest {
 
     /** Trigger onboarding and wait until it is fully displayed. */
     private void showOnboardingAndWait(
-            BottomSheetOnboardingCoordinator coordinator, Callback<Boolean> callback) {
+            BottomSheetOnboardingCoordinator coordinator, Callback<Integer> callback) {
         TestThreadUtils.runOnUiThreadBlocking(() -> coordinator.show(callback));
         waitUntilViewMatchesCondition(withId(R.id.button_init_ok), isCompletelyDisplayed());
     }

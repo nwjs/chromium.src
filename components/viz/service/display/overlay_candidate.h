@@ -35,11 +35,13 @@ class VideoHoleDrawQuad;
 class VIZ_SERVICE_EXPORT OverlayCandidate {
  public:
   // Returns true and fills in |candidate| if |draw_quad| is of a known quad
-  // type and contains an overlayable resource.
+  // type and contains an overlayable resource. |primary_rect| can be empty in
+  // the case of a null primary plane.
   static bool FromDrawQuad(DisplayResourceProvider* resource_provider,
                            SurfaceDamageRectList* surface_damage_rect_list,
                            const SkMatrix44& output_color_matrix,
                            const DrawQuad* quad,
+                           const gfx::RectF& primary_rect,
                            OverlayCandidate* candidate);
   // Returns true if |quad| will not block quads underneath from becoming
   // an overlay.
@@ -133,6 +135,10 @@ class VIZ_SERVICE_EXPORT OverlayCandidate {
   // Is true if an HW overlay is required for the quad content.
   bool requires_overlay = false;
 
+  // Identifier passed through by the video decoder that allows us to validate
+  // if a protected surface can still be displayed. Non-zero when valid.
+  uint32_t hw_protected_validation_id = 0;
+
  private:
   static bool FromDrawQuadResource(
       DisplayResourceProvider* resource_provider,
@@ -144,6 +150,7 @@ class VIZ_SERVICE_EXPORT OverlayCandidate {
   static bool FromTextureQuad(DisplayResourceProvider* resource_provider,
                               SurfaceDamageRectList* surface_damage_rect_list,
                               const TextureDrawQuad* quad,
+                              const gfx::RectF& primary_rect,
                               OverlayCandidate* candidate);
   static bool FromStreamVideoQuad(
       DisplayResourceProvider* resource_provider,
@@ -154,7 +161,8 @@ class VIZ_SERVICE_EXPORT OverlayCandidate {
                                 SurfaceDamageRectList* surface_damage_rect_list,
                                 const VideoHoleDrawQuad* quad,
                                 OverlayCandidate* candidate);
-  static void HandleClipAndSubsampling(OverlayCandidate* candidate);
+  static void HandleClipAndSubsampling(OverlayCandidate* candidate,
+                                       const gfx::RectF& primary_rect);
 };
 
 using OverlayCandidateList = std::vector<OverlayCandidate>;

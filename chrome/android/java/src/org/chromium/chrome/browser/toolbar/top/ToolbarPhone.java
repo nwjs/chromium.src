@@ -427,7 +427,7 @@ public class ToolbarPhone extends ToolbarLayout implements OnClickListener, TabC
         mToggleTabStackButton.setOnKeyListener(new KeyboardNavigationListener() {
             @Override
             public View getNextFocusForward() {
-                if (getMenuButtonCoordinator().isShown()) {
+                if (isMenuButtonPresent()) {
                     return getMenuButtonCoordinator().getMenuButton();
                 } else {
                     return getCurrentTabView();
@@ -876,7 +876,8 @@ public class ToolbarPhone extends ToolbarLayout implements OnClickListener, TabC
      *         some adjustment to account for possible padding differences when the button
      *         visibility changes.
      */
-    private float getLocationBarWidthOffsetForOptionalButton() {
+    @VisibleForTesting
+    float getLocationBarWidthOffsetForOptionalButton() {
         float widthChange = mOptionalButton.getWidth();
 
         // When the optional button is the only visible button after the location bar and the
@@ -1597,15 +1598,24 @@ public class ToolbarPhone extends ToolbarLayout implements OnClickListener, TabC
 
     @Override
     public void updateButtonVisibility() {
-        if (mHomeButton == null) return;
-
-        boolean hideHomeButton = !mIsHomeButtonEnabled
-                || ReturnToChromeExperimentsUtil.shouldHideHomeButtonForStartSurface(
-                        isIncognito(), false /* isTablet */);
-        if (hideHomeButton) {
-            removeHomeButton();
-        } else {
-            addHomeButton();
+        if (mHomeButton != null) {
+            boolean hideHomeButton = !mIsHomeButtonEnabled
+                    || ReturnToChromeExperimentsUtil.shouldHideHomeButtonForStartSurface(
+                            isIncognito(), false /* isTablet */);
+            if (hideHomeButton) {
+                removeHomeButton();
+            } else {
+                addHomeButton();
+            }
+        }
+        if (mOptionalButton != null) {
+            if (isMenuButtonPresent()) {
+                int padding = getResources().getDimensionPixelSize(
+                        R.dimen.toolbar_phone_optional_button_padding);
+                mOptionalButton.setPaddingRelative(padding, 0, 0, 0);
+            } else {
+                mOptionalButton.setPadding(0, 0, 0, 0);
+            }
         }
     }
 
@@ -2491,7 +2501,6 @@ public class ToolbarPhone extends ToolbarLayout implements OnClickListener, TabC
             ViewStub viewStub = findViewById(R.id.optional_button_stub);
             mOptionalButton = (ImageButton) viewStub.inflate();
 
-            if (!isMenuButtonPresent()) mOptionalButton.setPadding(0, 0, 0, 0);
             mOptionalButtonTranslation = getResources().getDimensionPixelSize(
                     R.dimen.toolbar_optional_button_animation_translation);
             if (getLayoutDirection() == LAYOUT_DIRECTION_RTL) mOptionalButtonTranslation *= -1;
@@ -2560,7 +2569,7 @@ public class ToolbarPhone extends ToolbarLayout implements OnClickListener, TabC
      * buttons besides the optional button.
      */
     private boolean isMenuButtonPresent() {
-        return getMenuButtonCoordinator().isShown();
+        return getMenuButtonCoordinator().isVisible();
     }
 
     private void requestLayoutHostUpdateForOptionalButton() {

@@ -495,6 +495,8 @@ Browser::Browser(const CreateParams& params)
       override_bounds_(params.initial_bounds),
       initial_show_state_(params.initial_show_state),
       initial_workspace_(params.initial_workspace),
+      initial_visible_on_all_workspaces_state_(
+          params.initial_visible_on_all_workspaces_state),
       initial_ontop_(params.always_on_top),
       initial_allvisible_(params.all_visible),
       initial_resizable_(params.resizable),

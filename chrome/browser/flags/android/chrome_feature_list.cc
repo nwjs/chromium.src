@@ -84,6 +84,8 @@ const base::Feature* kFeaturesExposedToJava[] = {
     &autofill_assistant::features::kAutofillAssistantChromeEntry,
     &autofill_assistant::features::kAutofillAssistantDirectActions,
     &autofill_assistant::features::kAutofillAssistantDisableOnboardingFlow,
+    &autofill_assistant::features::kAutofillAssistantFeedbackChip,
+    &autofill_assistant::features::kAutofillAssistantLoadDFMForTriggerScripts,
     &autofill_assistant::features::kAutofillAssistantProactiveHelp,
     &autofill_assistant::features::
         kAutofillAssistantDisableProactiveHelpTiedToMSBB,
@@ -95,6 +97,7 @@ const base::Feature* kFeaturesExposedToJava[] = {
     &download::features::kUseDownloadOfflineContentProvider,
     &embedder_support::kShowTrustedPublisherURL,
     &features::kClearOldBrowsingData,
+    &features::kDexFixer,
     &features::kDownloadsLocationChange,
     &features::kEarlyLibraryLoad,
     &features::kGenericSensorExtraClasses,
@@ -131,6 +134,7 @@ const base::Feature* kFeaturesExposedToJava[] = {
     &kAndroidNightModeTabReparenting,
     &kAndroidPartnerCustomizationPhenotype,
     &kAndroidSearchEngineChoiceNotification,
+    &kAssistantIntentExperimentId,
     &kAssistantIntentPageUrl,
     &kAssistantIntentTranslateInfo,
     &kBentoOffline,
@@ -197,6 +201,7 @@ const base::Feature* kFeaturesExposedToJava[] = {
     &kOfflineIndicatorV2,
     &kOfflineMeasurementsBackgroundTask,
     &kOmniboxSpareRenderer,
+    &kPageAnnotationsService,
     &kProbabilisticCryptidRenderer,
     &kReachedCodeProfiler,
     &kReaderModeInCCT,
@@ -347,6 +352,9 @@ const base::Feature kAndroidPartnerCustomizationPhenotype{
 
 const base::Feature kAndroidSearchEngineChoiceNotification{
     "AndroidSearchEngineChoiceNotification", base::FEATURE_ENABLED_BY_DEFAULT};
+
+const base::Feature kAssistantIntentExperimentId{
+    "AssistantIntentExperimentId", base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kAssistantIntentPageUrl{"AssistantIntentPageUrl",
                                             base::FEATURE_DISABLED_BY_DEFAULT};
@@ -559,6 +567,9 @@ const base::Feature kOfflineMeasurementsBackgroundTask{
 
 const base::Feature kOmniboxSpareRenderer{"OmniboxSpareRenderer",
                                           base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::Feature kPageAnnotationsService{"PageAnnotationsService",
+                                            base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kProbabilisticCryptidRenderer{
     "ProbabilisticCryptidRenderer", base::FEATURE_DISABLED_BY_DEFAULT};

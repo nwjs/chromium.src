@@ -36,24 +36,24 @@ constexpr int kCloseButtonMargin = 8;
 
 constexpr int kMinDeskNameViewWidth = 56;
 
-// Returns the width of the desk preview based on its |preview_height| and the
-// aspect ratio of the root window taken from |root_window_size|.
-int GetPreviewWidth(const gfx::Size& root_window_size, int preview_height) {
-  return preview_height * root_window_size.width() / root_window_size.height();
-}
-
-// The desk preview bounds are proportional to the bounds of the display on
-// which it resides, and whether the |compact| layout is used.
-gfx::Rect GetDeskPreviewBounds(aura::Window* root_window, bool compact) {
-  const int preview_height = DeskPreviewView::GetHeight(root_window, compact);
-  const auto root_size = root_window->bounds().size();
-  return gfx::Rect(GetPreviewWidth(root_size, preview_height), preview_height);
-}
-
 }  // namespace
 
 // -----------------------------------------------------------------------------
 // DeskMiniView
+
+// static
+int DeskMiniView::GetPreviewWidth(const gfx::Size& root_window_size,
+                                  int preview_height) {
+  return preview_height * root_window_size.width() / root_window_size.height();
+}
+
+// static
+gfx::Rect DeskMiniView::GetDeskPreviewBounds(aura::Window* root_window,
+                                             bool compact) {
+  const int preview_height = DeskPreviewView::GetHeight(root_window, compact);
+  const auto root_size = root_window->bounds().size();
+  return gfx::Rect(GetPreviewWidth(root_size, preview_height), preview_height);
+}
 
 DeskMiniView::DeskMiniView(DesksBarView* owner_bar,
                            aura::Window* root_window,
@@ -149,6 +149,10 @@ void DeskMiniView::UpdateBorderColor() {
     desk_preview_->SetBorderColor(color_provider->GetContentLayerColor(
         AshColorProvider::ContentLayerType::kCurrentDeskColor));
   }
+}
+
+gfx::Insets DeskMiniView::GetPreviewBorderInsets() const {
+  return desk_preview_->border()->GetInsets();
 }
 
 const char* DeskMiniView::GetClassName() const {
@@ -394,13 +398,13 @@ void DeskMiniView::OnViewBlurred(views::View* observed_view) {
   desk_name_view_->UpdateViewAppearance();
 
   // When committing the name, do not allow an empty desk name. Revert back to
-  // the default name.
+  // the default name if the desk is not being removed.
   // TODO(afakhry): Make this more robust. What if user renames a previously
   // user-modified desk name, say from "code" to "Desk 2", and that desk
   // happened to be in the second position. Since the new name matches the
   // default one for this position, should we revert it (i.e. consider it
   // `set_by_user = false`?
-  if (desk_->name().empty()) {
+  if (!desk_->is_desk_being_removed() && desk_->name().empty()) {
     DesksController::Get()->RevertDeskNameToDefault(desk_);
     return;
   }
@@ -457,9 +461,11 @@ void DeskMiniView::LayoutDeskNameView(const gfx::Rect& preview_bounds) {
 
   const int desk_name_view_x =
       preview_bounds.x() + (preview_bounds.width() - text_width) / 2;
-  gfx::Rect desk_name_view_bounds{
-      desk_name_view_x, preview_bounds.bottom() + kLabelPreviewSpacing,
-      text_width, desk_name_view_size.height()};
+  gfx::Rect desk_name_view_bounds{desk_name_view_x,
+                                  preview_bounds.bottom() -
+                                      GetPreviewBorderInsets().bottom() +
+                                      kLabelPreviewSpacing,
+                                  text_width, desk_name_view_size.height()};
   desk_name_view_->SetBoundsRect(desk_name_view_bounds);
 
   // A change in the DeskNameView's width might mean the need

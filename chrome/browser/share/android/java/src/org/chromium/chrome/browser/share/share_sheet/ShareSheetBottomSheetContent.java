@@ -145,7 +145,13 @@ class ShareSheetBottomSheetContent implements BottomSheetContent, OnItemClickLis
             TextView view = (TextView) parent.findViewById(R.id.text);
             view.setText(model.get(ShareSheetItemViewProperties.LABEL));
         } else if (ShareSheetItemViewProperties.CLICK_LISTENER.equals(propertyKey)) {
-            parent.setOnClickListener(model.get(ShareSheetItemViewProperties.CLICK_LISTENER));
+            View layout = (View) parent.findViewById(R.id.layout);
+            layout.setOnClickListener(model.get(ShareSheetItemViewProperties.CLICK_LISTENER));
+        } else if (ShareSheetItemViewProperties.SHOW_NEW_BADGE.equals(propertyKey)) {
+            TextView newBadge = (TextView) parent.findViewById(R.id.display_new);
+            newBadge.setVisibility(model.get(ShareSheetItemViewProperties.SHOW_NEW_BADGE)
+                            ? View.VISIBLE
+                            : View.GONE);
         }
     }
 
@@ -154,6 +160,7 @@ class ShareSheetBottomSheetContent implements BottomSheetContent, OnItemClickLis
         bindShareItem(model, parent, propertyKey);
         if (ShareSheetItemViewProperties.ICON.equals(propertyKey)) {
             ImageView view = (ImageView) parent.findViewById(R.id.icon);
+            View layout = (View) parent.findViewById(R.id.layout);
 
             final int iconSize =
                     ContextUtils.getApplicationContext().getResources().getDimensionPixelSize(
@@ -165,7 +172,7 @@ class ShareSheetBottomSheetContent implements BottomSheetContent, OnItemClickLis
             params.height = iconSize;
             params.width = iconSize;
             view.requestLayout();
-            parent.setPadding(0, paddingTop, 0, 0);
+            layout.setPadding(0, paddingTop, 0, 0);
         }
     }
 

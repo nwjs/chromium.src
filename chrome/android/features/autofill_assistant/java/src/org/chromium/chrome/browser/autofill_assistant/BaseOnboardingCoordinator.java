@@ -20,7 +20,6 @@ import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.JNINamespace;
 import org.chromium.base.annotations.NativeMethods;
 import org.chromium.chrome.autofill_assistant.R;
-import org.chromium.chrome.browser.autofill_assistant.metrics.DropOutReason;
 import org.chromium.chrome.browser.autofill_assistant.metrics.OnBoarding;
 import org.chromium.chrome.browser.autofill_assistant.overlay.AssistantOverlayCoordinator;
 import org.chromium.chrome.browser.customtabs.CustomTabActivity;
@@ -41,7 +40,7 @@ import java.util.Map;
  */
 @JNINamespace("autofill_assistant")
 // TODO(b/174445633): Add a public interface for |show()|, |hide()| and |getOboardingShown()|
-abstract class BaseOnboardingCoordinator {
+public abstract class BaseOnboardingCoordinator {
     private static final String INTENT_IDENTFIER = "INTENT";
     private static final String FETCH_TIMEOUT_IDENTIFIER = "ONBOARDING_FETCH_TIMEOUT_MS";
     private static final String BUY_MOVIE_TICKETS_INTENT = "BUY_MOVIE_TICKET";
@@ -64,7 +63,7 @@ abstract class BaseOnboardingCoordinator {
     private WebContentsObserver mWebContentsObserver;
     private boolean mOnboardingShown;
 
-    private final Context mContext;
+    final Context mContext;
     boolean mAnimate = true;
     @Nullable
     ScrollView mView;
@@ -74,20 +73,20 @@ abstract class BaseOnboardingCoordinator {
         mExperimentIds = experimentIds;
         mParameters = parameters;
         mContext = context;
-        mView = (ScrollView) LayoutUtils.createInflater(mContext).inflate(
-                R.layout.autofill_assistant_onboarding, /* root= */ null);
+
+        mView = createViewImpl();
     }
 
     /**
      * Shows onboarding and provides the result to the given callback.
      *
-     * <p>The {@code callback} will be called with true or false when the user accepts or cancels
-     * the onboarding (respectively).
+     * <p>The {@code callback} will be called when the user accepts, cancels or dismisses the
+     * onboarding.
      *
      * <p>The {@code targetUrl} is the initial URL Autofill Assistant is being started on. The
      * navigation to that URL is allowed, other navigations will hide Autofill Assistant.
      */
-    void show(Callback<Boolean> callback, WebContents webContents, String targetUrl) {
+    public void show(Callback<Integer> callback, WebContents webContents, String targetUrl) {
         addWebContentObserver(callback, webContents, targetUrl);
         show(callback);
     }
@@ -95,14 +94,14 @@ abstract class BaseOnboardingCoordinator {
     /**
      * Shows onboarding and provides the result to the given callback.
      *
-     * <p>The {@code callback} will be called with true or false when the user accepts or cancels
-     * the onboarding (respectively).
+     * <p>The {@code callback} will be called when the user accepts, cancels or dismisses the
+     * onboarding.
      *
      * <p>Note that the onboarding screen will be hidden after the callback returns. Call, from the
      * callback, {@link #hide} to hide it earlier or {@link #transferControls} to take ownership of
      * it and possibly keep it past the end of the callback.
      */
-    void show(Callback<Boolean> callback) {
+    void show(Callback<Integer> callback) {
         AutofillAssistantMetrics.recordOnBoarding(OnBoarding.OB_SHOWN);
         mOnboardingShown = true;
 
@@ -130,8 +129,6 @@ abstract class BaseOnboardingCoordinator {
         return mOnboardingShown;
     }
 
-    abstract void hide();
-
     // TODO(b/175598484): Move transferControls to bottom sheet subclass
     @Nullable
     AssistantOverlayCoordinator transferControls() {
@@ -147,7 +144,7 @@ abstract class BaseOnboardingCoordinator {
     }
 
     private void addWebContentObserver(
-            Callback<Boolean> callback, WebContents webContents, String targetUrl) {
+            Callback<Integer> callback, WebContents webContents, String targetUrl) {
         mWebContentsObserver = new WebContentsObserver(webContents) {
             @Override
             public void didStartNavigation(NavigationHandle navigationHandle) {
@@ -157,8 +154,7 @@ abstract class BaseOnboardingCoordinator {
 
                 if (navigationHandle.isInMainFrame() && !navigationHandle.isRendererInitiated()
                         && !navigationHandle.isSameDocument()) {
-                    onUserAction(/* accept= */ false, callback, OnBoarding.OB_NO_ANSWER,
-                            DropOutReason.ONBOARDING_NAVIGATION);
+                    onUserAction(/* result= */ AssistantOnboardingResult.NAVIGATION, callback);
                 }
             }
         };
@@ -168,30 +164,31 @@ abstract class BaseOnboardingCoordinator {
     /**
      * Setup the shared |mView|
      */
-    private void setupSharedView(Callback<Boolean> callback) {
+    private void setupSharedView(Callback<Integer> callback) {
         // Set focusable for accessibility.
         mView.setFocusable(true);
         mView.findViewById(R.id.button_init_ok)
                 .setOnClickListener(unusedView
                         -> onUserAction(
-                                /* accept= */ true, callback, OnBoarding.OB_ACCEPTED,
-                                DropOutReason.DECLINED));
+                                /* result= */ AssistantOnboardingResult.ACCEPTED, callback));
         mView.findViewById(R.id.button_init_not_ok)
                 .setOnClickListener(unusedView
                         -> onUserAction(
-                                /* accept= */ false, callback, OnBoarding.OB_CANCELLED,
-                                DropOutReason.DECLINED));
+                                /* result= */ AssistantOnboardingResult.REJECTED, callback));
     }
 
-    void onUserAction(boolean accept, Callback<Boolean> callback, @OnBoarding int onboardingAnswer,
-            @DropOutReason int dropoutReason) {
-        AutofillAssistantPreferencesUtil.setInitialPreferences(accept);
-        AutofillAssistantMetrics.recordOnBoarding(onboardingAnswer);
-        if (!accept) {
-            AutofillAssistantMetrics.recordDropOut(dropoutReason);
+    void onUserAction(@AssistantOnboardingResult Integer result, Callback<Integer> callback) {
+        switch (result) {
+            case AssistantOnboardingResult.DISMISSED:
+                break;
+            case AssistantOnboardingResult.REJECTED:
+                AutofillAssistantPreferencesUtil.setInitialPreferences(false);
+                break;
+            case AssistantOnboardingResult.ACCEPTED:
+                AutofillAssistantPreferencesUtil.setInitialPreferences(true);
+                break;
         }
-
-        callback.onResult(accept);
+        callback.onResult(result);
         hide();
     }
 
@@ -318,7 +315,9 @@ abstract class BaseOnboardingCoordinator {
         mAnimate = false;
     }
 
-    abstract void initViewImpl(Callback<Boolean> callback);
+    abstract ScrollView createViewImpl();
+    abstract void hide();
+    abstract void initViewImpl(Callback<Integer> callback);
     abstract void showViewImpl();
 
     @NativeMethods

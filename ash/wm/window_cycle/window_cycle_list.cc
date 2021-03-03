@@ -19,6 +19,7 @@
 #include "ash/shell_delegate.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/style/ash_color_provider.h"
+#include "ash/style/default_colors.h"
 #include "ash/wm/window_cycle/window_cycle_tab_slider.h"
 #include "ash/wm/window_cycle/window_cycle_tab_slider_button.h"
 #include "ash/wm/window_mini_view.h"
@@ -55,7 +56,10 @@ namespace {
 bool g_disable_initial_delay = false;
 
 // Shield rounded corner radius
-constexpr gfx::RoundedCornersF kBackgroundCornerRadius{4.f};
+constexpr gfx::RoundedCornersF kBackgroundCornerRadius{16.f};
+
+// Shield horizontal inset.
+constexpr int kBackgroundHorizontalInsetDp = 8;
 
 // Shield background blur sigma.
 constexpr float kBackgroundBlurSigma =
@@ -108,6 +112,11 @@ constexpr base::TimeDelta kFadeInDuration =
 // Duration of the window cycle elements slide animation.
 constexpr base::TimeDelta kContainerSlideDuration =
     base::TimeDelta::FromMilliseconds(120);
+
+// Duration of the window cycle scale animation when a user toggles alt-tab
+// modes.
+constexpr base::TimeDelta kToggleModeScaleDuration =
+    base::TimeDelta::FromMilliseconds(150);
 
 // The alt-tab cycler widget is not activatable (except when ChromeVox is on),
 // so we use WindowTargeter to send input events to the widget.
@@ -277,6 +286,7 @@ class WindowCycleView : public views::WidgetDelegateView,
     layer->SetBackgroundBlur(kBackgroundBlurSigma);
     layer->SetBackdropFilterQuality(kBackgroundBlurQuality);
     layer->SetName("WindowCycleView");
+    layer->SetMasksToBounds(true);
 
     if (Shell::Get()
             ->window_cycle_controller()
@@ -348,13 +358,81 @@ class WindowCycleView : public views::WidgetDelegateView,
   WindowCycleView& operator=(const WindowCycleView&) = delete;
   ~WindowCycleView() override = default;
 
+  // Scales the window cycle view by scaling its clip rect. If the widget is
+  // growing, the widget's bounds are set to |screen_bounds| immediately then
+  // its clipping rect is scaled. If the widget is shrinking, the widget's
+  // cliping rect is scaled first then the widget's bounds are set to
+  // |screen_bounds| upon completion/interruption of the clipping rect's
+  // animation.
+  void ScaleCycleView(const gfx::Rect& screen_bounds) {
+    auto* layer_animator = layer()->GetAnimator();
+    if (layer_animator->is_animating()) {
+      // There is an existing scaling animation occurring. To accurately get the
+      // new bounds for the next layout, we must abort the ongoing animation so
+      // |this| will set the previous bounds of the widget and clear the clip
+      // rect.
+      // TODO(chinsenj): We may not want to abort the animation and rather just
+      // animate from the current position.
+      layer_animator->AbortAllAnimations();
+    }
+
+    // |screen_bounds| is in screen coords so store it in local coordinates in
+    // |new_bounds|.
+    gfx::Rect old_bounds = GetLocalBounds();
+    gfx::Rect new_bounds = gfx::Rect(screen_bounds.size());
+
+    if (old_bounds == new_bounds)
+      return;
+
+    if (new_bounds.width() >= old_bounds.width()) {
+      // In this case, the cycle view is growing. To achieve the scaling
+      // animation we set the widget bounds immediately and scale the clipping
+      // rect of |this|'s layer from where the |old_bounds| would be in the
+      // new local coordinates.
+      GetWidget()->SetBounds(screen_bounds);
+      old_bounds +=
+          gfx::Vector2d((new_bounds.width() - old_bounds.width()) / 2, 0);
+    } else {
+      // In this case, the cycle view is shrinking. To achieve the scaling
+      // animation, we first scale the clipping rect and defer updating the
+      // widget's bounds to when the animation is complete. If we instantly
+      // laid out, then it wouldn't appear as though the background is
+      // shrinking.
+      new_bounds +=
+          gfx::Vector2d((old_bounds.width() - new_bounds.width()) / 2, 0);
+      defer_widget_bounds_update_ = true;
+    }
+
+    layer()->SetClipRect(old_bounds);
+    ui::ScopedLayerAnimationSettings settings(layer_animator);
+    settings.SetTransitionDuration(kToggleModeScaleDuration);
+    settings.SetTweenType(gfx::Tween::FAST_OUT_SLOW_IN_2);
+    settings.SetPreemptionStrategy(
+        ui::LayerAnimator::IMMEDIATELY_ANIMATE_TO_NEW_TARGET);
+    settings.AddObserver(this);
+    layer()->SetClipRect(new_bounds);
+  }
+
+  gfx::Rect GetTargetBounds() const {
+    // The widget is sized clamped to the screen bounds. Its child, the mirror
+    // container which is parent to all the previews may be larger than the
+    // widget as some previews will be offscreen. In Layout() of |cycle_view_|
+    // the mirror container will be slid back and forth depending on the target
+    // window.
+    aura::Window* root_window = Shell::GetRootWindowForNewWindows();
+    gfx::Rect widget_rect = root_window->GetBoundsInScreen();
+    widget_rect.ClampToCenteredSize(GetPreferredSize());
+    return widget_rect;
+  }
+
   void UpdateWindows(const WindowCycleList::WindowList& windows) {
     const bool no_windows = windows.empty();
-    if (Shell::Get()
+    const bool is_interactive_alt_tab_mode_allowed =
+        Shell::Get()
             ->window_cycle_controller()
-            ->IsInteractiveAltTabModeAllowed()) {
+            ->IsInteractiveAltTabModeAllowed();
+    if (is_interactive_alt_tab_mode_allowed)
       no_recent_items_label_->SetVisible(no_windows);
-    }
     if (no_windows)
       return;
     for (auto* window : windows) {
@@ -365,11 +443,11 @@ class WindowCycleView : public views::WidgetDelegateView,
       no_previews_set_.insert(view);
     }
 
-    // Resize the widget.
-    aura::Window* root_window = Shell::GetRootWindowForNewWindows();
-    gfx::Rect widget_rect = root_window->GetBoundsInScreen();
-    widget_rect.ClampToCenteredSize(GetPreferredSize());
-    GetWidget()->SetBounds(widget_rect);
+    gfx::Rect widget_rect = GetTargetBounds();
+    if (is_interactive_alt_tab_mode_allowed)
+      ScaleCycleView(widget_rect);
+    else
+      GetWidget()->SetBounds(widget_rect);
 
     SetTargetWindow(windows[0]);
     ScrollToWindow(windows[0]);
@@ -413,7 +491,17 @@ class WindowCycleView : public views::WidgetDelegateView,
     if (target_it != window_view_map_.end())
       target_it->second->UpdateBorderState(/*show=*/true);
 
-    if (target_window_) {
+    // Focus the target window if the user is not currently switching the mode.
+    // During the mode switch, we want more informative a11y string than that
+    // automatically announced from the focus event, so we prevent the focus
+    // to avoid such auto announcement and send our own string in
+    // `WindowCycleController::OnModeChanged`.
+    auto* shell = Shell::Get();
+    const bool chromevox_enabled =
+        shell->accessibility_controller()->spoken_feedback().enabled();
+    const bool is_switching_mode =
+        shell->window_cycle_controller()->IsSwitchingMode();
+    if (target_window_ && (!chromevox_enabled || !is_switching_mode)) {
       if (GetWidget())
         window_view_map_[target_window_]->RequestFocus();
       else
@@ -445,12 +533,23 @@ class WindowCycleView : public views::WidgetDelegateView,
     no_previews_set_.clear();
     target_window_ = nullptr;
     current_window_ = nullptr;
+    defer_widget_bounds_update_ = false;
     RemoveAllChildViews(true);
   }
 
   // views::WidgetDelegateView:
   gfx::Size CalculatePreferredSize() const override {
     gfx::Size size = mirror_container_->GetPreferredSize();
+    // |mirror_container_| can have window list that overflow out of the
+    // screen, but the window cycle view with a bandshield, cropping the
+    // overflow window list, should remain within the specified horizontal
+    // insets of the screen width.
+    size.set_width(
+        std::min(size.width(), Shell::GetRootWindowForNewWindows()
+                                       ->GetBoundsInScreen()
+                                       .size()
+                                       .width() -
+                                   2 * kBackgroundHorizontalInsetDp));
     if (Shell::Get()
             ->window_cycle_controller()
             ->IsInteractiveAltTabModeAllowed()) {
@@ -470,11 +569,7 @@ class WindowCycleView : public views::WidgetDelegateView,
     // work properly.
     if (first_layout) {
       mirror_container_->SizeToPreferredSize();
-      // Give rounded corners to our layer if it takes up less space than the
-      // width of the screen (our width will match |mirror_container_|'s if the
-      // widget's width is less than that of the screen).
-      if (mirror_container_->GetPreferredSize().width() <= width())
-        layer()->SetRoundedCornerRadius(kBackgroundCornerRadius);
+      layer()->SetRoundedCornerRadius(kBackgroundCornerRadius);
     }
 
     views::View* target_view = window_view_map_[current_window_];
@@ -518,19 +613,21 @@ class WindowCycleView : public views::WidgetDelegateView,
 
       // Unlike the bounds of scrollable mirror container, the bounds of label
       // should not overflow out of the screen.
-      if (no_previews_set_.empty()) {
-        const gfx::Rect no_recent_item_bounds_(
-            std::max(0, container_bounds.x()), container_bounds.y(),
-            std::min(width(), container_bounds.width()),
-            container_bounds.height());
-        no_recent_items_label_->SetBoundsRect(no_recent_item_bounds_);
-      }
+      const gfx::Rect no_recent_item_bounds_(
+          std::max(0, container_bounds.x()), container_bounds.y(),
+          std::min(width(), container_bounds.width()),
+          container_bounds.height());
+      no_recent_items_label_->SetBoundsRect(no_recent_item_bounds_);
     }
 
-    // Enable animations only after the first Layout() pass.
+    // Enable animations only after the first Layout() pass. If |this| is
+    // animating or |defer_widget_bounds_update_|, don't animate as well since
+    // the cycle view is already being animated or just finished animating for
+    // mode switch.
     std::unique_ptr<ui::ScopedLayerAnimationSettings> settings;
     base::Optional<ui::AnimationThroughputReporter> reporter;
-    if (!first_layout) {
+    if (!first_layout && !this->layer()->GetAnimator()->is_animating() &&
+        !defer_widget_bounds_update_) {
       settings = std::make_unique<ui::ScopedLayerAnimationSettings>(
           mirror_container_->layer()->GetAnimator());
       settings->SetTransitionDuration(kContainerSlideDuration);
@@ -565,6 +662,13 @@ class WindowCycleView : public views::WidgetDelegateView,
 
   aura::Window* GetTargetWindow() { return target_window_; }
 
+  void SetFocusTabSlider(bool focus) { tab_slider_container_->SetFocus(focus); }
+
+  bool IsTabSliderFocused() {
+    DCHECK(tab_slider_container_);
+    return tab_slider_container_->is_focused();
+  }
+
   const views::View::Views& GetPreviewViewsForTesting() const {
     return mirror_container_->children();
   }
@@ -588,11 +692,22 @@ class WindowCycleView : public views::WidgetDelegateView,
   // ui::ImplicitAnimationObserver:
   void OnImplicitAnimationsCompleted() override {
     occlusion_tracker_pauser_.reset();
+    this->layer()->SetClipRect(gfx::Rect());
+    if (defer_widget_bounds_update_) {
+      // This triggers a Layout() so reset |defer_widget_bounds_update_| after
+      // calling SetBounds() to prevent the mirror container from animating.
+      GetWidget()->SetBounds(GetTargetBounds());
+      defer_widget_bounds_update_ = false;
+    }
   }
 
  private:
   std::map<aura::Window*, WindowCycleItemView*> window_view_map_;
   views::View* mirror_container_ = nullptr;
+
+  // Used when the widget bounds update should be deferred during the cycle
+  // view's scaling animation..
+  bool defer_widget_bounds_update_ = false;
 
   // Tab slider and no recent items are only used when Bento is enabled.
   WindowCycleTabSlider* tab_slider_container_ = nullptr;
@@ -623,6 +738,8 @@ WindowCycleList::WindowCycleList(const WindowList& windows)
     : windows_(windows) {
   if (!ShouldShowUi())
     Shell::Get()->mru_window_tracker()->SetIgnoreActivations(true);
+
+  active_window_before_window_cycle_ = window_util::GetActiveWindow();
 
   for (auto* window : windows_)
     window->AddObserver(this);
@@ -678,6 +795,10 @@ WindowCycleList::~WindowCycleList() {
   Shell::Get()->frame_throttling_controller()->EndThrottling();
 }
 
+aura::Window* WindowCycleList::GetTargetWindow() {
+  return cycle_view_->GetTargetWindow();
+}
+
 void WindowCycleList::ReplaceWindows(const WindowList& windows) {
   RemoveAllWindows();
   windows_ = windows;
@@ -689,7 +810,8 @@ void WindowCycleList::ReplaceWindows(const WindowList& windows) {
     cycle_view_->UpdateWindows(windows_);
 }
 
-void WindowCycleList::Step(WindowCycleController::Direction direction) {
+void WindowCycleList::Step(
+    WindowCycleController::WindowCyclingDirection direction) {
   if (windows_.empty())
     return;
 
@@ -700,13 +822,20 @@ void WindowCycleList::Step(WindowCycleController::Direction direction) {
     Scroll(GetIndexOfWindow(selected_window) - current_index_);
   }
 
-  const int offset = direction == WindowCycleController::FORWARD ? 1 : -1;
-  if (offset == 1 && !wm::IsActiveWindow(windows_[0]) &&
+  const int offset =
+      direction == WindowCycleController::WindowCyclingDirection::kForward ? 1
+                                                                           : -1;
+  if (offset == 1 && active_window_before_window_cycle_ != windows_[0] &&
       Shell::Get()->window_cycle_controller()->IsSwitchingMode()) {
     // Similar to `WindowCycleList::Scroll()`, when switching to alt-tab mode,
-    // if all windows are minimized, the starting window should be the first
-    // one rather than the second. Note that during entering alt-tab mode,
-    // `SetFocusedWindow()` does nothing, so we don't need to prevent it here.
+    // if the first window in the MRU cycle list is not the latest active one
+    // before entering alt-tab, highlight it instead of the second window.
+    // This occurs when the user is in overview mode, all windows are
+    // minimized, or all windows are in other desks.
+    //
+    // Note: Simply checking the active status of the first window won't work
+    // because when the ChromeVox is enabled, the widget is activatable, so the
+    // first window in MRU becomes inactive.
     SetFocusedWindow(windows_[0]);
   } else {
     SetFocusedWindow(windows_[GetOffsettedWindowIndex(offset)]);
@@ -715,11 +844,13 @@ void WindowCycleList::Step(WindowCycleController::Direction direction) {
 }
 
 void WindowCycleList::ScrollInDirection(
-    WindowCycleController::Direction direction) {
+    WindowCycleController::WindowCyclingDirection direction) {
   if (windows_.empty())
     return;
 
-  const int offset = direction == WindowCycleController::FORWARD ? 1 : -1;
+  const int offset =
+      direction == WindowCycleController::WindowCyclingDirection::kForward ? 1
+                                                                           : -1;
   Scroll(offset);
 }
 
@@ -729,6 +860,16 @@ void WindowCycleList::SetFocusedWindow(aura::Window* window) {
 
   if (ShouldShowUi() && cycle_view_)
     cycle_view_->SetTargetWindow(windows_[GetIndexOfWindow(window)]);
+}
+
+void WindowCycleList::SetFocusTabSlider(bool focus) {
+  DCHECK(cycle_view_);
+  cycle_view_->SetFocusTabSlider(focus);
+}
+
+bool WindowCycleList::IsTabSliderFocused() {
+  DCHECK(cycle_view_);
+  return cycle_view_->IsTabSliderFocused();
 }
 
 bool WindowCycleList::IsEventInCycleView(ui::LocatedEvent* event) {
@@ -768,6 +909,10 @@ void WindowCycleList::OnWindowDestroying(aura::Window* window) {
       current_index_ == static_cast<int>(windows_.size())) {
     current_index_--;
   }
+
+  // Reset |active_window_before_window_cycle_| to avoid a dangling pointer.
+  if (window == active_window_before_window_cycle_)
+    active_window_before_window_cycle_ = nullptr;
 
   if (cycle_view_) {
     auto* new_target_window =
@@ -840,15 +985,7 @@ void WindowCycleList::InitWindowCycleView() {
   // or a system modal dialog is shown.
   aura::Window* root_window = Shell::GetRootWindowForNewWindows();
   params.parent = root_window->GetChildById(kShellWindowId_OverlayContainer);
-
-  // The widget is sized clamped to the screen bounds. Its child, the mirror
-  // container which is parent to all the previews may be larger than the widget
-  // as some previews will be offscreen. In Layout() of |cyclev_view_| the
-  // mirror container will be slid back and forth depending on the target
-  // window.
-  gfx::Rect widget_rect = root_window->GetBoundsInScreen();
-  widget_rect.ClampToCenteredSize(cycle_view_->GetPreferredSize());
-  params.bounds = widget_rect;
+  params.bounds = cycle_view_->GetTargetBounds();
 
   screen_observer_.Observe(display::Screen::GetScreen());
   widget->Init(std::move(params));
@@ -901,12 +1038,13 @@ void WindowCycleList::Scroll(int offset) {
   DCHECK(static_cast<size_t>(current_index_) < windows_.size());
 
   // If alt-tab is entered or switched to the other mode, check the following
-  // special case: user is cycling forward but the MRU window is not active.
-  // This occurs when all windows are minimized. The starting window should be
-  // the first one rather than the second.
+  // special case: user is cycling forward but the MRU window in cycle list is
+  // not the latest active one before starting the alt-tab. The starting window
+  // should then be the first one rather than the second.
   if ((!cycle_view_ ||
        Shell::Get()->window_cycle_controller()->IsSwitchingMode()) &&
-      current_index_ == 0 && offset == 1 && !wm::IsActiveWindow(windows_[0])) {
+      current_index_ == 0 && offset == 1 &&
+      active_window_before_window_cycle_ != windows_[0]) {
     current_index_ = -1;
   }
 

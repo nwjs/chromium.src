@@ -531,6 +531,9 @@ extern const char kMemlogStackModeNative[];
 extern const char kMemlogStackModeNativeWithThreadNames[];
 extern const char kMemlogStackModePseudo[];
 
+extern const char kDisablePeripheralDataAccessProtectionName[];
+extern const char kDisablePeripheralDataAccessProtectionDescription[];
+
 extern const char kDownloadAutoResumptionNativeName[];
 extern const char kDownloadAutoResumptionNativeDescription[];
 
@@ -1193,6 +1196,7 @@ extern const char kSchemefulSameSiteDescription[];
 extern const char kScreenCaptureTestName[];
 extern const char kScreenCaptureTestDescription[];
 
+extern const char kScrollableTabStripFlagId[];
 extern const char kScrollableTabStripName[];
 extern const char kScrollableTabStripDescription[];
 
@@ -1338,6 +1342,9 @@ extern const char kTabGroupsCollapseFreezingDescription[];
 
 extern const char kTabGroupsFeedbackName[];
 extern const char kTabGroupsFeedbackDescription[];
+
+extern const char kTabGroupsNewBadgePromoName[];
+extern const char kTabGroupsNewBadgePromoDescription[];
 
 extern const char kTabHoverCardsName[];
 extern const char kTabHoverCardsDescription[];
@@ -2427,6 +2434,9 @@ extern const char kEnableQuickAnswersTranslationDescription[];
 extern const char kEnableQuickAnswersTranslationCloudAPIName[];
 extern const char kEnableQuickAnswersTranslationCloudAPIDescription[];
 
+extern const char kPluginVmFullscreenName[];
+extern const char kPluginVmFullscreenDescription[];
+
 extern const char kPluginVmShowCameraPermissionsName[];
 extern const char kPluginVmShowCameraPermissionsDescription[];
 
@@ -2636,9 +2646,6 @@ extern const char kOsSettingsPolymer3Description[];
 
 extern const char kPhoneHubName[];
 extern const char kPhoneHubDescription[];
-
-extern const char kPhoneHubUseBleName[];
-extern const char kPhoneHubUseBleDescription[];
 
 extern const char kReduceDisplayNotificationsName[];
 extern const char kReduceDisplayNotificationsDescription[];

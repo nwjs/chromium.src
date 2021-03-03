@@ -5,6 +5,7 @@
 package org.chromium.components.messages;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -43,7 +44,8 @@ public class SingleActionMessageTest extends DummyUiActivityTestCase {
     private Callback<Animator> mAnimatorStartCallback;
 
     private CallbackHelper mDismissCallback;
-    private Callback<PropertyModel> mEmptyDismissCallback = (model) -> {};
+    private SingleActionMessage.DismissCallback mEmptyDismissCallback =
+            (model, dismissReason) -> {};
 
     private AccessibilityUtil mAccessibilityUtil;
 
@@ -76,12 +78,12 @@ public class SingleActionMessageTest extends DummyUiActivityTestCase {
         message.hide(true, () -> {});
         // Let's pretend the animation ended, and the mediator called the callback as a result.
         final ArgumentCaptor<Runnable> runnableCaptor = ArgumentCaptor.forClass(Runnable.class);
-        verify(messageBanner).hide(runnableCaptor.capture());
+        verify(messageBanner).hide(anyBoolean(), runnableCaptor.capture());
         runnableCaptor.getValue().run();
         Assert.assertEquals(
                 "Message container should not have any view after the message is hidden.", 0,
                 container.getChildCount());
-        message.dismiss();
+        message.dismiss(DismissReason.UNKNOWN);
         mDismissCallback.waitForFirst(
                 "Dismiss callback should be called when message is dismissed");
     }
@@ -140,7 +142,7 @@ public class SingleActionMessageTest extends DummyUiActivityTestCase {
                 .with(MessageBannerProperties.ON_PRIMARY_ACTION, () -> {})
                 .with(MessageBannerProperties.ON_TOUCH_RUNNABLE, () -> {})
                 .with(MessageBannerProperties.ON_DISMISSED,
-                        () -> { mDismissCallback.notifyCalled(); })
+                        (dismissReason) -> { mDismissCallback.notifyCalled(); })
                 .build();
     }
 }

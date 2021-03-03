@@ -337,6 +337,10 @@ const base::Feature kD3D11VideoDecoderIgnoreWorkarounds{
 const base::Feature kD3D11VideoDecoderVP9Profile2{
     "D3D11VideoDecoderEnableVP9Profile2", base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Enable D3D11VideoDecoder to decode AV1 video.
+const base::Feature kD3D11VideoDecoderAV1{"D3D11VideoDecoderEnableAV1",
+                                          base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Tell D3D11VideoDecoder not to switch the D3D11 device to multi-threaded mode.
 // This is to help us track down IGD crashes.
 const base::Feature kD3D11VideoDecoderSkipMultithreaded{
@@ -701,7 +705,7 @@ const base::Feature MEDIA_EXPORT kWasapiRawAudioCapture{
 // Controls whether the next version mac capturer, including power improvements,
 // zero copy operation, and other improvements, is active.
 const base::Feature MEDIA_EXPORT kAVFoundationCaptureV2{
-    "AVFoundationCaptureV2", base::FEATURE_ENABLED_BY_DEFAULT};
+    "AVFoundationCaptureV2", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Controls whether or not the V2 capturer exports IOSurfaces for zero-copy.
 // This feature only has any effect if kAVFoundationCaptureV2 is also enabled.

@@ -448,6 +448,13 @@ Profile* ProfileManager::GetLastUsedProfile() {
 }
 
 // static
+Profile* ProfileManager::GetLastUsedProfileIfLoaded() {
+  ProfileManager* profile_manager = g_browser_process->profile_manager();
+  return profile_manager->GetProfileByPath(
+      profile_manager->GetLastUsedProfileDir(profile_manager->user_data_dir()));
+}
+
+// static
 Profile* ProfileManager::GetLastUsedProfileAllowedByPolicy() {
   Profile* profile = GetLastUsedProfile();
   if (!profile)
@@ -996,7 +1003,7 @@ void ProfileManager::CleanUpEphemeralProfiles() {
   std::vector<base::FilePath> profiles_to_delete;
   ProfileAttributesStorage& storage = GetProfileAttributesStorage();
   std::vector<ProfileAttributesEntry*> entries =
-      storage.GetAllProfilesAttributes();
+      storage.GetAllProfilesAttributes(/*include_guest_profile=*/true);
   for (ProfileAttributesEntry* entry : entries) {
     base::FilePath profile_path = entry->GetPath();
     if (entry->IsEphemeral()) {
@@ -1621,6 +1628,11 @@ Profile* ProfileManager::CreateAndInitializeProfile(
   std::unique_ptr<Profile> profile = CreateProfileHelper(profile_dir);
   if (!profile)
     return nullptr;
+
+  if (profile->IsGuestSession() || profile->IsEphemeralGuestProfile() ||
+      profile->IsSystemProfile()) {
+    SetNonPersonalProfilePrefs(profile.get());
+  }
 
   Profile* profile_ptr = profile.get();
   bool result = AddProfile(std::move(profile));

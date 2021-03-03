@@ -10,6 +10,7 @@
 
 #include "ash/ash_export.h"
 #include "ash/wm/window_cycle/window_cycle_controller.h"
+#include "ash/wm/window_cycle/window_cycle_tab_slider.h"
 #include "base/scoped_observation.h"
 #include "base/timer/timer.h"
 #include "ui/aura/window_observer.h"
@@ -43,20 +44,32 @@ class ASH_EXPORT WindowCycleList : public aura::WindowObserver,
   WindowCycleList& operator=(const WindowCycleList&) = delete;
   ~WindowCycleList() override;
 
+  // Returns the |target_window_| from |cycle_view_|.
+  aura::Window* GetTargetWindow();
+
   // Removes the existing windows and replaces them with |windows|. If
   // |windows| is empty, cancels cycling.
   void ReplaceWindows(const WindowList& windows);
 
   // Cycles to the next or previous window based on |direction|. This moves the
   // focus ring to the next/previous window and also scrolls the list.
-  void Step(WindowCycleController::Direction direction);
+  void Step(WindowCycleController::WindowCyclingDirection direction);
 
   // Scrolls windows in given |direction|. Does not move the focus ring.
-  void ScrollInDirection(WindowCycleController::Direction direction);
+  void ScrollInDirection(
+      WindowCycleController::WindowCyclingDirection direction);
 
   // Moves the focus ring to the respective preview for |window|. Does not
   // scroll the window cycle list.
   void SetFocusedWindow(aura::Window* window);
+
+  // Moves the focus to the tab slider or the window cycle list based on
+  // |focus| value during keyboard navigation.
+  void SetFocusTabSlider(bool focus);
+
+  // Returns true if during keyboard navigation, alt-tab focuses the tab slider
+  // instead of cycle window.
+  bool IsTabSliderFocused();
 
   // Checks whether |event| occurs within the cycle view. Returns false if
   // |cycle_view_| does not exist.
@@ -65,12 +78,14 @@ class ASH_EXPORT WindowCycleList : public aura::WindowObserver,
   // Returns true if the window list overlay should be shown.
   bool ShouldShowUi();
 
-  // Updates window cycle tab slider when the mode prefs is updated.
+  // Updates the tab slider mode UI when alt-tab mode in user prefs changes.
   void OnModePrefsChanged();
 
   void set_user_did_accept(bool user_did_accept) {
     user_did_accept_ = user_did_accept;
   }
+
+  bool HasWindowTargeter() { return !!window_targeter_; }
 
  private:
   friend class WindowCycleControllerTest;
@@ -167,6 +182,10 @@ class ASH_EXPORT WindowCycleList : public aura::WindowObserver,
   // This is needed so that it won't leak keyboard events even if the widget is
   // not activatable.
   std::unique_ptr<aura::ScopedWindowTargeter> window_targeter_;
+
+  // Tracks what window was active when starting to cycle and used to determine
+  // if alt-tab should highlight the first or the second window in the list.
+  aura::Window* active_window_before_window_cycle_ = nullptr;
 };
 
 }  // namespace ash

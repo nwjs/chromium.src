@@ -1491,6 +1491,12 @@ Unknown properties are collapsed to zero. -->
   <int value="8" label="onLowMemory()"/>
 </enum>
 
+<enum name="Android.ThemeColor">
+  <int value="0" label="No color set"/>
+  <int value="1" label="Color set and applied"/>
+  <int value="2" label="Color set but not applied"/>
+</enum>
+
 <enum name="AndroidActivityId">
   <int value="1" label="Unknown"/>
   <int value="2" label="Main"/>
@@ -4707,12 +4713,15 @@ others/histograms.xml -->
   <int value="22" label="Failed to show"/>
   <int value="23" label="Disabled proactive help setting"/>
   <int value="24" label="Base64 decoding error"/>
+  <int value="25" label="The user rejected the bottom sheet onboarding"/>
 </enum>
 
 <enum name="AutofillAssistantLiteScriptOnboarding">
   <int value="0" label="Seen and accepted"/>
   <int value="1" label="Seen and rejected"/>
   <int value="2" label="Already accepted"/>
+  <int value="3" label="Seen and dismissed"/>
+  <int value="4" label="Interrupted by navigation"/>
 </enum>
 
 <enum name="AutofillAssistantLiteScriptShownToUser">
@@ -4768,6 +4777,14 @@ others/histograms.xml -->
   <int value="1" label="Initially incomplete &amp; Success"/>
   <int value="2" label="Initially complete &amp; Failure"/>
   <int value="3" label="Initially incomplete &amp; Failure"/>
+</enum>
+
+<enum name="AutofillAssistantTriggerUIType">
+  <int value="0" label="UNSPECIFIED_TRIGGER_UI_TYPE"/>
+  <int value="1" label="CART_FIRST_TIME_USER"/>
+  <int value="2" label="CART_RETURNING_USER"/>
+  <int value="3" label="CHECKOUT_FIRST_TIME_USER"/>
+  <int value="4" label="CHECKOUT_RETURNING_TIME_USER"/>
 </enum>
 
 <enum name="AutofillAwGSuggestionAvailability">
@@ -9262,6 +9279,12 @@ Called by update_bad_message_reasons.py.-->
   <int value="27" label="Too many quads."/>
 </enum>
 
+<enum name="CameraPrivacySwitchEvent">
+  <int value="0" label="Camera privacy switch toggled on"/>
+  <int value="1" label="Camera privacy switch toggled off"/>
+  <int value="2" label="Camera privacy switch on notification shown"/>
+</enum>
+
 <enum name="CancelableTaskStatus">
   <int value="0" label="Live, on same sequence"/>
   <int value="1" label="Live, on other sequence"/>
@@ -9974,6 +9997,7 @@ histogram as enum -->
   <int value="0" label="User selected an unspecified lab"/>
   <int value="1" label="User selected the Read Later lab"/>
   <int value="2" label="User selected the Tab Search lab"/>
+  <int value="3" label="User selected the Tab Scrolling lab"/>
 </enum>
 
 <enum name="ChromeMLServiceDecisionTreePredictionResult">
@@ -11501,6 +11525,11 @@ histogram as enum -->
   <int value="0" label="Text"/>
   <int value="1" label="Bitmap"/>
   <int value="2" label="Html"/>
+</enum>
+
+<enum name="ClipboardHistoryOperation">
+  <int value="0" label="Copy"/>
+  <int value="1" label="Paste (from clipboard and clipboard history)"/>
 </enum>
 
 <enum name="ClipboardHistoryPlaceholderStringType">
@@ -26144,6 +26173,7 @@ Called by update_extension_histograms.py.-->
   <int value="25" label="CRX_FETCH_URL_EMPTY"/>
   <int value="26" label="CRX_FETCH_URL_INVALID"/>
   <int value="27" label="OVERRIDEN_BY_SETTINGS"/>
+  <int value="28" label="REPLACED_BY_SYSTEM_APP"/>
 </enum>
 
 <enum name="ExtensionInstallationStage">
@@ -30789,7 +30819,7 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="3579" label="ForcedDarkMode"/>
   <int value="3580" label="PreferredColorSchemeDark"/>
   <int value="3581" label="PreferredColorSchemeDarkSetting"/>
-  <int value="3582" label="IdentifiabilityStudyReserved3582"/>
+  <int value="3582" label="IdentifiabilityMediaDevicesEnumerateDevices"/>
   <int value="3583" label="IdentifiabilityStudyReserved3583"/>
   <int value="3584" label="IdentifiabilityStudyReserved3584"/>
   <int value="3585" label="IdentifiabilityStudyReserved3585"/>
@@ -30997,6 +31027,10 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="3773" label="RTCPeerConnectionSdpSemanticsPlanB"/>
   <int value="3774" label="FetchRespondWithNoResponseWithUsedRequestBody"/>
   <int value="3784" label="WindowOpenWithAdditionalBoolParameter"/>
+  <int value="3785" label="RTCPeerConnectionConstructedWithPlanB"/>
+  <int value="3786" label="RTCPeerConnectionConstructedWithUnifiedPlan"/>
+  <int value="3787" label="RTCPeerConnectionUsingComplexPlanB"/>
+  <int value="3788" label="RTCPeerConnectionUsingComplexUnifiedPlan"/>
 </enum>
 
 <enum name="FeaturePolicyAllowlistType">
@@ -38179,6 +38213,7 @@ Called by update_gpu_driver_bug_workaround_entries.py.-->
   <int value="0" label="WINDOW_SHOWN"/>
   <int value="1" label="UNDERLINED"/>
   <int value="2" label="REVERTED"/>
+  <int value="3" label="USER_ACCEPTED_AUTOCORRECT"/>
 </enum>
 
 <enum name="IMECommitType">
@@ -41213,7 +41248,9 @@ Called by update_gpu_driver_bug_workaround_entries.py.-->
 
 <enum name="LanguageSettingsActionType">
   <int value="0" label="Unknown"/>
-  <int value="1" label="Click on the 'Add Language' button"/>
+  <int value="1" label="Click on the 'Add Language' button">
+    Removed for Android in M89. Still in Desktop and iOS.
+  </int>
   <int value="2" label="Language added"/>
   <int value="3" label="Language removed"/>
   <int value="4" label="Disable global 'Offer to translate' by switch"/>
@@ -41221,12 +41258,17 @@ Called by update_gpu_driver_bug_workaround_entries.py.-->
   <int value="6" label="Disable 'Offer to translate' for single language"/>
   <int value="7" label="Enable 'Offer to translate' for single language"/>
   <int value="8" label="Language list reordered"/>
+  <int value="9" label="Change Chrome Language">Windows and Android only</int>
+  <int value="10" label="Change Target Language"/>
 </enum>
 
 <enum name="LanguageSettingsPageType">
   <int value="0" label="Main"/>
   <int value="1" label="Add Language"/>
   <int value="2" label="Language Details">iOS only.</int>
+  <int value="3" label="Chrome Language">Windows and Android only</int>
+  <int value="4" label="Advanced Language Settings"/>
+  <int value="5" label="Target Language"/>
 </enum>
 
 <enum name="LargestContentfulPaint.TerminationState">
@@ -41506,6 +41548,7 @@ Called by update_gpu_driver_bug_workaround_entries.py.-->
   <int value="7" label="Error: invalid image uri"/>
   <int value="8" label="Error: early terminated"/>
   <int value="9" label="Disabled"/>
+  <int value="10" label="Error: additional web context malformed (nonfatal)"/>
 </enum>
 
 <enum name="LensSdkError">
@@ -42515,6 +42558,7 @@ from previous Chrome versions.
   <int value="-2026156288"
       label="LookalikeUrlNavigationSuggestionsUI:disabled"/>
   <int value="-2025367104" label="enable-material-design-ntp"/>
+  <int value="-2022956008" label="ExternalPciDevicesAllowed:disabled"/>
   <int value="-2021954068" label="TapVisualizerApp:disabled"/>
   <int value="-2020721975" label="smart-virtual-keyboard"/>
   <int value="-2020024440" label="scroll-end-effect"/>
@@ -43367,6 +43411,7 @@ from previous Chrome versions.
   <int value="-1282992935"
       label="AutofillLocalCardMigrationShowFeedback:disabled"/>
   <int value="-1281465357" label="MacV2GPUSandbox:disabled"/>
+  <int value="-1280673966" label="PluginVmFullscreen:disabled"/>
   <int value="-1278796760" label="QueryInOmnibox:enabled"/>
   <int value="-1276912933" label="enable-quick-unlock-pin"/>
   <int value="-1276579737" label="PictureInPictureAPI:disabled"/>
@@ -43473,6 +43518,7 @@ from previous Chrome versions.
   <int value="-1195034892" label="ContinuousSearch:disabled"/>
   <int value="-1194129602" label="ClientSideDetectionModelOnAndroid:disabled"/>
   <int value="-1192790333" label="ArcUseHighMemoryDalvikProfile:disabled"/>
+  <int value="-1191671217" label="TabGroupsNewBadgePromo:disabled"/>
   <int value="-1191258368" label="PageInfoPerformanceHints:disabled"/>
   <int value="-1190174011" label="enable-hdr"/>
   <int value="-1186760297" label="ForceSpectreVariant2Mitigation:disabled"/>
@@ -43770,6 +43816,7 @@ from previous Chrome versions.
   <int value="-920204598" label="ScrollAnchorSerialization:enabled"/>
   <int value="-918900957" label="AutofillCreditCardAssist:disabled"/>
   <int value="-918618075" label="enable-service-worker"/>
+  <int value="-916780902" label="ExternalPciDevicesAllowed:enabled"/>
   <int value="-915328316" label="CupsIppPrintingBackend:disabled"/>
   <int value="-915035507" label="ArcPrintSpoolerExperiment:enabled"/>
   <int value="-914210146" label="enable-web-based-signin"/>
@@ -43990,6 +44037,8 @@ from previous Chrome versions.
   <int value="-714710496" label="VideoFullscreenOrientationLock:disabled"/>
   <int value="-714543772" label="enable-gpu-service-logging"/>
   <int value="-714043324" label="OutOfBlinkCORS:enabled"/>
+  <int value="-713104676"
+      label="DisablePeripheralDataAccessProtection:enabled"/>
   <int value="-711991950" label="SiteExplorationUi:enabled"/>
   <int value="-711890895" label="enable-website-settings-manager"/>
   <int value="-709058455" label="ui-slow-animations"/>
@@ -44987,6 +45036,7 @@ from previous Chrome versions.
   <int value="283182071" label="SecurityInterstitialsDarkMode:enabled"/>
   <int value="283232244" label="OmniboxUIExperimentNarrowDropdown:enabled"/>
   <int value="285387302" label="AvatarToolbarButton:enabled"/>
+  <int value="286001833" label="TabGroupsNewBadgePromo:enabled"/>
   <int value="286717452" label="ContextualSearchDebug:disabled"/>
   <int value="287932297" label="AutofillSettingsCardTypeSplit:enabled"/>
   <int value="288012253" label="CrostiniFiles:enabled"/>
@@ -45780,6 +45830,8 @@ from previous Chrome versions.
   <int value="1028817487"
       label="OmniboxOnFocusSuggestionsContextualWeb:disabled"/>
   <int value="1030608602" label="AutofillAssistantProactiveHelp:enabled"/>
+  <int value="1031281564"
+      label="DisablePeripheralDataAccessProtection:disabled"/>
   <int value="1033148287" label="NTPShortcuts:disabled"/>
   <int value="1033412163" label="OmniboxDisplayTitleForCurrentUrl:enabled"/>
   <int value="1033597574" label="disable-layer-squashing"/>
@@ -46066,6 +46118,7 @@ from previous Chrome versions.
   <int value="1285169797" label="ClipboardHistoryNudgeSessionReset:disabled"/>
   <int value="1285905715" label="WebXRHitTest:enabled"/>
   <int value="1287625114" label="EnableIncognitoShortcutOnDesktop:disabled"/>
+  <int value="1288612648" label="PluginVmFullscreen:enabled"/>
   <int value="1289433604" label="RecoverFromNeverSaveAndroid:enabled"/>
   <int value="1289495171" label="AssistantBetterOnboarding:disabled"/>
   <int value="1291257442" label="TabsInCBD:disabled"/>
@@ -53317,6 +53370,7 @@ Called by update_net_trust_anchors.py.-->
   <int value="5" label="Not Configured By User"/>
   <int value="6" label="Unsupported Security Type"/>
   <int value="7" label="No Wifi Networks Available"/>
+  <int value="8" label="Hidden SSID"/>
 </enum>
 
 <enum name="NetworkErrorType">
@@ -54048,6 +54102,21 @@ Called by update_net_trust_anchors.py.-->
   <int value="0" label="Cold startup"/>
   <int value="1" label="Warm startup"/>
   <int value="2" label="Other, not at startup"/>
+</enum>
+
+<enum name="NtpModules">
+  <summary>
+    Hash values for the IDs of NTP modules. Each of these values is computed by
+    casting the output of base::PersistentHash(module_id) to
+    base::HistogramBase::Sample.
+  </summary>
+  <int value="-1996945391" label="chrome_cart"/>
+  <int value="-1985729288" label="recipe_tasks"/>
+  <int value="-1870686922" label="drive"/>
+  <int value="-1810591528" label="shopping_tasks"/>
+  <int value="-505117227" label="dummy2"/>
+  <int value="301684683" label="kaleidoscope (deprecated)"/>
+  <int value="1976054971" label="dummy"/>
 </enum>
 
 <enum name="NtpMostVisitedScheme">
@@ -55766,6 +55835,13 @@ Called by update_net_trust_anchors.py.-->
   <int value="5" label="Allowed">
     The page capping InfoBar was allowed to be shown.
   </int>
+</enum>
+
+<enum name="OriginAgentClusterEndResult">
+  <int value="0" label="Not requested and not origin-keyed"/>
+  <int value="1" label="Not requested but origin-keyed"/>
+  <int value="2" label="Requested but not origin-keyed"/>
+  <int value="3" label="Requested and origin-keyed"/>
 </enum>
 
 <enum name="OriginTrialEnableResult">
@@ -59187,7 +59263,7 @@ Called by update_net_trust_anchors.py.-->
 </enum>
 
 <enum name="PhoneHubUserAction">
-  <int value="0" label="UI opened"/>
+  <int value="0" label="UI opened while connected"/>
   <int value="1" label="Tether connection attempted"/>
   <int value="2" label="Do Not Disturb toggled"/>
   <int value="3" label="Find My Device toggled"/>
@@ -76250,7 +76326,8 @@ Full version information for the fingerprint enum values:
   <int value="27" label="vaAttachProtectedSession()"/>
   <int value="28" label="vaDetachProtectedSession()"/>
   <int value="29" label="vaProtectedSessionHwUpdate()"/>
-  <int value="30" label="Other VA functions"/>
+  <int value="30" label="kVAProtectedSessionExecute()"/>
+  <int value="31" label="Other VA functions"/>
 </enum>
 
 <enum name="VAIPFailure">
@@ -76692,6 +76769,9 @@ Full version information for the fingerprint enum values:
 </enum>
 
 <enum name="VideoCaptureEvent">
+  <obsolete>
+    Expired in M82; removed in M90.
+  </obsolete>
   <int value="0" label="Starting video capture"/>
   <int value="1" label="Stopping video capture normally"/>
   <int value="2" label="Stopping video capture due to error"/>
@@ -76748,6 +76828,12 @@ Full version information for the fingerprint enum values:
       label="Browser closing connection to video capture service after video
              capture session"/>
   <int value="9" label="Video capture service timeout canceled"/>
+</enum>
+
+<enum name="VideoCaptureStartOutcome">
+  <int value="0" label="kStarted"/>
+  <int value="1" label="kTimedout"/>
+  <int value="2" label="kFailed"/>
 </enum>
 
 <enum name="VideoCaptureWinBackendUsed">
@@ -77038,6 +77124,12 @@ Full version information for the fingerprint enum values:
   <int value="3" label="Video thumbnail request completed"/>
 </enum>
 
+<enum name="VideoTutorials.LanguagePickerAction">
+  <int value="0" label="Back press"/>
+  <int value="1" label="Close"/>
+  <int value="2" label="Watch"/>
+</enum>
+
 <enum name="VideoTutorials.UserAction">
   <int value="0" label="Change language"/>
   <int value="1" label="Watch next video"/>
@@ -77045,6 +77137,12 @@ Full version information for the fingerprint enum values:
   <int value="3" label="Share"/>
   <int value="4" label="Close"/>
   <int value="5" label="Back pressed when showing video player"/>
+  <int value="6" label="Open shared video"/>
+  <int value="7" label="Invalid shared URL"/>
+  <int value="8" label="IPH Shown on NTP"/>
+  <int value="9" label="IPH clicked"/>
+  <int value="10" label="IPH dismissed"/>
+  <int value="11" label="Played from recap"/>
 </enum>
 
 <enum name="VideoTutorials.WatchState">
@@ -77982,6 +78080,17 @@ others/histograms.xml -->
   <int value="12" label="App ID mismatch"/>
 </enum>
 
+<enum name="WebAppMoverResult">
+  <summary>Result of executing the WebAppMover on Chrome startup.</summary>
+  <int value="0" label="Invalid Finch Configuration"/>
+  <int value="1" label="App-to-install already installed"/>
+  <int value="2" label="Apps-to-uninstall not installed"/>
+  <int value="3" label="App-to-install is not installable"/>
+  <int value="4" label="Failure during uninstall"/>
+  <int value="5" label="Failure during install"/>
+  <int value="6" label="Success"/>
+</enum>
+
 <enum name="WebappUninstallDialogAction">
   <int value="0" label="Uninstall only"/>
   <int value="1" label="Uninstall and remove data"/>
@@ -78076,6 +78185,30 @@ others/histograms.xml -->
   <int value="8" label="Internal error"/>
   <int value="9" label="Invalid QR"/>
   <int value="10" label="Invalid server link data"/>
+</enum>
+
+<enum name="WebAuthenticationChromeOSGetAssertionResult">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="Success"/>
+  <int value="2" label="Verification failed"/>
+  <int value="3" label="Verification timeout"/>
+  <int value="4" label="Invalid request"/>
+  <int value="5" label="Internal error"/>
+  <int value="6" label="No credential id matched"/>
+  <int value="7" label="Another request pending"/>
+  <int value="8" label="Canceled"/>
+</enum>
+
+<enum name="WebAuthenticationChromeOSMakeCredentialResult">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="Success"/>
+  <int value="2" label="Verification failed"/>
+  <int value="3" label="Verification timeout"/>
+  <int value="4" label="Invalid request"/>
+  <int value="5" label="Internal error"/>
+  <int value="6" label="Excluded credential id matched"/>
+  <int value="7" label="Another request pending"/>
+  <int value="8" label="Canceled"/>
 </enum>
 
 <enum name="WebAuthenticationFidoTransport">

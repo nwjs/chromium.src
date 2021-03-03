@@ -637,12 +637,6 @@ class StartSurfaceMediator
             }
         }
 
-        // Pressing back button on the Start surface homepage is handled by
-        // ChromeTabbedActivity#handleBackPressed().
-        if (mStartSurfaceState == StartSurfaceState.SHOWN_HOMEPAGE && !mShowStackTabSwitcher) {
-            return false;
-        }
-
         if (mPropertyModel != null && mPropertyModel.get(IS_EXPLORE_SURFACE_VISIBLE)
                 && mStartSurfaceState == StartSurfaceState.SHOWN_TABSWITCHER_TWO_PANES) {
             setExploreSurfaceVisibility(false);
@@ -650,7 +644,7 @@ class StartSurfaceMediator
             return true;
         }
 
-        return mController.onBackPressed();
+        return mController.onBackPressed(mStartSurfaceState == StartSurfaceState.SHOWN_HOMEPAGE);
     }
 
     @Override

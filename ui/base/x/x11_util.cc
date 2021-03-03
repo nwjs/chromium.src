@@ -237,6 +237,15 @@ void DefineCursor(x11::Window window, x11::Cursor cursor) {
       .Sync();
 }
 
+size_t RowBytesForVisualWidth(const x11::Connection::VisualInfo& visual_info,
+                              int width) {
+  auto bpp = visual_info.format->bits_per_pixel;
+  auto align = visual_info.format->scanline_pad;
+  size_t row_bits = bpp * width;
+  row_bits += (align - (row_bits % align)) % align;
+  return (row_bits + 7) / 8;
+}
+
 void DrawPixmap(x11::Connection* connection,
                 x11::VisualId visual,
                 x11::Drawable drawable,
@@ -252,11 +261,7 @@ void DrawPixmap(x11::Connection* connection,
   if (!visual_info)
     return;
 
-  auto bpp = visual_info->format->bits_per_pixel;
-  auto align = visual_info->format->scanline_pad;
-  size_t row_bits = bpp * width;
-  row_bits += (align - (row_bits % align)) % align;
-  size_t row_bytes = (row_bits + 7) / 8;
+  size_t row_bytes = RowBytesForVisualWidth(*visual_info, width);
 
   auto color_type = ColorTypeForVisual(visual);
   if (color_type == kUnknown_SkColorType) {
@@ -305,16 +310,14 @@ int CoalescePendingMotionEvents(const x11::Event& x11_event,
 
   conn->ReadResponses();
   if (motion) {
-    for (auto it = conn->events().begin(); it != conn->events().end();) {
-      const auto& next_event = *it;
+    for (auto& next_event : conn->events()) {
       // Discard all but the most recent motion event that targets the same
       // window with unchanged state.
       const auto* next_motion = next_event.As<x11::MotionNotifyEvent>();
       if (next_motion && next_motion->event == motion->event &&
           next_motion->child == motion->child &&
           next_motion->state == motion->state) {
-        *last_event = std::move(*it);
-        it = conn->events().erase(it);
+        *last_event = std::move(next_event);
       } else {
         break;
       }
@@ -324,8 +327,8 @@ int CoalescePendingMotionEvents(const x11::Event& x11_event,
            device->opcode == x11::Input::DeviceEvent::TouchUpdate);
 
     auto* ddmx11 = ui::DeviceDataManagerX11::GetInstance();
-    for (auto it = conn->events().begin(); it != conn->events().end();) {
-      auto* next_device = it->As<x11::Input::DeviceEvent>();
+    for (auto& event : conn->events()) {
+      auto* next_device = event.As<x11::Input::DeviceEvent>();
 
       if (!next_device)
         break;
@@ -336,13 +339,13 @@ int CoalescePendingMotionEvents(const x11::Event& x11_event,
       // always be at least one pending.
       if (!ui::TouchFactory::GetInstance()->ShouldProcessDeviceEvent(
               *next_device)) {
-        it = conn->events().erase(it);
+        event = x11::Event();
         continue;
       }
 
       if (next_device->opcode == device->opcode &&
-          !ddmx11->IsCMTGestureEvent(*it) &&
-          ddmx11->GetScrollClassEventDetail(*it) == SCROLL_TYPE_NO_SCROLL) {
+          !ddmx11->IsCMTGestureEvent(event) &&
+          ddmx11->GetScrollClassEventDetail(event) == SCROLL_TYPE_NO_SCROLL) {
         // Confirm that the motion event is targeted at the same window
         // and that no buttons or modifiers have changed.
         if (device->event == next_device->event &&
@@ -353,12 +356,12 @@ int CoalescePendingMotionEvents(const x11::Event& x11_event,
             device->mods.latched == next_device->mods.latched &&
             device->mods.locked == next_device->mods.locked &&
             device->mods.effective == next_device->mods.effective) {
-          *last_event = std::move(*it);
-          it = conn->events().erase(it);
+          *last_event = std::move(event);
           num_coalesced++;
           continue;
         }
       }
+
       break;
     }
   }

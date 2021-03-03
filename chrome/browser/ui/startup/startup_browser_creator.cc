@@ -609,8 +609,10 @@ SessionStartupPref StartupBrowserCreator::GetSessionStartupPref(
     pref.type = SessionStartupPref::LAST;
   }
 
-  // A browser starting for a profile being unlocked should always restore.
-  if (!profile->IsGuestSession() && !profile->IsEphemeralGuestProfile()) {
+  bool is_guest =
+      profile->IsGuestSession() || profile->IsEphemeralGuestProfile();
+
+  if (!is_guest) {
     ProfileAttributesEntry* entry = nullptr;
     bool has_entry =
         g_browser_process->profile_manager()
@@ -621,7 +623,8 @@ SessionStartupPref StartupBrowserCreator::GetSessionStartupPref(
       pref.type = SessionStartupPref::LAST;
   }
 
-  if (pref.type == SessionStartupPref::LAST && profile->IsOffTheRecord()) {
+  if (pref.type == SessionStartupPref::LAST &&
+      (is_guest || profile->IsOffTheRecord())) {
     // We don't store session information when incognito. If the user has
     // chosen to restore last session and launched incognito, fallback to
     // default launch behavior.
@@ -1302,7 +1305,8 @@ bool HasPendingUncleanExit(Profile* profile) {
 
 base::FilePath GetStartupProfilePath(const base::FilePath& user_data_dir,
                                      const base::FilePath& cur_dir,
-                                     const base::CommandLine& command_line) {
+                                     const base::CommandLine& command_line,
+                                     bool ignore_profile_picker) {
 // If the browser is launched due to activation on Windows native notification,
 // the profile id encoded in the notification launch id should be chosen over
 // all others.
@@ -1329,7 +1333,8 @@ base::FilePath GetStartupProfilePath(const base::FilePath& user_data_dir,
 
   ProfileManager* profile_manager = g_browser_process->profile_manager();
 #if !BUILDFLAG(IS_CHROMEOS_ASH)
-  if (ShouldShowProfilePickerAtProcessLaunch(profile_manager, command_line)) {
+  if (!ignore_profile_picker &&
+      ShouldShowProfilePickerAtProcessLaunch(profile_manager, command_line)) {
     // Open the picker only if no URLs have been provided to launch Chrome. If
     // URLs are provided, open them in the last profile, instead.
     Profile* guest_profile =
@@ -1359,8 +1364,8 @@ Profile* GetStartupProfile(const base::FilePath& user_data_dir,
                            const base::FilePath& cur_dir,
                            const base::CommandLine& command_line) {
   ProfileManager* profile_manager = g_browser_process->profile_manager();
-  base::FilePath profile_path =
-      GetStartupProfilePath(user_data_dir, cur_dir, command_line);
+  base::FilePath profile_path = GetStartupProfilePath(
+      user_data_dir, cur_dir, command_line, /*ignore_profile_picker=*/false);
   Profile* profile = profile_manager->GetProfile(profile_path);
 
   // If there is no entry in profile attributes storage, the profile is deleted,

@@ -301,6 +301,9 @@ const base::Feature kExoOrdinalMotion{"ExoOrdinalMotion",
 const base::Feature kExoPointerLock{"ExoPointerLock",
                                     base::FEATURE_DISABLED_BY_DEFAULT};
 
+const base::Feature kDisablePeripheralDataAccessProtection{
+    "DisablePeripheralDataAccessProtection", base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Enables policy that controls feature to allow Family Link accounts on school
 // owned devices.
 const base::Feature kFamilyLinkOnSchoolDevice{"FamilyLinkOnSchoolDevice",
@@ -500,25 +503,24 @@ const base::Feature kOsSettingsPolymer3{"OsSettingsPolymer3",
 // and perform phone-side actions within Chrome OS.
 const base::Feature kPhoneHub{"PhoneHub", base::FEATURE_ENABLED_BY_DEFAULT};
 
-// Controls whether Phone Hub will exclusively use BLE for its connection with
-// the user's phone.
-const base::Feature kPhoneHubUseBle{"PhoneHubUseBle",
-                                    base::FEATURE_DISABLED_BY_DEFAULT};
-
 // Enables PIN setup in OOBE for Family Link users on all devices supporting low
 // entropy credentials regardless the form factor.
 const base::Feature kPinSetupForFamilyLink{"PinSetupForFamilyLink",
                                            base::FEATURE_ENABLED_BY_DEFAULT};
 
+// Hides shelf in immersive mode and allows esc hold to exit.
+const base::Feature kPluginVmFullscreen{"PluginVmFullscreen",
+                                        base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Controls whether the camera permissions should be shown in the Plugin
 // VM app settings.
 const base::Feature kPluginVmShowCameraPermissions{
-    "PluginVmShowCameraPermissions", base::FEATURE_ENABLED_BY_DEFAULT};
+    "PluginVmShowCameraPermissions", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Controls whether the microphone permissions should be shown in the Plugin
 // VM app settings.
 const base::Feature kPluginVmShowMicrophonePermissions{
-    "PluginVmShowMicrophonePermissions", base::FEATURE_ENABLED_BY_DEFAULT};
+    "PluginVmShowMicrophonePermissions", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Controls whether to show printer statuses.
 const base::Feature kPrinterStatus{"PrinterStatus",
@@ -539,7 +541,7 @@ const base::Feature kPrintSaveToDrive{"PrintSaveToDrive",
 
 // Allows print servers to be selected when beyond a specified limit.
 const base::Feature kPrintServerScaling{"PrintServerScaling",
-                                        base::FEATURE_DISABLED_BY_DEFAULT};
+                                        base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Controls whether to enable quick answers.
 const base::Feature kQuickAnswers{"QuickAnswers",
@@ -760,6 +762,10 @@ bool IsDiagnosticsAppEnabled() {
   return base::FeatureList::IsEnabled(kDiagnosticsApp);
 }
 
+bool IsPeripheralDataAccessProtectionEnabled() {
+  return !base::FeatureList::IsEnabled(kDisablePeripheralDataAccessProtection);
+}
+
 bool IsHostnameSettingEnabled() {
   return base::FeatureList::IsEnabled(kEnableHostnameSetting);
 }
@@ -821,10 +827,6 @@ bool IsClipboardHistoryContextMenuNudgeEnabled() {
 
 bool IsPhoneHubEnabled() {
   return base::FeatureList::IsEnabled(kPhoneHub);
-}
-
-bool IsPhoneHubUseBleEnabled() {
-  return base::FeatureList::IsEnabled(kPhoneHubUseBle) && IsPhoneHubEnabled();
 }
 
 bool IsPinSetupForFamilyLinkEnabled() {

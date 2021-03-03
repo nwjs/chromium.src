@@ -23,7 +23,9 @@
 #include "base/threading/sequence_bound.h"
 #include "base/timer/timer.h"
 #include "chromeos/dbus/power/power_manager_client.h"
+#include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
+#include "services/viz/privileged/mojom/compositing/frame_sink_video_capture.mojom-forward.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/image/image.h"
 
@@ -129,6 +131,9 @@ class ASH_EXPORT CaptureModeController
   void StartVideoRecordingImmediatelyForTesting();
 
   CaptureModeDelegate* delegate_for_testing() const { return delegate_.get(); }
+  VideoRecordingWatcher* video_recording_watcher_for_testing() const {
+    return video_recording_watcher_.get();
+  }
 
  private:
   friend class CaptureModeTestApi;
@@ -150,6 +155,11 @@ class ASH_EXPORT CaptureModeController
   // sink.
   void OnRecordedWindowChangingRoot(aura::Window* window,
                                     aura::Window* new_root);
+
+  // Called by |video_recording_watcher_| to inform us that the size of the
+  // |window| being recorded was changed to |new_size| in DIPs. This is pushed
+  // to the recording service in order to update the video dimensions.
+  void OnRecordedWindowSizeChanged(const gfx::Size& new_size);
 
   // Returns true if screen recording needs to be blocked due to protected
   // content. |window| is the window being recorded or desired to be recorded.
@@ -174,9 +184,14 @@ class ASH_EXPORT CaptureModeController
   base::Optional<CaptureParams> GetCaptureParams() const;
 
   // Launches the mojo service that handles audio and video recording, and
-  // begins recording according to the given |capture_params|.
+  // begins recording according to the given |capture_params|. It creates an
+  // overlay on the video capturer so that can be used to record the mouse
+  // cursor. It gives the pending receiver end to that overlay on Viz, and the
+  // other end should be owned by the |video_recording_watcher_|.
   void LaunchRecordingServiceAndStartRecording(
-      const CaptureParams& capture_params);
+      const CaptureParams& capture_params,
+      mojo::PendingReceiver<viz::mojom::FrameSinkVideoCaptureOverlay>
+          cursor_overlay);
 
   // Called back when the mojo pipe to the recording service gets disconnected.
   void OnRecordingServiceDisconnected();

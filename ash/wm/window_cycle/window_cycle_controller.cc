@@ -4,15 +4,19 @@
 
 #include "ash/wm/window_cycle/window_cycle_controller.h"
 
+#include "ash/accelerators/accelerator_controller_impl.h"
+#include "ash/accessibility/accessibility_controller_impl.h"
 #include "ash/events/event_rewriter_controller_impl.h"
 #include "ash/metrics/task_switch_metrics_recorder.h"
 #include "ash/metrics/task_switch_source.h"
 #include "ash/metrics/user_metrics_recorder.h"
+#include "ash/public/cpp/accelerators.h"
 #include "ash/public/cpp/ash_features.h"
 #include "ash/public/cpp/ash_pref_names.h"
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/session/session_controller_impl.h"
 #include "ash/shell.h"
+#include "ash/strings/grit/ash_strings.h"
 #include "ash/wallpaper/wallpaper_controller_impl.h"
 #include "ash/wm/desks/desk.h"
 #include "ash/wm/desks/desks_controller.h"
@@ -27,6 +31,7 @@
 #include "base/metrics/user_metrics.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_service.h"
+#include "ui/base/l10n/l10n_util.h"
 
 namespace ash {
 
@@ -99,7 +104,8 @@ void WindowCycleController::RegisterProfilePrefs(PrefRegistrySimple* registry) {
   }
 }
 
-void WindowCycleController::HandleCycleWindow(Direction direction) {
+void WindowCycleController::HandleCycleWindow(
+    WindowCyclingDirection direction) {
   if (!CanCycle())
     return;
 
@@ -109,7 +115,89 @@ void WindowCycleController::HandleCycleWindow(Direction direction) {
   Step(direction);
 }
 
-void WindowCycleController::Scroll(Direction direction) {
+bool WindowCycleController::IsValidKeyboardNavigation(
+    KeyboardNavDirection direction) {
+  // Only allow Left and Right arrow keys if interactive alt-tab mode is not
+  // in use.
+  if (!IsInteractiveAltTabModeAllowed()) {
+    return direction == KeyboardNavDirection::kLeft ||
+           direction == KeyboardNavDirection::kRight;
+  }
+
+  // If the focus is on the window cycle list, the user can navigate up to
+  // focus the mode buttons, or left and right to change the window selection.
+  if (!IsTabSliderFocused())
+    return direction != KeyboardNavDirection::kDown;
+
+  // If the focus is on the tab slider button, the user can navigate down to
+  // focus the non-empty list, determined by non-null target window. The user
+  // can only navigate left while focusing the right button and vice versa.
+  const bool per_desk = IsAltTabPerActiveDesk();
+  return (direction == KeyboardNavDirection::kDown &&
+          window_cycle_list_->GetTargetWindow()) ||
+         (per_desk && direction == KeyboardNavDirection::kLeft) ||
+         (!per_desk && direction == KeyboardNavDirection::kRight);
+}
+
+void WindowCycleController::HandleKeyboardNavigation(
+    KeyboardNavDirection direction) {
+  if (!CanCycle() || !IsCycling() || !IsValidKeyboardNavigation(direction))
+    return;
+
+  switch (direction) {
+    // Pressing the Up arrow key moves the focus from the window cycle list
+    // to the tab slider button.
+    case KeyboardNavDirection::kUp:
+      DCHECK(!IsTabSliderFocused());
+      window_cycle_list_->SetFocusTabSlider(true);
+      // Focusing the alt-tab mode button announces the current mode.
+      Shell::Get()
+          ->accessibility_controller()
+          ->TriggerAccessibilityAlertWithMessage(l10n_util::GetStringUTF8(
+              IsAltTabPerActiveDesk()
+                  ? IDS_ASH_ALT_TAB_CURRENT_DESK_MODE_SELECTED_TITLE
+                  : IDS_ASH_ALT_TAB_ALL_DESKS_MODE_SELECTED_TITLE));
+      break;
+    // Pressing the Down arrow key does the opposite of the Up arrow key.
+    case KeyboardNavDirection::kDown: {
+      DCHECK(IsTabSliderFocused());
+      window_cycle_list_->SetFocusTabSlider(false);
+      aura::Window* target_window = window_cycle_list_->GetTargetWindow();
+      // Cannot press the Down arrow key if there is no window.
+      DCHECK(target_window);
+      // Announce the selected window in the window cycle list.
+      Shell::Get()
+          ->accessibility_controller()
+          ->TriggerAccessibilityAlertWithMessage(
+              l10n_util::GetStringFUTF8(IDS_ASH_ALT_TAB_WINDOW_SELECTED_TITLE,
+                                        target_window->GetTitle()));
+      break;
+    }
+    // Pressing the Left or Right arrow keys cycles through the window list
+    // or switches alt-tab mode depending on which component is focused.
+    case KeyboardNavDirection::kRight:
+    case KeyboardNavDirection::kLeft:
+      if (!IsTabSliderFocused()) {
+        // Cycling through the window list if focusing the window.
+        HandleCycleWindow(direction == KeyboardNavDirection::kRight
+                              ? WindowCyclingDirection::kForward
+                              : WindowCyclingDirection::kBackward);
+      } else {
+        // Switch the mode if focusing the button. Navigating right triggers
+        // the right button corresponding to the active desk mode. On the other
+        // hand, navigating left enables the all-desk mode.
+        OnModeChanged(direction == KeyboardNavDirection::kRight,
+                      ModeSwitchSource::kKeyboard);
+      }
+      break;
+    case KeyboardNavDirection::kInvalid:
+    default:
+      NOTREACHED();
+      break;
+  }
+}
+
+void WindowCycleController::Scroll(WindowCyclingDirection direction) {
   if (!CanCycle())
     return;
 
@@ -125,8 +213,7 @@ void WindowCycleController::StartCycling() {
   // the window view item for the preview is transparent
   // (http://crbug.com/895265).
   Shell::Get()->wallpaper_controller()->MaybeClosePreviewWallpaper();
-  Shell::Get()->event_rewriter_controller()->SetAltLeftClickRemappingEnabled(
-      false);
+  Shell::Get()->event_rewriter_controller()->SetAltDownRemappingEnabled(false);
 
   WindowCycleController::WindowList window_list = CreateWindowList();
   SaveCurrentActiveDeskAndWindow(window_list);
@@ -189,12 +276,70 @@ bool WindowCycleController::IsSwitchingMode() {
   return features::IsBentoEnabled() && is_switching_mode_;
 }
 
+bool WindowCycleController::IsTabSliderFocused() {
+  return IsInteractiveAltTabModeAllowed() &&
+         window_cycle_list_->IsTabSliderFocused();
+}
+
 void WindowCycleController::OnActiveUserPrefServiceChanged(
     PrefService* pref_service) {
   if (!features::IsBentoEnabled())
     return;
   active_user_pref_service_ = pref_service;
   InitFromUserPrefs();
+}
+
+void WindowCycleController::OnModeChanged(bool per_desk,
+                                          ModeSwitchSource source) {
+  DCHECK(IsInteractiveAltTabModeAllowed() && IsCycling());
+  // Save to the active user prefs.
+  auto* prefs = Shell::Get()->session_controller()->GetActivePrefService();
+  if (!prefs) {
+    // Can be null in tests.
+    return;
+  }
+  // Avoid an unnecessary update if any.
+  if (per_desk == prefs->GetBoolean(prefs::kAltTabPerDesk))
+    return;
+  prefs->SetBoolean(prefs::kAltTabPerDesk, per_desk);
+
+  // Announce the new mode and the updated window selection via ChromeVox.
+  aura::Window* target_window = window_cycle_list_->GetTargetWindow();
+  const std::string mode_switched_string = l10n_util::GetStringUTF8(
+      per_desk ? IDS_ASH_ALT_TAB_CURRENT_DESK_MODE_SELECTED_TITLE
+               : IDS_ASH_ALT_TAB_ALL_DESKS_MODE_SELECTED_TITLE);
+  // A ChromeVox string announcing the selected window in the window cycle list
+  // or no recent items if there's no window in the list.
+  const std::string window_selected_string =
+      target_window
+          ? l10n_util::GetStringFUTF8(IDS_ASH_ALT_TAB_WINDOW_SELECTED_TITLE,
+                                      target_window->GetTitle())
+          : l10n_util::GetStringUTF8(IDS_ASH_OVERVIEW_NO_RECENT_ITEMS);
+  switch (source) {
+    case ModeSwitchSource::kClick:
+      Shell::Get()
+          ->accessibility_controller()
+          ->TriggerAccessibilityAlertWithMessage(base::JoinString(
+              {mode_switched_string, window_selected_string}, " "));
+      // If the user clicks the mode button, remove the focus from it.
+      window_cycle_list_->SetFocusTabSlider(false);
+      break;
+    case ModeSwitchSource::kKeyboard:
+      // Additionally, during keyboard navigation, notify that the user can
+      // press the Down arrow key to navigate among the cycle windows if the
+      // list is not empty.
+      Shell::Get()
+          ->accessibility_controller()
+          ->TriggerAccessibilityAlertWithMessage(base::JoinString(
+              {mode_switched_string, window_selected_string,
+               target_window ? l10n_util::GetStringUTF8(
+                                   IDS_ASH_ALT_TAB_FOCUS_WINDOW_LIST_TITLE)
+                             : std::string()},
+              " "));
+      break;
+    default:
+      NOTREACHED();
+  }
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -219,12 +364,13 @@ void WindowCycleController::SaveCurrentActiveDeskAndWindow(
   active_window_before_window_cycle_ = GetActiveWindow(window_list);
 }
 
-void WindowCycleController::Step(Direction direction) {
+void WindowCycleController::Step(WindowCyclingDirection direction) {
   DCHECK(window_cycle_list_);
   window_cycle_list_->Step(direction);
 }
 
 void WindowCycleController::StopCycling() {
+  const bool has_window_targeter = window_cycle_list_->HasWindowTargeter();
   window_cycle_list_.reset();
 
   // We can't use the MRU window list here to get the active window, since
@@ -247,8 +393,20 @@ void WindowCycleController::StopCycling() {
 
   active_window_before_window_cycle_ = nullptr;
   active_desk_container_id_before_cycle_ = kShellWindowId_Invalid;
-  Shell::Get()->event_rewriter_controller()->SetAltLeftClickRemappingEnabled(
-      true);
+  Shell::Get()->event_rewriter_controller()->SetAltDownRemappingEnabled(true);
+
+  if (has_window_targeter) {
+    // Resend the alt-key release, dropped by |window_targeter_|, to the
+    // accelerator controller to cancel out the alt-key press in its
+    // history from using the accelerator, prior to the targeter creation.
+    // Without this resending, the future key events will be interpreted
+    // incorrectly as if the user still holds the alt key (crbug.com/1160676).
+    ui::Accelerator alt_release(ui::VKEY_MENU, ui::EF_NONE,
+                                ui::Accelerator::KeyState::RELEASED);
+    AcceleratorController::Get()
+        ->GetAcceleratorHistory()
+        ->StoreCurrentAccelerator(alt_release);
+  }
 }
 
 void WindowCycleController::InitFromUserPrefs() {
@@ -266,23 +424,23 @@ void WindowCycleController::InitFromUserPrefs() {
 }
 
 void WindowCycleController::OnAltTabModePrefChanged() {
-  if (!IsInteractiveAltTabModeAllowed())
+  // Only update UI for alt-tab mode if the user is using alt-tab with the
+  // interactive alt-tab mode supported.
+  if (!IsInteractiveAltTabModeAllowed() || !IsCycling())
     return;
 
   is_switching_mode_ = true;
 
   // Update the window cycle list.
   MaybeResetCycleList();
-  // Update the highlighted window in the window cycle list.
-  // When user first press alt + tab, `HandleCycleForwardMRU` triggers
-  // `HandleCycleWindow(WindowCycleController::FORWARD)` since it considers
-  // the initial tab as forward cycling. Therefore, switching the mode
-  // should imitate the same forward cycling behavior after the cycle is reset.
-  HandleCycleWindow(WindowCycleController::FORWARD);
+
+  // After the cycle is reset, imitate the same forward cycling behavior as
+  // starting alt-tab with `Step()`, which makes sure the correct window is
+  // selected and highlighted.
+  Step(WindowCyclingDirection::kForward);
 
   // Update tab slider button UI.
-  if (window_cycle_list_)
-    window_cycle_list_->OnModePrefsChanged();
+  window_cycle_list_->OnModePrefsChanged();
 
   is_switching_mode_ = false;
 }

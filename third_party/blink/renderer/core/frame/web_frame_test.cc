@@ -8846,6 +8846,19 @@ TEST_F(WebFrameSwapTest, SwapMainFrame) {
   EXPECT_EQ("hello", content);
 }
 
+TEST_F(WebFrameSwapTest, SwapMainFrameWithPageScaleReset) {
+  WebView()->SetDefaultPageScaleLimits(1, 2);
+  WebView()->SetPageScaleFactor(1.25);
+  EXPECT_EQ(1.25, WebView()->PageScaleFactor());
+
+  WebRemoteFrame* remote_frame = frame_test_helpers::CreateRemote();
+  MainFrame()->Swap(remote_frame);
+  EXPECT_EQ(1.0, WebView()->PageScaleFactor());
+  // Note: if we were to extend this test to call frame_test_helpers::LoadFrame
+  // as in WebFrameSwapTest.SwapMainFrame, then an appropriate binding must be
+  // provided for the AssociatedRemote.
+}
+
 TEST_F(WebFrameSwapTest, ValidateSizeOnRemoteToLocalMainFrameSwap) {
   gfx::Size size(111, 222);
 
@@ -9642,10 +9655,11 @@ TEST_F(WebFrameTest, NavigateRemoteToLocalWithOpener) {
       popup_helper.CreateProvisional(*popup_remote_frame);
   popup_remote_frame->Swap(popup_local_frame);
 
-  // The initial document created during the remote-to-local swap should have
-  // inherited its opener's SecurityOrigin.
-  EXPECT_TRUE(main_frame->GetSecurityOrigin().CanAccess(
+  // The initial document created in a provisional frame should not be
+  // scriptable by any other frame.
+  EXPECT_FALSE(main_frame->GetSecurityOrigin().CanAccess(
       popup_helper.LocalMainFrame()->GetSecurityOrigin()));
+  EXPECT_TRUE(popup_helper.LocalMainFrame()->GetSecurityOrigin().IsOpaque());
 }
 
 TEST_F(WebFrameTest, SwapWithOpenerCycle) {

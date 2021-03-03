@@ -608,11 +608,7 @@ int TabStripModel::MoveWebContentsAt(int index,
 
   DCHECK(ContainsIndex(index));
 
-  // Ensure pinned and non-pinned tabs do not mix.
-  const int first_non_pinned_tab = IndexOfFirstNonPinnedTab();
-  to_position = IsTabPinned(index)
-                    ? std::min(first_non_pinned_tab - 1, to_position)
-                    : std::max(first_non_pinned_tab, to_position);
+  to_position = ConstrainMoveIndex(to_position, IsTabPinned(index));
 
   if (index == to_position)
     return to_position;
@@ -1185,8 +1181,10 @@ void TabStripModel::ChangeTabGroupContents(
     observer.OnTabGroupChanged(change);
 }
 
-void TabStripModel::ChangeTabGroupVisuals(const tab_groups::TabGroupId& group) {
-  TabGroupChange change(group, TabGroupChange::kVisualsChanged);
+void TabStripModel::ChangeTabGroupVisuals(
+    const tab_groups::TabGroupId& group,
+    const TabGroupChange::VisualsChange& visuals) {
+  TabGroupChange change(group, visuals);
   for (auto& observer : observers_)
     observer.OnTabGroupChanged(change);
 }
@@ -1617,10 +1615,17 @@ bool TabStripModel::ShouldRunUnloadListenerBeforeClosing(
          delegate_->ShouldRunUnloadListenerBeforeClosing(contents);
 }
 
-int TabStripModel::ConstrainInsertionIndex(int index, bool pinned_tab) {
+int TabStripModel::ConstrainInsertionIndex(int index, bool pinned_tab) const {
   return pinned_tab
              ? base::ClampToRange(index, 0, IndexOfFirstNonPinnedTab())
              : base::ClampToRange(index, IndexOfFirstNonPinnedTab(), count());
+}
+
+int TabStripModel::ConstrainMoveIndex(int index, bool pinned_tab) const {
+  return pinned_tab
+             ? base::ClampToRange(index, 0, IndexOfFirstNonPinnedTab() - 1)
+             : base::ClampToRange(index, IndexOfFirstNonPinnedTab(),
+                                  count() - 1);
 }
 
 std::vector<int> TabStripModel::GetIndicesForCommand(int index) const {
@@ -1851,6 +1856,14 @@ TabStripSelectionChange TabStripModel::SetSelection(
   selection.old_contents = GetActiveWebContents();
   selection.new_model = new_model;
   selection.reason = reason;
+
+#if DCHECK_IS_ON()
+  // Validate that |new_model| only selects tabs that actually exist.
+  DCHECK(ContainsIndex(new_model.active()));
+  for (int selected_index : new_model.selected_indices()) {
+    DCHECK(ContainsIndex(selected_index));
+  }
+#endif
 
   // This is done after notifying TabDeactivated() because caller can assume
   // that TabStripModel::active_index() would return the index for
@@ -2150,18 +2163,8 @@ void TabStripModel::AddToReadLaterImpl(const std::vector<int>& indices) {
 
   for (int index : indices) {
     WebContents* contents = GetWebContentsAt(index);
-    GURL url;
-    base::string16 title;
-    chrome::GetURLAndTitleToBookmark(contents, &url, &title);
-    if (model->IsUrlSupported(url)) {
-      model->AddEntry(url, base::UTF16ToUTF8(title),
-                      reading_list::EntrySource::ADDED_VIA_CURRENT_APP);
-    }
-  }
-  // Maybe show the bookmark bar if an item exists in read later.
-  if (model->size()) {
-    chrome::MaybeShowBookmarkBarForReadLater(
-        chrome::FindBrowserWithWebContents(GetWebContentsAt(indices[0])));
+    chrome::MoveTabToReadLater(chrome::FindBrowserWithWebContents(contents),
+                               contents);
   }
 }
 

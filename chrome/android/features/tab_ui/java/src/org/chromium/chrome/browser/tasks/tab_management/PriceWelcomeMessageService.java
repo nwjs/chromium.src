@@ -47,19 +47,20 @@ public class PriceWelcomeMessageService extends MessageService {
      */
     public interface PriceWelcomeMessageProvider {
         /**
-         * This method gets the information of the first tab showing price card.
-         *
-         * @return The PriceTabData including the tab ID and the price drop.
-         */
-        PriceTabData getFirstTabShowingPriceCard();
-
-        /**
          * This method gets the tab index from tab ID.
          *
          * @param tabId The tab ID to search for.
          * @return the index within the {@link TabListModel}.
          */
         int getTabIndexFromTabId(int tabId);
+
+        /**
+         * This method updates {@link TabProperties#SHOULD_SHOW_PRICE_DROP_TOOLTIP} of the binding
+         * tab.
+         *
+         * @param index The binding tab index in {@link TabListModel}.
+         */
+        void showPriceDropTooltip(int index);
     }
 
     /**
@@ -67,11 +68,11 @@ public class PriceWelcomeMessageService extends MessageService {
      */
     public interface PriceWelcomeMessageReviewActionProvider {
         /**
-         * This method scrolls to the binding tab of the PriceWelcomeMessage.
+         * This method scrolls to the tab at given index.
          *
-         * @param tabIndex The index of the {@link Tab} that is binding to PriceWelcomeMessage.
+         * @param tabIndex The index of the {@link Tab} which we will scroll to.
          */
-        void scrollToBindingTab(int tabIndex);
+        void scrollToTab(int tabIndex);
     }
 
     /**
@@ -136,13 +137,8 @@ public class PriceWelcomeMessageService extends MessageService {
         mPriceWelcomeMessageReviewActionProvider = priceWelcomeMessageReviewActionProvider;
     }
 
-    void preparePriceMessage() {
-        if (PriceTrackingUtilities.isPriceWelcomeMessageCardDisabled()) return;
-        PriceTabData priceTabData = mPriceWelcomeMessageProvider.getFirstTabShowingPriceCard();
-        if (priceTabData == null) {
-            invalidateMessage();
-            return;
-        }
+    void preparePriceMessage(PriceTabData priceTabData) {
+        assert priceTabData != null;
         PriceTrackingUtilities.increasePriceWelcomeMessageCardShowCount();
         if (PriceTrackingUtilities.getPriceWelcomeMessageCardShowCount()
                 > MAX_PRICE_WELCOME_MESSAGE_SHOW_COUNT
@@ -170,14 +166,18 @@ public class PriceWelcomeMessageService extends MessageService {
     @VisibleForTesting
     public void review() {
         assert mPriceTabData != null;
-        mPriceWelcomeMessageReviewActionProvider.scrollToBindingTab(
-                mPriceWelcomeMessageProvider.getTabIndexFromTabId(mPriceTabData.bindingTabId));
+        int bindingTabIndex =
+                mPriceWelcomeMessageProvider.getTabIndexFromTabId(mPriceTabData.bindingTabId);
+        mPriceWelcomeMessageReviewActionProvider.scrollToTab(bindingTabIndex);
+        mPriceWelcomeMessageProvider.showPriceDropTooltip(bindingTabIndex);
         PriceTrackingUtilities.disablePriceWelcomeMessageCard();
+        mPriceTabData = null;
     }
 
     @VisibleForTesting
     public void dismiss() {
         PriceTrackingUtilities.disablePriceWelcomeMessageCard();
+        mPriceTabData = null;
     }
 
     @VisibleForTesting

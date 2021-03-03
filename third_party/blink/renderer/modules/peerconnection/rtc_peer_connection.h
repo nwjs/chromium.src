@@ -570,9 +570,15 @@ class MODULES_EXPORT RTCPeerConnection final
 
   DOMException* checkSdpForStateErrors(ExecutionContext*,
                                        const ParsedSessionDescription&);
-  void MaybeWarnAboutUnsafeSdp(const ParsedSessionDescription&) const;
+  void RecordSdpCategoryAndMaybeEmitWarnings(
+      const ParsedSessionDescription&) const;
 
   HeapHashSet<Member<RTCIceTransport>> ActiveIceTransports() const;
+
+  // Disables the back-forward cache usage. This is called when it becomes
+  // possible for a connection to happen, as a page with connections cannot be
+  // put into the cache so far.
+  void DisableBackForwardCache(ExecutionContext* context);
 
   Member<RTCSessionDescription> pending_local_description_;
   Member<RTCSessionDescription> current_local_description_;

@@ -593,13 +593,17 @@ bool FillAV1PictureParameter(const AV1Picture& pic,
         ref_pic ? ref_pic->reconstruct_va_surface()->id() : VA_INVALID_SURFACE;
   }
 
-  // |ref_frame_map| doesn't need to be filled in keyframe case.
-  if (frame_header.frame_type != libgav1::FrameType::kFrameKey) {
+  // |va_pic_param.ref_frame_idx| doesn't need to be filled in for intra frames
+  // (it can be left zero initialized).
+  if (!libgav1::IsIntraFrame(frame_header.frame_type)) {
     for (size_t i = 0; i < libgav1::kNumInterReferenceFrameTypes; ++i) {
       const int8_t index = frame_header.reference_frame_index[i];
-      if (index < 0)
-        continue;
+      CHECK_GE(index, 0);
       CHECK_LT(index, libgav1::kNumReferenceFrameTypes);
+      // AV1Decoder::CheckAndCleanUpReferenceFrames() ensures that
+      // |ref_frames[index]| is valid for all the reference frames needed by the
+      // current frame.
+      DCHECK_NE(va_pic_param.ref_frame_map[index], VA_INVALID_SURFACE);
       va_pic_param.ref_frame_idx[i] = base::checked_cast<uint8_t>(index);
     }
   }

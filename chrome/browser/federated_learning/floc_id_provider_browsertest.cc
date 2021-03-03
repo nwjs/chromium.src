@@ -33,6 +33,7 @@
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/sync/driver/test_sync_service.h"
 #include "components/sync_user_events/fake_user_event_service.h"
+#include "components/ukm/test_ukm_recorder.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/test/browser_test.h"
@@ -41,6 +42,7 @@
 #include "net/test/embedded_test_server/http_request.h"
 #include "net/test/embedded_test_server/http_response.h"
 #include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
+#include "services/metrics/public/cpp/ukm_builders.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/protobuf/src/google/protobuf/io/coded_stream.h"
 #include "third_party/protobuf/src/google/protobuf/io/zero_copy_stream_impl_lite.h"
@@ -520,6 +522,32 @@ IN_PROC_BROWSER_TEST_F(FlocIdProviderWithCustomizedServicesBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(FlocIdProviderWithCustomizedServicesBrowserTest,
+                       UkmEvent) {
+  ukm::TestAutoSetUkmRecorder ukm_recorder;
+
+  ConfigureReplacementHostAndPortForRemotePermissionService();
+
+  FinishOutstandingAsyncQueries();
+  EXPECT_TRUE(GetFlocId().IsValid());
+
+  auto entries =
+      ukm_recorder.GetEntriesByName(ukm::builders::FlocPageLoad::kEntryName);
+  EXPECT_EQ(0u, entries.size());
+
+  GURL main_frame_url = https_server_.GetURL(test_host(), "/title1.html");
+  ui_test_utils::NavigateToURL(browser(), main_frame_url);
+
+  entries =
+      ukm_recorder.GetEntriesByName(ukm::builders::FlocPageLoad::kEntryName);
+  EXPECT_EQ(1u, entries.size());
+
+  ukm_recorder.ExpectEntrySourceHasUrl(entries.front(), main_frame_url);
+  ukm_recorder.ExpectEntryMetric(
+      entries.front(), ukm::builders::FlocPageLoad::kFlocIdName,
+      /*expected_value=*/FlocId::SimHashHistory({"initial-history.com"}));
+}
+
+IN_PROC_BROWSER_TEST_F(FlocIdProviderWithCustomizedServicesBrowserTest,
                        ClearCookiesInvalidateFloc) {
   ConfigureReplacementHostAndPortForRemotePermissionService();
 
@@ -722,6 +750,11 @@ IN_PROC_BROWSER_TEST_F(FlocIdProviderSortingLshEnabledBrowserTest,
 
   // Check that the original sim_hash is not 0.
   EXPECT_NE(0u, FlocId::SimHashHistory({test_host()}));
+
+  // Navigate to an https site. The initial about:blank page is not considered
+  // as a secure context to be able to use the API.
+  ui_test_utils::NavigateToURL(
+      browser(), https_server_.GetURL(test_host(), "/title1.html"));
 
   // Expect that the final id is 0 because the sorting-lsh was applied.
   EXPECT_EQ("0.1.9", InvokeInterestCohortJsApi(web_contents()));

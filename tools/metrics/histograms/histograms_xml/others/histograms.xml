@@ -6074,6 +6074,23 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
   </summary>
 </histogram>
 
+<histogram name="Graphics.Smoothness.Diagnostic.DiscardedDependentCount"
+    units="dependent reporters" expires_after="2022-02-01">
+  <owner>sadrul@chromium.org</owner>
+  <owner>behdadb@chromium.org</owner>
+  <summary>
+    Diagnostic metric to measure how many dependent reporters have been
+    discarded.
+
+    The reporters might be dependant on another reporter (when having partial
+    updates) but if the number of dependents go over a limit we would discard
+    them earlier. This metric count how many of such reporters been discarded
+    earlier than expected as a result of outstanding number of dependent
+    reporters. The metric will be reported at the end of each frame if there has
+    been any discarded dependent reporters.
+  </summary>
+</histogram>
+
 <histogram name="Graphics.Smoothness.Diagnostic.ReadSharedMemoryDuration"
     units="microseconds" expires_after="2021-09-01">
   <owner>sadrul@chromium.org</owner>
@@ -7788,8 +7805,10 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
   <owner>perrier@chromium.org</owner>
   <owner>chrome-language@google.com</owner>
   <summary>
-    The actions taken on languages settings, recorded every time they happen.
-    This histogram will record every single event that happens separately.
+    The actions on the languages settings page that result in a preference
+    change. This histogram will record every single event that happens
+    separately. See LanguageSettings.PageImpressions for how often language
+    settings sections are seen.
   </summary>
 </histogram>
 
@@ -7797,7 +7816,11 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
     enum="LanguageSettingsPageType" expires_after="2021-07-11">
   <owner>googleo@chromium.org</owner>
   <owner>chrome-language@google.com</owner>
-  <summary>The type of panes which language settings loads.</summary>
+  <summary>
+    Impressions of pages, sections, or dialogs viewed from language settings.
+    Page impressions do not result in preferences changes. See
+    LanguageSettings.Actions for preference change counts.
+  </summary>
 </histogram>
 
 <histogram name="LanguageUsage.AcceptLanguage" enum="LanguageCode"
@@ -12565,6 +12588,17 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
   <summary>Number of unread entries in reading list.</summary>
 </histogram>
 
+<histogram name="ReadingList.WebUI.InitialEntriesRenderTime" units="ms"
+    expires_after="M92">
+  <owner>corising@chromium.org</owner>
+  <owner>chrome-desktop-ui-sea@google.com</owner>
+  <summary>
+    Records the time taken to load the Read Later WebUI and render (at least)
+    the initial list of entries. This is roughly equivalent to 'time to first
+    meaningful paint' for the Read Later UI.
+  </summary>
+</histogram>
+
 <histogram name="ReadingList.WebUI.LoadCompletedTime" units="ms"
     expires_after="M92">
   <owner>corising@chromium.org</owner>
@@ -12583,6 +12617,18 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
   <summary>
     The amount of time between the render frame host StartProvisionalLoad and
     DidFinishDocumentLoad events for the Read Later WebUI page.
+  </summary>
+</histogram>
+
+<histogram name="ReadingList.WebUI.ReadingListDataReceived" units="ms"
+    expires_after="M92">
+  <owner>corising@chromium.org</owner>
+  <owner>chrome-desktop-ui-sea@google.com</owner>
+  <summary>
+    The time taken for the WebUI in the renderer to receive the full list of
+    entries for the current user profile. This is measured as the time from when
+    the data was first requested by the WebUI to when the data was received by
+    the WebUI.
   </summary>
 </histogram>
 
@@ -17534,6 +17580,17 @@ regressions. -->
   </summary>
 </histogram>
 
+<histogram name="WebApp.Mover.Result" enum="WebAppMoverResult"
+    expires_after="2021-06-01">
+  <owner>dmurph@chromium.org</owner>
+  <owner>desktop-pwas-team@google.com</owner>
+  <summary>
+    Records the result of running the WebAppMover, which runs on Chrome startup.
+    It uninstalls a set of WebApps and then installs a single WebApp as a
+    replacement.
+  </summary>
+</histogram>
+
 <histogram name="Webapp.NavigationStatus" enum="BooleanSuccess"
     expires_after="2021-06-20">
   <owner>peter@chromium.org</owner>
@@ -17744,6 +17801,44 @@ regressions. -->
     The time between the phone connecting to the tunnel server (and thus
     starting its BLE broadcast) to the point where it receives the handshake
     message from the desktop.
+  </summary>
+</histogram>
+
+<histogram name="WebAuthentication.ChromeOS.GetAssertionStatus"
+    enum="WebAuthenticationChromeOSGetAssertionResult"
+    expires_after="2021-11-19">
+  <owner>yichengli@chromium.org</owner>
+  <owner>martinkr@google.com</owner>
+  <summary>Records the outcome of GetAssertion on Chrome OS.</summary>
+</histogram>
+
+<histogram name="WebAuthentication.ChromeOS.MakeCredentialStatus"
+    enum="WebAuthenticationChromeOSMakeCredentialResult"
+    expires_after="2021-11-19">
+  <owner>yichengli@chromium.org</owner>
+  <owner>martinkr@google.com</owner>
+  <summary>Records the outcome of MakeCredential on Chrome OS.</summary>
+</histogram>
+
+<histogram name="WebAuthentication.ChromeOS.StartupRecordCount" units="records"
+    expires_after="2021-11-19">
+  <owner>yichengli@chromium.org</owner>
+  <owner>martinkr@google.com</owner>
+  <summary>
+    Records the number of records of the user's WebAuthn credentials created on
+    Chrome OS.
+  </summary>
+</histogram>
+
+<histogram name="WebAuthentication.ChromeOS.UserVerificationRequired"
+    enum="Boolean" expires_after="2021-11-19">
+  <owner>yichengli@chromium.org</owner>
+  <owner>martinkr@google.com</owner>
+  <summary>
+    Records whether the Chrome OS platform authenticator should try to verify
+    the user (instead of requiring power button press). Note that a
+    presence-only request may get upgraded to user-verification. Also note that
+    &quot;true&quot; does not mean the user is actually verified.
   </summary>
 </histogram>
 

@@ -513,6 +513,10 @@ bool Controller::ShouldShowWarning() {
          state_ == AutofillAssistantState::PROMPT;
 }
 
+void Controller::SetShowFeedbackChip(bool show_feedback_chip) {
+  show_feedback_chip_on_graceful_shutdown_ = show_feedback_chip;
+}
+
 void Controller::AddNavigationListener(
     ScriptExecutorDelegate::NavigationListener* listener) {
   navigation_listeners_.AddObserver(listener);
@@ -813,13 +817,28 @@ void Controller::ReportNavigationStateChanged() {
   }
 }
 
-void Controller::EnterStoppedState() {
+void Controller::EnterStoppedState(bool show_feedback_chip) {
   if (script_tracker_)
     script_tracker_->StopScript();
 
+  std::unique_ptr<std::vector<UserAction>> final_actions;
+  if (base::FeatureList::IsEnabled(features::kAutofillAssistantFeedbackChip) &&
+      show_feedback_chip) {
+    final_actions = std::make_unique<std::vector<UserAction>>();
+    UserAction feedback_action;
+    Chip feedback_chip;
+    feedback_chip.type = FEEDBACK_ACTION;
+    feedback_chip.text =
+        l10n_util::GetStringUTF8(IDS_AUTOFILL_ASSISTANT_SEND_FEEDBACK);
+    feedback_action.SetCallback(base::BindOnce(&Controller::ShutdownIfNecessary,
+                                               weak_ptr_factory_.GetWeakPtr()));
+    feedback_action.chip() = feedback_chip;
+    final_actions->emplace_back(std::move(feedback_action));
+  }
+
   ClearInfoBox();
   SetDetails(nullptr, base::TimeDelta());
-  SetUserActions(nullptr);
+  SetUserActions(std::move(final_actions));
   SetCollectUserDataOptions(nullptr);
   SetForm(nullptr, base::DoNothing(), base::DoNothing());
   EnterState(AutofillAssistantState::STOPPED);
@@ -986,6 +1005,7 @@ void Controller::OnGetScripts(const GURL& url,
             << ", http-status=" << http_status;
 #endif
     OnFatalError(l10n_util::GetStringUTF8(IDS_AUTOFILL_ASSISTANT_DEFAULT_ERROR),
+                 /*show_feedback_chip=*/true,
                  Metrics::DropOutReason::GET_SCRIPTS_FAILED);
     return;
   }
@@ -999,6 +1019,7 @@ void Controller::OnGetScripts(const GURL& url,
             << "unparseable response";
 #endif
     OnFatalError(l10n_util::GetStringUTF8(IDS_AUTOFILL_ASSISTANT_DEFAULT_ERROR),
+                 /*show_feedback_chip=*/true,
                  Metrics::DropOutReason::GET_SCRIPTS_UNPARSABLE);
     return;
   }
@@ -1050,7 +1071,7 @@ void Controller::OnGetScripts(const GURL& url,
     if (state_ == AutofillAssistantState::TRACKING) {
       OnFatalError(
           l10n_util::GetStringUTF8(IDS_AUTOFILL_ASSISTANT_DEFAULT_ERROR),
-          Metrics::DropOutReason::NO_SCRIPTS);
+          /*show_feedback_chip=*/false, Metrics::DropOutReason::NO_SCRIPTS);
       return;
     }
     OnNoRunnableScriptsForPage();
@@ -1120,7 +1141,8 @@ void Controller::OnScriptExecuted(const std::string& script_path,
 
     case ScriptExecutor::SHUTDOWN_GRACEFULLY:
       if (!tracking_) {
-        EnterStoppedState();
+        EnterStoppedState(
+            /*show_feedback_chip=*/show_feedback_chip_on_graceful_shutdown_);
         RecordDropOutOrShutdown(Metrics::DropOutReason::SCRIPT_SHUTDOWN);
         return;
       }
@@ -1209,9 +1231,8 @@ void Controller::InitFromParameters() {
   const base::Optional<std::string> password_change_username =
       trigger_context_->GetPasswordChangeUsername();
   if (password_change_username) {
-    DCHECK(
-        GetCurrentURL().is_valid());  // At least |deeplink_url_| must be set.
-    user_data_->selected_login_.emplace(GetCurrentURL().GetOrigin(),
+    DCHECK(GetDeeplinkURL().is_valid());  // |deeplink_url_| must be set.
+    user_data_->selected_login_.emplace(GetDeeplinkURL().GetOrigin(),
                                         *password_change_username);
   }
 
@@ -1692,7 +1713,7 @@ void Controller::OnScriptError(const std::string& error_message,
     SetProgressBarErrorState(true);
   }
 
-  EnterStoppedState();
+  EnterStoppedState(/*show_feedback_chip=*/true);
 
   if (tracking_) {
     EnterState(AutofillAssistantState::TRACKING);
@@ -1703,6 +1724,7 @@ void Controller::OnScriptError(const std::string& error_message,
 }
 
 void Controller::OnFatalError(const std::string& error_message,
+                              bool show_feedback_chip,
                               Metrics::DropOutReason reason) {
   LOG(ERROR) << "Autofill Assistant has encountered a fatal error and is "
                 "shutting down, reason="
@@ -1712,7 +1734,7 @@ void Controller::OnFatalError(const std::string& error_message,
 
   SetStatusMessage(error_message);
   SetProgressBarErrorState(true);
-  EnterStoppedState();
+  EnterStoppedState(show_feedback_chip);
 
   // If we haven't managed to check the set of scripts yet at this point, we
   // never will.

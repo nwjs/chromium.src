@@ -206,6 +206,12 @@ class TabSwitcherMediator
          * when the closure of the binding tab in tab switcher is undone.
          */
         void restorePriceWelcomeMessage();
+
+        /**
+         * Show the price welcome message in tab switcher. This is used when any open tab in tab
+         * switcher has a price drop.
+         */
+        void showPriceWelcomeMessage(PriceWelcomeMessageService.PriceTabData priceTabData);
     }
 
     /**
@@ -323,7 +329,8 @@ class TabSwitcherMediator
             public void tabClosureUndone(Tab tab) {
                 if (mTabModelSelector.getCurrentModel().getCount() == 1) {
                     messageItemsController.restoreAllAppendedMessage();
-                } else if (mPriceWelcomeMessageService != null
+                }
+                if (mPriceWelcomeMessageService != null
                         && mPriceWelcomeMessageService.getBindingTabId() == tab.getId()) {
                     priceWelcomeMessageController.restorePriceWelcomeMessage();
                 }
@@ -715,8 +722,16 @@ class TabSwitcherMediator
     }
 
     @Override
-    public boolean onBackPressed() {
+    public boolean onBackPressed(boolean isOnHomepage) {
         if (!mContainerViewModel.get(IS_VISIBLE)) return false;
+
+        // When the Start surface is showing, we check if the tab group dialog is showing from the
+        // carousel tab switcher, and delegates to mTabGridDialogController to close the dialog.
+        // See https://crbug.com/1171799.
+        if (isOnHomepage && mMode == TabListCoordinator.TabListMode.CAROUSEL) {
+            return mTabGridDialogController != null && mTabGridDialogController.handleBackPressed();
+        }
+
         if (mTabSelectionEditorController != null
                 && mTabSelectionEditorController.handleBackPressed()) {
             return true;
@@ -826,7 +841,7 @@ class TabSwitcherMediator
     }
 
     @Override
-    public void scrollToBindingTab(int tabIndex) {
+    public void scrollToTab(int tabIndex) {
         mContainerViewModel.set(TabListContainerProperties.INITIAL_SCROLL_INDEX, tabIndex);
     }
 

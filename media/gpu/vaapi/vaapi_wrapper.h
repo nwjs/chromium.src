@@ -241,6 +241,12 @@ class MEDIA_GPU_EXPORT VaapiWrapper
   static uint32_t BufferFormatToVARTFormat(gfx::BufferFormat fmt);
   static uint32_t BufferFormatToVAFourCC(gfx::BufferFormat fmt);
 
+  // Returns the current instance identifier for the protected content system.
+  // This can be used to detect when protected context loss has occurred, so any
+  // protected surfaces associated with a specific instance ID can be
+  // invalidated when the ID changes.
+  static uint32_t GetProtectedInstanceID();
+
   // Creates |num_surfaces| VASurfaceIDs of |va_format|, |size| and
   // |surface_usage_hint| and, if successful, creates a |va_context_id_| of the
   // same size. |surface_usage_hint| may affect an alignment and tiling of the
@@ -276,6 +282,13 @@ class MEDIA_GPU_EXPORT VaapiWrapper
   bool CreateProtectedSession(media::EncryptionScheme encryption,
                               const std::vector<uint8_t>& hw_config,
                               std::vector<uint8_t>* hw_identifier_out);
+  // Returns true if and only if we have created a protected session and
+  // querying libva indicates that our protected session is no longer alive,
+  // otherwise this will return false.
+  bool IsProtectedSessionDead();
+  // If we have a protected session, destroys it immediately. This should be
+  // used as part of recovering dead protected sessions.
+  void DestroyProtectedSession();
 
   // Releases the |va_surfaces| and destroys |va_context_id_|.
   void DestroyContextAndSurfaces(std::vector<VASurfaceID> va_surfaces);

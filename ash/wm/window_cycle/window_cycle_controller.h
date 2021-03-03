@@ -40,7 +40,9 @@ class ASH_EXPORT WindowCycleController : public SessionObserver {
  public:
   using WindowList = std::vector<aura::Window*>;
 
-  enum Direction { FORWARD, BACKWARD };
+  enum class WindowCyclingDirection { kForward, kBackward };
+  enum class KeyboardNavDirection { kUp, kDown, kLeft, kRight, kInvalid };
+  enum class ModeSwitchSource { kClick, kKeyboard };
 
   WindowCycleController();
   ~WindowCycleController() override;
@@ -59,11 +61,21 @@ class ASH_EXPORT WindowCycleController : public SessionObserver {
 
   // Cycles between windows in the given |direction|. This moves the focus ring
   // to the window in the given |direction| and also scrolls the list.
-  void HandleCycleWindow(Direction direction);
+  void HandleCycleWindow(WindowCyclingDirection direction);
+
+  // Navigates between cycle windows and tab slider if the move is valid.
+  // This moves the focus ring to the active button or the last focused window
+  // and announces these changes via ChromeVox.
+  void HandleKeyboardNavigation(KeyboardNavDirection direction);
+
+  // Returns true if the direction is valid regarding the component that the
+  // focus is currently on. For example, moving the focus on the top most
+  // component, the tab slider button, further up is invalid.
+  bool IsValidKeyboardNavigation(KeyboardNavDirection direction);
 
   // Scrolls the windows in the given |direction|. This does not move the focus
   // ring.
-  void Scroll(Direction direction);
+  void Scroll(WindowCyclingDirection direction);
 
   // Returns true if we are in the middle of a window cycling gesture.
   bool IsCycling() const { return window_cycle_list_.get() != NULL; }
@@ -109,8 +121,17 @@ class ASH_EXPORT WindowCycleController : public SessionObserver {
   // window correctly.
   bool IsSwitchingMode();
 
+  // Returns if the tab slider is currently focused instead of the window cycle
+  // during keyboard navigation.
+  bool IsTabSliderFocused();
+
   // SessionObserver:
   void OnActiveUserPrefServiceChanged(PrefService* pref_service) override;
+
+  // Saves |per_desk| in the user prefs and announces changes of alt-tab mode
+  // and the window selection via ChromeVox. This function is called when the
+  // user switches the alt-tab mode via keyboard navigation or button clicking.
+  void OnModeChanged(bool per_desk, ModeSwitchSource source);
 
  private:
   // Gets a list of windows from the currently open windows, removing windows
@@ -124,7 +145,7 @@ class ASH_EXPORT WindowCycleController : public SessionObserver {
   void SaveCurrentActiveDeskAndWindow(const WindowList& window_list);
 
   // Cycles to the next or previous window based on |direction|.
-  void Step(Direction direction);
+  void Step(WindowCyclingDirection direction);
 
   void StopCycling();
 

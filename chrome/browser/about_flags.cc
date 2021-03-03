@@ -1543,6 +1543,13 @@ const FeatureEntry::FeatureVariation kPromoBrowserCommandsVariations[] = {
      nullptr}};
 #if !defined(OS_ANDROID)
 
+const FeatureEntry::FeatureParam kNtpChromeCartModuleFakeData[] = {
+    {ntp_features::kNtpChromeCartModuleDataParam, "fake"}};
+const FeatureEntry::FeatureVariation kNtpChromeCartModuleVariations[] = {
+    {"- Fake Data", kNtpChromeCartModuleFakeData,
+     base::size(kNtpChromeCartModuleFakeData), nullptr},
+};
+
 const FeatureEntry::FeatureParam kNtpRecipeTasksModuleFakeData[] = {
     {ntp_features::kNtpStatefulTasksModuleDataParam, "fake"}};
 const FeatureEntry::FeatureVariation kNtpRecipeTasksModuleVariations[] = {
@@ -3280,6 +3287,9 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kGuestOsExternalProtocolName,
      flag_descriptions::kGuestOsExternalProtocolDescription, kOsCrOS,
      FEATURE_VALUE_TYPE(chromeos::features::kGuestOsExternalProtocol)},
+    {"pluginvm-fullscreen", flag_descriptions::kPluginVmFullscreenName,
+     flag_descriptions::kPluginVmFullscreenDescription, kOsCrOS,
+     FEATURE_VALUE_TYPE(chromeos::features::kPluginVmFullscreen)},
     {"pluginvm-show-camera-permissions",
      flag_descriptions::kPluginVmShowCameraPermissionsName,
      flag_descriptions::kPluginVmShowCameraPermissionsDescription, kOsCrOS,
@@ -4505,11 +4515,17 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kTabGroupsFeedbackDescription, kOsDesktop,
      FEATURE_VALUE_TYPE(features::kTabGroupsFeedback)},
 
+    {"tab-groups-new-badge-promo",
+     flag_descriptions::kTabGroupsNewBadgePromoName,
+     flag_descriptions::kTabGroupsNewBadgePromoDescription, kOsDesktop,
+     FEATURE_VALUE_TYPE(features::kTabGroupsNewBadgePromo)},
+
     {"new-tabstrip-animation", flag_descriptions::kNewTabstripAnimationName,
      flag_descriptions::kNewTabstripAnimationDescription, kOsDesktop,
      FEATURE_VALUE_TYPE(features::kNewTabstripAnimation)},
 
-    {"scrollable-tabstrip", flag_descriptions::kScrollableTabStripName,
+    {flag_descriptions::kScrollableTabStripFlagId,
+     flag_descriptions::kScrollableTabStripName,
      flag_descriptions::kScrollableTabStripDescription, kOsDesktop,
      FEATURE_VALUE_TYPE(features::kScrollableTabStrip)},
 
@@ -4604,7 +4620,9 @@ const FeatureEntry kFeatureEntries[] = {
 
     {"ntp-chrome-cart-module", flag_descriptions::kNtpChromeCartModuleName,
      flag_descriptions::kNtpChromeCartModuleDescription, kOsDesktop,
-     FEATURE_VALUE_TYPE(ntp_features::kNtpChromeCartModule)},
+     FEATURE_WITH_PARAMS_VALUE_TYPE(ntp_features::kNtpChromeCartModule,
+                                    kNtpChromeCartModuleVariations,
+                                    "NtpChromeCartModule")},
 #endif  // !defined(OS_ANDROID)
 
 #if defined(DCHECK_IS_CONFIGURABLE)
@@ -5533,10 +5551,6 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kPhoneHubDescription, kOsCrOS,
      FEATURE_VALUE_TYPE(chromeos::features::kPhoneHub)},
 
-    {"enable-phone-hub-use-ble", flag_descriptions::kPhoneHubUseBleName,
-     flag_descriptions::kPhoneHubUseBleDescription, kOsCrOS,
-     FEATURE_VALUE_TYPE(chromeos::features::kPhoneHubUseBle)},
-
     {"wifi-sync-android", flag_descriptions::kWifiSyncAndroidName,
      flag_descriptions::kWifiSyncAndroidDescription, kOsCrOS,
      FEATURE_VALUE_TYPE(chromeos::features::kWifiSyncAndroid)},
@@ -5574,6 +5588,13 @@ const FeatureEntry kFeatureEntries[] = {
     {"print-server-scaling", flag_descriptions::kPrintServerScalingName,
      flag_descriptions::kPrintServerScalingDescription, kOsCrOS,
      FEATURE_VALUE_TYPE(chromeos::features::kPrintServerScaling)},
+
+    {"disable-peripheral-data-access-protection",
+     flag_descriptions::kDisablePeripheralDataAccessProtectionName,
+     flag_descriptions::kDisablePeripheralDataAccessProtectionDescription,
+     kOsCrOS,
+     FEATURE_VALUE_TYPE(
+         chromeos::features::kDisablePeripheralDataAccessProtection)},
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
     {"enable-portals", flag_descriptions::kEnablePortalsName,

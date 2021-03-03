@@ -455,7 +455,9 @@ void RecordReadyToCommitMetrics(
     RenderFrameHostImpl* old_rfh,
     RenderFrameHostImpl* new_rfh,
     const mojom::CommonNavigationParams& common_params,
-    base::TimeTicks ready_to_commit_time) {
+    base::TimeTicks ready_to_commit_time,
+    NavigationRequest::OptInOriginIsolationEndResult
+        origin_isolation_end_result) {
   bool is_main_frame = !new_rfh->GetParent();
   bool is_same_process =
       old_rfh->GetProcess()->GetID() == new_rfh->GetProcess()->GetID();
@@ -554,6 +556,12 @@ void RecordReadyToCommitMetrics(
                                       common_params.transition, kIsBackground,
                                       delta);
     }
+  }
+
+  // Navigation.OriginAgentCluster
+  {
+    UMA_HISTOGRAM_ENUMERATION("Navigation.OriginAgentCluster.Result",
+                              origin_isolation_end_result);
   }
 }
 
@@ -2316,7 +2324,7 @@ void NavigationRequest::OnResponseStarted(
 
   // MHTML document can't be framed into non-MHTML document (and vice versa).
   // The full page must load from the MHTML archive or none of it.
-  if (is_mhtml_archive && !IsInMainFrame()) {
+  if (is_mhtml_archive && !IsInMainFrame() && response_should_be_rendered_) {
     OnRequestFailedInternal(
         network::URLLoaderCompletionStatus(net::ERR_BLOCKED_BY_RESPONSE),
         false /* skip_throttles */, base::nullopt /* error_page_contnet */,
@@ -2335,6 +2343,8 @@ void NavigationRequest::OnResponseStarted(
           common_params_->url, common_params_->referrer->url,
           network_isolation_key);
   if (coop_requires_blocking) {
+    // TODO(https://crbug.com/1172169): Investigate what must be done in case of
+    // a download.
     OnRequestFailedInternal(
         network::URLLoaderCompletionStatus(*coop_requires_blocking),
         false /* skip_throttles */, base::nullopt /* error_page_content */,
@@ -2347,6 +2357,8 @@ void NavigationRequest::OnResponseStarted(
   const base::Optional<network::mojom::BlockedByResponseReason>
       coep_requires_blocking = EnforceCOEP();
   if (coep_requires_blocking) {
+    // TODO(https://crbug.com/1172169): Investigate what must be done in case of
+    // a download.
     OnRequestFailedInternal(
         network::URLLoaderCompletionStatus(*coep_requires_blocking),
         false /* skip_throttles */, base::nullopt /* error_page_content */,
@@ -2394,6 +2406,8 @@ void NavigationRequest::OnResponseStarted(
             coep_reporter->QueueNavigationReport(redirect_chain_[0],
                                                  /*report_only=*/false);
           }
+          // TODO(https://crbug.com/1172169): Investigate what must be done in
+          // case of a download.
           OnRequestFailedInternal(network::URLLoaderCompletionStatus(
                                       network::mojom::BlockedByResponseReason::
                                           kCoepFrameResourceNeedsCoepHeader),
@@ -2431,6 +2445,14 @@ void NavigationRequest::OnResponseStarted(
   } else if (response_should_be_rendered_) {
     render_frame_host_ =
         frame_tree_node_->render_manager()->GetFrameHostForNavigation(this);
+
+    // Update the associated SiteInstance type, which could have changed
+    // due to redirects during navigation.
+    set_associated_site_instance_type(
+        render_frame_host_ ==
+                frame_tree_node_->render_manager()->current_frame_host()
+            ? AssociatedSiteInstanceType::CURRENT
+            : AssociatedSiteInstanceType::SPECULATIVE);
 
     if (!Navigator::CheckWebUIRendererDoesNotDisplayNormalURL(
             render_frame_host_, GetUrlInfo(),
@@ -2691,6 +2713,13 @@ void NavigationRequest::OnRequestFailedInternal(
   // checks.
   CHECK(!render_frame_host_ || render_frame_host_ == render_frame_host);
   render_frame_host_ = render_frame_host;
+
+  // Update the associated SiteInstance type.
+  set_associated_site_instance_type(
+      render_frame_host_ ==
+              frame_tree_node_->render_manager()->current_frame_host()
+          ? AssociatedSiteInstanceType::CURRENT
+          : AssociatedSiteInstanceType::SPECULATIVE);
 
   // The check for WebUI should be performed only if error page isolation is
   // enabled for this failed navigation. It is possible for subframe error page
@@ -3826,7 +3855,7 @@ void NavigationRequest::OnRendererAbortedNavigation() {
     // Changing it to no longer early return breaks a bunch of other code that
     // runs in `CommitPendingIfNecessary()` that expects `DidStopLoading()`
     // won't be called if `FrameTreeNode::navigation_request()` is null...
-    frame_tree_node->render_manager()->CleanUpNavigation();
+    frame_tree_node->render_manager()->MaybeCleanUpNavigation();
   } else {
     frame_tree_node_->navigator().CancelNavigation(frame_tree_node_);
   }
@@ -4483,7 +4512,8 @@ void NavigationRequest::ReadyToCommitNavigation(bool is_error) {
 
     RecordReadyToCommitMetrics(frame_tree_node_->current_frame_host(),
                                render_frame_host_, *common_params_.get(),
-                               ready_to_commit_time_);
+                               ready_to_commit_time_,
+                               origin_isolation_end_result_);
   }
 
   SetExpectedProcess(render_frame_host_->GetProcess());
@@ -4883,7 +4913,8 @@ const blink::mojom::Referrer& NavigationRequest::GetReferrer() {
 
 void NavigationRequest::SetReferrer(blink::mojom::ReferrerPtr referrer) {
   DCHECK(state_ == WILL_START_REQUEST || state_ == WILL_REDIRECT_REQUEST);
-  sanitized_referrer_ = std::move(referrer);
+  sanitized_referrer_ =
+      Referrer::SanitizeForRequest(common_params_->url, *referrer);
   common_params_->referrer = sanitized_referrer_.Clone();
 }
 

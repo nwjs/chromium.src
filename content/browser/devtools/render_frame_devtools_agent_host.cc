@@ -215,6 +215,8 @@ void RenderFrameDevToolsAgentHost::UpdateRawHeadersAccess(
     return;
   std::set<url::Origin> old_process_origins;
   std::set<url::Origin> new_process_origins;
+  std::set<url::Origin> opaque_process_origins;
+  opaque_process_origins.insert(url::Origin());
   for (const auto& entry : g_agent_host_instances.Get()) {
     RenderFrameHostImpl* frame_host = entry.second->frame_host_;
     if (!frame_host)
@@ -237,8 +239,8 @@ void RenderFrameDevToolsAgentHost::UpdateRawHeadersAccess(
   }
   if (new_rph) {
     GetNetworkService()->SetRawHeadersAccess(
-        new_rph->GetID(), std::vector<url::Origin>(new_process_origins.begin(),
-                                                   new_process_origins.end()));
+        new_rph->GetID(), std::vector<url::Origin>(opaque_process_origins.begin(),
+                                                   opaque_process_origins.end()));
   }
 }
 

@@ -7,8 +7,13 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
+#import "components/pref_registry/pref_registry_syncable.h"
+#import "components/prefs/ios/pref_observer_bridge.h"
+#import "components/prefs/pref_change_registrar.h"
+#import "components/search_engines/default_search_manager.h"
 #include "ios/chrome/browser/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/main/browser.h"
+#import "ios/chrome/browser/pref_names.h"
 #import "ios/chrome/browser/search_engines/template_url_service_factory.h"
 #import "ios/chrome/browser/signin/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/identity_manager_factory.h"
@@ -48,9 +53,15 @@
 @interface NewTabPageCoordinator () <NewTabPageCommands,
                                      NewTabPageContentDelegate,
                                      OverscrollActionsControllerDelegate,
+                                     PrefObserverDelegate,
                                      SceneStateObserver> {
   // Helper object managing the availability of the voice search feature.
   VoiceSearchAvailability _voiceSearchAvailability;
+
+  // Pref observer to track changes to prefs.
+  std::unique_ptr<PrefObserverBridge> _prefObserverBridge;
+  // Registrar for pref changes notifications.
+  std::unique_ptr<PrefChangeRegistrar> _prefChangeRegistrar;
 }
 
 // Coordinator for the ContentSuggestions.
@@ -114,6 +125,18 @@
   self = [super initWithBaseViewController:nil browser:browser];
   if (self) {
     self.containerViewController = [[UIViewController alloc] init];
+
+    PrefService* prefService =
+        ChromeBrowserState::FromBrowserState(browser->GetBrowserState())
+            ->GetPrefs();
+    _prefChangeRegistrar = std::make_unique<PrefChangeRegistrar>();
+    _prefChangeRegistrar->Init(prefService);
+    _prefObserverBridge.reset(new PrefObserverBridge(self));
+    _prefObserverBridge->ObserveChangesForPreference(
+        prefs::kArticlesForYouEnabled, _prefChangeRegistrar.get());
+    _prefObserverBridge->ObserveChangesForPreference(
+        DefaultSearchManager::kDefaultSearchProviderDataPrefName,
+        _prefChangeRegistrar.get());
   }
   return self;
 }
@@ -165,6 +188,7 @@
   self.contentSuggestionsCoordinator.panGestureHandler = self.panGestureHandler;
   self.contentSuggestionsCoordinator.ntpMediator = self.ntpMediator;
   self.contentSuggestionsCoordinator.ntpCommandHandler = self;
+  self.contentSuggestionsCoordinator.bubblePresenter = self.bubblePresenter;
 
   [self.contentSuggestionsCoordinator start];
 
@@ -336,12 +360,27 @@
   [self updateVisible];
 }
 
+- (void)handleDeviceRotation {
+  [self.ntpViewController handleDeviceRotation];
+}
+
 #pragma mark - NewTabPageCommands
 
-- (void)setDiscoverFeedVisible:(BOOL)visible {
+- (void)updateDiscoverFeedVisibility {
   [self stop];
   [self start];
+  [self updateDiscoverFeedLayout];
+
+  [self.containerViewController.view setNeedsLayout];
   [self.containerViewController.view layoutIfNeeded];
+}
+
+- (void)updateDiscoverFeedLayout {
+  if ([self isNTPRefactoredAndFeedVisible]) {
+    [self.containedViewController.view setNeedsLayout];
+    [self.containedViewController.view layoutIfNeeded];
+    [self.ntpViewController updateLayoutForContentSuggestions];
+  }
 }
 
 #pragma mark - LogoAnimationControllerOwnerOwner
@@ -433,9 +472,17 @@
   [self.contentSuggestionsCoordinator reload];
 }
 
-- (CGFloat)heightAboveFakeOmnibox {
-  return [self.contentSuggestionsCoordinator
-              .headerController heightAboveFakeOmnibox];
+#pragma mark - PrefObserverDelegate
+
+- (void)onPreferenceChanged:(const std::string&)preferenceName {
+  if (preferenceName == prefs::kArticlesForYouEnabled && IsRefactoredNTP()) {
+    [self updateDiscoverFeedVisibility];
+  }
+  if ([self isNTPRefactoredAndFeedVisible] &&
+      preferenceName ==
+          DefaultSearchManager::kDefaultSearchProviderDataPrefName) {
+    [self updateDiscoverFeedLayout];
+  }
 }
 
 #pragma mark - Private

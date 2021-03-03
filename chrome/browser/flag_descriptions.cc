@@ -960,6 +960,14 @@ const char kMemlogStackModeNative[] = "Native";
 const char kMemlogStackModeNativeWithThreadNames[] = "Native with thread names";
 const char kMemlogStackModePseudo[] = "Trace events";
 
+const char kDisablePeripheralDataAccessProtectionName[] =
+    "Turn off peripheral data access protection";
+const char kDisablePeripheralDataAccessProtectionDescription[] =
+    "Disables data access protection for external PCI devices (including some "
+    "thunderbolt and SD Express devices that use PCI tunneling). By default "
+    "this feature is disabled, which blocks data access from external PCI "
+    "devices.";
+
 const char kEnableLoginDetectionName[] = "Enable login detection";
 const char kEnableLoginDetectionDescription[] =
     "Allow user sign-in to be detected based on heuristics.";
@@ -2046,6 +2054,7 @@ const char kScreenCaptureTestDescription[] =
     "quick settings. Select the capture type and selection default from the "
     "capture mode UI bar. Try out new screen recording functionality.";
 
+const char kScrollableTabStripFlagId[] = "scrollable-tabstrip";
 const char kScrollableTabStripName[] = "Scrollable TabStrip";
 const char kScrollableTabStripDescription[] =
     "Allows users to access tabs by scrolling when they no longer fit in the "
@@ -2299,6 +2308,11 @@ const char kTabGroupsFeedbackName[] = "Tab Groups Feedback";
 const char kTabGroupsFeedbackDescription[] =
     "Enables the feedback app to appear in the tab group editor bubble, if tab "
     "groups are enabled.";
+
+const char kTabGroupsNewBadgePromoName[] = "Tab Groups 'New' Badge Promo";
+const char kTabGroupsNewBadgePromoDescription[] =
+    "Causes a 'New' badge to appear on the entry point for creating a tab "
+    "group in the tab context menu.";
 
 const char kTabHoverCardsName[] = "Tab Hover Cards";
 const char kTabHoverCardsDescription[] =
@@ -4514,11 +4528,6 @@ const char kPhoneHubDescription[] =
     "Provides a UI for users to view information about their Android phone"
     "and perform phone-side actions within Chrome OS.";
 
-const char kPhoneHubUseBleName[] = "Enable Phone Hub connection with BLE";
-const char kPhoneHubUseBleDescription[] =
-    "If enabled, Phone Hub will use the BLE as the main source of connection "
-    "between the Chrome OS device and the remote phone.";
-
 const char kReduceDisplayNotificationsName[] = "Reduce display notifications";
 const char kReduceDisplayNotificationsDescription[] =
     "If enabled, notifications for display rotation, display removed, display "
@@ -4622,6 +4631,10 @@ const char kSystemLatinPhysicalTypingName[] =
 const char kSystemLatinPhysicalTypingDescription[] =
     "Use the system input engine instead of the Chrome extension for physical "
     "typing in languages based on latin script.";
+
+const char kPluginVmFullscreenName[] = "Plugin VM Fullscreen";
+const char kPluginVmFullscreenDescription[] =
+    "Hides shelf in immersive mode and allows esc hold to exit.";
 
 const char kPluginVmShowCameraPermissionsName[] =
     "Show Plugin VM camera permissions";
