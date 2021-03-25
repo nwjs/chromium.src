@@ -11,6 +11,7 @@
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/accessibility/accessibility_labels_service.h"
 #include "chrome/browser/accessibility/accessibility_labels_service_factory.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/buildflags.h"
 #include "chrome/browser/dom_distiller/dom_distiller_service_factory.h"
 #include "chrome/browser/language/translate_frame_binder.h"
@@ -22,6 +23,8 @@
 #include "chrome/browser/prefetch/no_state_prefetch/chrome_prerender_contents_delegate.h"
 #include "chrome/browser/prefetch/no_state_prefetch/chrome_prerender_processor_impl_delegate.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ssl/insecure_sensitive_input_driver_factory.h"
 #include "chrome/browser/ssl/security_state_tab_helper.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -54,6 +57,7 @@
 #include "components/safe_browsing/buildflags.h"
 #include "components/security_state/content/content_utils.h"
 #include "components/security_state/core/security_state.h"
+#include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/site_engagement/core/mojom/site_engagement_details.mojom.h"
 #include "components/translate/content/common/translate.mojom.h"
 #include "content/public/browser/browser_context.h"
@@ -102,6 +106,7 @@
 #include "chrome/browser/accessibility/caption_host_impl.h"
 #include "chrome/browser/badging/badge_manager.h"
 #include "chrome/browser/cart/chrome_cart.mojom.h"
+#include "chrome/browser/cart/commerce_hint_service.h"
 #include "chrome/browser/media/feeds/media_feeds_store.mojom.h"
 #include "chrome/browser/payments/payment_credential_factory.h"
 #include "chrome/browser/payments/payment_request_factory.h"
@@ -114,8 +119,6 @@
 #include "chrome/browser/speech/speech_recognition_service_factory.h"
 #include "chrome/browser/ui/webui/downloads/downloads.mojom.h"
 #include "chrome/browser/ui/webui/downloads/downloads_ui.h"
-#include "components/search/ntp_features.h"
-#include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #if !defined(OFFICIAL_BUILD)
 #include "chrome/browser/ui/webui/new_tab_page/foo/foo.mojom.h"  // nogncheck crbug.com/1125897
 #endif
@@ -129,9 +132,11 @@
 #include "chrome/browser/ui/webui/tab_search/tab_search_ui.h"
 #include "chrome/common/caption.mojom.h"
 #include "chrome/common/webui_url_constants.h"
+#include "components/search/ntp_features.h"
 #include "media/base/media_switches.h"
 #include "media/mojo/mojom/speech_recognition_service.mojom.h"
-#endif
+#include "mojo/public/cpp/bindings/self_owned_receiver.h"
+#endif  // defined(OS_ANDROID)
 
 #if defined(OS_WIN) || defined(OS_MAC) || defined(OS_LINUX) || \
     defined(OS_CHROMEOS)
@@ -282,6 +287,38 @@ void BindImageAnnotator(
           frame_host->GetProcess()->GetBrowserContext()))
       ->BindImageAnnotator(std::move(receiver));
 }
+
+#if !defined(OS_ANDROID)
+void BindCommerceHintObserver(
+    content::RenderFrameHost* const frame_host,
+    mojo::PendingReceiver<cart::mojom::CommerceHintObserver> receiver) {
+  // Cart is not available for non-signin single-profile users.
+  Profile* profile = Profile::FromBrowserContext(
+      frame_host->GetProcess()->GetBrowserContext());
+  auto* identity_manager = IdentityManagerFactory::GetForProfile(profile);
+  ProfileManager* profile_manager = g_browser_process->profile_manager();
+  if (!identity_manager->HasPrimaryAccount(
+          signin::ConsentLevel::kNotRequired) &&
+      profile_manager->GetNumberOfProfiles() <= 1) {
+    return;
+  }
+  auto* web_contents = content::WebContents::FromRenderFrameHost(frame_host);
+  if (!web_contents)
+    return;
+  content::BrowserContext* browser_context = web_contents->GetBrowserContext();
+  if (!browser_context)
+    return;
+  if (browser_context->IsOffTheRecord())
+    return;
+
+  cart::CommerceHintService::CreateForWebContents(web_contents);
+  cart::CommerceHintService* service =
+      cart::CommerceHintService::FromWebContents(web_contents);
+  if (!service)
+    return;
+  service->BindCommerceHintObserver(frame_host, std::move(receiver));
+}
+#endif
 
 void BindDistillabilityService(
     content::RenderFrameHost* const frame_host,
@@ -484,9 +521,18 @@ void BindCdmInfobarServiceReceiver(
 #endif
 
 void PopulateChromeFrameBinders(
-    mojo::BinderMapWithContext<content::RenderFrameHost*>* map) {
+    mojo::BinderMapWithContext<content::RenderFrameHost*>* map,
+    content::RenderFrameHost* render_frame_host) {
   map->Add<image_annotation::mojom::Annotator>(
       base::BindRepeating(&BindImageAnnotator));
+
+#if !defined(OS_ANDROID)
+  if (base::FeatureList::IsEnabled(ntp_features::kNtpChromeCartModule) &&
+      !render_frame_host->GetParent()) {
+    map->Add<cart::mojom::CommerceHintObserver>(
+        base::BindRepeating(&BindCommerceHintObserver));
+  }
+#endif
 
   map->Add<blink::mojom::AnchorElementMetricsHost>(
       base::BindRepeating(&NavigationPredictor::Create));

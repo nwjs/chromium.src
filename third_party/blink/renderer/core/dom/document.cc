@@ -80,6 +80,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/string_or_element_creation_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_element_creation_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_element_registration_options.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_interest_cohort.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_throw_dom_exception.h"
 #include "third_party/blink/renderer/bindings/core/v8/window_proxy.h"
 #include "third_party/blink/renderer/core/accessibility/ax_context.h"
@@ -6017,11 +6018,8 @@ net::SiteForCookies Document::SiteForCookies() const {
       break;
     const url::Origin cur_security_origin =
         current_frame->GetSecurityContext()->GetSecurityOrigin()->ToUrlOrigin();
-    if (!candidate.IsEquivalent(
-            net::SiteForCookies::FromOrigin(cur_security_origin))) {
-      return net::SiteForCookies();
-    }
-    candidate.MarkIfCrossScheme(cur_security_origin);
+    if (!candidate.CompareWithFrameTreeOriginAndRevise(cur_security_origin))
+      return candidate;
     current_frame = current_frame->Tree().Parent();
   }
 
@@ -6305,11 +6303,11 @@ ScriptPromise Document::interestCohort(ScriptState* script_state,
   GetFlocService(ExecutionContext::From(script_state))
       ->GetInterestCohort(WTF::Bind(
           [](ScriptPromiseResolver* resolver, Document* document,
-             const String& interest_cohort) {
+             mojom::blink::InterestCohortPtr interest_cohort) {
             DCHECK(resolver);
             DCHECK(document);
 
-            if (interest_cohort.IsEmpty()) {
+            if (interest_cohort->version.IsEmpty()) {
               ScriptState* state = resolver->GetScriptState();
               ScriptState::Scope scope(state);
 
@@ -6320,7 +6318,11 @@ ScriptPromise Document::interestCohort(ScriptState* script_state,
                   "unavailable, or the preferences or content settings has "
                   "denined the access."));
             } else {
-              resolver->Resolve(interest_cohort);
+              InterestCohort* result = InterestCohort::Create();
+              result->setId(interest_cohort->id);
+              result->setVersion(interest_cohort->version);
+
+              resolver->Resolve(result);
             }
           },
           WrapPersistent(resolver), WrapPersistent(this)));
