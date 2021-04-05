@@ -87,43 +87,6 @@ constexpr wchar_t kDefaultCredProviderKey[] = L"DefaultCredentialProvider";
 constexpr wchar_t kEnrollmentRegKey[] = L"SOFTWARE\\Google\\Enrollment";
 constexpr wchar_t kDmTokenRegKey[] = L"dmtoken";
 
-HRESULT SetMachineRegDWORD(const base::string16& key_name,
-                           const base::string16& name,
-                           DWORD value) {
-  base::win::RegKey key;
-  LONG sts = key.Create(HKEY_LOCAL_MACHINE, key_name.c_str(), KEY_WRITE);
-  if (sts != ERROR_SUCCESS)
-    return HRESULT_FROM_WIN32(sts);
-
-  sts = key.WriteValue(name.c_str(), value);
-  if (sts != ERROR_SUCCESS)
-    return HRESULT_FROM_WIN32(sts);
-
-  return S_OK;
-}
-
-HRESULT SetMachineRegString(const base::string16& key_name,
-                            const base::string16& name,
-                            const base::string16& value) {
-  base::win::RegKey key;
-  LONG sts = key.Create(HKEY_LOCAL_MACHINE, key_name.c_str(), KEY_WRITE);
-  if (sts != ERROR_SUCCESS)
-    return HRESULT_FROM_WIN32(sts);
-
-  if (value.empty()) {
-    sts = key.DeleteValue(name.c_str());
-    if (sts == ERROR_FILE_NOT_FOUND)
-      sts = ERROR_SUCCESS;
-  } else {
-    sts = key.WriteValue(name.c_str(), value.c_str());
-  }
-
-  if (sts != ERROR_SUCCESS)
-    return HRESULT_FROM_WIN32(sts);
-
-  return S_OK;
-}
-
 HRESULT SetMachineRegBinaryInternal(const base::string16& key_name,
                                     const base::string16& name,
                                     const std::string& value,
@@ -159,11 +122,48 @@ base::string16 GetAccountPictureRegPathForUSer(const base::string16& user_sid) {
 
 }  // namespace
 
+HRESULT SetMachineRegDWORD(const base::string16& key_name,
+                           const base::string16& name,
+                           DWORD value) {
+  base::win::RegKey key;
+  LONG sts = key.Create(HKEY_LOCAL_MACHINE, key_name.c_str(), KEY_WRITE);
+  if (sts != ERROR_SUCCESS)
+    return HRESULT_FROM_WIN32(sts);
+
+  sts = key.WriteValue(name.c_str(), value);
+  if (sts != ERROR_SUCCESS)
+    return HRESULT_FROM_WIN32(sts);
+
+  return S_OK;
+}
+
 HRESULT MakeGcpwDefaultCP() {
   if (GetGlobalFlagOrDefault(kMakeGcpwDefaultCredProvider, 1))
     return SetMachineRegString(
         kDefaultCredProviderPath, kDefaultCredProviderKey,
         base::win::WStringFromGUID(CLSID_GaiaCredentialProvider));
+
+  return S_OK;
+}
+
+HRESULT SetMachineRegString(const base::string16& key_name,
+                            const base::string16& name,
+                            const base::string16& value) {
+  base::win::RegKey key;
+  LONG sts = key.Create(HKEY_LOCAL_MACHINE, key_name.c_str(), KEY_WRITE);
+  if (sts != ERROR_SUCCESS)
+    return HRESULT_FROM_WIN32(sts);
+
+  if (value.empty()) {
+    sts = key.DeleteValue(name.c_str());
+    if (sts == ERROR_FILE_NOT_FOUND)
+      sts = ERROR_SUCCESS;
+  } else {
+    sts = key.WriteValue(name.c_str(), value.c_str());
+  }
+
+  if (sts != ERROR_SUCCESS)
+    return HRESULT_FROM_WIN32(sts);
 
   return S_OK;
 }
@@ -492,6 +492,15 @@ std::string GetUserEmailFromSid(const base::string16& sid) {
     email_id_str = base::string16(email_id, email_id_size - 1);
 
   return base::UTF16ToUTF8(email_id_str);
+}
+
+void GetChildrenAtPath(const wchar_t* path,
+                       std::vector<base::string16>& children) {
+  base::win::RegistryKeyIterator iter(HKEY_LOCAL_MACHINE, path);
+  for (; iter.Valid(); ++iter) {
+    const wchar_t* child = iter.Name();
+    children.push_back(base::string16(child));
+  }
 }
 
 HRESULT SetUserWinlogonUserListEntry(const base::string16& username,

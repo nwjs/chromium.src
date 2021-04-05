@@ -23,6 +23,7 @@
 #include "media/capture/mojom/image_capture_types.h"
 #include "media/capture/video/blob_utils.h"
 #include "media/capture/video/chromeos/camera_3a_controller.h"
+#include "media/capture/video/chromeos/camera_app_device_bridge_impl.h"
 #include "media/capture/video/chromeos/camera_buffer_factory.h"
 #include "media/capture/video/chromeos/camera_hal_delegate.h"
 #include "media/capture/video/chromeos/camera_metadata_utils.h"
@@ -275,12 +276,10 @@ ResultMetadata::~ResultMetadata() = default;
 CameraDeviceDelegate::CameraDeviceDelegate(
     VideoCaptureDeviceDescriptor device_descriptor,
     scoped_refptr<CameraHalDelegate> camera_hal_delegate,
-    scoped_refptr<base::SingleThreadTaskRunner> ipc_task_runner,
-    CameraAppDeviceImpl* camera_app_device)
+    scoped_refptr<base::SingleThreadTaskRunner> ipc_task_runner)
     : device_descriptor_(device_descriptor),
       camera_hal_delegate_(std::move(camera_hal_delegate)),
-      ipc_task_runner_(std::move(ipc_task_runner)),
-      camera_app_device_(camera_app_device) {}
+      ipc_task_runner_(std::move(ipc_task_runner)) {}
 
 CameraDeviceDelegate::~CameraDeviceDelegate() = default;
 
@@ -777,13 +776,13 @@ void CameraDeviceDelegate::Initialize() {
   mojo::PendingRemote<cros::mojom::Camera3CallbackOps> callback_ops;
   // Assumes the buffer_type will be the same for all |chrome_capture_params|.
   request_manager_ = std::make_unique<RequestManager>(
+      device_descriptor_.device_id,
       callback_ops.InitWithNewPipeAndPassReceiver(),
       std::make_unique<StreamCaptureInterfaceImpl>(GetWeakPtr()),
       device_context_,
       chrome_capture_params_[ClientType::kPreviewClient].buffer_type,
       std::make_unique<CameraBufferFactory>(),
-      base::BindRepeating(&RotateAndBlobify), ipc_task_runner_,
-      camera_app_device_);
+      base::BindRepeating(&RotateAndBlobify), ipc_task_runner_);
   camera_3a_controller_ = std::make_unique<Camera3AController>(
       static_metadata_, request_manager_.get(), ipc_task_runner_);
   device_ops_->Initialize(
@@ -811,10 +810,13 @@ void CameraDeviceDelegate::OnInitialized(int32_t result) {
   }
   device_context_->SetState(CameraDeviceContext::State::kInitialized);
   bool require_photo = [&] {
-    if (camera_app_device_ == nullptr) {
+    auto camera_app_device =
+        CameraAppDeviceBridgeImpl::GetInstance()->GetWeakCameraAppDevice(
+            device_descriptor_.device_id);
+    if (!camera_app_device) {
       return false;
     }
-    auto capture_intent = camera_app_device_->GetCaptureIntent();
+    auto capture_intent = camera_app_device->GetCaptureIntent();
     switch (capture_intent) {
       case cros::mojom::CaptureIntent::DEFAULT:
         return false;
@@ -1074,9 +1076,12 @@ void CameraDeviceDelegate::ConstructDefaultRequestSettings(
   if (stream_type == StreamType::kPreviewOutput) {
     // CCA uses the same stream for preview and video recording. Choose proper
     // template here so the underlying camera HAL can set 3A tuning accordingly.
+    auto camera_app_device =
+        CameraAppDeviceBridgeImpl::GetInstance()->GetWeakCameraAppDevice(
+            device_descriptor_.device_id);
     auto request_template =
-        camera_app_device_ && camera_app_device_->GetCaptureIntent() ==
-                                  cros::mojom::CaptureIntent::VIDEO_RECORD
+        camera_app_device && camera_app_device->GetCaptureIntent() ==
+                                 cros::mojom::CaptureIntent::VIDEO_RECORD
             ? cros::mojom::Camera3RequestTemplate::CAMERA3_TEMPLATE_VIDEO_RECORD
             : cros::mojom::Camera3RequestTemplate::CAMERA3_TEMPLATE_PREVIEW;
     device_ops_->ConstructDefaultRequestSettings(
@@ -1113,43 +1118,17 @@ void CameraDeviceDelegate::OnConstructedDefaultPreviewRequestSettings(
     return;
   }
 
-  if (camera_app_device_) {
-    OnGotFpsRange(std::move(settings), camera_app_device_->GetFpsRange());
-  } else {
-    OnGotFpsRange(std::move(settings), {});
-  }
-}
-
-void CameraDeviceDelegate::OnConstructedDefaultStillCaptureRequestSettings(
-    cros::mojom::CameraMetadataPtr settings) {
   DCHECK(ipc_task_runner_->BelongsToCurrentThread());
 
-  while (!take_photo_callbacks_.empty()) {
-    auto take_photo_callback = base::BindOnce(
-        &TakePhotoCallbackBundle, std::move(take_photo_callbacks_.front()),
-        base::BindOnce(&Camera3AController::SetAutoFocusModeForStillCapture,
-                       camera_3a_controller_->GetWeakPtr()));
-    if (camera_app_device_) {
-      camera_app_device_->ConsumeReprocessOptions(
-          std::move(take_photo_callback),
-          media::BindToCurrentLoop(base::BindOnce(
-              &RequestManager::TakePhoto, request_manager_->GetWeakPtr(),
-              settings.Clone())));
-    } else {
-      request_manager_->TakePhoto(
-          settings.Clone(), CameraAppDeviceImpl::GetSingleShotReprocessOptions(
-                                std::move(take_photo_callback)));
-    }
-    take_photo_callbacks_.pop();
-  }
-}
-
-void CameraDeviceDelegate::OnGotFpsRange(
-    cros::mojom::CameraMetadataPtr settings,
-    base::Optional<gfx::Range> specified_fps_range) {
   device_context_->SetState(CameraDeviceContext::State::kCapturing);
   camera_3a_controller_->SetAutoFocusModeForStillCapture();
-  if (specified_fps_range.has_value()) {
+
+  auto camera_app_device =
+      CameraAppDeviceBridgeImpl::GetInstance()->GetWeakCameraAppDevice(
+          device_descriptor_.device_id);
+  auto specified_fps_range =
+      camera_app_device ? camera_app_device->GetFpsRange() : base::nullopt;
+  if (specified_fps_range) {
     SetFpsRangeInMetadata(&settings, specified_fps_range->GetMin(),
                           specified_fps_range->GetMax());
   } else {
@@ -1160,8 +1139,8 @@ void CameraDeviceDelegate::OnGotFpsRange(
     bool prefer_constant_frame_rate =
         base::FeatureList::IsEnabled(
             chromeos::features::kPreferConstantFrameRate) ||
-        (camera_app_device_ && camera_app_device_->GetCaptureIntent() ==
-                                   cros::mojom::CaptureIntent::VIDEO_RECORD);
+        (camera_app_device && camera_app_device->GetCaptureIntent() ==
+                                  cros::mojom::CaptureIntent::VIDEO_RECORD);
     int32_t target_min, target_max;
     std::tie(target_min, target_max) = GetTargetFrameRateRange(
         static_metadata_, requested_frame_rate, prefer_constant_frame_rate);
@@ -1187,8 +1166,38 @@ void CameraDeviceDelegate::OnGotFpsRange(
   }
 }
 
+void CameraDeviceDelegate::OnConstructedDefaultStillCaptureRequestSettings(
+    cros::mojom::CameraMetadataPtr settings) {
+  DCHECK(ipc_task_runner_->BelongsToCurrentThread());
+
+  auto camera_app_device =
+      CameraAppDeviceBridgeImpl::GetInstance()->GetWeakCameraAppDevice(
+          device_descriptor_.device_id);
+
+  while (!take_photo_callbacks_.empty()) {
+    auto take_photo_callback = base::BindOnce(
+        &TakePhotoCallbackBundle, std::move(take_photo_callbacks_.front()),
+        base::BindOnce(&Camera3AController::SetAutoFocusModeForStillCapture,
+                       camera_3a_controller_->GetWeakPtr()));
+    if (camera_app_device) {
+      camera_app_device->ConsumeReprocessOptions(
+          std::move(take_photo_callback),
+          media::BindToCurrentLoop(base::BindOnce(
+              &RequestManager::TakePhoto, request_manager_->GetWeakPtr(),
+              settings.Clone())));
+    } else {
+      request_manager_->TakePhoto(
+          settings.Clone(), CameraAppDeviceImpl::GetSingleShotReprocessOptions(
+                                std::move(take_photo_callback)));
+    }
+    take_photo_callbacks_.pop();
+  }
+}
+
 gfx::Size CameraDeviceDelegate::GetBlobResolution(
     base::Optional<gfx::Size> new_blob_resolution) {
+  DCHECK(ipc_task_runner_->BelongsToCurrentThread());
+
   std::vector<gfx::Size> blob_resolutions;
   GetStreamResolutions(
       static_metadata_, cros::mojom::Camera3StreamType::CAMERA3_STREAM_OUTPUT,
@@ -1205,9 +1214,12 @@ gfx::Size CameraDeviceDelegate::GetBlobResolution(
     return *new_blob_resolution;
   }
 
-  if (camera_app_device_) {
+  auto camera_app_device =
+      CameraAppDeviceBridgeImpl::GetInstance()->GetWeakCameraAppDevice(
+          device_descriptor_.device_id);
+  if (camera_app_device) {
     auto specified_capture_resolution =
-        camera_app_device_->GetStillCaptureResolution();
+        camera_app_device->GetStillCaptureResolution();
     if (!specified_capture_resolution.IsEmpty() &&
         base::Contains(blob_resolutions, specified_capture_resolution)) {
       return specified_capture_resolution;

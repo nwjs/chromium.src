@@ -179,13 +179,14 @@ export class Preview {
     }
     // Pause video element to avoid black frames during transition.
     this.video_.pause();
+    this.disableShowMetadata_();
     if (this.stream_ !== null) {
       const track = this.stream_.getVideoTracks()[0];
       const {deviceId} = track.getSettings();
       track.stop();
       const deviceOperator = await DeviceOperator.getInstance();
       if (deviceOperator !== null) {
-        await deviceOperator.waitForDeviceClose(deviceId);
+        deviceOperator.dropConnection(deviceId);
       }
       this.stream_ = null;
     }
