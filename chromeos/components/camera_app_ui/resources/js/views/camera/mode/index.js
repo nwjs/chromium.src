@@ -29,19 +29,17 @@ import {
 } from './mode_base.js';
 import {
   PhotoFactory,
-  PhotoHandler,
-  PhotoResult,
+  PhotoHandler,  // eslint-disable-line no-unused-vars
 } from './photo.js';
 import {PortraitFactory} from './portrait.js';
 import {SquareFactory} from './square.js';
 import {
-  Video,
   VideoFactory,
-  VideoHandler,
-  VideoResult,
+  VideoHandler,  // eslint-disable-line no-unused-vars
 } from './video.js';
 
-export {PhotoHandler, PhotoResult, Video, VideoHandler, VideoResult};
+export {PhotoHandler, PhotoResult} from './photo.js';
+export {setAvc1Parameters, Video, VideoHandler, VideoResult} from './video.js';
 
 /**
  * Callback to trigger mode switching.
@@ -234,7 +232,9 @@ export class Modes {
 
     [state.State.EXPERT, state.State.SAVE_METADATA].forEach(
         (/** !state.State */ s) => {
-          state.addObserver(s, this.updateSaveMetadata_.bind(this));
+          state.addObserver(s, () => {
+            this.updateSaveMetadata_();
+          });
         });
 
     // Set default mode when app started.

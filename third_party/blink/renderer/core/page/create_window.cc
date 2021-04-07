@@ -338,7 +338,7 @@ Frame* CreateNewWindow(LocalFrame& opener_frame,
 
   IntRect rect = page->GetChromeClient().CalculateWindowRectWithAdjustment(
       window_rect, frame, opener_frame);
-  page->GetChromeClient().Show(opener_frame.GetFrameToken(),
+  page->GetChromeClient().Show(opener_frame.GetLocalFrameToken(),
                                request.GetNavigationPolicy(), rect,
                                consumed_user_gesture, &manifest_str);
   MaybeLogWindowOpen(opener_frame);

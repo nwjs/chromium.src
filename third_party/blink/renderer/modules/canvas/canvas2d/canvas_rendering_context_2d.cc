@@ -245,6 +245,9 @@ void CanvasRenderingContext2D::DidSetSurfaceSize() {
 
 void CanvasRenderingContext2D::Trace(Visitor* visitor) const {
   visitor->Trace(hit_region_manager_);
+  visitor->Trace(dispatch_context_lost_event_timer_);
+  visitor->Trace(dispatch_context_restored_event_timer_);
+  visitor->Trace(try_restore_context_event_timer_);
   visitor->Trace(filter_operations_);
   CanvasRenderingContext::Trace(visitor);
   BaseRenderingContext2D::Trace(visitor);
@@ -647,11 +650,7 @@ void CanvasRenderingContext2D::UpdateFilterReferences(
   filter_operations_ = filters;
 }
 
-void CanvasRenderingContext2D::ResourceContentChanged(InvalidationModeMask) {
-  ResourceElementChanged();
-}
-
-void CanvasRenderingContext2D::ResourceElementChanged() {
+void CanvasRenderingContext2D::ResourceContentChanged(SVGResource*) {
   ClearFilterReferences();
   GetState().ClearResolvedFilter();
 }
@@ -974,6 +973,28 @@ TextMetrics* CanvasRenderingContext2D::measureText(const String& text) {
                                            GetState().GetTextAlign(), text);
 }
 
+void CanvasRenderingContext2D::fillFormattedText(
+    CanvasFormattedText* formatted_text,
+    double x,
+    double y,
+    double wrap_width) {
+  if (!formatted_text)
+    return;
+
+  if (!GetState().HasRealizedFont())
+    setFont(font());
+
+  FloatRect bounds;
+  sk_sp<PaintRecord> recording = formatted_text->PaintFormattedText(
+      canvas()->GetDocument(), GetState().GetFontDescription(), x, y,
+      wrap_width, bounds);
+  Draw([recording](cc::PaintCanvas* c, const PaintFlags* flags)  // draw lambda
+       { c->drawPicture(recording); },
+       [](const SkIRect& rect) { return false; }, bounds,
+       CanvasRenderingContext2DState::PaintType::kFillPaintType,
+       CanvasRenderingContext2DState::kNoImage);
+}
+
 void CanvasRenderingContext2D::DrawTextInternal(
     const String& text,
     double x,
@@ -1173,7 +1194,11 @@ void CanvasRenderingContext2D::DrawFocusRing(const Path& path) {
   if (!GetOrCreatePaintCanvas())
     return;
 
-  SkColor color = LayoutTheme::GetTheme().FocusRingColor().Rgb();
+  // TODO(crbug.com/929098) Need to pass an appropriate color scheme here.
+  SkColor color =
+      LayoutTheme::GetTheme()
+          .FocusRingColor(ComputedStyle::InitialStyle().UsedColorScheme())
+          .Rgb();
   const int kFocusRingWidth = 5;
   DrawPlatformFocusRing(path.GetSkPath(), GetPaintCanvas(), color,
                         /*width=*/kFocusRingWidth, /*radius=*/kFocusRingWidth);

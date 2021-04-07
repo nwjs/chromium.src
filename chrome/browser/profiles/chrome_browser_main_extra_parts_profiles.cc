@@ -50,6 +50,7 @@
 #include "chrome/browser/net/profile_network_context_service_factory.h"
 #include "chrome/browser/notifications/notifier_state_tracker_factory.h"
 #include "chrome/browser/page_load_metrics/observers/https_engagement_metrics/https_engagement_service_factory.h"
+#include "chrome/browser/page_load_metrics/page_load_metrics_memory_tracker_factory.h"
 #include "chrome/browser/password_manager/password_store_factory.h"
 #include "chrome/browser/permissions/adaptive_quiet_notification_permission_ui_enabler.h"
 #include "chrome/browser/permissions/last_tab_standing_tracker_factory.h"
@@ -61,8 +62,8 @@
 #include "chrome/browser/predictors/autocomplete_action_predictor_factory.h"
 #include "chrome/browser/predictors/loading_predictor_factory.h"
 #include "chrome/browser/predictors/predictor_database_factory.h"
-#include "chrome/browser/prefetch/no_state_prefetch/prerender_link_manager_factory.h"
-#include "chrome/browser/prefetch/no_state_prefetch/prerender_manager_factory.h"
+#include "chrome/browser/prefetch/no_state_prefetch/no_state_prefetch_link_manager_factory.h"
+#include "chrome/browser/prefetch/no_state_prefetch/no_state_prefetch_manager_factory.h"
 #include "chrome/browser/prefs/pref_metrics_service.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_settings_factory.h"
 #include "chrome/browser/profiles/gaia_info_update_service_factory.h"
@@ -237,8 +238,8 @@ void ChromeBrowserMainExtraPartsProfiles::
 #endif
 
   AboutSigninInternalsFactory::GetInstance();
-#if !defined(OS_ANDROID)
   AccessContextAuditServiceFactory::GetInstance();
+#if !defined(OS_ANDROID)
   GuestSigninObserverFactory::GetInstance();
 #endif
   AccountConsistencyModeManagerFactory::GetInstance();
@@ -350,6 +351,7 @@ void ChromeBrowserMainExtraPartsProfiles::
 #if !defined(OS_ANDROID)
   NTPResourceCacheFactory::GetInstance();
 #endif
+  page_load_metrics::PageLoadMetricsMemoryTrackerFactory::GetInstance();
   PasswordStoreFactory::GetInstance();
   PermissionAuditingServiceFactory::GetInstance();
   ProfileProtoDBFactory<
@@ -369,8 +371,8 @@ void ChromeBrowserMainExtraPartsProfiles::
   predictors::AutocompleteActionPredictorFactory::GetInstance();
   predictors::LoadingPredictorFactory::GetInstance();
   predictors::PredictorDatabaseFactory::GetInstance();
-  prerender::PrerenderLinkManagerFactory::GetInstance();
-  prerender::PrerenderManagerFactory::GetInstance();
+  prerender::NoStatePrefetchLinkManagerFactory::GetInstance();
+  prerender::NoStatePrefetchManagerFactory::GetInstance();
   PrivacySandboxSettingsFactory::GetInstance();
   ProfileNetworkContextServiceFactory::GetInstance();
   ProfileSyncServiceFactory::GetInstance();

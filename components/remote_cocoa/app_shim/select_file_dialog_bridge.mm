@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 #pragma clang diagnostic ignored "-Wunreachable-code"
-#pragma clang diagnostic ignored "-Wunused-variable"
 #include "components/remote_cocoa/app_shim/select_file_dialog_bridge.h"
 
 #include <CoreServices/CoreServices.h>
@@ -14,6 +13,7 @@
 #include "base/mac/scoped_cftyperef.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/threading/thread_restrictions.h"
 #import "ui/base/cocoa/controls/textfield_utils.h"
 #include "ui/base/l10n/l10n_util_mac.h"
 #include "ui/strings/grit/ui_strings.h"
@@ -206,10 +206,9 @@ void SelectFileDialogBridge::Show(
           base::SysUTF8ToNSString(default_path.BaseName().value());
     }
   }
-#if 0
+
   const bool keep_extension_visible =
       file_types ? file_types->keep_extension_visible : false;
-#endif
   if (type_ != SelectFileDialogType::kFolder &&
       type_ != SelectFileDialogType::kUploadFolder &&
       type_ != SelectFileDialogType::kExistingFolder) {

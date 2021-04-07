@@ -17,9 +17,9 @@
 #include "net/url_request/redirect_util.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/resource_request_body.h"
+#include "services/network/public/mojom/fetch_api.mojom-shared.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "third_party/blink/public/common/blob/blob_utils.h"
-#include "third_party/blink/public/mojom/loader/resource_load_info.mojom-shared.h"
 #include "ui/base/page_transition_types.h"
 
 namespace content {
@@ -97,6 +97,7 @@ void ServiceWorkerLoaderHelpers::SaveResponseInfo(
   out_head->was_fallback_required_by_service_worker = false;
   out_head->url_list_via_service_worker = response.url_list;
   out_head->response_type = response.response_type;
+  out_head->padding = response.padding;
   if (response.mime_type.has_value()) {
     std::string charset;
     bool had_charset = false;
@@ -121,6 +122,7 @@ void ServiceWorkerLoaderHelpers::SaveResponseInfo(
   out_head->alpn_negotiated_protocol = response.alpn_negotiated_protocol;
   out_head->was_fetched_via_spdy = response.was_fetched_via_spdy;
   out_head->has_range_requested = response.has_range_requested;
+  out_head->auth_challenge_info = response.auth_challenge_info;
 }
 
 // static
@@ -132,11 +134,23 @@ ServiceWorkerLoaderHelpers::ComputeRedirectInfo(
   if (!response_head.headers->IsRedirect(&new_location))
     return base::nullopt;
 
+  // Note Service Workers resolve redirects based on the resource's URL list,
+  // not the request's URL. There also may not be a base URL if the resource was
+  // script-constructed. See https://github.com/whatwg/fetch/issues/1146 and
+  // https://github.com/whatwg/fetch/pull/1149.
+  GURL location_url;
+  if (response_head.url_list_via_service_worker.empty()) {
+    location_url = GURL(new_location);
+  } else {
+    location_url =
+        response_head.url_list_via_service_worker.back().Resolve(new_location);
+  }
+
   // If the request is a MAIN_FRAME request, the first-party URL gets
   // updated on redirects.
   const net::RedirectInfo::FirstPartyURLPolicy first_party_url_policy =
-      original_request.resource_type ==
-              static_cast<int>(blink::mojom::ResourceType::kMainFrame)
+      original_request.destination ==
+              network::mojom::RequestDestination::kDocument
           ? net::RedirectInfo::FirstPartyURLPolicy::UPDATE_URL_ON_REDIRECT
           : net::RedirectInfo::FirstPartyURLPolicy::NEVER_CHANGE_URL;
   return net::RedirectInfo::ComputeRedirectInfo(
@@ -144,8 +158,7 @@ ServiceWorkerLoaderHelpers::ComputeRedirectInfo(
       original_request.site_for_cookies, first_party_url_policy,
       original_request.referrer_policy,
       original_request.referrer.GetAsReferrer().spec(),
-      response_head.headers->response_code(),
-      original_request.url.Resolve(new_location),
+      response_head.headers->response_code(), location_url,
       net::RedirectUtil::GetReferrerPolicyHeader(response_head.headers.get()),
       false /* insecure_scheme_was_upgraded */);
 }
@@ -162,7 +175,7 @@ int ServiceWorkerLoaderHelpers::ReadBlobResponseBody(
   options.capacity_num_bytes = blink::BlobUtils::GetDataPipeCapacity(blob_size);
 
   mojo::ScopedDataPipeProducerHandle producer_handle;
-  MojoResult rv = mojo::CreateDataPipe(&options, &producer_handle, handle_out);
+  MojoResult rv = mojo::CreateDataPipe(&options, producer_handle, *handle_out);
   if (rv != MOJO_RESULT_OK)
     return net::ERR_FAILED;
 

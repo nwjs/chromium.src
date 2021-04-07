@@ -195,7 +195,6 @@
 #include "components/sessions/core/session_types.h"
 #include "components/sessions/core/tab_restore_service.h"
 #include "components/startup_metric_utils/browser/startup_metric_utils.h"
-#include "components/subresource_filter/content/browser/content_subresource_filter_throttle_manager.h"
 #include "components/translate/core/browser/language_state.h"
 #include "components/user_manager/user_manager.h"
 #include "components/viz/common/surfaces/surface_id.h"
@@ -274,7 +273,6 @@
 #endif
 
 #if BUILDFLAG(ENABLE_PLUGINS)
-#include "chrome/browser/pepper_broker_infobar_delegate.h"
 #include "chrome/browser/plugins/plugin_finder.h"
 #include "chrome/browser/plugins/plugin_metadata.h"
 #include "content/public/browser/plugin_service.h"
@@ -735,6 +733,10 @@ const extensions::Extension* Browser::GetExtension() const {
 ///////////////////////////////////////////////////////////////////////////////
 // Getters & Setters
 
+base::WeakPtr<Browser> Browser::AsWeakPtr() {
+  return weak_factory_.GetWeakPtr();
+}
+
 FindBarController* Browser::GetFindBarController() {
   if (!find_bar_controller_.get()) {
     find_bar_controller_ =
@@ -788,39 +790,14 @@ base::string16 Browser::GetWindowTitleForTab(bool include_app_name,
       include_app_name, tab_strip_model_->GetWebContentsAt(index));
 }
 
-std::vector<base::string16> Browser::GetExistingWindowsForMoveMenu() {
-  std::vector<base::string16> window_titles;
-  existing_browsers_for_menu_list_.clear();
-
-  const BrowserList* browser_list = BrowserList::GetInstance();
-  for (BrowserList::const_reverse_iterator it =
-           browser_list->begin_last_active();
-       it != browser_list->end_last_active(); ++it) {
-    Browser* browser = *it;
-
-    // We can only move into a tabbed view of the same profile, and not the same
-    // window we're currently in.
-    if (browser->is_type_normal() && browser->profile() == profile() &&
-        browser != this) {
-      existing_browsers_for_menu_list_.push_back(
-          browser->weak_factory_.GetWeakPtr());
-      window_titles.push_back(browser->GetWindowTitleForMenu());
-    }
-  }
-
-  return window_titles;
-}
-
-base::string16 Browser::GetWindowTitleForMenu() const {
-  static constexpr unsigned int kWindowTitleForMenuMaxWidth = 400;
+base::string16 Browser::GetWindowTitleForMaxWidth(int max_width) const {
   static constexpr unsigned int kMinTitleCharacters = 4;
   const gfx::FontList font_list;
 
   if (!user_title_.empty()) {
     base::string16 title = base::UTF8ToUTF16(user_title_);
-    base::string16 pixel_elided_title =
-        gfx::ElideText(title, font_list, kWindowTitleForMenuMaxWidth,
-                       gfx::ElideBehavior::ELIDE_TAIL);
+    base::string16 pixel_elided_title = gfx::ElideText(
+        title, font_list, max_width, gfx::ElideBehavior::ELIDE_TAIL);
     base::string16 character_elided_title =
         gfx::TruncateString(title, kMinTitleCharacters, gfx::CHARACTER_BREAK);
     return pixel_elided_title.size() > character_elided_title.size()
@@ -829,14 +806,13 @@ base::string16 Browser::GetWindowTitleForMenu() const {
   }
 
   const auto num_more_tabs = tab_strip_model_->count() - 1;
-  int title_pixel_width = kWindowTitleForMenuMaxWidth;
   const base::string16 format_string = l10n_util::GetPluralStringFUTF16(
       IDS_BROWSER_WINDOW_TITLE_MENU_ENTRY, num_more_tabs);
 
   // First, format with an empty string to see how much space we have available.
   base::string16 temp_window_title =
       base::ReplaceStringPlaceholders(format_string, base::string16(), nullptr);
-  title_pixel_width -= GetStringWidth(temp_window_title, font_list);
+  int width = max_width - GetStringWidth(temp_window_title, font_list);
 
   base::string16 title;
   content::WebContents* contents = tab_strip_model_->GetActiveWebContents();
@@ -853,8 +829,8 @@ base::string16 Browser::GetWindowTitleForMenu() const {
   // Try to elide the title to fit the pixel width. If that will make the title
   // shorter than the minimum character limit, use a character elided title
   // instead.
-  base::string16 pixel_elided_title = gfx::ElideText(
-      title, font_list, title_pixel_width, gfx::ElideBehavior::ELIDE_TAIL);
+  base::string16 pixel_elided_title =
+      gfx::ElideText(title, font_list, width, gfx::ElideBehavior::ELIDE_TAIL);
   base::string16 character_elided_title =
       gfx::TruncateString(title, kMinTitleCharacters, gfx::CHARACTER_BREAK);
   title = pixel_elided_title.size() > character_elided_title.size()
@@ -1126,7 +1102,6 @@ Browser::DownloadCloseType Browser::OkToCloseWithInProgressDownloads(
 // Browser, Tab adding/showing functions:
 
 void Browser::WindowFullscreenStateChanged() {
-  if (exclusive_access_manager_)
   exclusive_access_manager_->fullscreen_controller()
       ->WindowFullscreenStateChanged();
   command_controller_->FullscreenStateChanged();
@@ -1198,17 +1173,6 @@ bool Browser::CanReloadContents(content::WebContents* web_contents) const {
 
 bool Browser::CanSaveContents(content::WebContents* web_contents) const {
   return chrome::CanSavePage(this);
-}
-
-void Browser::MoveTabsToExistingWindow(const std::vector<int> tab_indices,
-                                       int browser_index) {
-  size_t existing_browser_count = existing_browsers_for_menu_list_.size();
-  if (static_cast<size_t>(browser_index) < existing_browser_count &&
-      existing_browsers_for_menu_list_[browser_index]) {
-    chrome::MoveTabsToExistingWindow(
-        this, existing_browsers_for_menu_list_[browser_index].get(),
-        tab_indices);
-  }
 }
 
 bool Browser::ShouldDisplayFavicon(content::WebContents* web_contents) const {
@@ -1426,7 +1390,8 @@ void Browser::SetTopControlsGestureScrollInProgress(bool in_progress) {
 
 bool Browser::CanOverscrollContent() {
 #if defined(USE_AURA)
-  return !is_type_devtools();
+  return !is_type_devtools() &&
+         base::FeatureList::IsEnabled(features::kOverscrollHistoryNavigation);
 #else
   return false;
 #endif
@@ -1510,7 +1475,7 @@ blink::SecurityStyle Browser::GetSecurityStyle(
 }
 
 void Browser::CreateSmsPrompt(content::RenderFrameHost*,
-                              const url::Origin&,
+                              const std::vector<url::Origin>&,
                               const std::string& one_time_code,
                               base::OnceClosure on_confirm,
                               base::OnceClosure on_cancel) {
@@ -1639,14 +1604,6 @@ bool Browser::ShouldShowStaleContentOnEviction(content::WebContents* source) {
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 }
 
-bool Browser::IsFrameLowPriority(content::WebContents* web_contents,
-                                 content::RenderFrameHost* render_frame_host) {
-  const auto* throttle_manager = subresource_filter::
-      ContentSubresourceFilterThrottleManager::FromWebContents(web_contents);
-  return throttle_manager &&
-         throttle_manager->IsFrameTaggedAsAd(render_frame_host);
-}
-
 void Browser::MediaWatchTimeChanged(
     const content::MediaPlayerWatchTime& watch_time) {
   if (media_history::MediaHistoryKeyedService::IsEnabled()) {
@@ -1656,7 +1613,7 @@ void Browser::MediaWatchTimeChanged(
 }
 
 base::WeakPtr<content::WebContentsDelegate> Browser::GetDelegateWeakPtr() {
-  return weak_factory_.GetWeakPtr();
+  return AsWeakPtr();
 }
 
 bool Browser::IsMouseLocked() const {
@@ -2280,61 +2237,6 @@ std::string Browser::GetDefaultMediaDeviceID(
       Profile::FromBrowserContext(web_contents->GetBrowserContext());
   return MediaCaptureDevicesDispatcher::GetInstance()
       ->GetDefaultDeviceIDForProfile(profile, type);
-}
-
-void Browser::RequestPpapiBrokerPermission(
-    WebContents* web_contents,
-    const GURL& url,
-    const base::FilePath& plugin_path,
-    base::OnceCallback<void(bool)> callback) {
-#if BUILDFLAG(ENABLE_PLUGINS)
-  Profile* profile =
-      Profile::FromBrowserContext(web_contents->GetBrowserContext());
-  // TODO(wad): Add ephemeral device ID support for broker in guest mode.
-  // TODO(https://crbug.com/1125474): Update if PPAPI is supported in ephemeral
-  // Guest profiles.
-  if (profile->IsGuestSession() || profile->IsEphemeralGuestProfile()) {
-    std::move(callback).Run(false);
-    return;
-  }
-
-  // TODO(https://crbug.com/1103176): Plumb the actual frame reference here
-  content_settings::PageSpecificContentSettings* tab_content_settings =
-      content_settings::PageSpecificContentSettings::GetForFrame(
-          web_contents->GetMainFrame());
-
-  HostContentSettingsMap* content_settings =
-      HostContentSettingsMapFactory::GetForProfile(profile);
-  ContentSetting setting = content_settings->GetContentSetting(
-      url, url, ContentSettingsType::PPAPI_BROKER);
-
-  if (setting == CONTENT_SETTING_ASK) {
-    base::RecordAction(base::UserMetricsAction("PPAPI.BrokerInfobarDisplayed"));
-
-    content::PluginService* plugin_service =
-        content::PluginService::GetInstance();
-    content::WebPluginInfo plugin;
-    bool success = plugin_service->GetPluginInfoByPath(plugin_path, &plugin);
-    DCHECK(success);
-    std::unique_ptr<PluginMetadata> plugin_metadata(
-        PluginFinder::GetInstance()->GetPluginMetadata(plugin));
-
-    PepperBrokerInfoBarDelegate::Create(
-        InfoBarService::FromWebContents(web_contents), url,
-        plugin_metadata->name(), content_settings, tab_content_settings,
-        std::move(callback));
-    return;
-  }
-
-  bool allowed = (setting == CONTENT_SETTING_ALLOW);
-  base::RecordAction(allowed
-                         ? base::UserMetricsAction("PPAPI.BrokerSettingAllow")
-                         : base::UserMetricsAction("PPAPI.BrokerSettingDeny"));
-  if (tab_content_settings) {
-    tab_content_settings->SetPepperBrokerAllowed(allowed);
-  }
-  std::move(callback).Run(allowed);
-#endif
 }
 
 #if BUILDFLAG(ENABLE_PRINTING)

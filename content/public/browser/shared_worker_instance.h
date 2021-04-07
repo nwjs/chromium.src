@@ -37,8 +37,6 @@ class CONTENT_EXPORT SharedWorkerInstance {
       network::mojom::CredentialsMode credentials_mode,
       const std::string& name,
       const url::Origin& constructor_origin,
-      const std::string& content_security_policy,
-      network::mojom::ContentSecurityPolicyType content_security_policy_type,
       network::mojom::IPAddressSpace creation_address_space,
       blink::mojom::SharedWorkerCreationContextType creation_context_type);
   SharedWorkerInstance(const SharedWorkerInstance& other);
@@ -65,13 +63,6 @@ class CONTENT_EXPORT SharedWorkerInstance {
     return credentials_mode_;
   }
   const url::Origin& constructor_origin() const { return constructor_origin_; }
-  const std::string& content_security_policy() const {
-    return content_security_policy_;
-  }
-  network::mojom::ContentSecurityPolicyType content_security_policy_type()
-      const {
-    return content_security_policy_type_;
-  }
   network::mojom::IPAddressSpace creation_address_space() const {
     return creation_address_space_;
   }
@@ -96,8 +87,6 @@ class CONTENT_EXPORT SharedWorkerInstance {
   // https://html.spec.whatwg.org/multipage/workers.html#concept-sharedworkerglobalscope-constructor-origin
   const url::Origin constructor_origin_;
 
-  const std::string content_security_policy_;
-  const network::mojom::ContentSecurityPolicyType content_security_policy_type_;
   const network::mojom::IPAddressSpace creation_address_space_;
   const blink::mojom::SharedWorkerCreationContextType creation_context_type_;
 };

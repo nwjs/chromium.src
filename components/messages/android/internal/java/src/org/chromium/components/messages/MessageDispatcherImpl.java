@@ -8,6 +8,7 @@ import android.animation.Animator;
 
 import org.chromium.base.Callback;
 import org.chromium.base.supplier.Supplier;
+import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.modelutil.PropertyModel;
 
 /**
@@ -41,11 +42,14 @@ public class MessageDispatcherImpl implements ManagedMessageDispatcher {
     }
 
     @Override
-    public void enqueueMessage(PropertyModel messageProperties) {
+    public void enqueueMessage(PropertyModel messageProperties, WebContents webContents,
+            @MessageScopeType int scopeType) {
         MessageStateHandler messageStateHandler = new SingleActionMessage(mMessageContainer,
                 messageProperties, this::dismissMessage, mMessageMaxTranslationSupplier,
                 mAutodismissDurationMs, mAnimatorStartCallback);
-        mMessageQueueManager.enqueueMessage(messageStateHandler, messageProperties);
+        ScopeKey scopeKey = new ScopeKey(scopeType, webContents);
+        mMessageQueueManager.enqueueMessage(
+                messageStateHandler, messageProperties, scopeType, scopeKey);
     }
 
     @Override

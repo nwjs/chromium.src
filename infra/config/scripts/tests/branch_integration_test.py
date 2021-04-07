@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env vpython3
 # Copyright 2020 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -53,7 +53,8 @@ class BranchIntegrationTest(unittest.TestCase):
             "project_title": "Chromium MXX",
             "is_main": false,
             "is_lts_branch": false,
-            "ref": "refs/branch-heads/YYYY"
+            "ref": "refs/branch-heads/YYYY",
+            "chrome_project": "chrome-mXX"
         }
         """))
 

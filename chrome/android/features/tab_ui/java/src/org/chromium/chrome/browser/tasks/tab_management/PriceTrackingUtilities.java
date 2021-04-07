@@ -24,8 +24,6 @@ public class PriceTrackingUtilities {
     @VisibleForTesting
     public static final String TRACK_PRICES_ON_TABS =
             ChromePreferenceKeys.PRICE_TRACKING_TRACK_PRICES_ON_TABS;
-    private static final String PRICE_DROP_ALERTS =
-            ChromePreferenceKeys.PRICE_TRACKING_PRICE_DROP_ALERTS;
     @VisibleForTesting
     public static final String PRICE_WELCOME_MESSAGE_CARD =
             ChromePreferenceKeys.PRICE_TRACKING_PRICE_WELCOME_MESSAGE_CARD;
@@ -72,23 +70,6 @@ public class PriceTrackingUtilities {
     }
 
     /**
-     * Update SharedPreferences when users turn on/off the feature getting price drop alerts.
-     */
-    public static void flipPriceDropAlerts() {
-        final boolean enablePriceDropAlerts =
-                SHARED_PREFERENCES_MANAGER.readBoolean(PRICE_DROP_ALERTS, false);
-        SHARED_PREFERENCES_MANAGER.writeBoolean(PRICE_DROP_ALERTS, !enablePriceDropAlerts);
-    }
-
-    /**
-     * @return Whether the feature getting price drop alerts is turned on by users.
-     */
-    public static boolean isPriceDropAlertsEnabled() {
-        return isPriceTrackingEligible()
-                && SHARED_PREFERENCES_MANAGER.readBoolean(PRICE_DROP_ALERTS, false);
-    }
-
-    /**
      * Forbid showing the PriceWelcomeMessageCard any more.
      */
     public static void disablePriceWelcomeMessageCard() {
@@ -96,11 +77,12 @@ public class PriceTrackingUtilities {
     }
 
     /**
-     * @return Whether the PriceWelcomeMessageCard is disabled by users.
+     * @return Whether the PriceWelcomeMessageCard is enabled.
      */
-    public static boolean isPriceWelcomeMessageCardDisabled() {
-        return !SHARED_PREFERENCES_MANAGER.readBoolean(
-                PRICE_WELCOME_MESSAGE_CARD, TabUiFeatureUtilities.isPriceTrackingEnabled());
+    public static boolean isPriceWelcomeMessageCardEnabled() {
+        return isPriceTrackingEligible()
+                && SHARED_PREFERENCES_MANAGER.readBoolean(
+                        PRICE_WELCOME_MESSAGE_CARD, TabUiFeatureUtilities.isPriceTrackingEnabled());
     }
 
     /**

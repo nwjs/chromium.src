@@ -425,9 +425,9 @@ TEST_P(GcpCredentialProviderSetSerializationTest, CheckAutoLogon) {
 
   // Build a dummy authentication buffer that can be passed to SetSerialization.
   CREDENTIAL_PROVIDER_CREDENTIAL_SERIALIZATION cpcs;
-  base::string16 local_domain = OSUserManager::GetLocalDomain();
-  base::string16 serialization_username = second_username;
-  base::string16 serialization_password = L"password";
+  std::wstring local_domain = OSUserManager::GetLocalDomain();
+  std::wstring serialization_username = second_username;
+  std::wstring serialization_password = L"password";
   std::vector<wchar_t> dummy_domain(
       local_domain.c_str(), local_domain.c_str() + local_domain.size() + 1);
   std::vector<wchar_t> dummy_username(
@@ -539,7 +539,7 @@ TEST_P(GcpCredentialProviderWithGaiaUsersTest, ReauthCredentialTest) {
   }
 
   ASSERT_EQ(S_OK, SetUserProperty(OLE2CW(sid),
-                                  base::UTF8ToUTF16(kKeyLastTokenValid), L"0"));
+                                  base::UTF8ToWide(kKeyLastTokenValid), L"0"));
 
   UserPolicies policies;
   if (is_offline_validity_expired) {
@@ -648,7 +648,7 @@ TEST_P(GcpCredentialProviderWithADUsersTest, ReauthCredentialTest) {
 
   CComBSTR sid;
   DWORD error;
-  base::string16 domain;
+  std::wstring domain;
   if (is_ad_user) {
     // Add an AD user.
     ASSERT_EQ(S_OK, fake_os_user_manager()->AddUser(
@@ -663,14 +663,14 @@ TEST_P(GcpCredentialProviderWithADUsersTest, ReauthCredentialTest) {
 
   UserPolicies policies;
   if (has_user_id) {
-    base::string16 test_user_id(L"12345");
+    std::wstring test_user_id(L"12345");
     ASSERT_EQ(S_OK, SetUserProperty(OLE2CW(sid), kUserId, test_user_id));
     // Set token handle to a non-empty value in registry.
     ASSERT_EQ(S_OK, SetUserProperty(OLE2CW(sid), kUserTokenHandle,
                                     L"non-empty-token-handle"));
     ASSERT_EQ(S_OK,
-              SetUserProperty(OLE2CW(sid),
-                              base::UTF8ToUTF16(kKeyLastTokenValid), L"0"));
+              SetUserProperty(OLE2CW(sid), base::UTF8ToWide(kKeyLastTokenValid),
+                              L"0"));
     if (is_offline_validity_expired) {
       // Setting validity period to zero enforces gcpw login irrespective of
       // whether internet is available or not.
@@ -859,7 +859,7 @@ TEST_P(GcpCredentialProviderAvailableCredentialsTest, AvailableCredentials) {
     ULONG length = base::size(guid_in_registry);
     EXPECT_EQ(S_OK, GetMachineRegString(kLogonUiUserTileRegKey, sid,
                                         guid_in_registry, &length));
-    EXPECT_EQ(guid_string, base::string16(guid_in_registry));
+    EXPECT_EQ(guid_string, std::wstring(guid_in_registry));
     ::CoTaskMemFree(sid);
   }
 }
@@ -912,7 +912,7 @@ TEST_P(GcpGaiaCredentialBaseMultiUserCloudPolicyTest, CanCreateNewUsers) {
   CComBSTR sid;
   ASSERT_EQ(S_OK, fake_os_user_manager()->CreateTestOSUser(
                       L"foo_registered", L"password", L"name", L"comment",
-                      L"gaia-id-registered", base::string16(), &sid));
+                      L"gaia-id-registered", std::wstring(), &sid));
 
   // Set multi user mode in registry.
   ASSERT_EQ(S_OK, SetGlobalFlagForTesting(kRegMdmSupportsMultiUser,

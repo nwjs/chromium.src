@@ -550,8 +550,7 @@ void DesktopNativeWidgetAura::InitNativeWidget(Widget::InitParams params) {
 
   position_client_ = desktop_window_tree_host_->CreateScreenPositionClient();
 
-  drag_drop_client_ =
-      desktop_window_tree_host_->CreateDragDropClient(native_cursor_manager_);
+  drag_drop_client_ = desktop_window_tree_host_->CreateDragDropClient();
   // Mus returns null from CreateDragDropClient().
   if (drag_drop_client_)
     aura::client::SetDragDropClient(host_->window(), drag_drop_client_.get());
@@ -1253,7 +1252,7 @@ void DesktopNativeWidgetAura::OnDragExited() {
   drop_helper_->OnDragExit();
 }
 
-int DesktopNativeWidgetAura::OnPerformDrop(
+ui::mojom::DragOperation DesktopNativeWidgetAura::OnPerformDrop(
     const ui::DropTargetEvent& event,
     std::unique_ptr<ui::OSExchangeData> data) {
   DCHECK(drop_helper_.get() != nullptr);

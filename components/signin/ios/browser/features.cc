@@ -9,6 +9,9 @@ namespace signin {
 const base::Feature kForceStartupSigninPromo{"ForceStartupSigninPromo",
                                              base::FEATURE_DISABLED_BY_DEFAULT};
 
+const base::Feature kSimplifySignOutIOS{"SimplifySignOutIOS",
+                                        base::FEATURE_DISABLED_BY_DEFAULT};
+
 bool ForceStartupSigninPromo() {
   return base::FeatureList::IsEnabled(kForceStartupSigninPromo);
 }
@@ -25,5 +28,12 @@ const char kDelayThresholdMinutesToUpdateGaiaCookie[] =
 const base::Feature kSigninNotificationInfobarUsernameInTitle{
     "SigninNotificationInfobarUsernameInTitle",
     base::FEATURE_ENABLED_BY_DEFAULT};
+
+const base::Feature kDisableSSOEditing{"DisableSSOEditing",
+                                       base::FEATURE_DISABLED_BY_DEFAULT};
+
+bool IsSSOEditingEnabled() {
+  return !base::FeatureList::IsEnabled(signin::kDisableSSOEditing);
+}
 
 }  // namespace signin

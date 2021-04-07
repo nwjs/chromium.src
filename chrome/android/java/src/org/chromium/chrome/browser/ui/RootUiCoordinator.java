@@ -47,7 +47,6 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.fullscreen.BrowserControlsManager;
 import org.chromium.chrome.browser.identity_disc.IdentityDiscController;
 import org.chromium.chrome.browser.image_descriptions.ImageDescriptionsController;
-import org.chromium.chrome.browser.intent.IntentMetadata;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.lifecycle.Destroyable;
@@ -75,8 +74,13 @@ import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.theme.TopUiThemeColorProvider;
 import org.chromium.chrome.browser.toolbar.ButtonDataProvider;
+import org.chromium.chrome.browser.toolbar.ToolbarIntentMetadata;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
 import org.chromium.chrome.browser.toolbar.VoiceToolbarButtonController;
+import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarButtonController;
+import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarFeatures;
+import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarFeatures.AdaptiveToolbarButtonVariant;
+import org.chromium.chrome.browser.toolbar.adaptive.OptionalNewTabButtonController;
 import org.chromium.chrome.browser.toolbar.top.ToolbarActionModeCallback;
 import org.chromium.chrome.browser.toolbar.top.ToolbarControlContainer;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuBlocker;
@@ -182,12 +186,14 @@ public class RootUiCoordinator
     @Nullable
     private ChromeMessageQueueMediator mMessageQueueMediator;
     private LayoutManagerImpl mLayoutManager;
-    protected OneshotSupplier<IntentMetadata> mIntentMetadataOneshotSupplier;
+    protected OneshotSupplier<ToolbarIntentMetadata> mIntentMetadataOneshotSupplier;
     // This supplier only ever updated when feature TOOLBAR_IPH_ANDROID is enabled.
     protected OneshotSupplierImpl<Boolean> mPromoShownOneshotSupplier = new OneshotSupplierImpl<>();
     protected Supplier<Tab> mStartSurfaceParentTabSupplier;
     private final ObservableSupplierImpl<Tab> mActivityTabSupplier = new ObservableSupplierImpl<>();
     private final ActivityTabProvider.ActivityTabTabObserver mTabObserver;
+    @Nullable
+    private VoiceRecognitionHandler.Observer mMicStateObserver;
 
     /**
      * Create a new {@link RootUiCoordinator} for the given activity.
@@ -213,7 +219,7 @@ public class RootUiCoordinator
             Supplier<ContextualSearchManager> contextualSearchManagerSupplier,
             ObservableSupplier<TabModelSelector> tabModelSelectorSupplier,
             OneshotSupplier<StartSurface> startSurfaceSupplier,
-            OneshotSupplier<IntentMetadata> intentMetadataOneshotSupplier,
+            OneshotSupplier<ToolbarIntentMetadata> intentMetadataOneshotSupplier,
             OneshotSupplier<LayoutStateProvider> layoutStateProviderOneshotSupplier,
             @NonNull Supplier<Tab> startSurfaceParentTabSupplier) {
         mCallbackController = new CallbackController();
@@ -317,6 +323,9 @@ public class RootUiCoordinator
         }
 
         if (mToolbarManager != null) {
+            if (mMicStateObserver != null && mToolbarManager.getVoiceRecognitionHandler() != null) {
+                mToolbarManager.getVoiceRecognitionHandler().removeObserver(mMicStateObserver);
+            }
             mToolbarManager.destroy();
             mToolbarManager = null;
         }
@@ -454,10 +463,11 @@ public class RootUiCoordinator
                     mMessageContainerCoordinator::getMessageMaxTranslation,
                     autodismissDurationSupplier,
                     mActivity.getWindowAndroid()::startAnimationOverContent);
-            mMessageQueueMediator = new ChromeMessageQueueMediator(
-                    mActivity.getBrowserControlsManager(), mMessageContainerCoordinator,
-                    mActivity.getFullscreenManager(), mLayoutStateProviderOneShotSupplier,
-                    mTabModelSelectorSupplier, mMessageDispatcher);
+            mMessageQueueMediator =
+                    new ChromeMessageQueueMediator(mActivity.getBrowserControlsManager(),
+                            mMessageContainerCoordinator, mActivity.getFullscreenManager(),
+                            mActivityTabProvider, mLayoutStateProviderOneShotSupplier,
+                            mActivity.getModalDialogManagerSupplier(), mMessageDispatcher);
             mMessageDispatcher.setDelegate(mMessageQueueMediator);
             MessagesFactory.attachMessageDispatcher(
                     mActivity.getWindowAndroid(), mMessageDispatcher);
@@ -656,8 +666,26 @@ public class RootUiCoordinator
                             AppCompatResources.getDrawable(mActivity, R.drawable.btn_mic),
                             mActivityTabProvider, mActivity.getLifecycleDispatcher(),
                             mActivity.getModalDialogManager(), voiceSearchDelegate);
-            mButtonDataProviders = Arrays.asList(
-                    mIdentityDiscController, shareButtonController, voiceToolbarButtonController);
+            if (AdaptiveToolbarFeatures.isEnabled()) {
+                OptionalNewTabButtonController newTabButtonController =
+                        new OptionalNewTabButtonController(mActivity,
+                                mActivity.getLifecycleDispatcher(),
+                                mActivity.getTabCreatorManagerSupplier(),
+                                mTabModelSelectorSupplier);
+                AdaptiveToolbarButtonController adaptiveToolbarButtonController =
+                        new AdaptiveToolbarButtonController();
+                adaptiveToolbarButtonController.addButtonVariant(
+                        AdaptiveToolbarButtonVariant.NEW_TAB, newTabButtonController);
+                adaptiveToolbarButtonController.addButtonVariant(
+                        AdaptiveToolbarButtonVariant.SHARE, shareButtonController);
+                adaptiveToolbarButtonController.addButtonVariant(
+                        AdaptiveToolbarButtonVariant.VOICE, voiceToolbarButtonController);
+                mButtonDataProviders =
+                        Arrays.asList(mIdentityDiscController, adaptiveToolbarButtonController);
+            } else {
+                mButtonDataProviders = Arrays.asList(mIdentityDiscController, shareButtonController,
+                        voiceToolbarButtonController);
+            }
             mToolbarManager = new ToolbarManager(mActivity, mActivity.getBrowserControlsManager(),
                     mActivity.getFullscreenManager(), toolbarContainer,
                     mActivity.getCompositorViewHolder(), urlFocusChangedCallback,
@@ -676,6 +704,13 @@ public class RootUiCoordinator
                     mStartSurfaceParentTabSupplier);
             if (!mActivity.supportsAppMenu()) {
                 mToolbarManager.getToolbar().disableMenuButton();
+            }
+
+            VoiceRecognitionHandler voiceRecognitionHandler =
+                    mToolbarManager.getVoiceRecognitionHandler();
+            if (voiceRecognitionHandler != null) {
+                mMicStateObserver = voiceToolbarButtonController::updateMicButtonState;
+                voiceRecognitionHandler.addObserver(mMicStateObserver);
             }
         }
     }
@@ -847,10 +882,9 @@ public class RootUiCoordinator
         BottomSheetControllerFactory.attach(mActivity.getWindowAndroid(), mBottomSheetController);
 
         mBottomSheetManager = new BottomSheetManager(mBottomSheetController, mActivityTabProvider,
-                mActivity.getBrowserControlsManager(), mActivity.getFullscreenManager(),
-                mActivity::getModalDialogManager, this::getBottomSheetSnackbarManager,
-                mTabObscuringHandler, mOmniboxFocusStateSupplier, panelManagerSupplier,
-                mStartSurfaceSupplier);
+                mActivity.getBrowserControlsManager(), mActivity::getModalDialogManager,
+                this::getBottomSheetSnackbarManager, mTabObscuringHandler,
+                mOmniboxFocusStateSupplier, panelManagerSupplier, mStartSurfaceSupplier);
     }
 
     /**

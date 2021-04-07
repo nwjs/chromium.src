@@ -47,8 +47,9 @@ extensions::AppWindow* ChromeAppWindowClient::CreateAppWindow(
 #if defined(OS_ANDROID)
   return NULL;
 #else
-  extensions::AppWindow* ret = new extensions::AppWindow(context, new ChromeAppDelegate(true),
-                                   extension);
+  Profile* profile = Profile::FromBrowserContext(context);
+  extensions::AppWindow* ret = new extensions::AppWindow(
+      context, new ChromeAppDelegate(profile, true), extension);
   nw::CreateAppWindowHook(ret);
   return ret;
 #endif
@@ -60,7 +61,8 @@ ChromeAppWindowClient::CreateAppWindowForLockScreenAction(
     const extensions::Extension* extension,
     extensions::api::app_runtime::ActionType action) {
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-  auto app_delegate = std::make_unique<ChromeAppDelegate>(true /*keep_alive*/);
+  auto app_delegate = std::make_unique<ChromeAppDelegate>(
+      Profile::FromBrowserContext(context), true /*keep_alive*/);
   app_delegate->set_for_lock_screen_app(true);
 
   return lock_screen_apps::StateController::Get()

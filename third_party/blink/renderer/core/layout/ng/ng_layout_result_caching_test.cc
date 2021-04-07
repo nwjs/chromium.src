@@ -1683,6 +1683,29 @@ TEST_F(NGLayoutResultCachingTest, HitFlexLegacyGrid) {
   EXPECT_NE(result.get(), nullptr);
 }
 
+TEST_F(NGLayoutResultCachingTest, HitFlexDefiniteChange) {
+  SetBodyInnerHTML(R"HTML(
+    <div style="display: flex; flex-direction: column;">
+      <div style="height: 200px;" id=target1>
+        <div style="height: 100px"></div>
+      </div>
+    </div>
+  )HTML");
+
+  auto* target1 = To<LayoutBlock>(GetLayoutObjectByElementId("target1"));
+
+  scoped_refptr<const NGLayoutResult> result1 =
+      target1->GetCachedLayoutResult();
+  scoped_refptr<const NGLayoutResult> measure1 =
+      target1->GetCachedMeasureResult();
+  EXPECT_EQ(measure1->IntrinsicBlockSize(), 100);
+  EXPECT_EQ(result1->PhysicalFragment().Size().height, 200);
+
+  EXPECT_EQ(result1->GetConstraintSpaceForCaching().CacheSlot(),
+            NGCacheSlot::kMeasure);
+  EXPECT_EQ(result1.get(), measure1.get());
+}
+
 TEST_F(NGLayoutResultCachingTest, HitOrthogonalRoot) {
   SetBodyInnerHTML(R"HTML(
     <style>
@@ -1881,6 +1904,168 @@ TEST_F(NGLayoutResultCachingTest, MissTablePercent) {
 
   EXPECT_EQ(cache_status, NGLayoutCacheStatus::kNeedsLayout);
   EXPECT_EQ(result.get(), nullptr);
+}
+
+TEST_F(NGLayoutResultCachingTest, HitTableRowAdd) {
+  ScopedLayoutNGTableForTest table_ng(true);
+
+  SetBodyInnerHTML(R"HTML(
+    <table>
+      <tr><td>a</td><td>b</td></tr>
+      <tr id="test"><td>text</td><td>more text</td></tr>
+    </table>
+    <table>
+      <tr id="src"><td>text</td><td>more text</td></tr>
+    </table>
+  )HTML");
+
+  auto* test = To<LayoutBlock>(GetLayoutObjectByElementId("test"));
+  auto* src = To<LayoutBlock>(GetLayoutObjectByElementId("src"));
+
+  NGLayoutCacheStatus cache_status;
+  base::Optional<NGFragmentGeometry> fragment_geometry;
+  const NGConstraintSpace& space =
+      src->GetCachedLayoutResult()->GetConstraintSpaceForCaching();
+  scoped_refptr<const NGLayoutResult> result = test->CachedLayoutResult(
+      space, nullptr, nullptr, &fragment_geometry, &cache_status);
+
+  EXPECT_EQ(cache_status, NGLayoutCacheStatus::kHit);
+  EXPECT_NE(result.get(), nullptr);
+}
+
+TEST_F(NGLayoutResultCachingTest, MissTableRowAdd) {
+  ScopedLayoutNGTableForTest table_ng(true);
+
+  SetBodyInnerHTML(R"HTML(
+    <table>
+      <tr><td>longwordhere</td><td>b</td></tr>
+      <tr id="test"><td>text</td><td>more text</td></tr>
+    </table>
+    <table>
+      <tr id="src"><td>text</td><td>more text</td></tr>
+    </table>
+  )HTML");
+
+  auto* test = To<LayoutBlock>(GetLayoutObjectByElementId("test"));
+  auto* src = To<LayoutBlock>(GetLayoutObjectByElementId("src"));
+
+  NGLayoutCacheStatus cache_status;
+  base::Optional<NGFragmentGeometry> fragment_geometry;
+  const NGConstraintSpace& space =
+      src->GetCachedLayoutResult()->GetConstraintSpaceForCaching();
+  scoped_refptr<const NGLayoutResult> result = test->CachedLayoutResult(
+      space, nullptr, nullptr, &fragment_geometry, &cache_status);
+
+  EXPECT_EQ(cache_status, NGLayoutCacheStatus::kNeedsLayout);
+  EXPECT_EQ(result.get(), nullptr);
+}
+
+TEST_F(NGLayoutResultCachingTest, HitTableRowRemove) {
+  ScopedLayoutNGTableForTest table_ng(true);
+
+  SetBodyInnerHTML(R"HTML(
+    <table>
+      <tr id="test"><td>text</td><td>more text</td></tr>
+    </table>
+    <table>
+      <tr><td>a</td><td>b</td></tr>
+      <tr id="src"><td>text</td><td>more text</td></tr>
+    </table>
+  )HTML");
+
+  auto* test = To<LayoutBlock>(GetLayoutObjectByElementId("test"));
+  auto* src = To<LayoutBlock>(GetLayoutObjectByElementId("src"));
+
+  NGLayoutCacheStatus cache_status;
+  base::Optional<NGFragmentGeometry> fragment_geometry;
+  const NGConstraintSpace& space =
+      src->GetCachedLayoutResult()->GetConstraintSpaceForCaching();
+  scoped_refptr<const NGLayoutResult> result = test->CachedLayoutResult(
+      space, nullptr, nullptr, &fragment_geometry, &cache_status);
+
+  EXPECT_EQ(cache_status, NGLayoutCacheStatus::kHit);
+  EXPECT_NE(result.get(), nullptr);
+}
+
+TEST_F(NGLayoutResultCachingTest, MissTableRowRemove) {
+  ScopedLayoutNGTableForTest table_ng(true);
+
+  SetBodyInnerHTML(R"HTML(
+    <table>
+      <tr id="test"><td>text</td><td>more text</td></tr>
+    </table>
+    <table>
+      <tr><td>longwordhere</td><td>b</td></tr>
+      <tr id="src"><td>text</td><td>more text</td></tr>
+    </table>
+  )HTML");
+
+  auto* test = To<LayoutBlock>(GetLayoutObjectByElementId("test"));
+  auto* src = To<LayoutBlock>(GetLayoutObjectByElementId("src"));
+
+  NGLayoutCacheStatus cache_status;
+  base::Optional<NGFragmentGeometry> fragment_geometry;
+  const NGConstraintSpace& space =
+      src->GetCachedLayoutResult()->GetConstraintSpaceForCaching();
+  scoped_refptr<const NGLayoutResult> result = test->CachedLayoutResult(
+      space, nullptr, nullptr, &fragment_geometry, &cache_status);
+
+  EXPECT_EQ(cache_status, NGLayoutCacheStatus::kNeedsLayout);
+  EXPECT_EQ(result.get(), nullptr);
+}
+
+TEST_F(NGLayoutResultCachingTest, HitTableSectionAdd) {
+  ScopedLayoutNGTableForTest table_ng(true);
+
+  SetBodyInnerHTML(R"HTML(
+    <table>
+      <tbody><tr><td>a</td><td>b</td></tr></tbody>
+      <tbody id="test"><tr><td>text</td><td>more text</td></tr></tbody>
+    </table>
+    <table>
+      <tbody id="src"><tr><td>text</td><td>more text</td></tr></tbody>
+    </table>
+  )HTML");
+
+  auto* test = To<LayoutBlock>(GetLayoutObjectByElementId("test"));
+  auto* src = To<LayoutBlock>(GetLayoutObjectByElementId("src"));
+
+  NGLayoutCacheStatus cache_status;
+  base::Optional<NGFragmentGeometry> fragment_geometry;
+  const NGConstraintSpace& space =
+      src->GetCachedLayoutResult()->GetConstraintSpaceForCaching();
+  scoped_refptr<const NGLayoutResult> result = test->CachedLayoutResult(
+      space, nullptr, nullptr, &fragment_geometry, &cache_status);
+
+  EXPECT_EQ(cache_status, NGLayoutCacheStatus::kHit);
+  EXPECT_NE(result.get(), nullptr);
+}
+
+TEST_F(NGLayoutResultCachingTest, HitTableSectionRemove) {
+  ScopedLayoutNGTableForTest table_ng(true);
+
+  SetBodyInnerHTML(R"HTML(
+    <table>
+      <tbody id="test"><tr><td>text</td><td>more text</td></tr></tbody>
+    </table>
+    <table>
+      <tbody><tr><td>a</td><td>b</td></tr></tbody>
+      <tbody id="src"><tr><td>text</td><td>more text</td></tr></tbody>
+    </table>
+  )HTML");
+
+  auto* test = To<LayoutBlock>(GetLayoutObjectByElementId("test"));
+  auto* src = To<LayoutBlock>(GetLayoutObjectByElementId("src"));
+
+  NGLayoutCacheStatus cache_status;
+  base::Optional<NGFragmentGeometry> fragment_geometry;
+  const NGConstraintSpace& space =
+      src->GetCachedLayoutResult()->GetConstraintSpaceForCaching();
+  scoped_refptr<const NGLayoutResult> result = test->CachedLayoutResult(
+      space, nullptr, nullptr, &fragment_geometry, &cache_status);
+
+  EXPECT_EQ(cache_status, NGLayoutCacheStatus::kHit);
+  EXPECT_NE(result.get(), nullptr);
 }
 
 }  // namespace

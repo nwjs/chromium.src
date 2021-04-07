@@ -27,7 +27,7 @@
 #include "chrome/browser/optimization_guide/optimization_guide_navigation_data.h"
 #include "chrome/browser/profiles/profile.h"
 #include "components/google/core/common/google_util.h"
-#include "components/optimization_guide/content/optimization_guide_decider.h"
+#include "components/optimization_guide/content/browser/optimization_guide_decider.h"
 #include "components/optimization_guide/core/bloom_filter.h"
 #include "components/optimization_guide/core/hint_cache.h"
 #include "components/optimization_guide/core/hints_component_util.h"
@@ -664,7 +664,7 @@ void OptimizationGuideHintsManager::ScheduleTopHostsHintsFetch() {
 void OptimizationGuideHintsManager::FetchTopHostsHints() {
   DCHECK(top_host_provider_);
 
-  if (registered_optimization_types_.empty())
+  if (!HasOptimizationTypeToFetchFor())
     return;
 
   std::vector<std::string> top_hosts = top_host_provider_->GetTopHosts();

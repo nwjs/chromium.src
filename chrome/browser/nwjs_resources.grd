@@ -171,7 +171,6 @@
         <include name="IDR_EXTENSION_COMMAND_LIST_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" />
         <include name="IDR_EXTENSION_LIST_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" />
         <include name="IDR_EXTENSIONS_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" />
-        <include name="IDR_GAIA_AUTH_WEBVIEW_SAML_INJECTED_JS" file="resources\gaia_auth_host\webview_saml_injected.js" flattenhtml="true" type="BINDATA" />
       </if>
       <if expr="not is_android">
         <include name="IDR_DOWNLOADS_IMAGES_INCOGNITO_MARKER_SVG" file="resources\downloads\images\incognito_marker.svg" type="BINDATA" />
@@ -239,6 +238,8 @@
       <include name="IDR_INSTANT_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" />
       <include name="IDR_INTERVENTIONS_INTERNALS_MOJOM_LITE_JS" file="${root_gen_dir}\chrome\browser\ui\webui\interventions_internals\interventions_internals.mojom-lite.js" use_base_dir="false" type="BINDATA" compress="gzip" />
       <include name="IDR_URL_MOJOM_LITE_JS" file="${root_gen_dir}\url\mojom\url.mojom-lite.js" use_base_dir="false" type="BINDATA" compress="gzip" />
+      <include name="IDR_INTERVENTIONS_INTERNALS_INDEX_HTML" file="resources\interventions_internals\index.html" flattenhtml="true" allowexternalscript="true" compress="gzip" type="BINDATA" />
+      <include name="IDR_INTERVENTIONS_INTERNALS_INDEX_JS" file="resources\interventions_internals\index.js" type="BINDATA" compress="gzip" />
       <include name="IDR_INTERVENTIONS_INTERNALS_MOJO_INDEX_JS" file="${root_gen_dir}\chrome\browser\ui\webui\interventions_internals\interventions_internals.mojom.js" use_base_dir="false" type="BINDATA" compress="gzip" />
       <include name="IDR_INTERVENTIONS_INTERNALS_UNSUPPORTED_PAGE_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" compress="gzip" type="BINDATA" />
       <include name="IDR_NET_EXPORT_HTML" file="resources\empty.html" flattenhtml="true" type="BINDATA" />
@@ -496,10 +497,6 @@
       <include name="IDR_MEDIA_ENGAGEMENT_HTML" file="resources\empty.html" flattenhtml="true" type="BINDATA" compress="gzip" allowexternalscript="true" />
       <include name="IDR_MEDIA_ENGAGEMENT_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" compress="gzip" />
       <include name="IDR_MEDIA_ENGAGEMENT_SCORE_DETAILS_MOJOM_LITE_JS" file="${root_gen_dir}\chrome\browser\media\media_engagement_score_details.mojom-lite.js" use_base_dir="false" type="BINDATA" compress="gzip" />
-      <if expr="not is_android">
-        <!-- Chrome Cart -->
-        <part file="cart/resources/cart_resources.grdp" />
-      </if>
     </includes>
   </release>
 </grit>

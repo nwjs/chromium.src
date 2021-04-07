@@ -149,7 +149,10 @@ bool WidgetDelegate::ShouldHandleOnSize() const {
 }
 
 gfx::ImageSkia WidgetDelegate::GetWindowAppIcon() {
-  // Use the window icon as app icon by default.
+  // Prefer app icon if available.
+  if (!params_.app_icon.isNull())
+    return params_.app_icon;
+  // Fall back to the window icon.
   return GetWindowIcon();
 }
 
@@ -336,6 +339,12 @@ void WidgetDelegate::SetEnableArrowKeyTraversal(
 
 void WidgetDelegate::SetIcon(const gfx::ImageSkia& icon) {
   params_.icon = icon;
+  if (GetWidget())
+    GetWidget()->UpdateWindowIcon();
+}
+
+void WidgetDelegate::SetAppIcon(const gfx::ImageSkia& icon) {
+  params_.app_icon = icon;
   if (GetWidget())
     GetWidget()->UpdateWindowIcon();
 }

@@ -40,7 +40,7 @@ class UserScriptInjector : public ScriptInjector,
   UserScript::InjectionType script_type() const override;
   bool ShouldExecuteInMainWorld() const override;
   bool IsUserGesture() const override;
-  base::Optional<CSSOrigin> GetCssOrigin() const override;
+  CSSOrigin GetCssOrigin() const override;
   bool IsRemovingCSS() const override;
   bool IsAddingCSS() const override;
   const base::Optional<std::string> GetInjectionKey() const override;

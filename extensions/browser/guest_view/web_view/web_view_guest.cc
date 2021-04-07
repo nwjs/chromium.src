@@ -5,8 +5,6 @@
 #include "extensions/browser/guest_view/web_view/web_view_guest.h"
 
 #include "content/nw/src/nw_content.h"
-#include "content/public/common/content_client.h"
-#include "content/public/browser/content_browser_client.h"
 
 #include <stddef.h>
 #include "content/nw/src/nw_content.h"
@@ -59,6 +57,7 @@
 #include "extensions/browser/bad_message.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/extension_util.h"
+#include "extensions/browser/extension_web_contents_observer.h"
 #include "extensions/browser/extensions_browser_client.h"
 #include "extensions/browser/guest_view/web_view/web_view_constants.h"
 #include "extensions/browser/guest_view/web_view/web_view_content_script_manager.h"
@@ -597,9 +596,9 @@ void WebViewGuest::GuestDestroyed() {
 void WebViewGuest::GuestReady() {
   // The guest RenderView should always live in an isolated guest process.
   CHECK(web_contents()->GetMainFrame()->GetProcess()->IsForGuestsOnly());
-  content::RenderFrameHost* main_frame = web_contents()->GetMainFrame();
-  main_frame->Send(
-      new ExtensionMsg_SetFrameName(main_frame->GetRoutingID(), name_));
+  ExtensionWebContentsObserver::GetForWebContents(web_contents())
+      ->GetLocalFrame(web_contents()->GetMainFrame())
+      ->SetFrameName(name_);
 
   // We don't want to accidentally set the opacity of an interstitial page.
   // WebContents::GetRenderWidgetHostView will return the RWHV of an
@@ -1298,19 +1297,18 @@ void WebViewGuest::SetName(const std::string& name) {
     return;
   name_ = name;
 
-  content::RenderFrameHost* main_frame = web_contents()->GetMainFrame();
-  main_frame->Send(
-      new ExtensionMsg_SetFrameName(main_frame->GetRoutingID(), name_));
+  ExtensionWebContentsObserver::GetForWebContents(web_contents())
+      ->GetLocalFrame(web_contents()->GetMainFrame())
+      ->SetFrameName(name_);
 }
 
 void WebViewGuest::SetSpatialNavigationEnabled(bool enabled) {
   if (is_spatial_navigation_enabled_ == enabled)
     return;
   is_spatial_navigation_enabled_ = enabled;
-
-  content::RenderFrameHost* main_frame = web_contents()->GetMainFrame();
-  main_frame->Send(new ExtensionMsg_SetSpatialNavigationEnabled(
-      main_frame->GetRoutingID(), enabled));
+  ExtensionWebContentsObserver::GetForWebContents(web_contents())
+      ->GetLocalFrame(web_contents()->GetMainFrame())
+      ->SetSpatialNavigationEnabled(enabled);
 }
 
 bool WebViewGuest::IsSpatialNavigationEnabled() const {
@@ -1373,15 +1371,12 @@ bool WebViewGuest::LoadDataWithBaseURL(const GURL& data_url,
   }
   const url::Origin& owner_origin =
       owner_web_contents()->GetMainFrame()->GetLastCommittedOrigin();
-  bool owner_is_nwjs =
-    content::GetContentClient()->browser()->IsNWOrigin(owner_origin, browser_context());
   const bool base_in_owner_origin =
       owner_origin.IsSameOriginWith(url::Origin::Create(base_url));
   // |base_url| must be a valid URL. It is also limited to URLs that the owner
   // is trusted to have control over.
   if (!base_url.is_valid() ||
-      (!base_url.SchemeIsHTTPOrHTTPS() && !base_in_owner_origin &&
-       !owner_is_nwjs)) {
+      (!base_url.SchemeIsHTTPOrHTTPS() && !base_in_owner_origin)) {
     base::SStringPrintf(error, webview::kAPILoadDataInvalidBaseURL,
                         base_url.possibly_invalid_spec().c_str());
     return false;

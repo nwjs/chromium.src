@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {assertNotReached} from '../chrome_util.js';
+import {assert, assertNotReached} from '../chrome_util.js';
 import {reportError} from '../error.js';
 import {
   ErrorLevel,
@@ -14,6 +14,8 @@ import {
   VideoConfig,     // eslint-disable-line no-unused-vars
 } from '../type.js';
 import {WaitableEvent} from '../waitable_event.js';
+
+import {closeWhenUnload} from './util.js';
 
 /**
  * Parse the entry data according to its type.
@@ -129,6 +131,8 @@ export class DeviceOperator {
      * @private
      */
     this.devices_ = new Map();
+
+    closeWhenUnload(this.deviceProvider_);
   }
 
   /**
@@ -160,6 +164,21 @@ export class DeviceOperator {
   }
 
   /**
+   * Gets metadata for the given device from its static characteristics.
+   * @param {string} deviceId The id of target camera device.
+   * @param {!cros.mojom.CameraMetadataTag} tag Camera metadata tag to query.
+   * @return {!Promise<!Array<number>>} Promise of the corresponding data
+   *     array.
+   * @throws {!Error} Thrown when given device id is invalid.
+   */
+  async getStaticMetadata(deviceId, tag) {
+    const device = await this.getDevice_(deviceId);
+    const {cameraInfo} = await device.getCameraInfo();
+    const staticMetadata = cameraInfo.staticCameraCharacteristics;
+    return getMetadataData(staticMetadata, tag);
+  }
+
+  /**
    * Gets supported photo resolutions for specific camera.
    * @param {string} deviceId The renderer-facing device id of the target camera
    *     which could be retrieved from MediaDeviceInfo.deviceId.
@@ -172,11 +191,8 @@ export class DeviceOperator {
     const typeOutputStream = 0;
     const numElementPerEntry = 4;
 
-    const device = await this.getDevice_(deviceId);
-    const {cameraInfo} = await device.getCameraInfo();
-    const staticMetadata = cameraInfo.staticCameraCharacteristics;
-    const streamConfigs = getMetadataData(
-        staticMetadata,
+    const streamConfigs = await this.getStaticMetadata(
+        deviceId,
         cros.mojom.CameraMetadataTag
             .ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
     // The data of |streamConfigs| looks like:
@@ -212,11 +228,8 @@ export class DeviceOperator {
     const oneSecondInNs = 1e9;
     const numElementPerEntry = 4;
 
-    const device = await this.getDevice_(deviceId);
-    const {cameraInfo} = await device.getCameraInfo();
-    const staticMetadata = cameraInfo.staticCameraCharacteristics;
-    const minFrameDurationConfigs = getMetadataData(
-        staticMetadata,
+    const minFrameDurationConfigs = await this.getStaticMetadata(
+        deviceId,
         cros.mojom.CameraMetadataTag
             .ANDROID_SCALER_AVAILABLE_MIN_FRAME_DURATIONS);
     // The data of |minFrameDurationConfigs| looks like:
@@ -274,11 +287,8 @@ export class DeviceOperator {
   async getSupportedFpsRanges(deviceId) {
     const numElementPerEntry = 2;
 
-    const device = await this.getDevice_(deviceId);
-    const {cameraInfo} = await device.getCameraInfo();
-    const staticMetadata = cameraInfo.staticCameraCharacteristics;
-    const availableFpsRanges = getMetadataData(
-        staticMetadata,
+    const availableFpsRanges = await this.getStaticMetadata(
+        deviceId,
         cros.mojom.CameraMetadataTag
             .ANDROID_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES);
     // The data of |availableFpsRanges| looks like:
@@ -295,6 +305,39 @@ export class DeviceOperator {
       supportedFpsRanges.push({minFps, maxFps});
     }
     return supportedFpsRanges;
+  }
+
+  /**
+   * Gets the active array size for given device.
+   * @param {string} deviceId The renderer-facing device id of the target camera
+   *     which could be retrieved from MediaDeviceInfo.deviceId.
+   * @return {!Promise<!Resolution>} Promise of the active array size.
+   * @throws {!Error} Thrown when fail to parse the metadata or the device
+   *     operation is not supported.
+   */
+  async getActiveArraySize(deviceId) {
+    const activeArray = await this.getStaticMetadata(
+        deviceId,
+        cros.mojom.CameraMetadataTag.ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+    assert(activeArray.length === 4);
+    const width = activeArray[2] - activeArray[0];
+    const height = activeArray[3] - activeArray[1];
+    return new Resolution(width, height);
+  }
+
+  /**
+   * Gets the sensor orientation for given device.
+   * @param {string} deviceId The renderer-facing device id of the target camera
+   *     which could be retrieved from MediaDeviceInfo.deviceId.
+   * @return {!Promise<number>} Promise of the sensor orientation.
+   * @throws {!Error} Thrown when fail to parse the metadata or the device
+   *     operation is not supported.
+   */
+  async getSensorOrientation(deviceId) {
+    const sensorOrientation = await this.getStaticMetadata(
+        deviceId, cros.mojom.CameraMetadataTag.ANDROID_SENSOR_ORIENTATION);
+    assert(sensorOrientation.length === 1);
+    return sensorOrientation[0];
   }
 
   /**
@@ -353,17 +396,15 @@ export class DeviceOperator {
     const portraitModeTag =
         /** @type{!cros.mojom.CameraMetadataTag} */ (-0x80000000);
 
-    const device = await this.getDevice_(deviceId);
-    const {cameraInfo} = await device.getCameraInfo();
-    return getMetadataData(
-               cameraInfo.staticCameraCharacteristics, portraitModeTag)
-               .length > 0;
+    const portraitMode =
+        await this.getStaticMetadata(deviceId, portraitModeTag);
+    return portraitMode.length > 0;
   }
 
   /**
    * Adds a metadata observer to Camera App Device through Mojo IPC.
    * @param {string} deviceId The id for target camera device.
-   * @param {function(!cros.mojom.CameraMetadata)} callback Callback that
+   * @param {function(!cros.mojom.CameraMetadata): void} callback Callback that
    *     handles the metadata.
    * @param {!cros.mojom.StreamType} streamType Stream type which the observer
    *     gets the metadata from.
@@ -374,6 +415,7 @@ export class DeviceOperator {
   async addMetadataObserver(deviceId, callback, streamType) {
     const observerCallbackRouter =
         new cros.mojom.ResultMetadataObserverCallbackRouter();
+    closeWhenUnload(observerCallbackRouter);
     observerCallbackRouter.onMetadataAvailable.addListener(callback);
 
     const device = await this.getDevice_(deviceId);
@@ -405,13 +447,14 @@ export class DeviceOperator {
    * underlying camera HAL after sensor finishes frame capturing.
    *
    * @param {string} deviceId The id for target camera device.
-   * @param {function()} callback Callback to trigger on shutter done.
+   * @param {function(): void} callback Callback to trigger on shutter done.
    * @return {!Promise<number>} Id for the added observer.
    * @throws {!Error} if fails to construct device connection.
    */
   async addShutterObserver(deviceId, callback) {
     const observerCallbackRouter =
         new cros.mojom.CameraEventObserverCallbackRouter();
+    closeWhenUnload(observerCallbackRouter);
     observerCallbackRouter.onShutterDone.addListener(callback);
 
     const device = await this.getDevice_(deviceId);

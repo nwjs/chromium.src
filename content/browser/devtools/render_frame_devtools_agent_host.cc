@@ -90,7 +90,8 @@ RenderFrameDevToolsAgentHost* FindAgentHost(FrameTreeNode* frame_tree_node) {
 bool ShouldCreateDevToolsForNode(FrameTreeNode* ftn) {
   return !ftn->parent() ||
          (ftn->current_frame_host() &&
-          ftn->current_frame_host()->IsCrossProcessSubframe());
+          RenderFrameDevToolsAgentHost::ShouldCreateDevToolsForHost(
+              ftn->current_frame_host()));
 }
 
 }  // namespace
@@ -141,13 +142,14 @@ scoped_refptr<DevToolsAgentHost> RenderFrameDevToolsAgentHost::GetOrCreateFor(
 
 // static
 bool RenderFrameDevToolsAgentHost::ShouldCreateDevToolsForHost(
-    RenderFrameHost* rfh) {
-  return rfh->IsCrossProcessSubframe() || !rfh->GetParent();
+    RenderFrameHostImpl* rfh) {
+  DCHECK(rfh);
+  return rfh->is_local_root();
 }
 
 // static
 scoped_refptr<DevToolsAgentHost>
-RenderFrameDevToolsAgentHost::CreateForCrossProcessNavigation(
+RenderFrameDevToolsAgentHost::CreateForLocalRootOrPortalNavigation(
     NavigationRequest* request) {
   // Note that this method does not use FrameTreeNode::current_frame_host(),
   // since it is used while the frame host may not be set as current yet,
@@ -196,7 +198,7 @@ void RenderFrameDevToolsAgentHost::AddAllAgentHosts(
 }
 
 // static
-void RenderFrameDevToolsAgentHost::WebContentsCreated(
+void RenderFrameDevToolsAgentHost::WebContentsMainFrameCreated(
     WebContents* web_contents) {
   if (ShouldForceCreation()) {
     // Force agent host.
@@ -206,42 +208,27 @@ void RenderFrameDevToolsAgentHost::WebContentsCreated(
 
 // static
 void RenderFrameDevToolsAgentHost::UpdateRawHeadersAccess(
-    RenderFrameHostImpl* old_rfh,
-    RenderFrameHostImpl* new_rfh) {
-  DCHECK_NE(old_rfh, new_rfh);
-  RenderProcessHost* old_rph = old_rfh ? old_rfh->GetProcess() : nullptr;
-  RenderProcessHost* new_rph = new_rfh ? new_rfh->GetProcess() : nullptr;
-  if (old_rph == new_rph)
+    RenderFrameHostImpl* rfh) {
+  if (!rfh) {
     return;
-  std::set<url::Origin> old_process_origins;
-  std::set<url::Origin> new_process_origins;
-  std::set<url::Origin> opaque_process_origins;
-  opaque_process_origins.insert(url::Origin());
+  }
+  RenderProcessHost* rph = rfh->GetProcess();
+  std::set<url::Origin> process_origins;
   for (const auto& entry : g_agent_host_instances.Get()) {
     RenderFrameHostImpl* frame_host = entry.second->frame_host_;
     if (!frame_host)
       continue;
     // Do not skip the nodes if they're about to get attached.
-    if (!entry.second->IsAttached() &&
-        (!new_rfh || entry.first != new_rfh->frame_tree_node())) {
+    if (!entry.second->IsAttached() && entry.first != rfh->frame_tree_node()) {
       continue;
     }
     RenderProcessHost* process_host = frame_host->GetProcess();
-    if (process_host == old_rph)
-      old_process_origins.insert(frame_host->GetLastCommittedOrigin());
-    else if (process_host == new_rph)
-      new_process_origins.insert(frame_host->GetLastCommittedOrigin());
+    if (process_host == rph)
+      process_origins.insert(frame_host->GetLastCommittedOrigin());
   }
-  if (old_rph) {
-    GetNetworkService()->SetRawHeadersAccess(
-        old_rph->GetID(), std::vector<url::Origin>(old_process_origins.begin(),
-                                                   old_process_origins.end()));
-  }
-  if (new_rph) {
-    GetNetworkService()->SetRawHeadersAccess(
-        new_rph->GetID(), std::vector<url::Origin>(opaque_process_origins.begin(),
-                                                   opaque_process_origins.end()));
-  }
+  GetNetworkService()->SetRawHeadersAccess(
+      rph->GetID(),
+      std::vector<url::Origin>(process_origins.begin(), process_origins.end()));
 }
 
 RenderFrameDevToolsAgentHost::RenderFrameDevToolsAgentHost(
@@ -366,7 +353,7 @@ bool RenderFrameDevToolsAgentHost::AttachSession(DevToolsSession* session,
     if (!CompositorImpl::IsInitialized())
       frame_trace_recorder_ = std::make_unique<DevToolsFrameTraceRecorder>();
 #endif
-    UpdateRawHeadersAccess(nullptr, frame_host_);
+    UpdateRawHeadersAccess(frame_host_);
 #if defined(OS_ANDROID)
     if (acquire_wake_lock)
       GetWakeLock()->RequestWakeLock();
@@ -381,7 +368,7 @@ void RenderFrameDevToolsAgentHost::DetachSession(DevToolsSession* session) {
 #if defined(OS_ANDROID)
     frame_trace_recorder_.reset();
 #endif
-    UpdateRawHeadersAccess(frame_host_, nullptr);
+    UpdateRawHeadersAccess(frame_host_);
 #if defined(OS_ANDROID)
     GetWakeLock()->CancelWakeLock();
 #endif
@@ -422,10 +409,10 @@ void RenderFrameDevToolsAgentHost::ReadyToCommitNavigation(
 
   if (request->frame_tree_node() != frame_tree_node_) {
     if (ShouldForceCreation() && request->GetRenderFrameHost() &&
-        request->GetRenderFrameHost()->IsCrossProcessSubframe()) {
+        request->GetRenderFrameHost()->is_local_root_subframe()) {
       // An agent may have been created earlier if auto attach is on.
       if (!FindAgentHost(request->frame_tree_node()))
-        CreateForCrossProcessNavigation(request);
+        CreateForLocalRootOrPortalNavigation(request);
     }
     return;
   }
@@ -447,6 +434,9 @@ void RenderFrameDevToolsAgentHost::DidFinishNavigation(
   if (request->HasCommitted())
     NotifyNavigated();
 
+  if (IsAttached()) {
+    UpdateRawHeadersAccess(frame_tree_node_->current_frame_host());
+  }
   // UpdateFrameHost may destruct |this|.
   scoped_refptr<RenderFrameDevToolsAgentHost> protect(this);
   UpdateFrameHost(frame_tree_node_->current_frame_host());
@@ -476,7 +466,7 @@ void RenderFrameDevToolsAgentHost::UpdateFrameHost(
   RenderFrameHostImpl* old_host = frame_host_;
   ChangeFrameHostAndObservedProcess(frame_host);
   if (IsAttached())
-    UpdateRawHeadersAccess(old_host, frame_host);
+    UpdateRawHeadersAccess(old_host);
 
   std::vector<DevToolsSession*> restricted_sessions;
   for (DevToolsSession* session : sessions()) {
@@ -533,7 +523,7 @@ void RenderFrameDevToolsAgentHost::DestroyOnRenderFrameGone() {
   scoped_refptr<RenderFrameDevToolsAgentHost> protect(this);
   if (IsAttached()) {
     ForceDetachAllSessions();
-    UpdateRawHeadersAccess(frame_host_, nullptr);
+    UpdateRawHeadersAccess(frame_host_);
   }
   ChangeFrameHostAndObservedProcess(nullptr);
   UpdateRendererChannel(IsAttached());
@@ -882,7 +872,7 @@ void RenderFrameDevToolsAgentHost::UpdateResourceLoaderFactories() {
     FrameTreeNode* node = queue.front();
     queue.pop();
     RenderFrameHostImpl* host = node->current_frame_host();
-    if (node != frame_tree_node_ && host->IsCrossProcessSubframe())
+    if (node != frame_tree_node_ && host->is_local_root_subframe())
       continue;
     host->UpdateSubresourceLoaderFactories();
     for (size_t i = 0; i < node->child_count(); ++i)

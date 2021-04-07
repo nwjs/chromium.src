@@ -171,6 +171,7 @@ CONTENT_EXPORT extern const char kMHTMLSkipNostoreAll[];
 CONTENT_EXPORT extern const char kMockCertVerifierDefaultResultForTesting[];
 CONTENT_EXPORT extern const char kMojoCoreLibraryPath[];
 CONTENT_EXPORT extern const char kMojoLocalStorage[];
+CONTENT_EXPORT extern const char kNoUnsandboxedZygote[];
 CONTENT_EXPORT extern const char kNoZygote[];
 extern const char kNoV8UntrustedCodeMitigations[];
 CONTENT_EXPORT extern const char kNumRasterThreads[];
@@ -266,7 +267,6 @@ CONTENT_EXPORT extern const char kDisableTimeoutsForProfiling[];
 CONTENT_EXPORT extern const char kEnableAdaptiveSelectionHandleOrientation[];
 CONTENT_EXPORT extern const char kEnableLongpressDragSelection[];
 CONTENT_EXPORT extern const char kForceOnlineConnectionStateForIndicator[];
-extern const char kNetworkCountryIso[];
 CONTENT_EXPORT extern const char kRemoteDebuggingSocketName[];
 CONTENT_EXPORT extern const char kRendererWaitForJavaDebugger[];
 #endif
@@ -294,6 +294,7 @@ CONTENT_EXPORT extern const char kPpapiAntialiasedTextEnabled[];
 CONTENT_EXPORT extern const char kPpapiSubpixelRenderingSetting[];
 CONTENT_EXPORT extern const char kRaiseTimerFrequency[];
 CONTENT_EXPORT extern const char kGpu2StartupDialog[];
+CONTENT_EXPORT extern const char kAudioProcessHighPriority[];
 #endif
 
 #if defined(ENABLE_IPC_FUZZER)

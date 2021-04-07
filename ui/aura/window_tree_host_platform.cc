@@ -34,7 +34,6 @@
 #endif
 
 #if defined(OS_WIN)
-#include "ui/base/cursor/cursor_loader_win.h"
 #include "ui/platform_window/win/win_window.h"
 #endif
 
@@ -57,7 +56,8 @@ WindowTreeHostPlatform::WindowTreeHostPlatform(
     std::unique_ptr<Window> window)
     : WindowTreeHost(std::move(window)) {
   bounds_in_pixels_ = properties.bounds;
-  CreateCompositor();
+  CreateCompositor(viz::FrameSinkId(), false, false,
+                   properties.enable_compositing_based_throttling);
   CreateAndSetPlatformWindow(std::move(properties));
 }
 
@@ -189,11 +189,6 @@ void WindowTreeHostPlatform::SetCursorNative(gfx::NativeCursor cursor) {
   if (cursor == current_cursor_)
     return;
   current_cursor_ = cursor;
-
-#if defined(OS_WIN)
-  ui::CursorLoaderWin cursor_loader;
-  cursor_loader.SetPlatformCursor(&cursor);
-#endif
 
   platform_window_->SetCursor(cursor.platform());
 }

@@ -46,7 +46,6 @@
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "ash/public/cpp/ash_features.h"
 #include "ash/public/cpp/desks_helper.h"
-#include "components/full_restore/full_restore_utils.h"
 #include "components/user_manager/user_manager.h"
 #endif
 
@@ -101,36 +100,30 @@ bool BrowserFrame::InitBrowserFrame() {
   if (browser_view_->browser()->initial_allvisible())
     params.visible_on_all_workspaces = true;
   params.delegate = browser_view_;
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-  params.init_properties_container.SetProperty(
-      full_restore::kWindowIdKey, browser_view_->browser()->session_id().id());
-  params.init_properties_container.SetProperty(
-      full_restore::kRestoreWindowIdKey,
-      browser_view_->browser()->create_params().restore_id);
-#endif
-  if (browser_view_->browser()->is_type_normal() ||
-      browser_view_->browser()->is_type_popup() ||
-      browser_view_->browser()->is_type_devtools() ||
-      browser_view_->browser()->is_type_app()) {
-    // Typed panel/popup can only return a size once the widget has been
-    // created.
-    // DevTools counts as a popup, but DevToolsWindow::CreateDevToolsBrowser
-    // ensures there is always a size available. Without this, the tools
-    // launch on the wrong display and can have sizing issues when
-    // repositioned to the saved bounds in Widget::SetInitialBounds.
-    got_saved_bounds = chrome::GetSavedWindowBoundsAndShowState(browser_view_->browser(),
-                                             &params.bounds,
-                                             &params.show_state);
 
-    params.workspace = browser_view_->browser()->initial_workspace();
-    params.visible_on_all_workspaces =
-        browser_view_->browser()->initial_visible_on_all_workspaces_state();
-    const base::CommandLine& parsed_command_line =
-        *base::CommandLine::ForCurrentProcess();
+  if (native_browser_frame_->ShouldRestorePreviousBrowserWidgetState()) {
+    Browser* browser = browser_view_->browser();
+    if (browser->is_type_normal() || browser->is_type_devtools() ||
+        browser->is_type_app() || browser->is_type_popup()) {
+      // Typed panel/popup can only return a size once the widget has been
+      // created.
+      // DevTools counts as a popup, but DevToolsWindow::CreateDevToolsBrowser
+      // ensures there is always a size available. Without this, the tools
+      // launch on the wrong display and can have sizing issues when
+      // repositioned to the saved bounds in Widget::SetInitialBounds.
+      got_saved_bounds = chrome::GetSavedWindowBoundsAndShowState(browser, &params.bounds,
+                                               &params.show_state);
 
-    if (parsed_command_line.HasSwitch(switches::kWindowWorkspace)) {
-      params.workspace =
-          parsed_command_line.GetSwitchValueASCII(switches::kWindowWorkspace);
+      params.workspace = browser->initial_workspace();
+      params.visible_on_all_workspaces =
+          browser->initial_visible_on_all_workspaces_state();
+      const base::CommandLine& parsed_command_line =
+          *base::CommandLine::ForCurrentProcess();
+
+      if (parsed_command_line.HasSwitch(switches::kWindowWorkspace)) {
+        params.workspace =
+            parsed_command_line.GetSwitchValueASCII(switches::kWindowWorkspace);
+      }
     }
   }
 

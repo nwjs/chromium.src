@@ -22,8 +22,9 @@
 #include "base/strings/string_util.h"
 #include "base/system/system_monitor.h"
 #include "base/unguessable_token.h"
+#include "components/device_event_log/device_event_log.h"
+#include "media/capture/video/chromeos/ash/camera_hal_dispatcher_impl.h"
 #include "media/capture/video/chromeos/camera_buffer_factory.h"
-#include "media/capture/video/chromeos/camera_hal_dispatcher_impl.h"
 #include "media/capture/video/chromeos/camera_metadata_utils.h"
 #include "media/capture/video/chromeos/video_capture_device_chromeos_delegate.h"
 #include "media/capture/video/chromeos/video_capture_device_chromeos_halv3.h"
@@ -163,7 +164,7 @@ void CameraHalDelegate::OnRegisteredCameraHalClient(int32_t result) {
     camera_hal_client_registered_.Signal();
     return;
   }
-  VLOG(1) << "Registered camera HAL client";
+  CAMERA_LOG(EVENT) << "Registered camera HAL client";
   authenticated_ = true;
   camera_hal_client_registered_.Signal();
 }
@@ -263,8 +264,9 @@ void CameraHalDelegate::GetSupportedFormats(
         continue;
       }
 
-      VLOG(1) << "Supported format: " << width << "x" << height
-              << " fps=" << fps << " format=" << cr_format.video_format;
+      CAMERA_LOG(EVENT) << "Supported format: " << width << "x" << height
+                        << " fps=" << fps
+                        << " format=" << cr_format.video_format;
       supported_formats->emplace_back(gfx::Size(width, height), fps,
                                       cr_format.video_format);
     }
@@ -578,7 +580,7 @@ void CameraHalDelegate::OnGotNumberOfCamerasOnIpcThread(int32_t num_cameras) {
     LOG(ERROR) << "Failed to get number of cameras: " << num_cameras;
     return;
   }
-  VLOG(1) << "Number of built-in cameras: " << num_cameras;
+  CAMERA_LOG(EVENT) << "Number of built-in cameras: " << num_cameras;
   num_builtin_cameras_ = num_cameras;
   // Per camera HAL v3 specification SetCallbacks() should be called after the
   // first time GetNumberOfCameras() is called, and before other CameraModule
@@ -687,7 +689,8 @@ void CameraHalDelegate::CameraDeviceStatusChange(
     int32_t camera_id,
     cros::mojom::CameraDeviceStatus new_status) {
   DCHECK(ipc_task_runner_->BelongsToCurrentThread());
-  VLOG(1) << "camera_id = " << camera_id << ", new_status = " << new_status;
+  CAMERA_LOG(EVENT) << "camera_id = " << camera_id
+                    << ", new_status = " << new_status;
   base::AutoLock lock(camera_info_lock_);
   auto it = camera_info_.find(camera_id);
   switch (new_status) {

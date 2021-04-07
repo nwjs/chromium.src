@@ -229,6 +229,8 @@ class CORE_EXPORT FrameLoader final {
 
   static bool NeedsHistoryItemRestore(WebFrameLoadType type);
 
+  void WriteIntoTracedValue(perfetto::TracedValue context) const;
+
  private:
   bool AllowRequestForThisFrame(const FrameLoadRequest&);
   WebFrameLoadType DetermineFrameLoadType(const KURL& url,
@@ -256,7 +258,6 @@ class CORE_EXPORT FrameLoader final {
   void DetachDocumentLoader(Member<DocumentLoader>&,
                             bool flush_microtask_queue = false);
 
-  std::unique_ptr<TracedValue> ToTracedValue() const;
   void TakeObjectSnapshot() const;
 
   // Commits the given |document_loader|.

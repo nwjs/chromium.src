@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env vpython3
 # Copyright 2020 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -60,6 +60,7 @@ def initial_settings(milestone, branch):
       is_main=False,
       is_lts_branch=False,
       ref=f'refs/branch-heads/{branch}',
+      chrome_project=f'chrome-m{milestone}',
   )
 
   return json.dumps(settings, indent=4) + '\n'

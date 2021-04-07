@@ -12,6 +12,9 @@ namespace signin {
 // Features to trigger the startup sign-in promo at boot.
 extern const base::Feature kForceStartupSigninPromo;
 
+// This feature simplify sign-out UI in the account table view.
+extern const base::Feature kSimplifySignOutIOS;
+
 // Returns true if the startup sign-in promo should be displayed at boot.
 bool ForceStartupSigninPromo();
 
@@ -28,6 +31,12 @@ extern const char kDelayThresholdMinutesToUpdateGaiaCookie[];
 
 // Feature controlling whether to use full username in sign-in notifications.
 extern const base::Feature kSigninNotificationInfobarUsernameInTitle;
+
+// This feature disable SSO editing.
+extern const base::Feature kDisableSSOEditing;
+
+// Returns true if SSO editing is enabled.
+bool IsSSOEditingEnabled();
 
 }  // namespace signin
 

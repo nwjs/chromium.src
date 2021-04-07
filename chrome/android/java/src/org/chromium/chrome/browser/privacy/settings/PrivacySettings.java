@@ -20,6 +20,9 @@ import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncherImpl;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.privacy.secure_dns.SecureDnsSettings;
+import org.chromium.chrome.browser.privacy_sandbox.PrivacySandboxBridge;
+import org.chromium.chrome.browser.privacy_sandbox.PrivacySandboxReferrer;
+import org.chromium.chrome.browser.privacy_sandbox.PrivacySandboxSettingsFragment;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.safe_browsing.metrics.SettingsAccessPoint;
 import org.chromium.chrome.browser.safe_browsing.settings.SafeBrowsingSettingsFragment;
@@ -77,8 +80,20 @@ public class PrivacySettings
             }
         }
 
-        // Remove Privacy Sandbox settings if the corresponding flag is disabled.
-        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.PRIVACY_SANDBOX_SETTINGS)) {
+        if (PrivacySandboxBridge.isPrivacySandboxSettingsFunctional()) {
+            findPreference(PREF_PRIVACY_SANDBOX)
+                    .setSummary(PrivacySandboxSettingsFragment.getStatusString(getContext()));
+            // Overwrite the click listener to pass a correct referrer to the fragment.
+            findPreference(PREF_PRIVACY_SANDBOX).setOnPreferenceClickListener(preference -> {
+                Bundle fragmentArgs = new Bundle();
+                fragmentArgs.putInt(PrivacySandboxSettingsFragment.PRIVACY_SANDBOX_REFERRER,
+                        PrivacySandboxReferrer.PRIVACY_SETTINGS);
+                new SettingsLauncherImpl().launchSettingsActivity(
+                        getContext(), PrivacySandboxSettingsFragment.class, fragmentArgs);
+                return true;
+            });
+        } else {
+            // Remove Privacy Sandbox settings if the corresponding flag is disabled.
             getPreferenceScreen().removePreference(findPreference(PREF_PRIVACY_SANDBOX));
         }
 
@@ -226,6 +241,12 @@ public class PrivacySettings
             } else {
                 getPreferenceScreen().removePreference(usageStatsPref);
             }
+        }
+
+        Preference privacySandboxPreference = findPreference(PREF_PRIVACY_SANDBOX);
+        if (privacySandboxPreference != null) {
+            privacySandboxPreference.setSummary(
+                    PrivacySandboxSettingsFragment.getStatusString(getContext()));
         }
     }
 

@@ -20,6 +20,7 @@
 #include "base/macros.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/single_thread_task_runner.h"
+#include "base/strings/string_util_win.h"
 #include "base/task/current_thread.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/time/time.h"
@@ -468,7 +469,7 @@ void HWNDMessageHandler::Init(HWND parent, const gfx::Rect& bounds) {
       hwnd(), ui::WindowEventTarget::kWin32InputEventTarget,
       static_cast<ui::WindowEventTarget*>(this));
   DCHECK(delegate_->GetHWNDMessageDelegateInputMethod());
-  observer_.Add(delegate_->GetHWNDMessageDelegateInputMethod());
+  observation_.Observe(delegate_->GetHWNDMessageDelegateInputMethod());
 
   // The usual way for UI Automation to obtain a fragment root is through
   // WM_GETOBJECT. However, if there's a relation such as "Controller For"
@@ -861,21 +862,22 @@ void HWNDMessageHandler::SetVisibilityChangedAnimationsEnabled(bool enabled) {
 }
 
 bool HWNDMessageHandler::SetTitle(const base::string16& title) {
-  base::string16 current_title;
+  std::wstring current_title;
   size_t len_with_null = GetWindowTextLength(hwnd()) + 1;
   if (len_with_null == 1 && title.length() == 0)
     return false;
   if (len_with_null - 1 == title.length() &&
       GetWindowText(hwnd(), base::WriteInto(&current_title, len_with_null),
                     len_with_null) &&
-      current_title == title)
+      current_title == base::AsWStringPiece(title))
     return false;
-  SetWindowText(hwnd(), title.c_str());
+  SetWindowText(hwnd(), base::as_wcstr(title));
   return true;
 }
 
 void HWNDMessageHandler::SetCursor(HCURSOR cursor) {
-  TRACE_EVENT1("ui,input", "HWNDMessageHandler::SetCursor", "cursor", cursor);
+  TRACE_EVENT1("ui,input", "HWNDMessageHandler::SetCursor", "cursor",
+               static_cast<const void*>(cursor));
   ::SetCursor(cursor);
   current_cursor_ = cursor;
 }

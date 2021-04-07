@@ -20,8 +20,6 @@ enum IPCMessageStart {
   GpuChannelMsgStart,
   MediaMsgStart,
   PpapiMsgStart,
-  ChromeMsgStart,
-  PrintMsgStart,
   ExtensionMsgStart,
   ShellMsgStart,
   ChromotingMsgStart,
@@ -33,7 +31,6 @@ enum IPCMessageStart {
   GuestViewMsgStart,
   MediaPlayerDelegateMsgStart,
   ExtensionWorkerMsgStart,
-  SubresourceFilterMsgStart,
   LastIPCMsgStart  // Must come last.
 };
 

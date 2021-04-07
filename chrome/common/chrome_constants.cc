@@ -12,7 +12,6 @@
 #define FPL FILE_PATH_LITERAL
 
 #if defined(OS_MAC)
-#define CHROMIUM_PRODUCT_STRING "nwjs"
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
 #define PRODUCT_STRING "Google Chrome"
 #elif BUILDFLAG(CHROMIUM_BRANDING)
@@ -44,75 +43,43 @@ const char kChromeVersion[] = CHROME_VERSION_STRING;
 // do so.
 
 #if defined(OS_WIN)
-const base::FilePath::CharType kBrowserProcessExecutableNameChromium[] =
-    FPL("nw.exe");
 const base::FilePath::CharType kBrowserProcessExecutableName[] =
-    FPL("nw.exe");
-const base::FilePath::CharType kHelperProcessExecutableNameChromium[] =
     FPL("nw.exe");
 const base::FilePath::CharType kHelperProcessExecutableName[] =
     FPL("nw.exe");
 #elif defined(OS_MAC)
-const base::FilePath::CharType kBrowserProcessExecutableNameChromium[] =
-    FPL(CHROMIUM_PRODUCT_STRING);
 const base::FilePath::CharType kBrowserProcessExecutableName[] =
     FPL(PRODUCT_STRING);
-const base::FilePath::CharType kHelperProcessExecutableNameChromium[] =
-    FPL(CHROMIUM_PRODUCT_STRING " Helper");
 const base::FilePath::CharType kHelperProcessExecutableName[] =
     FPL(PRODUCT_STRING " Helper");
 #elif defined(OS_ANDROID)
 // NOTE: Keep it synced with the process names defined in AndroidManifest.xml.
 const base::FilePath::CharType kBrowserProcessExecutableName[] = FPL("chrome");
-const base::FilePath::CharType kBrowserProcessExecutableNameChromium[] =
-    FPL("");
 const base::FilePath::CharType kHelperProcessExecutableName[] =
     FPL("sandboxed_process");
-const base::FilePath::CharType kHelperProcessExecutableNameChromium[] = FPL("");
 #elif defined(OS_POSIX)
-const base::FilePath::CharType kBrowserProcessExecutableNameChromium[] =
-    FPL("nw");
 const base::FilePath::CharType kBrowserProcessExecutableName[] = FPL("nw");
 // Helper processes end up with a name of "exe" due to execing via
 // /proc/self/exe.  See bug 22703.
-const base::FilePath::CharType kHelperProcessExecutableNameChromium[] =
-    FPL("exe");
 const base::FilePath::CharType kHelperProcessExecutableName[] = FPL("exe");
 #endif  // OS_*
 
 #if defined(OS_WIN)
-const base::FilePath::CharType kBrowserProcessExecutablePathChromium[] =
-    FPL("nw.exe");
 const base::FilePath::CharType kBrowserProcessExecutablePath[] =
-    FPL("nw.exe");
-const base::FilePath::CharType kHelperProcessExecutablePathChromium[] =
     FPL("nw.exe");
 const base::FilePath::CharType kHelperProcessExecutablePath[] =
     FPL("nw.exe");
 #elif defined(OS_MAC)
-const base::FilePath::CharType kBrowserProcessExecutablePathChromium[] =
-    FPL(CHROMIUM_PRODUCT_STRING ".app/Contents/MacOS/" CHROMIUM_PRODUCT_STRING);
 const base::FilePath::CharType kBrowserProcessExecutablePath[] =
     FPL(PRODUCT_STRING ".app/Contents/MacOS/" PRODUCT_STRING);
-const base::FilePath::CharType kHelperProcessExecutablePathChromium[] =
-    FPL(CHROMIUM_PRODUCT_STRING
-        " Helper.app/Contents/MacOS/" CHROMIUM_PRODUCT_STRING " Helper");
 const base::FilePath::CharType kHelperProcessExecutablePath[] =
     FPL(PRODUCT_STRING " Helper.app/Contents/MacOS/" PRODUCT_STRING " Helper");
 #elif defined(OS_ANDROID)
 const base::FilePath::CharType kBrowserProcessExecutablePath[] = FPL("chrome");
 const base::FilePath::CharType kHelperProcessExecutablePath[] = FPL("chrome");
-const base::FilePath::CharType kBrowserProcessExecutablePathChromium[] =
-    FPL("nw");
-const base::FilePath::CharType kHelperProcessExecutablePathChromium[] =
-    FPL("nw");
 #elif defined(OS_POSIX)
-const base::FilePath::CharType kBrowserProcessExecutablePathChromium[] =
-    FPL("nw");
-const base::FilePath::CharType kBrowserProcessExecutablePath[] = FPL("chrome");
-const base::FilePath::CharType kHelperProcessExecutablePathChromium[] =
-    FPL("nw");
-const base::FilePath::CharType kHelperProcessExecutablePath[] = FPL("chrome");
+const base::FilePath::CharType kBrowserProcessExecutablePath[] = FPL("nw");
+const base::FilePath::CharType kHelperProcessExecutablePath[] = FPL("nw");
 #endif  // OS_*
 
 #if defined(OS_MAC)
@@ -216,8 +183,6 @@ const char kLockScreenProfile[] = "LockScreenProfile";
 // {2676A9A2-D919-4FEE-9187-152100393AB2}
 const char kApplicationClientIDStringForAVScanning[] =
     "2676A9A2-D919-4FEE-9187-152100393AB2";
-
-const size_t kMaxMetaTagAttributeLength = 2000;
 
 }  // namespace chrome
 

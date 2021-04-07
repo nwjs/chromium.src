@@ -64,7 +64,6 @@ class CORE_EXPORT LocalFrameClientImpl final : public LocalFrameClient {
 
   // LocalFrameClient ----------------------------------------------
   WebContentCaptureClient* GetWebContentCaptureClient() const override;
-  void DidCreateInitialEmptyDocument() override;
   void DidCommitDocumentReplacementNavigation(DocumentLoader*) override;
   void willHandleNavigationPolicy(const blink::ResourceRequest& request, blink::NavigationPolicy* policy, WebString* manifest = nullptr, bool new_win = true) override;
   // Notifies the WebView delegate that the JS window object has been cleared,
@@ -128,7 +127,9 @@ class CORE_EXPORT LocalFrameClientImpl final : public LocalFrameClient {
           initiator_csp,
       network::mojom::IPAddressSpace,
       mojo::PendingRemote<mojom::blink::NavigationInitiator>,
-      const base::UnguessableToken* initiator_frame_token) override;
+      const LocalFrameToken* initiator_frame_token,
+      mojo::PendingRemote<mojom::blink::PolicyContainerHostKeepAliveHandle>
+          initiator_policy_container_keep_alive_handle) override;
   void DispatchWillSendSubmitEvent(HTMLFormElement*) override;
   void DidStartLoading() override;
   void DidStopLoading() override;
@@ -141,6 +142,8 @@ class CORE_EXPORT LocalFrameClientImpl final : public LocalFrameClient {
   void DidObserveNewFeatureUsage(mojom::WebFeature) override;
   void DidObserveNewCssPropertyUsage(mojom::CSSSampleId, bool) override;
   void DidObserveLayoutShift(double score, bool after_input_or_scroll) override;
+  void DidObserveInputForLayoutShiftTracking(
+      base::TimeTicks timestamp) override;
   void DidObserveLayoutNg(uint32_t all_block_count,
                           uint32_t ng_block_count,
                           uint32_t all_call_count,
@@ -236,8 +239,6 @@ class CORE_EXPORT LocalFrameClientImpl final : public LocalFrameClient {
   void DidChangeContents() override;
 
   Frame* FindFrame(const AtomicString& name) const override;
-
-  void FrameRectsChanged(const IntRect&) override;
 
   void FocusedElementChanged(Element* element) override;
 

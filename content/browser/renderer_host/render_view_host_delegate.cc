@@ -34,10 +34,6 @@ RenderViewHostDelegate::GetSessionStorageNamespaceMap() {
   return SessionStorageNamespaceMap();
 }
 
-FrameTree* RenderViewHostDelegate::GetFrameTree() {
-  return nullptr;
-}
-
 bool RenderViewHostDelegate::IsWebPreferencesSet() const {
   return false;
 }
@@ -68,10 +64,6 @@ bool RenderViewHostDelegate::HasPersistentVideo() const {
 
 bool RenderViewHostDelegate::IsSpatialNavigationDisabled() const {
   return false;
-}
-
-RenderFrameHostImpl* RenderViewHostDelegate::GetPendingMainFrame() {
-  return nullptr;
 }
 
 bool RenderViewHostDelegate::IsPortal() {
