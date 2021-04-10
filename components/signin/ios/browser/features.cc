@@ -36,4 +36,18 @@ bool IsSSOEditingEnabled() {
   return !base::FeatureList::IsEnabled(signin::kDisableSSOEditing);
 }
 
+const base::Feature kSSOAccountCreationInChromeTab{
+    "SSOAccountCreationInChromeTab", base::FEATURE_DISABLED_BY_DEFAULT};
+
+bool IsSSOAccountCreationInChromeTabEnabled() {
+  return base::FeatureList::IsEnabled(signin::kSSOAccountCreationInChromeTab);
+}
+
+const base::Feature kSSODisableAccountCreation{
+    "SSODisableAccountCreation", base::FEATURE_DISABLED_BY_DEFAULT};
+
+bool IsSSOAccountCreationEnabled() {
+  return !base::FeatureList::IsEnabled(signin::kSSODisableAccountCreation);
+}
+
 }  // namespace signin

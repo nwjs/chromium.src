@@ -1550,9 +1550,9 @@ void BrowserView::FullscreenStateChanging() {
   bool fullscreen = IsFullscreen();
   ProcessFullscreen(
       fullscreen, GURL(),
-      fullscreen
+      /*fullscreen
           ? GetExclusiveAccessManager()->GetExclusiveAccessExitBubbleType()
-          : EXCLUSIVE_ACCESS_BUBBLE_TYPE_NONE,
+          : */EXCLUSIVE_ACCESS_BUBBLE_TYPE_NONE,
       display::kInvalidDisplayId);
   frame_->GetFrameView()->OnFullscreenStateChanged();
 }

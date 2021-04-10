@@ -21420,6 +21420,7 @@ Called by update_document_policy_enum.py.-->
   <int value="7" label="NON_GOOGLE_SEARCH_ENGINE"/>
   <int value="8" label="NO_CHROME_ACCOUNT"/>
   <int value="9" label="LOW_END_DEVICE"/>
+  <int value="10" label="MULTIPLE_ACCOUNTS_ON_DEVICE"/>
 </enum>
 
 <enum name="EmbeddedWorkerStartingPhase">
@@ -31751,6 +31752,7 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="3837" label="FeaturePolicyJSAPIFeaturesDocument"/>
   <int value="3838" label="FeaturePolicyJSAPIGetAllowlistIFrame"/>
   <int value="3839" label="FeaturePolicyJSAPIGetAllowlistDocument"/>
+  <int value="3871" label="PaymentRequestCSPViolation"/>
 </enum>
 
 <enum name="FeaturePolicyAllowlistType">

@@ -219,7 +219,7 @@ config("blink_platform_pch") {
   visibility = []
   visibility = [ "./*" ]
   if (enable_precompiled_headers) {
-    if (is_win) {
+    if (is_win && false) {
       # This is a string rather than a file GN knows about. It has to match
       # exactly what's in the /FI flag below, and what might appear in the
       # source code in quotes for an #include directive.

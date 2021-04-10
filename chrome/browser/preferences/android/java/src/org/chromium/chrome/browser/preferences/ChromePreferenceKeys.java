@@ -439,6 +439,10 @@ public final class ChromePreferenceKeys {
     public static final String FLAGS_CACHED_TAB_GROUPS_ANDROID_ENABLED =
             "tab_group_android_enabled";
 
+    /** See CachedFeatureFlags.getLastCachedMinimalBrowserFlagsTimeMillis(). */
+    public static final String FLAGS_LAST_CACHED_MINIMAL_BROWSER_FLAGS_TIME_MILLIS =
+            "Chrome.Flags.LastCachedMinimalBrowserFlagsTimeMillis";
+
     public static final String FONT_USER_FONT_SCALE_FACTOR = "user_font_scale_factor";
     public static final String FONT_USER_SET_FORCE_ENABLE_ZOOM = "user_set_force_enable_zoom";
 
@@ -583,6 +587,16 @@ public final class ChromePreferenceKeys {
     public static final String PREFETCH_NOTIFICATION_TIME = "prefetch_notification_shown_time";
     public static final String PREFETCH_OFFLINE_COUNTER = "prefetch_notification_offline_counter";
 
+    /**
+     * Whether the PriceAlertsMessageCard is enabled.
+     */
+    public static final String PRICE_TRACKING_PRICE_ALERTS_MESSAGE_CARD =
+            "Chrome.PriceTracking.PriceAlerts";
+    /**
+     * Indicates how many times the PriceAlertsMessageCard has shown in the tab switcher.
+     */
+    public static final String PRICE_TRACKING_PRICE_ALERTS_MESSAGE_CARD_SHOW_COUNT =
+            "Chrome.PriceTracking.PriceAlertsShowCount";
     /**
      * Whether the PriceWelcomeMessageCard is enabled.
      */
@@ -905,6 +919,7 @@ public final class ChromePreferenceKeys {
                 FIRST_RUN_SKIPPED_BY_POLICY,
                 FLAGS_CACHED.pattern(),
                 FLAGS_FIELD_TRIAL_PARAM_CACHED.pattern(),
+                FLAGS_LAST_CACHED_MINIMAL_BROWSER_FLAGS_TIME_MILLIS,
                 HOMEPAGE_LOCATION_POLICY,
                 HOMEPAGE_USE_CHROME_NTP,
                 IMAGE_DESCRIPTIONS_JUST_ONCE_COUNT,
@@ -920,6 +935,8 @@ public final class ChromePreferenceKeys {
                 OFFLINE_MEASUREMENTS_LAST_CHECK_MILLIS,
                 OFFLINE_MEASUREMENTS_TIME_BETWEEN_CHECKS_MILLIS_LIST,
                 PERSISTENT_OFFLINE_CONTENT_AVAILABILITY_STATUS,
+                PRICE_TRACKING_PRICE_ALERTS_MESSAGE_CARD,
+                PRICE_TRACKING_PRICE_ALERTS_MESSAGE_CARD_SHOW_COUNT,
                 PRICE_TRACKING_PRICE_WELCOME_MESSAGE_CARD,
                 PRICE_TRACKING_PRICE_WELCOME_MESSAGE_CARD_SHOW_COUNT,
                 PRICE_TRACKING_TRACK_PRICES_ON_TABS,

@@ -552,7 +552,7 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
         chrome::NOTIFICATION_CLOSE_ALL_BROWSERS_REQUEST,
         content::NotificationService::AllSources(),
         content::NotificationService::NoDetails());
-    chrome::CloseAllBrowsersAndQuit(true); //quits directly from dock, align with nw1
+    chrome::CloseAllBrowsersAndQuit(false, true);
   }
 
   return num_browsers == 0 ? YES : NO;

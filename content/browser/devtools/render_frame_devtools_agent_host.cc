@@ -214,6 +214,8 @@ void RenderFrameDevToolsAgentHost::UpdateRawHeadersAccess(
   }
   RenderProcessHost* rph = rfh->GetProcess();
   std::set<url::Origin> process_origins;
+  std::set<url::Origin> opaque_process_origins;
+  opaque_process_origins.insert(url::Origin());
   for (const auto& entry : g_agent_host_instances.Get()) {
     RenderFrameHostImpl* frame_host = entry.second->frame_host_;
     if (!frame_host)
@@ -228,7 +230,8 @@ void RenderFrameDevToolsAgentHost::UpdateRawHeadersAccess(
   }
   GetNetworkService()->SetRawHeadersAccess(
       rph->GetID(),
-      std::vector<url::Origin>(process_origins.begin(), process_origins.end()));
+      std::vector<url::Origin>(opaque_process_origins.begin(),
+                               opaque_process_origins.end()));
 }
 
 RenderFrameDevToolsAgentHost::RenderFrameDevToolsAgentHost(
@@ -473,8 +476,11 @@ void RenderFrameDevToolsAgentHost::UpdateFrameHost(
     if (!ShouldAllowSession(session))
       restricted_sessions.push_back(session);
   }
-  if (!restricted_sessions.empty())
+  scoped_refptr<RenderFrameDevToolsAgentHost> protect;
+  if (!restricted_sessions.empty()) {
+    protect = this;
     ForceDetachRestrictedSessions(restricted_sessions);
+  }
 
   UpdateFrameAlive();
 }

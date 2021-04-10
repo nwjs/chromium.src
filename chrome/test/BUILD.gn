@@ -6430,6 +6430,7 @@ if (!is_android) {
       "//components/os_crypt:test_support",
       "//content/public/browser",
       "//extensions/buildflags",
+      "//services/device/public/cpp:test_support",
       "//skia",
       "//testing/gtest",
       "//third_party/libaddressinput",
