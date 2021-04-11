@@ -64,6 +64,7 @@ namespace {
 // process) created before MainDllLoader changes the current working directory
 // to the browser's version directory.
 void SetCwdForBrowserProcess() {
+#if 0
   if (!::IsBrowserProcess())
     return;
 
@@ -76,6 +77,7 @@ void SetCwdForBrowserProcess() {
   base::SetCurrentDirectory(
       base::FilePath(base::FilePath::StringPieceType(&buffer[0], length))
           .DirName());
+#endif
 }
 #if 0
 
