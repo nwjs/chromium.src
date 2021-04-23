@@ -61,42 +61,87 @@ void ErrorScreenHandler::ShowOobeScreen(OobeScreenId screen) {
 
 void ErrorScreenHandler::SetErrorStateCode(
     NetworkError::ErrorState error_state) {
-  CallJS("login.ErrorMessageScreen.setErrorState",
-         static_cast<int>(error_state));
+  // TODO(crbug.com/1180291) - Remove once OOBE JS calls are fixed.
+  if (IsSafeToCallJavascript()) {
+    CallJS("login.ErrorMessageScreen.setErrorState",
+           static_cast<int>(error_state));
+  } else {
+    LOG(ERROR) << "Silently dropping SetErrorStateNetwork request.";
+  }
 }
 
 void ErrorScreenHandler::SetErrorStateNetwork(const std::string& network_name) {
-  CallJS("login.ErrorMessageScreen.setErrorStateNetwork", network_name);
+  // TODO(crbug.com/1180291) - Remove once OOBE JS calls are fixed.
+  if (IsSafeToCallJavascript()) {
+    CallJS("login.ErrorMessageScreen.setErrorStateNetwork", network_name);
+  } else {
+    LOG(ERROR) << "Silently dropping SetErrorStateNetwork request.";
+  }
 }
 
 void ErrorScreenHandler::SetGuestSigninAllowed(bool value) {
-  CallJS("login.ErrorMessageScreen.allowGuestSignin", value);
+  // TODO(crbug.com/1180291) - Remove once OOBE JS calls are fixed.
+  if (IsSafeToCallJavascript()) {
+    CallJS("login.ErrorMessageScreen.allowGuestSignin", value);
+  } else {
+    LOG(ERROR) << "Silently dropping SetGuestSigninAllowed request.";
+  }
 }
 
 void ErrorScreenHandler::SetOfflineSigninAllowed(bool value) {
-  CallJS("login.ErrorMessageScreen.allowOfflineLogin", value);
+  // TODO(crbug.com/1180291) - Remove once OOBE JS calls are fixed.
+  if (IsSafeToCallJavascript()) {
+    CallJS("login.ErrorMessageScreen.allowOfflineLogin", value);
+  } else {
+    LOG(ERROR) << "Silently dropping SetOfflineSigninAllowed request.";
+  }
 }
 
 void ErrorScreenHandler::SetShowConnectingIndicator(bool value) {
-  CallJS("login.ErrorMessageScreen.showConnectingIndicator", value);
+  // TODO(crbug.com/1180291) - Remove once OOBE JS calls are fixed.
+  if (IsSafeToCallJavascript()) {
+    CallJS("login.ErrorMessageScreen.showConnectingIndicator", value);
+  } else {
+    LOG(ERROR) << "Silently dropping SetShowConnectingIndicator request.";
+  }
 }
 
 void ErrorScreenHandler::SetIsPersistentError(bool is_persistent) {
-  CallJS("login.ErrorMessageScreen.setIsPersistentError", is_persistent);
+  // TODO(crbug.com/1180291) - Remove once OOBE JS calls are fixed.
+  if (IsSafeToCallJavascript()) {
+    CallJS("login.ErrorMessageScreen.setIsPersistentError", is_persistent);
+  } else {
+    LOG(ERROR) << "Silently dropping SetIsPersistentError request.";
+  }
 }
 
 void ErrorScreenHandler::SetUIState(NetworkError::UIState ui_state) {
-  CallJS("login.ErrorMessageScreen.setUIState", static_cast<int>(ui_state));
+  // TODO(crbug.com/1180291) - Remove once OOBE JS calls are fixed
+  if (IsSafeToCallJavascript()) {
+    CallJS("login.ErrorMessageScreen.setUIState", static_cast<int>(ui_state));
+  } else {
+    LOG(ERROR) << "Silently dropping SetUIState request.";
+  }
 }
 
 // TODO (crbug.com/1168114): We need to handle that fully in C++ once
 // all error screen logic is migrated to Screen object.
 void ErrorScreenHandler::OnCancelButtonClicked() {
-  CallJS("cr.ui.Oobe.showUserPods");
+  // TODO(crbug.com/1180291) - Remove once OOBE JS calls are fixed.
+  if (IsSafeToCallJavascript()) {
+    CallJS("cr.ui.Oobe.showUserPods");
+  } else {
+    LOG(ERROR) << "Silently dropping OnCancelButtonClicked request.";
+  }
 }
 
 void ErrorScreenHandler::OnReloadGaiaClicked() {
-  CallJS("login.GaiaSigninScreen.doReload");
+  // TODO(crbug.com/1180291) - Remove once OOBE JS calls are fixed.
+  if (IsSafeToCallJavascript()) {
+    CallJS("login.GaiaSigninScreen.doReload");
+  } else {
+    LOG(ERROR) << "Silently dropping OnReloadGaiaClicked request.";
+  }
 }
 
 void ErrorScreenHandler::DeclareLocalizedValues(

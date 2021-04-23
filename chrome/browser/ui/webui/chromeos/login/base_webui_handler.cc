@@ -20,6 +20,7 @@ BaseWebUIHandler::~BaseWebUIHandler() = default;
 
 void BaseWebUIHandler::InitializeBase() {
   page_is_ready_ = true;
+  AllowJavascript();
   Initialize();
 }
 

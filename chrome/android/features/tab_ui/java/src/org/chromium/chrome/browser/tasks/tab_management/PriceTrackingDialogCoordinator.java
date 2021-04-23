@@ -54,6 +54,7 @@ class PriceTrackingDialogCoordinator implements OnCheckedChangeListener {
     }
 
     void show() {
+        mDialogView.setupPriceAlertsRowMenuVisibility();
         mDialogView.updateSwitch();
         mModalDialogManager.showDialog(mModel, ModalDialogManager.ModalDialogType.APP);
     }
