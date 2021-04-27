@@ -21,6 +21,31 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
 
 <histograms>
 
+<variants name="RequestDestination">
+  <variant name="audio"/>
+  <variant name="audioworklet"/>
+  <variant name="document"/>
+  <variant name="embed"/>
+  <variant name="empty"/>
+  <variant name="font"/>
+  <variant name="frame"/>
+  <variant name="iframe"/>
+  <variant name="image"/>
+  <variant name="manifest"/>
+  <variant name="object"/>
+  <variant name="paintworklet"/>
+  <variant name="report"/>
+  <variant name="script"/>
+  <variant name="serviceworker"/>
+  <variant name="sharedworker"/>
+  <variant name="style"/>
+  <variant name="track"/>
+  <variant name="video"/>
+  <variant name="webbundle"/>
+  <variant name="worker"/>
+  <variant name="xslt"/>
+</variants>
+
 <histogram name="PageActionController.ExtensionsWithPageActions" units="units"
     expires_after="2021-12-01">
   <owner>rdevlin.cronin@chromium.org</owner>
@@ -1242,6 +1267,67 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
   </summary>
 </histogram>
 
+<histogram
+    name="PageLoad.Experimental.PageTiming.CachedResourceLoadTime.{RequestDestination}"
+    units="ms" expires_after="2021-10-05">
+  <owner>cduvall@chromium.org</owner>
+  <owner>jam@chromium.org</owner>
+  <summary>
+    Measures the time from load start to when headers have been received for
+    resource requests which come from the cache. Logged for every
+    {RequestDestination} resource request from the cache.
+  </summary>
+  <token key="RequestDestination" variants="RequestDestination"/>
+</histogram>
+
+<histogram
+    name="PageLoad.Experimental.PageTiming.CommitSentToFirstSubresourceLoadStart"
+    units="ms" expires_after="2021-10-05">
+  <owner>cduvall@chromium.org</owner>
+  <owner>jam@chromium.org</owner>
+  <summary>
+    Measures the time from when the navigation commit was sent to the renderer
+    to the first subresource load start. Logged for every page load which has
+    subresources.
+  </summary>
+</histogram>
+
+<histogram
+    name="PageLoad.Experimental.PageTiming.NavigationToFirstSubresourceLoadStart"
+    units="ms" expires_after="2021-10-05">
+  <owner>cduvall@chromium.org</owner>
+  <owner>jam@chromium.org</owner>
+  <summary>
+    Measures the time from navigation start to the first subresource load start.
+    Logged for every page load which has subresources.
+  </summary>
+</histogram>
+
+<histogram
+    name="PageLoad.Experimental.PageTiming.ResourceLoadTime.{RequestDestination}"
+    units="ms" expires_after="2021-10-05">
+  <owner>cduvall@chromium.org</owner>
+  <owner>jam@chromium.org</owner>
+  <summary>
+    Measures the time from load start to when headers have been received for
+    resource requests which do not come from the cache. Logged for every
+    {RequestDestination} resource request which is not from the cache.
+  </summary>
+  <token key="RequestDestination" variants="RequestDestination"/>
+</histogram>
+
+<histogram
+    name="PageLoad.Experimental.PageTiming.TotalSubresourceLoadTimeAtFirstContentfulPaint"
+    units="ms" expires_after="2021-10-05">
+  <owner>cduvall@chromium.org</owner>
+  <owner>jam@chromium.org</owner>
+  <summary>
+    Measures the aggregate time of subresource requests (from start to when
+    headers have been received) which have been completed before the first
+    contentful paint. Logged for every page load.
+  </summary>
+</histogram>
+
 <histogram name="PageLoad.Experimental.PaintTiming.FirstMeaningfulPaintStatus"
     enum="FirstMeaningfulPaintStatus" expires_after="2021-01-31">
   <owner>ksakamoto@chromium.org</owner>
@@ -2252,12 +2338,15 @@ reviews. Googlers can read more about this at go/gwsq-gerrit.
 </histogram>
 
 <histogram name="PageLoad.ParseTiming.ParseDuration" units="ms"
-    expires_after="M81">
+    expires_after="2021-10-09">
   <owner>bmcquade@chromium.org</owner>
   <owner>csharrison@chromium.org</owner>
   <summary>
     Measures the time that the HTML parser was active, for main frame documents
     that finished parsing.
+
+    Warning: this histogram was expired after M81 and brought back 2021-04-13;
+    data may be missing.
   </summary>
 </histogram>
 

@@ -35,6 +35,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/v8_location.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_window.h"
 #include "third_party/blink/renderer/core/dom/document.h"
+#include "third_party/blink/renderer/core/execution_context/agent.h"
 #include "third_party/blink/renderer/core/frame/dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
@@ -151,11 +152,14 @@ bool CanAccessWindowInternal(
     if (detail == SecurityOrigin::AccessResultDomainDetail::
                       kDomainNotRelevantAgentClusterMismatch) {
       // Assert that because the agent clusters are different than the
-      // WindowAgentFactories must also be different.
+      // WindowAgentFactories must also be different unless they differ in
+      // being explicitly origin keyed.
       /* it's OK to disable the assertion in NW because the logic is
          different, plus the access is disallowed.
       SECURITY_CHECK(
           !IsSameWindowAgentFactory(accessing_window, local_target_window) ||
+          (accessing_window->GetAgent()->IsExplicitlyOriginKeyed() !=
+           local_target_window->GetAgent()->IsExplicitlyOriginKeyed()) ||
           (WebTestSupport::IsRunningWebTest() &&
            local_target_window->GetFrame()->PagePopupOwner()));
        */
