@@ -18,7 +18,7 @@
 #include "extensions/common/features/feature_channel.h"
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-#include "chrome/browser/chromeos/lock_screen_apps/state_controller.h"
+#include "chrome/browser/ash/lock_screen_apps/state_controller.h"
 #endif
 #include "content/nw/src/nw_content.h"
 

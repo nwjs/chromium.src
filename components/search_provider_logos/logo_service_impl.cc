@@ -6,6 +6,7 @@
 #include "components/search_provider_logos/logo_service_impl.h"
 
 #include <algorithm>
+#include <memory>
 #include <utility>
 
 #include "base/bind.h"
@@ -611,7 +612,7 @@ void LogoServiceImpl::OnFreshLogoAvailable(
       UMA_HISTOGRAM_BOOLEAN("NewTabPage.LogoImageDownloaded", from_http_cache);
 
       DCHECK(!encoded_logo->encoded_image || !image.isNull());
-      logo.reset(new Logo());
+      logo = std::make_unique<Logo>();
       logo->metadata = encoded_logo->metadata;
       logo->image = image;
       logo->dark_image = dark_image;

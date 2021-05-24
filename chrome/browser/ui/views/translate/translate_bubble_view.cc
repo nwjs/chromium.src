@@ -282,7 +282,7 @@ void TranslateBubbleView::ResetLanguage() {
     }
     source_language_combobox_->SetSelectedIndex(
         previous_source_language_index_);
-    model_->UpdateOriginalLanguageIndex(
+    model_->UpdateSourceLanguageIndex(
         source_language_combobox_->GetSelectedIndex());
   } else {
     if (target_language_combobox_->GetSelectedIndex() ==
@@ -359,25 +359,25 @@ void TranslateBubbleView::ShowOptionsMenu(views::Button* source) {
       OptionsMenuItem::CHANGE_TARGET_LANGUAGE,
       IDS_TRANSLATE_BUBBLE_CHANGE_TARGET_LANGUAGE);
 
-  auto original_language_code = model_->GetOriginalLanguageCode();
-  auto original_language =
-      model_->GetSourceLanguageNameAt(model_->GetOriginalLanguageIndex());
+  auto source_language_code = model_->GetSourceLanguageCode();
+  auto source_language =
+      model_->GetSourceLanguageNameAt(model_->GetSourceLanguageIndex());
 
   // Don't show "Always translate <language>" in incognito mode, because it
   // doesn't do anything anyways. Don't show if the source language is unknown.
   if (!is_in_incognito_window_ &&
-      original_language_code != translate::kUnknownLanguageCode) {
+      source_language_code != translate::kUnknownLanguageCode) {
     options_menu_model_->AddCheckItem(
         OptionsMenuItem::ALWAYS_TRANSLATE_LANGUAGE,
         l10n_util::GetStringFUTF16(IDS_TRANSLATE_BUBBLE_ALWAYS_TRANSLATE_LANG,
-                                   original_language));
+                                   source_language));
   }
 
-  if (original_language_code != translate::kUnknownLanguageCode) {
+  if (source_language_code != translate::kUnknownLanguageCode) {
     options_menu_model_->AddCheckItem(
         OptionsMenuItem::NEVER_TRANSLATE_LANGUAGE,
         l10n_util::GetStringFUTF16(IDS_TRANSLATE_BUBBLE_NEVER_TRANSLATE_LANG,
-                                   original_language));
+                                   source_language));
   }
 
   if (model_->CanBlocklistSite()) {
@@ -389,7 +389,7 @@ void TranslateBubbleView::ShowOptionsMenu(views::Button* source) {
   options_menu_model_->AddItem(
       OptionsMenuItem::CHANGE_SOURCE_LANGUAGE,
       l10n_util::GetStringFUTF16(IDS_TRANSLATE_BUBBLE_CHANGE_SOURCE_LANGUAGE,
-                                 original_language));
+                                 source_language));
 
   options_menu_runner_ = std::make_unique<views::MenuRunner>(
       options_menu_model_.get(), views::MenuRunner::COMBOBOX);
@@ -556,11 +556,11 @@ void TranslateBubbleView::ConfirmAdvancedOptions() {
     SwitchView(TranslateBubbleModel::VIEW_STATE_AFTER_TRANSLATE);
     SizeToContents();
   } else {
-    base::string16 original_language_name;
-    base::string16 target_language_name;
+    std::u16string source_language_name;
+    std::u16string target_language_name;
     DCHECK(tabbed_pane_);
-    UpdateLanguageNames(&original_language_name, &target_language_name);
-    tabbed_pane_->GetTabAt(0)->SetTitleText(original_language_name);
+    UpdateLanguageNames(&source_language_name, &target_language_name);
+    tabbed_pane_->GetTabAt(0)->SetTitleText(source_language_name);
     tabbed_pane_->GetTabAt(1)->SetTitleText(target_language_name);
     model_->Translate();
     tabbed_pane_->SelectTabAt(1);
@@ -572,7 +572,7 @@ void TranslateBubbleView::ConfirmAdvancedOptions() {
 
 void TranslateBubbleView::SourceLanguageChanged() {
   model_->ReportUIInteraction(translate::UIInteraction::kChangeSourceLanguage);
-  model_->UpdateOriginalLanguageIndex(
+  model_->UpdateSourceLanguageIndex(
       source_language_combobox_->GetSelectedIndex());
   UpdateAdvancedView();
   translate::ReportUiAction(translate::SOURCE_LANGUAGE_MENU_CLICKED);
@@ -611,7 +611,7 @@ void TranslateBubbleView::UpdateChildVisibilities() {
   if (always_translate_checkbox_) {
     always_translate_checkbox_->SetText(l10n_util::GetStringFUTF16(
         IDS_TRANSLATE_BUBBLE_ALWAYS_TRANSLATE_LANG,
-        model_->GetSourceLanguageNameAt(model_->GetOriginalLanguageIndex())));
+        model_->GetSourceLanguageNameAt(model_->GetSourceLanguageIndex())));
     always_translate_checkbox_->SetChecked(should_always_translate_);
   }
   for (views::View* view : children())
@@ -631,9 +631,9 @@ std::unique_ptr<views::View> TranslateBubbleView::CreateEmptyPane() {
 }
 
 std::unique_ptr<views::View> TranslateBubbleView::CreateView() {
-  base::string16 original_language_name;
-  base::string16 target_language_name;
-  UpdateLanguageNames(&original_language_name, &target_language_name);
+  std::u16string source_language_name;
+  std::u16string target_language_name;
+  UpdateLanguageNames(&source_language_name, &target_language_name);
 
   ChromeLayoutProvider* provider = ChromeLayoutProvider::Get();
 
@@ -659,7 +659,7 @@ std::unique_ptr<views::View> TranslateBubbleView::CreateView() {
 
   // NOTE: Panes must be added after |tabbed_pane| has been added to its
   // parent.
-  tabbed_pane_->AddTab(original_language_name, CreateEmptyPane());
+  tabbed_pane_->AddTab(source_language_name, CreateEmptyPane());
   tabbed_pane_->AddTab(target_language_name, CreateEmptyPane());
   tabbed_pane_->GetTabAt(0)->SetBorder(
       views::CreateEmptyBorder(gfx::Insets(2, 20)));
@@ -672,15 +672,15 @@ std::unique_ptr<views::View> TranslateBubbleView::CreateView() {
   auto* options_menu = horizontal_view->AddChildView(CreateOptionsMenuButton());
   horizontal_view->AddChildView(CreateCloseButton());
 
-  // Don't show the the always translate checkbox if the original language is
+  // Don't show the the always translate checkbox if the source language is
   // unknown.
-  auto original_language_code = model_->GetOriginalLanguageCode();
+  auto source_language_code = model_->GetSourceLanguageCode();
   if (model_->ShouldShowAlwaysTranslateShortcut() &&
-      original_language_code != translate::kUnknownLanguageCode) {
+      source_language_code != translate::kUnknownLanguageCode) {
     auto before_always_translate_checkbox = std::make_unique<views::Checkbox>(
-        l10n_util::GetStringFUTF16(IDS_TRANSLATE_BUBBLE_ALWAYS_TRANSLATE_LANG,
-                                   model_->GetSourceLanguageNameAt(
-                                       model_->GetOriginalLanguageIndex())),
+        l10n_util::GetStringFUTF16(
+            IDS_TRANSLATE_BUBBLE_ALWAYS_TRANSLATE_LANG,
+            model_->GetSourceLanguageNameAt(model_->GetSourceLanguageIndex())),
         base::BindRepeating(&TranslateBubbleView::AlwaysTranslatePressed,
                             base::Unretained(this)));
     before_always_translate_checkbox->SetID(BUTTON_ID_ALWAYS_TRANSLATE);
@@ -813,7 +813,7 @@ std::unique_ptr<views::View> TranslateBubbleView::CreateViewAdvancedSource() {
           views::style::CONTEXT_DIALOG_TITLE);
 
   // Language icon
-  int source_default_index = model_->GetOriginalLanguageIndex();
+  int source_default_index = model_->GetSourceLanguageIndex();
   source_language_combobox_model_ =
       std::make_unique<SourceLanguageComboboxModel>(source_default_index,
                                                     model_.get());
@@ -826,9 +826,9 @@ std::unique_ptr<views::View> TranslateBubbleView::CreateViewAdvancedSource() {
   // In an incognito window or when the source language is unknown, "Always
   // translate" checkbox shouldn't be shown.
   std::unique_ptr<views::Checkbox> advanced_always_translate_checkbox;
-  auto original_language_code = model_->GetOriginalLanguageCode();
+  auto source_language_code = model_->GetSourceLanguageCode();
   if (!is_in_incognito_window_ &&
-      original_language_code != translate::kUnknownLanguageCode) {
+      source_language_code != translate::kUnknownLanguageCode) {
     advanced_always_translate_checkbox = std::make_unique<views::Checkbox>(
         l10n_util::GetStringUTF16(IDS_TRANSLATE_BUBBLE_ALWAYS),
         base::BindRepeating(&TranslateBubbleView::AlwaysTranslatePressed,
@@ -1181,11 +1181,11 @@ void TranslateBubbleView::UpdateAdvancedView() {
 }
 
 void TranslateBubbleView::UpdateLanguageNames(
-    base::string16* original_language_name,
-    base::string16* target_language_name) {
-  DCHECK(original_language_name && target_language_name);
-  previous_source_language_index_ = model_->GetOriginalLanguageIndex();
-  *original_language_name =
+    std::u16string* source_language_name,
+    std::u16string* target_language_name) {
+  DCHECK(source_language_name && target_language_name);
+  previous_source_language_index_ = model_->GetSourceLanguageIndex();
+  *source_language_name =
       model_->GetSourceLanguageNameAt(previous_source_language_index_);
   previous_target_language_index_ = model_->GetTargetLanguageIndex();
   *target_language_name =

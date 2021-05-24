@@ -10,6 +10,7 @@
 #include "base/command_line.h"
 #include "base/metrics/field_trial.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/extensions/chrome_extension_frame_host.h"
 #include "chrome/browser/extensions/error_console/error_console.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/window_controller.h"
@@ -61,9 +62,10 @@ void ChromeExtensionWebContentsObserver::OnZoomChanged(
     args.AppendDouble(data.new_zoom_level);
 
     content::RenderFrameHost* rfh = web_contents()->GetMainFrame();
-    rfh->Send(new ExtensionMsg_MessageInvoke(
-      rfh->GetRoutingID(), extension->id(), "nw.Window",
-      "updateAppWindowZoom", args));
+    ExtensionWebContentsObserver::GetForWebContents(web_contents())
+      ->GetLocalFrame(rfh)
+      ->MessageInvoke(extension->id(), "nw.Window",
+                      "updateAppWindowZoom", std::move(args));
   }
 }
 
@@ -77,6 +79,12 @@ void ChromeExtensionWebContentsObserver::CreateForWebContents(
 
   // Initialize this instance if necessary.
   FromWebContents(web_contents)->Initialize();
+}
+
+std::unique_ptr<ExtensionFrameHost>
+ChromeExtensionWebContentsObserver::CreateExtensionFrameHost(
+    content::WebContents* web_contents) {
+  return std::make_unique<ChromeExtensionFrameHost>(web_contents);
 }
 
 void ChromeExtensionWebContentsObserver::RenderFrameCreated(
@@ -143,8 +151,8 @@ bool ChromeExtensionWebContentsObserver::OnMessageReceived(
 
 void ChromeExtensionWebContentsObserver::OnDetailedConsoleMessageAdded(
     content::RenderFrameHost* render_frame_host,
-    const base::string16& message,
-    const base::string16& source,
+    const std::u16string& message,
+    const std::u16string& source,
     const StackTrace& stack_trace,
     int32_t severity_level) {
   DCHECK(initialized());

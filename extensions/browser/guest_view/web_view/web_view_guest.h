@@ -56,6 +56,7 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest> {
   // the partition requested by it. The format for that URL is:
   // chrome-guest://partition_domain/persist?partition_name
   static bool GetGuestPartitionConfigForSite(
+      content::BrowserContext* browser_context,
       const GURL& site,
       content::StoragePartitionConfig* storage_partition_config);
 
@@ -119,7 +120,7 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest> {
                            std::string* error);
 
   // Begin or continue a find request.
-  void StartFind(const base::string16& search_text,
+  void StartFind(const std::u16string& search_text,
                  blink::mojom::FindOptionsPtr options,
                  scoped_refptr<WebViewInternalFindFunction> find_function);
 
@@ -255,7 +256,7 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest> {
                           int opener_render_frame_id,
                           const std::string& frame_name,
                           const GURL& target_url,
-                          content::WebContents* new_contents, const base::string16& nw_window_manifest) final;
+                          content::WebContents* new_contents, const std::u16string& nw_window_manifest) final;
   void EnterFullscreenModeForTab(
       content::RenderFrameHost* requesting_frame,
       const blink::mojom::FullscreenOptions& options) final;
@@ -274,7 +275,8 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest> {
       content::NavigationHandle* navigation_handle) final;
   void DidFinishNavigation(content::NavigationHandle* navigation_handle) final;
   void LoadProgressChanged(double progress) final;
-  void DocumentOnLoadCompletedInMainFrame() final;
+  void DocumentOnLoadCompletedInMainFrame(
+      content::RenderFrameHost* render_frame_host) final;
   void RenderProcessGone(base::TerminationStatus status) final;
   void UserAgentOverrideSet(const blink::UserAgentOverride& ua_override) final;
   void FrameNameChanged(content::RenderFrameHost* render_frame_host,
@@ -283,10 +285,10 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest> {
   void OnDidAddMessageToConsole(
       content::RenderFrameHost* source_frame,
       blink::mojom::ConsoleMessageLevel log_level,
-      const base::string16& message,
+      const std::u16string& message,
       int32_t line_no,
-      const base::string16& source_id,
-      const base::Optional<base::string16>& untrusted_stack_trace) final;
+      const std::u16string& source_id,
+      const base::Optional<std::u16string>& untrusted_stack_trace) final;
 
   // Informs the embedder of a frame name change.
   void ReportFrameNameChange(const std::string& name);

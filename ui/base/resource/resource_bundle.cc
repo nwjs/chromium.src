@@ -81,7 +81,7 @@ const char kPakFileExtension[] = ".pak";
 
 ResourceBundle* g_shared_instance_ = nullptr;
 
-base::string16 *chromium_name, *nwjs_name;
+std::u16string *chromium_name, *nwjs_name;
 
 base::FilePath GetResourcesPakFilePath(const std::string& pak_name) {
   base::FilePath path;
@@ -467,7 +467,7 @@ void ResourceBundle::OverrideLocalePakForTest(const base::FilePath& pak_path) {
 
 void ResourceBundle::OverrideLocaleStringResource(
     int resource_id,
-    const base::string16& string) {
+    const std::u16string& string) {
   overridden_locale_strings_[resource_id] = string;
 }
 
@@ -475,8 +475,8 @@ const base::FilePath& ResourceBundle::GetOverriddenPakPath() const {
   return overridden_pak_path_;
 }
 
-base::string16 ResourceBundle::MaybeMangleLocalizedString(
-    const base::string16& str) const {
+std::u16string ResourceBundle::MaybeMangleLocalizedString(
+    const std::u16string& str) const {
   if (!mangle_localized_strings_)
     return str;
 
@@ -496,11 +496,11 @@ base::string16 ResourceBundle::MaybeMangleLocalizedString(
   // For a string S, produce [[ --- S --- ]], where the number of dashes is 1/4
   // of the number of characters in S. This makes S something around 50-75%
   // longer, except for extremely short strings, which get > 100% longer.
-  base::string16 start_marker = base::UTF8ToUTF16("[[");
-  base::string16 end_marker = base::UTF8ToUTF16("]]");
-  base::string16 dashes = base::string16(str.size() / 4, '-');
+  std::u16string start_marker = u"[[";
+  std::u16string end_marker = u"]]";
+  std::u16string dashes = std::u16string(str.size() / 4, '-');
   return base::JoinString({start_marker, dashes, str, dashes, end_marker},
-                          base::UTF8ToUTF16(" "));
+                          u" ");
 }
 
 std::string ResourceBundle::ReloadLocaleResources(
@@ -693,7 +693,7 @@ bool ResourceBundle::IsBrotli(int resource_id) const {
   return HasBrotliHeader(raw_data);
 }
 
-base::string16 ResourceBundle::GetLocalizedString(int resource_id) {
+std::u16string ResourceBundle::GetLocalizedString(int resource_id) {
 #if DCHECK_IS_ON()
   {
     base::AutoLock lock_scope(*locale_resources_data_lock_);
@@ -850,8 +850,8 @@ void ResourceBundle::InitSharedInstance(Delegate* delegate) {
   DCHECK(g_shared_instance_ == nullptr) << "ResourceBundle initialized twice";
   g_shared_instance_ = new ResourceBundle(delegate);
   std::vector<ScaleFactor> supported_scale_factors;
-  chromium_name = new base::string16(base::ASCIIToUTF16("Chromium"));
-  nwjs_name     = new base::string16(base::ASCIIToUTF16("NW.js"));
+  chromium_name = new std::u16string(base::ASCIIToUTF16("Chromium"));
+  nwjs_name     = new std::u16string(base::ASCIIToUTF16("NW.js"));
 #if defined(OS_IOS)
   display::Display display = display::Screen::GetScreen()->GetPrimaryDisplay();
   if (display.device_scale_factor() > 2.0) {
@@ -1025,8 +1025,8 @@ gfx::Image& ResourceBundle::GetEmptyImage() {
   return empty_image_;
 }
 
-base::string16 ResourceBundle::GetLocalizedStringImpl(int resource_id) const {
-  base::string16 string;
+std::u16string ResourceBundle::GetLocalizedStringImpl(int resource_id) const {
+  std::u16string string;
   if (delegate_ && delegate_->GetLocalizedString(resource_id, &string)) {
     base::ReplaceSubstringsAfterOffset(&string, 0, *chromium_name, *nwjs_name);
     return MaybeMangleLocalizedString(string);
@@ -1045,7 +1045,7 @@ base::string16 ResourceBundle::GetLocalizedStringImpl(int resource_id) const {
   // string (better than crashing).
   if (!locale_resources_data_.get()) {
     LOG(WARNING) << "locale resources are not loaded";
-    return base::string16();
+    return std::u16string();
   }
 
   base::StringPiece data;
@@ -1068,7 +1068,7 @@ base::string16 ResourceBundle::GetLocalizedStringImpl(int resource_id) const {
       if (data.empty()) {
         LOG(WARNING) << "unable to find resource: " << resource_id;
         NOTREACHED();
-        return base::string16();
+        return std::u16string();
       }
 #endif  // !defined(OS_FUCHSIA)
     }
@@ -1079,9 +1079,9 @@ base::string16 ResourceBundle::GetLocalizedStringImpl(int resource_id) const {
       << "requested localized string from binary pack file";
 
   // Data pack encodes strings as either UTF8 or UTF16.
-  base::string16 msg;
+  std::u16string msg;
   if (encoding == ResourceHandle::UTF16) {
-    msg = base::string16(reinterpret_cast<const base::char16*>(data.data()),
+    msg = std::u16string(reinterpret_cast<const char16_t*>(data.data()),
                          data.length() / 2);
   } else if (encoding == ResourceHandle::UTF8) {
     msg = base::UTF8ToUTF16(data);

@@ -291,7 +291,7 @@ ExtensionFunction::ResponseAction CookiesGetFunction::Run() {
     return RespondNow(Error(std::move(error)));
 
   if (!parsed_args_->details.store_id.get())
-    parsed_args_->details.store_id.reset(new std::string(store_id));
+    parsed_args_->details.store_id = std::make_unique<std::string>(store_id);
 
   DCHECK(!url_.is_empty() && url_.is_valid());
   cookies_helpers::GetCookieListFromManager(
@@ -349,7 +349,7 @@ ExtensionFunction::ResponseAction CookiesGetAllFunction::Run() {
     return RespondNow(Error(std::move(error)));
 
   if (!parsed_args_->details.store_id.get())
-    parsed_args_->details.store_id.reset(new std::string(store_id));
+    parsed_args_->details.store_id = std::make_unique<std::string>(store_id);
 
   DCHECK(url_.is_empty() || url_.is_valid());
   if (url_.is_empty()) {
@@ -426,8 +426,7 @@ ExtensionFunction::ResponseAction CookiesSetFunction::Run() {
     return RespondNow(Error(std::move(error)));
 
   if (!parsed_args_->details.store_id.get())
-    parsed_args_->details.store_id.reset(new std::string(store_id));
-
+    parsed_args_->details.store_id = std::make_unique<std::string>(store_id);
 
   base::Time expiration_time;
   if (parsed_args_->details.expiration_date.get()) {
@@ -579,7 +578,7 @@ ExtensionFunction::ResponseAction CookiesRemoveFunction::Run() {
     return RespondNow(Error(std::move(error)));
 
   if (!parsed_args_->details.store_id.get())
-    parsed_args_->details.store_id.reset(new std::string(store_id));
+    parsed_args_->details.store_id = std::make_unique<std::string>(store_id);
 
   network::mojom::CookieDeletionFilterPtr filter(
       network::mojom::CookieDeletionFilter::New());
@@ -615,7 +614,7 @@ ExtensionFunction::ResponseAction CookiesGetAllCookieStoresFunction::Run() {
       original_profile->HasPrimaryOTRProfile()) {
     incognito_profile = original_profile->GetPrimaryOTRProfile();
     if (incognito_profile)
-      incognito_tab_ids.reset(new base::ListValue());
+      incognito_tab_ids = std::make_unique<base::ListValue>();
   }
   DCHECK(original_profile != incognito_profile);
 
@@ -666,7 +665,8 @@ BrowserContextKeyedAPIFactory<CookiesAPI>* CookiesAPI::GetFactoryInstance() {
 }
 
 void CookiesAPI::OnListenerAdded(const EventListenerInfo& details) {
-  cookies_event_router_.reset(new CookiesEventRouter(browser_context_));
+  cookies_event_router_ =
+      std::make_unique<CookiesEventRouter>(browser_context_);
   EventRouter::Get(browser_context_)->UnregisterObserver(this);
 }
 

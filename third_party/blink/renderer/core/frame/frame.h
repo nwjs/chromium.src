@@ -33,10 +33,10 @@
 #include "base/optional.h"
 #include "base/unguessable_token.h"
 #include "services/network/public/mojom/web_sandbox_flags.mojom-blink.h"
-#include "third_party/blink/public/common/feature_policy/document_policy_features.h"
-#include "third_party/blink/public/common/feature_policy/feature_policy_features.h"
 #include "third_party/blink/public/common/frame/user_activation_state.h"
 #include "third_party/blink/public/common/frame/user_activation_update_source.h"
+#include "third_party/blink/public/common/permissions_policy/document_policy_features.h"
+#include "third_party/blink/public/common/permissions_policy/permissions_policy_features.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/blink/public/mojom/ad_tagging/ad_frame.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/frame/frame_owner_properties.mojom-blink-forward.h"
@@ -392,6 +392,7 @@ class CORE_EXPORT Frame : public GarbageCollected<Frame> {
         Frame* previous_sibling,
         FrameInsertType insert_type,
         const FrameToken& frame_token,
+        const base::UnguessableToken& devtools_frame_token,
         WindowProxyManager*,
         WindowAgentFactory* inheriting_agent_factory);
 
@@ -490,6 +491,7 @@ class CORE_EXPORT Frame : public GarbageCollected<Frame> {
   Member<Frame> dev_jail_owner_;
   bool nodejs_;
   bool is_loading_;
+  // Contains token to be used as a frame id in the devtools protocol.
   base::UnguessableToken devtools_frame_token_;
   base::Optional<std::string> trace_value_;
 

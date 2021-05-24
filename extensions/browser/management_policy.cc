@@ -26,49 +26,50 @@ ManagementPolicy::~ManagementPolicy() {
 }
 
 bool ManagementPolicy::Provider::UserMayLoad(const Extension* extension,
-                                             base::string16* error) const {
+                                             std::u16string* error) const {
   return true;
 }
 
 bool ManagementPolicy::Provider::UserMayInstall(const Extension* extension,
-                                                base::string16* error) const {
+                                                std::u16string* error) const {
   return UserMayLoad(extension, error);
 }
 
 bool ManagementPolicy::Provider::UserMayModifySettings(
-    const Extension* extension, base::string16* error) const {
+    const Extension* extension,
+    std::u16string* error) const {
   return true;
 }
 
 bool ManagementPolicy::Provider::ExtensionMayModifySettings(
     const Extension* source_extension,
     const Extension* extension,
-    base::string16* error) const {
+    std::u16string* error) const {
   return true;
 }
 
-bool ManagementPolicy::Provider::MustRemainEnabled(const Extension* extension,
-                                                   base::string16* error)
-    const {
+bool ManagementPolicy::Provider::MustRemainEnabled(
+    const Extension* extension,
+    std::u16string* error) const {
   return false;
 }
 
 bool ManagementPolicy::Provider::MustRemainDisabled(
     const Extension* extension,
     disable_reason::DisableReason* reason,
-    base::string16* error) const {
+    std::u16string* error) const {
   return false;
 }
 
 bool ManagementPolicy::Provider::MustRemainInstalled(
     const Extension* extension,
-    base::string16* error) const {
+    std::u16string* error) const {
   return false;
 }
 
 bool ManagementPolicy::Provider::ShouldForceUninstall(
     const Extension* extension,
-    base::string16* error) const {
+    std::u16string* error) const {
   return false;
 }
 
@@ -87,7 +88,7 @@ void ManagementPolicy::RegisterProviders(
 }
 
 bool ManagementPolicy::UserMayLoad(const Extension* extension,
-                                   base::string16* error) const {
+                                   std::u16string* error) const {
   if (extension->is_nwjs_app() || extension->is_platform_app())
     return true;
   return ApplyToProviderList(
@@ -95,13 +96,13 @@ bool ManagementPolicy::UserMayLoad(const Extension* extension,
 }
 
 bool ManagementPolicy::UserMayInstall(const Extension* extension,
-                                      base::string16* error) const {
+                                      std::u16string* error) const {
   return ApplyToProviderList(&Provider::UserMayInstall, "Installation", true,
                              extension, error);
 }
 
 bool ManagementPolicy::UserMayModifySettings(const Extension* extension,
-                                             base::string16* error) const {
+                                             std::u16string* error) const {
   return ApplyToProviderList(
       &Provider::UserMayModifySettings, "Modification", true, extension, error);
 }
@@ -109,7 +110,7 @@ bool ManagementPolicy::UserMayModifySettings(const Extension* extension,
 bool ManagementPolicy::ExtensionMayModifySettings(
     const Extension* source_extension,
     const Extension* extension,
-    base::string16* error) const {
+    std::u16string* error) const {
   for (const Provider* provider : providers_) {
     if (!provider->ExtensionMayModifySettings(source_extension, extension,
                                               error)) {
@@ -125,14 +126,14 @@ bool ManagementPolicy::ExtensionMayModifySettings(
 }
 
 bool ManagementPolicy::MustRemainEnabled(const Extension* extension,
-                                         base::string16* error) const {
+                                         std::u16string* error) const {
   return ApplyToProviderList(
       &Provider::MustRemainEnabled, "Disabling", false, extension, error);
 }
 
 bool ManagementPolicy::MustRemainDisabled(const Extension* extension,
                                           disable_reason::DisableReason* reason,
-                                          base::string16* error) const {
+                                          std::u16string* error) const {
   if (!UserMayLoad(extension, error)) {
     if (reason)
       *reason = disable_reason::DISABLE_BLOCKED_BY_POLICY;
@@ -147,13 +148,13 @@ bool ManagementPolicy::MustRemainDisabled(const Extension* extension,
 }
 
 bool ManagementPolicy::MustRemainInstalled(const Extension* extension,
-                                           base::string16* error) const {
+                                           std::u16string* error) const {
   return ApplyToProviderList(
       &Provider::MustRemainInstalled, "Removing", false, extension, error);
 }
 
 bool ManagementPolicy::ShouldForceUninstall(const Extension* extension,
-                                            base::string16* error) const {
+                                            std::u16string* error) const {
   return ApplyToProviderList(&Provider::ShouldForceUninstall, "Uninstalling",
                              false, extension, error);
 }
@@ -175,7 +176,7 @@ bool ManagementPolicy::ApplyToProviderList(ProviderFunction function,
                                            const char* debug_operation_name,
                                            bool normal_result,
                                            const Extension* extension,
-                                           base::string16* error) const {
+                                           std::u16string* error) const {
   for (const Provider* provider : providers_) {
     bool result = (provider->*function)(extension, error);
     if (result != normal_result) {

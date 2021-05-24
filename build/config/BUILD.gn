@@ -107,11 +107,6 @@ config("feature_flags") {
     defines += [ "NWJS_SDK" ]
   }
 
-  if (is_chrome_branded) {
-    # TODO(thakis): Remove this in favor of build/branding_buildflags.h.
-    defines += [ "GOOGLE_CHROME_BUILD" ]
-  }
-
   # ==============================================
   #   PLEASE DO NOT ADD MORE THINGS TO THIS LIST
   # ==============================================
@@ -392,7 +387,7 @@ config("precompiled_headers") {
 
       # Force include the header.
       cflags = [ "/FI$precompiled_header" ]
-    } else if (is_mac) {
+    } else if (is_mac || is_linux) {
       precompiled_source = "//build/precompile.h"
     }
   }

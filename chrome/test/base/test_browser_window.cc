@@ -103,6 +103,10 @@ bool TestBrowserWindow::DoBrowserControlsShrinkRendererSize(
   return false;
 }
 
+ui::NativeTheme* TestBrowserWindow::GetNativeTheme() {
+  return nullptr;
+}
+
 int TestBrowserWindow::GetTopControlsHeight() const {
   return 0;
 }
@@ -188,7 +192,11 @@ bool TestBrowserWindow::IsBookmarkBarAnimating() const {
 }
 
 bool TestBrowserWindow::IsTabStripEditable() const {
-  return true;
+  return is_tab_strip_editable_;
+}
+
+void TestBrowserWindow::SetIsTabStripEditable(bool is_editable) {
+  is_tab_strip_editable_ = is_editable;
 }
 
 bool TestBrowserWindow::IsToolbarVisible() const {

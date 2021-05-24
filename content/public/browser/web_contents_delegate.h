@@ -14,7 +14,6 @@
 
 #include "base/callback.h"
 #include "base/memory/scoped_refptr.h"
-#include "base/strings/string16.h"
 #include "build/build_config.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/eye_dropper.h"
@@ -112,7 +111,11 @@ enum class PictureInPictureResult {
 };
 
 // Objects implement this interface to get notified about changes in the
-// WebContents and to provide necessary functionality.
+// WebContents and to provide necessary functionality. If a method doesn't
+// change state, e.g. has no return value, then it can move to
+// WebContentsObserver if many places want to observe the change. If the
+// implementation of one of the methods below would be shared by many or all of
+// WebContentsDelegate implementations then it can go on ContentBrowserClient.
 class CONTENT_EXPORT WebContentsDelegate {
  public:
   WebContentsDelegate();
@@ -221,9 +224,9 @@ class CONTENT_EXPORT WebContentsDelegate {
   virtual bool DidAddMessageToConsole(
       WebContents* source,
       blink::mojom::ConsoleMessageLevel log_level,
-      const base::string16& message,
+      const std::u16string& message,
       int32_t line_no,
-      const base::string16& source_id);
+      const std::u16string& source_id);
 
   // Tells us that we've finished firing this tab's beforeunload event.
   // The proceed bool tells us whether the user chose to proceed closing the
@@ -337,7 +340,7 @@ class CONTENT_EXPORT WebContentsDelegate {
       const GURL& opener_url,
       const std::string& frame_name,
       const GURL& target_url,
-      const std::string& partition_id,
+      const StoragePartitionId& partition_id,
       SessionStorageNamespace* session_storage_namespace);
 
   // Notifies the delegate about the creation of a new WebContents. This
@@ -348,7 +351,7 @@ class CONTENT_EXPORT WebContentsDelegate {
                                   const std::string& frame_name,
                                   const GURL& target_url,
                                   WebContents* new_contents,
-                                  const base::string16& nw_window_manifest) {}
+                                  const std::u16string& nw_window_manifest) {}
 
   // Notifies the embedder that a new WebContents has been created to contain
   // the contents of a portal.

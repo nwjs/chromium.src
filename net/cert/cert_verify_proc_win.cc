@@ -1147,7 +1147,7 @@ int CertVerifyProcWin::VerifyInternal(
   if (CertSubjectCommonNameHasNull(cert_list.get()))
     verify_result->cert_status |= CERT_STATUS_INVALID;
 
-  base::string16 hostname16 = base::ASCIIToUTF16(hostname);
+  std::u16string hostname16 = base::ASCIIToUTF16(hostname);
 
   if (!skipPolicyCheck) {
   SSL_EXTRA_CERT_CHAIN_POLICY_PARA extra_policy_para;

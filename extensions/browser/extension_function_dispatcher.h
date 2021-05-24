@@ -12,9 +12,8 @@
 
 #include "base/memory/weak_ptr.h"
 #include "extensions/browser/extension_function.h"
+#include "extensions/common/mojom/frame.mojom-forward.h"
 #include "ipc/ipc_sender.h"
-
-struct ExtensionHostMsg_Request_Params;
 
 namespace content {
 class BrowserContext;
@@ -76,13 +75,13 @@ class ExtensionFunctionDispatcher
   // Message handlers.
   // The response is sent to the corresponding render view in an
   // ExtensionMsg_Response message.
-  void DispatchSync(const ExtensionHostMsg_Request_Params& params,
+  void DispatchSync(const mojom::RequestParams& params,
                     bool* success,
                     base::ListValue* response,
                     std::string* error,
                     content::RenderFrameHost* render_frame_host,
                     int render_process_id);
-  void Dispatch(const ExtensionHostMsg_Request_Params& params,
+  void Dispatch(const mojom::RequestParams& params,
                 content::RenderFrameHost* render_frame_host,
                 int render_process_id);
 
@@ -132,20 +131,20 @@ class ExtensionFunctionDispatcher
   // |params|. Can be called on any thread.
   // Does not set subclass properties, or include_incognito.
   static scoped_refptr<ExtensionFunction> CreateExtensionFunction(
-      const ExtensionHostMsg_Request_Params& params,
+      const mojom::RequestParams& params,
       const Extension* extension,
       int requesting_process_id,
       const GURL* rfh_url,
       const ProcessMap& process_map,
       ExtensionAPI* api,
       void* profile_id,
-      const ExtensionFunction::ResponseCallback& callback);
+      ExtensionFunction::ResponseCallback callback);
 
   void DispatchWithCallbackInternal(
-      const ExtensionHostMsg_Request_Params& params,
+      const mojom::RequestParams& params,
       content::RenderFrameHost* render_frame_host,
       int render_process_id,
-      const ExtensionFunction::ResponseCallback& callback,
+      ExtensionFunction::ResponseCallback callback,
       bool sync = false,
       bool* success = nullptr,
       base::ListValue* response = nullptr,

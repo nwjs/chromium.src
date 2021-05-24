@@ -52,7 +52,6 @@
 #include "third_party/blink/public/web/web_popup_menu_info.h"
 #include "third_party/blink/public/web/web_settings.h"
 #include "third_party/blink/public/web/web_view_client.h"
-#include "third_party/blink/public/web/web_window_features.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_controller.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/node.h"
@@ -455,6 +454,10 @@ float ChromeClientImpl::WindowToViewportScalar(LocalFrame* frame,
 
 const ScreenInfo& ChromeClientImpl::GetScreenInfo(LocalFrame& frame) const {
   return frame.GetWidgetForLocalRoot()->GetScreenInfo();
+}
+
+const ScreenInfos& ChromeClientImpl::GetScreenInfos(LocalFrame& frame) const {
+  return frame.GetWidgetForLocalRoot()->GetScreenInfos();
 }
 
 void ChromeClientImpl::OverrideVisibleRectForMainFrame(
@@ -890,6 +893,13 @@ void ChromeClientImpl::NotifyPresentationTime(LocalFrame& frame,
 
 void ChromeClientImpl::RequestBeginMainFrameNotExpected(LocalFrame& frame,
                                                         bool request) {
+  if (!frame.GetWidgetForLocalRoot()) {
+    // We're about to crash due to crbug.com/838348. Record metrics to trigger
+    // Chrometto. We only expect this to be recorded on Android in any
+    // significant numbers (because we CHECK in RenderFrameImpl::Delete).
+    UMA_HISTOGRAM_BOOLEAN("Navigation.RequestBeginMainFrameNotExpectedCrash",
+                          frame.IsMainFrame());
+  }
   frame.GetWidgetForLocalRoot()->RequestBeginMainFrameNotExpected(request);
 }
 
@@ -1171,7 +1181,7 @@ double ChromeClientImpl::UserZoomFactor() const {
 
 void ChromeClientImpl::SetDelegatedInkMetadata(
     LocalFrame* frame,
-    std::unique_ptr<viz::DelegatedInkMetadata> metadata) {
+    std::unique_ptr<gfx::DelegatedInkMetadata> metadata) {
   frame->GetWidgetForLocalRoot()->SetDelegatedInkMetadata(std::move(metadata));
 }
 

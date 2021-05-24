@@ -16,6 +16,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/stl_util.h"
 #include "base/strings/string_util.h"
+#include "base/task/thread_pool.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/timer/elapsed_timer.h"
 #include "content/public/browser/browser_context.h"
@@ -435,7 +436,7 @@ ContentVerifier::~ContentVerifier() {
 
 void ContentVerifier::Start() {
   ExtensionRegistry* registry = ExtensionRegistry::Get(context_);
-  observer_.Add(registry);
+  observation_.Observe(registry);
 }
 
 void ContentVerifier::Shutdown() {
@@ -443,7 +444,7 @@ void ContentVerifier::Shutdown() {
   delegate_->Shutdown();
   content::GetIOThreadTaskRunner({})->PostTask(
       FROM_HERE, base::BindOnce(&ContentVerifier::ShutdownOnIO, this));
-  observer_.RemoveAll();
+  observation_.Reset();
 }
 
 void ContentVerifier::ShutdownOnIO() {
@@ -543,8 +544,8 @@ void ContentVerifier::OnHashReady(const std::string& extension_id,
                                   const base::FilePath& extension_root,
                                   const base::FilePath& relative_path,
                                   scoped_refptr<ContentVerifyJob> verify_job) {
-  base::PostTaskAndReplyWithResult(
-                                   FROM_HERE, {base::ThreadPool(), base::MayBlock(), base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
+  base::ThreadPool::PostTaskAndReplyWithResult(
+                                   FROM_HERE, {base::MayBlock(), base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
       base::BindOnce(&ContentVerifier::OpenFile, this, extension_root, relative_path, verify_job),
       base::BindOnce(&ContentVerifier::OnFileReady, this, extension_root, relative_path, verify_job));
 }
@@ -562,8 +563,8 @@ void ContentVerifier::OnFileReady(const base::FilePath& extension_root,
   if (!job->file_.IsValid())
     job->Done();
 
-  base::PostTaskAndReplyWithResult(
-                                   FROM_HERE, {base::ThreadPool(), base::MayBlock(), base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
+  base::ThreadPool::PostTaskAndReplyWithResult(
+                                   FROM_HERE, {base::MayBlock(), base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
       base::BindOnce(&ContentVerifier::ReadFile, this, extension_root, relative_path, job),
      base::BindOnce(&ContentVerifier::BytesRead, this, extension_root, relative_path, job));
 }
@@ -583,8 +584,8 @@ void ContentVerifier::BytesRead(const base::FilePath& extension_root,
     job->Done();
   } else {
     job->Read(job->buf_, job->len_, base::File::FILE_OK);
-    base::PostTaskAndReplyWithResult(
-      FROM_HERE, {base::ThreadPool(), base::MayBlock(), base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
+    base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::MayBlock(), base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
       base::BindOnce(&ContentVerifier::ReadFile, this, extension_root, relative_path, job),
       base::BindOnce(&ContentVerifier::BytesRead, this, extension_root, relative_path, job));
   }

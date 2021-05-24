@@ -38,7 +38,6 @@
 #include "chrome/browser/ui/views/frame/top_controls_slide_controller.h"
 #include "chrome/browser/ui/views/frame/web_contents_close_handler.h"
 #include "chrome/browser/ui/views/intent_picker_bubble_view.h"
-#include "chrome/browser/ui/views/load_complete_listener.h"
 #include "chrome/browser/ui/views/tabs/tab.h"
 #include "chrome/common/buildflags.h"
 #include "components/infobars/core/infobar_container.h"
@@ -61,7 +60,6 @@ class AccessibilityFocusHighlight;
 class BookmarkBarView;
 class Browser;
 class ContentsLayoutManager;
-class DownloadShelfView;
 class ExclusiveAccessBubbleViews;
 class FeaturePromoControllerViews;
 class FullscreenControlHost;
@@ -80,11 +78,12 @@ class TopControlsSlideControllerTest;
 class WebContentsCloseHandler;
 class WebUITabStripContainerView;
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
 namespace ui {
+class NativeTheme;
+#if BUILDFLAG(IS_CHROMEOS_ASH)
 class ThroughputTracker;
-}
 #endif
+}  // namespace ui
 
 namespace version_info {
 enum class Channel;
@@ -108,7 +107,6 @@ class BrowserView : public BrowserWindow,
                     public views::WidgetObserver,
                     public views::ClientView,
                     public infobars::InfoBarContainer::Delegate,
-                    public LoadCompleteListener::Delegate,
                     public ExclusiveAccessContext,
                     public ExclusiveAccessBubbleViewsContext,
                     public extensions::ExtensionKeybindingRegistry::Delegate,
@@ -149,6 +147,8 @@ class BrowserView : public BrowserWindow,
   const TopControlsSlideController* top_controls_slide_controller() const {
     return top_controls_slide_controller_.get();
   }
+
+  void SetDownloadShelfForTest(DownloadShelf* download_shelf);
 
   // This suppresses the slide behaviors of top-controls and so the top controls
   // will stay showing under any situation. This is only for testing behaviors
@@ -364,6 +364,7 @@ class BrowserView : public BrowserWindow,
                                 float ratio) override;
   bool DoBrowserControlsShrinkRendererSize(
       const content::WebContents* contents) const override;
+  ui::NativeTheme* GetNativeTheme() override;
   int GetTopControlsHeight() const override;
   void SetTopControlsGestureScrollInProgress(bool in_progress) override;
   StatusBubble* GetStatusBubble() override;
@@ -457,7 +458,7 @@ class BrowserView : public BrowserWindow,
       bool is_user_gesture) override;
 #if BUILDFLAG(ENABLE_ONE_CLICK_SIGNIN)
   void ShowOneClickSigninConfirmation(
-      const base::string16& email,
+      const std::u16string& email,
       base::OnceCallback<void(bool)> confirmed_callback) override;
 #endif
   // TODO(beng): Not an override, move somewhere else.
@@ -482,9 +483,12 @@ class BrowserView : public BrowserWindow,
       AvatarBubbleMode mode,
       signin_metrics::AccessPoint access_point,
       bool is_source_keyboard) override;
-  void ShowHatsDialog(const std::string& site_id,
-                      base::OnceClosure success_callback,
-                      base::OnceClosure failure_callback) override;
+  void MaybeShowProfileSwitchIPH() override;
+  void ShowHatsDialog(
+      const std::string& site_id,
+      base::OnceClosure success_callback,
+      base::OnceClosure failure_callback,
+      const std::map<std::string, bool>& product_specific_data) override;
   ExclusiveAccessContext* GetExclusiveAccessContext() override;
   std::string GetWorkspace() const override;
   bool IsVisibleOnAllWorkspaces() const override;
@@ -520,14 +524,11 @@ class BrowserView : public BrowserWindow,
 
   // views::WidgetDelegate:
   bool NWCanClose(bool user_force = false) const override;
-  bool ShouldDescendIntoChildForEventHandling(
-      gfx::NativeView child,
-      const gfx::Point& location) override;
   bool CanResize() const override;
   bool CanMaximize() const override;
   bool CanActivate() const override;
-  base::string16 GetWindowTitle() const override;
-  base::string16 GetAccessibleWindowTitle() const override;
+  std::u16string GetWindowTitle() const override;
+  std::u16string GetAccessibleWindowTitle() const override;
   views::View* GetInitiallyFocusedView() override;
   bool ShouldShowWindowTitle() const override;
   gfx::ImageSkia GetWindowAppIcon() override;
@@ -548,6 +549,9 @@ class BrowserView : public BrowserWindow,
   views::Widget* GetWidget() override;
   const views::Widget* GetWidget() const override;
   void GetAccessiblePanes(std::vector<View*>* panes) override;
+  bool ShouldDescendIntoChildForEventHandling(
+      gfx::NativeView child,
+      const gfx::Point& location) override;
 
   // views::WidgetObserver:
   void OnWidgetDestroying(views::Widget* widget) override;
@@ -615,7 +619,7 @@ class BrowserView : public BrowserWindow,
   // Creates an accessible tab label for screen readers that includes the tab
   // status for the given tab index. This takes the form of
   // "Page title - Tab state".
-  base::string16 GetAccessibleTabLabel(bool include_app_name, int index) const;
+  std::u16string GetAccessibleTabLabel(bool include_app_name, int index) const;
 
   // Testing interface:
   views::View* GetContentsContainerForTest() { return contents_container_; }
@@ -662,9 +666,11 @@ class BrowserView : public BrowserWindow,
   // Callback for the loading animation(s) associated with this view.
   void LoadingAnimationCallback();
 
-  // LoadCompleteListener::Delegate implementation. Creates the JumpList after
-  // the first page load.
-  void OnLoadCompleted() override;
+#if defined(OS_WIN)
+  // Creates the JumpList.
+  void CreateJumpList();
+#endif
+
 public:
   // Returns the BrowserViewLayout.
   BrowserViewLayout* GetBrowserViewLayout() const;
@@ -755,7 +761,7 @@ private:
   void ObserveAppBannerManager(webapps::AppBannerManager* new_manager);
 
   // Called by GetAccessibleWindowTitle, split out to make it testable.
-  base::string16 GetAccessibleWindowTitleForChannelAndProfile(
+  std::u16string GetAccessibleWindowTitleForChannelAndProfile(
       version_info::Channel,
       Profile* profile) const;
 
@@ -870,8 +876,8 @@ private:
   // NativeView.
   View* find_bar_host_view_ = nullptr;
 
-  // The download shelf view (view at the bottom of the page).
-  DownloadShelfView* download_shelf_ = nullptr;
+  // The download shelf.
+  DownloadShelf* download_shelf_ = nullptr;
 
   // The InfoBarContainerView that contains InfoBars for the current tab.
   InfoBarContainerView* infobar_container_ = nullptr;
@@ -919,11 +925,6 @@ private:
   bool in_process_fullscreen_ = false;
 
   std::unique_ptr<ExclusiveAccessBubbleViews> exclusive_access_bubble_;
-
-#if defined(OS_WIN)
-  // Helper class to listen for completion of first page load.
-  std::unique_ptr<LoadCompleteListener> load_complete_listener_;
-#endif
 
   // The timer used to update frames for tab-loading animations.
   base::RepeatingTimer loading_animation_timer_;

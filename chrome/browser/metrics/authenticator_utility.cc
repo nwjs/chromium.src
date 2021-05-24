@@ -9,6 +9,7 @@
 #include "base/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/rand_util.h"
+#include "base/task/thread_pool.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/browser_process.h"
@@ -70,9 +71,10 @@ void ReportUVPlatformAuthenticatorAvailabilityMainThreadMac() {
   // Return to a low-priority thread for the actual check.
   base::ThreadPool::PostTask(
       FROM_HERE, {base::TaskPriority::BEST_EFFORT},
-      base::BindOnce(&ReportUVPlatformAuthenticatorAvailabilityWithConfig,
-                     ChromeAuthenticatorRequestDelegate::
-                         TouchIdAuthenticatorConfigForProfile(profile)));
+      base::BindOnce(
+          &ReportUVPlatformAuthenticatorAvailabilityWithConfig,
+          ChromeWebAuthenticationDelegate::TouchIdAuthenticatorConfigForProfile(
+              profile)));
 }
 #endif
 

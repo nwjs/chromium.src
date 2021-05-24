@@ -50,6 +50,7 @@ using extensions::ExtensionSet;
 using extensions::PermissionSet;
 using extensions::UnloadedExtensionReason;
 using extensions::UpdatedExtensionPermissionsInfo;
+using extensions::mojom::APIPermissionID;
 
 class ExtensionNameComparator {
  public:
@@ -251,7 +252,7 @@ bool BackgroundApplicationListModel::IsPersistentBackgroundApp(
   // NWJS: nwjs_default_app is listed as background app and prevents
   // quit so we need to disable it here
   if (!extension.permissions_data()->HasAPIPermission(
-       APIPermission::kBackground, true)) {
+                     APIPermissionID::kBackground, true)) {
     return false;
   }
 
@@ -286,7 +287,7 @@ bool BackgroundApplicationListModel::IsTransientBackgroundApp(
     Profile* profile) {
   return base::FeatureList::IsEnabled(features::kOnConnectNative) &&
          extension.permissions_data()->HasAPIPermission(
-             APIPermission::kTransientBackground) &&
+             APIPermissionID::kTransientBackground) &&
          extensions::BackgroundInfo::HasLazyBackgroundPage(&extension);
 }
 
@@ -375,9 +376,9 @@ void BackgroundApplicationListModel::OnExtensionPermissionsUpdated(
     const Extension* extension,
     UpdatedExtensionPermissionsInfo::Reason reason,
     const PermissionSet& permissions) {
-  if (permissions.HasAPIPermission(APIPermission::kBackground) ||
+  if (permissions.HasAPIPermission(APIPermissionID::kBackground) ||
       (base::FeatureList::IsEnabled(features::kOnConnectNative) &&
-       permissions.HasAPIPermission(APIPermission::kTransientBackground))) {
+       permissions.HasAPIPermission(APIPermissionID::kTransientBackground))) {
     switch (reason) {
       case UpdatedExtensionPermissionsInfo::ADDED:
       case UpdatedExtensionPermissionsInfo::REMOVED:

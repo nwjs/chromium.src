@@ -16,6 +16,7 @@
 #include "extensions/common/constants.h"
 #include "extensions/common/extension_messages.h"
 #include "extensions/common/features/feature.h"
+#include "extensions/common/mojom/frame.mojom.h"
 #include "extensions/renderer/message_target.h"
 #include "extensions/renderer/script_context.h"
 #include "extensions/renderer/worker_thread_dispatcher.h"
@@ -32,9 +33,9 @@ class MainThreadIPCMessageSender : public IPCMessageSender {
 
   void SendRequestIPC(
       ScriptContext* context,
-                      std::unique_ptr<ExtensionHostMsg_Request_Params> params,
-                      bool sync, bool* success, base::ListValue* response,
-                      std::string* error) override {
+      mojom::RequestParamsPtr params,
+      bool sync, bool* success, base::ListValue* response,
+      std::string* error) override {
     content::RenderFrame* frame = context->GetRenderFrame();
     if (!frame)
       return;
@@ -192,7 +193,7 @@ class WorkerThreadIPCMessageSender : public IPCMessageSender {
   ~WorkerThreadIPCMessageSender() override {}
 
   void SendRequestIPC(ScriptContext* context,
-                      std::unique_ptr<ExtensionHostMsg_Request_Params> params,
+                      mojom::RequestParamsPtr params,
                       bool sync, bool* success, base::ListValue* response,
                       std::string* error) override {
     DCHECK(!context->GetRenderFrame());

@@ -145,6 +145,10 @@ static const char kDevToolsDeveloperResourceLoadedHistogram[] =
     "DevTools.DeveloperResourceLoaded";
 static const char kDevToolsDeveloperResourceSchemeHistogram[] =
     "DevTools.DeveloperResourceScheme";
+static const char kDevToolsLinearMemoryInspectorRevealedFromHistogram[] =
+    "DevTools.LinearMemoryInspector.RevealedFrom";
+static const char kDevToolsLinearMemoryInspectorTargetHistogram[] =
+    "DevTools.LinearMemoryInspector.Target";
 
 static const char kRemotePageActionInspect[] = "inspect";
 static const char kRemotePageActionReload[] = "reload";
@@ -581,7 +585,8 @@ class DevToolsUIBindings::FrontendWebContentsObserver
   void RenderProcessGone(base::TerminationStatus status) override;
   void ReadyToCommitNavigation(
       content::NavigationHandle* navigation_handle) override;
-  void DocumentOnLoadCompletedInMainFrame() override;
+  void DocumentOnLoadCompletedInMainFrame(
+      content::RenderFrameHost* render_frame_host) override;
   void DidFinishNavigation(
       content::NavigationHandle* navigation_handle) override;
 
@@ -659,7 +664,8 @@ void DevToolsUIBindings::FrontendWebContentsObserver::ReadyToCommitNavigation(
 }
 
 void DevToolsUIBindings::FrontendWebContentsObserver::
-    DocumentOnLoadCompletedInMainFrame() {
+    DocumentOnLoadCompletedInMainFrame(
+        content::RenderFrameHost* render_frame_host) {
   devtools_bindings_->DocumentOnLoadCompletedInMainFrame();
 }
 
@@ -692,9 +698,11 @@ DevToolsUIBindings::DevToolsUIBindings(content::WebContents* web_contents)
       devices_updates_enabled_(false),
       frontend_loaded_(false) {
   g_devtools_ui_bindings_instances.Get().push_back(this);
-  frontend_contents_observer_.reset(new FrontendWebContentsObserver(this));
+  frontend_contents_observer_ =
+      std::make_unique<FrontendWebContentsObserver>(this);
 
-  file_helper_.reset(new DevToolsFileHelper(web_contents_, profile_, this));
+  file_helper_ =
+      std::make_unique<DevToolsFileHelper>(web_contents_, profile_, this);
   file_system_indexer_ = new DevToolsFileSystemIndexer();
   extensions::ChromeExtensionWebContentsObserver::CreateForWebContents(
       web_contents_);
@@ -960,7 +968,7 @@ void DevToolsUIBindings::LoadNetworkResource(DispatchCallback callback,
       return;
     }
   } else {
-    auto* partition = content::BrowserContext::GetStoragePartitionForSite(
+    auto* partition = content::BrowserContext::GetStoragePartitionForUrl(
         web_contents_->GetBrowserContext(), gurl);
     url_loader_factory = partition->GetURLLoaderFactoryForBrowserProcess();
   }
@@ -1336,7 +1344,9 @@ void DevToolsUIBindings::RecordEnumeratedHistogram(const std::string& name,
       name == kDevToolsCssEditorOpenedHistogram ||
       name == kDevToolsIssueCreatedHistogram ||
       name == kDevToolsDeveloperResourceLoadedHistogram ||
-      name == kDevToolsDeveloperResourceSchemeHistogram)
+      name == kDevToolsDeveloperResourceSchemeHistogram ||
+      name == kDevToolsLinearMemoryInspectorRevealedFromHistogram ||
+      name == kDevToolsLinearMemoryInspectorTargetHistogram)
     base::UmaHistogramExactLinear(name, sample, boundary_value);
   else
     frontend_host_->BadMessageReceived();
@@ -1499,7 +1509,7 @@ void DevToolsUIBindings::SearchCompleted(
 }
 
 void DevToolsUIBindings::ShowDevToolsInfoBar(
-    const base::string16& message,
+    const std::u16string& message,
     DevToolsInfoBarDelegate::Callback callback) {
 #if 1
   std::move(callback).Run(true); // #4602
@@ -1542,9 +1552,10 @@ void DevToolsUIBindings::AddDevToolsExtensionsToClient() {
         new base::DictionaryValue());
     extension_info->SetString("startPage", url.spec());
     extension_info->SetString("name", extension->name());
-    extension_info->SetBoolean("exposeExperimentalAPIs",
-                               extension->permissions_data()->HasAPIPermission(
-                                   extensions::APIPermission::kExperimental));
+    extension_info->SetBoolean(
+        "exposeExperimentalAPIs",
+        extension->permissions_data()->HasAPIPermission(
+            extensions::mojom::APIPermissionID::kExperimental));
     results.Append(std::move(extension_info));
   }
 
@@ -1575,11 +1586,12 @@ void DevToolsUIBindings::ShowSurvey(DispatchCallback callback,
     ShowSurveyCallback(std::move(callback), false);
     return;
   }
-  base::RepeatingCallback<void(const base::Value*)> on_survey =
-      base::AdaptCallbackForRepeating(std::move(callback));
+  auto split_callback = base::SplitOnceCallback(std::move(callback));
   hats_service->LaunchSurvey(
-      trigger, base::BindOnce(ShowSurveyCallback, on_survey, true),
-      base::BindOnce(ShowSurveyCallback, on_survey, false));
+      trigger,
+      base::BindOnce(ShowSurveyCallback, std::move(split_callback.first), true),
+      base::BindOnce(ShowSurveyCallback, std::move(split_callback.second),
+                     false));
 }
 
 void DevToolsUIBindings::CanShowSurvey(DispatchCallback callback,

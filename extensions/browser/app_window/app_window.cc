@@ -11,6 +11,7 @@
 #include <stddef.h>
 
 #include <algorithm>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -54,6 +55,7 @@
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_messages.h"
 #include "extensions/common/manifest_handlers/icons_handler.h"
+#include "extensions/common/mojom/view_type.mojom.h"
 #include "extensions/common/permissions/permissions_data.h"
 #include "ipc/ipc_message_macros.h"
 #include "third_party/blink/public/common/mediastream/media_stream_request.h"
@@ -105,34 +107,33 @@ const int kDefaultHeight = 384;
 
 void SetConstraintProperty(const std::string& name,
                            int value,
-                           base::DictionaryValue* bounds_properties) {
+                           base::Value* bounds_properties) {
+  DCHECK(bounds_properties->is_dict());
   if (value != SizeConstraints::kUnboundedSize)
-    bounds_properties->SetInteger(name, value);
+    bounds_properties->SetIntKey(name, value);
   else
-    bounds_properties->Set(name, std::make_unique<base::Value>());
+    bounds_properties->SetKey(name, base::Value());
 }
 
 void SetBoundsProperties(const gfx::Rect& bounds,
                          const gfx::Size& min_size,
                          const gfx::Size& max_size,
                          const std::string& bounds_name,
-                         base::DictionaryValue* window_properties) {
-  std::unique_ptr<base::DictionaryValue> bounds_properties(
-      new base::DictionaryValue());
+                         base::Value* window_properties) {
+  DCHECK(window_properties->is_dict());
+  base::Value bounds_properties(base::Value::Type::DICTIONARY);
 
-  bounds_properties->SetInteger("left", bounds.x());
-  bounds_properties->SetInteger("top", bounds.y());
-  bounds_properties->SetInteger("width", bounds.width());
-  bounds_properties->SetInteger("height", bounds.height());
+  bounds_properties.SetIntKey("left", bounds.x());
+  bounds_properties.SetIntKey("top", bounds.y());
+  bounds_properties.SetIntKey("width", bounds.width());
+  bounds_properties.SetIntKey("height", bounds.height());
 
-  SetConstraintProperty("minWidth", min_size.width(), bounds_properties.get());
-  SetConstraintProperty(
-      "minHeight", min_size.height(), bounds_properties.get());
-  SetConstraintProperty("maxWidth", max_size.width(), bounds_properties.get());
-  SetConstraintProperty(
-      "maxHeight", max_size.height(), bounds_properties.get());
+  SetConstraintProperty("minWidth", min_size.width(), &bounds_properties);
+  SetConstraintProperty("minHeight", min_size.height(), &bounds_properties);
+  SetConstraintProperty("maxWidth", max_size.width(), &bounds_properties);
+  SetConstraintProperty("maxHeight", max_size.height(), &bounds_properties);
 
-  window_properties->Set(bounds_name, std::move(bounds_properties));
+  window_properties->SetKey(bounds_name, std::move(bounds_properties));
 }
 
 // Combines the constraints of the content and window, and returns constraints
@@ -297,11 +298,13 @@ void AppWindow::LoadingStateChanged(content::WebContents* source, bool to_differ
     args.AppendString("loaded");
   }
   content::RenderFrameHost* rfh = web_contents()->GetMainFrame();
-  rfh->Send(new ExtensionMsg_MessageInvoke(rfh->GetRoutingID(),
-                                           extension_id(),
-                                           "nw.Window",
-                                           "LoadingStateChanged",
-                                           args));
+    ExtensionWebContentsObserver::GetForWebContents(web_contents())
+      ->GetLocalFrame(rfh)
+      ->MessageInvoke(
+                      extension_id(),
+                      "nw.Window",
+                      "LoadingStateChanged",
+                      std::move(args));
 }
 
 void AppWindow::Init(const GURL& url,
@@ -327,7 +330,7 @@ void AppWindow::Init(const GURL& url,
   initial_url_ = url;
 
   content::WebContentsObserver::Observe(web_contents());
-  SetViewType(web_contents(), VIEW_TYPE_APP_WINDOW);
+  SetViewType(web_contents(), mojom::ViewType::kAppWindow);
   app_delegate_->InitWebContents(web_contents());
 
   ExtensionWebContentsObserver::GetForWebContents(web_contents())->
@@ -372,8 +375,8 @@ void AppWindow::Init(const GURL& url,
   native_app_window_.reset(
       app_window_client->CreateNativeAppWindow(this, &new_params));
 
-  helper_.reset(new AppWebContentsHelper(
-      browser_context_, extension_id_, web_contents(), app_delegate_.get()));
+  helper_ = std::make_unique<AppWebContentsHelper>(
+      browser_context_, extension_id_, web_contents(), app_delegate_.get());
 
   native_app_window_->UpdateWindowIcon();
 
@@ -460,7 +463,7 @@ void AppWindow::AddNewContents(WebContents* source,
   extensions::AppWindow::CreateParams params;
   std::string js_doc_start, js_doc_end;
   nw::CalcNewWinParams(new_contents.get(), &params, &js_doc_start, &js_doc_end, std::string());
-  nw::SetCurrentNewWinManifest(base::string16());
+  nw::SetCurrentNewWinManifest(std::u16string());
   new_contents->GetMutableRendererPrefs()->
     nw_inject_js_doc_start = js_doc_start;
   new_contents->GetMutableRendererPrefs()->
@@ -496,7 +499,7 @@ content::KeyboardEventProcessingResult AppWindow::PreHandleKeyboardEvent(
   if (event.windows_key_code == ui::VKEY_ESCAPE && IsFullscreen() &&
       !IsForcedFullscreen() &&
       !extension->permissions_data()->HasAPIPermission(
-          APIPermission::kOverrideEscFullscreen)) {
+          mojom::APIPermissionID::kOverrideEscFullscreen)) {
     Restore();
     return content::KeyboardEventProcessingResult::HANDLED;
   }
@@ -617,14 +620,16 @@ bool AppWindow::NWCanClose(bool user_force) const {
     ExtensionHasEventListener(extension->id(), "nw.Window.onClose",
                               rfh->GetRenderViewHost()->GetRoutingID(),
                               &listener_extension_id);
-                                
+
   if (listening_to_close) {
     base::ListValue args;
     if (user_force)
       args.AppendString("quit");
-    rfh->Send(new ExtensionMsg_MessageInvoke(
-      rfh->GetRoutingID(), listener_extension_id, "nw.Window",
-      "onClose", args));
+    ExtensionWebContentsObserver::GetForWebContents(web_contents())
+      ->GetLocalFrame(rfh)
+      ->MessageInvoke(
+                      listener_extension_id, "nw.Window",
+                      "onClose", std::move(args));
     return false;
   }
   return true;
@@ -723,9 +728,8 @@ gfx::Rect AppWindow::GetClientBounds() const {
   return bounds;
 }
 
-base::string16 AppWindow::GetTitle() const {
-  base::string16 override = base::UTF8ToUTF16(title_override_);
-
+std::u16string AppWindow::GetTitle() const {
+  std::u16string override = base::UTF8ToUTF16(title_override_);
   const Extension* extension = GetExtension();
   if (!extension)
     return override;
@@ -733,7 +737,7 @@ base::string16 AppWindow::GetTitle() const {
   // WebContents::GetTitle() will return the page's URL if there's no <title>
   // specified. However, we'd prefer to show the name of the extension in that
   // case, so we directly inspect the NavigationEntry's title.
-  base::string16 title;
+  std::u16string title;
   content::NavigationEntry* entry = web_contents() ?
       web_contents()->GetController().GetLastCommittedEntry() : nullptr;
   if (!entry || entry->GetTitle().empty()) {
@@ -741,7 +745,7 @@ base::string16 AppWindow::GetTitle() const {
   } else {
     title = web_contents()->GetTitle();
   }
-  base::RemoveChars(title, base::ASCIIToUTF16("\n"), &title);
+  base::RemoveChars(title, u"\n", &title);
   if (!title.empty())
     return title;
   return override;
@@ -911,18 +915,19 @@ void AppWindow::RestoreAlwaysOnTop() {
     UpdateNativeAlwaysOnTop();
 }
 
-void AppWindow::GetSerializedState(base::DictionaryValue* properties) const {
+void AppWindow::GetSerializedState(base::Value* properties) const {
   DCHECK(properties);
+  DCHECK(properties->is_dict());
 
-  properties->SetBoolean("resizable",
+  properties->SetBoolKey("resizable",
                          native_app_window_->IsResizable());
-  properties->SetBoolean("fullscreen",
+  properties->SetBoolKey("fullscreen",
                          native_app_window_->IsFullscreenOrPending());
-  properties->SetBoolean("minimized", native_app_window_->IsMinimized());
-  properties->SetBoolean("maximized", native_app_window_->IsMaximized());
-  properties->SetBoolean("alwaysOnTop", IsAlwaysOnTop());
-  properties->SetBoolean("hasFrameColor", native_app_window_->HasFrameColor());
-  properties->SetBoolean(
+  properties->SetBoolKey("minimized", native_app_window_->IsMinimized());
+  properties->SetBoolKey("maximized", native_app_window_->IsMaximized());
+  properties->SetBoolKey("alwaysOnTop", IsAlwaysOnTop());
+  properties->SetBoolKey("hasFrameColor", native_app_window_->HasFrameColor());
+  properties->SetBoolKey(
       "alphaEnabled",
       requested_alpha_enabled_ && native_app_window_->CanHaveAlphaEnabled());
 
@@ -930,10 +935,10 @@ void AppWindow::GetSerializedState(base::DictionaryValue* properties) const {
   // removed to
   // make the values easier to check.
   SkColor transparent_white = ~SK_ColorBLACK;
-  properties->SetInteger(
+  properties->SetIntKey(
       "activeFrameColor",
       native_app_window_->ActiveFrameColor() & transparent_white);
-  properties->SetInteger(
+  properties->SetIntKey(
       "inactiveFrameColor",
       native_app_window_->InactiveFrameColor() & transparent_white);
 
@@ -1110,7 +1115,8 @@ void AppWindow::ToggleFullscreenModeForTab(content::WebContents* source,
     return;
 
   if (!IsExtensionWithPermissionOrSuggestInConsole(
-          APIPermission::kFullscreen, extension, source->GetMainFrame())) {
+          mojom::APIPermissionID::kFullscreen, extension,
+          source->GetMainFrame())) {
     return;
   }
 

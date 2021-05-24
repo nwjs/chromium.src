@@ -4,6 +4,7 @@
 
 #include "content/browser/renderer_host/input/touch_emulator.h"
 
+#include <memory>
 #include "content/public/browser/render_frame_host.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
 
@@ -111,8 +112,8 @@ void TouchEmulator::Enable(Mode mode,
       mode_ != mode) {
     mode_ = mode;
     gesture_provider_config_type_ = config_type;
-    gesture_provider_.reset(new ui::FilteredGestureProvider(
-        GetEmulatorGestureProviderConfig(config_type, mode), this));
+    gesture_provider_ = std::make_unique<ui::FilteredGestureProvider>(
+        GetEmulatorGestureProviderConfig(config_type, mode), this);
     gesture_provider_->SetDoubleTapSupportForPageEnabled(double_tap_enabled_);
     // TODO(dgozman): Use synthetic secondary touch to support multi-touch.
     gesture_provider_->SetMultiTouchZoomSupportEnabled(

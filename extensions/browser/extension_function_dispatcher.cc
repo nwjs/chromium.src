@@ -17,7 +17,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/process/process.h"
-#include "base/scoped_observer.h"
+#include "base/scoped_observation.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "content/public/browser/browser_thread.h"
@@ -42,6 +42,7 @@
 #include "extensions/common/extension_api.h"
 #include "extensions/common/extension_messages.h"
 #include "extensions/common/extension_set.h"
+#include "extensions/common/mojom/frame.mojom.h"
 #include "ipc/ipc_message.h"
 #include "ipc/ipc_message_macros.h"
 
@@ -60,8 +61,7 @@ void NotifyApiFunctionCalled(const std::string& extension_id,
                                         args);
 }
 
-bool IsRequestFromServiceWorker(
-    const ExtensionHostMsg_Request_Params& request_params) {
+bool IsRequestFromServiceWorker(const mojom::RequestParams& request_params) {
   return request_params.service_worker_version_id !=
          blink::mojom::kInvalidServiceWorkerVersionId;
 }
@@ -100,8 +100,9 @@ class ExtensionFunctionDispatcher::ResponseCallbackWrapper
   }
 
   ExtensionFunction::ResponseCallback CreateCallback(int request_id) {
-    return base::Bind(&ResponseCallbackWrapper::OnExtensionFunctionCompleted,
-                      weak_ptr_factory_.GetWeakPtr(), request_id);
+    return base::BindOnce(
+        &ResponseCallbackWrapper::OnExtensionFunctionCompleted,
+        weak_ptr_factory_.GetWeakPtr(), request_id);
   }
 
  private:
@@ -134,9 +135,8 @@ class ExtensionFunctionDispatcher::WorkerResponseCallbackWrapper
       content::RenderProcessHost* render_process_host,
       int worker_thread_id)
       : dispatcher_(dispatcher),
-        observer_(this),
         render_process_host_(render_process_host) {
-    observer_.Add(render_process_host_);
+    observation_.Observe(render_process_host_);
   }
 
   ~WorkerResponseCallbackWrapper() override = default;
@@ -155,7 +155,7 @@ class ExtensionFunctionDispatcher::WorkerResponseCallbackWrapper
 
   ExtensionFunction::ResponseCallback CreateCallback(int request_id,
                                                      int worker_thread_id) {
-    return base::Bind(
+    return base::BindOnce(
         &WorkerResponseCallbackWrapper::OnExtensionFunctionCompleted,
         weak_ptr_factory_.GetWeakPtr(), request_id, worker_thread_id);
   }
@@ -184,8 +184,9 @@ class ExtensionFunctionDispatcher::WorkerResponseCallbackWrapper
   }
 
   base::WeakPtr<ExtensionFunctionDispatcher> dispatcher_;
-  ScopedObserver<content::RenderProcessHost, content::RenderProcessHostObserver>
-      observer_{this};
+  base::ScopedObservation<content::RenderProcessHost,
+                          content::RenderProcessHostObserver>
+      observation_{this};
   content::RenderProcessHost* const render_process_host_;
   base::WeakPtrFactory<WorkerResponseCallbackWrapper> weak_ptr_factory_{this};
 
@@ -230,7 +231,7 @@ ExtensionFunctionDispatcher::~ExtensionFunctionDispatcher() {
 }
 
 void ExtensionFunctionDispatcher::DispatchSync(
-                    const ExtensionHostMsg_Request_Params& params,
+                    const mojom::RequestParams& params,
                     bool* success,
                     base::ListValue* response,
                     std::string* error,
@@ -243,7 +244,7 @@ void ExtensionFunctionDispatcher::DispatchSync(
 }
 
 void ExtensionFunctionDispatcher::Dispatch(
-    const ExtensionHostMsg_Request_Params& params,
+    const mojom::RequestParams& params,
     content::RenderFrameHost* render_frame_host,
     int render_process_id) {
   // Kill the renderer if it's an invalid request.
@@ -308,10 +309,10 @@ void ExtensionFunctionDispatcher::Dispatch(
 }
 
 void ExtensionFunctionDispatcher::DispatchWithCallbackInternal(
-    const ExtensionHostMsg_Request_Params& params,
+    const mojom::RequestParams& params,
     content::RenderFrameHost* render_frame_host,
     int render_process_id,
-    const ExtensionFunction::ResponseCallback& callback,
+    ExtensionFunction::ResponseCallback callback,
     bool sync,
     bool* success,
     base::ListValue* response,
@@ -337,7 +338,7 @@ void ExtensionFunctionDispatcher::DispatchWithCallbackInternal(
 
   scoped_refptr<ExtensionFunction> function = CreateExtensionFunction(
       params, extension, render_process_id, rfh_url, *process_map,
-      ExtensionAPI::GetSharedInstance(), browser_context_, callback);
+      ExtensionAPI::GetSharedInstance(), browser_context_, std::move(callback));
   if (!function.get())
     return;
 
@@ -381,21 +382,21 @@ void ExtensionFunctionDispatcher::DispatchWithCallbackInternal(
 
   ExtensionSystem* extension_system = ExtensionSystem::Get(browser_context_);
   QuotaService* quota = extension_system->quota_service();
-  std::string violation_error = quota->Assess(extension->id(),
-                                              function.get(),
-                                              &params.arguments,
-                                              base::TimeTicks::Now());
+  std::string violation_error = quota->Assess(
+      extension->id(), function.get(),
+      &base::Value::AsListValue(params.arguments), base::TimeTicks::Now());
 
   if (violation_error.empty()) {
     // See crbug.com/39178.
     ExtensionsBrowserClient::Get()->PermitExternalProtocolHandler();
-    NotifyApiFunctionCalled(extension->id(), params.name, params.arguments,
+    NotifyApiFunctionCalled(extension->id(), params.name,
+                            base::Value::AsListValue(params.arguments),
                             browser_context_);
 
     // Note: Deliberately don't include external component extensions here -
     // this lets us differentiate between "built-in" extension calls and
     // external extension calls
-    if (extension->location() == Manifest::COMPONENT) {
+    if (extension->location() == mojom::ManifestLocation::kComponent) {
       base::UmaHistogramSparse("Extensions.Functions.ComponentExtensionCalls",
                                function->histogram_value());
     } else {
@@ -511,21 +512,22 @@ void ExtensionFunctionDispatcher::ProcessServiceWorkerResponse(
 // static
 scoped_refptr<ExtensionFunction>
 ExtensionFunctionDispatcher::CreateExtensionFunction(
-    const ExtensionHostMsg_Request_Params& params,
+    const mojom::RequestParams& params,
     const Extension* extension,
     int requesting_process_id,
     const GURL* rfh_url,
     const ProcessMap& process_map,
     ExtensionAPI* api,
     void* profile_id,
-    const ExtensionFunction::ResponseCallback& callback) {
+    ExtensionFunction::ResponseCallback callback) {
   constexpr char kCreationFailed[] = "Access to extension API denied.";
 
   scoped_refptr<ExtensionFunction> function =
       ExtensionFunctionRegistry::GetInstance().NewFunction(params.name);
   if (!function) {
     LOG(ERROR) << "Unknown Extension API - " << params.name;
-    callback.Run(ExtensionFunction::FAILED, base::ListValue(), kCreationFailed);
+    std::move(callback).Run(ExtensionFunction::FAILED, base::ListValue(),
+                            kCreationFailed);
     return nullptr;
   }
 
@@ -536,7 +538,7 @@ ExtensionFunctionDispatcher::CreateExtensionFunction(
   function->set_user_gesture(params.user_gesture);
   function->set_extension(extension);
   function->set_profile_id(profile_id);
-  function->set_response_callback(callback);
+  function->set_response_callback(std::move(callback));
   function->set_source_context_type(process_map.GetMostLikelyContextType(
       extension, requesting_process_id, rfh_url));
   function->set_source_process_id(requesting_process_id);

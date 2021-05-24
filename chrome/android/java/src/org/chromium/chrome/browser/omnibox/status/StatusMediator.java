@@ -6,7 +6,6 @@ package org.chromium.chrome.browser.omnibox.status;
 
 import android.content.Context;
 import android.content.res.Resources;
-import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.text.TextUtils;
@@ -28,7 +27,6 @@ import org.chromium.chrome.browser.omnibox.UrlBarEditingTextStateProvider;
 import org.chromium.chrome.browser.omnibox.status.StatusProperties.PermissionIconResource;
 import org.chromium.chrome.browser.omnibox.status.StatusProperties.StatusIconResource;
 import org.chromium.chrome.browser.omnibox.status.StatusView.IconTransitionType;
-import org.chromium.chrome.browser.page_info.PageInfoIPHController;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.theme.ThemeUtils;
 import org.chromium.components.browser_ui.site_settings.ContentSettingsResources;
@@ -57,7 +55,6 @@ public class StatusMediator implements PermissionDialogController.Observer {
     private boolean mDarkTheme;
     private boolean mUrlHasFocus;
     private boolean mVerboseStatusSpaceAvailable;
-    private boolean mPageIsPreview;
     private boolean mPageIsPaintPreview;
     private boolean mPageIsOffline;
     private boolean mShowStatusIconWhenUrlFocused;
@@ -109,6 +106,20 @@ public class StatusMediator implements PermissionDialogController.Observer {
     // The denominator for the above formula, which will adjust the scale for the alpha.
     private final float mTextOffsetAdjustedScale;
 
+    /**
+     * @param model The {@link PropertyModel} for this mediator.
+     * @param resources Used to load resources.
+     * @param context The {@link Context} for this Status component.
+     * @param urlBarEditingTextStateProvider Provides url bar text state.
+     * @param isTablet Whether the current device is a tablet.
+     * @param locationBarDataProvider Provides data to the location bar.
+     * @param permissionDialogController Controls showing permission dialogs.
+     * @param searchEngineLogoUtils Provides utilities around the search engine logo.
+     * @param templateUrlServiceSupplier Supplies the {@link TemplateUrlService}.
+     * @param profileSupplier Supplies the current {@link Profile}.
+     * @param pageInfoIPHController Manages when an IPH bubble for PageInfo is shown.
+     * @param windowAndroid The current {@link WindowAndroid}.
+     */
     public StatusMediator(PropertyModel model, Resources resources, Context context,
             UrlBarEditingTextStateProvider urlBarEditingTextStateProvider, boolean isTablet,
             Runnable forceModelViewReconciliationRunnable,
@@ -170,17 +181,6 @@ public class StatusMediator implements PermissionDialogController.Observer {
     void setPageIsOffline(boolean pageIsOffline) {
         if (mPageIsOffline != pageIsOffline) {
             mPageIsOffline = pageIsOffline;
-            updateStatusVisibility();
-            updateColorTheme();
-        }
-    }
-
-    /**
-     * Specify whether displayed page is a preview page.
-     */
-    void setPageIsPreview(boolean pageIsPreview) {
-        if (mPageIsPreview != pageIsPreview) {
-            mPageIsPreview = pageIsPreview;
             updateStatusVisibility();
             updateColorTheme();
         }
@@ -391,8 +391,6 @@ public class StatusMediator implements PermissionDialogController.Observer {
 
         if (mPageIsPaintPreview) {
             statusText = R.string.location_bar_paint_preview_page_status;
-        } else if (mPageIsPreview) {
-            statusText = R.string.location_bar_preview_lite_page_status;
         } else if (mPageIsOffline) {
             statusText = R.string.location_bar_verbose_status_offline;
         }
@@ -421,7 +419,7 @@ public class StatusMediator implements PermissionDialogController.Observer {
 
         @ColorRes
         int textColor = 0;
-        if (mPageIsPreview || mPageIsPaintPreview) {
+        if (mPageIsPaintPreview) {
             textColor = mDarkTheme ? R.color.locationbar_status_preview_color
                                    : R.color.locationbar_status_preview_color_light;
         } else if (mPageIsOffline) {
@@ -451,8 +449,7 @@ public class StatusMediator implements PermissionDialogController.Observer {
      * Compute verbose status text for the current page.
      */
     private boolean shouldShowVerboseStatusText() {
-        return (mPageIsPreview && mPageSecurityLevel != ConnectionSecurityLevel.DANGEROUS)
-                || mPageIsOffline || mPageIsPaintPreview;
+        return mPageIsOffline || mPageIsPaintPreview;
     }
 
     /**
@@ -507,11 +504,6 @@ public class StatusMediator implements PermissionDialogController.Observer {
             icon = mSecurityIconRes;
             tint = mSecurityIconTintRes;
             toast = R.string.menu_page_info;
-        }
-
-        if (mPageIsPreview) {
-            tint = mDarkTheme ? R.color.locationbar_status_preview_color
-                              : R.color.locationbar_status_preview_color_light;
         }
 
         StatusIconResource statusIcon = icon == 0 ? null : new StatusIconResource(icon, tint);
@@ -569,56 +561,11 @@ public class StatusMediator implements PermissionDialogController.Observer {
         // If the current url text is a valid url, then swap the dse icon for a globe.
         if (!mUrlBarTextIsSearch) {
             resourceCallback.onResult(new StatusIconResource(R.drawable.ic_globe_24dp,
-                    getSecurityIconTintForSearchEngineIcon(R.drawable.ic_globe_24dp)));
-        } else if (mIsSearchEngineGoogle) {
-            if (mSearchEngineLogoUtils.shouldShowSearchLoupeEverywhere(isIncognito)) {
-                resourceCallback.onResult(new StatusIconResource(R.drawable.ic_search,
-                        getSecurityIconTintForSearchEngineIcon(R.drawable.ic_search)));
-            } else {
-                resourceCallback.onResult(
-                        new StatusIconResource(R.drawable.ic_logo_googleg_20dp, 0));
-            }
+                    ThemeUtils.getThemedToolbarIconTintRes(/* useLight= */ !mDarkTheme)));
         } else {
-            if (mSearchEngineLogoUtils.shouldShowSearchLoupeEverywhere(isIncognito)) {
-                resourceCallback.onResult(new StatusIconResource(R.drawable.ic_search,
-                        getSecurityIconTintForSearchEngineIcon(R.drawable.ic_search)));
-            } else {
-                getNonGoogleSearchEngineIconBitmap(
-                        statusIconResource -> { resourceCallback.onResult(statusIconResource); });
-            }
+            mSearchEngineLogoUtils.getSearchEngineLogo(mResources, mDarkTheme,
+                    mProfileSupplier.get(), mTemplateUrlServiceSupplier.get(), resourceCallback);
         }
-    }
-
-    /** @return The non-Google search engine icon {@link Bitmap}. */
-    private void getNonGoogleSearchEngineIconBitmap(final Callback<StatusIconResource> callback) {
-        mSearchEngineLogoUtils.getSearchEngineLogoFavicon(
-                mProfileSupplier.get(), mResources, (favicon) -> {
-                    if (favicon == null || mShouldCancelCustomFavicon) {
-                        callback.onResult(new StatusIconResource(R.drawable.ic_search,
-                                getSecurityIconTintForSearchEngineIcon(R.drawable.ic_search)));
-                        return;
-                    }
-
-                    callback.onResult(new StatusIconResource(mSearchEngineLogoUrl, favicon, 0));
-                }, mTemplateUrlServiceSupplier.get());
-    }
-
-    /**
-     * Get the icon tint for the given search engine icon resource.
-     * @param icon The icon resource for the search engine icon.
-     * @return The tint resource for the given parameters.
-     */
-    @VisibleForTesting
-    int getSecurityIconTintForSearchEngineIcon(int icon) {
-        int tint;
-        if (icon == 0 || icon == R.drawable.ic_logo_googleg_20dp) {
-            tint = 0;
-        } else {
-            tint = mDarkTheme ? R.color.default_icon_color_secondary_tint_list
-                              : ThemeUtils.getThemedToolbarIconTintRes(!mDarkTheme);
-        }
-
-        return tint;
     }
 
     /** Return the resource id for the accessibility description or 0 if none apply. */
@@ -713,25 +660,29 @@ public class StatusMediator implements PermissionDialogController.Observer {
         if (permission == ContentSettingsType.DEFAULT) return;
         mLastPermission = permission;
 
-        Drawable permissionIcon =
-                ContentSettingsResources.getContentSettingsIcon(mContext, mLastPermission, result);
-        PermissionIconResource statusIcon =
-                new PermissionIconResource(permissionIcon, mLocationBarDataProvider.isIncognito());
-        statusIcon.setTransitionType(IconTransitionType.ROTATE);
+        boolean isIncognito = mLocationBarDataProvider.isIncognito();
+        Drawable permissionDrawable = ContentSettingsResources.getIconForOmnibox(
+                mContext, mLastPermission, result, isIncognito);
+        PermissionIconResource permissionIconResource =
+                new PermissionIconResource(permissionDrawable, isIncognito);
+        permissionIconResource.setTransitionType(IconTransitionType.ROTATE);
+        // We only want to notify the IPH controller after the icon transition is finished.
+        // IPH is controlled by the FeatureEngagement system through finch with a field trial
+        // testing configuration.
+        permissionIconResource.setAnimationFinishedCallback(this::startIPH);
         // Set the timer to switch the icon back afterwards.
         mPermissionTaskHandler.removeCallbacksAndMessages(null);
-        mModel.set(StatusProperties.STATUS_ICON_RESOURCE, statusIcon);
+        mModel.set(StatusProperties.STATUS_ICON_RESOURCE, permissionIconResource);
         mPermissionTaskHandler.postDelayed(
-                this::resetPermissionIcon, PERMISSION_ICON_DISPLAY_TIMEOUT_MS);
+                ()
+                        -> updateLocationBarIcon(IconTransitionType.ROTATE),
+                PERMISSION_ICON_DISPLAY_TIMEOUT_MS);
         mDiscoverabilityMetrics.recordDiscoverabilityAction(
                 DiscoverabilityAction.PERMISSION_ICON_SHOWN);
-        if (mPageInfoIPHController != null) {
-            // We only want to show the IPH after the icon transition is finished.
-            mPermissionTaskHandler.postDelayed(
-                    ()
-                            -> mPageInfoIPHController.onPermissionDialogShown(getIPHTimeout()),
-                    StatusView.ICON_ROTATION_DURATION_MS);
-        }
+    }
+
+    private void startIPH() {
+        mPageInfoIPHController.onPermissionDialogShown(getIPHTimeout());
     }
 
     /**
@@ -748,12 +699,8 @@ public class StatusMediator implements PermissionDialogController.Observer {
             mDiscoverabilityMetrics.recordDiscoverabilityAction(
                     DiscoverabilityAction.PAGE_INFO_OPENED);
             mPermissionTaskHandler.removeCallbacksAndMessages(null);
-            resetPermissionIcon();
+            updateLocationBarIcon(IconTransitionType.CROSSFADE);
         }
-    }
-
-    private void resetPermissionIcon() {
-        updateLocationBarIcon(IconTransitionType.ROTATE);
     }
 
     public int getLastPermission() {

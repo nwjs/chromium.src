@@ -4,6 +4,8 @@
 
 #include "chrome/browser/ui/views/frame/browser_frame.h"
 
+#include <memory>
+
 #if defined(USE_AURA)
 #if defined(OS_WIN)
 #include "ui/views/win/hwnd_util.h"
@@ -318,8 +320,8 @@ ui::MenuModel* BrowserFrame::GetSystemMenuModel() {
   }
 #endif
   if (!menu_model_builder_.get()) {
-    menu_model_builder_.reset(
-        new SystemMenuModelBuilder(browser_view_, browser_view_->browser()));
+    menu_model_builder_ = std::make_unique<SystemMenuModelBuilder>(
+        browser_view_, browser_view_->browser());
     menu_model_builder_->Init();
   }
   return menu_model_builder_->menu_model();

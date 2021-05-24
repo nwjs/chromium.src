@@ -81,7 +81,7 @@ int GetValidatorOptions(Extension* extension) {
   return options;
 }
 
-base::string16 GetInvalidManifestKeyError(base::StringPiece key) {
+std::u16string GetInvalidManifestKeyError(base::StringPiece key) {
   return ErrorUtils::FormatErrorMessageUTF16(errors::kInvalidManifestKey, key);
 }
 
@@ -163,7 +163,7 @@ CSPHandler::CSPHandler() = default;
 
 CSPHandler::~CSPHandler() = default;
 
-bool CSPHandler::Parse(Extension* extension, base::string16* error) {
+bool CSPHandler::Parse(Extension* extension, std::u16string* error) {
   const char* key = extension->GetType() == Manifest::TYPE_PLATFORM_APP
                         ? keys::kPlatformAppContentSecurityPolicy
                         : keys::kContentSecurityPolicy;
@@ -200,7 +200,7 @@ bool CSPHandler::Parse(Extension* extension, base::string16* error) {
 }
 
 bool CSPHandler::ParseCSPDictionary(Extension* extension,
-                                    base::string16* error) {
+                                    std::u16string* error) {
   // keys::kSandboxedPagesCSP shouldn't be used when using
   // keys::kContentSecurityPolicy as a dictionary.
   if (extension->manifest()->HasPath(keys::kSandboxedPagesCSP)) {
@@ -221,7 +221,7 @@ bool CSPHandler::ParseCSPDictionary(Extension* extension,
 
 bool CSPHandler::ParseExtensionPagesCSP(
     Extension* extension,
-    base::string16* error,
+    std::u16string* error,
     base::StringPiece manifest_key,
     bool secure_only,
     const base::Value* content_security_policy) {
@@ -265,7 +265,7 @@ bool CSPHandler::ParseExtensionPagesCSP(
 }
 
 bool CSPHandler::ParseSandboxCSP(Extension* extension,
-                                 base::string16* error,
+                                 std::u16string* error,
                                  base::StringPiece manifest_key,
                                  const base::Value* sandbox_csp) {
   if (!sandbox_csp) {
@@ -302,7 +302,7 @@ bool CSPHandler::SetExtensionPagesCSP(Extension* extension,
   if (extension->manifest()->type() == Manifest::TYPE_NWJS_APP)
     content_security_policy = kDefaultNWAppContentSecurityPolicy;
   if (secure_only) {
-    base::string16 error;
+    std::u16string error;
     DCHECK(csp_validator::DoesCSPDisallowRemoteCode(content_security_policy,
                                                     manifest_key, &error));
   } else {

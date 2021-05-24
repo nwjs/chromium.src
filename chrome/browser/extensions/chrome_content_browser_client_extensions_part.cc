@@ -35,6 +35,7 @@
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/url_constants.h"
 #include "components/dom_distiller/core/url_constants.h"
+#include "components/download/public/common/quarantine_connection.h"
 #include "components/guest_view/browser/guest_view_message_filter.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
@@ -282,7 +283,7 @@ bool ChromeContentBrowserClientExtensionsPart::ShouldUseProcessPerSite(
   // responsiveness.
   if (extension->GetType() == Manifest::TYPE_HOSTED_APP) {
     if (!extension->permissions_data()->HasAPIPermission(
-            APIPermission::kBackground) ||
+            mojom::APIPermissionID::kBackground) ||
         !BackgroundInfo::AllowJSAccess(extension)) {
       return false;
     }
@@ -430,7 +431,7 @@ bool ChromeContentBrowserClientExtensionsPart::CanCommitURL(
       return true;
     return extension->is_platform_app() &&
            extension->permissions_data()->HasAPIPermission(
-               extensions::APIPermission::kWebView) &&
+               extensions::mojom::APIPermissionID::kWebView) &&
            extension->id() == owner_extension_id;
   }
 
@@ -722,10 +723,9 @@ void ChromeContentBrowserClientExtensionsPart::OverrideWebkitPrefs(
   if (!site_url.SchemeIs(kExtensionScheme))
     return;
 
-  ViewType view_type = GetViewType(web_contents);
   const Extension* extension =
       registry->enabled_extensions().GetByID(site_url.host());
-  extension_webkit_preferences::SetPreferences(extension, view_type, web_prefs);
+  extension_webkit_preferences::SetPreferences(extension, web_prefs);
 }
 
 void ChromeContentBrowserClientExtensionsPart::BrowserURLHandlerCreated(
@@ -751,10 +751,11 @@ void ChromeContentBrowserClientExtensionsPart::GetURLRequestAutoMountHandlers(
 void ChromeContentBrowserClientExtensionsPart::GetAdditionalFileSystemBackends(
     content::BrowserContext* browser_context,
     const base::FilePath& storage_partition_path,
+    download::QuarantineConnectionCallback quarantine_connection_callback,
     std::vector<std::unique_ptr<storage::FileSystemBackend>>*
         additional_backends) {
-  additional_backends->push_back(
-      std::make_unique<MediaFileSystemBackend>(storage_partition_path));
+  additional_backends->push_back(std::make_unique<MediaFileSystemBackend>(
+      storage_partition_path, std::move(quarantine_connection_callback)));
 
   additional_backends->push_back(
       std::make_unique<sync_file_system::SyncFileSystemBackend>(

@@ -111,6 +111,7 @@ CONTENT_EXPORT extern const char kEnableDisplayList2dCanvas[];
 CONTENT_EXPORT extern const char kEnableExperimentalCookieFeatures[];
 CONTENT_EXPORT extern const char kEnableExperimentalWebAssemblyFeatures[];
 CONTENT_EXPORT extern const char kEnableExperimentalWebPlatformFeatures[];
+CONTENT_EXPORT extern const char kEnableFakeNoAllocDirectCallForTesting[];
 CONTENT_EXPORT extern const char kEnableBlinkTestFeatures[];
 CONTENT_EXPORT extern const char kEnableFtp[];
 CONTENT_EXPORT extern const char kEnableGpuMemoryBufferVideoFrames[];
@@ -128,6 +129,7 @@ CONTENT_EXPORT extern const char kEnableSpatialNavigation[];
 CONTENT_EXPORT extern const char kEnableStrictMixedContentChecking[];
 CONTENT_EXPORT extern const char kEnableStrictPowerfulFeatureRestrictions[];
 CONTENT_EXPORT extern const char kEnableThreadedCompositing[];
+CONTENT_EXPORT extern const char kEnableTracingFraction[];
 CONTENT_EXPORT extern const char kEnableUserMediaScreenCapturing[];
 CONTENT_EXPORT extern const char kEnableUseZoomForDSF[];
 CONTENT_EXPORT extern const char kEnableViewport[];
@@ -149,7 +151,6 @@ extern const char kGpuLauncher[];
 CONTENT_EXPORT extern const char kGpuProcess[];
 CONTENT_EXPORT extern const char kGpuSandboxStartEarly[];
 CONTENT_EXPORT extern const char kGpuStartupDialog[];
-CONTENT_EXPORT extern const char kInitialVirtualTime[];
 CONTENT_EXPORT extern const char kInProcessGPU[];
 CONTENT_EXPORT extern const char kIPCConnectionTimeout[];
 CONTENT_EXPORT extern const char kIsolateOrigins[];
@@ -195,6 +196,9 @@ CONTENT_EXPORT extern const char kRendererProcessLimit[];
 CONTENT_EXPORT extern const char kRendererStartupDialog[];
 CONTENT_EXPORT extern const char kRunManualTestsFlag[];
 extern const char kSandboxIPCProcess[];
+#if !defined(OS_ANDROID)
+CONTENT_EXPORT extern const char kSharedArrayBufferUnrestrictedAccessAllowed[];
+#endif
 CONTENT_EXPORT extern const char kSharedFiles[];
 CONTENT_EXPORT extern const char kSingleProcess[];
 CONTENT_EXPORT extern const char kSitePerProcess[];
@@ -241,7 +245,6 @@ CONTENT_EXPORT extern const char kForceWebRtcIPHandlingPolicy[];
 CONTENT_EXPORT extern const char kWaitForDebuggerWebUI[];
 extern const char kWebRtcMaxCaptureFramerate[];
 extern const char kWebRtcMaxCpuConsumptionPercentage[];
-CONTENT_EXPORT extern const char kWebRtcStunProbeTrialParameter[];
 CONTENT_EXPORT extern const char kWebRtcLocalEventLogging[];
 CONTENT_EXPORT extern const char kDisableScrollToTextFragment[];
 
@@ -251,9 +254,6 @@ CONTENT_EXPORT extern const char kWebXrRuntimeOrientationSensors[];
 CONTENT_EXPORT extern const char kWebXrRuntimeOpenXr[];
 CONTENT_EXPORT extern const char kWebXrRuntimeWMR[];
 
-#if (defined(OS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS)) && !defined(OS_ANDROID)
-CONTENT_EXPORT extern const char kEnableAcceleratedVideoDecode[];
-#endif
 CONTENT_EXPORT extern const char kDisableAcceleratedVideoDecode[];
 
 #if defined(OS_ANDROID)

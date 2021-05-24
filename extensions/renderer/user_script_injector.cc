@@ -99,16 +99,15 @@ UserScriptInjector::UserScriptInjector(const UserScript* script,
       user_script_set_(script_list),
       script_id_(script_->id()),
       host_id_(script_->host_id()),
-      is_declarative_(is_declarative),
-      user_script_set_observer_(this) {
-  user_script_set_observer_.Add(script_list);
+      is_declarative_(is_declarative) {
+  user_script_set_observation_.Observe(script_list);
 }
 
 UserScriptInjector::~UserScriptInjector() {
 }
 
 void UserScriptInjector::OnUserScriptsUpdated(
-    const std::set<HostID>& changed_hosts,
+    const std::set<mojom::HostID>& changed_hosts,
     const UserScriptList& scripts) {
   // When user scripts are updated, all the old script pointers are invalidated.
   script_ = nullptr;
@@ -128,8 +127,8 @@ void UserScriptInjector::OnUserScriptsUpdated(
   DCHECK(script_);
 }
 
-UserScript::InjectionType UserScriptInjector::script_type() const {
-  return UserScript::CONTENT_SCRIPT;
+mojom::InjectionType UserScriptInjector::script_type() const {
+  return mojom::InjectionType::kContentScript;
 }
 
 bool UserScriptInjector::ShouldExecuteInMainWorld() const {
@@ -144,8 +143,8 @@ bool UserScriptInjector::ExpectsResults() const {
   return false;
 }
 
-CSSOrigin UserScriptInjector::GetCssOrigin() const {
-  return CSSOrigin::kAuthor;
+mojom::CSSOrigin UserScriptInjector::GetCssOrigin() const {
+  return mojom::CSSOrigin::kAuthor;
 }
 
 bool UserScriptInjector::IsRemovingCSS() const {
@@ -161,7 +160,7 @@ const base::Optional<std::string> UserScriptInjector::GetInjectionKey() const {
 }
 
 bool UserScriptInjector::ShouldInjectJs(
-    UserScript::RunLocation run_location,
+    mojom::RunLocation run_location,
     const std::set<std::string>& executing_scripts) const {
   return script_ && script_->run_location() == run_location &&
          !script_->js_scripts().empty() &&
@@ -169,9 +168,9 @@ bool UserScriptInjector::ShouldInjectJs(
 }
 
 bool UserScriptInjector::ShouldInjectOrRemoveCss(
-    UserScript::RunLocation run_location,
+    mojom::RunLocation run_location,
     const std::set<std::string>& injected_stylesheets) const {
-  return script_ && run_location == UserScript::DOCUMENT_START &&
+  return script_ && run_location == mojom::RunLocation::kDocumentStart &&
          !script_->css_scripts().empty() &&
          ShouldInjectScripts(script_->css_scripts(), injected_stylesheets);
 }
@@ -226,7 +225,7 @@ PermissionsData::PageAccess UserScriptInjector::CanExecuteOnFrame(
 }
 
 std::vector<blink::WebScriptSource> UserScriptInjector::GetJsSources(
-    UserScript::RunLocation run_location,
+    mojom::RunLocation run_location,
     std::set<std::string>* executing_scripts,
     size_t* num_injected_js_scripts) const {
   DCHECK(script_);
@@ -259,11 +258,11 @@ std::vector<blink::WebScriptSource> UserScriptInjector::GetJsSources(
 }
 
 std::vector<blink::WebString> UserScriptInjector::GetCssSources(
-    UserScript::RunLocation run_location,
+    mojom::RunLocation run_location,
     std::set<std::string>* injected_stylesheets,
     size_t* num_injected_stylesheets) const {
   DCHECK(script_);
-  DCHECK_EQ(UserScript::DOCUMENT_START, run_location);
+  DCHECK_EQ(mojom::RunLocation::kDocumentStart, run_location);
 
   std::vector<blink::WebString> sources;
 
@@ -284,11 +283,8 @@ std::vector<blink::WebString> UserScriptInjector::GetCssSources(
 
 void UserScriptInjector::OnInjectionComplete(
     std::unique_ptr<base::Value> execution_result,
-    UserScript::RunLocation run_location,
-    content::RenderFrame* render_frame) {}
+    mojom::RunLocation run_location) {}
 
-void UserScriptInjector::OnWillNotInject(InjectFailureReason reason,
-                                         content::RenderFrame* render_frame) {
-}
+void UserScriptInjector::OnWillNotInject(InjectFailureReason reason) {}
 
 }  // namespace extensions

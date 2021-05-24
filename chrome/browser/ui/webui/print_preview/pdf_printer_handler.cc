@@ -52,7 +52,7 @@
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-#include "chrome/browser/chromeos/drive/drive_integration_service.h"
+#include "chrome/browser/ash/drive/drive_integration_service.h"
 #endif
 
 #include "chrome/browser/ui/webui/print_preview/print_preview_handler.h"
@@ -221,7 +221,7 @@ void PdfPrinterHandler::StartGetCapability(const std::string& destination_id,
 }
 
 void PdfPrinterHandler::StartPrint(
-    const base::string16& job_title,
+    const std::u16string& job_title,
     base::Value settings,
     scoped_refptr<base::RefCountedMemory> print_data,
     PrintCallback callback) {
@@ -292,7 +292,7 @@ void PdfPrinterHandler::SetPdfSavedClosureForTesting(
 
 // static
 base::FilePath PdfPrinterHandler::GetFileNameForPrintJobTitle(
-    const base::string16& job_title) {
+    const std::u16string& job_title) {
   DCHECK(!job_title.empty());
 #if defined(OS_WIN)
   base::FilePath::StringType print_job_title(base::AsWString(job_title));
@@ -339,7 +339,7 @@ base::FilePath PdfPrinterHandler::GetFileNameForURL(const GURL& url) {
 
 // static
 base::FilePath PdfPrinterHandler::GetFileName(const GURL& url,
-                                              const base::string16& job_title,
+                                              const std::u16string& job_title,
                                               bool is_savable) {
   if (is_savable) {
     bool title_is_url =
@@ -432,7 +432,7 @@ void PdfPrinterHandler::OnDirectorySelected(const base::FilePath& filename,
   select_file_dialog_ =
       ui::SelectFileDialog::Create(this, nullptr /*policy already checked*/);
   select_file_dialog_->SelectFile(
-      ui::SelectFileDialog::SELECT_SAVEAS_FILE, base::string16(), path,
+      ui::SelectFileDialog::SELECT_SAVEAS_FILE, std::u16string(), path,
       &file_type_info, 0, base::FilePath::StringType(),
       platform_util::GetTopLevel(preview_web_contents_->GetNativeView()), NULL);
 }

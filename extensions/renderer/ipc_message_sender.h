@@ -10,9 +10,8 @@
 #include <memory>
 #include <string>
 
+#include "extensions/common/mojom/frame.mojom-forward.h"
 #include "extensions/renderer/bindings/api_binding_types.h"
-
-struct ExtensionHostMsg_Request_Params;
 
 namespace base {
 class ListValue;
@@ -35,7 +34,7 @@ class IPCMessageSender {
   // Sends a request message to the browser.
   virtual void SendRequestIPC(
       ScriptContext* context,
-      std::unique_ptr<ExtensionHostMsg_Request_Params> params,
+      mojom::RequestParamsPtr params,
       bool sync = false,
       bool* success = nullptr, base::ListValue* response = nullptr,
       std::string* error = nullptr) = 0;

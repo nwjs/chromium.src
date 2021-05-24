@@ -23,6 +23,7 @@ class WebContents;
 
 namespace extensions {
 class Extension;
+class ExtensionFrameHost;
 
 // A web contents observer used for renderer and extension processes. Grants the
 // renderer access to certain URL scheme patterns for extensions and notifies
@@ -91,6 +92,10 @@ class ExtensionWebContentsObserver
   virtual void InitializeRenderFrame(
       content::RenderFrameHost* render_frame_host);
 
+  // Creates ExtensionFrameHost which implements mojom::LocalFrameHost.
+  virtual std::unique_ptr<ExtensionFrameHost> CreateExtensionFrameHost(
+      content::WebContents* web_contents);
+
   // ExtensionFunctionDispatcher::Delegate overrides.
   content::WebContents* GetAssociatedWebContents() const override;
 
@@ -119,10 +124,10 @@ class ExtensionWebContentsObserver
 
  private:
   void OnRequest(content::RenderFrameHost* render_frame_host,
-                 const ExtensionHostMsg_Request_Params& params);
+                 const mojom::RequestParams& params);
 
   void OnRequestSync(
-                     const ExtensionHostMsg_Request_Params& params,
+                     const mojom::RequestParams& params,
                      bool* success,
                      base::ListValue* response,
                      std::string* error);
@@ -135,6 +140,8 @@ class ExtensionWebContentsObserver
 
   // Whether this object has been initialized.
   bool initialized_;
+
+  std::unique_ptr<ExtensionFrameHost> extension_frame_host_;
 
   // A map of render frame host to mojo remotes.
   std::map<content::RenderFrameHost*, mojo::AssociatedRemote<mojom::LocalFrame>>

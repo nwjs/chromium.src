@@ -21,8 +21,6 @@ class ComponentUpdateService;
 void RegisterWidevineCdmComponent(ComponentUpdateService* cus);
 void RegisterWidevineCdmComponent(ComponentUpdateService* cus, base::OnceClosure callback);
 
-bool WasWidevineCdmComponentRejectedDueToNoRosetta();
-
 }  // namespace component_updater
 
 #endif  // CHROME_BROWSER_COMPONENT_UPDATER_WIDEVINE_CDM_COMPONENT_INSTALLER_H_

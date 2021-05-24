@@ -94,7 +94,7 @@ class NativeAppWindowViews : public extensions::NativeAppWindow,
   bool ExecuteAppCommand(int command_id) override;
   void OnWidgetMove() override;
   views::View* GetInitiallyFocusedView() override;
-  base::string16 GetWindowTitle() const override;
+  std::u16string GetWindowTitle() const override;
   bool ShouldShowWindowTitle() const override;
   void SaveWindowPlacement(const gfx::Rect& bounds,
                            ui::WindowShowState show_state) override;

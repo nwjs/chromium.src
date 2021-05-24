@@ -83,7 +83,7 @@ blink::WebThemeEngine* ContentRendererClient::OverrideThemeEngine() {
   return nullptr;
 }
 
-std::unique_ptr<WebSocketHandshakeThrottleProvider>
+std::unique_ptr<blink::WebSocketHandshakeThrottleProvider>
 ContentRendererClient::CreateWebSocketHandshakeThrottleProvider() {
   return nullptr;
 }
@@ -186,7 +186,7 @@ bool ContentRendererClient::IsSupportedBitstreamAudioCodec(
 }
 
 bool ContentRendererClient::ShouldReportDetailedMessageForSource(
-    const base::string16& source) {
+    const std::u16string& source) {
   return false;
 }
 
@@ -237,9 +237,9 @@ bool ContentRendererClient::IsIdleMediaSuspendEnabled() {
   return true;
 }
 
-std::unique_ptr<URLLoaderThrottleProvider>
+std::unique_ptr<blink::URLLoaderThrottleProvider>
 ContentRendererClient::CreateURLLoaderThrottleProvider(
-    URLLoaderThrottleProviderType provider_type) {
+    blink::URLLoaderThrottleProviderType provider_type) {
   return nullptr;
 }
 
@@ -254,10 +254,6 @@ bool ContentRendererClient::IsSafeRedirectTarget(const GURL& url) {
 }
 
 void ContentRendererClient::DidSetUserAgent(const std::string& user_agent) {}
-
-bool ContentRendererClient::RequiresHtmlImports(const GURL& url) {
-  return false;
-}
 
 base::Optional<::media::AudioRendererAlgorithmParameters>
 ContentRendererClient::GetAudioRendererAlgorithmParameters(
