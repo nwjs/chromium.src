@@ -527,7 +527,7 @@ void ComponentLoader::AddDefaultComponentExtensions(
     manifest->SetBoolean(extensions::manifest_keys::kNWJSMixedContext,
                          command_line.HasSwitch("mixed-context"));
 #if defined(OS_WIN)
-    Add(std::move(manifest), base::FilePath(base::UTF8ToUTF16(default_path)), true);
+    Add(std::move(manifest), base::FilePath::FromUTF8Unsafe(default_path), true);
 #else
     Add(std::move(manifest), base::FilePath(default_path), true);
 #endif

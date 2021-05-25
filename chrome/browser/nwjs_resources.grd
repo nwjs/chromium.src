@@ -263,7 +263,6 @@
       <include name="IDR_MOST_VISITED_THUMBNAIL_CSS" file="resources\empty.css" type="BINDATA" />
       <include name="IDR_MOST_VISITED_THUMBNAIL_JS" file="resources\empty.js" type="BINDATA" />
       <include name="IDR_MOST_VISITED_WINDOW_DISPOSITION_UTIL_JS" file="resources\empty.js" type="BINDATA" />
-      <include name="IDR_DESKTOP_HATS_HTML" file="resources\hats\hats.html" type="BINDATA" />
       <include name="IDR_OMNIBOX_ELEMENT_JS" file="resources\omnibox\omnibox_element.js" type="BINDATA" compress="gzip" />
       <include name="IDR_OMNIBOX_OUTPUT_JS" file="resources\omnibox\omnibox_output.js" type="BINDATA" compress="gzip" />
       <include name="IDR_OMNIBOX_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
@@ -314,6 +313,10 @@
         <include name="IDR_MANAGEMENT_UI_JS" file="resources\management\management_ui.js" type="BINDATA" compress="gzip" preprocess="true" />
         <include name="IDR_MANAGEMENT_BROWSER_PROXY_JS" file="resources\management\management_browser_proxy.js" type="BINDATA" compress="gzip" preprocess="true" />
         <include name="IDR_MANAGEMENT_ICONS_JS" file="${root_gen_dir}/chrome/browser/resources/management/icons.js" use_base_dir="false" type="BINDATA" compress="gzip" preprocess="true" />
+        <include name="IDR_ENTERPRISE_PROFILE_WELCOME_HTML" file="resources\signin\enterprise_profile_welcome\enterprise_profile_welcome.html" type="BINDATA" />
+        <include name="IDR_ENTERPRISE_PROFILE_WELCOME_APP_JS" file="${root_gen_dir}\chrome\browser\resources\signin\enterprise_profile_welcome\enterprise_profile_welcome_app.js" use_base_dir="false" type="BINDATA" />
+        <include name="IDR_ENTERPRISE_PROFILE_WELCOME_BROWSER_PROXY_JS" file="resources\signin\enterprise_profile_welcome\enterprise_profile_welcome_browser_proxy.js" type="BINDATA" />
+        <include name="IDR_ENTERPRISE_PROFILE_WELCOME_ILLUSTRATION_SVG" file="resources\signin\enterprise_profile_welcome\images\enterprise_profile_welcome_illustration.svg" type="BINDATA" />
       </if>
       <include name="IDR_PROFILER_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_PROFILER_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" />

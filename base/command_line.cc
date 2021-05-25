@@ -385,7 +385,7 @@ void CommandLine::InitFromArgv(const StringVector& argv) {
   int argc = argv.size();
   argv0_ = new char*[argc + 1];
   for (int i = 0; i < argc; ++i) {
-    std::string str(base::UTF16ToUTF8(argv[i]));
+    std::string str(base::WideToUTF8(argv[i]));
     argv0_[i] = new char[str.length() + 1];
     strcpy(argv0_[i], str.c_str());
   }

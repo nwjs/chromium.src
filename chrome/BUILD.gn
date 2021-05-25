@@ -1317,8 +1317,9 @@ if (is_win || (is_linux && !is_component_build)) {
         "//third_party/crashpad/crashpad/handler:crashpad_handler",
         "//third_party/swiftshader/src/OpenGL/libEGL:swiftshader_libEGL",
         "//third_party/swiftshader/src/OpenGL/libGLESv2:swiftshader_libGLESv2",
+        "//third_party/swiftshader/src/Vulkan:swiftshader_libvulkan",
       ]
-      foreach(helper_params, content_mac_helpers) {
+      foreach(helper_params, chrome_mac_helpers) {
         deps += [ ":chrome_helper_app_${helper_params[0]}" ]
       }
     }
