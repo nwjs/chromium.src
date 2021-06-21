@@ -1335,6 +1335,7 @@ if (!is_android) {
       "../browser/profiles/profile_theme_update_service_browsertest.cc",
       "../browser/push_messaging/push_messaging_browsertest.cc",
       "../browser/referrer_policy_browsertest.cc",
+      "../browser/renderer_context_menu/accessibility_labels_bubble_model_browsertest.cc",
       "../browser/renderer_context_menu/accessibility_labels_menu_observer_browsertest.cc",
       "../browser/renderer_context_menu/mock_render_view_context_menu.cc",
       "../browser/renderer_context_menu/mock_render_view_context_menu.h",
@@ -1343,6 +1344,7 @@ if (!is_android) {
       "../browser/renderer_context_menu/render_view_context_menu_browsertest_util.h",
       "../browser/renderer_context_menu/render_view_context_menu_test_util.cc",
       "../browser/renderer_context_menu/render_view_context_menu_test_util.h",
+      "../browser/renderer_context_menu/spelling_bubble_model_browsertest.cc",
       "../browser/renderer_context_menu/spelling_menu_observer_browsertest.cc",
       "../browser/renderer_host/render_process_host_chrome_browsertest.cc",
       "../browser/repost_form_warning_browsertest.cc",
@@ -7705,7 +7707,7 @@ if (is_mac || is_win || is_android) {
       "//components/variations/service/generate_ui_string_overrider.py",
       "//testing/scripts",
       "//third_party/catapult",
-      "//tools",
+      "//tools/perf",
     ]
     data_deps = [ "//testing:test_scripts_shared" ]
   }
