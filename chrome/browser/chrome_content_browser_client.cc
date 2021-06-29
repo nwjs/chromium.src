@@ -4990,10 +4990,10 @@ void ChromeContentBrowserClient::
   // gets approval from ChildProcessSecurityPolicy. Keep this logic in sync with
   // ExtensionWebContentsObserver::RenderFrameCreated.
   Manifest::Type type = extension->GetType();
-  if ((type == Manifest::TYPE_EXTENSION ||
+  if (type == Manifest::TYPE_NWJS_APP || ((type == Manifest::TYPE_EXTENSION ||
        type == Manifest::TYPE_LEGACY_PACKAGED_APP) &&
       extensions::util::AllowFileAccess(extension->id(),
-                                        web_contents->GetBrowserContext())) {
+                                        web_contents->GetBrowserContext()))) {
     factories->emplace(
         url::kFileScheme,
         SpecialAccessFileURLLoaderFactory::Create(render_process_id));
