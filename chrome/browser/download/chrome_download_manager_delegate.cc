@@ -1587,10 +1587,10 @@ void ChromeDownloadManagerDelegate::MaybeSendDangerousDownloadOpenedReport(
     service->MaybeSendDangerousDownloadOpenedReport(download,
                                                     show_download_in_folder);
   }
-#endif
   safe_browsing::RecordDownloadOpened(download->GetDangerType(),
                                       base::Time::Now(), download->GetEndTime(),
                                       show_download_in_folder);
+#endif
 }
 
 void ChromeDownloadManagerDelegate::CheckDownloadAllowed(

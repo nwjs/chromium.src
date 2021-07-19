@@ -24,10 +24,12 @@ void RecordDangerousDownloadWarningShown(
     const base::FilePath& file_path,
     bool is_https,
     bool has_user_gesture) {
+#if 0
   base::UmaHistogramEnumeration("Download.ShowedDownloadWarning", danger_type,
                                 download::DOWNLOAD_DANGER_TYPE_MAX);
   safe_browsing::RecordDangerousDownloadWarningShown(
       danger_type, file_path, is_https, has_user_gesture);
+#endif
 }
 
 void RecordOpenedDangerousConfirmDialog(
