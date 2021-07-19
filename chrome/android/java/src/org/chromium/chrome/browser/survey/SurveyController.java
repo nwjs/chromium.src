@@ -99,5 +99,6 @@ public class SurveyController {
      * Clears the survey cache containing responses and history.
      * @param context The context used to clear the cache.
      */
+    @Deprecated
     public void clearCache(Context context) {}
 }

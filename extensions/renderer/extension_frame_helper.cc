@@ -420,7 +420,6 @@ bool ExtensionFrameHelper::OnMessageReceived(const IPC::Message& message) {
                         OnExtensionDispatchOnDisconnect)
     IPC_MESSAGE_HANDLER(ExtensionMsg_UpdateBrowserWindowId,
                         OnUpdateBrowserWindowId)
-    IPC_MESSAGE_HANDLER(ExtensionMsg_Response, OnExtensionResponse)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
   return handled;
@@ -485,16 +484,6 @@ void ExtensionFrameHelper::NotifyRenderViewType(mojom::ViewType type) {
   // TODO(devlin): It'd be really nice to be able to
   // DCHECK_EQ(mojom::ViewType::kInvalid, view_type_) here.
   view_type_ = type;
-}
-
-void ExtensionFrameHelper::OnExtensionResponse(int request_id,
-                                               bool success,
-                                               const base::ListValue& response,
-                                               const std::string& error) {
-  extension_dispatcher_->OnExtensionResponse(request_id,
-                                             success,
-                                             response,
-                                             error);
 }
 
 void ExtensionFrameHelper::MessageInvoke(const std::string& extension_id,

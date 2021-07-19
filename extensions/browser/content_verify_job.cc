@@ -83,7 +83,7 @@ ContentVerifyJob::ContentVerifyJob(const ExtensionId& extension_id,
 ContentVerifyJob::ContentVerifyJob(ContentHashReader* hash_reader,
                                    const ContentVerifierKey& key,
                                    FailureCallback failure_callback,
-                                   const ReadyCallback& ready_callback)
+                                   ReadyCallback ready_callback)
     : done_reading_(false),
       hashes_ready_(false),
       total_bytes_read_(0),
@@ -91,7 +91,7 @@ ContentVerifyJob::ContentVerifyJob(ContentHashReader* hash_reader,
       current_hash_byte_count_(0),
       hash_reader_(hash_reader),
       failure_callback_(std::move(failure_callback)),
-      ready_callback_(ready_callback),
+      ready_callback_(std::move(ready_callback)),
       failed_(false),
       len_(0),
       buf_(nullptr)
@@ -156,7 +156,7 @@ void ContentVerifyJob::Done() {
     if (test_observer)
       test_observer->JobFinished(extension_id_, relative_path_, NONE);
     else if (!success_callback_.is_null())
-      success_callback_.Run();
+      std::move(success_callback_).Run();
   } else {
     DispatchFailureCallback(HASH_MISMATCH);
   }
@@ -266,7 +266,7 @@ void ContentVerifyJob::OnHashesReady(
       if (test_observer)
         test_observer->JobFinished(extension_id_, relative_path_, NONE);
       if (!success_callback_.is_null())
-        success_callback_.Run();
+        std::move(success_callback_).Run();
       return;
     }
     case ContentHashReader::InitStatus::NO_HASHES_FOR_RESOURCE: {
@@ -300,7 +300,7 @@ void ContentVerifyJob::OnHashesReady(
     }
   }
   if (!ready_callback_.is_null()) {
-    ready_callback_.Run(this);
+    std::move(ready_callback_).Run(this);
   }
 }
 

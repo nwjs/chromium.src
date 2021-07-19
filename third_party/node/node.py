@@ -31,10 +31,10 @@ def RunNode(cmd_parts, stdout=None):
   process = None
   if is_win:
     process = subprocess.Popen(
-        cmd, cwd=os.getcwd(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        cmd, cwd=os.getcwd(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
   else:
     process = subprocess.Popen(
-      cmd, cwd=os.getcwd(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, preexec_fn=os.setsid)
+      cmd, cwd=os.getcwd(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, preexec_fn=os.setsid)
   pgid = None
   if not is_win:
     pgid = os.getpgid(process.pid)

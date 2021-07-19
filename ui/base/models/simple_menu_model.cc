@@ -334,6 +334,11 @@ void SimpleMenuModel::SetMayHaveMnemonicsAt(int index,
   items_[ValidateItemIndex(index)].may_have_mnemonics = may_have_mnemonics;
 }
 
+void SimpleMenuModel::SetElementIdentifierAt(int index,
+                                             ElementIdentifier unique_id) {
+  items_[ValidateItemIndex(index)].unique_id = unique_id;
+}
+
 void SimpleMenuModel::Clear() {
   items_.clear();
   MenuItemsChanged();
@@ -463,6 +468,10 @@ bool SimpleMenuModel::IsNewFeatureAt(int index) const {
 
 bool SimpleMenuModel::MayHaveMnemonicsAt(int index) const {
   return items_[ValidateItemIndex(index)].may_have_mnemonics;
+}
+
+ElementIdentifier SimpleMenuModel::GetElementIdentifierAt(int index) const {
+  return items_[ValidateItemIndex(index)].unique_id;
 }
 
 void SimpleMenuModel::ActivatedAt(int index) {

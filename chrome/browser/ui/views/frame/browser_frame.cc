@@ -38,6 +38,7 @@
 #include "chrome/browser/ui/views/frame/system_menu_model_builder.h"
 #include "chrome/browser/ui/views/frame/top_container_view.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
 #include "ui/base/hit_test.h"
 #include "ui/events/event_handler.h"
@@ -46,7 +47,6 @@
 #include "ui/views/widget/native_widget.h"
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-#include "ash/public/cpp/ash_features.h"
 #include "ash/public/cpp/desks_helper.h"
 #include "components/user_manager/user_manager.h"
 #endif
@@ -55,6 +55,10 @@
 // of lacros-chrome is complete.
 #if defined(OS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS)
 #include "ui/display/screen.h"
+#endif
+
+#if defined(OS_LINUX)
+#include "ui/views/linux_ui/linux_ui.h"
 #endif
 
 namespace {
@@ -130,6 +134,8 @@ bool BrowserFrame::InitBrowserFrame() {
   }
 
   Init(std::move(params));
+  SelectNativeTheme();
+
 #if defined(USE_AURA)
   if (frameless_) {
 #if 0
@@ -140,7 +146,6 @@ bool BrowserFrame::InitBrowserFrame() {
     aura::Window* window = browser_view_->GetWidget()->GetNativeWindow();
     window->SetEventTargeter(std::make_unique<AppWindowEasyResizeWindowTargeter>(
       gfx::Insets(5), browser_view_));
-
   }
 #endif
   if (!native_browser_frame_->UsesNativeSystemMenu()) {
@@ -209,6 +214,26 @@ void BrowserFrame::OnBrowserViewInitViewsComplete() {
   browser_frame_view_->OnBrowserViewInitViewsComplete();
 }
 
+void BrowserFrame::UserChangedTheme(BrowserThemeChangeType theme_change_type) {
+  // kWebAppTheme is triggered by web apps and will only change colors, not the
+  // frame type; just refresh the theme on all views in the browser window.
+  if (theme_change_type == BrowserThemeChangeType::kWebAppTheme) {
+    ThemeChanged();
+    return;
+  }
+
+  // When the browser theme changes, the NativeTheme may also change.
+  // In Incognito, the usage of dark or normal hinges on the browser theme.
+  if (theme_change_type == BrowserThemeChangeType::kBrowserTheme)
+    SelectNativeTheme();
+
+  if (!RegenerateFrameOnThemeChange(theme_change_type)) {
+    // If RegenerateFrame() returns true, ThemeChanged() was implicitly called,
+    // so no need to call it explicitly.
+    ThemeChanged();
+  }
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // BrowserFrame, views::Widget overrides:
 
@@ -237,15 +262,6 @@ const ui::ThemeProvider* BrowserFrame::GetThemeProvider() const {
   return &ThemeService::GetThemeProviderForProfile(browser->profile());
 }
 
-const ui::NativeTheme* BrowserFrame::GetNativeTheme() const {
-  if (browser_view_->browser()->profile()->IsIncognitoProfile() &&
-      ThemeServiceFactory::GetForProfile(browser_view_->browser()->profile())
-          ->UsingDefaultTheme()) {
-    return ui::NativeTheme::GetInstanceForDarkUI();
-  }
-  return views::Widget::GetNativeTheme();
-}
-
 void BrowserFrame::OnNativeWidgetWorkspaceChanged() {
   chrome::SaveWindowWorkspace(browser_view_->browser(), GetWorkspace());
   chrome::SaveWindowVisibleOnAllWorkspaces(browser_view_->browser(),
@@ -263,13 +279,6 @@ void BrowserFrame::OnNativeWidgetWorkspaceChanged() {
     BrowserList::MoveBrowsersInWorkspaceToFront(workspace);
 #endif
   Widget::OnNativeWidgetWorkspaceChanged();
-}
-
-void BrowserFrame::PropagateNativeThemeChanged() {
-  // Instead of immediately propagating the native theme change to the root
-  // view, use BrowserView's custom handling, which may regenerate the frame
-  // first, then propgate the theme change to the root view automatically.
-  browser_view_->UserChangedTheme(BrowserThemeChangeType::kNativeTheme);
 }
 
 void BrowserFrame::ShowContextMenuForViewImpl(views::View* source,
@@ -307,16 +316,13 @@ ui::MenuModel* BrowserFrame::GetSystemMenuModel() {
     // changes happened since the last invocation.
     menu_model_builder_.reset();
   }
-  if (ash::features::IsBentoEnabled()) {
-    auto* desks_helper = ash::DesksHelper::Get();
-    int current_num_desks =
-        desks_helper ? desks_helper->GetNumberOfDesks() : -1;
-    if (current_num_desks != num_desks_) {
-      // Since the number of desks can change, the model must update to show any
-      // changes happened since the last invocation.
-      menu_model_builder_.reset();
-      num_desks_ = current_num_desks;
-    }
+  auto* desks_helper = ash::DesksHelper::Get();
+  int current_num_desks = desks_helper ? desks_helper->GetNumberOfDesks() : -1;
+  if (current_num_desks != num_desks_) {
+    // Since the number of desks can change, the model must update to show any
+    // changes happened since the last invocation.
+    menu_model_builder_.reset();
+    num_desks_ = current_num_desks;
   }
 #endif
   if (!menu_model_builder_.get()) {
@@ -360,4 +366,67 @@ void BrowserFrame::OnTouchUiChanged() {
     non_client_view()->InvalidateLayout();
   }
   GetRootView()->Layout();
+}
+
+void BrowserFrame::SelectNativeTheme() {
+  // Select between regular, dark and GTK theme.
+  ui::NativeTheme* native_theme = ui::NativeTheme::GetInstanceForNativeUi();
+
+  if (browser_view_->browser()->profile()->IsIncognitoProfile()) {
+    // If the flag is enabled, then no matter if we are using the default theme
+    // or not we always use the dark ui instance.
+    if (base::FeatureList::IsEnabled(
+            features::kIncognitoBrandConsistencyForDesktop)) {
+      SetNativeTheme(ui::NativeTheme::GetInstanceForDarkUI());
+      return;
+    }
+
+    // Flag is disabled, fallback to using dark theme only if the incognito
+    // profile is using a default theme.
+    if (ThemeServiceFactory::GetForProfile(browser_view_->browser()->profile())
+            ->UsingDefaultTheme()) {
+      native_theme = ui::NativeTheme::GetInstanceForDarkUI();
+    }
+  }
+
+#if defined(OS_LINUX)
+  if (const views::LinuxUI* linux_ui = views::LinuxUI::instance())
+    native_theme = linux_ui->GetNativeTheme(GetNativeWindow());
+#endif
+
+  SetNativeTheme(native_theme);
+}
+
+bool BrowserFrame::RegenerateFrameOnThemeChange(
+    BrowserThemeChangeType theme_change_type) {
+  bool need_regenerate = false;
+  // TODO(crbug.com/1052397): Revisit the macro expression once build flag
+  // switch of lacros-chrome is complete.
+#if defined(OS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS)
+  // GTK and user theme changes can both change frame buttons, so the frame
+  // always needs to be regenerated on Linux.
+  need_regenerate = true;
+#endif
+
+#if defined(OS_WIN)
+  // On Windows, DWM transition does not performed for a frame regeneration in
+  // fullscreen mode, so do a lighweight theme change to refresh a bookmark bar
+  // on new tab. (see crbug/1002480)
+  need_regenerate |=
+      theme_change_type == BrowserThemeChangeType::kBrowserTheme &&
+      !IsFullscreen();
+#else
+  need_regenerate |= theme_change_type == BrowserThemeChangeType::kBrowserTheme;
+#endif
+
+  if (need_regenerate) {
+    // This is a heavyweight theme change that requires regenerating the frame
+    // as well as repainting the browser window.
+    // No need to call ThemeChanged(). It will be implicitly called by
+    // FrameTypeChanged().
+    FrameTypeChanged();
+    return true;
+  }
+
+  return false;
 }

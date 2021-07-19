@@ -87,7 +87,7 @@ class CORE_EXPORT HTMLIFrameElement final
   // FrameOwner overrides:
   bool AllowFullscreen() const override { return allow_fullscreen_; }
   bool AllowPaymentRequest() const override { return allow_payment_request_; }
-  AtomicString RequiredCsp() const override { return required_csp_; }
+  void CSPAttributeChanged() override;
   AtomicString nwuseragent() const override { return nwuseragent_; }
   bool nwfaketop() const override { return nwfaketop_; }
 

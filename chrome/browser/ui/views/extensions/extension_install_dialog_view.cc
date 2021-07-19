@@ -31,7 +31,10 @@
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_urls.h"
 #include "ui/accessibility/ax_enums.mojom.h"
+#include "ui/accessibility/ax_node_data.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/metadata/metadata_header_macros.h"
+#include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/views/border.h"
@@ -44,8 +47,6 @@
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/layout/grid_layout.h"
-#include "ui/views/metadata/metadata_header_macros.h"
-#include "ui/views/metadata/metadata_impl_macros.h"
 #include "ui/views/widget/widget.h"
 
 using content::OpenURLParams;
@@ -107,7 +108,7 @@ class RatingStar : public views::ImageView {
 
   // views::ImageView:
   void GetAccessibleNodeData(ui::AXNodeData* node_data) override {
-    node_data->role = ax::mojom::Role::kIgnored;
+    node_data->role = ax::mojom::Role::kNone;
   }
 };
 
@@ -127,7 +128,7 @@ class RatingLabel : public views::Label {
 
   // views::Label:
   void GetAccessibleNodeData(ui::AXNodeData* node_data) override {
-    node_data->role = ax::mojom::Role::kIgnored;
+    node_data->role = ax::mojom::Role::kNone;
   }
 };
 
@@ -466,8 +467,8 @@ void ExtensionInstallDialogView::CreateContents() {
 
   const ChromeLayoutProvider* provider = ChromeLayoutProvider::Get();
   auto extension_info_container = std::make_unique<CustomScrollableView>(this);
-  const gfx::Insets content_insets =
-      provider->GetDialogInsetsForContentType(views::CONTROL, views::CONTROL);
+  const gfx::Insets content_insets = provider->GetDialogInsetsForContentType(
+      views::DialogContentType::kControl, views::DialogContentType::kControl);
   extension_info_container->SetBorder(views::CreateEmptyBorder(
       0, content_insets.left(), 0, content_insets.right()));
   extension_info_container->SetLayoutManager(std::make_unique<views::BoxLayout>(

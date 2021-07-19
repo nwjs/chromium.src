@@ -58,6 +58,7 @@
 #include "ash/constants/ash_switches.h"
 #include "ash/keyboard/ui/grit/keyboard_resources.h"
 #include "base/system/sys_info.h"
+#include "chrome/browser/chromeos/file_manager/app_id.h"
 #include "components/user_manager/user_manager.h"
 #include "content/public/browser/site_instance.h"
 #include "content/public/browser/storage_partition.h"
@@ -400,7 +401,13 @@ void ComponentLoader::AddAudioPlayerExtension() {
 }
 
 void ComponentLoader::AddGalleryExtension() {
-  Add(IDR_GALLERY_MANIFEST, base::FilePath(FILE_PATH_LITERAL("gallery")));
+  // TODO(crbug.com/1030935): Delete this entirely around M93 when it has has a
+  // chance to be cleaned up.
+  if (extensions::ExtensionPrefs::Get(profile_)
+          ->ShouldInstallObsoleteComponentExtension(
+              file_manager::kGalleryAppId)) {
+    Add(IDR_GALLERY_MANIFEST, base::FilePath(FILE_PATH_LITERAL("gallery")));
+  }
 }
 
 void ComponentLoader::AddImageLoaderExtension() {
@@ -513,12 +520,12 @@ void ComponentLoader::AddDefaultComponentExtensions(
   std::string default_path("nwjs_default_app");
   if (base::FeatureList::IsEnabled(::features::kNWNewWin)) {
     manifest_contents = 
-      ui::ResourceBundle::GetSharedInstance().GetRawDataResource(IDR_NWJS_DEFAPP_MANIFEST_NEWWIN).as_string();
+      std::string(ui::ResourceBundle::GetSharedInstance().GetRawDataResource(IDR_NWJS_DEFAPP_MANIFEST_NEWWIN));
     default_path = "nwjs_newwin_app";
   }
   else
     manifest_contents =
-      ui::ResourceBundle::GetSharedInstance().GetRawDataResource(IDR_NWJS_DEFAPP_MANIFEST).as_string();
+      std::string(ui::ResourceBundle::GetSharedInstance().GetRawDataResource(IDR_NWJS_DEFAPP_MANIFEST));
   std::unique_ptr<base::DictionaryValue> manifest
     = ParseManifest(manifest_contents);
   if (manifest) {
@@ -708,7 +715,7 @@ void ComponentLoader::AddComponentFromDirWithManifestFilename(
                      manifest_filename, true),
       base::BindOnce(&ComponentLoader::FinishAddComponentFromDir,
                      weak_factory_.GetWeakPtr(), root_directory, extension_id,
-                     base::nullopt, base::nullopt, std::move(done_cb)));
+                     absl::nullopt, absl::nullopt, std::move(done_cb)));
 }
 
 void ComponentLoader::AddWithNameAndDescriptionFromDir(
@@ -751,8 +758,8 @@ void ComponentLoader::AddChromeOsSpeechSynthesisExtensions() {
 void ComponentLoader::FinishAddComponentFromDir(
     const base::FilePath& root_directory,
     const char* extension_id,
-    const base::Optional<std::string>& name_string,
-    const base::Optional<std::string>& description_string,
+    const absl::optional<std::string>& name_string,
+    const absl::optional<std::string>& description_string,
     base::OnceClosure done_cb,
     std::unique_ptr<base::DictionaryValue> manifest) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);

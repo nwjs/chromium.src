@@ -22,6 +22,9 @@ void DesktopWindowTreeHost::SetBoundsInDIP(const gfx::Rect& bounds) {
   AsWindowTreeHost()->SetBoundsInPixels(bounds_in_pixels);
 }
 
+void DesktopWindowTreeHost::UpdateWindowShapeIfNeeded(
+    const ui::PaintContext& context) {}
+
 #if defined(OS_WIN)
 void DesktopWindowTreeHost::SetPositionInDIP(const gfx::Point& pos) {
   const gfx::Point pos_in_pixels =

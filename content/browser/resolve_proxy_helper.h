@@ -10,7 +10,7 @@
 #include "base/containers/circular_deque.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
-#include "base/optional.h"
+#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "base/sequenced_task_runner_helpers.h"
 #include "content/common/content_export.h"
 #include "content/common/renderer_host.mojom.h"
@@ -70,7 +70,7 @@ class CONTENT_EXPORT ResolveProxyHelper
   // network::mojom::ProxyLookupClient implementation.
   void OnProxyLookupComplete(
       int32_t net_error,
-      const base::Optional<net::ProxyInfo>& proxy_info) override;
+      const absl::optional<net::ProxyInfo>& proxy_info) override;
 
   // A PendingRequest is a resolve request that is in progress, or queued.
   struct PendingRequest {

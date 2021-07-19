@@ -26,7 +26,6 @@ import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelperManager;
 import org.chromium.chrome.browser.device.DeviceClassManager;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
-import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.layouts.components.VirtualView;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabLaunchType;
@@ -86,7 +85,6 @@ public class LayoutManagerChrome extends LayoutManagerImpl
      * @param tabContentManagerSupplier Supplier of the {@link TabContentManager} instance.
      * @param layerTitleCacheSupplier Supplier of the {@link LayerTitleCache}.
      * @param overviewModeBehaviorSupplier Supplier of the {@link OverviewModeBehavior}.
-     * @param layoutStateProviderOneshotSupplier Supplier of the {@link LayoutStateProvider}.
      * @param topUiThemeColorProvider {@link ThemeColorProvider} for top UI.
      */
     public LayoutManagerChrome(LayoutManagerHost host, ViewGroup contentContainer,
@@ -94,10 +92,9 @@ public class LayoutManagerChrome extends LayoutManagerImpl
             ObservableSupplier<TabContentManager> tabContentManagerSupplier,
             Supplier<LayerTitleCache> layerTitleCacheSupplier,
             OneshotSupplierImpl<OverviewModeBehavior> overviewModeBehaviorSupplier,
-            OneshotSupplierImpl<LayoutStateProvider> layoutStateProviderOneshotSupplier,
             Supplier<TopUiThemeColorProvider> topUiThemeColorProvider) {
         super(host, contentContainer, tabContentManagerSupplier, layerTitleCacheSupplier,
-                layoutStateProviderOneshotSupplier, topUiThemeColorProvider);
+                topUiThemeColorProvider);
         Context context = host.getContext();
         LayoutRenderHost renderHost = host.getLayoutRenderHost();
 
@@ -119,13 +116,11 @@ public class LayoutManagerChrome extends LayoutManagerImpl
 
         if (createOverviewLayout) {
             if (startSurface != null) {
-                assert TabUiFeatureUtilities.isGridTabSwitcherEnabled();
+                assert TabUiFeatureUtilities.isGridTabSwitcherEnabled(context);
                 TabManagementDelegate tabManagementDelegate =
                         TabManagementModuleProvider.getDelegate();
                 assert tabManagementDelegate != null;
 
-                final ObservableSupplier<? extends BrowserControlsStateProvider>
-                        browserControlsSupplier = mHost.getBrowserControlsManagerSupplier();
                 mOverviewLayout = tabManagementDelegate.createStartSurfaceLayout(
                         context, this, renderHost, startSurface);
             }
@@ -162,7 +157,8 @@ public class LayoutManagerChrome extends LayoutManagerImpl
 
     @Override
     public void init(TabModelSelector selector, TabCreatorManager creator,
-            ControlContainer controlContainer, DynamicResourceLoader dynamicResourceLoader) {
+            ControlContainer controlContainer, DynamicResourceLoader dynamicResourceLoader,
+            TopUiThemeColorProvider topUiColorProvider) {
         Context context = mHost.getContext();
         LayoutRenderHost renderHost = mHost.getLayoutRenderHost();
         BrowserControlsStateProvider browserControlsStateProvider =
@@ -171,9 +167,10 @@ public class LayoutManagerChrome extends LayoutManagerImpl
         // Build Layouts
         mOverviewListLayout =
                 new OverviewListLayout(context, this, renderHost, browserControlsStateProvider);
-        mToolbarSwipeLayout = new ToolbarSwipeLayout(context, this, renderHost);
+        mToolbarSwipeLayout = new ToolbarSwipeLayout(context, this, renderHost,
+                browserControlsStateProvider, this, topUiColorProvider);
 
-        super.init(selector, creator, controlContainer, dynamicResourceLoader);
+        super.init(selector, creator, controlContainer, dynamicResourceLoader, topUiColorProvider);
 
         // TODO: TitleCache should be a part of the ResourceManager.
         mTitleCache = mHost.getTitleCache();
@@ -286,7 +283,7 @@ public class LayoutManagerChrome extends LayoutManagerImpl
     @Override
     protected boolean shouldDelayHideAnimation(Layout layoutBeingHidden) {
         return mEnableAnimations && layoutBeingHidden == mOverviewLayout && mCreatingNtp
-                && !TabUiFeatureUtilities.isGridTabSwitcherEnabled();
+                && !TabUiFeatureUtilities.isGridTabSwitcherEnabled(mHost.getContext());
     }
 
     @Override

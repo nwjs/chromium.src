@@ -229,7 +229,7 @@ Manifest::Type Manifest::GetTypeFromManifestValue(
     const base::ListValue* perm;
     value.GetList(keys::kPermissions, &perm);
     base::Value node("node");
-    if (perm->Find(node) != perm->end())
+    if (perm->Find(node) != perm->GetList().end())
       type = TYPE_NWJS_APP;
   }
 
@@ -395,7 +395,7 @@ bool Manifest::GetPathOfType(const std::string& path,
 }
 
 bool Manifest::EqualsForTesting(const Manifest& other) const {
-  return value_->Equals(other.value()) && location_ == other.location_ &&
+  return *value_ == *other.value() && location_ == other.location_ &&
          extension_id_ == other.extension_id_;
 }
 

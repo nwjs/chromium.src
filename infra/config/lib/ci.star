@@ -15,7 +15,7 @@ to set the default value. Can also be accessed through `ci.defaults`.
 
 load("./args.star", "args")
 load("./branches.star", "branches")
-load("./builders.star", "builders", "os")
+load("./builders.star", "builders", "os", "os_category")
 
 defaults = args.defaults(
     extends = builders.defaults,
@@ -98,8 +98,13 @@ def ci_builder(
     experiments.setdefault("chromium.resultdb.result_sink.junit_tests", 100)
     experiments.setdefault("chromium.resultdb.result_sink.gtests_local", 100)
 
-    # Migrate executable to bbagent incrementally.
-    experiments.setdefault("luci.buildbucket.use_bbagent", 100)
+    goma_enable_ats = defaults.get_value_from_kwargs("goma_enable_ats", kwargs)
+    if goma_enable_ats == args.COMPUTE:
+        os = defaults.get_value_from_kwargs("os", kwargs)
+
+        # in CI, enable ATS on windows.
+        if os and os.category == os_category.WINDOWS:
+            kwargs["goma_enable_ats"] = True
 
     # Define the builder first so that any validation of luci.builder arguments
     # (e.g. bucket) occurs before we try to use it
@@ -200,7 +205,7 @@ def angle_linux_builder(
     return angle_builder(
         name = name,
         goma_backend = goma_backend,
-        os = builders.os.LINUX_BIONIC,
+        os = builders.os.LINUX_BIONIC_SWITCH_TO_DEFAULT,
         pool = "luci.chromium.gpu.ci",
         **kwargs
     )
@@ -327,7 +332,7 @@ def dawn_linux_builder(
         name = name,
         builderless = True,
         goma_backend = goma_backend,
-        os = builders.os.LINUX_BIONIC,
+        os = builders.os.LINUX_BIONIC_SWITCH_TO_DEFAULT,
         pool = "luci.chromium.gpu.ci",
         **kwargs
     )
@@ -492,7 +497,7 @@ def gpu_fyi_linux_builder(
         name = name,
         execution_timeout = execution_timeout,
         goma_backend = goma_backend,
-        os = builders.os.LINUX_BIONIC,
+        os = builders.os.LINUX_BIONIC_SWITCH_TO_DEFAULT,
         pool = "luci.chromium.gpu.ci",
         **kwargs
     )
@@ -555,7 +560,7 @@ def gpu_linux_builder(
         name = name,
         builderless = True,
         goma_backend = goma_backend,
-        os = builders.os.LINUX_BIONIC,
+        os = builders.os.LINUX_BIONIC_SWITCH_TO_DEFAULT,
         pool = "luci.chromium.gpu.ci",
         **kwargs
     )
@@ -601,6 +606,7 @@ def linux_builder(
         notifies = ("chromium.linux",),
         extra_notifies = None,
         **kwargs):
+    kwargs.setdefault("os", builders.os.LINUX_BIONIC_REMOVE)
     return ci.builder(
         name = name,
         builder_group = "chromium.linux",
@@ -701,7 +707,7 @@ def swangle_linux_builder(
     return swangle_builder(
         name = name,
         goma_backend = builders.goma.backend.RBE_PROD,
-        os = builders.os.LINUX_BIONIC,
+        os = builders.os.LINUX_BIONIC_SWITCH_TO_DEFAULT,
         pool = "luci.chromium.gpu.ci",
         **kwargs
     )
@@ -750,6 +756,7 @@ def updater_builder(
         *,
         name,
         **kwargs):
+    kwargs.setdefault("os", os.LINUX_BIONIC_REMOVE)
     return ci.builder(
         name = name,
         builder_group = "chromium.updater",

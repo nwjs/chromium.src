@@ -26,6 +26,7 @@
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "net/base/url_util.h"
 #include "net/cookies/cookie_access_delegate.h"
+#include "net/cookies/cookie_constants.h"
 #include "net/http/http_util.h"
 #include "url/gurl.h"
 #include "url/url_constants.h"
@@ -104,7 +105,7 @@ bool SaturatedTimeFromUTCExploded(const base::Time::Exploded& exploded,
 std::pair<ContextType, bool> ComputeSameSiteContext(
     const std::vector<GURL>& url_chain,
     const SiteForCookies& site_for_cookies,
-    const base::Optional<url::Origin>& initiator,
+    const absl::optional<url::Origin>& initiator,
     bool is_http,
     bool is_main_frame_navigation,
     bool compute_schemefully) {
@@ -170,7 +171,7 @@ std::pair<ContextType, bool> ComputeSameSiteContext(
 CookieOptions::SameSiteCookieContext ComputeSameSiteContextForSet(
     const std::vector<GURL>& url_chain,
     const SiteForCookies& site_for_cookies,
-    const base::Optional<url::Origin>& initiator,
+    const absl::optional<url::Origin>& initiator,
     bool is_http,
     bool is_main_frame_navigation) {
   CookieOptions::SameSiteCookieContext same_site_context;
@@ -537,7 +538,7 @@ CookieOptions::SameSiteCookieContext ComputeSameSiteContextForRequest(
     const std::string& http_method,
     const std::vector<GURL>& url_chain,
     const SiteForCookies& site_for_cookies,
-    const base::Optional<url::Origin>& initiator,
+    const absl::optional<url::Origin>& initiator,
     bool is_main_frame_navigation,
     bool force_ignore_site_for_cookies) {
   // Set SameSiteCookieContext according to the rules laid out in
@@ -596,7 +597,7 @@ CookieOptions::SameSiteCookieContext ComputeSameSiteContextForRequest(
 NET_EXPORT CookieOptions::SameSiteCookieContext
 ComputeSameSiteContextForScriptGet(const GURL& url,
                                    const SiteForCookies& site_for_cookies,
-                                   const base::Optional<url::Origin>& initiator,
+                                   const absl::optional<url::Origin>& initiator,
                                    bool force_ignore_site_for_cookies) {
   if (force_ignore_site_for_cookies)
     return CookieOptions::SameSiteCookieContext::MakeInclusive();
@@ -618,7 +619,7 @@ ComputeSameSiteContextForScriptGet(const GURL& url,
 CookieOptions::SameSiteCookieContext ComputeSameSiteContextForResponse(
     const std::vector<GURL>& url_chain,
     const SiteForCookies& site_for_cookies,
-    const base::Optional<url::Origin>& initiator,
+    const absl::optional<url::Origin>& initiator,
     bool is_main_frame_navigation,
     bool force_ignore_site_for_cookies) {
   if (force_ignore_site_for_cookies)
@@ -653,7 +654,7 @@ CookieOptions::SameSiteCookieContext ComputeSameSiteContextForScriptSet(
   // with the url. We don't check the redirect chain for script access to
   // cookies (only the URL itself).
   return ComputeSameSiteContextForSet(
-      {url}, site_for_cookies, base::nullopt /* initiator */,
+      {url}, site_for_cookies, absl::nullopt /* initiator */,
       false /* is_http */, false /* is_main_frame_navigation */);
 }
 
@@ -714,10 +715,8 @@ CookieOptions::SamePartyCookieContextType ComputeSamePartyContext(
       cookie_access_delegate->IsContextSamePartyWithSite(
           request_site,
           force_ignore_top_frame_party
-              ? base::nullopt
-              : base::make_optional(isolation_info.network_isolation_key()
-                                        .GetTopFrameSite()
-                                        .value()),
+              ? absl::nullopt
+              : isolation_info.network_isolation_key().GetTopFrameSite(),
           isolation_info.party_context().value())) {
     return CookieOptions::SamePartyCookieContextType::kSameParty;
   }
@@ -738,6 +737,24 @@ CookieSamePartyStatus GetSamePartyStatus(const CanonicalCookie& cookie,
     case CookieOptions::SamePartyCookieContextType::kSameParty:
       return CookieSamePartyStatus::kEnforceSamePartyInclude;
   };
+}
+
+FirstPartySetsContextType ComputeFirstPartySetsContextType(
+    const SchemefulSite& request_site,
+    const IsolationInfo& isolation_info,
+    const CookieAccessDelegate* cookie_access_delegate,
+    bool force_ignore_top_frame_party) {
+  if (!isolation_info.IsEmpty() && isolation_info.party_context().has_value() &&
+      cookie_access_delegate) {
+    return cookie_access_delegate->ComputeFirstPartySetsContextType(
+        request_site,
+        force_ignore_top_frame_party
+            ? absl::nullopt
+            : isolation_info.network_isolation_key().GetTopFrameSite(),
+        isolation_info.party_context().value());
+  }
+
+  return FirstPartySetsContextType::kUnknown;
 }
 
 base::OnceCallback<void(CookieAccessResult)> AdaptCookieAccessResultToBool(

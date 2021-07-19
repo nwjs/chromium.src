@@ -95,10 +95,6 @@
       <if expr="not is_android">
         <include name="IDR_ABOUT_SYS_HTML" file="resources\empty.html" flattenhtml="true" type="BINDATA" />
       </if>
-      <if expr="not is_android">
-        <!-- New Tab Page -->
-        <part file="resources/local_ntp/icons.grdp" />
-      </if>
 
       <include name="IDR_DEVTOOLS_DISCOVERY_PAGE_HTML" file="devtools\frontend\devtools_discovery_page.html" type="BINDATA"/>
       <include name="IDR_ACCESSIBILITY_HTML" file="resources\accessibility\accessibility.html" flattenhtml="true" allowexternalscript="true" compress="gzip" type="BINDATA" />

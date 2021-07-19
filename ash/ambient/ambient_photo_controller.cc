@@ -26,7 +26,6 @@
 #include "base/files/file_util.h"
 #include "base/guid.h"
 #include "base/hash/sha1.h"
-#include "base/optional.h"
 #include "base/path_service.h"
 #include "base/rand_util.h"
 #include "base/strings/string_number_conversions.h"
@@ -38,6 +37,7 @@
 #include "base/task_runner_util.h"
 #include "base/threading/sequenced_task_runner_handle.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
+#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/gfx/image/image_skia.h"
 #include "url/gurl.h"
 
@@ -250,7 +250,7 @@ void AmbientPhotoController::OnScreenUpdateInfoFetched(
   // It is possible that |screen_update| is an empty instance if fatal errors
   // happened during the fetch.
   if (screen_update.next_topics.empty()) {
-    LOG(WARNING) << "The screen update has no topics.";
+    DVLOG(2) << "The screen update has no topics.";
 
     fetch_topic_retry_backoff_.InformOfRequest(/*succeeded=*/false);
     ScheduleFetchTopics(/*backoff=*/true);
@@ -502,7 +502,7 @@ void AmbientPhotoController::OnAllPhotoDecoded(bool from_downloading,
 }
 
 void AmbientPhotoController::StartDownloadingWeatherConditionIcon(
-    const base::Optional<WeatherInfo>& weather_info) {
+    const absl::optional<WeatherInfo>& weather_info) {
   if (!weather_info) {
     LOG(WARNING) << "No weather info included in the response.";
     return;

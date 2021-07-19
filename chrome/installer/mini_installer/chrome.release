@@ -22,6 +22,7 @@ nw.dll: %(ChromeDir)s\
 nw_100_percent.pak: %(ChromeDir)s\
 nw_child.dll: %(ChromeDir)s\
 nw_elf.dll: %(ChromeDir)s\
+chrome_pwa_launcher.exe: %(ChromeDir)s\
 d3dcompiler_47.dll: %(ChromeDir)s\
 eventlog_provider.dll: %(ChromeDir)s\
 icudtl.dat: %(ChromeDir)s\
@@ -31,8 +32,8 @@ mojo_core.dll: %(ChromeDir)s\
 nacl64.exe: %(ChromeDir)s\
 nacl_irt_x86_32.nexe: %(ChromeDir)s\
 nacl_irt_x86_64.nexe: %(ChromeDir)s\
-resources.pak: %(ChromeDir)s\
 notification_helper.exe: %(ChromeDir)s\
+resources.pak: %(ChromeDir)s\
 node.dll: %(ChromeDir)s\
 vk_swiftshader.dll: %(ChromeDir)s\
 vk_swiftshader_icd.json: %(ChromeDir)s\

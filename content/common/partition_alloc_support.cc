@@ -11,8 +11,13 @@
 #include "base/allocator/partition_allocator/extended_api.h"
 #include "base/allocator/partition_allocator/partition_alloc_features.h"
 #include "base/allocator/partition_allocator/starscan/pcscan.h"
+#include "base/allocator/partition_allocator/starscan/pcscan_scheduling.h"
+#include "base/allocator/partition_allocator/starscan/stack/stack.h"
 #include "base/allocator/partition_allocator/thread_cache.h"
+#include "base/bind.h"
+#include "base/callback.h"
 #include "base/feature_list.h"
+#include "base/no_destructor.h"
 #include "base/partition_alloc_buildflags.h"
 #include "build/build_config.h"
 #include "content/public/common/content_switches.h"
@@ -42,7 +47,7 @@ void SetProcessNameForPCScan(const std::string& process_type) {
   }();
 
   if (name) {
-    base::internal::PCScan::Instance().SetProcessName(name);
+    base::internal::PCScan::SetProcessName(name);
   }
 }
 
@@ -50,7 +55,7 @@ bool EnablePCScanForMallocPartitionsIfNeeded() {
 #if BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC) && PA_ALLOW_PCSCAN
   DCHECK(base::FeatureList::GetInstance());
   if (base::FeatureList::IsEnabled(base::features::kPartitionAllocPCScan)) {
-    base::allocator::EnablePCScan();
+    base::allocator::EnablePCScan(/*dcscan*/ false);
     return true;
   }
 #endif
@@ -62,7 +67,13 @@ bool EnablePCScanForMallocPartitionsInBrowserProcessIfNeeded() {
   DCHECK(base::FeatureList::GetInstance());
   if (base::FeatureList::IsEnabled(
           base::features::kPartitionAllocPCScanBrowserOnly)) {
-    base::allocator::EnablePCScan();
+    const bool dcscan_wanted =
+        base::FeatureList::IsEnabled(base::features::kPartitionAllocDCScan);
+#if !defined(PA_STARSCAN_UFFD_WRITE_PROTECTOR_SUPPORTED)
+    CHECK(!dcscan_wanted)
+        << "DCScan is currently only supported on Linux based systems";
+#endif
+    base::allocator::EnablePCScan(dcscan_wanted);
     return true;
   }
 #endif
@@ -200,13 +211,22 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
 
 #endif  // BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
 
-  bool pcscan_enabled = EnablePCScanForMallocPartitionsIfNeeded();
+  bool scan_enabled = EnablePCScanForMallocPartitionsIfNeeded();
   // No specified process type means this is the Browser process.
   if (process_type.empty()) {
-    pcscan_enabled = pcscan_enabled ||
-                     EnablePCScanForMallocPartitionsInBrowserProcessIfNeeded();
+    scan_enabled = scan_enabled ||
+                   EnablePCScanForMallocPartitionsInBrowserProcessIfNeeded();
   }
-  if (pcscan_enabled) {
+  if (scan_enabled) {
+    if (base::FeatureList::IsEnabled(
+            base::features::kPartitionAllocPCScanStackScanning)) {
+#if BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
+      base::internal::PCScan::EnableStackScanning();
+      // Notify PCScan about the main thread.
+      base::internal::PCScan::NotifyThreadCreated(
+          base::internal::GetStackTop());
+#endif
+    }
     SetProcessNameForPCScan(process_type);
   }
 }
@@ -269,6 +289,19 @@ void PartitionAllocSupport::ReconfigureAfterTaskRunnerInit(
 
 #endif  // defined(PA_THREAD_CACHE_SUPPORTED) &&
         // BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
+
+  if (base::FeatureList::IsEnabled(
+          base::features::kPartitionAllocPCScanMUAwareScheduler)) {
+    // Assign PCScan a task-based scheduling backend.
+    static base::NoDestructor<base::internal::MUAwareTaskBasedBackend>
+        mu_aware_task_based_backend{
+            base::internal::PCScan::scheduler(),
+            base::BindRepeating([](base::TimeDelta delay) {
+              base::internal::PCScan::PerformDelayedScan(delay);
+            })};
+    base::internal::PCScan::scheduler().SetNewSchedulingBackend(
+        *mu_aware_task_based_backend.get());
+  }
 }
 
 void PartitionAllocSupport::OnForegrounded() {

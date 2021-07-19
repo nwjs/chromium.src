@@ -33,6 +33,7 @@
 #include "extensions/common/permissions/permissions_data.h"
 #include "extensions/common/script_constants.h"
 #include "extensions/common/user_script.h"
+#include "third_party/skia/include/core/SkBitmap.h"
 
 using content::WebContents;
 using extensions::ExtensionResource;
@@ -148,7 +149,7 @@ std::unique_ptr<extensions::UserScript> ParseContentScript(
     std::string* error) {
   // matches (required):
   if (script_value.matches.empty())
-    return std::unique_ptr<extensions::UserScript>();
+    return nullptr;
 
   std::unique_ptr<extensions::UserScript> script(new extensions::UserScript());
 
@@ -161,7 +162,7 @@ std::unique_ptr<extensions::UserScript> ParseContentScript(
     URLPattern pattern(UserScript::ValidUserScriptSchemes(allowed_everywhere));
     if (pattern.Parse(match) != URLPattern::ParseResult::kSuccess) {
       *error = errors::kInvalidMatches;
-      return std::unique_ptr<extensions::UserScript>();
+      return nullptr;
     }
     script->add_url_pattern(pattern);
   }
@@ -176,7 +177,7 @@ std::unique_ptr<extensions::UserScript> ParseContentScript(
 
       if (pattern.Parse(exclude_match) != URLPattern::ParseResult::kSuccess) {
         *error = errors::kInvalidExcludeMatches;
-        return std::unique_ptr<extensions::UserScript>();
+        return nullptr;
       }
       script->add_exclude_url_pattern(pattern);
     }
@@ -249,7 +250,7 @@ std::unique_ptr<extensions::UserScriptList> ParseContentScripts(
     const GURL& owner_base_url,
     std::string* error) {
   if (content_script_list.empty())
-    return std::unique_ptr<extensions::UserScriptList>();
+    return nullptr;
 
   std::unique_ptr<extensions::UserScriptList> result(
       new extensions::UserScriptList());
@@ -259,13 +260,13 @@ std::unique_ptr<extensions::UserScriptList> ParseContentScripts(
     if (!names.insert(name).second) {
       // The name was already in the list.
       *error = kDuplicatedContentScriptNamesError;
-      return std::unique_ptr<extensions::UserScriptList>();
+      return nullptr;
     }
 
     std::unique_ptr<extensions::UserScript> script =
         ParseContentScript(script_value, extension, owner_base_url, error);
     if (!script)
-      return std::unique_ptr<extensions::UserScriptList>();
+      return nullptr;
     script->set_id(UserScript::GenerateUserScriptID());
     script->set_name(name);
     script->set_incognito_enabled(incognito_enabled);
@@ -328,6 +329,17 @@ WebViewInternalCaptureVisibleRegionFunction::Run() {
   }
 
   return RespondNow(Error(GetErrorMessage(capture_result)));
+}
+
+void WebViewInternalCaptureVisibleRegionFunction::GetQuotaLimitHeuristics(
+    QuotaLimitHeuristics* heuristics) const {
+  constexpr base::TimeDelta kSecond = base::TimeDelta::FromSeconds(1);
+  QuotaLimitHeuristic::Config limit = {
+      web_view_internal::MAX_CAPTURE_VISIBLE_REGION_CALLS_PER_SECOND, kSecond};
+
+  heuristics->push_back(std::make_unique<QuotaService::TimedLimit>(
+      limit, std::make_unique<QuotaLimitHeuristic::SingletonBucketMapper>(),
+      "MAX_CAPTURE_VISIBLE_REGION_CALLS_PER_SECOND"));
 }
 
 WebContentsCaptureClient::ScreenshotAccess

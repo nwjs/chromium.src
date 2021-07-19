@@ -269,7 +269,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionInstallDialogViewTest, InstallButtonDelay) {
   CloseAndWait(delegate_view->GetWidget());
 }
 
-// Regression test for https://crbug.com/1201060: Ensures that while an
+// Regression test for https://crbug.com/1201031: Ensures that while an
 // ExtensionInstallDialogView is visible, it does not (and cannot) refer to its
 // originator tab/WebContents after the tab's closure.
 //
@@ -337,7 +337,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionInstallDialogViewTest,
 
   // The dialog remains visible even though |originator_contents| is gone. Note
   // that this doesn't seem quite intuitive, but this is how things are at the
-  // moment. See crbug.com/1201060 for details.
+  // moment. See crbug.com/1201031 for details.
   EXPECT_TRUE(delegate_view->GetVisible());
 
   EXPECT_EQ(nullptr,
@@ -388,12 +388,14 @@ class ExtensionInstallDialogViewInteractiveBrowserTest
     if (from_webstore_)
       prompt->SetWebstoreData("69,420", true, 2.5, 37);
 
+    ExtensionInstallDialogView::SetInstallButtonDelayForTesting(0);
     auto* web_contents = browser()->tab_strip_model()->GetActiveWebContents();
     auto install_prompt =
         std::make_unique<ExtensionInstallPrompt>(web_contents);
     install_prompt->ShowDialog(base::DoNothing(), extension.get(), &icon,
                                std::move(prompt),
                                ExtensionInstallPrompt::ShowDialogCallback());
+    base::RunLoop().RunUntilIdle();
   }
 
   void set_from_webstore() { from_webstore_ = true; }
@@ -509,11 +511,10 @@ IN_PROC_BROWSER_TEST_F(ExtensionInstallDialogViewInteractiveBrowserTest,
 #endif
 IN_PROC_BROWSER_TEST_F(ExtensionInstallDialogViewInteractiveBrowserTest,
                        MAYBE_InvokeUi_DetailedPermission) {
-  AddPermissionWithDetails(
-      "Example header permission",
-      {u"Detailed permission 1", u"Detailed permission 2",
-       base::ASCIIToUTF16("Very very very very very very long detailed "
-                          "permission that wraps to a new line")});
+  AddPermissionWithDetails("Example header permission",
+                           {u"Detailed permission 1", u"Detailed permission 2",
+                            u"Very very very very very very long detailed "
+                            u"permission that wraps to a new line"});
   ShowAndVerifyUi();
 }
 
@@ -695,7 +696,7 @@ void ExtensionInstallDialogRatingsSectionTest::TestRatingsSectionA11y(
   for (views::View* child : rating_view->children()) {
     ui::AXNodeData node_data;
     child->GetAccessibleNodeData(&node_data);
-    EXPECT_EQ(ax::mojom::Role::kIgnored, node_data.role);
+    EXPECT_EQ(ax::mojom::Role::kNone, node_data.role);
   }
 
   CloseAndWait(modal_dialog);

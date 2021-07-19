@@ -61,8 +61,8 @@ class ContentVerifyJob : public base::RefCountedThreadSafe<ContentVerifyJob> {
     FAILURE_REASON_MAX
   };
   using FailureCallback = base::OnceCallback<void(FailureReason, scoped_refptr<ContentVerifyJob>)>;
-  using ReadyCallback = base::Callback<void(scoped_refptr<ContentVerifyJob>)>;
-  using SuccessCallback = base::Callback<void(void)>;
+  using ReadyCallback = base::OnceCallback<void(scoped_refptr<ContentVerifyJob>)>;
+  using SuccessCallback = base::OnceCallback<void(void)>;
 
   // The |failure_callback| will be called at most once if there was a failure.
   ContentVerifyJob(const ExtensionId& extension_id,
@@ -74,7 +74,7 @@ class ContentVerifyJob : public base::RefCountedThreadSafe<ContentVerifyJob> {
   ContentVerifyJob(ContentHashReader* hash_reader,
                    const ContentVerifierKey& content_verifier_key,
                    FailureCallback failure_callback,
-                   const ReadyCallback& ready_callback);
+                   ReadyCallback ready_callback);
 
   // This begins the process of getting expected hashes, so it should be called
   // as early as possible.
@@ -92,7 +92,7 @@ class ContentVerifyJob : public base::RefCountedThreadSafe<ContentVerifyJob> {
   // is not so appropriate.
   void Done();
 
-  void SetSuccessCallback(const SuccessCallback& success_callback) { success_callback_ = success_callback; }
+  void SetSuccessCallback(SuccessCallback& success_callback) { success_callback_ = std::move(success_callback); }
   const SuccessCallback& success_callback() { return success_callback_; }
 
   class TestObserver : public base::RefCountedThreadSafe<TestObserver> {

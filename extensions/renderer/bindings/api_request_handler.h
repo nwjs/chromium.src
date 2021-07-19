@@ -11,15 +11,12 @@
 
 #include "base/callback.h"
 #include "base/macros.h"
-#include "base/optional.h"
+#include "base/values.h"
 #include "extensions/renderer/bindings/api_binding_types.h"
 #include "extensions/renderer/bindings/api_last_error.h"
 #include "extensions/renderer/bindings/interaction_provider.h"
+#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "v8/include/v8.h"
-
-namespace base {
-class ListValue;
-}
 
 namespace extensions {
 class APIResponseValidator;
@@ -45,7 +42,7 @@ class APIRequestHandler {
     std::string method_name;
     bool has_callback = false;
     bool has_user_gesture = false;
-    std::unique_ptr<base::ListValue> arguments;
+    std::unique_ptr<base::Value> arguments_list;
 
    private:
     DISALLOW_COPY_AND_ASSIGN(Request);
@@ -66,7 +63,7 @@ class APIRequestHandler {
   // no callback was specified).
   int StartRequest(v8::Local<v8::Context> context,
                    const std::string& method,
-                   std::unique_ptr<base::ListValue> arguments,
+                   std::unique_ptr<base::Value> arguments_list,
                    v8::Local<v8::Function> callback,
                    v8::Local<v8::Function> custom_callback,
                    bool sync = false,
@@ -79,7 +76,7 @@ class APIRequestHandler {
   std::pair<int, v8::Local<v8::Promise>> StartPromiseBasedRequest(
       v8::Local<v8::Context> context,
       const std::string& method,
-      std::unique_ptr<base::ListValue> arguments);
+      std::unique_ptr<base::Value> arguments_list);
 
   // Adds a pending request for the request handler to manage (and complete via
   // CompleteRequest). This is used by renderer-side implementations that
@@ -95,7 +92,7 @@ class APIRequestHandler {
   // Warning: This can run arbitrary JS code, so the |context| may be
   // invalidated after this!
   void CompleteRequest(int request_id,
-                       const base::ListValue& response,
+                       const base::Value& response_list,
                        const std::string& error);
   void CompleteRequest(int request_id,
                        const std::vector<v8::Local<v8::Value>>& response,
@@ -136,7 +133,7 @@ class APIRequestHandler {
 
     std::unique_ptr<AsyncResultHandler> async_handler;
 
-    // Note: We can't use base::Optional here for derived Token instances.
+    // Note: We can't use absl::optional here for derived Token instances.
     std::unique_ptr<InteractionProvider::Token> user_gesture_token;
   };
 
@@ -147,7 +144,7 @@ class APIRequestHandler {
   void StartRequestImpl(v8::Local<v8::Context> context,
                         int request_id,
                         const std::string& method,
-                        std::unique_ptr<base::ListValue> arguments,
+                        std::unique_ptr<base::Value> arguments_list,
                         std::unique_ptr<AsyncResultHandler> async_handler,
                         bool sync, bool* success, base::ListValue* response, std::string* error);
 

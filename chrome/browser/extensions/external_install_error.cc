@@ -5,6 +5,8 @@
 #include "chrome/browser/extensions/external_install_error.h"
 
 #include <stddef.h>
+
+#include <memory>
 #include <utility>
 
 #include "base/bind.h"
@@ -326,15 +328,14 @@ ExternalInstallError::ExternalInstallError(
       manager_(manager),
       error_service_(GlobalErrorServiceFactory::GetForProfile(
           Profile::FromBrowserContext(browser_context_))) {
-  prompt_.reset(new ExtensionInstallPrompt::Prompt(
-      ExtensionInstallPrompt::EXTERNAL_INSTALL_PROMPT));
+  prompt_ = std::make_unique<ExtensionInstallPrompt::Prompt>(
+      ExtensionInstallPrompt::EXTERNAL_INSTALL_PROMPT);
 
-  webstore_data_fetcher_.reset(
-      new WebstoreDataFetcher(this, GURL(), extension_id_));
-  webstore_data_fetcher_->Start(
-      content::BrowserContext::GetDefaultStoragePartition(browser_context_)
-          ->GetURLLoaderFactoryForBrowserProcess()
-          .get());
+  webstore_data_fetcher_ =
+      std::make_unique<WebstoreDataFetcher>(this, GURL(), extension_id_);
+  webstore_data_fetcher_->Start(browser_context_->GetDefaultStoragePartition()
+                                    ->GetURLLoaderFactoryForBrowserProcess()
+                                    .get());
 }
 
 ExternalInstallError::~ExternalInstallError() {
@@ -451,9 +452,9 @@ void ExternalInstallError::OnFetchComplete() {
   // Create a new ExtensionInstallPrompt. We pass in NULL for the UI
   // components because we display at a later point, and don't want
   // to pass ones which may be invalidated.
-  install_ui_.reset(
+  install_ui_ = base::WrapUnique(
       new ExtensionInstallPrompt(Profile::FromBrowserContext(browser_context_),
-                                 NULL));  // NULL native window.
+                                 /*native_window=*/nullptr));
 
   install_ui_->ShowDialog(
       base::BindOnce(&ExternalInstallError::OnInstallPromptDone,
@@ -472,7 +473,8 @@ void ExternalInstallError::OnDialogReady(
   prompt_ = std::move(prompt);
 
   if (alert_type_ == BUBBLE_ALERT) {
-    global_error_.reset(new ExternalInstallBubbleAlert(this, prompt_.get()));
+    global_error_ =
+        std::make_unique<ExternalInstallBubbleAlert>(this, prompt_.get());
     error_service_->AddUnownedGlobalError(global_error_.get());
 
     if (!manager_->has_currently_visible_install_alert()) {
@@ -487,7 +489,7 @@ void ExternalInstallError::OnDialogReady(
     }
   } else {
     DCHECK(alert_type_ == MENU_ALERT);
-    global_error_.reset(new ExternalInstallMenuAlert(this));
+    global_error_ = std::make_unique<ExternalInstallMenuAlert>(this);
     error_service_->AddUnownedGlobalError(global_error_.get());
   }
 }

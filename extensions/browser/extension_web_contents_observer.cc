@@ -173,8 +173,6 @@ void ExtensionWebContentsObserver::RenderFrameDeleted(
   ProcessManager::Get(browser_context_)
       ->UnregisterRenderFrameHost(render_frame_host);
   ExtensionApiFrameIdMap::Get()->OnRenderFrameDeleted(render_frame_host);
-  ContentScriptTracker::RenderFrameDeleted(
-      base::PassKey<ExtensionWebContentsObserver>(), render_frame_host);
 }
 
 void ExtensionWebContentsObserver::ReadyToCommitNavigation(
@@ -250,28 +248,6 @@ void ExtensionWebContentsObserver::MediaPictureInPictureChanged(
       process_manager->DecrementLazyKeepaliveCount(extension, Activity::MEDIA,
                                                    Activity::kPictureInPicture);
   }
-}
-
-bool ExtensionWebContentsObserver::OnMessageReceived(
-    const IPC::Message& message,
-    content::RenderFrameHost* render_frame_host) {
-  DCHECK(initialized_);
-  bool handled = true;
-  tmp_render_frame_host_ = nullptr;
-  IPC_BEGIN_MESSAGE_MAP_WITH_PARAM(
-      ExtensionWebContentsObserver, message, render_frame_host)
-    IPC_MESSAGE_HANDLER(ExtensionHostMsg_Request, OnRequest)
-    IPC_MESSAGE_UNHANDLED(handled = false)
-  IPC_END_MESSAGE_MAP()
-  tmp_render_frame_host_ = render_frame_host; //must put here to
-                                              //mark dealing with
-                                              //sync msg
-  IPC_BEGIN_MESSAGE_MAP_WITH_PARAM(
-      ExtensionWebContentsObserver, message, render_frame_host)
-    IPC_MESSAGE_HANDLER(ExtensionHostMsg_RequestSync, OnRequestSync)
-    IPC_MESSAGE_UNHANDLED(handled = false)
-  IPC_END_MESSAGE_MAP()
-  return handled;
 }
 
 void ExtensionWebContentsObserver::PepperInstanceCreated() {
@@ -360,41 +336,5 @@ mojom::LocalFrame* ExtensionWebContentsObserver::GetLocalFrame(
   }
   return remote.get();
 }
-
-void ExtensionWebContentsObserver::OnRequest(
-    content::RenderFrameHost* render_frame_host,
-    const mojom::RequestParams& params) {
-  DCHECK(initialized_);
-  dispatcher_.Dispatch(params, render_frame_host,
-                       render_frame_host->GetProcess()->GetID());
-}
-
-void ExtensionWebContentsObserver::OnRequestSync(
-                                                 const mojom::RequestParams& params,
-                                                 bool* success,
-                                                 base::ListValue* response,
-                                                 std::string* error) {
-  content::RenderFrameHost* render_frame_host = tmp_render_frame_host_;
-  dispatcher_.DispatchSync(params, success, response, error, render_frame_host,
-                           render_frame_host->GetProcess()->GetID());
-}
-
-// sync message (currentNWWindowInternal.getWinParamInternal) would
-// be sent to wrong process and block in the case for webview
-// NWJS#5564
-#if 1
-bool ExtensionWebContentsObserver::Send(IPC::Message* message) {
-  if (!web_contents()) {
-    delete message;
-    return false;
-  }
-
-  if (tmp_render_frame_host_ && web_contents()->IsInnerWebContentsForGuest()) {
-    return tmp_render_frame_host_->Send(message);
-  }
-
-  return web_contents()->GetMainFrame()->Send(message);
-}
-#endif
 
 }  // namespace extensions

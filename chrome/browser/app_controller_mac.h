@@ -119,6 +119,11 @@ class TabMenuBridge;
 }
 
 @property(readonly, nonatomic) BOOL startupComplete;
+@property(readonly, nonatomic) Profile* lastProfileIfLoaded;
+
+// DEPRECATED: use lastProfileIfLoaded instead.
+// TODO(https://crbug.com/1176734): May be blocking, migrate all callers to
+// |-lastProfileIfLoaded|.
 @property(readonly, nonatomic) Profile* lastProfile;
 
 // This method is called very early in application startup after the main menu
@@ -181,8 +186,8 @@ class TabMenuBridge;
 
 // Called when the user has changed browser windows, meaning the backing profile
 // may have changed. This can cause a rebuild of the user-data menus. This is a
-// no-op if the new profile is the same as the current one. This will always be
-// the original profile and never incognito.
+// no-op if the new profile is the same as the current one. This can be either
+// the original or the incognito profile.
 - (void)windowChangedToProfile:(Profile*)profile;
 
 // Certain NSMenuItems [Close Tab and Close Window] have different

@@ -6,9 +6,9 @@
 #define CONTENT_PUBLIC_BROWSER_SHARED_WORKER_INSTANCE_H_
 
 #include <string>
-
 #include "base/files/file_path.h"
 
+#include "components/services/storage/public/cpp/storage_key.h"
 #include "content/common/content_export.h"
 #include "services/network/public/mojom/content_security_policy.mojom.h"
 #include "services/network/public/mojom/fetch_api.mojom.h"
@@ -36,7 +36,7 @@ class CONTENT_EXPORT SharedWorkerInstance {
       blink::mojom::ScriptType script_type,
       network::mojom::CredentialsMode credentials_mode,
       const std::string& name,
-      const url::Origin& constructor_origin,
+      const storage::StorageKey& storage_key,
       network::mojom::IPAddressSpace creation_address_space,
       blink::mojom::SharedWorkerCreationContextType creation_context_type);
   SharedWorkerInstance(const SharedWorkerInstance& other);
@@ -49,9 +49,10 @@ class CONTENT_EXPORT SharedWorkerInstance {
   // constructor origin params according to the SharedWorker constructor steps
   // in the HTML spec:
   // https://html.spec.whatwg.org/multipage/workers.html#shared-workers-and-the-sharedworker-interface
+  // Note that we are using StorageKey to represent the constructor origin.
   bool Matches(const GURL& url,
                const std::string& name,
-               const url::Origin& constructor_origin) const;
+               const storage::StorageKey& storage_key) const;
 
   // Accessors.
   bool nodejs() const { return is_node_js_; }
@@ -62,7 +63,7 @@ class CONTENT_EXPORT SharedWorkerInstance {
   network::mojom::CredentialsMode credentials_mode() const {
     return credentials_mode_;
   }
-  const url::Origin& constructor_origin() const { return constructor_origin_; }
+  const storage::StorageKey& storage_key() const { return storage_key_; }
   network::mojom::IPAddressSpace creation_address_space() const {
     return creation_address_space_;
   }
@@ -82,10 +83,11 @@ class CONTENT_EXPORT SharedWorkerInstance {
 
   const std::string name_;
 
-  // The origin of the document that created this shared worker instance. Used
-  // for security checks. See Matches() for details.
+  // The storage key. The key contains the origin of the document that created
+  // this shared worker instance. Used for security checks. See Matches() for
+  // details.
   // https://html.spec.whatwg.org/multipage/workers.html#concept-sharedworkerglobalscope-constructor-origin
-  const url::Origin constructor_origin_;
+  const storage::StorageKey storage_key_;
 
   const network::mojom::IPAddressSpace creation_address_space_;
   const blink::mojom::SharedWorkerCreationContextType creation_context_type_;

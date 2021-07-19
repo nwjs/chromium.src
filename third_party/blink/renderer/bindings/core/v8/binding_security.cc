@@ -161,8 +161,7 @@ bool CanAccessWindowInternal(
           (accessing_window->GetAgent()->IsExplicitlyOriginKeyed() !=
            local_target_window->GetAgent()->IsExplicitlyOriginKeyed()) ||
           (WebTestSupport::IsRunningWebTest() &&
-           local_target_window->GetFrame()->PagePopupOwner()));
-       */
+          local_target_window->GetFrame()->PagePopupOwner())); */
 
       *cross_document_access =
           DOMWindow::CrossDocumentAccessPolicy::kDisallowed;

@@ -47,8 +47,8 @@ namespace {
 
 constexpr int kIconSize = 64;
 
-constexpr char kExtensionRemovedError[] =
-    "Extension was removed before dialog closed.";
+constexpr char16_t kExtensionRemovedError[] =
+    u"Extension was removed before dialog closed.";
 
 constexpr char kReferrerId[] = "chrome-remove-extension-dialog";
 
@@ -271,9 +271,8 @@ void ExtensionUninstallDialog::OnDialogClosed(CloseAction action) {
     case CLOSE_ACTION_CANCELED:
       base::RecordAction(
           base::UserMetricsAction("Extensions.UninstallDialogCancelClick"));
-      error = extension_uninstalled_early_
-                  ? base::ASCIIToUTF16(kExtensionRemovedError)
-                  : u"User canceled uninstall dialog";
+      error = extension_uninstalled_early_ ? kExtensionRemovedError
+                                           : u"User canceled uninstall dialog";
       break;
     case CLOSE_ACTION_LAST:
       NOTREACHED();
@@ -296,7 +295,7 @@ bool ExtensionUninstallDialog::Uninstall(std::u16string* error) {
         ->extension_service()
         ->UninstallExtension(extension_->id(), uninstall_reason_, error);
   }
-  *error = base::ASCIIToUTF16(kExtensionRemovedError);
+  *error = kExtensionRemovedError;
   return false;
 }
 

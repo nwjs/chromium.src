@@ -124,7 +124,7 @@ if (use_v8_context_snapshot) {
       "//v8",
     ]
 
-    if (is_win && is_component_build) {
+    if ((is_win || is_linux) && is_component_build) {
     } else {
       deps += [
         "//v8:v8_initializers",

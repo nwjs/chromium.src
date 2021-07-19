@@ -25,6 +25,7 @@ import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
+import org.robolectric.annotation.LooperMode;
 import org.robolectric.annotation.RealObject;
 import org.robolectric.shadows.ShadowLooper;
 
@@ -35,6 +36,7 @@ import org.chromium.base.task.test.BackgroundShadowAsyncTask;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.JniMocker;
+import org.chromium.base.test.util.PayloadCallbackHelper;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
@@ -54,7 +56,6 @@ import org.chromium.content_public.browser.WebContents;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 /**
  * "Integration" style unit tests for {@link ChromeSurveyController} that mocks most of the
@@ -68,6 +69,8 @@ import java.util.concurrent.TimeoutException;
             ChromeSurveyControllerFlowTest.ShadowSurveyInfoBar.class,
             ChromeSurveyControllerFlowTest.ShadowInfoBarContainer.class
         })
+//TODO(crbug.com/1210371): Rewrite using paused loop. See crbug for details.
+@LooperMode(LooperMode.Mode.LEGACY)
 public class ChromeSurveyControllerFlowTest {
     // clang-format on
     private static final String TEST_TRIGGER_ID = "test_trigger_id";
@@ -101,16 +104,14 @@ public class ChromeSurveyControllerFlowTest {
 
     @Implements(SurveyInfoBar.class)
     static class ShadowSurveyInfoBar {
-        static CallbackHelper sShowInfoBarCallback;
-        static SurveyInfoBarDelegate sLastSurveyInfoBarDelegate;
+        static PayloadCallbackHelper<SurveyInfoBarDelegate> sShowInfoBarCallback;
 
         @Implementation
         public static void showSurveyInfoBar(WebContents webContents, String siteId,
                 boolean showAsBottomSheet, int displayLogoResId,
                 SurveyInfoBarDelegate surveyInfoBarDelegate) {
             Assert.assertNotNull("sShowInfoBarCallback is null.", sShowInfoBarCallback);
-            sLastSurveyInfoBarDelegate = surveyInfoBarDelegate;
-            sShowInfoBarCallback.notifyCalled();
+            sShowInfoBarCallback.notifyCalled(surveyInfoBarDelegate);
         }
     }
 
@@ -158,7 +159,7 @@ public class ChromeSurveyControllerFlowTest {
         // By setting MAX_NUMBER to 1, #isRandomSelectedBySurvey is always true.
         ShadowChromeFeatureList.sParamValues.put(ChromeSurveyController.MAX_NUMBER, "1");
         ShadowInfoBarContainer.sInfoBarContainer = mMockInfoBarContainer;
-        ShadowSurveyInfoBar.sShowInfoBarCallback = new CallbackHelper();
+        ShadowSurveyInfoBar.sShowInfoBarCallback = new PayloadCallbackHelper<>();
 
         // Set user is selected and by pass the rate limit. The rate limiting logic is tested in
         // ChromeSurveyControllerTest.
@@ -180,7 +181,6 @@ public class ChromeSurveyControllerFlowTest {
         ChromeSurveyController.forceIsUMAEnabledForTesting(false);
         ShadowChromeFeatureList.sParamValues.clear();
         ShadowChromeFeatureList.sEnableSurvey = false;
-        ShadowSurveyInfoBar.sLastSurveyInfoBarDelegate = null;
         ShadowRecordHistogram.reset();
 
         CommandLine.getInstance().removeSwitch(ChromeSurveyController.COMMAND_LINE_PARAM_NAME);
@@ -367,7 +367,8 @@ public class ChromeSurveyControllerFlowTest {
     @Test
     public void testSurveyInfoBarDelegate_getLifecycleDispatcher() {
         presentSurveyInfoBarInValidTab();
-        SurveyInfoBarDelegate surveyInfoBarDelegate = getSurveyInfoBarDelegate();
+        SurveyInfoBarDelegate surveyInfoBarDelegate =
+                ShadowSurveyInfoBar.sShowInfoBarCallback.getOnlyPayloadBlocking();
         Assert.assertEquals("#getLifecycleDispatcher is different.", mMockLifecycleDispatcher,
                 surveyInfoBarDelegate.getLifecycleDispatcher());
     }
@@ -375,7 +376,8 @@ public class ChromeSurveyControllerFlowTest {
     @Test
     public void testSurveyInfoBarDelegate_getSurveyPromptString() {
         presentSurveyInfoBarInValidTab();
-        SurveyInfoBarDelegate surveyInfoBarDelegate = getSurveyInfoBarDelegate();
+        SurveyInfoBarDelegate surveyInfoBarDelegate =
+                ShadowSurveyInfoBar.sShowInfoBarCallback.getOnlyPayloadBlocking();
 
         Assert.assertEquals("#getPromptString is different.",
                 ContextUtils.getApplicationContext().getString(R.string.chrome_survey_prompt),
@@ -385,7 +387,8 @@ public class ChromeSurveyControllerFlowTest {
     @Test
     public void testSurveyInfoBarDelegate_onSurveyTriggered() {
         presentSurveyInfoBarInValidTab();
-        SurveyInfoBarDelegate surveyInfoBarDelegate = getSurveyInfoBarDelegate();
+        SurveyInfoBarDelegate surveyInfoBarDelegate =
+                ShadowSurveyInfoBar.sShowInfoBarCallback.getOnlyPayloadBlocking();
 
         surveyInfoBarDelegate.onSurveyTriggered();
         assertInfoBarClosingStateRecorded(InfoBarClosingState.ACCEPTED_SURVEY);
@@ -399,7 +402,8 @@ public class ChromeSurveyControllerFlowTest {
         mSharedPreferencesManager.writeInt(mPrefKeyDownloadAttempts, downloadAttempted);
 
         presentSurveyInfoBarInValidTab();
-        SurveyInfoBarDelegate surveyInfoBarDelegate = getSurveyInfoBarDelegate();
+        SurveyInfoBarDelegate surveyInfoBarDelegate =
+                ShadowSurveyInfoBar.sShowInfoBarCallback.getOnlyPayloadBlocking();
 
         surveyInfoBarDelegate.onSurveyTriggered();
         assertInfoBarClosingStateRecorded(InfoBarClosingState.ACCEPTED_SURVEY);
@@ -410,7 +414,8 @@ public class ChromeSurveyControllerFlowTest {
     @Test
     public void testSurveyInfoBarDelegate_onSurveyInfoBarClosed() {
         presentSurveyInfoBarInValidTab();
-        SurveyInfoBarDelegate surveyInfoBarDelegate = getSurveyInfoBarDelegate();
+        SurveyInfoBarDelegate surveyInfoBarDelegate =
+                ShadowSurveyInfoBar.sShowInfoBarCallback.getOnlyPayloadBlocking();
 
         surveyInfoBarDelegate.onSurveyInfoBarClosed(
                 /*viaCloseButton=*/false, /*visibleWhenClosed=*/true);
@@ -434,7 +439,8 @@ public class ChromeSurveyControllerFlowTest {
     @Test
     public void testSurveyInfoBarDelegate_onSurveyInfoBarTabBecomeInteractable() {
         presentSurveyInfoBarInValidTab();
-        SurveyInfoBarDelegate surveyInfoBarDelegate = getSurveyInfoBarDelegate();
+        SurveyInfoBarDelegate surveyInfoBarDelegate =
+                ShadowSurveyInfoBar.sShowInfoBarCallback.getOnlyPayloadBlocking();
 
         surveyInfoBarDelegate.onSurveyInfoBarTabInteractabilityChanged(true);
         Shadows.shadowOf(Looper.myLooper())
@@ -446,7 +452,8 @@ public class ChromeSurveyControllerFlowTest {
     @Test
     public void testSurveyInfoBarDelegate_onSurveyInfoBarTabBecomeNotInteractable() {
         presentSurveyInfoBarInValidTab();
-        SurveyInfoBarDelegate surveyInfoBarDelegate = getSurveyInfoBarDelegate();
+        SurveyInfoBarDelegate surveyInfoBarDelegate =
+                ShadowSurveyInfoBar.sShowInfoBarCallback.getOnlyPayloadBlocking();
 
         surveyInfoBarDelegate.onSurveyInfoBarTabInteractabilityChanged(true);
         Shadows.shadowOf(Looper.myLooper())
@@ -461,7 +468,8 @@ public class ChromeSurveyControllerFlowTest {
     @Test
     public void testSurveyInfoBarDelegate_onSurveyInfoBarTabHidden() {
         presentSurveyInfoBarInValidTab();
-        SurveyInfoBarDelegate surveyInfoBarDelegate = getSurveyInfoBarDelegate();
+        SurveyInfoBarDelegate surveyInfoBarDelegate =
+                ShadowSurveyInfoBar.sShowInfoBarCallback.getOnlyPayloadBlocking();
 
         surveyInfoBarDelegate.onSurveyInfoBarTabInteractabilityChanged(true);
         Shadows.shadowOf(Looper.myLooper())
@@ -532,7 +540,7 @@ public class ChromeSurveyControllerFlowTest {
                 ShadowSurveyInfoBar.sShowInfoBarCallback.getCallCount());
         if (shown) {
             Assert.assertNotNull("SurveyInfoBarDelegate is null.",
-                    ShadowSurveyInfoBar.sLastSurveyInfoBarDelegate);
+                    ShadowSurveyInfoBar.sShowInfoBarCallback.getOnlyPayloadBlocking());
         }
     }
 
@@ -569,18 +577,6 @@ public class ChromeSurveyControllerFlowTest {
                 1,
                 ShadowRecordHistogram.getHistogramValueCountForTesting(
                         "Android.Survey.DownloadAttemptsBeforeAccepted", sample));
-    }
-
-    private SurveyInfoBarDelegate getSurveyInfoBarDelegate() {
-        try {
-            ShadowSurveyInfoBar.sShowInfoBarCallback.waitForFirst();
-        } catch (TimeoutException te) {
-            throw new AssertionError("ShowInfoBarCallback timeout.", te);
-        }
-        SurveyInfoBarDelegate surveyInfoBarDelegate =
-                ShadowSurveyInfoBar.sLastSurveyInfoBarDelegate;
-        Assert.assertNotNull("surveyInfoBarDelegate is null", surveyInfoBarDelegate);
-        return surveyInfoBarDelegate;
     }
 
     private static class TestSurveyController extends SurveyController {

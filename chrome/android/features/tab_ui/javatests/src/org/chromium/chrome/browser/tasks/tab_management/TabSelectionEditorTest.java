@@ -96,7 +96,8 @@ public class TabSelectionEditorTest {
         TestThreadUtils.runOnUiThreadBlocking(() -> {
             mTabSelectionEditorCoordinator = new TabSelectionEditorCoordinator(
                     mActivityTestRule.getActivity(), mParentView, mTabModelSelector,
-                    mActivityTestRule.getActivity().getTabContentManager(), getMode());
+                    mActivityTestRule.getActivity().getTabContentManager(), getMode(),
+                    mActivityTestRule.getActivity().getCompositorViewHolder());
 
             mTabSelectionEditorController = mTabSelectionEditorCoordinator.getController();
             mTabSelectionEditorLayout =
@@ -114,7 +115,8 @@ public class TabSelectionEditorTest {
     }
 
     private @TabListCoordinator.TabListMode int getMode() {
-        return TabUiFeatureUtilities.isTabGroupsAndroidContinuationEnabled()
+        return TabUiFeatureUtilities.isTabGroupsAndroidContinuationEnabled(
+                       mActivityTestRule.getActivity())
                         && SysUtils.isLowEndDevice()
                 ? TabListCoordinator.TabListMode.LIST
                 : TabListCoordinator.TabListMode.GRID;

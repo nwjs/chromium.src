@@ -28,6 +28,7 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/lock.h"
+#include "base/trace_event/base_tracing.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "net/filter/gzip_header.h"
@@ -580,6 +581,14 @@ base::RefCountedMemory* ResourceBundle::LoadDataResourceBytes(
 base::RefCountedMemory* ResourceBundle::LoadDataResourceBytesForScale(
     int resource_id,
     ScaleFactor scale_factor) const {
+  TRACE_EVENT("ui", "ResourceBundle::LoadDataResourceBytesForScale",
+              [&](perfetto::EventContext ctx) {
+                auto* event =
+                    ctx.event<perfetto::protos::pbzero::ChromeTrackEvent>();
+                auto* data = event->set_resource_bundle();
+                data->set_resource_id(resource_id);
+              });
+
   if (delegate_) {
     base::RefCountedMemory* bytes =
         delegate_->LoadDataResourceBytes(resource_id, scale_factor);
@@ -639,7 +648,7 @@ base::StringPiece ResourceBundle::GetRawDataResourceForScale(
 
 std::string ResourceBundle::LoadDataResourceString(int resource_id) const {
   if (delegate_) {
-    base::Optional<std::string> data =
+    absl::optional<std::string> data =
         delegate_->LoadDataResourceString(resource_id);
     if (data)
       return data.value();
@@ -850,8 +859,8 @@ void ResourceBundle::InitSharedInstance(Delegate* delegate) {
   DCHECK(g_shared_instance_ == nullptr) << "ResourceBundle initialized twice";
   g_shared_instance_ = new ResourceBundle(delegate);
   std::vector<ScaleFactor> supported_scale_factors;
-  chromium_name = new std::u16string(base::ASCIIToUTF16("Chromium"));
-  nwjs_name     = new std::u16string(base::ASCIIToUTF16("NW.js"));
+  chromium_name = new std::u16string(u"Chromium");
+  nwjs_name     = new std::u16string(u"NW.js");
 #if defined(OS_IOS)
   display::Display display = display::Screen::GetScreen()->GetPrimaryDisplay();
   if (display.device_scale_factor() > 2.0) {
@@ -867,7 +876,7 @@ void ResourceBundle::InitSharedInstance(Delegate* delegate) {
   // On platforms other than iOS, 100P is always a supported scale factor.
   // For Windows we have a separate case in this function.
   supported_scale_factors.push_back(SCALE_FACTOR_100P);
-#if defined(OS_APPLE) || defined(OS_LINUX) || defined(OS_CHROMEOS) || \
+#if defined(OS_MAC) || defined(OS_LINUX) || defined(OS_CHROMEOS) || \
     defined(OS_WIN)
   supported_scale_factors.push_back(SCALE_FACTOR_200P);
 #endif

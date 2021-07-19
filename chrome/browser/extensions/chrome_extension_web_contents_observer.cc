@@ -28,6 +28,7 @@
 #include "extensions/common/extension_messages.h"
 #include "extensions/common/extension_urls.h"
 #include "extensions/common/switches.h"
+#include "third_party/blink/public/common/chrome_debug_urls.h"
 
 #include "components/zoom/zoom_controller.h"
 #include "content/public/browser/web_contents.h"
@@ -58,8 +59,8 @@ void ChromeExtensionWebContentsObserver::OnZoomChanged(
       process_manager->GetExtensionForWebContents(web_contents());
   if (extension) {
     base::ListValue args;
-    args.AppendDouble(data.old_zoom_level);
-    args.AppendDouble(data.new_zoom_level);
+    args.Append(data.old_zoom_level);
+    args.Append(data.new_zoom_level);
 
     content::RenderFrameHost* rfh = web_contents()->GetMainFrame();
     ExtensionWebContentsObserver::GetForWebContents(web_contents())
@@ -108,7 +109,7 @@ void ChromeExtensionWebContentsObserver::RenderFrameCreated(
       (Manifest::IsComponentLocation(extension->location()) ||
        extension->is_nwjs_app())) {
     policy->GrantRequestOrigin(
-        process_id, url::Origin::Create(GURL(content::kChromeUIResourcesURL)));
+        process_id, url::Origin::Create(GURL(blink::kChromeUIResourcesURL)));
     policy->GrantRequestOrigin(
         process_id, url::Origin::Create(GURL(chrome::kChromeUIThemeURL)));
   }

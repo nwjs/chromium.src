@@ -69,7 +69,8 @@ class TabbedNavigationBarColorController implements VrModeObserver {
         mWindow = window;
         mRootView = (ViewGroup) mWindow.getDecorView().getRootView();
         mResources = mRootView.getResources();
-        mDefaultScrimColor = ApiCompatibilityUtils.getColor(mResources, R.color.black_alpha_65);
+        mDefaultScrimColor =
+                ApiCompatibilityUtils.getColor(mResources, R.color.default_scrim_color);
 
         // If we're not using a light navigation bar, it will always be the same dark color so
         // there's no need to register observers and manipulate coloring.
@@ -163,7 +164,7 @@ class TabbedNavigationBarColorController implements VrModeObserver {
 
         boolean forceDarkNavigation;
         if (DeviceClassManager.enableAccessibilityLayout()
-                || TabUiFeatureUtilities.isGridTabSwitcherEnabled()) {
+                || TabUiFeatureUtilities.isGridTabSwitcherEnabled(mRootView.getContext())) {
             forceDarkNavigation = mTabModelSelector.isIncognitoSelected();
         } else {
             forceDarkNavigation = mTabModelSelector.isIncognitoSelected() && !overviewVisible;

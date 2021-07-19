@@ -4,6 +4,7 @@
 
 #include "chrome/renderer/chrome_content_settings_agent_delegate.h"
 
+#include "base/containers/contains.h"
 #include "chrome/common/ssl_insecure_content.h"
 #include "content/public/renderer/render_frame.h"
 #include "content/public/renderer/render_view.h"
@@ -69,7 +70,7 @@ bool ChromeContentSettingsAgentDelegate::IsSchemeAllowlisted(
 #endif
 }
 
-base::Optional<bool>
+absl::optional<bool>
 ChromeContentSettingsAgentDelegate::AllowReadFromClipboard() {
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   extensions::ScriptContext* current_context =
@@ -80,10 +81,10 @@ ChromeContentSettingsAgentDelegate::AllowReadFromClipboard() {
     return true;
   }
 #endif
-  return base::nullopt;
+  return absl::nullopt;
 }
 
-base::Optional<bool>
+absl::optional<bool>
 ChromeContentSettingsAgentDelegate::AllowWriteToClipboard() {
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   // All blessed extension pages could historically write to the clipboard, so
@@ -102,15 +103,15 @@ ChromeContentSettingsAgentDelegate::AllowWriteToClipboard() {
     }
   }
 #endif
-  return base::nullopt;
+  return absl::nullopt;
 }
 
-base::Optional<bool> ChromeContentSettingsAgentDelegate::AllowMutationEvents() {
+absl::optional<bool> ChromeContentSettingsAgentDelegate::AllowMutationEvents() {
 #if 0
   if (IsPlatformApp())
     return false;
 #endif
-  return base::nullopt;
+  return absl::nullopt;
 }
 
 void ChromeContentSettingsAgentDelegate::PassiveInsecureContentFound(

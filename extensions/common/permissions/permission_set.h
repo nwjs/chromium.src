@@ -43,6 +43,9 @@ class PermissionSet {
                 bool allow_all = false);
   ~PermissionSet();
 
+  PermissionSet(PermissionSet&& other);
+  PermissionSet& operator=(PermissionSet&& other);
+
   // Creates a new permission set equal to |set1| - |set2|.
   static std::unique_ptr<const PermissionSet> CreateDifference(
       const PermissionSet& set1,

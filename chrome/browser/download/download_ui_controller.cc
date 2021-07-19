@@ -123,13 +123,13 @@ DownloadUIController::DownloadUIController(content::DownloadManager* manager,
     : download_notifier_(manager, this), delegate_(std::move(delegate)) {
 #if defined(OS_ANDROID)
   if (!delegate_)
-    delegate_.reset(new AndroidUIControllerDelegate());
+    delegate_ = std::make_unique<AndroidUIControllerDelegate>();
 #elif BUILDFLAG(IS_CHROMEOS_ASH)
   if (!delegate_) {
     // The Profile is guaranteed to be valid since DownloadUIController is owned
     // by DownloadService, which in turn is a profile keyed service.
-    delegate_.reset(new DownloadNotificationManager(
-        Profile::FromBrowserContext(manager->GetBrowserContext())));
+    delegate_ = std::make_unique<DownloadNotificationManager>(
+        Profile::FromBrowserContext(manager->GetBrowserContext()));
   }
 #else   // BUILDFLAG(IS_CHROMEOS_ASH)
   if (!delegate_) {
@@ -195,7 +195,7 @@ void DownloadUIController::OnDownloadUpdated(content::DownloadManager* manager,
       content::DownloadItemUtils::GetWebContents(item);
   if (web_contents) {
 #if defined(OS_ANDROID)
-    DownloadController::CloseTabIfEmpty(web_contents);
+    DownloadController::CloseTabIfEmpty(web_contents, item);
 #else
     Profile* profile = Profile::FromBrowserContext(web_contents->GetBrowserContext());
     extensions::AppWindowRegistry* registry = extensions::AppWindowRegistry::Get(profile);

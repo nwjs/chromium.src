@@ -36,7 +36,7 @@ void AppWindowCustomBindings::AddRoutes() {
       base::BindRepeating(&AppWindowCustomBindings::ResumeParser,
                           base::Unretained(this)));
   RouteHandlerFunction("FixGamePadAPI",
-                base::Bind(&AppWindowCustomBindings::FixGamePadAPI,
+                base::BindRepeating(&AppWindowCustomBindings::FixGamePadAPI,
                            base::Unretained(this)));
 }
 
