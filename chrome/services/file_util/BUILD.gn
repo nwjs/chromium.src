@@ -38,7 +38,7 @@ source_set("file_util") {
     deps += [ "//components/services/filesystem/public/mojom" ]
   }
 
-  if (is_mac) {
+  if (false && is_mac) {
     deps += [ "//chrome/utility/safe_browsing/mac" ]
   }
 

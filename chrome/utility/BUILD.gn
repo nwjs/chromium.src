@@ -226,7 +226,7 @@ static_library("utility") {
 
   if (safe_browsing_mode == 1) {
     deps += [ "//chrome/services/file_util" ]
-    if (is_mac) {
+    if (false && is_mac) {
       deps += [ "//chrome/utility/safe_browsing/mac" ]
     }
   }

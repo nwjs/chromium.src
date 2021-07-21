@@ -799,12 +799,12 @@ void ChromeDownloadManagerDelegate::OpenDownload(DownloadItem* download) {
   download::DownloadItemRenameHandler* handler = download->GetRenameHandler();
   if (handler) {
     handler->OpenDownload();
-    RecordDownloadOpenMethod(DOWNLOAD_OPEN_METHOD_RENAME_HANDLER);
+    //RecordDownloadOpenMethod(DOWNLOAD_OPEN_METHOD_RENAME_HANDLER);
     return;
   }
 
   if (!DownloadItemModel(download).ShouldPreferOpeningInBrowser()) {
-    RecordDownloadOpenMethod(DOWNLOAD_OPEN_METHOD_DEFAULT_PLATFORM);
+    //RecordDownloadOpenMethod(DOWNLOAD_OPEN_METHOD_DEFAULT_PLATFORM);
     OpenDownloadUsingPlatformHandler(download);
     return;
   }
@@ -830,7 +830,7 @@ void ChromeDownloadManagerDelegate::OpenDownload(DownloadItem* download) {
   else
     browser->OpenURL(params);
 
-  RecordDownloadOpenMethod(DOWNLOAD_OPEN_METHOD_DEFAULT_BROWSER);
+  //RecordDownloadOpenMethod(DOWNLOAD_OPEN_METHOD_DEFAULT_BROWSER);
 #endif  // OS_ANDROID
 }
 
