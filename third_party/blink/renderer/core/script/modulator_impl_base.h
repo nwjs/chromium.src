@@ -42,7 +42,6 @@ class ModulatorImplBase : public Modulator {
 
   bool IsScriptingDisabled() const override;
 
-  bool ImportMapsEnabled() const override;
   void AddToMap(const KURL& url, ModuleScript* script) override;
 
   mojom::blink::V8CacheOptions GetV8CacheOptions() const final;
@@ -95,9 +94,6 @@ class ModulatorImplBase : public Modulator {
   }
   ModuleImportMeta HostGetImportMetaProperties(
       v8::Local<v8::Module>) const override;
-  ScriptValue InstantiateModule(v8::Local<v8::Module>, const KURL&) override;
-  Vector<ModuleRequest> ModuleRequestsFromModuleRecord(
-      v8::Local<v8::Module>) override;
   ModuleType ModuleTypeFromRequest(
       const ModuleRequest& module_request) const override;
 

@@ -87,7 +87,7 @@ class CORE_EXPORT HTMLIFrameElement final
   // FrameOwner overrides:
   bool AllowFullscreen() const override { return allow_fullscreen_; }
   bool AllowPaymentRequest() const override { return allow_payment_request_; }
-  void CSPAttributeChanged() override;
+  void DidChangeAttributes() override;
   AtomicString nwuseragent() const override { return nwuseragent_; }
   bool nwfaketop() const override { return nwfaketop_; }
 
@@ -104,6 +104,7 @@ class CORE_EXPORT HTMLIFrameElement final
   bool nwfaketop_;
   bool allow_payment_request_;
   bool collapsed_by_client_;
+  bool anonymous_ = false;
   Member<HTMLIFrameElementSandbox> sandbox_;
   Member<DOMFeaturePolicy> policy_;
 

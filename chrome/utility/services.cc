@@ -31,6 +31,7 @@
 #include "printing/buildflags/buildflags.h"
 
 #if defined(OS_WIN)
+#include "chrome/services/util_win/processor_metrics.h"
 #include "chrome/services/util_win/public/mojom/util_read_icon.mojom.h"
 #include "chrome/services/util_win/public/mojom/util_win.mojom.h"
 #include "chrome/services/util_win/util_read_icon.h"
@@ -107,10 +108,7 @@
 
 #if BUILDFLAG(ENABLE_CROS_LIBASSISTANT)
 #include "chromeos/services/assistant/audio_decoder/assistant_audio_decoder_factory.h"  // nogncheck
-
-#if BUILDFLAG(ENABLE_LIBASSISTANT_SANDBOX)
 #include "chromeos/services/libassistant/libassistant_service.h"  // nogncheck
-#endif  // BUILDFLAG(ENABLE_LIBASSISTANT_SANDBOX)
 #endif  // BUILDFLAG(ENABLE_CROS_LIBASSISTANT)
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
@@ -148,6 +146,11 @@ auto RunWebAppOriginAssociationParser(
 }
 
 #if defined(OS_WIN)
+auto RunProcessorMetrics(
+    mojo::PendingReceiver<chrome::mojom::ProcessorMetrics> receiver) {
+  return std::make_unique<ProcessorMetricsImpl>(std::move(receiver));
+}
+
 auto RunQuarantineService(
     mojo::PendingReceiver<quarantine::mojom::Quarantine> receiver) {
   DCHECK(base::FeatureList::IsEnabled(quarantine::kOutOfProcessQuarantine));
@@ -299,14 +302,12 @@ auto RunAssistantAudioDecoder(
       std::move(receiver));
 }
 
-#if BUILDFLAG(ENABLE_LIBASSISTANT_SANDBOX)
 auto RunLibassistantService(
     mojo::PendingReceiver<chromeos::libassistant::mojom::LibassistantService>
         receiver) {
   return std::make_unique<chromeos::libassistant::LibassistantService>(
       std::move(receiver));
 }
-#endif  // BUILDFLAG(ENABLE_LIBASSISTANT_SANDBOX)
 #endif  // BUILDFLAG(ENABLE_CROS_LIBASSISTANT)
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
@@ -335,6 +336,7 @@ void RegisterMainThreadServices(mojo::ServiceFactory& services) {
 #endif
 
 #if defined(OS_WIN)
+  services.Add(RunProcessorMetrics);
   services.Add(RunQuarantineService);
   services.Add(RunWindowsUtility);
   services.Add(RunWindowsIconReader);
@@ -386,9 +388,7 @@ void RegisterMainThreadServices(mojo::ServiceFactory& services) {
   services.Add(RunLocalSearchService);
 #if BUILDFLAG(ENABLE_CROS_LIBASSISTANT)
   services.Add(RunAssistantAudioDecoder);
-#if BUILDFLAG(ENABLE_LIBASSISTANT_SANDBOX)
   services.Add(RunLibassistantService);
-#endif  // BUILDFLAG(ENABLE_LIBASSISTANT_SANDBOX)
 #endif  // BUILDFLAG(ENABLE_CROS_LIBASSISTANT)
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 }

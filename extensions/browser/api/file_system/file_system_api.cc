@@ -14,12 +14,12 @@
 
 #include "base/bind.h"
 #include "base/containers/contains.h"
+#include "base/cxx17_backports.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "base/path_service.h"
-#include "base/stl_util.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
@@ -102,10 +102,19 @@ namespace {
 
 bool g_skip_picker_for_test = false;
 bool g_use_suggested_path_for_test = false;
-base::FilePath* g_path_to_be_picked_for_test;
-std::vector<base::FilePath>* g_paths_to_be_picked_for_test;
+const base::FilePath* g_path_to_be_picked_for_test = nullptr;
+const std::vector<base::FilePath>* g_paths_to_be_picked_for_test = nullptr;
 bool g_skip_directory_confirmation_for_test = false;
 bool g_allow_directory_access_for_test = false;
+
+void ResetTestValuesToDefaults() {
+  g_skip_picker_for_test = false;
+  g_use_suggested_path_for_test = false;
+  g_path_to_be_picked_for_test = nullptr;
+  g_paths_to_be_picked_for_test = nullptr;
+  g_skip_directory_confirmation_for_test = false;
+  g_allow_directory_access_for_test = false;
+}
 
 // Expand the mime-types and extensions provided in an AcceptOption, returning
 // them within the passed extension vector. Returns false if no valid types
@@ -198,6 +207,9 @@ void PassFileInfoToUIThread(FileInfoOptCallback callback,
 content::WebContents* GetWebContentsForRenderFrameHost(
     content::BrowserContext* browser_context,
     content::RenderFrameHost* render_frame_host) {
+  if (!render_frame_host)
+    return nullptr;
+
   content::WebContents* web_contents =
       content::WebContents::FromRenderFrameHost(render_frame_host);
   // Check if there is an app window associated with the web contents; if not,
@@ -422,59 +434,54 @@ void FileSystemChooseEntryFunction::ShowPicker(
   }
 }
 
-// static
-void FileSystemChooseEntryFunction::SkipPickerAndAlwaysSelectPathForTest(
-    base::FilePath* path) {
-  g_skip_picker_for_test = true;
-  g_use_suggested_path_for_test = false;
-  g_path_to_be_picked_for_test = path;
-  g_paths_to_be_picked_for_test = NULL;
+FileSystemChooseEntryFunction::SkipPickerBaseForTest*
+    FileSystemChooseEntryFunction::SkipPickerBaseForTest::g_picker = nullptr;
+
+FileSystemChooseEntryFunction::SkipPickerBaseForTest::SkipPickerBaseForTest() {
+  CHECK(!g_picker);
+  g_picker = this;
 }
 
-// static
-void FileSystemChooseEntryFunction::SkipPickerAndAlwaysSelectPathsForTest(
-    std::vector<base::FilePath>* paths) {
-  g_skip_picker_for_test = true;
-  g_use_suggested_path_for_test = false;
-  g_paths_to_be_picked_for_test = paths;
+FileSystemChooseEntryFunction::SkipPickerBaseForTest::~SkipPickerBaseForTest() {
+  DCHECK_EQ(this, g_picker);
+  ResetTestValuesToDefaults();
+  g_picker = nullptr;
 }
 
-// static
-void FileSystemChooseEntryFunction::SkipPickerAndSelectSuggestedPathForTest() {
+FileSystemChooseEntryFunction::SkipPickerAndAlwaysSelectPathForTest::
+    SkipPickerAndAlwaysSelectPathForTest(const base::FilePath& path,
+                                         bool skip_dir_confirmation,
+                                         bool allow_directory_access)
+    : path_(path) {
+  g_skip_picker_for_test = true;
+  g_path_to_be_picked_for_test = &path_;
+  g_skip_directory_confirmation_for_test = skip_dir_confirmation;
+  g_allow_directory_access_for_test = allow_directory_access;
+}
+
+FileSystemChooseEntryFunction::SkipPickerAndAlwaysSelectPathForTest::
+    ~SkipPickerAndAlwaysSelectPathForTest() = default;
+
+FileSystemChooseEntryFunction::SkipPickerAndAlwaysSelectPathsForTest::
+    SkipPickerAndAlwaysSelectPathsForTest(
+        const std::vector<base::FilePath>& paths)
+    : paths_(paths) {
+  g_skip_picker_for_test = true;
+  g_paths_to_be_picked_for_test = &paths_;
+}
+
+FileSystemChooseEntryFunction::SkipPickerAndAlwaysSelectPathsForTest::
+    ~SkipPickerAndAlwaysSelectPathsForTest() = default;
+
+FileSystemChooseEntryFunction::SkipPickerAndSelectSuggestedPathForTest::
+    SkipPickerAndSelectSuggestedPathForTest() {
   g_skip_picker_for_test = true;
   g_use_suggested_path_for_test = true;
-  g_path_to_be_picked_for_test = NULL;
-  g_paths_to_be_picked_for_test = NULL;
 }
 
-// static
-void FileSystemChooseEntryFunction::SkipPickerAndAlwaysCancelForTest() {
+FileSystemChooseEntryFunction::SkipPickerAndAlwaysCancelForTest::
+    SkipPickerAndAlwaysCancelForTest() {
   g_skip_picker_for_test = true;
-  g_use_suggested_path_for_test = false;
-  g_path_to_be_picked_for_test = NULL;
-  g_paths_to_be_picked_for_test = NULL;
-}
-
-// static
-void FileSystemChooseEntryFunction::StopSkippingPickerForTest() {
-  g_skip_picker_for_test = false;
-}
-
-// static
-void FileSystemChooseEntryFunction::SkipDirectoryConfirmationForTest() {
-  g_skip_directory_confirmation_for_test = true;
-  g_allow_directory_access_for_test = true;
-}
-
-// static
-void FileSystemChooseEntryFunction::AutoCancelDirectoryConfirmationForTest() {
-  g_skip_directory_confirmation_for_test = true;
-  g_allow_directory_access_for_test = false;
-}
-
-// static
-void FileSystemChooseEntryFunction::StopSkippingDirectoryConfirmationForTest() {
-  g_skip_directory_confirmation_for_test = false;
 }
 
 // static
@@ -509,15 +516,6 @@ void FileSystemChooseEntryFunction::FilesSelected(
   }
 
   if (is_directory_) {
-    // Get the WebContents for the app window to be the parent window of the
-    // confirmation dialog if necessary.
-    content::WebContents* const web_contents = GetWebContentsForRenderFrameHost(
-        browser_context(), render_frame_host());
-    if (!web_contents) {
-      Respond(Error(kInvalidCallingPage));
-      return;
-    }
-
     DCHECK_EQ(paths.size(), 1u);
     bool non_native_path = false;
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -531,7 +529,7 @@ void FileSystemChooseEntryFunction::FilesSelected(
         FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
         base::BindOnce(
             &FileSystemChooseEntryFunction::ConfirmDirectoryAccessAsync, this,
-            non_native_path, paths, web_contents));
+            non_native_path, paths));
     return;
   }
 
@@ -544,8 +542,7 @@ void FileSystemChooseEntryFunction::FileSelectionCanceled() {
 
 void FileSystemChooseEntryFunction::ConfirmDirectoryAccessAsync(
     bool non_native_path,
-    const std::vector<base::FilePath>& paths,
-    content::WebContents* web_contents) {
+    const std::vector<base::FilePath>& paths) {
   const base::FilePath check_path =
       non_native_path ? paths[0] : base::MakeAbsoluteFilePath(paths[0]);
   if (check_path.empty()) {
@@ -577,7 +574,7 @@ void FileSystemChooseEntryFunction::ConfirmDirectoryAccessAsync(
         FROM_HERE,
         base::BindOnce(
             &FileSystemChooseEntryFunction::ConfirmSensitiveDirectoryAccess,
-            this, paths, web_contents));
+            this, paths));
     return;
   }
 
@@ -588,8 +585,7 @@ void FileSystemChooseEntryFunction::ConfirmDirectoryAccessAsync(
 }
 
 void FileSystemChooseEntryFunction::ConfirmSensitiveDirectoryAccess(
-    const std::vector<base::FilePath>& paths,
-    content::WebContents* web_contents) {
+    const std::vector<base::FilePath>& paths) {
   if (ExtensionsBrowserClient::Get()->IsShuttingDown()) {
     FileSelectionCanceled();
     return;
@@ -599,6 +595,13 @@ void FileSystemChooseEntryFunction::ConfirmSensitiveDirectoryAccess(
       ExtensionsAPIClient::Get()->GetFileSystemDelegate();
   if (!delegate) {
     Respond(Error(kNotSupportedOnCurrentPlatformError));
+    return;
+  }
+
+  content::WebContents* const web_contents =
+      GetWebContentsForRenderFrameHost(browser_context(), render_frame_host());
+  if (!web_contents) {
+    Respond(Error(kInvalidCallingPage));
     return;
   }
 

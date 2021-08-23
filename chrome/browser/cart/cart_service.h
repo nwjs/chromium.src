@@ -39,6 +39,11 @@ class CartService : public history::HistoryServiceObserver,
   ~CartService() override;
 
   static void RegisterProfilePrefs(PrefRegistrySimple* registry);
+  // Appends utm_source to the end of |base_url|. It will append only for
+  // partner merchants and the RBD fast path flag is on, will append
+  // "chrome_cart_no_rbd" when is_discount_enabled is false, and
+  // "chrome_cart_rbd" when is_discount_enabled is true.
+  static GURL AppendUTM(const GURL& base_url, bool is_discount_enabled);
   // Gets called when cart module is temporarily hidden.
   void Hide();
   // Gets called when restoring the temporarily hidden cart module.
@@ -63,7 +68,8 @@ class CartService : public history::HistoryServiceObserver,
   void LoadCartsWithFakeData(CartDB::LoadCallback callback);
   // Gets called when discounts are available for the given cart_url.
   void UpdateDiscounts(const GURL& cart_url,
-                       cart_db::ChromeCartContentProto new_proto);
+                       cart_db::ChromeCartContentProto new_proto,
+                       const bool is_tester);
   // Gets called when a single cart in module is temporarily hidden.
   void HideCart(const GURL& cart_url, CartDB::OperationCallback callback);
   // Gets called when restoring the temporarily hidden single cart.

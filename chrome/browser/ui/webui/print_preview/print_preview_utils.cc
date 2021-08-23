@@ -57,9 +57,9 @@ void PrintersToValues(const printing::PrinterList& printer_list,
     printer_info->SetString(printing::kSettingPrinterDescription,
                             printer.printer_description);
 
-    auto options = std::make_unique<base::DictionaryValue>();
+    base::DictionaryValue options;
     for (const auto& opt_it : printer.options)
-      options->SetString(opt_it.first, opt_it.second);
+      options.SetString(opt_it.first, opt_it.second);
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
     printer_info->SetBoolean(
@@ -68,7 +68,7 @@ void PrintersToValues(const printing::PrinterList& printer_list,
             printer.options.at(kCUPSEnterprisePrinter) == kValueTrue);
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
-    printer_info->Set(printing::kSettingPrinterOptions, std::move(options));
+    printer_info->SetKey(printing::kSettingPrinterOptions, std::move(options));
 
     printers->Append(std::move(printer_info));
 
@@ -178,7 +178,7 @@ void ConvertPrinterListForCallback(
 
   VLOG(1) << "Enumerate printers finished, found " << printers.GetSize()
           << " printers";
-  if (!printers.empty())
+  if (!printers.GetList().empty())
     callback.Run(printers);
   std::move(done_callback).Run();
 }

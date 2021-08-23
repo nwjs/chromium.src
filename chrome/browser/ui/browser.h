@@ -210,6 +210,13 @@ class Browser : public TabStripModelObserver,
     kErrorLoadingKiosk,
   };
 
+  // Represents the source of a browser creation request.
+  enum class CreationSource {
+    kUnknown,
+    kSessionRestore,
+    kStartupCreator,
+  };
+
   // The default value for a browser's `restore_id` param.
   static constexpr int kDefaultRestoreId = 0;
 
@@ -256,9 +263,13 @@ class Browser : public TabStripModelObserver,
     // The associated profile.
     Profile* profile;
 
-    // Specifies the browser is_trusted_source_ value.
+    // Specifies the browser `is_trusted_source_` value.
     bool trusted_source = false;
     std::string windows_key;
+
+    // Specifies the browser `omit_from_session_restore_` value, whether the new
+    // Browser should be omitted from being saved/restored by session restore.
+    bool omit_from_session_restore = false;
 
     // The bounds of the window to open.
     gfx::Rect initial_bounds;
@@ -272,14 +283,12 @@ class Browser : public TabStripModelObserver,
 
     ui::WindowShowState initial_show_state = ui::SHOW_STATE_DEFAULT;
 
-    bool is_session_restore = false;
+    CreationSource creation_source = CreationSource::kUnknown;
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
     // The id from the restore data to restore the browser window.
     int32_t restore_id = kDefaultRestoreId;
 #endif
-
-    bool is_focus_mode = false;
 
     // Whether this browser was created by a user gesture. We track this
     // specifically for the multi-user case in chromeos where we can place
@@ -380,11 +389,11 @@ class Browser : public TabStripModelObserver,
   // This is used on the Mac (only) to determine animation style when the
   // browser window is shown.
   void set_is_session_restore(bool is_session_restore) {
-    is_session_restore_ = is_session_restore;
+    creation_source_ = CreationSource::kSessionRestore;
   }
-  bool is_session_restore() const { return is_session_restore_; }
-
-  bool is_focus_mode() const { return is_focus_mode_; }
+  bool is_session_restore() const {
+    return creation_source_ == CreationSource::kSessionRestore;
+  }
 
   // Accessors ////////////////////////////////////////////////////////////////
 
@@ -404,6 +413,7 @@ class Browser : public TabStripModelObserver,
   bool initial_visible_on_all_workspaces_state() const {
     return initial_visible_on_all_workspaces_state_;
   }
+  CreationSource creation_source() const { return creation_source_; }
 
   // |window()| will return NULL if called before |CreateBrowserWindow()|
   // is done.
@@ -426,6 +436,7 @@ class Browser : public TabStripModelObserver,
     return command_controller_.get();
   }
   const SessionID& session_id() const { return session_id_; }
+  bool omit_from_session_restore() const { return omit_from_session_restore_; }
   BrowserContentSettingBubbleModelDelegate*
   content_setting_bubble_model_delegate() {
     return content_setting_bubble_model_delegate_.get();
@@ -692,6 +703,7 @@ class Browser : public TabStripModelObserver,
       const gfx::Size&) override;
   void ExitPictureInPicture() override;
   bool IsBackForwardCacheSupported() override;
+  bool IsPrerender2Supported() override;
   std::unique_ptr<content::WebContents> ActivatePortalWebContents(
       content::WebContents* predecessor_contents,
       std::unique_ptr<content::WebContents> portal_contents) override;
@@ -771,7 +783,7 @@ class Browser : public TabStripModelObserver,
                            DenyExitsFullscreen);
   FRIEND_TEST_ALL_PREFIXES(ExclusiveAccessTest,
                            TabEntersPresentationModeFromWindowed);
-  FRIEND_TEST_ALL_PREFIXES(GuestBrowserCloseTest, LastGuest);
+  FRIEND_TEST_ALL_PREFIXES(BrowserCloseTest, LastGuest);
   FRIEND_TEST_ALL_PREFIXES(StartupBrowserCreatorTest, OpenAppShortcutNoPref);
   FRIEND_TEST_ALL_PREFIXES(StartupBrowserCreatorTest,
                            OpenAppShortcutWindowPref);
@@ -882,7 +894,7 @@ class Browser : public TabStripModelObserver,
   content::JavaScriptDialogManager* GetJavaScriptDialogManager(
       content::WebContents* source) override;
   bool GuestSaveFrame(content::WebContents* guest_web_contents) override;
-  content::ColorChooser* OpenColorChooser(
+  std::unique_ptr<content::ColorChooser> OpenColorChooser(
       content::WebContents* web_contents,
       SkColor color,
       const std::vector<blink::mojom::ColorSuggestionPtr>& suggestions)
@@ -1183,13 +1195,14 @@ class Browser : public TabStripModelObserver,
   // restore on Chrome OS.
   bool is_trusted_source_;
 
-  // Whether this browser was created for focus mode. See https://crbug/932814.
-  const bool is_focus_mode_;
-
   // Unique identifier of this browser for session restore. This id is only
   // unique within the current session, and is not guaranteed to be unique
   // across sessions.
   const SessionID session_id_;
+
+  // Whether this Browser should be omitted from being saved/restored by session
+  // restore.
+  bool omit_from_session_restore_ = false;
 
   // The model for the toolbar view.
   std::unique_ptr<LocationBarModel> location_bar_model_;
@@ -1230,6 +1243,7 @@ class Browser : public TabStripModelObserver,
   const std::string initial_workspace_;
   bool initial_visible_on_all_workspaces_state_;
 
+  CreationSource creation_source_ = CreationSource::kUnknown;
   bool initial_ontop_;
   bool initial_allvisible_;
   bool initial_resizable_;
@@ -1237,11 +1251,6 @@ class Browser : public TabStripModelObserver,
   std::string initial_position_;
   std::string title_override_;
   gfx::Image icon_override_;
-
-  // Tracks when this browser is being created by session restore.
-  bool is_session_restore_;
-
-  base::TimeTicks focus_mode_start_time_;
 
   UnloadController unload_controller_;
 

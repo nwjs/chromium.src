@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/containers/contains.h"
 #include "base/check.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
@@ -123,7 +124,7 @@ class AvailableValuesFilter {
     DCHECK(input_dict.is_dict());
     DCHECK(CanAccessFeature(manifest, current_path));
 
-    for (const auto& it : input_dict.DictItems()) {
+    for (auto it : input_dict.DictItems()) {
       std::string child_path = CombineKeys(current_path, it.first);
 
       // Unavailable key, skip it.
@@ -218,6 +219,8 @@ Manifest::Type Manifest::GetTypeFromManifestValue(
     } else {
       type = TYPE_LEGACY_PACKAGED_APP;
     }
+  } else if (value.HasKey(keys::kChromeOSSystemExtension)) {
+    type = TYPE_CHROMEOS_SYSTEM_EXTENSION;
   } else if (for_login_screen) {
     type = TYPE_LOGIN_SCREEN_EXTENSION;
   } else {
@@ -229,7 +232,7 @@ Manifest::Type Manifest::GetTypeFromManifestValue(
     const base::ListValue* perm;
     value.GetList(keys::kPermissions, &perm);
     base::Value node("node");
-    if (perm->Find(node) != perm->GetList().end())
+    if (base::Contains(perm->GetList(), node))
       type = TYPE_NWJS_APP;
   }
 

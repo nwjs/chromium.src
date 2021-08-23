@@ -28,7 +28,6 @@ namespace remote_cocoa {
 RenderWidgetHostNSViewBridge::RenderWidgetHostNSViewBridge(
     mojom::RenderWidgetHostNSViewHost* host,
     RenderWidgetHostNSViewHostHelper* host_helper) {
-  display::Screen::GetScreen()->AddObserver(this);
 
   cocoa_view_.reset([[RenderWidgetHostViewCocoa alloc]
         initWithHost:host
@@ -59,7 +58,6 @@ RenderWidgetHostNSViewBridge::~RenderWidgetHostNSViewBridge() {
                     withObject:nil
                     afterDelay:0];
   cocoa_view_.autorelease();
-  display::Screen::GetScreen()->RemoveObserver(this);
   popup_window_.reset();
 }
 
@@ -74,10 +72,8 @@ RenderWidgetHostViewCocoa* RenderWidgetHostNSViewBridge::GetNSView() {
   return cocoa_view_;
 }
 
-void RenderWidgetHostNSViewBridge::InitAsPopup(const gfx::Rect& content_rect,
-                                               bool has_shadow) {
-  popup_window_ =
-      std::make_unique<PopupWindowMac>(content_rect, has_shadow, cocoa_view_);
+void RenderWidgetHostNSViewBridge::InitAsPopup(const gfx::Rect& content_rect) {
+  popup_window_ = std::make_unique<PopupWindowMac>(content_rect, cocoa_view_);
 }
 
 void RenderWidgetHostNSViewBridge::SetParentWebContentsNSView(
@@ -279,7 +275,7 @@ void RenderWidgetHostNSViewBridge::ShowDictionaryOverlay(
   if ([string length] == 0)
     return;
   NSPoint flipped_baseline_point = {
-      baseline_point.x(),
+      static_cast<CGFloat>(baseline_point.x()),
       [cocoa_view_ frame].size.height - baseline_point.y(),
   };
   [cocoa_view_ showDefinitionForAttributedString:string

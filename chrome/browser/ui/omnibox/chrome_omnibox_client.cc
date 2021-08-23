@@ -38,11 +38,13 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/omnibox/chrome_omnibox_edit_controller.h"
 #include "chrome/browser/ui/omnibox/chrome_omnibox_navigation_observer.h"
 #include "chrome/browser/ui/omnibox/omnibox_tab_helper.h"
+#include "chrome/common/chrome_features.h"
 #include "components/favicon/content/content_favicon_driver.h"
 #include "components/favicon/core/favicon_service.h"
 #include "components/omnibox/browser/autocomplete_match.h"
@@ -229,8 +231,7 @@ bool ChromeOmniboxClient::ProcessExtensionKeyword(
   size_t prefix_length =
       std::min(match.keyword.length() + 1, match.fill_into_edit.length());
   extensions::ExtensionOmniboxEventRouter::OnInputEntered(
-      controller_->GetWebContents(),
-      template_url->GetExtensionId(),
+      controller_->GetWebContents(), template_url->GetExtensionId(),
       base::UTF16ToUTF8(match.fill_into_edit.substr(prefix_length)),
       disposition);
 
@@ -250,9 +251,8 @@ void ChromeOmniboxClient::OnInputStateChanged() {
 #endif
 }
 
-void ChromeOmniboxClient::OnFocusChanged(
-    OmniboxFocusState state,
-    OmniboxFocusChangeReason reason) {
+void ChromeOmniboxClient::OnFocusChanged(OmniboxFocusState state,
+                                         OmniboxFocusChangeReason reason) {
   if (!controller_->GetWebContents())
     return;
 #if 0
@@ -260,7 +260,6 @@ void ChromeOmniboxClient::OnFocusChanged(
           OmniboxTabHelper::FromWebContents(controller_->GetWebContents())) {
     helper->OnFocusChanged(state, reason);
   }
-  WakeupDecoder();
 #endif
 }
 
@@ -366,7 +365,6 @@ void ChromeOmniboxClient::OnTextChanged(const AutocompleteMatch& current_match,
     case AutocompleteActionPredictor::ACTION_NONE:
       break;
   }
-  WakeupDecoder();
 }
 
 void ChromeOmniboxClient::OnRevert() {
@@ -394,6 +392,27 @@ void ChromeOmniboxClient::NewIncognitoWindow() {
   chrome::NewIncognitoWindow(profile_);
 }
 
+void ChromeOmniboxClient::OpenIncognitoClearBrowsingDataDialog() {
+  content::WebContents* contents = controller_->GetWebContents();
+  Browser* browser =
+      (contents) ? chrome::FindBrowserWithWebContents(contents) : nullptr;
+  if (browser) {
+    if (!base::FeatureList::IsEnabled(
+            features::kIncognitoClearBrowsingDataDialogForDesktop)) {
+      chrome::ShowClearBrowsingDataDialog(browser);
+    } else {
+      chrome::ShowIncognitoClearBrowsingDataDialog(browser);
+    }
+  }
+}
+
+void ChromeOmniboxClient::CloseIncognitoWindows() {
+  if (profile_->IsIncognitoProfile()) {
+    BrowserList::CloseAllBrowsersWithIncognitoProfile(
+        profile_, base::DoNothing(), base::DoNothing(), true);
+  }
+}
+
 void ChromeOmniboxClient::PromptPageTranslation() {
 #if 0
   content::WebContents* contents = controller_->GetWebContents();
@@ -402,7 +421,8 @@ void ChromeOmniboxClient::PromptPageTranslation() {
         ChromeTranslateClient::FromWebContents(contents);
     if (translate_client) {
       DCHECK_NE(nullptr, translate_client->GetTranslateManager());
-      translate_client->GetTranslateManager()->InitiateManualTranslation(true);
+      translate_client->GetTranslateManager()->ShowTranslateUI(
+          /*auto_translate=*/true, /*triggered_from_menu=*/true);
     }
   }
 #endif
@@ -426,8 +446,7 @@ void ChromeOmniboxClient::OpenUpdateChromeDialog() {
   }
 }
 
-void ChromeOmniboxClient::DoPrerender(
-    const AutocompleteMatch& match) {
+void ChromeOmniboxClient::DoPrerender(const AutocompleteMatch& match) {
   content::WebContents* web_contents = controller_->GetWebContents();
 
   // Don't prerender when DevTools is open in this tab.
@@ -460,18 +479,6 @@ void ChromeOmniboxClient::DoPreconnect(const AutocompleteMatch& match) {
   // We could prefetch the alternate nav URL, if any, but because there
   // can be many of these as a user types an initial series of characters,
   // the OS DNS cache could suffer eviction problems for minimal gain.
-}
-
-void ChromeOmniboxClient::WakeupDecoder() {
-  if (base::GetFieldTrialParamByFeatureAsBool(
-          omnibox::kEntitySuggestionsReduceLatency,
-          OmniboxFieldTrial::kEntitySuggestionsReduceLatencyDecoderWakeupParam,
-          false)) {
-    if (auto* service =
-            BitmapFetcherServiceFactory::GetForBrowserContext(profile_)) {
-      service->WakeupDecoder();
-    }
-  }
 }
 
 void ChromeOmniboxClient::OnBitmapFetched(const BitmapFetchedCallback& callback,

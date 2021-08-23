@@ -67,10 +67,6 @@
 #include "chrome/browser/extensions/api/mdns/mdns_api.h"
 #endif
 
-#if BUILDFLAG(ENABLE_AUTOFILL_ASSISTANT_API)
-#include "chrome/browser/extensions/api/autofill_assistant_private/autofill_assistant_private_api.h"
-#endif
-
 #include "content/nw/src/api/object_manager_factory.h"
 
 namespace chrome_extensions {
@@ -78,9 +74,6 @@ namespace chrome_extensions {
 void EnsureBrowserContextKeyedServiceFactoriesBuilt() {
   extensions::ActivityLog::GetFactoryInstance();
   extensions::ActivityLogAPI::GetFactoryInstance();
-#if BUILDFLAG(ENABLE_AUTOFILL_ASSISTANT_API)
-  extensions::AutofillAssistantPrivateAPI::GetFactoryInstance();
-#endif
   extensions::AutofillPrivateEventRouterFactory::GetInstance();
   extensions::BluetoothLowEnergyAPI::GetFactoryInstance();
   extensions::BookmarksAPI::GetFactoryInstance();

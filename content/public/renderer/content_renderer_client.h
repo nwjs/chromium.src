@@ -53,6 +53,8 @@ class WebPrescientNetworking;
 class WebServiceWorkerContextProxy;
 class WebURL;
 class WebURLRequest;
+class WebView;
+struct WebContentSecurityPolicyHeader;
 struct WebPluginParams;
 struct WebURLError;
 enum class ProtocolHandlerSecurityLevel;
@@ -94,8 +96,8 @@ class CONTENT_EXPORT ContentRendererClient {
   // Notifies that a new RenderFrame has been created.
   virtual void RenderFrameCreated(RenderFrame* render_frame) {}
 
-  // Notifies that a new RenderView has been created.
-  virtual void RenderViewCreated(RenderView* render_view) {}
+  // Notifies that a new WebView has been created.
+  virtual void WebViewCreated(blink::WebView* web_view) {}
 
   // Returns the bitmap to show when a plugin crashed, or NULL for none.
   virtual SkBitmap* GetSadPluginBitmap();
@@ -408,6 +410,12 @@ class CONTENT_EXPORT ContentRendererClient {
   virtual absl::optional<::media::AudioRendererAlgorithmParameters>
   GetAudioRendererAlgorithmParameters(
       ::media::AudioParameters audio_parameters);
+
+  // Appends to `csp`, the default CSP which should be applied to the given
+  // `url`. This allows the embedder to customize the applied CSP.
+  virtual void AppendContentSecurityPolicy(
+      const blink::WebURL& url,
+      blink::WebVector<blink::WebContentSecurityPolicyHeader>* csp);
 };
 
 }  // namespace content

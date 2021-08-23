@@ -338,7 +338,12 @@ bool ClipboardCommands::ExecuteCut(LocalFrame& frame,
     // 'beforeinput' event handler may destroy target frame.
     if (frame.GetDocument()->GetFrame() != frame)
       return true;
+
+    // No DOM mutation if EditContext is active.
+    if (frame.GetInputMethodController().GetActiveEditContext())
+      return true;
   }
+
   frame.GetEditor().DeleteSelectionWithSmartDelete(
       ConvertSmartReplaceOptionToDeleteMode(GetSmartReplaceOption(frame)),
       InputEvent::InputType::kDeleteByCut);
@@ -459,6 +464,10 @@ void ClipboardCommands::Paste(LocalFrame& frame, EditorCommandSource source) {
     // 'beforeinput' event handler may destroy target frame.
     if (frame.GetDocument()->GetFrame() != frame)
       return;
+
+    // No DOM mutation if EditContext is active.
+    if (frame.GetInputMethodController().GetActiveEditContext())
+      return;
   }
 
   if (paste_mode == PasteMode::kAllMimeTypes) {
@@ -506,9 +515,27 @@ bool ClipboardCommands::ExecutePasteAndMatchStyle(LocalFrame& frame,
   // before we obtain the selection.
   frame.GetDocument()->UpdateStyleAndLayout(DocumentUpdateReason::kEditing);
 
-  if (source == EditorCommandSource::kMenuOrKeyBinding &&
-      !frame.Selection().SelectionHasFocus())
-    return false;
+  if (source == EditorCommandSource::kMenuOrKeyBinding) {
+    if (!frame.Selection().SelectionHasFocus())
+      return false;
+
+    DataTransfer* data_transfer = DataTransfer::Create(
+        DataTransfer::kCopyAndPaste, DataTransferAccessPolicy::kReadable,
+        DataObject::CreateFromClipboard(frame.GetSystemClipboard(),
+                                        PasteMode::kPlainTextOnly));
+    if (DispatchBeforeInputDataTransfer(
+            FindEventTargetForClipboardEvent(frame, source),
+            InputEvent::InputType::kInsertFromPaste,
+            data_transfer) != DispatchEventResult::kNotCanceled)
+      return true;
+    // 'beforeinput' event handler may destroy target frame.
+    if (frame.GetDocument()->GetFrame() != frame)
+      return true;
+
+    // No DOM mutation if EditContext is active.
+    if (frame.GetInputMethodController().GetActiveEditContext())
+      return true;
+  }
 
   PasteAsPlainTextFromClipboard(frame, source);
   return true;

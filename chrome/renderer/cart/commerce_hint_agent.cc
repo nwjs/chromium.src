@@ -43,6 +43,7 @@ constexpr unsigned kLengthLimit = 4096;
 constexpr char kAmazonDomain[] = "amazon.com";
 constexpr char kEbayDomain[] = "ebay.com";
 constexpr char kElectronicExpressDomain[] = "electronicexpress.com";
+constexpr char kGStoreHost[] = "store.google.com";
 
 constexpr base::FeatureParam<std::string> kSkipPattern{
     &ntp_features::kNtpChromeCartModule, "product-skip-pattern",
@@ -185,6 +186,12 @@ void OnPurchase(content::RenderFrame* render_frame) {
   observer->OnPurchase();
 }
 
+void OnFormSubmit(content::RenderFrame* render_frame, bool is_purchase) {
+  mojo::Remote<mojom::CommerceHintObserver> observer =
+      GetObserver(render_frame);
+  observer->OnFormSubmit(is_purchase);
+}
+
 bool PartialMatch(base::StringPiece str, const re2::RE2& re) {
   return RE2::PartialMatch(re2::StringPiece(str.data(), str.size()), re);
 }
@@ -217,7 +224,7 @@ const re2::RE2& GetVisitCartPattern(const GURL& url) {
         const base::Value json(base::JSONReader::Read(json_resource).value());
         DCHECK(json.is_dict());
         std::map<std::string, std::string> map;
-        for (const auto& item : json.DictItems()) {
+        for (auto item : json.DictItems()) {
           map.insert(
               {std::move(item.first), std::move(item.second.GetString())});
         }
@@ -358,7 +365,7 @@ const std::map<std::string, std::string>& GetSkipAddToCartMapping() {
             .value());
     DCHECK(json.is_dict());
     std::map<std::string, std::string> map;
-    for (const auto& item : json.DictItems()) {
+    for (auto item : json.DictItems()) {
       map.insert({std::move(item.first), std::move(item.second.GetString())});
     }
     return map;
@@ -377,7 +384,7 @@ const std::map<std::string, std::string>& GetCheckoutPatternMapping() {
             .value());
     DCHECK(json.is_dict());
     std::map<std::string, std::string> map;
-    for (const auto& item : json.DictItems()) {
+    for (const auto item : json.DictItems()) {
       map.insert({std::move(item.first), std::move(item.second.GetString())});
     }
     return map;
@@ -396,7 +403,7 @@ const std::map<std::string, std::string>& GetPurchaseURLPatternMapping() {
             .value());
     DCHECK(json.is_dict());
     std::map<std::string, std::string> map;
-    for (const auto& item : json.DictItems()) {
+    for (const auto item : json.DictItems()) {
       map.insert({std::move(item.first), std::move(item.second.GetString())});
     }
     return map;
@@ -410,7 +417,7 @@ const std::map<std::string, std::string>& GetPurchaseButtonPatternMapping() {
         base::JSONReader::Read(kPurchaseButtonPatternMapping.Get()).value());
     DCHECK(json.is_dict());
     std::map<std::string, std::string> map;
-    for (const auto& item : json.DictItems()) {
+    for (const auto item : json.DictItems()) {
       map.insert({std::move(item.first), std::move(item.second.GetString())});
     }
     return map;
@@ -444,6 +451,8 @@ void DetectAddToCart(content::RenderFrame* render_frame,
     is_add_to_cart =
         CommerceHintAgent::IsAddToCart(url.spec()) &&
         GetProductIdFromRequest(url.spec().substr(0, kLengthLimit), nullptr);
+  } else if (navigation_url.host() == kGStoreHost) {
+    is_add_to_cart = url.spec().find("O2JPA") != std::string::npos;
   } else {
     is_add_to_cart = CommerceHintAgent::IsAddToCart(url.path_piece());
   }
@@ -795,13 +804,16 @@ void CommerceHintAgent::WillSubmitForm(const blink::WebFormElement& form) {
   if (!url.SchemeIsHTTPOrHTTPS())
     return;
 
+  bool is_purchase = false;
   for (const std::string& button_text : ExtractButtonTexts(form)) {
     if (IsPurchase(url, button_text)) {
       RecordCommerceEvent(CommerceEvent::kPurchaseByForm);
       OnPurchase(render_frame());
-      return;
+      is_purchase = true;
+      break;
     }
   }
+  OnFormSubmit(render_frame(), is_purchase);
 }
 
 // TODO(crbug/1164236): use MutationObserver on cart instead.

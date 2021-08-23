@@ -131,6 +131,7 @@
 #include "chrome/browser/ui/views/fullscreen_control/fullscreen_control_host.h"
 #include "chrome/browser/ui/views/global_media_controls/media_toolbar_button_view.h"
 #include "chrome/browser/ui/views/hats/hats_next_web_dialog.h"
+#include "chrome/browser/ui/views/incognito_clear_browsing_data_dialog.h"
 #include "chrome/browser/ui/views/infobars/infobar_container_view.h"
 #include "chrome/browser/ui/views/location_bar/intent_picker_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
@@ -149,6 +150,7 @@
 #include "chrome/browser/ui/views/side_panel.h"
 #include "chrome/browser/ui/views/status_bubble_views.h"
 #include "chrome/browser/ui/views/tab_contents/chrome_web_contents_view_focus_helper.h"
+#include "chrome/browser/ui/views/tab_search_bubble_host.h"
 #include "chrome/browser/ui/views/tabs/browser_tab_strip_controller.h"
 #include "chrome/browser/ui/views/tabs/new_tab_button.h"
 #include "chrome/browser/ui/views/tabs/tab.h"
@@ -185,7 +187,7 @@
 #include "components/omnibox/browser/omnibox_view.h"
 #include "components/permissions/permission_request_manager.h"
 #include "components/prefs/pref_service.h"
-#include "components/safe_browsing/core/password_protection/metrics_util.h"
+#include "components/safe_browsing/core/browser/password_protection/metrics_util.h"
 #include "components/sessions/core/tab_restore_service.h"
 #include "components/startup_metric_utils/browser/startup_metric_utils.h"
 #include "components/translate/core/browser/language_state.h"
@@ -212,6 +214,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/base/models/image_model.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/theme_provider.h"
 #include "ui/base/window_open_disposition.h"
@@ -478,7 +481,7 @@ BEGIN_METADATA(ContentsSeparator, views::Separator)
 END_METADATA
 
 bool ShouldShowWindowIcon(const Browser* browser) {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if defined(OS_CHROMEOS)
   // For Chrome OS only, trusted windows (apps and settings) do not show a
   // window icon, crbug.com/119411. Child windows (i.e. popups) do show an icon.
   if (browser->is_trusted_source())
@@ -822,6 +825,7 @@ void BrowserView::SetAllVisible(bool visible) {
 
 void BrowserView::SetResizable(bool resizable) {
   resizable_ = resizable;
+  SetCanResize(resizable_);
 #if defined(OS_LINUX) || defined(OS_WIN)
   if (!resizable) {
     size_constraints_.set_minimum_size(GetContentsSize());
@@ -947,8 +951,12 @@ int BrowserView::GetTabStripHeight() const {
   return GetTabStripVisible() ? tabstrip_->GetPreferredSize().height() : 0;
 }
 
-TabSearchButton* BrowserView::GetTabSearchButton() {
-  return tab_strip_region_view_->tab_search_button();
+TabSearchBubbleHost* BrowserView::GetTabSearchBubbleHost() {
+  if (auto* tab_search_host = frame_->GetFrameView()->GetTabSearchBubbleHost())
+    return tab_search_host;
+  auto* tab_search_button = tab_strip_region_view_->tab_search_button();
+  return tab_search_button ? tab_search_button->tab_search_bubble_host()
+                           : nullptr;
 }
 
 bool BrowserView::GetTabStripVisible() const {
@@ -974,8 +982,7 @@ bool BrowserView::GetIncognito() const {
 }
 
 bool BrowserView::GetGuestSession() const {
-  return browser_->profile()->IsGuestSession() ||
-         browser_->profile()->IsEphemeralGuestProfile();
+  return browser_->profile()->IsGuestSession();
 }
 
 bool BrowserView::GetRegularOrGuestSession() const {
@@ -1673,8 +1680,12 @@ void BrowserView::UpdateToolbar(content::WebContents* contents) {
 }
 
 void BrowserView::UpdateCustomTabBarVisibility(bool visible, bool animate) {
-  if (toolbar_)
+  if (toolbar_) {
     toolbar_->UpdateCustomTabBarVisibility(visible, animate);
+
+    if (AppUsesWindowControlsOverlay())
+      frame_->GetFrameView()->SetWindowControlsOverlayToggleVisible(!visible);
+  }
 }
 
 void BrowserView::ResetToolbarTabState(content::WebContents* contents) {
@@ -1751,9 +1762,24 @@ void BrowserView::LinkOpeningFromGesture(WindowOpenDisposition disposition) {
   link_opened_from_gesture_callbacks_.Notify(disposition);
 }
 
+bool BrowserView::AppUsesWindowControlsOverlay() const {
+  return browser()->app_controller() &&
+         browser()->app_controller()->AppUsesWindowControlsOverlay();
+}
+
 bool BrowserView::IsWindowControlsOverlayEnabled() const {
+  if (toolbar_->custom_tab_bar() && toolbar_->custom_tab_bar()->GetVisible())
+    return false;
+
   return browser()->app_controller() &&
          browser()->app_controller()->IsWindowControlsOverlayEnabled();
+}
+
+void BrowserView::ToggleWindowControlsOverlayEnabled() {
+  browser()->app_controller()->ToggleWindowControlsOverlayEnabled();
+  frame_->GetFrameView()->WindowControlsOverlayEnabledChanged();
+  if (!browser()->app_controller()->IsWindowControlsOverlayEnabled())
+    GetActiveWebContents()->UpdateWindowControlsOverlay(gfx::Rect());
 }
 
 void BrowserView::FocusBookmarksToolbar() {
@@ -1770,6 +1796,10 @@ void BrowserView::FocusInactivePopupForAccessibility() {
 
   if (!infobar_container_->children().empty())
     infobar_container_->SetPaneFocusAndFocusDefault();
+}
+
+void BrowserView::FocusHelpBubble() {
+  FeaturePromoBubbleOwnerImpl::GetInstance()->ActivateBubbleForAccessibility();
 }
 
 void BrowserView::FocusAppMenu() {
@@ -1842,7 +1872,10 @@ bool BrowserView::ActivateFirstInactiveBubbleForAccessibility() {
     return true;
   }
 
-  return false;
+  // Activate an in-product help bubble last, if there's no other bubbles to
+  // activate.
+  return FeaturePromoBubbleOwnerImpl::GetInstance()
+      ->ActivateBubbleForAccessibility();
 }
 
 void BrowserView::TryNotifyWindowBoundsChanged(const gfx::Rect& widget_bounds) {
@@ -2007,10 +2040,16 @@ send_tab_to_self::SendTabToSelfBubbleView* BrowserView::ShowSendTabToSelfBubble(
     bubble->SetHighlightedButton(icon_view);
 
   views::BubbleDialogDelegateView::CreateBubble(bubble);
-  bubble->Show(send_tab_to_self::SendTabToSelfBubbleViewImpl::USER_GESTURE);
+  bubble->ShowForReason(LocationBarBubbleDelegateView::USER_GESTURE);
   return bubble;
 }
 
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+views::Button* BrowserView::GetSharingHubIconButton() {
+  return toolbar_button_provider()->GetPageActionIconView(
+      PageActionIconType::kSharingHub);
+}
+#else
 sharing_hub::SharingHubBubbleView* BrowserView::ShowSharingHubBubble(
     content::WebContents* web_contents,
     sharing_hub::SharingHubBubbleController* controller,
@@ -2033,6 +2072,7 @@ sharing_hub::SharingHubBubbleView* BrowserView::ShowSharingHubBubble(
 
   return bubble;
 }
+#endif
 
 ShowTranslateBubbleResult BrowserView::ShowTranslateBubble(
     content::WebContents* web_contents,
@@ -2361,14 +2401,6 @@ bool BrowserView::GetAcceleratorForCommandId(
 ///////////////////////////////////////////////////////////////////////////////
 // BrowserView, views::WidgetDelegate implementation:
 
-bool BrowserView::CanResize() const {
-#if defined(OS_MAC)
-  return resizable_;
-#else
-  return true;
-#endif
-}
-
 bool BrowserView::CanMaximize() const {
   return resizable_ && size_constraints_.GetMaximumSize().IsEmpty() && !WidgetHasHitTestMask();
 }
@@ -2466,7 +2498,7 @@ std::u16string BrowserView::GetAccessibleWindowTitleForChannelAndProfile(
   // Finally annotate with the user - add Incognito or guest if it's an
   // incognito or guest window, otherwise use the avatar name.
   ProfileManager* profile_manager = g_browser_process->profile_manager();
-  if (profile->IsGuestSession() || profile->IsEphemeralGuestProfile()) {
+  if (profile->IsGuestSession()) {
     title = l10n_util::GetStringFUTF16(IDS_ACCESSIBLE_GUEST_WINDOW_TITLE_FORMAT,
                                        title);
   } else if (profile->IsIncognitoProfile()) {
@@ -2639,7 +2671,7 @@ bool BrowserView::GetSupportsIcon() const {
 #endif
 
 bool BrowserView::ShouldShowWindowTitle() const {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if defined(OS_CHROMEOS)
   // For Chrome OS only, trusted windows (apps and settings) do not show a
   // title, crbug.com/119411. Child windows (i.e. popups) do show a title.
   if (browser_->is_trusted_source())
@@ -2653,7 +2685,7 @@ bool BrowserView::ShouldShowWindowTitle() const {
   return browser_->SupportsWindowFeature(Browser::FEATURE_TITLEBAR);
 }
 
-gfx::ImageSkia BrowserView::GetWindowAppIcon() {
+ui::ImageModel BrowserView::GetWindowAppIcon() {
 #if 1
   if (browser_->is_type_devtools()) {
     WebContents* contents = browser_->tab_strip_model()->GetActiveWebContents();
@@ -2663,17 +2695,17 @@ gfx::ImageSkia BrowserView::GetWindowAppIcon() {
       WebContents* inspected_contents =
           devtools_window->GetInspectedWebContents();
       if (!inspected_contents)
-        return gfx::ImageSkia();
+        return ui::ImageModel();
       Browser* browser = chrome::FindBrowserWithWebContents(inspected_contents);
       if (browser && !browser->icon_override().IsEmpty())
-        return *browser->icon_override().ToImageSkia();
+        return ui::ImageModel::FromImage(browser->icon_override());
       favicon::FaviconDriver* favicon_driver =
           favicon::ContentFaviconDriver::FromWebContents(inspected_contents);
       gfx::Image app_icon;
       if (favicon_driver)
         app_icon = favicon_driver->GetFavicon();
       if (!app_icon.IsEmpty())
-        return *app_icon.ToImageSkia();
+        return ui::ImageModel::FromImage(app_icon);
       Profile* profile =
           Profile::FromBrowserContext(contents->GetBrowserContext());
       extensions::AppWindowRegistry* registry =
@@ -2682,7 +2714,7 @@ gfx::ImageSkia BrowserView::GetWindowAppIcon() {
         extensions::AppWindow* app_window =
             registry->GetAppWindowForWebContents(inspected_contents);
         if (app_window)
-          return app_window->custom_app_icon().AsImageSkia();
+          return ui::ImageModel::FromImageSkia(app_window->custom_app_icon().AsImageSkia());
       }
     }
   }
@@ -2691,10 +2723,10 @@ gfx::ImageSkia BrowserView::GetWindowAppIcon() {
   return app_controller ? app_controller->GetWindowAppIcon() : GetWindowIcon();
 }
 
-gfx::ImageSkia BrowserView::GetWindowIcon() {
+ui::ImageModel BrowserView::GetWindowIcon() {
   gfx::Image icon_override = browser()->icon_override();
   if (!icon_override.IsEmpty())
-    return *icon_override.ToImageSkia();
+    return ui::ImageModel::FromImageSkia(*icon_override.ToImageSkia());
   // Use the default icon for devtools.
   if (browser_->is_type_devtools()) {
     WebContents* active_content = browser_->tab_strip_model()->GetActiveWebContents();
@@ -2705,14 +2737,14 @@ gfx::ImageSkia BrowserView::GetWindowIcon() {
           devtools_window->GetInspectedWebContents();
       Browser* browser = chrome::FindBrowserWithWebContents(inspected_contents);
       if (browser && !browser->icon_override().IsEmpty())
-        return *browser->icon_override().ToImageSkia();
+        return ui::ImageModel::FromImageSkia(*browser->icon_override().ToImageSkia());
       favicon::FaviconDriver* favicon_driver =
           favicon::ContentFaviconDriver::FromWebContents(inspected_contents);
       gfx::Image app_icon;
       if (favicon_driver)
         app_icon = favicon_driver->GetFavicon();
       if (!app_icon.IsEmpty())
-        return *app_icon.ToImageSkia();
+        return ui::ImageModel::FromImageSkia(*app_icon.ToImageSkia());
       Profile* profile =
           Profile::FromBrowserContext(active_content->GetBrowserContext());
       extensions::AppWindowRegistry* registry =
@@ -2721,10 +2753,10 @@ gfx::ImageSkia BrowserView::GetWindowIcon() {
         extensions::AppWindow* app_window =
             registry->GetAppWindowForWebContents(inspected_contents);
         if (app_window)
-          return app_window->custom_app_icon().AsImageSkia();
+          return ui::ImageModel::FromImageSkia(app_window->custom_app_icon().AsImageSkia());
       }
     }
-    return gfx::ImageSkia();
+    return ui::ImageModel();
   }
 
   // Hosted apps always show their app icon.
@@ -2734,20 +2766,20 @@ gfx::ImageSkia BrowserView::GetWindowIcon() {
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
-  if (browser_->is_type_normal()) {
-    return rb.GetImageNamed(IDR_CHROME_APP_ICON_192).AsImageSkia();
-  }
+  if (browser_->is_type_normal())
+    return ui::ImageModel::FromImage(rb.GetImageNamed(IDR_CHROME_APP_ICON_192));
   auto* window = GetNativeWindow();
   int override_window_icon_resource_id =
       window ? window->GetProperty(kOverrideWindowIconResourceIdKey) : -1;
   if (override_window_icon_resource_id >= 0)
-    return rb.GetImageNamed(override_window_icon_resource_id).AsImageSkia();
+    return ui::ImageModel::FromImage(
+        rb.GetImageNamed(override_window_icon_resource_id));
 #endif
 
   if (browser_->deprecated_is_app() || browser_->is_type_popup())
-    return browser_->GetCurrentPageIcon().AsImageSkia();
+    return ui::ImageModel::FromImage(browser_->GetCurrentPageIcon());
 
-  return gfx::ImageSkia();
+  return ui::ImageModel();
 }
 
 bool BrowserView::ExecuteWindowsCommand(int command_id) {
@@ -2877,13 +2909,10 @@ void BrowserView::OnWidgetDestroying(views::Widget* widget) {
   // Destroy any remaining WebContents early on. Doing so may result in
   // calling back to one of the Views/LayoutManagers or supporting classes of
   // BrowserView. By destroying here we ensure all said classes are valid.
-  std::vector<std::unique_ptr<content::WebContents>> contents;
-  while (browser()->tab_strip_model()->count())
-    contents.push_back(browser()->tab_strip_model()->DetachWebContentsAt(0));
   // Note: The BrowserViewTest tests rely on the contents being destroyed in the
   // order that they were present in the tab strip.
-  for (auto& content : contents)
-    content.reset();
+  while (browser()->tab_strip_model()->count())
+    browser()->tab_strip_model()->DetachAndDeleteWebContentsAt(0);
   // Destroy the fullscreen control host, as it observes the native window.
   fullscreen_control_host_.reset();
 }
@@ -2991,13 +3020,13 @@ void BrowserView::CreateTabSearchBubble() {
     return;
 #endif  // BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
 
-  DCHECK(GetTabSearchButton());
-  GetTabSearchButton()->ShowTabSearchBubble(true);
+  if (auto* tab_search_host = GetTabSearchBubbleHost())
+    tab_search_host->ShowTabSearchBubble(true);
 }
 
 void BrowserView::CloseTabSearchBubble() {
-  if (GetTabSearchButton())
-    GetTabSearchButton()->CloseTabSearchBubble();
+  if (auto* tab_search_host = GetTabSearchBubbleHost())
+    tab_search_host->CloseTabSearchBubble();
 }
 
 void BrowserView::RevealTabStripIfNeeded() {
@@ -3571,6 +3600,10 @@ void BrowserView::ProcessFullscreen(bool fullscreen,
 
   // Toggle fullscreen mode; move the window between displays as needed.
   // TODO(crbug.com/1034783): Implement at lower layers to avoid transitions.
+#if defined(OS_MAC)
+  bool entering_cross_screen_fullscreen = false;
+  bool swapping_screens_during_fullscreen = false;
+#endif  // OS_MAC
   if (fullscreen && display_id != display::kInvalidDisplayId) {
     display::Screen* screen = display::Screen::GetScreen();
     display::Display display;
@@ -3578,9 +3611,29 @@ void BrowserView::ProcessFullscreen(bool fullscreen,
         screen->GetDisplayNearestWindow(GetNativeWindow());
     if (screen && screen->GetDisplayWithDisplayId(display_id, &display) &&
         current_display.id() != display_id) {
-      if (!IsFullscreen()) {
-        const gfx::Rect current_bounds = frame_->GetWindowBoundsInScreen();
-        const bool is_maximized = frame_->IsMaximized();
+#if defined(OS_MAC)
+      entering_cross_screen_fullscreen = true;
+#endif  // OS_MAC
+
+      // Fullscreen windows must exit fullscreen to move to another display.
+      if (IsFullscreen()) {
+#if defined(OS_MAC)
+        swapping_screens_during_fullscreen = true;
+#endif  // OS_MAC
+        frame_->SetFullscreen(false);
+      }
+
+      // Maximized windows must be restored to move to another display.
+      const bool was_maximized = frame_->IsMaximized();
+      if (was_maximized)
+        frame_->Restore();
+
+      if (restore_pre_fullscreen_bounds_callback_.is_null()) {
+        // TODO(crbug.com/1227805): GetRestoredBounds() yields maximized bounds
+        // on Linux when the window is maximized and then made fullscreen on the
+        // current screen, before (now) requesting fullscreen on another screen.
+        // This causes the window's pre-maximized (restored) bounds to be lost.
+        const gfx::Rect restored_bounds = frame_->GetRestoredBounds();
         restore_pre_fullscreen_bounds_callback_ = base::BindOnce(
             [](base::WeakPtr<BrowserView> view, const gfx::Rect& bounds,
                bool maximize) {
@@ -3592,26 +3645,30 @@ void BrowserView::ProcessFullscreen(bool fullscreen,
                   view->frame()->Maximize();
               }
             },
-            weak_ptr_factory_.GetWeakPtr(), current_bounds, is_maximized);
-        // Maximized windows must be restored to actually move between displays.
-        if (is_maximized)
-          frame_->Restore();
-      } else {
-        frame_->SetFullscreen(false);
+            weak_ptr_factory_.GetWeakPtr(), restored_bounds, was_maximized);
       }
+
       frame_->SetBounds({display.work_area().origin(),
                          frame_->GetWindowBoundsInScreen().size()});
     }
   }
 
+#if defined(OS_MAC)
+  // On Mac, the fullscreen state change must be requested with a delay after
+  // moving the window to the target display; see http://crbug.com/1210548
+  base::TimeDelta delay;
+  if (swapping_screens_during_fullscreen)
+    delay = base::TimeDelta::FromMilliseconds(1000);
+  else if (entering_cross_screen_fullscreen)
+    delay = base::TimeDelta::FromMilliseconds(1);
+  frame_->SetFullscreen(fullscreen, delay);
+#else   // OS_MAC
   frame_->SetFullscreen(fullscreen);
-
-#if !defined(OS_MAC)
   // On Mac, the pre-fullscreen bounds must be restored after an asynchronous
   // transition out of the fullscreen workspace; see http://crbug.com/1039874
   if (!fullscreen && restore_pre_fullscreen_bounds_callback_)
     std::move(restore_pre_fullscreen_bounds_callback_).Run();
-#endif  // !OS_MAC
+#endif  // OS_MAC
 
   // Enable immersive before the browser refreshes its list of enabled commands.
   const bool should_stay_in_immersive =
@@ -3727,6 +3784,10 @@ void BrowserView::UpdateAcceleratorMetrics(const ui::Accelerator& accelerator,
       base::RecordAction(base::UserMetricsAction("Accel_NewTabInGroup"));
   }
 
+  if (command_id == IDC_NEW_INCOGNITO_WINDOW) {
+    base::RecordAction(base::UserMetricsAction("Accel_NewIncognitoWindow"));
+  }
+
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   // Collect information about the relative popularity of various accelerators
   // on Chrome OS.
@@ -3772,7 +3833,7 @@ void BrowserView::UpdateAcceleratorMetrics(const ui::Accelerator& accelerator,
 void BrowserView::ShowAvatarBubbleFromAvatarButton(
     AvatarBubbleMode mode,
     signin_metrics::AccessPoint access_point,
-    bool focus_first_profile_button) {
+    bool is_source_accelerator) {
   // Do not show avatar bubble if there is no avatar menu button.
   views::Button* avatar_button =
       toolbar_button_provider_->GetAvatarToolbarButton();
@@ -3790,7 +3851,7 @@ void BrowserView::ShowAvatarBubbleFromAvatarButton(
   }
 #endif
   ProfileMenuViewBase::ShowBubble(bubble_view_mode, avatar_button, browser(),
-                                  focus_first_profile_button);
+                                  is_source_accelerator);
 }
 
 void BrowserView::MaybeShowProfileSwitchIPH() {
@@ -3814,6 +3875,14 @@ void BrowserView::ShowHatsDialog(
                         std::move(failure_callback), product_specific_data
 
   );
+}
+
+void BrowserView::ShowIncognitoClearBrowsingDataDialog() {
+  IncognitoClearBrowsingDataDialog::Show(
+      static_cast<views::View*>(BrowserView::GetBrowserViewForBrowser(browser())
+                                    ->toolbar_button_provider()
+                                    ->GetAvatarToolbarButton()),
+      browser()->profile());
 }
 
 ExclusiveAccessContext* BrowserView::GetExclusiveAccessContext() {

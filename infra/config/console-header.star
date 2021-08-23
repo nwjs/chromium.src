@@ -14,7 +14,7 @@ HEADER = headers.header(
         ),
         headers.oncall(
             name = "Chromium Branches",
-            branch_selector = branches.STANDARD_BRANCHES,
+            branch_selector = [branches.STANDARD_BRANCHES, branches.DESKTOP_EXTENDED_STABLE_BRANCHES],
             url = "https://chrome-ops-rotation-proxy.appspot.com/current/oncallator:chrome-branch-sheriff",
         ),
         headers.oncall(
@@ -105,8 +105,10 @@ HEADER = headers.header(
                     text = "source",
                     branch_selector = branches.ALL_BRANCHES,
                     url = branches.value(
-                        for_main = "https://chromium.googlesource.com/chromium/src",
-                        for_branches = "https://chromium.googlesource.com/chromium/src/+/{}".format(settings.ref),
+                        {
+                            branches.MAIN: "https://chromium.googlesource.com/chromium/src",
+                        },
+                        default = "https://chromium.googlesource.com/chromium/src/+/{}".format(settings.ref),
                     ),
                     alt = "Chromium source code repository",
                 ),
@@ -206,7 +208,7 @@ HEADER = headers.header(
                 ),
                 headers.link(
                     text = "chromiumos",
-                    branch_selector = branches.LTS_MILESTONE,
+                    branch_selector = branches.CROS_LTS_MILESTONE,
                     url = "/p/{}/g/chromium.chromiumos".format(settings.project),
                     alt = "ChromiumOS console",
                 ),
@@ -256,7 +258,7 @@ HEADER = headers.header(
                 ),
                 headers.link(
                     text = "chromiumos",
-                    branch_selector = branches.LTS_MILESTONE,
+                    branch_selector = branches.CROS_LTS_MILESTONE,
                     url = "/p/{}/g/tryserver.chromium.chromiumos/builders".format(settings.project),
                     alt = "ChromiumOS",
                 ),
@@ -344,11 +346,11 @@ HEADER = headers.header(
             ]],
         ),
         headers.console_group(
-            branch_selector = branches.LTS_BRANCHES,
+            branch_selector = branches.CROS_LTS_BRANCHES,
             console_ids = ["{}/{}".format(settings.project, c) for c in [
                 "chromium.chromiumos",
             ]],
         ),
     ],
-    tree_status_host = branches.value(for_main = "chromium-status.appspot.com"),
+    tree_status_host = "chromium-status.appspot.com" if settings.is_main else None,
 )

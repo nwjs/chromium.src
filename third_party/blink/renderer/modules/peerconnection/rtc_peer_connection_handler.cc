@@ -20,7 +20,6 @@
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/stl_util.h"
 #include "base/threading/thread_checker.h"
 #include "base/trace_event/trace_event.h"
 #include "media/base/media_switches.h"
@@ -610,8 +609,11 @@ ParsedSessionDescription::ParsedSessionDescription(const String& sdp_type,
 // static
 ParsedSessionDescription ParsedSessionDescription::Parse(
     const RTCSessionDescriptionInit* session_description_init) {
-  ParsedSessionDescription temp(session_description_init->type(),
-                                session_description_init->sdp());
+  ParsedSessionDescription temp(
+      session_description_init->hasType()
+          ? session_description_init->type().AsString()
+          : String(),
+      session_description_init->sdp());
   temp.DoParse();
   return temp;
 }
@@ -1630,7 +1632,8 @@ void RTCPeerConnectionHandler::AddIceCandidate(
        handler_weak_ptr = weak_factory_.GetWeakPtr(),
        tracker_weak_ptr =
            WrapCrossThreadWeakPersistent(peer_connection_tracker_.Get()),
-       candidate, persistent_request = WrapCrossThreadPersistent(request),
+       persistent_candidate = WrapCrossThreadPersistent(candidate),
+       persistent_request = WrapCrossThreadPersistent(request),
        callback_on_task_runner =
            std::move(callback_on_task_runner)](webrtc::RTCError result) {
         // Grab a snapshot of all the session descriptions. AddIceCandidate may
@@ -1658,7 +1661,7 @@ void RTCPeerConnectionHandler::AddIceCandidate(
                 std::move(current_local_description),
                 std::move(pending_remote_description),
                 std::move(current_remote_description),
-                WrapCrossThreadPersistent(candidate), std::move(result),
+                std::move(persistent_candidate), std::move(result),
                 std::move(persistent_request)));
       });
 }
@@ -2777,4 +2780,5 @@ void RTCPeerConnectionHandler::ResetUMAStats() {
   ice_connection_checking_start_ = base::TimeTicks();
   memset(ice_state_seen_, 0, sizeof(ice_state_seen_));
 }
+
 }  // namespace blink

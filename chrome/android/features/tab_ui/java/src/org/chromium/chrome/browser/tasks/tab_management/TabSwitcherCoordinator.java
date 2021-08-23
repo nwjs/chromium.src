@@ -35,9 +35,11 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tasks.pseudotab.PseudoTab;
 import org.chromium.chrome.browser.tasks.pseudotab.TabAttributeCache;
 import org.chromium.chrome.browser.tasks.tab_management.PriceMessageService.PriceMessageType;
+import org.chromium.chrome.browser.tasks.tab_management.TabListCoordinator.TabListMode;
 import org.chromium.chrome.browser.tasks.tab_management.TabSelectionEditorCoordinator.TabSelectionEditorNavigationProvider;
 import org.chromium.chrome.browser.tasks.tab_management.suggestions.TabSuggestionsOrchestrator;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
+import org.chromium.chrome.features.start_surface.StartSurfaceConfiguration;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.browser_ui.widget.MenuOrKeyboardActionController;
 import org.chromium.components.browser_ui.widget.scrim.ScrimCoordinator;
@@ -137,6 +139,7 @@ public class TabSwitcherCoordinator
                         RecordUserAction.record("MobileMenuGroupTabs");
                         return true;
                     } else if (id == R.id.track_prices_row_menu_id) {
+                        assert mPriceTrackingDialogCoordinator != null;
                         mPriceTrackingDialogCoordinator.show();
                         return true;
                     }
@@ -323,25 +326,18 @@ public class TabSwitcherCoordinator
             }
 
             if (TabUiFeatureUtilities.isTabGroupsAndroidEnabled(context)
-                    && !TabSwitcherMediator.isShowingTabsInMRUOrder()) {
+                    && !TabSwitcherCoordinator.isShowingTabsInMRUOrder(mMode)) {
                 mTabGridIphDialogCoordinator =
                         new TabGridIphDialogCoordinator(context, mContainer, modalDialogManager);
                 IphMessageService iphMessageService =
                         new IphMessageService(mTabGridIphDialogCoordinator);
                 mMessageCardProviderCoordinator.subscribeMessageService(iphMessageService);
             }
-
-            if (PriceTrackingUtilities.isPriceTrackingEnabled()) {
-                PriceDropNotificationManager notificationManager =
-                        new PriceDropNotificationManager();
-                mPriceTrackingDialogCoordinator = new PriceTrackingDialogCoordinator(
-                        context, modalDialogManager, this, mTabModelSelector, notificationManager);
-                mPriceMessageService = new PriceMessageService(
-                        mTabListCoordinator, mMediator, notificationManager);
-                mMessageCardProviderCoordinator.subscribeMessageService(mPriceMessageService);
-                mMediator.setPriceMessageService(mPriceMessageService);
-            }
         }
+
+        // TODO(crbug.com/1222762): Only call setUpPriceTracking in GRID TabSwitcher.
+        setUpPriceTracking(context, modalDialogManager);
+
         mIsInitialized = true;
     }
 
@@ -363,6 +359,20 @@ public class TabSwitcherCoordinator
                         TabSelectionEditorActionProvider.TabSelectionEditorAction.GROUP),
                 new TabSelectionEditorNavigationProvider(
                         mTabSelectionEditorCoordinator.getController()));
+    }
+
+    private void setUpPriceTracking(Context context, ModalDialogManager modalDialogManager) {
+        if (PriceTrackingUtilities.isPriceTrackingEnabled()) {
+            PriceDropNotificationManager notificationManager = new PriceDropNotificationManager();
+            mPriceTrackingDialogCoordinator = new PriceTrackingDialogCoordinator(
+                    context, modalDialogManager, this, mTabModelSelector, notificationManager);
+            if (mMode == TabListCoordinator.TabListMode.GRID) {
+                mPriceMessageService = new PriceMessageService(
+                        mTabListCoordinator, mMediator, notificationManager);
+                mMessageCardProviderCoordinator.subscribeMessageService(mPriceMessageService);
+                mMediator.setPriceMessageService(mPriceMessageService);
+            }
+        }
     }
 
     // TabSwitcher implementation.
@@ -607,7 +617,7 @@ public class TabSwitcherCoordinator
     private boolean shouldRegisterMessageItemType() {
         return CachedFeatureFlags.isEnabled(ChromeFeatureList.CLOSE_TAB_SUGGESTIONS)
                 || (TabUiFeatureUtilities.isTabGroupsAndroidEnabled(mRootView.getContext())
-                        && !TabSwitcherMediator.isShowingTabsInMRUOrder());
+                        && !TabSwitcherCoordinator.isShowingTabsInMRUOrder(mMode));
     }
 
     @Override
@@ -644,5 +654,14 @@ public class TabSwitcherCoordinator
         if (mTabAttributeCache != null) {
             mTabAttributeCache.destroy();
         }
+    }
+
+    /**
+     * Returns whether tabs should be shown in MRU order in current start surface tab switcher.
+     * @param mode The Tab switcher mode.
+     */
+    static boolean isShowingTabsInMRUOrder(@TabListMode int mode) {
+        return StartSurfaceConfiguration.SHOW_TABS_IN_MRU_ORDER.getValue()
+                && mode == TabListMode.CAROUSEL;
     }
 }

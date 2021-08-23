@@ -7,10 +7,8 @@
 #include "components/shared_highlighting/core/common/shared_highlighting_features.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/input/web_menu_source_type.h"
-#include "third_party/blink/public/mojom/scroll/scroll_enums.mojom-blink.h"
 #include "third_party/blink/public/platform/scheduler/test/renderer_scheduler_test_support.h"
 #include "third_party/blink/public/public_buildflags.h"
-#include "third_party/blink/renderer/bindings/core/v8/string_or_array_buffer_or_array_buffer_view.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_font_face_descriptors.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_mouse_event_init.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_arraybuffer_arraybufferview_string.h"
@@ -33,7 +31,6 @@
 #include "third_party/blink/renderer/core/loader/document_loader.h"
 #include "third_party/blink/renderer/core/loader/empty_clients.h"
 #include "third_party/blink/renderer/core/page/context_menu_controller.h"
-#include "third_party/blink/renderer/core/page/scrolling/fragment_anchor.h"
 #include "third_party/blink/renderer/core/page/scrolling/text_fragment_finder.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/core/scroll/scrollable_area.h"
@@ -96,31 +93,35 @@ class TextFragmentAnchorTest : public SimTest {
                         0, WebInputEvent::Modifiers::kLeftButtonDown,
                         base::TimeTicks::Now());
     event.SetFrameScale(1);
-    GetDocument().GetFrame()->GetEventHandler().HandleMousePressEvent(event);
+    WebView().MainFrameWidget()->ProcessInputEventSynchronouslyForTesting(
+        WebCoalescedInputEvent(event, ui::LatencyInfo()), base::DoNothing());
+  }
+
+  void SimulateRightClick(int x, int y) {
+    WebMouseEvent event(WebInputEvent::Type::kMouseDown, gfx::PointF(x, y),
+                        gfx::PointF(x, y), WebPointerProperties::Button::kRight,
+                        0, WebInputEvent::Modifiers::kLeftButtonDown,
+                        base::TimeTicks::Now());
+    event.SetFrameScale(1);
+    WebView().MainFrameWidget()->ProcessInputEventSynchronouslyForTesting(
+        WebCoalescedInputEvent(event, ui::LatencyInfo()), base::DoNothing());
   }
 
   void SimulateTap(int x, int y) {
-    WebGestureEvent event(WebInputEvent::Type::kGestureTap,
-                          WebInputEvent::kNoModifiers, base::TimeTicks::Now(),
-                          WebGestureDevice::kTouchscreen);
-    event.SetPositionInWidget(gfx::PointF(x, y));
-    event.SetPositionInScreen(gfx::PointF(x, y));
-    event.SetFrameScale(1);
-    GetDocument().GetFrame()->GetEventHandler().HandleGestureEvent(event);
+    InjectEvent(WebInputEvent::Type::kTouchStart, x, y);
+    InjectEvent(WebInputEvent::Type::kTouchEnd, x, y);
+    InjectEvent(WebInputEvent::Type::kGestureTapDown, x, y);
+    InjectEvent(WebInputEvent::Type::kGestureTapUnconfirmed, x, y);
+    InjectEvent(WebInputEvent::Type::kGestureShowPress, x, y);
+    InjectEvent(WebInputEvent::Type::kGestureTap, x, y);
   }
 
   void LoadAhem() {
     scoped_refptr<SharedBuffer> shared_buffer =
         test::ReadFromFile(test::CoreTestDataPath("Ahem.ttf"));
-#if defined(USE_BLINK_V8_BINDING_NEW_IDL_UNION)
     auto* buffer =
         MakeGarbageCollected<V8UnionArrayBufferOrArrayBufferViewOrString>(
             DOMArrayBuffer::Create(shared_buffer));
-#else   // defined(USE_BLINK_V8_BINDING_NEW_IDL_UNION)
-    StringOrArrayBufferOrArrayBufferView buffer =
-        StringOrArrayBufferOrArrayBufferView::FromArrayBuffer(
-            DOMArrayBuffer::Create(shared_buffer));
-#endif  // defined(USE_BLINK_V8_BINDING_NEW_IDL_UNION)
     FontFace* ahem =
         FontFace::Create(GetDocument().GetFrame()->DomWindow(), "Ahem", buffer,
                          FontFaceDescriptors::Create());
@@ -130,6 +131,41 @@ class TextFragmentAnchorTest : public SimTest {
     DummyExceptionStateForTesting exception_state;
     FontFaceSetDocument::From(GetDocument())
         ->addForBinding(script_state, ahem, exception_state);
+  }
+
+ private:
+  void InjectEvent(WebInputEvent::Type type, int x, int y) {
+    if (WebInputEvent::IsGestureEventType(type)) {
+      WebGestureEvent event(type, WebInputEvent::kNoModifiers,
+                            base::TimeTicks::Now(),
+                            WebGestureDevice::kTouchscreen);
+      event.SetPositionInWidget(gfx::PointF(x, y));
+      event.SetPositionInScreen(gfx::PointF(x, y));
+      event.SetFrameScale(1);
+
+      WebView().MainFrameWidget()->ProcessInputEventSynchronouslyForTesting(
+          WebCoalescedInputEvent(event, ui::LatencyInfo()), base::DoNothing());
+    } else if (WebInputEvent::IsTouchEventType(type)) {
+      WebTouchEvent event(type, WebInputEvent::kNoModifiers,
+                          base::TimeTicks::Now());
+      event.SetFrameScale(1);
+
+      WebPointerProperties pointer(0, WebPointerProperties::PointerType::kTouch,
+                                   WebPointerProperties::Button::kNoButton,
+                                   gfx::PointF(x, y), gfx::PointF(x, y));
+      event.touches[0] = pointer;
+      if (type == WebInputEvent::Type::kTouchStart)
+        event.touches[0].state = WebTouchPoint::State::kStatePressed;
+      else if (type == WebInputEvent::Type::kTouchEnd)
+        event.touches[0].state = WebTouchPoint::State::kStateReleased;
+
+      WebView().MainFrameWidget()->ProcessInputEventSynchronouslyForTesting(
+          WebCoalescedInputEvent(event, ui::LatencyInfo()), base::DoNothing());
+      WebView().MainFrameWidget()->DispatchBufferedTouchEvents();
+    } else {
+      NOTREACHED() << "Only needed to support Gesture/Touch until now. "
+                      "Implement others if new modality is needed.";
+    }
   }
 };
 
@@ -1977,64 +2013,12 @@ TEST_F(TextFragmentAnchorTest, TextDirectiveInSvg) {
   EXPECT_EQ(1u, GetDocument().Markers().Markers().size());
 }
 
-// Ensure we restore the highlight on page reload, but that we do not scroll to
-// the text fragment.
-TEST_F(TextFragmentAnchorTest, Reload) {
-  SimRequest request("https://example.com/test.html#:~:text=test", "text/html");
-  LoadURL("https://example.com/test.html#:~:text=test");
-  const String& html = R"HTML(
-    <!DOCTYPE html>
-    <style>
-      body {
-        height: 2200px;
-      }
-      #first {
-        position: absolute;
-        top: 1000px;
-      }
-      #second {
-        position: absolute;
-        top: 2000px;
-      }
-    </style>
-    <p id="first">This is a test page</p>
-    <p id="second">This is some more text</p>
-  )HTML";
-  request.Complete(html);
-  RunAsyncMatchingTasks();
-
-  // Render two frames to handle the async step added by the beforematch event.
-  Compositor().BeginFrame();
-  Compositor().BeginFrame();
-
-  EXPECT_EQ(1u, GetDocument().Markers().Markers().size());
-
-  // Scroll to the top before reloading.
-  GetDocument().View()->GetScrollableArea()->SetScrollOffset(
-      ScrollOffset(), mojom::blink::ScrollType::kProgrammatic);
-  Compositor().BeginFrame();
-
-  // Reload the page.
-  SimRequest reload_request("https://example.com/test.html#:~:text=test",
-                            "text/html");
-  MainFrame().StartReload(WebFrameLoadType::kReload);
-  reload_request.Complete(html);
-
-  // Render two frames to handle the async step added by the beforematch event.
-  Compositor().BeginFrame();
-  Compositor().BeginFrame();
-
-  // Make sure the text fragment is highlighted.
-  EXPECT_EQ(*GetDocument().getElementById("first"), *GetDocument().CssTarget());
-  EXPECT_EQ(1u, GetDocument().Markers().Markers().size());
-
-  // Make sure the page is not scrolled to the highlight, but to the last place
-  // it was before the reload; in this case the top of the page.
-  EXPECT_EQ(ScrollOffset(), LayoutViewport()->GetScrollOffset());
-}
-
-// Ensure we don't restore a dismissed highlight on page reload.
-TEST_F(TextFragmentAnchorTest, ReloadAfterDismissing) {
+// Ensure we restore the text highlight on page reload
+// TODO(bokan): This test is disabled as this functionality was suppressed in
+// https://crrev.com/c/2135407; it would be better addressed by providing a
+// highlight-only function. See the TODO in
+// https://wicg.github.io/ScrollToTextFragment/#restricting-the-text-fragment
+TEST_F(TextFragmentAnchorTest, DISABLED_HighlightOnReload) {
   SimRequest request("https://example.com/test.html#:~:text=test", "text/html");
   LoadURL("https://example.com/test.html#:~:text=test");
   const String& html = R"HTML(
@@ -2059,20 +2043,13 @@ TEST_F(TextFragmentAnchorTest, ReloadAfterDismissing) {
 
   EXPECT_EQ(1u, GetDocument().Markers().Markers().size());
 
-  // Dismiss the highlight.
-  EXPECT_TRUE(GetDocument().View()->GetFragmentAnchor()->Dismiss());
+  // Tap to dismiss the highlight.
+  SimulateClick(10, 10);
+  EXPECT_EQ(0u, GetDocument().Markers().Markers().size());
 
-  // Make sure the URL was updated.
-  KURL url = GetDocument()
-                 .GetFrame()
-                 ->Loader()
-                 .GetDocumentLoader()
-                 ->GetHistoryItem()
-                 ->Url();
-  EXPECT_EQ("https://example.com/test.html", url.GetString());
-
-  // Reload the page.
-  SimRequest reload_request(url.GetString(), "text/html");
+  // Reload the page and expect the highlight to be restored.
+  SimRequest reload_request("https://example.com/test.html#:~:text=test",
+                            "text/html");
   MainFrame().StartReload(WebFrameLoadType::kReload);
   reload_request.Complete(html);
 
@@ -2080,8 +2057,8 @@ TEST_F(TextFragmentAnchorTest, ReloadAfterDismissing) {
   Compositor().BeginFrame();
   Compositor().BeginFrame();
 
-  // Make sure the text fragment is not highlighted.
-  EXPECT_EQ(0u, GetDocument().Markers().Markers().size());
+  EXPECT_EQ(*GetDocument().getElementById("text"), *GetDocument().CssTarget());
+  EXPECT_EQ(1u, GetDocument().Markers().Markers().size());
 }
 
 // Ensure that we can have text directives combined with non-text directives
@@ -2623,6 +2600,76 @@ TEST_F(TextFragmentAnchorTest,
   EXPECT_TRUE(mock_notifier.ReceiverIsBound());
 }
 #endif  // BUILDFLAG(ENABLE_UNHANDLED_TAP)
+
+TEST_F(TextFragmentAnchorTest, TapOpeningContextMenuWithDirtyLifecycleNoCrash) {
+  ScopedTextFragmentTapOpensContextMenuForTest tap_opens_context_menu(true);
+  base::test::ScopedFeatureList feature_list_;
+  feature_list_.InitAndEnableFeature(
+      shared_highlighting::kSharedHighlightingV2);
+
+  SimRequest request(
+      "https://example.com/"
+      "test.html#:~:text=This%20is%20just%20example",
+      "text/html");
+  LoadURL(
+      "https://example.com/"
+      "test.html#:~:text=This%20is%20just%20example");
+  request.Complete(R"HTML(
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        .content {
+          width: 1000px;
+          height: 2000px;
+          background-color: silver;
+        }
+      </style>
+      <script>
+        // Dirty lifecycle inside the click event.
+        addEventListener('click', () => {
+          document.body.style.width = '500px';
+        });
+        // This prevents calling HandleMouseReleaseEvent which has an
+        // UpdateLifecycle call inside it but it also prevents showing the
+        // context menu.
+        addEventListener('mouseup', (e) => { e.preventDefault(); });
+      </script>
+    </head>
+
+    <body>
+      This is just example text that will wrap.
+      <div class="content"></div>
+    </body>
+    </html>
+  )HTML");
+  RunAsyncMatchingTasks();
+  ContextMenuAllowedScope context_menu_allowed_scope;
+
+  Compositor().BeginFrame();
+
+  EXPECT_FALSE(GetDocument()
+                   .GetPage()
+                   ->GetContextMenuController()
+                   .ContextMenuNodeForFrame(GetDocument().GetFrame()));
+
+  Node* first_paragraph = GetDocument().body()->firstChild();
+  const auto& start = Position(first_paragraph, 0);
+  const auto& end = Position(first_paragraph, 27);
+  ASSERT_EQ("This is just example", PlainText(EphemeralRange(start, end)));
+
+  Range* range = CreateRange(EphemeralRange(start, end));
+
+  IntPoint tap_point = range->BoundingBox().Center();
+  SimulateTap(tap_point.X(), tap_point.Y());
+
+  // Expect that we won't see the context menu because we preventDefaulted the
+  // mouseup but this test passes if it doesn't crash.
+  EXPECT_FALSE(GetDocument()
+                   .GetPage()
+                   ->GetContextMenuController()
+                   .ContextMenuNodeForFrame(GetDocument().GetFrame()));
+}
 
 }  // namespace
 

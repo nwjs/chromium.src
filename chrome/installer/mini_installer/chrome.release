@@ -37,6 +37,7 @@ resources.pak: %(ChromeDir)s\
 node.dll: %(ChromeDir)s\
 vk_swiftshader.dll: %(ChromeDir)s\
 vk_swiftshader_icd.json: %(ChromeDir)s\
+vulkan-1.dll: %(ChromeDir)s\
 v8_context_snapshot.bin: %(ChromeDir)s\
 
 #

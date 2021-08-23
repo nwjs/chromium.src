@@ -257,9 +257,14 @@ std::set<std::string> GetFileHandlerExtensionsWithoutDot(
 }
 
 bool AppShimCreationDisabledForTest() {
-  // Disable app shims in tests because shims created in ~/Applications will not
-  // be cleaned up.
-  return true; //base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kTestType);
+  return true;
+#if 0
+  // Disable app shims in tests if the shortcut folder is not set.
+  // Because shims created in ~/Applications will not be cleaned up.
+  return base::CommandLine::ForCurrentProcess()->HasSwitch(
+             switches::kTestType) &&
+         !web_app::GetShortcutOverrideForTesting();
+#endif
 }
 
 base::FilePath GetWritableApplicationsDirectory() {
@@ -487,11 +492,6 @@ base::FilePath GetLocalizableAppShortcutsSubdirName() {
     default:
       return base::FilePath(kChromeAppDirName);
   }
-}
-
-base::FilePath* GetOverriddenApplicationsFolder() {
-  static base::NoDestructor<base::FilePath> overridden_path;
-  return overridden_path.get();
 }
 
 // Creates a canvas the same size as |overlay|, copies the appropriate
@@ -756,18 +756,14 @@ bool AppShimLaunchDisabled() {
 }
 
 base::FilePath GetChromeAppsFolder() {
-  if (!GetOverriddenApplicationsFolder()->empty())
-    return *GetOverriddenApplicationsFolder();
+  if (web_app::GetShortcutOverrideForTesting())
+    return web_app::GetShortcutOverrideForTesting()->chrome_apps_folder;
 
   base::FilePath path = GetWritableApplicationsDirectory();
   if (path.empty())
     return path;
 
   return path.Append(GetLocalizableAppShortcutsSubdirName());
-}
-
-void SetChromeAppsFolderForTesting(const base::FilePath& path) {
-  *GetOverriddenApplicationsFolder() = path;
 }
 
 // static
@@ -1039,6 +1035,13 @@ bool WebAppShortcutCreator::CreateShortcuts(
   return true;
 }
 
+static bool g_have_localized_app_dir_name = false;
+
+// static
+void WebAppShortcutCreator::ResetHaveLocalizedAppDirNameForTesting() {
+  g_have_localized_app_dir_name = false;
+}
+
 bool WebAppShortcutCreator::UpdateShortcuts(
     bool create_if_needed,
     std::vector<base::FilePath>* updated_paths) {
@@ -1054,8 +1057,11 @@ bool WebAppShortcutCreator::UpdateShortcuts(
     }
     // Only set folder icons and a localized name once. This avoids concurrent
     // calls to -[NSWorkspace setIcon:..], which is not reentrant.
-    static bool once = UpdateAppShortcutsSubdirLocalizedName(applications_dir);
-    if (!once) {
+    if (!g_have_localized_app_dir_name) {
+      g_have_localized_app_dir_name =
+          UpdateAppShortcutsSubdirLocalizedName(applications_dir);
+    }
+    if (!g_have_localized_app_dir_name) {
       RecordCreateShortcut(CreateShortcutResult::kFailToLocalizeApplication);
       LOG(ERROR) << "Failed to localize " << applications_dir.value();
     }
@@ -1341,7 +1347,7 @@ void LaunchShim(LaunchShimUpdateBehavior update_behavior,
                 ShimLaunchedCallback launched_callback,
                 ShimTerminatedCallback terminated_callback,
                 std::unique_ptr<ShortcutInfo> shortcut_info) {
-  if (AppShimLaunchDisabled()) {
+  if (AppShimLaunchDisabled() || !shortcut_info) {
     content::GetUIThreadTaskRunner({})->PostTask(
         FROM_HERE,
         base::BindOnce(std::move(launched_callback), base::Process()));

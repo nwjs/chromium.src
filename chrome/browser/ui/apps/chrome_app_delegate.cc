@@ -46,6 +46,7 @@
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/color_chooser.h"
 #include "content/public/browser/file_select_listener.h"
 #include "content/public/browser/host_zoom_map.h"
 #include "content/public/browser/media_stream_request.h"
@@ -63,7 +64,7 @@
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "chrome/browser/ash/lock_screen_apps/state_controller.h"
-#include "chrome/browser/chromeos/policy/dlp/dlp_content_tab_helper.h"
+#include "chrome/browser/ash/policy/dlp/dlp_content_tab_helper.h"
 #endif
 
 #if BUILDFLAG(ENABLE_PRINTING)
@@ -253,7 +254,7 @@ void ChromeAppDelegate::InitWebContents(content::WebContents* web_contents) {
   apps::AudioFocusWebContentsObserver::CreateForWebContents(web_contents);
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-  policy::DlpContentTabHelper::CreateForWebContents(web_contents);
+  policy::DlpContentTabHelper::MaybeCreateForWebContents(web_contents);
 #endif
 
   autofill::ChromeAutofillClient::CreateForWebContents(web_contents);
@@ -336,7 +337,7 @@ void ChromeAppDelegate::AddNewContents(
                          target_url, disposition, initial_rect, std::string());
 }
 
-content::ColorChooser* ChromeAppDelegate::ShowColorChooser(
+std::unique_ptr<content::ColorChooser> ChromeAppDelegate::ShowColorChooser(
     content::WebContents* web_contents,
     SkColor initial_color) {
   return chrome::ShowColorChooser(web_contents, initial_color);

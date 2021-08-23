@@ -8,6 +8,7 @@
 #include <utility>
 #include <vector>
 #include "ui/gfx/image/image_skia_operations.h"
+#include "ui/base/models/image_model.h"
 
 #include "base/containers/adapters.h"
 #include "base/strings/utf_string_conversions.h"
@@ -87,10 +88,10 @@ CustomFrameView::CustomFrameView(Widget* frame)
       IDS_APP_ACCNAME_RESTORE, IDR_RESTORE, IDR_RESTORE_H, IDR_RESTORE_P);
 
   if (frame_->widget_delegate()->ShouldShowWindowIcon()) {
-    gfx::ImageSkia icon;
+    ui::ImageModel icon;
     icon = frame_->widget_delegate()->GetWindowAppIcon();
     window_icon_ = new ImageButton(Button::PressedCallback());
-    window_icon_->SetImage(Button::STATE_NORMAL, &icon);
+    window_icon_->SetImage(Button::STATE_NORMAL, icon.GetImage().ToImageSkia());
     AddChildView(window_icon_);
     window_icon_->SetFocusBehavior(FocusBehavior::ACCESSIBLE_ONLY);
   }
@@ -145,9 +146,11 @@ int CustomFrameView::NonClientHitTest(const gfx::Point& point) {
   if (window_icon_ && window_icon_->GetMirroredBounds().Contains(point))
     return HTSYSMENU;
 
+  gfx::Insets resize_border(NonClientBorderThickness());
+  // The top resize border has extra thickness.
+  resize_border.set_top(FrameBorderThickness());
   int window_component = GetHTComponentForFrame(
-      point, FrameBorderThickness(), NonClientBorderThickness(),
-      kResizeAreaCornerSize, kResizeAreaCornerSize,
+      point, resize_border, kResizeAreaCornerSize, kResizeAreaCornerSize,
       frame_->widget_delegate()->CanResize());
   // Fall back to the caption if no other component matches.
   return (window_component == HTNOWHERE) ? HTCAPTION : window_component;
@@ -171,10 +174,10 @@ void CustomFrameView::ResetWindowControls() {
 
 void CustomFrameView::UpdateWindowIcon() {
   if (window_icon_) {
-    gfx::ImageSkia icon;
+    ui::ImageModel icon;
     icon = frame_->widget_delegate()->GetWindowAppIcon();
     int size = IconSize();
-    gfx::ImageSkia icon2 = gfx::ImageSkiaOperations::CreateResizedImage(icon,
+    gfx::ImageSkia icon2 = gfx::ImageSkiaOperations::CreateResizedImage(*icon.GetImage().ToImageSkia(),
                                skia::ImageOperations::RESIZE_BEST,
                                gfx::Size(size, size));
     window_icon_->SetImage(Button::STATE_NORMAL, &icon2);

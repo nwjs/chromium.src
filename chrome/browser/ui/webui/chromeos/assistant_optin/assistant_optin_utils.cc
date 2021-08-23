@@ -15,6 +15,7 @@
 #include "chrome/grit/generated_resources.h"
 #include "chromeos/services/assistant/public/cpp/assistant_prefs.h"
 #include "chromeos/services/assistant/public/cpp/features.h"
+#include "chromeos/services/assistant/public/proto/activity_control_settings_common.pb.h"
 #include "components/arc/arc_prefs.h"
 #include "components/consent_auditor/consent_auditor.h"
 #include "components/prefs/pref_service.h"
@@ -23,6 +24,9 @@
 #include "components/user_manager/user_manager.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/webui/web_ui_util.h"
+
+using AssistantActivityControlConsent =
+    sync_pb::UserConsentTypes::AssistantActivityControlConsent;
 
 namespace {
 
@@ -96,11 +100,19 @@ assistant::SettingsUiUpdate GetEmailOptInUpdate(bool opted_in) {
 }
 
 // Helper method to create zippy data.
-base::Value CreateZippyData(const SettingZippyList& zippy_list) {
+base::Value CreateZippyData(const ActivityControlUi& activity_control_ui,
+                            bool is_minor_mode) {
   base::Value zippy_data(base::Value::Type::LIST);
+  auto zippy_list = activity_control_ui.setting_zippy();
   for (auto& setting_zippy : zippy_list) {
     base::Value data(base::Value::Type::DICTIONARY);
-    data.SetKey("title", base::Value(setting_zippy.title()));
+    data.SetKey("title", base::Value(activity_control_ui.title()));
+    data.SetKey("identity", base::Value(activity_control_ui.identity()));
+    if (activity_control_ui.intro_text_paragraph_size()) {
+      data.SetKey("intro",
+                  base::Value(activity_control_ui.intro_text_paragraph(0)));
+    }
+    data.SetKey("name", base::Value(setting_zippy.title()));
     if (setting_zippy.description_paragraph_size()) {
       data.SetKey("description",
                   base::Value(setting_zippy.description_paragraph(0)));
@@ -112,6 +124,8 @@ base::Value CreateZippyData(const SettingZippyList& zippy_list) {
     data.SetKey("iconUri", base::Value(setting_zippy.icon_uri()));
     data.SetKey("popupLink", base::Value(l10n_util::GetStringUTF16(
                                  IDS_ASSISTANT_ACTIVITY_CONTROL_POPUP_LINK)));
+    // TODO(https://crbug.com/1224850) Add data from learn_more_dialog field.
+    data.SetKey("isMinorMode", base::Value(is_minor_mode));
     zippy_data.Append(std::move(data));
   }
   return zippy_data;
@@ -178,7 +192,8 @@ base::Value CreateGetMoreData(bool email_optin_needed,
 
 // Get string constants for settings ui.
 base::Value GetSettingsUiStrings(const assistant::SettingsUi& settings_ui,
-                                 bool activity_control_needed) {
+                                 bool activity_control_needed,
+                                 bool equal_weight_buttons) {
   auto consent_ui = settings_ui.consent_flow_ui().consent_ui();
   auto activity_control_ui = consent_ui.activity_control_ui();
   auto third_party_disclosure_ui = consent_ui.third_party_disclosure_ui();
@@ -186,6 +201,7 @@ base::Value GetSettingsUiStrings(const assistant::SettingsUi& settings_ui,
 
   dictionary.SetKey("activityControlNeeded",
                     base::Value(activity_control_needed));
+  dictionary.SetKey("equalWeightButtons", base::Value(equal_weight_buttons));
 
   // Add activity control string constants.
   if (activity_control_needed) {
@@ -199,11 +215,6 @@ base::Value GetSettingsUiStrings(const assistant::SettingsUi& settings_ui,
                       base::Value(activity_control_ui.identity()));
     dictionary.SetKey("valuePropTitle",
                       base::Value(activity_control_ui.title()));
-    if (activity_control_ui.intro_text_paragraph_size()) {
-      dictionary.SetKey(
-          "valuePropIntro",
-          base::Value(activity_control_ui.intro_text_paragraph(0)));
-    }
     if (activity_control_ui.footer_paragraph_size()) {
       dictionary.SetKey("valuePropFooter",
                         base::Value(activity_control_ui.footer_paragraph(0)));
@@ -224,9 +235,11 @@ base::Value GetSettingsUiStrings(const assistant::SettingsUi& settings_ui,
   return dictionary;
 }
 
-void RecordActivityControlConsent(Profile* profile,
-                                  std::string ui_audit_key,
-                                  bool opted_in) {
+void RecordActivityControlConsent(
+    Profile* profile,
+    std::string ui_audit_key,
+    bool opted_in,
+    AssistantActivityControlConsent::SettingType setting_type) {
   auto* identity_manager = IdentityManagerFactory::GetForProfile(profile);
   // This function doesn't care about browser sync consent.
   DCHECK(identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin));
@@ -238,6 +251,7 @@ void RecordActivityControlConsent(Profile* profile,
   consent.set_ui_audit_key(ui_audit_key);
   consent.set_status(opted_in ? UserConsentTypes::GIVEN
                               : UserConsentTypes::NOT_GIVEN);
+  consent.set_setting_type(setting_type);
 
   ConsentAuditorFactory::GetForProfile(profile)
       ->RecordAssistantActivityControlConsent(account_id, consent);
@@ -247,12 +261,37 @@ bool IsHotwordDspAvailable() {
   return chromeos::CrasAudioHandler::Get()->HasHotwordDevice();
 }
 
-bool IsVoiceMatchEnforcedOff(const PrefService* prefs) {
-  // If the hotword preference is managed to always disabled, then we should not
-  // show Voice Match flow.
-  return prefs->IsManagedPreference(
-             assistant::prefs::kAssistantHotwordEnabled) &&
-         !prefs->GetBoolean(assistant::prefs::kAssistantHotwordEnabled);
+bool IsVoiceMatchEnforcedOff(const PrefService* prefs,
+                             bool is_oobe_in_progress) {
+  // If the hotword preference is managed to always disabled Voice Match flow is
+  // hidden.
+  if (prefs->IsManagedPreference(assistant::prefs::kAssistantHotwordEnabled) &&
+      !prefs->GetBoolean(assistant::prefs::kAssistantHotwordEnabled)) {
+    return true;
+  }
+  // If Voice Match is disabled by policy during OOBE, then Voice Match flow is
+  // hidden.
+  if (is_oobe_in_progress &&
+      !prefs->GetBoolean(
+          assistant::prefs::kAssistantVoiceMatchEnabledDuringOobe)) {
+    return true;
+  }
+  return false;
+}
+
+AssistantActivityControlConsent::SettingType
+GetActivityControlConsentSettingType(const SettingZippyList& setting_zippy) {
+  if (setting_zippy.size() > 1) {
+    return AssistantActivityControlConsent::ALL;
+  }
+  auto setting_id = setting_zippy[0].setting_set_id();
+  if (setting_id == assistant::SettingSetId::DA) {
+    return AssistantActivityControlConsent::DEVICE_APPS;
+  }
+  if (setting_id == assistant::SettingSetId::WAA) {
+    return AssistantActivityControlConsent::WEB_AND_APP_ACTIVITY;
+  }
+  return AssistantActivityControlConsent::SETTING_TYPE_UNSPECIFIED;
 }
 
 }  // namespace chromeos

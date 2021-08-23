@@ -126,6 +126,7 @@ template("generate_expired_histograms_array") {
       "//tools/metrics/histograms/histograms_xml/scheduler/histograms.xml",
       "//tools/metrics/histograms/histograms_xml/search/histograms.xml",
       "//tools/metrics/histograms/histograms_xml/security/histograms.xml",
+      "//tools/metrics/histograms/histograms_xml/segmentation_platform/histograms.xml",
       "//tools/metrics/histograms/histograms_xml/service/histograms.xml",
       "//tools/metrics/histograms/histograms_xml/session/histograms.xml",
       "//tools/metrics/histograms/histograms_xml/settings/histograms.xml",
@@ -154,6 +155,7 @@ template("generate_expired_histograms_array") {
       "//tools/metrics/histograms/histograms_xml/webauthn/histograms.xml",
       "//tools/metrics/histograms/histograms_xml/weblayer/histograms.xml",
       "//tools/metrics/histograms/histograms_xml/windows/histograms.xml",
+      "//tools/metrics/histograms/histograms_xml/xr/histograms.xml",
       "//tools/metrics/histograms/histograms_xml/obsolete_histograms.xml",
       "//tools/metrics/histograms/enums.xml",
     ]

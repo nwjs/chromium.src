@@ -30,8 +30,8 @@
 #include "printing/buildflags/buildflags.h"
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-#include "chrome/browser/chromeos/policy/dlp/dlp_content_manager.h"
-#include "chrome/browser/chromeos/policy/dlp/dlp_notification_helper.h"
+#include "chrome/browser/ash/policy/dlp/dlp_content_manager.h"
+#include "chrome/browser/ash/policy/dlp/dlp_notification_helper.h"
 #endif
 
 using content::BrowserThread;
@@ -90,11 +90,18 @@ bool PrintViewManager::PrintForSystemDialogNow(
   DCHECK(!on_print_dialog_shown_callback_);
   on_print_dialog_shown_callback_ = std::move(dialog_shown_callback);
   is_switching_to_system_dialog_ = true;
+
+  auto weak_this = weak_factory_.GetWeakPtr();
   DisconnectFromCurrentPrintJob();
+  if (!weak_this)
+    return false;
 
   // Don't print / print preview crashed tabs.
   if (IsCrashed())
     return false;
+
+  // TODO(crbug.com/809738)  Register with `PrintBackendServiceManager` when
+  // system print is enabled out-of-process.
 
   SetPrintingRFH(print_preview_rfh_);
   GetPrintRenderFrame(print_preview_rfh_)->PrintForSystemDialog();

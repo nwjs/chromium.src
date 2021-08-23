@@ -16,6 +16,7 @@
 #include "ui/views/window/non_client_view.h"
 
 class BrowserView;
+class TabSearchBubbleHost;
 
 class GlassBrowserFrameView : public BrowserNonClientFrameView,
                               public TabIconViewModel {
@@ -45,6 +46,8 @@ class GlassBrowserFrameView : public BrowserNonClientFrameView,
   SkColor GetCaptionColor(BrowserFrameActiveState active_state) const override;
   void UpdateThrobber(bool running) override;
   gfx::Size GetMinimumSize() const override;
+  void WindowControlsOverlayEnabledChanged() override;
+  TabSearchBubbleHost* GetTabSearchBubbleHost() override;
   gfx::Size GetMaximumSize() const override;
 
   // views::NonClientFrameView:
@@ -60,7 +63,7 @@ class GlassBrowserFrameView : public BrowserNonClientFrameView,
 
   // TabIconViewModel:
   bool ShouldTabIconViewAnimate() const override;
-  gfx::ImageSkia GetFaviconForTabIconView() override;
+  ui::ImageModel GetFaviconForTabIconView() override;
 
   bool IsMaximized() const;
   bool IsWebUITabStrip() const;
@@ -74,6 +77,9 @@ class GlassBrowserFrameView : public BrowserNonClientFrameView,
   const views::Label* window_title_for_testing() const { return window_title_; }
 
  protected:
+  // BrowserNonClientFrameView:
+  void PaintAsActiveChanged() override;
+
   // views::View:
   void OnPaint(gfx::Canvas* canvas) override;
   void Layout() override;
@@ -175,9 +181,6 @@ class GlassBrowserFrameView : public BrowserNonClientFrameView,
 
   // The index of the current frame of the throbber animation.
   int throbber_frame_ = 0;
-
-  // How much extra space to reserve in non-maximized windows for a drag handle.
-  int drag_handle_padding_;
 
   static const int kThrobberIconCount = 24;
   static HICON throbber_icons_[kThrobberIconCount];

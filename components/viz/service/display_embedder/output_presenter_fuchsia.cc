@@ -46,15 +46,20 @@ void GrSemaphoresToZxEvents(gpu::VulkanImplementation* vulkan_implementation,
   }
 }
 
+zx::event DuplicateZxEvent(const zx::event& event) {
+  zx::event result;
+  zx_status_t status = event.duplicate(ZX_RIGHT_SAME_RIGHTS, &result);
+  ZX_DCHECK(status == ZX_OK, status);
+  return result;
+}
+
 // Duplicates the given zx::events and stores in gfx::GpuFences.
 std::vector<gfx::GpuFence> ZxEventsToGpuFences(
     const std::vector<zx::event>& events) {
   std::vector<gfx::GpuFence> fences;
   for (const auto& event : events) {
     gfx::GpuFenceHandle handle;
-    zx_status_t status =
-        event.duplicate(ZX_RIGHT_SAME_RIGHTS, &handle.owned_event);
-    ZX_DCHECK(status == ZX_OK, status);
+    handle.owned_event = DuplicateZxEvent(event);
     fences.emplace_back(std::move(handle));
   }
   return fences;
@@ -194,7 +199,16 @@ OutputPresenterFuchsia::OutputPresenterFuchsia(
   });
 }
 
-OutputPresenterFuchsia::~OutputPresenterFuchsia() {}
+OutputPresenterFuchsia::~OutputPresenterFuchsia() {
+  // Signal release fences that were submitted in the last PresentImage(). This
+  // is necessary because ExternalVkImageBacking destructor will wait for the
+  // corresponding semaphores, while they may not be signaled by the ImagePipe.
+  for (auto& fence : release_fences_from_last_present_) {
+    auto status =
+        fence.signal(/*clear_mask=*/0, /*set_maks=*/ZX_EVENT_SIGNALED);
+    ZX_DCHECK(status == ZX_OK, status);
+  }
+}
 
 void OutputPresenterFuchsia::InitializeCapabilities(
     OutputSurface::Capabilities* capabilities) {
@@ -229,6 +243,10 @@ OutputPresenterFuchsia::AllocateImages(gfx::ColorSpace color_space,
                                        size_t num_images) {
   if (!image_pipe_)
     return {};
+
+  // Fuchsia allocates images in batches and does not support allocating and
+  // releasing images on demand.
+  CHECK_NE(num_images, 1u);
 
   // If we already allocated buffer collection then it needs to be released.
   if (last_buffer_collection_id_) {
@@ -463,6 +481,11 @@ void OutputPresenterFuchsia::PresentNextFrame() {
   present_time = std::max(present_time, last_frame_present_time_);
   last_frame_present_time_ = present_time;
 
+  release_fences_from_last_present_.clear();
+  for (auto& fence : frame.release_fences) {
+    release_fences_from_last_present_.push_back(DuplicateZxEvent(fence));
+  }
+
   image_pipe_->PresentImage(
       frame.image_id, present_time.ToZxTime(), std::move(frame.acquire_fences),
       std::move(frame.release_fences),
@@ -492,8 +515,8 @@ void OutputPresenterFuchsia::OnPresentComplete(
   }
 
   presentation_state_ =
-      PresentationState{pending_frames_.front().ordinal, presentation_time,
-                        presentation_interval};
+      PresentationState{static_cast<int>(pending_frames_.front().ordinal),
+                        presentation_time, presentation_interval};
 
   pending_frames_.pop_front();
 }
