@@ -1124,7 +1124,7 @@ int CertVerifyProcWin::VerifyInternal(
       PCERT_CHAIN_ELEMENT* element = first_chain->rgpElement;
       PCCERT_CONTEXT cert = element[num_elements - 1]->pCertContext;
       for (size_t i=0; i<additional_trust_anchors.size(); i++) {
-	bssl::UniquePtr<CRYPTO_BUFFER> cert_handle(X509Certificate::CreateCertBufferFromBytes((const char*)(cert->pbCertEncoded), cert->cbCertEncoded));
+	bssl::UniquePtr<CRYPTO_BUFFER> cert_handle(X509Certificate::CreateCertBufferFromBytes(base::as_bytes(base::make_span((const char*)(cert->pbCertEncoded), cert->cbCertEncoded))));
         if (x509_util::CryptoBufferEqual(cert_handle.get(),
             additional_trust_anchors[i]->cert_buffer())) {
           LOG(INFO) << "Untrusted root \"" <<

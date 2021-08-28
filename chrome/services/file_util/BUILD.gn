@@ -42,7 +42,7 @@ source_set("file_util") {
     deps += [ "//chrome/utility/safe_browsing/mac" ]
   }
 
-  if (safe_browsing_mode == 1) {
+  if (false && safe_browsing_mode == 1) {
     sources += [
       "safe_archive_analyzer.cc",
       "safe_archive_analyzer.h",

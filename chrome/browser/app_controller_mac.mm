@@ -1693,6 +1693,8 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
   if (profilesAdded)
     [dockMenu addItem:[NSMenuItem separatorItem]];
 
+  Profile* profile = [self lastProfileIfLoaded];
+
 #if 0
   NSString* titleStr = l10n_util::GetNSStringWithFixup(IDS_NEW_WINDOW_MAC);
   base::scoped_nsobject<NSMenuItem> item(
@@ -1703,8 +1705,6 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
   [item setTag:IDC_NEW_WINDOW];
   [item setEnabled:[self validateUserInterfaceItem:item]];
   [dockMenu addItem:item];
-
-  Profile* profile = [self lastProfileIfLoaded];
 
   // Buttons below require the profile to be loaded. In particular, if the
   // profile picker is shown at startup, these buttons won't be added until the

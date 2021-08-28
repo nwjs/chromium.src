@@ -89,6 +89,10 @@
 #include "v8/include/v8-profiler.h"
 #include "v8/include/v8.h"
 
+#if defined(OS_WIN)
+#include <windows.h>
+#endif
+
 extern VoidHookFn g_promise_reject_callback_fn;
 
 

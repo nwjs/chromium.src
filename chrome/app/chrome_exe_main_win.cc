@@ -230,8 +230,8 @@ __declspec(dllexport) __cdecl void GetPakFileHashes(
     const uint8_t** chrome_100_pak,
     const uint8_t** chrome_200_pak) {
   *resources_pak = kSha256_resources_pak.data();
-  *chrome_100_pak = kSha256_chrome_100_percent_pak.data();
-  *chrome_200_pak = kSha256_chrome_200_percent_pak.data();
+  *chrome_100_pak = kSha256_nw_100_percent_pak.data();
+  *chrome_200_pak = kSha256_nw_200_percent_pak.data();
 }
 
 #if !defined(WIN_CONSOLE_APP)
