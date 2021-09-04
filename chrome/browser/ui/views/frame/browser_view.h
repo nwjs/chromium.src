@@ -561,6 +561,7 @@ class BrowserView : public BrowserWindow,
 
   // views::WidgetDelegate:
   bool NWCanClose(bool user_force = false) const override;
+  bool CanResize() const override;
   bool CanMaximize() const override;
   bool CanActivate() const override;
   std::u16string GetWindowTitle() const override;

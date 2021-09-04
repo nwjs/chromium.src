@@ -2401,6 +2401,14 @@ bool BrowserView::GetAcceleratorForCommandId(
 ///////////////////////////////////////////////////////////////////////////////
 // BrowserView, views::WidgetDelegate implementation:
 
+bool BrowserView::CanResize() const {
+#if defined(OS_MAC)
+  return resizable_;
+#else
+  return true;
+#endif
+}
+
 bool BrowserView::CanMaximize() const {
   return resizable_ && size_constraints_.GetMaximumSize().IsEmpty() && !WidgetHasHitTestMask();
 }
