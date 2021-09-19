@@ -1829,7 +1829,7 @@ a Ctrl+Alt+taster za smanjivanje osvetljenosti da biste umanjili prikaz.</transl
 <translation id="2912247081180973411">Zatvori prozore</translation>
 <translation id="2913331724188855103">Dozvoli sajtovima da čuvaju i čitaju podatke kolačića (preporučuje se)</translation>
 <translation id="2915102088417824677">Prikaži evidenciju aktivnosti</translation>
-<translation id="2915873080513663243">Automatsko prelaženje sadržaja</translation>
+<translation id="2915873080513663243">Automatsko skeniranje sadržaja</translation>
 <translation id="2916073183900451334">Pritiskom na Tab na veb stranici biće istaknute veze, kao i polja u obrascu</translation>
 <translation id="2916745397441987255">Pretražite dodatke</translation>
 <translation id="2918484644467055090">Ovaj uređaj ne može da se registruje u organizaciji kojoj pripada vaš nalog jer je označen kao uređaj kojim upravlja druga organizacija.</translation>
@@ -2657,7 +2657,7 @@ a Ctrl+Alt+taster za smanjivanje osvetljenosti da biste umanjili prikaz.</transl
 <translation id="3809280248639369696">Mesečev zrak</translation>
 <translation id="3810593934879994994"><ph name="ORIGIN" /> može da pregleda datoteke u direktorijumima u nastavku</translation>
 <translation id="3810914450553844415">Administrator ne dozvoljava dodatne Google naloge.</translation>
-<translation id="3810973564298564668">Promeni</translation>
+<translation id="3810973564298564668">Upravljaj</translation>
 <translation id="381202950560906753">Dodaj drugi</translation>
 <translation id="3812525830114410218">Neispravan sertifikat</translation>
 <translation id="3813296892522778813">Idite na <ph name="BEGIN_LINK_CHROMIUM" />stranicu pomoći za Google Chrome<ph name="END_LINK_CHROMIUM" /> ako ne možete da pronađete ono što tražite</translation>
@@ -2960,7 +2960,7 @@ a Ctrl+Alt+taster za smanjivanje osvetljenosti da biste umanjili prikaz.</transl
 <translation id="4120817667028078560">Putanja je predugačka</translation>
 <translation id="4124823734405044952">Bezbednosni ključ je resetovan</translation>
 <translation id="4124935795427217608">Jednorog</translation>
-<translation id="4126916490446791914">Automatsko prelaženje sadržaja je omogućeno</translation>
+<translation id="4126916490446791914">Automatsko skeniranje sadržaja je omogućeno</translation>
 <translation id="412730574613779332">Spandeks</translation>
 <translation id="4130199216115862831">Evidencija uređaja</translation>
 <translation id="4130207949184424187">Ovaj dodatak je promenio stranicu koja se prikazuje kada pretražujete iz omniboksa.</translation>
@@ -5000,7 +5000,7 @@ Vodite računa da ne otkrijete nikakve osetljive informacije.</translation>
 <translation id="6429384232893414837">Greška pri ažuriranju</translation>
 <translation id="6430814529589430811">ASCII datoteka šifrovana metodom „Base64“, jedan sertifikat</translation>
 <translation id="6431347207794742960"><ph name="PRODUCT_NAME" /> će podesiti automatska ažuriranja za sve korisnike ovog računara.</translation>
-<translation id="6434104957329207050">Brzina prelaženja sadržaja po tačkama</translation>
+<translation id="6434104957329207050">Brzina skeniranja sadržaja po tačkama</translation>
 <translation id="6434309073475700221">Odbaci</translation>
 <translation id="6434325376267409267">Da biste koristili aplikaciju <ph name="APP_NAME" />, morate da ažurirate uređaj.</translation>
 <translation id="6436164536244065364">Prikaži u Veb prodavnici</translation>

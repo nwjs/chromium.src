@@ -4468,7 +4468,7 @@
 <translation id="5849212445710944278">已加入過了</translation>
 <translation id="5851868085455377790">發行者</translation>
 <translation id="5852112051279473187">糟糕！註冊這個裝置時發生嚴重錯誤。請再試一次，或與你的支援代表聯絡。</translation>
-<translation id="5852137567692933493">重新啟動並恢復原廠設定</translation>
+<translation id="5852137567692933493">重新啟動並執行 Powerwash</translation>
 <translation id="5854912040170951372">披薩</translation>
 <translation id="5855267860608268405">已知的 Wi-Fi 網路</translation>
 <translation id="5855643921295613558">0.6 秒</translation>
@@ -4563,7 +4563,7 @@
 <translation id="5949544233750246342">無法剖析檔案</translation>
 <translation id="5950819593680344519">Chrome 並未在電腦上發現任何有害軟體 • 上次檢查時間：昨天</translation>
 <translation id="5951303645598168883"><ph name="ORIGIN" /> 要求使用本機字型</translation>
-<translation id="5951624318208955736">顯示器</translation>
+<translation id="5951624318208955736">螢幕</translation>
 <translation id="5955282598396714173">你的密碼已過期。如要變更密碼，請先登出然後重新登入。</translation>
 <translation id="5955304353782037793">應用程式</translation>
 <translation id="5955721306465922729">有個網站想要開啟這個應用程式。</translation>
@@ -7154,7 +7154,7 @@
 <translation id="8737709691285775803">Shill</translation>
 <translation id="8737914367566358838">請選擇網頁的譯文語言</translation>
 <translation id="8740247629089392745">你可以將這部 Chromebook 交給「<ph name="SUPERVISED_USER_NAME" />」。設定即將完成，完成後即可開始探索。</translation>
-<translation id="8741944563400125534">開關功能設定導覽</translation>
+<translation id="8741944563400125534">開關功能設定指南</translation>
 <translation id="8742998548129056176">這個頁面會顯示裝置和裝置使用情況的一般資訊 (例如電池電量、系統和應用程式活動，以及錯誤資訊)。這些資料將用於改善 Android，且部分匯總資訊還能協助 Google 應用程式和合作夥伴 (例如 Android 開發人員) 提高應用程式和產品的服務品質。</translation>
 <translation id="8746654918629346731">你已要求安裝「<ph name="EXTENSION_NAME" />」</translation>
 <translation id="874689135111202667">{0,plural, =1{要將 1 個檔案上傳到這個網站嗎？}other{要將 # 個檔案上傳到這個網站嗎？}}</translation>

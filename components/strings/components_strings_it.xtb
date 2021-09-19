@@ -1340,7 +1340,7 @@ In caso contrario l'uso sarà bloccato dalle impostazioni sulla privacy. I conte
 <translation id="563324245173044180">Contenuti ingannevoli bloccati.</translation>
 <translation id="5644090287519800334">Spostamento X lato 1 immagine</translation>
 <translation id="5645854190134202180">Secondo turno</translation>
-<translation id="5654927323611874862">ID del rapporto sugli arresti anomali caricato:</translation>
+<translation id="5654927323611874862">ID del report sugli arresti anomali caricato:</translation>
 <translation id="5659593005791499971">Email</translation>
 <translation id="5663614846592581799">9x11 (Envelope)</translation>
 <translation id="5663955426505430495">L'amministratore di questo dispositivo ha installato estensioni relative a funzioni aggiuntive. Le estensioni hanno accesso ad alcuni tuoi dati.</translation>
@@ -1871,7 +1871,7 @@ Ulteriori dettagli:
 <translation id="7616645509853975347">L'amministratore ha attivato Chrome Enterprise Connectors sul tuo browser. Questi connettori hanno accesso ad alcuni dei tuoi dati.</translation>
 <translation id="7619838219691048931">Ultimo foglio</translation>
 <translation id="762844065391966283">Un oggetto alla volta</translation>
-<translation id="7633909222644580952">Dati sulle prestazioni e rapporti sugli arresti anomali</translation>
+<translation id="7633909222644580952">Dati sulle prestazioni e report sugli arresti anomali</translation>
 <translation id="7637571805876720304">Rimuovere la carta di credito da Chromium?</translation>
 <translation id="7637586430889951925">{COUNT,plural, =0{Nessuna}=1{1 password nel tuo account (per <ph name="DOMAIN_LIST" />)}other{# password nel tuo account (per <ph name="DOMAIN_LIST" />)}}</translation>
 <translation id="7638605456503525968">Porte seriali</translation>
@@ -2126,7 +2126,8 @@ Ulteriori dettagli:
 <translation id="8511402995811232419">Gestisci i cookie</translation>
 <translation id="8522552481199248698">Chrome può aiutarti a proteggere il tuo Account Google e a modificare la password.</translation>
 <translation id="8530813470445476232">Cancella la cronologia di navigazione e i cookie, svuota la cache e altro ancora nelle impostazioni di Chrome</translation>
-<translation id="8533619373899488139">Visita &lt;strong&gt;chrome://policy&lt;/strong&gt; per visualizzare l'elenco di URL bloccati e altre norme applicate dall'amministratore di sistema.</translation>
+<translation id="8533619373899488139">Visita &lt;strong&gt;chrome://policy&lt;/strong&gt; per visualizzare l'elenco di URL bloccati e altri criteri applicati dall'amministratore di sistema.
+</translation>
 <translation id="8541158209346794904">Dispositivo Bluetooth</translation>
 <translation id="8542014550340843547">Tripla pinzatura in basso</translation>
 <translation id="8543181531796978784">Puoi <ph name="BEGIN_ERROR_LINK" />segnalare un problema di rilevamento<ph name="END_ERROR_LINK" /> oppure, se sei consapevole dei rischi per la tua sicurezza, <ph name="BEGIN_LINK" />visita questo sito non sicuro<ph name="END_LINK" />.</translation>
