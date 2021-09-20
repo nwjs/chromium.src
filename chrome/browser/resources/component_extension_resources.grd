@@ -98,7 +98,6 @@
         <include name="IDR_ARC_SUPPORT_ICON_HEADER" file="chromeos/arc_support/images/header.png" type="BINDATA" />
         <include name="IDR_ARC_SUPPORT_RECOMMEND_APP_LIST_VIEW_JS" file="chromeos/arc_support/recommend_app_list_view.js" type="BINDATA" />
         <include name="IDR_ARC_SUPPORT_RECOMMEND_APP_LIST_VIEW_HTML" file="chromeos/arc_support/recommend_app_list_view.html" type="chrome_html" flattenhtml="true" />
-        <include name="IDR_ARC_SUPPORT_RECOMMEND_APP_LIST_VIEW_NEW_HTML" file="chromeos/arc_support/recommend_app_list_view_new.html" type="chrome_html" flattenhtml="true" />
       </if>
       <include name="IDR_NWJS_DEFAPP_INDEX_HTML" file="nwjs_default_app/nw_blank.html" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_NWJS_DEFAPP_MAIN_JS"    file="nwjs_default_app/main.js" type="BINDATA" />

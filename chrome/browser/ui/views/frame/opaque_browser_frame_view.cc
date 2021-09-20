@@ -577,6 +577,15 @@ void OpaqueBrowserFrameView::UpdateWindowControlsOverlay(
     web_contents->UpdateWindowControlsOverlay(bounding_rect);
   }
 }
+
+bool OpaqueBrowserFrameView::IsTranslucentWindowOpacitySupported() const {
+  return frame()->IsTranslucentWindowOpacitySupported();
+}
+
+bool OpaqueBrowserFrameView::ShouldDrawRestoredFrameShadow() const {
+  return false;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // OpaqueBrowserFrameView, protected:
 
@@ -780,8 +789,13 @@ bool OpaqueBrowserFrameView::GetShowWindowTitleBar() const {
   // Do not show the custom title bar if the system title bar option is enabled.
   if (!frame()->UseCustomFrame())
     return false;
+
+  if (frame()->IsFullscreen())
+    return false;
+
   if (frameless_)
     return false;
+
   // Do not show caption buttons if the window manager is forcefully providing a
   // title bar (e.g., in Ubuntu Unity, if the window is maximized).
   return !views::ViewsDelegate::GetInstance()->WindowManagerProvidesTitleBar(

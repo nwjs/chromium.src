@@ -18,6 +18,7 @@
 #include "content/public/browser/devtools_agent_host.h"
 #include "content/public/browser/notification_service.h"
 #include "extensions/browser/app_sorting.h"
+#include "extensions/browser/blocklist_extension_prefs.h"
 #include "extensions/browser/extension_host.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registry.h"
@@ -116,7 +117,8 @@ void ExtensionRegistrar::AddExtension(
 
 void ExtensionRegistrar::AddNewExtension(
     scoped_refptr<const Extension> extension) {
-  if (extension_prefs_->IsExtensionBlocklisted(extension->id())) {
+  if (blocklist_prefs::IsExtensionBlocklisted(extension->id(),
+                                              extension_prefs_)) {
     DCHECK(!Manifest::IsComponentLocation(extension->location()));
     // Only prefs is checked for the blocklist. We rely on callers to check the
     // blocklist before calling into here, e.g. CrxInstaller checks before
@@ -203,7 +205,7 @@ void ExtensionRegistrar::EnableExtension(const ExtensionId& extension_id) {
 
   // First, check that the extension can be enabled.
   if (IsExtensionEnabled(extension_id) ||
-      extension_prefs_->IsExtensionBlocklisted(extension_id) ||
+      blocklist_prefs::IsExtensionBlocklisted(extension_id, extension_prefs_) ||
       registry_->blocked_extensions().Contains(extension_id)) {
     return;
   }
@@ -424,7 +426,8 @@ bool ExtensionRegistrar::IsExtensionEnabled(
   // If the extension hasn't been loaded yet, check the prefs for it. Assume
   // enabled unless otherwise noted.
   return !extension_prefs_->IsExtensionDisabled(extension_id) &&
-         !extension_prefs_->IsExtensionBlocklisted(extension_id) &&
+         !blocklist_prefs::IsExtensionBlocklisted(extension_id,
+                                                  extension_prefs_) &&
          !extension_prefs_->IsExternalExtensionUninstalled(extension_id);
 }
 

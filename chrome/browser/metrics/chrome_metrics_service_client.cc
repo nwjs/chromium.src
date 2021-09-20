@@ -46,6 +46,7 @@
 #include "chrome/browser/metrics/chrome_metrics_services_manager_client.h"
 #include "chrome/browser/metrics/desktop_platform_features_metrics_provider.h"
 #include "chrome/browser/metrics/desktop_session_duration/desktop_profile_session_durations_service_factory.h"
+#include "chrome/browser/metrics/desktop_session_duration/desktop_session_metrics_provider.h"
 #include "chrome/browser/metrics/https_engagement_metrics_provider.h"
 #include "chrome/browser/metrics/metrics_reporting_state.h"
 #include "chrome/browser/metrics/network_quality_estimator_provider_impl.h"
@@ -371,6 +372,10 @@ bool IsProcessRunning(base::ProcessId pid) {
   // with no signal being sent.
   if (kill(pid, 0) == 0 || errno != ESRCH)
     return true;
+#elif defined(OS_FUCHSIA)
+  // TODO(crbug.com/1235293)
+  NOTIMPLEMENTED_LOG_ONCE();
+  return false;
 #else
 #error Unsupported OS. Might be okay to just return false.
 #endif
@@ -819,6 +824,10 @@ void ChromeMetricsServiceClient::RegisterMetricsServiceProviders() {
       std::make_unique<PowerMetricsProvider>());
 #endif
 
+#if defined(OS_WIN) || defined(OS_MAC) || defined(OS_LINUX)
+  metrics_service_->RegisterMetricsProvider(
+      metrics::CreateDesktopSessionMetricsProvider());
+#endif  // defined(OS_WIN) || defined(OS_MAC) || (defined(OS_LINUX)
 #endif
 }
 
@@ -936,10 +945,6 @@ void ChromeMetricsServiceClient::RecordCommandLineMetrics() {
 }
 
 bool ChromeMetricsServiceClient::RegisterForNotifications() {
-  registrar_.Add(this, content::NOTIFICATION_LOAD_START,
-                 content::NotificationService::AllSources());
-  registrar_.Add(this, content::NOTIFICATION_LOAD_STOP,
-                 content::NotificationService::AllSources());
   registrar_.Add(this, content::NOTIFICATION_RENDERER_PROCESS_CLOSED,
                  content::NotificationService::AllSources());
   registrar_.Add(this, content::NOTIFICATION_RENDER_WIDGET_HOST_HANG,
@@ -1028,8 +1033,6 @@ void ChromeMetricsServiceClient::Observe(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   switch (type) {
-    case content::NOTIFICATION_LOAD_STOP:
-    case content::NOTIFICATION_LOAD_START:
     case content::NOTIFICATION_RENDERER_PROCESS_CLOSED:
     case content::NOTIFICATION_RENDER_WIDGET_HOST_HANG:
       metrics_service_->OnApplicationNotIdle();
@@ -1050,6 +1053,10 @@ void ChromeMetricsServiceClient::Observe(
     default:
       NOTREACHED();
   }
+}
+
+void ChromeMetricsServiceClient::LoadingStateChanged(bool /*is_loading*/) {
+  metrics_service_->OnApplicationNotIdle();
 }
 
 void ChromeMetricsServiceClient::OnURLOpenedFromOmnibox(OmniboxLog* log) {

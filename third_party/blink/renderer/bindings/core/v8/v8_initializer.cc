@@ -499,14 +499,6 @@ static bool WasmExceptionsEnabledCallback(v8::Local<v8::Context> context) {
       execution_context);
 }
 
-static bool WasmSimdEnabledCallback(v8::Local<v8::Context> context) {
-  ExecutionContext* execution_context = ToExecutionContext(context);
-  if (!execution_context)
-    return false;
-
-  return RuntimeEnabledFeatures::WebAssemblySimdEnabled(execution_context);
-}
-
 v8::Local<v8::Value> NewRangeException(v8::Isolate* isolate,
                                        const char* message) {
   return v8::Exception::RangeError(
@@ -622,12 +614,11 @@ static v8::MaybeLocal<v8::Promise> HostImportModuleDynamically(
 
   ReferrerScriptInfo referrer_info =
       ReferrerScriptInfo::FromV8HostDefinedOptions(
-          context, v8_referrer->GetHostDefinedOptions());
+          context, v8_referrer->GetHostDefinedOptions(), referrer_resource_url);
 
   auto* resolver = MakeGarbageCollected<ScriptPromiseResolver>(script_state);
   ScriptPromise promise = resolver->Promise();
-  modulator->ResolveDynamically(module_request, referrer_resource_url,
-                                referrer_info, resolver);
+  modulator->ResolveDynamically(module_request, referrer_info, resolver);
   return v8::Local<v8::Promise>::Cast(promise.V8Value());
 }
 
@@ -668,7 +659,6 @@ static void InitializeV8Common(v8::Isolate* isolate) {
   isolate->SetSharedArrayBufferConstructorEnabledCallback(
       SharedArrayBufferConstructorEnabledCallback);
   isolate->SetWasmExceptionsEnabledCallback(WasmExceptionsEnabledCallback);
-  isolate->SetWasmSimdEnabledCallback(WasmSimdEnabledCallback);
   isolate->SetHostImportModuleDynamicallyCallback(HostImportModuleDynamically);
   isolate->SetHostInitializeImportMetaObjectCallback(
       HostGetImportMetaProperties);

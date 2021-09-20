@@ -27,7 +27,7 @@
 
 // The call is still cheaper than multiple calls through WTF/base/pthread*
 // layers.
-#if defined(COMPONENT_BUILD)
+#if 1 //defined(COMPONENT_BUILD)
 #define BLINK_HEAP_HIDE_THREAD_LOCAL_IN_LIBRARY 1
 #else
 #define BLINK_HEAP_HIDE_THREAD_LOCAL_IN_LIBRARY 0

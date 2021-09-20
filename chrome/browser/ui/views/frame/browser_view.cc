@@ -71,6 +71,7 @@
 #include "chrome/browser/profiles/profile_window.h"
 #include "chrome/browser/profiles/profiles_state.h"
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
+#include "chrome/browser/sharing_hub/sharing_hub_features.h"
 #include "chrome/browser/signin/chrome_signin_helper.h"
 #include "chrome/browser/themes/theme_properties.h"
 #include "chrome/browser/themes/theme_service.h"
@@ -84,6 +85,7 @@
 #include "chrome/browser/ui/browser_dialogs.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_window_state.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/find_bar/find_bar.h"
@@ -127,7 +129,6 @@
 #include "chrome/browser/ui/views/frame/top_container_loading_bar.h"
 #include "chrome/browser/ui/views/frame/top_container_view.h"
 #include "chrome/browser/ui/views/frame/web_contents_close_handler.h"
-#include "chrome/browser/ui/views/frame/web_footer_experiment_view.h"
 #include "chrome/browser/ui/views/fullscreen_control/fullscreen_control_host.h"
 #include "chrome/browser/ui/views/global_media_controls/media_toolbar_button_view.h"
 #include "chrome/browser/ui/views/hats/hats_next_web_dialog.h"
@@ -145,6 +146,7 @@
 #include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_bubble_view_impl.h"
 #include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_icon_view.h"
 #include "chrome/browser/ui/views/sharing/sharing_dialog_view.h"
+#include "chrome/browser/ui/views/sharing_hub/screenshot/screenshot_captured_bubble.h"
 #include "chrome/browser/ui/views/sharing_hub/sharing_hub_bubble_view_impl.h"
 #include "chrome/browser/ui/views/sharing_hub/sharing_hub_icon_view.h"
 #include "chrome/browser/ui/views/side_panel.h"
@@ -394,13 +396,16 @@ bool GetGestureCommand(ui::GestureEvent* event, int* command) {
   return false;
 }
 
-bool IsShowingWebContentsModalDialog(content::WebContents* web_contents) {
-  if (!web_contents)
-    return false;
-
-  const web_modal::WebContentsModalDialogManager* manager =
-      web_modal::WebContentsModalDialogManager::FromWebContents(web_contents);
-  return manager && manager->IsDialogActive();
+bool WidgetHasChildModalDialog(views::Widget* parent_widget) {
+  views::Widget::Widgets widgets;
+  views::Widget::GetAllChildWidgets(parent_widget->GetNativeView(), &widgets);
+  for (auto* widget : widgets) {
+    if (widget == parent_widget)
+      continue;
+    if (widget->IsModal())
+      return true;
+  }
+  return false;
 }
 
 // Overlay view that owns TopContainerView in some cases (such as during
@@ -877,7 +882,7 @@ BrowserView::~BrowserView() {
 
   // Child views maintain PrefMember attributes that point to
   // OffTheRecordProfile's PrefService which gets deleted by ~Browser.
-  RemoveAllChildViews(true);
+  RemoveAllChildViews();
 }
 
 // static
@@ -1991,19 +1996,41 @@ BrowserView::ShowQRCodeGeneratorBubble(
       // Unretained is safe: controller is a WebContentsUserData, owned by
       // WebContents, and the bubble can't outlive the WebContents.
       base::Unretained(controller));
+
+  PageActionIconType icon_type =
+      sharing_hub::SharingHubOmniboxEnabled(contents->GetBrowserContext())
+          ? PageActionIconType::kSharingHub
+          : PageActionIconType::kQRCodeGenerator;
+
   qrcode_generator::QRCodeGeneratorBubble* bubble =
       new qrcode_generator::QRCodeGeneratorBubble(
-          GetLocationBarView(), contents, std::move(on_closing), url);
+          toolbar_button_provider()->GetAnchorView(icon_type), contents,
+          std::move(on_closing), url);
 
   PageActionIconView* icon_view =
-      toolbar_button_provider()->GetPageActionIconView(
-          PageActionIconType::kQRCodeGenerator);
+      toolbar_button_provider()->GetPageActionIconView(icon_type);
   if (icon_view)
     bubble->SetHighlightedButton(icon_view);
 
   views::BubbleDialogDelegateView::CreateBubble(bubble);
   bubble->Show();
 
+  return bubble;
+}
+
+sharing_hub::ScreenshotCapturedBubble*
+BrowserView::ShowScreenshotCapturedBubble(
+    content::WebContents* contents,
+    const gfx::Image& image,
+    sharing_hub::ScreenshotCapturedBubbleController* controller) {
+  sharing_hub::ScreenshotCapturedBubble* bubble =
+      new sharing_hub::ScreenshotCapturedBubble(
+          toolbar_button_provider()->GetAnchorView(
+              PageActionIconType::kSharingHub),
+          contents, image, browser_->profile(), base::BindOnce(&Navigate));
+
+  views::BubbleDialogDelegateView::CreateBubble(bubble);
+  bubble->ShowForReason(LocationBarBubbleDelegateView::USER_GESTURE);
   return bubble;
 }
 
@@ -2028,14 +2055,17 @@ send_tab_to_self::SendTabToSelfBubbleView* BrowserView::ShowSendTabToSelfBubble(
     return nullptr;
   }
 
+  PageActionIconType icon_type =
+      sharing_hub::SharingHubOmniboxEnabled(web_contents->GetBrowserContext())
+          ? PageActionIconType::kSharingHub
+          : PageActionIconType::kSendTabToSelf;
+
   send_tab_to_self::SendTabToSelfBubbleViewImpl* bubble =
       new send_tab_to_self::SendTabToSelfBubbleViewImpl(
-          toolbar_button_provider()->GetAnchorView(
-              PageActionIconType::kSendTabToSelf),
-          web_contents, controller);
+          toolbar_button_provider()->GetAnchorView(icon_type), web_contents,
+          controller);
   PageActionIconView* icon_view =
-      toolbar_button_provider()
-          ->GetPageActionIconView(PageActionIconType::kSendTabToSelf);
+      toolbar_button_provider()->GetPageActionIconView(icon_type);
   if (icon_view)
     bubble->SetHighlightedButton(icon_view);
 
@@ -2206,7 +2236,7 @@ content::KeyboardEventProcessingResult BrowserView::PreHandleKeyboardEvent(
   // - If the |browser_| is not for an app, and the |accelerator| is associated
   //   with the browser, and it is not a reserved one, do nothing.
 
-  if (browser_->deprecated_is_app()) {
+  if (browser_->is_type_app() || browser_->is_type_app_popup()) {
     // Let all keys fall through to a v1 app's web content, even accelerators.
     // We don't use NOT_HANDLED_IS_SHORTCUT here. If we do that, the app
     // might not be able to see a subsequent Char event. See OnHandleInputEvent
@@ -2784,7 +2814,7 @@ ui::ImageModel BrowserView::GetWindowIcon() {
         rb.GetImageNamed(override_window_icon_resource_id));
 #endif
 
-  if (browser_->deprecated_is_app() || browser_->is_type_popup())
+  if (!browser_->is_type_normal())
     return ui::ImageModel::FromImage(browser_->GetCurrentPageIcon());
 
   return ui::ImageModel();
@@ -2934,8 +2964,8 @@ void BrowserView::OnWidgetActivationChanged(views::Widget* widget,
         restore_focus_on_activation_ = false;
 
         // Set initial focus change on the first activation if there is no
-        // tab modal dialog.
-        if (!IsShowingWebContentsModalDialog(GetActiveWebContents()))
+        // modal dialog.
+        if (!WidgetHasChildModalDialog(GetWidget()))
           RestoreFocus();
       }
 
@@ -3877,12 +3907,12 @@ void BrowserView::ShowHatsDialog(
     const std::string& site_id,
     base::OnceClosure success_callback,
     base::OnceClosure failure_callback,
-    const std::map<std::string, bool>& product_specific_data) {
+    const SurveyBitsData& product_specific_bits_data,
+    const SurveyStringData& product_specific_string_data) {
   // Self deleting on close.
   new HatsNextWebDialog(browser(), site_id, std::move(success_callback),
-                        std::move(failure_callback), product_specific_data
-
-  );
+                        std::move(failure_callback), product_specific_bits_data,
+                        product_specific_string_data);
 }
 
 void BrowserView::ShowIncognitoClearBrowsingDataDialog() {
@@ -3890,7 +3920,17 @@ void BrowserView::ShowIncognitoClearBrowsingDataDialog() {
       static_cast<views::View*>(BrowserView::GetBrowserViewForBrowser(browser())
                                     ->toolbar_button_provider()
                                     ->GetAvatarToolbarButton()),
-      browser()->profile());
+      browser()->profile(),
+      IncognitoClearBrowsingDataDialog::Type::kDefaultBubble);
+}
+
+void BrowserView::ShowIncognitoHistoryDisclaimerDialog() {
+  IncognitoClearBrowsingDataDialog::Show(
+      static_cast<views::View*>(BrowserView::GetBrowserViewForBrowser(browser())
+                                    ->toolbar_button_provider()
+                                    ->GetAvatarToolbarButton()),
+      browser()->profile(),
+      IncognitoClearBrowsingDataDialog::Type::kHistoryDisclaimerBubble);
 }
 
 ExclusiveAccessContext* BrowserView::GetExclusiveAccessContext() {

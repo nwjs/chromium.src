@@ -14,15 +14,6 @@ RenderViewHostDelegateView* RenderViewHostDelegate::GetDelegateView() {
   return nullptr;
 }
 
-WebContents* RenderViewHostDelegate::GetAsWebContents() {
-  return nullptr;
-}
-
-SessionStorageNamespaceMap
-RenderViewHostDelegate::GetSessionStorageNamespaceMap() {
-  return SessionStorageNamespaceMap();
-}
-
 bool RenderViewHostDelegate::IsNeverComposited() {
   return false;
 }

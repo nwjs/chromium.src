@@ -101,3 +101,9 @@ void RecordDownloadLaterPromptStatus(DownloadLaterPromptStatus status) {
 }
 
 #endif  // OS_ANDROID
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+void RecordDownloadNotificationSuppressed() {
+  base::UmaHistogramBoolean("Download.Notification.Suppressed", true);
+}
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)

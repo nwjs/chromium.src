@@ -141,13 +141,6 @@ bool g_external_updates_disabled_for_test_ = false;
 // Wait this long after an extensions becomes idle before updating it.
 constexpr base::TimeDelta kUpdateIdleDelay = base::TimeDelta::FromSeconds(5);
 
-// IDs of extensions that have been replaced by component extensions and need to
-// be uninstalled.
-const char* const kMigratedExtensionIds[] = {
-    "boadgeojelhgndaghljhdicfkmllpafd",  // Google Cast
-    "dliochdbjfkdbacpmhlcpmleaejidimm"   // Google Cast (Beta)
-};
-
 // IDs of component extensions that have been obsoleted and need to be
 // uninstalled.
 // Note: We preserve at least one entry here for continued testing coverage.
@@ -874,9 +867,7 @@ void ExtensionService::HandleMalwareOmahaAttribute(
   bool has_malware_value =
       OmahaAttributesHandler::HasOmahaBlocklistStateInAttributes(
           attributes, BitMapBlocklistState::BLOCKLISTED_MALWARE);
-  if (!base::FeatureList::IsEnabled(
-          extensions_features::kDisableMalwareExtensionsRemotely) ||
-      !has_malware_value) {
+  if (!has_malware_value) {
     OmahaAttributesHandler::ReportNoUpdateCheckKeys();
     // Omaha attributes may have previously have the "_malware" key.
     MaybeEnableRemotelyDisabledExtension(extension_id);
@@ -923,8 +914,9 @@ void ExtensionService::MaybeEnableRemotelyDisabledExtension(
 
 void ExtensionService::ClearGreylistedAcknowledgedStateAndMaybeReenable(
     const std::string& extension_id) {
-  bool is_on_sb_list = (extension_prefs_->GetExtensionBlocklistState(
-                            extension_id) != NOT_BLOCKLISTED);
+  bool is_on_sb_list = (blocklist_prefs::GetSafeBrowsingExtensionBlocklistState(
+                            extension_id, extension_prefs_) !=
+                        BitMapBlocklistState::NOT_BLOCKLISTED);
   bool is_on_omaha_list =
       blocklist_prefs::HasAnyOmahaGreylistState(extension_id, extension_prefs_);
   if (is_on_sb_list || is_on_omaha_list) {
@@ -943,9 +935,8 @@ void ExtensionService::MaybeDisableGreylistedExtension(
     BitMapBlocklistState new_state) {
 #if DCHECK_IS_ON()
   bool has_new_state_on_sb_list =
-      (blocklist_prefs::BlocklistStateToBitMapBlocklistState(
-           extension_prefs_->GetExtensionBlocklistState(extension_id)) ==
-       new_state);
+      (blocklist_prefs::GetSafeBrowsingExtensionBlocklistState(
+           extension_id, extension_prefs_) == new_state);
   bool has_new_state_on_omaha_list = blocklist_prefs::HasOmahaBlocklistState(
       extension_id, new_state, extension_prefs_);
   DCHECK(has_new_state_on_sb_list || has_new_state_on_omaha_list);
@@ -1119,6 +1110,10 @@ void ExtensionService::RecordPermissionMessagesHistogram(
 // according to header file once diffs have settled down.
 void ExtensionService::PostActivateExtension(
     scoped_refptr<const Extension> extension) {
+  // Update policy permissions in case they were changed while extension was not
+  // active.
+  PermissionsUpdater(profile()).ApplyPolicyHostRestrictions(*extension);
+
   // TODO(kalman): Convert ExtensionSpecialStoragePolicy to a
   // BrowserContextKeyedService and use ExtensionRegistryObserver.
   profile_->GetExtensionSpecialStoragePolicy()->GrantRightsForExtension(
@@ -1201,7 +1196,7 @@ void ExtensionService::CheckManagementPolicy() {
       management->GetDefaultPolicyAllowedHosts());
 
   for (const auto& extension : registry_->enabled_extensions()) {
-    SetPolicySettingsForExtension(extension.get());
+    PermissionsUpdater(profile()).ApplyPolicyHostRestrictions(*extension);
   }
 
   // Loop through the disabled extension list, find extensions to re-enable
@@ -1857,19 +1852,6 @@ void ExtensionService::FinishInstallation(const Extension* extension) {
     MaybeFinishDelayedInstallations();
 }
 
-void ExtensionService::SetPolicySettingsForExtension(
-    const Extension* extension) {
-  ExtensionManagement* management =
-      ExtensionManagementFactory::GetForBrowserContext(profile());
-  if (management->UsesDefaultPolicyHostRestrictions(extension)) {
-    PermissionsUpdater(profile()).SetUsesDefaultHostRestrictions(extension);
-  } else {
-    PermissionsUpdater(profile()).SetPolicyHostRestrictions(
-        extension, management->GetPolicyBlockedHosts(extension),
-        management->GetPolicyAllowedHosts(extension));
-  }
-}
-
 const Extension* ExtensionService::GetPendingExtensionUpdate(
     const std::string& id) const {
   return delayed_installs_.GetByID(id);
@@ -2312,8 +2294,9 @@ void ExtensionService::UpdateBlocklistedExtensions(
       continue;
     }
     registry_->RemoveBlocklisted(*it);
-    extension_prefs_->SetExtensionBlocklistState(extension->id(),
-                                                 NOT_BLOCKLISTED);
+    blocklist_prefs::SetSafeBrowsingExtensionBlocklistState(
+        extension->id(), BitMapBlocklistState::NOT_BLOCKLISTED,
+        extension_prefs_);
     AddExtension(extension.get());
     UMA_HISTOGRAM_ENUMERATION("ExtensionBlacklist.UnblacklistInstalled",
                               extension->location());
@@ -2328,8 +2311,9 @@ void ExtensionService::UpdateBlocklistedExtensions(
       continue;
     }
     registry_->AddBlocklisted(extension);
-    extension_prefs_->SetExtensionBlocklistState(extension->id(),
-                                                 BLOCKLISTED_MALWARE);
+    blocklist_prefs::SetSafeBrowsingExtensionBlocklistState(
+        extension->id(), BitMapBlocklistState::BLOCKLISTED_MALWARE,
+        extension_prefs_);
     UnloadExtension(*it, UnloadedExtensionReason::BLOCKLIST);
     UMA_HISTOGRAM_ENUMERATION("ExtensionBlacklist.BlacklistInstalled",
                               extension->location());
@@ -2401,13 +2385,6 @@ void ExtensionService::OnInstalledExtensionsLoaded() {
 void ExtensionService::UninstallMigratedExtensions() {
   std::unique_ptr<ExtensionSet> installed_extensions =
       registry_->GenerateInstalledExtensionsSet();
-
-  for (const std::string& extension_id : kMigratedExtensionIds) {
-    if (installed_extensions->Contains(extension_id)) {
-      UninstallExtension(extension_id, UNINSTALL_REASON_MIGRATED, nullptr);
-    }
-  }
-
   for (const std::string& extension_id : kObsoleteComponentExtensionIds) {
     auto* extension = installed_extensions->GetByID(extension_id);
     if (extension) {

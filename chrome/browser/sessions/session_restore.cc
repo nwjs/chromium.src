@@ -18,6 +18,7 @@
 #include "base/callback_helpers.h"
 #include "base/command_line.h"
 #include "base/containers/flat_map.h"
+#include "base/cxx17_backports.h"
 #include "base/debug/alias.h"
 #include "base/feature_list.h"
 #include "base/location.h"
@@ -25,7 +26,6 @@
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/field_trial.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/numerics/ranges.h"
 #include "base/run_loop.h"
 #include "base/single_thread_task_runner.h"
 #include "base/task/cancelable_task_tracker.h"
@@ -82,6 +82,7 @@
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "chrome/browser/chromeos/boot_times_recorder.h"
+#include "components/full_restore/features.h"
 #endif
 
 #if BUILDFLAG(ENABLE_APP_SESSION_SERVICE)
@@ -724,7 +725,7 @@ class SessionRestoreImpl : public BrowserListObserver {
     // yet due the ordering of TabStripModelObserver notifications in an edge
     // case.
 
-    const int selected_tab_index = base::ClampToRange(
+    const int selected_tab_index = base::clamp(
         window.selected_tab_index, 0, static_cast<int>(window.tabs.size() - 1));
 
     for (int i = 0; i < static_cast<int>(window.tabs.size()); ++i) {
@@ -1014,8 +1015,16 @@ void SessionRestore::RestoreSessionAfterCrash(Browser* browser) {
            : 0);
 
 #if BUILDFLAG(ENABLE_APP_SESSION_SERVICE)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  // In Chrome OS, apps are restored by full restore only. This function is
+  // called when the chrome browser is launched after crash, so only browser
+  // tabs are restored, apps are not restroed.
+  if (!full_restore::features::IsFullRestoreEnabled())
+    behavior |= SessionRestore::RESTORE_APPS;
+#else
   // Apps should always be restored on crash restore.
   behavior |= SessionRestore::RESTORE_APPS;
+#endif
 #endif
   SessionRestore::RestoreSession(profile, browser, behavior,
                                  std::vector<GURL>());

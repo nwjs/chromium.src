@@ -470,7 +470,7 @@ component("headless_non_renderer") {
     ]
   }
 
-  if (is_win || ((is_linux || is_mac) && is_component_build)) {
+  if (is_component_build) {
     sources += [
       "lib/browser/headless_content_browser_client.cc",
       "lib/browser/headless_content_browser_client.h",

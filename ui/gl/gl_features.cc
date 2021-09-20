@@ -69,7 +69,7 @@ bool IsDeviceBlocked(const char* field, const std::string& block_list) {
 // Feature lives in ui/gl because it affects the GL binding initialization on
 // platforms that would otherwise not default to using EGL bindings.
 // Launched on Windows, still experimental on other platforms.
-const base::Feature kDefaultPassthroughCommandDecoder{
+const base::Feature kDefaultPassthroughCommandDecoder {
   "DefaultPassthroughCommandDecoder",
 #if defined(OS_WIN)
       base::FEATURE_ENABLED_BY_DEFAULT

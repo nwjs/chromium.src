@@ -35,6 +35,8 @@ CONTENT_EXPORT extern const base::Feature kBackForwardCacheMemoryControls;
 CONTENT_EXPORT extern const base::Feature kBlockCredentialedSubresources;
 CONTENT_EXPORT extern const base::Feature kBlockInsecurePrivateNetworkRequests;
 CONTENT_EXPORT extern const base::Feature
+    kBlockInsecurePrivateNetworkRequestsFromPrivate;
+CONTENT_EXPORT extern const base::Feature
     kBlockInsecurePrivateNetworkRequestsDeprecationTrial;
 CONTENT_EXPORT extern const base::Feature
     kBlockInsecurePrivateNetworkRequestsForNavigations;
@@ -59,6 +61,7 @@ CONTENT_EXPORT extern const base::Feature
     kDebugHistoryInterventionNoUserActivation;
 CONTENT_EXPORT extern const base::Feature kDesktopCaptureChangeSource;
 CONTENT_EXPORT extern const base::Feature kDesktopPWAsTabStrip;
+CONTENT_EXPORT extern const base::Feature kDevicePosture;
 CONTENT_EXPORT extern const base::Feature kDocumentPolicy;
 CONTENT_EXPORT extern const base::Feature kDocumentPolicyNegotiation;
 CONTENT_EXPORT extern const base::Feature kEarlyHintsPreloadForNavigation;
@@ -69,7 +72,6 @@ CONTENT_EXPORT extern const base::Feature kEnumerateDevicesHideDeviceIDs;
 CONTENT_EXPORT extern const base::Feature kExperimentalAccessibilityLabels;
 CONTENT_EXPORT extern const base::Feature
     kExperimentalContentSecurityPolicyFeatures;
-CONTENT_EXPORT extern const base::Feature kExpensiveBackgroundTimerThrottling;
 CONTENT_EXPORT extern const base::Feature
     kExtraSafelistedRequestHeadersForOutOfBlinkCors;
 CONTENT_EXPORT extern const base::Feature kFeaturePolicyForClientHints;
@@ -88,7 +90,6 @@ CONTENT_EXPORT extern const base::Feature kInstalledAppProvider;
 CONTENT_EXPORT extern const base::Feature kInstalledAppsInCbd;
 CONTENT_EXPORT extern const base::Feature kIsolateOrigins;
 CONTENT_EXPORT extern const char kIsolateOriginsFieldTrialParamName[];
-CONTENT_EXPORT extern const base::Feature kLangClientHintHeader;
 CONTENT_EXPORT extern const base::Feature kLazyFrameLoading;
 CONTENT_EXPORT extern const base::Feature kLazyFrameVisibleLoadTimeMetrics;
 CONTENT_EXPORT extern const base::Feature kLazyImageLoading;
@@ -136,7 +137,6 @@ CONTENT_EXPORT extern const base::Feature kPeriodicBackgroundSync;
 CONTENT_EXPORT extern const base::Feature kFeaturePolicyHeader;
 CONTENT_EXPORT extern const base::Feature kPepper3DImageChromium;
 CONTENT_EXPORT extern const base::Feature kPepperCrossOriginRedirectRestriction;
-CONTENT_EXPORT extern const base::Feature kPrefersColorSchemeClientHintHeader;
 CONTENT_EXPORT extern const base::Feature kProcessHostOnUI;
 CONTENT_EXPORT extern const base::Feature kPlzServiceWorker;
 CONTENT_EXPORT extern const base::Feature kHighPriorityBeforeUnload;
@@ -156,7 +156,7 @@ CONTENT_EXPORT extern const base::Feature
     kRunVideoCaptureServiceInBrowserProcess;
 CONTENT_EXPORT extern const base::Feature kSavePageAsWebBundle;
 CONTENT_EXPORT extern const base::Feature kSecurePaymentConfirmation;
-CONTENT_EXPORT extern const base::Feature kSecurePaymentConfirmationAPIV2;
+CONTENT_EXPORT extern const base::Feature kSecurePaymentConfirmationAPIV3;
 CONTENT_EXPORT extern const base::Feature kSecurePaymentConfirmationDebug;
 CONTENT_EXPORT extern const base::Feature
     kSendBeaconThrowForBlobWithNonSimpleType;
@@ -221,7 +221,6 @@ CONTENT_EXPORT extern const base::Feature kTouchpadOverscrollHistoryNavigation;
 CONTENT_EXPORT extern const base::Feature kTrustedDOMTypes;
 CONTENT_EXPORT extern const base::Feature kUnrestrictedSharedArrayBuffer;
 CONTENT_EXPORT extern const base::Feature kUserActivationSameOriginVisibility;
-CONTENT_EXPORT extern const base::Feature kUserAgentClientHint;
 CONTENT_EXPORT extern const base::Feature kVerifyDidCommitParams;
 CONTENT_EXPORT extern const base::Feature kVideoPlaybackQuality;
 CONTENT_EXPORT extern const base::Feature kV8VmFuture;
@@ -245,12 +244,12 @@ CONTENT_EXPORT extern const base::Feature kWebBluetoothNewPermissionsBackend;
 CONTENT_EXPORT extern const base::Feature kWebBundles;
 CONTENT_EXPORT extern const base::Feature kWebBundlesFromNetwork;
 CONTENT_EXPORT extern const base::Feature kWebGLImageChromium;
-CONTENT_EXPORT extern const base::Feature kWebGPUService;
 CONTENT_EXPORT extern const base::Feature kWebID;
 CONTENT_EXPORT extern const base::Feature kWebOtpBackendAuto;
 CONTENT_EXPORT extern const base::Feature kWebPayments;
 CONTENT_EXPORT extern const base::Feature kWebPaymentsMinimalUI;
 CONTENT_EXPORT extern const base::Feature kWebRtcUseGpuMemoryBufferVideoFrames;
+CONTENT_EXPORT extern const base::Feature kWebUICodeCache;
 CONTENT_EXPORT extern const base::Feature kWebUIReportOnlyTrustedTypes;
 CONTENT_EXPORT extern const base::Feature kWebUsb;
 CONTENT_EXPORT extern const base::Feature kWebXr;

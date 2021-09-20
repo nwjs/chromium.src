@@ -495,6 +495,7 @@ extern const char kReservedMessageFound[];
 extern const char kSandboxPagesCSPKeyNotAllowed[];
 extern const char kRulesFileIsInvalid[];
 extern const char kRulesetCountExceeded[];
+extern const char kEnabledRulesetCountExceeded[];
 extern const char kTransientBackgroundConflictsWithPersistentBackground[];
 extern const char kTtsGenderIsDeprecated[];
 extern const char kUnrecognizedManifestKey[];
