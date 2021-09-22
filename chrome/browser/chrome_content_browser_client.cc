@@ -590,7 +590,7 @@
 #include "chrome/browser/component_updater/hyphenation_component_installer.h"
 #endif
 
-#if defined(_WINDOWS_)
+#if 0 //defined(_WINDOWS_)
 // This source file doesn't need windows.h and its associated namespace
 // pollution. Try to avoid windows.h in header files used by source files such
 // as this one. See brucedawson@chromium.org for assistance.

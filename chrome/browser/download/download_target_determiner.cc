@@ -879,11 +879,13 @@ void DownloadTargetDeterminer::CheckVisitedReferrerBeforeDone(
     bool visited_referrer_before) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   DCHECK_EQ(STATE_DETERMINE_INTERMEDIATE_PATH, next_state_);
+#if 0
   safe_browsing::RecordDownloadFileTypeAttributes(
       safe_browsing::FileTypePolicies::GetInstance()->GetFileDangerLevel(
           virtual_path_.BaseName()),
       download_->HasUserGesture(), visited_referrer_before,
       GetLastDownloadBypassTimestamp());
+#endif
   danger_level_ = GetDangerLevel(
       visited_referrer_before ? VISITED_REFERRER : NO_VISITS_TO_REFERRER);
   if (danger_level_ != DownloadFileType::NOT_DANGEROUS &&
@@ -1139,6 +1141,7 @@ DownloadFileType::DangerLevel DownloadTargetDeterminer::GetDangerLevel(
   return DownloadFileType::NOT_DANGEROUS;
 }
 
+#if 0
 absl::optional<base::Time>
 DownloadTargetDeterminer::GetLastDownloadBypassTimestamp() const {
   safe_browsing::SafeBrowsingMetricsCollector* metrics_collector =
@@ -1150,6 +1153,7 @@ DownloadTargetDeterminer::GetLastDownloadBypassTimestamp() const {
                                      EventType::DANGEROUS_DOWNLOAD_BYPASS)
                            : absl::nullopt;
 }
+#endif
 
 void DownloadTargetDeterminer::OnDownloadDestroyed(
     DownloadItem* download) {

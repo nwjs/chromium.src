@@ -1674,9 +1674,9 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
   if (profilesAdded)
     [dockMenu addItem:[NSMenuItem separatorItem]];
 
+#if 0
   Profile* profile = [self lastProfileIfLoaded];
 
-#if 0
   NSString* titleStr = l10n_util::GetNSStringWithFixup(IDS_NEW_WINDOW_MAC);
   base::scoped_nsobject<NSMenuItem> item(
       [[NSMenuItem alloc] initWithTitle:titleStr
