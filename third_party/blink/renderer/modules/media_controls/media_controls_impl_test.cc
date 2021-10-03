@@ -96,17 +96,6 @@ class MockWebMediaPlayerForImpl : public EmptyWebMediaPlayer {
   WebTimeRanges seekable_;
 };
 
-class MockLayoutObject : public LayoutObject {
- public:
-  MockLayoutObject(Node* node) : LayoutObject(node) {}
-
-  const char* GetName() const override { return "MockLayoutObject"; }
-  void UpdateLayout() override {}
-  FloatRect LocalBoundingBoxRectForAccessibility() const override {
-    return FloatRect();
-  }
-};
-
 class StubLocalFrameClientForImpl : public EmptyLocalFrameClient {
  public:
   std::unique_ptr<WebMediaPlayer> CreateWebMediaPlayer(
@@ -190,6 +179,10 @@ class MediaControlsImplTest : public PageTestBase,
     GetFrame().GetSettings()->SetScriptEnabled(true);
   }
 
+  void SetMediaControlsFromElement(HTMLMediaElement& elm) {
+    media_controls_ = static_cast<MediaControlsImpl*>(elm.GetMediaControls());
+  }
+
   void SimulateRouteAvailable() {
     RemotePlayback::From(media_controls_->MediaElement())
         .AvailabilityChangedForTesting(/* screen_is_available */ true);
@@ -216,6 +209,13 @@ class MediaControlsImplTest : public PageTestBase,
   void SimulateMediaControlPlaying() {
     MediaControls().MediaElement().SetReadyState(
         HTMLMediaElement::kHaveEnoughData);
+    MediaControls().MediaElement().SetNetworkState(
+        WebMediaPlayer::NetworkState::kNetworkStateLoading);
+  }
+
+  void SimulateMediaControlPlayingForFutureData() {
+    MediaControls().MediaElement().SetReadyState(
+        HTMLMediaElement::kHaveFutureData);
     MediaControls().MediaElement().SetNetworkState(
         WebMediaPlayer::NetworkState::kNetworkStateLoading);
   }
@@ -1503,6 +1503,39 @@ TEST_F(MediaControlsImplTest, HideControlsDefersStyleCalculationOnWaiting) {
   UpdateAllLifecyclePhasesForTest();
   new_element_count = document.GetStyleEngine().StyleForElementCount();
   EXPECT_LT(old_element_count, new_element_count);
+}
+
+TEST_F(MediaControlsImplTest, CheckStateOnPlayingForFutureData) {
+  MediaControls().MediaElement().SetSrc("https://example.com/foo.mp4");
+  MediaControls().MediaElement().Play();
+  test::RunPendingTasks();
+  UpdateAllLifecyclePhasesForTest();
+
+  SimulateMediaControlPlayingForFutureData();
+  EXPECT_EQ(MediaControls().State(),
+            MediaControlsImpl::ControlsState::kPlaying);
+}
+
+TEST_F(MediaControlsImplTest, OverflowMenuInPaintContainment) {
+  // crbug.com/1244130
+  auto page_holder = std::make_unique<DummyPageHolder>();
+  page_holder->GetDocument().write("<audio controls style='contain:paint'>");
+  page_holder->GetDocument().Parser()->Finish();
+  test::RunPendingTasks();
+  UpdateAllLifecyclePhasesForTest();
+  SetMediaControlsFromElement(
+      To<HTMLMediaElement>(*page_holder->GetDocument().QuerySelector("audio")));
+
+  MediaControls().ToggleOverflowMenu();
+  UpdateAllLifecyclePhasesForTest();
+  Element* overflow_list = GetElementByShadowPseudoId(
+      MediaControls(), "-internal-media-controls-overflow-menu-list");
+  ASSERT_TRUE(overflow_list);
+  EXPECT_TRUE(overflow_list->IsInTopLayer());
+
+  MediaControls().ToggleOverflowMenu();
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_FALSE(overflow_list->IsInTopLayer());
 }
 
 }  // namespace blink

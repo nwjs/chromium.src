@@ -11,12 +11,14 @@ namespace lens {
 
 // Lens entry points for LWD.
 enum EntryPoint {
+  CHROME_OPEN_NEW_TAB_SIDE_PANEL,
   CHROME_REGION_SEARCH_MENU_ITEM,
   CHROME_SEARCH_WITH_GOOGLE_LENS_CONTEXT_MENU_ITEM,
   UNKNOWN
 };
 
-extern std::string GetQueryParameterFromEntryPoint(EntryPoint entry_point);
+extern std::string GetQueryParametersForLensRequest(EntryPoint entry_point,
+                                                    bool is_side_panel_request);
 
 }  // namespace lens
 

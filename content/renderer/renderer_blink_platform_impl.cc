@@ -26,6 +26,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/synchronization/lock.h"
 #include "base/task/post_task.h"
 #include "base/task/thread_pool.h"
 #include "base/threading/thread_task_runner_handle.h"
@@ -218,8 +219,11 @@ RendererBlinkPlatformImpl::RendererBlinkPlatformImpl(
   top_level_blame_context_.Initialize();
   main_thread_scheduler_->SetTopLevelBlameContext(&top_level_blame_context_);
 
-  GetBrowserInterfaceBroker()->GetInterface(
-      code_cache_host_remote_.InitWithNewPipeAndPassReceiver());
+  {
+    base::AutoLock lock(code_cache_host_lock_);
+    GetBrowserInterfaceBroker()->GetInterface(
+        code_cache_host_remote_.InitWithNewPipeAndPassReceiver());
+  }
 }
 
 RendererBlinkPlatformImpl::~RendererBlinkPlatformImpl() {
@@ -318,6 +322,14 @@ blink::WebString RendererBlinkPlatformImpl::UserAgent() {
   return render_thread->GetUserAgent();
 }
 
+blink::WebString RendererBlinkPlatformImpl::ReducedUserAgent() {
+  auto* render_thread = RenderThreadImpl::current();
+  // RenderThreadImpl is null in some tests.
+  if (!render_thread)
+    return WebString();
+  return render_thread->GetReducedUserAgent();
+}
+
 blink::UserAgentMetadata RendererBlinkPlatformImpl::UserAgentMetadata() {
   auto* render_thread = RenderThreadImpl::current();
   // RenderThreadImpl is null in some tests.
@@ -338,7 +350,7 @@ void RendererBlinkPlatformImpl::CacheMetadata(
   // Let the browser know we generated cacheable metadata for this resource.
   // The browser may cache it and return it on subsequent responses to speed
   // the processing of this resource.
-  GetCodeCacheHost().DidGenerateCacheableMetadata(
+  GetCodeCacheHost()->DidGenerateCacheableMetadata(
       cache_type, url, response_time,
       mojo_base::BigBuffer(base::make_span(data, size)));
 }
@@ -347,7 +359,7 @@ void RendererBlinkPlatformImpl::FetchCachedCode(
     blink::mojom::CodeCacheType cache_type,
     const blink::WebURL& url,
     FetchCachedCodeCallback callback) {
-  GetCodeCacheHost().FetchCachedCode(
+  GetCodeCacheHost()->FetchCachedCode(
       cache_type, url,
       base::BindOnce(
           [](FetchCachedCodeCallback callback, base::Time time,
@@ -360,7 +372,7 @@ void RendererBlinkPlatformImpl::FetchCachedCode(
 void RendererBlinkPlatformImpl::ClearCodeCacheEntry(
     blink::mojom::CodeCacheType cache_type,
     const GURL& url) {
-  GetCodeCacheHost().ClearCodeCacheEntry(cache_type, url);
+  GetCodeCacheHost()->ClearCodeCacheEntry(cache_type, url);
 }
 
 bool RendererBlinkPlatformImpl::IsRedirectSafe(const GURL& from_url,
@@ -410,7 +422,7 @@ void RendererBlinkPlatformImpl::CacheMetadataInCacheStorage(
   // Let the browser know we generated cacheable metadata for this resource in
   // CacheStorage. The browser may cache it and return it on subsequent
   // responses to speed the processing of this resource.
-  GetCodeCacheHost().DidGenerateCacheableMetadataInCacheStorage(
+  GetCodeCacheHost()->DidGenerateCacheableMetadataInCacheStorage(
       url, response_time, mojo_base::BigBuffer(base::make_span(data, size)),
       cacheStorageOrigin, cacheStorageCacheName.Utf8());
 }
@@ -637,13 +649,6 @@ RendererBlinkPlatformImpl::GetAudioSourceLatencyType(
   return blink::WebAudioDeviceFactory::GetSourceLatencyType(source_type);
 }
 
-absl::optional<std::string>
-RendererBlinkPlatformImpl::GetWebRTCAudioProcessingConfiguration() {
-  return GetContentClient()
-      ->renderer()
-      ->WebRTCPlatformSpecificAudioProcessingConfiguration();
-}
-
 bool RendererBlinkPlatformImpl::ShouldEnforceWebRTCRoutingPreferences() {
   return GetContentClient()
       ->renderer()
@@ -821,18 +826,11 @@ RendererBlinkPlatformImpl::CreateOffscreenGraphicsContext3DProvider(
   attributes.sample_buffers = 0;
   attributes.bind_generates_resource = false;
   attributes.enable_raster_interface = web_attributes.enable_raster_interface;
-
-  // Only support OOPR on this context if the general feature is enabled in
-  // addition to OOPR for canvas. Otherwise this context will raster canvas
-  // through Skia's GrContext.
   attributes.enable_oop_rasterization =
       attributes.enable_raster_interface &&
       gpu_channel_host->gpu_feature_info()
-              .status_values[gpu::GPU_FEATURE_TYPE_OOP_RASTERIZATION] ==
-          gpu::kGpuFeatureStatusEnabled &&
-      !gpu_channel_host->gpu_feature_info().IsWorkaroundEnabled(
-          gpu::DISABLE_CANVAS_OOP_RASTERIZATION) &&
-      base::FeatureList::IsEnabled(features::kCanvasOopRasterization);
+              .status_values[gpu::GPU_FEATURE_TYPE_CANVAS_OOP_RASTERIZATION] ==
+          gpu::kGpuFeatureStatusEnabled;
   attributes.enable_gles2_interface = !attributes.enable_oop_rasterization;
 
   attributes.gpu_preference = web_attributes.prefer_low_power_gpu
@@ -1155,13 +1153,18 @@ SkBitmap* RendererBlinkPlatformImpl::GetSadPageBitmap() {
 
 //------------------------------------------------------------------------------
 
-blink::mojom::CodeCacheHost& RendererBlinkPlatformImpl::GetCodeCacheHost() {
+mojo::SharedRemote<blink::mojom::CodeCacheHost>
+RendererBlinkPlatformImpl::GetCodeCacheHost() {
+  base::AutoLock lock(code_cache_host_lock_);
   if (!code_cache_host_) {
     code_cache_host_ = mojo::SharedRemote<blink::mojom::CodeCacheHost>(
         std::move(code_cache_host_remote_),
         base::ThreadPool::CreateSequencedTaskRunner({}));
   }
-  return *code_cache_host_;
+  // mojo::SharedRemote is not thread-safe itself, but it's safe to copy to
+  // other threads. So, return the code cache host by copy, rather than
+  // accessing the underlying interface directly.
+  return code_cache_host_;
 }
 
 std::unique_ptr<blink::WebV8ValueConverter>

@@ -170,10 +170,6 @@ def try_builder(
         if kwargs["goma_enable_ats"] != False:
             fail("Try Windows builder {} must disable ATS".format(name))
 
-    # TODO(crbug.com/1143122): remove this after migration.
-    if "chromium.chromium_tests.use_rbe_cas" not in experiments:
-        experiments["chromium.chromium_tests.use_rbe_cas"] = 5
-
     # Define the builder first so that any validation of luci.builder arguments
     # (e.g. bucket) occurs before we try to use it
     builders.builder(
@@ -299,10 +295,6 @@ def chromium_chromiumos_builder(*, name, **kwargs):
         name = name,
         builder_group = "tryserver.chromium.chromiumos",
         goma_backend = builders.goma.backend.RBE_PROD,
-        experiments = {
-            # TODO(crbug.com/1237607): disable rbe cas temporarily.
-            "chromium.chromium_tests.use_rbe_cas": 0,
-        },
         **kwargs
     )
 

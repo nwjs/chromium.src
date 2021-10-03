@@ -15,7 +15,7 @@
 #include "base/run_loop.h"
 #include "base/test/task_environment.h"
 #include "base/unguessable_token.h"
-#include "base/util/memory_pressure/fake_memory_pressure_monitor.h"
+#include "components/memory_pressure/fake_memory_pressure_monitor.h"
 #include "components/paint_preview/browser/directory_key.h"
 #include "components/paint_preview/browser/file_manager.h"
 #include "components/paint_preview/browser/paint_preview_base_service.h"
@@ -451,8 +451,10 @@ TEST_F(PlayerCompositorDelegateTest, InMemoryProto) {
   SerializeProtoAndCreateRootSkp(&proto, key, true);
   {
     PlayerCompositorDelegateImpl player_compositor_delegate;
-    player_compositor_delegate.SetProto(
-        std::make_unique<PaintPreviewProto>(proto));
+    auto capture_result =
+        std::make_unique<CaptureResult>(RecordingPersistence::kFileSystem);
+    capture_result->proto = std::move(proto);
+    player_compositor_delegate.SetCaptureResult(std::move(capture_result));
     player_compositor_delegate.SetExpectedStatus(CompositorStatus::OK);
     player_compositor_delegate.InitializeWithFakeServiceForTest(
         service, url, key, /*main_frame_mode=*/false, base::DoNothing(),
@@ -929,7 +931,7 @@ TEST_F(PlayerCompositorDelegateTest, CriticalMemoryPressureBeforeStart) {
     // created.
     base::RunLoop loop;
     PlayerCompositorDelegateImpl player_compositor_delegate;
-    util::test::FakeMemoryPressureMonitor memory_pressure_monitor;
+    memory_pressure::test::FakeMemoryPressureMonitor memory_pressure_monitor;
     memory_pressure_monitor.SetAndNotifyMemoryPressure(
         base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_CRITICAL);
     player_compositor_delegate.SetFakeMemoryPressureMonitor(

@@ -108,7 +108,7 @@ class CORE_EXPORT Modulator : public GarbageCollected<Modulator>,
   static void SetModulator(ScriptState*, Modulator*);
   static void ClearModulator(ScriptState*);
 
-  void Trace(Visitor* visitor) const override {}
+  void Trace(Visitor* visitor) const override;
   const char* NameInHeapSnapshot() const override { return "Modulator"; }
 
   virtual ModuleRecordResolver* GetModuleRecordResolver() = 0;
@@ -180,11 +180,13 @@ class CORE_EXPORT Modulator : public GarbageCollected<Modulator>,
 
   // Import maps. https://github.com/WICG/import-maps
 
-  // https://wicg.github.io/import-maps/#register-an-import-map
-  virtual void RegisterImportMap(
-      const ImportMap*,
-      absl::optional<ImportMapError> error_to_rethrow) = 0;
-  virtual const ImportMap* GetImportMapForTest() const = 0;
+  void SetImportMap(const ImportMap* import_map) {
+    // Because the second and subsequent import maps are already rejected in
+    // ScriptLoader::PrepareScript(), this is called only once.
+    DCHECK(!import_map_);
+    import_map_ = import_map;
+  }
+  const ImportMap* GetImportMapForTest() const { return import_map_; }
 
   // https://wicg.github.io/import-maps/#document-acquiring-import-maps
   enum class AcquiringImportMapsState {
@@ -197,8 +199,12 @@ class CORE_EXPORT Modulator : public GarbageCollected<Modulator>,
     // The flag is false, because module script loading is already started.
     kAfterModuleScriptLoad
   };
-  virtual AcquiringImportMapsState GetAcquiringImportMapsState() const = 0;
-  virtual void SetAcquiringImportMapsState(AcquiringImportMapsState) = 0;
+  AcquiringImportMapsState GetAcquiringImportMapsState() const {
+    return acquiring_import_maps_;
+  }
+  void SetAcquiringImportMapsState(AcquiringImportMapsState value) {
+    acquiring_import_maps_ = value;
+  }
 
   // https://html.spec.whatwg.org/C/#hostgetimportmetaproperties
   virtual ModuleImportMeta HostGetImportMetaProperties(
@@ -215,6 +221,18 @@ class CORE_EXPORT Modulator : public GarbageCollected<Modulator>,
 
   // Produce V8 code cache for the given ModuleScript and its submodules.
   virtual void ProduceCacheModuleTreeTopLevel(ModuleScript*) = 0;
+
+ protected:
+  const ImportMap* GetImportMap() const { return import_map_.Get(); }
+
+ private:
+  Member<const ImportMap> import_map_;
+
+  // https://wicg.github.io/import-maps/#document-acquiring-import-maps
+  // Each Document has an acquiring import maps boolean. It is initially true.
+  // [spec text]
+  AcquiringImportMapsState acquiring_import_maps_ =
+      AcquiringImportMapsState::kAcquiring;
 };
 
 }  // namespace blink

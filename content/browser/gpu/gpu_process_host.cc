@@ -85,6 +85,7 @@
 #if defined(OS_WIN)
 #include "base/win/win_util.h"
 #include "sandbox/policy/win/sandbox_win.h"
+#include "sandbox/win/src/restricted_token_utils.h"
 #include "sandbox/win/src/sandbox_policy.h"
 #include "sandbox/win/src/window.h"
 #include "ui/gfx/win/rendering_window_manager.h"
@@ -254,6 +255,7 @@ static const char* const kSwitchNames[] = {
     switches::kEnableLogging,
     switches::kEnableDeJelly,
     switches::kDeJellyScreenWidth,
+    switches::kDocumentTransitionSlowdownFactor,
     switches::kDoubleBufferCompositing,
     switches::kHeadless,
     switches::kLoggingLevel,
@@ -481,16 +483,37 @@ class GpuSandboxedProcessLauncherDelegate
 
  private:
 #if defined(OS_WIN)
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
+  enum class ProcessIntegrityResult{
+      kLowIl = 0,
+      kOpenGlMediumIl = 1,
+      kDesktopAccessMediumIl = 2,
+      kMaxValue = kDesktopAccessMediumIl,
+  };
+
   bool UseOpenGLRenderer() {
     return cmd_line_.GetSwitchValueASCII(switches::kUseGL) ==
            gl::kGLImplementationDesktopName;
   }
 
   bool ShouldSetDelayedIntegrity() {
-    if (UseOpenGLRenderer())
+    if (UseOpenGLRenderer()) {
+      UMA_HISTOGRAM_ENUMERATION("GPU.ProcessIntegrityResult",
+                                ProcessIntegrityResult::kOpenGlMediumIl);
       return true;
+    }
 
-    return base::win::IsRunningUnderDesktopName(L"winlogon");
+    // Desktop access is needed to load user32.dll, we can lower token in child
+    // process after that's done.
+    if (sandbox::CanLowIntegrityAccessDesktop()) {
+      UMA_HISTOGRAM_ENUMERATION("GPU.ProcessIntegrityResult",
+                                ProcessIntegrityResult::kLowIl);
+      return false;
+    }
+    UMA_HISTOGRAM_ENUMERATION("GPU.ProcessIntegrityResult",
+                              ProcessIntegrityResult::kDesktopAccessMediumIl);
+    return true;
   }
 
   bool enable_appcontainer_;
@@ -1116,7 +1139,7 @@ void GpuProcessHost::DumpProcessStack() {
 #endif
 }
 
-void GpuProcessHost::RunService(mojo::GenericPendingReceiver receiver) {
+void GpuProcessHost::RunServiceImpl(mojo::GenericPendingReceiver receiver) {
   process_->child_process()->BindServiceInterface(std::move(receiver));
 }
 

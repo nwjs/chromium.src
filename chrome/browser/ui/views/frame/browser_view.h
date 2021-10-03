@@ -18,6 +18,7 @@
 #include "base/scoped_observation.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
+#include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/devtools/devtools_window.h"
@@ -82,6 +83,12 @@ class TopContainerView;
 class TopControlsSlideControllerTest;
 class WebContentsCloseHandler;
 class WebUITabStripContainerView;
+
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+namespace lens {
+class LensSidePanelController;
+}  // namespace lens
+#endif
 
 namespace ui {
 class NativeTheme;
@@ -182,6 +189,8 @@ class BrowserView : public BrowserWindow,
 
   SidePanel* right_aligned_side_panel() { return right_aligned_side_panel_; }
 
+  SidePanel* lens_side_panel() { return lens_side_panel_; }
+
   SidePanel* left_aligned_side_panel_for_testing() {
     return left_aligned_side_panel_;
   }
@@ -189,6 +198,12 @@ class BrowserView : public BrowserWindow,
   ExtensionsSidePanelController* extensions_side_panel_controller() {
     return extensions_side_panel_controller_.get();
   }
+
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  lens::LensSidePanelController* lens_side_panel_controller() {
+    return lens_side_panel_controller_.get();
+  }
+#endif
 
   void set_contents_border_widget(views::Widget* contents_border_widget) {
     GetBrowserViewLayout()->set_contents_border_widget(contents_border_widget);
@@ -451,6 +466,7 @@ class BrowserView : public BrowserWindow,
   void FocusInactivePopupForAccessibility() override;
   void FocusHelpBubble() override;
   void RotatePaneFocus(bool forwards) override;
+  void FocusWebContentsPane() override;
   void DestroyBrowser() override;
   bool IsBookmarkBarVisible() const override;
   bool IsBookmarkBarAnimating() const override;
@@ -475,7 +491,8 @@ class BrowserView : public BrowserWindow,
   qrcode_generator::QRCodeGeneratorBubbleView* ShowQRCodeGeneratorBubble(
       content::WebContents* contents,
       qrcode_generator::QRCodeGeneratorBubbleController* controller,
-      const GURL& url) override;
+      const GURL& url,
+      bool show_back_button) override;
   send_tab_to_self::SendTabToSelfBubbleView* ShowSendTabToSelfBubble(
       content::WebContents* contents,
       send_tab_to_self::SendTabToSelfBubbleController* controller,
@@ -842,6 +859,10 @@ private:
   // mode changes.
   void MaybeShowWebUITabStripIPH();
 
+  // Attempts to show in-product help for the reading list as moved into the
+  // side panel. Should be called when the IPH backend is initialized or
+  // whenever the touch mode changes.
+  void MaybeShowReadingListInSidePanelIPH();
   bool resizable_ = true;
 
   extensions::SizeConstraints size_constraints_, saved_size_constraints_;
@@ -947,6 +968,14 @@ private:
   // A controller that handles extensions hosted in the left aligned side panel.
   std::unique_ptr<ExtensionsSidePanelController>
       extensions_side_panel_controller_;
+
+  // The Lens side panel.
+  SidePanel* lens_side_panel_ = nullptr;
+
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  // A controller that handles content hosted in the Lens side panel.
+  std::unique_ptr<lens::LensSidePanelController> lens_side_panel_controller_;
+#endif
 
   // Provides access to the toolbar buttons this browser view uses. Buttons may
   // appear in a hosted app frame or in a tabbed UI toolbar.

@@ -400,8 +400,8 @@ void ChromeAppDelegate::OnHide() {
   is_hidden_ = true;
 #if 0
   if (has_been_shown_) {
-    keep_alive_.reset();
     profile_keep_alive_.reset();
+    keep_alive_.reset();
     return;
   }
 

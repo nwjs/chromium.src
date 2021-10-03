@@ -69,6 +69,8 @@
 #include <unistd.h>
 #elif defined(OS_WIN)
 #include "chrome/test/chromedriver/keycode_text_conversion.h"
+
+#include <windows.h>
 #endif
 
 #include "base/strings/string_number_conversions.h"
@@ -668,7 +670,6 @@ Status LaunchDesktopChrome(network::mojom::URLLoaderFactory* factory,
     VLOG(0) << "Failed to connect to " << kBrowserShortName
             << ". Attempting to kill it.";
     if (!process.Terminate(0, true)) {
-      int exit_code;
       if (base::GetTerminationStatus(process.Handle(), &exit_code) ==
           base::TERMINATION_STATUS_STILL_RUNNING)
         return Status(kUnknownError,
@@ -700,7 +701,7 @@ Status LaunchDesktopChrome(network::mojom::URLLoaderFactory* factory,
       VLOG(0) << "Waiting for extension bg page load: "
               << extension_bg_pages[i];
       std::unique_ptr<WebView> web_view;
-      Status status = chrome_desktop->WaitForPageToLoad(
+      status = chrome_desktop->WaitForPageToLoad(
           extension_bg_pages[i], capabilities.extension_load_timeout, &web_view,
           w3c_compliant);
       if (status.IsError()) {
@@ -839,7 +840,7 @@ Status LaunchReplayChrome(network::mojom::URLLoaderFactory* factory,
       VLOG(0) << "Waiting for extension bg page load: "
               << extension_bg_pages[i];
       std::unique_ptr<WebView> web_view;
-      Status status = chrome_impl->WaitForPageToLoad(
+      status = chrome_impl->WaitForPageToLoad(
           extension_bg_pages[i], capabilities.extension_load_timeout, &web_view,
           w3c_compliant);
       if (status.IsError()) {

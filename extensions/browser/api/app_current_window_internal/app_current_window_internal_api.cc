@@ -185,7 +185,7 @@ AppCurrentWindowInternalClearAttentionFunction::Run() {
 }
 
 ExtensionFunction::ResponseAction AppCurrentWindowInternalShowFunction::Run() {
-  std::unique_ptr<Show::Params> params(Show::Params::Create(*args_));
+  std::unique_ptr<Show::Params> params(Show::Params::Create(args()));
   CHECK(params.get());
   if (params->focused && !*params->focused)
     window()->Show(AppWindow::SHOW_INACTIVE);
@@ -201,7 +201,7 @@ ExtensionFunction::ResponseAction AppCurrentWindowInternalHideFunction::Run() {
 
 ExtensionFunction::ResponseAction
 AppCurrentWindowInternalSetBoundsFunction::Run() {
-  std::unique_ptr<SetBounds::Params> params(SetBounds::Params::Create(*args_));
+  std::unique_ptr<SetBounds::Params> params(SetBounds::Params::Create(args()));
   CHECK(params.get());
 
   bounds::BoundsType bounds_type = bounds::GetBoundsType(params->bounds_type);
@@ -267,7 +267,7 @@ AppCurrentWindowInternalSetBoundsFunction::Run() {
 ExtensionFunction::ResponseAction
 AppCurrentWindowInternalSetResizableFunction::Run() {
   std::unique_ptr<SetResizable::Params> params(
-      SetResizable::Params::Create(*args_));
+                                               SetResizable::Params::Create(args()));
   CHECK(params.get());
   window()->GetBaseWindow()->SetResizable(params->flag);
   window()->OnNativeWindowChanged();
@@ -277,7 +277,7 @@ AppCurrentWindowInternalSetResizableFunction::Run() {
 ExtensionFunction::ResponseAction
 AppCurrentWindowInternalSetSizeConstraintsFunction::Run() {
   std::unique_ptr<SetSizeConstraints::Params> params(
-      SetSizeConstraints::Params::Create(*args_));
+      SetSizeConstraints::Params::Create(args()));
   CHECK(params.get());
 
   bounds::BoundsType bounds_type = bounds::GetBoundsType(params->bounds_type);
@@ -322,7 +322,7 @@ AppCurrentWindowInternalSetIconFunction::Run() {
     return RespondNow(Error(kDevChannelOnly));
   }
 
-  std::unique_ptr<SetIcon::Params> params(SetIcon::Params::Create(*args_));
+  std::unique_ptr<SetIcon::Params> params(SetIcon::Params::Create(args()));
   CHECK(params.get());
   // The |icon_url| parameter may be a blob url (e.g. an image fetched with an
   // XMLHttpRequest) or a resource url.
@@ -339,7 +339,7 @@ AppCurrentWindowInternalSetShapeFunction::Run() {
   if (!window()->GetBaseWindow()->IsFrameless())
     return RespondNow(Error(kRequiresFramelessWindow));
 
-  std::unique_ptr<SetShape::Params> params(SetShape::Params::Create(*args_));
+  std::unique_ptr<SetShape::Params> params(SetShape::Params::Create(args()));
   const Region& shape = params->region;
 
   // Build the list of hit-test rects from the supplied list of rects.
@@ -372,7 +372,7 @@ AppCurrentWindowInternalSetAlwaysOnTopFunction::Run() {
   }
 
   std::unique_ptr<SetAlwaysOnTop::Params> params(
-      SetAlwaysOnTop::Params::Create(*args_));
+      SetAlwaysOnTop::Params::Create(args()));
   CHECK(params.get());
   window()->SetAlwaysOnTop(params->always_on_top);
   return RespondNow(NoArguments());
@@ -381,7 +381,7 @@ AppCurrentWindowInternalSetAlwaysOnTopFunction::Run() {
 ExtensionFunction::ResponseAction
 AppCurrentWindowInternalSetVisibleOnAllWorkspacesFunction::Run() {
   std::unique_ptr<SetVisibleOnAllWorkspaces::Params> params(
-      SetVisibleOnAllWorkspaces::Params::Create(*args_));
+      SetVisibleOnAllWorkspaces::Params::Create(args()));
   CHECK(params.get());
   window()->GetBaseWindow()->SetVisibleOnAllWorkspaces(params->always_visible);
   return RespondNow(NoArguments());
@@ -390,7 +390,7 @@ AppCurrentWindowInternalSetVisibleOnAllWorkspacesFunction::Run() {
 ExtensionFunction::ResponseAction
 AppCurrentWindowInternalSetActivateOnPointerFunction::Run() {
   std::unique_ptr<SetActivateOnPointer::Params> params(
-      SetActivateOnPointer::Params::Create(*args_));
+      SetActivateOnPointer::Params::Create(args()));
   CHECK(params.get());
   window()->GetBaseWindow()->SetActivateOnPointer(params->activate_on_pointer);
   return RespondNow(NoArguments());

@@ -26,8 +26,8 @@ const base::Feature kPromoBrowserCommands{"PromoBrowserCommands",
 // kPromoBrowserCommands.
 // The value of this parameter should be parsable as an unsigned integer and
 // should map to one of the browser commands specified in:
-// chrome/browser/promo_browser_command/promo_browser_command.mojom
-const char kPromoBrowserCommandIdParam[] = "PromoBrowserCommandIdParam";
+// ui/webui/resources/js/browser_command/browser_command.mojom
+const char kBrowserCommandIdParam[] = "BrowserCommandIdParam";
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 // Enables reading and writing PWA notification permissions from quick settings
@@ -55,7 +55,7 @@ const base::Feature kMuteNotificationSnoozeAction{
 // Shows a confirmation dialog when updates to PWAs identity (name and icon)
 // have been detected.
 const base::Feature kPwaUpdateDialogForNameAndIcon{
-    "PwaUpdateDialogForNameAndIcon", base::FEATURE_DISABLED_BY_DEFAULT};
+    "PwaUpdateDialogForNameAndIcon", base::FEATURE_ENABLED_BY_DEFAULT};
 
 #if !defined(OS_ANDROID) && !BUILDFLAG(IS_CHROMEOS_ASH)
 // Enables taking snapshots of the user data directory after a major

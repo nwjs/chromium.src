@@ -46,6 +46,10 @@ class WebRtcLogUploader;
 class IntranetRedirectDetector;
 #endif
 
+namespace breadcrumbs {
+class BreadcrumbPersistentStorageManager;
+}
+
 namespace network {
 class NetworkQualityTracker;
 class SharedURLLoaderFactory;
@@ -269,6 +273,11 @@ class BrowserProcess {
 #endif
 
   virtual BuildState* GetBuildState() = 0;
+
+  // Returns the BreadcrumbPersistentStorageManager writing breadcrumbs to disk,
+  // or nullptr if breadcrumbs logging is disabled.
+  virtual breadcrumbs::BreadcrumbPersistentStorageManager*
+  GetBreadcrumbPersistentStorageManager() = 0;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(BrowserProcess);

@@ -406,6 +406,10 @@ void ChromeOmniboxClient::OpenUpdateChromeDialog() {
   }
 }
 
+void ChromeOmniboxClient::OpenSharingHub() {
+  controller_->command_updater()->ExecuteCommand(IDC_SHARING_HUB);
+}
+
 void ChromeOmniboxClient::NewIncognitoWindow() {
   chrome::NewIncognitoWindow(profile_);
 }

@@ -282,6 +282,9 @@ class CORE_EXPORT WebFrameWidgetImpl
   float GetCompositingScaleFactor() override;
   const cc::LayerTreeDebugState& GetLayerTreeDebugState() override;
   void SetLayerTreeDebugState(const cc::LayerTreeDebugState& state) override;
+  void SetMayThrottleIfUndrawnFrames(
+      bool may_throttle_if_undrawn_frames) override;
+  bool GetMayThrottleIfUndrawnFramesForTesting();
 
   // WebFrameWidget overrides.
   void InitializeNonCompositing(WebNonCompositedWidgetClient* client) override;
@@ -504,6 +507,7 @@ class CORE_EXPORT WebFrameWidgetImpl
   void UpdateTooltipFromKeyboard(const String& tooltip_text,
                                  TextDirection dir,
                                  const gfx::Rect& bounds);
+  void ClearKeyboardTriggeredTooltip();
 
   void ShowVirtualKeyboardOnElementFocus();
   void ProcessTouchAction(WebTouchAction touch_action);

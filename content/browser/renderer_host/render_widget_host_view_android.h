@@ -17,6 +17,7 @@
 #include "base/callback_list.h"
 #include "base/compiler_specific.h"
 #include "base/containers/queue.h"
+#include "base/gtest_prod_util.h"
 #include "base/i18n/rtl.h"
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
@@ -111,7 +112,8 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   // RenderWidgetHostView implementation.
   void InitAsChild(gfx::NativeView parent_view) override;
   void InitAsPopup(RenderWidgetHostView* parent_host_view,
-                   const gfx::Rect& pos) override;
+                   const gfx::Rect& pos,
+                   const gfx::Rect& anchor_rect) override;
   void SetSize(const gfx::Size& size) override;
   void SetBounds(const gfx::Rect& rect) override;
   gfx::NativeView GetNativeView() override;
@@ -142,6 +144,7 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   void UpdateTooltipUnderCursor(const std::u16string& tooltip_text) override;
   void UpdateTooltipFromKeyboard(const std::u16string& tooltip_text,
                                  const gfx::Rect& bounds) override;
+  void ClearKeyboardTriggeredTooltip() override;
   void TransformPointToRootSurface(gfx::PointF* point) override;
   gfx::Rect GetBoundsInRootWindow() override;
   void ProcessAckedTouchEvent(
@@ -576,6 +579,12 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   // another before the first has displayed. This can occur on pages that have
   // long layout and rendering time.
   std::deque<std::pair<base::TimeTicks, viz::LocalSurfaceId>> rotation_metrics_;
+  // Tracks the first surface that was allocated for rotation while hidden.
+  // Along with the total time the Renderer spent performing updates for these
+  // incremental surfaces.
+  viz::LocalSurfaceId first_hidden_local_surface_id_;
+  base::TimeDelta hidden_rotation_time_;
+
   // If true, then content was displayed before the completion of the initial
   // navigation. After any content has been displayed, we need to allocate a new
   // surface for all subsequent navigations.

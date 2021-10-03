@@ -75,13 +75,13 @@
 #include "components/policy/core/browser/configuration_policy_handler.h"
 #include "components/policy/core/browser/configuration_policy_handler_list.h"
 #include "components/policy/core/browser/configuration_policy_handler_parameters.h"
-#include "components/policy/core/browser/proxy_policy_handler.h"
 #include "components/policy/core/browser/url_blocklist_policy_handler.h"
 #include "components/policy/core/common/policy_details.h"
 #include "components/policy/core/common/policy_map.h"
 #include "components/policy/core/common/policy_pref_names.h"
 #include "components/policy/core/common/schema.h"
 #include "components/policy/policy_constants.h"
+#include "components/proxy_config/proxy_policy_handler.h"
 #include "components/safe_browsing/core/common/safe_browsing_policy_handler.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/search_engines/default_search_policy_handler.h"
@@ -1257,6 +1257,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kRendererCodeIntegrityEnabled,
     prefs::kRendererCodeIntegrityEnabled,
     base::Value::Type::BOOLEAN },
+  { key::kBrowserLegacyExtensionPointsBlocked,
+    prefs::kBlockBrowserLegacyExtensionPoints,
+    base::Value::Type::BOOLEAN },
   { key::kBrowserSwitcherUseIeSitelist,
     browser_switcher::prefs::kUseIeSitelist,
     base::Value::Type::BOOLEAN },
@@ -1266,6 +1269,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kBrowserSwitcherChromeParameters,
     browser_switcher::prefs::kChromeParameters,
     base::Value::Type::LIST },
+  { key::kPrintPostScriptMode,
+    prefs::kPrintPostScriptMode,
+    base::Value::Type::INTEGER },
   { key::kPrintRasterizationMode,
     prefs::kPrintRasterizationMode,
     base::Value::Type::INTEGER },
@@ -1291,6 +1297,10 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     { key::kPrintRasterizePdfDpi,
       prefs::kPrintRasterizePdfDpi,
       base::Value::Type::INTEGER },
+
+  { key::kPrintPdfAsImageDefault,
+    prefs::kPrintPdfAsImageDefault,
+    base::Value::Type::BOOLEAN },
 #endif  // BUILDFLAGS(ENABLE_PRINT_PREVIEW)
 
 #if !defined(OS_ANDROID) && !defined(OS_CHROMEOS)
@@ -1443,12 +1453,6 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     base::Value::Type::BOOLEAN },
 #endif
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-  { key::kLacrosAllowed,
-    prefs::kLacrosAllowed,
-    base::Value::Type::BOOLEAN },
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
-
 #if !defined(OS_ANDROID)
   { key::kFetchKeepaliveDurationSecondsOnShutdown,
     prefs::kFetchKeepaliveDurationOnShutdown,
@@ -1475,6 +1479,12 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kDataLeakPreventionClipboardCheckSizeLimit,
     policy_prefs::kDlpClipboardCheckSizeLimit,
     base::Value::Type::INTEGER },
+#endif
+
+#if BUILDFLAG(ENABLE_EXTENSIONS) && (defined(OS_WIN) || defined(OS_MAC) || defined(OS_LINUX))
+  { key::kChromeAppsEnabled,
+    extensions::pref_names::kChromeAppsEnabled,
+    base::Value::Type::BOOLEAN },
 #endif
 };
 // clang-format on
@@ -1550,7 +1560,7 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
       std::make_unique<bookmarks::ManagedBookmarksPolicyHandler>(
           chrome_schema));
   handlers->AddHandler(std::make_unique<HomepageLocationPolicyHandler>());
-  handlers->AddHandler(std::make_unique<ProxyPolicyHandler>());
+  handlers->AddHandler(std::make_unique<proxy_config::ProxyPolicyHandler>());
   handlers->AddHandler(std::make_unique<SecureDnsPolicyHandler>());
 #if !defined(OS_ANDROID)
   handlers->AddHandler(std::make_unique<SimpleSchemaValidatingPolicyHandler>(
@@ -2114,6 +2124,10 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
       std::make_unique<PrintingBackgroundGraphicsDefaultPolicyHandler>());
   handlers->AddHandler(
       std::make_unique<PrintingPaperSizeDefaultPolicyHandler>());
+#endif
+
+#if BUILDFLAG(ENABLE_PRINT_PREVIEW)
+  handlers->AddHandler(std::make_unique<PrintPdfAsImageDefaultPolicyHandler>());
 #endif
 
 #if BUILDFLAG(ENABLE_SPELLCHECK)

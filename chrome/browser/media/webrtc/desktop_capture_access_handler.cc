@@ -197,8 +197,6 @@ void DesktopCaptureAccessHandler::ProcessScreenCaptureAccessRequest(
   bool screen_capture_enabled =
       base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kEnableUserMediaScreenCapturing) ||
-      MediaCaptureDevicesDispatcher::IsOriginForCasting(
-          request.security_origin) ||
       IsExtensionAllowedForScreenCapture(extension) ||
       IsBuiltInFeedbackUI(request.security_origin);
 

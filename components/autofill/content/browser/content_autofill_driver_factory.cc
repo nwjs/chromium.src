@@ -43,7 +43,15 @@ const char ContentAutofillDriverFactory::
     kContentAutofillDriverFactoryWebContentsUserDataKey[] =
         "web_contents_autofill_driver_factory";
 
-ContentAutofillDriverFactory::~ContentAutofillDriverFactory() = default;
+ContentAutofillDriverFactory::~ContentAutofillDriverFactory() {
+  // There's a circular dependency: ~ContentAutofillDriverFactory() destroys
+  // ContentAutofillDriverFactory::router_ and afterwards calls
+  // ~AutofillDriverFactory(), which implicitly deletes all drivers and thus
+  // calls ~ContentAutofillDriver(), which again refers to
+  // ContentAutofillDriverFactory::router_. To resolve this, we explicitly
+  // delete all drivers here before destruction of |router_|.
+  DeleteAllAutofillDrivers();
+}
 
 // static
 void ContentAutofillDriverFactory::CreateForWebContentsAndDelegate(
@@ -101,8 +109,7 @@ void ContentAutofillDriverFactory::BindAutofillDriver(
   if (!factory)
     return;
 
-  ContentAutofillDriver* driver = factory->DriverForFrame(render_frame_host);
-  if (driver)
+  if (auto* driver = factory->DriverForFrame(render_frame_host))
     driver->BindPendingReceiver(std::move(pending_receiver));
 }
 
@@ -126,7 +133,7 @@ ContentAutofillDriver* ContentAutofillDriverFactory::DriverForFrame(
   AutofillDriver* driver = DriverForKey(render_frame_host);
 
   // ContentAutofillDriver are created on demand here.
-  if (!driver) {
+  if (!driver && render_frame_host->IsRenderFrameCreated()) {
     AddForKey(
         render_frame_host,
         base::BindRepeating(CreateDriver, render_frame_host, client(),
@@ -162,13 +169,6 @@ void ContentAutofillDriverFactory::RenderFrameDeleted(
                 render_frame_host->GetLifecycleState());
       router_.HidePopup(driver);
     }
-    if (!render_frame_host->GetParent()) {
-      router_.Reset();
-    } else {
-      // UnregisterDriver() must not be called if |driver| belongs to the main
-      // frame because of crbug/1190640.
-      router_.UnregisterDriver(driver);
-    }
   }
   DeleteForKey(render_frame_host);
 }
@@ -189,7 +189,8 @@ void ContentAutofillDriverFactory::DidStartNavigation(
     content::RenderFrameHost* render_frame_host =
         content::RenderFrameHost::FromID(id);
     if (render_frame_host) {
-      DriverForFrame(render_frame_host)->ProbablyFormSubmitted();
+      if (auto* driver = DriverForFrame(render_frame_host))
+        driver->ProbablyFormSubmitted();
     }
   }
 }
@@ -199,21 +200,12 @@ void ContentAutofillDriverFactory::DidFinishNavigation(
   if (navigation_handle->HasCommitted() &&
       (navigation_handle->IsInMainFrame() ||
        navigation_handle->HasSubframeNavigationEntryCommitted())) {
-    ContentAutofillDriver* driver =
-        DriverForFrame(navigation_handle->GetRenderFrameHost());
-    if (!navigation_handle->IsSameDocument() &&
-        !navigation_handle->IsServedFromBackForwardCache()) {
-      if (navigation_handle->IsInMainFrame()) {
-        router_.Reset();
-      } else {
-        // UnregisterDriver() must not be called if |driver| belongs to the main
-        // frame because of crbug/1190640.
-        router_.UnregisterDriver(driver);
-      }
+    if (auto* driver =
+            DriverForFrame(navigation_handle->GetRenderFrameHost())) {
+      NavigationFinished(AutofillDriverFactory::HideUi(
+          !navigation_handle->IsInPrerenderedMainFrame()));
+      driver->DidNavigateFrame(navigation_handle);
     }
-    NavigationFinished(AutofillDriverFactory::HideUi(
-        !navigation_handle->IsInPrerenderedMainFrame()));
-    driver->DidNavigateFrame(navigation_handle);
   }
 }
 
@@ -243,11 +235,8 @@ void ContentAutofillDriverFactory::ReadyToCommitNavigation(
       content::RenderFrameHost::LifecycleState::kPrerendering) {
     return;
   }
-  AutofillDriver* driver = DriverForFrame(render_frame_host);
-  if (!driver)
-    return;
-  static_cast<ContentAutofillDriver*>(driver)
-      ->MaybeReportAutofillWebOTPMetrics();
+  if (auto* driver = DriverForFrame(render_frame_host))
+    driver->MaybeReportAutofillWebOTPMetrics();
 }
 
 }  // namespace autofill

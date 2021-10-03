@@ -5,8 +5,8 @@
 #include "chrome/browser/ui/browser.h"
 
 #include "extensions/browser/process_manager.h"
+#include "chrome/browser/web_applications/web_app_helpers.h"
 #include "components/javascript_dialogs/app_modal_dialog_manager.h"
-#include "chrome/browser/web_applications/components/web_app_helpers.h"
 
 #include <stddef.h>
 
@@ -153,6 +153,7 @@
 #include "chrome/browser/ui/tabs/tab_utils.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
+#include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
 #include "chrome/browser/ui/window_sizer/window_sizer.h"
@@ -160,7 +161,6 @@
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/common/custom_handlers/protocol_handler.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/ssl_insecure_content.h"
 #include "chrome/common/url_constants.h"
@@ -222,6 +222,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_constants.h"
 #include "content/public/common/content_features.h"
+#include "content/public/common/custom_handlers/protocol_handler.h"
 #include "content/public/common/page_zoom.h"
 #include "content/public/common/profiling.h"
 #include "content/public/common/url_constants.h"
@@ -257,8 +258,10 @@
 #include "url/scheme_host_port.h"
 
 #if defined(OS_WIN)
-#include <shellapi.h>
+// windows.h must be included before shellapi.h
 #include <windows.h>
+
+#include <shellapi.h>
 
 #include "chrome/browser/ui/view_ids.h"
 #include "components/autofill/core/browser/autofill_ie_toolbar_import_win.h"
@@ -303,6 +306,7 @@ using content::NativeWebKeyboardEvent;
 using content::NavigationController;
 using content::NavigationEntry;
 using content::OpenURLParams;
+using content::ProtocolHandler;
 using content::Referrer;
 using content::RenderWidgetHostView;
 using content::SiteInstance;
@@ -526,8 +530,7 @@ Browser::Browser(const CreateParams& params)
       location_bar_model_delegate_(new BrowserLocationBarModelDelegate(this)),
       live_tab_context_(new BrowserLiveTabContext(this)),
       synced_window_delegate_(new BrowserSyncedWindowDelegate(this)),
-      app_controller_(
-          web_app::AppBrowserController::MaybeCreateWebAppController(this)),
+      app_controller_(web_app::MaybeCreateAppBrowserController(this)),
       bookmark_bar_state_(BookmarkBar::HIDDEN),
       command_controller_(new chrome::BrowserCommandController(this)),
       window_has_shown_(false),
@@ -714,9 +717,9 @@ bool Browser::NWCanClose(bool user_force) {
                               &listener_extension_id);
   if (listening_to_close) {
     std::unique_ptr<base::ListValue> args(new base::ListValue());
-    args->AppendInteger(session_id().id());
+    args->Append(session_id().id());
     if (user_force)
-      args->AppendString("quit");
+      args->Append("quit");
     auto event =
       std::make_unique<extensions::Event>(extensions::events::UNKNOWN,
                                           extensions::api::windows::OnRemoving::kEventName,
@@ -1183,7 +1186,7 @@ bool Browser::CanSaveContents(content::WebContents* web_contents) const {
 
 bool Browser::ShouldDisplayFavicon(content::WebContents* web_contents) const {
   // Suppress for System Apps.
-  if (app_controller_ && app_controller_->is_for_system_web_app()) {
+  if (app_controller_ && app_controller_->system_app()) {
     return false;
   }
 

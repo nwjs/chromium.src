@@ -32,6 +32,7 @@ class ProgrammaticScriptInjector : public ScriptInjector {
   mojom::InjectionType script_type() const override;
   bool ShouldExecuteInMainWorld() const override;
   bool IsUserGesture() const override;
+  mojom::ExecutionWorld GetExecutionWorld() const override;
   mojom::CSSOrigin GetCssOrigin() const override;
   mojom::CSSInjection::Operation GetCSSInjectionOperation() const override;
   bool ExpectsResults() const override;

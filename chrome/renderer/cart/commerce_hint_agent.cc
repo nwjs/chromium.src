@@ -81,6 +81,11 @@ constexpr base::FeatureParam<base::TimeDelta> kCartExtractionGapTime{
     // Gap time is 0.5s by default.
     base::TimeDelta::FromSecondsD(0.5)};
 
+constexpr base::FeatureParam<std::string> kProductIdPatternMapping{
+    &ntp_features::kNtpChromeCartModule, "product-id-pattern-mapping",
+    // Empty JSON string.
+    ""};
+
 std::string eTLDPlusOne(const GURL& url) {
   return net::registry_controlled_domains::GetDomainAndRegistry(
       url, net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES);
@@ -196,6 +201,12 @@ void OnFormSubmit(content::RenderFrame* render_frame, bool is_purchase) {
   mojo::Remote<mojom::CommerceHintObserver> observer =
       GetObserver(render_frame);
   observer->OnFormSubmit(is_purchase);
+}
+
+void OnWillSendRequest(content::RenderFrame* render_frame, bool is_addtocart) {
+  mojo::Remote<mojom::CommerceHintObserver> observer =
+      GetObserver(render_frame);
+  observer->OnWillSendRequest(is_addtocart);
 }
 
 bool PartialMatch(base::StringPiece str, const re2::RE2& re) {
@@ -431,19 +442,11 @@ const std::map<std::string, std::string>& GetPurchaseButtonPatternMapping() {
   return *pattern_map;
 }
 
-void DetectAddToCart(content::RenderFrame* render_frame,
+bool DetectAddToCart(content::RenderFrame* render_frame,
                      const blink::WebURLRequest& request) {
   blink::WebLocalFrame* frame = render_frame->GetWebFrame();
   const GURL& navigation_url(frame->GetDocument().Url());
-
-  GURL url = request.Url();
-  // Only handle XHR POST requests here.
-  // Other matches like navigation is handled in DidStartNavigation().
-  // Some sites use GET requests though, so special-case them here.
-  if (!request.HttpMethod().Equals("POST") && !url.DomainIs(kEbayDomain) &&
-      !navigation_url.DomainIs(kElectronicExpressDomain)) {
-    return;
-  }
+  const GURL& url = request.Url();
 
   bool is_add_to_cart = false;
   if (navigation_url.DomainIs("dickssportinggoods.com")) {
@@ -470,39 +473,39 @@ void DetectAddToCart(content::RenderFrame* render_frame,
     }
     RecordCommerceEvent(CommerceEvent::kAddToCartByURL);
     OnAddToCart(render_frame, std::move(url_product_id));
-    return;
+    return true;
   }
 
   if (CommerceHintAgent::ShouldSkipAddToCartRequest(navigation_url, url)) {
-    return;
+    return false;
   }
 
   if (IsCartHeuristicsImprovementEnabled()) {
     if (navigation_url.DomainIs("abebooks.com"))
-      return;
+      return false;
     if (navigation_url.DomainIs("abercrombie.com"))
-      return;
+      return false;
     if (navigation_url.DomainIs(kAmazonDomain) &&
         url.host() != "fls-na.amazon.com")
-      return;
+      return false;
     if (navigation_url.DomainIs("bestbuy.com"))
-      return;
+      return false;
     if (navigation_url.DomainIs("containerstore.com"))
-      return;
+      return false;
     if (navigation_url.DomainIs("gap.com") && url.DomainIs("granify.com"))
-      return;
+      return false;
     if (navigation_url.DomainIs("kohls.com"))
-      return;
+      return false;
     if (navigation_url.DomainIs("officedepot.com") &&
         url.DomainIs("chatid.com"))
-      return;
+      return false;
     if (navigation_url.DomainIs("pier1.com"))
-      return;
+      return false;
   }
 
   blink::WebHTTPBody body = request.HttpBody();
   if (body.IsNull())
-    return;
+    return false;
 
   unsigned i = 0;
   blink::WebHTTPBody::Element element;
@@ -517,7 +520,7 @@ void DetectAddToCart(content::RenderFrame* render_frame,
 
     // Per-site hard-coded exclusion rules:
     if (navigation_url.DomainIs("groupon.com") && buf.size() > 10000)
-      return;
+      return false;
 
     if (CommerceHintAgent::IsAddToCart(str)) {
       std::string product_id;
@@ -529,9 +532,10 @@ void DetectAddToCart(content::RenderFrame* render_frame,
                << "\" to \"" << url << "\" with payload (size = " << str.size()
                << ") \"" << str << "\"";
       OnAddToCart(render_frame, std::move(product_id));
-      return;
+      return true;
     }
   }
+  return false;
 }
 
 std::string CanonicalURL(const GURL& url) {
@@ -548,6 +552,14 @@ const WebString& GetProductExtractionScript() {
     if (IsCartHeuristicsImprovementEnabled()) {
       script_string = "var isImprovementEnabled = true;\n" + script_string;
     }
+    const std::string id_extraction_map =
+        kProductIdPatternMapping.Get().empty()
+            ? std::string(
+                  ui::ResourceBundle::GetSharedInstance().GetRawDataResource(
+                      IDR_CART_DOMAIN_PRODUCT_ID_REGEX_JSON))
+            : kProductIdPatternMapping.Get();
+    script_string =
+        "var idExtractionMap = " + id_extraction_map + ";\n" + script_string;
     return WebString::FromUTF8(std::move(script_string));
   }());
   return *script;
@@ -762,7 +774,18 @@ void CommerceHintAgent::WillSendRequest(const blink::WebURLRequest& request) {
   const GURL& url(frame->GetDocument().Url());
   if (!url.SchemeIsHTTPOrHTTPS())
     return;
-  DetectAddToCart(render_frame(), request);
+
+  // Only check XHR POST requests for add-to-cart.
+  // Other add-to-cart matches like navigation is handled in
+  // DidStartNavigation(). Some sites use GET requests though, so special-case
+  // them here.
+  GURL request_url = request.Url();
+  if (request.HttpMethod().Equals("POST") ||
+      request_url.DomainIs(kEbayDomain) ||
+      url.DomainIs(kElectronicExpressDomain)) {
+    bool is_add_to_cart = DetectAddToCart(render_frame(), request);
+    OnWillSendRequest(render_frame(), is_add_to_cart);
+  }
 
   // TODO(crbug/1164236): use MutationObserver on cart instead.
   // Detect XHR in cart page.

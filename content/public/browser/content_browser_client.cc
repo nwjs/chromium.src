@@ -46,6 +46,7 @@
 #include "content/public/common/url_utils.h"
 #include "media/audio/audio_manager.h"
 #include "media/mojo/mojom/media_service.mojom.h"
+#include "net/cookies/site_for_cookies.h"
 #include "net/ssl/client_cert_identity.h"
 #include "net/ssl/client_cert_store.h"
 #include "sandbox/policy/sandbox_type.h"
@@ -310,6 +311,10 @@ ContentBrowserClient::GetAdditionalSiteIsolationModes() {
   return std::vector<std::string>();
 }
 
+size_t ContentBrowserClient::GetMaxRendererProcessCountOverride() {
+  return 0u;
+}
+
 bool ContentBrowserClient::IsFileAccessAllowed(
     const base::FilePath& path,
     const base::FilePath& absolute_path,
@@ -350,7 +355,7 @@ base::FilePath ContentBrowserClient::GetLoggingFileName(
 
 bool ContentBrowserClient::AllowAppCache(
     const GURL& manifest_url,
-    const GURL& site_for_cookies,
+    const net::SiteForCookies& site_for_cookies,
     const absl::optional<url::Origin>& top_frame_origin,
     BrowserContext* context) {
   return true;
@@ -358,7 +363,7 @@ bool ContentBrowserClient::AllowAppCache(
 
 AllowServiceWorkerResult ContentBrowserClient::AllowServiceWorker(
     const GURL& scope,
-    const GURL& site_for_cookies,
+    const net::SiteForCookies& site_for_cookies,
     const absl::optional<url::Origin>& top_frame_origin,
     const GURL& script_url,
     BrowserContext* context) {
@@ -367,7 +372,7 @@ AllowServiceWorkerResult ContentBrowserClient::AllowServiceWorker(
 
 bool ContentBrowserClient::AllowSharedWorker(
     const GURL& worker_url,
-    const GURL& site_for_cookies,
+    const net::SiteForCookies& site_for_cookies,
     const absl::optional<url::Origin>& top_frame_origin,
     const std::string& name,
     const blink::StorageKey& storage_key,
@@ -532,13 +537,6 @@ bool ContentBrowserClient::ShouldUseGmsCoreGeolocationProvider() {
 }
 #endif
 
-StoragePartitionId ContentBrowserClient::GetStoragePartitionIdForSite(
-    BrowserContext* browser_context,
-    const GURL& site) {
-  DCHECK(browser_context);
-  return StoragePartitionId(browser_context);
-}
-
 StoragePartitionConfig ContentBrowserClient::GetStoragePartitionConfigForSite(
     BrowserContext* browser_context,
     const GURL& site) {
@@ -552,12 +550,6 @@ MediaObserver* ContentBrowserClient::GetMediaObserver() {
 }
 
 FeatureObserverClient* ContentBrowserClient::GetFeatureObserverClient() {
-  return nullptr;
-}
-
-PlatformNotificationService*
-ContentBrowserClient::GetPlatformNotificationService(
-    BrowserContext* browser_context) {
   return nullptr;
 }
 
@@ -611,6 +603,10 @@ base::FilePath ContentBrowserClient::GetShaderDiskCacheDirectory() {
 }
 
 base::FilePath ContentBrowserClient::GetGrShaderDiskCacheDirectory() {
+  return base::FilePath();
+}
+
+base::FilePath ContentBrowserClient::GetNetLogDefaultDirectory() {
   return base::FilePath();
 }
 
@@ -836,8 +832,10 @@ void ContentBrowserClient::CreateWebSocket(
 void ContentBrowserClient::WillCreateWebTransport(
     RenderFrameHost* frame,
     const GURL& url,
+    mojo::PendingRemote<network::mojom::WebTransportHandshakeClient>
+        handshake_client,
     WillCreateWebTransportCallback callback) {
-  std::move(callback).Run(absl::nullopt);
+  std::move(callback).Run(std::move(handshake_client), absl::nullopt);
 }
 
 bool ContentBrowserClient::WillCreateRestrictedCookieManager(
@@ -1148,7 +1146,7 @@ bool ContentBrowserClient::ShouldLoadExtraIcuDataFile(std::string* split_name) {
 bool ContentBrowserClient::ArePersistentMediaDeviceIDsAllowed(
     content::BrowserContext* browser_context,
     const GURL& scope,
-    const GURL& site_for_cookies,
+    const net::SiteForCookies& site_for_cookies,
     const absl::optional<url::Origin>& top_frame_origin) {
   return false;
 }

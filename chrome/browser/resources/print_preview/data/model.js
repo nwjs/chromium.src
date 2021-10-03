@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 
 import {assert} from 'chrome://resources/js/assert.m.js';
-import {isChromeOS, isLacros, isLinux, isMac, isWindows} from 'chrome://resources/js/cr.m.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.m.js';
 import {PromiseResolver} from 'chrome://resources/js/promise_resolver.m.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
@@ -113,6 +112,7 @@ export let PolicyEntry;
  *   duplex: (PolicyEntry | undefined),
  *   pin: (PolicyEntry | undefined),
  *   printPdfAsImageAvailability: (PolicyEntry | undefined),
+ *   printPdfAsImage: (PolicyEntry | undefined),
  * }}
  */
 export let PolicySettings;
@@ -865,7 +865,7 @@ export class PrintPreviewModelElement extends PolymerElement {
    */
   isRasterizeAvailable_() {
     // Only a possibility for PDFs.  Always available for PDFs on Linux and
-    // ChromeOS.crbug.com/675798
+    // ChromeOS.  crbug.com/675798
     let available =
         !!this.documentSettings && !this.documentSettings.isModifiable;
 
@@ -1177,6 +1177,14 @@ export class PrintPreviewModelElement extends PolymerElement {
         }
         break;
       }
+      case 'printPdfAsImage': {
+        if (defaultMode !== undefined) {
+          this.setPolicySetting_(
+              settingName, defaultMode, /*managed=*/ false,
+              /*applyOnDestinationUpdate=*/ false);
+        }
+        break;
+      }
       default:
         break;
     }
@@ -1228,6 +1236,14 @@ export class PrintPreviewModelElement extends PolymerElement {
           'printPdfAsImageAvailability', allowedMode, /*defaultMode=*/ false);
     }
     // </if>
+    if (policies['printPdfAsImage']) {
+      if (!this.policySettings_) {
+        this.policySettings_ = {};
+      }
+      const defaultMode = policies['printPdfAsImage'].defaultMode;
+      this.configurePolicySetting_(
+          'printPdfAsImage', /*allowedMode=*/ undefined, defaultMode);
+    }
   }
 
   applyStickySettings() {
@@ -1337,6 +1353,12 @@ export class PrintPreviewModelElement extends PolymerElement {
           continue;
         }
         // </if>
+        if (settingName === 'printPdfAsImage') {
+          if (policy.value) {
+            this.setSetting('rasterize', policy.value, true);
+          }
+          continue;
+        }
         if (policy.value !== undefined && !policy.applyOnDestinationUpdate) {
           this.setSetting(settingName, policy.value, true);
           if (policy.managed) {

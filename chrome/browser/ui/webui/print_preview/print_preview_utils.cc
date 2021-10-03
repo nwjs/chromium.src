@@ -181,7 +181,7 @@ void ConvertPrinterListForCallback(
   base::ListValue printers;
   chrome::PrintersToValues(printer_list, &printers);
 
-  VLOG(1) << "Enumerate printers finished, found " << printers.GetSize()
+  VLOG(1) << "Enumerate printers finished, found " << printers.GetList().size()
           << " printers";
   if (!printers.GetList().empty())
     callback.Run(printers);

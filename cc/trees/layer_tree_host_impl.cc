@@ -627,7 +627,7 @@ void LayerTreeHostImpl::CommitComplete() {
     frame_trackers_.StartSequence(FrameSequenceTrackerType::kRAF);
   if (mutator_host_->HasCanvasInvalidation())
     frame_trackers_.StartSequence(FrameSequenceTrackerType::kCanvasAnimation);
-  if (mutator_host_->HasJSAnimation())
+  if (mutator_host_->CurrentFrameHadRAF() || mutator_host_->HasJSAnimation())
     frame_trackers_.StartSequence(FrameSequenceTrackerType::kJSAnimation);
 
   if (mutator_host_->MainThreadAnimationsCount() > 0 ||
@@ -2203,6 +2203,7 @@ viz::CompositorFrameMetadata LayerTreeHostImpl::MakeCompositorFrameMetadata() {
   metadata.page_scale_factor = active_tree_->current_page_scale_factor();
   metadata.scrollable_viewport_size = active_tree_->ScrollableViewportSize();
   metadata.root_background_color = active_tree_->background_color();
+  metadata.may_throttle_if_undrawn_frames = may_throttle_if_undrawn_frames_;
 
   if (active_tree_->has_presentation_callbacks()) {
     presentation_time_callbacks_.RegisterMainThreadPresentationCallbacks(
@@ -2354,6 +2355,9 @@ RenderFrameMetadata LayerTreeHostImpl::MakeRenderFrameMetadata(
         child_local_surface_id_allocator_.GetCurrentLocalSurfaceId();
   }
 
+  metadata.visual_properties_update_duration =
+      active_tree()->visual_properties_update_duration();
+
   return metadata;
 }
 
@@ -2414,7 +2418,8 @@ bool LayerTreeHostImpl::DrawLayers(FrameData* frame) {
     frame_trackers_.StopSequence(FrameSequenceTrackerType::kRAF);
   if (!mutator_host_->HasCanvasInvalidation())
     frame_trackers_.StopSequence(FrameSequenceTrackerType::kCanvasAnimation);
-  if (!mutator_host_->HasJSAnimation())
+  if (!mutator_host_->NextFrameHasPendingRAF() &&
+      !mutator_host_->HasJSAnimation())
     frame_trackers_.StopSequence(FrameSequenceTrackerType::kJSAnimation);
 
   if (mutator_host_->MainThreadAnimationsCount() == 0 &&
@@ -4021,6 +4026,11 @@ void LayerTreeHostImpl::SetPrefersReducedMotion(bool prefers_reduced_motion) {
   prefers_reduced_motion_ = prefers_reduced_motion;
   if (input_delegate_)
     input_delegate_->SetPrefersReducedMotion(prefers_reduced_motion_);
+}
+
+void LayerTreeHostImpl::SetMayThrottleIfUndrawnFrames(
+    bool may_throttle_if_undrawn_frames) {
+  may_throttle_if_undrawn_frames_ = may_throttle_if_undrawn_frames;
 }
 
 ScrollTree& LayerTreeHostImpl::GetScrollTree() const {

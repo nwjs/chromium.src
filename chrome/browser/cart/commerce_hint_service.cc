@@ -7,9 +7,11 @@
 #include <map>
 #include <memory>
 
+#include "base/metrics/histogram_functions.h"
 #include "base/no_destructor.h"
 #include "base/time/time.h"
 #include "chrome/browser/cart/cart_db_content.pb.h"
+#include "chrome/browser/cart/cart_features.h"
 #include "chrome/browser/cart/cart_service.h"
 #include "chrome/browser/cart/cart_service_factory.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
@@ -30,13 +32,6 @@
 namespace cart {
 
 namespace {
-// TODO(crbug.com/1207197): Pull below methods to a utility class to share with
-// other classes.
-constexpr base::FeatureParam<std::string> kPartnerMerchantPattern{
-    &ntp_features::kNtpChromeCartModule, "partner-merchant-pattern",
-    // This regex does not match anything.
-    "\\b\\B"};
-
 // TODO(crbug/1164236): support multiple cart systems in the same domain.
 // Returns eTLB+1 domain.
 std::string GetDomain(const GURL& url) {
@@ -47,8 +42,8 @@ std::string GetDomain(const GURL& url) {
 const re2::RE2& GetPartnerMerchantPattern() {
   re2::RE2::Options options;
   options.set_case_sensitive(false);
-  static base::NoDestructor<re2::RE2> instance(kPartnerMerchantPattern.Get(),
-                                               options);
+  static base::NoDestructor<re2::RE2> instance(
+      cart_features::kPartnerMerchantPattern.Get(), options);
   return *instance;
 }
 
@@ -145,7 +140,14 @@ class CommerceHintObserverImpl
     DVLOG(1) << "Received OnFormSubmit in the browser process";
     if (!service_ || !binding_url_.SchemeIsHTTPOrHTTPS())
       return;
-    service_->OnFormSubmit(is_purchase);
+    service_->OnFormSubmit(binding_url_, is_purchase);
+  }
+
+  void OnWillSendRequest(bool is_addtocart) override {
+    DVLOG(1) << "Received OnWillSendRequest in the browser process";
+    if (!service_ || !binding_url_.SchemeIsHTTPOrHTTPS())
+      return;
+    service_->OnWillSendRequest(binding_url_, is_addtocart);
   }
 
  private:
@@ -242,7 +244,10 @@ void CommerceHintService::OnCartUpdated(
   service_->AddCart(proto.key(), validated_cart, std::move(proto));
 }
 
-void CommerceHintService::OnFormSubmit(bool is_purchase) {
+void CommerceHintService::OnFormSubmit(const GURL& navigation_url,
+                                       bool is_purchase) {
+  if (ShouldSkip(navigation_url))
+    return;
   uint8_t bytes[1];
   crypto::RandBytes(bytes);
   bool report_truth = bytes[0] & 0x1;
@@ -252,6 +257,23 @@ void CommerceHintService::OnFormSubmit(bool is_purchase) {
       ukm::GetSourceIdForWebContentsDocument(web_contents_))
       .SetIsTransaction(reported)
       .Record(ukm::UkmRecorder::Get());
+  base::UmaHistogramBoolean("Commerce.Carts.FormSubmitIsTransaction", reported);
+}
+
+void CommerceHintService::OnWillSendRequest(const GURL& navigation_url,
+                                            bool is_addtocart) {
+  if (ShouldSkip(navigation_url))
+    return;
+  uint8_t bytes[1];
+  crypto::RandBytes(bytes);
+  bool report_truth = bytes[0] & 0x1;
+  bool random = (bytes[0] >> 1) & 0x1;
+  bool reported = report_truth ? is_addtocart : random;
+  ukm::builders::Shopping_WillSendRequest(
+      ukm::GetSourceIdForWebContentsDocument(web_contents_))
+      .SetIsAddToCart(reported)
+      .Record(ukm::UkmRecorder::Get());
+  base::UmaHistogramBoolean("Commerce.Carts.XHRIsAddToCart", reported);
 }
 
 WEB_CONTENTS_USER_DATA_KEY_IMPL(CommerceHintService)

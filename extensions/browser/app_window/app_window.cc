@@ -289,14 +289,14 @@ AppWindow::AppWindow(BrowserContext* context,
 void AppWindow::LoadingStateChanged(content::WebContents* source, bool to_different_document) {
   base::ListValue args;
   if (source->IsLoading()) {
-    args.AppendString("loading");
+    args.Append("loading");
     last_to_different_document_ = to_different_document;
     if (!to_different_document) //NWJS#5001
       return;
   } else {
     if (!last_to_different_document_)
       return;
-    args.AppendString("loaded");
+    args.Append("loaded");
   }
   content::RenderFrameHost* rfh = web_contents()->GetMainFrame();
     ExtensionWebContentsObserver::GetForWebContents(web_contents())
@@ -622,7 +622,7 @@ bool AppWindow::NWCanClose(bool user_force) const {
   if (listening_to_close) {
     base::ListValue args;
     if (user_force)
-      args.AppendString("quit");
+      args.Append("quit");
     ExtensionWebContentsObserver::GetForWebContents(web_contents())
       ->GetLocalFrame(rfh)
       ->MessageInvoke(

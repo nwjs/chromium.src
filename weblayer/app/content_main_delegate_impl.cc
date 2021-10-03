@@ -198,10 +198,6 @@ bool ContentMainDelegateImpl::BasicStartupComplete(int* exit_code) {
 #endif
   };
 
-  // TODO(crbug.com/1057770): make Background Fetch work with WebLayer.
-  if (!BackgroundFetchDelegateFactory::IsEnabled())
-    disabled_features.push_back(::features::kBackgroundFetch);
-
 #if defined(OS_ANDROID)
   if (base::android::BuildInfo::GetInstance()->sdk_int() >=
       base::android::SDK_VERSION_OREO) {
@@ -393,8 +389,8 @@ void ContentMainDelegateImpl::InitializeResourceBundle() {
                                                   pak_region);
 
     std::vector<std::pair<int, ui::ResourceScaleFactor>> extra_paks = {
-        {kWebLayerMainPakDescriptor, ui::SCALE_FACTOR_NONE},
-        {kWebLayer100PercentPakDescriptor, ui::SCALE_FACTOR_100P}};
+        {kWebLayerMainPakDescriptor, ui::kScaleFactorNone},
+        {kWebLayer100PercentPakDescriptor, ui::k100Percent}};
 
     for (const auto& pak_info : extra_paks) {
       pak_fd = global_descriptors->Get(pak_info.first);

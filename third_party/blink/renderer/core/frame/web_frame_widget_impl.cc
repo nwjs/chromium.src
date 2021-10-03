@@ -65,6 +65,7 @@
 #include "third_party/blink/renderer/core/editing/ephemeral_range.h"
 #include "third_party/blink/renderer/core/editing/frame_selection.h"
 #include "third_party/blink/renderer/core/events/current_input_event.h"
+#include "third_party/blink/renderer/core/events/pointer_event_factory.h"
 #include "third_party/blink/renderer/core/events/web_input_event_conversion.h"
 #include "third_party/blink/renderer/core/events/wheel_event.h"
 #include "third_party/blink/renderer/core/exported/web_dev_tools_agent_impl.h"
@@ -783,6 +784,7 @@ void WebFrameWidgetImpl::MouseContextMenu(const WebMouseEvent& event) {
   WebMouseEvent transformed_event =
       TransformWebMouseEvent(LocalRootImpl()->GetFrameView(), event);
   transformed_event.menu_source_type = kMenuSourceMouse;
+  transformed_event.id = PointerEventFactory::kMouseId;
 
   // Find the right target frame. See issue 1186900.
   HitTestResult result = HitTestResultForRootFramePos(
@@ -3127,6 +3129,10 @@ void WebFrameWidgetImpl::UpdateTooltipFromKeyboard(const String& tooltip_text,
   widget_base_->UpdateTooltipFromKeyboard(tooltip_text, dir, bounds);
 }
 
+void WebFrameWidgetImpl::ClearKeyboardTriggeredTooltip() {
+  widget_base_->ClearKeyboardTriggeredTooltip();
+}
+
 void WebFrameWidgetImpl::DidOverscroll(
     const gfx::Vector2dF& overscroll_delta,
     const gfx::Vector2dF& accumulated_overscroll,
@@ -4057,6 +4063,19 @@ void WebFrameWidgetImpl::SetDeviceScaleFactorForTesting(float factor) {
 FrameWidgetTestHelper*
 WebFrameWidgetImpl::GetFrameWidgetTestHelperForTesting() {
   return nullptr;
+}
+
+void WebFrameWidgetImpl::SetMayThrottleIfUndrawnFrames(
+    bool may_throttle_if_undrawn_frames) {
+  if (!View()->does_composite())
+    return;
+  widget_base_->LayerTreeHost()->SetMayThrottleIfUndrawnFrames(
+      may_throttle_if_undrawn_frames);
+}
+
+bool WebFrameWidgetImpl::GetMayThrottleIfUndrawnFramesForTesting() {
+  return widget_base_->LayerTreeHost()
+      ->GetMayThrottleIfUndrawnFramesForTesting();
 }
 
 WebPlugin* WebFrameWidgetImpl::GetFocusedPluginContainer() {

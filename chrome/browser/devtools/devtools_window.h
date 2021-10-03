@@ -326,6 +326,7 @@ class DevToolsWindow : public DevToolsUIBindings::Delegate,
                                 const std::string& settings,
                                 const std::string& panel,
                                 bool has_other_clients,
+                                bool browser_connnection,
                                 content::WebContents* cdt_web_contents = nullptr);
 
   static GURL GetDevToolsURL(Profile* profile,
@@ -333,7 +334,8 @@ class DevToolsWindow : public DevToolsUIBindings::Delegate,
                              const std::string& frontend_url,
                              bool can_dock,
                              const std::string& panel,
-                             bool has_other_clients);
+                             bool has_other_clients,
+                             bool browser_connection);
 
   static void ToggleDevToolsWindow(
       content::WebContents* web_contents,
@@ -372,6 +374,9 @@ class DevToolsWindow : public DevToolsUIBindings::Delegate,
       const content::NativeWebKeyboardEvent& event) override;
   content::JavaScriptDialogManager* GetJavaScriptDialogManager(
       content::WebContents* source) override;
+  std::unique_ptr<content::EyeDropper> OpenEyeDropper(
+      content::RenderFrameHost* render_frame_host,
+      content::EyeDropperListener* listener) override;
   void RunFileChooser(content::RenderFrameHost* render_frame_host,
                       scoped_refptr<content::FileSelectListener> listener,
                       const blink::mojom::FileChooserParams& params) override;

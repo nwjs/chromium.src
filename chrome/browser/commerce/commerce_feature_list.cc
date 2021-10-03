@@ -17,4 +17,10 @@ const base::Feature kCommercePriceTracking{"CommercePriceTracking",
 
 const base::FeatureParam<bool> kDeleteAllMerchantsOnClearBrowsingHistory{
     &kCommerceMerchantViewer, "delete_all_merchants_on_clear_history", false};
+
+const base::Feature kShoppingList{"ShoppingList",
+                                  base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::Feature kRetailCoupons{"RetailCoupons",
+                                   base::FEATURE_DISABLED_BY_DEFAULT};
 }  // namespace commerce

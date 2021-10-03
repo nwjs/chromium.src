@@ -83,6 +83,7 @@ class MockRenderThread : public RenderThread {
   void SetRendererProcessType(
       blink::scheduler::WebRendererProcessType type) override;
   blink::WebString GetUserAgent() override;
+  blink::WebString GetReducedUserAgent() override;
   const blink::UserAgentMetadata& GetUserAgentMetadata() override;
   bool IsUseZoomForDSF() override;
 #if defined(OS_WIN)
@@ -92,6 +93,9 @@ class MockRenderThread : public RenderThread {
   void SetFieldTrialGroup(const std::string& trial_name,
                           const std::string& group_name) override;
   void SetUseZoomForDSFEnabled(bool zoom_for_dsf);
+  void WriteIntoTrace(
+      perfetto::TracedProto<perfetto::protos::pbzero::RenderProcessHost> proto)
+      override;
 
   // Returns a new, unique routing ID that can be assigned to the next view,
   // widget, or frame.

@@ -57,6 +57,7 @@ bool NativeAppWindowViews::ExecuteAppCommand(int command_id) {
 }
 
 NativeAppWindowViews::NativeAppWindowViews() {
+  set_suppress_default_focus_handling();
 #if defined(OS_LINUX) || defined(OS_WIN)
   const extensions::Extension* extension = nw::GetMainExtension();
   if (extension && extension->is_nwjs_app()) {
@@ -93,7 +94,6 @@ void NativeAppWindowViews::Init(
         dialog->app_window_->OnNativeClose();
       },
       this));
-
   web_view_ = AddChildView(std::make_unique<views::WebView>(nullptr));
   web_view_->SetWebContents(app_window_->web_contents());
 #if defined(OS_LINUX) || defined(OS_WIN)

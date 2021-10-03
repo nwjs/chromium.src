@@ -18,7 +18,6 @@
 <translation id="1384959399684842514">Завантаження призупинено</translation>
 <translation id="1415402041810619267">URL-адресу скорочено</translation>
 <translation id="1446450296470737166">Повний контроль пристроїв MIDI</translation>
-<translation id="1509960214886564027">Функції на багатьох сайтах можуть не працювати</translation>
 <translation id="1620510694547887537">Камера</translation>
 <translation id="1644574205037202324">Історія</translation>
 <translation id="1647582022260550163">Скинути дозволи й очистити файли cookie та дані сайту?</translation>
@@ -37,6 +36,7 @@
 <translation id="1984937141057606926">Заборонено лише сторонні файли cookie</translation>
 <translation id="1989112275319619282">Переглянути</translation>
 <translation id="1994173015038366702">URL-адреса сайту</translation>
+<translation id="2004697686368036666">Функції на деяких сайтах можуть не працювати</translation>
 <translation id="2025115093177348061">Доповнена реальність</translation>
 <translation id="2030769033451695672">Натисніть, щоб повернутися на сторінку <ph name="URL_OF_THE_CURRENT_TAB" /></translation>
 <translation id="2079545284768500474">Відмінити</translation>
@@ -203,7 +203,7 @@
 <translation id="6388207532828177975">Очистити та скинути</translation>
 <translation id="6398765197997659313">Вийти з повноекранного режиму</translation>
 <translation id="6439114592976064011">Заборонити сайтам доступ до даних і пристрою віртуальної реальності</translation>
-<translation id="6447842834002726250">Cookie-файли</translation>
+<translation id="6447842834002726250">Файли cookie</translation>
 <translation id="6527303717912515753">Надіслати</translation>
 <translation id="6545864417968258051">Пошук пристроїв Bluetooth</translation>
 <translation id="6552800053856095716">{PERMISSIONS_SUMMARY_BLOCKED,plural, =1{Заблоковано: "<ph name="PERMISSION_1" />", "<ph name="PERMISSION_2" />" і ще <ph name="NUM_MORE" />}one{Заблоковано: "<ph name="PERMISSION_1" />", "<ph name="PERMISSION_2" />" і ще <ph name="NUM_MORE" />}few{Заблоковано: "<ph name="PERMISSION_1" />", "<ph name="PERMISSION_2" />" і ще <ph name="NUM_MORE" />}many{Заблоковано: "<ph name="PERMISSION_1" />", "<ph name="PERMISSION_2" />" і ще <ph name="NUM_MORE" />}other{Заблоковано: "<ph name="PERMISSION_1" />", "<ph name="PERMISSION_2" />" і ще <ph name="NUM_MORE" />}}</translation>
@@ -258,8 +258,8 @@
 <translation id="7846076177841592234">Скасувати вибір</translation>
 <translation id="7846621471902887024">Ви вийдете з облікового запису на всіх сайтах.</translation>
 <translation id="7882806643839505685">Увімкнути звук для певного сайту.</translation>
+<translation id="7940722705963108451">Нагадати мені</translation>
 <translation id="7986741934819883144">Виберіть контакт</translation>
-<translation id="7993619969781047893">Функції на деяких сайтах можуть не працювати</translation>
 <translation id="7999064672810608036">Видалити всі локальні дані, зокрема файли cookie, і скинути всі дозволи для цього веб-сайту?</translation>
 <translation id="8007176423574883786">Вимкнено для цього пристрою</translation>
 <translation id="802154636333426148">Не вдалося завантажити</translation>
@@ -269,6 +269,7 @@
 <translation id="8116925261070264013">Звук вимкнено</translation>
 <translation id="813082847718468539">Перегляд інформації про сайт</translation>
 <translation id="8131740175452115882">Підтвердити</translation>
+<translation id="8154912474061769055">Функції на багатьох сайтах можуть не працювати</translation>
 <translation id="8197286292360124385">Дозволено: "<ph name="PERMISSION_1" />"</translation>
 <translation id="8200772114523450471">Відновити</translation>
 <translation id="8206354486702514201">Це налаштування застосовується вашим адміністратором.</translation>
@@ -295,6 +296,7 @@
 <translation id="8676374126336081632">Видалити введений текст</translation>
 <translation id="868929229000858085">Пошук у контактах</translation>
 <translation id="8702612070107455751">Усі дані, збережені офлайн, буде видалено.</translation>
+<translation id="8712637175834984815">Виконано</translation>
 <translation id="8719283222052720129">Увімкніть дозвіл для додатка <ph name="APP_NAME" /> у <ph name="BEGIN_LINK" />налаштуваннях Android<ph name="END_LINK" />.</translation>
 <translation id="8725066075913043281">Повторити спробу</translation>
 <translation id="8730621377337864115">Готово</translation>

@@ -11,6 +11,7 @@
       <if expr="is_win or is_macosx or desktop_linux or chromeos">
         <structure name="IDR_SIGNIN_SHARED_CSS_JS" file="${root_gen_dir}\chrome\browser\resources\signin\signin_shared_css.js" use_base_dir="false" preprocess="true" type="chrome_html" />
         <structure name="IDR_SIGNIN_VARS_CSS_JS" file="${root_gen_dir}\chrome\browser\resources\signin\signin_vars_css.js" use_base_dir="false" type="chrome_html" />
+        <structure name="IDR_REVAMPED_INCOGNITO_TAB_HTML" file="resources\ntp4\revamped_incognito_tab.html" flattenhtml="true" type="chrome_html" />
       </if>
       <if expr="enable_app_list">
         <structure name="IDR_APP_LIST_START_PAGE_CSS" file="resources\empty.css" flattenhtml="true" type="chrome_html" />

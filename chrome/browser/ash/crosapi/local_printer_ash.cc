@@ -18,6 +18,10 @@
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/values.h"
+#include "chrome/browser/ash/printing/ppd_provider_factory.h"
+#include "chrome/browser/ash/printing/print_management/printing_manager.h"
+#include "chrome/browser/ash/printing/print_management/printing_manager_factory.h"
+#include "chrome/browser/ash/printing/printer_setup_util.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chromeos/printing/cups_print_job.h"
@@ -26,13 +30,9 @@
 #include "chrome/browser/chromeos/printing/cups_printers_manager.h"
 #include "chrome/browser/chromeos/printing/cups_printers_manager_factory.h"
 #include "chrome/browser/chromeos/printing/history/print_job_info.pb.h"
-#include "chrome/browser/chromeos/printing/ppd_provider_factory.h"
-#include "chrome/browser/chromeos/printing/print_management/printing_manager.h"
-#include "chrome/browser/chromeos/printing/print_management/printing_manager_factory.h"
 #include "chrome/browser/chromeos/printing/print_server.h"
 #include "chrome/browser/chromeos/printing/print_servers_manager.h"
 #include "chrome/browser/chromeos/printing/printer_configurer.h"
-#include "chrome/browser/chromeos/printing/printer_setup_util.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/settings_window_manager_chromeos.h"
 #include "chrome/browser/ui/webui/settings/chromeos/constants/routes.mojom.h"
@@ -454,6 +454,13 @@ void LocalPrinterAsh::GetPolicies(GetPoliciesCallback callback) {
     policies->default_pin_mode =
         static_cast<printing::mojom::PinModeRestriction>(
             prefs->GetInteger(prefs::kPrintingPinDefault));
+
+  if (prefs->HasPrefPath(prefs::kPrintPdfAsImageDefault)) {
+    policies->default_print_pdf_as_image =
+        prefs->GetBoolean(prefs::kPrintPdfAsImageDefault)
+            ? mojom::Policies::OptionalBool::kTrue
+            : mojom::Policies::OptionalBool::kFalse;
+  }
 
   std::move(callback).Run(std::move(policies));
 }

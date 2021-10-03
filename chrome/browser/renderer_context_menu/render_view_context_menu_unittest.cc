@@ -9,6 +9,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/threading/thread_task_runner_handle.h"
+#include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/custom_handlers/protocol_handler_registry.h"
@@ -708,15 +709,17 @@ TEST_F(RenderViewContextMenuPrefsTest, ShowAllPasswordsIncognito) {
   EXPECT_TRUE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_SHOWALLSAVEDPASSWORDS));
 }
 
-// TODO(crbug/1229334): Add Mac support for Lens Region Search feature.
-#if defined(OS_WIN) || defined(OS_LINUX) || defined(OS_CHROMEOS)
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
 // Verify that the Lens Region Search menu item is displayed when the feature
 // is enabled.
 TEST_F(RenderViewContextMenuPrefsTest, LensRegionSearch) {
   base::test::ScopedFeatureList features;
   features.InitAndEnableFeature(lens::features::kLensRegionSearch);
   SetUserSelectedDefaultSearchProvider("https://www.google.com");
-  std::unique_ptr<TestRenderViewContextMenu> menu(CreateContextMenu());
+  content::ContextMenuParams params = CreateParams(MenuItem::PAGE);
+  auto menu = std::make_unique<TestRenderViewContextMenu>(
+      web_contents()->GetMainFrame(), params);
+  menu->Init();
 
   EXPECT_TRUE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_LENS_REGION_SEARCH));
 }
@@ -730,7 +733,10 @@ TEST_F(RenderViewContextMenuPrefsTest,
   SetUserSelectedDefaultSearchProvider("https://www.google.com");
   // Set enterprise policy to false.
   profile()->GetPrefs()->SetBoolean(prefs::kLensRegionSearchEnabled, false);
-  std::unique_ptr<TestRenderViewContextMenu> menu(CreateContextMenu());
+  content::ContextMenuParams params = CreateParams(MenuItem::PAGE);
+  auto menu = std::make_unique<TestRenderViewContextMenu>(
+      web_contents()->GetMainFrame(), params);
+  menu->Init();
 
   EXPECT_FALSE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_LENS_REGION_SEARCH));
 }
@@ -757,7 +763,10 @@ TEST_F(RenderViewContextMenuPrefsTest,
   base::test::ScopedFeatureList features;
   features.InitAndEnableFeature(lens::features::kLensRegionSearch);
   SetUserSelectedDefaultSearchProvider("https://www.search.com");
-  std::unique_ptr<TestRenderViewContextMenu> menu(CreateContextMenu());
+  content::ContextMenuParams params = CreateParams(MenuItem::PAGE);
+  auto menu = std::make_unique<TestRenderViewContextMenu>(
+      web_contents()->GetMainFrame(), params);
+  menu->Init();
 
   EXPECT_FALSE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_LENS_REGION_SEARCH));
 }
@@ -768,10 +777,29 @@ TEST_F(RenderViewContextMenuPrefsTest, LensRegionSearchExperimentDisabled) {
   base::test::ScopedFeatureList features;
   features.InitAndDisableFeature(lens::features::kLensRegionSearch);
   SetUserSelectedDefaultSearchProvider("https://www.google.com");
-  std::unique_ptr<TestRenderViewContextMenu> menu(CreateContextMenu());
+  content::ContextMenuParams params = CreateParams(MenuItem::PAGE);
+  auto menu = std::make_unique<TestRenderViewContextMenu>(
+      web_contents()->GetMainFrame(), params);
+  menu->Init();
 
   EXPECT_FALSE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_LENS_REGION_SEARCH));
 }
+
+// Verify that the Lens Region Search menu item is disabled for any page with a
+// Chrome UI Scheme.
+TEST_F(RenderViewContextMenuPrefsTest, LensRegionSearchChromeUIScheme) {
+  base::test::ScopedFeatureList features;
+  features.InitAndEnableFeature(lens::features::kLensRegionSearch);
+  SetUserSelectedDefaultSearchProvider("https://www.google.com");
+  content::ContextMenuParams params = CreateParams(MenuItem::PAGE);
+  params.page_url = GURL(chrome::kChromeUISettingsURL);
+  auto menu = std::make_unique<TestRenderViewContextMenu>(
+      web_contents()->GetMainFrame(), params);
+  menu->Init();
+
+  EXPECT_FALSE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_LENS_REGION_SEARCH));
+}
+
 #endif
 
 // Test FormatUrlForClipboard behavior

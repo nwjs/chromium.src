@@ -142,7 +142,7 @@ GamepadList* NavigatorGamepad::getGamepads(Navigator& navigator,
 
   ExecutionContext* context = navigator_gamepad->GetExecutionContext();
   if (!context || !context->IsSecureContext()) {
-    if (base::FeatureList::IsEnabled(features::kRestrictGamepadAccess)) {
+    if (base::FeatureList::IsEnabled(::features::kRestrictGamepadAccess)) {
       exception_state.ThrowSecurityError(kSecureContextBlocked);
       return nullptr;
     } else {
@@ -160,7 +160,7 @@ GamepadList* NavigatorGamepad::getGamepads(Navigator& navigator,
 
   if (!context->IsFeatureEnabled(
           mojom::blink::PermissionsPolicyFeature::kGamepad)) {
-    if (base::FeatureList::IsEnabled(features::kRestrictGamepadAccess)) {
+    if (base::FeatureList::IsEnabled(::features::kRestrictGamepadAccess)) {
       exception_state.ThrowSecurityError(kFeaturePolicyBlocked);
       return nullptr;
     } else {

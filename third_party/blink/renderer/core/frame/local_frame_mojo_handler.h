@@ -6,6 +6,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_FRAME_LOCAL_FRAME_MOJO_HANDLER_H_
 
 #include "build/build_config.h"
+#include "components/power_scheduler/power_mode_voter.h"
 #include "services/device/public/mojom/device_posture_provider.mojom-blink.h"
 #include "third_party/blink/public/mojom/frame/back_forward_cache_controller.mojom-blink.h"
 #include "third_party/blink/public/mojom/frame/frame.mojom-blink.h"
@@ -203,12 +204,9 @@ class LocalFrameMojoHandler
   void EnablePreferredSizeChangedMode() override;
   void ZoomToFindInPageRect(const gfx::Rect& rect_in_root_frame) override;
   void InstallCoopAccessMonitor(
-      network::mojom::blink::CoopAccessReportType report_type,
       const FrameToken& accessed_window,
-      mojo::PendingRemote<
-          network::mojom::blink::CrossOriginOpenerPolicyReporter> reporter,
-      bool endpoint_defined,
-      const WTF::String& reported_window_url) final;
+      network::mojom::blink::CrossOriginOpenerPolicyReporterParamsPtr
+          coop_reporter_params) final;
   void OnPortalActivated(
       const PortalToken& portal_token,
       mojo::PendingAssociatedRemote<mojom::blink::Portal> portal,
@@ -274,6 +272,9 @@ class LocalFrameMojoHandler
 
   device::mojom::blink::DevicePostureType current_device_posture_ =
       device::mojom::blink::DevicePostureType::kContinuous;
+
+  // TODO(crbug.com/1166695): change this to a separate voter for executing JS.
+  std::unique_ptr<power_scheduler::PowerModeVoter> loading_power_mode_voter_;
 };
 
 class ActiveURLMessageFilter : public mojo::MessageFilter {

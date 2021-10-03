@@ -13,6 +13,7 @@
 
 #include "base/callback_forward.h"
 #include "build/build_config.h"
+#include "build/chromeos_buildflags.h"
 #include "chrome/browser/apps/intent_helper/apps_navigation_types.h"
 #include "chrome/browser/lifetime/browser_close_manager.h"
 #include "chrome/browser/signin/chrome_signin_helper.h"
@@ -359,6 +360,9 @@ class BrowserWindow : public ui::BaseWindow {
   // Moves keyboard focus to the next pane.
   virtual void RotatePaneFocus(bool forwards) = 0;
 
+  // Moves keyboard focus directly to the web contents pane.
+  virtual void FocusWebContentsPane() = 0;
+
   // Returns whether the bookmark bar is visible or not.
   virtual bool IsBookmarkBarVisible() const = 0;
 
@@ -418,7 +422,8 @@ class BrowserWindow : public ui::BaseWindow {
   ShowQRCodeGeneratorBubble(
       content::WebContents* contents,
       qrcode_generator::QRCodeGeneratorBubbleController* controller,
-      const GURL& url) = 0;
+      const GURL& url,
+      bool show_back_button) = 0;
 
   // Shows the "send tab to self" bubble.
   virtual send_tab_to_self::SendTabToSelfBubbleView* ShowSendTabToSelfBubble(

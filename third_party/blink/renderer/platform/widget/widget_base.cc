@@ -403,7 +403,10 @@ void WidgetBase::UpdateVisualProperties(
       gfx::ScaleToCeiledSize(visual_properties.visible_viewport_size,
                              screen_info.device_scale_factor));
 
+  base::TimeTicks update_start = base::TimeTicks::Now();
   client_->UpdateVisualProperties(visual_properties);
+  base::TimeDelta update_duration = base::TimeTicks::Now() - update_start;
+  LayerTreeHost()->SetVisualPropertiesUpdateDuration(update_duration);
 }
 
 void WidgetBase::UpdateScreenRects(const gfx::Rect& widget_screen_rect,
@@ -647,7 +650,8 @@ void WidgetBase::RequestNewLayerTreeFrameSink(
           viz::command_buffer_metrics::ContextType::RENDER_COMPOSITOR));
 
 #if defined(OS_ANDROID)
-  if (Platform::Current()->IsSynchronousCompositingEnabledForAndroidWebView()) {
+  if (Platform::Current()->IsSynchronousCompositingEnabledForAndroidWebView() &&
+      !is_for_child_local_root_) {
     // TODO(ericrk): Collapse with non-webview registration below.
     if (::features::IsUsingVizFrameSubmissionForWebView()) {
       widget_host_->CreateFrameSink(std::move(compositor_frame_sink_receiver),
@@ -825,6 +829,10 @@ void WidgetBase::UpdateTooltipFromKeyboard(const String& tooltip_text,
   widget_host_->UpdateTooltipFromKeyboard(
       tooltip_text.IsEmpty() ? "" : tooltip_text, ToBaseTextDirection(dir),
       BlinkSpaceToEnclosedDIPs(bounds));
+}
+
+void WidgetBase::ClearKeyboardTriggeredTooltip() {
+  widget_host_->ClearKeyboardTriggeredTooltip();
 }
 
 void WidgetBase::ShowVirtualKeyboard() {

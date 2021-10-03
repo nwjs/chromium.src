@@ -184,11 +184,13 @@
 #include "components/javascript_dialogs/app_modal_dialog_controller.h"
 #include "components/javascript_dialogs/app_modal_dialog_queue.h"
 #include "components/javascript_dialogs/app_modal_dialog_view.h"
+#include "components/lens/lens_features.h"
 #include "components/omnibox/browser/omnibox_popup_model.h"
 #include "components/omnibox/browser/omnibox_popup_view.h"
 #include "components/omnibox/browser/omnibox_view.h"
 #include "components/permissions/permission_request_manager.h"
 #include "components/prefs/pref_service.h"
+#include "components/reading_list/core/reading_list_pref_names.h"
 #include "components/safe_browsing/core/browser/password_protection/metrics_util.h"
 #include "components/sessions/core/tab_restore_service.h"
 #include "components/startup_metric_utils/browser/startup_metric_utils.h"
@@ -250,10 +252,10 @@
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "ash/public/cpp/accelerators.h"
-#include "ash/public/cpp/desks_helper.h"
 #include "ash/public/cpp/metrics_util.h"
 #include "chrome/browser/ui/ash/window_properties.h"
 #include "chrome/grit/chrome_unscaled_resources.h"
+#include "chromeos/ui/wm/desks/desks_helper.h"
 #include "ui/compositor/throughput_tracker.h"
 #else
 #include "chrome/browser/ui/signin_view_controller.h"
@@ -285,6 +287,9 @@
 #include "ui/gfx/color_palette.h"
 #include "ui/native_theme/native_theme_win.h"
 #include "ui/views/win/scoped_fullscreen_visibility.h"
+
+// To avoid conflicts with the macro from the Windows SDK...
+#undef LoadAccelerators
 #endif
 
 #if BUILDFLAG(ENABLE_ONE_CLICK_SIGNIN)
@@ -296,8 +301,12 @@
 #include "chrome/browser/ui/views/frame/webui_tab_strip_container_view.h"
 #endif  // BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
 
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+#include "chrome/browser/ui/views/lens/lens_side_panel_controller.h"
+#endif
 
 using extensions::DraggableRegion;
+
 using base::TimeDelta;
 using base::UserMetricsAction;
 using content::NativeWebKeyboardEvent;
@@ -729,6 +738,21 @@ BrowserView::BrowserView(std::unique_ptr<Browser> browser)
         AddChildView(std::make_unique<ContentsSeparator>());
   }
 
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  if ((base::FeatureList::IsEnabled(lens::features::kLensStandalone) &&
+       lens::features::kEnableSidePanelForLensImageSearch.Get()) ||
+      (base::FeatureList::IsEnabled(lens::features::kLensRegionSearch) &&
+       lens::features::kEnableSidePanelForLensRegionSearch.Get())) {
+    lens_side_panel_ = AddChildView(std::make_unique<SidePanel>());
+    lens_side_panel_controller_ =
+        std::make_unique<lens::LensSidePanelController>(lens_side_panel_, this);
+    // If the separator was not already created, create one.
+    if (!right_aligned_side_panel_separator_)
+      right_aligned_side_panel_separator_ =
+          AddChildView(std::make_unique<ContentsSeparator>());
+  }
+#endif
+
   if (browser_->is_type_normal() &&
       base::FeatureList::IsEnabled(features::kExtensionsSidePanel)) {
     left_aligned_side_panel_ = AddChildView(std::make_unique<SidePanel>());
@@ -1012,10 +1036,9 @@ bool BrowserView::GetAccelerator(int cmd_id,
     return true;
 #endif
   // Else, we retrieve the accelerator information from the accelerator table.
-  for (auto it = accelerator_table_.begin(); it != accelerator_table_.end();
-       ++it) {
-    if (it->second == cmd_id) {
-      *accelerator = it->first;
+  for (const auto& it : accelerator_table_) {
+    if (it.second == cmd_id) {
+      *accelerator = it.first;
       return true;
     }
   }
@@ -1167,7 +1190,8 @@ bool BrowserView::IsOnCurrentWorkspace() const {
     return true;
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-  return ash::DesksHelper::Get()->BelongsToActiveDesk(native_win);
+  return chromeos::DesksHelper::Get(native_win)
+      ->BelongsToActiveDesk(native_win);
 #elif defined(OS_WIN)
   if (base::win::GetVersion() < base::win::Version::WIN10)
     return true;
@@ -1533,6 +1557,13 @@ void BrowserView::EnterFullscreen(const GURL& url,
     return;
   }
 
+  if (right_aligned_side_panel_ && right_aligned_side_panel_->GetVisible() &&
+      GetExclusiveAccessManager()
+          ->fullscreen_controller()
+          ->IsWindowFullscreenForTabOrPending()) {
+    toolbar_button_provider_->GetSidePanelButton()->HideSidePanel();
+  }
+
   ProcessFullscreen(true, url, bubble_type, display_id);
 }
 
@@ -1837,6 +1868,10 @@ void BrowserView::RotatePaneFocus(bool forwards) {
       views::FocusManager::FocusCycleWrapping::kEnabled);
 }
 
+void BrowserView::FocusWebContentsPane() {
+  contents_web_view_->RequestFocus();
+}
+
 bool BrowserView::ActivateFirstInactiveBubbleForAccessibility() {
   if (GetLocationBarView()->ActivateFirstInactiveBubbleForAccessibility())
     return true;
@@ -1900,6 +1935,11 @@ void BrowserView::OnFeatureEngagementTrackerInitialized(bool initialized) {
   if (!initialized)
     return;
   MaybeShowWebUITabStripIPH();
+  base::SequencedTaskRunnerHandle::Get()->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(&BrowserView::MaybeShowReadingListInSidePanelIPH,
+                     GetAsWeakPtr()),
+      base::TimeDelta::FromMinutes(5));
 }
 
 void BrowserView::MaybeShowWebUITabStripIPH() {
@@ -1908,6 +1948,19 @@ void BrowserView::MaybeShowWebUITabStripIPH() {
 
   feature_promo_controller_->MaybeShowPromo(
       feature_engagement::kIPHWebUITabStripFeature);
+}
+
+void BrowserView::MaybeShowReadingListInSidePanelIPH() {
+  if (!base::FeatureList::IsEnabled(features::kSidePanel))
+    return;
+
+  PrefService* pref_service = browser()->profile()->GetPrefs();
+  if (pref_service &&
+      pref_service->GetBoolean(
+          reading_list::prefs::kReadingListDesktopFirstUseExperienceShown)) {
+    feature_promo_controller_->MaybeShowPromo(
+        feature_engagement::kIPHReadingListInSidePanelFeature);
+  }
 }
 
 void BrowserView::DestroyBrowser() {
@@ -1990,12 +2043,21 @@ qrcode_generator::QRCodeGeneratorBubbleView*
 BrowserView::ShowQRCodeGeneratorBubble(
     content::WebContents* contents,
     qrcode_generator::QRCodeGeneratorBubbleController* controller,
-    const GURL& url) {
+    const GURL& url,
+    bool show_back_button) {
   base::OnceClosure on_closing = base::BindOnce(
       &qrcode_generator::QRCodeGeneratorBubbleController::OnBubbleClosed,
       // Unretained is safe: controller is a WebContentsUserData, owned by
       // WebContents, and the bubble can't outlive the WebContents.
       base::Unretained(controller));
+  base::OnceClosure on_back_button_pressed;
+  if (show_back_button) {
+    on_back_button_pressed = base::BindOnce(
+        &qrcode_generator::QRCodeGeneratorBubbleController::OnBackButtonPressed,
+        // Unretained is safe: controller is a WebContentsUserData, owned by
+        // WebContents, and the bubble can't outlive the WebContents.
+        base::Unretained(controller));
+  }
 
   PageActionIconType icon_type =
       sharing_hub::SharingHubOmniboxEnabled(contents->GetBrowserContext())
@@ -2005,7 +2067,7 @@ BrowserView::ShowQRCodeGeneratorBubble(
   qrcode_generator::QRCodeGeneratorBubble* bubble =
       new qrcode_generator::QRCodeGeneratorBubble(
           toolbar_button_provider()->GetAnchorView(icon_type), contents,
-          std::move(on_closing), url);
+          std::move(on_closing), std::move(on_back_button_pressed), url);
 
   PageActionIconView* icon_view =
       toolbar_button_provider()->GetPageActionIconView(icon_type);
@@ -3310,8 +3372,8 @@ void BrowserView::AddedToWidget() {
       tab_strip_region_view_, tabstrip_, toolbar_, infobar_container_,
       contents_container_, left_aligned_side_panel_,
       left_aligned_side_panel_separator_, right_aligned_side_panel_,
-      right_aligned_side_panel_separator_, immersive_mode_controller_.get(),
-      contents_separator_));
+      right_aligned_side_panel_separator_, lens_side_panel_,
+      immersive_mode_controller_.get(), contents_separator_));
 
   EnsureFocusOrder();
 
@@ -3659,6 +3721,16 @@ void BrowserView::ProcessFullscreen(bool fullscreen,
         swapping_screens_during_fullscreen = true;
 #endif  // OS_MAC
         frame_->SetFullscreen(false);
+
+        // Activate the window to give it input focus and bring it to the front
+        // of the z-order. This prevents an inactive fullscreen window from
+        // occluding the active window receiving key events on Mac and Linux,
+        // and also prevents an inactive fullscreen window and its exit bubble
+        // from being occluded by the active window on Windows and Chrome OS.
+        // Initial content fullscreen requests require user activation (so the
+        // window should already be active), but swapping the screen used for
+        // fullscreen does not require user activation on the fullscreen window.
+        Activate();
       }
 
       // Maximized windows must be restored to move to another display.
