@@ -1556,6 +1556,11 @@
     "expiry_milestone": -1
   },
   {
+    "name": "enable-commerce-developer",
+    "owners": [ "chrome-shopping@google.com" ],
+    "expiry_milestone": 110
+  },
+  {
     "name": "enable-commerce-merchant-viewer",
     "owners": [ "chrome-shopping@google.com" ],
     "expiry_milestone": 97
@@ -4121,6 +4126,11 @@
     "expiry_milestone": 86
   },
   {
+    "name": "old-sync-string-fre",
+    "owners": [ "gambard", "bling-flags@google.com" ],
+    "expiry_milestone": 97
+},
+  {
     "name": "omnibox-active-search-engines",
     "owners": [ "yoangela", "chrome-omnibox-team@google.com" ],
     "expiry_milestone": 99
@@ -4138,6 +4148,11 @@
       "chrome-voice@google.com"
     ],
     "expiry_milestone": 98
+  },
+  {
+    "name": "omnibox-bookmark-paths",
+    "owners": [ "manukh", "chrome-omnibox-team@google.com" ],
+    "expiry_milestone": 100
   },
   {
     "name": "omnibox-bubble-url-suggestions",
@@ -4323,6 +4338,11 @@
     "name": "omnibox-search-ready-incognito",
     "owners": [ "fgorski", "chrome-omnibox-team@google.com" ],
     "expiry_milestone": 90
+  },
+  {
+    "name": "omnibox-short-bookmark-suggestions",
+    "owners": [ "orinj", "chrome-omnibox-team@google.com" ],
+    "expiry_milestone": 100
   },
   {
     "name": "omnibox-spare-renderer",

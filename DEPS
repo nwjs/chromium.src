@@ -230,15 +230,15 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling Skia
   # and whatever else without interference from each other.
-  'skia_revision': '199a4e0d97e1a9cd2f558c3f9c2df701bc49cdf7',
+  'skia_revision': '565e21c650d81ce861d0d54b0dd4fc247ad58ae6',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling V8
   # and whatever else without interference from each other.
-  'v8_revision': '4411d6fc6c0e0b009010705075a9a7cf795d45bb',
+  'v8_revision': 'de85930031e48845aaa3cca64ecff4155fa60b0d',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling ANGLE
   # and whatever else without interference from each other.
-  'angle_revision': '1a6fd9d05aac4e64b45957fc7564aeb0ed8333e4',
+  'angle_revision': '115fe74c8cee067805b0abf58863ba7c6d361304',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling SwiftShader
   # and whatever else without interference from each other.
@@ -246,7 +246,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling PDFium
   # and whatever else without interference from each other.
-  'pdfium_revision': 'ef4ca3bd91eb9e88e1af3b9a931f06fcd4468fe3',
+  'pdfium_revision': '839d18189fe31cf4c9416d1a745ef06bd2257982',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling BoringSSL
   # and whatever else without interference from each other.
@@ -369,7 +369,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling libavif
   # and whatever else without interference from each other.
-  'libavif_revision': 'efed118564495228be8af6b2a640c473375c039b',
+  'libavif_revision': '0dd3a3a5d216ff6fcc4f699d32367300b9457928',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling nearby
   # and whatever else without interference from each other.
@@ -1621,7 +1621,7 @@ deps = {
     Var('chromium_git') + '/external/github.com/gpuweb/cts.git' + '@' + '49b15bf7791dd4f07640ca1d0500b5d2992a57c8',
 
   'src/third_party/webrtc':
-    Var('webrtc_git') + '/src.git' + '@' + '494c787fbb8e50664a7d76c8fc10ec9d3e1735ff',
+    Var('webrtc_git') + '/src.git' + '@' + '8d8c0b440022c84386e02cc0c24c053aa7920be1',
 
   'src/third_party/libgifcodec':
      Var('skia_git') + '/libgifcodec' + '@'+  Var('libgifcodec_revision'),
@@ -1679,7 +1679,7 @@ deps = {
   #  Var('chromium_git') + '/v8/v8.git' + '@' +  Var('v8_revision'),
 
   'src-internal': {
-    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@b429b3f7eb30ee66dd402057e998b2d80c93ecaf',
+    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@e6fa7edb39e5a98d56a686f4a25345a0c8d2bb4d',
     'condition': 'checkout_src_internal',
   },
 

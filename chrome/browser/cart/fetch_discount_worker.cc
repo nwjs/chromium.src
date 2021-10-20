@@ -6,10 +6,11 @@
 
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/no_destructor.h"
 #include "base/task/thread_pool.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/cart/cart_discount_fetcher.h"
-#include "chrome/browser/commerce/commerce_feature_list.h"
+#include "chrome/browser/cart/cart_features.h"
 #include "components/search/ntp_features.h"
 #include "components/signin/public/identity_manager/access_token_info.h"
 #include "components/variations/variations.mojom.h"
@@ -21,14 +22,9 @@
 #include "google_apis/gaia/gaia_constants.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
+#include "third_party/re2/src/re2/re2.h"
 
 namespace {
-// Default value is 6 hours.
-constexpr base::FeatureParam<base::TimeDelta> kDelayFetchParam(
-    &ntp_features::kNtpChromeCartModule,
-    "delay-fetch-discount",
-    base::TimeDelta::FromHours(6));
-
 const char kOauthName[] = "rbd";
 const char kOauthScopes[] = "https://www.googleapis.com/auth/chromememex";
 const char kEmptyToken[] = "";
@@ -49,6 +45,10 @@ void CartServiceDelegate::UpdateCart(
     const bool is_tester) {
   cart_service_->UpdateDiscounts(GURL(cart_url), std::move(new_proto),
                                  is_tester);
+}
+
+void CartServiceDelegate::RecordFetchTimestamp() {
+  cart_service_->RecordFetchTimestamp();
 }
 
 FetchDiscountWorker::FetchDiscountWorker(
@@ -79,7 +79,6 @@ void FetchDiscountWorker::Start(base::TimeDelta delay) {
 
 void FetchDiscountWorker::PrepareToFetch() {
   DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
-
   if (identity_manager_ &&
       identity_manager_->HasPrimaryAccount(signin::ConsentLevel::kSync)) {
     FetchOauthToken();
@@ -139,6 +138,21 @@ void FetchDiscountWorker::ReadyToFetch(
       base::BindOnce(&FetchDiscountWorker::AfterDiscountFetched,
                      weak_ptr_factory_.GetWeakPtr());
 
+  cart_service_delegate_->RecordFetchTimestamp();
+  // If there is no partner merchant cart, don't fetch immediately; instead,
+  // post another delayed fetch.
+  bool has_partner_merchant = false;
+  for (auto pair : proto_pairs) {
+    if (cart_features::IsPartnerMerchant(
+            GURL(pair.second.merchant_cart_url()))) {
+      has_partner_merchant = true;
+      break;
+    }
+  }
+  if (!has_partner_merchant) {
+    Start(cart_features::kDiscountFetchDelayParam.Get());
+    return;
+  }
   backend_task_runner_->PostTask(
       FROM_HERE,
       base::BindOnce(
@@ -236,6 +250,7 @@ void FetchDiscountWorker::OnUpdatingDiscounts(
     if (!discounts.count(cart_url)) {
       cart_discount_proto->clear_discount_text();
       cart_discount_proto->clear_rule_discount_info();
+      cart_discount_proto->clear_has_coupons();
       cart_service_delegate_->UpdateCart(cart_url, std::move(cart_proto),
                                          is_tester);
       continue;
@@ -251,6 +266,7 @@ void FetchDiscountWorker::OnUpdatingDiscounts(
         merchant_discounts.highest_discount_string);
     *cart_discount_proto->mutable_rule_discount_info() = {
         discount_infos.begin(), discount_infos.end()};
+    cart_discount_proto->set_has_coupons(merchant_discounts.has_coupons);
 
     cart_service_delegate_->UpdateCart(cart_url, std::move(cart_proto),
                                        is_tester);
@@ -262,7 +278,7 @@ void FetchDiscountWorker::OnUpdatingDiscounts(
           ntp_features::kNtpChromeCartModule,
           ntp_features::kNtpChromeCartModuleAbandonedCartDiscountParam,
           false)) {
-    // Continue to work
-    Start(kDelayFetchParam.Get());
+    // Continue to work.
+    Start(cart_features::kDiscountFetchDelayParam.Get());
   }
 }
