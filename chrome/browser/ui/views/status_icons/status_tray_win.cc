@@ -210,7 +210,7 @@ LRESULT CALLBACK StatusTrayWin::WndProc(HWND hwnd,
     // fashion.
     chrome::SessionEnding();
   } else if (message == WM_KEYDOWN || message == WM_KEYUP) {
-    MSG msg = {hwnd, message, wparam, lparam,
+    CHROME_MSG msg = {hwnd, message, wparam, lparam,
                static_cast<DWORD>(GetMessageTime())};
     ui::KeyEvent key(msg);
     views::MenuController* controller = views::MenuController::GetActiveInstance();
