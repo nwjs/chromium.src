@@ -17,6 +17,7 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "net/base/features.h"
+#include "net/base/isolation_info.h"
 #include "net/base/network_isolation_key.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "net/reporting/reporting_cache.h"
@@ -144,7 +145,7 @@ bool ProcessEndpointGroup(ReportingDelegate* delegate,
     cache->RemoveEndpointGroup(group_key);
     return false;
   }
-  parsed_endpoint_group_out->ttl = base::TimeDelta::FromSeconds(ttl_sec);
+  parsed_endpoint_group_out->ttl = base::Seconds(ttl_sec);
 
   absl::optional<bool> subdomains_bool =
       dict->FindBoolKey(kIncludeSubdomainsKey);
@@ -246,15 +247,24 @@ bool ProcessV1Endpoint(ReportingDelegate* delegate,
 
 absl::optional<base::flat_map<std::string, std::string>>
 ParseReportingEndpoints(const std::string& header) {
+  // Ignore empty header values. Skip logging metric to maintain parity with
+  // ReportingHeaderType::kReportToInvalid.
+  if (header.empty())
+    return absl::nullopt;
   absl::optional<structured_headers::Dictionary> header_dict =
       structured_headers::ParseDictionary(header);
   if (!header_dict) {
+    ReportingHeaderParser::RecordReportingHeaderType(
+        ReportingHeaderParser::ReportingHeaderType::kReportingEndpointsInvalid);
     return absl::nullopt;
   }
   base::flat_map<std::string, std::string> parsed_header;
   for (const structured_headers::DictionaryMember& entry : *header_dict) {
     if (entry.second.member_is_inner_list ||
         !entry.second.member.front().item.is_string()) {
+      ReportingHeaderParser::RecordReportingHeaderType(
+          ReportingHeaderParser::ReportingHeaderType::
+              kReportingEndpointsInvalid);
       return absl::nullopt;
     }
     const std::string& endpoint_url_string =
@@ -315,12 +325,15 @@ void ReportingHeaderParser::ParseReportToHeader(
 void ReportingHeaderParser::ProcessParsedReportingEndpointsHeader(
     ReportingContext* context,
     const base::UnguessableToken& reporting_source,
+    const IsolationInfo& isolation_info,
     const NetworkIsolationKey& network_isolation_key,
     const url::Origin& origin,
     base::flat_map<std::string, std::string> header) {
   DCHECK(base::FeatureList::IsEnabled(net::features::kDocumentReporting));
   DCHECK(GURL::SchemeIsCryptographic(origin.scheme()));
   DCHECK(!reporting_source.is_empty());
+  DCHECK(network_isolation_key.IsEmpty() ||
+         network_isolation_key == isolation_info.network_isolation_key());
 
   ReportingDelegate* delegate = context->delegate();
   ReportingCache* cache = context->cache();
@@ -336,13 +349,13 @@ void ReportingHeaderParser::ProcessParsedReportingEndpointsHeader(
     }
   }
 
-  // Remove the client if it has no valid endpoint groups.
   if (parsed_header.empty()) {
-    cache->RemoveClient(network_isolation_key, origin);
+    RecordReportingHeaderType(ReportingHeaderType::kReportingEndpointsInvalid);
     return;
   }
 
-  cache->OnParsedReportingEndpointsHeader(reporting_source,
+  RecordReportingHeaderType(ReportingHeaderType::kReportingEndpoints);
+  cache->OnParsedReportingEndpointsHeader(reporting_source, isolation_info,
                                           std::move(parsed_header));
 }
 

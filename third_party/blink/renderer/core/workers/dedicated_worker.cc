@@ -46,7 +46,6 @@
 #include "third_party/blink/renderer/core/frame/web_frame_widget_impl.h"
 #include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
 #include "third_party/blink/renderer/core/inspector/main_thread_debugger.h"
-#include "third_party/blink/renderer/core/loader/appcache/application_cache_host.h"
 #include "third_party/blink/renderer/core/loader/document_loader.h"
 #include "third_party/blink/renderer/core/loader/frame_loader.h"
 #include "third_party/blink/renderer/core/loader/worker_fetch_context.h"
@@ -424,10 +423,10 @@ DedicatedWorker::CreateGlobalScopeCreationParams(
     absl::optional<network::mojom::IPAddressSpace> response_address_space) {
   base::UnguessableToken parent_devtools_token;
   std::unique_ptr<WorkerSettings> settings;
-  ExecutionContext* execution_context = GetExecutionContext();
   bool isNodeJS = false;
   std::string main_script;
 
+  ExecutionContext* execution_context = GetExecutionContext();
 
   if (auto* window = DynamicTo<LocalDOMWindow>(execution_context)) {
     auto* frame = window->GetFrame();

@@ -696,9 +696,10 @@ public class InstantStartTest {
         Assert.assertTrue(
                 TabUiFeatureUtilities.supportInstantStart(false, mActivityTestRule.getActivity()));
         Assert.assertTrue(CachedFeatureFlags.isEnabled(ChromeFeatureList.INSTANT_START));
-        Assert.assertFalse(ReturnToChromeExperimentsUtil.isStartSurfaceHomepageEnabled());
 
         ChromeTabbedActivity cta = mActivityTestRule.getActivity();
+        Assert.assertFalse(ReturnToChromeExperimentsUtil.isStartSurfaceEnabled(cta));
+
         Assert.assertEquals(1, cta.getTabModelSelector().getCurrentModel().getCount());
         Layout activeLayout = cta.getLayoutManager().getActiveLayout();
         Assert.assertTrue(activeLayout instanceof StaticLayout);
@@ -726,9 +727,9 @@ public class InstantStartTest {
         Assert.assertFalse(
                 TabUiFeatureUtilities.supportInstantStart(false, mActivityTestRule.getActivity()));
         Assert.assertTrue(CachedFeatureFlags.isEnabled(ChromeFeatureList.INSTANT_START));
-        Assert.assertTrue(ReturnToChromeExperimentsUtil.isStartSurfaceHomepageEnabled());
 
         ChromeTabbedActivity cta = mActivityTestRule.getActivity();
+        Assert.assertFalse(ReturnToChromeExperimentsUtil.isStartSurfaceEnabled(cta));
         Assert.assertEquals(1, cta.getTabModelSelector().getCurrentModel().getCount());
         Layout activeLayout = cta.getLayoutManager().getActiveLayout();
         Assert.assertTrue(activeLayout instanceof StaticLayout);
@@ -740,8 +741,9 @@ public class InstantStartTest {
     @CommandLineFlags.Add(BaseSwitches.ENABLE_LOW_END_DEVICE_MODE)
     @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
             ChromeFeatureList.TAB_GROUPS_CONTINUATION_ANDROID})
+    @DisabledTest(message = "Failing at least on M, O and P: https://crbug.com/1254327")
     // clang-format off
-    public void  testInstantStartDisabledOnLowEndDevice() throws IOException {
+    public void testInstantStartDisabledOnLowEndDevice() throws IOException {
         // clang-format on
         StartSurfaceTestUtils.createTabStateFile(new int[] {123});
         mActivityTestRule.startMainActivityFromLauncher();
@@ -773,8 +775,7 @@ public class InstantStartTest {
                 NativeLibraryLoadedStatus.getProviderForTesting().areMainDexNativeMethodsReady());
         ReturnToChromeExperimentsUtil.shouldShowStartSurfaceAsTheHomePage(
                 mActivityTestRule.getActivity());
-        ReturnToChromeExperimentsUtil.shouldShowStartSurfaceAsTheHomePageNoTabs(
-                mActivityTestRule.getActivity());
+        ReturnToChromeExperimentsUtil.isStartSurfaceEnabled(mActivityTestRule.getActivity());
         PseudoTab.getAllPseudoTabsFromStateFile(mActivityTestRule.getActivity());
 
         Assert.assertFalse("There should be no GURL usages triggering native library loading",

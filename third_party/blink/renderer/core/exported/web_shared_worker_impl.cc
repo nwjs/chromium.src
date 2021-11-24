@@ -91,15 +91,13 @@ namespace blink {
 
 WebSharedWorkerImpl::WebSharedWorkerImpl(
     const blink::SharedWorkerToken& token,
-    const base::UnguessableToken& appcache_host_id,
     CrossVariantMojoRemote<mojom::SharedWorkerHostInterfaceBase> host,
     WebSharedWorkerClient* client)
     : reporting_proxy_(MakeGarbageCollected<SharedWorkerReportingProxy>(
           this,
           ParentExecutionContextTaskRunners::Create())),
-      worker_thread_(std::make_unique<SharedWorkerThread>(*reporting_proxy_,
-                                                          token,
-                                                          appcache_host_id)),
+      worker_thread_(
+          std::make_unique<SharedWorkerThread>(*reporting_proxy_, token)),
       host_(std::move(host)),
       client_(client) {
   DCHECK(IsMainThread());
@@ -371,7 +369,6 @@ std::unique_ptr<WebSharedWorker> WebSharedWorker::CreateAndStart(
     const WebVector<WebContentSecurityPolicy>& content_security_policies,
     network::mojom::IPAddressSpace creation_address_space,
     const WebFetchClientSettingsObject& outside_fetch_client_settings_object,
-    const base::UnguessableToken& appcache_host_id,
     const base::UnguessableToken& devtools_worker_token,
     CrossVariantMojoRemote<
         mojom::blink::WorkerContentSettingsProxyInterfaceBase> content_settings,
@@ -384,8 +381,8 @@ std::unique_ptr<WebSharedWorker> WebSharedWorker::CreateAndStart(
     CrossVariantMojoRemote<mojom::SharedWorkerHostInterfaceBase> host,
     WebSharedWorkerClient* client,
     ukm::SourceId ukm_source_id) {
-  auto worker = base::WrapUnique(new WebSharedWorkerImpl(
-      token, appcache_host_id, std::move(host), client));
+  auto worker =
+      base::WrapUnique(new WebSharedWorkerImpl(token, std::move(host), client));
   worker->StartWorkerContext(nodejs, main_script,
       script_request_url, script_type, credentials_mode, name,
       constructor_origin, user_agent, reduced_user_agent, ua_metadata,

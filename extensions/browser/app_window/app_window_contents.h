@@ -31,6 +31,10 @@ class AppWindowContentsImpl : public AppWindowContents,
                               public content::WebContentsObserver {
  public:
    explicit AppWindowContentsImpl(AppWindow* host, std::unique_ptr<content::WebContents> web_contents = nullptr);
+
+  AppWindowContentsImpl(const AppWindowContentsImpl&) = delete;
+  AppWindowContentsImpl& operator=(const AppWindowContentsImpl&) = delete;
+
   ~AppWindowContentsImpl() override;
 
   // AppWindowContents
@@ -58,8 +62,6 @@ class AppWindowContentsImpl : public AppWindowContents,
   GURL url_;
 
   std::unique_ptr<content::WebContents> web_contents_;
-
-  DISALLOW_COPY_AND_ASSIGN(AppWindowContentsImpl);
 };
 
 }  // namespace extensions

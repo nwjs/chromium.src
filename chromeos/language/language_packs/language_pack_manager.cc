@@ -10,6 +10,7 @@
 #include "base/containers/contains.h"
 #include "base/containers/flat_map.h"
 #include "base/logging.h"
+#include "base/metrics/histogram_functions.h"
 #include "chromeos/dbus/dlcservice/dlcservice.pb.h"
 #include "chromeos/dbus/dlcservice/dlcservice_client.h"
 
@@ -40,11 +41,15 @@ PackResult ConvertDlcStateToPackResult(const dlcservice::DlcState& dlc_state) {
 }
 
 const base::flat_map<PackSpecPair, std::string>& GetAllDlcIds() {
-  // Create the map of all DLCs and corresponding IDs.
+  // Map of all DLCs and corresponding IDs.
+  // It's a map from PackSpecPair to DLC ID. The pair is <feature id, locale>.
   // Whenever a new DLC is created, it needs to be added here.
   // Clients of Language Packs don't need to know the IDs.
   static const base::NoDestructor<base::flat_map<PackSpecPair, std::string>>
-      all_dlc_ids({{{kHandwritingFeatureId, "en"}, "handwriting-en-dlc"}});
+      all_dlc_ids({
+          {{kHandwritingFeatureId, "es"}, "languagepack-handwriting-es"},
+          {{kHandwritingFeatureId, "spa"}, "languagepack-handwriting-es"},
+      });
 
   return *all_dlc_ids;
 }
@@ -54,12 +59,16 @@ void OnInstallDlcComplete(OnInstallCompleteCallback callback,
   PackResult result;
   result.operation_error = dlc_result.error;
 
-  if (dlc_result.error == dlcservice::kErrorNone) {
+  const bool success = dlc_result.error == dlcservice::kErrorNone;
+  if (success) {
     result.pack_state = PackResult::INSTALLED;
     result.path = dlc_result.root_path;
   } else {
     result.pack_state = PackResult::UNKNOWN;
   }
+
+  base::UmaHistogramBoolean("ChromeOS.LanguagePacks.InstallComplete.Success",
+                            success);
 
   std::move(callback).Run(result);
 }
@@ -69,11 +78,15 @@ void OnUninstallDlcComplete(OnUninstallCompleteCallback callback,
   PackResult result;
   result.operation_error = err;
 
-  if (err == dlcservice::kErrorNone) {
+  const bool success = err == dlcservice::kErrorNone;
+  if (success) {
     result.pack_state = PackResult::NOT_INSTALLED;
   } else {
     result.pack_state = PackResult::UNKNOWN;
   }
+
+  base::UmaHistogramBoolean("ChromeOS.LanguagePacks.UninstallComplete.Success",
+                            success);
 
   std::move(callback).Run(result);
 }

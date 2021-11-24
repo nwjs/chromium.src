@@ -4,6 +4,7 @@
 
 #include <utility>
 
+#include "device/fido/fido_transport_protocol.h"
 #include "device/fido/public_key_credential_descriptor.h"
 
 namespace device {
@@ -42,14 +43,7 @@ PublicKeyCredentialDescriptor::PublicKeyCredentialDescriptor() = default;
 PublicKeyCredentialDescriptor::PublicKeyCredentialDescriptor(
     CredentialType credential_type,
     std::vector<uint8_t> id)
-    : PublicKeyCredentialDescriptor(
-          credential_type,
-          std::move(id),
-          {FidoTransportProtocol::kUsbHumanInterfaceDevice,
-           FidoTransportProtocol::kBluetoothLowEnergy,
-           FidoTransportProtocol::kNearFieldCommunication,
-           FidoTransportProtocol::kCloudAssistedBluetoothLowEnergy,
-           FidoTransportProtocol::kInternal}) {}
+    : PublicKeyCredentialDescriptor(credential_type, std::move(id), {}) {}
 
 PublicKeyCredentialDescriptor::PublicKeyCredentialDescriptor(
     CredentialType credential_type,
@@ -84,6 +78,9 @@ cbor::Value AsCBOR(const PublicKeyCredentialDescriptor& desc) {
   cbor_descriptor_map[cbor::Value(kCredentialIdKey)] = cbor::Value(desc.id());
   cbor_descriptor_map[cbor::Value(kCredentialTypeKey)] =
       cbor::Value(CredentialTypeToString(desc.credential_type()));
+  // Transports are omitted from CBOR serialization. They aren't useful for
+  // security keys to process. Some existing devices even refuse to parse them
+  // (see https://crbug.com/1270757).
   return cbor::Value(std::move(cbor_descriptor_map));
 }
 

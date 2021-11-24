@@ -24,6 +24,8 @@
 
 namespace network {
 
+class URLLoaderFactory;
+
 namespace cors {
 
 class OriginAccessList;
@@ -51,12 +53,16 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CorsURLLoader
       mojo::PendingRemote<mojom::URLLoaderClient> client,
       const net::MutableNetworkTrafficAnnotationTag& traffic_annotation,
       mojom::URLLoaderFactory* network_loader_factory,
+      URLLoaderFactory* sync_network_loader_factory,
       const OriginAccessList* origin_access_list,
       PreflightController* preflight_controller,
       const base::flat_set<std::string>* allowed_exempt_headers,
       bool allow_any_cors_exempt_header,
       const net::IsolationInfo& isolation_info,
       mojo::PendingRemote<mojom::DevToolsObserver> devtools_observer);
+
+  CorsURLLoader(const CorsURLLoader&) = delete;
+  CorsURLLoader& operator=(const CorsURLLoader&) = delete;
 
   ~CorsURLLoader() override;
 
@@ -89,20 +95,21 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CorsURLLoader
       mojo::ScopedDataPipeConsumerHandle body) override;
   void OnComplete(const URLLoaderCompletionStatus& status) override;
 
-  // Public for testing.
-  //
-  // Returns the response tainting value
-  // (https://fetch.spec.whatwg.org/#concept-request-response-tainting) for a
-  // request and the CORS flag, as specified in
-  // https://fetch.spec.whatwg.org/#main-fetch.
-  static network::mojom::FetchResponseType CalculateResponseTainting(
+  static network::mojom::FetchResponseType CalculateResponseTaintingForTesting(
       const GURL& url,
       mojom::RequestMode request_mode,
       const absl::optional<url::Origin>& origin,
       const absl::optional<url::Origin>& isolated_world_origin,
       bool cors_flag,
       bool tainted_origin,
-      const OriginAccessList* origin_access_list);
+      const OriginAccessList& origin_access_list);
+
+  static absl::optional<CorsErrorStatus> CheckRedirectLocationForTesting(
+      const GURL& url,
+      mojom::RequestMode request_mode,
+      const absl::optional<url::Origin>& origin,
+      bool cors_flag,
+      bool tainted);
 
  private:
   void StartRequest();
@@ -144,9 +151,15 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CorsURLLoader
   // This raw URLLoaderFactory pointer is shared with the CorsURLLoaderFactory
   // that created and owns this object.
   mojom::URLLoaderFactory* network_loader_factory_;
+  // This has the same lifetime as |network_loader_factory_|, and should be used
+  // when non-null to create optimized URLLoaders which can call URLLoaderClient
+  // methods synchronously.
+  URLLoaderFactory* sync_network_loader_factory_;
 
   // For the actual request.
   mojo::Remote<mojom::URLLoader> network_loader_;
+  // |sync_client_receiver_factory_| should be invalidated if this is ever
+  // reset.
   mojo::Receiver<mojom::URLLoaderClient> network_client_receiver_{this};
   ResourceRequest request_;
 
@@ -196,17 +209,19 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CorsURLLoader
 
   net::IsolationInfo isolation_info_;
 
-  bool has_cors_been_affected_by_isolated_world_origin_ = false;
   bool has_authorization_covered_by_wildcard_ = false;
 
   mojo::Remote<mojom::DevToolsObserver> devtools_observer_;
 
   net::NetLogWithSource net_log_;
 
+  // Used to provide weak pointers of this class for synchronously calling
+  // URLLoaderClient methods. This should be reset any time
+  // |network_client_receiver_| is reset.
+  base::WeakPtrFactory<CorsURLLoader> sync_client_receiver_factory_{this};
+
   // Used to run asynchronous class instance bound callbacks safely.
   base::WeakPtrFactory<CorsURLLoader> weak_factory_{this};
-
-  DISALLOW_COPY_AND_ASSIGN(CorsURLLoader);
 };
 
 }  // namespace cors

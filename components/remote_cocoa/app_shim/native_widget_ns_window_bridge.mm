@@ -56,7 +56,7 @@ namespace content {
 }
 
 namespace {
-constexpr auto kUIPaintTimeout = base::TimeDelta::FromSeconds(5);
+constexpr auto kUIPaintTimeout = base::Seconds(5);
 
 bool AreWindowShadowsDisabled() {
   // When:

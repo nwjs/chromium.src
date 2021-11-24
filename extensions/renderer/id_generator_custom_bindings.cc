@@ -8,6 +8,8 @@
 
 #include "base/bind.h"
 #include "base/callback.h"
+#include "v8/include/v8-function-callback.h"
+
 #include "base/feature_list.h"
 #include "content/public/common/content_features.h"
 

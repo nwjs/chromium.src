@@ -697,6 +697,14 @@ void LocalFrameClientImpl::DidObserveInputDelay(base::TimeDelta input_delay) {
   }
 }
 
+void LocalFrameClientImpl::DidObserveUserInteraction(
+    base::TimeDelta max_event_duration,
+    base::TimeDelta total_event_duration,
+    UserInteractionType interaction_type) {
+  web_frame_->Client()->DidObserveUserInteraction(
+      max_event_duration, total_event_duration, interaction_type);
+}
+
 void LocalFrameClientImpl::DidChangeCpuTiming(base::TimeDelta time) {
   if (web_frame_->Client())
     web_frame_->Client()->DidChangeCpuTiming(time);
@@ -1078,14 +1086,6 @@ std::unique_ptr<WebContentSettingsClient>
 LocalFrameClientImpl::CreateWorkerContentSettingsClient() {
   DCHECK(web_frame_->Client());
   return web_frame_->Client()->CreateWorkerContentSettingsClient();
-}
-
-std::unique_ptr<media::SpeechRecognitionClient>
-LocalFrameClientImpl::CreateSpeechRecognitionClient(
-    media::SpeechRecognitionClient::OnReadyCallback callback) {
-  DCHECK(web_frame_->Client());
-  return web_frame_->Client()->CreateSpeechRecognitionClient(
-      std::move(callback));
 }
 
 void LocalFrameClientImpl::SetMouseCapture(bool capture) {

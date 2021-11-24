@@ -31,6 +31,11 @@ class ChromeExtensionWebContentsObserver
       public zoom::ZoomObserver,
       public content::WebContentsUserData<ChromeExtensionWebContentsObserver> {
  public:
+  ChromeExtensionWebContentsObserver(
+      const ChromeExtensionWebContentsObserver&) = delete;
+  ChromeExtensionWebContentsObserver& operator=(
+      const ChromeExtensionWebContentsObserver&) = delete;
+
   ~ChromeExtensionWebContentsObserver() override;
   // ZoomObserver implementation.
   void OnZoomChanged(
@@ -71,8 +76,6 @@ class ChromeExtensionWebContentsObserver
   void ReloadIfTerminated(content::RenderFrameHost* render_frame_host);
 
   WEB_CONTENTS_USER_DATA_KEY_DECL();
-
-  DISALLOW_COPY_AND_ASSIGN(ChromeExtensionWebContentsObserver);
 };
 
 }  // namespace extensions

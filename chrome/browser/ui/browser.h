@@ -364,6 +364,9 @@ class Browser : public TabStripModelObserver,
   // Returns whether a browser window can be created for the specified profile.
   static CreationStatus GetCreationStatusForProfile(Profile* profile);
 
+  Browser(const Browser&) = delete;
+  Browser& operator=(const Browser&) = delete;
+
   nw::Menu* nw_menu_;
 
   std::string extension_id_;
@@ -1320,8 +1323,6 @@ class Browser : public TabStripModelObserver,
 
   // The following factory is used to close the frame at a later time.
   base::WeakPtrFactory<Browser> weak_factory_{this};
-
-  DISALLOW_COPY_AND_ASSIGN(Browser);
 };
 
 #endif  // CHROME_BROWSER_UI_BROWSER_H_

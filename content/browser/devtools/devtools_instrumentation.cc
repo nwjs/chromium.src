@@ -33,6 +33,7 @@
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/browser/web_package/signed_exchange_envelope.h"
 #include "content/public/browser/browser_context.h"
+#include "devtools_instrumentation.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "net/base/load_flags.h"
@@ -481,7 +482,9 @@ void ApplyNetworkRequestOverrides(
     blink::mojom::BeginNavigationParams* begin_params,
     bool* report_raw_headers,
     absl::optional<std::vector<net::SourceStream::SourceType>>*
-        devtools_accepted_stream_types) {
+        devtools_accepted_stream_types,
+    bool* devtools_user_agent_overridden) {
+  *devtools_user_agent_overridden = false;
   bool disable_cache = false;
   DevToolsAgentHostImpl* agent_host =
       RenderFrameDevToolsAgentHost::GetFor(frame_tree_node);
@@ -510,8 +513,11 @@ void ApplyNetworkRequestOverrides(
                             &disable_cache, devtools_accepted_stream_types);
   }
 
-  for (auto* emulation : protocol::EmulationHandler::ForAgentHost(agent_host))
-    emulation->ApplyOverrides(&headers);
+  for (auto* emulation : protocol::EmulationHandler::ForAgentHost(agent_host)) {
+    bool ua_overridden = false;
+    emulation->ApplyOverrides(&headers, &ua_overridden);
+    *devtools_user_agent_overridden |= ua_overridden;
+  }
 
   if (disable_cache) {
     begin_params->load_flags &=
@@ -1215,6 +1221,61 @@ void ApplyNetworkContextParamsOverrides(
                                                          context_params);
     }
   }
+}
+
+protocol::Audits::GenericIssueErrorType GenericIssueErrorTypeToProtocol(
+    blink::mojom::GenericIssueErrorType error_type) {
+  switch (error_type) {
+    case (blink::mojom::GenericIssueErrorType::
+              kCrossOriginPortalPostMessageError):
+      return protocol::Audits::GenericIssueErrorTypeEnum::
+          CrossOriginPortalPostMessageError;
+  }
+}
+
+namespace {
+struct GenericIssueInfo {
+  GenericIssueInfo() = default;
+  ~GenericIssueInfo() = default;
+  GenericIssueInfo(const GenericIssueInfo& info) = default;
+
+  blink::mojom::GenericIssueErrorType error_type;
+  absl::optional<std::string> frame_id;
+};
+
+void BuildAndReportGenericIssue(RenderFrameHostImpl* render_frame_host_impl,
+                                const GenericIssueInfo& issue_info) {
+  auto generic_issue_details =
+      protocol::Audits::GenericIssueDetails::Create()
+          .SetErrorType(GenericIssueErrorTypeToProtocol(issue_info.error_type))
+          .Build();
+
+  if (issue_info.frame_id) {
+    generic_issue_details->SetFrameId(*issue_info.frame_id);
+  }
+
+  auto issue =
+      protocol::Audits::InspectorIssue::Create()
+          .SetCode(protocol::Audits::InspectorIssueCodeEnum::GenericIssue)
+          .SetDetails(
+              protocol::Audits::InspectorIssueDetails::Create()
+                  .SetGenericIssueDetails(std::move(generic_issue_details))
+                  .Build())
+          .Build();
+
+  ReportBrowserInitiatedIssue(render_frame_host_impl, issue.get());
+}
+}  // namespace
+
+void DidRejectCrossOriginPortalMessage(
+    RenderFrameHostImpl* render_frame_host_impl) {
+  GenericIssueInfo issue_info;
+  issue_info.error_type =
+      blink::mojom::GenericIssueErrorType::kCrossOriginPortalPostMessageError;
+  issue_info.frame_id =
+      render_frame_host_impl->GetDevToolsFrameToken().ToString();
+
+  BuildAndReportGenericIssue(render_frame_host_impl, issue_info);
 }
 
 }  // namespace devtools_instrumentation

@@ -7,6 +7,7 @@
 
 #include "base/macros.h"
 #include "extensions/renderer/object_backed_native_handler.h"
+#include "v8/include/v8-forward.h"
 
 namespace extensions {
 
@@ -14,6 +15,9 @@ namespace extensions {
 class AppWindowCustomBindings : public ObjectBackedNativeHandler {
  public:
   AppWindowCustomBindings(ScriptContext* context);
+
+  AppWindowCustomBindings(const AppWindowCustomBindings&) = delete;
+  AppWindowCustomBindings& operator=(const AppWindowCustomBindings&) = delete;
 
   // ObjectBackedNativeHandler:
   void AddRoutes() override;
@@ -23,7 +27,6 @@ class AppWindowCustomBindings : public ObjectBackedNativeHandler {
   void ResumeParser(const v8::FunctionCallbackInfo<v8::Value>& args);
 
   void FixGamePadAPI(const v8::FunctionCallbackInfo<v8::Value>& args);
-  DISALLOW_COPY_AND_ASSIGN(AppWindowCustomBindings);
 };
 
 }  // namespace extensions

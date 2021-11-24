@@ -397,6 +397,10 @@ const base::Feature kBrowserDynamicCodeDisabled{
 class OopDataDecoder : public data_decoder::ServiceProvider {
  public:
   OopDataDecoder() { data_decoder::ServiceProvider::Set(this); }
+
+  OopDataDecoder(const OopDataDecoder&) = delete;
+  OopDataDecoder& operator=(const OopDataDecoder&) = delete;
+
   ~OopDataDecoder() override { data_decoder::ServiceProvider::Set(nullptr); }
 
   // data_decoder::ServiceProvider implementation:
@@ -409,9 +413,6 @@ class OopDataDecoder : public data_decoder::ServiceProvider {
             .WithDisplayName("Data Decoder Service")
             .Pass());
   }
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(OopDataDecoder);
 };
 
 void BindHidManager(mojo::PendingReceiver<device::mojom::HidManager> receiver) {
@@ -1003,22 +1004,21 @@ void BrowserMainLoop::ShutdownThreadsAndCleanUp() {
 
   // Teardown may start in PostMainMessageLoopRun, and during teardown we
   // need to be able to perform IO.
-  base::ThreadRestrictions::SetIOAllowed(true);
+  base::PermanentThreadAllowance::AllowBlocking();
   GetIOThreadTaskRunner({})->PostTask(
-      FROM_HERE,
-      base::BindOnce(
-          base::IgnoreResult(&base::ThreadRestrictions::SetIOAllowed), true));
+      FROM_HERE, base::BindOnce(base::IgnoreResult(
+                     &base::PermanentThreadAllowance::AllowBlocking)));
 
   // Also allow waiting to join threads.
-  // TODO(https://crbug.com/800808): Ideally this (and the above SetIOAllowed()
-  // would be scoped allowances). That would be one of the first step to ensure
-  // no persistent work is being done after ThreadPoolInstance::Shutdown() in
-  // order to move towards atomic shutdown.
-  base::ThreadRestrictions::SetWaitAllowed(true);
+  // TODO(crbug.com/800808): Ideally this (and the above AllowBlocking() would
+  // be scoped allowances). That would be one of the first step to ensure no
+  // persistent work is being done after ThreadPoolInstance::Shutdown() in order
+  // to move towards atomic shutdown.
+  base::PermanentThreadAllowance::AllowBaseSyncPrimitives();
   GetIOThreadTaskRunner({})->PostTask(
       FROM_HERE,
-      base::BindOnce(
-          base::IgnoreResult(&base::ThreadRestrictions::SetWaitAllowed), true));
+      base::BindOnce(base::IgnoreResult(
+          &base::PermanentThreadAllowance::AllowBaseSyncPrimitives)));
 
 #if 1 //defined(OS_ANDROID)
   g_browser_main_loop_shutting_down = true;
@@ -1052,8 +1052,7 @@ void BrowserMainLoop::ShutdownThreadsAndCleanUp() {
 
   ShutDownNetworkService();
 
-  if (base::FeatureList::IsEnabled(features::kProcessHostOnUI))
-    BrowserProcessIOThread::ProcessHostCleanUp();
+  BrowserProcessIOThread::ProcessHostCleanUp();
 
 #if defined(OS_MAC)
   BrowserCompositorMac::DisableRecyclingForShutdown();
@@ -1188,23 +1187,12 @@ void BrowserMainLoop::PostCreateThreadsImpl() {
   // Initialize the GPU shader cache. This needs to be initialized before
   // BrowserGpuChannelHostFactory below, since that depends on an initialized
   // ShaderCacheFactory.
-  auto process_task_runner =
-      base::FeatureList::IsEnabled(features::kProcessHostOnUI)
-          ? GetUIThreadTaskRunner({})
-          : GetIOThreadTaskRunner({});
-  InitShaderCacheFactorySingleton(process_task_runner);
+  InitShaderCacheFactorySingleton();
 
-  // Initialize the FontRenderParams on IO thread. This needs to be initialized
-  // before gpu process initialization below.
-  if (base::FeatureList::IsEnabled(features::kProcessHostOnUI)) {
-    viz::GpuHostImpl::InitFontRenderParams(
-        gfx::GetFontRenderParams(gfx::FontRenderParamsQuery(), nullptr));
-  } else {
-    GetIOThreadTaskRunner({})->PostTask(
-        FROM_HERE, base::BindOnce(&viz::GpuHostImpl::InitFontRenderParams,
-                                  gfx::GetFontRenderParams(
-                                      gfx::FontRenderParamsQuery(), nullptr)));
-  }
+  // Initialize the FontRenderParams. This needs to be initialized before gpu
+  // process initialization below.
+  viz::GpuHostImpl::InitFontRenderParams(
+      gfx::GetFontRenderParams(gfx::FontRenderParamsQuery(), nullptr));
 
   bool always_uses_gpu = true;
   bool established_gpu_channel = false;
@@ -1339,10 +1327,7 @@ void BrowserMainLoop::PostCreateThreadsImpl() {
   if (!established_gpu_channel && always_uses_gpu) {
     TRACE_EVENT_INSTANT0("gpu", "Post task to launch GPU process",
                          TRACE_EVENT_SCOPE_THREAD);
-    process_task_runner->PostTask(
-        FROM_HERE,
-        base::BindOnce(base::IgnoreResult(&GpuProcessHost::Get),
-                       GPU_PROCESS_KIND_SANDBOXED, true /* force_create */));
+    GpuProcessHost::Get(GPU_PROCESS_KIND_SANDBOXED, true /* force_create */);
   }
 
 #if defined(OS_WIN)

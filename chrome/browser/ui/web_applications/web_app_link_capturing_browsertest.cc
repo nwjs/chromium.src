@@ -352,7 +352,8 @@ IN_PROC_BROWSER_TEST_P(WebAppDeclarativeLinkCapturingBrowserTest,
 
 IN_PROC_BROWSER_TEST_P(WebAppDeclarativeLinkCapturingBrowserTest,
                        CaptureLinksNone) {
-  InstallTestApp("/web_apps/capture_links_none.html", /*await_metric=*/true);
+  InstallTestApp("/web_apps/get_manifest.html?capture_links_none.json",
+                 /*await_metric=*/true);
 
   histogram_tester_.ExpectBucketCount(
       "Blink.UseCounter.Features",
@@ -383,21 +384,12 @@ IN_PROC_BROWSER_TEST_P(WebAppDeclarativeLinkCapturingBrowserTest,
 #endif
 IN_PROC_BROWSER_TEST_P(WebAppDeclarativeLinkCapturingBrowserTest,
                        MAYBE_CaptureLinksNewClient) {
-  InstallTestApp("/web_apps/capture_links_new_client.html",
+  InstallTestApp("/web_apps/get_manifest.html?capture_links_new_client.json",
                  /*await_metric=*/true);
 
   histogram_tester_.ExpectBucketCount(
       "Blink.UseCounter.Features",
       blink::mojom::WebFeature::kWebAppManifestCaptureLinks, 1);
-
-  if (IsIntentPickerPersistenceEnabled()) {
-    // No link capturing should happen until the user turns it on.
-    Navigate(browser(), start_url_);
-    EXPECT_EQ(browser(), BrowserList::GetInstance()->GetLastActive());
-    ExpectTabs(browser(), {start_url_});
-
-    TurnOnLinkCapturing();
-  }
 
   // In scope navigation should open an app window.
   Navigate(browser(), out_of_scope_);
@@ -424,7 +416,7 @@ IN_PROC_BROWSER_TEST_P(WebAppDeclarativeLinkCapturingBrowserTest,
 
 IN_PROC_BROWSER_TEST_P(WebAppDeclarativeLinkCapturingBrowserTest,
                        InAppScopeNavigationIgnored) {
-  InstallTestApp("/web_apps/capture_links_new_client.html",
+  InstallTestApp("/web_apps/get_manifest.html?capture_links_new_client.json",
                  /*await_metric=*/true);
 
   histogram_tester_.ExpectBucketCount(
@@ -446,8 +438,9 @@ IN_PROC_BROWSER_TEST_P(WebAppDeclarativeLinkCapturingBrowserTest,
 
 IN_PROC_BROWSER_TEST_P(WebAppDeclarativeLinkCapturingBrowserTest,
                        CaptureLinksExistingClientNavigate) {
-  InstallTestApp("/web_apps/capture_links_existing_client_navigate.html",
-                 /*await_metric=*/true);
+  InstallTestApp(
+      "/web_apps/get_manifest.html?capture_links_existing_client_navigate.json",
+      /*await_metric=*/true);
 
   histogram_tester_.ExpectBucketCount(
       "Blink.UseCounter.Features",
@@ -593,7 +586,7 @@ IN_PROC_BROWSER_TEST_F(WebAppDeclarativeLinkCapturingOriginTrialBrowserTest,
   AppId app_id =
       web_app::InstallWebAppFromPage(browser(), GURL(kTestWebAppUrl));
 
-#if BUILDFLAG(IS_CHROMEOS_ASH) || BUILDFLAG(IS_CHROMEOS_LACROS)
+#if defined(OS_CHROMEOS)
   // Origin trial should grant the app access.
   EXPECT_EQ(provider.registrar().GetAppCaptureLinks(app_id),
             blink::mojom::CaptureLinks::kNewClient);
@@ -622,7 +615,7 @@ IN_PROC_BROWSER_TEST_F(WebAppDeclarativeLinkCapturingOriginTrialBrowserTest,
             blink::mojom::CaptureLinks::kUndefined);
 
   ALLOW_UNUSED_LOCAL(app_web_contents);
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH) || BUILDFLAG(IS_CHROMEOS_LACROS)
+#endif  // defined(OS_CHROMEOS)
 }
 
 }  // namespace web_app

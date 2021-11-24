@@ -12,6 +12,7 @@
 #include "base/strings/sys_string_conversions.h"
 #include "base/task/post_task.h"
 #include "base/task/thread_pool.h"
+#include "base/time/time.h"
 #include "build/branding_buildflags.h"
 #include "components/crash/core/common/crash_keys.h"
 #include "components/metrics/metrics_pref_names.h"
@@ -29,6 +30,7 @@
 #import "ios/chrome/browser/net/connection_type_observer_bridge.h"
 #include "ios/chrome/browser/pref_names.h"
 #include "ios/chrome/browser/system_flags.h"
+#import "ios/chrome/browser/ui/browser_view/browser_view_controller.h"
 #import "ios/chrome/browser/ui/default_promo/default_browser_utils.h"
 #import "ios/chrome/browser/ui/main/browser_interface_provider.h"
 #import "ios/chrome/browser/ui/main/connection_information.h"
@@ -54,6 +56,13 @@
 #endif
 
 namespace {
+// The key to a NSUserDefaults entry logging the number of times classes are
+// loaded before a scene is attached.
+NSString* const kLoadTimePreferenceKey = @"LoadTimePreferenceKey";
+
+// The time when Objective C objects are loaded.
+base::TimeTicks g_load_time;
+
 // The amount of time (in seconds) to wait for the user to start a new task.
 const NSTimeInterval kFirstUserActionTimeout = 30.0;
 
@@ -81,9 +90,22 @@ base::TimeDelta TimeDeltaSinceAppLaunchFromProcess() {
   const NSTimeInterval time_since_1970 =
       time.tv_sec + (time.tv_usec / (double)USEC_PER_SEC);
   NSDate* date = [NSDate dateWithTimeIntervalSince1970:time_since_1970];
-  return base::TimeDelta::FromSecondsD(-date.timeIntervalSinceNow);
+  return base::Seconds(-date.timeIntervalSinceNow);
 }
 }  // namespace
+
+// A class to log the "load" time in uma.
+@interface ObjectLoadTimeLogger : NSObject
+@end
+
+@implementation ObjectLoadTimeLogger
++ (void)load {
+  NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
+  [defaults setInteger:[defaults integerForKey:kLoadTimePreferenceKey] + 1
+                forKey:kLoadTimePreferenceKey];
+  g_load_time = base::TimeTicks::Now();
+}
+@end
 
 namespace metrics_mediator {
 NSString* const kAppEnteredBackgroundDateKey = @"kAppEnteredBackgroundDate";
@@ -201,6 +223,9 @@ using metrics_mediator::kAppEnteredBackgroundDateKey;
 + (void)recordNumNTPTabAtStartup:(int)numTabs;
 // Logs the number of NTP tabs with UMAHistogramCount100 and allows testing.
 + (void)recordNumNTPTabAtResume:(int)numTabs;
+// Logs the number of live NTP tabs with UMAHistogramCount100 and allows
+// testing.
++ (void)recordNumLiveNTPTabAtResume:(int)numTabs;
 
 @end
 
@@ -213,21 +238,41 @@ using metrics_mediator::kAppEnteredBackgroundDateKey;
   if (![startupInformation isColdStart])
     return;
 
-  const base::TimeDelta startDuration =
-      base::TimeTicks::Now() - [startupInformation appLaunchTime];
-
-  const base::TimeDelta startDurationFromProcess =
+  base::TimeTicks now = base::TimeTicks::Now();
+  const base::TimeDelta processStartToNowTime =
       TimeDeltaSinceAppLaunchFromProcess();
+  const base::TimeDelta loadToNowTime = now - g_load_time;
+  const base::TimeDelta mainToNowTime =
+      now - [startupInformation appLaunchTime];
+  const base::TimeDelta didFinishLaunchingToNowTime =
+      now - [startupInformation didFinishLaunchingTime];
+  const base::TimeDelta sceneConnectionToNowTime =
+      now - [startupInformation firstSceneConnectionTime];
+
+  NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
+  int consecutiveLoads = [defaults integerForKey:kLoadTimePreferenceKey];
+  [defaults removeObjectForKey:kLoadTimePreferenceKey];
 
   base::UmaHistogramTimes("Startup.ColdStartFromProcessCreationTimeV2",
-                          startDurationFromProcess);
+                          processStartToNowTime);
+  base::UmaHistogramTimes("Startup.TimeFromProcessCreationToLoad",
+                          processStartToNowTime - loadToNowTime);
+  base::UmaHistogramTimes("Startup.TimeFromProcessCreationToMainCall",
+                          processStartToNowTime - mainToNowTime);
+  base::UmaHistogramTimes(
+      "Startup.TimeFromProcessCreationToDidFinishLaunchingCall",
+      processStartToNowTime - didFinishLaunchingToNowTime);
+  base::UmaHistogramTimes("Startup.TimeFromProcessCreationToSceneConnection",
+                          processStartToNowTime - sceneConnectionToNowTime);
+  base::UmaHistogramCounts100("Startup.ConsecutiveLoadsWithoutLaunch",
+                              consecutiveLoads);
 
   if ([connectionInformation startupParameters]) {
     base::UmaHistogramTimes("Startup.ColdStartWithExternalURLTime",
-                            startDuration);
+                            mainToNowTime);
   } else {
     base::UmaHistogramTimes("Startup.ColdStartWithoutExternalURLTime",
-                            startDuration);
+                            mainToNowTime);
   }
 }
 
@@ -244,6 +289,7 @@ using metrics_mediator::kAppEnteredBackgroundDateKey;
 
   int numTabs = 0;
   int numNTPTabs = 0;
+  int numLiveNTPTabs = 0;
   for (SceneState* scene in scenes) {
     if (!scene.interfaceProvider) {
       // The scene might not yet be initiated.
@@ -260,6 +306,8 @@ using metrics_mediator::kAppEnteredBackgroundDateKey;
         numNTPTabs++;
       }
     }
+    BrowserViewController* bvc = scene.interfaceProvider.currentInterface.bvc;
+    numLiveNTPTabs += [bvc liveNTPCount];
   }
 
   if (startupInformation.isColdStart) {
@@ -268,6 +316,8 @@ using metrics_mediator::kAppEnteredBackgroundDateKey;
   } else {
     [self recordNumTabAtResume:numTabs];
     [self recordNumNTPTabAtResume:numNTPTabs];
+    // Only log at resume since there are likely no live NTPs on startup.
+    [self recordNumLiveNTPTabAtResume:numLiveNTPTabs];
   }
 
   if (UIAccessibilityIsVoiceOverRunning()) {
@@ -276,9 +326,8 @@ using metrics_mediator::kAppEnteredBackgroundDateKey;
   }
 
 #if BUILDFLAG(ENABLE_WIDGET_KIT_EXTENSION)
-  if (@available(iOS 14, *)) {
-    [WidgetMetricsUtil logInstalledWidgets];
-  }
+  [WidgetMetricsUtil logInstalledWidgets];
+
 #endif
 
   // Create the first user action recorder and schedule a task to expire it
@@ -329,9 +378,7 @@ using metrics_mediator::kAppEnteredBackgroundDateKey;
   [self setBreakpadEnabled:optIn withUploading:allowUploading];
   [self setWatchWWANEnabled:optIn];
   [self setAppGroupMetricsEnabled:optIn];
-  if (@available(iOS 13, *)) {
-    [[MetricKitSubscriber sharedInstance] setEnabled:optIn];
-  }
+  [[MetricKitSubscriber sharedInstance] setEnabled:optIn];
 }
 
 - (BOOL)areMetricsEnabled {
@@ -522,6 +569,10 @@ using metrics_mediator::kAppEnteredBackgroundDateKey;
 
 + (void)recordNumNTPTabAtResume:(int)numTabs {
   base::UmaHistogramCounts100("Tabs.NTPCountAtResume", numTabs);
+}
+
++ (void)recordNumLiveNTPTabAtResume:(int)numTabs {
+  base::UmaHistogramCounts100("Tabs.LiveNTPCountAtResume", numTabs);
 }
 
 - (void)setBreakpadUploadingEnabled:(BOOL)enableUploading {

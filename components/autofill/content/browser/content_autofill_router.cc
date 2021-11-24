@@ -136,7 +136,14 @@ void ContentAutofillRouter::SetKeyPressHandler(
 
   some_rfh_for_debugging_ = source->render_frame_host();
 
-  AFCHECK(last_queried_source_, return );
+  // The asynchronous AutocompleteHistoryManager::OnAutofillValuesReturned()
+  // calls SetKeyPressHandler() through AutofillPopupControllerImpl::Show().
+  // Before this call, UnregisterDriver() may have reset |last_queried_source_|
+  // already to nullptr due to a race condition with AutocompleteHistoryManager
+  // (https://crbug.com/1254173).
+  if (!last_queried_source_)
+    return;
+
   last_queried_source_->SetKeyPressHandlerImpl(handler);
 }
 
@@ -180,12 +187,13 @@ void ContentAutofillRouter::TriggerReparseExcept(
     do {
       // Trigger reparse for |rfh| and all its ancestors (as some
       // ancestors may not be in the forest).
-      ContentAutofillDriver* driver =
+      ContentAutofillDriver* rfh_driver =
           ContentAutofillDriver::GetForRenderFrameHost(rfh);
-      AFCHECK(driver, continue);
-      if (driver != exception && !base::Contains(already_triggered, driver)) {
-        driver->TriggerReparse();
-        already_triggered.insert(driver);
+      AFCHECK(rfh_driver, continue);
+      if (rfh_driver != exception &&
+          !base::Contains(already_triggered, rfh_driver)) {
+        rfh_driver->TriggerReparse();
+        already_triggered.insert(rfh_driver);
       }
     } while ((rfh = rfh->GetParent()) != nullptr);
   });
@@ -193,13 +201,17 @@ void ContentAutofillRouter::TriggerReparseExcept(
 
 void ContentAutofillRouter::FormsSeen(
     ContentAutofillDriver* source,
-    const std::vector<FormData>& renderer_forms) {
+    const std::vector<FormData>& renderer_forms,
+    const std::vector<FormGlobalId>& removed_forms) {
   if (!base::FeatureList::IsEnabled(features::kAutofillAcrossIframes)) {
-    source->FormsSeenImpl(renderer_forms);
+    source->FormsSeenImpl(renderer_forms, removed_forms);
     return;
   }
 
   some_rfh_for_debugging_ = source->render_frame_host();
+
+  for (FormGlobalId form : removed_forms)
+    form_forest_.EraseForm(form);
 
   for (const FormData& form : renderer_forms)
     form_forest_.UpdateTreeOfRendererForm(form, source);
@@ -228,7 +240,7 @@ void ContentAutofillRouter::FormsSeen(
     }));
     ContentAutofillDriver* target = DriverOfFrame(frame);
     AFCHECK(target, return );
-    target->FormsSeenImpl(std::move(browser_forms));
+    target->FormsSeenImpl(std::move(browser_forms), removed_forms);
   }
 }
 
@@ -656,9 +668,9 @@ void ContentAutofillRouter::SendFieldsEligibleForManualFillingToRenderer(
   // Send the FieldRendererIds to the individual frames.
   for (const auto& p : fields_by_frame) {
     LocalFrameToken frame = p.first;
-    const std::vector<FieldRendererId>& fields = p.second;
+    const std::vector<FieldRendererId>& frame_fields = p.second;
     if (auto* target = DriverOfFrame(frame))
-      target->SendFieldsEligibleForManualFillingToRendererImpl(fields);
+      target->SendFieldsEligibleForManualFillingToRendererImpl(frame_fields);
   }
 }
 

@@ -174,7 +174,7 @@ bool LoadDefaultEGLGLES2Bindings(
     if (!base::PathService::Get(base::DIR_MODULE, &module_path))
       return false;
 #endif
-
+    module_path = module_path.Append("lib/");
     glesv2_path = module_path.Append(kAngleGlesSoname);
     egl_path = module_path.Append(kAngleEglSoname);
   } else {

@@ -187,15 +187,14 @@ class BlobURLTest : public testing::Test {
 
   void TestRequest(const std::string& method,
                    const net::HttpRequestHeaders& extra_headers) {
-    GURL url("blob:blah");
+    auto origin = url::Origin::Create(GURL("https://example.com"));
+    auto url = GURL("blob:" + origin.Serialize() + "/id1");
     network::ResourceRequest request;
     request.url = url;
     request.method = method;
     request.headers = extra_headers;
 
-    storage::MockBlobRegistryDelegate delegate;
-    storage::BlobURLStoreImpl url_store(blob_url_registry_.AsWeakPtr(),
-                                        &delegate);
+    storage::BlobURLStoreImpl url_store(origin, blob_url_registry_.AsWeakPtr());
 
     mojo::PendingRemote<blink::mojom::Blob> blob_remote;
     storage::BlobImpl::Create(
@@ -372,8 +371,7 @@ TEST_F(BlobURLTest, TestGetNonExistentFileRequest) {
 }
 
 TEST_F(BlobURLTest, TestGetChangedFileRequest) {
-  base::Time old_time =
-      temp_file_modification_time1_ - base::TimeDelta::FromSeconds(10);
+  base::Time old_time = temp_file_modification_time1_ - base::Seconds(10);
   blob_data_->AppendFile(temp_file1_, 0, 3, old_time);
   TestErrorRequest(net::ERR_UPLOAD_FILE_CHANGED);
 }
@@ -433,8 +431,8 @@ TEST_F(BlobURLTest, TestGetInvalidFileSystemFileRequest) {
 
 TEST_F(BlobURLTest, TestGetChangedFileSystemFileRequest) {
   SetUpFileSystem();
-  base::Time old_time = temp_file_system_file_modification_time1_ -
-                        base::TimeDelta::FromSeconds(10);
+  base::Time old_time =
+      temp_file_system_file_modification_time1_ - base::Seconds(10);
   blob_data_->AppendFileSystemFile(
       file_system_context_->CrackURLInFirstPartyContext(
           temp_file_system_file1_),

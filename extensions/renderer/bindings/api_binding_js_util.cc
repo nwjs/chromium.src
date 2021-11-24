@@ -138,9 +138,9 @@ void APIBindingJSUtil::SendRequestHelper(
   // See the above comment for more details.
   DCHECK_NE(binding::AsyncResponseType::kPromise, parse_result.async_type);
 
-  request_handler_->StartRequest(context, name,
-                                 std::move(parse_result.arguments_list),
-                                 parse_result.callback, custom_callback, sync, success, response, error);
+  request_handler_->StartRequest(
+      context, name, std::move(parse_result.arguments_list),
+      parse_result.async_type, parse_result.callback, custom_callback, sync, success, response, error);
 }
 
 void APIBindingJSUtil::RegisterEventArgumentMassager(

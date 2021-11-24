@@ -72,6 +72,9 @@ class ContentVerifyJob : public base::RefCountedThreadSafe<ContentVerifyJob> {
                    const base::FilePath& relative_path,
                    FailureCallback failure_callback);
 
+  ContentVerifyJob(const ContentVerifyJob&) = delete;
+  ContentVerifyJob& operator=(const ContentVerifyJob&) = delete;
+
   ContentVerifyJob(ContentHashReader* hash_reader,
                    const ContentVerifierKey& content_verifier_key,
                    FailureCallback failure_callback,
@@ -192,9 +195,6 @@ class ContentVerifyJob : public base::RefCountedThreadSafe<ContentVerifyJob> {
   int len_;
   char* buf_;
   base::File file_;
-
-
-  DISALLOW_COPY_AND_ASSIGN(ContentVerifyJob);
 };
 
 }  // namespace extensions

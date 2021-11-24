@@ -31,6 +31,10 @@ class APIBindingJSUtil final : public gin::Wrappable<APIBindingJSUtil> {
                    APIRequestHandler* request_handler,
                    APIEventHandler* event_handler,
                    ExceptionHandler* exception_handler);
+
+  APIBindingJSUtil(const APIBindingJSUtil&) = delete;
+  APIBindingJSUtil& operator=(const APIBindingJSUtil&) = delete;
+
   ~APIBindingJSUtil() override;
 
   static gin::WrapperInfo kWrapperInfo;
@@ -142,8 +146,6 @@ class APIBindingJSUtil final : public gin::Wrappable<APIBindingJSUtil> {
 
   // The exception handler. Guaranteed to outlive this object.
   ExceptionHandler* const exception_handler_;
-
-  DISALLOW_COPY_AND_ASSIGN(APIBindingJSUtil);
 };
 
 }  // namespace extensions

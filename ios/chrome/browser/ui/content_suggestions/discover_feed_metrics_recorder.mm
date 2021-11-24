@@ -120,6 +120,9 @@ const char kDiscoverFeedUserActionManageInterestsTapped[] =
 const char kDiscoverFeedUserActionInfiniteFeedTriggered[] =
     "ContentSuggestions.Feed.InfiniteFeedTriggered";
 
+// User action name for engaging with feed.
+const char kDiscoverFeedUserActionEngaged[] = "ContentSuggestions.Feed.Engaged";
+
 // Histogram name for the feed engagement types.
 const char kDiscoverFeedEngagementTypeHistogram[] =
     "ContentSuggestions.Feed.EngagementType";
@@ -170,6 +173,11 @@ const char kDiscoverFeedURLOpened[] = "NewTabPage.ContentSuggestions.Opened";
 // Histogram name to capture if the last Feed fetch had logging enabled.
 const char kDiscoverFeedActivityLoggingEnabled[] =
     "ContentSuggestions.Feed.ActivityLoggingEnabled";
+
+// Histogram name for broken NTP view hierarchy logs.
+// TODO(crbug.com/1262536): Remove this when issue is fixed.
+const char kDiscoverFeedBrokenNTPHierarchy[] =
+    "ContentSuggestions.Feed.BrokenNTPHierarchy";
 
 // Minimum scrolling amount to record a FeedEngagementType::kFeedEngaged due to
 // scrolling.
@@ -374,10 +382,10 @@ const int kMinutesBetweenSessions = 5;
                                          success:(BOOL)success {
   if (success) {
     UMA_HISTOGRAM_MEDIUM_TIMES(kDiscoverFeedArticlesFetchNetworkDurationSuccess,
-                               base::TimeDelta::FromSeconds(durationInSeconds));
+                               base::Seconds(durationInSeconds));
   } else {
     UMA_HISTOGRAM_MEDIUM_TIMES(kDiscoverFeedArticlesFetchNetworkDurationFailure,
-                               base::TimeDelta::FromSeconds(durationInSeconds));
+                               base::Seconds(durationInSeconds));
   }
   [self recordNetworkRequestDurationInSeconds:durationInSeconds];
 }
@@ -388,11 +396,11 @@ const int kMinutesBetweenSessions = 5;
   if (success) {
     UMA_HISTOGRAM_MEDIUM_TIMES(
         kDiscoverFeedMoreArticlesFetchNetworkDurationSuccess,
-        base::TimeDelta::FromSeconds(durationInSeconds));
+        base::Seconds(durationInSeconds));
   } else {
     UMA_HISTOGRAM_MEDIUM_TIMES(
         kDiscoverFeedMoreArticlesFetchNetworkDurationFailure,
-        base::TimeDelta::FromSeconds(durationInSeconds));
+        base::Seconds(durationInSeconds));
   }
   [self recordNetworkRequestDurationInSeconds:durationInSeconds];
 }
@@ -402,10 +410,10 @@ const int kMinutesBetweenSessions = 5;
                                          success:(BOOL)success {
   if (success) {
     UMA_HISTOGRAM_MEDIUM_TIMES(kDiscoverFeedUploadActionsNetworkDurationSuccess,
-                               base::TimeDelta::FromSeconds(durationInSeconds));
+                               base::Seconds(durationInSeconds));
   } else {
     UMA_HISTOGRAM_MEDIUM_TIMES(kDiscoverFeedUploadActionsNetworkDurationFailure,
-                               base::TimeDelta::FromSeconds(durationInSeconds));
+                               base::Seconds(durationInSeconds));
   }
   [self recordNetworkRequestDurationInSeconds:durationInSeconds];
 }
@@ -443,6 +451,10 @@ const int kMinutesBetweenSessions = 5;
                             loggingEnabled);
 }
 
+- (void)recordBrokenNTPHierarchy:(BrokenNTPHierarchyRelationship)relationship {
+  base::UmaHistogramEnumeration(kDiscoverFeedBrokenNTPHierarchy, relationship);
+}
+
 #pragma mark - Private
 
 // Records histogram metrics for Discover feed user actions.
@@ -457,8 +469,7 @@ const int kMinutesBetweenSessions = 5;
 
   // Determine if this interaction is part of a new 'session'.
   base::Time now = base::Time::Now();
-  base::TimeDelta visitTimeout =
-      base::TimeDelta::FromMinutes(kMinutesBetweenSessions);
+  base::TimeDelta visitTimeout = base::Minutes(kMinutesBetweenSessions);
   if (now - self.sessionStartTime > visitTimeout) {
     [self finalizeSession];
   }
@@ -479,6 +490,7 @@ const int kMinutesBetweenSessions = 5;
   if (!self.engagedReported &&
       (scrollDistance > kMinScrollThreshold || interacted)) {
     [self recordEngagementTypeHistogram:FeedEngagementType::kFeedEngaged];
+    base::RecordAction(base::UserMetricsAction(kDiscoverFeedUserActionEngaged));
     self.engagedReported = YES;
   }
 }
@@ -511,7 +523,7 @@ const int kMinutesBetweenSessions = 5;
 - (void)recordNetworkRequestDurationInSeconds:
     (NSTimeInterval)durationInSeconds {
   UMA_HISTOGRAM_MEDIUM_TIMES(kDiscoverFeedNetworkDuration,
-                             base::TimeDelta::FromSeconds(durationInSeconds));
+                             base::Seconds(durationInSeconds));
 }
 
 // Records that a URL was opened regardless of the target surface (e.g. New Tab,

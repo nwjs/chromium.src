@@ -58,6 +58,10 @@ struct DraggableRegion;
 class AppWindowContents {
  public:
   AppWindowContents() {}
+
+  AppWindowContents(const AppWindowContents&) = delete;
+  AppWindowContents& operator=(const AppWindowContents&) = delete;
+
   virtual ~AppWindowContents() {}
 
   // Called to initialize the WebContents, before the app window is created.
@@ -81,9 +85,6 @@ class AppWindowContents {
   virtual content::WebContents* GetWebContents() const = 0;
 
   virtual extensions::WindowController* GetWindowController() const = 0;
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(AppWindowContents);
 };
 
 // AppWindow is the type of window used by platform apps. App windows
@@ -251,6 +252,9 @@ class AppWindow : public content::WebContentsDelegate,
   AppWindow(content::BrowserContext* context,
             AppDelegate* app_delegate,
             const Extension* extension);
+
+  AppWindow(const AppWindow&) = delete;
+  AppWindow& operator=(const AppWindow&) = delete;
 
   // Initializes the render interface, web contents, and native window.
   // |app_window_contents| will become owned by AppWindow.
@@ -633,8 +637,6 @@ class AppWindow : public content::WebContentsDelegate,
   bool did_finish_first_navigation_ = false;
 
   base::WeakPtrFactory<AppWindow> image_loader_ptr_factory_{this};
-
-  DISALLOW_COPY_AND_ASSIGN(AppWindow);
 };
 
 }  // namespace extensions

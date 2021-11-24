@@ -38,6 +38,7 @@
 #include "base/threading/thread_restrictions.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/time/time.h"
+#include "base/trace_event/typed_macros.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "components/tracing/common/tracing_switches.h"
@@ -100,10 +101,6 @@
 #include "content/public/common/content_paths.h"
 #include "testing/android/native_test/native_browser_test_support.h"
 #include "ui/base/ui_base_paths.h"
-
-#ifdef V8_USE_EXTERNAL_STARTUP_DATA
-#include "gin/v8_initializer.h"  // nogncheck
-#endif
 #endif
 
 #if defined(OS_MAC)
@@ -587,10 +584,6 @@ void BrowserTestBase::SetUp() {
   base::i18n::AllowMultipleInitializeCallsForTesting();
   base::i18n::InitializeICU();
 
-#ifdef V8_USE_EXTERNAL_STARTUP_DATA
-  gin::V8Initializer::LoadV8Snapshot();
-#endif
-
   ContentMainDelegate* delegate = GetContentMainDelegateForTesting();
   // The delegate should have been set by JNI_OnLoad for the test target.
   DCHECK(delegate);
@@ -707,7 +700,7 @@ void BrowserTestBase::SetUp() {
 
   // Like in BrowserMainLoop::ShutdownThreadsAndCleanUp(), allow IO during main
   // thread tear down.
-  base::ThreadRestrictions::SetIOAllowed(true);
+  base::PermanentThreadAllowance::AllowBlocking();
 
   base::PostTaskAndroid::SignalNativeSchedulerShutdownForTesting();
   BrowserTaskExecutor::Shutdown();
@@ -774,7 +767,7 @@ void BrowserTestBase::WaitUntilJavaIsReady(
     return;
   }
 
-  base::TimeDelta retry_interval = base::TimeDelta::FromMilliseconds(100);
+  base::TimeDelta retry_interval = base::Milliseconds(100);
   base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
       FROM_HERE,
       base::BindOnce(&BrowserTestBase::WaitUntilJavaIsReady,
@@ -869,7 +862,10 @@ void BrowserTestBase::ProxyRunTestOnMainThreadLoop() {
     InitializeNetworkProcess();
 
     {
-      TRACE_EVENT0("test", "RunTestOnMainThread");
+      auto* test = ::testing::UnitTest::GetInstance()->current_test_info();
+      TRACE_EVENT("test", "RunTestOnMainThread", "test_name",
+                  test->test_suite_name() + std::string(".") + test->name(),
+                  "file", test->file(), "line", test->line());
       base::ScopedDisallowBlocking disallow_blocking;
       RunTestOnMainThread();
     }
@@ -1002,7 +998,9 @@ void BrowserTestBase::InitializeNetworkProcess() {
       if ((rule.resolver_type !=
                net::RuleBasedHostResolverProc::Rule::kResolverTypeSystem &&
            rule.resolver_type !=
-               net::RuleBasedHostResolverProc::Rule::kResolverTypeIPLiteral) ||
+               net::RuleBasedHostResolverProc::Rule::kResolverTypeIPLiteral &&
+           rule.resolver_type != net::RuleBasedHostResolverProc::Rule::
+                                     kResolverTypeFailHTTPSServiceFormRecord) ||
           rule.address_family !=
               net::AddressFamily::ADDRESS_FAMILY_UNSPECIFIED ||
           !!rule.latency_ms) {
@@ -1015,6 +1013,11 @@ void BrowserTestBase::InitializeNetworkProcess() {
             rule.replacement.empty()
                 ? network::mojom::ResolverType::kResolverTypeDirectLookup
                 : network::mojom::ResolverType::kResolverTypeSystem;
+      } else if (rule.resolver_type ==
+                 net::RuleBasedHostResolverProc::Rule::
+                     kResolverTypeFailHTTPSServiceFormRecord) {
+        mojo_rule->resolver_type = network::mojom::ResolverType::
+            kResolverTypeFailHTTPSServiceFormRecord;
       } else {
         mojo_rule->resolver_type =
             network::mojom::ResolverType::kResolverTypeIPLiteral;

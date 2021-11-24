@@ -43,7 +43,7 @@
 #include "third_party/blink/public/web/blink.h"
 #include "third_party/blink/public/web/web_frame.h"
 #include "third_party/blink/public/web/web_v8_features.h"
-#include "v8/include/v8.h"
+#include "v8/include/v8-initialization.h"
 
 #if defined(OS_WIN)
 #include "base/win/win_util.h"
@@ -273,8 +273,7 @@ RenderProcessImpl::RenderProcessImpl()
 #endif  // defined(OS_MAC) && defined(ARCH_CPU_X86_64)
 
   if (!command_line->HasSwitch("nwjs-guest")) {
-    VLOG(1) << "Enabling --no-untrusted-code-mitigations for trusted process.";
-    std::string flags("--no-untrusted-code-mitigations --allow_natives_syntax");
+    std::string flags("--allow-natives-syntax");
     v8::V8::SetFlagsFromString(flags.c_str(), static_cast<size_t>(flags.size()));
   }
 

@@ -19,10 +19,11 @@
 #include "ui/wm/core/window_util.h"
 #endif
 
-ContentsWebView::ContentsWebView(content::BrowserContext* browser_context, bool transparent)
+ContentsWebView::ContentsWebView(content::BrowserContext* browser_context,
+                                 bool transparent)
     : views::WebView(browser_context),
-      status_bubble_(nullptr), transparent_(transparent) {
-}
+      status_bubble_(nullptr),
+      transparent_(transparent) {}
 
 ContentsWebView::~ContentsWebView() {
 }
@@ -71,6 +72,7 @@ void ContentsWebView::UpdateBackgroundColor() {
 
   const SkColor ntp_background = color_utils::GetResultingPaintColor(
       theme->GetColor(ThemeProperties::COLOR_NTP_BACKGROUND), SK_ColorWHITE);
+
   if (transparent_)
     SetBackground(views::CreateSolidBackground(SK_ColorTRANSPARENT));
   else

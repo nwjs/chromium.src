@@ -111,6 +111,11 @@ class ChromeXrIntegrationClient;
 class ChromeContentBrowserClient : public content::ContentBrowserClient {
  public:
   ChromeContentBrowserClient();
+
+  ChromeContentBrowserClient(const ChromeContentBrowserClient&) = delete;
+  ChromeContentBrowserClient& operator=(const ChromeContentBrowserClient&) =
+      delete;
+
   ~ChromeContentBrowserClient() override;
 
   // TODO(https://crbug.com/787567): This file is about calls from content/ out
@@ -216,13 +221,17 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   bool ShouldAssignSiteForURL(const GURL& url) override;
   std::vector<url::Origin> GetOriginsRequiringDedicatedProcess() override;
   bool ShouldEnableStrictSiteIsolation() override;
-  bool ShouldDisableSiteIsolation() override;
+  bool ShouldDisableSiteIsolation(
+      content::SiteIsolationMode site_isolation_mode) override;
   std::vector<std::string> GetAdditionalSiteIsolationModes() override;
   void PersistIsolatedOrigin(
       content::BrowserContext* context,
       const url::Origin& origin,
       content::ChildProcessSecurityPolicy::IsolatedOriginSource source)
       override;
+  bool ShouldUrlUseApplicationIsolationLevel(
+      content::BrowserContext* browser_context,
+      const GURL& url) override;
   bool IsFileAccessAllowed(const base::FilePath& path,
                            const base::FilePath& absolute_path,
                            const base::FilePath& profile_path) override;
@@ -346,6 +355,8 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   content::TtsControllerDelegate* GetTtsControllerDelegate() override;
 #endif
+  void MaybeOverrideManifest(content::RenderFrameHost* render_frame_host,
+                             blink::mojom::ManifestPtr& manifest) override;
   content::TtsPlatform* GetTtsPlatform() override;
   void OverrideWebkitPrefs(content::WebContents* web_contents,
                            blink::web_pref::WebPreferences* prefs) override;
@@ -600,6 +611,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       int frame_tree_node_id,
       content::NavigationUIData* navigation_data,
       bool is_main_frame,
+      network::mojom::WebSandboxFlags sandbox_flags,
       ui::PageTransition page_transition,
       bool has_user_gesture,
       const absl::optional<url::Origin>& initiating_origin,
@@ -622,6 +634,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
                                      int64_t sent_bytes) override;
   base::FilePath GetSandboxedStorageServiceDataDirectory() override;
   bool ShouldSandboxAudioService() override;
+  bool ShouldSandboxNetworkService() override;
 
   void LogWebFeatureForCurrentPage(content::RenderFrameHost* render_frame_host,
                                    blink::mojom::WebFeature feature) override;
@@ -651,7 +664,6 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       content::BrowserContext* browser_context) override;
 
   void AugmentNavigationDownloadPolicy(
-      content::WebContents* web_contents,
       content::RenderFrameHost* frame_host,
       bool user_gesture,
       blink::NavigationDownloadPolicy* download_policy) override;
@@ -863,8 +875,6 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
 #endif
 
   base::WeakPtrFactory<ChromeContentBrowserClient> weak_factory_{this};
-
-  DISALLOW_COPY_AND_ASSIGN(ChromeContentBrowserClient);
 };
 
 #endif  // CHROME_BROWSER_CHROME_CONTENT_BROWSER_CLIENT_H_

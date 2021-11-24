@@ -50,6 +50,7 @@
 #include "content/public/browser/service_worker_version_base_info.h"
 #include "media/mojo/buildflags.h"
 #include "mojo/public/cpp/bindings/binder_map.h"
+#include "pdf/buildflags.h"
 #include "printing/buildflags/buildflags.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_registry.h"
 #include "third_party/widevine/cdm/buildflags.h"
@@ -99,6 +100,9 @@
 #include "chrome/browser/badging/badge_manager.h"
 #include "chrome/browser/sync/sync_encryption_keys_tab_helper.h"
 #include "chrome/browser/ui/search/search_tab_helper.h"
+#endif
+
+#if BUILDFLAG(ENABLE_PDF)
 #include "components/pdf/browser/pdf_web_contents_helper.h"  // nogncheck
 #endif
 
@@ -473,7 +477,7 @@ bool ChromeContentBrowserClient::BindAssociatedReceiverFromFrame(
         render_frame_host);
     return true;
   }
-#if !defined(OS_ANDROID)
+#if BUILDFLAG(ENABLE_PDF)
   if (interface_name == pdf::mojom::PdfService::Name_) {
     pdf::PDFWebContentsHelper::BindPdfService(
         mojo::PendingAssociatedReceiver<pdf::mojom::PdfService>(
@@ -481,6 +485,8 @@ bool ChromeContentBrowserClient::BindAssociatedReceiverFromFrame(
         render_frame_host);
     return true;
   }
+#endif
+#if !defined(OS_ANDROID)
   if (interface_name == search::mojom::EmbeddedSearchConnector::Name_) {
     SearchTabHelper::BindEmbeddedSearchConnecter(
         mojo::PendingAssociatedReceiver<search::mojom::EmbeddedSearchConnector>(

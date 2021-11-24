@@ -45,6 +45,7 @@
 
 #if !defined(OS_ANDROID)
 #include "chrome/browser/lifetime/termination_notification.h"
+#include "chrome/browser/sessions/exit_type_service.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
@@ -53,8 +54,8 @@
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
+#include "chrome/browser/ash/boot_times_recorder.h"
 #include "chrome/browser/ash/settings/cros_settings.h"
-#include "chrome/browser/chromeos/boot_times_recorder.h"
 #include "chromeos/dbus/power/power_policy_controller.h"
 #include "third_party/cros_system_api/dbus/service_constants.h"
 #include "ui/aura/env.h"
@@ -206,9 +207,12 @@ void AttemptRestartInternal(IgnoreUnloadHandlers ignore_unload_handlers) {
 
 #if !defined(OS_ANDROID)
 void MarkAsCleanShutdown() {
-  // TODO(beng): Can this use ProfileManager::GetLoadedProfiles() instead?
-  for (auto* browser : *BrowserList::GetInstance())
-    browser->profile()->SetExitType(Profile::EXIT_NORMAL);
+  for (auto* browser : *BrowserList::GetInstance()) {
+    if (ExitTypeService* exit_type_service =
+            ExitTypeService::GetInstanceForProfile(browser->profile())) {
+      exit_type_service->SetCurrentSessionExitType(ExitType::kClean);
+    }
+  }
 }
 #endif
 
@@ -423,8 +427,7 @@ void SessionEnding() {
   // the same time or they would interfere with each other.
   absl::optional<ShutdownWatcherHelper> shutdown_watcher;
   absl::optional<base::WatchHangsInScope> watch_hangs_scope;
-  constexpr base::TimeDelta kShutdownHangDelay{
-      base::TimeDelta::FromSeconds(90)};
+  constexpr base::TimeDelta kShutdownHangDelay{base::Seconds(90)};
   if (base::HangWatcher::IsCrashReportingEnabled()) {
     // Use ShutdownWatcherHelper logic to choose delay to get identical
     // behavior.

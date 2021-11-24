@@ -14,7 +14,7 @@
 #include "components/password_manager/core/browser/sync/password_proto_utils.h"
 #include "components/sync/protocol/list_passwords_result.pb.h"
 
-using TaskId = PasswordStoreAndroidBackendBridgeImpl::TaskId;
+using JobId = PasswordStoreAndroidBackendBridgeImpl::JobId;
 
 namespace {
 
@@ -50,27 +50,37 @@ PasswordStoreAndroidBackendBridgeImpl::
   Java_PasswordStoreAndroidBackendBridgeImpl_destroy(
       base::android::AttachCurrentThread(), java_object_);
 }
-void PasswordStoreAndroidBackendBridgeImpl::SetConsumer(Consumer* consumer) {
+void PasswordStoreAndroidBackendBridgeImpl::SetConsumer(
+    base::WeakPtr<Consumer> consumer) {
   consumer_ = consumer;
 }
 
 void PasswordStoreAndroidBackendBridgeImpl::OnCompleteWithLogins(
     JNIEnv* env,
-    jint task_id,
+    jint job_id,
     const base::android::JavaParamRef<jbyteArray>& passwords) {
   DCHECK(consumer_);
-  consumer_->OnCompleteWithLogins(TaskId(task_id),
-                                  CreateFormsVector(passwords));
+  consumer_->OnCompleteWithLogins(JobId(job_id), CreateFormsVector(passwords));
 }
 
-TaskId PasswordStoreAndroidBackendBridgeImpl::GetAllLogins() {
-  TaskId task_id = GetNextTaskId();
+void PasswordStoreAndroidBackendBridgeImpl::OnError(JNIEnv* env, jint job_id) {
+  DCHECK(consumer_);
+  // Posting the tasks to the same sequence prevents that synchronous responses
+  // try to finish tasks before their registration was completed.
+  base::SequencedTaskRunnerHandle::Get()->PostTask(
+      FROM_HERE,
+      base::BindOnce(&PasswordStoreAndroidBackendBridge::Consumer::OnError,
+                     consumer_, JobId(job_id)));
+}
+
+JobId PasswordStoreAndroidBackendBridgeImpl::GetAllLogins() {
+  JobId job_id = GetNextJobId();
   Java_PasswordStoreAndroidBackendBridgeImpl_getAllLogins(
-      base::android::AttachCurrentThread(), java_object_, task_id.value());
-  return task_id;
+      base::android::AttachCurrentThread(), java_object_, job_id.value());
+  return job_id;
 }
 
-TaskId PasswordStoreAndroidBackendBridgeImpl::GetNextTaskId() {
-  last_task_id_ = TaskId(last_task_id_.value() + 1);
-  return last_task_id_;
+JobId PasswordStoreAndroidBackendBridgeImpl::GetNextJobId() {
+  last_job_id_ = JobId(last_job_id_.value() + 1);
+  return last_job_id_;
 }

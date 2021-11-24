@@ -240,6 +240,11 @@ class TabsCaptureVisibleTabFunction
       public ExtensionFunction {
  public:
   TabsCaptureVisibleTabFunction();
+
+  TabsCaptureVisibleTabFunction(const TabsCaptureVisibleTabFunction&) = delete;
+  TabsCaptureVisibleTabFunction& operator=(
+      const TabsCaptureVisibleTabFunction&) = delete;
+
   static void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry);
 
   static void set_disable_throttling_for_tests(
@@ -278,8 +283,6 @@ class TabsCaptureVisibleTabFunction
   static std::string CaptureResultToErrorMessage(CaptureResult result);
 
   static bool disable_throttling_for_test_;
-
-  DISALLOW_COPY_AND_ASSIGN(TabsCaptureVisibleTabFunction);
 };
 
 // Implement API calls tabs.executeScript, tabs.insertCSS, and tabs.removeCSS.
@@ -381,13 +384,14 @@ class TabsDiscardFunction : public ExtensionFunction {
 
   TabsDiscardFunction();
 
+  TabsDiscardFunction(const TabsDiscardFunction&) = delete;
+  TabsDiscardFunction& operator=(const TabsDiscardFunction&) = delete;
+
  private:
   ~TabsDiscardFunction() override;
 
   // ExtensionFunction:
   ExtensionFunction::ResponseAction Run() override;
-
-  DISALLOW_COPY_AND_ASSIGN(TabsDiscardFunction);
 };
 
 class TabsGoForwardFunction : public ExtensionFunction {
@@ -396,13 +400,14 @@ class TabsGoForwardFunction : public ExtensionFunction {
 
   TabsGoForwardFunction() {}
 
+  TabsGoForwardFunction(const TabsGoForwardFunction&) = delete;
+  TabsGoForwardFunction& operator=(const TabsGoForwardFunction&) = delete;
+
  private:
   ~TabsGoForwardFunction() override {}
 
   // ExtensionFunction:
   ExtensionFunction::ResponseAction Run() override;
-
-  DISALLOW_COPY_AND_ASSIGN(TabsGoForwardFunction);
 };
 
 class TabsGoBackFunction : public ExtensionFunction {
@@ -411,13 +416,14 @@ class TabsGoBackFunction : public ExtensionFunction {
 
   TabsGoBackFunction() {}
 
+  TabsGoBackFunction(const TabsGoBackFunction&) = delete;
+  TabsGoBackFunction& operator=(const TabsGoBackFunction&) = delete;
+
  private:
   ~TabsGoBackFunction() override {}
 
   // ExtensionFunction:
   ExtensionFunction::ResponseAction Run() override;
-
-  DISALLOW_COPY_AND_ASSIGN(TabsGoBackFunction);
 };
 
 }  // namespace extensions

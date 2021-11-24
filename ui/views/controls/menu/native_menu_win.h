@@ -28,6 +28,10 @@ class VIEWS_EXPORT NativeMenuWin {
   // is non-NULL, the NativeMenuWin wraps the system menu for that window.
   // The caller owns the model and the delegate.
   NativeMenuWin(ui::MenuModel* model, HWND system_menu_for);
+
+  NativeMenuWin(const NativeMenuWin&) = delete;
+  NativeMenuWin& operator=(const NativeMenuWin&) = delete;
+
   ~NativeMenuWin();
 
   void Rebuild(MenuInsertionDelegateWin* delegate);
@@ -105,8 +109,6 @@ class VIEWS_EXPORT NativeMenuWin {
 
   // A flag to indicate whether to create a menubar or popupmenu.
   bool is_popup_menu_;
-
-  DISALLOW_COPY_AND_ASSIGN(NativeMenuWin);
 };
 
 }  // namespace views

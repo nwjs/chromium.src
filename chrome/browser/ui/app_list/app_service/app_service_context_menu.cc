@@ -5,17 +5,18 @@
 #include "chrome/browser/ui/app_list/app_service/app_service_context_menu.h"
 
 #include "ash/public/cpp/app_menu_constants.h"
+#include "ash/public/cpp/new_window_delegate.h"
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/callback_helpers.h"
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/apps/app_service/menu_util.h"
+#include "chrome/browser/ash/app_restore/full_restore_service.h"
 #include "chrome/browser/ash/crosapi/browser_manager.h"
 #include "chrome/browser/ash/crostini/crostini_manager.h"
 #include "chrome/browser/ash/crostini/crostini_terminal.h"
 #include "chrome/browser/ash/crostini/crostini_util.h"
-#include "chrome/browser/ash/full_restore/full_restore_service.h"
 #include "chrome/browser/ash/plugin_vm/plugin_vm_manager.h"
 #include "chrome/browser/ash/plugin_vm/plugin_vm_manager_factory.h"
 #include "chrome/browser/ash/plugin_vm/plugin_vm_util.h"
@@ -26,10 +27,13 @@
 #include "chrome/browser/ui/app_list/app_context_menu_delegate.h"
 #include "chrome/browser/ui/app_list/app_list_controller_delegate.h"
 #include "chrome/browser/ui/app_list/extension_app_utils.h"
+#include "chrome/browser/ui/ash/shelf/standalone_browser_extension_app_context_menu.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/webui/settings/chromeos/app_management/app_management_uma.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/services/app_service/public/cpp/types_util.h"
+#include "content/public/browser/browser_task_traits.h"
+#include "content/public/browser/browser_thread.h"
 #include "content/public/browser/context_menu_params.h"
 #include "ui/display/scoped_display_for_new_windows.h"
 #include "ui/gfx/vector_icon_types.h"
@@ -58,6 +62,18 @@ apps::mojom::WindowMode ConvertUseLaunchTypeCommandToWindowMode(
   }
 }
 
+void CreateNewWindow(bool incognito, bool post_task) {
+  if (post_task) {
+    content::GetUIThreadTaskRunner({})->PostTask(
+        FROM_HERE,
+        base::BindOnce(CreateNewWindow, incognito, /*post_task=*/false));
+    return;
+  }
+
+  ash::NewWindowDelegate::GetInstance()->NewWindow(
+      incognito, /*should_trigger_session_restore=*/false);
+}
+
 }  // namespace
 
 AppServiceContextMenu::AppServiceContextMenu(
@@ -70,9 +86,14 @@ AppServiceContextMenu::AppServiceContextMenu(
       ->AppRegistryCache()
       .ForOneApp(app_id, [this](const apps::AppUpdate& update) {
         app_type_ = apps_util::IsInstalled(update.Readiness())
-                        ? app_type_ = update.AppType()
+                        ? update.AppType()
                         : apps::mojom::AppType::kUnknown;
       });
+
+  if (app_type_ == apps::mojom::AppType::kStandaloneBrowserExtension) {
+    standalone_browser_extension_menu_ =
+        std::make_unique<StandaloneBrowserExtensionAppContextMenu>(app_id);
+  }
 }
 
 AppServiceContextMenu::~AppServiceContextMenu() = default;
@@ -80,9 +101,15 @@ AppServiceContextMenu::~AppServiceContextMenu() = default;
 void AppServiceContextMenu::GetMenuModel(GetMenuModelCallback callback) {
   apps::AppServiceProxyChromeOs* proxy =
       apps::AppServiceProxyFactory::GetForProfile(profile());
-  if (proxy->AppRegistryCache().GetAppType(app_id()) ==
-      apps::mojom::AppType::kUnknown) {
+  if (app_type_ == apps::mojom::AppType::kUnknown) {
     std::move(callback).Run(nullptr);
+    return;
+  }
+
+  // StandaloneBrowserExtension handles its own context menus. Forward to that
+  // class.
+  if (app_type_ == apps::mojom::AppType::kStandaloneBrowserExtension) {
+    standalone_browser_extension_menu_->GetMenuModel(std::move(callback));
     return;
   }
 
@@ -94,6 +121,13 @@ void AppServiceContextMenu::GetMenuModel(GetMenuModelCallback callback) {
 }
 
 void AppServiceContextMenu::ExecuteCommand(int command_id, int event_flags) {
+  // StandaloneBrowserExtension handles its own context menus. Forward to that
+  // class.
+  if (standalone_browser_extension_menu_) {
+    standalone_browser_extension_menu_->ExecuteCommand(command_id, event_flags);
+    return;
+  }
+
   // Place new windows on the same display as the context menu.
   display::ScopedDisplayForNewWindows scoped_display(
       controller()->GetAppListDisplayId());
@@ -130,11 +164,13 @@ void AppServiceContextMenu::ExecuteCommand(int command_id, int event_flags) {
     case ash::APP_CONTEXT_MENU_NEW_INCOGNITO_WINDOW: {
       const bool is_incognito =
           command_id == ash::APP_CONTEXT_MENU_NEW_INCOGNITO_WINDOW;
-      if (app_type_ == apps::mojom::AppType::kStandaloneBrowser)
+      if (app_type_ == apps::mojom::AppType::kStandaloneBrowser) {
         crosapi::BrowserManager::Get()->NewWindow(is_incognito);
-      else
-        controller()->CreateNewWindow(is_incognito,
-                                      /*should_trigger_session_restore=*/false);
+      } else {
+        // Create browser asynchronously to prevent this AppServiceContextMenu
+        // object to be deleted when the browser window is shown.
+        CreateNewWindow(is_incognito, /*post_task=*/true);
+      }
       ash::full_restore::FullRestoreService::MaybeCloseNotification(profile());
       break;
     }
@@ -183,6 +219,12 @@ void AppServiceContextMenu::ExecuteCommand(int command_id, int event_flags) {
 }
 
 bool AppServiceContextMenu::IsCommandIdChecked(int command_id) const {
+  // StandaloneBrowserExtension handles its own context menus. Forward to that
+  // class.
+  if (standalone_browser_extension_menu_) {
+    return standalone_browser_extension_menu_->IsCommandIdChecked(command_id);
+  }
+
   switch (app_type_) {
     case apps::mojom::AppType::kWeb:
       if (command_id >= ash::USE_LAUNCH_TYPE_COMMAND_START &&
@@ -229,6 +271,12 @@ bool AppServiceContextMenu::IsCommandIdChecked(int command_id) const {
 }
 
 bool AppServiceContextMenu::IsCommandIdEnabled(int command_id) const {
+  // StandaloneBrowserExtension handles its own context menus. Forward to that
+  // class.
+  if (standalone_browser_extension_menu_) {
+    return standalone_browser_extension_menu_->IsCommandIdEnabled(command_id);
+  }
+
   if (extensions::ContextMenuMatcher::IsExtensionsCustomCommandId(command_id) &&
       extension_menu_items_) {
     return extension_menu_items_->IsCommandIdEnabled(command_id);

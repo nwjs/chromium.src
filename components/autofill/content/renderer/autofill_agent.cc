@@ -10,6 +10,7 @@
 
 #include "base/bind.h"
 #include "base/command_line.h"
+#include "base/containers/cxx20_erase_set.h"
 #include "base/debug/alias.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
@@ -141,8 +142,9 @@ class AutofillAgent::DeferringAutofillDriver : public mojom::AutofillDriver {
       const absl::optional<FormData>& form) override {
     DeferMsg(&mojom::AutofillDriver::SetFormToBeProbablySubmitted, form);
   }
-  void FormsSeen(const std::vector<FormData>& forms) override {
-    DeferMsg(&mojom::AutofillDriver::FormsSeen, forms);
+  void FormsSeen(const std::vector<FormData>& updated_forms,
+                 const std::vector<FormRendererId>& removed_forms) override {
+    DeferMsg(&mojom::AutofillDriver::FormsSeen, updated_forms, removed_forms);
   }
   void FormSubmitted(const FormData& form,
                      bool known_success,
@@ -505,7 +507,7 @@ void AutofillAgent::TriggerRefillIfNeeded(const FormData& form) {
     forms.push_back(updated_form);
     // Always communicate to browser process for topmost frame.
     if (!forms.empty() || !frame->Parent()) {
-      GetAutofillDriver().FormsSeen(forms);
+      GetAutofillDriver().FormsSeen(forms, {});
     }
   }
 }
@@ -857,9 +859,9 @@ void AutofillAgent::GetElementFormAndFieldDataAtIndex(
   return std::move(callback).Run(form, field);
 }
 
-void AutofillAgent::SetAssistantActionState(bool running) {
+void AutofillAgent::SetAssistantKeyboardSuppressState(bool suppress) {
   DCHECK(autofill_assistant_agent_);
-  if (running) {
+  if (suppress) {
     autofill_assistant_agent_->DisableKeyboard();
   } else {
     autofill_assistant_agent_->EnableKeyboard();
@@ -950,20 +952,21 @@ void AutofillAgent::DoPreviewFieldWithValue(const std::u16string& value,
 
 void AutofillAgent::TriggerReparse() {
   if (!reparse_timer_.IsRunning()) {
-    reparse_timer_.Start(FROM_HERE, base::TimeDelta::FromMilliseconds(100),
+    reparse_timer_.Start(FROM_HERE, base::Milliseconds(100),
                          base::BindRepeating(&AutofillAgent::ProcessForms,
                                              weak_ptr_factory_.GetWeakPtr()));
   }
 }
 
 void AutofillAgent::ProcessForms() {
-  WebLocalFrame* frame = render_frame()->GetWebFrame();
-  std::vector<FormData> forms =
+  FormCache::UpdateFormCacheResult cache =
       form_cache_.ExtractNewForms(field_data_manager_.get());
 
   // Always communicate to browser process for topmost frame.
-  if (!forms.empty() || !frame->Parent()) {
-    GetAutofillDriver().FormsSeen(forms);
+  if (!cache.updated_forms.empty() ||
+      !render_frame()->GetWebFrame()->Parent()) {
+    GetAutofillDriver().FormsSeen(cache.updated_forms,
+                                  std::move(cache.removed_forms).extract());
   }
 }
 
@@ -1043,8 +1046,7 @@ void AutofillAgent::SelectFieldOptionsChanged(
   // Start the timer to notify the driver that the select field was updated
   // after the options have finished changing,
   on_select_update_timer_.Start(
-      FROM_HERE,
-      base::TimeDelta::FromMilliseconds(kWaitTimeForSelectOptionsChangesMs),
+      FROM_HERE, base::Milliseconds(kWaitTimeForSelectOptionsChangesMs),
       base::BindRepeating(&AutofillAgent::SelectWasUpdated,
                           weak_ptr_factory_.GetWeakPtr(), element));
 }
@@ -1159,15 +1161,17 @@ void AutofillAgent::OnProvisionallySaveForm(
     if (!element.Form().IsNull()) {
       UpdateLastInteractedForm(element.Form());
     } else {
-      // Remove invisible elements
-      WebLocalFrame* frame = render_frame()->GetWebFrame();
-      for (auto it = formless_elements_user_edited_.begin();
-           it != formless_elements_user_edited_.end();) {
-        if (form_util::IsFormControlVisible(frame, *it)) {
-          it = formless_elements_user_edited_.erase(it);
-        } else {
-          ++it;
-        }
+      // Remove visible elements.
+      WebDocument doc = render_frame()->GetWebFrame()->GetDocument();
+      if (!doc.IsNull()) {
+        base::EraseIf(
+            formless_elements_user_edited_,
+            [&doc](const FieldRendererId field_id) {
+              WebFormControlElement field =
+                  form_util::FindFormControlElementByUniqueRendererId(
+                      doc, field_id, /*form_to_be_searched =*/FormRendererId());
+              return !field.IsNull() && form_util::IsWebElementVisible(field);
+            });
       }
       formless_elements_user_edited_.insert(
           FieldRendererId(element.UniqueRendererFormControlId()));
@@ -1182,14 +1186,15 @@ void AutofillAgent::OnProvisionallySaveForm(
     if (source == ElementChangeSource::TEXTFIELD_CHANGED) {
       OnTextFieldDidChange(*ToWebInputElement(&element));
     } else {
-      FormData form;
+      FormData form_data;
       FormFieldData field;
       if (FindFormAndFieldForFormControlElement(
               element, field_data_manager_.get(),
               static_cast<ExtractMask>(form_util::EXTRACT_BOUNDS |
                                        GetExtractDatalistMask()),
-              &form, &field)) {
-        GetAutofillDriver().SelectControlDidChange(form, field, field.bounds);
+              &form_data, &field)) {
+        GetAutofillDriver().SelectControlDidChange(form_data, field,
+                                                   field.bounds);
       }
     }
   }

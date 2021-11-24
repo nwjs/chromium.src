@@ -7,7 +7,6 @@
 
 #include <stdint.h>
 
-#include <memory>
 #include <vector>
 
 #include "base/containers/flat_set.h"
@@ -17,11 +16,6 @@
 #include "pdf/pdf_engine.h"
 #include "pdf/pdfium/pdfium_engine.h"
 #include "testing/gmock/include/gmock/gmock.h"
-#include "third_party/blink/public/common/input/web_mouse_event.h"
-
-namespace blink {
-class WebInputEvent;
-}  // namespace blink
 
 namespace chrome_pdf {
 
@@ -41,13 +35,19 @@ class TestPDFiumEngine : public PDFiumEngine {
 
   ~TestPDFiumEngine() override;
 
+  MOCK_METHOD(void, PageOffsetUpdated, (const gfx::Vector2d&), (override));
+
+  MOCK_METHOD(void, PluginSizeUpdated, (const gfx::Size&), (override));
+
+  MOCK_METHOD(void, ScrolledToXPosition, (int), (override));
+  MOCK_METHOD(void, ScrolledToYPosition, (int), (override));
+
+  MOCK_METHOD(void, ZoomUpdated, (double), (override));
+
   MOCK_METHOD(gfx::Size,
               ApplyDocumentLayout,
               (const DocumentLayout::Options&),
               (override));
-
-  // Sets a scaled mouse event for testing.
-  bool HandleInputEvent(const blink::WebInputEvent& scaled_event) override;
 
   bool HasPermission(DocumentPermission permission) const override;
 
@@ -61,13 +61,13 @@ class TestPDFiumEngine : public PDFiumEngine {
   // Returns an empty bookmark list.
   base::Value GetBookmarks() override;
 
+  MOCK_METHOD(void, SetGrayscale, (bool), (override));
+
   uint32_t GetLoadedByteSize() override;
 
   bool ReadLoadedBytes(uint32_t length, void* buffer) override;
 
   std::vector<uint8_t> GetSaveData() override;
-
-  const blink::WebMouseEvent* GetScaledMouseEvent() const;
 
   void SetPermissions(const std::vector<DocumentPermission>& permissions);
 
@@ -82,8 +82,6 @@ class TestPDFiumEngine : public PDFiumEngine {
   std::vector<DocumentAttachmentInfo> doc_attachment_info_list_;
 
   DocumentMetadata metadata_;
-
-  std::unique_ptr<blink::WebMouseEvent> scaled_mouse_event_;
 
   base::flat_set<DocumentPermission> permissions_;
 };

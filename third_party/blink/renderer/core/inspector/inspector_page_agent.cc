@@ -1242,6 +1242,8 @@ protocol::Page::OriginTrialTokenStatus CreateOriginTrialTokenStatus(
       return protocol::Page::OriginTrialTokenStatusEnum::TokenDisabled;
     case blink::OriginTrialTokenStatus::kFeatureDisabledForUser:
       return protocol::Page::OriginTrialTokenStatusEnum::FeatureDisabledForUser;
+    case blink::OriginTrialTokenStatus::kUnknownTrial:
+      return protocol::Page::OriginTrialTokenStatusEnum::UnknownTrial;
   }
 }
 

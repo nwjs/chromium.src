@@ -15,12 +15,14 @@
 #include "chrome/browser/net/stub_resolver_config_reader.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/renderer_preferences_util.h"
+#include "chrome/browser/safe_browsing/safe_browsing_metrics_collector_factory.h"
 #include "chrome/browser/ssl/https_only_mode_controller_client.h"
 #include "chrome/browser/ssl/insecure_form/insecure_form_controller_client.h"
 #include "chrome/browser/ssl/ssl_error_controller_client.h"
 #include "chrome/browser/ssl/stateful_ssl_host_state_delegate_factory.h"
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/common/channel_info.h"
+#include "components/safe_browsing/core/browser/safe_browsing_metrics_collector.h"
 #include "components/security_interstitials/content/content_metrics_helper.h"
 #include "components/security_interstitials/content/settings_page_helper.h"
 #include "components/security_interstitials/content/ssl_blocking_page.h"
@@ -140,6 +142,15 @@ CreateSettingsPageHelper() {
       CreateChromeSettingsPageHelper();
 }
 
+void LogSafeBrowsingSecuritySensitiveAction(
+    safe_browsing::SafeBrowsingMetricsCollector* metrics_collector) {
+  if (metrics_collector) {
+    metrics_collector->AddSafeBrowsingEventToPref(
+        safe_browsing::SafeBrowsingMetricsCollector::EventType::
+            SECURITY_SENSITIVE_SSL_INTERSTITIAL);
+  }
+}
+
 }  // namespace
 
 std::unique_ptr<SSLBlockingPage>
@@ -180,7 +191,11 @@ ChromeSecurityBlockingPageFactory::CreateSSLPage(
           is_recurrent_error);
     }
   }
-
+#if 0
+  LogSafeBrowsingSecuritySensitiveAction(
+      safe_browsing::SafeBrowsingMetricsCollectorFactory::GetForProfile(
+          Profile::FromBrowserContext(web_contents->GetBrowserContext())));
+#endif
   auto controller_client = std::make_unique<SSLErrorControllerClient>(
       web_contents, ssl_info, cert_error, request_url,
       std::move(metrics_helper), CreateSettingsPageHelper());
@@ -249,6 +264,12 @@ ChromeSecurityBlockingPageFactory::CreateLegacyTLSBlockingPage(
     const GURL& request_url,
     std::unique_ptr<SSLCertReporter> ssl_cert_reporter,
     const net::SSLInfo& ssl_info) {
+#if 0
+  LogSafeBrowsingSecuritySensitiveAction(
+      safe_browsing::SafeBrowsingMetricsCollectorFactory::GetForProfile(
+          Profile::FromBrowserContext(web_contents->GetBrowserContext())));
+#endif
+
   auto page = std::make_unique<LegacyTLSBlockingPage>(
       web_contents, cert_error, request_url, std::move(ssl_cert_reporter),
       /*can_show_enhanced_protection_message=*/true, ssl_info,
@@ -270,6 +291,12 @@ ChromeSecurityBlockingPageFactory::CreateMITMSoftwareBlockingPage(
     std::unique_ptr<SSLCertReporter> ssl_cert_reporter,
     const net::SSLInfo& ssl_info,
     const std::string& mitm_software_name) {
+#if 0
+  LogSafeBrowsingSecuritySensitiveAction(
+      safe_browsing::SafeBrowsingMetricsCollectorFactory::GetForProfile(
+          Profile::FromBrowserContext(web_contents->GetBrowserContext())));
+#endif
+
   auto page = std::make_unique<MITMSoftwareBlockingPage>(
       web_contents, cert_error, request_url, std::move(ssl_cert_reporter),
       /*can_show_enhanced_protection_message=*/true, ssl_info,
@@ -291,6 +318,12 @@ ChromeSecurityBlockingPageFactory::CreateBlockedInterceptionBlockingPage(
     const GURL& request_url,
     std::unique_ptr<SSLCertReporter> ssl_cert_reporter,
     const net::SSLInfo& ssl_info) {
+#if 0
+  LogSafeBrowsingSecuritySensitiveAction(
+      safe_browsing::SafeBrowsingMetricsCollectorFactory::GetForProfile(
+          Profile::FromBrowserContext(web_contents->GetBrowserContext())));
+#endif
+
   auto page = std::make_unique<BlockedInterceptionBlockingPage>(
       web_contents, cert_error, request_url, std::move(ssl_cert_reporter),
       /*can_show_enhanced_protection_message=*/true, ssl_info,

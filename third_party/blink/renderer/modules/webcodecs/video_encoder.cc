@@ -425,18 +425,18 @@ void VideoEncoder::UpdateEncoderLog(std::string encoder_name,
       is_hw_accelerated);
 }
 
-std::unique_ptr<media::VideoEncoder> CreateAcceleratedVideoEncoder(
+std::unique_ptr<media::VideoEncoder>
+VideoEncoder::CreateAcceleratedVideoEncoder(
     media::VideoCodecProfile profile,
     const media::VideoEncoder::Options& options,
     media::GpuVideoAcceleratorFactories* gpu_factories) {
   if (!IsAcceleratedConfigurationSupported(profile, options, gpu_factories))
     return nullptr;
 
-  auto task_runner = Thread::Current()->GetTaskRunner();
   return std::make_unique<
       media::AsyncDestroyVideoEncoder<media::VideoEncodeAcceleratorAdapter>>(
-      std::make_unique<media::VideoEncodeAcceleratorAdapter>(
-          gpu_factories, std::move(task_runner)));
+      std::make_unique<media::VideoEncodeAcceleratorAdapter>(gpu_factories,
+                                                             callback_runner_));
 }
 
 std::unique_ptr<media::VideoEncoder> CreateVpxVideoEncoder() {
@@ -701,8 +701,7 @@ void VideoEncoder::ProcessEncode(Request* request) {
     if (!frame) {
       auto status = media::Status(media::StatusCode::kEncoderFailedEncode,
                                   "Can't readback frame textures.");
-      auto task_runner = Thread::Current()->GetTaskRunner();
-      task_runner->PostTask(
+      callback_runner_->PostTask(
           FROM_HERE,
           ConvertToBaseOnceCallback(CrossThreadBindOnce(
               done_callback, WrapCrossThreadWeakPersistent(this),
@@ -915,13 +914,9 @@ static void isConfigSupportedWithSoftwareOnly(
     DeleteLater(resolver->GetScriptState(), std::move(sw_encoder));
   };
 
-  auto output_callback = base::DoNothing::Repeatedly<
-      media::VideoEncoderOutput,
-      absl::optional<media::VideoEncoder::CodecDescription>>();
-
   auto* software_encoder_raw = software_encoder.get();
   software_encoder_raw->Initialize(
-      config->profile, config->options, std::move(output_callback),
+      config->profile, config->options, base::DoNothing(),
       ConvertToBaseOnceCallback(
           CrossThreadBindOnce(done_callback, std::move(software_encoder),
                               WrapCrossThreadPersistent(resolver),

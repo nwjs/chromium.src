@@ -815,38 +815,40 @@ void RTCVideoEncoder::Impl::RequestEncodingParametersChange(
            << ", framerate=" << parameters.framerate_fps;
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
+  // Destroy() against this has been called. Don't proceed the change request.
+  if (!video_encoder_)
+    return;
+
   // This is a workaround to zero being temporarily provided, as part of the
   // initial setup, by WebRTC.
-  if (video_encoder_) {
-    media::VideoBitrateAllocation allocation;
-    if (parameters.bitrate.get_sum_bps() == 0) {
-      allocation.SetBitrate(0, 0, 1);
-    }
-    uint32_t framerate =
-        std::max(1u, static_cast<uint32_t>(parameters.framerate_fps + 0.5));
+  media::VideoBitrateAllocation allocation;
+  if (parameters.bitrate.get_sum_bps() == 0) {
+    allocation.SetBitrate(0, 0, 1);
+  }
+  uint32_t framerate =
+      std::max(1u, static_cast<uint32_t>(parameters.framerate_fps + 0.5));
 
-    for (size_t spatial_id = 0;
-         spatial_id < media::VideoBitrateAllocation::kMaxSpatialLayers;
-         ++spatial_id) {
-      for (size_t temporal_id = 0;
-           temporal_id < media::VideoBitrateAllocation::kMaxTemporalLayers;
-           ++temporal_id) {
-        // TODO(sprang): Clean this up if/when webrtc struct moves to int.
-        uint32_t layer_bitrate =
-            parameters.bitrate.GetBitrate(spatial_id, temporal_id);
-        CHECK_LE(layer_bitrate,
-                 static_cast<uint32_t>(std::numeric_limits<int>::max()));
-        if (!allocation.SetBitrate(spatial_id, temporal_id, layer_bitrate)) {
-          LOG(WARNING) << "Overflow in bitrate allocation: "
-                       << parameters.bitrate.ToString();
-          break;
-        }
+  for (size_t spatial_id = 0;
+       spatial_id < media::VideoBitrateAllocation::kMaxSpatialLayers;
+       ++spatial_id) {
+    for (size_t temporal_id = 0;
+         temporal_id < media::VideoBitrateAllocation::kMaxTemporalLayers;
+         ++temporal_id) {
+      // TODO(sprang): Clean this up if/when webrtc struct moves to int.
+      uint32_t layer_bitrate =
+          parameters.bitrate.GetBitrate(spatial_id, temporal_id);
+      CHECK_LE(layer_bitrate,
+               static_cast<uint32_t>(std::numeric_limits<int>::max()));
+      if (!allocation.SetBitrate(spatial_id, temporal_id, layer_bitrate)) {
+        LOG(WARNING) << "Overflow in bitrate allocation: "
+                     << parameters.bitrate.ToString();
+        break;
       }
     }
-    DCHECK_EQ(allocation.GetSumBps(),
-              static_cast<int>(parameters.bitrate.get_sum_bps()));
-    video_encoder_->RequestEncodingParametersChange(allocation, framerate);
   }
+  DCHECK_EQ(allocation.GetSumBps(),
+            static_cast<int>(parameters.bitrate.get_sum_bps()));
+  video_encoder_->RequestEncodingParametersChange(allocation, framerate);
 }
 
 void RTCVideoEncoder::Impl::Destroy(SignaledValue event) {
@@ -1203,7 +1205,7 @@ void RTCVideoEncoder::Impl::EncodeOneFrame() {
   if (requires_copy) {
     const base::TimeDelta timestamp =
         frame ? frame->timestamp()
-              : base::TimeDelta::FromMilliseconds(next_frame->ntp_time_ms());
+              : base::Milliseconds(next_frame->ntp_time_ms());
     // TODO(https://crbug.com/1194500): Android (e.g. android-pie-arm64-rel)
     // and CrOS does not support the optimzed path, perhaps due to not
     // supporting STORAGE_GPU_MEMORY_BUFFER or NV12? When this is fixed, remove
@@ -1338,8 +1340,7 @@ void RTCVideoEncoder::Impl::EncodeOneFrameWithNativeInput() {
     frame = media::VideoFrame::WrapVideoFrame(
         black_gmb_frame_, black_gmb_frame_->format(),
         black_gmb_frame_->visible_rect(), black_gmb_frame_->natural_size());
-    frame->set_timestamp(
-        base::TimeDelta::FromMilliseconds(next_frame->ntp_time_ms()));
+    frame->set_timestamp(base::Milliseconds(next_frame->ntp_time_ms()));
   } else {
     frame = static_cast<WebRtcVideoFrameAdapter*>(
                 next_frame->video_frame_buffer().get())
@@ -1356,7 +1357,7 @@ void RTCVideoEncoder::Impl::EncodeOneFrameWithNativeInput() {
   constexpr int kDummyIndex = -1;
   frame->AddDestructionObserver(media::BindToCurrentLoop(
       WTF::Bind(&RTCVideoEncoder::Impl::EncodeFrameFinished,
-                CrossThreadUnretained(this), kDummyIndex)));
+                scoped_refptr<RTCVideoEncoder::Impl>(this), kDummyIndex)));
   if (!failed_timestamp_match_) {
     DCHECK(std::find_if(pending_timestamps_.begin(), pending_timestamps_.end(),
                         [&frame](const RTCTimestamps& entry) {
@@ -1400,6 +1401,10 @@ bool RTCVideoEncoder::Impl::CreateBlackGpuMemoryBufferFrame(
 void RTCVideoEncoder::Impl::EncodeFrameFinished(int index) {
   DVLOG(3) << "Impl::EncodeFrameFinished(): index=" << index;
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  // Destroy() against this has been called. Don't proceed the frame completion.
+  if (!video_encoder_)
+    return;
 
   if (use_native_input_) {
     if (input_next_frame_)

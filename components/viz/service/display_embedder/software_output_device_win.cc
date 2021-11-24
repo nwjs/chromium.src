@@ -19,7 +19,7 @@
 #include "skia/ext/skia_utils_win.h"
 #include "ui/display/display.h"
 #include "ui/gfx/gdi_util.h"
-#include "ui/gfx/skia_util.h"
+#include "ui/gfx/geometry/skia_conversions.h"
 #include "ui/gfx/win/hwnd_util.h"
 #include "ui/gl/vsync_provider_win.h"
 

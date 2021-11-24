@@ -78,6 +78,7 @@
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/focus_controller.h"
 #include "third_party/blink/renderer/core/page/page.h"
+#include "third_party/blink/renderer/core/style/content_data.h"
 #include "third_party/blink/renderer/core/svg/svg_style_element.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_image_map_link.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_inline_text_box.h"
@@ -133,7 +134,7 @@ Node* GetClosestNodeForLayoutObject(const LayoutObject* layout_object) {
 bool IsDisplayLocked(const Node* node) {
   if (!node)
     return false;
-  // The NearestLockedExclusiveAncestor() function will attempt to do
+  // The LockedAncestorPreventingPaint() function will attempt to do
   // a flat tree traversal of ancestors. If we're in a flat tree traversal
   // forbidden scope, return false. Additionally, flat tree traversal
   // might call AssignedSlot, so if we're in a slot assignment recalc
@@ -144,7 +145,7 @@ bool IsDisplayLocked(const Node* node) {
           .HasPendingSlotAssignmentRecalc()) {
     return false;  // Cannot safely perform this check now.
   }
-  return DisplayLockUtilities::NearestLockedExclusiveAncestor(*node);
+  return DisplayLockUtilities::LockedAncestorPreventingPaint(*node);
 }
 
 bool IsActive(Document& document) {
@@ -385,6 +386,9 @@ bool IsLayoutObjectRelevantForAccessibility(const LayoutObject& layout_object) {
   if (node->IsPseudoElement())
     return AXObjectCacheImpl::IsRelevantPseudoElement(*node);
 
+  if (const HTMLSlotElement* slot = DynamicTo<HTMLSlotElement>(node))
+    return AXObjectCacheImpl::IsRelevantSlotElement(*slot);
+
   // <optgroup> is irrelevant inside of a <select> menulist.
   if (auto* opt_group = DynamicTo<HTMLOptGroupElement>(node)) {
     if (auto* select = opt_group->OwnerSelectElement())
@@ -432,7 +436,7 @@ bool IsNodeRelevantForAccessibility(const Node* node,
     // Layout has more info available to determine if whitespace is relevant.
     // If display-locked, layout object may be missing or stale:
     // Assume that all display-locked text nodes are relevant.
-    if (DisplayLockUtilities::NearestLockedInclusiveAncestor(*node))
+    if (DisplayLockUtilities::LockedInclusiveAncestorPreventingLayout(*node))
       return true;
 
     // If rendered, decision is from IsLayoutObjectRelevantForAccessibility().
@@ -471,6 +475,9 @@ bool IsNodeRelevantForAccessibility(const Node* node,
   if (node->IsPseudoElement())
     return AXObjectCacheImpl::IsRelevantPseudoElement(*node);
 
+  if (const HTMLSlotElement* slot = DynamicTo<HTMLSlotElement>(node))
+    return AXObjectCacheImpl::IsRelevantSlotElement(*slot);
+
   // <optgroup> is irrelevant inside of a <select> menulist.
   if (auto* opt_group = DynamicTo<HTMLOptGroupElement>(node)) {
     if (auto* select = opt_group->OwnerSelectElement())
@@ -481,7 +488,7 @@ bool IsNodeRelevantForAccessibility(const Node* node,
   // consider it relevant and return early. Checking the layout object is only
   // useful when display locking (content-visibility) is not used.
   if (node->GetLayoutObject() &&
-      !DisplayLockUtilities::NearestLockedInclusiveAncestor(*node)) {
+      !DisplayLockUtilities::LockedInclusiveAncestorPreventingLayout(*node)) {
     return true;
   }
 
@@ -956,6 +963,40 @@ bool AXObjectCacheImpl::ShouldCreateAXMenuListFor(LayoutObject* layout_object) {
 }
 
 // static
+bool AXObjectCacheImpl::IsRelevantSlotElement(const HTMLSlotElement& slot) {
+  // A <slot> descendant of a node that is still in the DOM but no longer
+  // rendered will return true for Node::isConnected() and false for
+  // AXObject::IsDetached(). But from the perspective of platform ATs, this
+  // subtree is not connected and is detached unless it is canvas fallback
+  // content. In order to detect this condition, we look to the first non-slot
+  // parent. If it has a layout object, the <slot>'s contents are rendered.
+  // If it doesn't, but it's in the canvas subtree, those contents should be
+  // treated as canvas fallback content.
+  //
+  // The alternative way to determine whether the <slot> is still relevant for
+  // rendering is to iterate FlatTreeTraversal::Parent until you get to the last
+  // parent, and see if it's a document. If it is not a document, then it is not
+  // relevant. This seems much slower than just checking GetLayoutObject() as it
+  // needs to iterate the parent chain. However, checking GetLayoutObject()
+  // could produce null in the case of something that is
+  // content-visibility:auto. This means that any slotted content inside
+  // content-visibility:auto may be removed from the AX tree depending on
+  // whether it was recently rendered.
+  //
+  // TODO(accessibility): There should be a better way to accomplish this.
+  // Could a new function be added to the slot element?
+  const Node* parent = LayoutTreeBuilderTraversal::Parent(slot);
+  if (const HTMLSlotElement* parent_slot = DynamicTo<HTMLSlotElement>(parent))
+    return AXObjectCacheImpl::IsRelevantSlotElement(*parent_slot);
+
+  if (parent && parent->GetLayoutObject())
+    return true;
+
+  const Element* parent_element = DynamicTo<Element>(parent);
+  return parent_element ? parent_element->IsInCanvasSubtree() : false;
+}
+
+// static
 bool AXObjectCacheImpl::IsRelevantPseudoElement(const Node& node) {
   DCHECK(node.IsPseudoElement());
   if (!node.GetLayoutObject())
@@ -970,7 +1011,28 @@ bool AXObjectCacheImpl::IsRelevantPseudoElement(const Node& node) {
   // element that the CSS ::first letter applied to.
   if (node.IsMarkerPseudoElement() || node.IsBeforePseudoElement() ||
       node.IsAfterPseudoElement()) {
-    return true;
+    // Ignore non-inline whitespace content, which is used by many pages as
+    // a "Micro Clearfix Hack" to clear floats without extra HTML tags. See
+    // http://nicolasgallagher.com/micro-clearfix-hack/
+    if (node.GetLayoutObject()->IsInline())
+      return true;  // Inline: not a clearfix hack.
+    if (!node.parentNode()->GetLayoutObject() ||
+        node.parentNode()->GetLayoutObject()->IsInline()) {
+      return true;  // Parent inline: not a clearfix hack.
+    }
+    const ComputedStyle* style = node.GetLayoutObject()->Style();
+    DCHECK(style);
+    ContentData* content_data = style->GetContentData();
+    if (!content_data)
+      return true;
+    if (!content_data->IsText())
+      return true;  // Not text: not a clearfix hack.
+    if (!To<TextContentData>(content_data)
+             ->GetText()
+             .ContainsOnlyWhitespaceOrEmpty()) {
+      return true;  // Not whitespace: not a clearfix hack.
+    }
+    return false;  // Is the clearfix hack: ignore pseudo element.
   }
 
   DCHECK(node.IsFirstLetterPseudoElement())
@@ -1218,7 +1280,7 @@ AXObject* AXObjectCacheImpl::CreateAndInit(LayoutObject* layout_object,
   // old information. Note that Blink will recreate the AX objects as
   // AXLayoutObjects when a locked element is activated, aka it becomes visible.
   // Visit https://wicg.github.io/display-locking/#accessibility for more info.
-  if (DisplayLockUtilities::NearestLockedExclusiveAncestor(*layout_object)) {
+  if (DisplayLockUtilities::LockedAncestorPreventingPaint(*layout_object)) {
     if (!node) {
       // Nodeless objects such as anonymous blocks do not get accessible objects
       // in a locked subtree. Anonymous blocks are added to help layout when
@@ -1928,7 +1990,7 @@ void AXObjectCacheImpl::DidInsertChildrenOfNode(Node* node) {
   // changed.
   DCHECK(node);
   while (node) {
-    if (AXObject* obj = Get(node)) {
+    if (Get(node)) {
       TextChanged(node);
       return;
     }
@@ -2064,7 +2126,7 @@ void AXObjectCacheImpl::ChildrenChanged(const LayoutObject* layout_object) {
   //           \
   //           text
 
-  // TODO(aleventhal) Why is this needed for shadow-distribution.js test?
+  // TODO(aleventhal) Why is this needed for shadow-slot-assignment.js test?
   if (GetDocument().IsFlatTreeTraversalForbidden())
     return;
 
@@ -3318,6 +3380,18 @@ AXObject* AXObjectCacheImpl::GetSerializationTarget(AXObject* obj) {
     return nullptr;
   }
 
+  // A <slot> descendant of a node that is still in the DOM but no longer
+  // rendered will return true for Node::isConnected() and false for
+  // AXObject::IsDetached(). But from the perspective of platform ATs, this
+  // subtree is not connected and is detached.
+  // TODO(accessibility): The relevance check probably applies to all nodes
+  // not just slot elements.
+  if (const HTMLSlotElement* slot =
+          DynamicTo<HTMLSlotElement>(obj->GetNode())) {
+    if (!AXObjectCacheImpl::IsRelevantSlotElement(*slot))
+      return nullptr;
+  }
+
   // Ensure still in tree.
   if (obj->IsMissingParent()) {
     // TODO(accessibility) Only needed because of <select> size changes.
@@ -3509,7 +3583,8 @@ void AXObjectCacheImpl::HandleTextMarkerDataAddedWithCleanLayout(Node* node) {
   DocumentMarkerController& marker_controller = GetDocument().Markers();
   const DocumentMarker::MarkerTypes non_spelling_or_grammar_markers(
       DocumentMarker::kTextMatch | DocumentMarker::kActiveSuggestion |
-      DocumentMarker::kSuggestion | DocumentMarker::kTextFragment);
+      DocumentMarker::kSuggestion | DocumentMarker::kTextFragment |
+      DocumentMarker::kHighlight);
   if (!marker_controller.MarkersFor(*text_node, non_spelling_or_grammar_markers)
            .IsEmpty()) {
     ChildrenChangedWithCleanLayout(node);

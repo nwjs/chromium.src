@@ -126,6 +126,10 @@ class Manifest final {
   Manifest(mojom::ManifestLocation location,
            std::unique_ptr<base::DictionaryValue> value,
            ExtensionId extension_id);
+
+  Manifest(const Manifest&) = delete;
+  Manifest& operator=(const Manifest&) = delete;
+
   ~Manifest();
 
   void SetExtensionId(const ExtensionId& id) {
@@ -232,8 +236,6 @@ class Manifest final {
   const Type type_;
 
   const int manifest_version_;
-
-  DISALLOW_COPY_AND_ASSIGN(Manifest);
 };
 
 }  // namespace extensions

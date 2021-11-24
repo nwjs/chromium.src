@@ -164,6 +164,11 @@ class TestContentVerifyJobObserver {
 class MockContentVerifierDelegate : public ContentVerifierDelegate {
  public:
   MockContentVerifierDelegate();
+
+  MockContentVerifierDelegate(const MockContentVerifierDelegate&) = delete;
+  MockContentVerifierDelegate& operator=(const MockContentVerifierDelegate&) =
+      delete;
+
   ~MockContentVerifierDelegate() override;
 
   // ContentVerifierDelegate:
@@ -186,14 +191,16 @@ class MockContentVerifierDelegate : public ContentVerifierDelegate {
  private:
   VerifierSourceType verifier_source_type_ = VerifierSourceType::SIGNED_HASHES;
   std::vector<uint8_t> verifier_key_;
-
-  DISALLOW_COPY_AND_ASSIGN(MockContentVerifierDelegate);
 };
 
 // Observes ContentVerifier::OnFetchComplete of a particular extension.
 class VerifierObserver : public ContentVerifier::TestObserver {
  public:
   VerifierObserver();
+
+  VerifierObserver(const VerifierObserver&) = delete;
+  VerifierObserver& operator=(const VerifierObserver&) = delete;
+
   virtual ~VerifierObserver();
 
   const std::set<base::FilePath>& hash_mismatch_unix_paths() {
@@ -219,8 +226,6 @@ class VerifierObserver : public ContentVerifier::TestObserver {
   // Created and accessed on |creation_thread_|.
   scoped_refptr<content::MessageLoopRunner> loop_runner_;
   content::BrowserThread::ID creation_thread_;
-
-  DISALLOW_COPY_AND_ASSIGN(VerifierObserver);
 };
 
 // Used to hold the result of a callback from the ContentHash creation.
@@ -242,6 +247,10 @@ struct ContentHashResult {
 class ContentHashWaiter {
  public:
   ContentHashWaiter();
+
+  ContentHashWaiter(const ContentHashWaiter&) = delete;
+  ContentHashWaiter& operator=(const ContentHashWaiter&) = delete;
+
   ~ContentHashWaiter();
 
   std::unique_ptr<ContentHashResult> CreateAndWaitForCallback(
@@ -259,8 +268,6 @@ class ContentHashWaiter {
   scoped_refptr<base::SequencedTaskRunner> reply_task_runner_;
   base::RunLoop run_loop_;
   std::unique_ptr<ContentHashResult> result_;
-
-  DISALLOW_COPY_AND_ASSIGN(ContentHashWaiter);
 };
 
 namespace content_verifier_test_utils {

@@ -46,6 +46,9 @@ class TabHelper : public content::WebContentsObserver,
                   public ExtensionRegistryObserver,
                   public content::WebContentsUserData<TabHelper> {
  public:
+  TabHelper(const TabHelper&) = delete;
+  TabHelper& operator=(const TabHelper&) = delete;
+
   ~TabHelper() override;
 
   void UpdateDraggableRegions(content::RenderFrameHost* sender,
@@ -169,8 +172,6 @@ class TabHelper : public content::WebContentsObserver,
   base::WeakPtrFactory<TabHelper> weak_ptr_factory_{this};
 
   WEB_CONTENTS_USER_DATA_KEY_DECL();
-
-  DISALLOW_COPY_AND_ASSIGN(TabHelper);
 };
 
 }  // namespace extensions

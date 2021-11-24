@@ -20,7 +20,7 @@ aggregate_vector_icons("chrome_vector_icons") {
     "account_circle.icon",
     "add.icon",
     "apps.icon",
-    "autofill/gpay_offer.icon",
+    "autofill/local_offer_flipped.icon",
     "autofill/webauthn_dialog_header.icon",
     "autofill/webauthn_dialog_header_dark.icon",
     "back_arrow_touch.icon",
@@ -238,6 +238,7 @@ aggregate_vector_icons("chrome_vector_icons") {
   if (is_chrome_branded) {
     sources += [
       "google_chrome/google_g_logo.icon",
+      "google_chrome/google_g_logo_monochrome.icon",
       "google_chrome/google_lens_full_logo.icon",
       "google_chrome/google_pay_logo.icon",
     ]

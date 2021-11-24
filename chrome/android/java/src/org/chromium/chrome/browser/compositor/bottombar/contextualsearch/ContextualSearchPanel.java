@@ -495,6 +495,17 @@ public class ContextualSearchPanel extends OverlayPanel implements ContextualSea
         }
     }
 
+    @Override
+    protected void animatePanelToState(
+            @Nullable @PanelState Integer state, @StateChangeReason int reason, long duration) {
+        // If the in bar chip showing animation is running, do not run the new panel animation.
+        if (haveSearchBarControl()
+                && getSearchBarControl().inBarRelatedSearchesAnimationIsRunning()) {
+            return;
+        }
+        super.animatePanelToState(state, reason, duration);
+    }
+
     // ============================================================================================
     // Contextual Search Panel API
     // ============================================================================================
@@ -1115,7 +1126,10 @@ public class ContextualSearchPanel extends OverlayPanel implements ContextualSea
 
                 @Override
                 public void onPromoOptOut() {
-                    closePanel(OverlayPanel.StateChangeReason.OPTOUT, true);
+                    if (!ChromeFeatureList.isEnabled(
+                                ChromeFeatureList.CONTEXTUAL_SEARCH_NEW_SETTINGS)) {
+                        closePanel(OverlayPanel.StateChangeReason.OPTOUT, true);
+                    }
                 }
             };
         }

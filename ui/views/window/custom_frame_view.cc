@@ -18,6 +18,8 @@
 #include "ui/base/hit_test.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/color/color_id.h"
+#include "ui/color/color_provider.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/font.h"
 #include "ui/gfx/font_list.h"
@@ -92,8 +94,10 @@ CustomFrameView::CustomFrameView(Widget* frame)
     icon = frame_->widget_delegate()->GetWindowAppIcon();
     window_icon_ = new ImageButton(Button::PressedCallback());
     window_icon_->SetImage(Button::STATE_NORMAL, icon.GetImage().ToImageSkia());
+    // `window_icon_` does not need to be focusable as it is not used here as a
+    // button and is not interactive.
     AddChildView(window_icon_);
-    window_icon_->SetFocusBehavior(FocusBehavior::ACCESSIBLE_ONLY);
+    window_icon_->SetFocusBehavior(FocusBehavior::NEVER);
   }
 }
 
@@ -437,9 +441,8 @@ void CustomFrameView::PaintRestoredClientEdge(gfx::Canvas* canvas) {
 }
 
 SkColor CustomFrameView::GetFrameColor() const {
-  return GetNativeTheme()->GetSystemColor(
-      frame_->IsActive() ? ui::NativeTheme::kColorId_CustomFrameActiveColor
-                         : ui::NativeTheme::kColorId_CustomFrameInactiveColor);
+  return GetColorProvider()->GetColor(
+      frame_->IsActive() ? ui::kColorFrameActive : ui::kColorFrameInactive);
 }
 
 gfx::ImageSkia CustomFrameView::GetFrameImage() const {

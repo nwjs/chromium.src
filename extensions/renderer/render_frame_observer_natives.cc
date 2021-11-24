@@ -16,6 +16,10 @@
 #include "content/public/renderer/render_frame_observer.h"
 #include "extensions/renderer/extension_frame_helper.h"
 #include "extensions/renderer/script_context.h"
+#include "v8/include/v8-function-callback.h"
+#include "v8/include/v8-function.h"
+#include "v8/include/v8-primitive.h"
+
 #include "extensions/renderer/script_context_set.h"
 
 namespace extensions {
@@ -28,6 +32,9 @@ class LoadWatcher : public content::RenderFrameObserver {
   LoadWatcher(content::RenderFrame* frame,
               base::OnceCallback<void(bool, int)> callback, bool wait_for_next = false)
     : content::RenderFrameObserver(frame), callback_(std::move(callback)), wait_for_next_(wait_for_next) {}
+
+  LoadWatcher(const LoadWatcher&) = delete;
+  LoadWatcher& operator=(const LoadWatcher&) = delete;
 
   void DidCreateDocumentElement() override {
     if (wait_for_next_) {
@@ -57,8 +64,6 @@ class LoadWatcher : public content::RenderFrameObserver {
  private:
   base::OnceCallback<void(bool, int)> callback_;
   bool wait_for_next_;
-
-  DISALLOW_COPY_AND_ASSIGN(LoadWatcher);
 };
 
 class CloseWatcher : public content::RenderFrameObserver {

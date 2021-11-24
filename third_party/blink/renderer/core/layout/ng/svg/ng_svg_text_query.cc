@@ -57,8 +57,10 @@ FragmentItemsInVisualOrder(const LayoutObject& query_root) {
       if (item.Type() == NGFragmentItem::kSvgText) {
         item_list.push_back(&item);
       } else if (NGInlineCursor descendants = cursor.CursorForDescendants()) {
-        if (descendants.CurrentItem()->Type() == NGFragmentItem::kSvgText)
-          item_list.push_back(descendants.CurrentItem());
+        for (; descendants; descendants.MoveToNext()) {
+          if (descendants.CurrentItem()->Type() == NGFragmentItem::kSvgText)
+            item_list.push_back(descendants.CurrentItem());
+        }
       }
     }
   }
@@ -333,7 +335,7 @@ int NGSvgTextQuery::CharacterNumberAtPosition(
           hit_item->ScaleInlineOffset(hit_item->IsHorizontal()
                                           ? transformed_point.left
                                           : transformed_point.top),
-          BreakGlyphs);
+          BreakGlyphsOption(true));
   return addressable_code_unit_count + offset_in_item;
 }
 

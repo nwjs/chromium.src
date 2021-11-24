@@ -27,6 +27,12 @@ using content::RenderFrameHost;
 using content::RenderFrameHostTester;
 using LargestContentType =
     page_load_metrics::ContentfulPaintTimingInfo::LargestContentType;
+using UserInteractionLatenciesPtr =
+    page_load_metrics::mojom::UserInteractionLatenciesPtr;
+using UserInteractionLatencies =
+    page_load_metrics::mojom::UserInteractionLatencies;
+using UserInteractionLatency = page_load_metrics::mojom::UserInteractionLatency;
+using UserInteractionType = page_load_metrics::mojom::UserInteractionType;
 
 namespace {
 
@@ -201,12 +207,10 @@ TEST_F(UmaPageLoadMetricsObserverTest,
 }
 
 TEST_F(UmaPageLoadMetricsObserverTest, SingleMetricAfterCommit) {
-  base::TimeDelta parse_start = base::TimeDelta::FromMilliseconds(1);
-  base::TimeDelta parse_stop = base::TimeDelta::FromMilliseconds(5);
-  base::TimeDelta parse_script_load_duration =
-      base::TimeDelta::FromMilliseconds(3);
-  base::TimeDelta parse_script_exec_duration =
-      base::TimeDelta::FromMilliseconds(1);
+  base::TimeDelta parse_start = base::Milliseconds(1);
+  base::TimeDelta parse_stop = base::Milliseconds(5);
+  base::TimeDelta parse_script_load_duration = base::Milliseconds(3);
+  base::TimeDelta parse_script_exec_duration = base::Milliseconds(1);
 
   page_load_metrics::mojom::PageLoadTiming timing;
   page_load_metrics::InitPageLoadTimingForTest(&timing);
@@ -245,12 +249,12 @@ TEST_F(UmaPageLoadMetricsObserverTest, SingleMetricAfterCommit) {
 }
 
 TEST_F(UmaPageLoadMetricsObserverTest, MultipleMetricsAfterCommits) {
-  base::TimeDelta parse_start = base::TimeDelta::FromMilliseconds(1);
-  base::TimeDelta response = base::TimeDelta::FromMilliseconds(1);
-  base::TimeDelta first_image_paint = base::TimeDelta::FromMilliseconds(30);
+  base::TimeDelta parse_start = base::Milliseconds(1);
+  base::TimeDelta response = base::Milliseconds(1);
+  base::TimeDelta first_image_paint = base::Milliseconds(30);
   base::TimeDelta first_contentful_paint = first_image_paint;
-  base::TimeDelta dom_content = base::TimeDelta::FromMilliseconds(40);
-  base::TimeDelta load = base::TimeDelta::FromMilliseconds(100);
+  base::TimeDelta dom_content = base::Milliseconds(40);
+  base::TimeDelta load = base::Milliseconds(100);
 
   page_load_metrics::mojom::PageLoadTiming timing;
   page_load_metrics::InitPageLoadTimingForTest(&timing);
@@ -340,7 +344,7 @@ TEST_F(UmaPageLoadMetricsObserverTest, OnlyBackgroundLaterEvents) {
   page_load_metrics::InitPageLoadTimingForTest(&timing);
   timing.navigation_start = base::Time::FromDoubleT(1);
   timing.document_timing->dom_content_loaded_event_start =
-      base::TimeDelta::FromMicroseconds(1);
+      base::Microseconds(1);
   PopulateRequiredTimingFields(&timing);
 
   // Make sure first_image_paint hasn't been set (wasn't set by
@@ -354,7 +358,7 @@ TEST_F(UmaPageLoadMetricsObserverTest, OnlyBackgroundLaterEvents) {
   // Background the tab, then foreground it.
   web_contents()->WasHidden();
   web_contents()->WasShown();
-  timing.paint_timing->first_image_paint = base::TimeDelta::FromSeconds(4);
+  timing.paint_timing->first_image_paint = base::Seconds(4);
   PopulateRequiredTimingFields(&timing);
   tester()->SimulateTimingUpdate(timing);
 
@@ -466,9 +470,8 @@ TEST_F(UmaPageLoadMetricsObserverTest, Reload) {
   page_load_metrics::mojom::PageLoadTiming timing;
   page_load_metrics::InitPageLoadTimingForTest(&timing);
   timing.navigation_start = base::Time::FromDoubleT(1);
-  timing.parse_timing->parse_start = base::TimeDelta::FromMilliseconds(5);
-  timing.paint_timing->first_contentful_paint =
-      base::TimeDelta::FromMilliseconds(10);
+  timing.parse_timing->parse_start = base::Milliseconds(5);
+  timing.paint_timing->first_contentful_paint = base::Milliseconds(10);
   PopulateRequiredTimingFields(&timing);
 
   GURL url(kDefaultTestUrl);
@@ -541,9 +544,8 @@ TEST_F(UmaPageLoadMetricsObserverTest, ForwardBack) {
   page_load_metrics::mojom::PageLoadTiming timing;
   page_load_metrics::InitPageLoadTimingForTest(&timing);
   timing.navigation_start = base::Time::FromDoubleT(1);
-  timing.parse_timing->parse_start = base::TimeDelta::FromMilliseconds(5);
-  timing.paint_timing->first_contentful_paint =
-      base::TimeDelta::FromMilliseconds(10);
+  timing.parse_timing->parse_start = base::Milliseconds(5);
+  timing.paint_timing->first_contentful_paint = base::Milliseconds(10);
   PopulateRequiredTimingFields(&timing);
 
   GURL url(kDefaultTestUrl);
@@ -653,9 +655,8 @@ TEST_F(UmaPageLoadMetricsObserverTest, NewNavigation) {
   page_load_metrics::mojom::PageLoadTiming timing;
   page_load_metrics::InitPageLoadTimingForTest(&timing);
   timing.navigation_start = base::Time::FromDoubleT(1);
-  timing.parse_timing->parse_start = base::TimeDelta::FromMilliseconds(5);
-  timing.paint_timing->first_contentful_paint =
-      base::TimeDelta::FromMilliseconds(10);
+  timing.parse_timing->parse_start = base::Milliseconds(5);
+  timing.paint_timing->first_contentful_paint = base::Milliseconds(10);
   PopulateRequiredTimingFields(&timing);
 
   GURL url(kDefaultTestUrl);
@@ -744,11 +745,9 @@ TEST_F(UmaPageLoadMetricsObserverTest, BytesAndResourcesCounted) {
 
 TEST_F(UmaPageLoadMetricsObserverTest, CpuUsageCounted) {
   NavigateAndCommit(GURL(kDefaultTestUrl));
-  OnCpuTimingUpdate(web_contents()->GetMainFrame(),
-                    base::TimeDelta::FromMilliseconds(750));
+  OnCpuTimingUpdate(web_contents()->GetMainFrame(), base::Milliseconds(750));
   web_contents()->WasHidden();  // Set the web contents as backgrounded.
-  OnCpuTimingUpdate(web_contents()->GetMainFrame(),
-                    base::TimeDelta::FromMilliseconds(250));
+  OnCpuTimingUpdate(web_contents()->GetMainFrame(), base::Milliseconds(250));
   NavigateAndCommit(GURL(kDefaultTestUrl2));
 
   tester()->histogram_tester().ExpectUniqueSample(
@@ -761,9 +760,8 @@ TEST_F(UmaPageLoadMetricsObserverTest, FirstMeaningfulPaint) {
   page_load_metrics::mojom::PageLoadTiming timing;
   page_load_metrics::InitPageLoadTimingForTest(&timing);
   timing.navigation_start = base::Time::FromDoubleT(1);
-  timing.parse_timing->parse_start = base::TimeDelta::FromMilliseconds(5);
-  timing.paint_timing->first_meaningful_paint =
-      base::TimeDelta::FromMilliseconds(10);
+  timing.parse_timing->parse_start = base::Milliseconds(5);
+  timing.paint_timing->first_meaningful_paint = base::Milliseconds(10);
   PopulateRequiredTimingFields(&timing);
 
   NavigateAndCommit(GURL(kDefaultTestUrl));
@@ -791,7 +789,7 @@ TEST_F(UmaPageLoadMetricsObserverTest, LargestImageLoading) {
   // There is a text paint but it's smaller than image. Pick a value that lines
   // up with a histogram bucket.
   timing.paint_timing->largest_contentful_paint->largest_text_paint =
-      base::TimeDelta::FromMilliseconds(4780);
+      base::Milliseconds(4780);
   timing.paint_timing->largest_contentful_paint->largest_text_paint_size = 70u;
   PopulateExperimentalLCP(timing.paint_timing);
   PopulateRequiredTimingFields(&timing);
@@ -817,7 +815,7 @@ TEST_F(UmaPageLoadMetricsObserverTest, LargestImageLoadingSmallerThanText) {
   // There is a text paint but it's smaller than image. Pick a value that lines
   // up with a histogram bucket.
   timing.paint_timing->largest_contentful_paint->largest_text_paint =
-      base::TimeDelta::FromMilliseconds(4780);
+      base::Milliseconds(4780);
   timing.paint_timing->largest_contentful_paint->largest_text_paint_size = 120u;
   PopulateExperimentalLCP(timing.paint_timing);
   PopulateRequiredTimingFields(&timing);
@@ -845,7 +843,7 @@ TEST_F(UmaPageLoadMetricsObserverTest,
   page_load_metrics::InitPageLoadTimingForTest(&subframe_timing);
   subframe_timing.navigation_start = base::Time::FromDoubleT(200);
   subframe_timing.paint_timing->largest_contentful_paint->largest_image_paint =
-      base::TimeDelta::FromMilliseconds(4780);
+      base::Milliseconds(4780);
   subframe_timing.paint_timing->largest_contentful_paint
       ->largest_image_paint_size = 100u;
   PopulateExperimentalLCP(subframe_timing.paint_timing);
@@ -889,7 +887,7 @@ TEST_F(UmaPageLoadMetricsObserverTest,
   subframe_timing.paint_timing->largest_contentful_paint
       ->largest_image_paint_size = 100u;
   subframe_timing.paint_timing->largest_contentful_paint->largest_text_paint =
-      base::TimeDelta::FromMilliseconds(500);
+      base::Milliseconds(500);
   subframe_timing.paint_timing->largest_contentful_paint
       ->largest_text_paint_size = 80u;
   PopulateExperimentalLCP(subframe_timing.paint_timing);
@@ -922,7 +920,7 @@ TEST_F(UmaPageLoadMetricsObserverTest,
   timing.navigation_start = base::Time::FromDoubleT(1);
   // Pick a value that lines up with a histogram bucket.
   timing.paint_timing->largest_contentful_paint->largest_image_paint =
-      base::TimeDelta::FromMilliseconds(4780);
+      base::Milliseconds(4780);
   timing.paint_timing->largest_contentful_paint->largest_image_paint_size = 50u;
   PopulateExperimentalLCP(timing.paint_timing);
   PopulateRequiredTimingFields(&timing);
@@ -965,7 +963,7 @@ TEST_F(UmaPageLoadMetricsObserverTest,
   timing.navigation_start = base::Time::FromDoubleT(1);
   // Pick a value that lines up with a histogram bucket.
   timing.paint_timing->largest_contentful_paint->largest_image_paint =
-      base::TimeDelta::FromMilliseconds(9382);
+      base::Milliseconds(9382);
   timing.paint_timing->largest_contentful_paint->largest_image_paint_size = 50u;
   PopulateExperimentalLCP(timing.paint_timing);
   PopulateRequiredTimingFields(&timing);
@@ -975,7 +973,7 @@ TEST_F(UmaPageLoadMetricsObserverTest,
   page_load_metrics::InitPageLoadTimingForTest(&subframe_timing);
   subframe_timing.navigation_start = base::Time::FromDoubleT(2);
   subframe_timing.paint_timing->largest_contentful_paint->largest_image_paint =
-      base::TimeDelta::FromMilliseconds(4780);
+      base::Milliseconds(4780);
   subframe_timing.paint_timing->largest_contentful_paint
       ->largest_image_paint_size = 100u;
   PopulateExperimentalLCP(subframe_timing.paint_timing);
@@ -1012,7 +1010,7 @@ TEST_F(UmaPageLoadMetricsObserverTest,
   timing.navigation_start = base::Time::FromDoubleT(1);
   // Pick a value that lines up with a histogram bucket.
   timing.paint_timing->largest_contentful_paint->largest_text_paint =
-      base::TimeDelta::FromMilliseconds(4780);
+      base::Milliseconds(4780);
   timing.paint_timing->largest_contentful_paint->largest_text_paint_size = 100u;
   PopulateExperimentalLCP(timing.paint_timing);
   PopulateRequiredTimingFields(&timing);
@@ -1022,7 +1020,7 @@ TEST_F(UmaPageLoadMetricsObserverTest,
   page_load_metrics::InitPageLoadTimingForTest(&subframe_timing);
   subframe_timing.navigation_start = base::Time::FromDoubleT(2);
   subframe_timing.paint_timing->largest_contentful_paint->largest_text_paint =
-      base::TimeDelta::FromMilliseconds(300);
+      base::Milliseconds(300);
   subframe_timing.paint_timing->largest_contentful_paint
       ->largest_text_paint_size = 50u;
   PopulateExperimentalLCP(subframe_timing.paint_timing);
@@ -1064,7 +1062,7 @@ TEST_F(UmaPageLoadMetricsObserverTest,
   page_load_metrics::InitPageLoadTimingForTest(&subframe_timing);
   subframe_timing.navigation_start = base::Time::FromDoubleT(2);
   subframe_timing.paint_timing->largest_contentful_paint->largest_image_paint =
-      base::TimeDelta::FromMilliseconds(4780);
+      base::Milliseconds(4780);
   subframe_timing.paint_timing->largest_contentful_paint
       ->largest_image_paint_size = 50u;
   PopulateExperimentalLCP(subframe_timing.paint_timing);
@@ -1083,7 +1081,7 @@ TEST_F(UmaPageLoadMetricsObserverTest,
   tester()->SimulateTimingUpdate(subframe_timing, subframe);
 
   subframe_timing.paint_timing->largest_contentful_paint->largest_image_paint =
-      base::TimeDelta::FromMilliseconds(300);
+      base::Milliseconds(300);
   subframe_timing.paint_timing->largest_contentful_paint
       ->largest_image_paint_size = 10u;
   PopulateExperimentalLCP(subframe_timing.paint_timing);
@@ -1114,7 +1112,7 @@ TEST_F(
   page_load_metrics::InitPageLoadTimingForTest(&subframe_timing);
   subframe_timing.navigation_start = base::Time::FromDoubleT(2);
   subframe_timing.paint_timing->largest_contentful_paint->largest_image_paint =
-      base::TimeDelta::FromMilliseconds(4780);
+      base::Milliseconds(4780);
   subframe_timing.paint_timing->largest_contentful_paint
       ->largest_image_paint_size = 10u;
   PopulateExperimentalLCP(subframe_timing.paint_timing);
@@ -1133,7 +1131,7 @@ TEST_F(
   tester()->SimulateTimingUpdate(subframe_timing, subframe);
 
   subframe_timing.paint_timing->largest_contentful_paint->largest_image_paint =
-      base::TimeDelta::FromMilliseconds(990);
+      base::Milliseconds(990);
   subframe_timing.paint_timing->largest_contentful_paint
       ->largest_image_paint_size = 50u;
   PopulateExperimentalLCP(subframe_timing.paint_timing);
@@ -1170,7 +1168,7 @@ TEST_F(UmaPageLoadMetricsObserverTest, LargestContentfulPaint_OnlyText) {
   timing.navigation_start = base::Time::FromDoubleT(1);
   // Pick a value that lines up with a histogram bucket.
   timing.paint_timing->largest_contentful_paint->largest_text_paint =
-      base::TimeDelta::FromMilliseconds(4780);
+      base::Milliseconds(4780);
   timing.paint_timing->largest_contentful_paint->largest_text_paint_size = 100;
   PopulateExperimentalLCP(timing.paint_timing);
   PopulateRequiredTimingFields(&timing);
@@ -1189,7 +1187,7 @@ TEST_F(UmaPageLoadMetricsObserverTest, LargestContentfulPaint_OnlyImage) {
   timing.navigation_start = base::Time::FromDoubleT(1);
   // Pick a value that lines up with a histogram bucket.
   timing.paint_timing->largest_contentful_paint->largest_image_paint =
-      base::TimeDelta::FromMilliseconds(4780);
+      base::Milliseconds(4780);
   timing.paint_timing->largest_contentful_paint->largest_image_paint_size = 100;
   PopulateExperimentalLCP(timing.paint_timing);
   PopulateRequiredTimingFields(&timing);
@@ -1209,10 +1207,10 @@ TEST_F(UmaPageLoadMetricsObserverTest,
   timing.navigation_start = base::Time::FromDoubleT(1);
   // Pick a value that lines up with a histogram bucket.
   timing.paint_timing->largest_contentful_paint->largest_image_paint =
-      base::TimeDelta::FromMilliseconds(4780);
+      base::Milliseconds(4780);
   timing.paint_timing->largest_contentful_paint->largest_image_paint_size = 100;
   timing.paint_timing->largest_contentful_paint->largest_text_paint =
-      base::TimeDelta::FromMilliseconds(1000);
+      base::Milliseconds(1000);
   timing.paint_timing->largest_contentful_paint->largest_text_paint_size = 10;
   PopulateExperimentalLCP(timing.paint_timing);
   PopulateRequiredTimingFields(&timing);
@@ -1231,11 +1229,11 @@ TEST_F(UmaPageLoadMetricsObserverTest,
   page_load_metrics::InitPageLoadTimingForTest(&timing);
   timing.navigation_start = base::Time::FromDoubleT(1);
   timing.paint_timing->largest_contentful_paint->largest_image_paint =
-      base::TimeDelta::FromMilliseconds(4780);
+      base::Milliseconds(4780);
   timing.paint_timing->largest_contentful_paint->largest_image_paint_size = 10;
   // Pick a value that lines up with a histogram bucket.
   timing.paint_timing->largest_contentful_paint->largest_text_paint =
-      base::TimeDelta::FromMilliseconds(990);
+      base::Milliseconds(990);
   timing.paint_timing->largest_contentful_paint->largest_text_paint_size = 100;
   PopulateExperimentalLCP(timing.paint_timing);
   PopulateRequiredTimingFields(&timing);
@@ -1248,15 +1246,127 @@ TEST_F(UmaPageLoadMetricsObserverTest,
   TestAllFramesLCP(990, LargestContentType::kText);
 }
 
+TEST_F(UmaPageLoadMetricsObserverTest,
+       NormalizedResponsivenessMetricsWithoutSendingAllLatencies) {
+  page_load_metrics::mojom::InputTiming input_timing;
+  input_timing.num_interactions = 3;
+  input_timing.max_event_durations =
+      UserInteractionLatencies::NewWorstInteractionLatency(
+          base::Milliseconds(21));
+  input_timing.total_event_durations =
+      UserInteractionLatencies::NewWorstInteractionLatency(
+          base::Milliseconds(56));
+  NavigateAndCommit(GURL(kDefaultTestUrl));
+  tester()->SimulateInputTimingUpdate(input_timing);
+  // Navigate again to force histogram recording.
+  NavigateAndCommit(GURL(kDefaultTestUrl2));
+  EXPECT_THAT(
+      tester()->histogram_tester().GetAllSamples(
+          internal::kHistogramWorstUserInteractionLatencyMaxEventDuration),
+      testing::ElementsAre(base::Bucket(21, 1)));
+  EXPECT_THAT(
+      tester()->histogram_tester().GetAllSamples(
+          internal::kHistogramWorstUserInteractionLatencyTotalEventDuration),
+      testing::ElementsAre(base::Bucket(50, 1)));
+}
+
+TEST_F(UmaPageLoadMetricsObserverTest,
+       NormalizedResponsivenessMetricsWithSendingAllLatencies) {
+  // Flip the flag.
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      blink::features::kSendAllUserInteractionLatencies);
+  page_load_metrics::mojom::InputTiming input_timing;
+  input_timing.num_interactions = 3;
+  input_timing.max_event_durations =
+      UserInteractionLatencies::NewUserInteractionLatencies({});
+  auto& max_event_durations =
+      input_timing.max_event_durations->get_user_interaction_latencies();
+  max_event_durations.emplace_back(UserInteractionLatency::New(
+      base::Milliseconds(50), UserInteractionType::kKeyboard));
+  max_event_durations.emplace_back(UserInteractionLatency::New(
+      base::Milliseconds(100), UserInteractionType::kTapOrClick));
+  max_event_durations.emplace_back(UserInteractionLatency::New(
+      base::Milliseconds(150), UserInteractionType::kDrag));
+  input_timing.total_event_durations =
+      UserInteractionLatencies::NewUserInteractionLatencies({});
+
+  auto& total_event_durations =
+      input_timing.total_event_durations->get_user_interaction_latencies();
+  total_event_durations.emplace_back(UserInteractionLatency::New(
+      base::Milliseconds(55), UserInteractionType::kKeyboard));
+  total_event_durations.emplace_back(UserInteractionLatency::New(
+      base::Milliseconds(105), UserInteractionType::kTapOrClick));
+  total_event_durations.emplace_back(UserInteractionLatency::New(
+      base::Milliseconds(155), UserInteractionType::kDrag));
+  NavigateAndCommit(GURL(kDefaultTestUrl));
+  tester()->SimulateInputTimingUpdate(input_timing);
+  // Navigate again to force histogram recording.
+  NavigateAndCommit(GURL(kDefaultTestUrl2));
+
+  std::vector<std::pair<std::string, int>> uma_list = {
+      std::make_pair(
+          internal::kHistogramWorstUserInteractionLatencyMaxEventDuration, 146),
+      std::make_pair(
+          internal::kHistogramWorstUserInteractionLatencyTotalEventDuration,
+          146),
+      std::make_pair(
+          internal::
+              kHistogramWorstUserInteractionLatencyOverBudgetMaxEventDuration,
+          50),
+      std::make_pair(
+          internal::
+              kHistogramWorstUserInteractionLatencyOverBudgetTotalEventDuration,
+          50),
+      std::make_pair(
+          internal::
+              kHistogramSumOfUserInteractionLatencyOverBudgetMaxEventDuration,
+          50),
+      std::make_pair(
+          internal::
+              kHistogramSumOfUserInteractionLatencyOverBudgetTotalEventDuration,
+          62),
+      std::make_pair(
+          internal::
+              kHistogramAverageUserInteractionLatencyOverBudgetMaxEventDuration,
+          14),
+      std::make_pair(
+          internal::
+              kHistogramAverageUserInteractionLatencyOverBudgetTotalEventDuration,
+          21),
+      std::make_pair(
+          internal::
+              kHistogramSlowUserInteractionLatencyOverBudgetHighPercentileMaxEventDuration,
+          50),
+      std::make_pair(
+          internal::
+              kHistogramSlowUserInteractionLatencyOverBudgetHighPercentileTotalEventDuration,
+          50),
+      std::make_pair(
+          internal::
+              kHistogramSlowUserInteractionLatencyOverBudgetHighPercentile2MaxEventDuration,
+          50),
+      std::make_pair(
+          internal::
+              kHistogramSlowUserInteractionLatencyOverBudgetHighPercentile2TotalEventDuration,
+          50)};
+
+  for (auto& metric : uma_list) {
+    EXPECT_THAT(
+        tester()->histogram_tester().GetAllSamples(metric.first.c_str()),
+        // metric.second is the minimum value of the bucket, not the actual
+        // value.
+        testing::ElementsAre(base::Bucket(metric.second, 1)));
+  }
+}
+
 TEST_F(UmaPageLoadMetricsObserverTest, FirstInputDelayAndTimestamp) {
   page_load_metrics::mojom::PageLoadTiming timing;
   page_load_metrics::InitPageLoadTimingForTest(&timing);
   timing.navigation_start = base::Time::FromDoubleT(1);
-  timing.interactive_timing->first_input_delay =
-      base::TimeDelta::FromMilliseconds(5);
+  timing.interactive_timing->first_input_delay = base::Milliseconds(5);
   // Pick a value that lines up with a histogram bucket.
-  timing.interactive_timing->first_input_timestamp =
-      base::TimeDelta::FromMilliseconds(4780);
+  timing.interactive_timing->first_input_timestamp = base::Milliseconds(4780);
   PopulateRequiredTimingFields(&timing);
 
   NavigateAndCommit(GURL(kDefaultTestUrl));
@@ -1276,11 +1386,9 @@ TEST_F(UmaPageLoadMetricsObserverTest, LongestInputDelayAndTimestamp) {
   page_load_metrics::mojom::PageLoadTiming timing;
   page_load_metrics::InitPageLoadTimingForTest(&timing);
   timing.navigation_start = base::Time::FromDoubleT(1);
-  timing.interactive_timing->longest_input_delay =
-      base::TimeDelta::FromMilliseconds(5);
+  timing.interactive_timing->longest_input_delay = base::Milliseconds(5);
   // Pick a value that lines up with a histogram bucket.
-  timing.interactive_timing->longest_input_timestamp =
-      base::TimeDelta::FromMilliseconds(4780);
+  timing.interactive_timing->longest_input_timestamp = base::Milliseconds(4780);
   PopulateRequiredTimingFields(&timing);
 
   NavigateAndCommit(GURL(kDefaultTestUrl));
@@ -1301,10 +1409,8 @@ TEST_F(UmaPageLoadMetricsObserverTest,
   page_load_metrics::mojom::PageLoadTiming timing;
   page_load_metrics::InitPageLoadTimingForTest(&timing);
   timing.navigation_start = base::Time::FromDoubleT(1);
-  timing.interactive_timing->first_input_delay =
-      base::TimeDelta::FromMilliseconds(5);
-  timing.interactive_timing->first_input_timestamp =
-      base::TimeDelta::FromMilliseconds(5000);
+  timing.interactive_timing->first_input_delay = base::Milliseconds(5);
+  timing.interactive_timing->first_input_timestamp = base::Milliseconds(5000);
   PopulateRequiredTimingFields(&timing);
 
   NavigateAndCommit(GURL(kDefaultTestUrl));
@@ -1528,7 +1634,7 @@ TEST_F(UmaPageLoadMetricsObserverTest,
   page_load_metrics::InitPageLoadTimingForTest(&timing);
   timing.navigation_start = base::Time::FromDoubleT(1);
   timing.paint_timing->largest_contentful_paint->largest_image_paint =
-      base::TimeDelta::FromMilliseconds(9382);
+      base::Milliseconds(9382);
   timing.paint_timing->largest_contentful_paint->largest_image_paint_size = 50u;
   PopulateExperimentalLCP(timing.paint_timing);
   PopulateRequiredTimingFields(&timing);
@@ -1538,7 +1644,7 @@ TEST_F(UmaPageLoadMetricsObserverTest,
   page_load_metrics::InitPageLoadTimingForTest(&subframe_timing);
   subframe_timing.navigation_start = base::Time::FromDoubleT(2);
   subframe_timing.paint_timing->largest_contentful_paint->largest_image_paint =
-      base::TimeDelta::FromMilliseconds(4780);
+      base::Milliseconds(4780);
   subframe_timing.paint_timing->largest_contentful_paint
       ->largest_image_paint_size = 100u;
   PopulateExperimentalLCP(subframe_timing.paint_timing);
@@ -1573,7 +1679,7 @@ TEST_F(UmaPageLoadMetricsObserverTest,
   timing.navigation_start = base::Time::FromDoubleT(1);
   // Pick a value that lines up with a histogram bucket.
   timing.paint_timing->largest_contentful_paint->largest_image_paint =
-      base::TimeDelta::FromMilliseconds(900);
+      base::Milliseconds(900);
   timing.paint_timing->largest_contentful_paint->largest_image_paint_size = 50u;
   PopulateExperimentalLCP(timing.paint_timing);
   PopulateRequiredTimingFields(&timing);
@@ -1583,7 +1689,7 @@ TEST_F(UmaPageLoadMetricsObserverTest,
   page_load_metrics::InitPageLoadTimingForTest(&subframe_timing);
   subframe_timing.navigation_start = base::Time::FromDoubleT(2);
   subframe_timing.paint_timing->largest_contentful_paint->largest_image_paint =
-      base::TimeDelta::FromMilliseconds(4780);
+      base::Milliseconds(4780);
   subframe_timing.paint_timing->largest_contentful_paint
       ->largest_image_paint_size = 30u;
   PopulateExperimentalLCP(subframe_timing.paint_timing);
@@ -1620,7 +1726,7 @@ TEST_F(UmaPageLoadMetricsObserverTest,
   timing.navigation_start = base::Time::FromDoubleT(1);
   // Pick a value that lines up with a histogram bucket.
   timing.paint_timing->largest_contentful_paint->largest_image_paint =
-      base::TimeDelta::FromMilliseconds(900);
+      base::Milliseconds(900);
   timing.paint_timing->largest_contentful_paint->largest_image_paint_size = 50u;
   PopulateExperimentalLCP(timing.paint_timing);
   PopulateRequiredTimingFields(&timing);
@@ -1630,7 +1736,7 @@ TEST_F(UmaPageLoadMetricsObserverTest,
   page_load_metrics::InitPageLoadTimingForTest(&subframe_timing);
   subframe_timing.navigation_start = base::Time::FromDoubleT(2);
   subframe_timing.paint_timing->largest_contentful_paint->largest_image_paint =
-      base::TimeDelta::FromMilliseconds(3000);
+      base::Milliseconds(3000);
   subframe_timing.paint_timing->largest_contentful_paint
       ->largest_image_paint_size = 100u;
   PopulateExperimentalLCP(subframe_timing.paint_timing);
@@ -1640,7 +1746,7 @@ TEST_F(UmaPageLoadMetricsObserverTest,
   page_load_metrics::InitPageLoadTimingForTest(&subframe_timing2);
   subframe_timing2.navigation_start = base::Time::FromDoubleT(2);
   subframe_timing2.paint_timing->largest_contentful_paint->largest_image_paint =
-      base::TimeDelta::FromMilliseconds(4780);
+      base::Milliseconds(4780);
   subframe_timing2.paint_timing->largest_contentful_paint
       ->largest_image_paint_size = 30u;
   PopulateExperimentalLCP(subframe_timing2.paint_timing);

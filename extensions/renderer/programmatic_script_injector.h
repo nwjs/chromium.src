@@ -25,6 +25,11 @@ class ProgrammaticScriptInjector : public ScriptInjector {
   explicit ProgrammaticScriptInjector(
       mojom::ExecuteCodeParamsPtr params,
       mojom::LocalFrame::ExecuteCodeCallback callback);
+
+  ProgrammaticScriptInjector(const ProgrammaticScriptInjector&) = delete;
+  ProgrammaticScriptInjector& operator=(const ProgrammaticScriptInjector&) =
+      delete;
+
   ~ProgrammaticScriptInjector() override;
 
  private:
@@ -83,8 +88,6 @@ class ProgrammaticScriptInjector : public ScriptInjector {
 
   // Whether or not this script injection has finished.
   bool finished_ = false;
-
-  DISALLOW_COPY_AND_ASSIGN(ProgrammaticScriptInjector);
 };
 
 }  // namespace extensions

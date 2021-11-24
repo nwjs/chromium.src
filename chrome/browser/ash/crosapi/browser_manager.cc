@@ -40,6 +40,7 @@
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "base/threading/thread_restrictions.h"
+#include "chrome/browser/ash/crosapi/browser_data_migrator.h"
 #include "chrome/browser/ash/crosapi/browser_loader.h"
 #include "chrome/browser/ash/crosapi/browser_service_host_ash.h"
 #include "chrome/browser/ash/crosapi/browser_util.h"
@@ -187,8 +188,7 @@ void TerminateLacrosChrome(base::Process process) {
   // Here, lacros-chrome process may crashed, or be in the shutdown procedure.
   // Give some amount of time for the collection. In most cases,
   // this wait captures the process termination.
-  constexpr base::TimeDelta kGracefulShutdownTimeout =
-      base::TimeDelta::FromSeconds(5);
+  constexpr base::TimeDelta kGracefulShutdownTimeout = base::Seconds(5);
   if (process.WaitForExitWithTimeout(kGracefulShutdownTimeout, nullptr))
     return;
 
@@ -834,6 +834,13 @@ void BrowserManager::OnSessionStateChanged() {
     SetState(State::UNAVAILABLE);
     browser_loader_->Unload();
   }
+
+  // Post `RecordUserDataSizes()` to send UMA stats about sizes of files/dirs
+  // inside the profile data directory.
+  base::ThreadPool::PostTask(
+      FROM_HERE, {base::MayBlock()},
+      base::BindOnce(&ash::BrowserDataMigrator::DryRunToCollectUMA,
+                     ProfileManager::GetPrimaryUserProfile()->GetPath()));
 }
 
 void BrowserManager::OnStoreLoaded(policy::CloudPolicyStore* store) {
@@ -903,7 +910,8 @@ policy::CloudPolicyStore* BrowserManager::GetDeviceAccountPolicyStore() {
         return nullptr;
       return user_cloud_policy_manager->core()->store();
     }
-    case user_manager::USER_TYPE_PUBLIC_ACCOUNT: {
+    case user_manager::USER_TYPE_PUBLIC_ACCOUNT:
+    case user_manager::USER_TYPE_WEB_KIOSK_APP: {
       policy::DeviceLocalAccountPolicyBroker* broker =
           g_browser_process->platform_part()
               ->browser_policy_connector_ash()

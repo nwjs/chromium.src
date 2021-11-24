@@ -108,7 +108,7 @@ FrameTreeNode::FrameTreeNode(
     bool is_created_by_script,
     const base::UnguessableToken& devtools_frame_token,
     const blink::mojom::FrameOwnerProperties& frame_owner_properties,
-    blink::mojom::FrameOwnerElementType owner_type,
+    blink::FrameOwnerElementType owner_type,
     const blink::FramePolicy& frame_policy)
     : frame_tree_(frame_tree),
       frame_tree_node_id_(next_frame_tree_node_id_++),
@@ -466,6 +466,12 @@ bool FrameTreeNode::HasPendingCrossDocumentNavigation() const {
 
 bool FrameTreeNode::CommitFramePolicy(
     const blink::FramePolicy& new_frame_policy) {
+  // Documents create iframes, iframes host new documents. Both are associated
+  // with sandbox flags. They are required to be stricter or equal to their
+  // owner when they change, as we go down.
+  // TODO(https://crbug.com/1262061). Enforce the invariant mentioned above,
+  // once the interactions with FencedIframe has been tested and clarified.
+
   bool did_change_flags = new_frame_policy.sandbox_flags !=
                           replication_state_->frame_policy.sandbox_flags;
   bool did_change_container_policy =
@@ -867,6 +873,25 @@ bool FrameTreeNode::IsInFencedFrameTree() const {
     default:
       return false;
   }
+}
+
+void FrameTreeNode::SetFencedFrameNonceIfNeeded() {
+  if (!IsInFencedFrameTree()) {
+    return;
+  }
+
+  if (IsFencedFrameRoot()) {
+    fenced_frame_nonce_ = base::UnguessableToken::Create();
+    return;
+  }
+
+  // For nested iframes in a fenced frame tree, propagate the same nonce as was
+  // set in the fenced frame root.
+  DCHECK(parent_);
+  absl::optional<base::UnguessableToken> nonce =
+      parent_->frame_tree_node()->fenced_frame_nonce();
+  DCHECK(nonce.has_value());
+  fenced_frame_nonce_ = nonce;
 }
 
 }  // namespace content
