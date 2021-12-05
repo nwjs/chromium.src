@@ -32,10 +32,10 @@ const char* const kValidSchemes[] = {
 // static
 bool FrameNavigationState::allow_extension_scheme_ = true;
 
-RENDER_DOCUMENT_HOST_USER_DATA_KEY_IMPL(FrameNavigationState);
+DOCUMENT_USER_DATA_KEY_IMPL(FrameNavigationState);
 
 FrameNavigationState::FrameNavigationState(content::RenderFrameHost* rfh)
-    : content::RenderDocumentHostUserData<FrameNavigationState>(rfh) {}
+    : content::DocumentUserData<FrameNavigationState>(rfh) {}
 FrameNavigationState::~FrameNavigationState() = default;
 
 // static

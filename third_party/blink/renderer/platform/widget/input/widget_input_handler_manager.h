@@ -8,7 +8,7 @@
 #include <atomic>
 #include <memory>
 
-#include "base/single_thread_task_runner.h"
+#include "base/task/single_thread_task_runner.h"
 #include "build/build_config.h"
 #include "cc/trees/paint_holding_reason.h"
 #include "components/power_scheduler/power_mode_voter.h"
@@ -93,6 +93,7 @@ class PLATFORM_EXPORT WidgetInputHandlerManager final
   bool HandleInputEvent(const WebCoalescedInputEvent& event,
                         std::unique_ptr<cc::EventMetrics> metrics,
                         HandledEventCallback handled_callback) override;
+  void InputEventsDispatched(bool raf_aligned) override;
   void SetNeedsMainFrame() override;
 
   // InputHandlerProxyClient overrides.

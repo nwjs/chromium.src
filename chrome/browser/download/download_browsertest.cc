@@ -2837,7 +2837,7 @@ IN_PROC_BROWSER_TEST_F(DownloadTestSplitCacheEnabled,
       blink::mojom::ContextMenuDataMediaType::kPlugin;
   context_menu_params.src_url = url;
   context_menu_params.page_url = inner_web_contents->GetLastCommittedURL();
-  TestRenderViewContextMenu menu(inner_web_contents->GetMainFrame(),
+  TestRenderViewContextMenu menu(*inner_web_contents->GetMainFrame(),
                                  context_menu_params);
   menu.Init();
   menu.ExecuteCommand(IDC_SAVE_PAGE, 0);
@@ -2996,9 +2996,10 @@ IN_PROC_BROWSER_TEST_F(DownloadTestSplitCacheEnabled,
   context_menu_params.page_url =
       content::ChildFrameAt(web_contents->GetMainFrame(), 0)
           ->GetLastCommittedURL();
-  TestRenderViewContextMenu menu(
-      content::ChildFrameAt(web_contents->GetMainFrame(), 0),
-      context_menu_params);
+  content::RenderFrameHost* frame =
+      content::ChildFrameAt(web_contents->GetMainFrame(), 0);
+  ASSERT_TRUE(frame);
+  TestRenderViewContextMenu menu(*frame, context_menu_params);
   menu.Init();
   menu.ExecuteCommand(IDC_CONTENT_CONTEXT_SAVEIMAGEAS, 0);
 
@@ -3084,7 +3085,7 @@ IN_PROC_BROWSER_TEST_F(DownloadTestSplitCacheEnabled,
       blink::mojom::ContextMenuDataMediaType::kPlugin;
   context_menu_params.src_url = subframe_url;
   context_menu_params.page_url = inner_web_contents->GetLastCommittedURL();
-  TestRenderViewContextMenu menu(inner_web_contents->GetMainFrame(),
+  TestRenderViewContextMenu menu(*inner_web_contents->GetMainFrame(),
                                  context_menu_params);
   menu.Init();
   menu.ExecuteCommand(IDC_CONTENT_CONTEXT_SAVEAVAS, 0);
@@ -3173,7 +3174,7 @@ IN_PROC_BROWSER_TEST_F(DownloadTestWithHistogramTester,
   context_menu_params.src_url = url;
   context_menu_params.page_url = url;
   TestRenderViewContextMenu menu(
-      browser()->tab_strip_model()->GetActiveWebContents()->GetMainFrame(),
+      *browser()->tab_strip_model()->GetActiveWebContents()->GetMainFrame(),
       context_menu_params);
   menu.Init();
   menu.ExecuteCommand(IDC_CONTENT_CONTEXT_SAVEIMAGEAS, 0);
@@ -3246,7 +3247,7 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, MAYBE_SaveLargeImage) {
   context_menu_params.src_url = GURL(data_url);
   context_menu_params.page_url = url;
   TestRenderViewContextMenu menu(
-      browser()->tab_strip_model()->GetActiveWebContents()->GetMainFrame(),
+      *browser()->tab_strip_model()->GetActiveWebContents()->GetMainFrame(),
       context_menu_params);
   menu.Init();
   menu.ExecuteCommand(IDC_CONTENT_CONTEXT_SAVEIMAGEAS, 0);
@@ -3346,7 +3347,7 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, SavePageNonHTMLViaPost) {
       blink::mojom::ContextMenuDataMediaType::kImage;
   context_menu_params.src_url = jpeg_url;
   context_menu_params.page_url = jpeg_url;
-  TestRenderViewContextMenu menu(web_contents->GetMainFrame(),
+  TestRenderViewContextMenu menu(*web_contents->GetMainFrame(),
                                  context_menu_params);
   menu.Init();
   menu.ExecuteCommand(IDC_CONTENT_CONTEXT_SAVEIMAGEAS, 0);
@@ -3894,7 +3895,7 @@ IN_PROC_BROWSER_TEST_P(DownloadReferrerPolicyTest,
   context_menu_params.page_url = url;
   context_menu_params.src_url = img_url;
   TestRenderViewContextMenu menu(
-      browser()->tab_strip_model()->GetActiveWebContents()->GetMainFrame(),
+      *browser()->tab_strip_model()->GetActiveWebContents()->GetMainFrame(),
       context_menu_params);
   menu.Init();
   menu.ExecuteCommand(IDC_CONTENT_CONTEXT_SAVEIMAGEAS, 0);

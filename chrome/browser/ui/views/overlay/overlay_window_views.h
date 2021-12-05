@@ -119,6 +119,7 @@ class OverlayWindowViews : public content::OverlayWindow,
   ToggleCameraButton* toggle_camera_button_for_testing() const;
   HangUpButton* hang_up_button_for_testing() const;
   BackToTabLabelButton* back_to_tab_label_button_for_testing() const;
+  views::CloseImageButton* close_button_for_testing() const;
   gfx::Point close_image_position_for_testing() const;
   gfx::Point resize_handle_position_for_testing() const;
   OverlayWindowViews::PlaybackState playback_state_for_testing() const;
@@ -200,7 +201,7 @@ class OverlayWindowViews : public content::OverlayWindow,
   void TogglePlayPause();
 
   // Returns the current frame sink id for the surface displayed in the
-  // |video_view_]. If |video_view_| is not currently displaying a surface then
+  // |video_view_|. If |video_view_| is not currently displaying a surface then
   // returns nullptr.
   const viz::FrameSinkId* GetCurrentFrameSinkId() const;
 
@@ -286,6 +287,10 @@ class OverlayWindowViews : public content::OverlayWindow,
   // and hiding automatically. Only used for testing via
   // ForceControlsVisibleForTesting().
   absl::optional<bool> force_controls_visible_;
+
+  // Whether or not the current frame sink for the surface displayed in the
+  // |video_view_| is registered as the child of the overlay window frame sink.
+  bool has_registered_frame_sink_hierarchy_ = false;
 };
 
 #pragma clang diagnostic pop

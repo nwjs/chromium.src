@@ -50,8 +50,10 @@ void WaylandOutput::Instantiate(WaylandConnection* connection,
   connection->wayland_output_manager_->AddWaylandOutput(name, output.release());
 }
 
-WaylandOutput::WaylandOutput(uint32_t output_id, wl_output* output)
-    : output_id_(output_id), output_(output) {
+WaylandOutput::WaylandOutput(uint32_t output_id,
+                             wl_output* output,
+                             WaylandConnection* connection)
+    : output_id_(output_id), output_(output), connection_(connection) {
   wl_output_set_user_data(output_.get(), this);
 }
 
@@ -85,18 +87,16 @@ float WaylandOutput::GetUIScaleFactor() const {
 }
 
 void WaylandOutput::TriggerDelegateNotifications() {
-  DCHECK(!rect_in_physical_pixels_.IsEmpty());
-  // If zxdg_output protocol is used, calculate scale factor using logical
-  // size.
-  if (xdg_output_) {
+  if (xdg_output_ && connection_->surface_submission_in_pixel_coordinates()) {
+    DCHECK(!rect_in_physical_pixels_.IsEmpty());
     const gfx::Size logical_size = xdg_output_->logical_size();
     if (!logical_size.IsEmpty()) {
       if (logical_size.width() >= logical_size.height()) {
-        scale_factor_ = ceil(rect_in_physical_pixels_.width() /
-                             static_cast<float>(logical_size.width()));
+        scale_factor_ = rect_in_physical_pixels_.width() /
+                        static_cast<float>(logical_size.width());
       } else {
-        scale_factor_ = ceil(rect_in_physical_pixels_.height() /
-                             static_cast<float>(logical_size.height()));
+        scale_factor_ = rect_in_physical_pixels_.height() /
+                        static_cast<float>(logical_size.height());
       }
     }
   }

@@ -645,8 +645,8 @@ void ExtensionTabUtil::ScrubTabForExtension(
       tab->fav_icon_url.reset();
       break;
     case kScrubTabUrlToOrigin:
-      tab->url =
-          std::make_unique<std::string>(GURL(*tab->url).GetOrigin().spec());
+      tab->url = std::make_unique<std::string>(
+          GURL(*tab->url).DeprecatedGetOriginAsURL().spec());
       break;
     case kDontScrubTab:
       break;
@@ -660,7 +660,7 @@ void ExtensionTabUtil::ScrubTabForExtension(
         break;
       case kScrubTabUrlToOrigin:
         tab->pending_url = std::make_unique<std::string>(
-            GURL(*tab->pending_url).GetOrigin().spec());
+            GURL(*tab->pending_url).DeprecatedGetOriginAsURL().spec());
         break;
       case kDontScrubTab:
         break;
@@ -857,12 +857,21 @@ bool ExtensionTabUtil::PrepareURLForNavigation(const std::string& url_string,
 
   // Don't let the extension navigate directly to devtools scheme pages, unless
   // they have applicable permissions.
-  if (url.SchemeIs(content::kChromeDevToolsScheme) &&
-      !(extension->permissions_data()->HasAPIPermission(
-            APIPermissionID::kDevtools) ||
-        extension->permissions_data()->HasAPIPermission(
-            APIPermissionID::kDebugger))) {
-    *error = tabs_constants::kCannotNavigateToDevtools;
+  if (url.SchemeIs(content::kChromeDevToolsScheme)) {
+    bool has_permission =
+        extension && (extension->permissions_data()->HasAPIPermission(
+                          APIPermissionID::kDevtools) ||
+                      extension->permissions_data()->HasAPIPermission(
+                          APIPermissionID::kDebugger));
+    if (!has_permission) {
+      *error = tabs_constants::kCannotNavigateToDevtools;
+      return false;
+    }
+  }
+
+  // Don't let the extension navigate directly to chrome-untrusted scheme pages.
+  if (url.SchemeIs(content::kChromeUIUntrustedScheme)) {
+    *error = tabs_constants::kCannotNavigateToChromeUntrusted;
     return false;
   }
 

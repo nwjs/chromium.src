@@ -247,11 +247,6 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   void UpdateRendererPreferencesForWorker(
       content::BrowserContext* browser_context,
       blink::RendererPreferences* out_prefs) override;
-  bool AllowAppCache(const GURL& manifest_url,
-
-                     const net::SiteForCookies& site_for_cookies,
-                     const absl::optional<url::Origin>& top_frame_origin,
-                     content::BrowserContext* context) override;
   content::AllowServiceWorkerResult AllowServiceWorker(
       const GURL& scope,
       const net::SiteForCookies& site_for_cookies,
@@ -421,10 +416,10 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
 #endif  // defined(OS_POSIX) && !defined(OS_MAC)
 #if defined(OS_WIN)
   bool PreSpawnChild(sandbox::TargetPolicy* policy,
-                     sandbox::policy::SandboxType sandbox_type,
+                     sandbox::mojom::Sandbox sandbox_type,
                      ChildSpawnFlags flags) override;
   std::wstring GetAppContainerSidForSandboxType(
-      sandbox::policy::SandboxType sandbox_type) override;
+      sandbox::mojom::Sandbox sandbox_type) override;
   std::wstring GetLPACCapabilityNameForNetworkService() override;
   bool IsUtilityCetCompatible(const std::string& utility_sub_type) override;
   bool IsRendererCodeIntegrityEnabled() override;
@@ -533,8 +528,10 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       mojo::PendingRemote<network::mojom::WebSocketHandshakeClient>
           handshake_client) override;
   void WillCreateWebTransport(
-      content::RenderFrameHost* frame,
+      int process_id,
+      int frame_routing_id,
       const GURL& url,
+      const url::Origin& initiator_origin,
       mojo::PendingRemote<network::mojom::WebTransportHandshakeClient>
           handshake_client,
       WillCreateWebTransportCallback callback) override;
@@ -599,7 +596,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       const net::AuthChallengeInfo& auth_info,
       content::WebContents* web_contents,
       const content::GlobalRequestID& request_id,
-      bool is_request_for_main_frame,
+      bool is_request_for_primary_main_frame,
       const GURL& url,
       scoped_refptr<net::HttpResponseHeaders> response_headers,
       bool first_auth_attempt,
@@ -719,8 +716,6 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   content::XrIntegrationClient* GetXrIntegrationClient() override;
 #endif
 
-  bool IsOriginTrialRequiredForAppCache(
-      content::BrowserContext* browser_context) override;
   void BindBrowserControlInterface(mojo::ScopedMessagePipeHandle pipe) override;
   bool ShouldInheritCrossOriginEmbedderPolicyImplicitly(
       const GURL& url) override;
@@ -737,7 +732,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
 
 #if defined(OS_MAC)
   bool SetupEmbedderSandboxParameters(
-      sandbox::policy::SandboxType sandbox_type,
+      sandbox::mojom::Sandbox sandbox_type,
       sandbox::SeatbeltExecClient* client) override;
 #endif  // defined(OS_MAC)
 
@@ -759,6 +754,8 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   std::unique_ptr<content::SpeculationHostDelegate>
   CreateSpeculationHostDelegate(
       content::RenderFrameHost& render_frame_host) override;
+
+  bool IsFindInPageDisabledForOrigin(const url::Origin& origin) override;
 
  protected:
   static bool HandleWebUI(GURL* url, content::BrowserContext* browser_context);
@@ -824,15 +821,19 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
 
   void SafeBrowsingWebApiHandshakeChecked(
       std::unique_ptr<safe_browsing::WebApiHandshakeChecker> checker,
-      const content::GlobalRenderFrameHostId& frame_id,
+      int process_id,
+      int frame_routing_id,
       const GURL& url,
+      const url::Origin& initiator_origin,
       mojo::PendingRemote<network::mojom::WebTransportHandshakeClient>
           handshake_client,
       WillCreateWebTransportCallback callback,
       safe_browsing::WebApiHandshakeChecker::CheckResult result);
   void MaybeInterceptWebTransport(
-      const content::GlobalRenderFrameHostId& frame_id,
+      int process_id,
+      int frame_routing_id,
       const GURL& url,
+      const url::Origin& initiator_origin,
       mojo::PendingRemote<network::mojom::WebTransportHandshakeClient>
           handshake_client,
       WillCreateWebTransportCallback callback);

@@ -48,7 +48,8 @@ static constexpr SkColor kColorSelectionRect = SkColorSetRGB(0xEE, 0xEE, 0xEE);
 static constexpr int kMinimumValidSelectionEdgePixels = 30;
 
 ScreenshotFlow::ScreenshotFlow(content::WebContents* web_contents)
-    : web_contents_(web_contents->GetWeakPtr()) {
+    : content::WebContentsObserver(web_contents),
+      web_contents_(web_contents->GetWeakPtr()) {
   weak_this_ = weak_factory_.GetWeakPtr();
 }
 
@@ -97,6 +98,8 @@ void ScreenshotFlow::CreateAndAddUIOverlay() {
 }
 
 void ScreenshotFlow::RemoveUIOverlay() {
+  if (capture_mode_ == CaptureMode::NOT_CAPTURING)
+    return;
   capture_mode_ = CaptureMode::NOT_CAPTURING;
   if (!web_contents_ || !screen_capture_layer_)
     return;
@@ -104,6 +107,8 @@ void ScreenshotFlow::RemoveUIOverlay() {
 #if defined(OS_MAC)
   views::Widget* widget = views::Widget::GetWidgetForNativeView(
       web_contents_->GetContentNativeView());
+  if (!widget)
+    return;
   ui::Layer* content_layer = widget->GetLayer();
   event_capture_mac_.reset();
 #else
@@ -233,7 +238,6 @@ void ScreenshotFlow::OnMouseEvent(ui::MouseEvent* event) {
         drag_end_.SetPoint(0, 0);
         if (selection.width() >= kMinimumValidSelectionEdgePixels &&
             selection.height() >= kMinimumValidSelectionEdgePixels) {
-          capture_mode_ = CaptureMode::NOT_CAPTURING;
           CompleteCapture(ScreenshotCaptureResultCode::SUCCESS, selection);
         } else {
           RequestRepaint(gfx::Rect());
@@ -331,6 +335,18 @@ void ScreenshotFlow::SetCursor(ui::mojom::CursorType cursor_type) {
 
 bool ScreenshotFlow::IsCaptureModeActive() {
   return capture_mode_ != CaptureMode::NOT_CAPTURING;
+}
+
+void ScreenshotFlow::WebContentsDestroyed() {
+  if (IsCaptureModeActive()) {
+    CancelCapture();
+  }
+}
+
+void ScreenshotFlow::OnVisibilityChanged(content::Visibility visibility) {
+  if (IsCaptureModeActive()) {
+    CancelCapture();
+  }
 }
 
 // UnderlyingWebContentsObserver monitors the WebContents and exits screen

@@ -21,13 +21,13 @@
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/numerics/safe_conversions.h"
-#include "base/single_thread_task_runner.h"
 #include "base/strings/pattern.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/lock.h"
 #include "base/task/post_task.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/time/time.h"
@@ -233,6 +233,14 @@ RendererBlinkPlatformImpl::~RendererBlinkPlatformImpl() {
 void RendererBlinkPlatformImpl::Shutdown() {}
 
 //------------------------------------------------------------------------------
+
+std::string RendererBlinkPlatformImpl::GetNameForHistogram(const char* name) {
+  RenderThreadImpl* render_thread_impl = RenderThreadImpl::current();
+  // render_thread_impl can be null in tests.
+  return render_thread_impl ? render_thread_impl->histogram_customizer()
+                                  ->ConvertToCustomHistogramName(name)
+                            : std::string{name};
+}
 
 std::unique_ptr<blink::WebURLLoaderFactory>
 RendererBlinkPlatformImpl::WrapURLLoaderFactory(
@@ -991,13 +999,6 @@ bool RendererBlinkPlatformImpl::AllowScriptExtensionForServiceWorker(
 blink::ProtocolHandlerSecurityLevel
 RendererBlinkPlatformImpl::GetProtocolHandlerSecurityLevel() {
   return GetContentClient()->renderer()->GetProtocolHandlerSecurityLevel();
-}
-
-bool RendererBlinkPlatformImpl::IsExcludedHeaderForServiceWorkerFetchEvent(
-    const blink::WebString& header_name) {
-  return GetContentClient()
-      ->renderer()
-      ->IsExcludedHeaderForServiceWorkerFetchEvent(header_name.Ascii());
 }
 
 bool RendererBlinkPlatformImpl::OriginCanAccessServiceWorkers(

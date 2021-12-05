@@ -95,6 +95,10 @@ const char kFocusToEditTimeHistogram[] = "Omnibox.FocusToEditTime";
 const char kFocusToOpenTimeHistogram[] =
     "Omnibox.FocusToOpenTimeAnyPopupState3";
 
+// Histogram name which counts the number of times the user completes a search
+// in keyword mode, enumerated by how they enter keyword mode.
+const char kAcceptedKeywordSuggestion[] = "Omnibox.AcceptedKeywordSuggestion";
+
 void EmitKeywordHistogram(
     OmniboxEventProto::KeywordModeEntryMethod entry_method) {
   UMA_HISTOGRAM_ENUMERATION(
@@ -896,6 +900,9 @@ void OmniboxEditModel::OpenMatch(AutocompleteMatch match,
       }
 
       base::RecordAction(base::UserMetricsAction("AcceptedKeyword"));
+      UMA_HISTOGRAM_ENUMERATION(
+          kAcceptedKeywordSuggestion, keyword_mode_entry_method_,
+          static_cast<int>(OmniboxEventProto::KeywordModeEntryMethod_MAX + 1));
       client_->GetTemplateURLService()->IncrementUsageCount(template_url);
     } else {
       DCHECK(ui::PageTransitionTypeIncludingQualifiersIs(
@@ -2073,7 +2080,7 @@ void OmniboxEditModel::OnPopupResultChanged() {
       // changed leave it.
       const bool has_focused_match =
           selection.state == OmniboxPopupSelection::FOCUSED_BUTTON_TAB_SWITCH &&
-          result.match_at(selection.line).has_tab_match;
+          result.match_at(selection.line).has_tab_match.value_or(false);
       const bool has_changed =
           selection.line != old_selected_line ||
           result.match_at(selection.line).destination_url != old_focused_url_;

@@ -789,11 +789,6 @@ base::WeakPtr<content::NavigationHandle> Navigate(NavigateParams* params) {
 bool IsHostAllowedInIncognito(const GURL& url) {
   std::string scheme = url.scheme();
   base::StringPiece host = url.host_piece();
-  if (scheme == chrome::kChromeSearchScheme) {
-    return host != chrome::kChromeUIThumbnailHost &&
-           host != chrome::kChromeUIThumbnailHost2;
-  }
-
   if (scheme != content::kChromeUIScheme)
     return true;
 
@@ -822,9 +817,6 @@ bool IsHostAllowedInIncognito(const GURL& url) {
          host != chrome::kChromeUIHistoryHost &&
          host != chrome::kChromeUIExtensionsHost &&
          host != chrome::kChromeUIBookmarksHost &&
-         host != chrome::kChromeUIThumbnailHost &&
-         host != chrome::kChromeUIThumbnailHost2 &&
-         host != chrome::kChromeUIDevicesHost &&
          host != chrome::kChromeUINewTabPageHost &&
          host != chrome::kChromeUINewTabPageThirdPartyHost;
 }

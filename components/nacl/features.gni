@@ -12,6 +12,7 @@ if (is_mac) {
 declare_args() {
   # Enables Native Client support.
   # Temporarily disable nacl on arm64 linux to get rid of compilation errors.
+  # Intentionally and permanently disable nacl om arm64 mac.
   # TODO: When mipsel-nacl-clang is available, drop the exclusion.
   enable_nacl = false
 

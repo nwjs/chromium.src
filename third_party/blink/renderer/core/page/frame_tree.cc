@@ -269,13 +269,15 @@ Frame* FrameTree::FindFrameForNavigationInternal(const AtomicString& name,
       if (f->isNwFakeTop())
         return const_cast<LocalFrame*>(f);
     }
-    return &Top();
+    return &Top(FrameTreeBoundary::kFenced);
   }
 
   if (EqualIgnoringASCIICase(name, "_parent")) {
     if (this_frame_->isNwFakeTop())
       return this_frame_.Get();
-    return Parent() ? Parent() : this_frame_.Get();
+    return Parent(FrameTreeBoundary::kFenced)
+               ? Parent(FrameTreeBoundary::kFenced)
+               : this_frame_.Get();
   }
 
   // Since "_blank" should never be any frame's name, the following just amounts

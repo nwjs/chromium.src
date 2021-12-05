@@ -973,7 +973,7 @@ _BANNED_CPP_FUNCTIONS = (
       ),
     ),
     (
-      r'/DISALLOW_(COPY|ASSIGN|COPY_AND_ASSIGN|IMPLICIT_CONSTRUCTORS)\(',
+      r'/DISALLOW_(COPY|ASSIGN|COPY_AND_ASSIGN)\(',
       (
         'DISALLOW_xxx macros are deprecated. See base/macros.h for details.',
       ),
@@ -1188,7 +1188,8 @@ _KNOWN_ROBOTS = set(
   ) | set('%s@chops-service-accounts.iam.gserviceaccount.com' % s
           for s in ('bling-autoroll-builder', 'v8-ci-autoroll-builder',
                     'wpt-autoroller', 'chrome-weblayer-builder',
-                    'lacros-version-skew-roller', 'skylab-test-cros-roller')
+                    'lacros-version-skew-roller', 'skylab-test-cros-roller',
+                    'infra-try-recipes-tester')
   ) | set('%s@skia-public.iam.gserviceaccount.com' % s
           for s in ('chromium-autoroll', 'chromium-release-autoroll')
   ) | set('%s@skia-corp.google.com.iam.gserviceaccount.com' % s
@@ -4269,13 +4270,17 @@ def ChecksCommon(input_api, output_api):
             input_api, output_api, full_path,
             files_to_check=[r'^PRESUBMIT_test\.py$'],
             run_on_python2=not use_python3,
-            run_on_python3=use_python3))
+            run_on_python3=use_python3,
+            skip_shebang_check=True))
   return results
 
 
 def CheckPatchFiles(input_api, output_api):
   problems = [f.LocalPath() for f in input_api.AffectedFiles()
       if f.LocalPath().endswith(('.orig', '.rej'))]
+  # Cargo.toml.orig files are part of third-party crates downloaded from
+  # crates.io and should be included.
+  problems = [f for f in problems if not f.endswith('Cargo.toml.orig')]
   if problems:
     return [output_api.PresubmitError(
         "Don't commit .rej and .orig files.", problems)]

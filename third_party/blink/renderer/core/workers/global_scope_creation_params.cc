@@ -23,6 +23,8 @@ GlobalScopeCreationParams::GlobalScopeCreationParams(
     scoped_refptr<WebWorkerFetchContext> web_worker_fetch_context,
     Vector<network::mojom::blink::ContentSecurityPolicyPtr>
         outside_content_security_policies,
+    Vector<network::mojom::blink::ContentSecurityPolicyPtr>
+        response_content_security_policies,
     network::mojom::ReferrerPolicy referrer_policy,
     const SecurityOrigin* starter_origin,
     bool starter_secure_context,
@@ -54,6 +56,8 @@ GlobalScopeCreationParams::GlobalScopeCreationParams(
       web_worker_fetch_context(std::move(web_worker_fetch_context)),
       outside_content_security_policies(
           std::move(outside_content_security_policies)),
+      response_content_security_policies(
+          std::move(response_content_security_policies)),
       referrer_policy(referrer_policy),
       starter_origin(starter_origin ? starter_origin->IsolatedCopy() : nullptr),
       starter_secure_context(starter_secure_context),

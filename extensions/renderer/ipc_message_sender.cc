@@ -69,21 +69,21 @@ class MainThreadIPCMessageSender : public IPCMessageSender {
 
   void SendOnRequestResponseReceivedIPC(int request_id) override {}
 
+  mojom::EventListenerParamPtr GetEventListenerParam(ScriptContext* context) {
+    return !context->GetExtensionID().empty()
+               ? mojom::EventListenerParam::NewExtensionId(
+                     context->GetExtensionID())
+               : mojom::EventListenerParam::NewListenerUrl(context->url());
+  }
+
   void SendAddUnfilteredEventListenerIPC(
       ScriptContext* context,
       const std::string& event_name) override {
     DCHECK(!context->IsForServiceWorker());
     DCHECK_EQ(kMainThreadId, content::WorkerThread::GetCurrentId());
 
-    if (!context->GetExtensionID().empty()) {
-      GetEventRouter()->AddListenerForMainThread(
-          mojom::EventListenerParam::NewExtensionId(context->GetExtensionID()),
-          event_name);
-    } else {
-      GetEventRouter()->AddListenerForMainThread(
-          mojom::EventListenerParam::NewListenerUrl(context->url()),
-          event_name);
-    }
+    GetEventRouter()->AddListenerForMainThread(GetEventListenerParam(context),
+                                               event_name);
   }
 
   void SendRemoveUnfilteredEventListenerIPC(
@@ -92,15 +92,8 @@ class MainThreadIPCMessageSender : public IPCMessageSender {
     DCHECK(!context->IsForServiceWorker());
     DCHECK_EQ(kMainThreadId, content::WorkerThread::GetCurrentId());
 
-    if (!context->GetExtensionID().empty()) {
-      GetEventRouter()->RemoveListenerForMainThread(
-          mojom::EventListenerParam::NewExtensionId(context->GetExtensionID()),
-          event_name);
-    } else {
-      GetEventRouter()->RemoveListenerForMainThread(
-          mojom::EventListenerParam::NewListenerUrl(context->url()),
-          event_name);
-    }
+    GetEventRouter()->RemoveListenerForMainThread(
+        GetEventListenerParam(context), event_name);
   }
 
   void SendAddUnfilteredLazyEventListenerIPC(
@@ -131,7 +124,7 @@ class MainThreadIPCMessageSender : public IPCMessageSender {
     DCHECK_EQ(kMainThreadId, content::WorkerThread::GetCurrentId());
 
     GetEventRouter()->AddFilteredListenerForMainThread(
-        context->GetExtensionID(), event_name, filter.Clone(), is_lazy);
+        GetEventListenerParam(context), event_name, filter.Clone(), is_lazy);
   }
 
   void SendRemoveFilteredEventListenerIPC(ScriptContext* context,
@@ -142,7 +135,7 @@ class MainThreadIPCMessageSender : public IPCMessageSender {
     DCHECK_EQ(kMainThreadId, content::WorkerThread::GetCurrentId());
 
     GetEventRouter()->RemoveFilteredListenerForMainThread(
-        context->GetExtensionID(), event_name, filter.Clone(),
+        GetEventListenerParam(context), event_name, filter.Clone(),
         remove_lazy_listener);
   }
 

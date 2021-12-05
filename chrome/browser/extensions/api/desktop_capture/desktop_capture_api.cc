@@ -61,7 +61,7 @@ DesktopCaptureChooseDesktopMediaFunction::Run() {
     if (!params->target_tab->url) {
       return RespondNow(Error(kDesktopCaptureApiNoUrlError));
     }
-    origin = GURL(*(params->target_tab->url)).GetOrigin();
+    origin = GURL(*(params->target_tab->url)).DeprecatedGetOriginAsURL();
 
     if (!origin.is_valid()) {
       return RespondNow(Error(kDesktopCaptureApiInvalidOriginError));
@@ -95,7 +95,7 @@ DesktopCaptureChooseDesktopMediaFunction::Run() {
     // NWJS app allows running on origins other than `chrome-extension://*/*`.
     // The origin should then be from the senders URL, in order not to fail
     // the origin checking in `DesktopStreamsRegistry::RequestMediaForStreamId`.
-    origin = extension()->is_nwjs_app() ? web_contents->GetURL().GetOrigin() : extension()->url();
+    origin = extension()->is_nwjs_app() ? web_contents->GetURL().DeprecatedGetOriginAsURL() : extension()->url();
     DCHECK(web_contents);
   }
 

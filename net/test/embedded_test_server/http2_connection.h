@@ -59,7 +59,7 @@ class Http2Connection : public HttpConnection,
   void OnCloseStream(StreamId stream_id,
                      http2::adapter::Http2ErrorCode error_code) override;
   // Unused functions
-  void OnConnectionError() override {}
+  void OnConnectionError(ConnectionError /*error*/) override {}
   bool OnFrameHeader(StreamId /*stream_id*/,
                      size_t /*length*/,
                      uint8_t /*type*/,
@@ -93,7 +93,7 @@ class Http2Connection : public HttpConnection,
                   size_t length,
                   uint8_t flags,
                   uint32_t error_code) override;
-  bool OnInvalidFrame(StreamId stream_id, int error_code) override;
+  bool OnInvalidFrame(StreamId stream_id, InvalidFrameError error) override;
   void OnBeginMetadataForStream(StreamId stream_id,
                                 size_t payload_length) override {}
   bool OnMetadataForStream(StreamId stream_id,

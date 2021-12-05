@@ -197,7 +197,7 @@ WebInputEventResult GestureManager::HandleGestureTap(
 
   // We use the adjusted position so the application isn't surprised to see a
   // event with co-ordinates outside the target's bounds.
-  IntPoint adjusted_point = frame_view->ConvertFromRootFrame(
+  gfx::Point adjusted_point = frame_view->ConvertFromRootFrame(
       FlooredIntPoint(gesture_event.PositionInRootFrame()));
 
   const unsigned modifiers = gesture_event.GetModifiers();
@@ -236,7 +236,7 @@ WebInputEventResult GestureManager::HandleGestureTap(
   }
 
   // Capture data for showUnhandledTapUIIfNeeded.
-  IntPoint tapped_position =
+  gfx::Point tapped_position =
       FlooredIntPoint(gesture_event.PositionInRootFrame());
   Node* tapped_node = current_hit_test.InnerNode();
   Element* tapped_element = current_hit_test.InnerElement();
@@ -341,6 +341,8 @@ WebInputEventResult GestureManager::HandleGestureTap(
       current_hit_test.InnerNodeFrame()) {
     current_hit_test.InnerNodeFrame()->View()->UpdateLifecycleToPrePaintClean(
         DocumentUpdateReason::kHitTest);
+    current_hit_test = event_handling_util::HitTestResultInFrame(
+        frame_, HitTestLocation(adjusted_point), hit_type);
     if (TextFragmentHandler::IsOverTextFragment(current_hit_test) &&
         event_result == WebInputEventResult::kNotHandled) {
       return SendContextMenuEventForGesture(targeted_event);
@@ -355,7 +357,7 @@ WebInputEventResult GestureManager::HandleGestureTap(
     bool style_changed =
         pre_dispatch_style_version != frame_->GetDocument()->StyleVersion();
 
-    IntPoint tapped_position_in_viewport =
+    gfx::Point tapped_position_in_viewport =
         frame_->GetPage()->GetVisualViewport().RootFrameToViewport(
             tapped_position);
     ShowUnhandledTapUIIfNeeded(dom_tree_changed, style_changed, tapped_node,
@@ -517,7 +519,7 @@ void GestureManager::ShowUnhandledTapUIIfNeeded(
     bool style_changed,
     Node* tapped_node,
     Element* tapped_element,
-    const IntPoint& tapped_position_in_viewport) {
+    const gfx::Point& tapped_position_in_viewport) {
 #if BUILDFLAG(ENABLE_UNHANDLED_TAP)
   WebNode web_node(tapped_node);
   // TODO(donnd): roll in ML-identified signals for suppression once identified.

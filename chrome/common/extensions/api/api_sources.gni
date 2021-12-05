@@ -51,7 +51,6 @@ schema_sources_ = [
   "sessions.json",
   "settings_private.idl",
   "signed_in_devices.idl",
-  "system_indicator.idl",
   "system_private.json",
   "tab_capture.idl",
   "tab_groups.json",
@@ -80,8 +79,10 @@ if (is_chromeos) {
     "enterprise_networking_attributes.idl",
     "enterprise_platform_keys.idl",
     "enterprise_platform_keys_internal.idl",
+    "login_state.idl",
     "platform_keys_internal.idl",
     "platform_keys.idl",
+    "quick_unlock_private.idl",
   ]
 
   if (use_cups) {
@@ -107,8 +108,6 @@ if (is_chromeos_ash) {
     "login.idl",
     "login_screen_storage.idl",
     "login_screen_ui.idl",
-    "login_state.idl",
-    "quick_unlock_private.idl",
     "speech_recognition_private.idl",
     "terminal_private.json",
     "users_private.idl",
@@ -125,6 +124,10 @@ if (is_chromeos_ash) {
 
 if (enable_service_discovery) {
   schema_sources_ += [ "mdns.idl" ]
+}
+
+if (is_linux || is_mac || is_win) {
+  schema_sources_ += [ "system_indicator.idl" ]
 }
 
 uncompiled_sources_ = [

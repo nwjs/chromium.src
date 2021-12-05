@@ -125,6 +125,7 @@ void PositionView(UIView* view, CGPoint point) {
     self.titleLabel.textColor = [UIColor colorNamed:kTextPrimaryColor];
     self.closeIconView.tintColor = [UIColor colorNamed:kCloseButtonColor];
 
+    self.layer.cornerRadius = kGridCellCornerRadius;
     self.layer.shadowColor = [UIColor blackColor].CGColor;
     self.layer.shadowOffset = CGSizeMake(0, 0);
     self.layer.shadowRadius = 4.0f;
@@ -159,7 +160,11 @@ void PositionView(UIView* view, CGPoint point) {
                            constant:kGridCellPriceDropTopSpacing],
         [priceCardView.leadingAnchor
             constraintEqualToAnchor:snapshotView.leadingAnchor
-                           constant:kGridCellPriceDropLeadingSpacing]
+                           constant:kGridCellPriceDropLeadingSpacing],
+        [priceCardView.trailingAnchor
+            constraintLessThanOrEqualToAnchor:snapshotView.trailingAnchor
+                                     constant:-
+                                              kGridCellPriceDropTrailingSpacing]
       ]];
     }
     [NSLayoutConstraint activateConstraints:constraints];
@@ -265,6 +270,15 @@ void PositionView(UIView* view, CGPoint point) {
 
 - (void)setPriceDrop:(NSString*)price previousPrice:(NSString*)previousPrice {
   [self.priceCardView setPriceDrop:price previousPrice:previousPrice];
+  // Only append PriceCardView accessibility text if it doesn't already exist in
+  // the accessibility label.
+  if ([self.accessibilityLabel
+          rangeOfString:self.priceCardView.accessibilityLabel]
+          .location == NSNotFound) {
+    self.accessibilityLabel =
+        [@[ self.accessibilityLabel, self.priceCardView.accessibilityLabel ]
+            componentsJoinedByString:@". "];
+  }
 }
 
 - (void)setTitle:(NSString*)title {

@@ -576,7 +576,7 @@ CoreAccountInfo PersonalDataManager::GetAccountInfoForPaymentsServer() const {
   // latest cached AccountInfo of the user's primary account, which is empty if
   // the user has disabled sync.
   // In both cases, the AccountInfo will be empty if the user is not signed in.
-  return sync_service_ ? sync_service_->GetAuthenticatedAccountInfo()
+  return sync_service_ ? sync_service_->GetAccountInfo()
                        : identity_manager_->GetPrimaryAccountInfo(
                              signin::ConsentLevel::kSync);
 }
@@ -587,7 +587,7 @@ bool PersonalDataManager::IsSyncFeatureEnabled() const {
   if (!sync_service_)
     return false;
 
-  return !sync_service_->GetAuthenticatedAccountInfo().IsEmpty() &&
+  return !sync_service_->GetAccountInfo().IsEmpty() &&
          !database_helper_->IsUsingAccountStorageForServerData();
 }
 
@@ -1383,6 +1383,27 @@ std::vector<Suggestion> PersonalDataManager::GetProfileSuggestions(
   suggestion_selection::PrepareSuggestions(labels, &unique_suggestions,
                                            comparator);
 
+  // If this feature is enabled, we add an icon to the address (profile)
+  // suggestion if there is more than on profile related field in the form.
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillUseConsistentPopupSettingsIcons)) {
+    // Returns true if |type| is related to address profiles.
+    auto is_field_type_profile_related = [](ServerFieldType type) {
+      FieldTypeGroup group = AutofillType(type).group();
+      return group == FieldTypeGroup::kName ||
+             group == FieldTypeGroup::kAddressHome ||
+             group == FieldTypeGroup::kPhoneHome ||
+             group == FieldTypeGroup::kEmail;
+    };
+
+    if (base::ranges::count_if(field_types, is_field_type_profile_related) >
+        1) {
+      for (auto& suggestion : unique_suggestions) {
+        suggestion.icon = "accountIcon";
+      }
+    }
+  }
+
   return unique_suggestions;
 }
 
@@ -1455,8 +1476,7 @@ bool PersonalDataManager::ShouldSuggestServerCards() const {
     // For SyncTransport, only show server cards if the user has opted in to
     // seeing them in the dropdown.
     if (!prefs::IsUserOptedInWalletSyncTransport(
-            pref_service_,
-            sync_service_->GetAuthenticatedAccountInfo().account_id)) {
+            pref_service_, sync_service_->GetAccountInfo().account_id)) {
       return false;
     }
   }
@@ -2103,9 +2123,7 @@ bool PersonalDataManager::ShouldShowCardsFromAccountOption() const {
       features::kAutofillEnableAccountWalletStorage));
 
   bool is_opted_in = prefs::IsUserOptedInWalletSyncTransport(
-      pref_service_, sync_service_->GetAuthenticatedAccountInfo().account_id);
-
-  AutofillMetrics::LogWalletSyncTransportCardsOptIn(is_opted_in);
+      pref_service_, sync_service_->GetAccountInfo().account_id);
 
   // The option should only be shown if the user has not already opted-in.
   return !is_opted_in;
@@ -2119,7 +2137,7 @@ void PersonalDataManager::OnUserAcceptedCardsFromAccountOption() {
   DCHECK_EQ(AutofillSyncSigninState::kSignedInAndWalletSyncTransportEnabled,
             GetSyncSigninState());
   prefs::SetUserOptedInWalletSyncTransport(
-      pref_service_, sync_service_->GetAuthenticatedAccountInfo().account_id,
+      pref_service_, sync_service_->GetAccountInfo().account_id,
       /*opted_in=*/true);
 }
 
@@ -2184,7 +2202,7 @@ void PersonalDataManager::OnUserAcceptedUpstreamOffer() {
   if (GetSyncSigninState() ==
       AutofillSyncSigninState::kSignedInAndWalletSyncTransportEnabled) {
     prefs::SetUserOptedInWalletSyncTransport(
-        pref_service_, sync_service_->GetAuthenticatedAccountInfo().account_id,
+        pref_service_, sync_service_->GetAccountInfo().account_id,
         /*opted_in=*/true);
   }
 }
@@ -2382,8 +2400,7 @@ bool PersonalDataManager::HasPendingQueries() {
 }
 
 void PersonalDataManager::MigrateUserOptedInWalletSyncTransportIfNeeded() {
-  CoreAccountInfo primary_account =
-      sync_service_->GetAuthenticatedAccountInfo();
+  CoreAccountInfo primary_account = sync_service_->GetAccountInfo();
   if (primary_account.IsEmpty())
     return;
 

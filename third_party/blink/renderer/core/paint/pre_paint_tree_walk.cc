@@ -6,7 +6,6 @@
 
 #include "base/auto_reset.h"
 #include "base/stl_util.h"
-#include "cc/base/features.h"
 #include "third_party/blink/renderer/core/dom/document_lifecycle.h"
 #include "third_party/blink/renderer/core/frame/event_handler_registry.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
@@ -28,6 +27,7 @@
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/paint/compositing/composited_layer_mapping.h"
 #include "third_party/blink/renderer/core/paint/compositing/paint_layer_compositor.h"
+#include "third_party/blink/renderer/core/paint/cull_rect_updater.h"
 #include "third_party/blink/renderer/core/paint/object_paint_invalidator.h"
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
 #include "third_party/blink/renderer/core/paint/paint_property_tree_printer.h"
@@ -170,10 +170,6 @@ void PrePaintTreeWalk::Walk(LocalFrameView& frame_view,
       ShowFragmentTree(*view);
     }
 #endif
-
-    is_wheel_event_regions_enabled_ =
-        base::FeatureList::IsEnabled(::features::kWheelEventRegions);
-
     Walk(*view, context, /* pre_paint_info */ nullptr);
 #if DCHECK_IS_ON()
     view->AssertSubtreeClearedPaintInvalidationFlags();
@@ -513,6 +509,10 @@ FragmentData* PrePaintTreeWalk::GetOrCreateFragmentData(
         fragment_data->ClearNextFragment();
       }
     } else {
+      // We don't need any additional fragments for culled inlines.
+      if (!object.IsBox() && !object.HasInlineFragments())
+        return nullptr;
+
       DCHECK(allow_update);
       fragment_data = &last_fragment->EnsureNextFragment();
     }
@@ -549,7 +549,8 @@ void PrePaintTreeWalk::WalkInternal(const LayoutObject& object,
     // might set paint properties on a culled inline.
     pre_paint_info->fragment_data =
         GetOrCreateFragmentData(object, context, *pre_paint_info);
-    DCHECK(pre_paint_info->fragment_data);
+    if (!pre_paint_info->fragment_data)
+      return;
   }
 
   // This must happen before updatePropertiesForSelf, because the latter reads
@@ -578,8 +579,7 @@ void PrePaintTreeWalk::WalkInternal(const LayoutObject& object,
   // depends on the effective allowed touch action and blocking wheel event
   // handlers.
   UpdateEffectiveAllowedTouchAction(object, context);
-  if (is_wheel_event_regions_enabled_)
-    UpdateBlockingWheelEventHandler(object, context);
+  UpdateBlockingWheelEventHandler(object, context);
 
   if (paint_invalidator_.InvalidatePaint(
           object, pre_paint_info,
@@ -649,16 +649,8 @@ void PrePaintTreeWalk::WalkInternal(const LayoutObject& object,
         (!RuntimeEnabledFeatures::CompositeAfterPaintEnabled() &&
          context.paint_invalidator_context.painting_layer
              ->SelfOrDescendantNeedsRepaint())) {
-      if (object.HasLayer()) {
-        To<LayoutBoxModelObject>(object).Layer()->SetNeedsCullRectUpdate();
-      } else if (object.SlowFirstChild()) {
-        // This ensures cull rect update of the child PaintLayers affected by
-        // the paint property change on a non-PaintLayer. Though this may
-        // unnecessarily force update of unrelated children, the situation is
-        // rare and this is much easier.
-        context.paint_invalidator_context.painting_layer
-            ->SetForcesChildrenCullRectUpdate();
-      }
+      CullRectUpdater::PaintPropertiesChanged(
+          object, *context.paint_invalidator_context.painting_layer);
     }
   } else if (context.clip_changed && object.HasLayer()) {
     // When this or ancestor clip changed, the layer needs repaint because it
@@ -810,22 +802,17 @@ void PrePaintTreeWalk::WalkFragmentationContextRootChildren(
       continue;
     }
 
-    PaintPropertyTreeBuilderContext& tree_builder_context =
-        *context.tree_builder_context;
-    PaintPropertyTreeBuilderFragmentContext& fragment_context =
-        tree_builder_context.fragments[0];
-    PaintPropertyTreeBuilderFragmentContext::ContainingBlockContext*
-        containing_block_context = &fragment_context.current;
+    auto* containing_block_context =
+        &context.tree_builder_context->fragments[0].current;
     containing_block_context->paint_offset += child.offset;
 
     const PhysicalOffset paint_offset = containing_block_context->paint_offset;
-    // Keep track of the paint offset at the fragmentainer, and also reset the
-    // offset adjustment tracker. This is needed when entering OOF
-    // descendants. OOFs have the nearest fragmentainer as their containing
-    // block, so when entering them during LayoutObject tree traversal, we have
-    // to compensate for this.
-    fragment_context.fragmentainer_paint_offset = paint_offset;
-    fragment_context.adjustment_for_oof_in_fragmentainer = PhysicalOffset();
+    // Keep track of the paint offset at the fragmentainer. This is needed
+    // when entering OOF descendants. OOFs have the nearest fragmentainer as
+    // their containing block, so when entering them during LayoutObject tree
+    // traversal, we have to compensate for this.
+    containing_block_context->paint_offset_for_oof_in_fragmentainer =
+        paint_offset;
 
     // Create corresponding |FragmentData|. Hit-testing needs
     // |FragmentData.PaintOffset|.
@@ -855,6 +842,8 @@ void PrePaintTreeWalk::WalkFragmentationContextRootChildren(
       }
     }
     fragmentainer_fragment_data->SetPaintOffset(paint_offset);
+    fragmentainer_fragment_data->SetFragmentID(
+        context.current_fragmentainer.fragmentainer_idx);
 
     WalkChildren(actual_parent, box_fragment, context);
 
@@ -1246,10 +1235,10 @@ void PrePaintTreeWalk::Walk(const LayoutObject& object,
               layout_embedded_content->GetEmbeddedContentView()) {
         if (context.tree_builder_context) {
           auto& current = context.tree_builder_context->fragments[0].current;
-          current.paint_offset = PhysicalOffset(RoundedIntPoint(
+          current.paint_offset = PhysicalOffset(ToRoundedPoint(
               current.paint_offset +
               layout_embedded_content->ReplacedContentRect().offset -
-              PhysicalOffset(embedded_view->FrameRect().Location())));
+              PhysicalOffset(embedded_view->FrameRect().origin())));
           // Subpixel accumulation doesn't propagate across embedded view.
           current.directly_composited_container_paint_offset_subpixel_delta =
               PhysicalOffset();

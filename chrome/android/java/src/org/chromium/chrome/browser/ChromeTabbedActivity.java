@@ -831,10 +831,8 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
                      + "maybeGetFeedAppLifecycleAndMaybeCreatePageViewObserver")) {
             FeedSurfaceTracker.getInstance().startup();
 
-            if (UsageStatsService.isEnabled()) {
-                UsageStatsService.getInstance().createPageViewObserver(
-                        this, getActivityTabProvider(), getTabContentManagerSupplier());
-            }
+            UsageStatsService.createPageViewObserverIfEnabled(
+                    this, getActivityTabProvider(), getTabContentManagerSupplier());
         }
     }
 
@@ -1120,14 +1118,6 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
         return shouldShowOverviewPageOnStart()
                 && (!isOverviewVisible
                         || StartSurfaceConfiguration.shouldShowNewSurfaceFromHomeButton());
-    }
-
-    /**
-     * Returns whether grid Tab switcher or the Start surface should be shown at startup.
-     */
-    private boolean shouldShowOverviewPageOnStart() {
-        return ReturnToChromeExperimentsUtil.shouldShowOverviewPageOnStart(
-                this, getIntent(), getTabModelSelector(), mInactivityTracker);
     }
 
     private void logMainIntentBehavior(Intent intent) {
@@ -1611,7 +1601,7 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
                 this::supportsFindInPage, getTabCreatorManagerSupplier(), getFullscreenManager(),
                 getCompositorViewHolderSupplier(), getTabContentManagerSupplier(),
                 getOverviewModeBehaviorSupplier(), this::getSnackbarManager, getActivityType(),
-                this::isInOverviewMode, this::isWarmOnResume,
+                this::isInOverviewMode, this::shouldShowOverviewPageOnStart, this::isWarmOnResume,
                 /* appMenuDelegate= */ this, /* statusBarColorProvider= */ this,
                 mEphemeralTabCoordinatorSupplier, getIntentRequestTracker(),
                 getControlContainerHeightResource(), this::getInsetObserverView,
@@ -2631,6 +2621,14 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
     @Override
     public boolean isInOverviewMode() {
         return mOverviewModeController != null && mOverviewModeController.overviewVisible();
+    }
+
+    @Override
+    public boolean shouldShowOverviewPageOnStart() {
+        assert mInactivityTracker != null;
+        assert getTabModelSelector() != null;
+        return ReturnToChromeExperimentsUtil.shouldShowOverviewPageOnStart(
+                this, getIntent(), getTabModelSelector(), mInactivityTracker);
     }
 
     @Override

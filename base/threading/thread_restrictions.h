@@ -169,7 +169,7 @@ class BlockingMethodCaller;
 namespace system {
 class StatisticsProviderImpl;
 bool IsCoreSchedulingAvailable();
-int NumberOfProcessorsForCoreScheduling();
+int NumberOfPhysicalCores();
 }
 }
 namespace chrome_cleaner {
@@ -183,6 +183,7 @@ class BrowserProcessIOThread;
 class BrowserTestBase;
 class CategorizedWorkerPool;
 class DesktopCaptureDevice;
+class DWriteFontCollectionProxy;
 class EmergencyTraceFinalisationCoordinator;
 class InProcessUtilityThread;
 class NestedMessagePumpAndroid;
@@ -353,6 +354,12 @@ class DesktopConfigurationMonitor;
 }
 
 namespace base {
+class Environment;
+}
+
+bool HasWaylandDisplay(base::Environment* env);
+
+namespace base {
 
 namespace sequence_manager {
 namespace internal {
@@ -486,7 +493,8 @@ class BASE_EXPORT ScopedAllowBlocking {
   friend Profile* ::GetLastProfileMac();  // crbug.com/1176734
   friend bool PathProviderWin(int, FilePath*);
   friend bool chromeos::system::IsCoreSchedulingAvailable();
-  friend int chromeos::system::NumberOfProcessorsForCoreScheduling();
+  friend int chromeos::system::NumberOfPhysicalCores();
+  friend bool ::HasWaylandDisplay(base::Environment* env);  // crbug.com/1246928
 
   ScopedAllowBlocking(const Location& from_here = Location::Current());
   ~ScopedAllowBlocking();
@@ -558,6 +566,7 @@ class BASE_EXPORT ScopedAllowBaseSyncPrimitives {
   friend class chrome_cleaner::SystemReportComponent;
   friend class content::BrowserMainLoop;
   friend class content::BrowserProcessIOThread;
+  friend class content::DWriteFontCollectionProxy;
   friend class content::ServiceWorkerContextClient;
   friend class device::UsbContext;
   friend class functions::ExecScriptScopedAllowBaseSyncPrimitives;
