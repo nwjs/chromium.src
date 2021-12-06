@@ -1431,7 +1431,6 @@ config("default_warnings") {
       # gethostbyname. Fires mostly in non-Chromium code. We probably
       # want to remove this define eventually.
       "_WINSOCK_DEPRECATED_NO_WARNINGS",
-      "/wd4275",
     ]
     if (!is_clang) {
       # TODO(thakis): Remove this once
@@ -1666,6 +1665,7 @@ config("no_chromium_code") {
     cflags += [
       "/wd4800",  # Disable warning when forcing value to bool.
       "/wd4267",  # TODO(jschuh): size_t to int.
+      "/wd4275",
     ]
   } else {
     # GCC may emit unsuppressible warnings so don't add -Werror for no chromium
