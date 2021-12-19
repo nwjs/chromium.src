@@ -110,7 +110,7 @@ using content::BrowserThread;
 
 namespace {
 
-#if defined(OS_MAC)
+#if 0 //defined(OS_MAC)
 // In order to allow longer paths for the singleton socket's filesystem node,
 // provide an "oversized" sockaddr_un-equivalent with a larger sun_path member.
 // sockaddr_un in the SDK has sun_path[104], which is too confined for the
