@@ -62,7 +62,7 @@ blink::WebPlugin* CreateInternalPlugin(
   //
   // See crbug.com/1259635 and crbug.com/1261758 for examples of previous bugs.
   CHECK(!delegate->IsAllowedOrigin(frame->GetSecurityOrigin()));
-  CHECK(parent_frame->IsWebRemoteFrame());
+  //CHECK(parent_frame->IsWebRemoteFrame());
 
   mojo::AssociatedRemote<pdf::mojom::PdfService> pdf_service_remote;
   render_frame->GetRemoteAssociatedInterfaces()->GetInterface(
