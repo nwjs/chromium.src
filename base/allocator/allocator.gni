@@ -23,7 +23,6 @@ _is_partition_alloc_platform = is_android || is_win
 # the shim. NaCl in particular does seem to link some binaries statically
 # against the debug CRT with "is_nacl=false".
 if ((is_linux || is_chromeos || is_android || is_apple ||
-     (is_fuchsia && !_disable_partition_alloc) ||
      (is_win && !is_component_build && !is_debug)) && !_is_using_sanitizers) {
   _default_use_allocator_shim = true
 } else {

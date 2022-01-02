@@ -1437,7 +1437,8 @@ const FeatureEntry::FeatureParam kNtpChromeCartModuleAbandonedCartDiscount[] = {
     {ntp_features::kNtpChromeCartModuleAbandonedCartDiscountUseUtmParam,
      "true"},
     {"partner-merchant-pattern",
-     "(electronicexpress.com|zazzle.com|wish.com|homesquare.com|iherb.com)"}};
+     "(electronicexpress.com|zazzle.com|wish.com|homesquare.com|iherb.com|"
+     "zappos.com|otterbox.com)"}};
 const FeatureEntry::FeatureParam kNtpChromeCartModuleHeuristicsImprovement[] = {
     {ntp_features::kNtpChromeCartModuleHeuristicsImprovementParam, "true"}};
 const FeatureEntry::FeatureParam kNtpChromeCartModuleRBDAndCouponDiscount[] = {
@@ -3576,6 +3577,9 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kLightweightReactionsAndroidDescription, kOsAndroid,
      FEATURE_VALUE_TYPE(content_creation::kLightweightReactions)},
 #endif  // OS_ANDROID
+    {"enable-automatic-snooze", flag_descriptions::kEnableAutomaticSnoozeName,
+     flag_descriptions::kEnableAutomaticSnoozeDescription, kOsAll,
+     FEATURE_VALUE_TYPE(feature_engagement::kEnableAutomaticSnooze)},
     {"in-product-help-demo-mode-choice",
      flag_descriptions::kInProductHelpDemoModeChoiceName,
      flag_descriptions::kInProductHelpDemoModeChoiceDescription, kOsAll,
@@ -4888,10 +4892,6 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kTabGroupsCollapseFreezingName,
      flag_descriptions::kTabGroupsCollapseFreezingDescription, kOsDesktop,
      FEATURE_VALUE_TYPE(features::kTabGroupsCollapseFreezing)},
-
-    {"tab-groups-feedback", flag_descriptions::kTabGroupsFeedbackName,
-     flag_descriptions::kTabGroupsFeedbackDescription, kOsDesktop,
-     FEATURE_VALUE_TYPE(features::kTabGroupsFeedback)},
 
     {"tab-groups-new-badge-promo",
      flag_descriptions::kTabGroupsNewBadgePromoName,

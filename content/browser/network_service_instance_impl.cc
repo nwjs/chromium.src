@@ -1285,7 +1285,7 @@ void CreateNetworkContextInNetworkService(
     mojo::PendingReceiver<network::mojom::NetworkContext> context,
     network::mojom::NetworkContextParamsPtr params) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  SandboxParameters sandbox_params = {};
+  //SandboxParameters sandbox_params = {};
 #if defined(OS_ANDROID)
   // On Android, if a cookie_manager pending receiver was passed then migration
   // should not be attempted as the cookie file is already being accessed by the
@@ -1309,6 +1309,7 @@ void CreateNetworkContextInNetworkService(
       GetContentClient()->browser()->ShouldSandboxNetworkService();
 #endif  // DCHECK_IS_ON()
 #endif  // defined(OS_WIN)
+#if 0
   base::OnceCallback<SandboxGrantResult()> worker_task =
       base::BindOnce(&MaybeGrantSandboxAccessToNetworkContextData,
                      sandbox_params, params.get());
@@ -1317,6 +1318,12 @@ void CreateNetworkContextInNetworkService(
       std::move(worker_task),
       base::BindOnce(&CreateNetworkContextInternal, std::move(context),
                      std::move(params)));
+#endif
+  auto* network_service = GetNetworkService();
+  if (network_service) {
+    network_service->CreateNetworkContext(std::move(context),
+                                          std::move(params));
+  }
 }
 
 }  // namespace content
