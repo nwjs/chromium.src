@@ -110,7 +110,7 @@ using content::BrowserThread;
 
 namespace {
 
-#if 0 //defined(OS_MAC)
+#if defined(OS_MAC)
 // In order to allow longer paths for the singleton socket's filesystem node,
 // provide an "oversized" sockaddr_un-equivalent with a larger sun_path member.
 // sockaddr_un in the SDK has sun_path[104], which is too confined for the
@@ -131,37 +131,6 @@ struct SockaddrUn {
 // sockaddr_un::sun_path, just do the portable thing.
 using SockaddrUn = sockaddr_un;
 #endif
-
-// XXX:
-class SanitizedSocketPath {
- public:
-  explicit SanitizedSocketPath(const base::FilePath& socket_path)
-      : socket_path_(socket_path) {
-    if (socket_path.value().length() >= sizeof(sockaddr_un::sun_path)) {
-      bool found_current_dir = GetCurrentDirectory(&old_path_);
-      CHECK(found_current_dir) << "Failed to determine the current directory.";
-      changed_directory_ = SetCurrentDirectory(socket_path.DirName());
-      CHECK(changed_directory_) << "Failed to change directory: " <<
-          socket_path.DirName().value();
-    }
-  }
-
-  ~SanitizedSocketPath() {
-    if (changed_directory_)
-      SetCurrentDirectory(old_path_);
-  }
-
-  base::FilePath SocketPath() const {
-    return changed_directory_ ? socket_path_.BaseName() : socket_path_;
-  }
-
- private:
-  bool changed_directory_ = false;
-  base::FilePath socket_path_;
-  base::FilePath old_path_;
-
-  DISALLOW_COPY_AND_ASSIGN(SanitizedSocketPath);
-};
 
 // Timeout for the current browser process to respond. 20 seconds should be
 // enough.
@@ -454,18 +423,18 @@ bool ConnectSocket(ScopedSocket* socket,
       return false;
     // Now we know the directory was (at that point) created by the profile
     // owner. Try to connect.
-    {
-      SanitizedSocketPath sanitized_socket_target(socket_target);
-      sockaddr_un addr;
-      socklen_t socklen;
-      if (!SetupSockAddr(sanitized_socket_target.SocketPath().value(), &addr, &socklen))
-        return false;
-      int ret = HANDLE_EINTR(connect(socket->fd(),
-                                     reinterpret_cast<sockaddr*>(&addr),
-                                     sizeof(addr)));
-      if (ret != 0)
-        return false;
+    SockaddrUn addr;
+    socklen_t socklen;
+    if (!SetupSockAddr(socket_target.value(), &addr, &socklen)) {
+      // If a sockaddr couldn't be initialized due to too long of a socket
+      // path, we can be sure there isn't already a Chrome running with this
+      // socket path, since it would have hit the CHECK() on the path length.
+      return false;
     }
+    int ret = HANDLE_EINTR(
+        connect(socket->fd(), reinterpret_cast<sockaddr*>(&addr), socklen));
+    if (ret != 0)
+      return false;
     // Check the cookie again. We only link in /tmp, which is sticky, so, if the
     // directory is still correct, it must have been correct in-between when we
     // connected. POSIX, sadly, lacks a connectat().
@@ -478,14 +447,16 @@ bool ConnectSocket(ScopedSocket* socket,
   } else if (errno == EINVAL) {
     // It exists, but is not a symlink (or some other error we detect
     // later). Just connect to it directly; this is an older version of Chrome.
-    SanitizedSocketPath sanitized_socket_path(socket_path);
-    sockaddr_un addr;
+    SockaddrUn addr;
     socklen_t socklen;
-    if (!SetupSockAddr(sanitized_socket_path.SocketPath().value(), &addr, &socklen))
+    if (!SetupSockAddr(socket_path.value(), &addr, &socklen)) {
+      // If a sockaddr couldn't be initialized due to too long of a socket
+      // path, we can be sure there isn't already a Chrome running with this
+      // socket path, since it would have hit the CHECK() on the path length.
       return false;
-    int ret = HANDLE_EINTR(connect(socket->fd(),
-                                   reinterpret_cast<sockaddr*>(&addr),
-                                   sizeof(addr)));
+    }
+    int ret = HANDLE_EINTR(
+        connect(socket->fd(), reinterpret_cast<sockaddr*>(&addr), socklen));
     return (ret == 0);
   } else {
     // File is missing, or other error.
@@ -1103,7 +1074,10 @@ bool ProcessSingleton::Create() {
   // leaving a dangling symlink.
   base::FilePath socket_target_path =
       socket_dir_.GetPath().Append(chrome::kSingletonSocketFilename);
-  //SetupSocket(socket_target_path.value(), &sock, &addr, &socklen);
+  int sock;
+  SockaddrUn addr;
+  socklen_t socklen;
+  SetupSocket(socket_target_path.value(), &sock, &addr, &socklen);
 
   // Setup the socket symlink and the two cookies.
   base::FilePath cookie(GenerateCookie());
@@ -1122,18 +1096,10 @@ bool ProcessSingleton::Create() {
     return false;
   }
 
-  int sock;
-  {
-    SanitizedSocketPath sanitized_socket_target(socket_target_path);
-    sockaddr_un addr;
-    socklen_t socklen;
-    SetupSocket(sanitized_socket_target.SocketPath().value(), &sock, &addr, &socklen);
-
-    if (bind(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
-      PLOG(ERROR) << "Failed to bind() " << socket_target_path.value();
-      CloseSocket(sock);
-      return false;
-    }
+  if (bind(sock, reinterpret_cast<sockaddr*>(&addr), socklen) < 0) {
+    PLOG(ERROR) << "Failed to bind() " << socket_target_path.value();
+    CloseSocket(sock);
+    return false;
   }
 
   if (listen(sock, 5) < 0)
