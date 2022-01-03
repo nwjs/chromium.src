@@ -1301,7 +1301,7 @@ void CreateNetworkContextInNetworkService(
     return;
   }
 #endif  // defined(OS_ANDROID)
-#if defined(OS_WIN)
+#if 0 //defined(OS_WIN)
   sandbox_params.lpac_capability_name =
       GetContentClient()->browser()->GetLPACCapabilityNameForNetworkService();
 #if DCHECK_IS_ON()
