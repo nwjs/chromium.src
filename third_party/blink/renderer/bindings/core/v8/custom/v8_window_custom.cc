@@ -119,33 +119,53 @@ void V8Window::LocationAttributeGetterCustom(
 template <typename CallbackInfo>
 static void ParentAttributeGet(const CallbackInfo& info)
 {
-  LocalDOMWindow* imp = To<LocalDOMWindow>(V8Window::ToImpl(info.Holder()));
-  LocalFrame* frame = imp->GetFrame();
-  if (frame && frame->isNwFakeTop()) {
-    V8SetReturnValue(info, ToV8(imp, info.Holder(), info.GetIsolate()));
-    return;
+  v8::Local<v8::Object> v8_win = info.Holder();
+  DOMWindow* blink_win = V8Window::ToWrappableUnsafe(v8_win);
+  const char* const property_name = "parent";
+  blink_win->ReportCoopAccess(property_name);
+  DOMWindow* return_value = blink_win->parent();
+  if (blink_win->IsLocalDOMWindow()) {
+    LocalDOMWindow* imp = To<LocalDOMWindow>(V8Window::ToImpl(info.Holder()));
+    LocalFrame* frame = imp->GetFrame();
+    if (frame && frame->isNwFakeTop()) {
+      V8SetReturnValue(info, ToV8(imp, info.Holder(), info.GetIsolate()));
+      return;
+    }
+    V8SetReturnValue(info, ToV8(imp->parent(), info.Holder(), info.GetIsolate()));
+  } else {
+    V8SetReturnValue(info, return_value, blink_win,
+                     bindings::V8ReturnValue::kMaybeCrossOriginWindow);
   }
-  V8SetReturnValue(info, ToV8(imp->parent(), info.Holder(), info.GetIsolate()));
 }
 
 template <typename CallbackInfo>
 static void TopAttributeGet(const CallbackInfo& info)
 {
-  LocalDOMWindow* imp = To<LocalDOMWindow>(V8Window::ToImpl(info.Holder()));
-  LocalFrame* frame = imp->GetFrame();
-  if (frame) {
-    for (LocalFrame* f = frame; f; ) {
-      if (f->isNwFakeTop()) {
-        V8SetReturnValue(info, ToV8(f->GetDocument()->domWindow(), info.Holder(), info.GetIsolate()));
-        return;
+  v8::Local<v8::Object> v8_win = info.Holder();
+  DOMWindow* blink_win = V8Window::ToWrappableUnsafe(v8_win);
+  const char* const property_name = "top";
+  blink_win->ReportCoopAccess(property_name);
+  DOMWindow* return_value = blink_win->top();
+  if (blink_win->IsLocalDOMWindow()) {
+    LocalDOMWindow* imp = To<LocalDOMWindow>(V8Window::ToImpl(info.Holder()));
+    LocalFrame* frame = imp->GetFrame();
+    if (frame) {
+      for (LocalFrame* f = frame; f; ) {
+        if (f->isNwFakeTop()) {
+          V8SetReturnValue(info, ToV8(f->GetDocument()->domWindow(), info.Holder(), info.GetIsolate()));
+          return;
+        }
+        Frame* fr = f->Tree().Parent();
+        if (!fr || !fr->IsLocalFrame())
+          break;
+        f = DynamicTo<LocalFrame>(fr);
       }
-      Frame* fr = f->Tree().Parent();
-      if (!fr || !fr->IsLocalFrame())
-        break;
-      f = DynamicTo<LocalFrame>(fr);
     }
+    V8SetReturnValue(info, ToV8(imp->top(), info.Holder(), info.GetIsolate()));
+  } else {
+    V8SetReturnValue(info, return_value, blink_win,
+                     bindings::V8ReturnValue::kMaybeCrossOriginWindow);
   }
-  V8SetReturnValue(info, ToV8(imp->top(), info.Holder(), info.GetIsolate()));
 }
 
 void V8Window::ParentAttributeGetterCustom(
