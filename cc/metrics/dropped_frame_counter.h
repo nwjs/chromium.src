@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/callback_forward.h"
 #include "base/containers/ring_buffer.h"
 #include "base/memory/raw_ptr.h"
 #include "cc/cc_export.h"
@@ -74,6 +75,11 @@ class CC_EXPORT DroppedFrameCounter {
 
   double GetMostRecentAverageSmoothness() const;
   double GetMostRecent95PercentileSmoothness() const;
+
+  using SortedFrameCallback =
+      base::RepeatingCallback<void(const viz::BeginFrameArgs& args,
+                                   const FrameInfo&)>;
+  void SetSortedFrameCallback(SortedFrameCallback callback);
 
   typedef base::RingBuffer<FrameState, 180> RingBufferType;
   RingBufferType::Iterator begin() const { return ring_buffer_.Begin(); }
@@ -162,9 +168,13 @@ class CC_EXPORT DroppedFrameCounter {
   void PopSlidingWindow();
   void UpdateMaxPercentDroppedFrame(double percent_dropped_frame);
 
-  const base::TimeDelta kSlidingWindowInterval = base::Seconds(1);
+  // Adds count to dropped_frame_count_in_window_ of each strategy.
+  void UpdateDroppedFrameCountInWindow(const FrameInfo& frame_info, int count);
+
+  base::TimeDelta sliding_window_interval_;
   std::queue<std::pair<const viz::BeginFrameArgs, FrameInfo>> sliding_window_;
-  uint32_t dropped_frame_count_in_window_ = 0;
+  uint32_t dropped_frame_count_in_window_[SmoothnessStrategy::kStrategyCount] =
+      {0};
   double total_frames_in_window_ = 60.0;
   SlidingWindowHistogram
       sliding_window_histogram_[SmoothnessStrategy::kStrategyCount];
@@ -202,6 +212,8 @@ class CC_EXPORT DroppedFrameCounter {
   };
   absl::optional<ScrollStartInfo> scroll_start_;
   std::map<viz::BeginFrameId, ScrollStartInfo> scroll_start_per_frame_;
+
+  absl::optional<SortedFrameCallback> sorted_frame_callback_;
 
   bool report_for_ui_ = false;
 };

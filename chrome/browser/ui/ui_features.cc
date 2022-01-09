@@ -31,7 +31,7 @@ const base::Feature kChromeTipsInMainMenuNewBadge{
 const base::Feature kChromeWhatsNewUI {
   "ChromeWhatsNewUI",
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING) && !defined(ANDROID) && \
-    !BUILDFLAG(IS_CHROMEOS_LACROS)
+    !BUILDFLAG(IS_CHROMEOS_LACROS) && !BUILDFLAG(IS_CHROMEOS_ASH)
       base::FEATURE_ENABLED_BY_DEFAULT
 #else
       base::FEATURE_DISABLED_BY_DEFAULT
@@ -91,6 +91,9 @@ const base::Feature kSideSearch{"SideSearch",
 // away when the side panel is closed.
 const base::Feature kSideSearchClearCacheWhenClosed{
     "SideSearchClearCacheWhenClosed", base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::Feature kSideSearchFeedback{"SideSearchFeedback",
+                                        base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Controls whether the state of side search is set at a per tab level.
 const base::Feature kSideSearchStatePerTab{"SideSearchStatePerTab",

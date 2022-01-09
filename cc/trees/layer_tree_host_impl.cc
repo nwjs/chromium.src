@@ -466,6 +466,8 @@ LayerTreeHostImpl::LayerTreeHostImpl(
   SetDebugState(settings.initial_debug_state);
   compositor_frame_reporting_controller_->SetDroppedFrameCounter(
       &dropped_frame_counter_);
+  compositor_frame_reporting_controller_->SetFrameSequenceTrackerCollection(
+      &frame_trackers_);
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   const bool is_ui = settings.is_layer_tree_for_ui;
@@ -2286,7 +2288,10 @@ void LayerTreeHostImpl::OnCanDrawStateChangedForTree() {
 viz::RegionCaptureBounds LayerTreeHostImpl::CollectRegionCaptureBounds() {
   viz::RegionCaptureBounds bounds;
   for (const auto* layer : base::Reversed(*active_tree())) {
-    for (const auto& bounds_pair : layer->capture_bounds().bounds()) {
+    if (!layer->capture_bounds())
+      continue;
+
+    for (const auto& bounds_pair : layer->capture_bounds()->bounds()) {
       // Perform transformation from the coordinate system of this |layer|
       // to that of the root render surface.
       gfx::Rect bounds_in_screen_space = MathUtil::ProjectEnclosingClippedRect(

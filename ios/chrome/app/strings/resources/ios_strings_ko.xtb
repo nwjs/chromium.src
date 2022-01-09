@@ -25,6 +25,7 @@
 <translation id="1145536944570833626">기존 데이터 삭제</translation>
 <translation id="1147031633655575115"><ph name="USER" />님의 계정으로 로그인됨</translation>
 <translation id="1154984953698510061">다른 탭 보기</translation>
+<translation id="1164064664035028907">아래와 같이 안전한 비밀번호를 사용하세요</translation>
 <translation id="1165039591588034296">오류</translation>
 <translation id="1172898394251786223">다음 필드</translation>
 <translation id="1176932207622159128">이미지를 저장할 수 없음</translation>
@@ -168,6 +169,8 @@
 <translation id="2584132361465095047">계정 추가...</translation>
 <translation id="2600682495497606169">사이트 쿠키 삭제</translation>
 <translation id="2625189173221582860">비밀번호 복사됨</translation>
+<translation id="2626236249646841566">연결을 확인하고 다시 로그인해 보세요</translation>
+<translation id="2637313651144986786">탭 검색...</translation>
 <translation id="2647269890314209800">사용 중인 쿠키</translation>
 <translation id="2648803196158606475">읽은 항목 삭제</translation>
 <translation id="2653659639078652383">제출</translation>
@@ -233,6 +236,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="3157387275655328056">읽기 목록에 추가</translation>
 <translation id="3157684681743766797">모두 표시...</translation>
 <translation id="3169472444629675720">Discover</translation>
+<translation id="3174662312949010067">다른 기기에서도 저장된 비밀번호를 사용할 수 있습니다</translation>
 <translation id="3175081911749765310">웹 서비스</translation>
 <translation id="3178650076442119961">오늘 사용됨</translation>
 <translation id="3181825792072797598">동기화 사용 설정</translation>
@@ -343,6 +347,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="4272631900155121838">QR 코드를 스캔하려면 설정에서 카메라를 사용하도록 설정하세요.</translation>
 <translation id="4277990410970811858">세이프 브라우징</translation>
 <translation id="4281844954008187215">서비스 약관</translation>
+<translation id="4304713468139749426">비밀번호 관리자</translation>
 <translation id="430793432425771671">모두 동기화</translation>
 <translation id="4309403553630140242">자세한 정보를 보려면 두 번 탭하세요</translation>
 <translation id="430967081421617822">전체 기간</translation>
@@ -354,6 +359,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="4389019817280890563">언어를 변경하려면 탭하세요.</translation>
 <translation id="4442550905108052454"><ph name="BEGIN_BOLD" />Settings(설정)<ph name="END_BOLD" />를 엽니다.</translation>
 <translation id="4454246407045105932">언어 추가</translation>
+<translation id="4462491365653392320">탭에서 가격 추적</translation>
 <translation id="4469418912670346607">설정 계속하기</translation>
 <translation id="4474494258097106883">iPhone을 위한 웹브라우저</translation>
 <translation id="4476574785019001431">설정</translation>
@@ -363,6 +369,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="4508750114462689118">로그인 프로모션 닫기</translation>
 <translation id="4526249700380860531"><ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" />에서 저장된 비밀번호 보기 및 관리</translation>
 <translation id="4536418791685807335">다시 로그인해 주세요.</translation>
+<translation id="4540780316273593836">문제 발생</translation>
 <translation id="457386861538956877">더보기...</translation>
 <translation id="4592368184551360546">키보드</translation>
 <translation id="461440297010471931">Google에서 검색하기</translation>
@@ -478,6 +485,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="5669528293118408608">www</translation>
 <translation id="567881659373499783">버전 <ph name="PRODUCT_VERSION" /></translation>
 <translation id="5690398455483874150">{count,plural, =1{Chrome 창 1개 표시 중}other{Chrome 창 {count}개 표시 중}}</translation>
+<translation id="5704908597376970822">로그인할 수 없습니다</translation>
 <translation id="5706552126692816153">1일 전 사용됨</translation>
 <translation id="5711039611392265845">개인정보 보호, 보안, 데이터 수집에 관한 설정을 더 보려면 <ph name="BEGIN_LINK" />동기화 및 Google 서비스<ph name="END_LINK" />를 참조하세요.</translation>
 <translation id="5724941645893276623">비공개로 웹을 탐색하려면 새 탭을 추가하세요.</translation>
@@ -516,6 +524,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="5979837087407522202">비밀번호 검색</translation>
 <translation id="5982717868370722439"><ph name="USER_EMAIL" />에 기존 데이터 추가</translation>
 <translation id="5984222099446776634">최근 방문</translation>
+<translation id="5988097621740394599">탭에서 가격 인하 정보를 확인합니다.</translation>
 <translation id="5988851877894965432">Chrome에서 URL 열기</translation>
 <translation id="6012140227487808125">암호화하는 중...</translation>
 <translation id="6021332621416007159">다음에서 열기</translation>
@@ -536,6 +545,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="6127379762771434464">항목 삭제됨</translation>
 <translation id="6136914049981179737">초 전</translation>
 <translation id="6144589619057374135">시크릿 모드에서 ${url} 열기</translation>
+<translation id="6149061208933997199">비밀번호 사용</translation>
 <translation id="6159839020698489198">선택사항</translation>
 <translation id="6177442314419606057">Chrome에서 검색</translation>
 <translation id="6184086493125982861">탭 표시</translation>
@@ -628,6 +638,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="6807889908376551050">모두 표시...</translation>
 <translation id="681368974849482173">북마크가 생성되었습니다.</translation>
 <translation id="681450999322335505">조직에서 동기화를 사용 중지했습니다</translation>
+<translation id="683022620450280906">어느 기기에서든 저장된 비밀번호를 사용할 수 있습니다. <ph name="EMAIL" />의 Google 비밀번호 관리자에 비밀번호가 저장됩니다.</translation>
 <translation id="6830804042318138535">자세히 보기</translation>
 <translation id="6831043979455480757">번역</translation>
 <translation id="6842136130964845393">저장된 비밀번호에 항상 액세스하려면 본인 확인 절차를 거치세요.</translation>
@@ -761,6 +772,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="8076014560081431679">저장된 사이트 설정은 삭제되지 않으며 인터넷 사용 습관이 반영될 수 있습니다. <ph name="BEGIN_LINK" />자세히 알아보기<ph name="END_LINK" /></translation>
 <translation id="8079602123447022758">관리자가 관리하는 설정입니다, 자세한 정보를 보려면 두 번 탭하세요</translation>
 <translation id="8080028325999236607">탭 모두 닫기</translation>
+<translation id="8101409298456377967">사이트와 앱에 쉽게 로그인할 수 있도록 비밀번호를 생성, 저장, 관리하세요. <ph name="BEGIN_LINK" />자세히 알아보기<ph name="END_LINK" /></translation>
 <translation id="8105368624971345109">사용 중지</translation>
 <translation id="8114753159095730575">파일을 다운로드할 수 있습니다. 화면 하단에서 옵션을 선택할 수 있습니다.</translation>
 <translation id="8132598642024322408">정가 <ph name="PREVIOUS_PRICE" />인 제품을 <ph name="PRICE" />에 판매 중</translation>
@@ -787,6 +799,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="842017693807136194">다음을 사용하여 로그인함</translation>
 <translation id="8428045167754449968">시/군/구</translation>
 <translation id="8428213095426709021">설정</translation>
+<translation id="8428634594422941299">확인</translation>
 <translation id="8446884382197647889">자세히 알아보기</translation>
 <translation id="8458397775385147834">1개 항목 삭제함</translation>
 <translation id="8459333855531264009">안전하지 않음</translation>

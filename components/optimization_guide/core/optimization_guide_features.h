@@ -106,7 +106,11 @@ base::TimeDelta GetActiveTabsFetchRefreshDuration();
 base::TimeDelta GetActiveTabsStalenessTolerance();
 
 // Returns the max number of concurrent fetches to the remote Optimization Guide
-// Service that should be allowed.
+// Service that should be allowed for batch updates
+size_t MaxConcurrentBatchUpdateFetches();
+
+// Returns the max number of concurrent fetches to the remote Optimization Guide
+// Service that should be allowed for navigations.
 size_t MaxConcurrentPageNavigationFetches();
 
 // Returns the minimum number of seconds to randomly delay before starting to
@@ -215,9 +219,14 @@ bool ShouldExtractRelatedSearches();
 // at most once in the returned vector. However, it is not guaranteed that it
 // will only contain models that the current PageContentAnnotationsService
 // supports, so it is up to the caller to ensure that it can execute the
-// specified models.
+// specified models. `locale` is used for implement client-side locale filtering
+// for models that only work for some locales.
 std::vector<optimization_guide::proto::OptimizationTarget>
-GetPageContentModelsToExecute();
+GetPageContentModelsToExecute(const std::string& locale);
+
+// Returns whether page entities should be retrieved from the remote
+// Optimization Guide service.
+bool RemotePageEntitiesEnabled();
 
 // The time to wait beyond the onload event before sending the hints request for
 // link predictions.

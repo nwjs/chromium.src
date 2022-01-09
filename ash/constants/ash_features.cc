@@ -610,6 +610,13 @@ const base::Feature kFiltersInRecents{"FiltersInRecents",
 const base::Feature kFirmwareUpdaterApp = {"FirmwareUpdaterApp",
                                            base::FEATURE_DISABLED_BY_DEFAULT};
 
+// When enabled, there will be an alert bubble showing up when the device
+// returns from low brightness (e.g., sleep, closed cover) without a lock screen
+// and the active window is in fullscreen.
+// TODO(https://crbug.com/1107185): Remove this after the feature is launched.
+const base::Feature kFullscreenAlertBubble{"EnableFullscreenBubble",
+                                           base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Enable ChromeOS FuseBox service.
 const base::Feature kFuseBox{"FuseBox", base::FEATURE_DISABLED_BY_DEFAULT};
 
@@ -845,7 +852,7 @@ const base::Feature kMediaAppHandlesPdf{"MediaAppHandlesPdf",
 
 // Feature to continuously log PSI memory pressure data to UMA.
 const base::Feature kMemoryPressureMetricsDetail{
-    "MemoryPressureMetricsDetail", base::FEATURE_DISABLED_BY_DEFAULT};
+    "MemoryPressureMetricsDetail", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Controls how frequently memory pressure is logged
 const base::FeatureParam<int> kMemoryPressureMetricsDetailLogPeriod{
@@ -1005,6 +1012,10 @@ const base::Feature kProductivityLauncherAnimation{
 
 // Controls whether to enable Projector.
 const base::Feature kProjector{"Projector", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Controls whether to enable Projector for managed users.
+const base::Feature kProjectorManagedUser{"ProjectorManagedUser",
+                                          base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Controls whether to enable Projector in status tray.
 const base::Feature kProjectorFeaturePod{"ProjectorFeaturePod",
@@ -1522,6 +1533,10 @@ bool IsFirmwareUpdaterAppEnabled() {
   return base::FeatureList::IsEnabled(kFirmwareUpdaterApp);
 }
 
+bool IsFullscreenAlertBubbleEnabled() {
+  return base::FeatureList::IsEnabled(kFullscreenAlertBubble);
+}
+
 bool IsGaiaCloseViewMessageEnabled() {
   return base::FeatureList::IsEnabled(kGaiaCloseViewMessage);
 }
@@ -1757,7 +1772,15 @@ bool IsProductivityLauncherAnimationEnabled() {
 }
 
 bool IsProjectorEnabled() {
+  return IsProjectorAllUserEnabled() || IsProjectorManagedUserEnabled();
+}
+
+bool IsProjectorAllUserEnabled() {
   return base::FeatureList::IsEnabled(kProjector);
+}
+
+bool IsProjectorManagedUserEnabled() {
+  return base::FeatureList::IsEnabled(kProjectorManagedUser);
 }
 
 bool IsProjectorFeaturePodEnabled() {

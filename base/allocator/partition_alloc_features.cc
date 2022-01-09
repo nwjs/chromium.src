@@ -42,6 +42,7 @@ constexpr FeatureParam<BackupRefPtrEnabledProcesses>::Option
         {BackupRefPtrEnabledProcesses::kBrowserOnly, "browser-only"},
         {BackupRefPtrEnabledProcesses::kBrowserAndRenderer,
          "browser-and-renderer"},
+        {BackupRefPtrEnabledProcesses::kNonRenderer, "non-renderer"},
         {BackupRefPtrEnabledProcesses::kAllProcesses, "all-processes"}};
 
 const base::FeatureParam<BackupRefPtrEnabledProcesses>
@@ -51,6 +52,7 @@ const base::FeatureParam<BackupRefPtrEnabledProcesses>
         &kBackupRefPtrEnabledProcessesOptions};
 
 constexpr FeatureParam<BackupRefPtrMode>::Option kBackupRefPtrModeOptions[] = {
+    {BackupRefPtrMode::kDisabled, "disabled"},
     {BackupRefPtrMode::kEnabled, "enabled"},
     {BackupRefPtrMode::kDisabledButSplitPartitions2Way,
      "disabled-but-2-way-split"},

@@ -10,11 +10,13 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.os.Handler;
 import android.provider.Browser;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
 
 import androidx.annotation.ColorRes;
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.browser.customtabs.CustomTabsIntent;
@@ -50,6 +52,7 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.ui.messages.snackbar.Snackbar;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager.SnackbarController;
+import org.chromium.chrome.browser.user_education.UserEducationHelper;
 import org.chromium.components.bookmarks.BookmarkId;
 import org.chromium.components.bookmarks.BookmarkType;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
@@ -100,8 +103,10 @@ public class BookmarkUtils {
 
         // TODO(crbug.com/1252228): Reading list support needs some tests.
         if (BookmarkFeatures.isImprovedSaveFlowEnabled()) {
-            BookmarkId newBookmarkId = addBookmarkAndShowSaveFlow(activity, bookmarkModel, tab,
-                    bottomSheetController, bookmarkType, fromExplicitTrackUi);
+            BookmarkId newBookmarkId = addBookmarkInternal(activity, bookmarkModel, tab.getTitle(),
+                    tab.getOriginalUrl(), tab.getWebContents(), /*parent=*/null, bookmarkType);
+            showSaveFlow(activity, bottomSheetController, fromExplicitTrackUi, newBookmarkId,
+                    /*wasBookmarkMoved=*/false);
             callback.onResult(newBookmarkId);
             return;
         }
@@ -144,21 +149,25 @@ public class BookmarkUtils {
         });
     }
 
-    private static BookmarkId addBookmarkAndShowSaveFlow(Activity activity,
-            BookmarkModel bookmarkModel, Tab tab, BottomSheetController bottomSheetController,
-            @BookmarkType int bookmarkType, boolean fromExplicitTrackUi) {
-        BookmarkId bookmarkId;
-        // TODO(crbug.com/1252228): Reading list support needs some tests.
-        bookmarkId = addBookmarkInternal(activity, bookmarkModel, tab.getTitle(),
-                tab.getOriginalUrl(), tab.getWebContents(), /*parent=*/null, bookmarkType);
+    /**
+     * Shows the bookmark save flow.
+     *
+     * @param activity The current Activity.
+     * @param bottomSheetController The BottomsheetController, used to show the save flow.
+     * @param fromExplicitTrackUi Whether the bookmark was added from the explicit UI.
+     * @param bookmarkId The BookmarkId to show the save flow for.
+     * @param wasBookmarkMoved Whether the save flow is shown as a reslult of a moved bookmark.
+     */
+    public static void showSaveFlow(@NonNull Activity activity,
+            @NonNull BottomSheetController bottomSheetController, boolean fromExplicitTrackUi,
+            @NonNull BookmarkId bookmarkId, boolean wasBookmarkMoved) {
         BookmarkSaveFlowCoordinator bookmarkSaveFlowCoordinator =
                 new BookmarkSaveFlowCoordinator(activity, bottomSheetController,
                         new CommerceSubscriptionsServiceFactory()
                                 .getForLastUsedProfile()
-                                .getSubscriptionsManager());
-        bookmarkSaveFlowCoordinator.show(bookmarkId, fromExplicitTrackUi);
-
-        return bookmarkId;
+                                .getSubscriptionsManager(),
+                        new UserEducationHelper(activity, new Handler()));
+        bookmarkSaveFlowCoordinator.show(bookmarkId, fromExplicitTrackUi, wasBookmarkMoved);
     }
 
     // The legacy code path to add or edit bookmark without triggering the bookmark bottom sheet.

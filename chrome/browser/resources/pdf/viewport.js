@@ -8,6 +8,7 @@ import {$, hasKeyModifiers, isRTL} from 'chrome://resources/js/util.m.js';
 
 import {FittingType, Point} from './constants.js';
 import {Gesture, GestureDetector, PinchEventDetail} from './gesture_detector.js';
+import {UnseasonedPdfPluginElement} from './internal_plugin.js';
 import {InactiveZoomManager, ZoomManager} from './zoom_manager.js';
 
 /**
@@ -81,11 +82,12 @@ export class Viewport {
     /** @private {!HTMLElement} */
     this.window_ = container;
 
-    /** @private {!ScrollContent} */
-    this.scrollContent_ = new ScrollContent(this.window_, sizer, content);
-
     /** @private {number} */
     this.scrollbarWidth_ = scrollbarWidth;
+
+    /** @private {!ScrollContent} */
+    this.scrollContent_ =
+        new ScrollContent(this.window_, sizer, content, this.scrollbarWidth_);
 
     /** @private {number} */
     this.defaultZoom_ = defaultZoom;
@@ -178,6 +180,7 @@ export class Viewport {
         // Necessary check since during testing a fake DOM element is used.
         !(this.window_ instanceof HTMLElement)) {
       window.addEventListener('scroll', this.updateViewport_.bind(this));
+      this.scrollContent_.setEventTarget(window);
       // The following line is only used in tests, since they expect
       // |scrollCallback| to be called on the mock |window_| object (legacy).
       this.window_.scrollCallback = this.updateViewport_.bind(this);
@@ -188,6 +191,7 @@ export class Viewport {
     } else {
       // Standard PDF viewer
       this.window_.addEventListener('scroll', this.updateViewport_.bind(this));
+      this.scrollContent_.setEventTarget(this.window_);
       const resizeObserver = new ResizeObserver(_ => this.resizeWrapper_());
       const target = this.window_.parentElement;
       assert(target.id === 'main');
@@ -199,12 +203,36 @@ export class Viewport {
   }
 
   /**
-   * Sets the contents of the viewport.
+   * Sets the contents of the viewport, scrolling within the viewport's window.
    * @param {?Node} content The new viewport contents, or null to clear the
    *     viewport.
    */
   setContent(content) {
     this.scrollContent_.setContent(content);
+  }
+
+  /**
+   * Sets the contents of the viewport, scrolling within the content's window.
+   * @param {!UnseasonedPdfPluginElement} content The new viewport contents.
+   */
+  setRemoteContent(content) {
+    this.scrollContent_.setRemoteContent(content);
+  }
+
+  /**
+   * Synchronizes scroll position from remote content.
+   * @param {!Point} position
+   */
+  syncScrollFromRemote(position) {
+    this.scrollContent_.syncScrollFromRemote(position);
+  }
+
+  /**
+   * Receives acknowledgment of scroll position synchronized to remote content.
+   * @param {!Point} position
+   */
+  ackScrollToRemote(position) {
+    this.scrollContent_.ackScrollToRemote(position);
   }
 
   /** @param {function():void} viewportChangedCallback */
@@ -473,6 +501,14 @@ export class Viewport {
       width: this.window_.offsetWidth,
       height: this.window_.offsetHeight,
     };
+  }
+
+  /**
+   * Exposes the current content size for testing.
+   * @return {!Size}
+   */
+  get contentSizeForTesting() {
+    return this.scrollContent_.sizeForTesting;
   }
 
   /** @return {number} The current zoom. */
@@ -1057,9 +1093,7 @@ export class Viewport {
       isDown ? this.goToNextPage() : this.goToPreviousPage();
       // Since we do the movement of the page.
       e.preventDefault();
-    } else if (
-        /** @type {!{fromScriptingAPI: (boolean|undefined)}} */ (e)
-            .fromScriptingAPI) {
+    } else if (isCrossFrameKeyEvent(e)) {
       const scrollOffset = (isDown ? 1 : -1) * this.size.height;
       this.setPosition({
         x: this.position.x,
@@ -1086,9 +1120,7 @@ export class Viewport {
       isRight ? this.goToNextPage() : this.goToPreviousPage();
       // Since we do the movement of the page.
       e.preventDefault();
-    } else if (
-        /** @type {!{fromScriptingAPI: (boolean|undefined)}} */ (e)
-            .fromScriptingAPI) {
+    } else if (isCrossFrameKeyEvent(e)) {
       const scrollOffset = (isRight ? 1 : -1) * SCROLL_INCREMENT;
       this.setPosition({
         x: this.position.x + scrollOffset,
@@ -1112,9 +1144,7 @@ export class Viewport {
     if (document.fullscreenElement !== null) {
       isDown ? this.goToNextPage() : this.goToPreviousPage();
       e.preventDefault();
-    } else if (
-        /** @type {!{fromScriptingAPI: (boolean|undefined)}} */ (e)
-            .fromScriptingAPI) {
+    } else if (isCrossFrameKeyEvent(e)) {
       const scrollOffset = (isDown ? 1 : -1) * SCROLL_INCREMENT;
       this.setPosition({
         x: this.position.x,
@@ -1531,6 +1561,25 @@ export const PinchPhase = {
 const SCROLL_INCREMENT = 40;
 
 /**
+ * Returns whether a keyboard event came from another frame.
+ * @param {!KeyboardEvent} keyEvent
+ * @return {boolean}
+ */
+function isCrossFrameKeyEvent(keyEvent) {
+  // TODO(crbug.com/1279516): Consider moving these properties to a custom
+  // KeyboardEvent subtype, if it doesn't become obsolete entirely.
+  const custom =
+      /**
+       * @type {!{
+       *   fromPlugin: (boolean|undefined),
+       *   fromScriptingAPI: (boolean|undefined),
+       * }}
+       */
+      (keyEvent);
+  return !!custom.fromPlugin || !!custom.fromScriptingAPI;
+}
+
+/**
  * The width of the page shadow around pages in pixels.
  * @type {!{top: number, bottom: number, left: number, right: number}}
  */
@@ -1553,20 +1602,60 @@ class ScrollContent {
    *     scrollable content.
    * @param {!Element} content The element which is the parent of the scrollable
    *     content.
+   * @param {number} scrollbarWidth The width of any scrollbars.
    */
-  constructor(container, sizer, content) {
+  constructor(container, sizer, content, scrollbarWidth) {
     /** @private @const {!Element} */
     this.container_ = container;
 
     /** @private @const {!Element} */
     this.sizer_ = sizer;
 
+    /** @private {?EventTarget} */
+    this.target_ = null;
+
     /** @private @const {!Element} */
     this.content_ = content;
+
+    /** @private @const {number} */
+    this.scrollbarWidth_ = scrollbarWidth;
+
+    /** @private {?UnseasonedPdfPluginElement} */
+    this.unseasonedPlugin_ = null;
+
+    /** @private {number} */
+    this.width_ = 0;
+
+    /** @private {number} */
+    this.height_ = 0;
+
+    /** @private {number} */
+    this.scrollLeft_ = 0;
+
+    /** @private {number} */
+    this.scrollTop_ = 0;
+
+    /** @private {number} */
+    this.unackedScrollsToRemote_ = 0;
   }
 
   /**
-   * Sets the content.
+   * Sets the target for dispatching "scroll" events.
+   * @param {!EventTarget} target
+   */
+  setEventTarget(target) {
+    this.target_ = target;
+  }
+
+  /**
+   * Dispatches a "scroll" event.
+   */
+  dispatchScroll_() {
+    this.target_ && this.target_.dispatchEvent(new Event('scroll'));
+  }
+
+  /**
+   * Sets the contents, switching to scrolling locally.
    * @param {?Node} content The new contents, or null to clear.
    */
   setContent(content) {
@@ -1574,7 +1663,45 @@ class ScrollContent {
       this.sizer_.style.display = 'none';
       return;
     }
+    this.attachContent_(content);
 
+    // Switch to local content.
+    this.sizer_.style.display = 'block';
+    if (!this.unseasonedPlugin_) {
+      return;
+    }
+    this.unseasonedPlugin_ = null;
+
+    // Synchronize remote state to local.
+    this.updateSize_();
+    this.scrollTo(this.scrollLeft_, this.scrollTop_);
+  }
+
+  /**
+   * Sets the contents, switching to scrolling remotely.
+   * @param {!UnseasonedPdfPluginElement} content The new contents.
+   */
+  setRemoteContent(content) {
+    this.attachContent_(content);
+
+    // Switch to remote content.
+    const previousScrollLeft = this.scrollLeft;
+    const previousScrollTop = this.scrollTop;
+    this.sizer_.style.display = 'none';
+    assert(!this.unseasonedPlugin_);
+    this.unseasonedPlugin_ = content;
+
+    // Synchronize local state to remote.
+    this.updateSize_();
+    this.scrollTo(previousScrollLeft, previousScrollTop);
+  }
+
+  /**
+   * Attaches the contents to the DOM.
+   * @param {!Node} content The new contents.
+   * @private
+   */
+  attachContent_(content) {
     // We don't actually replace the content in the DOM, as the controller
     // implementations take care of "removal" in controller-specific ways:
     //
@@ -1587,13 +1714,77 @@ class ScrollContent {
   }
 
   /**
+   * Synchronizes scroll position from remote content.
+   * @param {!Point} position
+   */
+  syncScrollFromRemote(position) {
+    if (this.unackedScrollsToRemote_ > 0) {
+      // Don't overwrite scroll position while scrolls-to-remote are pending.
+      // TODO(crbug.com/1246398): Don't need this if we make this synchronous
+      // again, by moving more logic to the plugin frame.
+      return;
+    }
+
+    if (this.scrollLeft_ === position.x && this.scrollTop_ === position.y) {
+      // Don't trigger scroll event if scroll position hasn't changed.
+      return;
+    }
+
+    this.scrollLeft_ = position.x;
+    this.scrollTop_ = position.y;
+    this.dispatchScroll_();
+  }
+
+  /**
+   * Receives acknowledgment of scroll position synchronized to remote content.
+   * @param {!Point} position
+   */
+  ackScrollToRemote(position) {
+    assert(this.unackedScrollsToRemote_ > 0);
+
+    if (--this.unackedScrollsToRemote_ === 0) {
+      // Accept remote adjustment when there are no pending scrolls-to-remote.
+      this.scrollLeft_ = position.x;
+      this.scrollTop_ = position.y;
+    }
+
+    this.dispatchScroll_();
+  }
+
+  /**
+   * Exposes the current content size for testing.
+   * @return {!Size}
+   */
+  get sizeForTesting() {
+    return {
+      width: this.width_,
+      height: this.height_,
+    };
+  }
+
+  /**
    * Sets the content size.
    * @param {number} width
    * @param {number} height
    */
   setSize(width, height) {
-    this.sizer_.style.width = `${width}px`;
-    this.sizer_.style.height = `${height}px`;
+    this.width_ = width;
+    this.height_ = height;
+    this.updateSize_();
+  }
+
+  /** @private */
+  updateSize_() {
+    if (this.unseasonedPlugin_) {
+      this.unseasonedPlugin_.postMessage({
+        type: 'updateSize',
+        width: this.width_,
+        height: this.height_,
+      });
+    } else {
+      this.sizer_.style.width = `${this.width_}px`;
+      this.sizer_.style.height = `${this.height_}px`;
+    }
   }
 
   /**
@@ -1601,7 +1792,8 @@ class ScrollContent {
    * @return {number}
    */
   get scrollLeft() {
-    return this.container_.scrollLeft;
+    return this.unseasonedPlugin_ ? this.scrollLeft_ :
+                                    this.container_.scrollLeft;
   }
 
   /**
@@ -1609,7 +1801,7 @@ class ScrollContent {
    * @return {number}
    */
   get scrollTop() {
-    return this.container_.scrollTop;
+    return this.unseasonedPlugin_ ? this.scrollTop_ : this.container_.scrollTop;
   }
 
   /**
@@ -1618,6 +1810,61 @@ class ScrollContent {
    * @param {number} y
    */
   scrollTo(x, y) {
-    this.container_.scrollTo(x, y);
+    if (this.unseasonedPlugin_) {
+      // TODO(crbug.com/1277228): Can get NaN if zoom calculations divide by 0.
+      x = Number.isNaN(x) ? 0 : x;
+      y = Number.isNaN(y) ? 0 : y;
+
+      // Clamp coordinates to scroll limits. Note that the order of min() and
+      // max() operations is significant, as each "maximum" can be negative.
+      const maxX = this.maxScroll_(
+          this.width_, this.container_.clientWidth,
+          this.height_ > this.container_.clientHeight);
+      const maxY = this.maxScroll_(
+          this.height_, this.container_.clientHeight,
+          this.width_ > this.container_.clientWidth);
+
+      if (this.container_.dir === 'rtl') {
+        // Right-to-left.
+        x = Math.min(Math.max(-maxX, x), 0);
+      } else {
+        // Left-to-right.
+        x = Math.max(0, Math.min(x, maxX));
+      }
+      y = Math.max(0, Math.min(y, maxY));
+
+      // To match the DOM's scrollTo() behavior, update the scroll position
+      // immediately, but fire the scroll event later (when the remote side
+      // triggers `ackScrollToRemote()`).
+      this.scrollLeft_ = x;
+      this.scrollTop_ = y;
+
+      ++this.unackedScrollsToRemote_;
+      this.unseasonedPlugin_.postMessage({
+        type: 'syncScrollToRemote',
+        x: this.scrollLeft_,
+        y: this.scrollTop_,
+      });
+    } else {
+      this.container_.scrollTo(x, y);
+    }
+  }
+
+  /**
+   * Computes maximum scroll position.
+   * @param {number} maxContent The maximum content dimension.
+   * @param {number} maxContainer The maximum container dimension.
+   * @param {boolean} hasScrollbar Whether to compensate for a scrollbar.
+   * @return {number}
+   * @private
+   */
+  maxScroll_(maxContent, maxContainer, hasScrollbar) {
+    if (hasScrollbar) {
+      maxContainer -= this.scrollbarWidth_;
+    }
+
+    // This may return a negative value, which is fine because scroll positions
+    // are clamped to a minimum of 0.
+    return maxContent - maxContainer;
   }
 }

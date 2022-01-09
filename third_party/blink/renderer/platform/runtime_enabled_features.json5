@@ -616,7 +616,7 @@
     },
     {
       name: "CSSDynamicRangeMediaQueries",
-      status: "experimental"
+      status: "stable"
     },
     {
       // Include custom properties in CSSComputedStyleDeclaration::item/length.
@@ -817,6 +817,10 @@
     {
       name: "CSSVariables2TransformValues",
       status: "test",
+    },
+    {
+      name: "CSSVideoDynamicRangeMediaQueries",
+      status: "experimental"
     },
     {
       name: "CustomElementDefaultStyle",
@@ -2478,7 +2482,7 @@
       name: "WebAppWindowControlsOverlay",
       origin_trial_feature_name: "WebAppWindowControlsOverlay",
       origin_trial_os: ["win", "mac", "linux"],
-      status: "experimental",
+      status: "stable",
     },
     {
       name: "WebAssemblyCSP",

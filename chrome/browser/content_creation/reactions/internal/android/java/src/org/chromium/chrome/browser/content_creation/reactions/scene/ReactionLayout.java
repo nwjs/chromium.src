@@ -19,7 +19,10 @@ import org.chromium.chrome.browser.content_creation.reactions.ReactionGifDrawabl
 import org.chromium.chrome.browser.content_creation.reactions.internal.R;
 import org.chromium.ui.widget.ChromeImageButton;
 
-class ReactionLayout extends RelativeLayout {
+/**
+ * A Layout holding a Lightweight Reaction.
+ */
+public class ReactionLayout extends RelativeLayout {
     private final int mReactionPadding;
     private final Context mContext;
 
@@ -83,7 +86,7 @@ class ReactionLayout extends RelativeLayout {
         }
     }
 
-    ReactionGifDrawable getReaction() {
+    public ReactionGifDrawable getReaction() {
         return mDrawable;
     }
 
@@ -117,7 +120,7 @@ class ReactionLayout extends RelativeLayout {
                 int screenHeight = mContext.getResources().getDisplayMetrics().heightPixels;
                 switch (motionEvent.getAction()) {
                     case MotionEvent.ACTION_DOWN:
-                        mSceneEditorDelegate.reactionWasMoved();
+                        mSceneEditorDelegate.reactionWasMoved(ReactionLayout.this);
                         mBaseX = motionEvent.getRawX() - layoutParams.leftMargin;
                         mBaseY = motionEvent.getRawY() - layoutParams.topMargin;
                         mHeight = layoutParams.height;
@@ -212,6 +215,8 @@ class ReactionLayout extends RelativeLayout {
         mCopyButton.setOnClickListener(view -> {
             if (mSceneEditorDelegate.canAddReaction()) {
                 mSceneEditorDelegate.duplicateReaction(ReactionLayout.this);
+            } else {
+                mSceneEditorDelegate.showMaxReactionsReachedToast();
             }
         });
     }

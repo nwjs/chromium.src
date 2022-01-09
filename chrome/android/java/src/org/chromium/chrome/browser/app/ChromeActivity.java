@@ -88,7 +88,6 @@ import org.chromium.chrome.browser.bookmarks.BookmarkBridge.BookmarkItem;
 import org.chromium.chrome.browser.bookmarks.BookmarkModel;
 import org.chromium.chrome.browser.bookmarks.BookmarkUtils;
 import org.chromium.chrome.browser.bookmarks.PowerBookmarkUtils;
-import org.chromium.chrome.browser.bookmarks.ReadingListFeatures;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
 import org.chromium.chrome.browser.compositor.layouts.Layout;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManagerImpl;
@@ -1919,26 +1918,15 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
                 return;
             }
 
-            // TODO(crbug.com/1150559): Make getUserBookmarkIdForTab return BookmarkItem instead,
-            // currently it's a sync call that doesn't check loading states, and only checks the
-            // bookmark backend and managed bookmarks.
-            BookmarkItem currentBookmarkItem = null;
-            if (ReadingListFeatures.isReadingListEnabled()) {
-                currentBookmarkItem =
-                        bookmarkModel.getReadingListItem(tabToBookmark.getOriginalUrl());
+            BookmarkId bookmarkId = bookmarkModel.getUserBookmarkIdForTab(tabToBookmark);
+            if (ReadingListUtils.maybeTypeSwapAndShowSaveFlow(this,
+                        mRootUiCoordinator.getBottomSheetController(), bookmarkModel, bookmarkId,
+                        bookmarkType)) {
+                return;
             }
 
-            if (currentBookmarkItem == null) {
-                // Note we get user bookmark ID over just a bookmark ID here: Managed bookmarks
-                // can't be edited. If the current URL is only bookmarked by managed bookmarks, this
-                // will return INVALID_ID.
-                // TODO(bauerb): This does not take partner bookmarks into account.
-                final BookmarkId bookmarkId = bridge.getUserBookmarkIdForTab(tabToBookmark);
-                if (bookmarkId != null) {
-                    currentBookmarkItem = bookmarkModel.getBookmarkById(bookmarkId);
-                }
-            }
-
+            BookmarkItem currentBookmarkItem =
+                    bookmarkId == null ? null : bookmarkModel.getBookmarkById(bookmarkId);
             onBookmarkModelLoaded(tabToBookmark, currentBookmarkItem, bookmarkModel, bookmarkType,
                     fromExplicitTrackUi);
         });
@@ -2539,30 +2527,32 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         }
 
         if (id == R.id.enable_price_tracking_menu_id) {
-            // TODO(crbug.com/1266881): Add event here to support IPH.
             // TODO(crbug.com/1268976): Extract this code into a one-liner.
             BookmarkId bookmarkId =
                     mBookmarkBridgeSupplier.get().getUserBookmarkIdForTab(currentTab);
             if (bookmarkId == null) {
                 addOrEditBookmark(currentTab, /* fromExplicitTrackUi=*/true);
             } else {
-                PowerBookmarkUtils.setPriceTrackingEnabled(mSubscriptionsManager,
-                        mBookmarkBridgeSupplier.get(), bookmarkId, /*enabled=*/true,
-                        (status) -> {});
+                // In the case where the bookmark exists, re-show the save flow with price-tracking
+                // enabled.
+                BookmarkUtils.showSaveFlow(/*activity=*/this,
+                        mRootUiCoordinator.getBottomSheetController(), /*fromExplicitTrackUi=*/true,
+                        bookmarkId, /*wasBookmarkMoved=*/false);
             }
             RecordUserAction.record("MobileMenuEnablePriceTracking");
+            TrackerFactory.getTrackerForProfile(Profile.getLastUsedRegularProfile())
+                    .notifyEvent(EventConstants.SHOPPING_LIST_PRICE_TRACK_FROM_MENU);
             return true;
         }
 
         if (id == R.id.disable_price_tracking_menu_id) {
             // TODO(crbug.com/1266881): Add event here to support IPH.
-            // TODO(crbug.com/1266191): Add a snackbar for this case.
             // TODO(crbug.com/1268976): Extract this code into a one-liner.
             BookmarkId bookmarkId =
                     mBookmarkBridgeSupplier.get().getUserBookmarkIdForTab(currentTab);
-            PowerBookmarkUtils.setPriceTrackingEnabled(mSubscriptionsManager,
+            PowerBookmarkUtils.setPriceTrackingEnabledWithSnackbars(mSubscriptionsManager,
                     mBookmarkBridgeSupplier.get(), bookmarkId,
-                    /*enabled=*/false, (status) -> {});
+                    /*enabled=*/false, mSnackbarManager, getResources(), (status) -> {});
             RecordUserAction.record("MobileMenuDisablePriceTracking");
             return true;
         }

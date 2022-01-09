@@ -45,6 +45,8 @@ import java.lang.annotation.RetentionPolicy;
         FeatureConstants.DOWNLOAD_INFOBAR_DOWNLOAD_CONTINUING_FEATURE,
         FeatureConstants.DOWNLOAD_INFOBAR_DOWNLOADS_ARE_FASTER_FEATURE,
         FeatureConstants.NEW_TAB_PAGE_HOME_BUTTON_FEATURE,
+        FeatureConstants.SHOPPING_LIST_MENU_ITEM_FEATURE,
+        FeatureConstants.SHOPPING_LIST_SAVE_FLOW_FEATURE,
         FeatureConstants.TAB_GROUPS_QUICKLY_COMPARE_PAGES_FEATURE,
         FeatureConstants.TAB_GROUPS_TAP_TO_SEE_ANOTHER_TAB_FEATURE,
         FeatureConstants.TAB_GROUPS_YOUR_TABS_ARE_TOGETHER_FEATURE,
@@ -170,6 +172,15 @@ public @interface FeatureConstants {
 
     /** An IPH feature to prompt users to open the new tab page after a navigation. */
     String NEW_TAB_PAGE_HOME_BUTTON_FEATURE = "IPH_NewTabPageHomeButton";
+
+    /** An IPH that shows in the bookmark save flow when bookmarking a product. */
+    String SHOPPING_LIST_SAVE_FLOW_FEATURE = "IPH_ShoppingListSaveFlow";
+
+    /**
+     * An IPH that shows when a page is detected to be shopping related that shows the user a menu
+     * item is available to track price.
+     */
+    String SHOPPING_LIST_MENU_ITEM_FEATURE = "IPH_ShoppingListMenuItem";
 
     /**
      * An IPH feature to prompt the user to long press on pages with links to open them in a group.

@@ -1176,14 +1176,15 @@ void WallpaperControllerImpl::SetOnlineWallpaperIfExists(
   }
 
   if (params.from_user) {
-    // |asset_id| and |collection_id| are empty when the wallpaper is
-    // automatically refreshed by old wallpaper app.
-    const absl::optional<uint64_t>& asset_id = params.asset_id;
-    if (asset_id.has_value()) {
-      const int asset_id_val = asset_id.value();
-      base::UmaHistogramSparse("Ash.Wallpaper.Image", asset_id_val);
+    // |unit_id| is empty when set by old wallpaper picker.
+    const absl::optional<uint64_t>& unit_id = params.unit_id;
+    if (unit_id.has_value()) {
+      const int unit_id_val = unit_id.value();
+      base::UmaHistogramSparse("Ash.Wallpaper.Image", unit_id_val);
     }
     const std::string& collection_id = params.collection_id;
+    // |collection_id| is empty when the wallpaper is automatically refreshed
+    // by old wallpaper app.
     if (!collection_id.empty()) {
       const int collection_id_hash = base::PersistentHash(collection_id);
       base::UmaHistogramSparse("Ash.Wallpaper.Collection", collection_id_hash);
@@ -2622,7 +2623,8 @@ void WallpaperControllerImpl::OnAttemptSetOnlineWallpaper(
 
     for (size_t i = 0; i < variants.size(); i++) {
       ImageDownloader::Get()->Download(
-          GURL(variants.at(i).url), NO_TRAFFIC_ANNOTATION_YET,
+          GURL(variants.at(i).url.spec() + GetBackdropWallpaperSuffix()),
+          NO_TRAFFIC_ANNOTATION_YET,
           base::BindOnce(
               &WallpaperControllerImpl::OnOnlineWallpaperVariantDownloaded,
               set_wallpaper_weak_factory_.GetWeakPtr(), params, on_done,

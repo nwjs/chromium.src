@@ -245,6 +245,9 @@ void AshNotificationView::NotificationTitleRow::
   }
 }
 
+// static
+const char AshNotificationView::kViewClassName[] = "AshNotificationView";
+
 AshNotificationView::AshNotificationView(
     const message_center::Notification& notification,
     bool shown_in_popup)
@@ -576,6 +579,10 @@ void AshNotificationView::RemoveGroupNotification(
   left_content_->SetVisible(total_grouped_notifications_ == 0);
   expand_button_->UpdateGroupedNotificationsCount(total_grouped_notifications_);
   PreferredSizeChanged();
+}
+
+const char* AshNotificationView::GetClassName() const {
+  return kViewClassName;
 }
 
 void AshNotificationView::UpdateViewForExpandedState(bool expanded) {
@@ -976,7 +983,8 @@ void AshNotificationView::UpdateAppIconView() {
 
   // Grouped child notification use notification's icon for the app icon view,
   // so we don't need further update here.
-  if (is_grouped_child_view_ && !notification->icon().IsEmpty())
+  if (!notification ||
+      (is_grouped_child_view_ && !notification->icon().IsEmpty()))
     return;
 
   SkColor accent_color = notification->accent_color().value_or(

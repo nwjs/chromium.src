@@ -113,7 +113,7 @@ public class LightweightReactionsCoordinatorImpl extends BaseScreenshotCoordinat
      *                   {@code mAvailableReactions}.
      */
     private void onAssetsFetched(Bitmap[] thumbnails) {
-        boolean success = thumbnails != null && thumbnails.length == mAvailableReactions.size();
+        boolean success = thumbnails != null;
         LightweightReactionsMetrics.recordAssetsFetched(
                 success, System.currentTimeMillis() - mAssetFetchStartTime);
         if (success) {
@@ -226,6 +226,7 @@ public class LightweightReactionsCoordinatorImpl extends BaseScreenshotCoordinat
                 mSceneCoordinator.getNbReactionsAdded(), mSceneCoordinator.getNbTypeChange(),
                 mSceneCoordinator.getNbRotateScale(), mSceneCoordinator.getNbDuplicate(),
                 mSceneCoordinator.getNbDelete(), mSceneCoordinator.getNbMove());
+        LightweightReactionsMetrics.recordReactionsUsed(mSceneCoordinator.getReactions());
 
         GifGeneratorHost gifHost = new GifGeneratorHost() {
             @Override

@@ -70,6 +70,28 @@ void DeleteOldStorePaths(const base::FilePath& profile_path) {
                   kOptimizationGuidePredictionModelAndFeaturesStore)));
 }
 
+// Returns the profile to use for when setting up the keyed service when the
+// profile is Off-The-Record. For guest profiles, returns a loaded profile if
+// one exists, otherwise just the original profile of the OTR profile. Note:
+// guest profiles are off-the-record and "original" profiles.
+Profile* GetProfileForOTROptimizationGuide(Profile* profile) {
+  DCHECK(profile);
+  DCHECK(profile->IsOffTheRecord());
+
+  if (profile->IsGuestSession()) {
+    // Guest sessions need to rely on the stores from real profiles
+    // as guest profiles cannot fetch or store new models. Note: only
+    // loaded profiles should be used as we do not want to force load
+    // another profile as that can lead to start up regressions.
+    std::vector<Profile*> profiles =
+        g_browser_process->profile_manager()->GetLoadedProfiles();
+    if (!profiles.empty()) {
+      return profiles[0];
+    }
+  }
+  return profile->GetOriginalProfile();
+}
+
 }  // namespace
 
 // static
@@ -113,21 +135,6 @@ void OptimizationGuideKeyedService::Initialize() {
                                 ->GetProtoDatabaseProvider();
   base::FilePath profile_path = profile->GetOriginalProfile()->GetPath();
 
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
-  // Do not use the primary profile on ChromeOS since it basically is an
-  // ephemeral profile anyway and we cannot provide hints or models to it
-  // anyway. Additionally, sign in profiles do not go through the standard
-  // profile initialization flow, so a lot of things that are required are not
-  // available when the browser context for the signin profile is created.
-  if (profile->IsGuestSession()) {
-    Profile* primary_profile = ProfileManager::GetPrimaryUserProfile();
-    if (primary_profile) {
-      proto_db_provider = primary_profile->GetDefaultStoragePartition()
-                              ->GetProtoDatabaseProvider();
-      profile_path = primary_profile->GetPath();
-    }
-  }
-#endif
   // We have different behavior if |this| is created for an incognito profile.
   // For incognito profiles, we act in "read-only" mode of the original
   // profile's store and do not fetch any new hints or models.
@@ -138,7 +145,7 @@ void OptimizationGuideKeyedService::Initialize() {
   if (profile->IsOffTheRecord()) {
     OptimizationGuideKeyedService* original_ogks =
         OptimizationGuideKeyedServiceFactory::GetForProfile(
-            profile->GetOriginalProfile());
+            GetProfileForOTROptimizationGuide(profile));
     DCHECK(original_ogks);
     hint_store = original_ogks->GetHintsManager()->hint_store();
     prediction_model_and_features_store =

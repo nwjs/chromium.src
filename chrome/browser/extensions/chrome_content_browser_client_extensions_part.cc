@@ -354,7 +354,7 @@ bool ChromeContentBrowserClientExtensionsPart::DoesSiteRequireDedicatedProcess(
   if (!extension)
     return false;
 
-  if (extension->manifest()->HasKey("devtools_page"))
+  if (extension->manifest()->FindKey("devtools_page"))
     return true;
   return false;
 }

@@ -114,8 +114,14 @@ class UnifiedMessageListView::MessageViewContainer
         message_view()->notification_id());
     if (!notification)
       return base::Milliseconds(0);
-    return static_cast<const AshNotificationView*>(message_view())
-        ->GetBoundsAnimationDuration(*notification);
+    if (message_view()->GetClassName() == AshNotificationView::kViewClassName) {
+      return static_cast<const AshNotificationView*>(message_view())
+          ->GetBoundsAnimationDuration(*notification);
+    }
+    // TODO(crbug/1278483): ARC notifications will require different animation
+    // durations. Default to kLargeImageExpandAndCollapseAnimationDuration for
+    // now.
+    return base::Milliseconds(kLargeImageExpandAndCollapseAnimationDuration);
   }
 
   // Update the border and background corners based on if the notification is
@@ -940,7 +946,10 @@ void UnifiedMessageListView::StartAnimation() {
           kExpandOrCollapseAnimationSmoothnessHistogramName);
       DCHECK(expand_or_collapsing_container_);
       animation_duration =
-          expand_or_collapsing_container_->GetBoundsAnimationDuration();
+          expand_or_collapsing_container_
+              ? expand_or_collapsing_container_->GetBoundsAnimationDuration()
+              : base::Milliseconds(
+                    kLargeImageExpandAndCollapseAnimationDuration);
       break;
   }
 

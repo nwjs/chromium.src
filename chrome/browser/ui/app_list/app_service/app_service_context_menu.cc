@@ -104,6 +104,20 @@ void ShowOptionsPage(AppListControllerDelegate* controller,
   controller->ShowOptionsPage(profile, app_id);
 }
 
+void ExecuteLaunchCommand(app_list::AppContextMenuDelegate* delegate,
+                          int event_flags,
+                          bool post_task) {
+  DCHECK(delegate);
+  if (post_task) {
+    content::GetUIThreadTaskRunner({})->PostTask(
+        FROM_HERE, base::BindOnce(ExecuteLaunchCommand, delegate, event_flags,
+                                  /*post_task=*/false));
+    return;
+  }
+
+  delegate->ExecuteLaunchCommand(event_flags);
+}
+
 }  // namespace
 
 AppServiceContextMenu::AppServiceContextMenu(
@@ -164,7 +178,7 @@ void AppServiceContextMenu::ExecuteCommand(int command_id, int event_flags) {
       controller()->GetAppListDisplayId());
   switch (command_id) {
     case ash::LAUNCH_NEW:
-      delegate()->ExecuteLaunchCommand(event_flags);
+      ExecuteLaunchCommand(delegate(), event_flags, /*post_task=*/true);
       ash::full_restore::FullRestoreService::MaybeCloseNotification(profile());
       break;
 
@@ -225,6 +239,10 @@ void AppServiceContextMenu::ExecuteCommand(int command_id, int event_flags) {
     case ash::REORDER_BY_NAME_REVERSE_ALPHABETICAL:
       RequestAppListSort(profile(),
                          ash::AppListSortOrder::kNameReverseAlphabetical);
+      break;
+
+    case ash::REORDER_BY_COLOR:
+      RequestAppListSort(profile(), ash::AppListSortOrder::kColor);
       break;
 
     default:
@@ -384,6 +402,9 @@ void AppServiceContextMenu::OnGetMenuModel(
         ash::REORDER_SUBMENU, u"Reorder by name", reorder_submenu_.get(),
         ui::ImageModel::FromVectorIcon(
             GetMenuItemVectorIcon(ash::REORDER_SUBMENU, /*string_id=*/-1)));
+    // TODO(crbug.com/1276230): Move reorder by color item to proper location
+    // and add a vector icon.
+    menu_model->AddItem(ash::REORDER_BY_COLOR, u"Color");
   }
 
   std::move(callback).Run(std::move(menu_model));

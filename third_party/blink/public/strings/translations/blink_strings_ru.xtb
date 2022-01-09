@@ -137,7 +137,7 @@
 <translation id="5466621249238537318">Выберите один или несколько файлов.</translation>
 <translation id="5468998798572797635">выход из полноэкранного режима</translation>
 <translation id="5516235301412634559">0,75</translation>
-<translation id="5537725057119320332">Cast</translation>
+<translation id="5537725057119320332">Трансляция</translation>
 <translation id="5546461542133609677">включение звука</translation>
 <translation id="5586467629893654334">Значок месяца или луны, может означать ночное время или спящий режим</translation>
 <translation id="5599474660109692598">Значок облачка с репликой, может означать чат</translation>
@@ -230,7 +230,7 @@
 <translation id="8199524924445686405">гггг</translation>
 <translation id="8261464734335370856">Орфографическая ошибка</translation>
 <translation id="8276790177939055966">Угловая скобка вправо</translation>
-<translation id="8284326494547611709">Титры</translation>
+<translation id="8284326494547611709">Субтитры</translation>
 <translation id="835897206747267392">Недопустимые данные.</translation>
 <translation id="839593075537728968">Укажите значение времени от <ph name="MINIMUM_TIME" /> до <ph name="MAXIMUM_TIME" />.</translation>
 <translation id="8403857369060869934">прошло времени: <ph name="ELAPSED_TIME" /></translation>

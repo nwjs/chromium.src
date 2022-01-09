@@ -1697,9 +1697,16 @@ id content::AXTextMarkerRangeFrom(id anchor_textmarker, id focus_textmarker) {
 }
 
 // internal
-- (NSRect)rectInScreen:(gfx::Rect)rect {
+- (NSRect)rectInScreen:(gfx::Rect)layout_rect {
   if (![self instanceActive])
     return NSZeroRect;
+
+  // Convert to DIPs if UseZoomForDSF is enabled.
+  auto rect =
+      IsUseZoomForDSFEnabled()
+          ? ScaleToRoundedRect(layout_rect,
+                               1.f / _owner->manager()->device_scale_factor())
+          : layout_rect;
 
   // Get the delegate for the topmost BrowserAccessibilityManager, because
   // that's the only one that can convert points to their origin in the screen.
@@ -1838,6 +1845,7 @@ id content::AXTextMarkerRangeFrom(id anchor_textmarker, id focus_textmarker) {
 
   NSMutableArray* ret = [[[NSMutableArray alloc] init] autorelease];
   BrowserAccessibility* focusedChild = _owner->manager()->GetFocus();
+
   // "IsDescendantOf" also returns true when the two objects are equivalent.
   if (focusedChild && focusedChild != _owner &&
       focusedChild->IsDescendantOf(_owner)) {
@@ -1845,7 +1853,8 @@ id content::AXTextMarkerRangeFrom(id anchor_textmarker, id focus_textmarker) {
     // children because there could only be at most one selected child. The
     // selected child should also be equivalent to the focused child, because
     // selection is tethered to the focus.
-    if (!GetState(_owner, ax::mojom::State::kMultiselectable)) {
+    if (!GetState(_owner, ax::mojom::State::kMultiselectable) &&
+        focusedChild->GetBoolAttribute(ax::mojom::BoolAttribute::kSelected)) {
       [ret addObject:ToBrowserAccessibilityCocoa(focusedChild)];
       return ret;
     }
