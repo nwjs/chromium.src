@@ -8,7 +8,6 @@
 #include <string>
 
 #include "base/containers/circular_deque.h"
-#include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "base/task/sequenced_task_runner_helpers.h"
@@ -88,7 +87,6 @@ class CONTENT_EXPORT ResolveProxyHelper
     ResolveProxyCallback callback;
 
    private:
-    DISALLOW_COPY_AND_ASSIGN(PendingRequest);
   };
 
   const int render_process_host_id_;
@@ -106,7 +104,6 @@ class CONTENT_EXPORT ResolveProxyHelper
   // Receiver for the currently in-progress request, if any.
   mojo::Receiver<network::mojom::ProxyLookupClient> receiver_{this};
 
-  DISALLOW_COPY_AND_ASSIGN(ResolveProxyHelper);
 };
 
 }  // namespace content

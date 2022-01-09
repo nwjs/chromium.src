@@ -30,6 +30,7 @@
 <translation id="1189258430971676908">練習エリア: プルダウン リスト</translation>
 <translation id="1195238899008218998">後書き</translation>
 <translation id="1197088940767939838">オレンジ</translation>
+<translation id="1198865190323699001">タップ操作</translation>
 <translation id="1201402288615127009">次へ</translation>
 <translation id="1206619573307042055">マーキー</translation>
 <translation id="1207086294218137981">次のレベル 4 の見出しはありません</translation>
@@ -389,6 +390,7 @@
 <translation id="3492609944033322585">{COUNT,plural, =1{右角かっこ}other{# 個の右角かっこ}}</translation>
 <translation id="3494946239022273294">メニュー項目</translation>
 <translation id="3497063866483065785">{COUNT,plural, =1{疑問符}other{# 個の疑問符}}</translation>
+<translation id="3505359110822747654">ChromeVox メニューを折りたたむ</translation>
 <translation id="3514822174137761109">{COUNT,plural, =1{キャレット}other{# 個のキャレット}}</translation>
 <translation id="352577523970648069">編集可能なテキスト欄</translation>
 <translation id="3538907380453898475">dscrplst</translation>

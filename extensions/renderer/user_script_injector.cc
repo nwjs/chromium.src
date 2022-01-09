@@ -154,6 +154,10 @@ bool UserScriptInjector::ExpectsResults() const {
   return false;
 }
 
+bool UserScriptInjector::ShouldWaitForPromise() const {
+  return false;
+}
+
 mojom::CSSOrigin UserScriptInjector::GetCssOrigin() const {
   return mojom::CSSOrigin::kAuthor;
 }

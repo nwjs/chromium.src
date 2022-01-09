@@ -39,7 +39,9 @@ namespace extensions {
 
 ChromeExtensionWebContentsObserver::ChromeExtensionWebContentsObserver(
     content::WebContents* web_contents)
-    : ExtensionWebContentsObserver(web_contents) {
+    : ExtensionWebContentsObserver(web_contents),
+      content::WebContentsUserData<ChromeExtensionWebContentsObserver>(
+          *web_contents) {
   // Since ZoomController is also a WebContentsObserver, we need to be careful
   // about disconnecting from it since the relative order of destruction of
   // WebContentsObservers is not guaranteed. ZoomController silently clears

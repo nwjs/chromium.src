@@ -100,7 +100,7 @@
 #include "third_party/blink/public/platform/web_url_request.h"
 #include "third_party/blink/public/platform/web_v8_value_converter.h"
 #include "third_party/blink/public/platform/web_vector.h"
-#include "third_party/blink/public/web/modules/media/audio/web_audio_device_factory.h"
+#include "third_party/blink/public/web/modules/media/audio/audio_device_factory.h"
 #include "third_party/blink/public/web/web_local_frame.h"
 #include "third_party/blink/public/web/web_media_inspector.h"
 #include "third_party/sqlite/sqlite3.h"
@@ -157,7 +157,7 @@ media::AudioParameters GetAudioHardwareParams() {
   if (!render_frame)
     return media::AudioParameters::UnavailableDeviceParams();
 
-  return blink::WebAudioDeviceFactory::GetOutputDeviceInfo(
+  return blink::AudioDeviceFactory::GetOutputDeviceInfo(
              render_frame->GetWebFrame()->GetLocalFrameToken(),
              media::AudioSinkParameters())
       .output_params();
@@ -186,9 +186,13 @@ gpu::ContextType ToGpuContextType(blink::Platform::ContextType type) {
 
 RendererBlinkPlatformImpl::RendererBlinkPlatformImpl(
     blink::scheduler::WebThreadScheduler* main_thread_scheduler)
-    : BlinkPlatformImpl(RenderThreadImpl::current()
-                            ? RenderThreadImpl::current()->GetIOTaskRunner()
-                            : nullptr),
+    : BlinkPlatformImpl(
+          RenderThreadImpl::current()
+              ? RenderThreadImpl::current()->GetIOTaskRunner()
+              : nullptr,
+          RenderThreadImpl::current()
+              ? RenderThreadImpl::current()->GetIOPlatformThreadId()
+              : base::kInvalidThreadId),
       sudden_termination_disables_(0),
       is_locked_to_site_(false),
       main_thread_scheduler_(main_thread_scheduler) {
@@ -538,17 +542,6 @@ cc::TaskGraphRunner* RendererBlinkPlatformImpl::GetTaskGraphRunner() {
   return thread ? thread->GetTaskGraphRunner() : nullptr;
 }
 
-gfx::RenderingPipeline* RendererBlinkPlatformImpl::GetMainThreadPipeline() {
-  RenderThreadImpl* thread = RenderThreadImpl::current();
-  return thread ? thread->GetMainThreadPipeline() : nullptr;
-}
-
-gfx::RenderingPipeline*
-RendererBlinkPlatformImpl::GetCompositorThreadPipeline() {
-  RenderThreadImpl* thread = RenderThreadImpl::current();
-  return thread ? thread->GetCompositorThreadPipeline() : nullptr;
-}
-
 bool RendererBlinkPlatformImpl::IsThreadedAnimationEnabled() {
   RenderThreadImpl* thread = RenderThreadImpl::current();
   return thread ? thread->IsThreadedAnimationEnabled() : true;
@@ -602,7 +595,7 @@ scoped_refptr<media::AudioCapturerSource>
 RendererBlinkPlatformImpl::NewAudioCapturerSource(
     blink::WebLocalFrame* web_frame,
     const media::AudioSourceParameters& params) {
-  return blink::WebAudioDeviceFactory::NewAudioCapturerSource(
+  return blink::AudioDeviceFactory::NewAudioCapturerSource(
       web_frame->GetLocalFrameToken(), params);
 }
 
@@ -647,14 +640,14 @@ RendererBlinkPlatformImpl::NewAudioRendererSink(
     blink::WebAudioDeviceSourceType source_type,
     blink::WebLocalFrame* web_frame,
     const media::AudioSinkParameters& params) {
-  return blink::WebAudioDeviceFactory::NewAudioRendererSink(
+  return blink::AudioDeviceFactory::NewAudioRendererSink(
       source_type, web_frame->GetLocalFrameToken(), params);
 }
 
 media::AudioLatency::LatencyType
 RendererBlinkPlatformImpl::GetAudioSourceLatencyType(
     blink::WebAudioDeviceSourceType source_type) {
-  return blink::WebAudioDeviceFactory::GetSourceLatencyType(source_type);
+  return blink::AudioDeviceFactory::GetSourceLatencyType(source_type);
 }
 
 bool RendererBlinkPlatformImpl::ShouldEnforceWebRTCRoutingPreferences() {

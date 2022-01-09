@@ -9,9 +9,9 @@
 #include <set>
 #include <string>
 
+#include "base/memory/raw_ptr.h"
 #include "extensions/common/draggable_region.h"
 
-#include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
@@ -144,11 +144,11 @@ class TabHelper : public content::WebContentsObserver,
   // Sends our tab ID to |render_frame_host|.
   void SetTabId(content::RenderFrameHost* render_frame_host);
 
-  Profile* profile_;
+  raw_ptr<Profile> profile_;
 
   // If non-null this tab is an app tab and this is the extension the tab was
   // created for.
-  const Extension* extension_app_;
+  raw_ptr<const Extension> extension_app_;
 
   // Icon for extension_app_ (if non-null) or a manually-set icon for
   // non-extension apps.

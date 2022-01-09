@@ -31,6 +31,7 @@
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
+#include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_paths.h"
 #include "chromeos/cryptohome/cryptohome_parameters.h"
 #include "chromeos/dbus/session_manager/session_manager_client.h"
@@ -88,6 +89,7 @@ constexpr const char* const kAshDataPaths[] = {"FullRestoreData",
 constexpr const char* const kLacrosDataPathsDeprecated[]{"Bookmarks"};
 constexpr const char* const kLacrosDataPaths[]{"AutofillStrikeDatabase",
                                                "Bookmarks",
+                                               "Cookies",
                                                "Extension Cookies",
                                                "Extension Rules",
                                                "Extension State",
@@ -102,9 +104,6 @@ constexpr const char* const kLacrosDataPaths[]{"AutofillStrikeDatabase",
                                                "Top Sites",
                                                "Shortcuts",
                                                "Sessions"};
-// `First Run` is the only file that should be copied to lacros from user data
-// directory (parent directory of profile directory).
-const char* const kFirstRun = "First Run";
 // Flag values for `switches::kForceBrowserDataMigrationForTesting`.
 const char kBrowserDataMigrationForceSkip[] = "force-skip";
 const char kBrowserDataMigrationForceMigration[] = "force-migration";
@@ -167,10 +166,15 @@ static_assert(HasNoOverlapBetweenPathsSets(),
 
 void OnRestartRequestResponse(bool result) {
   if (!result) {
-    LOG(ERROR) << "SessionManagerClient::RequestBrowserDataMigration failed.";
+    LOG(ERROR) << "SessionManagerClient::RequestBrowserDataMigration() failed.";
     return;
   }
 
+  // TODO(crbug.com/1277848): Once `BrowserDataMigrator` stabilises, remove this
+  // log message.
+  LOG(WARNING)
+      << "SessionManagerClient::RequestBrowserDataMigration() succeeded "
+         "and now attempting a restart.";
   chrome::AttemptRestart();
 }
 
@@ -233,11 +237,38 @@ int64_t BrowserDataMigrator::TargetInfo::TotalDirSize() const {
 void BrowserDataMigrator::MaybeRestartToMigrate(
     const AccountId& account_id,
     const std::string& user_id_hash) {
+  // TODO(crbug.com/1277848): Once `BrowserDataMigrator` stabilises, remove this
+  // log message.
+  LOG(WARNING) << "MaybeRestartToMigrate() is called.";
   // If `MigrationStep` is not `kCheckStep`, `MaybeRestartToMigrate()` has
   // already moved on to later steps. Namely either in the middle of migration
   // or migration has already run.
-  if (GetMigrationStep(g_browser_process->local_state()) !=
-      MigrationStep::kCheckStep) {
+  MigrationStep step = GetMigrationStep(g_browser_process->local_state());
+  if (step != MigrationStep::kCheckStep) {
+    switch (step) {
+      case MigrationStep::kRestartCalled:
+        LOG(ERROR) << "RestartToMigrate() was called but Migrate() was not. "
+                      "This indicates that eitehr "
+                      "SessionManagerClient::RequestBrowserDataMigration() "
+                      "failed or ash crashed before reaching Migrate(). Check "
+                      "the previous chrome log and the one before.";
+        break;
+      case MigrationStep::kStarted:
+        LOG(ERROR) << "Migrate() was called but "
+                      "MigrateInternalFinishedUIThread() was not indicating "
+                      "that ash might have crashed during the migration.";
+        break;
+      case MigrationStep::kEnded:
+      default:
+        // TODO(crbug.com/1277848): Once `BrowserDataMigrator` stabilises,
+        // remove
+        // this log message or reduce to VLOG(1).
+        LOG(WARNING)
+            << "Migration has ended and either completed or failed. step = "
+            << static_cast<int>(step);
+        break;
+    }
+
     return;
   }
 
@@ -248,6 +279,7 @@ void BrowserDataMigrator::MaybeRestartToMigrate(
   if (force_migration_switch == kBrowserDataMigrationForceSkip)
     return;
   if (force_migration_switch == kBrowserDataMigrationForceMigration) {
+    LOG(WARNING) << "`kBrowserDataMigrationForceMigration` switch is present.";
     MaybeRestartToMigrateCallback(account_id, user_id_hash,
                                   true /* is_required */);
     return;
@@ -265,6 +297,13 @@ void BrowserDataMigrator::MaybeRestartToMigrate(
     return;
   // Check if lacros is enabled. If not immediately return.
   if (!crosapi::browser_util::IsLacrosEnabledForMigration(user)) {
+    // TODO(crbug.com/1277848): Once `BrowserDataMigrator` stabilises, remove
+    // this log message.
+    LOG(WARNING)
+        << "Lacros is disabled. Call ClearMigrationAttemptCountForUser() so "
+           "that the migration can be attempted again after once lacros is "
+           "enabled again.";
+
     // If lacros is not enabled other than reaching the maximum retry count of
     // profile migration, clear the retry count. This will allow users to reset
     // the retry count by disabling lacros and re-enabling lacros back.
@@ -278,24 +317,42 @@ void BrowserDataMigrator::MaybeRestartToMigrate(
   //  `kLacrosProfileMigrationForAnyUser` defined in browser_util.
   // TODO(crbug.com/1266669): Remove this check once profile migration is
   // enabled for all users.
-  if (!crosapi::browser_util::IsProfileMigrationEnabled(account_id))
+  if (!crosapi::browser_util::IsProfileMigrationEnabled(account_id)) {
+    // TODO(crbug.com/1277848): Once `BrowserDataMigrator` stabilises, remove
+    // this log message.
+    LOG(WARNING) << "Profile migration is disabled.";
     return;
+  }
 
   // If the user is a new user, then there shouldn't be anything to migrate.
   // Also mark the user as migration completed.
   if (user_manager::UserManager::Get()->IsCurrentUserNew()) {
     crosapi::browser_util::SetProfileMigrationCompletedForUser(
         g_browser_process->local_state(), user_id_hash);
+    // TODO(crbug.com/1277848): Once `BrowserDataMigrator` stabilises, remove
+    // this log message.
+    LOG(WARNING) << "Setting migration as completed since it is a new user.";
     return;
   }
 
   int attempts = GetMigrationAttemptCountForUser(
       g_browser_process->local_state(), user_id_hash);
+  // TODO(crbug.com/1178702): Once BrowserDataMigrator stabilises, reduce the
+  // log level to VLOG(1).
+  LOG(WARNING) << "Attempt #" << attempts;
   if (attempts >= kMaxMigrationAttemptCount) {
+    // TODO(crbug.com/1277848): Once `BrowserDataMigrator` stabilises, remove
+    // this log message.
+    LOG(WARNING) << "Skipping profile migration since migration attemp count = "
+                 << attempts << " has exceeded " << kMaxMigrationAttemptCount;
     return;
   }
 
   if (crosapi::browser_util::IsDataWipeRequired(user_id_hash)) {
+    // TODO(crbug.com/1277848): Once `BrowserDataMigrator` stabilises, remove
+    // this log message.
+    LOG(WARNING)
+        << "Restarting to run profile migration since data wipe is required.";
     // If data wipe is required, no need for a further check to determine if
     // lacros data dir exists or not.
     MaybeRestartToMigrateCallback(account_id, user_id_hash,
@@ -305,10 +362,17 @@ void BrowserDataMigrator::MaybeRestartToMigrate(
 
   if (!crosapi::browser_util::IsProfileMigrationCompletedForUser(
           g_browser_process->local_state(), user_id_hash)) {
+    // TODO(crbug.com/1277848): Once `BrowserDataMigrator` stabilises, remove
+    // this log message.
+    LOG(WARNING) << "Profile migration has not been completed yet.";
     MaybeRestartToMigrateCallback(account_id, user_id_hash,
                                   true /* is_required */);
     return;
   } else {
+    // TODO(crbug.com/1277848): Once `BrowserDataMigrator` stabilises, remove
+    // this log message.
+    LOG(WARNING) << "Calling IsMigrationRequiredOnWorker() to determine if "
+                    "migration is required.";
     // Check if profile migration is required by checking if lacros data
     // directory exists even if profile migration is marked as completed. This
     // is needed because until the official release because lacros user data
@@ -337,6 +401,7 @@ void BrowserDataMigrator::MaybeRestartToMigrateCallback(
   if (!is_required)
     return;
 
+  LOG(WARNING) << "Restarting to start profile migration.";
   SetMigrationStep(g_browser_process->local_state(),
                    MigrationStep::kRestartCalled);
 
@@ -371,6 +436,9 @@ base::OnceClosure BrowserDataMigrator::Migrate(
     const std::string& user_id_hash,
     const ProgressCallback& progress_callback,
     base::OnceClosure completion_callback) {
+  // TODO(crbug.com/1178702): Once BrowserDataMigrator stabilises, reduce the
+  // log level to VLOG(1).
+  LOG(WARNING) << "BrowserDataMigrator::Migrate() is called.";
   DCHECK(GetMigrationStep(g_browser_process->local_state()) ==
          MigrationStep::kRestartCalled);
   SetMigrationStep(g_browser_process->local_state(), MigrationStep::kStarted);
@@ -454,6 +522,7 @@ BrowserDataMigrator::MigrationResult BrowserDataMigrator::MigrateInternal(
 
   if (base::DirectoryExists(new_user_dir)) {
     if (!base::DeletePathRecursively(new_user_dir)) {
+      PLOG(ERROR) << "Deleting " << new_user_dir.value() << " failed: ";
       RecordStatus(FinalStatus::kDataWipeFailed);
       return {ResultValue::kFailed, ResultValue::kFailed};
     }
@@ -489,6 +558,7 @@ BrowserDataMigrator::MigrationResult BrowserDataMigrator::MigrateInternal(
       base::DeletePathRecursively(tmp_dir);
     }
     if (cancel_flag->IsSet()) {
+      LOG(WARNING) << "Migration was cancelled.";
       RecordStatus(FinalStatus::kCancelled, &target_info);
       return {data_wipe_result, ResultValue::kCancelled};
     }
@@ -768,12 +838,10 @@ bool BrowserDataMigrator::SetupTmpDir(
                        progress_tracker))
     return false;
 
-  // Copy `First Run` in user data directory.
-  const base::FilePath first_run_file = from_dir.DirName().Append(kFirstRun);
-  if (base::PathExists(first_run_file)) {
-    if (!base::CopyFile(first_run_file, tmp_dir.Append(kFirstRun)))
-      return false;
-  }
+  // Create `First Run` sentinel file instead of copying. This avoids copying
+  // from outside of cryptohome.
+  if (!base::WriteFile(tmp_dir.Append(chrome::kFirstRunSentinel), ""))
+    return false;
 
   return true;
 }

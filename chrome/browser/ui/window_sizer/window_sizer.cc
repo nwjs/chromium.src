@@ -8,7 +8,7 @@
 #include <utility>
 
 #include "base/command_line.h"
-#include "base/macros.h"
+#include "base/memory/raw_ptr.h"
 #include "base/numerics/ranges.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
@@ -151,7 +151,7 @@ class DefaultStateProvider : public WindowSizer::StateProvider {
   std::string app_name_;
 
   // If set, is used as the reference browser for GetLastActiveWindowState.
-  const Browser* browser_;
+  raw_ptr<const Browser> browser_;
 };
 
 }  // namespace
@@ -173,6 +173,8 @@ bool WindowSizer::GetBrowserWindowBoundsAndShowState(
       browser, window_bounds, show_state);
 }
 
+#if !defined(OS_LINUX)
+// Linux has its own implementation, see WindowSizerLinux.
 // static
 bool WindowSizer::GetBrowserWindowBoundsAndShowState(
     std::unique_ptr<StateProvider> state_provider,
@@ -192,6 +194,7 @@ bool WindowSizer::GetBrowserWindowBoundsAndShowState(
   *bounds = specified_bounds;
   return sizer.DetermineWindowBoundsAndShowState(specified_bounds, bounds, show_state);
 }
+#endif  // !defined(OS_LINUX)
 
 bool WindowSizer::DetermineWindowBoundsAndShowState(
     const gfx::Rect& specified_bounds,
@@ -227,10 +230,15 @@ bool WindowSizer::DetermineWindowBoundsAndShowState(
   // is visible on the screen.
   gfx::Rect work_area =
       display::Screen::GetScreen()->GetDisplayMatching(*bounds).work_area();
+
+  AdjustWorkAreaForPlatform(work_area);
+
   // Resize so that it fits.
   bounds->AdjustToFit(work_area);
   return false;
 }
+
+void WindowSizer::AdjustWorkAreaForPlatform(gfx::Rect& work_area) {}
 
 bool WindowSizer::GetLastActiveWindowBounds(
     gfx::Rect* bounds,

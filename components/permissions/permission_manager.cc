@@ -12,6 +12,7 @@
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/feature_list.h"
+#include "base/memory/raw_ptr.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
@@ -133,8 +134,6 @@ ContentSettingsType PermissionTypeToContentSettingSafe(
       return ContentSettingsType::FONT_ACCESS;
     case PermissionType::DISPLAY_CAPTURE:
       return ContentSettingsType::DISPLAY_CAPTURE;
-    case PermissionType::FILE_HANDLING:
-      return ContentSettingsType::FILE_HANDLING;
     case PermissionType::NUM:
       break;
   }
@@ -266,7 +265,7 @@ class PermissionManager::PermissionResponseCallback {
   }
 
  private:
-  PermissionManager* permission_manager_;
+  raw_ptr<PermissionManager> permission_manager_;
   PendingRequestLocalId request_local_id_;
   int permission_id_;
   bool request_answered_;

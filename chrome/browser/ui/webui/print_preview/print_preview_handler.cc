@@ -23,7 +23,6 @@
 #include "base/i18n/number_formatting.h"
 #include "base/json/json_reader.h"
 #include "base/lazy_instance.h"
-#include "base/macros.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/values.h"
 #include "build/build_config.h"
@@ -40,6 +39,7 @@
 #include "chrome/browser/printing/print_view_manager.h"
 #include "chrome/browser/printing/printer_manager_dialog.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/signin/account_consistency_mode_manager_factory.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/chrome_pages.h"
@@ -87,22 +87,17 @@
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-#include "chrome/browser/ash/account_manager/account_manager_util.h"
 #include "chrome/browser/ash/crosapi/crosapi_ash.h"
 #include "chrome/browser/ash/crosapi/crosapi_manager.h"
 #include "chrome/browser/ash/crosapi/local_printer_ash.h"
 #include "chrome/browser/ash/drive/drive_integration_service.h"
 #elif BUILDFLAG(IS_CHROMEOS_LACROS)
-#include "chrome/browser/lacros/account_manager/account_manager_util.h"
 #include "chromeos/crosapi/mojom/drive_integration_service.mojom.h"
 #include "chromeos/lacros/lacros_service.h"
 #endif
 
 using content::RenderFrameHost;
 using content::WebContents;
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-using ash::IsAccountManagerAvailable;
-#endif
 
 namespace {
 static base::NoDestructor<std::string> g_nw_printer_name;
@@ -458,10 +453,10 @@ bool NWPrintGetCustomPrinting() {
 }
 
 void NWPrintSetOptions(const base::DictionaryValue* dict, WebContents* web_contents) {
-  bool silent_printing = false;
   *g_nw_print_options = dict->CreateDeepCopy();
-  if ((*g_nw_print_options)->GetBoolean("silent", &silent_printing) && web_contents)
-    web_contents->set_silent_printing(silent_printing);
+  absl::optional<bool> silent_printing = (*g_nw_print_options)->FindBoolKey("silent");
+  if (silent_printing && web_contents)
+    web_contents->set_silent_printing(*silent_printing);
 }
 
 void NWPrintSetPDFPath(const base::FilePath& path) {
@@ -786,21 +781,23 @@ void PrintPreviewHandler::HandleGetPreview(const base::ListValue* args) {
   DCHECK(display_header_footer_opt);
   std::string footer_string, header_string;
   if (*g_nw_print_options) {
-    bool landscape, backgrounds;
     int margins_type;
     int scale;
     base::DictionaryValue* media_size_value = nullptr;
     base::DictionaryValue* custom_margins = nullptr;
-    bool display_header_footer;
+    absl::optional<bool> display_header_footer;
 
     if ((*g_nw_print_options)->GetDictionary(printing::kSettingMediaSize, &media_size_value) && !media_size_value->DictEmpty())
       settings.SetKey(printing::kSettingMediaSize, media_size_value->Clone());
-    if ((*g_nw_print_options)->GetBoolean(printing::kSettingHeaderFooterEnabled, &display_header_footer))
-      settings.SetKey(printing::kSettingHeaderFooterEnabled, base::Value(display_header_footer));
-    if ((*g_nw_print_options)->GetBoolean(printing::kSettingLandscape, &landscape))
-      settings.SetKey(printing::kSettingLandscape, base::Value(landscape));
-    if ((*g_nw_print_options)->GetBoolean(printing::kSettingShouldPrintBackgrounds, &backgrounds))
-      settings.SetKey(printing::kSettingShouldPrintBackgrounds, base::Value(backgrounds));
+    display_header_footer = (*g_nw_print_options)->FindBoolKey(printing::kSettingHeaderFooterEnabled);
+    if (display_header_footer)
+      settings.SetKey(printing::kSettingHeaderFooterEnabled, base::Value(*display_header_footer));
+    absl::optional<bool> landscape = (*g_nw_print_options)->FindBoolKey(printing::kSettingLandscape);
+    if (landscape)
+      settings.SetKey(printing::kSettingLandscape, base::Value(*landscape));
+    absl::optional<bool> backgrounds = (*g_nw_print_options)->FindBoolKey(printing::kSettingShouldPrintBackgrounds);
+    if (backgrounds)
+      settings.SetKey(printing::kSettingShouldPrintBackgrounds, base::Value(*backgrounds));
     if ((*g_nw_print_options)->GetInteger(printing::kSettingMarginsType, &margins_type))
       settings.SetKey(printing::kSettingMarginsType, base::Value(margins_type));
     if ((*g_nw_print_options)->GetDictionary(printing::kSettingMarginsCustom, &custom_margins) && !custom_margins->DictEmpty())
@@ -950,7 +947,7 @@ void PrintPreviewHandler::HandleSignin(const base::ListValue* /*args*/) {
   DCHECK(profile);
 
 #if defined(OS_CHROMEOS)
-  if (IsAccountManagerAvailable(profile)) {
+  if (AccountConsistencyModeManager::IsMirrorEnabledForProfile(profile)) {
     // Chrome OS Account Manager is enabled on this Profile and hence, all
     // account management flows will go through native UIs and not through a
     // tabbed browser window.

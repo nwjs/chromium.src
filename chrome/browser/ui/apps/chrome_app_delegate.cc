@@ -9,7 +9,6 @@
 #include <vector>
 
 #include "base/bind.h"
-#include "base/macros.h"
 
 #include "components/sessions/content/session_tab_helper.h"
 #include "chrome/browser/extensions/tab_helper.h"
@@ -23,7 +22,6 @@
 #include "chrome/browser/app_mode/app_mode_utils.h"
 #include "chrome/browser/apps/platform_apps/audio_focus_web_contents_observer.h"
 #include "chrome/browser/chrome_notification_types.h"
-#include "chrome/browser/extensions/chrome_extension_web_contents_observer.h"
 #include "chrome/browser/favicon/favicon_utils.h"
 #include "chrome/browser/file_select_helper.h"
 #include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
@@ -219,8 +217,10 @@ ChromeAppDelegate::ChromeAppDelegate(Profile* profile, bool keep_alive)
   if (keep_alive) {
     keep_alive_ = std::make_unique<ScopedKeepAlive>(
         KeepAliveOrigin::CHROME_APP_DELEGATE, KeepAliveRestartOption::DISABLED);
-    profile_keep_alive_ = std::make_unique<ScopedProfileKeepAlive>(
-        profile_, ProfileKeepAliveOrigin::kAppWindow);
+    if (!profile_->IsOffTheRecord()) {
+      profile_keep_alive_ = std::make_unique<ScopedProfileKeepAlive>(
+          profile_, ProfileKeepAliveOrigin::kAppWindow);
+    }
   }
   registrar_.Add(this,
                  chrome::NOTIFICATION_APP_TERMINATING,
@@ -252,9 +252,6 @@ void ChromeAppDelegate::InitWebContents(content::WebContents* web_contents) {
   extensions::TabHelper::CreateForWebContents(web_contents);
 #else
   SessionTabHelper::CreateForWebContents(web_contents);
-  
-  extensions::ChromeExtensionWebContentsObserver::CreateForWebContents(
-      web_contents);
 #endif
   apps::AudioFocusWebContentsObserver::CreateForWebContents(web_contents);
 
@@ -280,7 +277,9 @@ void ChromeAppDelegate::InitWebContents(content::WebContents* web_contents) {
 
 void ChromeAppDelegate::RenderFrameCreated(
     content::RenderFrameHost* frame_host) {
-  if (!chrome::IsRunningInForcedAppMode()) {
+  // Only do this for the primary main frame.
+  if (!chrome::IsRunningInForcedAppMode() &&
+      frame_host->IsInPrimaryMainFrame()) {
     // Due to a bug in the way apps reacted to default zoom changes, some apps
     // can incorrectly have host level zoom settings. These aren't wanted as
     // apps cannot be zoomed, so are removed. This should be removed if apps
@@ -289,14 +288,10 @@ void ChromeAppDelegate::RenderFrameCreated(
     content::WebContents* web_contents =
         content::WebContents::FromRenderFrameHost(frame_host);
     DCHECK(web_contents);
-
-    // Only do this for the initial main frame.
-    if (frame_host == web_contents->GetMainFrame()) {
-      content::HostZoomMap* zoom_map =
-          content::HostZoomMap::GetForWebContents(web_contents);
-      DCHECK(zoom_map);
-      zoom_map->SetZoomLevelForHost(web_contents->GetURL().host(), 0);
-    }
+    content::HostZoomMap* zoom_map =
+        content::HostZoomMap::GetForWebContents(web_contents);
+    DCHECK(zoom_map);
+    zoom_map->SetZoomLevelForHost(web_contents->GetURL().host(), 0);
   }
 }
 
@@ -427,8 +422,10 @@ void ChromeAppDelegate::OnShow() {
 #if 0
   keep_alive_ = std::make_unique<ScopedKeepAlive>(
       KeepAliveOrigin::CHROME_APP_DELEGATE, KeepAliveRestartOption::DISABLED);
-  profile_keep_alive_ = std::make_unique<ScopedProfileKeepAlive>(
-      profile_, ProfileKeepAliveOrigin::kAppWindow);
+  if (!profile_->IsOffTheRecord()) {
+    profile_keep_alive_ = std::make_unique<ScopedProfileKeepAlive>(
+        profile_, ProfileKeepAliveOrigin::kAppWindow);
+  }
 #endif
 }
 

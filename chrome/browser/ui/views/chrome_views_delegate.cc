@@ -133,11 +133,10 @@ bool ChromeViewsDelegate::GetSavedWindowPlacement(
 
   bounds->SetRect(*left, *top, *right - *left, *bottom - *top);
 
-  bool maximized = false;
+  bool maximized = dictionary->FindBoolKey("maximized").value_or(false);
   bool fullscreen = false;
   if (dictionary) {
-    dictionary->GetBoolean("maximized", &maximized);
-    dictionary->GetBoolean("fullscreen", &fullscreen);
+    fullscreen = dictionary->FindBoolKey("fullscreen").value_or(false);
   }
   *show_state = maximized ? ui::SHOW_STATE_MAXIMIZED : ui::SHOW_STATE_NORMAL;
   if (fullscreen)

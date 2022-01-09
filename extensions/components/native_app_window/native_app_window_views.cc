@@ -305,7 +305,7 @@ void NativeAppWindowViews::OnWidgetActivationChanged(views::Widget* widget,
 
 void NativeAppWindowViews::RenderFrameCreated(
     content::RenderFrameHost* render_frame_host) {
-  if (render_frame_host->GetParent())
+  if (render_frame_host->GetParentOrOuterDocument())
     return;
 
   if (app_window_->requested_alpha_enabled() && CanHaveAlphaEnabled()) {

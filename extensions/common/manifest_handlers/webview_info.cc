@@ -146,21 +146,21 @@ bool WebviewHandler::Parse(Extension* extension, std::u16string* error) {
   const base::Value* dict_value = nullptr;
   if (!extension->manifest()->GetDictionary(keys::kWebview,
                                             &dict_value)) {
-    *error = base::ASCIIToUTF16(errors::kInvalidWebview);
+    *error = errors::kInvalidWebview;
     return false;
   }
 
   const base::Value* partition_list = dict_value->FindKeyOfType(
       keys::kWebviewPartitions, base::Value::Type::LIST);
   if (partition_list == nullptr) {
-    *error = base::ASCIIToUTF16(errors::kInvalidWebviewPartitionsList);
+    *error = errors::kInvalidWebviewPartitionsList;
     return false;
   }
 
   // The partition list must have at least one entry.
   base::Value::ConstListView partition_list_view = partition_list->GetList();
   if (partition_list_view.empty()) {
-    *error = base::ASCIIToUTF16(errors::kInvalidWebviewPartitionsList);
+    *error = errors::kInvalidWebviewPartitionsList;
     return false;
   }
 
@@ -183,16 +183,14 @@ bool WebviewHandler::Parse(Extension* extension, std::u16string* error) {
     const base::Value* url_list = partition_list_view[i].FindKeyOfType(
         keys::kWebviewAccessibleResources, base::Value::Type::LIST);
     if (url_list == nullptr) {
-      *error = base::ASCIIToUTF16(
-          errors::kInvalidWebviewAccessibleResourcesList);
+      *error = errors::kInvalidWebviewAccessibleResourcesList;
       return false;
     }
 
     // The URL list should have at least one entry.
     base::Value::ConstListView url_list_view = url_list->GetList();
     if (url_list_view.empty()) {
-      *error = base::ASCIIToUTF16(
-          errors::kInvalidWebviewAccessibleResourcesList);
+      *error = errors::kInvalidWebviewAccessibleResourcesList;
       return false;
     }
 

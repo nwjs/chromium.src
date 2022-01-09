@@ -15,7 +15,7 @@
 #include "content/browser/web_contents/web_contents_impl.h"
 
 #include "base/command_line.h"
-#include "base/macros.h"
+#include "base/memory/raw_ptr.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
@@ -66,6 +66,7 @@
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
 #include "chrome/browser/lacros/lacros_url_handling.h"
+#include "chromeos/crosapi/cpp/gurl_os_handler_utils.h"
 #endif
 
 #if defined(USE_AURA)
@@ -433,8 +434,8 @@ class ScopedBrowserShower {
   }
 
  private:
-  NavigateParams* params_;
-  content::WebContents** contents_;
+  raw_ptr<NavigateParams> params_;
+  raw_ptr<content::WebContents*> contents_;
 };
 
 std::unique_ptr<content::WebContents> CreateTargetContents(
@@ -622,9 +623,19 @@ base::WeakPtr<content::NavigationHandle> Navigate(NavigateParams* params) {
   }
 #endif
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
-  if (source_browser &&
+  const GURL& source_url =
+      params->source_contents ? params->source_contents->GetURL() : GURL();
+  if (lacros_url_handling::IsNavigationInterceptable(*params, source_url) &&
       lacros_url_handling::MaybeInterceptNavigation(params->url)) {
     return nullptr;
+  }
+  // If Lacros comes here with an internal os:// redirect scheme to Ash, and Ash
+  // does not accept the URL, we convert it into a Lacros chrome:// url instead.
+  // This will most likely end in a 404 inside the Lacros browser. Note that we
+  // do not want to create a "404 SWA application".
+  if (crosapi::gurl_os_handler_utils::IsAshOsUrl(params->url)) {
+    params->url =
+        crosapi::gurl_os_handler_utils::GetChromeUrlFromSystemUrl(params->url);
   }
 #endif
 

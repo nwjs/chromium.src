@@ -38,7 +38,7 @@
 #include "components/optimization_guide/core/optimization_guide_util.h"
 #include "components/optimization_guide/core/optimization_target_model_observer.h"
 #include "components/optimization_guide/core/prediction_model.h"
-#include "components/optimization_guide/core/prediction_model_fetcher.h"
+#include "components/optimization_guide/core/prediction_model_fetcher_impl.h"
 #include "components/optimization_guide/core/store_update_data.h"
 #include "components/optimization_guide/proto/models.pb.h"
 #include "components/prefs/pref_service.h"
@@ -408,7 +408,7 @@ void PredictionManager::FetchModels() {
   }
 
   if (!prediction_model_fetcher_) {
-    prediction_model_fetcher_ = std::make_unique<PredictionModelFetcher>(
+    prediction_model_fetcher_ = std::make_unique<PredictionModelFetcherImpl>(
         url_loader_factory_,
         features::GetOptimizationGuideServiceGetModelsURL(),
         content::GetNetworkConnectionTracker());
@@ -424,6 +424,7 @@ void PredictionManager::FetchModels() {
     base_model_info.add_supported_model_types(proto::MODEL_TYPE_TFLITE_2_3_0_1);
     base_model_info.add_supported_model_types(proto::MODEL_TYPE_TFLITE_2_4);
     base_model_info.add_supported_model_types(proto::MODEL_TYPE_TFLITE_2_7);
+    base_model_info.add_supported_model_types(proto::MODEL_TYPE_TFLITE_2_8);
   }
 
   std::string debug_msg;
@@ -681,6 +682,8 @@ void PredictionManager::OnHostModelFeaturesStored() {
 void PredictionManager::OnStoreInitialized() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   store_is_ready_ = true;
+  LOCAL_HISTOGRAM_BOOLEAN(
+      "OptimizationGuide.PredictionManager.StoreInitialized", true);
 
   // Create the download manager here if we are allowed to.
   if (features::IsModelDownloadingEnabled() && !profile_->IsOffTheRecord() &&

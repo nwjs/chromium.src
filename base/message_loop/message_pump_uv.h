@@ -44,7 +44,6 @@ class BASE_EXPORT MessagePumpUV : public MessagePump {
 
   TimeTicks delayed_work_time_;
 
-  DISALLOW_COPY_AND_ASSIGN(MessagePumpUV);
 };
 
 }  // namespace base

@@ -5,10 +5,6 @@
 import("//build/config/chromecast_build.gni")
 import("//build/config/gclient_args.gni")
 
-if (is_mac) {
-  import("//build/config/mac/mac_sdk.gni")
-}
-
 declare_args() {
   # Enables Native Client support.
   # Temporarily disable nacl on arm64 linux to get rid of compilation errors.
@@ -16,8 +12,6 @@ declare_args() {
   # TODO: When mipsel-nacl-clang is available, drop the exclusion.
   enable_nacl = false
 
-  # Non-SFI is not yet supported on mipsel
-  enable_nacl_nonsfi = current_cpu != "mipsel" && current_cpu != "mips64el"
 }
 
 assert(!(is_win && host_os != "win") || !enable_nacl,

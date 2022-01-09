@@ -258,7 +258,7 @@ class CORE_EXPORT LocalFrameClientImpl final : public LocalFrameClient {
   void FocusedElementChanged(Element* element) override;
 
   void OnMainFrameIntersectionChanged(
-      const IntRect& intersection_rect) override;
+      const gfx::Rect& intersection_rect) override;
 
   void OnOverlayPopupAdDetected() override;
 

@@ -87,8 +87,8 @@ void AddWebContents(Browser* browser,
         rect.set_x(x);
       if (mnfst->GetInteger("y", &y))
         rect.set_y(y);
-      mnfst->GetBoolean("frame", &has_frame);
-      mnfst->GetBoolean("fullscreen", &fullscreen);
+      has_frame = mnfst->FindBoolKey("frame").value_or(true);
+      fullscreen = mnfst->FindBoolKey("fullscreen").value_or(false);
     }
   }
   extensions::AppWindow::CreateParams params0;

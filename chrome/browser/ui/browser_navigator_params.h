@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "build/build_config.h"
 #include "content/public/browser/global_request_id.h"
@@ -140,7 +141,7 @@ struct NavigateParams {
 
   // Input parameter.
   // Only used by Singleton tabs. Causes a tab-switch in addition to navigation.
-  content::WebContents* switch_to_singleton_tab = nullptr;
+  raw_ptr<content::WebContents> switch_to_singleton_tab = nullptr;
 
   // Output parameter.
   // The WebContents in which the navigation occurred or that was inserted.
@@ -159,7 +160,7 @@ struct NavigateParams {
   //       Navigate(). However, if the originating page is from a different
   //       profile (e.g. an OFF_THE_RECORD page originating from a non-OTR
   //       window), then |source_contents| is reset to NULL.
-  content::WebContents* source_contents = nullptr;
+  raw_ptr<content::WebContents> source_contents = nullptr;
 
   // The disposition requested by the navigation source. Default is
   // CURRENT_TAB. What follows is a set of coercions that happen to this value
@@ -180,7 +181,7 @@ struct NavigateParams {
 
   // Allows setting the opener for the case when new WebContents are created
   // (i.e. when |disposition| asks for a new tab or window).
-  content::RenderFrameHost* opener = nullptr;
+  raw_ptr<content::RenderFrameHost> opener = nullptr;
 
   // Sets browser->is_trusted_source.
   bool trusted_source = false;
@@ -251,7 +252,7 @@ struct NavigateParams {
   //       Navigate(), the caller is responsible for showing it so that its
   //       window can assume responsibility for the Browser's lifetime (Browser
   //       objects are deleted when the user closes a visible browser window).
-  Browser* browser = nullptr;
+  raw_ptr<Browser> browser = nullptr;
 
   // The group the caller would like the tab to be added to.
   absl::optional<tab_groups::TabGroupId> group;
@@ -264,7 +265,7 @@ struct NavigateParams {
 
   // The profile that is initiating the navigation. If there is a non-NULL
   // browser passed in via |browser|, it's profile will be used instead.
-  Profile* initiating_profile = nullptr;
+  raw_ptr<Profile> initiating_profile = nullptr;
 
   // Indicates whether this navigation  should replace the current
   // navigation entry.

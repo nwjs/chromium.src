@@ -4,6 +4,7 @@
 
 #include "extensions/renderer/native_extension_bindings_system.h"
 
+#include <utility>
 #include "extensions/common/manifest_constants.h"
 
 #include "base/bind.h"
@@ -15,7 +16,6 @@
 #include "components/crx_file/id_util.h"
 #include "content/public/common/content_switches.h"
 #include "extensions/common/constants.h"
-#include "extensions/common/event_filtering_info.h"
 #include "extensions/common/extension_api.h"
 #include "extensions/common/extension_messages.h"
 #include "extensions/common/features/feature.h"
@@ -23,6 +23,7 @@
 #include "extensions/common/manifest_constants.h"
 #include "extensions/common/manifest_handlers/content_capabilities_handler.h"
 #include "extensions/common/manifest_handlers/externally_connectable.h"
+#include "extensions/common/mojom/event_dispatcher.mojom.h"
 #include "extensions/common/mojom/frame.mojom.h"
 #include "extensions/renderer/api_activity_logger.h"
 #include "extensions/renderer/bindings/api_binding_bridge.h"
@@ -671,12 +672,12 @@ void NativeExtensionBindingsSystem::UpdateBindingsForContext(
 void NativeExtensionBindingsSystem::DispatchEventInContext(
     const std::string& event_name,
     const base::ListValue* event_args,
-    const EventFilteringInfo* filtering_info,
+    const mojom::EventFilteringInfoPtr& filtering_info,
     ScriptContext* context) {
   v8::HandleScope handle_scope(context->isolate());
   v8::Context::Scope context_scope(context->v8_context());
   api_system_.FireEventInContext(event_name, context->v8_context(), *event_args,
-                                 filtering_info);
+                                 filtering_info.Clone());
 }
 
 bool NativeExtensionBindingsSystem::HasEventListenerInContext(

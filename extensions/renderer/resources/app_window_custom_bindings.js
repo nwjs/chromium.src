@@ -148,7 +148,7 @@ apiBridge.registerCustomHook(function(bindingsAPI) {
   var apiFunctions = bindingsAPI.apiFunctions;
 
   apiFunctions.setCustomCallback('create',
-      function(name, request, callback, windowParams) {
+      function(callback, windowParams) {
     // |callback| is optional.
     let maybeCallback = callback || function() {};
 

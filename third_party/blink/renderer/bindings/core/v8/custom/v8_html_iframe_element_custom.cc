@@ -6,6 +6,8 @@
 #include "third_party/blink/renderer/platform/bindings/v8_binding_macros.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_string_resource.h"
 
+#include "third_party/blink/renderer/core/html/html_iframe_element.h"
+
 namespace blink {
 
 using namespace html_names;

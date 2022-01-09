@@ -106,19 +106,7 @@ void HandleRendererErrorTestParameters(const base::CommandLine& command_line) {
 }
 
 std::unique_ptr<base::MessagePump> CreateMainThreadMessagePump(bool nwjs) {
-#if defined(OS_MAC)
-  // As long as scrollbars on Mac are painted with Cocoa, the message pump
-  // needs to be backed by a Foundation-level loop to process NSTimers. See
-  // http://crbug.com/306348#c24 for details.
-  base::MessagePump* p;
-  if (nwjs) {
-    p = new base::MessagePumpUVNSRunLoop();
-  } else
-    p = new base::MessagePumpNSRunLoop();
-  std::unique_ptr<base::MessagePump> pump(p);
-  return pump;
-
-#elif defined(OS_FUCHSIA)
+#if defined(OS_FUCHSIA)
   // Allow FIDL APIs on renderer main thread.
   return base::MessagePump::Create(base::MessagePumpType::IO);
 #else
@@ -153,18 +141,16 @@ void LogTimeToStartRunLoop(const base::CommandLine& command_line,
 }  // namespace
 
 // mainline routine for running as the Renderer process
-int RendererMain(const MainFunctionParams& parameters) {
+int RendererMain(MainFunctionParams parameters) {
   // Don't use the TRACE_EVENT0 macro because the tracing infrastructure doesn't
   // expect synchronous events around the main loop of a thread.
-  TRACE_EVENT_NESTABLE_ASYNC_BEGIN1("startup", "RendererMain",
-                                    TRACE_ID_WITH_SCOPE("RendererMain", 0),
-                                    "zygote_child", false);
+  TRACE_EVENT_INSTANT0("startup", "RendererMain", TRACE_EVENT_SCOPE_THREAD);
 
   base::trace_event::TraceLog::GetInstance()->set_process_name("Renderer");
   base::trace_event::TraceLog::GetInstance()->SetProcessSortIndex(
       kTraceEventRendererProcessSortIndex);
 
-  const base::CommandLine& command_line = parameters.command_line;
+  const base::CommandLine& command_line = *parameters.command_line;
 
   bool nwjs = command_line.HasSwitch(switches::kNWJS);
 
@@ -288,9 +274,8 @@ int RendererMain(const MainFunctionParams& parameters) {
     // the tracing SMB on our behalf due to the zygote sandbox.
     if (parameters.zygote_child) {
       tracing::EnableStartupTracingIfNeeded();
-      TRACE_EVENT_NESTABLE_ASYNC_BEGIN1("startup", "RendererMain",
-                                        TRACE_ID_WITH_SCOPE("RendererMain", 0),
-                                        "zygote_child", true);
+      TRACE_EVENT_INSTANT1("startup", "RendererMain", TRACE_EVENT_SCOPE_THREAD,
+                           "zygote_child", true);
     }
 #endif  // OS_POSIX && !OS_ANDROID && !OS_MAC
 
@@ -311,16 +296,12 @@ int RendererMain(const MainFunctionParams& parameters) {
       if (pool)
         pool->Recycle();
 #endif
-      TRACE_EVENT_NESTABLE_ASYNC_BEGIN0(
-          "toplevel", "RendererMain.START_MSG_LOOP",
-          TRACE_ID_WITH_SCOPE("RendererMain.START_MSG_LOOP", 0));
+      TRACE_EVENT_INSTANT0("toplevel", "RendererMain.START_MSG_LOOP",
+                           TRACE_EVENT_SCOPE_THREAD);
       const base::TimeTicks run_loop_start_time = base::TimeTicks::Now();
       RenderThreadImpl::current()->set_run_loop_start_time(run_loop_start_time);
       LogTimeToStartRunLoop(command_line, run_loop_start_time);
       run_loop.Run();
-      TRACE_EVENT_NESTABLE_ASYNC_END0(
-          "toplevel", "RendererMain.START_MSG_LOOP",
-          TRACE_ID_WITH_SCOPE("RendererMain.START_MSG_LOOP", 0));
     }
 
     if (!g_nw_temp_dir.empty()) {
@@ -336,8 +317,6 @@ int RendererMain(const MainFunctionParams& parameters) {
 #endif
   }
   platform.PlatformUninitialize();
-  TRACE_EVENT_NESTABLE_ASYNC_END0("startup", "RendererMain",
-                                  TRACE_ID_WITH_SCOPE("RendererMain", 0));
   return 0;
 }
 

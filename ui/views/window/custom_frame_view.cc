@@ -96,7 +96,7 @@ CustomFrameView::CustomFrameView(Widget* frame)
     window_icon_->SetImage(Button::STATE_NORMAL, icon.GetImage().ToImageSkia());
     // `window_icon_` does not need to be focusable as it is not used here as a
     // button and is not interactive.
-    AddChildView(window_icon_);
+    AddChildView(window_icon_.get());
     window_icon_->SetFocusBehavior(FocusBehavior::NEVER);
   }
 }
@@ -470,7 +470,7 @@ void CustomFrameView::LayoutWindowControls() {
 
   bool is_restored = !is_maximized && !frame_->IsMinimized();
   ImageButton* invisible_button =
-      is_restored ? restore_button_ : maximize_button_;
+      is_restored ? restore_button_.get() : maximize_button_.get();
   invisible_button->SetVisible(false);
 
   WindowButtonOrderProvider* button_order =
@@ -589,7 +589,7 @@ ImageButton* CustomFrameView::GetImageButton(views::FrameButton frame_button) {
     }
     case views::FrameButton::kMaximize: {
       bool is_restored = !frame_->IsMaximized() && !frame_->IsMinimized();
-      button = is_restored ? maximize_button_ : restore_button_;
+      button = is_restored ? maximize_button_.get() : restore_button_.get();
       // If we should not show the maximize/restore button, then we return
       // NULL as we don't want this button to become visible and to be laid
       // out.

@@ -4,6 +4,8 @@
 
 #import "chrome/browser/chrome_browser_application_mac.h"
 
+#include <Carbon/Carbon.h>  // for <HIToolbox/Events.h>
+
 #include "base/check.h"
 #include "chrome/browser/apps/platform_apps/app_window_registry_util.h"
 #include "chrome/browser/lifetime/browser_close_manager.h"
@@ -346,7 +348,15 @@ std::string DescriptionForNSEvent(NSEvent* event) {
     base::mac::ScopedSendingEvent sendingEventScoper;
     content::ScopedNotifyNativeEventProcessorObserver scopedObserverNotifier(
         &_observers, event);
-    [super sendEvent:event];
+    // Mac Eisu and Kana keydown events are by default swallowed by sendEvent
+    // and sent directly to IME, which prevents ui keydown events from firing.
+    // These events need to be sent to [NSApp keyWindow] for handling.
+    if ([event type] == NSKeyDown &&
+        ([event keyCode] == kVK_JIS_Eisu || [event keyCode] == kVK_JIS_Kana)) {
+      [[NSApp keyWindow] sendEvent:event];
+    } else {
+      [super sendEvent:event];
+    }
   });
 }
 
