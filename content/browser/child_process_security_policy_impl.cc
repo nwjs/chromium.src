@@ -870,6 +870,7 @@ ChildProcessSecurityPolicyImpl::ChildProcessSecurityPolicyImpl()
   // IsWebSafeScheme(), and then eliminate the next two lines.
   RegisterWebSafeScheme(url::kBlobScheme);
   RegisterWebSafeScheme(url::kFileSystemScheme);
+  RegisterWebSafeScheme(url::kFileScheme);
   //RegisterWebSafeScheme("chrome-devtools");
   // We know about the following pseudo schemes and treat them specially.
   RegisterPseudoScheme(url::kAboutScheme);
