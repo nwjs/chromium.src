@@ -190,7 +190,7 @@ const base::Feature kPortalsCrossOrigin{"PortalsCrossOrigin",
 // allows the element to be enabled by the runtime enabled feature, for origin
 // trials.
 const base::Feature kFencedFrames{"FencedFrames",
-                                  base::FEATURE_ENABLED_BY_DEFAULT};
+                                  base::FEATURE_DISABLED_BY_DEFAULT};
 const base::FeatureParam<FencedFramesImplementationType>::Option
     fenced_frame_implementation_types[] = {
         {FencedFramesImplementationType::kShadowDOM, "shadow_dom"},
@@ -240,6 +240,13 @@ bool IsFencedFramesEnabled() {
 bool IsFencedFramesMPArchBased() {
   return blink::features::kFencedFramesImplementationTypeParam.Get() ==
          blink::features::FencedFramesImplementationType::kMPArch;
+}
+
+const base::Feature kInitialNavigationEntry{"InitialNavigationEntry",
+                                            base::FEATURE_ENABLED_BY_DEFAULT};
+
+bool IsInitialNavigationEntryEnabled() {
+  return base::FeatureList::IsEnabled(blink::features::kInitialNavigationEntry);
 }
 
 // Enable limiting previews loading hints to specific resource types.

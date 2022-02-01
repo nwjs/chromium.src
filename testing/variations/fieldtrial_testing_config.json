@@ -9093,7 +9093,6 @@
     "WhatsNewPageExperiment": [
         {
             "platforms": [
-                "chromeos",
                 "linux",
                 "mac",
                 "windows"
