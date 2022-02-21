@@ -4,6 +4,7 @@
 
 #include "ios/chrome/browser/optimization_guide/tab_url_provider_impl.h"
 
+#import "base/containers/adapters.h"
 #import "base/time/clock.h"
 #import "base/time/time.h"
 #import "ios/chrome/browser/browser_state/chrome_browser_state.h"
@@ -39,30 +40,25 @@ const std::vector<GURL> TabUrlProviderImpl::GetUrlsOfActiveTabs(
     for (int i = 0; i < web_state_list->count(); ++i) {
       web::WebState* web_state = web_state_list->GetWebStateAt(i);
       DCHECK(web_state);
-      web::NavigationItem* navigation_item =
-          web_state->GetNavigationManager()->GetVisibleItem();
-      if (!navigation_item)
-        continue;
 
       // Fallback to use last commit navigation timestamp since iOS web state
       // doesn't provide last active timestamp.
       // TODO(crbug.com/1238043): Use WebState::GetLastActiveTime() as
       // timestamp.
-      if (navigation_item->GetTimestamp().is_null() ||
-          clock_->Now() - navigation_item->GetTimestamp() >
-              duration_since_last_shown) {
+      base::Time timestamp = web_state->GetLastCommittedTimestamp();
+      if (timestamp.is_null() ||
+          clock_->Now() - timestamp > duration_since_last_shown) {
         continue;
       }
 
-      urls.emplace(navigation_item->GetTimestamp(),
-                   navigation_item->GetVirtualURL());
+      urls.emplace(timestamp, web_state->GetLastCommittedURL());
     }
   }
 
   // Output the URLs from sorted map in desending order.
   std::vector<GURL> res;
-  for (auto it = urls.rbegin(); it != urls.rend(); ++it)
-    res.push_back(it->second);
+  for (const auto& [navigation_time, url] : base::Reversed(urls))
+    res.push_back(url);
 
   return res;
 }

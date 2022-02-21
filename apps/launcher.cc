@@ -405,7 +405,7 @@ void LaunchPlatformAppWithCommandLineAndLaunchId(
     }
   }
 
-#if defined(OS_WIN)
+#if BUILDFLAG(IS_WIN)
   base::CommandLine::StringType about_blank_url(
       base::ASCIIToWide(url::kAboutBlankURL));
 #else

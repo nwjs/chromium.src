@@ -90,7 +90,7 @@ export function getCddTemplate(
       }
     }
   };
-  // <if expr="chromeos or lacros">
+  // <if expr="chromeos_ash or chromeos_lacros">
   template.capabilities!.printer.pin = {supported: true};
   // </if>
   return template;
@@ -251,7 +251,7 @@ export function getDestinations(localDestinations: LocalDestinationInfo[]):
   // <if expr="not chromeos and not lacros">
   const origin = DestinationOrigin.LOCAL;
   // </if>
-  // <if expr="chromeos or lacros">
+  // <if expr="chromeos_ash or chromeos_lacros">
   const origin = DestinationOrigin.CROS;
   // </if>
   // Five destinations. FooDevice is the system default.
@@ -335,7 +335,7 @@ export function createDestinationStore(): DestinationStore {
       testListenerElement.addWebUIListener.bind(testListenerElement));
 }
 
-// <if expr="chromeos or lacros">
+// <if expr="chromeos_ash or chromeos_lacros">
 /**
  * @return The Google Drive destination.
  */

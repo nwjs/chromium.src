@@ -24,7 +24,7 @@
 
 // TODO(jamescook): We probably shouldn't compile this class at all on Android.
 // See http://crbug.com/343612
-#if !defined(OS_ANDROID)
+#if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/apps/chrome_app_delegate.h"
 #endif
 
@@ -44,7 +44,7 @@ ChromeAppWindowClient* ChromeAppWindowClient::GetInstance() {
 extensions::AppWindow* ChromeAppWindowClient::CreateAppWindow(
     content::BrowserContext* context,
     const extensions::Extension* extension) {
-#if defined(OS_ANDROID)
+#if BUILDFLAG(IS_ANDROID)
   return NULL;
 #else
   Profile* profile = Profile::FromBrowserContext(context);
@@ -76,7 +76,7 @@ ChromeAppWindowClient::CreateAppWindowForLockScreenAction(
 extensions::NativeAppWindow* ChromeAppWindowClient::CreateNativeAppWindow(
     extensions::AppWindow* window,
     extensions::AppWindow::CreateParams* params) {
-#if defined(OS_ANDROID)
+#if BUILDFLAG(IS_ANDROID)
   return nullptr;
 #else
   return CreateNativeAppWindowImpl(window, *params);

@@ -18,7 +18,6 @@
 #include "base/files/file_enumerator.h"
 #include "base/files/file_util.h"
 #include "base/hash/hash.h"
-#include "base/ignore_result.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
@@ -40,6 +39,7 @@
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
+#include "cc/input/scroll_utils.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/download/download_prefs.h"
@@ -139,9 +139,10 @@
 #include "ui/base/clipboard/test/test_clipboard.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/geometry/point.h"
+#include "ui/gfx/geometry/rect.h"
 #include "url/gurl.h"
 
-#if defined(TOOLKIT_VIEWS) && !defined(OS_MAC)
+#if defined(TOOLKIT_VIEWS) && !BUILDFLAG(IS_MAC)
 #include "chrome/browser/ui/views/location_bar/zoom_bubble_view.h"
 #endif
 
@@ -173,7 +174,7 @@ using ::ui::AXTreeFormatter;
 
 const int kNumberLoadTestParts = 10;
 
-#if defined(OS_MAC)
+#if BUILDFLAG(IS_MAC)
 const int kDefaultKeyModifier = blink::WebInputEvent::kMetaKey;
 #else
 const int kDefaultKeyModifier = blink::WebInputEvent::kControlKey;
@@ -515,12 +516,6 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionTestWithTestGuestViewManager,
             content::GetFocusedWebContents(embedder_web_contents));
 }
 
-// TODO(crbug.com/1278357): Flaky on lacros.
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-#define MAYBE_PdfExtensionLoadedInGuest DISABLED_PdfExtensionLoadedInGuest
-#else
-#define MAYBE_PdfExtensionLoadedInGuest PdfExtensionLoadedInGuest
-#endif
 // This test verifies that when a PDF is loaded, that (i) the embedder
 // WebContents' html consists of a single <embed> tag with appropriate
 // properties, and (ii) that the guest WebContents finishes loading and
@@ -528,7 +523,7 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionTestWithTestGuestViewManager,
 // TODO(wjmaclean): Are there any attributes we can/should test with respect to
 // the extension's loaded html?
 IN_PROC_BROWSER_TEST_P(PDFExtensionTestWithTestGuestViewManager,
-                       MAYBE_PdfExtensionLoadedInGuest) {
+                       PdfExtensionLoadedInGuest) {
   // Load test HTML, and verify the text area has focus.
   const GURL main_url(embedded_test_server()->GetURL("/pdf/test.pdf"));
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), main_url));
@@ -926,11 +921,11 @@ IN_PROC_BROWSER_TEST_P(PDFPluginDisabledTest, DirectNavigationToPDF) {
 }
 
 // TODO(crbug.com/1201401): fix flakiness and reenable
-#if defined(OS_LINUX) || defined(OS_CHROMEOS) || defined(OS_MAC)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC)
 #define MAYBE_EmbedPdfPlaceholderWithCSP DISABLED_EmbedPdfPlaceholderWithCSP
 #else
 #define MAYBE_EmbedPdfPlaceholderWithCSP EmbedPdfPlaceholderWithCSP
-#endif  // defined(OS_LINUX) || defined(OS_CHROMEOS) || defined(OS_MAC)
+#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC)
 IN_PROC_BROWSER_TEST_P(PDFPluginDisabledTest,
                        MAYBE_EmbedPdfPlaceholderWithCSP) {
   // Navigate to a page with CSP that uses <embed> to embed a PDF as a plugin.
@@ -1039,6 +1034,10 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionJSTest, BasicPlugin) {
 
 IN_PROC_BROWSER_TEST_P(PDFExtensionJSTest, Viewport) {
   RunTestsInJsModule("viewport_test.js", "test.pdf");
+}
+
+IN_PROC_BROWSER_TEST_P(PDFExtensionJSTest, ViewportScroller) {
+  RunTestsInJsModule("viewport_scroller_test.js", "test.pdf");
 }
 
 IN_PROC_BROWSER_TEST_P(PDFExtensionJSTest, Layout3) {
@@ -1188,7 +1187,7 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionTestWithPartialLoading,
   // TODO(crbug.com/1228987): Load success or failure is non-deterministic
   // currently, due to races between viewport messages and loading. For this
   // test, we only care that loading terminated, not about success or failure.
-  ignore_result(pdf_extension_test_util::EnsurePDFHasLoaded(contents));
+  std::ignore = pdf_extension_test_util::EnsurePDFHasLoaded(contents);
 }
 
 IN_PROC_BROWSER_TEST_P(PDFExtensionJSTest, ViewerToolbar) {
@@ -1541,7 +1540,7 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionTest, TabTitleWithEmbeddedPdf) {
 }
 
 // Flaky, http://crbug.com/767427
-#if defined(OS_LINUX) || defined(OS_WIN) || defined(OS_MAC)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
 #define MAYBE_PdfZoomWithoutBubble DISABLED_PdfZoomWithoutBubble
 #else
 #define MAYBE_PdfZoomWithoutBubble PdfZoomWithoutBubble
@@ -1574,7 +1573,7 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionTest, MAYBE_PdfZoomWithoutBubble) {
                            zoom::ZoomController::ZOOM_MODE_MANUAL, false));
 
   // Zoom PDF via script.
-#if defined(TOOLKIT_VIEWS) && !defined(OS_MAC)
+#if defined(TOOLKIT_VIEWS) && !BUILDFLAG(IS_MAC)
   EXPECT_FALSE(ZoomBubbleView::GetZoomBubble());
 #endif
   ASSERT_TRUE(content::ExecuteScript(guest_contents,
@@ -1586,12 +1585,25 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionTest, MAYBE_PdfZoomWithoutBubble) {
                                      "}, 1);"));
 
   watcher.Wait();
-#if defined(TOOLKIT_VIEWS) && !defined(OS_MAC)
+#if defined(TOOLKIT_VIEWS) && !BUILDFLAG(IS_MAC)
   EXPECT_FALSE(ZoomBubbleView::GetZoomBubble());
 #endif
 }
 
-class PDFExtensionKeyEventTest : public PDFExtensionTest {
+class PDFExtensionScrollTest : public PDFExtensionTest {
+ public:
+  void SetUpOnMainThread() override {
+    PDFExtensionTest::SetUpOnMainThread();
+
+    GetActiveWebContents()->Resize({0, 0, 1024, 768});
+  }
+
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    // Smooth scrolling confuses the test cases that reads the scroll bar
+    // position.
+    command_line->AppendSwitch(switches::kDisableSmoothScrolling);
+  }
+
  protected:
   class ScrollEventWaiter {
    public:
@@ -1600,8 +1612,16 @@ class PDFExtensionKeyEventTest : public PDFExtensionTest {
       content::ExecuteScriptAsync(
           guest_contents,
           R"(viewer.shadowRoot.querySelector('#scroller').onscroll = () => {
+            if (viewer.viewport.scrollContent_.unackedScrollsToRemote_ === 0) {
+              window.domAutomationController.send('dispatchedScrollEvent');
+            }
+          };
+          if (viewer.viewport.scrollContent_.unackedScrollsToRemote_ === 0) {
             window.domAutomationController.send('dispatchedScrollEvent');
           })");
+
+      // Wait for pending scroll-to-remotes to complete.
+      Wait();
     }
 
     void Reset() { message_queue_.ClearQueue(); }
@@ -1619,6 +1639,11 @@ class PDFExtensionKeyEventTest : public PDFExtensionTest {
   // Scroll increment in CSS pixels. Should match `SCROLL_INCREMENT` in
   // //chrome/browser/resources/pdf/viewport.js.
   static constexpr int kScrollIncrement = 40;
+
+  // Scrolling by a fraction of the viewport height may introduce slight
+  // position differences on various platforms due to rounding. Tolerate this
+  // difference.
+  static constexpr float kScrollPositionEpsilon = 2.0f;
 
   static int GetViewportHeight(WebContents* guest_contents) {
     int viewport_height = 0;
@@ -1648,16 +1673,7 @@ class PDFExtensionKeyEventTest : public PDFExtensionTest {
   }
 };
 
-// static
-constexpr int PDFExtensionKeyEventTest::kScrollIncrement;
-
-// crbug.com/1281749
-#if defined(OS_LINUX) || defined(OS_WIN) || defined(OS_MAC)
-#define MAYBE_ScrollWithSpace DISABLED_ScrollWithSpace
-#else
-#define MAYBE_ScrollWithSpace ScrollWithSpace
-#endif
-IN_PROC_BROWSER_TEST_P(PDFExtensionKeyEventTest, MAYBE_ScrollWithSpace) {
+IN_PROC_BROWSER_TEST_P(PDFExtensionScrollTest, WithSpace) {
   WebContents* guest_contents = LoadPdfGetGuestContents(
       embedded_test_server()->GetURL("/pdf/test-bookmarks.pdf"));
   SetInputFocusOnPlugin(guest_contents);
@@ -1666,6 +1682,11 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionKeyEventTest, MAYBE_ScrollWithSpace) {
   // Get the viewport height, since the scroll distance is based on it.
   const int viewport_height = GetViewportHeight(guest_contents);
   ASSERT_GT(viewport_height, 0);
+
+  // For web content, page down / page up scrolling only scrolls by a fraction
+  // of the viewport height. The PDF Viewer should match that behavior.
+  const float scroll_height =
+      viewport_height * cc::kMinFractionToStepWhenPaging;
 
   // Press Space to scroll down.
   ScrollEventWaiter scroll_waiter(guest_contents);
@@ -1674,7 +1695,8 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionKeyEventTest, MAYBE_ScrollWithSpace) {
                             /*control=*/false, /*shift=*/false, /*alt=*/false,
                             /*command=*/false);
   ASSERT_NO_FATAL_FAILURE(scroll_waiter.Wait());
-  EXPECT_EQ(viewport_height, GetViewportScrollPositionY(guest_contents));
+  EXPECT_NEAR(scroll_height, GetViewportScrollPositionY(guest_contents),
+              kScrollPositionEpsilon);
 
   // Press Space to scroll down again.
   scroll_waiter.Reset();
@@ -1683,7 +1705,8 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionKeyEventTest, MAYBE_ScrollWithSpace) {
                             /*control=*/false, /*shift=*/false, /*alt=*/false,
                             /*command=*/false);
   ASSERT_NO_FATAL_FAILURE(scroll_waiter.Wait());
-  EXPECT_EQ(viewport_height * 2, GetViewportScrollPositionY(guest_contents));
+  EXPECT_NEAR(scroll_height * 2, GetViewportScrollPositionY(guest_contents),
+              kScrollPositionEpsilon);
 
   // Press Shift+Space to scroll up.
   scroll_waiter.Reset();
@@ -1692,16 +1715,11 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionKeyEventTest, MAYBE_ScrollWithSpace) {
                             /*control=*/false, /*shift=*/true, /*alt=*/false,
                             /*command=*/false);
   ASSERT_NO_FATAL_FAILURE(scroll_waiter.Wait());
-  EXPECT_EQ(viewport_height, GetViewportScrollPositionY(guest_contents));
+  EXPECT_NEAR(scroll_height, GetViewportScrollPositionY(guest_contents),
+              kScrollPositionEpsilon);
 }
 
-// crbug.com/1281749
-#if defined(OS_LINUX) || defined(OS_WIN) || defined(OS_MAC)
-#define MAYBE_ScrollWithPageDownUp DISABLED_ScrollWithPageDownUp
-#else
-#define MAYBE_ScrollWithPageDownUp ScrollWithPageDownUp
-#endif
-IN_PROC_BROWSER_TEST_P(PDFExtensionKeyEventTest, MAYBE_ScrollWithPageDownUp) {
+IN_PROC_BROWSER_TEST_P(PDFExtensionScrollTest, WithPageDownUp) {
   WebContents* guest_contents = LoadPdfGetGuestContents(
       embedded_test_server()->GetURL("/pdf/test-bookmarks.pdf"));
   SetInputFocusOnPlugin(guest_contents);
@@ -1710,6 +1728,11 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionKeyEventTest, MAYBE_ScrollWithPageDownUp) {
   // Get the viewport height, since the scroll distance is based on it.
   const int viewport_height = GetViewportHeight(guest_contents);
   ASSERT_GT(viewport_height, 0);
+
+  // For web content, page down / page up scrolling only scrolls by a fraction
+  // of the viewport height. The PDF Viewer should match that behavior.
+  const float scroll_height =
+      viewport_height * cc::kMinFractionToStepWhenPaging;
 
   // Press PageDown to scroll down.
   ScrollEventWaiter scroll_waiter(guest_contents);
@@ -1719,7 +1742,8 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionKeyEventTest, MAYBE_ScrollWithPageDownUp) {
                                        /*alt=*/false,
                                        /*command=*/false);
   ASSERT_NO_FATAL_FAILURE(scroll_waiter.Wait());
-  EXPECT_EQ(viewport_height, GetViewportScrollPositionY(guest_contents));
+  EXPECT_NEAR(scroll_height, GetViewportScrollPositionY(guest_contents),
+              kScrollPositionEpsilon);
 
   // Press PageDown to scroll down again.
   scroll_waiter.Reset();
@@ -1729,7 +1753,8 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionKeyEventTest, MAYBE_ScrollWithPageDownUp) {
                                        /*alt=*/false,
                                        /*command=*/false);
   ASSERT_NO_FATAL_FAILURE(scroll_waiter.Wait());
-  EXPECT_EQ(viewport_height * 2, GetViewportScrollPositionY(guest_contents));
+  EXPECT_NEAR(scroll_height * 2, GetViewportScrollPositionY(guest_contents),
+              kScrollPositionEpsilon);
 
   // Press PageUp to scroll up.
   scroll_waiter.Reset();
@@ -1738,17 +1763,11 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionKeyEventTest, MAYBE_ScrollWithPageDownUp) {
       /*control=*/false, /*shift=*/false, /*alt=*/false,
       /*command=*/false);
   ASSERT_NO_FATAL_FAILURE(scroll_waiter.Wait());
-  EXPECT_EQ(viewport_height, GetViewportScrollPositionY(guest_contents));
+  EXPECT_NEAR(scroll_height, GetViewportScrollPositionY(guest_contents),
+              kScrollPositionEpsilon);
 }
 
-// crbug.com/1281749
-#if defined(OS_LINUX) || defined(OS_WIN) || defined(OS_MAC)
-#define MAYBE_ScrollWithArrowLeftRight DISABLED_ScrollWithArrowLeftRight
-#else
-#define MAYBE_ScrollWithArrowLeftRight ScrollWithArrowLeftRight
-#endif
-IN_PROC_BROWSER_TEST_P(PDFExtensionKeyEventTest,
-                       MAYBE_ScrollWithArrowLeftRight) {
+IN_PROC_BROWSER_TEST_P(PDFExtensionScrollTest, WithArrowLeftRight) {
   WebContents* guest_contents = LoadPdfGetGuestContents(
       embedded_test_server()->GetURL("/pdf/test-bookmarks.pdf#zoom=200"));
   SetInputFocusOnPlugin(guest_contents);
@@ -1785,7 +1804,7 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionKeyEventTest,
   EXPECT_EQ(kScrollIncrement, GetViewportScrollPositionX(guest_contents));
 }
 
-IN_PROC_BROWSER_TEST_P(PDFExtensionKeyEventTest, ScrollWithArrowDownUp) {
+IN_PROC_BROWSER_TEST_P(PDFExtensionScrollTest, WithArrowDownUp) {
   WebContents* guest_contents = LoadPdfGetGuestContents(
       embedded_test_server()->GetURL("/pdf/test-bookmarks.pdf"));
   SetInputFocusOnPlugin(guest_contents);
@@ -1822,7 +1841,7 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionKeyEventTest, ScrollWithArrowDownUp) {
   EXPECT_EQ(kScrollIncrement, GetViewportScrollPositionY(guest_contents));
 }
 
-INSTANTIATE_TEST_SUITE_P(All, PDFExtensionKeyEventTest, testing::Values(true));
+INSTANTIATE_TEST_SUITE_P(All, PDFExtensionScrollTest, testing::Values(true));
 
 IN_PROC_BROWSER_TEST_P(PDFExtensionTest, SelectAllShortcut) {
   content::WebContents* guest_contents =
@@ -1840,7 +1859,7 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionTest, SelectAllShortcut) {
 
   bool control = false;
   bool command = false;
-#if defined(OS_MAC)
+#if BUILDFLAG(IS_MAC)
   command = true;
 #else
   control = true;
@@ -1851,7 +1870,7 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionTest, SelectAllShortcut) {
                             /*alt=*/false, command);
   run_loop.Run();
 
-#if defined(OS_WIN)
+#if BUILDFLAG(IS_WIN)
   constexpr char kExpectedText[] = "this is some text\r\nsome more text";
 #else
   constexpr char kExpectedText[] = "this is some text\nsome more text";
@@ -2175,7 +2194,7 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionTest, PdfAccessibilityEnableLater) {
 }
 
 // Flaky, see crbug.com/1228762
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_PdfAccessibilityInIframe DISABLED_PdfAccessibilityInIframe
 #else
 #define MAYBE_PdfAccessibilityInIframe PdfAccessibilityInIframe
@@ -2968,7 +2987,7 @@ class PDFExtensionSaveTest : public PDFExtensionComboBoxTest {
 };
 
 // Flaky, http://crbug.com/1269103
-#if defined(OS_LINUX) || defined(OS_WIN)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_Save DISABLED_Save
 #else
 #define MAYBE_Save Save
@@ -3037,7 +3056,7 @@ class PDFExtensionSaveWithPolicyTest : public PDFExtensionSaveTest {
 };
 
 // Flaky, http://crbug.com/1269103
-#if defined(OS_LINUX) || defined(OS_WIN)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_SaveWithPolicy DISABLED_SaveWithPolicy
 #else
 #define MAYBE_SaveWithPolicy SaveWithPolicy
@@ -3060,7 +3079,7 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionSaveWithPolicyTest, MAYBE_SaveWithPolicy) {
 }
 
 // Flaky, http://crbug.com/1269103
-#if defined(OS_LINUX)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_SaveWithPolicyUniqueNumberSuffix \
   DISABLED_SaveWithPolicyUniqueNumberSuffix
 #else
@@ -3090,7 +3109,7 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionSaveWithPolicyTest,
 }
 
 // Flaky, http://crbug.com/1269103
-#if defined(OS_LINUX) || defined(OS_WIN)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_SaveWithPolicyUniqueTimeSuffix \
   DISABLED_SaveWithPolicyUniqueTimeSuffix
 #else
@@ -3192,8 +3211,8 @@ class PDFExtensionClipboardTest : public PDFExtensionComboBoxTest,
   bool clipboard_changed_ = false;
 };
 
-// TODO(crbug.com/1268983): Fix flakiness on Linux and reenable.
-#if defined(OS_LINUX)
+// TODO(crbug.com/1121446): Fix flakiness.
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_IndividualShiftRightArrowPresses \
   DISABLED_IndividualShiftRightArrowPresses
 #else
@@ -3247,8 +3266,8 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionClipboardTest,
   SendCopyCommandAndCheckCopyPasteClipboard("HEL");
 }
 
-// Flaky, http://crbug.com/1269104
-#if defined(OS_LINUX)
+// Flaky, http://crbug.com/1121446
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_CombinedShiftRightArrowPresses \
   DISABLED_CombinedShiftRightArrowPresses
 #else
@@ -3282,7 +3301,7 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionClipboardTest,
 }
 
 // Flaky on Linux (https://crbug.com/1121446)
-#if defined(OS_LINUX)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_CombinedShiftArrowPresses DISABLED_CombinedShiftArrowPresses
 #else
 #define MAYBE_CombinedShiftArrowPresses CombinedShiftArrowPresses
@@ -3410,7 +3429,7 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionTest, TouchpadPinchInvokesCustomZoom) {
                                std::move(send_pinch));
 }
 
-#if !defined(OS_MAC)
+#if !BUILDFLAG(IS_MAC)
 // Ensure that ctrl-wheel events are handled by the PDF viewer.
 IN_PROC_BROWSER_TEST_P(PDFExtensionTest, CtrlWheelInvokesCustomZoom) {
   WebContents* guest_contents =
@@ -3462,7 +3481,7 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionTest,
                                std::move(send_touchscreen_pinch));
 }
 
-#endif  // !defined(OS_MAC)
+#endif  // !BUILDFLAG(IS_MAC)
 
 using PDFExtensionHitTestTest = PDFExtensionTest;
 
@@ -3731,19 +3750,24 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionTest, DocumentWriteIntoNewPopup) {
   ASSERT_TRUE(pdf_extension_test_util::EnsurePDFHasLoaded(popup));
 }
 
+IN_PROC_BROWSER_TEST_P(PDFExtensionTest, LoadPdfFromExtension) {
+  const extensions::Extension* test_extension = LoadExtension(
+      GetTestResourcesParentDir().AppendASCII("pdf/extension_with_pdf"));
+  ASSERT_TRUE(test_extension);
+
+  EXPECT_TRUE(LoadPdf(test_extension->GetResourceURL("test.pdf")));
+}
+
 // Tests that the PDF extension loads in the presence of an extension that, on
 // the completion of document loading, adds an <iframe> to the body element.
 // https://bugs.chromium.org/p/chromium/issues/detail?id=1046795
 IN_PROC_BROWSER_TEST_P(PDFExtensionTest,
                        PdfLoadsWithExtensionThatInjectsFrame) {
-  // Load the test extension.
   const extensions::Extension* test_extension = LoadExtension(
       GetTestResourcesParentDir().AppendASCII("pdf/extension_injects_iframe"));
   ASSERT_TRUE(test_extension);
 
-  // Load the PDF. The call to LoadPdf() will return false if the pdf extension
-  // fails to load.
-  ASSERT_TRUE(LoadPdf(embedded_test_server()->GetURL("/pdf/test.pdf")));
+  EXPECT_TRUE(LoadPdf(embedded_test_server()->GetURL("/pdf/test.pdf")));
 }
 
 IN_PROC_BROWSER_TEST_P(PDFExtensionTest, Metrics) {
@@ -4407,7 +4431,7 @@ class PDFExtensionSubmitFormTest : public PDFExtensionTest {
 };
 
 // TODO(crbug.com/1259994): Fix Windows 7 flakes.
-#if defined(OS_WIN)
+#if BUILDFLAG(IS_WIN)
 #define MAYBE_SubmitForm DISABLED_SubmitForm
 #else
 #define MAYBE_SubmitForm SubmitForm

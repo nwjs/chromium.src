@@ -6,6 +6,7 @@
 
 #include <utility>
 #include "extensions/common/manifest_constants.h"
+#include "base/ignore_result.h"
 
 #include "base/bind.h"
 #include "base/callback.h"
@@ -50,6 +51,7 @@
 #include "extensions/renderer/web_request_hooks.h"
 #include "extensions/renderer/worker_thread_util.h"
 #include "gin/converter.h"
+#include "gin/data_object_builder.h"
 #include "gin/handle.h"
 #include "gin/per_context_data.h"
 #include "third_party/blink/public/mojom/devtools/console_message.mojom.h"
@@ -148,7 +150,7 @@ v8::Local<v8::Object> GetOrCreateChrome(v8::Local<v8::Context> context, const ch
     // chrome object we construct, and check if it's present. Unfortunately, we
     // need to a) track down each place we create the chrome object (it's not
     // just in extensions) and also see how much that would break.
-    if (obj->CreationContext() == context)
+    if (obj->GetCreationContextChecked() == context)
       chrome_object = obj;
   }
 
@@ -513,6 +515,12 @@ void NativeExtensionBindingsSystem::DidCreateScriptContext(
                           weak_factory_.GetWeakPtr()));
 
   UpdateBindingsForContext(context);
+
+  // Set the scripting params object for if we are running in a content script
+  // context. This effectively checks that we are running in an isolated world
+  // since main world script contexts have a different Feature::Context type.
+  if (context->context_type() == Feature::CONTENT_SCRIPT_CONTEXT)
+    SetScriptingParams(context);
 }
 
 void NativeExtensionBindingsSystem::WillReleaseScriptContext(
@@ -559,7 +567,8 @@ void NativeExtensionBindingsSystem::UpdateBindingsForContext(
   bool nodejs_enabled = false;
   if (context->extension()) {
     nodejs_enabled = context->extension()->is_nwjs_app();
-    context->extension()->manifest()->GetBoolean(manifest_keys::kNWJSEnableNode, &nodejs_enabled);
+    nodejs_enabled = context->extension()->manifest()->
+      FindBoolPath(manifest_keys::kNWJSEnableNode).value_or(nodejs_enabled);
   }
 
   const base::CommandLine& command_line = *base::CommandLine::ForCurrentProcess();
@@ -736,7 +745,7 @@ void NativeExtensionBindingsSystem::BindingAccessor(
     const v8::PropertyCallbackInfo<v8::Value>& info) {
   v8::Isolate* isolate = info.GetIsolate();
   v8::HandleScope handle_scope(isolate);
-  v8::Local<v8::Context> context = info.Holder()->CreationContext();
+  v8::Local<v8::Context> context = info.Holder()->GetCreationContextChecked();
 
   // Force binding creation in the owning context (even if another context is
   // calling in). This is also important to ensure that objects created through
@@ -965,7 +974,7 @@ void NativeExtensionBindingsSystem::OnEventListenerChanged(
       ipc_message_sender_->SendAddUnfilteredEventListenerIPC(script_context,
                                                              event_name);
       // Check if we need to add a lazy listener as well.
-      FALLTHROUGH;
+      [[fallthrough]];
     case binding::EventListenersChanged::
         kFirstUnfilteredListenerForContextAdded: {
       // If the listener is the first for the event page, we need to
@@ -983,7 +992,7 @@ void NativeExtensionBindingsSystem::OnEventListenerChanged(
       ipc_message_sender_->SendRemoveUnfilteredEventListenerIPC(script_context,
                                                                 event_name);
       // Check if we need to remove a lazy listener as well.
-      FALLTHROUGH;
+      [[fallthrough]];
     case binding::EventListenersChanged::
         kLastUnfilteredListenerForContextRemoved: {
       // If the listener was the last for the event page, we need to remove
@@ -1062,6 +1071,25 @@ void NativeExtensionBindingsSystem::UpdateContentCapabilities(
 void NativeExtensionBindingsSystem::InvalidateFeatureCache(
     const ExtensionId& extension_id) {
   feature_cache_.InvalidateExtension(extension_id);
+}
+
+void NativeExtensionBindingsSystem::SetScriptingParams(ScriptContext* context) {
+  if (!IsAPIFeatureAvailable(context->v8_context(), "scripting.globalParams"))
+    return;
+
+  v8::Local<v8::Object> scripting_object =
+      GetAPIHelper(context->v8_context(),
+                   gin::StringToSymbol(context->isolate(), "scripting"));
+  if (scripting_object.IsEmpty())
+    return;
+
+  // Set the globalParams property on the chrome.scripting object if available.
+  scripting_object
+      ->CreateDataProperty(
+          context->v8_context(),
+          gin::StringToSymbol(context->isolate(), "globalParams"),
+          gin::DataObjectBuilder(context->isolate()).Build())
+      .Check();
 }
 
 }  // namespace extensions

@@ -43,8 +43,6 @@ PermissionPromptAndroid::PermissionPromptAndroid(
         permissions::PermissionPromptDisposition::MODAL_DIALOG;
     PermissionDialogDelegate::Create(web_contents_, this);
   }
-
-  prompt_disposition_ = permissions::PermissionPromptDisposition::MINI_INFOBAR;
 }
 
 PermissionPromptAndroid::~PermissionPromptAndroid() {
@@ -92,6 +90,11 @@ void PermissionPromptAndroid::Deny() {
 
 bool PermissionPromptAndroid::ShouldCurrentRequestUseQuietUI() {
   return delegate_->ShouldCurrentRequestUseQuietUI();
+}
+
+absl::optional<PermissionUiSelector::QuietUiReason>
+PermissionPromptAndroid::ReasonForUsingQuietUi() const {
+  return delegate_->ReasonForUsingQuietUi();
 }
 
 size_t PermissionPromptAndroid::PermissionCount() const {

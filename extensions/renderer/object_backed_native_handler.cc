@@ -194,7 +194,7 @@ bool ObjectBackedNativeHandler::ContextCanAccessObject(
     bool allow_null_context) {
   if (object->IsNull())
     return true;
-  if (context == object->CreationContext())
+  if (context == object->GetCreationContextChecked())
     return true;
   // TODO(lazyboy): ScriptContextSet isn't available on worker threads. We
   // should probably use WorkerScriptContextSet somehow.

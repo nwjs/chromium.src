@@ -117,7 +117,12 @@ GURL IOSChromeSyncedTabDelegate::GetFaviconURLAtIndex(int i) const {
     return GURL();
   }
   NavigationItem* item = GetPossiblyPendingItemAtIndex(web_state_, i);
-  return (item && item->GetFavicon().valid ? item->GetFavicon().url : GURL());
+  if (!item) {
+    return GURL();
+  }
+
+  const web::FaviconStatus& favicon_status = item->GetFaviconStatus();
+  return favicon_status.valid ? favicon_status.url : GURL();
 }
 
 ui::PageTransition IOSChromeSyncedTabDelegate::GetTransitionAtIndex(
@@ -159,7 +164,7 @@ void IOSChromeSyncedTabDelegate::GetSerializedNavigationAtIndex(
   }
 }
 
-bool IOSChromeSyncedTabDelegate::ProfileIsSupervised() const {
+bool IOSChromeSyncedTabDelegate::ProfileHasChildAccount() const {
   return false;
 }
 
@@ -234,6 +239,15 @@ const IOSTaskTabHelper* IOSChromeSyncedTabDelegate::ios_task_tab_helper()
 }
 
 bool IOSChromeSyncedTabDelegate::GetSessionStorageIfNeeded() const {
+  // Unrealized web states should always use session storage, regardless of
+  // navigation items.
+  if (!web_state_->IsRealized()) {
+    if (!session_storage_) {
+      session_storage_ = web_state_->BuildSessionStorage();
+    }
+    return true;
+  }
+
   // With slim navigation, the navigation manager is only restored when the tab
   // is displayed. Before restoration, the session storage must be used.
   bool should_use_storage =

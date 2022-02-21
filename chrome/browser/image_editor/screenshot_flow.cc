@@ -25,7 +25,7 @@
 #include "ui/snapshot/snapshot.h"
 #include "ui/views/background.h"
 
-#if defined(OS_MAC)
+#if BUILDFLAG(IS_MAC)
 #include "chrome/browser/image_editor/event_capture_mac.h"
 #include "components/lens/lens_features.h"
 #include "content/public/browser/render_view_host.h"
@@ -69,7 +69,7 @@ void ScreenshotFlow::CreateAndAddUIOverlay() {
   screen_capture_layer_->SetName("ScreenshotRegionSelectionLayer");
   screen_capture_layer_->SetFillsBoundsOpaquely(false);
   screen_capture_layer_->set_delegate(this);
-#if defined(OS_MAC)
+#if BUILDFLAG(IS_MAC)
   gfx::Rect bounds = web_contents_->GetViewBounds();
   const gfx::NativeView web_contents_view =
       web_contents_->GetContentNativeView();
@@ -106,7 +106,7 @@ void ScreenshotFlow::RemoveUIOverlay() {
   if (!web_contents_ || !screen_capture_layer_)
     return;
 
-#if defined(OS_MAC)
+#if BUILDFLAG(IS_MAC)
   views::Widget* widget = views::Widget::GetWidgetForNativeView(
       web_contents_->GetContentNativeView());
   if (!widget)
@@ -154,7 +154,7 @@ void ScreenshotFlow::CaptureAndRunScreenshotCompleteCallback(
   }
 
   gfx::Rect bounds = web_contents_->GetViewBounds();
-#if defined(OS_MAC)
+#if BUILDFLAG(IS_MAC)
   const gfx::NativeView& native_view = web_contents_->GetContentNativeView();
   gfx::Image img;
   bool rval = ui::GrabViewSnapshot(native_view, region, &img);
@@ -192,11 +192,11 @@ void ScreenshotFlow::OnMouseEvent(ui::MouseEvent* event) {
     return;
 
   gfx::Point location = located_event->location();
-#if defined(OS_MAC)
+  gfx::Rect web_contents_bounds = web_contents_->GetViewBounds();
+#if BUILDFLAG(IS_MAC)
   // Offset |location| be relative to the WebContents widget, vs the parent
   // window, recomputed rather than cached in case e.g. user disables
   // bookmarks bar from another window.
-  gfx::Rect web_contents_bounds = web_contents_->GetViewBounds();
   const gfx::NativeView web_contents_view =
       web_contents_->GetContentNativeView();
   views::Widget* widget =
@@ -204,12 +204,6 @@ void ScreenshotFlow::OnMouseEvent(ui::MouseEvent* event) {
   const gfx::Rect widget_bounds = widget->GetWindowBoundsInScreen();
   location.set_x(location.x() + (widget_bounds.x() - web_contents_bounds.x()));
   location.set_y(location.y() + (widget_bounds.y() - web_contents_bounds.y()));
-  // Don't capture clicks on browser ui outside the webcontents.
-  if (location.x() < 0 || location.y() < 0 ||
-      location.x() > web_contents_bounds.width() ||
-      location.y() > web_contents_bounds.height()) {
-    return;
-  }
 #endif
 
   switch (event->type()) {
@@ -219,6 +213,15 @@ void ScreenshotFlow::OnMouseEvent(ui::MouseEvent* event) {
       break;
     case ui::ET_MOUSE_PRESSED:
       if (event->IsLeftMouseButton()) {
+#if BUILDFLAG(IS_MAC)
+        // Don't capture initial clicks on browser ui outside the webcontents.
+        if (location.x() < 0 || location.y() < 0 ||
+            location.x() > web_contents_bounds.width() ||
+            location.y() > web_contents_bounds.height()) {
+          event->SetHandled();
+          break;
+        }
+#endif  // BUILDFLAG(IS_MAC)
         drag_start_ = location;
         drag_end_ = location;
         event->SetHandled();
@@ -234,20 +237,37 @@ void ScreenshotFlow::OnMouseEvent(ui::MouseEvent* event) {
     case ui::ET_MOUSE_RELEASED:
       if (capture_mode_ == CaptureMode::SELECTION_RECTANGLE ||
           capture_mode_ == CaptureMode::SELECTION_ELEMENT) {
+        AttemptRegionCapture(web_contents_bounds);
         event->SetHandled();
-        gfx::Rect selection = gfx::BoundingRect(drag_start_, drag_end_);
-        drag_start_.SetPoint(0, 0);
-        drag_end_.SetPoint(0, 0);
-        if (selection.width() >= kMinimumValidSelectionEdgePixels &&
-            selection.height() >= kMinimumValidSelectionEdgePixels) {
-          CompleteCapture(ScreenshotCaptureResultCode::SUCCESS, selection);
-        } else {
-          RequestRepaint(gfx::Rect());
-        }
+      }
+      break;
+    // This event type is never called on Mac.
+    case ui::ET_MOUSEWHEEL:
+      if ((capture_mode_ == CaptureMode::SELECTION_RECTANGLE ||
+           capture_mode_ == CaptureMode::SELECTION_ELEMENT) &&
+          event->AsMouseWheelEvent()->y_offset() > 0) {
+        AttemptRegionCapture(web_contents_bounds);
+        event->SetHandled();
       }
       break;
     default:
       break;
+  }
+}
+
+void ScreenshotFlow::OnScrollEvent(ui::ScrollEvent* event) {
+  // A single tap can create a scroll event, so ignore scroll starts and
+  // cancels but complete capture when scrolls actually occur.
+  if (event->type() == ui::EventType::ET_SCROLL_FLING_START ||
+      event->type() == ui::EventType::ET_SCROLL_FLING_CANCEL)
+    return;
+
+  gfx::Rect web_contents_bounds = web_contents_->GetViewBounds();
+  if ((capture_mode_ == CaptureMode::SELECTION_RECTANGLE ||
+       capture_mode_ == CaptureMode::SELECTION_ELEMENT) &&
+      event->y_offset() > 0) {
+    AttemptRegionCapture(web_contents_bounds);
+    event->SetHandled();
   }
 }
 
@@ -270,6 +290,28 @@ void ScreenshotFlow::RunScreenshotCompleteCallback(
   result.screen_bounds = bounds;
 
   std::move(flow_callback_).Run(result);
+}
+
+bool ScreenshotFlow::IsUIOverlayShown() {
+  return screen_capture_layer_ != nullptr && screen_capture_layer_->visible();
+}
+
+void ScreenshotFlow::ResetUIOverlayBounds() {
+#if BUILDFLAG(IS_MAC)
+  gfx::Rect bounds = web_contents_->GetViewBounds();
+  const gfx::NativeView web_contents_view =
+      web_contents_->GetContentNativeView();
+  views::Widget* widget =
+      views::Widget::GetWidgetForNativeView(web_contents_view);
+  if (widget != nullptr) {
+    const gfx::Rect offset_bounds = widget->GetWindowBoundsInScreen();
+    bounds.Offset(-offset_bounds.x(), -offset_bounds.y());
+  }
+#else
+  const gfx::NativeWindow& native_window = web_contents_->GetNativeView();
+  const gfx::Rect bounds = native_window->bounds();
+#endif
+  screen_capture_layer_->SetBounds(bounds);
 }
 
 void ScreenshotFlow::OnPaintLayer(const ui::PaintContext& context) {
@@ -324,7 +366,7 @@ void ScreenshotFlow::SetCursor(ui::mojom::CursorType cursor_type) {
     return;
   }
 
-#if defined(OS_MAC)
+#if BUILDFLAG(IS_MAC)
   if (cursor_type == ui::mojom::CursorType::kCross &&
       lens::features::kRegionSearchMacCursorFix.Get()) {
     EventCaptureMac::SetCrossCursor();
@@ -356,6 +398,24 @@ void ScreenshotFlow::OnVisibilityChanged(content::Visibility visibility) {
   }
 }
 
+void ScreenshotFlow::AttemptRegionCapture(gfx::Rect view_bounds) {
+  // On Mac, it is possible for drag_end_ to end up outside of the
+  // Browser UI. This causes an error when completing the region
+  // capture. Update drag_end_ to be within the web content bounds.
+  drag_end_.SetToMin(gfx::Point(view_bounds.width(), view_bounds.height()));
+  drag_end_.SetToMax(gfx::Point(0, 0));
+
+  gfx::Rect selection = gfx::BoundingRect(drag_start_, drag_end_);
+  drag_start_.SetPoint(0, 0);
+  drag_end_.SetPoint(0, 0);
+  if (selection.width() >= kMinimumValidSelectionEdgePixels &&
+      selection.height() >= kMinimumValidSelectionEdgePixels) {
+    CompleteCapture(ScreenshotCaptureResultCode::SUCCESS, selection);
+  } else {
+    RequestRepaint(gfx::Rect());
+  }
+}
+
 // UnderlyingWebContentsObserver monitors the WebContents and exits screen
 // capture mode if a navigation occurs.
 class ScreenshotFlow::UnderlyingWebContentsObserver
@@ -379,6 +439,15 @@ class ScreenshotFlow::UnderlyingWebContentsObserver
     if (screenshot_flow_->IsCaptureModeActive())
       screenshot_flow_->CompleteCapture(
           ScreenshotCaptureResultCode::USER_NAVIGATED_EXIT, gfx::Rect());
+  }
+
+  // content::WebContentsObserver
+  void FrameSizeChanged(content::RenderFrameHost* render_frame_host,
+                        const gfx::Size& frame_size) override {
+    // We only care to resize the UI overlay when it's visible to the user.
+    if (screenshot_flow_->IsUIOverlayShown()) {
+      screenshot_flow_->ResetUIOverlayBounds();
+    }
   }
 
  private:

@@ -57,3 +57,21 @@ var EmojiPickerStoreTest = class extends EmojiPickerBrowserTest {
 TEST_F('EmojiPickerStoreTest', 'DISABLED_All', function() {
   mocha.run();
 });
+
+var EmojiPickerExtensionBrowserTest = class extends PolymerTest {
+  /** @override */
+  get featureList() {
+    return {enabled: ['chromeos::features::kImeSystemEmojiPickerExtension']};
+  }
+
+  /** @override */
+  get browsePreload() {
+    return 'chrome://emoji-picker/test_loader.html?module=' +
+        'chromeos/emoji_picker/emoji_picker_extension_test.js';
+  }
+};
+
+// TODO(https://crbug.com/1179762): Re-enable once flakiness is fixed.
+TEST_F('EmojiPickerExtensionBrowserTest', 'DISABLED_All', function() {
+  mocha.run();
+});

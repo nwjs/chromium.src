@@ -17,7 +17,6 @@
 #include "net/third_party/quiche/src/quic/core/quic_time.h"
 #include "net/third_party/quiche/src/quic/core/quic_types.h"
 #include "net/third_party/quiche/src/quic/platform/api/quic_mem_slice.h"
-#include "net/third_party/quiche/src/quic/quic_transport/quic_transport_stream.h"
 #include "services/network/network_context.h"
 #include "services/network/public/mojom/web_transport.mojom.h"
 
@@ -49,22 +48,26 @@ class WebTransport::Stream final {
     explicit StreamVisitor(Stream* stream)
         : stream_(stream->weak_factory_.GetWeakPtr()) {}
     ~StreamVisitor() override {
-      if (stream_) {
-        if (stream_->incoming_) {
-          stream_->writable_watcher_.Cancel();
-          stream_->writable_.reset();
-          stream_->transport_->client_->OnIncomingStreamClosed(
-              stream_->id_,
-              /*fin_received=*/false);
-          stream_->incoming_ = nullptr;
-        }
-        if (stream_->outgoing_) {
-          stream_->readable_watcher_.Cancel();
-          stream_->readable_.reset();
-          stream_->outgoing_ = nullptr;
-        }
-        stream_->MayDisposeLater();
+      Stream* stream = stream_.get();
+      if (!stream) {
+        return;
       }
+      if (stream->incoming_) {
+        stream->writable_watcher_.Cancel();
+        stream->writable_.reset();
+        if (stream->transport_->client_) {
+          stream->transport_->client_->OnIncomingStreamClosed(
+              stream->id_,
+              /*fin_received=*/false);
+        }
+        stream->incoming_ = nullptr;
+      }
+      if (stream->outgoing_) {
+        stream->readable_watcher_.Cancel();
+        stream->readable_.reset();
+        stream->outgoing_ = nullptr;
+      }
+      stream->MayDisposeLater();
     }
 
     // Visitor implementation:

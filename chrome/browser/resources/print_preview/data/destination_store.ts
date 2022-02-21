@@ -10,7 +10,7 @@ import {loadTimeData} from 'chrome://resources/js/load_time_data.m.js';
 import {CloudPrintInterface, CloudPrintInterfaceEventType, CloudPrintInterfacePrinterFailedDetail, CloudPrintInterfaceSearchDoneDetail} from '../cloud_print_interface.js';
 import {DestinationSearchBucket, MetricsContext, PrintPreviewInitializationEvents} from '../metrics.js';
 import {CapabilitiesResponse, NativeLayer, NativeLayerImpl} from '../native_layer.js';
-// <if expr="chromeos or lacros">
+// <if expr="chromeos_ash or chromeos_lacros">
 import {NativeLayerCros, NativeLayerCrosImpl, PrinterSetupResponse} from '../native_layer_cros.js';
 
 // </if>
@@ -150,7 +150,7 @@ export enum DestinationStoreEventType {
   ERROR = 'DestinationStore.ERROR',
   SELECTED_DESTINATION_CAPABILITIES_READY = 'DestinationStore' +
       '.SELECTED_DESTINATION_CAPABILITIES_READY',
-  // <if expr="chromeos or lacros">
+  // <if expr="chromeos_ash or chromeos_lacros">
   DESTINATION_EULA_READY = 'DestinationStore.DESTINATION_EULA_READY',
   // </if>
 }
@@ -209,7 +209,7 @@ export class DestinationStore extends EventTarget {
    */
   private nativeLayer_: NativeLayer = NativeLayerImpl.getInstance();
 
-  // <if expr="chromeos or lacros">
+  // <if expr="chromeos_ash or chromeos_lacros">
   /**
    * Used to fetch information about Chrome OS local print destinations.
    */
@@ -277,7 +277,7 @@ export class DestinationStore extends EventTarget {
     ]);
 
     this.platformOrigin_ = DestinationOrigin.LOCAL;
-    // <if expr="chromeos or lacros">
+    // <if expr="chromeos_ash or chromeos_lacros">
     this.platformOrigin_ = DestinationOrigin.CROS;
     // </if>
 
@@ -347,7 +347,7 @@ export class DestinationStore extends EventTarget {
    */
   init(
       pdfPrinterDisabled: boolean,
-      // <if expr="chromeos or lacros">
+      // <if expr="chromeos_ash or chromeos_lacros">
       isDriveMounted: boolean,
       // </if>
       // <if expr="not chromeos and not lacros">
@@ -386,7 +386,7 @@ export class DestinationStore extends EventTarget {
     this.pdfPrinterEnabled_ = !pdfPrinterDisabled;
     this.isInNWPrintMode_ = isInNWPrintMode;
     this.createLocalPdfPrintDestination_();
-    // <if expr="chromeos or lacros">
+    // <if expr="chromeos_ash or chromeos_lacros">
     if (isDriveMounted) {
       this.createLocalDrivePrintDestination_();
     }
@@ -537,7 +537,7 @@ export class DestinationStore extends EventTarget {
   }
 
   private isDestinationLocal_(destinationId: string|null): boolean {
-    // <if expr="chromeos or lacros">
+    // <if expr="chromeos_ash or chromeos_lacros">
     if (destinationId === GooglePromotedDestinationId.SAVE_TO_DRIVE_CROS) {
       return true;
     }
@@ -551,7 +551,7 @@ export class DestinationStore extends EventTarget {
     this.tracker_.removeAll();
   }
 
-  // <if expr="chromeos or lacros">
+  // <if expr="chromeos_ash or chromeos_lacros">
   /**
    * Attempts to find the EULA URL of the the destination ID.
    */
@@ -726,7 +726,7 @@ export class DestinationStore extends EventTarget {
     }
   }
 
-  // <if expr="chromeos or lacros">
+  // <if expr="chromeos_ash or chromeos_lacros">
   /**
    * Attempt to resolve the capabilities for a Chrome OS printer.
    */
@@ -866,7 +866,7 @@ export class DestinationStore extends EventTarget {
     return this.destinationMap_.get(key);
   }
 
-  // <if expr="chromeos or lacros">
+  // <if expr="chromeos_ash or chromeos_lacros">
   /**
    * Removes the provisional destination with ID |provisionalId| from
    * |destinationMap_| and |destinations_|.
@@ -996,7 +996,7 @@ export class DestinationStore extends EventTarget {
     }
   }
 
-  // <if expr="chromeos or lacros">
+  // <if expr="chromeos_ash or chromeos_lacros">
   /**
    * Creates a local Drive print destination.
    */
@@ -1066,7 +1066,7 @@ export class DestinationStore extends EventTarget {
       }
       dest.capabilities = settingsInfo.capabilities;
       this.updateDestination_(dest);
-      // <if expr="chromeos or lacros">
+      // <if expr="chromeos_ash or chromeos_lacros">
       // Start the fetch for the PPD EULA URL.
       this.fetchEulaUrl(dest.id);
       // </if>

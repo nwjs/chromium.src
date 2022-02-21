@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "base/bind.h"
+#include "build/build_config.h"
 
 #include "components/sessions/content/session_tab_helper.h"
 #include "chrome/browser/extensions/tab_helper.h"
@@ -27,9 +28,9 @@
 #include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
 #include "chrome/browser/picture_in_picture/picture_in_picture_window_manager.h"
 #include "chrome/browser/platform_util.h"
+#include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
+#include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/profiles/profile_keep_alive_types.h"
-#include "chrome/browser/profiles/scoped_profile_keep_alive.h"
 #include "chrome/browser/shell_integration.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_navigator.h"
@@ -63,7 +64,7 @@
 #include "chrome/browser/ash/lock_screen_apps/state_controller.h"
 #endif
 
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/chromeos/policy/dlp/dlp_content_tab_helper.h"
 #endif
 
@@ -255,7 +256,7 @@ void ChromeAppDelegate::InitWebContents(content::WebContents* web_contents) {
 #endif
   apps::AudioFocusWebContentsObserver::CreateForWebContents(web_contents);
 
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS)
   policy::DlpContentTabHelper::MaybeCreateForWebContents(web_contents);
 #endif
 

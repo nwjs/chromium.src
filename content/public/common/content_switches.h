@@ -29,7 +29,6 @@ CONTENT_EXPORT extern const char kChangeStackGuardOnFork[];
 CONTENT_EXPORT extern const char kChangeStackGuardOnForkEnabled[];
 CONTENT_EXPORT extern const char kChangeStackGuardOnForkDisabled[];
 CONTENT_EXPORT extern const char kConversionsDebugMode[];
-CONTENT_EXPORT extern const char kCrossOriginWebAssemblyModuleSharingAllowed[];
 CONTENT_EXPORT extern const char kRestrictedApiOrigins[];
 CONTENT_EXPORT extern const char kDisplayCapturePermissionsPolicyAllowed[];
 CONTENT_EXPORT extern const char kDisable2dCanvasAntialiasing[];
@@ -76,6 +75,7 @@ CONTENT_EXPORT extern const char kDisableLCDText[];
 CONTENT_EXPORT extern const char kDisableKillAfterBadIPC[];
 CONTENT_EXPORT extern const char kDisableLocalStorage[];
 CONTENT_EXPORT extern const char kDisableLogging[];
+CONTENT_EXPORT extern const char kDisableMojoBroker[];
 CONTENT_EXPORT extern const char kDisableNewContentRenderingTimeout[];
 CONTENT_EXPORT extern const char kDisableNotifications[];
 CONTENT_EXPORT extern const char kDisableOriginTrialControlledBlinkFeatures[];
@@ -145,8 +145,7 @@ CONTENT_EXPORT extern const char kEnableWebGLImageChromium[];
 CONTENT_EXPORT extern const char kEnableWebVR[];
 CONTENT_EXPORT extern const char kFileUrlPathAlias[];
 CONTENT_EXPORT extern const char kForceDisplayList2dCanvas[];
-CONTENT_EXPORT extern const char kDisableOopRasterization[];
-CONTENT_EXPORT extern const char kEnableOopRasterization[];
+CONTENT_EXPORT extern const char kForceMajorVersionToMinorPosition[];
 CONTENT_EXPORT extern const char kForceMajorVersionTo100[];
 CONTENT_EXPORT extern const char kForceMinorVersionTo100[];
 CONTENT_EXPORT extern const char kForceOverlayFullscreenVideo[];
@@ -167,7 +166,6 @@ CONTENT_EXPORT extern const char kLaunchAsBrowser[];
 CONTENT_EXPORT extern const char kLogGpuControlListDecisions[];
 CONTENT_EXPORT extern const char kLoggingLevel[];
 CONTENT_EXPORT extern const char kLogFile[];
-CONTENT_EXPORT extern const char kMainFrameResizesAreOrientationChanges[];
 extern const char kMaxActiveWebGLContexts[];
 CONTENT_EXPORT extern const char kMaxDecodedImageSizeMb[];
 CONTENT_EXPORT extern const char kMaxWebMediaPlayerCount[];
@@ -182,6 +180,7 @@ CONTENT_EXPORT extern const char kNoUnsandboxedZygote[];
 CONTENT_EXPORT extern const char kNoZygote[];
 CONTENT_EXPORT extern const char kNumRasterThreads[];
 CONTENT_EXPORT extern const char kOverrideLanguageDetection[];
+CONTENT_EXPORT extern const char kPdfRenderer[];
 CONTENT_EXPORT extern const char kPpapiInProcess[];
 extern const char kPpapiPluginLauncher[];
 CONTENT_EXPORT extern const char kPpapiPluginProcess[];
@@ -203,7 +202,7 @@ CONTENT_EXPORT extern const char kRendererProcessLimit[];
 CONTENT_EXPORT extern const char kRendererStartupDialog[];
 CONTENT_EXPORT extern const char kRunManualTestsFlag[];
 extern const char kSandboxIPCProcess[];
-#if !defined(OS_ANDROID)
+#if !BUILDFLAG(IS_ANDROID)
 CONTENT_EXPORT extern const char kSharedArrayBufferUnrestrictedAccessAllowed[];
 #endif
 CONTENT_EXPORT extern const char kSharedFiles[];
@@ -224,9 +223,6 @@ CONTENT_EXPORT extern const char kTrustableWebBundleFileUrl[];
 CONTENT_EXPORT extern const char kUseFakeCodecForPeerConnection[];
 CONTENT_EXPORT extern const char kUseFakeUIForMediaStream[];
 CONTENT_EXPORT extern const char kVideoImageTextureTarget[];
-#if defined(OS_ANDROID) && defined(INCLUDE_BOTH_V8_SNAPSHOTS)
-CONTENT_EXPORT extern const char kUseContextSnapshotSwitch[];
-#endif
 CONTENT_EXPORT extern const char kUseMobileUserAgent[];
 CONTENT_EXPORT extern const char kUseMockCertVerifierForTesting[];
 extern const char kUtilityCmdPrefix[];
@@ -266,7 +262,7 @@ CONTENT_EXPORT extern const char kWebXrRuntimeWMR[];
 
 CONTENT_EXPORT extern const char kDisableAcceleratedVideoDecode[];
 
-#if defined(OS_ANDROID)
+#if BUILDFLAG(IS_ANDROID)
 CONTENT_EXPORT extern const char kDisableMediaSessionAPI[];
 CONTENT_EXPORT extern const char kDisableOoprDebugCrashDump[];
 CONTENT_EXPORT extern const char kDisableScreenOrientationLock[];
@@ -281,11 +277,11 @@ CONTENT_EXPORT extern const char kRendererWaitForJavaDebugger[];
 
 // TODO(crbug.com/1052397): Revisit the macro expression once build flag switch
 // of lacros-chrome is complete.
-#if defined(OS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS)
 CONTENT_EXPORT extern const char kEnableSpeechDispatcher[];
 #endif
 
-#if defined(OS_WIN)
+#if BUILDFLAG(IS_WIN)
 CONTENT_EXPORT extern const char kPrefetchArgumentRenderer[];
 CONTENT_EXPORT extern const char kPrefetchArgumentGpu[];
 CONTENT_EXPORT extern const char kPrefetchArgumentPpapi[];
@@ -298,7 +294,6 @@ CONTENT_EXPORT extern const char kDisableLegacyIntermediateWindow[];
 CONTENT_EXPORT extern const char kEnableWin7WebRtcHWH264Decoding[];
 // Switch to pass the font cache shared memory handle to the renderer.
 CONTENT_EXPORT extern const char kFontCacheSharedHandle[];
-CONTENT_EXPORT extern const char kPdfRenderer[];
 CONTENT_EXPORT extern const char kPpapiAntialiasedTextEnabled[];
 CONTENT_EXPORT extern const char kPpapiSubpixelRenderingSetting[];
 CONTENT_EXPORT extern const char kRaiseTimerFrequency[];

@@ -13,18 +13,20 @@
 #include "extensions/browser/app_window/native_app_window.h"
 
 #include "base/bind.h"
+#include "base/dcheck_is_on.h"
 #include "base/location.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "chrome/browser/platform_util.h"
+#include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/views/autofill/autofill_popup_view_utils.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/contents_web_view.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/strings/grit/components_strings.h"
+#include "content/public/browser/web_contents.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/platform/ax_platform_node.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -39,8 +41,59 @@
 #include "ui/views/bubble/bubble_border.h"
 #include "ui/views/focus/focus_manager.h"
 #include "ui/views/layout/fill_layout.h"
+#include "ui/views/widget/widget.h"
+
+#if DCHECK_IS_ON()
+#include "base/containers/fixed_flat_set.h"
+#include "base/strings/string_piece.h"
+#endif
 
 namespace autofill {
+
+// The widget that the AutofillPopupBaseView will be attached to.
+class AutofillPopupBaseView::Widget : public views::Widget {
+ public:
+  explicit Widget(AutofillPopupBaseView* autofill_popup_base_view)
+      : autofill_popup_base_view_(autofill_popup_base_view) {
+    views::Widget::InitParams params(views::Widget::InitParams::TYPE_POPUP);
+    params.delegate = autofill_popup_base_view_;
+    params.parent = autofill_popup_base_view_->GetParentNativeView();
+    // Ensure the bubble border is not painted on an opaque background.
+    params.opacity = views::Widget::InitParams::WindowOpacity::kTranslucent;
+    params.shadow_type = views::Widget::InitParams::ShadowType::kNone;
+    Init(std::move(params));
+    AddObserver(autofill_popup_base_view_);
+
+    // No animation for popup appearance (too distracting).
+    SetVisibilityAnimationTransition(views::Widget::ANIMATE_HIDE);
+  }
+
+  ~Widget() override = default;
+
+  // views::Widget:
+  const ui::ThemeProvider* GetThemeProvider() const override {
+    if (!autofill_popup_base_view_ || !autofill_popup_base_view_->browser())
+      return nullptr;
+
+    return &ThemeService::GetThemeProviderForProfile(
+        autofill_popup_base_view_->browser()->profile());
+  }
+
+  views::Widget* GetPrimaryWindowWidget() override {
+    if (!autofill_popup_base_view_ || !autofill_popup_base_view_->browser())
+      return nullptr;
+
+    BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(
+        autofill_popup_base_view_->browser());
+    if (!browser_view)
+      return nullptr;
+
+    return browser_view->GetWidget()->GetPrimaryWindowWidget();
+  }
+
+ private:
+  const raw_ptr<AutofillPopupBaseView> autofill_popup_base_view_;
+};
 
 int AutofillPopupBaseView::GetCornerRadius() {
   return ChromeLayoutProvider::Get()->GetCornerRadiusMetric(
@@ -78,7 +131,11 @@ SkColor AutofillPopupBaseView::GetWarningColor() const {
 AutofillPopupBaseView::AutofillPopupBaseView(
     base::WeakPtr<AutofillPopupViewDelegate> delegate,
     views::Widget* parent_widget)
-    : delegate_(delegate), parent_widget_(parent_widget) {}
+    : delegate_(delegate), parent_widget_(parent_widget) {
+  // GetWebContents() may return nullptr in some tests.
+  if (GetWebContents())
+    browser_ = chrome::FindBrowserWithWebContents(GetWebContents());
+}
 
 AutofillPopupBaseView::~AutofillPopupBaseView() {
   if (delegate_) {
@@ -99,22 +156,9 @@ bool AutofillPopupBaseView::DoShow() {
     if (parent_widget_)
       parent_widget_->AddObserver(this);
 
-    // The widget is destroyed by the corresponding NativeWidget, so we use
-    // a weak pointer to hold the reference and don't have to worry about
-    // deletion.
-    views::Widget* widget = new views::Widget;
-    views::Widget::InitParams params(views::Widget::InitParams::TYPE_POPUP);
-    params.delegate = this;
-    params.parent = parent_widget_ ? parent_widget_->GetNativeView()
-                                   : delegate_->container_view();
-    // Ensure the bubble border is not painted on an opaque background.
-    params.opacity = views::Widget::InitParams::WindowOpacity::kTranslucent;
-    params.shadow_type = views::Widget::InitParams::ShadowType::kNone;
-    widget->Init(std::move(params));
-    widget->AddObserver(this);
-
-    // No animation for popup appearance (too distracting).
-    widget->SetVisibilityAnimationTransition(views::Widget::ANIMATE_HIDE);
+    // The widget is destroyed by the corresponding NativeWidget, so we don't
+    // have to worry about deletion.
+    new AutofillPopupBaseView::Widget(this);
 
     show_time_ = base::Time::Now();
   }
@@ -190,6 +234,19 @@ void AutofillPopupBaseView::NotifyAXSelection(View* selected_view) {
     is_ax_menu_start_event_fired_ = true;
   }
   selected_view->GetViewAccessibility().SetPopupFocusOverride();
+#if DCHECK_IS_ON()
+  constexpr auto kDerivedClasses = base::MakeFixedFlatSet<base::StringPiece>(
+      {"AutofillPopupSuggestionView", "PasswordPopupSuggestionView",
+       "AutofillPopupFooterView", "AutofillPopupSeparatorView",
+       "AutofillPopupWarningView", "AutofillPopupBaseView"});
+  DCHECK(kDerivedClasses.contains(selected_view->GetClassName()))
+      << "If you add a new derived class from AutofillPopupRowView, add it "
+         "here and to onSelection(evt) in "
+         "chrome/browser/resources/chromeos/accessibility/chromevox/background/"
+         "desktop_automation_handler.js to ensure that ChromeVox announces "
+         "the item when selected. Missing class: "
+      << selected_view->GetClassName();
+#endif
   selected_view->NotifyAccessibilityEvent(ax::mojom::Event::kSelection, true);
 }
 
@@ -237,7 +294,7 @@ void AutofillPopupBaseView::UpdateClipPath() {
 }
 
 gfx::Rect AutofillPopupBaseView::GetContentAreaBounds() const {
-  content::WebContents* web_contents = delegate_->GetWebContents();
+  content::WebContents* web_contents = GetWebContents();
   if (web_contents)
     return web_contents->GetContainerBounds();
 
@@ -310,9 +367,8 @@ bool AutofillPopupBaseView::DoUpdateBoundsAndRedrawPopup() {
   // Linux, use the screen bounds.
   const gfx::Rect top_window_bounds = GetTopWindowBounds();
   const gfx::Rect& max_bounds_for_popup =
-      PopupMayExceedContentAreaBounds(delegate_->GetWebContents())
-          ? top_window_bounds
-          : content_area_bounds;
+      PopupMayExceedContentAreaBounds(GetWebContents()) ? top_window_bounds
+                                                        : content_area_bounds;
 
   gfx::Rect element_bounds = gfx::ToEnclosingRect(delegate_->element_bounds());
 
@@ -390,6 +446,18 @@ void AutofillPopupBaseView::HideController(PopupHidingReason reason) {
   // This will eventually result in the deletion of |this|, as the delegate
   // will hide |this|. See |DoHide| above for an explanation on why the precise
   // timing of that deletion is tricky.
+}
+
+content::WebContents* AutofillPopupBaseView::GetWebContents() const {
+  if (!delegate_)
+    return nullptr;
+
+  return delegate_->GetWebContents();
+}
+
+gfx::NativeView AutofillPopupBaseView::GetParentNativeView() const {
+  return parent_widget_ ? parent_widget_->GetNativeView()
+                        : delegate_->container_view();
 }
 
 gfx::NativeView AutofillPopupBaseView::container_view() {

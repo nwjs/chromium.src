@@ -46,10 +46,10 @@ import org.chromium.chrome.browser.paint_preview.StartupPaintPreviewHelper;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.rlz.RevenueStats;
 import org.chromium.chrome.browser.tab.state.CriticalPersistedTabData;
+import org.chromium.chrome.browser.tab.state.SerializedCriticalPersistedTabData;
 import org.chromium.chrome.browser.ui.TabObscuringHandler;
 import org.chromium.chrome.browser.ui.native_page.FrozenNativePage;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
-import org.chromium.chrome.browser.version.ChromeVersionInfo;
 import org.chromium.chrome.browser.vr.VrModuleProvider;
 import org.chromium.components.dom_distiller.core.DomDistillerUrlUtils;
 import org.chromium.components.embedder_support.util.UrlConstants;
@@ -57,6 +57,7 @@ import org.chromium.components.embedder_support.view.ContentView;
 import org.chromium.components.security_state.ConnectionSecurityLevel;
 import org.chromium.components.security_state.SecurityStateModel;
 import org.chromium.components.url_formatter.UrlFormatter;
+import org.chromium.components.version_info.VersionInfo;
 import org.chromium.content_public.browser.ChildProcessImportance;
 import org.chromium.content_public.browser.ContentFeatureList;
 import org.chromium.content_public.browser.LoadUrlParams;
@@ -69,8 +70,6 @@ import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.util.ColorUtils;
 import org.chromium.url.GURL;
 
-import java.nio.ByteBuffer;
-
 /**
  * Implementation of the interface {@link Tab}. Contains and manages a {@link ContentView}.
  * This class is not intended to be extended.
@@ -81,7 +80,7 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
     /** Used for logging. */
     private static final String TAG = "Tab";
 
-    private static final String PRODUCT_VERSION = ChromeVersionInfo.getProductVersion();
+    private static final String PRODUCT_VERSION = VersionInfo.getProductVersion();
 
     private static final String REQUEST_DESKTOP_ENABLED_PARAM = "enabled";
 
@@ -134,9 +133,6 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
 
     private boolean mIsClosing;
     private boolean mIsShowingErrorPage;
-
-    /** Whether or not the TabState has changed. */
-    private boolean mIsTabStateDirty = true;
 
     /**
      * Saves how this tab was launched (from a link, external app, etc) so that
@@ -226,12 +222,13 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
      */
     @SuppressLint("HandlerLeak")
     TabImpl(int id, boolean incognito, @Nullable @TabLaunchType Integer launchType,
-            @Nullable ByteBuffer serializedCriticalPersistedTabData) {
+            @Nullable SerializedCriticalPersistedTabData serializedCriticalPersistedTabData) {
         mIsTabSaveEnabledSupplier.set(false);
         mId = TabIdManager.getInstance().generateValidId(id);
         mIncognito = incognito;
-        if (serializedCriticalPersistedTabData != null && useCriticalPersistedTabData()) {
-            CriticalPersistedTabData.build(this, serializedCriticalPersistedTabData, true);
+        if (!CriticalPersistedTabData.isEmptySerialization(serializedCriticalPersistedTabData)
+                && useCriticalPersistedTabData()) {
+            CriticalPersistedTabData.build(this, serializedCriticalPersistedTabData);
             mUsedCriticalPersistedTabData = true;
         }
 
@@ -419,7 +416,7 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
     @Override
     public void freezeNativePage() {
         if (mNativePage == null || mNativePage.isFrozen()
-                || mNativePage.getView().getParent() == null) {
+                || mNativePage.getView().getParent() != null) {
             return;
         }
         mNativePage = FrozenNativePage.freeze(mNativePage);
@@ -427,6 +424,7 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
     }
 
     @Override
+    @CalledByNative
     public @TabLaunchType int getLaunchType() {
         return mLaunchType;
     }
@@ -785,18 +783,6 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
         return !(activity instanceof ChromeActivity);
     }
 
-    /**
-     * @return Whether the TabState representing this Tab has been updated.
-     */
-    public boolean isTabStateDirty() {
-        return mIsTabStateDirty;
-    }
-
-    @Override
-    public void setIsTabStateDirty(boolean isDirty) {
-        mIsTabStateDirty = isDirty;
-    }
-
     @Override
     public void setIsTabSaveEnabled(boolean isTabSaveEnabled) {
         mIsTabSaveEnabledSupplier.set(isTabSaveEnabled);
@@ -1058,7 +1044,6 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
      * @param url URL that was loaded.
      */
     void didFinishPageLoad(GURL url) {
-        mIsTabStateDirty = true;
         updateTitle();
 
         for (TabObserver observer : mObservers) observer.onPageLoadFinished(this, url);
@@ -1119,7 +1104,6 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
      * Called when navigation entries were removed.
      */
     void notifyNavigationEntriesDeleted() {
-        mIsTabStateDirty = true;
         for (TabObserver observer : mObservers) observer.onNavigationEntriesDeleted(this);
     }
 
@@ -1183,6 +1167,7 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
     }
 
     void updateThemeColor(int themeColor) {
+        if (mThemeColor == themeColor) return;
         mThemeColor = themeColor;
         RewindableIterator<TabObserver> observers = getTabObservers();
         while (observers.hasNext()) observers.next().onDidChangeThemeColor(this, themeColor);
@@ -1215,7 +1200,6 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
     void updateTitle(String title) {
         if (TextUtils.equals(CriticalPersistedTabData.from(this).getTitle(), title)) return;
 
-        mIsTabStateDirty = true;
         CriticalPersistedTabData.from(this).setTitle(title);
         notifyPageTitleChanged();
     }

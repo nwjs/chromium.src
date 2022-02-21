@@ -177,7 +177,7 @@ void ChromeNativeAppWindowViews::InitializeDefaultWindow(
       widget()->SetBounds(window_bounds);
     } else {
     if (!position_specified) {
-#if defined(OS_MAC)
+#if BUILDFLAG(IS_MAC)
       // On Mac, this will call NativeWidgetMac's CenterWindow() which relies
       // on the size being its content size instead of window size. That
       // API only causes a problem when we use system title bar in an old

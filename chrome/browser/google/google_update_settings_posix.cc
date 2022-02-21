@@ -77,11 +77,11 @@ bool GoogleUpdateSettings::GetCollectStatsConsent() {
 // static
 bool GoogleUpdateSettings::SetCollectStatsConsent(bool consented) {
 #if 0
-#if defined(OS_MAC)
+#if BUILDFLAG(IS_MAC)
   crash_reporter::SetUploadConsent(consented);
 // TODO(crbug.com/1052397): Revisit the macro expression once build flag switch
 // of lacros-chrome is complete.
-#elif defined(OS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS)
+#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS)
   if (crash_reporter::IsCrashpadEnabled()) {
     crash_reporter::SetUploadConsent(consented);
   }

@@ -61,6 +61,10 @@ class BrowserImpl : public Browser {
   // Called from BrowserPersister when restore has completed.
   void OnRestoreCompleted();
 
+  void set_is_minimal_restore_in_progress(bool value) {
+    is_minimal_restore_in_progress_ = value;
+  }
+
 #if defined(OS_ANDROID)
   bool CompositorHasSurface();
 
@@ -83,9 +87,10 @@ class BrowserImpl : public Browser {
   void RestoreStateIfNecessary(
       JNIEnv* env,
       const base::android::JavaParamRef<jstring>& j_persistence_id,
-      const base::android::JavaParamRef<jbyteArray>& j_persistence_crypto_key,
-      const base::android::JavaParamRef<jbyteArray>&
-          j_minimal_persistence_state);
+      const base::android::JavaParamRef<jbyteArray>& j_persistence_crypto_key);
+  void RestoreMinimalState(JNIEnv* env,
+                           const base::android::JavaParamRef<jbyteArray>&
+                               j_minimal_persistence_state);
   void WebPreferencesChanged(JNIEnv* env);
   void OnFragmentStart(JNIEnv* env);
   void OnFragmentResume(JNIEnv* env);
@@ -170,6 +175,7 @@ class BrowserImpl : public Browser {
   std::string persistence_id_;
   std::unique_ptr<BrowserPersister> browser_persister_;
   base::OnceClosure visible_security_state_changed_callback_for_tests_;
+  bool is_minimal_restore_in_progress_ = false;
 };
 
 }  // namespace weblayer

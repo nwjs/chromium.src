@@ -52,9 +52,9 @@ DesktopCaptureChooseDesktopMediaFunction::Run() {
       api::desktop_capture::ChooseDesktopMedia::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(params.get());
 
-  // |web_contents| is the WebContents for which the stream is created, and will
-  // also be used to determine where to show the picker's UI.
-  content::WebContents* web_contents = NULL;
+  // |target_render_frame_host| is the RenderFrameHost for which the stream is
+  // created, and will also be used to determine where to show the picker's UI.
+  content::RenderFrameHost* target_render_frame_host = nullptr;
   std::u16string target_name;
   GURL origin;
   if (params->target_tab) {
@@ -81,25 +81,30 @@ DesktopCaptureChooseDesktopMediaFunction::Run() {
       return RespondNow(Error(kDesktopCaptureApiNoTabIdError));
     }
 
+    content::WebContents* web_contents = nullptr;
     if (!ExtensionTabUtil::GetTabById(
             *(params->target_tab->id),
             Profile::FromBrowserContext(browser_context()), true,
             &web_contents)) {
       return RespondNow(Error(kDesktopCaptureApiInvalidTabIdError));
     }
-    DCHECK(web_contents);
+    // The |target_render_frame_host| is the main frame of the tab that
+    // was requested for capture.
+    target_render_frame_host = web_contents->GetMainFrame();
   } else {
     target_name = base::UTF8ToUTF16(GetExtensionTargetName());
-    web_contents = GetSenderWebContents();
+    target_render_frame_host = render_frame_host();
     // NWJS fix for nwjs/nw.js#4579
     // NWJS app allows running on origins other than `chrome-extension://*/*`.
     // The origin should then be from the senders URL, in order not to fail
     // the origin checking in `DesktopStreamsRegistry::RequestMediaForStreamId`.
-    origin = extension()->is_nwjs_app() ? web_contents->GetURL().DeprecatedGetOriginAsURL() : extension()->url();
-    DCHECK(web_contents);
+    origin = extension()->is_nwjs_app() ? target_render_frame_host->GetLastCommittedURL().
+      DeprecatedGetOriginAsURL() : extension()->url();
   }
+  DCHECK(target_render_frame_host);
 
-  return Execute(params->sources, web_contents, origin, target_name);
+  return Execute(params->sources, target_render_frame_host, origin,
+                 target_name);
 }
 
 std::string DesktopCaptureChooseDesktopMediaFunction::GetExtensionTargetName()

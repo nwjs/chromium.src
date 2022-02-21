@@ -4,6 +4,7 @@
 
 #include "content/browser/renderer_host/navigation_request_info.h"
 
+#include "content/public/browser/weak_document_ptr.h"
 #include "third_party/blink/public/mojom/navigation/navigation_params.mojom.h"
 
 namespace content {
@@ -28,6 +29,7 @@ NavigationRequestInfo::NavigationRequestInfo(
     const absl::optional<std::vector<net::SourceStream::SourceType>>&
         devtools_accepted_stream_types,
     bool is_pdf,
+    WeakDocumentPtr initiator_document,
     bool nw_trusted)
     : common_params(std::move(common_params)),
       begin_params(std::move(begin_params)),
@@ -46,6 +48,7 @@ NavigationRequestInfo::NavigationRequestInfo(
       client_security_state(std::move(client_security_state)),
       devtools_accepted_stream_types(devtools_accepted_stream_types),
       is_pdf(is_pdf),
+      initiator_document(std::move(initiator_document)),
       nw_trusted(nw_trusted) {}
 
 NavigationRequestInfo::~NavigationRequestInfo() {}

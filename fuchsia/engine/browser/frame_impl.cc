@@ -326,8 +326,10 @@ FrameImpl::FrameImpl(std::unique_ptr<content::WebContents> web_contents,
 
   // TODO(http://crbug.com/1254073): Deprecate autoplay_policy in
   // CreateFrameParams.
-  if (params.has_autoplay_policy())
-    content_area_settings_.set_autoplay_policy(params.autoplay_policy());
+  if (params_for_popups_.has_autoplay_policy()) {
+    content_area_settings_.set_autoplay_policy(
+        params_for_popups_.autoplay_policy());
+  }
 }
 
 FrameImpl::~FrameImpl() {
@@ -833,7 +835,7 @@ void FrameImpl::PostMessage(std::string origin,
 
 void FrameImpl::SetNavigationEventListener(
     fidl::InterfaceHandle<fuchsia::web::NavigationEventListener> listener) {
-  SetNavigationEventListener2(std::move(listener), {});
+  SetNavigationEventListener2(std::move(listener), /*flags=*/{});
 }
 
 void FrameImpl::SetNavigationEventListener2(
@@ -1166,6 +1168,14 @@ bool FrameImpl::DidAddMessageToConsole(
     const std::u16string& message,
     int32_t line_no,
     const std::u16string& source_id) {
+  // Prevent logging when log_level_ is 0. See crbug.com/1292187.
+  // TODO(crbug.com/1292208): Convert to DCHECK when FUCHSIA_LOG_NONE
+  // is defined to be greater than other log levels.
+  if (log_level_ == 0) {
+    // Prevent the default logging mechanism from logging the message.
+    return true;
+  }
+
   FuchsiaLogSeverity severity =
       BlinkConsoleMessageLevelToFxLogSeverity(log_level);
   if (severity < log_level_) {
@@ -1272,9 +1282,6 @@ bool FrameImpl::CanOverscrollContent() {
 
 void FrameImpl::ReadyToCommitNavigation(
     content::NavigationHandle* navigation_handle) {
-  // TODO(https://crbug.com/1218946): With MPArch there may be multiple main
-  // frames. This caller was converted automatically to the primary main frame
-  // to preserve its semantics. Follow up to confirm correctness.
   if (!navigation_handle->IsInPrimaryMainFrame() ||
       navigation_handle->IsSameDocument() || navigation_handle->IsErrorPage()) {
     return;

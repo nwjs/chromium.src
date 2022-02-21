@@ -12,6 +12,7 @@
 #include "base/auto_reset.h"
 #include "base/bind.h"
 #include "base/callback.h"
+#include "base/containers/adapters.h"
 #include "base/containers/contains.h"
 #include "base/cxx17_backports.h"
 #include "base/i18n/rtl.h"
@@ -69,6 +70,10 @@
 #include "ui/wm/core/window_modality_controller.h"  // nogncheck
 #endif
 
+#if defined(USE_OZONE)
+#include "ui/ozone/public/ozone_platform.h"
+#endif
+
 using content::OpenURLParams;
 using content::WebContents;
 
@@ -82,6 +87,22 @@ namespace {
 // creation and makes it easier to drag tabs out of a restored window that had
 // maximized size.
 constexpr int kMaximizedWindowInset = 10;  // DIPs.
+
+// Some platforms, such as Lacros and Desktop Linux with Wayland, disallow
+// client applications to manipulate absolute screen positions, by design.
+// Preventing, for example, clients from programmatically positioning toplevel
+// windows using absolute coordinates. By default, this class assumes that the
+// underlying platform supports it, unless indicated by the Ozone platform
+// properties.
+bool PlatformProvidesAbsoluteWindowPositions() {
+#if defined(USE_OZONE)
+  return ui::OzonePlatform::GetInstance()
+      ->GetPlatformProperties()
+      .supports_global_screen_coordinates;
+#else
+  return true;
+#endif
+}
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 
@@ -447,7 +468,7 @@ void TabDragController::Init(TabDragContext* source_context,
   //     synchronous on desktop Linux, so use that.
   // - Chrome OS
   //     Releasing capture on Ash cancels gestures so avoid it.
-#if defined(OS_LINUX) || defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
   can_release_capture_ = false;
 #endif
   start_point_in_screen_ = gfx::Point(source_view_offset, mouse_offset.y());
@@ -895,7 +916,7 @@ TabDragController::DragBrowserToNewTabStrip(TabDragContext* target_context,
 
 // TODO(crbug.com/1052397): Revisit the macro expression once build flag switch
 // of lacros-chrome is complete.
-#if !(defined(OS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS))
+#if !(BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS))
     // EndMoveLoop is going to snap the window back to its original location.
     // Hide it so users don't see this. Hiding a window in Linux aura causes
     // it to lose capture so skip it.
@@ -1638,10 +1659,9 @@ void TabDragController::RestoreInitialSelection() {
   // the tabs from initial_selection_model_ as it was created with the tabs
   // still there.
   ui::ListSelectionModel selection_model = initial_selection_model_;
-  for (DragData::const_reverse_iterator i(drag_data_.rbegin());
-       i != drag_data_.rend(); ++i) {
-    if (i->source_model_index != TabStripModel::kNoTab)
-      selection_model.DecrementFrom(i->source_model_index);
+  for (const TabDragData& data : base::Reversed(drag_data_)) {
+    if (data.source_model_index != TabStripModel::kNoTab)
+      selection_model.DecrementFrom(data.source_model_index);
   }
   // We may have cleared out the selection model. Only reset it if it
   // contains something.
@@ -1794,7 +1814,7 @@ void TabDragController::CompleteDrag() {
 
 void TabDragController::MaximizeAttachedWindow() {
   GetAttachedBrowserWidget()->Maximize();
-#if defined(OS_MAC)
+#if BUILDFLAG(IS_MAC)
   if (was_source_fullscreen_)
     GetAttachedBrowserWidget()->SetFullscreen(true);
 #endif
@@ -1846,15 +1866,14 @@ void TabDragController::BringWindowUnderPointToFront(
     // Find a topmost non-popup window and stack the recipient browser above
     // it in order to avoid stacking the browser window on top of the phantom
     // drag widget created by DragWindowController in a second display.
-    for (aura::Window::Windows::const_reverse_iterator it =
-             browser_window->parent()->children().rbegin();
-         it != browser_window->parent()->children().rend(); ++it) {
+    for (aura::Window* window :
+         base::Reversed(browser_window->parent()->children())) {
       // If the iteration reached the recipient browser window then it is
       // already topmost and it is safe to return with no stacking change.
-      if (*it == browser_window)
+      if (window == browser_window)
         return;
-      if ((*it)->GetType() != aura::client::WINDOW_TYPE_POPUP) {
-        widget_window->StackAbove(*it);
+      if (window->GetType() != aura::client::WINDOW_TYPE_POPUP) {
+        widget_window->StackAbove(window);
         break;
       }
     }
@@ -1901,8 +1920,12 @@ gfx::Rect TabDragController::CalculateDraggedBrowserBounds(
                      kMaximizedWindowInset, kMaximizedWindowInset);
     // Behave as if the |source| was maximized at the start of a drag since this
     // is consistent with a browser window creation logic in case of windows
-    // that are as large as the |work_area|.
-    was_source_maximized_ = true;
+    // that are as large as the |work_area|. Note: Some platforms do not support
+    // global screen coordinates tracking, eg: Linux/Wayland, in such cases,
+    // avoid this heuristic to determine whether the new browser window should
+    // be maximized or not when completing the drag session.
+    if (PlatformProvidesAbsoluteWindowPositions())
+      was_source_maximized_ = true;
   }
 
   if (source->AsView()->GetWidget()->IsMaximized()) {
@@ -2105,7 +2128,7 @@ TabDragController::Liveness TabDragController::GetLocalProcessWindow(
   }
 // TODO(crbug.com/1052397): Revisit the macro expression once build flag switch
 // of lacros-chrome is complete.
-#if defined(OS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS)
   // Exclude windows which are pending deletion via Browser::TabStripEmpty().
   // These windows can be returned in the Linux Aura port because the browser
   // window which was used for dragging is not hidden once all of its tabs are

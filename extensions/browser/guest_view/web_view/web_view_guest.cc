@@ -148,7 +148,7 @@ static std::string TerminationStatusToString(base::TerminationStatus status) {
     case base::TERMINATION_STATUS_ABNORMAL_TERMINATION:
     case base::TERMINATION_STATUS_STILL_RUNNING:
       return "abnormal";
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS)
     case base::TERMINATION_STATUS_PROCESS_WAS_KILLED_BY_OOM:
       return "oom killed";
 #endif
@@ -160,7 +160,7 @@ static std::string TerminationStatusToString(base::TerminationStatus status) {
       return "crashed";
     case base::TERMINATION_STATUS_LAUNCH_FAILED:
       return "failed to launch";
-#if defined(OS_WIN)
+#if BUILDFLAG(IS_WIN)
     case base::TERMINATION_STATUS_INTEGRITY_FAILURE:
       return "integrity failure";
 #endif
@@ -841,14 +841,14 @@ void WebViewGuest::DidFinishNavigation(
 
 void WebViewGuest::LoadProgressChanged(double progress) {
   auto args = std::make_unique<base::DictionaryValue>();
-  args->SetString(guest_view::kUrl, web_contents()->GetURL().spec());
+  args->SetString(guest_view::kUrl,
+                  web_contents()->GetLastCommittedURL().spec());
   args->SetDoubleKey(webview::kProgress, progress);
   DispatchEventToView(std::make_unique<GuestViewEvent>(
       webview::kEventLoadProgress, std::move(args)));
 }
 
-void WebViewGuest::DocumentOnLoadCompletedInMainFrame(
-    content::RenderFrameHost* render_frame_host) {
+void WebViewGuest::DocumentOnLoadCompletedInPrimaryMainFrame() {
   auto args = std::make_unique<base::DictionaryValue>();
   DispatchEventToView(std::make_unique<GuestViewEvent>(
       webview::kEventContentLoad, std::move(args)));
@@ -920,7 +920,10 @@ void WebViewGuest::UserAgentOverrideSet(
 
 void WebViewGuest::FrameNameChanged(RenderFrameHost* render_frame_host,
                                     const std::string& name) {
-  if (render_frame_host->GetParent())
+  // WebViewGuest does not support back/forward cache or prerendering so
+  // |render_frame_host| should always be active.
+  DCHECK(render_frame_host->IsActive());
+  if (render_frame_host->GetParentOrOuterDocument())
     return;
 
   if (name_ == name)
@@ -1079,7 +1082,7 @@ bool WebViewGuest::HandleKeyboardShortcuts(
         blink::mojom::PointerLockResult::kUserRejected);
   }
 
-#if defined(OS_MAC)
+#if BUILDFLAG(IS_MAC)
   if (event.GetModifiers() != blink::WebInputEvent::kMetaKey)
     return false;
 
@@ -1267,8 +1270,7 @@ bool WebViewGuest::LoadDataWithBaseURL(const GURL& data_url,
       owner_web_contents()->GetMainFrame()->GetLastCommittedOrigin();
   bool owner_is_nwjs =
     content::GetContentClient()->browser()->IsNWOrigin(owner_origin, browser_context());
-  const bool base_in_owner_origin =
-      owner_origin.IsSameOriginWith(url::Origin::Create(base_url));
+  const bool base_in_owner_origin = owner_origin.IsSameOriginWith(base_url);
   // |base_url| must be a valid URL. It is also limited to URLs that the owner
   // is trusted to have control over.
   if (!base_url.is_valid() ||

@@ -89,7 +89,7 @@ DesktopMediaID DesktopStreamsRegistryImpl::RequestMediaForStreamId(
   // the same origin and the same renderer.
   if (it == approved_streams_.end() ||
       render_process_id != it->second.render_process_id ||
-      render_frame_id != it->second.render_frame_id ||
+      (!nodejs && render_frame_id != it->second.render_frame_id) ||
       (!nodejs && origin != it->second.origin) || type != it->second.type) {
     return DesktopMediaID();
   }

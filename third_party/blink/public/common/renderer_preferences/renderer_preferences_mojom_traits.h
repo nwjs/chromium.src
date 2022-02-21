@@ -181,7 +181,7 @@ struct BLINK_COMMON_EXPORT
     return data.nw_inject_js_doc_end;
   }
 
-#if defined(OS_WIN)
+#if BUILDFLAG(IS_WIN)
   static const std::u16string& caption_font_family_name(
       const ::blink::RendererPreferences& data) {
     return data.caption_font_family_name;

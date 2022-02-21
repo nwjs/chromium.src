@@ -9,7 +9,7 @@
 
 // On Windows don't use FilePath and logging.h.
 // http://crbug.com/604923
-#if !defined(OS_WIN)
+#if !BUILDFLAG(IS_WIN)
 #include "base/check.h"
 #include "base/files/file_path.h"
 #else
@@ -41,7 +41,7 @@ CrashReporterClient* GetCrashReporterClient() {
 CrashReporterClient::CrashReporterClient() {}
 CrashReporterClient::~CrashReporterClient() {}
 
-#if !defined(OS_APPLE) && !defined(OS_WIN) && !defined(OS_ANDROID)
+#if !BUILDFLAG(IS_APPLE) && !BUILDFLAG(IS_WIN) && !BUILDFLAG(IS_ANDROID)
 void CrashReporterClient::SetCrashReporterClientIdFromGUID(
     const std::string& client_guid) {}
 #endif
@@ -50,7 +50,7 @@ void CrashReporterClient::SetUploadDump(bool upload) {
   enable_upload_ = upload;
 }
 
-#if defined(OS_WIN)
+#if BUILDFLAG(IS_WIN)
 bool CrashReporterClient::ShouldCreatePipeName(
     const std::wstring& process_type) {
   return process_type == L"browser";
@@ -82,16 +82,18 @@ bool CrashReporterClient::GetIsPerUserInstall() {
   return true;
 }
 
-bool CrashReporterClient::GetShouldDumpLargerDumps() {
-  return false;
-}
-
 int CrashReporterClient::GetResultCodeRespawnFailed() {
   return 0;
 }
 #endif
 
-#if defined(OS_POSIX)
+#if BUILDFLAG(IS_WIN) || (BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_MAC))
+bool CrashReporterClient::GetShouldDumpLargerDumps() {
+  return false;
+}
+#endif
+
+#if BUILDFLAG(IS_POSIX)
 void CrashReporterClient::GetProductNameAndVersion(const char** product_name,
                                                    const char** version) {
 }
@@ -110,7 +112,7 @@ bool CrashReporterClient::HandleCrashDump(const char* crashdump_filename,
 }
 #endif
 
-#if defined(OS_WIN)
+#if BUILDFLAG(IS_WIN)
 bool CrashReporterClient::GetCrashDumpLocation(std::wstring* crash_dir) {
 #else
 bool CrashReporterClient::GetCrashDumpLocation(base::FilePath* crash_dir) {
@@ -118,7 +120,7 @@ bool CrashReporterClient::GetCrashDumpLocation(base::FilePath* crash_dir) {
   return false;
 }
 
-#if defined(OS_WIN)
+#if BUILDFLAG(IS_WIN)
 bool CrashReporterClient::GetCrashMetricsLocation(std::wstring* crash_dir) {
 #else
 bool CrashReporterClient::GetCrashMetricsLocation(base::FilePath* crash_dir) {
@@ -143,7 +145,7 @@ bool CrashReporterClient::ReportingIsEnforcedByPolicy(bool* breakpad_enabled) {
   return false;
 }
 
-#if defined(OS_ANDROID)
+#if BUILDFLAG(IS_ANDROID)
 unsigned int CrashReporterClient::GetCrashDumpPercentage() {
   return 100;
 }
@@ -180,7 +182,7 @@ bool CrashReporterClient::ShouldWriteMinidumpToLog() {
 
 #endif
 
-#if defined(OS_ANDROID) || defined(OS_LINUX) || defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 void CrashReporterClient::GetSanitizationInformation(
     const char* const** allowed_annotations,
     void** target_module,

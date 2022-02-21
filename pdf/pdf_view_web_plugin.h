@@ -319,6 +319,7 @@ class PdfViewWebPlugin final : public PdfViewPluginBase,
                               int right_height) override;
   void NotifyUnsupportedFeature() override;
   void UserMetricsRecordAction(const std::string& action) override;
+  gfx::Vector2d plugin_offset_in_frame() const override;
 
  private:
   // Call `Destroy()` instead.
@@ -326,6 +327,9 @@ class PdfViewWebPlugin final : public PdfViewPluginBase,
 
   bool InitializeCommon(std::unique_ptr<ContainerWrapper> container_wrapper,
                         std::unique_ptr<PDFiumEngine> engine);
+
+  // Sends whether to do smooth scrolling.
+  void SendSetSmoothScrolling();
 
   // Recalculates values that depend on scale factors.
   void UpdateScaledValues();

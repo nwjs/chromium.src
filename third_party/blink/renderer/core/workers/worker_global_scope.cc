@@ -27,6 +27,8 @@
 
 #include "third_party/blink/renderer/core/workers/worker_global_scope.h"
 
+#include "base/ignore_result.h"
+
 #include "base/memory/scoped_refptr.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "services/metrics/public/cpp/mojo_ukm_recorder.h"
@@ -94,7 +96,7 @@ void RemoveURLFromMemoryCacheInternal(const KURL& url) {
 
 scoped_refptr<SecurityOrigin> CreateSecurityOrigin(
     GlobalScopeCreationParams* creation_params,
-    ExecutionContext* execution_context) {
+    bool is_service_worker_global_scope) {
   // A worker environment settings object's origin must be set as follows:
   //
   // - DedicatedWorkers and SharedWorkers
@@ -119,7 +121,7 @@ scoped_refptr<SecurityOrigin> CreateSecurityOrigin(
   // https://w3c.github.io/ServiceWorker/#start-register
   // Step 3: If scriptURL’s scheme is not one of "http" and "https", reject
   // promise with a TypeError and abort these steps. [spec text]
-  DCHECK(!execution_context->IsServiceWorkerGlobalScope() ||
+  DCHECK(!is_service_worker_global_scope ||
          !KURL(creation_params->script_url).ProtocolIsData());
 
   // TODO(https://crbug.com/1058305) Inherit |agent_cluster_id_| for dedicated
@@ -558,10 +560,13 @@ void WorkerGlobalScope::ReceiveMessage(BlinkTransferableMessage message) {
 WorkerGlobalScope::WorkerGlobalScope(
     std::unique_ptr<GlobalScopeCreationParams> creation_params,
     WorkerThread* thread,
-    base::TimeTicks time_origin)
+    base::TimeTicks time_origin,
+    bool is_service_worker_global_scope)
     : WorkerOrWorkletGlobalScope(
           thread->GetIsolate(),
-          CreateSecurityOrigin(creation_params.get(), GetExecutionContext()),
+          CreateSecurityOrigin(creation_params.get(),
+                               is_service_worker_global_scope),
+          creation_params->starter_secure_context,
           MakeGarbageCollected<Agent>(
               thread->GetIsolate(),
               (creation_params->agent_cluster_id.is_empty()

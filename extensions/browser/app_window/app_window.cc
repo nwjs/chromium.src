@@ -66,7 +66,7 @@
 #include "ui/display/screen.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 
-#if !defined(OS_MAC)
+#if !BUILDFLAG(IS_MAC)
 #include "components/prefs/pref_service.h"
 #include "extensions/browser/pref_names.h"
 #endif
@@ -574,11 +574,11 @@ void AppWindow::ExitPictureInPicture() {
 }
 
 bool AppWindow::ShouldShowStaleContentOnEviction(content::WebContents* source) {
-#if defined(OS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS)
   return true;
 #else
   return false;
-#endif  // defined(OS_CHROMEOS)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 }
 
 bool AppWindow::OnMessageReceived(const IPC::Message& message,
@@ -661,7 +661,7 @@ void AppWindow::OnNativeWindowChanged() {
   if (!native_app_window_)
     return;
 
-#if defined(OS_MAC)
+#if BUILDFLAG(IS_MAC)
   // On Mac the user can change the window's fullscreen state. If that has
   // happened, update AppWindow's internal state.
   if (native_app_window_->IsFullscreen()) {
@@ -676,7 +676,7 @@ void AppWindow::OnNativeWindowChanged() {
 
   SaveWindowPosition();
 
-#if defined(OS_WIN)
+#if BUILDFLAG(IS_WIN)
   if (content::g_support_transparency && requested_alpha_enabled_) {
     content::RenderFrameHost* rfh = web_contents()->GetMainFrame();
     content::RenderWidgetHostView* view = rfh->GetRenderViewHost()->GetWidget()->GetView();
@@ -780,7 +780,7 @@ void AppWindow::SetFullscreen(FullscreenType type, bool enable) {
   DCHECK_NE(FULLSCREEN_TYPE_NONE, type);
 
   if (enable) {
-#if !defined(OS_MAC)
+#if !BUILDFLAG(IS_MAC)
     // Do not enter fullscreen mode if disallowed by pref.
     // TODO(bartfab): Add a test once it becomes possible to simulate a user
     // gesture. http://crbug.com/174178
@@ -1009,7 +1009,7 @@ void AppWindow::SetNativeWindowFullscreen() {
 }
 
 bool AppWindow::IntersectsWithTaskbar() const {
-#if defined(OS_WIN)
+#if BUILDFLAG(IS_WIN)
   display::Screen* screen = display::Screen::GetScreen();
   gfx::Rect window_bounds = native_app_window_->GetRestoredBounds();
   std::vector<display::Display> displays = screen->GetAllDisplays();

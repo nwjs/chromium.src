@@ -17,6 +17,9 @@ namespace features {
 const base::Feature kOnDeviceClustering{"HistoryClustersOnDeviceClustering",
                                         base::FEATURE_ENABLED_BY_DEFAULT};
 
+const base::Feature kUseEngagementScoreCache{"JourneysUseEngagementScoreCache",
+                                             base::FEATURE_ENABLED_BY_DEFAULT};
+
 base::TimeDelta ClusterNavigationTimeCutoff() {
   return base::Minutes(GetFieldTrialParamByFeatureAsInt(
       kOnDeviceClustering, "navigation_time_cutoff_minutes", 60));
@@ -111,6 +114,12 @@ float BookmarkRankingWeight() {
 float SearchResultsPageRankingWeight() {
   float weight = GetFieldTrialParamByFeatureAsDouble(
       kOnDeviceClustering, "search_results_page_ranking_weight", 2.0);
+  return std::max(0.f, weight);
+}
+
+float HasPageTitleRankingWeight() {
+  float weight = GetFieldTrialParamByFeatureAsDouble(
+      kOnDeviceClustering, "has_page_title_ranking_weight", 2.0);
   return std::max(0.f, weight);
 }
 

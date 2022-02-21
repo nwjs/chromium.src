@@ -337,6 +337,14 @@ Dispatcher::Dispatcher(std::unique_ptr<DispatcherDelegate> delegate)
   // rules for the fetch API are consistent with XHR.
   WebSecurityPolicy::RegisterURLSchemeAsSupportingFetchAPI(extension_scheme);
 
+  // Register WebSecurityPolicy allowlists for the file:// scheme.
+  WebString file_scheme(WebString::FromASCII(url::kFileScheme));
+
+  // Extensions are allowed to make cross-origin requests to file scheme iff the
+  // user explicitly grants them access post-installation in the
+  // chrome://extensions page.
+  WebSecurityPolicy::RegisterURLSchemeAsSupportingFetchAPI(file_scheme);
+
   // Extension resources, when loaded as the top-level document, should bypass
   // Blink's strict first-party origin checks.
   WebSecurityPolicy::RegisterURLSchemeAsFirstPartyWhenTopLevel(
@@ -1193,22 +1201,23 @@ void Dispatcher::LoadExtensions(
       }
     }
     if (extension->GetType() == Manifest::TYPE_NWJS_APP) {
-      std::string user_agent;
-      if (extension->manifest()->GetString("user-agent", &user_agent)) {
-        std::string name, version;
-        extension->manifest()->GetString("name", &name);
-        extension->manifest()->GetString("version", &version);
-        nw::SetUserAgentOverride(user_agent, name, version);
+      const std::string* user_agent;
+      if ((user_agent = extension->manifest()->FindStringPath("user-agent"))) {
+        const std::string* name, *version;
+        name = extension->manifest()->FindStringPath("name");
+        version = extension->manifest()->FindStringPath("version");
+        if (name && version)
+          nw::SetUserAgentOverride(*user_agent, *name, *version);
+      }
 
-      }
-      int dom_storage_quota_mb;
-      if (extension->manifest()->GetInteger("dom_storage_quota", &dom_storage_quota_mb)) {
+      const base::Value* quota_value = extension->manifest()->available_values().FindKey("dom_storage_quota");
+      if (quota_value && quota_value->is_int()) {
         //content::DOMStorageMap::SetQuotaOverride(dom_storage_quota_mb * 1024 * 1024);
-        g_nw_dom_storage_quota = dom_storage_quota_mb * 1024 * 1024;
+        g_nw_dom_storage_quota = quota_value->GetInt() * 1024 * 1024;
       }
-      std::string temp_path;
-      if (extension->manifest()->GetString("nw-temp-dir", &temp_path)) {
-        content::g_nw_temp_dir = base::FilePath::FromUTF8Unsafe(temp_path);
+      const std::string* temp_path;
+      if ((temp_path = extension->manifest()->FindStringPath("nw-temp-dir"))) {
+        content::g_nw_temp_dir = base::FilePath::FromUTF8Unsafe(*temp_path);
       }
       VLOG(1) << "NW: change working dir: " << extension->path().AsUTF8Unsafe();
       base::GetCurrentDirectory(&content::g_nw_old_cwd);

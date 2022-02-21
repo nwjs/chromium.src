@@ -43,7 +43,7 @@
 #include "content/public/browser/notification_service.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 
-#if !defined(OS_ANDROID)
+#if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/lifetime/termination_notification.h"
 #include "chrome/browser/sessions/exit_type_service.h"
 #include "chrome/browser/ui/browser.h"
@@ -66,11 +66,11 @@
 #include "chromeos/lacros/lacros_service.h"
 #endif
 
-#if !defined(OS_ANDROID) && !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS_ASH)
 #include "chrome/browser/ui/profile_picker.h"
 #endif
 
-#if defined(OS_WIN)
+#if BUILDFLAG(IS_WIN)
 #include "base/win/win_util.h"
 #endif
 
@@ -83,7 +83,7 @@ namespace chrome {
 
 namespace {
 
-#if !defined(OS_ANDROID)
+#if !BUILDFLAG(IS_ANDROID)
 // Returns true if all browsers can be closed without user interaction.
 // This currently checks if there is pending download, or if it needs to
 // handle unload handler.
@@ -109,7 +109,7 @@ base::RepeatingCallbackList<void(bool)>& GetClosingAllBrowsersCallbackList() {
       callback_list;
   return *callback_list;
 }
-#endif  // !defined(OS_ANDROID)
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 // Sets kApplicationLocale in |local_state| for the login screen on the next
@@ -148,7 +148,7 @@ bool SetLocaleForNextStart(PrefService* local_state) {
 bool g_send_stop_request_to_session_manager = false;
 #endif
 
-#if !defined(OS_ANDROID)
+#if !BUILDFLAG(IS_ANDROID)
 using IgnoreUnloadHandlers =
     base::StrongAlias<class IgnoreUnloadHandlersTag, bool>;
 
@@ -203,11 +203,11 @@ void AttemptRestartInternal(IgnoreUnloadHandlers ignore_unload_handlers) {
     AttemptExit();
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 }
-#endif  // !defined(OS_ANDROID)
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 }  // namespace
 
-#if !defined(OS_ANDROID)
+#if !BUILDFLAG(IS_ANDROID)
 void MarkAsCleanShutdown() {
   for (auto* browser : *BrowserList::GetInstance()) {
     if (ExitTypeService* exit_type_service =
@@ -220,19 +220,19 @@ void MarkAsCleanShutdown() {
 
 void AttemptExitInternal(bool try_to_quit_application) {
   // On Mac, the platform-specific part handles setting this.
-#if !defined(OS_MAC)
+#if !BUILDFLAG(IS_MAC)
   if (try_to_quit_application)
     browser_shutdown::SetTryingToQuit(true);
 #endif
 
-#if !defined(OS_ANDROID)
+#if !BUILDFLAG(IS_ANDROID)
   OnClosingAllBrowsers(true);
 #endif
 
   g_browser_process->platform_part()->AttemptExit(try_to_quit_application);
 }
 
-#if !defined(OS_ANDROID)
+#if !BUILDFLAG(IS_ANDROID)
 void CloseAllBrowsersAndQuit(bool force, bool user_force) {
   browser_shutdown::SetTryingToQuit(true);
   CloseAllBrowsers(force, user_force);
@@ -278,7 +278,7 @@ void CloseAllBrowsers(bool force, bool user_force) {
       new BrowserCloseManager(force, user_force);
   browser_close_manager->StartClosingBrowsers();
 }
-#endif  // !defined(OS_ANDROID)
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 void AttemptUserExit() {
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -301,7 +301,7 @@ void AttemptUserExit() {
 #else
   // Reset the restart bit that might have been set in cancelled restart
   // request.
-#if !defined(OS_ANDROID)
+#if !BUILDFLAG(IS_ANDROID)
   ProfilePicker::Hide();
 #endif
   PrefService* pref_service = g_browser_process->local_state();
@@ -311,11 +311,11 @@ void AttemptUserExit() {
 }
 
 // The Android implementation is in application_lifetime_android.cc
-#if !defined(OS_ANDROID)
+#if !BUILDFLAG(IS_ANDROID)
 void AttemptRestart() {
   AttemptRestartInternal(IgnoreUnloadHandlers(false));
 }
-#endif  // !defined(OS_ANDROID)
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 void AttemptRelaunch() {
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -326,7 +326,7 @@ void AttemptRelaunch() {
   AttemptRestart();
 }
 
-#if !defined(OS_ANDROID)
+#if !BUILDFLAG(IS_ANDROID)
 void RelaunchIgnoreUnloadHandlers() {
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   chromeos::PowerManagerClient::Get()->RequestRestart(
@@ -346,7 +346,7 @@ void AttemptExit() {
   // don't notify users of crashes beyond this point.
   // Note that MarkAsCleanShutdown() does not set UMA's exit cleanly bit
   // so crashes during shutdown are still reported in UMA.
-#if !defined(OS_ANDROID)
+#if !BUILDFLAG(IS_ANDROID)
   // Android doesn't use Browser.
   if (AreAllBrowsersCloseable())
     MarkAsCleanShutdown();
@@ -357,7 +357,7 @@ void AttemptExit() {
 
 void ExitIgnoreUnloadHandlers() {
   VLOG(1) << "ExitIgnoreUnloadHandlers";
-#if !defined(OS_ANDROID)
+#if !BUILDFLAG(IS_ANDROID)
   // We always mark exit cleanly.
   MarkAsCleanShutdown();
 
@@ -381,7 +381,7 @@ void ExitIgnoreUnloadHandlers() {
   browser_shutdown::OnShutdownStarting(
       browser_shutdown::ShutdownType::kSilentExit);
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
-#endif  // !defined(OS_ANDROID)
+#endif  // !BUILDFLAG(IS_ANDROID)
   AttemptExitInternal(true);
 }
 
@@ -391,7 +391,7 @@ bool IsAttemptingShutdown() {
 }
 #endif
 
-#if !defined(OS_ANDROID)
+#if !BUILDFLAG(IS_ANDROID)
 void SessionEnding() {
   // This is a time-limited shutdown where we need to write as much to
   // disk as we can as soon as we can, and where we must kill the
@@ -445,7 +445,7 @@ void SessionEnding() {
   // Write important data first.
   g_browser_process->EndSession();
 
-#if defined(OS_WIN)
+#if BUILDFLAG(IS_WIN)
   base::win::SetShouldCrashOnProcessDetach(false);
 #endif
 
@@ -480,6 +480,6 @@ base::CallbackListSubscription AddClosingAllBrowsersCallback(
   return GetClosingAllBrowsersCallbackList().Add(
       std::move(closing_all_browsers_callback));
 }
-#endif  // !defined(OS_ANDROID)
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 }  // namespace chrome

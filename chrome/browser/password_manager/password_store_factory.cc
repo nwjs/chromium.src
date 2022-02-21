@@ -28,7 +28,6 @@
 #include "components/password_manager/core/browser/password_store_backend.h"
 #include "components/password_manager/core/browser/password_store_factory_util.h"
 #include "components/password_manager/core/common/password_manager_features.h"
-#include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/sync/base/user_selectable_type.h"
 #include "components/sync/driver/sync_service.h"
 #include "components/sync/driver/sync_user_settings.h"
@@ -85,14 +84,14 @@ PasswordStoreFactory::~PasswordStoreFactory() = default;
 scoped_refptr<RefcountedKeyedService>
 PasswordStoreFactory::BuildServiceInstanceFor(
     content::BrowserContext* context) const {
-  Profile* profile = static_cast<Profile*>(context);
+  Profile* profile = Profile::FromBrowserContext(context);
 
   std::unique_ptr<password_manager::LoginDatabase> login_db(
       password_manager::CreateLoginDatabaseForProfileStorage(
           profile->GetPath()));
 
   scoped_refptr<PasswordStore> ps;
-#if defined(OS_WIN) || defined(OS_ANDROID) || defined(OS_MAC) || \
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_MAC) || \
     defined(USE_OZONE)
   // Since SyncService has dependency on PasswordStore keyed service, there
   // are no guarantees that during the construction of the password store
@@ -137,7 +136,9 @@ PasswordStoreFactory::BuildServiceInstanceFor(
       CredentialsCleanerRunnerFactory::GetForProfile(profile), ps,
       profile->GetPrefs(), base::Seconds(60), network_context_getter);
 
-  DelayReportingPasswordStoreMetrics(profile);
+  if (profile->IsRegularProfile())
+    DelayReportingPasswordStoreMetrics(profile);
+
   return ps;
 }
 
