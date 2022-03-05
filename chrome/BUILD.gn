@@ -517,6 +517,7 @@ if (is_win || (is_linux && !is_component_build)) {
       ":chrome_resources",
       ":chrome_versioned_bundle_data",
       "//base/allocator:early_zone_registration_mac",
+      "//build:branding_buildflags",
       "//chrome/common:buildflags",
       "//chrome/common:version_header",
     ]
@@ -742,6 +743,7 @@ if (is_win || (is_linux && !is_component_build)) {
 
       deps = [
         "//base/allocator:early_zone_registration_mac",
+        "//build:branding_buildflags",
         "//chrome/common:version_header",
         "//sandbox/mac:seatbelt",
       ]
@@ -879,6 +881,11 @@ if (is_win || (is_linux && !is_component_build)) {
       "$root_out_dir/app_mode_loader",
       "$root_out_dir/chrome_crashpad_handler",
     ]
+
+    if (is_chrome_branded) {
+      sources +=
+          [ "installer/mac/internal/developer_id_certificate_reauthorize" ]
+    }
 
     outputs = [ "{{bundle_contents_dir}}/Helpers/{{source_file_part}}" ]
 

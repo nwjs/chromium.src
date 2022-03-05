@@ -160,6 +160,11 @@ namespace cc {
 class CompletionEvent;
 class TileTaskManagerImpl;
 }
+namespace chrome {
+#if BUILDFLAG(IS_MAC)
+void DeveloperIDCertificateReauthorizeInApp();
+#endif  // BUILDFLAG(IS_MAC)
+}  // namespace chrome
 namespace chromecast {
 class CrashUtil;
 }
@@ -497,6 +502,9 @@ class BASE_EXPORT ScopedAllowBlocking {
 
   friend Profile* ::GetLastProfileMac();  // crbug.com/1176734
   friend bool PathProviderWin(int, FilePath*);
+#if BUILDFLAG(IS_MAC)
+  friend void chrome::DeveloperIDCertificateReauthorizeInApp();
+#endif  // BUILDFLAG(IS_MAC)
   friend bool chromeos::system::IsCoreSchedulingAvailable();
   friend int chromeos::system::NumberOfPhysicalCores();
   friend bool ::HasWaylandDisplay(base::Environment* env);  // crbug.com/1246928

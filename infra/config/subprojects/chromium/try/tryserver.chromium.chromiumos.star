@@ -4,6 +4,7 @@
 """Definitions of builders in the tryserver.chromium.chromiumos builder group."""
 
 load("//lib/branches.star", "branches")
+load("//lib/builder_config.star", "builder_config")
 load("//lib/builders.star", "goma", "os")
 load("//lib/try.star", "try_")
 load("//lib/consoles.star", "consoles")
@@ -47,6 +48,7 @@ try_.orchestrator_builder(
     name = "chromeos-amd64-generic-rel",
     compilator = "chromeos-amd64-generic-rel-compilator",
     branch_selector = branches.CROS_LTS_MILESTONE,
+    mirrors = ["ci/chromeos-amd64-generic-rel"],
     main_list_view = "try",
     tryjob = try_.job(),
 )
@@ -188,6 +190,9 @@ try_.builder(
 
 try_.builder(
     name = "linux-chromeos-dbg",
+    # The CI builder that this mirrors is enabled on branches, so this will
+    # allow testing changes that would break it before submitting
+    branch_selector = branches.STANDARD_MILESTONE,
 )
 
 try_.builder(
@@ -213,6 +218,12 @@ try_.builder(
 
 try_.builder(
     name = "chromeos-amd64-generic-rel-rts",
+    mirrors = ["ci/chromeos-amd64-generic-rel"],
+    try_settings = builder_config.try_settings(
+        rts_config = builder_config.rts_config(
+            condition = builder_config.rts_condition.ALWAYS,
+        ),
+    ),
     builderless = False,
     os = os.LINUX_XENIAL_OR_BIONIC_REMOVE,
 )
