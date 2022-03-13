@@ -203,7 +203,7 @@ bool WebviewHandler::Parse(Extension* extension, std::u16string* error) {
         return false;
       }
       URLPattern try_pattern(URLPattern::SCHEME_ALL);
-      if (try_pattern.Parse(url_list_view[i].GetString()) == URLPattern::ParseResult::kSuccess) {
+      if (try_pattern.Parse(url_list_view[url].GetString()) == URLPattern::ParseResult::kSuccess) {
         partition_item->AddPattern(try_pattern);
       } else {
 

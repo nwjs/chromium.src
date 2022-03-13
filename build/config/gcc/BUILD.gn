@@ -65,16 +65,11 @@ config("symbol_visibility_default") {
 config("rpath_for_built_shared_libraries") {
   if (!is_android && !is_chromecast && current_os != "aix") {
     # Note: Android, Aix don't support rpath.
-    if (shlib_subdir != ".") {
-      rpath_link = "${shlib_subdir}/"
-    } else {
-      rpath_link = "."
-    }
     if (current_toolchain != default_toolchain || gcc_target_rpath == "") {
-      ldflags = [
+      #ldflags = [
         # Want to pass "\$". GN will re-escape as required for ninja.
-        "-Wl,-rpath=\$ORIGIN/${rpath_link}",
-      ]
+        #"-Wl,-rpath=\$ORIGIN/${rpath_link}",
+      #]
     } else {
       ldflags = [ "-Wl,-rpath=${gcc_target_rpath}" ]
     }
@@ -96,7 +91,12 @@ if (is_component_build && !is_android) {
 # Settings for executables.
 config("executable_config") {
   configs = executable_and_shared_library_configs_
-  ldflags = [ "-pie" ]
+  if (shlib_subdir != ".") {
+      rpath_link = "${shlib_subdir}/"
+  } else {
+      rpath_link = "."
+  }
+  ldflags = [ "-pie", "-Wl,-rpath=\$ORIGIN/${rpath_link}" ]
   if (is_android) {
     ldflags += [
       "-Bdynamic",
