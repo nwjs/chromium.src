@@ -84,8 +84,8 @@ bool WillDispatchTabCreatedEvent(WebContents* contents,
   std::unique_ptr<base::DictionaryValue> tab_value =
       ExtensionTabUtil::CreateTabObject(contents, scrub_tab_behavior, extension)
           ->ToValue();
-  tab_value->SetBoolean(tabs_constants::kSelectedKey, active);
-  tab_value->SetBoolean(tabs_constants::kActiveKey, active);
+  tab_value->SetBoolKey(tabs_constants::kSelectedKey, active);
+  tab_value->SetBoolKey(tabs_constants::kActiveKey, active);
   event->event_args->Append(std::move(tab_value));
   return true;
 }
@@ -388,9 +388,9 @@ void TabsEventRouter::DispatchTabClosingAt(TabStripModel* tab_strip_model,
 
   std::unique_ptr<base::DictionaryValue> object_args(
       new base::DictionaryValue());
-  object_args->SetInteger(tabs_constants::kWindowIdKey,
-                          ExtensionTabUtil::GetWindowIdOfTab(contents));
-  object_args->SetBoolean(tabs_constants::kWindowClosing,
+  object_args->SetIntKey(tabs_constants::kWindowIdKey,
+                         ExtensionTabUtil::GetWindowIdOfTab(contents));
+  object_args->SetBoolKey(tabs_constants::kWindowClosing,
                           tab_strip_model->closing_all());
   args->Append(std::move(object_args));
 
@@ -443,9 +443,11 @@ void TabsEventRouter::DispatchActiveTabChanged(WebContents* old_contents,
   Profile* profile =
       Profile::FromBrowserContext(new_contents->GetBrowserContext());
 
-  DispatchEvent(profile, events::TABS_ON_SELECTION_CHANGED,
-                api::tabs::OnSelectionChanged::kEventName,
-                args->CreateDeepCopy(), EventRouter::USER_GESTURE_UNKNOWN);
+  DispatchEvent(
+      profile, events::TABS_ON_SELECTION_CHANGED,
+      api::tabs::OnSelectionChanged::kEventName,
+      base::ListValue::From(base::Value::ToUniquePtrValue(args->Clone())),
+      EventRouter::USER_GESTURE_UNKNOWN);
   DispatchEvent(profile, events::TABS_ON_ACTIVE_CHANGED,
                 api::tabs::OnActiveChanged::kEventName, std::move(args),
                 EventRouter::USER_GESTURE_UNKNOWN);
@@ -486,9 +488,11 @@ void TabsEventRouter::DispatchTabSelectionChanged(
 
   // The onHighlighted event replaced onHighlightChanged.
   Profile* profile = tab_strip_model->profile();
-  DispatchEvent(profile, events::TABS_ON_HIGHLIGHT_CHANGED,
-                api::tabs::OnHighlightChanged::kEventName,
-                args->CreateDeepCopy(), EventRouter::USER_GESTURE_UNKNOWN);
+  DispatchEvent(
+      profile, events::TABS_ON_HIGHLIGHT_CHANGED,
+      api::tabs::OnHighlightChanged::kEventName,
+      base::ListValue::From(base::Value::ToUniquePtrValue(args->Clone())),
+      EventRouter::USER_GESTURE_UNKNOWN);
   DispatchEvent(profile, events::TABS_ON_HIGHLIGHTED,
                 api::tabs::OnHighlighted::kEventName, std::move(args),
                 EventRouter::USER_GESTURE_UNKNOWN);
@@ -588,8 +592,9 @@ void TabsEventRouter::DispatchEvent(
   if (!profile_->IsSameOrParent(profile) || !event_router)
     return;
 
-  auto event = std::make_unique<Event>(histogram_value, event_name,
-                                       std::move(*args).TakeList(), profile);
+  auto event =
+      std::make_unique<Event>(histogram_value, event_name,
+                              std::move(*args).TakeListDeprecated(), profile);
   event->user_gesture = user_gesture;
   event_router->BroadcastEvent(std::move(event));
 }
@@ -617,7 +622,7 @@ void TabsEventRouter::DispatchTabUpdatedEvent(
 
   auto event = std::make_unique<Event>(
       events::TABS_ON_UPDATED, api::tabs::OnUpdated::kEventName,
-      std::move(*args_base).TakeList(), profile);
+      std::move(*args_base).TakeListDeprecated(), profile);
   event->user_gesture = EventRouter::USER_GESTURE_NOT_ENABLED;
   event->will_dispatch_callback =
       base::BindRepeating(&WillDispatchTabUpdatedEvent, contents,

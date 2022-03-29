@@ -37,6 +37,7 @@
 #include "third_party/blink/public/mojom/frame/triggering_event_info.mojom-blink.h"
 #include "third_party/blink/public/mojom/loader/request_context_frame_type.mojom-blink.h"
 #include "third_party/blink/public/platform/web_impression.h"
+#include "third_party/blink/public/web/web_picture_in_picture_window_options.h"
 #include "third_party/blink/public/web/web_window_features.h"
 #include "third_party/blink/renderer/bindings/core/v8/source_location.h"
 #include "third_party/blink/renderer/core/frame/frame_types.h"
@@ -155,6 +156,15 @@ struct CORE_EXPORT FrameLoadRequest {
     window_features_ = features;
   }
 
+  const absl::optional<WebPictureInPictureWindowOptions>&
+  GetPictureInPictureWindowOptions() const {
+    return picture_in_picture_window_options_;
+  }
+  void SetPictureInPictureWindowOptions(
+      const WebPictureInPictureWindowOptions& options) {
+    picture_in_picture_window_options_ = options;
+  }
+
   void SetNoOpener() { window_features_.noopener = true; }
   void SetNoReferrer() {
     should_send_referrer_ = kNeverSendReferrer;
@@ -202,6 +212,8 @@ struct CORE_EXPORT FrameLoadRequest {
   mojom::RequestContextFrameType frame_type_ =
       mojom::RequestContextFrameType::kNone;
   WebWindowFeatures window_features_;
+  absl::optional<WebPictureInPictureWindowOptions>
+      picture_in_picture_window_options_;
   absl::optional<WebImpression> impression_;
   absl::optional<LocalFrameToken> initiator_frame_token_;
   mojo::PendingRemote<mojom::blink::PolicyContainerHostKeepAliveHandle>

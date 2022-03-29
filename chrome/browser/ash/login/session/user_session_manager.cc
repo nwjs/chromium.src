@@ -16,6 +16,7 @@
 
 #include "ash/components/account_manager/account_manager_factory.h"
 #include "ash/components/arc/arc_prefs.h"
+#include "ash/components/cryptohome/cryptohome_parameters.h"
 #include "ash/components/login/auth/auth_session_authenticator.h"
 #include "ash/components/login/auth/challenge_response/known_user_pref_utils.h"
 #include "ash/components/login/auth/stub_authenticator_builder.h"
@@ -53,6 +54,8 @@
 #include "chrome/browser/ash/child_accounts/child_policy_observer.h"
 #include "chrome/browser/ash/crosapi/browser_data_migrator.h"
 #include "chrome/browser/ash/first_run/first_run.h"
+#include "chrome/browser/ash/floating_workspace/floating_workspace_service.h"
+#include "chrome/browser/ash/floating_workspace/floating_workspace_util.h"
 #include "chrome/browser/ash/hats/hats_config.h"
 #include "chrome/browser/ash/logging.h"
 #include "chrome/browser/ash/login/auth/chrome_cryptohome_authenticator.h"
@@ -121,7 +124,6 @@
 #include "chrome/common/logging_chrome.h"
 #include "chrome/common/pref_names.h"
 #include "chromeos/assistant/buildflags.h"
-#include "chromeos/cryptohome/cryptohome_parameters.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/session_manager/session_manager_client.h"
 #include "chromeos/dbus/tpm_manager/tpm_manager.pb.h"
@@ -395,10 +397,10 @@ bool IsOnlineSignin(const UserContext& user_context) {
 // authentication, persistently in the known_user database for future
 // authentication attempts.
 void PersistChallengeResponseKeys(const UserContext& user_context) {
-  user_manager::known_user::SetChallengeResponseKeys(
-      user_context.GetAccountId(),
-      SerializeChallengeResponseKeysForKnownUser(
-          user_context.GetChallengeResponseKeys()));
+  user_manager::KnownUser(g_browser_process->local_state())
+      .SetChallengeResponseKeys(user_context.GetAccountId(),
+                                SerializeChallengeResponseKeysForKnownUser(
+                                    user_context.GetChallengeResponseKeys()));
 }
 
 // Returns true if the user is new, or if the user was already present on the
@@ -803,8 +805,7 @@ void UserSessionManager::SetAppModeChromeClientOAuthInfo(
   chrome_client_secret_ = chrome_client_secret;
 }
 
-void UserSessionManager::DoBrowserLaunch(Profile* profile,
-                                         LoginDisplayHost* login_host) {
+void UserSessionManager::DoBrowserLaunch(Profile* profile) {
   auto* session_manager = session_manager::SessionManager::Get();
   const auto current_session_state = session_manager->session_state();
   // LOGGED_IN_NOT_ACTIVE should only be set from OOBE, LOGIN_PRIMARY, or
@@ -817,7 +818,7 @@ void UserSessionManager::DoBrowserLaunch(Profile* profile,
   }
 
   ui_shown_time_ = base::Time::Now();
-  DoBrowserLaunchInternal(profile, login_host, false /* locale_pref_checked */);
+  DoBrowserLaunchInternal(profile, /*locale_pref_checked=*/false);
 }
 
 bool UserSessionManager::RespectLocalePreference(
@@ -866,7 +867,7 @@ bool UserSessionManager::RespectLocalePreference(
 
   const std::string* account_locale = NULL;
   if (pref_locale.empty() && user->has_gaia_account() &&
-      prefs->GetList(::prefs::kAllowedLanguages)->GetList().empty()) {
+      prefs->GetList(::prefs::kAllowedLanguages)->GetListDeprecated().empty()) {
     if (user->GetAccountLocale() == NULL)
       return false;  // wait until Account profile is loaded.
     account_locale = user->GetAccountLocale();
@@ -940,10 +941,6 @@ bool UserSessionManager::RestartToApplyPerSessionFlagsIfNeed(
   // user session restore after crash of in case when flags were changed inside
   // user session.
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kLoginUser))
-    return false;
-
-  // We can't restart if that's a second user sign in that is happening.
-  if (user_manager::UserManager::Get()->GetLoggedInUsers().size() > 1)
     return false;
 
   // Don't restart browser if it is not the first profile in the session.
@@ -1245,7 +1242,7 @@ void UserSessionManager::InitDemoSessionIfNeeded(base::OnceClosure callback) {
     return;
   }
   should_launch_browser_ = false;
-  demo_session->EnsureOfflineResourcesLoaded(std::move(callback));
+  demo_session->EnsureResourcesLoaded(std::move(callback));
 }
 
 void UserSessionManager::UpdateArcFileSystemCompatibilityAndPrepareProfile() {
@@ -1580,11 +1577,11 @@ void UserSessionManager::CompleteProfileCreateAfterAuthTransfer(
 void UserSessionManager::FinalizePrepareProfile(Profile* profile) {
   user_manager::UserManager* user_manager = user_manager::UserManager::Get();
   user_manager::User* user = ProfileHelper::Get()->GetUserByProfile(profile);
+  user_manager::KnownUser known_user(g_browser_process->local_state());
   if (user_manager->IsLoggedInAsUserWithGaiaAccount()) {
     if (user_context_.GetAuthFlow() == UserContext::AUTH_FLOW_GAIA_WITH_SAML) {
-      user_manager::known_user::UpdateUsingSAML(user_context_.GetAccountId(),
-                                                true);
-      user_manager::known_user::UpdateIsUsingSAMLPrincipalsAPI(
+      known_user.UpdateUsingSAML(user_context_.GetAccountId(), true);
+      known_user.UpdateIsUsingSAMLPrincipalsAPI(
           user_context_.GetAccountId(),
           user_context_.IsUsingSamlPrincipalsApi());
       user->set_using_saml(true);
@@ -1823,7 +1820,7 @@ bool UserSessionManager::InitializeUserSession(Profile* profile) {
     }
   }
 
-  DoBrowserLaunch(profile, LoginDisplayHost::default_host());
+  DoBrowserLaunch(profile);
   return true;
 }
 
@@ -2167,7 +2164,6 @@ EasyUnlockKeyManager* UserSessionManager::GetEasyUnlockKeyManager() {
 }
 
 void UserSessionManager::DoBrowserLaunchInternal(Profile* profile,
-                                                 LoginDisplayHost* login_host,
                                                  bool locale_pref_checked) {
   if (browser_shutdown::IsTryingToQuit() || chrome::IsAttemptingShutdown())
     return;
@@ -2176,7 +2172,7 @@ void UserSessionManager::DoBrowserLaunchInternal(Profile* profile,
     RespectLocalePreferenceWrapper(
         profile, base::BindRepeating(
                      &UserSessionManager::DoBrowserLaunchInternal, AsWeakPtr(),
-                     profile, login_host, true /* locale_pref_checked */));
+                     profile, /*locale_pref_checked=*/true));
     return;
   }
 
@@ -2197,18 +2193,24 @@ void UserSessionManager::DoBrowserLaunchInternal(Profile* profile,
     return;
   }
 
-  if (login_host) {
-    login_host->SetStatusAreaVisible(true);
-    login_host->BeforeSessionStart();
+  if (LoginDisplayHost::default_host()) {
+    LoginDisplayHost::default_host()->SetStatusAreaVisible(true);
+    LoginDisplayHost::default_host()->BeforeSessionStart();
   }
 
   BootTimesRecorder::Get()->AddLoginTimeMarker("BrowserLaunched", false);
 
   VLOG(1) << "Launching browser...";
   TRACE_EVENT0("login", "LaunchBrowser");
-
   if (should_launch_browser_) {
-    if (!IsFullRestoreEnabled(profile)) {
+    if (floating_workspace_util::IsFloatingWorkspaceEnabled()) {
+      // If floating workspace is enabled, it will override full restore.
+      FloatingWorkspaceService* floating_workspace_service =
+          ash::FloatingWorkspaceService::GetForProfile(profile);
+      if (floating_workspace_service) {
+        floating_workspace_service->SubscribeToForeignSessionUpdates();
+      }
+    } else if (!IsFullRestoreEnabled(profile)) {
       LaunchBrowser(profile);
       MaybeLaunchSettings(profile);
     } else {
@@ -2247,8 +2249,9 @@ void UserSessionManager::DoBrowserLaunchInternal(Profile* profile,
   // Mark login host for deletion after browser starts.  This
   // guarantees that the message loop will be referenced by the
   // browser before it is dereferenced by the login host.
-  if (login_host) {
-    login_host->Finalize(std::move(login_host_finalized_callback));
+  if (LoginDisplayHost::default_host()) {
+    LoginDisplayHost::default_host()->Finalize(
+        std::move(login_host_finalized_callback));
   } else {
     std::move(login_host_finalized_callback).Run();
   }

@@ -110,6 +110,7 @@ int FileSystemContext::GetPermissionPolicy(FileSystemType type) {
     case kFileSystemTypeArcContent:
     case kFileSystemTypeArcDocumentsProvider:
     case kFileSystemTypeSmbFs:
+    case kFileSystemTypeFuseBox:
       return FILE_PERMISSION_USE_FILE_PERMISSION;
 
     case kFileSystemTypeRestrictedLocal:
@@ -445,11 +446,6 @@ void FileSystemContext::OnGetOrCreateBucket(
     OpenFileSystemMode mode,
     OpenFileSystemCallback callback,
     QuotaErrorOr<BucketInfo> result) {
-  if (!result.ok()) {
-    std::move(callback).Run(GURL(), std::string(),
-                            base::File::FILE_ERROR_FAILED);
-    return;
-  }
   ResolveURLOnOpenFileSystem(storage_key, type, mode, std::move(callback));
 }
 

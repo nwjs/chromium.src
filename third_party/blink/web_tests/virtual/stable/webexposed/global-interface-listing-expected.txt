@@ -15,6 +15,7 @@ interface AbortSignal : EventTarget
     getter onabort
     getter reason
     method constructor
+    method throwIfAborted
     setter onabort
 interface AbsoluteOrientationSensor : OrientationSensor
     attribute @@toStringTag
@@ -501,6 +502,12 @@ interface CSSLayerBlockRule : CSSGroupingRule
 interface CSSLayerStatementRule : CSSRule
     attribute @@toStringTag
     getter nameList
+    method constructor
+interface CSSMathClamp : CSSMathValue
+    attribute @@toStringTag
+    getter lower
+    getter upper
+    getter value
     method constructor
 interface CSSMathInvert : CSSMathValue
     attribute @@toStringTag
@@ -2357,6 +2364,7 @@ interface HIDDevice : EventTarget
     getter vendorId
     method close
     method constructor
+    method forget
     method open
     method receiveFeatureReport
     method sendFeatureReport
@@ -7196,7 +7204,7 @@ interface Scheduling
     attribute @@toStringTag
     method constructor
     method isInputPending
-interface Screen
+interface Screen : EventTarget
     attribute @@toStringTag
     getter availHeight
     getter availLeft
@@ -7204,10 +7212,31 @@ interface Screen
     getter availWidth
     getter colorDepth
     getter height
+    getter isExtended
+    getter onchange
     getter orientation
     getter pixelDepth
     getter width
     method constructor
+    setter onchange
+interface ScreenDetailed : Screen
+    attribute @@toStringTag
+    getter devicePixelRatio
+    getter isInternal
+    getter isPrimary
+    getter label
+    getter left
+    getter top
+    method constructor
+interface ScreenDetails : EventTarget
+    attribute @@toStringTag
+    getter currentScreen
+    getter oncurrentscreenchange
+    getter onscreenschange
+    getter screens
+    method constructor
+    setter oncurrentscreenchange
+    setter onscreenschange
 interface ScreenOrientation : EventTarget
     attribute @@toStringTag
     getter angle
@@ -10288,6 +10317,7 @@ namespace CSS
     method focus
     method gc
     method getComputedStyle
+    method getScreenDetails
     method getSelection
     method matchMedia
     method moveBy

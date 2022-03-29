@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "ash/constants/ash_pref_names.h"
+#include "ash/constants/ash_switches.h"
 #include "ash/public/cpp/test/shell_test_api.h"
 #include "ash/session/session_controller_impl.h"
 #include "ash/session/test_session_controller_client.h"
@@ -19,6 +20,7 @@
 #include "base/callback_helpers.h"
 #include "base/json/json_reader.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/scoped_command_line.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/simple_test_tick_clock.h"
 #include "chromeos/dbus/hps/fake_hps_dbus_client.h"
@@ -206,6 +208,7 @@ class PowerPrefsTest : public NoSessionAshTestBase {
   // NoSessionAshTestBase:
   void SetUp() override {
     feature_list_.InitAndEnableFeature(features::kQuickDim);
+    base::CommandLine::ForCurrentProcess()->AppendSwitch(switches::kHasHps);
     chromeos::HpsDBusClient::InitializeFake();
     NoSessionAshTestBase::SetUp();
 
@@ -239,7 +242,7 @@ class PowerPrefsTest : public NoSessionAshTestBase {
         pref_notifier.get());
     local_state_ = std::make_unique<PrefService>(
         std::move(pref_notifier), std::move(pref_value_store), user_pref_store_,
-        pref_registry_, base::DoNothing(), false);
+        nullptr, pref_registry_, base::DoNothing(), false);
 
     PowerPrefs::RegisterLocalStatePrefs(pref_registry_.get());
 
@@ -294,6 +297,7 @@ class PowerPrefsTest : public NoSessionAshTestBase {
 
   std::unique_ptr<PrefService> local_state_;
   base::test::ScopedFeatureList feature_list_;
+  base::test::ScopedCommandLine scoped_command_line_;
 };
 
 TEST_F(PowerPrefsTest, LoginScreen) {
@@ -569,6 +573,12 @@ TEST_F(PowerPrefsTest, SetQuickDimParams) {
             ash::GetQuickDimDelay().InMilliseconds());
   EXPECT_EQ(policy.battery_delays().quick_dim_ms(),
             ash::GetQuickDimDelay().InMilliseconds());
+
+  EXPECT_EQ(policy.ac_delays().quick_lock_ms(),
+            ash::GetQuickLockDelay().InMilliseconds());
+  EXPECT_EQ(policy.battery_delays().quick_lock_ms(),
+            ash::GetQuickLockDelay().InMilliseconds());
+
   EXPECT_EQ(policy.send_feedback_if_undimmed(),
             ash::GetQuickDimFeedbackEnabled());
 

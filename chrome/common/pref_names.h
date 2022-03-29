@@ -162,8 +162,6 @@ extern const char kWebkitTabsToLinks[];
 extern const char kWebKitAllowRunningInsecureContent[];
 extern const char kWebKitForceDarkModeEnabled[];
 #if BUILDFLAG(IS_ANDROID)
-extern const char kWebKitFontScaleFactor[];
-extern const char kWebKitForceEnableZoom[];
 extern const char kWebKitPasswordEchoEnabled[];
 #endif
 extern const char kSSLErrorOverrideAllowed[];
@@ -246,7 +244,6 @@ extern const char kLanguageEnabledImesSyncable[];
 extern const char kLanguageImeMenuActivated[];
 extern const char kLanguageInputMethodSpecificSettings[];
 extern const char kLanguageShouldMergeInputMethods[];
-extern const char kLanguageSendFunctionKeys[];
 
 extern const char kLabsAdvancedFilesystemEnabled[];
 extern const char kLabsMediaplayerEnabled[];
@@ -273,7 +270,6 @@ extern const char kTimeOnOobe[];
 extern const char kFileSystemProviderMounted[];
 extern const char kTouchVirtualKeyboardEnabled[];
 extern const char kCaptivePortalAuthenticationIgnoresProxy[];
-extern const char kForceMaximizeOnFirstRun[];
 extern const char kPlatformKeys[];
 extern const char kKeyPermissionsOneTimeMigrationDone[];
 extern const char kUnifiedDesktopEnabledByDefault[];
@@ -361,6 +357,7 @@ extern const char kRestrictedManagedGuestSessionExtensionCleanupExemptList[];
 #if BUILDFLAG(IS_CHROMEOS)
 extern const char kExternalStorageDisabled[];
 extern const char kExternalStorageReadOnly[];
+extern const char kForceMaximizeOnFirstRun[];
 extern const char kSettingsShowOSBanner[];
 extern const char kUsedPolicyCertificates[];
 #endif  // BUILDFLAG(IS_CHROMEOS)
@@ -549,6 +546,9 @@ extern const char kHadThreeConsecutiveNotificationPermissionDenies[];
 #if !BUILDFLAG(IS_ANDROID)
 extern const char kManagedSerialAllowAllPortsForUrls[];
 extern const char kManagedSerialAllowUsbDevicesForUrls[];
+extern const char kManagedWebHidAllowAllDevicesForUrls[];
+extern const char kManagedWebHidAllowDevicesForUrls[];
+extern const char kManagedWebHidAllowDevicesWithHidUsagesForUrls[];
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 extern const char kProfileLastUsed[];
@@ -567,10 +567,7 @@ extern const char kStabilitySystemUncleanShutdownCount[];
 
 extern const char kStabilityPluginStats[];
 extern const char kStabilityPluginName[];
-extern const char kStabilityPluginLaunches[];
-extern const char kStabilityPluginInstances[];
 extern const char kStabilityPluginCrashes[];
-extern const char kStabilityPluginLoadingErrors[];
 
 extern const char kBrowserSuppressDefaultBrowserPrompt[];
 
@@ -699,8 +696,6 @@ extern const char kWebAppsIsolationState[];
 extern const char kWebAppsUrlHandlerInfo[];
 #endif
 
-extern const char kWebAppsUserDisplayModeCleanedUp[];
-
 extern const char kSystemWebAppLastUpdateVersion[];
 extern const char kSystemWebAppLastInstalledLocale[];
 extern const char kSystemWebAppInstallFailureCount[];
@@ -823,6 +818,7 @@ extern const char kRegisteredBackgroundContents[];
 extern const char kTotalMemoryLimitMb[];
 
 extern const char kAuthSchemes[];
+extern const char kAllHttpAuthSchemesAllowedForOrigins[];
 extern const char kDisableAuthNegotiateCnameLookup[];
 extern const char kEnableAuthNegotiatePort[];
 extern const char kAuthServerAllowlist[];
@@ -1052,6 +1048,10 @@ extern const char kTabStatsTotalTabCountMax[];
 extern const char kTabStatsMaxTabsPerWindow[];
 extern const char kTabStatsWindowCountMax[];
 extern const char kTabStatsDailySample[];
+extern const char kTabStatsDiscardsExternal[];
+extern const char kTabStatsDiscardsUrgent[];
+extern const char kTabStatsReloadsExternal[];
+extern const char kTabStatsReloadsUrgent[];
 
 extern const char kUnsafelyTreatInsecureOriginAsSecure[];
 
@@ -1081,8 +1081,6 @@ extern const char kTabFreezingEnabled[];
 extern const char kEnterpriseHardwarePlatformAPIEnabled[];
 
 extern const char kSignedHTTPExchangeEnabled[];
-
-extern const char kAllowSyncXHRInPageDismissal[];
 
 #if BUILDFLAG(IS_ANDROID)
 extern const char kUsageStatsEnabled[];
@@ -1157,6 +1155,13 @@ extern const char kCartDiscountEnabled[];
 extern const char kCartUsedDiscounts[];
 extern const char kCartDiscountLastFetchedTime[];
 extern const char kCartDiscountConsentShown[];
+extern const char kDiscountConsentDecisionMadeIn[];
+extern const char kDiscountConsentDismissedIn[];
+extern const char kDiscountConsentLastDimissedTime[];
+extern const char kDiscountConsentLastShownInVariation[];
+extern const char kDiscountConsentPastDismissedCount[];
+extern const char kDiscountConsentShowInterest[];
+extern const char kDiscountConsentShowInterestIn[];
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
@@ -1193,7 +1198,6 @@ extern const char kLastWhatsNewVersion[];
 extern const char kLensRegionSearchEnabled[];
 #endif
 
-extern const char kPrivacyReviewShowWelcomeCard[];
 extern const char kPrivacyGuideViewed[];
 
 extern const char kCorsNonWildcardRequestHeadersSupport[];
@@ -1201,6 +1205,8 @@ extern const char kCorsNonWildcardRequestHeadersSupport[];
 extern const char kOriginAgentClusterDefaultEnabled[];
 
 extern const char kForceMajorVersionToMinorPositionInUserAgent[];
+
+extern const char kSCTAuditingHashdanceReportCount[];
 }  // namespace prefs
 
 #endif  // CHROME_COMMON_PREF_NAMES_H_

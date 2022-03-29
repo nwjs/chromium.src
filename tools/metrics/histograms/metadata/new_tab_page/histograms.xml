@@ -23,7 +23,7 @@ chromium-metrics-reviews@google.com.
 <histograms>
 
 <histogram name="NewTabPage.ActionAndroid2" enum="NewTabPageActionAndroid2"
-    expires_after="2022-06-05">
+    expires_after="2022-08-07">
   <owner>twellington@chromium.org</owner>
   <owner>finkm@chromium.org</owner>
   <summary>
@@ -190,6 +190,58 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="NewTabPage.Carts.DiscountConsentStatusAtLoad.{ConsentState}"
+    enum="CartDiscountConsentVariation" expires_after="2022-08-21">
+  <owner>meiliang@chromium.org</owner>
+  <owner>chrome-shopping@google.com</owner>
+  <summary>
+    Logged when the cart module is created and if there is at least one
+    abandoned cart. It {ConsentState}. Only logged on the 1P NTP. Note that even
+    if the user has Google as their default search engine, Incognito and Guest
+    mode NTPs are not considered 1P and don't log this histogram.
+  </summary>
+  <token key="ConsentState">
+    <variant name="AcceptedIn"
+        summary="keeps track of which variation the user has accepted the
+                 consent in."/>
+    <variant name="DismissedIn"
+        summary="keeps track of which variation the user has rejected the
+                 consent in. Only the Inline and Dialog variation has an
+                 option to dismiss the consent."/>
+    <variant name="IgnoredIn"
+        summary="keeps track of which variation the user has ignored the
+                 consent in. Ignored means when the user has seen the consent
+                 but they did not accept/reject/dismiss it, or did not show
+                 any interests(click the continue button, but no following
+                 action)."/>
+    <variant name="InterestedButNoActionIn"
+        summary="keeps track of which variation the user has shown interest
+                 but no further action in (e.g. tapped &quot;Continue&quot;
+                 in the 2-step NTP consent.) Only the Inline and Dialog
+                 variation applies."/>
+    <variant name="NeverShownIn"
+        summary="keeps track of which variation the consent has never shown
+                 in. Never shown means the user has never seen the consent
+                 before"/>
+    <variant name="NoShowHasFinalized"
+        summary="keeps track if the user has accepted or rejected the consent
+                 before in another variation, hence no show when the cart is
+                 loaded. Finalized means user has accepted or rejected the
+                 consent in another variation."/>
+    <variant name="NoShowIn"
+        summary="keeps track of which variation the consent is not showing.
+                 No show means the user has seen the consent before but did
+                 not accept/reject the consent, and the consent is not
+                 showing now."/>
+    <variant name="RejectedIn"
+        summary="Keeps track of which variation the user has rejected the
+                 consent in."/>
+    <variant name="ShownIn"
+        summary="Keeps track of which variation is shown. This is recorded
+                 when consent is shown."/>
+  </token>
+</histogram>
+
 <histogram name="NewTabPage.Carts.DiscountCountAtLoad" units="count"
     expires_after="2022-06-19">
   <owner>meiliang@chromium.org</owner>
@@ -204,7 +256,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="NewTabPage.Click" enum="NTPElement" expires_after="2022-06-12">
+<histogram name="NewTabPage.Click" enum="NTPElement" expires_after="2022-08-14">
   <owner>tiborg@chromium.org</owner>
   <owner>yyushkina@chromium.org</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -217,7 +269,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.ConcretePage" enum="NewTabPageConcretePage"
-    expires_after="2022-06-01">
+    expires_after="2022-07-31">
   <owner>danpeng@google.com</owner>
   <owner>tiborg@chromium.org</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -228,7 +280,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.ContentSuggestions.ArticlesListVisible"
-    enum="BooleanVisible" expires_after="2022-06-05">
+    enum="BooleanVisible" expires_after="2022-08-07">
   <owner>freedjm@chromium.org</owner>
   <owner>feed@chromium.org</owner>
   <summary>
@@ -516,7 +568,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.ContentSuggestions.Preferences.RemoteSuggestions"
-    enum="BooleanEnabled" expires_after="2022-06-05">
+    enum="BooleanEnabled" expires_after="2022-08-07">
   <owner>carlosk@chromium.org</owner>
   <owner>freedjm@chromium.org</owner>
   <owner>feed@chromium.org</owner>
@@ -746,7 +798,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.Customized" enum="NTPCustomizedFeatures"
-    expires_after="2022-06-05">
+    expires_after="2022-08-07">
   <owner>tiborg@chromium.org</owner>
   <owner>yyushkina@chromium.org</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -757,7 +809,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.CustomizedShortcuts"
-    enum="NTPCustomizedShortcutSettings" expires_after="2022-06-05">
+    enum="NTPCustomizedShortcutSettings" expires_after="2022-08-07">
   <owner>tiborg@chromium.org</owner>
   <owner>yyushkina@chromium.org</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -782,7 +834,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.CustomizeShortcutAction"
-    enum="NTPCustomizeShortcutAction" expires_after="2022-06-05">
+    enum="NTPCustomizeShortcutAction" expires_after="2022-08-07">
   <owner>tiborg@chromium.org</owner>
   <owner>yyushkina@chromium.org</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -793,7 +845,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.Drive.FileClick" units="index"
-    expires_after="2022-06-12">
+    expires_after="2022-08-14">
   <owner>tiborg@chromium.org</owner>
   <owner>aee@chromium.org</owner>
   <owner>andrevincent@google.com</owner>
@@ -959,7 +1011,7 @@ chromium-metrics-reviews@google.com.
     Records hashes associated with NTP modules. Logged when an NTP module makes
     a data request to a Chrome-external backend. Only logged on the 1P NTP. Note
     that even if the user has Google as their default search engine, Incognito
-    and Guest mode NTPs are not considered 1P and dont't log this histogram.
+    and Guest mode NTPs are not considered 1P and don't log this histogram.
   </summary>
 </histogram>
 
@@ -1036,7 +1088,7 @@ chromium-metrics-reviews@google.com.
     Logged when the user hovers on a module. Only logged once per NTP and
     module. Only logged on the 1P NTP. Note that even if the user has Google as
     their default search engine, Incognito and Guest mode NTPs are not
-    considered 1P and dont't log this histogram.
+    considered 1P and don't log this histogram.
   </summary>
 </histogram>
 
@@ -1072,6 +1124,19 @@ chromium-metrics-reviews@google.com.
     NTPs are not considered 1P and don't log these histograms. It is possible
     for this histogram to log a value of 0 if, for instance, the module was
     always more than 90% below the fold.
+  </summary>
+</histogram>
+
+<histogram name="NewTabPage.Modules.InfoButtonClicked" enum="NtpModules"
+    expires_after="2022-10-09">
+  <owner>danpeng@google.com</owner>
+  <owner>pauladedeji@chromium.org</owner>
+  <owner>chrome-desktop-ntp@google.com</owner>
+  <summary>
+    Records the module's id when a user clicks the info button in the module's
+    header. Only logged on the 1P NTP. Note that even if the user has Google as
+    their default search engine, Incognito and Guest mode NTPs are not
+    considered 1P and don't log this histogram.
   </summary>
 </histogram>
 
@@ -1174,7 +1239,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.MostVisitedMigratedDefaultAppType"
-    enum="TypeOfDeletedMostVisitedApp" expires_after="M103">
+    enum="TypeOfDeletedMostVisitedApp" expires_after="2022-08-07">
   <owner>dibyapal@chromium.org</owner>
   <owner>desktop-pwas-team@google.com</owner>
   <summary>
@@ -1194,7 +1259,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.NumberOfTiles" units="units"
-    expires_after="2022-06-12">
+    expires_after="2022-08-14">
   <owner>tiborg@chromium.org</owner>
   <owner>yyushkina@chromium.org</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -1545,7 +1610,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.SuggestionsImpression" enum="MostVisitedTileIndex"
-    expires_after="2022-06-12">
+    expires_after="2022-08-14">
   <owner>tiborg@chromium.org</owner>
   <owner>yyushkina@chromium.org</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -1604,7 +1669,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.TileTitle" enum="NTPTileTitleSource"
-    expires_after="2022-06-12">
+    expires_after="2022-08-14">
   <owner>tiborg@chromium.org</owner>
   <owner>yyushkina@chromium.org</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -1615,7 +1680,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.TileTitleClicked" enum="NTPTileTitleSource"
-    expires_after="2022-06-12">
+    expires_after="2022-08-14">
   <owner>danielms@google.com</owner>
   <owner>tiborg@chromium.org</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -1666,7 +1731,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="NewTabPage.TimeSpent" units="ms" expires_after="2022-06-05">
+<histogram name="NewTabPage.TimeSpent" units="ms" expires_after="2022-08-07">
   <owner>freedjm@chromium.org</owner>
   <owner>feed@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>

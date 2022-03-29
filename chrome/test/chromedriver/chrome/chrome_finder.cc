@@ -24,7 +24,7 @@
 #include "build/build_config.h"
 #include "chrome/common/chrome_constants.h"
 
-#if defined(OS_WIN)
+#if BUILDFLAG(IS_WIN)
 #include "base/base_paths_win.h"
 #include "base/win/windows_version.h"
 #endif
@@ -68,7 +68,7 @@ void GetApplicationDirs(std::vector<base::FilePath>* locations) {
   locations->push_back(base::FilePath("/opt/google/chrome"));
   locations->push_back(base::FilePath("/opt/chromium.org/chromium"));
 }
-#elif defined(OS_ANDROID)
+#elif BUILDFLAG(IS_ANDROID)
 void GetApplicationDirs(std::vector<base::FilePath>* locations) {
   // On Android we won't be able to find Chrome executable
 }
@@ -84,7 +84,7 @@ void GetPathsFromEnvironment(std::vector<base::FilePath>* paths) {
     return;
   }
 
-#if defined(OS_WIN)
+#if BUILDFLAG(IS_WIN)
   commonPath = base::UTF8ToWide(path);
   delimiter = L";";
 #else
@@ -96,7 +96,7 @@ void GetPathsFromEnvironment(std::vector<base::FilePath>* paths) {
       commonPath, delimiter, base::KEEP_WHITESPACE, base::SPLIT_WANT_ALL);
 
   for (auto& path_entry : path_entries) {
-#if defined(OS_WIN)
+#if BUILDFLAG(IS_WIN)
     size_t size = path_entry.size();
     if (size >= 2 && path_entry[0] == '"' && path_entry[size - 1] == '"') {
       path_entry.erase(0, 1);
@@ -137,9 +137,9 @@ void GetApplicationDirs(std::vector<base::FilePath>* locations);
 
 bool FindChrome(base::FilePath* browser_exe) {
   base::FilePath browser_exes_array[] = {
-#if defined(OS_WIN) || defined(OS_MAC)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
     base::FilePath(chrome::kBrowserProcessExecutablePath),
-#elif defined(OS_LINUX) || defined(OS_CHROMEOS)
+#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
     base::FilePath(chrome::kBrowserProcessExecutablePath),
     base::FilePath("nw")
 #else
@@ -153,7 +153,7 @@ bool FindChrome(base::FilePath* browser_exe) {
   std::vector<base::FilePath> browser_exes(
       browser_exes_array, browser_exes_array + base::size(browser_exes_array));
   base::FilePath module_dir;
-#if defined(OS_FUCHSIA)
+#if BUILDFLAG(IS_FUCHSIA)
   // Use -1 to allow this to compile.
   // TODO(crbug.com/1262176): Determine whether Fuchsia should support this and
   // if so provide an appropriate implementation for this function.

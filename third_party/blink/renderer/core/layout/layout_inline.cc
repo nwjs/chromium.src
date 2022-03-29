@@ -206,7 +206,8 @@ void LayoutInline::UpdateFromStyle() {
   SetHasReflection(false);
 }
 
-static LayoutObject* InFlowPositionedInlineAncestor(LayoutObject* p) {
+static const LayoutObject* InFlowPositionedInlineAncestor(
+    const LayoutObject* p) {
   while (p && p->IsLayoutInline()) {
     if (p->IsInFlowPositioned())
       return p;
@@ -575,6 +576,18 @@ void LayoutInline::AddChildIgnoringContinuation(LayoutObject* new_child,
     return;
   }
 
+  // If inserting an inline child before a block-in-inline, change
+  // |before_child| to the anonymous block. The anonymous block may need to be
+  // split if |before_child| is not the first child.
+  if (before_child && before_child->Parent() != this &&
+      RuntimeEnabledFeatures::LayoutNGBlockInInlineEnabled()) {
+    DCHECK(!ForceLegacyLayout());
+    DCHECK(before_child->Parent()->IsBlockInInline());
+    DCHECK(IsA<LayoutBlockFlow>(before_child->Parent()));
+    DCHECK_EQ(before_child->Parent()->Parent(), this);
+    before_child = SplitAnonymousBoxesAroundChild(before_child);
+  }
+
   LayoutBoxModelObject::AddChild(new_child, before_child);
 
   new_child->SetNeedsLayoutAndIntrinsicWidthsRecalcAndFullPaintInvalidation(
@@ -761,7 +774,7 @@ void LayoutInline::SplitFlow(LayoutObject* before_child,
 }
 
 LayoutBlockFlow* LayoutInline::CreateAnonymousContainerForBlockChildren(
-    bool split_flow) {
+    bool split_flow) const {
   NOT_DESTROYED();
   // We are placing a block inside an inline. We have to perform a split of this
   // inline into continuations. This involves creating an anonymous block box to
@@ -787,7 +800,7 @@ LayoutBlockFlow* LayoutInline::CreateAnonymousContainerForBlockChildren(
     // If inside an inline affected by in-flow positioning the block needs to be
     // affected by it too. Giving the block a layer like this allows it to
     // collect the x/y offsets from inline parents later.
-    if (LayoutObject* positioned_ancestor =
+    if (const LayoutObject* positioned_ancestor =
             InFlowPositionedInlineAncestor(this))
       new_style->SetPosition(positioned_ancestor->StyleRef().GetPosition());
   }
@@ -798,6 +811,16 @@ LayoutBlockFlow* LayoutInline::CreateAnonymousContainerForBlockChildren(
 
   return LayoutBlockFlow::CreateAnonymous(&GetDocument(), std::move(new_style),
                                           legacy);
+}
+
+LayoutBox* LayoutInline::CreateAnonymousBoxToSplit(
+    const LayoutBox* box_to_split) const {
+  NOT_DESTROYED();
+  DCHECK(box_to_split->IsAnonymous());
+  DCHECK(IsA<LayoutBlockFlow>(box_to_split));
+  DCHECK(RuntimeEnabledFeatures::LayoutNGBlockInInlineEnabled());
+  DCHECK(!ForceLegacyLayout());
+  return CreateAnonymousContainerForBlockChildren(/* split_flow */ false);
 }
 
 void LayoutInline::AddChildToContinuation(LayoutObject* new_child,
@@ -1103,7 +1126,7 @@ PhysicalRect LayoutInline::AbsoluteBoundingBoxRectHandlingEmptyInline(
     MapCoordinatesFlags flags) const {
   NOT_DESTROYED();
   Vector<PhysicalRect> rects = OutlineRects(
-      PhysicalOffset(), NGOutlineType::kIncludeBlockVisualOverflow);
+      nullptr, PhysicalOffset(), NGOutlineType::kIncludeBlockVisualOverflow);
   PhysicalRect rect = UnionRect(rects);
   // When empty LayoutInline is not culled, |rect| is empty but |rects| is not.
   if (rect.IsEmpty())
@@ -1519,7 +1542,7 @@ PhysicalRect LayoutInline::VisualRectInDocument(VisualRectFlags flags) const {
     rect = PhysicalVisualOverflowRect();
   } else {
     // Should also cover continuations.
-    rect = UnionRect(OutlineRects(PhysicalOffset(),
+    rect = UnionRect(OutlineRects(nullptr, PhysicalOffset(),
                                   NGOutlineType::kIncludeBlockVisualOverflow));
   }
   MapToVisualRectInAncestorSpace(View(), rect, flags);
@@ -1546,7 +1569,8 @@ PhysicalRect LayoutInline::PhysicalVisualOverflowRect() const {
   NOT_DESTROYED();
   PhysicalRect overflow_rect = LinesVisualOverflowBoundingBox();
   const ComputedStyle& style = StyleRef();
-  LayoutUnit outline_outset(OutlinePainter::OutlineOutsetExtent(style));
+  LayoutUnit outline_outset(OutlinePainter::OutlineOutsetExtent(
+      style, OutlineInfo::GetFromStyle(style)));
   if (outline_outset) {
     Vector<PhysicalRect> rects;
     if (GetDocument().InNoQuirksMode()) {
@@ -1561,7 +1585,7 @@ PhysicalRect LayoutInline::PhysicalVisualOverflowRect() const {
       // LayoutBlock::minLineHeightForReplacedObject(),
       // linesVisualOverflowBoundingBox() may not cover outline rects of lines
       // containing replaced objects.
-      AddOutlineRects(rects, PhysicalOffset(),
+      AddOutlineRects(rects, nullptr, PhysicalOffset(),
                       style.OutlineRectsShouldIncludeBlockVisualOverflow());
     }
     if (!rects.IsEmpty()) {
@@ -1859,6 +1883,7 @@ void LayoutInline::ImageChanged(WrappedImagePtr, CanDeferInvalidation) {
 
 void LayoutInline::AddOutlineRects(
     Vector<PhysicalRect>& rects,
+    OutlineInfo* info,
     const PhysicalOffset& additional_offset,
     NGOutlineType include_block_overflows) const {
   NOT_DESTROYED();
@@ -1878,6 +1903,8 @@ void LayoutInline::AddOutlineRects(
   });
   AddOutlineRectsForChildrenAndContinuations(rects, additional_offset,
                                              include_block_overflows);
+  if (info)
+    *info = OutlineInfo::GetFromStyle(StyleRef());
 }
 
 void LayoutInline::AddOutlineRectsForChildrenAndContinuations(
@@ -1914,14 +1941,15 @@ void LayoutInline::AddOutlineRectsForContinuations(
     else
       offset += To<LayoutBox>(continuation)->PhysicalLocation();
     offset -= ContainingBlock()->PhysicalLocation();
-    continuation->AddOutlineRects(rects, offset, include_block_overflows);
+    continuation->AddOutlineRects(rects, nullptr, offset,
+                                  include_block_overflows);
   }
 }
 
 gfx::RectF LayoutInline::LocalBoundingBoxRectForAccessibility() const {
   NOT_DESTROYED();
   Vector<PhysicalRect> rects = OutlineRects(
-      PhysicalOffset(), NGOutlineType::kIncludeBlockVisualOverflow);
+      nullptr, PhysicalOffset(), NGOutlineType::kIncludeBlockVisualOverflow);
   return gfx::RectF(FlipForWritingMode(UnionRect(rects).ToLayoutRect()));
 }
 

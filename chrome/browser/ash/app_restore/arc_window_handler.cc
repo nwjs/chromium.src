@@ -105,7 +105,7 @@ bool ArcWindowHandler::LaunchArcGhostWindow(
                         0, 0);
   }
 
-  auto shell_surface = InitArcGhostWindow(
+  auto shell_surface = ArcGhostWindowShellSurface::Create(
       this, app_id, session_id, adjust_bounds, restore_data,
       base::BindRepeating(&ArcWindowHandler::CloseWindow,
                           weak_ptr_factory_.GetWeakPtr(), session_id));

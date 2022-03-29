@@ -34,8 +34,7 @@ NET_EXPORT extern const base::Feature kAvoidH2Reprioritization;
 // origin requests are restricted to contain at most the source origin.
 NET_EXPORT extern const base::Feature kCapReferrerToOriginOnCrossOrigin;
 
-// When enabled, ParsedCookie will allow the domain attribute to be the
-// empty string.
+// Enables the ParsedCookie domain attribute to be the empty string.
 NET_EXPORT extern const base::Feature kCookieDomainAttributeEmptyString;
 
 // Support for altering the parameters used for DNS transaction timeout. See
@@ -371,6 +370,11 @@ NET_EXPORT extern const base::Feature kSamePartyCookiesConsideredFirstParty;
 // be sent when the browser is on the same top-level site that it was on when
 // the cookie was set.
 NET_EXPORT extern const base::Feature kPartitionedCookies;
+// Flag to bypass the origin trial opt-in to use Partitioned cookies. This
+// allows developers to test Partitioned cookies manually in development
+// environments.
+// TODO(crbug.com/1296161): Remove this feature when the CHIPS OT ends.
+NET_EXPORT extern const base::Feature kPartitionedCookiesBypassOriginTrial;
 
 // When enabled, additional cookie-related APIs will perform cookie field size
 // and character set validation to enforce stricter conformance with RFC6265bis.
@@ -382,16 +386,9 @@ NET_EXPORT extern const base::Feature kExtraCookieValidityChecks;
 // Android.
 NET_EXPORT extern const base::Feature kRecordRadioWakeupTrigger;
 
-// When enabled, the size of read buffer in WebSocket is changed dynamically
-// according to the type of traffic, and a small read buffer size can be set for
-// performance tests.
-NET_EXPORT extern const base::Feature kSwitchWebSocketReadBufferSize;
-NET_EXPORT extern const base::FeatureParam<int> kSmallReadBufferSize;
-
-// When enabled, the rolling average window in WebSocket can be changed for
-// performance tests.
-NET_EXPORT extern const base::Feature kSwitchWebSocketThroughputWindow;
-NET_EXPORT extern const base::FeatureParam<int> kRollingAverageWindow;
+// When enabled, certain operations in the HTTP cache are brokered to allow
+// the network process to be sandboxed.
+NET_EXPORT extern const base::Feature kSandboxHttpCache;
 
 }  // namespace features
 }  // namespace net

@@ -349,8 +349,6 @@ const char kWebkitTabsToLinks[] = "webkit.webprefs.tabs_to_links";
 const char kWebKitAllowRunningInsecureContent[] =
     "webkit.webprefs.allow_running_insecure_content";
 #if BUILDFLAG(IS_ANDROID)
-const char kWebKitFontScaleFactor[] = "webkit.webprefs.font_scale_factor";
-const char kWebKitForceEnableZoom[] = "webkit.webprefs.force_enable_zoom";
 const char kWebKitPasswordEchoEnabled[] =
     "webkit.webprefs.password_echo_enabled";
 #endif
@@ -611,10 +609,6 @@ const char kLanguageInputMethodSpecificSettings[] =
 const char kLanguageShouldMergeInputMethods[] =
     "settings.language.merge_input_methods";
 
-// A boolean pref that causes top-row keys to be interpreted as function keys
-// instead of as media keys.
-const char kLanguageSendFunctionKeys[] = "settings.language.send_function_keys";
-
 // A boolean pref which turns on Advanced Filesystem
 // (USB support, SD card, etc).
 const char kLabsAdvancedFilesystemEnabled[] =
@@ -738,11 +732,6 @@ const char kTouchVirtualKeyboardEnabled[] = "ui.touch_virtual_keyboard_enabled";
 // which allows to bypass the user's proxy for captive portal authentication.
 const char kCaptivePortalAuthenticationIgnoresProxy[] =
     "proxy.captive_portal_ignores_proxy";
-
-// This boolean controls whether the first window shown on first run should be
-// unconditionally maximized, overriding the heuristic that normally chooses the
-// window size.
-const char kForceMaximizeOnFirstRun[] = "ui.force_maximize_on_first_run";
 
 // A dictionary pref mapping public keys that identify platform keys to its
 // properties like whether it's meant for corporate usage.
@@ -1143,6 +1132,11 @@ const char kExternalStorageDisabled[] = "hardware.external_storage_disabled";
 // A pref holding the value of the policy used to limit mounting of external
 // storage to read-only mode for the user.
 const char kExternalStorageReadOnly[] = "hardware.external_storage_read_only";
+
+// This boolean controls whether the first window shown on first run should be
+// unconditionally maximized, overriding the heuristic that normally chooses the
+// window size.
+const char kForceMaximizeOnFirstRun[] = "ui.force_maximize_on_first_run";
 
 // Boolean user profile pref that determines whether to show a banner in browser
 // settings that links to OS settings.
@@ -1683,6 +1677,19 @@ const char kManagedSerialAllowAllPortsForUrls[] =
 // Used to store the value of the SerialAllowUsbDevicesForUrls policy.
 const char kManagedSerialAllowUsbDevicesForUrls[] =
     "managed.serial_allow_usb_devices_for_urls";
+
+// Used to store the value of the WebHidAllowAllDevicesForUrls policy.
+const char kManagedWebHidAllowAllDevicesForUrls[] =
+    "managed.web_hid_allow_all_devices_for_urls";
+
+// Used to store the value of the WebHidAllowDevicesForUrls policy.
+const char kManagedWebHidAllowDevicesForUrls[] =
+    "managed.web_hid_allow_devices_for_urls";
+
+// Used to store the value of the WebHidAllowAllDevicesWithHidUsagesForUrls
+// policy.
+const char kManagedWebHidAllowDevicesWithHidUsagesForUrls[] =
+    "managed.web_hid_allow_devices_with_hid_usages_for_urls";
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 // Directory of the last profile used.
@@ -1736,10 +1743,7 @@ const char kStabilitySystemUncleanShutdownCount[] =
 // The keys below are used for the dictionaries in the
 // kStabilityPluginStats list.
 const char kStabilityPluginName[] = "name";
-const char kStabilityPluginLaunches[] = "launches";
-const char kStabilityPluginInstances[] = "instances";
 const char kStabilityPluginCrashes[] = "crashes";
-const char kStabilityPluginLoadingErrors[] = "loading_errors";
 
 // String containing the version of Chrome for which Chrome will not prompt the
 // user about setting Chrome as the default browser.
@@ -2071,9 +2075,6 @@ const char kWebAppsIsolationState[] = "web_apps.isolation_state";
 const char kWebAppsUrlHandlerInfo[] = "web_apps.url_handler_info";
 #endif
 
-const char kWebAppsUserDisplayModeCleanedUp[] =
-    "web_apps.user_display_mode_cleaned_up";
-
 // A string representing the last version of Chrome that System Web Apps were
 // updated for.
 const char kSystemWebAppLastUpdateVersion[] =
@@ -2144,6 +2145,11 @@ const char kTotalMemoryLimitMb[] = "total_memory_limit_mb";
 
 // String that lists supported HTTP authentication schemes.
 const char kAuthSchemes[] = "auth.schemes";
+
+// List of origin schemes that allow the supported HTTP authentication schemes
+// from "auth.schemes".
+const char kAllHttpAuthSchemesAllowedForOrigins[] =
+    "auth.http_auth_allowed_for_origins";
 
 // Boolean that specifies whether to disable CNAME lookups when generating
 // Kerberos SPN.
@@ -3073,6 +3079,12 @@ const char kTabStatsWindowCountMax[] = "tab_stats.window_count_max";
 //  Timestamp of the last time the tab stats daily metrics have been reported.
 const char kTabStatsDailySample[] = "tab_stats.last_daily_sample";
 
+// Discards/Reloads since last daily report.
+const char kTabStatsDiscardsExternal[] = "tab_stats.discards_external";
+const char kTabStatsDiscardsUrgent[] = "tab_stats.discards_urgent";
+const char kTabStatsReloadsExternal[] = "tab_stats.reloads_external";
+const char kTabStatsReloadsUrgent[] = "tab_stats.reloads_urgent";
+
 // A list of origins (URLs) to treat as "secure origins" for debugging purposes.
 const char kUnsafelyTreatInsecureOriginAsSecure[] =
     "unsafely_treat_insecure_origin_as_secure";
@@ -3145,11 +3157,6 @@ const char kEnterpriseHardwarePlatformAPIEnabled[] =
 
 // Boolean that specifies whether Signed HTTP Exchange (SXG) loading is enabled.
 const char kSignedHTTPExchangeEnabled[] = "web_package.signed_exchange.enabled";
-
-// Boolean that allows a page to perform synchronous XHR requests during page
-// dismissal.
-// TODO(https://crbug.com/1003101): Remove this in Chrome 88.
-const char kAllowSyncXHRInPageDismissal[] = "allow_sync_xhr_in_page_dismissal";
 
 #if BUILDFLAG(IS_CHROMEOS)
 // Enum that specifies client certificate management permissions for user. It
@@ -3322,6 +3329,31 @@ const char kCartDiscountLastFetchedTime[] = "cart_discount_last_fetched_time";
 // Boolean pref indicating whether the consent for discount has ever shown or
 // not.
 const char kCartDiscountConsentShown[] = "cart_discount_consent_shown";
+// Integer pref indicating in which variation the user has made their decision,
+// accept or reject the consent.
+const char kDiscountConsentDecisionMadeIn[] =
+    "discount_consent_decision_made_in";
+// Integer pref indicating in which variation the user has dismissed the
+// consent. Only the Inline and Dialog variation applies.
+const char kDiscountConsentDismissedIn[] = "discount_consent_dismissed_in";
+// A time pref indicating the timestamp of when user last explicitly dismissed
+// the discount consent.
+const char kDiscountConsentLastDimissedTime[] =
+    "discount_consent_last_dimissed_time";
+// Integer pref indicating the last consent was shown in which variation.
+const char kDiscountConsentLastShownInVariation[] =
+    "discount_consent_last_shown_in";
+// An integer pref that keeps track of how many times user has explicitly
+// dismissed the disount consent.
+const char kDiscountConsentPastDismissedCount[] =
+    "discount_consent_dismissed_count";
+// Boolean pref indicating whether the user has shown interest in the consent,
+// e.g. if the use has clicked the 'continue' button.
+const char kDiscountConsentShowInterest[] = "discount_consent_show_interest";
+// Integer pref indicating in which variation the user has shown interest to the
+// consent, they has clicked the 'continue' button.
+const char kDiscountConsentShowInterestIn[] =
+    "discount_consent_show_interest_in";
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
@@ -3370,9 +3402,6 @@ const char kLastWhatsNewVersion[] = "browser.last_whats_new_version";
 const char kLensRegionSearchEnabled[] = "policy.lens_region_search_enabled";
 #endif
 
-// A boolean indicating whether the Privacy Review Welcome Card should be shown.
-const char kPrivacyReviewShowWelcomeCard[] = "privacy_review.show_welcome_card";
-
 // A boolean indicating whether the Privacy guide feature has been viewed. This
 // is set to true if the user has done any of the following: (1) opened the
 // privacy guide, (2) dismissed the privacy guide promo, (3) seen the privacy
@@ -3391,5 +3420,10 @@ const char kCorsNonWildcardRequestHeadersSupport[] =
 // used by default.
 const char kOriginAgentClusterDefaultEnabled[] =
     "origin_agent_cluster_default_enabled";
+
+// An integer count of how many SCT Auditing hashdance reports have ever been
+// sent by this client, across all profiles.
+const char kSCTAuditingHashdanceReportCount[] =
+    "sct_auditing.hashdance_report_count";
 
 }  // namespace prefs

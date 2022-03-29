@@ -56,6 +56,9 @@ const char kMaxOverlaysParam[] = "max_overlays";
 const base::Feature kDelegatedCompositing{"DelegatedCompositing",
                                           base::FEATURE_DISABLED_BY_DEFAULT};
 
+const base::Feature kVideoDetectorIgnoreNonVideos{
+    "VideoDetectorIgnoreNonVideos", base::FEATURE_ENABLED_BY_DEFAULT};
+
 const base::Feature kSimpleFrameRateThrottling{
     "SimpleFrameRateThrottling", base::FEATURE_DISABLED_BY_DEFAULT};
 
@@ -370,6 +373,10 @@ int MaxOverlaysConsidered() {
 
   return base::GetFieldTrialParamByFeatureAsInt(kUseMultipleOverlays,
                                                 kMaxOverlaysParam, 2);
+}
+
+bool ShouldVideoDetectorIgnoreNonVideoFrames() {
+  return base::FeatureList::IsEnabled(kVideoDetectorIgnoreNonVideos);
 }
 
 }  // namespace features

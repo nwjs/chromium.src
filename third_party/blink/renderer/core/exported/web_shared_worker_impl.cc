@@ -208,6 +208,7 @@ void WebSharedWorkerImpl::StartWorkerContext(bool nodejs, const base::FilePath& 
     const WebString& name,
     WebSecurityOrigin constructor_origin,
     const WebString& user_agent,
+    const WebString& full_user_agent,
     const WebString& reduced_user_agent,
     const UserAgentMetadata& ua_metadata,
     const WebVector<WebContentSecurityPolicy>& content_security_policies,
@@ -271,6 +272,7 @@ void WebSharedWorkerImpl::StartWorkerContext(bool nodejs, const base::FilePath& 
       GenericFontFamilySettings());
 
   bool reduced_ua_enabled = false;
+  bool full_ua_enabled = false;
   if (worker_main_script_load_params &&
       worker_main_script_load_params->response_head &&
       worker_main_script_load_params->response_head->headers) {
@@ -278,6 +280,10 @@ void WebSharedWorkerImpl::StartWorkerContext(bool nodejs, const base::FilePath& 
         blink::WebStringToGURL(script_request_url.GetString()),
         worker_main_script_load_params->response_head->headers.get(),
         "UserAgentReduction", base::Time::Now());
+    full_ua_enabled = blink::TrialTokenValidator().RequestEnablesFeature(
+        blink::WebStringToGURL(script_request_url.GetString()),
+        worker_main_script_load_params->response_head->headers.get(),
+        "SendFullUserAgentAfterReduction", base::Time::Now());
   }
 
   // Some params (e.g. address space) passed to GlobalScopeCreationParams are
@@ -285,8 +291,9 @@ void WebSharedWorkerImpl::StartWorkerContext(bool nodejs, const base::FilePath& 
   // thread.
   auto creation_params = std::make_unique<GlobalScopeCreationParams>(nodejs_, main_script,
       script_request_url, script_type, name,
-      reduced_ua_enabled ? reduced_user_agent : user_agent, ua_metadata,
-      std::move(web_worker_fetch_context),
+      full_ua_enabled ? full_user_agent
+                      : (reduced_ua_enabled ? reduced_user_agent : user_agent),
+      ua_metadata, std::move(web_worker_fetch_context),
       ConvertToMojoBlink(content_security_policies),
       Vector<network::mojom::blink::ContentSecurityPolicyPtr>(),
       outside_settings_object->GetReferrerPolicy(),
@@ -368,6 +375,7 @@ std::unique_ptr<WebSharedWorker> WebSharedWorker::CreateAndStart(
     const WebString& name,
     WebSecurityOrigin constructor_origin,
     const WebString& user_agent,
+    const WebString& full_user_agent,
     const WebString& reduced_user_agent,
     const UserAgentMetadata& ua_metadata,
     const WebVector<WebContentSecurityPolicy>& content_security_policies,
@@ -389,8 +397,8 @@ std::unique_ptr<WebSharedWorker> WebSharedWorker::CreateAndStart(
       base::WrapUnique(new WebSharedWorkerImpl(token, std::move(host), client));
   worker->StartWorkerContext(nodejs, main_script,
       script_request_url, script_type, credentials_mode, name,
-      constructor_origin, user_agent, reduced_user_agent, ua_metadata,
-      content_security_policies, creation_address_space,
+      constructor_origin, user_agent, full_user_agent, reduced_user_agent,
+      ua_metadata, content_security_policies, creation_address_space,
       outside_fetch_client_settings_object, devtools_worker_token,
       std::move(content_settings), std::move(browser_interface_broker),
       pause_worker_context_on_start, std::move(worker_main_script_load_params),

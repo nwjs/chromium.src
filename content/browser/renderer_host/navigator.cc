@@ -83,6 +83,7 @@ absl::optional<WebFeature> FeatureCoop(CrossOriginOpenerPolicyValue value) {
     case CrossOriginOpenerPolicyValue::kSameOriginAllowPopups:
       return WebFeature::kCrossOriginOpenerPolicySameOriginAllowPopups;
     case CrossOriginOpenerPolicyValue::kSameOriginPlusCoep:
+    case CrossOriginOpenerPolicyValue::kSameOriginAllowPopupsPlusCoep:
       return WebFeature::kCoopAndCoepIsolated;
   }
 }
@@ -99,6 +100,7 @@ absl::optional<WebFeature> FeatureCoopRO(CrossOriginOpenerPolicyValue value) {
       return WebFeature::
           kCrossOriginOpenerPolicySameOriginAllowPopupsReportOnly;
     case CrossOriginOpenerPolicyValue::kSameOriginPlusCoep:
+    case CrossOriginOpenerPolicyValue::kSameOriginAllowPopupsPlusCoep:
       return WebFeature::kCoopAndCoepIsolatedReportOnly;
   }
 }

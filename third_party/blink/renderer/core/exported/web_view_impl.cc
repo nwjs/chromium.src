@@ -391,6 +391,9 @@ ui::mojom::blink::WindowOpenDisposition NavigationPolicyToDisposition(
       return ui::mojom::blink::WindowOpenDisposition::NEW_WINDOW;
     case kNavigationPolicyNewPopup:
       return ui::mojom::blink::WindowOpenDisposition::NEW_POPUP;
+    case kNavigationPolicyPictureInPicture:
+      DCHECK(RuntimeEnabledFeatures::PictureInPictureV2Enabled());
+      return ui::mojom::blink::WindowOpenDisposition::NEW_PICTURE_IN_PICTURE;
     case kNavigationPolicyIgnore:
       return ui::mojom::blink::WindowOpenDisposition::IGNORE_ACTION;
   }
@@ -1225,7 +1228,12 @@ void WebViewImpl::ResizeViewWhileAnchored(
     const gfx::Size& visible_viewport_size) {
   DCHECK(MainFrameImpl());
 
+  bool old_viewport_shrink = GetBrowserControls().ShrinkViewport();
+
   GetBrowserControls().SetParams(params);
+
+  if (old_viewport_shrink != GetBrowserControls().ShrinkViewport())
+    MainFrameImpl()->GetFrameView()->DynamicViewportUnitsChanged();
 
   {
     // Avoids unnecessary invalidations while various bits of state in
@@ -1400,8 +1408,8 @@ void WebViewImpl::PaintContent(cc::PaintCanvas* canvas, const gfx::Rect& rect) {
          DocumentLifecycle::kPaintClean);
 
   auto* builder = MakeGarbageCollected<PaintRecordBuilder>();
-  main_view.PaintOutsideOfLifecycle(builder->Context(), PaintFlag::kNoFlag,
-                                    CullRect(rect));
+  main_view.PaintOutsideOfLifecycleWithThrottlingAllowed(
+      builder->Context(), PaintFlag::kNoFlag, CullRect(rect));
   // Don't bother to save/restore here as the caller is expecting the canvas
   // to be modified and take care of it.
   canvas->clipRect(gfx::RectToSkRect(rect));
@@ -1482,10 +1490,6 @@ void WebView::ApplyWebPreferences(const web_pref::WebPreferences& prefs,
   // Enable gpu-accelerated 2d canvas if requested on the command line.
   RuntimeEnabledFeatures::SetAccelerated2dCanvasEnabled(
       prefs.accelerated_2d_canvas_enabled);
-
-  // Enable canvas to clear its context when it is running in background.
-  RuntimeEnabledFeatures::SetCanvasContextLostInBackgroundEnabled(
-      prefs.canvas_context_lost_in_background_enabled);
 
   // Enable new canvas 2d api features
   RuntimeEnabledFeatures::SetNewCanvas2DAPIEnabled(
@@ -1767,31 +1771,6 @@ void WebView::ApplyWebPreferences(const web_pref::WebPreferences& prefs,
     NOTREACHED();
   }
 
-  for (const auto& fully_load_k_pair : prefs.lazy_image_first_k_fully_load) {
-    switch (fully_load_k_pair.first) {
-      case EffectiveConnectionType::kEffectiveConnectionOfflineType:
-        continue;
-      case EffectiveConnectionType::kEffectiveConnectionUnknownType:
-        settings->SetLazyImageFirstKFullyLoadUnknown(fully_load_k_pair.second);
-        continue;
-      case EffectiveConnectionType::kEffectiveConnectionSlow2GType:
-        settings->SetLazyImageFirstKFullyLoadSlow2G(fully_load_k_pair.second);
-        continue;
-      case EffectiveConnectionType::kEffectiveConnection2GType:
-        settings->SetLazyImageFirstKFullyLoad2G(fully_load_k_pair.second);
-        continue;
-      case EffectiveConnectionType::kEffectiveConnection3GType:
-        settings->SetLazyImageFirstKFullyLoad3G(fully_load_k_pair.second);
-        continue;
-      case EffectiveConnectionType::kEffectiveConnection4GType:
-        settings->SetLazyImageFirstKFullyLoad4G(fully_load_k_pair.second);
-        continue;
-      case EffectiveConnectionType::kEffectiveConnectionTypeLast:
-        continue;
-    }
-    NOTREACHED();
-  }
-
   settings->SetTouchDragDropEnabled(prefs.touch_drag_drop_enabled);
   settings->SetTouchDragEndContextMenu(prefs.touch_dragend_context_menu);
   settings->SetWebXRImmersiveArAllowed(prefs.webxr_immersive_ar_allowed);
@@ -1859,7 +1838,7 @@ void WebViewImpl::SetPageFocus(bool enable) {
         // no caret and does respond to keyboard inputs.
         focused_frame->GetDocument()->UpdateStyleAndLayoutTree();
         if (element->IsTextControl()) {
-          element->UpdateFocusAppearance(SelectionBehaviorOnFocus::kRestore);
+          element->UpdateSelectionOnFocus(SelectionBehaviorOnFocus::kRestore);
         } else if (HasEditableStyle(*element)) {
           // updateFocusAppearance() selects all the text of
           // contentseditable DIVs. So we set the selection explicitly
@@ -2443,6 +2422,15 @@ void WebViewImpl::SetPageLifecycleStateInternal(
       LocalFrame* local_frame = To<LocalFrame>(page->MainFrame());
       probe::DidRestoreFromBackForwardCache(local_frame);
     }
+    // Increment the navigation counter on the main frame and all nested frames
+    // in its frame tree.
+    for (Frame* frame = page->MainFrame(); frame;
+         frame = frame->Tree().TraverseNext()) {
+      auto* local_frame = DynamicTo<LocalFrame>(frame);
+      if (local_frame && local_frame->View()) {
+        local_frame->IncrementNavigationCounter();
+      }
+    }
   }
 
   // Make sure no TrackedFeaturesUpdate message is sent after the ACK
@@ -2860,19 +2848,20 @@ void WebViewImpl::TakeFocus(bool reverse) {
 
 void WebViewImpl::Show(const LocalFrameToken& opener_frame_token,
                        NavigationPolicy policy,
-                       const gfx::Rect& rect,
+                       const gfx::Rect& requested_rect,
+                       const gfx::Rect& adjusted_rect,
                        bool opened_by_user_gesture, WebString* manifest) {
   // This is only called on local main frames.
   DCHECK(local_main_frame_host_remote_);
   DCHECK(web_widget_);
-  web_widget_->SetPendingWindowRect(rect);
+  web_widget_->SetPendingWindowRect(adjusted_rect);
   WTF::String mnft;
   if (!manifest || manifest->IsNull())
     mnft = "";
   else
     mnft = *manifest;
   local_main_frame_host_remote_->ShowCreatedWindow(
-      opener_frame_token, NavigationPolicyToDisposition(policy), rect,
+      opener_frame_token, NavigationPolicyToDisposition(policy), requested_rect,
       opened_by_user_gesture, mnft,
       WTF::Bind(&WebViewImpl::DidShowCreatedWindow, WTF::Unretained(this)));
 

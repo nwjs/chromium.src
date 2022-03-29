@@ -11,6 +11,7 @@
 #include "base/metrics/user_metrics_action.h"
 #include "base/strings/sys_string_conversions.h"
 #include "components/bookmarks/browser/bookmark_model.h"
+#include "components/search_engines/template_url_service.h"
 #include "components/strings/grit/components_strings.h"
 #include "ios/chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "ios/chrome/browser/browser_state/chrome_browser_state.h"
@@ -20,6 +21,7 @@
 #import "ios/chrome/browser/policy/policy_features.h"
 #import "ios/chrome/browser/policy/policy_util.h"
 #include "ios/chrome/browser/pref_names.h"
+#include "ios/chrome/browser/search_engines/template_url_service_factory.h"
 #include "ios/chrome/browser/sessions/ios_chrome_tab_restore_service_factory.h"
 #import "ios/chrome/browser/ui/activity_services/activity_params.h"
 #import "ios/chrome/browser/ui/alert_coordinator/action_sheet_coordinator.h"
@@ -328,6 +330,11 @@
     // Don't do any animation in the tab grid. All that animation will be
     // controlled by the pan handler/-animateViewReveal:.
     [self.baseViewController contentWillAppearAnimated:NO];
+
+    // Record when the tab switcher is presented.
+    self.tabGridEnterTime = base::TimeTicks::Now();
+    base::RecordAction(base::UserMetricsAction("MobileTabGridEntered"));
+    [self.priceCardMediator logMetrics:TAB_SWITCHER];
     return;
   }
 
@@ -371,9 +378,9 @@
       self.baseViewController.childViewControllerForStatusBarStyle = nil;
     });
   }
-  self.tabGridEnterTime = base::TimeTicks::Now();
 
   // Record when the tab switcher is presented.
+  self.tabGridEnterTime = base::TimeTicks::Now();
   base::RecordAction(base::UserMetricsAction("MobileTabGridEntered"));
   [self.priceCardMediator logMetrics:TAB_SWITCHER];
 }
@@ -445,7 +452,7 @@
   if (self.firstPresentation)
     animated = NO;
 
-  // Extened |completion| to signal the tab switcher delegate
+  // Extend |completion| to signal the tab switcher delegate
   // that the animated "tab switcher dismissal" (that is, presenting something
   // on top of the tab switcher) transition has completed.
   // Finally, the launch mask view should be removed.
@@ -935,19 +942,40 @@
   }
 }
 
-#pragma mark - RecentTabsPresentationDelegate
+- (void)openSearchResultsPageForSearchText:(NSString*)searchText {
+  TemplateURLService* templateURLService =
+      ios::TemplateURLServiceFactory::GetForBrowserState(
+          self.regularBrowser->GetBrowserState());
 
-- (void)showHistoryFromRecentTabs {
+  const TemplateURL* searchURLTemplate =
+      templateURLService->GetDefaultSearchProvider();
+
+  TemplateURLRef::SearchTermsArgs searchArgs(
+      base::SysNSStringToUTF16(searchText));
+
+  GURL searchURL(searchURLTemplate->url_ref().ReplaceSearchTerms(
+      searchArgs, templateURLService->search_terms_data()));
+  [self openLinkWithURL:searchURL];
+}
+
+- (void)showHistoryFilteredBySearchText:(NSString*)searchText {
   // A history coordinator from main_controller won't work properly from the
   // tab grid. Using a local coordinator works better and we need to set
   // |loadStrategy| to YES to ALWAYS_NEW_FOREGROUND_TAB.
   self.historyCoordinator = [[HistoryCoordinator alloc]
       initWithBaseViewController:self.baseViewController
                          browser:self.regularBrowser];
+  self.historyCoordinator.searchTerms = searchText;
   self.historyCoordinator.loadStrategy =
       UrlLoadStrategy::ALWAYS_NEW_FOREGROUND_TAB;
   self.historyCoordinator.presentationDelegate = self;
   [self.historyCoordinator start];
+}
+
+#pragma mark - RecentTabsPresentationDelegate
+
+- (void)showHistoryFromRecentTabsFilteredBySearchTerms:(NSString*)searchTerms {
+  [self showHistoryFilteredBySearchText:searchTerms];
 }
 
 - (void)showActiveRegularTabFromRecentTabs {
@@ -955,6 +983,11 @@
       shouldActivateBrowser:self.regularBrowser
              dismissTabGrid:YES
                focusOmnibox:NO];
+}
+
+- (void)showRegularTabGridFromRecentTabs {
+  [self.baseViewController setCurrentPageAndPageControl:TabGridPageRegularTabs
+                                               animated:YES];
 }
 
 #pragma mark - HistoryPresentationDelegate

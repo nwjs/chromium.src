@@ -96,8 +96,10 @@ os = struct(
     MAC_10_14 = os_enum("Mac-10.14", os_category.MAC),
     MAC_10_15 = os_enum("Mac-10.15", os_category.MAC),
     MAC_11 = os_enum("Mac-11", os_category.MAC),
+    MAC_12 = os_enum("Mac-12", os_category.MAC),
     MAC_DEFAULT = os_enum("Mac-11", os_category.MAC),
     MAC_ANY = os_enum("Mac", os_category.MAC),
+    MAC_BETA = os_enum("Mac-12", os_category.MAC),
     WINDOWS_7 = os_enum("Windows-7", os_category.WINDOWS),
     WINDOWS_8_1 = os_enum("Windows-8.1", os_category.WINDOWS),
     WINDOWS_10 = os_enum("Windows-10", os_category.WINDOWS),
@@ -185,10 +187,10 @@ xcode = struct(
     x12d4e = xcode_enum("12d4e"),
     # Xcode 12.5. Requires Mac11+ OS.
     x12e262 = xcode_enum("12e262"),
-    # Default Xcode 13 for chromium iOS (release candidate).
-    x13main = xcode_enum("13a233"),
-    # Xcode 13.0 latest beta (release candidate).
-    x13latestbeta = xcode_enum("13a233"),
+    # Default Xcode 13 for chromium iOS.
+    x13main = xcode_enum("13c100"),
+    # A newer Xcode version used on beta bots.
+    x13betabots = xcode_enum("13c100"),
     # in use by ios-webkit-tot
     x13wk = xcode_enum("13a1030dwk"),
 )
@@ -202,15 +204,6 @@ _DEFAULT_BUILDERLESS_OS_CATEGORIES = [os_category.LINUX]
 # Macs all have SSDs, so it doesn't make sense to use the default behavior of
 # setting ssd:0 dimension
 _EXCLUDE_BUILDERLESS_SSD_OS_CATEGORIES = [os_category.MAC]
-
-def _chromium_tests_property(*, project_trigger_overrides):
-    chromium_tests = {}
-
-    project_trigger_overrides = defaults.get_value("project_trigger_overrides", project_trigger_overrides)
-    if project_trigger_overrides:
-        chromium_tests["project_trigger_overrides"] = project_trigger_overrides
-
-    return chromium_tests or None
 
 def _goma_property(*, goma_backend, goma_debug, goma_enable_ats, goma_jobs):
     goma_properties = {}
@@ -328,7 +321,6 @@ defaults = args.defaults(
     goma_jobs = None,
     list_view = args.COMPUTE,
     os = None,
-    project_trigger_overrides = None,
     pool = None,
     sheriff_rotations = None,
     xcode = None,
@@ -384,7 +376,6 @@ def builder(
         xcode = args.DEFAULT,
         console_view_entry = None,
         list_view = args.DEFAULT,
-        project_trigger_overrides = args.DEFAULT,
         goma_backend = args.DEFAULT,
         goma_debug = args.DEFAULT,
         goma_enable_ats = args.DEFAULT,
@@ -500,11 +491,6 @@ def builder(
         list_view: A string or a list of strings identifying the ID(s) of the
             list view(s) to add an entry to. Supports a module-level default
             that defaults to no list views.
-        project_trigger_overrides: a dict mapping the LUCI projects declared in
-            recipe BotSpecs to the LUCI project to use when triggering builders.
-            When this builder triggers another builder, if the BotSpec for that
-            builder has a LUCI project that is a key in this mapping, the
-            corresponding value will be used instead.
         goma_backend: a member of the `goma.backend` enum indicating the goma
             backend the builder should use. Will be incorporated into the
             '$build/goma' property. By default, considered None.
@@ -666,12 +652,6 @@ def builder(
             ssd = False
     if ssd != None:
         dimensions["ssd"] = str(int(ssd))
-
-    chromium_tests = _chromium_tests_property(
-        project_trigger_overrides = project_trigger_overrides,
-    )
-    if chromium_tests != None:
-        properties["$build/chromium_tests"] = chromium_tests
 
     goma_enable_ats = defaults.get_value("goma_enable_ats", goma_enable_ats)
 

@@ -23,6 +23,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/process/process_handle.h"
+#include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/single_thread_task_runner.h"
@@ -869,6 +870,7 @@ class PrepareFrameAndViewForPrint : public blink::WebViewClient,
   void CopySelection(const WebPreferences& preferences);
   void ComputeScalingAndPrintParams(blink::WebLocalFrame* frame,
                                     mojom::PrintParamsPtr& print_params,
+                                    std::string* selection,
                                     bool is_pdf,
                                     bool ignore_css_margins,
                                     bool fit_to_page);
@@ -915,8 +917,9 @@ PrepareFrameAndViewForPrint::PrepareFrameAndViewForPrint(
   } else {
     bool fit_to_page =
         ignore_css_margins && IsPrintScalingOptionFitToPage(*print_params);
-    ComputeScalingAndPrintParams(frame, print_params, source_is_pdf,
-                                 ignore_css_margins, fit_to_page);
+    ComputeScalingAndPrintParams(frame, print_params, /*selection=*/nullptr,
+                                 source_is_pdf, ignore_css_margins,
+                                 fit_to_page);
   }
 }
 
@@ -976,11 +979,11 @@ void PrepareFrameAndViewForPrint::CopySelectionIfNeeded(
 void PrepareFrameAndViewForPrint::CopySelection(
     const WebPreferences& preferences) {
   ResizeForPrinting();
-  ComputeScalingAndPrintParams(frame(), selection_only_print_params_,
+  std::string html;
+  ComputeScalingAndPrintParams(frame(), selection_only_print_params_, &html,
                                /*is_pdf=*/false,
                                /*ignore_css_margins=*/false,
                                /*fit_to_page=*/false);
-  std::string html = frame()->SelectionAsMarkup().Utf8();
   RestoreSize();
 
   // Create a new WebView with the same settings as the current display one.
@@ -1044,6 +1047,7 @@ void PrepareFrameAndViewForPrint::CopySelection(
 void PrepareFrameAndViewForPrint::ComputeScalingAndPrintParams(
     blink::WebLocalFrame* frame,
     mojom::PrintParamsPtr& print_params,
+    std::string* selection,
     bool is_pdf,
     bool ignore_css_margins,
     bool fit_to_page) {
@@ -1055,6 +1059,8 @@ void PrepareFrameAndViewForPrint::ComputeScalingAndPrintParams(
   print_params = CalculatePrintParamsForCss(frame, /*page_index=*/0,
                                             *print_params, ignore_css_margins,
                                             fit_to_page, &scale_factor);
+  if (selection)
+    *selection = frame->SelectionAsMarkup().Utf8();
   frame->PrintEnd();
   ComputeWebKitPrintParamsInDesiredDpi(*print_params, is_pdf,
                                        &web_print_params_);
@@ -2312,25 +2318,26 @@ bool PrintRenderFrameHelper::UpdatePrintSettings(
     return false;
   }
 
-  // TODO(dhoss): Replace deprecated base::DictionaryValue::Get<Type>() calls
-  if (!job_settings->GetInteger(kPreviewUIID,
-                                &settings->params->preview_ui_id)) {
+  absl::optional<int> preview_ui_id = job_settings->FindIntKey(kPreviewUIID);
+  if (!preview_ui_id) {
     NOTREACHED();
     print_preview_context_.set_error(PREVIEW_ERROR_BAD_SETTING);
     return false;
   }
+  settings->params->preview_ui_id = *preview_ui_id;
 
   // Validate expected print preview settings.
   absl::optional<bool> is_first_request =
       job_settings->FindBoolKey(kIsFirstRequest);
-  if (!job_settings->GetInteger(kPreviewRequestID,
-                                &settings->params->preview_request_id) ||
-      !is_first_request.has_value()) {
+  absl::optional<int> preview_request_id =
+      job_settings->FindIntKey(kPreviewRequestID);
+  if (!preview_request_id.has_value() || !is_first_request.has_value()) {
     NOTREACHED();
     print_preview_context_.set_error(PREVIEW_ERROR_BAD_SETTING);
     return false;
   }
   settings->params->is_first_request = is_first_request.value();
+  settings->params->preview_request_id = preview_request_id.value();
 
   settings->params->print_to_pdf = IsPrintToPdfRequested(*job_settings);
   UpdateFrameMarginsCssInfo(*job_settings);
@@ -2501,20 +2508,14 @@ void PrintRenderFrameHelper::ShowScriptedPrintPreview() {
 void PrintRenderFrameHelper::WaitForLoad(PrintPreviewRequestType type) {
   static constexpr base::TimeDelta kLoadEventTimeout = base::Seconds(2);
 
-  if (type == PRINT_PREVIEW_SCRIPTED) {
-    on_stop_loading_closure_ =
-        base::BindOnce(&PrintRenderFrameHelper::ShowScriptedPrintPreview,
-                       weak_ptr_factory_.GetWeakPtr());
-  } else {
-    on_stop_loading_closure_ =
-        base::BindOnce(&PrintRenderFrameHelper::RequestPrintPreview,
-                       weak_ptr_factory_.GetWeakPtr(), type, true);
-    base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
-        FROM_HERE,
-        base::BindOnce(&PrintRenderFrameHelper::DidFinishLoadForPrinting,
-                       weak_ptr_factory_.GetWeakPtr()),
-        kLoadEventTimeout);
-  }
+  on_stop_loading_closure_ =
+      base::BindOnce(&PrintRenderFrameHelper::RequestPrintPreview,
+                     weak_ptr_factory_.GetWeakPtr(), type, true);
+  base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(&PrintRenderFrameHelper::DidFinishLoadForPrinting,
+                     weak_ptr_factory_.GetWeakPtr()),
+      kLoadEventTimeout);
 }
 
 void PrintRenderFrameHelper::RequestPrintPreview(PrintPreviewRequestType type,
@@ -2526,8 +2527,7 @@ void PrintRenderFrameHelper::RequestPrintPreview(PrintPreviewRequestType type,
   if (!weak_this)
     return;
 
-  // TODO(chrishtr): make async work for scripted print.
-  if (type != PRINT_PREVIEW_SCRIPTED && !already_notified_frame) {
+  if (!already_notified_frame) {
     is_loading_ = print_preview_context_.source_frame()->WillPrintSoon();
   }
 
@@ -2562,12 +2562,12 @@ void PrintRenderFrameHelper::RequestPrintPreview(PrintPreviewRequestType type,
         //   are fully loaded, which occurs when DidStopLoading() is called.
         //   Defer showing the preview until then.
         WaitForLoad(type);
-      } else {
-        base::ThreadTaskRunnerHandle::Get()->PostTask(
-            FROM_HERE,
-            base::BindOnce(&PrintRenderFrameHelper::ShowScriptedPrintPreview,
-                           weak_ptr_factory_.GetWeakPtr()));
+        return;
       }
+      base::ThreadTaskRunnerHandle::Get()->PostTask(
+          FROM_HERE,
+          base::BindOnce(&PrintRenderFrameHelper::ShowScriptedPrintPreview,
+                         weak_ptr_factory_.GetWeakPtr()));
       base::RunLoop loop{base::RunLoop::Type::kNestableTasksAllowed};
       closures_for_mojo_responses_->SetScriptedPrintPreviewQuitClosure(
           loop.QuitClosure());

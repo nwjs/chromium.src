@@ -199,6 +199,7 @@ class CORE_EXPORT LayoutInline : public LayoutBoxModelObject {
   PhysicalOffset OffsetForInFlowPositionedInline(const LayoutBox& child) const;
 
   void AddOutlineRects(Vector<PhysicalRect>&,
+                       OutlineInfo*,
                        const PhysicalOffset& additional_offset,
                        NGOutlineType) const override;
   // The following methods are called from the container if it has already added
@@ -368,7 +369,10 @@ class CORE_EXPORT LayoutInline : public LayoutBoxModelObject {
                  LayoutBoxModelObject* old_cont);
 
   // Create an anonymous block for block children of this inline.
-  LayoutBlockFlow* CreateAnonymousContainerForBlockChildren(bool split_flow);
+  LayoutBlockFlow* CreateAnonymousContainerForBlockChildren(
+      bool split_flow) const;
+  LayoutBox* CreateAnonymousBoxToSplit(
+      const LayoutBox* box_to_split) const final;
 
   void UpdateLayout() final {
     NOT_DESTROYED();

@@ -48,6 +48,7 @@ namespace blink {
 
 class KURL;
 struct SecurityOriginHash;
+class SecurityOriginTest;
 
 // An identifier which defines the source of content (e.g. a document) and
 // restricts what other objects it is permitted to access (based on their
@@ -162,7 +163,14 @@ class PLATFORM_EXPORT SecurityOrigin : public RefCounted<SecurityOrigin> {
     AccessResultDomainDetail unused_detail;
     return CanAccess(other, unused_detail);
   }
+  bool CanAccess(const scoped_refptr<SecurityOrigin>& other) const {
+    return CanAccess(other.get());
+  }
   bool CanAccess(const SecurityOrigin* other, AccessResultDomainDetail&) const;
+  bool CanAccess(const scoped_refptr<SecurityOrigin>& other,
+                 AccessResultDomainDetail& detail) const {
+    return CanAccess(other.get(), detail);
+  }
 
   // Returns true if this SecurityOrigin can read content retrieved from
   // the given URL.
@@ -380,8 +388,10 @@ class PLATFORM_EXPORT SecurityOrigin : public RefCounted<SecurityOrigin> {
   bool SerializesAsNull() const;
 
  private:
-  friend struct mojo::UrlOriginAdapter;
-  friend struct blink::SecurityOriginHash;
+  // Various serialisation and test routines that need direct nonce access.
+  friend mojo::UrlOriginAdapter;
+  friend SecurityOriginHash;
+  friend SecurityOriginTest;
 
   // For calling GetNonceForSerialization().
   friend class BlobURLOpaqueOriginNonceMap;
@@ -395,6 +405,14 @@ class PLATFORM_EXPORT SecurityOrigin : public RefCounted<SecurityOrigin> {
   // Create an opaque SecurityOrigin.
   SecurityOrigin(const url::Origin::Nonce& nonce,
                  const SecurityOrigin* precursor_origin);
+
+  // Creates an opaque SecurityOrigin with a new unique nonce. Similar to the
+  // above, but preferred when there is no pre-existing nonce to copy, as
+  // copying a nonce requires forcing eager initialisation of that nonce.
+  enum class NewUniqueOpaque {
+    kWithLazyInitNonce,
+  };
+  SecurityOrigin(NewUniqueOpaque, const SecurityOrigin* precursor_origin);
 
   // Create a tuple SecurityOrigin, with parameters via KURL
   explicit SecurityOrigin(const KURL& url);

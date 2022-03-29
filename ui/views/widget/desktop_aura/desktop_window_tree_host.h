@@ -206,6 +206,9 @@ class VIEWS_EXPORT DesktopWindowTreeHost {
 
   // Updates window shape by clipping the canvas before paint starts.
   virtual void UpdateWindowShapeIfNeeded(const ui::PaintContext& context);
+
+  virtual DesktopNativeCursorManager* GetSingletonDesktopNativeCursorManager();
+
 #if defined(OS_WIN)
   virtual void SetPositionInDIP(const gfx::Point& pos);
 #endif

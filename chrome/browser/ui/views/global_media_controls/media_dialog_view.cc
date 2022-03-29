@@ -10,6 +10,7 @@
 
 #include "base/bind.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/observer_list.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/media/router/media_router_feature.h"
 #include "chrome/browser/profiles/profile.h"
@@ -108,8 +109,10 @@ views::Widget* MediaDialogView::ShowDialog(
     Profile* profile,
     content::WebContents* contents,
     global_media_controls::GlobalMediaControlsEntryPoint entry_point) {
-  DCHECK(!instance_);
   DCHECK(service);
+  // Hide the previous instance if it exists, since there can only be one dialog
+  // instance at a time.
+  HideDialog();
   instance_ = new MediaDialogView(anchor_view, anchor_position, service,
                                   profile, contents, entry_point);
   if (!anchor_view) {

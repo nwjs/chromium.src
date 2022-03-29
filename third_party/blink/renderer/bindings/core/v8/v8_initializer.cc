@@ -107,17 +107,6 @@ extern VoidHookFn g_promise_reject_callback_fn;
 
 namespace blink {
 
-static void ReportFatalErrorInMainThread(const char* location,
-                                         const char* message) {
-  LOG(FATAL)  << "V8 error: " << message << " (" << location << ").";
-}
-
-static void ReportOOMErrorInMainThread(const char* location, bool is_js_heap) {
-  DVLOG(1) << "V8 " << (is_js_heap ? "javascript" : "process") << " OOM: ("
-           << location << ").";
-  OOM_CRASH(0);
-}
-
 static String ExtractMessageForConsole(v8::Isolate* isolate,
                                        v8::Local<v8::Value> data) {
   if (V8DOMWrapper::IsWrapper(isolate, data)) {
@@ -801,7 +790,7 @@ void V8Initializer::InitializeMainThread(
 
   v8::Isolate* isolate = V8PerIsolateData::Initialize(
       scheduler->V8TaskRunner(), GetV8ContextSnapshotMode(), CreateHistogram,
-      AddHistogramSample);
+      AddHistogramSample, ReportV8FatalError, ReportV8OOMError);
   scheduler->SetV8Isolate(isolate);
 
   // ThreadState::isolate_ needs to be set before setting the EmbedderHeapTracer
@@ -811,9 +800,6 @@ void V8Initializer::InitializeMainThread(
 
   InitializeV8Common(isolate);
 
-  isolate->SetOOMErrorHandler(ReportOOMErrorInMainThread);
-
-  isolate->SetFatalErrorHandler(ReportFatalErrorInMainThread);
   isolate->AddMessageListenerWithErrorLevel(
       MessageHandlerInMainThread,
       v8::Isolate::kMessageError | v8::Isolate::kMessageWarning |
@@ -841,13 +827,6 @@ void V8Initializer::InitializeMainThread(
   WTF::Partitions::InitializeArrayBufferPartition();
 }
 
-static void ReportFatalErrorInWorker(const char* location,
-                                     const char* message) {
-  // FIXME: We temporarily deal with V8 internal error situations such as
-  // out-of-memory by crashing the worker.
-  LOG(FATAL);
-}
-
 // Stack size for workers is limited to 500KB because default stack size for
 // secondary threads is 512KB on Mac OS X. See GetDefaultThreadStackSize() in
 // base/threading/platform_thread_mac.mm for details.
@@ -861,7 +840,6 @@ void V8Initializer::InitializeWorker(v8::Isolate* isolate) {
       v8::Isolate::kMessageError | v8::Isolate::kMessageWarning |
           v8::Isolate::kMessageInfo | v8::Isolate::kMessageDebug |
           v8::Isolate::kMessageLog);
-  isolate->SetFatalErrorHandler(ReportFatalErrorInWorker);
 
   isolate->SetStackLimit(WTF::GetCurrentStackPosition() - kWorkerMaxStackSize);
   isolate->SetPromiseRejectCallback(PromiseRejectHandlerInWorker);

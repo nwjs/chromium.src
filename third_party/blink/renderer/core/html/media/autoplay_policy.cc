@@ -344,6 +344,9 @@ void AutoplayPolicy::OnIntersectionChangedForAutoplay(
 
   if (!is_visible) {
     auto pause_and_preserve_autoplay = [](AutoplayPolicy* self) {
+      if (!self)
+        return;
+
       if (self->element_->can_autoplay_ && self->element_->Autoplay()) {
         self->element_->PauseInternal();
         self->element_->can_autoplay_ = true;
@@ -358,6 +361,9 @@ void AutoplayPolicy::OnIntersectionChangedForAutoplay(
   }
 
   auto maybe_autoplay = [](AutoplayPolicy* self) {
+    if (!self)
+      return;
+
     if (self->ShouldAutoplay()) {
       self->element_->paused_ = false;
       self->element_->SetShowPosterFlag(false);

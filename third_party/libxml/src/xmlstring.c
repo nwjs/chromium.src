@@ -424,13 +424,7 @@ xmlStrsub(const xmlChar *str, int start, int len) {
 
 int
 xmlStrlen(const xmlChar *str) {
-    size_t len = 0;
-
-    if (str == NULL) return(0);
-    while (*str != 0) { /* non input consuming */
-        str++;
-        len++;
-    }
+    size_t len = str ? strlen((const char *)str) : 0;
     return(len > INT_MAX ? 0 : len);
 }
 
@@ -850,20 +844,16 @@ xmlUTF8Strsize(const xmlChar *utf, int len) {
     while ( len-- > 0) {
         if ( !*ptr )
             break;
-        if ( (ch = *ptr++) & 0x80) {
-            // Workaround for an optimization bug in VS 2015 Update 2, remove
-            // once the fix is released. crbug.com/599427
-            // https://connect.microsoft.com/VisualStudio/feedback/details/2582138
-            xmlChar ch2 = ch;
-            while ((ch2<<=1) & 0x80 ) {
+        if ( (ch = *ptr++) & 0x80)
+            while ((ch<<=1) & 0x80 ) {
+		if (*ptr == 0) break;
                 ptr++;
-                if (*ptr == 0) break;
-            }
-        }
+	    }
     }
     ret = ptr - utf;
     return (ret > INT_MAX ? 0 : ret);
 }
+
 
 /**
  * xmlUTF8Strndup:
@@ -1055,5 +1045,3 @@ xmlEscapeFormatString(xmlChar **msg)
     return *msg;
 }
 
-#define bottom_xmlstring
-#include "elfgcchack.h"

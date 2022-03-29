@@ -45,6 +45,7 @@
 #include "components/services/app_service/public/cpp/icon_types.h"
 #include "extensions/browser/api/file_handlers/mime_util.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/layout.h"
 #include "ui/gfx/image/image_skia_operations.h"
 
 using vm_tools::apps::App;
@@ -91,7 +92,7 @@ std::set<std::string> ListToStringSet(const base::Value* list,
   if (!list) {
     return result;
   }
-  for (const base::Value& value : list->GetList()) {
+  for (const base::Value& value : list->GetListDeprecated()) {
     result.insert(to_lower_ascii ? base::ToLowerASCII(value.GetString())
                                  : value.GetString());
   }
@@ -341,6 +342,18 @@ GuestOsRegistryService::Registration GetTerminalRegistration(
       crostini::kCrostiniTerminalSystemAppId, std::move(pref_registration));
 }
 
+std::string GetStringKey(const base::Value& dict,
+                         const base::StringPiece& key) {
+  if (!dict.is_dict()) {
+    return std::string();
+  }
+  const base::Value* value = dict.FindKeyOfType(key, base::Value::Type::STRING);
+  if (!value) {
+    return std::string();
+  }
+  return value->GetString();
+}
+
 }  // namespace
 
 GuestOsRegistryService::Registration::Registration(std::string app_id,
@@ -461,15 +474,7 @@ bool GuestOsRegistryService::Registration::IsScaled() const {
 
 std::string GuestOsRegistryService::Registration::GetString(
     base::StringPiece key) const {
-  if (!pref_.is_dict()) {
-    return std::string();
-  }
-  const base::Value* value =
-      pref_.FindKeyOfType(key, base::Value::Type::STRING);
-  if (!value) {
-    return std::string();
-  }
-  return value->GetString();
+  return GetStringKey(pref_, key);
 }
 
 bool GuestOsRegistryService::Registration::GetBool(
@@ -766,7 +771,7 @@ void GuestOsRegistryService::LoadIcon(const std::string& app_id,
   // we need to ensure that returned icons are always resized to be
   // size_hint_in_dip big. crbug/1170455 is an example.
   apps::IconEffects icon_effects = static_cast<apps::IconEffects>(
-      icon_key.icon_effects | apps::IconEffects::kResizeAndPad);
+      icon_key.icon_effects | apps::IconEffects::kMdIconStyle);
   auto scale_factor = apps_util::GetPrimaryDisplayUIScaleFactor();
 
   auto load_icon_from_vm_fallback = base::BindOnce(
@@ -1027,11 +1032,16 @@ void GuestOsRegistryService::UpdateApplicationList(
       if (item.first == crostini::kCrostiniTerminalSystemAppId) {
         continue;
       }
-      if (item.second.FindKey(guest_os::prefs::kAppVmNameKey)->GetString() ==
-              app_list.vm_name() &&
-          item.second.FindKey(guest_os::prefs::kAppContainerNameKey)
-                  ->GetString() == app_list.container_name() &&
-          new_app_ids.find(item.first) == new_app_ids.end()) {
+      std::string vm_name =
+          GetStringKey(item.second, guest_os::prefs::kAppVmNameKey);
+      std::string container_name =
+          GetStringKey(item.second, guest_os::prefs::kAppContainerNameKey);
+      if (vm_name.empty() || container_name.empty()) {
+        LOG(WARNING) << "Detected app with empty vm or container name";
+        removed_apps.push_back(item.first);
+      } else if (vm_name == app_list.vm_name() &&
+                 container_name == app_list.container_name() &&
+                 new_app_ids.find(item.first) == new_app_ids.end()) {
         removed_apps.push_back(item.first);
       }
     }

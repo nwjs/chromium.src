@@ -6,7 +6,6 @@
 
 #include <utility>
 #include "extensions/common/manifest_constants.h"
-#include "base/ignore_result.h"
 
 #include "base/bind.h"
 #include "base/callback.h"
@@ -170,8 +169,8 @@ v8::Local<v8::Object> GetOrCreateChrome(v8::Local<v8::Context> context, const ch
       chrome = v8::Object::New(context->GetIsolate());
       v8::Local<v8::String> hidden_key(
                                        v8::String::NewFromUtf8(context->GetIsolate(), "__nw_is_hidden", v8::NewStringType::kNormal).ToLocalChecked());
-      ignore_result(chrome->ToObject(context).ToLocalChecked()->Set(context, hidden_key, v8::Boolean::New(context->GetIsolate(), true)));
-      ignore_result(priv_obj->Set(context, chrome_string, chrome));
+      std::ignore = chrome->ToObject(context).ToLocalChecked()->Set(context, hidden_key, v8::Boolean::New(context->GetIsolate(), true));
+      std::ignore = priv_obj->Set(context, chrome_string, chrome);
     }
     return chrome->IsObject() ? chrome.As<v8::Object>() : v8::Local<v8::Object>();
   } //hidden
@@ -934,7 +933,7 @@ void NativeExtensionBindingsSystem::SendRequest(
 
   auto params = mojom::RequestParams::New();
   params->name = request->method_name;
-  base::Value args(std::move(*request->arguments_list).TakeList());
+  base::Value args(std::move(*request->arguments_list).TakeListDeprecated());
   params->arguments = std::move(args);
   params->extension_id = script_context->GetExtensionID();
   params->source_url = url;

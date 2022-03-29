@@ -268,7 +268,7 @@ Status ParseSwitches(const base::Value& option,
                      Capabilities* capabilities) {
   if (!option.is_list())
     return Status(kInvalidArgument, "must be a list");
-  for (const base::Value& arg : option.GetList()) {
+  for (const base::Value& arg : option.GetListDeprecated()) {
     if (!arg.is_string())
       return Status(kInvalidArgument, "each argument must be a string");
     std::string arg_string = arg.GetString();
@@ -285,9 +285,9 @@ Status ParseArguments(const base::Value& option,
   const base::ListValue* arg_list = NULL;
   if (!option.GetAsList(&arg_list))
     return Status(kUnknownError, "must be a list");
-  for (size_t i = 0; i < arg_list->GetList().size(); ++i) {
+  for (size_t i = 0; i < arg_list->GetListDeprecated().size(); ++i) {
     std::string arg_string;
-    const base::Value& val = arg_list->GetList()[i];
+    const base::Value& val = arg_list->GetListDeprecated()[i];
     if (!val.is_string())
       return Status(kUnknownError, "each argument must be a string");
     arg_string = val.GetString();
@@ -299,7 +299,7 @@ Status ParseArguments(const base::Value& option,
 Status ParseExtensions(const base::Value& option, Capabilities* capabilities) {
   if (!option.is_list())
     return Status(kInvalidArgument, "must be a list");
-  for (const base::Value& extension : option.GetList()) {
+  for (const base::Value& extension : option.GetListDeprecated()) {
     if (!extension.is_string()) {
       return Status(kInvalidArgument,
                     "each extension must be a base64 encoded string");
@@ -374,7 +374,7 @@ Status ParseProxy(bool w3c_compliant,
       // In practice, library implementations are not always consistent,
       // so we accept both formats regardless of the W3C mode setting.
       if (option_value->is_list()) {
-        for (const base::Value& item : option_value->GetList()) {
+        for (const base::Value& item : option_value->GetListDeprecated()) {
           if (!item.is_string())
             return Status(kInvalidArgument,
                           "'noProxy' must be a list of strings");
@@ -407,7 +407,7 @@ Status ParseExcludeSwitches(const base::Value& option,
                             Capabilities* capabilities) {
   if (!option.is_list())
     return Status(kInvalidArgument, "must be a list");
-  for (const base::Value& switch_value : option.GetList()) {
+  for (const base::Value& switch_value : option.GetListDeprecated()) {
     if (!switch_value.is_string()) {
       return Status(kInvalidArgument,
                     "each switch to be removed must be a string");
@@ -537,7 +537,7 @@ Status ParseDevToolsEventsLoggingPrefs(const base::Value& option,
                                        Capabilities* capabilities) {
   if (!option.is_list())
     return Status(kInvalidArgument, "must be a list");
-  if (option.GetList().empty())
+  if (option.GetListDeprecated().empty())
     return Status(kInvalidArgument, "list must contain values");
   capabilities->devtools_events_logging_prefs = option.Clone();
   return Status(kOk);
@@ -547,7 +547,7 @@ Status ParseWindowTypes(const base::Value& option, Capabilities* capabilities) {
   if (!option.is_list())
     return Status(kInvalidArgument, "must be a list");
   std::set<WebViewInfo::Type> window_types_tmp;
-  for (const base::Value& window_type : option.GetList()) {
+  for (const base::Value& window_type : option.GetListDeprecated()) {
     if (!window_type.is_string()) {
       return Status(kInvalidArgument, "each window type must be a string");
     }
@@ -692,7 +692,7 @@ void Switches::SetSwitch(const std::string& name) {
 }
 
 void Switches::SetSwitch(const std::string& name, const std::string& value) {
-#if defined(OS_WIN)
+#if BUILDFLAG(IS_WIN)
   switch_map_[name] = base::UTF8ToWide(value);
 #else
   switch_map_[name] = value;
@@ -735,7 +735,7 @@ bool Switches::HasSwitch(const std::string& name) const {
 
 std::string Switches::GetSwitchValue(const std::string& name) const {
   NativeString value = GetSwitchValueNative(name);
-#if defined(OS_WIN)
+#if BUILDFLAG(IS_WIN)
   return base::WideToUTF8(value);
 #else
   return value;

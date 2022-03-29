@@ -51,6 +51,11 @@ class WindowProxyManager : public GarbageCollected<WindowProxyManager> {
     return window_proxy;
   }
 
+  WindowProxy* GetWindowProxyMaybeUninitialized(DOMWrapperWorld& world) {
+    WindowProxy* window_proxy = WindowProxyMaybeUninitialized(world);
+    return window_proxy;
+  }
+
   CORE_EXPORT void ResetIsolatedWorldsForTesting();
 
  protected:

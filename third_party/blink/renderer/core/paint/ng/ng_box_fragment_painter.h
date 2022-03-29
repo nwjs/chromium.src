@@ -164,14 +164,9 @@ class CORE_EXPORT NGBoxFragmentPainter : public BoxPainterBase {
                     const PaintInfo& paint_info,
                     const PhysicalOffset& paint_offset,
                     const PhysicalOffset& parent_offset);
-  void PaintFloatingItems(const PaintInfo& paint_info,
-                          const PaintInfo& float_paint_info,
-                          NGInlineCursor* cursor);
+  void PaintFloatingItems(const PaintInfo& paint_info, NGInlineCursor* cursor);
   void PaintFloatingChildren(const NGPhysicalFragment&,
                              const PaintInfo& paint_info);
-  void PaintFloatingChildren(const NGPhysicalFragment&,
-                             const PaintInfo& paint_info,
-                             const PaintInfo& float_paint_info);
   void PaintFloats(const PaintInfo&);
   void PaintMask(const PaintInfo&, const PhysicalOffset& paint_offset);
   void PaintBackground(const PaintInfo&,
@@ -322,7 +317,7 @@ inline NGBoxFragmentPainter::NGBoxFragmentPainter(
     const DisplayItemClient& display_item_client,
     const NGInlineCursor* inline_box_cursor,
     const NGFragmentItem* box_item)
-    : BoxPainterBase(&box.GetDocument(), box.Style(), box.GeneratingNode()),
+    : BoxPainterBase(&box.GetDocument(), box.Style(), box.GetNode()),
       box_fragment_(box),
       display_item_client_(display_item_client),
       items_(box.Items()),

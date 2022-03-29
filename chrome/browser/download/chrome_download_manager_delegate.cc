@@ -125,10 +125,6 @@
 #include "components/offline_pages/core/client_namespace_constants.h"
 #endif
 
-#if BUILDFLAG(IS_WIN)
-#include "components/services/quarantine/public/cpp/quarantine_features_win.h"
-#endif
-
 using content::BrowserThread;
 using content::DownloadManager;
 using download::DownloadItem;
@@ -618,6 +614,10 @@ bool ChromeDownloadManagerDelegate::IsDownloadReadyForCompletion(
     base::OnceClosure internal_complete_callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 #if BUILDFLAG(FULL_SAFE_BROWSING)
+  // If this is a chrome triggered download, return true;
+  if (!item->RequireSafetyChecks())
+    return true;
+
   if (!download_prefs_->safebrowsing_for_trusted_sources_enabled() &&
       download_prefs_->IsFromTrustedSource(*item)) {
     return true;
@@ -791,12 +791,14 @@ void ChromeDownloadManagerDelegate::ChooseSavePath(
 }
 
 void ChromeDownloadManagerDelegate::SanitizeSavePackageResourceName(
-    base::FilePath* filename) {
+    base::FilePath* filename,
+    const GURL& source_url) {
 #if 0
   safe_browsing::FileTypePolicies* file_type_policies =
       safe_browsing::FileTypePolicies::GetInstance();
 
-  if (file_type_policies->GetFileDangerLevel(*filename) ==
+  const PrefService* prefs = profile_->GetPrefs();
+  if (file_type_policies->GetFileDangerLevel(*filename, source_url, prefs) ==
       safe_browsing::DownloadFileType::NOT_DANGEROUS)
     return;
 
@@ -1849,15 +1851,12 @@ ChromeDownloadManagerDelegate::GetWeakPtr() {
 void ChromeDownloadManagerDelegate::ConnectToQuarantineService(
     mojo::PendingReceiver<quarantine::mojom::Quarantine> receiver) {
 #if BUILDFLAG(IS_WIN)
-  if (base::FeatureList::IsEnabled(quarantine::kOutOfProcessQuarantine)) {
-    content::ServiceProcessHost::Launch(
-        std::move(receiver), content::ServiceProcessHost::Options()
-                                 .WithDisplayName("Quarantine Service")
-                                 .Pass());
-    return;
-  }
-#endif
-
+  content::ServiceProcessHost::Launch(std::move(receiver),
+                                      content::ServiceProcessHost::Options()
+                                          .WithDisplayName("Quarantine Service")
+                                          .Pass());
+#else   // !BUILDFLAG(IS_WIN)
   mojo::MakeSelfOwnedReceiver(std::make_unique<quarantine::QuarantineImpl>(),
                               std::move(receiver));
+#endif  // !BUILDFLAG(IS_WIN)
 }

@@ -114,6 +114,9 @@
       }
     ]
   },
+  "CloudReportingUploadFrequency": {
+    "reason_for_missing_test": "Disable on M100 due to flaky."
+  },
   "ChromeVariations": {
     "os": [
       "ios"

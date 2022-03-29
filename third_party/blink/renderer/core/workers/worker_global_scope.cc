@@ -27,7 +27,6 @@
 
 #include "third_party/blink/renderer/core/workers/worker_global_scope.h"
 
-#include "base/ignore_result.h"
 
 #include "base/memory/scoped_refptr.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -255,7 +254,7 @@ ScriptValue WorkerGlobalScope::importNWBin(ScriptState* state, DOMArrayBuffer* b
   v8::Local<v8::Value> result;
   v8::Context::Scope cscope (state->GetContext());
   v8::FixSourceNWBin(isolate, script);
-  ignore_result(script->BindToCurrentContext()->Run(state->GetContext()).ToLocal(&result));
+  std::ignore = script->BindToCurrentContext()->Run(state->GetContext()).ToLocal(&result);
   return ScriptValue::From(state, result);
 }
 

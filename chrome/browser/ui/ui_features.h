@@ -20,6 +20,10 @@ namespace features {
 // All features in alphabetical order. The features should be documented
 // alongside the definition of their values in the .cc file.
 
+// TODO(https://crbug.com/896640): Remove this when the tab dragging
+// interactive_ui_tests pass on Wayland.
+extern const base::Feature kAllowWindowDragUsingSystemDragDrop;
+
 extern const base::Feature kChromeLabs;
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
@@ -36,8 +40,6 @@ extern const base::Feature kChromeWhatsNewInMainMenuNewBadge;
 #endif
 
 extern const base::Feature kCommander;
-
-extern const base::Feature kDownloadBubble;
 
 #if !defined(ANDROID)
 extern const base::Feature kAccessCodeCastUI;
@@ -71,8 +73,6 @@ extern const base::Feature kSideSearchClearCacheWhenClosed;
 extern const base::Feature kSideSearchFeedback;
 extern const base::Feature kSideSearchStatePerTab;
 #endif  // BUILDFLAG(ENABLE_SIDE_SEARCH)
-
-extern const base::Feature kSyncConfirmationUpdatedText;
 
 extern const base::Feature kTabGroupsAutoCreate;
 
@@ -176,10 +176,6 @@ extern const base::Feature kToolbarUseHardwareBitmapDraw;
 extern const base::Feature kUnifiedSidePanel;
 
 extern const base::Feature kWebUIBubblePerProfilePersistence;
-
-#if !defined(ANDROID)
-extern const base::Feature kWebUIBrandingUpdate;
-#endif
 
 extern const base::Feature kWebUIDownloadShelf;
 

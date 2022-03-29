@@ -101,6 +101,23 @@ bool IsCropTargetValid(int render_process_id,
   // * !crop_id.is_zero() = crop-request.
   return crop_id.is_zero() || helper->IsAssociatedWithCropId(crop_id);
 }
+
+MediaStreamDispatcherHost::CropCallback WrapCropCallback(
+    MediaStreamDispatcherHost::CropCallback callback,
+    mojo::ReportBadMessageCallback bad_message_callback) {
+  return base::BindOnce(
+      [](MediaStreamDispatcherHost::CropCallback callback,
+         mojo::ReportBadMessageCallback bad_message_callback,
+         media::mojom::CropRequestResult result) {
+        if (result ==
+            media::mojom::CropRequestResult::kNonIncreasingCropVersion) {
+          std::move(bad_message_callback).Run("Non-increasing crop-version.");
+          return;
+        }
+        std::move(callback).Run(result);
+      },
+      std::move(callback), std::move(bad_message_callback));
+}
 #endif
 
 bool AllowedStreamTypeCombination(
@@ -509,6 +526,7 @@ void MediaStreamDispatcherHost::FocusCapturedSurface(const std::string& label,
 
 void MediaStreamDispatcherHost::Crop(const base::UnguessableToken& device_id,
                                      const base::Token& crop_id,
+                                     uint32_t crop_version,
                                      CropCallback callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
@@ -516,18 +534,23 @@ void MediaStreamDispatcherHost::Crop(const base::UnguessableToken& device_id,
   // from this particular context. Namely, cropping is currently only allowed
   // for self-capture, so the crop_id has to be associated with the top-level
   // WebContents belonging to this very tab.
+  // TODO(crbug.com/1299008): Switch away from the free function version
+  // when SelfOwnedReceiver properly supports this.
   GetUIThreadTaskRunner({})->PostTaskAndReplyWithResult(
       FROM_HERE,
       base::BindOnce(&IsCropTargetValid, render_process_id_, render_frame_id_,
                      crop_id),
       base::BindOnce(&MediaStreamDispatcherHost::OnCropValidationComplete,
                      weak_factory_.GetWeakPtr(), device_id, crop_id,
-                     std::move(callback)));
+                     crop_version,
+                     WrapCropCallback(std::move(callback),
+                                      mojo::GetBadMessageCallback())));
 }
 
 void MediaStreamDispatcherHost::OnCropValidationComplete(
     const base::UnguessableToken& device_id,
     const base::Token& crop_id,
+    uint32_t crop_version,
     CropCallback callback,
     bool crop_id_passed_validation) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
@@ -536,8 +559,9 @@ void MediaStreamDispatcherHost::OnCropValidationComplete(
     std::move(callback).Run(media::mojom::CropRequestResult::kErrorGeneric);
     return;
   }
-  media_stream_manager_->video_capture_manager()->Crop(device_id, crop_id,
-                                                       std::move(callback));
+
+  media_stream_manager_->video_capture_manager()->Crop(
+      device_id, crop_id, crop_version, std::move(callback));
 }
 #endif
 

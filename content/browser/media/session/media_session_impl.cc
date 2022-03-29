@@ -20,7 +20,7 @@
 #include "content/browser/media/session/media_session_controller.h"
 #include "content/browser/media/session/media_session_player_observer.h"
 #include "content/browser/media/session/media_session_service_impl.h"
-#include "content/browser/picture_in_picture/picture_in_picture_window_controller_impl.h"
+#include "content/browser/picture_in_picture/video_picture_in_picture_window_controller_impl.h"
 #include "content/browser/renderer_host/back_forward_cache_disable.h"
 #include "content/browser/renderer_host/back_forward_cache_impl.h"
 #include "content/browser/web_contents/web_contents_impl.h"
@@ -404,13 +404,8 @@ void MediaSessionImpl::RenderFrameHostStateChanged(
     RenderFrameHost* host,
     RenderFrameHost::LifecycleState old_state,
     RenderFrameHost::LifecycleState new_state) {
-  bool was_in_bfcache =
-      old_state == RenderFrameHost::LifecycleState::kInBackForwardCache;
-  bool is_in_bfcache =
-      new_state == RenderFrameHost::LifecycleState::kInBackForwardCache;
-
   // If the page goes to back-forward cache, hide the players.
-  if (!was_in_bfcache && is_in_bfcache) {
+  if (new_state == RenderFrameHost::LifecycleState::kInBackForwardCache) {
     // Checking the normal players is enough. One shot players and pepper
     // players are not related to media control UIs.
     auto players = normal_players_;
@@ -427,18 +422,22 @@ void MediaSessionImpl::RenderFrameHostStateChanged(
   }
 
   // If the page is restored from back-forward cache, show the players.
-  if (was_in_bfcache && !is_in_bfcache) {
+  if (new_state == RenderFrameHost::LifecycleState::kActive) {
     auto players = hidden_players_;
+    bool added_players = false;
     for (auto player : players) {
       if (player.observer->render_frame_host() != host)
         continue;
       hidden_players_.erase(player);
       AddPlayer(player.observer, player.player_id);
+      added_players = true;
     }
 
     // Just after adding a player, the state might be 'play'. Make sure that the
     // state is 'pause'.
-    OnSuspendInternal(SuspendType::kSystem, State::SUSPENDED);
+    if (added_players)
+      OnSuspendInternal(SuspendType::kSystem, State::SUSPENDED);
+
     return;
   }
 }
@@ -637,7 +636,7 @@ void MediaSessionImpl::RebuildAndNotifyMediaPositionChanged() {
   position_ = position;
 
   if (auto* pip_window_controller_ =
-          PictureInPictureWindowControllerImpl::FromWebContents(
+          VideoPictureInPictureWindowControllerImpl::FromWebContents(
               web_contents())) {
     pip_window_controller_->MediaSessionPositionChanged(position_);
   }
@@ -719,7 +718,7 @@ void MediaSessionImpl::Stop(SuspendType suspend_type) {
   }
 
   if (auto* pip_window_controller_ =
-          PictureInPictureWindowControllerImpl::FromWebContents(
+          VideoPictureInPictureWindowControllerImpl::FromWebContents(
               web_contents())) {
     pip_window_controller_->Close(false /* should_pause_video */);
   }
@@ -1362,7 +1361,7 @@ void MediaSessionImpl::RebuildAndNotifyMediaSessionInfoChanged() {
   // Picture-in-Picture window controller needs to be updated on current media
   // session info.
   if (auto* pip_window_controller_ =
-          PictureInPictureWindowControllerImpl::FromWebContents(
+          VideoPictureInPictureWindowControllerImpl::FromWebContents(
               web_contents())) {
     pip_window_controller_->MediaSessionInfoChanged(current_info);
   }
@@ -1636,7 +1635,7 @@ void MediaSessionImpl::RebuildAndNotifyActionsChanged() {
   // Picture-in-Picture window controller needs to know only actions that are
   // handled by the website.
   if (auto* pip_window_controller_ =
-          PictureInPictureWindowControllerImpl::FromWebContents(
+          VideoPictureInPictureWindowControllerImpl::FromWebContents(
               web_contents())) {
     pip_window_controller_->MediaSessionActionsChanged(actions);
   }

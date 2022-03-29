@@ -212,11 +212,8 @@ suite('TabSearchAppTest', () => {
     const tabSearchItemCloseButton =
         tabSearchItem.shadowRoot!.querySelector('cr-icon-button')!;
     tabSearchItemCloseButton.click();
-    const [tabId, withSearch, closedTabIndex] =
-        await testProxy.whenCalled('closeTab');
+    const [tabId] = await testProxy.whenCalled('closeTab');
     assertEquals(tabData.tabId, tabId);
-    assertFalse(withSearch);
-    assertEquals(0, closedTabIndex);
   });
 
   test('Click on recently closed tab item triggers action', async () => {
@@ -548,7 +545,99 @@ suite('TabSearchAppTest', () => {
     assertEquals(0, tabSearchApp.getSelectedIndex());
   });
 
-  test('Verify tab switch is logged correctly', async () => {
+  test('Verify initially selected tab is most recently used tab', async () => {
+    await setupTest(
+        createProfileData({
+          windows: SAMPLE_WINDOW_DATA_WITH_MEDIA_TAB,
+        }),
+        {mediaTabsEnabled: true});
+    assertEquals(1, tabSearchApp.getSelectedIndex());
+    const tabSearchItems = queryRows();
+    keyDownOn(tabSearchItems[1]!, 0, [], 'ArrowUp');
+    assertEquals(0, tabSearchApp.getSelectedIndex());
+
+    Object.defineProperty(
+        document, 'visibilityState', {value: 'hidden', writable: true});
+    document.dispatchEvent(new Event('visibilitychange'));
+    await flushTasks();
+    // Note that unlike the 'Verify hiding document resets selection and
+    // search text' test case, if no search query was originally provided
+    // onSearchChanged will not be called when hidden and the index is not
+    // reset until the state is visible again.
+    assertEquals(-1, tabSearchApp.getSelectedIndex());
+
+    // The selected tab should again be the most recently used tab.
+    Object.defineProperty(
+        document, 'visibilityState', {value: 'visible', writable: true});
+    document.dispatchEvent(new Event('visibilitychange'));
+    await flushTasks();
+    assertEquals(1, tabSearchApp.getSelectedIndex());
+
+    // During search there should be no Audio & Video section and the selected
+    // index should be 0.
+    const searchField = tabSearchApp.$.searchField;
+    searchField.setValue('Google');
+    await flushTasks();
+    verifyTabIds(queryRows(), [2, 1]);
+    assertEquals(0, tabSearchApp.getSelectedIndex());
+
+    // When the search query is reset the initially selected index should also
+    // be reset.
+    searchField.setValue('');
+    await flushTasks();
+    assertEquals(1, tabSearchApp.getSelectedIndex());
+  });
+
+  test('Verify initially selected tab is not the active tab', async () => {
+    const tabs = [
+      createTab({
+        active: false,
+        alertStates: [TabAlertState.kMediaRecording],
+        index: 0,
+        tabId: 1,
+        title: 'Meet',
+        url: {url: 'https://meet.google.com/'},
+        lastActiveTimeTicks: {internalValue: BigInt(4)},
+      }),
+      createTab({
+        active: false,
+        alertStates: [TabAlertState.kAudioPlaying],
+        index: 1,
+        tabId: 2,
+        title: 'Youtube',
+        url: {url: 'https://youtube.com/'},
+        lastActiveTimeTicks: {internalValue: BigInt(3)},
+      }),
+      createTab({
+        active: true,
+        index: 2,
+        tabId: 3,
+        title: 'Google',
+        url: {url: 'https://www.google.com'},
+        lastActiveTimeTicks: {internalValue: BigInt(5)},
+      }),
+      createTab({
+        active: false,
+        index: 3,
+        tabId: 4,
+        title: 'Example',
+        url: {url: 'https://www.example.com'},
+        lastActiveTimeTicks: {internalValue: BigInt(2)},
+      }),
+    ];
+
+    await setupTest(
+        createProfileData({
+          windows: [{active: true, height: SAMPLE_WINDOW_HEIGHT, tabs}],
+        }),
+        {mediaTabsEnabled: true});
+
+    // MRU is the tab with Id 3 but since it is the active tab the selected
+    // index should be the next MRU tab.
+    assertEquals(0, tabSearchApp.getSelectedIndex());
+  });
+
+  test('Verify tab switch is called correctly', async () => {
     await setupTest(createProfileData());
     // Make sure that tab data has been recieved.
     verifyTabIds(queryRows(), [1, 5, 6, 2, 3, 4]);
@@ -559,12 +648,9 @@ suite('TabSearchAppTest', () => {
     tabSearchItem.click();
 
     // Assert switchToTab() was called appropriately for an unfiltered tab list.
-    await testProxy.whenCalled('switchToTab')
-        .then(([tabInfo, withSearch, switchedTabIndex]) => {
-          assertEquals(1, tabInfo.tabId);
-          assertFalse(withSearch);
-          assertEquals(0, switchedTabIndex);
-        });
+    await testProxy.whenCalled('switchToTab').then(([tabInfo]) => {
+      assertEquals(1, tabInfo.tabId);
+    });
 
     testProxy.reset();
     // Click the first element with tabId 6.
@@ -573,12 +659,9 @@ suite('TabSearchAppTest', () => {
     tabSearchItem.click();
 
     // Assert switchToTab() was called appropriately for an unfiltered tab list.
-    await testProxy.whenCalled('switchToTab')
-        .then(([tabInfo, withSearch, switchedTabIndex]) => {
-          assertEquals(6, tabInfo.tabId);
-          assertFalse(withSearch);
-          assertEquals(2, switchedTabIndex);
-        });
+    await testProxy.whenCalled('switchToTab').then(([tabInfo]) => {
+      assertEquals(6, tabInfo.tabId);
+    });
 
     // Force a change to filtered tab data that would result in a
     // re-render.
@@ -595,12 +678,9 @@ suite('TabSearchAppTest', () => {
 
     // Assert switchToTab() was called appropriately for a tab list fitlered by
     // the search query.
-    await testProxy.whenCalled('switchToTab')
-        .then(([tabInfo, withSearch, switchedTabIndex]) => {
-          assertEquals(2, tabInfo.tabId);
-          assertTrue(withSearch);
-          assertEquals(0, switchedTabIndex);
-        });
+    await testProxy.whenCalled('switchToTab').then(([tabInfo]) => {
+      assertEquals(2, tabInfo.tabId);
+    });
   });
 
   test('Verify showUI() is called correctly', async () => {
@@ -731,8 +811,8 @@ suite('TabSearchAppTest', () => {
           windows: SAMPLE_WINDOW_DATA_WITH_MEDIA_TAB,
         }),
         {alsoShowMediaTabsinOpenTabsSection: false});
-    // One media tab and one non-media tab.
-    assertEquals(2, queryRows().length);
+    // One media tab and two non-media tabs.
+    assertEquals(3, queryRows().length);
     // "Audio and Video" and "Open Tabs" section should both exist.
     assertEquals(2, queryListTitle().length);
   });
@@ -746,7 +826,7 @@ suite('TabSearchAppTest', () => {
             }),
             {alsoShowMediaTabsinOpenTabsSection: true});
         // Only the two media tabs should be duplicated.
-        assertEquals(3, queryRows().length);
+        assertEquals(4, queryRows().length);
         // "Audio and Video" and "Open Tabs" section should both exist.
         assertEquals(2, queryListTitle().length);
       });
@@ -770,8 +850,8 @@ suite('TabSearchAppTest', () => {
     };
     testProxy.getCallbackRouterRemote().tabUpdated(tabUpdateInfo);
     await flushTasks();
-    // Two non-media tabs
-    assertEquals(2, queryRows().length);
+    // Three non-media tabs.
+    assertEquals(3, queryRows().length);
     // Only "Open Tabs" section should exist.
     assertEquals(1, queryListTitle().length);
   });
@@ -797,8 +877,8 @@ suite('TabSearchAppTest', () => {
         };
         testProxy.getCallbackRouterRemote().tabUpdated(tabUpdateInfo);
         await flushTasks();
-        // Two non-media tabs
-        assertEquals(2, queryRows().length);
+        // Three non-media tabs.
+        assertEquals(3, queryRows().length);
         // Only "Open Tabs" section should exist.
         assertEquals(1, queryListTitle().length);
       });
@@ -868,9 +948,11 @@ suite('TabSearchAppTest', () => {
         {alsoShowMediaTabsinOpenTabsSection: false});
 
     const searchField = tabSearchApp.$.searchField;
-    searchField.setValue('meet');
+    searchField.setValue('google');
     await flushTasks();
+    // No media tabs section when there is a search query.
     assertEquals(1, queryListTitle().length);
+    assertEquals(2, queryRows().length);
   });
 
   test(
@@ -883,11 +965,11 @@ suite('TabSearchAppTest', () => {
             {alsoShowMediaTabsinOpenTabsSection: true});
 
         const searchField = tabSearchApp.$.searchField;
-        searchField.setValue('meet');
+        searchField.setValue('google');
         await flushTasks();
-        // Media tab is only shown in the Open Tabs section when a search
-        // criteria is applied.
+        // No media tabs section when there is a search query.
         assertEquals(1, queryListTitle().length);
+        assertEquals(2, queryRows().length);
       });
 
 });

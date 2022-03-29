@@ -166,9 +166,9 @@ class AvailableValuesFilter {
       return true;
 
     return feature
-        ->IsAvailableToManifest(manifest.hashed_id(), manifest.type(),
-                                manifest.location(),
-                                manifest.manifest_version())
+        ->IsAvailableToManifest(
+            manifest.hashed_id(), manifest.type(), manifest.location(),
+            manifest.manifest_version(), kUnspecifiedContextId)
         .is_available();
   }
 
@@ -231,7 +231,7 @@ Manifest::Type Manifest::GetTypeFromManifestValue(
     const base::ListValue* perm;
     value.GetList(keys::kPermissions, &perm);
     base::Value node("node");
-    if (base::Contains(perm->GetList(), node))
+    if (base::Contains(perm->GetListDeprecated(), node))
       type = TYPE_NWJS_APP;
   }
 
@@ -307,7 +307,7 @@ bool Manifest::ValidateManifest(
       continue;
 
     Feature::Availability result = map_entry.second->IsAvailableToManifest(
-        hashed_id_, type_, location_, manifest_version_);
+        hashed_id_, type_, location_, manifest_version_, kUnspecifiedContextId);
     if (!result.is_available())
       warnings->push_back(InstallWarning(result.message(), map_entry.first));
   }

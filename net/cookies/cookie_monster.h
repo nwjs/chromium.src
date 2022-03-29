@@ -179,10 +179,12 @@ class NET_EXPORT CookieMonster : public CookieStore {
   void SetAllCookiesAsync(const CookieList& list, SetCookiesCallback callback);
 
   // CookieStore implementation.
-  void SetCanonicalCookieAsync(std::unique_ptr<CanonicalCookie> cookie,
-                               const GURL& source_url,
-                               const CookieOptions& options,
-                               SetCookiesCallback callback) override;
+  void SetCanonicalCookieAsync(
+      std::unique_ptr<CanonicalCookie> cookie,
+      const GURL& source_url,
+      const CookieOptions& options,
+      SetCookiesCallback callback,
+      const CookieAccessResult* cookie_access_result = nullptr) override;
   void GetCookieListWithOptionsAsync(const GURL& url,
                                      const CookieOptions& options,
                                      const CookiePartitionKeyCollection& s,
@@ -228,6 +230,21 @@ class NET_EXPORT CookieMonster : public CookieStore {
   // Triggers immediate recording of stats that are typically reported
   // periodically.
   bool DoRecordPeriodicStatsForTesting() { return DoRecordPeriodicStats(); }
+
+  // Will convert a site's partitioned cookies into unpartitioned cookies. This
+  // may result in multiple cookies which have the same (partition_key, name,
+  // host_key, path), which violates the database's unique constraint. The
+  // algorithm we use to coalesce the cookies into a single unpartitioned cookie
+  // is the following:
+  //
+  // 1.  If one of the cookies has no partition key (i.e. it is unpartitioned)
+  //     choose this cookie.
+  //
+  // 2.  Choose the partitioned cookie with the most recent last_access_time.
+  //
+  // TODO(crbug.com/1296161): Delete this when the partitioned cookies Origin
+  // Trial ends.
+  void ConvertPartitionedCookiesToUnpartitioned(const GURL& url) override;
 
  private:
   // For garbage collection constants.
@@ -370,10 +387,16 @@ class NET_EXPORT CookieMonster : public CookieStore {
   //
   // |options| indicates if this setting operation is allowed
   // to affect http_only or same-site cookies.
-  void SetCanonicalCookie(std::unique_ptr<CanonicalCookie> cookie,
-                          const GURL& source_url,
-                          const CookieOptions& options,
-                          SetCookiesCallback callback);
+  //
+  // |cookie_access_result| is an optional input status, to allow for status
+  // chaining from callers. It helps callers provide the status of a
+  // canonical cookie that may have warnings associated with it.
+  void SetCanonicalCookie(
+      std::unique_ptr<CanonicalCookie> cookie,
+      const GURL& source_url,
+      const CookieOptions& options,
+      SetCookiesCallback callback,
+      const CookieAccessResult* cookie_access_result = nullptr);
 
   void GetAllCookies(GetAllCookiesCallback callback);
 
@@ -691,6 +714,12 @@ class NET_EXPORT CookieMonster : public CookieStore {
       const GURL& destination,
       int source_port,
       CookieSourceScheme source_scheme);
+
+  // TODO(crbug.com/1296161): Delete this when the partitioned cookies Origin
+  // Trial ends.
+  void OnConvertPartitionedCookiesToUnpartitioned(const GURL& url);
+  void ConvertPartitionedCookie(const net::CanonicalCookie& cookie,
+                                const GURL& url);
 
   // Set of keys (eTLD+1's) for which non-expired cookies have
   // been evicted for hitting the per-domain max. The size of this set is

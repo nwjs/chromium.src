@@ -299,7 +299,8 @@ ci.builder(
                         "chrome_100_percent.pak",
                         "chrome_200_percent.pak",
                         "chrome_crashpad_handler",
-                        "headless_lib.pak",
+                        "headless_lib_data.pak",
+                        "headless_lib_strings.pak",
                         "icudtl.dat",
                         "libminigbm.so",
                         "nacl_helper",
@@ -368,6 +369,16 @@ ci.builder(
         short_name = "VO",
     ),
     notifies = ["linux-blink-fyi-bots"],
+    os = os.LINUX_BIONIC_SWITCH_TO_DEFAULT,
+)
+
+ci.builder(
+    name = "linux-blink-v8-sandbox-future-dbg",
+    console_view_entry = consoles.console_view_entry(
+        category = "linux|blink",
+        short_name = "SB",
+    ),
+    notifies = ["v8-sandbox-fyi-bots"],
     os = os.LINUX_BIONIC_SWITCH_TO_DEFAULT,
 )
 
@@ -476,6 +487,25 @@ ci.builder(
 # OS shouldn't matter.
 ci.builder(
     name = "mac-osxbeta-rel",
+    builder_spec = builder_config.builder_spec(
+        execution_mode = builder_config.execution_mode.TEST,
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = [
+                "mb",
+                "goma_use_local",  # to mitigate compile step timeout (crbug.com/1056935)
+            ],
+            build_config = builder_config.build_config.RELEASE,
+            target_bits = 64,
+        ),
+        test_results_config = builder_config.test_results_config(
+            config = "staging_server",
+        ),
+        build_gs_bucket = "chromium-fyi-archive",
+    ),
     console_view_entry = consoles.console_view_entry(
         category = "mac",
         short_name = "beta",
@@ -594,7 +624,7 @@ ci.builder(
 )
 
 ci.builder(
-    name = "Comparison Linux",
+    name = "Comparison Linux (reclient)",
     console_view_entry = consoles.console_view_entry(
         category = "linux",
         short_name = "cmp",
@@ -609,7 +639,7 @@ ci.builder(
 )
 
 ci.builder(
-    name = "Comparison Windows",
+    name = "Comparison Windows (reclient)",
     builderless = True,
     console_view_entry = consoles.console_view_entry(
         category = "win",
@@ -889,6 +919,7 @@ fyi_coverage_builder(
         ),
     ],
     os = os.LINUX_BIONIC_SWITCH_TO_DEFAULT,
+    coverage_test_types = ["overall", "unit"],
     use_clang_coverage = True,
     schedule = "triggered",
     triggered_by = [],
@@ -1074,8 +1105,8 @@ fyi_ios_builder(
             short_name = "dev",
         ),
     ],
-    os = os.MAC_11,
-    xcode = xcode.x13latestbeta,
+    os = os.MAC_12,
+    xcode = xcode.x13betabots,
 )
 
 fyi_ios_builder(
@@ -1086,8 +1117,8 @@ fyi_ios_builder(
             short_name = "sdk15",
         ),
     ],
-    os = os.MAC_11,
-    xcode = xcode.x13latestbeta,
+    os = os.MAC_12,
+    xcode = xcode.x13betabots,
 )
 
 fyi_mac_builder(

@@ -129,8 +129,6 @@ void CastDialogView::OnModelUpdated(const CastDialogModel& model) {
   if (model.media_sinks().empty()) {
     scroll_position_ = 0;
     ShowNoSinksView();
-    if (sources_button_)
-      sources_button_->SetEnabled(false);
   } else {
     if (scroll_view_)
       scroll_position_ = scroll_view_->GetVisibleRect().y();
@@ -139,10 +137,16 @@ void CastDialogView::OnModelUpdated(const CastDialogModel& model) {
     PopulateScrollView(model.media_sinks());
     RestoreSinkListState();
     metrics_.OnSinksLoaded(base::Time::Now());
-    if (sources_button_)
-      sources_button_->SetEnabled(true);
     DisableUnsupportedSinks();
   }
+
+  // If access code casting is enabled, the sources button needs to be enabled
+  // so that user can set the source before invoking the access code casting
+  // flow.
+  if (sources_button_)
+    sources_button_->SetEnabled(!model.media_sinks().empty() ||
+                                IsAccessCodeCastingEnabled());
+
   dialog_title_ = model.dialog_header();
   MaybeSizeToContents();
   // Update the main action button.
@@ -196,8 +200,10 @@ void CastDialogView::ShowDialog(
     Profile* profile,
     const base::Time& start_time,
     MediaRouterDialogOpenOrigin activation_location) {
-  DCHECK(!instance_);
   DCHECK(!start_time.is_null());
+  // Hide the previous dialog instance if it exists, since there can only be one
+  // instance at a time.
+  HideDialog();
   instance_ = new CastDialogView(anchor_view, anchor_position, controller,
                                  profile, start_time, activation_location);
   views::Widget* widget =
@@ -276,20 +282,18 @@ void CastDialogView::ShowAccessCodeCastDialog() {
       break;
   }
 
-  AccessCodeCastDialog::Show(cast_mode_set, controller_->GetInitiator());
+  AccessCodeCastDialog::Show(cast_mode_set, controller_->GetInitiator(),
+                             controller_->TakeStartPresentationContext());
 }
 
 void CastDialogView::MaybeShowAccessCodeCastButton() {
-  if (!base::FeatureList::IsEnabled(features::kAccessCodeCastUI))
-    return;
-  if (!GetAccessCodeCastEnabledPref(profile_->GetPrefs()))
+  if (!IsAccessCodeCastingEnabled())
     return;
 
   auto callback = base::BindRepeating(&CastDialogView::ShowAccessCodeCastDialog,
                                       base::Unretained(this));
 
-  access_code_cast_button_ =
-      new CastDialogAccessCodeCastButton(callback, profile_->GetPrefs());
+  access_code_cast_button_ = new CastDialogAccessCodeCastButton(callback);
   AddChildView(access_code_cast_button_.get());
 }
 
@@ -481,6 +485,11 @@ bool CastDialogView::HasCastAndDialSinks() const {
     }
   }
   return false;
+}
+
+bool CastDialogView::IsAccessCodeCastingEnabled() const {
+  return base::FeatureList::IsEnabled(features::kAccessCodeCastUI) &&
+         GetAccessCodeCastEnabledPref(profile_->GetPrefs());
 }
 
 // static

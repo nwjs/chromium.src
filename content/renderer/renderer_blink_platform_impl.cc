@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <memory>
 #include "content/nw/src/nw_version.h"
-#include "base/ignore_result.h"
 
 #include <utility>
 #include <vector>
@@ -30,6 +29,7 @@
 #include "base/task/post_task.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
+#include "base/threading/thread_restrictions.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
@@ -225,10 +225,31 @@ RendererBlinkPlatformImpl::RendererBlinkPlatformImpl(
     GetBrowserInterfaceBroker()->GetInterface(
         code_cache_host_remote_.InitWithNewPipeAndPassReceiver());
   }
+
+  auto io_task_runner = GetIOTaskRunner();
+  if (io_task_runner) {
+    io_task_runner->PostTask(
+        FROM_HERE, base::BindOnce(
+                       [](base::PlatformThreadId* id,
+                          base::WaitableEvent* io_thread_id_ready_event) {
+                         *id = base::PlatformThread::CurrentId();
+                         io_thread_id_ready_event->Signal();
+                       },
+                       &io_thread_id_, &io_thread_id_ready_event_));
+  } else {
+    // Match the `Wait` in destructor even if there is no IO runner.
+    io_thread_id_ready_event_.Signal();
+  }
 }
 
 RendererBlinkPlatformImpl::~RendererBlinkPlatformImpl() {
   main_thread_scheduler_->SetTopLevelBlameContext(nullptr);
+  {
+    base::ScopedAllowBaseSyncPrimitives allow;
+    // Ensure task posted to IO thread is finished because it contains
+    // pointers to fields of `this`.
+    io_thread_id_ready_event_.Wait();
+  }
 }
 
 void RendererBlinkPlatformImpl::Shutdown() {}
@@ -329,6 +350,14 @@ blink::WebString RendererBlinkPlatformImpl::UserAgent() {
   if (!render_thread)
     return WebString();
   return render_thread->GetUserAgent();
+}
+
+blink::WebString RendererBlinkPlatformImpl::FullUserAgent() {
+  auto* render_thread = RenderThreadImpl::current();
+  // RenderThreadImpl is null in some tests.
+  if (!render_thread)
+    return WebString();
+  return render_thread->GetFullUserAgent();
 }
 
 blink::WebString RendererBlinkPlatformImpl::ReducedUserAgent() {
@@ -969,12 +998,12 @@ void RendererBlinkPlatformImpl::WorkerContextCreated(
                                                        "process.versions['nw-commit-id'] = '" NW_COMMIT_HASH "';"
                                                        "process.versions['chromium'] = '" + "';").c_str(), v8::NewStringType::kNormal
                                                               ).ToLocalChecked()).ToLocalChecked();
-        ignore_result(script->Run(worker));
+        std::ignore = script->Run(worker);
       }
       {
         v8::Local<v8::Script> script =
           v8::Script::Compile(worker, v8::String::NewFromUtf8(isolate, main_script.c_str(), v8::NewStringType::kNormal).ToLocalChecked()).ToLocalChecked();
-        ignore_result(script->Run(worker));
+        std::ignore = script->Run(worker);
       }
   }
 }
@@ -1157,9 +1186,16 @@ void RendererBlinkPlatformImpl::AppendContentSecurityPolicy(
 }
 
 base::PlatformThreadId RendererBlinkPlatformImpl::GetIOThreadId() const {
-  return RenderThreadImpl::current()
-             ? RenderThreadImpl::current()->GetIOPlatformThreadId()
-             : base::kInvalidThreadId;
+  auto io_task_runner = GetIOTaskRunner();
+  if (!io_task_runner)
+    return base::kInvalidThreadId;
+  // Cannot be called from IO thread due to potential deadlock.
+  CHECK(!io_task_runner->BelongsToCurrentThread());
+  {
+    base::ScopedAllowBaseSyncPrimitives allow;
+    io_thread_id_ready_event_.Wait();
+  }
+  return io_thread_id_;
 }
 
 }  // namespace content

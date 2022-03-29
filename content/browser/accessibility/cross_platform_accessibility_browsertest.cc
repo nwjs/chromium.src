@@ -356,6 +356,50 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
               ElementsAre(Pair("type", "checkbox")));
 }
 
+// Android's text representation is different, so disable the test there.
+#if !BUILDFLAG(IS_ANDROID)
+IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
+                       ReparentingANodeShouldReuseSameNativeWrapper) {
+  LoadInitialAccessibilityTreeFromHtml(R"HTML(
+      <!DOCTYPE html>
+      <html>
+      <body>
+        <div id="source">
+          <div id="destination">
+            <p id="paragraph">Testing</p>
+          </div>
+        </div>
+      </body>
+      </html>)HTML");
+
+  WaitForAccessibilityTreeToContainNodeWithName(shell()->web_contents(),
+                                                "Testing");
+  const BrowserAccessibility* wrapper1 = FindNode("Testing");
+  ASSERT_NE(nullptr, wrapper1);
+  wrapper1 = wrapper1->PlatformGetParent();
+  ASSERT_EQ(ax::mojom::Role::kParagraph, wrapper1->GetRole());
+  ASSERT_EQ(ax::mojom::Role::kGenericContainer,
+            wrapper1->PlatformGetParent()->GetRole());
+
+  // Reparent the paragraph from "source" to "destination".
+  ExecuteScript(
+      "let destination = document.getElementById('destination');"
+      "let paragraph = document.getElementById('paragraph');"
+      "destination.setAttribute('role', 'group');"
+      "paragraph.textContent = 'Testing changed';");
+
+  WaitForAccessibilityTreeToContainNodeWithName(shell()->web_contents(),
+                                                "Testing changed");
+  const BrowserAccessibility* wrapper2 = FindNode("Testing changed");
+  ASSERT_NE(nullptr, wrapper2);
+  wrapper2 = wrapper2->PlatformGetParent();
+  ASSERT_EQ(ax::mojom::Role::kParagraph, wrapper2->GetRole());
+  ASSERT_EQ(ax::mojom::Role::kGroup, wrapper2->PlatformGetParent()->GetRole());
+
+  EXPECT_EQ(wrapper1, wrapper2);
+}
+#endif  // !BUILDFLAG(IS_ANDROID)
+
 IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
                        UnselectedEditableTextAccessibility) {
   LoadInitialAccessibilityTreeFromHtml(R"HTML(
@@ -1130,7 +1174,7 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
   TestLocalizedRoleDescription(14, u"week picker");
   TestLocalizedRoleDescription(15, u"highlight");
   TestLocalizedRoleDescription(16, u"meter");
-  TestLocalizedRoleDescription(17, u"output");
+  TestLocalizedRoleDescription(17, u"status");
   TestLocalizedRoleDescription(18, u"time");
   TestLocalizedRoleDescription(19, u"content information");
 }
@@ -1352,8 +1396,14 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
                 .ToString());
 }
 
+// Flaky on Lacros: https://crbug.com/1292527
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+#define MAYBE_ControlsIdsForDateTimePopup DISABLED_ControlsIdsForDateTimePopup
+#else
+#define MAYBE_ControlsIdsForDateTimePopup ControlsIdsForDateTimePopup
+#endif
 IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
-                       ControlsIdsForDateTimePopup) {
+                       MAYBE_ControlsIdsForDateTimePopup) {
   LoadInitialAccessibilityTreeFromHtml(R"HTML(
       <!DOCTYPE html>
       <html>
@@ -1664,11 +1714,9 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
 
 // This test is checking behavior when ImplicitRootScroller is enabled which
 // applies only on Android.
-// TODO(http://crbug.com/1137425): Re-enable the test after it gets fixed on
-// Android O.
 #if BUILDFLAG(IS_ANDROID)
 IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
-                       DISABLED_ImplicitRootScroller) {
+                       ImplicitRootScroller) {
   LoadInitialAccessibilityTreeFromHtmlFilePath(
       "/accessibility/scrolling/implicit-root-scroller.html");
 

@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.toolbar.top;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.AnimatorSet;
+import android.animation.ObjectAnimator;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.ColorStateList;
@@ -18,6 +19,7 @@ import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.ViewStub;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 
 import androidx.annotation.ColorRes;
 import androidx.annotation.VisibleForTesting;
@@ -52,9 +54,10 @@ import org.chromium.chrome.browser.toolbar.top.NavigationPopup.HistoryDelegate;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.chrome.browser.util.ChromeAccessibilityUtil;
 import org.chromium.components.browser_ui.styles.ChromeColors;
+import org.chromium.components.browser_ui.widget.animation.CancelAwareAnimatorListener;
+import org.chromium.components.browser_ui.widget.animation.Interpolators;
 import org.chromium.ui.UiUtils;
 import org.chromium.ui.base.DeviceFormFactor;
-import org.chromium.ui.util.ColorUtils;
 import org.chromium.ui.widget.Toast;
 
 import java.util.ArrayList;
@@ -66,6 +69,8 @@ import java.util.Collection;
 @SuppressLint("Instantiatable")
 public class ToolbarTablet extends ToolbarLayout
         implements OnClickListener, View.OnLongClickListener, TabCountObserver {
+    private ObjectAnimator mTabSwitcherModeAnimation;
+
     /** Downloads page for offline access. */
     public interface OfflineDownloader {
         /**
@@ -92,6 +97,7 @@ public class ToolbarTablet extends ToolbarLayout
     private ImageButton[] mToolbarButtons;
     private ImageButton mOptionalButton;
     private boolean mOptionalButtonUsesTint;
+    private ImageView mToolbarShadow;
 
     private NavigationPopup mNavigationPopup;
 
@@ -294,6 +300,13 @@ public class ToolbarTablet extends ToolbarLayout
     }
 
     @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+
+        mToolbarShadow = (ImageView) getRootView().findViewById(R.id.toolbar_shadow);
+    }
+
+    @Override
     public void onWindowFocusChanged(boolean hasWindowFocus) {
         // Ensure the the popup is not shown after resuming activity from background.
         if (hasWindowFocus && mNavigationPopup != null) {
@@ -360,6 +373,17 @@ public class ToolbarTablet extends ToolbarLayout
                 mShowTabStack || enabled ? View.VISIBLE : View.GONE);
     }
 
+    /**
+     * Update the visibility of the toolbar shadow.
+     */
+    private void updateShadowVisibility() {
+        int shadowVisibility = mIsInTabSwitcherMode ? View.INVISIBLE : View.VISIBLE;
+
+        if (mToolbarShadow != null && mToolbarShadow.getVisibility() != shadowVisibility) {
+            mToolbarShadow.setVisibility(shadowVisibility);
+        }
+    }
+
     @Override
     boolean isReadyForTextureCapture() {
         return !urlHasFocus();
@@ -387,6 +411,7 @@ public class ToolbarTablet extends ToolbarLayout
         ApiCompatibilityUtils.setImageTintList(mForwardButton, tint);
         ApiCompatibilityUtils.setImageTintList(mSaveOfflineButton, tint);
         ApiCompatibilityUtils.setImageTintList(mReloadButton, tint);
+        mAccessibilitySwitcherButton.setBrandedColorScheme(brandedColorScheme);
 
         if (mOptionalButton != null && mOptionalButtonUsesTint) {
             ApiCompatibilityUtils.setImageTintList(mOptionalButton, tint);
@@ -401,8 +426,6 @@ public class ToolbarTablet extends ToolbarLayout
         mLocationBar.getTabletCoordinator().getBackground().setTint(textBoxColor);
         mLocationBar.updateVisualsForState();
         setToolbarHairlineColor(color);
-        final boolean useLight = ColorUtils.shouldUseLightForegroundOnBackground(color);
-        mAccessibilitySwitcherButton.setUseLightDrawables(useLight);
     }
 
     /**
@@ -480,19 +503,58 @@ public class ToolbarTablet extends ToolbarLayout
     @Override
     void setTabSwitcherMode(boolean inTabSwitcherMode, boolean showToolbar, boolean delayAnimation,
             MenuButtonCoordinator menuButtonCoordinator) {
-        if (mShowTabStack && inTabSwitcherMode) {
-            mIsInTabSwitcherMode = true;
-            mBackButton.setEnabled(false);
-            mForwardButton.setEnabled(false);
-            mReloadButton.setEnabled(false);
-            mLocationBar.getContainerView().setVisibility(View.INVISIBLE);
-            menuButtonCoordinator.setAppMenuUpdateBadgeSuppressed(true);
+        boolean isInTabSwitcherMode = mShowTabStack && inTabSwitcherMode;
+        mIsInTabSwitcherMode = isInTabSwitcherMode;
+        if (isGridTabSwitcherEnabled()) {
+            setTabSwitcherModeWithAnimation(delayAnimation);
         } else {
-            mIsInTabSwitcherMode = false;
-            mLocationBar.getContainerView().setVisibility(View.VISIBLE);
-
-            menuButtonCoordinator.setAppMenuUpdateBadgeSuppressed(false);
+            if (mIsInTabSwitcherMode) {
+                mBackButton.setEnabled(false);
+                mForwardButton.setEnabled(false);
+                mReloadButton.setEnabled(false);
+                mLocationBar.getContainerView().setVisibility(View.INVISIBLE);
+                menuButtonCoordinator.setAppMenuUpdateBadgeSuppressed(true);
+            } else {
+                mLocationBar.getContainerView().setVisibility(View.VISIBLE);
+                menuButtonCoordinator.setAppMenuUpdateBadgeSuppressed(false);
+            }
         }
+    }
+
+    private void setTabSwitcherModeWithAnimation(boolean delayAnimation) {
+        assert !delayAnimation : "Animation delay should be false when switcher is toggled.";
+
+        float startAlpha = mIsInTabSwitcherMode ? 1f : 0f;
+        float endAlpha = mIsInTabSwitcherMode ? 0f : 1f;
+
+        if (mTabSwitcherModeAnimation != null) {
+            mTabSwitcherModeAnimation.cancel();
+        }
+
+        if (mIsInTabSwitcherMode) {
+            mLocationBar.setUrlBarFocusable(false);
+            updateShadowVisibility();
+        }
+        setVisibility(View.VISIBLE);
+        setAlpha(startAlpha);
+
+        mTabSwitcherModeAnimation = ObjectAnimator.ofFloat(this, View.ALPHA, startAlpha, endAlpha);
+        mTabSwitcherModeAnimation.setDuration(
+                TopToolbarCoordinator.TAB_SWITCHER_MODE_NORMAL_ANIMATION_DURATION_MS);
+        mTabSwitcherModeAnimation.setInterpolator(Interpolators.LINEAR_INTERPOLATOR);
+        mTabSwitcherModeAnimation.addListener(new CancelAwareAnimatorListener() {
+            @Override
+            public void onEnd(Animator animator) {
+                int endVisibility = mIsInTabSwitcherMode ? View.GONE : View.VISIBLE;
+                setVisibility(endVisibility);
+                if (!mIsInTabSwitcherMode) {
+                    mLocationBar.setUrlBarFocusable(true);
+                    updateShadowVisibility();
+                }
+            }
+        });
+
+        mTabSwitcherModeAnimation.start();
     }
 
     @Override

@@ -202,6 +202,7 @@ test("media_unittests") {
       "//media/fuchsia/cdm/service:unittests",
     ]
 
+    use_cfv2 = false
     additional_manifest_fragments = [
       "//build/config/fuchsia/test/audio_capabilities.test-cmx",
 
@@ -271,6 +272,7 @@ test("audio_unittests") {
   }
 
   if (is_fuchsia) {
+    use_cfv2 = false
     additional_manifest_fragments =
         [ "//build/config/fuchsia/test/audio_capabilities.test-cmx" ]
   }

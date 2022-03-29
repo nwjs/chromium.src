@@ -24,6 +24,7 @@
 #include "third_party/blink/renderer/core/frame/deprecation.h"
 #include "third_party/blink/renderer/core/frame/policy_container.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
+#include "third_party/blink/renderer/core/inspector/inspector_audits_issue.h"
 #include "third_party/blink/renderer/core/loader/loader_factory_for_worker.h"
 #include "third_party/blink/renderer/core/loader/modulescript/module_script_fetch_request.h"
 #include "third_party/blink/renderer/core/loader/resource_load_observer_for_worker.h"
@@ -256,6 +257,14 @@ bool WorkerOrWorkletGlobalScope::HasPendingActivity() const {
 
 void WorkerOrWorkletGlobalScope::CountUse(WebFeature feature) {
   DCHECK(IsContextThread());
+
+  // `reporting_proxy_` should outlive `this` but there seems a situation where
+  // the assumption is broken. Don't count features while the context is
+  // destroyed.
+  // TODO(https://crbug.com/1298450): Fix the lifetime of WorkerReportingProxy.
+  if (IsContextDestroyed())
+    return;
+
   DCHECK_NE(WebFeature::kOBSOLETE_PageDestruction, feature);
   DCHECK_GT(WebFeature::kNumberOfFeatures, feature);
   if (used_features_[static_cast<size_t>(feature)])
@@ -556,6 +565,10 @@ int WorkerOrWorkletGlobalScope::GetOutstandingThrottledLimit() const {
   // is overridden, then this method should also be overridden with a
   // more meaningful value.
   return 2;
+}
+
+String WorkerOrWorkletGlobalScope::GetAcceptLanguages() const {
+  return web_worker_fetch_context_->GetAcceptLanguages();
 }
 
 void WorkerOrWorkletGlobalScope::Trace(Visitor* visitor) const {

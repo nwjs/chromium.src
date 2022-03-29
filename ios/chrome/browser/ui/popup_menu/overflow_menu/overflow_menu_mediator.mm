@@ -23,6 +23,7 @@
 #include "components/translate/core/browser/translate_prefs.h"
 #include "ios/chrome/browser/chrome_url_constants.h"
 #import "ios/chrome/browser/find_in_page/find_tab_helper.h"
+#import "ios/chrome/browser/follow/follow_java_script_feature.h"
 #import "ios/chrome/browser/overlays/public/overlay_presenter.h"
 #import "ios/chrome/browser/overlays/public/overlay_presenter_observer_bridge.h"
 #import "ios/chrome/browser/overlays/public/overlay_request.h"
@@ -39,6 +40,8 @@
 #import "ios/chrome/browser/ui/commands/reading_list_add_command.h"
 #import "ios/chrome/browser/ui/commands/text_zoom_commands.h"
 #import "ios/chrome/browser/ui/default_promo/default_browser_utils.h"
+#import "ios/chrome/browser/ui/follow/follow_site_info.h"
+#import "ios/chrome/browser/ui/ntp/new_tab_page_feature.h"
 #import "ios/chrome/browser/ui/popup_menu/overflow_menu/feature_flags.h"
 #import "ios/chrome/browser/ui/popup_menu/overflow_menu/overflow_menu_swift.h"
 #import "ios/chrome/browser/ui/popup_menu/popup_menu_constants.h"
@@ -49,6 +52,9 @@
 #import "ios/chrome/browser/web_state_list/web_state_list_observer_bridge.h"
 #import "ios/chrome/browser/window_activities/window_activity_helpers.h"
 #include "ios/chrome/grit/ios_strings.h"
+#import "ios/public/provider/chrome/browser/chrome_browser_provider.h"
+#import "ios/public/provider/chrome/browser/follow/follow_provider.h"
+#import "ios/public/provider/chrome/browser/user_feedback/user_feedback_provider.h"
 #include "ios/web/common/user_agent.h"
 #import "ios/web/public/navigation/navigation_item.h"
 #import "ios/web/public/navigation/navigation_manager.h"
@@ -137,6 +143,9 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
 // The current web state.
 @property(nonatomic, assign) web::WebState* webState;
 
+// The current web site information.
+@property(nonatomic, strong) FollowSiteInfo* siteInfo;
+
 // Whether an overlay is currently presented over the web content area.
 @property(nonatomic, assign) BOOL webContentAreaShowingOverlay;
 
@@ -162,9 +171,10 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
 @property(nonatomic, strong) OverflowMenuAction* openIncognitoTabAction;
 @property(nonatomic, strong) OverflowMenuAction* openNewWindowAction;
 
+@property(nonatomic, strong) OverflowMenuAction* followAction;
+@property(nonatomic, strong) OverflowMenuAction* unfollowAction;
 @property(nonatomic, strong) OverflowMenuAction* addBookmarkAction;
 @property(nonatomic, strong) OverflowMenuAction* editBookmarkAction;
-@property(nonatomic, strong) OverflowMenuAction* followAction;
 @property(nonatomic, strong) OverflowMenuAction* readLaterAction;
 @property(nonatomic, strong) OverflowMenuAction* translateAction;
 @property(nonatomic, strong) OverflowMenuAction* requestDesktopAction;
@@ -210,6 +220,7 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
 
   self.webState = nullptr;
   self.webStateList = nullptr;
+  self.siteInfo = nil;
 
   self.bookmarkModel = nullptr;
   self.prefService = nullptr;
@@ -240,6 +251,12 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
   if (_webState) {
     [self updateModel];
     _webState->AddObserver(_webStateObserver.get());
+
+    // Observe the language::IOSLanguageDetectionTabHelper for |_webState|.
+    _iOSLanguageDetectionTabHelperObserverBridge =
+        std::make_unique<language::IOSLanguageDetectionTabHelperObserverBridge>(
+            language::IOSLanguageDetectionTabHelper::FromWebState(_webState),
+            self);
   }
 }
 
@@ -256,12 +273,6 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
 
   if (_webStateList) {
     _webStateList->AddObserver(_webStateListObserver.get());
-
-    // Observe the language::IOSLanguageDetectionTabHelper for |_webState|.
-    _iOSLanguageDetectionTabHelperObserverBridge =
-        std::make_unique<language::IOSLanguageDetectionTabHelperObserverBridge>(
-            language::IOSLanguageDetectionTabHelper::FromWebState(_webState),
-            self);
   }
 }
 
@@ -416,15 +427,16 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
                                                  actions:@[]
                                                   footer:nil];
 
-  if (self.followActionState != FollowActionStateHidden) {
-    // TODO(crbug.com/1264872): Show follow/unfollow according to website follow
-    // status.
-    self.followAction = CreateOverflowMenuAction(
-        IDS_IOS_TOOLS_MENU_FOLLOW, @"overflow_menu_action_follow", @"", ^{
-          [weakSelf updateFollowStatus:YES];
-        });
-  }
-
+  self.followAction = CreateOverflowMenuAction(
+      IDS_IOS_TOOLS_MENU_FOLLOW, @"overflow_menu_action_follow",
+      kToolsMenuFollow, ^{
+        [weakSelf updateFollowStatus:YES];
+      });
+  self.unfollowAction = CreateOverflowMenuAction(
+      IDS_IOS_TOOLS_MENU_UNFOLLOW, @"overflow_menu_action_unfollow",
+      kToolsMenuUnfollow, ^{
+        [weakSelf updateFollowStatus:NO];
+      });
   self.addBookmarkAction = CreateOverflowMenuAction(
       IDS_IOS_TOOLS_MENU_ADD_TO_BOOKMARKS, @"overflow_menu_action_bookmark",
       kToolsMenuAddToBookmarks, ^{
@@ -485,13 +497,10 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
                                                [weakSelf openHelp];
                                              });
 
-  // Footer vary based on state, so it's set in -updateModel.
+  // Footer and actions vary based on state, so they're set in -updateModel.
   self.helpActionsGroup =
       [[OverflowMenuActionGroup alloc] initWithGroupName:@"help_actions"
-                                                 actions:@[
-                                                   self.reportIssueAction,
-                                                   self.helpAction,
-                                                 ]
+                                                 actions:@[]
                                                   footer:nil];
 
   // Destinations and footer vary based on state, so they're set in
@@ -572,11 +581,48 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
     self.findInPageAction, self.textZoomAction
   ];
 
-  // Add the follow action to the page action group if it is exists.
-  if (self.followAction) {
-    self.pageActionsGroup.actions = [@[ self.followAction ]
-        arrayByAddingObjectsFromArray:self.pageActionsGroup.actions];
+  // Add the follow/unfollow action.
+  if (self.followActionState != FollowActionStateHidden) {
+    DCHECK(IsWebChannelsEnabled());
+    __weak __typeof(self) weakSelf = self;
+    FollowJavaScriptFeature::GetInstance()->GetFollowSiteInfo(
+        self.webState, base::BindOnce(^(FollowSiteInfo* siteInfo) {
+          if (siteInfo) {
+            OverflowMenuMediator* strongSelf = weakSelf;
+            if (!strongSelf) {
+              return;
+            }
+            strongSelf.siteInfo = siteInfo;
+            BOOL siteFollowed = ios::GetChromeBrowserProvider()
+                                    .GetFollowProvider()
+                                    ->GetFollowStatus(siteInfo);
+            if (!siteFollowed) {
+              strongSelf.pageActionsGroup.actions =
+                  [@[ strongSelf.followAction ]
+                      arrayByAddingObjectsFromArray:strongSelf.pageActionsGroup
+                                                        .actions];
+            } else {
+              strongSelf.pageActionsGroup.actions =
+                  [@[ strongSelf.unfollowAction ]
+                      arrayByAddingObjectsFromArray:strongSelf.pageActionsGroup
+                                                        .actions];
+            }
+          }
+        }));
   }
+
+  NSMutableArray<OverflowMenuAction*>* helpActions =
+      [[NSMutableArray alloc] init];
+
+  if (ios::GetChromeBrowserProvider()
+          .GetUserFeedbackProvider()
+          ->IsUserFeedbackEnabled()) {
+    [helpActions addObject:self.reportIssueAction];
+  }
+
+  [helpActions addObject:self.helpAction];
+
+  self.helpActionsGroup.actions = helpActions;
 
   // Set footer (on last section), if any.
   if (_browserPolicyConnector &&
@@ -597,10 +643,10 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
   // which is paused while overlays are displayed over the web content area.
   self.readLaterAction.enabled =
       !self.webContentAreaShowingOverlay && [self isCurrentURLWebURL];
-  if (self.followAction) {
-    self.followAction.enabled =
-        self.followActionState == FollowActionStateEnabled ? YES : NO;
-  }
+
+  BOOL followEnabled = self.followActionState == FollowActionStateEnabled;
+  self.followAction.enabled = followEnabled;
+  self.unfollowAction.enabled = followEnabled;
   BOOL bookmarkEnabled =
       [self isCurrentURLWebURL] && [self isEditBookmarksEnabled];
   self.addBookmarkAction.enabled = bookmarkEnabled;
@@ -915,10 +961,15 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
                                                   GURL(kChromeUINewTabURL))];
 }
 
-// Dismisses the menu and and updates the follow status of the website.
-- (void)updateFollowStatus:(BOOL)newStatus {
+// Updates the follow status of the website to |followStatus|, and dismisses the
+// menu.
+- (void)updateFollowStatus:(BOOL)followStatus {
+  if (followStatus) {
+    ios::GetChromeBrowserProvider().GetFollowProvider()->UpdateFollowStatus(
+        self.siteInfo, YES);
+  }
+  // TODO(crbug.com/1264872): add implementation when the followStatus is NO.
   [self.dispatcher dismissPopupMenuAnimated:YES];
-  // TODO(crbug.com/1264872): implement.
 }
 
 // Dismisses the menu and adds the current page as a bookmark or opens the
@@ -1040,7 +1091,8 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
   [self.dispatcher dismissPopupMenuAnimated:YES];
   RecordAction(UserMetricsAction("MobileMenuPasswords"));
   [self.dispatcher
-      showSavedPasswordsSettingsFromViewController:self.baseViewController];
+      showSavedPasswordsSettingsFromViewController:self.baseViewController
+                                  showCancelButton:NO];
 }
 
 // Dismisses the menu and opens downloads.

@@ -88,6 +88,15 @@ class BrowserViewLayout : public views::LayoutManager {
   }
   views::Widget* contents_border_widget() { return contents_border_widget_; }
 
+  // Sets the bounds for the contents border.
+  // * If nullopt, no specific bounds are set, and the border will be drawn
+  //   around the entire contents area.
+  // * Otherwise, the blue border will be drawn around the indicated Rect,
+  //   which is in View coordinates.
+  // Note that *whether* the border is drawn is an orthogonal issue;
+  // this function only controls where it's drawn when it is in fact drawn.
+  void SetContentBorderBounds(
+      const absl::optional<gfx::Rect>& region_capture_rect);
   void set_menu_bar(views::View* menu_bar) { menu_bar_ = menu_bar; }
   views::View* menu_bar() { return menu_bar_; }
 
@@ -143,6 +152,9 @@ class BrowserViewLayout : public views::LayoutManager {
   // control, for laying out the previous control.
   int LayoutDownloadShelf(int bottom);
 
+  // Layout the contents border, which indicates the tab is being captured.
+  void LayoutContentBorder();
+
   // Returns the y coordinate of the client area.
   int GetClientAreaTop();
 
@@ -197,6 +209,9 @@ class BrowserViewLayout : public views::LayoutManager {
   // The latest contents bounds applied during a layout pass, in screen
   // coordinates.
   gfx::Rect latest_contents_bounds_;
+
+  // Directly tied to SetContentBorderBounds() - more details there.
+  absl::optional<gfx::Rect> dynamic_content_border_bounds_;
 
   // The distance the web contents modal dialog is from the top of the window,
   // in pixels.

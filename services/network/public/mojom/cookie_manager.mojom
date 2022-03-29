@@ -103,9 +103,18 @@ enum CookieSameSiteContextMetadataDowngradeType {
   kLaxToCross,
 };
 
+enum ContextRedirectTypeBug1221316 {
+  kUnset,
+  kNoRedirect,
+  kCrossSiteRedirect,
+  kPartialSameSiteRedirect,
+  kAllSameSiteRedirect,
+};
+
 // Keep defaults here in sync with net/cookies/cookie_options.h.
 struct CookieSameSiteContextMetadata {
   CookieSameSiteContextMetadataDowngradeType cross_site_redirect_downgrade = kNoDowngrade;
+  ContextRedirectTypeBug1221316 redirect_type_bug_1221316 = kUnset;
 };
 
 // Keep defaults here in sync with net/cookies/cookie_options.h.
@@ -445,4 +454,8 @@ interface CookieManager {
   // the caller with a callback when settings have been updated.
   SetStorageAccessGrantSettings(
       array<content_settings.mojom.ContentSettingPatternSource> settings) => ();
+
+  // TODO(crbug.com/1296161): Delete this method when the partitioned cookies
+  // Origin Trial is over.
+  ConvertPartitionedCookiesToUnpartitioned(url.mojom.Url url);
 };

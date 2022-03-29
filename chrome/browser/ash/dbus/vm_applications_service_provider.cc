@@ -106,8 +106,9 @@ void VmApplicationsServiceProvider::UpdateApplicationList(
   }
 
   Profile* profile = ProfileManager::GetPrimaryUserProfile();
-  guest_os::GuestOsRegistryServiceFactory::GetForProfile(profile)
-      ->UpdateApplicationList(request);
+  auto* registry_service =
+      guest_os::GuestOsRegistryServiceFactory::GetForProfile(profile);
+  registry_service->UpdateApplicationList(request);
 
   std::move(response_sender).Run(dbus::Response::FromMethodCall(method_call));
 }

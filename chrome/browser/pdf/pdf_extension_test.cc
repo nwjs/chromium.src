@@ -97,7 +97,6 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/dump_accessibility_test_helper.h"
-#include "content/public/test/focus_changed_observer.h"
 #include "content/public/test/prerender_test_util.h"
 #include "content/public/test/scoped_time_zone.h"
 #include "content/public/test/test_navigation_observer.h"
@@ -167,6 +166,7 @@ using ::guest_view::GuestViewManager;
 using ::guest_view::TestGuestViewManager;
 using ::guest_view::TestGuestViewManagerFactory;
 using ::pdf_extension_test_util::ConvertPageCoordToScreenCoord;
+using ::pdf_extension_test_util::SetInputFocusOnPlugin;
 using ::testing::Contains;
 using ::testing::IsEmpty;
 using ::testing::Not;
@@ -326,17 +326,6 @@ class PDFExtensionTestWithoutUnseasonedOverride
 
   WebContents* GetActiveWebContents() {
     return browser()->tab_strip_model()->GetActiveWebContents();
-  }
-
-  // Synchronously sets the input focus on the plugin frame by clicking on the
-  // top left corner of a PDF document.
-  void SetInputFocusOnPlugin(WebContents* guest_contents) {
-    content::FocusChangedObserver focus_observer(guest_contents);
-    content::SimulateMouseClickAt(
-        guest_contents, blink::WebInputEvent::kNoModifiers,
-        blink::WebMouseEvent::Button::kLeft,
-        ConvertPageCoordToScreenCoord(guest_contents, {1, 1}));
-    focus_observer.Wait();
   }
 
  protected:
@@ -2136,7 +2125,7 @@ class PDFExtensionRegionSearchTest : public PDFExtensionTest {
  protected:
   std::vector<base::Feature> GetEnabledFeatures() const override {
     auto enabled = PDFExtensionTest::GetEnabledFeatures();
-    enabled.push_back(lens::features::kLensRegionSearch);
+    enabled.push_back(lens::features::kLensStandalone);
     return enabled;
   }
 };
@@ -3910,7 +3899,7 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionTest, DISABLED_TabInAndOutOfPDFPlugin) {
   // Set focus on last toolbar element (zoom-out-button).
   ASSERT_TRUE(
       content::ExecuteScript(guest_contents,
-                             R"(viewer.shadowRoot.querySelector('#zoom-toolbar')
+                             R"(viewer.shadowRoot.querySelector('#zoomToolbar')
          .$['zoom-out-button']
          .$$('cr-icon-button')
          .focus();)"));
@@ -3922,7 +3911,7 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionTest, DISABLED_TabInAndOutOfPDFPlugin) {
       window.domAutomationController.send('plugin');
     });
 
-    const button = viewer.shadowRoot.querySelector('#zoom-toolbar')
+    const button = viewer.shadowRoot.querySelector('#zoomToolbar')
                    .$['zoom-out-button']
                    .$$('cr-icon-button');
     button.addEventListener('focus', () => {

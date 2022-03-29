@@ -8,10 +8,8 @@
 
 #include "base/bind.h"
 #include "base/callback.h"
+#include "extensions/renderer/script_context.h"
 #include "v8/include/v8-function-callback.h"
-
-#include "base/feature_list.h"
-#include "content/public/common/content_features.h"
 
 namespace extensions {
 
@@ -22,22 +20,23 @@ void IdGeneratorCustomBindings::AddRoutes() {
   RouteHandlerFunction(
       "GetNextId", base::BindRepeating(&IdGeneratorCustomBindings::GetNextId,
                                        base::Unretained(this)));
+  RouteHandlerFunction(
+      "GetNextScopedId",
+      base::BindRepeating(&IdGeneratorCustomBindings::GetNextScopedId,
+                          base::Unretained(this)));
 }
 
 void IdGeneratorCustomBindings::GetNextId(
     const v8::FunctionCallbackInfo<v8::Value>& args) {
-  static int32_t next_id = 0;
-  // nwjs: conflict with SetElementInstanceID in BrowserPlugin and GuestViewContainer.prototype.attachWindow
-  // cound be a bug in upstream
-  if (next_id == 0)
-    next_id = 1000;
-
-  ++next_id;
   // Make sure 0 is never returned because some APIs (particularly WebRequest)
   // have special meaning for 0 IDs.
-  if (next_id == 0)
-    next_id = 1;
-  args.GetReturnValue().Set(next_id);
+  static int32_t next_id = 1;
+  args.GetReturnValue().Set(next_id++);
+}
+
+void IdGeneratorCustomBindings::GetNextScopedId(
+    const v8::FunctionCallbackInfo<v8::Value>& args) {
+  args.GetReturnValue().Set(context()->GetNextIdFromCounter());
 }
 
 }  // namespace extensions
