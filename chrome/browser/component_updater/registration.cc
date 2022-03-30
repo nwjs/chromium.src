@@ -93,7 +93,6 @@
 namespace component_updater {
 
 void RegisterComponentsForUpdate() {
-  //auto* const cus = g_browser_process->component_updater();
 
 #if 0
 #if BUILDFLAG(IS_WIN)
@@ -102,6 +101,7 @@ void RegisterComponentsForUpdate() {
 #endif  // 0
 
 #if BUILDFLAG(IS_MAC)
+  auto* const cus = g_browser_process->component_updater();
   RegisterRecoveryImprovedComponent(cus, g_browser_process->local_state());
   RegisterRecoveryComponent(cus, g_browser_process->local_state());
 #endif  // BUILDFLAG(IS_MAC)
