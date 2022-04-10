@@ -1341,9 +1341,12 @@ if (is_win || (is_linux && !is_component_build)) {
       outputs =
           [ "$root_out_dir/{{source_file_part}}-$chrome_version_full.breakpad" ]
 
-      # Use an absolute path to dump_syms in case a user has it in their path.
       args = rebase_path(outputs, root_out_dir) + [
-               rebase_path("$root_out_dir/dump_syms"),
+               rebase_path(
+                   get_label_info(
+                           "//third_party/breakpad:dump_syms($host_toolchain)",
+                           "root_out_dir") + "/dump_syms",
+                   root_out_dir),
                "-a", "x86_64",
                "-g",
                rebase_path(
@@ -1358,7 +1361,7 @@ if (is_win || (is_linux && !is_component_build)) {
         "//components/crash/core/app:chrome_crashpad_handler",
         "//third_party/angle:libEGL",
         "//third_party/angle:libGLESv2",
-        "//third_party/breakpad:dump_syms",
+        "//third_party/breakpad:dump_syms($host_toolchain)",
         "//third_party/swiftshader/src/OpenGL/libEGL:swiftshader_libEGL",
         "//third_party/swiftshader/src/OpenGL/libGLESv2:swiftshader_libGLESv2",
         "//third_party/swiftshader/src/Vulkan:swiftshader_libvulkan",
