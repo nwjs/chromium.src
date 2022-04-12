@@ -25,7 +25,7 @@ namespace {
 // see the comment where this is used in APISignature::CreateFromValues.
 constexpr const char* const kNonCallbackTrailingFunctionAPINames[] = {
     "test.listenForever", "test.listenOnce", "test.callbackPass",
-    "test.callbackFail", "automation.addTreeChangeObserver"};
+    "test.callbackFail", "automation.addTreeChangeObserver", "nw.App.on"};
 
 std::vector<std::unique_ptr<ArgumentSpec>> ValueListToArgumentSpecs(
     const base::Value& specification_list,
