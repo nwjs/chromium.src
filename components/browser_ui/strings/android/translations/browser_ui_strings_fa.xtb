@@ -77,6 +77,7 @@
 <translation id="2687403674020088961">مسدود کردن همه کوکی‌ها (توصیه نمی‌شود)</translation>
 <translation id="2704606927547763573">کپی شد</translation>
 <translation id="2717722538473713889">آدرس‌های ایمیل</translation>
+<translation id="2750481671343847896">سایت‌ها می‌توانند پیام‌واره‌های ورود به سیستم سرویس‌های تعیین هویت را نشان دهند.</translation>
 <translation id="2785051990912111074">این گزینه کوکی‌ها را برای <ph name="WEBSITE" /> پاک خواهد کرد</translation>
 <translation id="2822354292072154809">مطمئن‌اید می‌خواهید همه مجوزهای سایت مربوط به <ph name="CHOSEN_OBJECT_NAME" /> را بازنشانی کنید؟</translation>
 <translation id="2870560284913253234">سایت</translation>
@@ -112,6 +113,7 @@
 <translation id="3763247130972274048">در سمت راست یا چپ ویدیو دو ضربه سریع بزنید تا ۱۰ ثانیه رد شود</translation>
 <translation id="3797520601150691162">زمینه تیره برای سایت خاصی استفاده نشود</translation>
 <translation id="381841723434055211">شماره‌های تلفن</translation>
+<translation id="3826050100957962900">ورود به سیستم شخص ثالث</translation>
 <translation id="3835233591525155343">استفاده از دستگاه</translation>
 <translation id="385051799172605136">بازگشت</translation>
 <translation id="3859306556332390985">جستجو به جلو</translation>
@@ -122,7 +124,6 @@
 <translation id="3991845972263764475"><ph name="BYTES_DOWNLOADED_WITH_UNITS" /> از ؟</translation>
 <translation id="4002066346123236978">عنوان</translation>
 <translation id="4008040567710660924">کوکی‌ها را برای سایت خاصی مجاز کنید.</translation>
-<translation id="4040330681741629921">هرزمان که بتوان سایت را در نمای ساده‌شده نشان داد، اعلان دریافت می‌کنید</translation>
 <translation id="4046123991198612571">آهنگ بعدی</translation>
 <translation id="4149994727733219643">نمای ساده‌شده برای صفحه‌های وب</translation>
 <translation id="4165986682804962316">تنظیمات سایت</translation>
@@ -236,6 +237,7 @@
 <translation id="6643016212128521049">پاک کردن</translation>
 <translation id="6689172468748959065">عکس‌های نمایه</translation>
 <translation id="6697925417670533197">بارگیری‌های فعال</translation>
+<translation id="6722828510648505498">پیام‌واره‌های ورود به سیستم سرویس‌های تعیین هویت مسدود می‌شود.</translation>
 <translation id="6746124502594467657">انتقال به پایین</translation>
 <translation id="6749077623962119521">اجازه‌ها بازنشانی شوند؟</translation>
 <translation id="6766622839693428701">برای بستن، تند به‌پایین بکشید.</translation>
@@ -255,6 +257,7 @@
 <translation id="7087918508125750058"><ph name="ITEM_COUNT" /> مورد انتخاب شد.  گزینه‌ها در نزدیکی بالای صفحه دردسترس است</translation>
 <translation id="7141896414559753902">مسدود کردن نمایش پنجره‌های بازشو و هدایت‌ها در سایت‌ها (توصیه می‌شود)</translation>
 <translation id="7176368934862295254"><ph name="KILOBYTES" /> کیلوبایت</translation>
+<translation id="7180611975245234373">بازخوانی</translation>
 <translation id="723171743924126238">انتخاب تصاویر</translation>
 <translation id="7243308994586599757">گزینه‌ها در نزدیک پایین صفحه نمایش در دسترس هستند</translation>
 <translation id="7250468141469952378"><ph name="ITEM_COUNT" /> مورد انتخاب شد</translation>
@@ -308,7 +311,9 @@
 <translation id="83792324527827022">سایتی درحال استفاده از دوربین و میکروفونتان است</translation>
 <translation id="8380167699614421159">این سایتْ آگهی‌های مزاحم یا گمراه‌کننده نشان می‌دهد</translation>
 <translation id="8394832520002899662">برای برگشتن به سایت ضربه بزنید</translation>
+<translation id="8409345997656833551">هرزمان که بتوان مقاله را در نمای ساده‌شده نشان داد، اعلان دریافت می‌کنید</translation>
 <translation id="8425213833346101688">تغییر</translation>
+<translation id="8428213095426709021">تنظیمات</translation>
 <translation id="8441146129660941386">جستجو به عقب</translation>
 <translation id="8444433999583714703">‏برای اینکه به <ph name="APP_NAME" /> اجازه دهید به مکانتان دسترسی پیدا کند، مکان را در <ph name="BEGIN_LINK" />تنظیمات Android<ph name="END_LINK" /> نیز روشن کنید.</translation>
 <translation id="8447861592752582886">لغو مجوز دستگاه</translation>

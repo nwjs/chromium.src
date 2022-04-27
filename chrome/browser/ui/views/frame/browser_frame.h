@@ -126,7 +126,7 @@ class BrowserFrame : public views::Widget, public views::ContextMenuController {
   bool GetAccelerator(int command_id,
                       ui::Accelerator* accelerator) const override;
   const ui::ThemeProvider* GetThemeProvider() const override;
-  ui::ColorProviderManager::InitializerSupplier* GetCustomTheme()
+  ui::ColorProviderManager::ThemeInitializerSupplier* GetCustomTheme()
       const override;
   void OnNativeWidgetWorkspaceChanged() override;
 
@@ -152,6 +152,9 @@ class BrowserFrame : public views::Widget, public views::ContextMenuController {
   TabDragKind tab_drag_kind() const { return tab_drag_kind_; }
 
   bool frameless() { return frameless_; }
+ protected:
+  // views::Widget:
+  ui::ColorProviderManager::Key GetColorProviderKey() const override;
 
  private:
   void OnTouchUiChanged();

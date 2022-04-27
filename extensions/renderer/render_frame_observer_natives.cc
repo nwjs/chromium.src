@@ -7,7 +7,6 @@
 #include <utility>
 
 #include "base/bind.h"
-#include "base/cxx17_backports.h"
 #include "base/location.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/threading/thread_task_runner_handle.h"
@@ -92,7 +91,7 @@ class CloseWatcher : public content::RenderFrameObserver {
       v8::HandleScope handle_scope(isolate);
       v8::Local<v8::Value> args[] = {v8::Integer::New(isolate, routing_id)};
       context_->SafeCallFunction(v8::Local<v8::Function>::New(isolate, callback_),
-                                 base::size(args), args);
+                                 std::size(args), args);
     }
     delete this;
   }
@@ -166,7 +165,7 @@ void RenderFrameObserverNatives::InvokeCallback(
   v8::HandleScope handle_scope(isolate);
   v8::Local<v8::Value> args[] = {v8::Boolean::New(isolate, succeeded), v8::Integer::New(isolate, frame_id)};
   context()->SafeCallFunction(v8::Local<v8::Function>::New(isolate, callback),
-                              base::size(args), args);
+                              std::size(args), args);
 }
 
 void RenderFrameObserverNatives::OnDestruct(

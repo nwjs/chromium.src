@@ -791,7 +791,10 @@ void NotificationViewBase::CreateOrUpdateActionButtonViews(
           button_info.placeholder;
     }
 
-    if (!for_ash_notification_) {
+    bool use_accent_color =
+        !for_ash_notification_ &&
+        !notification.rich_notification_data().ignore_accent_color_for_text;
+    if (use_accent_color) {
       // Change action button color to the accent color.
       action_buttons_[i]->SetEnabledTextColors(notification.accent_color());
     }
@@ -801,12 +804,12 @@ void NotificationViewBase::CreateOrUpdateActionButtonViews(
   // If the view is not expanded, there should be no hover state.
   if (new_buttons && expanded_) {
     views::Widget* widget = GetWidget();
-    if (widget) {
+    if (widget && !widget->IsClosed()) {
       // This Layout() is needed because button should be in the right location
       // in the view hierarchy when SynthesizeMouseMoveEvent() is called.
       Layout();
       widget->SetSize(widget->GetContentsView()->GetPreferredSize());
-      GetWidget()->SynthesizeMouseMoveEvent();
+      widget->SynthesizeMouseMoveEvent();
     }
   }
 }

@@ -13,6 +13,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/read_later/reading_list_model_factory.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/chrome_view_class_properties.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/side_panel/read_later_side_panel_web_view.h"
@@ -104,17 +105,13 @@ void SidePanelToolbarButton::ButtonPressed() {
     return;
   }
 
-  if (!side_panel_webview_) {
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-    // Hide the Lens side panel if it's showing instead.
-    lens::LensSidePanelController* const lens_side_panel_controller =
-        browser_view->lens_side_panel_controller();
-    if (lens_side_panel_controller && lens_side_panel_controller->IsShowing()) {
-      lens_side_panel_controller->Close();
-      return;
-    }
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  if (browser_view->CloseOpenRightAlignedSidePanel()) {
+    return;
+  }
 
+  browser_view->MaybeClobberAllSideSearchSidePanels();
+
+  if (!side_panel_webview_) {
     // Using base::Unretained(this) is safe here because the side panel (and the
     // web view as its child) will be destroyed before the toolbar which will
     // destroy the SidePanelToolbarButton.
@@ -127,8 +124,6 @@ void SidePanelToolbarButton::ButtonPressed() {
     SetTooltipText(l10n_util::GetStringUTF16(IDS_TOOLTIP_SIDE_PANEL_HIDE));
     reading_list_model_->MarkAllSeen();
     dot_indicator_->Hide();
-  } else {
-    HideSidePanel();
   }
 }
 
@@ -141,6 +136,7 @@ void SidePanelToolbarButton::HideSidePanel() {
         side_panel_webview_.get());
     side_panel_webview_ = nullptr;
     SetTooltipText(l10n_util::GetStringUTF16(IDS_TOOLTIP_SIDE_PANEL_SHOW));
+    browser_view->RightAlignedSidePanelWasClosed();
   }
 }
 

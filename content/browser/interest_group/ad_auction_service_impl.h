@@ -9,6 +9,7 @@
 #include <set>
 
 #include "base/containers/unique_ptr_adapters.h"
+#include "content/browser/interest_group/auction_runner.h"
 #include "content/browser/interest_group/auction_worklet_manager.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/content_browser_client.h"
@@ -25,7 +26,6 @@
 
 namespace content {
 
-class AuctionRunner;
 class InterestGroupManagerImpl;
 class RenderFrameHost;
 class RenderFrameHostImpl;
@@ -83,15 +83,23 @@ class CONTENT_EXPORT AdAuctionServiceImpl final
                                      interest_group_api_operation,
                                  const url::Origin& origin) const;
 
+  // Handles passed in report URLs. For each url of `report_urls`, call
+  // FetchReport() to send a request to the url, and add UMA histgrams.
+  void HandleReports(network::mojom::URLLoaderFactory* factory,
+                     const std::vector<GURL>& report_urls,
+                     const std::string& name);
+
   // Deletes `auction`.
-  void OnAuctionComplete(RunAdAuctionCallback callback,
-                         AuctionRunner* auction,
-                         absl::optional<GURL> render_url,
-                         absl::optional<std::vector<GURL>> ad_component_urls,
-                         std::vector<GURL> report_urls,
-                         std::vector<GURL> debug_loss_report_urls,
-                         std::vector<GURL> debug_win_report_urls,
-                         std::vector<std::string> errors);
+  void OnAuctionComplete(
+      RunAdAuctionCallback callback,
+      AuctionRunner* auction,
+      absl::optional<AuctionRunner::InterestGroupKey> winning_group_id,
+      absl::optional<GURL> render_url,
+      std::vector<GURL> ad_component_urls,
+      std::vector<GURL> report_urls,
+      std::vector<GURL> debug_loss_report_urls,
+      std::vector<GURL> debug_win_report_urls,
+      std::vector<std::string> errors);
 
   InterestGroupManagerImpl& GetInterestGroupManager() const;
 

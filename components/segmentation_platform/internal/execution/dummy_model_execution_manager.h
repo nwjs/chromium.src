@@ -27,7 +27,8 @@ class DummyModelExecutionManager : public ModelExecutionManager {
       delete;
 
   // ModelExecutionManager overrides.
-  void ExecuteModel(optimization_guide::proto::OptimizationTarget segment_id,
+  void ExecuteModel(const proto::SegmentInfo& segment_info,
+                    ModelProvider* explicit_provider,
                     ModelExecutionCallback callback) override;
 };
 

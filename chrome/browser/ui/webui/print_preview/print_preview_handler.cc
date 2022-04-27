@@ -53,7 +53,6 @@
 #include "chrome/browser/ui/webui/print_preview/printer_handler.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/common/cloud_print/cloud_print_constants.h"
 #include "chrome/common/crash_keys.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/printing/printer_capabilities.h"
@@ -664,7 +663,7 @@ std::string PrintPreviewHandler::GetCallbackId(int request_id) {
   return result;
 }
 
-void PrintPreviewHandler::HandleGetPrinters(base::Value::ConstListView args) {
+void PrintPreviewHandler::HandleGetPrinters(const base::Value::List& args) {
   CHECK_GE(args.size(), 2u);
   std::string callback_id = args[0].GetString();
   CHECK(!callback_id.empty());
@@ -694,7 +693,7 @@ void PrintPreviewHandler::HandleGetPrinters(base::Value::ConstListView args) {
 }
 
 void PrintPreviewHandler::HandleGetPrinterCapabilities(
-    base::Value::ConstListView args) {
+    const base::Value::List& args) {
   // Validate that we have a valid callback_id
   if (args.size() < 1 || !args[0].is_string() || args[0].GetString().empty()) {
     RejectJavascriptCallback(base::Value(""), base::Value());
@@ -732,7 +731,7 @@ void PrintPreviewHandler::HandleGetPrinterCapabilities(
                      weak_factory_.GetWeakPtr(), callback_id));
 }
 
-void PrintPreviewHandler::HandleGetPreview(base::Value::ConstListView args) {
+void PrintPreviewHandler::HandleGetPreview(const base::Value::List& args) {
   DCHECK_EQ(2U, args.size());
   std::string callback_id;
   std::string json_str;
@@ -811,7 +810,7 @@ void PrintPreviewHandler::HandleGetPreview(base::Value::ConstListView args) {
     settings.SetKey(kSettingHeaderFooterTitle,
                     base::Value(initiator->GetTitle()));
 
-    url::Replacements<char> url_sanitizer;
+    GURL::Replacements url_sanitizer;
     url_sanitizer.ClearUsername();
     url_sanitizer.ClearPassword();
     const GURL& initiator_url = initiator->GetLastCommittedURL();
@@ -838,7 +837,7 @@ void PrintPreviewHandler::HandleGetPreview(base::Value::ConstListView args) {
   last_preview_settings_ = std::move(settings);
 }
 
-void PrintPreviewHandler::HandlePrint(base::Value::ConstListView args) {
+void PrintPreviewHandler::HandlePrint(const base::Value::List& args) {
   ReportRegeneratePreviewRequestCountBeforePrint(
       regenerate_preview_request_count_);
   CHECK(args[0].is_string());
@@ -918,20 +917,19 @@ void PrintPreviewHandler::HandlePrint(base::Value::ConstListView args) {
   chrome::NWPrintSetCustomPrinting(false);
 }
 
-void PrintPreviewHandler::HandleHidePreview(
-    base::Value::ConstListView /*args*/) {
+void PrintPreviewHandler::HandleHidePreview(const base::Value::List& /*args*/) {
   print_preview_ui()->OnHidePreviewDialog();
 }
 
 void PrintPreviewHandler::HandleCancelPendingPrintRequest(
-    base::Value::ConstListView /*args*/) {
+    const base::Value::List& /*args*/) {
   WebContents* initiator = GetInitiator();
   if (initiator)
     ClearInitiatorDetails();
   ShowPrintErrorDialog();
 }
 
-void PrintPreviewHandler::HandleSaveAppState(base::Value::ConstListView args) {
+void PrintPreviewHandler::HandleSaveAppState(const base::Value::List& args) {
   std::string data_to_save;
   PrintPreviewStickySettings* sticky_settings =
       PrintPreviewStickySettings::GetInstance();
@@ -942,7 +940,7 @@ void PrintPreviewHandler::HandleSaveAppState(base::Value::ConstListView args) {
   sticky_settings->SaveInPrefs(GetPrefs());
 }
 
-void PrintPreviewHandler::HandleSignin(base::Value::ConstListView /*args*/) {
+void PrintPreviewHandler::HandleSignin(const base::Value::List& /*args*/) {
   Profile* profile = Profile::FromWebUI(web_ui());
   DCHECK(profile);
 
@@ -971,7 +969,7 @@ void PrintPreviewHandler::OnSignInTabClosed() {
 
 #if BUILDFLAG(ENABLE_BASIC_PRINT_DIALOG)
 void PrintPreviewHandler::HandleShowSystemDialog(
-    base::Value::ConstListView /*args*/) {
+    const base::Value::List& /*args*/) {
   ReportUserActionHistogram(
       UserActionBuckets::kFallbackToAdvancedSettingsDialog);
 
@@ -992,7 +990,7 @@ void PrintPreviewHandler::HandleShowSystemDialog(
 #endif
 
 void PrintPreviewHandler::HandleClosePreviewDialog(
-    base::Value::ConstListView /*args*/) {
+    const base::Value::List& /*args*/) {
   ReportUserActionHistogram(UserActionBuckets::kCancel);
 
   ReportRegeneratePreviewRequestCountBeforeCancel(
@@ -1027,7 +1025,7 @@ void PrintPreviewHandler::GetLocaleInformation(base::Value* settings) {
 }
 
 void PrintPreviewHandler::HandleGetInitialSettings(
-    base::Value::ConstListView args) {
+    const base::Value::List& args) {
   CHECK(args[0].is_string());
   std::string callback_id = args[0].GetString();
   CHECK(!callback_id.empty());
@@ -1292,7 +1290,7 @@ void PrintPreviewHandler::OnPrintPreviewCancelled(int request_id) {
 
 void PrintPreviewHandler::OnPrintRequestCancelled() {
   base::Value empty(base::Value::Type::LIST);
-  HandleCancelPendingPrintRequest(empty.GetListDeprecated());
+  HandleCancelPendingPrintRequest(empty.GetList());
 }
 
 void PrintPreviewHandler::ClearInitiatorDetails() {
@@ -1401,8 +1399,7 @@ void PrintPreviewHandler::SetPdfSavedClosureForTesting(
   GetPdfPrinterHandler()->SetPdfSavedClosureForTesting(std::move(closure));
 }
 
-void PrintPreviewHandler::HandleManagePrinters(
-    base::Value::ConstListView args) {
+void PrintPreviewHandler::HandleManagePrinters(const base::Value::List& args) {
 #if BUILDFLAG(IS_CHROMEOS)
   if (!local_printer_) {
     LOG(ERROR) << "Local printer not available";

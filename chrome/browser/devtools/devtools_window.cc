@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "chrome/browser/devtools/devtools_window.h"
+#include "net/cert/x509_certificate.h"
 
 #include <algorithm>
 #include <memory>

@@ -142,7 +142,6 @@ class OverviewFocusButton : public views::Button {
 
 OverviewSession::OverviewSession(OverviewDelegate* delegate)
     : delegate_(delegate),
-      active_window_before_overview_(window_util::GetActiveWindow()),
       overview_start_time_(base::Time::Now()),
       highlight_controller_(
           std::make_unique<OverviewHighlightController>(this)),
@@ -176,6 +175,8 @@ void OverviewSession::Init(const WindowList& windows,
 
   hide_overview_windows_ = std::make_unique<ScopedOverviewHideWindows>(
       std::move(hide_windows), /*force_hidden=*/false);
+
+  active_window_before_overview_ = window_util::GetActiveWindow();
   if (active_window_before_overview_)
     active_window_before_overview_->AddObserver(this);
 
@@ -1015,9 +1016,14 @@ bool OverviewSession::IsWindowActiveWindowBeforeOverview(
   return window == active_window_before_overview_;
 }
 
-void OverviewSession::ShowDesksTemplatesGrids(bool was_zero_state) {
+void OverviewSession::ShowDesksTemplatesGrids(bool was_zero_state,
+                                              const base::GUID& item_to_focus,
+                                              aura::Window* const root_window) {
   if (IsShowingDesksTemplatesGrid())
     return;
+
+  const bool created_grid_widgets =
+      !grid_list_.front()->desks_templates_grid_widget();
 
   // Send an a11y alert.
   Shell::Get()->accessibility_controller()->TriggerAccessibilityAlert(
@@ -1025,8 +1031,19 @@ void OverviewSession::ShowDesksTemplatesGrids(bool was_zero_state) {
 
   for (auto& grid : grid_list_)
     grid->ShowDesksTemplatesGrid(was_zero_state);
-  desks_templates_presenter_->GetAllEntries();
+  // Only ask for all entries if it is the first time creating the grid widgets.
+  // Otherwise, add or update the entries one at a time.
+  if (created_grid_widgets)
+    desks_templates_presenter_->GetAllEntries(item_to_focus, root_window);
   UpdateNoWindowsWidgetOnEachGrid();
+
+  UpdateAccessibilityFocus();
+
+  // TODO(crbug.com/1307467): This doesn't need to be reset if it's an ancestor
+  // of the desks bar view. Also, add testing for this. Note that this isn't
+  // needed when hiding, because we either move the focus to the new desk, or
+  // delete all the grid templates items which would reset their highlights.
+  highlight_controller_->ResetHighlightedView();
 }
 
 void OverviewSession::HideDesksTemplatesGrids() {
@@ -1037,6 +1054,8 @@ void OverviewSession::HideDesksTemplatesGrids() {
 
   for (auto& grid : grid_list_)
     grid->HideDesksTemplatesGrid(/*exit_overview=*/false);
+
+  UpdateAccessibilityFocus();
 }
 
 bool OverviewSession::IsShowingDesksTemplatesGrid() const {
@@ -1060,9 +1079,12 @@ void OverviewSession::UpdateAccessibilityFocus() {
   // Note that this order matches the order of the tab cycling in
   // `OverviewHighlightController::GetTraversableViews`.
   for (auto& grid : grid_list_) {
-    for (const auto& item : grid->window_list())
-      a11y_widgets.push_back(item->item_widget());
-
+    if (grid->IsShowingDesksTemplatesGrid()) {
+      a11y_widgets.push_back(grid->desks_templates_grid_widget());
+    } else {
+      for (const auto& item : grid->window_list())
+        a11y_widgets.push_back(item->item_widget());
+    }
     if (grid->desks_widget())
       a11y_widgets.push_back(const_cast<views::Widget*>(grid->desks_widget()));
 
@@ -1274,7 +1296,8 @@ void OverviewSession::OnKeyEvent(ui::KeyEvent* event) {
         return;
 
       DCHECK(!grid_list_.empty());
-      ShowDesksTemplatesGrids(grid_list_[0]->desks_bar_view()->IsZeroState());
+      ShowDesksTemplatesGrids(grid_list_[0]->desks_bar_view()->IsZeroState(),
+                              base::GUID(), Shell::GetPrimaryRootWindow());
       break;
 #else
       return;

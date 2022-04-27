@@ -20,6 +20,7 @@
 #include "content/browser/bad_message.h"
 #include "content/browser/browser_context_impl.h"
 #include "content/browser/browser_main_loop.h"
+#include "content/browser/browsing_topics/browsing_topics_document_host.h"
 #include "content/browser/contacts/contacts_manager_impl.h"
 #include "content/browser/content_index/content_index_service_impl.h"
 #include "content/browser/cookie_store/cookie_store_manager.h"
@@ -108,7 +109,7 @@
 #include "third_party/blink/public/mojom/contacts/contacts_manager.mojom.h"
 #include "third_party/blink/public/mojom/content_index/content_index.mojom.h"
 #include "third_party/blink/public/mojom/cookie_store/cookie_store.mojom.h"
-#include "third_party/blink/public/mojom/credentialmanager/credential_manager.mojom.h"
+#include "third_party/blink/public/mojom/credentialmanagement/credential_manager.mojom.h"
 #include "third_party/blink/public/mojom/device/device.mojom.h"
 #include "third_party/blink/public/mojom/feature_observer/feature_observer.mojom.h"
 #include "third_party/blink/public/mojom/file/file_utilities.mojom.h"
@@ -150,7 +151,6 @@
 #include "third_party/blink/public/mojom/webauthn/authenticator.mojom.h"
 #include "third_party/blink/public/mojom/webauthn/virtual_authenticator.mojom.h"
 #include "third_party/blink/public/mojom/webid/federated_auth_request.mojom.h"
-#include "third_party/blink/public/mojom/webid/federated_auth_response.mojom.h"
 #include "third_party/blink/public/mojom/websockets/websocket_connector.mojom.h"
 #include "third_party/blink/public/mojom/webtransport/web_transport_connector.mojom.h"
 #include "third_party/blink/public/mojom/worker/dedicated_worker_host_factory.mojom.h"
@@ -846,14 +846,9 @@ void PopulateFrameBinders(RenderFrameHostImpl* host, mojo::BinderMap* map) {
                             base::Unretained(host)));
   }
 
-  if (IsFedCmEnabled()) {
-    map->Add<blink::mojom::FederatedAuthRequest>(base::BindRepeating(
-        &RenderFrameHostImpl::BindFederatedAuthRequestReceiver,
-        base::Unretained(host)));
-    map->Add<blink::mojom::FederatedAuthResponse>(base::BindRepeating(
-        &RenderFrameHostImpl::BindFederatedAuthResponseReceiver,
-        base::Unretained(host)));
-  }
+  map->Add<blink::mojom::FederatedAuthRequest>(base::BindRepeating(
+      &RenderFrameHostImpl::BindFederatedAuthRequestReceiver,
+      base::Unretained(host)));
 
   map->Add<blink::mojom::WebUsbService>(base::BindRepeating(
       &RenderFrameHostImpl::CreateWebUsbService, base::Unretained(host)));
@@ -1086,6 +1081,10 @@ void PopulateBinderMapWithContext(
       &EmptyBinderForFrame<blink::mojom::AnchorElementMetricsHost>));
   map->Add<blink::mojom::CredentialManager>(base::BindRepeating(
       &EmptyBinderForFrame<blink::mojom::CredentialManager>));
+  if (base::FeatureList::IsEnabled(blink::features::kBrowsingTopics)) {
+    map->Add<blink::mojom::BrowsingTopicsDocumentService>(
+        base::BindRepeating(&BrowsingTopicsDocumentHost::CreateMojoService));
+  }
 #if !BUILDFLAG(IS_ANDROID)
   if (SiteIsolationPolicy::IsApplicationIsolationLevelEnabled()) {
     map->Add<blink::mojom::DirectSocketsService>(

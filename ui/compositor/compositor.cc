@@ -88,7 +88,8 @@ Compositor::Compositor(const viz::FrameSinkId& frame_sink_id,
                        bool enable_pixel_canvas,
                        bool use_external_begin_frame_control,
                        bool force_software_compositor,
-                       bool enable_compositing_based_throttling)
+                       bool enable_compositing_based_throttling,
+                       size_t memory_limit_when_visible_mb)
     : context_factory_(context_factory),
       frame_sink_id_(frame_sink_id),
       task_runner_(task_runner),
@@ -119,11 +120,6 @@ Compositor::Compositor(const viz::FrameSinkId& frame_sink_id,
   settings.release_tile_resources_for_hidden_layers =
       base::FeatureList::IsEnabled(
           features::kUiCompositorReleaseTileResourcesForHiddenLayers);
-
-  if (base::FeatureList::IsEnabled(features::kUiCompositorRequiredTilesOnly)) {
-    settings.memory_policy.priority_cutoff_when_visible =
-        gpu::MemoryAllocation::CUTOFF_ALLOW_REQUIRED_ONLY;
-  }
 
   // Disable edge anti-aliasing in order to increase support for HW overlays.
   settings.enable_edge_anti_aliasing = false;
@@ -211,23 +207,17 @@ Compositor::Compositor(const viz::FrameSinkId& frame_sink_id,
     settings.resource_settings.use_gpu_memory_buffer_resources = false;
   }
 
-  settings.memory_policy.bytes_limit_when_visible = 512 * 1024 * 1024;
+  settings.memory_policy.bytes_limit_when_visible =
+      (memory_limit_when_visible_mb > 0 ? memory_limit_when_visible_mb : 512) *
+      1024 * 1024;
 
-  // Used to configure ui compositor memory limit for chromeos devices.
-  // See crbug.com/923141.
-  if (command_line->HasSwitch(
-          switches::kUiCompositorMemoryLimitWhenVisibleMB)) {
-    std::string value_str = command_line->GetSwitchValueASCII(
-        switches::kUiCompositorMemoryLimitWhenVisibleMB);
-    unsigned value_in_mb;
-    if (base::StringToUint(value_str, &value_in_mb)) {
-      settings.memory_policy.bytes_limit_when_visible =
-          1024 * 1024 * value_in_mb;
-    }
+  if (base::FeatureList::IsEnabled(features::kUiCompositorRequiredTilesOnly)) {
+    settings.memory_policy.priority_cutoff_when_visible =
+        gpu::MemoryAllocation::CUTOFF_ALLOW_REQUIRED_ONLY;
+  } else {
+    settings.memory_policy.priority_cutoff_when_visible =
+        gpu::MemoryAllocation::CUTOFF_ALLOW_NICE_TO_HAVE;
   }
-
-  settings.memory_policy.priority_cutoff_when_visible =
-      gpu::MemoryAllocation::CUTOFF_ALLOW_NICE_TO_HAVE;
 
   settings.disallow_non_exact_resource_reuse =
       command_line->HasSwitch(switches::kDisallowNonExactResourceReuse);
@@ -240,7 +230,7 @@ Compositor::Compositor(const viz::FrameSinkId& frame_sink_id,
     settings.compositor_threaded_scrollbar_scrolling = true;
   }
 
-  if (base::FeatureList::IsEnabled(features::kPercentBasedScrolling)) {
+  if (features::IsPercentBasedScrollingEnabled()) {
     settings.percent_based_scrolling = true;
   }
 
@@ -416,7 +406,7 @@ cc::AnimationTimeline* Compositor::GetAnimationTimeline() const {
   return animation_timeline_.get();
 }
 
-void Compositor::SetDisplayColorMatrix(const skia::Matrix44& matrix) {
+void Compositor::SetDisplayColorMatrix(const SkM44& matrix) {
   display_color_matrix_ = matrix;
   if (display_private_)
     display_private_->SetDisplayColorMatrix(gfx::Transform(matrix));
@@ -912,6 +902,10 @@ void Compositor::SetDelegatedInkPointRenderer(
     mojo::PendingReceiver<gfx::mojom::DelegatedInkPointRenderer> receiver) {
   if (display_private_)
     display_private_->SetDelegatedInkPointRenderer(std::move(receiver));
+}
+
+const cc::LayerTreeSettings& Compositor::GetLayerTreeSettings() const {
+  return host_->GetSettings();
 }
 
 }  // namespace ui

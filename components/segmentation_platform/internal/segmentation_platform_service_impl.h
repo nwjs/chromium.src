@@ -27,13 +27,13 @@ class FilePath;
 class SequencedTaskRunner;
 }  // namespace base
 
+namespace history {
+class HistoryService;
+}
+
 namespace leveldb_proto {
 class ProtoDatabaseProvider;
 }  // namespace leveldb_proto
-
-namespace optimization_guide {
-class OptimizationGuideModelProvider;
-}  // namespace optimization_guide
 
 class PrefService;
 
@@ -47,10 +47,13 @@ class SignalStorageConfigs;
 
 struct Config;
 class DatabaseMaintenanceImpl;
+class DefaultModelManager;
 class FeatureListQueryProcessor;
 class HistogramSignalHandler;
+class HistoryServiceObserver;
 class ModelExecutionManager;
 class ModelExecutionSchedulerImpl;
+class ModelProviderFactory;
 class SegmentationResultPrefs;
 class SegmentInfoDatabase;
 class SegmentSelectorImpl;
@@ -82,11 +85,12 @@ enum class ServiceStatus {
 class SegmentationPlatformServiceImpl : public SegmentationPlatformService {
  public:
   SegmentationPlatformServiceImpl(
-      optimization_guide::OptimizationGuideModelProvider* model_provider,
+      std::unique_ptr<ModelProviderFactory> model_provider,
       leveldb_proto::ProtoDatabaseProvider* db_provider,
       const base::FilePath& storage_dir,
       UkmDataManager* ukm_data_manager,
       PrefService* pref_service,
+      history::HistoryService* history_service,
       const scoped_refptr<base::SequencedTaskRunner>& task_runner,
       base::Clock* clock,
       std::vector<std::unique_ptr<Config>> configs);
@@ -100,8 +104,9 @@ class SegmentationPlatformServiceImpl : public SegmentationPlatformService {
       std::unique_ptr<leveldb_proto::ProtoDatabase<proto::SignalStorageConfigs>>
           signal_storage_config_db,
       UkmDataManager* ukm_data_manager,
-      optimization_guide::OptimizationGuideModelProvider* model_provider,
+      std::unique_ptr<ModelProviderFactory> model_provider,
       PrefService* pref_service,
+      history::HistoryService* history_service,
       const scoped_refptr<base::SequencedTaskRunner>& task_runner,
       base::Clock* clock,
       std::vector<std::unique_ptr<Config>> configs);
@@ -123,8 +128,7 @@ class SegmentationPlatformServiceImpl : public SegmentationPlatformService {
   ServiceProxy* GetServiceProxy() override;
 
  private:
-  FRIEND_TEST_ALL_PREFIXES(SegmentationPlatformServiceImplTest,
-                           InitializationFlow);
+  friend class SegmentationPlatformServiceImplTest;
 
   void OnSegmentInfoDatabaseInitialized(bool success);
   void OnSignalDatabaseInitialized(bool success);
@@ -141,7 +145,8 @@ class SegmentationPlatformServiceImpl : public SegmentationPlatformService {
   // Called when service status changes.
   void OnServiceStatusChanged();
 
-  raw_ptr<optimization_guide::OptimizationGuideModelProvider> model_provider_;
+  std::unique_ptr<ModelProviderFactory> model_provider_factory_;
+
   scoped_refptr<base::SequencedTaskRunner> task_runner_;
   raw_ptr<base::Clock> clock_;
   const PlatformOptions platform_options_;
@@ -150,6 +155,9 @@ class SegmentationPlatformServiceImpl : public SegmentationPlatformService {
   std::vector<std::unique_ptr<Config>> configs_;
   base::flat_set<optimization_guide::proto::OptimizationTarget>
       all_segment_ids_;
+
+  // Default models.
+  std::unique_ptr<DefaultModelManager> default_model_manager_;
 
   // Databases.
   std::unique_ptr<SegmentInfoDatabase> segment_info_database_;
@@ -167,6 +175,7 @@ class SegmentationPlatformServiceImpl : public SegmentationPlatformService {
   std::unique_ptr<UserActionSignalHandler> user_action_signal_handler_;
   std::unique_ptr<HistogramSignalHandler> histogram_signal_handler_;
   std::unique_ptr<SignalFilterProcessor> signal_filter_processor_;
+  std::unique_ptr<HistoryServiceObserver> history_service_observer_;
 
   // Training/inference input data generation.
   std::unique_ptr<FeatureListQueryProcessor> feature_list_query_processor_;

@@ -18,6 +18,8 @@
 #include "services/service_manager/public/cpp/binder_registry.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_registry.h"
 
+class SkBitmap;
+
 namespace gfx {
 class Size;
 }

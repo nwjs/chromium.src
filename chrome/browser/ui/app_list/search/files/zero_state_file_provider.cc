@@ -108,7 +108,7 @@ ZeroStateFileProvider::ZeroStateFileProvider(Profile* profile)
     file_tasks_observer_.Observe(notifier);
 
     MrfuCache::Params params;
-    // 5 consecutive clicks to get a new file to a score of 2/3, and 10 clicks
+    // 5 consecutive clicks to get a new file to a score of 0.8, and 10 clicks
     // on other files to reduce its score by half.
     params.half_life = 10.0f;
     params.boost_factor = 5.0f;
@@ -138,6 +138,15 @@ ash::AppListSearchResultType ZeroStateFileProvider::ResultType() const {
 
 bool ZeroStateFileProvider::ShouldBlockZeroState() const {
   return true;
+}
+
+void ZeroStateFileProvider::Start(const std::u16string& query) {
+  // Results should be cleared on search only in the classic launcher. In the
+  // productivity launcher, this is handled automatically by the search
+  // controller.
+  if (!ash::features::IsProductivityLauncherEnabled()) {
+    ClearResultsSilently();
+  }
 }
 
 void ZeroStateFileProvider::StartZeroState() {

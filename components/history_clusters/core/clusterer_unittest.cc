@@ -6,6 +6,7 @@
 
 #include "base/test/task_environment.h"
 #include "components/history_clusters/core/clustering_test_utils.h"
+#include "components/history_clusters/core/config.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -16,16 +17,22 @@ using ::testing::ElementsAre;
 
 class ClustererTest : public ::testing::Test {
  public:
-  void SetUp() override { clusterer_ = std::make_unique<Clusterer>(); }
+  void SetUp() override {
+    config_.hosts_to_skip_clustering_for = {"www.shouldskip.com"};
+    SetConfigForTesting(config_);
+
+    clusterer_ = std::make_unique<Clusterer>();
+  }
 
   void TearDown() override { clusterer_.reset(); }
 
   std::vector<history::Cluster> CreateInitialClustersFromVisits(
-      const std::vector<history::ClusterVisit>& visits) {
-    return clusterer_->CreateInitialClustersFromVisits(visits);
+      std::vector<history::ClusterVisit> visits) {
+    return clusterer_->CreateInitialClustersFromVisits(&visits);
   }
 
  private:
+  Config config_;
   std::unique_ptr<Clusterer> clusterer_;
   base::test::TaskEnvironment task_environment_;
 };
@@ -155,6 +162,14 @@ TEST_F(ClustererTest, MultipleClusters) {
   history::AnnotatedVisit visit3 =
       testing::CreateDefaultAnnotatedVisit(3, GURL("https://whatever.com/"));
   visits.push_back(testing::CreateClusterVisit(visit3));
+
+  history::AnnotatedVisit should_skip = testing::CreateDefaultAnnotatedVisit(
+      11, GURL("https://www.shouldskip.com/whatever"));
+  history::ClusterVisit should_skip_cluster_visit =
+      testing::CreateClusterVisit(should_skip);
+  should_skip_cluster_visit.normalized_url =
+      GURL("https://www.shouldskip.com/whatever");
+  visits.push_back(should_skip_cluster_visit);
 
   std::vector<history::Cluster> result_clusters =
       CreateInitialClustersFromVisits(visits);

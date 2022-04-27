@@ -147,7 +147,8 @@ std::unique_ptr<views::View> PageInfoViewFactory::CreateAboutThisSitePageView(
 std::unique_ptr<views::View>
 PageInfoViewFactory::CreateAdPersonalizationPageView() {
   return std::make_unique<PageInfoSubpageView>(
-      CreateSubpageHeader(u"Lorem ipsum dolor"),
+      CreateSubpageHeader(
+          l10n_util::GetStringUTF16(IDS_PAGE_INFO_AD_PERSONALIZATION_HEADER)),
       std::make_unique<PageInfoAdPersonalizationContentView>(presenter_,
                                                              ui_delegate_));
 }
@@ -183,7 +184,7 @@ std::unique_ptr<views::View> PageInfoViewFactory::CreateSubpageHeader(
                           base::DoNothing()),
       vector_icons::kArrowBackIcon);
   views::InstallCircleHighlightPathGenerator(back_button.get());
-  back_button->SetID(VIEW_ID_BACK_BUTTON);
+  back_button->SetID(VIEW_ID_PAGE_INFO_BACK_BUTTON);
   back_button->SetTooltipText(l10n_util::GetStringUTF16(IDS_ACCNAME_BACK));
   back_button->SetProperty(views::kInternalPaddingKey,
                            back_button->GetInsets());
@@ -414,6 +415,12 @@ const ui::ImageModel PageInfoViewFactory::GetAboutThisSiteIcon() {
 // static
 const ui::ImageModel PageInfoViewFactory::GetHistoryIcon() {
   return ui::ImageModel::FromVectorIcon(vector_icons::kHistoryIcon,
+                                        ui::kColorIcon, GetIconSize());
+}
+
+// static
+const ui::ImageModel PageInfoViewFactory::GetAdPersonalizationIcon() {
+  return ui::ImageModel::FromVectorIcon(vector_icons::kAdsClickIcon,
                                         ui::kColorIcon, GetIconSize());
 }
 

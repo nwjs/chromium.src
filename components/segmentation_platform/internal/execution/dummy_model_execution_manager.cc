@@ -33,7 +33,8 @@ DummyModelExecutionManager::DummyModelExecutionManager() = default;
 DummyModelExecutionManager::~DummyModelExecutionManager() = default;
 
 void DummyModelExecutionManager::ExecuteModel(
-    optimization_guide::proto::OptimizationTarget segment_id,
+    const proto::SegmentInfo& segment_info,
+    ModelProvider* explicit_provider,
     ModelExecutionCallback callback) {
   base::SequencedTaskRunnerHandle::Get()->PostTask(
       FROM_HERE,

@@ -4,10 +4,12 @@
 
 #include "third_party/blink/renderer/core/frame/dom_timer.h"
 
+#include "base/test/scoped_command_line.h"
 #include "base/test/scoped_feature_list.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/common/switches.h"
 #include "third_party/blink/renderer/bindings/core/v8/idl_types.h"
 #include "third_party/blink/renderer/bindings/core/v8/native_value_traits_impl.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
@@ -84,6 +86,48 @@ class DOMTimerTest : public RenderingTest {
   }
 };
 
+class DOMTimerTestWithSetTimeoutWithout1MsClampPolicyOverride
+    : public DOMTimerTest {
+ public:
+  DOMTimerTestWithSetTimeoutWithout1MsClampPolicyOverride() = default;
+
+  void SetUp() override {
+    DOMTimerTest::SetUp();
+    features::ClearSetTimeoutWithout1MsClampPolicyOverrideCacheForTesting();
+  }
+
+  void TearDown() override {
+    features::ClearSetTimeoutWithout1MsClampPolicyOverrideCacheForTesting();
+    DOMTimerTest::TearDown();
+  }
+
+  // This should only be called once per test, and prior to the
+  // DomTimer logic actually parsing the policy switch.
+  void SetPolicyOverride(bool enabled) {
+    DCHECK(!scoped_command_line_.GetProcessCommandLine()->HasSwitch(
+        switches::kSetTimeoutWithout1MsClampPolicy));
+    scoped_command_line_.GetProcessCommandLine()->AppendSwitchASCII(
+        switches::kSetTimeoutWithout1MsClampPolicy,
+        enabled ? switches::kSetTimeoutWithout1MsClampPolicy_ForceEnable
+                : switches::kSetTimeoutWithout1MsClampPolicy_ForceDisable);
+  }
+
+ private:
+  base::test::ScopedCommandLine scoped_command_line_;
+};
+
+TEST_F(DOMTimerTestWithSetTimeoutWithout1MsClampPolicyOverride,
+       PolicyForceEnable) {
+  SetPolicyOverride(/* enabled = */ true);
+  EXPECT_TRUE(blink::features::IsSetTimeoutWithoutClampEnabled());
+}
+
+TEST_F(DOMTimerTestWithSetTimeoutWithout1MsClampPolicyOverride,
+       PolicyForceDisable) {
+  SetPolicyOverride(/* enabled = */ false);
+  EXPECT_FALSE(blink::features::IsSetTimeoutWithoutClampEnabled());
+}
+
 const char* const kSetTimeout0ScriptText =
     "var last = performance.now();"
     "var elapsed;"
@@ -136,11 +180,36 @@ const char* const kSetTimeoutNestedScriptText =
 TEST_F(DOMTimerTest, setTimeout_ClampsAfter4Nestings) {
   v8::HandleScope scope(v8::Isolate::GetCurrent());
 
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      features::kMaxUnthrottledTimeoutNestingLevel);
+
   ExecuteScriptAndWaitUntilIdle(kSetTimeoutNestedScriptText);
 
   auto times(ToDoubleArray(EvalExpression("times"), scope));
 
   EXPECT_THAT(times, ElementsAreArray(kExpectedTimings));
+}
+
+TEST_F(DOMTimerTest, setTimeout_ClampsAfter5Nestings) {
+  v8::HandleScope scope(v8::Isolate::GetCurrent());
+
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      features::kMaxUnthrottledTimeoutNestingLevel, {{"nesting", "6"}});
+
+  ExecuteScriptAndWaitUntilIdle(kSetTimeoutNestedScriptText);
+
+  auto times(ToDoubleArray(EvalExpression("times"), scope));
+
+  EXPECT_THAT(times, ElementsAreArray({
+                         DoubleNear(1., kThreshold),
+                         DoubleNear(1., kThreshold),
+                         DoubleNear(1., kThreshold),
+                         DoubleNear(1., kThreshold),
+                         DoubleNear(1., kThreshold),
+                         DoubleNear(4., kThreshold),
+                     }));
 }
 
 const char* const kSetIntervalScriptText =
@@ -159,6 +228,10 @@ const char* const kSetIntervalScriptText =
 TEST_F(DOMTimerTest, setInterval_ClampsAfter4Iterations) {
   v8::HandleScope scope(v8::Isolate::GetCurrent());
 
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      features::kMaxUnthrottledTimeoutNestingLevel);
+
   ExecuteScriptAndWaitUntilIdle(kSetIntervalScriptText);
 
   auto times(ToDoubleArray(EvalExpression("times"), scope));
@@ -166,8 +239,33 @@ TEST_F(DOMTimerTest, setInterval_ClampsAfter4Iterations) {
   EXPECT_THAT(times, ElementsAreArray(kExpectedTimings));
 }
 
+TEST_F(DOMTimerTest, setInterval_ClampsAfter5Iterations) {
+  v8::HandleScope scope(v8::Isolate::GetCurrent());
+
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      features::kMaxUnthrottledTimeoutNestingLevel, {{"nesting", "6"}});
+
+  ExecuteScriptAndWaitUntilIdle(kSetIntervalScriptText);
+
+  auto times(ToDoubleArray(EvalExpression("times"), scope));
+
+  EXPECT_THAT(times, ElementsAreArray({
+                         DoubleNear(1., kThreshold),
+                         DoubleNear(1., kThreshold),
+                         DoubleNear(1., kThreshold),
+                         DoubleNear(1., kThreshold),
+                         DoubleNear(1., kThreshold),
+                         DoubleNear(4., kThreshold),
+                     }));
+}
+
 TEST_F(DOMTimerTest, setInterval_NestingResetsForLaterCalls) {
   v8::HandleScope scope(v8::Isolate::GetCurrent());
+
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      features::kMaxUnthrottledTimeoutNestingLevel);
 
   ExecuteScriptAndWaitUntilIdle(kSetIntervalScriptText);
 

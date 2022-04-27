@@ -429,9 +429,9 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   //     below.
   //
   //     In practice this means that the frame is guaranteed to be hosted in a
-  //     process that is isolated to the frame's origin. The process may also
-  //     host cross-origin frames and workers only if they have opted in to
-  //     being embedded by asserting CORS or CORP headers.
+  //     process that is isolated to the frame's origin. Additionally, the
+  //     frame may embed cross-origin frames and workers only if they have
+  //     opted in to being embedded by asserting CORS or CORP headers.
   //
   // 3.  The frame may be an "isolated application", corresponding to a mostly
   //     TBD set of restrictions we're exploring in https://crbug.com/1206150,
@@ -621,6 +621,9 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   // Returns the visibility state of the frame. The different visibility states
   // of a frame are defined in Blink.
   virtual blink::mojom::PageVisibilityState GetVisibilityState() = 0;
+
+  // Returns whether the IP address of the last commit was publicly routable.
+  virtual bool IsLastCommitIPAddressPubliclyRoutable() const = 0;
 
   // Returns true if WebContentsObserver::RenderFrameCreated notification has
   // been dispatched for this frame, and so a RenderFrameDeleted notification
@@ -981,10 +984,12 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   virtual void SetIsXrOverlaySetup() = 0;
 
   // Returns the UKM source id for the page load (last committed cross-document
-  // non-bfcache navigation in the main frame).
+  // non-bfcache navigation in the outermost main frame).
   // This id typically has an associated PageLoad UKM event.
-  // Note: this can be called on any frame, but this id for all subframes is the
-  // same as the id for the main frame.
+  // Note: this can be called on any frame, but this id for all subframes or
+  // fenced frames is the same as the id for the outermost main frame. For
+  // portals, this id for frames inside a portal is the same as the id for the
+  // main frame for the portal.
   virtual ukm::SourceId GetPageUkmSourceId() = 0;
 
   // Report an inspector issue to devtools. Note that the issue is stored on the

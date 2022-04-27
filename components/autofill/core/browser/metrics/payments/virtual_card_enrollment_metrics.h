@@ -5,9 +5,13 @@
 #ifndef COMPONENTS_AUTOFILL_CORE_BROWSER_METRICS_PAYMENTS_VIRTUAL_CARD_ENROLLMENT_METRICS_H_
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_METRICS_PAYMENTS_VIRTUAL_CARD_ENROLLMENT_METRICS_H_
 
+#include <string>
+
 #include "components/autofill/core/browser/payments/virtual_card_enrollment_flow.h"
 
-#include <string>
+namespace base {
+class TimeDelta;
+}
 
 namespace base {
 class TimeDelta;
@@ -31,7 +35,9 @@ enum class VirtualCardEnrollmentBubbleResult {
   VIRTUAL_CARD_ENROLLMENT_BUBBLE_NOT_INTERACTED = 3,
   // The bubble lost focus and was deactivated.
   VIRTUAL_CARD_ENROLLMENT_BUBBLE_LOST_FOCUS = 4,
-  kMaxValue = VIRTUAL_CARD_ENROLLMENT_BUBBLE_LOST_FOCUS,
+  // The user cancelled the bubble.
+  VIRTUAL_CARD_ENROLLMENT_BUBBLE_CANCELLED = 5,
+  kMaxValue = VIRTUAL_CARD_ENROLLMENT_BUBBLE_CANCELLED,
 };
 
 // Metrics to record the source that prompted the virtual card enrollment
@@ -70,14 +76,17 @@ enum class VirtualCardEnrollmentLinkType {
   kMaxValue = VIRTUAL_CARD_ENROLLMENT_LEARN_MORE_LINK,
 };
 
-// Bubble shown and closed related metrics.
-void LogVirtualCardEnrollmentBubbleShownMetric(
-    VirtualCardEnrollmentBubbleSource source,
-    bool is_reshow);
-void LogVirtualCardEnrollmentBubbleResultMetric(
-    VirtualCardEnrollmentBubbleResult result,
-    VirtualCardEnrollmentBubbleSource source,
-    bool is_reshow);
+// Metrics to measure strikes logged or cleared in strike database.
+enum class VirtualCardEnrollmentStrikeDatabaseEvent {
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
+
+  // Strike logged as enrollment bubble was not accepted.
+  VIRTUAL_CARD_ENROLLMENT_STRIKE_DATABASE_STRIKE_LOGGED = 0,
+  // All strikes cleared as user accepted virtual card enrollment.
+  VIRTUAL_CARD_ENROLLMENT_STRIKE_DATABASE_STRIKES_CLEARED = 1,
+  kMaxValue = VIRTUAL_CARD_ENROLLMENT_STRIKE_DATABASE_STRIKES_CLEARED,
+};
 
 // GetDetailsForEnrollmentRequest related metrics. Attempts and results should
 // be 1:1 mapping.
@@ -96,16 +105,41 @@ void LogUpdateVirtualCardEnrollmentRequestResult(
     VirtualCardEnrollmentRequestType type,
     bool succeeded);
 
-// Virtual card enrollment bubble link clicked metrics.
-void LogVirtualCardEnrollmentLinkClickedMetric(
-    VirtualCardEnrollmentLinkType link_type,
-    VirtualCardEnrollmentBubbleSource source);
+// Virtual card enrollment bubble card art available metric. Logs whether the
+// card art was used in the enroll bubble depending on if it was passed to the
+// enrollment controller.
+void LogVirtualCardEnrollBubbleCardArtAvailable(
+    bool card_art_available,
+    VirtualCardEnrollmentSource source);
 
 // Latency Since Upstream metrics. Used to determine the time that it takes for
 // the server calls that need to be made between Save Card Bubble accept and
 // when the Virtual Card Enroll Bubble is shown.
 void LogVirtualCardEnrollBubbleLatencySinceUpstream(
     const base::TimeDelta& latency);
+
+// Bubble shown and closed related metrics.
+void LogVirtualCardEnrollmentBubbleResultMetric(
+    VirtualCardEnrollmentBubbleResult result,
+    VirtualCardEnrollmentBubbleSource source,
+    bool is_reshow);
+void LogVirtualCardEnrollmentBubbleShownMetric(
+    VirtualCardEnrollmentBubbleSource source,
+    bool is_reshow);
+
+// Virtual card enrollment bubble link clicked metrics.
+void LogVirtualCardEnrollmentLinkClickedMetric(
+    VirtualCardEnrollmentLinkType link_type,
+    VirtualCardEnrollmentBubbleSource source);
+
+// Virtual card enrollment strike database event metrics.
+void LogVirtualCardEnrollmentStrikeDatabaseEvent(
+    VirtualCardEnrollmentSource source,
+    VirtualCardEnrollmentStrikeDatabaseEvent strike_event);
+
+// Virtual card enrollment strike database max strikes limit reached metrics.
+void LogVirtualCardEnrollmentBubbleMaxStrikesLimitReached(
+    VirtualCardEnrollmentSource source);
 
 // Helper function used to convert VirtualCardEnrollmentBubbleSource enum to
 // name suffix.

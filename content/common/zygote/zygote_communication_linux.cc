@@ -10,7 +10,6 @@
 
 #include "base/base_switches.h"
 #include "base/command_line.h"
-#include "base/cxx17_backports.h"
 #include "base/i18n/unicodestring.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
@@ -247,7 +246,7 @@ void ZygoteCommunication::Init(
       sandbox::policy::switches::kNoSandbox,
   };
   cmd_line.CopySwitchesFrom(browser_command_line, kForwardSwitches,
-                            base::size(kForwardSwitches));
+                            std::size(kForwardSwitches));
 
   pid_ = std::move(launcher).Run(&cmd_line, &control_fd_);
 

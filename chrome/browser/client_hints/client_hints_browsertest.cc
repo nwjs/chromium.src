@@ -11,14 +11,17 @@
 #include "base/command_line.h"
 #include "base/containers/contains.h"
 #include "base/containers/fixed_flat_set.h"
+#include "base/feature_list.h"
 #include "base/metrics/field_trial_param_associator.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/run_loop.h"
 #include "base/strings/strcat.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/synchronization/lock.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/browser_process.h"
@@ -60,16 +63,21 @@
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/content_browser_test.h"
 #include "content/public/test/content_browser_test_utils.h"
+#include "content/public/test/test_navigation_observer.h"
 #include "content/public/test/test_utils.h"
 #include "content/public/test/url_loader_interceptor.h"
+#include "net/base/escape.h"
 #include "net/base/features.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/http/http_request_headers.h"
+#include "net/http/http_status_code.h"
 #include "net/nqe/effective_connection_type.h"
 #include "net/ssl/ssl_server_config.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "net/test/embedded_test_server/http_request.h"
 #include "net/test/embedded_test_server/http_response.h"
+#include "net/test/embedded_test_server/request_handler_util.h"
+#include "net/url_request/url_request.h"
 #include "services/network/public/cpp/client_hints.h"
 #include "services/network/public/cpp/cors/cors.h"
 #include "services/network/public/cpp/features.h"
@@ -82,6 +90,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/public/common/client_hints/client_hints.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/web_preferences/web_preferences.h"
 #include "third_party/re2/src/re2/re2.h"
 #include "url/origin.h"
@@ -100,6 +109,13 @@ constexpr unsigned expected_client_hints_number = 18u;
 constexpr unsigned expected_default_third_party_client_hints_number = 3u;
 constexpr unsigned expected_requested_third_party_client_hints_number = 21u;
 constexpr unsigned expected_pre_merge_third_party_client_hints_number = 13u;
+
+// All of the status codes from HttpResponseHeaders::IsRedirectResponseCode.
+const net::HttpStatusCode kRedirectStatusCodes[] = {
+    net::HTTP_MOVED_PERMANENTLY,  net::HTTP_FOUND,
+    net::HTTP_SEE_OTHER,          net::HTTP_TEMPORARY_REDIRECT,
+    net::HTTP_PERMANENT_REDIRECT,
+};
 
 // An interceptor that records count of fetches and client hint headers for
 // requests to https://{foo|bar}.com/non-existing-{image.jpg|iframe.html}.
@@ -226,6 +242,65 @@ struct OriginTrialTestOptions {
   bool valid_ot_token = true;
   bool has_accept_ch_header = true;
   bool has_critical_ch_header = false;
+};
+
+class AlternatingCriticalCHRequestHandler {
+ public:
+  AlternatingCriticalCHRequestHandler() = default;
+  net::test_server::EmbeddedTestServer::HandleRequestCallback
+  GetRequestHandler() {
+    return base::BindRepeating(
+        &AlternatingCriticalCHRequestHandler::DifferentCriticalCH,
+        base::Unretained(this));
+  }
+
+  int request_count() { return request_count_; }
+
+  void SetRedirectLocation(const GURL& redirect_location) {
+    redirect_location_ = redirect_location;
+  }
+
+  void SetStatusCode(net::HttpStatusCode status_code) {
+    status_code_ = status_code;
+  }
+
+  static constexpr char kCriticalCH[] = "/critical-ch";
+
+ private:
+  // A response that flips between two critical-ch headers
+  std::unique_ptr<net::test_server::HttpResponse> DifferentCriticalCH(
+      const net::test_server::HttpRequest& request) {
+    if (!base::StartsWith(request.relative_url, kCriticalCH))
+      return nullptr;
+
+    request_count_++;
+
+    std::unique_ptr<net::test_server::BasicHttpResponse> response =
+        std::make_unique<net::test_server::BasicHttpResponse>();
+
+    if (redirect_location_) {
+      response->set_code(status_code_);
+      response->AddCustomHeader("Location", redirect_location_->spec());
+    }
+
+    // Always send client hints different from what were received.
+    if (request.headers.find(GetCHToken()) != request.headers.end())
+      critical_ch_state_ = !critical_ch_state_;
+
+    response->AddCustomHeader("Accept-CH", GetCHToken());
+    response->AddCustomHeader("Critical-CH", GetCHToken());
+
+    return std::move(response);
+  }
+
+  std::string GetCHToken() {
+    return critical_ch_state_ ? "sec-ch-ua-arch" : "sec-ch-ua-bitness";
+  }
+
+  bool critical_ch_state_ = true;
+  int request_count_ = 0;
+  absl::optional<GURL> redirect_location_;
+  net::HttpStatusCode status_code_ = net::HTTP_TEMPORARY_REDIRECT;
 };
 
 }  // namespace
@@ -1185,6 +1260,70 @@ IN_PROC_BROWSER_TEST_F(ClientHintsBrowserTest, ClientHintsAlps) {
       content::AcceptCHFrameRestart::kNavigationRestarted, 1);
 }
 
+// Ensure that Critical-CH doesn't restart if headers added via ALPS are already
+// present.
+IN_PROC_BROWSER_TEST_F(ClientHintsBrowserTest,
+                       NoCriticalRestartIfHeadersPresentViaAlps) {
+  base::HistogramTester histogram_tester;
+  SetClientHintExpectationsOnMainFrame(true);
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(),
+      GetHttp2Url("/client_hints/critical_ch_ua_full_version_list.html")));
+  histogram_tester.ExpectBucketCount(
+      "ClientHints.AcceptCHFrame",
+      content::AcceptCHFrameRestart::kNavigationRestarted, 1);
+  histogram_tester.ExpectBucketCount("ClientHints.CriticalCHRestart",
+                                     2 /*=kNavigationRestarted*/, 0);
+}
+
+IN_PROC_BROWSER_TEST_F(ClientHintsBrowserTest, ClientHintsAlpsRestartLimit) {
+  net::test_server::EmbeddedTestServer server_1(
+      net::EmbeddedTestServer::TYPE_HTTPS,
+      net::test_server::HttpConnection::Protocol::kHttp2);
+  net::test_server::EmbeddedTestServer server_2(
+      net::EmbeddedTestServer::TYPE_HTTPS,
+      net::test_server::HttpConnection::Protocol::kHttp2);
+
+  server_1.RegisterRequestHandler(base::BindLambdaForTesting(
+      [&](const net::test_server::HttpRequest& request)
+          -> std::unique_ptr<net::test_server::HttpResponse> {
+        auto http_response =
+            std::make_unique<net::test_server::BasicHttpResponse>();
+        http_response->set_code(net::HTTP_TEMPORARY_REDIRECT);
+        http_response->AddCustomHeader("Location", server_2.GetURL("/").spec());
+        return http_response;
+      }));
+  server_2.RegisterRequestHandler(base::BindLambdaForTesting(
+      [&](const net::test_server::HttpRequest& request)
+          -> std::unique_ptr<net::test_server::HttpResponse> {
+        auto http_response =
+            std::make_unique<net::test_server::BasicHttpResponse>();
+        http_response->set_code(net::HTTP_TEMPORARY_REDIRECT);
+        http_response->AddCustomHeader("Location", server_1.GetURL("/").spec());
+        return http_response;
+      }));
+
+  server_1.SetAlpsAcceptCH("", "sec-ch-ua-arch");
+  server_2.SetAlpsAcceptCH("", "sec-ch-ua-arch");
+
+  ASSERT_TRUE(server_1.Start());
+  ASSERT_TRUE(server_2.Start());
+
+  base::HistogramTester histogram_tester;
+  content::TestNavigationObserver nav_observer(
+      browser()->tab_strip_model()->GetActiveWebContents(), 1);
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), server_1.GetURL("/")));
+  histogram_tester.ExpectBucketCount(
+      "ClientHints.AcceptCHFrame",
+      content::AcceptCHFrameRestart::kNavigationRestarted,
+      net::URLRequest::kMaxRedirects);
+  histogram_tester.ExpectBucketCount(
+      "ClientHints.AcceptCHFrame",
+      content::AcceptCHFrameRestart::kRedirectOverflow, 1);
+  EXPECT_EQ(net::ERR_TOO_MANY_ACCEPT_CH_RESTARTS,
+            nav_observer.last_net_error_code());
+}
+
 IN_PROC_BROWSER_TEST_F(ClientHintsBrowserTest,
                        ClientHintsAlpsNavigationPreload) {
   SetClientHintExpectationsOnMainFrame(true);
@@ -1252,16 +1391,17 @@ IN_PROC_BROWSER_TEST_F(ClientHintsBrowserTest, PRE_ClientHintsClearSession) {
 }
 
 IN_PROC_BROWSER_TEST_F(ClientHintsBrowserTest, ClientHintsClearSession) {
-  const GURL gurl = accept_ch_url();
-
   base::HistogramTester histogram_tester;
   ContentSettingsForOneType host_settings;
-
-  // Clients hints preferences for one origin should be persisted.
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
       ->GetSettingsForOneType(ContentSettingsType::CLIENT_HINTS,
                               &host_settings);
-  EXPECT_EQ(0u, host_settings.size());
+
+  EXPECT_EQ(
+      base::FeatureList::IsEnabled(blink::features::kDurableClientHintsCache)
+          ? 1u
+          : 0u,
+      host_settings.size());
 
   SetClientHintExpectationsOnMainFrame(false);
   SetClientHintExpectationsOnSubresources(false);
@@ -1482,8 +1622,13 @@ IN_PROC_BROWSER_TEST_F(ClientHintsBrowserTest, UserAgentOverrideClientHints) {
       web_contents,
       "window.domAutomationController.send(document.body.textContent);",
       &header_value));
-  // Since no value was provided for client hints, they are not sent.
   EXPECT_EQ("foo\nNone\nNone", header_value);
+  EXPECT_TRUE(
+      ExecuteScriptAndExtractString(web_contents,
+                                    "window.domAutomationController.send(JSON."
+                                    "stringify(navigator.userAgentData));",
+                                    &header_value));
+  EXPECT_EQ(R"({"brands":[],"mobile":false})", header_value);
 
   // Now actually provide values for the hints.
   blink::UserAgentOverride ua_override;
@@ -1499,6 +1644,61 @@ IN_PROC_BROWSER_TEST_F(ClientHintsBrowserTest, UserAgentOverrideClientHints) {
       "window.domAutomationController.send(document.body.textContent);",
       &header_value));
   EXPECT_EQ("foobar\n\"Foobarnator\";v=\"3.14\"\n?1", header_value);
+  EXPECT_TRUE(
+      ExecuteScriptAndExtractString(web_contents,
+                                    "window.domAutomationController.send(JSON."
+                                    "stringify(navigator.userAgentData));",
+                                    &header_value));
+  EXPECT_EQ(
+      R"({"brands":[{"brand":"Foobarnator","version":"3.14"}],"mobile":true})",
+      header_value);
+}
+
+class ClientHintsUAOverrideBrowserTest : public ClientHintsBrowserTest {
+ public:
+  void SetUp() override {
+    scoped_feature_list_.InitAndEnableFeature(
+        blink::features::kUACHOverrideBlank);
+    InProcessBrowserTest::SetUp();
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(ClientHintsUAOverrideBrowserTest,
+                       UserAgentOverrideClientHints) {
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  ASSERT_TRUE(embedded_test_server()->Start());
+  const std::string kHeaderPath = std::string("/echoheader?") +
+                                  net::HttpRequestHeaders::kUserAgent +
+                                  "&sec-ch-ua&sec-ch-ua-mobile";
+  const GURL kUrl(embedded_test_server()->GetURL(kHeaderPath));
+
+  web_contents->SetUserAgentOverride(
+      blink::UserAgentOverride::UserAgentOnly("foo"), false);
+  web_contents->GetController()
+      .GetLastCommittedEntry()
+      ->SetIsOverridingUserAgent(true);
+
+  // Since no value was provided for client hints, they are sent with blank or
+  // false values.
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), kUrl));
+
+  std::string header_value;
+  EXPECT_TRUE(ExecuteScriptAndExtractString(
+      web_contents,
+      "window.domAutomationController.send(document.body.textContent);",
+      &header_value));
+  EXPECT_EQ("foo\n\n?0", header_value);
+  EXPECT_TRUE(
+      ExecuteScriptAndExtractString(web_contents,
+                                    "window.domAutomationController.send(JSON."
+                                    "stringify(navigator.userAgentData));",
+                                    &header_value));
+  EXPECT_EQ(R"({"brands":[],"mobile":false})", header_value);
 }
 
 IN_PROC_BROWSER_TEST_F(ClientHintsBrowserTest, EmptyAcceptCH) {
@@ -2856,6 +3056,10 @@ class CriticalClientHintsBrowserTest : public InProcessBrowserTest {
     https_server_.RegisterRequestMonitor(base::BindRepeating(
         &CriticalClientHintsBrowserTest::MonitorResourceRequest,
         base::Unretained(this)));
+    https_server_.RegisterRequestHandler(
+        base::BindRepeating(&CriticalClientHintsBrowserTest::CriticalCHRedirect,
+                            base::Unretained(this)));
+
     EXPECT_TRUE(https_server_.Start());
   }
 
@@ -2891,6 +3095,20 @@ class CriticalClientHintsBrowserTest : public InProcessBrowserTest {
     return https_server_.GetURL("/critical_ch_ua_full_version_list.html");
   }
 
+  GURL critical_ch_redirect(GURL target,
+                            int status = net::HTTP_TEMPORARY_REDIRECT) const {
+    return https_server_.GetURL(
+        "/redirect-criticl-ch"
+        "?url=" +
+        target.spec() + "&status=" + base::NumberToString(status));
+  }
+
+  GURL blank_url() { return https_server_.GetURL("/blank.html"); }
+
+  GURL accept_ch_empty() {
+    return https_server_.GetURL("/accept_ch_empty.html");
+  }
+
   const absl::optional<std::string>& observed_ch_ua_full_version() {
     base::AutoLock lock(ch_ua_full_version_lock_);
     return ch_ua_full_version_;
@@ -2918,6 +3136,34 @@ class CriticalClientHintsBrowserTest : public InProcessBrowserTest {
     if (request.headers.find("prefers-color-scheme") != request.headers.end()) {
       SetChPrefersColorScheme(request.headers.at("prefers-color-scheme"));
     }
+  }
+
+  std::unique_ptr<net::test_server::HttpResponse> CriticalCHRedirect(
+      const net::test_server::HttpRequest& request) {
+    auto http_response =
+        std::make_unique<net::test_server::BasicHttpResponse>();
+
+    if (!base::StartsWith(request.relative_url, "/redirect-criticl-ch"))
+      return nullptr;
+
+    net::test_server::RequestQuery query =
+        net::test_server::ParseQuery(request.GetURL());
+
+    std::string location = base::UnescapeBinaryURLComponent(query["url"][0]);
+
+    net::HttpStatusCode status_code = net::HTTP_TEMPORARY_REDIRECT;
+    auto query_code = query.find("status");
+    int query_code_int;
+    if (query_code != query.end() &&
+        base::StringToInt(query_code->second[0], &query_code_int))
+      status_code = static_cast<net::HttpStatusCode>(query_code_int);
+
+    http_response->set_code(status_code);
+    http_response->AddCustomHeader("Location", location);
+    http_response->AddCustomHeader("Accept-CH", "sec-ch-ua-full-version");
+    http_response->AddCustomHeader("Critical-CH", "sec-ch-ua-full-version");
+
+    return http_response;
   }
 
  private:
@@ -3001,6 +3247,235 @@ IN_PROC_BROWSER_TEST_F(
   // The request should not have been resent, so ch-ua-full-version should also
   // not be present.
   EXPECT_EQ(observed_ch_ua_full_version(), absl::nullopt);
+}
+
+IN_PROC_BROWSER_TEST_F(CriticalClientHintsBrowserTest, OneRestartSingleOrigin) {
+  AlternatingCriticalCHRequestHandler handler;
+  net::test_server::EmbeddedTestServer https_server =
+      net::test_server::EmbeddedTestServer(
+          net::test_server::EmbeddedTestServer::TYPE_HTTPS);
+
+  https_server.RegisterRequestHandler(handler.GetRequestHandler());
+
+  ASSERT_TRUE(https_server.Start());
+
+  base::HistogramTester histogram;
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(),
+      https_server.GetURL(AlternatingCriticalCHRequestHandler::kCriticalCH)));
+  histogram.ExpectBucketCount("ClientHints.CriticalCHRestart",
+                              2 /*=kNavigationRestarted*/, 1);
+  EXPECT_EQ(2, handler.request_count());
+}
+
+IN_PROC_BROWSER_TEST_F(CriticalClientHintsBrowserTest,
+                       OneRestartPerNavigation) {
+  AlternatingCriticalCHRequestHandler handler;
+  net::test_server::EmbeddedTestServer https_server =
+      net::test_server::EmbeddedTestServer(
+          net::test_server::EmbeddedTestServer::TYPE_HTTPS);
+
+  https_server.RegisterRequestHandler(handler.GetRequestHandler());
+
+  ASSERT_TRUE(https_server.Start());
+
+  // Two navigations, two separate restarts
+  base::HistogramTester histogram;
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(),
+      https_server.GetURL(AlternatingCriticalCHRequestHandler::kCriticalCH)));
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(),
+      https_server.GetURL(AlternatingCriticalCHRequestHandler::kCriticalCH)));
+  histogram.ExpectBucketCount("ClientHints.CriticalCHRestart",
+                              2 /*=kNavigationRestarted*/, 2);
+  EXPECT_EQ(4, handler.request_count());
+}
+
+IN_PROC_BROWSER_TEST_F(CriticalClientHintsBrowserTest,
+                       NoRestartIfHintsAlreadyPresent) {
+  base::HistogramTester histogram;
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), critical_ch_ua_full_version_list_url()));
+  histogram.ExpectBucketCount("ClientHints.CriticalCHRestart",
+                              2 /*=kNavigationRestarted*/, 1);
+
+  // Ensure that hints are now in storage.
+  ContentSettingsForOneType client_hints_settings;
+  HostContentSettingsMap* host_content_settings_map =
+      HostContentSettingsMapFactory::GetForProfile(browser()->profile());
+  host_content_settings_map->GetSettingsForOneType(
+      ContentSettingsType::CLIENT_HINTS, &client_hints_settings);
+  ASSERT_EQ(1U, client_hints_settings.size());
+
+  // Because hints are already in storage, there should be no restart.
+  base::HistogramTester histogram_after;
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), critical_ch_ua_full_version_list_url()));
+  histogram_after.ExpectBucketCount("ClientHints.CriticalCHRestart",
+                                    1 /*=kHeaderPresent*/, 1);
+  histogram_after.ExpectBucketCount("ClientHints.CriticalCHRestart",
+                                    2 /*=kNavigationRestarted*/, 0);
+}
+
+IN_PROC_BROWSER_TEST_F(CriticalClientHintsBrowserTest,
+                       HintsPersistAfterRestart) {
+  base::HistogramTester histogram;
+  // Critical-CH on a redirect to a page with no headers.
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), critical_ch_ua_full_version_list_url()));
+  histogram.ExpectBucketCount("ClientHints.CriticalCHRestart",
+                              2 /*=kNavigationRestarted*/, 1);
+
+  // Ensure that hints are now in storage.
+  ContentSettingsForOneType client_hints_settings;
+  HostContentSettingsMap* host_content_settings_map =
+      HostContentSettingsMapFactory::GetForProfile(browser()->profile());
+  host_content_settings_map->GetSettingsForOneType(
+      ContentSettingsType::CLIENT_HINTS, &client_hints_settings);
+  ASSERT_EQ(1U, client_hints_settings.size());
+}
+
+class CriticalClientHintsRedirectBrowserTest
+    : public CriticalClientHintsBrowserTest,
+      public testing::WithParamInterface<net::HttpStatusCode> {};
+
+INSTANTIATE_TEST_CASE_P(AllRedirectCodes,
+                        CriticalClientHintsRedirectBrowserTest,
+                        testing::ValuesIn(kRedirectStatusCodes));
+
+IN_PROC_BROWSER_TEST_P(CriticalClientHintsRedirectBrowserTest,
+                       RestartDuringRedirect) {
+  blink::UserAgentMetadata ua = embedder_support::GetUserAgentMetadata();
+  base::HistogramTester histogram;
+
+  // Critical-CH on a redirect to a page with no headers.
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), critical_ch_redirect(blank_url(), GetParam())));
+  const std::string expected_ch_ua_full_version = "\"" + ua.full_version + "\"";
+
+  EXPECT_THAT(observed_ch_ua_full_version(),
+              Optional(Eq(expected_ch_ua_full_version)));
+  histogram.ExpectBucketCount("ClientHints.CriticalCHRestart",
+                              2 /*=kNavigationRestarted*/, 1);
+}
+
+IN_PROC_BROWSER_TEST_P(CriticalClientHintsRedirectBrowserTest,
+                       InsecureRedirectToSecureRedirect) {
+  blink::UserAgentMetadata ua = embedder_support::GetUserAgentMetadata();
+  base::HistogramTester histogram;
+
+  net::test_server::EmbeddedTestServer http_server;
+  http_server.AddDefaultHandlers();
+  ASSERT_TRUE(http_server.Start());
+
+  // http -> https + Critical-CH -> https blank
+  GURL url =
+      http_server.GetURL("/server-redirect?" +
+                         critical_ch_redirect(blank_url(), GetParam()).spec());
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+  const std::string expected_ch_ua_full_version = "\"" + ua.full_version + "\"";
+
+  EXPECT_THAT(observed_ch_ua_full_version(),
+              Optional(Eq(expected_ch_ua_full_version)));
+  histogram.ExpectBucketCount("ClientHints.CriticalCHRestart",
+                              2 /*=kNavigationRestarted*/, 1);
+}
+
+IN_PROC_BROWSER_TEST_P(CriticalClientHintsRedirectBrowserTest,
+                       SecureRedirectToInsecureRedirect) {
+  blink::UserAgentMetadata ua = embedder_support::GetUserAgentMetadata();
+  base::HistogramTester histogram;
+
+  net::test_server::EmbeddedTestServer http_server;
+  http_server.AddDefaultHandlers();
+  ASSERT_TRUE(http_server.Start());
+
+  // https + Critical-CH -> http -> https blank
+  GURL redirect_url =
+      http_server.GetURL("/server-redirect?" + blank_url().spec());
+  GURL url = critical_ch_redirect(redirect_url, GetParam());
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+  const std::string expected_ch_ua_full_version = "\"" + ua.full_version + "\"";
+
+  EXPECT_THAT(observed_ch_ua_full_version(),
+              Optional(Eq(expected_ch_ua_full_version)));
+  histogram.ExpectBucketCount("ClientHints.CriticalCHRestart",
+                              2 /*=kNavigationRestarted*/, 1);
+}
+
+IN_PROC_BROWSER_TEST_P(CriticalClientHintsRedirectBrowserTest,
+                       OneRestartSingleOriginRedirect) {
+  // "Permanent" redirects are cached and don't actually send a second request
+  // before redirecting
+  if (GetParam() == net::HTTP_PERMANENT_REDIRECT ||
+      GetParam() == net::HTTP_MOVED_PERMANENTLY) {
+    return;
+  }
+
+  AlternatingCriticalCHRequestHandler handler;
+  net::test_server::EmbeddedTestServer https_server =
+      net::test_server::EmbeddedTestServer(
+          net::test_server::EmbeddedTestServer::TYPE_HTTPS);
+
+  https_server.RegisterRequestHandler(handler.GetRequestHandler());
+
+  ASSERT_TRUE(https_server.Start());
+
+  handler.SetRedirectLocation(https_server.GetURL("/"));
+  handler.SetStatusCode(GetParam());
+
+  base::HistogramTester histogram;
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(),
+      https_server.GetURL(AlternatingCriticalCHRequestHandler::kCriticalCH)));
+  histogram.ExpectBucketCount("ClientHints.CriticalCHRestart",
+                              2 /*=kNavigationRestarted*/, 1);
+  EXPECT_EQ(2, handler.request_count());
+}
+
+IN_PROC_BROWSER_TEST_P(CriticalClientHintsRedirectBrowserTest,
+                       OneRestartMultipleOriginRedirect) {
+  // "Permanent" redirects are cached and don't actually send a second request
+  // before redirecting
+  if (GetParam() == net::HTTP_PERMANENT_REDIRECT ||
+      GetParam() == net::HTTP_MOVED_PERMANENTLY) {
+    return;
+  }
+
+  AlternatingCriticalCHRequestHandler handler_1, handler_2;
+
+  net::test_server::EmbeddedTestServer https_server_1 =
+      net::test_server::EmbeddedTestServer(
+          net::test_server::EmbeddedTestServer::TYPE_HTTPS);
+  net::test_server::EmbeddedTestServer https_server_2 =
+      net::test_server::EmbeddedTestServer(
+          net::test_server::EmbeddedTestServer::TYPE_HTTPS);
+
+  https_server_1.RegisterRequestHandler(handler_1.GetRequestHandler());
+  https_server_2.RegisterRequestHandler(handler_2.GetRequestHandler());
+
+  ASSERT_TRUE(https_server_1.Start());
+  ASSERT_TRUE(https_server_2.Start());
+
+  // This will send the two servers redirecting to each other in a loop until
+  // the navigation redirect break is tripped.
+  handler_1.SetRedirectLocation(
+      https_server_2.GetURL(AlternatingCriticalCHRequestHandler::kCriticalCH));
+  handler_2.SetRedirectLocation(
+      https_server_1.GetURL(AlternatingCriticalCHRequestHandler::kCriticalCH));
+
+  handler_1.SetStatusCode(GetParam());
+  handler_2.SetStatusCode(GetParam());
+
+  base::HistogramTester histogram;
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(),
+      https_server_1.GetURL(AlternatingCriticalCHRequestHandler::kCriticalCH)));
+  histogram.ExpectBucketCount("ClientHints.CriticalCHRestart",
+                              2 /*=kNavigationRestarted*/, 2);
+  EXPECT_EQ(net::URLRequest::kMaxRedirects,
+            handler_1.request_count() + handler_2.request_count());
 }
 
 class ClientHintsBrowserTestWithEmulatedMedia
@@ -3094,7 +3569,8 @@ class UaOriginTrialBrowserTest : public InProcessBrowserTest {
   void SetUp() override {
     std::unique_ptr<base::FeatureList> feature_list =
         std::make_unique<base::FeatureList>();
-    feature_list->InitializeFromCommandLine("CriticalClientHint", "");
+    feature_list->InitializeFromCommandLine(
+        "CriticalClientHint,UACHOverrideBlank", "");
     scoped_feature_list_.InitWithFeatureList(std::move(feature_list));
 
     InProcessBrowserTest::SetUp();
@@ -3303,6 +3779,11 @@ class SameOriginUaOriginTrialBrowserTest
   GURL accept_ch_ua_iframe_request_url() const {
     return GURL(
         base::StrCat({kOriginUrl, "/accept_ch_ua_iframe_request.html"}));
+  }
+
+  GURL accept_ch_ua_iframe_sandbox_request_url() const {
+    return GURL(base::StrCat(
+        {kOriginUrl, "/accept_ch_ua_iframe_sandbox_request.html"}));
   }
 
   GURL critical_ch_ua_subresource_request_url() const {
@@ -3720,6 +4201,29 @@ IN_PROC_BROWSER_TEST_P(SameOriginUaOriginTrialBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_P(SameOriginUaOriginTrialBrowserTest,
+                       IframeRequestUaWithValidOriginTrialTokenIgnoreSandbox) {
+  SetTestOptions(
+      {
+          /*has_ot_token=*/true,
+          /*valid_ot_token=*/true,
+          /*has_accept_ch_header=*/true,
+          /*has_critical_ch_header=*/false,
+      },
+      {accept_ch_ua_iframe_sandbox_request_url(), simple_request_url()});
+
+  // Ensure that frames with sandbox flags don't interfere with the origin trial
+  NavigateAndCheckHeaders(accept_ch_ua_iframe_sandbox_request_url(),
+                          /*ch_ua_reduced_expected=*/GetParam() ==
+                              UserAgentOriginTrialTestType::UAReduction,
+                          /*ch_ua_exist_expected=*/true);
+
+  CheckSecClientHintUaCount();
+
+  // Make sure the last intercepted URL was the request for the embedded iframe.
+  EXPECT_EQ(last_request_url().path(), "/simple.html");
+}
+
+IN_PROC_BROWSER_TEST_P(SameOriginUaOriginTrialBrowserTest,
                        IframeRequestUaWithValidOriginTrialTokenAndCriticalCH) {
   SetTestOptions(
       {/*has_ot_token=*/true, /*valid_ot_token=*/true,
@@ -3808,7 +4312,7 @@ IN_PROC_BROWSER_TEST_P(SameOriginUaOriginTrialBrowserTest,
 
   // Since the UA override was set, the UA client hints are *not* added to the
   // request.
-  CheckUaOriginTrialClientHint(/*ch_ua_expected=*/false);
+  CheckUaOriginTrialClientHint(/*ch_ua_expected=*/true);
   // Make sure the overridden UA string is the one sent.
   CheckUserAgentString(user_agent_override);
 
@@ -3837,7 +4341,7 @@ IN_PROC_BROWSER_TEST_P(SameOriginUaOriginTrialBrowserTest,
 
   // Since the UA override was set, the UA client hints are *not* added to the
   // request.
-  CheckUaOriginTrialClientHint(/*ch_ua_expected=*/false);
+  CheckUaOriginTrialClientHint(/*ch_ua_expected=*/true);
   // Make sure the overridden UA string is the one sent.
   CheckUserAgentString(user_agent_override);
 }
@@ -3861,7 +4365,7 @@ IN_PROC_BROWSER_TEST_P(SameOriginUaOriginTrialBrowserTest,
 
   // Since the UA override was set, the UA client hints are *not* added to the
   // request.
-  CheckUaOriginTrialClientHint(/*ch_ua_expected=*/false);
+  CheckUaOriginTrialClientHint(/*ch_ua_expected=*/true);
   // Make sure the overridden UA string is the one sent.
   CheckUserAgentString(user_agent_override);
 }

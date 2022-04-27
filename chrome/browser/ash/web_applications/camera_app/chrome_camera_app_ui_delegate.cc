@@ -7,7 +7,6 @@
 #include <vector>
 
 #include "ash/constants/ash_features.h"
-#include "ash/constants/devicetype.h"
 #include "ash/public/cpp/tablet_mode.h"
 #include "ash/webui/camera_app_ui/url_constants.h"
 #include "base/feature_list.h"
@@ -36,6 +35,7 @@
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_tab_helper.h"
 #include "chrome/browser/web_applications/web_launch_params_helper.h"
+#include "chromeos/constants/devicetype.h"
 #include "chromeos/ui/base/window_properties.h"
 #include "components/services/app_service/public/mojom/types.mojom.h"
 #include "content/public/browser/render_frame_host.h"
@@ -80,7 +80,7 @@ ChromeCameraAppUIDelegate::CameraAppDialog::CameraAppDialog(
     : chromeos::SystemWebDialogDelegate(GURL(url),
                                         /*title=*/std::u16string()) {}
 
-ChromeCameraAppUIDelegate::CameraAppDialog::~CameraAppDialog() {}
+ChromeCameraAppUIDelegate::CameraAppDialog::~CameraAppDialog() = default;
 
 ui::ModalType ChromeCameraAppUIDelegate::CameraAppDialog::GetDialogModalType()
     const {
@@ -102,6 +102,8 @@ void ChromeCameraAppUIDelegate::CameraAppDialog::AdjustWidgetInitParams(
   auto grey_900 = cros_styles::ResolveColor(
       cros_styles::ColorName::kGoogleGrey900, /*is_dark_mode=*/false,
       /*use_debug_colors=*/false);
+  params->init_properties_container.SetProperty(
+      chromeos::kTrackDefaultFrameColors, false);
   params->init_properties_container.SetProperty(chromeos::kFrameActiveColorKey,
                                                 grey_900);
   params->init_properties_container.SetProperty(
@@ -129,7 +131,7 @@ bool ChromeCameraAppUIDelegate::CameraAppDialog::CheckMediaAccessPermission(
       ->CheckMediaAccessPermission(render_frame_host, security_origin, type);
 }
 
-ChromeCameraAppUIDelegate::FileMonitor::FileMonitor() {}
+ChromeCameraAppUIDelegate::FileMonitor::FileMonitor() = default;
 
 ChromeCameraAppUIDelegate::FileMonitor::~FileMonitor() = default;
 

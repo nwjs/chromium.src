@@ -16,6 +16,7 @@
 #include "ui/aura/window_delegate.h"
 #include "ui/aura/window_tree_host_observer.h"
 #include "ui/base/cursor/cursor.h"
+#include "ui/views/widget/drop_helper.h"
 #include "ui/views/widget/native_widget_private.h"
 #include "ui/wm/core/compound_event_filter.h"
 #include "ui/wm/public/activation_change_observer.h"
@@ -48,7 +49,6 @@ class DesktopCaptureClient;
 class DesktopEventClient;
 class DesktopNativeCursorManager;
 class DesktopWindowTreeHost;
-class DropHelper;
 class FocusManagerEventHandler;
 class TooltipManagerAura;
 class WindowReorderer;
@@ -176,7 +176,9 @@ class VIEWS_EXPORT DesktopNativeWidgetAura
   bool IsMaximized() const override;
   bool IsMinimized() const override;
   void Restore() override;
-  void SetFullscreen(bool fullscreen, const base::TimeDelta& delay) override;
+  void SetFullscreen(bool fullscreen,
+                     const base::TimeDelta& delay,
+                     int64_t target_display_id) override;
   bool IsFullscreen() const override;
   void SetCanAppearInExistingFullscreenSpaces(
       bool can_appear_in_existing_fullscreen_spaces) override;
@@ -259,9 +261,6 @@ class VIEWS_EXPORT DesktopNativeWidgetAura
   aura::client::DragUpdateInfo OnDragUpdated(
       const ui::DropTargetEvent& event) override;
   void OnDragExited() override;
-  ui::mojom::DragOperation OnPerformDrop(
-      const ui::DropTargetEvent& event,
-      std::unique_ptr<ui::OSExchangeData> data) override;
   aura::client::DragDropDelegate::DropCallback GetDropCallback(
       const ui::DropTargetEvent& event) override;
 
@@ -279,6 +278,10 @@ class VIEWS_EXPORT DesktopNativeWidgetAura
 
   // Notify the root view of our widget of a native accessibility event.
   void NotifyAccessibilityEvent(ax::mojom::Event event_type);
+
+  void PerformDrop(views::DropHelper::DropCallback drop_cb,
+                   std::unique_ptr<ui::OSExchangeData> data,
+                   ui::mojom::DragOperation& output_drag_op);
 
   std::unique_ptr<aura::WindowTreeHost> host_;
   raw_ptr<DesktopWindowTreeHost> desktop_window_tree_host_;
@@ -352,9 +355,8 @@ class VIEWS_EXPORT DesktopNativeWidgetAura
   // See DesktopWindowTreeHost::ShouldUseDesktopNativeCursorManager().
   bool use_desktop_native_cursor_manager_ = false;
 
-  // The following factory is used for calls to close the NativeWidgetAura
-  // instance.
-  base::WeakPtrFactory<DesktopNativeWidgetAura> close_widget_factory_{this};
+  // The following factory is used for calls to close to run drop callback.
+  base::WeakPtrFactory<DesktopNativeWidgetAura> weak_ptr_factory_{this};
 };
 
 }  // namespace views

@@ -293,11 +293,7 @@ void WebContentsAccessibilityAndroid::SetAllowImageDescriptions(
     JNIEnv* env,
     const base::android::JavaParamRef<jobject>& obj,
     jboolean allow_image_descriptions) {
-  BrowserAccessibilityManagerAndroid* manager =
-      GetRootBrowserAccessibilityManager();
-  if (manager) {
-    manager->set_allow_image_descriptions(allow_image_descriptions);
-  }
+  allow_image_descriptions_ = allow_image_descriptions;
 }
 
 void WebContentsAccessibilityAndroid::SetAXMode(
@@ -595,6 +591,15 @@ void WebContentsAccessibilityAndroid::HandleNavigate() {
   Java_WebContentsAccessibilityImpl_handleNavigate(env, obj);
 }
 
+void WebContentsAccessibilityAndroid::UpdateMaxNodesInCache() {
+  JNIEnv* env = AttachCurrentThread();
+  ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
+  if (obj.is_null())
+    return;
+
+  Java_WebContentsAccessibilityImpl_updateMaxNodesInCache(env, obj);
+}
+
 void WebContentsAccessibilityAndroid::ClearNodeInfoCacheForGivenId(
     int32_t unique_id) {
   JNIEnv* env = AttachCurrentThread();
@@ -612,7 +617,7 @@ WebContentsAccessibilityAndroid::GenerateAccessibilityNodeInfoString(
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
   if (obj.is_null())
-    return nullptr;
+    return {};
 
   return base::android::ConvertJavaStringToUTF16(
       Java_WebContentsAccessibilityImpl_generateAccessibilityNodeInfoString(

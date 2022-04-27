@@ -34,7 +34,6 @@
 #include "extensions/browser/process_manager.h"
 #include "extensions/browser/process_map.h"
 #include "extensions/common/constants.h"
-#include "extensions/common/event_filtering_info_type_converters.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_api.h"
 #include "extensions/common/extension_messages.h"
@@ -45,6 +44,7 @@
 #include "extensions/common/manifest_handlers/incognito_info.h"
 #include "extensions/common/mojom/event_dispatcher.mojom.h"
 #include "extensions/common/permissions/permissions_data.h"
+#include "ipc/ipc_channel_proxy.h"
 
 using base::DictionaryValue;
 using base::ListValue;
@@ -162,26 +162,22 @@ void EventRouter::DispatchExtensionMessage(
     UserGestureState user_gesture,
     mojom::EventFilteringInfoPtr info) {
   NotifyEventDispatched(browser_context, extension_id, event_name, *event_args);
-  mojom::DispatchEventParams params;
-  params.worker_thread_id = worker_thread_id;
-  params.extension_id = extension_id;
-  params.event_name = event_name;
-  params.event_id = event_id;
-  params.is_user_gesture = user_gesture == USER_GESTURE_ENABLED;
-  params.filtering_info = info->To<EventFilteringInfo>();
+  auto params = mojom::DispatchEventParams::New();
+  params->worker_thread_id = worker_thread_id;
+  params->extension_id = extension_id;
+  params->event_name = event_name;
+  params->event_id = event_id;
+  params->is_user_gesture = user_gesture == USER_GESTURE_ENABLED;
+  params->filtering_info = std::move(info);
 
-  // TODO(crbug/1222550): Remove IPC->Send call after worker_thread_dispatcher
-  // is also mojofied.
-  if (worker_thread_id == kMainThreadId) {
-    Get(browser_context)->RouteDispatchEvent(rph, params.Clone(), *event_args);
-  } else {
-    rph->Send(new ExtensionMsg_DispatchEvent(params, *event_args));
-  }
+  Get(browser_context)->RouteDispatchEvent(rph, std::move(params), *event_args);
 }
 
 void EventRouter::RouteDispatchEvent(content::RenderProcessHost* rph,
-                                     const mojom::DispatchEventParamsPtr params,
-                                     const ListValue& event_args) {
+                                     mojom::DispatchEventParamsPtr params,
+                                     ListValue& event_args) {
+  // TODO(crbug.com/1302000) Add bindings for worker threads to be directly
+  // channel-associated.
   mojo::AssociatedRemote<mojom::EventDispatcher>& dispatcher =
       rph_dispatcher_map_[rph];
   if (!dispatcher.is_bound()) {
@@ -192,7 +188,7 @@ void EventRouter::RouteDispatchEvent(content::RenderProcessHost* rph,
     channel->GetRemoteAssociatedInterface(
         dispatcher.BindNewEndpointAndPassReceiver());
   }
-  dispatcher->DispatchEvent(params.Clone(), event_args.Clone());
+  dispatcher->DispatchEvent(std::move(params), event_args.Clone());
 }
 
 // static
@@ -974,17 +970,33 @@ void EventRouter::DispatchEventToProcess(
     return;
   }
 
+  std::unique_ptr<base::Value::List> modified_event_args;
+  mojom::EventFilteringInfoPtr modified_event_filter_info;
   if (!event->will_dispatch_callback.is_null() &&
-      !event->will_dispatch_callback.Run(listener_context, target_context,
-                                         extension, event, listener_filter)) {
+      !event->will_dispatch_callback.Run(
+          listener_context, target_context, extension, listener_filter,
+          &modified_event_args, &modified_event_filter_info)) {
     return;
   }
+
+  base::ListValue* event_args_to_use = event->event_args.get();
+  std::unique_ptr<base::ListValue> list_modified_event_args;
+  if (modified_event_args) {
+    // If `will_dispatch_callback` provided modified args, use it.
+    list_modified_event_args = base::ListValue::From(
+        std::make_unique<base::Value>(std::move(*modified_event_args)));
+    event_args_to_use = list_modified_event_args.get();
+  }
+
+  mojom::EventFilteringInfoPtr filter_info =
+      modified_event_filter_info ? std::move(modified_event_filter_info)
+                                 : event->filter_info.Clone();
 
   int event_id = g_extension_event_id.GetNext();
   DispatchExtensionMessage(process, worker_thread_id, listener_context,
                            extension_id, event_id, event->event_name,
-                           event->event_args.get(), event->user_gesture,
-                           event->filter_info.Clone());
+                           event_args_to_use, event->user_gesture,
+                           std::move(filter_info));
 
   for (TestObserver& observer : test_observers_)
     observer.OnDidDispatchEventToProcess(*event);

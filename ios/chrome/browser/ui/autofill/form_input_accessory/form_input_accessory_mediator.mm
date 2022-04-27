@@ -16,12 +16,15 @@
 #import "components/autofill/ios/browser/personal_data_manager_observer_bridge.h"
 #import "components/autofill/ios/form_util/form_activity_observer_bridge.h"
 #include "components/autofill/ios/form_util/form_activity_params.h"
+#include "components/feature_engagement/public/event_constants.h"
+#include "components/feature_engagement/public/tracker.h"
 #import "ios/chrome/browser/autofill/form_input_accessory_view_handler.h"
 #import "ios/chrome/browser/autofill/form_input_suggestions_provider.h"
 #import "ios/chrome/browser/autofill/form_suggestion_tab_helper.h"
 #import "ios/chrome/browser/autofill/form_suggestion_view.h"
 #import "ios/chrome/browser/autofill/manual_fill/passwords_fetcher.h"
 #import "ios/chrome/browser/passwords/password_generation_utils.h"
+#import "ios/chrome/browser/ui/autofill/features.h"
 #import "ios/chrome/browser/ui/autofill/form_input_accessory/form_input_accessory_chromium_text_data.h"
 #import "ios/chrome/browser/ui/autofill/form_input_accessory/form_input_accessory_consumer.h"
 #import "ios/chrome/browser/ui/commands/security_alert_commands.h"
@@ -103,6 +106,9 @@ const base::Feature kFormInputKeyboardReloadInputViews{
 // Used to present alerts.
 @property(nonatomic, weak) id<SecurityAlertCommands> securityAlertHandler;
 
+// Engagement tracker to record events.
+@property(nonatomic, readonly) feature_engagement::Tracker* engagementTracker;
+
 @end
 
 @implementation FormInputAccessoryMediator {
@@ -127,6 +133,9 @@ const base::Feature kFormInputKeyboardReloadInputViews{
   std::unique_ptr<autofill::FormActivityObserverBridge>
       _formActivityObserverBridge;
 
+  // Engagement tracker to record events.
+  feature_engagement::Tracker* _engagementTracker;
+
   // Whether suggestions have previously been shown.
   BOOL _suggestionsHaveBeenShown;
 
@@ -147,7 +156,8 @@ const base::Feature kFormInputKeyboardReloadInputViews{
                  (scoped_refptr<password_manager::PasswordStoreInterface>)
                      passwordStore
       securityAlertHandler:(id<SecurityAlertCommands>)securityAlertHandler
-    reauthenticationModule:(ReauthenticationModule*)reauthenticationModule {
+    reauthenticationModule:(ReauthenticationModule*)reauthenticationModule
+         engagementTracker:(feature_engagement::Tracker*)engagementTracker {
   self = [super init];
   if (self) {
     _consumer = consumer;
@@ -215,6 +225,7 @@ const base::Feature kFormInputKeyboardReloadInputViews{
     }
     _reauthenticationModule = reauthenticationModule;
     _securityAlertHandler = securityAlertHandler;
+    _engagementTracker = engagementTracker;
 
     // Prevent a flicker from happening by starting with valid activity. This
     // will get updated as soon as a form is interacted.
@@ -516,25 +527,39 @@ const base::Feature kFormInputKeyboardReloadInputViews{
         }];
 }
 
-// Post the passed |suggestionView| to the consumer. In case suggestions are
-// disabled, it's keep for later.
+// Post the passed |suggestions| to the consumer.
 - (void)updateWithProvider:(id<FormInputSuggestionsProvider>)provider
                suggestions:(NSArray<FormSuggestion*>*)suggestions {
-  // If the suggestions are disabled, post this view with no suggestions to the
-  // consumer. This allows the navigation buttons be in sync.
-  if (self.suggestionsDisabled) {
+  if (self.suggestionsDisabled)
     return;
-  } else {
-    // If suggestions are enabled update |currentProvider|.
-    self.currentProvider = provider;
-    // Post it to the consumer.
-    [self.consumer showAccessorySuggestions:suggestions];
-    if (suggestions.count) {
-      if (provider.type == SuggestionProviderTypeAutofill) {
-        LogLikelyInterestedDefaultBrowserUserActivity(
-            DefaultPromoTypeMadeForIOS);
-      }
+
+  // If suggestions are enabled, update |currentProvider|.
+  self.currentProvider = provider;
+  // Post it to the consumer.
+  [self.consumer showAccessorySuggestions:suggestions];
+  if (suggestions.count) {
+    if (provider.type == SuggestionProviderTypeAutofill) {
+      LogLikelyInterestedDefaultBrowserUserActivity(DefaultPromoTypeMadeForIOS);
     }
+    if (provider.type == SuggestionProviderTypePassword &&
+        self.engagementTracker) {
+      self.engagementTracker->NotifyEvent(
+          feature_engagement::events::kPasswordSuggestionsShown);
+    }
+    if (base::FeatureList::IsEnabled(kAutofillPasswordRichIPH)) {
+      [self highlightFirstSuggestion:suggestions.firstObject];
+    }
+  }
+}
+
+// Highlights first suggestion.
+- (void)highlightFirstSuggestion:(FormSuggestion*)suggestion {
+  if (!suggestion)
+    return;
+  // Show only if it's a password suggestion. (cf. FormSuggestion's header file)
+  const BOOL isCreditCardOrProfile = suggestion.identifier > 0;
+  if (!isCreditCardOrProfile) {
+    [self.consumer animateSuggestionLabel];
   }
 }
 
@@ -550,10 +575,18 @@ const base::Feature kFormInputKeyboardReloadInputViews{
                           ReauthenticationEvent::kAttempt);
   __weak __typeof(self) weakSelf = self;
   auto suggestionHandler = ^() {
-    if (weakSelf.currentProvider.type == SuggestionProviderTypePassword) {
-      LogLikelyInterestedDefaultBrowserUserActivity(DefaultPromoTypeStaySafe);
+    __typeof(self) strongSelf = weakSelf;
+    if (!strongSelf) {
+      return;
     }
-    [weakSelf.currentProvider didSelectSuggestion:formSuggestion];
+    if (strongSelf.currentProvider.type == SuggestionProviderTypePassword) {
+      LogLikelyInterestedDefaultBrowserUserActivity(DefaultPromoTypeStaySafe);
+      if (strongSelf.engagementTracker) {
+        strongSelf.engagementTracker->NotifyEvent(
+            feature_engagement::events::kPasswordSuggestionSelected);
+      }
+    }
+    [strongSelf.currentProvider didSelectSuggestion:formSuggestion];
   };
 
   if (!formSuggestion.requiresReauth) {

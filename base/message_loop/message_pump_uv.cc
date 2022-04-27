@@ -174,11 +174,10 @@ void MessagePumpUV::ScheduleWork() {
 }
 
 void MessagePumpUV::ScheduleDelayedWork(
-    const TimeTicks& delayed_work_time) {
+    const Delegate::NextWorkInfo& next_work_info) {
   // We know that we can't be blocked on Wait right now since this method can
   // only be called on the same thread as Run, so we only need to update our
   // record of how long to sleep when we do sleep.
-  delayed_work_time_ = delayed_work_time;
 }
 
 }  // namespace base

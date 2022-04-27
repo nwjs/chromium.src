@@ -19,7 +19,9 @@
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/app/chrome_command_ids.h"
+#include "chrome/browser/apps/intent_helper/intent_picker_features.h"
 #include "chrome/browser/command_updater.h"
+#include "chrome/browser/download/bubble/download_bubble_prefs.h"
 #include "chrome/browser/media/router/media_router_feature.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profiles_state.h"
@@ -129,6 +131,7 @@
 #endif
 
 #if BUILDFLAG(ENABLE_SIDE_SEARCH)
+#include "chrome/browser/ui/side_search/side_search_utils.h"
 #include "chrome/browser/ui/views/side_search/side_search_browser_controller.h"
 #endif  // BUILDFLAG(ENABLE_SIDE_SEARCH)
 
@@ -267,7 +270,7 @@ void ToolbarView::Init() {
   }
 
   std::unique_ptr<DownloadToolbarButtonView> download_button;
-  if (base::FeatureList::IsEnabled(safe_browsing::kDownloadBubble)) {
+  if (download::IsDownloadBubbleEnabled(browser_->profile())) {
     download_button =
         std::make_unique<DownloadToolbarButtonView>(browser_view_);
   }
@@ -314,7 +317,8 @@ void ToolbarView::Init() {
 #if BUILDFLAG(ENABLE_SIDE_SEARCH)
   // The side search button (if enabled) should sit between the location bar and
   // the other navigation buttons.
-  if (browser_view_->side_search_controller()) {
+  if (browser_view_->side_search_controller() &&
+      !side_search::IsDSESupportEnabled(browser_->profile())) {
     left_side_panel_button_ = AddChildView(
         browser_view_->side_search_controller()->CreateToolbarButton());
   }
@@ -505,8 +509,9 @@ void ToolbarView::ShowIntentPickerBubble(
   views::Button* highlighted_button = nullptr;
   if (bubble_type == IntentPickerBubbleView::BubbleType::kClickToCall) {
     highlighted_button =
+
         GetPageActionIconView(PageActionIconType::kClickToCall);
-  } else if (base::FeatureList::IsEnabled(features::kLinkCapturingUiUpdate)) {
+  } else if (apps::features::LinkCapturingUiUpdateEnabled()) {
     highlighted_button = GetIntentChipButton();
   } else {
     highlighted_button =

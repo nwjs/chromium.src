@@ -40,6 +40,9 @@
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_attributes_entry.h"
+#include "chrome/browser/profiles/profile_attributes_storage.h"
+#include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/search/search.h"
 #include "chrome/browser/sessions/app_session_service.h"
 #include "chrome/browser/sessions/app_session_service_factory.h"
@@ -544,9 +547,8 @@ class SessionRestoreImpl : public BrowserListObserver {
       //    created browser.
       Browser* browser = nullptr;
       if (i == windows->begin() &&
-          (*i)->type == sessions::SessionWindow::TYPE_NORMAL && browser_ &&
-          browser_->is_type_normal() &&
-          !browser_->profile()->IsOffTheRecord()) {
+          (*i)->type == sessions::SessionWindow::TYPE_NORMAL &&
+          ShouldRestoreToExistingBrowser()) {
         // The first set of tabs is added to the existing browser.
         browser = browser_;
       } else {
@@ -942,6 +944,17 @@ class SessionRestoreImpl : public BrowserListObserver {
     }
   }
 
+  // Returns true if the first set of tabs should be restored the Browser
+  // supplied to the constructor.
+  bool ShouldRestoreToExistingBrowser() const {
+    // Assume that if the window is not-visible the browser is about to
+    // be deleted. This is necessitated by browser destruction first hiding
+    // the window, and then asynchronously deleting it.
+    return browser_ && browser_->is_type_normal() &&
+           !browser_->profile()->IsOffTheRecord() &&
+           browser_->window()->IsVisible();
+  }
+
   // The profile to create the sessions for.
   raw_ptr<Profile> profile_;
 
@@ -1022,6 +1035,17 @@ Browser* SessionRestore::RestoreSession(
     Browser* browser,
     SessionRestore::BehaviorBitmask behavior,
     const StartupTabs& startup_tabs) {
+#if DCHECK_IS_ON()
+  // Profiles that are locked because they require signin should not be
+  // restored.
+  if (g_browser_process->profile_manager()) {
+    ProfileAttributesEntry* entry =
+        g_browser_process->profile_manager()
+            ->GetProfileAttributesStorage()
+            .GetProfileAttributesWithPath(profile->GetPath());
+    DCHECK(!entry || !entry->IsSigninRequired());
+  }
+#endif
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   ash::BootTimesRecorder::Get()->AddLoginTimeMarker("SessionRestore-Start",
                                                     false);

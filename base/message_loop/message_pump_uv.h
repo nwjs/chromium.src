@@ -26,7 +26,7 @@ class BASE_EXPORT MessagePumpUV : public MessagePump {
   void Run(Delegate* delegate) override;
   void Quit() override;
   void ScheduleWork() override;
-  void ScheduleDelayedWork(const TimeTicks& delayed_work_time) override;
+  void ScheduleDelayedWork(const Delegate::NextWorkInfo& next_work_info) override;
 
  private:
   ~MessagePumpUV() override;
@@ -41,8 +41,6 @@ class BASE_EXPORT MessagePumpUV : public MessagePump {
   std::vector<void*> wakeup_events_;
   void* wakeup_event_;
   WaitableEvent event_;
-
-  TimeTicks delayed_work_time_;
 
 };
 

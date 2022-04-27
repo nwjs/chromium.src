@@ -55,15 +55,17 @@ std::string GetSliceBaseName(const std::string& slice,
 }  // namespace
 
 EntityAnnotatorNativeLibrary::EntityAnnotatorNativeLibrary(
-    base::NativeLibrary native_library)
-    : native_library_(std::move(native_library)) {
+    base::NativeLibrary native_library,
+    bool should_provide_filter_path)
+    : native_library_(std::move(native_library)),
+      should_provide_filter_path_(should_provide_filter_path) {
   LoadFunctions();
 }
 EntityAnnotatorNativeLibrary::~EntityAnnotatorNativeLibrary() = default;
 
 // static
 std::unique_ptr<EntityAnnotatorNativeLibrary>
-EntityAnnotatorNativeLibrary::Create() {
+EntityAnnotatorNativeLibrary::Create(bool should_provide_filter_path) {
   base::FilePath base_dir;
 #if BUILDFLAG(IS_MAC)
   if (base::mac::AmIBundled()) {
@@ -92,7 +94,8 @@ EntityAnnotatorNativeLibrary::Create() {
   std::unique_ptr<EntityAnnotatorNativeLibrary>
       entity_annotator_native_library =
           base::WrapUnique<EntityAnnotatorNativeLibrary>(
-              new EntityAnnotatorNativeLibrary(std::move(native_library)));
+              new EntityAnnotatorNativeLibrary(std::move(native_library),
+                                               should_provide_filter_path));
   if (entity_annotator_native_library->IsValid()) {
     return entity_annotator_native_library;
   }
@@ -317,22 +320,28 @@ bool EntityAnnotatorNativeLibrary::PopulateEntityAnnotatorOptionsFromModelInfo(
   base::flat_set<std::string> slices(entities_model_metadata->slice().begin(),
                                      entities_model_metadata->slice().end());
   for (const auto& slice_id : slices) {
-    absl::optional<std::string> name_filter_path =
-        GetFilePathFromMap(GetSliceBaseName(slice_id, kNameFilterBaseName),
-                           base_to_full_file_path);
-    if (!name_filter_path) {
-      return false;
+    absl::optional<std::string> name_filter_path;
+    if (should_provide_filter_path_) {
+      name_filter_path =
+          GetFilePathFromMap(GetSliceBaseName(slice_id, kNameFilterBaseName),
+                             base_to_full_file_path);
+      if (!name_filter_path) {
+        return false;
+      }
     }
     absl::optional<std::string> name_table_path = GetFilePathFromMap(
         GetSliceBaseName(slice_id, kNameTableBaseName), base_to_full_file_path);
     if (!name_table_path) {
       return false;
     }
-    absl::optional<std::string> prefix_filter_path =
-        GetFilePathFromMap(GetSliceBaseName(slice_id, kPrefixFilterBaseName),
-                           base_to_full_file_path);
-    if (!prefix_filter_path) {
-      return false;
+    absl::optional<std::string> prefix_filter_path;
+    if (should_provide_filter_path_) {
+      prefix_filter_path =
+          GetFilePathFromMap(GetSliceBaseName(slice_id, kPrefixFilterBaseName),
+                             base_to_full_file_path);
+      if (!prefix_filter_path) {
+        return false;
+      }
     }
     absl::optional<std::string> metadata_table_path =
         GetFilePathFromMap(GetSliceBaseName(slice_id, kMetadataTableBaseName),
@@ -341,8 +350,8 @@ bool EntityAnnotatorNativeLibrary::PopulateEntityAnnotatorOptionsFromModelInfo(
       return false;
     }
     options_add_model_slice_func_(
-        options, slice_id.c_str(), name_filter_path->c_str(),
-        name_table_path->c_str(), prefix_filter_path->c_str(),
+        options, slice_id.c_str(), name_filter_path.value_or("").c_str(),
+        name_table_path->c_str(), prefix_filter_path.value_or("").c_str(),
         metadata_table_path->c_str());
   }
 

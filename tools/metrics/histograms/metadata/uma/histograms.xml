@@ -48,7 +48,6 @@ chromium-metrics-reviews@google.com.
 <!-- expires-never: Needed for tracking missing histogram data. -->
 
   <owner>asvitkine@chromium.org</owner>
-  <owner>bcwhite@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
     The hash codes of histograms that were found to have bad construction
@@ -60,7 +59,6 @@ chromium-metrics-reviews@google.com.
 <histogram name="Histogram.MismatchedConstructionArguments"
     enum="HistogramNameHash" expires_after="2022-08-01">
   <owner>asvitkine@chromium.org</owner>
-  <owner>bcwhite@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
     The hash codes of histograms that were found to have construction arguments
@@ -73,7 +71,6 @@ chromium-metrics-reviews@google.com.
 <histogram name="Histogram.TooManyBuckets.1000" enum="HistogramNameHash"
     expires_after="2022-08-01">
   <owner>asvitkine@chromium.org</owner>
-  <owner>bcwhite@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
     The hash codes of histograms that were found to request more than 1000
@@ -94,7 +91,9 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UMA.AntiVirusMetricsProvider.Result"
-    enum="AntiVirusMetricsProviderResult" expires_after="2020-03-08">
+    enum="AntiVirusMetricsProviderResult" expires_after="never">
+<!-- expires-never: needed to proactively diagnose changes in the Windows API used here. -->
+
   <owner>wfh@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
@@ -141,14 +140,31 @@ chromium-metrics-reviews@google.com.
   <owner>olivierrobin@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
-    Recorded when the CleanExitBeacon is initialized. Reports the combined state
-    of distinct beacons stored in a platform-specific location (e.g. the Windows
-    registry or NSUserDefaults on iOS) and in Local State. They are normally
-    expected to be identical.
+    Recorded when the CleanExitBeacon is initialized on Windows and iOS. Reports
+    the combined state of distinct beacons stored in a platform-specific
+    location (e.g. the Windows registry or NSUserDefaults on iOS) and in Local
+    State. They are normally expected to be identical.
 
-    Unlike it's predecessor, UMA.CleanExitBeaconConsistency, this histogram has
+    Unlike its predecessor, UMA.CleanExitBeaconConsistency, this histogram has
     buckets that account for the situation in which Local State is missing a
     beacon value.
+  </summary>
+</histogram>
+
+<histogram name="UMA.CleanExitBeaconConsistency3"
+    enum="UmaCleanExitConsistency3" expires_after="2022-08-01">
+  <owner>caitlinfischer@google.com</owner>
+  <owner>justincohen@chromium.org</owner>
+  <owner>src/base/metrics/OWNERS</owner>
+  <summary>
+    Recorded when the CleanExitBeacon is initialized for clients in the Extended
+    Variations Safe Mode enabled group on Windows and iOS. Reports the combined
+    state of distinct beacons stored in the beacon file and in a
+    platform-specific location (e.g. the Windows registry or NSUserDefaults on
+    iOS). They are normally expected to be identical.
+
+    Unlike UMA.CleanExitBeaconConsistency2, this histogram excludes the Local
+    State beacon.
   </summary>
 </histogram>
 
@@ -178,6 +194,40 @@ chromium-metrics-reviews@google.com.
   <owner>pdyson@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>The source of the client id when its creation is forced.</summary>
+</histogram>
+
+<histogram name="UMA.CrosPerUser.DaemonStoreWriteFailed"
+    enum="PerUserDaemonStoreFail" expires_after="2022-10-01">
+  <owner>jongahn@chromium.org</owner>
+  <owner>src/base/metrics/OWNERS</owner>
+  <summary>
+    Records the state that metrics service is in when user log store was set or
+    unset. This should be recorded once when a valid user that can use per-user
+    logs in and unsetting should be recorded once when a user logs out.
+  </summary>
+</histogram>
+
+<histogram name="UMA.CrosPerUser.IdReset" enum="PerUserIdType"
+    expires_after="2022-10-01">
+  <owner>jongahn@chromium.org</owner>
+  <owner>asvitkine@chromium.org</owner>
+  <summary>
+    Counts the number of times an ID was reset. The client ID is reset when a
+    known user who has sent metrics before re-enables metrics collection. This
+    is to preserve pseudo-anonymity of the (client_id, user_id) pair. The user
+    ID is reset whenever per-user eligible user turns off metrics collection.
+  </summary>
+</histogram>
+
+<histogram name="UMA.CrosPerUser.UserLogStoreState" enum="PerUserLogStoreState"
+    expires_after="2022-10-01">
+  <owner>jongahn@chromium.org</owner>
+  <owner>asvitkine@chromium.org</owner>
+  <summary>
+    Records the state that metrics service is in when user log store was set or
+    unset. This should be recorded once when a valid user that can use per-user
+    logs in and unsetting should be recorded once when a user logs out.
+  </summary>
 </histogram>
 
 <histogram name="UMA.DataValidation.LogNormal" units="random values"
@@ -234,7 +284,6 @@ chromium-metrics-reviews@google.com.
 <histogram name="UMA.FileMetricsProvider.AccessResult"
     enum="FileMetricsProviderAccessResult" expires_after="2022-08-01">
   <owner>asvitkine@chromium.org</owner>
-  <owner>bcwhite@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
     Records attempts to access a file for the purpose of extracting metrics.
@@ -244,7 +293,6 @@ chromium-metrics-reviews@google.com.
 <histogram name="UMA.FileMetricsProvider.InitialAccessResult"
     enum="FileMetricsProviderAccessResult" expires_after="2022-08-01">
   <owner>asvitkine@chromium.org</owner>
-  <owner>bcwhite@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
     Records attempts to access a file for the purpose of extracting initial
@@ -328,7 +376,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="UMA.LocalPersistentMemoryAllocator.Failures.Posix"
     enum="PopularOSErrno" expires_after="M85">
-  <owner>bcwhite@chromium.org</owner>
+  <owner>asvitkine@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
     Failures, as reported in errno, encountered while allocating local
@@ -338,7 +386,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="UMA.LocalPersistentMemoryAllocator.Failures.Win"
     enum="WinGetLastError" expires_after="M85">
-  <owner>bcwhite@chromium.org</owner>
+  <owner>asvitkine@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
     Failures, as reported by GetLastError(), encountered while allocating local
@@ -469,7 +517,6 @@ chromium-metrics-reviews@google.com.
 <histogram name="UMA.NegativeSamples.Histogram" enum="HistogramNameHash"
     expires_after="2022-08-01">
   <owner>asvitkine@chromium.org</owner>
-  <owner>bcwhite@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
     The lower 32 bits of the ID of the histogram that went negative.
@@ -479,7 +526,6 @@ chromium-metrics-reviews@google.com.
 <histogram name="UMA.NegativeSamples.Increment" units="increment"
     expires_after="2022-08-01">
   <owner>asvitkine@chromium.org</owner>
-  <owner>bcwhite@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
     The amount of increment that caused a sample count to become negative.
@@ -489,7 +535,6 @@ chromium-metrics-reviews@google.com.
 <histogram name="UMA.NegativeSamples.Reason" enum="NegativeSampleReason"
     expires_after="2022-08-01">
   <owner>asvitkine@chromium.org</owner>
-  <owner>bcwhite@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
     Reasons why a negative sample count would have been created. Currently, only
@@ -499,7 +544,6 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="UMA.PersistentAllocator.{PersistentAllocatorType}.Errors"
     enum="PersistentAllocatorErrors" expires_after="M85">
-  <owner>bcwhite@chromium.org</owner>
   <owner>asvitkine@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
@@ -511,7 +555,6 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="UMA.PersistentAllocator.{PersistentAllocatorType}.UsedPct"
     units="%" expires_after="M87">
-  <owner>bcwhite@chromium.org</owner>
   <owner>asvitkine@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
@@ -523,7 +566,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="UMA.PersistentHistograms.InitResult"
     enum="PersistentHistogramsInitResult" expires_after="2022-08-01">
-  <owner>bcwhite@chromium.org</owner>
+  <owner>asvitkine@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
     A count of successes and failures for the creation of various forms of
@@ -599,37 +642,6 @@ chromium-metrics-reviews@google.com.
     <variant name="PageLoad.LayoutInstability.CumulativeShiftScore"/>
     <variant name="PageLoad.PaintTiming.NavigationToLargestContentfulPaint2"/>
   </token>
-</histogram>
-
-<histogram name="UMA.ReadAndTruncateMetricsFromFile.DiscardedCount"
-    units="samples" expires_after="2022-04-17">
-  <owner>iby@chromium.org</owner>
-  <owner>cros-telemetry@google.com</owner>
-  <summary>
-    Number of metric samples discarded on each read from the ChromeOS external
-    metrics file. This should only be greater than 0 if the file had so many
-    samples we couldn't fit them all in memory. Emitted each time
-    ReadAndTruncateMetricsFromFile() is called and successfully processes the
-    external metrics file. No entry is emitted if there was an unexpected error
-    opening the file. If the file is found to be corrupt partway through a read,
-    the number of entries discarded before the corruption is found is recorded.
-  </summary>
-</histogram>
-
-<histogram name="UMA.ReadAndTruncateMetricsFromFile.ReadCount" units="samples"
-    expires_after="2022-04-17">
-  <owner>iby@chromium.org</owner>
-  <owner>cros-telemetry@google.com</owner>
-  <summary>
-    Number of metric samples successfully read from the ChromeOS external
-    metrics file on each read. Samples discarded because the file is too large
-    are recorded in UMA.ReadAndTruncateMetricsFromFile.DiscardedCount and not in
-    here. Emitted each time ReadAndTruncateMetricsFromFile() is called and
-    successfully processes the external metrics file. No entry is emitted if
-    there was an unexpected error opening the file. If the file is found to be
-    corrupt partway through a read, the number of entries read before the
-    corruption is found is recorded.
-  </summary>
 </histogram>
 
 <histogram name="UMA.SamplingRatePerMille" units="samples per mille"

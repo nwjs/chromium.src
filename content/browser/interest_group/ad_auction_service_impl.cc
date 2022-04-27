@@ -9,6 +9,7 @@
 
 #include "base/check.h"
 #include "base/containers/contains.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/strings/strcat.h"
 #include "base/strings/stringprintf.h"
 #include "base/time/time.h"
@@ -270,7 +271,7 @@ void AdAuctionServiceImpl::UpdateAdInterestGroups() {
     return;
   }
   GetInterestGroupManager().UpdateInterestGroupsOfOwner(
-      origin(), GetFrame()->BuildClientSecurityState());
+      origin(), GetClientSecurityState());
 }
 
 void AdAuctionServiceImpl::RunAdAuction(blink::mojom::AuctionAdConfigPtr config,
@@ -296,6 +297,7 @@ void AdAuctionServiceImpl::RunAdAuction(blink::mojom::AuctionAdConfigPtr config,
 
   std::unique_ptr<AuctionRunner> auction = AuctionRunner::CreateAndStart(
       &auction_worklet_manager_, &GetInterestGroupManager(), std::move(config),
+      GetClientSecurityState(),
       base::BindRepeating(&AdAuctionServiceImpl::IsInterestGroupAPIAllowed,
                           base::Unretained(this)),
       base::BindOnce(&AdAuctionServiceImpl::OnAuctionComplete,
@@ -312,6 +314,7 @@ class FencedFrameURLMappingObserver
 
   void OnFencedFrameURLMappingComplete(
       absl::optional<GURL> mapped_url,
+      absl::optional<AdAuctionData> ad_auction_data,
       absl::optional<FencedFrameURLMapping::PendingAdComponentsMap>
           pending_ad_components_map) override {
     mapped_url_ = mapped_url;
@@ -433,11 +436,26 @@ bool AdAuctionServiceImpl::IsInterestGroupAPIAllowed(
       origin);
 }
 
+void AdAuctionServiceImpl::HandleReports(
+    network::mojom::URLLoaderFactory* factory,
+    const std::vector<GURL>& report_urls,
+    const std::string& name) {
+  for (const GURL& report_url : report_urls) {
+    base::UmaHistogramCounts100000(
+        base::StrCat({"Ads.InterestGroup.Net.RequestUrlSizeBytes.", name}),
+        report_url.spec().size());
+    base::UmaHistogramCounts100(
+        base::StrCat({"Ads.InterestGroup.Net.ResponseSizeBytes.", name}), 0);
+    FetchReport(factory, report_url, origin(), GetClientSecurityState());
+  }
+}
+
 void AdAuctionServiceImpl::OnAuctionComplete(
     RunAdAuctionCallback callback,
     AuctionRunner* auction,
+    absl::optional<AuctionRunner::InterestGroupKey> winning_group_id,
     absl::optional<GURL> render_url,
-    absl::optional<std::vector<GURL>> ad_component_urls,
+    std::vector<GURL> ad_component_urls,
     std::vector<GURL> report_urls,
     std::vector<GURL> debug_loss_report_urls,
     std::vector<GURL> debug_win_report_urls,
@@ -463,22 +481,18 @@ void AdAuctionServiceImpl::OnAuctionComplete(
     std::move(callback).Run(absl::nullopt);
     auction_result_metrics->ReportAuctionResult(
         AdAuctionResultMetrics::AuctionResult::kFailed);
+    HandleReports(GetTrustedURLLoaderFactory(),
+                  std::move(debug_loss_report_urls), "DebugLossReport");
     return;
   }
-
+  DCHECK(winning_group_id);  // Should always be present with a render_url
   render_url =
       GetFrame()
           ->GetPage()
           .fenced_frame_urls_map()
-          .AddFencedFrameURLWithInterestGroupAdComponentUrls(
-              *render_url,
-              // Always pass in non-empty component URL vector, to avoid
-              // leaking any data to fenced frame.
-              //
-              // TODO(mmenke):  Make `ad_component_urls` non-optional
-              // everywhere instead of preserving the empty vs null
-              // distinction, only to discard it here.
-              std::move(ad_component_urls).value_or(std::vector<GURL>()));
+          .AddFencedFrameURLWithInterestGroupInfo(
+              *render_url, {winning_group_id->owner, winning_group_id->name},
+              ad_component_urls);
   DCHECK(render_url->is_valid());
 
   std::move(callback).Run(render_url);
@@ -486,18 +500,9 @@ void AdAuctionServiceImpl::OnAuctionComplete(
       AdAuctionResultMetrics::AuctionResult::kSucceeded);
 
   network::mojom::URLLoaderFactory* factory = GetTrustedURLLoaderFactory();
-  for (const GURL& report_url : report_urls) {
-    FetchReport(factory, report_url, origin(),
-                GetFrame()->BuildClientSecurityState());
-  }
-  for (const auto& debug_loss_report_url : debug_loss_report_urls) {
-    FetchReport(factory, debug_loss_report_url, origin(),
-                GetFrame()->BuildClientSecurityState());
-  }
-  for (const auto& debug_win_report_url : debug_win_report_urls) {
-    FetchReport(factory, debug_win_report_url, origin(),
-                GetFrame()->BuildClientSecurityState());
-  }
+  HandleReports(factory, std::move(report_urls), "SendReportToReport");
+  HandleReports(factory, std::move(debug_loss_report_urls), "DebugLossReport");
+  HandleReports(factory, std::move(debug_win_report_urls), "DebugWinReport");
 }
 
 InterestGroupManagerImpl& AdAuctionServiceImpl::GetInterestGroupManager()

@@ -17,6 +17,7 @@
 
 // These should gradually replace values in view_ids.h.
 DECLARE_ELEMENT_IDENTIFIER_VALUE(kAppMenuButtonElementId);
+DECLARE_ELEMENT_IDENTIFIER_VALUE(kAppUninstallDialogOkButtonId);
 DECLARE_ELEMENT_IDENTIFIER_VALUE(kAutofillCreditCardSuggestionEntryElementId);
 DECLARE_ELEMENT_IDENTIFIER_VALUE(kAvatarButtonElementId);
 DECLARE_ELEMENT_IDENTIFIER_VALUE(kBookmarkStarViewElementId);
@@ -25,6 +26,7 @@ DECLARE_ELEMENT_IDENTIFIER_VALUE(kLocationIconElementId);
 DECLARE_ELEMENT_IDENTIFIER_VALUE(kMediaButtonElementId);
 DECLARE_ELEMENT_IDENTIFIER_VALUE(kOmniboxElementId);
 DECLARE_ELEMENT_IDENTIFIER_VALUE(kReadLaterButtonElementId);
+DECLARE_ELEMENT_IDENTIFIER_VALUE(kReadLaterSidePanelWebViewElementId);
 DECLARE_ELEMENT_IDENTIFIER_VALUE(kSavePasswordComboboxElementId);
 DECLARE_ELEMENT_IDENTIFIER_VALUE(kSideSearchButtonElementId);
 DECLARE_ELEMENT_IDENTIFIER_VALUE(kTabAlertIndicatorButtonElementId);

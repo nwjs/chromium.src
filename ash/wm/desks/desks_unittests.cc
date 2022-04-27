@@ -345,6 +345,29 @@ class TestDeskObserver : public Desk::Observer {
   int notify_counts_ = 0;
 };
 
+class FullScreenStateObserver : public ShellObserver {
+ public:
+  FullScreenStateObserver() { Shell::Get()->AddShellObserver(this); }
+
+  FullScreenStateObserver(const FullScreenStateObserver&) = delete;
+  FullScreenStateObserver& operator=(const FullScreenStateObserver&) = delete;
+
+  ~FullScreenStateObserver() override {
+    Shell::Get()->RemoveShellObserver(this);
+  }
+
+  // ShellObserver:
+  void OnFullscreenStateChanged(bool is_fullscreen,
+                                aura::Window* container) override {
+    is_fullscreen_ = is_fullscreen;
+  }
+
+  bool is_fullscreen() const { return is_fullscreen_; }
+
+ private:
+  bool is_fullscreen_ = false;
+};
+
 // Defines a test fixture to test Virtual Desks behavior, parameterized to run
 // some window drag tests with both touch gestures and with mouse events.
 class DesksTest : public AshTestBase,
@@ -1859,6 +1882,51 @@ TEST_F(DesksTest, NewDeskButtonStateAndColor) {
             DesksTestApi::GetNewDeskButtonBackgroundColor());
 }
 
+// Tests that the fullscreen state in shell is updated when switching between
+// desks that have active windows in different fullscreen states.
+TEST_F(DesksTest, FullscreenStateUpdatedAcrossDesks) {
+  FullScreenStateObserver full_screen_state_observer;
+  auto* controller = DesksController::Get();
+  WMEvent event_toggle_fullscreen(WM_EVENT_TOGGLE_FULLSCREEN);
+
+  // Create one new desks.
+  NewDesk();
+  EXPECT_EQ(2u, controller->desks().size());
+
+  // Create one window in each desk.
+  std::vector<std::unique_ptr<aura::Window>> windows;
+  for (int i = 0; i < 2; i++) {
+    windows.push_back(CreateAppWindow());
+    controller->SendToDeskAtIndex(windows[i].get(), i);
+    EXPECT_EQ(i, windows[i]->GetProperty(aura::client::kWindowWorkspaceKey));
+  }
+
+  WindowState* win0_state = WindowState::Get(windows[0].get());
+  WindowState* win1_state = WindowState::Get(windows[1].get());
+
+  EXPECT_FALSE(full_screen_state_observer.is_fullscreen());
+
+  // Set window on desk 0 to fullscreen.
+  win0_state->OnWMEvent(&event_toggle_fullscreen);
+  EXPECT_EQ(windows[0].get(), window_util::GetActiveWindow());
+  EXPECT_TRUE(win0_state->IsFullscreen());
+  EXPECT_TRUE(full_screen_state_observer.is_fullscreen());
+
+  // Switch to desk 1 and expect the fullscreen state to change.
+  ActivateDesk(controller->desks()[1].get());
+
+  EXPECT_EQ(windows[1].get(), window_util::GetActiveWindow());
+  EXPECT_FALSE(win1_state->IsFullscreen());
+  EXPECT_FALSE(full_screen_state_observer.is_fullscreen());
+
+  // Cycle back to desk 0 and expect the fullscreen state to change back.
+  ActivateDesk(controller->desks()[0].get());
+
+  EXPECT_EQ(windows[0].get(), window_util::GetActiveWindow());
+  EXPECT_TRUE(win0_state->IsFullscreen());
+  EXPECT_TRUE(full_screen_state_observer.is_fullscreen());
+}
+
 class DesksWithMultiDisplayOverview : public AshTestBase {
  public:
   DesksWithMultiDisplayOverview() = default;
@@ -2735,6 +2803,24 @@ TEST_F(TabletModeDesksTest, RemoveDeskWithMaximizedWindowAndMergeWithSnapped) {
   EXPECT_EQ(nullptr, split_view_controller()->right_window());
   EXPECT_EQ(SplitViewController::State::kLeftSnapped,
             split_view_controller()->state());
+}
+
+// Tests that closing the active desk while in overview does not quit overview.
+// Regression test for https://crbug.com/1309175.
+TEST_F(TabletModeDesksTest, RemovingActiveDeskDoesNotExitOverview) {
+  auto* desks_controller = DesksController::Get();
+  NewDesk();
+  ASSERT_EQ(2u, desks_controller->desks().size());
+  Desk* desk_2 = desks_controller->desks()[1].get();
+  ActivateDesk(desk_2);
+
+  auto* overview_controller = Shell::Get()->overview_controller();
+  EnterOverview();
+  ASSERT_TRUE(overview_controller->InOverviewSession());
+
+  // Remove `desk_2`, which is the active test. We should stay in overview.
+  RemoveDesk(desk_2);
+  EXPECT_TRUE(overview_controller->InOverviewSession());
 }
 
 TEST_F(TabletModeDesksTest, BackdropsStacking) {
@@ -5893,15 +5979,23 @@ TEST_F(DesksTest, PrimaryUserHasUsedDesksRecently) {
   desks_restore_util::OverrideClockForTesting(nullptr);
 }
 
+class DesksBentoBarTest : public DesksTest {
+ public:
+  DesksBentoBarTest() {
+    // Enable the bento bar feature through FeatureList instead of command line.
+    auto feature_list = std::make_unique<base::FeatureList>();
+    feature_list->RegisterFieldTrialOverride(
+        features::kBentoBar.name, base::FeatureList::OVERRIDE_ENABLE_FEATURE,
+        base::FieldTrialList::CreateFieldTrial("FooTrial", "Group1"));
+    scoped_feature_list_.InitWithFeatureList(std::move(feature_list));
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
 // Tests the visibility of the vertical dots button inside desks bar.
-TEST_F(DesksTest, VerticalDotsButtonVisibility) {
-  // Enable the bento bar feature through FeatureList instead of command line.
-  base::test::ScopedFeatureList scoped_feature_list;
-  auto feature_list = std::make_unique<base::FeatureList>();
-  feature_list->RegisterFieldTrialOverride(
-      features::kBentoBar.name, base::FeatureList::OVERRIDE_ENABLE_FEATURE,
-      base::FieldTrialList::CreateFieldTrial("FooTrial", "Group1"));
-  scoped_feature_list.InitWithFeatureList(std::move(feature_list));
+TEST_F(DesksBentoBarTest, VerticalDotsButtonVisibility) {
   ASSERT_FALSE(desks_restore_util::HasPrimaryUserUsedDesksRecently());
   EXPECT_TRUE(features::IsBentoBarEnabled());
 

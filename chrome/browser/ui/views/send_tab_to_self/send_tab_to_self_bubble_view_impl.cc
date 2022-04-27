@@ -63,7 +63,7 @@ SendTabToSelfBubbleViewImpl::SendTabToSelfBubbleViewImpl(
     content::WebContents* web_contents,
     SendTabToSelfBubbleController* controller)
     : LocationBarBubbleDelegateView(anchor_view, web_contents),
-      controller_(controller) {
+      controller_(controller->AsWeakPtr()) {
   DCHECK(controller_);
   SetButtons(ui::DIALOG_BUTTON_NONE);
   set_fixed_width(ChromeLayoutProvider::Get()->GetDistanceMetric(
@@ -217,6 +217,8 @@ void SendTabToSelfBubbleViewImpl::CreateManageDevicesLink() {
   AccountInfo account = controller_->GetSharingAccountInfo();
   DCHECK(!account.IsEmpty());
   gfx::ImageSkia square_avatar = account.account_image.AsImageSkia();
+  // The color used in `circle_mask` is irrelevant as long as it's opaque; only
+  // the alpha channel matters.
   gfx::ImageSkia circle_mask =
       gfx::ImageSkiaOperations::CreateImageWithCircleBackground(
           square_avatar.size().width() / 2, SK_ColorWHITE, gfx::ImageSkia());

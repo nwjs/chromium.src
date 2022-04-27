@@ -262,7 +262,9 @@ gfx::Point CalendarDateCellView::GetEventsPresentIndicatorCenterPosition() {
 }
 
 void CalendarDateCellView::MaybeDrawEventsIndicator(gfx::Canvas* canvas) {
-  if (grayed_out_)
+  // Not drawing the event dot if it's a grayed out cell or the user is not in
+  // an active session (without a vilid user account id).
+  if (grayed_out_ || !calendar_utils::IsActiveUser())
     return;
 
   if (GetEventNumber() == 0)
@@ -292,6 +294,9 @@ void CalendarDateCellView::OnDateCellActivated(const ui::Event& event) {
   if (grayed_out_ || !calendar_utils::IsActiveUser())
     return;
 
+  // Explicitly request focus after being activated to ensure focus moves away
+  // from any CalendarDateCellView which was focused prior.
+  RequestFocus();
   calendar_metrics::RecordCalendarDateCellActivated(event);
   calendar_view_controller_->ShowEventListView(date_, row_index_);
 }

@@ -88,6 +88,7 @@ class TestBrowserService : public crosapi::mojom::BrowserService {
   void GetActiveTabUrl(GetActiveTabUrlCallback callback) override {}
   void UpdateDeviceAccountPolicy(const std::vector<uint8_t>& policy) override {}
   void UpdateKeepAlive(bool enabled) override {}
+  void OpenForFullRestore() override {}
 
  private:
   mojo::Receiver<mojom::BrowserService> receiver_;
@@ -99,7 +100,7 @@ class TestBrowserServiceHostObserver : public BrowserServiceHostObserver {
   // |num_calls| times.
   TestBrowserServiceHostObserver(size_t num_calls, base::OnceClosure callback)
       : remaining_num_calls_(num_calls), callback_(std::move(callback)) {
-    DCHECK_GT(num_calls, 0);
+    DCHECK_GT(num_calls, 0u);
   }
 
   void OnBrowserServiceConnected(CrosapiId id,

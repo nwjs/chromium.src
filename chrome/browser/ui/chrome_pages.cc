@@ -456,6 +456,11 @@ void ShowPrivacySandboxSettings(Browser* browser) {
   ShowSettingsSubPage(browser, kPrivacySandboxSubPage);
 }
 
+void ShowPrivacySandboxAdPersonalization(Browser* browser) {
+  base::RecordAction(UserMetricsAction("Options_ShowPrivacySandbox"));
+  ShowSettingsSubPage(browser, kPrivacySandboxAdPersonalizationSubPage);
+}
+
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 void ShowEnterpriseManagementPageInTabbedBrowser(Browser* browser) {
   // Management shows in a tab because it has a "back" arrow that takes the
@@ -493,8 +498,6 @@ void ShowScanningApp(Profile* profile) {
 }
 
 void ShowDiagnosticsApp(Profile* profile) {
-  DCHECK(base::FeatureList::IsEnabled(chromeos::features::kDiagnosticsApp));
-
   LaunchSystemWebAppAsync(profile, web_app::SystemAppType::DIAGNOSTICS);
 }
 

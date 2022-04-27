@@ -67,13 +67,14 @@ LensSidePanelController::~LensSidePanelController() = default;
 
 void LensSidePanelController::OpenWithURL(
     const content::OpenURLParams& params) {
-  // Hide Chrome side panel (Reading List/Bookmarks) if enabled and showing.
-  if (browser_view_->toolbar()->side_panel_button() &&
-      browser_view_->right_aligned_side_panel()->GetVisible()) {
+  if (browser_view_->CloseOpenRightAlignedSidePanel(
+          /*exclude_lens=*/true,
+          /*exclude_side_search=*/false)) {
     base::RecordAction(
         base::UserMetricsAction("LensSidePanel.HideChromeSidePanel"));
-    browser_view_->toolbar()->side_panel_button()->HideSidePanel();
   }
+
+  browser_view_->MaybeClobberAllSideSearchSidePanels();
 
   if (browser_view_->toolbar()->side_panel_button()) {
     browser_view_->toolbar()->side_panel_button()->SetTooltipText(
@@ -104,6 +105,7 @@ void LensSidePanelController::Close() {
         GURL(), content::Referrer(), ui::PAGE_TRANSITION_FROM_API,
         std::string());
     side_panel_->SetVisible(false);
+    browser_view_->RightAlignedSidePanelWasClosed();
     base::RecordAction(base::UserMetricsAction("LensSidePanel.Hide"));
   }
   if (browser_view_->toolbar()->side_panel_button()) {

@@ -122,13 +122,11 @@ class AwFormDatabaseService;
 class CookieManager;
 class ScopedAllowInitGLBindings;
 class VizCompositorThreadRunnerWebView;
-}
-
+}  // namespace android_webview
 namespace ash {
 class MojoUtils;
 class BrowserDataMigrator;
-}
-
+}  // namespace ash
 namespace audio {
 class OutputDevice;
 }
@@ -159,7 +157,7 @@ class Package;
 namespace cc {
 class CompletionEvent;
 class TileTaskManagerImpl;
-}
+}  // namespace cc
 namespace chrome {
 #if BUILDFLAG(IS_MAC)
 void DeveloperIDCertificateReauthorizeInApp();
@@ -175,12 +173,12 @@ namespace system {
 class StatisticsProviderImpl;
 bool IsCoreSchedulingAvailable();
 int NumberOfPhysicalCores();
-}
-}
+}  // namespace system
+}  // namespace chromeos
 namespace chrome_cleaner {
 class ResetShortcutsComponent;
 class SystemReportComponent;
-}
+}  // namespace chrome_cleaner
 namespace content {
 class BrowserGpuChannelHostFactory;
 class BrowserMainLoop;
@@ -208,13 +206,12 @@ class SynchronousCompositor;
 class SynchronousCompositorHost;
 class SynchronousCompositorSyncCallBridge;
 class TextInputClientMac;
-class WaitForProcessesToDumpProfilingInfo;
 class WebContentsImpl;
 class WebContentsViewMac;
 }  // namespace content
 namespace cronet {
 class CronetPrefsManager;
-class CronetURLRequestContext;
+class CronetContext;
 }  // namespace cronet
 namespace crosapi {
 class LacrosThreadPriorityDelegate;
@@ -228,7 +225,10 @@ class UsbContext;
 namespace disk_cache {
 class BackendImpl;
 class InFlightIO;
-}
+}  // namespace disk_cache
+namespace enterprise_connectors {
+class LinuxKeyRotationCommand;
+}  // namespace enterprise_connectors
 namespace functions {
 class ExecScriptScopedAllowBaseSyncPrimitives;
 }
@@ -255,14 +255,14 @@ class AudioOutputDevice;
 class BlockingUrlProtocol;
 class FileVideoCaptureDeviceFactory;
 class PaintCanvasVideoRenderer;
-}
+}  // namespace media
 namespace memory_instrumentation {
 class OSMetrics;
 }
 namespace metrics {
 class AndroidMetricsServiceClient;
 class CleanExitBeacon;
-}
+}  // namespace metrics
 namespace midi {
 class TaskService;  // https://crbug.com/796830
 }
@@ -276,6 +276,10 @@ namespace core {
 class ScopedIPCSupport;
 }
 }  // namespace mojo
+namespace optimization_guide {
+template <class OutputType, class... InputTypes>
+class TFLiteModelExecutor;
+}
 namespace printing {
 class LocalPrinterHandlerDefault;
 #if BUILDFLAG(IS_MAC)
@@ -284,14 +288,14 @@ class PrintBackendServiceImpl;
 class PrintBackendServiceManager;
 class PrintJobWorker;
 class PrinterQuery;
-}
+}  // namespace printing
 namespace rlz_lib {
 class FinancialPing;
 }
 namespace syncer {
 class GetLocalChangesRequest;
 class HttpBridge;
-}
+}  // namespace syncer
 namespace ui {
 class DrmThreadProxy;
 }
@@ -300,7 +304,7 @@ class BrowserContextImpl;
 class ContentBrowserClientImpl;
 class ProfileImpl;
 class WebLayerPathProvider;
-}
+}  // namespace weblayer
 namespace net {
 class MultiThreadedCertVerifierScopedAllowBaseSyncPrimitives;
 class MultiThreadedProxyResolverScopedAllowJoinOnIO;
@@ -309,7 +313,7 @@ class NetworkConfigWatcherMacThread;
 namespace internal {
 class AddressTrackerLinux;
 }
-}
+}  // namespace net
 
 namespace proxy_resolver {
 class ScopedAllowThreadJoinForProxyResolverV8Tracing;
@@ -325,8 +329,8 @@ class ScopedBypassIOThreadRestrictions;
 namespace protocol {
 class ScopedAllowSyncPrimitivesForWebRtcTransport;
 class ScopedAllowThreadJoinForWebRtcTransport;
-}
-}
+}  // namespace protocol
+}  // namespace remoting
 
 namespace service_manager {
 class ServiceProcessLauncher;
@@ -351,7 +355,7 @@ class VrShell;
 namespace web {
 class WebMainLoop;
 class WebSubThread;
-}
+}  // namespace web
 
 namespace webrtc {
 class DesktopConfigurationMonitor;
@@ -379,7 +383,7 @@ namespace internal {
 class GetAppOutputScopedAllowBaseSyncPrimitives;
 class JobTaskSource;
 class TaskTracker;
-}
+}  // namespace internal
 
 class AdjustOOMScoreHelper;
 class FileDescriptorWatcher;
@@ -477,7 +481,7 @@ class BASE_EXPORT ScopedAllowBlocking {
 #endif
   friend class content::WebContentsViewMac;
   friend class cronet::CronetPrefsManager;
-  friend class cronet::CronetURLRequestContext;
+  friend class cronet::CronetContext;
   friend class crosapi::LacrosThreadPriorityDelegate;
   friend class ios_web_view::WebViewBrowserState;
   friend class media::FileVideoCaptureDeviceFactory;
@@ -589,6 +593,7 @@ class BASE_EXPORT ScopedAllowBaseSyncPrimitives {
   friend class content::DWriteFontCollectionProxy;
   friend class content::ServiceWorkerContextClient;
   friend class device::UsbContext;
+  friend class enterprise_connectors::LinuxKeyRotationCommand;
   friend class functions::ExecScriptScopedAllowBaseSyncPrimitives;
   friend class history_report::HistoryReportJniBridge;
   friend class internal::TaskTracker;
@@ -598,6 +603,8 @@ class BASE_EXPORT ScopedAllowBaseSyncPrimitives {
   friend class media::BlockingUrlProtocol;
   friend class mojo::core::ScopedIPCSupport;
   friend class net::MultiThreadedCertVerifierScopedAllowBaseSyncPrimitives;
+  template <class OutputType, class... InputTypes>
+  friend class optimization_guide::TFLiteModelExecutor;
   friend class rlz_lib::FinancialPing;
   friend class shell_integration_linux::
       LaunchXdgUtilityScopedAllowBaseSyncPrimitives;
@@ -606,7 +613,7 @@ class BASE_EXPORT ScopedAllowBaseSyncPrimitives {
   friend class webrtc::DesktopConfigurationMonitor;
 
   // Usage that should be fixed:
-  friend class ::NativeBackendKWallet;            // http://crbug.com/125331
+  friend class ::NativeBackendKWallet;  // http://crbug.com/125331
   friend class ::chromeos::system::
       StatisticsProviderImpl;                      // http://crbug.com/125385
   friend class blink::VideoFrameResourceProvider;  // http://crbug.com/878070
@@ -666,7 +673,6 @@ class BASE_EXPORT ScopedAllowBaseSyncPrimitivesOutsideBlockingScope {
   friend class content::SynchronousCompositor;
   friend class content::SynchronousCompositorHost;
   friend class content::SynchronousCompositorSyncCallBridge;
-  friend class content::WaitForProcessesToDumpProfilingInfo;
   friend class content::RenderProcessHost;
   friend class media::AudioInputDevice;
   friend class media::AudioOutputDevice;
@@ -691,7 +697,7 @@ class BASE_EXPORT ScopedAllowBaseSyncPrimitivesOutsideBlockingScope {
   friend class net::
       MultiThreadedProxyResolverScopedAllowJoinOnIO;  // http://crbug.com/69710
   friend class net::NetworkChangeNotifierMac;         // http://crbug.com/125097
-  friend class printing::PrinterQuery;                 // http://crbug.com/66082
+  friend class printing::PrinterQuery;                // http://crbug.com/66082
   friend class proxy_resolver::
       ScopedAllowThreadJoinForProxyResolverV8Tracing;  // http://crbug.com/69710
   friend class remoting::AutoThread;  // https://crbug.com/944316
@@ -701,7 +707,7 @@ class BASE_EXPORT ScopedAllowBaseSyncPrimitivesOutsideBlockingScope {
       ScopedAllowThreadJoinForWebRtcTransport;  // http://crbug.com/660081
   // Not used in production yet, https://crbug.com/844078.
   friend class service_manager::ServiceProcessLauncher;
-  friend class ui::WindowResizeHelperMac;  // http://crbug.com/902829
+  friend class ui::WindowResizeHelperMac;    // http://crbug.com/902829
   friend class content::TextInputClientMac;  // http://crbug.com/121917
   friend class extensions::NwAppSetProxyConfigFunction;
 

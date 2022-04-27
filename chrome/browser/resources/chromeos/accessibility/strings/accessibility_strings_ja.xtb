@@ -173,7 +173,7 @@
 <translation id="2152179395627233441">練習エリアを閉じる</translation>
 <translation id="2163782704988363449">正誤表</translation>
 <translation id="2169714232367507776">現在の項目をクリック</translation>
-<translation id="2179452035581866348">ChromeVox を使用すると、基本情報や追加情報を通知音で知ることができます。それぞれの通知音の意味を把握しておくと、すばやく操作するのに便利です。慣れてきたら、詳しい音声説明を無効にして、通知音だけでページの情報を把握できます。通知音の一覧とその意味については、以下をご覧ください。</translation>
+<translation id="2179452035581866348">ChromeVox を使用すると、基本情報や追加情報を通知音で知ることができます。それぞれの通知音の意味を把握しておくと、すばやく操作するのに便利です。慣れてきたら、詳しい音声説明を無効にして、通知音だけでページの情報を把握できます。通知音の一覧とその意味については、以下をご確認ください。</translation>
 <translation id="2183409941723714159">タブの操作</translation>
 <translation id="2188751878842439466">{COUNT,plural, =1{右丸かっこ}other{# 個の右丸かっこ}}</translation>
 <translation id="2197863150503783129">サドルブラウン</translation>
@@ -618,7 +618,6 @@
 <translation id="5170206230005240598">点字表示が有効になっています</translation>
 <translation id="5183440668879371625">ブライユ点字の前の行</translation>
 <translation id="5189244881767082992">行</translation>
-<translation id="5234747236692380506"><ph name="TEXT" /> を入力</translation>
 <translation id="5263034204789987535">コーンシルク</translation>
 <translation id="5263344797180442561">見出し 2</translation>
 <translation id="528468243742722775">終了</translation>
@@ -794,6 +793,7 @@
 <translation id="641759969622533235">{COUNT,plural, =1{コロン}other{# 個のコロン}}</translation>
 <translation id="6444046323172968959">アラート ダイアログ</translation>
 <translation id="6452403590345320472">目次</translation>
+<translation id="6457542714329819968">タイプ</translation>
 <translation id="6468049171101508116">次のボタン</translation>
 <translation id="646954774886932461">索引</translation>
 <translation id="6475604559827479857">次の色で単語をハイライト表示:</translation>

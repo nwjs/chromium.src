@@ -59,4 +59,8 @@ void AddChromeColorMixers(ui::ColorProvider* provider,
   if (key.custom_theme) {
     key.custom_theme->AddColorMixers(provider, key);
   }
+
+  if (key.app_controller) {
+    key.app_controller->AddColorMixers(provider, key);
+  }
 }

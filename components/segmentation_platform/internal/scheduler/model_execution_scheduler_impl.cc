@@ -14,6 +14,7 @@
 #include "components/segmentation_platform/internal/execution/model_execution_manager.h"
 #include "components/segmentation_platform/internal/platform_options.h"
 #include "components/segmentation_platform/internal/stats.h"
+#include "components/segmentation_platform/public/model_provider.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 
 namespace segmentation_platform {
@@ -50,7 +51,7 @@ void ModelExecutionSchedulerImpl::OnNewModelInfoReady(
     return;
   }
 
-  RequestModelExecution(segment_info.segment_id());
+  RequestModelExecution(segment_info);
 }
 
 void ModelExecutionSchedulerImpl::RequestModelExecutionForEligibleSegments(
@@ -64,14 +65,15 @@ void ModelExecutionSchedulerImpl::RequestModelExecutionForEligibleSegments(
 }
 
 void ModelExecutionSchedulerImpl::RequestModelExecution(
-    OptimizationTarget segment_id) {
+    const proto::SegmentInfo& segment_info) {
+  OptimizationTarget segment_id = segment_info.segment_id();
   CancelOutstandingExecutionRequests(segment_id);
   outstanding_requests_.insert(std::make_pair(
       segment_id,
       base::BindOnce(&ModelExecutionSchedulerImpl::OnModelExecutionCompleted,
                      weak_ptr_factory_.GetWeakPtr(), segment_id)));
   model_execution_manager_->ExecuteModel(
-      segment_id, outstanding_requests_[segment_id].callback());
+      segment_info, nullptr, outstanding_requests_[segment_id].callback());
 }
 
 void ModelExecutionSchedulerImpl::OnModelExecutionCompleted(
@@ -86,10 +88,6 @@ void ModelExecutionSchedulerImpl::OnModelExecutionCompleted(
     segment_result.set_timestamp_us(
         clock_->Now().ToDeltaSinceWindowsEpoch().InMicroseconds());
     stats::RecordModelScore(segment_id, result.first);
-  } else {
-    stats::RecordSegmentSelectionFailure(
-        stats::SegmentationSelectionFailureReason::
-            kAtLeastOneModelFailedExecution);
   }
 
   segment_database_->SaveSegmentResult(
@@ -101,7 +99,7 @@ void ModelExecutionSchedulerImpl::OnModelExecutionCompleted(
 void ModelExecutionSchedulerImpl::FilterEligibleSegments(
     bool expired_only,
     std::unique_ptr<SegmentInfoDatabase::SegmentInfoList> all_segments) {
-  std::vector<OptimizationTarget> models_to_run;
+  std::vector<const proto::SegmentInfo*> models_to_run;
   for (const auto& pair : *all_segments) {
     OptimizationTarget segment_id = pair.first;
     const proto::SegmentInfo& segment_info = pair.second;
@@ -111,11 +109,11 @@ void ModelExecutionSchedulerImpl::FilterEligibleSegments(
       continue;
     }
 
-    models_to_run.emplace_back(segment_id);
+    models_to_run.emplace_back(&segment_info);
   }
 
-  for (OptimizationTarget segment_id : models_to_run)
-    RequestModelExecution(segment_id);
+  for (const proto::SegmentInfo* segment_info : models_to_run)
+    RequestModelExecution(*segment_info);
 }
 
 bool ModelExecutionSchedulerImpl::ShouldExecuteSegment(
@@ -127,6 +125,10 @@ bool ModelExecutionSchedulerImpl::ShouldExecuteSegment(
   // Filter out the segments computed recently.
   if (metadata_utils::HasFreshResults(segment_info, clock_->Now())) {
     VLOG(1) << "Segmentation model not executed since it has fresh results.";
+    stats::RecordModelExecutionStatus(
+        segment_info.segment_id(),
+        /*default_provider=*/false,
+        ModelExecutionStatus::kSkippedHasFreshResults);
     return false;
   }
 
@@ -134,15 +136,20 @@ bool ModelExecutionSchedulerImpl::ShouldExecuteSegment(
   if (expired_only && !metadata_utils::HasExpiredOrUnavailableResult(
                           segment_info, clock_->Now())) {
     VLOG(1) << "Segmentation model not executed since results are not expired.";
+    stats::RecordModelExecutionStatus(
+        segment_info.segment_id(),
+        /*default_provider=*/false,
+        ModelExecutionStatus::kSkippedResultNotExpired);
     return false;
   }
 
   // Filter out segments that don't match signal collection min length.
   if (!signal_storage_config_->MeetsSignalCollectionRequirement(
           segment_info.model_metadata())) {
-    stats::RecordSegmentSelectionFailure(
-        stats::SegmentationSelectionFailureReason::
-            kAtLeastOneModelNeedsMoreSignals);
+    stats::RecordModelExecutionStatus(
+        segment_info.segment_id(),
+        /*default_provider=*/false,
+        ModelExecutionStatus::kSkippedNotEnoughSignals);
     VLOG(1) << "Segmentation model not executed since metadata requirements "
                "not met.";
     return false;
@@ -164,8 +171,12 @@ void ModelExecutionSchedulerImpl::OnResultSaved(OptimizationTarget segment_id,
                                                 bool success) {
   stats::RecordModelExecutionSaveResult(segment_id, success);
   if (!success) {
-    stats::RecordSegmentSelectionFailure(
-        stats::SegmentationSelectionFailureReason::kFailedToSaveModelResult);
+    // TODO(ssid): Consider removing this enum, this is the only case where the
+    // execution status is recorded twice for the same execution request.
+    stats::RecordModelExecutionStatus(
+        segment_id,
+        /*default_provider=*/false,
+        ModelExecutionStatus::kFailedToSaveResultAfterSuccess);
     return;
   }
 

@@ -12,6 +12,7 @@
 #include <set>
 #include <string>
 
+#include "base/containers/flat_set.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
@@ -25,6 +26,7 @@
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_types.h"
+#include "components/privacy_sandbox/canonical_topic.h"
 #include "content/public/browser/allow_service_worker_result.h"
 #include "content/public/browser/navigation_handle_user_data.h"
 #include "content/public/browser/page_user_data.h"
@@ -268,6 +270,12 @@ class PageSpecificContentSettings
                                   const url::Origin api_origin,
                                   bool blocked_by_policy);
 
+  // Called when |api_origin| attempts to access browsing topics.
+  static void TopicAccessed(content::RenderFrameHost* rfh,
+                            const url::Origin api_origin,
+                            bool blocked_by_policy,
+                            privacy_sandbox::CanonicalTopic topic);
+
   static content::WebContentsObserver* GetWebContentsObserverForTest(
       content::WebContents* web_contents);
 
@@ -372,6 +380,10 @@ class PageSpecificContentSettings
                               bool blocked_by_policy);
   void OnInterestGroupJoined(const url::Origin api_origin,
                              bool blocked_by_policy);
+  void OnTopicAccessed(const url::Origin api_origin,
+                       bool blocked_by_policy,
+                       privacy_sandbox::CanonicalTopic topic);
+
   void OnWebDatabaseAccessed(const GURL& url, bool blocked_by_policy);
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN)
   void OnProtectedMediaIdentifierPermissionSet(const GURL& requesting_frame,
@@ -405,6 +417,12 @@ class PageSpecificContentSettings
   // Returns true if the user was joined to an interest group and if the page
   // is the joining origin.
   bool HasJoinedUserToInterestGroup() const;
+
+  // Returns true if the page has accessed the Topics API.
+  bool HasAccessedTopics() const;
+
+  // Returns the topics that were accessed by this page.
+  std::vector<privacy_sandbox::CanonicalTopic> GetAccessedTopics() const;
 
  private:
   friend class content::PageUserData<PageSpecificContentSettings>;
@@ -467,8 +485,6 @@ class PageSpecificContentSettings
         content::RenderFrameHost* rfh);
 
     // content::WebContentsObserver overrides.
-    void ReadyToCommitNavigation(
-        content::NavigationHandle* navigation_handle) override;
     void DidFinishNavigation(
         content::NavigationHandle* navigation_handle) override;
     void OnCookiesAccessed(
@@ -523,6 +539,7 @@ class PageSpecificContentSettings
   void ClearContentSettingsChangedViaPageInfo();
 
   bool IsPagePrerendering() const;
+  bool IsEmbeddedPage() const;
   void OnPrerenderingPageActivation();
 
   // Delays the call of the delegate method if the page is currently
@@ -530,6 +547,8 @@ class PageSpecificContentSettings
   // otherwise.
   template <typename DelegateMethod, typename... Args>
   void NotifyDelegate(DelegateMethod method, Args... args) {
+    if (IsEmbeddedPage())
+      return;
     if (IsPagePrerendering()) {
       DCHECK(updates_queued_during_prerender_);
       updates_queued_during_prerender_->delegate_updates.emplace_back(
@@ -538,12 +557,25 @@ class PageSpecificContentSettings
     }
     (*delegate_.*method)(args...);
   }
+  // Used to notify the parent page's PSCS of a content access.
+  template <typename PSCSMethod, typename... Args>
+  void MaybeUpdateParent(PSCSMethod method, Args... args) {
+    if (IsEmbeddedPage()) {
+      PageSpecificContentSettings* pscs =
+          PageSpecificContentSettings::GetForFrame(
+              page().GetMainDocument().GetParentOrOuterDocument());
+      DCHECK(pscs);
+      (*pscs.*method)(args...);
+    }
+  }
+
   // Notifies observers. Like |NotifyDelegate|, the notification is delayed for
-  // prerendering pages until the page is activated.
-  void NotifySiteDataObservers();
+  // prerendering pages until the page is activated. Embedded pages will not
+  // notify observers directly and rely on the outermost page to do so.
+  void MaybeNotifySiteDataObservers();
 
   // Tells the delegate to update the location bar. This method is a no-op if
-  // the page is currently prerendering.
+  // the page is currently prerendering or is embedded.
   void MaybeUpdateLocationBar();
 
   WebContentsHandler& handler_;
@@ -584,6 +616,9 @@ class PageSpecificContentSettings
   // only currently show the top frame as having attempted to join.
   std::vector<url::Origin> allowed_interest_group_api_;
   std::vector<url::Origin> blocked_interest_group_api_;
+
+  // Contains topics that were accessed by this page.
+  base::flat_set<privacy_sandbox::CanonicalTopic> accessed_topics_;
 
   // The Geolocation, camera, and/or microphone permission was granted to this
   // origin from a permission prompt that was triggered by the currently active

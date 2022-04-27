@@ -27,7 +27,7 @@ suite('InternetPage', function() {
   /** @type {?chromeos.networkConfig.mojom.CrosNetworkConfigRemote} */
   let mojoApi_ = null;
 
-  /** @type {?chromeos.cellularSetup.mojom.ESimManagerRemote} */
+  /** @type {?ash.cellularSetup.mojom.ESimManagerRemote} */
   let eSimManagerRemote;
 
   suiteSetup(function() {
@@ -710,6 +710,31 @@ suite('InternetPage', function() {
         assertTrue(!!detailPage);
         assertTrue(!!detailPage.globalPolicy);
         assertTrue(detailPage.globalPolicy.allow_only_policy_cellular_networks);
+      });
+
+  test(
+      'Navigating to Known Networks without network-type parameters ' +
+          'defaults to Wi-Fi',
+      async function() {
+        await init();
+
+        const mojom = chromeos.networkConfig.mojom;
+        const params = new URLSearchParams();
+        params.append('type', '');
+
+        // Navigate straight to Known Networks while passing in parameters
+        // with an empty type.
+        settings.Router.getInstance().navigateTo(
+            settings.routes.KNOWN_NETWORKS, params);
+        internetPage.currentRouteChanged(
+            settings.routes.KNOWN_NETWORKS, undefined);
+
+        const knownNetworksPage =
+            internetPage.$$('settings-internet-known-networks-page');
+
+        // Confirm that the knownNetworkType_ was set to kWiFi.
+        assertTrue(!!knownNetworksPage);
+        assertEquals(knownNetworksPage.networkType, mojom.NetworkType.kWiFi);
       });
 
   // TODO(stevenjb): Figure out a way to reliably test navigation. Currently

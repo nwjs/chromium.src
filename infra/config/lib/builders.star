@@ -31,6 +31,7 @@ load("./branches.star", "branches")
 load("./bootstrap.star", "register_bootstrap")
 load("./builder_config.star", "register_builder_config")
 load("./recipe_experiments.star", "register_recipe_experiments_ref")
+load("./sheriff_rotations.star", "register_sheriffed_builder")
 
 ################################################################################
 # Constants for use with the builder function                                  #
@@ -190,7 +191,7 @@ xcode = struct(
     # Default Xcode 13 for chromium iOS.
     x13main = xcode_enum("13c100"),
     # A newer Xcode version used on beta bots.
-    x13betabots = xcode_enum("13c100"),
+    x13betabots = xcode_enum("13e5104i"),
     # in use by ios-webkit-tot
     x13wk = xcode_enum("13a1030dwk"),
 )
@@ -234,7 +235,8 @@ def _code_coverage_property(
         use_java_coverage,
         use_javascript_coverage,
         coverage_exclude_sources,
-        coverage_test_types):
+        coverage_test_types,
+        export_coverage_to_zoss):
     code_coverage = {}
 
     use_clang_coverage = defaults.get_value(
@@ -266,14 +268,22 @@ def _code_coverage_property(
     if coverage_test_types:
         code_coverage["coverage_test_types"] = coverage_test_types
 
+    export_coverage_to_zoss = defaults.get_value(
+        "export_coverage_to_zoss",
+        export_coverage_to_zoss,
+    )
+    if export_coverage_to_zoss:
+        code_coverage["export_coverage_to_zoss"] = export_coverage_to_zoss
+
     return code_coverage or None
 
 def _reclient_property(*, instance, service, jobs, rewrapper_env, profiler_service, publish_trace, cache_silo, ensure_verified):
     reclient = {}
     instance = defaults.get_value("reclient_instance", instance)
-    if instance:
-        reclient["instance"] = instance
-        reclient["metrics_project"] = "chromium-reclient-metrics"
+    if not instance:
+        return None
+    reclient["instance"] = instance
+    reclient["metrics_project"] = "chromium-reclient-metrics"
     service = defaults.get_value("reclient_service", service)
     if service:
         reclient["service"] = service
@@ -330,6 +340,7 @@ defaults = args.defaults(
     use_javascript_coverage = False,
     coverage_exclude_sources = None,
     coverage_test_types = None,
+    export_coverage_to_zoss = False,
     resultdb_bigquery_exports = [],
     resultdb_index_by_timestamp = False,
     reclient_instance = None,
@@ -385,6 +396,7 @@ def builder(
         use_javascript_coverage = args.DEFAULT,
         coverage_exclude_sources = args.DEFAULT,
         coverage_test_types = args.DEFAULT,
+        export_coverage_to_zoss = args.DEFAULT,
         resultdb_bigquery_exports = args.DEFAULT,
         resultdb_index_by_timestamp = args.DEFAULT,
         reclient_instance = args.DEFAULT,
@@ -526,6 +538,10 @@ def builder(
         coverage_test_types: a list of string as test types to process data for
             in code_coverage recipe module. Will be copied to
             '$build/code_coverage' property. By default, considered None.
+        export_coverage_to_zoss: a boolean indicating if the raw coverage data
+            be exported zoss(and eventually in code search) in code_coverage
+            recipe module. Will be copied to '$build/code_coverage' property
+            if set. Be default, considered False.
         resultdb_bigquery_exports: a list of resultdb.export_test_results(...)
             specifying parameters for exporting test results to BigQuery. By
             default, do not export.
@@ -538,18 +554,23 @@ def builder(
             instance for re-client to use.
         reclient_service: a string indicating the RBE service to dial via gRPC.
             By default, this is "remotebuildexecution.googleapis.com:443" (set
-            in the reclient recipe module).
+            in the reclient recipe module). Has no effect if reclient_instance
+            is not set.
         reclient_jobs: an integer indicating the number of concurrent
-            compilations to run when using re-client as the compiler.
+            compilations to run when using re-client as the compiler. Has no
+            effect if reclient_instance is not set.
         reclient_rewrapper_env: a map that sets the rewrapper flags via the
             environment variables. All such vars must start with the "RBE_"
-            prefix.
+            prefix. Has no effect if reclient_instance is not set.
         reclient_profiler_service: a string indicating service name for
-            re-client's cloud profiler.
-        reclient_publish_trace: If True, it publish trace by rpl2cloudtrace.
+            re-client's cloud profiler. Has no effect if reclient_instance is
+            not set.
+        reclient_publish_trace: If True, it publish trace by rpl2cloudtrace. Has
+            no effect if reclient_instance is not set.
         reclient_cache_silo: A string indicating a cache siling key to use for
-            remote caching.
-        reclient_ensure_verified: If True, it verifies build artifacts.
+            remote caching. Has no effect if reclient_instance is not set.
+        reclient_ensure_verified: If True, it verifies build artifacts. Has no
+            effect if reclient_instance is not set.
         **kwargs: Additional keyword arguments to forward on to `luci.builder`.
 
     Returns:
@@ -564,8 +585,8 @@ def builder(
 
     if builder_spec and mirrors:
         fail("Only one of builder_spec or mirrors can be set")
-    if try_settings and not mirrors:
-        fail("try_settings can only be set if mirrors is set")
+    if try_settings and not (builder_spec or mirrors):
+        fail("try_settings can only be set if builder_spec or mirrors is set")
 
     dimensions = {}
 
@@ -676,6 +697,7 @@ def builder(
         use_javascript_coverage = use_javascript_coverage,
         coverage_exclude_sources = coverage_exclude_sources,
         coverage_test_types = coverage_test_types,
+        export_coverage_to_zoss = export_coverage_to_zoss,
     )
     if code_coverage != None:
         properties["$build/code_coverage"] = code_coverage
@@ -743,6 +765,8 @@ def builder(
     # settings and the branch selector
     if builder == None:
         return None
+
+    register_sheriffed_builder(bucket, name, sheriff_rotations)
 
     register_recipe_experiments_ref(bucket, name, executable)
 

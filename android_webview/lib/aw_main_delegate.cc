@@ -209,9 +209,6 @@ bool AwMainDelegate::BasicStartupComplete(int* exit_code) {
     features.DisableIfNotSet(::features::kWebPayments);
     features.DisableIfNotSet(::features::kServiceWorkerPaymentApps);
 
-    // WebView does not and should not support WebAuthN.
-    features.DisableIfNotSet(::features::kWebAuth);
-
     // WebView requires SkiaRenderer.
     features.EnableIfNotSet(::features::kUseSkiaRenderer);
 
@@ -240,6 +237,10 @@ bool AwMainDelegate::BasicStartupComplete(int* exit_code) {
     features.DisableIfNotSet(::features::kWebXrArModule);
 
     features.DisableIfNotSet(device::features::kWebXrHitTest);
+
+    // TODO(https://crbug.com/1312827): Digital Goods API is not yet supported
+    // on WebView.
+    features.DisableIfNotSet(::features::kDigitalGoodsApi);
 
     features.DisableIfNotSet(::features::kDynamicColorGamut);
 

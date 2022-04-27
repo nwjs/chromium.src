@@ -84,7 +84,9 @@ class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryBoundary
                     Features.SET_SUPPORT_LIBRARY_VERSION + Features.DEV_SUFFIX,
                     Features.DOCUMENT_START_SCRIPT,
                     Features.PROXY_OVERRIDE_REVERSE_BYPASS,
+                    Features.REQUESTED_WITH_HEADER_CONTROL + Features.DEV_SUFFIX,
                     Features.GET_VARIATIONS_HEADER,
+                    Features.ALGORITHMIC_DARKENING,
             };
 
     // These values are persisted to logs. Entries should not be renumbered and

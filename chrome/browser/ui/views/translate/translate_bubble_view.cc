@@ -85,7 +85,7 @@ namespace {
 class AdvancedViewContainer : public views::View {
  public:
   METADATA_HEADER(AdvancedViewContainer);
-  AdvancedViewContainer() {}
+  AdvancedViewContainer() = default;
   AdvancedViewContainer(const AdvancedViewContainer&) = delete;
   AdvancedViewContainer& operator=(const AdvancedViewContainer&) = delete;
 
@@ -553,7 +553,7 @@ views::View* TranslateBubbleView::GetCurrentView() const {
       return advanced_view_target_;
   }
   NOTREACHED();
-  return NULL;
+  return nullptr;
 }
 
 void TranslateBubbleView::Translate() {

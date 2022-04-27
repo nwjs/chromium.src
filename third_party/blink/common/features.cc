@@ -4,11 +4,13 @@
 
 #include "third_party/blink/public/common/features.h"
 
+#include "base/command_line.h"
 #include "base/feature_list.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "services/network/public/cpp/features.h"
 #include "third_party/blink/public/common/forcedark/forcedark_switches.h"
+#include "third_party/blink/public/common/switches.h"
 
 namespace blink {
 namespace features {
@@ -33,9 +35,6 @@ const base::Feature kBackForwardCacheDedicatedWorker{
 const base::Feature kBlockingDownloadsInAdFrameWithoutUserActivation{
     "BlockingDownloadsInAdFrameWithoutUserActivation",
     base::FEATURE_ENABLED_BY_DEFAULT};
-
-const base::Feature kCOLRV1Fonts{"COLRV1Fonts",
-                                 base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enable CSS Container Queries. Also implies LayoutNGGrid and CSSContainSize1D.
 const base::Feature kCSSContainerQueries{"CSSContainerQueries",
@@ -135,11 +134,26 @@ const base::Feature kJSONModules{"JSONModules",
 const base::Feature kForceSynchronousHTMLParsing{
     "ForceSynchronousHTMLParsing", base::FEATURE_ENABLED_BY_DEFAULT};
 
+const base::Feature kDeferredFontShaping{"DeferredShaping",
+                                         base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Enable EditingNG by default. This feature is for a kill switch.
 const base::Feature kEditingNG{"EditingNG", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enable LayoutNG.
 const base::Feature kLayoutNG{"LayoutNG", base::FEATURE_ENABLED_BY_DEFAULT};
+
+// Enables the use of the PaintCache for Path2D objects that are rasterized
+// out of process.  Has no effect when kCanvasOopRasterization is disabled.
+const base::Feature kPath2DPaintCache{"Path2DPaintCache",
+                                      base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Enable by default. This feature is for a kill switch.
+const base::Feature kLayoutNGBlockInInline{"LayoutNGBlockInInline",
+                                           base::FEATURE_ENABLED_BY_DEFAULT};
+
+const base::Feature kPrivacySandboxAdsAPIs{"PrivacySandboxAdsAPIs",
+                                           base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kMixedContentAutoupgrade{"AutoupgradeMixedContent",
                                              base::FEATURE_ENABLED_BY_DEFAULT};
@@ -176,6 +190,10 @@ const base::Feature kNavigationPredictor {
       base::FEATURE_DISABLED_BY_DEFAULT
 #endif
 };
+
+// Anchor Element Interaction
+const base::Feature kAnchorElementInteraction{
+    "AnchorElementInteraction", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enable browser-initiated dedicated worker script loading
 // (PlzDedicatedWorker). https://crbug.com/906991
@@ -218,7 +236,7 @@ const base::Feature kSharedStorageAPI{"SharedStorageAPI",
                                       base::FEATURE_DISABLED_BY_DEFAULT};
 const base::FeatureParam<int>
     kSharedStorageURLSelectionOperationInputURLSizeLimit{
-        &kSharedStorageAPI, "url_selection_operation_input_url_size_limit", 5};
+        &kSharedStorageAPI, "url_selection_operation_input_url_size_limit", 8};
 const base::FeatureParam<int> kMaxSharedStorageStringLength = {
     &kSharedStorageAPI, "MaxSharedStorageStringLength", 1024};
 const base::FeatureParam<int> kMaxSharedStorageEntriesPerOrigin = {
@@ -276,6 +294,11 @@ bool IsFencedFramesEnabled() {
 bool IsFencedFramesMPArchBased() {
   return blink::features::kFencedFramesImplementationTypeParam.Get() ==
          blink::features::FencedFramesImplementationType::kMPArch;
+}
+
+bool IsFencedFramesShadowDOMBased() {
+  return blink::features::kFencedFramesImplementationTypeParam.Get() ==
+         blink::features::FencedFramesImplementationType::kShadowDOM;
 }
 
 const base::Feature kInitialNavigationEntry{"InitialNavigationEntry",
@@ -610,7 +633,7 @@ const base::Feature kBlinkHeapIncrementalMarkingStress{
 // compositor & IO threads.
 const base::Feature kBlinkCompositorUseDisplayThreadPriority {
   "BlinkCompositorUseDisplayThreadPriority",
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS_ASH) || BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN)
       base::FEATURE_ENABLED_BY_DEFAULT
 #else
       base::FEATURE_DISABLED_BY_DEFAULT
@@ -885,13 +908,6 @@ const base::Feature kWebAppEnableTranslations{
 const base::Feature kWebAppEnableUrlHandlers{"WebAppEnableUrlHandlers",
                                              base::FEATURE_DISABLED_BY_DEFAULT};
 
-// Enables Protocol handling feature in web apps. Controls parsing of
-// "protocol_handlers" field in web app manifests. See explainer for more
-// information:
-// https://github.com/MicrosoftEdge/MSEdgeExplainers/blob/main/URLProtocolHandler/explainer.md
-const base::Feature kWebAppEnableProtocolHandlers{
-    "WebAppEnableProtocolHandlers", base::FEATURE_ENABLED_BY_DEFAULT};
-
 // Makes network loading tasks unfreezable so that they can be processed while
 // the page is frozen.
 const base::Feature kLoadingTasksUnfreezable{"LoadingTasksUnfreezable",
@@ -953,6 +969,13 @@ const base::FeatureParam<std::string>
 // Controls whether the Sanitizer API is available.
 const base::Feature kSanitizerAPI{"SanitizerAPI",
                                   base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Controls whether the Sanitizer API allows namespaced content (SVG + MathML).
+//
+// This feature is unlikely to be launched as-is. The primary purpose is to
+// allow testing of different non-standard configurations.
+const base::Feature kSanitizerAPINamespaces{"SanitizerAPINamespacesForTesting",
+                                            base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Kill switch for the blocking of the navigation of top from a cross origin
 // iframe to a different protocol. TODO(https://crbug.com/1151507): Remove in
@@ -1019,6 +1042,70 @@ BLINK_COMMON_EXPORT bool IsAllowURNsInIframeEnabled() {
   return base::FeatureList::IsEnabled(blink::features::kAllowURNsInIframes);
 }
 
+// https://github.com/jkarlin/topics
+// Kill switch for the Topics API.
+const base::Feature kBrowsingTopics{"BrowsingTopics",
+                                    base::FEATURE_DISABLED_BY_DEFAULT};
+// The number of epochs from where to calculate the topics to give to a
+// requesting contexts.
+const base::FeatureParam<int> kBrowsingTopicsNumberOfEpochsToExpose{
+    &kBrowsingTopics, "number_of_epochs_to_expose", 3};
+// The periodic topics calculation interval.
+const base::FeatureParam<base::TimeDelta> kBrowsingTopicsTimePeriodPerEpoch{
+    &kBrowsingTopics, "time_period_per_epoch", base::Days(7)};
+// The number of top topics to derive and to keep for each epoch (week).
+const base::FeatureParam<int> kBrowsingTopicsNumberOfTopTopicsPerEpoch{
+    &kBrowsingTopics, "number_of_top_topics_per_epoch", 5};
+// The probability (in percent number) to return the random topic to a site. The
+// "random topic" is per-site, and is selected from the full taxonomy uniformly
+// at random, and each site has a
+// `kBrowsingTopicsUseRandomTopicProbabilityPercent`% chance to see their random
+// topic instead of one of the top topics.
+const base::FeatureParam<int> kBrowsingTopicsUseRandomTopicProbabilityPercent{
+    &kBrowsingTopics, "use_random_topic_probability_percent", 5};
+// How many epochs (weeks) of API usage data (i.e. topics observations) will be
+// based off for the filtering of topics for a calling context.
+const base::FeatureParam<int>
+    kBrowsingTopicsNumberOfEpochsOfObservationDataToUseForFiltering{
+        &kBrowsingTopics,
+        "number_of_epochs_of_observation_data_to_use_for_filtering", 3};
+// The max number of observed-by context domains to keep for each top topic.
+// The intent is to cap the in-use memory.
+const base::FeatureParam<int>
+    kBrowsingTopicsMaxNumberOfApiUsageContextDomainsToKeepPerTopic{
+        &kBrowsingTopics,
+        "max_number_of_api_usage_context_domains_to_keep_per_topic", 1000};
+// The max number of entries allowed to be retrieved from the
+// `BrowsingTopicsSiteDataStorage` database for each query for the API usage
+// contexts. The query will occur once per epoch (week) at topics calculation
+// time. The intent is to cap the peak memory usage.
+const base::FeatureParam<int>
+    kBrowsingTopicsMaxNumberOfApiUsageContextEntriesToLoadPerEpoch{
+        &kBrowsingTopics,
+        "max_number_of_api_usage_context_entries_to_load_per_epoch", 100000};
+// The max number of API usage context domains allowed to be stored per page
+// load.
+const base::FeatureParam<int>
+    kBrowsingTopicsMaxNumberOfApiUsageContextDomainsToStorePerPageLoad{
+        &kBrowsingTopics,
+        "max_number_of_api_usage_context_domains_to_store_per_page_load", 30};
+// Encodes the configuration parameters above. Each version number should only
+// be mapped to one configuration set. In practice, this can be guaranteed by
+// always bumping up the version number whenever parameters are updated.
+const base::FeatureParam<int> kBrowsingTopicsConfigVersion{&kBrowsingTopics,
+                                                           "config_version", 1};
+// The taxonomy version. This only affects the topics classification that occurs
+// during this browser session, and doesn't affect the pre-existing epochs.
+const base::FeatureParam<int> kBrowsingTopicsTaxonomyVersion{
+    &kBrowsingTopics, "taxonomy_version", 1};
+
+// If enabled, the check for whether the IP address is publicly routable will be
+// bypassed when determining the eligibility for a page to be included in topics
+// calculation. This is useful for developers to test in local environment.
+const base::Feature kBrowsingTopicsBypassIPIsPubliclyRoutableCheck{
+    "BrowsingTopicsBypassIPIsPubliclyRoutableCheck",
+    base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Enable the ability to minimize processing in the WebRTC APM when all audio
 // tracks are disabled. If disabled, the APM in WebRTC will ignore attempts to
 // set it in a low-processing mode when all audio tracks are disabled.
@@ -1046,10 +1133,6 @@ const base::Feature kClipboardCustomFormats{"ClipboardCustomFormats",
 // heuristic where images occupying the full viewport are ignored.
 const base::Feature kUsePageViewportInLCP{"UsePageViewportInLCP",
                                           base::FEATURE_ENABLED_BY_DEFAULT};
-
-// Send all user interaction latency data from renderer to the browser process.
-const base::Feature kSendAllUserInteractionLatencies{
-    "SendAllUserInteractionLatencies", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enable `Sec-CH-UA-Platform` client hint and request header to be sent by
 // default
@@ -1121,10 +1204,6 @@ const base::Feature kClientHintsResourceWidth{"ClientHintsResourceWidth",
 const base::Feature kClientHintsViewportWidth{"ClientHintsViewportWidth",
                                               base::FEATURE_ENABLED_BY_DEFAULT};
 
-// Allows third party use of WebSQL (`DOMWindowWebDatabase::openDatabase`).
-const base::Feature kWebSQLInThirdPartyContextEnabled{
-    "WebSQLInThirdPartyContextEnabled", base::FEATURE_DISABLED_BY_DEFAULT};
-
 // Enable legacy `device-memory` client hint.
 const base::Feature kClientHintsDeviceMemory_DEPRECATED{
     "ClientHintsDeviceMemory_DEPRECATED", base::FEATURE_ENABLED_BY_DEFAULT};
@@ -1149,8 +1228,74 @@ const base::Feature kCSSCascadeLayers{"CSSCascadeLayers",
 // Tracking bug: https://crbug.com/402694.
 const base::Feature kSetTimeoutWithoutClamp{"SetTimeoutWithoutClamp",
                                             base::FEATURE_DISABLED_BY_DEFAULT};
+
+namespace {
+
+enum class SetTimeoutWithout1MsClampPolicyOverride {
+  kNoOverride,
+  kForceDisable,
+  kForceEnable
+};
+
+bool g_set_timeout_without_1m_clamp_policy_override_cached = false;
+
+// Returns the SetTimeoutWithout1MsClamp policy settings. This is calculated
+// once on first access and cached.
+SetTimeoutWithout1MsClampPolicyOverride
+GetSetTimeoutWithout1MsClampPolicyOverride() {
+  static SetTimeoutWithout1MsClampPolicyOverride policy =
+      SetTimeoutWithout1MsClampPolicyOverride::kNoOverride;
+  if (g_set_timeout_without_1m_clamp_policy_override_cached)
+    return policy;
+
+  // Otherwise, check the command-line for the renderer. Only values of "0"
+  // and "1" are valid, anything else is ignored (and allows the base::Feature
+  // to control the feature). This slow path will only be hit once per renderer
+  // process.
+  std::string value =
+      base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+          switches::kSetTimeoutWithout1MsClampPolicy);
+  if (value == switches::kSetTimeoutWithout1MsClampPolicy_ForceEnable) {
+    policy = SetTimeoutWithout1MsClampPolicyOverride::kForceEnable;
+  } else if (value == switches::kSetTimeoutWithout1MsClampPolicy_ForceDisable) {
+    policy = SetTimeoutWithout1MsClampPolicyOverride::kForceDisable;
+  } else {
+    policy = SetTimeoutWithout1MsClampPolicyOverride::kNoOverride;
+  }
+  g_set_timeout_without_1m_clamp_policy_override_cached = true;
+  return policy;
+}
+
+}  // namespace
+
+void ClearSetTimeoutWithout1MsClampPolicyOverrideCacheForTesting() {
+  // Tests may want to force recalculation of the cached policy value when
+  // exercising different configs.
+  g_set_timeout_without_1m_clamp_policy_override_cached = false;
+}
+
 bool IsSetTimeoutWithoutClampEnabled() {
-  return base::FeatureList::IsEnabled(blink::features::kSetTimeoutWithoutClamp);
+  // If policy is present then respect it.
+  auto policy = GetSetTimeoutWithout1MsClampPolicyOverride();
+  if (policy != SetTimeoutWithout1MsClampPolicyOverride::kNoOverride)
+    return policy == SetTimeoutWithout1MsClampPolicyOverride::kForceEnable;
+  // Otherwise respect the base::Feature.
+  return base::FeatureList::IsEnabled(features::kSetTimeoutWithoutClamp);
+}
+
+// If enabled, the setTimeout(..., 0) will clamp to 4ms after a custom `nesting`
+// level.
+// Tracking bug: https://crbug.com/1108877.
+const base::Feature kMaxUnthrottledTimeoutNestingLevel{
+    "MaxUnthrottledTimeoutNestingLevel", base::FEATURE_DISABLED_BY_DEFAULT};
+const base::FeatureParam<int> kMaxUnthrottledTimeoutNestingLevelParam{
+    &kMaxUnthrottledTimeoutNestingLevel, "nesting", 10};
+bool IsMaxUnthrottledTimeoutNestingLevelEnabled() {
+  return base::FeatureList::IsEnabled(
+      blink::features::kMaxUnthrottledTimeoutNestingLevel);
+}
+int GetMaxUnthrottledTimeoutNestingLevel() {
+  return kMaxUnthrottledTimeoutNestingLevelParam.Get();
 }
 
 const base::Feature kTabSwitchMetrics2{"TabSwitchMetrics2",
@@ -1160,11 +1305,6 @@ const base::Feature kTabSwitchMetrics2{"TabSwitchMetrics2",
 // of an animated image was painted.
 const base::Feature kLCPAnimatedImagesReporting{
     "LCPAnimatedImagesReporting", base::FEATURE_DISABLED_BY_DEFAULT};
-
-// Throws when `kWebSQLInThirdPartyContextEnabled` is disabled.
-const base::Feature kWebSQLInThirdPartyContextThrowsWhenDisabled{
-    "WebSQLInThirdPartyContextThrowsWhenDisabled",
-    base::FEATURE_ENABLED_BY_DEFAULT};
 
 // https://blog.whatwg.org/newline-normalizations-in-form-submission
 const base::Feature kLateFormNewlineNormalization{
@@ -1258,6 +1398,32 @@ const base::Feature kFreeNonRequiredTileResourcesForInactiveWindows{
 // Enables the WindowPlacement RuntimeEnabledFeature.
 const base::Feature kWindowPlacement{"WindowPlacement",
                                      base::FEATURE_ENABLED_BY_DEFAULT};
+
+// TODO(crbug.com/1277431): This flag should be eventually disabled.
+const base::Feature kEventPath{"EventPath", base::FEATURE_ENABLED_BY_DEFAULT};
+
+const base::Feature kReduceUserAgentMinorVersion{
+    "ReduceUserAgentMinorVersion", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Enables correctly computing whether dedicated workers are secure contexts.
+// TODO(https://crbug.com/780031): Remove this once fully shipped.
+const base::Feature kSecureContextFixForWorkers{
+    "SecureContextFixForWorkers", base::FEATURE_ENABLED_BY_DEFAULT};
+
+const base::Feature kZeroCopyTabCapture{"ZeroCopyTabCapture",
+                                        base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::Feature kUserAgentOverrideExperiment{
+    "UserAgentOverrideExperiment", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Allow access to WebSQL APIs.
+const base::Feature kWebSQLAccess{"kWebSQLAccess",
+                                  base::FEATURE_ENABLED_BY_DEFAULT};
+
+// Changes behavior of User-Agent Client Hints to send blank headers when the
+// User-Agent string is overridden, instead of disabling the headers altogether.
+const base::Feature kUACHOverrideBlank{"UACHOverrideBlank",
+                                       base::FEATURE_DISABLED_BY_DEFAULT};
 
 }  // namespace features
 }  // namespace blink

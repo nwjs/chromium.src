@@ -3049,15 +3049,6 @@ void LayoutBlockFlow::RemoveChild(LayoutObject* old_child) {
     return;
   }
 
-  // All children are removed from the flow thread automatically eventually (via
-  // WillBeRemovedFromTree()), but that's a bit too late for us. The code
-  // section right below here might merge and remove anonymous blocks, and there
-  // may be column spanners inside an inline in these anonymous blocks. If these
-  // move around without telling the flow thread right away, it will get
-  // confused and crash.
-  if (UNLIKELY(old_child->IsInsideFlowThread()))
-    old_child->RemoveFromLayoutFlowThread();
-
   // If this child is a block, and if our previous and next siblings are both
   // anonymous blocks with inline content, then we can go ahead and fold the
   // inline content back together. If only one of the siblings is such an
@@ -3286,10 +3277,15 @@ bool LayoutBlockFlow::MergeSiblingContiguousAnonymousBlock(
   // If the inlineness of children of the two block don't match, we'd need
   // special code here (but there should be no need for it).
   DCHECK_EQ(sibling_that_may_be_deleted->ChildrenInline(), ChildrenInline());
-  // Take all the children out of the |next| block and put them in
-  // the |prev| block.
+
+  // Take all the children out of the |next| block and put them in the |prev|
+  // block. If there are paint layers involved, or if we're part of a flow
+  // thread, we need to notify the layout tree about the movement.
+  bool full_remove_insert = sibling_that_may_be_deleted->HasLayer() ||
+                            HasLayer() ||
+                            sibling_that_may_be_deleted->IsInsideFlowThread();
   sibling_that_may_be_deleted->MoveAllChildrenIncludingFloatsTo(
-      this, sibling_that_may_be_deleted->HasLayer() || HasLayer());
+      this, full_remove_insert);
   // Delete the now-empty block's lines and nuke it.
   sibling_that_may_be_deleted->DeleteLineBoxTree();
   sibling_that_may_be_deleted->Destroy();
@@ -4936,6 +4932,11 @@ void LayoutBlockFlow::SetOffsetMapping(NGOffsetMapping* offset_mapping) {
   DCHECK(!IsLayoutNGObject());
   DCHECK(offset_mapping);
   EnsureRareData().offset_mapping_ = offset_mapping;
+}
+
+void LayoutBlockFlow::StopDeferringShaping() const {
+  if (HasNGInlineNodeData())
+    GetNGInlineNodeData()->StopDeferringShaping();
 }
 
 }  // namespace blink

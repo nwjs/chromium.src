@@ -23,6 +23,10 @@ namespace autofill {
 class PersonalDataManager;
 }
 
+namespace feature_engagement {
+class Tracker;
+}
+
 namespace web {
 class WebState;
 }
@@ -39,7 +43,7 @@ class WebStateList;
 
 // This class contains all the logic to get and provide keyboard input accessory
 // views to its consumer. As well as telling the consumer when the default
-// accessory view shoeuld be restored to the system default.
+// accessory view should be restored to the system default.
 @interface FormInputAccessoryMediator : NSObject <FormSuggestionClient>
 
 // Returns a mediator observing the passed `WebStateList` and associated with
@@ -53,7 +57,8 @@ class WebStateList;
                  (scoped_refptr<password_manager::PasswordStoreInterface>)
                      passwordStore
       securityAlertHandler:(id<SecurityAlertCommands>)securityAlertHandler
-    reauthenticationModule:(ReauthenticationModule*)reauthenticationModule;
+    reauthenticationModule:(ReauthenticationModule*)reauthenticationModule
+         engagementTracker:(feature_engagement::Tracker*)engagementTracker;
 
 // Unavailable, use initWithConsumer:webStateList: instead.
 - (instancetype)init NS_UNAVAILABLE;

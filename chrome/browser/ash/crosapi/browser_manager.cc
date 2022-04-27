@@ -49,6 +49,7 @@
 #include "chrome/browser/ash/crosapi/browser_util.h"
 #include "chrome/browser/ash/crosapi/crosapi_ash.h"
 #include "chrome/browser/ash/crosapi/crosapi_manager.h"
+#include "chrome/browser/ash/crosapi/desk_template_ash.h"
 #include "chrome/browser/ash/crosapi/environment_provider.h"
 #include "chrome/browser/ash/crosapi/test_mojo_connection_manager.h"
 #include "chrome/browser/ash/policy/core/browser_policy_connector_ash.h"
@@ -67,6 +68,8 @@
 #include "chromeos/crosapi/cpp/lacros_startup_state.h"
 #include "chromeos/startup/startup_switches.h"
 #include "components/crash/core/app/crashpad.h"
+#include "components/nacl/common/buildflags.h"
+#include "components/nacl/common/nacl_switches.h"
 #include "components/policy/proto/device_management_backend.pb.h"
 #include "components/prefs/pref_service.h"
 #include "components/session_manager/core/session_manager.h"
@@ -378,6 +381,10 @@ bool BrowserManager::IsRunningOrWillRun() const {
          state_ == State::CREATING_LOG_FILE || state_ == State::TERMINATING;
 }
 
+void BrowserManager::DisableAutoLaunchForTesting() {
+  disable_autolaunch_for_testing_ = true;
+}
+
 void BrowserManager::NewWindow(bool incognito,
                                bool should_trigger_session_restore) {
   if (incognito) {
@@ -411,6 +418,14 @@ void BrowserManager::NewWindow(bool incognito,
   }
   browser_service_->service->NewWindow(
       incognito, should_trigger_session_restore, base::DoNothing());
+}
+
+void BrowserManager::OpenForFullRestore() {
+  if (!browser_service_) {
+    LOG(ERROR) << "BrowserService is disconnected, cannot perform Full Restore";
+    return;
+  }
+  browser_service_->service->OpenForFullRestore();
 }
 
 bool BrowserManager::NewWindowForDetachingTabSupported() const {
@@ -628,6 +643,15 @@ void BrowserManager::GetActiveTabUrl(GetActiveTabUrlCallback callback) {
   browser_service_->service->GetActiveTabUrl(std::move(callback));
 }
 
+void BrowserManager::GetTabStripModelUrls(
+    const std::string& window_unique_id,
+    GetTabStripModelUrlsCallback callback) {
+  crosapi::CrosapiManager::Get()
+      ->crosapi_ash()
+      ->desk_template_ash()
+      ->GetTabStripModelUrls(window_unique_id, std::move(callback));
+}
+
 void BrowserManager::AddObserver(BrowserManagerObserver* observer) {
   observers_.AddObserver(observer);
 }
@@ -707,6 +731,9 @@ BrowserManager::MaybeStartResult BrowserManager::MaybeStart(
   if (!browser_util::IsLacrosEnabled())
     return MaybeStartResult::kNotStarted;
 
+  if (disable_autolaunch_for_testing_)
+    return MaybeStartResult::kNotStarted;
+
   if (!browser_util::IsLacrosAllowedToLaunch()) {
     std::unique_ptr<message_center::Notification> notification =
         ash::CreateSystemNotification(
@@ -779,8 +806,11 @@ void BrowserManager::Start(
   DCHECK_EQ(state_, State::STOPPED);
   DCHECK(!lacros_path_.empty());
   DCHECK(!shutdown_requested_);
+
   // Ensure we're not trying to open a window before the shelf is initialized.
-  DCHECK(ChromeShelfController::instance());
+  // Kiosk sessions don't need this check because they don't enable the shelf.
+  DCHECK(user_manager::UserManager::Get()->IsLoggedInAsAnyKioskApp() ||
+         ChromeShelfController::instance());
 
   // Always reset the |relaunch_requested_| flag when launching Lacros.
   relaunch_requested_ = false;
@@ -894,6 +924,16 @@ void BrowserManager::StartWithLogFile(
   // CrAS is the default audio server in Chrome OS.
   if (base::SysInfo::IsRunningOnChromeOS())
     argv.push_back("--use-cras");
+
+#if BUILDFLAG(ENABLE_NACL)
+  // This switch is forwarded to nacl_helper and is needed before zygote fork.
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kVerboseLoggingInNacl)) {
+    argv.push_back("--verbose-logging-in-nacl=" +
+                   base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+                       switches::kVerboseLoggingInNacl));
+  }
+#endif
 
   std::string additional_flags =
       base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
@@ -1152,7 +1192,8 @@ policy::CloudPolicyStore* BrowserManager::GetDeviceAccountPolicyStore() {
   DCHECK(user);
 
   switch (user->GetType()) {
-    case user_manager::USER_TYPE_REGULAR: {
+    case user_manager::USER_TYPE_REGULAR:
+    case user_manager::USER_TYPE_CHILD: {
       Profile* profile = ash::ProfileHelper::Get()->GetProfileByUser(user);
       DCHECK(profile);
       policy::CloudPolicyManager* user_cloud_policy_manager =
@@ -1211,8 +1252,11 @@ void BrowserManager::StopKeepAlive(Feature feature) {
 }
 
 void BrowserManager::LaunchForKeepAliveIfNecessary() {
+  // KeepAlive should not start lacros in a windowless state if a relaunch has
+  // been requested. Lacros restart will instead be handled in
+  // `OnLacrosChromeTerminated()`.
   if (state_ == State::STOPPED && !shutdown_requested_ &&
-      !keep_alive_features_.empty()) {
+      !keep_alive_features_.empty() && !relaunch_requested_) {
     CHECK(browser_util::IsLacrosEnabled());
     CHECK(browser_util::IsLacrosAllowedToLaunch());
     MaybeStart(browser_util::InitialBrowserAction(
@@ -1240,7 +1284,7 @@ void BrowserManager::RecordLacrosLaunchMode() {
   LacrosLaunchMode lacros_mode;
   LacrosLaunchModeAndSource lacros_mode_and_source;
 
-  if (!browser_util::IsAshWebBrowserEnabled(chrome::GetChannel())) {
+  if (!browser_util::IsAshWebBrowserEnabled()) {
     // As Ash is disabled, Lacros is the only available browser.
     lacros_mode = LacrosLaunchMode::kLacrosOnly;
     lacros_mode_and_source =

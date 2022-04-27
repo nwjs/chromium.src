@@ -432,11 +432,12 @@ class WebGPUDecoderImpl final : public WebGPUDecoder {
   int32_t GetPreferredAdapterIndex(PowerPreference power_preference,
                                    bool force_fallback) const;
 
-  void DoRequestDevice(DawnRequestDeviceSerial request_device_serial,
-                       int32_t requested_adapter_index,
-                       uint32_t device_id,
-                       uint32_t device_generation,
-                       const WGPUDeviceProperties& requested_device_properties);
+  error::Error DoRequestDevice(
+      DawnRequestDeviceSerial request_device_serial,
+      int32_t requested_adapter_index,
+      uint32_t device_id,
+      uint32_t device_generation,
+      const WGPUDeviceProperties& requested_device_properties);
   void OnRequestDeviceCallback(DawnRequestDeviceSerial request_device_serial,
                                size_t requested_adapter_index,
                                uint32_t device_id,
@@ -1021,16 +1022,16 @@ ContextResult WebGPUDecoderImpl::Initialize() {
   return ContextResult::kSuccess;
 }
 
-void WebGPUDecoderImpl::DoRequestDevice(
+error::Error WebGPUDecoderImpl::DoRequestDevice(
     DawnRequestDeviceSerial request_device_serial,
     int32_t requested_adapter_index,
     uint32_t device_id,
     uint32_t device_generation,
     const WGPUDeviceProperties& request_device_properties) {
-  DCHECK_LE(0, requested_adapter_index);
-
-  DCHECK_LT(static_cast<size_t>(requested_adapter_index),
-            dawn_adapters_.size());
+  if (requested_adapter_index < 0 ||
+      static_cast<uint32_t>(requested_adapter_index) >= dawn_adapters_.size()) {
+    return error::kOutOfBounds;
+  }
 
   WGPUDeviceDescriptor device_descriptor;
 
@@ -1059,6 +1060,12 @@ void WebGPUDecoderImpl::DoRequestDevice(
   if (request_device_properties.depthClamping) {
     required_features.push_back(WGPUFeatureName_DepthClamping);
   }
+  if (request_device_properties.depth24UnormStencil8) {
+    required_features.push_back(WGPUFeatureName_Depth24UnormStencil8);
+  }
+  if (request_device_properties.depth32FloatStencil8) {
+    required_features.push_back(WGPUFeatureName_Depth32FloatStencil8);
+  }
   if (request_device_properties.invalidFeature) {
     // Pass something invalid.
     required_features.push_back(static_cast<WGPUFeatureName>(-1));
@@ -1069,6 +1076,7 @@ void WebGPUDecoderImpl::DoRequestDevice(
   // If a new toggle is added here, ForceDawnTogglesForWebGPU() which collects
   // info for about:gpu should be updated as well.
   WGPUDawnTogglesDeviceDescriptor dawn_toggles;
+  dawn_toggles.chain.next = nullptr;
   std::vector<const char*> force_enabled_toggles;
   std::vector<const char*> force_disabled_toggles;
 
@@ -1117,6 +1125,8 @@ void WebGPUDecoderImpl::DoRequestDevice(
         std::move(*callback).Run(status, wgpu_device, message);
       },
       new CallbackT(std::move(callback)));
+
+  return error::kNoError;
 }
 
 void WebGPUDecoderImpl::OnRequestDeviceCallback(
@@ -1362,7 +1372,7 @@ error::Error WebGPUDecoderImpl::DoCommands(unsigned int num_commands,
 
     const unsigned int arg_count = size - 1;
     unsigned int command_index = command - kFirstWebGPUCommand;
-    if (command_index < base::size(command_info)) {
+    if (command_index < std::size(command_info)) {
       // Prevent all further WebGPU commands from being processed if the server
       // is destroyed.
       if (destroyed_) {
@@ -1573,9 +1583,8 @@ error::Error WebGPUDecoderImpl::HandleRequestDevice(
     }
   }
 
-  DoRequestDevice(request_device_serial, adapter_service_id, device_id,
-                  device_generation, device_properties);
-  return error::kNoError;
+  return DoRequestDevice(request_device_serial, adapter_service_id, device_id,
+                         device_generation, device_properties);
 }
 
 error::Error WebGPUDecoderImpl::HandleDawnCommands(
@@ -1805,8 +1814,15 @@ error::Error WebGPUDecoderImpl::HandleDissociateMailboxForPresent(
     render_pass_descriptor.colorAttachmentCount = 1;
     render_pass_descriptor.colorAttachments = &color_attachment;
 
+    WGPUDawnEncoderInternalUsageDescriptor internal_usage_desc = {
+        .chain = {.sType = WGPUSType_DawnEncoderInternalUsageDescriptor},
+        .useInternalUsages = true,
+    };
+    WGPUCommandEncoderDescriptor command_encoder_desc = {
+        .nextInChain = &internal_usage_desc.chain,
+    };
     WGPUCommandEncoder encoder =
-        procs.deviceCreateCommandEncoder(device, nullptr);
+        procs.deviceCreateCommandEncoder(device, &command_encoder_desc);
     WGPURenderPassEncoder pass =
         procs.commandEncoderBeginRenderPass(encoder, &render_pass_descriptor);
     procs.renderPassEncoderEndPass(pass);

@@ -179,6 +179,12 @@ NET_EXPORT extern const base::Feature kSplitHostCacheByNetworkIsolationKey;
 NET_EXPORT extern const base::Feature
     kPartitionConnectionsByNetworkIsolationKey;
 
+// Forces the `frame_origin` value in IsolationInfo to the `top_level_origin`
+// value when an IsolationInfo instance is created. This is to enable
+// expirimenting with double keyed network partitions.
+NET_EXPORT extern const base::Feature
+    kForceIsolationInfoFrameOriginToTopLevelFrame;
+
 // Partitions HttpServerProperties based on the NetworkIsolationKey associated
 // with a request.
 NET_EXPORT extern const base::Feature
@@ -239,6 +245,11 @@ NET_EXPORT extern const base::FeatureParam<int> kExpectCTPruneDelaySecs;
 // disabled by default because we discovered incompatibilities with some
 // servers.
 NET_EXPORT extern const base::Feature kTLS13KeyUpdate;
+
+// Enables permuting TLS extensions in the ClientHello, to reduce the risk of
+// non-compliant servers ossifying parts of the ClientHello and interfering with
+// deployment of future security improvements.
+NET_EXPORT extern const base::Feature kPermuteTLSExtensions;
 
 // Enables CECPQ2, a post-quantum key-agreement, in TLS 1.3 connections.
 NET_EXPORT extern const base::Feature kPostQuantumCECPQ2;

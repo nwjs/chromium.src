@@ -38,6 +38,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.appcompat.app.AlertDialog;
 
+import org.chromium.base.BuildInfo;
 import org.chromium.base.CommandLine;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.IntentUtils;
@@ -195,11 +196,13 @@ public class ExternalNavigationHandler {
      * Result types for checking if we should override URL loading.
      * NOTE: this enum is used in UMA, do not reorder values. Changes should be append only.
      * Values should be numerated from 0 and can't have gaps.
+     * NOTE: NUM_ENTRIES must be added inside the IntDef{} to work around crbug.com/1300585. It
+     * should be removed from the IntDef{} if an alternate solution for that bug is found.
      */
     @IntDef({OverrideUrlLoadingResultType.OVERRIDE_WITH_EXTERNAL_INTENT,
             OverrideUrlLoadingResultType.OVERRIDE_WITH_CLOBBERING_TAB,
             OverrideUrlLoadingResultType.OVERRIDE_WITH_ASYNC_ACTION,
-            OverrideUrlLoadingResultType.NO_OVERRIDE})
+            OverrideUrlLoadingResultType.NO_OVERRIDE, OverrideUrlLoadingResultType.NUM_ENTRIES})
     @Retention(RetentionPolicy.SOURCE)
     public @interface OverrideUrlLoadingResultType {
         /* We should override the URL loading and launch an intent. */
@@ -1438,19 +1441,13 @@ public class ExternalNavigationHandler {
 
         ResolveActivitySupplier resolveActivity = new ResolveActivitySupplier(targetIntent);
         boolean requiresIntentChooser = false;
-        if (isViewIntentToOtherBrowser(
-                    targetIntent, resolvingInfos, isIntentWithSupportedProtocol, resolveActivity)) {
-            RecordHistogram.recordBooleanHistogram("Android.Intent.WebIntentToOtherBrowser", true);
-            requiresIntentChooser = true;
+        if (!mDelegate.maybeSetTargetPackage(targetIntent)) {
+            requiresIntentChooser = isViewIntentToOtherBrowser(
+                    targetIntent, resolvingInfos, isIntentWithSupportedProtocol, resolveActivity);
         }
 
-        if (mDelegate.maybeSetTargetPackage(targetIntent)) {
-            // This check was not combined with the one above to preserve the value of the
-            // Android.Intent.WebIntentToOtherBrowser histogram.
-            requiresIntentChooser = false;
-        }
-
-        if (shouldAvoidShowingDisambiguationPrompt(targetIntent, resolvingInfos, resolveActivity)) {
+        if (shouldAvoidShowingDisambiguationPrompt(
+                    isExternalProtocol, targetIntent, resolvingInfos, resolveActivity)) {
             return OverrideUrlLoadingResult.forNoOverride();
         }
 
@@ -1471,9 +1468,13 @@ public class ExternalNavigationHandler {
         return false;
     }
 
-    private boolean shouldAvoidShowingDisambiguationPrompt(Intent intent,
-            QueryIntentActivitiesSupplier resolvingInfosSupplier,
+    private boolean shouldAvoidShowingDisambiguationPrompt(boolean isExternalProtocol,
+            Intent intent, QueryIntentActivitiesSupplier resolvingInfosSupplier,
             ResolveActivitySupplier resolveActivitySupplier) {
+        // For navigations Chrome can't handle, it's fine to show the disambiguation dialog
+        // regardless of the embedder's preference.
+        if (isExternalProtocol) return false;
+
         // Don't bother performing the package manager checks if the delegate is fine with the
         // disambiguation prompt.
         if (!mDelegate.shouldAvoidDisambiguationDialog(intent)) return false;
@@ -2048,6 +2049,10 @@ public class ExternalNavigationHandler {
      */
     @VisibleForTesting
     protected boolean shouldRequestFileAccess(GURL url) {
+        // TODO(https://crbug.com/1316672): Replace READ_EXTERNAL_STORAGE with READ_MEDIA_*
+        //       permissions to restore capability to open file:// on Android T.
+        if (BuildInfo.isAtLeastT()) return false;
+
         // If the tab is null, then do not attempt to prompt for access.
         if (!mDelegate.hasValidTab()) return false;
         assert url.getScheme().equals(UrlConstants.FILE_SCHEME);

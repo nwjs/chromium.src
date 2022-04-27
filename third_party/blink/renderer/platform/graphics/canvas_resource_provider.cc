@@ -981,6 +981,9 @@ CanvasResourceProvider::CreateSharedImageProvider(
 
   // If we cannot use overlay, we have to remove the scanout flag and the
   // concurrent read write flag.
+  // TODO(junov, vasilyt): capabilities.texture_storage_image is being used
+  // as a proxy for determining whether SHARED_IMAGE_USAGE_SCANOUT is supported.
+  // it would be preferable to have a dedicated capability bit for this.
   if (!is_gpu_memory_buffer_image_allowed ||
       (is_accelerated && !capabilities.texture_storage_image)) {
     shared_image_usage_flags &= ~gpu::SHARED_IMAGE_USAGE_CONCURRENT_READ_WRITE;
@@ -1459,7 +1462,8 @@ void CanvasResourceProvider::RasterRecordOOP(
                           /*msaa_sample_count=*/oopr_uses_dmsaa_ ? 1 : 0,
                           oopr_uses_dmsaa_ ? gpu::raster::MsaaMode::kDMSAA
                                            : gpu::raster::MsaaMode::kNoMSAA,
-                          can_use_lcd_text, GetColorSpace(), mailbox.name);
+                          can_use_lcd_text, /*visible=*/true, GetColorSpace(),
+                          mailbox.name);
 
   ri->RasterCHROMIUM(list.get(), GetOrCreateCanvasImageProvider(), size,
                      full_raster_rect, playback_rect, post_translate,

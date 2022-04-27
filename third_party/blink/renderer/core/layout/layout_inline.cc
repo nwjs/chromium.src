@@ -24,6 +24,7 @@
 #include "third_party/blink/renderer/core/layout/layout_inline.h"
 
 #include "cc/base/region.h"
+#include "third_party/blink/renderer/core/css/resolver/style_resolver.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/editing/position_with_affinity.h"
@@ -538,6 +539,9 @@ void LayoutInline::AddChildIgnoringContinuation(LayoutObject* new_child,
     before_child = LastChild();
 
   if (!new_child->IsInline() && !new_child->IsFloatingOrOutOfFlowPositioned() &&
+      // Table parts can be either inline or block. When creating its table
+      // wrapper, |CreateAnonymousTableWithParent| creates an inline table if
+      // the parent is |LayoutInline|.
       !new_child->IsTablePart()) {
     if (UNLIKELY(RuntimeEnabledFeatures::LayoutNGBlockInInlineEnabled()) &&
         !ForceLegacyLayout()) {
@@ -1281,8 +1285,18 @@ bool LayoutInline::HitTestCulledInline(HitTestResult& result,
     DCHECK(IsDescendantOf(parent_cursor->GetLayoutBlockFlow()));
     NGInlineCursor cursor(*parent_cursor);
     cursor.MoveToIncludingCulledInline(*this);
-    for (; cursor; cursor.MoveToNextForSameLayoutObject())
+    for (; cursor; cursor.MoveToNextForSameLayoutObject()) {
+      // Block-in-inline is inline in the box tree, and may appear as a child of
+      // a culled inline, but it should be painted and hit-tested as block
+      // painting-order-wise. Don't include it as part of the culled inline
+      // region. https://www.w3.org/TR/CSS22/zindex.html#painting-order
+      if (const NGPhysicalBoxFragment* fragment =
+              cursor.Current().BoxFragment()) {
+        if (UNLIKELY(fragment->IsOpaque()))
+          continue;
+      }
       yield(cursor.Current().RectInContainerFragment());
+    }
   } else {
     DCHECK(!IsInLayoutNGInlineFormattingContext());
     CollectCulledLineBoxRects(yield);

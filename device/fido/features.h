@@ -49,6 +49,15 @@ extern const base::Feature kWebAuthCrosPlatformAuthenticator;
 COMPONENT_EXPORT(DEVICE_FIDO)
 extern const base::Feature kU2fPermissionPrompt;
 
+// Feature flag for the Google-internal
+// `WebAuthenticationAllowGoogleCorpRemoteRequestProxying` enterprise policy.
+COMPONENT_EXPORT(DEVICE_FIDO)
+extern const base::Feature kWebAuthnGoogleCorpRemoteDesktopClientPrivilege;
+
+// Enable some experimental UI changes
+COMPONENT_EXPORT(DEVICE_FIDO)
+extern const base::Feature kWebAuthPasskeysUIExperiment;
+
 }  // namespace device
 
 #endif  // DEVICE_FIDO_FEATURES_H_

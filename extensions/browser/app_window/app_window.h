@@ -276,8 +276,11 @@ class AppWindow : public content::WebContentsDelegate,
   bool is_hidden() const { return is_hidden_; }
   const std::string& title_override() const { return title_override_; }
   void set_title_override(const std::string& title) { title_override_ = title; }
-  
+
+  // Calls to this should always be guarded by a nullptr check as this can
+  // return nullptr if the extension is no longer installed.
   const Extension* GetExtension() const;
+
   NativeAppWindow* GetBaseWindow();
   gfx::NativeWindow GetNativeWindow();
 

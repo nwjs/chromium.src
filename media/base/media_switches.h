@@ -125,6 +125,7 @@ MEDIA_EXPORT extern const base::Feature kBackgroundVideoPauseOptimization;
 MEDIA_EXPORT extern const base::Feature kBresenhamCadence;
 MEDIA_EXPORT extern const base::Feature kCdmHostVerification;
 MEDIA_EXPORT extern const base::Feature kCdmProcessSiteIsolation;
+MEDIA_EXPORT extern const base::Feature kChromeWideEchoCancellationEnabled;
 MEDIA_EXPORT extern const base::Feature kD3D11VideoDecoderUseSharedHandle;
 MEDIA_EXPORT extern const base::Feature kEnableMediaInternals;
 MEDIA_EXPORT extern const base::Feature kEnableTabMuting;
@@ -234,14 +235,18 @@ MEDIA_EXPORT extern const base::Feature kUseAlternateVideoDecoderImplementation;
 #endif  // BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
 
 #if BUILDFLAG(IS_MAC)
+#if BUILDFLAG(ENABLE_PLATFORM_HEVC_DECODING)
+MEDIA_EXPORT extern const base::Feature kVideoToolboxHEVCDecoding;
+#endif  // BUILDFLAG(ENABLE_PLATFORM_HEVC_DECODING)
 MEDIA_EXPORT extern const base::Feature kMultiPlaneVideoToolboxSharedImages;
-#endif
+#endif  // BUILDFLAG(IS_MAC)
 
 #if BUILDFLAG(IS_WIN)
 MEDIA_EXPORT extern const base::Feature kDelayCopyNV12Textures;
 MEDIA_EXPORT extern const base::Feature kDirectShowGetPhotoState;
 MEDIA_EXPORT extern const base::Feature kIncludeIRCamerasInDeviceEnumeration;
 MEDIA_EXPORT extern const base::Feature kMediaFoundationAV1Encoding;
+MEDIA_EXPORT extern const base::Feature kMediaFoundationH264CbpEncoding;
 MEDIA_EXPORT extern const base::Feature kMediaFoundationVideoCapture;
 MEDIA_EXPORT extern const base::Feature kMediaFoundationVP8Decoding;
 MEDIA_EXPORT extern const base::Feature kMediaFoundationD3D11VideoCapture;
@@ -263,6 +268,7 @@ MEDIA_EXPORT extern const base::Feature kDeprecateLowUsageCodecs;
 MEDIA_EXPORT std::string GetEffectiveAutoplayPolicy(
     const base::CommandLine& command_line);
 
+MEDIA_EXPORT bool IsChromeWideEchoCancellationEnabled();
 MEDIA_EXPORT bool IsHardwareSecureDecryptionEnabled();
 MEDIA_EXPORT bool IsLiveCaptionFeatureEnabled();
 MEDIA_EXPORT bool IsVideoCaptureAcceleratedJpegDecodingEnabled();

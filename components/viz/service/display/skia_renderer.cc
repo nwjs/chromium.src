@@ -10,7 +10,6 @@
 
 #include "base/auto_reset.h"
 #include "base/bind.h"
-#include "base/bits.h"
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
@@ -521,7 +520,7 @@ struct SkiaRenderer::DrawQuadParams {
   SkPath draw_region_in_path() const {
     if (draw_region) {
       return SkPath::Polygon(draw_region->points,
-                             base::size(draw_region->points),
+                             std::size(draw_region->points),
                              /*isClosed=*/true);
     }
     return SkPath();
@@ -810,6 +809,7 @@ void SkiaRenderer::SwapBuffersSkipped() {
   if (use_partial_swap_)
     root_pass_damage_rect.Intersect(swap_buffer_rect_);
 
+  pending_overlay_locks_.pop_back();
   skia_output_surface_->SwapBuffersSkipped(root_pass_damage_rect);
   swap_buffer_rect_ = gfx::Rect();
 
@@ -865,7 +865,10 @@ void SkiaRenderer::DidReceiveReleasedOverlays(
   for (const auto& mailbox : released_overlays) {
     auto it = awaiting_release_overlay_locks_.find(mailbox);
     if (it == awaiting_release_overlay_locks_.end()) {
+    // TODO(crbug.com/1299794): Re-enable this DCHECK on Ozone.
+#if !defined(USE_OZONE)
       DLOG(FATAL) << "Got an unexpected mailbox";
+#endif  // !defined(USE_OZONE)
       continue;
     }
     awaiting_release_overlay_locks_.erase(it);
@@ -1381,9 +1384,9 @@ void SkiaRenderer::DrawQuadParams::ApplyScissor(
   // gfx::Transform::IsPositiveScaleAndTranslation in that it also allows zero
   // scales. This is because in the common orthographic case the z scale is 0.
   if (!content_device_transform.IsScaleOrTranslation() ||
-      content_device_transform.matrix().get(0, 0) < 0.0f ||
-      content_device_transform.matrix().get(1, 1) < 0.0f ||
-      content_device_transform.matrix().get(2, 2) < 0.0f) {
+      content_device_transform.matrix().rc(0, 0) < 0.0f ||
+      content_device_transform.matrix().rc(1, 1) < 0.0f ||
+      content_device_transform.matrix().rc(2, 2) < 0.0f) {
     return;
   }
 
@@ -1427,8 +1430,8 @@ void SkiaRenderer::DrawQuadParams::ApplyScissor(
   // device space, it will be contained in in the original scissor.
   // Applying the scissor explicitly means avoiding a clipRect() call and
   // allows more quads to be batched together in a DrawEdgeAAImageSet call
-  float x_epsilon = kAAEpsilon / content_device_transform.matrix().get(0, 0);
-  float y_epsilon = kAAEpsilon / content_device_transform.matrix().get(1, 1);
+  float x_epsilon = kAAEpsilon / content_device_transform.matrix().rc(0, 0);
+  float y_epsilon = kAAEpsilon / content_device_transform.matrix().rc(1, 1);
 
   // The scissor is a non-AA clip, so unset the bit flag for clipped edges.
   if (local_scissor.x() - visible_rect.x() >= x_epsilon)
@@ -1569,7 +1572,7 @@ SkiaRenderer::BypassMode SkiaRenderer::CalculateBypassParams(
     // quadrilateral to the bypass'ed quad's coordinate space so that BSP
     // splitting is still respected.
     rpdq_to_bypass.mapPoints(params->draw_region->points,
-                             base::size(params->draw_region->points));
+                             std::size(params->draw_region->points));
   }
 
   // Compute draw params for the bypass quad from scratch, but since the
@@ -1792,20 +1795,38 @@ void SkiaRenderer::DrawColoredQuad(SkColor color,
     }
   }
 
-  sk_sp<SkColorFilter> color_filter = GetContentColorFilter();
-  if (color_filter)
-    color = color_filter->filterColor(color);
+  sk_sp<SkColorFilter> content_color_filter = GetContentColorFilter();
+  SkColor4f color_f = SkColor4f::FromColor(color);
+  if (content_color_filter) {
+    SkColorSpace* color_space = current_canvas_->imageInfo().colorSpace();
+    color_f = content_color_filter->filterColor4f(
+        color_f, SkColorSpace::MakeSRGB().get(), color_space);
+    // DrawEdgeAAQuad lacks color filter support via SkPaint, so we apply the
+    // color filter to the quad color directly. When applying a color filter
+    // via drawRect or drawImage, Skia will first transform the src into the
+    // dst color space before applying the color filter. Thus, here we need to
+    // apply the color filter in the dst color space and then convert back to
+    // the src color space. More formally:
+    //    (C * Xfrm * CF * Xfrm_inv)[in Viz] * Xfrm[in Skia] = C * Xfrm * CF
+    if (color_space && !color_space->isSRGB()) {
+      SkPaint paint;
+      paint.setColor(color_f, color_space);
+      color_f = paint.getColor4f();
+    }
+  }
   // PrepareCanvasForRPDQ will have updated params->opacity and blend_mode to
-  // account for the layer applying those effects.
-  color = SkColorSetA(color, params->opacity * SkColorGetA(color));
+  // account for the layer applying those effects. We need to truncate to an
+  // integral value of [0, 255] to match the explicit floor workaround in
+  // blink::ConversionContext::StartEffect.
+  color_f.fA = floor(params->opacity * color_f.fA * 255.f) / 255.f;
 
   const SkPoint* draw_region =
       params->draw_region ? params->draw_region->points : nullptr;
 
   current_canvas_->experimental_DrawEdgeAAQuad(
       gfx::RectFToSkRect(params->visible_rect), draw_region,
-      static_cast<SkCanvas::QuadAAFlags>(params->aa_flags),
-      SkColor4f::FromColor(color), params->blend_mode);
+      static_cast<SkCanvas::QuadAAFlags>(params->aa_flags), color_f,
+      params->blend_mode);
 }
 
 void SkiaRenderer::DrawSingleImage(const SkImage* image,
@@ -2048,6 +2069,15 @@ void SkiaRenderer::DrawTextureQuad(const TextureDrawQuad* quad,
   absl::optional<gfx::ColorSpace> override_color_space;
   if (needs_color_conversion_filter)
     override_color_space = CurrentRenderPassColorSpace();
+
+  // TODO(b/221643955): Some Chrome OS tests rely on the old GLRenderer
+  // behavior of skipping color space conversions if the quad's color space is
+  // invalid. Once these tests are migrated, we can remove the override here
+  // and revert to Skia's default behavior of assuming sRGB on invalid.
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  if (!src_color_space.IsValid())
+    override_color_space = CurrentRenderPassColorSpace();
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
   ScopedSkImageBuilder builder(
       this, quad->resource_id(), /*maybe_concurrent_reads=*/true,
@@ -2482,12 +2512,12 @@ sk_sp<SkColorFilter> SkiaRenderer::GetColorSpaceConversionFilter(
 }
 
 namespace {
-SkColorMatrix ToColorMatrix(const skia::Matrix44& mat) {
+SkColorMatrix ToColorMatrix(const SkM44& mat) {
   std::array<float, 20> values;
   values.fill(0.0f);
   for (uint32_t r = 0; r < 4; r++) {
     for (uint32_t c = 0; c < 4; c++) {
-      values[r * 5 + c] = mat.getFloat(r, c);
+      values[r * 5 + c] = mat.rc(r, c);
     }
   }
   SkColorMatrix mat_out;
@@ -2499,7 +2529,7 @@ SkColorMatrix ToColorMatrix(const skia::Matrix44& mat) {
 sk_sp<SkColorFilter> SkiaRenderer::GetContentColorFilter() {
   sk_sp<SkColorFilter> color_transform = nullptr;
   if (current_canvas_ == root_canvas_ &&
-      !output_surface_->color_matrix().isIdentity()) {
+      output_surface_->color_matrix() != SkM44()) {
     color_transform =
         SkColorFilters::Matrix(ToColorMatrix(output_surface_->color_matrix()));
   }
@@ -2518,8 +2548,7 @@ sk_sp<SkColorFilter> SkiaRenderer::GetContentColorFilter() {
       color_mat.setScale(rgb[0], rgb[1], rgb[2]);
       tint_transform = SkColorFilters::Matrix(color_mat);
     } else {
-      skia::Matrix44 mat44;
-      mat44.setColMajorf(
+      SkM44 mat44 = SkM44::ColMajor(
           cc::DebugColors::TintCompositedContentColorTransformMatrix().data());
       tint_transform = SkColorFilters::Matrix(ToColorMatrix(mat44));
     }
@@ -2971,10 +3000,10 @@ void SkiaRenderer::PrepareRenderPassOverlay(
       // Skia cannot transform a SkRRect with a matrix which contains epsilons,
       // workaround the problem by removing epsilons in the matrix.
       auto matrix = quad_to_target_transform_inverse->matrix();
-      matrix.set(0, 0, remove_epsilon(matrix.get(0, 0)));
-      matrix.set(0, 1, remove_epsilon(matrix.get(0, 1)));
-      matrix.set(1, 0, remove_epsilon(matrix.get(1, 0)));
-      matrix.set(1, 1, remove_epsilon(matrix.get(1, 1)));
+      matrix.setRC(0, 0, remove_epsilon(matrix.rc(0, 0)));
+      matrix.setRC(0, 1, remove_epsilon(matrix.rc(0, 1)));
+      matrix.setRC(1, 0, remove_epsilon(matrix.rc(1, 0)));
+      matrix.setRC(1, 1, remove_epsilon(matrix.rc(1, 1)));
       result =
           shared_quad_state->mask_filter_info.Transform(gfx::Transform(matrix));
     }

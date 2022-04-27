@@ -52,9 +52,11 @@ void CalendarViewController::RemoveObserver(Observer* observer) {
 void CalendarViewController::UpdateMonth(
     const base::Time current_month_first_date) {
   base::Time::Exploded currently_shown_date_exploded =
-      calendar_utils::GetExplodedUTC(currently_shown_date_);
+      calendar_utils::GetExplodedUTC(currently_shown_date_ +
+                                     base::Minutes(time_difference_minutes_));
   base::Time::Exploded current_month_first_date_exploded =
-      calendar_utils::GetExplodedUTC(current_month_first_date);
+      calendar_utils::GetExplodedUTC(current_month_first_date +
+                                     base::Minutes(time_difference_minutes_));
   if (currently_shown_date_exploded.year ==
           current_month_first_date_exploded.year &&
       currently_shown_date_exploded.month ==
@@ -152,8 +154,8 @@ std::u16string CalendarViewController::GetPreviousMonthName() const {
   return calendar_utils::GetMonthName(GetPreviousMonthFirstDayLocal(1));
 }
 
-std::u16string CalendarViewController::GetNextMonthName() const {
-  return calendar_utils::GetMonthName(GetNextMonthFirstDayLocal(1));
+std::u16string CalendarViewController::GetNextMonthName(int num_months) const {
+  return calendar_utils::GetMonthName(GetNextMonthFirstDayLocal(num_months));
 }
 
 std::u16string CalendarViewController::GetOnScreenMonthName() const {
@@ -174,11 +176,9 @@ int CalendarViewController::GetTodayRowBottomHeight() const {
 }
 
 void CalendarViewController::FetchEvents() {
-  std::set<base::Time> months;
-  calendar_utils::GetSurroundingMonthsUTC(
-      GetOnScreenMonthFirstDayUTC().UTCMidnight(),
-      CalendarModel::kNumSurroundingMonthsCached, months);
-  Shell::Get()->system_tray_model()->calendar_model()->FetchEvents(months);
+  Shell::Get()->system_tray_model()->calendar_model()->FetchEventsSurrounding(
+      CalendarModel::kNumSurroundingMonthsCached,
+      GetOnScreenMonthFirstDayUTC().UTCMidnight());
 }
 
 SingleDayEventList CalendarViewController::SelectedDateEvents() {
@@ -235,9 +235,10 @@ bool CalendarViewController::IsSelectedDateInCurrentMonth() {
     return false;
 
   base::Time::Exploded currently_shown_date_exploded =
-      calendar_utils::GetExplodedUTC(currently_shown_date_);
-  base::Time::Exploded selected_date_exploded =
-      calendar_utils::GetExplodedUTC(selected_date_.value());
+      calendar_utils::GetExplodedUTC(currently_shown_date_ +
+                                     base::Minutes(time_difference_minutes_));
+  base::Time::Exploded selected_date_exploded = calendar_utils::GetExplodedUTC(
+      selected_date_.value() + base::Minutes(time_difference_minutes_));
   return currently_shown_date_exploded.year == selected_date_exploded.year &&
          currently_shown_date_exploded.month == selected_date_exploded.month;
 }

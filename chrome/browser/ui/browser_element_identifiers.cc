@@ -8,6 +8,7 @@
 #include "ui/base/interaction/element_tracker.h"
 
 DEFINE_ELEMENT_IDENTIFIER_VALUE(kAppMenuButtonElementId);
+DEFINE_ELEMENT_IDENTIFIER_VALUE(kAppUninstallDialogOkButtonId);
 DEFINE_ELEMENT_IDENTIFIER_VALUE(kAutofillCreditCardSuggestionEntryElementId);
 DEFINE_ELEMENT_IDENTIFIER_VALUE(kAvatarButtonElementId);
 DEFINE_ELEMENT_IDENTIFIER_VALUE(kBookmarkStarViewElementId);
@@ -16,6 +17,7 @@ DEFINE_ELEMENT_IDENTIFIER_VALUE(kLocationIconElementId);
 DEFINE_ELEMENT_IDENTIFIER_VALUE(kMediaButtonElementId);
 DEFINE_ELEMENT_IDENTIFIER_VALUE(kOmniboxElementId);
 DEFINE_ELEMENT_IDENTIFIER_VALUE(kReadLaterButtonElementId);
+DEFINE_ELEMENT_IDENTIFIER_VALUE(kReadLaterSidePanelWebViewElementId);
 DEFINE_ELEMENT_IDENTIFIER_VALUE(kSavePasswordComboboxElementId);
 DEFINE_ELEMENT_IDENTIFIER_VALUE(kSideSearchButtonElementId);
 DEFINE_ELEMENT_IDENTIFIER_VALUE(kTabAlertIndicatorButtonElementId);

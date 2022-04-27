@@ -584,7 +584,6 @@ class CONTENT_EXPORT RenderFrameImpl
   void DidObserveInputDelay(base::TimeDelta input_delay) override;
   void DidObserveUserInteraction(
       base::TimeDelta max_event_duration,
-      base::TimeDelta total_event_durtaion,
       blink::UserInteractionType interaction_type) override;
   void DidChangeCpuTiming(base::TimeDelta time) override;
   void DidObserveLoadingBehavior(blink::LoadingBehaviorFlag behavior) override;
@@ -595,8 +594,6 @@ class CONTENT_EXPORT RenderFrameImpl
                           uint32_t ng_block_count,
                           uint32_t all_call_count,
                           uint32_t ng_call_count) override;
-  void DidObserveLazyLoadBehavior(
-      blink::WebLocalFrameClient::LazyLoadBehavior lazy_load_behavior) override;
   void DidCreateScriptContext(v8::Local<v8::Context> context,
                               int world_id) override;
   void WillReleaseScriptContext(v8::Local<v8::Context> context,
@@ -641,7 +638,7 @@ class CONTENT_EXPORT RenderFrameImpl
       uint32_t shared_memory_count,
       blink::CrossVariantMojoReceiver<
           media::mojom::AudioProcessorControlsInterfaceBase> controls_receiver,
-      const media::AudioProcessingSettings& settings) override;
+      const media::AudioProcessingSettings* settings) override;
   void AssociateInputAndOutputForAec(
       const base::UnguessableToken& input_stream_id,
       const std::string& output_device_id) override;

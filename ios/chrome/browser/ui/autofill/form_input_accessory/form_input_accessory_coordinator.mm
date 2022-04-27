@@ -15,11 +15,14 @@
 #include "components/keyed_service/core/service_access_type.h"
 #include "components/password_manager/core/browser/manage_passwords_referrer.h"
 #include "components/password_manager/core/browser/password_ui_utils.h"
+#import "components/password_manager/ios/password_generation_provider.h"
 #include "components/strings/grit/components_strings.h"
 #include "ios/chrome/browser/autofill/personal_data_manager_factory.h"
 #include "ios/chrome/browser/browser_state/chrome_browser_state.h"
+#include "ios/chrome/browser/feature_engagement/tracker_factory.h"
 #import "ios/chrome/browser/main/browser.h"
 #include "ios/chrome/browser/passwords/ios_chrome_password_store_factory.h"
+#import "ios/chrome/browser/passwords/password_tab_helper.h"
 #import "ios/chrome/browser/ui/alert_coordinator/alert_coordinator.h"
 #import "ios/chrome/browser/ui/autofill/form_input_accessory/form_input_accessory_mediator.h"
 #import "ios/chrome/browser/ui/autofill/form_input_accessory/form_input_accessory_view_controller.h"
@@ -119,6 +122,10 @@
       autofill::PersonalDataManagerFactory::GetForBrowserState(
           self.browser->GetBrowserState()->GetOriginalChromeBrowserState());
 
+  feature_engagement::Tracker* engagementTracker =
+      feature_engagement::TrackerFactory::GetForBrowserState(
+          self.browser->GetBrowserState());
+
   __weak id<SecurityAlertCommands> securityAlertHandler = HandlerForProtocol(
       self.browser->GetCommandDispatcher(), SecurityAlertCommands);
   self.formInputAccessoryMediator = [[FormInputAccessoryMediator alloc]
@@ -128,7 +135,8 @@
          personalDataManager:personalDataManager
                passwordStore:passwordStore
         securityAlertHandler:securityAlertHandler
-      reauthenticationModule:self.reauthenticationModule];
+      reauthenticationModule:self.reauthenticationModule
+           engagementTracker:engagementTracker];
   self.formInputAccessoryViewController.formSuggestionClient =
       self.formInputAccessoryMediator;
 }
@@ -274,7 +282,23 @@
 }
 
 - (void)openAllPasswordsPicker {
+  [self reset];
   [self showConfirmationDialogToUseOtherPassword];
+}
+
+- (void)openPasswordSuggestion {
+  [self reset];
+  if (![self.injectionHandler canUserInjectInPasswordField:YES
+                                             requiresHTTPS:NO]) {
+    return;
+  }
+  web::WebState* active_web_state =
+      self.browser->GetWebStateList()->GetActiveWebState();
+  DCHECK(active_web_state);
+  id<PasswordGenerationProvider> generationProvider =
+      PasswordTabHelper::FromWebState(active_web_state)
+          ->GetPasswordGenerationProvider();
+  [generationProvider triggerPasswordGeneration];
 }
 
 #pragma mark - CardCoordinatorDelegate

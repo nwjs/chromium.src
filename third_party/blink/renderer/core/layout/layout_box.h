@@ -34,6 +34,7 @@
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar_theme.h"
 #include "third_party/blink/renderer/platform/graphics/overlay_scrollbar_clip_behavior.h"
+#include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_set.h"
 
 namespace blink {
 
@@ -876,8 +877,9 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
   // TODO(crbug.com/962299): This is incorrect in some cases.
   int PixelSnappedClientWidth() const;
   int PixelSnappedClientHeight() const;
-  int PixelSnappedClientWidthWithTableSpecialBehavior() const;
-  int PixelSnappedClientHeightWithTableSpecialBehavior() const;
+
+  LayoutUnit ClientWidthWithTableSpecialBehavior() const;
+  LayoutUnit ClientHeightWithTableSpecialBehavior() const;
 
   // scrollWidth/scrollHeight will be the same as clientWidth/clientHeight
   // unless the object has overflow:hidden/scroll/auto specified and also has

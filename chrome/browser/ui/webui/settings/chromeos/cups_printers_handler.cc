@@ -275,7 +275,10 @@ std::unique_ptr<CupsPrintersHandler> CupsPrintersHandler::CreateForTesting(
       profile, ppd_provider, std::move(printer_configurer), printers_manager));
 }
 
-CupsPrintersHandler::~CupsPrintersHandler() = default;
+CupsPrintersHandler::~CupsPrintersHandler() {
+  if (select_file_dialog_)
+    select_file_dialog_->ListenerDestroyed();
+}
 
 void CupsPrintersHandler::RegisterMessages() {
   web_ui()->RegisterMessageCallback(
@@ -372,7 +375,7 @@ void CupsPrintersHandler::SetWebUIForTest(content::WebUI* web_ui) {
 }
 
 void CupsPrintersHandler::HandleGetCupsSavedPrintersList(
-    base::Value::ConstListView args) {
+    const base::Value::List& args) {
   AllowJavascript();
 
   CHECK_EQ(1U, args.size());
@@ -386,7 +389,7 @@ void CupsPrintersHandler::HandleGetCupsSavedPrintersList(
 }
 
 void CupsPrintersHandler::HandleGetCupsEnterprisePrintersList(
-    base::Value::ConstListView args) {
+    const base::Value::List& args) {
   AllowJavascript();
 
   CHECK_EQ(1U, args.size());
@@ -400,7 +403,7 @@ void CupsPrintersHandler::HandleGetCupsEnterprisePrintersList(
 }
 
 void CupsPrintersHandler::HandleUpdateCupsPrinter(
-    base::Value::ConstListView args) {
+    const base::Value::List& args) {
   CHECK_EQ(3U, args.size());
   const std::string& callback_id = args[0].GetString();
   const std::string& printer_id = args[1].GetString();
@@ -427,7 +430,7 @@ void CupsPrintersHandler::HandleUpdateCupsPrinter(
 }
 
 void CupsPrintersHandler::HandleRemoveCupsPrinter(
-    base::Value::ConstListView args) {
+    const base::Value::List& args) {
   PRINTER_LOG(USER) << "Removing printer";
   // Printer name also expected in 2nd parameter.
   const std::string& printer_id = args[0].GetString();
@@ -449,8 +452,7 @@ void CupsPrintersHandler::HandleRemoveCupsPrinter(
                             base::DoNothing());
 }
 
-void CupsPrintersHandler::HandleGetPrinterInfo(
-    base::Value::ConstListView args) {
+void CupsPrintersHandler::HandleGetPrinterInfo(const base::Value::List& args) {
   if (args.empty() || !args[0].is_string()) {
     NOTREACHED() << "Expected request for a promise";
     return;
@@ -625,21 +627,19 @@ void CupsPrintersHandler::OnPpdResolved(const std::string& callback_id,
   ResolveJavascriptCallback(base::Value(callback_id), info);
 }
 
-void CupsPrintersHandler::HandleAddCupsPrinter(
-    base::Value::ConstListView args) {
+void CupsPrintersHandler::HandleAddCupsPrinter(const base::Value::List& args) {
   AllowJavascript();
   AddOrReconfigurePrinter(args, false /* is_printer_edit */);
 }
 
 void CupsPrintersHandler::HandleReconfigureCupsPrinter(
-    base::Value::ConstListView args) {
+    const base::Value::List& args) {
   AllowJavascript();
   AddOrReconfigurePrinter(args, true /* is_printer_edit */);
 }
 
-void CupsPrintersHandler::AddOrReconfigurePrinter(
-    base::Value::ConstListView args,
-    bool is_printer_edit) {
+void CupsPrintersHandler::AddOrReconfigurePrinter(const base::Value::List& args,
+                                                  bool is_printer_edit) {
   CHECK_EQ(2U, args.size());
   std::string callback_id = args[0].GetString();
   const base::Value& printer_value = args[1];
@@ -846,7 +846,7 @@ void CupsPrintersHandler::OnAddOrEditPrinterError(
 }
 
 void CupsPrintersHandler::HandleGetCupsPrinterManufacturers(
-    base::Value::ConstListView args) {
+    const base::Value::List& args) {
   AllowJavascript();
   CHECK_EQ(1U, args.size());
   const std::string& callback_id = args[0].GetString();
@@ -856,7 +856,7 @@ void CupsPrintersHandler::HandleGetCupsPrinterManufacturers(
 }
 
 void CupsPrintersHandler::HandleGetCupsPrinterModels(
-    base::Value::ConstListView args) {
+    const base::Value::List& args) {
   AllowJavascript();
   CHECK_EQ(2U, args.size());
   const std::string& callback_id = args[0].GetString();
@@ -878,7 +878,11 @@ void CupsPrintersHandler::HandleGetCupsPrinterModels(
                      weak_factory_.GetWeakPtr(), manufacturer, callback_id));
 }
 
-void CupsPrintersHandler::HandleSelectPPDFile(base::Value::ConstListView args) {
+void CupsPrintersHandler::HandleSelectPPDFile(const base::Value::List& args) {
+  // Early return if the select file dialog is already active.
+  if (select_file_dialog_)
+    return;
+
   CHECK_EQ(1U, args.size());
   webui_callback_id_ = args[0].GetString();
 
@@ -943,7 +947,9 @@ void CupsPrintersHandler::FileSelected(const base::FilePath& path,
                                        void* params) {
   DCHECK(!webui_callback_id_.empty());
 
-  // Load the beggining contents of the file located at |path| and callback into
+  select_file_dialog_ = nullptr;
+
+  // Load the beginning contents of the file located at |path| and callback into
   // VerifyPpdContents() in order to determine whether the file appears to be a
   // PPD file. The task's priority is USER_BLOCKING because the this task
   // updates the UI as a result of a direct user action.
@@ -952,6 +958,10 @@ void CupsPrintersHandler::FileSelected(const base::FilePath& path,
       base::BindOnce(&ReadFileToStringWithMaxSize, path, kPpdMaxLineLength),
       base::BindOnce(&CupsPrintersHandler::VerifyPpdContents,
                      weak_factory_.GetWeakPtr(), path));
+}
+
+void CupsPrintersHandler::FileSelectionCanceled(void* params) {
+  select_file_dialog_ = nullptr;
 }
 
 void CupsPrintersHandler::VerifyPpdContents(const base::FilePath& path,
@@ -965,8 +975,7 @@ void CupsPrintersHandler::VerifyPpdContents(const base::FilePath& path,
   webui_callback_id_.clear();
 }
 
-void CupsPrintersHandler::HandleStartDiscovery(
-    base::Value::ConstListView args) {
+void CupsPrintersHandler::HandleStartDiscovery(const base::Value::List& args) {
   PRINTER_LOG(DEBUG) << "Start printer discovery";
   AllowJavascript();
   discovery_active_ = true;
@@ -982,7 +991,7 @@ void CupsPrintersHandler::HandleStartDiscovery(
   FireWebUIListener("on-printer-discovery-done");
 }
 
-void CupsPrintersHandler::HandleStopDiscovery(base::Value::ConstListView args) {
+void CupsPrintersHandler::HandleStopDiscovery(const base::Value::List& args) {
   PRINTER_LOG(DEBUG) << "Stop printer discovery";
   discovered_printers_.clear();
   automatic_printers_.clear();
@@ -993,7 +1002,7 @@ void CupsPrintersHandler::HandleStopDiscovery(base::Value::ConstListView args) {
   discovery_active_ = false;
 }
 
-void CupsPrintersHandler::HandleSetUpCancel(base::Value::ConstListView args) {
+void CupsPrintersHandler::HandleSetUpCancel(const base::Value::List& args) {
   PRINTER_LOG(DEBUG) << "Printer setup cancelled";
   const base::Value& printer_value = args[0];
   CHECK(printer_value.is_dict());
@@ -1056,7 +1065,7 @@ void CupsPrintersHandler::UpdateDiscoveredPrinters() {
 }
 
 void CupsPrintersHandler::HandleAddDiscoveredPrinter(
-    base::Value::ConstListView args) {
+    const base::Value::List& args) {
   AllowJavascript();
   CHECK_EQ(2U, args.size());
   const std::string& callback_id = args[0].GetString();
@@ -1120,7 +1129,7 @@ void CupsPrintersHandler::HandleAddDiscoveredPrinter(
 }
 
 void CupsPrintersHandler::HandleGetPrinterPpdManufacturerAndModel(
-    base::Value::ConstListView args) {
+    const base::Value::List& args) {
   AllowJavascript();
   CHECK_EQ(2U, args.size());
   const std::string& callback_id = args[0].GetString();
@@ -1153,7 +1162,7 @@ void CupsPrintersHandler::OnGetPrinterPpdManufacturerAndModel(
   ResolveJavascriptCallback(base::Value(callback_id), info);
 }
 
-void CupsPrintersHandler::HandleGetEulaUrl(base::Value::ConstListView args) {
+void CupsPrintersHandler::HandleGetEulaUrl(const base::Value::List& args) {
   CHECK_EQ(3U, args.size());
   const std::string callback_id = args[0].GetString();
   const std::string ppd_manufacturer = args[1].GetString();
@@ -1232,7 +1241,7 @@ void CupsPrintersHandler::OnIpResolved(const std::string& callback_id,
 }
 
 void CupsPrintersHandler::HandleQueryPrintServer(
-    base::Value::ConstListView args) {
+    const base::Value::List& args) {
   CHECK_EQ(2U, args.size());
   const std::string& callback_id = args[0].GetString();
   const std::string& server_url = args[1].GetString();
@@ -1313,13 +1322,12 @@ void CupsPrintersHandler::OnQueryPrintServerCompleted(
 }
 
 void CupsPrintersHandler::HandleOpenPrintManagementApp(
-    base::Value::ConstListView args) {
+    const base::Value::List& args) {
   DCHECK(args.empty());
   chrome::ShowPrintManagementApp(profile_);
 }
 
-void CupsPrintersHandler::HandleOpenScanningApp(
-    base::Value::ConstListView args) {
+void CupsPrintersHandler::HandleOpenScanningApp(const base::Value::List& args) {
   DCHECK(args.empty());
   chrome::ShowScanningApp(profile_);
 }

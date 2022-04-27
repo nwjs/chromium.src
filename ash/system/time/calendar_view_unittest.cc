@@ -25,6 +25,7 @@
 #include "ui/compositor/scoped_animation_duration_scale_mode.h"
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/controls/label.h"
+#include "ui/views/focus/focus_manager.h"
 
 namespace ash {
 
@@ -92,6 +93,7 @@ class CalendarViewTest : public AshTestBase {
   views::View* previous_label() { return calendar_view_->previous_label_; }
   views::View* current_label() { return calendar_view_->current_label_; }
   views::View* next_label() { return calendar_view_->next_label_; }
+  views::View* next_next_label() { return calendar_view_->next_next_label_; }
 
   views::ScrollView::ScrollBarMode GetScrollBarMode() {
     return scroll_view()->GetVerticalScrollBarMode();
@@ -102,41 +104,33 @@ class CalendarViewTest : public AshTestBase {
     return previous_label()->GetPreferredSize().height() +
            calendar_view_->previous_month_->GetPreferredSize().height() +
            current_label()->GetPreferredSize().height() +
-           calendar_view_->current_month_->GetPreferredSize().height();
+           calendar_view_->current_month_->GetPreferredSize().height() +
+           next_label()->GetPreferredSize().height();
   }
 
   std::u16string GetPreviousLabelText() {
-    std::u16string month_text =
-        static_cast<views::Label*>(previous_label()->children()[0])->GetText();
-    if (previous_label()->children().size() > 1) {
-      month_text += static_cast<views::Label*>(previous_label()->children()[1])
-                        ->GetText();
-    }
-    return month_text;
+    return static_cast<views::Label*>(previous_label()->children()[0])
+        ->GetText();
   }
   std::u16string GetCurrentLabelText() {
-    std::u16string month_text =
-        static_cast<views::Label*>(current_label()->children()[0])->GetText();
-    if (current_label()->children().size() > 1) {
-      month_text +=
-          static_cast<views::Label*>(current_label()->children()[1])->GetText();
-    }
-    return month_text;
+    return static_cast<views::Label*>(current_label()->children()[0])
+        ->GetText();
   }
   std::u16string GetNextLabelText() {
-    std::u16string month_text =
-        static_cast<views::Label*>(next_label()->children()[0])->GetText();
-    if (next_label()->children().size() > 1) {
-      month_text +=
-          static_cast<views::Label*>(next_label()->children()[1])->GetText();
-    }
-    return month_text;
+    return static_cast<views::Label*>(next_label()->children()[0])->GetText();
+  }
+  std::u16string GetNextNextLabelText() {
+    return static_cast<views::Label*>(next_next_label()->children()[0])
+        ->GetText();
   }
   CalendarMonthView* previous_month() {
     return calendar_view_->previous_month_;
   }
   CalendarMonthView* current_month() { return calendar_view_->current_month_; }
   CalendarMonthView* next_month() { return calendar_view_->next_month_; }
+  CalendarMonthView* next_next_month() {
+    return calendar_view_->next_next_month_;
+  }
 
   views::Label* month_header() { return calendar_view_->header_->header_; }
   views::Label* header_year() { return calendar_view_->header_->header_year_; }
@@ -228,6 +222,7 @@ TEST_F(CalendarViewTest, Init) {
   EXPECT_EQ(u"July", GetPreviousLabelText());
   EXPECT_EQ(u"August", GetCurrentLabelText());
   EXPECT_EQ(u"September", GetNextLabelText());
+  EXPECT_EQ(u"October", GetNextNextLabelText());
   EXPECT_EQ(u"August", month_header()->GetText());
   EXPECT_EQ(u"2021", header_year()->GetText());
 
@@ -240,6 +235,9 @@ TEST_F(CalendarViewTest, Init) {
   EXPECT_EQ(
       u"29",
       static_cast<views::LabelButton*>(next_month()->children()[0])->GetText());
+  EXPECT_EQ(u"26",
+            static_cast<views::LabelButton*>(next_next_month()->children()[0])
+                ->GetText());
 }
 
 // Test the init view of the `CalendarView` starting with December.
@@ -258,6 +256,7 @@ TEST_F(CalendarViewTest, InitDec) {
   EXPECT_EQ(u"November", GetPreviousLabelText());
   EXPECT_EQ(u"December", GetCurrentLabelText());
   EXPECT_EQ(u"January", GetNextLabelText());
+  EXPECT_EQ(u"February", GetNextNextLabelText());
   EXPECT_EQ(u"December", month_header()->GetText());
   EXPECT_EQ(u"2021", header_year()->GetText());
 
@@ -267,9 +266,9 @@ TEST_F(CalendarViewTest, InitDec) {
   EXPECT_EQ(u"28",
             static_cast<views::LabelButton*>(current_month()->children()[0])
                 ->GetText());
-  EXPECT_EQ(
-      u"26",
-      static_cast<views::LabelButton*>(next_month()->children()[0])->GetText());
+  EXPECT_EQ(u"30",
+            static_cast<views::LabelButton*>(next_next_month()->children()[0])
+                ->GetText());
 }
 
 TEST_F(CalendarViewTest, Scroll) {
@@ -287,6 +286,7 @@ TEST_F(CalendarViewTest, Scroll) {
   EXPECT_EQ(u"September", GetPreviousLabelText());
   EXPECT_EQ(u"October", GetCurrentLabelText());
   EXPECT_EQ(u"November", GetNextLabelText());
+  EXPECT_EQ(u"December", GetNextNextLabelText());
   EXPECT_EQ(u"October", month_header()->GetText());
   EXPECT_EQ(u"2021", header_year()->GetText());
 
@@ -297,6 +297,7 @@ TEST_F(CalendarViewTest, Scroll) {
   EXPECT_EQ(u"October", GetPreviousLabelText());
   EXPECT_EQ(u"November", GetCurrentLabelText());
   EXPECT_EQ(u"December", GetNextLabelText());
+  EXPECT_EQ(u"January", GetNextNextLabelText());
   EXPECT_EQ(u"November", month_header()->GetText());
   EXPECT_EQ(u"2021", header_year()->GetText());
 
@@ -306,6 +307,7 @@ TEST_F(CalendarViewTest, Scroll) {
   EXPECT_EQ(u"November", GetPreviousLabelText());
   EXPECT_EQ(u"December", GetCurrentLabelText());
   EXPECT_EQ(u"January", GetNextLabelText());
+  EXPECT_EQ(u"February", GetNextNextLabelText());
   EXPECT_EQ(u"December", month_header()->GetText());
   EXPECT_EQ(u"2021", header_year()->GetText());
 
@@ -315,6 +317,7 @@ TEST_F(CalendarViewTest, Scroll) {
   EXPECT_EQ(u"December", GetPreviousLabelText());
   EXPECT_EQ(u"January", GetCurrentLabelText());
   EXPECT_EQ(u"February", GetNextLabelText());
+  EXPECT_EQ(u"March", GetNextNextLabelText());
   EXPECT_EQ(u"January", month_header()->GetText());
   EXPECT_EQ(u"2022", header_year()->GetText());
 }
@@ -335,6 +338,7 @@ TEST_F(CalendarViewTest, ButtonFunctions) {
   EXPECT_EQ(u"September", GetPreviousLabelText());
   EXPECT_EQ(u"October", GetCurrentLabelText());
   EXPECT_EQ(u"November", GetNextLabelText());
+  EXPECT_EQ(u"December", GetNextNextLabelText());
   EXPECT_EQ(u"October", month_header()->GetText());
   EXPECT_EQ(u"2021", header_year()->GetText());
 
@@ -343,6 +347,7 @@ TEST_F(CalendarViewTest, ButtonFunctions) {
   EXPECT_EQ(u"October", GetPreviousLabelText());
   EXPECT_EQ(u"November", GetCurrentLabelText());
   EXPECT_EQ(u"December", GetNextLabelText());
+  EXPECT_EQ(u"January", GetNextNextLabelText());
   EXPECT_EQ(u"November", month_header()->GetText());
   EXPECT_EQ(u"2021", header_year()->GetText());
 
@@ -351,6 +356,7 @@ TEST_F(CalendarViewTest, ButtonFunctions) {
   EXPECT_EQ(u"November", GetPreviousLabelText());
   EXPECT_EQ(u"December", GetCurrentLabelText());
   EXPECT_EQ(u"January", GetNextLabelText());
+  EXPECT_EQ(u"February", GetNextNextLabelText());
   EXPECT_EQ(u"December", month_header()->GetText());
   EXPECT_EQ(u"2021", header_year()->GetText());
 
@@ -375,6 +381,7 @@ TEST_F(CalendarViewTest, ButtonFunctions) {
   EXPECT_EQ(u"December", GetPreviousLabelText());
   EXPECT_EQ(u"January", GetCurrentLabelText());
   EXPECT_EQ(u"February", GetNextLabelText());
+  EXPECT_EQ(u"March", GetNextNextLabelText());
   EXPECT_EQ(u"January", month_header()->GetText());
   EXPECT_EQ(u"2022", header_year()->GetText());
 
@@ -384,6 +391,7 @@ TEST_F(CalendarViewTest, ButtonFunctions) {
   EXPECT_EQ(u"September", GetPreviousLabelText());
   EXPECT_EQ(u"October", GetCurrentLabelText());
   EXPECT_EQ(u"November", GetNextLabelText());
+  EXPECT_EQ(u"December", GetNextNextLabelText());
   EXPECT_EQ(u"October", month_header()->GetText());
   EXPECT_EQ(u"2021", header_year()->GetText());
 
@@ -395,6 +403,7 @@ TEST_F(CalendarViewTest, ButtonFunctions) {
   EXPECT_EQ(u"May", GetPreviousLabelText());
   EXPECT_EQ(u"June", GetCurrentLabelText());
   EXPECT_EQ(u"July", GetNextLabelText());
+  EXPECT_EQ(u"August", GetNextNextLabelText());
   EXPECT_EQ(u"June", month_header()->GetText());
   EXPECT_EQ(u"2021", header_year()->GetText());
 
@@ -405,6 +414,7 @@ TEST_F(CalendarViewTest, ButtonFunctions) {
   EXPECT_EQ(u"September", GetPreviousLabelText());
   EXPECT_EQ(u"October", GetCurrentLabelText());
   EXPECT_EQ(u"November", GetNextLabelText());
+  EXPECT_EQ(u"December", GetNextNextLabelText());
   EXPECT_EQ(u"October", month_header()->GetText());
   EXPECT_EQ(u"2021", header_year()->GetText());
 }
@@ -488,6 +498,102 @@ TEST_F(CalendarViewTest, FocusingToDateCell) {
   EXPECT_EQ(u"7",
             static_cast<views::LabelButton*>(focus_manager->GetFocusedView())
                 ->GetText());
+}
+
+// Used to determine whether focus goes directly to the proper CalendarDateCell
+// prior to moving on to the EventListView.
+class DateCellFocusChangeListener : public views::FocusChangeListener {
+ public:
+  DateCellFocusChangeListener(views::FocusManager* focus_manager,
+                              std::u16string looking_for,
+                              int steps_to_find)
+      : focus_manager_(focus_manager),
+        looking_for_(looking_for),
+        steps_to_find_(steps_to_find) {
+    focus_manager_->AddFocusChangeListener(this);
+  }
+  DateCellFocusChangeListener(const DateCellFocusChangeListener& other) =
+      delete;
+  DateCellFocusChangeListener& operator=(
+      const DateCellFocusChangeListener& other) = delete;
+  ~DateCellFocusChangeListener() override {
+    focus_manager_->RemoveFocusChangeListener(this);
+    EXPECT_EQ(steps_taken_, steps_to_find_);
+  }
+
+  bool found() const { return found_; }
+
+  // views::FocusChangeListener:
+  void OnWillChangeFocus(views::View* focused_before,
+                         views::View* focused_now) override {}
+  void OnDidChangeFocus(views::View* focused_before,
+                        views::View* focused_now) override {
+    if (found_)
+      return;
+
+    steps_taken_++;
+    found_ = static_cast<const views::LabelButton*>(focused_now)->GetText() ==
+             looking_for_;
+    DCHECK_LE(steps_taken_, steps_to_find_);
+  }
+
+ private:
+  // Whether a `views::Labelbutton` matching `looking_for_` was focused.
+  bool found_ = false;
+  // How many focus changes have occurred so far.
+  int steps_taken_ = 0;
+
+  // Unowned.
+  views::FocusManager* const focus_manager_;
+  // The string being looked for.
+  const std::u16string looking_for_;
+  // The number of steps it is acceptable to have made before finding the
+  // appropriate view.
+  const int steps_to_find_;
+};
+
+// Tests that keyboard focus movement mixed with non-keyboard date cell
+// activation results in proper focus directly to the date cell.
+TEST_F(CalendarViewTest, MixedInput) {
+  base::Time date;
+  // Create a monthview based on Jun,7th 2021.
+  ASSERT_TRUE(base::Time::FromString("7 Jun 2021 10:00 GMT", &date));
+
+  // Set time override.
+  SetFakeNow(date);
+  base::subtle::ScopedTimeClockOverrides time_override(
+      &CalendarViewTest::FakeTimeNow, /*time_ticks_override=*/nullptr,
+      /*thread_ticks_override=*/nullptr);
+
+  CreateCalendarView();
+
+  auto* focus_manager = calendar_view()->GetFocusManager();
+
+  // Generates a tab key press. Should focus on today's cell.
+  PressTab();
+  ASSERT_EQ(u"7",
+            static_cast<views::LabelButton*>(focus_manager->GetFocusedView())
+                ->GetText());
+
+  const views::LabelButton* non_focused_date_cell_view = nullptr;
+  for (const auto* child_view : current_month()->children()) {
+    auto* date_cell_view = static_cast<const views::LabelButton*>(child_view);
+    if (u"9" != date_cell_view->GetText())
+      continue;
+
+    non_focused_date_cell_view = date_cell_view;
+    break;
+  }
+
+  {
+    auto focus_change_listener = DateCellFocusChangeListener(
+        focus_manager, /*looking_for=*/u"9", /*steps_to_find=*/1);
+    auto* event_generator = GetEventGenerator();
+    event_generator->MoveMouseTo(
+        non_focused_date_cell_view->GetBoundsInScreen().CenterPoint());
+    event_generator->ClickLeftButton();
+    EXPECT_TRUE(focus_change_listener.found());
+  }
 }
 
 TEST_F(CalendarViewTest, MonthViewFocusing) {
@@ -837,7 +943,8 @@ class CalendarViewAnimationTest : public AshTestBase {
     return previous_label()->GetPreferredSize().height() +
            calendar_view_->previous_month_->GetPreferredSize().height() +
            current_label()->GetPreferredSize().height() +
-           calendar_view_->current_month_->GetPreferredSize().height();
+           calendar_view_->current_month_->GetPreferredSize().height() +
+           next_label()->GetPreferredSize().height();
   }
 
   bool is_scrolling_up() { return calendar_view_->is_scrolling_up_; }

@@ -145,7 +145,7 @@
     </style>
 
     <!-- Snooze button -->
-    <style name="TextButton.Inverse.Snooze">
+    <style name="TextButton.OnAccent1.Snooze">
         <item name="android:paddingStart">@dimen/text_bubble_with_snooze_padding_horizontal</item>
         <item name="android:paddingEnd">@dimen/text_bubble_with_snooze_padding_horizontal</item>
         <item name="android:paddingTop">10dp</item>
@@ -201,5 +201,18 @@
         <item name="chipColor">@color/menu_chip_background</item>
         <item name="solidColorChip">true</item>
         <item name="verticalInset">@dimen/menu_chip_vertical_inset</item>
+    </style>
+
+    <!-- Popup and long-press context popup menu style -->
+    <style name="PopupMenuStyle" parent="Widget.AppCompat.Light.PopupMenu">
+        <item name="android:popupBackground">@drawable/menu_bg_tinted</item>
+        <item name="android:overlapAnchor" tools:targetApi="21">true</item>
+        <item name="android:popupElevation" tools:targetApi="21">0dp</item>
+    </style>
+
+    <!-- Spinner styles -->
+    <style name="SpinnerStyle" parent="Widget.AppCompat.Spinner">
+        <item name="android:popupBackground">@drawable/dialog_bg_tinted</item>
+        <item name="android:popupElevation" tools:targetApi="21">0dp</item>
     </style>
 </resources>

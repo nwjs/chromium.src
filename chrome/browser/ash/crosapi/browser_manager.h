@@ -24,6 +24,7 @@
 #include "chrome/browser/ash/crosapi/crosapi_util.h"
 #include "chrome/browser/ash/crosapi/environment_provider.h"
 #include "chromeos/crosapi/mojom/crosapi.mojom.h"
+#include "chromeos/crosapi/mojom/desk_template.mojom.h"
 #include "components/component_updater/component_updater_service.h"
 #include "components/policy/core/common/cloud/cloud_policy_store.h"
 #include "components/session_manager/core/session_manager_observer.h"
@@ -87,6 +88,10 @@ class BrowserManager : public session_manager::SessionManagerObserver,
   // Returns true if Lacros is terminated.
   bool IsTerminated() const { return is_terminated_; }
 
+  // Tests will typically manually launch Lacros. As such it should not be
+  // automatically launched.
+  void DisableAutoLaunchForTesting();
+
   // Opens the browser window in lacros-chrome.
   // If lacros-chrome is not yet launched, it triggers to launch. If this is
   // called again during the setup phase of the launch process, it will be
@@ -105,6 +110,10 @@ class BrowserManager : public session_manager::SessionManagerObserver,
   // startup URLs, etc). Otherwise, don't restore the session and instead open a
   // new window with the default blank tab.
   void NewWindow(bool incognito, bool should_trigger_session_restore);
+
+  // Performs a full restore of the lacros browser. This must be done after
+  // Lacros has been launched from a background state.
+  void OpenForFullRestore();
 
   // Returns true if crosapi interface supports NewWindowForDetachingTab API.
   bool NewWindowForDetachingTabSupported() const;
@@ -195,6 +204,13 @@ class BrowserManager : public session_manager::SessionManagerObserver,
   // Gets Url of the active tab from lacros if there is any.
   void GetActiveTabUrl(GetActiveTabUrlCallback callback);
 
+  using GetTabStripModelUrlsCallback =
+      base::OnceCallback<void(crosapi::mojom::DeskTemplateStatePtr)>;
+  // Gets URLs and active indices of the tab strip models from the Lacros
+  // browser window.
+  void GetTabStripModelUrls(const std::string& window_unique_id,
+                            GetTabStripModelUrlsCallback callback);
+
   void AddObserver(BrowserManagerObserver* observer);
   void RemoveObserver(BrowserManagerObserver* observer);
 
@@ -212,6 +228,10 @@ class BrowserManager : public session_manager::SessionManagerObserver,
   // called in the early stages of ash shutdown to give Lacros sufficient time
   // for a graceful exit.
   void Shutdown();
+
+  void set_relaunch_requested_for_testing(bool relaunch_requested) {
+    relaunch_requested_ = relaunch_requested;
+  }
 
   // Parameters used to launch Lacros that are calculated on a background
   // sequence. Public so that it can be used from private static functions.
@@ -272,6 +292,8 @@ class BrowserManager : public session_manager::SessionManagerObserver,
   FRIEND_TEST_ALL_PREFIXES(BrowserManagerTest, LacrosKeepAlive);
   FRIEND_TEST_ALL_PREFIXES(BrowserManagerTest,
                            LacrosKeepAliveReloadsWhenUpdateAvailable);
+  FRIEND_TEST_ALL_PREFIXES(BrowserManagerTest,
+                           LacrosKeepAliveDoesNotBlockRestart);
   friend class apps::StandaloneBrowserExtensionApps;
   // App service require the lacros-chrome to keep alive for web apps to:
   // 1. Have lacros-chrome running before user open the browser so we can
@@ -485,6 +507,8 @@ class BrowserManager : public session_manager::SessionManagerObserver,
   std::set<Feature> keep_alive_features_;
 
   base::ObserverList<BrowserManagerObserver> observers_;
+
+  bool disable_autolaunch_for_testing_ = false;
 
   base::WeakPtrFactory<BrowserManager> weak_factory_{this};
 };

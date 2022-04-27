@@ -56,21 +56,6 @@
       <structure name="IDR_SIGNIN_SHARED_CSS_HTML" file="resources\signin\signin_shared_css.html" preprocess="true" allowexternalscript="true" type="chrome_html" />
     </structures>
     <includes>
-      <if expr="is_win or is_macosx or is_linux">
-        <include name="IDR_COMMANDER_HTML" file="resources\commander\commander.html" type="BINDATA" />
-        <include name="IDR_DISCARDS_DATABASE_TAB_HTML" file="resources\discards\database_tab.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
-        <include name="IDR_DISCARDS_DATABASE_TAB_JS" file="resources\discards\database_tab.js" type="BINDATA" />
-        <include name="IDR_DISCARDS_DISCARDS_MAIN_HTML" file="resources\discards\discards_main.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
-        <include name="IDR_DISCARDS_DISCARDS_MAIN_JS" file="resources\discards\discards_main.js" type="BINDATA" />
-        <include name="IDR_DISCARDS_DISCARDS_TAB_HTML" file="resources\discards\discards_tab.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
-        <include name="IDR_DISCARDS_DISCARDS_TAB_JS" file="resources\discards\discards_tab.js" type="BINDATA" />
-        <include name="IDR_DISCARDS_HTML" file="resources\discards\discards.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
-        <include name="IDR_DISCARDS_JS" file="resources\discards\discards.js" type="BINDATA" />
-        <include name="IDR_DISCARDS_LIFECYCLE_UNIT_STATE_MOJO_JS" file="${root_gen_dir}\chrome\browser\resource_coordinator\lifecycle_unit_state.mojom.js" use_base_dir="false" type="BINDATA" />
-        <include name="IDR_DISCARDS_MOJO_JS" file="${root_gen_dir}\chrome\browser\ui\webui\discards\discards.mojom.js" use_base_dir="false" type="BINDATA" />
-        <include name="IDR_DISCARDS_MOJO_PUBLIC_BASE_PROCESS_ID_MOJOM_JS" file="${root_gen_dir}\mojo\public\mojom\base\process_id.mojom.js" use_base_dir="false" type="BINDATA" />
-        <include name="IDR_DISCARDS_SORTED_TABLE_BEHAVIOR_JS" file="resources\discards\sorted_table_behavior.js" type="BINDATA" />
-      </if>
       <include name="IDR_NWJS_DEFAPP_MANIFEST" file="resources\nwjs_default_app\manifest.json" type="BINDATA" />
       <include name="IDR_NWJS_DEFAPP_MANIFEST_NEWWIN" file="resources\nwjs_newwin_app\manifest.json" type="BINDATA" />
       <if expr="is_win">
@@ -89,6 +74,8 @@
       </if>
       <if expr="not is_android">
         <include name="IDR_ABOUT_SYS_HTML" file="resources\empty.html" flattenhtml="true" type="BINDATA" />
+        <include name="IDR_ABOUT_SYS_CSS" file="resources\empty.html" flattenhtml="true" type="BINDATA" />
+        <include name="IDR_ABOUT_SYS_JS" file="resources\empty.html" preprocess="true" type="BINDATA" />
       </if>
 
       <include name="IDR_ACCESSIBILITY_HTML" file="resources\accessibility\accessibility.html" flattenhtml="true" allowexternalscript="true" compress="gzip" type="BINDATA" />

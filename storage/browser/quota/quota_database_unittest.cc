@@ -176,6 +176,20 @@ TEST_P(QuotaDatabaseTest, EnsureOpened) {
   }
 }
 
+TEST_P(QuotaDatabaseTest, RazeAndReopenWithNoDb) {
+  QuotaDatabase db(use_in_memory_db() ? base::FilePath() : DbPath());
+  // RazeAndReopen() with no db tries to create the db one last time.
+  EXPECT_FALSE(EnsureOpened(&db, EnsureOpenedMode::kFailIfNotFound));
+  EXPECT_EQ(db.RazeAndReopen(), QuotaError::kNone);
+
+  if (GetParam()) {
+    // Path should not exist for incognito mode.
+    ASSERT_FALSE(base::PathExists(DbPath()));
+  } else {
+    ASSERT_TRUE(base::PathExists(DbPath()));
+  }
+}
+
 TEST_P(QuotaDatabaseTest, HostQuota) {
   QuotaDatabase db(use_in_memory_db() ? base::FilePath() : DbPath());
   EXPECT_TRUE(EnsureOpened(&db, EnsureOpenedMode::kCreateIfNotFound));
@@ -311,6 +325,36 @@ TEST_P(QuotaDatabaseTest, GetBucket) {
   result =
       db.GetBucket(StorageKey::CreateFromStringForTesting("http://example/"),
                    bucket_name, kPerm);
+  ASSERT_FALSE(result.ok());
+  EXPECT_EQ(result.error(), QuotaError::kNotFound);
+}
+
+TEST_P(QuotaDatabaseTest, GetBucketById) {
+  QuotaDatabase db(use_in_memory_db() ? base::FilePath() : DbPath());
+  EXPECT_TRUE(EnsureOpened(&db, EnsureOpenedMode::kCreateIfNotFound));
+
+  // Add a bucket entry into the bucket table.
+  StorageKey storage_key =
+      StorageKey::CreateFromStringForTesting("http://google/");
+  std::string bucket_name = "google_bucket";
+  QuotaErrorOr<BucketInfo> result =
+      db.CreateBucketForTesting(storage_key, bucket_name, kPerm);
+  ASSERT_TRUE(result.ok());
+
+  BucketInfo created_bucket = result.value();
+  ASSERT_GT(created_bucket.id.value(), 0);
+  ASSERT_EQ(created_bucket.name, bucket_name);
+  ASSERT_EQ(created_bucket.storage_key, storage_key);
+  ASSERT_EQ(created_bucket.type, kPerm);
+
+  result = db.GetBucketById(created_bucket.id);
+  ASSERT_TRUE(result.ok());
+  EXPECT_EQ(result.value().name, created_bucket.name);
+  EXPECT_EQ(result.value().storage_key, created_bucket.storage_key);
+  ASSERT_EQ(result.value().type, created_bucket.type);
+
+  constexpr BucketId kNonExistentBucketId(7777);
+  result = db.GetBucketById(BucketId(kNonExistentBucketId));
   ASSERT_FALSE(result.ok());
   EXPECT_EQ(result.error(), QuotaError::kNotFound);
 }
@@ -453,8 +497,13 @@ TEST_P(QuotaDatabaseTest, GetBucketWithNoDb) {
 
 // TODO(crbug.com/1216094): Update test to have its behavior on Fuchsia/Win
 // match with other platforms, and enable test on all platforms.
-#if !BUILDFLAG(IS_FUCHSIA) && !BUILDFLAG(IS_WIN)
-TEST_F(QuotaDatabaseTest, GetBucketWithOpenDatabaseError) {
+#if BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_WIN)
+#define MAYBE_GetBucketWithOpenDatabaseError \
+  DISABLED_GetBucketWithOpenDatabaseError
+#else
+#define MAYBE_GetBucketWithOpenDatabaseError GetBucketWithOpenDatabaseError
+#endif
+TEST_F(QuotaDatabaseTest, MAYBE_GetBucketWithOpenDatabaseError) {
   base::HistogramTester histograms;
   sql::test::ScopedErrorExpecter expecter;
   expecter.ExpectError(SQLITE_CANTOPEN);
@@ -476,7 +525,6 @@ TEST_F(QuotaDatabaseTest, GetBucketWithOpenDatabaseError) {
   histograms.ExpectBucketCount("Quota.QuotaDatabaseReset",
                                DatabaseResetReason::kOpenDatabase, 1);
 }
-#endif  // !BUILDFLAG(IS_FUCHSIA) && !BUILDFLAG(IS_WIN)
 
 TEST_P(QuotaDatabaseTest, BucketLastAccessTimeLRU) {
   QuotaDatabase db(use_in_memory_db() ? base::FilePath() : DbPath());

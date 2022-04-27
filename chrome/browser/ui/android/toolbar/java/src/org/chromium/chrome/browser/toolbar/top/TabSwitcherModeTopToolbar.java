@@ -19,6 +19,7 @@ import androidx.annotation.Nullable;
 
 import org.chromium.base.supplier.BooleanSupplier;
 import org.chromium.chrome.browser.device.DeviceClassManager;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
@@ -136,6 +137,10 @@ public class TabSwitcherModeTopToolbar extends OptimizedFrameLayout
      * @param inTabSwitcherMode Whether or not tab switcher mode should be shown or hidden.
      */
     void setTabSwitcherMode(boolean inTabSwitcherMode) {
+        // Skip the animations and visibility logic when Tablet GTS polish param is enabled, since
+        // they will instead be handled by the container view.
+        if (isTabletGridTabSwitcherPolishEnabled()) return;
+
         if (mVisiblityAnimator != null) mVisiblityAnimator.cancel();
 
         setVisibility(View.VISIBLE);
@@ -253,14 +258,11 @@ public class TabSwitcherModeTopToolbar extends OptimizedFrameLayout
 
     /** Called when incognito tab existence changes. */
     void onIncognitoTabsExistenceChanged(boolean doesExist) {
+        setIncognitoToggleVisibility(doesExist);
         boolean shouldShowNewTabVariation = shouldShowNewTabVariation(doesExist);
         if (shouldShowNewTabVariation == mShouldShowNewTabVariation) return;
 
         mShouldShowNewTabVariation = shouldShowNewTabVariation;
-
-        if (mIncognitoToggleTabLayout != null) {
-            mIncognitoToggleTabLayout.setVisibility(mShouldShowNewTabVariation ? GONE : VISIBLE);
-        }
         updateNewTabButtonVisibility();
     }
 
@@ -348,6 +350,7 @@ public class TabSwitcherModeTopToolbar extends OptimizedFrameLayout
     }
 
     private void setIncognitoToggleVisibility(boolean showIncognitoToggle) {
+        if (!shouldShowIncognitoToggle()) return;
         if (mIncognitoToggleTabLayout == null) {
             if (showIncognitoToggle) inflateIncognitoToggle();
         } else {
@@ -366,7 +369,8 @@ public class TabSwitcherModeTopToolbar extends OptimizedFrameLayout
      */
     private boolean shouldShowIncognitoToggle() {
         return mIsGridTabSwitcherEnabled && mIsIncognitoModeEnabledSupplier.getAsBoolean()
-                && !DeviceFormFactor.isNonMultiDisplayContextOnTablet(getContext());
+                && (!DeviceFormFactor.isNonMultiDisplayContextOnTablet(getContext())
+                        || isTabletGridTabSwitcherPolishEnabled());
     }
 
     /**
@@ -387,5 +391,10 @@ public class TabSwitcherModeTopToolbar extends OptimizedFrameLayout
         }
 
         return !incognitoTabExists;
+    }
+
+    private boolean isTabletGridTabSwitcherPolishEnabled() {
+        return ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
+                ChromeFeatureList.GRID_TAB_SWITCHER_FOR_TABLETS, "enable_launch_polish", false);
     }
 }

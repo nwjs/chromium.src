@@ -14,6 +14,7 @@ import android.os.Handler;
 import android.os.Message;
 import android.os.SystemClock;
 import android.text.TextUtils;
+import android.text.format.DateUtils;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup.MarginLayoutParams;
@@ -27,6 +28,7 @@ import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.MathUtils;
+import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.compositor.layouts.LayoutRenderHost;
@@ -36,12 +38,15 @@ import org.chromium.chrome.browser.compositor.layouts.components.CompositorButto
 import org.chromium.chrome.browser.compositor.layouts.components.TintedCompositorButton;
 import org.chromium.chrome.browser.compositor.layouts.phone.stack.StackScroller;
 import org.chromium.chrome.browser.compositor.overlays.strip.TabLoadTracker.TabLoadTrackerCallback;
+import org.chromium.chrome.browser.flags.CachedFeatureFlags;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.layouts.animation.CompositorAnimator;
 import org.chromium.chrome.browser.layouts.components.VirtualView;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
+import org.chromium.chrome.browser.tasks.tab_management.TabUiFeatureUtilities;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.LocalizationUtils;
 
@@ -83,7 +88,6 @@ public class StripLayoutHelper implements StripLayoutTab.StripLayoutTabDelegate 
     // Visibility Constants
     private static final float TAB_STACK_WIDTH_DP = 4.f;
     private static final float TAB_OVERLAP_WIDTH_DP = 24.f;
-    private static final float MIN_TAB_WIDTH_DP = 190.f;
     private static final float MAX_TAB_WIDTH_DP = 265.f;
     private static final float REORDER_MOVE_START_THRESHOLD_DP = 50.f;
     private static final float REORDER_EDGE_SCROLL_MAX_SPEED_DP = 1000.f;
@@ -94,9 +98,15 @@ public class StripLayoutHelper implements StripLayoutTab.StripLayoutTabDelegate 
     private static final float NEW_TAB_BUTTON_WIDTH_DP = 58.f;
     private static final float NEW_TAB_BUTTON_HEIGHT_DP = 32.5f;
     static final float FADE_FULL_OPACITY_THRESHOLD_DP = 24.f;
+    private static final float TAB_WIDTH_SMALL = 108.f;
 
     private static final int MESSAGE_RESIZE = 1;
     private static final int MESSAGE_UPDATE_SPINNER = 2;
+    private static final float TAB_WIDTH_MEDIUM = 156.f;
+    private static final float THRESHOLD_MEDIUM = 120.f;
+    private static final float THRESHOLD_SMALL = 96.f;
+    private static final long TAB_SWITCH_METRICS_MAX_ALLOWED_SCROLL_INTERVAL =
+            DateUtils.MINUTE_IN_MILLIS;
 
     // External influences
     private final LayoutUpdateHost mUpdateHost;
@@ -136,6 +146,10 @@ public class StripLayoutHelper implements StripLayoutTab.StripLayoutTabDelegate 
     private float mLastReorderX;
     private long mLastReorderScrollTime;
 
+    // Tab switch efficiency
+    private Long mTabScrollStartTime;
+    private Long mMostRecentTabScroll;
+
     // UI State
     private StripLayoutTab mInteractingTab;
     private CompositorButton mLastPressedCloseButton;
@@ -172,7 +186,8 @@ public class StripLayoutHelper implements StripLayoutTab.StripLayoutTabDelegate 
 
         mRightMargin = LocalizationUtils.isLayoutRtl() ? 0 : mNewTabButtonWidth;
         mLeftMargin = LocalizationUtils.isLayoutRtl() ? mNewTabButtonWidth : 0;
-        mMinTabWidth = MIN_TAB_WIDTH_DP;
+        mMinTabWidth = TabUiFeatureUtilities.getTabMinWidth();
+
         mMaxTabWidth = MAX_TAB_WIDTH_DP;
         mReorderMoveStartThreshold = REORDER_MOVE_START_THRESHOLD_DP;
         mUpdateHost = updateHost;
@@ -184,8 +199,7 @@ public class StripLayoutHelper implements StripLayoutTab.StripLayoutTabDelegate 
             }
         };
         mNewTabButton = new TintedCompositorButton(context, NEW_TAB_BUTTON_WIDTH_DP,
-                NEW_TAB_BUTTON_HEIGHT_DP, newTabClickHandler,
-                R.drawable.btn_tabstrip_new_tab_normal);
+                NEW_TAB_BUTTON_HEIGHT_DP, newTabClickHandler, R.drawable.btn_tabstrip_new_tab);
 
         mNewTabButton.setTintResources(R.color.new_tab_button_tint,
                 R.color.new_tab_button_pressed_tint, R.color.modern_white,
@@ -221,7 +235,10 @@ public class StripLayoutHelper implements StripLayoutTab.StripLayoutTabDelegate 
         mTabMenu.setWidth(menuWidth);
         mTabMenu.setModal(true);
 
-        mShouldCascadeTabs = DeviceFormFactor.isNonMultiDisplayContextOnTablet(context);
+        boolean tabStripImprovementsEnabled =
+                CachedFeatureFlags.isEnabled(ChromeFeatureList.TAB_STRIP_IMPROVEMENTS);
+        mShouldCascadeTabs = DeviceFormFactor.isNonMultiDisplayContextOnTablet(context)
+                && !tabStripImprovementsEnabled;
         mStripStacker = mShouldCascadeTabs ? mCascadingStripStacker : mScrollingStripStacker;
         mIsFirstLayoutPass = true;
     }
@@ -374,7 +391,11 @@ public class StripLayoutHelper implements StripLayoutTab.StripLayoutTabDelegate 
 
         if (widthChanged) {
             computeAndUpdateTabWidth(false);
-            setShouldCascadeTabs(width >= DeviceFormFactor.MINIMUM_TABLET_WIDTH_DP);
+            boolean tabStripImprovementsEnabled =
+                    CachedFeatureFlags.isEnabled(ChromeFeatureList.TAB_STRIP_IMPROVEMENTS);
+            boolean shouldCascade = width >= DeviceFormFactor.MINIMUM_TABLET_WIDTH_DP
+                    && !tabStripImprovementsEnabled;
+            setShouldCascadeTabs(shouldCascade);
         }
         if (mStripTabs.length > 0) mUpdateHost.requestUpdate();
 
@@ -445,10 +466,9 @@ public class StripLayoutHelper implements StripLayoutTab.StripLayoutTabDelegate 
     /**
      * Helper-specific updates. Cascades the values updated by the animations and flings.
      * @param time The current time of the app in ms.
-     * @param dt   The delta time between update frames in ms.
      * @return     Whether or not animations are done.
      */
-    public boolean updateLayout(long time, long dt) {
+    public boolean updateLayout(long time) {
         // 1. Handle any Scroller movements (flings).
         updateScrollOffset(time);
 
@@ -495,6 +515,7 @@ public class StripLayoutHelper implements StripLayoutTab.StripLayoutTabDelegate 
             tabCreated(time, id, prevId, true);
         } else {
             updateVisualTabOrdering();
+            updateCloseButtons();
 
             // If the tab was selected through a method other than the user tapping on the strip, it
             // may not be currently visible. Scroll if necessary.
@@ -620,6 +641,63 @@ public class StripLayoutHelper implements StripLayoutTab.StripLayoutTabDelegate 
     }
 
     /**
+     * Called to hide close tab buttons when tab width is <156dp when min tab width is 108dp or for
+     * partially visible tabs at the edge of the tab strip when min tab width is set to >=156dp.
+     */
+    private void updateCloseButtons() {
+        if (!CachedFeatureFlags.isEnabled(ChromeFeatureList.TAB_STRIP_IMPROVEMENTS)) {
+            return;
+        }
+
+        Tab selectedTab = mModel.getTabAt(mModel.index());
+        final int count = mModel.getCount();
+        if (selectedTab == null) return;
+
+        for (int i = 0; i < count; i++) {
+            final StripLayoutTab tab = mStripTabs[i];
+            if (TabUiFeatureUtilities.getTabMinWidth() == TAB_WIDTH_MEDIUM) {
+                mStripTabs[i].setCanShowCloseButton(!isPartiallyHiddenEdgeTab(tab, i));
+            } else if (TabUiFeatureUtilities.getTabMinWidth() == TAB_WIDTH_SMALL) {
+                mStripTabs[i].setCanShowCloseButton(tab.getWidth() >= TAB_WIDTH_MEDIUM
+                        || (tab.getId() == selectedTab.getId()
+                                && !isPartiallyHiddenEdgeTab(tab, i)));
+            }
+        }
+    }
+
+    /**
+     * Checks whether a tab at the edge of the strip is partially hidden, in which case the
+     * close button will be hidden to avoid accidental clicks.
+     * @param tab The tab to check
+     * @param index The index of the tab
+     * @return Whether the tab is a partially hidden edge tab
+     */
+    private boolean isPartiallyHiddenEdgeTab(StripLayoutTab tab, int index) {
+        boolean tabStartHidden;
+        boolean tabEndHidden;
+        boolean isLastTab = index == mStripTabs.length - 1;
+        if (LocalizationUtils.isLayoutRtl()) {
+            if (isLastTab) {
+                tabStartHidden = tab.getDrawX() + mTabOverlapWidth
+                        < mNewTabButton.getX() + mNewTabButton.getWidth();
+            } else {
+                tabStartHidden = tab.getDrawX() + mTabOverlapWidth < THRESHOLD_MEDIUM;
+            }
+            tabEndHidden = tab.getDrawX() > mWidth - THRESHOLD_SMALL;
+        } else {
+            tabStartHidden = tab.getDrawX() + tab.getWidth() < THRESHOLD_SMALL;
+            if (isLastTab) {
+                tabEndHidden =
+                        tab.getDrawX() + tab.getWidth() - mTabOverlapWidth > mNewTabButton.getX();
+            } else {
+                tabEndHidden = tab.getDrawX() + tab.getWidth() - mTabOverlapWidth
+                        > mWidth - THRESHOLD_MEDIUM;
+            }
+        }
+        return tabStartHidden || tabEndHidden;
+    }
+
+    /**
      * Called when a tab has started loading.
      * @param id The id of the Tab.
      */
@@ -725,6 +803,7 @@ public class StripLayoutHelper implements StripLayoutTab.StripLayoutTabDelegate 
                 if (!mIsStripScrollInProgress) {
                     mIsStripScrollInProgress = true;
                     RecordUserAction.record("MobileToolbarSlideTabs");
+                    onStripScrollStart();
                 }
                 updateScrollOffsetPosition((int) (mScrollOffset + deltaX));
             }
@@ -748,6 +827,20 @@ public class StripLayoutHelper implements StripLayoutTab.StripLayoutTabDelegate 
         mUpdateHost.requestUpdate();
     }
 
+    private void onStripScrollStart() {
+        long currentTime = SystemClock.elapsedRealtime();
+
+        // If last scroll is within the max allowed interval, do not reset start time.
+        if (mMostRecentTabScroll != null
+                && currentTime - mMostRecentTabScroll
+                        <= TAB_SWITCH_METRICS_MAX_ALLOWED_SCROLL_INTERVAL) {
+            mMostRecentTabScroll = currentTime;
+            return;
+        }
+
+        mTabScrollStartTime = currentTime;
+        mMostRecentTabScroll = currentTime;
+    }
     /**
      * Called on touch fling event. This is called before the onUpOrCancel event.
      * @param time      The current time of the app in ms.
@@ -917,8 +1010,27 @@ public class StripLayoutHelper implements StripLayoutTab.StripLayoutTabDelegate 
             RecordUserAction.record("MobileToolbarCloseTab");
             clickedTab.getCloseButton().handleClick(time);
         } else {
+            RecordUserAction.record("MobileTabSwitched.TabletTabStrip");
+            recordTabSwitchTimeHistogram();
             clickedTab.handleClick(time);
         }
+    }
+
+    private void recordTabSwitchTimeHistogram() {
+        if (mTabScrollStartTime == null || mMostRecentTabScroll == null) return;
+
+        long endTime = SystemClock.elapsedRealtime();
+        long duration = endTime - mTabScrollStartTime;
+        long timeFromLastInteraction = endTime - mMostRecentTabScroll;
+
+        // Discard sample if last scroll was over the max allowed interval.
+        if (timeFromLastInteraction <= TAB_SWITCH_METRICS_MAX_ALLOWED_SCROLL_INTERVAL) {
+            RecordHistogram.recordMediumTimesHistogram(
+                    "Android.TabStrip.TimeToSwitchTab", duration);
+        }
+
+        mTabScrollStartTime = null;
+        mMostRecentTabScroll = null;
     }
 
     /**
@@ -1192,6 +1304,9 @@ public class StripLayoutHelper implements StripLayoutTab.StripLayoutTabDelegate 
 
         // 7. Invalidate the accessibility provider in case the visible virtual views have changed.
         mRenderHost.invalidateAccessibilityProvider();
+
+        // 8. Hide close buttons if tab width gets lower than 156dp
+        updateCloseButtons();
     }
 
     private void computeTabInitialPositions() {
@@ -1747,6 +1862,14 @@ public class StripLayoutHelper implements StripLayoutTab.StripLayoutTabDelegate 
     @VisibleForTesting
     StripLayoutTab[] getStripLayoutTabs() {
         return mStripTabs;
+    }
+
+    /**
+     * Set the value of mStripTabs for testing
+     */
+    @VisibleForTesting
+    void setStripLayoutTabsForTest(StripLayoutTab[] stripTabs) {
+        this.mStripTabs = stripTabs;
     }
 
     /**

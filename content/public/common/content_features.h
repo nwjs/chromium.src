@@ -19,7 +19,6 @@ namespace features {
 CONTENT_EXPORT extern const base::Feature kNWNewWin;
 // All features in alphabetical order. The features should be documented
 // alongside the definition of their values in the .cc file.
-CONTENT_EXPORT extern const base::Feature kAllowActivationDelegationAttr;
 CONTENT_EXPORT extern const base::Feature
     kAllowContentInitiatedDataUrlNavigations;
 CONTENT_EXPORT extern const base::Feature kAndroidDownloadableFontsMatching;
@@ -29,10 +28,12 @@ CONTENT_EXPORT extern const base::Feature kAudioProcessHighPriorityWin;
 CONTENT_EXPORT extern const base::Feature kAudioServiceLaunchOnStartup;
 CONTENT_EXPORT extern const base::Feature kAudioServiceOutOfProcess;
 CONTENT_EXPORT extern const base::Feature kAudioServiceSandbox;
-CONTENT_EXPORT extern const base::Feature kAvoidUnnecessaryBeforeUnloadCheck;
+CONTENT_EXPORT extern const base::Feature
+    kAvoidUnnecessaryBeforeUnloadCheckPostTask;
+CONTENT_EXPORT extern const base::Feature
+    kAvoidUnnecessaryBeforeUnloadCheckSync;
 CONTENT_EXPORT extern const base::Feature kBackgroundFetch;
 CONTENT_EXPORT extern const base::Feature kBackForwardCache;
-CONTENT_EXPORT extern const base::Feature kBackForwardCacheSameSiteForBots;
 CONTENT_EXPORT extern const base::Feature kBackForwardCacheMemoryControls;
 CONTENT_EXPORT extern const base::Feature kBackForwardCacheMediaSessionService;
 CONTENT_EXPORT extern const base::Feature kBlockInsecurePrivateNetworkRequests;
@@ -69,13 +70,15 @@ CONTENT_EXPORT extern const base::Feature kDesktopCaptureLacrosV2;
 #endif
 CONTENT_EXPORT extern const base::Feature kDesktopPWAsTabStrip;
 CONTENT_EXPORT extern const base::Feature kDevicePosture;
+CONTENT_EXPORT extern const base::Feature kDigitalGoodsApi;
 CONTENT_EXPORT extern const base::Feature kDocumentPolicy;
 CONTENT_EXPORT extern const base::Feature kDocumentPolicyNegotiation;
 CONTENT_EXPORT extern const base::Feature kEarlyEstablishGpuChannel;
 CONTENT_EXPORT extern const base::Feature kEarlyHintsPreloadForNavigation;
 CONTENT_EXPORT extern const base::Feature kEmbeddingRequiresOptIn;
+CONTENT_EXPORT extern const base::Feature
+    kEnableBackForwardCacheForScreenReader;
 CONTENT_EXPORT extern const base::Feature kEnableCanvas2DLayers;
-CONTENT_EXPORT extern const base::Feature kEnableNewCanvas2DAPI;
 CONTENT_EXPORT extern const base::Feature kEnumerateDevicesHideDeviceIDs;
 CONTENT_EXPORT extern const base::Feature kExperimentalAccessibilityLabels;
 CONTENT_EXPORT extern const base::Feature
@@ -84,7 +87,7 @@ CONTENT_EXPORT extern const base::Feature
     kExtraSafelistedRequestHeadersForOutOfBlinkCors;
 CONTENT_EXPORT extern const base::Feature kFedCm;
 CONTENT_EXPORT extern const char kFedCmAutoSigninFieldTrialParamName[];
-CONTENT_EXPORT extern const char kFedCmInterceptionFieldTrialParamName[];
+CONTENT_EXPORT extern const char kFedCmIdpSignoutFieldTrialParamName[];
 CONTENT_EXPORT extern const base::Feature kFirstPartySets;
 CONTENT_EXPORT extern const base::FeatureParam<bool> kFirstPartySetsIsDogfooder;
 CONTENT_EXPORT extern const base::Feature kFirstPartySetsV2ComponentFormat;
@@ -138,6 +141,7 @@ enum class MBIMode {
 CONTENT_EXPORT extern const base::FeatureParam<MBIMode> kMBIModeParam;
 CONTENT_EXPORT extern const base::Feature kMediaDevicesSystemMonitorCache;
 CONTENT_EXPORT extern const base::Feature kMediaLicenseBackend;
+CONTENT_EXPORT extern const base::Feature kMediaStreamTrackTransfer;
 CONTENT_EXPORT extern const base::Feature kMojoDedicatedThread;
 CONTENT_EXPORT extern const base::Feature kMojoVideoCapture;
 CONTENT_EXPORT extern const base::Feature kMojoVideoCaptureSecondary;
@@ -163,9 +167,7 @@ CONTENT_EXPORT extern const base::Feature kPepper3DImageChromium;
 CONTENT_EXPORT extern const base::Feature kPepperCrossOriginRedirectRestriction;
 CONTENT_EXPORT extern const base::Feature kPictureInPictureV2;
 CONTENT_EXPORT extern const base::Feature kHighPriorityBeforeUnload;
-CONTENT_EXPORT extern const base::Feature kPrivacySandboxAggregationService;
-CONTENT_EXPORT extern const base::FeatureParam<std::string>
-    kPrivacySandboxAggregationServiceTrustedServerOriginParam;
+CONTENT_EXPORT extern const base::Feature kPrivacySandboxAdsAPIsOverride;
 CONTENT_EXPORT extern const base::Feature kPrivateNetworkAccessForWorkers;
 CONTENT_EXPORT extern const base::Feature
     kPrivateNetworkAccessRespectPreflightResults;
@@ -183,10 +185,8 @@ CONTENT_EXPORT extern const base::Feature kRenderDocument;
 CONTENT_EXPORT extern const base::Feature
     kRunVideoCaptureServiceInBrowserProcess;
 CONTENT_EXPORT extern const base::Feature kSavePageAsWebBundle;
-#if !BUILDFLAG(IS_ANDROID)
-CONTENT_EXPORT extern const base::Feature kScreenAI;
-#endif
 CONTENT_EXPORT extern const base::Feature kSecurePaymentConfirmation;
+CONTENT_EXPORT extern const base::Feature kSecurePaymentConfirmationAPIV3;
 CONTENT_EXPORT extern const base::Feature kSecurePaymentConfirmationDebug;
 CONTENT_EXPORT extern const base::Feature
     kSendBeaconThrowForBlobWithNonSimpleType;
@@ -250,6 +250,7 @@ CONTENT_EXPORT extern const base::Feature kThreadingOptimizationsOnIO;
 CONTENT_EXPORT extern const base::Feature kTouchDragAndContextMenu;
 CONTENT_EXPORT extern const base::Feature kTouchpadAsyncPinchEvents;
 CONTENT_EXPORT extern const base::Feature kTouchpadOverscrollHistoryNavigation;
+CONTENT_EXPORT extern const base::Feature kTreatBootstrapAsDefault;
 CONTENT_EXPORT extern const base::Feature kTrustedDOMTypes;
 CONTENT_EXPORT extern const base::Feature kUnrestrictedSharedArrayBuffer;
 CONTENT_EXPORT extern const base::Feature kUserActivationSameOriginVisibility;
@@ -268,7 +269,6 @@ CONTENT_EXPORT extern const base::Feature kWebAssemblyLazyCompilation;
 CONTENT_EXPORT extern const base::Feature kWebAssemblySimd;
 CONTENT_EXPORT extern const base::Feature kWebAssemblyTiering;
 CONTENT_EXPORT extern const base::Feature kWebAssemblyTrapHandler;
-CONTENT_EXPORT extern const base::Feature kWebAuth;
 CONTENT_EXPORT extern const base::Feature kWebAuthCable;
 CONTENT_EXPORT extern const base::Feature kWebAuthConditionalUI;
 CONTENT_EXPORT extern const base::Feature kWebBluetooth;

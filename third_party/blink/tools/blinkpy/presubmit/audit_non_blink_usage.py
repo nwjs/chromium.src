@@ -44,10 +44,10 @@ _CONFIG = [
             # //base constructs that are allowed everywhere
             'base::AdoptRef',
             'base::ApplyMetadataToPastSamples',
+            'base::SampleMetadataScope',
             'base::AutoReset',
             'base::Contains',
             'base::CpuReductionExperimentFilter',
-            'base::CreateSequencedTaskRunner',
             'base::ValuesEquivalent',
             'base::Days',
             'base::DefaultTickClock',
@@ -113,7 +113,6 @@ _CONFIG = [
             'absl::nullopt_t',
             'base::ranges::.+',
             'base::sequence_manager::TaskTimeObserver',
-            'base::size',
             'base::span',
             'logging::GetVlogLevel',
             'logging::SetLogItems',
@@ -159,9 +158,6 @@ _CONFIG = [
 
             # //base/memory/ptr_util.h.
             'base::WrapUnique',
-
-            # //base/allocator/partition_allocator/oom_callback.h.
-            'base::SetPartitionAllocOomCallback',
 
             # //base/containers/adapters.h
             'base::Reversed',
@@ -435,6 +431,20 @@ _CONFIG = [
 
             # Animation
             'cc::AnimationHost',
+            "cc::AnimationIdProvider",
+            "cc::FilterKeyframe",
+            "cc::KeyframedFilterAnimationCurve",
+            "cc::KeyframeModel",
+            "cc::ScrollOffsetAnimationCurveFactory",
+            "cc::TargetProperty",
+            "gfx::AnimationCurve",
+            "gfx::ColorKeyframe",
+            "gfx::FloatKeyframe",
+            "gfx::KeyframedColorAnimationCurve",
+            "gfx::KeyframedFloatAnimationCurve",
+            "gfx::KeyframedTransformAnimationCurve",
+            "gfx::TransformKeyframe",
+            "gfx::TransformOperations",
 
             # UMA Enums
             'cc::PaintHoldingCommitTrigger',
@@ -488,6 +498,7 @@ _CONFIG = [
             "power_scheduler::.+",
 
             # Nested namespaces under the blink namespace
+            'attribution_response_parsing::.+',
             'bindings::.+',
             'canvas_heuristic_parameters::.+',
             'compositor_target_property::.+',
@@ -572,6 +583,9 @@ _CONFIG = [
 
             # Used in network service types.
             'net::SiteForCookies',
+
+            # PartitionAlloc
+            'partition_alloc::.+',
 
             # Some test helpers live in the blink::test namespace.
             'test::.+',
@@ -1124,6 +1138,8 @@ _CONFIG = [
             'third_party/blink/renderer/modules/breakout_box/',
         ],
         'allowed': [
+            # Required to initialize WebGraphicsContext3DVideoFramePool.
+            'gpu::GpuMemoryBufferManager',
             'media::.+',
             # Some media APIs require std::vector.
             "std::vector",
@@ -1215,7 +1231,7 @@ _CONFIG = [
             'third_party/blink/renderer/modules/mediarecorder/',
         ],
         'allowed': [
-            'base::data',
+            'std::data',
             # TODO(crbug.com/960665): Remove base::queue once it is replaced with a WTF equivalent.
             'base::queue',
             'base::SharedMemory',
@@ -1639,7 +1655,6 @@ _CONFIG = [
     {
         'paths': [
             'third_party/blink/renderer/modules/webdatabase/dom_window_web_database.cc',
-            'third_party/blink/renderer/controller/blink_initializer.cc',
         ],
         'allowed': [
             'base::CommandLine',
