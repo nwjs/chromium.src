@@ -414,6 +414,7 @@ if (is_win || (is_linux && !is_component_build)) {
         "//components/policy:generated",
         "//content/app/resources",
         "//crypto",
+        "//headless:headless_renderer",
         "//headless:headless_shell_browser_lib",
         "//net:net_resources",
         "//ppapi/buildflags",
