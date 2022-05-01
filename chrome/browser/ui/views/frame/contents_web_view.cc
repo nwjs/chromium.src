@@ -78,7 +78,7 @@ void ContentsWebView::UpdateBackgroundColor() {
 
   if (transparent_)
     SetBackground(views::CreateSolidBackground(SK_ColorTRANSPARENT));
-  else
+  else {
   if (is_letterboxing()) {
     // Set the background color to a dark tint of the new tab page's background
     // color.  This is the color filled within the WebView's bounds when its
@@ -93,6 +93,7 @@ void ContentsWebView::UpdateBackgroundColor() {
         SkColorGetB(ntp_background) * kBackgroundBrightness / SK_AlphaOPAQUE);
   }
   SetBackground(views::CreateSolidBackground(ntp_background));
+  }
 
   if (web_contents()) {
     content::RenderWidgetHostView* rwhv =
