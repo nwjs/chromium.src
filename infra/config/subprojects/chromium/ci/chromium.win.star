@@ -97,19 +97,6 @@ ci.builder(
 )
 
 ci.builder(
-    name = "Win7 Tests (dbg)(1)",
-    builderless = True,
-    branch_selector = branches.DESKTOP_EXTENDED_STABLE_MILESTONE,
-    console_view_entry = consoles.console_view_entry(
-        category = "debug|tester",
-        short_name = "7",
-    ),
-    cq_mirrors_console_view = "mirrors",
-    os = os.WINDOWS_10,
-    triggered_by = ["ci/Win Builder (dbg)"],
-)
-
-ci.builder(
     name = "Win 7 Tests x64 (1)",
     builderless = True,
     branch_selector = branches.DESKTOP_EXTENDED_STABLE_MILESTONE,
@@ -141,6 +128,20 @@ ci.builder(
 ci.builder(
     name = "Win Builder (dbg)",
     branch_selector = branches.DESKTOP_EXTENDED_STABLE_MILESTONE,
+    builder_spec = builder_config.builder_spec(
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = [
+                "mb",
+            ],
+            build_config = builder_config.build_config.DEBUG,
+            target_bits = 32,
+        ),
+        build_gs_bucket = "chromium-win-archive",
+    ),
     console_view_entry = consoles.console_view_entry(
         category = "debug|builder",
         short_name = "32",

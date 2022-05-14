@@ -1934,7 +1934,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
       Nếu bạn không đặt thì chính sách sẽ được bật.</translation>
 <translation id="3038323923255997294">Tiếp tục chạy các ứng dụng dưới nền khi <ph name="PRODUCT_NAME" /> bị đóng</translation>
 <translation id="3041707370546071653">Liệu có nhớ mật khẩu Kerberos hay không. Nếu không đặt hoặc đặt thành tắt, mật khẩu sẽ không được ghi nhớ. Bỏ qua nếu không chỉ định mật khẩu.</translation>
-<translation id="3041887182529293512">Nếu bạn không đặt hoặc đặt chính sách này thành True, thì các nội dung đề xuất được tạo tự động sẽ hiển thị trên trang Thẻ mới, dựa trên lịch sử duyệt web, mối quan tâm hoặc vị trí của người dùng.
+<translation id="3041887182529293512">Nếu bạn không đặt hoặc đặt chính sách này thành True, thì các nội dung đề xuất được tạo tự động sẽ hiển thị trên trang Thẻ mới, dựa trên nhật ký duyệt web, mối quan tâm hoặc vị trí của người dùng.
 
       Nếu bạn đặt chính sách này thành False, thì các nội dung đề xuất được tạo tự động sẽ không xuất hiện trên trang Thẻ mới.</translation>
 <translation id="3046192273793919231">Gửi gói mạng tới máy chủ quản lý để theo dõi trạng thái trực tuyến</translation>
@@ -2274,9 +2274,9 @@ Khi chính sách này được đặt thành false hoặc không được địn
 
       Nếu bạn không đặt chính sách này, thì đường dẫn mặc định của hồ sơ sẽ được dùng và người dùng có thể ghi đè chính sách này bằng cờ dòng lệnh '--user-data-dir'.</translation>
 <translation id="3381968327636295719">Sử dụng trình duyệt chính theo mặc định</translation>
-<translation id="3387211681524224831">Khi bạn đặt chính sách này thành Bật, lịch sử duyệt web sẽ không được lưu, tính năng đồng bộ hóa thẻ sẽ tắt và người dùng không thể thay đổi tùy chọn cài đặt này.
+<translation id="3387211681524224831">Khi bạn đặt chính sách này thành Bật, nhật ký duyệt web sẽ không được lưu, tính năng đồng bộ hóa thẻ sẽ tắt và người dùng không thể thay đổi tùy chọn cài đặt này.
 
-      Khi bạn đặt thành Tắt hoặc không đặt chính sách này, lịch sử duyệt web sẽ được lưu.</translation>
+      Khi bạn đặt thành Tắt hoặc không đặt chính sách này, nhật ký duyệt web sẽ được lưu.</translation>
 <translation id="3389088527709746815">Bật chế độ xác thực gnubby đối với máy chủ truy cập từ xa</translation>
 <translation id="3391457705621770207">Nếu bạn đặt chính sách này, hệ thống sẽ xác định khoảng thời gian (tính bằng mili giây) không có hoạt động của người dùng trước khi tự động đăng nhập vào tài khoản trên thiết bị được chỉ định theo chính sách <ph name="DEVICE_LOCAL_ACCOUNT_AUTO_LOGIN_ID_POLICY_NAME" />.
 
@@ -2515,7 +2515,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
       Nếu bạn bật hoặc không đặt giá trị cho lựa chọn cài đặt này, thì người dùng vẫn có quyền kiểm soát tính năng Tự động điền. Điều này sẽ cho phép họ thiết lập hồ sơ Tự động điền và bật hoặc tắt tính năng này theo ý muốn.</translation>
 <translation id="3733014427925403568">Ngày trong tuần cho khoảng thời gian.</translation>
 <translation id="3736879847913515635">Cho phép thêm người trong trình quản lý người dùng</translation>
-<translation id="3737351057210085009">Thao tác đặt chính sách này thành Bật sẽ cho phép người dùng truy cập Chế độ nhà phát triển cho các ứng dụng tách biệt.
+<translation id="3737351057210085009">Nếu bạn đặt chính sách này thành Bật, người dùng sẽ có thể truy cập Chế độ nhà phát triển cho các ứng dụng tách biệt.
       Nếu bạn đặt chính sách này thành Tắt, người dùng sẽ không truy cập được những tính năng này.
       Nếu bạn không đặt chính sách này, tất cả người dùng và hệ điều hành đều được phép sử dụng chế độ mặc định, trừ những người dùng do doanh nghiệp quản lý trên Chrome OS.</translation>
 <translation id="3749259744154402564">Không được hỗ trợ</translation>
@@ -2937,7 +2937,7 @@ Nếu bạn đặt chính sách này thành Tắt, thì <ph name="PRODUCT_NAME" 
 <translation id="4192388905594723944">URL để xác thực mã thông báo xác thực ứng dụng truy cập từ xa</translation>
 <translation id="4203055629055264833">Nếu bạn đặt chính sách này thành Bật hoặc không đặt, thì người dùng có thể đưa trang kết quả mới đây nhất của công cụ tìm kiếm mặc định vào một bảng điều khiển bên bằng cách bật/tắt một biểu tượng trong thanh công cụ.
 
-      Thao tác đặt chính sách này thành Tắt sẽ xoá một biểu tượng khỏi thanh công cụ, biểu tượng này mở ra bảng điều khiển bên chứa trang kết quả của công cụ tìm kiếm mặc định.</translation>
+      Nếu bạn đặt chính sách này thành Tắt, biểu tượng bật/tắt sẽ bị xoá khỏi thanh công cụ và người dùng sẽ không thể mở bảng điều khiển bên để xem trang kết quả tìm kiếm của công cụ tìm kiếm mặc định.</translation>
 <translation id="4203643479966921607">Nếu bạn đặt chính sách này thành Bật hoặc không đặt chính sách này, thì <ph name="PRODUCT_NAME" /> sẽ được bật. Người dùng có thể chạy ứng dụng này từ trình đơn ứng dụng, trình đơn ngữ cảnh của trang, các chức năng điều khiển nội dung đa phương tiện trên trang web hỗ trợ Cast và biểu tượng thanh công cụ Cast (nếu hiển thị).
 
       Nếu bạn đặt chính sách này thành Tắt, thì <ph name="PRODUCT_NAME" /> sẽ bị tắt.</translation>
@@ -3881,9 +3881,9 @@ Nếu bạn đặt chính sách thành Tắt, thì <ph name="PRODUCT_NAME" /> s�
 
       Nếu bạn không đặt chính sách này hoặc đặt chính sách thành false, thì thông tin sẽ không được báo cáo.
       Nếu bạn đặt chính sách này thành true, thì các ứng dụng và mức sử dụng của thiết bị sẽ được báo cáo.</translation>
-<translation id="5418892536013005088">Khi bạn đặt thành Bật hoặc không đặt chính sách này, lịch sử duyệt web và lịch sử tải xuống có thể bị xóa trong Chrome, đồng thời người dùng không thể thay đổi tùy chọn cài đặt này.
+<translation id="5418892536013005088">Khi bạn đặt thành Bật hoặc không đặt chính sách này, nhật ký duyệt web và lịch sử tải xuống có thể bị xóa trong Chrome, đồng thời người dùng không thể thay đổi tùy chọn cài đặt này.
 
-      Khi bạn đặt chính sách này thành Tắt, lịch sử duyệt web và lịch sử tải xuống sẽ không xóa được. Ngay cả khi chính sách này bị tắt, không có gì đảm bảo rằng lịch sử duyệt web và lịch sử tải xuống sẽ được giữ lại. Người dùng có thể trực tiếp chỉnh sửa hoặc xóa các tệp cơ sở dữ liệu lịch sử. Ngoài ra, trình duyệt có thể tự hết hạn hoặc lưu trữ tất cả hay bất kỳ mục nào trong lịch sử tại bất kỳ thời điểm nào.</translation>
+      Khi bạn đặt chính sách này thành Tắt, nhật ký duyệt web và lịch sử tải xuống sẽ không xóa được. Ngay cả khi chính sách này bị tắt, không có gì đảm bảo rằng nhật ký duyệt web và lịch sử tải xuống sẽ được giữ lại. Người dùng có thể trực tiếp chỉnh sửa hoặc xóa các tệp cơ sở dữ liệu lịch sử. Ngoài ra, trình duyệt có thể tự hết hạn hoặc lưu trữ tất cả hay bất kỳ mục nào trong lịch sử tại bất kỳ thời điểm nào.</translation>
 <translation id="5420245232720940848">Tắt tính năng tạo đường hầm dựa trên PCIe cho các thiết bị ngoại vi Thunderbolt/USB4, các thiết bị ngoại vi sẽ bị hạn chế về hiệu suất hoạt động</translation>
 <translation id="5422643441807528365">Khóa cấp phép <ph name="PLUGIN_VM_NAME" /></translation>
 <translation id="5423197884968724595">Tên giới hạn Android WebView:</translation>
@@ -6998,9 +6998,9 @@ Bạn nên định cấu hình chính sách trên Windows qua GPO, mặc dù vi�
       Nếu chính sách này không được đặt hoặc được đặt thành false, vị trí sẽ không được báo cáo.</translation>
 <translation id="8818768076343557335">Dự đoán các tác vụ mạng trên bất kỳ mạng nào không phải là mạng di động.
           (Không được dùng nữa là 50, đã xóa 52. Sau 52, nếu được đặt thì giá trị 1 sẽ được coi là 0 - dự đoán tác vụ mạng trên kết nối mạng bất kỳ.)</translation>
-<translation id="8821678641132607468">Nếu bạn đặt chính sách này thành Bật, thì lịch sử duyệt web trên trình duyệt mặc định trước sẽ được nhập trong lần chạy đầu tiên. Nếu bạn đặt chính sách này thành Tắt hoặc không đặt chính sách này, thì lịch sử duyệt web sẽ không được nhập trong lần chạy đầu tiên.
+<translation id="8821678641132607468">Nếu bạn đặt chính sách này thành Bật, thì nhật ký duyệt web trên trình duyệt mặc định trước sẽ được nhập trong lần chạy đầu tiên. Nếu bạn đặt chính sách này thành Tắt hoặc không đặt chính sách này, thì nhật ký duyệt web sẽ không được nhập trong lần chạy đầu tiên.
 
-      Người dùng có thể kích hoạt hộp thoại nhập. Ngoài ra, hộp đánh dấu lịch sử duyệt web sẽ được đánh dấu/bỏ đánh dấu tương ứng với giá trị của chính sách này.</translation>
+      Người dùng có thể kích hoạt hộp thoại nhập. Ngoài ra, hộp đánh dấu nhật ký duyệt web sẽ được đánh dấu/bỏ đánh dấu tương ứng với giá trị của chính sách này.</translation>
 <translation id="8825154502356129120">Tắt chế độ xác thực gnubby đối với máy chủ truy cập từ xa</translation>
 <translation id="8825782996899863372">Cảnh báo bảo vệ mật khẩu được kích hoạt bằng cách sử dụng lại mật khẩu trên trang lừa đảo</translation>
 <translation id="8826172502287946476">Khi bạn đặt chính sách này, hệ thống sẽ chỉ định một danh sách những ứng dụng và tiện ích tự động cài đặt mà không cần sự can thiệp của người dùng, cũng như chỉ định những người dùng không thể gỡ cài đặt hay tắt đi. Các quyền được cấp hoàn toàn, kể cả đối với các API tiện ích enterprise.deviceAttributes và enterprise.platformKeys. (Những ứng dụng và tiện ích không buộc phải cài đặt sẽ không dùng được 2 API này.)
