@@ -182,11 +182,15 @@ void PermissionRequestManager::AddRequest(
 
 #if BUILDFLAG(IS_ANDROID)
   if (request->GetContentSettingsType() == ContentSettingsType::NOTIFICATIONS) {
-    bool enabled_app_level = AreAppLevelNotificationsEnabled();
+    bool app_level_settings_allow_site_notifications =
+        enabled_app_level_notification_permission_for_testing_.has_value()
+            ? enabled_app_level_notification_permission_for_testing_.value()
+            : DoesAppLevelSettingsAllowSiteNotifications();
     base::UmaHistogramBoolean(
-        "Permissions.Prompt.Notifications.EnabledAppLevel", enabled_app_level);
+        "Permissions.Prompt.Notifications.EnabledAppLevel",
+        app_level_settings_allow_site_notifications);
 
-    if (!enabled_app_level &&
+    if (!app_level_settings_allow_site_notifications &&
         base::FeatureList::IsEnabled(
             features::kBlockNotificationPromptsIfDisabledOnAppLevel)) {
       // Automatically cancel site Notification requests when Chrome is not able
@@ -224,8 +228,8 @@ void PermissionRequestManager::AddRequest(
   // correct behavior on interstitials -- we probably want to basically queue
   // any request for which GetVisibleURL != GetLastCommittedURL.
   CHECK_EQ(source_frame->GetMainFrame(), web_contents()->GetMainFrame());
-  const GURL& main_frame_origin =
-      PermissionUtil::GetLastCommittedOriginAsURL(web_contents());
+  const GURL main_frame_origin =
+      PermissionUtil::GetLastCommittedOriginAsURL(source_frame->GetMainFrame());
   bool is_main_frame =
       url::IsSameOriginWith(main_frame_origin, request->requesting_origin());
 
@@ -482,7 +486,8 @@ GURL PermissionRequestManager::GetRequestingOrigin() const {
 }
 
 GURL PermissionRequestManager::GetEmbeddingOrigin() const {
-  return PermissionUtil::GetLastCommittedOriginAsURL(web_contents());
+  return PermissionUtil::GetLastCommittedOriginAsURL(
+      web_contents()->GetMainFrame());
 }
 
 void PermissionRequestManager::Accept() {
@@ -760,6 +765,7 @@ void PermissionRequestManager::ResetViewStateForCurrentRequest() {
   current_request_prompt_disposition_.reset();
   prediction_grant_likelihood_.reset();
   current_request_ui_to_use_.reset();
+  was_decision_held_back_.reset();
   selector_decisions_.clear();
   should_dismiss_current_request_ = false;
   did_show_bubble_ = false;
@@ -792,11 +798,8 @@ void PermissionRequestManager::FinalizeCurrentRequests(
       requests_, web_contents(), permission_action, time_to_decision,
       DetermineCurrentRequestUIDisposition(),
       DetermineCurrentRequestUIDispositionReasonForUMA(),
-      prediction_grant_likelihood_,
-      current_request_ui_to_use_
-          ? current_request_ui_to_use_->decision_held_back
-          : absl::nullopt,
-      did_show_bubble_, did_click_manage_, did_click_learn_more_);
+      prediction_grant_likelihood_, was_decision_held_back_, did_show_bubble_,
+      did_click_manage_, did_click_learn_more_);
 
   content::BrowserContext* browser_context =
       web_contents()->GetBrowserContext();
@@ -818,7 +821,8 @@ void PermissionRequestManager::FinalizeCurrentRequests(
     PermissionsClient::Get()->OnPromptResolved(
         browser_context, request->request_type(), permission_action,
         request->requesting_origin(), DetermineCurrentRequestUIDisposition(),
-        quiet_ui_reason);
+        DetermineCurrentRequestUIDispositionReasonForUMA(),
+        request->GetGestureType(), quiet_ui_reason);
 
     PermissionEmbargoStatus embargo_status =
         PermissionEmbargoStatus::NOT_EMBARGOED;
@@ -1023,6 +1027,11 @@ void PermissionRequestManager::OnPermissionUiSelectorDone(
     if (!prediction_grant_likelihood_.has_value()) {
       prediction_grant_likelihood_ = permission_ui_selectors_[decision_index]
                                          ->PredictedGrantLikelihoodForUKM();
+    }
+
+    if (!was_decision_held_back_.has_value()) {
+      was_decision_held_back_ = permission_ui_selectors_[decision_index]
+                                    ->WasSelectorDecisionHeldback();
     }
 
     if (current_decision.quiet_ui_reason.has_value()) {

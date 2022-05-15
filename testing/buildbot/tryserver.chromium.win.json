@@ -12,7 +12,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "name": "gles2_conform_d3d9_test_10de:2184",
+        "name": "gles2_conform_d3d9_test 10de:2184",
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
@@ -37,7 +37,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "name": "gles2_conform_d3d9_test_8086:5912 or 8086:3e92",
+        "name": "gles2_conform_d3d9_test 8086:5912 or 8086:3e92",
         "swarming": {
           "can_use_on_swarming_builders": true,
           "containment_type": "AUTO",
@@ -64,7 +64,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "name": "gles2_conform_gl_test_10de:2184",
+        "name": "gles2_conform_gl_test 10de:2184",
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
@@ -90,7 +90,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "name": "gles2_conform_gl_test_8086:5912 or 8086:3e92",
+        "name": "gles2_conform_gl_test 8086:5912 or 8086:3e92",
         "swarming": {
           "can_use_on_swarming_builders": true,
           "containment_type": "AUTO",
@@ -115,7 +115,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "name": "gles2_conform_test_10de:2184",
+        "name": "gles2_conform_test 10de:2184",
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
@@ -139,7 +139,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "name": "gles2_conform_test_8086:5912 or 8086:3e92",
+        "name": "gles2_conform_test 8086:5912 or 8086:3e92",
         "swarming": {
           "can_use_on_swarming_builders": true,
           "containment_type": "AUTO",
@@ -162,7 +162,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "name": "gpu_unittests_10de:2184",
+        "name": "gpu_unittests 10de:2184",
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
@@ -184,7 +184,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "name": "gpu_unittests_8086:5912 or 8086:3e92",
+        "name": "gpu_unittests 8086:5912 or 8086:3e92",
         "swarming": {
           "can_use_on_swarming_builders": true,
           "containment_type": "AUTO",
@@ -209,7 +209,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "name": "xr_browser_tests_10de:2184",
+        "name": "xr_browser_tests 10de:2184",
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
@@ -233,7 +233,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "name": "xr_browser_tests_8086:5912 or 8086:3e92",
+        "name": "xr_browser_tests 8086:5912 or 8086:3e92",
         "swarming": {
           "can_use_on_swarming_builders": true,
           "containment_type": "AUTO",
@@ -270,7 +270,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "info_collection_tests_10de:2184",
+        "name": "info_collection_tests 10de:2184",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -311,7 +311,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "info_collection_tests_8086:5912 or 8086:3e92",
+        "name": "info_collection_tests 8086:5912 or 8086:3e92",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -347,7 +347,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "mediapipe_passthrough_tests_10de:2184",
+        "name": "mediapipe_passthrough_tests 10de:2184",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -382,7 +382,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "mediapipe_passthrough_tests_8086:5912 or 8086:3e92",
+        "name": "mediapipe_passthrough_tests 8086:5912 or 8086:3e92",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -419,7 +419,7 @@
           ],
           "script": "//tools/perf/process_perf_results.py"
         },
-        "name": "passthrough_command_buffer_perftests_10de:2184",
+        "name": "passthrough_command_buffer_perftests 10de:2184",
         "should_retry_with_patch": false,
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -449,7 +449,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "power_measurement_test_8086:5912 or 8086:3e92",
+        "name": "power_measurement_test 8086:5912 or 8086:3e92",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -485,7 +485,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "trace_test_10de:2184",
+        "name": "trace_test 10de:2184",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -520,7 +520,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "trace_test_8086:5912 or 8086:3e92",
+        "name": "trace_test 8086:5912 or 8086:3e92",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -556,7 +556,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "webcodecs_tests_10de:2184",
+        "name": "webcodecs_tests 10de:2184",
         "should_retry_with_patch": false,
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -587,7 +587,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "webcodecs_tests_8086:5912 or 8086:3e92",
+        "name": "webcodecs_tests 8086:5912 or 8086:3e92",
         "should_retry_with_patch": false,
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -621,7 +621,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "webgl2_conformance_d3d11_passthrough_tests_10de:2184",
+        "name": "webgl2_conformance_d3d11_passthrough_tests 10de:2184",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -659,7 +659,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "webgl2_conformance_d3d11_passthrough_tests_8086:5912 or 8086:3e92",
+        "name": "webgl2_conformance_d3d11_passthrough_tests 8086:5912 or 8086:3e92",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -697,7 +697,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "webgl_conformance_d3d11_passthrough_tests_10de:2184",
+        "name": "webgl_conformance_d3d11_passthrough_tests 10de:2184",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -734,7 +734,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "webgl_conformance_d3d11_passthrough_tests_8086:5912 or 8086:3e92",
+        "name": "webgl_conformance_d3d11_passthrough_tests 8086:5912 or 8086:3e92",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -772,7 +772,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "webgl_conformance_d3d9_passthrough_tests_10de:2184",
+        "name": "webgl_conformance_d3d9_passthrough_tests 10de:2184",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -809,7 +809,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "webgl_conformance_d3d9_passthrough_tests_8086:5912 or 8086:3e92",
+        "name": "webgl_conformance_d3d9_passthrough_tests 8086:5912 or 8086:3e92",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -846,7 +846,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "webgl_conformance_fast_call_tests_10de:2184",
+        "name": "webgl_conformance_fast_call_tests 10de:2184",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -883,7 +883,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "webgl_conformance_gl_passthrough_tests_10de:2184",
+        "name": "webgl_conformance_gl_passthrough_tests 10de:2184",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -920,7 +920,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "webgl_conformance_gl_passthrough_tests_8086:5912 or 8086:3e92",
+        "name": "webgl_conformance_gl_passthrough_tests 8086:5912 or 8086:3e92",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -957,7 +957,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "webgl_conformance_vulkan_passthrough_tests_10de:2184",
+        "name": "webgl_conformance_vulkan_passthrough_tests 10de:2184",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -993,7 +993,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "webgl_conformance_vulkan_passthrough_tests_8086:5912 or 8086:3e92",
+        "name": "webgl_conformance_vulkan_passthrough_tests 8086:5912 or 8086:3e92",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true

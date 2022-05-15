@@ -183,37 +183,6 @@ void InProcessHandler::DumpExceptionFromMachException(
       old_state_count);
 }
 
-void InProcessHandler::DumpExceptionFromNSExceptionWithContext(
-    NativeCPUContext* context) {
-  INITIALIZATION_STATE_DCHECK_VALID(initialized_);
-  // This does not use the cached writer. NSExceptionWithContext comes from
-  // the objective-c preprocessor and uses a best-guess approach to detecting
-  // uncaught exceptions, and may be called multiple times.
-  base::FilePath writer_path = NewLockedFilePath();
-  base::FilePath writer_path_unlocked = writer_path.RemoveFinalExtension();
-  std::unique_ptr<IOSIntermediateDumpWriter> unsafe_writer =
-      CreateWriterWithPath(writer_path);
-  ScopedLockedWriter writer(unsafe_writer.get(),
-                            writer_path.value().c_str(),
-                            writer_path_unlocked.value().c_str());
-  if (!writer.GetWriter()) {
-    CRASHPAD_RAW_LOG("Cannot DumpExceptionFromNSException without writer");
-    return;
-  }
-
-  ScopedReport report(writer.GetWriter(), system_data_, annotations_);
-  InProcessIntermediateDumpHandler::WriteExceptionFromMachException(
-      writer.GetWriter(),
-      MACH_EXCEPTION_CODES,
-      mach_thread_self(),
-      kMachExceptionFromNSException,
-      kEmulatedMachExceptionCodes,
-      std::size(kEmulatedMachExceptionCodes),
-      MACHINE_THREAD_STATE,
-      reinterpret_cast<ConstThreadState>(context),
-      MACHINE_THREAD_STATE_COUNT);
-}
-
 void InProcessHandler::DumpExceptionFromNSExceptionWithFrames(
     const uint64_t* frames,
     const size_t num_frames) {
@@ -234,14 +203,17 @@ void InProcessHandler::DumpExceptionFromNSExceptionWithFrames(
 
 bool InProcessHandler::DumpExceptionFromSimulatedMachException(
     const NativeCPUContext* context,
+    exception_type_t exception,
     base::FilePath* path) {
   base::FilePath locked_path = NewLockedFilePath();
   *path = locked_path.RemoveFinalExtension();
-  return DumpExceptionFromSimulatedMachExceptionAtPath(context, locked_path);
+  return DumpExceptionFromSimulatedMachExceptionAtPath(
+      context, exception, locked_path);
 }
 
 bool InProcessHandler::DumpExceptionFromSimulatedMachExceptionAtPath(
     const NativeCPUContext* context,
+    exception_type_t exception,
     const base::FilePath& path) {
   // This does not use the cached writer. It's expected that simulated
   // exceptions can be called multiple times and there is no expectation that
@@ -263,7 +235,7 @@ bool InProcessHandler::DumpExceptionFromSimulatedMachExceptionAtPath(
       writer.GetWriter(),
       MACH_EXCEPTION_CODES,
       mach_thread_self(),
-      kMachExceptionSimulated,
+      exception,
       kEmulatedMachExceptionCodes,
       std::size(kEmulatedMachExceptionCodes),
       MACHINE_THREAD_STATE,
@@ -272,6 +244,11 @@ bool InProcessHandler::DumpExceptionFromSimulatedMachExceptionAtPath(
   return true;
 }
 
+bool InProcessHandler::MoveIntermediateDumpAtPathToPending(
+    const base::FilePath& path) {
+  base::FilePath new_path_unlocked = NewLockedFilePath().RemoveFinalExtension();
+  return MoveFileOrDirectory(path, new_path_unlocked);
+}
 void InProcessHandler::ProcessIntermediateDumps(
     const std::map<std::string, std::string>& annotations) {
   INITIALIZATION_STATE_DCHECK_VALID(initialized_);
@@ -296,7 +273,14 @@ void InProcessHandler::StartProcessingPendingReports() {
     return;
 
   upload_thread_enabled_ = true;
-  UpdatePruneAndUploadThreads(true);
+
+  // This may be a no-op if IsApplicationActive is false, as it is not safe to
+  // start the upload thread when in the background (due to the potential for
+  // flocked files in shared containers).
+  // TODO(crbug.com/crashpad/400): Consider moving prune and upload thread to
+  // BackgroundTasks and/or NSURLSession. This might allow uploads to continue
+  // in the background.
+  UpdatePruneAndUploadThreads(system_data_.IsApplicationActive());
 }
 
 void InProcessHandler::UpdatePruneAndUploadThreads(bool active) {
@@ -326,6 +310,7 @@ void InProcessHandler::SaveSnapshot(
   if (database_status != CrashReportDatabase::kNoError) {
     Metrics::ExceptionCaptureResult(
         Metrics::CaptureResult::kPrepareNewCrashReportFailed);
+    return;
   }
   process_snapshot.SetReportID(new_report->ReportID());
 
@@ -340,6 +325,7 @@ void InProcessHandler::SaveSnapshot(
   if (!minidump.WriteEverything(new_report->Writer())) {
     Metrics::ExceptionCaptureResult(
         Metrics::CaptureResult::kMinidumpWriteFailed);
+    return;
   }
   UUID uuid;
   database_status =
@@ -347,6 +333,7 @@ void InProcessHandler::SaveSnapshot(
   if (database_status != CrashReportDatabase::kNoError) {
     Metrics::ExceptionCaptureResult(
         Metrics::CaptureResult::kFinishedWritingCrashReportFailed);
+    return;
   }
 
   if (upload_thread_) {

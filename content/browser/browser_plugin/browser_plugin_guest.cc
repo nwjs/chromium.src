@@ -64,25 +64,6 @@ void BrowserPluginGuest::Init() {
   InitInternal(owner_web_contents);
 }
 
-void BrowserPluginGuest::SetFocus(bool focused,
-                                  blink::mojom::FocusType focus_type) {
-  RenderWidgetHostView* rwhv = web_contents()->GetRenderWidgetHostView();
-  RenderWidgetHost* rwh = rwhv ? rwhv->GetRenderWidgetHost() : nullptr;
-
-  if (!rwh)
-    return;
-
-  if ((focus_type == blink::mojom::FocusType::kForward) ||
-      (focus_type == blink::mojom::FocusType::kBackward)) {
-    static_cast<RenderViewHostImpl*>(RenderViewHost::From(rwh))
-        ->SetInitialFocus(focus_type == blink::mojom::FocusType::kBackward);
-  }
-  RenderWidgetHostImpl::From(rwh)->GetWidgetInputHandler()->SetFocus(focused);
-
-  // Restore the last seen state of text input to the view.
-  SendTextInputTypeChangedToView(static_cast<RenderWidgetHostViewBase*>(rwhv));
-}
-
 WebContentsImpl* BrowserPluginGuest::CreateNewGuestWindow(
     const WebContents::CreateParams& params) {
   WebContentsImpl* new_contents =
@@ -92,7 +73,17 @@ WebContentsImpl* BrowserPluginGuest::CreateNewGuestWindow(
 }
 
 void BrowserPluginGuest::InitInternal(WebContentsImpl* owner_web_contents) {
-  SetFocus(false, blink::mojom::FocusType::kNone);
+  RenderWidgetHostImpl* rwhi =
+      GetWebContents()->GetMainFrame()->GetRenderWidgetHost();
+  DCHECK(rwhi);
+  // The initial state will not be focused but the plugin may be active so
+  // set that appropriately.
+  rwhi->GetWidgetInputHandler()->SetFocus(
+      rwhi->is_active() ? blink::mojom::FocusState::kNotFocusedAndActive
+                        : blink::mojom::FocusState::kNotFocusedAndNotActive);
+
+  // Restore the last seen state of text input to the view.
+  SendTextInputTypeChangedToView(rwhi->GetView());
 
   if (owner_web_contents_ != owner_web_contents) {
     // Once a BrowserPluginGuest has an embedder WebContents, it's considered to
@@ -130,8 +121,6 @@ void BrowserPluginGuest::InitInternal(WebContentsImpl* owner_web_contents) {
     std::string fpath = base::MakeAbsoluteFilePath(package->path()).AppendASCII(js_doc_end).AsUTF8Unsafe();
     renderer_prefs->nw_inject_js_doc_end = fpath;
   }
-
-  DCHECK(GetWebContents()->GetRenderViewHost());
 
   // TODO(chrishtr): this code is wrong. The navigate_on_drag_drop field will
   // be reset again the next time preferences are updated.

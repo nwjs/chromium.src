@@ -149,6 +149,7 @@ class TestBrowserWindow : public BrowserWindow {
   bool IsTabStripEditable() const override;
   void SetIsTabStripEditable(bool is_editable);
   bool IsToolbarVisible() const override;
+  bool IsLocationBarVisible() const override;
   bool IsToolbarShowing() const override;
   SharingDialog* ShowSharingDialog(content::WebContents* contents,
                                    SharingDialogData data) override;
@@ -198,6 +199,7 @@ class TestBrowserWindow : public BrowserWindow {
 #endif
   bool IsDownloadShelfVisible() const override;
   DownloadShelf* GetDownloadShelf() override;
+  DownloadBubbleUIController* GetDownloadBubbleUIController() override;
   void ConfirmBrowserCloseWithPendingDownloads(
       int download_count,
       Browser::DownloadCloseType dialog_type,

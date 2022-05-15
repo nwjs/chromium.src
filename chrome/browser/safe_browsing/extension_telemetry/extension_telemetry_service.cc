@@ -13,15 +13,20 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/task/bind_post_task.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "chrome/browser/extensions/extension_management.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/safe_browsing/extension_telemetry/extension_signal.h"
+#include "chrome/browser/safe_browsing/extension_telemetry/extension_telemetry_persister.h"
 #include "chrome/browser/safe_browsing/extension_telemetry/extension_telemetry_uploader.h"
 #include "chrome/browser/safe_browsing/extension_telemetry/remote_host_contacted_signal_processor.h"
 #include "chrome/browser/safe_browsing/extension_telemetry/tabs_execute_script_signal_processor.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "components/prefs/pref_service.h"
+#include "components/safe_browsing/core/browser/sync/safe_browsing_primary_account_token_fetcher.h"
+#include "components/safe_browsing/core/browser/sync/sync_utils.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "components/safe_browsing/core/common/proto/csd.pb.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
@@ -186,6 +191,12 @@ void ExtensionTelemetryService::SetEnabled(bool enable) {
       timer_.Start(FROM_HERE, current_reporting_interval_, this,
                    &ExtensionTelemetryService::CreateAndUploadReport);
     }
+    // Instantiate persister which is used to read/write telemetry reports to
+    // disk.
+    if (base::FeatureList::IsEnabled(kExtensionTelemetryPersistence)) {
+      persister_ = std::make_unique<ExtensionTelemetryPersister>();
+      persister_->PersisterInit();
+    }
   } else {
     // Stop timer for periodic telemetry reports.
     timer_.Stop();
@@ -193,12 +204,30 @@ void ExtensionTelemetryService::SetEnabled(bool enable) {
     extension_store_.clear();
     // Destruct signal processors.
     signal_processors_.clear();
+    // Delete persisted files.
+    if (base::FeatureList::IsEnabled(kExtensionTelemetryPersistence) &&
+        persister_) {
+      persister_->ClearPersistedFiles();
+    }
   }
 }
 
 void ExtensionTelemetryService::Shutdown() {
+  if (enabled_ &&
+      base::FeatureList::IsEnabled(kExtensionTelemetryPersistence) &&
+      SignalDataPresent() && persister_) {
+    // Saving data to disk.
+    active_report_ = CreateReport();
+    std::string write_string;
+    active_report_->SerializeToString(&write_string);
+    persister_->WriteReport(std::move(write_string));
+  }
   timer_.Stop();
   pref_change_registrar_.RemoveAll();
+}
+
+bool ExtensionTelemetryService::SignalDataPresent() {
+  return (extension_store_.empty());
 }
 
 void ExtensionTelemetryService::AddSignal(
@@ -242,22 +271,58 @@ void ExtensionTelemetryService::CreateAndUploadReport() {
     return;
   }
 
-  auto callback =
-      base::BindOnce(&ExtensionTelemetryService::OnUploadComplete,
-                     weak_factory_.GetWeakPtr(), active_report_.get());
+  auto callback = base::BindOnce(&ExtensionTelemetryService::OnUploadComplete,
+                                 weak_factory_.GetWeakPtr());
   active_uploader_ = std::make_unique<ExtensionTelemetryUploader>(
-      std::move(callback), url_loader_factory_, std::move(upload_data));
+      std::move(callback), url_loader_factory_, std::move(upload_data),
+      GetTokenFetcher());
   active_uploader_->Start();
 }
 
-void ExtensionTelemetryService::OnUploadComplete(
-    ExtensionTelemetryReportRequest* report,
-    bool /* success */) {
-  DCHECK(report && (report == active_report_.get()));
+void ExtensionTelemetryService::OnUploadComplete(bool success) {
+  if (base::FeatureList::IsEnabled(kExtensionTelemetryPersistence) &&
+      enabled_ && persister_) {
+    // Upload saved report(s) if there are any.
+    if (success) {
+      // Bind the callback to our current thread.
+      auto read_callback = base::BindPostTask(
+          base::SequencedTaskRunnerHandle::Get(),
+          base::BindOnce(&ExtensionTelemetryService::UploadPersistedFile,
+                         weak_factory_.GetWeakPtr()));
+      persister_->ReadReport(std::move(read_callback));
+    } else {
+      // Save report to disk on a failed upload.
+      std::string write_string;
+      active_report_->SerializeToString(&write_string);
+      persister_->WriteReport(std::move(write_string));
+      active_uploader_.reset();
+      active_report_.reset();
+    }
+  } else {
+    active_report_.reset();
+    active_uploader_.reset();
+  }
+}
 
-  // Clean up the upload resources.
-  active_report_.reset();
-  active_uploader_.reset();
+void ExtensionTelemetryService::UploadPersistedFile(std::string report,
+                                                    bool success) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  auto upload_data = std::make_unique<std::string>(report);
+  if (success) {
+    if (!active_report_->SerializeToString(upload_data.get())) {
+      active_report_.reset();
+      return;
+    }
+    auto callback = base::BindOnce(&ExtensionTelemetryService::OnUploadComplete,
+                                   weak_factory_.GetWeakPtr());
+    active_uploader_ = std::make_unique<ExtensionTelemetryUploader>(
+        std::move(callback), url_loader_factory_, std::move(upload_data),
+        GetTokenFetcher());
+    active_uploader_->Start();
+  } else {
+    active_report_.reset();
+    active_uploader_.reset();
+  }
 }
 
 std::unique_ptr<ExtensionTelemetryReportRequest>
@@ -326,6 +391,20 @@ ExtensionTelemetryService::CreateReport() {
   telemetry_report_pb->set_creation_timestamp_msec(
       base::Time::Now().ToJavaTime());
   return telemetry_report_pb;
+}
+
+std::unique_ptr<SafeBrowsingTokenFetcher>
+ExtensionTelemetryService::GetTokenFetcher() {
+  DCHECK(!profile_->IsOffTheRecord() &&
+         IsEnhancedProtectionEnabled(*profile_->GetPrefs()));
+  signin::IdentityManager* identity_manager =
+      IdentityManagerFactory::GetForProfile(profile_);
+  if (identity_manager &&
+      safe_browsing::SyncUtils::IsPrimaryAccountSignedIn(identity_manager)) {
+    return std::make_unique<SafeBrowsingPrimaryAccountTokenFetcher>(
+        identity_manager);
+  }
+  return nullptr;
 }
 
 void ExtensionTelemetryService::DumpReportForTest(

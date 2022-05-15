@@ -8,6 +8,7 @@ import static android.content.Context.UI_MODE_SERVICE;
 
 import android.app.UiModeManager;
 import android.content.Context;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
@@ -31,6 +32,7 @@ public class BuildInfo {
     private static final int MAX_FINGERPRINT_LENGTH = 128;
 
     private static PackageInfo sBrowserPackageInfo;
+    private static ApplicationInfo sBrowserApplicationInfo;
     private static boolean sInitialized;
 
     /** Not a member variable to avoid creating the instance early (it is set early in start up). */
@@ -95,6 +97,7 @@ public class BuildInfo {
                 buildInfo.isTV ? "1" : "0",
                 Build.VERSION.INCREMENTAL,
                 Build.HARDWARE,
+                isAtLeastT() ? "1" : "0",
         };
     }
 
@@ -102,7 +105,11 @@ public class BuildInfo {
         return seq == null ? "" : seq.toString();
     }
 
-    private static long packageVersionCode(PackageInfo pi) {
+    /**
+     * Return the "long" version code of the given PackageInfo.
+     * Does the right thing for before/after Android P when this got wider.
+     */
+    public static long packageVersionCode(PackageInfo pi) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             return ApiHelperForP.getLongVersionCode(pi);
         } else {
@@ -116,6 +123,13 @@ public class BuildInfo {
     public static void setBrowserPackageInfo(PackageInfo packageInfo) {
         assert !sInitialized;
         sBrowserPackageInfo = packageInfo;
+    }
+
+    /**
+     * @return ApplicationInfo for Chrome/WebView (as opposed to host app).
+     */
+    public ApplicationInfo getBrowserApplicationInfo() {
+        return sBrowserApplicationInfo;
     }
 
     public static BuildInfo getInstance() {
@@ -134,11 +148,13 @@ public class BuildInfo {
                 packageName = sBrowserPackageInfo.packageName;
                 versionCode = packageVersionCode(sBrowserPackageInfo);
                 versionName = nullToEmpty(sBrowserPackageInfo.versionName);
+                sBrowserApplicationInfo = sBrowserPackageInfo.applicationInfo;
                 sBrowserPackageInfo = null;
             } else {
                 packageName = hostPackageName;
                 versionCode = hostVersionCode;
                 versionName = nullToEmpty(pi.versionName);
+                sBrowserApplicationInfo = appContext.getApplicationInfo();
             }
 
             hostPackageLabel = nullToEmpty(pm.getApplicationLabel(pi.applicationInfo));
@@ -210,14 +226,6 @@ public class BuildInfo {
      */
     public static boolean isDebugAndroid() {
         return "eng".equals(Build.TYPE) || "userdebug".equals(Build.TYPE);
-    }
-
-    /**
-     * Wrap BuildCompat.isAtLeastS. This enables it to be shadowed in Robolectric tests.
-     */
-    @OptIn(markerClass = androidx.core.os.BuildCompat.PrereleaseSdkCheck.class)
-    public static boolean isAtLeastS() {
-        return BuildCompat.isAtLeastS();
     }
 
     /**

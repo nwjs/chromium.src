@@ -8,6 +8,7 @@
 #include <string>
 
 #include "base/memory/raw_ptr.h"
+#include "base/time/time.h"
 #include "components/autofill/core/browser/autofill_client.h"
 #include "components/autofill/core/browser/payments/payments_client.h"
 #include "components/autofill/core/browser/payments/virtual_card_enrollment_flow.h"
@@ -16,10 +17,6 @@
 
 namespace content {
 class WebContents;
-}
-
-namespace gfx {
-class Image;
 }
 
 namespace autofill {
@@ -39,9 +36,12 @@ struct VirtualCardEnrollmentFields {
   ~VirtualCardEnrollmentFields();
   // The credit card to enroll.
   CreditCard credit_card;
-  // Raw pointer to the image for the card art. The |card_art_image| object is
-  // owned by PersonalDataManager.
-  raw_ptr<gfx::Image> card_art_image = nullptr;
+  // Raw pointer to the image skia for the card art. If the card art is not yet
+  // available, this pointer will be set to the network image after we receive a
+  // GetDetailsForEnrollResponse. The |card_art_image| object is owned by
+  // PersonalDataManager if it is the card art, or by the resource bundle if it
+  // is the network icon.
+  raw_ptr<const gfx::ImageSkia> card_art_image = nullptr;
   // The Google-specific legal messages that the user must accept before
   // opting-in to virtual card enrollment.
   LegalMessageLines google_legal_message;
@@ -51,6 +51,13 @@ struct VirtualCardEnrollmentFields {
   // The source for which the VirtualCardEnrollmentBubble will be shown.
   VirtualCardEnrollmentSource virtual_card_enrollment_source =
       VirtualCardEnrollmentSource::kNone;
+  // A boolean value indicating if this will be the final time the user will see
+  // this offer, until strikes eventually expire.  Determined by the number of
+  // existing strikes.
+  bool last_show = false;
+  // A boolean value indicating if such enrollment offer for the card has been
+  // declined before.
+  bool previously_declined = false;
 };
 
 // This struct is used to track the state of the virtual card enrollment
@@ -237,6 +244,8 @@ class VirtualCardEnrollmentManager {
                            StrikeDatabase_BubbleCanceled);
   FRIEND_TEST_ALL_PREFIXES(VirtualCardEnrollmentManagerTest,
                            StrikeDatabase_SettingsPageNotBlocked);
+  FRIEND_TEST_ALL_PREFIXES(VirtualCardEnrollmentManagerTest,
+                           VirtualCardEnrollmentFields_LastShow);
 
   // Called once the risk data is loaded. The |risk_data| will be used with
   // |state_|'s |virtual_card_enrollment_fields|'s |credit_card|'s

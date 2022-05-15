@@ -14,6 +14,8 @@
 #include "base/auto_reset.h"
 #include "base/bind.h"
 #include "base/command_line.h"
+#include "base/debug/dump_without_crashing.h"
+#include "base/notreached.h"
 #include "base/values.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
@@ -325,8 +327,13 @@ Browser* StartupBrowserCreatorImpl::OpenTabsInBrowser(
 StartupBrowserCreatorImpl::LaunchResult
 StartupBrowserCreatorImpl::DetermineURLsAndLaunch(
     chrome::startup::IsProcessStartup process_startup) {
-  if (StartupBrowserCreator::ShouldLoadProfileWithoutWindow(command_line_))
+  if (StartupBrowserCreator::ShouldLoadProfileWithoutWindow(command_line_)) {
+    // Checking the flags this late in the launch should be redundant.
+    // TODO(https://crbug.com/1300109): Remove by M104.
+    NOTREACHED();
+    base::debug::DumpWithoutCrashing();
     return LaunchResult::kNormally;
+  }
 
   const bool is_incognito_or_guest = profile_->IsOffTheRecord();
   bool is_post_crash_launch = HasPendingUncleanExit(profile_);
@@ -374,7 +381,7 @@ StartupBrowserCreatorImpl::DetermineURLsAndLaunch(
 #endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
 
   const bool whats_new_enabled =
-      promotional_tabs_enabled && whats_new::ShouldShowForState(local_state);
+      whats_new::ShouldShowForState(local_state, promotional_tabs_enabled);
 
   auto* privacy_sandbox_serivce =
       PrivacySandboxServiceFactory::GetForProfile(profile_);
@@ -472,6 +479,11 @@ StartupBrowserCreatorImpl::DetermineStartupTabs(
   LaunchResult launch_result =
       tabs.empty() ? LaunchResult::kNormally : LaunchResult::kWithGivenUrls;
 
+  if (whats_new_enabled && (launch_result == LaunchResult::kWithGivenUrls ||
+                            is_incognito_or_guest || is_post_crash_launch)) {
+    whats_new::LogStartupType(whats_new::StartupType::kIneligible);
+  }
+
   // Only the New Tab Page or command line URLs may be shown in incognito mode.
   // A similar policy exists for crash recovery launches, to prevent getting the
   // user stuck in a crash loop.
@@ -537,6 +549,8 @@ StartupBrowserCreatorImpl::DetermineStartupTabs(
         StartupTabs new_features_tabs;
         new_features_tabs = provider.GetNewFeaturesTabs(whats_new_enabled);
         AppendTabs(new_features_tabs, &tabs);
+      } else if (whats_new_enabled) {
+        whats_new::LogStartupType(whats_new::StartupType::kOverridden);
       }
     }
 

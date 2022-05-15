@@ -142,9 +142,9 @@ class Navigation {
   //  * changing window.location.href
   //  * redirect via the <meta http-equiv="refresh"> tag
   //  * using window.history.pushState
+  //  * window.history.forward() or window.history.back()
   //
-  // This method returns false for navigations initiated by the WebLayer
-  // API, including using window.history.forward() or window.history.back().
+  // This method returns false for navigations initiated by the WebLayer API.
   virtual bool IsPageInitiated() = 0;
 
   // Whether the navigation is a reload. Examples of reloads include:
@@ -178,6 +178,9 @@ class Navigation {
   // for reloads, 1 for forward navigations). This may not cover all corner
   // cases, and can be incorrect in cases like main frame client redirects.
   virtual int GetNavigationEntryOffset() = 0;
+
+  // Returns true if the navigation response was fetched from the cache.
+  virtual bool WasFetchedFromCache() = 0;
 };
 
 }  // namespace weblayer

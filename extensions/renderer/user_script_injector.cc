@@ -148,7 +148,7 @@ bool UserScriptInjector::IsUserGesture() const {
 }
 
 mojom::ExecutionWorld UserScriptInjector::GetExecutionWorld() const {
-  return mojom::ExecutionWorld::kIsolated;
+  return script_->execution_world();
 }
 
 bool UserScriptInjector::ExpectsResults() const {
@@ -197,8 +197,8 @@ PermissionsData::PageAccess UserScriptInjector::CanExecuteOnFrame(
 
   if (script_->consumer_instance_type() ==
           UserScript::ConsumerInstanceType::WEBVIEW) {
-    int routing_id = content::RenderView::FromWebView(web_frame->Top()->View())
-                         ->GetRoutingID();
+    int routing_id =
+        content::RenderFrame::FromWebFrame(web_frame)->GetRoutingID();
 
     RoutingInfoKey key(routing_id, script_->id());
 

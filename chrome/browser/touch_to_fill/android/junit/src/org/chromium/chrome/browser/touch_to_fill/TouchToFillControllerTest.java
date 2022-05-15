@@ -22,6 +22,7 @@ import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.Cr
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.CredentialProperties.SHOW_SUBMIT_BUTTON;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.DISMISS_HANDLER;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.HeaderProperties.FORMATTED_URL;
+import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.HeaderProperties.IMAGE_DRAWABLE_ID;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.HeaderProperties.ORIGIN_SECURE;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.HeaderProperties.SHOW_SUBMIT_SUBTITLE;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.HeaderProperties.SINGLE_CREDENTIAL;
@@ -155,6 +156,8 @@ public class TouchToFillControllerTest {
         assertThat(itemList.get(2).model.get(CREDENTIAL), is(CARL));
         assertNotNull(itemList.get(2).model.get(ON_CLICK_LISTENER));
         assertThat(itemList.get(2).model.get(FORMATTED_ORIGIN), is(format(CARL.getOriginUrl())));
+        assertThat(itemList.get(0).model.get(IMAGE_DRAWABLE_ID),
+                is(R.drawable.touch_to_fill_header_image));
     }
 
     @Test
@@ -185,8 +188,7 @@ public class TouchToFillControllerTest {
         assertThat(itemList.size(), is(3)); // Header + 1 credential + Button
 
         assertThat(itemList.get(0).type, is(ItemType.HEADER));
-        // Don't show a special subtitle - the button's text is enough.
-        assertThat(itemList.get(0).model.get(SHOW_SUBMIT_SUBTITLE), is(false));
+        assertThat(itemList.get(0).model.get(SHOW_SUBMIT_SUBTITLE), is(true));
 
         assertThat(itemList.get(2).type, is(ItemType.FILL_BUTTON));
         assertThat(itemList.get(2).model.get(SHOW_SUBMIT_BUTTON), is(true));

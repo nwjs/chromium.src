@@ -156,8 +156,6 @@ LayoutObject* FindAncestorByPredicate(const LayoutObject* descendant,
 }
 
 inline bool MightTraversePhysicalFragments(const LayoutObject& obj) {
-  if (!RuntimeEnabledFeatures::LayoutNGFragmentTraversalEnabled())
-    return false;
   if (!obj.IsLayoutNGObject()) {
     // Non-NG objects should be painted, hit-tested, etc. by legacy.
     if (obj.IsBox())
@@ -995,23 +993,35 @@ bool LayoutObject::IsFixedPositionObjectInPagedMedia() const {
 }
 
 PhysicalRect LayoutObject::ScrollRectToVisible(
-    const PhysicalRect& rect,
+    const PhysicalRect& absolute_rect,
     mojom::blink::ScrollIntoViewParamsPtr params) {
   NOT_DESTROYED();
   LayoutBox* enclosing_box = EnclosingBox();
   if (!enclosing_box)
-    return rect;
+    return absolute_rect;
 
-  GetDocument().GetFrame()->GetSmoothScrollSequencer().AbortAnimations();
-  GetDocument().GetFrame()->GetSmoothScrollSequencer().SetScrollType(
-      params->type);
+  GetFrame()->GetSmoothScrollSequencer().AbortAnimations();
+  GetFrame()->GetSmoothScrollSequencer().SetScrollType(params->type);
   params->is_for_scroll_sequence |=
       params->type == mojom::blink::ScrollType::kProgrammatic;
-  PhysicalRect new_location =
-      enclosing_box->ScrollRectToVisibleRecursive(rect, std::move(params));
-  GetDocument().GetFrame()->GetSmoothScrollSequencer().RunQueuedAnimations();
+  PhysicalRect updated_absolute_rect =
+      enclosing_box->ScrollRectToVisibleLocally(absolute_rect, params);
 
-  return new_location;
+  // Continue the scroll via IPC if there's a remote ancestor.
+  // TODO(bokan): This probably needs to happen fenced frames in at least some
+  // cases. crbug.com/1314858.
+  LocalFrame& local_root = GetFrame()->LocalFrameRoot();
+  if (!local_root.IsMainFrame()) {
+    LocalFrameView* view = local_root.View();
+    if (view->AllowedToPropagateScrollIntoView(params)) {
+      view->ScrollRectToVisibleInRemoteParent(updated_absolute_rect,
+                                              std::move(params));
+    }
+  }
+
+  GetFrame()->GetSmoothScrollSequencer().RunQueuedAnimations();
+
+  return updated_absolute_rect;
 }
 
 LayoutBox* LayoutObject::EnclosingBox() const {
@@ -1068,7 +1078,6 @@ LayoutBlock* LayoutObject::ContainingFragmentationContextRoot() const {
        ancestor = ancestor->ContainingBlock()) {
     if (ancestor->IsFragmentationContextRoot())
       return ancestor;
-    // TODO(mstensho): Make sure that we return the LayoutView when printing.
   }
   return nullptr;
 }
@@ -1594,6 +1603,18 @@ LayoutObject* LayoutObject::NearestAncestorForElement() const {
   while (ancestor && !ancestor->IsForElement())
     ancestor = ancestor->Parent();
   return ancestor;
+}
+
+bool LayoutObject::IsAnonymousNGMulticolInlineWrapper() const {
+  NOT_DESTROYED();
+  if (!IsLayoutNGBlockFlow() || !IsAnonymousBlock())
+    return false;
+
+  const LayoutBlock* containing_block = ContainingNGBlock();
+  if (!containing_block)
+    return false;
+
+  return containing_block->IsFragmentationContextRoot();
 }
 
 LayoutBlock* LayoutObject::FindNonAnonymousContainingBlock(
@@ -2944,6 +2965,39 @@ void LayoutObject::StyleDidChange(StyleDifference diff,
     }
     UseCounter::Count(GetDocument(),
                       WebFeature::kCSSContainStrictWithoutContentVisibility);
+  }
+
+  // See the discussion at
+  // https://github.com/w3c/csswg-drafts/issues/7144#issuecomment-1090933632
+  // for more information.
+  //
+  // For a replaced element that isn't SVG or a embedded content, such as iframe
+  // or object, we want to count the number of pages that have an explicit
+  // overflow: visible (that remains visible after style adjuster). Separately,
+  // we also want to count out of those cases how many have an object-fit none
+  // or cover or non-default object-position, all of which may cause overflow.
+  //
+  // Note that SVG already supports overflow: visible, meaning we won't be
+  // changing the behavior regardless of the counts. Likewise, embedded content
+  // will remain clipped regardless of the overflow: visible behvaior change.
+  // Note for this reason we exclude SVG and embedded content from the counts.
+  if (IsLayoutReplaced() && !IsSVG() && !IsLayoutEmbeddedContent()) {
+    if ((StyleRef().HasExplicitOverflowXVisible() &&
+         StyleRef().OverflowX() == EOverflow::kVisible) ||
+        (StyleRef().HasExplicitOverflowYVisible() &&
+         StyleRef().OverflowY() == EOverflow::kVisible)) {
+      UseCounter::Count(GetDocument(),
+                        WebFeature::kExplicitOverflowVisibleOnReplacedElement);
+      if (StyleRef().GetObjectFit() == EObjectFit::kNone ||
+          StyleRef().GetObjectFit() == EObjectFit::kCover ||
+          StyleRef().ObjectPosition() !=
+              LengthPoint(Length::Percent(50.0), Length::Percent(50.0))) {
+        UseCounter::Count(
+            GetDocument(),
+            WebFeature::
+                kExplicitOverflowVisibleOnReplacedElementWithObjectProp);
+      }
+    }
   }
 
   // First assume the outline will be affected. It may be updated when we know

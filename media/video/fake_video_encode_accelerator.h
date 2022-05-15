@@ -11,6 +11,7 @@
 #include <list>
 #include <vector>
 
+#include "base/callback.h"
 #include "base/containers/queue.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
@@ -60,6 +61,7 @@ class FakeVideoEncodeAccelerator : public VideoEncodeAccelerator {
     return stored_bitrate_allocations_;
   }
   void SetWillInitializationSucceed(bool will_initialization_succeed);
+  void SetWillEncodingSucceed(bool will_encoding_succeed);
 
   size_t minimum_output_buffer_size() const { return kMinimumOutputBufferSize; }
 
@@ -95,6 +97,7 @@ class FakeVideoEncodeAccelerator : public VideoEncodeAccelerator {
   std::vector<Bitrate> stored_bitrates_;
   std::vector<VideoBitrateAllocation> stored_bitrate_allocations_;
   bool will_initialization_succeed_;
+  bool will_encoding_succeed_;
   bool resize_supported_ = false;
 
   raw_ptr<VideoEncodeAccelerator::Client> client_;

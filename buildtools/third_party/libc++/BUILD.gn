@@ -59,7 +59,7 @@ target(_libcxx_target_type, "libc++") {
     "//third_party/catapult/devil:devil",
     ":*",
   ]
-  if (is_linux && !is_chromeos) {
+  if (is_linux) {
     # This target packages libc++.so, so must have an explicit dependency on
     # libc++.
     visibility +=

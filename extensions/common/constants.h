@@ -70,6 +70,9 @@ EXTENSIONS_EXPORT extern const char kDecodedMessageCatalogsFilename[];
 EXTENSIONS_EXPORT extern const char kGeneratedBackgroundPageFilename[];
 EXTENSIONS_EXPORT extern const char kNWJSDefaultAppJS[];
 
+// The URL piece between the extension ID and favicon URL.
+EXTENSIONS_EXPORT extern const char kFaviconSourcePath[];
+
 // Path to imported modules.
 EXTENSIONS_EXPORT extern const char kModulesDir[];
 
@@ -313,6 +316,12 @@ EXTENSIONS_EXPORT extern const char kGeForceNowAppId[];
 
 // The extension id of the Zoom PWA.
 EXTENSIONS_EXPORT extern const char kZoomAppId[];
+
+// The extension id of the Sumo PWA.
+EXTENSIONS_EXPORT extern const char kSumoAppId[];
+
+// The extension id of the Sumo PWA.
+EXTENSIONS_EXPORT extern const char kAdobeSparkAppId[];
 
 // The extension id of the Google Docs application.
 EXTENSIONS_EXPORT extern const char kGoogleDocsAppId[];

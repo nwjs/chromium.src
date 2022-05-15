@@ -49,7 +49,7 @@ uint64_t DiskCheck(const base::FilePath& profile_data_dir) {
   TargetItems lacros_items =
       GetTargetItems(profile_data_dir, ItemType::kLacros);
   TargetItems need_copy_items =
-      GetTargetItems(profile_data_dir, ItemType::kNeedCopy);
+      GetTargetItems(profile_data_dir, ItemType::kNeedCopyForMove);
   TargetItems deletable_items =
       GetTargetItems(profile_data_dir, ItemType::kDeletable);
 
@@ -67,7 +67,7 @@ uint64_t DiskCheck(const base::FilePath& profile_data_dir) {
 ScopedRestartAttemptForTesting::ScopedRestartAttemptForTesting(
     base::RepeatingClosure callback) {
   DCHECK(!g_attempt_restart);
-  g_attempt_restart = new base::RepeatingClosure(callback);
+  g_attempt_restart = new base::RepeatingClosure(std::move(callback));
 }
 
 ScopedRestartAttemptForTesting::~ScopedRestartAttemptForTesting() {

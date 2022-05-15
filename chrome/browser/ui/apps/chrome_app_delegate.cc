@@ -335,7 +335,7 @@ void ChromeAppDelegate::AddNewContents(
                     ? disposition
                     : WindowOpenDisposition::NEW_FOREGROUND_TAB;
   chrome::AddWebContents(displayer.browser(), nullptr, std::move(new_contents),
-                         target_url, disposition, initial_rect, std::string());
+                         target_url, disposition, initial_rect);
 }
 
 void ChromeAppDelegate::RunFileChooser(

@@ -484,10 +484,6 @@ void OriginTrialContext::AddForceEnabledTrials(
 }
 
 bool OriginTrialContext::CanEnableTrialFromName(const StringView& trial_name) {
-  if (trial_name == "HandwritingRecognition") {
-    return base::FeatureList::IsEnabled(
-        features::kHandwritingRecognitionWebPlatformApiFinch);
-  }
   if (trial_name == "Portals")
     return base::FeatureList::IsEnabled(features::kPortals);
 
@@ -527,6 +523,8 @@ Vector<OriginTrialFeature> OriginTrialContext::RestrictedFeaturesForTrial(
       restricted.push_back(OriginTrialFeature::kTopicsAPI);
     if (!base::FeatureList::IsEnabled(features::kConversionMeasurement))
       restricted.push_back(OriginTrialFeature::kAttributionReporting);
+    if (!base::FeatureList::IsEnabled(features::kFencedFrames))
+      restricted.push_back(OriginTrialFeature::kFencedFrames);
     return restricted;
   }
 

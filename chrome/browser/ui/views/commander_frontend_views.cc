@@ -135,6 +135,9 @@ CommanderFrontendViews::~CommanderFrontendViews() {
 }
 void CommanderFrontendViews::ToggleForBrowser(Browser* browser) {
   DCHECK(browser);
+  // This ensures that quick commands are only available for normal browsers.
+  if (!browser->is_type_normal())
+    return;
   bool should_show = !browser_ || browser != browser_;
   if (browser_)
     Hide();
@@ -156,8 +159,9 @@ void CommanderFrontendViews::Show(Browser* browser) {
   views::Widget::InitParams params(
       views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
   params.delegate = widget_delegate_.get();
-  params.name = "Commander";
+  params.name = "Quick Commands";
   params.parent = parent->GetWidget()->GetNativeView();
+  params.opacity = views::Widget::InitParams::WindowOpacity::kTranslucent;
 // On Windows, this defaults to DesktopNativeWidgetAura, which has incorrect
 // parenting behavior for this widget.
 #if BUILDFLAG(IS_WIN)
@@ -287,8 +291,8 @@ std::unique_ptr<CommanderWebView> CommanderFrontendViews::CreateWebView(
   web_view->set_allow_accelerators(true);
   // Make the commander WebContents show up in the task manager.
   content::WebContents* web_contents = web_view->GetWebContents();
-  task_manager::WebContentsTags::CreateForToolContents(web_contents,
-                                                       IDS_COMMANDER_LABEL);
+  task_manager::WebContentsTags::CreateForToolContents(
+      web_contents, IDS_QUICK_COMMANDS_LABEL);
   web_view->LoadInitialURL(GURL(chrome::kChromeUICommanderURL));
   return web_view;
 }

@@ -15,10 +15,12 @@
 #include "chrome/browser/cart/cart_discount_link_fetcher.h"
 #include "chrome/browser/cart/cart_metrics_tracker.h"
 #include "chrome/browser/cart/cart_service_factory.h"
+#include "chrome/browser/cart/chrome_cart.mojom.h"
 #include "chrome/browser/cart/discount_url_loader.h"
 #include "chrome/browser/cart/fetch_discount_worker.h"
 #include "chrome/browser/commerce/coupons/coupon_service.h"
 #include "chrome/browser/profiles/profile.h"
+#include "components/commerce/core/discount_consent_handler.h"
 #include "components/history/core/browser/history_service.h"
 #include "components/history/core/browser/history_service_observer.h"
 #include "components/keyed_service/core/keyed_service.h"
@@ -33,7 +35,8 @@ class FetchDiscountWorker;
 // TODO(crbug.com/1253633) Make this BrowserContext-based and get rid of Profile
 // usage so that we can modularize this.
 class CartService : public history::HistoryServiceObserver,
-                    public KeyedService {
+                    public KeyedService,
+                    public commerce::DiscountConsentHandler {
  public:
   // The maximum number of times that cart welcome surface shows.
   static constexpr int kWelcomSurfaceShowLimit = 3;
@@ -85,15 +88,6 @@ class CartService : public history::HistoryServiceObserver,
   // Returns whether to show the welcome surface in module. It is related to how
   // many times the welcome surface has shown.
   bool ShouldShowWelcomeSurface();
-  // Gets called when user has acknowledged the discount consent in cart module.
-  // shouldEnable indicates whether user has chosen to opt-in or opt-out the
-  // feature.
-  void AcknowledgeDiscountConsent(bool should_enable);
-  // Gets called when user has dismissed the discount consent in cart module.
-  void DismissedDiscountConsent();
-  // Gets called when user has click the 'Continue' button in the discount
-  // consent.
-  void InterestedInDiscountConsent();
   // Decides whether to show the consent card in module for rule-based discount,
   // and returns it in the callback.
   void ShouldShowDiscountConsent(base::OnceCallback<void(bool)> callback);
@@ -128,6 +122,23 @@ class CartService : public history::HistoryServiceObserver,
   void UpdateFreeListingCoupons(const CouponService::CouponsMap& map);
   // KeyedService:
   void Shutdown() override;
+
+  // commerce::DiscountConsentHandler:
+  // Gets called when user has acknowledged the discount consent in cart module.
+  // `shouldEnable` indicates whether user has chosen to opt-in or opt-out the
+  // feature.
+  void AcknowledgeDiscountConsent(bool should_enable) override;
+  // Gets called when user has dismissed the discount consent in cart module.
+  void DismissedDiscountConsent() override;
+  // Gets called when user has click the 'Continue' button in the discount
+  // consent.
+  void InterestedInDiscountConsent() override;
+
+  // This is used when the NativeDialog variation is active. It gets called
+  // when user has clicked the 'Continue' button in the discount consent.
+  void ShowNativeConsentDialog(
+      base::OnceCallback<void(chrome_cart::mojom::ConsentStatus)>
+          consent_status_callback);
   // Appends UTM tags to the end of |base_url|. It will always append
   // "utm_source=chrome" and "utm_medium=app". It will also append
   // "utm_campaign" which can be one of the below three values:

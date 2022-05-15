@@ -287,7 +287,7 @@ AppWindow::AppWindow(BrowserContext* context,
 }
 
 void AppWindow::LoadingStateChanged(content::WebContents* source, bool to_different_document) {
-  base::ListValue args;
+  base::Value::List args;
   if (source->IsLoading()) {
     args.Append("loading");
     last_to_different_document_ = to_different_document;
@@ -617,7 +617,7 @@ bool AppWindow::NWCanClose(bool user_force) const {
                               rfh->GetRenderViewHost()->GetRoutingID(),
                               &listener_extension_id);
   if (listening_to_close) {
-    base::ListValue args;
+    base::Value::List args;
     if (user_force)
       args.Append("quit");
     ExtensionWebContentsObserver::GetForWebContents(web_contents())

@@ -10,6 +10,7 @@ import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.Cr
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.CredentialProperties.ON_CLICK_LISTENER;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.CredentialProperties.SHOW_SUBMIT_BUTTON;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.HeaderProperties.FORMATTED_URL;
+import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.HeaderProperties.IMAGE_DRAWABLE_ID;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.HeaderProperties.ORIGIN_SECURE;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.HeaderProperties.SHOW_SUBMIT_SUBTITLE;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.HeaderProperties.SINGLE_CREDENTIAL;
@@ -69,12 +70,11 @@ class TouchToFillMediator {
         assert credentials != null;
         mModel.set(ON_CLICK_MANAGE, this::onManagePasswordSelected);
 
+        TouchToFillResourceProvider resourceProvider = new TouchToFillResourceProviderImpl();
+
         ListModel<ListItem> sheetItems = mModel.get(SHEET_ITEMS);
         sheetItems.clear();
 
-        // For the single-credential case, don't include a note about about submission  because in
-        // that case there is a button which title signifies about submission.
-        boolean show_submit_subtitle = triggerSubmission && (credentials.size() > 1);
         sheetItems.add(new ListItem(TouchToFillProperties.ItemType.HEADER,
                 new PropertyModel.Builder(HeaderProperties.ALL_KEYS)
                         .with(SINGLE_CREDENTIAL, credentials.size() == 1)
@@ -82,7 +82,8 @@ class TouchToFillMediator {
                                 UrlFormatter.formatUrlForSecurityDisplay(
                                         url, SchemeDisplay.OMIT_HTTP_AND_HTTPS))
                         .with(ORIGIN_SECURE, isOriginSecure)
-                        .with(SHOW_SUBMIT_SUBTITLE, show_submit_subtitle)
+                        .with(SHOW_SUBMIT_SUBTITLE, triggerSubmission)
+                        .with(IMAGE_DRAWABLE_ID, resourceProvider.getHeaderImageDrawableId())
                         .build()));
 
         mCredentials = credentials;

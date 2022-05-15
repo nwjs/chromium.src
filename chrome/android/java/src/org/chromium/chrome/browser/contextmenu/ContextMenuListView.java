@@ -10,9 +10,6 @@ import android.view.View;
 import android.widget.ListView;
 
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.content_public.browser.ContentFeatureList;
-import org.chromium.content_public.common.ContentFeatures;
 
 /**
  * A custom ListView to be able to set width and height using the contents. Width and height are
@@ -24,9 +21,7 @@ public class ContextMenuListView extends ListView {
 
     public ContextMenuListView(Context context, AttributeSet attrs) {
         super(context, attrs);
-        mLimitedByScreenWidth =
-                ChromeFeatureList.isEnabled(ChromeFeatureList.CONTEXT_MENU_POPUP_STYLE)
-                || ContentFeatureList.isEnabled(ContentFeatures.TOUCH_DRAG_AND_CONTEXT_MENU);
+        mLimitedByScreenWidth = ContextMenuUtils.forcePopupStyleEnabled();
     }
 
     @Override

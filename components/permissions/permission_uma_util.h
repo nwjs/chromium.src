@@ -66,7 +66,7 @@ enum class RequestTypeForUma {
   PERMISSION_STORAGE_ACCESS = 23,
   PERMISSION_CAMERA_PAN_TILT_ZOOM = 24,
   PERMISSION_WINDOW_PLACEMENT = 25,
-  PERMISSION_FONT_ACCESS = 26,
+  PERMISSION_LOCAL_FONTS = 26,
   PERMISSION_IDLE_DETECTION = 27,
   PERMISSION_FILE_HANDLING = 28,
   PERMISSION_U2F_API_REQUEST = 29,
@@ -370,6 +370,14 @@ class PermissionUmaUtil {
 
   static std::string GetPermissionActionString(
       PermissionAction permission_action);
+
+  static std::string GetPromptDispositionString(
+      PermissionPromptDisposition ui_disposition);
+
+  static std::string GetPromptDispositionReasonString(
+      PermissionPromptDispositionReason ui_disposition_reason);
+
+  static std::string GetRequestTypeString(RequestType request_type);
 
   static bool IsPromptDispositionQuiet(
       PermissionPromptDisposition prompt_disposition);

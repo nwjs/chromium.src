@@ -12,6 +12,7 @@
 #include "third_party/blink/renderer/core/layout/ng/ng_block_break_token.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_block_node.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_box_fragment_builder.h"
+#include "third_party/blink/renderer/core/layout/ng/ng_column_spanner_path.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_constraint_space.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_physical_fragment.h"
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
@@ -31,6 +32,7 @@ struct NGFlexColumnBreakInfo {
 
   void Trace(Visitor* visitor) const { visitor->Trace(early_break); }
 
+  LayoutUnit column_intrinsic_block_size;
   Member<NGEarlyBreak> early_break = nullptr;
   EBreakBetween break_after = EBreakBetween::kAuto;
 };
@@ -70,7 +72,7 @@ inline bool IsResumingLayout(const NGBlockBreakToken* token) {
 // already been fragmented (to resume layout correctly, but not break again).
 inline bool InvolvedInBlockFragmentation(const NGBoxFragmentBuilder& builder) {
   return builder.ConstraintSpace()->HasBlockFragmentation() ||
-         builder.PreviousBreakToken();
+         IsResumingLayout(builder.PreviousBreakToken());
 }
 
 // Calculate the final "break-between" value at a class A or C breakpoint. This
@@ -95,13 +97,16 @@ bool IsBreakableAtStartOfResumedContainer(
     const NGLayoutResult& child_layout_result,
     const NGBoxFragmentBuilder& builder);
 
+bool IsBreakableAtStartOfResumedContainer(const NGConstraintSpace& space,
+                                          const NGBoxFragmentBuilder& builder,
+                                          bool is_first_for_node);
+
 // Calculate the appeal of breaking before this child.
 NGBreakAppeal CalculateBreakAppealBefore(const NGConstraintSpace&,
                                          NGLayoutInputNode child,
                                          const NGLayoutResult&,
                                          const NGBoxFragmentBuilder&,
-                                         bool has_container_separation,
-                                         bool is_row_item = false);
+                                         bool has_container_separation);
 NGBreakAppeal CalculateBreakAppealBefore(
     const NGConstraintSpace&,
     NGLayoutResult::EStatus layout_result_status,
@@ -185,6 +190,10 @@ inline void AdjustMarginsForFragmentation(const NGBlockBreakToken* break_token,
   if (break_token->IsAtBlockEnd())
     box_strut->block_end = LayoutUnit();
 }
+
+// Get the offset from one fragmentainer to the next.
+LogicalOffset GetFragmentainerProgression(const NGBoxFragmentBuilder&,
+                                          NGFragmentationType);
 
 // Set up a child's constraint space builder for block fragmentation. The child
 // participates in the same fragmentation context as parent_space. If the child
@@ -394,6 +403,19 @@ const NGEarlyBreak* EnterEarlyBreakInChild(const NGBlockNode& child,
 bool IsEarlyBreakTarget(const NGEarlyBreak&,
                         const NGBoxFragmentBuilder&,
                         const NGLayoutInputNode& child);
+
+// Find out if |child| is the next step on the column spanner path (if any), and
+// return the remaining path if that's the case, nullptr otherwise.
+inline const NGColumnSpannerPath* FollowColumnSpannerPath(
+    const NGColumnSpannerPath* path,
+    const NGBlockNode& child) {
+  if (!path)
+    return nullptr;
+  const NGColumnSpannerPath* next_step = path->Child();
+  if (next_step && next_step->BlockNode() == child)
+    return next_step;
+  return nullptr;
+}
 
 // Calculate the constraint space for columns of a multi-column layout.
 NGConstraintSpace CreateConstraintSpaceForColumns(

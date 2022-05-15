@@ -60,7 +60,7 @@ void ChromeExtensionWebContentsObserver::OnZoomChanged(
   const Extension* const extension =
       process_manager->GetExtensionForWebContents(web_contents());
   if (extension) {
-    base::ListValue args;
+    base::Value::List args;
     args.Append(data.old_zoom_level);
     args.Append(data.new_zoom_level);
 

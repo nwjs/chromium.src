@@ -50,6 +50,8 @@ class MockMediaFoundationCdmProxy : public MediaFoundationCdmProxy {
   MOCK_METHOD2(ProcessContentEnabler,
                HRESULT(IUnknown* request, IMFAsyncResult* result));
   MOCK_METHOD0(OnHardwareContextReset, void());
+  MOCK_METHOD0(OnSignificantPlayback, void());
+  MOCK_METHOD0(OnPlaybackError, void());
 
  protected:
   ~MockMediaFoundationCdmProxy() override;
@@ -108,9 +110,8 @@ class MediaFoundationRendererTest : public testing::Test {
         std::make_unique<NullMediaLog>());
 
     // Some default actions.
-    ON_CALL(cdm_context_, GetMediaFoundationCdmProxy(_))
-        .WillByDefault(Invoke(
-            this, &MediaFoundationRendererTest::GetMediaFoundationCdmProxy));
+    ON_CALL(cdm_context_, GetMediaFoundationCdmProxy())
+        .WillByDefault(Return(mf_cdm_proxy_));
     ON_CALL(*mf_cdm_proxy_, GetPMPServer(_, _))
         .WillByDefault(
             Invoke(this, &MediaFoundationRendererTest::GetPMPServer));
@@ -137,13 +138,6 @@ class MediaFoundationRendererTest : public testing::Test {
     }
 
     return streams;
-  }
-
-  bool GetMediaFoundationCdmProxy(
-      CdmContext::GetMediaFoundationCdmProxyCB get_mf_cdm_proxy_cb) {
-    // Call the callback asynchronously per API contract.
-    BindToCurrentLoop(std::move(get_mf_cdm_proxy_cb)).Run(mf_cdm_proxy_);
-    return true;
   }
 
   HRESULT GetPMPServer(REFIID riid, LPVOID* object_result) {

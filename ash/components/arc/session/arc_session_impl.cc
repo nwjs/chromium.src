@@ -29,7 +29,6 @@
 #include "base/rand_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/system/sys_info.h"
-#include "base/task/post_task.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "base/threading/thread_restrictions.h"
@@ -464,6 +463,7 @@ void ArcSessionImpl::DoStartMiniInstance(size_t num_cores_disabled) {
   params.num_cores_disabled = num_cores_disabled;
   params.enable_notifications_refresh =
       ash::features::IsNotificationsRefreshEnabled();
+  params.enable_tts_caching = base::FeatureList::IsEnabled(kEnableTTSCaching);
 
   // TODO (b/196460968): Remove after CTS run is complete.
   if (params.enable_notifications_refresh) {

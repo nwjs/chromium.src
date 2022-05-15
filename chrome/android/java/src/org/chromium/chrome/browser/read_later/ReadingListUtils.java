@@ -92,11 +92,18 @@ public final class ReadingListUtils {
         // remove the regular bookmark first so the save flow is shown.
         List<BookmarkId> bookmarkIds = new ArrayList<>();
         bookmarkIds.add(bookmarkId);
-        ReadingListUtils.typeSwapBookmarksIfNecessary(
-                bookmarkBridge, bookmarkIds, bookmarkBridge.getReadingListFolder());
-        if (sSkipShowSaveFlowForTesting) return true;
+        List<BookmarkId> typeSwappedBookmarks = new ArrayList<>();
+        typeSwapBookmarksIfNecessary(bookmarkBridge, bookmarkIds, typeSwappedBookmarks,
+                bookmarkBridge.getReadingListFolder());
+
+        assert typeSwappedBookmarks.size() == 1;
+        if (typeSwappedBookmarks.size() != 1) return false;
+
+        BookmarkId newBookmark = typeSwappedBookmarks.get(0);
+        if (Boolean.TRUE.equals(sSkipShowSaveFlowForTesting)) return true;
         BookmarkUtils.showSaveFlow(activity, bottomsheetController,
-                /*fromExplicitTrackUi=*/false, bookmarkIds.get(0), /*wasBookmarkMoved=*/true);
+                /*fromExplicitTrackUi=*/false, newBookmark,
+                /*wasBookmarkMoved=*/true);
         return true;
     }
 
@@ -106,11 +113,14 @@ public final class ReadingListUtils {
      *
      * @param bookmarkBridge The BookmarkBridge to perform add/delete operations.
      * @param bookmarksToMove The List of bookmarks to potentially type swap.
+     * @param typeSwappedBookmarks The list of bookmarks which have been type-swapped and thus don't
+     *         need to be moved.
      * @param newParentId The new parentId to use, the {@link BookmarkType} of this is used to
      *         determine if type-swapping is necessary.
      */
     public static void typeSwapBookmarksIfNecessary(BookmarkBridge bookmarkBridge,
-            List<BookmarkId> bookmarksToMove, BookmarkId newParentId) {
+            List<BookmarkId> bookmarksToMove, List<BookmarkId> typeSwappedBookmarks,
+            BookmarkId newParentId) {
         if (!ReadingListFeatures.shouldAllowBookmarkTypeSwapping()) return;
 
         List<BookmarkId> outputList = new ArrayList<>();
@@ -137,6 +147,7 @@ public final class ReadingListUtils {
                 continue;
             }
             bookmarkBridge.deleteBookmark(bookmarkId);
+            typeSwappedBookmarks.add(newBookmark);
         }
 
         bookmarksToMove.addAll(outputList);

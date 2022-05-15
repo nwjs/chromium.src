@@ -202,7 +202,6 @@ class OnDemandUpdater {
   friend class extensions::NwAppUpdateComponentFunction;
   friend class OnDemandTester;
   friend class policy::ComponentUpdaterPolicyTest;
-  friend class SupervisedUserWhitelistInstaller;
   friend class ::ComponentsHandler;
   friend class ::PluginObserver;
   friend class SwReporterOnDemandFetcher;

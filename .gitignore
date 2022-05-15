@@ -41,12 +41,14 @@
 .classpath
 .code-coverage
 .cproject
+.dir-locals.el
 .emulator_sdk
 .gdb_history
 .gdbinit
 .landmines
 .metadata
 .project
+.projectile
 .pydevproject
 .checkstyle
 *.class
@@ -58,6 +60,7 @@ GSYMS
 GTAGS
 Session.vim
 tags
+TAGS
 Thumbs.db
 rust-project.json
 v8.log
@@ -190,7 +193,7 @@ vs-chromium-project.txt
 /chromeos/profiles/*.afdo.prof
 /cipd_cache/
 /clank
-/cloud_print/cloud_print_version_resources.xml
+/components/autofill/core/browser/form_parsing/internal_resources
 /components/chrome_settings_proto_generated_compile.xml
 /components/cloud_policy_proto_generated_compile.xml
 /components/gcm_driver.xml
@@ -216,6 +219,7 @@ vs-chromium-project.txt
 /content/test/data/gpu/mediapipe_zip/mediapipe_chromium_tests.zip
 /content/test/data/layout_tests/
 /content/test/data/plugin/
+/content/test/gpu/.webgpu_typescript/
 /content/web_ui_test_mojo_bindings.xml
 /data
 /delegate_execute

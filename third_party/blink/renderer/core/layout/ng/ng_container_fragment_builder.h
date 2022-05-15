@@ -29,6 +29,7 @@
 
 namespace blink {
 
+class NGColumnSpannerPath;
 class NGExclusionSpace;
 class NGInlineBreakToken;
 class NGPhysicalFragment;
@@ -158,6 +159,8 @@ class CORE_EXPORT NGContainerFragmentBuilder : public NGFragmentBuilder {
       TextDirection inline_container_direction);
 
   void AddOutOfFlowFragmentainerDescendant(
+      const NGLogicalOOFNodeForFragmentation& descendant);
+  void AddOutOfFlowFragmentainerDescendant(
       const NGLogicalOutOfFlowPositionedNode& descendant);
 
   void AddOutOfFlowDescendant(
@@ -185,7 +188,7 @@ class CORE_EXPORT NGContainerFragmentBuilder : public NGFragmentBuilder {
       HeapVector<NGLogicalOutOfFlowPositionedNode>* candidates);
 
   void SwapOutOfFlowFragmentainerDescendants(
-      HeapVector<NGLogicalOutOfFlowPositionedNode>* descendants);
+      HeapVector<NGLogicalOOFNodeForFragmentation>* descendants);
 
   void SwapMulticolsWithPendingOOFs(
       MulticolCollection* multicols_with_pending_oofs);
@@ -246,6 +249,8 @@ class CORE_EXPORT NGContainerFragmentBuilder : public NGFragmentBuilder {
       LayoutUnit containing_block_adjustment = LayoutUnit(),
       const NGContainingBlock<LogicalOffset>* fixedpos_containing_block =
           nullptr,
+      const NGInlineContainer<LogicalOffset>* fixedpos_inline_container =
+          nullptr,
       LogicalOffset additional_fixedpos_offset = LogicalOffset());
 
   void SetIsSelfCollapsing() { is_self_collapsing_ = true; }
@@ -293,16 +298,16 @@ class CORE_EXPORT NGContainerFragmentBuilder : public NGFragmentBuilder {
   // longer accessible. For example, in simplified OOF layout, we may want to
   // recreate a spanner break for an existing fragment being relaid out, but
   // the spanner node is no longer available. In such cases,
-  // |has_column_spanner_| may be true while |column_spanner_| is not set.
+  // |has_column_spanner_| may be true while |column_spanner_path_| is not set.
   void SetHasColumnSpanner(bool has_column_spanner) {
     has_column_spanner_ = has_column_spanner;
   }
-  void SetColumnSpanner(NGBlockNode spanner) {
-    column_spanner_ = spanner;
-    SetHasColumnSpanner(!!column_spanner_);
+  void SetColumnSpannerPath(const NGColumnSpannerPath* spanner_path) {
+    column_spanner_path_ = spanner_path;
+    SetHasColumnSpanner(!!spanner_path);
   }
   bool FoundColumnSpanner() const {
-    DCHECK(has_column_spanner_ || !column_spanner_);
+    DCHECK(has_column_spanner_ || !column_spanner_path_);
     return has_column_spanner_;
   }
   void SetIsEmptySpannerParent(bool is_empty_spanner_parent) {
@@ -310,6 +315,10 @@ class CORE_EXPORT NGContainerFragmentBuilder : public NGFragmentBuilder {
     is_empty_spanner_parent_ = is_empty_spanner_parent;
   }
   bool IsEmptySpannerParent() const { return is_empty_spanner_parent_; }
+
+  void SetShouldForceSameFragmentationFlow() {
+    should_force_same_fragmentation_flow_ = true;
+  }
 
   // See NGLayoutResult::AnnotationOverflow().
   void SetAnnotationOverflow(LayoutUnit overflow) {
@@ -358,6 +367,16 @@ class CORE_EXPORT NGContainerFragmentBuilder : public NGFragmentBuilder {
 
   void AddChildInternal(const NGPhysicalFragment*, const LogicalOffset&);
 
+  // Set the fixedpos inline container and containing block based on the current
+  // |box_fragment|, |relative_offset| and |current_inline_container|.
+  void AdjustFixedposContainerInfo(
+      const NGPhysicalFragment* box_fragment,
+      LogicalOffset relative_offset,
+      NGInlineContainer<LogicalOffset>* fixedpos_inline_container,
+      const NGPhysicalFragment** fixedpos_containing_block_fragment,
+      const NGInlineContainer<LogicalOffset>* current_inline_container =
+          nullptr) const;
+
   NGLayoutInputNode node_;
   const NGConstraintSpace* space_;
 
@@ -368,7 +387,7 @@ class CORE_EXPORT NGContainerFragmentBuilder : public NGFragmentBuilder {
   absl::optional<int> lines_until_clamp_;
 
   HeapVector<NGLogicalOutOfFlowPositionedNode> oof_positioned_candidates_;
-  HeapVector<NGLogicalOutOfFlowPositionedNode>
+  HeapVector<NGLogicalOOFNodeForFragmentation>
       oof_positioned_fragmentainer_descendants_;
   HeapVector<NGLogicalOutOfFlowPositionedNode> oof_positioned_descendants_;
 
@@ -383,7 +402,7 @@ class CORE_EXPORT NGContainerFragmentBuilder : public NGFragmentBuilder {
   NGBreakTokenVector child_break_tokens_;
   const NGInlineBreakToken* last_inline_break_token_ = nullptr;
 
-  NGBlockNode column_spanner_ = nullptr;
+  const NGColumnSpannerPath* column_spanner_path_ = nullptr;
 
   const NGEarlyBreak* early_break_ = nullptr;
 
@@ -412,6 +431,7 @@ class CORE_EXPORT NGContainerFragmentBuilder : public NGFragmentBuilder {
   bool is_fragmentation_context_root_ = false;
   bool has_column_spanner_ = false;
   bool is_empty_spanner_parent_ = false;
+  bool should_force_same_fragmentation_flow_ = false;
 
   bool has_oof_candidate_that_needs_block_offset_adjustment_ = false;
   bool has_out_of_flow_fragment_child_ = false;

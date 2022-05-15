@@ -66,6 +66,7 @@
 #include "skia/ext/rgba_to_yuva.h"
 #include "third_party/libyuv/include/libyuv/planar_functions.h"
 #include "third_party/skia/include/core/SkCanvas.h"
+#include "third_party/skia/include/core/SkColorSpace.h"
 #include "third_party/skia/include/core/SkPromiseImageTexture.h"
 #include "third_party/skia/include/core/SkSurface.h"
 #include "third_party/skia/include/core/SkSurfaceProps.h"
@@ -3778,8 +3779,7 @@ void RasterDecoderImpl::DoEndRasterCHROMIUM() {
     scoped_shared_image_raster_write_->set_callback(base::BindOnce(
         [](scoped_refptr<ServiceFontManager> font_manager,
            std::vector<SkDiscardableHandleId> handles) {
-          if (!font_manager->is_destroyed())
-            font_manager->Unlock(handles);
+          font_manager->Unlock(handles);
         },
         font_manager_, std::move(locked_handles_)));
     scoped_shared_image_raster_write_.reset();

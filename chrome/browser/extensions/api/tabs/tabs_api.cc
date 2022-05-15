@@ -121,6 +121,8 @@
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/models/list_selection_model.h"
 #include "ui/base/ui_base_types.h"
+#include "ui/display/screen.h"
+#include "ui/gfx/geometry/rect.h"
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "chrome/browser/ui/ash/window_pin_util.h"
@@ -443,6 +445,18 @@ void SetLockedFullscreenState(Browser* browser, bool pinned) {
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 }
 
+// Returns whether the given `bounds` intersect with at least 50% of all the
+// displays.
+bool WindowBoundsIntersectDisplays(const gfx::Rect& bounds) {
+  int intersect_area = 0;
+  for (const auto& display : display::Screen::GetScreen()->GetAllDisplays()) {
+    gfx::Rect display_bounds = display.bounds();
+    display_bounds.Intersect(bounds);
+    intersect_area += display_bounds.size().GetArea();
+  }
+  return intersect_area >= (bounds.size().GetArea() / 2);
+}
+
 }  // namespace
 
 void ZoomModeToZoomSettings(ZoomController::ZoomMode zoom_mode,
@@ -746,18 +760,28 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
     WindowSizer::GetBrowserWindowBoundsAndShowState(
         gfx::Rect(), nullptr, &ignored_window_bounds, &ignored_show_state);
 
-    // Any part of the bounds can optionally be set by the caller.
-    if (create_data->left)
+    // Update the window bounds if the bounds from the create parameters
+    // intersect the displays.
+    bool set_window_bounds = false;
+    if (create_data->left) {
       window_bounds.set_x(*create_data->left);
-
-    if (create_data->top)
+      set_window_bounds = true;
+    }
+    if (create_data->top) {
       window_bounds.set_y(*create_data->top);
-
-    if (create_data->width)
+      set_window_bounds = true;
+    }
+    if (create_data->width) {
       window_bounds.set_width(*create_data->width);
-
-    if (create_data->height)
+      set_window_bounds = true;
+    }
+    if (create_data->height) {
       window_bounds.set_height(*create_data->height);
+      set_window_bounds = true;
+    }
+
+    if (set_window_bounds && !WindowBoundsIntersectDisplays(window_bounds))
+      return RespondNow(Error(tabs_constants::kInvalidWindowBoundsError));
 
     if (create_data->min_width) {
       min_width = *create_data->min_width;
@@ -1039,12 +1063,13 @@ ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
 
   // Before changing any of a window's state, validate the update parameters.
   // This prevents Chrome from performing "half" an update.
-  ui::WindowShowState show_state =
-      ConvertToWindowShowState(params->update_info.state);
-  gfx::Rect bounds = browser->window()->IsMinimized()
-                         ? browser->window()->GetRestoredBounds()
-                         : browser->window()->GetBounds();
-  bool set_bounds = false;
+
+  // Update the window bounds if the bounds from the update parameters intersect
+  // the displays.
+  gfx::Rect window_bounds = browser->window()->IsMinimized()
+                                ? browser->window()->GetRestoredBounds()
+                                : browser->window()->GetBounds();
+  bool set_window_bounds = false;
   bool set_pos_only = false;
 
   bool set_min_size = false;
@@ -1071,35 +1096,31 @@ ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
     browser->window()->SetMinimumSize(min_size);
   if (set_max_size)
     browser->window()->SetMaximumSize(max_size);
-  // Any part of the bounds can optionally be set by the caller.
   if (params->update_info.left) {
-    bounds.set_x(*params->update_info.left);
-    set_bounds = true;
+    window_bounds.set_x(*params->update_info.left);
+    set_window_bounds = true;
     set_pos_only = true;
   }
-
   if (params->update_info.top) {
-    bounds.set_y(*params->update_info.top);
-    set_bounds = true;
+    window_bounds.set_y(*params->update_info.top);
+    set_window_bounds = true;
     set_pos_only = true;
   }
-
   if (params->update_info.width) {
-    bounds.set_width(*params->update_info.width);
-    set_bounds = true;
+    window_bounds.set_width(*params->update_info.width);
+    set_window_bounds = true;
     set_pos_only = false;
   }
-
   if (params->update_info.height) {
-    bounds.set_height(*params->update_info.height);
-    set_bounds = true;
+    window_bounds.set_height(*params->update_info.height);
+    set_window_bounds = true;
     set_pos_only = false;
   }
 
   bool set_client_bounds = false;
   BrowserFrame* frame = BrowserView::GetBrowserViewForBrowser(browser)->frame();
   gfx::Rect client_bounds = frame->non_client_view()->frame_view()->GetBoundsForClientView();
-  client_bounds.Offset(bounds.OffsetFromOrigin());
+  client_bounds.Offset(window_bounds.OffsetFromOrigin());
 
   if (params->update_info.inner_width) {
     client_bounds.set_width(*params->update_info.inner_width);
@@ -1116,9 +1137,14 @@ ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
     browser->window()->SetBounds(win_bounds);
   }
 
-  if (set_bounds && (show_state == ui::SHOW_STATE_MINIMIZED ||
-                     show_state == ui::SHOW_STATE_MAXIMIZED ||
-                     show_state == ui::SHOW_STATE_FULLSCREEN)) {
+  if (set_window_bounds && !WindowBoundsIntersectDisplays(window_bounds))
+    return RespondNow(Error(tabs_constants::kInvalidWindowBoundsError));
+
+  ui::WindowShowState show_state =
+      ConvertToWindowShowState(params->update_info.state);
+  if (set_window_bounds && (show_state == ui::SHOW_STATE_MINIMIZED ||
+                            show_state == ui::SHOW_STATE_MAXIMIZED ||
+                            show_state == ui::SHOW_STATE_FULLSCREEN)) {
     return RespondNow(Error(tabs_constants::kInvalidWindowStateError));
   }
 
@@ -1180,20 +1206,20 @@ ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
       break;
   }
 
-  if (set_bounds) {
+  if (set_window_bounds) {
     // TODO(varkha): Updating bounds during a drag can cause problems and a more
     // general solution is needed. See http://crbug.com/251813 .
 #if defined(OS_WIN)
     if (set_pos_only)
-      browser->window()->SetPosition(bounds.origin());
+      browser->window()->SetPosition(window_bounds.origin());
     else
 #endif
-      browser->window()->SetBounds(bounds);
+      browser->window()->SetBounds(window_bounds);
   }
 
   if (params->update_info.position &&
       *params->update_info.position == "center")
-    BrowserView::GetBrowserViewForBrowser(browser)->frame()->CenterWindow(bounds.size());
+    BrowserView::GetBrowserViewForBrowser(browser)->frame()->CenterWindow(window_bounds.size());
   if (params->update_info.position &&
       *params->update_info.position == "mouse") {
     BrowserFrame* browser_frame =

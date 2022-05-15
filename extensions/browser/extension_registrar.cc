@@ -13,6 +13,7 @@
 
 #include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
+#include "build/chromeos_buildflags.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/devtools_agent_host.h"
@@ -31,6 +32,10 @@
 #include "extensions/browser/service_worker_task_queue.h"
 #include "extensions/browser/task_queue_util.h"
 #include "extensions/common/manifest_handlers/background_info.h"
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+#include "chrome/browser/ash/crosapi/browser_util.h"
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 using content::DevToolsAgentHost;
 
@@ -234,6 +239,16 @@ void ExtensionRegistrar::DisableExtension(const ExtensionId& extension_id,
         extensions::disable_reason::DISABLE_BLOCKED_BY_POLICY |
         extensions::disable_reason::DISABLE_CUSTODIAN_APPROVAL_REQUIRED |
         extensions::disable_reason::DISABLE_REINSTALL;
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+    // For controlled extensions, only allow disabling not ash-keeplisted
+    // extensions if Lacros is the only browser.
+    if (!crosapi::browser_util::IsAshWebBrowserEnabled()) {
+      internal_disable_reason_mask |=
+          extensions::disable_reason::DISABLE_NOT_ASH_KEEPLISTED;
+    }
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+
     disable_reasons &= internal_disable_reason_mask;
 
     if (disable_reasons == disable_reason::DISABLE_NONE)

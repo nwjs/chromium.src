@@ -29,7 +29,6 @@
 #include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
-#include "chrome/browser/send_tab_to_self/send_tab_to_self_desktop_util.h"
 #include "chrome/browser/send_tab_to_self/send_tab_to_self_util.h"
 #include "chrome/browser/sharing/features.h"
 #include "chrome/browser/sharing/shared_clipboard/feature_flags.h"
@@ -46,6 +45,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/content_settings/content_setting_bubble_model.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/omnibox/chrome_omnibox_client.h"
@@ -271,7 +271,7 @@ void LocationBarView::Init() {
         views::style::STYLE_LINK);
     omnibox_additional_text_view->SetHorizontalAlignment(gfx::ALIGN_LEFT);
     omnibox_additional_text_view->SetBorder(
-        views::CreateEmptyBorder(0, 10, 0, 0));
+        views::CreateEmptyBorder(gfx::Insets::TLBR(0, 10, 0, 0)));
     omnibox_additional_text_view->SetVisible(false);
     omnibox_additional_text_view_ =
         AddChildView(std::move(omnibox_additional_text_view));
@@ -301,8 +301,14 @@ void LocationBarView::Init() {
   // |browser_| may be null when LocationBarView is used for non-Browser windows
   // such as PresentationReceiverWindowView, which do not support page actions.
   if (browser_) {
-    // The send tab to self icon is intentionally the first one added so it is
-    // the left most icon.
+    // Page action icons that participate in label animations should be added
+    // first so that they appear on the left side of the icon container.
+    // TODO(crbug.com/1318890): Improve the ordering heuristics for page action
+    // icons and determine a way to handle simultaneous icon animations.
+#if BUILDFLAG(ENABLE_SIDE_SEARCH)
+    if (side_search::IsDSESupportEnabled(profile_))
+      params.types_enabled.push_back(PageActionIconType::kSideSearch);
+#endif  // BUILDFLAG(ENABLE_SIDE_SEARCH)
     params.types_enabled.push_back(PageActionIconType::kSendTabToSelf);
     params.types_enabled.push_back(PageActionIconType::kClickToCall);
     params.types_enabled.push_back(PageActionIconType::kQRCodeGenerator);
@@ -317,10 +323,6 @@ void LocationBarView::Init() {
     if (!apps::features::LinkCapturingUiUpdateEnabled())
       params.types_enabled.push_back(PageActionIconType::kIntentPicker);
     params.types_enabled.push_back(PageActionIconType::kPwaInstall);
-#if BUILDFLAG(ENABLE_SIDE_SEARCH)
-    if (side_search::IsDSESupportEnabled(profile_))
-      params.types_enabled.push_back(PageActionIconType::kSideSearch);
-#endif  // BUILDFLAG(ENABLE_SIDE_SEARCH)
     params.types_enabled.push_back(PageActionIconType::kFind);
     params.types_enabled.push_back(PageActionIconType::kTranslate);
     params.types_enabled.push_back(PageActionIconType::kZoom);
@@ -968,7 +970,7 @@ int LocationBarView::GetMinimumTrailingWidth() const {
 gfx::Rect LocationBarView::GetLocalBoundsWithoutEndcaps() const {
   const int border_radius = height() / 2;
   gfx::Rect bounds_without_endcaps(GetLocalBounds());
-  bounds_without_endcaps.Inset(border_radius, 0);
+  bounds_without_endcaps.Inset(gfx::Insets::VH(0, border_radius));
   return bounds_without_endcaps;
 }
 
@@ -1039,8 +1041,11 @@ void LocationBarView::RefreshClearAllButtonIcon() {
   const bool touch_ui = ui::TouchUiController::Get()->touch_ui();
   const gfx::VectorIcon& icon =
       touch_ui ? omnibox::kClearIcon : kTabCloseNormalIcon;
-  SetImageFromVectorIcon(clear_all_button_, icon,
-                         GetColor(OmniboxPart::LOCATION_BAR_CLEAR_ALL));
+  const ui::ColorProvider* cp = GetColorProvider();
+  SetImageFromVectorIconWithColor(
+      clear_all_button_, icon,
+      cp->GetColor(kColorLocationBarClearAllButtonIcon),
+      cp->GetColor(kColorLocationBarClearAllButtonIconDisabled));
   clear_all_button_->SetBorder(views::CreateEmptyBorder(
       GetLayoutInsets(LOCATION_BAR_ICON_INTERIOR_PADDING)));
 }

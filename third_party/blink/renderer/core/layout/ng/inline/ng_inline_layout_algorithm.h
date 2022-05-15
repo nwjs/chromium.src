@@ -6,6 +6,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_NG_INLINE_NG_INLINE_LAYOUT_ALGORITHM_H_
 
 #include "base/dcheck_is_on.h"
+#include "base/notreached.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_inline_node.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_logical_line_item.h"
@@ -18,6 +19,7 @@
 
 namespace blink {
 
+class NGColumnSpannerPath;
 class NGConstraintSpace;
 class NGExclusionSpace;
 class NGInlineBreakToken;
@@ -44,6 +46,7 @@ class CORE_EXPORT NGInlineLayoutAlgorithm final
   NGInlineLayoutAlgorithm(NGInlineNode,
                           const NGConstraintSpace&,
                           const NGInlineBreakToken*,
+                          const NGColumnSpannerPath*,
                           NGInlineChildLayoutContext* context);
   ~NGInlineLayoutAlgorithm() override;
 
@@ -135,6 +138,8 @@ class CORE_EXPORT NGInlineLayoutAlgorithm final
 
   NGInlineLayoutStateStack* box_states_;
   NGInlineChildLayoutContext* context_;
+
+  const NGColumnSpannerPath* column_spanner_path_;
 
   NGMarginStrut end_margin_strut_;
   absl::optional<int> lines_until_clamp_;

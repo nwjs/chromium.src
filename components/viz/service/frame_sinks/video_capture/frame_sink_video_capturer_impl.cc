@@ -43,11 +43,27 @@ using media::VideoCaptureOracle;
 using media::VideoFrame;
 using media::VideoFrameMetadata;
 
-#define UMA_HISTOGRAM_CAPTURE_DURATION_CUSTOM_TIMES(name, sample)         \
-  UMA_HISTOGRAM_CUSTOM_TIMES(                                             \
-      base::StringPrintf("Viz.FrameSinkVideoCapturer.%s.CaptureDuration", \
-                         name),                                           \
-      sample, base::Milliseconds(1), base::Seconds(1), 50)
+// Helper macro to log ".CaptureDuration" histograms. |format| needs to be a
+// string literal, |sample| is a sample that will be logged.
+#define UMA_HISTOGRAM_CAPTURE_DURATION(format, sample)                       \
+  do {                                                                       \
+    UMA_HISTOGRAM_CUSTOM_TIMES(                                              \
+        "Viz.FrameSinkVideoCapturer." format ".CaptureDuration", sample,     \
+        base::Milliseconds(1), base::Seconds(1), 50);                        \
+    UMA_HISTOGRAM_CUSTOM_TIMES("Viz.FrameSinkVideoCapturer.CaptureDuration", \
+                               sample, base::Milliseconds(1),                \
+                               base::Seconds(1), 50);                        \
+  } while (false)
+
+// Helper macro to log ".CaptureSucceeded" histograms. |format| needs to be a
+// string literal, |success| is a boolean that will be logged.
+#define UMA_HISTOGRAM_CAPTURE_SUCCEEDED(format, success)                    \
+  do {                                                                      \
+    UMA_HISTOGRAM_BOOLEAN(                                                  \
+        "Viz.FrameSinkVideoCapturer." format ".CaptureSucceeded", success); \
+    UMA_HISTOGRAM_BOOLEAN("Viz.FrameSinkVideoCapturer.CaptureSucceeded",    \
+                          success);                                         \
+  } while (false)
 
 namespace viz {
 
@@ -155,19 +171,25 @@ FrameSinkVideoCapturerImpl::~FrameSinkVideoCapturerImpl() {
 
 void FrameSinkVideoCapturerImpl::ResolveTarget() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
   SetResolvedTarget(
       target_ ? frame_sink_manager_->FindCapturableFrameSink(target_.value())
               : nullptr);
 }
 
+bool FrameSinkVideoCapturerImpl::TryResolveTarget() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  if (!resolved_target_) {
+    ResolveTarget();
+  }
+
+  return resolved_target_;
+}
+
 void FrameSinkVideoCapturerImpl::SetResolvedTarget(
     CapturableFrameSink* target) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  // We were unable to resolve a target, so schedule a check for the next
-  // refresh.
-  if (!target && target_.has_value()) {
-    RequestRefreshFrame();
-  }
 
   if (resolved_target_ == target) {
     return;
@@ -400,15 +422,12 @@ void FrameSinkVideoCapturerImpl::Stop() {
 void FrameSinkVideoCapturerImpl::RequestRefreshFrame() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
-  if (!refresh_frame_retry_timer_->IsRunning()) {
-    // NOTE: base::Unretained is used here safely because if |this| is invalid
-    // then the retry timer should have already been destructed.
-    refresh_frame_retry_timer_->Start(
-        FROM_HERE, GetDelayBeforeNextRefreshAttempt(),
-        base::BindOnce(&FrameSinkVideoCapturerImpl::RefreshInternal,
-                       base::Unretained(this),
-                       VideoCaptureOracle::kRefreshRequest));
+  if (!TryResolveTarget()) {
+    return;
   }
+
+  refresh_frame_retry_timer_->Stop();
+  RefreshNow();
 }
 
 void FrameSinkVideoCapturerImpl::CreateOverlay(
@@ -449,6 +468,20 @@ void FrameSinkVideoCapturerImpl::RefreshNow() {
   RefreshInternal(VideoCaptureOracle::kRefreshDemand);
 }
 
+void FrameSinkVideoCapturerImpl::MaybeScheduleRefreshFrame() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  if (!refresh_frame_retry_timer_->IsRunning()) {
+    // NOTE: base::Unretained is used here safely because if |this| is invalid
+    // then the retry timer should have already been destructed.
+    refresh_frame_retry_timer_->Start(
+        FROM_HERE, GetDelayBeforeNextRefreshAttempt(),
+        base::BindOnce(&FrameSinkVideoCapturerImpl::RefreshInternal,
+                       base::Unretained(this),
+                       media::VideoCaptureOracle::Event::kRefreshRequest));
+  }
+}
+
 void FrameSinkVideoCapturerImpl::InvalidateEntireSource() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   dirty_rect_ = kMaxRect;
@@ -487,12 +520,9 @@ void FrameSinkVideoCapturerImpl::RefreshInternal(
 
   // If the capture target has not yet been resolved, first try changing the
   // target since it may be available now.
-  if (!resolved_target_) {
-    ResolveTarget();
-    if (!resolved_target_) {
-      RequestRefreshFrame();
-      return;
-    }
+  if (!TryResolveTarget()) {
+    MaybeScheduleRefreshFrame();
+    return;
   }
 
   // Detect whether the source size changed before attempting capture.
@@ -505,7 +535,7 @@ void FrameSinkVideoCapturerImpl::RefreshInternal(
     // frame has not been composited yet or the current region selected for
     // capture has a current size of zero. We schedule a frame refresh here,
     // although its not useful in all circumstances.
-    RequestRefreshFrame();
+    MaybeScheduleRefreshFrame();
     return;
   }
 
@@ -636,7 +666,7 @@ void FrameSinkVideoCapturerImpl::MaybeCaptureFrame(
 
     // Whether the oracle rejected a compositor update or a refresh event,
     // the consumer needs to be provided an update in the near future.
-    RequestRefreshFrame();
+    MaybeScheduleRefreshFrame();
     return;
   }
 
@@ -665,7 +695,7 @@ void FrameSinkVideoCapturerImpl::MaybeCaptureFrame(
   // TODO(https://crbug.com/1300943): we should likely just get the frame
   // region from the last aggregated surface.
   if (!compositor_frame_region.Contains(capture_region)) {
-    RequestRefreshFrame();
+    MaybeScheduleRefreshFrame();
     return;
   }
 
@@ -688,8 +718,18 @@ void FrameSinkVideoCapturerImpl::MaybeCaptureFrame(
     frame = ResurrectFrame();
   } else {
     TRACE_EVENT0("gpu.capture", "ReservingVideoFrame");
+    auto reserve_start_time = base::TimeTicks::Now();
+
     frame = frame_pool_->ReserveVideoFrame(pixel_format_, capture_size);
+
+    UMA_HISTOGRAM_CUSTOM_TIMES(
+        "Viz.FrameSinkVideoCapturer.ReserveFrameDuration",
+        base::TimeTicks::Now() - reserve_start_time, base::Milliseconds(1),
+        base::Milliseconds(250), 50);
   }
+
+  UMA_HISTOGRAM_BOOLEAN("Viz.FrameSinkVideoCapturer.FrameResurrected",
+                        can_resurrect_content);
 
   // Compute the current in-flight utilization and attenuate it: The utilization
   // reported to the oracle is in terms of a maximum sustainable amount (not the
@@ -712,7 +752,7 @@ void FrameSinkVideoCapturerImpl::MaybeCaptureFrame(
       LOG(ERROR) << "Unable to allocate frame for first frame capture: OOM?";
       Stop();
     } else {
-      RequestRefreshFrame();
+      MaybeScheduleRefreshFrame();
     }
     return;
   }
@@ -1046,13 +1086,13 @@ void FrameSinkVideoCapturerImpl::DidCopyFrame(
       // Per CopyOutputResult header comments, I420_PLANES results are always in
       // the Rec.709 color space.
       frame->set_color_space(gfx::ColorSpace::CreateREC709());
-      UMA_HISTOGRAM_CAPTURE_DURATION_CUSTOM_TIMES(
+      UMA_HISTOGRAM_CAPTURE_DURATION(
           "I420", base::TimeTicks::Now() - properties.request_time);
     } else {
       frame = nullptr;
     }
-    UMA_HISTOGRAM_BOOLEAN("Viz.FrameSinkVideoCapturer.I420.CaptureSucceeded",
-                          success);
+
+    UMA_HISTOGRAM_CAPTURE_SUCCEEDED("I420", success);
   } else if (pixel_format_ == media::PIXEL_FORMAT_ARGB) {
     int stride = frame->stride(VideoFrame::kARGBPlane);
     DCHECK_EQ(media::PIXEL_FORMAT_ARGB, pixel_format_);
@@ -1061,29 +1101,29 @@ void FrameSinkVideoCapturerImpl::DidCopyFrame(
     bool success = result->ReadRGBAPlane(pixels, stride);
     if (success) {
       frame->set_color_space(result->GetRGBAColorSpace());
-      UMA_HISTOGRAM_CAPTURE_DURATION_CUSTOM_TIMES(
+      UMA_HISTOGRAM_CAPTURE_DURATION(
           "RGBA", base::TimeTicks::Now() - properties.request_time);
     } else {
       frame = nullptr;
     }
-    UMA_HISTOGRAM_BOOLEAN("Viz.FrameSinkVideoCapturer.RGBA.CaptureSucceeded",
-                          success);
+
+    UMA_HISTOGRAM_CAPTURE_SUCCEEDED("RGBA", success);
   } else {
     DCHECK_EQ(pixel_format_, media::PIXEL_FORMAT_NV12);
     // NV12 is only supported for GMBs for now, in which case there is nothing
     // for us to do since the CopyOutputResults are already available in the
     // video frame (assuming that we got the results).
 
-    UMA_HISTOGRAM_CAPTURE_DURATION_CUSTOM_TIMES(
-        "NV12", base::TimeTicks::Now() - properties.request_time);
-
-    frame->set_color_space(gfx::ColorSpace::CreateREC709());
-
-    UMA_HISTOGRAM_BOOLEAN("Viz.FrameSinkVideoCapturer.NV12.CaptureSucceeded",
-                          !result->IsEmpty());
     if (result->IsEmpty()) {
       frame = nullptr;
+    } else {
+      frame->set_color_space(gfx::ColorSpace::CreateREC709());
+
+      UMA_HISTOGRAM_CAPTURE_DURATION(
+          "NV12", base::TimeTicks::Now() - properties.request_time);
     }
+
+    UMA_HISTOGRAM_CAPTURE_SUCCEEDED("NV12", !result->IsEmpty());
   }
 
   if (frame) {
@@ -1146,6 +1186,10 @@ void FrameSinkVideoCapturerImpl::OnFrameReadyForDelivery(
           "Viz.FrameSinkVideoCapturer.NV12.TotalDuration", sample,
           base::Milliseconds(1), base::Seconds(1), 50);
     }
+
+    UMA_HISTOGRAM_CUSTOM_TIMES("Viz.FrameSinkVideoCapturer.TotalDuration",
+                               sample, base::Milliseconds(1), base::Seconds(1),
+                               50);
   }
 
   // Ensure frames are delivered in-order by using a min-heap, and only
@@ -1182,7 +1226,7 @@ void FrameSinkVideoCapturerImpl::MaybeDeliverFrame(
     TRACE_EVENT_NESTABLE_ASYNC_END1("gpu.capture", "Capture",
                                     oracle_frame_number, "success", false);
 
-    RequestRefreshFrame();
+    MaybeScheduleRefreshFrame();
     return;
   }
 

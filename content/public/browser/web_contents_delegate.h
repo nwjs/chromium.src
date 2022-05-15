@@ -60,7 +60,6 @@ class RenderFrameHost;
 class RenderWidgetHost;
 class SessionStorageNamespace;
 class SiteInstance;
-class WebContentsImpl;
 struct ContextMenuParams;
 struct DropData;
 struct MediaPlayerWatchTime;
@@ -131,7 +130,7 @@ class CONTENT_EXPORT WebContentsDelegate {
   // transfer to a different process between the start of the network load and
   // commit.  Defaults to true.
   virtual bool ShouldAllowRendererInitiatedCrossProcessNavigation(
-      bool is_main_frame_navigation);
+      bool is_outermost_main_frame_navigation);
 
   virtual bool CanLoadFileSubresource(const GURL& url);
   // Called to inform the delegate that the WebContents's navigation state

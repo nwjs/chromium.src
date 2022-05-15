@@ -10,6 +10,7 @@
 
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/time/time.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "content/common/content_export.h"
@@ -61,7 +62,6 @@ CONTENT_EXPORT extern const base::Feature kConsolidatedMovementXY;
 CONTENT_EXPORT extern const base::Feature kCooperativeScheduling;
 CONTENT_EXPORT extern const base::Feature kCrashReporting;
 CONTENT_EXPORT extern const base::Feature kCriticalClientHint;
-CONTENT_EXPORT extern const base::Feature kDataSaverHoldback;
 CONTENT_EXPORT extern const base::Feature
     kDebugHistoryInterventionNoUserActivation;
 CONTENT_EXPORT extern const base::Feature kDesktopCaptureChangeSource;
@@ -79,6 +79,10 @@ CONTENT_EXPORT extern const base::Feature kEmbeddingRequiresOptIn;
 CONTENT_EXPORT extern const base::Feature
     kEnableBackForwardCacheForScreenReader;
 CONTENT_EXPORT extern const base::Feature kEnableCanvas2DLayers;
+CONTENT_EXPORT extern const base::Feature
+    kEnableMachineLearningModelLoaderWebPlatformApi;
+CONTENT_EXPORT extern const base::Feature
+    kEnableServiceWorkersForChromeUntrusted;
 CONTENT_EXPORT extern const base::Feature kEnumerateDevicesHideDeviceIDs;
 CONTENT_EXPORT extern const base::Feature kExperimentalAccessibilityLabels;
 CONTENT_EXPORT extern const base::Feature
@@ -88,6 +92,7 @@ CONTENT_EXPORT extern const base::Feature
 CONTENT_EXPORT extern const base::Feature kFedCm;
 CONTENT_EXPORT extern const char kFedCmAutoSigninFieldTrialParamName[];
 CONTENT_EXPORT extern const char kFedCmIdpSignoutFieldTrialParamName[];
+CONTENT_EXPORT extern const base::Feature kFedCmManifestValidation;
 CONTENT_EXPORT extern const base::Feature kFirstPartySets;
 CONTENT_EXPORT extern const base::FeatureParam<bool> kFirstPartySetsIsDogfooder;
 CONTENT_EXPORT extern const base::Feature kFirstPartySetsV2ComponentFormat;
@@ -220,7 +225,6 @@ CONTENT_EXPORT extern const base::Feature kWebOTP;
 CONTENT_EXPORT extern const base::Feature kWebOTPAssertionFeaturePolicy;
 CONTENT_EXPORT extern const base::Feature kSpareRendererForSitePerProcess;
 CONTENT_EXPORT extern const base::Feature kStopVideoCaptureOnScreenLock;
-CONTENT_EXPORT extern const base::Feature kStorageServiceOutOfProcess;
 CONTENT_EXPORT extern const base::Feature kStrictOriginIsolation;
 CONTENT_EXPORT extern const base::Feature kSubframeShutdownDelay;
 enum class SubframeShutdownDelayType {
@@ -286,8 +290,6 @@ CONTENT_EXPORT extern const base::Feature kWebUIReportOnlyTrustedTypes;
 CONTENT_EXPORT extern const base::Feature kWebUsb;
 CONTENT_EXPORT extern const base::Feature kWebXr;
 CONTENT_EXPORT extern const base::Feature kWebXrArModule;
-CONTENT_EXPORT extern const base::Feature
-    kChangeServiceWorkerPriorityForClientForegroundStateChange;
 
 #if BUILDFLAG(IS_ANDROID)
 CONTENT_EXPORT extern const base::Feature kAccessibilityPageZoom;

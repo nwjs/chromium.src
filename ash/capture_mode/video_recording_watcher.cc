@@ -225,6 +225,10 @@ VideoRecordingWatcher::VideoRecordingWatcher(
   window_being_recorded_->AddPreTargetHandler(
       this, ui::EventTarget::Priority::kAccessibility);
 
+  auto* camera_controller = controller_->camera_controller();
+  if (camera_controller)
+    camera_controller->OnRecordingStarted(is_in_projector_mode_);
+
   if (is_in_projector_mode_) {
     recording_overlay_controller_ =
         std::make_unique<RecordingOverlayController>(window_being_recorded_,
@@ -274,16 +278,16 @@ void VideoRecordingWatcher::ShutDown() {
   auto to_be_removed_request = std::move(non_root_window_capture_request_);
   window_being_recorded_->RemoveObserver(this);
   display::Screen::GetScreen()->RemoveObserver(this);
-  // Set the value for `SetShouldShowPreview` to false when recording ends.
-  if (controller_->camera_controller())
-    controller_->camera_controller()->SetShouldShowPreview(false);
+  if (controller_->camera_controller()) {
+    controller_->camera_controller()->OnRecordingEnded();
+  }
 }
 
 aura::Window* VideoRecordingWatcher::GetCameraPreviewParentWindow() const {
   DCHECK(window_being_recorded_);
   return window_being_recorded_->IsRootWindow()
              ? window_being_recorded_->GetChildById(
-                   kShellWindowId_OverlayContainer)
+                   kShellWindowId_MenuContainer)
              : window_being_recorded_;
 }
 
@@ -343,7 +347,7 @@ void VideoRecordingWatcher::OnWindowBoundsChanged(
   // window being recorded is changed.
   auto* camera_controller = controller_->camera_controller();
   if (camera_controller)
-    camera_controller->MaybeUpdatePreviewWidgetBounds();
+    camera_controller->MaybeUpdatePreviewWidget();
 }
 
 void VideoRecordingWatcher::OnWindowOpacitySet(
@@ -418,8 +422,7 @@ void VideoRecordingWatcher::OnPaintLayer(const ui::PaintContext& context) {
   const float dsf = canvas->UndoDeviceScaleFactor();
   gfx::Rect region =
       gfx::ScaleToEnclosingRect(GetEffectivePartialRegionBounds(), dsf);
-  region.Inset(-capture_mode::kCaptureRegionBorderStrokePx,
-               -capture_mode::kCaptureRegionBorderStrokePx);
+  region.Inset(-capture_mode::kCaptureRegionBorderStrokePx);
   canvas->FillRect(region, SK_ColorTRANSPARENT, SkBlendMode::kClear);
 
   // Draw the region border.
@@ -466,7 +469,7 @@ void VideoRecordingWatcher::OnDisplayMetricsChanged(
   // handled in `OnWindowBoundsChanged`;
   auto* camera_controller = controller_->camera_controller();
   if (camera_controller && recording_source_ != CaptureModeSource::kWindow)
-    camera_controller->MaybeUpdatePreviewWidgetBounds();
+    camera_controller->MaybeUpdatePreviewWidget();
 
   // We don't show a dimming overlay when recording a fullscreen.
   if (recording_source_ == CaptureModeSource::kFullscreen)

@@ -8,6 +8,7 @@
 #include "content/browser/fenced_frame/fenced_frame.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/browser/web_contents/web_contents_impl.h"
+#include "content/public/common/content_features.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_frame_navigation_observer.h"
 #include "content/test/fenced_frame_test_utils.h"
@@ -35,8 +36,10 @@ constexpr char kNavigateFrameScript[] = R"({location.href = $1;})";
 }  // namespace
 
 FencedFrameTestHelper::FencedFrameTestHelper() {
-  scoped_feature_list_.InitAndEnableFeatureWithParameters(
-      blink::features::kFencedFrames, {{"implementation_type", "mparch"}});
+  scoped_feature_list_.InitWithFeaturesAndParameters(
+      {{blink::features::kFencedFrames, {{"implementation_type", "mparch"}}},
+       {features::kPrivacySandboxAdsAPIsOverride, {}}},
+      {/* disabled_features */});
 }
 
 FencedFrameTestHelper::~FencedFrameTestHelper() = default;
@@ -102,6 +105,26 @@ RenderFrameHost* FencedFrameTestHelper::NavigateFrameInFencedFrameTree(
   return target_node->current_frame_host();
 }
 
+// static
+RenderFrameHost* FencedFrameTestHelper::GetMostRecentlyAddedFencedFrame(
+    RenderFrameHost* rfh) {
+  std::vector<FencedFrame*> fenced_frames =
+      static_cast<RenderFrameHostImpl*>(rfh)->GetFencedFrames();
+  if (fenced_frames.empty())
+    return nullptr;
+
+  return fenced_frames.back()->GetInnerRoot();
+}
+
+GURL CreateFencedFrameURLMapping(RenderFrameHost* rfh, const GURL& url) {
+  FrameTreeNode* target_node =
+      static_cast<RenderFrameHostImpl*>(rfh)->frame_tree_node();
+  FencedFrameURLMapping& url_mapping =
+      target_node->current_frame_host()->GetPage().fenced_frame_urls_map();
+  GURL urn_uuid = url_mapping.AddFencedFrameURL(url);
+  EXPECT_TRUE(urn_uuid.is_valid());
+  return urn_uuid;
+}
 }  // namespace test
 
 }  // namespace content

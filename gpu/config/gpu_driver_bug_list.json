@@ -638,6 +638,7 @@
           "value": "10"
         }
       },
+      "vendor_id": "0x1002",
       "driver_version": {
         "op": "<",
         "value": "20.19.0.32837"
@@ -3209,6 +3210,7 @@
       "device_id": ["0x15d8", "0x15dd"],
       "exceptions": [
         {
+          "vendor_id": "0x1002",
           "driver_version": {
             "op": "between",
             "value": "26.20.11030.2",
@@ -3968,6 +3970,17 @@
       },
       "features": [
         "disable_canvas_oop_rasterization"
+      ]
+    },
+    {
+      "id": 393,
+      "description": "GL Contexts heavy / exhaust resources",
+      "os": {
+        "type": "chromeos"
+      },
+      "gl_vendor": "freedreno",
+      "features": [
+        "use_virtualized_gl_contexts"
       ]
     }
   ]

@@ -56,7 +56,9 @@
 #include "third_party/blink/renderer/platform/peerconnection/audio_codec_factory.h"
 #include "third_party/blink/renderer/platform/peerconnection/video_codec_factory.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier.h"
+#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_base.h"
+#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_gfx.h"
+#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_std.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "third_party/re2/src/re2/re2.h"
@@ -207,6 +209,7 @@ class PeerConnectionStaticDeps {
   rtc::Thread* GetWorkerThread() { return worker_thread_; }
   rtc::Thread* GetNetworkThread() { return network_thread_; }
   base::Thread& GetChromeSignalingThread() { return chrome_signaling_thread_; }
+  base::Thread& GetChromeWorkerThread() { return chrome_worker_thread_; }
   base::Thread& GetChromeNetworkThread() { return chrome_network_thread_; }
 
  private:
@@ -296,6 +299,9 @@ rtc::Thread* GetNetworkThread() {
 base::Thread& GetChromeSignalingThread() {
   return StaticDeps().GetChromeSignalingThread();
 }
+base::Thread& GetChromeWorkerThread() {
+  return StaticDeps().GetChromeWorkerThread();
+}
 base::Thread& GetChromeNetworkThread() {
   return StaticDeps().GetChromeNetworkThread();
 }
@@ -326,7 +332,7 @@ struct UmaVideoConfig {
 
 void ReportUmaEncodeDecodeCapabilities(
     media::GpuVideoAcceleratorFactories* gpu_factories,
-    media::DecoderFactory* media_decoder_factory) {
+    base::WeakPtr<media::DecoderFactory> media_decoder_factory) {
   const gfx::ColorSpace& render_color_space =
       Platform::Current()->GetRenderingColorSpace();
   scoped_refptr<base::SequencedTaskRunner> media_task_runner =
@@ -376,7 +382,7 @@ void ReportUmaEncodeDecodeCapabilities(
 
 void WaitForEncoderSupportReady(
     media::GpuVideoAcceleratorFactories* gpu_factories,
-    media::DecoderFactory* media_decoder_factory) {
+    base::WeakPtr<media::DecoderFactory> media_decoder_factory) {
   gpu_factories->NotifyEncoderSupportKnown(
       base::BindOnce(&ReportUmaEncodeDecodeCapabilities, gpu_factories,
                      media_decoder_factory));
@@ -529,7 +535,7 @@ void PeerConnectionDependencyFactory::CreatePeerConnectionFactory() {
           Platform::Current()->GetRenderingColorSpace(),
           Platform::Current()->MediaThreadTaskRunner(),
           CrossThreadUnretained(Platform::Current()->GetGpuFactories()),
-          CrossThreadUnretained(Platform::Current()->GetMediaDecoderFactory()),
+          Platform::Current()->GetMediaDecoderFactory(),
           CrossThreadUnretained(&start_signaling_event)));
 
   start_signaling_event.Wait();
@@ -543,7 +549,7 @@ void PeerConnectionDependencyFactory::InitializeSignalingThread(
     const gfx::ColorSpace& render_color_space,
     scoped_refptr<base::SequencedTaskRunner> media_task_runner,
     media::GpuVideoAcceleratorFactories* gpu_factories,
-    media::DecoderFactory* media_decoder_factory,
+    base::WeakPtr<media::DecoderFactory> media_decoder_factory,
     base::WaitableEvent* event) {
   DCHECK(GetChromeSignalingThread().task_runner()->BelongsToCurrentThread());
   DCHECK(GetNetworkThread());
@@ -892,10 +898,35 @@ void PeerConnectionDependencyFactory::ContextDestroyed() {
 }
 
 void PeerConnectionDependencyFactory::CleanupPeerConnectionFactory() {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   DVLOG(1) << "PeerConnectionDependencyFactory::CleanupPeerConnectionFactory()";
   webrtc_video_perf_reporter_.Shutdown();
   socket_factory_ = nullptr;
-  pc_factory_ = nullptr;
+  // Not obtaining `signaling_thread` using GetWebRtcSignalingTaskRunner()
+  // because that method triggers EnsureInitialized() and we're trying to
+  // perform cleanup.
+  scoped_refptr<base::SingleThreadTaskRunner> signaling_thread =
+      GetChromeSignalingThread().IsRunning()
+          ? GetChromeSignalingThread().task_runner()
+          : nullptr;
+  if (signaling_thread) {
+    // To avoid a PROXY block-invoke to ~webrtc::PeerConnectionFactory(), we
+    // move our reference to the signaling thread in a PostTask.
+    scoped_refptr<webrtc::PeerConnectionFactoryInterface> pcf(
+        pc_factory_.get());  // rtc::scoped_refptr to scoped_refptr
+    pc_factory_ = nullptr;
+    signaling_thread->PostTask(
+        FROM_HERE,
+        base::BindOnce(
+            [](scoped_refptr<webrtc::PeerConnectionFactoryInterface> pcf) {
+              // The binding releases `pcf` on the signaling thread as this
+              // method goes out of scope.
+            },
+            std::move(pcf)));
+  } else {
+    pc_factory_ = nullptr;
+  }
+  DCHECK(!pc_factory_);
   if (network_manager_) {
     base::WaitableEvent event(base::WaitableEvent::ResetPolicy::MANUAL,
                               base::WaitableEvent::InitialState::NOT_SIGNALED);
@@ -921,6 +952,14 @@ PeerConnectionDependencyFactory::GetWebRtcNetworkTaskRunner() {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   return GetChromeNetworkThread().IsRunning()
              ? GetChromeNetworkThread().task_runner()
+             : nullptr;
+}
+
+scoped_refptr<base::SingleThreadTaskRunner>
+PeerConnectionDependencyFactory::GetWebRtcWorkerTaskRunner() {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  return GetChromeWorkerThread().IsRunning()
+             ? GetChromeWorkerThread().task_runner()
              : nullptr;
 }
 

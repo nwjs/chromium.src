@@ -95,7 +95,7 @@ namespace {
 void RecordGamepadsForIdentifiabilityStudy(
     ExecutionContext* context,
     HeapVector<Member<Gamepad>> gamepads) {
-  if (!context || !IdentifiabilityStudySettings::Get()->ShouldSample(
+  if (!context || !IdentifiabilityStudySettings::Get()->ShouldSampleSurface(
                       IdentifiableSurface::FromTypeAndToken(
                           IdentifiableSurface::Type::kWebFeature,
                           WebFeature::kGetGamepads)))

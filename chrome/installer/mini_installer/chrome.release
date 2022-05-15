@@ -57,12 +57,6 @@ Logo.png: %(ChromeDir)s\VisualElements\
 SmallLogo.png: %(ChromeDir)s\VisualElements\
 
 #
-# SwiftShader sub-dir
-#
-swiftshader\libEGL.dll: %(ChromeDir)s\swiftshader\
-swiftshader\libGLESv2.dll: %(ChromeDir)s\swiftshader\
-
-#
 # MEI Preload sub dir
 #
 MEIPreload\manifest.json: %(VersionDir)s\MEIPreload\

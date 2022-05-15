@@ -28,6 +28,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/sys_byteorder.h"
 #include "base/time/default_tick_clock.h"
+#include "base/time/time.h"
 #include "base/trace_event/memory_dump_manager.h"
 #include "base/trace_event/memory_dump_provider.h"
 #include "base/trace_event/trace_event.h"
@@ -73,7 +74,8 @@ const std::string PixelFormatToString(VideoPixelFormat format) {
 
 void RecordVideoFrameSizeAndOffsetHistogram(VideoPixelFormat pixel_format,
                                             gfx::Size coded_size,
-                                            gfx::Rect visible_rect) {
+                                            gfx::Rect visible_rect,
+                                            bool mappable) {
   bool odd_width = (coded_size.width() % 2) == 1;
   bool odd_height = (coded_size.height() % 2) == 1;
   bool odd_x = (visible_rect.x() % 2) == 1;
@@ -110,6 +112,11 @@ void RecordVideoFrameSizeAndOffsetHistogram(VideoPixelFormat pixel_format,
   base::UmaHistogramEnumeration("Media.GpuMemoryBufferVideoFramePool.Offset." +
                                     PixelFormatToString(pixel_format),
                                 offset_enum);
+
+  // Mappable for video frames with odd offset
+  if (offset_enum != gfx::OddOffset::kEvenXAndY)
+    base::UmaHistogramBoolean(
+        "Media.GpuMemoryBufferVideoFramePool.OddOffset.Mappable", mappable);
 }
 }  // namespace
 
@@ -633,7 +640,7 @@ void CopyRowsToRGB10Buffer(bool is_argb,
                            const VideoFrame* source_frame,
                            uint8_t* output,
                            int dest_stride) {
-  TRACE_EVENT2("media", "CopyRowsToXR30Buffer", "bytes_per_row", width * 2,
+  TRACE_EVENT2("media", "CopyRowsToRGB10Buffer", "bytes_per_row", width * 2,
                "rows", rows);
   if (!output)
     return;
@@ -814,7 +821,8 @@ void GpuMemoryBufferVideoFramePool::PoolImpl::CreateHardwareFrame(
     case PIXEL_FORMAT_I420A:
     case PIXEL_FORMAT_NV12:
       RecordVideoFrameSizeAndOffsetHistogram(
-          pixel_format, video_frame->coded_size(), video_frame->visible_rect());
+          pixel_format, video_frame->coded_size(), video_frame->visible_rect(),
+          video_frame->IsMappable());
       break;
     // Unsupported cases.
     case PIXEL_FORMAT_I422:
@@ -842,6 +850,11 @@ void GpuMemoryBufferVideoFramePool::PoolImpl::CreateHardwareFrame(
     case PIXEL_FORMAT_XR30:
     case PIXEL_FORMAT_XB30:
     case PIXEL_FORMAT_RGBAF16:
+    case PIXEL_FORMAT_I422A:
+    case PIXEL_FORMAT_I444A:
+    case PIXEL_FORMAT_YUV420AP10:
+    case PIXEL_FORMAT_YUV422AP10:
+    case PIXEL_FORMAT_YUV444AP10:
     case PIXEL_FORMAT_UNKNOWN:
       if (is_software_backed_video_frame) {
         UMA_HISTOGRAM_ENUMERATION(

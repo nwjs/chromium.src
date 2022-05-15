@@ -274,6 +274,13 @@ def check_matrix_identifier(sub_suite=None,
     if not 'identifier' in variant:
       raise BBGenErr('Missing required identifier field in matrix '
                      'compound suite %s, %s' % (suite, sub_suite))
+    if variant['identifier'] == '':
+      raise BBGenErr('Identifier field can not be "" in matrix '
+                     'compound suite %s, %s' % (suite, sub_suite))
+    if variant['identifier'].strip() != variant['identifier']:
+      raise BBGenErr('Identifier field can not have leading and trailing '
+                     'whitespace in matrix compound suite %s, %s' %
+                     (suite, sub_suite))
 
 
 class BBJSONGenerator(object):  # pylint: disable=useless-object-inheritance
@@ -432,10 +439,10 @@ class BBJSONGenerator(object):  # pylint: disable=useless-object-inheritance
         tester_config.get('browser_config') == 'release_x64')
 
   def add_variant_to_test_name(self, test_name, variant_id):
-    return '{}_{}'.format(test_name, variant_id)
+    return '{} {}'.format(test_name, variant_id)
 
   def remove_variant_from_test_name(self, test_name, variant_id):
-    return test_name.split('_' + variant_id)[0].strip()
+    return test_name.split(variant_id)[0].strip()
 
   def get_exception_for_test(self, test_name, test_config):
     # gtests may have both "test" and "name" fields, and usually, if the "name"

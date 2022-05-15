@@ -11,6 +11,7 @@
 #include "chrome/browser/download/bubble/download_icon_state.h"
 #include "chrome/browser/download/download_item_model.h"
 #include "chrome/browser/download/download_prefs.h"
+#include "chrome/browser/ui/download/download_item_mode.h"
 #include "components/offline_items_collection/core/offline_item.h"
 #include "components/offline_items_collection/core/offline_item_state.h"
 
@@ -43,17 +44,19 @@ DownloadDisplayController::DownloadDisplayController(
 
 DownloadDisplayController::~DownloadDisplayController() = default;
 
-void DownloadDisplayController::OnNewItem(bool in_progress) {
+void DownloadDisplayController::OnNewItem(bool show_details) {
   UpdateToolbarButtonState();
-  // Only show details if the created download is in progress.
-  if (in_progress) {
+  if (show_details) {
     display_->ShowDetails();
   }
 }
 
-void DownloadDisplayController::OnUpdatedItem(bool is_done) {
+void DownloadDisplayController::OnUpdatedItem(bool is_done,
+                                              bool show_details_if_done) {
   if (is_done) {
     ScheduleToolbarDisappearance(kToolbarIconVisibilityTimeInterval);
+    if (show_details_if_done)
+      display_->ShowDetails();
   }
   UpdateToolbarButtonState();
 }
@@ -92,27 +95,42 @@ void DownloadDisplayController::HideToolbarButton() {
 }
 
 void DownloadDisplayController::UpdateToolbarButtonState() {
-  const auto& offline_items = bubble_controller_->GetOfflineItems();
-  int in_progress_count = download_manager_->InProgressCount();
-  for (const auto& offline_item : offline_items) {
-    in_progress_count += (offline_item.state == OfflineItemState::IN_PROGRESS);
+  int in_progress_count = 0;
+  bool has_deep_scanning_download = false;
+
+  std::vector<DownloadUIModelPtr> all_models =
+      bubble_controller_->GetAllItemsToDisplay();
+  for (const auto& model : all_models) {
+    if (model->GetDangerType() ==
+            download::DOWNLOAD_DANGER_TYPE_ASYNC_SCANNING &&
+        model->GetState() != download::DownloadItem::CANCELLED) {
+      has_deep_scanning_download = true;
+    }
+    if (model->GetState() == download::DownloadItem::IN_PROGRESS) {
+      in_progress_count++;
+    }
   }
   if (in_progress_count > 0) {
     ShowToolbarButton();
     icon_info_.icon_state = DownloadIconState::kProgress;
     icon_info_.is_active = true;
-    display_->UpdateDownloadIcon();
   } else {
     icon_info_.icon_state = DownloadIconState::kComplete;
-    if (HasRecentCompleteDownload(kToolbarIconActiveTimeInterval,
-                                  GetLastCompleteTime(offline_items))) {
+    if (HasRecentCompleteDownload(
+            kToolbarIconActiveTimeInterval,
+            GetLastCompleteTime(bubble_controller_->GetOfflineItems()))) {
       icon_info_.is_active = true;
       ScheduleToolbarInactive(kToolbarIconActiveTimeInterval);
     } else {
       icon_info_.is_active = false;
     }
-    display_->UpdateDownloadIcon();
   }
+
+  if (has_deep_scanning_download) {
+    icon_info_.icon_state = DownloadIconState::kDeepScanning;
+  }
+
+  display_->UpdateDownloadIcon();
 }
 
 void DownloadDisplayController::UpdateDownloadIconToInactive() {
@@ -189,30 +207,17 @@ DownloadDisplayController::GetProgress() {
   int64_t received_bytes = 0;
   int64_t total_bytes = 0;
 
-  content::DownloadManager::DownloadVector items;
-  download_manager_->GetAllDownloads(&items);
-  for (auto* item : items) {
-    if (item->GetState() == download::DownloadItem::IN_PROGRESS) {
+  std::vector<DownloadUIModelPtr> all_models =
+      bubble_controller_->GetAllItemsToDisplay();
+  for (const auto& model : all_models) {
+    if (model->GetState() == download::DownloadItem::IN_PROGRESS) {
       ++progress_info.download_count;
-      if (item->GetTotalBytes() <= 0) {
+      if (model->GetTotalBytes() <= 0) {
         // There may or may not be more data coming down this pipe.
         progress_info.progress_certain = false;
       } else {
-        received_bytes += item->GetReceivedBytes();
-        total_bytes += item->GetTotalBytes();
-      }
-    }
-  }
-
-  for (const auto& item : bubble_controller_->GetOfflineItems()) {
-    if (item.state == OfflineItemState::IN_PROGRESS) {
-      ++progress_info.download_count;
-      if (item.total_size_bytes <= 0) {
-        // There may or may not be more data coming down this pipe.
-        progress_info.progress_certain = false;
-      } else {
-        received_bytes += item.received_bytes;
-        total_bytes += item.total_size_bytes;
+        received_bytes += model->GetCompletedBytes();
+        total_bytes += model->GetTotalBytes();
       }
     }
   }

@@ -8,6 +8,7 @@
 #include "base/component_export.h"
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/time/time.h"
 
 namespace network {
 namespace features {
@@ -64,9 +65,6 @@ COMPONENT_EXPORT(NETWORK_CPP)
 extern const base::Feature kWebSocketReassembleShortMessages;
 
 COMPONENT_EXPORT(NETWORK_CPP)
-extern const base::Feature kAcceptCHFrame;
-
-COMPONENT_EXPORT(NETWORK_CPP)
 extern const base::Feature kSCTAuditingRetryReports;
 
 COMPONENT_EXPORT(NETWORK_CPP)
@@ -112,6 +110,9 @@ extern const base::Feature kBatchSimpleURLLoader;
 
 COMPONENT_EXPORT(NETWORK_CPP)
 extern const base::Feature kOmitCorsClientCert;
+
+COMPONENT_EXPORT(NETWORK_CPP)
+extern const base::Feature kOptimizeNetworkBuffers;
 
 }  // namespace features
 }  // namespace network

@@ -12,6 +12,7 @@
 #include "third_party/blink/renderer/core/layout/ng/ng_block_break_token.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_block_node.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_break_token.h"
+#include "third_party/blink/renderer/core/layout/ng/ng_column_spanner_path.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_fragmentation_utils.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_layout_result.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_length_utils.h"
@@ -187,8 +188,7 @@ void NGBoxFragmentBuilder::AddChild(
       //
       // Out-of-flow positioned children still contribute to the
       // layout-overflow, but just don't influence where this padding is.
-      if (Node().IsScrollContainer() &&
-          box_type_ != NGPhysicalBoxFragment::NGBoxType::kColumnBox &&
+      if (Node().IsScrollContainer() && !IsFragmentainerBoxType() &&
           !child.IsOutOfFlowPositioned()) {
         NGBoxStrut margins;
         if (child.IsCSSBox()) {
@@ -409,6 +409,9 @@ void NGBoxFragmentBuilder::PropagateBreakInfo(
         has_inflow_child_break_inside_ = true;
     }
 
+    if (child_layout_result.ShouldForceSameFragmentationFlow())
+      has_inflow_child_break_inside_ = true;
+
     // Downgrade the appeal of breaking inside this container, if the break
     // inside the child is less appealing than what we've found so far.
     NGBreakAppeal appeal_inside =
@@ -433,14 +436,17 @@ void NGBoxFragmentBuilder::PropagateBreakInfo(
   // If a spanner was found inside the child, we need to finish up and propagate
   // the spanner to the column layout algorithm, so that it can take care of it.
   if (UNLIKELY(ConstraintSpace()->IsInColumnBfc())) {
-    if (NGBlockNode spanner_node = child_layout_result.ColumnSpanner()) {
+    if (const NGColumnSpannerPath* child_spanner_path =
+            child_layout_result.ColumnSpannerPath()) {
       DCHECK(HasInflowChildBreakInside() ||
              !child_layout_result.PhysicalFragment().IsBox());
-      SetColumnSpanner(spanner_node);
+      const auto* spanner_path =
+          MakeGarbageCollected<NGColumnSpannerPath>(Node(), child_spanner_path);
+      SetColumnSpannerPath(spanner_path);
       SetIsEmptySpannerParent(child_layout_result.IsEmptySpannerParent());
     }
   } else {
-    DCHECK(!child_layout_result.ColumnSpanner());
+    DCHECK(!child_layout_result.ColumnSpannerPath());
   }
 }
 
@@ -585,39 +591,36 @@ void NGBoxFragmentBuilder::SetLastBaselineToBlockEndMarginEdgeIfNeeded() {
   SetLastBaseline(FragmentBlockSize() + margins.block_end);
 }
 
-void NGBoxFragmentBuilder::SetMathItalicCorrection(
-    LayoutUnit italic_correction) {
-  if (!math_data_)
-    math_data_.emplace();
-  math_data_->italic_correction_ = italic_correction;
-}
-
-void NGBoxFragmentBuilder::AdjustOffsetsForFragmentainerDescendant(
-    NGLogicalOutOfFlowPositionedNode& descendant,
+void NGBoxFragmentBuilder::AdjustFragmentainerDescendant(
+    NGLogicalOOFNodeForFragmentation& descendant,
     bool only_fixedpos_containing_block) {
-  if (!PreviousBreakToken())
-    return;
-  LayoutUnit previous_consumed_block_size =
-      PreviousBreakToken()->ConsumedBlockSize();
+  LayoutUnit previous_consumed_block_size;
+  if (PreviousBreakToken())
+    previous_consumed_block_size = PreviousBreakToken()->ConsumedBlockSize();
 
   // If the containing block is fragmented, adjust the offset to be from the
   // first containing block fragment to the fragmentation context root. Also,
   // adjust the static position to be relative to the adjusted containing block
   // offset.
   if (!only_fixedpos_containing_block &&
-      !descendant.containing_block.fragment) {
-    descendant.containing_block.offset.block_offset -=
-        previous_consumed_block_size;
+      !descendant.containing_block.Fragment()) {
+    descendant.containing_block.IncreaseBlockOffset(
+        -previous_consumed_block_size);
     descendant.static_position.offset.block_offset +=
         previous_consumed_block_size;
+    descendant.containing_block.SetRequiresContentBeforeBreaking(
+        RequiresContentBeforeBreaking());
   }
 
   // If the fixedpos containing block is fragmented, adjust the offset to be
   // from the first containing block fragment to the fragmentation context root.
-  if (!descendant.fixedpos_containing_block.fragment &&
-      node_.IsFixedContainer()) {
-    descendant.fixedpos_containing_block.offset.block_offset -=
-        previous_consumed_block_size;
+  if (!descendant.fixedpos_containing_block.Fragment() &&
+      (node_.IsFixedContainer() ||
+       descendant.fixedpos_inline_container.container)) {
+    descendant.fixedpos_containing_block.IncreaseBlockOffset(
+        -previous_consumed_block_size);
+    descendant.fixedpos_containing_block.SetRequiresContentBeforeBreaking(
+        RequiresContentBeforeBreaking());
   }
 }
 
@@ -630,19 +633,17 @@ LayoutUnit NGBoxFragmentBuilder::BlockOffsetAdjustmentForFragmentainer(
 
 void NGBoxFragmentBuilder::
     AdjustFixedposContainingBlockForFragmentainerDescendants() {
-  if (!HasOutOfFlowFragmentainerDescendants() || !PreviousBreakToken() ||
-      !node_.IsFixedContainer())
+  if (!HasOutOfFlowFragmentainerDescendants())
     return;
 
   for (auto& descendant : oof_positioned_fragmentainer_descendants_) {
-    AdjustOffsetsForFragmentainerDescendant(
-        descendant, /* only_fixedpos_containing_block */ true);
+    AdjustFragmentainerDescendant(descendant,
+                                  /* only_fixedpos_containing_block */ true);
   }
 }
 
 void NGBoxFragmentBuilder::AdjustFixedposContainingBlockForInnerMulticols() {
-  if (!HasMulticolsWithPendingOOFs() || !PreviousBreakToken() ||
-      !node_.IsFixedContainer())
+  if (!HasMulticolsWithPendingOOFs() || !PreviousBreakToken())
     return;
 
   // If the fixedpos containing block is fragmented, adjust the offset to be
@@ -653,9 +654,11 @@ void NGBoxFragmentBuilder::AdjustFixedposContainingBlockForInnerMulticols() {
       PreviousBreakToken()->ConsumedBlockSize();
   for (auto& multicol : multicols_with_pending_oofs_) {
     NGMulticolWithPendingOOFs<LogicalOffset>& value = *multicol.value;
-    if (!value.fixedpos_containing_block.fragment) {
-      value.fixedpos_containing_block.offset.block_offset -=
-          previous_consumed_block_size;
+    if (!value.fixedpos_containing_block.Fragment() &&
+        (node_.IsFixedContainer() ||
+         value.fixedpos_inline_container.container)) {
+      value.fixedpos_containing_block.IncreaseBlockOffset(
+          -previous_consumed_block_size);
       value.multicol_offset.block_offset += previous_consumed_block_size;
     }
   }

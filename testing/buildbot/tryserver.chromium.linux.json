@@ -167,7 +167,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "name": "gles2_conform_test_GTX 1660",
+        "name": "gles2_conform_test GTX 1660",
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
@@ -191,7 +191,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "name": "gles2_conform_test_HD 630",
+        "name": "gles2_conform_test HD 630",
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
@@ -227,7 +227,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "info_collection_tests_GTX 1660",
+        "name": "info_collection_tests GTX 1660",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -266,7 +266,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "info_collection_tests_HD 630",
+        "name": "info_collection_tests HD 630",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -301,7 +301,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "mediapipe_passthrough_tests_GTX 1660",
+        "name": "mediapipe_passthrough_tests GTX 1660",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -336,7 +336,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "mediapipe_passthrough_tests_HD 630",
+        "name": "mediapipe_passthrough_tests HD 630",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -371,7 +371,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "trace_test_GTX 1660",
+        "name": "trace_test GTX 1660",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -406,7 +406,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "trace_test_HD 630",
+        "name": "trace_test HD 630",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -441,7 +441,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "webcodecs_tests_GTX 1660",
+        "name": "webcodecs_tests GTX 1660",
         "should_retry_with_patch": false,
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -472,7 +472,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "webcodecs_tests_HD 630",
+        "name": "webcodecs_tests HD 630",
         "should_retry_with_patch": false,
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -505,7 +505,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "webgl2_conformance_gl_passthrough_tests_GTX 1660",
+        "name": "webgl2_conformance_gl_passthrough_tests GTX 1660",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -543,7 +543,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "webgl2_conformance_gl_passthrough_tests_HD 630",
+        "name": "webgl2_conformance_gl_passthrough_tests HD 630",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -580,7 +580,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "webgl_conformance_gl_passthrough_tests_GTX 1660",
+        "name": "webgl_conformance_gl_passthrough_tests GTX 1660",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -617,7 +617,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "webgl_conformance_gl_passthrough_tests_HD 630",
+        "name": "webgl_conformance_gl_passthrough_tests HD 630",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true

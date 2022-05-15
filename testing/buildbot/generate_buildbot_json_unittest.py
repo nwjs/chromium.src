@@ -1962,7 +1962,7 @@ GPU_TELEMETRY_TEST_VARIANTS_OUTPUT = """\
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "swarming_test_a_variant",
+        "name": "swarming_test a_variant",
         "should_retry_with_patch": false,
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -1992,7 +1992,7 @@ GPU_TELEMETRY_TEST_VARIANTS_OUTPUT = """\
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "swarming_test_ab",
+        "name": "swarming_test ab",
         "should_retry_with_patch": false,
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -5386,6 +5386,76 @@ MATRIX_COMPOUND_MISSING_IDENTIFIER = """\
 }
 """
 
+MATRIX_COMPOUND_EMPTY_IDENTIFIER = """\
+{
+  'basic_suites': {
+    'foo_tests': {
+      'foo_test': {},
+    },
+  },
+  'matrix_compound_suites': {
+    'matrix_tests': {
+      'foo_tests': {
+        'variants': [
+          {
+            'identifier': '',
+            'swarming': {
+              'dimension_sets': [
+                {
+                  'foo': 'empty identifier not allowed',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  },
+}
+"""
+
+MATRIX_COMPOUND_TRAILING_IDENTIFIER = """\
+{
+  'basic_suites': {
+    'foo_tests': {
+      'foo_test': {},
+    },
+  },
+  'matrix_compound_suites': {
+    'matrix_tests': {
+      'foo_tests': {
+        'variants': [
+          {
+            'identifier': ' ',
+            'swarming': {
+              'dimension_sets': [
+                {
+                  'foo': 'strip to empty not allowed',
+                },
+              ],
+            },
+          },
+        ],
+      },
+      'foo_tests': {
+        'variants': [
+          {
+            'identifier': 'id ',
+            'swarming': {
+              'dimension_sets': [
+                {
+                  'foo': 'trailing whitespace not allowed',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  },
+}
+"""
+
 MATRIX_MISMATCHED_SWARMING_LENGTH = """\
 {
   'basic_suites': {
@@ -5877,7 +5947,7 @@ MATRIX_COMPOUND_TEST_SUITE_WITH_TEST_KEY_DICT = """\
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "name": "swarming_test_a_variant",
+        "name": "swarming_test a_variant",
         "swarming": {
           "can_use_on_swarming_builders": true
         },
@@ -5904,7 +5974,7 @@ MATRIX_TARGET_DICT_MERGE_OUTPUT_ARGS = """\
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "name": "args_test_args",
+        "name": "args_test args",
         "swarming": {
           "can_use_on_swarming_builders": true
         },
@@ -5919,7 +5989,7 @@ MATRIX_TARGET_DICT_MERGE_OUTPUT_ARGS = """\
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "name": "args_test_mixins",
+        "name": "args_test mixins",
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
@@ -5939,7 +6009,7 @@ MATRIX_TARGET_DICT_MERGE_OUTPUT_ARGS = """\
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "name": "args_test_swarming",
+        "name": "args_test swarming",
         "swarming": {
           "a": "b",
           "can_use_on_swarming_builders": true,
@@ -5971,7 +6041,7 @@ MATRIX_TARGET_DICT_MERGE_OUTPUT_MIXINS = """\
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "name": "mixins_test_args",
+        "name": "mixins_test args",
         "swarming": {
           "can_use_on_swarming_builders": true,
           "value": "test"
@@ -5986,7 +6056,7 @@ MATRIX_TARGET_DICT_MERGE_OUTPUT_MIXINS = """\
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "name": "mixins_test_mixins",
+        "name": "mixins_test mixins",
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
@@ -6006,7 +6076,7 @@ MATRIX_TARGET_DICT_MERGE_OUTPUT_MIXINS = """\
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "name": "mixins_test_swarming",
+        "name": "mixins_test swarming",
         "swarming": {
           "a": "b",
           "can_use_on_swarming_builders": true,
@@ -6040,7 +6110,7 @@ MATRIX_TARGET_DICT_MERGE_OUTPUT_SWARMING = """\
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "name": "swarming_test_args",
+        "name": "swarming_test args",
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
@@ -6059,7 +6129,7 @@ MATRIX_TARGET_DICT_MERGE_OUTPUT_SWARMING = """\
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "name": "swarming_test_mixins",
+        "name": "swarming_test mixins",
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
@@ -6079,7 +6149,7 @@ MATRIX_TARGET_DICT_MERGE_OUTPUT_SWARMING = """\
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "name": "swarming_test_swarming",
+        "name": "swarming_test swarming",
         "swarming": {
           "a": "b",
           "can_use_on_swarming_builders": true,
@@ -6116,7 +6186,7 @@ MATRIX_COMPOUND_VARIANTS_REF_OUTPUT = """\
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "name": "swarming_test_a_variant",
+        "name": "swarming_test a_variant",
         "swarming": {
           "can_use_on_swarming_builders": true
         },
@@ -6130,12 +6200,12 @@ MATRIX_COMPOUND_VARIANTS_REF_OUTPUT = """\
 
 EMPTY_SKYLAB_TEST_EXCEPTIONS = """\
 {
-  'tast.foo_OCTOPUS_TOT': {
+  'tast.foo OCTOPUS_TOT': {
     'remove_from': [
       'Fake Tester',
     ]
   },
-  'tast.foo_OCTOPUS_TOT-1': {
+  'tast.foo OCTOPUS_TOT-1': {
     'remove_from': [
       'Fake Tester',
     ]
@@ -6258,7 +6328,7 @@ VARIATION_SKYLAB_OUTPUT = """\
         "args": [],
         "cros_board": "octopus",
         "cros_img": "octopus-release/R89-13655.0.0",
-        "name": "tast.basic_OCTOPUS_TOT",
+        "name": "tast.basic OCTOPUS_TOT",
         "suite": "tast.basic",
         "swarming": {},
         "test": "tast.basic",
@@ -6269,7 +6339,7 @@ VARIATION_SKYLAB_OUTPUT = """\
         "args": [],
         "cros_board": "octopus",
         "cros_img": "octopus-release/R88-13597.23.0",
-        "name": "tast.basic_OCTOPUS_TOT-1",
+        "name": "tast.basic OCTOPUS_TOT-1",
         "suite": "tast.basic",
         "swarming": {},
         "test": "tast.basic",
@@ -6291,7 +6361,7 @@ ENABLED_AND_DISABLED_VARIATION_SKYLAB_OUTPUT = """\
         "args": [],
         "cros_board": "octopus",
         "cros_img": "octopus-release/R89-13655.0.0",
-        "name": "tast.basic_OCTOPUS_TOT",
+        "name": "tast.basic OCTOPUS_TOT",
         "suite": "tast.basic",
         "swarming": {},
         "test": "tast.basic",
@@ -6329,6 +6399,29 @@ class MatrixCompositionTests(TestCase):
     with self.assertRaisesRegex(
         generate_buildbot_json.BBGenErr,
         'Missing required identifier field in matrix compound suite*'):
+      fbb.check_output_file_consistency(verbose=True)
+
+  def test_empty_identifier(self):
+    """
+    Variant identifier is empty.
+    """
+    fbb = FakeBBGen(self.args, MATRIX_GTEST_SUITE_WATERFALL,
+                    MATRIX_COMPOUND_EMPTY_IDENTIFIER, LUCI_MILO_CFG)
+    with self.assertRaisesRegex(
+        generate_buildbot_json.BBGenErr,
+        'Identifier field can not be "" in matrix compound suite*'):
+      fbb.check_output_file_consistency(verbose=True)
+
+  def test_trailing_identifier(self):
+    """
+    Variant identifier has trailing whitespace.
+    """
+    fbb = FakeBBGen(self.args, MATRIX_GTEST_SUITE_WATERFALL,
+                    MATRIX_COMPOUND_TRAILING_IDENTIFIER, LUCI_MILO_CFG)
+    with self.assertRaisesRegex(
+        generate_buildbot_json.BBGenErr,
+        'Identifier field can not have leading and trailing whitespace in'
+        ' matrix compound suite*'):
       fbb.check_output_file_consistency(verbose=True)
 
   def test_mismatched_swarming_length(self):

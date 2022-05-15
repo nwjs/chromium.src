@@ -105,10 +105,6 @@ try_.builder(
 )
 
 try_.builder(
-    name = "win_mojo",
-)
-
-try_.builder(
     name = "win_upload_clang",
     builderless = False,
     cores = 32,

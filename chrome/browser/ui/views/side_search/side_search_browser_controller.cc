@@ -11,6 +11,7 @@
 #include "chrome/browser/feature_engagement/tracker_factory.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/chrome_pages.h"
+#include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/side_search/side_search_utils.h"
@@ -110,13 +111,33 @@ class DseImageView : public views::ImageView {
                                 base::Unretained(this))) {
     SetFlipCanvasOnPaintForRTLUI(false);
     SetBorder(views::CreateEmptyBorder(
-        gfx::Insets(0, views::LayoutProvider::Get()->GetDistanceMetric(
-                           views::DISTANCE_RELATED_CONTROL_VERTICAL))));
+        gfx::Insets::VH(0, views::LayoutProvider::Get()->GetDistanceMetric(
+                               views::DISTANCE_RELATED_CONTROL_VERTICAL))));
+    UpdateIconImage();
   }
   ~DseImageView() override = default;
 
   void UpdateIconImage() {
-    SetImage(default_search_icon_source_.GetIconImage());
+    // Attempt to get the default search engine's favicon.
+    auto icon_image = default_search_icon_source_.GetIconImage();
+
+    // Use the DSE's icon image if available.
+    if (!icon_image.IsEmpty()) {
+      SetImage(default_search_icon_source_.GetIconImage());
+      return;
+    }
+
+    // If the icon image is empty use kSearchIcon as a default. It is not
+    // guaranteed that the FaviconService will return a favicon for the search
+    // provider.
+    const int icon_size =
+        ui::TouchUiController::Get()->touch_ui()
+            ? kDefaultTouchableIconSize
+            : ChromeLayoutProvider::Get()->GetDistanceMetric(
+                  ChromeDistanceMetric::
+                      DISTANCE_SIDE_PANEL_HEADER_VECTOR_ICON_SIZE);
+    SetImage(ui::ImageModel::FromVectorIcon(vector_icons::kSearchIcon,
+                                            ui::kColorIcon, icon_size));
   }
 
  private:
@@ -138,9 +159,14 @@ class HeaderView : public views::View {
   METADATA_HEADER(HeaderView);
   HeaderView(base::RepeatingClosure callback, Browser* browser)
       : layout_(SetLayoutManager(std::make_unique<views::FlexLayout>())) {
+    constexpr int kHeaderHeight = 44;
+    SetPreferredSize(gfx::Size(0, kHeaderHeight));
+
+    constexpr int kHorizontalMargin = 8;
     layout_->SetOrientation(views::LayoutOrientation::kHorizontal)
         .SetMainAxisAlignment(views::LayoutAlignment::kStart)
-        .SetCrossAxisAlignment(views::LayoutAlignment::kCenter);
+        .SetCrossAxisAlignment(views::LayoutAlignment::kCenter)
+        .SetInteriorMargin(gfx::Insets::VH(0, kHorizontalMargin));
 
     dse_image_view_ = AddChildView(std::make_unique<DseImageView>(browser));
     dse_image_view_->SetProperty(
@@ -210,7 +236,7 @@ class HeaderView : public views::View {
         views::FlexSpecification(views::MinimumFlexSizeRule::kPreferred,
                                  views::MaximumFlexSizeRule::kPreferred));
     SetBackground(
-        views::CreateThemedSolidBackground(this, ui::kColorDialogBackground));
+        views::CreateThemedSolidBackground(ui::kColorDialogBackground));
     UpdateSpacing();
   }
   ~HeaderView() override = default;
@@ -224,9 +250,6 @@ class HeaderView : public views::View {
     if (feedback_button_)
       feedback_button_->UpdateIcon();
     close_button_->UpdateIcon();
-
-    layout_->SetInteriorMargin(
-        GetLayoutInsets(LayoutInset::TOOLBAR_INTERIOR_MARGIN));
   }
 
   raw_ptr<DseImageView> dse_image_view_ = nullptr;
@@ -264,6 +287,7 @@ views::WebView* ConfigureSidePanel(views::View* side_panel,
       views::kFlexBehaviorKey,
       views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToZero,
                                views::MaximumFlexSizeRule::kUnbounded));
+  web_view->SetBackground(views::CreateThemedSolidBackground(kColorToolbar));
 
   side_panel->AddChildView(std::move(container));
 

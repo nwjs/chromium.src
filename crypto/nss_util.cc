@@ -24,7 +24,6 @@
 #include "base/logging.h"
 #include "base/path_service.h"
 #include "base/strings/stringprintf.h"
-#include "base/task/post_task.h"
 #include "base/threading/scoped_blocking_call.h"
 #include "base/threading/thread_restrictions.h"
 #include "build/build_config.h"
@@ -156,6 +155,9 @@ class NSSInitSingleton {
     } else {
       LOG(ERROR) << "Error opening persistent database (" << modspec
                  << "): " << GetNSSErrorMessage();
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+      DiagnosePublicSlotAndCrash(path);
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
     }
 
     return ScopedPK11Slot(db_slot_info);

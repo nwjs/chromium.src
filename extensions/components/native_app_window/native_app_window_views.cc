@@ -6,6 +6,7 @@
 #include "content/nw/src/browser/nw_chrome_browser_hooks.h"
 
 #include "base/bind.h"
+#include "base/observer_list.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/render_widget_host_view.h"
