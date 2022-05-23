@@ -1137,7 +1137,7 @@
 <translation id="2079545284768500474">செயல்தவிர்</translation>
 <translation id="2080070583977670716">மேலும் அமைப்புகள்</translation>
 <translation id="2081816110395725788">பேட்டரியில் இயங்கும்போது செயலற்ற நிலை</translation>
-<translation id="2082187087049518845">குழுத் தாவல்</translation>
+<translation id="2082187087049518845">பக்கக் குழு</translation>
 <translation id="2082510809738716738">தீமின் வண்ணத்தைத் தேர்வுசெய்யுங்கள்</translation>
 <translation id="208586643495776849">மீண்டும் முயலவும்</translation>
 <translation id="208634871997892083">VPNனை எப்போதும் இயக்கத்தில் வை</translation>
@@ -3921,7 +3921,7 @@
 <translation id="4794810983896241342">புதுப்பிப்புகள் <ph name="BEGIN_LINK" />உங்கள் நிர்வாகியால்<ph name="END_LINK" /> நிர்வகிக்கப்படுகின்றன</translation>
 <translation id="479536056609751218">வலைப்பக்கம், HTML மட்டும்</translation>
 <translation id="4796142525425001238">எப்போதும் மீட்டெடு</translation>
-<translation id="4797314204379834752">ஆன்லைன் ஷாப்பிங் போன்ற பல பணிகளை ஒழுங்கமைக்க பக்கங்களின் குழுக்களைப் பயன்படுத்திப் பாருங்கள்</translation>
+<translation id="4797314204379834752">ஆன்லைன் ஷாப்பிங் போன்ற பல பணிகளை ஒழுங்கமைக்க பக்கக் குழுக்களைப் பயன்படுத்திப் பாருங்கள்</translation>
 <translation id="4798236378408895261"><ph name="BEGIN_LINK" />புளூடூத் பதிவுகளை<ph name="END_LINK" /> இணை (Google அகப் பயன்பாட்டிற்காக)</translation>
 <translation id="479863874072008121">சாதனங்களை நிர்வகிக்கவும்</translation>
 <translation id="4800839971935185386">பெயர் &amp; ஐகான் மாற்றங்களைப் பாருங்கள்</translation>
@@ -5162,7 +5162,7 @@
 <translation id="6052488962264772833">அலைபரப்பத் தொடங்க, அணுகல் குறியீட்டை டைப் செய்யவும்</translation>
 <translation id="6052976518993719690">SSL சான்றிதழ் அங்கீகாரம்</translation>
 <translation id="6053401458108962351">&amp;உலாவல் தரவை அழி...</translation>
-<translation id="6054284857788651331">சமீபத்தில் மூடப்பட்ட தாவல் குழு</translation>
+<translation id="6054284857788651331">சமீபத்தில் மூடப்பட்ட பக்கக் குழு</translation>
 <translation id="6054961935262556546">தெரிவுநிலையை மாற்று</translation>
 <translation id="6055171183283175969">தவறான கடவுச்சொல்லை உள்ளிட்டுள்ளீர்கள்.</translation>
 <translation id="6055392876709372977">RSA என்க்ரிப்ஷனுடன் PKCS #1 SHA-256</translation>
@@ -5372,7 +5372,7 @@
 <translation id="6254503684448816922">விசை இணக்கம்</translation>
 <translation id="6254892857036829079">அருமை</translation>
 <translation id="6257602895346497974">ஒத்திசைவை இயக்கு...</translation>
-<translation id="62586649943626337">பக்கங்களின் குழுக்கள் மூலம் உலாவிப் பக்கங்களை ஒழுங்கமைத்திடுங்கள்</translation>
+<translation id="62586649943626337">பக்கக் குழுக்கள் மூலம் உலாவிப் பக்கங்களை ஒழுங்கமைத்திடுங்கள்</translation>
 <translation id="6262371516389954471">உங்களின் காப்புப்பிரதிகள் Googleளுக்குப் பதிவேற்றப்பட்டு Google கணக்கின் கடவுச்சொல்லைப் பயன்படுத்தி என்க்ரிப்ஷன் செய்யப்படுகின்றன.</translation>
 <translation id="6263082573641595914">Microsoft CA பதிப்பு</translation>
 <translation id="6263284346895336537">சிக்கலானதல்ல</translation>

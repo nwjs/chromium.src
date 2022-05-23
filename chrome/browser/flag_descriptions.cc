@@ -173,6 +173,10 @@ const char kEnableDrDcDescription[] =
     "(raster, webgl, video) "
     " continues using the gpu main thread.";
 
+const char kEnableDrDcVulkanName[] =
+    " Use this flag along with flag enable-drdc to enable DrDc on Vulkan. "
+    " Note that this flag will be a no-op if enable-drdc is disabled. ";
+
 const char kU2FPermissionPromptName[] =
     "Enable a permission prompt for the U2F Security Key API";
 const char kU2FPermissionPromptDescription[] =
@@ -5705,6 +5709,12 @@ const char kSkipUndecryptablePasswordsDescription[] =
     "Makes the decryptable passwords available in the password manager when "
     "there are undecryptable ones.";
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC)
+
+#if BUILDFLAG(IS_MAC)
+const char kForce60HzName[] = "Use 60hz instead of 120hz";
+const char kForce60HzDescription[] =
+    "If enabled, on devices with a refresh rate of 120hz, 60hz is used.";
+#endif  // BUILDFLAG(IS_MAC)
 
 // Feature flags --------------------------------------------------------------
 

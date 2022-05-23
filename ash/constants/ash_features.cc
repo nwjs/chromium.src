@@ -674,7 +674,7 @@ const base::Feature kFilesExtractArchive{"FilesExtractArchive",
                                          base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enables the System Web App (SWA) version of file manager.
-const base::Feature kFilesSWA{"FilesSWA", base::FEATURE_ENABLED_BY_DEFAULT};
+const base::Feature kFilesSWA{"FilesSWA", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enables partitioning of removable disks in file manager.
 const base::Feature kFilesSinglePartitionFormat{
@@ -1164,7 +1164,7 @@ const base::Feature kProjectorManagedUserIgnorePolicy(
     base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls whether the quick dim prototype is enabled.
-const base::Feature kQuickDim{"QuickDim", base::FEATURE_DISABLED_BY_DEFAULT};
+const base::Feature kQuickDim{"QuickDim", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enables or disables the Quick Settings Network revamp, which updates Network
 // Quick Settings UI and related infrastructure. See https://crbug.com/1169479.

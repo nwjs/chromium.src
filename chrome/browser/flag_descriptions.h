@@ -123,6 +123,8 @@ extern const char kWebBluetoothBondOnDemandDescription[];
 extern const char kEnableDrDcName[];
 extern const char kEnableDrDcDescription[];
 
+extern const char kEnableDrDcVulkanName[];
+
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
 extern const char kWebFilterInterstitialRefreshName[];
 extern const char kWebFilterInterstitialRefreshDescription[];
@@ -3287,6 +3289,11 @@ extern const char kForcePasswordInitialSyncWhenDecryptionFailsDescription[];
 extern const char kSkipUndecryptablePasswordsName[];
 extern const char kSkipUndecryptablePasswordsDescription[];
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC)
+
+#if BUILDFLAG(IS_MAC)
+extern const char kForce60HzName[];
+extern const char kForce60HzDescription[];
+#endif  // BUILDFLAG(IS_MAC)
 
 // Feature flags --------------------------------------------------------------
 

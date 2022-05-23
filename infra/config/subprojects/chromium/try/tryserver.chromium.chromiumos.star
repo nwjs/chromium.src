@@ -35,6 +35,9 @@ try_.builder(
 try_.builder(
     name = "chromeos-amd64-generic-dbg",
     branch_selector = branches.STANDARD_MILESTONE,
+    mirrors = [
+        "ci/chromeos-amd64-generic-dbg",
+    ],
     main_list_view = "try",
     tryjob = try_.job(
         location_regexp = [
@@ -179,6 +182,10 @@ try_.builder(
 
 try_.builder(
     name = "linux-lacros-rel",
+    mirrors = [
+        "ci/linux-lacros-builder-rel",
+        "ci/linux-lacros-tester-rel",
+    ],
     branch_selector = branches.STANDARD_MILESTONE,
     builderless = not settings.is_main,
     cores = 16,
@@ -190,6 +197,10 @@ try_.builder(
 
 try_.builder(
     name = "linux-lacros-rel-code-coverage",
+    mirrors = [
+        "ci/linux-lacros-builder-rel",
+        "ci/linux-lacros-tester-rel",
+    ],
     cores = 16,
     ssd = True,
     goma_jobs = goma.jobs.J300,
