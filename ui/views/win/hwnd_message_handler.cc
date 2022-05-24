@@ -1477,7 +1477,7 @@ bool HWNDMessageHandler::GetClientAreaInsets(gfx::Insets* insets,
     *insets = gfx::Insets(frame_thickness);
     if (content::g_force_cpu_draw && is_translucent_ && !delegate_->HasFrame()) {
       //part of maximize_hack code
-      insets->Set(0, 0, -1, -1);
+      *insets = gfx::Insets::TLBR(0, 0, -1, -1);
     }
     return true;
   }
