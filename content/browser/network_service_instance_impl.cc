@@ -819,7 +819,7 @@ void CreateNetworkContextInNetworkService(
 #if 1 //BUILDFLAG(IS_ANDROID)
   // Create network context immediately without thread hops.
   CreateNetworkContextInternal(std::move(context), std::move(params),
-                               grant_result);
+                               SandboxGrantResult::kDidNotAttemptToGrantSandboxAccess);
 #else
   // Restrict disk access to a certain path (on another thread) and continue
   // with network context creation.
