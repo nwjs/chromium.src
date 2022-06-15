@@ -1286,7 +1286,7 @@ const base::Feature kAutoExpandDetailsElement{"AutoExpandDetailsElement",
 
 // Enables loading the response body earlier in navigation.
 const base::Feature kEarlyBodyLoad{"EarlyBodyLoad",
-                                   base::FEATURE_ENABLED_BY_DEFAULT};
+                                   base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enables fetching the code cache earlier in navigation.
 const base::Feature kEarlyCodeCache{"EarlyCodeCache",
