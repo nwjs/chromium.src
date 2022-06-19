@@ -39,6 +39,7 @@
 #include "base/timer/lap_timer.h"
 #include "base/trace_event/typed_macros.h"
 #include "cc/animation/animation_host.h"
+#include "cc/animation/animation_timeline.h"
 #include "cc/document_transition/document_transition_request.h"
 #include "cc/input/main_thread_scrolling_reason.h"
 #include "cc/layers/picture_layer.h"
@@ -56,6 +57,7 @@
 #include "third_party/blink/renderer/core/css/font_face_set_document.h"
 #include "third_party/blink/renderer/core/css/post_style_update_scope.h"
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
+#include "third_party/blink/renderer/core/display_lock/display_lock_document_state.h"
 #include "third_party/blink/renderer/core/display_lock/display_lock_utilities.h"
 #include "third_party/blink/renderer/core/document_transition/document_transition_supplement.h"
 #include "third_party/blink/renderer/core/dom/static_node_list.h"
@@ -359,12 +361,10 @@ void LocalFrameView::ForAllChildViewsAndPlugins(const Function& function) {
       if (Frame* frame = portal->GetFrame())
         function(*frame->View());
     }
-    if (features::IsFencedFramesMPArchBased()) {
-      for (HTMLFencedFrameElement* fenced_frame :
-           DocumentFencedFrames::From(*document).GetFencedFrames()) {
-        if (Frame* frame = fenced_frame->ContentFrame())
-          function(*frame->View());
-      }
+    for (HTMLFencedFrameElement* fenced_frame :
+         DocumentFencedFrames::From(*document).GetFencedFrames()) {
+      if (Frame* frame = fenced_frame->ContentFrame())
+        function(*frame->View());
     }
   }
 }
@@ -440,14 +440,11 @@ void LocalFrameView::ForAllRemoteFrameViews(const Function& function) {
           function(*view);
       }
     }
-    if (features::IsFencedFramesMPArchBased()) {
-      for (HTMLFencedFrameElement* fenced_frame :
-           DocumentFencedFrames::From(*document).GetFencedFrames()) {
-        if (RemoteFrame* frame =
-                To<RemoteFrame>(fenced_frame->ContentFrame())) {
-          if (RemoteFrameView* view = frame->View())
-            function(*view);
-        }
+    for (HTMLFencedFrameElement* fenced_frame :
+         DocumentFencedFrames::From(*document).GetFencedFrames()) {
+      if (RemoteFrame* frame = To<RemoteFrame>(fenced_frame->ContentFrame())) {
+        if (RemoteFrameView* view = frame->View())
+          function(*view);
       }
     }
   }
@@ -602,8 +599,7 @@ cc::AnimationHost* LocalFrameView::GetCompositorAnimationHost() const {
   return c ? c->GetCompositorAnimationHost() : nullptr;
 }
 
-CompositorAnimationTimeline* LocalFrameView::GetCompositorAnimationTimeline()
-    const {
+cc::AnimationTimeline* LocalFrameView::GetCompositorAnimationTimeline() const {
   if (GetScrollingContext()->GetCompositorAnimationTimeline())
     return GetScrollingContext()->GetCompositorAnimationTimeline();
 
@@ -855,12 +851,22 @@ void LocalFrameView::PerformLayout() {
     } else {
       if (HasOrthogonalWritingModeRoots())
         LayoutOrthogonalWritingModeRoots();
+
+      default_allow_deferred_shaping_ =
+          default_allow_deferred_shaping_ &&
+          RuntimeEnabledFeatures::DeferredShapingEnabled() &&
+          !frame_->PagePopupOwner() &&
+          !FirstMeaningfulPaintDetector::From(*frame_->GetDocument())
+               .SeenFirstMeaningfulPaint();
       base::AutoReset<bool> deferred_shaping(
           &allow_deferred_shaping_,
-          RuntimeEnabledFeatures::DeferredShapingEnabled() &&
-              !frame_->PagePopupOwner() &&
-              !FirstMeaningfulPaintDetector::From(*frame_->GetDocument())
-                   .SeenFirstMeaningfulPaint());
+          default_allow_deferred_shaping_ && !document->Printing() &&
+              // Locking many shaping-deferred elements is very slow if we have
+              // ScopedForcedUpdate instances.
+              // Without this check, PerformPostLayoutTasks() takes 200 seconds
+              // in editing/deleting/delete-many-lines-of-text.html with a
+              // debug build.
+              !document->GetDisplayLockDocumentState().HasForcedScopes());
       DeferredShapingViewportScope viewport_scope(*this, *GetLayoutView());
       GetLayoutView()->UpdateLayout();
     }
@@ -1062,7 +1068,7 @@ void LocalFrameView::RunIntersectionObserverSteps() {
     return;
   }
 
-  if (frame_->IsMainFrame()) {
+  if (frame_->IsOutermostMainFrame()) {
     EnsureOverlayInterstitialAdDetector().MaybeFireDetection(frame_.Get());
     EnsureStickyAdDetector().MaybeFireDetection(frame_.Get());
 
@@ -1071,6 +1077,9 @@ void LocalFrameView::RunIntersectionObserverSteps() {
     gfx::Rect main_frame_dimensions(ToRoundedSize(
         To<LayoutBox>(layout_object)->PhysicalLayoutOverflowRect().size));
     GetFrame().Client()->OnMainFrameIntersectionChanged(main_frame_dimensions);
+    GetFrame().Client()->OnMainFrameViewportRectangleChanged(
+        gfx::Rect(frame_->GetMainFrameScrollPosition(),
+                  frame_->GetMainFrameViewportSize()));
   }
 
   TRACE_EVENT0("blink,benchmark",
@@ -2801,6 +2810,9 @@ bool LocalFrameView::RunAccessibilityLifecyclePhase(
   TRACE_EVENT0("blink,benchmark",
                "LocalFrameView::RunAccessibilityLifecyclePhase");
 
+  SCOPED_UMA_AND_UKM_TIMER(EnsureUkmAggregator(),
+                           LocalFrameUkmAggregator::kAccessibility);
+
   // Reduce redundant ancestor chain walking for display lock computations.
   auto display_lock_memoization_scope =
       DisplayLockUtilities::CreateLockCheckMemoizationScope();
@@ -3035,7 +3047,8 @@ void LocalFrameView::PushPaintArtifactToCompositor(bool repainted) {
       layer_debug_info_enabled_);
 
   PaintArtifactCompositor::ViewportProperties viewport_properties;
-  if (GetFrame().IsMainFrame()) {
+  // TODO(crbug.com/1254770): revisit this for embedded portals.
+  if (GetFrame().IsOutermostMainFrame()) {
     const auto& viewport = page->GetVisualViewport();
     viewport_properties.overscroll_elasticity_effect =
         viewport.GetOverscrollElasticityEffectNode();
@@ -3850,9 +3863,7 @@ void LocalFrameView::ScrollRectToVisibleInRemoteParent(
              ->CanAccess(GetFrame().GetSecurityContext()->GetSecurityOrigin()));
   PhysicalRect new_rect = ConvertToRootFrame(rect_to_scroll);
   GetFrame().GetLocalFrameHostRemote().ScrollRectToVisibleInParentFrame(
-      gfx::Rect(new_rect.X().ToInt(), new_rect.Y().ToInt(),
-                new_rect.Width().ToInt(), new_rect.Height().ToInt()),
-      std::move(params));
+      gfx::RectF(new_rect), std::move(params));
 }
 
 bool LocalFrameView::AllowedToPropagateScrollIntoView(
@@ -4301,14 +4312,12 @@ bool LocalFrameView::UpdateViewportIntersectionsForSubtree(
     }
   }
 
-  if (features::IsFencedFramesMPArchBased()) {
-    for (HTMLFencedFrameElement* fenced_frame :
-         DocumentFencedFrames::From(*frame_->GetDocument()).GetFencedFrames()) {
-      if (Frame* frame = fenced_frame->ContentFrame()) {
-        needs_occlusion_tracking |=
-            frame->View()->UpdateViewportIntersectionsForSubtree(
-                flags, monotonic_time);
-      }
+  for (HTMLFencedFrameElement* fenced_frame :
+       DocumentFencedFrames::From(*frame_->GetDocument()).GetFencedFrames()) {
+    if (Frame* frame = fenced_frame->ContentFrame()) {
+      needs_occlusion_tracking |=
+          frame->View()->UpdateViewportIntersectionsForSubtree(flags,
+                                                               monotonic_time);
     }
   }
   return needs_occlusion_tracking;
@@ -4698,7 +4707,7 @@ void LocalFrameView::OnFirstContentfulPaint() {
   GetPage()->GetChromeClient().StopDeferringCommits(
       *frame_, cc::PaintHoldingCommitTrigger::kFirstContentfulPaint);
   const bool is_main_frame = frame_->IsMainFrame();
-  if (is_main_frame && frame_->GetDocument()->ShouldMarkFontPerformance())
+  if (frame_->GetDocument()->ShouldMarkFontPerformance())
     FontPerformance::MarkFirstContentfulPaint();
   EnsureUkmAggregator().DidReachFirstContentfulPaint(is_main_frame);
 }
@@ -4936,6 +4945,12 @@ DarkModeFilter& LocalFrameView::EnsureDarkModeFilter() {
         std::make_unique<DarkModeFilter>(GetCurrentDarkModeSettings());
   }
   return *dark_mode_filter_;
+}
+
+void LocalFrameView::DisallowDeferredShaping() {
+  DCHECK_EQ(current_viewport_bottom_, kIndefiniteSize);
+  DCHECK_EQ(current_minimum_top_, LayoutUnit());
+  default_allow_deferred_shaping_ = false;
 }
 
 void LocalFrameView::RequestToLockDeferred(Element& element) {

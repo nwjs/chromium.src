@@ -184,7 +184,7 @@ MATCHER(WerePasswordsCleared, "Passwords not cleared") {
 }
 
 MATCHER_P(FormDataEqualTo, form_data, "") {
-  return autofill::FormDataEqualForTesting(arg, form_data);
+  return autofill::FormData::DeepEqual(arg, form_data);
 }
 
 }  // namespace
@@ -410,6 +410,7 @@ TEST_F(ContentPasswordManagerDriverFencedFramesTest,
       content::NavigationSimulator::CreateForFencedFrame(fenced_frame_url,
                                                          fenced_frame_root);
   navigation_simulator->Commit();
+  fenced_frame_root = navigation_simulator->GetFinalRenderFrameHost();
 
   autofill::FormData initial_form;
   autofill::FormData form_in_fenced_frame =

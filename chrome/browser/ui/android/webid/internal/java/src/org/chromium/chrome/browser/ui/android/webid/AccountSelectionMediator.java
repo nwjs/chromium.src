@@ -4,11 +4,13 @@
 
 package org.chromium.chrome.browser.ui.android.webid;
 
+import android.graphics.Bitmap;
 import android.os.Handler;
 
 import androidx.annotation.Px;
 import androidx.annotation.VisibleForTesting;
 
+import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.chrome.browser.ui.android.webid.AccountSelectionProperties.AccountProperties;
 import org.chromium.chrome.browser.ui.android.webid.AccountSelectionProperties.AutoSignInCancelButtonProperties;
 import org.chromium.chrome.browser.ui.android.webid.AccountSelectionProperties.ContinueButtonProperties;
@@ -20,12 +22,13 @@ import org.chromium.chrome.browser.ui.android.webid.data.Account;
 import org.chromium.chrome.browser.ui.android.webid.data.ClientIdMetadata;
 import org.chromium.chrome.browser.ui.android.webid.data.IdentityProviderMetadata;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
-import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.StateChangeReason;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
 import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
 import org.chromium.components.image_fetcher.ImageFetcher;
 import org.chromium.components.url_formatter.SchemeDisplay;
 import org.chromium.components.url_formatter.UrlFormatter;
+import org.chromium.ui.KeyboardVisibilityDelegate;
+import org.chromium.ui.KeyboardVisibilityDelegate.KeyboardVisibilityListener;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyKey;
@@ -54,9 +57,11 @@ class AccountSelectionMediator {
     // proceed. Eventually this should be specified by IDPs.
     private static final int AUTO_SIGN_IN_CANCELLATION_TIMER_MS = 5000;
 
+    private HeaderType mHeaderType;
     private String mRpEtldPlusOne;
     private String mIdpEtldPlusOne;
     private IdentityProviderMetadata mIdpMetadata;
+    private Bitmap mBrandIcon;
     private ClientIdMetadata mClientMetadata;
 
     // All of the user's accounts.
@@ -64,6 +69,16 @@ class AccountSelectionMediator {
 
     // The account that the user has selected.
     private Account mSelectedAccount;
+
+    private KeyboardVisibilityListener mKeyboardVisibilityListener =
+            new KeyboardVisibilityListener() {
+                @Override
+                public void keyboardVisibilityChanged(boolean isShowing) {
+                    if (isShowing) {
+                        onDismissed(/*shouldEmbargo=*/false);
+                    }
+                }
+            };
 
     AccountSelectionMediator(AccountSelectionComponent.Delegate delegate, PropertyModel model,
             ModelList sheetAccountItems, BottomSheetController bottomSheetController,
@@ -91,7 +106,11 @@ class AccountSelectionMediator {
                 mBottomSheetController.removeObserver(mBottomSheetObserver);
 
                 if (!mVisible) return;
-                onDismissed(reason);
+
+                // Dismissing the FedCM bottom sheet via {@link StateChangeReason#SWIPE} is more
+                // intentional than other methods such as {@link StateChangeReason#OMNIBOX_FOCUS}.
+                onDismissed(/*shouldEmbargo=*/(
+                        reason == BottomSheetController.StateChangeReason.SWIPE));
             }
         };
     }
@@ -114,11 +133,14 @@ class AccountSelectionMediator {
                 UrlFormatter.fixupUrl(idpEtldPlusOne), SchemeDisplay.OMIT_HTTP_AND_HTTPS);
 
         Runnable closeOnClickRunnable = () -> {
-            onDismissed(BottomSheetController.StateChangeReason.NONE);
+            onDismissed(/*shouldEmbargo=*/true);
+
+            RecordHistogram.recordBooleanHistogram(
+                    "Blink.FedCm.CloseVerifySheet.Android", mHeaderType == HeaderType.VERIFY);
         };
 
         return new PropertyModel.Builder(HeaderProperties.ALL_KEYS)
-                .with(HeaderProperties.IDP_BRAND_ICON, idpMetadata.getBrandIcon())
+                .with(HeaderProperties.IDP_BRAND_ICON, mBrandIcon)
                 .with(HeaderProperties.CLOSE_ON_CLICK_LISTENER, closeOnClickRunnable)
                 .with(HeaderProperties.FORMATTED_IDP_ETLD_PLUS_ONE, formattedIdpEtldPlusOne)
                 .with(HeaderProperties.FORMATTED_RP_ETLD_PLUS_ONE, formattedRpEtldPlusOne)
@@ -139,7 +161,8 @@ class AccountSelectionMediator {
     }
 
     void showVerifySheet(Account account) {
-        updateSheet(HeaderType.VERIFY, Arrays.asList(account), /*areAccountsClickable=*/false,
+        mHeaderType = HeaderType.VERIFY;
+        updateSheet(Arrays.asList(account), /*areAccountsClickable=*/false,
                 /* focusItem=*/ItemProperties.HEADER);
     }
 
@@ -153,6 +176,21 @@ class AccountSelectionMediator {
         mSelectedAccount = accounts.size() == 1 ? accounts.get(0) : null;
         showAccountsInternal(rpEtldPlusOne, idpEtldPlusOne, accounts, idpMetadata, clientMetadata,
                 isAutoSignIn, /*focusItem=*/ItemProperties.HEADER);
+
+        if (idpMetadata.getBrandIconUrl() != null) {
+            int brandIconIdealSize = AccountSelectionBridge.getBrandIconIdealSize();
+            ImageFetcher.Params params = ImageFetcher.Params.create(idpMetadata.getBrandIconUrl(),
+                    ImageFetcher.WEB_ID_ACCOUNT_SELECTION_UMA_CLIENT_NAME, brandIconIdealSize,
+                    brandIconIdealSize);
+
+            mImageFetcher.fetchImage(params, bitmap -> {
+                if (bitmap != null && bitmap.getWidth() == bitmap.getHeight()
+                        && bitmap.getWidth() >= AccountSelectionBridge.getBrandIconMinimumSize()) {
+                    mBrandIcon = bitmap;
+                    updateHeader();
+                }
+            });
+        }
     }
 
     private void showAccountsInternal(String rpEtldPlusOne, String idpEtldPlusOne,
@@ -168,28 +206,24 @@ class AccountSelectionMediator {
             accounts = Arrays.asList(mSelectedAccount);
         }
 
-        HeaderType headerType = isAutoSignIn ? HeaderType.AUTO_SIGN_IN : HeaderType.SIGN_IN;
-        updateSheet(
-                headerType, accounts, /*areAccountsClickable=*/mSelectedAccount == null, focusItem);
+        mHeaderType = isAutoSignIn ? HeaderType.AUTO_SIGN_IN : HeaderType.SIGN_IN;
+        updateSheet(accounts, /*areAccountsClickable=*/mSelectedAccount == null, focusItem);
     }
 
-    private void updateSheet(HeaderType headerType, List<Account> accounts,
-            boolean areAccountsClickable, PropertyKey focusItem) {
+    private void updateSheet(
+            List<Account> accounts, boolean areAccountsClickable, PropertyKey focusItem) {
         updateAccounts(mIdpEtldPlusOne, accounts, areAccountsClickable);
-
-        PropertyModel headerModel =
-                createHeaderItem(headerType, mRpEtldPlusOne, mIdpEtldPlusOne, mIdpMetadata);
-        mModel.set(ItemProperties.HEADER, headerModel);
+        updateHeader();
 
         boolean isContinueButtonVisible = false;
         boolean isDataSharingConsentVisible = false;
-        if (headerType == HeaderType.SIGN_IN && mSelectedAccount != null) {
+        if (mHeaderType == HeaderType.SIGN_IN && mSelectedAccount != null) {
             isContinueButtonVisible = true;
             // Only show the user data sharing consent text for sign up.
             isDataSharingConsentVisible = !mSelectedAccount.isSignIn();
         }
 
-        if (headerType == HeaderType.AUTO_SIGN_IN) {
+        if (mHeaderType == HeaderType.AUTO_SIGN_IN) {
             assert mSelectedAccount != null;
             assert mSelectedAccount.isSignIn();
 
@@ -212,6 +246,12 @@ class AccountSelectionMediator {
         mBottomSheetContent.focusForAccessibility(focusItem);
     }
 
+    private void updateHeader() {
+        PropertyModel headerModel =
+                createHeaderItem(mHeaderType, mRpEtldPlusOne, mIdpEtldPlusOne, mIdpMetadata);
+        mModel.set(ItemProperties.HEADER, headerModel);
+    }
+
     /**
      * Requests to show the bottom sheet. If it is not possible to immediately show the content
      * (e.g., higher priority content is being shown) it removes the request from the bottom sheet
@@ -224,8 +264,10 @@ class AccountSelectionMediator {
 
             mVisible = true;
             mBottomSheetController.addObserver(mBottomSheetObserver);
+            KeyboardVisibilityDelegate.getInstance().addKeyboardVisibilityListener(
+                    mKeyboardVisibilityListener);
         } else {
-            onDismissed(BottomSheetController.StateChangeReason.NONE);
+            onDismissed(/*shouldEmbargo=*/false);
         }
     }
 
@@ -234,6 +276,8 @@ class AccountSelectionMediator {
      */
     void hideContent() {
         mVisible = false;
+        KeyboardVisibilityDelegate.getInstance().removeKeyboardVisibilityListener(
+                mKeyboardVisibilityListener);
         mBottomSheetController.hideContent(mBottomSheetContent, true);
     }
 
@@ -277,9 +321,9 @@ class AccountSelectionMediator {
         showVerifySheet(selectedAccount);
     }
 
-    void onDismissed(@StateChangeReason int reason) {
+    void onDismissed(boolean shouldEmbargo) {
         hideContent();
-        mDelegate.onDismissed();
+        mDelegate.onDismissed(shouldEmbargo);
     }
 
     void onAutoSignInCancelled() {

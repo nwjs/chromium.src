@@ -37,6 +37,9 @@ consoles.list_view(
 
 try_.builder(
     name = "mac-arm64-on-arm64-rel",
+    mirrors = [
+        "ci/mac-arm64-on-arm64-rel",
+    ],
     builderless = False,
     cpu = cpu.ARM64,
     os = os.MAC_DEFAULT,
@@ -187,6 +190,9 @@ try_.builder(
 
 try_.builder(
     name = "mac_chromium_archive_rel_ng",
+    mirrors = [
+        "ci/mac-archive-rel",
+    ],
 )
 
 try_.builder(
@@ -251,10 +257,16 @@ ios_builder(
 
 ios_builder(
     name = "ios-catalyst",
+    mirrors = [
+        "ci/ios-catalyst",
+    ],
 )
 
 ios_builder(
     name = "ios-device",
+    mirrors = [
+        "ci/ios-device",
+    ],
 )
 
 ios_builder(
@@ -346,6 +358,9 @@ ios_builder(
 
 ios_builder(
     name = "ios-simulator-noncq",
+    mirrors = [
+        "ci/ios-simulator-noncq",
+    ],
     xcode = xcode.x13main,
     tryjob = try_.job(
         location_regexp = [

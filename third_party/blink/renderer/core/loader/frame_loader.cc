@@ -66,7 +66,6 @@
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/ignore_opens_during_unload_count_incrementer.h"
 #include "third_party/blink/renderer/core/events/page_transition_event.h"
-#include "third_party/blink/renderer/core/exported/web_document_loader_impl.h"
 #include "third_party/blink/renderer/core/exported/web_plugin_container_impl.h"
 #include "third_party/blink/renderer/core/fragment_directive/text_fragment_anchor.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
@@ -76,6 +75,7 @@
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_client.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
+#include "third_party/blink/renderer/core/frame/policy_container.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/frame/visual_viewport.h"
 #include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
@@ -270,7 +270,7 @@ void FrameLoader::Init(std::unique_ptr<PolicyContainer> policy_container) {
     navigation_params->sandbox_flags |= csp->sandbox;
   }
 
-  DocumentLoader* new_document_loader = Client()->CreateDocumentLoader(
+  DocumentLoader* new_document_loader = MakeGarbageCollected<DocumentLoader>(
       frame_, kWebNavigationTypeOther, std::move(navigation_params),
       std::move(policy_container), nullptr /* extra_data */);
 
@@ -1077,10 +1077,7 @@ void FrameLoader::CommitNavigation(
   if (commit_reason == CommitReason::kXSLT ||
       commit_reason == CommitReason::kJavascriptUrl) {
     DCHECK(!extra_data);
-    if (auto* old_document_loader =
-            static_cast<WebDocumentLoaderImpl*>(document_loader_.Get())) {
-      extra_data = old_document_loader->TakeExtraData();
-    }
+    extra_data = document_loader_->TakeExtraData();
   }
 
   // Create the OldDocumentInfoForCommit for the old document (that might be in
@@ -1176,7 +1173,7 @@ void FrameLoader::CommitNavigation(
   }
   // TODO(dgozman): get rid of provisional document loader and most of the code
   // below. We should probably call DocumentLoader::CommitNavigation directly.
-  DocumentLoader* new_document_loader = Client()->CreateDocumentLoader(
+  DocumentLoader* new_document_loader = MakeGarbageCollected<DocumentLoader>(
       frame_, navigation_type, std::move(navigation_params),
       std::move(policy_container), std::move(extra_data));
 
@@ -1766,9 +1763,9 @@ void FrameLoader::ReportLegacyTLSVersion(const KURL& url,
   document_loader_->GetUseCounter().Count(
       is_subresource
           ? WebFeature::kLegacyTLSVersionInSubresource
-          : (frame_->Tree().Parent()
-                 ? WebFeature::kLegacyTLSVersionInSubframeMainResource
-                 : WebFeature::kLegacyTLSVersionInMainFrameResource),
+          : (frame_->IsOutermostMainFrame()
+                 ? WebFeature::kLegacyTLSVersionInMainFrameResource
+                 : WebFeature::kLegacyTLSVersionInSubframeMainResource),
       frame_.Get());
 
   // For non-main-frame loads, we have to use the main frame's document for
@@ -1820,8 +1817,8 @@ void FrameLoader::ReportLegacyTLSVersion(const KURL& url,
   // resources, and only use the warning level for main-frame resources.
   frame_->Console().AddMessage(MakeGarbageCollected<ConsoleMessage>(
       mojom::ConsoleMessageSource::kOther,
-      frame_->IsMainFrame() ? mojom::ConsoleMessageLevel::kWarning
-                            : mojom::ConsoleMessageLevel::kVerbose,
+      frame_->IsOutermostMainFrame() ? mojom::ConsoleMessageLevel::kWarning
+                                     : mojom::ConsoleMessageLevel::kVerbose,
       console_message));
 }
 
@@ -1832,6 +1829,7 @@ void FrameLoader::WriteIntoTrace(perfetto::TracedValue context) const {
     frame_dict.Add("id_ref", IdentifiersFactory::FrameId(frame_.Get()));
   }
   dict.Add("isLoadingMainFrame", frame_->IsMainFrame());
+  dict.Add("isOutermostMainFrame", frame_->IsOutermostMainFrame());
   dict.Add("documentLoaderURL",
            document_loader_ ? document_loader_->Url().GetString() : String());
 }

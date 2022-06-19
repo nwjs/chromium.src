@@ -7,6 +7,7 @@
 // windows.h must be included before shellapi.h
 #include <windows.h>
 
+#include <delayimp.h>
 #include <shellapi.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -45,6 +46,7 @@
 #include "build/branding_buildflags.h"
 #include "chrome/browser/about_flags.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/enterprise/browser_management/management_service_factory.h"
 #include "chrome/browser/enterprise/util/critical_policy_section_metrics_win.h"
 #include "chrome/browser/first_run/first_run.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -91,6 +93,7 @@
 #include "components/crash/core/app/dump_hung_process_with_ptype.h"
 #include "components/crash/core/common/crash_key.h"
 #include "components/os_crypt/os_crypt.h"
+#include "components/policy/core/common/management/management_service.h"
 #include "components/prefs/pref_service.h"
 #include "components/version_info/channel.h"
 #include "components/version_info/version_info.h"
@@ -566,10 +569,9 @@ int DoUninstallTasks(bool chrome_still_running) {
 
 // ChromeBrowserMainPartsWin ---------------------------------------------------
 
-ChromeBrowserMainPartsWin::ChromeBrowserMainPartsWin(
-    content::MainFunctionParams parameters,
-    StartupData* startup_data)
-    : ChromeBrowserMainParts(std::move(parameters), startup_data) {}
+ChromeBrowserMainPartsWin::ChromeBrowserMainPartsWin(bool is_integration_test,
+                                                     StartupData* startup_data)
+    : ChromeBrowserMainParts(is_integration_test, startup_data) {}
 
 ChromeBrowserMainPartsWin::~ChromeBrowserMainPartsWin() = default;
 
@@ -594,7 +596,7 @@ void ChromeBrowserMainPartsWin::PreCreateMainMessageLoop() {
   DCHECK(os_crypt_init);
 
   ChromeBrowserMainParts::PreCreateMainMessageLoop();
-  if (!parameters().ui_task) {
+  if (!is_integration_test()) {
     // Make sure that we know how to handle exceptions from the message loop.
     InitializeWindowProcExceptions();
   }
@@ -605,7 +607,12 @@ int ChromeBrowserMainPartsWin::PreCreateThreads() {
   // be used to better identify whether crashes are from enterprise users.
   static crash_reporter::CrashKeyString<4> is_enterprise_managed(
       "is-enterprise-managed");
-  is_enterprise_managed.Set(base::IsMachineExternallyManaged() ? "yes" : "no");
+  is_enterprise_managed.Set(
+      policy::ManagementServiceFactory::GetForPlatform()
+                  ->GetManagementAuthorityTrustworthiness() >=
+              policy::ManagementAuthorityTrustworthiness::TRUSTED
+          ? "yes"
+          : "no");
 
   // Set crash keys containing the registry values used to determine Chrome's
   // update channel at process startup; see https://crbug.com/579504.
@@ -672,8 +679,8 @@ void ChromeBrowserMainPartsWin::PostProfileInit(Profile* profile,
 
   // If Chrome was launched by a Progressive Web App launcher that needs to be
   // updated, update all launchers for this profile.
-  if (parsed_command_line().HasSwitch(switches::kAppId) &&
-      parsed_command_line().GetSwitchValueASCII(
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kAppId) &&
+      base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
           switches::kPwaLauncherVersion) != chrome::kChromeVersion) {
     content::BrowserThread::PostBestEffortTask(
         FROM_HERE, base::SequencedTaskRunnerHandle::Get(),
@@ -684,6 +691,10 @@ void ChromeBrowserMainPartsWin::PostProfileInit(Profile* profile,
 void ChromeBrowserMainPartsWin::PostBrowserStart() {
   ChromeBrowserMainParts::PostBrowserStart();
 
+  // Verify that the delay load helper hooks are in place. This cannot be tested
+  // from unit tests, so rely on this failing here.
+  DCHECK(__pfnDliFailureHook2);
+
   InitializeChromeElf();
 
   // Reset settings for the current profile if it's tagged to be reset after a
@@ -692,7 +703,7 @@ void ChromeBrowserMainPartsWin::PostBrowserStart() {
   // reset is finished.
 #if 0
   if (safe_browsing::PostCleanupSettingsResetter::IsEnabled() &&
-      !parsed_command_line().HasSwitch(switches::kAppId)) {
+      !base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kAppId)) {
     // Using last opened profiles, because we want to find reset the profile
     // that was open in the last Chrome run, which may not be open yet in
     // the current run.
@@ -744,8 +755,10 @@ void ChromeBrowserMainPartsWin::PostBrowserStart() {
 
   // Send an accessibility announcement if this launch originated from the
   // installer.
-  if (parsed_command_line().HasSwitch(switches::kFromInstaller))
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kFromInstaller)) {
     AnnounceInActiveBrowser(l10n_util::GetStringUTF16(IDS_WELCOME_TO_CHROME));
+  }
 
   base::ImportantFileWriterCleaner::GetInstance().Start();
 

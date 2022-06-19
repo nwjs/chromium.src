@@ -3,12 +3,14 @@
 // found in the LICENSE file.
 
 import './strings.m.js';
+import './unguessable_token.mojom-lite.js';
+import './file_system_access_transfer_token.mojom-lite.js';
 
 import {loadTimeData} from 'chrome://resources/js/load_time_data.m.js';
 
 import * as error_reporter from './error_reporter.js';
 import {assertCast, MessagePipe} from './message_pipe.m.js';
-import {DeleteFileMessage, FileContext, LoadFilesMessage, Message, NavigateMessage, NotifyCurrentFileMessage, OpenAllowedFileMessage, OpenAllowedFileResponse, OpenFilesWithPickerMessage, OverwriteFileMessage, OverwriteViaFilePickerResponse, RenameFileMessage, RenameResult, RequestSaveFileMessage, RequestSaveFileResponse, SaveAsMessage, SaveAsResponse} from './message_types.js';
+import {DeleteFileMessage, FileContext, IsFileBrowserWritableMessage, LoadFilesMessage, Message, NavigateMessage, NotifyCurrentFileMessage, OpenAllowedFileMessage, OpenAllowedFileResponse, OpenFilesWithPickerMessage, OverwriteFileMessage, OverwriteViaFilePickerResponse, RenameFileMessage, RenameResult, RequestSaveFileMessage, RequestSaveFileResponse, SaveAsMessage, SaveAsResponse} from './message_types.js';
 import {mediaAppPageHandler} from './mojo_api_bootstrap.js';
 
 const EMPTY_WRITE_ERROR_NAME = 'EmptyWriteError';
@@ -156,14 +158,11 @@ const tokenMap = new Map();
 const guestMessagePipe =
     new MessagePipe('chrome-untrusted://media-app', undefined, false);
 
-/**
- * Promise that resolves once the iframe is ready to receive messages. This is
- * to allow initial file processing to run in parallel with the iframe load.
- * @type {!Promise<undefined>}
- */
-const iframeReady = new Promise(resolve => {
-  guestMessagePipe.registerHandler(Message.IFRAME_READY, resolve);
-});
+// Register a handler for the "IFRAME_READY" message which does nothing. This
+// prevents MessagePipe emitting an error that there is no handler for it. The
+// message is handled by logic in first_message_received.js, which installs the
+// event listener before the <iframe> is added to the DOM.
+guestMessagePipe.registerHandler(Message.IFRAME_READY, () => {});
 
 guestMessagePipe.registerHandler(Message.NOTIFY_CURRENT_FILE, message => {
   const notifyMsg = /** @type {!NotifyCurrentFileMessage} */ (message);
@@ -202,6 +201,17 @@ guestMessagePipe.registerHandler(Message.OPEN_IN_SANDBOXED_VIEWER, message => {
   window.open(
       `./viewpdfhost.html?${new URLSearchParams(message)}`, '_blank',
       'popup=1');
+});
+
+guestMessagePipe.registerHandler(Message.IS_FILE_BROWSER_WRITABLE, message => {
+  const writableMsg =
+      /** @type {!IsFileBrowserWritableMessage} */ (message);
+  const fileHandle = fileHandleForToken(writableMsg.token);
+
+  const transferToken = new blink.mojom.FileSystemAccessTransferTokenRemote(
+      Mojo.getFileSystemAccessTransferToken(fileHandle));
+
+  return mediaAppPageHandler.isFileBrowserWritable(transferToken);
 });
 
 guestMessagePipe.registerHandler(Message.OVERWRITE_FILE, async (message) => {
@@ -791,7 +801,11 @@ async function sendSnapshotToGuest(
   for (const fd of snapshot) {
     fd.file = null;
   }
-  await iframeReady;
+
+  // Wait for the signal from first_message_received.js before proceeding.
+  await /** @type {{firstMessageReceived: !Promise<*>}} */ (window)
+      .firstMessageReceived;
+
   if (extraFiles) {
     await guestMessagePipe.sendMessage(
         Message.LOAD_EXTRA_FILES, loadFilesMessage);

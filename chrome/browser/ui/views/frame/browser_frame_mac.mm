@@ -62,7 +62,7 @@ bool ShouldHandleKeyboardEvent(const content::NativeWebKeyboardEvent& event) {
   DCHECK(event.os_event);
 
   // Do not fire shortcuts on key up.
-  return [event.os_event type] == NSKeyDown;
+  return [event.os_event type] == NSEventTypeKeyDown;
 }
 
 }  // namespace
@@ -316,13 +316,14 @@ bool BrowserFrameMac::ExecuteCommand(
 void BrowserFrameMac::PopulateCreateWindowParams(
     const views::Widget::InitParams& widget_params,
     remote_cocoa::mojom::CreateWindowParams* params) {
-  params->style_mask = NSTitledWindowMask | NSClosableWindowMask |
-                       NSMiniaturizableWindowMask | NSResizableWindowMask;
+  params->style_mask = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |
+                       NSWindowStyleMaskMiniaturizable |
+                       NSWindowStyleMaskResizable;
 
   base::scoped_nsobject<NativeWidgetMacNSWindow> ns_window;
   if (browser_view_->GetIsNormalType() || browser_view_->GetIsWebAppType()) {
     params->window_class = remote_cocoa::mojom::WindowClass::kBrowser;
-    params->style_mask |= NSFullSizeContentViewWindowMask;
+    params->style_mask |= NSWindowStyleMaskFullSizeContentView;
 
     // Ensure tabstrip/profile button are visible.
     params->titlebar_appears_transparent = true;

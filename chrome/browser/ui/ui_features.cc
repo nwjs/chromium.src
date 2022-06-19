@@ -85,16 +85,18 @@ const base::Feature kProminentDarkModeActiveTabTitle{
 const base::Feature kQuickCommands{"QuickCommands",
                                    base::FEATURE_DISABLED_BY_DEFAULT};
 
-#if BUILDFLAG(ENABLE_SIDE_SEARCH)
 // Enables the side search feature for Google Search. Presents recent Google
-// search results in a browser side panel (crbug.com/1242730).
+// search results in a browser side panel.
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+// Enable by default as the ChromeOS iteration of Side Search has launched (See
+// crbug.com/1242730).
+const base::Feature kSideSearch{"SideSearch", base::FEATURE_ENABLED_BY_DEFAULT};
+#else
+// Disable by default on remaining desktop platforms until desktop UX has
+// launched (See crbug.com/1279696).
 const base::Feature kSideSearch{"SideSearch",
                                 base::FEATURE_DISABLED_BY_DEFAULT};
-
-// Controls whether the side contents for all tabs in a given window are cleared
-// away when the side panel is closed.
-const base::Feature kSideSearchClearCacheWhenClosed{
-    "SideSearchClearCacheWhenClosed", base::FEATURE_DISABLED_BY_DEFAULT};
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 const base::Feature kSideSearchFeedback{"SideSearchFeedback",
                                         base::FEATURE_DISABLED_BY_DEFAULT};
@@ -105,13 +107,33 @@ const base::Feature kSideSearchFeedback{"SideSearchFeedback",
 const base::Feature kSideSearchDSESupport{"SideSearchDSESupport",
                                           base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Controls whether the side search icon animates-in its label when the side
+// panel is made available for the active tab.
+const base::Feature kSideSearchPageActionLabelAnimation{
+    "SideSearchPageActionLabelAnimation", base::FEATURE_ENABLED_BY_DEFAULT};
+
+// Controls the frequency that the Side Search page action's label is shown. If
+// enabled the label text is shown one per window.
+const base::FeatureParam<kSideSearchLabelAnimationFrequencyOption>::Option
+    kSideSearchPageActionLabelAnimationFrequencyParamOptions[] = {
+        {kSideSearchLabelAnimationFrequencyOption::kOncePerProfile,
+         "OncePerProfile"},
+        {kSideSearchLabelAnimationFrequencyOption::kOncePerWindow,
+         "OncePerWindow"},
+        {kSideSearchLabelAnimationFrequencyOption::kOncePerTab, "OncePerTab"}};
+
+const base::FeatureParam<kSideSearchLabelAnimationFrequencyOption>
+    kSideSearchPageActionLabelAnimationFrequency{
+        &kSideSearchPageActionLabelAnimation,
+        "SideSearchPageActionLabelAnimationFrequency",
+        kSideSearchLabelAnimationFrequencyOption::kOncePerWindow,
+        &kSideSearchPageActionLabelAnimationFrequencyParamOptions};
+
 // Whether to clobber all side search side panels in the current browser window
 // or only the side search in the current tab before read later or lens side
 // panel is open.
 const base::Feature kClobberAllSideSearchSidePanels{
     "ClobberAllSideSearchSidePanels", base::FEATURE_ENABLED_BY_DEFAULT};
-
-#endif  // BUILDFLAG(ENABLE_SIDE_SEARCH)
 
 const base::Feature kSidePanelDragAndDrop{"SidePanelDragAndDrop",
                                           base::FEATURE_ENABLED_BY_DEFAULT};
@@ -219,6 +241,9 @@ const base::FeatureParam<int> kTabSearchRecentlyClosedDefaultItemDisplayCount{
 const base::FeatureParam<int> kTabSearchRecentlyClosedTabCountThreshold{
     &kTabSearchRecentlyClosed, "TabSearchRecentlyClosedTabCountThreshold", 100};
 
+const base::Feature kTabSearchUseMetricsReporter{
+    "TabSearchUseMetricsReporter", base::FEATURE_DISABLED_BY_DEFAULT};
+
 const base::Feature kToolbarUseHardwareBitmapDraw{
     "ToolbarUseHardwareBitmapDraw", base::FEATURE_DISABLED_BY_DEFAULT};
 
@@ -237,8 +262,15 @@ const base::Feature kWebUIDownloadShelf{"WebUIDownloadShelf",
 
 // Enables a web-based tab strip. See https://crbug.com/989131. Note this
 // feature only works when the ENABLE_WEBUI_TAB_STRIP buildflag is enabled.
-const base::Feature kWebUITabStrip{"WebUITabStrip",
-                                   base::FEATURE_DISABLED_BY_DEFAULT};
+const base::Feature kWebUITabStrip {
+  "WebUITabStrip",
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+      base::FEATURE_ENABLED_BY_DEFAULT
+};
+#else
+      base::FEATURE_DISABLED_BY_DEFAULT
+};
+#endif
 
 // The default value of this flag is aligned with platform behavior to handle
 // context menu with touch.
@@ -251,11 +283,6 @@ const base::Feature kWebUITabStripContextMenuAfterTap {
       base::FEATURE_ENABLED_BY_DEFAULT
 #endif
 };
-
-// Enables a WebUI Feedback UI, as opposed to the Chrome App UI. See
-// https://crbug.com/1167223.
-const base::Feature kWebUIFeedback{"WebUIFeedback",
-                                   base::FEATURE_ENABLED_BY_DEFAULT};
 
 #if BUILDFLAG(IS_CHROMEOS)
 const base::Feature kChromeOSTabSearchCaptionButton{

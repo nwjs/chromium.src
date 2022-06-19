@@ -31,6 +31,7 @@
 #include "components/feed/core/v2/public/stream_type.h"
 #include "components/feed/core/v2/request_throttler.h"
 #include "components/feed/core/v2/scheduling.h"
+#include "components/feed/core/v2/stream/info_card_tracker.h"
 #include "components/feed/core/v2/stream/privacy_notice_card_tracker.h"
 #include "components/feed/core/v2/stream_model.h"
 #include "components/feed/core/v2/stream_surface_set.h"
@@ -176,6 +177,17 @@ class FeedStream : public FeedApi,
                               const std::string& key) override;
   void ReportNoticeDismissed(const StreamType& stream_type,
                              const std::string& key) override;
+  void ReportInfoCardTrackViewStarted(const StreamType& stream_type,
+                                      int info_card_type) override;
+  void ReportInfoCardViewed(const StreamType& stream_type,
+                            int info_card_type,
+                            int minimum_view_interval_seconds) override;
+  void ReportInfoCardClicked(const StreamType& stream_type,
+                             int info_card_type) override;
+  void ReportInfoCardDismissedExplicitly(const StreamType& stream_type,
+                                         int info_card_type) override;
+  void ResetInfoCardStates(const StreamType& stream_type,
+                           int info_card_type) override;
   base::Time GetLastFetchTime(const StreamType& stream_type) override;
   void SetContentOrder(const StreamType& stream_type,
                        ContentOrder content_order) override;
@@ -382,6 +394,7 @@ class FeedStream : public FeedApi,
   void ClearAll();
 
   bool IsFeedEnabledByEnterprisePolicy();
+  bool IsFeedEnabled();
 
   bool HasReachedConditionsToUploadActionsWithNoticeCard();
 
@@ -428,7 +441,7 @@ class FeedStream : public FeedApi,
   base::TimeTicks signed_out_for_you_refreshes_until_;
 
   BooleanPrefMember has_stored_data_;
-  BooleanPrefMember enable_snippets_;
+  BooleanPrefMember snippets_enabled_by_policy_;
   BooleanPrefMember articles_list_visible_;
 
   // State loaded at startup:
@@ -447,6 +460,8 @@ class FeedStream : public FeedApi,
   PrivacyNoticeCardTracker privacy_notice_card_tracker_;
 
   std::map<std::string, NoticeCardTracker> notice_card_trackers_;
+
+  InfoCardTracker info_card_tracker_;
 
   bool clear_all_in_progress_ = false;
 

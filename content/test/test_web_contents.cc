@@ -31,6 +31,7 @@
 #include "content/public/test/navigation_simulator.h"
 #include "content/test/navigation_simulator_impl.h"
 #include "content/test/test_render_view_host.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/page_state/page_state.h"
 #include "third_party/blink/public/mojom/security_context/insecure_request_policy.mojom.h"
 #include "ui/base/page_transition_types.h"
@@ -421,6 +422,9 @@ bool TestWebContents::IsBackForwardCacheSupported() {
 }
 
 int TestWebContents::AddPrerender(const GURL& url) {
+  DCHECK(!base::FeatureList::IsEnabled(
+      blink::features::kPrerender2MemoryControls));
+
   TestRenderFrameHost* rfhi = GetMainFrame();
   return GetPrerenderHostRegistry()->CreateAndStartHost(
       PrerenderAttributes(url, PrerenderTriggerType::kSpeculationRule,
@@ -428,6 +432,7 @@ int TestWebContents::AddPrerender(const GURL& url) {
                           rfhi->GetLastCommittedOrigin(),
                           rfhi->GetLastCommittedURL(),
                           rfhi->GetProcess()->GetID(), rfhi->GetFrameToken(),
+                          rfhi->GetFrameTreeNodeId(),
                           rfhi->GetPageUkmSourceId(), ui::PAGE_TRANSITION_LINK,
                           /*url_match_predicate=*/absl::nullopt),
       *this);
@@ -436,6 +441,8 @@ int TestWebContents::AddPrerender(const GURL& url) {
 TestRenderFrameHost* TestWebContents::AddPrerenderAndCommitNavigation(
     const GURL& url) {
   int host_id = AddPrerender(url);
+  DCHECK_NE(RenderFrameHost::kNoFrameTreeNodeId, host_id);
+
   PrerenderHost* host =
       GetPrerenderHostRegistry()->FindNonReservedHostById(host_id);
   DCHECK(host);
@@ -451,6 +458,8 @@ TestRenderFrameHost* TestWebContents::AddPrerenderAndCommitNavigation(
 std::unique_ptr<NavigationSimulator>
 TestWebContents::AddPrerenderAndStartNavigation(const GURL& url) {
   int host_id = AddPrerender(url);
+  DCHECK_NE(RenderFrameHost::kNoFrameTreeNodeId, host_id);
+
   PrerenderHost* host =
       GetPrerenderHostRegistry()->FindNonReservedHostById(host_id);
   DCHECK(host);

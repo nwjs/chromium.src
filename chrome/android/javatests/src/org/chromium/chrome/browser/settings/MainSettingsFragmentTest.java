@@ -8,11 +8,13 @@ import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.assertion.ViewAssertions.doesNotExist;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
+import static androidx.test.espresso.matcher.ViewMatchers.hasSibling;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
 import static org.hamcrest.CoreMatchers.allOf;
+import static org.hamcrest.CoreMatchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -94,6 +96,8 @@ import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.ui.test.util.RenderTestRule;
+import org.chromium.ui.text.SpanApplier;
+import org.chromium.ui.text.SpanApplier.SpanInfo;
 
 import java.io.IOException;
 import java.util.HashSet;
@@ -434,16 +438,33 @@ public class MainSettingsFragmentTest {
     @SmallTest
     @EnableFeatures(ChromeFeatureList.UNIFIED_PASSWORD_MANAGER_ANDROID)
     @Policies.Add({ @Policies.Item(key = "PasswordManagerEnabled", string = "false") })
-    public void testPasswordsItemDisabledWhenManaged() {
+    public void testPasswordsItemClickableWhenManaged() {
         launchSettingsActivity();
-        Assert.assertFalse(mMainSettings.findPreference(MainSettings.PREF_PASSWORDS).isEnabled());
+        String prefTitleWithoutNewLabel =
+                SpanApplier
+                        .removeSpanText(
+                                mMainSettings.getString(R.string.password_settings_title_gpm),
+                                new SpanInfo("<new>", "</new>"))
+                        .trim();
+        onViewWaiting(allOf(withText(R.string.managed_by_your_organization),
+                hasSibling(withText(prefTitleWithoutNewLabel)), isDisplayed()));
+        Assert.assertTrue(mMainSettings.findPreference(MainSettings.PREF_PASSWORDS).isEnabled());
     }
 
     @Test
     @SmallTest
     @EnableFeatures(ChromeFeatureList.UNIFIED_PASSWORD_MANAGER_ANDROID)
+    @Policies.Remove({ @Policies.Item(key = "PasswordManagerEnabled", string = "false") })
     public void testPasswordsItemEnabledWhenNotManaged() throws InterruptedException {
         launchSettingsActivity();
+        String prefTitleWithoutNewLabel =
+                SpanApplier
+                        .removeSpanText(
+                                mMainSettings.getString(R.string.password_settings_title_gpm),
+                                new SpanInfo("<new>", "</new>"))
+                        .trim();
+        onViewWaiting(allOf(withText(prefTitleWithoutNewLabel),
+                not(hasSibling(withText(R.string.managed_by_your_organization))), isDisplayed()));
         Assert.assertTrue(mMainSettings.findPreference(MainSettings.PREF_PASSWORDS).isEnabled());
     }
 
@@ -453,6 +474,8 @@ public class MainSettingsFragmentTest {
     @Policies.Add({ @Policies.Item(key = "PasswordManagerEnabled", string = "false") })
     public void testPasswordsItemEnabledWhenManagedWithoutUPM() {
         launchSettingsActivity();
+        onViewWaiting(allOf(withText(R.string.password_settings_title),
+                not(hasSibling(withText(R.string.managed_by_your_organization))), isDisplayed()));
         Assert.assertTrue(mMainSettings.findPreference(MainSettings.PREF_PASSWORDS).isEnabled());
     }
 
@@ -461,7 +484,27 @@ public class MainSettingsFragmentTest {
     @EnableFeatures(ChromeFeatureList.UNIFIED_PASSWORD_MANAGER_ANDROID)
     public void testPasswordsItemTitleUpdatedWithUPM() throws InterruptedException {
         launchSettingsActivity();
-        Assert.assertEquals(mMainSettings.getString(R.string.password_settings_title_gpm),
+        // TODO(crbug.com/1217070): Remove the New label checks once the feature is stable.
+        String prefTitleWithoutNewLabel =
+                SpanApplier
+                        .removeSpanText(
+                                mMainSettings.getString(R.string.password_settings_title_gpm),
+                                new SpanInfo("<new>", "</new>"))
+                        .toString()
+                        .trim();
+        Assert.assertEquals(prefTitleWithoutNewLabel,
+                mMainSettings.findPreference(MainSettings.PREF_PASSWORDS).getTitle().toString());
+
+        // Turn on sync to check if the "New" label is shown for sync users.
+        CoreAccountInfo account = mSyncTestRule.setUpAccountAndEnableSyncForTesting();
+        SyncTestUtil.waitForSyncFeatureActive();
+
+        String prefTitleWithNewLabel =
+                SpanApplier
+                        .applySpans(mMainSettings.getString(R.string.password_settings_title_gpm),
+                                new SpanInfo("<new>", "</new>"))
+                        .toString();
+        Assert.assertEquals(prefTitleWithNewLabel,
                 mMainSettings.findPreference(MainSettings.PREF_PASSWORDS).getTitle().toString());
     }
 

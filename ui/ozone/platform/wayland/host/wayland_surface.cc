@@ -5,6 +5,7 @@
 #include "ui/ozone/platform/wayland/host/wayland_surface.h"
 
 #include <alpha-compositing-unstable-v1-client-protocol.h>
+#include <keyboard-shortcuts-inhibit-unstable-v1-client-protocol.h>
 #include <linux-explicit-synchronization-unstable-v1-client-protocol.h>
 #include <overlay-prioritizer-client-protocol.h>
 #include <surface-augmenter-client-protocol.h>
@@ -19,6 +20,7 @@
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/geometry/size_f.h"
 #include "ui/gfx/geometry/transform.h"
+#include "ui/gfx/gpu_fence.h"
 #include "ui/gfx/native_widget_types.h"
 #include "ui/ozone/platform/wayland/common/wayland_util.h"
 #include "ui/ozone/platform/wayland/host/overlay_prioritizer.h"
@@ -27,6 +29,7 @@
 #include "ui/ozone/platform/wayland/host/wayland_connection.h"
 #include "ui/ozone/platform/wayland/host/wayland_output.h"
 #include "ui/ozone/platform/wayland/host/wayland_output_manager.h"
+#include "ui/ozone/platform/wayland/host/wayland_seat.h"
 #include "ui/ozone/platform/wayland/host/wayland_subsurface.h"
 #include "ui/ozone/platform/wayland/host/wayland_window.h"
 
@@ -160,6 +163,13 @@ void WaylandSurface::SetAcquireFence(gfx::GpuFenceHandle acquire_fence) {
   // must disallow clients to use explicit synchronization.
   DCHECK(!apply_state_immediately_);
   DCHECK(connection_->linux_explicit_synchronization_v1());
+  if (!acquire_fence.is_null()) {
+    base::TimeTicks ticks;
+    auto status = gfx::GpuFence::GetStatusChangeTime(
+        acquire_fence.owned_fd.get(), &ticks);
+    if (status == gfx::GpuFence::kSignaled)
+      acquire_fence = gfx::GpuFenceHandle();
+  }
   pending_state_.acquire_fence = std::move(acquire_fence);
   return;
 }
@@ -177,7 +187,7 @@ bool WaylandSurface::AttachBuffer(WaylandBufferHandle* buffer_handle) {
   pending_state_.buffer_id = buffer_handle->id();
 
   if (state_.buffer_id == pending_state_.buffer_id &&
-      buffer_handle->released()) {
+      buffer_handle->released(this)) {
     state_.buffer = nullptr;
     state_.buffer_id = 0;
   }
@@ -220,12 +230,7 @@ void WaylandSurface::SetOpaqueRegion(const std::vector<gfx::Rect>* region_px) {
   pending_state_.opaque_region_px.clear();
   if (!root_window_)
     return;
-  bool is_primary_or_root =
-      root_window_->root_surface() == this ||
-      (root_window()->primary_subsurface() &&
-       root_window()->primary_subsurface()->wayland_surface() == this);
-  if (is_primary_or_root && !root_window_->IsOpaqueWindow())
-    return;
+
   if (region_px)
     pending_state_.opaque_region_px = *region_px;
 
@@ -403,6 +408,7 @@ void WaylandSurface::ApplyPendingState() {
       }
     }
   }
+  pending_state_.acquire_fence = gfx::GpuFenceHandle();
 
   if (pending_state_.buffer_transform != state_.buffer_transform) {
     wl_output_transform wl_transform =
@@ -456,6 +462,24 @@ void WaylandSurface::ApplyPendingState() {
             : CreateAndAddRegion(pending_state_.opaque_region_px,
                                  pending_state_.buffer_scale)
                   .get());
+  }
+
+  if (pending_state_.background_color != state_.background_color) {
+    DCHECK(GetAugmentedSurface());
+    if (augmented_surface_get_version(GetAugmentedSurface()) >=
+        static_cast<uint32_t>(
+            AUGMENTED_SURFACE_SET_BACKGROUND_COLOR_SINCE_VERSION)) {
+      wl_array color_data;
+      wl_array_init(&color_data);
+      if (pending_state_.background_color.has_value())
+        wl::SkColorToWlArray(pending_state_.background_color.value(),
+                             color_data);
+
+      augmented_surface_set_background_color(GetAugmentedSurface(),
+                                             &color_data);
+
+      wl_array_release(&color_data);
+    }
   }
 
   if (pending_state_.rounded_clip_bounds != state_.rounded_clip_bounds) {
@@ -533,6 +557,23 @@ void WaylandSurface::ApplyPendingState() {
         wl_fixed_from_double(viewport_src_dip.height()) == 0) {
       LOG(ERROR) << "Sending viewport src with width/height zero will result "
                     "in wayland disconnection";
+      // TODO(crbug.com/1325344): Resolve why this viewport size ends up being
+      // zero and remove the fix below.
+      LOG(ERROR) << "viewport_src_dip=" << viewport_src_dip.ToString()
+                 << " pending_state_.crop=" << pending_state_.crop.ToString()
+                 << " bounds=" << bounds.ToString()
+                 << "  pending_state_.buffer_size_px="
+                 << pending_state_.buffer_size_px.ToString();
+      constexpr wl_fixed_t kViewportSizeMin = 1;
+      const float kViewPortSizeMinFloat =
+          static_cast<float>(wl_fixed_to_double(kViewportSizeMin));
+      LOG(ERROR)
+          << "Limiting viewport_src_dip size to be non zero with a minium of "
+          << kViewportSizeMin;
+      viewport_src_dip.set_width(
+          std::max(viewport_src_dip.width(), kViewPortSizeMinFloat));
+      viewport_src_dip.set_height(
+          std::max(viewport_src_dip.height(), kViewPortSizeMinFloat));
     }
     src_to_set[0] = wl_fixed_from_double(viewport_src_dip.x()),
     src_to_set[1] = wl_fixed_from_double(viewport_src_dip.y());
@@ -639,6 +680,17 @@ void WaylandSurface::SetApplyStateImmediately() {
   apply_state_immediately_ = true;
 }
 
+void WaylandSurface::InhibitKeyboardShortcuts() {
+  if (auto* keyboard_shortcuts_inhibit_manager =
+          connection_->keyboard_shortcuts_inhibit_manager_v1()) {
+    keyboard_shortcuts_inhibitor_ =
+        wl::Object<zwp_keyboard_shortcuts_inhibitor_v1>(
+            zwp_keyboard_shortcuts_inhibit_manager_v1_inhibit_shortcuts(
+                keyboard_shortcuts_inhibit_manager, surface_.get(),
+                connection_->seat()->wl_object()));
+  }
+}
+
 void WaylandSurface::ExplicitRelease(
     struct zwp_linux_buffer_release_v1* linux_buffer_release,
     base::ScopedFD fence) {
@@ -658,7 +710,6 @@ WaylandSurface::State& WaylandSurface::State::operator=(
     WaylandSurface::State& other) {
   opaque_region_px = other.opaque_region_px;
   input_region_px = other.input_region_px;
-  acquire_fence = std::move(other.acquire_fence);
   buffer_id = other.buffer_id;
   buffer = other.buffer;
   buffer_size_px = other.buffer_size_px;
@@ -670,6 +721,7 @@ WaylandSurface::State& WaylandSurface::State::operator=(
   rounded_clip_bounds = other.rounded_clip_bounds;
   use_blending = other.use_blending;
   priority_hint = other.priority_hint;
+  background_color = other.background_color;
   return *this;
 }
 
@@ -737,6 +789,12 @@ void WaylandSurface::SetRoundedClipBounds(
     const gfx::RRectF& rounded_clip_bounds) {
   if (GetAugmentedSurface())
     pending_state_.rounded_clip_bounds = rounded_clip_bounds;
+}
+
+void WaylandSurface::SetBackgroundColor(
+    absl::optional<SkColor> background_color) {
+  if (GetAugmentedSurface())
+    pending_state_.background_color = background_color;
 }
 
 // static

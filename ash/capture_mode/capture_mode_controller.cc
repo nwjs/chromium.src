@@ -800,6 +800,11 @@ void CaptureModeController::OnSessionStateChanged(
 }
 
 void CaptureModeController::OnChromeTerminating() {
+  // Order here matters. We may shutdown while a session with a camera is active
+  // before recording starts, we need to inform the camera controller first to
+  // destroy the camera preview first.
+  if (camera_controller_)
+    camera_controller_->OnShuttingDown();
   EndSessionOrRecording(EndRecordingReason::kShuttingDown);
 }
 
@@ -1357,6 +1362,11 @@ void CaptureModeController::RecordAndResetConsecutiveScreenshots() {
 }
 
 void CaptureModeController::OnVideoRecordCountDownFinished() {
+  // Ensure `on_countdown_finished_callback_for_test_` is run after this
+  // function.
+  base::ScopedClosureRunner scoped_closure(
+      std::move(on_countdown_finished_callback_for_test_));
+
   // If this event is dispatched after the capture session was cancelled or
   // destroyed, this should be a no-op.
   if (!IsActive())
@@ -1620,6 +1630,9 @@ void CaptureModeController::OnDlpRestrictionCheckedAtSessionInit(
   capture_mode_session_ =
       std::make_unique<CaptureModeSession>(this, for_projector);
   capture_mode_session_->Initialize();
+
+  if (camera_controller_)
+    camera_controller_->OnCaptureSessionStarted();
 }
 
 void CaptureModeController::OnDlpRestrictionCheckedAtVideoEnd(

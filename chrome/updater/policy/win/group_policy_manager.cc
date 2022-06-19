@@ -11,10 +11,12 @@
 #include <userenv.h>
 
 #include "base/enterprise_util.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/scoped_generic.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/values.h"
 #include "base/win/registry.h"
+#include "chrome/updater/external_constants.h"
 #include "chrome/updater/policy/manager.h"
 #include "chrome/updater/win/win_constants.h"
 
@@ -75,14 +77,21 @@ using scoped_hpolicy =
 
 }  // namespace
 
-GroupPolicyManager::GroupPolicyManager() {
+GroupPolicyManager::GroupPolicyManager(
+    scoped_refptr<ExternalConstants> external_constants)
+    : external_constants_group_policies_(external_constants->GroupPolicies()) {
   LoadAllPolicies();
 }
 
 GroupPolicyManager::~GroupPolicyManager() = default;
 
 bool GroupPolicyManager::IsManaged() const {
-  return policies_.DictSize() > 0 && base::IsMachineExternallyManaged();
+  return !policies_.DictEmpty() && IsManagedInternal();
+}
+
+bool GroupPolicyManager::IsManagedInternal() const {
+  return !external_constants_group_policies_.DictEmpty() ||
+         base::IsManagedDevice();
 }
 
 std::string GroupPolicyManager::source() const {
@@ -204,14 +213,19 @@ bool GroupPolicyManager::GetStringPolicy(const std::string& key,
 void GroupPolicyManager::LoadAllPolicies() {
   scoped_hpolicy policy_lock;
 
-  if (base::IsMachineExternallyManaged()) {
+  if (IsManagedInternal()) {
     // GPO rules mandate a call to EnterCriticalPolicySection() before reading
     // policies (and a matching LeaveCriticalPolicySection() call after read).
-    // Acquire the lock for domain-joined machines because group policies are
+    // Acquire the lock for managed machines because group policies are
     // applied only in this case, and the lock acquisition can take a long
     // time, in the worst case scenarios.
     policy_lock.reset(::EnterCriticalPolicySection(true));
     CHECK(policy_lock.is_valid()) << "Failed to get policy lock.";
+  }
+
+  if (!external_constants_group_policies_.DictEmpty()) {
+    policies_ = external_constants_group_policies_.Clone();
+    return;
   }
 
   base::Value::DictStorage policy_storage;

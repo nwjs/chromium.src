@@ -172,13 +172,22 @@ std::string NoticeUmaName(const StreamType& stream_type,
                        uma_base_name, ".", normalized_key});
 }
 
+std::string InfoCardActionUmaName(const StreamType& stream_type,
+                                  base::StringPiece action_name) {
+  return base::StrCat({"ContentSuggestions.", HistogramReplacement(stream_type),
+                       "InfoCard.", action_name});
+}
+
 UserSettingsOnStart GetUserSettingsOnStart(
     bool isEnabledByEnterprisePolicy,
     bool isFeedVisible,
     bool isSignedIn,
+    bool isEnabled,
     const feedstore::Metadata& metadata) {
   if (!isEnabledByEnterprisePolicy)
     return UserSettingsOnStart::kFeedNotEnabledByPolicy;
+  if (!isEnabled)
+    return UserSettingsOnStart::kFeedNotEnabled;
   if (!isFeedVisible) {
     if (isSignedIn)
       return UserSettingsOnStart::kFeedNotVisibleSignedIn;
@@ -246,9 +255,11 @@ void MetricsReporter::OnMetadataInitialized(
     bool isEnabledByEnterprisePolicy,
     bool isFeedVisible,
     bool isSignedIn,
+    bool isEnabled,
     const feedstore::Metadata& metadata) {
-  UserSettingsOnStart settings = GetUserSettingsOnStart(
-      isEnabledByEnterprisePolicy, isFeedVisible, isSignedIn, metadata);
+  UserSettingsOnStart settings =
+      GetUserSettingsOnStart(isEnabledByEnterprisePolicy, isFeedVisible,
+                             isSignedIn, isEnabled, metadata);
   delegate_->RegisterFeedUserSettingsFieldTrial(ToString(settings));
   base::UmaHistogramEnumeration("ContentSuggestions.Feed.UserSettingsOnStart",
                                 settings);
@@ -584,6 +595,15 @@ void MetricsReporter::OtherUserAction(const StreamType& stream_type,
     case FeedUserActionType::kTappedDiscoverFeedPreview:
     case FeedUserActionType::kOpenedAutoplaySettings:
     case FeedUserActionType::kTappedFollowButton:
+    case FeedUserActionType::kDiscoverFeedSelected:
+    case FeedUserActionType::kFollowingFeedSelected:
+    case FeedUserActionType::kTappedUnfollowButton:
+    case FeedUserActionType::kShowFollowSucceedSnackbar:
+    case FeedUserActionType::kShowFollowFailedSnackbar:
+    case FeedUserActionType::kShowUnfollowSucceedSnackbar:
+    case FeedUserActionType::kShowUnfollowFailedSnackbar:
+    case FeedUserActionType::kTappedGoToFeedOnSnackbar:
+    case FeedUserActionType::kTappedCrowButton:
       // Nothing additional for these actions. Note that some of these are iOS
       // only.
 
@@ -1027,6 +1047,37 @@ void MetricsReporter::OnNoticeAcknowledged(
   base::UmaHistogramEnumeration(
       NoticeUmaName(stream_type, key, "NoticeAcknowledgementPath"),
       acknowledgement_path);
+}
+
+void MetricsReporter::OnInfoCardTrackViewStarted(const StreamType& stream_type,
+                                                 int info_card_type) {
+  base::UmaHistogramSparse(InfoCardActionUmaName(stream_type, "Started"),
+                           info_card_type);
+}
+
+void MetricsReporter::OnInfoCardViewed(const StreamType& stream_type,
+                                       int info_card_type) {
+  base::UmaHistogramSparse(InfoCardActionUmaName(stream_type, "Viewed"),
+                           info_card_type);
+}
+
+void MetricsReporter::OnInfoCardClicked(const StreamType& stream_type,
+                                        int info_card_type) {
+  base::UmaHistogramSparse(InfoCardActionUmaName(stream_type, "Clicked"),
+                           info_card_type);
+}
+
+void MetricsReporter::OnInfoCardDismissedExplicitly(
+    const StreamType& stream_type,
+    int info_card_type) {
+  base::UmaHistogramSparse(InfoCardActionUmaName(stream_type, "Dismissed"),
+                           info_card_type);
+}
+
+void MetricsReporter::OnInfoCardStateReset(const StreamType& stream_type,
+                                           int info_card_type) {
+  base::UmaHistogramSparse(InfoCardActionUmaName(stream_type, "Reset"),
+                           info_card_type);
 }
 
 }  // namespace feed

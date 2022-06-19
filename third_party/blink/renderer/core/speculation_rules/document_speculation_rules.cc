@@ -74,12 +74,16 @@ void DocumentSpeculationRules::QueueUpdateSpeculationCandidates() {
     return;
 
   has_pending_update_ = true;
-  auto task_runner = GetSupplementable()->GetExecutionContext()->GetTaskRunner(
-      TaskType::kIdleTask);
-  task_runner->PostTask(
-      base::Location::Current(),
-      WTF::Bind(&DocumentSpeculationRules::UpdateSpeculationCandidates,
-                WrapWeakPersistent(this)));
+  ExecutionContext* execution_context =
+      GetSupplementable()->GetExecutionContext();
+  if (!execution_context)
+    return;
+
+  execution_context->GetTaskRunner(TaskType::kIdleTask)
+      ->PostTask(
+          base::Location::Current(),
+          WTF::Bind(&DocumentSpeculationRules::UpdateSpeculationCandidates,
+                    WrapWeakPersistent(this)));
 }
 
 void DocumentSpeculationRules::UpdateSpeculationCandidates() {
@@ -118,6 +122,11 @@ void DocumentSpeculationRules::UpdateSpeculationCandidates() {
             execution_context)) {
       push_candidates(mojom::blink::SpeculationAction::kPrefetch,
                       rule_set->prefetch_rules());
+    }
+
+    // Ditto for SpeculationRulesPrefetchWithSubresources.
+    if (RuntimeEnabledFeatures::SpeculationRulesPrefetchWithSubresourcesEnabled(
+            execution_context)) {
       push_candidates(
           mojom::blink::SpeculationAction::kPrefetchWithSubresources,
           rule_set->prefetch_with_subresources_rules());

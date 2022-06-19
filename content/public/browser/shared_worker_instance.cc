@@ -17,7 +17,6 @@ SharedWorkerInstance::SharedWorkerInstance(
     network::mojom::CredentialsMode credentials_mode,
     const std::string& name,
     const blink::StorageKey& storage_key,
-    network::mojom::IPAddressSpace creation_address_space,
     blink::mojom::SharedWorkerCreationContextType creation_context_type)
     :
       is_node_js_(is_node_js), root_path_(root_path),
@@ -26,7 +25,6 @@ SharedWorkerInstance::SharedWorkerInstance(
       credentials_mode_(credentials_mode),
       name_(name),
       storage_key_(storage_key),
-      creation_address_space_(creation_address_space),
       creation_context_type_(creation_context_type) {
   // Ensure the same-origin policy is enforced correctly.
   DCHECK(url.SchemeIs(url::kDataScheme) ||

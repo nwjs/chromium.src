@@ -30,6 +30,9 @@ consoles.list_view(
 
 try_.builder(
     name = "chromeos-amd64-generic-cfi-thin-lto-rel",
+    mirrors = [
+        "ci/chromeos-amd64-generic-cfi-thin-lto-rel",
+    ],
 )
 
 try_.builder(
@@ -68,6 +71,9 @@ try_.compilator_builder(
 
 try_.builder(
     name = "chromeos-arm-generic-dbg",
+    mirrors = [
+        "ci/chromeos-arm-generic-dbg",
+    ],
 )
 
 try_.builder(
@@ -259,7 +265,7 @@ try_.builder(
     tryjob = try_.job(
         location_regexp = [
             ".+/[+]/chromeos/components/chromebox_for_meetings/.+",
-            ".+/[+]/chromeos/dbus/chromebox_for_meetings/.+",
+            ".+/[+]/chromeos/ash/components/dbus/chromebox_for_meetings/.+",
             ".+/[+]/ash/services/chromebox_for_meetings/.+",
             ".+/[+]/chrome/browser/ash/chromebox_for_meetings/.+",
             ".+/[+]/chrome/browser/resources/chromeos/chromebox_for_meetings/.+",

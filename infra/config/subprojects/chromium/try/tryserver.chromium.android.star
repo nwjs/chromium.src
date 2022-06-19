@@ -214,6 +214,7 @@ try_.builder(
 
 try_.builder(
     name = "android-inverse-fieldtrials-pie-x86-fyi-rel",
+    mirrors = builder_config.copy_from("try/android-pie-x86-rel"),
 )
 
 try_.builder(
@@ -222,13 +223,11 @@ try_.builder(
 
 try_.orchestrator_builder(
     name = "android-marshmallow-arm64-rel",
-    # TODO(crbug.com/1313712): Re-enable check_for_flakiness when ResultDB RPCs
-    # no longer timeout.
-    #check_for_flakiness = True,
     mirrors = [
         "ci/android-marshmallow-arm64-rel",
         "ci/Android Release (Nexus 5X)",
     ],
+    check_for_flakiness = True,
     compilator = "android-marshmallow-arm64-rel-compilator",
     branch_selector = branches.STANDARD_MILESTONE,
     main_list_view = "try",
@@ -240,9 +239,7 @@ try_.orchestrator_builder(
 try_.compilator_builder(
     name = "android-marshmallow-arm64-rel-compilator",
     branch_selector = branches.STANDARD_MILESTONE,
-    # TODO(crbug.com/1313712): Re-enable check_for_flakiness when ResultDB RPCs
-    # no longer timeout.
-    #check_for_flakiness = True,
+    check_for_flakiness = True,
     cores = 64 if settings.is_main else 32,
     main_list_view = "try",
 )
@@ -343,6 +340,14 @@ try_.builder(
 
 try_.orchestrator_builder(
     name = "android-pie-arm64-rel",
+    mirrors = [
+        "ci/android-pie-arm64-rel",
+    ],
+    try_settings = builder_config.try_settings(
+        rts_config = builder_config.rts_config(
+            condition = builder_config.rts_condition.QUICK_RUN_ONLY,
+        ),
+    ),
     compilator = "android-pie-arm64-rel-compilator",
     check_for_flakiness = True,
     branch_selector = branches.STANDARD_MILESTONE,
@@ -359,6 +364,9 @@ try_.compilator_builder(
 
 try_.builder(
     name = "android-pie-x86-rel",
+    mirrors = [
+        "ci/android-pie-x86-rel",
+    ],
     goma_jobs = goma.jobs.J150,
 )
 
@@ -372,11 +380,11 @@ try_.builder(
 )
 
 try_.builder(
-    name = "android-10-x86-fyi-rel-tests",
-)
-
-try_.builder(
-    name = "android-11-x86-fyi-rel",
+    name = "android-webview-10-x86-rel-tests",
+    mirrors = [
+        "ci/android-x86-rel",
+        "ci/android-webview-10-x86-rel-tests",
+    ],
 )
 
 try_.builder(
@@ -389,14 +397,26 @@ try_.builder(
 
 try_.builder(
     name = "android-weblayer-10-x86-rel-tests",
+    mirrors = [
+        "ci/android-weblayer-with-aosp-webview-x86-rel",
+        "ci/android-weblayer-10-x86-rel-tests",
+    ],
 )
 
 try_.builder(
     name = "android-weblayer-marshmallow-x86-rel-tests",
+    mirrors = [
+        "ci/android-weblayer-with-aosp-webview-x86-rel",
+        "ci/android-weblayer-marshmallow-x86-rel-tests",
+    ],
 )
 
 try_.builder(
     name = "android-weblayer-pie-x86-rel-tests",
+    mirrors = [
+        "ci/android-weblayer-x86-rel",
+        "ci/android-weblayer-pie-x86-rel-tests",
+    ],
 )
 
 try_.builder(
@@ -457,6 +477,9 @@ try_.builder(
 
 try_.builder(
     name = "android_archive_rel_ng",
+    mirrors = [
+        "ci/android-archive-rel",
+    ],
 )
 
 try_.builder(
@@ -469,6 +492,14 @@ try_.builder(
         include_all_triggered_testers = True,
         is_compile_only = True,
     ),
+)
+
+try_.builder(
+    name = "android-arm64-all-targets-dbg",
+    goma_jobs = goma.jobs.J300,
+    mirrors = [
+        "ci/Android arm64 Builder All Targets (dbg)",
+    ],
 )
 
 try_.builder(

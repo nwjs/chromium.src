@@ -4,8 +4,11 @@
 
 package org.chromium.components.external_intents;
 
+import android.util.Pair;
+
 import androidx.annotation.VisibleForTesting;
 
+import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.annotations.JNINamespace;
 import org.chromium.base.annotations.NativeMethods;
@@ -35,8 +38,7 @@ import org.chromium.url.Origin;
 public class InterceptNavigationDelegateImpl extends InterceptNavigationDelegate {
     private final AuthenticatorNavigationInterceptor mAuthenticatorHelper;
     private InterceptNavigationDelegateClient mClient;
-    private @OverrideUrlLoadingResultType int mLastOverrideUrlLoadingResultType =
-            OverrideUrlLoadingResultType.NO_OVERRIDE;
+    private Callback<Pair<GURL, OverrideUrlLoadingResult>> mResultCallbackForTesting;
     private WebContents mWebContents;
     private ExternalNavigationHandler mExternalNavHandler;
 
@@ -91,19 +93,17 @@ public class InterceptNavigationDelegateImpl extends InterceptNavigationDelegate
                                                   .setInitiatorOrigin(initiatorOrigin)
                                                   .setIsMainFrame(true)
                                                   .build();
-        mLastOverrideUrlLoadingResultType =
-                mExternalNavHandler.shouldOverrideUrlLoading(params).getResultType();
-        return mLastOverrideUrlLoadingResultType
+        OverrideUrlLoadingResult result = mExternalNavHandler.shouldOverrideUrlLoading(params);
+        if (mResultCallbackForTesting != null) {
+            mResultCallbackForTesting.onResult(Pair.create(url, result));
+        }
+        return result.getResultType()
                 != ExternalNavigationHandler.OverrideUrlLoadingResultType.NO_OVERRIDE;
     }
 
-    @VisibleForTesting
-    public @OverrideUrlLoadingResultType int getLastOverrideUrlLoadingResultTypeForTests() {
-        return mLastOverrideUrlLoadingResultType;
-    }
-
     @Override
-    public boolean shouldIgnoreNavigation(NavigationHandle navigationHandle, GURL escapedUrl) {
+    public boolean shouldIgnoreNavigation(
+            NavigationHandle navigationHandle, GURL escapedUrl, boolean applyUserGestureCarryover) {
         mClient.onNavigationStarted(navigationHandle);
 
         GURL url = escapedUrl;
@@ -133,6 +133,13 @@ public class InterceptNavigationDelegateImpl extends InterceptNavigationDelegate
             assert false;
             return false;
         }
+
+        // Temporarily apply User Gesture Carryover exception for resource requests to the
+        // NavigationHandle.
+        if (applyUserGestureCarryover) {
+            assert !navigationHandle.hasUserGesture();
+            navigationHandle.setUserGestureForCarryover(true);
+        }
         redirectHandler.updateNewUrlLoading(navigationHandle.pageTransition(),
                 navigationHandle.isRedirect(), navigationHandle.hasUserGesture(),
                 lastUserInteractionTime, getLastCommittedEntryIndex(), isInitialNavigation());
@@ -142,16 +149,22 @@ public class InterceptNavigationDelegateImpl extends InterceptNavigationDelegate
                 navigationHandle, redirectHandler, shouldCloseTab, escapedUrl)
                                                   .build();
         OverrideUrlLoadingResult result = mExternalNavHandler.shouldOverrideUrlLoading(params);
-        mLastOverrideUrlLoadingResultType = result.getResultType();
+        if (mResultCallbackForTesting != null) {
+            mResultCallbackForTesting.onResult(Pair.create(url, result));
+        }
 
         mClient.onDecisionReachedForNavigation(navigationHandle, result);
+
+        if (applyUserGestureCarryover) {
+            navigationHandle.setUserGestureForCarryover(false);
+        }
 
         boolean isExternalProtocol = !UrlUtilities.isAcceptedScheme(params.getUrl());
         String protocolType = isExternalProtocol ? "ExternalProtocol" : "InternalProtocol";
         RecordHistogram.recordEnumeratedHistogram(
                 "Android.TabNavigationInterceptResult.For" + protocolType, result.getResultType(),
                 OverrideUrlLoadingResultType.NUM_ENTRIES);
-        switch (mLastOverrideUrlLoadingResultType) {
+        switch (result.getResultType()) {
             case OverrideUrlLoadingResultType.OVERRIDE_WITH_EXTERNAL_INTENT:
                 assert mExternalNavHandler.canExternalAppHandleUrl(url);
                 if (navigationHandle.isInPrimaryMainFrame()) {
@@ -319,6 +332,12 @@ public class InterceptNavigationDelegateImpl extends InterceptNavigationDelegate
                 : R.string.unreachable_navigation_warning;
         mClient.getWebContents().addMessageToDevToolsConsole(ConsoleMessageLevel.WARNING,
                 ContextUtils.getApplicationContext().getString(resId, url.getSpec()));
+    }
+
+    @VisibleForTesting
+    public void setResultCallbackForTesting(
+            Callback<Pair<GURL, OverrideUrlLoadingResult>> callback) {
+        mResultCallbackForTesting = callback;
     }
 
     @NativeMethods

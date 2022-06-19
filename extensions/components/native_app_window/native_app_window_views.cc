@@ -262,6 +262,10 @@ bool NativeAppWindowViews::ShouldShowWindowTitle() const {
   return true;
 }
 
+bool NativeAppWindowViews::ShouldSaveWindowPlacement() const {
+  return true;
+}
+
 void NativeAppWindowViews::SaveWindowPlacement(const gfx::Rect& bounds,
                                                ui::WindowShowState show_state) {
   views::WidgetDelegate::SaveWindowPlacement(bounds, show_state);

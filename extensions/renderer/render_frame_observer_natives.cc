@@ -181,7 +181,12 @@ void RenderFrameObserverNatives::OnDestruct(
   }
 
   v8::Local<v8::Function> func = args[1].As<v8::Function>();
-  ScriptContext* context = ScriptContextSet::GetContextByV8Context(func->CreationContext());
+  v8::Local<v8::Context> v8_context;
+  if (!func->GetCreationContext().ToLocal(&v8_context)) {
+    args.GetReturnValue().Set(false);
+    return;
+  }
+  ScriptContext* context = ScriptContextSet::GetContextByV8Context(v8_context);
   new CloseWatcher(context, frame, args[1].As<v8::Function>());
 
   args.GetReturnValue().Set(true);

@@ -38,7 +38,7 @@ class AccountSelectionBridge implements AccountSelectionComponent.Delegate {
     }
 
     @CalledByNative
-    private static int getBrandIconMinimumSize() {
+    static int getBrandIconMinimumSize() {
         // Icon needs to be big enough for the smallest screen density (1x).
         Resources resources = ContextUtils.getApplicationContext().getResources();
         // Density < 1.0f on ldpi devices. Adjust density to ensure that
@@ -48,7 +48,7 @@ class AccountSelectionBridge implements AccountSelectionComponent.Delegate {
     }
 
     @CalledByNative
-    private static int getBrandIconIdealSize() {
+    static int getBrandIconIdealSize() {
         Resources resources = ContextUtils.getApplicationContext().getResources();
         return Math.round(resources.getDimension(R.dimen.account_selection_sheet_icon_size));
     }
@@ -85,9 +85,9 @@ class AccountSelectionBridge implements AccountSelectionComponent.Delegate {
     }
 
     @Override
-    public void onDismissed() {
+    public void onDismissed(boolean shouldEmbargo) {
         if (mNativeView != 0) {
-            AccountSelectionBridgeJni.get().onDismiss(mNativeView);
+            AccountSelectionBridgeJni.get().onDismiss(mNativeView, shouldEmbargo);
         }
     }
 
@@ -116,7 +116,7 @@ class AccountSelectionBridge implements AccountSelectionComponent.Delegate {
     interface Natives {
         void onAccountSelected(long nativeAccountSelectionViewAndroid, String[] accountFields,
                 GURL accountPictureUrl, boolean isSignedIn);
-        void onDismiss(long nativeAccountSelectionViewAndroid);
+        void onDismiss(long nativeAccountSelectionViewAndroid, boolean shouldEmbargo);
         void onAutoSignInCancelled(long nativeAccountSelectionViewAndroid);
     }
 }

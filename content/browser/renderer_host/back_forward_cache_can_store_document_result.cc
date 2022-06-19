@@ -19,6 +19,7 @@ namespace content {
 namespace {
 
 using blink::scheduler::WebSchedulerTrackedFeature;
+using Reason = BackForwardCacheMetrics::NotRestoredReason;
 
 std::string DescribeFeatures(BlockListedFeatures blocklisted_features) {
   std::vector<std::string> features;
@@ -82,7 +83,6 @@ using ProtoEnum =
     perfetto::protos::pbzero::BackForwardCacheCanStoreDocumentResult;
 ProtoEnum::BackForwardCacheNotRestoredReason NotRestoredReasonToTraceEnum(
     BackForwardCacheMetrics::NotRestoredReason reason) {
-  using Reason = BackForwardCacheMetrics::NotRestoredReason;
   switch (reason) {
     case Reason::kNotPrimaryMainFrame:
       return ProtoEnum::NOT_MAIN_FRAME;
@@ -116,8 +116,6 @@ ProtoEnum::BackForwardCacheNotRestoredReason NotRestoredReasonToTraceEnum(
       return ProtoEnum::RENDERER_PROCESS_KILLED;
     case Reason::kRendererProcessCrashed:
       return ProtoEnum::RENDERER_PROCESS_CRASHED;
-    case Reason::kGrantedMediaStreamAccess:
-      return ProtoEnum::GRANTED_MEDIA_STREAM_ACCESS;
     case Reason::kSchedulerTrackedFeatureUsed:
       return ProtoEnum::SCHEDULER_TRACKED_FEATURE_USED;
     case Reason::kConflictingBrowsingInstance:
@@ -198,29 +196,29 @@ void BackForwardCacheCanStoreDocumentResult::WriteIntoTrace(
     perfetto::TracedProto<
         perfetto::protos::pbzero::BackForwardCacheCanStoreDocumentResult>
         result) const {
-  for (auto reason : not_stored_reasons()) {
+  for (auto reason : not_restored_reasons()) {
     result->set_back_forward_cache_not_restored_reason(
         NotRestoredReasonToTraceEnum(reason));
   }
 }
 
-bool BackForwardCacheCanStoreDocumentResult::HasNotStoredReason(
+bool BackForwardCacheCanStoreDocumentResult::HasNotRestoredReason(
     BackForwardCacheMetrics::NotRestoredReason reason) const {
-  return not_stored_reasons_.Has(reason);
+  return not_restored_reasons_.Has(reason);
 }
 
-void BackForwardCacheCanStoreDocumentResult::AddNotStoredReason(
+void BackForwardCacheCanStoreDocumentResult::AddNotRestoredReason(
     BackForwardCacheMetrics::NotRestoredReason reason) {
-  not_stored_reasons_.Put(reason);
+  not_restored_reasons_.Put(reason);
 
   if (reason == BackForwardCacheMetrics::NotRestoredReason::kNoResponseHead ||
       reason ==
           BackForwardCacheMetrics::NotRestoredReason::kSchemeNotHTTPOrHTTPS) {
-    if (not_stored_reasons_.Has(
+    if (not_restored_reasons_.Has(
             BackForwardCacheMetrics::NotRestoredReason::kNoResponseHead) &&
-        not_stored_reasons_.Has(BackForwardCacheMetrics::NotRestoredReason::
-                                    kSchemeNotHTTPOrHTTPS) &&
-        !not_stored_reasons_.Has(
+        not_restored_reasons_.Has(BackForwardCacheMetrics::NotRestoredReason::
+                                      kSchemeNotHTTPOrHTTPS) &&
+        !not_restored_reasons_.Has(
             BackForwardCacheMetrics::NotRestoredReason::kHTTPStatusNotOK)) {
       CaptureTraceForNavigationDebugScenario(
           DebugScenario::kDebugNoResponseHeadForHttpOrHttps);
@@ -230,7 +228,28 @@ void BackForwardCacheCanStoreDocumentResult::AddNotStoredReason(
 }
 
 bool BackForwardCacheCanStoreDocumentResult::CanStore() const {
-  return not_stored_reasons_.Empty();
+  if (not_restored_reasons_.Has(Reason::kCacheControlNoStore) ||
+      not_restored_reasons_.Has(Reason::kCacheControlNoStoreCookieModified) ||
+      not_restored_reasons_.Has(
+          Reason::kCacheControlNoStoreHTTPOnlyCookieModified)) {
+    // Cache-control:no-store related reasons are only recorded when the
+    // experiment is on to allow pages with cache-control:no-store into back/
+    // forward cache.
+    // If there are other reasons present outside of cache-control:no-store
+    // related reasons, the page is not eligible for storing.
+    return Difference(not_restored_reasons_,
+                      NotRestoredReasons(
+                          Reason::kCacheControlNoStore,
+                          Reason::kCacheControlNoStoreCookieModified,
+                          Reason::kCacheControlNoStoreHTTPOnlyCookieModified))
+        .Empty();
+  } else {
+    return not_restored_reasons_.Empty();
+  }
+}
+
+bool BackForwardCacheCanStoreDocumentResult::CanRestore() const {
+  return not_restored_reasons_.Empty();
 }
 
 namespace {
@@ -262,7 +281,7 @@ std::string BackForwardCacheCanStoreDocumentResult::ToString() const {
   std::vector<std::string> reason_strs;
 
   for (BackForwardCacheMetrics::NotRestoredReason reason :
-       not_stored_reasons_) {
+       not_restored_reasons_) {
     reason_strs.push_back(NotRestoredReasonToString(reason));
   }
 
@@ -313,8 +332,6 @@ std::string BackForwardCacheCanStoreDocumentResult::NotRestoredReasonToString(
       return "renderer process is killed";
     case Reason::kRendererProcessCrashed:
       return "renderer process crashed";
-    case Reason::kGrantedMediaStreamAccess:
-      return "granted media stream access";
     case Reason::kSchedulerTrackedFeatureUsed:
       return "scheduler tracked feature is used";
     case Reason::kConflictingBrowsingInstance:
@@ -404,12 +421,12 @@ void BackForwardCacheCanStoreDocumentResult::No(
   DCHECK_NE(reason, BackForwardCacheMetrics::NotRestoredReason::
                         kDisableForRenderFrameHostCalled);
 
-  AddNotStoredReason(reason);
+  AddNotRestoredReason(reason);
 }
 
 void BackForwardCacheCanStoreDocumentResult::NoDueToFeatures(
     BlockListedFeatures features) {
-  AddNotStoredReason(
+  AddNotRestoredReason(
       BackForwardCacheMetrics::NotRestoredReason::kBlocklistedFeatures);
   blocklisted_features_.PutAll(features);
 }
@@ -423,21 +440,21 @@ void BackForwardCacheCanStoreDocumentResult::
     disabled_reasons_.insert(reason);
     // This will be a no-op after the first time but it's written like this to
     // guarantee that we do not set it without a reason.
-    AddNotStoredReason(BackForwardCacheMetrics::NotRestoredReason::
-                           kDisableForRenderFrameHostCalled);
+    AddNotRestoredReason(BackForwardCacheMetrics::NotRestoredReason::
+                             kDisableForRenderFrameHostCalled);
   }
 }
 
 void BackForwardCacheCanStoreDocumentResult::NoDueToRelatedActiveContents(
     absl::optional<ShouldSwapBrowsingInstance> browsing_instance_swap_result) {
-  AddNotStoredReason(
+  AddNotRestoredReason(
       BackForwardCacheMetrics::NotRestoredReason::kRelatedActiveContentsExist);
   browsing_instance_swap_result_ = browsing_instance_swap_result;
 }
 
 void BackForwardCacheCanStoreDocumentResult::NoDueToDisallowActivation(
     uint64_t reason) {
-  AddNotStoredReason(
+  AddNotRestoredReason(
       BackForwardCacheMetrics::NotRestoredReason::kIgnoreEventAndEvict);
   disallow_activation_reasons_.insert(reason);
 }
@@ -447,14 +464,14 @@ void BackForwardCacheCanStoreDocumentResult::NoDueToAXEvents(
   for (auto& event : events) {
     ax_events_.insert(event.event_type);
   }
-  AddNotStoredReason(
+  AddNotRestoredReason(
       BackForwardCacheMetrics::NotRestoredReason::kIgnoreEventAndEvict);
   disallow_activation_reasons_.insert(DisallowActivationReasonId::kAXEvent);
 }
 
 void BackForwardCacheCanStoreDocumentResult::AddReasonsFrom(
     const BackForwardCacheCanStoreDocumentResult& other) {
-  not_stored_reasons_.PutAll(other.not_stored_reasons_);
+  not_restored_reasons_.PutAll(other.not_restored_reasons_);
   blocklisted_features_.PutAll(other.blocklisted_features());
   for (const BackForwardCache::DisabledReason& reason :
        other.disabled_reasons()) {

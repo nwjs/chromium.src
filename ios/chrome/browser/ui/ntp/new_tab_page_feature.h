@@ -31,16 +31,13 @@ extern const char kDiscoverFeedSRSReconstructedTemplatesEnabled[];
 // resource serving.
 extern const char kDiscoverFeedSRSPreloadTemplatesEnabled[];
 
-// Feature flag to enable the Following feed in the NTP.
-// Use IsWebChannelsEnabled() instead of this constant directly.
-// TODO(crbug.com/1264872): move it to web_channels feature directory when there
-// has one since this feature will be used outside of NTP.
-extern const base::Feature kEnableWebChannels;
-
 // Feature flag to fix the NTP view hierarchy if it is broken before applying
 // constraints.
 // TODO(crbug.com/1262536): Remove this when it is fixed.
 extern const base::Feature kNTPViewHierarchyRepair;
+
+// Feature flag to remove the Feed from the NTP.
+extern const base::Feature kEnableFeedAblation;
 
 // Whether the Discover feed content preview is shown in the context menu.
 bool IsDiscoverFeedPreviewEnabled();
@@ -51,10 +48,10 @@ bool IsDiscoverFeedAppFlowsEnabled();
 // Whether the Discover feed shorter cache is enabled.
 bool IsDiscoverFeedShorterCacheEnabled();
 
-// Whether the Following Feed is enabled on NTP.
-bool IsWebChannelsEnabled();
-
 // Whether the NTP view hierarchy repair is enabled.
 bool IsNTPViewHierarchyRepairEnabled();
+
+// Whether the Discover feed ablation experiment is enabled.
+bool IsFeedAblationEnabled();
 
 #endif  // IOS_CHROME_BROWSER_UI_NTP_NEW_TAB_PAGE_FEATURE_H_

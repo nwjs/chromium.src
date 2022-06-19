@@ -141,7 +141,7 @@ void EnterpriseProfileWelcomeHandler::RegisterMessages() {
       "initialized",
       base::BindRepeating(&EnterpriseProfileWelcomeHandler::HandleInitialized,
                           base::Unretained(this)));
-  web_ui()->RegisterDeprecatedMessageCallback(
+  web_ui()->RegisterMessageCallback(
       "initializedWithSize",
       base::BindRepeating(
           &EnterpriseProfileWelcomeHandler::HandleInitializedWithSize,
@@ -209,11 +209,18 @@ void EnterpriseProfileWelcomeHandler::HandleInitialized(
 }
 
 void EnterpriseProfileWelcomeHandler::HandleInitializedWithSize(
-    const base::ListValue* args) {
+    const base::Value::List& args) {
   AllowJavascript();
 
   if (browser_)
     signin::SetInitializedModalHeight(browser_, web_ui(), args);
+}
+
+void EnterpriseProfileWelcomeHandler::HandleProceedForTesting(
+    bool should_link_data) {
+  base::Value::List args;
+  args.Append(should_link_data);
+  HandleProceed(args);
 }
 
 void EnterpriseProfileWelcomeHandler::HandleProceed(
@@ -279,10 +286,6 @@ base::Value EnterpriseProfileWelcomeHandler::GetProfileInfoValue() {
       dict.SetStringKey("proceedLabel", l10n_util::GetStringUTF8(IDS_DONE));
       break;
     case EnterpriseProfileWelcomeUI::ScreenType::kEnterpriseAccountCreation:
-      title = l10n_util::GetStringUTF8(
-          profile_creation_required_by_policy_
-              ? IDS_ENTERPRISE_WELCOME_PROFILE_REQUIRED_TITLE
-              : IDS_ENTERPRISE_WELCOME_PROFILE_WILL_BE_MANAGED_TITLE);
       dict.SetBoolKey("showEnterpriseBadge", false);
       subtitle = GetManagedAccountTitleWithEmail(entry, domain_name_, email_);
       enterprise_info = l10n_util::GetStringUTF8(

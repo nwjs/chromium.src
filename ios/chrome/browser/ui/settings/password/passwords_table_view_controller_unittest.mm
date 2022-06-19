@@ -31,6 +31,7 @@
 #import "ios/chrome/browser/ui/settings/cells/settings_check_item.h"
 #import "ios/chrome/browser/ui/settings/password/passwords_consumer.h"
 #import "ios/chrome/browser/ui/settings/password/passwords_mediator.h"
+#import "ios/chrome/browser/ui/settings/password/passwords_table_view_constants.h"
 #import "ios/chrome/browser/ui/table_view/cells/table_view_detail_text_item.h"
 #include "ios/chrome/browser/ui/table_view/chrome_table_view_controller_test.h"
 #import "ios/chrome/browser/ui/util/uikit_ui_util.h"
@@ -88,15 +89,6 @@ typedef struct {
   bool password_check_enabled;
 } PasswordCheckFeatureStatus;
 
-enum PasswordsSections {
-  SavePasswordsSwitch = 0,
-  PasswordsInOtherApps,
-  PasswordCheck,
-  SavedPasswords,
-  Blocked,
-  ExportPasswordsButton,
-};
-
 class PasswordsTableViewControllerTest : public ChromeTableViewControllerTest {
  protected:
   PasswordsTableViewControllerTest() = default;
@@ -141,18 +133,26 @@ class PasswordsTableViewControllerTest : public ChromeTableViewControllerTest {
     [passwords_controller setPasswordsForms:{} blockedForms:{}];
   }
 
-  int GetSectionIndex(PasswordsSections section) {
+  int GetSectionIndex(PasswordSectionIdentifier section) {
     switch (section) {
-      case SavePasswordsSwitch:
-      case PasswordsInOtherApps:
-      case PasswordCheck:
-        return section;
-      case SavedPasswords:
+      case SectionIdentifierSavePasswordsSwitch:
+        return 0;
+      case SectionIdentifierPasswordsInOtherApps:
+        return 1;
+      case SectionIdentifierPasswordCheck:
+        return 2;
+      case SectionIdentifierSavedPasswords:
         return 3;
-      case Blocked:
+      case SectionIdentifierBlocked:
         return 4;
-      case ExportPasswordsButton:
+      case SectionIdentifierExportPasswordsButton:
         return 4;
+      case SectionIdentifierOnDeviceEncryption:
+      default:
+        // Currently not used in any test.
+        // TODO(crbug.com/1323240)
+        NOTREACHED();
+        return -1;
     }
   }
 
@@ -321,7 +321,8 @@ TEST_F(PasswordsTableViewControllerTest, AddSavedPasswords) {
   AddSavedForm1();
 
   EXPECT_EQ(4 + SectionsOffset(), NumberOfSections());
-  EXPECT_EQ(1, NumberOfItemsInSection(GetSectionIndex(SavedPasswords)));
+  EXPECT_EQ(1, NumberOfItemsInSection(
+                   GetSectionIndex(SectionIdentifierSavedPasswords)));
 }
 
 // Tests adding one item in blocked password section.
@@ -329,7 +330,8 @@ TEST_F(PasswordsTableViewControllerTest, AddBlockedPasswords) {
   AddBlockedForm1();
 
   EXPECT_EQ(4 + SectionsOffset(), NumberOfSections());
-  EXPECT_EQ(1, NumberOfItemsInSection(GetSectionIndex(Blocked)));
+  EXPECT_EQ(1,
+            NumberOfItemsInSection(GetSectionIndex(SectionIdentifierBlocked)));
 }
 
 // Tests adding one item in saved password section, and two items in blocked
@@ -343,9 +345,11 @@ TEST_F(PasswordsTableViewControllerTest, AddSavedAndBlocked) {
   EXPECT_EQ(5 + SectionsOffset(), NumberOfSections());
 
   // There should be 1 row in saved password section.
-  EXPECT_EQ(1, NumberOfItemsInSection(GetSectionIndex(SavedPasswords)));
+  EXPECT_EQ(1, NumberOfItemsInSection(
+                   GetSectionIndex(SectionIdentifierSavedPasswords)));
   // There should be 2 rows in blocked password section.
-  EXPECT_EQ(2, NumberOfItemsInSection(GetSectionIndex(Blocked)));
+  EXPECT_EQ(2,
+            NumberOfItemsInSection(GetSectionIndex(SectionIdentifierBlocked)));
 }
 
 // Tests the order in which the saved passwords are displayed.
@@ -356,14 +360,17 @@ TEST_F(PasswordsTableViewControllerTest, TestSavedPasswordsOrder) {
 
   AddSavedForm2();
 
-  CheckURLCellTitleAndDetailText(@"example2.com", @"test@egmail.com",
-                                 GetSectionIndex(SavedPasswords), 0);
+  CheckURLCellTitleAndDetailText(
+      @"example2.com", @"test@egmail.com",
+      GetSectionIndex(SectionIdentifierSavedPasswords), 0);
 
   AddSavedForm1();
-  CheckURLCellTitleAndDetailText(@"example.com", @"test@egmail.com",
-                                 GetSectionIndex(SavedPasswords), 0);
-  CheckURLCellTitleAndDetailText(@"example2.com", @"test@egmail.com",
-                                 GetSectionIndex(SavedPasswords), 1);
+  CheckURLCellTitleAndDetailText(
+      @"example.com", @"test@egmail.com",
+      GetSectionIndex(SectionIdentifierSavedPasswords), 0);
+  CheckURLCellTitleAndDetailText(
+      @"example2.com", @"test@egmail.com",
+      GetSectionIndex(SectionIdentifierSavedPasswords), 1);
 }
 
 // Tests the order in which the blocked passwords are displayed.
@@ -373,11 +380,14 @@ TEST_F(PasswordsTableViewControllerTest, TestBlockedPasswordsOrder) {
       password_manager::features::kEnableFaviconForPasswords);
 
   AddBlockedForm2();
-  CheckURLCellEmptyTitle(@"secret2.com", GetSectionIndex(SavedPasswords), 0);
+  CheckURLCellEmptyTitle(@"secret2.com",
+                         GetSectionIndex(SectionIdentifierSavedPasswords), 0);
 
   AddBlockedForm1();
-  CheckURLCellEmptyTitle(@"secret.com", GetSectionIndex(SavedPasswords), 0);
-  CheckURLCellEmptyTitle(@"secret2.com", GetSectionIndex(SavedPasswords), 1);
+  CheckURLCellEmptyTitle(@"secret.com",
+                         GetSectionIndex(SectionIdentifierSavedPasswords), 0);
+  CheckURLCellEmptyTitle(@"secret2.com",
+                         GetSectionIndex(SectionIdentifierSavedPasswords), 1);
 }
 
 // Tests the order in which the saved passwords are displayed.
@@ -386,14 +396,17 @@ TEST_F(PasswordsTableViewControllerTest, TestBlockedPasswordsOrder) {
 TEST_F(PasswordsTableViewControllerTest, TestSavedPasswordsOrderLegacy) {
   AddSavedForm2();
 
-  CheckTextCellTextAndDetailText(@"example2.com", @"test@egmail.com",
-                                 GetSectionIndex(SavedPasswords), 0);
+  CheckTextCellTextAndDetailText(
+      @"example2.com", @"test@egmail.com",
+      GetSectionIndex(SectionIdentifierSavedPasswords), 0);
 
   AddSavedForm1();
-  CheckTextCellTextAndDetailText(@"example.com", @"test@egmail.com",
-                                 GetSectionIndex(SavedPasswords), 0);
-  CheckTextCellTextAndDetailText(@"example2.com", @"test@egmail.com",
-                                 GetSectionIndex(SavedPasswords), 1);
+  CheckTextCellTextAndDetailText(
+      @"example.com", @"test@egmail.com",
+      GetSectionIndex(SectionIdentifierSavedPasswords), 0);
+  CheckTextCellTextAndDetailText(
+      @"example2.com", @"test@egmail.com",
+      GetSectionIndex(SectionIdentifierSavedPasswords), 1);
 }
 
 // Tests the order in which the blocked passwords are displayed.
@@ -401,11 +414,14 @@ TEST_F(PasswordsTableViewControllerTest, TestSavedPasswordsOrderLegacy) {
 // removed.
 TEST_F(PasswordsTableViewControllerTest, TestBlockedPasswordsOrderLegacy) {
   AddBlockedForm2();
-  CheckTextCellText(@"secret2.com", GetSectionIndex(SavedPasswords), 0);
+  CheckTextCellText(@"secret2.com",
+                    GetSectionIndex(SectionIdentifierSavedPasswords), 0);
 
   AddBlockedForm1();
-  CheckTextCellText(@"secret.com", GetSectionIndex(SavedPasswords), 0);
-  CheckTextCellText(@"secret2.com", GetSectionIndex(SavedPasswords), 1);
+  CheckTextCellText(@"secret.com",
+                    GetSectionIndex(SectionIdentifierSavedPasswords), 0);
+  CheckTextCellText(@"secret2.com",
+                    GetSectionIndex(SectionIdentifierSavedPasswords), 1);
 }
 
 // Tests displaying passwords in the saved passwords section when there are
@@ -415,7 +431,8 @@ TEST_F(PasswordsTableViewControllerTest, AddSavedDuplicates) {
   AddSavedForm1();
 
   EXPECT_EQ(4 + SectionsOffset(), NumberOfSections());
-  EXPECT_EQ(1, NumberOfItemsInSection(GetSectionIndex(SavedPasswords)));
+  EXPECT_EQ(1, NumberOfItemsInSection(
+                   GetSectionIndex(SectionIdentifierSavedPasswords)));
 }
 
 // Tests displaying passwords in the blocked passwords section when there
@@ -425,7 +442,8 @@ TEST_F(PasswordsTableViewControllerTest, AddBlockedDuplicates) {
   AddBlockedForm1();
 
   EXPECT_EQ(4 + SectionsOffset(), NumberOfSections());
-  EXPECT_EQ(1, NumberOfItemsInSection(GetSectionIndex(SavedPasswords)));
+  EXPECT_EQ(1, NumberOfItemsInSection(
+                   GetSectionIndex(SectionIdentifierSavedPasswords)));
 }
 
 // Tests deleting items from saved passwords and blocked passwords sections.
@@ -436,19 +454,21 @@ TEST_F(PasswordsTableViewControllerTest, DeleteItems) {
   ASSERT_EQ(6, NumberOfSections());
 
   // Delete item in save passwords section.
-  deleteItemAndWait(GetSectionIndex(SavedPasswords), 0);
+  deleteItemAndWait(GetSectionIndex(SectionIdentifierSavedPasswords), 0);
   EXPECT_EQ(5, NumberOfSections());
 
   // Section 2 should now be the blocked passwords section, and should still
   // have both its items.
-  EXPECT_EQ(2, NumberOfItemsInSection(GetSectionIndex(SavedPasswords)));
+  EXPECT_EQ(2, NumberOfItemsInSection(
+                   GetSectionIndex(SectionIdentifierSavedPasswords)));
 
   // Delete item in blocked passwords section.
-  deleteItemAndWait(GetSectionIndex(SavedPasswords), 0);
-  EXPECT_EQ(1, NumberOfItemsInSection(GetSectionIndex(SavedPasswords)));
+  deleteItemAndWait(GetSectionIndex(SectionIdentifierSavedPasswords), 0);
+  EXPECT_EQ(1, NumberOfItemsInSection(
+                   GetSectionIndex(SectionIdentifierSavedPasswords)));
 
   // There should be no password sections remaining and no search bar.
-  deleteItemAndWait(GetSectionIndex(SavedPasswords), 0);
+  deleteItemAndWait(GetSectionIndex(SectionIdentifierSavedPasswords), 0);
   EXPECT_EQ(4, NumberOfSections());
 }
 
@@ -463,19 +483,21 @@ TEST_F(PasswordsTableViewControllerTest, DeleteItemsWithDuplicates) {
   ASSERT_EQ(6, NumberOfSections());
 
   // Delete item in save passwords section.
-  deleteItemAndWait(GetSectionIndex(SavedPasswords), 0);
+  deleteItemAndWait(GetSectionIndex(SectionIdentifierSavedPasswords), 0);
   EXPECT_EQ(5, NumberOfSections());
 
   // Section 2 should now be the blocked passwords section, and should still
   // have both its items.
-  EXPECT_EQ(2, NumberOfItemsInSection(GetSectionIndex(Blocked) - 1));
+  EXPECT_EQ(
+      2, NumberOfItemsInSection(GetSectionIndex(SectionIdentifierBlocked) - 1));
 
   // Delete item in blocked passwords section.
-  deleteItemAndWait(GetSectionIndex(Blocked) - 1, 0);
-  EXPECT_EQ(1, NumberOfItemsInSection(GetSectionIndex(Blocked) - 1));
+  deleteItemAndWait(GetSectionIndex(SectionIdentifierBlocked) - 1, 0);
+  EXPECT_EQ(
+      1, NumberOfItemsInSection(GetSectionIndex(SectionIdentifierBlocked) - 1));
 
   // There should be no password sections remaining and no search bar.
-  deleteItemAndWait(GetSectionIndex(Blocked) - 1, 0);
+  deleteItemAndWait(GetSectionIndex(SectionIdentifierBlocked) - 1, 0);
   EXPECT_EQ(4, NumberOfSections());
 }
 
@@ -486,9 +508,9 @@ TEST_F(PasswordsTableViewControllerTest,
   [passwords_controller updateExportPasswordsButton];
 
   TableViewDetailTextItem* exportButton =
-      GetTableViewItem(GetSectionIndex(SavedPasswords), 0);
+      GetTableViewItem(GetSectionIndex(SectionIdentifierSavedPasswords), 0);
   CheckTextCellTextWithId(IDS_IOS_EXPORT_PASSWORDS,
-                          GetSectionIndex(SavedPasswords), 0);
+                          GetSectionIndex(SectionIdentifierSavedPasswords), 0);
 
   EXPECT_NSEQ([UIColor colorNamed:kTextSecondaryColor], exportButton.textColor);
   EXPECT_TRUE(exportButton.accessibilityTraits &
@@ -510,11 +532,12 @@ TEST_F(PasswordsTableViewControllerTest,
   AddSavedForm1();
   [passwords_controller updateExportPasswordsButton];
 
-  TableViewDetailTextItem* exportButton =
-      GetTableViewItem(GetSectionIndex(ExportPasswordsButton), 0);
+  TableViewDetailTextItem* exportButton = GetTableViewItem(
+      GetSectionIndex(SectionIdentifierExportPasswordsButton), 0);
 
-  CheckTextCellTextWithId(IDS_IOS_EXPORT_PASSWORDS,
-                          GetSectionIndex(ExportPasswordsButton), 0);
+  CheckTextCellTextWithId(
+      IDS_IOS_EXPORT_PASSWORDS,
+      GetSectionIndex(SectionIdentifierExportPasswordsButton), 0);
 
   EXPECT_NSEQ([UIColor colorNamed:kBlueColor], exportButton.textColor);
   EXPECT_FALSE(exportButton.accessibilityTraits &
@@ -573,10 +596,11 @@ TEST_F(PasswordsTableViewControllerTest, TestExportButtonDisabledEditMode) {
   AddSavedForm1();
   [passwords_controller updateExportPasswordsButton];
 
-  TableViewDetailTextItem* exportButton =
-      GetTableViewItem(GetSectionIndex(ExportPasswordsButton), 0);
-  CheckTextCellTextWithId(IDS_IOS_EXPORT_PASSWORDS,
-                          GetSectionIndex(ExportPasswordsButton), 0);
+  TableViewDetailTextItem* exportButton = GetTableViewItem(
+      GetSectionIndex(SectionIdentifierExportPasswordsButton), 0);
+  CheckTextCellTextWithId(
+      IDS_IOS_EXPORT_PASSWORDS,
+      GetSectionIndex(SectionIdentifierExportPasswordsButton), 0);
 
   [passwords_controller setEditing:YES animated:NO];
 
@@ -594,10 +618,11 @@ TEST_F(PasswordsTableViewControllerTest,
   AddSavedForm1();
   [passwords_controller updateExportPasswordsButton];
 
-  TableViewDetailTextItem* exportButton =
-      GetTableViewItem(GetSectionIndex(ExportPasswordsButton), 0);
-  CheckTextCellTextWithId(IDS_IOS_EXPORT_PASSWORDS,
-                          GetSectionIndex(ExportPasswordsButton), 0);
+  TableViewDetailTextItem* exportButton = GetTableViewItem(
+      GetSectionIndex(SectionIdentifierExportPasswordsButton), 0);
+  CheckTextCellTextWithId(
+      IDS_IOS_EXPORT_PASSWORDS,
+      GetSectionIndex(SectionIdentifierExportPasswordsButton), 0);
 
   [passwords_controller setEditing:YES animated:NO];
   [passwords_controller setEditing:NO animated:NO];
@@ -615,9 +640,9 @@ TEST_F(PasswordsTableViewControllerTest,
   AddSavedForm1();
 
   TableViewDetailTextItem* checkPasswordButton =
-      GetTableViewItem(GetSectionIndex(PasswordCheck), 1);
+      GetTableViewItem(GetSectionIndex(SectionIdentifierPasswordCheck), 1);
   CheckTextCellTextWithId(IDS_IOS_CHECK_PASSWORDS_NOW_BUTTON,
-                          GetSectionIndex(PasswordCheck), 1);
+                          GetSectionIndex(SectionIdentifierPasswordCheck), 1);
 
   [passwords_controller setEditing:YES animated:NO];
 
@@ -653,42 +678,55 @@ TEST_F(PasswordsTableViewControllerTest, FilterItems) {
   // Search item in save passwords section.
   [passwords_controller searchBar:bar textDidChange:@"example.com"];
   // Only one item in saved passwords should remain.
-  EXPECT_EQ(1, NumberOfItemsInSection(GetSectionIndex(SavedPasswords)));
-  EXPECT_EQ(0, NumberOfItemsInSection(GetSectionIndex(Blocked)));
-  CheckTextCellTextAndDetailText(@"example.com", @"test@egmail.com",
-                                 GetSectionIndex(SavedPasswords), 0);
+  EXPECT_EQ(1, NumberOfItemsInSection(
+                   GetSectionIndex(SectionIdentifierSavedPasswords)));
+  EXPECT_EQ(0,
+            NumberOfItemsInSection(GetSectionIndex(SectionIdentifierBlocked)));
+  CheckTextCellTextAndDetailText(
+      @"example.com", @"test@egmail.com",
+      GetSectionIndex(SectionIdentifierSavedPasswords), 0);
 
   [passwords_controller searchBar:bar textDidChange:@"test@egmail.com"];
   // Only two items in saved passwords should remain.
-  EXPECT_EQ(2, NumberOfItemsInSection(GetSectionIndex(SavedPasswords)));
-  EXPECT_EQ(0, NumberOfItemsInSection(GetSectionIndex(Blocked)));
-  CheckTextCellTextAndDetailText(@"example.com", @"test@egmail.com",
-                                 GetSectionIndex(SavedPasswords), 0);
-  CheckTextCellTextAndDetailText(@"example2.com", @"test@egmail.com",
-                                 GetSectionIndex(SavedPasswords), 1);
+  EXPECT_EQ(2, NumberOfItemsInSection(
+                   GetSectionIndex(SectionIdentifierSavedPasswords)));
+  EXPECT_EQ(0,
+            NumberOfItemsInSection(GetSectionIndex(SectionIdentifierBlocked)));
+  CheckTextCellTextAndDetailText(
+      @"example.com", @"test@egmail.com",
+      GetSectionIndex(SectionIdentifierSavedPasswords), 0);
+  CheckTextCellTextAndDetailText(
+      @"example2.com", @"test@egmail.com",
+      GetSectionIndex(SectionIdentifierSavedPasswords), 1);
 
   [passwords_controller searchBar:bar textDidChange:@"secret"];
   // Only two blocked items should remain.
-  EXPECT_EQ(0, NumberOfItemsInSection(GetSectionIndex(SavedPasswords)));
-  EXPECT_EQ(2, NumberOfItemsInSection(GetSectionIndex(Blocked)));
-  CheckTextCellText(@"secret.com", GetSectionIndex(Blocked), 0);
-  CheckTextCellText(@"secret2.com", GetSectionIndex(Blocked), 1);
+  EXPECT_EQ(0, NumberOfItemsInSection(
+                   GetSectionIndex(SectionIdentifierSavedPasswords)));
+  EXPECT_EQ(2,
+            NumberOfItemsInSection(GetSectionIndex(SectionIdentifierBlocked)));
+  CheckTextCellText(@"secret.com", GetSectionIndex(SectionIdentifierBlocked),
+                    0);
+  CheckTextCellText(@"secret2.com", GetSectionIndex(SectionIdentifierBlocked),
+                    1);
 
   [passwords_controller searchBar:bar textDidChange:@""];
   // All items should be back.
-  EXPECT_EQ(2, NumberOfItemsInSection(GetSectionIndex(SavedPasswords)));
-  EXPECT_EQ(2, NumberOfItemsInSection(GetSectionIndex(Blocked)));
+  EXPECT_EQ(2, NumberOfItemsInSection(
+                   GetSectionIndex(SectionIdentifierSavedPasswords)));
+  EXPECT_EQ(2,
+            NumberOfItemsInSection(GetSectionIndex(SectionIdentifierBlocked)));
 }
 
 // Test verifies disabled state of password check cell.
 TEST_F(PasswordsTableViewControllerTest, PasswordCheckStateDisabled) {
   ChangePasswordCheckState(PasswordCheckStateDisabled);
 
-  CheckDetailItemTextWithIds(IDS_IOS_CHECK_PASSWORDS,
-                             IDS_IOS_CHECK_PASSWORDS_DESCRIPTION,
-                             GetSectionIndex(PasswordCheck), 0);
+  CheckDetailItemTextWithIds(
+      IDS_IOS_CHECK_PASSWORDS, IDS_IOS_CHECK_PASSWORDS_DESCRIPTION,
+      GetSectionIndex(SectionIdentifierPasswordCheck), 0);
   SettingsCheckItem* checkPassword =
-      GetTableViewItem(GetSectionIndex(PasswordCheck), 0);
+      GetTableViewItem(GetSectionIndex(SectionIdentifierPasswordCheck), 0);
   EXPECT_FALSE(checkPassword.enabled);
   EXPECT_TRUE(checkPassword.indicatorHidden);
   EXPECT_FALSE(checkPassword.trailingImage);
@@ -704,12 +742,12 @@ TEST_F(PasswordsTableViewControllerTest, PasswordCheckStateDefault) {
   ChangePasswordCheckState(PasswordCheckStateDefault);
 
   CheckTextCellTextWithId(IDS_IOS_CHECK_PASSWORDS_NOW_BUTTON,
-                          GetSectionIndex(PasswordCheck), 1);
-  CheckDetailItemTextWithIds(IDS_IOS_CHECK_PASSWORDS,
-                             IDS_IOS_CHECK_PASSWORDS_DESCRIPTION,
-                             GetSectionIndex(PasswordCheck), 0);
+                          GetSectionIndex(SectionIdentifierPasswordCheck), 1);
+  CheckDetailItemTextWithIds(
+      IDS_IOS_CHECK_PASSWORDS, IDS_IOS_CHECK_PASSWORDS_DESCRIPTION,
+      GetSectionIndex(SectionIdentifierPasswordCheck), 0);
   SettingsCheckItem* checkPassword =
-      GetTableViewItem(GetSectionIndex(PasswordCheck), 0);
+      GetTableViewItem(GetSectionIndex(SectionIdentifierPasswordCheck), 0);
   EXPECT_TRUE(checkPassword.enabled);
   EXPECT_TRUE(checkPassword.indicatorHidden);
   EXPECT_FALSE(checkPassword.trailingImage);
@@ -725,12 +763,12 @@ TEST_F(PasswordsTableViewControllerTest, PasswordCheckStateSafe) {
   ChangePasswordCheckState(PasswordCheckStateSafe);
 
   CheckTextCellTextWithId(IDS_IOS_CHECK_PASSWORDS_NOW_BUTTON,
-                          GetSectionIndex(PasswordCheck), 1);
-  CheckDetailItemTextWithPluralIds(IDS_IOS_CHECK_PASSWORDS,
-                                   IDS_IOS_CHECK_PASSWORDS_COMPROMISED_COUNT, 0,
-                                   GetSectionIndex(PasswordCheck), 0);
+                          GetSectionIndex(SectionIdentifierPasswordCheck), 1);
+  CheckDetailItemTextWithPluralIds(
+      IDS_IOS_CHECK_PASSWORDS, IDS_IOS_CHECK_PASSWORDS_COMPROMISED_COUNT, 0,
+      GetSectionIndex(SectionIdentifierPasswordCheck), 0);
   SettingsCheckItem* checkPassword =
-      GetTableViewItem(GetSectionIndex(PasswordCheck), 0);
+      GetTableViewItem(GetSectionIndex(SectionIdentifierPasswordCheck), 0);
   EXPECT_TRUE(checkPassword.enabled);
   EXPECT_TRUE(checkPassword.indicatorHidden);
   EXPECT_TRUE(checkPassword.trailingImage);
@@ -747,12 +785,12 @@ TEST_F(PasswordsTableViewControllerTest, PasswordCheckStateUnSafe) {
   ChangePasswordCheckState(PasswordCheckStateUnSafe);
 
   CheckTextCellTextWithId(IDS_IOS_CHECK_PASSWORDS_NOW_BUTTON,
-                          GetSectionIndex(PasswordCheck), 1);
-  CheckDetailItemTextWithPluralIds(IDS_IOS_CHECK_PASSWORDS,
-                                   IDS_IOS_CHECK_PASSWORDS_COMPROMISED_COUNT, 1,
-                                   GetSectionIndex(PasswordCheck), 0);
+                          GetSectionIndex(SectionIdentifierPasswordCheck), 1);
+  CheckDetailItemTextWithPluralIds(
+      IDS_IOS_CHECK_PASSWORDS, IDS_IOS_CHECK_PASSWORDS_COMPROMISED_COUNT, 1,
+      GetSectionIndex(SectionIdentifierPasswordCheck), 0);
   SettingsCheckItem* checkPassword =
-      GetTableViewItem(GetSectionIndex(PasswordCheck), 0);
+      GetTableViewItem(GetSectionIndex(SectionIdentifierPasswordCheck), 0);
   EXPECT_TRUE(checkPassword.enabled);
   EXPECT_TRUE(checkPassword.indicatorHidden);
   EXPECT_TRUE(checkPassword.trailingImage);
@@ -768,12 +806,12 @@ TEST_F(PasswordsTableViewControllerTest, PasswordCheckStateRunning) {
   ChangePasswordCheckState(PasswordCheckStateRunning);
 
   CheckTextCellTextWithId(IDS_IOS_CHECK_PASSWORDS_NOW_BUTTON,
-                          GetSectionIndex(PasswordCheck), 1);
-  CheckDetailItemTextWithIds(IDS_IOS_CHECK_PASSWORDS,
-                             IDS_IOS_CHECK_PASSWORDS_DESCRIPTION,
-                             GetSectionIndex(PasswordCheck), 0);
+                          GetSectionIndex(SectionIdentifierPasswordCheck), 1);
+  CheckDetailItemTextWithIds(
+      IDS_IOS_CHECK_PASSWORDS, IDS_IOS_CHECK_PASSWORDS_DESCRIPTION,
+      GetSectionIndex(SectionIdentifierPasswordCheck), 0);
   SettingsCheckItem* checkPassword =
-      GetTableViewItem(GetSectionIndex(PasswordCheck), 0);
+      GetTableViewItem(GetSectionIndex(SectionIdentifierPasswordCheck), 0);
   EXPECT_TRUE(checkPassword.enabled);
   EXPECT_FALSE(checkPassword.indicatorHidden);
   EXPECT_FALSE(checkPassword.trailingImage);
@@ -789,12 +827,12 @@ TEST_F(PasswordsTableViewControllerTest, PasswordCheckStateError) {
   ChangePasswordCheckState(PasswordCheckStateError);
 
   CheckTextCellTextWithId(IDS_IOS_CHECK_PASSWORDS_NOW_BUTTON,
-                          GetSectionIndex(PasswordCheck), 1);
-  CheckDetailItemTextWithIds(IDS_IOS_CHECK_PASSWORDS,
-                             IDS_IOS_PASSWORD_CHECK_ERROR,
-                             GetSectionIndex(PasswordCheck), 0);
+                          GetSectionIndex(SectionIdentifierPasswordCheck), 1);
+  CheckDetailItemTextWithIds(
+      IDS_IOS_CHECK_PASSWORDS, IDS_IOS_PASSWORD_CHECK_ERROR,
+      GetSectionIndex(SectionIdentifierPasswordCheck), 0);
   SettingsCheckItem* checkPassword =
-      GetTableViewItem(GetSectionIndex(PasswordCheck), 0);
+      GetTableViewItem(GetSectionIndex(SectionIdentifierPasswordCheck), 0);
   EXPECT_TRUE(checkPassword.enabled);
   EXPECT_TRUE(checkPassword.indicatorHidden);
   EXPECT_FALSE(checkPassword.trailingImage);
@@ -816,11 +854,12 @@ TEST_F(PasswordsTableViewControllerTest, DisabledPasswordCheck) {
       .Times(0);
   EXPECT_CALL(GetMockPasswordCheckService(), Cancel).Times(0);
 
-  [passwords_controller tableView:passwords_controller.tableView
-          didSelectRowAtIndexPath:[NSIndexPath
-                                      indexPathForItem:1
-                                             inSection:GetSectionIndex(
-                                                           PasswordCheck)]];
+  [passwords_controller
+                    tableView:passwords_controller.tableView
+      didSelectRowAtIndexPath:
+          [NSIndexPath indexPathForItem:1
+                              inSection:GetSectionIndex(
+                                            SectionIdentifierPasswordCheck)]];
 }
 
 // Test verifies tapping start triggers correct function in service.
@@ -833,25 +872,29 @@ TEST_F(PasswordsTableViewControllerTest, StartPasswordCheck) {
 
   EXPECT_CALL(GetMockPasswordCheckService(), CheckUsernamePasswordPairs);
 
-  [passwords_controller tableView:passwords_controller.tableView
-          didSelectRowAtIndexPath:[NSIndexPath
-                                      indexPathForItem:1
-                                             inSection:GetSectionIndex(
-                                                           PasswordCheck)]];
+  [passwords_controller
+                    tableView:passwords_controller.tableView
+      didSelectRowAtIndexPath:
+          [NSIndexPath indexPathForItem:1
+                              inSection:GetSectionIndex(
+                                            SectionIdentifierPasswordCheck)]];
 }
 
 // Test verifies changes to the password store are reflected on UI.
 TEST_F(PasswordsTableViewControllerTest, PasswordStoreListener) {
   AddSavedForm1();
-  EXPECT_EQ(1, NumberOfItemsInSection(GetSectionIndex(SavedPasswords)));
+  EXPECT_EQ(1, NumberOfItemsInSection(
+                   GetSectionIndex(SectionIdentifierSavedPasswords)));
   AddSavedForm2();
-  EXPECT_EQ(2, NumberOfItemsInSection(GetSectionIndex(SavedPasswords)));
+  EXPECT_EQ(2, NumberOfItemsInSection(
+                   GetSectionIndex(SectionIdentifierSavedPasswords)));
 
   auto password =
       GetTestStore().stored_passwords().at("http://www.example.com/").at(0);
   GetTestStore().RemoveLogin(password);
   RunUntilIdle();
-  EXPECT_EQ(1, NumberOfItemsInSection(GetSectionIndex(SavedPasswords)));
+  EXPECT_EQ(1, NumberOfItemsInSection(
+                   GetSectionIndex(SectionIdentifierSavedPasswords)));
 }
 
 }  // namespace

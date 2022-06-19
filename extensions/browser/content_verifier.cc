@@ -39,7 +39,6 @@
 #include "services/network/public/mojom/network_context.mojom.h"
 
 #include "base/files/file_util.h"
-#include "base/task/post_task.h"
 #include "base/threading/thread_restrictions.h"
 
 namespace extensions {
@@ -143,17 +142,6 @@ std::unique_ptr<ContentVerifierIOData::ExtensionData> CreateIOData(
   return std::make_unique<ContentVerifierIOData::ExtensionData>(
       std::move(image_paths), std::move(background_or_content_paths),
       std::move(indexed_ruleset_paths), extension->version(), source_type);
-}
-
-// Returns all locales.
-std::set<std::string> GetAllLocaleCandidates() {
-  std::set<std::string> all_locales;
-  // TODO(asargent) - see if we can cache this list longer to avoid
-  // having to fetch it more than once for a given run of the
-  // browser. Maybe it can never change at runtime? (Or if it can, maybe
-  // there is an event we can listen for to know to drop our cache).
-  extension_l10n_util::GetAllLocales(&all_locales);
-  return all_locales;
 }
 }  // namespace
 
@@ -783,7 +771,7 @@ bool ContentVerifier::ShouldVerifyAnyPaths(
   const std::set<CanonicalRelativePath>& indexed_ruleset_paths =
       *(data->canonical_indexed_ruleset_paths);
 
-  absl::optional<std::set<std::string>> all_locale_candidates;
+  std::set<std::string> all_locale_candidates;
 
   const CanonicalRelativePath manifest_file =
       content_verifier_utils::CanonicalizeRelativePath(
@@ -820,8 +808,14 @@ bool ContentVerifier::ShouldVerifyAnyPaths(
 
     const base::FilePath canonical_path(canonical_path_value.value());
     if (locales_relative_dir.IsParent(canonical_path)) {
-      if (!all_locale_candidates)
-        all_locale_candidates = GetAllLocaleCandidates();
+      // TODO(asargent) - see if we can cache this list longer to avoid
+      // having to fetch it more than once for a given run of the
+      // browser. Maybe it can never change at runtime? (Or if it can, maybe
+      // there is an event we can listen for to know to drop our cache).
+      if (all_locale_candidates.empty()) {
+        extension_l10n_util::GetAllLocales(&all_locale_candidates);
+        DCHECK(!all_locale_candidates.empty());
+      }
 
       // Since message catalogs get transcoded during installation, we want
       // to skip those paths. See if this path looks like
@@ -829,7 +823,7 @@ bool ContentVerifier::ShouldVerifyAnyPaths(
       if (canonical_path.BaseName() == messages_file &&
           canonical_path.DirName().DirName() == locales_relative_dir &&
           ContainsStringIgnoreCaseASCII(
-              *all_locale_candidates,
+              all_locale_candidates,
               canonical_path.DirName().BaseName().MaybeAsASCII())) {
         continue;
       }

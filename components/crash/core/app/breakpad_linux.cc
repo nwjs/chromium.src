@@ -104,7 +104,8 @@ namespace {
 // except pass it along) and we don't have functions to deal with time_t's well,
 // while we do have functions to deal with uint64_t's.
 uint64_t g_crash_loop_before_time = 0;
-#else
+#endif
+#if !BUILDFLAG(IS_CHROMEOS)
 char* g_upload_url = nullptr;
 void SetUploadURL(const std::string& url) {
   DCHECK(!g_upload_url);
@@ -246,7 +247,7 @@ void my_uint64tos(char* output, uint64_t i, unsigned i_len) {
     output[index - 1] = '0' + (i % 10);
 }
 
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_CHROMEOS)
 bool my_isxdigit(char c) {
   return base::IsAsciiDigit(c) || ((c | 0x20) >= 'a' && (c | 0x20) <= 'f');
 }
@@ -293,7 +294,7 @@ void SetClientIdFromCommandLine(const base::CommandLine& command_line) {
 }
 
 // MIME substrings.
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 const char g_sep[] = ":";
 #endif
 const char g_rn[] = "\r\n";
@@ -474,7 +475,7 @@ void MimeWriter::AddItemWithoutTrailingSpaces(const void* base, size_t size) {
                                             size));
 }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 // This subclass is used on Chromium OS to report crashes in a format easy for
 // the central crash reporting facility to understand.
 // Format is <name>:<data length in decimal>:<data>
@@ -587,7 +588,7 @@ void CrashReporterWriter::AddFileContents(const char* filename_msg,
   AddItem(file_data, file_size);
   Flush();
 }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_ANDROID)
 // Writes the "package" field, which is in the format:
@@ -1264,7 +1265,7 @@ void ExecUploadProcessOrTerminate(const BreakpadInfo& info,
                                   const char* exe_buf,
                                   int upload_status_fd,
                                   google_breakpad::PageAllocator* allocator) {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   // CrOS uses crash_reporter instead of wget to report crashes,
   // it needs to know where the crash dump lives and the pid and uid of the
   // crashing process.
@@ -1296,11 +1297,12 @@ void ExecUploadProcessOrTerminate(const BreakpadInfo& info,
   my_strlcat(exe_flag, exe_buf, buf_len);
 
   char* crash_loop_before_flag = nullptr;
+#if BUILDFLAG(IS_CHROMEOS_ASH)
   if (g_crash_loop_before_time != 0) {
     crash_loop_before_flag = StringFromPrefixAndUint(
         "--crash_loop_before=", g_crash_loop_before_time, allocator);
   }
-
+#endif  // if BUILDFLAG(IS_CHROMEOS_ASH)
   const char* args[] = {
       kCrashReporterBinary,
       chrome_flag,
@@ -1313,7 +1315,7 @@ void ExecUploadProcessOrTerminate(const BreakpadInfo& info,
   static const char msg[] = "Cannot upload crash dump: cannot exec "
                             "/sbin/crash_reporter\n";
 
-#else   // BUILDFLAG(IS_CHROMEOS_ASH)
+#else   // BUILDFLAG(IS_CHROMEOS)
 
   // Compress |dumpfile| with gzip.
   const pid_t gzip_child = sys_fork();
@@ -1419,7 +1421,7 @@ void ExecUploadProcessOrTerminate(const BreakpadInfo& info,
   };
   static const char msg[] = "Cannot upload crash dump: cannot exec "
                             "/usr/bin/wget\n";
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
   execve(args[0], const_cast<char**>(args), environ);
   WriteLog(msg, sizeof(msg) - 1);
@@ -1470,7 +1472,7 @@ bool IsValidCrashReportId(const char* buf, size_t bytes_read,
     WriteLog(msg, sizeof(msg) - 1);
     return false;
   }
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   // See kSuccessMagic in platform2/crash-reporter/chrome_collector.cc.
   return my_strcmp(buf, "_sys_cr_finished") == 0;
 #else
@@ -1487,7 +1489,7 @@ void HandleCrashReportId(const char* buf, size_t bytes_read,
                          size_t expected_len) {
   WriteNewline();
   if (!IsValidCrashReportId(buf, bytes_read, expected_len)) {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
     static const char msg[] =
         "System crash_reporter failed to process crash report.";
 #else
@@ -1503,7 +1505,7 @@ void HandleCrashReportId(const char* buf, size_t bytes_read,
     return;
   }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   static const char msg[] = "Crash dump received by crash_reporter\n";
   WriteLog(msg, sizeof(msg) - 1);
 #else
@@ -1534,7 +1536,7 @@ void HandleCrashReportId(const char* buf, size_t bytes_read,
 #endif
 }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 const char* GetCrashingProcessName(const BreakpadInfo& info,
                                    google_breakpad::PageAllocator* allocator) {
   // Symlink to process binary is at /proc/###/exe.
@@ -1562,7 +1564,7 @@ const char* GetCrashingProcessName(const BreakpadInfo& info,
   // Either way too long, or a read error.
   return "chrome-crash-unknown-process";
 }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 // Attempts to close all open file descriptors other than stdin, stdout and
 // stderr (0, 1, and 2).
@@ -1597,7 +1599,7 @@ void HandleCrashDump(const BreakpadInfo& info) {
     return;
   }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   // Grab the crashing process' name now, when it should still be available.
   // If we try to do this later in our grandchild the crashing process has
   // already terminated.
@@ -1738,7 +1740,7 @@ void HandleCrashDump(const BreakpadInfo& info) {
   //   <dump contents>
   //   \r\n BOUNDARY -- \r\n
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   CrashReporterWriter writer(temp_file_fd);
 #else
   MimeWriter writer(temp_file_fd, mime_boundary);
@@ -2041,7 +2043,7 @@ void InitCrashReporter(const std::string& process_type) {
 #endif
       process_type.empty();
 
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_CHROMEOS)
   SetUploadURL(GetCrashReporterClient()->GetUploadUrl());
 #endif
 

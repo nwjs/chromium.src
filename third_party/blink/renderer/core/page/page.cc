@@ -106,6 +106,7 @@ const int kMaxNumberOfFrames = 1000;
 const int kTenFrames = 10;
 
 bool g_limit_max_frames_to_ten_for_testing = false;
+
 }  // namespace
 
 // Function defined in third_party/blink/public/web/blink.h.
@@ -182,6 +183,11 @@ Page::Page(base::PassKey<Page>,
            bool is_ordinary)
     : SettingsDelegate(std::make_unique<Settings>()),
       main_frame_(nullptr),
+      fenced_frames_impl_(
+          features::IsFencedFramesEnabled()
+              ? absl::optional<features::FencedFramesImplementationType>(
+                    features::kFencedFramesImplementationTypeParam.Get())
+              : absl::nullopt),
       agent_group_scheduler_(agent_group_scheduler),
       animator_(MakeGarbageCollected<PageAnimator>(*this)),
       autoscroll_controller_(MakeGarbageCollected<AutoscrollController>(*this)),
@@ -613,13 +619,11 @@ void CheckFrameCountConsistency(int expected_frame_count, Frame* frame) {
     // Check the ``DocumentFencedFrames`` on every local frame beneath
     // the ``frame`` to get an accurate count (i.e. if an iframe embeds
     // a fenced frame and creates a new ``DocumentFencedFrames`` object).
-    if (features::IsFencedFramesMPArchBased()) {
-      if (auto* local_frame = DynamicTo<LocalFrame>(frame)) {
-        actual_frame_count += static_cast<int>(
-            DocumentFencedFrames::From(*local_frame->GetDocument())
-                .GetFencedFrames()
-                .size());
-      }
+    if (auto* local_frame = DynamicTo<LocalFrame>(frame)) {
+      actual_frame_count += static_cast<int>(
+          DocumentFencedFrames::From(*local_frame->GetDocument())
+              .GetFencedFrames()
+              .size());
     }
   }
 
@@ -1114,6 +1118,28 @@ void Page::SetVisionDeficiency(VisionDeficiency new_vision_deficiency) {
   if (new_vision_deficiency != vision_deficiency_) {
     vision_deficiency_ = new_vision_deficiency;
     SettingsChanged(ChangeType::kVisionDeficiency);
+  }
+}
+
+void Page::Animate(base::TimeTicks monotonic_frame_begin_time) {
+  GetAutoscrollController().Animate();
+  Animator().ServiceScriptedAnimations(monotonic_frame_begin_time);
+  // The ValidationMessage overlay manages its own internal Page that isn't
+  // hooked up the normal BeginMainFrame flow, so we manually tick its
+  // animations here.
+  GetValidationMessageClient().ServiceScriptedAnimations(
+      monotonic_frame_begin_time);
+}
+
+void Page::UpdateLifecycle(LocalFrame& root,
+                           WebLifecycleUpdate requested_update,
+                           DocumentUpdateReason reason) {
+  if (requested_update == WebLifecycleUpdate::kLayout) {
+    Animator().UpdateLifecycleToLayoutClean(root, reason);
+  } else if (requested_update == WebLifecycleUpdate::kPrePaint) {
+    Animator().UpdateLifecycleToPrePaintClean(root, reason);
+  } else {
+    Animator().UpdateAllLifecyclePhases(root, reason);
   }
 }
 

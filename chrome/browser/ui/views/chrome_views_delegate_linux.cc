@@ -25,6 +25,7 @@ bool IsDesktopEnvironmentUnity() {
   return desktop_env == base::nix::DESKTOP_ENVIRONMENT_UNITY;
 }
 
+#if BUILDFLAG(IS_LINUX)
 int GetWindowIconResourceId() {
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   switch (chrome::GetChannel()) {
@@ -38,6 +39,7 @@ int GetWindowIconResourceId() {
 #endif
   return IDR_PRODUCT_LOGO_128;
 }
+#endif  // BUILDFLAG(IS_LINUX)
 
 }  // namespace
 
@@ -52,6 +54,7 @@ views::NativeWidget* ChromeViewsDelegate::CreateNativeWidget(
   return ::CreateNativeWidget(native_widget_type, params, delegate);
 }
 
+#if BUILDFLAG(IS_LINUX)
 gfx::ImageSkia* ChromeViewsDelegate::GetDefaultWindowIcon() const {
   gfx::ImageSkia* ret = nw::GetAppIcon();
   if (ret)
@@ -59,6 +62,7 @@ gfx::ImageSkia* ChromeViewsDelegate::GetDefaultWindowIcon() const {
   ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
   return rb.GetImageSkiaNamed(GetWindowIconResourceId());
 }
+#endif  // BUILDFLAG(IS_LINUX)
 
 bool ChromeViewsDelegate::WindowManagerProvidesTitleBar(bool maximized) {
   // On Ubuntu Unity, the system always provides a title bar for

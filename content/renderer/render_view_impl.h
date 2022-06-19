@@ -110,7 +110,7 @@ class CONTENT_EXPORT RenderViewImpl : public blink::WebViewClient,
       network::mojom::WebSandboxFlags sandbox_flags,
       const blink::SessionStorageNamespaceId& session_storage_namespace_id,
       bool& consumed_user_gesture,
-      const absl::optional<blink::WebImpression>& impression,
+      const absl::optional<blink::Impression>& impression,
       blink::WebString* manifest) override;
 
   // RenderView implementation -------------------------------------------------

@@ -192,7 +192,7 @@ class MockFrameHost : public mojom::FrameHost {
       mojo::PendingRemote<blink::mojom::PolicyContainerHostKeepAliveHandle>)
       override {}
 
-  void SubresourceResponseStarted(const GURL& url,
+  void SubresourceResponseStarted(const url::SchemeHostPort& final_response_url,
                                   net::CertStatus cert_status) override {}
 
   void ResourceLoadComplete(
@@ -214,6 +214,10 @@ class MockFrameHost : public mojom::FrameHost {
   }
 
   void DidStopLoading() override {}
+
+#if BUILDFLAG(IS_ANDROID)
+  void UpdateUserGestureCarryoverInfo() override {}
+#endif
 
  private:
   mojom::DidCommitProvisionalLoadParamsPtr last_commit_params_;

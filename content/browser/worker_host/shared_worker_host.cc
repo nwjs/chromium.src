@@ -277,7 +277,6 @@ void SharedWorkerHost::Start(
                                                                              instance_.nodejs(), instance_.root_path(),
       instance_.url(), std::move(options),
       mojo::Clone(content_security_policies_),
-      instance_.creation_address_space(),
       std::move(outside_fetch_client_settings_object)));
 
   auto renderer_preferences = blink::RendererPreferences();

@@ -9,7 +9,6 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
-#include "chrome/browser/ui/browser_dialogs.h"
 #include "chrome/browser/ui/native_window_tracker.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/chrome_typography.h"
@@ -120,8 +119,6 @@ WebAppUninstallDialogDelegateView::WebAppUninstallDialogDelegateView(
   checkbox_ = AddChildView(std::move(checkbox));
 
   uninstall_source_ = uninstall_source;
-
-  chrome::RecordDialogCreation(chrome::DialogIdentifier::EXTENSION_UNINSTALL);
 }
 
 WebAppUninstallDialogDelegateView::~WebAppUninstallDialogDelegateView() {
@@ -147,9 +144,7 @@ void WebAppUninstallDialogDelegateView::OnDialogAccepted() {
 void WebAppUninstallDialogDelegateView::OnDialogCanceled() {
   UMA_HISTOGRAM_ENUMERATION("Webapp.UninstallDialogAction",
                             HistogramCloseAction::kCancelled);
-
-  if (dialog_)
-    std::exchange(dialog_, nullptr)->UninstallCancelled();
+  // `dialog_->UninstallCancelled()` is handled in the destructor.
 }
 
 ui::ImageModel WebAppUninstallDialogDelegateView::GetWindowIcon() {

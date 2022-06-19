@@ -24,6 +24,7 @@
 #include "chrome/browser/profiles/profile_key.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/common/chrome_paths.h"
+#include "components/component_updater/pref_names.h"
 #include "components/leveldb_proto/public/proto_database_provider.h"
 #include "components/optimization_guide/core/command_line_top_host_provider.h"
 #include "components/optimization_guide/core/hints_processing_util.h"
@@ -40,6 +41,7 @@
 #include "components/optimization_guide/core/tab_url_provider.h"
 #include "components/optimization_guide/core/top_host_provider.h"
 #include "components/optimization_guide/proto/models.pb.h"
+#include "components/prefs/pref_service.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_handle.h"
@@ -71,15 +73,12 @@ void DeleteOldStorePaths(const base::FilePath& profile_path) {
   // dir.
   base::ThreadPool::PostTask(
       FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
-      base::BindOnce(
-          base::GetDeletePathRecursivelyCallback(),
+      base::GetDeletePathRecursivelyCallback(
           profile_path.AddExtensionASCII(kOldOptimizationGuideHintStore)));
   base::ThreadPool::PostTask(
       FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
-      base::BindOnce(
-          base::GetDeletePathRecursivelyCallback(),
-          profile_path.AddExtensionASCII(
-              kOldOptimizationGuidePredictionModelAndFeaturesStore)));
+      base::GetDeletePathRecursivelyCallback(profile_path.AddExtensionASCII(
+          kOldOptimizationGuidePredictionModelAndFeaturesStore)));
 
   // Added 05/2022.
 
@@ -87,10 +86,8 @@ void DeleteOldStorePaths(const base::FilePath& profile_path) {
   // as it contains pointers to the bad model download location.
   base::ThreadPool::PostTask(
       FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
-      base::BindOnce(
-          base::GetDeletePathRecursivelyCallback(),
-          profile_path.AppendASCII(
-              kOldOptimizationGuidePredictionModelAndFeaturesStore)));
+      base::GetDeletePathRecursivelyCallback(profile_path.AppendASCII(
+          kOldOptimizationGuidePredictionModelAndFeaturesStore)));
 
   // Delete the Chrome-wide model download location that wasn't previously
   // getting cleaned up when profiles were getting deleted.
@@ -99,8 +96,7 @@ void DeleteOldStorePaths(const base::FilePath& profile_path) {
                          &models_dir);
   base::ThreadPool::PostTask(
       FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
-      base::BindOnce(
-          base::GetDeletePathRecursivelyCallback(), models_dir));
+      base::GetDeletePathRecursivelyCallback(models_dir));
 }
 
 // Returns the profile to use for when setting up the keyed service when the
@@ -134,8 +130,7 @@ void LogFeatureFlagsInfo(OptimizationGuideLogger* optimization_guide_logger,
     OPTIMIZATION_GUIDE_LOG(optimization_guide_logger,
                            "FEATURE_FLAG Hints component disabled");
   }
-  if (!optimization_guide::features::IsRemoteFetchingEnabled(
-          profile->GetPrefs())) {
+  if (!optimization_guide::features::IsRemoteFetchingEnabled()) {
     OPTIMIZATION_GUIDE_LOG(optimization_guide_logger,
                            "FEATURE_FLAG remote fetching feature disabled");
   }
@@ -190,6 +185,11 @@ download::BackgroundDownloadService*
 OptimizationGuideKeyedService::BackgroundDownloadServiceProvider() {
   Profile* profile = Profile::FromBrowserContext(browser_context_);
   return BackgroundDownloadServiceFactory::GetForKey(profile->GetProfileKey());
+}
+
+bool OptimizationGuideKeyedService::ComponentUpdatesEnabledProvider() const {
+  return g_browser_process->local_state()->GetBoolean(
+      ::prefs::kComponentUpdatesEnabled);
 }
 
 void OptimizationGuideKeyedService::Initialize() {
@@ -294,6 +294,11 @@ void OptimizationGuideKeyedService::Initialize() {
       optimization_guide_logger_.get(),
       base::BindOnce(
           &OptimizationGuideKeyedService::BackgroundDownloadServiceProvider,
+          // It's safe to use |base::Unretained(this)| here because
+          // |this| owns |prediction_manager_|.
+          base::Unretained(this)),
+      base::BindRepeating(
+          &OptimizationGuideKeyedService::ComponentUpdatesEnabledProvider,
           // It's safe to use |base::Unretained(this)| here because
           // |this| owns |prediction_manager_|.
           base::Unretained(this)));

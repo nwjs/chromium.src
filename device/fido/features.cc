@@ -19,12 +19,6 @@ const base::Feature kWebAuthUseNativeWinApi{"WebAuthenticationUseNativeWinApi",
                                             base::FEATURE_ENABLED_BY_DEFAULT};
 #endif  // BUILDFLAG(IS_WIN)
 
-extern const base::Feature kWebAuthPhoneSupport{
-    "WebAuthenticationPhoneSupport", base::FEATURE_ENABLED_BY_DEFAULT};
-
-extern const base::Feature kWebAuthPasskeysUI{
-    "WebAuthenticationPasskeysUI", base::FEATURE_DISABLED_BY_DEFAULT};
-
 extern const base::Feature kWebAuthCableDisco{
     "WebAuthenticationCableDisco", base::FEATURE_DISABLED_BY_DEFAULT};
 
@@ -43,9 +37,6 @@ extern const base::Feature kU2fPermissionPrompt{
 
 extern const base::Feature kWebAuthnGoogleCorpRemoteDesktopClientPrivilege{
     "WebAuthenticationGoogleCorpRemoteDesktopClientPrivilege",
-    base::FEATURE_DISABLED_BY_DEFAULT};
-
-extern const base::Feature kWebAuthPasskeysUIExperiment{
-    "WebAuthenticationPasskeysUIExperiment", base::FEATURE_DISABLED_BY_DEFAULT};
+    base::FEATURE_ENABLED_BY_DEFAULT};
 
 }  // namespace device

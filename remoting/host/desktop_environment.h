@@ -14,6 +14,7 @@
 #include "base/memory/weak_ptr.h"
 #include "remoting/host/base/desktop_environment_options.h"
 #include "remoting/host/desktop_and_cursor_conditional_composer.h"
+#include "remoting/protocol/desktop_capturer.h"
 
 namespace webrtc {
 class DesktopCapturer;
@@ -30,6 +31,7 @@ class DesktopDisplayInfoMonitor;
 class FileOperations;
 class InputInjector;
 class KeyboardLayoutMonitor;
+class RemoteWebAuthnStateChangeNotifier;
 class ScreenControls;
 class UrlForwarderConfigurator;
 
@@ -60,7 +62,7 @@ class DesktopEnvironment {
   // of DesktopDisplayInfoLoader are updated to be event-driven (instead of
   // polling per captured frame), this parameter could be removed even in
   // the single-video-stream case.
-  virtual std::unique_ptr<webrtc::DesktopCapturer> CreateVideoCapturer(
+  virtual std::unique_ptr<DesktopCapturer> CreateVideoCapturer(
       std::unique_ptr<DesktopDisplayInfoMonitor> monitor) = 0;
 
   virtual std::unique_ptr<DesktopDisplayInfoMonitor>
@@ -73,6 +75,8 @@ class DesktopEnvironment {
   virtual std::unique_ptr<FileOperations> CreateFileOperations() = 0;
   virtual std::unique_ptr<UrlForwarderConfigurator>
   CreateUrlForwarderConfigurator() = 0;
+  virtual std::unique_ptr<RemoteWebAuthnStateChangeNotifier>
+  CreateRemoteWebAuthnStateChangeNotifier() = 0;
 
   // For platforms that require the mouse cursor to be composited into the video
   // stream when it is not rendered by the client, returns a composing capturer.

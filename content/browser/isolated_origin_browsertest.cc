@@ -258,6 +258,10 @@ class OriginIsolationOptInHeaderTest : public IsolatedOriginTestBase {
     header_ = header_value;
   }
 
+  void SetRedirectTarget(const std::string& redirect_target) {
+    redirect_target_ = redirect_target;
+  }
+
   // Allows specifying what content to return when an opt-in isolation header is
   // intercepted. Uses a queue so that multiple requests can be handled without
   // returning to the test body. If the queue is empty, the document content is
@@ -300,6 +304,13 @@ class OriginIsolationOptInHeaderTest : public IsolatedOriginTestBase {
         response->set_content("isolate me!");
       }
       return std::move(response);
+    } else if (request.relative_url == "/redirect_me") {
+      auto response = std::make_unique<net::test_server::BasicHttpResponse>();
+      response->set_code(net::HTTP_MOVED_PERMANENTLY);
+      response->AddCustomHeader("Location", *redirect_target_);
+      response->AddCustomHeader("Origin-Agent-Cluster", *header_);
+      response->set_content("redirected");
+      return std::move(response);
     }
 
     // If we return nullptr, then the server will go ahead and actually serve
@@ -311,6 +322,7 @@ class OriginIsolationOptInHeaderTest : public IsolatedOriginTestBase {
   base::test::ScopedFeatureList feature_list_;
 
   absl::optional<std::string> header_;
+  absl::optional<std::string> redirect_target_;
   std::queue<std::string> content_;
 };
 
@@ -572,6 +584,68 @@ IN_PROC_BROWSER_TEST_F(OriginIsolationOptInHeaderCommandLineTest,
       browser_context, url::Origin::Create(isolated_base_origin_url)));
   EXPECT_FALSE(policy->HasOriginEverRequestedOptInIsolation(
       browser_context, url::Origin::Create(non_isolated_sub_origin)));
+}
+
+// A test to confirm that if an Origin-Agent-Cluster header is encountered (but
+// not committed) as part of a redirect, that it does not opt-in to
+// OriginAgentCluster isolation. The setup in this test is subtle, since in
+// order for the call to NavigationRequest::OnRequestRedirected() to attempt to
+// create a new SiteInstance, we must load the same origin the redirect wants to
+// use, and load it without OriginAgentCluster isolation. Prior to the fix for
+// https://crbug.com/1329061 the redirect would result in opting the origin into
+// OriginAgentCluster isolation since no global walk is present to detect that
+// it has already been loaded without.
+IN_PROC_BROWSER_TEST_F(OriginIsolationOptInHeaderTest,
+                       RedirectSameSiteWithOACDoesntOptIn) {
+  GURL main_frame_url(https_server()->GetURL(
+      "foo.com", "/cross_site_iframe_factory.html?foo.com(foo.com)"));
+  GURL redirect_url(https_server()->GetURL("foo.com", "/redirect_me"));
+  GURL expected_commit_url(https_server()->GetURL("foo.com", "/title1.html"));
+  url::Origin origin(url::Origin::Create(main_frame_url));
+
+  EXPECT_TRUE(NavigateToURL(shell(), main_frame_url));
+  EXPECT_FALSE(ShouldOriginGetOptInProcessIsolation(origin));
+  EXPECT_EQ(2u, CollectAllRenderFrameHosts(shell()->web_contents()).size());
+  FrameTreeNode* root = web_contents()->GetPrimaryFrameTree().root();
+  FrameTreeNode* child_frame_node = root->child_at(0);
+
+  SetRedirectTarget("/title1.html");
+  SetHeaderValue("?1");
+  EXPECT_TRUE(NavigateToURLFromRenderer(child_frame_node, redirect_url,
+                                        expected_commit_url));
+  // This next line verifies that the OriginAgentCluster header sent with the
+  // 301 redirect failed to opt foo.com into OriginAgentCluster isolation, as
+  // it should. The check will fail if the origin was opted-in to
+  // OriginAgentCluster isolation.
+  EXPECT_FALSE(ShouldOriginGetOptInProcessIsolation(origin));
+}
+
+// Same as the preceding test, but the redirect is cross-site.
+IN_PROC_BROWSER_TEST_F(OriginIsolationOptInHeaderTest,
+                       RedirectCrossSiteWithOACDoesntOptIn) {
+  GURL main_frame_url(https_server()->GetURL(
+      "foo.com", "/cross_site_iframe_factory.html?foo.com(foo.com)"));
+  GURL redirect_url(https_server()->GetURL("bar.com", "/redirect_me"));
+  GURL expected_commit_url(https_server()->GetURL("foo.com", "/title1.html"));
+  url::Origin origin(url::Origin::Create(main_frame_url));
+
+  EXPECT_TRUE(NavigateToURL(shell(), main_frame_url));
+  EXPECT_FALSE(ShouldOriginGetOptInProcessIsolation(origin));
+
+  EXPECT_EQ(2u, CollectAllRenderFrameHosts(shell()->web_contents()).size());
+  FrameTreeNode* root = web_contents()->GetPrimaryFrameTree().root();
+  FrameTreeNode* child_frame_node = root->child_at(0);
+
+  SetRedirectTarget(expected_commit_url.spec());
+  SetHeaderValue("?1");
+  EXPECT_TRUE(NavigateToURLFromRenderer(child_frame_node, redirect_url,
+                                        expected_commit_url));
+
+  // This next line verifies that the OriginAgentCluster header sent with the
+  // 301 redirect failed to opt foo.com into OriginAgentCluster isolation, as
+  // it should. The check will fail if the origin was opted-in to
+  // OriginAgentCluster isolation.
+  EXPECT_FALSE(ShouldOriginGetOptInProcessIsolation(origin));
 }
 
 // This tests that header-based opt-in causes the origin to end up in the
@@ -1012,6 +1086,52 @@ IN_PROC_BROWSER_TEST_F(OriginIsolationOptInHeaderTest,
               static_cast<int>(NavigationRequest::OriginAgentClusterEndResult::
                                    kRequestedAndOriginKeyed),
               1)));
+}
+
+// Check that two same-site Origin-Agent-Cluster subframes in unrelated windows
+// obey the subframe process reuse policy.
+IN_PROC_BROWSER_TEST_F(OriginIsolationOptInHeaderTest,
+                       OriginAgentClusterProcessReuse) {
+  SetHeaderValue("?1");
+  // Start off with an a(a) page, then navigate the subframe to an isolated
+  // suborigin.
+  GURL test_url(https_server()->GetURL("foo.com",
+                                       "/cross_site_iframe_factory.html?"
+                                       "foo.com(foo.com)"));
+  GURL isolated_suborigin_url(
+      https_server()->GetURL("isolated.foo.com", "/isolate_origin"));
+  EXPECT_TRUE(NavigateToURL(shell(), test_url));
+
+  FrameTreeNode* root = web_contents()->GetPrimaryFrameTree().root();
+  FrameTreeNode* child = root->child_at(0);
+  EXPECT_TRUE(NavigateToURLFromRenderer(child, isolated_suborigin_url));
+  EXPECT_NE(root->current_frame_host()->GetSiteInstance(),
+            child->current_frame_host()->GetSiteInstance());
+  EXPECT_TRUE(child->current_frame_host()
+                  ->GetSiteInstance()
+                  ->GetSiteInfo()
+                  .requires_origin_keyed_process());
+
+  // Open an unrelated window and set up the same frame hierarchy there.
+  Shell* new_shell = CreateBrowser();
+  EXPECT_TRUE(NavigateToURL(new_shell, test_url));
+  FrameTreeNode* new_root =
+      static_cast<WebContentsImpl*>(new_shell->web_contents())
+          ->GetPrimaryFrameTree()
+          .root();
+  FrameTreeNode* new_child = new_root->child_at(0);
+  EXPECT_TRUE(NavigateToURLFromRenderer(new_child, isolated_suborigin_url));
+  EXPECT_NE(new_root->current_frame_host()->GetSiteInstance(),
+            new_child->current_frame_host()->GetSiteInstance());
+
+  // Even though the two subframes should be in different BrowsingInstances,
+  // they should share the same process due to the subframe process reuse
+  // policy.
+  EXPECT_FALSE(
+      child->current_frame_host()->GetSiteInstance()->IsRelatedSiteInstance(
+          new_child->current_frame_host()->GetSiteInstance()));
+  EXPECT_EQ(child->current_frame_host()->GetProcess(),
+            new_child->current_frame_host()->GetProcess());
 }
 
 // In this test the sub-origin is isolated because the header requests it. It
@@ -6529,6 +6649,48 @@ IN_PROC_BROWSER_TEST_F(JITIsolationTest, SubFrameTest) {
   child_frame_node = root->child_at(0);
   EXPECT_FALSE(
       child_frame_node->current_frame_host()->GetProcess()->IsJitDisabled());
+}
+
+// Check that jitless subframes obey process reuse policies.
+IN_PROC_BROWSER_TEST_F(JITIsolationTest, SubFrameProcessReuse) {
+  // Set JIT to be enabled by default.
+  ScopedBrowserClientOverride policy(
+      /* jit_disabled_default */ false,
+      /* disable_site_isolation_entirely */ false);
+
+  GURL default_embeds_disabled(embedded_test_server()->GetURL(
+      "foo.com", "/cross_site_iframe_factory.html?foo.com(jit-disabled.com)"));
+
+  EXPECT_TRUE(NavigateToURL(shell(), default_embeds_disabled));
+
+  // Top frame 'foo.com' should have JIT enabled as that's the default.
+  FrameTreeNode* root = web_contents()->GetPrimaryFrameTree().root();
+  EXPECT_FALSE(root->current_frame_host()->GetProcess()->IsJitDisabled());
+  // The frame containing jit-disabled.com should have JIT disabled.
+  FrameTreeNode* child = root->child_at(0);
+  EXPECT_TRUE(child->current_frame_host()->GetProcess()->IsJitDisabled());
+
+  // Create a new window, unrelated to the current one, and set up the same
+  // frame hierarchy.
+  Shell* new_shell = CreateBrowser();
+  EXPECT_TRUE(NavigateToURL(new_shell, default_embeds_disabled));
+
+  FrameTreeNode* new_root =
+      static_cast<WebContentsImpl*>(new_shell->web_contents())
+          ->GetPrimaryFrameTree()
+          .root();
+  EXPECT_FALSE(new_root->current_frame_host()->GetProcess()->IsJitDisabled());
+
+  FrameTreeNode* new_child = new_root->child_at(0);
+  EXPECT_TRUE(new_child->current_frame_host()->GetProcess()->IsJitDisabled());
+
+  // The subframes should be in separate BrowsingInstances, but because they
+  // have the same site, they should share the same process.
+  EXPECT_FALSE(
+      new_child->current_frame_host()->GetSiteInstance()->IsRelatedSiteInstance(
+          child->current_frame_host()->GetSiteInstance()));
+  EXPECT_EQ(new_child->current_frame_host()->GetProcess(),
+            child->current_frame_host()->GetProcess());
 }
 
 }  // namespace content

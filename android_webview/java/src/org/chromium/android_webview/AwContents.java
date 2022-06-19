@@ -89,6 +89,7 @@ import org.chromium.content_public.browser.ImeEventObserver;
 import org.chromium.content_public.browser.JavaScriptCallback;
 import org.chromium.content_public.browser.JavascriptInjector;
 import org.chromium.content_public.browser.LoadUrlParams;
+import org.chromium.content_public.browser.MessagePayload;
 import org.chromium.content_public.browser.MessagePort;
 import org.chromium.content_public.browser.NavigationController;
 import org.chromium.content_public.browser.NavigationHandle;
@@ -688,7 +689,8 @@ public class AwContents implements SmartClipProvider {
     //
     private class InterceptNavigationDelegateImpl extends InterceptNavigationDelegate {
         @Override
-        public boolean shouldIgnoreNavigation(NavigationHandle navigationHandle, GURL escapedUrl) {
+        public boolean shouldIgnoreNavigation(NavigationHandle navigationHandle, GURL escapedUrl,
+                boolean applyUserGestureCarryover) {
             // The shouldOverrideUrlLoading call might have resulted in posting messages to the
             // UI thread. Using sendMessage here (instead of calling onPageStarted directly)
             // will allow those to run in order.
@@ -3032,7 +3034,7 @@ public class AwContents implements SmartClipProvider {
      * @param sentPorts    ports for the JavaScript MessageEvent.
      */
     public void postMessageToMainFrame(
-            String message, String targetOrigin, MessagePort[] sentPorts) {
+            MessagePayload messagePayload, String targetOrigin, MessagePort[] sentPorts) {
         if (TRACE) Log.i(TAG, "%s postMessageToMainFrame", this);
         if (isDestroyed(WARN)) return;
 
@@ -3040,7 +3042,7 @@ public class AwContents implements SmartClipProvider {
         // If the RenderFrameHost or the RenderFrame doesn't exist we couldn't post the message.
         if (mainFrame == null || !mainFrame.isRenderFrameCreated()) return;
 
-        mWebContents.postMessageToMainFrame(message, null, targetOrigin, sentPorts);
+        mWebContents.postMessageToMainFrame(messagePayload, null, targetOrigin, sentPorts);
     }
 
     /**
@@ -4005,7 +4007,7 @@ public class AwContents implements SmartClipProvider {
                     canvas, canvas.isHardwareAccelerated(), scrollX, scrollY,
                     globalVisibleRect.left, globalVisibleRect.top, globalVisibleRect.right,
                     globalVisibleRect.bottom, ForceAuxiliaryBitmapRendering.sResult);
-            if (canvas.isHardwareAccelerated()
+            if (canvas.isHardwareAccelerated() && !ForceAuxiliaryBitmapRendering.sResult
                     && AwContentsJni.get().needToDrawBackgroundColor(
                             mNativeAwContents, AwContents.this)) {
                 TraceEvent.instant("DrawBackgroundColor");

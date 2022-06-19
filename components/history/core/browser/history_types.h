@@ -21,6 +21,7 @@
 #include "components/history/core/browser/history_context.h"
 #include "components/history/core/browser/url_row.h"
 #include "components/query_parser/query_parser.h"
+#include "components/query_parser/snippet.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/base/page_transition_types.h"
 #include "url/gurl.h"
@@ -842,16 +843,32 @@ struct ClusterVisit {
   // should not be used by the UI.
   float engagement_score = 0.0;
 
-  // The visit URL modified for better dupe finding.  The result may not be
-  // navigable or even valid; it's only meant to be used for detecting
-  // duplicates. This is similar in intent to
-  // `AutocompleteMatch::stripped_destination_url`, but is not the same, as
-  // History Clusters and Omnibox have different deduping requirements.
+  // The visit URL stripped down for aggressive deduping. This GURL may not be
+  // navigable or even valid. The stripping on `url_for_deduping` must be
+  // strictly more aggressive than on `url_for_display`. This ensures that the
+  // UI never shows two visits that look completely identical.
+  //
+  // The stripping is so aggressive that the URL should not be used alone for
+  // deduping. See `SimilarVisitDeDeduperClusterFinalizer` for an example usage
+  // that combines this with the page title as a deduping key.
   GURL url_for_deduping;
 
   // The normalized URL for the visit (i.e. a SRP URL normalized based on the
   // user's default search provider).
   GURL normalized_url;
+
+  // The URL used for display. Computed in the cross-platform code to provide
+  // a consistent experience between WebUI and Mobile.
+  std::u16string url_for_display;
+
+  // Which positions matched the search query in various fields.
+  query_parser::Snippet::MatchPositions title_match_positions;
+  query_parser::Snippet::MatchPositions url_for_display_match_positions;
+
+  // If true, the visit should be "below the fold" and not initially shown in
+  // any UI. It is still included in the cluster so that it can be queried over,
+  // as well as deleted when the whole cluster is deleted.
+  bool hidden = false;
 };
 
 // A cluster of `ClusterVisit`s with associated metadata (i.e. `keywords` and
@@ -876,9 +893,18 @@ struct Cluster {
   std::vector<std::u16string> keywords;
   // Whether the cluster should be shown prominently on UI surfaces.
   bool should_show_on_prominent_ui_surfaces = true;
+
   // A suitable label for the cluster. Will be nullopt if no suitable label
   // could be determined.
   absl::optional<std::u16string> label;
+
+  // The positions within the label that match the search query, if it exists.
+  query_parser::Snippet::MatchPositions label_match_positions;
+
+  // The vector of related searches for the whole cluster. This is derived from
+  // the related searches of the constituent visits, and computed in
+  // cross-platform code so we have a consistent set across platforms.
+  std::vector<std::string> related_searches;
 
   // A floating point score that's positive if the cluster matches the user's
   // search query, and zero otherwise. This score changes depending on the

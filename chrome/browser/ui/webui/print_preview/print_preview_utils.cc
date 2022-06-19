@@ -51,27 +51,26 @@ namespace chrome {
 void PrintersToValues(const printing::PrinterList& printer_list,
                       base::ListValue* printers) {
   for (const printing::PrinterBasicInfo& printer : printer_list) {
-    auto printer_info = std::make_unique<base::DictionaryValue>();
-    printer_info->SetStringKey(printing::kSettingDeviceName, printer.printer_name);
+    base::Value::Dict printer_info;
+    printer_info.Set(printing::kSettingDeviceName, printer.printer_name);
 
-    printer_info->SetStringKey(printing::kSettingPrinterName, printer.display_name);
-    printer_info->SetStringKey(printing::kSettingPrinterDescription,
-                               printer.printer_description);
+    printer_info.Set(printing::kSettingPrinterName, printer.display_name);
+    printer_info.Set(printing::kSettingPrinterDescription, printer.printer_description);
 
-    base::DictionaryValue options;
+    base::Value::Dict options;
     for (const auto& opt_it : printer.options)
-      options.SetStringPath(opt_it.first, opt_it.second);
+      options.SetByDottedPath(opt_it.first, opt_it.second);
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-    printer_info->SetBoolKey(
+    printer_info.Set(
         kCUPSEnterprisePrinter,
         base::Contains(printer.options, kCUPSEnterprisePrinter) &&
             printer.options.at(kCUPSEnterprisePrinter) == kValueTrue);
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
-    printer_info->SetKey(printing::kSettingPrinterOptions, std::move(options));
+    printer_info.Set(printing::kSettingPrinterOptions, std::move(options));
 
-    printers->Append(std::move(printer_info));
+    printers->GetList().Append(std::move(printer_info));
 
     VLOG(1) << "Found printer " << printer.display_name << " with device name "
             << printer.printer_name;

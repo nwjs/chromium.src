@@ -6,6 +6,7 @@
 
 #include "base/command_line.h"
 #include "base/feature_list.h"
+#include "components/cast_streaming/renderer/public/resource_provider.h"
 #include "components/cdm/renderer/widevine_key_system_properties.h"
 #include "components/media_control/renderer/media_playback_options.h"
 #include "components/memory_pressure/multi_source_memory_pressure_monitor.h"
@@ -18,6 +19,7 @@
 #include "fuchsia/engine/renderer/web_engine_media_renderer_factory.h"
 #include "fuchsia/engine/renderer/web_engine_url_loader_throttle_provider.h"
 #include "fuchsia/engine/switches.h"
+#include "media/base/content_decryption_module.h"
 #include "media/base/demuxer.h"
 #include "media/base/eme_constants.h"
 #include "media/base/media_switches.h"
@@ -79,9 +81,8 @@ class PlayreadyKeySystemProperties : public ::media::KeySystemProperties {
     return media::EmeConfigRule::NOT_SUPPORTED;
   }
 
-  media::EmeSessionTypeSupport GetPersistentLicenseSessionSupport()
-      const override {
-    return media::EmeSessionTypeSupport::NOT_SUPPORTED;
+  media::EmeConfigRule GetPersistentLicenseSessionSupport() const override {
+    return media::EmeConfigRule::NOT_SUPPORTED;
   }
 
   media::EmeFeatureSupport GetPersistentStateSupport() const override {
@@ -108,7 +109,9 @@ class PlayreadyKeySystemProperties : public ::media::KeySystemProperties {
 
 }  // namespace
 
-WebEngineContentRendererClient::WebEngineContentRendererClient() = default;
+WebEngineContentRendererClient::WebEngineContentRendererClient()
+    : cast_streaming_resource_provider_(
+          cast_streaming::ResourceProvider::Create()) {}
 
 WebEngineContentRendererClient::~WebEngineContentRendererClient() = default;
 
@@ -154,7 +157,7 @@ void WebEngineContentRendererClient::RenderFrameCreated(
   DCHECK(render_frame_observer_iter.second);
 
   // Call into the cast_streaming-specific frame creation logic.
-  cast_streaming_demuxer_provider_.RenderFrameCreated(render_frame);
+  cast_streaming_resource_provider_->RenderFrameCreated(render_frame);
 
   // Lifetime is tied to |render_frame| via content::RenderFrameObserver.
   new media_control::MediaPlaybackOptions(render_frame);
@@ -195,13 +198,16 @@ void WebEngineContentRendererClient::GetSupportedKeySystems(
 
   media::SupportedCodecs supported_audio_codecs = media::EME_CODEC_AUDIO_ALL;
 
-  media::SupportedCodecs supported_codecs =
+  const media::SupportedCodecs supported_codecs =
       supported_video_codecs | supported_audio_codecs;
 
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kEnableWidevine)) {
-    base::flat_set<media::EncryptionScheme> encryption_schemes{
+    const base::flat_set<media::EncryptionScheme> kSupportedEncryptionSchemes{
         media::EncryptionScheme::kCenc, media::EncryptionScheme::kCbcs};
+
+    const base::flat_set<media::CdmSessionType> kSupportedSessionTypes = {
+        media::CdmSessionType::kTemporary};
 
     // Fuchsia always decrypts audio into clear buffers and return them back to
     // Chromium. Hardware secured decoders are only available for supported
@@ -209,17 +215,18 @@ void WebEngineContentRendererClient::GetSupportedKeySystems(
     // TODO(crbug.com/1013412): Replace these hardcoded values with a query to
     // the fuchsia.mediacodec FIDL service.
     key_systems.emplace_back(new cdm::WidevineKeySystemProperties(
-        supported_codecs,    // codecs
-        encryption_schemes,  // encryption schemes
-        supported_codecs,    // hw secure codecs
-        encryption_schemes,  // hw secure encryption schemes
+        supported_codecs,             // codecs
+        kSupportedEncryptionSchemes,  // encryption schemes
+        kSupportedSessionTypes,       // session types
+        supported_codecs,             // hw secure codecs
+        kSupportedEncryptionSchemes,  // hw secure encryption schemes
+        kSupportedSessionTypes,       // hw secure session types
         cdm::WidevineKeySystemProperties::Robustness::
             HW_SECURE_CRYPTO,  // max audio robustness
         cdm::WidevineKeySystemProperties::Robustness::
-            HW_SECURE_ALL,                            // max video robustness
-        media::EmeSessionTypeSupport::NOT_SUPPORTED,  // persistent license
-        media::EmeFeatureSupport::ALWAYS_ENABLED,     // persistent state
-        media::EmeFeatureSupport::ALWAYS_ENABLED));   // distinctive identifier
+            HW_SECURE_ALL,                           // max video robustness
+        media::EmeFeatureSupport::ALWAYS_ENABLED,    // persistent state
+        media::EmeFeatureSupport::ALWAYS_ENABLED));  // distinctive identifier
   }
 
   std::string playready_key_system =
@@ -262,7 +269,7 @@ WebEngineContentRendererClient::OverrideDemuxerForUrl(
     return nullptr;
   }
 
-  return cast_streaming_demuxer_provider_.OverrideDemuxerForUrl(
+  return cast_streaming_resource_provider_->OverrideDemuxerForUrl(
       render_frame, url, std::move(media_task_runner));
 }
 

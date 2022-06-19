@@ -690,7 +690,7 @@ void RestrictedCookieManager::SetCanonicalCookie(
   std::unique_ptr<net::CanonicalCookie> sanitized_cookie =
       net::CanonicalCookie::FromStorage(
           cookie.Name(), cookie.Value(), cookie.Domain(), cookie.Path(), now,
-          cookie.ExpiryDate(), now, cookie.IsSecure(), cookie.IsHttpOnly(),
+          cookie.ExpiryDate(), now, now, cookie.IsSecure(), cookie.IsHttpOnly(),
           cookie.SameSite(), cookie.Priority(), cookie.IsSameParty(),
           cookie_partition_key, source_scheme, origin_.port());
   DCHECK(sanitized_cookie);
@@ -903,6 +903,16 @@ bool RestrictedCookieManager::ValidateAccessToCookiesAt(
 
   mojo::ReportBadMessage("Incorrect url origin");
   return false;
+}
+
+void RestrictedCookieManager::ConvertPartitionedCookiesToUnpartitioned(
+    const GURL& url) {
+  DCHECK(base::FeatureList::IsEnabled(net::features::kPartitionedCookies));
+  if (base::FeatureList::IsEnabled(
+          net::features::kPartitionedCookiesBypassOriginTrial)) {
+    return;
+  }
+  cookie_store_->ConvertPartitionedCookiesToUnpartitioned(url);
 }
 
 }  // namespace network

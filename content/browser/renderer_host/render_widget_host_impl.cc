@@ -84,6 +84,7 @@
 #include "content/browser/renderer_host/render_widget_host_view_base.h"
 #include "content/browser/renderer_host/render_widget_host_view_child_frame.h"
 #include "content/browser/renderer_host/visible_time_request_trigger.h"
+#include "content/browser/scheduler/browser_task_executor.h"
 #include "content/browser/storage_partition_impl.h"
 #include "content/common/content_constants_internal.h"
 #include "content/common/cursors/webcursor.h"
@@ -3634,6 +3635,19 @@ void RenderWidgetHostImpl::OnRenderFrameMetadataChangedAfterActivation(
     base::TimeTicks activation_time) {
   const auto& metadata =
       render_frame_metadata_provider_.LastRenderFrameMetadata();
+  // We only want to report the timings for the very First Surface that is
+  // activated.
+  if (!first_surface_activated_) {
+    first_surface_activated_ = true;
+    UMA_HISTOGRAM_TIMES(
+        "Compositing.Renderer.FirstSurfaceActivationUpdateDuration."
+        "PreviousSurfaces",
+        metadata.previous_surfaces_visual_update_duration);
+    UMA_HISTOGRAM_TIMES(
+        "Compositing.Renderer.FirstSurfaceActivationUpdateDuration."
+        "CurrentSurface",
+        metadata.current_surface_visual_update_duration);
+  }
 
   bool is_mobile_optimized = metadata.is_mobile_optimized;
   input_router_->NotifySiteIsMobileOptimized(is_mobile_optimized);

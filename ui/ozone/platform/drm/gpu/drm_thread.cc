@@ -124,6 +124,13 @@ void DrmThread::Init() {
   std::move(complete_early_receiver_requests_).Run();
 }
 
+void DrmThread::CleanUp() {
+  TRACE_EVENT0("drm", "DrmThread::CleanUp");
+  display_manager_.reset();
+  screen_manager_.reset();
+  device_manager_.reset();
+}
+
 void DrmThread::CreateBuffer(gfx::AcceleratedWidget widget,
                              const gfx::Size& size,
                              const gfx::Size& framebuffer_size,
@@ -403,6 +410,16 @@ void DrmThread::RelinquishDisplayControl(
   TRACE_EVENT0("drm", "DrmThread::RelinquishDisplayControl");
   display_manager_->RelinquishDisplayControl();
   std::move(callback).Run(true);
+}
+
+void DrmThread::ShouldDisplayEventTriggerConfiguration(
+    const EventPropertyMap& event_props,
+    base::OnceCallback<void(bool)> callback) {
+  TRACE_EVENT0("drm", "DrmThread::ShouldDisplayEventTriggerConfiguration");
+  const bool should_trigger =
+      display_manager_->ShouldDisplayEventTriggerConfiguration(event_props);
+
+  std::move(callback).Run(should_trigger);
 }
 
 void DrmThread::AddGraphicsDevice(const base::FilePath& path, base::File file) {

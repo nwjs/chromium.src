@@ -35,6 +35,7 @@
 #include "components/feed/core/v2/prefs.h"
 #include "components/feed/core/v2/protocol_translator.h"
 #include "components/feed/core/v2/public/feed_api.h"
+#include "components/feed/core/v2/public/feed_service.h"
 #include "components/feed/core/v2/public/feed_stream_surface.h"
 #include "components/feed/core/v2/public/logging_parameters.h"
 #include "components/feed/core/v2/public/refresh_task_scheduler.h"
@@ -135,6 +136,7 @@ FeedStream::FeedStream(RefreshTaskScheduler* refresh_task_scheduler,
       task_queue_(this),
       request_throttler_(profile_prefs),
       privacy_notice_card_tracker_(profile_prefs),
+      info_card_tracker_(profile_prefs),
       user_actions_collector_(profile_prefs) {
   DCHECK(persistent_key_value_store_);
   DCHECK(feed_network_);
@@ -148,8 +150,8 @@ FeedStream::FeedStream(RefreshTaskScheduler* refresh_task_scheduler,
 
   base::RepeatingClosure preference_change_callback =
       base::BindRepeating(&FeedStream::EnabledPreferencesChanged, GetWeakPtr());
-  enable_snippets_.Init(prefs::kEnableSnippets, profile_prefs,
-                        preference_change_callback);
+  snippets_enabled_by_policy_.Init(prefs::kEnableSnippets, profile_prefs,
+                                   preference_change_callback);
   articles_list_visible_.Init(prefs::kArticlesListVisible, profile_prefs,
                               preference_change_callback);
   has_stored_data_.Init(feed::prefs::kHasStoredData, profile_prefs);
@@ -242,9 +244,9 @@ void FeedStream::InitializeComplete(WaitForStoreInitializeTask::Result result) {
     }
   }
   metadata_populated_ = true;
-  metrics_reporter_->OnMetadataInitialized(IsFeedEnabledByEnterprisePolicy(),
-                                           IsArticlesListVisible(),
-                                           IsSignedIn(), metadata_);
+  metrics_reporter_->OnMetadataInitialized(
+      IsFeedEnabledByEnterprisePolicy(), IsArticlesListVisible(), IsSignedIn(),
+      IsFeedEnabled(), metadata_);
 
   web_feed_subscription_coordinator_->Populate(result.web_feed_startup_data);
 
@@ -312,6 +314,9 @@ void FeedStream::StreamLoadComplete(LoadStreamTask::Result result) {
   if (base::FeatureList::IsEnabled(kWebFeed) &&
       result.load_type != LoadType::kManualRefresh) {
     if (result.stream_type.IsForYou()) {
+      // Checking for users without follows.
+      // TODO(b/229143375) - We should rate limit fetches if the server side is
+      // turned off for this locale, and continually fails.
       if (!HasUnreadContent(kWebFeedStream)) {
         LoadStreamTask::Options options;
         options.load_type = LoadType::kBackgroundRefresh;
@@ -478,11 +483,15 @@ bool FeedStream::IsArticlesListVisible() {
 }
 
 bool FeedStream::IsFeedEnabledByEnterprisePolicy() {
-  return enable_snippets_.GetValue();
+  return snippets_enabled_by_policy_.GetValue();
+}
+
+bool FeedStream::IsFeedEnabled() {
+  return FeedService::IsEnabled(*profile_prefs());
 }
 
 bool FeedStream::IsEnabledAndVisible() {
-  return IsArticlesListVisible() && IsFeedEnabledByEnterprisePolicy();
+  return IsArticlesListVisible() && IsFeedEnabled();
 }
 
 void FeedStream::EnabledPreferencesChanged() {
@@ -813,6 +822,11 @@ LaunchResult FeedStream::ShouldAttemptLoad(const StreamType& stream_type,
                 INELIGIBLE_DISCOVER_DISABLED_BY_ENTERPRISE_POLICY};
   }
 
+  if (!IsFeedEnabled()) {
+    return {LoadStreamStatus::kLoadNotAllowedDisabled,
+            feedwire::DiscoverLaunchResult::INELIGIBLE_DISCOVER_DISABLED};
+  }
+
   if (!delegate_->IsEulaAccepted()) {
     return {LoadStreamStatus::kLoadNotAllowedEulaNotAccepted,
             feedwire::DiscoverLaunchResult::INELIGIBLE_EULA_NOT_ACCEPTED};
@@ -948,6 +962,13 @@ RequestMetadata FeedStream::GetRequestMetadata(const StreamType& stream_type,
   if (stream_type.IsWebFeed()) {
     result.content_order = GetValidWebFeedContentOrder(*profile_prefs_);
   }
+
+  if (stream->model) {
+    result.info_card_tracking_states = info_card_tracker_.GetAllStates(
+        stream->model->last_server_response_time_millis(),
+        stream->model->last_added_time_millis());
+  }
+
   return result;
 }
 
@@ -1349,6 +1370,37 @@ void FeedStream::ReportNoticeDismissed(const StreamType& stream_type,
   if (!was_acknowledged && tracker.HasAcknowledged())
     metrics_reporter_->OnNoticeAcknowledged(
         stream_type, key, NoticeAcknowledgementPath::kViaDismissal);
+}
+
+void FeedStream::ReportInfoCardTrackViewStarted(const StreamType& stream_type,
+                                                int info_card_type) {
+  metrics_reporter_->OnInfoCardTrackViewStarted(stream_type, info_card_type);
+}
+
+void FeedStream::ReportInfoCardViewed(const StreamType& stream_type,
+                                      int info_card_type,
+                                      int minimum_view_interval_seconds) {
+  metrics_reporter_->OnInfoCardViewed(stream_type, info_card_type);
+  info_card_tracker_.OnViewed(info_card_type, minimum_view_interval_seconds);
+}
+
+void FeedStream::ReportInfoCardClicked(const StreamType& stream_type,
+                                       int info_card_type) {
+  metrics_reporter_->OnInfoCardClicked(stream_type, info_card_type);
+  info_card_tracker_.OnClicked(info_card_type);
+}
+
+void FeedStream::ReportInfoCardDismissedExplicitly(
+    const StreamType& stream_type,
+    int info_card_type) {
+  metrics_reporter_->OnInfoCardDismissedExplicitly(stream_type, info_card_type);
+  info_card_tracker_.OnDismissed(info_card_type);
+}
+
+void FeedStream::ResetInfoCardStates(const StreamType& stream_type,
+                                     int info_card_type) {
+  metrics_reporter_->OnInfoCardStateReset(stream_type, info_card_type);
+  info_card_tracker_.ResetState(info_card_type);
 }
 
 NoticeCardTracker& FeedStream::GetNoticeCardTracker(const std::string& key) {

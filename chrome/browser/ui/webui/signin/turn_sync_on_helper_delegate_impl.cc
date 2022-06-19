@@ -56,7 +56,6 @@ Browser* EnsureBrowser(Browser* browser, Profile* profile) {
   return browser;
 }
 
-#if !BUILDFLAG(IS_CHROMEOS_LACROS)
 // Converts SigninEmailConfirmationDialog::Action to
 // TurnSyncOnHelper::SigninChoice and invokes |callback| on it.
 void OnEmailConfirmation(signin::SigninChoiceCallback callback,
@@ -75,7 +74,6 @@ void OnEmailConfirmation(signin::SigninChoiceCallback callback,
   }
   NOTREACHED();
 }
-#endif
 
 }  // namespace
 
@@ -150,15 +148,10 @@ void TurnSyncOnHelperDelegateImpl::ShowMergeSyncDataConfirmation(
     const std::string& new_email,
     signin::SigninChoiceCallback callback) {
   DCHECK(callback);
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  // TODO(https://crbug.com/1260291): add support for signed out profiles.
-  NOTREACHED() << "Lacros doesn't support signed-out profiles yet.";
-#else
   browser_ = EnsureBrowser(browser_, profile_);
   browser_->signin_view_controller()->ShowModalSigninEmailConfirmationDialog(
       previous_email, new_email,
       base::BindOnce(&OnEmailConfirmation, std::move(callback)));
-#endif
 }
 
 void TurnSyncOnHelperDelegateImpl::ShowSyncSettings() {
@@ -247,19 +240,12 @@ void TurnSyncOnHelperDelegateImpl::OnProfileCheckComplete(
           .GetProfileAttributesWithPath(browser_->profile()->GetPath());
   browser_->signin_view_controller()->ShowModalEnterpriseConfirmationDialog(
       account_info, /*profile_creation_required_by_policy=*/false,
-      /*show_link_data_option=*/false, GenerateNewProfileColor(entry).color,
+      /*show_link_data_option*/ false, GenerateNewProfileColor(entry).color,
       base::BindOnce(
           [](signin::SigninChoiceCallback callback, Browser* browser,
              signin::SigninChoice choice) {
             browser->signin_view_controller()->CloseModalSignin();
-            // When `show_link_data_option` is false,
-            // `ShowModalEnterpriseConfirmationDialog()` calls back with either
-            // `SIGNIN_CHOICE_CANCEL` or `SIGNIN_CHOICE_NEW_PROFILE`.
-            // The profile is clean here, no need to create a new one.
-            std::move(callback).Run(
-                choice == signin::SigninChoice::SIGNIN_CHOICE_CANCEL
-                    ? signin::SigninChoice::SIGNIN_CHOICE_CANCEL
-                    : signin::SigninChoice::SIGNIN_CHOICE_CONTINUE);
+            std::move(callback).Run(choice);
           },
           std::move(callback), browser_.get()));
 }

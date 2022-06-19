@@ -39,6 +39,7 @@
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "ash/services/multidevice_setup/public/cpp/first_run_field_trial.h"
+#include "chrome/browser/ash/login/consolidated_consent_field_trial.h"
 #endif
 
 namespace {
@@ -82,6 +83,10 @@ void ChromeBrowserFieldTrials::SetUpFeatureControllingFieldTrials(
     bool has_seed,
     const base::FieldTrial::EntropyProvider* low_entropy_provider,
     base::FeatureList* feature_list) {
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  ash::consolidated_consent_field_trial::Create(feature_list, local_state_);
+#endif
+
   // Only create the fallback trials if there isn't already a variations seed
   // being applied. This should occur during first run when first-run variations
   // isn't supported. It's assumed that, if there is a seed, then it either
@@ -105,31 +110,6 @@ void ChromeBrowserFieldTrials::RegisterSyntheticTrials() {
   if (!reached_code_profiler_group.empty()) {
     ChromeMetricsServiceAccessor::RegisterSyntheticFieldTrial(
         kReachedCodeProfilerTrial, reached_code_profiler_group);
-  }
-
-  {
-    // EarlyLibraryLoadSynthetic field trial.
-    const char* group_name;
-    bool java_feature_enabled = chrome::android::IsJavaDrivenFeatureEnabled(
-        features::kEarlyLibraryLoad);
-    bool feature_enabled =
-        base::FeatureList::IsEnabled(features::kEarlyLibraryLoad);
-    // Use the default group if cc and java feature values don't agree (can
-    // happen on first startup after feature is enabled by Finch), or the
-    // feature is not overridden by Finch.
-    if (feature_enabled != java_feature_enabled ||
-        !base::FeatureList::GetInstance()->IsFeatureOverridden(
-            features::kEarlyLibraryLoad.name)) {
-      group_name = "Default";
-    } else if (java_feature_enabled) {
-      group_name = "Enabled";
-    } else {
-      group_name = "Disabled";
-    }
-    static constexpr char kEarlyLibraryLoadTrial[] =
-        "EarlyLibraryLoadSynthetic";
-    ChromeMetricsServiceAccessor::RegisterSyntheticFieldTrial(
-        kEarlyLibraryLoadTrial, group_name);
   }
 
   {

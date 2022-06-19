@@ -288,10 +288,7 @@ void PrivacySection::AddHandlers(content::WebUI* web_ui) {
 void PrivacySection::AddLoadTimeData(content::WebUIDataSource* html_source) {
   static constexpr webui::LocalizedString kLocalizedStrings[] = {
       {"enableLogging", IDS_SETTINGS_ENABLE_LOGGING_TOGGLE_TITLE},
-      // TODO(crbug/1295789): Revert descriptions back to a single description
-      // once per-user crash is ready.
-      {"enableLoggingOwnerDesc", IDS_SETTINGS_ENABLE_LOGGING_TOGGLE_OWNER_DESC},
-      {"enableLoggingUserDesc", IDS_SETTINGS_ENABLE_LOGGING_TOGGLE_USER_DESC},
+      {"enableLoggingDesc", IDS_SETTINGS_ENABLE_LOGGING_TOGGLE_DESC},
       {"enableContentProtectionAttestation",
        IDS_SETTINGS_ENABLE_CONTENT_PROTECTION_ATTESTATION},
       {"enableSuggestedContent", IDS_SETTINGS_ENABLE_SUGGESTED_CONTENT_TITLE},
@@ -335,8 +332,8 @@ void PrivacySection::AddLoadTimeData(content::WebUIDataSource* html_source) {
       "smartPrivacyDesc",
       ui::SubstituteChromeOSDeviceType(IDS_OS_SETTINGS_SMART_PRIVACY_DESC));
 
-  // TODO(1294649): update this to the real link.
-  html_source->AddString("smartPrivacyLearnMoreLink", "about:blank");
+  html_source->AddString("smartPrivacyLearnMoreURL",
+                         chrome::kSmartPrivacySettingsLearnMoreURL);
 
   html_source->AddString("suggestedContentLearnMoreURL",
                          chrome::kSuggestedContentLearnMoreURL);

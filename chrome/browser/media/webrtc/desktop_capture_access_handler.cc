@@ -51,6 +51,7 @@
 #include "services/network/public/cpp/is_potentially_trustworthy.h"
 #include "third_party/blink/public/common/mediastream/media_stream_request.h"
 #include "third_party/blink/public/mojom/mediastream/media_stream.mojom-shared.h"
+#include "third_party/blink/public/mojom/mediastream/media_stream.mojom.h"
 #include "third_party/webrtc/modules/desktop_capture/desktop_capture_types.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "url/origin.h"
@@ -254,7 +255,7 @@ void DesktopCaptureAccessHandler::ProcessScreenCaptureAccessRequest(
 
   if (!screen_capture_enabled || !origin_is_secure) {
     std::move(pending_request->callback)
-        .Run(blink::MediaStreamDevices(),
+        .Run(blink::mojom::StreamDevices(),
              blink::mojom::MediaStreamRequestResult::INVALID_STATE,
              /*ui=*/nullptr);
     return;
@@ -263,7 +264,7 @@ void DesktopCaptureAccessHandler::ProcessScreenCaptureAccessRequest(
   if (!IsRequestApproved(web_contents, pending_request->request, extension,
                          pending_request->is_allowlisted_extension)) {
     std::move(pending_request->callback)
-        .Run(blink::MediaStreamDevices(),
+        .Run(blink::mojom::StreamDevices(),
              blink::mojom::MediaStreamRequestResult::PERMISSION_DENIED,
              /*ui=*/nullptr);
     return;
@@ -274,7 +275,7 @@ void DesktopCaptureAccessHandler::ProcessScreenCaptureAccessRequest(
               pending_request->request.render_process_id,
               pending_request->request.render_frame_id))) {
     std::move(pending_request->callback)
-        .Run(blink::MediaStreamDevices(),
+        .Run(blink::mojom::StreamDevices(),
              blink::mojom::MediaStreamRequestResult::INVALID_STATE,
              /*ui=*/nullptr);
     return;
@@ -352,7 +353,7 @@ void DesktopCaptureAccessHandler::HandleRequest(
   if (request.video_type !=
       blink::mojom::MediaStreamType::GUM_DESKTOP_VIDEO_CAPTURE) {
     std::move(pending_request->callback)
-        .Run(blink::MediaStreamDevices(),
+        .Run(blink::mojom::StreamDevices(),
              blink::mojom::MediaStreamRequestResult::INVALID_STATE,
              /*ui=*/nullptr);
     return;
@@ -364,7 +365,7 @@ void DesktopCaptureAccessHandler::HandleRequest(
 
   if (allowed_capture_level == AllowedScreenCaptureLevel::kDisallowed) {
     std::move(pending_request->callback)
-        .Run(blink::MediaStreamDevices(),
+        .Run(blink::mojom::StreamDevices(),
              blink::mojom::MediaStreamRequestResult::PERMISSION_DENIED,
              /*ui=*/nullptr);
     return;
@@ -380,7 +381,7 @@ void DesktopCaptureAccessHandler::HandleRequest(
   if (request.requested_video_device_id.empty()) {
     if (allowed_capture_level < AllowedScreenCaptureLevel::kDesktop) {
       std::move(pending_request->callback)
-          .Run(blink::MediaStreamDevices(),
+          .Run(blink::mojom::StreamDevices(),
                blink::mojom::MediaStreamRequestResult::PERMISSION_DENIED,
                /*ui=*/nullptr);
       return;
@@ -389,7 +390,7 @@ void DesktopCaptureAccessHandler::HandleRequest(
     if (system_media_permissions::CheckSystemScreenCapturePermission() !=
         system_media_permissions::SystemPermission::kAllowed) {
       std::move(pending_request->callback)
-          .Run(blink::MediaStreamDevices(),
+          .Run(blink::mojom::StreamDevices(),
                blink::mojom::MediaStreamRequestResult::SYSTEM_PERMISSION_DENIED,
                /*ui=*/nullptr);
       return;
@@ -425,7 +426,7 @@ void DesktopCaptureAccessHandler::HandleRequest(
   // Received invalid device id.
   if (media_id.type == content::DesktopMediaID::TYPE_NONE) {
     std::move(pending_request->callback)
-        .Run(blink::MediaStreamDevices(),
+        .Run(blink::mojom::StreamDevices(),
              blink::mojom::MediaStreamRequestResult::INVALID_STATE,
              /*ui=*/nullptr);
     return;
@@ -433,7 +434,7 @@ void DesktopCaptureAccessHandler::HandleRequest(
 
   if (!IsMediaTypeAllowed(allowed_capture_level, media_id.type)) {
     std::move(pending_request->callback)
-        .Run(blink::MediaStreamDevices(),
+        .Run(blink::mojom::StreamDevices(),
              blink::mojom::MediaStreamRequestResult::PERMISSION_DENIED,
              /*ui=*/nullptr);
     return;
@@ -443,7 +444,7 @@ void DesktopCaptureAccessHandler::HandleRequest(
       system_media_permissions::CheckSystemScreenCapturePermission() !=
           system_media_permissions::SystemPermission::kAllowed) {
     std::move(pending_request->callback)
-        .Run(blink::MediaStreamDevices(),
+        .Run(blink::mojom::StreamDevices(),
              blink::mojom::MediaStreamRequestResult::SYSTEM_PERMISSION_DENIED,
              /*ui=*/nullptr);
     return;
@@ -456,7 +457,7 @@ void DesktopCaptureAccessHandler::HandleRequest(
               media_id.web_contents_id.render_process_id,
               media_id.web_contents_id.main_render_frame_id))) {
     std::move(pending_request->callback)
-        .Run(blink::MediaStreamDevices(),
+        .Run(blink::mojom::StreamDevices(),
              blink::mojom::MediaStreamRequestResult::TAB_CAPTURE_FAILURE,
              /*ui=*/nullptr);
     return;
@@ -491,7 +492,7 @@ void DesktopCaptureAccessHandler::ProcessChangeSourceRequest(
     pending_request->picker = picker_factory_->CreatePicker();
     if (!pending_request->picker) {
       std::move(pending_request->callback)
-          .Run(blink::MediaStreamDevices(),
+          .Run(blink::mojom::StreamDevices(),
                blink::mojom::MediaStreamRequestResult::INVALID_STATE,
                /*ui=*/nullptr);
       return;
@@ -616,7 +617,7 @@ void DesktopCaptureAccessHandler::OnPickerDialogResults(
 
   if (media_id.is_null()) {
     std::move(pending_request->callback)
-        .Run(blink::MediaStreamDevices(),
+        .Run(blink::mojom::StreamDevices(),
              blink::mojom::MediaStreamRequestResult::PERMISSION_DENIED,
              /*ui=*/nullptr);
   } else {
@@ -672,13 +673,13 @@ void DesktopCaptureAccessHandler::AcceptRequest(
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   DCHECK(web_contents);
 
-  blink::MediaStreamDevices devices;
+  blink::mojom::StreamDevices devices;
   std::unique_ptr<content::MediaStreamUI> ui = GetDevicesForDesktopCapture(
       pending_request->request, web_contents, media_id, capture_audio,
       pending_request->request.disable_local_echo,
       pending_request->should_display_notification,
-      pending_request->application_title, &devices);
-  DCHECK(!devices.empty());
+      pending_request->application_title, devices);
+  DCHECK(devices.audio_device.has_value() || devices.video_device.has_value());
 
   UpdateExtensionTrusted(pending_request->request,
                          pending_request->is_allowlisted_extension);
@@ -704,7 +705,7 @@ void DesktopCaptureAccessHandler::OnDlpRestrictionChecked(
 
   if (!is_dlp_allowed) {
     std::move(pending_request->callback)
-        .Run(blink::MediaStreamDevices(),
+        .Run(blink::mojom::StreamDevices(),
              blink::mojom::MediaStreamRequestResult::PERMISSION_DENIED,
              /*ui=*/nullptr);
     return;

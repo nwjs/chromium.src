@@ -33,7 +33,6 @@
 #include "components/payments/core/payments_validators.h"
 #include "components/payments/core/url_util.h"
 #include "components/prefs/pref_service.h"
-#include "components/ukm/content/source_url_recorder.h"
 #include "components/url_formatter/elide_url.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_handle.h"
@@ -89,7 +88,7 @@ PaymentRequest::PaymentRequest(
       spc_transaction_mode_(spc_transaction_mode),
       observer_for_testing_(observer_for_testing),
       journey_logger_(delegate_->IsOffTheRecord(),
-                      ukm::GetSourceIdForWebContentsDocument(web_contents())) {
+                      render_frame_host->GetPageUkmSourceId()) {
   payment_handler_host_ = std::make_unique<PaymentHandlerHost>(
       web_contents(), weak_ptr_factory_.GetWeakPtr());
 }
@@ -118,7 +117,7 @@ void PaymentRequest::Init(
 
   if (is_initialized_) {
     log_.Error(errors::kAttemptedInitializationTwice);
-    delete this;
+    ResetAndDeleteThis();
     return;
   }
 
@@ -130,7 +129,7 @@ void PaymentRequest::Init(
   const GURL last_committed_url = delegate_->GetLastCommittedURL();
   if (!network::IsUrlPotentiallyTrustworthy(last_committed_url)) {
     log_.Error(errors::kNotInASecureOrigin);
-    delete this;
+    ResetAndDeleteThis();
     return;
   }
 
@@ -156,13 +155,13 @@ void PaymentRequest::Init(
     client_->OnError(
         mojom::PaymentErrorReason::NOT_SUPPORTED_FOR_INVALID_ORIGIN_OR_SSL,
         reject_show_error_message_);
-    delete this;
+    ResetAndDeleteThis();
     return;
   }
 
   if (method_data.empty()) {
     log_.Error(errors::kMethodDataRequired);
-    delete this;
+    ResetAndDeleteThis();
     return;
   }
 
@@ -171,26 +170,26 @@ void PaymentRequest::Init(
                     return !datum || datum->supported_method.empty();
                   })) {
     log_.Error(errors::kMethodNameRequired);
-    delete this;
+    ResetAndDeleteThis();
     return;
   }
 
   if (!details || !details->id || !details->total) {
     log_.Error(errors::kInvalidPaymentDetails);
-    delete this;
+    ResetAndDeleteThis();
     return;
   }
 
   if (!options) {
     log_.Error(errors::kInvalidPaymentOptions);
-    delete this;
+    ResetAndDeleteThis();
     return;
   }
 
   std::string error;
   if (!ValidatePaymentDetails(ConvertPaymentDetails(details), &error)) {
     log_.Error(error);
-    delete this;
+    ResetAndDeleteThis();
     return;
   }
 
@@ -277,16 +276,16 @@ void PaymentRequest::Init(
   }
 }
 
-void PaymentRequest::Show(bool is_user_gesture, bool wait_for_updated_details) {
+void PaymentRequest::Show(bool wait_for_updated_details) {
   if (!IsInitialized()) {
     log_.Error(errors::kCannotShowWithoutInit);
-    delete this;
+    ResetAndDeleteThis();
     return;
   }
 
   if (is_show_called_) {
     log_.Error(errors::kCannotShowTwice);
-    delete this;
+    ResetAndDeleteThis();
     return;
   }
 
@@ -307,7 +306,7 @@ void PaymentRequest::Show(bool is_user_gesture, bool wait_for_updated_details) {
         JourneyLogger::NOT_SHOWN_REASON_CONCURRENT_REQUESTS);
     client_->OnError(mojom::PaymentErrorReason::ALREADY_SHOWING,
                      errors::kAnotherUiShowing);
-    delete this;
+    ResetAndDeleteThis();
     return;
   }
 
@@ -319,12 +318,10 @@ void PaymentRequest::Show(bool is_user_gesture, bool wait_for_updated_details) {
     journey_logger_.SetNotShown(JourneyLogger::NOT_SHOWN_REASON_OTHER);
     client_->OnError(mojom::PaymentErrorReason::USER_CANCEL,
                      errors::kCannotShowInBackgroundTab);
-    delete this;
+    ResetAndDeleteThis();
     return;
   }
 #endif
-
-  is_show_user_gesture_ = is_user_gesture;
 
   if (wait_for_updated_details) {
     // Put |spec_| into uninitialized state, so the UI knows to show a spinner.
@@ -345,7 +342,6 @@ void PaymentRequest::Show(bool is_user_gesture, bool wait_for_updated_details) {
   if (!spec_->IsAppStoreBillingAlsoRequested())
     display_handle_->Show(weak_ptr_factory_.GetWeakPtr());
 
-  state_->set_is_show_user_gesture(is_show_user_gesture_);
   state_->AreRequestedMethodsSupported(
       base::BindOnce(&PaymentRequest::AreRequestedMethodsSupportedCallback,
                      weak_ptr_factory_.GetWeakPtr()));
@@ -354,13 +350,13 @@ void PaymentRequest::Show(bool is_user_gesture, bool wait_for_updated_details) {
 void PaymentRequest::Retry(mojom::PaymentValidationErrorsPtr errors) {
   if (!IsInitialized()) {
     log_.Error(errors::kCannotRetryWithoutInit);
-    delete this;
+    ResetAndDeleteThis();
     return;
   }
 
   if (!IsThisPaymentRequestShowing()) {
     log_.Error(errors::kCannotRetryWithoutShow);
-    delete this;
+    ResetAndDeleteThis();
     return;
   }
 
@@ -369,7 +365,7 @@ void PaymentRequest::Retry(mojom::PaymentValidationErrorsPtr errors) {
                                                                 &error)) {
     log_.Error(error);
     client_->OnError(mojom::PaymentErrorReason::USER_CANCEL, error);
-    delete this;
+    ResetAndDeleteThis();
     return;
   }
 
@@ -384,27 +380,27 @@ void PaymentRequest::Retry(mojom::PaymentValidationErrorsPtr errors) {
 void PaymentRequest::UpdateWith(mojom::PaymentDetailsPtr details) {
   if (!IsInitialized()) {
     log_.Error(errors::kCannotUpdateWithoutInit);
-    delete this;
+    ResetAndDeleteThis();
     return;
   }
 
   if (!IsThisPaymentRequestShowing()) {
     log_.Error(errors::kCannotUpdateWithoutShow);
-    delete this;
+    ResetAndDeleteThis();
     return;
   }
 
   // ID cannot be updated. Updating the total is optional.
   if (!details || details->id) {
     log_.Error(errors::kInvalidPaymentDetails);
-    delete this;
+    ResetAndDeleteThis();
     return;
   }
 
   std::string error;
   if (!ValidatePaymentDetails(ConvertPaymentDetails(details), &error)) {
     log_.Error(error);
-    delete this;
+    ResetAndDeleteThis();
     return;
   }
 
@@ -412,7 +408,7 @@ void PaymentRequest::UpdateWith(mojom::PaymentDetailsPtr details) {
       !PaymentsValidators::IsValidAddressErrorsFormat(
           details->shipping_address_errors, &error)) {
     log_.Error(error);
-    delete this;
+    ResetAndDeleteThis();
     return;
   }
 
@@ -456,13 +452,13 @@ void PaymentRequest::OnPaymentDetailsNotUpdated() {
   // be more verbose.
   if (!IsInitialized()) {
     log_.Error(errors::kNotInitialized);
-    delete this;
+    ResetAndDeleteThis();
     return;
   }
 
   if (!IsThisPaymentRequestShowing()) {
     log_.Error(errors::kNotShown);
-    delete this;
+    ResetAndDeleteThis();
     return;
   }
 
@@ -477,13 +473,13 @@ void PaymentRequest::OnPaymentDetailsNotUpdated() {
 void PaymentRequest::Abort() {
   if (!IsInitialized()) {
     log_.Error(errors::kCannotAbortWithoutInit);
-    delete this;
+    ResetAndDeleteThis();
     return;
   }
 
   if (!IsThisPaymentRequestShowing()) {
     log_.Error(errors::kCannotAbortWithoutShow);
-    delete this;
+    ResetAndDeleteThis();
     return;
   }
 
@@ -509,13 +505,13 @@ void PaymentRequest::Abort() {
 void PaymentRequest::Complete(mojom::PaymentComplete result) {
   if (!IsInitialized()) {
     log_.Error(errors::kCannotCompleteWithoutInit);
-    delete this;
+    ResetAndDeleteThis();
     return;
   }
 
   if (!IsThisPaymentRequestShowing()) {
     log_.Error(errors::kCannotAbortWithoutShow);
-    delete this;
+    ResetAndDeleteThis();
     return;
   }
 
@@ -547,7 +543,7 @@ void PaymentRequest::Complete(mojom::PaymentComplete result) {
 void PaymentRequest::CanMakePayment() {
   if (!IsInitialized()) {
     log_.Error(errors::kCannotCallCanMakePaymentWithoutInit);
-    delete this;
+    ResetAndDeleteThis();
     return;
   }
 
@@ -568,7 +564,7 @@ void PaymentRequest::CanMakePayment() {
 void PaymentRequest::HasEnrolledInstrument() {
   if (!IsInitialized()) {
     log_.Error(errors::kCannotCallHasEnrolledInstrumentWithoutInit);
-    delete this;
+    ResetAndDeleteThis();
     return;
   }
 
@@ -689,7 +685,7 @@ void PaymentRequest::AreRequestedMethodsSupportedCallback(
                          (error_message.empty() ? "" : " " + error_message));
     if (observer_for_testing_)
       observer_for_testing_->OnNotSupportedError();
-    delete this;
+    ResetAndDeleteThis();
   }
 }
 
@@ -751,8 +747,7 @@ bool PaymentRequest::SatisfiesSkipUIConstraints() {
        delegate_->SkipUiForBasicCard()) &&
       base::FeatureList::IsEnabled(features::kWebPaymentsSingleAppUiSkip) &&
       base::FeatureList::IsEnabled(::features::kServiceWorkerPaymentApps) &&
-      is_show_user_gesture_ && state()->IsInitialized() &&
-      spec()->IsInitialized() &&
+      state()->IsInitialized() && spec()->IsInitialized() &&
       OnlySingleAppCanProvideAllRequiredInformation() &&
       // The available app should be preselectable.
       state()->selected_app() != nullptr;
@@ -823,7 +818,8 @@ void PaymentRequest::OnUserCancelled() {
           ? errors::kWebAuthnOperationTimedOutOrNotAllowed
           : (!reject_show_error_message_.empty() ? reject_show_error_message_
                                                  : errors::kUserCancelled));
-  delete this;
+
+  ResetAndDeleteThis();
 }
 
 void PaymentRequest::ReadyToCommitNavigation(

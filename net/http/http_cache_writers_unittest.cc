@@ -12,6 +12,7 @@
 
 #include "base/bind.h"
 #include "base/run_loop.h"
+#include "crypto/secure_hash.h"
 #include "net/http/http_cache.h"
 #include "net/http/http_cache_transaction.h"
 #include "net/http/http_response_info.h"
@@ -54,8 +55,7 @@ class TestHttpCache : public HttpCache {
  public:
   TestHttpCache(std::unique_ptr<HttpTransactionFactory> network_layer,
                 std::unique_ptr<BackendFactory> backend_factory)
-      : HttpCache(std::move(network_layer), std::move(backend_factory), false) {
-  }
+      : HttpCache(std::move(network_layer), std::move(backend_factory)) {}
 
   void WritersDoneWritingToEntry(ActiveEntry* entry,
                                  bool success,
@@ -143,7 +143,7 @@ class WritersTest : public TestWithTaskEnvironment {
     writers_->AddTransaction(transaction.get(), parallel_writing_pattern_,
                              transaction->priority(), info);
     writers_->SetNetworkTransaction(transaction.get(),
-                                    std::move(network_transaction));
+                                    std::move(network_transaction), nullptr);
     EXPECT_TRUE(writers_->HasTransaction(transaction.get()));
     transactions_.push_back(std::move(transaction));
   }

@@ -44,6 +44,12 @@ enum class BooleanSegmentSwitch {
   kMaxValue = kEnabledToNone,
 };
 
+// Returns an UMA display string for the given segment_id.
+std::string OptimizationTargetToHistogramVariant(OptimizationTarget segment_id);
+
+// Returns an UMA display string for the given `segmentation_key`.
+const char* SegmentationKeyToUmaName(const std::string& segmentation_key);
+
 // Records the score computed for a given segment.
 void RecordModelScore(OptimizationTarget segment_id, float score);
 
@@ -198,7 +204,10 @@ enum class TrainingDataCollectionEvent {
   kGetInputTensorsFailed = 4,
   kNotEnoughCollectionTime = 5,
   kUkmReportingFailed = 6,
-  kMaxValue = kUkmReportingFailed,
+  kPartialDataNotAllowed = 7,
+  kContinousCollectionStart = 8,
+  kContinousCollectionSuccess = 9,
+  kMaxValue = kContinousCollectionSuccess,
 };
 
 // Records analytics for training data collection.
