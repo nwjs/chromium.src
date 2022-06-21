@@ -990,7 +990,7 @@ void NativeWidgetNSWindowBridge::OnPositionChanged() {
 }
 
 void NativeWidgetNSWindowBridge::OnWindowWillStartLiveResize() {
-  if (!NSWindowIsMaximized(window_) && !in_fullscreen_transition_) {
+  if (!NSWindowIsMaximized(window_) && !fullscreen_controller_.IsInFullscreenTransition()) {
     bounds_before_maximize_ = [window_ frame];
   }
 }
