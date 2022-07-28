@@ -399,7 +399,7 @@ v8::Local<v8::Promise> APIRequestHandler::StartRequest(
     v8::Local<v8::Function> custom_callback,
     bool sync,
     bool* success,
-    base::ListValue* response,
+    base::Value::List* response,
     std::string* error) {
   v8::Isolate* isolate = context->GetIsolate();
 

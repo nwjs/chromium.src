@@ -816,7 +816,7 @@ bool CanHandleToggleAppList(
     // toggle the AppList in that case. Check for VKEY_SHIFT because this is
     // used to show fullscreen app list.
     if (key != ui::VKEY_LWIN && key != ui::VKEY_SHIFT &&
-        key != ui::VKEY_BROWSER_SEARCH) {
+        key != ui::VKEY_BROWSER_SEARCH && key != ui::VKEY_ALL_APPLICATIONS) {
       return false;
     }
   }
@@ -1164,10 +1164,6 @@ void HandleToggleCapsLock() {
   base::RecordAction(UserMetricsAction("Accel_Toggle_Caps_Lock"));
   ImeControllerImpl* ime_controller = Shell::Get()->ime_controller();
   ime_controller->SetCapsLockEnabled(!ime_controller->IsCapsLockEnabled());
-}
-
-bool CanHandleToggleClipboardHistory() {
-  return chromeos::features::IsClipboardHistoryEnabled();
 }
 
 void HandleToggleClipboardHistory() {
@@ -1963,7 +1959,7 @@ bool AcceleratorControllerImpl::CanPerformAction(
           accelerator, previous_accelerator,
           accelerator_history_->currently_pressed_keys());
     case TOGGLE_CLIPBOARD_HISTORY:
-      return CanHandleToggleClipboardHistory();
+      return true;
     case TOGGLE_DICTATION:
       return CanHandleToggleDictation();
     case TOGGLE_DOCKED_MAGNIFIER:

@@ -567,9 +567,8 @@ void PrintPreviewHandler::ReadPrinterTypeDenyListFromPrefs() {
     return;
 
   std::vector<mojom::PrinterType> deny_list;
-  deny_list.reserve(deny_list_from_prefs->GetListDeprecated().size());
-  for (const base::Value& deny_list_value :
-       deny_list_from_prefs->GetListDeprecated()) {
+  deny_list.reserve(deny_list_from_prefs->GetList().size());
+  for (const base::Value& deny_list_value : deny_list_from_prefs->GetList()) {
     const std::string& deny_list_str = deny_list_value.GetString();
     mojom::PrinterType printer_type;
     if (deny_list_str == "extension")
@@ -593,7 +592,7 @@ void PrintPreviewHandler::OnPrinterTypeDenyListReady(
 }
 
 PrintPreviewUI* PrintPreviewHandler::print_preview_ui() {
-  return static_cast<PrintPreviewUI*>(web_ui()->GetController());
+  return web_ui()->GetController()->GetAs<PrintPreviewUI>();
 }
 
 bool PrintPreviewHandler::ShouldReceiveRendererMessage(int request_id) {
@@ -629,7 +628,7 @@ std::string PrintPreviewHandler::GetCallbackId(int request_id) {
 
 void PrintPreviewHandler::HandleGetPrinters(const base::Value::List& args) {
   CHECK_GE(args.size(), 2u);
-  std::string callback_id = args[0].GetString();
+  const std::string& callback_id = args[0].GetString();
   CHECK(!callback_id.empty());
   int type = args[1].GetInt();
   mojom::PrinterType printer_type = static_cast<mojom::PrinterType>(type);
@@ -664,7 +663,7 @@ void PrintPreviewHandler::HandleGetPrinterCapabilities(
     return;
   }
   // If we got here, we know that we have at least one string element.
-  std::string callback_id = args[0].GetString();
+  const std::string& callback_id = args[0].GetString();
   if (args.size() < 3) {
     RejectJavascriptCallback(base::Value(callback_id), base::Value());
     return;
@@ -697,14 +696,12 @@ void PrintPreviewHandler::HandleGetPrinterCapabilities(
 
 void PrintPreviewHandler::HandleGetPreview(const base::Value::List& args) {
   DCHECK_EQ(2U, args.size());
-  std::string callback_id;
-  std::string json_str;
 
   // All of the conditions below should be guaranteed by the print preview
   // javascript.
-  callback_id = args[0].GetString();
+  const std::string& callback_id = args[0].GetString();
   CHECK(!callback_id.empty());
-  json_str = args[1].GetString();
+  const std::string& json_str = args[1].GetString();
   base::Value::Dict settings = GetSettingsDictionary(json_str);
   int request_id = settings.FindInt(kPreviewRequestID).value();
   CHECK_GT(request_id, -1);
@@ -802,7 +799,7 @@ void PrintPreviewHandler::HandlePrint(const base::Value::List& args) {
   ReportRegeneratePreviewRequestCountBeforePrint(
       regenerate_preview_request_count_);
   CHECK(args[0].is_string());
-  std::string callback_id = args[0].GetString();
+  const std::string& callback_id = args[0].GetString();
   CHECK(!callback_id.empty());
   CHECK(args[1].is_string());
   std::string json_str = args[1].GetString();
@@ -948,7 +945,7 @@ void PrintPreviewHandler::GetLocaleInformation(base::Value* settings) {
 void PrintPreviewHandler::HandleGetInitialSettings(
     const base::Value::List& args) {
   CHECK(args[0].is_string());
-  std::string callback_id = args[0].GetString();
+  const std::string& callback_id = args[0].GetString();
   CHECK(!callback_id.empty());
 
   AllowJavascript();
@@ -1072,13 +1069,12 @@ void PrintPreviewHandler::ClosePreviewDialog() {
 
 void PrintPreviewHandler::SendPrinterCapabilities(
     const std::string& callback_id,
-    base::Value settings_info) {
+    base::Value::Dict settings_info) {
   // Check that |settings_info| is valid.
-  if (settings_info.is_dict() &&
-      settings_info.FindKeyOfType(kSettingCapabilities,
-                                  base::Value::Type::DICTIONARY)) {
+  if (settings_info.FindDict(kSettingCapabilities)) {
     VLOG(1) << "Get printer capabilities finished";
-    ResolveJavascriptCallback(base::Value(callback_id), settings_info);
+    ResolveJavascriptCallback(base::Value(callback_id),
+                              base::Value(std::move(settings_info)));
     return;
   }
 
@@ -1242,16 +1238,19 @@ PdfPrinterHandler* PrintPreviewHandler::GetPdfPrinterHandler() {
 }
 
 void PrintPreviewHandler::OnAddedPrinters(mojom::PrinterType printer_type,
-                                          const base::ListValue& printers) {
+                                          base::Value::List printers) {
   DCHECK(printer_type == mojom::PrinterType::kExtension ||
          printer_type == mojom::PrinterType::kLocal);
-  DCHECK(!printers.GetListDeprecated().empty());
+  // Save the count here, as `printers` gets moved below.
+  const size_t printer_count = printers.size();
+  DCHECK(printer_count);
   FireWebUIListener("printers-added",
-                    base::Value(static_cast<int>(printer_type)), printers);
+                    base::Value(static_cast<int>(printer_type)),
+                    base::Value(std::move(printers)));
 
   if (printer_type == mojom::PrinterType::kLocal &&
       !has_logged_printers_count_) {
-    ReportNumberOfPrinters(printers.GetListDeprecated().size());
+    ReportNumberOfPrinters(printer_count);
     has_logged_printers_count_ = true;
   }
 }
@@ -1280,7 +1279,7 @@ void PrintPreviewHandler::OnPrintResult(const std::string& callback_id,
 
 void PrintPreviewHandler::BadMessageReceived() {
   bad_message::ReceivedBadMessage(
-      GetInitiator()->GetMainFrame()->GetProcess(),
+      GetInitiator()->GetPrimaryMainFrame()->GetProcess(),
       bad_message::BadMessageReason::PPH_EXTRA_PREVIEW_MESSAGE);
 }
 

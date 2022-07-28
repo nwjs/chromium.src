@@ -77,10 +77,9 @@
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_registry.h"
 #include "url/origin.h"
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-#include "extensions/browser/api/vpn_provider/vpn_service.h"
-#include "extensions/browser/api/vpn_provider/vpn_service_factory.h"
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
+#include "chrome/browser/chromeos/extensions/vpn_provider/vpn_service_factory.h"
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 using blink::web_pref::WebPreferences;
 using content::BrowserContext;
@@ -224,12 +223,10 @@ size_t GetExtensionBackgroundProcessCount() {
 }  // namespace
 
 ChromeContentBrowserClientExtensionsPart::
-    ChromeContentBrowserClientExtensionsPart() {
-}
+    ChromeContentBrowserClientExtensionsPart() = default;
 
 ChromeContentBrowserClientExtensionsPart::
-    ~ChromeContentBrowserClientExtensionsPart() {
-}
+    ~ChromeContentBrowserClientExtensionsPart() = default;
 
 // static
 GURL ChromeContentBrowserClientExtensionsPart::GetEffectiveURL(
@@ -360,7 +357,8 @@ bool ChromeContentBrowserClientExtensionsPart::DoesSiteRequireDedicatedProcess(
 
 // static
 bool ChromeContentBrowserClientExtensionsPart::CanCommitURL(
-    content::RenderProcessHost* process_host, const GURL& url) {
+    content::RenderProcessHost* process_host,
+    const GURL& url) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   // Enforce that extension URLs commit in the correct extension process where
@@ -589,8 +587,8 @@ std::vector<url::Origin> ChromeContentBrowserClientExtensionsPart::
 std::unique_ptr<content::VpnServiceProxy>
 ChromeContentBrowserClientExtensionsPart::GetVpnServiceProxy(
     content::BrowserContext* browser_context) {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-  chromeos::VpnService* vpn_service =
+#if BUILDFLAG(IS_CHROMEOS)
+  chromeos::VpnServiceInterface* vpn_service =
       chromeos::VpnServiceFactory::GetForBrowserContext(browser_context);
   if (!vpn_service)
     return nullptr;
@@ -699,7 +697,7 @@ bool ChromeContentBrowserClientExtensionsPart::
   // webview tags as well as hosts that happen to match the id of an
   // installed extension would get the wrong preferences.
   const GURL& site_url =
-      web_contents->GetMainFrame()->GetSiteInstance()->GetSiteURL();
+      web_contents->GetPrimaryMainFrame()->GetSiteInstance()->GetSiteURL();
   if (!site_url.SchemeIs(kExtensionScheme))
     return false;
 

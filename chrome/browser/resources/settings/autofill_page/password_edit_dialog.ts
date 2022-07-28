@@ -13,10 +13,10 @@ import 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.m.js';
 import 'chrome://resources/cr_elements/cr_input/cr_input.m.js';
 import 'chrome://resources/cr_elements/cr_icons_css.m.js';
 import 'chrome://resources/cr_elements/shared_vars_css.m.js';
-import '../icons.js';
+import '../icons.html.js';
 import '../settings_shared_css.js';
-import '../settings_vars_css.js';
-import './passwords_shared_css.js';
+import '../settings_vars.css.js';
+import './passwords_shared.css.js';
 
 import {CrButtonElement} from 'chrome://resources/cr_elements/cr_button/cr_button.m.js';
 import {CrDialogElement} from 'chrome://resources/cr_elements/cr_dialog/cr_dialog.m.js';
@@ -268,13 +268,20 @@ export class PasswordEditDialogElement extends PasswordEditDialogElementBase {
             'usernameInputInvalid_, password_, noteInvalid_, ' +
             'isPasswordNotesEnabled_)',
       },
-      /**
-       * Whether the flag notes feature for passwords is enabled.
-       */
+
+      /* If true, note field will be shown and used when saving the password. */
       isPasswordNotesEnabled_: {
         type: Boolean,
         value() {
           return loadTimeData.getBoolean('enablePasswordNotes');
+        }
+      },
+
+      /* If true, change event will be dispatched. */
+      isPasswordViewPageEnabled_: {
+        type: Boolean,
+        value() {
+          return loadTimeData.getBoolean('enablePasswordViewPage');
         }
       },
     };
@@ -305,6 +312,7 @@ export class PasswordEditDialogElement extends PasswordEditDialogElementBase {
   private password_: string;
   private isSaveButtonDisabled_: boolean;
   private isPasswordNotesEnabled_: boolean;
+  private isPasswordViewPageEnabled_: boolean;
 
   override connectedCallback() {
     super.connectedCallback();
@@ -382,11 +390,13 @@ export class PasswordEditDialogElement extends PasswordEditDialogElementBase {
   private shouldShowNote_(): boolean {
     return this.isPasswordNotesEnabled_ &&
         (this.dialogMode === PasswordDialogMode.PASSWORD_VIEW ||
-         this.dialogMode === PasswordDialogMode.EDIT);
+         this.dialogMode === PasswordDialogMode.EDIT ||
+         this.dialogMode === PasswordDialogMode.ADD);
   }
 
   private isNoteLongerThanOrEqualTo_(characterCount: number): boolean {
-    return this.dialogMode === PasswordDialogMode.EDIT &&
+    return (this.dialogMode === PasswordDialogMode.EDIT ||
+            this.dialogMode === PasswordDialogMode.ADD) &&
         this.note_.length >= characterCount;
   }
 
@@ -548,6 +558,7 @@ export class PasswordEditDialogElement extends PasswordEditDialogElementBase {
           url: this.$.websiteInput.value,
           username: this.username_,
           password: this.password_,
+          note: this.note_,
           useAccountStore: useAccountStore
         })
         .finally(() => {
@@ -576,7 +587,7 @@ export class PasswordEditDialogElement extends PasswordEditDialogElementBase {
     PasswordManagerImpl.getInstance()
         .changeSavedPassword(idsToChange, params)
         .finally(() => {
-          if (this.isPasswordNotesEnabled_) {
+          if (this.isPasswordViewPageEnabled_) {
             this.dispatchChangePasswordEvent_(params);
           }
           this.close();

@@ -4,6 +4,7 @@
 
 #include "extensions/renderer/api/automation/automation_ax_tree_wrapper.h"
 
+#include "automation_ax_tree_wrapper.h"
 #include "base/containers/contains.h"
 #include "base/containers/cxx20_erase.h"
 #include "base/no_destructor.h"
@@ -323,8 +324,11 @@ void AutomationAXTreeWrapper::EventListenerRemoved(
     api::automation::EventType event_type,
     ui::AXNode* node) {
   auto it = node_id_to_events_.find(node->id());
-  if (it != node_id_to_events_.end())
+  if (it != node_id_to_events_.end()) {
     it->second.erase(event_type);
+    if (it->second.empty())
+      node_id_to_events_.erase(it);
+  }
 }
 
 bool AutomationAXTreeWrapper::HasEventListener(
@@ -335,6 +339,10 @@ bool AutomationAXTreeWrapper::HasEventListener(
     return false;
 
   return it->second.count(event_type);
+}
+
+size_t AutomationAXTreeWrapper::EventListenerCount() const {
+  return node_id_to_events_.size();
 }
 
 // static
@@ -579,7 +587,13 @@ ui::AXNode* AutomationAXTreeWrapper::GetRootAsAXNode() const {
 ui::AXNode* AutomationAXTreeWrapper::GetParentNodeFromParentTreeAsAXNode()
     const {
   AutomationAXTreeWrapper* wrapper = const_cast<AutomationAXTreeWrapper*>(this);
-  return owner_->GetParent(tree_.root(), &wrapper);
+  return owner_->GetParent(tree_.root(), &wrapper,
+                           /* should_use_app_id = */ true,
+                           /* requires_unignored = */ false);
+}
+
+std::string AutomationAXTreeWrapper::ToString() const {
+  return "<AutomationAXTreeWrapper>";
 }
 
 }  // namespace extensions

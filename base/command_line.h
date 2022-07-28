@@ -271,7 +271,7 @@ class BASE_EXPORT CommandLine {
   SwitchMap switches_;
 
   // The index after the program and switches, any arguments start here.
-  size_t begin_args_;
+  ptrdiff_t begin_args_;
 
   int argc0_;
   char** argv0_;

@@ -423,6 +423,24 @@ TEST_F(DeferredShapingTest, UnlockOnSwithcingToBfcByChildPositionChange) {
   EXPECT_FALSE(IsLocked("target"));
 }
 
+// crbug.com/1335731
+TEST_F(DeferredShapingTest, KeepDeferredAfterTextChange) {
+  SetBodyInnerHTML(R"HTML(<div style="height:1800px"></div>
+<p id="target">ifc<p>)HTML");
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_TRUE(IsDefer("target"));
+  EXPECT_TRUE(IsLocked("target"));
+
+  auto* target = GetElementById("target");
+  target->appendChild(GetDocument().createTextNode("ifc2 "));
+  target->appendChild(GetDocument().createTextNode("ifc3 "));
+  UpdateAllLifecyclePhasesForTest();
+  target->normalize();
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_TRUE(IsDefer("target"));
+  EXPECT_TRUE(IsLocked("target"));
+}
+
 TEST_F(DeferredShapingTest, ScrollIntoView) {
   SetBodyInnerHTML(R"HTML(<div style="height:1800px"></div>
 <div><p id="prior">IFC</p></div>
@@ -478,6 +496,42 @@ TEST_F(DeferredShapingTest, ElementGeometryContainingDeferred) {
   EXPECT_EQ(reference.height(), target.height());
   EXPECT_FALSE(IsDefer("target-child"));
   EXPECT_FALSE(IsLocked("target-child"));
+}
+
+TEST_F(DeferredShapingTest, ElementGeometryMinimumUnlock) {
+  SetBodyInnerHTML(R"HTML(<div style="height:1800px"></div>
+<p id="previous">Previous IFC</p>
+<p id="ancestor">IFC
+<span id="inline_target">inline</span>
+</p>
+<div id="block_target"><p id="inner">IFC</p></div>
+<div id="abs_block" style="position:absolute; right:10px; bottom:42px"></div>
+)HTML");
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_TRUE(IsDefer("previous"));
+  EXPECT_TRUE(IsLocked("previous"));
+  EXPECT_TRUE(IsDefer("ancestor"));
+  EXPECT_TRUE(IsLocked("ancestor"));
+  EXPECT_TRUE(IsDefer("inner"));
+  EXPECT_TRUE(IsLocked("inner"));
+
+  To<HTMLElement>(GetElementById("inline_target"))->offsetWidthForBinding();
+  EXPECT_TRUE(IsDefer("previous"));
+  EXPECT_TRUE(IsLocked("previous"));
+  EXPECT_FALSE(IsDefer("ancestor"));
+  EXPECT_FALSE(IsLocked("ancestor"));
+
+  To<HTMLElement>(GetElementById("block_target"))->offsetHeightForBinding();
+  EXPECT_TRUE(IsDefer("previous"));
+  EXPECT_TRUE(IsLocked("previous"));
+  EXPECT_FALSE(IsDefer("inner"));
+  EXPECT_FALSE(IsLocked("inner"));
+
+  To<HTMLElement>(GetElementById("abs_block"))->getBoundingClientRect();
+  EXPECT_TRUE(IsDefer("previous"));
+  EXPECT_TRUE(IsLocked("previous"));
+  EXPECT_FALSE(IsDefer("abs_block"));
+  EXPECT_FALSE(IsLocked("abs_block"));
 }
 
 TEST_F(DeferredShapingTest, RangeGetClientRects) {

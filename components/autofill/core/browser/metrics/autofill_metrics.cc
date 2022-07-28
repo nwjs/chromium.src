@@ -327,6 +327,8 @@ int GetFieldTypeGroupPredictionQualityMetric(
         case NAME_SUFFIX:
         case EMAIL_ADDRESS:
         case PHONE_HOME_NUMBER:
+        case PHONE_HOME_NUMBER_PREFIX:
+        case PHONE_HOME_NUMBER_SUFFIX:
         case PHONE_HOME_CITY_CODE:
         case PHONE_HOME_CITY_CODE_WITH_TRUNK_PREFIX:
         case PHONE_HOME_COUNTRY_CODE:
@@ -1230,6 +1232,9 @@ void AutofillMetrics::LogOfferNotificationBubbleOfferMetric(
     case AutofillOfferData::OfferType::GPAY_CARD_LINKED_OFFER:
       histogram_name += "CardLinkedOffer";
       break;
+    case AutofillOfferData::OfferType::GPAY_PROMO_CODE_OFFER:
+      histogram_name += "GPayPromoCodeOffer";
+      break;
     case AutofillOfferData::OfferType::FREE_LISTING_COUPON_OFFER:
       histogram_name += "FreeListingCouponOffer";
       break;
@@ -1252,6 +1257,9 @@ void AutofillMetrics::LogOfferNotificationBubbleResultMetric(
     case AutofillOfferData::OfferType::GPAY_CARD_LINKED_OFFER:
       histogram_name += "CardLinkedOffer.";
       break;
+    case AutofillOfferData::OfferType::GPAY_PROMO_CODE_OFFER:
+      histogram_name += "GPayPromoCodeOffer.";
+      break;
     case AutofillOfferData::OfferType::FREE_LISTING_COUPON_OFFER:
       histogram_name += "FreeListingCouponOffer.";
       break;
@@ -1272,6 +1280,9 @@ void AutofillMetrics::LogOfferNotificationBubblePromoCodeButtonClicked(
   // Switch to different sub-histogram depending on offer type being displayed.
   // Card-linked offers do not have a promo code button.
   switch (offer_type) {
+    case AutofillOfferData::OfferType::GPAY_PROMO_CODE_OFFER:
+      histogram_name += "GPayPromoCodeOffer";
+      break;
     case AutofillOfferData::OfferType::FREE_LISTING_COUPON_OFFER:
       histogram_name += "FreeListingCouponOffer";
       break;
@@ -1290,6 +1301,9 @@ void AutofillMetrics::LogOfferNotificationBubbleSuppressed(
   // Switch to different sub-histogram depending on offer type being suppressed.
   // Card-linked offers will not be suppressed.
   switch (offer_type) {
+    case AutofillOfferData::OfferType::GPAY_PROMO_CODE_OFFER:
+      histogram_name += "GPayPromoCodeOffer";
+      break;
     case AutofillOfferData::OfferType::FREE_LISTING_COUPON_OFFER:
       histogram_name += "FreeListingCouponOffer";
       break;
@@ -2222,21 +2236,6 @@ void AutofillMetrics::LogStoredCreditCardMetrics(
 }
 
 // static
-void AutofillMetrics::LogStoredOfferMetrics(
-    const std::vector<std::unique_ptr<AutofillOfferData>>& offers) {
-  base::UmaHistogramCounts1000("Autofill.Offer.StoredOfferCount",
-                               offers.size());
-
-  for (const std::unique_ptr<AutofillOfferData>& offer : offers) {
-    base::UmaHistogramCounts1000(
-        "Autofill.Offer.StoredOfferRelatedMerchantCount",
-        offer->merchant_origins.size());
-    base::UmaHistogramCounts1000("Autofill.Offer.StoredOfferRelatedCardCount",
-                                 offer->eligible_instrument_id.size());
-  }
-}
-
-// static
 void AutofillMetrics::LogSyncedOfferDataBeingValid(bool valid) {
   base::UmaHistogramBoolean("Autofill.Offer.SyncedOfferDataBeingValid", valid);
 }
@@ -2523,13 +2522,16 @@ uint8_t AutofillMetrics::CreditCardSeamlessness::BitmaskMetric() const {
 void AutofillMetrics::LogCreditCardSeamlessnessAtFillTime(
     const LogCreditCardSeamlessnessParam& p) {
   auto GetSeamlessness = [&p](bool only_newly_filled_fields,
-                              bool only_after_security_policy) {
+                              bool only_after_security_policy,
+                              bool only_visible_fields) {
     ServerFieldTypeSet autofilled_types;
     for (const auto& field : p.form) {
       FieldGlobalId id = field->global_id();
       if (only_newly_filled_fields && !p.newly_filled_fields.contains(id))
         continue;
       if (only_after_security_policy && !p.safe_fields.contains(id))
+        continue;
+      if (only_visible_fields && !field->is_visible)
         continue;
       autofilled_types.insert(field->Type().GetStorableType());
     }
@@ -2543,28 +2545,52 @@ void AutofillMetrics::LogCreditCardSeamlessnessAtFillTime(
                                   s.BitmaskExclusiveMax());
   };
 
-  if (auto s = GetSeamlessness(false, false)) {
+  if (auto s = GetSeamlessness(false, false, false)) {
     RecordUma("Fillable.AtFillTimeBeforeSecurityPolicy", s);
     p.builder.SetFillable_BeforeSecurity_Bitmask(s.BitmaskMetric());
     p.builder.SetFillable_BeforeSecurity_Qualitative(
         s.QualitativeMetricAsInt());
     p.event_logger.Log(s.QualitativeFillableFormEvent(), p.form);
   }
-  if (auto s = GetSeamlessness(false, true)) {
+  if (auto s = GetSeamlessness(false, true, false)) {
     RecordUma("Fillable.AtFillTimeAfterSecurityPolicy", s);
     p.builder.SetFillable_AfterSecurity_Bitmask(s.BitmaskMetric());
     p.builder.SetFillable_AfterSecurity_Qualitative(s.QualitativeMetricAsInt());
   }
-  if (auto s = GetSeamlessness(true, false)) {
+  if (auto s = GetSeamlessness(true, false, false)) {
     RecordUma("Fills.AtFillTimeBeforeSecurityPolicy", s);
     p.builder.SetFilled_BeforeSecurity_Bitmask(s.BitmaskMetric());
     p.builder.SetFilled_BeforeSecurity_Qualitative(s.QualitativeMetricAsInt());
   }
-  if (auto s = GetSeamlessness(true, true)) {
+  if (auto s = GetSeamlessness(true, true, false)) {
     RecordUma("Fills.AtFillTimeAfterSecurityPolicy", s);
     p.builder.SetFilled_AfterSecurity_Bitmask(s.BitmaskMetric());
     p.builder.SetFilled_AfterSecurity_Qualitative(s.QualitativeMetricAsInt());
     p.event_logger.Log(s.QualitativeFillFormEvent(), p.form);
+  }
+  if (auto s = GetSeamlessness(false, false, true)) {
+    RecordUma("Fillable.AtFillTimeBeforeSecurityPolicy.Visible", s);
+    p.builder.SetFillable_BeforeSecurity_Visible_Bitmask(s.BitmaskMetric());
+    p.builder.SetFillable_BeforeSecurity_Visible_Qualitative(
+        s.QualitativeMetricAsInt());
+  }
+  if (auto s = GetSeamlessness(false, true, true)) {
+    RecordUma("Fillable.AtFillTimeAfterSecurityPolicy.Visible", s);
+    p.builder.SetFillable_AfterSecurity_Visible_Bitmask(s.BitmaskMetric());
+    p.builder.SetFillable_AfterSecurity_Visible_Qualitative(
+        s.QualitativeMetricAsInt());
+  }
+  if (auto s = GetSeamlessness(true, false, true)) {
+    RecordUma("Fills.AtFillTimeBeforeSecurityPolicy.Visible", s);
+    p.builder.SetFilled_BeforeSecurity_Visible_Bitmask(s.BitmaskMetric());
+    p.builder.SetFilled_BeforeSecurity_Visible_Qualitative(
+        s.QualitativeMetricAsInt());
+  }
+  if (auto s = GetSeamlessness(true, true, true)) {
+    RecordUma("Fills.AtFillTimeAfterSecurityPolicy.Visible", s);
+    p.builder.SetFilled_AfterSecurity_Visible_Bitmask(s.BitmaskMetric());
+    p.builder.SetFilled_AfterSecurity_Visible_Qualitative(
+        s.QualitativeMetricAsInt());
   }
 
   // In a multi-frame form, a cross-origin field is filled only if
@@ -3151,7 +3177,7 @@ void AutofillMetrics::
 }
 
 // static
-void AutofillMetrics::LogAddressFormImportStatustMetric(
+void AutofillMetrics::LogAddressFormImportStatusMetric(
     AutofillMetrics::AddressProfileImportStatusMetric metric) {
   base::UmaHistogramEnumeration("Autofill.AddressProfileImportStatus", metric);
 }
@@ -3380,6 +3406,16 @@ void AutofillMetrics::LogRemovedSettingInaccessibleField(
   base::UmaHistogramEnumeration(
       "Autofill.ProfileImport.InaccessibleFieldsRemoved.ByFieldType",
       ConvertSettingsVisibleFieldTypeForMetrics(field));
+}
+
+// static
+void AutofillMetrics::LogPhoneNumberImportParsingResult(
+    bool with_variation_country_code,
+    bool with_app_locale) {
+  base::UmaHistogramEnumeration(
+      "Autofill.ProfileImport.PhoneNumberParsingResult",
+      static_cast<AutofillMetrics::PhoneNumberImportParsingResult>(
+          (with_variation_country_code << 1) | with_app_locale));
 }
 
 void AutofillMetrics::LogVerificationStatusOfNameTokensOnProfileUsage(

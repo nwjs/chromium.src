@@ -70,9 +70,16 @@ config("compiler") {
     "/utf-8",  # Assume UTF-8 by default to avoid code page dependencies.
   ]
 
-  #if (is_clang) {
-  #  cflags += [ "/Zc:twoPhase" ]
-  #}
+  if (is_clang) {
+    cflags += [
+      #"/Zc:twoPhase",
+
+      # Consistently use backslash as the path separator when expanding the
+      # __FILE__ macro when targeting Windows regardless of the build
+      # environment.
+      "-ffile-reproducible",
+    ]
+  }
 
   # Force C/C++ mode for the given GN detected file type. This is necessary
   # for precompiled headers where the same source file is compiled in both

@@ -18,6 +18,7 @@
 #include "base/containers/contains.h"
 #include "base/containers/cxx20_erase.h"
 #include "base/feature_list.h"
+#include "base/guid.h"
 #include "base/i18n/case_conversion.h"
 #include "base/i18n/timezone.h"
 #include "base/logging.h"
@@ -45,6 +46,7 @@
 #include "components/autofill/core/browser/geo/country_names.h"
 #include "components/autofill/core/browser/geo/phone_number_i18n.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
+#include "components/autofill/core/browser/metrics/payments/offers_metrics.h"
 #include "components/autofill/core/browser/personal_data_manager_observer.h"
 #include "components/autofill/core/browser/ui/autofill_image_fetcher.h"
 #include "components/autofill/core/browser/ui/label_formatter.h"
@@ -387,12 +389,18 @@ void PersonalDataManager::OnSyncServiceInitialized(
         sync_service && !sync_service_->IsSyncFeatureEnabled());
   }
 
+#if BUILDFLAG(IS_CHROMEOS_ASH)
   MigrateUserOptedInWalletSyncTransportIfNeeded();
+#endif
 }
 
 void PersonalDataManager::OnURLsDeleted(
     history::HistoryService* /* history_service */,
     const history::DeletionInfo& deletion_info) {
+  for (PersonalDataManagerObserver& observer : observers_) {
+    observer.OnBrowsingHistoryCleared(deletion_info);
+  }
+
   if (!deletion_info.is_from_expiration() && deletion_info.IsAllHistory()) {
     AutofillDownloadManager::ClearUploadHistory(pref_service_);
   }
@@ -1167,9 +1175,9 @@ PersonalDataManager::GetActiveAutofillPromoCodeOffersForOrigin(
   return promo_code_offers_for_origin;
 }
 
-raw_ptr<gfx::Image> PersonalDataManager::GetCreditCardArtImageForUrl(
+gfx::Image* PersonalDataManager::GetCreditCardArtImageForUrl(
     const GURL& card_art_url) const {
-  raw_ptr<gfx::Image> cached_image = GetCachedCardArtImageForUrl(card_art_url);
+  gfx::Image* cached_image = GetCachedCardArtImageForUrl(card_art_url);
   if (cached_image)
     return cached_image;
 
@@ -1177,7 +1185,7 @@ raw_ptr<gfx::Image> PersonalDataManager::GetCreditCardArtImageForUrl(
   return nullptr;
 }
 
-raw_ptr<gfx::Image> PersonalDataManager::GetCachedCardArtImageForUrl(
+gfx::Image* PersonalDataManager::GetCachedCardArtImageForUrl(
     const GURL& card_art_url) const {
   if (!IsAutofillWalletImportEnabled())
     return nullptr;
@@ -1189,7 +1197,7 @@ raw_ptr<gfx::Image> PersonalDataManager::GetCachedCardArtImageForUrl(
 
   // If the cache contains the image, return it.
   if (images_iterator != credit_card_art_images_.end()) {
-    raw_ptr<gfx::Image> image = images_iterator->second.get();
+    gfx::Image* image = images_iterator->second.get();
     if (!image->IsEmpty())
       return image;
   }
@@ -1878,7 +1886,7 @@ void PersonalDataManager::LogStoredCreditCardMetrics() const {
 
 void PersonalDataManager::LogStoredOfferMetrics() const {
   if (!has_logged_stored_offer_metrics_) {
-    AutofillMetrics::LogStoredOfferMetrics(autofill_offer_data_);
+    autofill_metrics::LogStoredOfferMetrics(autofill_offer_data_);
     // Only log this info once per chrome user profile load.
     has_logged_stored_offer_metrics_ = true;
   }
@@ -1895,13 +1903,13 @@ std::string PersonalDataManager::MostCommonCountryCodeFromProfiles() const {
   const std::vector<AutofillProfile*>& profiles = GetProfiles();
   const std::vector<std::string>& country_codes =
       CountryDataMap::GetInstance()->country_codes();
-  for (size_t i = 0; i < profiles.size(); ++i) {
+  for (auto* profile : profiles) {
     std::string country_code = base::ToUpperASCII(
-        base::UTF16ToASCII(profiles[i]->GetRawInfo(ADDRESS_HOME_COUNTRY)));
+        base::UTF16ToASCII(profile->GetRawInfo(ADDRESS_HOME_COUNTRY)));
 
     if (base::Contains(country_codes, country_code)) {
       // Verified profiles count 100x more than unverified ones.
-      votes[country_code] += profiles[i]->IsVerified() ? 100 : 1;
+      votes[country_code] += profile->IsVerified() ? 100 : 1;
     }
   }
 
@@ -2256,6 +2264,7 @@ bool PersonalDataManager::HasPendingQueries() {
          pending_offer_data_query_ != 0;
 }
 
+#if BUILDFLAG(IS_CHROMEOS_ASH)
 void PersonalDataManager::MigrateUserOptedInWalletSyncTransportIfNeeded() {
   if (!sync_service_)
     return;
@@ -2317,6 +2326,7 @@ void PersonalDataManager::MigrateUserOptedInWalletSyncTransportIfNeeded() {
   prefs::SetUserOptedInWalletSyncTransport(pref_service_, primary_account_id,
                                            /*opted_in=*/true);
 }
+#endif
 
 bool PersonalDataManager::IsSyncEnabledFor(syncer::ModelType model_type) {
   return sync_service_ != nullptr && sync_service_->CanSyncFeatureStart() &&

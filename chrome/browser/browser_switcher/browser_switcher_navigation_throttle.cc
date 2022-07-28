@@ -95,7 +95,7 @@ BrowserSwitcherNavigationThrottle::MaybeCreateThrottleFor(
   if (browser_context->IsOffTheRecord())
     return nullptr;
 
-  if (!navigation->IsInMainFrame())
+  if (!navigation->IsInPrimaryMainFrame())
     return nullptr;
 
   return std::make_unique<navigation_interception::InterceptNavigationThrottle>(

@@ -29,6 +29,7 @@
 #include "ash/wm/window_state.h"
 #include "ash/wm/window_util.h"
 #include "ash/wm/wm_event.h"
+#include "ash/wm/work_area_insets.h"
 #include "ash/wm/workspace_controller_test_api.h"
 #include "base/bind.h"
 #include "base/memory/ptr_util.h"
@@ -70,6 +71,7 @@
 #include "ui/events/base_event_utils.h"
 #include "ui/events/event_targeter.h"
 #include "ui/events/test/event_generator.h"
+#include "ui/gfx/geometry/insets.h"
 #include "ui/views/paint_info.h"
 #include "ui/views/widget/widget.h"
 #include "ui/wm/core/shadow_controller.h"
@@ -2015,21 +2017,26 @@ TEST_F(ClientControlledShellSurfaceTest, SetBoundsReparentsToDisplay) {
 // is enabled or disabled.
 TEST_F(ClientControlledShellSurfaceTest,
        SetBoundsWithAndWithoutDefaultScaleCancellation) {
-  UpdateDisplay("800x600*2");
+  UpdateDisplay("800x600*2,800x600*2");
 
   const auto primary_display_id =
       display::Screen::GetScreen()->GetPrimaryDisplay().id();
+  const auto secondary_display_id =
+      display::Screen::GetScreen()->GetAllDisplays().back().id();
 
   const gfx::Size buffer_size(64, 64);
   std::unique_ptr<Buffer> buffer(
       new Buffer(exo_test_helper()->CreateGpuMemoryBuffer(buffer_size)));
 
-  const gfx::Rect bounds(64, 64, 128, 128);
-  const gfx::Rect bounds_dp = gfx::ScaleToRoundedRect(bounds, 1.f / 2.f);
+  constexpr double kOriginalScale = 4.f;
+  const gfx::Rect bounds_dp(64, 64, 128, 128);
+  const gfx::Rect bounds_px_for_2x = gfx::ScaleToRoundedRect(bounds_dp, 2.f);
+  const gfx::Rect bounds_px_for_4x =
+      gfx::ScaleToRoundedRect(bounds_dp, kOriginalScale);
 
   for (const auto default_scale_cancellation : {true, false}) {
-    const auto bounds_to_set = default_scale_cancellation ? bounds_dp : bounds;
-
+    SCOPED_TRACE(::testing::Message() << "default_scale_cancellation: "
+                                      << default_scale_cancellation);
     {
       // Set display id, bounds origin, bounds size at the same time via
       // SetBounds method.
@@ -2037,20 +2044,40 @@ TEST_F(ClientControlledShellSurfaceTest,
       auto shell_surface(exo_test_helper()->CreateClientControlledShellSurface(
           surface.get(), /*is_modal=*/false, default_scale_cancellation));
 
-      shell_surface->SetBounds(primary_display_id, bounds_to_set);
+      // When display doesn't change, scale stays the same
+      shell_surface->SetScale(kOriginalScale);
+      shell_surface->SetDisplay(primary_display_id);
+      shell_surface->SetBounds(primary_display_id, default_scale_cancellation
+                                                       ? bounds_dp
+                                                       : bounds_px_for_4x);
       surface->Attach(buffer.get());
       surface->Commit();
 
       EXPECT_EQ(bounds_dp,
                 shell_surface->GetWidget()->GetWindowBoundsInScreen());
-    }
 
+      // When display changes, scale gets updated by the display dsf
+      shell_surface->SetScale(kOriginalScale);
+      shell_surface->SetBounds(secondary_display_id, default_scale_cancellation
+                                                         ? bounds_dp
+                                                         : bounds_px_for_2x);
+      surface->Attach(buffer.get());
+      surface->Commit();
+
+      EXPECT_EQ(bounds_dp.width(),
+                shell_surface->GetWidget()->GetWindowBoundsInScreen().width());
+      EXPECT_EQ(bounds_dp.height(),
+                shell_surface->GetWidget()->GetWindowBoundsInScreen().height());
+    }
     {
       // Set display id, bounds origin, bounds size separately.
+      const auto bounds_to_set =
+          default_scale_cancellation ? bounds_dp : bounds_px_for_4x;
       std::unique_ptr<Surface> surface(new Surface);
       auto shell_surface(exo_test_helper()->CreateClientControlledShellSurface(
           surface.get(), /*is_modal=*/false, default_scale_cancellation));
 
+      shell_surface->SetScale(kOriginalScale);
       shell_surface->SetDisplay(primary_display_id);
       shell_surface->SetBoundsOrigin(bounds_to_set.origin());
       shell_surface->SetBoundsSize(bounds_to_set.size());
@@ -2770,9 +2797,9 @@ TEST_F(ClientControlledShellSurfaceTest, SnappedClientBounds) {
 
   // Clear insets so that it won't affects the bounds.
   shell_surface->SetSystemUiVisibility(true);
-  int64_t display_id = display::Screen::GetScreen()->GetPrimaryDisplay().id();
-  ash::Shell::Get()->display_manager()->UpdateWorkAreaOfDisplay(display_id,
-                                                                gfx::Insets());
+  aura::Window* root = ash::Shell::GetPrimaryRootWindow();
+  ash::WorkAreaInsets::ForWindow(root)->UpdateWorkAreaInsetsForTest(
+      root, gfx::Rect(), gfx::Insets(), gfx::Insets());
 
   auto* delegate =
       TestClientControlledShellSurfaceDelegate::SetUp(shell_surface.get());

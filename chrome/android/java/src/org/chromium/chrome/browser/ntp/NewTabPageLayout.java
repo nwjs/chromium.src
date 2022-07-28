@@ -226,7 +226,7 @@ public class NewTabPageLayout extends LinearLayout implements VrModeObserver {
         }
 
         initializeMostVisitedTilesCoordinator(profile, lifecycleDispatcher, tileGroupDelegate,
-                touchEnabledDelegate, isScrollableMVTEnabled(), searchProviderIsGoogle);
+                touchEnabledDelegate, isScrollableMvtEnabled(), searchProviderIsGoogle);
         initializeSearchBoxBackground();
         initializeSearchBoxTextView();
         initializeVoiceSearchButton();
@@ -334,7 +334,7 @@ public class NewTabPageLayout extends LinearLayout implements VrModeObserver {
     private void initializeMostVisitedTilesCoordinator(Profile profile,
             ActivityLifecycleDispatcher activityLifecycleDispatcher,
             TileGroup.Delegate tileGroupDelegate, TouchEnabledDelegate touchEnabledDelegate,
-            boolean isScrollableMVTEnabled, boolean searchProviderIsGoogle) {
+            boolean isScrollableMvtEnabled, boolean searchProviderIsGoogle) {
         assert mMvTilesContainerLayout != null;
 
         int maxRows = 2;
@@ -344,7 +344,7 @@ public class NewTabPageLayout extends LinearLayout implements VrModeObserver {
 
         mMostVisitedTilesCoordinator = new MostVisitedTilesCoordinator(mActivity,
                 activityLifecycleDispatcher, mMvTilesContainerLayout, mWindowAndroid,
-                /*shouldShowSkeletonUIPreNative=*/false, isScrollableMVTEnabled, maxRows,
+                /*shouldShowSkeletonUIPreNative=*/false, isScrollableMvtEnabled, maxRows,
                 MAX_TILE_COLUMNS, () -> mSnapshotTileGridChanged = true, () -> {
                     if (mUrlFocusChangePercent == 1f) mTileCountChanged = true;
                 });
@@ -485,6 +485,12 @@ public class NewTabPageLayout extends LinearLayout implements VrModeObserver {
 
         mSearchProviderLogoView.showSearchProviderInitialView();
 
+        // If pull up Feed position is enabled and search provider is Google, we should show
+        // standard Google logo, which is already done in showSearchProviderInitialView() above.
+        // Since standard Google logo should be shown and doodle is not supported, we don't need to
+        // fetch logo image.
+        if (FeedPositionUtils.isFeedPullUpEnabled() && mSearchProviderIsGoogle) return;
+
         mLogoDelegate.getSearchProviderLogo(new LogoObserver() {
             @Override
             public void onLogoAvailable(Logo logo, boolean fromCache) {
@@ -542,25 +548,24 @@ public class NewTabPageLayout extends LinearLayout implements VrModeObserver {
         // Set a bit more top padding on the tile grid if there is no logo.
         MarginLayoutParams marginLayoutParams =
                 (MarginLayoutParams) mMvTilesContainerLayout.getLayoutParams();
-        int marginTop = getResources().getDimensionPixelSize(shouldShowLogo()
-                        ? R.dimen.tile_grid_layout_padding_top
-                        : R.dimen.tile_grid_layout_no_logo_padding_top);
-        marginLayoutParams.topMargin = marginTop;
 
-        if (isScrollableMVTEnabled()) {
+        if (isScrollableMvtEnabled()) {
             // Let mMvTilesContainerLayout attached to the edge of the screen.
             setClipToPadding(false);
             int lateralPaddingsForNTP = mActivity.getResources().getDimensionPixelSize(
                     R.dimen.ntp_header_lateral_paddings_v2);
             marginLayoutParams.leftMargin = -lateralPaddingsForNTP;
             marginLayoutParams.rightMargin = -lateralPaddingsForNTP;
+            marginLayoutParams.topMargin = getResources().getDimensionPixelSize(shouldShowLogo()
+                            ? R.dimen.tile_grid_layout_top_margin
+                            : R.dimen.tile_grid_layout_no_logo_top_margin);
             marginLayoutParams.bottomMargin = getResources().getDimensionPixelOffset(
                     R.dimen.tile_carousel_layout_bottom_margin);
         } else {
             ViewGroup.LayoutParams layoutParams = mMvTilesContainerLayout.getLayoutParams();
             layoutParams.width = ViewGroup.LayoutParams.WRAP_CONTENT;
-            marginLayoutParams.bottomMargin =
-                    getResources().getDimensionPixelOffset(R.dimen.tile_grid_layout_bottom_margin);
+            marginLayoutParams.topMargin = getGridMvtTopMargin();
+            marginLayoutParams.bottomMargin = getGridMvtBottomMargin();
         }
     }
 
@@ -699,6 +704,12 @@ public class NewTabPageLayout extends LinearLayout implements VrModeObserver {
     void setSearchProviderTopMargin(int topMargin) {
         ((MarginLayoutParams) mSearchProviderLogoView.getLayoutParams()).topMargin = topMargin;
     }
+
+    void setSearchProviderBottomMargin(int bottomMargin) {
+        ((MarginLayoutParams) mSearchProviderLogoView.getLayoutParams()).bottomMargin =
+                bottomMargin;
+    }
+
     /**
      * @return Whether the search box view is scrolled off the screen.
      */
@@ -829,7 +840,7 @@ public class NewTabPageLayout extends LinearLayout implements VrModeObserver {
         mSearchBoxCoordinator.destroy();
 
         if (mMostVisitedTilesCoordinator != null) {
-            mMostVisitedTilesCoordinator.destroyMVTiles();
+            mMostVisitedTilesCoordinator.destroyMvtiles();
             mMostVisitedTilesCoordinator = null;
         }
     }
@@ -899,7 +910,7 @@ public class NewTabPageLayout extends LinearLayout implements VrModeObserver {
      */
     private void unifyElementWidths() {
         if (mMvTilesContainerLayout.getVisibility() != GONE) {
-            if (!isScrollableMVTEnabled()) {
+            if (!isScrollableMvtEnabled()) {
                 final int width = mMvTilesContainerLayout.getMeasuredWidth() - mTileGridLayoutBleed;
                 measureExactly(getSearchBoxView(), width, getSearchBoxView().getMeasuredHeight());
                 measureExactly(mSearchProviderLogoView, width,
@@ -925,9 +936,46 @@ public class NewTabPageLayout extends LinearLayout implements VrModeObserver {
         }
     }
 
-    private boolean isScrollableMVTEnabled() {
+    private boolean isScrollableMvtEnabled() {
         return ChromeFeatureList.isEnabled(ChromeFeatureList.SHOW_SCROLLABLE_MVT_ON_NTP_ANDROID)
                 && !DeviceFormFactor.isNonMultiDisplayContextOnTablet(mContext);
+    }
+
+    // TODO(crbug.com/1329288): Remove this method when the Feed position experiment is cleaned up.
+    private int getGridMvtTopMargin() {
+        if (!shouldShowLogo()) {
+            return getResources().getDimensionPixelOffset(
+                    R.dimen.tile_grid_layout_no_logo_top_margin);
+        }
+
+        int resourcesId = R.dimen.tile_grid_layout_top_margin;
+
+        if (FeedPositionUtils.isFeedPushDownLargeEnabled()) {
+            resourcesId = R.dimen.tile_grid_layout_top_margin_push_down_large;
+        } else if (FeedPositionUtils.isFeedPushDownSmallEnabled()) {
+            resourcesId = R.dimen.tile_grid_layout_top_margin_push_down_small;
+        } else if (FeedPositionUtils.isFeedPullUpEnabled()) {
+            resourcesId = R.dimen.tile_grid_layout_top_margin_pull_up;
+        }
+
+        return getResources().getDimensionPixelOffset(resourcesId);
+    }
+
+    // TODO(crbug.com/1329288): Remove this method when the Feed position experiment is cleaned up.
+    private int getGridMvtBottomMargin() {
+        int resourcesId = R.dimen.tile_grid_layout_bottom_margin;
+
+        if (!shouldShowLogo()) return getResources().getDimensionPixelOffset(resourcesId);
+
+        if (FeedPositionUtils.isFeedPushDownLargeEnabled()) {
+            resourcesId = R.dimen.tile_grid_layout_bottom_margin_push_down_large;
+        } else if (FeedPositionUtils.isFeedPushDownSmallEnabled()) {
+            resourcesId = R.dimen.tile_grid_layout_bottom_margin_push_down_small;
+        } else if (FeedPositionUtils.isFeedPullUpEnabled()) {
+            resourcesId = R.dimen.tile_grid_layout_bottom_margin_pull_up;
+        }
+
+        return getResources().getDimensionPixelOffset(resourcesId);
     }
 
     /**

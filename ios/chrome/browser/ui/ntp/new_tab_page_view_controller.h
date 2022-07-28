@@ -69,6 +69,10 @@
 // The view controller representing the NTP feed header.
 @property(nonatomic, assign) FeedHeaderViewController* feedHeaderViewController;
 
+// The view controller representing the Feed top section (between the feed
+// header and the feed collection).
+@property(nonatomic, assign) UIViewController* feedTopSectionViewController;
+
 // Bubble presenter for displaying IPH bubbles relating to the NTP.
 @property(nonatomic, strong) BubblePresenter* bubblePresenter;
 
@@ -128,7 +132,11 @@
 // Sets the NTP collection view's scroll position to |contentOffset|, unless it
 // is beyond the top of the feed. In that case, sets the scroll position to the
 // top of the feed.
-- (void)setContentOffsetUpToTopOfFeed:(CGFloat)contentOffset;
+- (void)setContentOffsetToTopOfFeed:(CGFloat)contentOffset;
+
+// Checks the content size of the feed and updates the bottom content inset to
+// ensure the feed is still scrollable to the minimum height.
+- (void)updateFeedInsetsForMinimumHeight;
 
 @end
 

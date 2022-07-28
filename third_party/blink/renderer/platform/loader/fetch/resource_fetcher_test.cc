@@ -105,10 +105,16 @@ class PartialResourceRequest {
 
 class ResourceFetcherTest : public testing::Test {
  public:
-  ResourceFetcherTest() = default;
+  ResourceFetcherTest() {
+    Resource::SetClockForTesting(platform_->test_task_runner()->GetMockClock());
+  }
+  ~ResourceFetcherTest() override {
+    GetMemoryCache()->EvictResources();
+    Resource::SetClockForTesting(nullptr);
+  }
+
   ResourceFetcherTest(const ResourceFetcherTest&) = delete;
   ResourceFetcherTest& operator=(const ResourceFetcherTest&) = delete;
-  ~ResourceFetcherTest() override { GetMemoryCache()->EvictResources(); }
 
   class TestResourceLoadObserver final : public ResourceLoadObserver {
    public:
@@ -118,7 +124,8 @@ class ResourceFetcherTest : public testing::Test {
                          const ResourceResponse& redirect_response,
                          ResourceType,
                          const ResourceLoaderOptions&,
-                         RenderBlockingBehavior) override {
+                         RenderBlockingBehavior,
+                         const Resource*) override {
       request_ = PartialResourceRequest(request);
     }
     void DidChangePriority(uint64_t identifier,
@@ -1283,7 +1290,7 @@ TEST_F(ResourceFetcherTest, DeprioritizeSubframe) {
         ResourceType::kScript, request, ResourcePriority::kNotVisible,
         FetchParameters::DeferOption::kNoDefer,
         FetchParameters::SpeculativePreloadType::kNotSpeculative,
-        false /* is_link_preload */);
+        RenderBlockingBehavior::kNonBlocking, false /* is_link_preload */);
     EXPECT_EQ(priority, ResourceLoadPriority::kHigh);
   }
 
@@ -1295,7 +1302,7 @@ TEST_F(ResourceFetcherTest, DeprioritizeSubframe) {
         ResourceType::kScript, request, ResourcePriority::kNotVisible,
         FetchParameters::DeferOption::kNoDefer,
         FetchParameters::SpeculativePreloadType::kNotSpeculative,
-        false /* is_link_preload */);
+        RenderBlockingBehavior::kNonBlocking, false /* is_link_preload */);
     EXPECT_EQ(priority, ResourceLoadPriority::kHigh);
   }
 
@@ -1307,7 +1314,7 @@ TEST_F(ResourceFetcherTest, DeprioritizeSubframe) {
         ResourceType::kScript, request, ResourcePriority::kNotVisible,
         FetchParameters::DeferOption::kNoDefer,
         FetchParameters::SpeculativePreloadType::kNotSpeculative,
-        false /* is_link_preload */);
+        RenderBlockingBehavior::kNonBlocking, false /* is_link_preload */);
     EXPECT_EQ(priority, ResourceLoadPriority::kHigh);
   }
 
@@ -1319,7 +1326,7 @@ TEST_F(ResourceFetcherTest, DeprioritizeSubframe) {
         ResourceType::kScript, request, ResourcePriority::kNotVisible,
         FetchParameters::DeferOption::kNoDefer,
         FetchParameters::SpeculativePreloadType::kNotSpeculative,
-        false /* is_link_preload */);
+        RenderBlockingBehavior::kNonBlocking, false /* is_link_preload */);
     EXPECT_EQ(priority, ResourceLoadPriority::kLow);
   }
   {
@@ -1330,7 +1337,7 @@ TEST_F(ResourceFetcherTest, DeprioritizeSubframe) {
         ResourceType::kMock, request, ResourcePriority::kNotVisible,
         FetchParameters::DeferOption::kNoDefer,
         FetchParameters::SpeculativePreloadType::kNotSpeculative,
-        false /* is_link_preload */);
+        RenderBlockingBehavior::kNonBlocking, false /* is_link_preload */);
     EXPECT_EQ(priority, ResourceLoadPriority::kMedium);
   }
 
@@ -1343,7 +1350,7 @@ TEST_F(ResourceFetcherTest, DeprioritizeSubframe) {
         ResourceType::kMock, request, ResourcePriority::kNotVisible,
         FetchParameters::DeferOption::kNoDefer,
         FetchParameters::SpeculativePreloadType::kNotSpeculative,
-        false /* is_link_preload */);
+        RenderBlockingBehavior::kNonBlocking, false /* is_link_preload */);
     EXPECT_EQ(priority, ResourceLoadPriority::kLowest);
   }
 }

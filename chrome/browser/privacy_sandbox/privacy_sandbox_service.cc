@@ -39,6 +39,10 @@
 #include "chrome/browser/ui/hats/trust_safety_sentiment_service.h"
 #endif
 
+#if BUILDFLAG(IS_CHROMEOS)
+#include "chrome/browser/profiles/profiles_state.h"
+#endif
+
 namespace {
 
 constexpr char kBlockedTopicsTopicKey[] = "topic";
@@ -139,6 +143,22 @@ void SortTopicsForDisplay(
             });
 }
 
+// Returns whether |profile_type|, and the current browser session on CrOS,
+// represent a regular (e.g. non guest, non system, non kiosk) profile.
+bool IsRegularProfile(profile_metrics::BrowserProfileType profile_type) {
+  if (profile_type != profile_metrics::BrowserProfileType::kRegular)
+    return false;
+
+#if BUILDFLAG(IS_CHROMEOS)
+  // Any Device Local account, which is a CrOS concept powering things like
+  // Kiosks and Managed Guest Sessions, is not considered regular.
+  return !profiles::IsPublicSession() && !profiles::IsKioskSession() &&
+         !profiles::IsChromeAppKioskSession();
+#else
+  return true;
+#endif
+}
+
 }  // namespace
 
 PrivacySandboxService::PrivacySandboxService() = default;
@@ -221,11 +241,11 @@ PrivacySandboxService::GetRequiredPromptType() {
                                        third_party_cookies_blocked);
 }
 
-void PrivacySandboxService::DialogActionOccurred(
-    PrivacySandboxService::DialogAction action) {
+void PrivacySandboxService::PromptActionOccurred(
+    PrivacySandboxService::PromptAction action) {
   InformSentimentService(action);
   switch (action) {
-    case (DialogAction::kNoticeShown): {
+    case (PromptAction::kNoticeShown): {
       DCHECK_EQ(PromptType::kNotice, GetRequiredPromptType());
       // The new Privacy Sandbox pref can be enabled when the notice has been
       // shown. Note that a notice will not have been shown if the user disabled
@@ -236,32 +256,32 @@ void PrivacySandboxService::DialogActionOccurred(
           base::UserMetricsAction("Settings.PrivacySandbox.Notice.Shown"));
       break;
     }
-    case (DialogAction::kNoticeOpenSettings): {
+    case (PromptAction::kNoticeOpenSettings): {
       base::RecordAction(base::UserMetricsAction(
           "Settings.PrivacySandbox.Notice.OpenedSettings"));
       break;
     }
-    case (DialogAction::kNoticeAcknowledge): {
+    case (PromptAction::kNoticeAcknowledge): {
       base::RecordAction(base::UserMetricsAction(
           "Settings.PrivacySandbox.Notice.Acknowledged"));
       break;
     }
-    case (DialogAction::kNoticeDismiss): {
+    case (PromptAction::kNoticeDismiss): {
       base::RecordAction(
           base::UserMetricsAction("Settings.PrivacySandbox.Notice.Dismissed"));
       break;
     }
-    case (DialogAction::kNoticeClosedNoInteraction): {
+    case (PromptAction::kNoticeClosedNoInteraction): {
       base::RecordAction(base::UserMetricsAction(
           "Settings.PrivacySandbox.Notice.ClosedNoInteraction"));
       break;
     }
-    case (DialogAction::kConsentShown): {
+    case (PromptAction::kConsentShown): {
       base::RecordAction(
           base::UserMetricsAction("Settings.PrivacySandbox.Consent.Shown"));
       break;
     }
-    case (DialogAction::kConsentAccepted): {
+    case (PromptAction::kConsentAccepted): {
       pref_service_->SetBoolean(prefs::kPrivacySandboxApisEnabledV2, true);
       pref_service_->SetBoolean(prefs::kPrivacySandboxConsentDecisionMade,
                                 true);
@@ -269,7 +289,7 @@ void PrivacySandboxService::DialogActionOccurred(
           base::UserMetricsAction("Settings.PrivacySandbox.Consent.Accepted"));
       break;
     }
-    case (DialogAction::kConsentDeclined): {
+    case (PromptAction::kConsentDeclined): {
       pref_service_->SetBoolean(prefs::kPrivacySandboxApisEnabledV2, false);
       pref_service_->SetBoolean(prefs::kPrivacySandboxConsentDecisionMade,
                                 true);
@@ -277,17 +297,17 @@ void PrivacySandboxService::DialogActionOccurred(
           base::UserMetricsAction("Settings.PrivacySandbox.Consent.Declined"));
       break;
     }
-    case (DialogAction::kConsentMoreInfoOpened): {
+    case (PromptAction::kConsentMoreInfoOpened): {
       base::RecordAction(base::UserMetricsAction(
           "Settings.PrivacySandbox.Consent.LearnMoreExpanded"));
       break;
     }
-    case (DialogAction::kConsentClosedNoDecision): {
+    case (PromptAction::kConsentClosedNoDecision): {
       base::RecordAction(base::UserMetricsAction(
           "Settings.PrivacySandbox.Consent.ClosedNoInteraction"));
       break;
     }
-    case (DialogAction::kNoticeLearnMore): {
+    case (PromptAction::kNoticeLearnMore): {
       base::RecordAction(
           base::UserMetricsAction("Settings.PrivacySandbox.Notice.LearnMore"));
       break;
@@ -444,7 +464,7 @@ void PrivacySandboxService::OnPrivacySandboxV2PrefChanged() {
         base::Time::Min(), base::Time::Max(),
         content::BrowsingDataRemover::DATA_TYPE_INTEREST_GROUPS |
             content::BrowsingDataRemover::DATA_TYPE_AGGREGATION_SERVICE |
-            content::BrowsingDataRemover::DATA_TYPE_CONVERSIONS |
+            content::BrowsingDataRemover::DATA_TYPE_ATTRIBUTION_REPORTING |
             content::BrowsingDataRemover::DATA_TYPE_TRUST_TOKENS,
         content::BrowsingDataRemover::ORIGIN_TYPE_UNPROTECTED_WEB);
   }
@@ -751,7 +771,7 @@ void PrivacySandboxService::RecordPrivacySandbox3StartupMetrics() {
 
 void PrivacySandboxService::LogPrivacySandboxState() {
   // Do not record metrics for non-regular profiles.
-  if (profile_type_ != profile_metrics::BrowserProfileType::kRegular)
+  if (!IsRegularProfile(profile_type_))
     return;
 
   // Start by recording any metrics for Privacy Sandbox 3.
@@ -932,7 +952,7 @@ PrivacySandboxService::GetRequiredPromptTypeInternal(
     return PromptType::kNone;
 
   // If the profile isn't a regular profile, no prompt should ever be shown.
-  if (profile_type != profile_metrics::BrowserProfileType::kRegular)
+  if (!IsRegularProfile(profile_type))
     return PromptType::kNone;
 
   // If the release 3 feature is not enabled, no prompt is required.
@@ -1057,7 +1077,7 @@ PrivacySandboxService::GetRequiredPromptTypeInternal(
     // However, this may not be the first time that this function is being
     // called. The API for this service guarantees, and clients depend, on
     // successive calls to this function returning the same value. Browser
-    // restarts & updates via DialogActionOccurred() notwithstanding. To achieve
+    // restarts & updates via PromptActionOccurred() notwithstanding. To achieve
     // this, we need to distinguish between the case where the user themselves
     // previously disabled the APIs, and when this logic disabled them
     // previously due to having insufficient confirmation.
@@ -1104,33 +1124,33 @@ PrivacySandboxService::GetRequiredPromptTypeInternal(
 }
 
 void PrivacySandboxService::InformSentimentService(
-    PrivacySandboxService::DialogAction action) {
+    PrivacySandboxService::PromptAction action) {
 #if !BUILDFLAG(IS_ANDROID)
   if (!sentiment_service_)
     return;
 
   TrustSafetySentimentService::FeatureArea area;
   switch (action) {
-    case DialogAction::kNoticeOpenSettings:
+    case PromptAction::kNoticeOpenSettings:
       area = TrustSafetySentimentService::FeatureArea::
           kPrivacySandbox3NoticeSettings;
       break;
-    case DialogAction::kNoticeAcknowledge:
+    case PromptAction::kNoticeAcknowledge:
       area = TrustSafetySentimentService::FeatureArea::kPrivacySandbox3NoticeOk;
       break;
-    case DialogAction::kNoticeDismiss:
+    case PromptAction::kNoticeDismiss:
       area = TrustSafetySentimentService::FeatureArea::
           kPrivacySandbox3NoticeDismiss;
       break;
-    case DialogAction::kNoticeLearnMore:
+    case PromptAction::kNoticeLearnMore:
       area = TrustSafetySentimentService::FeatureArea::
           kPrivacySandbox3NoticeLearnMore;
       break;
-    case DialogAction::kConsentAccepted:
+    case PromptAction::kConsentAccepted:
       area = TrustSafetySentimentService::FeatureArea::
           kPrivacySandbox3ConsentAccept;
       break;
-    case DialogAction::kConsentDeclined:
+    case PromptAction::kConsentDeclined:
       area = TrustSafetySentimentService::FeatureArea::
           kPrivacySandbox3ConsentDecline;
       break;

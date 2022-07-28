@@ -77,6 +77,10 @@ void ChooserOnlyTemporalInputTypeView::HandleDOMActivateEvent(Event& event) {
   OpenPopupView();
 }
 
+ControlPart ChooserOnlyTemporalInputTypeView::AutoAppearance() const {
+  return kMenulistPart;
+}
+
 void ChooserOnlyTemporalInputTypeView::OpenPopupView() {
   DateTimeChooserParameters parameters;
   if (GetElement().SetupDateTimeChooserParameters(parameters)) {
@@ -137,7 +141,7 @@ Element& ChooserOnlyTemporalInputTypeView::OwnerElement() const {
 void ChooserOnlyTemporalInputTypeView::DidChooseValue(const String& value) {
   if (will_be_destroyed_)
     return;
-  GetElement().setValue(value,
+  GetElement().SetValue(value,
                         TextFieldEventBehavior::kDispatchInputAndChangeEvent);
 }
 
@@ -146,7 +150,7 @@ void ChooserOnlyTemporalInputTypeView::DidChooseValue(double value) {
     return;
   DCHECK(std::isfinite(value) || std::isnan(value));
   if (std::isnan(value)) {
-    GetElement().setValue(g_empty_string,
+    GetElement().SetValue(g_empty_string,
                           TextFieldEventBehavior::kDispatchInputAndChangeEvent);
   } else {
     GetElement().setValueAsNumber(

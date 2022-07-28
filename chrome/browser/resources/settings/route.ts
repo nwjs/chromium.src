@@ -141,7 +141,7 @@ function createBrowserSettingsRoutes(): SettingsRoutes {
   if (visibility.autofill !== false) {
     r.AUTOFILL = r.BASIC.createSection('/autofill', 'autofill');
     r.PASSWORDS = r.AUTOFILL.createChild('/passwords');
-    if (loadTimeData.getBoolean('enablePasswordNotes')) {
+    if (loadTimeData.getBoolean('enablePasswordViewPage')) {
       r.PASSWORD_VIEW = r.PASSWORDS.createChild('view');
     }
     r.CHECK_PASSWORDS = r.PASSWORDS.createChild('check');
@@ -177,11 +177,6 @@ function createBrowserSettingsRoutes(): SettingsRoutes {
     r.LANGUAGES = r.ADVANCED.createSection('/languages', 'languages');
     // <if expr="not chromeos_ash and not is_macosx">
     r.EDIT_DICTIONARY = r.LANGUAGES.createChild('/editDictionary');
-    // </if>
-    // <if expr="not chromeos_ash and not chromeos_lacros">
-    if (loadTimeData.getBoolean('enableDesktopRestructuredLanguageSettings')) {
-      r.LANGUAGE_SETTINGS = r.LANGUAGES.createChild('/languageSettings');
-    }
     // </if>
 
     if (visibility.downloads !== false) {

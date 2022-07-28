@@ -430,7 +430,7 @@ IN_PROC_BROWSER_TEST_F(
   // The client should decrypt the update and re-commit an unencrypted version.
   EXPECT_TRUE(bookmarks_helper::BookmarksTitleChecker(0, kTitle, 1).Wait());
   EXPECT_TRUE(bookmarks_helper::ServerBookmarksEqualityChecker(
-                  GetSyncService(0), GetFakeServer(), {{kTitle, kUrl}},
+                  {{kTitle, kUrl}},
                   /*cryptographer=*/nullptr)
                   .Wait());
 }
@@ -474,9 +474,7 @@ IN_PROC_BROWSER_TEST_F(SingleClientNigoriSyncTest, ShouldRotateKeystoreKey) {
       KeystoreKeyParamsForTesting(keystore_keys[1]);
   const std::string expected_key_bag_key_name =
       ComputeKeyName(new_keystore_key_params);
-  EXPECT_TRUE(ServerNigoriKeyNameChecker(expected_key_bag_key_name,
-                                         GetSyncService(0), GetFakeServer())
-                  .Wait());
+  EXPECT_TRUE(ServerNigoriKeyNameChecker(expected_key_bag_key_name).Wait());
 }
 
 // Performs initial sync with backward compatible keystore Nigori.
@@ -509,9 +507,7 @@ IN_PROC_BROWSER_TEST_F(SingleClientNigoriSyncTest,
   const std::string expected_key_bag_key_name =
       ComputeKeyName(KeystoreKeyParamsForTesting(
           /*raw_key=*/GetFakeServer()->GetKeystoreKeys().back()));
-  EXPECT_TRUE(ServerNigoriKeyNameChecker(expected_key_bag_key_name,
-                                         GetSyncService(0), GetFakeServer())
-                  .Wait());
+  EXPECT_TRUE(ServerNigoriKeyNameChecker(expected_key_bag_key_name).Wait());
 }
 
 // Tests that client can decrypt |pending_keys| with implicit passphrase in
@@ -577,9 +573,9 @@ IN_PROC_BROWSER_TEST_F(SingleClientNigoriSyncTestWithNotAwaitQuiescence,
               Eq(sync_pb::NigoriSpecifics::IMPLICIT_PASSPHRASE));
 
   ASSERT_TRUE(SetupClients());
-  EXPECT_TRUE(ServerNigoriChecker(GetSyncService(0), GetFakeServer(),
-                                  syncer::PassphraseType::kKeystorePassphrase)
-                  .Wait());
+  EXPECT_TRUE(
+      ServerPassphraseTypeChecker(syncer::PassphraseType::kKeystorePassphrase)
+          .Wait());
 }
 
 class SingleClientNigoriWithWebApiTest : public SyncTest {
@@ -1110,7 +1106,8 @@ IN_PROC_BROWSER_TEST_F(
                                              GetProfile(0)->GetPrefs()));
 
   histogram_tester.ExpectUniqueSample("Sync.TrustedVaultErrorShownOnStartup",
-                                      /*sample=*/1, /*expected_count=*/1);
+                                      /*sample=*/1,
+                                      /*expected_bucket_count=*/1);
 }
 
 IN_PROC_BROWSER_TEST_F(
@@ -1155,7 +1152,8 @@ IN_PROC_BROWSER_TEST_F(
                                               GetProfile(0)->GetPrefs()));
 
   histogram_tester.ExpectUniqueSample("Sync.TrustedVaultErrorShownOnStartup",
-                                      /*sample=*/0, /*expected_count=*/1);
+                                      /*sample=*/0,
+                                      /*expected_bucket_count=*/1);
 }
 
 IN_PROC_BROWSER_TEST_F(SingleClientNigoriWithWebApiTest,
@@ -1377,6 +1375,10 @@ IN_PROC_BROWSER_TEST_F(SingleClientNigoriWithWebApiTest,
   histogram_tester.ExpectUniqueSample(
       "Sync.TrustedVaultDownloadKeysStatus",
       /*sample=*/syncer::TrustedVaultDownloadKeysStatus::kSuccess,
+      /*expected_bucket_count=*/1);
+  histogram_tester.ExpectUniqueSample(
+      "Sync.TrustedVaultURLFetchResponse.DownloadKeys",
+      /*sample=*/200,
       /*expected_bucket_count=*/1);
 }
 

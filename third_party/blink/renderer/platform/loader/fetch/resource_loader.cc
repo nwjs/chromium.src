@@ -50,7 +50,7 @@
 #include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
 #include "third_party/blink/public/mojom/blob/blob_registry.mojom-blink.h"
 #include "third_party/blink/public/mojom/devtools/console_message.mojom-blink.h"
-#include "third_party/blink/public/mojom/web_feature/web_feature.mojom-shared.h"
+#include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom-shared.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/web_blob_info.h"
 #include "third_party/blink/public/platform/web_code_cache_loader.h"
@@ -911,9 +911,9 @@ bool ResourceLoader::WillFollowRedirect(
                            unused_virtual_time_pauser, resource_->GetType());
   DCHECK(!new_request->HttpBody());
   if (auto* observer = fetcher_->GetResourceLoadObserver()) {
-    observer->WillSendRequest(*new_request, redirect_response,
-                              resource_->GetType(), options,
-                              initial_request.GetRenderBlockingBehavior());
+    observer->WillSendRequest(
+        *new_request, redirect_response, resource_->GetType(), options,
+        initial_request.GetRenderBlockingBehavior(), resource_);
   }
 
   // First-party cookie logic moved from DocumentLoader in Blink to

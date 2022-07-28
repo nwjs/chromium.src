@@ -71,7 +71,7 @@ content::WebContents* AppWebContentsHelper::OpenURLFromTab(
       web_contents_->GetController().LoadURLWithParams(load_url_params);
       return web_contents_;
     } else {
-      web_contents_->GetMainFrame()->AddMessageToConsole(
+      web_contents_->GetPrimaryMainFrame()->AddMessageToConsole(
         blink::mojom::ConsoleMessageLevel::kError,
         base::StringPrintf(
             "Can't open same-window link to \"%s\"; try target=\"_blank\".",
@@ -88,7 +88,7 @@ content::WebContents* AppWebContentsHelper::OpenURLFromTab(
   content::WebContents* contents =
       app_delegate_->OpenURLFromTab(browser_context_, web_contents_, params);
   if (!contents) {
-    web_contents_->GetMainFrame()->AddMessageToConsole(
+    web_contents_->GetPrimaryMainFrame()->AddMessageToConsole(
         blink::mojom::ConsoleMessageLevel::kError,
         base::StringPrintf(
             "Can't navigate to \"%s\"; apps do not support navigation.",
@@ -105,7 +105,7 @@ void AppWebContentsHelper::RequestToLockMouse() const {
 
   bool has_permission = IsExtensionWithPermissionOrSuggestInConsole(
       mojom::APIPermissionID::kPointerLock, extension,
-      web_contents_->GetMainFrame());
+      web_contents_->GetPrimaryMainFrame());
 
   if (has_permission)
     web_contents_->GotResponseToLockMouseRequest(

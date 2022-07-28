@@ -4,6 +4,7 @@
 
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_service.h"
 
+#include "base/memory/raw_ptr.h"
 #include "base/test/bind.h"
 #include "base/test/gtest_util.h"
 #include "base/test/icu_test_util.h"
@@ -45,6 +46,16 @@
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/hats/mock_trust_safety_sentiment_service.h"
+#endif
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+#include "chrome/browser/ash/login/users/fake_chrome_user_manager.h"
+#include "chromeos/login/login_state/login_state.h"
+#endif
+
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+#include "chromeos/crosapi/mojom/crosapi.mojom.h"
+#include "chromeos/startup/browser_init_params.h"
 #endif
 
 namespace {
@@ -748,7 +759,8 @@ class PrivacySandboxServiceTest : public testing::Test {
   base::test::ScopedFeatureList feature_list_;
   syncer::TestSyncService sync_service_;
   TestInterestGroupManager test_interest_group_manager_;
-  privacy_sandbox_test_util::MockPrivacySandboxSettingsDelegate* mock_delegate_;
+  raw_ptr<privacy_sandbox_test_util::MockPrivacySandboxSettingsDelegate>
+      mock_delegate_;
   browsing_topics::MockBrowsingTopicsService mock_browsing_topics_service_;
 #if !BUILDFLAG(IS_ANDROID)
   std::unique_ptr<MockTrustSafetySentimentService> mock_sentiment_service_;
@@ -872,7 +884,7 @@ TEST_F(PrivacySandboxServiceTest, GetFledgeBlockedEtldPlusOne) {
   EXPECT_EQ(returned_sites[1], sites[2]);
 }
 
-TEST_F(PrivacySandboxServiceTest, DialogActionUpdatesRequiredDialog) {
+TEST_F(PrivacySandboxServiceTest, PromptActionUpdatesRequiredDialog) {
   // Confirm that when the service is informed a dialog action occurred, it
   // correctly adjusts the required prompt type and Privacy Sandbox pref.
 
@@ -888,8 +900,8 @@ TEST_F(PrivacySandboxServiceTest, DialogActionUpdatesRequiredDialog) {
             privacy_sandbox_service()->GetRequiredPromptType());
   EXPECT_FALSE(prefs()->GetBoolean(prefs::kPrivacySandboxApisEnabledV2));
 
-  privacy_sandbox_service()->DialogActionOccurred(
-      PrivacySandboxService::DialogAction::kConsentAccepted);
+  privacy_sandbox_service()->PromptActionOccurred(
+      PrivacySandboxService::PromptAction::kConsentAccepted);
 
   EXPECT_EQ(PrivacySandboxService::PromptType::kNone,
             privacy_sandbox_service()->GetRequiredPromptType());
@@ -907,8 +919,8 @@ TEST_F(PrivacySandboxServiceTest, DialogActionUpdatesRequiredDialog) {
             privacy_sandbox_service()->GetRequiredPromptType());
   EXPECT_FALSE(prefs()->GetBoolean(prefs::kPrivacySandboxApisEnabledV2));
 
-  privacy_sandbox_service()->DialogActionOccurred(
-      PrivacySandboxService::DialogAction::kConsentDeclined);
+  privacy_sandbox_service()->PromptActionOccurred(
+      PrivacySandboxService::PromptAction::kConsentDeclined);
 
   EXPECT_EQ(PrivacySandboxService::PromptType::kNone,
             privacy_sandbox_service()->GetRequiredPromptType());
@@ -926,8 +938,8 @@ TEST_F(PrivacySandboxServiceTest, DialogActionUpdatesRequiredDialog) {
             privacy_sandbox_service()->GetRequiredPromptType());
   EXPECT_FALSE(prefs()->GetBoolean(prefs::kPrivacySandboxApisEnabledV2));
 
-  privacy_sandbox_service()->DialogActionOccurred(
-      PrivacySandboxService::DialogAction::kNoticeShown);
+  privacy_sandbox_service()->PromptActionOccurred(
+      PrivacySandboxService::PromptAction::kNoticeShown);
 
   EXPECT_EQ(PrivacySandboxService::PromptType::kNone,
             privacy_sandbox_service()->GetRequiredPromptType());
@@ -1333,7 +1345,7 @@ TEST_F(PrivacySandboxServiceTest, PrivacySandboxNoDialogEnabled) {
       PrivacySandboxService::PSStartupStates::kNoDialogRequiredEnabled, 1);
 }
 
-TEST_F(PrivacySandboxServiceTest, DialogActionsUMAActions) {
+TEST_F(PrivacySandboxServiceTest, PromptActionsUMAActions) {
   base::UserActionTester user_action_tester;
 
   SetupDialogTestState(feature_list(), prefs(),
@@ -1343,8 +1355,8 @@ TEST_F(PrivacySandboxServiceTest, DialogActionsUMAActions) {
                         /*notice_displayed=*/false,
                         /*consent_decision_made=*/false,
                         /*confirmation_not_shown=*/false});
-  privacy_sandbox_service()->DialogActionOccurred(
-      PrivacySandboxService::DialogAction::kNoticeShown);
+  privacy_sandbox_service()->PromptActionOccurred(
+      PrivacySandboxService::PromptAction::kNoticeShown);
   EXPECT_EQ(1, user_action_tester.GetActionCount(
                    "Settings.PrivacySandbox.Notice.Shown"));
 
@@ -1355,8 +1367,8 @@ TEST_F(PrivacySandboxServiceTest, DialogActionsUMAActions) {
                         /*notice_displayed=*/false,
                         /*consent_decision_made=*/false,
                         /*confirmation_not_shown=*/false});
-  privacy_sandbox_service()->DialogActionOccurred(
-      PrivacySandboxService::DialogAction::kNoticeOpenSettings);
+  privacy_sandbox_service()->PromptActionOccurred(
+      PrivacySandboxService::PromptAction::kNoticeOpenSettings);
   EXPECT_EQ(1, user_action_tester.GetActionCount(
                    "Settings.PrivacySandbox.Notice.OpenedSettings"));
 
@@ -1367,8 +1379,8 @@ TEST_F(PrivacySandboxServiceTest, DialogActionsUMAActions) {
                         /*notice_displayed=*/false,
                         /*consent_decision_made=*/false,
                         /*confirmation_not_shown=*/false});
-  privacy_sandbox_service()->DialogActionOccurred(
-      PrivacySandboxService::DialogAction::kNoticeAcknowledge);
+  privacy_sandbox_service()->PromptActionOccurred(
+      PrivacySandboxService::PromptAction::kNoticeAcknowledge);
   EXPECT_EQ(1, user_action_tester.GetActionCount(
                    "Settings.PrivacySandbox.Notice.Acknowledged"));
 
@@ -1379,8 +1391,8 @@ TEST_F(PrivacySandboxServiceTest, DialogActionsUMAActions) {
                         /*notice_displayed=*/false,
                         /*consent_decision_made=*/false,
                         /*confirmation_not_shown=*/false});
-  privacy_sandbox_service()->DialogActionOccurred(
-      PrivacySandboxService::DialogAction::kNoticeDismiss);
+  privacy_sandbox_service()->PromptActionOccurred(
+      PrivacySandboxService::PromptAction::kNoticeDismiss);
   EXPECT_EQ(1, user_action_tester.GetActionCount(
                    "Settings.PrivacySandbox.Notice.Dismissed"));
 
@@ -1391,8 +1403,8 @@ TEST_F(PrivacySandboxServiceTest, DialogActionsUMAActions) {
                         /*notice_displayed=*/false,
                         /*consent_decision_made=*/false,
                         /*confirmation_not_shown=*/false});
-  privacy_sandbox_service()->DialogActionOccurred(
-      PrivacySandboxService::DialogAction::kNoticeClosedNoInteraction);
+  privacy_sandbox_service()->PromptActionOccurred(
+      PrivacySandboxService::PromptAction::kNoticeClosedNoInteraction);
   EXPECT_EQ(1, user_action_tester.GetActionCount(
                    "Settings.PrivacySandbox.Notice.ClosedNoInteraction"));
 
@@ -1403,8 +1415,8 @@ TEST_F(PrivacySandboxServiceTest, DialogActionsUMAActions) {
                         /*notice_displayed=*/false,
                         /*consent_decision_made=*/false,
                         /*confirmation_not_shown=*/false});
-  privacy_sandbox_service()->DialogActionOccurred(
-      PrivacySandboxService::DialogAction::kNoticeLearnMore);
+  privacy_sandbox_service()->PromptActionOccurred(
+      PrivacySandboxService::PromptAction::kNoticeLearnMore);
   EXPECT_EQ(1, user_action_tester.GetActionCount(
                    "Settings.PrivacySandbox.Notice.LearnMore"));
 
@@ -1415,8 +1427,8 @@ TEST_F(PrivacySandboxServiceTest, DialogActionsUMAActions) {
                         /*notice_displayed=*/false,
                         /*consent_decision_made=*/false,
                         /*confirmation_not_shown=*/false});
-  privacy_sandbox_service()->DialogActionOccurred(
-      PrivacySandboxService::DialogAction::kConsentShown);
+  privacy_sandbox_service()->PromptActionOccurred(
+      PrivacySandboxService::PromptAction::kConsentShown);
   EXPECT_EQ(1, user_action_tester.GetActionCount(
                    "Settings.PrivacySandbox.Consent.Shown"));
 
@@ -1427,8 +1439,8 @@ TEST_F(PrivacySandboxServiceTest, DialogActionsUMAActions) {
                         /*notice_displayed=*/false,
                         /*consent_decision_made=*/false,
                         /*confirmation_not_shown=*/false});
-  privacy_sandbox_service()->DialogActionOccurred(
-      PrivacySandboxService::DialogAction::kConsentAccepted);
+  privacy_sandbox_service()->PromptActionOccurred(
+      PrivacySandboxService::PromptAction::kConsentAccepted);
   EXPECT_EQ(1, user_action_tester.GetActionCount(
                    "Settings.PrivacySandbox.Consent.Accepted"));
 
@@ -1439,8 +1451,8 @@ TEST_F(PrivacySandboxServiceTest, DialogActionsUMAActions) {
                         /*notice_displayed=*/false,
                         /*consent_decision_made=*/false,
                         /*confirmation_not_shown=*/false});
-  privacy_sandbox_service()->DialogActionOccurred(
-      PrivacySandboxService::DialogAction::kConsentDeclined);
+  privacy_sandbox_service()->PromptActionOccurred(
+      PrivacySandboxService::PromptAction::kConsentDeclined);
   EXPECT_EQ(1, user_action_tester.GetActionCount(
                    "Settings.PrivacySandbox.Consent.Declined"));
 
@@ -1451,8 +1463,8 @@ TEST_F(PrivacySandboxServiceTest, DialogActionsUMAActions) {
                         /*notice_displayed=*/false,
                         /*consent_decision_made=*/false,
                         /*confirmation_not_shown=*/false});
-  privacy_sandbox_service()->DialogActionOccurred(
-      PrivacySandboxService::DialogAction::kConsentMoreInfoOpened);
+  privacy_sandbox_service()->PromptActionOccurred(
+      PrivacySandboxService::PromptAction::kConsentMoreInfoOpened);
   EXPECT_EQ(1, user_action_tester.GetActionCount(
                    "Settings.PrivacySandbox.Consent.LearnMoreExpanded"));
 
@@ -1463,14 +1475,14 @@ TEST_F(PrivacySandboxServiceTest, DialogActionsUMAActions) {
                         /*notice_displayed=*/false,
                         /*consent_decision_made=*/false,
                         /*confirmation_not_shown=*/false});
-  privacy_sandbox_service()->DialogActionOccurred(
-      PrivacySandboxService::DialogAction::kConsentClosedNoDecision);
+  privacy_sandbox_service()->PromptActionOccurred(
+      PrivacySandboxService::PromptAction::kConsentClosedNoDecision);
   EXPECT_EQ(1, user_action_tester.GetActionCount(
                    "Settings.PrivacySandbox.Consent.ClosedNoInteraction"));
 }
 
 #if !BUILDFLAG(IS_ANDROID)
-TEST_F(PrivacySandboxServiceTest, DialogActionsSentimentService) {
+TEST_F(PrivacySandboxServiceTest, PromptActionsSentimentService) {
   {
     EXPECT_CALL(*mock_sentiment_service(),
                 InteractedWithPrivacySandbox3(testing::_))
@@ -1482,8 +1494,8 @@ TEST_F(PrivacySandboxServiceTest, DialogActionsSentimentService) {
                           /*notice_displayed=*/false,
                           /*consent_decision_made=*/false,
                           /*confirmation_not_shown=*/false});
-    privacy_sandbox_service()->DialogActionOccurred(
-        PrivacySandboxService::DialogAction::kNoticeShown);
+    privacy_sandbox_service()->PromptActionOccurred(
+        PrivacySandboxService::PromptAction::kNoticeShown);
   }
   {
     EXPECT_CALL(
@@ -1498,8 +1510,8 @@ TEST_F(PrivacySandboxServiceTest, DialogActionsSentimentService) {
                           /*notice_displayed=*/false,
                           /*consent_decision_made=*/false,
                           /*confirmation_not_shown=*/false});
-    privacy_sandbox_service()->DialogActionOccurred(
-        PrivacySandboxService::DialogAction::kNoticeOpenSettings);
+    privacy_sandbox_service()->PromptActionOccurred(
+        PrivacySandboxService::PromptAction::kNoticeOpenSettings);
   }
   {
     EXPECT_CALL(
@@ -1514,8 +1526,8 @@ TEST_F(PrivacySandboxServiceTest, DialogActionsSentimentService) {
                           /*notice_displayed=*/false,
                           /*consent_decision_made=*/false,
                           /*confirmation_not_shown=*/false});
-    privacy_sandbox_service()->DialogActionOccurred(
-        PrivacySandboxService::DialogAction::kNoticeAcknowledge);
+    privacy_sandbox_service()->PromptActionOccurred(
+        PrivacySandboxService::PromptAction::kNoticeAcknowledge);
   }
   {
     EXPECT_CALL(
@@ -1530,8 +1542,8 @@ TEST_F(PrivacySandboxServiceTest, DialogActionsSentimentService) {
                           /*notice_displayed=*/false,
                           /*consent_decision_made=*/false,
                           /*confirmation_not_shown=*/false});
-    privacy_sandbox_service()->DialogActionOccurred(
-        PrivacySandboxService::DialogAction::kNoticeDismiss);
+    privacy_sandbox_service()->PromptActionOccurred(
+        PrivacySandboxService::PromptAction::kNoticeDismiss);
   }
   {
     EXPECT_CALL(*mock_sentiment_service(),
@@ -1544,8 +1556,8 @@ TEST_F(PrivacySandboxServiceTest, DialogActionsSentimentService) {
                           /*notice_displayed=*/false,
                           /*consent_decision_made=*/false,
                           /*confirmation_not_shown=*/false});
-    privacy_sandbox_service()->DialogActionOccurred(
-        PrivacySandboxService::DialogAction::kNoticeClosedNoInteraction);
+    privacy_sandbox_service()->PromptActionOccurred(
+        PrivacySandboxService::PromptAction::kNoticeClosedNoInteraction);
   }
   {
     EXPECT_CALL(
@@ -1560,8 +1572,8 @@ TEST_F(PrivacySandboxServiceTest, DialogActionsSentimentService) {
                           /*notice_displayed=*/false,
                           /*consent_decision_made=*/false,
                           /*confirmation_not_shown=*/false});
-    privacy_sandbox_service()->DialogActionOccurred(
-        PrivacySandboxService::DialogAction::kNoticeLearnMore);
+    privacy_sandbox_service()->PromptActionOccurred(
+        PrivacySandboxService::PromptAction::kNoticeLearnMore);
   }
   {
     EXPECT_CALL(*mock_sentiment_service(),
@@ -1574,8 +1586,8 @@ TEST_F(PrivacySandboxServiceTest, DialogActionsSentimentService) {
                           /*notice_displayed=*/false,
                           /*consent_decision_made=*/false,
                           /*confirmation_not_shown=*/false});
-    privacy_sandbox_service()->DialogActionOccurred(
-        PrivacySandboxService::DialogAction::kConsentShown);
+    privacy_sandbox_service()->PromptActionOccurred(
+        PrivacySandboxService::PromptAction::kConsentShown);
   }
   {
     EXPECT_CALL(
@@ -1590,8 +1602,8 @@ TEST_F(PrivacySandboxServiceTest, DialogActionsSentimentService) {
                           /*notice_displayed=*/false,
                           /*consent_decision_made=*/false,
                           /*confirmation_not_shown=*/false});
-    privacy_sandbox_service()->DialogActionOccurred(
-        PrivacySandboxService::DialogAction::kConsentAccepted);
+    privacy_sandbox_service()->PromptActionOccurred(
+        PrivacySandboxService::PromptAction::kConsentAccepted);
   }
   {
     EXPECT_CALL(
@@ -1606,8 +1618,8 @@ TEST_F(PrivacySandboxServiceTest, DialogActionsSentimentService) {
                           /*notice_displayed=*/false,
                           /*consent_decision_made=*/false,
                           /*confirmation_not_shown=*/false});
-    privacy_sandbox_service()->DialogActionOccurred(
-        PrivacySandboxService::DialogAction::kConsentDeclined);
+    privacy_sandbox_service()->PromptActionOccurred(
+        PrivacySandboxService::PromptAction::kConsentDeclined);
   }
   {
     EXPECT_CALL(*mock_sentiment_service(),
@@ -1620,8 +1632,8 @@ TEST_F(PrivacySandboxServiceTest, DialogActionsSentimentService) {
                           /*notice_displayed=*/false,
                           /*consent_decision_made=*/false,
                           /*confirmation_not_shown=*/false});
-    privacy_sandbox_service()->DialogActionOccurred(
-        PrivacySandboxService::DialogAction::kConsentMoreInfoOpened);
+    privacy_sandbox_service()->PromptActionOccurred(
+        PrivacySandboxService::PromptAction::kConsentMoreInfoOpened);
   }
   {
     EXPECT_CALL(*mock_sentiment_service(),
@@ -1634,8 +1646,8 @@ TEST_F(PrivacySandboxServiceTest, DialogActionsSentimentService) {
                           /*notice_displayed=*/false,
                           /*consent_decision_made=*/false,
                           /*confirmation_not_shown=*/false});
-    privacy_sandbox_service()->DialogActionOccurred(
-        PrivacySandboxService::DialogAction::kConsentClosedNoDecision);
+    privacy_sandbox_service()->PromptActionOccurred(
+        PrivacySandboxService::PromptAction::kConsentClosedNoDecision);
   }
 }
 #endif
@@ -1705,7 +1717,7 @@ TEST_F(PrivacySandboxServiceTest, DisablingV2SandboxClearsData) {
   prefs()->SetBoolean(prefs::kPrivacySandboxApisEnabledV2, false);
   EXPECT_EQ(content::BrowsingDataRemover::DATA_TYPE_INTEREST_GROUPS |
                 content::BrowsingDataRemover::DATA_TYPE_AGGREGATION_SERVICE |
-                content::BrowsingDataRemover::DATA_TYPE_CONVERSIONS |
+                content::BrowsingDataRemover::DATA_TYPE_ATTRIBUTION_REPORTING |
                 content::BrowsingDataRemover::DATA_TYPE_TRUST_TOKENS,
             browsing_data_remover()->GetLastUsedRemovalMaskForTesting());
   EXPECT_EQ(base::Time::Min(),
@@ -1836,6 +1848,60 @@ TEST_F(PrivacySandboxServiceTest, InitializeV2Pref) {
   privacy_sandbox_service()->InitializePrivacySandboxV2Pref();
   EXPECT_FALSE(prefs()->GetBoolean(prefs::kPrivacySandboxApisEnabledV2));
 }
+
+#if BUILDFLAG(IS_CHROMEOS)
+TEST_F(PrivacySandboxServiceTest, DeviceLocalAccountUser) {
+  // No prompt should be shown if the user is associated with a device local
+  // account on CrOS.
+  SetupDialogTestState(feature_list(), prefs(),
+                       {/*consent_required=*/true,
+                        /*old_api_pref=*/true,
+                        /*new_api_pref=*/false,
+                        /*notice_displayed=*/false,
+                        /*consent_decision_made=*/false,
+                        /*confirmation_not_shown=*/false});
+  // No prompt should be shown for a public session account.
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  chromeos::LoginState::Initialize();
+  ash::LoginState::Get()->SetLoggedInState(
+      ash::LoginState::LoggedInState::LOGGED_IN_ACTIVE,
+      ash::LoginState::LoggedInUserType::LOGGED_IN_USER_PUBLIC_ACCOUNT);
+#elif BUILDFLAG(IS_CHROMEOS_LACROS)
+  crosapi::mojom::BrowserInitParamsPtr init_params =
+      crosapi::mojom::BrowserInitParams::New();
+  init_params->session_type = crosapi::mojom::SessionType::kPublicSession;
+  chromeos::BrowserInitParams::SetInitParamsForTests(std::move(init_params));
+#endif
+  EXPECT_EQ(PrivacySandboxService::PromptType::kNone,
+            privacy_sandbox_service()->GetRequiredPromptType());
+
+  // No prompt should be shown for a web kiosk account.
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  ash::LoginState::Get()->SetLoggedInState(
+      ash::LoginState::LoggedInState::LOGGED_IN_ACTIVE,
+      ash::LoginState::LoggedInUserType::LOGGED_IN_USER_KIOSK);
+#elif BUILDFLAG(IS_CHROMEOS_LACROS)
+  init_params = crosapi::mojom::BrowserInitParams::New();
+  init_params->session_type = crosapi::mojom::SessionType::kWebKioskSession;
+  chromeos::BrowserInitParams::SetInitParamsForTests(std::move(init_params));
+#endif
+  EXPECT_EQ(PrivacySandboxService::PromptType::kNone,
+            privacy_sandbox_service()->GetRequiredPromptType());
+
+  // A prompt should be shown for a regular user.
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  ash::LoginState::Get()->SetLoggedInState(
+      ash::LoginState::LoggedInState::LOGGED_IN_ACTIVE,
+      ash::LoginState::LoggedInUserType::LOGGED_IN_USER_REGULAR);
+#elif BUILDFLAG(IS_CHROMEOS_LACROS)
+  init_params = crosapi::mojom::BrowserInitParams::New();
+  init_params->session_type = crosapi::mojom::SessionType::kRegularSession;
+  chromeos::BrowserInitParams::SetInitParamsForTests(std::move(init_params));
+#endif
+  EXPECT_EQ(PrivacySandboxService::PromptType::kConsent,
+            privacy_sandbox_service()->GetRequiredPromptType());
+}
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 class PrivacySandboxPrefInitTest : public PrivacySandboxServiceTest {
   void InitializeBeforeStart() override {
@@ -2631,6 +2697,10 @@ class PrivacySandboxServiceDialogTestBase {
  public:
   PrivacySandboxServiceDialogTestBase() {
     privacy_sandbox::RegisterProfilePrefs(prefs()->registry());
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+    if (!user_manager::UserManager::IsInitialized())
+      user_manager_.Initialize();
+#endif
   }
 
  protected:
@@ -2644,6 +2714,9 @@ class PrivacySandboxServiceDialogTestBase {
 
  private:
   base::test::ScopedFeatureList feature_list_;
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  ash::FakeChromeUserManager user_manager_;
+#endif
   sync_preferences::TestingPrefServiceSyncable pref_service_;
   MockPrivacySandboxSettings privacy_sandbox_settings_;
 };

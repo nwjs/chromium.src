@@ -442,7 +442,7 @@ ExtensionFunction::ExtensionFunction() {
   EnsureMemoryDumpProviderExists();
 }
 
-bool ExtensionFunction::RunNWSync(base::ListValue* response, std::string* error) {
+bool ExtensionFunction::RunNWSync(base::Value::List* response, std::string* error) {
   return false;
 }
 
@@ -692,15 +692,6 @@ ExtensionFunction::ResponseValue ExtensionFunction::ArgumentList(
   return ResponseValue(new ArgumentListResponseValue(this, std::move(list)));
 }
 
-ExtensionFunction::ResponseValue ExtensionFunction::ArgumentList(
-    std::unique_ptr<base::ListValue> args) {
-  base::Value::List new_args;
-  if (args)
-    new_args = std::move(args->GetList());
-  return ResponseValue(
-      new ArgumentListResponseValue(this, std::move(new_args)));
-}
-
 ExtensionFunction::ResponseValue ExtensionFunction::Error(std::string error) {
   return ResponseValue(new ErrorResponseValue(this, std::move(error)));
 }
@@ -738,16 +729,6 @@ ExtensionFunction::ResponseValue ExtensionFunction::ErrorWithArguments(
   }
   return ResponseValue(
       new ErrorWithArgumentsResponseValue(this, std::move(list), error));
-}
-
-ExtensionFunction::ResponseValue ExtensionFunction::ErrorWithArguments(
-    std::unique_ptr<base::ListValue> args,
-    const std::string& error) {
-  base::Value::List new_args;
-  if (args)
-    new_args = std::move(args->GetList());
-  return ResponseValue(
-      new ErrorWithArgumentsResponseValue(this, std::move(new_args), error));
 }
 
 ExtensionFunction::ResponseValue ExtensionFunction::BadMessage() {
@@ -874,7 +855,7 @@ NWSyncExtensionFunction::~NWSyncExtensionFunction() {
 
 ExtensionFunction::ResponseAction NWSyncExtensionFunction::Run() {
   NOTREACHED() << "NWSyncExtensionFunction::Run";
-  return RespondNow(ArgumentList(std::move(results_)));
+  return RespondNow(ArgumentList(std::vector<base::Value>()));
 }
 
 // static
@@ -889,7 +870,7 @@ void NWSyncExtensionFunction::SetError(const std::string& error) {
 
 void NWSyncExtensionFunction::SetResult(std::unique_ptr<base::Value> result) {
   results_.reset(new base::ListValue());
-  results_->Append(std::move(result));
+  results_->Append(base::Value::FromUniquePtrValue(std::move(result)));
 }
 
 void NWSyncExtensionFunction::SetResultList(

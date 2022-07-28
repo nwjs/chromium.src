@@ -148,7 +148,7 @@ autofill::AutofillManager* GetAutofillManager(
   }
   autofill::ContentAutofillDriver* autofill_driver =
       autofill::ContentAutofillDriverFactory::FromWebContents(web_contents)
-          ->DriverForFrame(web_contents->GetMainFrame());
+          ->DriverForFrame(web_contents->GetPrimaryMainFrame());
   if (!autofill_driver)
     return nullptr;
   return autofill_driver->autofill_manager();
@@ -651,7 +651,7 @@ ExtensionFunction::ResponseAction AutofillPrivateAddVirtualCardFunction::Run() {
           ->GetFormDataImporter()
           ->GetVirtualCardEnrollmentManager();
 
-  virtual_card_enrollment_manager->OfferVirtualCardEnroll(
+  virtual_card_enrollment_manager->InitVirtualCardEnroll(
       *card, autofill::VirtualCardEnrollmentSource::kSettingsPage);
   return RespondNow(NoArguments());
 }

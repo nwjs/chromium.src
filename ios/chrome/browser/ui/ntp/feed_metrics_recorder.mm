@@ -14,6 +14,7 @@
 #import "components/feed/core/v2/public/common_enums.h"
 #import "ios/chrome/browser/ui/content_suggestions/ntp_home_metrics.h"
 #import "ios/chrome/browser/ui/ntp/feed_control_delegate.h"
+#import "ios/chrome/browser/ui/ntp/feed_session_recorder.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_follow_delegate.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
@@ -172,6 +173,12 @@ const char
 const char kDiscoverFeedUserActionManagementTappedUnfollowTryAgainOnSnackbar[] =
     "ContentSuggestions.Feed.Management.TappedUnfollowTryAgainOnSnackbar";
 
+// User action names for first follow surface.
+const char kFirstFollowGoToFeedButtonTapped[] =
+    "ContentSuggestions.Follow.FirstFollow.GoToFeedButtonTapped";
+const char kFirstFollowGotItButtonTapped[] =
+    "ContentSuggestions.Follow.FirstFollow.GotItButtonTapped";
+
 // User action name for engaging with feed.
 const char kDiscoverFeedUserActionEngaged[] = "ContentSuggestions.Feed.Engaged";
 
@@ -302,7 +309,8 @@ constexpr base::TimeDelta kUserSettingsMaxAge = base::Days(14);
 }  // namespace
 
 @interface FeedMetricsRecorder ()
-
+// Helper for recording session time metrics.
+@property(nonatomic, strong) FeedSessionRecorder* sessionRecorder;
 // Tracking property to avoid duplicate recordings of
 // FeedEngagementType::kFeedEngagedSimple.
 @property(nonatomic, assign) BOOL engagedSimpleReportedDiscover;
@@ -321,6 +329,15 @@ constexpr base::TimeDelta kUserSettingsMaxAge = base::Days(14);
 @end
 
 @implementation FeedMetricsRecorder
+
+#pragma mark - Properties
+
+- (FeedSessionRecorder*)sessionRecorder {
+  if (!_sessionRecorder) {
+    _sessionRecorder = [[FeedSessionRecorder alloc] init];
+  }
+  return _sessionRecorder;
+}
 
 #pragma mark - Public
 
@@ -795,6 +812,28 @@ constexpr base::TimeDelta kUserSettingsMaxAge = base::Days(14);
       kDiscoverFeedUserActionManagementTappedUnfollowTryAgainOnSnackbar));
 }
 
+- (void)recordFirstFollowShown {
+  [self recordDiscoverFeedUserActionHistogram:FeedUserActionType::
+                                                  kFirstFollowSheetShown];
+}
+
+- (void)recordFirstFollowTappedGoToFeed {
+  [self recordDiscoverFeedUserActionHistogram:
+            FeedUserActionType::kFirstFollowSheetTappedGoToFeed];
+  base::RecordAction(base::UserMetricsAction(kFirstFollowGoToFeedButtonTapped));
+}
+
+- (void)recordFirstFollowTappedGotIt {
+  [self recordDiscoverFeedUserActionHistogram:FeedUserActionType::
+                                                  kFirstFollowSheetTappedGotIt];
+  base::RecordAction(base::UserMetricsAction(kFirstFollowGotItButtonTapped));
+}
+
+- (void)recordFollowRecommendationIPHShown {
+  [self recordDiscoverFeedUserActionHistogram:
+            FeedUserActionType::kFollowRecommendationIPHShown];
+}
+
 #pragma mark - Private
 
 // Returns the UserSettingsOnStart value based on the user settings.
@@ -820,7 +859,9 @@ constexpr base::TimeDelta kUserSettingsMaxAge = base::Days(14);
   }
 
   const base::TimeDelta delta = base::Time::Now() - lastRefreshTime;
-  if (delta >= base::TimeDelta() && delta <= kUserSettingsMaxAge) {
+  const BOOL hasRecentData =
+      delta >= base::TimeDelta() && delta <= kUserSettingsMaxAge;
+  if (!hasRecentData) {
     return UserSettingsOnStart::kSignedInNoRecentData;
   }
 
@@ -863,6 +904,8 @@ constexpr base::TimeDelta kUserSettingsMaxAge = base::Days(14);
   if (scrollDistance > kMinScrollThreshold || interacted) {
     [self recordEngaged];
   }
+
+  [self.sessionRecorder recordUserInteractionOrScrolling];
 }
 
 // Records any direct interaction with the Feed, this doesn't include scrolling.
@@ -936,8 +979,9 @@ constexpr base::TimeDelta kUserSettingsMaxAge = base::Days(14);
     self.engagedReportedFollowing = YES;
 
     // Log follow count when engaging with Following feed.
-    [self recordFollowCount:[self.followDelegate followedPublisherCount]
-               forLogReason:FollowCountLogReasonEngaged];
+    // TODO(crbug.com/1322640): |followDelegate| is nil when navigating to an
+    // article, since NTPCoordinator is stopped first. When this is fixed, we
+    // should call |recordFollowCount| here.
   }
 
   // TODO(crbug.com/1322640): Separate user action for Following feed

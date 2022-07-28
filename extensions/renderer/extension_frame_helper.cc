@@ -7,6 +7,7 @@
 #include "content/renderer/render_frame_impl.h"
 #include <set>
 
+#include "base/feature_list.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/string_util.h"
@@ -16,6 +17,7 @@
 #include "extensions/common/api/messaging/message.h"
 #include "extensions/common/api/messaging/port_id.h"
 #include "extensions/common/constants.h"
+#include "extensions/common/extension_features.h"
 #include "extensions/common/extension_messages.h"
 #include "extensions/common/manifest_handlers/background_info.h"
 #include "extensions/renderer/api/automation/automation_api_helper.h"
@@ -142,7 +144,7 @@ ExtensionFrameHelper::ExtensionFrameHelper(content::RenderFrame* render_frame,
       content::RenderFrameObserverTracker<ExtensionFrameHelper>(render_frame),
       extension_dispatcher_(extension_dispatcher) {
   g_frame_helpers.Get().insert(this);
-  if (render_frame->IsMainFrame()) {
+  if (render_frame->GetWebFrame()->IsOutermostMainFrame()) {
     // Manages its own lifetime.
     new AutomationApiHelper(render_frame);
   }
@@ -187,10 +189,10 @@ v8::Local<v8::Array> ExtensionFrameHelper::GetV8MainFrames(
 
   int v8_index = 0;
   for (content::RenderFrame* frame : render_frames) {
-    if (!frame->IsMainFrame())
+    blink::WebLocalFrame* web_frame = frame->GetWebFrame();
+    if (!web_frame->IsOutermostMainFrame())
       continue;
 
-    blink::WebLocalFrame* web_frame = frame->GetWebFrame();
 #if 0
     //remote page need to call GetExtensionViews in api_nw_window.js #5312
     if (!blink::WebFrame::ScriptCanAccess(web_frame))
@@ -223,8 +225,9 @@ content::RenderFrame* ExtensionFrameHelper::GetBackgroundPageFrame(
                            extension_misc::kUnknownWindowId,
                            extension_misc::kUnknownTabId, extension_id)) {
       blink::WebLocalFrame* web_frame = helper->render_frame()->GetWebFrame();
-      // Check if this is the top frame.
-      if (web_frame->Top() == web_frame)
+      // Check if this is the outermost main frame (do not return embedded
+      // main frames like portals or fenced frames).
+      if (web_frame->IsOutermostMainFrame())
         return helper->render_frame();
     }
   }
@@ -352,7 +355,7 @@ void ExtensionFrameHelper::ReadyToCommitNavigation(
   // be resumed when it happens. It doesn't apply to sandboxed pages.
   if ((view_type_ == extensions::mojom::ViewType::kAppWindow ||
        view_type_ == extensions::mojom::ViewType::kTabContents) &&
-      render_frame()->IsMainFrame() &&
+      render_frame()->GetWebFrame()->IsOutermostMainFrame() &&
       !has_started_first_navigation_ && !static_cast<content::RenderFrameImpl*>(render_frame())->skip_blocking_parser_) { // &&
     //      GURL(document_loader->GetUrl()).SchemeIs(kExtensionScheme) &&
     //  !ScriptContext::IsSandboxedPage(document_loader->GetUrl())) {
@@ -388,6 +391,10 @@ void ExtensionFrameHelper::ReadyToCommitNavigation(
 
 void ExtensionFrameHelper::DidCommitProvisionalLoad(
     ui::PageTransition transition) {
+  if (base::FeatureList::IsEnabled(
+          extensions_features::kAvoidEarlyExtensionScriptContextCreation)) {
+    return;
+  }
   // Grant cross browsing instance frame lookup if we are an extension. This
   // should match the conditions in FindFrame.
   content::RenderFrame* frame = render_frame();
@@ -550,7 +557,7 @@ void ExtensionFrameHelper::SetFrameName(const std::string& name) {
 }
 
 void ExtensionFrameHelper::AppWindowClosed(bool send_onclosed) {
-  DCHECK(render_frame()->IsMainFrame());
+  DCHECK(render_frame()->GetWebFrame()->IsOutermostMainFrame());
 
   if (!send_onclosed)
     return;
@@ -592,12 +599,25 @@ void ExtensionFrameHelper::UpdateBrowserWindowId(int32_t window_id) {
   browser_window_id_ = window_id;
 }
 
+void ExtensionFrameHelper::NotifyDidCreateScriptContext(int32_t world_id) {
+  did_create_script_context_ = true;
+  if (world_id == blink::kMainDOMWorldId &&
+      base::FeatureList::IsEnabled(
+          extensions_features::kAvoidEarlyExtensionScriptContextCreation)) {
+    // Grant cross browsing instance frame lookup if we are an extension. This
+    // should match the conditions in FindFrame.
+    content::RenderFrame* frame = render_frame();
+    if (GetExtensionFromFrame(frame))
+      frame->SetAllowsCrossBrowsingInstanceFrameLookup();
+  }
+}
+
 void ExtensionFrameHelper::OnDestruct() {
   delete this;
 }
 
 void ExtensionFrameHelper::DraggableRegionsChanged() {
-  if (!render_frame()->IsMainFrame())
+  if (!render_frame()->GetWebFrame()->IsOutermostMainFrame())
     return;
 
   blink::WebVector<blink::WebDraggableRegion> webregions =

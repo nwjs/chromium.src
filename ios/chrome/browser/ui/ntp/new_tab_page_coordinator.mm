@@ -61,6 +61,7 @@
 #import "ios/chrome/browser/ui/ntp/feed_management/feed_management_navigation_delegate.h"
 #import "ios/chrome/browser/ui/ntp/feed_menu_commands.h"
 #import "ios/chrome/browser/ui/ntp/feed_metrics_recorder.h"
+#import "ios/chrome/browser/ui/ntp/feed_top_section_coordinator.h"
 #import "ios/chrome/browser/ui/ntp/incognito_view_controller.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_content_delegate.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_delegate.h"
@@ -204,6 +205,10 @@ namespace {
 @property(nonatomic, strong)
     FeedManagementCoordinator* feedManagementCoordinator;
 
+// Coordinator for Feed top section.
+@property(nonatomic, strong)
+    FeedTopSectionCoordinator* feedTopSectionCoordinator;
+
 @end
 
 @implementation NewTabPageCoordinator
@@ -315,6 +320,10 @@ namespace {
     }
   }
 
+  if (IsDiscoverFeedTopSyncPromoEnabled()) {
+    self.feedTopSectionCoordinator = [self createFeedTopSectionCoordinator];
+  }
+
   self.contentSuggestionsCoordinator =
       [self createContentSuggestionsCoordinator];
 
@@ -388,15 +397,6 @@ namespace {
   self.discoverFeedWrapperViewController = nil;
   self.discoverFeedViewController = nil;
   self.feedMetricsRecorder = nil;
-  if (IsContentSuggestionsHeaderMigrationEnabled()) {
-    // Unfocus omnibox, to prevent it from lingering when it should be dismissed
-    // (for example, when navigating away or when changing feed visibility).
-    // Do this after the MVC classes are deallocated so no reset animations are
-    // fired in response to this cancel.
-    id<OmniboxCommands> omniboxCommandHandler = HandlerForProtocol(
-        self.browser->GetCommandDispatcher(), OmniboxCommands);
-    [omniboxCommandHandler cancelOmniboxEdit];
-  }
 
   [self.feedExpandedPref setObserver:nil];
   self.feedExpandedPref = nil;
@@ -464,6 +464,9 @@ namespace {
       [[DiscoverFeedWrapperViewController alloc]
                     initWithDelegate:self
           discoverFeedViewController:self.discoverFeedViewController];
+
+  self.ntpViewController.feedTopSectionViewController =
+      self.feedTopSectionCoordinator.viewController;
 
   self.headerSynchronizer = [[ContentSuggestionsHeaderSynchronizer alloc]
       initWithCollectionController:self.ntpViewController
@@ -592,6 +595,18 @@ namespace {
   }
 }
 
+- (void)handleFeedModelDidEndUpdates:(FeedType)feedType {
+  DCHECK(self.ntpViewController);
+  if (!self.discoverFeedViewController) {
+    return;
+  }
+  // When the visible feed has been updated, recalculate the minimum NTP height.
+  if (![self isFollowingFeedAvailable] ||
+      ([self isFollowingFeedAvailable] && feedType == self.selectedFeed)) {
+    [self.ntpViewController updateFeedInsetsForMinimumHeight];
+  }
+}
+
 - (void)ntpDidChangeVisibility:(BOOL)visible {
   if (!self.browser->GetBrowserState()->IsOffTheRecord()) {
     if (visible && self.started) {
@@ -606,6 +621,15 @@ namespace {
         self.feedMetricsRecorder.feedControlDelegate = self;
         self.feedMetricsRecorder.followDelegate = self;
       }
+    }
+    if (!visible) {
+      // Unfocus omnibox, to prevent it from lingering when it should be
+      // dismissed (for example, when navigating away or when changing feed
+      // visibility). Do this after the MVC classes are deallocated so no reset
+      // animations are fired in response to this cancel.
+      id<OmniboxCommands> omniboxCommandHandler = HandlerForProtocol(
+          self.browser->GetCommandDispatcher(), OmniboxCommands);
+      [omniboxCommandHandler cancelOmniboxEdit];
     }
   }
   self.viewPresented = visible;
@@ -634,9 +658,11 @@ namespace {
   [self updateNTPForFeed];
   [self updateFeedLayout];
 
+  [self.ntpViewController updateFeedInsetsForMinimumHeight];
+
   // Scroll position resets when changing the feed, so we set it back to what it
   // was.
-  [self.ntpViewController setContentOffsetUpToTopOfFeed:scrollPosition];
+  [self.ntpViewController setContentOffsetToTopOfFeed:scrollPosition];
 }
 
 - (void)handleSortTypeForFollowingFeed:(FollowingFeedSortType)sortType {
@@ -644,6 +670,10 @@ namespace {
   self.prefService->SetInteger(prefs::kNTPFollowingFeedSortType, sortType);
   self.discoverFeedService->SetFollowingFeedSortType(sortType);
   self.feedHeaderViewController.followingFeedSortType = sortType;
+
+  // Changing the sort type affects the scroll position, so update the feed
+  // layout.
+  [self updateFeedLayout];
 }
 
 - (BOOL)shouldFeedBeVisible {
@@ -818,7 +848,6 @@ namespace {
 
 - (void)contentSuggestionsWasUpdated {
   [self updateFeedLayout];
-  [self setContentOffsetToTop];
 }
 
 - (void)returnToRecentTabWasAdded {
@@ -984,6 +1013,10 @@ namespace {
   [self.ntpMediator handleFeedManageHiddenTapped];
 }
 
+- (void)handleNavigateToFollowedURL:(const GURL&)url {
+  [self.ntpMediator handleVisitSiteFromFollowManagementList:url];
+}
+
 #pragma mark - Private
 
 // Updates the NTP to take into account a new feed, or a change in feed
@@ -1089,8 +1122,9 @@ namespace {
 
 // Creates, configures and returns a Discover feed view controller.
 - (UIViewController*)discoverFeed {
-  if (tests_hook::DisableDiscoverFeed())
+  if (tests_hook::DisableDiscoverFeed()) {
     return nil;
+  }
 
   UIViewController* discoverFeed =
       self.discoverFeedService->NewDiscoverFeedViewControllerWithConfiguration(
@@ -1100,8 +1134,9 @@ namespace {
 
 // Creates, configures and returns a Following feed view controller.
 - (UIViewController*)followingFeed {
-  if (tests_hook::DisableDiscoverFeed())
+  if (tests_hook::DisableDiscoverFeed()) {
     return nil;
+  }
 
   UIViewController* followingFeed =
       self.discoverFeedService->NewFollowingFeedViewControllerWithConfiguration(
@@ -1178,6 +1213,17 @@ namespace {
         self.baseViewController;
   }
   return contentSuggestionsCoordinator;
+}
+
+// Configures and returns the feed top section coordinator.
+- (FeedTopSectionCoordinator*)createFeedTopSectionCoordinator {
+  DCHECK(self.ntpViewController);
+  FeedTopSectionCoordinator* feedTopSectionCoordinator =
+      [[FeedTopSectionCoordinator alloc]
+          initWithBaseViewController:self.ntpViewController
+                             browser:self.browser];
+  [feedTopSectionCoordinator start];
+  return feedTopSectionCoordinator;
 }
 
 - (void)handleFeedManageTapped {

@@ -54,6 +54,7 @@ class UiControllerAndroid : public ControllerObserver, UiControllerObserver {
 
   UiControllerAndroid(
       JNIEnv* env,
+      content::WebContents* web_contents,
       const base::android::JavaRef<jobject>& jdependencies,
       const base::android::JavaRef<jobject>& joverlay_coordinator);
 
@@ -118,7 +119,6 @@ class UiControllerAndroid : public ControllerObserver, UiControllerObserver {
   void OnStop() override;
   void OnResetState() override;
   void OnUiShownChanged(bool shown) override;
-  void OnShutdown(Metrics::DropOutReason reason) override;
 
   // Overrides UiControllerObserver:
   void OnStatusMessageChanged(const std::string& message) override;
@@ -126,7 +126,8 @@ class UiControllerAndroid : public ControllerObserver, UiControllerObserver {
   void OnUserActionsChanged(const std::vector<UserAction>& actions) override;
   void OnCollectUserDataOptionsChanged(
       const CollectUserDataOptions* collect_user_data_options) override;
-  void OnCollectUserDataUiStateChanged(bool enabled) override;
+  void OnCollectUserDataUiStateChanged(bool loading,
+                                       UserDataEventField event_field) override;
   void OnDetailsChanged(const std::vector<Details>& details) override;
   void OnInfoBoxChanged(const InfoBox* info_box) override;
   void OnProgressActiveStepChanged(int active_step) override;

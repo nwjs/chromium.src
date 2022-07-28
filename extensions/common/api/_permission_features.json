@@ -630,9 +630,7 @@
     },
     {
       "channel": "dev",
-      "extension_types": ["extension"],
-      "platforms": ["chromeos", "lacros"],
-      "session_types": ["kiosk"]
+      "extension_types": ["extension"]
     }
   ],
   "system.storage": [
@@ -772,7 +770,7 @@
   "vpnProvider": {
     "channel": "stable",
     "extension_types": ["extension", "platform_app"],
-    "platforms": ["chromeos"]
+    "platforms": ["chromeos", "lacros"]
   },
   "webview": {
     "channel": "stable",

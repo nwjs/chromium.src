@@ -67,16 +67,20 @@ void APIBindingJSUtil::SendRequestSync(
   v8::Isolate* isolate = arguments->isolate();
   v8::HandleScope handle_scope(isolate);
   bool success;
-  base::ListValue response;
+  base::Value::List response;
   std::string error;
   SendRequestHelper(arguments, name, request_args, options, true, &success, &response, &error);
   if (!success) {
     isolate->ThrowException(v8::Exception::Error(gin::StringToV8(isolate, error)));
     return;
   }
+  base::ListValue list_val;
+  for (auto &&val : response) {
+    list_val.Append(std::move(val));
+  }
   std::unique_ptr<content::V8ValueConverter> converter(content::V8ValueConverter::Create());
   v8::Local<v8::Context> context = arguments->GetHolderCreationContext();
-  arguments->Return(converter->ToV8Value(&response, context));
+  arguments->Return(converter->ToV8Value(&list_val, context));
 }
 
 void APIBindingJSUtil::SendRequest(
@@ -92,7 +96,7 @@ void APIBindingJSUtil::SendRequestHelper(
     const std::string& name,
     const std::vector<v8::Local<v8::Value>>& request_args,
     v8::Local<v8::Value> options,
-    bool sync, bool* success, base::ListValue* response, std::string* error) {
+    bool sync, bool* success, base::Value::List* response, std::string* error) {
   v8::Isolate* isolate = arguments->isolate();
   v8::HandleScope handle_scope(isolate);
   v8::Local<v8::Context> context = arguments->GetHolderCreationContext();
@@ -335,7 +339,8 @@ void APIBindingJSUtil::AddCustomSignature(
       custom_signature_name,
       APISignature::CreateFromValues(*base_signature, nullptr /*returns_async*/,
                                      nullptr /*access_checker*/,
-                                     custom_signature_name));
+                                     custom_signature_name,
+                                     false /*is_event_signature*/));
 }
 
 void APIBindingJSUtil::ValidateCustomSignature(

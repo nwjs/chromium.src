@@ -996,69 +996,79 @@ TEST_F(WebFrameTest, CapabilityDelegationMessageEventTest) {
   ScriptExecutionCallbackHelper callback_helper(
       web_view_helper.LocalMainFrame()->MainWorldScriptContext());
 
-  String post_message_wo_request(
-      "window.frames[0].postMessage('0', {targetOrigin: '*'});");
-  String post_message_w_payment_request(
-      "window.frames[0].postMessage("
-      "'1', {targetOrigin: '*', delegate: 'payment'});");
-  String post_message_w_fullscreen_request(
-      "window.frames[0].postMessage("
-      "'1', {targetOrigin: '*', delegate: 'fullscreen'});");
-  String post_message_w_unknown_request(
-      "window.frames[0].postMessage("
-      "'1', {targetOrigin: '*', delegate: 'foo'});");
+  {
+    String post_message_wo_request(
+        "window.frames[0].postMessage('0', {targetOrigin: '/'});");
+    String post_message_w_payment_request(
+        "window.frames[0].postMessage("
+        "'1', {targetOrigin: '/', delegate: 'payment'});");
 
-  // The delegation info is not passed through a postMessage that is sent
-  // without either user activation or the delegation option.
-  ExecuteScriptInMainWorld(web_view_helper.GetWebView()->MainFrameImpl(),
-                           post_message_wo_request, &callback_helper);
-  RunPendingTasks();
-  EXPECT_TRUE(callback_helper.DidComplete());
-  EXPECT_FALSE(message_event_listener->DelegateCapability());
+    // The delegation info is not passed through a postMessage that is sent
+    // without either user activation or the delegation option.
+    ExecuteScriptInMainWorld(web_view_helper.GetWebView()->MainFrameImpl(),
+                             post_message_wo_request, &callback_helper);
+    RunPendingTasks();
+    EXPECT_TRUE(callback_helper.DidComplete());
+    EXPECT_FALSE(message_event_listener->DelegateCapability());
 
-  // The delegation info is not passed through a postMessage that is sent
-  // without user activation but with the delegation option.
-  ExecuteScriptInMainWorld(web_view_helper.GetWebView()->MainFrameImpl(),
-                           post_message_w_payment_request, &callback_helper);
-  RunPendingTasks();
-  EXPECT_TRUE(callback_helper.DidComplete());
-  EXPECT_FALSE(message_event_listener->DelegateCapability());
+    // The delegation info is not passed through a postMessage that is sent
+    // without user activation but with the delegation option.
+    ExecuteScriptInMainWorld(web_view_helper.GetWebView()->MainFrameImpl(),
+                             post_message_w_payment_request, &callback_helper);
+    RunPendingTasks();
+    EXPECT_TRUE(callback_helper.DidComplete());
+    EXPECT_FALSE(message_event_listener->DelegateCapability());
 
-  // The delegation info is not passed through a postMessage that is sent with
-  // user activation but without the delegation option.
-  ExecuteScriptInMainWorld(web_view_helper.GetWebView()->MainFrameImpl(),
-                           post_message_wo_request, &callback_helper,
-                           /*wait_for_promise=*/true, /*user_gesture=*/true);
-  RunPendingTasks();
-  EXPECT_TRUE(callback_helper.DidComplete());
-  EXPECT_FALSE(message_event_listener->DelegateCapability());
+    // The delegation info is not passed through a postMessage that is sent with
+    // user activation but without the delegation option.
+    ExecuteScriptInMainWorld(web_view_helper.GetWebView()->MainFrameImpl(),
+                             post_message_wo_request, &callback_helper,
+                             /*wait_for_promise=*/true, /*user_gesture=*/true);
+    RunPendingTasks();
+    EXPECT_TRUE(callback_helper.DidComplete());
+    EXPECT_FALSE(message_event_listener->DelegateCapability());
 
-  // The delegation info is passed through a postMessage that is sent with both
-  // user activation and the delegation option.
-  ExecuteScriptInMainWorld(web_view_helper.GetWebView()->MainFrameImpl(),
-                           post_message_w_payment_request, &callback_helper,
-                           /*wait_for_promise=*/true, /*user_gesture=*/true);
-  RunPendingTasks();
-  EXPECT_TRUE(callback_helper.DidComplete());
-  EXPECT_TRUE(message_event_listener->DelegateCapability());
+    // The delegation info is passed through a postMessage that is sent with
+    // both user activation and the delegation option.
+    ExecuteScriptInMainWorld(web_view_helper.GetWebView()->MainFrameImpl(),
+                             post_message_w_payment_request, &callback_helper,
+                             /*wait_for_promise=*/true, /*user_gesture=*/true);
+    RunPendingTasks();
+    EXPECT_TRUE(callback_helper.DidComplete());
+    EXPECT_TRUE(message_event_listener->DelegateCapability());
+  }
 
-  // The delegation info is passed through a postMessage that is sent with both
-  // user activation and the delegation option for another known capability.
-  ExecuteScriptInMainWorld(web_view_helper.GetWebView()->MainFrameImpl(),
-                           post_message_w_fullscreen_request, &callback_helper,
-                           /*wait_for_promise=*/true, /*user_gesture=*/true);
-  RunPendingTasks();
-  EXPECT_TRUE(callback_helper.DidComplete());
-  EXPECT_TRUE(message_event_listener->DelegateCapability());
+  {
+    String post_message_w_fullscreen_request(
+        "window.frames[0].postMessage("
+        "'1', {targetOrigin: '/', delegate: 'fullscreen'});");
 
-  // The delegation info is not passed through a postMessage that is sent with
-  // user activation and the delegation option for an unknown capability.
-  ExecuteScriptInMainWorld(web_view_helper.GetWebView()->MainFrameImpl(),
-                           post_message_w_unknown_request, &callback_helper,
-                           /*wait_for_promise=*/true, /*user_gesture=*/true);
-  RunPendingTasks();
-  EXPECT_TRUE(callback_helper.DidComplete());
-  EXPECT_FALSE(message_event_listener->DelegateCapability());
+    // The delegation info is passed through a postMessage that is sent with
+    // both user activation and the delegation option for another known
+    // capability.
+    ExecuteScriptInMainWorld(web_view_helper.GetWebView()->MainFrameImpl(),
+                             post_message_w_fullscreen_request,
+                             &callback_helper,
+                             /*wait_for_promise=*/true, /*user_gesture=*/true);
+    RunPendingTasks();
+    EXPECT_TRUE(callback_helper.DidComplete());
+    EXPECT_TRUE(message_event_listener->DelegateCapability());
+  }
+
+  {
+    String post_message_w_unknown_request(
+        "window.frames[0].postMessage("
+        "'1', {targetOrigin: '/', delegate: 'foo'});");
+
+    // The delegation info is not passed through a postMessage that is sent with
+    // user activation and the delegation option for an unknown capability.
+    ExecuteScriptInMainWorld(web_view_helper.GetWebView()->MainFrameImpl(),
+                             post_message_w_unknown_request, &callback_helper,
+                             /*wait_for_promise=*/true, /*user_gesture=*/true);
+    RunPendingTasks();
+    EXPECT_TRUE(callback_helper.DidComplete());
+    EXPECT_FALSE(message_event_listener->DelegateCapability());
+  }
 }
 
 TEST_F(WebFrameTest, FormWithNullFrame) {
@@ -7455,12 +7465,11 @@ TEST_F(WebFrameTest, SiteForCookiesForRedirect) {
 
   frame_test_helpers::WebViewHelper web_view_helper;
   web_view_helper.InitializeAndLoad(base_url_ + "first_party_redirect.html");
-  EXPECT_TRUE(
-      web_view_helper.GetWebView()
-          ->MainFrameImpl()
-          ->GetDocument()
-          .SiteForCookies()
-          .IsEquivalent(net::SiteForCookies::FromUrl(ToKURL(redirect))));
+  EXPECT_TRUE(web_view_helper.GetWebView()
+                  ->MainFrameImpl()
+                  ->GetDocument()
+                  .SiteForCookies()
+                  .IsEquivalent(net::SiteForCookies::FromUrl(GURL(redirect))));
 }
 
 class TestNewWindowWebViewClient
@@ -8664,97 +8673,6 @@ TEST_F(WebFrameTest, ClearFullscreenConstraintsOnNavigation) {
   EXPECT_EQ(400, layout_view->LogicalHeight().Floor());
   EXPECT_FLOAT_EQ(0.5, web_view_impl->MinimumPageScaleFactor());
   EXPECT_FLOAT_EQ(5.0, web_view_impl->MaximumPageScaleFactor());
-}
-
-TEST_F(WebFrameTest, OverlayFullscreenVideo) {
-  ScopedForceOverlayFullscreenVideoForTest force_overlay_fullscreen_video(true);
-  RegisterMockedHttpURLLoad("fullscreen_video.html");
-  frame_test_helpers::WebViewHelper web_view_helper;
-  WebViewImpl* web_view_impl = web_view_helper.InitializeAndLoad(
-      base_url_ + "fullscreen_video.html", nullptr, nullptr);
-  web_view_helper.Resize(gfx::Size(600, 400));
-
-  // Ensure that the local frame view has a paint artifact compositor. It's
-  // created lazily, and doing so after entering fullscreen would undo the
-  // overlay video layer modification.
-  UpdateAllLifecyclePhases(web_view_impl);
-
-  const cc::LayerTreeHost* layer_tree_host = web_view_helper.GetLayerTreeHost();
-
-  LocalFrame* frame = web_view_impl->MainFrameImpl()->GetFrame();
-  LocalFrame::NotifyUserActivation(
-      frame, mojom::UserActivationNotificationType::kTest);
-  auto* video =
-      To<HTMLVideoElement>(frame->GetDocument()->getElementById("video"));
-  EXPECT_TRUE(video->UsesOverlayFullscreenVideo());
-  EXPECT_FALSE(video->IsFullscreen());
-  EXPECT_EQ(SkColorGetA(layer_tree_host->background_color()), SK_AlphaOPAQUE);
-
-  const cc::Layer* root_layer = layer_tree_host->root_layer();
-  const char* view_background_layer_name =
-      "Scrolling background of LayoutView #document";
-  EXPECT_EQ(1u, CcLayersByName(root_layer, view_background_layer_name).size());
-  EXPECT_EQ(1u, CcLayersByDOMElementId(root_layer, "other").size());
-  // "spinner" is a composited element in the shadow DOM of the video element.
-  // Not checking "video" because the element itself paints nothing.
-  EXPECT_EQ(1u, CcLayersByDOMElementId(root_layer, "spinner").size());
-
-  video->webkitEnterFullscreen();
-  web_view_impl->DidEnterFullscreen();
-  UpdateAllLifecyclePhases(web_view_impl);
-  EXPECT_TRUE(video->IsFullscreen());
-  EXPECT_EQ(SkColorGetA(layer_tree_host->background_color()),
-            SK_AlphaTRANSPARENT);
-
-  root_layer = layer_tree_host->root_layer();
-  EXPECT_EQ(0u, CcLayersByName(root_layer, view_background_layer_name).size());
-  EXPECT_EQ(0u, CcLayersByDOMElementId(root_layer, "other").size());
-  EXPECT_EQ(1u, CcLayersByDOMElementId(root_layer, "spinner").size());
-
-  web_view_impl->DidExitFullscreen();
-  UpdateAllLifecyclePhases(web_view_impl);
-  EXPECT_FALSE(video->IsFullscreen());
-  EXPECT_EQ(SkColorGetA(layer_tree_host->background_color()), SK_AlphaOPAQUE);
-
-  root_layer = layer_tree_host->root_layer();
-  EXPECT_EQ(1u, CcLayersByName(root_layer, view_background_layer_name).size());
-  EXPECT_EQ(1u, CcLayersByDOMElementId(root_layer, "other").size());
-  EXPECT_EQ(1u, CcLayersByDOMElementId(root_layer, "spinner").size());
-}
-
-TEST_F(WebFrameTest, OverlayFullscreenVideoInIframe) {
-  ScopedForceOverlayFullscreenVideoForTest force_overlay_fullscreen_video(true);
-  RegisterMockedHttpURLLoad("fullscreen_video_in_iframe.html");
-  RegisterMockedHttpURLLoad("fullscreen_video.html");
-  frame_test_helpers::WebViewHelper web_view_helper;
-  WebViewImpl* web_view_impl = web_view_helper.InitializeAndLoad(
-      base_url_ + "fullscreen_video_in_iframe.html", nullptr, nullptr);
-  web_view_helper.Resize(gfx::Size(600, 400));
-
-  const cc::LayerTreeHost* layer_tree_host = web_view_helper.GetLayerTreeHost();
-  LocalFrame* iframe =
-      To<WebLocalFrameImpl>(
-          web_view_helper.GetWebView()->MainFrame()->FirstChild())
-          ->GetFrame();
-  LocalFrame::NotifyUserActivation(
-      iframe, mojom::UserActivationNotificationType::kTest);
-  auto* video =
-      To<HTMLVideoElement>(iframe->GetDocument()->getElementById("video"));
-  EXPECT_TRUE(video->UsesOverlayFullscreenVideo());
-  EXPECT_FALSE(video->IsFullscreen());
-  EXPECT_EQ(SkColorGetA(layer_tree_host->background_color()), SK_AlphaOPAQUE);
-
-  video->webkitEnterFullscreen();
-  web_view_impl->DidEnterFullscreen();
-  UpdateAllLifecyclePhases(web_view_impl);
-  EXPECT_TRUE(video->IsFullscreen());
-  EXPECT_EQ(SkColorGetA(layer_tree_host->background_color()),
-            SK_AlphaTRANSPARENT);
-
-  web_view_impl->DidExitFullscreen();
-  UpdateAllLifecyclePhases(web_view_impl);
-  EXPECT_FALSE(video->IsFullscreen());
-  EXPECT_EQ(SkColorGetA(layer_tree_host->background_color()), SK_AlphaOPAQUE);
 }
 
 TEST_F(WebFrameTest, WebXrImmersiveOverlay) {
@@ -10332,7 +10250,7 @@ TEST_F(WebFrameTest, SiteForCookiesFromChildWithRemoteMainFrame) {
   EXPECT_TRUE(local_frame->GetDocument().SiteForCookies().IsNull());
 
   SchemeRegistry::RegisterURLSchemeAsFirstPartyWhenTopLevel("http");
-  EXPECT_TRUE(net::SiteForCookies::FromUrl(ToKURL(not_base_url_))
+  EXPECT_TRUE(net::SiteForCookies::FromUrl(GURL(not_base_url_))
                   .IsEquivalent(local_frame->GetDocument().SiteForCookies()));
   SchemeRegistry::RemoveURLSchemeAsFirstPartyWhenTopLevel("http");
 }
@@ -14305,6 +14223,38 @@ TEST_F(WebFrameTest, FrameOwnerColorScheme) {
   EXPECT_EQ(frame->GetColorScheme(), mojom::blink::ColorScheme::kDark);
   EXPECT_EQ(frame->contentDocument()->GetStyleEngine().GetOwnerColorScheme(),
             mojom::blink::ColorScheme::kDark);
+}
+
+TEST_F(WebFrameSimTest, RenderBlockingPromotesResource) {
+  ScopedBlockingAttributeForTest enabled_scope(true);
+
+  SimRequest main_request("https://example.com/", "text/html");
+  SimSubresourceRequest script_request("https://example.com/script.js",
+                                       "text/javascript");
+
+  LoadURL("https://example.com/");
+  main_request.Write(R"HTML(
+    <!doctype html>
+    <script defer fetchpriority="low" src="script.js"></script>
+  )HTML");
+
+  Resource* script = GetDocument().Fetcher()->AllResources().at(
+      ToKURL("https://example.com/script.js"));
+
+  // Script is fetched at the low priority due to `fetchpriority="low"`.
+  ASSERT_TRUE(script);
+  EXPECT_EQ(ResourceLoadPriority::kLow,
+            script->GetResourceRequest().Priority());
+
+  main_request.Complete(R"HTML(
+    <script defer fetchpriority="low" blocking="render" src="script.js"></script>
+  )HTML");
+
+  // `blocking=render` promotes the priority to high.
+  EXPECT_EQ(ResourceLoadPriority::kHigh,
+            script->GetResourceRequest().Priority());
+
+  script_request.Complete();
 }
 
 }  // namespace blink

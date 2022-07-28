@@ -120,7 +120,7 @@ fyi_goma_rbe_canary_builder(
     ),
     cores = None,
     goma_jobs = goma.jobs.J80,
-    os = os.MAC_11,
+    os = os.MAC_DEFAULT,
     cpu = cpu.ARM64,
 )
 
@@ -166,7 +166,7 @@ fyi_goma_rbe_canary_builder(
         ),
     ),
     cores = None,
-    os = os.MAC_11,
+    os = os.MAC_DEFAULT,
     xcode = xcode.x13main,
 )
 
@@ -498,7 +498,7 @@ fyi_goma_rbe_latest_client_builder(
         ),
     ),
     cores = None,
-    os = os.MAC_11,
+    os = os.MAC_DEFAULT,
     xcode = xcode.x13main,
 )
 
@@ -662,7 +662,7 @@ def goma_mac_builder(
 goma_mac_builder(
     name = "Chromium iOS Goma RBE ToT",
     goma_backend = goma.backend.RBE_TOT,
-    os = os.MAC_11,
+    os = os.MAC_DEFAULT,
     xcode = xcode.x13main,
 )
 

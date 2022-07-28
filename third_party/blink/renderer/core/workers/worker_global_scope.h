@@ -55,6 +55,7 @@
 namespace blink {
 
 struct BlinkTransferableMessage;
+struct GlobalScopeCreationParams;
 class DOMArrayBuffer;
 class ConsoleMessage;
 class FetchClientSettingsObjectSnapshot;

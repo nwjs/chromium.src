@@ -43,8 +43,7 @@ void ExtensionFrameHost::Request(mojom::RequestParamsPtr params,
       receivers_.GetCurrentTargetFrame();
   ExtensionWebContentsObserver::GetForWebContents(web_contents_)
       ->dispatcher()
-      ->Dispatch(std::move(params), render_frame_host,
-                 render_frame_host->GetProcess()->GetID(), std::move(callback));
+      ->Dispatch(std::move(params), *render_frame_host, std::move(callback));
 }
 
 void ExtensionFrameHost::WatchedPageChange(
@@ -54,7 +53,7 @@ void ExtensionFrameHost::RequestSync(mojom::RequestParamsPtr params,
                                      RequestSyncCallback callback) {
   content::RenderFrameHost* render_frame_host =
       receivers_.GetCurrentTargetFrame();
-  base::ListValue list_value;
+  base::Value::List list_value;
   bool success = false;
   std::string error;
   ExtensionWebContentsObserver::GetForWebContents(web_contents_)
@@ -67,11 +66,11 @@ void ExtensionFrameHost::RequestSync(mojom::RequestParamsPtr params,
 
 bool ExtensionFrameHost::RequestSync(mojom::RequestParamsPtr params,
                                      bool* success,
-                                     base::Value* response,
+                                     base::Value::List* response,
                                      std::string* error) {
-  base::ListValue* list_value = nullptr;
-  if (!response->GetAsList(&list_value))
-    return false;
+  base::Value::List* list_value = response;
+  //  if (!response->GetAsList(list_value))
+  //  return false;
   content::RenderFrameHost* render_frame_host =
       receivers_.GetCurrentTargetFrame();
   ExtensionWebContentsObserver::GetForWebContents(web_contents_)

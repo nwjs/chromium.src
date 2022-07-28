@@ -11,6 +11,7 @@
 
 #include "ash/ash_export.h"
 #include "ash/constants/ash_features.h"
+#include "ash/in_session_auth/in_session_auth_dialog_controller_impl.h"
 #include "ash/public/cpp/session/session_observer.h"
 #include "ash/public/cpp/shelf_types.h"
 #include "ash/wm/system_modal_container_event_filter_delegate.h"
@@ -156,6 +157,7 @@ class MessageCenterController;
 class MouseCursorEventFilter;
 class MruWindowTracker;
 class MultiDeviceNotificationPresenter;
+class MultitaskMenuNudgeController;
 class NearbyShareControllerImpl;
 class DesksTemplatesDelegate;
 class NearbyShareDelegate;
@@ -311,7 +313,10 @@ class ASH_EXPORT Shell : public SessionObserver,
   std::unique_ptr<views::NonClientFrameView> CreateDefaultNonClientFrameView(
       views::Widget* widget);
 
+  // Please note: this is deprecated. Please use
+  // `WorkAreaInsets::UpdateWorkAreaInsetsForTest()` for test purpose.
   // Sets work area insets of the display containing |window|, pings observers.
+  // TODO(yongshun): Get rid of this API and update existing test cases.
   void SetDisplayWorkAreaInsets(aura::Window* window,
                                 const gfx::Insets& insets);
 
@@ -458,6 +463,9 @@ class ASH_EXPORT Shell : public SessionObserver,
   WebAuthNDialogControllerImpl* webauthn_dialog_controller() {
     return webauthn_dialog_controller_.get();
   }
+  InSessionAuthDialogControllerImpl* in_session_auth_dialog_controller() {
+    return in_session_auth_dialog_controller_.get();
+  }
   KeyAccessibilityEnabler* key_accessibility_enabler() {
     return key_accessibility_enabler_.get();
   }
@@ -496,6 +504,9 @@ class ASH_EXPORT Shell : public SessionObserver,
     return mouse_cursor_filter_.get();
   }
   MruWindowTracker* mru_window_tracker() { return mru_window_tracker_.get(); }
+  MultitaskMenuNudgeController* multitask_menu_nudge_controller() {
+    return multitask_menu_nudge_controller_.get();
+  }
   NearbyShareControllerImpl* nearby_share_controller() {
     return nearby_share_controller_.get();
   }
@@ -802,6 +813,8 @@ class ASH_EXPORT Shell : public SessionObserver,
   std::unique_ptr<WebAuthNDialogControllerImpl> webauthn_dialog_controller_;
   std::unique_ptr<KeyboardBacklightColorController>
       keyboard_backlight_color_controller_;
+  std::unique_ptr<InSessionAuthDialogControllerImpl>
+      in_session_auth_dialog_controller_;
   std::unique_ptr<KeyboardBrightnessControlDelegate>
       keyboard_brightness_control_delegate_;
   std::unique_ptr<LocaleUpdateControllerImpl> locale_update_controller_;
@@ -815,6 +828,8 @@ class ASH_EXPORT Shell : public SessionObserver,
   std::unique_ptr<MruWindowTracker> mru_window_tracker_;
   std::unique_ptr<MultiDeviceNotificationPresenter>
       multidevice_notification_presenter_;
+  std::unique_ptr<MultitaskMenuNudgeController>
+      multitask_menu_nudge_controller_;
   std::unique_ptr<NearbyShareControllerImpl> nearby_share_controller_;
   std::unique_ptr<NearbyShareDelegate> nearby_share_delegate_;
   std::unique_ptr<ParentAccessController> parent_access_controller_;

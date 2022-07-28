@@ -73,20 +73,6 @@ CoreAccountId PickFirstGaiaAccount(
                                              : parameters.accounts_to_send[0];
 }
 
-// Returns true if gaia_accounts contains an invalid account that is unknown to
-// the identity manager.
-bool HasUnknownInvalidAccountInCookie(
-    signin::IdentityManager* identity_manager,
-    const std::vector<gaia::ListedAccount>& gaia_accounts) {
-  for (const gaia::ListedAccount& account : gaia_accounts) {
-    if (!account.valid &&
-        !identity_manager->HasAccountWithRefreshToken(account.id)) {
-      return true;
-    }
-  }
-  return false;
-}
-
 }  // namespace
 
 // static
@@ -629,7 +615,7 @@ void AccountReconcilor::ScheduleStartReconcileIfChromeAccountsChanged() {
     SetState(AccountReconcilorState::ACCOUNT_RECONCILOR_SCHEDULED);
     base::ThreadTaskRunnerHandle::Get()->PostTask(
         FROM_HERE, base::BindOnce(&AccountReconcilor::StartReconcile,
-                                  base::Unretained(this),
+                                  weak_factory_.GetWeakPtr(),
                                   Trigger::kTokenChangeDuringReconcile));
   } else if (error_during_last_reconcile_.state() ==
              GoogleServiceAuthError::NONE) {
@@ -786,16 +772,6 @@ void AccountReconcilor::HandleReconcileTimeout() {
 bool AccountReconcilor::CookieNeedsUpdate(
     const signin::MultiloginParameters& parameters,
     const std::vector<gaia::ListedAccount>& existing_accounts) {
-  bool should_remove_unknown_account =
-      !delegate_->IsUnknownInvalidAccountInCookieAllowed() &&
-      HasUnknownInvalidAccountInCookie(identity_manager_, existing_accounts);
-  if (should_remove_unknown_account) {
-    // Removing unknown accounts in the cookie is only supported for UPDATE
-    // mode.
-    DCHECK_EQ(parameters.mode,
-              gaia::MultiloginMode::MULTILOGIN_UPDATE_COOKIE_ACCOUNTS_ORDER);
-    return true;
-  }
   if (parameters.mode ==
           gaia::MultiloginMode::MULTILOGIN_UPDATE_COOKIE_ACCOUNTS_ORDER &&
       !existing_accounts.empty() && !parameters.accounts_to_send.empty() &&

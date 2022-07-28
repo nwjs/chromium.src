@@ -8,6 +8,7 @@
 #include <memory>
 #include <string>
 
+#include "base/values.h"
 #include "extensions/common/extension_id.h"
 #include "extensions/common/mojom/frame.mojom-forward.h"
 #include "extensions/renderer/bindings/api_binding_types.h"
@@ -43,7 +44,7 @@ class IPCMessageSender {
       ScriptContext* context,
       mojom::RequestParamsPtr params,
       bool sync = false,
-      bool* success = nullptr, base::ListValue* response = nullptr,
+      bool* success = nullptr, ::base::Value::List* response = nullptr,
       std::string* error = nullptr) = 0;
 
   // Handles sending any additional messages required after receiving a response

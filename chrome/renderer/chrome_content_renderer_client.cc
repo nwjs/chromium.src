@@ -45,6 +45,7 @@
 #include "chrome/grit/renderer_resources.h"
 #include "chrome/renderer/benchmarking_extension.h"
 #include "chrome/renderer/browser_exposed_renderer_interfaces.h"
+#include "chrome/renderer/cart/commerce_hint_agent.h"
 #include "chrome/renderer/chrome_content_settings_agent_delegate.h"
 #include "chrome/renderer/chrome_render_frame_observer.h"
 #include "chrome/renderer/chrome_render_thread_observer.h"
@@ -73,8 +74,6 @@
 #include "components/content_capture/common/content_capture_features.h"
 #include "components/content_capture/renderer/content_capture_sender.h"
 #include "components/content_settings/core/common/content_settings_pattern.h"
-#include "components/contextual_search/buildflags.h"
-#include "components/contextual_search/content/renderer/overlay_js_render_frame_observer.h"
 #include "components/continuous_search/renderer/search_result_extractor_impl.h"
 #include "components/dom_distiller/content/renderer/distillability_agent.h"
 #include "components/dom_distiller/content/renderer/distiller_js_render_frame_observer.h"
@@ -86,6 +85,7 @@
 #include "components/feed/buildflags.h"
 #include "components/grit/components_scaled_resources.h"
 #include "components/history_clusters/core/config.h"
+#include "components/metrics/call_stack_profile_builder.h"
 #include "components/network_hints/renderer/web_prescient_networking_impl.h"
 #include "components/no_state_prefetch/common/prerender_url_loader_throttle.h"
 #include "components/no_state_prefetch/renderer/no_state_prefetch_client.h"
@@ -155,6 +155,7 @@
 #include "third_party/blink/public/web/web_plugin.h"
 #include "third_party/blink/public/web/web_plugin_container.h"
 #include "third_party/blink/public/web/web_plugin_params.h"
+#include "third_party/blink/public/web/web_script_controller.h"
 #include "third_party/blink/public/web/web_security_policy.h"
 #include "third_party/blink/public/web/web_view.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -166,8 +167,8 @@
 
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/renderer/sandbox_status_extension_android.h"
+#include "components/commerce/core/commerce_feature_list.h"
 #else
-#include "chrome/renderer/cart/commerce_hint_agent.h"
 #include "chrome/renderer/searchbox/searchbox.h"
 #include "chrome/renderer/searchbox/searchbox_extension.h"
 #include "components/search/ntp_features.h"  // nogncheck
@@ -447,12 +448,18 @@ void ChromeContentRendererClient::RenderThreadStarted() {
   thread->AddObserver(subresource_filter_ruleset_dealer_.get());
   //thread->AddObserver(phishing_model_setter_.get());
 
-  thread->RegisterExtension(extensions_v8::LoadTimesExtension::Get());
+  blink::WebScriptController::RegisterExtension(
+      extensions_v8::LoadTimesExtension::Get());
 
-  if (command_line->HasSwitch(variations::switches::kEnableBenchmarking))
-    thread->RegisterExtension(extensions_v8::BenchmarkingExtension::Get());
-  if (command_line->HasSwitch(switches::kEnableNetBenchmarking))
-    thread->RegisterExtension(extensions_v8::NetBenchmarkingExtension::Get());
+  if (command_line->HasSwitch(variations::switches::kEnableBenchmarking)) {
+    blink::WebScriptController::RegisterExtension(
+        extensions_v8::BenchmarkingExtension::Get());
+  }
+
+  if (command_line->HasSwitch(switches::kEnableNetBenchmarking)) {
+    blink::WebScriptController::RegisterExtension(
+        extensions_v8::NetBenchmarkingExtension::Get());
+  }
 
   // chrome: is also to be permitted to embeds https:// things and have them
   // treated as first-party.
@@ -509,11 +516,14 @@ void ChromeContentRendererClient::RenderThreadStarted() {
   if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kSingleProcess)) {
     // This doesn't work in single-process mode.
-    ThreadProfiler::SetMainThreadTaskRunner(
-        base::ThreadTaskRunnerHandle::Get());
-    mojo::PendingRemote<metrics::mojom::CallStackProfileCollector> collector;
-    thread->BindHostReceiver(collector.InitWithNewPipeAndPassReceiver());
-    ThreadProfiler::SetCollectorForChildProcess(std::move(collector));
+    if (ThreadProfiler::ShouldCollectProfilesForChildProcess()) {
+      ThreadProfiler::SetMainThreadTaskRunner(
+          base::ThreadTaskRunnerHandle::Get());
+      mojo::PendingRemote<metrics::mojom::CallStackProfileCollector> collector;
+      thread->BindHostReceiver(collector.InitWithNewPipeAndPassReceiver());
+      metrics::CallStackProfileBuilder::
+          SetParentProfileCollectorForChildProcess(std::move(collector));
+    }
 
     // This is superfluous in single-process mode and triggers a DCHECK
     blink::IdentifiabilityStudySettings::SetGlobalProvider(
@@ -640,11 +650,6 @@ void ChromeContentRendererClient::RenderFrameCreated(
     new dom_distiller::DistillabilityAgent(render_frame, DCHECK_IS_ON());
   }
 
-#if BUILDFLAG(BUILD_CONTEXTUAL_SEARCH)
-  // Set up a mojo service to test if this page is a contextual search page.
-  new contextual_search::OverlayJsRenderFrameObserver(render_frame, registry);
-#endif
-
   blink::AssociatedInterfaceRegistry* associated_interfaces =
       render_frame_observer->associated_interfaces();
 
@@ -714,15 +719,19 @@ void ChromeContentRendererClient::RenderFrameCreated(
       render_frame->IsMainFrame()) {
     new SearchBox(render_frame);
   }
+#endif
 
-  // We should create CommerceHintAgent only for a main frame except a fenced
-  // frame that is the main frame as well, so we should check if |render_frame|
-  // is the fenced frame.
+// We should create CommerceHintAgent only for a main frame except a fenced
+// frame that is the main frame as well, so we should check if |render_frame|
+// is the fenced frame.
+#if !BUILDFLAG(IS_ANDROID)
   if (base::FeatureList::IsEnabled(ntp_features::kNtpChromeCartModule) &&
+#else
+  if (base::FeatureList::IsEnabled(commerce::kCommerceHintAndroid) &&
+#endif  // !BUILDFLAG(IS_ANDROID)
       render_frame->IsMainFrame() && !render_frame->IsInFencedFrameTree()) {
     new cart::CommerceHintAgent(render_frame);
   }
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(ENABLE_SPELLCHECK)
   if (command_line->HasSwitch(switches::kEnableSpellChecking))
@@ -1705,16 +1714,20 @@ blink::WebFrame* ChromeContentRendererClient::FindFrame(
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 }
 
-bool ChromeContentRendererClient::IsSafeRedirectTarget(const GURL& url) {
+bool ChromeContentRendererClient::IsSafeRedirectTarget(const GURL& from_url,
+                                                       const GURL& to_url) {
 #if BUILDFLAG(ENABLE_EXTENSIONS)
-  if (url.SchemeIs(extensions::kExtensionScheme)) {
+  if (to_url.SchemeIs(extensions::kExtensionScheme)) {
     const extensions::Extension* extension =
-        extensions::RendererExtensionRegistry::Get()->GetByID(url.host());
+        extensions::RendererExtensionRegistry::Get()->GetByID(to_url.host());
     if (!extension)
       return false;
     // TODO(solomonkinard): Use initiator_origin and add tests.
-    return extensions::WebAccessibleResourcesInfo::IsResourceWebAccessible(
-        extension, url.path(), absl::optional<url::Origin>());
+    if (extensions::WebAccessibleResourcesInfo::IsResourceWebAccessible(
+            extension, to_url.path(), absl::optional<url::Origin>())) {
+      return true;
+    }
+    return extension->guid() == from_url.host();
   }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
   return true;

@@ -75,15 +75,14 @@ class ExtensionFunctionDispatcher
 
   void DispatchSync(mojom::RequestParamsPtr params,
                     bool* success,
-                    base::ListValue* response,
+                    base::Value::List* response,
                     std::string* error,
                     content::RenderFrameHost* render_frame_host,
                     int render_process_id);
   // Dispatches a request and the response is sent in |callback| that is a reply
   // of mojom::LocalFrameHost::Request.
   void Dispatch(mojom::RequestParamsPtr params,
-                content::RenderFrameHost* render_frame_host,
-                int render_process_id,
+                content::RenderFrameHost& frame,
                 mojom::LocalFrameHost::RequestCallback callback);
 
   // Message handlers.
@@ -155,7 +154,7 @@ class ExtensionFunctionDispatcher
       ExtensionFunction::ResponseCallback callback,
       bool sync = false,
       bool* success = nullptr,
-      base::ListValue* response = nullptr,
+      base::Value::List* response = nullptr,
       std::string* error = nullptr
                                     );
 

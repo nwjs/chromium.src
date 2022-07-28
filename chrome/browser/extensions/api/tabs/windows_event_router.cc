@@ -293,9 +293,9 @@ void WindowsEventRouter::OnWindowMove(WindowController* window_controller) {
     return;
 
   std::unique_ptr<base::ListValue> args(new base::ListValue());
-  args->Append(ExtensionTabUtil::CreateWindowValueForExtension(
+  args->Append(base::Value::FromUniquePtrValue(ExtensionTabUtil::CreateWindowValueForExtension(
       *window_controller->GetBrowser(), nullptr,
-      ExtensionTabUtil::kDontPopulateTabs, Feature::UNSPECIFIED_CONTEXT));
+      ExtensionTabUtil::kDontPopulateTabs, Feature::UNSPECIFIED_CONTEXT)));
   DispatchEvent(events::UNKNOWN, windows::OnMove::kEventName,
                 window_controller, std::move(args));
 }
@@ -312,9 +312,9 @@ void WindowsEventRouter::OnWindowChanged(WindowController* window_controller) {
     return;
 
   std::unique_ptr<base::ListValue> args(new base::ListValue());
-  args->Append(ExtensionTabUtil::CreateWindowValueForExtension(
+  args->Append(base::Value::FromUniquePtrValue(ExtensionTabUtil::CreateWindowValueForExtension(
       *window_controller->GetBrowser(), nullptr,
-      ExtensionTabUtil::kDontPopulateTabs, Feature::UNSPECIFIED_CONTEXT));
+      ExtensionTabUtil::kDontPopulateTabs, Feature::UNSPECIFIED_CONTEXT)));
   DispatchEvent(events::UNKNOWN, windows::OnWindowChanged::kEventName,
                 window_controller, std::move(args));
 }

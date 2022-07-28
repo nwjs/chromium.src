@@ -280,6 +280,18 @@ void CreditCardSaveManager::AttemptToOfferCardUploadSave(
   // offer-to-save prompt for this card.
   show_save_prompt_ = !GetCreditCardSaveStrikeDatabase()->ShouldBlockFeature(
       base::UTF16ToUTF8(upload_request_.card.LastFourDigits()));
+
+#if !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
+
+  // Adding the Save Card UI Experiment to the active experiments in upload
+  // request if the experiment is active.
+  if (base::FeatureList::IsEnabled(features::kAutofillSaveCardUiExperiment) &&
+      features::kAutofillSaveCardUiExperimentSelectorInNumber.Get() != 0) {
+    upload_request_.active_experiments.push_back(
+        "AutofillSaveCardUiExperiment");
+  }
+#endif
+
   payments_client_->GetUploadDetails(
       country_only_profiles, upload_request_.detected_values,
       upload_request_.active_experiments, app_locale_,
@@ -352,8 +364,10 @@ void CreditCardSaveManager::OnDidUploadCard(
             upload_card_response_details.virtual_card_enrollment_state);
         uploaded_card->set_instrument_id(
             upload_card_response_details.instrument_id.value());
-        client_->GetVirtualCardEnrollmentManager()->OfferVirtualCardEnroll(
-            *uploaded_card, VirtualCardEnrollmentSource::kUpstream);
+        client_->GetVirtualCardEnrollmentManager()->InitVirtualCardEnroll(
+            *uploaded_card, VirtualCardEnrollmentSource::kUpstream,
+            std::move(upload_card_response_details
+                          .get_details_for_enrollment_response_details));
       }
     }
   } else if (show_save_prompt_.has_value() && show_save_prompt_.value()) {

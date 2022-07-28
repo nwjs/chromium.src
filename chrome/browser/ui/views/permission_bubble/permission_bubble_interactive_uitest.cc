@@ -12,6 +12,7 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/location_bar/permission_chip.h"
 #include "chrome/browser/ui/views/location_bar/permission_request_chip.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -71,9 +72,11 @@ class PermissionBubbleInteractiveUITest : public InProcessBrowserTest {
         std::make_unique<test::PermissionRequestManagerTestApi>(browser());
     EXPECT_TRUE(test_api_->manager());
 
-    test_api_->AddSimpleRequest(
-        browser()->tab_strip_model()->GetActiveWebContents()->GetMainFrame(),
-        permissions::RequestType::kGeolocation);
+    test_api_->AddSimpleRequest(browser()
+                                    ->tab_strip_model()
+                                    ->GetActiveWebContents()
+                                    ->GetPrimaryMainFrame(),
+                                permissions::RequestType::kGeolocation);
 
     EXPECT_TRUE(browser()->window()->IsActive());
 

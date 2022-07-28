@@ -725,6 +725,7 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
 
     @Override
     public void setClosing(boolean closing) {
+        if (mIsClosing == closing) return;
         mIsClosing = closing;
         for (TabObserver observer : mObservers) observer.onClosingStateChanged(this, closing);
     }
@@ -1372,7 +1373,7 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
 
             assert mNativeTabAndroid != 0;
             TabImplJni.get().initWebContents(mNativeTabAndroid, mIncognito, isDetached(this),
-                    webContents, mSourceTabId, mWebContentsDelegate,
+                    webContents, mWebContentsDelegate,
                     new TabContextMenuPopulatorFactory(
                             mDelegateFactory.createContextMenuPopulatorFactory(this), this));
 
@@ -1708,8 +1709,7 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
         void init(TabImpl caller);
         void destroy(long nativeTabAndroid);
         void initWebContents(long nativeTabAndroid, boolean incognito, boolean isBackgroundTab,
-                WebContents webContents, int parentTabId,
-                TabWebContentsDelegateAndroidImpl delegate,
+                WebContents webContents, TabWebContentsDelegateAndroidImpl delegate,
                 ContextMenuPopulatorFactory contextMenuPopulatorFactory);
         void updateDelegates(long nativeTabAndroid, TabWebContentsDelegateAndroidImpl delegate,
                 ContextMenuPopulatorFactory contextMenuPopulatorFactory);

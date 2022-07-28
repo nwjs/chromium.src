@@ -5,8 +5,10 @@
 #import "ios/chrome/browser/ui/ntp/feed_header_view_controller.h"
 
 #import "ios/chrome/browser/ntp/features.h"
+#import "ios/chrome/browser/ui/content_suggestions/content_suggestions_feature.h"
 #import "ios/chrome/browser/ui/content_suggestions/ntp_home_constant.h"
 #import "ios/chrome/browser/ui/icons/chrome_symbol.h"
+#import "ios/chrome/browser/ui/ntp/discover_feed_constants.h"
 #import "ios/chrome/browser/ui/ntp/feed_control_delegate.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_constants.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_delegate.h"
@@ -41,9 +43,6 @@ const CGFloat kHiddenFeedLabelWidth = 250;
 // Insets for header menu button.
 const CGFloat kHeaderMenuButtonInsetTopAndBottom = 2;
 const CGFloat kHeaderMenuButtonInsetSides = 2;
-// The width of the feed content. Currently hard coded in Mulder.
-// TODO(crbug.com/1085419): Get card width from Mulder.
-const CGFloat kDiscoverFeedContentWith = 430;
 // The height of the header container. The content is unaffected.
 // TODO(crbug.com/1277504): Only keep the WC header after launch.
 const CGFloat kWebChannelsHeaderHeight = 52;
@@ -139,8 +138,12 @@ NSInteger kFeedSymbolPointSize = 17;
 
   // Applies an opacity to the background. If ReduceTransparency is enabled,
   // then this replaces the blur effect.
-  self.view.backgroundColor =
-      [[UIColor colorNamed:kBackgroundColor] colorWithAlphaComponent:0.95];
+  // With ContentSuggestionsUIModuleRefresh enabled, the background color will
+  // be clear for continuity with the overall NTP gradient view.
+  self.view.backgroundColor = IsContentSuggestionsUIModuleRefreshEnabled()
+                                  ? [UIColor clearColor]
+                                  : [[UIColor colorNamed:kBackgroundColor]
+                                        colorWithAlphaComponent:0.95];
 
   self.container = [[UIView alloc] init];
 
@@ -161,15 +164,34 @@ NSInteger kFeedSymbolPointSize = 17;
   if (UIAccessibilityIsReduceTransparencyEnabled() ||
       ![self.feedControlDelegate isFollowingFeedAvailable] ||
       !self.blurBackgroundView) {
+    if (IsContentSuggestionsUIModuleRefreshEnabled() &&
+        UIAccessibilityIsReduceTransparencyEnabled()) {
+      // Give background a solid color since it is clear when not pinned to the
+      // top of the NTP.
+      self.view.backgroundColor = blurred
+                                      ? [[UIColor colorNamed:kBackgroundColor]
+                                            colorWithAlphaComponent:0.95]
+                                      : [UIColor clearColor];
+    }
     return;
   }
 
   // Applies blur to header background. Also reduces opacity when blur is
   // applied so that the blur is still transluscent.
+  // With ContentSuggestionsUIModuleRefresh enabled, the background color will
+  // be clear for continuity with the overall NTP gradient view when not
+  // blurred.
   if (!animated) {
     self.blurBackgroundView.hidden = !blurred;
-    self.view.backgroundColor = [[UIColor colorNamed:kBackgroundColor]
-        colorWithAlphaComponent:(blurred ? 0.1 : 0.95)];
+    if (IsContentSuggestionsUIModuleRefreshEnabled()) {
+      self.view.backgroundColor = blurred
+                                      ? [[UIColor colorNamed:kBackgroundColor]
+                                            colorWithAlphaComponent:0.1]
+                                      : [UIColor clearColor];
+    } else {
+      self.view.backgroundColor = [[UIColor colorNamed:kBackgroundColor]
+          colorWithAlphaComponent:(blurred ? 0.1 : 0.95)];
+    }
     return;
   }
   [UIView transitionWithView:self.blurBackgroundView
@@ -181,8 +203,15 @@ NSInteger kFeedSymbolPointSize = 17;
       completion:^(BOOL finished) {
         // Only reduce opacity after the animation is complete to avoid showing
         // content suggestions tiles momentarily.
-        self.view.backgroundColor = [[UIColor colorNamed:kBackgroundColor]
-            colorWithAlphaComponent:(blurred ? 0.1 : 0.95)];
+        if (IsContentSuggestionsUIModuleRefreshEnabled()) {
+          self.view.backgroundColor =
+              blurred ? [[UIColor colorNamed:kBackgroundColor]
+                            colorWithAlphaComponent:0.1]
+                      : [UIColor clearColor];
+        } else {
+          self.view.backgroundColor = [[UIColor colorNamed:kBackgroundColor]
+              colorWithAlphaComponent:(blurred ? 0.1 : 0.95)];
+        }
       }];
 }
 
@@ -334,7 +363,8 @@ NSInteger kFeedSymbolPointSize = 17;
     [menuButton setImage:DefaultSymbolTemplateWithPointSize(
                              kEllipsisFeedSymbol, kFeedSymbolPointSize)
                 forState:UIControlStateNormal];
-    menuButton.backgroundColor = [UIColor colorNamed:kGrey100Color];
+    menuButton.backgroundColor =
+        [[UIColor colorNamed:kGrey200Color] colorWithAlphaComponent:0.8];
     menuButton.layer.cornerRadius = kButtonSize / 2;
     menuButton.clipsToBounds = YES;
   } else {
@@ -409,7 +439,6 @@ NSInteger kFeedSymbolPointSize = 17;
       [NSDictionary dictionaryWithObject:font forKey:NSFontAttributeName];
   [segmentedControl setTitleTextAttributes:attributes
                                   forState:UIControlStateNormal];
-  segmentedControl.backgroundColor = [UIColor colorNamed:kGrey100Color];
 
   // Set selected feed and tap action.
   segmentedControl.selectedSegmentIndex =
@@ -494,13 +523,13 @@ NSInteger kFeedSymbolPointSize = 17;
         constraintEqualToConstant:([self feedHeaderHeight] +
                                    [self customSearchEngineViewHeight])],
     [self.container.heightAnchor
-        constraintEqualToConstant:kWebChannelsHeaderHeight],
+        constraintEqualToConstant:[self feedHeaderHeight]],
     [self.container.bottomAnchor
         constraintEqualToAnchor:self.view.bottomAnchor],
     [self.container.centerXAnchor
         constraintEqualToAnchor:self.view.centerXAnchor],
     [self.container.widthAnchor
-        constraintEqualToConstant:MIN(kDiscoverFeedContentWith,
+        constraintEqualToConstant:MIN(kDiscoverFeedContentWidth,
                                       self.view.frame.size.width)],
     [self.menuButton.trailingAnchor
         constraintEqualToAnchor:self.container.trailingAnchor

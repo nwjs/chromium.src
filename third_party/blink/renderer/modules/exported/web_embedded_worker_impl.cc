@@ -128,6 +128,7 @@ void WebEmbeddedWorkerImpl::StartWorkerContext(
         cache_storage,
     CrossVariantMojoRemote<mojom::blink::BrowserInterfaceBrokerInterfaceBase>
         browser_interface_broker,
+    InterfaceRegistry* interface_registry,
     scoped_refptr<base::SingleThreadTaskRunner> initiator_thread_task_runner) {
   DCHECK(!asked_to_terminate_);
 
@@ -145,7 +146,7 @@ void WebEmbeddedWorkerImpl::StartWorkerContext(
       std::make_unique<ServiceWorkerContentSettingsProxy>(
           std::move(content_settings)),
       std::move(cache_storage), std::move(browser_interface_broker),
-      std::move(initiator_thread_task_runner));
+      interface_registry, std::move(initiator_thread_task_runner));
 }
 
 void WebEmbeddedWorkerImpl::TerminateWorkerContext() {
@@ -165,6 +166,7 @@ void WebEmbeddedWorkerImpl::StartWorkerThread(
     mojo::PendingRemote<mojom::blink::CacheStorage> cache_storage_remote,
     mojo::PendingRemote<mojom::blink::BrowserInterfaceBroker>
         browser_interface_broker,
+    InterfaceRegistry* interface_registry,
     scoped_refptr<base::SingleThreadTaskRunner> initiator_thread_task_runner) {
   DCHECK(!asked_to_terminate_);
 
@@ -234,7 +236,11 @@ void WebEmbeddedWorkerImpl::StartWorkerThread(
       mojo::NullRemote() /* code_cache_host_interface */,
       BeginFrameProviderParams(), nullptr /* parent_permissions_policy */,
       base::UnguessableToken() /* agent_cluster_id */,
-      worker_start_data->ukm_source_id);
+      worker_start_data->ukm_source_id,
+      absl::nullopt, /* parent_context_token */
+      false,         /* parent_cross_origin_isolated_capability */
+      false,         /* parent_direct_socket_capability */
+      interface_registry);
 
   worker_thread_ = std::make_unique<ServiceWorkerThread>(
       std::make_unique<ServiceWorkerGlobalScopeProxy>(
@@ -321,13 +327,10 @@ WebEmbeddedWorkerImpl::CreateFetchClientSettingsObjectData(
           : mojom::blink::InsecureRequestPolicy::kBlockAllMixedContent;
 
   return std::make_unique<CrossThreadFetchClientSettingsObjectData>(
-      script_url.Copy() /* global_object_url */,
-      script_url.Copy() /* base_url */, security_origin->IsolatedCopy(),
-      passed_settings_object.referrer_policy,
-      KURL::CreateIsolated(
-          passed_settings_object.outgoing_referrer.GetString()),
-      https_state, AllowedByNosniff::MimeTypeCheck::kLaxForWorker,
-      insecure_requests_policy,
+      script_url /* global_object_url */, script_url /* base_url */,
+      security_origin->IsolatedCopy(), passed_settings_object.referrer_policy,
+      KURL(passed_settings_object.outgoing_referrer.GetString()), https_state,
+      AllowedByNosniff::MimeTypeCheck::kLaxForWorker, insecure_requests_policy,
       FetchClientSettingsObject::InsecureNavigationsSet());
 }
 

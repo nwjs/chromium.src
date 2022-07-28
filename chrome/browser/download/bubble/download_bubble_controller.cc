@@ -413,6 +413,7 @@ void DownloadBubbleUIController::ProcessDownloadButtonPress(
       [[fallthrough]];
     case DownloadCommands::DEEP_SCAN:
     case DownloadCommands::BYPASS_DEEP_SCANNING:
+    case DownloadCommands::RESUME:
       commands.ExecuteCommand(command);
       break;
     default:

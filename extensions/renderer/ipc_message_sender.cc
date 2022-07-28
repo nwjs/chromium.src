@@ -49,7 +49,7 @@ class MainThreadIPCMessageSender : public IPCMessageSender {
   void SendRequestIPC(
       ScriptContext* context,
       mojom::RequestParamsPtr params,
-      bool sync, bool* success, base::ListValue* response,
+      bool sync, bool* success, base::Value::List* response,
       std::string* error) override {
     content::RenderFrame* frame = context->GetRenderFrame();
     if (!frame)
@@ -269,7 +269,7 @@ class WorkerThreadIPCMessageSender : public IPCMessageSender {
 
   void SendRequestIPC(ScriptContext* context,
                       mojom::RequestParamsPtr params,
-                      bool sync, bool* success, base::ListValue* response,
+                      bool sync, bool* success, base::Value::List* response,
                       std::string* error) override {
     DCHECK(!context->GetRenderFrame());
     DCHECK(context->IsForServiceWorker());

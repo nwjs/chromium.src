@@ -39,8 +39,8 @@ class APIRequestHandler {
     bool sync = false;
     bool* success = nullptr;
     std::string* error = nullptr;
-    base::ListValue* response = nullptr;
-    
+    base::Value::List* response = nullptr;
+
     int request_id = -1;
     std::string method_name;
     bool has_async_response_handler = false;
@@ -85,7 +85,7 @@ class APIRequestHandler {
       v8::Local<v8::Function> custom_callback,
       bool sync = false,
       bool* success = nullptr,
-      base::ListValue* response = nullptr,
+      base::Value::List* response = nullptr,
       std::string* error = nullptr);
 
   // Adds a pending request for the request handler to manage (and complete via

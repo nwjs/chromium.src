@@ -158,8 +158,11 @@ ui::PlatformWindowInitProperties ConvertWidgetInitParamsToInitProperties(
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS)
+  // Set restore members for windows to know ids upon creation. See the
+  // corresponding comment in Widget::InitParams.
   properties.restore_session_id = params.restore_session_id;
   properties.restore_window_id = params.restore_window_id;
+  properties.restore_window_id_source = params.restore_window_id_source;
 #endif
 
 #if BUILDFLAG(IS_FUCHSIA)
@@ -770,8 +773,20 @@ void DesktopWindowTreeHostPlatform::SetBoundsInDIP(const gfx::Rect& bounds) {
 }
 
 gfx::Transform DesktopWindowTreeHostPlatform::GetRootTransform() const {
+  // TODO(crbug.com/1306688): This can use wrong scale during initialization.
+  // Revisit this as a part of 'use dip' work.
+
+  display::Display display = display::Screen::GetScreen()->GetPrimaryDisplay();
+  // This might be called before the |platform_window| is created. Thus,
+  // explicitly check if that exists before trying to access its visibility and
+  // the display where it is shown.
+  if (platform_window())
+    display = GetDisplayNearestRootWindow();
+  else if (window_parent_)
+    display = window_parent_->GetDisplayNearestRootWindow();
   gfx::Transform transform;
-  transform.Scale(device_scale_factor(), device_scale_factor());
+  float scale = display.device_scale_factor();
+  transform.Scale(scale, scale);
   return transform;
 }
 

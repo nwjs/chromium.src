@@ -42,6 +42,7 @@
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/google/google_brand.h"
 #include "chrome/browser/history/history_service_factory.h"
+#include "chrome/browser/metrics/bluetooth_metrics_provider.h"
 #include "chrome/browser/metrics/cached_metrics_profile.h"
 #include "chrome/browser/metrics/chrome_metrics_extensions_helper.h"
 #include "chrome/browser/metrics/chrome_metrics_service_accessor.h"
@@ -144,7 +145,7 @@
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
 #include "chrome/browser/metrics/lacros_metrics_provider.h"
-#include "chromeos/lacros/lacros_service.h"
+#include "chromeos/startup/browser_init_params.h"
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -660,9 +661,7 @@ void ChromeMetricsServiceClient::Initialize() {
     uint64_t client_id = 0;
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
     // Read metrics service client id from ash chrome if it's present.
-    if (auto* lacros_service = chromeos::LacrosService::Get()) {
-      client_id = lacros_service->init_params()->ukm_client_id;
-    }
+    client_id = chromeos::BrowserInitParams::Get()->ukm_client_id;
 #endif
 
     ukm_service_ = std::make_unique<ukm::UkmService>(
@@ -767,6 +766,9 @@ void ChromeMetricsServiceClient::RegisterMetricsServiceProviders() {
   // WebLayer.
   metrics_service_->RegisterMetricsProvider(
       std::make_unique<safe_browsing::SafeBrowsingMetricsProvider>());
+
+  metrics_service_->RegisterMetricsProvider(
+      std::make_unique<metrics::BluetoothMetricsProvider>());
 
 #if BUILDFLAG(IS_ANDROID)
   metrics_service_->RegisterMetricsProvider(

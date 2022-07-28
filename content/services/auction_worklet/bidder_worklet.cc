@@ -28,6 +28,7 @@
 #include "content/services/auction_worklet/register_ad_beacon_bindings.h"
 #include "content/services/auction_worklet/report_bindings.h"
 #include "content/services/auction_worklet/set_bid_bindings.h"
+#include "content/services/auction_worklet/set_priority_bindings.h"
 #include "content/services/auction_worklet/trusted_signals.h"
 #include "content/services/auction_worklet/trusted_signals_request_manager.h"
 #include "content/services/auction_worklet/worklet_loader.h"
@@ -467,6 +468,7 @@ void BidderWorklet::V8State::GenerateBid(
       browser_signal_top_level_seller_origin.has_value(),
       bidder_worklet_non_shared_params->ads,
       bidder_worklet_non_shared_params->ad_components);
+  SetPriorityBindings set_priority_bindings(v8_helper_.get(), global_template);
 
   // Short lived context, to avoid leaking data at global scope between either
   // repeated calls to this worklet, or to calls to any other worklet.
@@ -653,6 +655,7 @@ void BidderWorklet::V8State::GenerateBid(
                                 bidding_signals_data_version,
                                 for_debugging_only_bindings.TakeLossReportUrl(),
                                 for_debugging_only_bindings.TakeWinReportUrl(),
+                                set_priority_bindings.set_priority(),
                                 std::move(errors_out)));
 }
 
@@ -705,7 +708,7 @@ void BidderWorklet::V8State::PostErrorBidCallbackToUserThread(
                      /*bidding_signals_data_version=*/absl::nullopt,
                      /*debug_loss_report_url=*/std::move(debug_loss_report_url),
                      /*debug_win_report_url=*/absl::nullopt,
-                     std::move(error_msgs)));
+                     /*set_priority=*/absl::nullopt, std::move(error_msgs)));
 }
 
 void BidderWorklet::ResumeIfPaused() {
@@ -765,8 +768,7 @@ void BidderWorklet::OnScriptDownloaded(WorkletLoader::Result worklet_script,
                        base::BindOnce(&BidderWorklet::V8State::SetWorkletScript,
                                       base::Unretained(v8_state_.get()),
                                       std::move(worklet_script)));
-  RunReadyGenerateBidTasks();
-  RunReportWinTasks();  // These only depends on JS, so they can be run.
+  RunReadyTasks();
 }
 
 void BidderWorklet::OnWasmDownloaded(WorkletWasmLoader::Result wasm_helper,
@@ -794,20 +796,22 @@ void BidderWorklet::OnWasmDownloaded(WorkletWasmLoader::Result wasm_helper,
                        base::BindOnce(&BidderWorklet::V8State::SetWasmHelper,
                                       base::Unretained(v8_state_.get()),
                                       std::move(wasm_helper)));
-  RunReadyGenerateBidTasks();
-  // ReportWin() tasks currently don't have access to WASM.
+  RunReadyTasks();
 }
 
-void BidderWorklet::RunReadyGenerateBidTasks() {
+void BidderWorklet::RunReadyTasks() {
   // Run all GenerateBid() tasks that are ready. GenerateBidIfReady() does *not*
   // modify `generate_bid_tasks_` when invoked, so this is safe.
   for (auto generate_bid_task = generate_bid_tasks_.begin();
        generate_bid_task != generate_bid_tasks_.end(); ++generate_bid_task) {
     GenerateBidIfReady(generate_bid_task);
   }
-}
 
-void BidderWorklet::RunReportWinTasks() {
+  // While reportWin() doesn't use WASM, since we do load it, we wait for it in
+  // order to ensure determinism if the load fails.
+  if (!IsCodeReady())
+    return;
+
   // Run all ReportWin() tasks. RunReportWin() does *not* modify
   // `report_win_tasks_` when invoked, so this is safe.
   for (auto report_win_task = report_win_tasks_.begin();
@@ -896,6 +900,7 @@ void BidderWorklet::DeliverBidCallbackOnUserThread(
     absl::optional<uint32_t> bidding_signals_data_version,
     absl::optional<GURL> debug_loss_report_url,
     absl::optional<GURL> debug_win_report_url,
+    absl::optional<double> set_priority,
     std::vector<std::string> error_msgs) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(user_sequence_checker_);
 
@@ -908,7 +913,8 @@ void BidderWorklet::DeliverBidCallbackOnUserThread(
   std::move(task->callback)
       .Run(std::move(bid), bidding_signals_data_version.value_or(0),
            bidding_signals_data_version.has_value(), debug_loss_report_url,
-           debug_win_report_url, error_msgs);
+           debug_win_report_url, set_priority.value_or(0),
+           set_priority.has_value(), error_msgs);
   generate_bid_tasks_.erase(task);
 }
 

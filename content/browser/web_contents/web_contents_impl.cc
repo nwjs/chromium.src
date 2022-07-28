@@ -99,6 +99,7 @@
 #include "content/browser/renderer_host/visible_time_request_trigger.h"
 #include "content/browser/screen_enumeration/screen_change_monitor.h"
 #include "content/browser/screen_orientation/screen_orientation_provider.h"
+#include "content/browser/shared_storage/shared_storage_budget_charger.h"
 #include "content/browser/site_instance_impl.h"
 #include "content/browser/starscan_load_observer.h"
 #include "content/browser/wake_lock/wake_lock_context_host.h"
@@ -136,6 +137,7 @@
 #include "content/public/browser/render_widget_host_iterator.h"
 #include "content/public/browser/render_widget_host_observer.h"
 #include "content/public/browser/restore_type.h"
+#include "content/public/browser/site_isolation_policy.h"
 #include "content/public/browser/ssl_status.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents_delegate.h"
@@ -978,6 +980,10 @@ WebContentsImpl::WebContentsImpl(BrowserContext* browser_context)
     AttributionHost::CreateForWebContents(this);
   }
 
+  if (base::FeatureList::IsEnabled(blink::features::kSharedStorageAPI)) {
+    SharedStorageBudgetCharger::CreateForWebContents(this);
+  }
+
 #if BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC) && defined(PA_ALLOW_PCSCAN)
   // TODO(1231679): Remove or move to another place after finishing the PCScan
   // experiment.
@@ -1295,6 +1301,10 @@ void WebContentsImpl::SetDelegate(WebContentsDelegate* delegate) {
 }
 
 RenderFrameHostImpl* WebContentsImpl::GetMainFrame() {
+  return GetPrimaryMainFrame();
+}
+
+RenderFrameHostImpl* WebContentsImpl::GetPrimaryMainFrame() {
   return primary_frame_tree_.root()->current_frame_host();
 }
 
@@ -3851,6 +3861,12 @@ FrameTree* WebContentsImpl::CreateNewWindow(
                "opener", opener, "params", params);
   DCHECK(opener);
 
+  // Give the content browser client a chance to intercept the request and open
+  // the URL with an external handler.
+  if (GetContentClient()->browser()->OpenExternally(opener, params.target_url,
+                                                    params.disposition))
+    return nullptr;
+
   int render_process_id = opener->GetProcess()->GetID();
 
   auto* source_site_instance =
@@ -3887,14 +3903,29 @@ FrameTree* WebContentsImpl::CreateNewWindow(
   bool renderer_started_hidden =
       params.disposition == WindowOpenDisposition::NEW_BACKGROUND_TAB;
 
+  bool is_guest = IsGuest();
+
   // We usually create the new window in the same BrowsingInstance (group of
   // script-related windows), by passing in the current SiteInstance.  However,
-  // if the opener is being suppressed (in a non-guest), we do not provide
-  // a SiteInstance which causes a new one to get created in its own
-  // BrowsingInstance.
-  bool is_guest = IsGuest();
-  scoped_refptr<SiteInstance> site_instance =
-      params.opener_suppressed && !is_guest ? nullptr : source_site_instance;
+  // if the opener is being suppressed, we need to ensure that the new
+  // SiteInstance is created in a new BrowsingInstance.
+  scoped_refptr<SiteInstance> site_instance;
+  if (params.opener_suppressed) {
+    if (is_guest) {
+      // For site-isolated guests, noopener windows can be created in a new
+      // BrowsingInstance as long as they preserve the guest's StoragePartition.
+      // For non-isolated guests, we preserve the legacy behavior of keeping the
+      // new window in the old SiteInstance and BrowsingInstance.
+      site_instance = SiteIsolationPolicy::IsSiteIsolationForGuestsEnabled()
+                          ? SiteInstance::CreateForGuest(GetBrowserContext(),
+                                                         partition_config)
+                          : source_site_instance;
+    } else {
+      site_instance = SiteInstance::Create(GetBrowserContext());
+    }
+  } else {
+    site_instance = source_site_instance;
+  }
 
   // Create the new web contents. This will automatically create the new
   // WebContentsView. In the future, we may want to create the view separately.
@@ -4269,7 +4300,7 @@ void WebContentsImpl::RequestMediaAccessPermission(
     delegate_->RequestMediaAccessPermission(this, request, std::move(callback));
   } else {
     std::move(callback).Run(
-        blink::mojom::StreamDevices(),
+        blink::mojom::StreamDevicesSet(),
         blink::mojom::MediaStreamRequestResult::FAILED_DUE_TO_SHUTDOWN,
         std::unique_ptr<MediaStreamUI>());
   }

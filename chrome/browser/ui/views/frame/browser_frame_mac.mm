@@ -69,7 +69,6 @@ bool ShouldHandleKeyboardEvent(const content::NativeWebKeyboardEvent& event) {
 
 // Bridge Obj-C class for WindowTouchBarDelegate and
 // BrowserWindowTouchBarController.
-API_AVAILABLE(macos(10.12.2))
 @interface BrowserWindowTouchBarViewsDelegate
     : NSObject<WindowTouchBarDelegate> {
   Browser* _browser;  // Weak.
@@ -96,7 +95,7 @@ API_AVAILABLE(macos(10.12.2))
   return _touchBarController.get();
 }
 
-- (NSTouchBar*)makeTouchBar API_AVAILABLE(macos(10.12.2)) {
+- (NSTouchBar*)makeTouchBar {
   if (!_touchBarController) {
     _touchBarController.reset([[BrowserWindowTouchBarController alloc]
         initWithBrowser:_browser
@@ -348,12 +347,10 @@ void BrowserFrameMac::PopulateCreateWindowParams(
 NativeWidgetMacNSWindow* BrowserFrameMac::CreateNSWindow(
     const remote_cocoa::mojom::CreateWindowParams* params) {
   NativeWidgetMacNSWindow* ns_window = NativeWidgetMac::CreateNSWindow(params);
-  if (@available(macOS 10.12.2, *)) {
-    touch_bar_delegate_.reset([[BrowserWindowTouchBarViewsDelegate alloc]
-        initWithBrowser:browser_view_->browser()
-                 window:ns_window]);
-    [ns_window setWindowTouchBarDelegate:touch_bar_delegate_.get()];
-  }
+  touch_bar_delegate_.reset([[BrowserWindowTouchBarViewsDelegate alloc]
+      initWithBrowser:browser_view_->browser()
+               window:ns_window]);
+  [ns_window setWindowTouchBarDelegate:touch_bar_delegate_.get()];
 
   return ns_window;
 }

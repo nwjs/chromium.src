@@ -51,6 +51,7 @@
 #include "content/browser/renderer_host/media/render_frame_audio_input_stream_factory.h"
 #include "content/browser/renderer_host/media/render_frame_audio_output_stream_factory.h"
 #include "content/browser/renderer_host/page_impl.h"
+#include "content/browser/renderer_host/pending_beacon_host.h"
 #include "content/browser/renderer_host/policy_container_host.h"
 #include "content/browser/renderer_host/render_widget_host_impl.h"
 #include "content/browser/renderer_host/transient_allow_popup.h"
@@ -173,10 +174,6 @@ class WebUsbService;
 }  // namespace mojom
 }  // namespace blink
 
-namespace device {
-class DiscoverableCredentialMetadata;
-}
-
 namespace gfx {
 class Range;
 }
@@ -196,6 +193,19 @@ class ClipboardFormatType;
 namespace ukm {
 class UkmRecorder;
 }
+
+namespace features {
+
+// Feature to prevent name updates to RenderFrameHost (and by extension its
+// relevant BrowsingContextState) when it is not current (i.e. is in the
+// BackForwardCache or is pending delete). This primarily will affect the
+// non-legacy implementation of BrowsingContextState.
+CONTENT_EXPORT extern const base::Feature
+    kDisableFrameNameUpdateOnNonCurrentRenderFrameHost;
+
+// Feature to evict when accessibility events occur while in back/forward cache.
+CONTENT_EXPORT extern const base::Feature kEvictOnAXEvents;
+}  // namespace features
 
 namespace content {
 
@@ -396,7 +406,6 @@ class CONTENT_EXPORT RenderFrameHostImpl
   blink::AssociatedInterfaceProvider* GetRemoteAssociatedInterfaces() override;
   content::PageVisibilityState GetVisibilityState() override;
   bool IsLastCommitIPAddressPubliclyRoutable() const override;
-  bool IsRenderFrameCreated() override;
   bool IsRenderFrameLive() override;
   LifecycleState GetLifecycleState() override;
   bool IsInLifecycleState(LifecycleState lifecycle_state) override;
@@ -472,16 +481,18 @@ class CONTENT_EXPORT RenderFrameHostImpl
       const std::string& data,
       IsClipboardPasteContentAllowedCallback callback);
 
-  void SendAccessibilityEventsToManager(
-      const AXEventNotificationDetails& details);
-
   // This is called when accessibility events arrive from renderer to browser.
   // This could cause eviction if the page is in back/forward cache. Returns
   // true if the eviction happens, and otherwise calls
   // |RenderFrameHost::IsInactiveAndDisallowActivation()| and returns the value
-  // from there.
+  // from there. This is only called when the flag to evict on accessibility
+  // events is on. When the flag is off, we do not evict the entry and keep
+  // processing the events, thus do not call this function.
   bool IsInactiveAndDisallowActivationForAXEvents(
       const std::vector<ui::AXEvent>& events);
+
+  void SendAccessibilityEventsToManager(
+      const AXEventNotificationDetails& details);
 
   // Evict the RenderFrameHostImpl with |reason| that causes the eviction. This
   // constructs a flattened list of NotRestoredReasons and calls
@@ -2279,6 +2290,8 @@ class CONTENT_EXPORT RenderFrameHostImpl
       network::mojom::CookieAccessDetailsPtr details) override;
 
   void GetSavableResourceLinksFromRenderer();
+  void GetPendingBeaconHost(
+      mojo::PendingReceiver<blink::mojom::PendingBeaconHost> receiver);
 
   // Helper for checking if a navigation to an error page should be excluded
   // from CanAccessDataForOrigin and/or CanCommitOriginAndUrl security checks.
@@ -2475,15 +2488,6 @@ class CONTENT_EXPORT RenderFrameHostImpl
       bool is_payment_credential_creation,
       const blink::mojom::RemoteDesktopClientOverridePtr&
           remote_desktop_client_override);
-
-  // Provide a list of Web Authentication credentials that can be used to
-  // fulfill a WebAuthn sign-in request. These can be passed to the embedder to
-  // be displayed to the user, and the user's selection is returned through the
-  // callback. This is Android only because on desktop platforms the embedder
-  // interacts directly with the device layer.
-  void WebAuthnConditionalUiRequestPending(
-      const std::vector<device::DiscoverableCredentialMetadata>& credentials,
-      base::OnceCallback<void(const std::vector<uint8_t>& id)> callback);
 #endif
 
   enum class FencedFrameStatus {
@@ -2491,6 +2495,26 @@ class CONTENT_EXPORT RenderFrameHostImpl
     kFencedFrameRoot,
     kIframeNestedWithinFencedFrame
   };
+
+  using JavaScriptResultAndTypeCallback =
+      base::OnceCallback<void(blink::mojom::JavaScriptExecutionResultType,
+                              base::Value)>;
+
+  // Runs JavaScript in this frame, without restrictions. ONLY FOR TESTS.
+  // This method can optionally trigger a fake user activation notification,
+  // and can wait for returned promises to be resolved.
+  void ExecuteJavaScriptForTests(const std::u16string& javascript,
+                                 bool has_user_gesture,
+                                 bool resolve_promises,
+                                 int32_t world_id,
+                                 JavaScriptResultAndTypeCallback callback);
+
+  // Call |HandleAXEvents()| for tests.
+  void HandleAXEventsForTests(const ui::AXTreeID& tree_id,
+                              mojom::AXUpdatesAndEventsPtr updates_and_events,
+                              int32_t reset_token) {
+    HandleAXEvents(tree_id, std::move(updates_and_events), reset_token);
+  }
 
  protected:
   friend class RenderFrameHostFactory;
@@ -2659,6 +2683,10 @@ class CONTENT_EXPORT RenderFrameHostImpl
   FRIEND_TEST_ALL_PREFIXES(RenderFrameHostImplTest, ExpectedMainWorldOrigin);
   FRIEND_TEST_ALL_PREFIXES(DocumentUserDataTest, CheckInPendingDeletionState);
   FRIEND_TEST_ALL_PREFIXES(WebContentsImplBrowserTest, FrozenAndUnfrozenIPC);
+  FRIEND_TEST_ALL_PREFIXES(RenderFrameHostImplBrowserTest,
+                           BlockNameUpdateForBackForwardCache);
+  FRIEND_TEST_ALL_PREFIXES(RenderFrameHostImplBrowserTest,
+                           BlockNameUpdateForPendingDelete);
 
   class SubresourceLoaderFactoriesConfig;
 

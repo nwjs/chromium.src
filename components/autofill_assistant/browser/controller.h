@@ -124,6 +124,8 @@ class Controller : public ScriptExecutorDelegate,
   password_manager::PasswordChangeSuccessTracker*
   GetPasswordChangeSuccessTracker() override;
   content::WebContents* GetWebContents() override;
+  void SetJsFlowLibrary(const std::string& js_flow_library) override;
+  JsFlowDevtoolsWrapper* GetJsFlowDevtoolsWrapper() override;
   std::string GetEmailAddressForAccessTokenAccount() override;
   ukm::UkmRecorder* GetUkmRecorder() override;
   void SetTouchableElementArea(const ElementAreaProto& area) override;
@@ -299,6 +301,12 @@ class Controller : public ScriptExecutorDelegate,
   // Sets the semantic selector in the DOM annotation service.
   void SetSemanticSelectorPolicy(SemanticSelectorPolicy policy);
 
+  void MaybeUpdateClientContextAndGetScriptsForUrl(const GURL& url);
+  void OnGetAnnotateDomModelVersionForGetScripts(
+      const GURL& url,
+      absl::optional<int64_t> model_version);
+  void GetScriptsForUrl(const GURL& url);
+
   ClientSettings settings_;
   const raw_ptr<Client> client_;
   const raw_ptr<const base::TickClock> tick_clock_;
@@ -375,6 +383,8 @@ class Controller : public ScriptExecutorDelegate,
 
   // The next DidStartNavigation will not cause an error.
   bool expect_navigation_ = false;
+
+  std::unique_ptr<JsFlowDevtoolsWrapper> js_flow_devtools_wrapper_;
 
   // Tracks scripts and script execution. It's kept at the end, as it tend to
   // depend on everything the controller support, through script and script

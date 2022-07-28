@@ -1397,6 +1397,14 @@ void LayerTreeHost::SetPageScaleFactorAndLimits(float page_scale_factor,
     return;
   DCHECK_GE(page_scale_factor, min_page_scale_factor);
   DCHECK_LE(page_scale_factor, max_page_scale_factor);
+  // We should never process non-unit page_scale_delta for an OOPIF subframe.
+  // TODO(wjmaclean): Remove this dcheck as a pre-condition to closing the bug.
+  // https://crbug.com/845097
+  DCHECK(settings_.is_for_scalable_page ||
+         page_scale_factor == pending_commit_state()->page_scale_factor)
+      << "Setting PSF in oopif subframe: old psf = "
+      << pending_commit_state()->page_scale_factor
+      << ", new psf = " << page_scale_factor;
 
   pending_commit_state()->page_scale_factor = page_scale_factor;
   pending_commit_state()->min_page_scale_factor = min_page_scale_factor;
@@ -1604,6 +1612,14 @@ void LayerTreeHost::AddLayerShouldPushProperties(Layer* layer) {
 
 void LayerTreeHost::SetPageScaleFromImplSide(float page_scale) {
   DCHECK(syncing_deltas_for_test_ || CommitRequested());
+  // We should never process non-unit page_scale_delta for an OOPIF subframe.
+  // TODO(wjmaclean): Remove this check as a pre-condition to closing the bug.
+  // https://crbug.com/845097
+  DCHECK(settings_.is_for_scalable_page ||
+         page_scale == pending_commit_state()->page_scale_factor)
+      << "Setting PSF in oopif subframe: old psf = "
+      << pending_commit_state()->page_scale_factor
+      << ", new psf = " << page_scale;
   pending_commit_state()->page_scale_factor = page_scale;
   SetPropertyTreesNeedRebuild();
 }
@@ -1717,6 +1733,9 @@ void LayerTreeHost::SetMutatorsNeedRebuildPropertyTrees() {
 void LayerTreeHost::SetElementFilterMutated(ElementId element_id,
                                             ElementListType list_type,
                                             const FilterOperations& filters) {
+  if (list_type != ElementListType::ACTIVE)
+    return;
+
   if (IsUsingLayerLists()) {
     // In BlinkGenPropertyTrees/CompositeAfterPaint we always have property
     // tree nodes and can set the filter directly on the effect node.
@@ -1734,6 +1753,9 @@ void LayerTreeHost::SetElementBackdropFilterMutated(
     ElementId element_id,
     ElementListType list_type,
     const FilterOperations& backdrop_filters) {
+  if (list_type != ElementListType::ACTIVE)
+    return;
+
   if (IsUsingLayerLists()) {
     // In BlinkGenPropertyTrees/CompositeAfterPaint we always have property
     // tree nodes and can set the backdrop_filter directly on the effect node.
@@ -1752,6 +1774,9 @@ void LayerTreeHost::SetElementOpacityMutated(ElementId element_id,
                                              float opacity) {
   DCHECK_GE(opacity, 0.f);
   DCHECK_LE(opacity, 1.f);
+
+  if (list_type != ElementListType::ACTIVE)
+    return;
 
   if (IsUsingLayerLists()) {
     property_trees()->effect_tree_mutable().OnOpacityAnimated(element_id,
@@ -1780,6 +1805,9 @@ void LayerTreeHost::SetElementTransformMutated(
     ElementId element_id,
     ElementListType list_type,
     const gfx::Transform& transform) {
+  if (list_type != ElementListType::ACTIVE)
+    return;
+
   if (IsUsingLayerLists()) {
     property_trees()->transform_tree_mutable().OnTransformAnimated(element_id,
                                                                    transform);

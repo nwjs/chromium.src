@@ -105,7 +105,7 @@ PermissionsData::PageAccess ProgrammaticScriptInjector::CanExecuteOnFrame(
               ? MatchOriginAsFallbackBehavior::kMatchForAboutSchemeAndClimbTree
               : MatchOriginAsFallbackBehavior::kNever);
   if (params_->is_web_view) {
-    if (frame->Parent()) {
+    if (!frame->IsOutermostMainFrame()) {
       // This is a subframe inside <webview>, so allow it.
       return PermissionsData::PageAccess::kAllowed;
     }
