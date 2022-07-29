@@ -44,7 +44,6 @@
         <structure name="IDR_NEW_OOBE_JS" file="resources\empty.js" flattenhtml="true" type="chrome_html" />
       </if>
       <structure name="IDR_READER_OUT_OF_DATE_HTML" file="resources\empty.html" flattenhtml="true" type="chrome_html" />
-      <structure name="IDR_SIGNIN_SHARED_CSS_HTML" file="resources\signin\signin_shared_css.html" preprocess="true" allowexternalscript="true" type="chrome_html" />
     </structures>
     <includes>
       <include name="IDR_NWJS_DEFAPP_MANIFEST" file="resources\nwjs_default_app\manifest.json" type="BINDATA" />
@@ -66,7 +65,6 @@
 
       <include name="IDR_ACCESSIBILITY_HTML" file="resources\accessibility\accessibility.html" flattenhtml="true" allowexternalscript="true" compress="gzip" type="BINDATA" />
       <include name="IDR_ACCESSIBILITY_CSS" file="resources\accessibility\accessibility.css" compress="gzip" type="BINDATA" />
-      <include name="IDR_ACCESSIBILITY_JS" file="resources\accessibility\accessibility.js" flattenhtml="true" compress="gzip" type="BINDATA" />
       <include name="IDR_ABOUT_VERSION_JS" file="resources\empty.js" type="BINDATA" />
       <include name="IDR_ABOUT_VERSION_CSS" file="resources\empty.css" type="BINDATA" />
       <include name="IDR_ABOUT_VOICESEARCH_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
@@ -315,6 +313,11 @@
         <include name="IDR_IDENTITY_INTERNALS_CSS" file="resources\empty.css" type="BINDATA" />
         <include name="IDR_IDENTITY_INTERNALS_JS" file="resources\empty.js" type="BINDATA" />
       </if>
+      <if expr="not is_android">
+        <include name="IDR_MEDIA_ROUTER_INTERNALS_HTML" file="resources\media_router\internals\media_router_internals.html" type="BINDATA" />
+        <include name="IDR_MEDIA_ROUTER_INTERNALS_CSS" file="resources\media_router\internals\media_router_internals.css" type="BINDATA" />
+        <include name="IDR_MEDIA_ROUTER_INTERNALS_JS" file="${root_gen_dir}\chrome\browser\resources\media_router\internals\tsc\media_router_internals.js" use_base_dir="false" type="BINDATA" />
+      </if>
       <include name="IDR_DEVICE_LOG_UI_HTML" file="resources\empty.html" type="BINDATA" />
       <include name="IDR_DEVICE_LOG_UI_JS" file="resources\empty.js" type="BINDATA" />
       <include name="IDR_DEVICE_LOG_UI_CSS" file="resources\empty.css" type="BINDATA" />
@@ -372,11 +375,6 @@
         </if>
         <include name="IDR_BRAILLE_MANIFEST" file="resources\empty.json" type="BINDATA" />
       </if>
-      <if expr="not is_android">
-        <include name="IDR_MEDIA_ROUTER_INTERNALS_HTML" file="resources\media_router\media_router_internals.html" type="BINDATA" />
-        <include name="IDR_MEDIA_ROUTER_INTERNALS_CSS" file="resources\media_router\media_router_internals.css" type="BINDATA" />
-        <include name="IDR_MEDIA_ROUTER_INTERNALS_JS" file="resources\media_router\media_router_internals.js" type="BINDATA" />
-      </if>
       <if expr="not is_android and not is_ios and not chromeos_ash">
         <include name="IDR_IME_WINDOW_CLOSE" file="resources\input_ime\ime_window_close.png" type="BINDATA" />
         <include name="IDR_IME_WINDOW_CLOSE_C" file="resources\input_ime\ime_window_close_click.png" type="BINDATA" />
@@ -388,7 +386,6 @@
       </if>
       <if expr="is_android or is_linux">
         <include name="IDR_SANDBOX_INTERNALS_HTML" file="resources\sandbox_internals\sandbox_internals.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" compress="gzip" />
-        <include name="IDR_SANDBOX_INTERNALS_JS" file="resources\sandbox_internals\sandbox_internals.js" type="BINDATA" compress="gzip" />
       </if>
       <include name="IDR_MEDIA_ENGAGEMENT_HTML" file="resources\empty.html" flattenhtml="true" type="BINDATA" compress="gzip" allowexternalscript="true" />
       <include name="IDR_MEDIA_ENGAGEMENT_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" compress="gzip" />
