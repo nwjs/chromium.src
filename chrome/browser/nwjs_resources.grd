@@ -49,8 +49,9 @@
       <include name="IDR_NWJS_DEFAPP_MANIFEST" file="resources\nwjs_default_app\manifest.json" type="BINDATA" />
       <include name="IDR_NWJS_DEFAPP_MANIFEST_NEWWIN" file="resources\nwjs_newwin_app\manifest.json" type="BINDATA" />
       <if expr="is_win">
-        <include name="IDR_ABOUT_CONFLICTS_HTML" file="resources\conflicts\about_conflicts.html" compress="gzip" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
-        <include name="IDR_ABOUT_CONFLICTS_JS" file="resources\conflicts\about_conflicts.js" compress="gzip" type="BINDATA" />
+        <include name="IDR_ABOUT_CONFLICTS_HTML" file="resources\conflicts\about_conflicts.html" type="BINDATA" />
+        <include name="IDR_ABOUT_CONFLICTS_JS" file="${root_gen_dir}\chrome\browser\resources\conflicts\tsc\about_conflicts.js" use_base_dir="false" type="BINDATA" />
+        <include name="IDR_ABOUT_CONFLICTS_WARNING_SVG" file="resources\conflicts\warning.svg" type="BINDATA" />
       </if>
       <if expr="enable_plugins">
         <include name="IDR_ABOUT_FLASH_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
